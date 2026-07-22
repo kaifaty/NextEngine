@@ -321,7 +321,10 @@ fn collect_named_files(root: &Path, name: &str, output: &mut Vec<PathBuf>) -> Re
         let path = entry.path();
         if path.file_name() == Some(OsStr::new(".git"))
             || path.file_name() == Some(OsStr::new("target"))
-            || path.starts_with(root.join("incubator/gothic-importer"))
+            || path.file_name() == Some(OsStr::new(".venv"))
+            || path.file_name() == Some(OsStr::new(".local"))
+            || path.file_name() == Some(OsStr::new("__pycache__"))
+            || path.ends_with("incubator/gothic-importer")
         {
             continue;
         }

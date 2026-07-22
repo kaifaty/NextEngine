@@ -1,0 +1,21 @@
+[project]
+name = "next-lab"
+version = "0.1.0"
+description = "Isolated NextEngine training and ONNX feasibility lane"
+requires-python = "==3.12.*"
+dependencies = [
+    "numpy",
+    "onnx",
+    "onnxruntime",
+    "torch",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["next_lab"]
+
+[tool.uv]
+managed = true

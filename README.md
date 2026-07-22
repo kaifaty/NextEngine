@@ -12,9 +12,11 @@ The pinned toolchain is Rust 1.93.0. Run:
 cargo run -p xtask -- docs-check
 cargo run -p xtask -- boundary-scan
 cargo run -p xtask -- host-check
+uv run --project lab python -m next_lab doctor
+uv run --project lab python -m next_lab smoke --device auto
 ```
 
-`host-check` runs formatting, clippy, workspace tests, documentation validation, and boundary checks. It does not claim Windows/Linux package conformance.
+`host-check` runs formatting, clippy, workspace tests, documentation validation, and boundary checks. The lab smoke validates train → ONNX → inference on MPS or CPU. Neither command claims Windows/Linux package conformance or physical-policy certification; see [docs/development/training-capability.md](docs/development/training-capability.md).
 
 ## Workspace
 
