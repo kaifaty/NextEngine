@@ -45,3 +45,5 @@ uv run --project lab python -m next_lab doctor --profile local-rtx
 ```
 
 It exits with incompatibility status when the required Linux/NVIDIA capability is absent.
+
+PASS additionally requires an ignored `.local/training/rtx-capability.json` attestation matching the actual NVIDIA driver, `lab/uv.lock` SHA-256, Python and PyTorch versions, plus explicit `offline_cache_verified`, `provenance_review_passed`, and `license_review_passed` boolean records. The doctor also checks Linux x86_64, Ubuntu 22.04/24.04, at least 32 GiB RAM, CUDA availability, and at least 16 GiB VRAM. A missing, malformed, stale, or partial attestation remains `AwaitingCapability`.
