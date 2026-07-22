@@ -4,6 +4,7 @@ use std::fs;
 use std::path::{Component, Path, PathBuf};
 
 const ANNEX_PATH: &str = "research/physical-avatar-research-spec.md";
+const ANNEX_ID: &str = "RESEARCH-001";
 const ANNEX_SHA256: &str = "90533ed15c4c1a5ef41a24f26f4d17cf8c59f467e07619316d3c9744f4d2d79b";
 const TEMPLATE_PATH: &str = "adr/000-template.md";
 const LEGACY_PHYSICAL_RESEARCH_URL: &str = "https://github.com/kaifaty/OpenGothic/blob/c56e15f1fa68430eaa618dcc892edc00bff6209d/docs/physical-avatar-research-spec.md";
@@ -289,7 +290,7 @@ fn validate_readme_index(
         if !indexed_targets.insert(target.clone()) {
             return Err(format!("DOCS_INDEX_DUPLICATE_TARGET: {target}"));
         }
-        if cells[0] == "RESEARCH-001" {
+        if is_frozen_annex_id(&cells[0]) {
             if target != ANNEX_PATH {
                 return Err("DOCS_INDEX_RESEARCH_PATH_MISMATCH".to_owned());
             }
@@ -312,7 +313,7 @@ fn validate_readme_index(
         .count();
     let indexed_architecture = indexed_ids
         .iter()
-        .filter(|id| id.as_str() != "RESEARCH-001")
+        .filter(|id| !is_frozen_annex_id(id))
         .count()
         + 1;
     require_count(
@@ -345,10 +346,18 @@ pub fn validate_index_entry_line(line: &str, target_body: &str) -> Result<(), St
 fn is_index_id(value: &str) -> bool {
     value.starts_with("SPEC-")
         || value.starts_with("ADR-")
-        || matches!(
-            value,
-            "GLOSSARY-001" | "TRACE-001" | "EVIDENCE-001" | "RESEARCH-001"
-        )
+        || has_numeric_suffix(value, "RESEARCH-")
+        || matches!(value, "GLOSSARY-001" | "TRACE-001" | "EVIDENCE-001")
+}
+
+fn has_numeric_suffix(value: &str, prefix: &str) -> bool {
+    value.strip_prefix(prefix).is_some_and(|suffix| {
+        !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit())
+    })
+}
+
+fn is_frozen_annex_id(value: &str) -> bool {
+    value == ANNEX_ID
 }
 
 fn validate_normative_graph(
@@ -1062,4 +1071,24 @@ pub fn sha256_hex(input: &[u8]) -> String {
         }
     }
     state.iter().map(|word| format!("{word:08x}")).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_frozen_annex_id, is_index_id};
+
+    #[test]
+    fn all_research_documents_are_index_ids() {
+        assert!(is_index_id("RESEARCH-001"));
+        assert!(is_index_id("RESEARCH-002"));
+        assert!(is_index_id("RESEARCH-123"));
+        assert!(!is_index_id("RESEARCH"));
+        assert!(!is_index_id("RESEARCH-draft"));
+    }
+
+    #[test]
+    fn only_research_001_has_the_frozen_annex_exception() {
+        assert!(is_frozen_annex_id("RESEARCH-001"));
+        assert!(!is_frozen_annex_id("RESEARCH-002"));
+    }
 }
