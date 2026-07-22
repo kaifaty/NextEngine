@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-00 |
 | Статус | Accepted |
-| Версия | 1.4 |
-| Владелец | Product Architecture |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [INDEX-001](README.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md) |
+| Версия | 1.5 |
+| Владелец | Repository Owner |
+| Последняя проверка | 2026-07-23 |
+| Нормативные зависимости | [INDEX-001](README.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-015](adr/015-evidence-trust-fixture-separation-and-attestation.md) |
 | Заменяет | отсутствует |
 
 ## Назначение

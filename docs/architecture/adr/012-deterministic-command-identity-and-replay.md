@@ -3,19 +3,19 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-012 |
-| Статус | Proposed |
-| Версия | 0.1 |
+| Статус | Accepted |
+| Версия | 1.0 |
 | Владелец | Runtime Team + Persistence Team |
 | Требуемые согласующие | Architecture Working Group, Runtime Team, Persistence Team, Security & Governance Team |
-| Дата предложения | 2026-07-22 |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-10](../10-gothic-importer-boundary.md), [ADR-007](007-identities-persistence-and-replay.md) |
-| Заменяет | [ADR-007](007-identities-persistence-and-replay.md) после принятия packet 1.5 |
+| Дата решения | 2026-07-23 |
+| Последняя проверка | 2026-07-23 |
+| Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-10](../10-gothic-importer-boundary.md) |
+| Заменяет | [ADR-007](007-identities-persistence-and-replay.md) |
 | Заменён | не заменён |
 
-## Статус предложения
+## История принятия
 
-Этот ADR является review candidate и не меняет baseline packet 1.4 до явного принятия. При принятии он сохраняет stable-ID, fail-closed save/migration и replay-source решения ADR-007, устраняя неопределённость ordering, identity, encoding и hash composition. До promotion реализация MUST следовать ADR-007.
+ADR принят атомарно в packet 1.5 и заменяет ADR-007. Он сохраняет stable-ID, fail-closed save/migration и replay-source semantics, устраняя неопределённость ordering, identity, encoding и hash composition. Принятие architecture contract не объявляет `RUNTIME-06`, `RUNTIME-07` или `CANON-01` пройденными.
 
 ## Контекст
 
@@ -166,6 +166,6 @@ Owner/schema/segment identifiers length-prefixятся как в `CanonicalBinar
 
 Gate считается PASS только при 100% vectors. Runtime/hardware PASS не заявляется этим ADR; он определяет future acceptance contract.
 
-## Последствия и синхронизация при принятии
+## Последствия и синхронизация
 
-При принятии packet 1.5 одновременно обновляются SPEC-02, SPEC-03, SPEC-10, affected requirements/failures, glossary и evidence links; ADR-007 получает `Superseded` и backlink. `game`, `headless` и `capture-worker` используют один registry, validator, ledger, persistence и replay path. До такого атомарного transition этот ADR остаётся `Proposed/AwaitingReview`.
+Packet 1.5 одновременно обновил SPEC-02, SPEC-03, SPEC-10, affected requirements/failures, glossary и evidence links; ADR-007 получил `Superseded` и backlink. `game`, `headless` и `capture-worker` MUST использовать один registry, validator, ledger, persistence и replay path.

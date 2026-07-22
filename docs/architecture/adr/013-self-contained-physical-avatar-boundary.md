@@ -3,19 +3,19 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-013 |
-| Статус | Proposed |
-| Версия | 0.1 |
+| Статус | Accepted |
+| Версия | 1.0 |
 | Владелец | Physical Embodiment Team |
 | Требуемые согласующие | Architecture Working Group, Physical Embodiment Team |
-| Дата предложения | 2026-07-22 |
-| Последняя проверка | 2026-07-22 |
+| Дата решения | 2026-07-23 |
+| Последняя проверка | 2026-07-23 |
 | Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md) |
-| Заменяет | [ADR-004](004-physics-avatar-backend-boundary.md) после принятия packet 1.5 |
+| Заменяет | [ADR-004](004-physics-avatar-backend-boundary.md) |
 | Заменён | не заменён |
 
-## Статус предложения
+## История принятия
 
-Этот ADR является self-contained review candidate. Он не меняет Accepted ADR-004 до одобрения и атомарной синхронизации packet 1.5. После принятия внешний research document перестаёт быть нормативной предпосылкой physical architecture.
+ADR принят атомарно в packet 1.5 и заменяет ADR-004. Внешний research document не является нормативной предпосылкой physical architecture; принятие boundary не объявляет ни один PHYS/MOTOR/POLICY/TRAIN gate пройденным.
 
 ## Контекст
 
@@ -91,6 +91,6 @@ ADR сохраняет gates ADR-004 и профильных SPEC: body/axis/lim
 
 [Frozen physical-avatar research annex](../research/physical-avatar-research-spec.md) сохранён для исторической проверяемости origin commit/hash и сравнения вариантов. Он не является dependency, не добавляет требований и не может изменять Next Engine contract. При конфликте этот ADR и профильные Accepted SPEC имеют полный приоритет.
 
-## Последствия и синхронизация при принятии
+## Последствия и синхронизация
 
-При принятии ADR-004 получает `Superseded` и backlink; SPEC-05, evidence register и traceability одновременно переключаются на ADR-013. PhysX/Jolt/Bullet остаются с текущими `Proposed` gates/fallbacks. До явного approval packet 1.4 и ADR-004 остаются authoritative.
+Packet 1.5 присвоил ADR-004 статус `Superseded` и backlink; SPEC-05, evidence register и traceability одновременно переключены на ADR-013. PhysX/Jolt/Bullet сохраняют текущие `Proposed` gates/fallbacks.

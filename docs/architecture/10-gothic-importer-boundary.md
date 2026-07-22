@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-10 |
 | Статус | Accepted |
-| Версия | 1.1 |
-| Владелец | Importer Team |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-007](adr/007-identities-persistence-and-replay.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md) |
+| Версия | 1.2 |
+| Владелец | Repository Owner |
+| Последняя проверка | 2026-07-23 |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-012](adr/012-deterministic-command-identity-and-replay.md), [ADR-015](adr/015-evidence-trust-fixture-separation-and-attestation.md) |
 | Заменяет | отсутствует |
 
 ## Public boundary и data flow
@@ -38,7 +38,13 @@ Source-specific fields MAY находиться только в `diagnostic.exte
 
 ## Namespace mapping
 
-PersistentId/AssetId вычисляются детерминированно из importer namespace UUID, normalized source logical identity, record kind и stable instance key. Пользовательский filesystem path, install time и enumeration order не участвуют. Collision/duplicate mapping — fatal export error. Mapping manifest сохраняется для incremental reimport; изменение algorithm является schema major + migration, не silent remap.
+PersistentId/AssetId вычисляются детерминированно из importer namespace UUID, normalized source logical identity, record kind и stable instance key. Это explicit-ID boundary ADR-012: importer schema фиксирует namespace/provenance/collision policy, а runtime causal-ID algorithm здесь не применяется. Пользовательский filesystem path, install time и enumeration order не участвуют. Collision/duplicate mapping — fatal export error. Mapping manifest JCS-canonical; изменение algorithm является schema major + migration, не silent remap.
+
+## Split-fixture evidence boundary
+
+`vertical-v1-import-smoke` MAY читать только явно переданную user installation во временном isolated root и публикует лишь sanitized provenance/hash metadata, validator result, load projection и source-access trace. NIM, cooked/imported bytes, screenshots, audio/video, source strings/paths и transient projections не входят в publishable evidence. До VS-09 ephemeral root уничтожается либо quarantined вне repository/cache/build/package/evidence roots.
+
+VS-02…VS-15 и human-review media используют только project-generated `vertical-v1-neutral` fixture с recorded CC0-1.0 provenance. Смешение fixture classes даёт `EVIDENCE_FIXTURE_CLASS_MIXED`; технический import smoke не заменяет `LEGAL-IMPORT-01`.
 
 ## Whitelist pilot vertical slice
 
@@ -90,6 +96,7 @@ Before public importer release Security & Governance MUST obtain written legal r
 | IMPORT-P3 | corrupt/fuzz/archive-bomb corpus 48 CPU-hours | 0 crash/UB/escape; all limits enforced; 0 partial publish | fuzz/sandbox report | quarantine input/block release |
 | IMPORT-P4 | runtime binary/SBOM/source scan | 0 importer/legacy parser/VM dependency and 0 forbidden legacy schema symbols | link map/SBOM/rg report | split packages/refactor |
 | IMPORT-P5 | protected data scan repo/build/package | 0 matched protected data/signatures/raw imported bytes | scanner manifest | quarantine/delete generated artifact and rotate cache if uploaded |
+| PRIVACY-02 | split import-smoke/neutral fixture, cleanup и prohibited-root corpus | 0 protected bytes во всех prohibited roots; 100% mixed/failed-cleanup cases blocked before publication | cleanup/source-access audit, scanner report, neutral fixture provenance | quarantine run; retain no publishable bundle |
 | IMPORT-P6 | legal release review | written approval for exact importer release/fixtures or explicit `not approved` | legal record | importer not distributed; neutral content only |
 | IMPORT-P7 | NIM → cook cached load | first cook passes; identical second run ≥90% cache hits; runtime scene loads with no source installation access | cook/run manifests | release block |
 | IMPORT-P8 | ignored nested repository boundary | parent `git check-ignore` matches entire incubator; parent index/workspace/path-dependency scan contains 0 importer entries; nested `main` history/status valid | parent ignore/index/workspace report + nested Git log/status | remove from parent staging/workspace; retain/move nested repository |

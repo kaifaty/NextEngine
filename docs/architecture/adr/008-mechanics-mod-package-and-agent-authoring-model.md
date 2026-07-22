@@ -4,11 +4,11 @@
 |---|---|
 | ID | ADR-008 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.0.1 |
 | Владелец | Gameplay Extensibility Team |
 | Дата решения | 2026-07-22 |
-| Последняя проверка evidence | 2026-07-22 |
-| Нормативные зависимости | [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-006](006-scripting-and-plugin-model.md), [SPEC-11](../11-security-licensing-and-governance.md) |
+| Последняя проверка evidence | 2026-07-23 |
+| Нормативные зависимости | [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-014](014-deterministic-extensions-and-package-trust.md), [SPEC-11](../11-security-licensing-and-governance.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 
@@ -31,7 +31,7 @@ Luau/Wasm sandbox решает безопасное исполнение, но �
 - Hardcoded отдельные combat/magic/crafting subsystems — `Rejected`: создают разные extension models и private first-party paths.
 - Только event bus + arbitrary callbacks — `Rejected`: ordering, ownership, saves и conflicts становятся неявными.
 - Direct mutable ECS/plugin components — `Rejected`: нарушает ownership, replay и sandbox invariants.
-- Native dynamic libraries как community mod ABI — `Rejected`: platform/ABI/crash/security coupling; WIT/Wasm уже выбран ADR-006.
+- Native dynamic libraries как community mod ABI — `Rejected`: platform/ABI/crash/security coupling; WIT/Wasm и trust boundary уже выбраны ADR-014.
 - Agent с generic shell/runtime debug mutation — `Rejected`: невозможно гарантировать scope, audit, rollback и player safety.
 - MCP как единственный SDK — `Rejected`: protocol churn/agent client availability не должны блокировать human/CI workflow.
 

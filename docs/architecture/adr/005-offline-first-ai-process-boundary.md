@@ -4,10 +4,10 @@
 |---|---|
 | ID | ADR-005 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.0.1 |
 | Владелец | Agent Intelligence Team |
 | Дата решения | 2026-07-22 |
-| Последняя проверка evidence | 2026-07-22 |
+| Последняя проверка evidence | 2026-07-23 |
 | Нормативные зависимости | [SPEC-01](../01-system-architecture.md), [SPEC-06](../06-ai-agents-perception-and-memory.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
@@ -21,7 +21,7 @@ Generative services могут отсутствовать, зависнуть, �
 - LLM, embeddings, ASR и TTS MUST исполняться в отдельном optional `ai-host` process. Network access default-deny и не является условием игры.
 - Game/headless runtime MUST сохранять deterministic utility/HTN/tactical fallback, generic dialogue fallback и complete gameplay loop без `ai-host`.
 - `ai-host` выдаёт только versioned `AgentIntent`, speech/media candidates и memory proposals. Все state changes проходят engine validation → `WorldCommand`.
-- Small motor policies MAY работать in-process через pinned model runtime; они не относятся к `ai-host`, не используют LLM и подчиняются ADR-004.
+- Small motor policies MAY работать in-process через pinned model runtime; они не относятся к `ai-host`, не используют LLM и подчиняются ADR-013.
 - Timeout, malformed response, incompatible protocol, model rejection и process crash MUST деградировать качество, но не корректность gameplay. Restart MUST выполнять handshake и не повторять уже committed command.
 
 ## Рассмотренные варианты

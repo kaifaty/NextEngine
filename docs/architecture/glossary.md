@@ -4,9 +4,9 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 1.4 |
-| Владелец | Architecture Working Group |
-| Последняя проверка | 2026-07-22 |
+| Версия | 1.5 |
+| Владелец | Repository Owner |
+| Последняя проверка | 2026-07-23 |
 | Нормативные зависимости | INDEX-001 |
 | Заменяет | отсутствует |
 
@@ -25,7 +25,10 @@
 | **PersistentId** | Стабильный 128-bit opaque ID сущности или логического объекта между save/load, chunks и replay. Не кодирует ECS layout или vendor handle. |
 | **AssetId** | Стабильная ссылка на логический asset; конкретная cooked revision определяется manifest и content hash. |
 | **ContentHash** | SHA-256 канонических cooked bytes и параметров cooker, используемый для immutable bundle addressing. |
-| **WorldCommand** | Единственный валидируемый запрос на изменение authoritative gameplay state. Содержит schema version, issuer, target PersistentId, preconditions и deterministic payload. |
+| **CommandStreamId** | Стабильный opaque ID логического потока команд одного issuer; вместе с `sequence` участвует в дедупликации и arrival-independent order, но не является runtime task/thread handle. |
+| **IssuerPrincipal** | Tagged engine-owned identity источника `WorldCommand` (`Player`, `Agent`, `Script`, `Plugin`, `Tool` или системный issuer) с versioned payload; не содержит backend/session object. |
+| **CanonicalBinaryV1** | Версионированное каноническое бинарное кодирование fixed-width integers, lengths, ordered fields и collections для hash-bound authoritative данных; platform-native layout и unordered iteration запрещены. |
+| **WorldCommand** | Единственный валидируемый запрос на изменение authoritative gameplay state. Содержит schema version, `IssuerPrincipal`, `CommandStreamId`, sequence, target PersistentId, preconditions и deterministic payload. |
 | **DomainEvent** | Неизменяемый факт об уже принятом изменении domain state. Не является альтернативным mutable API. |
 | **PresentationSnapshot** | Read-only снимок состояния для renderer/audio/UI/interpolation. Не может быть записан обратно как authoritative state. |
 | **AgentIntent** | Высокоуровневое намерение AI, ещё не имеющее права изменять мир. Проходит policy/rules validation и преобразуется в WorldCommand либо rejection. |
@@ -67,7 +70,9 @@
 | **CaptureJobManifest** | Portable immutable displayless worker job с exact base/candidate/content/replay/profile/CapturePlan hashes и artifact requirements. |
 | **EvidenceBaselineManifest** | Immutable human-approved scenario/profile/toolchain/content semantic/media reference; generated candidate не является approved baseline. |
 | **EvidenceBundleManifest** | Root content-addressed closure, объединяющий automatic results, impact, diagnostics, replay, metrics, raw media roots, review artifacts и baselines. |
-| **HumanReviewDecision** | Attested immutable `Approved`, `Rejected` или `NeedsChanges`, привязанный к exact changeset/evidence/baseline hashes и authorized human role. |
+| **AttestationEnvelope** | Канонический signed envelope с schema/version, subject hash, signer key ID, role, issued/expiry bounds и signature; проверяется offline до использования вложенного решения. |
+| **ReviewerTrustManifest** | Project-owned offline manifest разрешённых reviewer keys/roles, validity windows и revocations; agent, tool и service keys не получают human-review authority. |
+| **HumanReviewDecision** | Attested immutable `Approved`, `Rejected` или `NeedsChanges`, привязанный через `AttestationEnvelope` к exact changeset/evidence/baseline hashes и authorized human role из `ReviewerTrustManifest`. |
 | **HumanReviewRequired** | Impact state, при котором successful automatic gates недостаточны и exact changeset требует valid HumanReviewDecision. |
 | **Capability** | Явно выданное право script/plugin/process на именованную операцию или data view. Default — deny. |
 | **MechanicPackageId** | Стабильный namespaced ID gameplay/mod package; версия и publisher identity являются отдельными полями. |
@@ -90,6 +95,7 @@
 | **Headless runtime** | Тот же core/RPG runtime без renderer и интерактивного platform shell, предназначенный для validation, replay и tests. |
 | **Cooker** | Детерминированный tool, преобразующий validated NeutralAuthoringModel в immutable content-addressed bundles. |
 | **Conformance gate** | Воспроизводимая pass/fail проверка с владельцем, threshold, командой/сценарием и evidence artifacts. |
+| **GameplayBudgetMatrix** | Единая integer-microsecond матрица per-tick subsystem ceilings, integrated limits, cadence и measurement profile; отдельные subsystem gates не могут переопределить её суммарный budget. |
 | **Vertical slice** | Минимальная играбельная цепочка, одновременно доказывающая ключевые архитектурные границы и fallback paths. |
 
 `Entity`, `object handle`, `GUID` и `resource ID` не должны использоваться в публичном контракте без уточнения одного из нормативных ID выше.

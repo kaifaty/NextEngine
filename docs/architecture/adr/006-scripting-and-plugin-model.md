@@ -3,14 +3,14 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-006 |
-| Статус | Accepted |
-| Версия | 1.0 |
+| Статус | Superseded |
+| Версия | 1.0.1 |
 | Владелец | RPG Framework Team |
 | Дата решения | 2026-07-22 |
-| Последняя проверка evidence | 2026-07-22 |
+| Последняя проверка evidence | 2026-07-23 |
 | Нормативные зависимости | [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-11](../11-security-licensing-and-governance.md) |
 | Заменяет | отсутствует |
-| Заменён | не заменён |
+| Заменён | [ADR-014](014-deterministic-extensions-and-package-trust.md) |
 
 ## Контекст
 
@@ -48,4 +48,4 @@ Full SDK не замораживается до PoC, но capability names, comm
 
 ## Supersession
 
-Замена ролей Luau/Wasm или выдача direct mutable access требует нового ADR. Version upgrade за тем же contract проходит compatibility gate.
+Packet 1.5 заменил это решение [ADR-014](014-deterministic-extensions-and-package-trust.md), сохранив разделение Luau/Wasm и добавив deterministic quota/trust semantics. Дальнейшее изменение ролей или выдача direct mutable access требует нового superseding ADR.

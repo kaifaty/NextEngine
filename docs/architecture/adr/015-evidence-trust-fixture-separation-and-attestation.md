@@ -3,19 +3,19 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-015 |
-| Статус | Proposed |
-| Версия | 0.1 |
+| Статус | Accepted |
+| Версия | 1.0 |
 | Владелец | Verification & Evidence Team + Security & Governance Team |
 | Требуемые согласующие | Architecture Working Group, Verification & Evidence Team, Importer Team, Security & Governance Team |
-| Дата предложения | 2026-07-22 |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-10](../10-gothic-importer-boundary.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [ADR-010](010-artifact-first-headless-validation-and-review.md), [ADR-012](012-deterministic-command-identity-and-replay.md) |
-| Заменяет | [ADR-010](010-artifact-first-headless-validation-and-review.md) после принятия packet 1.5 |
+| Дата решения | 2026-07-23 |
+| Последняя проверка | 2026-07-23 |
+| Нормативные зависимости | [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-10](../10-gothic-importer-boundary.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [ADR-012](012-deterministic-command-identity-and-replay.md) |
+| Заменяет | [ADR-010](010-artifact-first-headless-validation-and-review.md) |
 | Заменён | не заменён |
 
-## Статус предложения
+## История принятия
 
-Этот ADR сохраняет artifact-first acceptance, engine-owned `ImpactResolver` и automatic-gate precedence ADR-010. Он становится authoritative только вместе с ADR-012 canonical encoding и полным packet 1.5 approval. Candidate не создаёт reviewer keys, human decision, legal approval или evidence PASS.
+ADR принят атомарно в packet 1.5 вместе с ADR-012 и заменяет ADR-010. Он сохраняет artifact-first acceptance, engine-owned `ImpactResolver` и automatic-gate precedence. Принятие не создаёт reviewer keys, human decision, legal approval или evidence PASS.
 
 ## Контекст
 
@@ -124,6 +124,6 @@ Test keys маркируются отдельным untrusted project ID и ни
 
 `REVIEW-02` PASS требует offline verification without network or private key. `PRIVACY-02` PASS не означает `LEGAL-IMPORT-01` PASS.
 
-## Последствия и синхронизация при принятии
+## Последствия и синхронизация
 
-После approval ADR-010 получает `Superseded` и backlink. SPEC-09/10/11/12/15, VS-01/VS-09 and human-review rows, glossary, evidence register и traceability обновляются атомарно. Конкретные JCS/Ed25519 libraries не добавляются в technology register без отдельного decision; contract replaceable. До transition packet 1.4 остаётся authoritative, а candidate — `Proposed/AwaitingReview`.
+Packet 1.5 присвоил ADR-010 статус `Superseded` и backlink. SPEC-09/10/11/12/15, VS-01/VS-09 and human-review rows, glossary, evidence register и traceability обновлены атомарно. Конкретные JCS/Ed25519 libraries не добавлены в technology register; contract остаётся replaceable.

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-13 |
 | Статус | Accepted |
-| Версия | 1.2 |
-| Владелец | Gameplay Extensibility Team |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md) |
+| Версия | 1.3 |
+| Владелец | Repository Owner |
+| Последняя проверка | 2026-07-23 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-015](adr/015-evidence-trust-fixture-separation-and-attestation.md), [ADR-016](adr/016-compositional-gameplay-budgets.md) |
 | Заменяет | отсутствует |
 
 ## Назначение и product invariants
@@ -243,8 +243,8 @@ MCP adapter имеет статус `Proposed`, pins stable protocol revision и
 ## Versioning, distribution и uninstall
 
 - Stable mechanics schemas/WIT worlds follow SemVer and N/N-1 compatibility policy; experimental surface clearly namespaced and запрещён required v1 package без pin.
-- Cooked package MUST быть standard immutable content-addressed bundle SPEC-03 с package root manifest/lock fragment/SBOM/licenses/provenance/tests; отдельный runtime archive/parser format не создаётся. Signature optional для local community mod, required для official distribution.
-- Unsigned package получает только untrusted capability ceiling и явное user consent; подпись не обходит sandbox/validation.
+- Cooked package MUST быть standard immutable content-addressed bundle SPEC-03 с package root manifest/lock fragment/SBOM/licenses/provenance/tests и `PackageTrustManifestV1`; отдельный runtime archive/parser format не создаётся. Valid scoped signature required для official/trusted distribution.
+- Unsigned local package получает только untrusted hard ceiling и явное user consent. Invalid/expired/revoked signature fail-closed и не превращается в unsigned install; подпись доказывает identity/integrity, но не обходит sandbox/validation и не выдаёт capability сама.
 - Save/replay records exact MechanicsLock and package state schemas/hashes.
 - Missing required package or incompatible state fails before world mutation.
 - Optional package can be removed only если uninstall migration eliminates/transfers all durable state/references. Silent state drop запрещён.
@@ -273,10 +273,11 @@ MCP adapter имеет статус `Proposed`, pins stable protocol revision и
 | MECH-02 | reducer/effect determinism, 100 seeds × 10 repeats | exact proposal, accepted command, event and final state hashes | RunManifests/replay diff | reject nondeterministic reducer/package |
 | MECH-03 | hook/dependency/patch permutation and conflict corpus | valid permutations resolve identical DAG/order; 100% cycles/exclusive/precondition conflicts fail before world mutation | resolver report | remove conflicting package/explicit patch revision |
 | MECH-04 | save/load/migrate/uninstall N/N-1 + fault points | exact state hashes; 100% invalid/missing migrations fail-closed; original preserved | migration/fault report | pin old package or explicit export/uninstall tool |
-| MECH-05 | 100 actors, 1 000 statuses, 200 active abilities | Mechanics Runtime p95 ≤2 ms, p99 ≤4 ms per 30 Hz gameplay tick on reference CPU; bounded queues/memory | profile/queue metrics | lower mechanic LOD/cadence or optimize public primitive |
+| MECH-05 | ADR-016 integrated fixture: 100 actors, 1 000 statuses, 200 active abilities | exclusive mechanics row p95 ≤2 000 us / p99 ≤4 000 us inside the same 10 000-tick PERF-01 run; no starvation, dropped due work or unowned span | GameplayBudgetMatrix/workload hashes, command/mechanic due/queue/span trace | lower deterministic mechanic LOD/cadence or optimize public primitive; integrated PERF-01 remains blocking |
 | MECH-06 | shooting/magic physical interaction suite | exact gameplay outcomes; required PHYS/contact/safety gates pass; material controller changes include SPEC-05 media artifacts | replay/contact traces/GIF/MP4 manifests | reject package version/pin prior |
 | MOD-01 | clean resolve/cook/package Win/Linux | exact MechanicsLock and platform-neutral package hashes; 0 implicit override | lock/hash/package reports | block package publish |
 | MOD-02 | unsigned/malicious package/capability/provenance corpus | 100% forbidden capabilities/paths/network denied; no host crash/partial commit | security/fuzz/audit report | quarantine/disable package |
+| MOD-P2 | signed/unsigned/invalid/expired/revoked signature matrix | exact content/policy hashes, signer scope, consent and effective capabilities match policy for 100% cases; invalid signature never downgrades | PackageTrustManifestV1, consent/signer/capability audit | quarantine/deny; explicit unsigned reinstall only as a new consent-bound transaction |
 | AGENT-01 | cold author workflow using only AuthoringContextBundle | 100% internal references resolve; reference harness fixes one seeded schema error, creates a new data-only spell + ranged variant, validates/tests/simulates without private source knowledge | context closure/fix-it report, changeset, RunManifests | fix SDK/context generator |
 | AGENT-02 | stale/path escape/binary/destructive/faulted AgentChangeSets | 100% unsafe/stale sets rejected; valid set dry-run/apply/rollback hashes exact; 0 out-of-root mutation | changeset audit/fault report | manual reviewed patch workflow |
 | MCP-P1 | MCP vs CLI parity on pinned stable revision | 100% resource/tool schemas map to CLI/JSON results; read-only and mutation capability tests pass; default run opens 0 network sockets | schema diff, audit log, packet capture | disable MCP adapter; CLI/JSON remains conforming |

@@ -18,54 +18,11 @@ const ARCHITECTURE_REVIEW_CHECKS: &[&str] = &[
     "cargo run -p xtask -- host-check",
     "git diff --check",
 ];
-const PACKET_15_OWNERS: &[&str] = &[
-    "Agent Intelligence Team",
-    "Architecture Working Group",
-    "Gameplay Extensibility Team",
-    "Importer Team",
-    "Persistence Team",
-    "Physical Embodiment Team",
-    "Release Engineering",
-    "RPG Framework Team",
-    "Runtime Team",
-    "Security & Governance Team",
-    "Verification & Evidence Team",
-    "World Services Team",
-];
-const PACKET_16_OWNERS: &[&str] = &[
-    "Agent Intelligence Team",
-    "Architecture Working Group",
-    "Asset & Persistence Team",
-    "Developer Experience Team",
-    "RPG Framework Team",
-    "Security & Governance Team",
-    "Verification & Evidence Team",
-    "World Services Team",
-];
-const PACKET_17_OWNERS: &[&str] = &[
-    "Agent Intelligence Team",
-    "Architecture Working Group",
-    "Asset & Persistence Team",
-    "Core Architecture",
-    "Developer Experience Team",
-    "Gameplay Extensibility Team",
-    "Physical Embodiment Team",
-    "Player Experience Team",
-    "Release Engineering",
-    "Rendering Team",
-    "RPG Framework Team",
-    "Runtime Team",
-    "Security & Governance Team",
-    "Verification & Evidence Team",
-    "World Services Team",
-];
-
 #[derive(Clone, Copy, Debug)]
 struct ArchitectureReviewTransition {
     from: &'static str,
     to: &'static str,
     file: &'static str,
-    required_owners: &'static [&'static str],
 }
 
 const ARCHITECTURE_REVIEW_TRANSITIONS: &[ArchitectureReviewTransition] = &[
@@ -73,19 +30,16 @@ const ARCHITECTURE_REVIEW_TRANSITIONS: &[ArchitectureReviewTransition] = &[
         from: "1.4",
         to: "1.5",
         file: "packet-1.5.md",
-        required_owners: PACKET_15_OWNERS,
     },
     ArchitectureReviewTransition {
         from: "1.5",
         to: "1.6",
         file: "packet-1.6.md",
-        required_owners: PACKET_16_OWNERS,
     },
     ArchitectureReviewTransition {
         from: "1.6",
         to: "1.7",
         file: "packet-1.7.md",
-        required_owners: PACKET_17_OWNERS,
     },
 ];
 
@@ -802,52 +756,20 @@ fn validate_architecture_review_record(
     )?;
     validate_review_checks(transition, &candidate_root, &status, &check_rows)?;
 
-    let owner_rows = review_section_rows(
-        body,
-        "## Required owner decisions",
-        &[
-            "Required owner",
-            "Decision",
-            "Reviewer",
-            "Decision reference",
-        ],
-        transition.file,
-    )?;
-    validate_review_decisions(
-        transition,
-        &candidate_root,
-        &status,
-        transition.required_owners,
-        &owner_rows,
-        "OWNER",
-    )?;
-
     let capability_rows = review_section_rows(
         body,
         "## Bootstrap capability decisions",
         &["Capability", "Decision", "Reviewer", "Decision reference"],
         transition.file,
     )?;
-    let capabilities = validate_review_decisions(
+    validate_review_decisions(
         transition,
         &candidate_root,
         &status,
-        &["architecture.approve", "baseline.promote"],
+        &["architecture.promote"],
         &capability_rows,
         "CAPABILITY",
     )?;
-    if capabilities
-        .get("architecture.approve")
-        .zip(capabilities.get("baseline.promote"))
-        .is_some_and(|(architecture, baseline)| {
-            architecture.0 == "Approved" && baseline.0 == "Approved" && architecture.2 == baseline.2
-        })
-    {
-        return Err(format!(
-            "DOCS_REVIEW_CAPABILITY_DECISIONS_NOT_SEPARATE: {}",
-            transition.file
-        ));
-    }
 
     if status == "Approved" {
         if candidate_root == "absent" || manifest.is_empty() {
@@ -1630,7 +1552,6 @@ mod tests {
         validate_architecture_review_records_at,
     };
     use std::collections::BTreeMap;
-    use std::fmt::Write as _;
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -1674,7 +1595,7 @@ mod tests {
         );
         let manifest = BTreeMap::from([(candidate_path.to_owned(), candidate_hash.clone())]);
         let candidate_root = architecture_candidate_root(&manifest);
-        let mut record = format!(
+        let record = format!(
             "# Test architecture review\n\n\
              | Field | Value |\n\
              |---|---|\n\
@@ -1697,24 +1618,11 @@ mod tests {
              | cargo run -p xtask -- boundary-scan | PASS | evidence/boundary-scan |\n\
              | cargo run -p xtask -- host-check | PASS | evidence/host-check |\n\
              | git diff --check | PASS | evidence/diff-check |\n\n\
-             ## Required owner decisions\n\n\
-             | Required owner | Decision | Reviewer | Decision reference |\n\
-             |---|---|---|---|\n",
-            transition.to, transition.from, transition.to
-        );
-        for (index, owner) in transition.required_owners.iter().enumerate() {
-            writeln!(
-                record,
-                "| {owner} | Approved | reviewer-{index} | decision/owner-{index} |"
-            )
-            .expect("writing to a String should succeed");
-        }
-        record.push_str(
-            "\n## Bootstrap capability decisions\n\n\
+             ## Bootstrap capability decisions\n\n\
              | Capability | Decision | Reviewer | Decision reference |\n\
              |---|---|---|---|\n\
-             | architecture.approve | Approved | reviewer-bootstrap | decision/architecture |\n\
-             | baseline.promote | Approved | reviewer-bootstrap | decision/baseline |\n",
+             | architecture.promote | Approved | repository-owner | decision/architecture-promotion |\n",
+            transition.to, transition.from, transition.to
         );
         record
     }
@@ -1819,60 +1727,18 @@ mod tests {
     }
 
     #[test]
-    fn missing_security_owner_decision_is_rejected() {
-        let root = test_root("missing-security");
-        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
-        let record = without_row(
-            &render_approved_record(root.path(), transition),
-            "| Security & Governance Team |",
-        );
-        write_packet_15_record(root.path(), &record);
-        let error = validate_architecture_review_records_at(root.path(), "1.5")
-            .expect_err("Security decision must be present");
-        assert!(error.contains("DOCS_REVIEW_OWNER_DECISION_MISSING"));
-        assert!(error.contains("Security & Governance Team"));
-    }
-
-    #[test]
-    fn missing_subsystem_owner_decision_is_rejected() {
-        let root = test_root("missing-owner");
-        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
-        let record = without_row(
-            &render_approved_record(root.path(), transition),
-            "| Runtime Team |",
-        );
-        write_packet_15_record(root.path(), &record);
-        let error = validate_architecture_review_records_at(root.path(), "1.5")
-            .expect_err("required subsystem owner decision must be present");
-        assert!(error.contains("DOCS_REVIEW_OWNER_DECISION_MISSING"));
-        assert!(error.contains("Runtime Team"));
-    }
-
-    #[test]
     fn missing_capability_decision_is_rejected() {
         let root = test_root("missing-capability");
         let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
         let record = without_row(
             &render_approved_record(root.path(), transition),
-            "| baseline.promote |",
+            "| architecture.promote |",
         );
         write_packet_15_record(root.path(), &record);
         let error = validate_architecture_review_records_at(root.path(), "1.5")
-            .expect_err("baseline.promote must be a separate decision");
+            .expect_err("architecture.promote must be present");
         assert!(error.contains("DOCS_REVIEW_CAPABILITY_DECISION_MISSING"));
-        assert!(error.contains("baseline.promote"));
-    }
-
-    #[test]
-    fn combined_capability_decision_reference_is_rejected() {
-        let root = test_root("combined-capabilities");
-        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
-        let record = render_approved_record(root.path(), transition)
-            .replace("decision/baseline", "decision/architecture");
-        write_packet_15_record(root.path(), &record);
-        let error = validate_architecture_review_records_at(root.path(), "1.5")
-            .expect_err("capability decisions must be recorded separately");
-        assert!(error.contains("DOCS_REVIEW_CAPABILITY_DECISIONS_NOT_SEPARATE"));
+        assert!(error.contains("architecture.promote"));
     }
 
     #[test]

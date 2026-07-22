@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 1.4 |
-| Владелец | Developer Experience Team |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md) |
+| Версия | 1.5 |
+| Владелец | Repository Owner |
+| Последняя проверка | 2026-07-23 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-015](adr/015-evidence-trust-fixture-separation-and-attestation.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
@@ -41,7 +41,7 @@ Public tool boundary — versioned CLI arguments/exit codes/JSON, AuthoringConte
 | `next capture render --job <manifest> --artifact-root <dir>` | short-lived displayless render/audio capture worker |
 | `next evidence build\|verify\|diff <input>` | content-addressed evidence assembly/validation/comparison |
 | `next review bundle <evidence> --out <dir>` | self-contained offline dossier rooted at `index.html`, no external resources |
-| `next review record <bundle> --decision <value> --attest <key-id>` | human-only attested HumanReviewDecision; automatic failures cannot be approved |
+| `next review record <bundle> --decision <value> --attest <key-id>` | human-only canonical `HumanReviewDecisionV1` через isolated signer adapter; CLI принимает key ID, но никогда raw key/path/seed; automatic failures cannot be approved |
 | `next gate <gate-id|vertical-v1> --artifact-root <dir>` | executes exact pinned scenario, writes RunManifest и pass/fail |
 | `next package --target windows-x86_64|linux-x86_64` | validates licenses/SBOM/content and creates reproducible package manifest |
 
@@ -90,7 +90,7 @@ run-root/
   crash/
 ```
 
-RunManifest MUST содержать schema version; run/scenario/suite/profile ID; VerificationPolicy/ChangeImpact/CaptureJob hashes when applicable; UTC creation time только как metadata; engine/git/build/toolchain/platform/hardware; project/content/save/replay/model/plugin/backend hashes; physical archetype, body revision, proficiency band, resolved route, policy state schema и certification hashes when applicable; seeds/tick rates; exact command; configs; automatic gate thresholds/results; first-failure/minimized-replay status; artifact list с relative path, media type, bytes, SHA-256 и role; redaction classification; parent/base/candidate/baseline run IDs.
+RunManifest MUST быть JCS-canonical и содержать schema version; run/scenario/suite/profile ID; VerificationPolicy/ChangeImpact/CaptureJob hashes when applicable; UTC creation time только как metadata; engine/git/build/toolchain/platform/hardware; project/content/save/replay/model/plugin/backend hashes; physical archetype, body revision, proficiency band, resolved route, policy state schema и certification hashes when applicable; seeds/tick rates; exact command; configs; automatic gate thresholds/results; first-failure/minimized-replay status; artifact list с relative path, media type, bytes, SHA-256 и role; redaction/fixture classification; parent/base/candidate/baseline run IDs.
 
 Для HumanReviewRequired media manifest MUST фиксировать scenario/CapturePlan identity, base/candidate, camera, semantic tick window, render/audio settings, playback speed/FPS, overlays, raw frame/audio root, encoder/decoder manifests и reason выбора every worst/failure episode. Physical specialization дополнительно фиксирует policy compatibility/route/transition. Обязательные roles определены SPEC-15 и SPEC-05. Media generation failure записывается как AwaitingCapability/fail согласно required role; artifact нельзя молча исключить.
 
@@ -127,7 +127,7 @@ Bootstrap repository MUST NOT требовать `.github/workflows/`, CI vendor
 - Training backend absent/incompatible → diagnostic + engine-owned headless-lab fallback; validation, route tests и prototype packaging remain available.
 - Impact resolver unknown/failed → maximal affected suite + HumanReviewRequired; no author-selected fallback.
 - GPU/encoder/reviewer capability unavailable → structured AwaitingCapability; completed CPU evidence preserved, changeset not admitted.
-- Evidence/review hash or attestation mismatch → reject before project mutation; old decision cannot be reused.
+- Evidence/review hash, trust-manifest/revocation snapshot, role/scope или attestation mismatch → reject before project mutation; old decision cannot be reused.
 - Deterministic retry divergence → gate failure `NONDETERMINISTIC_RESULT`; CI retry is diagnostic only.
 - MPS unavailable/unsupported operation → stable capability diagnostic + CPU smoke fallback; RunManifest не утверждает MPS pass.
 - Local RTX profile unavailable → `TRAIN-RTX-01=AwaitingCapability`; prototype validation доступна, certification promotion blocked.
@@ -142,6 +142,7 @@ Bootstrap repository MUST NOT требовать `.github/workflows/`, CI vendor
 | OBS-02 | crash injection processes/write points | crash capsule produced ≥99%; published/source files never partial | fault matrix | harden atomic boundary |
 | MANIFEST-01 | validate all gate runs | 100% required fields/artifacts/hashes exist and verify | manifest validator report | gate fails |
 | PRIVACY-01 | sensitive fixture scan | 0 raw user paths/secrets/prompts/voice/imported bytes in default artifacts | scanner report | redact and regenerate |
+| PRIVACY-02 | import-smoke cleanup + neutral evidence closure | 0 protected bytes in repository/cache/build/package/final/evidence/media/log roots; mixed fixture class rejected | cleanup/source-access/privacy reports | quarantine; no publish/review |
 | TOOL-03 | CLI/JSON application service projection parity | mechanics/context/changeset outputs identical across direct CLI and adapters for all golden fixtures | schema/result diff | disable divergent adapter |
 | TOOL-04 | cold physical author workflow | public context + CLI create/validate/pack neutral prototype and prepare a certification changeset; all references close; 0 private crate/backend knowledge required | context closure, CLI transcript, AgentChangeSet, manifests | fix context/CLI; retain PrototypeFallback |
 | TOOL-05 | scenario/impact/evidence/review CLI projection parity | direct services и CLI/JSON produce exact TestScenario/ChangeImpact/CaptureJob/Evidence/HumanReview schemas/results for golden corpus; no interactive/runtime-only step | schema/result diff, command transcript | disable divergent adapter; fix CLI before admission |

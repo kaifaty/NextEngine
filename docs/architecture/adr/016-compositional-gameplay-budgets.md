@@ -3,19 +3,19 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-016 |
-| Статус | Proposed |
-| Версия | 0.1 |
+| Статус | Accepted |
+| Версия | 1.0 |
 | Владелец | Release Engineering |
 | Требуемые согласующие | Architecture Working Group, Release Engineering, Runtime Team, RPG Framework Team, Gameplay Extensibility Team, Agent Intelligence Team, World Services Team, Persistence Team |
-| Дата предложения | 2026-07-22 |
-| Последняя проверка | 2026-07-22 |
+| Дата решения | 2026-07-23 |
+| Последняя проверка | 2026-07-23 |
 | Нормативные зависимости | [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 
-## Статус предложения
+## История принятия
 
-Этот ADR задаёт candidate performance contract и не объявляет reference hardware/runtime PASS. Он становится baseline только после approval и синхронного обновления профильных SPEC/gates.
+ADR принят атомарно в packet 1.5 как performance contract. Его принятие не объявляет reference hardware/runtime или `PERF-01` PASS; implementation evidence остаётся отдельным gate.
 
 ## Контекст
 
@@ -99,6 +99,6 @@ Integrated PASS требует `total p95 <= 8_000 us` и `total p99 <= 12_000 u
 
 Negative corpus включает invalid default/override sum, reduced headroom, worker-order cadence permutation, subsystem-only pass при integrated fail, deliberate queue starvation, dropped due work, unowned span и owner/total overrun. Каждый случай MUST давать stable diagnostic и блокировать PASS.
 
-## Последствия и синхронизация при принятии
+## Последствия и синхронизация
 
-При approval SPEC-06, SPEC-08, SPEC-12, SPEC-13, `VerificationPolicyManifest`, AI-04, NAV-P3, MECH-05, traceability и glossary обновляются атомарно. Release Engineering владеет integrated matrix/methodology; subsystem owners владеют своими rows и evidence. До promotion этот ADR остаётся `Proposed/AwaitingReview`.
+Packet 1.5 синхронно обновил SPEC-06, SPEC-08, SPEC-12, SPEC-13, `VerificationPolicyManifest`, AI-04, NAV-P3, MECH-05, traceability и glossary. Release Engineering владеет integrated matrix/methodology; subsystem owners владеют своими rows и evidence.

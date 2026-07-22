@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-07 |
 | Статус | Accepted |
-| Версия | 1.2 |
-| Владелец | RPG Framework Team |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-006](adr/006-scripting-and-plugin-model.md) |
+| Версия | 1.3 |
+| Владелец | Repository Owner |
+| Последняя проверка | 2026-07-23 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
@@ -58,10 +58,10 @@ Default sandbox:
 - no filesystem, network, process, native library, wall clock, random entropy or debug escape;
 - randomness только named engine RNG stream;
 - state crossing tick/save boundary только declared versioned script state или RPG commands;
-- callback default budget: 100 000 VM instructions, 2 ms wall-clock hard guard, 1 MiB transient allocations; project может уменьшить, увеличение выше 1 000 000 instructions/8 ms/8 MiB требует trusted-package declaration;
-- total per-frame scripting budget default 4 ms; scheduler defers non-critical callbacks, но critical command validation не исполняется в script.
+- callback default authoritative budget: 100 000 VM instructions, 1 MiB cumulative transient allocations, declared live-memory ceiling, host-call cost units и proposed-command bytes/count из versioned `ExtensionBudgetPolicyV1`;
+- total per-frame scripting work входит в ADR-016 mechanics row; scheduler defers non-critical callbacks только по deterministic queue policy, а critical command validation не исполняется в script.
 
-Instruction quota определяет reproducible overrun; wall guard защищает host и не используется как simulation decision.
+Instruction/fuel/allocation/host-call/command counters используют exact integer comparison и определяют reproducible overrun независимо от CPU/load/worker order. Wall watchdog защищает host, но его срабатывание всегда помечает run `NonConforming`, discard-ит весь uncommitted proposal batch и не может стать authoritative gameplay outcome или PASS.
 
 ## Wasm plugins
 
@@ -75,13 +75,15 @@ Wasmtime — Proposed backend. Component Model feature set pinned; preview/unsta
 
 Capabilities granular и namespaced, например `rpg.character.read`, `rpg.command.inventory.propose`, `events.quest.subscribe`, `ui.panel.register`. Capability не подразумевает дочерние права. Install-time grant пересекается с project policy и runtime context; denial возвращает stable code и audit record. Gameplay package не может делегировать capability другому package.
 
+Все scripts/mechanic packages/plugins имеют content hash и JCS-canonical `PackageTrustManifestV1`. Official/trusted distribution требует valid scoped signature; local unsigned install разрешён только explicit consent и untrusted hard ceiling. Invalid/expired/revoked signature не downgrade-ится в unsigned mode. Effective capabilities равны пересечению request, API compatibility, signer scope, project policy, user consent и hard security ceiling; signature не является capability grant.
+
 ## Data flow
 
 `DomainEvent/immutable query → package callback → budgeted computation → command candidate → common validator → accepted WorldCommand → RPG transaction`. Extension local state snapshot выполняется после command commit и имеет package schema/version/hash. Hot reload разрешён только tools/dev, отменяет in-flight callbacks и отмечает run non-release/replay-incompatible.
 
 ## Failure semantics
 
-- Luau error/budget overrun → callback abort, uncommitted candidates discarded, package strike; critical package после threshold вызывает clean project error, optional отключается.
+- Luau error/authoritative quota overrun → callback abort на exact counter, uncommitted candidates discarded, package strike; critical package после threshold вызывает clean project error, optional отключается. Wall watchdog → `NonConforming`, никогда не deterministic strike/gameplay result.
 - Wasm trap/fuel/memory violation → instance terminated, resources reclaimed, audit diagnostic; host/game не падает.
 - Capability denial → no side effect; script/plugin MAY выбрать documented fallback.
 - Incompatible required package/state migration → fail before world mutation.
@@ -95,12 +97,13 @@ Capabilities granular и namespaced, например `rpg.character.read`, `rpg
 |---|---|---|---|---|
 | RPG-01 | generic NPC/dialogue/quest/item/skill vertical fixture | exact expected state/event hashes, fixed-point proficiency bounds и save/load parity | replay/report | release block |
 | SCRIPT-P1 | sandbox escape/adversarial API corpus | 100% filesystem/network/native/debug escape denied | audit + fuzz report | remove API/pin prior Luau |
-| SCRIPT-P2 | instruction/wall/allocation overruns | stop ≤2 ms after hard threshold observation; 0 partial command; host healthy 10 000 runs | metrics | disable offending package |
+| SCRIPT-P2 | instruction/allocation/host-call/command quota boundaries | limit-1/limit/limit+1 produce exact accept/reject tick and diagnostic; 0 partial command; save/reload ledger exact | counter vectors, policy/ledger hashes | disable offending package |
 | SCRIPT-P3 | determinism replay | exact accepted commands/state hash for 100 seeds | replay report | mark/reject nondeterministic package |
 | SCRIPT-P4 | save migration N-1→N | 100% fixtures exact; invalid state fail-closed | migration report | require old package/export |
-| PLUGIN-P1 | capability denial suite | 100% denied, 0 side effects | audit log | disable plugin |
-| PLUGIN-P2 | trap/fuel/memory fuzz | 10 000 cases, 0 host crash/leak; RSS residual ≤16 MiB | sanitizer/memory report | pin Wasmtime/disable loading |
-| PLUGIN-P3 | WIT N/N-1 negotiation | 100% declared matrix; N-2/major mismatch cleanly rejected | compatibility report | compatibility adapter/pin prior runtime |
+| SCRIPT-P5 | same corpus under CPU/load/worker/watchdog permutations | counter outcomes and authoritative ledger exact; every injected wall trip is `NonConforming`, never PASS | VM counters, watchdog diagnostics, replay ledgers | fix/pin VM; disable package; gate remains failed |
+| PLUGIN-P1 | capability/trap/fuel/memory/table/instance corpus | 100% denied/overrun cases isolated and atomic; 0 partial proposal, host crash/leak; RSS residual ≤16 MiB | audit, proposal-discard, sanitizer/memory report | pin Wasmtime/disable loading |
+| PLUGIN-P2 | WIT N/N-1 negotiation | 100% declared matrix; N-2/major mismatch cleanly rejected before world mutation | compatibility report | compatibility adapter/pin prior runtime |
+| PLUGIN-P3 | public WIT/value boundary scan | 0 RuntimeEntityId/raw pointer/vendor handle; current and N-1 worlds reproduce golden typed results | schema/API/golden report | remove surface or retain prior world |
 | PLUGIN-P4 | malicious component fuzz 24 CPU-hours | 0 sandbox escape/host panic/UB | fuzz report | plugin feature release-blocked |
 | PLUGIN-P5 | required/optional failure startup | optional project remains playable; required fails before world mutation with stable code | scenario report | remove/replace plugin |
 

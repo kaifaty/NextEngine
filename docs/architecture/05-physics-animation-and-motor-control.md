@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-05 |
 | Статус | Accepted |
-| Версия | 1.2 |
-| Владелец | Physical Embodiment Team |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-004](adr/004-physics-avatar-backend-boundary.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [physical-avatar research](https://github.com/kaifaty/OpenGothic/blob/c56e15f1fa68430eaa618dcc892edc00bff6209d/docs/physical-avatar-research-spec.md) |
+| Версия | 1.3 |
+| Владелец | Repository Owner |
+| Последняя проверка | 2026-07-23 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
@@ -15,6 +15,8 @@
 Для LOD `FullArticulation` и `SimplifiedActiveRagdoll` PhysicsBackend владеет body pose, velocities, contacts и articulation topology. Для `CapsuleAnimation` capsule controller владеет collision transform, animation graph — visual local pose. Для `Abstract` RPG/world simulation владеет logical location. Renderer всегда читает immutable RenderPose. Ни animation, AI, gameplay script, importer, renderer, ни LLM не могут напрямую записать active physics transforms.
 
 Physical Embodiment Team владеет backend-neutral descriptors, physics stepping, motor observation/action, policy safety/resolution/supervision, topology transactions, animation bridge, LOD coordinator и physical certification. RPG skill proficiency и Agent habits остаются за пределами этого ownership.
+
+Boundary является self-contained по ADR-013: внешние research документы не задают requirements, phases, public types или gate semantics. Frozen annex сохраняется только как ненормативная provenance; PhysX/Jolt/Bullet остаются отдельными `Proposed` technology hypotheses за одним contract.
 
 ## Public boundary
 
@@ -43,8 +45,8 @@ Units/right-handed axes соответствуют SPEC-03. Vendor enumerations 
 3. PolicySupervisor предоставляет committed compatible route; Observation builder читает current physics state и immutable allowed context.
 4. Motor controller (heuristic, foundation/skill policy либо recovery fallback) создаёт MotorAction без blocking I/O.
 5. Safety layer проверяет finite values, schema/model hash, action age, joint/torque/rate/energy limits и contact guards; invalid action заменяется safe hold/recovery action.
-6. PhysicsBackend выполняет CPU substep и выдаёт normalized contacts/state.
-7. Outcome resolver использует contact continuity для suppress repeated-hit/resting-contact exploits и предлагает internal WorldCommand для gameplay effects; контакт сам не меняет health/quest.
+6. PhysicsBackend выполняет CPU substep и выдаёт normalized contacts/state; adapter сортирует contacts по ADR-013 tuple `(tick, substep, min(body_a, body_b), max(body_a, body_b), contact_feature_id)`.
+7. Outcome resolver использует contact continuity для suppress repeated-hit/resting-contact exploits и предлагает `Outcome` WorldCommand для общего stage-9 validator ADR-012; контакт сам не меняет health/quest, а backend callback не коммитит gameplay.
 8. Pose bridge публикует RenderPose, telemetry и replay hash.
 
 LLM, `ai-host`, network и filesystem запрещены на шагах 3–7. Default profile использует 120 Hz physics и 60 Hz motor inference; PD/safety layer применяет последний принятый MotorAction на промежуточном physics substep. ONNX Runtime CPU provider — `Proposed` для small in-process policy. Inference deadline на reference CPU: p99 ≤0.5 ms/avatar/inference или ≤2 ms для batch из 16 vertical policies; miss использует last-safe action не дольше 2 motor intervals, затем recovery controller.

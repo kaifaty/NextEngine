@@ -3,14 +3,14 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-004 |
-| Статус | Accepted |
-| Версия | 1.0 |
+| Статус | Superseded |
+| Версия | 1.0.1 |
 | Владелец | Physical Embodiment Team |
 | Дата решения | 2026-07-22 |
-| Последняя проверка evidence | 2026-07-22 |
-| Нормативные зависимости | [SPEC-05](../05-physics-animation-and-motor-control.md), [physical-avatar research](https://github.com/kaifaty/OpenGothic/blob/c56e15f1fa68430eaa618dcc892edc00bff6209d/docs/physical-avatar-research-spec.md) |
+| Последняя проверка evidence | 2026-07-23 |
+| Нормативные зависимости | [SPEC-05](../05-physics-animation-and-motor-control.md) |
 | Заменяет | отсутствует |
-| Заменён | не заменён |
+| Заменён | [ADR-013](013-self-contained-physical-avatar-boundary.md) |
 
 ## Контекст
 
@@ -48,4 +48,4 @@ Character gameplay взаимодействует только через `Physi
 
 ## Supersession
 
-Изменение physics ownership или удаление visual evidence requirements требует нового ADR. Замена backend по одинаковому contract оформляется новым ADR реализации.
+Packet 1.5 заменил это решение self-contained boundary [ADR-013](013-self-contained-physical-avatar-boundary.md). Исторический backend rationale сохранён; новые normative зависимости и изменения physical ownership определяются только ADR-013 либо будущим superseding ADR.

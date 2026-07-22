@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-06 |
 | Статус | Accepted |
-| Версия | 1.2 |
-| Владелец | Agent Intelligence Team |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md) |
+| Версия | 1.3 |
+| Владелец | Repository Owner |
+| Последняя проверка | 2026-07-23 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
@@ -109,7 +109,7 @@ Process получает минимальный serialized context, не filesys
 | AI-01 | same 100 scenarios with ai-host disabled | 100% gameplay/quest completion correctness; no blocked tick > gameplay budget | replay + outcome report | built-in planner/dialogue fallback fix |
 | AI-02 | kill/restart/timeout/malformed injection | 1 000 injections; 0 crash, 0 duplicate committed command, fallback selected ≤1 gameplay tick after deadline signal | fault report | circuit-break ai-host |
 | AI-03 | adversarial intents/fact staleness | 100% forbidden/stale mutations rejected, 0 direct state writes | validator audit | release block |
-| AI-04 | hierarchy timing with 100 NPC | tactical/planner p95 ≤1 ms/NPC amortized per gameplay tick on reference CPU; no LLM wait in tick traces | profile | reduce planning frequency/LOD |
+| AI-04 | ADR-016 deterministic 100-NPC workload | весь due agent-planning work, queue handling и deterministic deferral помещаются в exclusive row p95 ≤1 250 us / p99 ≤1 500 us; exact membership/phase/due trace; no starvation, dropped work, LLM wait or unowned span | GameplayBudgetMatrix/workload hashes, per-tick due/queue/span trace | reduce deterministic planning cadence/LOD; integrated PERF-01 remains blocking |
 | MEMORY-P1 | SQLite candidate crash/compaction/migration corpus | 100% committed records recovered; canonical query parity exact; 1M records, indexed query p95 ≤20 ms; corruption fail-closed | DB fixtures/report | append-only log + compacted indexes |
 | AI-05 | restart save/load with and without embeddings | authoritative memory/relationship/narrative hashes exact; outputs remain schema-valid | save/replay report | rebuild/disable embeddings |
 | AI-06 | package affordance discovery | все planner-visible abilities exact MechanicsLock доступны по capability; added fixture ability используется без AI code change; invalid/stale affordance 100% rejected | registry/planner/replay report | manual-only ability/fix package |

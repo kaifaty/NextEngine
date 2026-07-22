@@ -3,19 +3,19 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-014 |
-| Статус | Proposed |
-| Версия | 0.1 |
+| Статус | Accepted |
+| Версия | 1.0 |
 | Владелец | RPG Framework Team + Security & Governance Team |
 | Требуемые согласующие | Architecture Working Group, RPG Framework Team, Gameplay Extensibility Team, Security & Governance Team |
-| Дата предложения | 2026-07-22 |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-006](006-scripting-and-plugin-model.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md) |
-| Заменяет | [ADR-006](006-scripting-and-plugin-model.md) после принятия packet 1.5 |
+| Дата решения | 2026-07-23 |
+| Последняя проверка | 2026-07-23 |
+| Нормативные зависимости | [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md) |
+| Заменяет | [ADR-006](006-scripting-and-plugin-model.md) |
 | Заменён | не заменён |
 
-## Статус предложения
+## История принятия
 
-Этот ADR не меняет действующий extension contract packet 1.4 до approval. После принятия он сохраняет разделение Luau/Wasm, capability-scoped immutable views и validated command sink ADR-006, но делает overrun и trust outcomes воспроизводимыми.
+ADR принят атомарно в packet 1.5 и заменяет ADR-006. Он сохраняет разделение Luau/Wasm, capability-scoped immutable views и validated command sink, делая overrun и trust outcomes воспроизводимыми. Принятие contract не объявляет SCRIPT/PLUGIN/MOD gates пройденными.
 
 ## Контекст
 
@@ -84,6 +84,6 @@ Window вычисляется по simulation tick. На tick нового viola
 
 `SCRIPT-P5` использует одинаковый command corpus и expected authoritative ledger на idle, saturated non-authoritative worker pool и varied host scheduling. Instruction/fuel/allocation outcomes должны совпасть exact. Injected wall trip должен всегда дать `NonConforming`, а не gameplay outcome.
 
-## Последствия и синхронизация при принятии
+## Последствия и синхронизация
 
-После approval ADR-006 становится `Superseded`; SPEC-07, SPEC-11, SPEC-13, SCRIPT/PLUGIN/MOD/VS-06 rows, glossary и traceability обновляются атомарно. Конкретные Luau/Wasmtime/signature libraries остаются replaceable choices за engine-owned contract. До transition этот ADR остаётся `Proposed/AwaitingReview`.
+Packet 1.5 присвоил ADR-006 статус `Superseded`; SPEC-07, SPEC-11, SPEC-13, SCRIPT/PLUGIN/MOD/VS-06 rows, glossary и traceability обновлены атомарно. Конкретные Luau/Wasmtime/signature libraries остаются replaceable choices за engine-owned contract.

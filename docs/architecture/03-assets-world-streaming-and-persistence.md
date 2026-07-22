@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 1.3 |
-| Владелец | Asset & Persistence Team |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-007](adr/007-identities-persistence-and-replay.md) |
+| Версия | 1.4 |
+| Владелец | Repository Owner |
+| Последняя проверка | 2026-07-23 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-012](adr/012-deterministic-command-identity-and-replay.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
@@ -37,7 +37,7 @@ game / headless / inspectors
 ## Cooking и content addressing
 
 - Cooker input включает exact source hashes, importer/tool versions, schema versions, target profile и deterministic options.
-- Canonical serialization MUST нормализовать ordering, floating representation policy, paths/case и locale.
+- Public/policy/evidence manifests MUST использовать RFC 8785 JCS, а authoritative numeric/state segments — `CanonicalBinaryV1` из ADR-012. Canonicalization MUST нормализовать ordering, semantic negative zero, paths/case и NFC strings; duplicate keys, NaN/infinity и case-fold path collisions rejected.
 - Bundle key MUST включать SHA-256 canonical payload. Published bundle immutable; изменение создаёт новый hash.
 - Publish MUST быть atomic: staging → validate hashes/dependencies/license manifest → rename/index commit.
 - Equal canonical inputs на Windows/Linux MUST давать byte-identical platform-neutral bundles. Platform-specific GPU/audio payload MAY различаться, но имеет отдельный target key и deterministic hash.
@@ -50,7 +50,7 @@ Chunk становится `Active` только на simulation commit point п
 
 ## Persistence
 
-`SaveManifest` MUST содержать engine/game build identity, project ID, schema registry hash, content manifest hash, exact MechanicsLock hash/package-state schemas, tick/time settings, loaded chunk revisions, RNG stream states, physical archetype/model catalog/active route hashes, PolicyState schemas, plugin/script hashes и ordered segment table. Каждый segment имеет owner, schema/version, byte length и SHA-256. SkillProficiency находится в RPG segment; transition/PolicyState — в Motor Runtime segment; immutable weights в save запрещены.
+`SaveManifest` MUST содержать engine/game build identity, project ID, schema registry hash, content manifest hash, exact MechanicsLock hash/package-state schemas, tick/time settings, loaded chunk revisions, RNG stream states, physical archetype/model catalog/active route hashes, PolicyState schemas, plugin/script hashes, каждый command-stream ledger и ordered segment table. Каждый segment имеет owner, schema/version, byte length и ADR-012 domain-separated SHA-256. SkillProficiency находится в RPG segment; transition/PolicyState — в Motor Runtime segment; immutable weights в save запрещены.
 
 Save procedure: freeze logical commit point → snapshot owner segments → write new staging save → fsync files/manifest where platform permits → validate → atomic pointer update. Autosave MUST NOT перезаписывать единственную известную валидную generation.
 
@@ -58,7 +58,7 @@ Migration является pure ordered transform `N → N+1` с fixture tests. 
 
 ## Replay
 
-`ReplayManifest` фиксирует initial save/snapshot, seed streams, content/build/schema/physical-archetype/model/policy-route/plugin/MechanicsLock hashes и canonical accepted external WorldCommand stream. Runtime-generated events, включая ActivePolicyRouteChanged, сохраняются как optional oracle. Replay runner MUST сравнивать per-tick state hash и указывать first divergence.
+`ReplayManifest` фиксирует initial save/snapshot, seed streams, content/build/schema/physical-archetype/model/policy-route/plugin/MechanicsLock hashes, `CommandStreamId`/principal ledgers и canonical accepted external WorldCommand stream. Runtime-generated events, включая ActivePolicyRouteChanged, сохраняются как optional oracle. Replay runner MUST сравнивать ADR-012 per-tick state root, exact command/rejection/event outcomes и указывать first divergence. Cross-target tolerance не применяется к IDs, commands, events, manifests или gameplay outcomes.
 
 ## Public boundaries
 
@@ -82,10 +82,10 @@ Scenario fixtures MAY быть cooked content bundles с neutral/generated asset
 
 | Gate | Сценарий | Threshold | Evidence | Fallback/rollback |
 |---|---|---|---|---|
-| ASSET-01 | cook same fixture twice на Win/Linux | platform-neutral artifacts byte-identical; cache second run ≥90% hits | manifests, hashes, timing JSON | blocking canonicalization fix |
+| ASSET-01 | cook same fixture twice на Win/Linux | platform-neutral artifacts byte-identical по `CANON-01`; cache second run ≥90% hits | manifests, raw-byte hashes, timing JSON | blocking canonicalization fix |
 | ASSET-02 | malformed/cyclic/missing deps corpus | 100% classified diagnostics; 0 partial publish | validator report | quarantine input |
 | STREAM-01 | 10 000 randomized load/unload cycles | 0 duplicate IDs/leaks/dangling active refs; p99 commit ≤2 gameplay ticks after I/O ready | memory + resolver report | reduce concurrent requests |
 | SAVE-01 | power-failure injection at every write boundary | одна из двух валидных generations загружается в 100% points | fault matrix | retain prior generation |
 | SAVE-02 | migration fixtures N-2,N-1,N + corrupt cases | valid fixtures exact expected hash; invalid 100% fail-closed | migration report | require older executable/export tool |
-| REPLAY-01 | 100 vertical fixtures | exact first-party state hashes/events на same target triple | replay report | release blocking |
+| REPLAY-01 | 100 vertical fixtures | exact accepted command ledgers/rejections/events/outcomes; state roots exact на same target triple, first divergence stable-coded | replay report, command ledgers | release blocking |
 | CONTRACT-01 | importer/editor/game/headless schema compatibility | 100% same schema registry; 0 source parser link in runtime | SBOM/link map/schema report | blocking package split |

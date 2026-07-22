@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 1.0 |
-| Владелец | Verification & Evidence Team |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md) |
+| Версия | 1.1 |
+| Владелец | Repository Owner |
+| Последняя проверка | 2026-07-23 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-015](adr/015-evidence-trust-fixture-separation-and-attestation.md) |
 | Заменяет | отсутствует |
 
 ## Назначение и invariants
@@ -27,13 +27,13 @@ Testability является свойством production architecture: scenari
 | Capture request | Immutable `CaptureJobManifest` | worker-local defaults |
 | Evidence completeness | `EvidenceBundleManifest` + verified artifact hashes | CI green label |
 | Approved baseline | `EvidenceBaselineManifest` + human attestation | generated candidate files |
-| Qualitative decision | Immutable `HumanReviewDecision` от authorized reviewer | agent text, unsigned comment |
+| Qualitative decision | JCS-canonical `HumanReviewDecisionV1` + valid `AttestationEnvelopeV1` от authorized reviewer | agent text, unsigned comment, bundle-supplied trust root |
 
 Verification & Evidence Team владеет schemas, runner orchestration semantics, impact resolver, artifact roles и gates. Subsystem owner владеет assertions/thresholds своего behavior. Release Engineering принимает root evidence; Security & Governance владеет reviewer trust/redaction policy.
 
 ## Public boundary и data flow
 
-Public contracts: `VerificationPolicyManifest`, `TestScenarioManifest`, `ScenarioAction`, `ProbeSpec`, `AssertionSpec`, `ChangeImpactManifest`, `OffscreenPresentationTarget`, `CapturePlan`, `CaptureJobManifest`, `EvidenceBaselineManifest`, `EvidenceBundleManifest` и `HumanReviewDecision`.
+Public contracts: `VerificationPolicyManifest`, `TestScenarioManifest`, `ScenarioAction`, `ProbeSpec`, `AssertionSpec`, `ChangeImpactManifest`, `OffscreenPresentationTarget`, `CapturePlan`, `CaptureJobManifest`, `EvidenceBaselineManifest`, `EvidenceBundleManifest`, `HumanReviewDecisionV1`, `AttestationEnvelopeV1`, `ProjectTrustAnchorV1`, `ReviewerTrustManifestV1` и `ReviewerRevocationSnapshotV1`.
 
 ```text
 AgentChangeSet
@@ -42,7 +42,7 @@ AgentChangeSet
   → optional CaptureJobManifest → displayless GPU worker
   → raw frame/audio roots → MediaEncoder derivatives
   → EvidenceBundleManifest → automatic admission gate
-  → offline review dossier → HumanReviewDecision
+  → offline review dossier → HumanReviewDecisionV1 + AttestationEnvelopeV1
   → exact changeset admission or rejection
 ```
 
@@ -79,6 +79,12 @@ Manifest MUST содержать:
 `MechanicTestScenario` из SPEC-13, physical suites SPEC-05/14 и vertical scenario SPEC-12 являются specializations одного runner/schema registry.
 
 Scenario initialization выполняется cooker/fixture loader до first tick. После старта разрешены только timestamped virtual production input, validated WorldCommand/MechanicCommand proposals, process/device/adaptor fault controls и lifecycle commands. Fault adapter заменяется только в composition root и не открывает arbitrary state mutation.
+
+### Split-fixture profiles
+
+`vertical-v1-import-smoke` использует user-provided installation только во временном isolated root и публикует sanitized provenance/hash metadata, validator/load projection и source-access trace. Imported/NIM/cooked bytes, source paths/strings и capture media не могут попасть в publishable evidence. Cleanup/quarantine MUST завершиться до VS-09 и исключить root из repository/cache/build/package/final/evidence/capture access.
+
+`vertical-v1-neutral` — единственный fixture class для VS-02…VS-15, screenshots/video/audio и human review. Он имеет recorded CC0-1.0 provenance и не зависит от imported structure/bytes/hashes. Смешанный bundle rejected как `EVIDENCE_FIXTURE_CLASS_MIXED`; import smoke и neutral suite имеют отдельные RunManifest roots.
 
 ## ScenarioAction, probes и assertions
 
@@ -169,14 +175,16 @@ Artifacts хранятся под explicit `--artifact-root` content-addressed l
 
 `next review bundle` создаёт self-contained offline dossier с root `index.html`: no external network/resources, exact changeset summary, impact reasons, automatic gate status, metrics, synchronized media, failure/minimized replay links и baseline diff. Untrusted diagnostic/content strings escaped; scripts/assets embedded с declared hashes.
 
-`HumanReviewDecision` содержит schema/version, `Approved|Rejected|NeedsChanges`, reviewer identity/role, base/candidate/AgentChangeSet/EvidenceBundle/Baseline hashes, reviewed artifact list, reason codes/comment, UTC metadata и SPEC-11 attestation envelope.
+`HumanReviewDecisionV1` — JCS-canonical payload с schema/version, project identity, `Approve|Reject`, reviewer role, unique decision ID/reason code/issued-at UTC и exact changeset/commit-or-diff/EvidenceBundle/Baseline-or-no-baseline/VerificationPolicy/ImpactResolver/fixture/automatic-summary hashes. Reviewed artifact list и display comment являются projections и не меняют canonical payload.
+
+`AttestationEnvelopeV1` связывает payload hash с trust-policy, `ReviewerTrustManifestV1` и `ReviewerRevocationSnapshotV1` hashes через domain-separated Ed25519 preimage ADR-015. Offline verifier получает `ProjectTrustAnchorV1` из project/release policy, а не из bundle; проверяет canonical encoding, project/hash closure, role/scope/category, decision time, key validity/rotation, snapshot freshness и revocation/compromise. Конкретная crypto library не является public contract или Accepted technology row.
 
 Decision rules:
 
 1. every automatic required gate MUST be PASS;
 2. bundle/hash/redaction verification MUST pass;
-3. reviewer role MUST be granted by VerificationPolicyManifest;
-4. reviewer attestation credential MUST be inaccessible to agent workspace;
+3. reviewer role MUST быть разрешён одновременно VerificationPolicyManifest и valid offline ReviewerTrustManifest;
+4. reviewer attestation credential MUST быть inaccessible to agent workspace; signer получает canonical unsigned payload и возвращает только envelope/public chain;
 5. only `Approved` admits exact changeset;
 6. any input/artifact/policy/baseline hash change invalidates decision;
 7. human cannot waive automatic failure or missing required evidence;
@@ -194,7 +202,7 @@ Decision rules:
 - GPU/encoder crash or quota overflow → no atomic publish; preserve prior valid generation.
 - Missing/stale baseline → generate candidate only; review remains blocked.
 - Missing/tampered/inaccessible evidence → reject bundle/decision.
-- Agent/unsigned/unauthorized/stale review → reject decision; changeset unchanged.
+- Agent/unsigned/unauthorized/stale/revoked/wrong-scope review → reject decision; changeset unchanged.
 - Automatic gate failure with human approval attempt → reject approval as `AUTO_GATE_NOT_PASS`.
 - Redaction/protected-data/HTML/media validation failure → quarantine bundle before human viewing.
 
@@ -208,8 +216,10 @@ Decision rules:
 | DIAG-01 | 100 injected command/state/process/backend failures | stable owner/code and first divergence for 100%; minimized replay reproduces same code 100%; original preserved | diagnostics, original/minimized replays, causal report | original replay/manual code diagnosis; gate fails until contract fixed |
 | AGENT-03 | cold agent fixes seeded mechanic and visual regression | uses only AuthoringContextBundle/CLI/JSON; agent-fast target ≤5 min, ordinary changeset compute target ≤30 min; no private source/runtime UI/test omission | changesets, command transcript, impact/diagnostic/evidence manifests | fix context/diagnostics; reviewed manual CLI workflow |
 | CAPTURE-01 | exact replay null vs displayless Vulkan worker, two repeated captures | gameplay hashes exact; normalized raw frame/audio root exact on pinned worker; 0 X11/Wayland/window/swapchain calls; atomic output after injected device crash | replay/state hashes, frame/audio roots, API/socket trace, crash matrix | retain CPU evidence; AwaitingCapability/alternate passing worker |
-| MEDIA-P1 | pinned MediaEncoder canonical corpus Win/Linux | ADR-010 threshold; valid required GIF/MP4 and exact decoded stream structure; 0 network | encoder/SBOM/license/decoded-stream reports, hashes | PNG/WAV + engine GIF; MP4-required review awaits adapter |
+| MEDIA-P1 | pinned MediaEncoder canonical corpus Win/Linux | ADR-015 threshold; valid required GIF/MP4 and exact decoded stream structure; 0 network | encoder/SBOM/license/decoded-stream reports, hashes | PNG/WAV + engine GIF; MP4-required review awaits adapter |
 | EVIDENCE-01 | complete + missing/tampered/oversized/redaction corpus | 100% valid bundles verify; 100% invalid cases rejected/quarantined; atomic manifest publication | bundle validator/fault/privacy report | retain previous valid bundle; regenerate |
 | REVIEW-01 | observable/non-observable changes, approve/reject/needs-changes, stale/tampered/agent decisions | 100% observable changes blocked without valid human approval; automatic FAIL never approved; valid decision admits exact hash only; any hash change invalidates | policy/decision/audit/tamper report | keep changeset blocked; new evidence/review |
+| REVIEW-02 | canonical payload/envelope/offline trust corpus | exact authorized decision accepted; 100% wrong project/hash/role/scope/time/key/rotation/revocation/canonicalization and agent/test-key cases rejected | payload/envelope/trust manifests, tamper/rotation/revocation report | keep changeset blocked; issue fresh authorized decision |
+| PRIVACY-02 | import-smoke cleanup + neutral evidence/mixed fixture corpus | 0 protected bytes in prohibited roots; 100% mixed fixture/failed cleanup/quarantine cases rejected before bundle publication | fixture provenance, source-access/cleanup/scanner audit | quarantine run; retain no publishable bundle |
 
 Verification & Evidence Team владеет TEST/HEADLESS/IMPACT/DIAG/CAPTURE/EVIDENCE gates; Developer Experience co-owns AGENT-03, Rendering/Audio co-own CAPTURE/MEDIA, Security & Governance co-owns MEDIA/EVIDENCE/REVIEW. Release Engineering принимает root artifacts.

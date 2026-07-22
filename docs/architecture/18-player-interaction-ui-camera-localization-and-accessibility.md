@@ -5,7 +5,7 @@
 | ID | SPEC-18 |
 | Статус | Proposed |
 | Версия | 0.1 |
-| Владелец | Player Experience Team |
+| Владелец | Repository Owner |
 | Требуемые согласующие | Architecture Working Group, Rendering Team, Runtime Team, RPG Framework Team, Developer Experience Team, Verification & Evidence Team, Security & Governance Team |
 | Последняя проверка | 2026-07-22 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-006](adr/006-scripting-and-plugin-model.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md) |

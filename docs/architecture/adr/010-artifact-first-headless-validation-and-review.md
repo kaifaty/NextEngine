@@ -3,13 +3,14 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-010 |
-| Статус | Accepted |
-| Версия | 1.0 |
+| Статус | Superseded |
+| Версия | 1.0.1 |
 | Владелец | Architecture Working Group + Verification & Evidence Team |
 | Дата решения | 2026-07-22 |
-| Последняя проверка | 2026-07-22 |
+| Последняя проверка | 2026-07-23 |
 | Нормативные зависимости | [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-11](../11-security-licensing-and-governance.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md) |
 | Заменяет | отсутствует |
+| Заменён | [ADR-015](015-evidence-trust-fixture-separation-and-attestation.md) |
 
 ## Контекст
 
@@ -61,4 +62,4 @@ FFmpeg CLI — `Proposed` external tool adapter, не runtime dependency и не
 
 ## Supersession
 
-Artifact-only acceptance, review authority, observable-category policy или automatic-gate precedence меняются только новым ADR. Encoder implementation и worker scheduler MAY меняться за same manifests/gates без изменения этого решения.
+Packet 1.5 заменил это решение [ADR-015](015-evidence-trust-fixture-separation-and-attestation.md), сохранив artifact-first acceptance и automatic-gate precedence и добавив split-fixture/offline-attestation trust closure. Дальнейшее изменение этих semantics требует нового superseding ADR.

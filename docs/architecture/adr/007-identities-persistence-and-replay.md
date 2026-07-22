@@ -3,14 +3,14 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-007 |
-| Статус | Accepted |
-| Версия | 1.0 |
+| Статус | Superseded |
+| Версия | 1.0.1 |
 | Владелец | Runtime & Persistence Teams |
 | Дата решения | 2026-07-22 |
-| Последняя проверка evidence | 2026-07-22 |
+| Последняя проверка evidence | 2026-07-23 |
 | Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md) |
 | Заменяет | отсутствует |
-| Заменён | не заменён |
+| Заменён | [ADR-012](012-deterministic-command-identity-and-replay.md) |
 
 ## Контекст
 
@@ -41,4 +41,4 @@ Runtime MUST поддерживать resolver PersistentId↔RuntimeEntityId, d
 
 ## Supersession
 
-Изменение ID width/meaning, fail-closed model или replay source требует нового ADR и migration plan.
+Packet 1.5 заменил это решение [ADR-012](012-deterministic-command-identity-and-replay.md), сохранив stable-ID/fail-closed semantics и уточнив causal command identity, encoding и replay ledger. Дальнейшее изменение требует нового superseding ADR и migration plan.

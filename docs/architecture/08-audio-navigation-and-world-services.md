@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-08 |
 | Статус | Accepted |
-| Версия | 1.1 |
-| Владелец | World Services Team |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md) |
+| Версия | 1.2 |
+| Владелец | Repository Owner |
+| Последняя проверка | 2026-07-23 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-016](adr/016-compositional-gameplay-budgets.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
@@ -78,7 +78,7 @@ Audio HumanReviewRequired capture использует тот же deterministic
 |---|---|---|---|---|
 | NAV-P1 | Recast deterministic tiled cook Win/Linux | byte-identical neutral nav tiles и query results для 1 000 start/goal pairs | hashes/query report | engine-owned graph nav for slice |
 | NAV-P2 | door/off-mesh/push/stuck/stream tests | 100% stale paths rejected; ≥99% bounded fixtures reach or return correct no-path; no teleport | replay + traversal video | replan/graph adapter |
-| NAV-P3 | 100 agents, 10 Hz planning | query p95 ≤2 ms/agent amortized, total p95 ≤8 ms reference CPU using budgets/cache | profile | lower planning LOD/frequency |
+| NAV-P3 | ADR-016 deterministic 100-NPC workload | весь due navigation work/queue handling помещается в exclusive row p95 ≤1 250 us / p99 ≤1 500 us; membership/phase/due trace exact; bounded deterministic deferral, no starvation/drop/unowned span | GameplayBudgetMatrix/workload hashes, query/due/queue/starvation spans | lower deterministic navigation cadence/LOD; integrated PERF-01 remains blocking |
 | AUDIO-P1 | baseline + Steam candidate matrix | baseline always plays; optional adapter acoustic reference error within scenario tolerance, device-loss recovery ≤5 s; 0 gameplay hash differences | audio captures/metrics/replay | baseline attenuation/panning/zones |
 | AUDIO-L1 | Steam Audio license/redistribution review | written approval for exact version/artifacts/platform distribution | legal record/SBOM | do not ship adapter |
 | WORLD-01 | calendar/weather/reservation save/replay | exact state/event hashes across 100 fixtures | replay report | release block |

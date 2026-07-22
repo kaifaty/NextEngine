@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-02 |
 | Статус | Accepted |
-| Версия | 1.1 |
-| Владелец | Runtime Team |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-007](adr/007-identities-persistence-and-replay.md) |
+| Версия | 1.2 |
+| Владелец | Repository Owner |
+| Последняя проверка | 2026-07-23 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-012](adr/012-deterministic-command-identity-and-replay.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
@@ -23,6 +23,8 @@ Core runtime владеет tick clocks, entity residency, RuntimeEntityId mappi
 | `AssetId` | opaque 128-bit logical identifier | между recook; revision через manifest | authoring/cooked/runtime public contracts |
 
 Неявные conversions запрещены. Resolver MUST обнаруживать absent, unloaded, tombstoned и duplicate PersistentId как разные outcomes. Imported IDs используют namespace derived из importer schema ID + source logical identity, а не путь пользователя.
+
+Runtime-created durable object получает `PersistentId` только из `world_namespace`, causal `command_id`, canonical `spawn_slot` и versioned `record_kind` по ADR-012. Exact retry идемпотентно возвращает тот же ID; tombstone запрещает reuse, а совпадение с иной provenance завершает instance как `PERSISTENT_ID_COLLISION`. Explicit ID разрешён только validated cooker/import/load/migration boundary и недоступен script/plugin/AI/scenario input.
 
 ## Runtime data flow
 
@@ -48,12 +50,12 @@ Tick rates и divisors MUST входить в project/save/replay manifests. Run
 1. ingest timestamped local input и completed async proposals;
 2. authenticate/capability check command candidates;
 3. validate schema, target, preconditions и RPG rules;
-4. stable-sort accepted WorldCommand по `(target_tick, priority_class, issuer_id, sequence)`;
-5. apply commands в transaction и emit ordered DomainEvent;
+4. выполнить ADR-012 admission/deduplication и sort `Ingress` commands по `(target_tick, phase, priority_class, issuer_tag, issuer_id_bytes, sequence, command_id)`;
+5. атомарно apply `Ingress` transaction и emit ordered DomainEvent;
 6. perception/world-service update;
 7. deterministic agent planning и PhysicalAvatarIntent generation;
 8. physics/motor substeps, contact normalization и physical outcomes;
-9. post-physics RPG resolution (damage, interaction completion) через внутренние commands;
+9. сформировать один закрытый `Outcome` batch внутренних commands, пропустить его через тот же validator/order/transaction и запретить same-tick re-entry;
 10. despawn/spawn commit и PersistentId resolver update;
 11. save/replay delta + state hash;
 12. immutable PresentationSnapshot publication.
@@ -64,9 +66,11 @@ Systems внутри stage MAY работать параллельно толь�
 
 ### WorldCommand envelope
 
-Envelope MUST содержать `schema_id`, `schema_version`, `command_id`, `issuer`, `target_tick`, optional target PersistentId, deterministic payload, declared capabilities и precondition revision. Validator возвращает `Accepted{canonical_command}` либо stable rejection code; исключения/строки backend не являются contract.
+Envelope MUST содержать `schema_id`, `schema_version`, `command_id`, closed tagged `IssuerPrincipal`, `CommandStreamId`, monotonic per-stream/principal `sequence`, `target_tick`, `phase`, optional target PersistentId, deterministic payload, declared capabilities и precondition revision. `priority_class` назначает validator из versioned command-kind registry; input не выбирает priority. `command_id`, `CanonicalBinaryV1` bytes, collision/reuse/deduplication и полный sort tuple определены ADR-012. Validator возвращает `Accepted{canonical_command}` либо stable rejection code; исключения/строки backend не являются contract.
 
 Command применён атомарно: либо все owned component mutations и events committed, либо ни одно. Command handler MUST NOT выполнять blocking I/O, LLM call или asset load.
+
+Ledger последнего committed `(CommandStreamId, IssuerPrincipal, sequence, command_id)` является authoritative state и входит в snapshot/save/replay. Arrival order, transport batch, process/worker order и wall clock не могут менять admission или commit result. `Outcome` может быть создан только authenticated `InternalSystem`; proposal из `Outcome` переносится минимум на следующий tick, а повторный stage-9 entry даёт `OUTCOME_REENTRY_FORBIDDEN`.
 
 ### DomainEvent
 
@@ -110,5 +114,8 @@ Facade предоставляет query/system registration, declared read/write
 | RUNTIME-03 | async completion permutations, 1 000 runs | final state exact; stale results 100% rejected | permutation report | serialize commit queue |
 | RUNTIME-04 | public boundary scan | 0 RuntimeEntityId в serialized/WIT/Luau/IPC schemas; 0 Bevy/vendor public types | schema/API scan | blocking boundary refactor |
 | RUNTIME-05 | production vs scenario control-plane scan | 100% scenario mutations проходят VirtualInputEvent/validated command/lifecycle/declared fault adapter; 0 mutable ECS/backend test API; probes preserve exact state hash | API/architecture scan, replay/probe report | remove test backdoor; block merge |
+| RUNTIME-06 | command arrival/duplicate/collision/reuse/priority/Ingress-Outcome permutations | 100% corpus даёт exact accepted/rejected ledger, stage trace и state root; re-entry всегда `OUTCOME_REENTRY_FORBIDDEN` | versioned command corpus, ledgers, stage traces, state roots | blocking validator/order fix |
+| RUNTIME-07 | causal spawn retry/slots/tombstone/provenance collisions | 100% golden IDs exact; collision всегда fatal до alternate ID/mutation | spawn vectors, save/reload ledger, collision corpus | blocking identity/migration fix |
+| CANON-01 | JCS/CanonicalBinaryV1/path/domain/Merkle vectors Win/Linux | 100% bytes/hashes exact; invalid Unicode/float/key/path vectors rejected | neutral vectors, raw-byte/hash reports | blocking canonicalization fix |
 
 Runtime Team владеет gates; Release Engineering принимает artifacts.

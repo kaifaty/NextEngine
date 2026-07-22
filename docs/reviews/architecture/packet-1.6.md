@@ -26,24 +26,10 @@
 | cargo run -p xtask -- host-check | Pending | absent |
 | git diff --check | Pending | absent |
 
-## Required owner decisions
-
-| Required owner | Decision | Reviewer | Decision reference |
-|---|---|---|---|
-| Agent Intelligence Team | Pending | absent | absent |
-| Architecture Working Group | Pending | absent | absent |
-| Asset & Persistence Team | Pending | absent | absent |
-| Developer Experience Team | Pending | absent | absent |
-| RPG Framework Team | Pending | absent | absent |
-| Security & Governance Team | Pending | absent | absent |
-| Verification & Evidence Team | Pending | absent | absent |
-| World Services Team | Pending | absent | absent |
-
 ## Bootstrap capability decisions
 
 | Capability | Decision | Reviewer | Decision reference |
 |---|---|---|---|
-| architecture.approve | Pending | absent | absent |
-| baseline.promote | Pending | absent | absent |
+| architecture.promote | Pending | absent | absent |
 
 This record is intentionally Pending. Automatic verification cannot create or substitute a human decision.
