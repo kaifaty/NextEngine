@@ -3,12 +3,12 @@
 | Поле | Значение |
 |---|---|
 | ID | GLOSSARY-001 |
-| Статус | Accepted |
-| Версия | 1.4 |
+| Статус | Proposed |
+| Версия | 1.5 |
 | Владелец | Architecture Working Group |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | INDEX-001 |
-| Заменяет | отсутствует |
+| Нормативные зависимости | [INDEX-001](README.md) |
+| Заменяет | GLOSSARY-001 v1.4 после human approval exact candidate hash |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -25,7 +25,10 @@
 | **PersistentId** | Стабильный 128-bit opaque ID сущности или логического объекта между save/load, chunks и replay. Не кодирует ECS layout или vendor handle. |
 | **AssetId** | Стабильная ссылка на логический asset; конкретная cooked revision определяется manifest и content hash. |
 | **ContentHash** | SHA-256 канонических cooked bytes и параметров cooker, используемый для immutable bundle addressing. |
-| **WorldCommand** | Единственный валидируемый запрос на изменение authoritative gameplay state. Содержит schema version, issuer, target PersistentId, preconditions и deterministic payload. |
+| **WorldCommand** | Единственный валидируемый запрос на изменение authoritative gameplay state. Candidate содержит schema/version, `CommandIssuerId`, `issuer_sequence`, target/preconditions и deterministic payload; accepted form хранит canonical order key. |
+| **CommandIssuerId** | Stable engine-issued opaque 128-bit identity источника команд; canonical bytes участвуют в ordering и ledger, но не дают capability сами по себе. |
+| **CanonicalCommandOrderKey** | Exact tuple `(target_tick, priority_class, issuer_id, issuer_sequence, command_id)`, сохранённый в accepted command; priority выводится validator, sequence выдаёт issuer. |
+| **CommandPriorityRegistry** | Versioned engine-owned mapping schema/issuer capability → trusted priority class; hash входит в save/replay/schema manifests. |
 | **DomainEvent** | Неизменяемый факт об уже принятом изменении domain state. Не является альтернативным mutable API. |
 | **PresentationSnapshot** | Read-only снимок состояния для renderer/audio/UI/interpolation. Не может быть записан обратно как authoritative state. |
 | **AgentIntent** | Высокоуровневое намерение AI, ещё не имеющее права изменять мир. Проходит policy/rules validation и преобразуется в WorldCommand либо rejection. |
@@ -66,10 +69,16 @@
 | **CapturePlan** | Scenario-owned camera/audio/view/overlay/timeline/output specification для reproducible media. |
 | **CaptureJobManifest** | Portable immutable displayless worker job с exact base/candidate/content/replay/profile/CapturePlan hashes и artifact requirements. |
 | **EvidenceBaselineManifest** | Immutable human-approved scenario/profile/toolchain/content semantic/media reference; generated candidate не является approved baseline. |
+| **BaselineIndexManifest** | Immutable project mapping baseline key → approved EvidenceBaselineManifest hash + BaselinePromotionDecision hash; обновляется atomic compare-and-swap. |
+| **BaselinePromotionDecisionV1** | Human-attested `Bootstrap` или `Replace` exact baseline candidate с independent `baseline.promote` capability и previous-index precondition. |
+| **AttestationEnvelopeV1** | Domain-separated RFC 8785 JCS payload + RFC 8032 Ed25519 signature, algorithm/key ID и ReviewerTrustManifest hash. |
+| **ReviewerTrustManifest** | Immutable project trust chain reviewer public keys, capabilities, validity и revocation; private credentials в него не входят. |
+| **PublisherTrustManifest** | Отдельный от reviewer trust реестр package publisher keys/trust tiers/revocation. |
 | **EvidenceBundleManifest** | Root content-addressed closure, объединяющий automatic results, impact, diagnostics, replay, metrics, raw media roots, review artifacts и baselines. |
 | **HumanReviewDecision** | Attested immutable `Approved`, `Rejected` или `NeedsChanges`, привязанный к exact changeset/evidence/baseline hashes и authorized human role. |
 | **HumanReviewRequired** | Impact state, при котором successful automatic gates недостаточны и exact changeset требует valid HumanReviewDecision. |
 | **Capability** | Явно выданное право script/plugin/process на именованную операцию или data view. Default — deny. |
+| **PackageTrustTier** | `UnsignedLocal`, `SignedCommunity` или `OfficialRequired`; tier определяет install/distribution trust, но не отменяет sandbox или command validation. |
 | **MechanicPackageId** | Стабильный namespaced ID gameplay/mod package; версия и publisher identity являются отдельными полями. |
 | **MechanicPackageManifest** | Author-declared metadata, dependencies, capabilities, exports, state schemas/migrations, provenance, licenses и tests package. |
 | **MechanicsLock** | Generated exact package closure: versions, hashes, dependency/patch order, granted capabilities и schemas, используемые save/replay/runtime. |
@@ -82,11 +91,18 @@
 | **MechanicReducer** | Bounded deterministic Luau/Wasm function, преобразующая immutable context, command и own state в MechanicDeltaProposal. |
 | **MechanicDeltaProposal** | Неавторитетное предложение namespaced state patch, EffectRequests, future commands, event payloads и presentation cues; authoritative DomainEvent создаётся engine только после commit. |
 | **PackagePatch** | Явное изменение чужого definition с target ID/path, expected revision hash и conflict policy; не implicit file override. |
+| **GenerationRecipeManifest** | Versioned provider-neutral intent и typed constraints для concept/world/object/material/character generation; conversation history alone не является recipe. |
+| **GenerationJobManifest** | Immutable bounded request одному generation adapter с exact input hashes, capabilities, quotas, idempotency и atomic publication rule; credentials в него не входят. |
+| **GenerationResultManifest** | Terminal immutable record generation job с status, adapter/model metadata when reported, output hashes, diagnostics, redaction и reproducibility class. |
+| **GeneratedAssetProvenanceManifest** | Замкнутая цепочка author/source/reference/generator/transform/license/output-terms для generated candidate и всех производных. |
+| **AssetNormalizationManifest** | Audit record детерминированных transforms и technical/semantic validation, связывающий source candidate с exact NeutralAuthoringModel hash. |
+| **GenerationReproducibilityClass** | `RecipeDeterministic`, `ArtifactFixed` или `EphemeralPreview`: соответственно byte-reproducible recipe, immutable accepted bytes с deterministic downstream либо непубликуемый transient preview. |
 | **AuthoringContextBundle** | Замкнутый machine-readable SDK/context snapshot для человека или coding agent, привязанный к exact engine/project/package hashes. |
 | **AgentChangeSet** | Reviewable набор bounded edits/operations с base hashes, provenance, tests, risk flags, dry-run и atomic apply semantics. |
 | **AgentPolicy** | Project-owned правила разрешённых authoring roots/tools/budgets и условий automatic/reviewed AgentChangeSet apply. |
 | **PresentationCue** | Semantic non-authoritative запрос gameplay package на VFX/audio/UI/camera feedback. |
 | **ai-host** | Отдельный процесс для LLM, embeddings, ASR и TTS. Не участвует в deterministic simulation tick. |
+| **generation-worker** | Optional short-lived development process, исполняющий один bounded image/image-to-3D/procedural job и публикующий quarantined artifact/result atomically; не входит в runtime. |
 | **Headless runtime** | Тот же core/RPG runtime без renderer и интерактивного platform shell, предназначенный для validation, replay и tests. |
 | **Cooker** | Детерминированный tool, преобразующий validated NeutralAuthoringModel в immutable content-addressed bundles. |
 | **Conformance gate** | Воспроизводимая pass/fail проверка с владельцем, threshold, командой/сценарием и evidence artifacts. |

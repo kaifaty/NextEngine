@@ -4,11 +4,12 @@
 |---|---|
 | ID | ADR-006 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.0.1 |
 | Владелец | RPG Framework Team |
 | Дата решения | 2026-07-22 |
 | Последняя проверка evidence | 2026-07-22 |
-| Нормативные зависимости | [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-11](../11-security-licensing-and-governance.md) |
+| Нормативные зависимости | [ADR-001](001-product-repository-license-and-platforms.md) |
+| Связанные документы | [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-11](../11-security-licensing-and-governance.md), [ADR-015 candidate](015-luau-wasm-package-trust-v2.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 

@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-06 |
 | Статус | Accepted |
-| Версия | 1.2 |
+| Версия | 1.2.1 |
 | Владелец | Agent Intelligence Team |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md) |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md) |
+| Связанные документы | [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership

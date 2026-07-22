@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-05 |
 | Статус | Accepted |
-| Версия | 1.2 |
+| Версия | 1.2.1 |
 | Владелец | Physical Embodiment Team |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-004](adr/004-physics-avatar-backend-boundary.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [physical-avatar research](https://github.com/kaifaty/OpenGothic/blob/c56e15f1fa68430eaa618dcc892edc00bff6209d/docs/physical-avatar-research-spec.md) |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [ADR-004](adr/004-physics-avatar-backend-boundary.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [RESEARCH-001](research/physical-avatar-research-spec.md) |
+| Связанные документы | [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [research provenance](../../MIGRATION_PROVENANCE.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership

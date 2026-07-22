@@ -4,11 +4,12 @@
 |---|---|
 | ID | ADR-003 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.0.1 |
 | Владелец | Rendering Team |
 | Дата решения | 2026-07-22 |
 | Последняя проверка evidence | 2026-07-22 |
-| Нормативные зависимости | [ADR-001](001-product-repository-license-and-platforms.md), [SPEC-04](../04-rendering-and-platform.md) |
+| Нормативные зависимости | [ADR-001](001-product-repository-license-and-platforms.md) |
+| Связанные документы | [SPEC-04](../04-rendering-and-platform.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 

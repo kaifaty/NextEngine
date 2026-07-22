@@ -4,11 +4,12 @@
 |---|---|
 | ID | ADR-004 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.0.1 |
 | Владелец | Physical Embodiment Team |
 | Дата решения | 2026-07-22 |
 | Последняя проверка evidence | 2026-07-22 |
-| Нормативные зависимости | [SPEC-05](../05-physics-animation-and-motor-control.md), [physical-avatar research](https://github.com/kaifaty/OpenGothic/blob/c56e15f1fa68430eaa618dcc892edc00bff6209d/docs/physical-avatar-research-spec.md) |
+| Нормативные зависимости | [ADR-001](001-product-repository-license-and-platforms.md), [frozen physical-avatar research annex](../research/physical-avatar-research-spec.md) |
+| Связанные документы | [SPEC-05](../05-physics-animation-and-motor-control.md), [source provenance](../../../MIGRATION_PROVENANCE.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 

@@ -18,6 +18,19 @@ Only committed objects were read. Uncommitted files in the source worktree were 
 - Result branch: `main`
 - First standalone commit: contains packet 1.4, repository provenance, governance, and bootstrap workspace as one reviewed baseline
 
+## Frozen research annex
+
+Packet 1.5 candidate mechanically copies the committed source blob below without semantic edits:
+
+- Source repository: `https://github.com/kaifaty/OpenGothic.git`
+- Source commit: `c56e15f1fa68430eaa618dcc892edc00bff6209d`
+- Source path: `docs/physical-avatar-research-spec.md`
+- Source Git blob: `ae922aa2a182f14108ae364714dc86072ecccbe8`
+- Destination: `docs/architecture/research/physical-avatar-research-spec.md`
+- SHA-256: `90533ed15c4c1a5ef41a24f26f4d17cf8c59f467e07619316d3c9744f4d2d79b`
+
+The annex remains a frozen research input, not an Accepted Next Engine implementation decision. Its OpenGothic-specific names describe source provenance and do not cross the importer/runtime boundary.
+
 ## License origin
 
 The migrated documents were committed in the OpenGothic repository under its root MIT License, including the notice `Copyright (c) 2019 Try`. The standalone project uses Apache-2.0 for new engine code and documentation while retaining the MIT origin and notice for the migrated material in `THIRD_PARTY_NOTICES.md`.

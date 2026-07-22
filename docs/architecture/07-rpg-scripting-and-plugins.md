@@ -3,12 +3,13 @@
 | Поле | Значение |
 |---|---|
 | ID | SPEC-07 |
-| Статус | Accepted |
-| Версия | 1.2 |
+| Статус | Proposed |
+| Версия | 1.3 |
 | Владелец | RPG Framework Team |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-006](adr/006-scripting-and-plugin-model.md) |
-| Заменяет | отсутствует |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [ADR-015](adr/015-luau-wasm-package-trust-v2.md) |
+| Связанные документы | [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-006](adr/006-scripting-and-plugin-model.md) |
+| Заменяет | SPEC-07 v1.2 после human approval exact candidate hash |
 
 ## Source of truth и ownership
 
@@ -75,6 +76,17 @@ Wasmtime — Proposed backend. Component Model feature set pinned; preview/unsta
 
 Capabilities granular и namespaced, например `rpg.character.read`, `rpg.command.inventory.propose`, `events.quest.subscribe`, `ui.panel.register`. Capability не подразумевает дочерние права. Install-time grant пересекается с project policy и runtime context; denial возвращает stable code и audit record. Gameplay package не может делегировать capability другому package.
 
+## Package trust tiers
+
+Content hash обязателен для Luau и Wasm artifacts до загрузки. Trust tier не заменяет sandbox:
+
+- `UnsignedLocal` требует явного local consent, остаётся под untrusted capability ceiling и не может быть official/required distributed package;
+- `SignedCommunity` проверяется по project `PublisherTrustManifest`, но сохраняет обычный capability/budget contract;
+- `OfficialRequired` требует trusted non-revoked publisher signature exact manifest+artifact hash;
+- reviewer/baseline keys не принимаются как publisher keys.
+
+Unknown/revoked key, tamper, consent absence или privilege elevation отклоняются до world mutation. Optional package отключается изолированно; required package fail-closed блокирует world load.
+
 ## Data flow
 
 `DomainEvent/immutable query → package callback → budgeted computation → command candidate → common validator → accepted WorldCommand → RPG transaction`. Extension local state snapshot выполняется после command commit и имеет package schema/version/hash. Hot reload разрешён только tools/dev, отменяет in-flight callbacks и отмечает run non-release/replay-incompatible.
@@ -103,5 +115,6 @@ Capabilities granular и namespaced, например `rpg.character.read`, `rpg
 | PLUGIN-P3 | WIT N/N-1 negotiation | 100% declared matrix; N-2/major mismatch cleanly rejected | compatibility report | compatibility adapter/pin prior runtime |
 | PLUGIN-P4 | malicious component fuzz 24 CPU-hours | 0 sandbox escape/host panic/UB | fuzz report | plugin feature release-blocked |
 | PLUGIN-P5 | required/optional failure startup | optional project remains playable; required fails before world mutation with stable code | scenario report | remove/replace plugin |
+| TRUST-P1 | unsigned local consent/ceiling, signed community/official, tamper/unknown/revoked publisher corpus | 100% hashes/signatures verified; unsigned local never exceeds ceiling; unsigned official/required always rejected; signature не меняет sandbox outcome | trust/package manifests, consent/audit/capability traces | disable optional package; required package blocks world load; pin prior trusted revision |
 
 Mechanic package resolution, durable state, agent authoring и first-party shooting/magic gates определены SPEC-13. Physical skill/proficiency/policy routes дополнительно проходят SPEC-14; VM не создаёт альтернативный motor API.

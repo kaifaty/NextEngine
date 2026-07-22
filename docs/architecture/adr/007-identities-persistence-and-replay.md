@@ -4,11 +4,12 @@
 |---|---|
 | ID | ADR-007 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.0.1 |
 | Владелец | Runtime & Persistence Teams |
 | Дата решения | 2026-07-22 |
 | Последняя проверка evidence | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md) |
+| Нормативные зависимости | [ADR-001](001-product-repository-license-and-platforms.md) |
+| Связанные документы | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 

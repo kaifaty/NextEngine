@@ -4,12 +4,14 @@
 |---|---|
 | ID | ADR-010 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.0.1 |
 | Владелец | Architecture Working Group + Verification & Evidence Team |
 | Дата решения | 2026-07-22 |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-11](../11-security-licensing-and-governance.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md) |
+| Последняя проверка evidence | 2026-07-22 |
+| Нормативные зависимости | [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md) |
+| Связанные документы | [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-11](../11-security-licensing-and-governance.md), [ADR-014 candidate](014-artifact-first-review-baselines-and-attestation-v2.md) |
 | Заменяет | отсутствует |
+| Заменён | не заменён |
 
 ## Контекст
 

@@ -29,3 +29,5 @@ SOFTWARE.
 ```
 
 This notice does not cover Gothic game data or importer output. Those materials are not part of this repository.
+
+The same notice applies to the mechanically copied frozen research annex at `docs/architecture/research/physical-avatar-research-spec.md`. Its exact source commit, Git blob, destination and SHA-256 are recorded in `MIGRATION_PROVENANCE.md`.

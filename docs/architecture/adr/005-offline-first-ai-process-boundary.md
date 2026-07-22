@@ -4,11 +4,12 @@
 |---|---|
 | ID | ADR-005 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.0.1 |
 | Владелец | Agent Intelligence Team |
 | Дата решения | 2026-07-22 |
 | Последняя проверка evidence | 2026-07-22 |
-| Нормативные зависимости | [SPEC-01](../01-system-architecture.md), [SPEC-06](../06-ai-agents-perception-and-memory.md) |
+| Нормативные зависимости | [ADR-001](001-product-repository-license-and-platforms.md) |
+| Связанные документы | [SPEC-01](../01-system-architecture.md), [SPEC-06](../06-ai-agents-perception-and-memory.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 

@@ -27,3 +27,6 @@ unsafe_code = "forbid"
 dbg_macro = "deny"
 todo = "deny"
 unimplemented = "deny"
+
+[workspace.metadata.nextengine.ffi]
+allowed_crates = []

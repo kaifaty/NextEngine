@@ -8,6 +8,7 @@
 /imported-installations/
 /media/
 /incubator/gothic-importer/
+/.codex-artifacts/
 
 .DS_Store
 *.onnx

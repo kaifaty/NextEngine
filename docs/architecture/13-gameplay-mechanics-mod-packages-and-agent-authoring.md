@@ -3,12 +3,13 @@
 | Поле | Значение |
 |---|---|
 | ID | SPEC-13 |
-| Статус | Accepted |
-| Версия | 1.2 |
+| Статус | Proposed |
+| Версия | 1.3 |
 | Владелец | Gameplay Extensibility Team |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md) |
-| Заменяет | отсутствует |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-artifact-first-review-baselines-and-attestation-v2.md), [ADR-015](adr/015-luau-wasm-package-trust-v2.md) |
+| Связанные документы | [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-16](16-ai-assisted-world-and-asset-generation.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md), [ADR-017](adr/017-artifact-first-ai-content-generation.md) |
+| Заменяет | SPEC-13 v1.2 после human approval exact candidate hash |
 
 ## Назначение и product invariants
 
@@ -80,6 +81,8 @@ Official package status MAY выдавать более высокий declared 
 - exported creature/physical/policy/skill assets, model provenance и certification claims when present; claims валидируются SPEC-14 и не следуют из package signature.
 
 `MechanicsLock` является generated immutable resolution: exact package versions/hashes, dependency graph, enabled features, granted capabilities, patch order, schema/migration versions и package source. Runtime MUST NOT resolve floating ranges. Dependency cycle, missing required dependency, hash mismatch или incompatible exclusive extension point fails before world mutation.
+
+Каждый package artifact проходит trust policy SPEC-07/ADR-015: `UnsignedLocal` требует explicit consent и остаётся local/untrusted; official или required distributed package требует non-revoked publisher signature. Trust tier не меняет Mechanics Runtime validation, capability ceiling или deterministic patch semantics.
 
 Load order выводится dependency graph. Несвязанные nodes упорядочиваются по package ID только для reproducibility; автор не может использовать это как implicit override. Override разрешён только `PackagePatch` с target path/ID, precondition hash и conflict policy. Два несовместимых patches дают validation error, не last-writer-wins.
 
@@ -200,7 +203,7 @@ Engine repository MAY содержать reference mechanic packages, но apps/
 
 Coding agent не получает специальной runtime capability. Он использует тот же public SDK, filesystem review workflow и tests, что человек. Agent-friendly означает machine-discoverable, bounded и self-correcting tooling, а не автоматическое доверие к generated output.
 
-`AuthoringContextBundle` MUST содержать exact engine/package hashes, SDK manifest, resolved schemas, commands/events/capabilities/affordances, dependency/ownership/output-category graph, VerificationPolicy/TestScenario/ChangeImpact/diagnostic/fix-it registry, budgets, migration rules, minimal examples и relevant asset metadata. Physical scope дополнительно включает body/morphology/topology/actuator schemas, skill catalog, policy compatibility/normalization schemas, training configs, evaluation/transition suites, certification rules и provenance requirements из SPEC-14. Bundle не включает secrets, reviewer credentials, raw protected assets, raw training datasets/checkpoints, irrelevant repository files или mutable runtime handles. Все ссылки внутри bundle MUST быть замкнуты либо иметь explicit unavailable reason.
+`AuthoringContextBundle` MUST содержать exact engine/package hashes, SDK manifest, resolved schemas, commands/events/capabilities/affordances, dependency/ownership/output-category graph, VerificationPolicy/TestScenario/ChangeImpact/diagnostic/fix-it registry, budgets, migration rules, minimal examples и relevant asset metadata. Physical scope дополнительно включает body/morphology/topology/actuator schemas, skill catalog, policy compatibility/normalization schemas, training configs, evaluation/transition suites, certification rules и provenance requirements из SPEC-14. Generation scope дополнительно включает recipe/profile schemas, approved catalog view, adapter capability descriptors, normalization/world budgets и provenance policy из SPEC-16. Bundle не включает secrets, reviewer credentials, raw protected assets, quarantined generated bytes, provider account/session handles, raw training datasets/checkpoints, irrelevant repository files или mutable runtime handles. Все ссылки внутри bundle MUST быть замкнуты либо иметь explicit unavailable reason.
 
 Обязательный workflow:
 
@@ -211,7 +214,7 @@ describe/context → scaffold → edit → validate/fix-it
 → AgentPolicy + HumanReviewDecision when required → atomic apply/package
 ```
 
-`AgentChangeSet` содержит objective, base file/package hashes, bounded file edits, requested tool operations, generated-asset provenance, author-declared impact additions, tests/gates run, artifacts и risk flags. Engine-generated ChangeImpactManifest является separate immutable admission input; author/agent не может уменьшить его. Apply MUST поддерживать dry-run, path allowlist, precondition/evidence/review hashes и atomic rollback. Stale base, out-of-root path, undeclared binary, missing resolved gate или invalid HumanReviewDecision blocks apply.
+`AgentChangeSet` содержит objective, base file/package hashes, bounded file edits, requested tool operations, generated-asset recipe/job/result/provenance/normalization hashes when applicable, author-declared impact additions, tests/gates run, artifacts и risk flags. Engine-generated ChangeImpactManifest является separate immutable admission input; author/agent не может уменьшить его. Apply MUST поддерживать dry-run, path allowlist, precondition/evidence/review hashes и atomic rollback. Stale base, out-of-root path, undeclared binary, missing resolved gate или invalid HumanReviewDecision blocks apply.
 
 Project `AgentPolicy` задаёт разрешённые roots/package namespaces, tool operations, budgets и approval rules. Low-risk non-observable data/Luau changes MAY auto-apply в disposable branch/worktree после resolved automatic gates. Observable visual/UI/camera/animation/physics/motor/audio impact всегда требует SPEC-15 human review. New capability, durable migration, binary/Wasm, model-weight promotion, physical certification, license/provenance change, protected asset access или release branch mutation дополнительно требует explicit owner review. Policy decision и identity входят в AgentChangeSet audit; agent не может ослабить собственную policy или получить reviewer credential.
 
@@ -257,6 +260,7 @@ MCP adapter имеет статус `Proposed`, pins stable protocol revision и
 - Reducer trap/timeout/budget/schema violation → discard whole proposal, strike/circuit-break package; no partial effect.
 - Invalid/stale AgentChangeSet → reject without filesystem mutation.
 - MCP unavailable/incompatible → CLI/JSON workflow remains complete.
+- Generation adapter unavailable or candidate fails provenance/normalization/world gates → retain catalog/manual/prior asset; no partial binary or reference enters package/changeset.
 - Missing migration/package → preserve original save/package; fail-closed or run explicit uninstall migration.
 - Package physical behavior fails contacts/safety/media gates → package version rejected; old valid version remains lockable.
 - Missing/inconsistent physical model provenance or certification → claim rejected before publish; package MAY remain explicit PrototypeFallback when its manifest permits it.

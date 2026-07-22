@@ -3,14 +3,15 @@
 | Поле | Значение |
 |---|---|
 | ID | TRACE-001 |
-| Статус | Accepted |
-| Версия | 1.4 |
+| Статус | Proposed |
+| Версия | 1.5 |
 | Владелец | Release Engineering |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-12](12-vertical-slice-conformance.md), все профильные RFC/ADR |
-| Заменяет | отсутствует |
+| Нормативные зависимости | [SPEC-12](12-vertical-slice-conformance.md) |
+| Связанные документы | все профильные SPEC/ADR и [EVIDENCE-001](evidence-register.md) |
+| Заменяет | TRACE-001 v1.4 после human approval exact candidate hash |
 
-Матрица является обязательным release index. `Evidence` на стадии specification означает требуемый тип artifact; после implementation root RunManifest MUST разрешать каждую запись в конкретный path+SHA-256. Одна строка имеет ровно один primary owner, даже если gate выполняется совместно.
+Матрица является обязательным release index. `Evidence` на стадии specification означает требуемый тип artifact; после implementation root RunManifest MUST разрешать каждую запись в конкретный path+SHA-256. Одна строка имеет ровно один primary owner. Дополнительные участники записываются в том же owner cell только как `; collaborators: ...`; `+` и другие составные primary owners запрещены.
 
 ## Product и architecture requirements
 
@@ -62,7 +63,7 @@
 | REQ-029 | Durable memory canonical и работает без embeddings; SQLite Proposed | Agent Team | SPEC-06 | MEMORY-P1, AI-05 | DB/rebuild/save reports |
 | REQ-030 | Generic RPG model без legacy types | RPG Team | SPEC-07 | RPG-01, VS-03/10 | RPG inspector/schema scan |
 | REQ-031 | Luau capability sandbox и budgets | RPG Team | SPEC-07, ADR-006 | SCRIPT-P1…P4, VS-06 | sandbox/budget/replay reports |
-| REQ-032 | Wasm/WIT plugin caps/fuel/memory/version negotiation | RPG + Security | SPEC-07/11, ADR-006 | PLUGIN-P1…P5, VS-06 | audit/fuzz/compat report |
+| REQ-032 | Wasm/WIT plugin caps/fuel/memory/version negotiation | RPG Framework; collaborators: Security | SPEC-07/11, ADR-006/015 | PLUGIN-P1…P5, TRUST-P1, VS-06 | audit/fuzz/compat report |
 
 ## Importer, security и conformance
 
@@ -83,15 +84,15 @@
 |---|---|---|---|---|---|
 | REQ-041 | First-party и community mechanics используют один public package API без hidden path | Gameplay Extensibility | SPEC-13, ADR-008 | ARCH-05, MECH-01, VS-13 | public API/link/package graph scan |
 | REQ-042 | Ability/Target/Cost/Cooldown/Effect/Status/Projectile/AreaField — universal mechanics contracts | Gameplay Extensibility | SPEC-13 | MECH-01/02, VS-13 | schema registry, ranged/magic replays |
-| REQ-043 | Durable mechanic state engine-owned и меняется только validated reducer proposal/WorldCommand transaction | Gameplay Extensibility + Runtime | SPEC-02/13, ADR-008 | MECH-02/04, RUNTIME-02 | state ownership/audit/replay reports |
+| REQ-043 | Durable mechanic state engine-owned и меняется только validated reducer proposal/WorldCommand transaction | Gameplay Extensibility; collaborators: Runtime | SPEC-02/13, ADR-008 | MECH-02/04, RUNTIME-02 | state ownership/audit/replay reports |
 | REQ-044 | Exact MechanicsLock, dependency DAG и explicit preconditioned patches; no implicit load-order override | Gameplay Extensibility | SPEC-13, ADR-008 | MECH-03, MOD-01, VS-13 | lock/graph/conflict/hash reports |
-| REQ-045 | Package state/save/replay migrations и uninstall fail-closed | Persistence + Gameplay Extensibility | SPEC-03/13 | MECH-04, VS-02/11/13 | save/migration/fault reports |
+| REQ-045 | Package state/save/replay migrations и uninstall fail-closed | Persistence; collaborators: Gameplay Extensibility | SPEC-03/13 | MECH-04, VS-02/11/13 | save/migration/fault reports |
 | REQ-046 | Data-first → Luau → Wasm tiers; native Rust не является community mod ABI | Gameplay Extensibility | SPEC-07/13, ADR-006/008 | MECH-01, MOD-02 | package/API/SBOM scan |
 | REQ-047 | Agent получает complete bounded AuthoringContextBundle и reviewable atomic AgentChangeSet | Developer Experience | SPEC-09/13, ADR-008 | AGENT-01/02, VS-13 | context closure, changeset/fault reports |
-| REQ-048 | MCP только optional local projection; CLI/JSON остаётся normative complete fallback | Developer Experience + Security | SPEC-09/13, ADR-008 | MCP-P1, TOOL-03, SEC-05, VS-13 | schema parity, audit, packet capture |
-| REQ-049 | First-party стрельба реализована ordinary package через physics/contact/effect pipeline | Gameplay Extensibility + Physical Embodiment | SPEC-05/13 | MECH-01/06, VS-05/13 | package graph, contacts, replay/media |
+| REQ-048 | MCP только optional local projection; CLI/JSON остаётся normative complete fallback | Developer Experience; collaborators: Security | SPEC-09/13, ADR-008 | MCP-P1, TOOL-03, SEC-05, VS-13 | schema parity, audit, packet capture |
+| REQ-049 | First-party стрельба реализована ordinary package через physics/contact/effect pipeline | Gameplay Extensibility; collaborators: Physical Embodiment | SPEC-05/13 | MECH-01/06, VS-05/13 | package graph, contacts, replay/media |
 | REQ-050 | First-party магия реализована ordinary package через ability/effect/status pipeline | Gameplay Extensibility | SPEC-13 | MECH-01/02/06, VS-13 | package graph, replay/scenario report |
-| REQ-051 | Planner-visible package abilities self-describing и доступны NPC без custom AI integration | Agent + Gameplay Extensibility | SPEC-06/13 | AI-06, MECH-07, VS-13 | affordance registry, planner traces/replays |
+| REQ-051 | Planner-visible package abilities self-describing и доступны NPC без custom AI integration | Agent Intelligence; collaborators: Gameplay Extensibility | SPEC-06/13 | AI-06, MECH-07, VS-13 | affordance registry, planner traces/replays |
 
 ## Physical archetypes и progressive motor skills
 
@@ -135,20 +136,47 @@
 | REQ-077 | `aarch64-apple-darwin` является local DeveloperHostTier: portable workspace/docs/boundaries проходят project-owned host-check без remote/CI, но не дают macOS shipping claim | Developer Experience | SPEC-00/01/09/12, ADR-011 | HOST-MAC-01 | host/toolchain manifest, command report, public API/dependency scan |
 | REQ-078 | Mac MPS/CPU smoke доказывает только train→ONNX→inference toolchain; `PhysicalCertified` требует отдельный `TRAIN-RTX-01` и full correspondence gates | Physical Embodiment | SPEC-09/12/14, ADR-011 | TRAIN-MAC-P0, TRAIN-RTX-01, TRAIN-P1, VS-14 | device/lock/model/corpus hashes, parity metrics, RTX capability/correspondence report |
 
+## Packet 1.5 authority, trust и enforcement
+
+| Requirement | Нормативное требование | Owner | RFC / ADR | Gate | Evidence |
+|---|---|---|---|---|---|
+| REQ-079 | Нормативный packet self-contained: local frozen external inputs, ациклический authority graph, Proposed candidate не выдаётся за Accepted | Architecture Working Group | SPEC-00, ADR-012 | DOCS-01, VS-12 | graph/index/provenance report, candidate hash |
+| REQ-080 | Accepted commands хранят exact CanonicalCommandOrderKey; priority validator-owned, issuer sequence monotonic и replay-bound | Runtime Team | SPEC-02, ADR-013 | ORDER-01, RUNTIME-01/03, VS-11 | command/order registry/ledger/replay manifests |
+| REQ-081 | Первый baseline использует attested Bootstrap, replacement — exact-current Replace и atomic compare-and-swap | Verification & Evidence; collaborators: Security & Governance | SPEC-09/15, ADR-014 | BASELINE-01, EVIDENCE-01, VS-15 | baseline candidate/index/decision/CAS audit |
+| REQ-082 | Review/baseline attestations используют RFC 8785 JCS, RFC 8032 Ed25519, independent capabilities и current revocation trust | Security & Governance | SPEC-11/15, ADR-014 | ATTEST-01, SEC-07, REVIEW-01 | golden vectors, trust/revocation/role audit |
+| REQ-083 | Все packages content-addressed; unsigned local требует consent/ceiling, official/required distributed package — trusted publisher signature | RPG Framework; collaborators: Security & Governance | SPEC-07/11/13, ADR-015 | TRUST-P1, PLUGIN-P1, VS-06/13 | package/trust/consent/capability reports |
+| REQ-084 | Workspace запрещает unsafe; только Accepted-ADR-named FFI crate может войти в exact Cargo allowlist и пройти safety gates | Core Architecture; collaborators: Security & Governance | SPEC-01/02/11, ADR-016 | FFI-01, ARCH-01, VS-10 | Cargo/boundary/API/SAFETY/Miri/sanitizer reports |
+| REQ-085 | Все integrated performance budgets закрывает один hash-bound PERF-01 на canonical vertical scenario/reference profiles | Release Engineering; collaborators: subsystem budget owners | SPEC-12 | PERF-01, VS-12 | aggregate/child performance manifests |
+| REQ-086 | Public bootstrap требует Contributor Covenant, disclosure, roles/capabilities и signing policy; missing permanent contact остаётся AwaitingCapability | Security & Governance | SPEC-11 | GOV-01, VS-12 | governance document/status validation report |
+| REQ-087 | Metadata/index/status/supersession/counts/owners/gate references и annex hash проверяются project-owned docs-check | Architecture Working Group; collaborators: Developer Experience | INDEX-001, ADR-012, TRACE-001 | DOCS-01, HOST-MAC-01 | positive/negative fixture report, docs graph summary |
+
+## AI-assisted content generation
+
+| Requirement | Нормативное требование | Owner | RFC / ADR | Gate | Evidence |
+|---|---|---|---|---|---|
+| REQ-088 | V1 authoring имеет provider-neutral CLI/JSON orchestration и offline fixture adapter; live provider не нужен для correctness | Asset & Persistence; collaborators: Developer Experience | SPEC-16, ADR-017 | GEN-01, GEN-05, VS-12 | recipe/job/result manifests, CLI/schema parity report |
+| REQ-089 | Generation jobs idempotent, content-addressed и публикуют только immutable terminal result после complete validation | Asset & Persistence | SPEC-16, ADR-017 | GEN-01, GEN-03 | job ledger, request/result hashes, atomic-publication fault report |
+| REQ-090 | Prompts, references и generated outputs остаются untrusted; consent, privacy, provenance, license, quotas и quarantine проверяются до upload/view/publish | Security & Governance; collaborators: Asset & Persistence | SPEC-11/16, ADR-017 | GEN-02, SEC-01/02, VS-12 | consent/network/redaction/license/quarantine reports |
+| REQ-091 | Generated assets проходят deterministic normalization, profile validation и common NeutralAuthoringModel/cooker path до admission | Asset & Persistence | SPEC-03/16, ADR-017 | GEN-03, ASSET-01/02 | normalization/audit/cook manifests and canonical hashes |
+| REQ-092 | Generated world plans используют stable typed IDs, bounded constraints и deterministic reachability/streaming/gameplay audits | Asset & Persistence; collaborators: World Services, RPG Framework | SPEC-08/13/16, ADR-017 | GEN-04, VS-12 | world-plan/NAM hashes, nav/collision/streaming/RPG audit |
+| REQ-093 | OpenAI ImageGen adapter optional и ArtifactFixed; subscription/API capability, credentials и provider types не входят в public/runtime contract | Developer Experience; collaborators: Security & Governance | SPEC-16, ADR-017 | IMAGEGEN-P1, GEN-01/02 | capability/request/result/provenance manifests, API scan |
+| REQ-094 | Pixal3D и TripoSR остаются Proposed out-of-process research adapters с exact code/model/SBOM/hardware manifests | Asset & Persistence; collaborators: Security & Governance | SPEC-16, ADR-017 | IMG3D-P1, IMG3D-F1, GEN-02/03 | worker/model/SBOM/hardware/normalization reports |
+| REQ-095 | Observable generated content проходит ImpactResolver, production scenario/capture/evidence path и exact-hash human review; agent/provider не публикует самостоятельно | Verification & Evidence; collaborators: Developer Experience | SPEC-15/16, ADR-014/017 | GEN-05, IMPACT-01, REVIEW-01, VS-15 | impact/run/evidence/review records and admitted hash |
+
 ## Обязательные failure paths
 
 | Failure requirement | Owner | Нормативный путь | Gate | Evidence |
 |---|---|---|---|---|
 | FAIL-001 Missing/crashed/incompatible AI | Agent Team | deterministic fallback, no duplicate commit | AI-02, VS-04 | fault timeline/replay |
 | FAIL-002 Invalid/mismatched motor model | Physical Embodiment | reject before actuation, heuristic recovery | MOTOR-P1, SEC-04, VS-05 | model validator/parity report |
-| FAIL-003 Plugin/script overrun or denied capability | RPG + Security | terminate callback/instance, discard proposals, continue/clean pre-world fail | SCRIPT-P2, PLUGIN-P1/P2, VS-06 | budget/audit/replay |
+| FAIL-003 Plugin/script overrun or denied capability | RPG Framework; collaborators: Security & Governance | terminate callback/instance, discard proposals, continue/clean pre-world fail | SCRIPT-P2, PLUGIN-P1/P2, VS-06 | budget/audit/replay |
 | FAIL-004 Corrupt/incompatible save | Persistence Team | fail-closed, preserve prior/original | SAVE-01/02, VS-02 | fault/migration matrix |
 | FAIL-005 Unsupported GPU/device loss | Rendering Team | pre-world B0 diagnostic or bounded recovery/clean exit | RENDER-03, VS-07 | fault/log/replay |
 | FAIL-006 Physics policy/backend rejection | Physical Embodiment | safe controller or same-suite backend fallback; slice blocked if none | MOTOR-P1, PHYS-P1…P8, VS-05 | rejection + fallback RunManifests |
-| FAIL-007 Malformed/protected importer data | Importer + Security | sandbox abort/quarantine/no publish | IMPORT-P3/P5, VS-09 | fuzz/scan/quarantine record |
+| FAIL-007 Malformed/protected importer data | Importer Team; collaborators: Security & Governance | sandbox abort/quarantine/no publish | IMPORT-P3/P5, VS-09 | fuzz/scan/quarantine record |
 | FAIL-008 Package dependency/patch/hook conflict | Gameplay Extensibility | deterministic pre-world reject; no guessed order/partial registry | MECH-03, MOD-01, VS-13 | resolver/conflict report |
-| FAIL-009 Missing mechanic package/schema/migration | Persistence + Gameplay Extensibility | fail-closed, preserve original save; pin old package/export/uninstall path | MECH-04, VS-02/13 | migration/fault/lock report |
-| FAIL-010 Unsafe/stale agent change | Developer Experience + Security | changeset reject before mutation; project/base hashes unchanged | AGENT-02, SEC-05, VS-13 | changeset audit/fault report |
+| FAIL-009 Missing mechanic package/schema/migration | Persistence; collaborators: Gameplay Extensibility | fail-closed, preserve original save; pin old package/export/uninstall path | MECH-04, VS-02/13 | migration/fault/lock report |
+| FAIL-010 Unsafe/stale agent change | Developer Experience; collaborators: Security & Governance | changeset reject before mutation; project/base hashes unchanged | AGENT-02, SEC-05, VS-13 | changeset audit/fault report |
 | FAIL-011 MCP unavailable/incompatible/denied | Developer Experience | disable adapter; complete CLI/JSON authoring path remains | MCP-P1, TOOL-03, VS-13 | parity/fallback run report |
 | FAIL-012 Physical/body/policy compatibility mismatch | Physical Embodiment | reject exact key mismatch before activation; previous/recovery route remains | EMB-01, POLICY-01, SEC-06, VS-14 | validator/rejection/route report |
 | FAIL-013 Unsafe or interrupted policy transition | Physical Embodiment | defer at unsafe point or atomically roll back; no teleport/partial joint ownership | POLICY-02, VS-14 | transition/pose/action/state traces, failure media |
@@ -163,6 +191,22 @@
 | FAIL-022 Malicious/oversized/redaction-failed media or dossier, HTML injection or reviewer-key exposure | Security & Governance | reject/quarantine evidence, revoke exposed credential, sanitize/rebuild and repeat review; no viewing/admission before verification | EVIDENCE-01, SEC-07, VS-12/15 | quota/redaction/HTML/media fuzz report, quarantine/revocation audit |
 | FAIL-023 MPS unavailable or unsupported operation during Mac smoke | ML Tooling | emit stable capability diagnostic, rerun exact deterministic fixture on CPU, record fallback; no false MPS PASS | TRAIN-MAC-P0 | doctor report, device/fallback RunManifest, parity metrics |
 | FAIL-024 RTX/full-training capability absent or failed at certification | Physical Embodiment | set `AwaitingCapability`, reject `PhysicalCertified` promotion, retain `PrototypeFallback`; Mac/ONNX smoke cannot waive gate | TRAIN-RTX-01, TRAIN-P1, VS-14 | capability/preflight report, denied promotion record, prototype manifest |
+| FAIL-025 External/missing normative dependency, graph cycle or annex hash/provenance mismatch | Architecture Working Group | reject packet candidate; Accepted Packet 1.4 remains authority | DOCS-01, VS-12 | graph/hash/provenance diagnostic |
+| FAIL-026 Forged priority, stale/duplicate issuer sequence, command ID conflict or order-registry mismatch | Runtime Team | reject before mutation with stable code; no duplicate commit | ORDER-01, RUNTIME-02/03, VS-11 | rejection/permutation/replay report |
+| FAIL-027 Illegal baseline Bootstrap/Replace, stale previous hash, CAS race or wrong promotion capability | Verification & Evidence | reject promotion atomically; current BaselineIndex unchanged | BASELINE-01, EVIDENCE-01, VS-15 | decision/index hashes, CAS fault audit |
+| FAIL-028 Non-canonical/tampered/unknown/revoked/wrong-role attestation | Security & Governance | reject/invalidate decision; require new authorized review | ATTEST-01, SEC-07, REVIEW-01 | vector/tamper/revocation audit |
+| FAIL-029 Missing consent, unsigned official/required package, tamper, revoked publisher or trust elevation | RPG Framework | deny/quarantine before world mutation; optional disable or required load failure | TRUST-P1, PLUGIN-P1/P5, VS-06 | trust/consent/capability audit |
+| FAIL-030 Unsafe/lint opt-out outside allowlist, FFI metadata drift or vendor/raw type in public contract | Core Architecture | boundary failure; use safe adapter/process boundary; no workspace-wide waiver | FFI-01, ARCH-01, VS-10 | source/Cargo/public-API safety report |
+| FAIL-031 Missing/stale profile/measurement or exceeded integrated performance budget | Release Engineering | PERF-01 FAIL; retain prior build; unavailable required hardware is AwaitingCapability, not substitution | PERF-01, VS-12 | aggregate manifest, missing/exceeded child diagnostics |
+| FAIL-032 Missing/inconsistent governance document/contact/status, packet metadata, owner or gate reference | Security & Governance | public release/packet promotion blocked; configure/fix and rerun exact local gates | GOV-01, DOCS-01, VS-12 | governance/docs-check validation report |
+| FAIL-033 Generation provider absent, timeout, crash, quota or protocol/version mismatch | Developer Experience | classify terminal failure; no partial publish/project mutation; use offline fixture/manual/catalog path | GEN-01, IMAGEGEN-P1, IMG3D-P1 | job/fault/capability timeline and unchanged project hash |
+| FAIL-034 Malicious, private, protected, unlicensed or unconsented generation input | Security & Governance | deny upload or quarantine before decode/view/publish; redact secrets and preserve incident evidence | GEN-02, SEC-01/02, VS-09 | network/redaction/license/quarantine audit |
+| FAIL-035 Invalid, malformed, oversized or profile-incompatible generated asset | Asset & Persistence | reject before NAM/cook publication; retain prior valid asset and stable diagnostic | GEN-03, ASSET-01/02 | validator/normalization rejection manifest |
+| FAIL-036 Nondeterministic normalization, cooker drift or canonical hash mismatch | Asset & Persistence | fail closed, preserve both exact inputs/results and first divergent stage; no retry-to-green | GEN-03, TEST-01, DIAG-01 | cross-platform hashes and divergence report |
+| FAIL-037 Generated world violates bounds, reachability, stable IDs, streaming or gameplay constraints | Asset & Persistence | reject world plan before project admission; use previous valid/manual world | GEN-04, NAV-P1/P2 | world/nav/collision/streaming/RPG rejection audit |
+| FAIL-038 Missing provenance, license classification, consent or redaction record for generated artifact | Security & Governance | quarantine and block publish/review until a complete new provenance step exists | GEN-02/05, LIC-01, REVIEW-01 | provenance/license/redaction closure report |
+| FAIL-039 Generation worker sandbox escape, resource overrun, crash or partial publication | Security & Governance | terminate worker, quarantine outputs, atomically preserve project baseline and disable adapter | GEN-01/02, SEC-02 | sandbox/quota/process/publication fault report |
+| FAIL-040 Required network, GPU, provider entitlement or authorized reviewer unavailable | Release Engineering | mark affected optional/live gate `AwaitingCapability`; offline authoring evidence remains valid but no synthetic PASS/admission | IMAGEGEN-P1, IMG3D-P1, GEN-05, REVIEW-01 | capability report, pending job/evidence bundle, denied admission |
 
 ## Completeness rule
 
