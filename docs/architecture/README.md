@@ -19,6 +19,8 @@ Architecture packet version 1.4 объединяет перечисленные 
 
 Отдельно опубликован post-1.5 dialogue/model proposal track: SPEC-16 и ADR-017 имеют статус `Proposed/AwaitingReview`, а RESEARCH-002 является ненормативным `Draft` snapshot. Этот track не входит ни в Accepted packet 1.4, ни в remediation transaction 1.5. Он фиксирует text-canonical dialogue/model-pack acceptance contract; перечисленные model rows остаются `Proposed` до прохождения собственных gates.
 
+Ещё один независимый post-1.5 foundation-completeness proposal track состоит из SPEC-17…20 и ADR-018…021. Он закрывает project composition/lifecycle, player interaction/presentation, RPG domain и world population boundaries без изменения Accepted packet, числа vertical gates или статусов технологий. Track остаётся `AwaitingReview` и может быть promoted только атомарно после разрешения reserved traceability IDs dialogue/model proposal.
+
 ## Нормативный язык
 
 Ключевые слова **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT** и **MAY** имеют нормативный смысл RFC 2119/8174 только когда написаны заглавными буквами:
@@ -55,6 +57,7 @@ Accepted ADR не редактируется так, чтобы изменить
 8. [Traceability](traceability.md), [evidence register](evidence-register.md) и [ADR](adr/000-template.md).
 9. Для review packet 1.5 — Proposed ADR-012…ADR-016. Их требования являются future acceptance contracts, а не заявлением runtime/gate PASS.
 10. Для post-1.5 dialogue/model proposal — [RESEARCH-002](research/npc-dialogue-model-landscape.md), [SPEC-16](16-text-canonical-multimodal-dialogue-and-model-packs.md) и [ADR-017](adr/017-text-canonical-multimodal-dialogue-and-replaceable-model-packs.md).
+11. Для post-1.5 foundation-completeness proposal — [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md)…[SPEC-20](20-world-simulation-and-population-lifecycle.md) и ADR-018…ADR-021.
 
 ## Индекс нормативных документов
 
@@ -77,6 +80,10 @@ Accepted ADR не редактируется так, чтобы изменить
 | SPEC-14 | [Physical archetypes, motor skills и policy lifecycle](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) | Accepted | Physical Embodiment Team | SPEC-03, SPEC-05, SPEC-06, SPEC-07, SPEC-09, SPEC-13, SPEC-15, ADR-009, ADR-010, ADR-011 |
 | SPEC-15 | [Headless testing, agent validation и human evidence](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted | Verification & Evidence Team | SPEC-01, SPEC-02, SPEC-03, SPEC-04, SPEC-09, SPEC-11, SPEC-13, ADR-010 |
 | SPEC-16 | [Text-canonical multimodal dialogue и model packs](16-text-canonical-multimodal-dialogue-and-model-packs.md) | Proposed | Agent Intelligence Team | SPEC-01, SPEC-03, SPEC-06, SPEC-07, SPEC-08, SPEC-09, SPEC-11, SPEC-12, SPEC-15, ADR-005, ADR-007, ADR-010 |
+| SPEC-17 | [Project composition, configuration и application lifecycle](17-project-composition-configuration-and-application-lifecycle.md) | Proposed | Core Architecture | SPEC-00, SPEC-01, SPEC-02, SPEC-03, SPEC-07, SPEC-09, SPEC-11, SPEC-12, SPEC-15, ADR-002, ADR-006, ADR-007, ADR-010, ADR-011 |
+| SPEC-18 | [Player interaction, UI, camera, localization и accessibility](18-player-interaction-ui-camera-localization-and-accessibility.md) | Proposed | Player Experience Team | SPEC-00, SPEC-01, SPEC-02, SPEC-04, SPEC-07, SPEC-09, SPEC-11, SPEC-12, SPEC-15, ADR-002, ADR-006, ADR-010 |
+| SPEC-19 | [RPG domain и narrative state](19-rpg-domain-and-narrative-state.md) | Proposed | RPG Framework Team | SPEC-00, SPEC-01, SPEC-02, SPEC-03, SPEC-06, SPEC-07, SPEC-08, SPEC-09, SPEC-11, SPEC-12, SPEC-13, SPEC-14, SPEC-15, ADR-006, ADR-007, ADR-008, ADR-010 |
+| SPEC-20 | [World simulation и population lifecycle](20-world-simulation-and-population-lifecycle.md) | Proposed | World Services Team | SPEC-00, SPEC-01, SPEC-02, SPEC-03, SPEC-05, SPEC-06, SPEC-07, SPEC-08, SPEC-09, SPEC-11, SPEC-12, SPEC-14, SPEC-15, ADR-007, ADR-009, ADR-010 |
 | GLOSSARY-001 | [Глоссарий](glossary.md) | Accepted | Architecture Working Group | INDEX-001 |
 | EVIDENCE-001 | [Реестр доказательств](evidence-register.md) | Accepted | Architecture Working Group | профильные ADR |
 | TRACE-001 | [Матрица трассируемости](traceability.md) | Accepted | Release Engineering | SPEC-12 |
@@ -103,6 +110,10 @@ Accepted ADR не редактируется так, чтобы изменить
 | ADR-015 | [Evidence trust, fixture separation и offline attestation](adr/015-evidence-trust-fixture-separation-and-attestation.md) | Proposed |
 | ADR-016 | [Compositional gameplay budgets](adr/016-compositional-gameplay-budgets.md) | Proposed |
 | ADR-017 | [Text-canonical multimodal dialogue и replaceable model packs](adr/017-text-canonical-multimodal-dialogue-and-replaceable-model-packs.md) | Proposed |
+| ADR-018 | [Authoritative project composition и configuration classes](adr/018-authoritative-project-composition-and-configuration.md) | Proposed |
+| ADR-019 | [Canonical player actions и presentation authority](adr/019-canonical-player-actions-and-presentation-authority.md) | Proposed |
+| ADR-020 | [RPG domain authority и extension boundary](adr/020-rpg-domain-authority-and-extension-boundary.md) | Proposed |
+| ADR-021 | [Deterministic population residency и time advance](adr/021-deterministic-population-residency-and-time-advance.md) | Proposed |
 
 ## Ненормативные приложения
 
@@ -117,9 +128,9 @@ Summary считает indexed architecture documents без frozen research ann
 
 | Metric | Value |
 |---|---:|
-| Markdown documents | 40 |
-| Subsystem SPEC files | 17 |
-| Decision ADR files | 17 |
+| Markdown documents | 48 |
+| Subsystem SPEC files | 21 |
+| Decision ADR files | 21 |
 | Vertical gates | 15 |
 | Requirements | 78 |
 | Failure paths | 24 |
@@ -136,6 +147,19 @@ Summary считает indexed architecture documents без frozen research ann
 - десяти `Proposed` model rows в evidence register; cloud services остаются research-only до выбора exact adapter.
 
 Promotion требует approvals всех owners и Security, синхронизацию SPEC-01/03/06/07/08/09/11/12/15, glossary и traceability, а также добавление reserved REQ-079…086 и FAIL-025…030 без создания VS-16. Protocol approval не переводит model candidate в `Accepted`: exact model files отдельно проходят DIALOGUE/MODEL/license/voice gates. До этого track lifecycle — `AwaitingReview`, а `TextOnlyFallback` остаётся единственным mandatory baseline.
+
+## Post-1.5 foundation-completeness proposal track
+
+Этот track reviewable отдельно от remediation packet 1.5 и dialogue/model proposal, но promoted только одним changeset для всех восьми документов:
+
+- SPEC-17/ADR-018 — exact `ProjectManifest → ProjectCompositionLock`, configuration classes и atomic application lifecycle;
+- SPEC-18/ADR-019 — Player Experience-owned action mapping, semantic UI, camera targeting boundary, localization и accessibility;
+- SPEC-19/ADR-020 — authoritative generic RPG aggregates, atomic domain transactions и fail-closed migrations;
+- SPEC-20/ADR-021 — deterministic population schedules, residency tiers, time advance и durable spawn/despawn semantics.
+
+Track добавляет 16 local requirement aliases и 8 failure aliases, но Accepted traceability остаётся REQ-001…078/FAIL-001…024 до promotion. Requirement allocation order фиксирован как `FND-PROJECT-R1…R4 → FND-PLAYER-R1…R4 → FND-RPG-R1…R4 → FND-WORLD-R1…R4`; failure order — те же subsystem groups с `F1 → F2` внутри каждого. Если dialogue/model proposal принят первым, foundation aliases получают REQ-087…102/FAIL-031…038; если он formally Rejected/withdrawn — REQ-079…094/FAIL-025…032. Pending SPEC-16 blocks foundation promotion, но не review. Child gates map into existing VS-01…15; VS-16 не создаётся. Ни один external technology row не добавляется.
+
+До recorded approvals Architecture Working Group, всех primary owners/required approvers и Security lifecycle state всего track — `AwaitingReview`. Agent не создаёт approvals, не меняет status на `Accepted` и не заявляет implementation conformance.
 
 ## Packet 1.5 remediation closure
 
@@ -180,7 +204,7 @@ Promotion разрешён только одним reviewed changeset после
 
 ## Review и перенос в отдельный репозиторий
 
-Architecture baseline принимается только единым review-пакетом. Частичное одобрение отдельных файлов не делает архитектуру принятой. Initial packet version 1.0 был расширен version 1.1 через ADR-008/SPEC-13, version 1.2 — через ADR-009/SPEC-14, version 1.3 — через ADR-010/SPEC-15, а version 1.4 — через ADR-011 и синхронное уточнение platform/training/importer/traceability contracts. Accepted packet 1.4 содержит 32 Markdown-документа, 16 subsystem SPEC, 15 vertical gates, 78 requirements, 24 failure paths и 23 technology rows. Packet 1.5 candidate добавляет ровно пять Proposed ADR и доводит свой remediation track до ADR-000…ADR-016 и 37 architecture documents. Отдельный post-1.5 dialogue/model track добавляет SPEC-16, ADR-017 и parsed RESEARCH-002, поэтому текущий индекс содержит 40 architecture documents; frozen RESEARCH-001 учитывается отдельно. Любое последующее изменение подчиняется ADR/supersession rules. Review MUST подтвердить отсутствие orphan-документов, нерешённых архитектурных вопросов, vendor-типов в публичных контрактах и нетрассируемых vertical-slice требований.
+Architecture baseline принимается только единым review-пакетом. Частичное одобрение отдельных файлов не делает архитектуру принятой. Initial packet version 1.0 был расширен version 1.1 через ADR-008/SPEC-13, version 1.2 — через ADR-009/SPEC-14, version 1.3 — через ADR-010/SPEC-15, а version 1.4 — через ADR-011 и синхронное уточнение platform/training/importer/traceability contracts. Accepted packet 1.4 содержит 32 Markdown-документа, 16 subsystem SPEC, 15 vertical gates, 78 requirements, 24 failure paths и 23 technology rows. Packet 1.5 candidate добавляет ровно пять Proposed ADR и доводит свой remediation track до ADR-000…ADR-016 и 37 architecture documents. Отдельный post-1.5 dialogue/model track добавляет SPEC-16, ADR-017 и parsed RESEARCH-002. Foundation-completeness track добавляет SPEC-17…20 и ADR-018…021, поэтому текущий индекс содержит 48 architecture documents; frozen RESEARCH-001 учитывается отдельно. Любое последующее изменение подчиняется ADR/supersession rules. Review MUST подтвердить отсутствие orphan-документов, нерешённых архитектурных вопросов, vendor-типов в публичных контрактах и нетрассируемых vertical-slice требований.
 
 Candidate закрывает review findings contractually, но не заявляет `vertical-v1`, `LEGAL-IMPORT-01=PASS` или `PhysicalCertified`. При отсутствии хотя бы одного required approval его итоговый lifecycle state остаётся `AwaitingReview`, ADR-012…016 — `Proposed`, а packet 1.4 — authoritative.
 
