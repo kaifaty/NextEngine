@@ -1,0 +1,4 @@
+interface:
+  display_name: "NextEngine Architecture Guardrails"
+  short_description: "Enforce NextEngine architecture and gate claims"
+  default_prompt: "Use $nextengine-architecture-guardrails to route this NextEngine change through the owning SPEC, ADRs, boundaries, and required gates."
