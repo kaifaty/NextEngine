@@ -8,6 +8,86 @@ const ANNEX_ID: &str = "RESEARCH-001";
 const ANNEX_SHA256: &str = "90533ed15c4c1a5ef41a24f26f4d17cf8c59f467e07619316d3c9744f4d2d79b";
 const TEMPLATE_PATH: &str = "adr/000-template.md";
 const LEGACY_PHYSICAL_RESEARCH_URL: &str = "https://github.com/kaifaty/OpenGothic/blob/c56e15f1fa68430eaa618dcc892edc00bff6209d/docs/physical-avatar-research-spec.md";
+const ARCHITECTURE_REVIEW_ROOT: &str = "docs/reviews/architecture";
+const ARCHITECTURE_REVIEW_ALGORITHM: &str = "sha256-path-nul-file-sha256-lf-v1";
+const ARCHITECTURE_REVIEW_SCOPE: &str = "docs/architecture/**/*.md";
+const ARCHITECTURE_REVIEW_CHECKS: &[&str] = &[
+    "cargo test -p xtask",
+    "cargo run -p xtask -- docs-check",
+    "cargo run -p xtask -- boundary-scan",
+    "cargo run -p xtask -- host-check",
+    "git diff --check",
+];
+const PACKET_15_OWNERS: &[&str] = &[
+    "Agent Intelligence Team",
+    "Architecture Working Group",
+    "Gameplay Extensibility Team",
+    "Importer Team",
+    "Persistence Team",
+    "Physical Embodiment Team",
+    "Release Engineering",
+    "RPG Framework Team",
+    "Runtime Team",
+    "Security & Governance Team",
+    "Verification & Evidence Team",
+    "World Services Team",
+];
+const PACKET_16_OWNERS: &[&str] = &[
+    "Agent Intelligence Team",
+    "Architecture Working Group",
+    "Asset & Persistence Team",
+    "Developer Experience Team",
+    "RPG Framework Team",
+    "Security & Governance Team",
+    "Verification & Evidence Team",
+    "World Services Team",
+];
+const PACKET_17_OWNERS: &[&str] = &[
+    "Agent Intelligence Team",
+    "Architecture Working Group",
+    "Asset & Persistence Team",
+    "Core Architecture",
+    "Developer Experience Team",
+    "Gameplay Extensibility Team",
+    "Physical Embodiment Team",
+    "Player Experience Team",
+    "Release Engineering",
+    "Rendering Team",
+    "RPG Framework Team",
+    "Runtime Team",
+    "Security & Governance Team",
+    "Verification & Evidence Team",
+    "World Services Team",
+];
+
+#[derive(Clone, Copy, Debug)]
+struct ArchitectureReviewTransition {
+    from: &'static str,
+    to: &'static str,
+    file: &'static str,
+    required_owners: &'static [&'static str],
+}
+
+const ARCHITECTURE_REVIEW_TRANSITIONS: &[ArchitectureReviewTransition] = &[
+    ArchitectureReviewTransition {
+        from: "1.4",
+        to: "1.5",
+        file: "packet-1.5.md",
+        required_owners: PACKET_15_OWNERS,
+    },
+    ArchitectureReviewTransition {
+        from: "1.5",
+        to: "1.6",
+        file: "packet-1.6.md",
+        required_owners: PACKET_16_OWNERS,
+    },
+    ArchitectureReviewTransition {
+        from: "1.6",
+        to: "1.7",
+        file: "packet-1.7.md",
+        required_owners: PACKET_17_OWNERS,
+    },
+];
 
 #[derive(Clone, Debug)]
 struct Document {
@@ -145,6 +225,7 @@ pub fn docs_check(root: &Path) -> Result<(), String> {
 
     let authoritative_version = required_field(&readme, "Версия", "README.md")?;
     let candidate_version = required_field(&readme, "Review candidate", "README.md")?;
+    validate_architecture_review_records_at(root, &authoritative_version)?;
     println!(
         "PASS docs-check: authoritative packet {authoritative_version}, candidate {candidate_version}, {architecture_file_count} indexed architecture documents"
     );
@@ -632,6 +713,474 @@ pub fn validate_governance_documents(
     Ok(())
 }
 
+pub fn validate_architecture_review_records_at(
+    root: &Path,
+    authoritative_version: &str,
+) -> Result<(), String> {
+    let authoritative_index = ["1.4", "1.5", "1.6", "1.7"]
+        .iter()
+        .position(|version| *version == authoritative_version)
+        .ok_or_else(|| format!("DOCS_REVIEW_VERSION_UNSUPPORTED: {authoritative_version}"))?;
+
+    for (index, transition) in ARCHITECTURE_REVIEW_TRANSITIONS.iter().enumerate() {
+        let required_for_authoritative_packet = index < authoritative_index;
+        let path = root.join(ARCHITECTURE_REVIEW_ROOT).join(transition.file);
+        if !path.exists() {
+            if required_for_authoritative_packet {
+                return Err(format!(
+                    "DOCS_REVIEW_RECORD_MISSING: {} -> {}: {}",
+                    transition.from,
+                    transition.to,
+                    path.display()
+                ));
+            }
+            continue;
+        }
+
+        let body = read(&path)?;
+        let status = validate_architecture_review_record(root, *transition, &body)?;
+        if required_for_authoritative_packet && status != "Approved" {
+            return Err(format!(
+                "DOCS_REVIEW_RECORD_NOT_APPROVED: {} -> {}: {status}",
+                transition.from, transition.to
+            ));
+        }
+        if !required_for_authoritative_packet && status == "Approved" {
+            return Err(format!(
+                "DOCS_REVIEW_TRANSITION_OUT_OF_SEQUENCE: authoritative {authoritative_version}, approved {} -> {}",
+                transition.from, transition.to
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_architecture_review_record(
+    root: &Path,
+    transition: ArchitectureReviewTransition,
+    body: &str,
+) -> Result<String, String> {
+    let expected_id = format!("ARCH-REVIEW-{}", transition.to);
+    require_review_field(body, "Record ID", &expected_id, transition)?;
+    require_review_field(body, "From packet", transition.from, transition)?;
+    require_review_field(body, "To packet", transition.to, transition)?;
+    require_review_field(
+        body,
+        "Candidate root algorithm",
+        ARCHITECTURE_REVIEW_ALGORITHM,
+        transition,
+    )?;
+    require_review_field(
+        body,
+        "Candidate scope",
+        ARCHITECTURE_REVIEW_SCOPE,
+        transition,
+    )?;
+
+    let status = required_field(body, "Status", transition.file)?;
+    if !matches!(status.as_str(), "Pending" | "Approved") {
+        return Err(format!(
+            "DOCS_REVIEW_STATUS_INVALID: {}: {status}",
+            transition.file
+        ));
+    }
+    let candidate_root = required_field(body, "Candidate root SHA-256", transition.file)?;
+
+    let manifest_rows = review_section_rows(
+        body,
+        "## Candidate file manifest",
+        &["Path", "SHA-256"],
+        transition.file,
+    )?;
+    let manifest = validate_review_manifest(root, transition, &candidate_root, &manifest_rows)?;
+
+    let check_rows = review_section_rows(
+        body,
+        "## Automatic checks",
+        &["Check", "Result", "Evidence reference"],
+        transition.file,
+    )?;
+    validate_review_checks(transition, &candidate_root, &status, &check_rows)?;
+
+    let owner_rows = review_section_rows(
+        body,
+        "## Required owner decisions",
+        &[
+            "Required owner",
+            "Decision",
+            "Reviewer",
+            "Decision reference",
+        ],
+        transition.file,
+    )?;
+    validate_review_decisions(
+        transition,
+        &candidate_root,
+        &status,
+        transition.required_owners,
+        &owner_rows,
+        "OWNER",
+    )?;
+
+    let capability_rows = review_section_rows(
+        body,
+        "## Bootstrap capability decisions",
+        &["Capability", "Decision", "Reviewer", "Decision reference"],
+        transition.file,
+    )?;
+    let capabilities = validate_review_decisions(
+        transition,
+        &candidate_root,
+        &status,
+        &["architecture.approve", "baseline.promote"],
+        &capability_rows,
+        "CAPABILITY",
+    )?;
+    if capabilities
+        .get("architecture.approve")
+        .zip(capabilities.get("baseline.promote"))
+        .is_some_and(|(architecture, baseline)| {
+            architecture.0 == "Approved" && baseline.0 == "Approved" && architecture.2 == baseline.2
+        })
+    {
+        return Err(format!(
+            "DOCS_REVIEW_CAPABILITY_DECISIONS_NOT_SEPARATE: {}",
+            transition.file
+        ));
+    }
+
+    if status == "Approved" {
+        if candidate_root == "absent" || manifest.is_empty() {
+            return Err(format!(
+                "DOCS_REVIEW_APPROVED_WITHOUT_CANDIDATE: {}",
+                transition.file
+            ));
+        }
+        if !manifest.contains_key("docs/architecture/README.md") {
+            return Err(format!(
+                "DOCS_REVIEW_PACKET_INDEX_NOT_HASHED: {}",
+                transition.file
+            ));
+        }
+    }
+
+    Ok(status)
+}
+
+fn require_review_field(
+    body: &str,
+    field: &str,
+    expected: &str,
+    transition: ArchitectureReviewTransition,
+) -> Result<(), String> {
+    let actual = required_field(body, field, transition.file)?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(format!(
+            "DOCS_REVIEW_TRANSITION_MISMATCH: {}: {field}: expected {expected}, got {actual}",
+            transition.file
+        ))
+    }
+}
+
+fn review_section_rows(
+    body: &str,
+    heading: &str,
+    expected_header: &[&str],
+    relative: &str,
+) -> Result<Vec<Vec<String>>, String> {
+    let mut lines = body.lines().skip_while(|line| line.trim() != heading);
+    if lines.next().is_none() {
+        return Err(format!(
+            "DOCS_REVIEW_SECTION_MISSING: {relative}: {heading}"
+        ));
+    }
+    let section: Vec<_> = lines
+        .take_while(|line| !line.trim_start().starts_with("## "))
+        .filter(|line| line.trim_start().starts_with('|'))
+        .map(table_cells)
+        .collect();
+    if section.len() < 2
+        || section[0]
+            != expected_header
+                .iter()
+                .map(|header| (*header).to_owned())
+                .collect::<Vec<_>>()
+        || section[1].len() != expected_header.len()
+        || !section[1]
+            .iter()
+            .all(|cell| !cell.is_empty() && cell.bytes().all(|byte| matches!(byte, b'-' | b':')))
+    {
+        return Err(format!("DOCS_REVIEW_TABLE_INVALID: {relative}: {heading}"));
+    }
+    Ok(section.into_iter().skip(2).collect())
+}
+
+fn validate_review_manifest(
+    root: &Path,
+    transition: ArchitectureReviewTransition,
+    candidate_root: &str,
+    rows: &[Vec<String>],
+) -> Result<BTreeMap<String, String>, String> {
+    if candidate_root == "absent" {
+        if rows == [vec!["none".to_owned(), "absent".to_owned()]] || rows.is_empty() {
+            return Ok(BTreeMap::new());
+        }
+        return Err(format!(
+            "DOCS_REVIEW_MANIFEST_WITHOUT_ROOT: {}",
+            transition.file
+        ));
+    }
+    if !is_lower_sha256(candidate_root) {
+        return Err(format!(
+            "DOCS_REVIEW_CANDIDATE_ROOT_INVALID: {}: {candidate_root}",
+            transition.file
+        ));
+    }
+
+    let mut manifest = BTreeMap::new();
+    let mut previous_path: Option<&str> = None;
+    for row in rows {
+        if row.len() != 2 {
+            return Err(format!(
+                "DOCS_REVIEW_MANIFEST_ROW_INVALID: {}",
+                transition.file
+            ));
+        }
+        let path = &row[0];
+        let expected_hash = &row[1];
+        if previous_path.is_some_and(|previous| previous >= path.as_str()) {
+            return Err(format!(
+                "DOCS_REVIEW_MANIFEST_NOT_SORTED: {}: {path}",
+                transition.file
+            ));
+        }
+        previous_path = Some(path);
+        if !is_safe_manifest_path(path) || path.starts_with(&format!("{ARCHITECTURE_REVIEW_ROOT}/"))
+        {
+            return Err(format!(
+                "DOCS_REVIEW_MANIFEST_PATH_INVALID: {}: {path}",
+                transition.file
+            ));
+        }
+        if !is_lower_sha256(expected_hash) {
+            return Err(format!(
+                "DOCS_REVIEW_FILE_HASH_INVALID: {}: {path}",
+                transition.file
+            ));
+        }
+        if manifest
+            .insert(path.clone(), expected_hash.clone())
+            .is_some()
+        {
+            return Err(format!(
+                "DOCS_REVIEW_MANIFEST_DUPLICATE: {}: {path}",
+                transition.file
+            ));
+        }
+        let bytes = fs::read(root.join(path)).map_err(|error| {
+            format!(
+                "DOCS_REVIEW_CANDIDATE_FILE_MISSING: {}: {path}: {error}",
+                transition.file
+            )
+        })?;
+        let actual_hash = sha256_hex(&bytes);
+        if actual_hash != *expected_hash {
+            return Err(format!(
+                "DOCS_REVIEW_FILE_HASH_MISMATCH: {}: {path}: expected {expected_hash}, got {actual_hash}",
+                transition.file
+            ));
+        }
+    }
+    if manifest.is_empty() {
+        return Err(format!("DOCS_REVIEW_MANIFEST_EMPTY: {}", transition.file));
+    }
+    let mut candidate_files = Vec::new();
+    collect_files(
+        &root.join("docs/architecture"),
+        Some("md"),
+        &mut candidate_files,
+    )?;
+    let expected_paths: BTreeSet<_> = candidate_files
+        .iter()
+        .map(|path| relative_path(root, path))
+        .collect::<Result<_, _>>()?;
+    let actual_paths: BTreeSet<_> = manifest.keys().cloned().collect();
+    if actual_paths != expected_paths {
+        let missing = expected_paths
+            .difference(&actual_paths)
+            .next()
+            .map_or("none", String::as_str);
+        let unexpected = actual_paths
+            .difference(&expected_paths)
+            .next()
+            .map_or("none", String::as_str);
+        return Err(format!(
+            "DOCS_REVIEW_MANIFEST_SCOPE_MISMATCH: {}: missing {missing}, unexpected {unexpected}",
+            transition.file
+        ));
+    }
+    let actual_root = architecture_candidate_root(&manifest);
+    if actual_root != candidate_root {
+        return Err(format!(
+            "DOCS_REVIEW_CANDIDATE_ROOT_MISMATCH: {}: expected {candidate_root}, got {actual_root}",
+            transition.file
+        ));
+    }
+    Ok(manifest)
+}
+
+fn validate_review_checks(
+    transition: ArchitectureReviewTransition,
+    candidate_root: &str,
+    record_status: &str,
+    rows: &[Vec<String>],
+) -> Result<(), String> {
+    let mut checks = BTreeMap::new();
+    for row in rows {
+        if row.len() != 3 {
+            return Err(format!(
+                "DOCS_REVIEW_CHECK_ROW_INVALID: {}",
+                transition.file
+            ));
+        }
+        let result = row[1].as_str();
+        if !matches!(result, "Pending" | "PASS" | "FAIL" | "AwaitingCapability") {
+            return Err(format!(
+                "DOCS_REVIEW_CHECK_RESULT_INVALID: {}: {}: {result}",
+                transition.file, row[0]
+            ));
+        }
+        if result != "Pending" && is_absent(&row[2]) {
+            return Err(format!(
+                "DOCS_REVIEW_CHECK_EVIDENCE_MISSING: {}: {}",
+                transition.file, row[0]
+            ));
+        }
+        if checks
+            .insert(row[0].clone(), (row[1].clone(), row[2].clone()))
+            .is_some()
+        {
+            return Err(format!(
+                "DOCS_REVIEW_CHECK_DUPLICATE: {}: {}",
+                transition.file, row[0]
+            ));
+        }
+    }
+    for required in ARCHITECTURE_REVIEW_CHECKS {
+        let Some((result, _)) = checks.get(*required) else {
+            return Err(format!(
+                "DOCS_REVIEW_CHECK_MISSING: {}: {required}",
+                transition.file
+            ));
+        };
+        if record_status == "Approved" && result != "PASS" {
+            return Err(format!(
+                "DOCS_REVIEW_CHECK_NOT_PASS: {}: {required}: {result}",
+                transition.file
+            ));
+        }
+    }
+    if record_status == "Approved" && candidate_root == "absent" {
+        return Err(format!("DOCS_REVIEW_CHECKS_UNBOUND: {}", transition.file));
+    }
+    Ok(())
+}
+
+fn validate_review_decisions(
+    transition: ArchitectureReviewTransition,
+    candidate_root: &str,
+    record_status: &str,
+    required: &[&str],
+    rows: &[Vec<String>],
+    kind: &str,
+) -> Result<BTreeMap<String, (String, String, String)>, String> {
+    let mut decisions = BTreeMap::new();
+    for row in rows {
+        if row.len() != 4 {
+            return Err(format!(
+                "DOCS_REVIEW_{kind}_ROW_INVALID: {}",
+                transition.file
+            ));
+        }
+        let decision = row[1].as_str();
+        if !matches!(decision, "Pending" | "Approved" | "Rejected") {
+            return Err(format!(
+                "DOCS_REVIEW_{kind}_DECISION_INVALID: {}: {}: {decision}",
+                transition.file, row[0]
+            ));
+        }
+        if decision != "Pending"
+            && (candidate_root == "absent" || is_absent(&row[2]) || is_absent(&row[3]))
+        {
+            return Err(format!(
+                "DOCS_REVIEW_{kind}_DECISION_UNBOUND: {}: {}",
+                transition.file, row[0]
+            ));
+        }
+        if decisions
+            .insert(
+                row[0].clone(),
+                (row[1].clone(), row[2].clone(), row[3].clone()),
+            )
+            .is_some()
+        {
+            return Err(format!(
+                "DOCS_REVIEW_{kind}_DECISION_DUPLICATE: {}: {}",
+                transition.file, row[0]
+            ));
+        }
+    }
+    for name in required {
+        let Some((decision, _, _)) = decisions.get(*name) else {
+            return Err(format!(
+                "DOCS_REVIEW_{kind}_DECISION_MISSING: {}: {name}",
+                transition.file
+            ));
+        };
+        if record_status == "Approved" && decision != "Approved" {
+            return Err(format!(
+                "DOCS_REVIEW_{kind}_DECISION_NOT_APPROVED: {}: {name}: {decision}",
+                transition.file
+            ));
+        }
+    }
+    Ok(decisions)
+}
+
+fn architecture_candidate_root(manifest: &BTreeMap<String, String>) -> String {
+    let mut input = Vec::new();
+    for (path, file_hash) in manifest {
+        input.extend_from_slice(path.as_bytes());
+        input.push(0);
+        input.extend_from_slice(file_hash.as_bytes());
+        input.push(b'\n');
+    }
+    sha256_hex(&input)
+}
+
+fn is_lower_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn is_safe_manifest_path(value: &str) -> bool {
+    !value.is_empty()
+        && !value.contains('\\')
+        && !value.contains('\0')
+        && !Path::new(value).is_absolute()
+        && Path::new(value)
+            .components()
+            .all(|component| matches!(component, Component::Normal(_)))
+}
+
+fn is_absent(value: &str) -> bool {
+    value.is_empty() || value == "absent"
+}
+
 fn collect_defined_gates(files: &[PathBuf]) -> Result<BTreeSet<String>, String> {
     let mut gates = BTreeSet::new();
     for file in files {
@@ -1075,7 +1624,117 @@ pub fn sha256_hex(input: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_frozen_annex_id, is_index_id};
+    use super::{
+        ARCHITECTURE_REVIEW_ROOT, ARCHITECTURE_REVIEW_TRANSITIONS, ArchitectureReviewTransition,
+        architecture_candidate_root, is_frozen_annex_id, is_index_id, sha256_hex, table_field,
+        validate_architecture_review_records_at,
+    };
+    use std::collections::BTreeMap;
+    use std::fmt::Write as _;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static TEST_ROOT_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    struct TestRoot(PathBuf);
+
+    impl TestRoot {
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TestRoot {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn test_root(label: &str) -> TestRoot {
+        let serial = TEST_ROOT_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!(
+            "nextengine-docs-check-{label}-{}-{serial}",
+            std::process::id()
+        ));
+        fs::create_dir_all(path.join("docs/architecture"))
+            .expect("test architecture directory should be created");
+        fs::write(
+            path.join("docs/architecture/README.md"),
+            b"architecture candidate\n",
+        )
+        .expect("test candidate should be written");
+        TestRoot(path)
+    }
+
+    fn render_approved_record(root: &Path, transition: ArchitectureReviewTransition) -> String {
+        let candidate_path = "docs/architecture/README.md";
+        let candidate_hash = sha256_hex(
+            &fs::read(root.join(candidate_path)).expect("test candidate should be readable"),
+        );
+        let manifest = BTreeMap::from([(candidate_path.to_owned(), candidate_hash.clone())]);
+        let candidate_root = architecture_candidate_root(&manifest);
+        let mut record = format!(
+            "# Test architecture review\n\n\
+             | Field | Value |\n\
+             |---|---|\n\
+             | Record ID | ARCH-REVIEW-{} |\n\
+             | From packet | {} |\n\
+             | To packet | {} |\n\
+             | Status | Approved |\n\
+             | Candidate root algorithm | sha256-path-nul-file-sha256-lf-v1 |\n\
+             | Candidate scope | docs/architecture/**/*.md |\n\
+             | Candidate root SHA-256 | {candidate_root} |\n\n\
+             ## Candidate file manifest\n\n\
+             | Path | SHA-256 |\n\
+             |---|---|\n\
+             | {candidate_path} | {candidate_hash} |\n\n\
+             ## Automatic checks\n\n\
+             | Check | Result | Evidence reference |\n\
+             |---|---|---|\n\
+             | cargo test -p xtask | PASS | evidence/xtask-test |\n\
+             | cargo run -p xtask -- docs-check | PASS | evidence/docs-check |\n\
+             | cargo run -p xtask -- boundary-scan | PASS | evidence/boundary-scan |\n\
+             | cargo run -p xtask -- host-check | PASS | evidence/host-check |\n\
+             | git diff --check | PASS | evidence/diff-check |\n\n\
+             ## Required owner decisions\n\n\
+             | Required owner | Decision | Reviewer | Decision reference |\n\
+             |---|---|---|---|\n",
+            transition.to, transition.from, transition.to
+        );
+        for (index, owner) in transition.required_owners.iter().enumerate() {
+            writeln!(
+                record,
+                "| {owner} | Approved | reviewer-{index} | decision/owner-{index} |"
+            )
+            .expect("writing to a String should succeed");
+        }
+        record.push_str(
+            "\n## Bootstrap capability decisions\n\n\
+             | Capability | Decision | Reviewer | Decision reference |\n\
+             |---|---|---|---|\n\
+             | architecture.approve | Approved | reviewer-bootstrap | decision/architecture |\n\
+             | baseline.promote | Approved | reviewer-bootstrap | decision/baseline |\n",
+        );
+        record
+    }
+
+    fn write_packet_15_record(root: &Path, body: &str) {
+        let review_root = root.join(ARCHITECTURE_REVIEW_ROOT);
+        fs::create_dir_all(&review_root).expect("test review directory should be created");
+        fs::write(review_root.join("packet-1.5.md"), body)
+            .expect("test review record should be written");
+    }
+
+    fn without_row(body: &str, row_prefix: &str) -> String {
+        let mut filtered = body
+            .lines()
+            .filter(|line| !line.starts_with(row_prefix))
+            .collect::<Vec<_>>()
+            .join("\n");
+        filtered.push('\n');
+        filtered
+    }
 
     #[test]
     fn all_research_documents_are_index_ids() {
@@ -1090,5 +1749,151 @@ mod tests {
     fn only_research_001_has_the_frozen_annex_exception() {
         assert!(is_frozen_annex_id("RESEARCH-001"));
         assert!(!is_frozen_annex_id("RESEARCH-002"));
+    }
+
+    #[test]
+    fn missing_review_record_is_rejected_for_accepted_packet() {
+        let root = test_root("missing-record");
+        let error = validate_architecture_review_records_at(root.path(), "1.5")
+            .expect_err("packet 1.5 must require its review record");
+        assert!(error.contains("DOCS_REVIEW_RECORD_MISSING"));
+    }
+
+    #[test]
+    fn pending_review_record_is_rejected_for_accepted_packet() {
+        let root = test_root("pending-record");
+        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let pending = render_approved_record(root.path(), transition)
+            .replace("| Status | Approved |", "| Status | Pending |");
+        write_packet_15_record(root.path(), &pending);
+        let error = validate_architecture_review_records_at(root.path(), "1.5")
+            .expect_err("Pending record must not authorize packet 1.5");
+        assert!(error.contains("DOCS_REVIEW_RECORD_NOT_APPROVED"));
+    }
+
+    #[test]
+    fn changed_candidate_file_invalidates_review_record() {
+        let root = test_root("changed-candidate");
+        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let record = render_approved_record(root.path(), transition);
+        write_packet_15_record(root.path(), &record);
+        fs::write(
+            root.path().join("docs/architecture/README.md"),
+            b"changed architecture candidate\n",
+        )
+        .expect("test candidate should be changed");
+        let error = validate_architecture_review_records_at(root.path(), "1.5")
+            .expect_err("changed file must invalidate its review record");
+        assert!(error.contains("DOCS_REVIEW_FILE_HASH_MISMATCH"));
+    }
+
+    #[test]
+    fn wrong_candidate_root_is_rejected() {
+        let root = test_root("wrong-root");
+        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let record = render_approved_record(root.path(), transition);
+        let root_hash = table_field(&record, "Candidate root SHA-256")
+            .expect("test record should contain candidate root");
+        let record = record.replace(&root_hash, &"0".repeat(64));
+        write_packet_15_record(root.path(), &record);
+        let error = validate_architecture_review_records_at(root.path(), "1.5")
+            .expect_err("wrong candidate root must fail");
+        assert!(error.contains("DOCS_REVIEW_CANDIDATE_ROOT_MISMATCH"));
+    }
+
+    #[test]
+    fn manifest_must_cover_the_complete_architecture_packet() {
+        let root = test_root("incomplete-scope");
+        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let record = render_approved_record(root.path(), transition);
+        fs::write(
+            root.path().join("docs/architecture/glossary.md"),
+            b"additional candidate file\n",
+        )
+        .expect("additional candidate file should be written");
+        write_packet_15_record(root.path(), &record);
+        let error = validate_architecture_review_records_at(root.path(), "1.5")
+            .expect_err("manifest must cover every architecture Markdown file");
+        assert!(error.contains("DOCS_REVIEW_MANIFEST_SCOPE_MISMATCH"));
+        assert!(error.contains("docs/architecture/glossary.md"));
+    }
+
+    #[test]
+    fn missing_security_owner_decision_is_rejected() {
+        let root = test_root("missing-security");
+        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let record = without_row(
+            &render_approved_record(root.path(), transition),
+            "| Security & Governance Team |",
+        );
+        write_packet_15_record(root.path(), &record);
+        let error = validate_architecture_review_records_at(root.path(), "1.5")
+            .expect_err("Security decision must be present");
+        assert!(error.contains("DOCS_REVIEW_OWNER_DECISION_MISSING"));
+        assert!(error.contains("Security & Governance Team"));
+    }
+
+    #[test]
+    fn missing_subsystem_owner_decision_is_rejected() {
+        let root = test_root("missing-owner");
+        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let record = without_row(
+            &render_approved_record(root.path(), transition),
+            "| Runtime Team |",
+        );
+        write_packet_15_record(root.path(), &record);
+        let error = validate_architecture_review_records_at(root.path(), "1.5")
+            .expect_err("required subsystem owner decision must be present");
+        assert!(error.contains("DOCS_REVIEW_OWNER_DECISION_MISSING"));
+        assert!(error.contains("Runtime Team"));
+    }
+
+    #[test]
+    fn missing_capability_decision_is_rejected() {
+        let root = test_root("missing-capability");
+        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let record = without_row(
+            &render_approved_record(root.path(), transition),
+            "| baseline.promote |",
+        );
+        write_packet_15_record(root.path(), &record);
+        let error = validate_architecture_review_records_at(root.path(), "1.5")
+            .expect_err("baseline.promote must be a separate decision");
+        assert!(error.contains("DOCS_REVIEW_CAPABILITY_DECISION_MISSING"));
+        assert!(error.contains("baseline.promote"));
+    }
+
+    #[test]
+    fn combined_capability_decision_reference_is_rejected() {
+        let root = test_root("combined-capabilities");
+        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let record = render_approved_record(root.path(), transition)
+            .replace("decision/baseline", "decision/architecture");
+        write_packet_15_record(root.path(), &record);
+        let error = validate_architecture_review_records_at(root.path(), "1.5")
+            .expect_err("capability decisions must be recorded separately");
+        assert!(error.contains("DOCS_REVIEW_CAPABILITY_DECISIONS_NOT_SEPARATE"));
+    }
+
+    #[test]
+    fn skipped_review_transition_is_rejected() {
+        let root = test_root("skipped-transition");
+        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let record = render_approved_record(root.path(), transition)
+            .replace("| To packet | 1.5 |", "| To packet | 1.6 |");
+        write_packet_15_record(root.path(), &record);
+        let error = validate_architecture_review_records_at(root.path(), "1.5")
+            .expect_err("1.4 -> 1.6 must not replace the 1.4 -> 1.5 transition");
+        assert!(error.contains("DOCS_REVIEW_TRANSITION_MISMATCH"));
+    }
+
+    #[test]
+    fn valid_hash_bound_review_record_passes() {
+        let root = test_root("valid-record");
+        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let record = render_approved_record(root.path(), transition);
+        write_packet_15_record(root.path(), &record);
+        validate_architecture_review_records_at(root.path(), "1.5")
+            .expect("complete hash-bound review record should pass");
     }
 }
