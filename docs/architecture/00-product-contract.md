@@ -3,13 +3,12 @@
 | Поле | Значение |
 |---|---|
 | ID | SPEC-00 |
-| Статус | Proposed |
-| Версия | 1.5 |
+| Статус | Accepted |
+| Версия | 1.4 |
 | Владелец | Product Architecture |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [INDEX-001](README.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-012](adr/012-standalone-authority-and-acyclic-dependencies.md), [ADR-017](adr/017-artifact-first-ai-content-generation.md) |
-| Связанные документы | [SPEC-12](12-vertical-slice-conformance.md), [Packet 1.4 history](README.md) |
-| Заменяет | SPEC-00 v1.4 после human approval exact candidate hash |
+| Нормативные зависимости | [INDEX-001](README.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md) |
+| Заменяет | отсутствует |
 
 ## Назначение
 
@@ -54,10 +53,6 @@ Conforming v1 MUST:
 - Human approval MUST NOT override failed automatic gate и действует только для exact changeset/evidence hashes.
 - Developer-host compatibility MUST NOT считаться shipping/platform conformance; Mac training smoke MUST NOT заменять physics correspondence или `PhysicalCertified` gates.
 - `PhysicalCertified` promotion MUST оставаться `AwaitingCapability`, пока не пройден `TRAIN-RTX-01` на поддерживаемом Linux/NVIDIA host; `PrototypeFallback` от этого не блокируется.
-- Proposed architecture packet MUST NOT считаться Accepted по факту agent-generated diff или passing automatic checks; promotion требует human approval exact candidate hash и атомарного status/supersession update.
-- Required distributed package MUST иметь content hash и trusted publisher signature; explicit unsigned local install остаётся untrusted/local-only и не может повысить capability ceiling.
-- AI-generated image/mesh/material/world output MUST оставаться untrusted authoring candidate до provenance, normalization, common cook, resolved scenarios и human review; provider account/model никогда не является runtime source of truth.
-- Отсутствие network ImageGen или generation GPU MAY блокировать создание нового candidate, но MUST NOT блокировать existing-content cook, game/headless correctness или offline play.
 
 ## Scope и non-goals
 
@@ -68,7 +63,7 @@ Conforming v1 MUST:
 | Роль | Обязательный workflow | Не обещается v1 |
 |---|---|---|
 | Игрок | install → offline launch → play → save/load | account/cloud sync |
-| Gameplay author | typed generation/manual source → validated neutral data + Luau → cook → test/replay/evidence | визуальный full editor; обязательный cloud account |
+| Gameplay author | validated neutral data + Luau → cook → test/replay | визуальный full editor |
 | Engine developer | portable Rust workspace на Mac/Linux/Windows → local host-check → impact plan → CPU headless gates → optional capture job → Windows/Linux platform package | macOS shipping package; stable ABI для внутренних crates |
 | Plugin author | WIT SDK → capability manifest → validate/package | native DLL injection |
 | Мододел | public mechanics/physical SDK → package/prototype → scenarios/replay/certification → local install/share | implicit load-order monkey patching или self-certification |
@@ -78,15 +73,15 @@ Conforming v1 MUST:
 
 ## Ownership и публичная граница
 
-Этот Proposed product contract является source of truth candidate для scope, compatibility promise и release definition; Product Architecture владеет его изменением. Она не владеет subsystem state. Внешняя граница продукта состоит из project/verification/scenario/impact/evidence manifests, generation recipe/job/result/provenance/normalization manifests, cooked bundle schema, MechanicsLock/package schemas, creature/physical/policy/skill manifests, save/replay schemas, Luau capability API, WIT plugin worlds, AuthoringContextBundle/AgentChangeSet, HumanReviewDecision, `ai-host` IPC и CLI/JSON contracts. Внутренние Rust crates, ECS layout, provider SDK/model types и backend APIs не являются стабильным SDK до отдельного ADR.
+Этот Accepted product contract является source of truth для scope, compatibility promise и release definition; Product Architecture владеет его изменением. Она не владеет subsystem state. Внешняя граница продукта состоит из project/verification/scenario/impact/evidence manifests, cooked bundle schema, MechanicsLock/package schemas, creature/physical/policy/skill manifests, save/replay schemas, Luau capability API, WIT plugin worlds, AuthoringContextBundle/AgentChangeSet, HumanReviewDecision, `ai-host` IPC и CLI/JSON contracts. Внутренние Rust crates, ECS layout и backend APIs не являются стабильным SDK до отдельного ADR.
 
 ## Product data flow
 
-`manual/generated/imported data + mechanic/creature/policy packages → generation/provenance/normalization when applicable → validation/resolution → cooker + MechanicsLock → immutable bundles → game/headless → WorldCommand/DomainEvent → save/replay/presentation`. Для development: `AgentChangeSet → ImpactResolver → CPU scenarios → optional displayless capture → EvidenceBundle → human review when required`. Optional generation workers, `ai-host`, Luau, Wasm и agent tooling могут предлагать assets/commands/changesets, но не обходят validation. Presentation/capture consumers, generation и training tools не возвращают mutable model/gameplay state в simulation.
+`source/imported data + mechanic/creature/policy packages → validation/resolution → cooker + MechanicsLock → immutable bundles → game/headless → WorldCommand/DomainEvent → save/replay/presentation`. Для development: `AgentChangeSet → ImpactResolver → CPU scenarios → optional displayless capture → EvidenceBundle → human review when required`. Optional `ai-host`, Luau, Wasm и agent tooling могут предлагать commands/changesets, но не обходят validation. Presentation/capture consumers и training tools не возвращают mutable model/gameplay state в simulation.
 
 ## Failure semantics
 
-Ошибка optional feature MUST приводить к bounded degradation: generation unavailable/manual or prior asset, AI fallback, acoustic fallback, lower render/physics tier или disabled plugin. Ошибка authoritative data — corrupt save, incompatible schema, missing required bundle, invalid command — MUST быть fail-closed с structured diagnostic и без частично применённого состояния. Panic/crash одного generation/tool/ai-host process MUST NOT повреждать source assets, published content или последний валидный save.
+Ошибка optional feature MUST приводить к bounded degradation: AI fallback, acoustic fallback, lower render/physics tier или disabled plugin. Ошибка authoritative data — corrupt save, incompatible schema, missing required bundle, invalid command — MUST быть fail-closed с structured diagnostic и без частично применённого состояния. Panic/crash одного tool/ai-host process MUST NOT повреждать source assets или последний валидный save.
 
 ## Implementation conformance
 

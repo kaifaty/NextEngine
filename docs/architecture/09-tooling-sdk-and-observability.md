@@ -3,13 +3,12 @@
 | Поле | Значение |
 |---|---|
 | ID | SPEC-09 |
-| Статус | Proposed |
-| Версия | 1.5 |
+| Статус | Accepted |
+| Версия | 1.4 |
 | Владелец | Developer Experience Team |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-014](adr/014-artifact-first-review-baselines-and-attestation-v2.md) |
-| Связанные документы | [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-16](16-ai-assisted-world-and-asset-generation.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md), [ADR-017](adr/017-artifact-first-ai-content-generation.md) |
-| Заменяет | SPEC-09 v1.4 после human approval exact candidate hash |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md) |
+| Заменяет | отсутствует |
 
 ## Source of truth и ownership
 
@@ -17,7 +16,7 @@ Subsystem owners владеют semantics и emit structured diagnostics/metrics
 
 ## Public boundary и data flow
 
-Public tool boundary — versioned CLI arguments/exit codes/JSON, AuthoringContextBundle/AgentChangeSet, VerificationPolicy/TestScenario/ChangeImpact/CaptureJob/Evidence/HumanReview schemas, generation recipe/job/result/provenance/normalization manifests, physical/policy manifests и certification reports, diagnostic/telemetry envelopes, RunManifest и documented artifact schemas. Optional MCP/GUI adapter является projection того же application service, не вторым source. Provider SDK/account/session, profiler SDK, CI/artifact-store/encoder/training-backend API, terminal/MCP library, OS crash API и internal Rust types не экспортируются. Поток `subsystem structured signal → bounded local collector → RunManifest/artifact/inspector/evidence` read-only относительно simulation; mutating development endpoint требует отдельной capability и делает run non-conforming.
+Public tool boundary — versioned CLI arguments/exit codes/JSON, AuthoringContextBundle/AgentChangeSet, VerificationPolicy/TestScenario/ChangeImpact/CaptureJob/Evidence/HumanReview schemas, physical/policy manifests и certification reports, diagnostic/telemetry envelopes, RunManifest и documented artifact schemas. Optional MCP adapter является projection того же application service, не вторым source. Profiler SDK, CI/artifact-store/encoder/training-backend API, terminal/MCP library, OS crash API и internal Rust types не экспортируются. Поток `subsystem structured signal → bounded local collector → RunManifest/artifact/inspector/evidence` read-only относительно simulation; mutating development endpoint требует отдельной capability и делает run non-conforming.
 
 ## Обязательные CLI v1
 
@@ -43,20 +42,12 @@ Public tool boundary — versioned CLI arguments/exit codes/JSON, AuthoringConte
 | `next evidence build\|verify\|diff <input>` | content-addressed evidence assembly/validation/comparison |
 | `next review bundle <evidence> --out <dir>` | self-contained offline dossier rooted at `index.html`, no external resources |
 | `next review record <bundle> --decision <value> --attest <key-id>` | human-only attested HumanReviewDecision; automatic failures cannot be approved |
-| `next baseline candidate --bundle <evidence> --key <baseline-key>` | build immutable candidate only; never changes approved index |
-| `next baseline record --mode bootstrap\|replace --candidate <manifest> --attest <key-id>` | human-only `BaselinePromotionDecisionV1`; checks independent `baseline.promote` capability |
-| `next baseline promote --decision <manifest>` | verify attestation/trust/CAS precondition and atomically publish a new `BaselineIndexManifest` |
-| `next baseline verify <index-or-decision>` | read-only closure, JCS/signature/trust/revocation and predecessor verification |
 | `next gate <gate-id|vertical-v1> --artifact-root <dir>` | executes exact pinned scenario, writes RunManifest и pass/fail |
 | `next package --target windows-x86_64|linux-x86_64` | validates licenses/SBOM/content and creates reproducible package manifest |
 
 Mechanic/mod/agent CLI family (`next sdk`, `next mod`, `next mechanic`, `next changeset`, `next agent serve`) определяется SPEC-13 и MUST использовать те же exit-code/JSON/diagnostic contracts.
 
-AI-content CLI family (`next generate`, `next asset normalize|audit`, `next world synth|audit`) определяется SPEC-16 и MUST использовать те же exit-code/JSON/diagnostic/atomic-publication contracts. Offline fixture adapter является обязательным для conformance; live ImageGen/Pixal3D capability не является bootstrap, runtime или CI prerequisite.
-
 Physical `AuthoringContextBundle` scope MUST включать exact body/morphology/topology/actuator schemas, skill catalog, policy compatibility keys, normalization, training config schemas, evaluation/transition suites, certification rules, provenance requirements и structured diagnostics. Model promotion, license/provenance change и certification decision всегда создают review-required AgentChangeSet; отсутствие training backend не мешает собрать `PrototypeFallback` package.
-
-Generation scope `AuthoringContextBundle` MUST включать exact generation recipe/profile schemas, approved asset catalog view, adapter capability descriptors без credentials, normalization/world budgets, provenance/license policy, required gates и structured diagnostics. Он не включает raw private prompts/references, provider session handles или quarantined output bytes.
 
 Tools MUST support `--help`, `--version`, `--format json`, explicit output path и non-interactive CI. Они MUST NOT upload telemetry/artifacts unless user supplies explicit endpoint/consent.
 
@@ -99,9 +90,7 @@ run-root/
   crash/
 ```
 
-RunManifest MUST содержать schema version; run/scenario/suite/profile ID; VerificationPolicy/ChangeImpact/CaptureJob hashes when applicable; UTC creation time только как metadata; engine/git/build/toolchain/platform/hardware; project/content/save/replay/model/plugin/backend hashes; generation recipe/job/result/provenance/normalization hashes when applicable; physical archetype, body revision, proficiency band, resolved route, policy state schema и certification hashes when applicable; seeds/tick rates; exact command; configs; automatic gate thresholds/results; first-failure/minimized-replay status; artifact list с relative path, media type, bytes, SHA-256 и role; redaction classification; parent/base/candidate/baseline run IDs.
-
-Для Packet 1.5 RunManifest также ссылается на exact `CommandPriorityRegistry`, `ReviewerTrustManifest`, `PublisherTrustManifest`, `BaselineIndexManifest` и aggregate performance manifest, если соответствующий gate применим. Ссылочный hash обязателен; отсутствие required manifest является failure, не warning.
+RunManifest MUST содержать schema version; run/scenario/suite/profile ID; VerificationPolicy/ChangeImpact/CaptureJob hashes when applicable; UTC creation time только как metadata; engine/git/build/toolchain/platform/hardware; project/content/save/replay/model/plugin/backend hashes; physical archetype, body revision, proficiency band, resolved route, policy state schema и certification hashes when applicable; seeds/tick rates; exact command; configs; automatic gate thresholds/results; first-failure/minimized-replay status; artifact list с relative path, media type, bytes, SHA-256 и role; redaction classification; parent/base/candidate/baseline run IDs.
 
 Для HumanReviewRequired media manifest MUST фиксировать scenario/CapturePlan identity, base/candidate, camera, semantic tick window, render/audio settings, playback speed/FPS, overlays, raw frame/audio root, encoder/decoder manifests и reason выбора every worst/failure episode. Physical specialization дополнительно фиксирует policy compatibility/route/transition. Обязательные roles определены SPEC-15 и SPEC-05. Media generation failure записывается как AwaitingCapability/fail согласно required role; artifact нельзя молча исключить.
 
@@ -111,7 +100,7 @@ Inspectors по умолчанию читают saved RunManifest/artifacts. Ver
 
 ## Crash isolation
 
-Каждый process пишет bounded crash capsule: build/config/content hashes, last completed tick, recent command/event IDs, owned subsystem health, redacted stack/minidump reference и replay checkpoint pointer. Crash handler не пытается сериализовать arbitrary corrupted world. `ai-host`, importer, generation worker и tools crash не должны уронить `game`/повредить published output.
+Каждый process пишет bounded crash capsule: build/config/content hashes, last completed tick, recent command/event IDs, owned subsystem health, redacted stack/minidump reference и replay checkpoint pointer. Crash handler не пытается сериализовать arbitrary corrupted world. `ai-host`, importer и tools crash не должны уронить `game`/повредить published output.
 
 ## Profiling hooks
 
@@ -119,7 +108,7 @@ CPU spans, task/schedule stages, allocator counters, GPU timestamps, physics/mot
 
 ## SDK stability
 
-V1 public SDK ограничен documented CLI JSON schemas, scenario/impact/capture/evidence/review, generation/provenance/normalization, mechanics/package/changeset/context schemas, cooked/save/replay manifests, Luau capability API, WIT worlds, `ai-host` IPC и neutral asset/import schemas. Rust internal crates, provider adapters, CI scheduler/artifact store, encoder implementation, MCP implementation library и live inspector protocol имеют `unstable` marker до отдельного ADR. SemVer applies to published schemas/packages; breaking major requires migration/compatibility note.
+V1 public SDK ограничен documented CLI JSON schemas, scenario/impact/capture/evidence/review, mechanics/package/changeset/context schemas, cooked/save/replay manifests, Luau capability API, WIT worlds, `ai-host` IPC и neutral asset/import schemas. Rust internal crates, CI scheduler/artifact store, encoder implementation, MCP implementation library и live inspector protocol имеют `unstable` marker до отдельного ADR. SemVer applies to published schemas/packages; breaking major requires migration/compatibility note.
 
 ## Future CI design (не является bootstrap dependency)
 
@@ -133,16 +122,12 @@ Bootstrap repository MUST NOT требовать `.github/workflows/`, CI vendor
 - Observability sink unavailable → local bounded buffer/drop counter; gameplay continues, но required gate с incomplete evidence fails.
 - Inspector corrupt input → read-only error, no repair unless explicit separate command.
 - MCP adapter unavailable/incompatible → complete CLI/JSON path; MCP error не меняет project/runtime state.
-- Live generation adapter/account/network/GPU unavailable → structured `AwaitingCapability`; fixture/manual/catalog workflow and existing-content cook remain complete.
-- Generation worker crash, quota overrun or invalid result → exit 3/5 as classified, quarantine staging, publish no partial result and retain prior candidate/project revision.
 - Stale/unsafe AgentChangeSet → reject before filesystem mutation, emit violated precondition/path/capability.
 - Incomplete/inconsistent physical certification claim → exit 4, package remains `PrototypeFallback` or previous certified revision remains published.
 - Training backend absent/incompatible → diagnostic + engine-owned headless-lab fallback; validation, route tests и prototype packaging remain available.
 - Impact resolver unknown/failed → maximal affected suite + HumanReviewRequired; no author-selected fallback.
 - GPU/encoder/reviewer capability unavailable → structured AwaitingCapability; completed CPU evidence preserved, changeset not admitted.
 - Evidence/review hash or attestation mismatch → reject before project mutation; old decision cannot be reused.
-- Baseline Bootstrap для существующего key, Replace с неверным previous hash или отсутствующая `baseline.promote` capability → reject compare-and-swap; текущий index не меняется.
-- Unknown/revoked reviewer или publisher key → fail closed; dependent decisions/packages требуют нового review/trusted revision.
 - Deterministic retry divergence → gate failure `NONDETERMINISTIC_RESULT`; CI retry is diagnostic only.
 - MPS unavailable/unsupported operation → stable capability diagnostic + CPU smoke fallback; RunManifest не утверждает MPS pass.
 - Local RTX profile unavailable → `TRAIN-RTX-01=AwaitingCapability`; prototype validation доступна, certification promotion blocked.

@@ -4,12 +4,11 @@
 |---|---|
 | ID | ADR-008 |
 | Статус | Accepted |
-| Версия | 1.0.1 |
+| Версия | 1.0 |
 | Владелец | Gameplay Extensibility Team |
 | Дата решения | 2026-07-22 |
 | Последняя проверка evidence | 2026-07-22 |
-| Нормативные зависимости | [ADR-001](001-product-repository-license-and-platforms.md), [ADR-006](006-scripting-and-plugin-model.md) |
-| Связанные документы | [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-11](../11-security-licensing-and-governance.md) |
+| Нормативные зависимости | [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-006](006-scripting-and-plugin-model.md), [SPEC-11](../11-security-licensing-and-governance.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 

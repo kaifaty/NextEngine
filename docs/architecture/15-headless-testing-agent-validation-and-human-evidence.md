@@ -3,13 +3,12 @@
 | Поле | Значение |
 |---|---|
 | ID | SPEC-15 |
-| Статус | Proposed |
-| Версия | 1.1 |
+| Статус | Accepted |
+| Версия | 1.0 |
 | Владелец | Verification & Evidence Team |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-11](11-security-licensing-and-governance.md), [ADR-014](adr/014-artifact-first-review-baselines-and-attestation-v2.md) |
-| Связанные документы | [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md) |
-| Заменяет | SPEC-15 v1.0 после human approval exact candidate hash |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md) |
+| Заменяет | отсутствует |
 
 ## Назначение и invariants
 
@@ -27,14 +26,14 @@ Testability является свойством production architecture: scenari
 | Gameplay outcome | Runtime WorldCommand/DomainEvent/state/replay owners | screenshots, human opinion |
 | Capture request | Immutable `CaptureJobManifest` | worker-local defaults |
 | Evidence completeness | `EvidenceBundleManifest` + verified artifact hashes | CI green label |
-| Approved baseline | `BaselineIndexManifest` → `EvidenceBaselineManifest` + `BaselinePromotionDecisionV1` | generated candidate files |
-| Qualitative decision | Immutable `HumanReviewDecision` + `AttestationEnvelopeV1` от authorized reviewer | agent text, unsigned comment |
+| Approved baseline | `EvidenceBaselineManifest` + human attestation | generated candidate files |
+| Qualitative decision | Immutable `HumanReviewDecision` от authorized reviewer | agent text, unsigned comment |
 
 Verification & Evidence Team владеет schemas, runner orchestration semantics, impact resolver, artifact roles и gates. Subsystem owner владеет assertions/thresholds своего behavior. Release Engineering принимает root evidence; Security & Governance владеет reviewer trust/redaction policy.
 
 ## Public boundary и data flow
 
-Public contracts: `VerificationPolicyManifest`, `TestScenarioManifest`, `ScenarioAction`, `ProbeSpec`, `AssertionSpec`, `ChangeImpactManifest`, `OffscreenPresentationTarget`, `CapturePlan`, `CaptureJobManifest`, `EvidenceBaselineManifest`, `BaselineIndexManifest`, `BaselinePromotionDecisionV1`, `AttestationEnvelopeV1`, `ReviewerTrustManifest`, `EvidenceBundleManifest` и `HumanReviewDecision`.
+Public contracts: `VerificationPolicyManifest`, `TestScenarioManifest`, `ScenarioAction`, `ProbeSpec`, `AssertionSpec`, `ChangeImpactManifest`, `OffscreenPresentationTarget`, `CapturePlan`, `CaptureJobManifest`, `EvidenceBaselineManifest`, `EvidenceBundleManifest` и `HumanReviewDecision`.
 
 ```text
 AgentChangeSet
@@ -132,9 +131,6 @@ Normative CLI:
 | `next evidence build|verify|diff <input>` | content-addressed evidence operations |
 | `next review bundle <evidence> --out <dir>` | self-contained offline human dossier |
 | `next review record <bundle> --decision <value> --attest <key-id>` | human-only capability; produces HumanReviewDecision |
-| `next baseline candidate --bundle <evidence> --key <baseline-key>` | immutable candidate; approved index не меняется |
-| `next baseline record --mode bootstrap\|replace --candidate <manifest> --attest <key-id>` | human-only decision с independent `baseline.promote` capability |
-| `next baseline promote --decision <manifest>` | verify trust/signature/current-index precondition и atomic CAS publish |
 
 Every failed run MUST emit stable diagnostic code, owner/subsystem, first divergent tick/event/schema, expected/actual typed values, causal command/event IDs, remediation key and replay/minimization status. Text rendering is secondary to JSON. Minimization MUST preserve content/build/schema/model hashes and exact failure code.
 
@@ -167,17 +163,13 @@ Physical existing names `baseline.gif`, `selected-policy.gif`, `failures.gif`, `
 
 Artifacts хранятся под explicit `--artifact-root` content-addressed layout и не коммитятся в source repository. Missing referenced required artifact, hash mismatch, quota overflow или inaccessible approved artifact makes bundle invalid. Atomic publish exposes manifest last.
 
-`EvidenceBaselineManifest` immutable и связывает scenario/profile/camera/toolchain/content/renderer/audio parameters с approved semantic/media roots. Agent MAY создать baseline candidate, но command не имеет auto-promote mode. Missing/stale/incompatible baseline blocks qualitative approval. Base и candidate MUST использовать один scenario revision/profile.
-
-`BaselineIndexManifest` является immutable project index baseline key → approved manifest hash + promotion decision hash. `BaselinePromotionDecisionV1` использует `Bootstrap` только при отсутствии key и `Replace` только с exact current previous hash. Publication валидирует independent `baseline.promote` capability и выполняет atomic compare-and-swap; mismatch оставляет current index неизменным. Intended baseline change не может переиспользовать changeset review decision.
+`EvidenceBaselineManifest` immutable и связывает scenario/profile/camera/toolchain/content/renderer/audio parameters с approved semantic/media roots. Agent MAY создать baseline candidate, но command не имеет auto-promote mode. Missing/stale/incompatible baseline blocks qualitative approval. Base и candidate MUST использовать один scenario revision/profile; intended baseline change имеет отдельный rationale и HumanReviewDecision.
 
 ## Human review
 
 `next review bundle` создаёт self-contained offline dossier с root `index.html`: no external network/resources, exact changeset summary, impact reasons, automatic gate status, metrics, synchronized media, failure/minimized replay links и baseline diff. Untrusted diagnostic/content strings escaped; scripts/assets embedded с declared hashes.
 
-`HumanReviewDecision` содержит schema/version, `Approved|Rejected|NeedsChanges`, reviewer identity/role, base/candidate/AgentChangeSet/EvidenceBundle/Baseline hashes, reviewed artifact list, reason codes/comment, UTC metadata и `AttestationEnvelopeV1`.
-
-Attestation input — domain-separated RFC 8785 JCS object без поля `attestation`; Ed25519 RFC 8032 обязателен в v1. `ReviewerTrustManifest` фиксирует key/capabilities/validity/revocation. Unknown algorithm/key/role и revoked key fail closed; current revocation требует повторного review всех решений key.
+`HumanReviewDecision` содержит schema/version, `Approved|Rejected|NeedsChanges`, reviewer identity/role, base/candidate/AgentChangeSet/EvidenceBundle/Baseline hashes, reviewed artifact list, reason codes/comment, UTC metadata и SPEC-11 attestation envelope.
 
 Decision rules:
 
@@ -201,7 +193,6 @@ Decision rules:
 - Capture replay/gameplay hash mismatch → discard capture bundle and fail CAPTURE-01.
 - GPU/encoder crash or quota overflow → no atomic publish; preserve prior valid generation.
 - Missing/stale baseline → generate candidate only; review remains blocked.
-- Bootstrap existing key, Replace wrong previous hash, wrong role или CAS race → reject decision/publish; current baseline index unchanged.
 - Missing/tampered/inaccessible evidence → reject bundle/decision.
 - Agent/unsigned/unauthorized/stale review → reject decision; changeset unchanged.
 - Automatic gate failure with human approval attempt → reject approval as `AUTO_GATE_NOT_PASS`.
@@ -220,7 +211,5 @@ Decision rules:
 | MEDIA-P1 | pinned MediaEncoder canonical corpus Win/Linux | ADR-010 threshold; valid required GIF/MP4 and exact decoded stream structure; 0 network | encoder/SBOM/license/decoded-stream reports, hashes | PNG/WAV + engine GIF; MP4-required review awaits adapter |
 | EVIDENCE-01 | complete + missing/tampered/oversized/redaction corpus | 100% valid bundles verify; 100% invalid cases rejected/quarantined; atomic manifest publication | bundle validator/fault/privacy report | retain previous valid bundle; regenerate |
 | REVIEW-01 | observable/non-observable changes, approve/reject/needs-changes, stale/tampered/agent decisions | 100% observable changes blocked without valid human approval; automatic FAIL never approved; valid decision admits exact hash only; any hash change invalidates | policy/decision/audit/tamper report | keep changeset blocked; new evidence/review |
-| BASELINE-01 | first baseline, replacement, stale previous hash, concurrent promotion, wrong capability and revoked key | only absent-key Bootstrap and exact-current Replace publish; invalid cases preserve exact prior index | baseline candidate/index/decision manifests, CAS fault audit | retain prior index; AwaitingCapability without promoter |
-| ATTEST-01 | RFC 8785 JCS + RFC 8032 Ed25519 vectors, tamper/order/number/domain/key/role/revocation cases | canonical bytes and signatures exact across targets; invalid cases rejected 100% | golden vectors, trust/revocation audit | reject decision; obtain new authorized review |
 
 Verification & Evidence Team владеет TEST/HEADLESS/IMPACT/DIAG/CAPTURE/EVIDENCE gates; Developer Experience co-owns AGENT-03, Rendering/Audio co-own CAPTURE/MEDIA, Security & Governance co-owns MEDIA/EVIDENCE/REVIEW. Release Engineering принимает root artifacts.

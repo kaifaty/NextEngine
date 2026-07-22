@@ -4,11 +4,10 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 1.1.1 |
+| Версия | 1.1 |
 | Владелец | Rendering Team |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md) |
-| Связанные документы | [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md) |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership

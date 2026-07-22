@@ -4,11 +4,10 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 1.3.1 |
+| Версия | 1.3 |
 | Владелец | Asset & Persistence Team |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [ADR-007](adr/007-identities-persistence-and-replay.md) |
-| Связанные документы | [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md) |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-007](adr/007-identities-persistence-and-replay.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership

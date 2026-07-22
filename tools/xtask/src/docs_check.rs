@@ -6,6 +6,7 @@ use std::path::{Component, Path, PathBuf};
 const ANNEX_PATH: &str = "research/physical-avatar-research-spec.md";
 const ANNEX_SHA256: &str = "90533ed15c4c1a5ef41a24f26f4d17cf8c59f467e07619316d3c9744f4d2d79b";
 const TEMPLATE_PATH: &str = "adr/000-template.md";
+const LEGACY_PHYSICAL_RESEARCH_URL: &str = "https://github.com/kaifaty/OpenGothic/blob/c56e15f1fa68430eaa618dcc892edc00bff6209d/docs/physical-avatar-research-spec.md";
 
 #[derive(Clone, Debug)]
 struct Document {
@@ -17,6 +18,7 @@ struct Document {
     owner: String,
     normative: String,
     supersedes: String,
+    superseded_by: String,
 }
 
 pub fn docs_check(root: &Path) -> Result<(), String> {
@@ -27,9 +29,13 @@ pub fn docs_check(root: &Path) -> Result<(), String> {
 
     let readme = read(&docs_root.join("README.md"))?;
     let summary = packet_summary(&readme)?;
+    let architecture_file_count = files
+        .iter()
+        .filter(|path| !path.ends_with(ANNEX_PATH))
+        .count();
     require_count(
         "Markdown documents",
-        files.len(),
+        architecture_file_count,
         summary_value(&summary, "Markdown documents")?,
     )?;
 
@@ -52,6 +58,7 @@ pub fn docs_check(root: &Path) -> Result<(), String> {
         decision_adr_count,
         summary_value(&summary, "Decision ADR files")?,
     )?;
+    validate_adr_sequence(&docs_root, &files)?;
 
     let mut documents = BTreeMap::new();
     let mut document_ids = BTreeSet::new();
@@ -76,6 +83,7 @@ pub fn docs_check(root: &Path) -> Result<(), String> {
 
     validate_readme_index(&docs_root, &readme, &files, &documents)?;
     validate_normative_graph(&docs_root, &documents)?;
+    validate_supersession_graph(&docs_root, &documents)?;
     validate_annex(root, &docs_root)?;
     validate_governance(root)?;
 
@@ -105,7 +113,10 @@ pub fn docs_check(root: &Path) -> Result<(), String> {
     require_sequential(&vertical_ids, "VS-", 2)?;
 
     let defined_gates = collect_defined_gates(&files)?;
-    validate_traceability_text(&traceability, &defined_gates)?;
+    validate_traceability_text_at(&traceability, &defined_gates, true)?;
+
+    let budget_adr = read(&docs_root.join("adr/016-compositional-gameplay-budgets.md"))?;
+    validate_gameplay_budget_matrix(&budget_adr)?;
 
     let evidence = read(&docs_root.join("evidence-register.md"))?;
     let technology_rows: Vec<_> = evidence
@@ -131,8 +142,10 @@ pub fn docs_check(root: &Path) -> Result<(), String> {
         summary_value(&summary, "Proposed technology rows")?,
     )?;
 
+    let authoritative_version = required_field(&readme, "Версия", "README.md")?;
+    let candidate_version = required_field(&readme, "Review candidate", "README.md")?;
     println!(
-        "PASS docs-check: packet 1.5 candidate structure, authority graph, traceability, governance and annex verified"
+        "PASS docs-check: authoritative packet {authoritative_version}, candidate {candidate_version}, {architecture_file_count} indexed architecture documents"
     );
     Ok(())
 }
@@ -144,6 +157,7 @@ fn parse_document(relative: String, body: String) -> Result<Document, String> {
     let owner = required_field(&body, "Владелец", &relative)?;
     let normative = required_field(&body, "Нормативные зависимости", &relative)?;
     let supersedes = required_field(&body, "Заменяет", &relative)?;
+    let superseded_by = table_field(&body, "Заменён").unwrap_or_else(|| "не заменён".to_owned());
     Ok(Document {
         relative,
         body,
@@ -153,6 +167,7 @@ fn parse_document(relative: String, body: String) -> Result<Document, String> {
         owner,
         normative,
         supersedes,
+        superseded_by,
     })
 }
 
@@ -198,6 +213,50 @@ pub fn validate_supersession_document(body: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_adr_sequence(docs_root: &Path, files: &[PathBuf]) -> Result<(), String> {
+    let mut numbers = BTreeMap::new();
+    for path in files.iter().filter(|path| {
+        path.parent().is_some_and(|parent| parent.ends_with("adr"))
+            && path.extension() == Some(OsStr::new("md"))
+    }) {
+        let name = path
+            .file_name()
+            .and_then(OsStr::to_str)
+            .ok_or_else(|| format!("DOCS_ADR_FILENAME_INVALID: {}", path.display()))?;
+        let prefix = name
+            .get(..3)
+            .ok_or_else(|| format!("DOCS_ADR_FILENAME_INVALID: {name}"))?;
+        if name.as_bytes().get(3) != Some(&b'-')
+            || !prefix.bytes().all(|byte| byte.is_ascii_digit())
+        {
+            return Err(format!("DOCS_ADR_FILENAME_INVALID: {name}"));
+        }
+        let number = prefix
+            .parse::<usize>()
+            .map_err(|error| format!("DOCS_ADR_FILENAME_INVALID: {name}: {error}"))?;
+        if numbers.insert(number, name.to_owned()).is_some() {
+            return Err(format!("DOCS_ADR_DUPLICATE_NUMBER: {prefix}"));
+        }
+    }
+    for expected in 0..numbers.len() {
+        if !numbers.contains_key(&expected) {
+            return Err(format!("DOCS_ADR_SEQUENCE_GAP: ADR-{expected:03}"));
+        }
+    }
+    let readme = read(&docs_root.join("README.md"))?;
+    for (number, name) in numbers {
+        let id = format!("ADR-{number:03}");
+        let target = format!("adr/{name}");
+        if !readme.lines().any(|line| {
+            let cells = table_cells(line);
+            cells.first() == Some(&id) && line.contains(&format!("]({target})"))
+        }) {
+            return Err(format!("DOCS_ADR_INDEX_MISSING: {id} -> {target}"));
+        }
+    }
+    Ok(())
+}
+
 fn validate_readme_index(
     docs_root: &Path,
     readme: &str,
@@ -214,17 +273,31 @@ fn validate_readme_index(
         }
     }
 
+    let mut indexed_ids = BTreeSet::new();
+    let mut indexed_targets = BTreeSet::new();
     for line in readme.lines() {
         let cells = table_cells(line);
         if cells.len() < 3 || !is_index_id(&cells[0]) {
             continue;
         }
+        if !indexed_ids.insert(cells[0].clone()) {
+            return Err(format!("DOCS_INDEX_DUPLICATE_ID: {}", cells[0]));
+        }
         let Some(target) = markdown_targets(&cells[1]).into_iter().next() else {
             return Err(format!("DOCS_INDEX_LINK_MISSING: {}", cells[0]));
         };
+        if !indexed_targets.insert(target.clone()) {
+            return Err(format!("DOCS_INDEX_DUPLICATE_TARGET: {target}"));
+        }
         if cells[0] == "RESEARCH-001" {
             if target != ANNEX_PATH {
                 return Err("DOCS_INDEX_RESEARCH_PATH_MISMATCH".to_owned());
+            }
+            continue;
+        }
+        if cells[0] == "ADR-000" {
+            if target != TEMPLATE_PATH || cells[2] != "Accepted" {
+                return Err("DOCS_INDEX_ADR_TEMPLATE_MISMATCH".to_owned());
             }
             continue;
         }
@@ -233,6 +306,20 @@ fn validate_readme_index(
             .ok_or_else(|| format!("DOCS_INDEX_TARGET_MISSING: {} -> {target}", cells[0]))?;
         validate_index_entry_line(line, &document.body)?;
     }
+    let expected = files
+        .iter()
+        .filter(|file| !file.ends_with(ANNEX_PATH))
+        .count();
+    let indexed_architecture = indexed_ids
+        .iter()
+        .filter(|id| id.as_str() != "RESEARCH-001")
+        .count()
+        + 1;
+    require_count(
+        "README indexed architecture documents",
+        indexed_architecture,
+        expected,
+    )?;
     Ok(())
 }
 
@@ -272,32 +359,52 @@ fn validate_normative_graph(
         .values()
         .map(|document| (document.relative.as_str(), document.body.as_str()))
         .collect();
-    validate_normative_graph_documents_at(docs_root, &pairs)
+    validate_normative_graph_documents_at(docs_root, &pairs, true)
 }
 
 pub fn validate_normative_graph_documents(docs: &[(&str, &str)]) -> Result<(), String> {
-    validate_normative_graph_documents_at(Path::new("."), docs)
+    validate_normative_graph_documents_at(Path::new("."), docs, false)
 }
 
 fn validate_normative_graph_documents_at(
     docs_root: &Path,
     docs: &[(&str, &str)],
+    allow_packet_14_legacy: bool,
 ) -> Result<(), String> {
-    let known: BTreeSet<String> = docs
+    let known: BTreeMap<String, String> = docs
         .iter()
-        .map(|(path, _)| normalize_relative(path))
+        .map(|(path, body)| {
+            (
+                normalize_relative(path),
+                table_field(body, "Статус").unwrap_or_default(),
+            )
+        })
         .collect();
     let mut graph: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (relative, body) in docs {
         let node = normalize_relative(relative);
         let normative = table_field(body, "Нормативные зависимости").unwrap_or_default();
-        if normative.contains("http://") || normative.contains("https://") {
+        let external_targets: Vec<_> = markdown_targets(&normative)
+            .into_iter()
+            .filter(|target| target.starts_with("http://") || target.starts_with("https://"))
+            .collect();
+        let legacy_external_allowed = allow_packet_14_legacy
+            && matches!(
+                node.as_str(),
+                "05-physics-animation-and-motor-control.md"
+                    | "adr/004-physics-avatar-backend-boundary.md"
+            )
+            && external_targets.as_slice() == [LEGACY_PHYSICAL_RESEARCH_URL];
+        if !external_targets.is_empty() && !legacy_external_allowed {
             return Err(format!("DOCS_EXTERNAL_NORMATIVE: {node}"));
         }
         let parent = Path::new(&node).parent().unwrap_or_else(|| Path::new(""));
         let mut edges = Vec::new();
         for target in markdown_targets(&normative) {
             let target = target.split('#').next().unwrap_or_default();
+            if target.starts_with("http://") || target.starts_with("https://") {
+                continue;
+            }
             if target.is_empty() || !target.ends_with(".md") {
                 continue;
             }
@@ -308,21 +415,43 @@ fn validate_normative_graph_documents_at(
                 .to_string_lossy()
                 .trim_start_matches('/')
                 .to_owned();
-            if dependency == ANNEX_PATH || known.contains(&dependency) {
-                edges.push(dependency);
-            } else {
+            let Some(dependency_status) = known.get(&dependency) else {
                 return Err(format!(
                     "DOCS_NORMATIVE_TARGET_MISSING: {node} -> {dependency}"
                 ));
+            };
+            if table_field(body, "Статус").as_deref() == Some("Accepted")
+                && dependency_status != "Accepted"
+            {
+                return Err(format!(
+                    "DOCS_NON_ACCEPTED_NORMATIVE_TARGET: {node} -> {dependency} ({dependency_status})"
+                ));
             }
+            edges.push(dependency);
         }
         graph.insert(node, edges);
     }
 
+    let cycle_graph = if allow_packet_14_legacy {
+        graph
+            .iter()
+            .filter(|(node, _)| known.get(*node).is_some_and(|status| status != "Accepted"))
+            .map(|(node, edges)| {
+                let candidate_edges = edges
+                    .iter()
+                    .filter(|edge| known.get(*edge).is_some_and(|status| status != "Accepted"))
+                    .cloned()
+                    .collect();
+                (node.clone(), candidate_edges)
+            })
+            .collect()
+    } else {
+        graph
+    };
     let mut visiting = BTreeSet::new();
     let mut visited = BTreeSet::new();
-    for node in graph.keys() {
-        visit_graph(node, &graph, &mut visiting, &mut visited)?;
+    for node in cycle_graph.keys() {
+        visit_graph(node, &cycle_graph, &mut visiting, &mut visited)?;
     }
     Ok(())
 }
@@ -347,6 +476,89 @@ fn visit_graph(
     visiting.remove(node);
     visited.insert(node.to_owned());
     Ok(())
+}
+
+fn validate_supersession_graph(
+    docs_root: &Path,
+    documents: &BTreeMap<String, Document>,
+) -> Result<(), String> {
+    for document in documents.values() {
+        let supersedes = resolve_metadata_link(docs_root, &document.relative, &document.supersedes);
+        if let Some(target) = supersedes.as_ref() {
+            let previous = documents.get(target).ok_or_else(|| {
+                format!(
+                    "DOCS_SUPERSESSION_TARGET_MISSING: {} -> {target}",
+                    document.relative
+                )
+            })?;
+            if document.status == "Accepted" {
+                if previous.status != "Superseded" {
+                    return Err(format!(
+                        "DOCS_SUPERSESSION_STATUS_MISMATCH: {} accepts replacement for {} ({})",
+                        document.relative, previous.relative, previous.status
+                    ));
+                }
+                let backlink =
+                    resolve_metadata_link(docs_root, &previous.relative, &previous.superseded_by);
+                if backlink.as_deref() != Some(document.relative.as_str()) {
+                    return Err(format!(
+                        "DOCS_SUPERSESSION_BACKLINK_MISSING: {} -> {}",
+                        previous.relative, document.relative
+                    ));
+                }
+            }
+        }
+
+        if document.status == "Superseded" {
+            let replacement =
+                resolve_metadata_link(docs_root, &document.relative, &document.superseded_by)
+                    .ok_or_else(|| {
+                        format!("DOCS_SUPERSESSION_BACKLINK_MISSING: {}", document.relative)
+                    })?;
+            let replacement_document = documents.get(&replacement).ok_or_else(|| {
+                format!(
+                    "DOCS_SUPERSESSION_TARGET_MISSING: {} -> {replacement}",
+                    document.relative
+                )
+            })?;
+            if replacement_document.status != "Accepted" {
+                return Err(format!(
+                    "DOCS_SUPERSESSION_REPLACEMENT_NOT_ACCEPTED: {} -> {replacement}",
+                    document.relative
+                ));
+            }
+            let reverse = resolve_metadata_link(
+                docs_root,
+                &replacement_document.relative,
+                &replacement_document.supersedes,
+            );
+            if reverse.as_deref() != Some(document.relative.as_str()) {
+                return Err(format!(
+                    "DOCS_SUPERSESSION_FORWARDLINK_MISSING: {} -> {replacement}",
+                    document.relative
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn resolve_metadata_link(docs_root: &Path, source: &str, value: &str) -> Option<String> {
+    let target = markdown_targets(value).into_iter().find(|target| {
+        !target.starts_with("http://")
+            && !target.starts_with("https://")
+            && target
+                .split('#')
+                .next()
+                .is_some_and(|path| path.ends_with(".md"))
+    })?;
+    let target = target.split('#').next()?;
+    let parent = Path::new(source).parent().unwrap_or_else(|| Path::new(""));
+    let resolved = normalize_path(&docs_root.join(parent).join(target));
+    resolved
+        .strip_prefix(normalize_path(docs_root))
+        .ok()
+        .map(|path| path.to_string_lossy().replace('\\', "/"))
 }
 
 fn validate_annex(root: &Path, docs_root: &Path) -> Result<(), String> {
@@ -437,25 +649,124 @@ pub fn validate_traceability_text(
     traceability: &str,
     defined_gates: &BTreeSet<String>,
 ) -> Result<(), String> {
+    validate_traceability_text_at(traceability, defined_gates, false)
+}
+
+fn validate_traceability_text_at(
+    traceability: &str,
+    defined_gates: &BTreeSet<String>,
+    allow_packet_14_legacy: bool,
+) -> Result<(), String> {
+    let has_contributors = traceability.contains("| Primary owner |")
+        && traceability.contains("Contributors / required approvers");
+    let legacy_composite_owners = BTreeMap::from([
+        ("REQ-032", "RPG + Security"),
+        ("REQ-043", "Gameplay Extensibility + Runtime"),
+        ("REQ-045", "Persistence + Gameplay Extensibility"),
+        ("REQ-048", "Developer Experience + Security"),
+        ("REQ-049", "Gameplay Extensibility + Physical Embodiment"),
+        ("REQ-051", "Agent + Gameplay Extensibility"),
+        ("FAIL-003", "RPG + Security"),
+        ("FAIL-007", "Importer + Security"),
+        ("FAIL-009", "Persistence + Gameplay Extensibility"),
+        ("FAIL-010", "Developer Experience + Security"),
+    ]);
     for line in traceability.lines() {
         let cells = table_cells(line);
         if cells.len() < 5 || !(cells[0].starts_with("REQ-") || cells[0].starts_with("FAIL-")) {
             continue;
         }
+        let row_id = cells[0].split_whitespace().next().unwrap_or(&cells[0]);
         let owner_index = if cells[0].starts_with("REQ-") { 2 } else { 1 };
         let owner = &cells[owner_index];
-        if owner.contains(" + ") {
-            return Err(format!("DOCS_COMPOSITE_PRIMARY_OWNER: {}", cells[0]));
+        let composite = owner.is_empty()
+            || owner.contains(" + ")
+            || owner.contains(" / ")
+            || owner.contains(';')
+            || owner.contains(',');
+        let grandfathered =
+            allow_packet_14_legacy && legacy_composite_owners.get(row_id) == Some(&owner.as_str());
+        if composite && !grandfathered {
+            return Err(format!("DOCS_COMPOSITE_PRIMARY_OWNER: {row_id}"));
         }
-        if owner.contains(';') && !owner.contains("; collaborators: ") {
-            return Err(format!("DOCS_COLLABORATOR_SYNTAX: {}", cells[0]));
-        }
-        let gate_index = if cells[0].starts_with("REQ-") { 4 } else { 3 };
-        for token in identifier_tokens(&cells[gate_index]) {
-            if is_gate_id(&token) && !defined_gates.contains(&token) {
-                return Err(format!("DOCS_UNKNOWN_GATE: {} -> {token}", cells[0]));
+        if has_contributors {
+            let required_len = if cells[0].starts_with("REQ-") { 7 } else { 6 };
+            if cells.len() < required_len {
+                return Err(format!("DOCS_CONTRIBUTORS_COLUMN_MISSING: {row_id}"));
             }
         }
+        let gate_index = match (cells[0].starts_with("REQ-"), has_contributors) {
+            (true, true) => 5,
+            (true, false) => 4,
+            (false, true) => 4,
+            (false, false) => 3,
+        };
+        for token in identifier_tokens(&cells[gate_index]) {
+            if is_gate_id(&token) && !defined_gates.contains(&token) {
+                return Err(format!("DOCS_UNKNOWN_GATE: {row_id} -> {token}"));
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn validate_gameplay_budget_matrix(body: &str) -> Result<(), String> {
+    let expected = BTreeMap::from([
+        ("core-command-rpg", (1_500_usize, 2_000_usize)),
+        ("mechanics", (2_000, 4_000)),
+        ("perception-world-services", (1_000, 1_500)),
+        ("agent-planning", (1_250, 1_500)),
+        ("navigation", (1_250, 1_500)),
+        ("state-hash-save-delta-snapshot", (500, 500)),
+        ("streaming-staging-commit", (250, 500)),
+        ("reserved-headroom", (250, 500)),
+    ]);
+    let mut rows = BTreeMap::new();
+    let mut declared_total = None;
+    for line in body.lines() {
+        let cells = table_cells(line);
+        if cells.len() != 3 || (!expected.contains_key(cells[0].as_str()) && cells[0] != "TOTAL") {
+            continue;
+        }
+        let p95 = cells[1]
+            .parse::<usize>()
+            .map_err(|error| format!("DOCS_BUDGET_INTEGER_REQUIRED: {}: {error}", cells[0]))?;
+        let p99 = cells[2]
+            .parse::<usize>()
+            .map_err(|error| format!("DOCS_BUDGET_INTEGER_REQUIRED: {}: {error}", cells[0]))?;
+        if cells[0] == "TOTAL" {
+            if declared_total.replace((p95, p99)).is_some() {
+                return Err("DOCS_BUDGET_DUPLICATE_TOTAL".to_owned());
+            }
+        } else if rows.insert(cells[0].clone(), (p95, p99)).is_some() {
+            return Err(format!("DOCS_BUDGET_DUPLICATE_ROW: {}", cells[0]));
+        }
+    }
+    if rows.len() != expected.len() {
+        return Err(format!(
+            "DOCS_BUDGET_ROWS_MISSING: expected {}, got {}",
+            expected.len(),
+            rows.len()
+        ));
+    }
+    for (owner, values) in &expected {
+        if rows.get(*owner) != Some(values) {
+            return Err(format!(
+                "DOCS_BUDGET_DEFAULT_MISMATCH: {owner}: expected {}/{}, got {:?}",
+                values.0,
+                values.1,
+                rows.get(*owner)
+            ));
+        }
+    }
+    let sums = rows.values().fold((0_usize, 0_usize), |acc, value| {
+        (acc.0 + value.0, acc.1 + value.1)
+    });
+    if sums != (8_000, 12_000) || declared_total != Some(sums) {
+        return Err(format!(
+            "DOCS_BUDGET_SUM_MISMATCH: rows={}/{}, total={declared_total:?}",
+            sums.0, sums.1
+        ));
     }
     Ok(())
 }

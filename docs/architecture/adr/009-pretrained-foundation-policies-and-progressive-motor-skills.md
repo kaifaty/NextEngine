@@ -4,12 +4,11 @@
 |---|---|
 | ID | ADR-009 |
 | Статус | Accepted |
-| Версия | 1.0.1 |
+| Версия | 1.0 |
 | Владелец | Physical Embodiment Team |
 | Дата решения | 2026-07-22 |
 | Последняя проверка evidence | 2026-07-22 |
-| Нормативные зависимости | [ADR-004](004-physics-avatar-backend-boundary.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md) |
-| Связанные документы | [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md) |
+| Нормативные зависимости | [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-004](004-physics-avatar-backend-boundary.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 

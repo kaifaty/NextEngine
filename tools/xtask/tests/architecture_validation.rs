@@ -1,8 +1,9 @@
 use std::collections::BTreeSet;
 
 use xtask::docs_check::{
-    sha256_hex, validate_governance_documents, validate_index_entry_line,
-    validate_normative_graph_documents, validate_supersession_document, validate_traceability_text,
+    sha256_hex, validate_gameplay_budget_matrix, validate_governance_documents,
+    validate_index_entry_line, validate_normative_graph_documents, validate_supersession_document,
+    validate_traceability_text,
 };
 
 const VALID_A: &str = include_str!("fixtures/valid-a.md");
@@ -16,6 +17,9 @@ const COMPOSITE_OWNER: &str = include_str!("fixtures/composite-owner.md");
 const UNKNOWN_GATE: &str = include_str!("fixtures/unknown-gate.md");
 const BAD_ANNEX: &[u8] = include_bytes!("fixtures/bad-annex-hash.txt");
 const MISSING_GOVERNANCE: &str = include_str!("fixtures/missing-governance-status.md");
+const BUDGET_MISMATCH: &str = include_str!("fixtures/budget-mismatch.md");
+const ACCEPTED_DEPENDS_PROPOSED: &str = include_str!("fixtures/accepted-depends-proposed.md");
+const PROPOSED_TARGET: &str = include_str!("fixtures/proposed-target.md");
 
 #[test]
 fn valid_normative_graph_passes() {
@@ -35,6 +39,16 @@ fn external_normative_link_is_rejected() {
     let error = validate_normative_graph_documents(&[("external.md", EXTERNAL)])
         .expect_err("external normative dependency must fail");
     assert!(error.contains("DOCS_EXTERNAL_NORMATIVE"));
+}
+
+#[test]
+fn accepted_document_cannot_depend_on_proposed_target() {
+    let error = validate_normative_graph_documents(&[
+        ("accepted-depends-proposed.md", ACCEPTED_DEPENDS_PROPOSED),
+        ("proposed-target.md", PROPOSED_TARGET),
+    ])
+    .expect_err("Accepted dependency on Proposed target must fail");
+    assert!(error.contains("DOCS_NON_ACCEPTED_NORMATIVE_TARGET"));
 }
 
 #[test]
@@ -88,4 +102,14 @@ fn missing_governance_status_is_rejected() {
     let error = validate_governance_documents(MISSING_GOVERNANCE, security, conduct)
         .expect_err("missing governance marker must fail");
     assert!(error.contains("DOCS_GOVERNANCE_STATUS_MISSING"));
+}
+
+#[test]
+fn gameplay_budget_sum_mismatch_is_rejected() {
+    let error =
+        validate_gameplay_budget_matrix(BUDGET_MISMATCH).expect_err("budget mismatch must fail");
+    assert!(
+        error.contains("DOCS_BUDGET_DEFAULT_MISMATCH")
+            || error.contains("DOCS_BUDGET_SUM_MISMATCH")
+    );
 }

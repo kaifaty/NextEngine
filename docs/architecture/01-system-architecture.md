@@ -3,13 +3,12 @@
 | Поле | Значение |
 |---|---|
 | ID | SPEC-01 |
-| Статус | Proposed |
-| Версия | 1.5 |
+| Статус | Accepted |
+| Версия | 1.4 |
 | Владелец | Core Architecture |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-012](adr/012-standalone-authority-and-acyclic-dependencies.md), [ADR-016](adr/016-rust-first-audited-ffi-boundary-v2.md), [ADR-017](adr/017-artifact-first-ai-content-generation.md) |
-| Связанные документы | [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-16](16-ai-assisted-world-and-asset-generation.md) |
-| Заменяет | SPEC-01 v1.4 после human approval exact candidate hash |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md) |
+| Заменяет | отсутствует |
 
 ## Bounded contexts
 
@@ -21,7 +20,7 @@
 | Physical embodiment | physics worlds, physical pose, motor, policy resolver/supervisor, animation/physics bridge, contacts, physical certification | quests, inventory, skill proficiency, habits/LLM planning |
 | Agent intelligence | perception records, intent planning, AI memory policy | final command acceptance, motor/physics tick |
 | Gameplay extensibility | mechanic registry/lock, abilities/effects/statuses, namespaced state, package resolver/reducers, authoring SDK | direct RPG/physics/ECS mutation, hidden first-party API |
-| Asset & tool chain | generation recipes/results/provenance, neutral schemas, normalization, validation, cooking, bundles, migrations, inspectors | provider/model types или proprietary source semantics после boundary |
+| Asset & tool chain | neutral schemas, validation, cooking, bundles, migrations, inspectors | proprietary source semantics после cooking |
 | Verification & evidence | scenario/impact/evidence schemas, runner orchestration, displayless capture jobs и review admission | gameplay truth, subsystem thresholds, agent-selected omissions |
 | External importer | legacy parsing, provenance, mapping в NeutralImportModel | engine runtime, cooked bundle loading, embedded legacy VM |
 
@@ -29,9 +28,7 @@ Cross-context вызов MUST идти через engine-owned versioned contrac
 
 ## Public boundary
 
-Публичная системная граница состоит только из versioned schemas и engine-owned facades в `crates/contracts`: nominal IDs, WorldCommand/DomainEvent, immutable queries/snapshots, asset/package/generation manifests и process/plugin protocols. ECS storage, task handles, backend objects, database connections, provider account/session и vendor-типы являются private implementation details соответствующего context и не могут пересекать эту границу.
-
-Workspace lint authority остаётся safe-by-default: existing contracts/core/runtime/tooling crates наследуют `unsafe_code = "forbid"`. Будущий FFI/backend crate может иметь иную lint policy только после Accepted ADR, exact Cargo metadata allowlist и FFI-01; начальный allowlist пуст, поэтому Packet 1.5 не разрешает unsafe ни одному существующему crate.
+Публичная системная граница состоит только из versioned schemas и engine-owned facades в `crates/contracts`: nominal IDs, WorldCommand/DomainEvent, immutable queries/snapshots, asset/package manifests и process/plugin protocols. ECS storage, task handles, backend objects, database connections и vendor-типы являются private implementation details соответствующего context и не могут пересекать эту границу.
 
 ## Process topology
 
@@ -41,7 +38,6 @@ Workspace lint authority остаётся safe-by-default: existing contracts/co
 | `headless` | тот же core/RPG/physics contracts без renderer/platform window | v1 MUST | deterministic gates, replay и server-like simulation tests |
 | `tools` | cooker, validator, scenario/impact/evidence/review CLI, mechanic/mod/agent authoring, inspectors, package/replay CLI, optional local MCP adapter | v1 MUST; MCP optional | пишет только staging/output/approved project roots; atomic publish/changeset apply |
 | `capture-worker` | common simulation/replay + renderer/audio capture, no PlatformHost window/display/input | v1 MUST для observable evidence; worker location optional | short-lived immutable job; GPU/encoder crash сохраняет CPU evidence и не публикует partial bundle |
-| `generation-worker` | optional ImageGen/image-to-3D/procedural adapters behind SPEC-16 manifests | development-only optional; live adapters `Proposed` | short-lived bounded job; explicit input/output/network grants; publishes immutable result manifest last; never joins runtime |
 | `editor` | будущий клиент tools/runtime contracts | v1 MUST NOT требоваться | отдельный ADR после v1 |
 | `ai-host` | LLM, embeddings, ASR, TTS adapters | optional | crash/timeout → deterministic in-process fallback |
 | Gothic importer | отдельный repository/process/distributable | vertical-slice integration gate | untrusted input boundary; только neutral output |
@@ -73,7 +69,6 @@ Bootstrap MUST выполнять один project-owned local command surface. 
 | Mechanic package registry/state | MechanicsLock + cooked MechanicRegistry; runtime instances/state — Mechanics Runtime transaction store | package reducers/inspectors read scoped views | validated MechanicDeltaProposal committed by WorldCommand transaction |
 | Durable AI memory records/indexes | Engine memory service/save segment; не содержит authoritative RPG relationship/quest/dialogue fields | `ai-host` retrieval/embedding cache | validated memory proposal/compaction transaction from DomainEvent/facts |
 | Assets и world chunks | Cooked content manifest + immutable bundles | CPU/GPU caches | cooker publish only |
-| Generated source candidates | GenerationRecipe/Job/Result + provenance manifests; candidate bytes in external content-addressed artifact store | provider gallery/session, DCC/generation caches | bounded generation worker to quarantine; normalization/cooker only may advance candidate |
 | Save state | Last atomically committed SaveManifest + segments | temporary migration copy | persistence transaction |
 | Presentation | Presentation subsystem per frame | GPU/audio device state | snapshot consumption only |
 | Import provenance | External importer manifest until neutral export; cooked provenance subset thereafter | inspector index | importer/cooker only |
@@ -102,7 +97,7 @@ crates/scripting          Luau host and capability surface
 crates/plugin-host        WIT/Wasm host
 crates/assets             neutral schemas, streaming, persistence
 crates/verification       scenario, impact, assertions, evidence contracts/services
-tools/*                   generation orchestrator, normalizers, world synthesizer, cooker, validators, mechanic/mod/agent SDK, inspectors, packaging
+tools/*                   cooker, validators, mechanic/mod/agent SDK, inspectors, packaging
 apps/game, apps/headless, apps/capture-worker  composition roots
 lab/*                     isolated offline training application, не runtime dependency
 ```
@@ -131,7 +126,6 @@ Authoritative mutation выполняется только внутри объя
 - Renderer device loss приостанавливает presentation и восстанавливает GPU caches из immutable assets; authoritative simulation MAY быть поставлена на bounded pause policy, но не реконструируется из GPU state.
 - Physics backend corruption/panic является fatal для текущего simulation instance; recovery идёт из последнего save/replay checkpoint, не через продолжение с недостоверной pose.
 - Tool/importer crash не публикует частичный bundle: staging directory удаляется/карантинируется при следующем запуске.
-- Generation worker unavailable/crash/quota/invalid output → exact job получает structured `Failed` или `AwaitingCapability`; source/project и prior approved candidate не меняются, existing-content cook остаётся доступен.
 - Capture worker unavailable/crash → CPU evidence сохраняется, required observable changeset остаётся AwaitingCapability; interactive runtime не используется как fallback gate.
 - Missing/tampered review evidence → changeset не admitted; gameplay/project revision не меняется.
 - Unsupported developer host → fail before workspace admission с capability diagnostic; не создаётся ложный shipping result.
@@ -148,7 +142,6 @@ Authoritative mutation выполняется только внутри объя
 | ARCH-05 first-party mechanics dogfood | Стрельба/магия используют только public package API; 0 private gameplay dependency или bypass | public API/link/package graph report | добавить public primitive через RFC/ADR |
 | ARCH-06 first-party physical dogfood | Reference creature/axe policies используют только public physical/package SDK; 0 hidden/native creature dependency | public API/link/archetype/policy graph report | добавить public primitive через RFC/ADR; retain prototype fallback |
 | ARCH-07 verification dogfood | Все first-party mechanics/creatures/presentation fixtures используют public TestScenario/Impact/Capture/Evidence contracts; 0 private mutable test API или interactive-only gate | public API/dependency/scenario graph report | expose missing public primitive; block admission |
-| DOCS-01 architecture packet integrity | 100% indexed local documents resolve; 0 normative cycles/external URLs/orphans/metadata drift; counts, owners, gates, annex hash/provenance и governance statuses exact; all negative fixtures rejected | docs graph/index/fixture/governance/hash report | reject candidate; retain Accepted Packet 1.4 |
 | HOST-MAC-01 portable developer host | `cargo run -p xtask -- host-check` проходит на clean `aarch64-apple-darwin`; 0 Apple/vendor/importer type в public contracts; 0 CI/remote dependency | host/toolchain manifest, command report, dependency/API scan | fix portable boundary; Mac host claim blocked |
 
 Release Engineering владеет выполнением; профильные команды исправляют нарушения.

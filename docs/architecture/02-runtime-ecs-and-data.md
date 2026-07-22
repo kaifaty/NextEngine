@@ -3,13 +3,12 @@
 | Поле | Значение |
 |---|---|
 | ID | SPEC-02 |
-| Статус | Proposed |
-| Версия | 1.2 |
+| Статус | Accepted |
+| Версия | 1.1 |
 | Владелец | Runtime Team |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [ADR-007](adr/007-identities-persistence-and-replay.md), [ADR-013](adr/013-canonical-world-command-ordering.md), [ADR-016](adr/016-rust-first-audited-ffi-boundary-v2.md) |
-| Связанные документы | [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md) |
-| Заменяет | SPEC-02 v1.1 после human approval exact candidate hash |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-007](adr/007-identities-persistence-and-replay.md) |
+| Заменяет | отсутствует |
 
 ## Source of truth и ownership
 
@@ -49,7 +48,7 @@ Tick rates и divisors MUST входить в project/save/replay manifests. Run
 1. ingest timestamped local input и completed async proposals;
 2. authenticate/capability check command candidates;
 3. validate schema, target, preconditions и RPG rules;
-4. stable-sort accepted WorldCommand по `CanonicalCommandOrderKey = (target_tick, priority_class, issuer_id, issuer_sequence, command_id)`;
+4. stable-sort accepted WorldCommand по `(target_tick, priority_class, issuer_id, sequence)`;
 5. apply commands в transaction и emit ordered DomainEvent;
 6. perception/world-service update;
 7. deterministic agent planning и PhysicalAvatarIntent generation;
@@ -65,9 +64,7 @@ Systems внутри stage MAY работать параллельно толь�
 
 ### WorldCommand envelope
 
-Envelope MUST содержать `schema_id`, `schema_version`, `command_id`, стабильный `CommandIssuerId`, `issuer_sequence: u64`, `target_tick`, optional target PersistentId, deterministic payload, declared capabilities и precondition revision. Caller MAY передать advisory priority только для диагностики, но authoritative `priority_class` выводит validator из versioned engine-owned `CommandPriorityRegistry`; caller не может повысить его.
-
-Validator возвращает `Accepted{canonical_command}` либо stable rejection code. Принятая команда хранит полный `CanonicalCommandOrderKey`. `CommandIssuerId` и `command_id` сравниваются по canonical big-endian bytes; `issuer_sequence` строго возрастает для каждого issuer, gaps разрешены. Ledger последовательностей и hash priority registry входят в save/replay/schema manifest. Stale/duplicate sequence, конфликтующий duplicate command ID и несовместимый registry отклоняются до mutation кодами `COMMAND_SEQUENCE_REJECTED`, `COMMAND_ID_CONFLICT` и `INCOMPATIBLE_COMMAND_ORDER_REGISTRY`.
+Envelope MUST содержать `schema_id`, `schema_version`, `command_id`, `issuer`, `target_tick`, optional target PersistentId, deterministic payload, declared capabilities и precondition revision. Validator возвращает `Accepted{canonical_command}` либо stable rejection code; исключения/строки backend не являются contract.
 
 Command применён атомарно: либо все owned component mutations и events committed, либо ни одно. Command handler MUST NOT выполнять blocking I/O, LLM call или asset load.
 
@@ -113,6 +110,5 @@ Facade предоставляет query/system registration, declared read/write
 | RUNTIME-03 | async completion permutations, 1 000 runs | final state exact; stale results 100% rejected | permutation report | serialize commit queue |
 | RUNTIME-04 | public boundary scan | 0 RuntimeEntityId в serialized/WIT/Luau/IPC schemas; 0 Bevy/vendor public types | schema/API scan | blocking boundary refactor |
 | RUNTIME-05 | production vs scenario control-plane scan | 100% scenario mutations проходят VirtualInputEvent/validated command/lifecycle/declared fault adapter; 0 mutable ECS/backend test API; probes preserve exact state hash | API/architecture scan, replay/probe report | remove test backdoor; block merge |
-| ORDER-01 | input/internal/async command permutations, forged priority, stale/duplicate issuer sequence и duplicate command IDs | exact accepted-command/event/final-state hashes для всех permutations; 100% invalid ordering cases rejected before mutation | canonical command trace, priority registry/ledger manifests, rejection corpus | serial deterministic intake за тем же key; release block до exact parity |
 
 Runtime Team владеет gates; Release Engineering принимает artifacts.

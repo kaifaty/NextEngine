@@ -4,7 +4,7 @@
 |---|---|
 | ID | SPEC-10 |
 | Статус | Accepted |
-| Версия | 1.1.1 |
+| Версия | 1.1 |
 | Владелец | Importer Team |
 | Последняя проверка | 2026-07-22 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-007](adr/007-identities-persistence-and-replay.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md) |

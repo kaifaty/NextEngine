@@ -3,13 +3,12 @@
 | Поле | Значение |
 |---|---|
 | ID | SPEC-14 |
-| Статус | Proposed |
-| Версия | 1.3 |
+| Статус | Accepted |
+| Версия | 1.2 |
 | Владелец | Physical Embodiment Team |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-014](adr/014-artifact-first-review-baselines-and-attestation-v2.md) |
-| Связанные документы | [ADR-010](adr/010-artifact-first-headless-validation-and-review.md) |
-| Заменяет | SPEC-14 v1.2 после human approval exact candidate hash |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md) |
+| Заменяет | отсутствует |
 
 ## Назначение и invariants
 
@@ -81,8 +80,6 @@ Reference `neutral.quadruped.v1` использует generated primitive visual
 | `PhysicalCertified` | Full/Simplified physical tiers и перечисленные learned skills | foundation stand/locomotion/recovery, every declared skill suite, MOTOR/PHYS/POLICY gates, performance budget, failure media и signed evidence packet |
 
 Project policy MAY запретить prototype creatures в shipping content. Prototype promotion сохраняет CreatureArchetype identity, но повышает revision и заменяет exact bundle hash. Signature или first-party status не обходят certification gates. `PrototypeFallback` MAY разрабатываться без RTX; `PhysicalCertified` MUST дополнительно иметь `TRAIN-RTX-01=PASS`. Mac `TRAIN-MAC-P0` является только toolchain smoke и не может подменить этот capability/correspondence evidence.
-
-Certification/review attestation использует `AttestationEnvelopeV1` и current `ReviewerTrustManifest` ADR-014; revoked/unknown key, wrong capability или любое hash изменение инвалидирует promotion. Это не заменяет обязательные automatic POLICY/PHYS/TRAIN gates.
 
 ## Motor skills и proficiency
 

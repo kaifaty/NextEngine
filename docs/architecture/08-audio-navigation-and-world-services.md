@@ -4,11 +4,10 @@
 |---|---|
 | ID | SPEC-08 |
 | Статус | Accepted |
-| Версия | 1.1.1 |
+| Версия | 1.1 |
 | Владелец | World Services Team |
 | Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md) |
-| Связанные документы | [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md) |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
