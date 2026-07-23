@@ -4,18 +4,20 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 1.5 |
+| Версия | 1.5.1 |
 | Review candidate | 1.6 |
 | Владелец | Repository Owner |
-| Последняя проверка | 2026-07-23 |
+| Последняя проверка | 2026-07-24 |
 | Нормативные зависимости | отсутствуют |
 | Заменяет | отсутствует |
 
 Этот каталог задаёт архитектурную baseline независимого AI-first RPG-движка, временно называемого **Next Engine**. Он не описывает перенос OpenGothic и не меняет контракты действующего C++20 runtime. Документы написаны так, чтобы после review пакет можно было перенести без смысловых изменений в отдельный engine monorepo.
 
-Architecture packet version 1.5 объединяет перечисленные в индексе версии RFC/ADR в один review set. Статус `Accepted` фиксирует decision baseline, достаточную для standalone bootstrap; он **не** утверждает, что implementation прошла gates SPEC-12. Такой результат называется отдельно `vertical-v1 implementation conformance`.
+Architecture packet version 1.5.1 объединяет перечисленные в индексе версии RFC/ADR в один review set. Статус `Accepted` фиксирует decision baseline, достаточную для standalone bootstrap; он **не** утверждает, что implementation прошла gates SPEC-12. Такой результат называется отдельно `vertical-v1 implementation conformance`.
 
 Packet 1.5 атомарно принял ADR-012…ADR-016, superseded ADR-004/006/007/010 и синхронизировал command identity/encoding, self-contained physical boundary, extension trust, evidence attestation, compositional budgets, SPEC, glossary, evidence register и traceability. Это architecture promotion; оно не создаёт runtime implementation, reviewer credentials, gate PASS или release claim.
+
+Packet 1.5.1 является редакционным patch к Accepted packet 1.5. Он нормализует bootstrap authority labels `Product Architecture` и `Core Architecture` до единого `Repository Owner` там, где речь идёт об изменении документа, review или архитектурном gate ownership. Patch не передаёт Repository Owner mutable subsystem state, не меняет public/runtime semantics, requirements, failure paths, vertical gates, technology status и не принимает Proposed tracks.
 
 Отдельно опубликован post-1.5 dialogue/model proposal track: SPEC-16 и ADR-017 имеют статус `Proposed/AwaitingReview`, а RESEARCH-002 является ненормативным `Draft` snapshot. Этот track не входит ни в Accepted packet 1.4, ни в remediation transaction 1.5. Он фиксирует text-canonical dialogue/model-pack acceptance contract; перечисленные model rows остаются `Proposed` до прохождения собственных gates.
 
@@ -124,7 +126,7 @@ Accepted ADR не редактируется так, чтобы изменить
 
 ## Packet summary
 
-Summary считает indexed architecture documents без frozen research annex RESEARCH-001. Document/SPEC/ADR/technology counts включают явно помеченные Proposed/Draft additions; requirement, failure и vertical-gate counts отражают Accepted packet 1.5. Dialogue/model и foundation rows ещё не выделены в Accepted traceability.
+Summary считает indexed architecture documents без frozen research annex RESEARCH-001. Document/SPEC/ADR/technology counts включают явно помеченные Proposed/Draft additions; requirement, failure и vertical-gate counts отражают semantics Accepted packet 1.5, без изменений перенесённые в editorial packet 1.5.1. Dialogue/model и foundation rows ещё не выделены в Accepted traceability.
 
 | Metric | Value |
 |---|---:|
@@ -202,10 +204,22 @@ Packet 1.5 был принят одним hash-bound changeset после automa
 
 Hash-bound record [ARCH-REVIEW-1.5](../reviews/architecture/packet-1.5.md) связывает exact candidate file hashes, automatic checks и одну human promotion decision. Эта запись проверяет closure и структуру bootstrap review, но не заменяет криптографическую проверку личности Repository Owner.
 
+## Packet 1.5.1 editorial ownership closure
+
+Packet 1.5.1 оформляет только bootstrap ownership normalization:
+
+1. authority изменять SPEC/ADR и принимать architecture promotion обозначена единым именем `Repository Owner`, согласованным с индексом и [GOVERNANCE.md](../../GOVERNANCE.md);
+2. subsystem owners, authoritative mutable-state owners, public boundaries, dependency direction и implementation contracts остаются без изменений;
+3. Accepted/Proposed/Draft statuses, 78 requirements, 24 failure paths, 15 vertical gates и 33 technology rows не изменяются;
+4. dialogue/model track остаётся review candidate 1.6, а foundation-completeness track остаётся `AwaitingReview`;
+5. patch не создаёт implementation, `vertical-v1`, `PhysicalCertified`, release-readiness или gate-PASS claims.
+
+Hash-bound record [ARCH-REVIEW-1.5.1](../reviews/architecture/packet-1.5.1.md) связывает exact editorial candidate root, automatic checks и отдельную decision `architecture.promote`.
+
 ## Review и перенос в отдельный репозиторий
 
-Architecture baseline принимается только единым review-пакетом. Частичное одобрение отдельных файлов не делает архитектуру принятой. Initial packet version 1.0 был расширен version 1.1 через ADR-008/SPEC-13, version 1.2 — через ADR-009/SPEC-14, version 1.3 — через ADR-010/SPEC-15, version 1.4 — через ADR-011 и синхронное уточнение platform/training/importer/traceability contracts, а version 1.5 — через ADR-012…016 и remediation contracts. Accepted packet 1.5 содержит 78 requirements, 24 failure paths и 15 vertical gates. Отдельный post-1.5 dialogue/model track добавляет SPEC-16, ADR-017 и parsed RESEARCH-002. Foundation-completeness track добавляет SPEC-17…20 и ADR-018…021, поэтому текущий индекс содержит 48 architecture documents; frozen RESEARCH-001 учитывается отдельно. Любое последующее изменение подчиняется ADR/supersession rules. Review MUST подтвердить отсутствие orphan-документов, нерешённых архитектурных вопросов, vendor-типов в публичных контрактах и нетрассируемых vertical-slice требований.
+Architecture baseline принимается только единым review-пакетом. Частичное одобрение отдельных файлов не делает архитектуру принятой. Initial packet version 1.0 был расширен version 1.1 через ADR-008/SPEC-13, version 1.2 — через ADR-009/SPEC-14, version 1.3 — через ADR-010/SPEC-15, version 1.4 — через ADR-011 и синхронное уточнение platform/training/importer/traceability contracts, version 1.5 — через ADR-012…016 и remediation contracts, а version 1.5.1 — редакционной нормализацией bootstrap ownership labels. Accepted packet 1.5.1 сохраняет 78 requirements, 24 failure paths и 15 vertical gates. Отдельный post-1.5 dialogue/model track добавляет SPEC-16, ADR-017 и parsed RESEARCH-002. Foundation-completeness track добавляет SPEC-17…20 и ADR-018…021, поэтому текущий индекс содержит 48 architecture documents; frozen RESEARCH-001 учитывается отдельно. Любое последующее изменение подчиняется ADR/supersession rules. Review MUST подтвердить отсутствие orphan-документов, нерешённых архитектурных вопросов, vendor-типов в публичных контрактах и нетрассируемых vertical-slice требований.
 
-Packet 1.5 закрывает review findings contractually, но не заявляет `vertical-v1`, `LEGAL-IMPORT-01=PASS`, `PhysicalCertified`, implementation gate PASS или release readiness. Review candidate 1.6 остаётся отдельным hash-bound dialogue/model promotion.
+Packet 1.5.1 сохраняет contractual closure packet 1.5, но не заявляет `vertical-v1`, `LEGAL-IMPORT-01=PASS`, `PhysicalCertified`, implementation gate PASS или release readiness. Review candidate 1.6 остаётся отдельным hash-bound dialogue/model promotion.
 
 При создании самостоятельного репозитория каталог MUST быть перенесён в `docs/architecture/` с сохранением ID, истории ADR и относительных ссылок. Изменение путей MAY быть отдельным механическим commit; изменение решений в том же commit запрещено. После успешного local migration новый repository становится source of truth, а эта копия остаётся frozen historical source до появления reviewed permanent remote URL.

@@ -4,10 +4,10 @@
 |---|---|
 | ID | ADR-011 |
 | Статус | Accepted |
-| Версия | 1.0 |
-| Владелец | Product Architecture + Developer Experience + Physical Embodiment |
+| Версия | 1.0.1 |
+| Владелец | Repository Owner + Developer Experience + Physical Embodiment |
 | Дата решения | 2026-07-22 |
-| Последняя проверка evidence | 2026-07-22 |
+| Последняя проверка evidence | 2026-07-24 |
 | Нормативные зависимости | [ADR-001](001-product-repository-license-and-platforms.md), [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md) |
 | Заменяет | отсутствует; уточняет platform scope ADR-001 без добавления shipping target |
 | Заменён | не заменён |

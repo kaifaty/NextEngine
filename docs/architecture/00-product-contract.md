@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-00 |
 | Статус | Accepted |
-| Версия | 1.5 |
+| Версия | 1.5.1 |
 | Владелец | Repository Owner |
-| Последняя проверка | 2026-07-23 |
+| Последняя проверка | 2026-07-24 |
 | Нормативные зависимости | [INDEX-001](README.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-015](adr/015-evidence-trust-fixture-separation-and-attestation.md) |
 | Заменяет | отсутствует |
 
@@ -73,7 +73,7 @@ Conforming v1 MUST:
 
 ## Ownership и публичная граница
 
-Этот Accepted product contract является source of truth для scope, compatibility promise и release definition; Product Architecture владеет его изменением. Она не владеет subsystem state. Внешняя граница продукта состоит из project/verification/scenario/impact/evidence manifests, cooked bundle schema, MechanicsLock/package schemas, creature/physical/policy/skill manifests, save/replay schemas, Luau capability API, WIT plugin worlds, AuthoringContextBundle/AgentChangeSet, HumanReviewDecision, `ai-host` IPC и CLI/JSON contracts. Внутренние Rust crates, ECS layout и backend APIs не являются стабильным SDK до отдельного ADR.
+Этот Accepted product contract является source of truth для scope, compatibility promise и release definition; Repository Owner владеет его изменением, но не владеет subsystem state. Внешняя граница продукта состоит из project/verification/scenario/impact/evidence manifests, cooked bundle schema, MechanicsLock/package schemas, creature/physical/policy/skill manifests, save/replay schemas, Luau capability API, WIT plugin worlds, AuthoringContextBundle/AgentChangeSet, HumanReviewDecision, `ai-host` IPC и CLI/JSON contracts. Внутренние Rust crates, ECS layout и backend APIs не являются стабильным SDK до отдельного ADR.
 
 ## Product data flow
 

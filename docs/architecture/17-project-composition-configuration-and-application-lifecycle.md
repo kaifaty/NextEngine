@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-17 |
 | Статус | Proposed |
-| Версия | 0.1 |
+| Версия | 0.1.1 |
 | Владелец | Repository Owner |
 | Требуемые согласующие | Architecture Working Group, Runtime Team, Asset & Persistence Team, Developer Experience Team, Security & Governance Team, Release Engineering |
-| Последняя проверка | 2026-07-22 |
+| Последняя проверка | 2026-07-24 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-006](adr/006-scripting-and-plugin-model.md), [ADR-007](adr/007-identities-persistence-and-replay.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md) |
 | Заменяет | отсутствует |
 
@@ -38,7 +38,7 @@ SPEC-17 задаёт единственный engine-owned contract, котор�
 | Developer-only instrumentation | Developer Experience launch overlay | telemetry/profiler adapters |
 | Published bundles и schemas | SPEC-03 content registry | staging/download paths |
 
-Core Architecture владеет schema и resolution semantics. Asset & Persistence Team владеет validation, atomic lock publication и compatibility with save/replay. Composition roots только потребляют validated result и не имеют собственных resolution rules.
+Repository Owner владеет schema и resolution semantics. Asset & Persistence Team владеет validation, atomic lock publication и compatibility with save/replay. Composition roots только потребляют validated result и не имеют собственных resolution rules.
 
 ## Public contracts
 
@@ -135,7 +135,7 @@ Crash capsule records lock hash, lifecycle stage, last completed tick and last a
 
 | Gate | Owner | Reproducible command/scenario | Pass threshold | Required evidence | Fallback |
 |---|---|---|---|---|---|
-| `PROJECT-P1` | Core Architecture + Asset & Persistence | `next gate PROJECT-P1 --scenario project-resolution-v1 --targets windows-x86_64,linux-x86_64 --fixtures 1000` | 1,000 valid/permuted manifests produce byte-identical platform-neutral locks; 100% invalid cycles/ranges/hash conflicts rejected; 0 ambient path/env dependency | manifest corpus, locks/hashes, resolution traces, diagnostics | reject manifest; pin exact prior lock |
+| `PROJECT-P1` | Repository Owner + Asset & Persistence | `next gate PROJECT-P1 --scenario project-resolution-v1 --targets windows-x86_64,linux-x86_64 --fixtures 1000` | 1,000 valid/permuted manifests produce byte-identical platform-neutral locks; 100% invalid cycles/ranges/hash conflicts rejected; 0 ambient path/env dependency | manifest corpus, locks/hashes, resolution traces, diagnostics | reject manifest; pin exact prior lock |
 | `PROJECT-P2` | Core Runtime + Security | `next gate PROJECT-P2 --scenario project-activation-faults --all-stages` | every injected stage failure yields 0 partial registries/world commands/source/save mutation; optional fallback exactly declared; required failure pre-world | lifecycle trace, registry snapshots, file-access/write audit, fault matrix | discard staging; retain prior published project |
 | `LIFECYCLE-P1` | Runtime + Release Engineering | `next gate LIFECYCLE-P1 --scenario composition-root-parity --roots game,headless,capture-worker` | exact lock/schema/accepted-command/final gameplay hashes across roots; presentation subset differences declared only; 1,000 open/close cycles leak-free | RunManifests, lock/schema hashes, replay diff, resource report | block incompatible root/package |
 | `CONFIG-P1` | Developer Experience + Verification & Evidence | `next gate CONFIG-P1 --scenario configuration-classes --permutations 10000` | 100% unknown/duplicate/class-invalid overrides rejected; presentation/developer permutations produce 0 gameplay hash differences; authoritative change always creates new lock | config corpus, lock diffs, replay hashes, diagnostic envelopes | ignore/reject invalid override; use locked value |
@@ -144,11 +144,11 @@ Crash capsule records lock hash, lifecycle stage, last completed tick and last a
 
 | Alias | Primary owner | Future acceptance contract |
 |---|---|---|
-| `FND-PROJECT-R1` | Core Architecture | ProjectManifest resolves to one exact content-addressed ProjectCompositionLock |
-| `FND-PROJECT-R2` | Core Architecture | Configuration keys have one class/owner and authoritative changes require a new lock |
+| `FND-PROJECT-R1` | Repository Owner | ProjectManifest resolves to one exact content-addressed ProjectCompositionLock |
+| `FND-PROJECT-R2` | Repository Owner | Configuration keys have one class/owner and authoritative changes require a new lock |
 | `FND-PROJECT-R3` | Runtime Team | Game/headless/capture-worker share lock, validators and domain semantics |
 | `FND-PROJECT-R4` | Asset & Persistence | Startup, save/load and recovery are atomic and fail closed |
-| `FND-PROJECT-F1` | Core Architecture | Invalid/incompatible required composition rejects before world mutation |
+| `FND-PROJECT-F1` | Repository Owner | Invalid/incompatible required composition rejects before world mutation |
 | `FND-PROJECT-F2` | Runtime Team | Activation/lifecycle fault discards staging and preserves prior published state |
 
 ## Promotion contract

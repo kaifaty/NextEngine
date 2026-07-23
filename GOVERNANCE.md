@@ -32,11 +32,11 @@ Passing automatic checks не создаёт human approval. Human decision не
 
 ## Architecture changes
 
-Accepted architecture меняется только новым ADR и синхронизированными SPEC/evidence/traceability updates. Proposed Packet 1.5 остаётся candidate до human approval exact candidate hash. После approval status/supersession update выполняется атомарно; history Accepted ADR не переписывается.
+Accepted architecture semantics меняются только новым ADR и синхронизированными SPEC/evidence/traceability updates. Редакционные исправления без изменения смысла MAY использовать patch-version, но также требуют hash-bound promotion exact candidate root. Packet 1.5 принят; packet 1.5.1 является редакционным candidate для нормализации solo-owner authority labels и не принимает dialogue/model или foundation proposal tracks. После approval status/supersession update выполняется атомарно; history Accepted ADR не переписывается.
 
 ### Hash-bound promotion records
 
-Bootstrap promotion 1.4→1.5, 1.5→1.6 и 1.6→1.7 использует ненормативные records в `docs/reviews/architecture/packet-1.5.md`, `packet-1.6.md` и `packet-1.7.md`. Record не входит в architecture document counts и не является источником subsystem semantics.
+Bootstrap promotion 1.4→1.5, editorial patch 1.5→1.5.1, dialogue/model promotion 1.5.1→1.6 и foundation promotion 1.6→1.7 используют ненормативные records в `docs/reviews/architecture/packet-1.5.md`, `packet-1.5.1.md`, `packet-1.6.md` и `packet-1.7.md`. Record не входит в architecture document counts и не является источником subsystem semantics.
 
 Каждый record MUST содержать точный transition, `Pending` или `Approved` status, candidate file manifest, candidate root, результаты pre-approval automatic checks и единственную human decision `architecture.promote`, которой владеет `Repository Owner`. Agent MAY вычислять hashes и проверять структуру, но MUST NOT заполнять identity/decision или объявлять record одобренным от имени owner.
 
@@ -48,7 +48,7 @@ Promotion использует две fail-closed фазы, чтобы aggregate
 2. После повторного preflight с полностью заполненной PASS-таблицей Repository Owner проверяет exact candidate root и отдельно принимает или отклоняет `architecture.promote`.
 3. Только после `Approved` decision обычные `docs-check` и `host-check` выполняют final authoritative admission. Их результат входит в handoff/commit evidence, но не в pre-approval table, поскольку оба зависят от approved record.
 
-Любое изменение manifest file инвалидирует hash closure и требует нового promotion decision. `Approved` record действителен только когда все обязательные pre-approval checks имеют `PASS` с evidence reference, `architecture.promote` имеет `Approved`, а authoritative transition chain непрерывна. `docs-check` проверяет exact file hashes, root, completeness и sequencing, но не является криптографической проверкой личности owner.
+Любое изменение manifest file инвалидирует hash closure и требует нового promotion decision. `Approved` record действителен только когда все обязательные pre-approval checks имеют `PASS` с evidence reference, `architecture.promote` имеет `Approved`, а authoritative transition chain непрерывна. После approval exact admitted root дополнительно закрепляется в project-owned validator; historical record с другим manifest/root отвергается даже при внутренне согласованном пересчёте. `docs-check` проверяет exact file hashes, root, completeness и sequencing, но не является криптографической проверкой личности owner.
 
 ## Release signing policy
 

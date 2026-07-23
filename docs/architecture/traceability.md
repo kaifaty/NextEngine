@@ -4,9 +4,9 @@
 |---|---|
 | ID | TRACE-001 |
 | Статус | Accepted |
-| Версия | 1.5 |
+| Версия | 1.5.1 |
 | Владелец | Repository Owner |
-| Последняя проверка | 2026-07-23 |
+| Последняя проверка | 2026-07-24 |
 | Нормативные зависимости | [SPEC-12](12-vertical-slice-conformance.md), все профильные RFC/ADR |
 | Заменяет | отсутствует |
 
@@ -16,14 +16,14 @@
 
 | Requirement | Нормативное требование | Primary owner | Contributors / required approvers | RFC / ADR | Gate | Evidence |
 |---|---|---|---|---|---|---|
-| REQ-001 | Независимый specialized AI-first RPG engine, не перенос OpenGothic | Product Architecture | — | SPEC-00, ADR-001 | VS-10, VS-12 | API/source scan, review record |
+| REQ-001 | Независимый specialized AI-first RPG engine, не перенос OpenGothic | Repository Owner | — | SPEC-00, ADR-001 | VS-10, VS-12 | API/source scan, review record |
 | REQ-002 | Windows и Linux — v1 shipping targets; macOS game/package и consoles вне scope | Release Engineering | — | SPEC-00, SPEC-04, ADR-001/011 | VS-08 | clean-VM logs, package manifests |
 | REQ-003 | Apache-2.0 engine, closed games/services allowed | Security & Governance | — | SPEC-11, ADR-001 | LIC-01, VS-12 | license policy, SBOM, review record |
-| REQ-004 | Engine monorepo + отдельный importer repository/process; ignored nested working tree не нарушает boundary | Core Architecture | — | SPEC-01, SPEC-10, ADR-001/011 | IMPORT-P4/P8, VS-10 | link map, SBOM, parent/nested repository scan |
+| REQ-004 | Engine monorepo + отдельный importer repository/process; ignored nested working tree не нарушает boundary | Repository Owner | — | SPEC-01, SPEC-10, ADR-001/011 | IMPORT-P4/P8, VS-10 | link map, SBOM, parent/nested repository scan |
 | REQ-005 | Single-player v1, command-stream replay и stable causal IDs mandatory | Runtime Team | — | SPEC-02, SPEC-03, ADR-012 | RUNTIME-01/06/07, REPLAY-01, VS-11 | command ledger, replay/state hashes, ID vectors |
 | REQ-006 | CLI tools/inspectors v1; full editor deferred | Developer Experience | — | SPEC-09, ADR-001 | TOOL-01/02 | CLI/compatibility reports |
-| REQ-007 | Один authoritative owner для каждого mutable state | Core Architecture | — | SPEC-01 | ARCH-04, VS-12 | generated ownership report |
-| REQ-008 | Vendor types не пересекают public boundaries | Core Architecture | — | SPEC-01…SPEC-08, ADR-002/003/013 | ARCH-01, RUNTIME-04, VS-10 | public API/schema scans |
+| REQ-007 | Один authoritative owner для каждого mutable state | Repository Owner | — | SPEC-01 | ARCH-04, VS-12 | generated ownership report |
+| REQ-008 | Vendor types не пересекают public boundaries | Repository Owner | — | SPEC-01…SPEC-08, ADR-002/003/013 | ARCH-01, RUNTIME-04, VS-10 | public API/schema scans |
 
 ## Runtime, data и persistence
 
@@ -70,7 +70,7 @@
 |---|---|---|---|---|---|---|
 | REQ-033 | Importer читает только user-provided local install и сохраняет provenance | Importer Team | — | SPEC-10 | IMPORT-P1/P2, VS-01 | provenance/mapping manifests |
 | REQ-034 | Pilot import ограничен whitelist scene/character/items/behavior | Importer Team | — | SPEC-10 | IMPORT-P2, VS-01 | whitelist coverage report |
-| REQ-035 | Gothic parsers/types отсутствуют после cooking/runtime | Core Architecture | — | SPEC-10, ADR-001 | IMPORT-P4, VS-10 | source/API/schema/link scans |
+| REQ-035 | Gothic parsers/types отсутствуют после cooking/runtime | Repository Owner | — | SPEC-10, ADR-001 | IMPORT-P4, VS-10 | source/API/schema/link scans |
 | REQ-036 | Protected data не попадает в repo/build/package/artifacts; import-smoke и neutral fixtures изолированы | Security Team | Importer Team, Verification & Evidence | SPEC-10/11, ADR-015 | IMPORT-P5, PRIVACY-02, VS-09 | prohibited-root scans, cleanup audit, neutral-fixture manifest |
 | REQ-037 | Public importer release проходит отдельный legal review | Security & Governance | — | SPEC-10/11 | IMPORT-P6, LEGAL-IMPORT-01, VS-12 | written legal record |
 | REQ-038 | Threat model покрывает scripts/plugins/AI/import/models/bundles | Security Team | — | SPEC-11 | SEC-01…04 | scan/fuzz/audit packet |
@@ -99,7 +99,7 @@
 |---|---|---|---|---|---|---|
 | REQ-052 | CreatureArchetypeManifest добавляет generic creature/physical/agent/mechanics package без package-specific native runtime type | Physical Embodiment | — | SPEC-01/14, ADR-009 | ARCH-06, EMB-01, CREATURE-01, VS-14 | public API/package graph/schema scan |
 | REQ-053 | PrototypeFallback и PhysicalCertified используют один public contract; certification требует exact signed evidence | Physical Embodiment | — | SPEC-14, ADR-009 | EMB-01, CREATURE-01, SEC-06, VS-14 | bundle/certification/provenance manifests |
-| REQ-054 | Proficiency, pose/contact, active route, habits и gameplay effects имеют разных однозначных owners | Core Architecture | — | SPEC-01/05/06/07/13/14 | ARCH-04, BEHAVIOR-01, VS-12/14 | ownership report, boundary traces |
+| REQ-054 | Proficiency, pose/contact, active route, habits и gameplay effects имеют разных однозначных owners | Repository Owner | — | SPEC-01/05/06/07/13/14 | ARCH-04, BEHAVIOR-01, VS-12/14 | ownership report, boundary traces |
 | REQ-055 | Morphology foundation + conditioned/residual/exclusive expert composition не смешивает arbitrary outputs | Physical Embodiment | — | SPEC-05/14, ADR-009 | POLICY-01/02, VS-14 | route catalog, action/transition traces |
 | REQ-056 | LearnSkill меняет RPG SkillProficiency/routes offline и никогда не изменяет neural weights | RPG Framework | — | SPEC-07/14, ADR-009 | SKILL-01, SEC-06, VS-14 | command/event/model-hash audit |
 | REQ-057 | Policy switch deterministic, atomic, safe-point supervised и не меняет body topology | Physical Embodiment | — | SPEC-05/14, ADR-009 | POLICY-02, VS-14 | resolver matrix, route/pose/state traces |
@@ -114,7 +114,7 @@
 
 | Requirement | Нормативное требование | Primary owner | Contributors / required approvers | RFC / ADR | Gate | Evidence |
 |---|---|---|---|---|---|---|
-| REQ-064 | Mandatory acceptance не требует интерактивного запуска, монитора или manual-runtime checklist; человек оценивает hash-bound self-contained artifacts | Product Architecture | Verification & Evidence | SPEC-00/15, ADR-015 | HEADLESS-01, REVIEW-02, VS-15 | clean-container trace, offline attested dossier |
+| REQ-064 | Mandatory acceptance не требует интерактивного запуска, монитора или manual-runtime checklist; человек оценивает hash-bound self-contained artifacts | Repository Owner | Verification & Evidence | SPEC-00/15, ADR-015 | HEADLESS-01, REVIEW-02, VS-15 | clean-container trace, offline attested dossier |
 | REQ-065 | Все subsystem/mechanic/physical scenarios являются specialization одного versioned TestScenarioManifest и общего runner | Verification & Evidence | — | SPEC-02/13/15 | TEST-01, VS-15 | schema registry, scenario/run manifests |
 | REQ-066 | Scenario изменяет мир только production input/WorldCommand interfaces; probes read-only, mutable test backdoor запрещён | Runtime Team | — | SPEC-02/15 | ARCH-07, RUNTIME-05, TEST-01, VS-15 | API/schema scan, invalid-mutation corpus |
 | REQ-067 | Каждый oracle объявляет exact/tolerance/distribution/invariant/presentation/qualitative semantics; retry divergence является nondeterminism failure | Verification & Evidence | — | SPEC-15 | TEST-01, DIAG-01, VS-15 | assertion registry, repeat/order report, divergent replay |

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Record ID | ARCH-REVIEW-1.6 |
-| From packet | 1.5 |
+| From packet | 1.5.1 |
 | To packet | 1.6 |
 | Status | Pending |
 | Candidate root algorithm | sha256-path-nul-file-sha256-lf-v1 |

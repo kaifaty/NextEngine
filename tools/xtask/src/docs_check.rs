@@ -11,6 +11,10 @@ const LEGACY_PHYSICAL_RESEARCH_URL: &str = "https://github.com/kaifaty/OpenGothi
 const ARCHITECTURE_REVIEW_ROOT: &str = "docs/reviews/architecture";
 const ARCHITECTURE_REVIEW_ALGORITHM: &str = "sha256-path-nul-file-sha256-lf-v1";
 const ARCHITECTURE_REVIEW_SCOPE: &str = "docs/architecture/**/*.md";
+const ARCHITECTURE_APPROVED_ROOTS: &[(&str, &str)] = &[(
+    "1.5",
+    "ca4d9a0a8ccc4a7b062181f74a2a417022a13bca6c1bff9be138a0624abb14cd",
+)];
 const ARCHITECTURE_REVIEW_BASE_CHECKS: &[&str] = &[
     "cargo fmt --all -- --check",
     "cargo clippy --workspace --all-targets -- -D warnings",
@@ -33,8 +37,10 @@ enum ArchitectureReviewMode<'a> {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ReviewRecordMode {
-    Ordinary,
+    Historical,
+    AuthoritativeAdmission,
     CandidatePreflight,
+    Future,
 }
 
 #[derive(Debug)]
@@ -53,6 +59,11 @@ const ARCHITECTURE_REVIEW_TRANSITIONS: &[ArchitectureReviewTransition] = &[
     },
     ArchitectureReviewTransition {
         from: "1.5",
+        to: "1.5.1",
+        file: "packet-1.5.1.md",
+    },
+    ArchitectureReviewTransition {
+        from: "1.5.1",
         to: "1.6",
         file: "packet-1.6.md",
     },
@@ -731,7 +742,25 @@ fn validate_architecture_review_records_with_mode(
     authoritative_version: &str,
     mode: ArchitectureReviewMode<'_>,
 ) -> Result<Option<String>, String> {
-    let authoritative_index = ["1.4", "1.5", "1.6", "1.7"]
+    let approved_roots = ARCHITECTURE_APPROVED_ROOTS
+        .iter()
+        .map(|(version, root)| ((*version).to_owned(), (*root).to_owned()))
+        .collect();
+    validate_architecture_review_records_with_mode_and_anchors(
+        root,
+        authoritative_version,
+        mode,
+        &approved_roots,
+    )
+}
+
+fn validate_architecture_review_records_with_mode_and_anchors(
+    root: &Path,
+    authoritative_version: &str,
+    mode: ArchitectureReviewMode<'_>,
+    approved_roots: &BTreeMap<String, String>,
+) -> Result<Option<String>, String> {
+    let authoritative_index = ["1.4", "1.5", "1.5.1", "1.6", "1.7"]
         .iter()
         .position(|version| *version == authoritative_version)
         .ok_or_else(|| format!("DOCS_REVIEW_VERSION_UNSUPPORTED: {authoritative_version}"))?;
@@ -775,11 +804,22 @@ fn validate_architecture_review_records_with_mode(
         let body = read(&path)?;
         let record_mode = if preflight_index == Some(index) {
             ReviewRecordMode::CandidatePreflight
+        } else if required_for_authoritative_packet {
+            if preflight_index.is_none() && transition.to == authoritative_version {
+                ReviewRecordMode::AuthoritativeAdmission
+            } else {
+                ReviewRecordMode::Historical
+            }
         } else {
-            ReviewRecordMode::Ordinary
+            ReviewRecordMode::Future
         };
-        let (status, candidate_root) =
-            validate_architecture_review_record(root, *transition, &body, record_mode)?;
+        let (status, candidate_root) = validate_architecture_review_record(
+            root,
+            *transition,
+            &body,
+            record_mode,
+            approved_roots.get(transition.to).map(String::as_str),
+        )?;
         if preflight_index == Some(index) {
             if status != "Pending" {
                 return Err(format!(
@@ -811,6 +851,7 @@ fn validate_architecture_review_record(
     transition: ArchitectureReviewTransition,
     body: &str,
     mode: ReviewRecordMode,
+    approved_root: Option<&str>,
 ) -> Result<(String, String), String> {
     let expected_id = format!("ARCH-REVIEW-{}", transition.to);
     require_review_field(body, "Record ID", &expected_id, transition)?;
@@ -844,7 +885,16 @@ fn validate_architecture_review_record(
         &["Path", "SHA-256"],
         transition.file,
     )?;
-    let manifest = validate_review_manifest(root, transition, &candidate_root, &manifest_rows)?;
+    let manifest = validate_review_manifest(
+        root,
+        transition,
+        &candidate_root,
+        &manifest_rows,
+        matches!(
+            mode,
+            ReviewRecordMode::AuthoritativeAdmission | ReviewRecordMode::CandidatePreflight
+        ),
+    )?;
 
     let check_rows = review_section_rows(
         body,
@@ -893,6 +943,23 @@ fn validate_architecture_review_record(
                 "DOCS_REVIEW_PACKET_INDEX_NOT_HASHED: {}",
                 transition.file
             ));
+        }
+        if matches!(
+            mode,
+            ReviewRecordMode::Historical | ReviewRecordMode::AuthoritativeAdmission
+        ) {
+            let approved_root = approved_root.ok_or_else(|| {
+                format!(
+                    "DOCS_REVIEW_APPROVED_ROOT_UNANCHORED: {}: {}",
+                    transition.file, candidate_root
+                )
+            })?;
+            if candidate_root != approved_root {
+                return Err(format!(
+                    "DOCS_REVIEW_APPROVED_ROOT_MISMATCH: {}: expected {approved_root}, got {candidate_root}",
+                    transition.file
+                ));
+            }
         }
     }
 
@@ -954,6 +1021,7 @@ fn validate_review_manifest(
     transition: ArchitectureReviewTransition,
     candidate_root: &str,
     rows: &[Vec<String>],
+    compare_current_tree: bool,
 ) -> Result<BTreeMap<String, String>, String> {
     if candidate_root == "absent" {
         if rows == [vec!["none".to_owned(), "absent".to_owned()]] || rows.is_empty() {
@@ -989,7 +1057,10 @@ fn validate_review_manifest(
             ));
         }
         previous_path = Some(path);
-        if !is_safe_manifest_path(path) || path.starts_with(&format!("{ARCHITECTURE_REVIEW_ROOT}/"))
+        if !is_safe_manifest_path(path)
+            || !path.starts_with("docs/architecture/")
+            || !path.ends_with(".md")
+            || path.starts_with(&format!("{ARCHITECTURE_REVIEW_ROOT}/"))
         {
             return Err(format!(
                 "DOCS_REVIEW_MANIFEST_PATH_INVALID: {}: {path}",
@@ -1011,47 +1082,51 @@ fn validate_review_manifest(
                 transition.file
             ));
         }
-        let bytes = fs::read(root.join(path)).map_err(|error| {
-            format!(
-                "DOCS_REVIEW_CANDIDATE_FILE_MISSING: {}: {path}: {error}",
-                transition.file
-            )
-        })?;
-        let actual_hash = sha256_hex(&bytes);
-        if actual_hash != *expected_hash {
-            return Err(format!(
-                "DOCS_REVIEW_FILE_HASH_MISMATCH: {}: {path}: expected {expected_hash}, got {actual_hash}",
-                transition.file
-            ));
+        if compare_current_tree {
+            let bytes = fs::read(root.join(path)).map_err(|error| {
+                format!(
+                    "DOCS_REVIEW_CANDIDATE_FILE_MISSING: {}: {path}: {error}",
+                    transition.file
+                )
+            })?;
+            let actual_hash = sha256_hex(&bytes);
+            if actual_hash != *expected_hash {
+                return Err(format!(
+                    "DOCS_REVIEW_FILE_HASH_MISMATCH: {}: {path}: expected {expected_hash}, got {actual_hash}",
+                    transition.file
+                ));
+            }
         }
     }
     if manifest.is_empty() {
         return Err(format!("DOCS_REVIEW_MANIFEST_EMPTY: {}", transition.file));
     }
-    let mut candidate_files = Vec::new();
-    collect_files(
-        &root.join("docs/architecture"),
-        Some("md"),
-        &mut candidate_files,
-    )?;
-    let expected_paths: BTreeSet<_> = candidate_files
-        .iter()
-        .map(|path| relative_path(root, path))
-        .collect::<Result<_, _>>()?;
-    let actual_paths: BTreeSet<_> = manifest.keys().cloned().collect();
-    if actual_paths != expected_paths {
-        let missing = expected_paths
-            .difference(&actual_paths)
-            .next()
-            .map_or("none", String::as_str);
-        let unexpected = actual_paths
-            .difference(&expected_paths)
-            .next()
-            .map_or("none", String::as_str);
-        return Err(format!(
-            "DOCS_REVIEW_MANIFEST_SCOPE_MISMATCH: {}: missing {missing}, unexpected {unexpected}",
-            transition.file
-        ));
+    if compare_current_tree {
+        let mut candidate_files = Vec::new();
+        collect_files(
+            &root.join("docs/architecture"),
+            Some("md"),
+            &mut candidate_files,
+        )?;
+        let expected_paths: BTreeSet<_> = candidate_files
+            .iter()
+            .map(|path| relative_path(root, path))
+            .collect::<Result<_, _>>()?;
+        let actual_paths: BTreeSet<_> = manifest.keys().cloned().collect();
+        if actual_paths != expected_paths {
+            let missing = expected_paths
+                .difference(&actual_paths)
+                .next()
+                .map_or("none", String::as_str);
+            let unexpected = actual_paths
+                .difference(&expected_paths)
+                .next()
+                .map_or("none", String::as_str);
+            return Err(format!(
+                "DOCS_REVIEW_MANIFEST_SCOPE_MISMATCH: {}: missing {missing}, unexpected {unexpected}",
+                transition.file
+            ));
+        }
     }
     let actual_root = architecture_candidate_root(&manifest);
     if actual_root != candidate_root {
@@ -1702,8 +1777,7 @@ mod tests {
     use super::{
         ARCHITECTURE_REVIEW_ROOT, ARCHITECTURE_REVIEW_TRANSITIONS, ArchitectureReviewMode,
         ArchitectureReviewTransition, architecture_candidate_root, is_frozen_annex_id, is_index_id,
-        sha256_hex, table_field, validate_architecture_review_records_at,
-        validate_architecture_review_records_with_mode,
+        sha256_hex, table_field, validate_architecture_review_records_with_mode_and_anchors,
     };
     use std::collections::BTreeMap;
     use std::fs;
@@ -1740,6 +1814,52 @@ mod tests {
         )
         .expect("test candidate should be written");
         TestRoot(path)
+    }
+
+    fn test_approved_roots(root: &Path) -> BTreeMap<String, String> {
+        ARCHITECTURE_REVIEW_TRANSITIONS
+            .iter()
+            .filter_map(|transition| {
+                let body =
+                    fs::read_to_string(root.join(ARCHITECTURE_REVIEW_ROOT).join(transition.file))
+                        .ok()?;
+                (table_field(&body, "Status").as_deref() == Some("Approved")).then(|| {
+                    (
+                        transition.to.to_owned(),
+                        table_field(&body, "Candidate root SHA-256")
+                            .expect("approved test record should contain a candidate root"),
+                    )
+                })
+            })
+            .collect()
+    }
+
+    fn validate_architecture_review_records_at(
+        root: &Path,
+        authoritative_version: &str,
+    ) -> Result<(), String> {
+        let approved_roots = test_approved_roots(root);
+        validate_architecture_review_records_with_mode_and_anchors(
+            root,
+            authoritative_version,
+            ArchitectureReviewMode::AuthoritativeAdmission,
+            &approved_roots,
+        )?;
+        Ok(())
+    }
+
+    fn validate_architecture_review_records_with_mode(
+        root: &Path,
+        authoritative_version: &str,
+        mode: ArchitectureReviewMode<'_>,
+    ) -> Result<Option<String>, String> {
+        let approved_roots = test_approved_roots(root);
+        validate_architecture_review_records_with_mode_and_anchors(
+            root,
+            authoritative_version,
+            mode,
+            &approved_roots,
+        )
     }
 
     fn render_approved_record(root: &Path, transition: ArchitectureReviewTransition) -> String {
@@ -1804,11 +1924,15 @@ mod tests {
             )
     }
 
-    fn write_packet_15_record(root: &Path, body: &str) {
+    fn write_review_record(root: &Path, transition: ArchitectureReviewTransition, body: &str) {
         let review_root = root.join(ARCHITECTURE_REVIEW_ROOT);
         fs::create_dir_all(&review_root).expect("test review directory should be created");
-        fs::write(review_root.join("packet-1.5.md"), body)
+        fs::write(review_root.join(transition.file), body)
             .expect("test review record should be written");
+    }
+
+    fn write_packet_15_record(root: &Path, body: &str) {
+        write_review_record(root, ARCHITECTURE_REVIEW_TRANSITIONS[0], body);
     }
 
     fn without_row(body: &str, row_prefix: &str) -> String {
@@ -1994,5 +2118,163 @@ mod tests {
         write_packet_15_record(root.path(), &record);
         validate_architecture_review_records_at(root.path(), "1.5")
             .expect("complete hash-bound review record should pass");
+    }
+
+    #[test]
+    fn approved_15_and_pending_151_passes_candidate_preflight_after_candidate_change() {
+        let root = test_root("editorial-patch-preflight");
+        let packet_15 = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let packet_151 = ARCHITECTURE_REVIEW_TRANSITIONS[1];
+        let approved_15 = render_approved_record(root.path(), packet_15);
+        write_review_record(root.path(), packet_15, &approved_15);
+
+        fs::write(
+            root.path().join("docs/architecture/README.md"),
+            b"editorial architecture candidate\n",
+        )
+        .expect("test candidate should be changed for packet 1.5.1");
+        let pending_151 = render_pending_preflight_record(root.path(), packet_151);
+        let expected_root = table_field(&pending_151, "Candidate root SHA-256")
+            .expect("packet 1.5.1 should contain a candidate root");
+        write_review_record(root.path(), packet_151, &pending_151);
+
+        let actual_root = validate_architecture_review_records_with_mode(
+            root.path(),
+            "1.5.1",
+            ArchitectureReviewMode::CandidatePreflight { target: "1.5.1" },
+        )
+        .expect("historical packet 1.5 must not be compared with the packet 1.5.1 tree");
+
+        assert_eq!(actual_root.as_deref(), Some(expected_root.as_str()));
+    }
+
+    #[test]
+    fn tampered_historical_candidate_root_is_rejected() {
+        let root = test_root("tampered-historical-root");
+        let packet_15 = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let packet_151 = ARCHITECTURE_REVIEW_TRANSITIONS[1];
+        let approved_15 = render_approved_record(root.path(), packet_15);
+        let historical_root = table_field(&approved_15, "Candidate root SHA-256")
+            .expect("packet 1.5 should contain a candidate root");
+        let tampered_15 = approved_15.replace(&historical_root, &"0".repeat(64));
+        write_review_record(root.path(), packet_15, &tampered_15);
+
+        fs::write(
+            root.path().join("docs/architecture/README.md"),
+            b"editorial architecture candidate\n",
+        )
+        .expect("test candidate should be changed for packet 1.5.1");
+        let pending_151 = render_pending_preflight_record(root.path(), packet_151);
+        write_review_record(root.path(), packet_151, &pending_151);
+
+        let error = validate_architecture_review_records_with_mode(
+            root.path(),
+            "1.5.1",
+            ArchitectureReviewMode::CandidatePreflight { target: "1.5.1" },
+        )
+        .expect_err("historical record roots must remain bound to their recorded manifests");
+
+        assert!(error.contains("DOCS_REVIEW_CANDIDATE_ROOT_MISMATCH"));
+        assert!(error.contains("packet-1.5.md"));
+    }
+
+    #[test]
+    fn coordinated_historical_manifest_and_root_tampering_is_rejected() {
+        let root = test_root("coordinated-historical-tampering");
+        let packet_15 = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let packet_151 = ARCHITECTURE_REVIEW_TRANSITIONS[1];
+        let approved_15 = render_approved_record(root.path(), packet_15);
+        let approved_root = table_field(&approved_15, "Candidate root SHA-256")
+            .expect("packet 1.5 should contain a candidate root");
+        let candidate_path = "docs/architecture/README.md";
+        let candidate_hash = sha256_hex(
+            &fs::read(root.path().join(candidate_path)).expect("test candidate should be readable"),
+        );
+        let tampered_hash = "f".repeat(64);
+        let tampered_manifest =
+            BTreeMap::from([(candidate_path.to_owned(), tampered_hash.clone())]);
+        let tampered_root = architecture_candidate_root(&tampered_manifest);
+        let tampered_15 = approved_15
+            .replace(&candidate_hash, &tampered_hash)
+            .replace(&approved_root, &tampered_root);
+        write_review_record(root.path(), packet_15, &tampered_15);
+
+        fs::write(
+            root.path().join("docs/architecture/README.md"),
+            b"editorial architecture candidate\n",
+        )
+        .expect("test candidate should be changed for packet 1.5.1");
+        let pending_151 = render_pending_preflight_record(root.path(), packet_151);
+        write_review_record(root.path(), packet_151, &pending_151);
+
+        let approved_roots = BTreeMap::from([("1.5".to_owned(), approved_root)]);
+        let error = validate_architecture_review_records_with_mode_and_anchors(
+            root.path(),
+            "1.5.1",
+            ArchitectureReviewMode::CandidatePreflight { target: "1.5.1" },
+            &approved_roots,
+        )
+        .expect_err("historical record must remain bound to its independently anchored root");
+
+        assert!(error.contains("DOCS_REVIEW_APPROVED_ROOT_MISMATCH"));
+        assert!(error.contains("packet-1.5.md"));
+    }
+
+    #[test]
+    fn changed_current_151_candidate_is_rejected_by_preflight() {
+        let root = test_root("changed-current-151-candidate");
+        let packet_15 = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let packet_151 = ARCHITECTURE_REVIEW_TRANSITIONS[1];
+        let approved_15 = render_approved_record(root.path(), packet_15);
+        write_review_record(root.path(), packet_15, &approved_15);
+
+        fs::write(
+            root.path().join("docs/architecture/README.md"),
+            b"editorial architecture candidate\n",
+        )
+        .expect("test candidate should be changed for packet 1.5.1");
+        let pending_151 = render_pending_preflight_record(root.path(), packet_151);
+        write_review_record(root.path(), packet_151, &pending_151);
+        fs::write(
+            root.path().join("docs/architecture/README.md"),
+            b"drifted editorial architecture candidate\n",
+        )
+        .expect("test candidate should drift after its manifest is recorded");
+
+        let error = validate_architecture_review_records_with_mode(
+            root.path(),
+            "1.5.1",
+            ArchitectureReviewMode::CandidatePreflight { target: "1.5.1" },
+        )
+        .expect_err("preflight must compare the packet 1.5.1 record with the current tree");
+
+        assert!(error.contains("DOCS_REVIEW_FILE_HASH_MISMATCH"));
+        assert!(error.contains("packet-1.5.1.md"));
+    }
+
+    #[test]
+    fn future_16_approval_is_rejected_while_151_is_authoritative() {
+        let root = test_root("future-approval");
+        let packet_15 = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let packet_151 = ARCHITECTURE_REVIEW_TRANSITIONS[1];
+        let packet_16 = ARCHITECTURE_REVIEW_TRANSITIONS[2];
+        let approved_15 = render_approved_record(root.path(), packet_15);
+        write_review_record(root.path(), packet_15, &approved_15);
+
+        fs::write(
+            root.path().join("docs/architecture/README.md"),
+            b"editorial architecture candidate\n",
+        )
+        .expect("test candidate should be changed for packet 1.5.1");
+        let approved_151 = render_approved_record(root.path(), packet_151);
+        write_review_record(root.path(), packet_151, &approved_151);
+        let approved_16 = render_approved_record(root.path(), packet_16);
+        write_review_record(root.path(), packet_16, &approved_16);
+
+        let error = validate_architecture_review_records_at(root.path(), "1.5.1")
+            .expect_err("packet 1.6 approval must not skip the authoritative sequence");
+
+        assert!(error.contains("DOCS_REVIEW_TRANSITION_OUT_OF_SEQUENCE"));
+        assert!(error.contains("1.5.1 -> 1.6"));
     }
 }

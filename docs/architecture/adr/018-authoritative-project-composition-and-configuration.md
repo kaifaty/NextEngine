@@ -4,11 +4,11 @@
 |---|---|
 | ID | ADR-018 |
 | Статус | Proposed |
-| Версия | 0.1 |
-| Владелец | Core Architecture |
+| Версия | 0.1.1 |
+| Владелец | Repository Owner |
 | Требуемые согласующие | Architecture Working Group, Runtime Team, Asset & Persistence Team, Developer Experience Team, Security & Governance Team, Release Engineering |
 | Дата предложения | 2026-07-22 |
-| Последняя проверка | 2026-07-22 |
+| Последняя проверка | 2026-07-24 |
 | Нормативные зависимости | [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-11](../11-security-licensing-and-governance.md), [ADR-002](002-rust-first-ffi-and-ecs-facade.md), [ADR-007](007-identities-persistence-and-replay.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |

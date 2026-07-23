@@ -4,10 +4,10 @@
 |---|---|
 | ID | ADR-002 |
 | Статус | Accepted |
-| Версия | 1.0 |
-| Владелец | Core Architecture |
+| Версия | 1.0.1 |
+| Владелец | Repository Owner |
 | Дата решения | 2026-07-22 |
-| Последняя проверка evidence | 2026-07-22 |
+| Последняя проверка evidence | 2026-07-24 |
 | Нормативные зависимости | [ADR-001](001-product-repository-license-and-platforms.md), [SPEC-02](../02-runtime-ecs-and-data.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
