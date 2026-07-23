@@ -39,6 +39,12 @@ impl AuthorityRegistry {
     pub fn grants(&self, principal: &IssuerPrincipal) -> Option<&BTreeSet<CapabilityId>> {
         self.principals.get(principal)
     }
+
+    pub fn entries(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (&IssuerPrincipal, &BTreeSet<CapabilityId>)> {
+        self.principals.iter()
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

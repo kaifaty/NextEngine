@@ -49,7 +49,19 @@ opaque_id!(CommandStreamId, 16);
 opaque_id!(CommandId, 16);
 opaque_id!(EventId, 16);
 opaque_id!(StateRoot, 32);
+opaque_id!(ContentHash, 32);
+opaque_id!(CommandLedgerHash, 32);
 opaque_id!(WorldNamespaceId, 16);
+
+#[must_use]
+pub const fn content_hash_from_bytes(bytes: [u8; 32]) -> ContentHash {
+    ContentHash(bytes)
+}
+
+#[must_use]
+pub const fn command_ledger_hash_from_bytes(bytes: [u8; 32]) -> CommandLedgerHash {
+    CommandLedgerHash(bytes)
+}
 
 macro_rules! text_id {
     ($name:ident) => {

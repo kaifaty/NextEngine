@@ -4,8 +4,9 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::{
-    CanonicalError, CommandId, CommandLedgerSnapshot, CommandPhase, CommandStreamId, DomainEvent,
-    IssuerPrincipal, RuntimeSnapshot, WorldCommand,
+    CanonicalDecodeLimits, CanonicalError, CommandId, CommandLedgerSnapshot, CommandPhase,
+    CommandStreamId, DomainEvent, IssuerPrincipal, RuntimeSnapshot, SnapshotDecodeError,
+    WorldCommand,
 };
 
 use crate::authority::AuthorityRegistry;
@@ -38,6 +39,39 @@ impl RuntimeState {
             authoritative_revision: 0,
             ledgers: BTreeMap::new(),
         }
+    }
+
+    pub fn restore(
+        snapshot: RuntimeSnapshot,
+        authority: AuthorityRegistry,
+    ) -> Result<Self, SnapshotRestoreError> {
+        let canonical_bytes = snapshot.canonical_bytes()?;
+        let snapshot = RuntimeSnapshot::from_canonical_bytes(
+            &canonical_bytes,
+            CanonicalDecodeLimits::default(),
+        )?;
+        let ledgers = snapshot
+            .command_ledgers
+            .iter()
+            .map(|ledger| {
+                (
+                    (ledger.stream_id, ledger.issuer.clone()),
+                    LedgerEntry {
+                        last_sequence: ledger.last_sequence,
+                        command_id: ledger.command_id,
+                        canonical_bytes: ledger.canonical_command_bytes.clone(),
+                    },
+                )
+            })
+            .collect();
+        Ok(Self {
+            registry: CommandKindRegistry::core_v1(),
+            authority,
+            next_tick: snapshot.next_tick,
+            committed_event_count: snapshot.committed_event_count,
+            authoritative_revision: snapshot.authoritative_revision,
+            ledgers,
+        })
     }
 
     #[must_use]
@@ -552,6 +586,7 @@ fn snapshot_from(
                 issuer: issuer.clone(),
                 last_sequence: entry.last_sequence,
                 command_id: entry.command_id,
+                canonical_command_bytes: entry.canonical_bytes.clone(),
             })
             .collect(),
     }
@@ -773,6 +808,44 @@ impl Display for RuntimeFatalError {
 }
 
 impl Error for RuntimeFatalError {}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum SnapshotRestoreError {
+    Canonicalization(CanonicalError),
+    Decode(SnapshotDecodeError),
+}
+
+impl Display for SnapshotRestoreError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Canonicalization(error) => {
+                write!(
+                    formatter,
+                    "snapshot canonicalization failed before restore: {error}"
+                )
+            }
+            Self::Decode(error) => write!(
+                formatter,
+                "snapshot validation failed before restore: {error}"
+            ),
+        }
+    }
+}
+
+impl Error for SnapshotRestoreError {}
+
+impl From<CanonicalError> for SnapshotRestoreError {
+    fn from(error: CanonicalError) -> Self {
+        Self::Canonicalization(error)
+    }
+}
+
+impl From<SnapshotDecodeError> for SnapshotRestoreError {
+    fn from(error: SnapshotDecodeError) -> Self {
+        Self::Decode(error)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -1226,5 +1299,82 @@ mod tests {
             CommandDisposition::Rejected(RejectionCode::TargetTickMismatch)
         );
         assert!(report.snapshot.command_ledgers.is_empty());
+    }
+
+    #[test]
+    fn snapshot_restore_round_trip_and_continuation_are_exact() {
+        let grants = authority([player(1)]);
+        let mut original = RuntimeState::new(grants.clone());
+        original
+            .run_tick([command(1, 1, 0, 0)])
+            .expect("first tick commits");
+        let snapshot = original.snapshot();
+
+        let mut restored =
+            RuntimeState::restore(snapshot.clone(), grants).expect("valid snapshot restores");
+        assert_eq!(restored.snapshot(), snapshot);
+
+        let expected = original
+            .run_tick([command(1, 1, 1, 1)])
+            .expect("original continuation commits");
+        let actual = restored
+            .run_tick([command(1, 1, 1, 1)])
+            .expect("restored continuation commits");
+        assert_eq!(actual, expected);
+        assert_eq!(restored.snapshot(), original.snapshot());
+    }
+
+    #[test]
+    fn restoring_same_snapshot_twice_is_idempotent() {
+        let grants = authority([player(1)]);
+        let mut runtime = RuntimeState::new(grants.clone());
+        runtime
+            .run_tick([command(1, 1, 0, 0)])
+            .expect("first tick commits");
+        let snapshot = runtime.snapshot();
+
+        let first =
+            RuntimeState::restore(snapshot.clone(), grants.clone()).expect("first restore works");
+        let second = RuntimeState::restore(snapshot, grants).expect("second restore works");
+        assert_eq!(first.snapshot(), second.snapshot());
+    }
+
+    #[test]
+    fn snapshot_round_trip_holds_for_reachable_state_prefixes() {
+        let grants = authority([player(1)]);
+        let mut runtime = RuntimeState::new(grants.clone());
+        for tick in 0..32_u64 {
+            runtime
+                .run_tick([command(1, 1, tick, tick)])
+                .expect("reachable prefix commits");
+            let snapshot = runtime.snapshot();
+            let restored = RuntimeState::restore(snapshot.clone(), grants.clone())
+                .expect("every reachable prefix restores");
+            assert_eq!(restored.snapshot(), snapshot);
+            assert_eq!(
+                restored
+                    .snapshot()
+                    .canonical_bytes()
+                    .expect("restored snapshot is canonical"),
+                snapshot
+                    .canonical_bytes()
+                    .expect("original snapshot is canonical")
+            );
+        }
+    }
+
+    #[test]
+    fn invalid_snapshot_is_rejected_before_state_creation() {
+        let grants = authority([player(1)]);
+        let mut runtime = RuntimeState::new(grants.clone());
+        runtime
+            .run_tick([command(1, 1, 0, 0)])
+            .expect("first tick commits");
+        let mut snapshot = runtime.snapshot();
+        snapshot.command_ledgers[0].canonical_command_bytes.push(0);
+
+        assert!(RuntimeState::restore(snapshot, grants).is_err());
+        assert_eq!(runtime.next_tick(), 1);
+        assert_eq!(runtime.authoritative_revision(), 1);
     }
 }

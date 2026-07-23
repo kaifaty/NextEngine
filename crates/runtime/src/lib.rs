@@ -8,7 +8,7 @@ mod registry;
 pub use authority::{AuthorityRegistry, AuthorityRegistryError};
 pub use engine::{
     CommandDisposition, CommandResult, RejectionCode, RuntimeFatalError, RuntimeState,
-    StageTraceEntry, TickReport, TransactionStage,
+    SnapshotRestoreError, StageTraceEntry, TickReport, TransactionStage,
 };
 pub use outcome::{
     NoOutcomes, OutcomeCollectionError, OutcomeContext, OutcomeProposal, OutcomeProvider,

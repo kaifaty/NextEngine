@@ -4,9 +4,13 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::{
-    CanonicalError, DomainEvent, RuntimeSnapshot, SchemaId, StateRoot, WorldCommand, sha256,
+    CanonicalDecodeLimits, CanonicalError, CommandLedgerHash, DomainEvent, ManifestValidationError,
+    RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID,
+    ReplayManifestV1, RuntimeSnapshot, SchemaId, StateRoot, WorldCommand, sha256,
 };
-use next_runtime::{AuthorityRegistry, CommandResult, RuntimeFatalError, RuntimeState};
+use next_runtime::{
+    AuthorityRegistry, CommandResult, RuntimeFatalError, RuntimeState, SnapshotRestoreError,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StateSegment {
@@ -165,13 +169,30 @@ pub struct ReplayTickRecord {
     pub command_results: Vec<CommandResult>,
     pub events: Vec<DomainEvent>,
     pub state_root: StateRoot,
+    pub command_ledger_hash: CommandLedgerHash,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReplayComparePointMismatch {
+    pub first_divergent_tick: u64,
+    pub expected_state_root: StateRoot,
+    pub actual_state_root: StateRoot,
+    pub expected_command_ledger_hash: CommandLedgerHash,
+    pub actual_command_ledger_hash: CommandLedgerHash,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ReplayError {
     Runtime(RuntimeFatalError),
+    Manifest(ManifestValidationError),
+    SnapshotRestore(SnapshotRestoreError),
     SnapshotCanonicalization(CanonicalError),
     StateRoot(StateRootError),
+    InitialSnapshotMismatch {
+        expected_state_root: StateRoot,
+        actual_state_root: StateRoot,
+    },
+    ComparePointMismatch(Box<ReplayComparePointMismatch>),
     NondeterministicResult {
         first_divergent_tick: u64,
         expected_state_root: Option<StateRoot>,
@@ -184,8 +205,12 @@ impl ReplayError {
     pub const fn stable_code(&self) -> &'static str {
         match self {
             Self::Runtime(_) => "REPLAY_RUNTIME_FATAL",
+            Self::Manifest(_) => "REPLAY_MANIFEST_INVALID",
+            Self::SnapshotRestore(_) => "REPLAY_SNAPSHOT_RESTORE_FAILED",
             Self::SnapshotCanonicalization(_) => "REPLAY_SNAPSHOT_CANONICALIZATION_FAILED",
             Self::StateRoot(_) => "REPLAY_STATE_ROOT_FAILED",
+            Self::InitialSnapshotMismatch { .. } => "REPLAY_INITIAL_SNAPSHOT_MISMATCH",
+            Self::ComparePointMismatch { .. } => "NONDETERMINISTIC_RESULT",
             Self::NondeterministicResult { .. } => "NONDETERMINISTIC_RESULT",
         }
     }
@@ -195,10 +220,32 @@ impl Display for ReplayError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Runtime(error) => write!(formatter, "runtime failed during replay: {error}"),
+            Self::Manifest(error) => write!(formatter, "replay manifest is invalid: {error}"),
+            Self::SnapshotRestore(error) => {
+                write!(formatter, "replay snapshot restore failed: {error}")
+            }
             Self::SnapshotCanonicalization(error) => {
                 write!(formatter, "snapshot canonicalization failed: {error}")
             }
             Self::StateRoot(error) => write!(formatter, "state-root computation failed: {error}"),
+            Self::InitialSnapshotMismatch {
+                expected_state_root,
+                actual_state_root,
+            } => write!(
+                formatter,
+                "REPLAY_INITIAL_SNAPSHOT_MISMATCH: expected {}, actual {}",
+                expected_state_root.to_hex(),
+                actual_state_root.to_hex()
+            ),
+            Self::ComparePointMismatch(mismatch) => write!(
+                formatter,
+                "NONDETERMINISTIC_RESULT at tick {}: state root {} != {}; command ledger {} != {}",
+                mismatch.first_divergent_tick,
+                mismatch.expected_state_root.to_hex(),
+                mismatch.actual_state_root.to_hex(),
+                mismatch.expected_command_ledger_hash.to_hex(),
+                mismatch.actual_command_ledger_hash.to_hex()
+            ),
             Self::NondeterministicResult {
                 first_divergent_tick,
                 expected_state_root,
@@ -227,6 +274,18 @@ impl From<CanonicalError> for ReplayError {
     }
 }
 
+impl From<ManifestValidationError> for ReplayError {
+    fn from(error: ManifestValidationError) -> Self {
+        Self::Manifest(error)
+    }
+}
+
+impl From<SnapshotRestoreError> for ReplayError {
+    fn from(error: SnapshotRestoreError) -> Self {
+        Self::SnapshotRestore(error)
+    }
+}
+
 impl From<StateRootError> for ReplayError {
     fn from(error: StateRootError) -> Self {
         Self::StateRoot(error)
@@ -238,25 +297,86 @@ pub fn run_replay(input: &ReplayInput) -> Result<ReplayOutput, ReplayError> {
     let mut records = Vec::with_capacity(input.ticks.len());
     for tick in &input.ticks {
         let report = runtime.run_tick(tick.commands.clone())?;
-        let canonical_snapshot = report.snapshot.canonical_bytes()?;
-        let state_root = compute_state_root([StateSegment::new(
-            SchemaId::new("runtime").map_err(CanonicalError::InvalidIdentifier)?,
-            SchemaId::new("nextengine.runtime.snapshot")
-                .map_err(CanonicalError::InvalidIdentifier)?,
-            SchemaId::new("command-ledger").map_err(CanonicalError::InvalidIdentifier)?,
-            canonical_snapshot,
-        )])?;
+        let state_root = compute_runtime_snapshot_root(&report.snapshot)?;
+        let command_ledger_hash = report.snapshot.command_ledger_hash()?;
         records.push(ReplayTickRecord {
             tick: report.tick,
             command_results: report.results,
             events: report.events,
             state_root,
+            command_ledger_hash,
         });
     }
     Ok(ReplayOutput {
         ticks: records,
         final_snapshot: runtime.snapshot(),
     })
+}
+
+pub fn run_replay_manifest(manifest: &ReplayManifestV1) -> Result<ReplayOutput, ReplayError> {
+    let limits = CanonicalDecodeLimits::default();
+    let (initial_snapshot, decoded_ticks) = manifest.validate_and_decode(limits)?;
+
+    let actual_initial_root = compute_runtime_snapshot_root(&initial_snapshot)?;
+    if actual_initial_root != manifest.initial_state_root {
+        return Err(ReplayError::InitialSnapshotMismatch {
+            expected_state_root: manifest.initial_state_root,
+            actual_state_root: actual_initial_root,
+        });
+    }
+
+    let mut authority = AuthorityRegistry::new();
+    for grant in &manifest.authority {
+        authority
+            .register(grant.principal.clone(), grant.capabilities.clone())
+            .map_err(|_| ManifestValidationError::AuthorityNotStrictlySorted)?;
+    }
+    let mut runtime = RuntimeState::restore(initial_snapshot, authority)?;
+    let mut records = Vec::with_capacity(decoded_ticks.len());
+    for ((tick_manifest, commands), compare_point) in manifest
+        .ticks
+        .iter()
+        .zip(decoded_ticks)
+        .zip(&manifest.compare_points)
+    {
+        let report = runtime.run_tick(commands)?;
+        let state_root = compute_runtime_snapshot_root(&report.snapshot)?;
+        let command_ledger_hash = report.snapshot.command_ledger_hash()?;
+        if state_root != compare_point.state_root
+            || command_ledger_hash != compare_point.command_ledger_hash
+        {
+            return Err(ReplayError::ComparePointMismatch(Box::new(
+                ReplayComparePointMismatch {
+                    first_divergent_tick: tick_manifest.tick,
+                    expected_state_root: compare_point.state_root,
+                    actual_state_root: state_root,
+                    expected_command_ledger_hash: compare_point.command_ledger_hash,
+                    actual_command_ledger_hash: command_ledger_hash,
+                },
+            )));
+        }
+        records.push(ReplayTickRecord {
+            tick: report.tick,
+            command_results: report.results,
+            events: report.events,
+            state_root,
+            command_ledger_hash,
+        });
+    }
+    Ok(ReplayOutput {
+        ticks: records,
+        final_snapshot: runtime.snapshot(),
+    })
+}
+
+pub fn compute_runtime_snapshot_root(snapshot: &RuntimeSnapshot) -> Result<StateRoot, ReplayError> {
+    let canonical_snapshot = snapshot.canonical_bytes()?;
+    Ok(compute_state_root([StateSegment::new(
+        SchemaId::new(RUNTIME_SNAPSHOT_OWNER_ID).map_err(CanonicalError::InvalidIdentifier)?,
+        SchemaId::new(RUNTIME_SNAPSHOT_SCHEMA_ID).map_err(CanonicalError::InvalidIdentifier)?,
+        SchemaId::new(RUNTIME_SNAPSHOT_SEGMENT_ID).map_err(CanonicalError::InvalidIdentifier)?,
+        canonical_snapshot,
+    )])?)
 }
 
 pub fn verify_replay(expected: &ReplayOutput, input: &ReplayInput) -> Result<(), ReplayError> {
@@ -307,14 +427,17 @@ fn optional_root_hex(root: Option<StateRoot>) -> String {
 #[cfg(test)]
 mod tests {
     use next_contracts::{
-        CapabilityId, CommandStreamId, IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID,
-        PlayerPrincipalId, SchemaId, WorldCommand,
+        AuthorityGrant, CapabilityId, CommandStreamId, ContentHash, IssuerPrincipal,
+        NOOP_COMMAND_CAPABILITY_ID, PlayerPrincipalId, REPLAY_MANIFEST_SCHEMA_VERSION,
+        ReplayCommandRecord, ReplayComparePoint, ReplayManifestV1, ReplayTickManifest,
+        RuntimeSnapshot, SaveCompatibility, SchemaId, StateRoot, TickSettings, WorldCommand,
     };
     use next_runtime::AuthorityRegistry;
 
     use super::{
         ReplayError, ReplayInput, ReplayTickInput, StateSegment, compare_replay_outputs,
-        compute_state_root, run_replay, verify_replay,
+        compute_runtime_snapshot_root, compute_state_root, run_replay, run_replay_manifest,
+        verify_replay,
     };
 
     fn command(stream: u8, issuer: u8, sequence: u64, tick: u64) -> WorldCommand {
@@ -350,6 +473,86 @@ mod tests {
                 },
             ],
         }
+    }
+
+    fn compatibility() -> SaveCompatibility {
+        SaveCompatibility {
+            engine_build_hash: ContentHash::from_bytes([1; 32]),
+            game_build_hash: ContentHash::from_bytes([2; 32]),
+            project_id: SchemaId::new("nextengine.replay-test").expect("valid project"),
+            schema_registry_hash: ContentHash::from_bytes([3; 32]),
+            content_manifest_hash: ContentHash::from_bytes([4; 32]),
+            mechanics_lock_hash: ContentHash::from_bytes([5; 32]),
+            tick_settings: TickSettings {
+                gameplay_hz: 30,
+                physics_hz: 120,
+                motor_hz: 60,
+            },
+            loaded_chunk_revisions: vec![],
+            rng_stream_states: vec![],
+            physical_bindings: vec![],
+            policy_state_schemas: vec![],
+            plugin_script_bindings: vec![],
+        }
+    }
+
+    fn replay_manifest() -> (ReplayManifestV1, super::ReplayOutput) {
+        let input = scenario();
+        let expected = run_replay(&input).expect("reference replay runs");
+        let initial_snapshot = RuntimeSnapshot {
+            next_tick: 0,
+            committed_event_count: 0,
+            authoritative_revision: 0,
+            command_ledgers: vec![],
+        };
+        let authority = input
+            .authority
+            .entries()
+            .map(|(principal, capabilities)| AuthorityGrant {
+                principal: principal.clone(),
+                capabilities: capabilities.iter().cloned().collect(),
+            })
+            .collect();
+        let ticks = input
+            .ticks
+            .iter()
+            .enumerate()
+            .map(|(tick, input)| ReplayTickManifest {
+                tick: u64::try_from(tick).expect("test tick fits u64"),
+                commands: input
+                    .commands
+                    .iter()
+                    .map(|command| {
+                        ReplayCommandRecord::from_command(command)
+                            .expect("test command is canonical")
+                    })
+                    .collect(),
+            })
+            .collect();
+        let compare_points = expected
+            .ticks
+            .iter()
+            .map(|tick| ReplayComparePoint {
+                tick: tick.tick,
+                state_root: tick.state_root,
+                command_ledger_hash: tick.command_ledger_hash,
+            })
+            .collect();
+        (
+            ReplayManifestV1 {
+                schema_version: REPLAY_MANIFEST_SCHEMA_VERSION,
+                compatibility: compatibility(),
+                initial_snapshot_bytes: initial_snapshot
+                    .canonical_bytes()
+                    .expect("initial snapshot is canonical"),
+                initial_state_root: compute_runtime_snapshot_root(&initial_snapshot)
+                    .expect("initial root computes"),
+                authority,
+                ticks,
+                compare_points,
+            },
+            expected,
+        )
     }
 
     #[test]
@@ -435,6 +638,37 @@ mod tests {
     }
 
     #[test]
+    fn versioned_manifest_restores_snapshot_and_checks_every_compare_point() {
+        let (manifest, expected) = replay_manifest();
+        let actual = run_replay_manifest(&manifest).expect("manifest replay is exact");
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn manifest_reports_first_ledger_or_state_divergence() {
+        let (mut manifest, _) = replay_manifest();
+        manifest.compare_points[0].state_root = StateRoot::from_bytes([9; 32]);
+        let error = run_replay_manifest(&manifest).expect_err("compare point must fail");
+        assert!(matches!(
+            error,
+            ReplayError::ComparePointMismatch(ref details)
+                if details.first_divergent_tick == 0
+        ));
+        assert_eq!(error.stable_code(), "NONDETERMINISTIC_RESULT");
+    }
+
+    #[test]
+    fn manifest_decodes_entire_command_stream_before_runtime_restore() {
+        let (mut manifest, _) = replay_manifest();
+        manifest.ticks[1].commands[0]
+            .canonical_command_bytes
+            .push(0);
+        let error = run_replay_manifest(&manifest).expect_err("corrupt command must fail closed");
+        assert!(matches!(error, ReplayError::Manifest(_)));
+        assert_eq!(error.stable_code(), "REPLAY_MANIFEST_INVALID");
+    }
+
+    #[test]
     fn scenario_final_root_is_a_pinned_vector() {
         assert_eq!(
             run_replay(&scenario())
@@ -442,7 +676,7 @@ mod tests {
                 .final_state_root()
                 .expect("scenario has ticks")
                 .to_hex(),
-            "9848f5207560523b0d234dfceb23cbdec84308f2396b6935fade8fae2560a7d8"
+            "469f02a590a8408408bf33c0c605a29d9addcaff92e817dee262fcf566e870fe"
         );
     }
 }
