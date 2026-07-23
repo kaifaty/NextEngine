@@ -11,7 +11,7 @@ pub use canonical::{
 };
 pub use command::{
     COMMAND_SCHEMA_VERSION, CommandPayload, CommandPhase, DomainEvent, EventPayload,
-    IssuerPrincipal, NOOP_COMMAND_SCHEMA_ID, WorldCommand,
+    IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID, NOOP_COMMAND_SCHEMA_ID, WorldCommand,
 };
 pub use ids::{
     AssetId, CapabilityId, CommandId, CommandStreamId, EventId, IdentifierError, MechanicPackageId,

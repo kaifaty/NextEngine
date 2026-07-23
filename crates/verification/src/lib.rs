@@ -6,7 +6,7 @@ use std::fmt::{Display, Formatter};
 use next_contracts::{
     CanonicalError, DomainEvent, RuntimeSnapshot, SchemaId, StateRoot, WorldCommand, sha256,
 };
-use next_runtime::{CommandResult, RuntimeFatalError, RuntimeState};
+use next_runtime::{AuthorityRegistry, CommandResult, RuntimeFatalError, RuntimeState};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StateSegment {
@@ -137,6 +137,7 @@ fn extend_identifier(target: &mut Vec<u8>, value: &str) -> Result<(), StateRootE
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReplayInput {
+    pub authority: AuthorityRegistry,
     pub ticks: Vec<ReplayTickInput>,
 }
 
@@ -233,7 +234,7 @@ impl From<StateRootError> for ReplayError {
 }
 
 pub fn run_replay(input: &ReplayInput) -> Result<ReplayOutput, ReplayError> {
-    let mut runtime = RuntimeState::default();
+    let mut runtime = RuntimeState::new(input.authority.clone());
     let mut records = Vec::with_capacity(input.ticks.len());
     for tick in &input.ticks {
         let report = runtime.run_tick(tick.commands.clone())?;
@@ -306,8 +307,10 @@ fn optional_root_hex(root: Option<StateRoot>) -> String {
 #[cfg(test)]
 mod tests {
     use next_contracts::{
-        CommandStreamId, IssuerPrincipal, PlayerPrincipalId, SchemaId, WorldCommand,
+        CapabilityId, CommandStreamId, IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID,
+        PlayerPrincipalId, SchemaId, WorldCommand,
     };
+    use next_runtime::AuthorityRegistry;
 
     use super::{
         ReplayError, ReplayInput, ReplayTickInput, StateSegment, compare_replay_outputs,
@@ -325,7 +328,19 @@ mod tests {
     }
 
     fn scenario() -> ReplayInput {
+        let first = IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([2; 16]));
+        let second = IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([1; 16]));
+        let capability =
+            CapabilityId::new(NOOP_COMMAND_CAPABILITY_ID).expect("built-in capability ID is valid");
+        let mut authority = AuthorityRegistry::new();
+        authority
+            .register(first, [capability.clone()])
+            .expect("first principal is unique");
+        authority
+            .register(second, [capability])
+            .expect("second principal is unique");
         ReplayInput {
+            authority,
             ticks: vec![
                 ReplayTickInput {
                     commands: vec![command(1, 2, 0, 0), command(2, 1, 0, 0)],
@@ -427,7 +442,7 @@ mod tests {
                 .final_state_root()
                 .expect("scenario has ticks")
                 .to_hex(),
-            "54525e4ed0a96b512d5eae0745c1722ab94ac04dcaa25ac6b6cf81e7f3db66b4"
+            "9848f5207560523b0d234dfceb23cbdec84308f2396b6935fade8fae2560a7d8"
         );
     }
 }

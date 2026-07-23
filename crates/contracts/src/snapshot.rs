@@ -18,6 +18,7 @@ pub struct CommandLedgerSnapshot {
 pub struct RuntimeSnapshot {
     pub next_tick: u64,
     pub committed_event_count: u64,
+    pub authoritative_revision: u64,
     pub command_ledgers: Vec<CommandLedgerSnapshot>,
 }
 
@@ -50,7 +51,12 @@ impl RuntimeSnapshot {
                     TYPE_U64,
                     self.committed_event_count.to_le_bytes().to_vec(),
                 ),
-                CanonicalField::new(3, TYPE_SEQUENCE, ledger_bytes),
+                CanonicalField::new(
+                    3,
+                    TYPE_U64,
+                    self.authoritative_revision.to_le_bytes().to_vec(),
+                ),
+                CanonicalField::new(4, TYPE_SEQUENCE, ledger_bytes),
             ],
         )
     }
@@ -80,6 +86,7 @@ mod tests {
         let ordered = RuntimeSnapshot {
             next_tick: 6,
             committed_event_count: 2,
+            authoritative_revision: 2,
             command_ledgers: vec![first.clone(), second.clone()],
         };
         let reversed = RuntimeSnapshot {

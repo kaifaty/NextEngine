@@ -1,7 +1,8 @@
 use next_contracts::{
-    CommandId, CommandStreamId, IssuerPrincipal, PlayerPrincipalId, WorldCommand,
+    CapabilityId, CommandId, CommandStreamId, IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID,
+    PlayerPrincipalId, WorldCommand,
 };
-use next_runtime::{CommandDisposition, RejectionCode, RuntimeState};
+use next_runtime::{AuthorityRegistry, CommandDisposition, RejectionCode, RuntimeState};
 use next_verification::{ReplayInput, ReplayTickInput, compare_replay_outputs, run_replay};
 
 fn command(stream: u8, issuer: u8, sequence: u64, tick: u64) -> WorldCommand {
@@ -14,16 +15,33 @@ fn command(stream: u8, issuer: u8, sequence: u64, tick: u64) -> WorldCommand {
     .expect("test command is canonical")
 }
 
+fn authority(issuers: impl IntoIterator<Item = u8>) -> AuthorityRegistry {
+    let capability =
+        CapabilityId::new(NOOP_COMMAND_CAPABILITY_ID).expect("built-in capability ID is valid");
+    let mut authority = AuthorityRegistry::new();
+    for issuer in issuers {
+        authority
+            .register(
+                IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([issuer; 16])),
+                [capability.clone()],
+            )
+            .expect("test principals are unique");
+    }
+    authority
+}
+
 #[test]
 fn public_replay_path_is_arrival_independent() {
     let first = command(1, 2, 0, 0);
     let second = command(2, 1, 0, 0);
     let left = ReplayInput {
+        authority: authority([1, 2]),
         ticks: vec![ReplayTickInput {
             commands: vec![first.clone(), second.clone()],
         }],
     };
     let right = ReplayInput {
+        authority: authority([1, 2]),
         ticks: vec![ReplayTickInput {
             commands: vec![second, first],
         }],
@@ -50,6 +68,7 @@ fn all_three_command_arrival_permutations_match() {
         [2, 1, 0],
     ];
     let reference = run_replay(&ReplayInput {
+        authority: authority([1, 2, 3]),
         ticks: vec![ReplayTickInput {
             commands: commands.to_vec(),
         }],
@@ -58,6 +77,7 @@ fn all_three_command_arrival_permutations_match() {
 
     for permutation in permutations {
         let candidate = run_replay(&ReplayInput {
+            authority: authority([1, 2, 3]),
             ticks: vec![ReplayTickInput {
                 commands: permutation
                     .into_iter()
@@ -75,7 +95,7 @@ fn all_three_command_arrival_permutations_match() {
 fn public_command_tamper_is_rejected_without_authoritative_ledger_mutation() {
     let mut tampered = command(1, 1, 0, 0);
     tampered.command_id = CommandId::from_bytes([9; 16]);
-    let mut runtime = RuntimeState::default();
+    let mut runtime = RuntimeState::new(authority([1]));
     let report = runtime
         .run_tick([tampered])
         .expect("tamper is a stable rejection");

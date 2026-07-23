@@ -8,6 +8,7 @@ use crate::ids::{
 
 pub const COMMAND_SCHEMA_VERSION: u32 = 1;
 pub const NOOP_COMMAND_SCHEMA_ID: &str = "nextengine.command.noop";
+pub const NOOP_COMMAND_CAPABILITY_ID: &str = "runtime.command.noop";
 const COMMAND_OWNER_ID: &str = "runtime";
 const COMMAND_SEGMENT_ID: &str = "world-command";
 const EVENT_SCHEMA_ID: &str = "nextengine.event.command-committed";
@@ -115,7 +116,10 @@ impl WorldCommand {
             target_tick,
             phase: CommandPhase::Ingress,
             target: None,
-            declared_capabilities: Vec::new(),
+            declared_capabilities: vec![
+                CapabilityId::new(NOOP_COMMAND_CAPABILITY_ID)
+                    .map_err(CanonicalError::InvalidIdentifier)?,
+            ],
             precondition_revision: None,
             payload: CommandPayload::Noop,
         };
@@ -264,7 +268,7 @@ mod tests {
 
         assert_eq!(
             first.command_id.to_hex(),
-            "f32fa74bb4b55a2dc4e7d50cfd654179"
+            "5d357b6846697921100488c74a7d2e65"
         );
         assert_ne!(first.command_id, second.command_id);
     }
