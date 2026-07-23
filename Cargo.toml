@@ -19,6 +19,8 @@ repository = ""
 next_contracts = { path = "crates/contracts" }
 next_runtime = { path = "crates/runtime" }
 next_verification = { path = "crates/verification" }
+sha2 = "=0.10.9"
+unicode-normalization = "=0.1.25"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
