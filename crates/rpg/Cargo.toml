@@ -1,5 +1,5 @@
 [package]
-name = "next_verification"
+name = "next_rpg"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,10 +7,6 @@ license.workspace = true
 
 [dependencies]
 next_contracts.workspace = true
-next_runtime.workspace = true
-
-[dev-dependencies]
-next_assets.workspace = true
 
 [lints]
 workspace = true

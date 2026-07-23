@@ -5,8 +5,9 @@ use std::fmt::{Display, Formatter};
 
 use next_contracts::{
     CanonicalDecodeLimits, CanonicalError, CommandLedgerHash, DomainEvent, ManifestValidationError,
+    RPG_SNAPSHOT_OWNER_ID, RPG_SNAPSHOT_SCHEMA_ID, RPG_SNAPSHOT_SEGMENT_ID,
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID,
-    ReplayManifestV1, RuntimeSnapshot, SchemaId, StateRoot, WorldCommand, sha256,
+    ReplayManifestV1, RpgSnapshot, RuntimeSnapshot, SchemaId, StateRoot, WorldCommand, sha256,
 };
 use next_runtime::{
     AuthorityRegistry, CommandResult, RuntimeFatalError, RuntimeState, SnapshotRestoreError,
@@ -146,6 +147,13 @@ pub struct ReplayInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RpgReplayInput {
+    pub authority: AuthorityRegistry,
+    pub initial_rpg_snapshot: RpgSnapshot,
+    pub ticks: Vec<ReplayTickInput>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReplayTickInput {
     pub commands: Vec<WorldCommand>,
 }
@@ -154,6 +162,20 @@ pub struct ReplayTickInput {
 pub struct ReplayOutput {
     pub ticks: Vec<ReplayTickRecord>,
     pub final_snapshot: RuntimeSnapshot,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RpgReplayOutput {
+    pub ticks: Vec<ReplayTickRecord>,
+    pub final_runtime_snapshot: RuntimeSnapshot,
+    pub final_rpg_snapshot: RpgSnapshot,
+}
+
+impl RpgReplayOutput {
+    #[must_use]
+    pub fn final_state_root(&self) -> Option<StateRoot> {
+        self.ticks.last().map(|tick| tick.state_root)
+    }
 }
 
 impl ReplayOutput {
@@ -313,6 +335,31 @@ pub fn run_replay(input: &ReplayInput) -> Result<ReplayOutput, ReplayError> {
     })
 }
 
+pub fn run_rpg_replay(input: &RpgReplayInput) -> Result<RpgReplayOutput, ReplayError> {
+    let mut runtime = RuntimeState::with_rpg_snapshot(
+        input.authority.clone(),
+        input.initial_rpg_snapshot.clone(),
+    )?;
+    let mut records = Vec::with_capacity(input.ticks.len());
+    for tick in &input.ticks {
+        let report = runtime.run_tick(tick.commands.clone())?;
+        let state_root = compute_world_snapshot_root(&report.snapshot, &report.rpg_snapshot)?;
+        let command_ledger_hash = report.snapshot.command_ledger_hash()?;
+        records.push(ReplayTickRecord {
+            tick: report.tick,
+            command_results: report.results,
+            events: report.events,
+            state_root,
+            command_ledger_hash,
+        });
+    }
+    Ok(RpgReplayOutput {
+        ticks: records,
+        final_runtime_snapshot: runtime.snapshot(),
+        final_rpg_snapshot: runtime.rpg_snapshot(),
+    })
+}
+
 pub fn run_replay_manifest(manifest: &ReplayManifestV1) -> Result<ReplayOutput, ReplayError> {
     let limits = CanonicalDecodeLimits::default();
     let (initial_snapshot, decoded_ticks) = manifest.validate_and_decode(limits)?;
@@ -377,6 +424,27 @@ pub fn compute_runtime_snapshot_root(snapshot: &RuntimeSnapshot) -> Result<State
         SchemaId::new(RUNTIME_SNAPSHOT_SEGMENT_ID).map_err(CanonicalError::InvalidIdentifier)?,
         canonical_snapshot,
     )])?)
+}
+
+pub fn compute_world_snapshot_root(
+    runtime_snapshot: &RuntimeSnapshot,
+    rpg_snapshot: &RpgSnapshot,
+) -> Result<StateRoot, ReplayError> {
+    Ok(compute_state_root([
+        StateSegment::new(
+            SchemaId::new(RUNTIME_SNAPSHOT_OWNER_ID).map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(RUNTIME_SNAPSHOT_SCHEMA_ID).map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(RUNTIME_SNAPSHOT_SEGMENT_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            runtime_snapshot.canonical_bytes()?,
+        ),
+        StateSegment::new(
+            SchemaId::new(RPG_SNAPSHOT_OWNER_ID).map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(RPG_SNAPSHOT_SCHEMA_ID).map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(RPG_SNAPSHOT_SEGMENT_ID).map_err(CanonicalError::InvalidIdentifier)?,
+            rpg_snapshot.canonical_bytes()?,
+        ),
+    ])?)
 }
 
 pub fn verify_replay(expected: &ReplayOutput, input: &ReplayInput) -> Result<(), ReplayError> {

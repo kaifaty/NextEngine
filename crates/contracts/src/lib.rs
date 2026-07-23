@@ -5,6 +5,7 @@ mod command;
 mod ids;
 mod manifest_jcs;
 mod persistence;
+mod rpg;
 mod snapshot;
 
 pub use canonical::{
@@ -29,6 +30,16 @@ pub use persistence::{
     ManifestValidationError, REPLAY_MANIFEST_SCHEMA_VERSION, ReplayCommandRecord,
     ReplayComparePoint, ReplayManifestV1, ReplayTickManifest, SAVE_MANIFEST_SCHEMA_VERSION,
     SaveCompatibility, SaveManifestV1, SaveSegmentDescriptor, SchemaBinding, TickSettings,
+};
+pub use rpg::{
+    CharacterSnapshot, DialogueSnapshot, FactionSnapshot, InteractiveObjectSnapshot, ItemSnapshot,
+    QuestSnapshot, RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID,
+    RPG_EVENT_DIALOGUE_QUEST_ADVANCED_SCHEMA_ID,
+    RPG_EVENT_INTERACTIVE_OBJECT_STATE_CHANGED_SCHEMA_ID, RPG_EVENT_ITEM_TRANSFERRED_SCHEMA_ID,
+    RPG_EVENT_SKILL_LEARNED_SCHEMA_ID, RPG_SNAPSHOT_OWNER_ID, RPG_SNAPSHOT_SCHEMA_ID,
+    RPG_SNAPSHOT_SCHEMA_VERSION, RPG_SNAPSHOT_SEGMENT_ID, RelationshipEntry, RpgCommand,
+    RpgDecodeError, RpgEvent, RpgSnapshot, SKILL_PROFICIENCY_MAX, SkillProficiency,
+    SkillProficiencyEntry, SkillProficiencyError, WorldChunkRecordSnapshot,
 };
 pub use snapshot::{
     CommandLedgerSnapshot, RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID,

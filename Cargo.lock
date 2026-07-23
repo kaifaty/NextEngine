@@ -87,16 +87,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "next_runtime"
+name = "next_rpg"
 version = "0.1.0"
 dependencies = [
  "next_contracts",
 ]
 
 [[package]]
+name = "next_runtime"
+version = "0.1.0"
+dependencies = [
+ "next_contracts",
+ "next_rpg",
+]
+
+[[package]]
 name = "next_verification"
 version = "0.1.0"
 dependencies = [
+ "next_assets",
  "next_contracts",
  "next_runtime",
 ]

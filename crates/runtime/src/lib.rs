@@ -16,5 +16,5 @@ pub use outcome::{
 };
 pub use registry::{
     COMMAND_KIND_REGISTRY_VERSION, CommandKindDescriptor, CommandKindRegistry, CommandPayloadKind,
-    NOOP_PRIORITY_CLASS,
+    NOOP_PRIORITY_CLASS, RPG_PRIORITY_CLASS,
 };

@@ -3,6 +3,7 @@ members = [
     "apps/headless",
     "crates/assets",
     "crates/contracts",
+    "crates/rpg",
     "crates/runtime",
     "crates/verification",
     "tools/xtask",
@@ -19,6 +20,7 @@ repository = ""
 [workspace.dependencies]
 next_contracts = { path = "crates/contracts" }
 next_assets = { path = "crates/assets" }
+next_rpg = { path = "crates/rpg" }
 next_runtime = { path = "crates/runtime" }
 next_verification = { path = "crates/verification" }
 sha2 = "=0.10.9"

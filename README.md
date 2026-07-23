@@ -23,13 +23,20 @@ An architecture promotion first runs `cargo run -p xtask -- architecture-review-
 ## Workspace
 
 ```text
-crates/contracts      engine-owned public schema scaffold
-crates/runtime        portable runtime scaffold
-crates/verification   portable verification primitives
-apps/headless         minimal composition root
+crates/contracts      engine-owned commands, events, manifests, IDs, and snapshots
+crates/rpg            generic RPG aggregate owner and atomic domain transitions
+crates/runtime        deterministic command admission and staged tick transaction
+crates/assets         recoverable save generations and owner-segment persistence
+crates/verification   state roots and deterministic headless replay
+apps/headless         portable headless composition root
 tools/xtask           local admission commands
 lab/                  isolated training smoke lane (added separately)
 ```
+
+The current generic RPG slice is intentionally bounded to engine-owned aggregate snapshots and
+validated commands for dialogue/quest/relationship, item transfer, skill proficiency, and
+interactive-object state. It does not admit a Luau/Wasm host, claim `RPG-01` or `vertical-v1`
+conformance, or change any Proposed architecture packet.
 
 The Gothic importer may be developed locally under ignored `incubator/gothic-importer/`, but it is a nested independent Git repository and never a Cargo member or path dependency. Integration is process/artifact-only through the Neutral Import Model and provenance contracts.
 

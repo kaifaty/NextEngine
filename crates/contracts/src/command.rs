@@ -8,6 +8,9 @@ use crate::ids::{
     CapabilityId, CommandId, CommandStreamId, EventId, MechanicPackageId, PersistentId,
     PlayerPrincipalId, PluginId, SchemaId, SystemId,
 };
+use crate::rpg::{
+    RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID, RpgCommand, RpgDecodeError, RpgEvent,
+};
 
 pub const COMMAND_SCHEMA_VERSION: u32 = 1;
 pub const NOOP_COMMAND_SCHEMA_ID: &str = "nextengine.command.noop";
@@ -160,6 +163,7 @@ pub enum CommandPhase {
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum CommandPayload {
     Noop,
+    Rpg(RpgCommand),
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -206,6 +210,31 @@ impl WorldCommand {
         Ok(command)
     }
 
+    pub fn rpg(
+        stream_id: CommandStreamId,
+        issuer: IssuerPrincipal,
+        sequence: u64,
+        target_tick: u64,
+        payload: RpgCommand,
+    ) -> Result<Self, CanonicalError> {
+        let mut command = Self {
+            schema_id: SchemaId::new(RPG_COMMAND_SCHEMA_ID)?,
+            schema_version: COMMAND_SCHEMA_VERSION,
+            command_id: CommandId::default(),
+            issuer,
+            stream_id,
+            sequence,
+            target_tick,
+            phase: CommandPhase::Ingress,
+            target: None,
+            declared_capabilities: vec![CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)?],
+            precondition_revision: None,
+            payload: CommandPayload::Rpg(payload),
+        };
+        command.command_id = command.compute_command_id()?;
+        Ok(command)
+    }
+
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, CanonicalError> {
         let issuer = self.issuer.canonical_bytes()?;
         let mut target = vec![u8::from(self.target.is_some())];
@@ -237,8 +266,9 @@ impl WorldCommand {
             precondition.extend_from_slice(&revision.to_le_bytes());
         }
 
-        let payload = match self.payload {
+        let payload = match &self.payload {
             CommandPayload::Noop => vec![0],
+            CommandPayload::Rpg(command) => command.canonical_payload_bytes()?,
         };
 
         encode_canonical_segment(
@@ -296,7 +326,11 @@ impl WorldCommand {
             return Err(CommandDecodeError::UnsupportedSchemaVersion(schema_version));
         }
         let schema_id = SchemaId::new(segment.schema_id.clone())?;
-        if schema_id.as_str() != NOOP_COMMAND_SCHEMA_ID {
+        let known_schema = matches!(
+            schema_id.as_str(),
+            NOOP_COMMAND_SCHEMA_ID | RPG_COMMAND_SCHEMA_ID
+        );
+        if !known_schema {
             return Err(CommandDecodeError::UnknownSchema(segment.schema_id));
         }
         let stream_id = CommandStreamId::from_bytes(decode_fixed_field::<16>(
@@ -316,12 +350,19 @@ impl WorldCommand {
         let target = decode_optional_id(&segment, 7)?;
         let declared_capabilities = decode_capabilities(&segment, limits)?;
         let precondition_revision = decode_optional_u64(&segment, 9)?;
-        let payload = match field(&segment, 10, CANONICAL_TYPE_BYTES)?
+        let payload_bytes = field(&segment, 10, CANONICAL_TYPE_BYTES)?
             .payload
-            .as_slice()
-        {
-            [0] => CommandPayload::Noop,
-            payload => return Err(CommandDecodeError::UnknownPayload(payload.to_vec())),
+            .as_slice();
+        let payload = match schema_id.as_str() {
+            NOOP_COMMAND_SCHEMA_ID => match payload_bytes {
+                [0] => CommandPayload::Noop,
+                payload => return Err(CommandDecodeError::UnknownPayload(payload.to_vec())),
+            },
+            RPG_COMMAND_SCHEMA_ID => CommandPayload::Rpg(RpgCommand::from_canonical_payload_bytes(
+                payload_bytes,
+                limits,
+            )?),
+            _ => return Err(CommandDecodeError::UnknownSchema(segment.schema_id)),
         };
 
         let mut command = Self {
@@ -371,6 +412,7 @@ pub enum CommandDecodeError {
     Canonical(CanonicalDecodeError),
     Canonicalization(CanonicalError),
     Principal(PrincipalDecodeError),
+    Rpg(RpgDecodeError),
     Identifier(crate::IdentifierError),
     WrongEnvelope,
     UnknownField(u32),
@@ -408,6 +450,7 @@ impl std::fmt::Display for CommandDecodeError {
                 write!(formatter, "command canonicalization failed: {error}")
             }
             Self::Principal(error) => write!(formatter, "command principal is invalid: {error}"),
+            Self::Rpg(error) => write!(formatter, "RPG command payload is invalid: {error}"),
             Self::Identifier(error) => write!(formatter, "command identifier is invalid: {error}"),
             Self::WrongEnvelope => formatter.write_str("canonical command envelope does not match"),
             Self::UnknownField(field_id) => write!(formatter, "unknown command field {field_id}"),
@@ -470,6 +513,12 @@ impl From<CanonicalError> for CommandDecodeError {
 impl From<PrincipalDecodeError> for CommandDecodeError {
     fn from(error: PrincipalDecodeError) -> Self {
         Self::Principal(error)
+    }
+}
+
+impl From<RpgDecodeError> for CommandDecodeError {
+    fn from(error: RpgDecodeError) -> Self {
+        Self::Rpg(error)
     }
 }
 
@@ -687,11 +736,36 @@ impl DomainEvent {
             payload: EventPayload::CommandCommitted { command_sequence },
         })
     }
+
+    pub fn rpg(
+        tick: u64,
+        command_id: CommandId,
+        event_slot: u32,
+        payload: RpgEvent,
+    ) -> Result<Self, CanonicalError> {
+        let mut preimage = Vec::new();
+        preimage.extend_from_slice(b"nextengine.event-id.v1\0");
+        preimage.extend_from_slice(command_id.as_bytes());
+        preimage.extend_from_slice(&event_slot.to_le_bytes());
+        let digest = sha256(&preimage);
+        let mut event_id = [0; 16];
+        event_id.copy_from_slice(&digest[..16]);
+        let schema_id = SchemaId::new(payload.schema_id())?;
+        Ok(Self {
+            event_id: EventId::from_bytes(event_id),
+            tick,
+            causal_command_id: command_id,
+            schema_id,
+            schema_version: 1,
+            payload: EventPayload::Rpg(payload),
+        })
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EventPayload {
     CommandCommitted { command_sequence: u64 },
+    Rpg(RpgEvent),
 }
 
 #[cfg(test)]
@@ -767,6 +841,29 @@ mod tests {
         assert_eq!(
             decoded.canonical_bytes().expect("command re-encodes"),
             bytes
+        );
+    }
+
+    #[test]
+    fn rpg_command_round_trip_is_byte_exact() {
+        let command = WorldCommand::rpg(
+            CommandStreamId::from_bytes([4; 16]),
+            IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([5; 16])),
+            8,
+            13,
+            crate::RpgCommand::LearnSkill {
+                character_id: crate::PersistentId::from_bytes([6; 16]),
+                skill_id: crate::SchemaId::new("rpg.skill.survival").expect("skill id is valid"),
+                delta: 25,
+            },
+        )
+        .expect("RPG command is canonical");
+        let bytes = command.canonical_bytes().expect("canonical RPG command");
+
+        assert_eq!(
+            WorldCommand::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
+                .expect("RPG command decodes"),
+            command
         );
     }
 

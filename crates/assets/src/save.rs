@@ -7,8 +7,10 @@ use std::path::{Path, PathBuf};
 
 use next_contracts::{
     CanonicalDecodeLimits, CanonicalError, CommandLedgerDescriptor, ManifestCodecError,
-    ManifestValidationError, RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID,
-    RUNTIME_SNAPSHOT_SEGMENT_ID, RuntimeSnapshot, SaveCompatibility, SaveManifestV1,
+    ManifestValidationError, RPG_SNAPSHOT_OWNER_ID, RPG_SNAPSHOT_SCHEMA_ID,
+    RPG_SNAPSHOT_SCHEMA_VERSION, RPG_SNAPSHOT_SEGMENT_ID, RUNTIME_SNAPSHOT_OWNER_ID,
+    RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID, RpgDecodeError, RpgSnapshot,
+    RuntimeSnapshot, SaveCompatibility, SaveManifestV1, SaveSegmentDescriptor, SchemaId,
     SnapshotDecodeError,
 };
 
@@ -46,6 +48,58 @@ impl SaveImage {
     }
 
     pub fn validate(&self) -> Result<RuntimeSnapshot, SaveStoreError> {
+        Ok(self.validate_world()?.runtime_snapshot)
+    }
+
+    pub fn from_world_snapshots(
+        generation: u64,
+        compatibility: SaveCompatibility,
+        runtime_snapshot: &RuntimeSnapshot,
+        rpg_snapshot: &RpgSnapshot,
+    ) -> Result<Self, SaveStoreError> {
+        let runtime_bytes = runtime_snapshot.canonical_bytes()?;
+        let rpg_bytes = rpg_snapshot.canonical_bytes()?;
+        let mut manifest = SaveManifestV1::for_runtime_snapshot(
+            generation,
+            compatibility,
+            runtime_snapshot,
+            &runtime_bytes,
+        )?;
+        let runtime_descriptor = manifest.segments.pop().ok_or(SaveStoreError::InvalidImage(
+            "SAVE_RUNTIME_SNAPSHOT_MISSING",
+        ))?;
+        let rpg_descriptor = SaveSegmentDescriptor::for_bytes(
+            SchemaId::new(RPG_SNAPSHOT_OWNER_ID).map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(RPG_SNAPSHOT_SCHEMA_ID).map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(RPG_SNAPSHOT_SEGMENT_ID).map_err(CanonicalError::InvalidIdentifier)?,
+            RPG_SNAPSHOT_SCHEMA_VERSION,
+            &rpg_bytes,
+        )?;
+        let mut segments = vec![
+            (runtime_descriptor, runtime_bytes),
+            (rpg_descriptor, rpg_bytes),
+        ];
+        segments.sort_by(|left, right| {
+            (&left.0.owner_id, &left.0.schema_id, &left.0.segment_id).cmp(&(
+                &right.0.owner_id,
+                &right.0.schema_id,
+                &right.0.segment_id,
+            ))
+        });
+        manifest.segments = segments
+            .iter()
+            .map(|(descriptor, _)| descriptor.clone())
+            .collect();
+        manifest.validate()?;
+        let image = Self {
+            manifest,
+            segments: segments.into_iter().map(|(_, bytes)| bytes).collect(),
+        };
+        let _ = image.validate_world()?;
+        Ok(image)
+    }
+
+    pub fn validate_world(&self) -> Result<ValidatedSaveImage, SaveStoreError> {
         self.manifest.validate()?;
         if self.manifest.segments.len() != self.segments.len() {
             return Err(SaveStoreError::InvalidImage("SAVE_SEGMENT_COUNT_MISMATCH"));
@@ -68,14 +122,21 @@ impl SaveImage {
             .ok_or(SaveStoreError::InvalidImage(
                 "SAVE_RUNTIME_SNAPSHOT_MISSING",
             ))?;
-        let snapshot = RuntimeSnapshot::from_canonical_bytes(
+        if self.manifest.segments[runtime_index].schema_version
+            != next_contracts::RUNTIME_SNAPSHOT_SCHEMA_VERSION
+        {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_RUNTIME_SNAPSHOT_VERSION_MISMATCH",
+            ));
+        }
+        let runtime_snapshot = RuntimeSnapshot::from_canonical_bytes(
             &self.segments[runtime_index],
             CanonicalDecodeLimits::default(),
         )?;
-        if snapshot.authoritative_revision != self.manifest.world_revision {
+        if runtime_snapshot.authoritative_revision != self.manifest.world_revision {
             return Err(SaveStoreError::InvalidImage("SAVE_WORLD_REVISION_MISMATCH"));
         }
-        let expected_ledgers = snapshot
+        let expected_ledgers = runtime_snapshot
             .command_ledgers
             .iter()
             .map(CommandLedgerDescriptor::from)
@@ -83,8 +144,37 @@ impl SaveImage {
         if expected_ledgers != self.manifest.command_ledgers {
             return Err(SaveStoreError::InvalidImage("SAVE_COMMAND_LEDGER_MISMATCH"));
         }
-        Ok(snapshot)
+        let rpg_index = self.manifest.segments.iter().position(|segment| {
+            segment.owner_id.as_str() == RPG_SNAPSHOT_OWNER_ID
+                && segment.schema_id.as_str() == RPG_SNAPSHOT_SCHEMA_ID
+                && segment.segment_id.as_str() == RPG_SNAPSHOT_SEGMENT_ID
+        });
+        if rpg_index.is_some_and(|index| {
+            self.manifest.segments[index].schema_version != RPG_SNAPSHOT_SCHEMA_VERSION
+        }) {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_RPG_SNAPSHOT_VERSION_MISMATCH",
+            ));
+        }
+        let rpg_snapshot = rpg_index
+            .map(|index| {
+                RpgSnapshot::from_canonical_bytes(
+                    &self.segments[index],
+                    CanonicalDecodeLimits::default(),
+                )
+            })
+            .transpose()?;
+        Ok(ValidatedSaveImage {
+            runtime_snapshot,
+            rpg_snapshot,
+        })
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ValidatedSaveImage {
+    pub runtime_snapshot: RuntimeSnapshot,
+    pub rpg_snapshot: Option<RpgSnapshot>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -97,6 +187,7 @@ pub struct SaveCommitReceipt {
 pub struct LoadedSave {
     pub image: SaveImage,
     pub snapshot: RuntimeSnapshot,
+    pub rpg_snapshot: Option<RpgSnapshot>,
     pub slot: u8,
     pub rejected_generations: Vec<RejectedGeneration>,
 }
@@ -138,6 +229,15 @@ impl SaveStore {
         self.commit_runtime_snapshot_inner(compatibility, snapshot, None)
     }
 
+    pub fn commit_world_snapshot(
+        &self,
+        compatibility: SaveCompatibility,
+        runtime_snapshot: &RuntimeSnapshot,
+        rpg_snapshot: &RpgSnapshot,
+    ) -> Result<SaveCommitReceipt, SaveStoreError> {
+        self.commit_snapshot_inner(compatibility, runtime_snapshot, Some(rpg_snapshot), None)
+    }
+
     pub fn load_latest(
         &self,
         expected_compatibility: &SaveCompatibility,
@@ -157,6 +257,16 @@ impl SaveStore {
         snapshot: &RuntimeSnapshot,
         fault: Option<CommitBoundary>,
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
+        self.commit_snapshot_inner(compatibility, snapshot, None, fault)
+    }
+
+    fn commit_snapshot_inner(
+        &self,
+        compatibility: SaveCompatibility,
+        snapshot: &RuntimeSnapshot,
+        rpg_snapshot: Option<&RpgSnapshot>,
+        fault: Option<CommitBoundary>,
+    ) -> Result<SaveCommitReceipt, SaveStoreError> {
         fs::create_dir_all(&self.root)
             .map_err(|source| SaveStoreError::io("create save root", &self.root, source))?;
         let (candidates, _) = self.load_candidates(None);
@@ -169,7 +279,15 @@ impl SaveStore {
                     .checked_add(1)
                     .ok_or(SaveStoreError::GenerationExhausted)
             })?;
-        let image = SaveImage::from_runtime_snapshot(next_generation, compatibility, snapshot)?;
+        let image = match rpg_snapshot {
+            Some(rpg_snapshot) => SaveImage::from_world_snapshots(
+                next_generation,
+                compatibility,
+                snapshot,
+                rpg_snapshot,
+            )?,
+            None => SaveImage::from_runtime_snapshot(next_generation, compatibility, snapshot)?,
+        };
         let slot = u8::try_from(next_generation % SLOT_COUNT)
             .map_err(|_| SaveStoreError::GenerationExhausted)?;
         let staging = self.staging_path(slot);
@@ -319,10 +437,13 @@ fn read_generation_directory(
         segments.push(bytes.to_vec());
     }
     let image = SaveImage { manifest, segments };
-    let snapshot = image.validate().map_err(|_| reject("SAVE_IMAGE_INVALID"))?;
+    let validated = image
+        .validate_world()
+        .map_err(|_| reject("SAVE_IMAGE_INVALID"))?;
     Ok(LoadedSave {
         image,
-        snapshot,
+        snapshot: validated.runtime_snapshot,
+        rpg_snapshot: validated.rpg_snapshot,
         slot,
         rejected_generations: vec![],
     })
@@ -503,6 +624,7 @@ pub enum SaveStoreError {
     ManifestValidation(ManifestValidationError),
     ManifestCodec(ManifestCodecError),
     SnapshotDecode(SnapshotDecodeError),
+    RpgSnapshotDecode(RpgDecodeError),
     InvalidImage(&'static str),
     InvalidStaging(&'static str),
     GenerationExhausted,
@@ -526,6 +648,7 @@ impl SaveStoreError {
             Self::ManifestValidation(_) => "SAVE_MANIFEST_INVALID",
             Self::ManifestCodec(_) => "SAVE_MANIFEST_CODEC_FAILED",
             Self::SnapshotDecode(_) => "SAVE_SNAPSHOT_INVALID",
+            Self::RpgSnapshotDecode(_) => "SAVE_RPG_SNAPSHOT_INVALID",
             Self::InvalidImage(code) | Self::InvalidStaging(code) => code,
             Self::GenerationExhausted => "SAVE_GENERATION_EXHAUSTED",
             Self::InjectedFault => "SAVE_FAULT_INJECTED",
@@ -549,6 +672,9 @@ impl Display for SaveStoreError {
             }
             Self::ManifestCodec(error) => write!(formatter, "save manifest codec failed: {error}"),
             Self::SnapshotDecode(error) => write!(formatter, "save snapshot is invalid: {error}"),
+            Self::RpgSnapshotDecode(error) => {
+                write!(formatter, "save RPG snapshot is invalid: {error}")
+            }
             Self::InvalidImage(code) | Self::InvalidStaging(code) => formatter.write_str(code),
             Self::GenerationExhausted => formatter.write_str("SAVE_GENERATION_EXHAUSTED"),
             Self::InjectedFault => formatter.write_str("SAVE_FAULT_INJECTED"),
@@ -564,6 +690,7 @@ impl Error for SaveStoreError {
             Self::ManifestValidation(error) => Some(error),
             Self::ManifestCodec(error) => Some(error),
             Self::SnapshotDecode(error) => Some(error),
+            Self::RpgSnapshotDecode(error) => Some(error),
             _ => None,
         }
     }
@@ -593,6 +720,12 @@ impl From<SnapshotDecodeError> for SaveStoreError {
     }
 }
 
+impl From<RpgDecodeError> for SaveStoreError {
+    fn from(error: RpgDecodeError) -> Self {
+        Self::RpgSnapshotDecode(error)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum SaveLoadError {
@@ -619,7 +752,9 @@ impl Error for SaveLoadError {}
 mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
-    use next_contracts::{ContentHash, RuntimeSnapshot, SaveCompatibility, SchemaId, TickSettings};
+    use next_contracts::{
+        ContentHash, RpgSnapshot, RuntimeSnapshot, SaveCompatibility, SchemaId, TickSettings,
+    };
 
     use super::{CommitBoundary, SaveStore};
 
@@ -697,6 +832,24 @@ mod tests {
             .expect("latest generation loads");
         assert_eq!(loaded.snapshot, snapshot(2));
         assert!(loaded.rejected_generations.is_empty());
+    }
+
+    #[test]
+    fn world_generation_round_trips_rpg_owner_segment() {
+        let directory = TestDirectory::new();
+        let store = SaveStore::new(&directory.path);
+        let compatibility = compatibility(1);
+        let rpg_snapshot = RpgSnapshot::default();
+
+        store
+            .commit_world_snapshot(compatibility.clone(), &snapshot(1), &rpg_snapshot)
+            .expect("world generation commits");
+        let loaded = store
+            .load_latest(&compatibility)
+            .expect("world generation loads");
+
+        assert_eq!(loaded.snapshot, snapshot(1));
+        assert_eq!(loaded.rpg_snapshot, Some(rpg_snapshot));
     }
 
     #[test]

@@ -4,10 +4,11 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::{
-    CanonicalDecodeLimits, CanonicalError, CommandId, CommandLedgerSnapshot, CommandPhase,
-    CommandStreamId, DomainEvent, IssuerPrincipal, RuntimeSnapshot, SnapshotDecodeError,
-    WorldCommand,
+    CanonicalDecodeLimits, CanonicalError, CommandId, CommandLedgerSnapshot, CommandPayload,
+    CommandPhase, CommandStreamId, DomainEvent, IssuerPrincipal, RpgDecodeError, RpgSnapshot,
+    RuntimeSnapshot, SnapshotDecodeError, WorldCommand,
 };
+use next_rpg::{RpgApplyError, RpgState, RpgStateError};
 
 use crate::authority::AuthorityRegistry;
 use crate::outcome::{
@@ -26,6 +27,7 @@ pub struct RuntimeState {
     committed_event_count: u64,
     authoritative_revision: u64,
     ledgers: BTreeMap<LedgerKey, LedgerEntry>,
+    rpg: RpgState,
 }
 
 impl RuntimeState {
@@ -38,7 +40,24 @@ impl RuntimeState {
             committed_event_count: 0,
             authoritative_revision: 0,
             ledgers: BTreeMap::new(),
+            rpg: RpgState::default(),
         }
+    }
+
+    pub fn with_rpg_snapshot(
+        authority: AuthorityRegistry,
+        snapshot: RpgSnapshot,
+    ) -> Result<Self, SnapshotRestoreError> {
+        let rpg = validate_rpg_snapshot(snapshot)?;
+        Ok(Self {
+            registry: CommandKindRegistry::core_v1(),
+            authority,
+            next_tick: 0,
+            committed_event_count: 0,
+            authoritative_revision: 0,
+            ledgers: BTreeMap::new(),
+            rpg,
+        })
     }
 
     pub fn restore(
@@ -71,7 +90,19 @@ impl RuntimeState {
             committed_event_count: snapshot.committed_event_count,
             authoritative_revision: snapshot.authoritative_revision,
             ledgers,
+            rpg: RpgState::default(),
         })
+    }
+
+    pub fn restore_world(
+        snapshot: RuntimeSnapshot,
+        rpg_snapshot: RpgSnapshot,
+        authority: AuthorityRegistry,
+    ) -> Result<Self, SnapshotRestoreError> {
+        let rpg = validate_rpg_snapshot(rpg_snapshot)?;
+        let mut runtime = Self::restore(snapshot, authority)?;
+        runtime.rpg = rpg;
+        Ok(runtime)
     }
 
     #[must_use]
@@ -99,6 +130,11 @@ impl RuntimeState {
         )
     }
 
+    #[must_use]
+    pub fn rpg_snapshot(&self) -> RpgSnapshot {
+        self.rpg.snapshot()
+    }
+
     pub fn run_tick(
         &mut self,
         commands: impl IntoIterator<Item = WorldCommand>,
@@ -119,6 +155,7 @@ impl RuntimeState {
         let mut staged_ledgers = self.ledgers.clone();
         let mut staged_event_count = self.committed_event_count;
         let mut staged_revision = self.authoritative_revision;
+        let mut staged_rpg = self.rpg.clone();
 
         let ingress_revision = staged_revision;
         let ingress = process_phase(
@@ -134,6 +171,7 @@ impl RuntimeState {
                 ledgers: &mut staged_ledgers,
                 event_count: &mut staged_event_count,
                 revision: &mut staged_revision,
+                rpg: &mut staged_rpg,
             },
         )?;
 
@@ -173,6 +211,7 @@ impl RuntimeState {
                 ledgers: &mut staged_ledgers,
                 event_count: &mut staged_event_count,
                 revision: &mut staged_revision,
+                rpg: &mut staged_rpg,
             },
         )?;
 
@@ -216,6 +255,7 @@ impl RuntimeState {
         self.committed_event_count = staged_event_count;
         self.authoritative_revision = staged_revision;
         self.ledgers = staged_ledgers;
+        self.rpg = staged_rpg;
 
         Ok(TickReport {
             tick,
@@ -223,6 +263,7 @@ impl RuntimeState {
             events,
             stage_trace,
             snapshot,
+            rpg_snapshot: self.rpg.snapshot(),
         })
     }
 }
@@ -273,6 +314,7 @@ struct StagedAuthoritativeState<'a> {
     ledgers: &'a mut BTreeMap<LedgerKey, LedgerEntry>,
     event_count: &'a mut u64,
     revision: &'a mut u64,
+    rpg: &'a mut RpgState,
 }
 
 fn process_phase(
@@ -447,9 +489,31 @@ fn process_phase(
             continue;
         }
 
-        let event =
-            DomainEvent::command_committed(context.tick, command.command_id, command.sequence)
-                .map_err(RuntimeFatalError::InternalCanonicalization)?;
+        let event = match &command.payload {
+            CommandPayload::Noop => {
+                DomainEvent::command_committed(context.tick, command.command_id, command.sequence)
+                    .map_err(RuntimeFatalError::InternalCanonicalization)?
+            }
+            CommandPayload::Rpg(rpg_command) => {
+                let rpg_event = match staged.rpg.apply(rpg_command) {
+                    Ok(event) => event,
+                    Err(error) => {
+                        commit_rejected = commit_rejected
+                            .checked_add(1)
+                            .ok_or(RuntimeFatalError::TraceCountExhausted)?;
+                        results.push(OrderedResult::rejected(
+                            candidate.order_key,
+                            command.command_id,
+                            command.sequence,
+                            rpg_rejection_code(error),
+                        ));
+                        continue;
+                    }
+                };
+                DomainEvent::rpg(context.tick, command.command_id, 0, rpg_event)
+                    .map_err(RuntimeFatalError::InternalCanonicalization)?
+            }
+        };
         *staged.event_count = staged
             .event_count
             .checked_add(1)
@@ -596,6 +660,25 @@ fn count(value: usize) -> Result<u64, RuntimeFatalError> {
     u64::try_from(value).map_err(|_| RuntimeFatalError::TraceCountExhausted)
 }
 
+fn rpg_rejection_code(error: RpgApplyError) -> RejectionCode {
+    match error {
+        RpgApplyError::AggregateNotFound(_) => RejectionCode::RpgAggregateNotFound,
+        RpgApplyError::StatePreconditionFailed(_) => RejectionCode::RpgStatePreconditionFailed,
+        RpgApplyError::InvariantViolation(_) => RejectionCode::RpgInvariantViolation,
+        RpgApplyError::RelationshipOverflow
+        | RpgApplyError::SkillProficiencyOutOfRange
+        | RpgApplyError::AggregateRevisionExhausted => RejectionCode::RpgValueOutOfRange,
+        _ => RejectionCode::RpgInvariantViolation,
+    }
+}
+
+fn validate_rpg_snapshot(snapshot: RpgSnapshot) -> Result<RpgState, SnapshotRestoreError> {
+    let canonical_bytes = snapshot.canonical_bytes()?;
+    let snapshot =
+        RpgSnapshot::from_canonical_bytes(&canonical_bytes, CanonicalDecodeLimits::default())?;
+    Ok(RpgState::from_snapshot(snapshot)?)
+}
+
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 struct CommandOrderKey {
     target_tick: u64,
@@ -646,6 +729,10 @@ pub enum RejectionCode {
     CommandSequenceCollision,
     CommandSequenceReuse,
     CommandSequenceExhausted,
+    RpgAggregateNotFound,
+    RpgStatePreconditionFailed,
+    RpgInvariantViolation,
+    RpgValueOutOfRange,
 }
 
 impl RejectionCode {
@@ -667,6 +754,10 @@ impl RejectionCode {
             Self::CommandSequenceCollision => "COMMAND_SEQUENCE_COLLISION",
             Self::CommandSequenceReuse => "COMMAND_SEQUENCE_REUSE",
             Self::CommandSequenceExhausted => "COMMAND_SEQUENCE_EXHAUSTED",
+            Self::RpgAggregateNotFound => "RPG_AGGREGATE_NOT_FOUND",
+            Self::RpgStatePreconditionFailed => "RPG_STATE_PRECONDITION_FAILED",
+            Self::RpgInvariantViolation => "RPG_INVARIANT_VIOLATION",
+            Self::RpgValueOutOfRange => "RPG_VALUE_OUT_OF_RANGE",
         }
     }
 }
@@ -712,6 +803,7 @@ pub struct TickReport {
     pub events: Vec<DomainEvent>,
     pub stage_trace: Vec<StageTraceEntry>,
     pub snapshot: RuntimeSnapshot,
+    pub rpg_snapshot: RpgSnapshot,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -814,6 +906,8 @@ impl Error for RuntimeFatalError {}
 pub enum SnapshotRestoreError {
     Canonicalization(CanonicalError),
     Decode(SnapshotDecodeError),
+    RpgDecode(RpgDecodeError),
+    RpgState(RpgStateError),
 }
 
 impl Display for SnapshotRestoreError {
@@ -829,6 +923,16 @@ impl Display for SnapshotRestoreError {
                 formatter,
                 "snapshot validation failed before restore: {error}"
             ),
+            Self::RpgDecode(error) => write!(
+                formatter,
+                "RPG snapshot validation failed before restore: {error}"
+            ),
+            Self::RpgState(error) => {
+                write!(
+                    formatter,
+                    "RPG snapshot invariants failed before restore: {error}"
+                )
+            }
         }
     }
 }
@@ -844,6 +948,18 @@ impl From<CanonicalError> for SnapshotRestoreError {
 impl From<SnapshotDecodeError> for SnapshotRestoreError {
     fn from(error: SnapshotDecodeError) -> Self {
         Self::Decode(error)
+    }
+}
+
+impl From<RpgDecodeError> for SnapshotRestoreError {
+    fn from(error: RpgDecodeError) -> Self {
+        Self::RpgDecode(error)
+    }
+}
+
+impl From<RpgStateError> for SnapshotRestoreError {
+    fn from(error: RpgStateError) -> Self {
+        Self::RpgState(error)
     }
 }
 

@@ -9,5 +9,5 @@ pub use migration::{
 };
 pub use save::{
     LoadedSave, PreservedFile, RejectedGeneration, SaveCommitReceipt, SaveImage, SaveLoadError,
-    SaveStore, SaveStoreError,
+    SaveStore, SaveStoreError, ValidatedSaveImage,
 };
