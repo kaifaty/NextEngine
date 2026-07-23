@@ -38,11 +38,17 @@ Accepted architecture меняется только новым ADR и синхр
 
 Bootstrap promotion 1.4→1.5, 1.5→1.6 и 1.6→1.7 использует ненормативные records в `docs/reviews/architecture/packet-1.5.md`, `packet-1.6.md` и `packet-1.7.md`. Record не входит в architecture document counts и не является источником subsystem semantics.
 
-Каждый record MUST содержать точный transition, `Pending` или `Approved` status, candidate file manifest, candidate root, результаты automatic checks и единственную human decision `architecture.promote`, которой владеет `Repository Owner`. Agent MAY вычислять hashes и проверять структуру, но MUST NOT заполнять identity/decision или объявлять record одобренным от имени owner.
+Каждый record MUST содержать точный transition, `Pending` или `Approved` status, candidate file manifest, candidate root, результаты pre-approval automatic checks и единственную human decision `architecture.promote`, которой владеет `Repository Owner`. Agent MAY вычислять hashes и проверять структуру, но MUST NOT заполнять identity/decision или объявлять record одобренным от имени owner.
 
 Candidate manifest охватывает каждый Markdown-файл в `docs/architecture/`, использует repository-relative UTF-8 paths и lowercase SHA-256 каждого файла. Review records находятся вне этого scope и исключаются из manifest. Entries сортируются по UTF-8 path; для каждой entry в hash input последовательно добавляются `path`, один NUL byte, 64 ASCII bytes lowercase `file_sha256` и один LF byte. SHA-256 всей последовательности является `Candidate root SHA-256`; machine identifier алгоритма — `sha256-path-nul-file-sha256-lf-v1`.
 
-Любое изменение manifest file инвалидирует hash closure и требует нового promotion decision. `Approved` record действителен только когда все обязательные automatic checks имеют `PASS` с evidence reference, `architecture.promote` имеет `Approved`, а authoritative transition chain непрерывна. `docs-check` проверяет exact file hashes, root, completeness и sequencing, но не является криптографической проверкой личности owner.
+Promotion использует две fail-closed фазы, чтобы aggregate `host-check` не зависел циклически от собственного результата:
+
+1. `architecture-review-preflight <target>` проверяет полный candidate packet и `Pending` record. Format, clippy, workspace tests, boundary scan и diff check MUST уже иметь `PASS`; собственная preflight row MAY быть `Pending` только во время первого запуска.
+2. После повторного preflight с полностью заполненной PASS-таблицей Repository Owner проверяет exact candidate root и отдельно принимает или отклоняет `architecture.promote`.
+3. Только после `Approved` decision обычные `docs-check` и `host-check` выполняют final authoritative admission. Их результат входит в handoff/commit evidence, но не в pre-approval table, поскольку оба зависят от approved record.
+
+Любое изменение manifest file инвалидирует hash closure и требует нового promotion decision. `Approved` record действителен только когда все обязательные pre-approval checks имеют `PASS` с evidence reference, `architecture.promote` имеет `Approved`, а authoritative transition chain непрерывна. `docs-check` проверяет exact file hashes, root, completeness и sequencing, но не является криптографической проверкой личности owner.
 
 ## Release signing policy
 

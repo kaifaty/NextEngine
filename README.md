@@ -18,6 +18,8 @@ uv run --project lab python -m next_lab smoke --device auto
 
 `host-check` runs formatting, clippy, workspace tests, documentation validation, and boundary checks. The lab smoke validates train → ONNX → inference on MPS or CPU. Neither command claims Windows/Linux package conformance or physical-policy certification; see [docs/development/training-capability.md](docs/development/training-capability.md).
 
+An architecture promotion first runs `cargo run -p xtask -- architecture-review-preflight <target>` while its hash-bound review record is `Pending`. After the Repository Owner approves the exact candidate root, `docs-check` and `host-check` perform final admission. The preflight command never creates human approval.
+
 ## Workspace
 
 ```text

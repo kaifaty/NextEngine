@@ -5,7 +5,7 @@
 | Record ID | ARCH-REVIEW-1.5 |
 | From packet | 1.4 |
 | To packet | 1.5 |
-| Status | Pending |
+| Status | Approved |
 | Candidate root algorithm | sha256-path-nul-file-sha256-lf-v1 |
 | Candidate scope | docs/architecture/**/*.md |
 | Candidate root SHA-256 | ca4d9a0a8ccc4a7b062181f74a2a417022a13bca6c1bff9be138a0624abb14cd |
@@ -68,16 +68,17 @@
 
 | Check | Result | Evidence reference |
 |---|---|---|
-| cargo test -p xtask | PASS | local transcript 2026-07-23: 21 tests passed |
-| cargo run -p xtask -- docs-check | Pending | absent |
+| cargo fmt --all -- --check | PASS | local transcript 2026-07-23: rustfmt check passed |
+| cargo clippy --workspace --all-targets -- -D warnings | PASS | local transcript 2026-07-23: workspace clippy passed with warnings denied |
+| cargo test --workspace | PASS | local transcript 2026-07-23: 29 tests passed |
 | cargo run -p xtask -- boundary-scan | PASS | local transcript 2026-07-23: boundary-scan PASS |
-| cargo run -p xtask -- host-check | Pending | absent |
 | git diff --check | PASS | local transcript 2026-07-23: no whitespace errors |
+| cargo run -p xtask -- architecture-review-preflight 1.5 | PASS | local transcript 2026-07-23: candidate root ca4d9a0a8ccc4a7b062181f74a2a417022a13bca6c1bff9be138a0624abb14cd |
 
 ## Bootstrap capability decisions
 
 | Capability | Decision | Reviewer | Decision reference |
 |---|---|---|---|
-| architecture.promote | Pending | absent | absent |
+| architecture.promote | Approved | repository-owner | decision/architecture-promotion-1.5 |
 
-This record is intentionally Pending. Automatic verification cannot create or substitute a human decision.
+The Repository Owner approved promotion of the exact candidate root recorded above. Automatic verification did not create or substitute this human decision.

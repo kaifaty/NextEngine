@@ -13,14 +13,39 @@ fn main() {
 
 fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
-    let command = env::args()
-        .nth(1)
-        .ok_or_else(|| "expected docs-check, boundary-scan, or host-check".to_owned())?;
+    let mut arguments = env::args().skip(1);
+    let command = arguments.next().ok_or_else(|| {
+        "expected architecture-review-preflight, docs-check, boundary-scan, or host-check"
+            .to_owned()
+    })?;
     match command.as_str() {
-        "docs-check" => xtask::docs_check::docs_check(&root),
-        "boundary-scan" => xtask::boundary_scan::boundary_scan(&root),
-        "host-check" => host_check(&root),
+        "architecture-review-preflight" => {
+            let target = arguments.next().ok_or_else(|| {
+                "architecture-review-preflight requires a target packet version".to_owned()
+            })?;
+            reject_extra_arguments(arguments)?;
+            xtask::docs_check::architecture_review_preflight(&root, &target)
+        }
+        "docs-check" => {
+            reject_extra_arguments(arguments)?;
+            xtask::docs_check::docs_check(&root)
+        }
+        "boundary-scan" => {
+            reject_extra_arguments(arguments)?;
+            xtask::boundary_scan::boundary_scan(&root)
+        }
+        "host-check" => {
+            reject_extra_arguments(arguments)?;
+            host_check(&root)
+        }
         _ => Err(format!("unknown command: {command}")),
+    }
+}
+
+fn reject_extra_arguments(mut arguments: impl Iterator<Item = String>) -> Result<(), String> {
+    match arguments.next() {
+        Some(argument) => Err(format!("unexpected argument: {argument}")),
+        None => Ok(()),
     }
 }
 

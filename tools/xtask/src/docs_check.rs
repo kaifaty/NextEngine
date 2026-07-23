@@ -11,11 +11,11 @@ const LEGACY_PHYSICAL_RESEARCH_URL: &str = "https://github.com/kaifaty/OpenGothi
 const ARCHITECTURE_REVIEW_ROOT: &str = "docs/reviews/architecture";
 const ARCHITECTURE_REVIEW_ALGORITHM: &str = "sha256-path-nul-file-sha256-lf-v1";
 const ARCHITECTURE_REVIEW_SCOPE: &str = "docs/architecture/**/*.md";
-const ARCHITECTURE_REVIEW_CHECKS: &[&str] = &[
-    "cargo test -p xtask",
-    "cargo run -p xtask -- docs-check",
+const ARCHITECTURE_REVIEW_BASE_CHECKS: &[&str] = &[
+    "cargo fmt --all -- --check",
+    "cargo clippy --workspace --all-targets -- -D warnings",
+    "cargo test --workspace",
     "cargo run -p xtask -- boundary-scan",
-    "cargo run -p xtask -- host-check",
     "git diff --check",
 ];
 #[derive(Clone, Copy, Debug)]
@@ -23,6 +23,26 @@ struct ArchitectureReviewTransition {
     from: &'static str,
     to: &'static str,
     file: &'static str,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ArchitectureReviewMode<'a> {
+    AuthoritativeAdmission,
+    CandidatePreflight { target: &'a str },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ReviewRecordMode {
+    Ordinary,
+    CandidatePreflight,
+}
+
+#[derive(Debug)]
+struct DocsCheckSummary {
+    authoritative_version: String,
+    candidate_version: String,
+    architecture_file_count: usize,
+    preflight_candidate_root: Option<String>,
 }
 
 const ARCHITECTURE_REVIEW_TRANSITIONS: &[ArchitectureReviewTransition] = &[
@@ -57,6 +77,30 @@ struct Document {
 }
 
 pub fn docs_check(root: &Path) -> Result<(), String> {
+    let summary = validate_docs(root, ArchitectureReviewMode::AuthoritativeAdmission)?;
+    println!(
+        "PASS docs-check: authoritative packet {}, candidate {}, {} indexed architecture documents",
+        summary.authoritative_version, summary.candidate_version, summary.architecture_file_count
+    );
+    Ok(())
+}
+
+pub fn architecture_review_preflight(root: &Path, target: &str) -> Result<(), String> {
+    let summary = validate_docs(root, ArchitectureReviewMode::CandidatePreflight { target })?;
+    let candidate_root = summary
+        .preflight_candidate_root
+        .ok_or_else(|| format!("DOCS_REVIEW_PREFLIGHT_ROOT_MISSING: packet {target}"))?;
+    println!(
+        "PASS architecture-review-preflight: authoritative candidate packet {}, next candidate {}, root={candidate_root}",
+        summary.authoritative_version, summary.candidate_version
+    );
+    Ok(())
+}
+
+fn validate_docs(
+    root: &Path,
+    review_mode: ArchitectureReviewMode<'_>,
+) -> Result<DocsCheckSummary, String> {
     let docs_root = root.join("docs/architecture");
     let mut files = Vec::new();
     collect_files(&docs_root, Some("md"), &mut files)?;
@@ -179,11 +223,14 @@ pub fn docs_check(root: &Path) -> Result<(), String> {
 
     let authoritative_version = required_field(&readme, "Версия", "README.md")?;
     let candidate_version = required_field(&readme, "Review candidate", "README.md")?;
-    validate_architecture_review_records_at(root, &authoritative_version)?;
-    println!(
-        "PASS docs-check: authoritative packet {authoritative_version}, candidate {candidate_version}, {architecture_file_count} indexed architecture documents"
-    );
-    Ok(())
+    let preflight_candidate_root =
+        validate_architecture_review_records_with_mode(root, &authoritative_version, review_mode)?;
+    Ok(DocsCheckSummary {
+        authoritative_version,
+        candidate_version,
+        architecture_file_count,
+        preflight_candidate_root,
+    })
 }
 
 fn parse_document(relative: String, body: String) -> Result<Document, String> {
@@ -671,16 +718,50 @@ pub fn validate_architecture_review_records_at(
     root: &Path,
     authoritative_version: &str,
 ) -> Result<(), String> {
+    validate_architecture_review_records_with_mode(
+        root,
+        authoritative_version,
+        ArchitectureReviewMode::AuthoritativeAdmission,
+    )?;
+    Ok(())
+}
+
+fn validate_architecture_review_records_with_mode(
+    root: &Path,
+    authoritative_version: &str,
+    mode: ArchitectureReviewMode<'_>,
+) -> Result<Option<String>, String> {
     let authoritative_index = ["1.4", "1.5", "1.6", "1.7"]
         .iter()
         .position(|version| *version == authoritative_version)
         .ok_or_else(|| format!("DOCS_REVIEW_VERSION_UNSUPPORTED: {authoritative_version}"))?;
 
+    let preflight_index = match mode {
+        ArchitectureReviewMode::AuthoritativeAdmission => None,
+        ArchitectureReviewMode::CandidatePreflight { target } => {
+            if target != authoritative_version {
+                return Err(format!(
+                    "DOCS_REVIEW_PREFLIGHT_TARGET_MISMATCH: authoritative candidate {authoritative_version}, requested {target}"
+                ));
+            }
+            Some(
+                ARCHITECTURE_REVIEW_TRANSITIONS
+                    .iter()
+                    .position(|transition| transition.to == target)
+                    .ok_or_else(|| format!("DOCS_REVIEW_PREFLIGHT_TARGET_UNSUPPORTED: {target}"))?,
+            )
+        }
+    };
+    let mut preflight_candidate_root = None;
+
     for (index, transition) in ARCHITECTURE_REVIEW_TRANSITIONS.iter().enumerate() {
-        let required_for_authoritative_packet = index < authoritative_index;
+        let required_for_authoritative_packet = match preflight_index {
+            Some(target_index) => index < target_index,
+            None => index < authoritative_index,
+        };
         let path = root.join(ARCHITECTURE_REVIEW_ROOT).join(transition.file);
         if !path.exists() {
-            if required_for_authoritative_packet {
+            if required_for_authoritative_packet || preflight_index == Some(index) {
                 return Err(format!(
                     "DOCS_REVIEW_RECORD_MISSING: {} -> {}: {}",
                     transition.from,
@@ -692,7 +773,23 @@ pub fn validate_architecture_review_records_at(
         }
 
         let body = read(&path)?;
-        let status = validate_architecture_review_record(root, *transition, &body)?;
+        let record_mode = if preflight_index == Some(index) {
+            ReviewRecordMode::CandidatePreflight
+        } else {
+            ReviewRecordMode::Ordinary
+        };
+        let (status, candidate_root) =
+            validate_architecture_review_record(root, *transition, &body, record_mode)?;
+        if preflight_index == Some(index) {
+            if status != "Pending" {
+                return Err(format!(
+                    "DOCS_REVIEW_PREFLIGHT_STATUS_INVALID: {} -> {}: expected Pending, got {status}",
+                    transition.from, transition.to
+                ));
+            }
+            preflight_candidate_root = Some(candidate_root);
+            continue;
+        }
         if required_for_authoritative_packet && status != "Approved" {
             return Err(format!(
                 "DOCS_REVIEW_RECORD_NOT_APPROVED: {} -> {}: {status}",
@@ -706,14 +803,15 @@ pub fn validate_architecture_review_records_at(
             ));
         }
     }
-    Ok(())
+    Ok(preflight_candidate_root)
 }
 
 fn validate_architecture_review_record(
     root: &Path,
     transition: ArchitectureReviewTransition,
     body: &str,
-) -> Result<String, String> {
+    mode: ReviewRecordMode,
+) -> Result<(String, String), String> {
     let expected_id = format!("ARCH-REVIEW-{}", transition.to);
     require_review_field(body, "Record ID", &expected_id, transition)?;
     require_review_field(body, "From packet", transition.from, transition)?;
@@ -754,7 +852,7 @@ fn validate_architecture_review_record(
         &["Check", "Result", "Evidence reference"],
         transition.file,
     )?;
-    validate_review_checks(transition, &candidate_root, &status, &check_rows)?;
+    validate_review_checks(transition, &candidate_root, &status, &check_rows, mode)?;
 
     let capability_rows = review_section_rows(
         body,
@@ -762,7 +860,7 @@ fn validate_architecture_review_record(
         &["Capability", "Decision", "Reviewer", "Decision reference"],
         transition.file,
     )?;
-    validate_review_decisions(
+    let decisions = validate_review_decisions(
         transition,
         &candidate_root,
         &status,
@@ -770,6 +868,18 @@ fn validate_architecture_review_record(
         &capability_rows,
         "CAPABILITY",
     )?;
+    if mode == ReviewRecordMode::CandidatePreflight {
+        let decision = decisions
+            .get("architecture.promote")
+            .map(|(decision, _, _)| decision.as_str())
+            .unwrap_or_default();
+        if decision != "Pending" {
+            return Err(format!(
+                "DOCS_REVIEW_PREFLIGHT_DECISION_INVALID: {}: expected Pending, got {decision}",
+                transition.file
+            ));
+        }
+    }
 
     if status == "Approved" {
         if candidate_root == "absent" || manifest.is_empty() {
@@ -786,7 +896,7 @@ fn validate_architecture_review_record(
         }
     }
 
-    Ok(status)
+    Ok((status, candidate_root))
 }
 
 fn require_review_field(
@@ -958,6 +1068,7 @@ fn validate_review_checks(
     candidate_root: &str,
     record_status: &str,
     rows: &[Vec<String>],
+    mode: ReviewRecordMode,
 ) -> Result<(), String> {
     let mut checks = BTreeMap::new();
     for row in rows {
@@ -990,8 +1101,32 @@ fn validate_review_checks(
             ));
         }
     }
-    for required in ARCHITECTURE_REVIEW_CHECKS {
-        let Some((result, _)) = checks.get(*required) else {
+    let preflight_check = format!(
+        "cargo run -p xtask -- architecture-review-preflight {}",
+        transition.to
+    );
+    let required_checks: BTreeSet<String> = ARCHITECTURE_REVIEW_BASE_CHECKS
+        .iter()
+        .map(|check| (*check).to_owned())
+        .chain(std::iter::once(preflight_check.clone()))
+        .collect();
+    let actual_checks: BTreeSet<String> = checks.keys().cloned().collect();
+    if actual_checks != required_checks {
+        let missing = required_checks
+            .difference(&actual_checks)
+            .next()
+            .map_or("none", String::as_str);
+        let unexpected = actual_checks
+            .difference(&required_checks)
+            .next()
+            .map_or("none", String::as_str);
+        return Err(format!(
+            "DOCS_REVIEW_CHECK_SET_MISMATCH: {}: missing {missing}, unexpected {unexpected}",
+            transition.file
+        ));
+    }
+    for required in &required_checks {
+        let Some((result, _)) = checks.get(required) else {
             return Err(format!(
                 "DOCS_REVIEW_CHECK_MISSING: {}: {required}",
                 transition.file
@@ -1000,6 +1135,24 @@ fn validate_review_checks(
         if record_status == "Approved" && result != "PASS" {
             return Err(format!(
                 "DOCS_REVIEW_CHECK_NOT_PASS: {}: {required}: {result}",
+                transition.file
+            ));
+        }
+    }
+    if mode == ReviewRecordMode::CandidatePreflight {
+        for required in ARCHITECTURE_REVIEW_BASE_CHECKS {
+            let result = &checks[*required].0;
+            if result != "PASS" {
+                return Err(format!(
+                    "DOCS_REVIEW_PREFLIGHT_CHECK_NOT_PASS: {}: {required}: {result}",
+                    transition.file
+                ));
+            }
+        }
+        let preflight_result = &checks[&preflight_check].0;
+        if !matches!(preflight_result.as_str(), "Pending" | "PASS") {
+            return Err(format!(
+                "DOCS_REVIEW_PREFLIGHT_SELF_CHECK_INVALID: {}: {preflight_result}",
                 transition.file
             ));
         }
@@ -1547,9 +1700,10 @@ pub fn sha256_hex(input: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        ARCHITECTURE_REVIEW_ROOT, ARCHITECTURE_REVIEW_TRANSITIONS, ArchitectureReviewTransition,
-        architecture_candidate_root, is_frozen_annex_id, is_index_id, sha256_hex, table_field,
-        validate_architecture_review_records_at,
+        ARCHITECTURE_REVIEW_ROOT, ARCHITECTURE_REVIEW_TRANSITIONS, ArchitectureReviewMode,
+        ArchitectureReviewTransition, architecture_candidate_root, is_frozen_annex_id, is_index_id,
+        sha256_hex, table_field, validate_architecture_review_records_at,
+        validate_architecture_review_records_with_mode,
     };
     use std::collections::BTreeMap;
     use std::fs;
@@ -1613,18 +1767,41 @@ mod tests {
              ## Automatic checks\n\n\
              | Check | Result | Evidence reference |\n\
              |---|---|---|\n\
-             | cargo test -p xtask | PASS | evidence/xtask-test |\n\
-             | cargo run -p xtask -- docs-check | PASS | evidence/docs-check |\n\
+             | cargo fmt --all -- --check | PASS | evidence/fmt |\n\
+             | cargo clippy --workspace --all-targets -- -D warnings | PASS | evidence/clippy |\n\
+             | cargo test --workspace | PASS | evidence/workspace-test |\n\
              | cargo run -p xtask -- boundary-scan | PASS | evidence/boundary-scan |\n\
-             | cargo run -p xtask -- host-check | PASS | evidence/host-check |\n\
-             | git diff --check | PASS | evidence/diff-check |\n\n\
+             | git diff --check | PASS | evidence/diff-check |\n\
+             | cargo run -p xtask -- architecture-review-preflight {} | PASS | evidence/preflight |\n\n\
              ## Bootstrap capability decisions\n\n\
              | Capability | Decision | Reviewer | Decision reference |\n\
              |---|---|---|---|\n\
              | architecture.promote | Approved | repository-owner | decision/architecture-promotion |\n",
-            transition.to, transition.from, transition.to
+            transition.to, transition.from, transition.to, transition.to
         );
         record
+    }
+
+    fn render_pending_preflight_record(
+        root: &Path,
+        transition: ArchitectureReviewTransition,
+    ) -> String {
+        render_approved_record(root, transition)
+            .replace("| Status | Approved |", "| Status | Pending |")
+            .replace(
+                &format!(
+                    "| cargo run -p xtask -- architecture-review-preflight {} | PASS | evidence/preflight |",
+                    transition.to
+                ),
+                &format!(
+                    "| cargo run -p xtask -- architecture-review-preflight {} | Pending | absent |",
+                    transition.to
+                ),
+            )
+            .replace(
+                "| architecture.promote | Approved | repository-owner | decision/architecture-promotion |",
+                "| architecture.promote | Pending | absent | absent |",
+            )
     }
 
     fn write_packet_15_record(root: &Path, body: &str) {
@@ -1677,6 +1854,62 @@ mod tests {
         let error = validate_architecture_review_records_at(root.path(), "1.5")
             .expect_err("Pending record must not authorize packet 1.5");
         assert!(error.contains("DOCS_REVIEW_RECORD_NOT_APPROVED"));
+    }
+
+    #[test]
+    fn pending_review_record_passes_candidate_preflight() {
+        let root = test_root("pending-preflight");
+        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let pending = render_pending_preflight_record(root.path(), transition);
+        let expected_root = table_field(&pending, "Candidate root SHA-256")
+            .expect("test review record should contain candidate root");
+        write_packet_15_record(root.path(), &pending);
+
+        let actual_root = validate_architecture_review_records_with_mode(
+            root.path(),
+            "1.5",
+            ArchitectureReviewMode::CandidatePreflight { target: "1.5" },
+        )
+        .expect("pending record with passing component checks should pass preflight");
+
+        assert_eq!(actual_root.as_deref(), Some(expected_root.as_str()));
+    }
+
+    #[test]
+    fn candidate_preflight_rejects_pending_component_check() {
+        let root = test_root("pending-component");
+        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let pending = render_pending_preflight_record(root.path(), transition).replace(
+            "| cargo fmt --all -- --check | PASS | evidence/fmt |",
+            "| cargo fmt --all -- --check | Pending | absent |",
+        );
+        write_packet_15_record(root.path(), &pending);
+
+        let error = validate_architecture_review_records_with_mode(
+            root.path(),
+            "1.5",
+            ArchitectureReviewMode::CandidatePreflight { target: "1.5" },
+        )
+        .expect_err("preflight must require every component check to pass");
+
+        assert!(error.contains("DOCS_REVIEW_PREFLIGHT_CHECK_NOT_PASS"));
+    }
+
+    #[test]
+    fn candidate_preflight_rejects_wrong_target() {
+        let root = test_root("wrong-preflight-target");
+        let transition = ARCHITECTURE_REVIEW_TRANSITIONS[0];
+        let pending = render_pending_preflight_record(root.path(), transition);
+        write_packet_15_record(root.path(), &pending);
+
+        let error = validate_architecture_review_records_with_mode(
+            root.path(),
+            "1.5",
+            ArchitectureReviewMode::CandidatePreflight { target: "1.6" },
+        )
+        .expect_err("preflight target must match the candidate packet version");
+
+        assert!(error.contains("DOCS_REVIEW_PREFLIGHT_TARGET_MISMATCH"));
     }
 
     #[test]

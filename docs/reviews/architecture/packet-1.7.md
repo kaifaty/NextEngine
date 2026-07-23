@@ -20,11 +20,12 @@
 
 | Check | Result | Evidence reference |
 |---|---|---|
-| cargo test -p xtask | Pending | absent |
-| cargo run -p xtask -- docs-check | Pending | absent |
+| cargo fmt --all -- --check | Pending | absent |
+| cargo clippy --workspace --all-targets -- -D warnings | Pending | absent |
+| cargo test --workspace | Pending | absent |
 | cargo run -p xtask -- boundary-scan | Pending | absent |
-| cargo run -p xtask -- host-check | Pending | absent |
 | git diff --check | Pending | absent |
+| cargo run -p xtask -- architecture-review-preflight 1.7 | Pending | absent |
 
 ## Bootstrap capability decisions
 
