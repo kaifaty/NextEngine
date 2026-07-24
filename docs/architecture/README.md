@@ -299,7 +299,7 @@ Hash-bound record [ARCH-REVIEW-1.5](../reviews/architecture/packet-1.5.md) св�
 
 Packet 1.5.1 оформляет только bootstrap ownership normalization:
 
-1. authority изменять SPEC/ADR и принимать architecture promotion обозначена единым именем `Repository Owner`, согласованным с индексом и [GOVERNANCE.md](../../GOVERNANCE.md);
+1. authority изменять SPEC/ADR обозначена единым именем `Repository Owner`, согласованным с индексом;
 2. subsystem owners, authoritative mutable-state owners, public boundaries, dependency direction и implementation contracts остаются без изменений;
 3. Accepted/Proposed/Draft statuses, 78 requirements, 24 failure paths, 15 vertical gates и 33 technology rows не изменяются;
 4. dialogue/model track и foundation-completeness track остаются вне patch;
