@@ -4,16 +4,17 @@
 |---|---|
 | ID | SPEC-16 |
 | Статус | Proposed |
-| Версия | 0.1 |
+| Lifecycle | Deferred Proposed |
+| Версия | 0.2 |
 | Владелец | Repository Owner |
 | Требуемые согласующие | Architecture Working Group, RPG Framework Team, World Services Team, Asset & Persistence Team, Developer Experience Team, Security & Governance Team, Verification & Evidence Team |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-007](adr/007-identities-persistence-and-replay.md), [ADR-010](adr/010-artifact-first-headless-validation-and-review.md) |
+| Последняя проверка | 2026-07-24 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md) |
 | Заменяет | отсутствует |
 
-## Статус предложения
+## Статус предложения: Deferred Proposed
 
-Этот документ является post-1.5 review proposal и не меняет Accepted packet 1.4 или remediation candidate 1.5. Термины MUST/MUST NOT задают future acceptance contract только для promotion bundle [ADR-017](adr/017-text-canonical-multimodal-dialogue-and-replaceable-model-packs.md). Ни одна модель из [RESEARCH-002](research/npc-dialogue-model-landscape.md) не является Accepted или shipping default.
+Этот документ имеет lifecycle `Deferred Proposed`. Remediation candidate packet 1.6 фиксирует его IDs и актуальные dependencies, но не принимает dialogue/model track. Термины MUST/MUST NOT задают future acceptance contract только для отдельного promotion bundle [ADR-017](adr/017-text-canonical-multimodal-dialogue-and-replaceable-model-packs.md). Ни одна модель из [RESEARCH-002](research/npc-dialogue-model-landscape.md) не является Accepted или shipping default.
 
 ## Назначение и invariants
 
@@ -232,12 +233,12 @@ All timings are measured wall performance on exact declared hardware but are not
 | `DIALOGUE-P2` | Agent Intelligence + World Services | `next gate DIALOGUE-P2 --scenario dialogue-stream-faults --injections 1000` | 1,000 timeout/restart/cancel/barge-in/reorder/duplicate/late injections; 0 game crash/tick stall/partial commit; fallback selected ≤1 gameplay tick after deadline signal | ai-host/stream timeline, fault report, replay/dedupe ledger | circuit-break adapter; `TextOnlyFallback` |
 | `MODEL-ASR-P1` | Agent Intelligence | `next ai benchmark dialogue --role asr --corpus russian-gameplay-v1 --profile $PROFILE` | Russian clean WER ≤10%; noisy gameplay-mix WER ≤20%; end-of-utterance→final p95 ≤600 ms; 100% invalid audio bounded/rejected | corpus/provenance, transcripts, WER/latency/resource report | next ASR route or typed input |
 | `MODEL-DIALOGUE-P1` | Agent Intelligence + RPG Framework | `next ai benchmark dialogue --role dialogue --corpus npc-dialogue-v1 --profile $PROFILE` | first schema-valid sentence p95 ≤1,000 ms; complete candidate p95 ≤2,000 ms; first-attempt schema validity ≥99%; 100% stale/forbidden mutations rejected | prompts redacted, canonical request/response hashes, validator/persona/commitment metrics | next LLM route or authored dialogue |
-| `MODEL-TTS-P1` | World Services | `next ai benchmark dialogue --role tts --corpus russian-voice-v1 --profile $PROFILE` | first PCM p95 ≤500 ms; real-time factor ≤0.5; 0 unbounded continuation across corpus; schema/audio bounds 100% | text/audio roots, latency/RTF/duration/pronunciation report, required HumanReviewDecision | next TTS route or subtitles/authored voice |
+| `MODEL-TTS-P1` | World Services | `next ai benchmark dialogue --role tts --corpus russian-voice-v1 --profile $PROFILE` | first PCM p95 ≤500 ms; real-time factor ≤0.5; 0 unbounded continuation across corpus; schema/audio bounds 100% | text/audio roots, latency/RTF/duration/pronunciation report, required signed `HumanReviewDecisionV2` with exact `Approve` token after automatic PASS | next TTS route or subtitles/authored voice |
 | `MODEL-E2E-P1` | Agent Intelligence + World Services | `next ai benchmark dialogue --pack <manifest> --profile $PROFILE --corpus npc-dialogue-v1` | 1,000 warm turns at concurrency 4; end-of-player-utterance→first subtitle p95 ≤1,500 ms and →first PCM p95 ≤2,500 ms; 0 gameplay hash differences with text-only run | full pipeline timeline, resource/queue metrics, replay/audio roots | lower profile or `TextOnlyFallback` |
 | `MODEL-L1` | Security & Governance | `next gate MODEL-L1 --manifest <pack> --corpus model-license-provenance` | 100% files/source/conversions/license/redistribution classified and hash-closed; unknown/custom terms without exception rejected | manifest closure, SBOM/notices, provenance graph, legal exceptions | do not install/distribute pack |
 | `VOICE-L1` | Security & Governance + World Services | `next gate VOICE-L1 --manifest <pack> --corpus voice-consent-revocation` | 100% unauthorized/expired/revoked/scope-mismatched clones rejected; 0 raw reference voice in default logs/evidence; deletion/revocation fixtures pass | consent records, denial/audit/redaction/deletion report | licensed default voice or subtitles |
 
-Human listening cannot waive automatic waveform, bounds, command/replay, license or consent failure. Missing reviewer/encoder gives `AwaitingCapability`, never `PASS`.
+Human listening cannot waive automatic waveform, bounds, command/replay, license or consent failure. `Reject` and `NeedsChanges` are valid signed `HumanReviewDecisionV2` decisions but never admit the candidate. Missing reviewer/encoder gives `AwaitingCapability`, never `PASS`.
 
 ## Promotion contract
 
@@ -245,7 +246,7 @@ Promotion requires one reviewed transaction after required owner/Security approv
 
 1. ADR-017 and SPEC-16 become `Accepted`; ADR-005 remains Accepted and is not superseded.
 2. SPEC-01/03/06/07/08/09/11/12/15 and glossary receive the accepted contracts without changing ownership or fifteen-gate count.
-3. Traceability adds exactly the reserved rows below and maps child gates into VS-03, VS-04, VS-12 and VS-15.
+3. Traceability maps the permanently reserved rows below into VS-03, VS-04, VS-12 and VS-15 only if that transaction is admitted.
 4. Evidence register rows remain `Proposed` until their exact artifacts independently pass all applicable gates; accepting the protocol does not accept a model.
 
 | Reserved row | Primary owner | Future acceptance contract |
@@ -265,4 +266,6 @@ Promotion requires one reviewed transaction after required owner/Security approv
 | `FAIL-029` | Security & Governance | Network unavailable or consent revoked → no request, local/text fallback |
 | `FAIL-030` | Agent Intelligence | ai-host restart/late result → idempotent dedupe, no duplicate command |
 
-Until this transaction is approved, lifecycle state is `AwaitingReview`; implementation may only be an explicitly non-conforming PoC outside Accepted claims.
+REQ-079…086 and FAIL-025…030 are permanently reserved for SPEC-16 while it remains `Deferred Proposed`. Reserved Proposed rows are excluded from Accepted completeness, MUST NOT satisfy an Accepted gate and MUST NOT ever be reassigned to another document.
+
+Until a separate dialogue/model transaction is approved, lifecycle state remains `Deferred Proposed`; implementation may only be an explicitly non-conforming PoC outside Accepted claims.

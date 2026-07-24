@@ -4,7 +4,7 @@
 |---|---|
 | ID | ADR-003 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.1 |
 | Владелец | Rendering Team |
 | Дата решения | 2026-07-22 |
 | Последняя проверка evidence | 2026-07-22 |
@@ -35,16 +35,16 @@ Windows и Linux имеют общий Vulkan baseline. Mesh shaders и ray trac
 
 Renderer MUST иметь capability tiers, pipeline cache invalidation и device-loss state machine. Assets MUST cook fallback geometry path. Shader source language не может быть видимым из RPG/runtime contracts.
 
-## Gate для Proposed частей
+## Gates для Proposed частей
 
-| Поле | Требование |
-|---|---|
-| Владелец | Rendering Team |
-| Сценарий/команда | `cargo xtask gate renderer-poc --matrix win-vulkan,linux-vulkan --capture` |
-| Threshold | ash path проходит validation layers без error; Slang offline одинаковой pinned версии даёт byte-identical SPIR-V/reflection/cache keys на Windows и Linux для VS/FS/compute; task/mesh и ray-query samples либо проходят, либо capability-gated и не загружаются; 100% resource bindings совпадают с reflection; RenderDoc capture отображает source mapping; baseline scene ≥60 FPS при 1080p на reference Tier-B GPU и запускается при отключённых RT/mesh features |
-| Evidence | compiler manifest, SPIR-V hashes, validation logs, RenderDoc capture, frame-time JSON, screenshots |
-| Fallback | Internal/generated Vulkan bindings вместо ash; GLSL/HLSL → SPIR-V verified compiler chain вместо Slang |
-| Срок повторной проверки | перед M2 renderer bootstrap и при upgrade ash/Slang |
+Accepted baseline gates `RENDER-P1` и `SHADER-P1` принадлежат engine-owned `RenderDevice`/`ShaderInterface` contracts SPEC-04 и не выбирают binding или compiler. Proposed adapters имеют отдельные `CandidateOnly` IDs, чьи единственные canonical descriptors находятся в verification-gate table SPEC-04:
+
+| Candidate reference | Canonical descriptor source | Decision / fallback |
+|---|---|---|
+| RENDER-ASH-P1 | SPEC-04 | ash остаётся `Proposed`; при candidate FAIL не выбирать ash и использовать internal/generated Vulkan bindings за тем же `RenderDevice`. |
+| SHADER-SLANG-P1 | SPEC-04 | Slang остаётся `Proposed`; при candidate FAIL не выбирать Slang и использовать verified GLSL/HLSL → SPIR-V chain за тем же `ShaderInterface`. |
+
+Оба candidate gate повторно выполняются перед M2 renderer bootstrap и при любом upgrade exact adapter. Их PASS не закрывает `VS-07` без независимых baseline `RENDER-P1` и `SHADER-P1`.
 
 ## Supersession
 

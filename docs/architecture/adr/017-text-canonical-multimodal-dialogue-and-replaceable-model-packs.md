@@ -4,18 +4,19 @@
 |---|---|
 | ID | ADR-017 |
 | Статус | Proposed |
-| Версия | 0.1 |
+| Lifecycle | Deferred Proposed |
+| Версия | 0.2 |
 | Владелец | Agent Intelligence Team |
 | Требуемые согласующие | Architecture Working Group, RPG Framework Team, World Services Team, Asset & Persistence Team, Developer Experience Team, Security & Governance Team, Verification & Evidence Team |
 | Дата предложения | 2026-07-22 |
-| Последняя проверка | 2026-07-22 |
-| Нормативные зависимости | [SPEC-16](../16-text-canonical-multimodal-dialogue-and-model-packs.md), [SPEC-01](../01-system-architecture.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-11](../11-security-licensing-and-governance.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-007](007-identities-persistence-and-replay.md), [ADR-010](010-artifact-first-headless-validation-and-review.md) |
+| Последняя проверка | 2026-07-24 |
+| Нормативные зависимости | [SPEC-16](../16-text-canonical-multimodal-dialogue-and-model-packs.md), [SPEC-01](../01-system-architecture.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-11](../11-security-licensing-and-governance.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-023](023-human-review-decision-v2-and-offline-attestation.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 
-## Статус предложения
+## Статус предложения: Deferred Proposed
 
-Этот ADR является отдельным post-1.5 review track. Он не меняет Accepted packet 1.4, не входит в remediation candidate 1.5 и не объявляет ни один model/provider Accepted. ADR-005 остаётся authoritative process boundary до и после возможного принятия ADR-017.
+Этот ADR имеет lifecycle `Deferred Proposed`. Remediation candidate packet 1.6 фиксирует его reserved IDs и актуальные dependencies, но не принимает dialogue/model track и не объявляет ни один model/provider Accepted. ADR-005 остаётся authoritative process boundary до и после возможного принятия ADR-017.
 
 ## Контекст
 
@@ -73,6 +74,6 @@ ADR acceptance itself requires documentation/schema review, ownership/security a
 
 ## Promotion и supersession
 
-Approval is one atomic transaction described by SPEC-16: synchronize SPEC-01/03/06/07/08/09/11/12/15, glossary, traceability and evidence references; add reserved REQ-079…086 and FAIL-025…030; preserve fifteen VS gates and map dialogue coverage into VS-03/04/12/15.
+Approval is one separate atomic transaction described by SPEC-16: synchronize SPEC-01/03/06/07/08/09/11/12/15, glossary, traceability and evidence references; activate the permanently reserved REQ-079…086 and FAIL-025…030 rows; preserve fifteen VS gates and map dialogue coverage into VS-03/04/12/15. Until then those rows remain Proposed-only, are excluded from Accepted completeness and cannot be reassigned.
 
-ADR-017 does not supersede ADR-005, ADR-007 or ADR-010. A future decision allowing mandatory cloud, in-process generative dialogue, direct model mutation, non-text authoritative dialogue or model regeneration during replay requires a new superseding ADR.
+ADR-017 does not supersede ADR-005, ADR-022 or ADR-023. A future decision allowing mandatory cloud, in-process generative dialogue, direct model mutation, non-text authoritative dialogue or model regeneration during replay requires a new superseding ADR.

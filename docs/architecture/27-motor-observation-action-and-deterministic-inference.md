@@ -1,0 +1,811 @@
+# SPEC-27: Motor observation, action and deterministic inference
+
+| Поле | Значение |
+|---|---|
+| ID | SPEC-27 |
+| Статус | Accepted |
+| Версия | 1.0 |
+| Владелец | Physical Embodiment Team |
+| Требуемые согласующие | Repository Owner, Architecture Working Group, Runtime Team, Asset & Persistence Team, Agent Intelligence Team, Verification & Evidence Team, Release Engineering |
+| Последняя проверка | 2026-07-24 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-024](adr/024-requirement-gate-evidence-and-profile-closure.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md) |
+| Заменяет | отсутствует |
+
+## История принятия
+
+SPEC-27 подготовлен как часть architecture packet 1.8. Он закрепляет
+engine-owned observation/action/state schemas, deterministic inference schedule,
+safety clamp и procedural fallback для motor layer, принятого ADR-027.
+Принятие exact packet root означает только architecture admission: оно не
+выбирает inference backend, не создаёт runtime implementation, gate `PASS`,
+`PhysicalCertified`, `vertical-v1` или shipping claim.
+
+## Назначение и invariants
+
+SPEC-27 определяет единственную public boundary между authoritative simulation,
+motor policy evaluation, safety layer и physics actuation.
+
+- Authoritative motor work происходит только на motor ticks, выведенных из
+  `TickRateProfileV1`. Renderer frame, wall clock, worker identity, cache warmth
+  и evaluator completion order не являются motor inputs.
+- Каждая строка inference имеет canonical batching key
+  `(motor_tick, PersistentId, PolicyId)`. Дубликат, неоднозначный active route,
+  stale result или неполная batch result не выбираются эвристически.
+- Observation, recurrent state input и candidate action имеют exact dtype,
+  rank, shape, feature order, unit и normalization/de-normalization rules.
+- Model output является untrusted proposal. Только полностью проверенный и
+  safety-clamped fixed-point `MotorActionV1` может стать authoritative input
+  physics layer.
+- Learned action и следующий recurrent state публикуются одной atomic commit.
+  Partial action, partial state или per-channel смешивание learned/fallback
+  output запрещены.
+- Policy/model/schema/safety/fallback inputs immutable, content-addressed и
+  входят в exact `ProjectCompositionLock`.
+- Runtime inference не использует RNG. Stochastic op, ambient seed, filesystem,
+  network, environment variable или hidden mutable evaluator state в
+  authoritative path являются contract violation.
+- `game`, `headless` и `capture-worker` используют одни schema hashes, batch
+  ordering, state transitions, safety clamp, fallback controller и commit
+  rules. Compile-time feature или private backend не может менять semantics.
+
+Для SPEC-27 два запуска equivalent только если на каждом motor tick совпадают
+canonical observation-batch root, applied-action root, route/fallback decision,
+recurrent-state root и stable diagnostic sequence. Raw evaluator timing,
+private session caches и pre-clamp floating-point diagnostics не входят в
+authoritative state, но разница, перешедшая через canonical decode/clamp,
+является `NONDETERMINISTIC_RESULT`.
+
+## Source of truth и authority split
+
+| State | Единственный owner/source of truth | Allowed projection / forbidden duplicate |
+|---|---|---|
+| Observation/action/state schema, compatibility and safety policy | Physical Embodiment Team | immutable registry/manifest projection; no backend tensor descriptor |
+| Motor tick cadence, closed work set, batch commit and replay ordering | Runtime Team | schedule trace; no policy-route or physical-state ownership |
+| Body, actuator, contact and safety-envelope facts | Physical Embodiment Team | immutable revision-bound observation source; no evaluator-owned copy |
+| High-level `AgentIntent` | Agent Intelligence Team | revisioned untrusted proposal; no direct torque/joint mutation |
+| Active policy route, fallback phase and recurrent `PolicyState` | Physical Embodiment Team | immutable inspector/save projection; no evaluator-session authority |
+| Policy/model/schema/controller bytes and project lock | Asset & Persistence Team / Project Composition owner | validated immutable content; no mutable runtime weights |
+| Save generation and owner-segment encoding | Asset & Persistence Team | staged copy; semantic state remains Physical Embodiment-owned |
+
+Public contracts contain only engine-owned nominal IDs, bounded integers,
+canonical hashes, closed enums and versioned records. They contain no ECS
+storage/component, raw pointer, OS/window/thread/task object, filesystem path,
+database connection, importer structure, model-runtime session, provider,
+device handle, physics-backend body, tensor-library object or other
+vendor/backend type.
+
+## Canonical scalar, unit and tensor rules
+
+### Closed v1 scalar and unit vocabulary
+
+`MotorTensorDTypeV1` has exactly one admitted value:
+`Ieee754Binary32LittleEndian`. Public inference tensors are rank two,
+row-major, tightly packed and little-endian. No stride, sparse layout, native
+endianness, implicit cast or backend-owned buffer appears in the contract.
+
+`MotorUnitV1` is the closed enum:
+
+```text
+Unitless
+Binary
+Metre
+MetrePerSecond
+MetrePerSecondSquared
+Radian
+RadianPerSecond
+RadianPerSecondSquared
+Kilogram
+Newton
+NewtonMetre
+NewtonSecond
+NewtonPerMetre
+NewtonSecondPerMetre
+NewtonMetrePerRadian
+NewtonMetreSecondPerRadian
+KilogramSquareMetre
+Second
+OnePerSecond
+```
+
+Angles are radians, lengths are metres, time is seconds and torque is
+newton-metres. Coordinate handedness and axes come only from the exact
+physical/numeric profile. Degrees, centimetres, engine units and implicit
+unit conversion are invalid.
+
+Canonical tensor bytes are:
+
+```text
+MotorTensorV1 {
+  role: MotorTensorRoleV1,
+  dtype: Ieee754Binary32LittleEndian,
+  rows: u32,
+  columns: u32,
+  tensor_schema_hash: Hash256,
+  data: rows * columns * 4 bytes
+}
+```
+
+`MotorTensorRoleV1` is exactly `Observation`, `PolicyStateInput`,
+`ActionCandidate` or `PolicyStateOutput`. `rows` is `B`; `columns` is fixed by
+the referenced schema. A tensor with excess bytes, padding, zero rows,
+`B > max_batch_size`, wrong role/hash/shape or a NaN/infinity is invalid.
+Negative zero is canonicalized to positive zero at the engine boundary.
+Finite subnormal values remain their exact IEEE-754 rational values.
+
+| Role | Exact shape and presence | Scalar meaning |
+|---|---|---|
+| `Observation` | `[B, O]`, always present, where `O = feature_count` | Feature-local physical unit is converted by its exact normalization rule. |
+| `PolicyStateInput` | `[B, S]` iff `S > 0`; absent iff `S = 0` | Dimensionless normalized value derived from canonical fixed-point state. |
+| `ActionCandidate` | `[B, A]`, always present, where `A = channel_count` | Dimensionless proposal decoded by the channel's exact physical-unit rule. |
+| `PolicyStateOutput` | `[B, S]` iff `S > 0`; absent iff `S = 0` | Dimensionless proposal decoded to canonical fixed-point state. |
+
+Every row position maps to the same batching key in all present tensors.
+Dynamic feature/state/action width, singleton-rank elision and broadcasting are
+forbidden.
+
+### Exact normalization
+
+Every source value first exists as a signed integer `source_raw` under one
+locked SPEC-21 fixed-point descriptor. A feature uses exactly one
+`MotorNormalizationRuleV1`:
+
+```text
+AffineRationalV1 {
+  center_raw: i64,
+  scale_numerator: i64,
+  scale_denominator: NonZeroU64,
+  normalized_min_numerator: i64,
+  normalized_min_denominator: NonZeroU64,
+  normalized_max_numerator: i64,
+  normalized_max_denominator: NonZeroU64,
+  range_mode: Reject | Clamp
+}
+
+BinaryMaskV1
+```
+
+For `AffineRationalV1` the exact mathematical value is
+`(source_raw - center_raw) * scale_numerator / scale_denominator`, evaluated
+with checked signed 128-bit intermediates. Bounds are exact rationals and MUST
+satisfy `normalized_min <= normalized_max` after checked cross-multiplication.
+`Reject` rejects the complete subject observation outside the interval;
+`Clamp` clamps the rational before conversion. The final binary32 bits are
+produced once, using round-to-nearest, ties-to-even. Overflow or invalid
+denominator rejects the complete observation.
+
+`BinaryMaskV1` accepts only integer `0` or `1` and emits exact binary32
+`+0.0` or `1.0`. An optional physical source MUST have a dedicated validity
+mask feature. Missing data is encoded as zero only while that exact mask is
+zero; missing required data, a missing mask or a nonzero masked payload rejects
+the subject observation. No backend performs normalization.
+
+## Observation, action and inference schemas
+
+### `MotorObservationSchemaV1`
+
+```text
+MotorObservationSchemaV1 {
+  schema_id: SchemaId,
+  schema_version: 1,
+  feature_count: u32,
+  features: [MotorFeatureDescriptorV1],
+  physical_numeric_profile_hash: Hash256,
+  body_schema_hash: Hash256,
+  actuator_schema_hash: Hash256
+}
+
+MotorFeatureDescriptorV1 {
+  feature_id: NamespacedId,
+  offset: u32,
+  width: u16,
+  source_semantic_id: NamespacedId,
+  source_component: u16,
+  unit: MotorUnitV1,
+  source_fixed_point_descriptor_id: FixedPointDescriptorId,
+  normalization: MotorNormalizationRuleV1,
+  validity_mask_feature_id: Option<NamespacedId>
+}
+```
+
+Features sort by `(offset, feature_id)`. Offsets begin at zero, have no gaps or
+overlap and cover exactly `feature_count`. Every
+`source_semantic_id/source_component` resolves in the exact registered
+physical-observation schema; an unknown semantic requires a new schema version.
+The schema MUST explicitly include the policy-required root/joint kinematics,
+intent targets, contact/support/terrain facts, previous applied action and
+actuator/validity masks. It MUST NOT read presentation pose, raw physics-backend
+state or mutable ECS storage.
+
+`MotorObservationV1` binds one subject and tick to:
+
+```text
+MotorObservationV1 {
+  motor_tick: u64,
+  persistent_id: PersistentId,
+  physics_body_id: PhysicsBodyIdV1,
+  policy_id: PolicyId,
+  route_generation: u64,
+  observation_schema_hash: Hash256,
+  source_physics_tick: u64,
+  source_physics_substep: u16,
+  source_physics_snapshot_hash: Hash256,
+  body_revision: u64,
+  topology_revision: u64,
+  intent_revision: u64,
+  safety_envelope_hash: Hash256,
+  source_projection_hash: Hash256,
+  values: MotorTensorV1   // shape [1, O], role Observation
+}
+```
+
+The tensor is derived only from the immutable, revision-bound source
+projection closed at the motor stage. `source_projection_hash` covers the
+canonical fixed-point source integers and masks before normalization.
+
+### `MotorActionSchemaV1` and authoritative action
+
+```text
+MotorActionSchemaV1 {
+  schema_id: SchemaId,
+  schema_version: 1,
+  channel_count: u32,
+  channels: [MotorActionChannelV1],
+  actuator_schema_hash: Hash256,
+  physical_numeric_profile_hash: Hash256
+}
+
+MotorActionChannelV1 {
+  action_channel_id: NamespacedId,
+  offset: u32,
+  actuator_slot_id: NamespacedId,
+  semantic: AngularPositionTarget | LinearPositionTarget |
+            AngularVelocityTarget | LinearVelocityTarget |
+            Torque | Force | AngularStiffness | LinearStiffness |
+            AngularDamping | LinearDamping,
+  physical_unit: MotorUnitV1,
+  output_fixed_point_descriptor_id: FixedPointDescriptorId,
+  zero_raw: i64,
+  scale_numerator: i64,
+  scale_denominator: NonZeroU64,
+  schema_min_raw: i64,
+  schema_max_raw: i64
+}
+```
+
+Channels sort by `(offset, action_channel_id)`, start at zero, have no gaps or
+overlap and cover exactly `channel_count`. Model output is
+`ActionCandidate[B, A]` binary32. For one channel its exact finite IEEE rational
+`x` decodes to physical raw candidate
+`zero_raw + x * scale_numerator / scale_denominator`, with checked 128-bit
+intermediates and one round-to-nearest, ties-to-even conversion to the declared
+fixed-point integer. Invalid scale, nonfinite value or overflow rejects the
+whole row and its state output. `schema_min_raw <= schema_max_raw` is required;
+channel/actuator IDs and offsets are unique.
+
+Semantic/unit pairs are exact: angular/linear position use
+`Radian`/`Metre`; angular/linear velocity use
+`RadianPerSecond`/`MetrePerSecond`; `Torque`/`Force` use
+`NewtonMetre`/`Newton`; angular/linear stiffness use
+`NewtonMetrePerRadian`/`NewtonPerMetre`; angular/linear damping use
+`NewtonMetreSecondPerRadian`/`NewtonSecondPerMetre`. Any other pair is a schema
+error. The actuator slot's SPEC-26 axis kind and `PhysicsActuatorBoundsV1`
+must admit the same semantic and unit.
+
+Only the following fixed-point record is authoritative:
+
+```text
+MotorActionV1 {
+  motor_tick: u64,
+  persistent_id: PersistentId,
+  physics_body_id: PhysicsBodyIdV1,
+  policy_route_id: NamespacedId,
+  policy_id: PolicyId,
+  route_generation: u64,
+  causal_command_id: CommandId,
+  action_slot: u32,
+  target_physics_tick: u64,
+  target_physics_substep: u16,
+  action_schema_hash: Hash256,
+  safety_profile_hash: Hash256,
+  safety_envelope_hash: Hash256,
+  source: Learned | LastSafeHold | ProceduralRecovery,
+  channel_values_raw: [i64; A],
+  clamp_mask: BitSet<A>,
+  action_hash: Hash256
+}
+```
+
+`MotorActionV1` contains no float and no backend handle. Physics receives it
+only at the ADR-027 motor-to-physics commit boundary. `clamp_mask` is exactly
+`ceil(A / 8)` bytes, with channel offset `i` stored in bit `i mod 8` of byte
+`floor(i / 8)`, least-significant bit first; unused high bits are zero.
+`action_hash` is the domain-separated SHA-256 of every preceding canonical
+field and does not hash itself. `policy_route_id`, `causal_command_id` and
+`action_slot` come from the validated active route/intent expansion, never
+arrival or worker order, and match the SPEC-26 accepted-action ordering key.
+
+### Immutable `MotorInferenceProfileV1`
+
+```text
+MotorInferenceProfileV1 {
+  profile_id: NamespacedId,
+  profile_revision: u32,
+  policy_id: PolicyId,
+  policy_route_id: NamespacedId,
+  policy_bundle_hash: Hash256,
+  model_asset_hash: Hash256,
+  observation_schema_hash: Hash256,
+  action_schema_hash: Hash256,
+  policy_state_schema_hash: Hash256,
+  compatibility_key_hash: Hash256,
+  physical_numeric_profile_hash: Hash256,
+  safety_profile_hash: Hash256,
+  fallback_input_schema_hash: Hash256,
+  fallback_controller_hash: Hash256,
+  motor_period_physics_substeps: NonZeroU16,
+  max_batch_size: NonZeroU16,
+  required_evaluator_capabilities: [MotorEvaluatorCapabilityV1]
+}
+```
+
+Capabilities are closed engine-owned operation/numeric limits, never provider,
+device or library names. Every referenced byte sequence and schema is immutable
+and content-addressed in the exact `ProjectCompositionLock`. Runtime never
+discovers a model, schema, normalization table or fallback controller by path,
+environment, “latest” tag or mutable registry. Any hash/compatibility/tick-rate
+mismatch makes the learned route unavailable before observation batching.
+Runtime gameplay never trains or mutates weights.
+
+## Canonical batching and result admission
+
+At a motor stage Runtime closes the request set before evaluator work begins.
+Each request is:
+
+```text
+MotorInferenceRequestV1 {
+  key: (motor_tick, PersistentId, PolicyId),
+  route_generation: u64,
+  active_policy_route_hash: Hash256,
+  profile_hash: Hash256,
+  observation_hash: Hash256,
+  policy_state_identity: PolicyStateIdentityV1,
+  policy_state_tick: u64,
+  prior_authoritative_state_hash: Hash256,
+  safety_envelope_hash: Hash256
+}
+```
+
+The global directory sorts lexicographically by the exact canonical key
+`(motor_tick, PersistentId, PolicyId)`. One `PersistentId` has exactly one
+active `PolicyId` per motor tick. Equal keys with equal bytes are one duplicate
+submission error; equal keys with unequal bytes are an identity collision.
+Both reject learned evaluation for that subject. Runtime MUST NOT use insertion
+order or “last writer wins”.
+
+The sorted directory is partitioned by exact inference-profile hash. Within a
+profile, row order is the projection of the global canonical order. Groups
+larger than `max_batch_size` split into consecutive fixed-size chunks; only the
+last chunk may be shorter. Padding, if privately required by an adapter, is
+non-authoritative and cannot add a public row. `MotorInferenceBatchV1` hashes
+the ordered keys, profile, observation tensor `[B, O]`, optional state tensor
+`[B, S]`, ordered full `prior_authoritative_state_hash` values and all other
+source hashes.
+
+```text
+MotorInferenceResultV1 {
+  batch_hash: Hash256,
+  ordered_keys: [(motor_tick, PersistentId, PolicyId); B],
+  profile_hash: Hash256,
+  active_policy_route_hashes: [Hash256; B],
+  route_generations: [u64; B],
+  prior_authoritative_state_hashes: [Hash256; B],
+  action_candidate: MotorTensorV1,              // [B, A]
+  policy_state_output: Option<MotorTensorV1>    // [B, S] iff S > 0
+}
+```
+
+An admitted result MUST echo the batch hash, exact ordered keys, profile hash,
+active-route hashes, route generations, every exact
+`prior_authoritative_state_hash` and output shapes `[B, A]` and, when stateful,
+`[B, S]`. A result whose prior authoritative-state hash differs from the
+request/current authoritative record is stale and cannot be rebound to newer
+state. Before any subject commits, the complete batch envelope and row set
+validate and every row reaches one terminal decision: `ValidatedLearned` or
+`RejectedToDeclaredFallback`. Those decisions commit in canonical key order.
+A missing, extra, duplicate, stale, reordered or partially decoded row rejects
+the complete affected row; no neighboring subject is substituted and no
+partial row commits.
+
+Every `prior_authoritative_state_hash` request/result field is an exact binding
+to `PolicyStateRecordV1.authoritative_state_hash`. There is no second
+recurrent-vector-only state hash.
+
+Worker count, task stealing, SIMD width and completion order may change private
+execution only. The batch/result roots and applied action/state commits MUST be
+identical for worker counts `1, 2, 4, 8` and every gate-declared request and
+completion permutation.
+
+## Recurrent `PolicyState` identity, reset and persistence
+
+Every policy has one content-addressed `PolicyStateSchemaV1`, including a
+stateless policy. It defines exact state width `S`; `S = 0` means both state
+tensors are absent while the identity/record still carries last-action and
+fallback continuity. For `S > 0`:
+
+```text
+PolicyStateSchemaV1 {
+  schema_id: SchemaId,
+  schema_version: 1,
+  state_width: u32,
+  elements: [PolicyStateElementV1]
+}
+
+PolicyStateElementV1 {
+  state_element_id: NamespacedId,
+  offset: u32,
+  width: u16,
+  storage_fixed_point_descriptor_id: FixedPointDescriptorId,
+  model_input_normalization: AffineRationalV1,
+  model_output_zero_raw: i64,
+  model_output_scale_numerator: i64,
+  model_output_scale_denominator: NonZeroU64,
+  storage_min_raw: i32,
+  storage_max_raw: i32,
+  initial_value_raw: i32
+}
+```
+
+Elements have the same contiguous ordering rules as observation features.
+Authoritative state is `[i32; S]`, not raw evaluator float. Input normalization
+uses the exact observation conversion. Each finite state output is the exact
+rational `x`; its storage candidate is
+`model_output_zero_raw + x * model_output_scale_numerator /
+model_output_scale_denominator`, converted with checked 128-bit arithmetic and
+round-to-nearest, ties-to-even. It MUST fall in the declared storage interval,
+and `initial_value_raw` MUST also be inside that interval. State output is never
+silently clamped. Any invalid element rejects the whole learned action/state
+pair.
+
+```text
+PolicyStateIdentityV1 {
+  persistent_id: PersistentId,
+  policy_id: PolicyId,
+  policy_bundle_hash: Hash256,
+  policy_state_schema_hash: Hash256,
+  route_generation: u64,
+  state_generation: u64
+}
+
+PolicyStateRecordV1 {
+  schema_version: 1,
+  identity: PolicyStateIdentityV1,
+  active_policy_route_hash: Hash256,
+  action_schema_hash: Hash256,
+  state_tick: u64,
+  values_raw: [i32; S],
+  last_applied_action_tick: u64,
+  last_applied_action_hash: Hash256,
+  last_applied_channel_values_raw: [i64; A],
+  consecutive_learned_unavailable_ticks: u16,
+  fallback_phase: Learned | LastSafeHold | ProceduralRecovery,
+  authoritative_state_hash: Hash256
+}
+```
+
+`authoritative_state_hash` is the sole normative hash of the complete
+authoritative record, not merely the recurrent vector:
+
+```text
+policy_state_record_payload_bytes =
+  CanonicalBinaryV1(
+    owner_id = "nextengine.motor",
+    schema_id = "nextengine.policy-state-record",
+    segment_id = "v1",
+    value = PolicyStateRecordV1 with authoritative_state_hash omitted
+  )
+
+authoritative_state_hash = SHA256(
+  "nextengine.policy-state-record.v1\0"
+  || u64_le(policy_state_record_payload_bytes.len)
+  || policy_state_record_payload_bytes
+)
+```
+
+The payload therefore covers identity and both generations, active route,
+action schema, recurrent state tick/vector, previous applied action tick/hash/
+raw values, unavailable counter and fallback phase. Every authoritative field
+that can affect a future observation, clamp, action, route, reset or fallback
+MUST be inside this payload. An extension cannot add an unhashed authoritative
+field; it requires a new registered record schema/hash domain.
+`authoritative_state_hash` itself is omitted only to avoid self-reference.
+
+Before inference request construction, result admission, save publication,
+load, replay restore or replay comparison, the consumer MUST canonicalize the
+complete record once, recompute `authoritative_state_hash` and compare it
+exactly. Field use before this comparison is forbidden.
+State identity and tick MUST match the request exactly. A result for an older
+tick or route generation is stale even when tensor bytes match.
+
+After learned or fallback validation, Runtime constructs the complete next
+record including the newly applied action, counter and phase, computes its full
+`authoritative_state_hash`, then publishes:
+
+```text
+PolicyStateCommitV1 {
+  key: (motor_tick, PersistentId, PolicyId),
+  prior_authoritative_state_hash: Hash256,
+  next_authoritative_state_hash: Hash256,
+  applied_action_hash: Hash256,
+  route_generation: u64,
+  state_generation: u64
+}
+```
+
+`prior_authoritative_state_hash` MUST equal the request/result echo and current
+authoritative record. `next_authoritative_state_hash` MUST recompute from the
+exact record published beside the applied action. `MotorActionV1`,
+`PolicyStateRecordV1` and
+`PolicyStateCommitV1` become visible atomically; no learned, hold or recovery
+path can publish an action while retaining a hash for different counter,
+phase, previous action or recurrent state.
+
+`PolicyStateResetReasonV1` is the closed enum `Spawn`,
+`PolicyRouteCommitted`, `BodyTopologyChanged`, `PhysicalLodChanged`,
+`RecoveryEntered` and `SaveMigrationCommitted`. Reset fills every element with
+its declared `initial_value_raw`, increments `state_generation` on every reset,
+increments `route_generation` only when active route or compatibility identity
+changed, and records the reason in replay. Generation increment is checked;
+overflow fails closed. Same-policy save/load restores exact state without
+reset.
+
+ADR-027 transition exclusion is mandatory: a policy-route commit cannot share
+one body boundary with a topology or physical-LOD commit. The topology/LOD
+transaction commits or aborts first; its exact result becomes input to the
+earliest following eligible motor tick, where route validation and any reset
+occur atomically.
+
+Cross-policy state carry and transform are forbidden in v1. A committed route
+change creates the target `PolicyStateIdentityV1`, increments both generations
+as applicable and fills the complete target vector from its locked
+`initial_value_raw` values. A bundle that declares carry, partial element copy
+or an external handoff transform is incompatible with SPEC-27 v1 and route
+activation fails closed. Admitting cross-policy migration requires a future
+versioned schema and synchronized architecture decision; it cannot be inferred
+from equal tensor widths.
+
+Same-policy save migration has exactly two v1 dispositions:
+`RestoreExactIdentity` when every identity/hash is unchanged, or
+`ResetToTargetInitial` when the target locked route explicitly declares
+`SaveMigrationCommitted`. The latter runs on a complete copy, validates the
+target bundle/schema/action/safety closure, increments `state_generation`,
+records the reset and publishes one new save generation atomically. Numeric
+element transform, truncation, extension by implicit zero or in-place source
+edit is forbidden. Missing disposition rejects load and preserves the source
+save.
+
+The Physical Embodiment save segment stores the complete canonical
+`PolicyStateRecordV1`, its exact `authoritative_state_hash`, the active route
+and the atomic commit link that admitted it. The owner-segment/save-generation
+root covers those exact bytes and hash; a loader recomputes
+`authoritative_state_hash` before reading any previous action, counter, phase
+or recurrent value. Evaluator sessions, allocator/task state, compiled graphs,
+device state, caches, padding and raw float outputs are reconstructible and
+MUST NOT be serialized. Hash mismatch rejects the complete staged owner
+segment and preserves the immutable source save plus prior active generation.
+Save/load/save and replay restore MUST reproduce exact canonical record bytes,
+`authoritative_state_hash`, commit link and state/action roots.
+
+## Deterministic safety clamp
+
+`MotorSafetyProfileV1` and the per-tick `MotorSafetyEnvelopeV1` are
+engine-owned, fixed-point and content/revision bound:
+
+```text
+MotorSafetyChannelRuleV1 {
+  action_channel_id: NamespacedId,
+  actuator_slot_id: NamespacedId,
+  actuator_min_raw: i64,
+  actuator_max_raw: i64,
+  max_negative_delta_raw_per_motor_tick: u64,
+  max_positive_delta_raw_per_motor_tick: u64,
+  neutral_raw: i64
+}
+
+MotorSafetyEnvelopeChannelV1 {
+  action_channel_id: NamespacedId,
+  envelope_min_raw: i64,
+  envelope_max_raw: i64,
+  enabled: bool
+}
+```
+
+The envelope binds `motor_tick`, `PersistentId`, body/topology/contact
+revisions, the exact source `PhysicsCanonicalSnapshotV1` hash,
+action/safety profile hashes and one entry for every action channel. Disabled
+means the interval is the singleton `neutral_raw`. Missing, duplicate, stale
+or inverted bounds invalidate the learned row.
+
+For each channel in schema order, the clamp computes:
+
+1. `schema_interval = [schema_min_raw, schema_max_raw]`;
+2. `actuator_interval = [actuator_min_raw, actuator_max_raw]`;
+3. the exact envelope interval, or singleton neutral when disabled;
+4. the rate interval around the previous applied raw value using the declared
+   negative/positive per-motor-tick deltas;
+5. `allowed = intersection` of all four closed integer intervals;
+6. `applied_raw = min(max(candidate_raw, allowed.min), allowed.max)`.
+
+Checked integer arithmetic is mandatory. An empty interval, overflow, identity
+or revision mismatch rejects the whole candidate. Otherwise numeric excess is
+clamped deterministically and its bit in `clamp_mask` is set. Channels process
+in canonical order, but no channel is published until every channel and the
+next recurrent state pass. There is no epsilon, native float comparison,
+energy “best effort” or backend-specific clamp.
+
+The safety layer resolves coupled/contact/energy limits into the immutable
+per-channel envelope before inference commit. Its own deterministic
+construction is part of `MOTOR-SAFETY-P1`; an evaluator cannot weaken,
+reinterpret or mutate it.
+
+## Procedural fallback and route semantics
+
+Every `MotorInferenceProfileV1` names one immutable
+`ProceduralMotorControllerV1` revision through
+`fallback_controller_hash` and one exact engine-owned fixed-point input schema
+through `fallback_input_schema_hash`. It consumes the same closed source
+projection used to build the model observation, plus exact intent, prior
+applied action and safety envelope; it never consumes the possibly invalid
+model tensor or reads extra mutable state. It performs checked fixed-point
+arithmetic only and emits a complete candidate passed through the same action
+schema and safety clamp. The v1 controller is stateless; its only continuity
+inputs are the persisted prior action, unavailable counter and fallback phase
+in `PolicyStateRecordV1`. If the source projection or fallback input schema is
+itself invalid, no procedural action is fabricated and the conformant commit
+stops. The controller has no model runtime, RNG, wall clock, network,
+filesystem or hidden device state.
+
+Its output is `ProceduralActionCandidateV1 { action_schema_hash,
+channel_values_raw: [i64; A] }` in the exact per-channel fixed-point units.
+It bypasses only model-tensor decode; it bypasses no schema, actuator,
+envelope, rate or atomic-publication check.
+
+A fallback decision is a deterministic route fact. It may be selected only by:
+
+- preflight incompatibility or unavailable admitted evaluator capability;
+- a canonical evaluator error result;
+- a gate/scenario-injected logical `EvaluatorUnavailable` fault;
+- schema/hash/nonfinite/overflow/state/result rejection;
+- an already committed supervisor transition or recovery condition.
+
+For one committed learned failure, the unavailable counter increments. Ticks
+one and two use `LastSafeHold` when the previous action remains valid after the
+current safety clamp. Tick three and later use `ProceduralRecovery`. If the
+held action is unavailable or no longer safe, procedural recovery starts
+immediately. One complete compatible learned result resets the counter and
+returns to `Learned` only through the declared supervisor transition.
+The counter saturates exactly at `u16::MAX`. Last-safe hold preserves the
+learned recurrent vector and its `state_tick`; entry to procedural recovery
+performs the exact `RecoveryEntered` reset before a future learned evaluation.
+Fallback action, fallback phase and recurrent-state disposition commit
+atomically. A fallback controller failure preserves the last committed
+authoritative state, emits `MOTOR_FALLBACK_UNAVAILABLE` and stops the
+conformant motor commit; it cannot fabricate an unsafe action.
+
+Measured elapsed time or a wall-clock timeout MUST NOT create any of these
+logical route facts. A wall deadline miss fails the active verification or
+runtime conformance profile with `MOTOR_WALL_DEADLINE_NONCONFORMING`. A
+production watchdog may pause the authoritative tick and engage an
+out-of-band emergency safety stop, but it MUST NOT record a different
+authoritative motor action or continue the run as conformant. Retry-to-green,
+adaptive batch size, worker-count route choice and “use whichever result
+arrives first” are forbidden.
+
+## Replay, diagnostics and divergence
+
+Replay records the closed request directory, batch hashes, exact key lists,
+profile/schema/content hashes, logical evaluator result/fault, safety-envelope
+hash, route/fallback phase, applied action hash, canonical
+`PolicyStateRecordV1` bytes or their content-addressed reference, full prior and
+next `authoritative_state_hash` values and the atomic `PolicyStateCommitV1`
+boundary. Replay rehydration recomputes each `authoritative_state_hash` before
+use and verifies that every `prior_authoritative_state_hash` equals the
+preceding `next_authoritative_state_hash`. Model bytes need not be duplicated
+when their content hash is resolvable from the locked project closure.
+
+First divergence reports motor tick, `PersistentId`, `PolicyId`, route
+generation, state generation, batch/profile/schema hashes and the first
+differing authoritative record field, observation feature, action channel,
+clamp bit or state element. A record/chain mismatch stops replay at that
+compare-point before action or state publication. Raw wall timing and private
+evaluator telemetry are diagnostic attachments only.
+
+| Code | Required result |
+|---|---|
+| `MOTOR_POLICY_INPUT_INVALID` | Reject the learned route before batching; preserve previous committed route/state and enter only the declared logical fallback. |
+| `MOTOR_OBSERVATION_INVALID` | Reject the complete subject observation; no evaluator call or partial action/state publication. |
+| `MOTOR_BATCH_KEY_COLLISION` | Reject conflicting/duplicate learned work for the subject; never choose first/last writer. |
+| `MOTOR_RESULT_STALE` | Discard the stale payload; a current-tick rejection follows the exact declared fallback decision, while a late payload after commit changes no state. |
+| `MOTOR_RESULT_INVALID` | Reject wrong batch/profile/key/shape/dtype/hash or nonfinite/overflow output as one learned action/state pair. |
+| `MOTOR_STATE_IDENTITY_MISMATCH` | Reject restore/result/migration before publication; apply only the declared reset or route failure. |
+| `MOTOR_STATE_HASH_MISMATCH` | Recomputed `authoritative_state_hash` differs from the stored/bound value or hash chain; reject the complete inference request/result, save owner segment or replay record before any covered field is used, preserve the prior committed root and report the first differing field/byte when available. |
+| `MOTOR_SAFETY_ENVELOPE_INVALID` | Reject the candidate and preserve the previous committed state; never infer missing limits. |
+| `MOTOR_FALLBACK_UNAVAILABLE` | Stop the conformant motor commit and preserve the last committed authoritative state. |
+| `MOTOR_WALL_DEADLINE_NONCONFORMING` | Fail the active performance/conformance profile; wall time does not select another authoritative action. |
+| `NONDETERMINISTIC_RESULT` | Fail at the first canonical batch/action/route/state divergence; retry cannot turn the run green. |
+
+## Deterministic positive and negative corpora
+
+Every corpus is immutable, content-addressed and bound to its gate descriptor.
+“Reject” means the named stable diagnostic, zero partial action/state/route
+publication and preservation of the exact prior authoritative root.
+
+| Corpus | Required positive set | Required negative set | Exact oracle |
+|---|---|---|---|
+| `motor-schema-golden-v1` | At least 4,096 rows covering every admitted unit, normalization mode, optional-mask state, tensor role and exact rational/ties-to-even boundary | Wrong dtype/rank/shape/role/length/endianness, gap/overlap/duplicate feature, zero denominator, unit/schema/hash mismatch, missing mask, masked nonzero payload, overflow, NaN and infinities | exact source-projection, tensor-byte and schema roots; 100% invalid cases reject |
+| `motor-batch-permutation-v1` | 10,000 motor ticks for 1 and 16 subjects across worker counts `1,2,4,8`, every declared request/completion permutation and each fixed batch split | Duplicate/conflicting key, two active policies for one subject/tick, reordered/missing/extra/stale row, wrong route generation or `prior_authoritative_state_hash`, partial batch and result replay after reset | exact ordered key directory, batch/result/action/`authoritative_state_hash` roots for every permutation; every fault maps to one stable diagnostic |
+| `motor-safety-boundary-v1` | For every channel: `min`, `min+1`, interior, `max-1`, `max`, rate-boundary and disabled-neutral cases, including exact `+0`, negative-zero canonicalization and finite subnormal inputs | `min-1`, `max+1`, empty/inverted/missing/stale envelope, nonfinite values, largest finite overflow, invalid scale, actuator/schema mismatch and procedural-controller fault | valid finite excess clamps to the exact integer boundary; structural/numeric invalidity rejects the whole pair; no partial channel commit |
+| `motor-state-lifecycle-v1` | 10,000 evaluate/save/load/replay cycles for stateless and recurrent profiles, every reset reason, same-policy restore, every cross-policy reset and known-answer `authoritative_state_hash` values for `Learned`, `LastSafeHold` and `ProceduralRecovery` | One-field/one-bit tamper of schema version, identity/generations, route/action-schema hash, state tick/vector, previous action tick/hash/raw values, unavailable counter, fallback phase or stored `authoritative_state_hash`; request/result prior-hash mismatch; broken replay `prior_authoritative_state_hash`→`next_authoritative_state_hash` link; unknown/trailing field, out-of-range element, forbidden carry and truncated save | exact canonical record bytes/`authoritative_state_hash`, action root, commit link and reset/save-migration event after every cycle; every tamper yields `MOTOR_STATE_HASH_MISMATCH` with zero inference/restore/replay or partial publication |
+| `motor-route-fault-v1` | Learned success, capability-preflight fallback, canonical evaluator error, two valid last-safe holds, immediate unsafe-hold recovery, third-tick recovery and learned return transition | Tampered/missing policy/controller bytes, unsupported capability, undeclared route, fallback failure, wall-deadline miss and retry-to-green attempt | exact route/fallback/action/state roots; wall miss yields conformance failure and never a different authoritative action |
+
+Corpus generation MUST enumerate every closed enum value and every manifest
+declared feature/channel/state element. A schema extension updates the corpus
+hash and gate input; sampling an unrecorded subset cannot satisfy a gate.
+For `motor-state-lifecycle-v1`, the generator mutates every canonical byte
+position in the full record and independently substitutes each semantically
+valid future-action-affecting field while retaining the old
+`authoritative_state_hash`. It also recomputes a tampered
+`authoritative_state_hash` and verifies that request/result/save/replay
+bindings reject it against the prior authoritative hash chain. Both classes
+MUST fail before a covered field influences an action.
+
+## Verification gates
+
+The following five rows are the sole semantic `GateDescriptorV1` sources for
+these IDs. Each has `descriptor_source_id = SPEC-27`,
+`classification = AcceptedBaseline` and `result_policy = Blocking`. Gate
+results bind command/scenario/corpus/profile hashes and use SPEC-15/ADR-024
+evidence closure. A missing declared host, evaluator capability or benchmark
+facility is `AwaitingCapability`, never `PASS`.
+
+| Gate | Primary owner | Contributors | Reproducible command/scenario | Pass threshold | Required evidence | Fallback | Requirement IDs | Failure IDs | VS closure |
+|---|---|---|---|---|---|---|---|---|---|
+| `MOTOR-SCHEMA-P1` | Physical Embodiment Team | Runtime Team, Asset & Persistence Team | `next gate MOTOR-SCHEMA-P1 --corpus motor-schema-golden-v1 --all-boundaries` | One exact schema/tensor/source root for every positive encoding; 100% of the complete negative corpus rejects before evaluator/action/state publication; zero implicit unit/cast/layout conversion | policy/schema/project-lock manifests, corpus hash, canonical source/tensor roots, rejection and publication audit | reject incompatible learned route; use the locked procedural controller only with a valid source/envelope | REQ-132 | FAIL-054 | VS-05, VS-14 |
+| `MOTOR-SCHEDULE-P1` | Runtime Team | Physical Embodiment Team, Verification & Evidence Team | `next gate MOTOR-SCHEDULE-P1 --corpus motor-batch-permutation-v1 --ticks 10000 --workers 1,2,4,8` | 10,000 ticks produce exact key/batch/action/state roots across all declared permutations; zero duplicate/stale/partial commit; on the locked reference CPU profile p99 is at most `0.5 ms/avatar` and `2.0 ms/batch-of-16`, with zero motor-stage deadline miss | schedule/profile/corpus hashes, batch/result/replay roots, worker/permutation traces and benchmark report | determinism or performance miss fails the gate; wall time never selects fallback action | REQ-133 | FAIL-055 | VS-05, VS-11, VS-14 |
+| `MOTOR-SAFETY-P1` | Physical Embodiment Team | Runtime Team, Verification & Evidence Team | `next gate MOTOR-SAFETY-P1 --corpus motor-safety-boundary-v1 --all-channels` | Every valid boundary produces the exact fixed-point clamp/action root; 100% structural/nonfinite/overflow cases reject the whole learned pair; zero unsafe, epsilon-based or partial-channel commit | action/safety/envelope manifests, boundary corpus, clamp masks, action roots and fault/publication audit | reject learned candidate and run the locked procedural candidate through the same clamp | REQ-134 | FAIL-054 | VS-05, VS-14 |
+| `MOTOR-STATE-P1` | Physical Embodiment Team | Runtime Team, Asset & Persistence Team | `next gate MOTOR-STATE-P1 --corpus motor-state-lifecycle-v1 --cycles 10000` | 10,000 evaluate/save/load/replay cycles retain exact complete record bytes/`authoritative_state_hash`, prior→next commit links, last action, counter and phase; 100% per-byte/per-field tamper, request/result hash mismatch, replay-chain, reset/save-migration and forbidden-carry cases reject before use with zero partial route/state/action publication | state/reset/project-lock manifests, known-answer record/`authoritative_state_hash` vectors, full tamper matrix, request/result bindings, save/replay hash-chain roots, lifecycle corpus and atomic-publication audit | retain immutable source generation and prior full record; reset only when declared, otherwise reject route activation | REQ-135 | FAIL-055 | VS-02, VS-05, VS-11, VS-14 |
+| `MOTOR-ROUTE-P1` | Physical Embodiment Team | Runtime Team, Asset & Persistence Team, Verification & Evidence Team | `next gate MOTOR-ROUTE-P1 --corpus motor-route-fault-v1 --faults all` | 100 repeats of every declared success/fault path produce exact learned/hold/recovery transitions and action/state roots; two holds maximum; 100% wall misses fail conformance without alternate authoritative action | route/policy/controller/project-lock manifests, fault corpus, transition/action/state roots, performance and watchdog separation report | locked fixed-point procedural recovery; stop conformant commit if that controller is unavailable | REQ-134 | FAIL-054, FAIL-055 | VS-05, VS-14 |
+
+## Requirements
+
+SPEC-27 owns exactly the following requirement IDs.
+
+| ID | Требование | Primary owner | Contributors | Blocking gates | Required evidence | Fallback / fail-closed outcome | VS / profile closure |
+|---|---|---|---|---|---|---|---|
+| REQ-132 | Motor observation, action, safety and recurrent-state schemas MUST declare exact engine-owned dtype, rank, shape, feature/channel order, units, fixed-point descriptors, normalization/de-normalization and immutable content hashes, with no vendor/backend/ECS/OS/importer type. | Physical Embodiment Team | Runtime Team, Asset & Persistence Team | MOTOR-SCHEMA-P1 | policy/schema/project-lock manifests, canonical tensor/source roots and complete positive/negative schema corpus | Reject incompatible learned route before batching and use only the exact locked procedural controller when its source/envelope remain valid. | VS-05, VS-14 |
+| REQ-133 | Inference work MUST close and commit by canonical key `(motor_tick, PersistentId, PolicyId)`, remain invariant under worker/request/completion permutations and treat every performance miss as gate/conformance failure without allowing wall time to select another authoritative action. | Runtime Team | Physical Embodiment Team, Verification & Evidence Team | MOTOR-SCHEDULE-P1 | schedule/profile hashes, ordered batch/result/action/state roots, permutation and benchmark reports | Fail the gate/profile and preserve the authoritative tick; a watchdog cannot substitute an action. | VS-05, VS-11, VS-14 |
+| REQ-134 | Every untrusted learned candidate and locked procedural fallback candidate MUST pass the same exact fixed-point safety clamp, with atomic whole-action/state publication, bounded two-tick last-safe hold and deterministic recovery/route semantics. | Physical Embodiment Team | Runtime Team, Asset & Persistence Team | MOTOR-SAFETY-P1, MOTOR-ROUTE-P1 | safety/envelope/controller manifests, clamp/action/route roots, boundary and route-fault corpora | Use at most two re-clamped last-safe holds, then locked procedural recovery; stop if it cannot produce a safe action. | VS-05, VS-14 |
+| REQ-135 | Recurrent `PolicyState` MUST have exact subject/policy/bundle/schema/route identity, deterministic reset and save-migration rules, forbidden cross-policy carry, and one canonical `authoritative_state_hash` covering every future-action-affecting field and bound atomically to inference request/result, applied action, save and replay. | Physical Embodiment Team | Runtime Team, Asset & Persistence Team | MOTOR-STATE-P1 | state/reset manifests, known-answer `authoritative_state_hash` vectors, lifecycle/tamper corpus, request/result bindings, save/replay hash-chain and atomic-publication audit | Retain the immutable source/prior full record; reset only when declared, otherwise reject inference, route activation or load. | VS-02, VS-05, VS-11, VS-14 |
+
+## Failure paths
+
+SPEC-27 owns exactly the following failure IDs.
+
+| ID | Trigger | Required result | Primary owner | Contributors | Blocking gates | Required evidence | Fallback / fail-closed outcome | VS / profile closure |
+|---|---|---|---|---|---|---|---|---|
+| FAIL-054 | Policy/model/schema/content mismatch, malformed observation/result/action tensor, invalid unit/normalization, nonfinite/overflow value, stale safety envelope or unsafe/partial candidate | Reject the complete learned action/state pair before physics mutation and preserve prior committed state. Invoke only the locked procedural path through the same clamp when the canonical source/envelope remain valid; otherwise stop the conformant commit. | Physical Embodiment Team | Runtime Team, Asset & Persistence Team | MOTOR-SCHEMA-P1, MOTOR-SAFETY-P1, MOTOR-ROUTE-P1 | schema/content/safety manifests, complete negative corpora, unchanged prior roots and action/state publication audit | Exact re-clamped hold/recovery path; stop the conformant commit if no safe procedural action exists. | VS-05, VS-14 |
+| FAIL-055 | Duplicate/conflicting batch key, reordered/missing/extra/stale completion, `authoritative_state_hash` tamper or prior→next chain mismatch, state identity/reset/migration/save fault, evaluator/capability failure, wall deadline miss or fallback-controller failure | Recompute and validate the complete state record before any covered field is used; `MOTOR_STATE_HASH_MISMATCH` rejects inference, staged save/load or replay at the first bad record and preserves the prior committed root. Never use arrival order, retry or wall time as authority; any determinism or performance miss fails its gate. | Physical Embodiment Team | Runtime Team, Asset & Persistence Team, Verification & Evidence Team | MOTOR-SCHEDULE-P1, MOTOR-STATE-P1, MOTOR-ROUTE-P1 | batch/state/route corpora, known-answer `authoritative_state_hash` and tamper vectors, request/result bindings, schedule/save/replay chain roots, watchdog separation, performance and atomic-publication reports | A valid logical fault uses only the declared transition; hash/chain, wall/performance or fallback failure preserves the last full record/root and stops conformance. | VS-02, VS-05, VS-11, VS-14 |
+
+## Technology neutrality and claim boundary
+
+This contract chooses no inference runtime, tensor library, physics backend,
+job system, allocator, device, operating-system API or model format. ONNX
+Runtime remains the `Proposed` candidate recorded by `TECH-010`; SPEC-27 does
+not accept, promote or require it. Any future evaluator remains a private
+adapter and must pass the same schemas, deterministic output admission,
+fallback and gates before use.
+
+The deterministic reference/fixed-point procedural path is the mandatory
+offline fallback. Passing these P1 gates proves only their declared profile.
+It does not prove RTX training, policy quality, shipping hardware, visual
+evidence, human approval or `PhysicalCertified`; those claims remain gated by
+the owning POLICY/PHYS/TRAIN and SPEC-15 evidence contracts.

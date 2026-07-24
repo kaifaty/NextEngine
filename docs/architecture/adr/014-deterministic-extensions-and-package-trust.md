@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-014 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.1 |
 | Владелец | RPG Framework Team + Security & Governance Team |
 | Требуемые согласующие | Architecture Working Group, RPG Framework Team, Gameplay Extensibility Team, Security & Governance Team |
 | Дата решения | 2026-07-23 |
-| Последняя проверка | 2026-07-23 |
-| Нормативные зависимости | [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md) |
+| Последняя проверка | 2026-07-24 |
+| Нормативные зависимости | [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | [ADR-006](006-scripting-and-plugin-model.md) |
 | Заменён | не заменён |
 
@@ -56,7 +56,7 @@ Watchdog duration не входит в replay и не сравнивается �
 
 Violation ledger является authoritative state, входит в save/snapshot/replay и индексируется по package/plugin principal. Default policy отключает issuer после третьего authoritative violation в inclusive sliding window `1_800` gameplay ticks. Violation — только deterministic quota exhaustion, trap, invalid command/capability attempt или schema violation из versioned policy. Wall watchdog не добавляет violation.
 
-Window вычисляется по simulation tick. На tick нового violation ledger удаляет entries с `entry_tick < current_tick - 1_799`, добавляет current entry, затем сравнивает count. Disabled issuer не выполняется и получает `EXTENSION_CIRCUIT_OPEN`; reset возможен только declared admin/load/migration command с audit. Project override versioned, hash-bound и не может использовать wall seconds.
+Window вычисляется по simulation tick. На tick нового violation runtime вычисляет `window_start_tick = current_tick.saturating_sub(1_799)`, удаляет entries с `entry_tick < window_start_tick`, добавляет current entry, затем сравнивает count. На ticks `0…1_798` lower bound равен `0`; начиная с tick `1_799` inclusive window всегда содержит не более `1_800` gameplay ticks. Disabled issuer не выполняется и получает `EXTENSION_CIRCUIT_OPEN`; reset возможен только declared admin/load/migration command с audit. Project override versioned, hash-bound и не может использовать wall seconds.
 
 ## Package identity, signatures и capabilities
 
@@ -68,7 +68,7 @@ Window вычисляется по simulation tick. На tick нового viola
 - Agent, script, plugin и capture worker не могут создавать consent, trust root или trusted signature.
 - Capability denial fail-closed до host call/mutation и входит в deterministic audit/result.
 
-`PackageTrustManifestV1` является JCS-canonical public manifest после принятия ADR-012 encoding contract. Он содержит package ID/type/content hash, manifest hash, signer key ID или explicit unsigned marker, requested capabilities, effective trust tier, policy hash и compatibility hashes. Private signing material не входит в workspace, runner schema, package или evidence.
+`PackageTrustManifestV1` является JCS-canonical public manifest по ADR-022 encoding contract. Он содержит package ID/type/content hash, manifest hash, signer key ID или explicit unsigned marker, requested capabilities, effective trust tier, policy hash и compatibility hashes. Private signing material не входит в workspace, runner schema, package или evidence.
 
 ## Gate synchronization
 

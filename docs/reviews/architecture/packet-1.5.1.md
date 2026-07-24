@@ -5,7 +5,7 @@
 | Record ID | ARCH-REVIEW-1.5.1 |
 | From packet | 1.5 |
 | To packet | 1.5.1 |
-| Status | Pending |
+| Status | Approved |
 | Candidate root algorithm | sha256-path-nul-file-sha256-lf-v1 |
 | Candidate scope | docs/architecture/**/*.md |
 | Candidate root SHA-256 | c0f76ba2eb594160a55608a5e029753144746f33d4f267d47c29c9f4e77ec443 |
@@ -79,6 +79,6 @@
 
 | Capability | Decision | Reviewer | Decision reference |
 |---|---|---|---|
-| architecture.promote | Pending | absent | absent |
+| architecture.promote | Approved | Kaifaty | c0f76ba2eb594160a55608a5e029753144746f33d4f267d47c29c9f4e77ec443 |
 
-This record is intentionally Pending. Automatic verification cannot create or substitute a human decision.
+The Repository Owner approved promotion of the exact candidate root recorded above. Automatic verification did not create or substitute this human decision.

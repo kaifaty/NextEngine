@@ -3,7 +3,7 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-015 |
-| Статус | Accepted |
+| Статус | Superseded |
 | Версия | 1.0 |
 | Владелец | Verification & Evidence Team + Security & Governance Team |
 | Требуемые согласующие | Architecture Working Group, Verification & Evidence Team, Importer Team, Security & Governance Team |
@@ -11,7 +11,7 @@
 | Последняя проверка | 2026-07-23 |
 | Нормативные зависимости | [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-10](../10-gothic-importer-boundary.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [ADR-012](012-deterministic-command-identity-and-replay.md) |
 | Заменяет | [ADR-010](010-artifact-first-headless-validation-and-review.md) |
-| Заменён | не заменён |
+| Заменён | [ADR-023](023-human-review-decision-v2-and-offline-attestation.md) |
 
 ## История принятия
 

@@ -4,7 +4,7 @@
 |---|---|
 | ID | SPEC-06 |
 | Статус | Accepted |
-| Версия | 1.3 |
+| Версия | 1.7 |
 | Владелец | Repository Owner |
 | Последняя проверка | 2026-07-23 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md) |
@@ -12,11 +12,11 @@
 
 ## Source of truth и ownership
 
-RPG/world state остаётся authoritative вне AI. Agent Runtime владеет working plan, attention, активными habits и deterministic decision state. Immutable `AgentArchetypeDefinition` принадлежит cooked content registry; Agent Runtime интерпретирует его, но не изменяет. Memory Service владеет durable episodic/semantic records и relationship/narrative recollections/indexes как versioned save segment; текущие relationship dimensions, quest/dialogue states, commitments и `SkillProficiency` принадлежат RPG Framework. `ActivePolicyRoute`, motor transition и joint actions принадлежат Motor Runtime. `ai-host` caches, prompts и vendor sessions не являются source of truth и могут быть удалены/rebuilt.
+RPG aggregate и World Services calendar/population state остаются authoritative вне AI. Agent Runtime владеет working plan, attention, активными habits и deterministic decision state, но не PopulationRecord, schedule cursor или WorldResidencyTier. Immutable `AgentArchetypeDefinition` принадлежит cooked content registry; Agent Runtime интерпретирует его, но не изменяет. Memory Service владеет durable episodic/semantic records и relationship/narrative recollections/indexes как versioned save segment; текущие relationship dimensions, quest/dialogue states, commitments и `SkillProficiency` принадлежат RPG Framework. `ActivePolicyRoute`, motor transition и joint actions принадлежат Motor Runtime. `ai-host` caches, prompts и vendor sessions не являются source of truth и могут быть удалены/rebuilt.
 
 ## Public boundary и data flow
 
-Public AI boundary ограничен `AgentArchetypeDefinition`, `PerceptionFrame`, `MotorCapabilityView`, `AgentIntent`, memory proposal/query values, `ai-host` handshake/messages и command rejection codes. Vendor request/session/tokenizer/vector-index types запрещены. Нормативный поток: `immutable archetype + gameplay facts + motor capabilities → perception/memory view → optional ai-host proposal → AgentIntent → deterministic validation/planning → WorldCommand или rejection`; direct reverse mutation edge отсутствует.
+Public AI boundary ограничен `AgentArchetypeDefinition`, `PerceptionFrame`, immutable population/schedule capability view, `MotorCapabilityView`, `AgentIntent`, memory proposal/query values, `ai-host` handshake/messages и command rejection codes. Vendor request/session/tokenizer/vector-index types запрещены. Нормативный поток: `immutable archetype + gameplay/world-service facts + motor capabilities → perception/memory view → optional ai-host proposal → AgentIntent → deterministic validation/planning → WorldCommand или rejection`; schedule/activity proposal следует тому же boundary и не меняет population/RPG state напрямую.
 
 ## Иерархия принятия решений
 
@@ -65,7 +65,7 @@ Validation pipeline:
 6. each mutation becomes canonical WorldCommand for future tick;
 7. rejected intent gets stable reason and fallback plan.
 
-Health, inventory, quest, faction, relationship и world state MUST NOT изменяться через memory/intent payload напрямую.
+Health, inventory, quest, faction, relationship, population tier/schedule cursor, calendar и world state MUST NOT изменяться через memory/intent payload напрямую.
 
 ## Mechanic affordances
 

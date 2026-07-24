@@ -4,11 +4,11 @@
 |---|---|
 | ID | ADR-016 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.1 |
 | Владелец | Release Engineering |
 | Требуемые согласующие | Architecture Working Group, Release Engineering, Runtime Team, RPG Framework Team, Gameplay Extensibility Team, Agent Intelligence Team, World Services Team, Persistence Team |
 | Дата решения | 2026-07-23 |
-| Последняя проверка | 2026-07-23 |
+| Последняя проверка | 2026-07-24 |
 | Нормативные зависимости | [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
@@ -90,15 +90,15 @@ Integrated PASS требует `total p95 <= 8_000 us` и `total p99 <= 12_000 u
 
 ## Gates и failure cases
 
-| Gate | Blocking contract | Required evidence |
-|---|---|---|
-| `PERF-01` | Default/override sums valid; deterministic workload; all row and total percentiles pass; no starvation/unowned work | Policy/workload manifests, 11 000-tick trace, exclusive spans, due/queue/defer counters, percentile report |
-| `AI-04` | Agent planning row включает весь due work и соблюдает matrix | Per-tick membership/due trace and exclusive span |
-| `NAV-P3` | Navigation row включает весь due work и bounded deterministic deferral | Query/due/queue/starvation trace and exclusive span |
-| `MECH-05` | Mechanics row измерена в integrated profile | Command/mechanic workload trace and exclusive span |
+| Gate | Owner | Threshold | Evidence | Fallback | VS / profile closure |
+|---|---|---|---|---|---|
+| PERF-01 | Release Engineering | Default/override sums valid; deterministic workload; every owner row and integrated total passes; no starvation, dropped due work, wall-watchdog marker or unowned span. | Policy/workload manifests, 11 000-tick trace, exclusive spans, due/queue/defer counters, percentile report. | Optimize without changing authoritative semantics; otherwise performance conformance and VS-12 remain blocked. | VS-12, `performance/reference-100-npc-v1` |
+| AI-04 | Agent Intelligence Team | Agent-planning row includes all due work and obeys matrix; individual PASS is only an input to PERF-01. | Per-tick membership/due trace and exclusive span. | Deterministically defer within declared finite age or use in-process planner; never choose route by wall time. | VS-04, VS-12, `performance/reference-100-npc-v1` |
+| NAV-P3 | World Services Team | Navigation row includes all due work and bounded deterministic deferral; individual PASS is only an input to PERF-01. | Query/due/queue/starvation trace and exclusive span. | Engine-owned graph navigation and bounded deterministic queue; never drop authoritative work. | VS-05, VS-12, `performance/reference-100-npc-v1` |
+| MECH-05 | Gameplay Extensibility Team | Mechanics row is measured in the same integrated fixture/interval; individual PASS is only an input to PERF-01. | Command/mechanic workload trace and exclusive span. | Reject or deterministically defer optional package work; required work cannot be silently dropped. | VS-12, VS-13, `performance/reference-100-npc-v1` |
 
 Negative corpus включает invalid default/override sum, reduced headroom, worker-order cadence permutation, subsystem-only pass при integrated fail, deliberate queue starvation, dropped due work, unowned span и owner/total overrun. Каждый случай MUST давать stable diagnostic и блокировать PASS.
 
 ## Последствия и синхронизация
 
-Packet 1.5 синхронно обновил SPEC-06, SPEC-08, SPEC-12, SPEC-13, `VerificationPolicyManifest`, AI-04, NAV-P3, MECH-05, traceability и glossary. Release Engineering владеет integrated matrix/methodology; subsystem owners владеют своими rows и evidence.
+Packet 1.5 синхронно обновил SPEC-06, SPEC-08, SPEC-12, SPEC-13, `VerificationPolicyManifest`, AI-04, NAV-P3, MECH-05, traceability и glossary. Packet 1.6 добавляет `REQ-111`/`FAIL-043`, делает `PERF-01` самостоятельным blocking child `VS-12` и запрещает закрывать его тремя subsystem-only PASS. Release Engineering владеет integrated matrix/methodology; subsystem owners владеют своими rows и evidence.

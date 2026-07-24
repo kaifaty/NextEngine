@@ -4,19 +4,19 @@
 |---|---|
 | ID | SPEC-08 |
 | Статус | Accepted |
-| Версия | 1.2 |
+| Версия | 1.8 |
 | Владелец | Repository Owner |
-| Последняя проверка | 2026-07-23 |
+| Последняя проверка | 2026-07-24 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-016](adr/016-compositional-gameplay-budgets.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
 
-World Services Team владеет navigation representation/query service, route reservations, simulation calendar/weather state, spatial indices и audio scene descriptions. Navigation plan не владеет фактическим character pose: active traversal outcome принадлежит physical/capsule controller. Audio mixer/device state — presentation only; gameplay hearing использует deterministic acoustic facts, а не звуковую карту устройства.
+World Services Team владеет navigation representation/query service, route reservations, `WorldCalendarStateV1`, simulation calendar/weather state, population schedules, `WorldPartitionManifestV1` logical topology, durable spatial placement/tombstones, spatial indices и audio scene descriptions. Asset & Persistence Team владеет immutable schema/content/bundle publication, а Core Runtime — fixed `SimulationTick`, job/result admission, ephemeral residency mapping и scheduling/transaction boundaries; ни один из них не становится вторым owner world topology/placement. Navigation plan не владеет фактическим character pose: active traversal outcome принадлежит physical/capsule controller. Audio mixer/device state — presentation only; gameplay hearing использует deterministic acoustic facts, а не звуковую карту устройства.
 
 ## Public boundary
 
-Public contracts ограничены `NavigationQuery`, `RoutePlan`, traversal link values, deterministic acoustic facts, calendar/weather/reservation/region snapshots и typed errors. Recast/Detour/Steam Audio/device handles, raw nav poly references и mixer buffers являются adapter internals. WorldCommand остаётся единственным mutable RPG/world входом.
+Public contracts ограничены `NavigationQuery`, `RoutePlan`, traversal link values, deterministic acoustic facts, `WorldCalendarStateV1`, `WorldPartitionManifestV1`, durable placement/tombstone/cross-chunk values, `TierExecutionProfile`, calendar/weather/reservation/region snapshots и typed errors. Recast/Detour/Steam Audio/device handles, raw nav poly references, runtime entity/task handles и mixer buffers являются adapter internals. WorldCommand остаётся единственным mutable RPG/world входом.
 
 ## Navigation intent и physical traversal
 
@@ -32,18 +32,19 @@ Recast/Detour — `Proposed` adapter. Engine владеет `NavSurface`, tiled 
 
 ## Navigation cooking/streaming
 
-Navmesh строится детерминированно из validated collision geometry и traversal profiles. Build parameters и tool hash входят в ContentHash. Tiles активируются/выгружаются согласованно с WorldChunk. Cross-tile link не становится доступным, пока обе required revisions не validated. Dynamic obstacle overlay — runtime-owned rebuildable state; authoritative door/platform state приходит из RPG/physics snapshots.
+Navmesh строится детерминированно из validated neutral collision geometry and traversal profiles SPEC-24. Build parameters и tool/schema hashes входят в ContentHash. Tiles bind to exact cells/chunks in `WorldPartitionManifestV1`; их required dependency group проходит тот же deterministic resource/streaming admission SPEC-23/SPEC-25. Cross-tile link не становится доступным, пока обе required revisions не validated and atomically active. Dynamic obstacle overlay — runtime-owned rebuildable cache; authoritative door/platform state приходит из RPG/physics snapshots.
 
 ## World services
 
 | Service | Authoritative state | Contract/failure |
 |---|---|---|
-| Calendar/time | integer simulation ticks + calendar mapping в RPG save | renderer/audio получают projection; wall clock не влияет |
+| Calendar/time | World Services-owned `WorldCalendarStateV1`: integer `world_tick`, calendar-definition AssetId/hash, integer epoch/scale mapping, revision и last causal command в World Services save segment | renderer/audio получают projection; Runtime `SimulationTick` остаётся отдельным; wall clock не влияет |
 | Weather | generic weather state machine + seed/transition tick | presentation samples state; missing effect asset uses fallback |
 | Spatial query | runtime index rebuilt from owned transforms/chunks | stale revision rejected; не заменяет physics exact query |
 | Reservation | PersistentId resource/agent, interval, priority, expiry | accepted только WorldCommand; deterministic conflict order |
 | Trigger/region | cooked volumes + overlap state | physical/capsule pose generates candidate; RPG validates outcome |
 | Acoustics facts | source, listener, loudness class, occlusion zone, tick | deterministic gameplay perception; independent from output device |
+| Partition/placement | `WorldPartitionManifestV1`, durable object placement/tombstones, cross-chunk references and canonical residency interests | immutable content definitions come from Asset & Persistence; Runtime mapping is ephemeral; invalid group never partially activates |
 
 ## Audio architecture
 
@@ -64,6 +65,8 @@ Audio HumanReviewRequired capture использует тот же deterministic
 ## Failure semantics
 
 - Missing/corrupt nav tile → area unavailable с diagnostic; agent выбирает alternate/idle fallback, не проходит сквозь geometry.
+- Invalid/stale partition, placement, cross-chunk reference or stream-admission plan → reject the complete group, retain prior topology/placement/active generation and deterministically replan/defer.
+- Resource/backpressure fault → required World Services work remains queued/deferred with exact age/reason or blocks before its mandatory boundary; it is never silently dropped.
 - Stale RoutePlan revision → reject before movement command, request replan.
 - Nav query budget exceeded → bounded partial/no-path result и retry policy, simulation tick не блокируется.
 - Audio device loss → gameplay продолжается, mixer reconnects; acoustic gameplay facts сохраняются.
@@ -81,5 +84,6 @@ Audio HumanReviewRequired capture использует тот же deterministic
 | NAV-P3 | ADR-016 deterministic 100-NPC workload | весь due navigation work/queue handling помещается в exclusive row p95 ≤1 250 us / p99 ≤1 500 us; membership/phase/due trace exact; bounded deterministic deferral, no starvation/drop/unowned span | GameplayBudgetMatrix/workload hashes, query/due/queue/starvation spans | lower deterministic navigation cadence/LOD; integrated PERF-01 remains blocking |
 | AUDIO-P1 | baseline + Steam candidate matrix | baseline always plays; optional adapter acoustic reference error within scenario tolerance, device-loss recovery ≤5 s; 0 gameplay hash differences | audio captures/metrics/replay | baseline attenuation/panning/zones |
 | AUDIO-L1 | Steam Audio license/redistribution review | written approval for exact version/artifacts/platform distribution | legal record/SBOM | do not ship adapter |
-| WORLD-01 | calendar/weather/reservation save/replay | exact state/event hashes across 100 fixtures | replay report | release block |
+| WORLD-01 | calendar/weather/reservation save/load/replay and legacy RPG-calendar migration across 100 deterministic fixtures | exact `WorldCalendarStateV1`, accepted-command and DomainEvent sequences/hashes before save, after atomic copy-on-write migration/load and during replay; migrated RPG calendar fields absent; every injected failure preserves original bytes; wall clock changes 0 outcomes | before/after save/replay manifests, migration matrix, command/event traces and state roots | fail closed, retain prior save generation and block world-service conformance |
+| WORLD-02 | navigation/world-service/physical ownership and traversal corpus | 100% RoutePlan revisions and reservation decisions remain World Services-owned advice/state; physical/capsule controller alone owns traversal pose/outcome; stale plans reject; route/physical outcomes are replay-stable across 100 fixtures | ownership graph, route/reservation revisions, physical outcome trace and replay roots | reject stale plan, deterministic replan/idle fallback; block on owner or replay divergence |
 | AUDIO-02 | displayless audio evidence, base/candidate sync | canonical PCM/WAV roots exact on pinned worker; event-to-sample alignment within 1 sample; automatic acoustic facts exact; review MP4 contains declared audible track; 0 gameplay hash difference | audio/event/frame hashes, waveform/metrics, media manifest | retain PCM/WAV; review AwaitingCapability until MediaEncoder passes |

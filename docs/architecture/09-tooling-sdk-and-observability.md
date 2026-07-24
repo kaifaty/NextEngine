@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 1.5 |
+| Версия | 1.7 |
 | Владелец | Repository Owner |
-| Последняя проверка | 2026-07-23 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-015](adr/015-evidence-trust-fixture-separation-and-attestation.md) |
+| Последняя проверка | 2026-07-24 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md), [ADR-024](adr/024-requirement-gate-evidence-and-profile-closure.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
@@ -16,7 +16,7 @@ Subsystem owners владеют semantics и emit structured diagnostics/metrics
 
 ## Public boundary и data flow
 
-Public tool boundary — versioned CLI arguments/exit codes/JSON, AuthoringContextBundle/AgentChangeSet, VerificationPolicy/TestScenario/ChangeImpact/CaptureJob/Evidence/HumanReview schemas, physical/policy manifests и certification reports, diagnostic/telemetry envelopes, RunManifest и documented artifact schemas. Optional MCP adapter является projection того же application service, не вторым source. Profiler SDK, CI/artifact-store/encoder/training-backend API, terminal/MCP library, OS crash API и internal Rust types не экспортируются. Поток `subsystem structured signal → bounded local collector → RunManifest/artifact/inspector/evidence` read-only относительно simulation; mutating development endpoint требует отдельной capability и делает run non-conforming.
+Public tool boundary — versioned CLI arguments/exit codes/JSON, ProjectManifest/ProjectCompositionLock resolution reports, PlayerActionFrame/action-map views, RPG aggregate/transaction and world calendar/population inspectors, AuthoringContextBundle/AgentChangeSet, VerificationPolicy/TestScenario/ChangeImpact/CaptureJob/Evidence/HumanReview schemas, physical/policy manifests и certification reports, diagnostic/telemetry envelopes, RunManifest и documented artifact schemas. Optional MCP adapter является projection того же application service, не вторым source. Profiler SDK, package-manager, CI/artifact-store/encoder/training-backend API, terminal/MCP library, OS crash API и internal Rust types не экспортируются. Поток `subsystem structured signal → bounded local collector → RunManifest/artifact/inspector/evidence` read-only относительно simulation; mutating development endpoint требует отдельной capability и делает run non-conforming.
 
 ## Обязательные CLI v1
 
@@ -24,6 +24,8 @@ Public tool boundary — versioned CLI arguments/exit codes/JSON, AuthoringConte
 
 | Команда | Обязательный контракт |
 |---|---|
+| `next project resolve <manifest> --catalog <snapshot> --lock <path>` | deterministic exact-catalog resolution, canonical conflict report и atomic ProjectCompositionLock candidate; runtime не выполняет эту команду |
+| `next project validate\|diff <manifest-or-lock>` | read-only schema/dependency/config/trust/budget/target compatibility и exact lock diff |
 | `next cook --project <manifest> --target <profile> --out <dir>` | validate → deterministic cook → atomic publish; cache stats и manifest hash |
 | `next validate assets|project|bundle|save|plugin|model <path>` | read-only validation, stable diagnostic codes/source locations |
 | `next inspect import <neutral-manifest>` | provenance, namespace mappings, unsupported/dropped records; не читает proprietary source в engine repo |
@@ -31,6 +33,9 @@ Public tool boundary — versioned CLI arguments/exit codes/JSON, AuthoringConte
 | `next inspect physical <run|live-endpoint>` | pose/joints/contacts/COM/support/LOD/motor/action safety и media export |
 | `next inspect ai <run|live-endpoint>` | perception/intents/rejections/plans/memory provenance/ai-host deadlines без hidden mutable access |
 | `next inspect mechanics <run|live-endpoint>` | package lock, ability phases, effects/statuses, reducer proposals/rejections, hook order и state revisions |
+| `next inspect player <run|live-endpoint>` | normalized-control/action-frame/context/UI/camera-target/fallback revisions without native device/widget handles |
+| `next inspect rpg <run|save>` | aggregate definitions/revisions, typed operations, RpgTransactionPlan result/event order и migration diagnostics; read-only |
+| `next inspect world <run|save>` | WorldCalendarStateV1, population/schedule/tier/WorldAdvancePlan revisions, stepped/bulk diff and migration diagnostics; read-only |
 | `next physical new\|describe\|validate\|pack <archetype>` | public physical-archetype scaffold, closed-schema description, validation и immutable package build |
 | `next policy inspect\|verify\|route-test\|transition-test\|certify <policy-or-project>` | compatibility/parity, deterministic resolver, switch supervisor и certification gates SPEC-14 |
 | `lab generate-env\|train\|evaluate\|compare\|export-onnx\|certify <config>` | replaceable offline training application service; algorithm/backend не входит в engine ABI |
@@ -41,9 +46,11 @@ Public tool boundary — versioned CLI arguments/exit codes/JSON, AuthoringConte
 | `next capture render --job <manifest> --artifact-root <dir>` | short-lived displayless render/audio capture worker |
 | `next evidence build\|verify\|diff <input>` | content-addressed evidence assembly/validation/comparison |
 | `next review bundle <evidence> --out <dir>` | self-contained offline dossier rooted at `index.html`, no external resources |
-| `next review record <bundle> --decision <value> --attest <key-id>` | human-only canonical `HumanReviewDecisionV1` через isolated signer adapter; CLI принимает key ID, но никогда raw key/path/seed; automatic failures cannot be approved |
+| `next review record <bundle> --decision <Approve\|Reject\|NeedsChanges> --attest <key-id>` | human-only canonical `HumanReviewDecisionV2` + `AttestationEnvelopeV2` через isolated signer adapter; все три exact case-sensitive token могут быть подписаны и cryptographically valid, но только `Approve` с automatic `PASS` admission-eligible; CLI принимает key ID, но никогда raw key/path/seed |
 | `next gate <gate-id|vertical-v1> --artifact-root <dir>` | executes exact pinned scenario, writes RunManifest и pass/fail |
 | `next package --target windows-x86_64|linux-x86_64` | validates licenses/SBOM/content and creates reproducible package manifest |
+
+Review verification имеет два closed modes: current `admission` (default для gates и mutation-capable workflows, принимает только V2) и explicit read-only `historical-audit` (может проверить V1 и вернуть только `HistoricalVerified`). V1 никогда не даёт `PASS`, admission, merge, promotion или baseline acceptance; попытка V1 admission даёт `REVIEW_SCHEMA_HISTORICAL_ONLY`. Unknown/missing decision token rejected as `REVIEW_DECISION_VALUE_INVALID` before signer invocation.
 
 Mechanic/mod/agent CLI family (`next sdk`, `next mod`, `next mechanic`, `next changeset`, `next agent serve`) определяется SPEC-13 и MUST использовать те же exit-code/JSON/diagnostic contracts.
 
@@ -90,7 +97,7 @@ run-root/
   crash/
 ```
 
-RunManifest MUST быть JCS-canonical и содержать schema version; run/scenario/suite/profile ID; VerificationPolicy/ChangeImpact/CaptureJob hashes when applicable; UTC creation time только как metadata; engine/git/build/toolchain/platform/hardware; project/content/save/replay/model/plugin/backend hashes; physical archetype, body revision, proficiency band, resolved route, policy state schema и certification hashes when applicable; seeds/tick rates; exact command; configs; automatic gate thresholds/results; first-failure/minimized-replay status; artifact list с relative path, media type, bytes, SHA-256 и role; redaction/fixture classification; parent/base/candidate/baseline run IDs.
+RunManifest MUST быть JCS-canonical и содержать schema version; run/scenario/suite/profile ID; VerificationPolicy/ChangeImpact/CaptureJob hashes when applicable; UTC creation time только как metadata; engine/git/build/toolchain/platform/hardware; exact ProjectCompositionLock and project/content/save/replay/model/plugin/backend hashes; action-map/context, RPG aggregate schema and WorldCalendar/population profile hashes when applicable; physical archetype, body revision, proficiency band, resolved route, policy state schema и certification hashes when applicable; seeds/tick rates; exact command; configs; automatic gate thresholds/results; first-failure/minimized-replay status; artifact list с relative path, media type, bytes, SHA-256 и role; redaction/fixture classification; parent/base/candidate/baseline run IDs.
 
 Для HumanReviewRequired media manifest MUST фиксировать scenario/CapturePlan identity, base/candidate, camera, semantic tick window, render/audio settings, playback speed/FPS, overlays, raw frame/audio root, encoder/decoder manifests и reason выбора every worst/failure episode. Physical specialization дополнительно фиксирует policy compatibility/route/transition. Обязательные roles определены SPEC-15 и SPEC-05. Media generation failure записывается как AwaitingCapability/fail согласно required role; artifact нельзя молча исключить.
 
@@ -108,7 +115,7 @@ CPU spans, task/schedule stages, allocator counters, GPU timestamps, physics/mot
 
 ## SDK stability
 
-V1 public SDK ограничен documented CLI JSON schemas, scenario/impact/capture/evidence/review, mechanics/package/changeset/context schemas, cooked/save/replay manifests, Luau capability API, WIT worlds, `ai-host` IPC и neutral asset/import schemas. Rust internal crates, CI scheduler/artifact store, encoder implementation, MCP implementation library и live inspector protocol имеют `unstable` marker до отдельного ADR. SemVer applies to published schemas/packages; breaking major requires migration/compatibility note.
+V1 public SDK ограничен documented CLI JSON schemas, ProjectManifest/ProjectCompositionLock, player action/semantic projection, typed RPG/world-service values, scenario/impact/capture/evidence/review, mechanics/package/changeset/context schemas, cooked/save/replay manifests, Luau capability API, WIT worlds, `ai-host` IPC и neutral asset/import schemas. Rust internal crates, resolver/package-manager implementation, CI scheduler/artifact store, encoder implementation, MCP implementation library и live inspector protocol имеют `unstable` marker до отдельного ADR. SemVer applies to published schemas/packages; breaking major requires migration/compatibility note.
 
 ## Future CI design (не является bootstrap dependency)
 
@@ -128,6 +135,8 @@ Bootstrap repository MUST NOT требовать `.github/workflows/`, CI vendor
 - Impact resolver unknown/failed → maximal affected suite + HumanReviewRequired; no author-selected fallback.
 - GPU/encoder/reviewer capability unavailable → structured AwaitingCapability; completed CPU evidence preserved, changeset not admitted.
 - Evidence/review hash, trust-manifest/revocation snapshot, role/scope или attestation mismatch → reject before project mutation; old decision cannot be reused.
+- Cryptographically valid V2 `Reject`/`NeedsChanges` → stable `REVIEW_DECISION_NON_ADMITTING`; signed feedback is preserved, project unchanged.
+- V1 decision on current admission path → `REVIEW_SCHEMA_HISTORICAL_ONLY`; only explicit read-only historical audit remains available.
 - Deterministic retry divergence → gate failure `NONDETERMINISTIC_RESULT`; CI retry is diagnostic only.
 - MPS unavailable/unsupported operation → stable capability diagnostic + CPU smoke fallback; RunManifest не утверждает MPS pass.
 - Local RTX profile unavailable → `TRAIN-RTX-01=AwaitingCapability`; prototype validation доступна, certification promotion blocked.
@@ -138,11 +147,13 @@ Bootstrap repository MUST NOT требовать `.github/workflows/`, CI vendor
 |---|---|---|---|---|
 | TOOL-01 | golden CLI success/error fixtures Win/Linux | exact stable codes/JSON schema; 0 partial publish | CLI report | release block |
 | TOOL-02 | inspect every v1 artifact/schema N/N-1 | 100% supported readable; incompatible clearly rejected | compatibility report | ship matching standalone inspector |
-| OBS-01 | profiling/telemetry off vs max | exact gameplay hashes; runtime overhead p95 <3% CPU excluding media capture | benchmark/replay | reduce sampling/hooks |
-| OBS-02 | crash injection processes/write points | crash capsule produced ≥99%; published/source files never partial | fault matrix | harden atomic boundary |
+| OBS-01 | profiling/telemetry disabled vs maximum declared sampling on the same 100 replay fixtures | accepted command/event/final gameplay hashes exact; runtime overhead p95 <3% CPU excluding media capture; sampling changes 0 control-flow outcomes | benchmark, sampling manifest and replay roots | reduce sampling/hooks; required evidence remains incomplete until rerun |
+| OBS-02 | crash injection across every process and atomic write point | bounded crash capsule produced for ≥99% injected crashes; source/published files are never partial; capsule contains the last completed tick and recent causal command/event IDs when safely available | crash-capsule corpus, fault matrix and publication-integrity report | harden crash/atomic boundary; preserve previous published generation |
+| OBS-03 | structured diagnostic/trace schema corpus across 100 injected failures | 100% records preserve stable code, owner, stage/tick and causal command/event identity; unordered rendered text is never an oracle; first divergence remains reproducible | diagnostic/trace schemas, canonical corpus and minimized replay report | reject diagnostic publication, preserve original replay and block diagnostic conformance |
+| OBS-04 | metrics/trace exporter absent, blocked, backpressured and crashed at every delivery boundary | 0 blocked gameplay tick, 0 authoritative state/outcome difference and a bounded local drop/incomplete-evidence counter for 100% faults | exporter fault trace, queue/drop counters and gameplay state roots | disable exporter, retain local bounded diagnostics; required evidence gate fails if artifacts are incomplete |
 | MANIFEST-01 | validate all gate runs | 100% required fields/artifacts/hashes exist and verify | manifest validator report | gate fails |
-| PRIVACY-01 | sensitive fixture scan | 0 raw user paths/secrets/prompts/voice/imported bytes in default artifacts | scanner report | redact and regenerate |
+| PRIVACY-01 | sensitive/redaction corpus plus prohibited-root scan before diagnostic/evidence publication | 0 raw user paths, secrets, prompts, voice or imported/protected bytes in default artifacts and publishable roots; every positive fixture is classified and quarantined | redaction corpus, scanner report and quarantine audit | quarantine, redact and regenerate; no publication |
 | PRIVACY-02 | import-smoke cleanup + neutral evidence closure | 0 protected bytes in repository/cache/build/package/final/evidence/media/log roots; mixed fixture class rejected | cleanup/source-access/privacy reports | quarantine; no publish/review |
 | TOOL-03 | CLI/JSON application service projection parity | mechanics/context/changeset outputs identical across direct CLI and adapters for all golden fixtures | schema/result diff | disable divergent adapter |
 | TOOL-04 | cold physical author workflow | public context + CLI create/validate/pack neutral prototype and prepare a certification changeset; all references close; 0 private crate/backend knowledge required | context closure, CLI transcript, AgentChangeSet, manifests | fix context/CLI; retain PrototypeFallback |
-| TOOL-05 | scenario/impact/evidence/review CLI projection parity | direct services и CLI/JSON produce exact TestScenario/ChangeImpact/CaptureJob/Evidence/HumanReview schemas/results for golden corpus; no interactive/runtime-only step | schema/result diff, command transcript | disable divergent adapter; fix CLI before admission |
+| TOOL-05 | scenario/impact/evidence/review CLI projection parity | direct services и CLI/JSON produce exact TestScenario/ChangeImpact/CaptureJob/Evidence/`HumanReviewDecisionV2`/`AttestationEnvelopeV2` schemas and separate verified-vs-admission results for golden corpus; V1 is historical-audit only; no interactive/runtime-only step | schema/result diff, command transcript | disable divergent adapter; fix CLI before admission |

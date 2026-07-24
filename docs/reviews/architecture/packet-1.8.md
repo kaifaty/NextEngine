@@ -1,63 +1,75 @@
-# Architecture promotion review: packet 1.7
+# Architecture promotion review: packet 1.8
 
 | Field | Value |
 |---|---|
-| Record ID | ARCH-REVIEW-1.7 |
-| From packet | 1.6 |
-| To packet | 1.7 |
+| Record ID | ARCH-REVIEW-1.8 |
+| From packet | 1.7 |
+| To packet | 1.8 |
 | Status | Approved |
 | Candidate root algorithm | sha256-path-nul-file-sha256-lf-v1 |
 | Candidate scope | docs/architecture/**/*.md |
-| Candidate root SHA-256 | a8c8f8820cafb135f6e9e513d20fcbe38fd175352f5808965e5ddd9c442855ba |
+| Candidate root SHA-256 | e04a4ef255599df1d3f8f6a96b9f9e0b6c0bf745a57ca63e68d5c0df5107ce5f |
 
 ## Promotion scope
 
-This atomic candidate promotes only the foundation-completeness contracts:
+This consolidated candidate admits the remaining decision-complete P0
+architecture in one review set:
 
-- SPEC-17/ADR-018: deterministic `ProjectManifest` resolution, exact
-  `ProjectCompositionLock`, configuration classes and atomic project activation;
-- SPEC-18/ADR-019: canonical device-independent player actions, semantic UI,
-  authoritative targeting boundary, localization and accessibility;
-- SPEC-19/ADR-020: revisioned RPG aggregates, typed operations, immutable
-  `RpgTransactionPlan`, canonical event order and copy-on-write migration;
-- SPEC-20/ADR-021: World Services calendar/population ownership, residency tiers,
-  stepped/bulk time equivalence and deterministic upgrade-or-defer behavior.
+- SPEC-22…25 and ADR-025/026: schema/compatibility/migration,
+  jobs/resources/backpressure, neutral content/bundles/variants and world
+  partition/streaming/persistent spatial objects;
+- SPEC-26…28 and ADR-027: engine-owned physics/query/contact/snapshot, exact
+  motor inference/safety/state and deterministic animation/retarget/root-motion/
+  physical-versus-presentation IK contracts;
+- SPEC-29/30 and ADR-028: normalized platform facts, one application-session
+  lifecycle with exactly-once close/save, immutable presentation extraction,
+  neutral material/shader/color/VFX and reconstructible caches.
 
-It converts only `REQ-087`…`REQ-102` and `FAIL-031`…`FAIL-038` from permanent
-packet allocations to Accepted traceability. SPEC-16/ADR-017 remain Deferred
-Proposed with `REQ-079`…`REQ-086` and `FAIL-025`…`FAIL-030` reserved.
+It converts `REQ-112`…`REQ-147` and `FAIL-044`…`FAIL-061` to Accepted
+traceability. SPEC-16/ADR-017 remain Deferred Proposed with only
+`REQ-079`…`REQ-086` and `FAIL-025`…`FAIL-030` reserved.
 
-No external technology status changes in this candidate. Acceptance would admit
-architecture contracts only; it would not create runtime implementation, gate
-PASS, `vertical-v1`, `PhysicalCertified`, shipping, release or importer claims.
+No external technology status changes. Acceptance would admit architecture
+contracts only; it would not create runtime implementation, automatic or human
+gate PASS, `vertical-v1`, `PhysicalCertified`, shipping, release or importer
+claims.
 
 ## Candidate file manifest
 
 | Path | SHA-256 |
 |---|---|
-| docs/architecture/00-product-contract.md | 2ee80627cff310e13f285599eea58d27292c079921768ea7e350b5a57bd20758 |
-| docs/architecture/01-system-architecture.md | 6d6db2c1efba5a550024c3f8d20f809dbdef6e9db9896888337172f64a18f96b |
+| docs/architecture/00-product-contract.md | b82ba8bc77a361f63b0e226a725751cf8db591a2b38580f9b38d0365649adb50 |
+| docs/architecture/01-system-architecture.md | c036a427155309b9916ce65b4db47f0c2e124313e81350da2721d8305982e1a6 |
 | docs/architecture/02-runtime-ecs-and-data.md | a1cd650cc620392fb33c4ab5d8feb260da22e7e10fc2bd7749a3eb3f6c9a9b02 |
-| docs/architecture/03-assets-world-streaming-and-persistence.md | 14f72df3697e9f031a556a654171cdda95b686a88192903bbc7f5ae38dabc716 |
-| docs/architecture/04-rendering-and-platform.md | 4f8cf7f4354a6ecefa25858bb00596eff553afa24521a46436d7c0b9c167a349 |
-| docs/architecture/05-physics-animation-and-motor-control.md | 9d8d55bb067d6081acd4592f27bea7d9c12977a28f87a28663d8e4f1e6bb9ab6 |
+| docs/architecture/03-assets-world-streaming-and-persistence.md | 5f81c4c7e41d17f34242f1c56c09eec404c92fa42516d2d75fe06c6b4922ef5b |
+| docs/architecture/04-rendering-and-platform.md | 826c932ea02028bb64e0af2f24d0ca3387a846a2888b1c95beac933a8b31777f |
+| docs/architecture/05-physics-animation-and-motor-control.md | 5c6f9cbeaa7e4c6b0a0eb61ae50f65393012ca3fdb93cdbdec974fac205dd8da |
 | docs/architecture/06-ai-agents-perception-and-memory.md | d0c4cdb93bcd890e01caed94c5fc6f5fdafe0153e35108d6d93b52ce75bcbf43 |
 | docs/architecture/07-rpg-scripting-and-plugins.md | 498857168196a2ef00d795261da65cedb8b396f5893371e8114b14bd4d896d91 |
-| docs/architecture/08-audio-navigation-and-world-services.md | 2db6b3fbd319b72ac85844e79d98252c33f55f3af8bfcf74afceb2effa711ffb |
+| docs/architecture/08-audio-navigation-and-world-services.md | 411e14ba0b6d776afe60c0c4a18b0ef4b93128560e53dddf5e90e9a05bcfcc19 |
 | docs/architecture/09-tooling-sdk-and-observability.md | b5a892d3cf0c742b0a68a5f95cbf3ff09616f90ae2816960df79f8ae8a0a8aad |
 | docs/architecture/10-gothic-importer-boundary.md | 70c95d09baf07be7ab83e15e08d31b5db394f061cdb7580e28429e74b68be98b |
 | docs/architecture/11-security-licensing-and-governance.md | 528bc1b651a5ce4c8571a4b84f92a3078faae00504defeb396a253e06a5162ec |
-| docs/architecture/12-vertical-slice-conformance.md | d4a3b8aef92fe89199732ef5fe2b8832c0794cd4271820beef7e914c9edc046c |
+| docs/architecture/12-vertical-slice-conformance.md | 4212c1214271396f7616b5530421e97d3952a707df0bd58cb21daaa1b95b4e9a |
 | docs/architecture/13-gameplay-mechanics-mod-packages-and-agent-authoring.md | 08b96e074050b68c4f32ef14121bd45b342d680ee539538d4e8a571355bd7641 |
-| docs/architecture/14-physical-archetypes-motor-skills-and-policy-lifecycle.md | 5fa6a2828cea73c2f9408ac69470fda6b9238f071e820f5fa25e8d43b31425b4 |
-| docs/architecture/15-headless-testing-agent-validation-and-human-evidence.md | 74839e6860d2ea420818c3dc41ba903899c516ee6121f0ea2d18ab198ac8ca94 |
+| docs/architecture/14-physical-archetypes-motor-skills-and-policy-lifecycle.md | 1ad1ac4e4f371b237c1f8f77ec1786fe8470bde8a6c20961effbaffb0aa098d9 |
+| docs/architecture/15-headless-testing-agent-validation-and-human-evidence.md | 5d9c7387280c11ecd7193b87b82ef2b7e666d17235bee7091d9c51d2f072a5d3 |
 | docs/architecture/16-text-canonical-multimodal-dialogue-and-model-packs.md | 5af39dc7c7677315d6cfefbae90395cf703c115863bdfe361ba60592a83d8017 |
-| docs/architecture/17-project-composition-configuration-and-application-lifecycle.md | d3d7e339dac813310ddd639328f61b61e8714da90b1dda6248f6249eedd4f402 |
-| docs/architecture/18-player-interaction-ui-camera-localization-and-accessibility.md | 8f8d7079b8b8b39c4fbe0313a6cd32253e55efc59cbc62746a5e58e9d6fc5b02 |
+| docs/architecture/17-project-composition-configuration-and-application-lifecycle.md | 28edca3968a52729a754348b8afc4eeaf97943b1174f18f6b1ba340b1a9130bc |
+| docs/architecture/18-player-interaction-ui-camera-localization-and-accessibility.md | c3fe5876bbd452bd2f4a88b1490ba6330041ad87c13abd690beabbfb85d13cdb |
 | docs/architecture/19-rpg-domain-and-narrative-state.md | c2b1ad233cf2b73eba2ed7af1b21a274df3d2dff4dd7f2681e377d2bf0e6d446 |
-| docs/architecture/20-world-simulation-and-population-lifecycle.md | 3e23bc145c115190dd9a9a6965fd7e7ad486feed7af7f02bd65d1faab0709651 |
+| docs/architecture/20-world-simulation-and-population-lifecycle.md | 71b97752669eecc7a57da8eaf6e62f2fd2cfec7b30b216327f2b5480ee1fca7a |
 | docs/architecture/21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md | adc183e5f3f57d9b6d9cac04e0e24e45474884754e7ad8b531e7f834b954c64c |
-| docs/architecture/README.md | 6c70dbc3ff2b6ebd3bd26fac9e1aa4f158dccb51ca89ea0d78bf622b1088bad8 |
+| docs/architecture/22-schema-registry-compatibility-and-migration.md | c6fa5a3c292d76b364f0c62eca36708af90f7fb26df3eb71a91e1388739afd3f |
+| docs/architecture/23-jobs-memory-resource-residency-and-io-backpressure.md | acbfb5815ad48f956dd15e07bf2a4c261fa7aa6378119d2e2559606777318e5b |
+| docs/architecture/24-content-catalog-bundle-and-neutral-asset-schemas.md | fab8feb508e04fdbc5f23ee38e05376095960e55fbd456e4ad7296a91f45d05b |
+| docs/architecture/25-world-partition-streaming-admission-and-persistent-spatial-objects.md | 7c737bf8ae1f5dcaa26b814e061affa2bbfa1d721fdb491b3085b7fce4179ff6 |
+| docs/architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md | 37b9c7f37a4d6c71145e504fdf0d62abb789ec3d83ed465e59d765e81ca8a515 |
+| docs/architecture/27-motor-observation-action-and-deterministic-inference.md | ea6f99a904f69d9772052767c873e13619fea60b1f8f795b141e4765660da1fa |
+| docs/architecture/28-skeletal-animation-retargeting-and-ik.md | b1bc16b3bd467395fa772845724c13155c19aa018edc72f08f2fed56a66f5934 |
+| docs/architecture/29-platform-host-and-application-session.md | 67d6ca08f25e3c876dec70d9042ecf8f1b11cf7b798e7edc4842a5549c0b1027 |
+| docs/architecture/30-presentation-extraction-and-render-content.md | d5113de81c97da5f3c03c27cfe64c32d2a007dce6ad89b4643cdae0411f8cead |
+| docs/architecture/README.md | dd4b893a3fa587264d5ed48caa18a1dc601628f318fa6bb12e7644a614ab26f1 |
 | docs/architecture/adr/000-template.md | 786a3bbd63a429ddddd09505381e5502d5a57fdf469b3fddf4ca629553ebe78b |
 | docs/architecture/adr/001-product-repository-license-and-platforms.md | 081dce87d1ba6e54526aa0f733b0e1e111443950144a64f19d19f81e1482bd91 |
 | docs/architecture/adr/002-rust-first-ffi-and-ecs-facade.md | 9a11b679a15eea1c12171813a664de4c5f06613b7c317c81f929e49eae502196 |
@@ -83,11 +95,15 @@ PASS, `vertical-v1`, `PhysicalCertified`, shipping, release or importer claims.
 | docs/architecture/adr/022-deterministic-command-identity-ledger-and-causal-identity.md | 66697739f03cc0403d5513e23ee110fc363e71161daeaa22410d9afcd6ce7e0b |
 | docs/architecture/adr/023-human-review-decision-v2-and-offline-attestation.md | 48d0f808d3b5ee5b16b06513d432da1c6256fd5fadab688627949d0ff4c28f48 |
 | docs/architecture/adr/024-requirement-gate-evidence-and-profile-closure.md | 17cda07acc89e40eb8aa2b5c4c6fe1e0de9d243c43f51736116dd71f746f06e4 |
-| docs/architecture/evidence-register.md | 3f6f006bfaad8ce0a272ed2feade95babefc80f9d3b647da28cbbabbbbd5eb06 |
-| docs/architecture/glossary.md | 28641eded1685d9893ecb30714251cfbd3cd71ab7a674d796fef8097be3b7bac |
+| docs/architecture/adr/025-schema-content-and-migration-authority.md | c0d3ec8fe450ae3b69b710e9786b67ef7ec421033062963a195d05dc6d72e49a |
+| docs/architecture/adr/026-deterministic-work-resource-and-streaming-admission.md | f283f293852ceba4dac15e3ff753802134730f175baba46f235a8efde113e94f |
+| docs/architecture/adr/027-physics-motor-and-animation-layering.md | 7c388b10274d3465bafeaa6d5d1acd1909014d656c12425d735176351e865480 |
+| docs/architecture/adr/028-platform-session-and-presentation-authority.md | 691753c73673f496939d40f94f4ffad9d4b4a8ce42600164bf6d4c0c6421cb4f |
+| docs/architecture/evidence-register.md | f4264ef0b3da6b55e18e9724b2177ab7dfffd571eadf35cee6f4fdfac1913c42 |
+| docs/architecture/glossary.md | 07ad7ef9bea7239bf231ed54b04b69ac37ea8c00f562f473a580d28ce24e0283 |
 | docs/architecture/research/npc-dialogue-model-landscape.md | 4b9a27e90ea5659b224a2595c9980e28fdc1396158a28b0a80ebe7931021c30c |
 | docs/architecture/research/physical-avatar-research-spec.md | 90533ed15c4c1a5ef41a24f26f4d17cf8c59f467e07619316d3c9744f4d2d79b |
-| docs/architecture/traceability.md | 42ca7a7d1a495ec195889096afb2d910f25dff26f860ab0e6e8f759c58700421 |
+| docs/architecture/traceability.md | 6c263440293e3354292ba6dbbd50edcda1040a058f6f59948d51b313bebedfaf |
 
 ## Automatic checks
 
@@ -95,16 +111,16 @@ PASS, `vertical-v1`, `PhysicalCertified`, shipping, release or importer claims.
 |---|---|---|
 | cargo fmt --all -- --check | PASS | local transcript 2026-07-24: rustfmt check passed |
 | cargo clippy --workspace --all-targets -- -D warnings | PASS | local transcript 2026-07-24: workspace clippy passed with warnings denied |
-| cargo test --workspace | PASS | local transcript 2026-07-24: 181 tests passed |
+| cargo test --workspace | PASS | local transcript 2026-07-24: 193 tests passed |
 | cargo run -p xtask -- boundary-scan | PASS | local transcript 2026-07-24: boundary-scan PASS |
 | git diff --check | PASS | local transcript 2026-07-24: no whitespace errors |
-| cargo run -p xtask -- architecture-review-preflight 1.7 | PASS | local transcript 2026-07-24: candidate root a8c8f8820cafb135f6e9e513d20fcbe38fd175352f5808965e5ddd9c442855ba |
+| cargo run -p xtask -- architecture-review-preflight 1.8 | PASS | local transcript 2026-07-24: candidate root e04a4ef255599df1d3f8f6a96b9f9e0b6c0bf745a57ca63e68d5c0df5107ce5f |
 
 ## Bootstrap capability decisions
 
 | Capability | Decision | Reviewer | Decision reference |
 |---|---|---|---|
-| architecture.promote | Approved | Kaifaty | a8c8f8820cafb135f6e9e513d20fcbe38fd175352f5808965e5ddd9c442855ba |
+| architecture.promote | Approved | Kaifaty | e04a4ef255599df1d3f8f6a96b9f9e0b6c0bf745a57ca63e68d5c0df5107ce5f |
 
 Repository Owner `Kaifaty` approved this exact candidate root. Automatic
 verification did not create or substitute that human decision.

@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-013 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.1 |
 | Владелец | Physical Embodiment Team |
 | Требуемые согласующие | Architecture Working Group, Physical Embodiment Team |
 | Дата решения | 2026-07-23 |
-| Последняя проверка | 2026-07-23 |
-| Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md) |
+| Последняя проверка | 2026-07-24 |
+| Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | [ADR-004](004-physics-avatar-backend-boundary.md) |
 | Заменён | не заменён |
 
@@ -44,7 +44,7 @@ ADR-004 правильно фиксирует physics-authoritative avatar и re
 6. safety/resolver создаёт `Outcome` proposals; общий validator коммитит их на stage 9;
 7. presentation строит `RenderPose` только из committed physical snapshot.
 
-Backend nondeterministic worker completion, callback order и native handles не влияют на public ordering. Numeric tolerance допускается только по ADR-012 после его принятия; gameplay outcome и event classification остаются exact.
+Backend nondeterministic worker completion, callback order и native handles не влияют на public ordering. Numeric projection/tolerance MUST следовать ADR-022 `RuntimeDeterminismProfileV1`; gameplay outcome и event classification остаются exact.
 
 ### Physical LOD
 

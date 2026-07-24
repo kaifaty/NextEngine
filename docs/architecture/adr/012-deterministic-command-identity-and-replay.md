@@ -3,7 +3,7 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-012 |
-| Статус | Accepted |
+| Статус | Superseded |
 | Версия | 1.0 |
 | Владелец | Runtime Team + Persistence Team |
 | Требуемые согласующие | Architecture Working Group, Runtime Team, Persistence Team, Security & Governance Team |
@@ -11,7 +11,7 @@
 | Последняя проверка | 2026-07-23 |
 | Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-10](../10-gothic-importer-boundary.md) |
 | Заменяет | [ADR-007](007-identities-persistence-and-replay.md) |
-| Заменён | не заменён |
+| Заменён | [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md) |
 
 ## История принятия
 

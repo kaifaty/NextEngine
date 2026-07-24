@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-13 |
 | Статус | Accepted |
-| Версия | 1.3 |
+| Версия | 1.7 |
 | Владелец | Repository Owner |
-| Последняя проверка | 2026-07-23 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-015](adr/015-evidence-trust-fixture-separation-and-attestation.md), [ADR-016](adr/016-compositional-gameplay-budgets.md) |
+| Последняя проверка | 2026-07-24 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md) |
 | Заменяет | отсутствует |
 
 ## Назначение и product invariants
@@ -23,7 +23,7 @@
 | Installed package closure | Project `MechanicsLock` + content hashes | объявляет dependencies/capabilities; не определяет load order неявно |
 | Mechanic definitions | Cooked immutable package registry | поставляет definitions/patches через validator/cooker |
 | Ability instances, statuses и package state | Engine-owned Mechanics Runtime store внутри WorldCommand transaction | reducer предлагает delta только своего namespace |
-| RPG attributes/resources/inventory/quest state | RPG Framework | package создаёт validated EffectRequest/WorldCommand candidate |
+| RPG attributes/resources/inventory/quest state | RPG Framework по SPEC-19 | package создаёт `EffectRequest`, который engine преобразует только в typed RPG operations и валидируемый `RpgTransactionPlan` |
 | Projectile/body/contact pose | Physical Embodiment/PhysicsBackend | package задаёт descriptors/intents; не записывает transforms |
 | Creature/physical/skill/model definitions | Cooked immutable content registry + SPEC-14 certification | package поставляет references/assets; не владеет proficiency или active route |
 | Presentation cues | PresentationSnapshot + presentation subsystem | package связывает semantic cue с assets; cue не authoritative |
@@ -34,7 +34,7 @@ Gameplay Extensibility Team владеет Mechanics Runtime, registries, standa
 
 ## Public boundary и normative data flow
 
-Public boundary состоит из `MechanicPackageManifest`, `MechanicsLock`, definitions, namespaced schemas, reducer ABI для Luau/WIT, capability catalog, WorldCommand/DomainEvent schemas, TestScenario specialization, ChangeImpact/Evidence references, CLI/JSON authoring contracts и optional MCP projection.
+Public boundary состоит из `MechanicPackageManifest`, `MechanicsLock`, definitions, namespaced schemas, reducer ABI для Luau/WIT, capability catalog, WorldCommand/DomainEvent schemas, immutable SPEC-19 RPG views/typed operations, TestScenario specialization, ChangeImpact/Evidence references, CLI/JSON authoring contracts и optional MCP projection.
 
 ```text
 package source
@@ -45,7 +45,8 @@ package source
   → structural + capability + RPG/physics precondition validation
   → budgeted deterministic reducer
   → MechanicDeltaProposal + EffectRequests + event payload proposals
-  → engine validation + atomic WorldCommand commit
+  → engine maps effects to typed RPG operations + builds RpgTransactionPlan
+  → engine validates Mechanics delta and RPG plan + atomic WorldCommand commit
   → save/replay delta + PresentationCue
 ```
 
@@ -96,7 +97,7 @@ Load order выводится dependency graph. Несвязанные nodes у�
 | `AttributeDefinition` | Namespaced typed value with base/current bounds, units, visibility и persistence policy |
 | `EffectDefinition` | Immutable composition of effect stages, duration/period, stacking, tags, mitigation и semantic cues |
 | `EffectRequest` | Runtime source/target/context/spec produced by ability/contact/world rule |
-| `EffectTransaction` | Canonical validated result applied atomically to RPG + Mechanics Runtime state |
+| `EffectTransaction` | Canonical validated composition of one SPEC-19 `RpgTransactionPlan` plus Mechanics Runtime delta, applied atomically or not at all |
 | `StatusDefinition/StatusInstance` | Persistent or timed buff/debuff/state with stacking, immunity, dispel и tick policy |
 | `ProjectileDefinition` | Spawn/collision/lifetime/ownership/effect mapping; physics owns actual pose/contact |
 | `AreaFieldDefinition` | Versioned spatial effect source with cadence, membership query и lifetime |
@@ -122,7 +123,7 @@ Effect pipeline MUST иметь фиксированные stages:
 4. apply source modifiers;
 5. apply target defense/resistance/stacking transforms;
 6. clamp/validate numeric and structural invariants;
-7. produce atomic `EffectTransaction`;
+7. produce an ordered typed RPG-operation set, validate one `RpgTransactionPlan` and compose the atomic `EffectTransaction`;
 8. commit state и emit DomainEvents;
 9. publish PresentationCues.
 
@@ -130,14 +131,14 @@ Package MAY участвовать только в declared extension points. Co
 
 - modify namespaced Attribute/Resource through owner validator;
 - grant/remove/refresh StatusInstance;
-- consume/transfer/spawn/despawn generic Item or Character through RPG commands;
+- consume/transfer/spawn/despawn generic Item or Character only through SPEC-19 typed RPG operations;
 - spawn/despawn Projectile or AreaField from cooked descriptors;
 - request PhysicalAvatarIntent, bounded impulse/force or normalized physics query;
 - start/advance generic Interaction, Dialogue или Quest transition при отдельной capability;
 - emit deterministic perception stimulus;
 - update package-owned MechanicState namespace.
 
-Direct `set health`, arbitrary component write, raw transform write и unvalidated event injection запрещены. Damage, healing и resource changes выражаются EffectRequest, чтобы armor, immunity, difficulty и audit оставались composable.
+Direct `set health`, arbitrary aggregate/component write, raw transform write и unvalidated event injection запрещены. Damage, healing и resource changes выражаются `EffectRequest`; engine alone converts accepted effects into revision-checked typed RPG operations and an atomic `RpgTransactionPlan`, чтобы armor, immunity, difficulty и audit оставались composable.
 
 ## Reducers и durable extension state
 
@@ -208,16 +209,17 @@ Coding agent не получает специальной runtime capability. О
 describe/context → scaffold → edit → validate/fix-it
 → ImpactResolver → agent-fast scenarios/diagnose/minimize
 → changeset replay/fault/capture → EvidenceBundle
-→ AgentPolicy + HumanReviewDecision when required → atomic apply/package
+→ AgentPolicy + verified HumanReviewDecisionV2::Approve/AttestationEnvelopeV2 when required
+→ admission → atomic apply/package
 ```
 
-`AgentChangeSet` содержит objective, base file/package hashes, bounded file edits, requested tool operations, generated-asset provenance, author-declared impact additions, tests/gates run, artifacts и risk flags. Engine-generated ChangeImpactManifest является separate immutable admission input; author/agent не может уменьшить его. Apply MUST поддерживать dry-run, path allowlist, precondition/evidence/review hashes и atomic rollback. Stale base, out-of-root path, undeclared binary, missing resolved gate или invalid HumanReviewDecision blocks apply.
+`AgentChangeSet` содержит objective, base file/package hashes, bounded file edits, requested tool operations, generated-asset provenance, author-declared impact additions, tests/gates run, artifacts и risk flags. Engine-generated ChangeImpactManifest является separate immutable admission input; author/agent не может уменьшить его. Apply MUST поддерживать dry-run, path allowlist, precondition/evidence/review hashes и atomic rollback. Stale base, out-of-root path, undeclared binary, missing resolved gate или invalid/non-admitting `HumanReviewDecisionV2`/`AttestationEnvelopeV2` blocks apply.
 
 Project `AgentPolicy` задаёт разрешённые roots/package namespaces, tool operations, budgets и approval rules. Low-risk non-observable data/Luau changes MAY auto-apply в disposable branch/worktree после resolved automatic gates. Observable visual/UI/camera/animation/physics/motor/audio impact всегда требует SPEC-15 human review. New capability, durable migration, binary/Wasm, model-weight promotion, physical certification, license/provenance change, protected asset access или release branch mutation дополнительно требует explicit owner review. Policy decision и identity входят в AgentChangeSet audit; agent не может ослабить собственную policy или получить reviewer credential.
 
 Machine diagnostic MAY включать safe fix-it как bounded text/data edit с base hash и schema reference. Fix-it является новым changeset candidate, не auto-executed command.
 
-AgentChangeSet, достигающий observable output, MUST связывать exact base/candidate scenarios, metrics/replay diff, CaptureJob/EvidenceBundle и HumanReviewDecision. Capture обязателен для всех SPEC-15 observable categories; physical-avatar/controller specialization SPEC-05 остаётся обязательной и включает representative failures, а не только successful episode. Human review не может скрыть failed semantic/replay assertion.
+AgentChangeSet, достигающий observable output, MUST связывать exact base/candidate scenarios, metrics/replay diff, CaptureJob/EvidenceBundle и `HumanReviewDecisionV2`/`AttestationEnvelopeV2`. Capture обязателен для всех SPEC-15 observable categories; physical-avatar/controller specialization SPEC-05 остаётся обязательной и включает representative failures, а не только successful episode. Только verified `Approve` при automatic `PASS` admission-eligible; `Reject`/`NeedsChanges` и human review не могут скрыть failed semantic/replay assertion.
 
 ## CLI и optional MCP adapter
 
@@ -236,7 +238,7 @@ CLI/JSON является normative source; graphical tools и MCP являют�
 
 Physical/policy/training commands определены SPEC-09 и SPEC-14: `next physical`, `next policy` и `lab`. Они MUST использовать тот же AuthoringContextBundle, AgentChangeSet, exit-code, diagnostic, RunManifest и review contract; training backend не получает private filesystem/runtime authority.
 
-Scenario/impact/capture/evidence/review commands определены SPEC-09/15 и являются mandatory complete CLI/JSON path. MCP MAY читать schemas/results или предложить AgentChangeSet, но не подписывает HumanReviewDecision и не хранит reviewer credentials.
+Scenario/impact/capture/evidence/review commands определены SPEC-09/15 и являются mandatory complete CLI/JSON path. MCP MAY читать schemas/results или предложить AgentChangeSet, но не вызывает isolated human signer, не создаёт `AttestationEnvelopeV2` и не хранит reviewer credentials.
 
 MCP adapter имеет статус `Proposed`, pins stable protocol revision и MUST NOT использовать experimental protocol features для baseline. Resources предоставляют context/schema/graphs/diagnostics/artifacts. Read-only tools mirror describe/validate/test/simulate/diff. Mutating tool может только создать или dry-run/apply AgentChangeSet при explicit capability/user approval; generic shell/file/network tool запрещён. Adapter default local stdio, network-off, project-root scoped, fully audited. Fallback — CLI/JSON с той же semantics.
 
@@ -263,7 +265,8 @@ MCP adapter имеет статус `Proposed`, pins stable protocol revision и
 - PresentationCue missing → declared presentation fallback; authoritative effect remains valid only when package declares cue optional.
 - First-party package requires hidden API → architecture gate failure, not exception.
 - Agent omits resolved suite/capture/review или declares unknown output non-observable → ImpactResolver replaces with maximal+HumanReviewRequired; apply blocked.
-- Automatic gate fails but review is present → review rejected, changeset unchanged.
+- Automatic gate fails/`AwaitingCapability` при signed V2 `Approve` → admission rejected as `AUTO_GATE_NOT_PASS`, changeset unchanged.
+- Cryptographically valid V2 `Reject`/`NeedsChanges` → signed feedback preserved, result non-admitting, changeset unchanged.
 
 ## Verification gates
 

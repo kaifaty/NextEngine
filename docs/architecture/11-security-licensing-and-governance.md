@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-11 |
 | Статус | Accepted |
-| Версия | 1.4 |
+| Версия | 1.7 |
 | Владелец | Repository Owner |
-| Последняя проверка | 2026-07-23 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-015](adr/015-evidence-trust-fixture-separation-and-attestation.md) |
+| Последняя проверка | 2026-07-24 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md), [ADR-024](adr/024-requirement-gate-evidence-and-profile-closure.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
@@ -20,7 +20,7 @@ Public governance boundary включает contribution/DCO rules, vulnerabilit
 
 ## Security principles
 
-- Все external files, NIM/bundles/saves/models, Luau/Wasm packages и `ai-host` responses считаются untrusted.
+- Все external `ProjectManifest`/catalog/lock/config inputs, control events, NIM/bundles/saves/models, Luau/Wasm packages и `ai-host` responses считаются untrusted.
 - Default capability — deny; least privilege выдаётся конкретному package/process/project.
 - Parser/VM/model runtime isolation и resource limits обязательны до обработки content.
 - Authoritative mutation проходит common WorldCommand validation и atomic transaction.
@@ -36,26 +36,29 @@ Public governance boundary включает contribution/DCO rules, vulnerabilit
 
 | Boundary/угроза | Required controls | Failure outcome | Проверка |
 |---|---|---|---|
-| Luau escape/DoS | isolated env, allowlist libs, exact instruction/allocation/host-call quotas, non-authoritative wall watchdog, no native/fs/network | abort callback, discard candidates, watchdog marks run NonConforming, circuit-break | SCRIPT-P1/P2/P5 |
-| Wasm plugin escape/DoS/confused deputy | WIT only, capability intersection, fuel/memory/table limits, no ambient authority | terminate instance, audit, optional disable | PLUGIN-P1/P2/P4 |
-| Mod dependency/patch/hook ambiguity, forged signature или malicious package | exact lock/hash, DAG, preconditioned patches, `PackageTrustManifestV1`, signer scope + consent + capability ceiling, sandbox/provenance | pre-world reject/quarantine; invalid signature never downgrades | MECH-03, MOD-01/02, MOD-P2 |
-| Agent prompt injection/path escape/stale edit | bounded context, project-root allowlist, base hashes, changeset dry-run/review/atomic apply | reject changeset, no mutation | AGENT-01/02 |
+| Luau escape/DoS | isolated env, allowlist libs, exact instruction/allocation/host-call quotas, non-authoritative wall watchdog, no native/fs/network | abort callback, discard candidates, watchdog marks run NonConforming, circuit-break | SCRIPT-P1, SCRIPT-P2, SCRIPT-P5 |
+| Wasm plugin escape/DoS/confused deputy | WIT only, capability intersection, fuel/memory/table limits, no ambient authority | terminate instance, audit, optional disable | PLUGIN-P1, PLUGIN-P2, PLUGIN-P4 |
+| Mod dependency/patch/hook ambiguity, forged signature или malicious package | exact lock/hash, DAG, preconditioned patches, `PackageTrustManifestV1`, signer scope + consent + capability ceiling, sandbox/provenance | pre-world reject/quarantine; invalid signature never downgrades | MECH-03, MOD-01, MOD-02, MOD-P2 |
+| Project catalog/range/config/lock substitution | exact catalog snapshot, deterministic resolver, content-addressed `ProjectCompositionLock`, configuration class allowlist and complete hash closure | reject staging before world mutation; retain prior exact lock/session | PROJECT-P1, PROJECT-P2, CONFIG-P1 |
+| Native control/UI payload or forged action frame | engine-owned normalized semantic controls, bounded action-map/context resolver, canonical frame validation and persisted ingress assignment | reject event/frame/candidate; no partial or duplicate command | INPUT-P1, UI-P1, ACCESS-P1 |
+| RPG/calendar/population migration corruption | version/revision checks, unique migration route, full copy-on-write result and cross-owner atomic publish | reject migrated generation; preserve original bytes and active world | RPG-MIGRATION-P1, WORLD-TIME-P1 |
+| Agent prompt injection/path escape/stale edit | bounded context, project-root allowlist, base hashes, changeset dry-run/review/atomic apply | reject changeset, no mutation | AGENT-01, AGENT-02 |
 | Local MCP tool abuse/confused deputy | stable pinned protocol, stdio/local default, per-tool capability, no generic shell, audit/user control | deny tool/disable adapter | MCP-P1, SEC-03 |
-| `ai-host` malformed/prompt injection/crash | separate process, schema/size/deadline, no mutable tools, idempotency, optional network grant | reject/fallback/restart | AI-02/AI-03 |
-| Imported malformed/archive bomb/protected data | sandbox process, bounds/ratio quotas, provenance, protected-data scan | abort/quarantine/no publish | IMPORT-P3/P5 |
-| Cooked bundle/save corruption | version/checksum/dependency validation, atomic generations, fail-closed | no activation/load, retain prior | ASSET-02/SAVE-01/SAVE-02 |
-| Model file malicious/incompatible/NaN | size/opset/schema/hash allowlist, safe runtime config, golden inference, finite checks | quarantine/recovery controller | MOTOR-P1/SEC-04 |
-| Forged/incomplete physical certification | signed/hash-bound report, exact suite/threshold/artifact closure, owner review | reject claim; retain PrototypeFallback/previous revision | EMB-01/SEC-06 |
-| Poisoned/unlicensed training input или policy artifact | dataset/model provenance, license classification, config/environment hashes, holdout + correspondence review | quarantine/no promotion | TRAIN-P1/AUTHOR-P1/SEC-06 |
+| `ai-host` malformed/prompt injection/crash | separate process, schema/size/deadline, no mutable tools, idempotency, optional network grant | reject/fallback/restart | AI-02, AI-03 |
+| Imported malformed/archive bomb/protected data | sandbox process, bounds/ratio quotas, provenance, protected-data scan | abort/quarantine/no publish | IMPORT-P3, IMPORT-P5 |
+| Cooked bundle/save corruption | version/checksum/dependency validation, atomic generations, fail-closed | no activation/load, retain prior | ASSET-02, SAVE-01, SAVE-02 |
+| Model file malicious/incompatible/NaN | size/opset/schema/hash allowlist, safe runtime config, golden inference, finite checks | quarantine/recovery controller | MOTOR-P1, SEC-04 |
+| Forged/incomplete physical certification | signed/hash-bound report, exact suite/threshold/artifact closure, owner review | reject claim; retain PrototypeFallback/previous revision | EMB-01, SEC-06 |
+| Poisoned/unlicensed training input или policy artifact | dataset/model provenance, license classification, config/environment hashes, holdout + correspondence review | quarantine/no promotion | TRAIN-P1, AUTHOR-P1, SEC-06 |
 | Runtime learning/model mutation request | immutable content registry, read-only inference mapping, denied write/network capabilities | reject request; audit/circuit-break caller | SEC-06 |
-| Shader/GPU input/device loss | offline compilation, reflection/layout validation, bounds-safe descriptors, validation layers | reject asset/lower tier/clean recovery | SHADER-P1/RENDER-03 |
-| Dependency/supply chain | lockfile/checksums, source registry policy, SBOM, vulnerability/license scan, reproducible builds | block merge/release | LIC-01/SEC-01 |
+| Shader/GPU input/device loss | offline compilation, reflection/layout validation, bounds-safe descriptors, validation layers | reject asset/lower tier/clean recovery | SHADER-P1, RENDER-03 |
+| Dependency/supply chain | lockfile/checksums, source registry policy, SBOM, vulnerability/license scan, reproducible builds | block merge/release | LIC-01, SEC-01 |
 | Live inspector abuse | development-only local authenticated read-only default, audited mutate capability | deny/disconnect/non-conforming run | SEC-03 |
-| Impact/test omission или forged PASS | generated immutable impact plan, required-artifact closure, automatic gate precedence | maximal suite/reject admission | IMPACT-01/EVIDENCE-01/REVIEW-01 |
-| Malicious media/encoder/decoder/artifact bomb | sandbox process, byte/frame/duration/decode quotas, exact tool manifest, no network | abort/quarantine/no review | MEDIA-P1/EVIDENCE-01/SEC-07 |
-| Static dossier HTML/script injection | escaped untrusted strings, self-contained hashed resources, CSP/no external resources | reject bundle before viewing | EVIDENCE-01/SEC-07 |
-| Reviewer-key exposure, stale trust state или agent self-approval | isolated signer, offline trust anchor/manifest/revocation validation, reviewer role/scope check, hash-bound attestation | reject/revoke/re-review exact changeset | REVIEW-01/02, SEC-07 |
-| Protected data in replay/frame/audio/evidence | split import-smoke/neutral fixtures, cleanup, source classification, default redaction, protected-data scanner before publish | quarantine/incident/no human bundle | PRIVACY-01/02, EVIDENCE-01 |
+| Impact/test omission или forged PASS | generated immutable impact plan, required-artifact closure, automatic gate precedence | maximal suite/reject admission | IMPACT-01, EVIDENCE-01, REVIEW-01 |
+| Malicious media/encoder/decoder/artifact bomb | sandbox process, byte/frame/duration/decode quotas, exact tool manifest, no network | abort/quarantine/no review | MEDIA-P1, EVIDENCE-01, SEC-07 |
+| Static dossier HTML/script injection | escaped untrusted strings, self-contained hashed resources, CSP/no external resources | reject bundle before viewing | EVIDENCE-01, SEC-07 |
+| Reviewer-key exposure, stale trust state или agent self-approval | isolated signer, offline trust anchor/manifest/revocation validation, reviewer role/scope check, hash-bound attestation | reject/revoke/re-review exact changeset | REVIEW-01, REVIEW-02, SEC-07 |
+| Protected data in replay/frame/audio/evidence | split import-smoke/neutral fixtures, cleanup, source classification, default redaction, protected-data scanner before publish | quarantine/incident/no human bundle | PRIVACY-01, PRIVACY-02, EVIDENCE-01 |
 
 Threat model MUST be reviewed for every new public parser, capability, IPC method, WIT import, network endpoint, model operator set или native dependency.
 
@@ -79,13 +82,17 @@ Copyleft, source-available, field-of-use, non-commercial, custom redistribution 
 - Accepted architecture меняется superseding ADR, не silent edit. Один review packet принимает весь initial specification set.
 - Code owner профильного subsystem и Architecture owner должны одобрить public contract change; Security owner также обязателен для trust boundary/capability/parser/license changes.
 - Generated/AI-assisted contribution проходит те же provenance, license, tests и human review; tool output не считается доказательством авторских прав на входные assets.
-- `HumanReviewDecisionV1` не заменяет code-owner/security/legal approvals и не может быть создан trusted identity агента. Any changeset/evidence/baseline/policy/trust hash change требует нового canonical decision и `AttestationEnvelopeV1`.
+- `HumanReviewDecisionV2` не заменяет code-owner/security/legal approvals и не может быть создан trusted identity агента. Any changeset/evidence/baseline/policy/impact/automatic-summary/trust hash change требует нового canonical decision, нового `decision_id` и `AttestationEnvelopeV2`.
 
 ## Offline reviewer trust
 
 Project release policy pins immutable `ProjectTrustAnchorV1` fingerprints. Signed `ReviewerTrustManifestV1` назначает reviewer keys, roles/scopes/categories и validity; signed monotonic `ReviewerRevocationSnapshotV1` фиксирует freshness, revocation и compromise instants. Admission MUST offline verify exact project/payload/bundle/baseline/policy/trust/revocation hashes, decision time, role/scope, key validity/rotation и non-revocation. Bundle-supplied trust root, stale snapshot, unknown/agent/test key или invalid rotation fail-closed.
 
-`AttestationEnvelopeV1` подписывает domain-separated ADR-015 preimage над canonical `HumanReviewDecisionV1` payload hash и trust hashes. Private key/path/seed MUST быть недоступен workspace, environment dump, runner, agent, MCP, capture worker и artifacts; signer adapter возвращает только envelope/public chain.
+Current admission принимает только closed JCS `HumanReviewDecisionV2` с exact case-sensitive decision `Approve|Reject|NeedsChanges` и closed JCS `AttestationEnvelopeV2`. Envelope явно содержит exact `domain = "nextengine.human-review-decision.v2"`, `project_id` и `key_id`; ADR-023 domain-separated Ed25519 preimage подписывает length-prefixed schema, algorithm, domain, `project_id`, `key_id`, payload type, canonical payload hash и exact trust-policy/manifest/revocation hashes. Envelope/payload project identity MUST совпадать, exact domain MUST match, а signed `key_id` MUST разрешаться only в hash-bound `ReviewerTrustManifestV1`.
+
+Every persisted V2 decision MUST быть signed через `AttestationEnvelopeV2`; все три enum variant могут иметь valid signature, canonical encoding и authorized trust chain. Cryptographic verification возвращает соответствующий verified decision, но only `Approve` вместе с complete evidence/redaction closure и every required automatic gate `PASS` admission-eligible. `Reject` и `NeedsChanges` являются signed non-admitting feedback. `HumanReviewDecisionV1`/`AttestationEnvelopeV1` разрешены только explicit read-only historical audit, который возвращает `HistoricalVerified` и никогда не создаёт `PASS`, admission или promotion; V1 on admission path fails as `REVIEW_SCHEMA_HISTORICAL_ONLY`.
+
+Private key/path/seed MUST быть недоступен workspace, environment dump, runner, agent, MCP, capture worker и artifacts; isolated signer adapter получает canonical unsigned V2 payload и возвращает только envelope/public chain.
 
 ## Vulnerability и disclosure
 
@@ -111,6 +118,8 @@ Project/game MUST раскрывать optional network AI, telemetry, voice rec
 - Runtime attempt to mutate weights or bypass owner review → request denied, policy quarantined on repeated violation, authoritative state unchanged.
 - Evidence/media/dossier validation failure → bundle quarantined before viewing; prior valid evidence/decision remains immutable.
 - Missing/invalid/stale/agent-issued reviewer attestation → no changeset admission; reviewer key incident follows revoke/re-review policy.
+- V1 review artifact supplied to current admission, cross-version envelope/payload substitution или unsigned `project_id`/`key_id` mismatch → fail closed before project mutation; no automatic migration or re-signing.
+- Valid signed V2 `Reject`/`NeedsChanges` → preserve machine-readable feedback, return non-admitting result, leave changeset unchanged.
 - Encoder license/config unknown → MEDIA-P1 not passed; retain canonical PNG/WAV/GIF fallback, MP4-required review AwaitingCapability.
 
 ## Verification gates
@@ -126,6 +135,6 @@ Project/game MUST раскрывать optional network AI, telemetry, voice rec
 | LEGAL-IMPORT-01 | importer legal review | exact release has written `approved` decision | legal record | importer not distributed |
 | SEC-05 | mechanic package + agent authoring aggregate | MOD-02, AGENT-02 и MCP-P1 security cases pass; 0 ambient authority/out-of-root mutation | package/changeset/MCP audit packet | disable package/adapter; reviewed manual workflow |
 | SEC-06 | physical model/provenance/certification corpus | 100% hash/schema/license/provenance/certification mismatches rejected before activation; 0 runtime weight writes; owner review present for every promoted model | validator/fault report, provenance graph, review records | quarantine model; PrototypeFallback/previous certified revision |
-| SEC-07 | evidence/dossier/reviewer trust corpus | 100% malicious HTML/media/quota/redaction/tamper cases rejected before viewing; 100% agent/unauthorized/stale/revoked attestations rejected; 0 reviewer secret exposed to agent/capture process | sandbox/privacy/tamper/credential audit packet | quarantine bundle, revoke key, regenerate/re-review |
-| REVIEW-02 | offline attestation/trust/rotation/revocation corpus | exact valid decision accepted; 100% wrong hash/project/role/time/key/rotation/revocation/canonicalization cases rejected without network/private key | payload/envelope/trust manifests, tamper/rotation/revocation report | keep changeset blocked; issue fresh authorized decision |
+| SEC-07 | evidence/dossier/reviewer trust corpus | 100% malicious HTML/media/quota/redaction/tamper cases rejected before viewing; 100% agent/unauthorized/stale/revoked/V1-admission/cross-version attestations rejected; 0 reviewer secret exposed to agent/capture process | sandbox/privacy/tamper/credential audit packet | quarantine bundle, revoke key, regenerate/re-review |
+| REVIEW-02 | V2 offline attestation/trust/rotation/revocation corpus | all three exact V2 decisions verify when canonical, signed and authorized; only `Approve` is admission-eligible; 100% invalid token and wrong schema/domain/payload type/hash/project/key/role/scope/time/rotation/revocation/canonicalization cases rejected without network/private key; V1 yields only `HistoricalVerified` in explicit audit mode | V2 payload/envelope/trust manifests, V1 historical fixtures, tamper/rotation/revocation report | keep changeset blocked; issue fresh authorized V2 decision |
 | PRIVACY-02 | split-fixture and cleanup corpus | neutral bundle has 0 imported dependency; all protected markers in prohibited roots and mixed/failed cleanup cases rejected before publication | fixture provenance, cleanup/source-access/scanner audit | quarantine run; no human bundle/publication |

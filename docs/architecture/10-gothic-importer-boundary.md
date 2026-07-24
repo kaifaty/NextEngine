@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-10 |
 | Статус | Accepted |
-| Версия | 1.2 |
+| Версия | 1.3 |
 | Владелец | Repository Owner |
-| Последняя проверка | 2026-07-23 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-012](adr/012-deterministic-command-identity-and-replay.md), [ADR-015](adr/015-evidence-trust-fixture-separation-and-attestation.md) |
+| Последняя проверка | 2026-07-24 |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md) |
 | Заменяет | отсутствует |
 
 ## Public boundary и data flow
@@ -38,13 +38,13 @@ Source-specific fields MAY находиться только в `diagnostic.exte
 
 ## Namespace mapping
 
-PersistentId/AssetId вычисляются детерминированно из importer namespace UUID, normalized source logical identity, record kind и stable instance key. Это explicit-ID boundary ADR-012: importer schema фиксирует namespace/provenance/collision policy, а runtime causal-ID algorithm здесь не применяется. Пользовательский filesystem path, install time и enumeration order не участвуют. Collision/duplicate mapping — fatal export error. Mapping manifest JCS-canonical; изменение algorithm является schema major + migration, не silent remap.
+PersistentId/AssetId вычисляются детерминированно из importer namespace UUID, normalized source logical identity, record kind и stable instance key. Это explicit-ID boundary ADR-022: importer schema фиксирует namespace/provenance/collision policy, а runtime causal-ID algorithm здесь не применяется. Пользовательский filesystem path, install time и enumeration order не участвуют. Collision/duplicate mapping — fatal export error. Mapping manifest JCS-canonical; изменение algorithm является schema major + migration, не silent remap.
 
 ## Split-fixture evidence boundary
 
 `vertical-v1-import-smoke` MAY читать только явно переданную user installation во временном isolated root и публикует лишь sanitized provenance/hash metadata, validator result, load projection и source-access trace. NIM, cooked/imported bytes, screenshots, audio/video, source strings/paths и transient projections не входят в publishable evidence. До VS-09 ephemeral root уничтожается либо quarantined вне repository/cache/build/package/evidence roots.
 
-VS-02…VS-15 и human-review media используют только project-generated `vertical-v1-neutral` fixture с recorded CC0-1.0 provenance. Смешение fixture classes даёт `EVIDENCE_FIXTURE_CLASS_MIXED`; технический import smoke не заменяет `LEGAL-IMPORT-01`.
+VS-02…VS-15 и human-review media/evidence, bound by current `HumanReviewDecisionV2`/`AttestationEnvelopeV2`, используют только project-generated `vertical-v1-neutral` fixture с recorded CC0-1.0 provenance. Смешение fixture classes даёт `EVIDENCE_FIXTURE_CLASS_MIXED`; V1 review artifacts доступны только historical-audit mode по ADR-023, а технический import smoke не заменяет `LEGAL-IMPORT-01`.
 
 ## Whitelist pilot vertical slice
 
