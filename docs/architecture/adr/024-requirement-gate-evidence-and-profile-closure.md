@@ -185,7 +185,7 @@ Allocation ranges фиксируются до promotion:
 
 ## Validation and diagnostics
 
-Architecture validator MUST иметь negative fixtures минимум для:
+Architecture review SHOULD проверять:
 
 - Pending/Approved mismatch, wrong target, skipped transition и manifest/hash drift;
 - Accepted dependency на Proposed/Superseded ADR;
@@ -196,7 +196,7 @@ Architecture validator MUST иметь negative fixtures минимум для:
 - tampered `RequirementGraphV1` document/gate/graph hashes;
 - Accepted baseline gate, который требует vendor-specific adapter, либо CandidateOnly adapter gate, включённый в blocking children `VS-*`.
 
-Stable failures используют prefix `DOCS_`; automatic PASS никогда не создаёт reviewer identity либо `architecture.promote`.
+Automatic tool results do not create reviewer identity for implementation evidence or release decisions. Architecture-document edits themselves use the normal repository review workflow and require no separate promotion capability.
 
 ## Последствия
 

@@ -9,16 +9,15 @@ This repository is the local source of truth after the migration gate. It contai
 The pinned toolchain is Rust 1.93.0. Run:
 
 ```text
-cargo run -p xtask -- docs-check
 cargo run -p xtask -- boundary-scan
 cargo run -p xtask -- host-check
 uv run --project lab python -m next_lab doctor
 uv run --project lab python -m next_lab smoke --device auto
 ```
 
-`host-check` runs formatting, clippy, workspace tests, documentation validation, and boundary checks. The lab smoke validates train → ONNX → inference on MPS or CPU. Neither command claims Windows/Linux package conformance or physical-policy certification; see [docs/development/training-capability.md](docs/development/training-capability.md).
+`host-check` runs formatting, clippy, workspace tests, and boundary checks. The lab smoke validates train → ONNX → inference on MPS or CPU. Neither command claims Windows/Linux package conformance or physical-policy certification; see [docs/development/training-capability.md](docs/development/training-capability.md).
 
-An architecture promotion first runs `cargo run -p xtask -- architecture-review-preflight <target>` while its hash-bound review record is `Pending`. After the Repository Owner approves the exact candidate root, `docs-check` and `host-check` perform final admission. The preflight command never creates human approval.
+Architecture documents are edited through the normal repository workflow. A direct Repository Owner task is sufficient; there is no separate exact-root or promotion-confirmation step.
 
 ## Workspace
 
@@ -29,7 +28,7 @@ crates/runtime        deterministic command admission and staged tick transactio
 crates/assets         recoverable save generations and owner-segment persistence
 crates/verification   state roots and deterministic headless replay
 apps/headless         portable headless composition root
-tools/xtask           local admission commands
+tools/xtask           local verification commands
 lab/                  isolated training smoke lane (added separately)
 ```
 

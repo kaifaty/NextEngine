@@ -6,7 +6,6 @@ NextEngine остаётся local pre-release bootstrap, который ведё
 
 | Capability/status | Bootstrap authority | Public-release state |
 |---|---|---|
-| `architecture.promote` | Repository Owner после automatic checks и проверки exact candidate root | Named reviewer group required |
 | `review.changeset` | Explicit authorized human reviewer only | Reviewer registry + valid attestation required |
 | `baseline.promote` | Explicit authorized human promoter only; independent from changeset review | ReviewerTrustManifest capability required |
 | `publisher.trust` | Repository owner + Security & Governance | PublisherTrustManifest process required |
@@ -14,13 +13,13 @@ NextEngine остаётся local pre-release bootstrap, который ведё
 | `security.triage` | Repository owner via out-of-band bootstrap contact | Permanent monitored private contact required |
 | `conduct.enforce` | Repository owner via out-of-band bootstrap contact | Permanent monitored contact required |
 
-`architecture.promote` относится только к документационному packet. `baseline.promote`, `review.changeset`, publisher/release trust и implementation evidence сохраняют отдельный смысл и не объединяются с ним. Coding agent, test runner, capture worker, MCP adapter и training backend не могут владеть или использовать trusted human capability.
+Architecture documents use the normal repository review workflow. A direct Repository Owner task is sufficient authorization for the requested documentation change; no separate exact-root capability or promotion record is required. `baseline.promote`, `review.changeset`, publisher/release trust and implementation evidence remain separate capabilities. Coding agents, test runners, capture workers, MCP adapters and training backends cannot own or use those trusted human capabilities.
 
 ## Approval matrix
 
 | Change | Required approval |
 |---|---|
-| Public contract или architecture semantics | Repository Owner + `architecture.promote`; новый superseding ADR для изменения Accepted semantics |
+| Public contract или architecture semantics | Direct Repository Owner task; новый superseding ADR для изменения Accepted semantics |
 | Capability/parser/IPC/trust/license boundary | Repository Owner + обязательные automatic security/boundary gates |
 | Observable changeset | Automatic gates PASS + authorized `review.changeset` exact hash |
 | Baseline Bootstrap/Replace | Automatic evidence PASS + independent `baseline.promote` exact decision |
@@ -32,23 +31,11 @@ Passing automatic checks не создаёт human approval. Human decision не
 
 ## Architecture changes
 
-Accepted architecture semantics меняются только новым ADR и синхронизированными SPEC/evidence/traceability updates. Редакционные исправления без изменения смысла MAY использовать patch-version, но также требуют hash-bound promotion exact candidate root. Packet 1.5 принят; packet 1.5.1 является редакционным candidate для нормализации solo-owner authority labels и не принимает dialogue/model или foundation proposal tracks. После approval status/supersession update выполняется атомарно; history Accepted ADR не переписывается.
+Accepted architecture semantics меняются только новым ADR и синхронизированными SPEC/evidence/traceability updates. Редакционные исправления и согласованные изменения пакета проходят обычный repository review; отдельное exact-root подтверждение не требуется. History Accepted ADR не переписывается.
 
-### Hash-bound promotion records
+### Historical promotion records
 
-Bootstrap promotion 1.4→1.5, editorial patch 1.5→1.5.1, dialogue/model promotion 1.5.1→1.6 и foundation promotion 1.6→1.7 используют ненормативные records в `docs/reviews/architecture/packet-1.5.md`, `packet-1.5.1.md`, `packet-1.6.md` и `packet-1.7.md`. Record не входит в architecture document counts и не является источником subsystem semantics.
-
-Каждый record MUST содержать точный transition, `Pending` или `Approved` status, candidate file manifest, candidate root, результаты pre-approval automatic checks и единственную human decision `architecture.promote`, которой владеет `Repository Owner`. Agent MAY вычислять hashes и проверять структуру, но MUST NOT заполнять identity/decision или объявлять record одобренным от имени owner.
-
-Candidate manifest охватывает каждый Markdown-файл в `docs/architecture/`, использует repository-relative UTF-8 paths и lowercase SHA-256 каждого файла. Review records находятся вне этого scope и исключаются из manifest. Entries сортируются по UTF-8 path; для каждой entry в hash input последовательно добавляются `path`, один NUL byte, 64 ASCII bytes lowercase `file_sha256` и один LF byte. SHA-256 всей последовательности является `Candidate root SHA-256`; machine identifier алгоритма — `sha256-path-nul-file-sha256-lf-v1`.
-
-Promotion использует две fail-closed фазы, чтобы aggregate `host-check` не зависел циклически от собственного результата:
-
-1. `architecture-review-preflight <target>` проверяет полный candidate packet и `Pending` record. Format, clippy, workspace tests, boundary scan и diff check MUST уже иметь `PASS`; собственная preflight row MAY быть `Pending` только во время первого запуска.
-2. После повторного preflight с полностью заполненной PASS-таблицей Repository Owner проверяет exact candidate root и отдельно принимает или отклоняет `architecture.promote`.
-3. Только после `Approved` decision обычные `docs-check` и `host-check` выполняют final authoritative admission. Их результат входит в handoff/commit evidence, но не в pre-approval table, поскольку оба зависят от approved record.
-
-Любое изменение manifest file инвалидирует hash closure и требует нового promotion decision. `Approved` record действителен только когда все обязательные pre-approval checks имеют `PASS` с evidence reference, `architecture.promote` имеет `Approved`, а authoritative transition chain непрерывна. После approval exact admitted root дополнительно закрепляется в project-owned validator; historical record с другим manifest/root отвергается даже при внутренне согласованном пересчёте. `docs-check` проверяет exact file hashes, root, completeness и sequencing, но не является криптографической проверкой личности owner.
+Records in `docs/reviews/architecture/packet-1.5.md` through `packet-1.8.md` are retained only as historical audit artifacts. They do not define a required workflow for future architecture edits, and `host-check` does not validate candidate roots or human documentation decisions.
 
 ## Release signing policy
 

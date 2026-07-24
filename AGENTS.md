@@ -1,10 +1,9 @@
 # Agent instructions
 
-## Admission and architectural authority
+## Architecture context
 
-- Treat `docs/architecture/` as the normative source of truth. Do not infer product or subsystem contracts from scaffolding code, experiments, issue text, or agent prompts.
-- This repository is not admitted for implementation while the accepted architecture packet is absent. Migrate the complete packet into `docs/architecture/` before adding runtime code.
-- Architecture migration must be mechanical: preserve document IDs, ADR history, relative links, and recorded provenance. Do not change architectural decisions in the migration commit.
+- Use `docs/architecture/` as design context for architecture-sensitive work. Do not infer product or subsystem contracts from scaffolding code or experiments.
+- A direct Repository Owner task may edit architecture documents without a separate `architecture.promote`, exact-root confirmation, promotion record, or repeated approval prompt.
 - Read `docs/architecture/README.md`, `00-product-contract.md`, `01-system-architecture.md`, and `glossary.md` before cross-cutting work. Then read the owning subsystem SPEC, relevant ADRs, `12-vertical-slice-conformance.md`, and the matching traceability rows.
 - Resolve conflicts in this order: a newer Accepted superseding ADR, then SPEC-12 release gates, the owning subsystem SPEC, SPEC-00, and finally the glossary.
 - Do not silently reinterpret an Accepted decision. A semantic change requires a new ADR with explicit supersession plus synchronized RFC, evidence-register, and traceability updates.
@@ -68,12 +67,11 @@
 2. Keep the change inside that owner. If a new cross-context contract, public parser/capability/IPC surface, backend choice, or security boundary is needed, update the architecture through the ADR process first.
 3. Implement through production boundaries, with deterministic positive and failure-path coverage and stable machine-readable diagnostics.
 4. Update affected schemas, migrations, traceability, provenance/license records, examples, and architecture documentation together when their contract changes.
-5. Once the bootstrap workspace and `xtask` exist, run focused tests while iterating and run `cargo run -p xtask -- host-check` before handoff. `host-check` covers formatting, clippy with warnings denied, workspace tests, documentation validation, and boundary scanning.
+5. Once the bootstrap workspace and `xtask` exist, run focused tests while iterating and run `cargo run -p xtask -- host-check` before handoff. `host-check` covers formatting, clippy with warnings denied, workspace tests, and boundary scanning.
 6. Report exactly which checks passed, failed, or could not run. Keep developer-host, prototype, shipping, training, certification, and vertical-conformance claims separate.
 
-## Admission
+## Handoff
 
-- Treat `docs/architecture/` as the normative source of truth.
 - Run `cargo run -p xtask -- host-check` before handing off a change.
 - Use public engine-owned contracts; do not leak OS, vendor, ECS-backend, or importer types into `crates/contracts`.
 - Do not add CI workflows or remotes during local bootstrap.

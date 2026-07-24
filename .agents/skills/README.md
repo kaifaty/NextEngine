@@ -13,7 +13,6 @@ Codex discovers these repository-scoped skills from `.agents/skills`.
 | `using-rust-workspaces` | [upstream](https://github.com/tachyon-beep/skillpacks/tree/a86e7855ace8659b13147cbf439cfcf8e93916ed/plugins/axiom-rust-workspaces/skills/using-rust-workspaces) | `a86e7855ace8659b13147cbf439cfcf8e93916ed` | [CC-BY-SA-4.0](https://creativecommons.org/licenses/by-sa/4.0/) |
 | `using-determinism-and-replay` | [upstream](https://github.com/tachyon-beep/skillpacks/tree/a86e7855ace8659b13147cbf439cfcf8e93916ed/plugins/axiom-determinism-and-replay/skills/using-determinism-and-replay) | `a86e7855ace8659b13147cbf439cfcf8e93916ed` | [CC-BY-SA-4.0](https://creativecommons.org/licenses/by-sa/4.0/) |
 | `cli-creator` | [upstream](https://github.com/openai/skills/tree/49f948faa9258a0c61caceaf225e179651397431/skills/.curated/cli-creator) | `49f948faa9258a0c61caceaf225e179651397431` | Apache-2.0 (`cli-creator/LICENSE.txt`) |
-| `nextengine-architecture-guardrails` | local project skill | local | Apache-2.0 |
 
 ## Third-Party Attribution
 
@@ -37,5 +36,3 @@ upstream Apache-2.0 license text is preserved at
 - Removed TerminalSkills `_scores.json` files because their content hashes no
   longer match the locally adapted `SKILL.md` files.
 - The four newly installed third-party skills are currently unmodified.
-- `nextengine-architecture-guardrails` is authored locally from the accepted
-  `docs/architecture/` packet and does not copy third-party skill text.

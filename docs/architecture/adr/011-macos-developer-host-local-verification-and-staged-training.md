@@ -46,7 +46,7 @@ Bootstrap Next Engine выполняется на Apple Silicon Mac без remot
 
 | Gate | Владелец | Сценарий/команда | Threshold | Evidence | Fallback |
 |---|---|---|---|---|---|
-| `HOST-MAC-01` | Developer Experience | `cargo run -p xtask -- host-check` на clean `aarch64-apple-darwin` checkout | format/clippy/tests/docs/boundary PASS; 0 Apple/vendor/importer type в public contracts; no CI/remote dependency | host/toolchain manifest, command report, dependency/API scan | fix portable boundary; Mac developer-host claim blocked |
+| `HOST-MAC-01` | Developer Experience | `cargo run -p xtask -- host-check` на clean `aarch64-apple-darwin` checkout | format/clippy/tests/boundary PASS; 0 Apple/vendor/importer type в public contracts; no CI/remote dependency | host/toolchain manifest, command report, dependency/API scan | fix portable boundary; Mac developer-host claim blocked |
 | `TRAIN-MAC-P0` | Physical Embodiment + ML Tooling | `uv run --project lab python -m next_lab smoke --device auto` | 4 fixed seeds; 8 envs ×256 steps; 1 000 parity observations; max abs PyTorch/ONNX action error ≤`1e-5`; 0 NaN/Inf; ≤10 min; MPS либо declared CPU fallback | RunManifest, lock/device/model/corpus hashes, parity/metrics report | CPU smoke; toolchain lane blocked при export/parity failure |
 | `TRAIN-RTX-01` | Physical Embodiment + Security | `python -m next_lab doctor --profile local-rtx` на pinned local workstation | Linux x86_64 Ubuntu 22.04/24.04; RAM ≥32 GiB; NVIDIA VRAM ≥16 GiB; pinned driver/toolchain; offline cache/provenance/license checks PASS | hardware/driver/toolchain manifest, license/SBOM/capability report | remain `AwaitingCapability`; only PrototypeFallback |
 

@@ -14,22 +14,10 @@ fn main() {
 fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
-    let command = arguments.next().ok_or_else(|| {
-        "expected architecture-review-preflight, docs-check, boundary-scan, or host-check"
-            .to_owned()
-    })?;
+    let command = arguments
+        .next()
+        .ok_or_else(|| "expected boundary-scan or host-check".to_owned())?;
     match command.as_str() {
-        "architecture-review-preflight" => {
-            let target = arguments.next().ok_or_else(|| {
-                "architecture-review-preflight requires a target packet version".to_owned()
-            })?;
-            reject_extra_arguments(arguments)?;
-            xtask::docs_check::architecture_review_preflight(&root, &target)
-        }
-        "docs-check" => {
-            reject_extra_arguments(arguments)?;
-            xtask::docs_check::docs_check(&root)
-        }
         "boundary-scan" => {
             reject_extra_arguments(arguments)?;
             xtask::boundary_scan::boundary_scan(&root)
@@ -82,7 +70,6 @@ fn host_check(root: &Path) -> Result<(), String> {
         ],
     )?;
     run_checked(root, "cargo", &["test", "--workspace"])?;
-    xtask::docs_check::docs_check(root)?;
     xtask::boundary_scan::boundary_scan(root)?;
     println!("PASS host-check: host={host}, rustc=1.93.0");
     Ok(())

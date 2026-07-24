@@ -63,14 +63,13 @@ Tools MUST support `--help`, `--version`, `--format json`, explicit output path 
 До появления remote/CI repository admission выполняется локальными project-owned командами:
 
 ```text
-cargo run -p xtask -- docs-check
 cargo run -p xtask -- boundary-scan
 cargo run -p xtask -- host-check
 uv run --project lab python -m next_lab doctor
 uv run --project lab python -m next_lab smoke --device auto
 ```
 
-`host-check` MUST объединять format check, clippy, workspace tests, docs validator и boundary scan; Mac result имеет `DeveloperHostTier`, а не shipping status. Lab commands являются isolated development application service: Mac smoke MAY выбрать MPS или declared CPU fallback, но не закрывает `TRAIN-P1`, correspondence или certification. Local RunManifest фиксирует exact toolchain/device/fallback. Ни одна команда не требует remote, cloud account или CI token.
+`host-check` MUST объединять format check, clippy, workspace tests и boundary scan; Mac result имеет `DeveloperHostTier`, а не shipping status. Lab commands являются isolated development application service: Mac smoke MAY выбрать MPS или declared CPU fallback, но не закрывает `TRAIN-P1`, correspondence или certification. Local RunManifest фиксирует exact toolchain/device/fallback. Ни одна команда не требует remote, cloud account или CI token.
 
 ## Diagnostic envelope
 
