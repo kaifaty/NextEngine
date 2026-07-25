@@ -5,16 +5,14 @@
 | ID | SPEC-16 |
 | Статус | Proposed |
 | Lifecycle | Deferred Proposed |
-| Версия | 0.2 |
-| Владелец | Repository Owner |
-| Требуемые согласующие | Architecture Working Group, RPG Framework Team, World Services Team, Asset & Persistence Team, Developer Experience Team, Security & Governance Team, Verification & Evidence Team |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md) |
+| Версия | 0.3 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | отсутствует |
 
 ## Статус предложения: Deferred Proposed
 
-Этот документ имеет lifecycle `Deferred Proposed`. Remediation candidate packet 1.6 фиксирует его IDs и актуальные dependencies, но не принимает dialogue/model track. Термины MUST/MUST NOT задают future acceptance contract только для отдельного promotion bundle [ADR-017](adr/017-text-canonical-multimodal-dialogue-and-replaceable-model-packs.md). Ни одна модель из [RESEARCH-002](research/npc-dialogue-model-landscape.md) не является Accepted или shipping default.
+Этот документ имеет lifecycle `Deferred Proposed`: contracts ниже доступны для обсуждения и прототипирования, но не меняют Accepted runtime. Ни одна модель из [RESEARCH-002](research/npc-dialogue-model-landscape.md) не является shipping default.
 
 ## Назначение и invariants
 
@@ -24,7 +22,7 @@ SPEC-16 задаёт один dialogue-turn contract для typed text и microp
 - Typed input и finalized ASR MUST создавать один и тот же `CanonicalUtterance`; partial ASR не является gameplay input.
 - LLM, embeddings, ASR, TTS и audio-understanding MUST исполняться только в optional separate `ai-host` по ADR-005.
 - Model output MUST оставаться untrusted candidate. RPG/world mutation проходит `AgentIntent → validator → WorldCommand → commit`.
-- Simulation tick MUST NOT ждать ASR/LLM/TTS. Deadline/cancellation приходят как staged external signals и записываются в verification/replay input, а не вычисляются из wall clock при replay.
+- Simulation tick MUST NOT ждать ASR/LLM/TTS. Deadline/cancellation приходят как staged external signals и записываются как replay input, а не вычисляются из wall clock при replay.
 - Base game MUST NOT включать generative weights. Authored dialogue, subtitles и deterministic planner являются обязательным `TextOnlyFallback`.
 - Local packs MUST быть immutable, content-addressed, separately installed и reconstructible; cloud MUST быть default-off и explicit opt-in.
 - Vendor types, raw filesystem paths, credentials, provider session IDs, tokenizer objects и audio-device handles MUST NOT входить в public contracts.
@@ -36,12 +34,12 @@ SPEC-16 задаёт один dialogue-turn contract для typed text и microp
 | Dialogue session, choices, commitments, transcript policy | RPG Framework `Dialogue` aggregate | Prompt, provider thread, TTS playback |
 | Canonical player/NPC utterance admitted into session | RPG Framework after turn validation | Partial ASR, token stream, waveform |
 | Perception, memory projection, high-level proposal | Agent Intelligence / Memory Service per SPEC-06 | Vendor cache/session |
-| Model catalog, installed immutable artifact resolution | Asset & Tool chain model-pack registry | Downloader temp path, provider model list |
+| Model catalog and installed immutable model resolution | Asset & Tool chain model-pack registry | Downloader temp path, provider model list |
 | Generated PCM/playback progress | World Services presentation/audio runtime | Dialogue state or replay gameplay hash |
-| Pack/provider grants, voice consent and licensing | Project policy + Security & Governance records | Model card claim, local UI toggle alone |
+| Pack/provider grants, voice consent and licensing | Versioned project security policy | Model card claim, local UI toggle alone |
 | Gameplay mutation | Owning domain after committed WorldCommand | Dialogue text, function/tool call, speech segment |
 
-Agent Intelligence Team owns the turn protocol and deterministic routing policy. RPG Framework owns admission into authoritative dialogue state. World Services owns audio capture/playback streams. Asset & Persistence Team owns pack manifests, installation transaction and replay references. Developer Experience owns CLI/diagnostics. Security & Governance owns network, data, license and voice-consent policy.
+Agent Intelligence subsystem владеет turn protocol и deterministic routing policy. RPG Framework владеет authoritative dialogue state. World Services владеет audio capture/playback streams. Asset & Tool chain владеет pack manifests, installation transaction и replay references. Security policy владеет network, data, license и voice-consent rules.
 
 ## Public contracts
 
@@ -76,13 +74,13 @@ V1 hard ceilings before IPC serialization:
 - total serialized context ≤65,536 bytes;
 - ≤128 facts, ≤64 memory records and ≤64 affordances;
 - response text ≤16,384 UTF-8 bytes;
-- project MAY choose lower limits but cannot raise them without a versioned profile and repeated security/performance gates.
+- project MAY choose lower limits; larger limits require a new versioned profile and repeated security/performance checks.
 
 Selection of facts/memories/affordances MUST be deterministic for the same snapshot/profile: stable relevance key, then stable ID. The request cannot contain save bytes, raw prompt files, arbitrary tool definitions, filesystem paths or credentials.
 
 ### DialogueTurnCandidate
 
-`DialogueTurnCandidate` contains request/turn/idempotency IDs, canonical response text, sentence boundaries, optional bounded `AgentIntent`, memory proposals, cited fact/revision IDs, completion state, selected role/pack/provider IDs, model/artifact/content hashes, generation parameters, adapter protocol version and redaction classification.
+`DialogueTurnCandidate` contains request/turn/idempotency IDs, canonical response text, sentence boundaries, optional bounded `AgentIntent`, memory proposals, cited fact/revision IDs, completion state, selected role/pack/provider IDs, model/content hashes, generation parameters, adapter protocol version and redaction classification.
 
 Candidate validation order:
 
@@ -110,13 +108,13 @@ Unknown, duplicate-with-different-bytes, skipped or post-final sequence MUST be 
 | Field group | Required content |
 |---|---|
 | Identity | schema, `pack_id`, semantic version, publisher, manifest ContentHash |
-| Roles | One or more closed roles: `asr`, `dialogue`, `tts`, `embeddings`, `audio-understanding` |
-| Artifacts | Engine `AssetId`, SHA-256, byte size, media/model format, quantization, adapter ID/protocol range; no runtime path |
+| Roles | One or more closed roles: `asr`, `dialogue`, `tts`, `embeddings`, `audio-understanding`, `narrative-director` |
+| Model files | Engine `AssetId`, SHA-256, byte size, media/model format, quantization, adapter ID/protocol range; no runtime path |
 | Compatibility | locales, input/output schemas, context/audio limits, streaming/timestamp/structured-output/voice-clone capabilities |
 | Resources | supported target triples, CPU features, RAM/VRAM/disk envelope, declared concurrency and warm-up policy |
-| Provenance | upstream source URL + immutable revision, build/conversion tool hashes, parent artifact hashes |
-| Licensing | code/weights/data/voice SPDX or reviewed classification, redistribution scope, notices and exception reference |
-| Evidence | gate/run IDs and hashes; self-reported metrics stored separately from Next Engine results |
+| Provenance | upstream source URL + immutable revision, build/conversion tool hashes, parent model/content hashes |
+| Licensing | code/weights/data/voice SPDX or project classification, redistribution scope, notices and exception reference |
+| Validation | compatible check IDs and result hashes; self-reported metrics remain separate |
 | Fallback | next compatible pack role or `TextOnlyFallback`; model cannot select it |
 
 Pack MUST NOT contain credentials, provider account, absolute path, mutable cache, raw dataset, training run or voice reference recording. Voice-clone capable pack remains disabled until exact `VoiceConsentRecord` passes `VOICE-L1`.
@@ -183,28 +181,27 @@ Future CLI/JSON contracts under SPEC-09 semantics:
 |---|---|
 | `next ai model-pack validate <manifest>` | Read-only schema/hash/license/provenance/resource/adapter validation; no implicit download |
 | `next ai model-pack install <manifest> --store <dir>` | Explicit network/write operation, staging + atomic publish, stable JSON/diagnostics |
-| `next ai model-pack list [--role <role>]` | Installed immutable revisions, compatibility/evidence/health; no credentials |
-| `next ai benchmark dialogue --pack <manifest> --profile <profile> --artifact-root <dir>` | Exact corpus/hardware/config run producing RunManifest, metrics and faults |
+| `next ai model-pack list [--role <role>]` | Installed immutable revisions, compatibility and health; no credentials |
+| `next ai benchmark dialogue --pack <manifest> --profile <profile> --out <dir>` | Exact corpus/hardware/config run producing metrics and fault results |
 
 Base package manifest references no required generative pack. Project MAY require a local pack only if startup has an explicit authored `TextOnlyFallback`; invalid required project policy fails before world mutation rather than silently enabling cloud.
 
-## Persistence, replay и evidence
+## Persistence и replay
 
 - Replay records finalized player `CanonicalUtterance` as ordered external input and accepted WorldCommand stream. It MAY record accepted NPC canonical text as oracle/presentation input.
-- Replay/capture MUST NOT call ASR, dialogue model, TTS or remote provider again. It consumes recorded canonical turn text and, where audio review is required, exact canonical PCM root.
+- Replay MUST NOT call ASR, dialogue model, TTS or remote provider again. It consumes recorded canonical turn text and optional exact canonical PCM input.
 - Save stores authoritative RPG dialogue/session/commitment/transcript-policy state and allowed canonical transcript/provenance. It MUST NOT store weights, provider threads, credentials or TTS playback position as gameplay authority.
 - Durable transcript/memory record contains exact admitted text, locale, participant/turn IDs, source fact/event IDs and pack/provider provenance only when transcript/privacy policy permits.
 - Headless/game/capture authoritative hashes ignore PCM and device playback. Commands/events/final gameplay hashes remain exact.
-- Dialogue/model/voice changes are `audio` and often narrative-observable impact; ImpactResolver maps them to required automatic gates and HumanReviewRequired evidence under SPEC-15.
 
 ## Security, privacy и voice consent
 
 - Microphone capture MUST be explicit, visible and bounded to the active input session. Raw capture is not retained by default.
 - Network transmission, provider, data categories, region and retention MUST be disclosed before `RemoteOptIn`; consent is granular and revocable.
-- `VoiceConsentRecord` binds speaker/rights-holder identity class, allowed project/purpose, source recording hashes, pack/provider, jurisdictions/expiry, revocation/deletion policy and human/legal evidence reference. It contains no raw voice bytes.
+- `VoiceConsentRecord` binds speaker/rights-holder identity class, allowed project/purpose, source recording hashes, pack/provider, jurisdictions/expiry, revocation/deletion policy and rights-record reference. It contains no raw voice bytes.
 - Missing, expired, revoked or scope-mismatched voice consent MUST disable cloning and use an authored/default licensed voice or subtitles.
-- Prompts, canonical dialogue, raw/reference voice and provider responses remain default-redacted in logs/evidence. Required qualitative review uses bounded classified samples approved by project policy.
-- Model parser/operator set, pack installer and provider adapter require SPEC-11 threat review before implementation.
+- Prompts, canonical dialogue, raw/reference voice and provider responses remain default-redacted in logs and diagnostics.
+- Model parser/operator set, pack installer and provider adapter follow the SPEC-11 threat model.
 
 ## Stable diagnostics и failure semantics
 
@@ -219,53 +216,54 @@ Base package manifest references no required generative pack. Project MAY requir
 | `AI_STREAM_SEQUENCE_INVALID` | Cancel/reject affected presentation stream; canonical text/gameplay remain valid |
 | `AI_TURN_CANCELLED` | Discard uncommitted work; dedupe any late result |
 | `AI_VOICE_CONSENT_INVALID` | Disable cloning/reference voice; default licensed voice/subtitle |
-| `NONDETERMINISTIC_RESULT` | Replay/gate fails; no retry-to-green or model regeneration |
+| `NONDETERMINISTIC_RESULT` | Replay or product check fails; no retry-to-green or model regeneration |
 
 Process absence/crash/protocol mismatch, missing pack, model OOM, malformed/partial stream, remote offline, consent revocation and late TTS all degrade to the next declared route. No failure may block tick, mutate state directly, partially commit a turn or repeat a committed command.
 
-## Proposed gates
+## Product checks
 
-All timings are measured wall performance on exact declared hardware but are not simulation decisions. Warm-up, corpus, pack files, adapter/build/config and hardware hashes MUST appear in RunManifest.
+Wall timings are measurements on declared hardware, never simulation decisions.
 
-| Gate | Owner | Reproducible command/scenario | Pass threshold | Required evidence | Fallback |
-|---|---|---|---|---|---|
-| `DIALOGUE-P1` | Agent Intelligence + RPG Framework | `next gate DIALOGUE-P1 --scenario dialogue-text-audio-parity --turns 1000` | 1,000 scripted typed/final-ASR turns; exact mandatory outcomes; 0 direct mutation, partial commit or duplicate command; 100% invalid/stale schema rejected | canonical input/candidate corpus, command/event/rejection trace, replay hashes | authored deterministic dialogue + subtitles |
-| `DIALOGUE-P2` | Agent Intelligence + World Services | `next gate DIALOGUE-P2 --scenario dialogue-stream-faults --injections 1000` | 1,000 timeout/restart/cancel/barge-in/reorder/duplicate/late injections; 0 game crash/tick stall/partial commit; fallback selected ≤1 gameplay tick after deadline signal | ai-host/stream timeline, fault report, replay/dedupe ledger | circuit-break adapter; `TextOnlyFallback` |
-| `MODEL-ASR-P1` | Agent Intelligence | `next ai benchmark dialogue --role asr --corpus russian-gameplay-v1 --profile $PROFILE` | Russian clean WER ≤10%; noisy gameplay-mix WER ≤20%; end-of-utterance→final p95 ≤600 ms; 100% invalid audio bounded/rejected | corpus/provenance, transcripts, WER/latency/resource report | next ASR route or typed input |
-| `MODEL-DIALOGUE-P1` | Agent Intelligence + RPG Framework | `next ai benchmark dialogue --role dialogue --corpus npc-dialogue-v1 --profile $PROFILE` | first schema-valid sentence p95 ≤1,000 ms; complete candidate p95 ≤2,000 ms; first-attempt schema validity ≥99%; 100% stale/forbidden mutations rejected | prompts redacted, canonical request/response hashes, validator/persona/commitment metrics | next LLM route or authored dialogue |
-| `MODEL-TTS-P1` | World Services | `next ai benchmark dialogue --role tts --corpus russian-voice-v1 --profile $PROFILE` | first PCM p95 ≤500 ms; real-time factor ≤0.5; 0 unbounded continuation across corpus; schema/audio bounds 100% | text/audio roots, latency/RTF/duration/pronunciation report, required signed `HumanReviewDecisionV2` with exact `Approve` token after automatic PASS | next TTS route or subtitles/authored voice |
-| `MODEL-E2E-P1` | Agent Intelligence + World Services | `next ai benchmark dialogue --pack <manifest> --profile $PROFILE --corpus npc-dialogue-v1` | 1,000 warm turns at concurrency 4; end-of-player-utterance→first subtitle p95 ≤1,500 ms and →first PCM p95 ≤2,500 ms; 0 gameplay hash differences with text-only run | full pipeline timeline, resource/queue metrics, replay/audio roots | lower profile or `TextOnlyFallback` |
-| `MODEL-L1` | Security & Governance | `next gate MODEL-L1 --manifest <pack> --corpus model-license-provenance` | 100% files/source/conversions/license/redistribution classified and hash-closed; unknown/custom terms without exception rejected | manifest closure, SBOM/notices, provenance graph, legal exceptions | do not install/distribute pack |
-| `VOICE-L1` | Security & Governance + World Services | `next gate VOICE-L1 --manifest <pack> --corpus voice-consent-revocation` | 100% unauthorized/expired/revoked/scope-mismatched clones rejected; 0 raw reference voice in default logs/evidence; deletion/revocation fixtures pass | consent records, denial/audit/redaction/deletion report | licensed default voice or subtitles |
-
-Human listening cannot waive automatic waveform, bounds, command/replay, license or consent failure. `Reject` and `NeedsChanges` are valid signed `HumanReviewDecisionV2` decisions but never admit the candidate. Missing reviewer/encoder gives `AwaitingCapability`, never `PASS`.
-
-## Promotion contract
-
-Promotion requires one reviewed transaction after required owner/Security approvals:
-
-1. ADR-017 and SPEC-16 become `Accepted`; ADR-005 remains Accepted and is not superseded.
-2. SPEC-01/03/06/07/08/09/11/12/15 and glossary receive the accepted contracts without changing ownership or fifteen-gate count.
-3. Traceability maps the permanently reserved rows below into VS-03, VS-04, VS-12 and VS-15 only if that transaction is admitted.
-4. Evidence register rows remain `Proposed` until their exact artifacts independently pass all applicable gates; accepting the protocol does not accept a model.
-
-| Reserved row | Primary owner | Future acceptance contract |
+| Check ID | Scenario / command | Expected behavior / fallback |
 |---|---|---|
-| `REQ-079` | RPG Framework | Typed/final-ASR parity through one canonical utterance/session path |
-| `REQ-080` | Agent Intelligence | Engine-owned bounded request/candidate protocol and per-role routing |
-| `REQ-081` | RPG Framework | Stateful generated speech waits for successful WorldCommand commit |
-| `REQ-082` | World Services | Ordered/cancelable presentation-only speech streaming and barge-in |
-| `REQ-083` | Asset & Persistence | Model packs, transcripts and replay are content-addressed; replay never regenerates |
-| `REQ-084` | Developer Experience | Atomic model-pack validation/install/list/benchmark CLI/JSON |
-| `REQ-085` | Security & Governance | Remote provider disclosure/consent/default-off and fail-closed licensing |
-| `REQ-086` | Security & Governance | Voice-clone consent/revocation/redaction and licensed fallback |
-| `FAIL-025` | Agent Intelligence | ASR/model absent, timeout, crash or malformed candidate → bounded text fallback |
-| `FAIL-026` | RPG Framework | Stale/invalid intent or commitment → no partial commit and truthful authored response |
-| `FAIL-027` | World Services | Late/reordered/duplicate TTS stream → cancel audio, preserve canonical turn |
-| `FAIL-028` | Asset & Persistence | Invalid/hash/license-incompatible pack → quarantine, retain prior revision |
-| `FAIL-029` | Security & Governance | Network unavailable or consent revoked → no request, local/text fallback |
-| `FAIL-030` | Agent Intelligence | ai-host restart/late result → idempotent dedupe, no duplicate command |
+| `DIALOGUE-P1` | `next check DIALOGUE-P1 --scenario dialogue-text-audio-parity --turns 1000` | Typed and final-ASR turns produce the same mandatory outcomes with no direct mutation, partial commit or duplicate command; invalid/stale candidates reject, otherwise use authored dialogue and subtitles. |
+| `DIALOGUE-P2` | `next check DIALOGUE-P2 --scenario dialogue-stream-faults --injections 1000` | Timeout, restart, cancellation, barge-in, reordering, duplicate and late results never crash or stall the game; select `TextOnlyFallback` within one gameplay tick after the deadline signal. |
+| `MODEL-ASR-P1` | `next ai benchmark dialogue --role asr --corpus russian-gameplay-v1 --profile $PROFILE` | Clean Russian WER ≤10%, noisy mix WER ≤20%, final result p95 ≤600 ms, and invalid audio is bounded/rejected; use the next ASR route or typed input. |
+| `MODEL-DIALOGUE-P1` | `next ai benchmark dialogue --role dialogue --corpus npc-dialogue-v1 --profile $PROFILE` | First valid sentence p95 ≤1,000 ms, complete candidate p95 ≤2,000 ms, schema validity ≥99%, and stale/forbidden mutations always reject; use the next route or authored dialogue. |
+| `MODEL-TTS-P1` | `next ai benchmark dialogue --role tts --corpus russian-voice-v1 --profile $PROFILE` | First PCM p95 ≤500 ms, real-time factor ≤0.5, continuation is bounded, and audio schema limits hold; use the next TTS route, authored voice or subtitles. |
+| `MODEL-E2E-P1` | `next ai benchmark dialogue --pack <manifest> --profile $PROFILE --corpus npc-dialogue-v1` | At concurrency 4, first subtitle p95 ≤1,500 ms, first PCM p95 ≤2,500 ms, and gameplay hashes match text-only; use a lower profile or `TextOnlyFallback`. |
+| `MODEL-L1` | `next check MODEL-L1 --manifest <pack> --corpus model-license-provenance` | Files, sources, conversions, licenses and redistribution terms are classified and hash-closed; otherwise do not install or distribute the pack. |
+| `VOICE-L1` | `next check VOICE-L1 --manifest <pack> --corpus voice-consent-revocation` | Unauthorized, expired, revoked or scope-mismatched cloning is rejected and raw reference voice never enters default logs; use a licensed voice or subtitles. |
 
-REQ-079…086 and FAIL-025…030 are permanently reserved for SPEC-16 while it remains `Deferred Proposed`. Reserved Proposed rows are excluded from Accepted completeness, MUST NOT satisfy an Accepted gate and MUST NOT ever be reassigned to another document.
+## Requirements
 
-Until a separate dialogue/model transaction is approved, lifecycle state remains `Deferred Proposed`; implementation may only be an explicitly non-conforming PoC outside Accepted claims.
+| ID | Requirement |
+|---|---|
+| `REQ-079` | Typed input and finalized ASR use one canonical utterance/session path. |
+| `REQ-080` | The engine owns a bounded request/candidate protocol and deterministic per-role routing. |
+| `REQ-081` | Generated speech that claims a gameplay change waits for successful `WorldCommand` commit. |
+| `REQ-082` | Speech streaming is ordered, cancelable and presentation-only; barge-in never changes committed gameplay. |
+| `REQ-083` | Model packs, allowed transcripts and replay inputs are content-addressed; replay never regenerates model output. |
+| `REQ-084` | Model-pack validate/install/list/benchmark commands use stable CLI/JSON contracts and atomic publication. |
+| `REQ-085` | Remote providers are disclosed, consent-bound and default-off; missing consent fails closed to a local/text route. |
+| `REQ-086` | Voice cloning requires valid scoped consent and always has a licensed voice/subtitle fallback. |
+
+## Failure paths
+
+| ID | Trigger | Required result |
+|---|---|---|
+| `FAIL-025` | ASR/model absent, timed out, crashed or malformed | Select the bounded text fallback without blocking a tick. |
+| `FAIL-026` | Stale/invalid intent or gameplay commitment | Commit nothing and present a truthful authored response. |
+| `FAIL-027` | Late, reordered or duplicate TTS segment | Cancel the affected audio while preserving the canonical turn. |
+| `FAIL-028` | Invalid, hash-mismatched or license-incompatible pack | Quarantine it and retain the prior active revision. |
+| `FAIL-029` | Network unavailable or consent revoked | Send no request and use the declared local/text route. |
+| `FAIL-030` | `ai-host` restart or late result | Deduplicate by identity and never repeat a committed command. |
+
+`narrative-director` является compatibility role для optional future model-pack
+route из [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md).
+SPEC-31 владеет request/candidate/validation/fallback semantics и не зависит от
+всего speech/dialogue stack. Pack с этой role остаётся Proposed и
+optional; отсутствие совместимого pack выбирает `TemplateNarrativeDirector`, а
+не блокирует мир и не меняет mandatory outcome.
+
+Lifecycle остаётся `Deferred Proposed`; эти contracts не выбирают shipping model и не меняют Accepted runtime.

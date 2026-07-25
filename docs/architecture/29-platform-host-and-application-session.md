@@ -4,20 +4,18 @@
 |---|---|
 | ID | SPEC-29 |
 | Статус | Accepted |
-| Версия | 1.0 |
-| Владелец | Runtime Team |
-| Требуемые согласующие | Repository Owner, Architecture Working Group, Rendering Team, Player Experience Team, Asset & Persistence Team, Verification & Evidence Team, Release Engineering |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md), [ADR-024](adr/024-requirement-gate-evidence-and-profile-closure.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md) |
+| Версия | 2.0 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
 
 ## История принятия
 
 SPEC-29 подготовлен как часть consolidated architecture packet 1.8. Он
 фиксирует engine-owned platform normalization, one application-session state
-machine и composition-root parity. Принятие exact root означает только
-architecture admission; оно не создаёт implementation, gate `PASS`,
-`vertical-v1`, shipping-platform или release-readiness claim.
+machine и composition-root parity. Версия 2.0 сохраняет эти technical
+contracts и заменяет admission-oriented verification обычными product checks
+по ADR-030.
 
 ## Назначение и invariants
 
@@ -27,9 +25,9 @@ architecture admission; оно не создаёт implementation, gate `PASS`,
   authority.
 - `game`, `headless` and `capture-worker` MUST share project activation,
   command/schema/persistence/replay/runtime ordering and session transitions.
-- `headless` and `capture-worker` MUST make zero window, display and interactive
-  surface creation attempts. Capture uses only an explicit displayless
-  offscreen target owned by presentation.
+- `headless` and optional `capture-worker` MUST make zero window, display and
+  interactive surface creation attempts. Developer capture uses only an
+  explicit displayless offscreen target owned by presentation.
 - Close, final-save and terminal receipt MUST be exactly-once by stable request
   identity and survive restart.
 - Focus, suspend, resume, device loss and shutdown MUST be typed lifecycle
@@ -39,18 +37,18 @@ architecture admission; оно не создаёт implementation, gate `PASS`,
   no native event, OS/window/surface/display object, driver handle, task/future,
   ECS storage, importer record or vendor/backend type.
 
-## Source of truth и ownership
+## Technical authority boundary
 
-| State | Единственный owner/source of truth | Не является authority |
+| State | Authoritative representation | Не является authority |
 |---|---|---|
-| Native event collection and capability probing | private platform adapter, Rendering Team | event-loop object, driver callback, monitor handle |
+| Native event collection and capability probing | private platform adapter | event-loop object, driver callback, monitor handle |
 | Normalized platform facts | immutable `PlatformEventV1` stream | native event bytes after normalization |
 | Device-independent actions | SPEC-18 action mapper | physical key, controller, scan code |
 | Ingress tick assignment | Runtime `IngressAssignmentV1` | `PlatformTimebaseV1`, native time or render frame |
 | Session state and transition revision | Runtime `ApplicationSessionStateV1` | OS process state, window visibility, UI mode |
 | Project/runtime activation | exact `ProjectCompositionLock` plus Runtime activation receipt | filesystem, environment or launcher cache |
-| Save generation | Asset & Persistence Team | close callback or session UI |
-| Interactive presentation device | Rendering Team adapter | simulation or save |
+| Save generation | persistence transaction and published save manifest | close callback or session UI |
+| Interactive presentation device | private renderer/platform adapter | simulation or save |
 | Terminal close/save receipt | Runtime session journal | repeated callback result reconstructed from memory |
 
 ## Public contracts
@@ -202,7 +200,7 @@ Only these combinations are valid:
 | `Game` | `Interactive` or manifest-declared `None` diagnostic mode | Interactive target is adapter-owned; authoritative substrate is unchanged. |
 | `Headless` | `None` | No display/window/surface/device creation. |
 | `Tools` | `None` or `Interactive` | Tools never become authoritative gameplay path. |
-| `CaptureWorker` | `DisplaylessOffscreen` | Exact `CaptureJobManifest`; no interactive host objects. |
+| `CaptureWorker` | `DisplaylessOffscreen` | Optional developer capture input; no interactive host objects. |
 
 The manifest is immutable for one session. A normal session has no recovery
 link; a recovered session MUST bind the exact `RecoverySessionLinkV1` described
@@ -276,7 +274,7 @@ Every transition is validate → stage → atomic publish:
 3. if new, validate schema, identity, expected session revision/state and legal
    edge;
 4. resolve exact required capability/project/runtime/save preconditions;
-5. stage immutable owner results without publishing session state;
+5. stage immutable subsystem results without publishing session state;
 6. atomically publish one next session revision and its lifecycle event;
 7. reconstruct optional caches only after the transition.
 
@@ -538,7 +536,7 @@ The coordinator:
    `Active|Suspended → Quiescing` revision/event and advances to `Quiesced`;
 3. stops admitting new external proposals at the declared barrier;
 4. drains or deterministically cancels staged non-authoritative work and
-   completes already committed owner work;
+   completes already committed subsystem work;
 5. reserves or reads the durable final-save ledger entry;
 6. atomically publishes exactly one `Quiescing → Finalizing` revision/event
    and advances the operation journal to `Finalizing`;
@@ -647,37 +645,36 @@ Required stable codes include:
 Diagnostics use the SPEC-09 envelope with stable typed expected/actual fields,
 session/event/request IDs and causal references. Rendered text is not the oracle.
 
-## Verification gates
+## Product checks
 
-Each row is the canonical `GateDescriptorV1` source for its gate.
-
-| Gate | Primary owner | Contributors | Reproducible command/scenario | Pass threshold | Required evidence | Fallback | VS closure |
-|---|---|---|---|---|---|---|---|
-| `PLATFORM-HOST-P1` | Rendering Team | Runtime Team | `next gate PLATFORM-HOST-P1 --scenario platform-capability-lifecycle --cycles 10000 --faults all` | 10,000 capability/event/timebase/device-loss cycles produce exact normalized roots; 100% malformed, stale, missing and forbidden-target cases reject; headless/capture-worker make 0 interactive host creation attempts | capability/timebase/event manifests, normalized roots, creation-attempt audit and fault corpus | reject required host profile or use only the locked optional adapter fallback before activation | VS-01, VS-11, VS-15 |
-| `PLATFORM-INPUT-P1` | Player Experience Team | Rendering Team, Runtime Team | `next gate PLATFORM-INPUT-P1 --scenario input-to-tick-mapping --boundary-permutations all` | Exact native-sample permutations normalize to the same control/action bytes and ADR-022 assignments; N-1/N/N+1 cutoff corpus has 0 wall-time/frame-selected ticks or direct gameplay mutation | raw-fixture hashes, normalized control/action/assignment roots and boundary/collision diagnostics | reject affected input batch; retain prior authoritative state | VS-01, VS-03, VS-11 |
-| `SESSION-P1` | Runtime Team | Asset & Persistence Team, Rendering Team | `next gate SESSION-P1 --scenario application-session-lifecycle --cycles 10000 --roots game,headless,capture-worker` | 10,000 cycles cover every legal edge and root; exact transition/state/event roots, 0 illegal/partial transition, and exact authoritative root parity | session/project/profile manifests, transition journals, state/replay roots and root-parity report | preserve prior complete session revision and reject transition | VS-01, VS-02, VS-11, VS-15 |
-| `SESSION-RECOVERY-P1` | Runtime Team | Asset & Persistence Team, Rendering Team | `next gate SESSION-RECOVERY-P1 --scenario session-close-recovery --fault-boundaries all --cycles 10000` | Fault injection at every register/edge/save/receipt/recovery-link boundary and restart yields at most one committed save and one terminal receipt per close ID; exact retry from every journal stage ignores only the historical starting revision and executes one missing step; every retry-limit N-1/N/N+1, receipt-field tamper, full-request collision and recovery-link/lock/save mismatch has the exact result; 0 guessed/partial state and exact recovery roots | full close-request archive, operation/save/session journals, receipt/hash vectors, retry/fault matrix, recovery links, restart receipts and atomic-publication audit | retain journal-proven `Finalizing` progress/failure, close only with a verified allowed result, or recover one live session under the same lock/activation/last-safe generation | VS-02, VS-11, VS-15 |
+| ID | Scenario | Expected behavior | Fallback |
+|---|---|---|---|
+| `PLATFORM-HOST-P1` | Exercise capability, event, timebase, focus, suspend and device-loss cycles with malformed/stale/forbidden-target cases. | Normalized events remain bounded and stable; invalid inputs reject before Runtime mutation; `headless` and optional `capture-worker` create no interactive host objects. | Reject the required host profile or select only a project-declared optional adapter fallback before activation. |
+| `PLATFORM-INPUT-P1` | Feed equivalent native samples in different callback and batch permutations around the current/next ingress boundary. | Canonical control/action bytes and ADR-022 assignments match; wall time, native timestamp and render frame never select the simulation tick. | Reject the affected input batch and retain prior authoritative state. |
+| `SESSION-P1` | Run every legal and representative illegal lifecycle transition for `game`, `headless`, `tools` and optional `capture-worker`. | Each accepted edge publishes one complete revision/event; illegal or partial transitions publish nothing; authoritative gameplay behavior remains shared by game/headless roots. | Preserve the prior complete session revision and reject the transition. |
+| `SESSION-RECOVERY-P1` | Inject faults before and after close registration, lifecycle edges, save publication, receipt publication and restart. | A close ID creates at most one committed final save and one terminal receipt; exact retry resumes only the next journal-proven step and collision/tamper cases fail closed. | Retain journal-proven `Finalizing` progress, use only the policy-allowed last-safe generation, or recover one live session under the same project activation. |
 
 ## Requirements
 
-| ID | Требование | Primary owner | Contributors | Blocking gates | Required evidence | VS / profile closure |
-|---|---|---|---|---|---|---|
-| REQ-140 | `PlatformCapabilitySetV1`, `PlatformTimebaseV1`, `PlatformEventV1` and `NormalizedControlEventV1` MUST normalize bounded platform facts without exposing native types or selecting authoritative tick/outcome. | Rendering Team | Player Experience Team, Runtime Team | PLATFORM-HOST-P1, PLATFORM-INPUT-P1 | capability/timebase/event manifests, normalized roots, input boundary and forbidden-type audits | VS-01, VS-03, VS-11, VS-15 |
-| REQ-141 | Every composition root MUST use `ApplicationSessionManifestV1` and the exact closed lifecycle with validated atomic revision transitions. | Runtime Team | Asset & Persistence Team, Rendering Team | SESSION-P1 | session manifests, transition journals, root-parity and illegal-transition corpus | VS-01, VS-02, VS-11, VS-15 |
-| REQ-142 | `headless` and `capture-worker` MUST remain displayless while sharing the same authoritative project/runtime/schema/persistence/replay substrate as `game`. | Runtime Team | Rendering Team, Verification & Evidence Team | PLATFORM-HOST-P1, SESSION-P1 | host creation-attempt audit, composition hashes and game/headless/capture-worker state roots | VS-01, VS-02, VS-11, VS-15 |
-| REQ-143 | Close, bounded final-save attempts, terminal receipt and recovery MUST be exactly-once by a full canonical request identity and journal-proven progress across callback duplication, faults and restart; only `Closed` has a terminal close receipt, and failed required-save recovery MUST bind one new live session to the same project activation and verified last-safe generation. | Runtime Team | Asset & Persistence Team | SESSION-RECOVERY-P1 | close-request archive, operation/save/session journals, final-save receipt/hash vectors, recovery links, 10,000-cycle retry/fault matrix, restart and atomic-publication audit | VS-02, VS-11, VS-15 |
+| ID | Требование |
+|---|---|
+| REQ-140 | `PlatformCapabilitySetV1`, `PlatformTimebaseV1`, `PlatformEventV1` and `NormalizedControlEventV1` MUST normalize bounded platform facts without exposing native types or selecting authoritative tick/outcome. |
+| REQ-141 | Every composition root MUST use `ApplicationSessionManifestV1` and the exact closed lifecycle with validated atomic revision transitions. |
+| REQ-142 | `headless` and optional `capture-worker` MUST remain displayless while sharing the same authoritative project/runtime/schema/persistence/replay substrate as `game`. |
+| REQ-143 | Close, bounded final-save attempts, terminal receipt and recovery MUST be exactly-once by a full canonical request identity and journal-proven progress across callback duplication, faults and restart; only `Closed` has a terminal close receipt, and failed required-save recovery MUST bind one new live session to the same project activation and verified last-safe generation. |
 
 ## Failure paths
 
-| ID | Trigger | Required result | Primary owner | Contributors | Blocking gates | Required evidence | VS / profile closure |
-|---|---|---|---|---|---|---|---|
-| FAIL-058 | Malformed/unknown/colliding platform event, invalid timebase/capability, illegal lifecycle transition or forbidden interactive target | Reject the exact event/profile/transition before authoritative mutation; preserve prior session state and never derive tick/outcome from callback order or wall time. | Runtime Team | Rendering Team, Player Experience Team | PLATFORM-HOST-P1, PLATFORM-INPUT-P1, SESSION-P1 | negative corpus, prior/after roots, host-attempt and mutation audit | VS-01, VS-02, VS-03, VS-11, VS-15 |
-| FAIL-059 | Suspend/device-loss/close/save/finalize crash, retryable or terminal save failure, stale starting revision on exact retry, full-request/receipt/recovery-link collision or tamper, duplicate request or restart at any publication boundary | Lookup and compare the archived full request first; return exact prior journal progress/receipt or execute only its next missing step, preserving the last complete session/save generation. Create at most one committed final save and terminal receipt, never invent a state outside the closed enum, retain `Finalizing` with typed non-success when policy cannot close, and admit recovery only under the exact prior lock/activation/last-safe save. | Runtime Team | Asset & Persistence Team, Rendering Team | SESSION-RECOVERY-P1 | complete request/receipt/link tamper and retry/fault-injection matrix, durable journals, restart roots and exactly-once counters | VS-02, VS-11, VS-15 |
+| ID | Trigger | Required result |
+|---|---|---|
+| FAIL-058 | Malformed/unknown/colliding platform event, invalid timebase/capability, illegal lifecycle transition or forbidden interactive target | Reject the exact event/profile/transition before authoritative mutation; preserve prior session state and never derive tick/outcome from callback order or wall time. |
+| FAIL-059 | Suspend/device-loss/close/save/finalize crash, retryable or terminal save failure, stale starting revision on exact retry, full-request/receipt/recovery-link collision or tamper, duplicate request or restart at any publication boundary | Lookup and compare the archived full request first; return exact prior journal progress/receipt or execute only its next missing step, preserving the last complete session/save generation. Create at most one committed final save and terminal receipt, never invent a state outside the closed enum, retain `Finalizing` with typed non-success when policy cannot close, and recover only under the exact prior lock/activation/last-safe save. |
 
 ## Technology neutrality
 
 This specification selects no window/event library, operating-system API,
 graphics API, input library, UI toolkit, process supervisor or persistence
 backend. Implementations remain private adapters behind engine-owned contracts.
-Architecture acceptance does not certify Windows/Linux shipping, macOS
-shipping, GPU behavior, capture hardware or any implementation gate.
+Architecture acceptance alone does not establish Windows/Linux shipping,
+macOS shipping or GPU behavior. Optional capture hardware and developer media
+tools do not affect session correctness.

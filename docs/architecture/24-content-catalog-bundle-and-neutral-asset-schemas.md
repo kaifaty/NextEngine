@@ -5,19 +5,9 @@
 | ID | SPEC-24 |
 | Статус | Accepted |
 | Версия | 1.0 |
-| Владелец | Asset & Persistence Team |
-| Требуемые согласующие | Repository Owner, Architecture Working Group, Runtime Team, Rendering Team, Physical Embodiment Team, World Services Team, Importer Team, Security & Governance Team, Verification & Evidence Team, Release Engineering |
 | Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-024](adr/024-requirement-gate-evidence-and-profile-closure.md), [ADR-025](adr/025-schema-content-and-migration-authority.md) |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md) |
 | Заменяет | отсутствует |
-
-## История принятия
-
-SPEC-24 подготовлен как часть consolidated architecture packet 1.8. Он
-закрепляет engine-owned content catalog, logical bundle, target-variant и
-neutral asset contracts. Принятие exact packet root означает только
-architecture admission: оно не создаёт runtime implementation, verification
-gate `PASS`, `vertical-v1` conformance или release-readiness claim.
 
 ## Назначение и invariants
 
@@ -59,14 +49,14 @@ schema registry, cooker, project composition и runtime content consumers.
 |---|---|---|
 | Schema identity, field meaning and compatibility | SPEC-22 `SchemaRegistryManifestV1` and exact `SchemaRefV1` | Content records reference it; they do not redefine compatibility or migration |
 | Authored/imported neutral input before validation | Authoring adapter or external import process | Bounded staging only; never runtime authority |
-| Validated content catalog, dependency graph, variants and bundle roots | Asset & Persistence Team `ContentManifestV1` | Installer/cache indexes are reconstructible |
+| Validated content catalog, dependency graph, variants and bundle roots | Asset & Persistence subsystem `ContentManifestV1` | Installer/cache indexes are reconstructible |
 | Exact active content revision | `ProjectCompositionLock` content-manifest hash | Composition-root views cannot resolve or replace it |
 | Immutable asset/blob bytes | Published logical bundles | CPU/GPU/audio/nav caches are reconstructible |
 | Mutable world/RPG/physical/agent state | Owning runtime contexts from SPEC-01 | Neutral scene/chunk records are definitions, not mutable owner state |
 | Target presentation selection | Exact target-profile table bound by the project lock | Ambient device, driver, locale, filesystem or worker state cannot select content |
 | Source provenance | Canonical `ContentProvenanceV1` hash record | Raw source path, credentials and protected bytes are excluded |
 
-Asset & Persistence Team owns validation, cooking, content hashing and atomic
+Asset & Persistence subsystem owns validation, cooking, content hashing and atomic
 publication. Rendering, Physical Embodiment, Audio/Navigation and World
 Services consume immutable neutral records through their engine-owned
 boundaries. They MAY build private caches, but cannot write a second content
@@ -194,13 +184,13 @@ ContentProvenanceV1 {
   transform_recipe_sha256,
   coordinate_conversion_sha256,
   license_expression,
-  license_evidence_sha256[]
+  license_record_sha256[]
 }
 ```
 
 `origin_kind` is `ProjectAuthored`, `Generated` or `ImportedNeutral`.
 `source_identity_sha256` is a sanitized logical fingerprint, never a source
-path. Inputs and license evidence sort by full hash bytes. Missing producer,
+path. Inputs and license records sort by full hash bytes. Missing producer,
 input, conversion or license information required by project policy makes the
 record unpublished. Importer build identity is represented only by ordinary
 producer fields; no importer struct or source-specific enum crosses this
@@ -550,7 +540,7 @@ VariantSelectionV1 {
 }
 ```
 
-For admitted v1 runtime profiles, `target_triple_id` is exactly
+For supported v1 runtime profiles, `target_triple_id` is exactly
 `windows-x86_64` or `linux-x86_64`. Apple Silicon macOS MAY host the portable
 cooker/tool validation described here, but is not a game, renderer, packaging
 or shipping target profile. `fallback_target_profile_id` is optional and, when
@@ -566,7 +556,7 @@ Prohibited IDs sort by canonical bytes. A duplicate ID or an ID appearing in
 both required and prohibited sets invalidates the profile. The profile body's
 `target_triple_id` MUST equal its enclosing target profile. Hashes exclude
 their external hash field. Only engine-owned capability-contract IDs are
-admitted; vendor feature strings, driver objects and device handles are
+declared; vendor feature strings, driver objects and device handles are
 forbidden. A profile has at most 1,024 required and 1,024 prohibited IDs; one
 capability set has at most 4,096 available atoms.
 
@@ -1179,45 +1169,28 @@ inputs therefore produce one byte-identical first-cause diagnostic.
 | `CONTENT_PUBLICATION_INCOMPLETE` | Discard staging and recover prior complete generation. |
 | `CONTENT_HASH_COLLISION` | Security-fatal quarantine; never salt, rename or select by arrival order. |
 | `CONTENT_FORBIDDEN_PUBLIC_TYPE` | Reject schema/record and report the owning boundary; do not preserve opaque runtime extension. |
-| `NONDETERMINISTIC_RESULT` | Fail the gate at first differing record/blob/root; retry cannot turn it green. |
+| `NONDETERMINISTIC_RESULT` | Stop at the first differing record, blob or root and preserve the prior content generation. |
 
-## Canonical gate descriptors
+## Product checks
 
-The following are the only semantic descriptor definitions for
-`CONTENT-P1`, `BUNDLE-P1` and `VARIANT-P1`. All three have
-`descriptor_source_id = SPEC-24`, `classification = AcceptedBaseline` and
-`result_policy = Blocking`. The identity/graph and operational tables are two
-projections of the same three descriptor rows, joined exactly by gate ID; they
-do not define duplicate descriptors.
+| ID | Scenario / command | Expected behavior | Fallback |
+|---|---|---|---|
+| CONTENT-P1 | `next check neutral-content --targets windows-x86_64,linux-x86_64 --permutations 10000` | Scene, mesh, material, texture, skeleton, animation, audio, collision, navigation and world-chunk records re-encode to byte-identical manifests/domain roots; malformed schema, ID, unit, axis, bounds, duplicate, cycle, missing dependency, provenance and forbidden-boundary cases reject; runtime opens no source format or path. | Reject or quarantine the candidate and retain the prior exact manifest; imported data may be narrowed only by an explicit mapping. |
+| BUNDLE-P1 | `next check content-bundle-publication --targets windows-x86_64,linux-x86_64 --packing-permutations 10000 --fault-points all` | Packing and worker order produce one logical descriptor/blob/root set; missing, extra, corrupt, overflow, ratio, collision and hash cases reject; every publication fault exposes either the complete prior or complete new generation; all runtime roots observe the same domain closure. | Discard or quarantine staging and retain the published manifest and bundle set. |
+| VARIANT-P1 | `next check target-variant-selection --targets windows-x86_64,linux-x86_64 --profile-permutations 10000` | The twelve canonical vectors and profile/candidate permutations produce exact fallback plans and selections; invalid edges, capability mismatch, ambiguity, cycle, missing required payload and undeclared fallback reject; only declared presentation blob hashes may differ by target. | Follow only the lock-bound profile chain and exact portable/weak fallback; otherwise reject the required profile and retain prior content. |
 
-| Gate ID | Subject ID | Applicability | Parent gate IDs | Child gate IDs | VS / profile IDs |
-|---|---|---|---|---|---|
-| CONTENT-P1 | `nextengine.content.manifest-and-neutral-schemas.v1` | Every `ContentManifestV1` and neutral content revision admitted by a v1 project | — | — | VS-01, VS-05, VS-07, VS-10 |
-| BUNDLE-P1 | `nextengine.content.logical-bundle-publication.v1` | Every logical bundle required by an admitted v1 content manifest | — | — | VS-01, VS-08, VS-11 |
-| VARIANT-P1 | `nextengine.content.target-variant-selection.v1` | Every target/capability profile and fallback table admitted by a v1 project lock | — | — | VS-01, VS-07, VS-08, VS-11 |
+## Technical requirements
 
-| Gate ID | Subject / applicability | Primary owner | Reproducible command/scenario | Pass threshold | Required evidence | Fallback | Requirement IDs | Failure IDs | VS / profile closure |
-|---|---|---|---|---|---|---|---|---|---|
-| CONTENT-P1 | `ContentManifestV1`, dependency closure and all ten neutral schemas; every v1 project content revision | Asset & Persistence Team | `next gate CONTENT-P1 --scenario neutral-content-contract-v1 --targets windows-x86_64,linux-x86_64 --permutations 10000` | Positive corpus for scene, mesh, material, texture, skeleton, animation, audio, collision, navigation and world chunk re-encodes to byte-identical records/manifests/domain roots on both targets under 10,000 declaration/order permutations; 100% malformed schema, ID, unit, axis, bound, duplicate, cycle, missing dependency, provenance and forbidden-boundary cases reject with the expected code; public/link/source access scan has 0 forbidden public type and 0 runtime source-format/path open | Exact schema refs/registry hash, positive/negative neutral corpus, canonical record/manifest/domain hashes, dependency/provenance/license reports, public API/link/source-access scan and diagnostics | Reject/quarantine candidate, retain prior exact manifest; imported input may be narrowed only by a reviewed mapping, never approximated after the boundary | REQ-120, REQ-122 | FAIL-048 | VS-01, VS-05, VS-07, VS-10 |
-| BUNDLE-P1 | Logical descriptor/blob identity, completeness and atomic publication; every required content bundle | Asset & Persistence Team | `next gate BUNDLE-P1 --scenario content-bundle-publication-v1 --targets windows-x86_64,linux-x86_64 --packing-permutations 10000 --fault-points all` | 10,000 blob/pack/worker order permutations produce one exact logical descriptor/blob/root set; every missing, extra, corrupt, overflow, ratio, collision and hash case rejects; fault injection at every staging/validation/pointer boundary exposes either complete prior or complete new generation in 100% cases and 0 partial publication; `game`, `headless` and `capture-worker` observe identical manifest/domain closure | Bundle descriptors, blob/decoded hashes, Merkle roots, packing permutations, composition-root closure report, fault/power matrix, registry snapshots and write/source-access audit | Discard or quarantine staging and retain prior published manifest/bundle set; required activation remains blocked | REQ-121 | FAIL-049 | VS-01, VS-08, VS-11 |
-| VARIANT-P1 | Exact target-profile selection and portable fallback; every declared shipping/capture profile | Asset & Persistence Team | `next gate VARIANT-P1 --scenario target-variant-selection-v1 --targets windows-x86_64,linux-x86_64 --profile-permutations 10000` | All twelve canonical target-variant vectors defined above produce the specified effective profile, `VariantFallbackPlanV1`, payload choice or first-cause diagnostic; 10,000 capability/profile/candidate/declaration permutations produce exact plan/selection/profile roots; every missing/cross-target edge, capability mismatch, ambiguity, cycle, missing required payload and undeclared fallback rejects; optional weak presentation uses exactly the declared fallback; Windows/Linux neutral/schema/ID/dependency/domain roots and all composition-root gameplay hashes are exact while only declared presentation blob hashes may differ; ambient capability/order/path changes select 0 content | Target capability-profile/set bodies and hashes, all twelve canonical target-variant vectors, fallback plans/traces, target-profile manifests and selection tables, candidate/fallback negative corpus, diagnostics, profile/domain/bundle roots, project-lock and composition-root replay hashes, capability/source-access audit | Select only the first supported profile in the lock-bound pointer chain, then exact-profile/portable/declared weak fallback before activation; otherwise reject required profile and retain prior exact lock/content | REQ-123 | FAIL-049 | VS-01, VS-07, VS-08, VS-11 |
-
-Missing required platform/capture capability is `AwaitingCapability`, not
-`PASS`. Automatic results do not create architecture promotion, human approval
-or release status.
-
-## Requirements
-
-| ID | Нормативное требование | Primary owner | Contributors | Blocking gates | Required evidence | Fallback / fail-closed outcome | VS / profile closure |
-|---|---|---|---|---|---|---|---|
-| REQ-120 | One exact `ContentManifestV1` MUST bind the schema registry, canonical asset revisions, provenance, typed acyclic dependency closure and domain root; runtime MUST resolve no floating revision or ambient source. | Asset & Persistence Team | Runtime Team, Security & Governance Team | CONTENT-P1 | Canonical manifest/domain hashes, schema/dependency/provenance corpus and runtime source-access audit. | Reject candidate and retain the prior exact manifest/project lock. | VS-01, VS-05, VS-07, VS-10 |
-| REQ-121 | Every published content bundle MUST be an immutable logical descriptor plus exact blob set with the specified record/blob/Merkle hashes and one atomic no-partial-publication transition shared by `game`, `headless` and `capture-worker`. | Asset & Persistence Team | Runtime Team, Release Engineering | BUNDLE-P1 | Descriptor/blob/root vectors, packing permutations, composition-root closure report and publication fault matrix. | Discard/quarantine staging and retain the prior complete bundle generation. | VS-01, VS-08, VS-11 |
-| REQ-122 | Scene, mesh, material, texture, skeleton, animation, audio, collision, navigation and world-chunk content MUST use the bounded engine-owned neutral schemas, canonical units/axes/IDs and sanitized provenance above, with no source/tool/runtime-adapter type in public contracts. | Asset & Persistence Team | Rendering Team, Physical Embodiment Team, World Services Team, Importer Team | CONTENT-P1 | Ten-schema positive/negative corpus, canonical bytes/hashes, limits/unit/axis/ID validation and public API/link scan. | Reject invalid neutral record before cooking; never preserve a forbidden opaque runtime extension. | VS-01, VS-05, VS-07, VS-10 |
-| REQ-123 | Target variants MUST deterministically select the first capability-supported profile in the exact lock-bound pointer chain, bind its `VariantFallbackPlanV1`, permit target differences only for `PresentationOnly` blobs, preserve one exact domain closure and resolve candidates only by exact-profile, portable, then declared weak fallback priority. | Asset & Persistence Team | Rendering Team, Runtime Team, Verification & Evidence Team | VARIANT-P1 | Capability profile/set hashes, fallback plans/traces, selection/profile tables and hashes, all twelve canonical target-variant vectors, cross-target domain roots and composition-root replay hashes. | Use only the bound effective-profile/portable/weak fallback before activation; otherwise fail required profile pre-world. | VS-01, VS-07, VS-08, VS-11 |
+| ID | Technical requirement |
+|---|---|
+| REQ-120 | One exact `ContentManifestV1` MUST bind the schema registry, canonical asset revisions, provenance, typed acyclic dependency closure and domain root; runtime MUST resolve no floating revision or ambient source. |
+| REQ-121 | Every published content bundle MUST be an immutable logical descriptor plus exact blob set with the specified record/blob/Merkle hashes and one atomic no-partial-publication transition shared by `game`, `headless` and `capture-worker`. |
+| REQ-122 | Scene, mesh, material, texture, skeleton, animation, audio, collision, navigation and world-chunk content MUST use the bounded engine-owned neutral schemas, canonical units/axes/IDs and sanitized provenance above, with no source/tool/runtime-adapter type in public contracts. |
+| REQ-123 | Target variants MUST deterministically select the first capability-supported profile in the exact lock-bound pointer chain, bind its `VariantFallbackPlanV1`, permit target differences only for `PresentationOnly` blobs, preserve one exact domain closure and resolve candidates only by exact-profile, portable, then declared weak fallback priority. |
 
 ## Failure paths
 
-| ID | Trigger | Required result | Primary owner | Contributors | Blocking gates | Required evidence | Fallback / fail-closed outcome | VS / profile closure |
-|---|---|---|---|---|---|---|---|---|
-| FAIL-048 | Unknown/mismatched schema, noncanonical or oversized neutral record, invalid unit/axis/bounds/ID/provenance, duplicate identity, required dependency cycle/missing target, or forbidden source/tool/runtime-adapter type | Reject the affected record and complete manifest closure before cooking/publication; emit the stable first-cause diagnostic; publish no partial content or opaque approximation. | Asset & Persistence Team | Importer Team, Security & Governance Team | CONTENT-P1 | Negative ten-schema/dependency/provenance/limits corpus, canonical diagnostics, unchanged-registry proof and public/link/source-access scan. | Quarantine candidate and retain prior exact manifest; only `WeakPresentation` may use its exact declared fallback. | VS-01, VS-05, VS-07, VS-10 |
-| FAIL-049 | Missing/extra/corrupt blob, descriptor/root collision or mismatch, decoded-length/ratio overflow, publication fault, invalid capability profile/set, capability-set lock mismatch, exhausted/cyclic/cross-target profile chain, or ambiguous/missing target variant | Reject/quarantine the complete bundle/profile before visibility; emit the canonical first-cause variant diagnostic; every injected publication fault exposes only the complete prior or complete new generation; required activation remains pre-world. | Asset & Persistence Team | Runtime Team, Rendering Team, Release Engineering | BUNDLE-P1, VARIANT-P1 | Blob/root/packing corpus, all twelve canonical target-variant vectors, fallback plans/traces and diagnostics, fault/power matrix, registry snapshots, selection/domain roots and composition-root replay report. | Retain prior published bundle/lock; optional presentation uses only the exact bound weak fallback, otherwise fail closed. | VS-01, VS-07, VS-08, VS-11 |
+| ID | Trigger | Required result |
+|---|---|---|
+| FAIL-048 | Unknown/mismatched schema, noncanonical or oversized neutral record, invalid unit/axis/bounds/ID/provenance, duplicate identity, required dependency cycle/missing target, or forbidden source/tool/runtime-adapter type | Reject the affected record and complete manifest closure before cooking/publication; emit the stable first-cause diagnostic; publish no partial content or opaque approximation. |
+| FAIL-049 | Missing/extra/corrupt blob, descriptor/root collision or mismatch, decoded-length/ratio overflow, publication fault, invalid capability profile/set, capability-set lock mismatch, exhausted/cyclic/cross-target profile chain, or ambiguous/missing target variant | Reject or quarantine the complete bundle/profile before visibility; emit the canonical first-cause diagnostic; expose only the complete prior or complete new generation; optional presentation may use only its exact bound weak fallback. |

@@ -4,9 +4,8 @@
 |---|---|
 | ID | SPEC-06 |
 | Статус | Accepted |
-| Версия | 1.7 |
-| Владелец | Repository Owner |
-| Последняя проверка | 2026-07-23 |
+| Версия | 1.8 |
+| Последняя проверка | 2026-07-25 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md) |
 | Заменяет | отсутствует |
 
@@ -84,7 +83,7 @@ Agent planner MUST получать granted planner-visible `MechanicAffordance`
 | Working | текущая цель, plan, attention, short context | runtime-owned, bounded; checkpointed только если нужен resume |
 | Episodic | произошедшие события с time/place/participants/confidence | создаётся из DomainEvent через policy; append + consolidation |
 | Semantic | подтверждённые/выведенные facts и concepts | provenance + confidence + contradiction links |
-| Relationship | evidence/recollection о directed agent↔agent events и изменениях | current dimensions принадлежат RPG; memory создаётся из committed DomainEvent |
+| Relationship | observations/recollection о directed agent↔agent events и изменениях | current dimensions принадлежат RPG; memory создаётся из committed DomainEvent |
 | Narrative | retrieval/index recollection о quest/dialogue commitments, promises, unresolved hooks | authoritative commitments принадлежат RPG; свободный LLM текст не authority |
 
 Memory proposal содержит source event/fact IDs и не может retroactively менять DomainEvent или authoritative RPG field. Retention quotas и compaction deterministic относительно ordered records. SQLite — `Proposed` storage backend; schema/domain contracts engine-owned. Embedding index является rebuildable cache и optional: canonical memory доступна без embeddings.
@@ -102,15 +101,37 @@ Process получает минимальный serialized context, не filesys
 - Retrieval overload → bounded top-k/time budget and rule-based recent/relevant fallback.
 - Missing/incompatible AgentArchetype или learned behavior adapter → schema diagnostic и authored utility/HTN fallback; Agent Runtime не синтезирует motor actions.
 
-## Verification gates
+## Product checks
 
-| Gate | Сценарий | Threshold | Evidence | Fallback |
-|---|---|---|---|---|
-| AI-01 | same 100 scenarios with ai-host disabled | 100% gameplay/quest completion correctness; no blocked tick > gameplay budget | replay + outcome report | built-in planner/dialogue fallback fix |
-| AI-02 | kill/restart/timeout/malformed injection | 1 000 injections; 0 crash, 0 duplicate committed command, fallback selected ≤1 gameplay tick after deadline signal | fault report | circuit-break ai-host |
-| AI-03 | adversarial intents/fact staleness | 100% forbidden/stale mutations rejected, 0 direct state writes | validator audit | release block |
-| AI-04 | ADR-016 deterministic 100-NPC workload | весь due agent-planning work, queue handling и deterministic deferral помещаются в exclusive row p95 ≤1 250 us / p99 ≤1 500 us; exact membership/phase/due trace; no starvation, dropped work, LLM wait or unowned span | GameplayBudgetMatrix/workload hashes, per-tick due/queue/span trace | reduce deterministic planning cadence/LOD; integrated PERF-01 remains blocking |
-| MEMORY-P1 | SQLite candidate crash/compaction/migration corpus | 100% committed records recovered; canonical query parity exact; 1M records, indexed query p95 ≤20 ms; corruption fail-closed | DB fixtures/report | append-only log + compacted indexes |
-| AI-05 | restart save/load with and without embeddings | authoritative memory/relationship/narrative hashes exact; outputs remain schema-valid | save/replay report | rebuild/disable embeddings |
-| AI-06 | package affordance discovery | все planner-visible abilities exact MechanicsLock доступны по capability; added fixture ability используется без AI code change; invalid/stale affordance 100% rejected | registry/planner/replay report | manual-only ability/fix package |
-| AI-07 | AgentArchetype habits + motor capability boundary | reference habits produce only AgentIntent/InvokeAbility; 0 direct motor/gameplay mutation; all four capability states select declared deterministic outcomes with ai-host/adapter disabled | archetype schema audit, planner traces, replay report | disable behavior adapter; authored utility/HTN fallback |
+| Check ID | Scenario / command | Expected behavior / fallback |
+|---|---|---|
+| AI-01 | Same 100 scenarios with `ai-host` disabled | Gameplay and quest outcomes remain correct without blocking a tick; use the built-in planner/dialogue fallback. |
+| AI-02 | 1,000 kill/restart/timeout/malformed-result injections | No host crash or duplicate committed command; fallback is selected no later than one gameplay tick after the deadline signal. |
+| AI-03 | Adversarial intents and stale facts | Every forbidden or stale mutation is rejected and no direct state write is possible. |
+| AI-04 | ADR-016 deterministic 100-NPC workload | Due planning stays within p95 ≤1,250 us / p99 ≤1,500 us with deterministic deferral and no starvation, dropped work, LLM wait or unowned span; reduce planning cadence/LOD if needed. |
+| MEMORY-P1 | SQLite candidate crash, compaction and migration corpus | Every committed record is recovered, canonical queries match, and corruption fails closed; fall back to the append-only log with compacted indexes. |
+| AI-05 | Restart/save/load with and without embeddings | Authoritative memory, relationship and narrative state is identical; embeddings may be rebuilt or disabled. |
+| AI-06 | Package affordance discovery | Every granted planner-visible ability is discoverable, new fixture abilities need no AI code change, and invalid/stale affordances are rejected; otherwise mark the ability manual-only. |
+| AI-07 | Agent archetype habits and motor capability boundary | Habits emit only `AgentIntent`/`InvokeAbility`; every capability state selects its deterministic authored planner fallback without direct motor or gameplay mutation. |
+
+## Proposed SPEC-31 narrative-director role
+
+[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) предлагает
+отдельную Agent Intelligence role `narrative-director`. Она получает bounded
+immutable projection facts/quests/hooks/extension slots и возвращает только
+`NarrativeDirectorCandidateV1`; raw tools, code, arbitrary `WorldCommand` и
+mutable storage ей недоступны. RPG Framework выполняет deterministic validation
+и единственный atomic commit path.
+
+Existing `AgentIntent` остаётся Agent Intelligence-owned untrusted proposal, а не Quest.
+Agent Intelligence MAY превратить допустимое для делегирования намерение в
+`QuestCandidateV1`, но не создаёт Quest ID, не раскрывает его игроку, не назначает
+финальный challenge/XP и не фиксирует outcome. Direct contact и ответ на
+семантический вопрос игрока используют immutable projection уже допущенных
+RPG-owned возможностей.
+
+Timeout, crash, protocol mismatch, late/conflicting result или отсутствие
+`ai-host` не блокирует simulation tick: deterministic
+`TemplateNarrativeDirector` использует тот же request, validators и command
+path. Пока SPEC-31/ADR-029 остаются Proposed, эта роль не меняет Accepted
+`ai-host` authority.

@@ -1,79 +1,128 @@
-# ADR-017: Text-canonical multimodal dialogue и replaceable model packs
+# ADR-017: Text-canonical multimodal dialogue and replaceable model packs
 
 | Поле | Значение |
 |---|---|
 | ID | ADR-017 |
 | Статус | Proposed |
 | Lifecycle | Deferred Proposed |
-| Версия | 0.2 |
-| Владелец | Agent Intelligence Team |
-| Требуемые согласующие | Architecture Working Group, RPG Framework Team, World Services Team, Asset & Persistence Team, Developer Experience Team, Security & Governance Team, Verification & Evidence Team |
+| Версия | 0.3 |
 | Дата предложения | 2026-07-22 |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-16](../16-text-canonical-multimodal-dialogue-and-model-packs.md), [SPEC-01](../01-system-architecture.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-11](../11-security-licensing-and-governance.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-023](023-human-review-decision-v2-and-offline-attestation.md) |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-16](../16-text-canonical-multimodal-dialogue-and-model-packs.md), [SPEC-01](../01-system-architecture.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-11](../11-security-licensing-and-governance.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 
-## Статус предложения: Deferred Proposed
+## Process baseline ADR-030
 
-Этот ADR имеет lifecycle `Deferred Proposed`. Remediation candidate packet 1.6 фиксирует его reserved IDs и актуальные dependencies, но не принимает dialogue/model track и не объявляет ни один model/provider Accepted. ADR-005 остаётся authoritative process boundary до и после возможного принятия ADR-017.
+[ADR-030](030-product-first-development-and-lightweight-validation.md)
+определяет обычный repository workflow и risk-based product checks. Technical
+proposal и `Deferred Proposed` status этого ADR сохраняются; ни один
+model/provider не становится default до отдельного принятого решения.
+
+## Статус предложения
+
+ADR остаётся `Deferred Proposed`. [ADR-005](005-offline-first-ai-process-boundary.md)
+остаётся текущей authority для optional `ai-host`, process isolation и
+deterministic in-process fallback. SPEC-16 подробно описывает candidate
+contracts, но пока не превращает их в shipped baseline.
 
 ## Контекст
 
-Accepted architecture уже требует optional `ai-host`, deterministic dialogue fallback и validation `AgentIntent`, но оставляет открытыми вопросы:
+Accepted architecture уже требует optional `ai-host`, deterministic dialogue
+fallback и validation `AgentIntent`, но оставляет открытыми вопросы:
 
 - являются ли audio и text разными gameplay paths;
-- можно ли показывать/озвучивать streaming sentence до authoritative command outcome;
-- как model/provider replacement связывается с hashes, licenses, resources и fallback;
+- можно ли показывать или озвучивать streaming sentence до authoritative
+  command outcome;
+- как model/provider replacement связывается с hashes, licenses, resources и
+  fallback;
 - что сохраняется в save/replay и можно ли повторно вызывать model;
-- как remote service и voice cloning получают consent;
-- какие latency/quality/security gates отделяют model-card claim от Next Engine evidence.
+- как remote service и voice cloning получают explicit opt-in;
+- какие latency, quality и security checks отделяют model-card claims от
+  наблюдаемого поведения Next Engine.
 
-Skyrim AI projects подтверждают практическую ценность role-separated ASR/LLM/TTS, per-role routing, sentence streaming, prewarm и hash-verified downloads. Их in-process DLL/direct-action approaches не соответствуют Next Engine isolation и mutation boundaries.
+Role-separated ASR/LLM/TTS, per-role routing, sentence streaming, prewarm и
+hash-verified downloads полезны как reference patterns. In-process
+DLL/direct-action integrations не соответствуют Next Engine isolation и
+mutation boundaries.
 
-## Решение
+## Предлагаемое решение
 
-При принятии:
-
-1. **Text is canonical.** Typed input и finalized ASR создают один `CanonicalUtterance`. Audio, partial transcript, model tokens и PCM остаются ephemeral/presentation data.
-2. **Per-role replacement.** ASR, dialogue, TTS, embeddings и audio understanding выбираются отдельно детерминированным `DialogueCapabilityProfile`; end-to-end vendor lock-in не является public contract.
-3. **Isolated execution.** Все generative/speech roles остаются в optional `ai-host` по ADR-005. In-process generative model запрещён; small motor-policy exception ADR-005 к dialogue не применяется.
-4. **Untrusted candidate.** Provider tool/function output может стать только declared `AgentIntent`. Gameplay state меняется исключительно после common validator и atomic WorldCommand commit.
-5. **Truthful streaming.** Validated presentation-only sentence можно показывать/озвучивать сразу. Quest/trade/relationship/inventory commitment удерживается до corresponding command commit; rejected proposal получает authored response.
-6. **Replay does not regenerate.** Replay использует recorded canonical utterances, accepted commands and exact PCM root when audio evidence is required. Provider/model is never called during replay/capture.
-7. **Optional packs.** Base game ships no generative weights. Local models arrive as separately installed immutable `AiModelPackManifest` closures with hash, license, provenance, compatibility, resources, evidence and fallback.
-8. **Remote is opt-in.** `AiProviderProfile` declares data categories, retention, region, terms/pricing snapshot and consent revision; credentials remain external. Revocation selects local/text fallback.
-9. **Voice cloning is denied by default.** Exact scoped consent/provenance must pass `VOICE-L1`; otherwise use licensed default voice or subtitles.
-10. **Models remain hypotheses.** Every exact model artifact stays `Proposed` until role, end-to-end, license and consent gates pass on declared profiles. Protocol acceptance never auto-accepts a model.
+1. **Text is canonical.** Typed input и finalized ASR создают один
+   `CanonicalUtterance`. Audio, partial transcript, model tokens и PCM остаются
+   ephemeral/presentation data.
+2. **Per-role replacement.** ASR, dialogue, TTS, embeddings и audio
+   understanding выбираются отдельно deterministic
+   `DialogueCapabilityProfile`; end-to-end vendor lock-in не входит в public
+   contract.
+3. **Isolated execution.** Generative/speech roles остаются в optional
+   `ai-host` по ADR-005. In-process generative model запрещён; small
+   motor-policy exception ADR-005 к dialogue не применяется.
+4. **Untrusted candidate.** Provider tool/function output становится только
+   declared `AgentIntent`. Gameplay state меняется после common validator и
+   atomic `WorldCommand` commit.
+5. **Truthful streaming.** Validated presentation-only sentence можно показать
+   или озвучить сразу. Quest, trade, relationship и inventory commitment
+   удерживаются до corresponding command commit; rejected proposal получает
+   authored response.
+6. **Replay does not regenerate.** Replay использует recorded canonical
+   utterances, accepted commands и recorded PCM root, когда session сохраняет
+   exact audio. Provider/model во время replay не вызывается.
+7. **Optional packs.** Base game не содержит generative weights. Local models
+   устанавливаются отдельно как immutable `AiModelPackManifest` closure с hash,
+   license, provenance, compatibility, resource limits и fallback.
+8. **Remote is opt-in.** `AiProviderProfile` declares data categories,
+   retention, region, terms/pricing snapshot и local opt-in revision;
+   credentials остаются external. Revocation выбирает local/text fallback.
+9. **Voice cloning is denied by default.** Exact scoped consent и provenance
+   проверяются до use; иначе используются licensed default voice или subtitles.
+10. **Models remain hypotheses.** Exact model artifact остаётся `Proposed`, пока
+    role, end-to-end, license, consent и resource checks не пройдут на declared
+    profiles. Принятие protocol не выбирает model автоматически.
 
 ## Рассмотренные варианты
 
-- **Separate text and voice gameplay paths** — Rejected: diverging semantics, duplicate quest handling and replay ambiguity. Both converge at `CanonicalUtterance`.
-- **Audio-native end-to-end model as authority** — Rejected: hides intermediate text, weakens validation/replay and creates vendor lock-in. It MAY be an adapter only if it emits the same engine-owned contracts.
-- **In-process generative runtime like native Skyrim DLL integrations** — Rejected by ADR-005: crash/memory/network isolation and optional fallback are mandatory.
-- **Direct LLM actions/tool calls** — Rejected: capability/rule/freshness/transaction validation cannot be delegated to a model.
-- **Cloud-required quality baseline** — Rejected: account, pricing, network and retention cannot determine offline correctness.
-- **Bundled universal model in base game** — Rejected for v1: hardware, language, license and distribution envelopes vary; optional packs preserve replacement and small base distribution.
-- **Regenerate dialogue during replay** — Rejected: model/provider drift makes past behavior unrecoverable.
-- **Start TTS only after complete turn** — Rejected as universal rule: sentence streaming reduces perceived latency. Stateful sentences still wait for commit.
+- **Separate text and voice gameplay paths** — `Rejected`: diverging semantics,
+  duplicate quest handling и replay ambiguity. Both converge at
+  `CanonicalUtterance`.
+- **Audio-native end-to-end model as authority** — `Rejected`: скрывает
+  intermediate text, ослабляет validation/replay и создаёт vendor lock-in.
+- **In-process generative runtime** — `Rejected` по ADR-005: crash, memory и
+  network isolation должны сохраняться.
+- **Direct LLM actions/tool calls** — `Rejected`: capability, rule, freshness и
+  transaction validation нельзя делегировать model.
+- **Cloud-required quality baseline** — `Rejected`: account, pricing, network и
+  retention не определяют offline correctness.
+- **Bundled universal model in base game** — `Rejected` для v1: hardware,
+  language, license и distribution envelopes различаются.
+- **Regenerate dialogue during replay** — `Rejected`: model/provider drift
+  делает прошлое поведение невоспроизводимым.
 
-## Consequences
+## Product checks
 
-- Public contracts gain turn, pack, provider, capability, stream and consent values defined by SPEC-16.
-- RPG Framework remains authoritative for dialogue/commitments; Agent Intelligence owns proposals/routing; World Services owns audio presentation; Asset/Persistence owns immutable model catalog/replay references.
-- Tooling must eventually provide atomic validate/install/list/benchmark operations and structured diagnostics.
-- Project authors must provide authored text fallback for every required dialogue outcome.
-- Model/voice changes resolve `audio` and possibly narrative impact; automatic evidence precedes human review.
-- Local quality may vary by pack/hardware, but mandatory gameplay outcome remains identical.
+| Сценарий | Ожидаемый результат | Fallback |
+|---|---|---|
+| Typed input и finalized ASR выражают одну semantic utterance | Оба пути создают одинаковый bounded `CanonicalUtterance`; replay использует recorded value и не вызывает provider | Authored text input и authored response |
+| ASR, dialogue и TTS adapters заменяются по одной роли, включая timeout/crash/bad version | Engine-owned contracts и committed gameplay outcome сохраняются; failure изолирован от tick loop | Следующий declared local role adapter, затем `TextOnlyFallback` |
+| Remote provider получает запрос после explicit local opt-in | Передаются только declared data categories; credentials не входят в manifest/log; offline gameplay остаётся рабочим | Local model либо authored text |
+| Voice pack без exact license, provenance или scoped consent | Pack отвергается до playback/installation mutation | Licensed default voice или subtitles |
+| Model pack превышает bounds, несовместим со schema/profile или меняет output при replay | Pack не выбирается; stable diagnostic указывает role, artifact и incompatible field | Следующий compatible immutable pack либо authored text |
 
-## Gates и fallback
+## Последствия
 
-The acceptance contract is the complete `DIALOGUE-P1/P2`, `MODEL-ASR-P1`, `MODEL-DIALOGUE-P1`, `MODEL-TTS-P1`, `MODEL-E2E-P1`, `MODEL-L1` and `VOICE-L1` matrix in SPEC-16. A candidate failing any applicable gate remains `Proposed` or becomes `Rejected`; fallback is the next declared role route and ultimately `TextOnlyFallback`. Thresholds are not weakened to promote a preferred vendor.
+- Public contracts при принятии получат turn, pack, provider, capability, stream
+  и consent values из SPEC-16.
+- RPG Framework сохраняет authority над dialogue commitments; Agent
+  Intelligence создаёт proposals/routing; World Services воспроизводит audio;
+  Asset/Persistence хранит immutable model catalog и replay references.
+- Project authors предоставляют authored text fallback для каждого обязательного
+  dialogue outcome.
+- Base gameplay outcome не зависит от local model quality или hardware.
 
-ADR acceptance itself requires documentation/schema review, ownership/security approval and exact promotion closure; it does not claim model runtime PASS, Windows/Linux shipping evidence or `vertical-v1` conformance.
+## Supersession
 
-## Promotion и supersession
-
-Approval is one separate atomic transaction described by SPEC-16: synchronize SPEC-01/03/06/07/08/09/11/12/15, glossary, traceability and evidence references; activate the permanently reserved REQ-079…086 and FAIL-025…030 rows; preserve fifteen VS gates and map dialogue coverage into VS-03/04/12/15. Until then those rows remain Proposed-only, are excluded from Accepted completeness and cannot be reassigned.
-
-ADR-017 does not supersede ADR-005, ADR-022 or ADR-023. A future decision allowing mandatory cloud, in-process generative dialogue, direct model mutation, non-text authoritative dialogue or model regeneration during replay requires a new superseding ADR.
+ADR-017 не заменяет ADR-005, ADR-022 или ADR-030. Принятие proposal требует
+короткого нового решения либо смены статуса с синхронным обновлением SPEC-16 и
+lightweight traceability. Mandatory cloud, in-process generative dialogue,
+direct model mutation, non-text authoritative dialogue или regeneration during
+replay требуют отдельного superseding ADR.

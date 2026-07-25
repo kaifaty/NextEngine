@@ -4,9 +4,8 @@
 |---|---|
 | ID | SPEC-21 |
 | Статус | Accepted |
-| Версия | 1.0 |
-| Владелец | Repository Owner |
-| Последняя проверка | 2026-07-24 |
+| Версия | 1.1 |
+| Последняя проверка | 2026-07-25 |
 | Нормативные зависимости | [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | отсутствует |
 
@@ -14,11 +13,18 @@
 
 SPEC-21 закрывает единый deterministic compatibility contract для command identity/admission, causal IDs, virtual time, input cutoff, RNG, system/task scheduling, reductions и authoritative numerics. Профиль является production architecture, а не test harness: один и тот же путь MUST использоваться в `game`, deterministic `headless`, `tools` там, где они исполняют simulation, и displayless `capture-worker`.
 
-Runtime Team владеет validation/admission, tick assignment, command ledger, RNG streams, schedule и numeric execution. Persistence Team владеет atomic representation в save/replay. Профильные subsystem owners владеют payload schemas и значениями своих полей, но не могут создавать альтернативный command/RNG/schedule/numeric path.
+Для authoritative simulation принят bit-exact класс на declared Windows
+x86_64/Linux x86_64 profiles: два run эквивалентны тогда и только тогда, когда
+на каждом stage-11 tick boundary совпадают canonical commands/rejections,
+receipts, RNG states, events и authoritative state root. Presentation pixels,
+optional model diagnostics и reconstructible caches в этот predicate не входят
+и не могут менять перечисленные значения.
+
+Runtime subsystem владеет validation/admission, tick assignment, command ledger, RNG streams, schedule и numeric execution. Persistence subsystem владеет atomic representation в save/replay. Профильные subsystem owners владеют payload schemas и значениями своих полей, но не могут создавать альтернативный command/RNG/schedule/numeric path.
 
 Public contracts находятся в `crates/contracts` и используют только engine-owned nominal IDs, fixed-width values, canonical bytes и immutable manifests. ECS components/storage, raw pointers, task/future handles, wall-clock objects, OS input objects, physics/backend types и database connections запрещены в public schemas.
 
-Документ детализирует runtime/persistence/physics/extension/testing boundaries [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) и [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md). Dependency metadata остаётся направленной от этих consumers к ADR-022/SPEC-21; перечисление здесь не создаёт обратного normative edge.
+Документ детализирует runtime, persistence, physics и extension boundaries [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-07](07-rpg-scripting-and-plugins.md) и [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md). Dependency metadata остаётся направленной от этих consumers к ADR-022/SPEC-21; перечисление здесь не создаёт обратного normative edge.
 
 ## Канонические базовые правила
 
@@ -56,7 +62,7 @@ RuntimeAdmissionLimitsV1 {
 }
 ```
 
-Defaults являются v1 profile. Project MAY выбрать меньший bound до world creation; увеличение требует отдельного named profile и повторения security/performance gates. Значения `receipt_window_size` и `max_pending_per_stream` для conforming v1 MUST оставаться 4096/256. Boundary violation возвращает stable owner-specific `*_RESOURCE_LIMIT` до allocation/ledger/gameplay mutation. Gates проверяют `N-1/N/N+1`.
+Defaults являются v1 profile. Project MAY выбрать меньший bound до world creation; увеличение требует отдельного named profile и повторения security/performance checks. Значения `receipt_window_size` и `max_pending_per_stream` для v1 runtime profile MUST оставаться 4096/256. Boundary violation возвращает stable owner-specific `*_RESOURCE_LIMIT` до allocation/ledger/gameplay mutation. Product checks cover `N-1/N/N+1`.
 
 ## Public command schemas
 
@@ -1466,76 +1472,64 @@ batch_hash = SHA256(
 
 Hash field находится только во внешнем `ClosedCommandAdmissionBatchV2` и не входит в собственный preimage.
 
-Malformed/unauthenticated transport bytes не являются gameplay input; audit MAY хранить только raw hash/diagnostic отдельно. Runtime-generated Outcome повторно выводится production systems; expected receipts/events MAY быть oracle, но execution повторно проходит production validator/ledger/RNG/schedule path. First mismatch command bytes/hash/rejection/receipt, assignment, RNG state, schedule delta, projection, event или state root немедленно даёт `NONDETERMINISTIC_RESULT` с first divergent tick/stage/owner; retry-to-green запрещён.
+Malformed/unauthenticated transport bytes не являются gameplay input; отдельно MAY храниться только raw hash/diagnostic. Runtime-generated Outcome повторно выводится production systems; expected receipts/events MAY быть oracle, но execution повторно проходит production validator/ledger/RNG/schedule path. First mismatch command bytes/hash/rejection/receipt, assignment, RNG state, schedule delta, projection, event или state root немедленно даёт `NONDETERMINISTIC_RESULT` с first divergent tick/stage/owner; repeating identical inputs cannot change that result.
 
 Corrupt/incompatible ledger, invalid RNG state, unknown schedule/numeric profile или partial Outcome checkpoint fail-closed. Loader работает с копией, сохраняет предыдущую valid save generation и не публикует partial state.
 
-## Requirements
+## Technical requirements
 
-| ID | Требование | Primary owner | Contributors | Blocking gates |
-|---|---|---|---|---|
-| REQ-103 | `CanonicalCommandBodyV2` MUST быть несамоссылочным, иметь exact canonical encoding/full body hash/computed ID и проверять envelope claim до mutation. | Runtime Team | Persistence Team, Security & Governance Team | COMMAND-ID-P1, CANON-01, RUNTIME-06 |
-| REQ-104 | World, principal, stream, event и runtime-created durable identity MUST иметь persisted causal derivation, provenance и fail-closed collision policy. | Runtime Team | Persistence Team | CAUSAL-ID-P1, RUNTIME-07, SAVE-01, REPLAY-01 |
-| REQ-105 | Каждый command stream MUST иметь persisted high-watermark, pending reservations, fixed 4096 receipt window, chain root и exact retry/collision/finalized/exhaustion/restart semantics. | Runtime Team | Persistence Team, Security & Governance Team | COMMAND-LEDGER-P1, COMMAND-V1-INVENTORY-P1, RUNTIME-06, SAVE-01, SAVE-02, REPLAY-01 |
-| REQ-106 | `game`, `headless`, `capture-worker` и replay MUST разделять admission, priority/order, two-phase Ingress/Outcome transaction и receipt semantics. | Runtime Team | RPG Framework Team, Physical Simulation Team | COMMAND-LEDGER-P1, RUNTIME-06, HEADLESS-01, CAPTURE-01, ARCH-02 |
-| REQ-107 | Input и async completion MUST назначаться current/next virtual tick exact cutoff-ом, canonical source ordering и recorded assignment без wall-clock authority. | Runtime Team | Platform Team, Verification & Evidence Team | CLOCK-P1, RUNTIME-03, REPLAY-01 |
-| REQ-108 | Authoritative randomness MUST использовать versioned named ChaCha12 streams с exact derivation, operations, state persistence и exhaustion behavior. | Runtime Team | RPG Framework Team, Gameplay Extensibility Team | RNG-P1, SAVE-02, REPLAY-01 |
-| REQ-109 | System/task execution MUST использовать stable DAG, ordered queries, worker-independent logical shards, deterministic merge и declared exact reducers. | Runtime Team | Verification & Evidence Team | SCHEDULE-P1, RUNTIME-01, RUNTIME-03 |
-| REQ-110 | Authoritative arithmetic и physics boundary MUST использовать hash-bound checked fixed-point/quantization/overflow profile, сохранённый в compatibility metadata. | Runtime Team | Physical Simulation Team, Persistence Team | NUMERIC-P1, CANON-01, SAVE-02, REPLAY-01, PHYS-P2, PHYS-P3 |
+| ID | Technical requirement |
+|---|---|
+| REQ-103 | `CanonicalCommandBodyV2` MUST быть несамоссылочным, иметь exact canonical encoding/full body hash/computed ID и проверять envelope claim до mutation. |
+| REQ-104 | World, principal, stream, event и runtime-created durable identity MUST иметь persisted causal derivation, provenance и fail-closed collision policy. |
+| REQ-105 | Каждый command stream MUST иметь persisted high-watermark, pending reservations, fixed 4096 receipt window, chain root и exact retry/collision/finalized/exhaustion/restart semantics. |
+| REQ-106 | `game`, `headless`, `capture-worker` и replay MUST разделять admission, priority/order, two-phase Ingress/Outcome transaction и receipt semantics. |
+| REQ-107 | Input и async completion MUST назначаться current/next virtual tick exact cutoff-ом, canonical source ordering и recorded assignment без wall-clock authority. |
+| REQ-108 | Authoritative randomness MUST использовать versioned named ChaCha12 streams с exact derivation, operations, state persistence и exhaustion behavior. |
+| REQ-109 | System/task execution MUST использовать stable DAG, ordered queries, worker-independent logical shards, deterministic merge и declared exact reducers. |
+| REQ-110 | Authoritative arithmetic и physics boundary MUST использовать hash-bound checked fixed-point/quantization/overflow profile, сохранённый в compatibility metadata. |
 
 ## Failure paths
 
-| ID | Trigger | Required result | Primary owner | Contributors | Blocking gates |
-|---|---|---|---|---|---|
-| FAIL-039 | Claimed-ID mismatch, command/body collision, sequence conflict/reuse/finalized/time regression/exhaustion | Stable diagnostic; no partial gameplay mutation; exact prior result preserved; external stream isolated where specified; internal collision fatal | Runtime Team | — | COMMAND-ID-P1, COMMAND-LEDGER-P1, RUNTIME-06 |
-| FAIL-040 | World/stream/event/PersistentId collision, invalid causal provenance или corrupt ledger/save | Fail closed before partial load/commit; previous valid save retained; internal identity collision stops instance | Runtime Team | Persistence Team | CAUSAL-ID-P1, COMMAND-LEDGER-P1, RUNTIME-07, SAVE-02 |
-| FAIL-041 | Invalid/late/conflicting input, stale/conflicting completion, invalid RNG state/request или RNG exhaustion | Exact reject/defer result, unchanged unauthorized state, no partial task/RNG commit | Runtime Team | — | CLOCK-P1, RNG-P1, RUNTIME-03 |
-| FAIL-042 | Schedule cycle/access ambiguity/duplicate stable key/unordered authority, reducer or numeric overflow, nonfinite physics value либо repeat divergence | Pre-world rejection или atomic transaction abort; divergence is `NONDETERMINISTIC_RESULT`; no retry-to-green | Runtime Team | — | SCHEDULE-P1, NUMERIC-P1, RUNTIME-01, TEST-01 |
+| ID | Trigger | Required result |
+|---|---|---|
+| FAIL-039 | Claimed-ID mismatch, command/body collision, sequence conflict/reuse/finalized/time regression/exhaustion | Return a stable diagnostic, publish no partial gameplay mutation, preserve the prior exact result, isolate an external stream where specified and treat internal collision as fatal. |
+| FAIL-040 | World/stream/event/`PersistentId` collision, invalid causal provenance or corrupt ledger/save | Fail closed before partial load/commit, retain the previous valid save and stop the instance on internal identity collision. |
+| FAIL-041 | Invalid/late/conflicting input, stale/conflicting completion, invalid RNG state/request or RNG exhaustion | Produce the exact reject/defer result with no unauthorized state change or partial task/RNG commit. |
+| FAIL-042 | Schedule cycle/access ambiguity/duplicate stable key/unordered authority, reducer or numeric overflow, nonfinite physics value or repeat divergence | Reject before world activation or abort the complete transaction; divergence returns `NONDETERMINISTIC_RESULT`. |
 
-## Verification gates
+## Product checks
 
-| Gate | Owner | Threshold | Evidence | Fallback | VS / profile closure |
-|---|---|---|---|---|---|
-| COMMAND-ID-P1 | Runtime Team | On Body/envelope, Unicode/schema, claim, collision and every command/name/capability/precondition/batch bound at N-1/N/N+1: 100% canonical bytes/full hashes/IDs/codes exact on Windows x86_64 and Linux x86_64; invalid vectors mutate 0 gameplay state | Neutral corpus, raw bytes/hashes, limits matrix, validator/ledger report | Blocking schema/hash fix | VS-11; shipping exact-command profile |
-| CAUSAL-ID-P1 | Runtime Team | On world/principal/stream/event/spawn/retry/tombstone/save corpus: 100% golden IDs exact; every provenance collision fails before alternate ID/mutation | Identity manifests, vectors, provenance/tombstone snapshots | Blocking identity/migration fix | VS-02, VS-11; persisted identity profile |
-| COMMAND-LEDGER-P1 | Runtime Team | At receipt totals 0/1/4095/4096/4097, pending 255/256/257 and 10 000 arrival/restart permutations: exact high-watermark/pending/window/chain/receipt/event/state roots | Ledger/save/journal snapshots, receipt chains, stage/recovery report | Blocking ledger/recovery fix | VS-02, VS-04, VS-11; save/replay profile |
-| CLOCK-P1 | Runtime Team | On before/at/after cutoff, duplicate/collision/late/completion and input/result size bounds at N-1/N/N+1: 100% current/next assignments exact; wall time/worker variation changes 0 outcomes | Input/completion corpus, limits matrix, assignment/stage traces, replay | Serialize close barrier behind same contract | VS-04, VS-11; virtual-time profile |
-| RNG-P1 | Runtime Team | On standard blocks, helpers, rollback, continuation and exhaustion: 100% raw blocks plus at least 10 000 draws/stream exact across Windows/Linux; invalid calls mutate 0 state | Key/nonce/block vectors, draw/state/save reports | Blocking engine-owned implementation fix | VS-02, VS-06, VS-11; deterministic RNG profile |
-| SCHEDULE-P1 | Runtime Team | At least 1 000 registration/completion permutations and worker counts 1/2/8/16 produce exact schedule/shard/delta/event/state roots; 100% ambiguity/cycles rejected | Manifests, DAG/stage/shard/task/delta traces | Serialize execution behind same manifest | VS-11, VS-15; deterministic schedule profile |
-| NUMERIC-P1 | Runtime Team | On checked integer/fixed-point/IEEE conversion/physics thresholds: 100% raw results/projection roots exact across Windows/Linux; every invalid value aborts atomically | Numeric corpus, raw calculations, projection/state roots | Blocking numeric/adapter fix | VS-11, VS-14; authoritative numeric/physics profile |
-| COMMAND-V1-INVENTORY-P1 | Persistence Team | 0 admitted v1 artifacts or one separately Accepted migration covering 100% discovered hashes; unknown result is gate failure | Inventory manifest, hashes, migration decision and fixtures | Keep implementation admission blocked | VS-02, VS-12; migration profile |
+| ID | Scenario / command | Expected behavior | Fallback |
+|---|---|---|---|
+| COMMAND-ID-P1 | `next check command-id --bounds n-1,n,n+1 --targets windows-x86_64,linux-x86_64` | Body/envelope, Unicode/schema, claim and collision vectors produce exact canonical bytes, hashes, IDs and codes; invalid vectors mutate no gameplay state. | Reject the schema/hash implementation. |
+| CAUSAL-ID-P1 | `next check causal-id --cases world,principal,stream,event,spawn,retry,tombstone,save` | Golden IDs are exact and every provenance collision fails before alternate ID or mutation. | Retain the prior identity state and reject the operation. |
+| COMMAND-LEDGER-P1 | `next check command-ledger --receipts 0,1,4095,4096,4097 --pending 255,256,257 --permutations 10000` | High-watermark, pending set, receipt window/chain and event/state roots remain exact across arrival and restart permutations. | Retain the previous checkpoint and reject the incompatible ledger. |
+| CLOCK-P1 | `next check ingress-cutoff --bounds n-1,n,n+1 --permutations all` | Before/at/after cutoff, duplicate, collision, late and completion vectors produce exact current/next assignments; worker and wall-time variation changes no outcome. | Serialize the close barrier through the same contract. |
+| RNG-P1 | `next check rng --draws 10000 --targets windows-x86_64,linux-x86_64` | Standard blocks, helpers, rollback, continuation and exhaustion produce exact bytes/state; invalid calls mutate no state. | Reject the incompatible RNG implementation. |
+| SCHEDULE-P1 | `next check schedule --permutations 1000 --workers 1,2,8,16` | Schedule, shard, delta, event and state roots remain exact; access ambiguity and cycles reject. | Serialize execution behind the same manifest. |
+| NUMERIC-P1 | `next check numerics --targets windows-x86_64,linux-x86_64` | Checked integer/fixed-point/IEEE conversion and physics thresholds produce exact results; every invalid value aborts atomically. | Reject the numeric/backend adapter. |
+| COMMAND-V1-COMPAT | `next check command-v1-compat --artifacts all` | Legacy artifacts are either absent or every known hash has one explicit versioned migration; unknown legacy input rejects. | Use a compatible older reader or explicit migration/export. |
 
-Mac developer-host vectors дают portable tooling evidence, но не заменяют Windows/Linux shipping runs. Gates остаются `AwaitingCapability`, если required target отсутствует; они не становятся PASS по результату другого target.
+Windows and Linux must both satisfy cross-target checks; a result from another target does not substitute for a missing target run.
 
-## Existing gate и vertical mappings
+## Legacy compatibility and technology neutrality
 
-| Existing gate / vertical | SPEC-21 contribution |
-|---|---|
-| `RUNTIME-01` | Clock/RNG/schedule/numeric profile, exact stage/delta/event/state roots |
-| `RUNTIME-03` | `CompletionSignalV1`, cutoff, stale/conflicting task merge |
-| `RUNTIME-06` | Body V2, admission, fixed receipt window и Ingress/Outcome ordering |
-| `RUNTIME-07` | World/stream/event/PersistentId derivation и provenance collision |
-| `CANON-01` | Body/receipt/identity/schedule/numeric canonical bytes и hashes |
-| `SAVE-01`, `SAVE-02` | Atomic full ledger/RNG/profile state, recovery и corruption |
-| `REPLAY-01` | Exact assignments, commands/receipts/events, RNG/schedule/projection roots |
-| `VS-02` | Power interruption, save/load, identity/ledger/RNG continuation |
-| `VS-04` | AI restart, duplicates, deadlines и completion signals |
-| `VS-06` | Script/plugin deterministic budget proposals, retry/order и named RNG |
-| `VS-11` | Все SPEC-21 gates плюс updated RUNTIME/CANON/REPLAY closure |
-| `VS-12` | Requirement/failure/gate/evidence completeness и v1 inventory |
-| `VS-15` | Production VirtualInputEvent path, non-perturbing probes и minimized divergence replay |
+V1 command, replay or durable-identity artifacts MUST NOT load implicitly. Every recognized legacy hash requires one explicit versioned migration; unknown legacy bytes fail closed and preserve the source generation.
 
-SPEC-21 не создаёт `VS-16`. Ни один automatic gate или agent не создаёт human architecture promotion, не waives missing capability и не заявляет `vertical-v1` conformance.
+Выбор ECS scheduler, ChaCha implementation crate, task runtime, fixed-point helper или physics backend не является public technology decision. Replaceable implementation допускается только за exact schemas and algorithms этого документа.
 
-## Implementation admission и migration
+## Proposed narrative completion and replay binding
 
-До добавления runtime code changeset MUST:
+[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) использует
+существующий `CompletionSignalV1` и current/next ingress без нового async
+authority. Director response считается external input: request identity,
+deadline tick, exact candidate bytes/hash и accept/reject/fallback decision
+входят в replay/save closure. Late, duplicate, conflicting или stale completion
+отбрасывается до RPG mutation по существующему deterministic staging contract.
 
-1. синхронизировать packet index, SPEC-02/03/05/07/09/12/13/14/15, glossary, traceability и affected ADR references с ADR-022;
-2. пометить ADR-012 Superseded без смыслового переписывания history;
-3. зафиксировать checked-in neutral golden vectors для command, causal ID, ledger, clock, RNG, schedule и numerics;
-4. выполнить `COMMAND-V1-INVENTORY-P1`;
-5. при ненулевом v1 inventory принять отдельные versioned load/replay/PersistentId migrations до admission;
-6. сохранить game installation, imported/protected data, captures, datasets, checkpoints, secrets и generated evidence вне repository.
-
-Выбор ECS scheduler, ChaCha implementation crate, task runtime, fixed-point helper или physics backend не является public technology decision. Replaceable implementation допускается только за exact schemas/algorithms/gates этого документа.
+Replay не выполняет внешний effect повторно и не перегенерирует candidate.
+Runtime-created graph/node/quest `PersistentId` выводятся из committed causal
+identity, а не из model-provided strings. Эти specialization rules остаются
+Proposed, пока SPEC-31/ADR-029 не приняты, и не изменяют Accepted
+`CompletionSignalV1`.

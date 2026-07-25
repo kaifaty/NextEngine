@@ -4,15 +4,14 @@
 |---|---|
 | ID | SPEC-14 |
 | Статус | Accepted |
-| Версия | 1.8 |
-| Владелец | Repository Owner |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md) |
+| Версия | 1.9 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md) |
 | Заменяет | отсутствует |
 
 ## Назначение и invariants
 
-Subsystem позволяет first-party и community authors добавлять новый creature archetype вместе с data-driven body, fallback controllers, pretrained motor policies, gameplay skills, AI habits и conformance fixtures без native engine code. Foundation/expert policy model является общей public boundary; hidden first-party physical API запрещён.
+Subsystem позволяет first-party и community authors добавлять новый creature archetype вместе с data-driven body, fallback controllers, pretrained motor policies, gameplay skills, AI habits и product-check fixtures без native engine code. Foundation/expert policy model является общей public boundary; hidden first-party physical API запрещён.
 
 Runtime training отсутствует. Neural weights immutable и content-addressed. Игровое изучение skill меняет RPG proficiency и разрешённый policy route, но не веса. V1 policy switch сохраняет body topology; polymorph, mounts, possession и human↔monster replacement находятся вне scope.
 
@@ -29,20 +28,20 @@ animation graph или inference route.
 | Состояние | Единственный owner/source of truth | Разрешённый вход |
 |---|---|---|
 | Creature/physical/skill definitions и model bytes | Immutable cooked content registry по AssetId/revision/hash | validator/cooker publish |
-| Physical pose, velocity, contacts, topology | PhysicsBackend согласно SPEC-05 | accepted MotorAction/physics transaction |
+| Physical pose, velocity, contacts, topology | Physical Embodiment engine-owned physics world; PhysicsBackend является private compute adapter | accepted MotorAction/physics transaction |
 | Skill proficiency | RPG Framework, serialized `SkillProficiency` | validated `LearnSkill`/progression WorldCommand |
 | Active policy route, transition и complete `PolicyStateRecordV1` | Motor Runtime `PolicySupervisor` | deterministic resolver + accepted transition/state commit |
 | Habits, working plan и tactical preferences | Agent Runtime | `AgentArchetypeDefinition`, perception, memory, planner |
 | Damage, stamina, cooldown, inventory и quest effects | RPG/Mechanics Runtime | EffectRequest/WorldCommand transaction |
 | Durable population identity, schedule и `WorldResidencyTier` | World Services по SPEC-20 | committed world-service view; не physical-policy output |
-| Physical simulation LOD и pose fidelity | Physical Embodiment/PhysicsBackend | deterministic selection constrained by committed residency view and physical profile |
-| Certification decision | Physical Embodiment Release gate + signed evidence packet | immutable gate results |
+| Physical simulation LOD и pose fidelity | Physical Embodiment LOD coordinator | deterministic selection constrained by committed residency view and physical profile |
+| Physical support status | Immutable bundle revision and deterministic product-check results | `Prototype` or `Supported` |
 
 Один package может агрегировать ссылки на эти definitions, но не получает ownership чужого mutable state. Model output никогда не изменяет proficiency, gameplay effects или AgentIntent.
 
 ## Public boundary и normative data flow
 
-Public contracts: `CreatureArchetypeManifest`, `PhysicalArchetypeBundle`, `MotorPolicyBundleManifest`, `PolicyCompatibilityKey`, `MotorSkillDefinition`, `SkillProficiency`, `MotorPerformanceEnvelope`, `MotorCapabilityView`, `PolicyActivationPlan`, `ActivePolicyRoute`, SPEC-27 `PolicyStateRecordV1`, `PolicyStateCommitV1` и certification/run manifests.
+Public contracts: `CreatureArchetypeManifest`, `PhysicalArchetypeBundle`, `MotorPolicyBundleManifest`, `PolicyCompatibilityKey`, `MotorSkillDefinition`, `SkillProficiency`, `MotorPerformanceEnvelope`, `MotorCapabilityView`, `PolicyActivationPlan`, `ActivePolicyRoute`, SPEC-27 `PolicyStateRecordV1`, `PolicyStateCommitV1` и support-check/run manifests.
 
 ```text
 authoring sources + model artifacts + provenance
@@ -70,7 +69,7 @@ Package code не получает mutable articulation, raw ECS ID, model sessi
 - `PhysicalArchetypeBundle`;
 - `AgentArchetypeDefinition`;
 - required/optional mechanic package IDs и ability grants;
-- provenance/licenses, certification status и test scenarios.
+- provenance/license notices, support status и test scenarios.
 
 `PhysicalArchetypeBundle` MUST содержать:
 
@@ -81,18 +80,18 @@ Package code не получает mutable articulation, raw ECS ID, model sessi
 - limb, grip, equipment и topology-mask capabilities;
 - foundation/recovery/procedural controller references;
 - motor skill catalog, policy bundles, evaluation suites и provenance;
-- `PhysicalCertificationLevel` и signed evidence root when certified.
+- `PhysicalSupportLevel` (`Prototype` или `Supported`) и exact checked bundle revision.
 
 Reference `neutral.quadruped.v1` использует generated primitive visuals, articulated torso/head и четыре двухсегментные конечности. Tail и jaw articulation отсутствуют; bite contact принадлежит head damage/contact region. Fixture не использует Gothic-derived data.
 
-## Certification levels
+## Product support levels
 
-| Level | Разрешённое поведение | Обязательные доказательства |
+| Level | Разрешённое поведение | Обязательные проверки |
 |---|---|---|
-| `PrototypeFallback` | CapsuleAnimation и/или procedural physical controller; learned policy optional; package явно не обещает FullArticulation conformance | schema/body/asset validation, fallback scenario, provenance/license checks |
-| `PhysicalCertified` | Full/Simplified physical tiers и перечисленные learned skills | foundation stand/locomotion/recovery, every declared skill suite, MOTOR/PHYS/POLICY gates, performance budget, failure media и signed evidence packet |
+| `Prototype` | CapsuleAnimation и/или procedural physical controller; learned policy optional; FullArticulation может быть отключён | schema/body/asset validation, deterministic fallback scenario, provenance/license validation |
+| `Supported` | Перечисленные Full/Simplified tiers и learned skills доступны для exact bundle revision | foundation stand/locomotion/recovery, every declared skill suite, MOTOR/PHYS/POLICY product checks, performance budget и deterministic fallback |
 
-Project policy MAY запретить prototype creatures в shipping content. Prototype promotion сохраняет CreatureArchetype identity, но повышает revision и заменяет exact bundle hash. Signature или first-party status не обходят certification gates. `PrototypeFallback` MAY разрабатываться без RTX; `PhysicalCertified` MUST дополнительно иметь `TRAIN-RTX-01=PASS`. Mac `TRAIN-MAC-P0` является только toolchain smoke и не может подменить этот capability/correspondence evidence.
+Project content policy MAY запретить prototype creatures в конкретной поставке. Переход `Prototype` → `Supported` сохраняет `CreatureArchetype` identity, но повышает revision и заменяет exact bundle hash. First-party status не обходит failed product check. Training origin and hardware остаются provenance; support status определяется поведением exact shipped bundle на supported runtime targets. Отсутствие training hardware не блокирует engine или `Prototype`.
 
 ## Motor skills и proficiency
 
@@ -177,7 +176,7 @@ Requested → Loading → CompatibilityChecked → AwaitSafePoint
 - `Commit` происходит на motor-tick boundary и атомарно заменяет ActivePolicyRoute; physics pose/velocity не копируется и не телепортируется.
 - `Stabilize` применяет normal actuator rate/energy/contact guards; нарушение откатывает previous route либо recovery controller.
 
-Worker completion order, measured load, elapsed wall time и wall timeout MUST NOT выбирать candidate/previous/fallback route либо activation tick. `PolicyActivationPlan` фиксирует logical motor-tick eligibility/deadline и canonical fault semantics; только staged compatible result на declared commit point либо canonical logical fault signal может продвинуть state machine, оставить previous route или включить declared retry/fallback. Wall watchdog MAY отменить зависшую load/inference работу только после маркировки run как `NonConforming`; такой run не может пройти POLICY/replay gate.
+Worker completion order, measured load, elapsed wall time и wall timeout MUST NOT выбирать candidate/previous/fallback route либо activation tick. `PolicyActivationPlan` фиксирует logical motor-tick eligibility/deadline и canonical fault semantics; только staged compatible result на declared commit point либо canonical logical fault signal может продвинуть state machine, оставить previous route или включить declared retry/fallback. Wall watchdog MAY отменить зависшую load/inference работу; exact run получает `Fail` и не может пройти POLICY/replay check.
 
 Policy switch не является LOD или topology transition. Изменение body schema/MorphologyFamilyId/topology mask во время route transition запрещено. После трёх transition failures за session candidate circuit-break-ится для entity и emits diagnostic.
 
@@ -193,7 +192,7 @@ LearnSkill WorldCommand
   → planner/mechanics observe updated MotorCapabilityView
 ```
 
-`LearnSkill` и вызванные им internal activation outcomes используют `CanonicalCommandBodyV2`, two-phase admission и exact retry/receipt semantics [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md); policy subsystem не создаёт отдельный command path.
+`LearnSkill` и вызванные им internal activation outcomes используют `CanonicalCommandBodyV2`, two-phase validation и exact retry/receipt semantics [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md); policy subsystem не создаёт отдельный command path.
 
 Skill может быть committed, пока route `PendingActivation`; в этот период previous/novice route остаётся единственным actuator source. Ability, требующая новый active route, получает stable `MOTOR_ROUTE_PENDING`, а planner выбирает wait/fallback. Runtime не откатывает RPG learning из-за transient load/safe-point delay.
 
@@ -219,7 +218,7 @@ fallback phase. Единственный normative `authoritative_state_hash` MU
 покрывать canonical bytes полного record со всеми этими
 future-action-affecting fields; отдельный recurrent-only hash запрещён.
 
-До inference request/result admission, save publication/load или replay
+До inference request/result validation, save publication/load или replay
 restore/comparison consumer MUST canonicalize полный record, recompute
 `authoritative_state_hash` и exact-compare его до чтения любого covered field.
 После learned, hold либо recovery validation `MotorActionV1`, полный следующий
@@ -240,7 +239,7 @@ incompatible compatibility key, corrupt model, full-record hash mismatch или
 broken commit chain fails before world mutation and preserves immutable source
 save, prior active generation и prior committed root. Every unavailable/unsafe
 inference path uses the manifest-bound deterministic procedural fallback;
-wall-time miss can fail a gate but cannot choose an authoritative action.
+wall-time miss can fail a product check but cannot choose an authoritative action.
 
 Declared optional fallback MAY использоваться при load только если project/save policy заранее разрешает downgrade; новый fallback hash записывается в migrated copy и делает replay несовместимым с original manifest. Silent downgrade запрещён.
 
@@ -256,12 +255,12 @@ Normative CLI/JSON contracts:
 
 | Команда | Результат |
 |---|---|
-| `next physical new|describe|validate|pack <archetype>` | scaffold, resolved body/LOD/capability graph, validation и deterministic bundle |
-| `next policy inspect|verify <policy>` | manifest/schema/provenance/runtime support и golden parity report |
+| `next physical new\|describe\|validate\|pack <archetype>` | scaffold, resolved body/LOD/capability graph, validation и deterministic bundle |
+| `next policy inspect\|verify <policy>` | manifest/schema/provenance/runtime support и golden parity report |
 | `next policy route-test <archetype> --matrix <fixture>` | exhaustive resolver/capability matrix |
-| `next policy transition-test <archetype> --suite <id>` | safe/blocked/fault transition runs + media manifest |
-| `next policy certify <archetype> --evidence <run>` | immutable certification candidate; не self-approving |
-| `lab generate-env|train|evaluate|compare|export-onnx|certify` | backend-neutral research application service и structured RunManifest |
+| `next policy transition-test <archetype> --suite <id>` | safe/blocked/fault transition runs + diagnostic capture manifest |
+| `next policy support-check <archetype> --run <id>` | deterministic product status for the exact bundle revision |
+| `lab generate-env\|train\|evaluate\|compare\|export-onnx\|support-check` | backend-neutral research application service и structured RunManifest |
 
 Training flow:
 
@@ -269,14 +268,14 @@ Training flow:
 body validation → procedural baseline → generated environment
 → foundation curriculum → novice/skill expert curriculum
 → holdout evaluation → runtime-backend correspondence
-→ ONNX export/parity → transition suite → certification review
+→ ONNX export/parity → transition suite → runtime product checks
 ```
 
-Training algorithm является backend detail. PPO, SAC, imitation, motion priors или distillation MAY использоваться, если создают одинаковые normative artifacts и проходят gates. Isaac Lab — `Proposed`; fallback — engine-owned headless physics lab.
+Training algorithm является backend detail. PPO, SAC, imitation, motion priors или distillation MAY использоваться, если создают одинаковые normative artifacts и проходят product checks. Isaac Lab — `Proposed`; fallback — engine-owned headless physics lab.
 
-На `DeveloperHostTier/macOS-aarch64` workflow ограничен schema/body validation, procedural baseline, generated deterministic 2-DoF smoke, tiny optimization, ONNX export и parity через `TRAIN-MAC-P0`; MPS failure использует declared CPU fallback. Foundation/creature/weapon training, runtime-backend correspondence и certification выполняются только после `TRAIN-RTX-01` на поддерживаемом local Linux/NVIDIA host. Состояние capability входит в RunManifest и не выводится из наличия model file.
+На `DeveloperHostTier/macOS-aarch64` workflow ограничен schema/body validation, procedural baseline, generated deterministic 2-DoF smoke, tiny optimization, ONNX export и parity через `TRAIN-MAC-P0`; MPS failure использует declared CPU fallback. Полное foundation/creature/weapon training MAY требовать отдельный accelerator host, но runtime support определяется только exact exported artifact, correspondence и product checks на supported targets. Device/toolchain записываются в RunManifest и не выводятся из наличия model file.
 
-AuthoringContextBundle MUST включать body/skill/policy/TestScenario/CapturePlan schemas, compatibility/ownership/output-category matrix, resolved references, training/evaluation configs, diagnostic fix-its, budgets и minimal neutral examples. Agent может предлагать descriptors/config/reward/scenario changes и запускать bounded experiments. ImpactResolver автоматически классифицирует physical/motor/animation как HumanReviewRequired. Promotion model weights, certification, baseline, capability/license/provenance changes всегда требует explicit owner + SPEC-15 human evidence review через `HumanReviewDecisionV2`/`AttestationEnvelopeV2` ADR-023; agent не может self-certify/self-approve.
+AuthoringContextBundle MUST включать body/skill/policy/TestScenario/CapturePlan schemas, compatibility/output-category matrix, resolved references, training/evaluation configs, diagnostic fix-its, budgets и minimal neutral examples. Agent может предлагать descriptors/config/reward/scenario changes и запускать bounded experiments. `next policy support-check` вычисляет status только по exact bundle revision и не может обойти failed deterministic, safety, parity или fallback check.
 
 Distributed weights являются licensed package content. Raw datasets, unrestricted checkpoints, protected assets и local training caches не коммитятся в engine repository.
 
@@ -285,32 +284,29 @@ Distributed weights являются licensed package content. Raw datasets, unr
 - Missing/corrupt/incompatible model → reject before actuation; previous or declared recovery/procedural route.
 - Unsupported skill/equipment/topology/proficiency → novice fallback only if explicitly evaluated; otherwise `Unavailable`.
 - Manifest-declared logical load deadline либо canonical load-fault signal → remain previous route; retry/circuit-break cadence задаётся bounded integer motor ticks, no motor tick stall.
-- Load/inference wall-watchdog trip → cancel uncommitted work, retain previous/safe route и mark run `NonConforming`; elapsed wall time не создаёт conforming fallback или activation decision.
+- Load/inference wall-watchdog trip → cancel uncommitted work, retain previous/safe route и mark exact run `Fail`; elapsed wall time не создаёт deterministic fallback или activation decision.
 - ShadowWarmup/action/state violation → discard candidate session/state, previous route unchanged.
 - Unsafe point persists → route remains pending with diagnostic; gameplay MAY use declared novice/wait fallback.
 - Transition commit fault → atomic rollback to previous route; no partial joint ownership.
 - `PolicyStateRecordV1` schema/identity mismatch on load or replay → stable `MOTOR_STATE_IDENTITY_MISMATCH`; full-record hash or commit-chain mismatch → stable `MOTOR_STATE_HASH_MISMATCH`. Both fail closed before covered-field use and preserve original save/prior committed root, including `S = 0`.
 - Missing behavior adapter/ai-host → deterministic AgentArchetype planner fallback; motor remains correct.
-- Certification artifact/provenance/media missing → package remains PrototypeFallback; status cannot be inferred from signature.
+- Required support-check input or provenance missing → package remains `Prototype`.
 - Runtime-training request → capability denial; no mutable model bytes or optimizer state in game process.
-- Missing GPU/encoder/human reviewer → CPU policy/route/safety evidence сохраняется, package promotion остаётся AwaitingCapability; interactive showcase не заменяет review.
-- Human approval при failed POLICY/SKILL/CREATURE gate → rejected as AUTO_GATE_NOT_PASS.
-- MPS unavailable/unsupported operation → CPU smoke fallback с diagnostic; отсутствие MPS не блокирует repository/prototype work и не считается MPS PASS.
-- `TRAIN-RTX-01` unavailable/failed → certification candidate остаётся `AwaitingCapability`; package остаётся `PrototypeFallback`, даже если ONNX и Mac parity прошли.
+- MPS unavailable/unsupported operation → CPU smoke fallback с diagnostic; отсутствие MPS не блокирует repository/prototype work и не считается MPS `Pass`.
+- Required training hardware unavailable → training job does not start; engine and procedural `Prototype` continue to work.
 
-## Verification gates
+## Product checks
 
-| Gate | Сценарий | Threshold | Evidence | Fallback/rollback |
-|---|---|---|---|---|
-| EMB-01 | prototype/certified bundle validation corpus | 100% required references/hashes/provenance resolve; 100% invalid certification claims rejected; 0 package-specific native/public types | bundle graph, schema/license/API report | retain PrototypeFallback/reject bundle revision |
-| POLICY-01 | policy compatibility, ONNX parity и runtime/training suite | 100% compatibility mismatches rejected; MOTOR-P1 exact threshold; raw→normalized fixed-point and exact tensor-conversion vectors pass `NUMERIC-P1`; 100 held-out episodes outcome delta ≤2 percentage points | manifest/golden numeric corpus/parity/correspondence RunManifests | previous model/procedural recovery; training backend fallback |
-| POLICY-02 | 1 000 valid/blocked/faulted transitions | 100% unsafe points deferred; 0 pose teleport, actuator-limit or safety violation; valid staged candidate commits within at most 30 motor ticks after first eligible canonical safe point; activation tick/route/state hash exact under load-completion and worker permutations; every failure retains previous/recovery route; wall timing diagnostic-only | logical route timeline, task-merge/action/physics trace, state hashes, performance diagnostics, required GIF/MP4 manifest | pin previous route/circuit-break candidate |
-| SKILL-01 | one-handed axe, 1 000 held-out episodes per proficiency band | proficiency raw→normalized fixed-point result, raw band comparison and route result exact for 100% `NUMERIC-P1` boundary vectors; novice valid-contact success 20–60%; trained ≥80%; trained median valid-contact time ≥20% lower; 0 safety violations; gameplay damage changes only through EffectRequest | skill/route/numeric manifests, metrics distributions, replay/contact traces, media | reject skill revision/retain novice route |
-| CREATURE-01 | neutral quadruped prototype→certified | stand/locomotion/recovery aggregate ≥90%; bite/lunge valid contact ≥75%; 0 hidden/native gameplay dependency; prototype fallback remains loadable | public package graph, scenario metrics, contacts/replays, media | retain prototype/capsule/procedural controller |
-| BEHAVIOR-01 | habits/tactics with ai-host/adapter present and absent | 0 direct MotorAction/gameplay mutation from habits; all actions pass AgentIntent/WorldCommand; required scenario outcomes exact offline | planner/intent/command trace, boundary scan, replay | deterministic authored utility/HTN profile |
-| TRAIN-P1 | pinned training backend export/deployment | ADR-009 thresholds; complete license/SBOM; artifacts reproducible from pinned config except declared stochastic metrics | environment/export manifests, parity and held-out reports | engine-owned headless physics lab |
-| TRAIN-MAC-P0 | generated deterministic 2-DoF development smoke | 4 fixed seeds; 8 envs ×256 steps; 1 000 parity observations; max abs PyTorch/ONNX error ≤`1e-5`; 0 NaN/Inf; ≤10 minutes on MPS or declared CPU fallback | device/toolchain/lock/model/corpus hashes, RunManifest, parity metrics | CPU smoke; block training lane on export/parity failure |
-| TRAIN-RTX-01 | local full-training capability preflight | supported Linux/NVIDIA host, RAM ≥32 GiB, VRAM ≥16 GiB, pinned driver/toolchain, offline cache/provenance/license PASS | hardware/driver/toolchain/license/SBOM capability report | remain `AwaitingCapability`; only PrototypeFallback |
-| AUTHOR-P1 | cold human/agent physical authoring workflow | reference harness creates quadruped prototype, adds axe skill route, resolves impact, validates/evaluates/captures certification candidate using only public bundles/CLI; 100% internal references resolve; no self-approval; valid `HumanReviewDecisionV2` `Approve` required after automatic PASS | context/impact/evidence bundles, AgentChangeSet, command/run/V2 review reports | reviewed public CLI workflow/fix context generator; retain prototype |
+| ID | Сценарий | Ожидаемый результат | Fallback |
+|---|---|---|---|
+| EMB-01 | `Prototype`/`Supported` bundle validation corpus | 100% required references, hashes and provenance resolve; unsupported status claims rejected; 0 package-specific native/public types | retain `Prototype` or reject bundle revision |
+| POLICY-01 | policy compatibility, ONNX parity and runtime/training suite | 100% compatibility mismatches rejected; MOTOR-P1 threshold; `NUMERIC-P1` conversion vectors pass; 100 held-out episodes outcome delta ≤2 percentage points | previous model, procedural recovery or training-backend fallback |
+| POLICY-02 | 1 000 valid/blocked/faulted transitions | 100% unsafe points deferred; 0 teleport/actuator/safety violation; valid candidate commits within 30 motor ticks after first eligible safe point; route/state exact under completion permutations | pin previous route and circuit-break candidate |
+| SKILL-01 | one-handed axe, 1 000 held-out episodes per proficiency band | route result exact for all boundary vectors; novice valid-contact success 20–60%; trained ≥80%; trained median contact time ≥20% lower; 0 safety violations; damage changes only through `EffectRequest` | reject skill revision and retain novice route |
+| CREATURE-01 | neutral quadruped `Prototype` → `Supported` | stand/locomotion/recovery aggregate ≥90%; bite/lunge valid contact ≥75%; 0 hidden/native gameplay dependency; procedural fallback remains loadable | retain capsule/procedural `Prototype` |
+| BEHAVIOR-01 | habits/tactics with ai-host/adapter present and absent | 0 direct MotorAction/gameplay mutation from habits; all actions pass AgentIntent/WorldCommand; scenario outcomes exact offline | deterministic authored utility/HTN profile |
+| TRAIN-P1 | pinned training backend export/deployment | ADR-009 thresholds; license/SBOM complete; export reproducible from pinned config except declared stochastic metrics | engine-owned headless physics lab |
+| TRAIN-MAC-P0 | generated deterministic 2-DoF development smoke | 4 fixed seeds; 8 envs ×256 steps; 1 000 observations; PyTorch/ONNX max abs error ≤`1e-5`; 0 NaN/Inf; ≤10 minutes on MPS or declared CPU fallback | CPU smoke; stop this training lane on export/parity failure |
+| AUTHOR-P1 | cold physical authoring workflow | public CLI creates quadruped, adds axe route, validates/evaluates and runs support checks; 100% internal references resolve; no hidden API or status bypass | retain `Prototype` and return actionable diagnostics |
 
-Physical Embodiment Team владеет EMB/POLICY/SKILL/CREATURE/TRAIN gates; Agent Intelligence co-owns BEHAVIOR-01, Developer Experience co-owns AUTHOR-P1, Security & Governance co-owns provenance/license/certification evidence. Release Engineering принимает root artifacts.
+These checks define runtime and authoring behavior; they are not organizational approval.

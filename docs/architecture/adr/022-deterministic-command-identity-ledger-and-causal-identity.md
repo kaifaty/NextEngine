@@ -5,17 +5,11 @@
 | ID | ADR-022 |
 | Статус | Accepted |
 | Версия | 1.0 |
-| Владелец | Runtime Team |
-| Требуемые согласующие | Architecture Working Group, Runtime Team, Persistence Team, Security & Governance Team, Verification & Evidence Team |
 | Дата решения | 2026-07-24 |
 | Последняя проверка | 2026-07-24 |
 | Нормативные зависимости | отсутствуют |
 | Заменяет | [ADR-012](012-deterministic-command-identity-and-replay.md) |
 | Заменён | не заменён |
-
-## История принятия
-
-ADR принят в architecture packet 1.6 и заменяет ADR-012. Он сохраняет engine-owned command boundary, две commit-фазы tick, `CanonicalBinaryV1`, domain-separated hashes, fail-closed collision policy и exact replay, но устраняет самоссылочную неоднозначность `command_id`, недостаточный ledger последней команды и незафиксированные clock/RNG/schedule/numeric primitives. Принятие решения не объявляет runtime implementation, gates или `vertical-v1` conformance пройденными.
 
 ## Контекст
 
@@ -27,9 +21,9 @@ ADR-012 определял `command_id` через canonical validated `WorldCom
 
 ### Source of truth и public boundary
 
-Runtime Team владеет command admission, virtual tick assignment, deterministic RNG, system schedule, task-result merge, numeric profile и causal identity derivation. Persistence Team владеет их atomic save/restart representation. Это ADR является authority решения; companion [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) зависит от ADR-022 в одном направлении и детализирует engine-owned schemas/algorithms. ECS/backend/task/OS objects в публичную границу не входят.
+`CommandRuntimeState` is authoritative for command admission, virtual tick assignment, deterministic RNG, system schedule, task-result merge, numeric profile and causal identity derivation. `RuntimeCheckpoint` is its atomic save/restart representation. Companion [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) details the engine-owned schemas and algorithms. ECS/backend/task/OS objects в публичную границу не входят.
 
-`game`, deterministic `headless` и displayless `capture-worker` MUST использовать одни и те же schemas, registry hashes, validator, ledger, RNG implementation, schedule manifest, numeric profile, save recovery и replay path. Compile-time features, worker count и renderer presence MUST NOT менять domain semantics.
+`game` и deterministic `headless`, а также optional displayless `capture-worker` when enabled, MUST использовать одни и те же schemas, registry hashes, validator, ledger, RNG implementation, schedule manifest, numeric profile, save recovery и replay path. Compile-time features, worker count и renderer presence MUST NOT менять domain semantics.
 
 ### Несамоссылочная command identity
 
@@ -61,7 +55,7 @@ command_id = left128(SHA256(
 
 ADR-022 сохраняет encoding contract как current authority, не полагаясь на Superseded ADR.
 
-Public manifests, policy manifests, evidence manifests и attestation payloads используют RFC 8785 JCS. Authoritative JCS:
+Public project, content, policy and run manifests используют RFC 8785 JCS. Authoritative JCS:
 
 - не содержит NaN, infinities или implementation-defined number formatting;
 - нормализует semantic negative zero в `0` до serialization;
@@ -186,7 +180,7 @@ Hashes clock/RNG/schedule/numeric profiles входят в `RuntimeDeterminismPr
 
 ### Сохранять неограниченный receipt map
 
-Отклонено как обязательный v1 contract из-за неограниченного authoritative save growth. Append-only replay/evidence MAY хранить полную историю, но runtime retry contract использует fixed 4096 window, high-watermark и chain root.
+Отклонено как обязательный v1 contract из-за неограниченного authoritative save growth. Append-only replay/debug archive MAY хранить полную историю, но runtime retry contract использует fixed 4096 window, high-watermark и chain root.
 
 ### Считать arrival order или worker index tie-break
 
@@ -198,32 +192,23 @@ Hashes clock/RNG/schedule/numeric profiles входят в `RuntimeDeterminismPr
 
 ## Последствия
 
-- `CommandId` v1 и causal `PersistentId` v1 не объявляются совместимыми с v2 автоматически. До implementation admission MUST пройти inventory старых save/replay/fixture artifacts; ненулевой inventory требует отдельного migration plan.
+- `CommandId` v1 и causal `PersistentId` v1 не объявляются совместимыми с v2 автоматически. Before enabling v2 for existing data, inventory old save/replay/fixture artifacts; a non-empty inventory requires an explicit migration plan.
 - Save/replay schemas MUST включать world identity, full command ledger state, input assignments, RNG states и runtime profile hashes.
 - Command/event/spawn golden vectors становятся portable public fixtures без protected data.
 - Runtime memory получает bounded receipt overhead на stream. Exact canonical body archive и global `CommandId → body-hash occurrences` binding index растут append-only как logical content-addressed maps до hash-bound resource limit; published save связывает их segmentation-independent roots и required object closure. Physical packing является reconstructible cache. Storage exhaustion fail-closed до command mutation. Полный result/replay log остаётся отдельным artifact.
 - Выбор конкретной Rust-библиотеки ChaCha, scheduler или fixed-point arithmetic остаётся implementation detail и не становится public dependency.
 - Никакой technology row не принимается этим ADR.
 
-## Gates
+## Product checks
 
-| Gate | Owner | Threshold | Evidence | Fallback | VS / profile closure |
-|---|---|---|---|---|---|
-| `COMMAND-ID-P1` | Runtime Team | 100% Body V2 canonical bytes/full hashes/IDs/codes exact on Windows x86_64 and Linux x86_64; invalid claims/collisions mutate 0 gameplay state | Cross-platform golden bytes/hashes, negative corpus, validator/ledger report | Blocking schema/hash fix | VS-11; shipping exact-command profile |
-| `CAUSAL-ID-P1` | Runtime Team | 100% world/principal/stream/event/spawn IDs exact; every injected provenance collision fails before alternate ID/mutation | Identity manifests, vectors, collision and save/reload corpus | Blocking identity/migration fix | VS-02, VS-11; persisted identity profile |
-| `COMMAND-LEDGER-P1` | Runtime Team | Exact high-watermark/window/chain/results for all 0/1/4095/4096/4097 and 255/256/257 boundaries plus 10 000 arrival/restart permutations | Ledger snapshots, receipt chains, stage/recovery/state-root report | Blocking ledger/recovery fix | VS-02, VS-04, VS-11; save/replay profile |
-| `CLOCK-P1` | Runtime Team | 100% current/next assignment exact across cutoff/source/completion permutations; wall time/worker variation changes 0 outcomes | Assignment vectors, stage traces, replay | Serialize close barrier behind same contract | VS-04, VS-11; virtual-time profile |
-| `RNG-P1` | Runtime Team | 100% raw blocks and at least 10 000 draws/stream exact across Windows/Linux and save/reload; invalid/exhausted requests mutate 0 state | Key/nonce/block/draw vectors and state snapshots | Blocking engine-owned RNG fix | VS-02, VS-06, VS-11; deterministic RNG profile |
-| `SCHEDULE-P1` | Runtime Team | Exact schedule/shard/delta/event/state roots for at least 1 000 registration/completion permutations and worker counts 1/2/8/16; 100% ambiguous/cyclic graphs rejected | Schedule manifests, DAG/stage/shard/task/delta traces | Serialize execution behind same manifest | VS-11, VS-15; deterministic schedule profile |
-| `NUMERIC-P1` | Runtime Team | 100% checked integer/fixed-point/IEEE quantization vectors and projection roots exact; all overflow/nonfinite cases abort atomically | Boundary/rounding/overflow/nonfinite/projection corpus | Blocking numeric/adapter fix | VS-11, VS-14; authoritative numeric/physics profile |
-| `COMMAND-V1-INVENTORY-P1` | Persistence Team | 0 admitted v1 artifacts or one separately Accepted migration covering 100% discovered hashes | Inventory manifest, hashes and migration decision/fixtures | Keep implementation admission blocked | VS-02, VS-12; migration profile |
-
-Каждый vector gate требует 100% exact match. ADR не создаёт gate PASS; он задаёт acceptance contract.
-
-## Gate для Proposed частей
-
-не применяется. Все решения engine-owned; replaceable implementations не принимаются этим ADR.
+| Scenario | Expected | Fallback |
+|---|---|---|
+| Canonical Body V2 vectors, invalid claims and full-hash collisions on supported hosts | Canonical bytes, full hashes, IDs and diagnostics are exact; rejected input mutates no gameplay state | Reject before reservation and fix the incompatible encoder or registry |
+| World/principal/stream/event/spawn identity vectors, including provenance collisions and save/load | Every ID is exact and retry-stable; a conflicting provenance fails before alternate ID or mutation | Reject the conflicting input and require an explicit migration for old data |
+| Ledger boundaries `0/1/4095/4096/4097` and `255/256/257` under arrival and restart permutations | High-watermark, retained window, chain root, receipts and results are exact | Keep the last atomic checkpoint and repair ledger/recovery logic |
+| Cutoff, RNG, schedule, worker-count and numeric boundary permutations | Input assignment, random draws, schedule/deltas/events/state roots and checked numeric outcomes remain exact | Serialize behind the same contract or reject the incompatible adapter |
+| Existing v1 save/replay/fixture inventory | No v1 artifact is activated as v2 without a complete explicit migration | Keep the compatible reader/export path and leave the source unchanged |
 
 ## Supersession
 
-ADR-022 заменяет ADR-012 целиком. ADR-012 сохраняется неизменным по смыслу со статусом `Superseded` и backlink. Зависимые SPEC, glossary, traceability, evidence register и packet index синхронизируются в одном architecture changeset до promotion.
+ADR-022 заменяет ADR-012 целиком. ADR-012 сохраняется как historical record со статусом `Superseded` и backlink. Dependent specifications and glossary use the v2 command, ledger and causal-identity contracts.

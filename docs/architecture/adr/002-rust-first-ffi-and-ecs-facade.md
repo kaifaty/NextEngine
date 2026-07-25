@@ -5,12 +5,17 @@
 | ID | ADR-002 |
 | Статус | Accepted |
 | Версия | 1.0.1 |
-| Владелец | Repository Owner |
 | Дата решения | 2026-07-22 |
-| Последняя проверка evidence | 2026-07-24 |
+| Последняя проверка | 2026-07-25 |
 | Нормативные зависимости | [ADR-001](001-product-repository-license-and-platforms.md), [SPEC-02](../02-runtime-ecs-and-data.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
+
+## ADR-030 scope
+
+[ADR-030](030-product-first-development-and-lightweight-validation.md)
+заменяет прежние process clauses. Rust-first core, narrow FFI boundaries и
+engine-owned ECS facade остаются техническим решением.
 
 ## Контекст
 
@@ -21,7 +26,7 @@ Runtime нуждается в memory safety, предсказуемом native p
 - Core runtime, RPG framework, cooker и first-party tools MUST быть Rust-first на pinned stable toolchain.
 - C/C++ backends MUST входить только через narrow engine-owned FFI crates. Safe Rust wrapper MUST владеть lifetime, threading, error translation и cleanup.
 - ECS и scheduler MUST быть скрыты за engine-owned facade. `RuntimeEntityId` является opaque engine type; Bevy entity/component/resource/event types MUST NOT пересекать public crate, save, WIT, Luau или importer boundaries.
-- Bevy ECS/app crates имеют статус `Proposed` до прохождения ECS-P1. Renderer, UI и asset system Bevy не принимаются этим ADR.
+- Bevy ECS/app crates имеют статус `Proposed` до focused ECS evaluation. Renderer, UI и asset system Bevy не принимаются этим ADR.
 - Public cross-language ABI MUST использовать C-compatible handles/byte buffers либо WIT components; Rust ABI не является стабильным контрактом.
 
 ## Рассмотренные варианты
@@ -32,18 +37,16 @@ Runtime нуждается в memory safety, предсказуемом native p
 
 ## Последствия
 
-Workspace MUST включать dependency boundary checks и compile-fail tests. Unsafe blocks MUST быть локализованы в backend/FFI crates, документировать invariants и проходить sanitizer/miri там, где применимо.
+Workspace MUST включать dependency boundary checks и compile-fail tests. Любое
+будущее исключение из workspace `unsafe_code` policy требует отдельного
+engine-owned FFI boundary ADR и explicit allowlist; initial allowlist пуст.
 
-## Gate для Proposed частей
+## Product checks
 
-| Поле | Требование |
-|---|---|
-| Владелец | Runtime Team |
-| Сценарий/команда | `cargo xtask gate ecs-poc --profile release --seed 41041` на Windows/Linux |
-| Threshold | 10 000 entities, 200 representative systems; 10 000 fixed ticks дают одинаковый state hash на повторе одной platform/архитектуры; ≥1.5× speedup параллельного schedule над принудительно serial на 8 logical cores; headless snapshot round-trip 100%; ни одного Bevy type в output `cargo public-api` для public crates |
-| Evidence | `run-manifest.json`, state hashes, benchmark JSON, public API report, CI logs |
-| Fallback | Engine-owned scheduler за той же facade; внутренняя data structure выбирается отдельным implementation ADR |
-| Срок повторной проверки | перед bootstrap milestone M1 и при каждом major Bevy upgrade |
+| Check | Scenario | Expected | Fallback |
+|---|---|---|---|
+| Portable boundary | Build public crates and scan exported API | No ECS/vendor/FFI type crosses public contracts | Keep backend private or reject the adapter |
+| ECS candidate | Run representative fixed-tick workload and snapshot round-trip | Repeat state hashes match and candidate is useful for the workload | Use the engine-owned serial scheduler behind the same facade |
 
 ## Supersession
 

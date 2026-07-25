@@ -5,12 +5,18 @@
 | ID | ADR-005 |
 | Статус | Accepted |
 | Версия | 1.0.1 |
-| Владелец | Agent Intelligence Team |
 | Дата решения | 2026-07-22 |
-| Последняя проверка evidence | 2026-07-23 |
+| Последняя проверка | 2026-07-25 |
 | Нормативные зависимости | [SPEC-01](../01-system-architecture.md), [SPEC-06](../06-ai-agents-perception-and-memory.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
+
+## ADR-030 scope
+
+[ADR-030](030-product-first-development-and-lightweight-validation.md)
+заменяет прежние process clauses. Optional isolated `ai-host`, untrusted
+proposals, offline correctness и deterministic in-process fallbacks остаются
+техническим решением.
 
 ## Контекст
 
@@ -34,9 +40,12 @@ Generative services могут отсутствовать, зависнуть, �
 
 IPC schema, deadlines, idempotency keys, provenance и telemetry становятся обязательными. Saves хранят authoritative memory records, а не vendor session handles. AI output никогда не входит в fixed physics tick как blocking dependency.
 
-## Gate для Proposed частей
+## Product checks
 
-Не применяется к process boundary. Storage/model/runtime candidates имеют собственные gates в SPEC-06 и SPEC-05.
+| Check | Scenario | Expected | Fallback |
+|---|---|---|---|
+| Offline loop | Start and play representative scenario without `ai-host` or network | Mandatory gameplay completes and ticks never wait for the service | Use deterministic in-process planners/dialogue |
+| Fault isolation | Inject timeout, crash, malformed response and protocol mismatch | No partial mutation or duplicate committed command | Reject the proposal and restart with handshake |
 
 ## Supersession
 

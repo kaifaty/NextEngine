@@ -5,25 +5,15 @@
 | ID | ADR-026 |
 | Статус | Accepted |
 | Версия | 1.0 |
-| Владелец | Runtime Team |
-| Требуемые согласующие | Repository Owner, Architecture Working Group, Asset & Persistence Team, World Services Team, Physical Embodiment Team, Rendering Team, Verification & Evidence Team, Security & Governance Team, Release Engineering |
 | Дата решения | 2026-07-24 |
 | Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-021](021-deterministic-population-residency-and-time-advance.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-024](024-requirement-gate-evidence-and-profile-closure.md) |
+| Нормативные зависимости | [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-021](021-deterministic-population-residency-and-time-advance.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 
-## История принятия
-
-ADR-026 принят в architecture packet 1.8 как upstream decision для bounded job
-request, memory, compute-resource residency and I/O admission. Он не изменяет
-SPEC-21 completion/cutoff/merge, ADR-016 integrated budgets или ADR-021 world
-authority. Принятие решения не объявляет implementation, gate `PASS`,
-`vertical-v1` или release readiness.
-
 ## Контекст
 
-Accepted architecture already has a deterministic system DAG, immutable task
+Current architecture already has a deterministic system DAG, immutable task
 completion, current/next cutoff, canonical task-result merge, atomic chunk
 publication, compositional performance budget and deterministic world
 deferral. Она не задавала единый request-side contract для:
@@ -46,18 +36,19 @@ cancelled staging.
 
 ### Authority and dependency direction
 
-Runtime Team owns generic job request admission, cancellation-tree state,
-logical resource charging, compute-residency coordination and deterministic
-commit routing. Asset & Persistence Team retains immutable content/archive
-schemas and atomic content/chunk/save publication. Each subsystem retains the
-meaning and mutable state of its own payload. World Services retains
-population/calendar/tier/interest order; Physical Embodiment retains pose and
+`JobCoordinatorState` is authoritative for generic job request admission,
+cancellation-tree state, logical resource charging, compute-residency
+coordination and deterministic commit routing. Immutable content/archive
+contracts and `GenerationPublisher` control atomic content/chunk/save
+publication. Each subsystem state remains authoritative for the meaning and
+mutation of its own payload. `WorldServicesState` retains
+population/calendar/tier/interest order; `PhysicalWorldState` retains pose and
 motor state; presentation remains non-authoritative.
 
 Dependency direction is:
 
 ```text
-Accepted runtime/budget/world decisions
+Runtime/budget/world contracts
   → ADR-026
   → downstream detailed job/resource specification
   → downstream world/content consumers
@@ -81,7 +72,7 @@ engine-owned closed class:
 
 Unknown class is rejected. A required parent cannot hide required children in
 an optional class. Authoritative computation returns immutable deltas/proposals
-to its owner transaction; it does not grant a worker direct mutable world
+to its subsystem transaction; it does not grant a worker direct mutable world
 access. Required resource work is a prerequisite for a later commit, not a
 second gameplay authority.
 
@@ -109,7 +100,7 @@ Result admission reuses, without modification:
 
 There is no second completion queue or result ledger. Completion order may
 change readiness, but cannot choose a winner, reorder a declared dependency
-group or select an authoritative fallback. The complete owner transaction
+group or select an authoritative fallback. The complete subsystem transaction
 revalidates and commits at its declared stage, or publishes nothing.
 
 ### Deterministic cancellation tree
@@ -122,7 +113,7 @@ staging release atomically with cancellation.
 
 Committed work is not retroactively cancelled. A native worker panic,
 operational timeout or cancellation signal is only a typed failure proposal.
-Cancellation of authoritative/required work does not erase the owner due
+Cancellation of authoritative/required work does not erase the subsystem due
 record unless an independently validated domain transition makes it no longer
 due. Otherwise the enclosing transaction/plan retains, blocks or fails with a
 stable diagnostic.
@@ -130,20 +121,20 @@ stable diagnostic.
 ### Logical memory budget
 
 Every execution uses one content-addressed `MemoryBudgetProfile` with finite
-host/device totals and finite per-owner pool soft/hard limits, critical
+host/device totals and finite per-subsystem pool soft/hard limits, critical
 reserves, inflight charges, single charges, pins and leases. Each logical byte
 is charged exactly once. Shared resident content is charged to its residency
 record; jobs reserve access rather than multiplying that charge.
 
 Admission uses canonical schema lengths, validated decoded sizes and checked
 integer accounting. Native allocation size, allocator fragmentation, RSS,
-VRAM telemetry and driver behavior are conformance evidence only and cannot
+VRAM telemetry and driver behavior are diagnostic telemetry only and cannot
 select authoritative admission/eviction. Unexpected physical allocation
 failure returns a typed failure and class-specific fallback before
 publication.
 
 Per-job/per-resource limits compose inside existing mutually exclusive
-ADR-016 owner rows. They cannot create additional tick budget or multiply the
+ADR-016 subsystem rows. They cannot create additional tick budget or multiply the
 8,000/12,000 microsecond integrated ceiling.
 
 ### Qualified pins, leases and eviction
@@ -155,7 +146,7 @@ has one owner and finite logical expiry; wall time cannot renew or expire it.
 
 Eviction removes reconstructible bytes only. It never evicts:
 
-- authoritative or dirty owner state;
+- authoritative or dirty subsystem state;
 - a live pin or unexpired lease;
 - an in-flight authoritative input/result;
 - an atomic publication staging generation;
@@ -181,10 +172,10 @@ behavior:
 - offline tool work aborts without partial artifact publication.
 
 Maximum logical age is not a drop deadline. Exceeding it fails the run,
-transaction, load or transition with stable starvation evidence while
+transaction, load or transition with a stable starvation diagnostic while
 preserving the due record/prior state. Resubmission cannot reset age. Wall
-watchdogs may mark performance nonconformance or abort an uncommitted
-operation, but never choose partial authoritative success.
+watchdogs may abort an uncommitted operation and report a performance
+diagnostic, but never choose partial authoritative success.
 
 ### Bounded archive/decompression and I/O credits
 
@@ -214,8 +205,8 @@ only through a predeclared fallback.
 ### Persistence, replay and parity
 
 Profile hashes that affect job/resource decisions are fixed in exact project or
-tool-run compatibility data and carried into save/replay/run/capture manifests
-where applicable. Checkpoints persist logical requests/receipts, owner due
+tool-run compatibility data and carried into save/replay/run metadata where
+applicable. Checkpoints persist logical requests/receipts, subsystem due
 age, cancellation scopes, reservations, pins/leases, residency generations
 and profile hashes—not native worker, allocator, I/O or decode state.
 
@@ -228,7 +219,7 @@ publication generations. `game`, deterministic `headless` and
 ## Рассмотренные варианты
 
 - One global unbounded thread pool/queue — `Rejected`: no finite admission,
-  age, owner accounting or restart contract.
+  age, subsystem accounting or restart contract.
 - Use worker completion or wall deadline as commit order — `Rejected`: load and
   host scheduling would select authoritative state.
 - Drop oldest/lowest authoritative work on overflow — `Rejected`: loses a
@@ -255,13 +246,17 @@ publication generations. `game`, deterministic `headless` and
 - Correctness may block a load/transition or fail a run when required capacity
   is unavailable; it cannot be silently traded for a fabricated outcome.
 - Optional quality remains degradable through explicit bounded fallback.
-- Memory, queue, I/O and residency traces become required evidence and compose
+- Memory, queue, I/O and residency traces remain useful diagnostics and compose
   with ADR-016 rather than replacing it.
 - No technology row is accepted by this decision.
 
-Detailed schemas and canonical gate descriptors belong only to the downstream
-owning jobs/resource specification. This ADR intentionally defines no
-competing gate descriptor and has no normative dependency on that document.
+## Product checks
+
+| Scenario | Expected | Fallback |
+|---|---|---|
+| Arrival, worker-count, completion and cancel/result permutations for one closed request batch | Admission, completion assignment, merge order, cancellation and publication are exact; no worker retains mutable world access | Keep the due record and prior atomic state; serialize execution behind the same contract if needed |
+| Queue, memory, pin, lease and eviction boundary cases | Required or authoritative work is never silently dropped and pinned, dirty or only-valid state is never evicted | Reject optional work, retain the active generation and defer or block the enclosing plan |
+| Oversized, nested, corrupt or cancelled archive/I/O input followed by restart | Bounds are checked before allocation; private staging never partially publishes; pending work reconstructs with the same IDs and logical age | Discard staging and retain the previous content/save generation |
 
 ## Supersession
 
@@ -270,5 +265,4 @@ authoritative state, creating a second completion path, permitting silent
 authoritative drop, using native allocation state as an authority, evicting
 pinned/required/dirty state, allowing non-atomic cancellation/publication or
 moving world/domain ownership into the resource manager requires a new ADR
-that explicitly supersedes ADR-026 and synchronizes dependent SPEC,
-traceability and evidence contracts.
+that explicitly supersedes ADR-026 and updates dependent specifications.

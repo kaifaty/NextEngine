@@ -5,14 +5,13 @@
 | ID | SPEC-08 |
 | Статус | Accepted |
 | Версия | 1.8 |
-| Владелец | Repository Owner |
 | Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-016](adr/016-compositional-gameplay-budgets.md) |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [ADR-016](adr/016-compositional-gameplay-budgets.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
 
-World Services Team владеет navigation representation/query service, route reservations, `WorldCalendarStateV1`, simulation calendar/weather state, population schedules, `WorldPartitionManifestV1` logical topology, durable spatial placement/tombstones, spatial indices и audio scene descriptions. Asset & Persistence Team владеет immutable schema/content/bundle publication, а Core Runtime — fixed `SimulationTick`, job/result admission, ephemeral residency mapping и scheduling/transaction boundaries; ни один из них не становится вторым owner world topology/placement. Navigation plan не владеет фактическим character pose: active traversal outcome принадлежит physical/capsule controller. Audio mixer/device state — presentation only; gameplay hearing использует deterministic acoustic facts, а не звуковую карту устройства.
+World Services владеет navigation representation/query service, route reservations, `WorldCalendarStateV1`, simulation calendar/weather state, population schedules, `WorldPartitionManifestV1` logical topology, durable spatial placement/tombstones, spatial indices и audio scene descriptions. Asset & Persistence владеет immutable schema/content/bundle publication, а Core Runtime — fixed `SimulationTick`, job/result admission, ephemeral residency mapping и scheduling/transaction boundaries; ни один из них не становится вторым owner world topology/placement. Navigation plan не владеет фактическим character pose: active traversal outcome принадлежит physical/capsule controller. Audio mixer/device state — presentation only; gameplay hearing использует deterministic acoustic facts, а не звуковую карту устройства.
 
 ## Public boundary
 
@@ -26,7 +25,7 @@ Navigation разделена на три contracts:
 2. Tactical layer преобразует ближайший corridor/link в `PhysicalAvatarIntent`.
 3. Physical embodiment доказывает фактическое достижение link/waypoint по pose/contact outcomes.
 
-RoutePlan является советом, не teleports и не source of truth. Stuck, push, closed door, moving obstacle или failed jump инвалидируют/перепланируют corridor. Off-mesh link хранит generic action tag и geometric constraints; actual interaction проходит WorldCommand/physical gate.
+RoutePlan является советом, не teleports и не source of truth. Stuck, push, closed door, moving obstacle или failed jump инвалидируют/перепланируют corridor. Off-mesh link хранит generic action tag и geometric constraints; actual interaction проходит WorldCommand/physical validation boundary.
 
 Recast/Detour — `Proposed` adapter. Engine владеет `NavSurface`, tiled nav data, query/filter, RoutePlan и diagnostics. `dt*` types и raw poly refs запрещены в saves, AI, scripting и bundles; stable nav polygon identity состоит из cooked tile AssetId + local engine index + revision.
 
@@ -50,11 +49,11 @@ Navmesh строится детерминированно из validated neutral
 
 `AudioScene` consumes PresentationSnapshot, cooked clips, emitters/listener, rooms/portals и world acoustic parameters. Engine-native baseline MUST поддерживать sample playback, streaming, spatial attenuation/panning, priority/voice limiting и zone reverb fallback без proprietary SDK.
 
-Steam Audio — `Proposed` optional propagation adapter и проходит technical + license/redistribution gate. Its handles/types do not leave adapter. Propagation result MAY improve rendering and gameplay acoustic estimate only если deterministic precomputed/query mode удовлетворяет replay policy; иначе gameplay hearing остаётся engine deterministic approximation, а Steam Audio — presentation-only.
+Steam Audio — `Proposed` optional propagation adapter. Его exact version должна быть технически совместима и разрешена для выбранного способа распространения; handles/types не покидают adapter. Propagation result MAY improve rendering and gameplay acoustic estimate only если deterministic precomputed/query mode удовлетворяет replay policy; иначе gameplay hearing остаётся engine deterministic approximation, а Steam Audio — presentation-only.
 
 ASR/TTS принадлежат `ai-host`; audio runtime получает/отдаёт bounded PCM/encoded streams через versioned messages, не model APIs. Отсутствие voice services использует text/subtitle и authored/default voice fallback.
 
-Audio HumanReviewRequired capture использует тот же deterministic AudioScene graph, но sink — bounded canonical PCM/WAV, не hardware device. CapturePlan фиксирует listener, buses, sample rate/channels, semantic tick window и synchronized video track. Gameplay acoustic facts проверяются отдельно exact/tolerance assertions; человек оценивает только audible presentation quality.
+Displayless audio check использует тот же deterministic `AudioScene`, но sink — bounded canonical PCM/WAV, не hardware device. Конфигурация фиксирует listener, buses, sample rate/channels и semantic tick window. Gameplay acoustic facts проверяются отдельно exact/tolerance assertions.
 
 ## Data flow
 
@@ -72,18 +71,18 @@ Audio HumanReviewRequired capture использует тот же deterministic
 - Audio device loss → gameplay продолжается, mixer reconnects; acoustic gameplay facts сохраняются.
 - Optional propagation init/runtime failure → engine-native audio fallback без world mutation.
 - Voice stream late/crashed → subtitle/text fallback; dialogue state не ждёт playback completion, если content явно не требует authored timing event.
-- Audio capture sink/device/encoder failure → gameplay/replay остаётся valid, review status `AwaitingCapability`; automatic acoustic assertion нельзя заменить прослушиванием.
-- PCM/media hash или synchronization mismatch → capture bundle rejected; prior evidence remains.
+- Audio check sink/device/encoder failure → gameplay/replay остаётся valid; acoustic check повторяется на доступном canonical PCM sink.
+- PCM или event-to-sample synchronization mismatch → audio check fails; gameplay state не изменяется.
 
-## Verification gates
+## Product checks
 
-| Gate | Сценарий | Threshold | Evidence | Fallback |
-|---|---|---|---|---|
-| NAV-P1 | Recast deterministic tiled cook Win/Linux | byte-identical neutral nav tiles и query results для 1 000 start/goal pairs | hashes/query report | engine-owned graph nav for slice |
-| NAV-P2 | door/off-mesh/push/stuck/stream tests | 100% stale paths rejected; ≥99% bounded fixtures reach or return correct no-path; no teleport | replay + traversal video | replan/graph adapter |
-| NAV-P3 | ADR-016 deterministic 100-NPC workload | весь due navigation work/queue handling помещается в exclusive row p95 ≤1 250 us / p99 ≤1 500 us; membership/phase/due trace exact; bounded deterministic deferral, no starvation/drop/unowned span | GameplayBudgetMatrix/workload hashes, query/due/queue/starvation spans | lower deterministic navigation cadence/LOD; integrated PERF-01 remains blocking |
-| AUDIO-P1 | baseline + Steam candidate matrix | baseline always plays; optional adapter acoustic reference error within scenario tolerance, device-loss recovery ≤5 s; 0 gameplay hash differences | audio captures/metrics/replay | baseline attenuation/panning/zones |
-| AUDIO-L1 | Steam Audio license/redistribution review | written approval for exact version/artifacts/platform distribution | legal record/SBOM | do not ship adapter |
-| WORLD-01 | calendar/weather/reservation save/load/replay and legacy RPG-calendar migration across 100 deterministic fixtures | exact `WorldCalendarStateV1`, accepted-command and DomainEvent sequences/hashes before save, after atomic copy-on-write migration/load and during replay; migrated RPG calendar fields absent; every injected failure preserves original bytes; wall clock changes 0 outcomes | before/after save/replay manifests, migration matrix, command/event traces and state roots | fail closed, retain prior save generation and block world-service conformance |
-| WORLD-02 | navigation/world-service/physical ownership and traversal corpus | 100% RoutePlan revisions and reservation decisions remain World Services-owned advice/state; physical/capsule controller alone owns traversal pose/outcome; stale plans reject; route/physical outcomes are replay-stable across 100 fixtures | ownership graph, route/reservation revisions, physical outcome trace and replay roots | reject stale plan, deterministic replan/idle fallback; block on owner or replay divergence |
-| AUDIO-02 | displayless audio evidence, base/candidate sync | canonical PCM/WAV roots exact on pinned worker; event-to-sample alignment within 1 sample; automatic acoustic facts exact; review MP4 contains declared audible track; 0 gameplay hash difference | audio/event/frame hashes, waveform/metrics, media manifest | retain PCM/WAV; review AwaitingCapability until MediaEncoder passes |
+| Check ID | Scenario / command | Expected behavior / fallback |
+|---|---|---|
+| NAV-P1 | Recast deterministic tiled cook on Windows and Linux | Neutral nav tiles and 1,000 start/goal query results are byte-identical; use the engine-owned graph navigation fallback if the adapter differs. |
+| NAV-P2 | Door, off-mesh, push, stuck and streaming fixtures | Stale paths are rejected, bounded fixtures either reach the goal or return no-path, and no path teleports an actor; replan or use the graph adapter. |
+| NAV-P3 | ADR-016 deterministic 100-NPC workload | Due navigation stays within p95 ≤1,250 us / p99 ≤1,500 us with bounded deferral and no starvation, drop or unowned span; lower deterministic cadence/LOD if needed. |
+| AUDIO-P1 | Engine baseline and optional Steam Audio candidate | Baseline playback always works, device loss recovers without gameplay differences, and optional propagation stays within scenario tolerance; fall back to baseline attenuation/panning/zones. |
+| AUDIO-L1 | Steam Audio version and distribution matrix | The selected version is compatible with target platforms and may be redistributed under the project policy; otherwise do not ship the adapter. |
+| WORLD-01 | Calendar/weather/reservation save, load, replay and legacy calendar migration | Calendar, commands and events remain exact, failures preserve the original save, and wall-clock changes alter no outcome; fail closed and retain the prior save generation. |
+| WORLD-02 | Navigation/world-service/physical ownership and traversal corpus | World Services owns route/reservation state, the physical controller alone owns traversal outcome, stale plans reject, and replay is stable; deterministically replan or idle. |
+| AUDIO-02 | Displayless canonical PCM and event synchronization | PCM is deterministic on the pinned sink, event alignment is within one sample, acoustic facts are exact, and gameplay hashes do not depend on audio output; retain gameplay and use the baseline audio path on failure. |

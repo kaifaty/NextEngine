@@ -4,16 +4,17 @@
 |---|---|
 | ID | SPEC-18 |
 | Статус | Accepted |
-| Версия | 1.1 |
-| Владелец | Repository Owner |
-| Требуемые согласующие | Architecture Working Group, Rendering Team, Runtime Team, RPG Framework Team, Developer Experience Team, Verification & Evidence Team, Security & Governance Team |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md) |
+| Версия | 2.0 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
 
 ## История принятия
 
-SPEC-18 принят в architecture packet 1.7 как Player Experience foundation contract. Принятие фиксирует public schemas, ownership, failure paths и verification gates, но не объявляет runtime implementation, gate `PASS`, human approval или `vertical-v1` conformance.
+SPEC-18 принят в architecture packet 1.7 как Player Experience foundation
+contract. Версия 2.0 сохраняет public schemas, authority boundaries и failure
+paths, но заменяет admission-oriented verification обычными product checks по
+ADR-030.
 
 ## Назначение и invariants
 
@@ -24,26 +25,29 @@ SPEC-18 определяет границу между raw platform input, canon
 - UI, camera, localized text и accessibility preferences MUST NOT быть gameplay authority.
 - Aiming/targeting, dialogue choice, inventory action и interaction MUST входить в simulation как versioned action-derived command candidate через common validation.
 - `game` и headless scenario MUST подавать один canonical `PlayerActionFrame` через общий current/next ingress contract; frame не выбирает authoritative tick.
-- Observable UI/camera changes MUST проходить SPEC-15 automatic evidence and authorized human review.
 - Missing locale/device/optional panel MUST иметь bounded accessible fallback и не блокировать offline correctness.
 - Public action/UI/camera/localization/accessibility schemas MUST содержать только engine-owned IDs, fixed-width values и immutable data; OS, vendor, ECS и backend types запрещены.
 - Этот contract не выбирает input library, widget toolkit, UI framework или device backend.
 
-## Source of truth и ownership
+## Technical authority boundary
 
-| State | Единственный owner/source of truth | Не является source |
+| State | Authoritative representation | Не является source |
 |---|---|---|
 | Raw normalized controls/focus/device lifecycle | SPEC-29 `PlatformEventV1`/`NormalizedControlEventV1` from private platform adapter | native event objects after normalization |
-| Action maps, context stack, binding resolution | Player Experience `ActionMapManifest` + session input service | UI widget callbacks, device driver profile |
+| Action maps, context stack, binding resolution | `ActionMapManifest` + session input service | UI widget callbacks, device driver profile |
 | Canonical action input for one ingress sample | Immutable `PlayerActionFrame` | physical device identity, current renderer frame or wall clock |
 | Current/next tick assignment | Runtime `IngressAssignmentV1` + closed ingress batch | frame timestamp, renderer cadence, callback completion order |
-| Gameplay result of an action | Owning domain after accepted WorldCommand | UI animation, camera ray, input binding |
-| UI semantic state | Player Experience projection of immutable queries/snapshots | widget tree, GPU resources |
-| Camera state | Player Experience presentation controller | character pose, projectile authority |
+| Gameplay result of an action | Owning domain state after accepted `WorldCommand` | UI animation, camera ray, input binding |
+| UI semantic state | immutable projection of queries/snapshots | widget tree, GPU resources |
+| Camera state | presentation controller | character pose, projectile authority |
 | Locale/accessibility preferences | Local `PlayerPreferenceProfile` | content IDs, quest/dialogue state |
 | Localized resources | Cooked content registry by stable text ID + locale | rendered glyph string as identifier |
 
-Player Experience Team владеет public action/UI/camera/localization/accessibility schemas. Rendering Team владеет private raw platform adapter и visual backend. Runtime/RPG/Mechanics own ingress assignment, validation and committed outcomes. Extension panel cannot acquire more authority than its package capabilities.
+Public action/UI/camera/localization/accessibility schemas остаются
+engine-owned. Private platform/visual adapters нормализуют input and render
+presentation, while Runtime/RPG/Mechanics keep ingress assignment, validation
+and committed outcomes. Extension panel cannot acquire more authority than its
+package capabilities.
 
 ## Public contracts
 
@@ -88,7 +92,12 @@ An assigned action requiring gameplay targeting creates a `TargetingIntent` with
 
 Runtime reconstructs `AuthoritativeTargetingQueryV1` only from the authoritative snapshot at the assigned tick, authoritative actor pose, ability/mechanic definition and hash-bound gameplay `TargetingQueryProfile`. The common validator resolves visibility/range/collision/affordance and accepts or rejects the resulting command candidate. Presentation camera consumes the immutable targeting projection/result to place reticle, lock-on and feedback; the data flow never reverses.
 
-Camera collision/occlusion, smoothing, shake, FOV, aspect and framing are presentation. Lock-on target or interaction selection becomes durable only through accepted command/event. CapturePlan may override camera presentation for evidence but cannot change `TargetingIntent`, `AuthoritativeTargetingQueryV1`, accepted command or gameplay hash.
+Camera collision/occlusion, smoothing, shake, FOV, aspect and framing are
+presentation. Lock-on target or interaction selection becomes durable only
+through accepted command/event. An optional developer capture may override
+camera presentation for screenshots or video, but cannot change
+`TargetingIntent`, `AuthoritativeTargetingQueryV1`, accepted command or
+gameplay hash.
 
 ## UI semantic boundary
 
@@ -120,9 +129,9 @@ Accessibility alternative MUST invoke the same action ID and validation path as 
 ## Scheduling и budgets
 
 - Action-frame enqueue uses the ADR-022 current/next ingress cutoff exactly once; Player Experience cannot add a private wall-time cutoff or extra command-admission barrier.
-- Action-to-command mapping and targeting validation executed inside the gameplay tick are charged to the existing ADR-016 `core-command-rpg` exclusive span. This specification creates no new budget owner row.
+- Action-to-command mapping and targeting validation executed inside the gameplay tick are charged to the existing ADR-016 `core-command-rpg` exclusive span. This specification creates no additional budget category.
 - Required assigned actions MUST NOT be silently dropped, reordered or routed differently to meet a wall-time budget. Declared deterministic bounds reject an oversized/invalid frame before command mutation.
-- UI projection, camera smoothing and localized rendering remain presentation work. Their delay or failure cannot change ingress assignment, command order, authoritative state or gate result.
+- UI projection, camera smoothing and localized rendering remain presentation work. Their delay or failure cannot change ingress assignment, command order or authoritative state.
 
 ## Failure semantics
 
@@ -138,36 +147,60 @@ Accessibility alternative MUST invoke the same action ID and validation path as 
 | `CAMERA_TARGET_STALE` | Reject targeting candidate; presentation may continue without commit |
 | `LOCALIZATION_RESOURCE_MISSING` | Declared locale fallback/placeholder; command/content IDs unchanged |
 | `PLAYER_PREFERENCE_INVALID` | Quarantine profile and use bounded defaults; save/gameplay untouched |
-| `NONDETERMINISTIC_RESULT` | Gate fails with first divergent input/action/command; no retry-to-green |
+| `NONDETERMINISTIC_RESULT` | Report the first divergent input/action/command and fail the affected product check; no retry-to-green |
 
-## Verification gates
+## Product checks
 
-| Gate | Primary owner | Contributors | Reproducible command/scenario | Pass threshold | Required evidence | Fallback | VS / profile closure |
-|---|---|---|---|---|---|---|---|
-| `INPUT-P1` | Player Experience Team | Rendering Team, Runtime Team | `next gate INPUT-P1 --scenario player-input-parity --events 10000 --roots game,headless,capture-worker --targets windows-x86_64,linux-x86_64` | 10,000 equivalent semantic-control fixtures produce exact canonical `PlayerActionFrame`, `ClosedIngressBatchV1`, assignment, action and command order across roots/targets; before/at/after cutoff permutations are exact; 100% invalid/conflicting/stale cases classified; 0 OS/vendor/ECS/backend type in public contracts | event/frame/assignment/action/command traces, map/context/profile hashes, public API scan, diagnostics | fix or disable failing optional adapter; retain project-declared accessible semantic-action path | VS-02, VS-11, VS-15; player-input profile |
-| `UI-P1` | Player Experience Team | RPG Framework Team, Security & Governance Team | `next gate UI-P1 --scenario semantic-ui-command-loop --runs 1000` | 1,000 inventory/dialogue/quest/menu flows use immutable semantic projections and production actions/commands; 0 direct mutation, lost/duplicate commit or capability escape; all injected panel faults isolated | semantic snapshots, action/command/receipt/event traces, capability/budget audit, UI captures | disable optional panel; incompatible required schema blocks startup before world activation | VS-02, VS-07, VS-15; semantic-ui profile |
-| `CAMERA-P1` | Player Experience Team | Runtime Team, Rendering Team | `next gate CAMERA-P1 --scenario camera-targeting-replay --runs 1000` | Camera FPS/interpolation/shake/FOV/aspect/capture variants produce exact `TargetingIntent`, `AuthoritativeTargetingQueryV1`, accepted/rejected command outcomes and gameplay hashes; stale targets 100% rejected; required media complete | intent/query/command/receipt traces, replay hashes, CapturePlans, comparison media | use stable authored presentation profile; reject stale targeting; never accept rendered targeting data | VS-07, VS-11, VS-15; camera-targeting profile |
-| `ACCESS-P1` | Player Experience Team | Verification & Evidence Team, RPG Framework Team | `next gate ACCESS-P1 --scenario locale-accessibility-matrix --profiles default,remapped,reduced-motion,subtitles --locales source,missing,pseudo` | Every profile completes mandatory semantic actions through the same IDs/validation and matches its exact expected assigned frame; equivalent scenario actions produce identical accepted commands/gameplay hashes across profiles; 100% corrupt/missing preference/locale fixtures use declared fallback; semantic snapshot closure complete | profile/locale manifests, frame/assignment/replay hashes, semantic snapshots, UI captures, diagnostics | safe bounded preferences, project source locale and readable placeholder | VS-02, VS-15; accessibility-localization profile |
+| ID | Scenario | Expected behavior | Fallback |
+|---|---|---|---|
+| `INPUT-P1` | Feed equivalent semantic controls through interactive and headless producers, including before/at/after ingress cutoff and invalid/conflicting/stale inputs. | Canonical `PlayerActionFrame`, closed ingress assignment, action and command order are exact for equivalent inputs; no OS/vendor/ECS/backend type enters public contracts. | Reject the affected frame or disable the failing optional adapter while keeping a declared accessible semantic-action path. |
+| `UI-P1` | Exercise inventory, dialogue, quest and menu flows through semantic projections and production actions/commands, including optional-panel faults. | No direct gameplay mutation, lost/duplicate commit or capability escape occurs; widget timing cannot select an authoritative outcome. | Disable the optional panel; reject an incompatible required UI schema before world activation. |
+| `CAMERA-P1` | Replay targeting while varying presentation FPS, interpolation, shake, FOV and aspect; optional developer captures may be enabled. | `TargetingIntent`, authoritative query, command outcome and gameplay hash remain independent of camera/render state; stale targets are rejected. | Use a stable authored presentation profile and never accept rendered targeting data. |
+| `ACCESS-P1` | Run default, remapped, reduced-motion and subtitle profiles across source, missing and pseudo locales. | Required semantic actions use the same IDs/validation and equivalent inputs produce the same accepted commands/gameplay hashes; invalid resources use bounded defaults. | Use safe preferences, the project source locale and a readable placeholder. |
 
 ## Requirements
 
-| ID | Нормативное требование | Primary owner | Contributors | Blocking gates |
-|---|---|---|---|---|
-| `REQ-091` | Engine-owned device-independent action maps MUST deterministically produce canonical `PlayerActionFrame` bytes; interactive and headless producers MUST use the same schema, current/next cutoff, persisted assignment and production mapper. | Player Experience Team | Rendering Team, Runtime Team | INPUT-P1, CLOCK-P1 |
-| `REQ-092` | Assigned player actions and gameplay targeting MUST derive authoritative tick/query inputs from `IngressAssignmentV1` and authoritative snapshots, then pass common production command validation; camera/GPU/widget state MUST NOT select the outcome. | Runtime Team | Player Experience Team, RPG Framework Team | INPUT-P1, CAMERA-P1 |
-| `REQ-093` | Semantic UI, camera, localized resources and accessibility preferences MUST remain immutable presentation/local state, replay-safe and unable to change authoritative ordering or outcome for the same assigned action input. | Player Experience Team | Rendering Team, Verification & Evidence Team | UI-P1, CAMERA-P1, ACCESS-P1 |
-| `REQ-094` | First-party and capability-scoped extension panels, alternative controls and missing-resource fallbacks MUST use the same semantic UI/action contracts and MUST NOT gain direct domain mutation authority. | Player Experience Team | RPG Framework Team, Security & Governance Team | UI-P1, ACCESS-P1 |
+| ID | Нормативное требование |
+|---|---|
+| `REQ-091` | Engine-owned device-independent action maps MUST deterministically produce canonical `PlayerActionFrame` bytes; interactive and headless producers MUST use the same schema, current/next cutoff, persisted assignment and production mapper. |
+| `REQ-092` | Assigned player actions and gameplay targeting MUST derive authoritative tick/query inputs from `IngressAssignmentV1` and authoritative snapshots, then pass common production command validation; camera/GPU/widget state MUST NOT select the outcome. |
+| `REQ-093` | Semantic UI, camera, localized resources and accessibility preferences MUST remain immutable presentation/local state, replay-safe and unable to change authoritative ordering or outcome for the same assigned action input. |
+| `REQ-094` | First-party and capability-scoped extension panels, alternative controls and missing-resource fallbacks MUST use the same semantic UI/action contracts and MUST NOT gain direct domain mutation authority. |
 
 ## Failure paths
 
-| ID | Trigger | Required result | Primary owner | Contributors | Blocking gates |
-|---|---|---|---|---|---|
-| `FAIL-033` | Invalid, non-monotonic, stale, conflicting, oversized or cutoff-corrupt control/action/targeting input | Reject the affected event, frame or candidate before partial/duplicate gameplay command; preserve exact assignment/diagnostic and never reorder by arrival or retry to green. | Player Experience Team | Runtime Team, Rendering Team | INPUT-P1, CAMERA-P1, CLOCK-P1 |
-| `FAIL-034` | Missing/lost optional device, failed optional UI panel, missing locale/glyph or invalid preference profile | Use only the declared bounded accessible semantic-action/source-locale/default-profile fallback; required schema failure remains pre-world; save/domain state and committed commands remain untouched. | Player Experience Team | RPG Framework Team, Verification & Evidence Team | INPUT-P1, UI-P1, ACCESS-P1 |
+| ID | Trigger | Required result |
+|---|---|---|
+| `FAIL-033` | Invalid, non-monotonic, stale, conflicting, oversized or cutoff-corrupt control/action/targeting input | Reject the affected event, frame or candidate before partial/duplicate gameplay command; preserve exact assignment/diagnostic and never reorder by arrival or retry to green. |
+| `FAIL-034` | Missing/lost optional device, failed optional UI panel, missing locale/glyph or invalid preference profile | Use only the declared bounded accessible semantic-action/source-locale/default-profile fallback; required schema failure remains pre-world; save/domain state and committed commands remain untouched. |
 
-## Consequences и conformance boundary
+## Proposed SPEC-31 quest disclosure and journal projection
 
-- `REQ-091`…`REQ-094` and `FAIL-033`…`FAIL-034` are Accepted normative rows owned by this specification.
-- `INPUT-P1`, `UI-P1`, `CAMERA-P1` and `ACCESS-P1` close through existing VS-02/VS-07/VS-11/VS-15 descriptors; this contract creates no additional vertical gate.
-- Observable `ui` and `camera` changes remain `HumanReviewRequired` under SPEC-15/ADR-023 after all resolved automatic gates pass.
+If [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) is
+accepted, quest UI reads an immutable RPG projection. A `Latent` opportunity is
+not shown merely because it exists. `Direct`, `Solicited`, `Contextual` and
+`Public` surfaces all submit the same semantic disclosure/action path and render
+the same Quest ID, term revision and availability state after commit.
+
+An NPC line, translated text, notification, journal entry, board widget or
+question such as «есть работа?» cannot create a Quest or assign difficulty,
+reward or outcome. The question performs a bounded query over admitted eligible
+opportunities; `DiscloseQuestOpportunity`, `AcceptQuest` and
+`DeclineQuestOffer` remain validated RPG commands. Decline cooldown controls
+repeat presentation but is durable RPG state, not a widget timer.
+
+The journal MAY present `Offered`, `Accepted` and `Resolved` instances with
+source/channel, deadline warnings, frozen terms and committed outcome. It MUST
+NOT reveal hidden latent facts, use localized title/text as identity or hide an
+authoritative deadline/outcome because the originating NPC or panel is unloaded.
+While SPEC-31 remains Proposed, this section does not change the Accepted UI
+schema.
+
+## Consequences
+
+- `REQ-091`…`REQ-094` and `FAIL-033`…`FAIL-034` remain the technical
+  contract of this specification.
+- `INPUT-P1`, `UI-P1`, `CAMERA-P1` and `ACCESS-P1` are ordinary executable
+  product checks.
+- Screenshots and camera/UI captures are optional developer aids.
 - No external technology, input backend, widget toolkit or UI framework is accepted by this specification.

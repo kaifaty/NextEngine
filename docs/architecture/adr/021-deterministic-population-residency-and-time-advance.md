@@ -5,17 +5,11 @@
 | ID | ADR-021 |
 | Статус | Accepted |
 | Версия | 1.0 |
-| Владелец | World Services Team |
-| Требуемые согласующие | Architecture Working Group, Runtime Team, Asset & Persistence Team, Agent Intelligence Team, RPG Framework Team, Physical Embodiment Team, Verification & Evidence Team, Release Engineering |
 | Дата решения | 2026-07-24 |
 | Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-014](014-deterministic-extensions-and-package-trust.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-023](023-human-review-decision-v2-and-offline-attestation.md) |
+| Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-014](014-deterministic-extensions-and-package-trust.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
-
-## История принятия
-
-ADR-021 принят в architecture packet 1.7 как upstream decision для World Services population/calendar contract. Он переносит единственную authoritative simulation-calendar state из legacy RPG save layout в World Services, фиксирует tier/schedule/time-advance semantics и сохраняет distinct RPG, Agent, Runtime and Physical owners. Принятие решения не означает implementation completion, gate `PASS` или vertical conformance.
 
 ## Контекст
 
@@ -27,23 +21,23 @@ Accepted architecture already defines Runtime fixed ticks/residency, WorldChunk 
 - менять schedule outcome от wall time, visibility, I/O или worker order;
 - считать unload/despawn удалением durable subject и выдать ему новый ID при загрузке;
 - копировать RPG/Agent/Physical fields в population record;
-- разрешать abstract combat/contact/traversal без соответствующей owner validation;
+- разрешать abstract combat/contact/traversal без соответствующей subsystem validation;
 - применять time skip отдельным mutation path, расходящимся со stepped simulation.
 
 ## Решение
 
-### Authority и owner separation
+### Authority separation
 
-1. World Services Team является единственным владельцем `WorldCalendarStateV1`, durable population membership, logical region/home, schedule cursor, abstract activity, logical residency tier и time-advance plan.
-2. RPG Framework Team остаётся единственным владельцем Character, item/inventory/equipment, quest/dialogue, faction/relationship, interactive-object and other domain aggregates.
-3. Agent Intelligence Team остаётся единственным владельцем plans, goals, attention, habits, memory и pending intent.
-4. Runtime Team владеет fixed `SimulationTick`, command/system ordering, `RuntimeEntityId` и resident PersistentId↔runtime mapping.
-5. Physical Embodiment Team владеет body pose, contacts, constraints, traversal outcome, motor state и physical LOD.
-6. Asset & Persistence Team владеет save generation/migration transaction и segment encoding, но не semantic values внутри owner segments.
+1. `WorldServicesState` is authoritative for `WorldCalendarStateV1`, durable population membership, logical region/home, schedule cursor, abstract activity, logical residency tier and time-advance plan.
+2. `RpgDomainState` is authoritative for Character, item/inventory/equipment, quest/dialogue, faction/relationship, interactive-object and other RPG aggregates.
+3. `AgentState` is authoritative for plans, goals, attention, habits, memory and pending intent.
+4. `RuntimeScheduleState` is authoritative for fixed `SimulationTick`, command/system ordering, `RuntimeEntityId` and resident PersistentId↔runtime mapping.
+5. `PhysicalWorldState` is authoritative for body pose, contacts, constraints, traversal outcome, motor state and physical LOD.
+6. `SaveGenerationPublisher` controls generation encoding, migration staging and atomic publication without assigning semantic values inside subsystem segments.
 
-Один и тот же subject `PersistentId` MUST проходить через `Dormant`, `Abstract`, `Simulated` и `Active`; ephemeral `RuntimeEntityId` возникает только у resident representation и никогда не заменяет durable identity. Population records могут хранить revision/hash references на immutable owner views, но не mutable копии owner state.
+Один и тот же subject `PersistentId` MUST проходить через `Dormant`, `Abstract`, `Simulated` и `Active`; ephemeral `RuntimeEntityId` возникает только у resident representation и никогда не заменяет durable identity. Population records могут хранить revision/hash references на immutable subsystem views, но не mutable копии чужого state.
 
-World Services tier и Physical LOD являются разными state machines. Calendar/tier decision не пишет pose, contact, RPG aggregate, Agent plan или runtime mapping напрямую; он создаёт revision-bound proposal/command для соответствующего owner и общего commit point.
+World Services tier и Physical LOD являются разными state machines. Calendar/tier decision не пишет pose, contact, RPG aggregate, Agent plan или runtime mapping напрямую; он создаёт revision-bound proposal/command для соответствующего subsystem state и общего commit point.
 
 ### WorldCalendarStateV1
 
@@ -111,8 +105,8 @@ Population tiers are ordered `Dormant < Abstract < Simulated < Active`:
 |---|---|
 | `Dormant` | Durable record persists; no work is due before an exact wake condition/world tick. |
 | `Abstract` | Non-resident/lightweight record evaluates only declared generic abstract activities. |
-| `Simulated` | Resident reduced-cadence owner work preserves every mandatory transition. |
-| `Active` | Resident full due owner work; Physical subsystem separately chooses a valid physical LOD. |
+| `Simulated` | Resident reduced-cadence subsystem work preserves every mandatory transition. |
+| `Active` | Resident full due subsystem work; Physical subsystem separately chooses a valid physical LOD. |
 
 Tier selection uses declared region residency, interaction/quest importance, wake horizon, required resolution/capabilities and hash-bound budget profile. It does not use camera visibility, renderer FPS, wall time, worker identity or I/O completion order.
 
@@ -120,12 +114,12 @@ Runtime spawn/despawn changes only resident representation. World Services regis
 
 Tier/region transition is `Prepare → Validate → Commit → Stabilize`:
 
-- `Prepare` captures immutable expected revisions and stages required content/owner views.
-- `Validate` resolves all capabilities, no-contact/no-interaction conditions and complete owner mutation set.
+- `Prepare` captures immutable expected revisions and stages required content/subsystem views.
+- `Validate` resolves all capabilities, no-contact/no-interaction conditions and complete cross-subsystem write set.
 - `Commit` atomically publishes World Services tier/logical location and any Runtime residency change through the common command transaction.
-- `Stabilize` reconstructs non-authoritative caches only. Cache failure pins the committed safe tier and cannot rewrite owner state.
+- `Stabilize` reconstructs non-authoritative caches only. Cache failure pins the committed safe tier and cannot rewrite subsystem state.
 
-Any authoritative failure before `Commit` retains the complete source tier, owner records and Runtime mapping. No partial despawn, duplicate PersistentId, lost mandatory activity or physics-authoritative teleport is permitted.
+Any authoritative failure before `Commit` retains the complete source tier, subsystem records and Runtime mapping. No partial despawn, duplicate PersistentId, lost mandatory activity or physics-authoritative teleport is permitted.
 
 ### Schedule evaluation и unsupported abstract outcome
 
@@ -133,7 +127,7 @@ Each immutable schedule activity declares:
 
 - integer due intervals and exact condition facts;
 - desired activity/logical region/resource;
-- required resolution tier and owner fact revisions;
+- required resolution tier and subsystem fact revisions;
 - positive retry interval and maximum deferral world tick;
 - optional separately validated fallback activity;
 - named authoritative RNG stream only when stochastic choice is explicit.
@@ -146,13 +140,13 @@ When the current tier cannot validate an outcome:
 2. otherwise, before maximum deferral, emit `DeferredUnsupported` with checked `next_retry_world_tick = current_world_tick + min(retry_interval, maximum_deferral_tick - current_world_tick)`;
 3. at maximum deferral, keep the activity in `DeferredUnsupported`, stop the advance plan before the outcome and emit `WORLD_ABSTRACT_OUTCOME_BLOCKED`.
 
-Unsupported work never emits success, advances its schedule cursor, mutates an RPG/Agent/Physical owner, synthesizes contact/traversal/combat/dialogue/inventory/quest/relationship result or reads wall time. A fallback activity is evaluated as its own activity and is not fabricated completion of the blocked one.
+Unsupported work never emits success, advances its schedule cursor, mutates RPG/Agent/Physical state, synthesizes contact/traversal/combat/dialogue/inventory/quest/relationship result or reads wall time. A fallback activity is evaluated as its own activity and is not fabricated completion of the blocked one.
 
 ### Stepped и bounded bulk time
 
-Every external time advance is a validated production command. World Services constructs one immutable bounded plan for `[from_world_tick, to_world_tick]` with expected owner revisions, canonical ordered operations, maximum operation count and plan hash. `from_world_tick` must equal the current calendar state.
+Every external time advance is a validated production command. World Services constructs one immutable bounded plan for `[from_world_tick, to_world_tick]` with expected subsystem revisions, canonical ordered operations, maximum operation count and plan hash. `from_world_tick` must equal the current calendar state.
 
-Stepped and bulk modes call the same boundary evaluator, canonical plan partition and command validators. A plan closes immediately before the first boundary whose operations would exceed `maximum_operation_count`, or at the requested target when none does; a single boundary larger than the limit rejects without commit. Bulk mode MAY coalesce only a span proven to contain no schedule/wake/reservation expiry/transfer, authoritative RNG draw, external decision or observable/domain result. It stops at the earliest such boundary. The modes MUST produce exact equal calendar revision, command, event, owner-state and schedule-cursor hashes.
+Stepped and bulk modes call the same boundary evaluator, canonical plan partition and command validators. A plan closes immediately before the first boundary whose operations would exceed `maximum_operation_count`, or at the requested target when none does; a single boundary larger than the limit rejects without commit. Bulk mode MAY coalesce only a span proven to contain no schedule/wake/reservation expiry/transfer, authoritative RNG draw, external decision or observable/domain result. It stops at the earliest such boundary. The modes MUST produce exact equal calendar revision, command, event, subsystem-state and schedule-cursor hashes.
 
 Each plan validates all expected revisions and operation bounds before atomic commit and increments calendar revision exactly once. Stale/invalid plan is discarded whole. A long request uses the same contiguous plan boundaries in both modes; `world_tick` advances only to the last committed plan, so a later failure has explicit deterministic partial progress rather than an unrecorded skip.
 
@@ -160,41 +154,39 @@ Async workers receive immutable inputs and return revision-bound proposals throu
 
 ### Budget behavior
 
-Population/world-service work participates in the single ADR-016 `GameplayBudgetMatrix`; no per-NPC or per-tier budget can multiply beyond its mutually exclusive integrated owner row. Overflow may defer only work whose positive retry interval, maximum deferral and mandatory-outcome contract permit it. Starvation, silent drop, reordering and unowned span fail the run.
+Population/world-service work participates in the single ADR-016 `GameplayBudgetMatrix`; no per-NPC or per-tier budget can multiply beyond its mutually exclusive integrated subsystem row. Overflow may defer only work whose positive retry interval, maximum deferral and mandatory-outcome contract permit it. Starvation, silent drop, reordering and unowned span fail the run.
 
 ## Рассмотренные варианты
 
-- Calendar remains in RPG save — `Rejected`: schedule/time authority would be stored under the wrong owner and encourage cross-domain writes.
+- Calendar remains in RPG save — `Rejected`: schedule/time authority would be stored in the wrong subsystem and encourage cross-domain writes.
 - Calendar is duplicated in RPG and World Services — `Rejected`: creates two mutable authorities and ambiguous migration/replay.
 - Wall-clock offline progression — `Rejected`: machine-, locale- and downtime-dependent and not replayable.
-- Complete Character/Agent/Physical state copied into population service — `Rejected`: violates single-owner state.
+- Complete Character/Agent/Physical state copied into population service — `Rejected`: violates single-source state.
 - Despawn/unload means delete, then respawn from chunk — `Rejected`: breaks PersistentId, save references and causal history.
 - Visibility or distance alone selects authoritative tier — `Rejected`: presentation state would change mandatory gameplay.
 - Bulk time uses bespoke domain mutation — `Rejected`: diverges from ordinary validators/commands.
-- Unsupported abstract action guesses a success/failure — `Rejected`: fabricates owner state without required evidence.
+- Unsupported abstract action guesses a success/failure — `Rejected`: fabricates subsystem state without required authoritative facts.
 - Best-effort stale-plan or mixed calendar migration — `Rejected`: admits partial or ambiguous causal history.
 
 ## Последствия
 
 - World Services gains explicit calendar, population, schedule, activity, tier and time-plan schemas.
 - RPG saves lose legacy calendar value fields; a hash-bound atomic migration preserves the original generation on every failure.
-- Runtime resident mapping, Physical LOD, RPG aggregates and Agent plans remain separately owned and joined only by immutable views plus validated transactions.
+- Runtime resident mapping, Physical LOD, RPG aggregates and Agent plans remain separate authoritative states joined only by immutable views plus validated transactions.
 - Abstract simulation stays intentionally bounded. Missing resolution can reduce performance through upgrade or a defer that blocks further advance, but cannot silently reduce correctness.
 - Save/replay includes additional World Services revisions and plan diagnostics sufficient to identify the first divergent world tick/subject/operation.
 - This decision chooses no navigation, physics, ECS, crowd, database or other backend technology.
 
-## Implementation gates и fallback
+## Product checks
 
-Conforming implementation MUST pass all three exact gates:
-
-| Gate | Blocking decision contract | Deterministic fallback |
+| Scenario | Expected | Fallback |
 |---|---|---|
-| `WORLD-POP-P1` | Ownership, tier equivalence, one PersistentId and upgrade/defer-without-fabrication corpus | retain/pin safe tier or reject invalid schedule |
-| `WORLD-TIME-P1` | Stepped/bulk exact equivalence, exhaustive calendar migration matrix, stale-plan atomic rejection and zero wall-clock authority | use bounded stepped advance or block incompatible load/time skip |
-| `WORLD-RESIDENCY-P1` | Durable identity and all-or-nothing lifecycle across tier/chunk/save/load fault permutations | retain source tier, Runtime mapping, registry and prior save |
+| Exhaustive legacy/current calendar migration matrix, including conflicting, missing, malformed and publication-fault cases | Exactly one validated World Services calendar is published, or the source generation remains byte-for-byte unchanged before world activation | Keep the source generation and reject incompatible load |
+| Equivalent stepped and bulk advances across schedule, wake, reservation, RNG and operation-limit boundaries | Calendar revision, commands, events, subsystem states and schedule cursors are exact; stale plans publish nothing | Use bounded stepped advance or stop before the unsupported boundary |
+| Tier/chunk/save/load transitions with an unsupported abstract outcome | One `PersistentId` survives every residency tier; no contact, combat, traversal or quest result is fabricated | Retain the safe tier and mapping, then upgrade, defer or block deterministically |
 
-`NONDETERMINISTIC_RESULT` is a failure and retry cannot turn it green. Architecture acceptance does not create gate evidence or `PASS`.
+`NONDETERMINISTIC_RESULT` is a failure and retry cannot turn it green.
 
 ## Supersession
 
-Moving calendar/population ownership into RPG, Agent, Runtime residency cache or Physical state; changing one-PersistentId semantics; permitting wall-clock or visibility authority; fabricating unsupported abstract outcomes; allowing destructive unload/respawn; or introducing non-atomic legacy calendar migration requires a new ADR that explicitly supersedes ADR-021 and synchronizes affected SPEC, traceability and evidence contracts.
+Moving calendar/population authority into RPG, Agent, Runtime residency cache or Physical state; changing one-PersistentId semantics; permitting wall-clock or visibility authority; fabricating unsupported abstract outcomes; allowing destructive unload/respawn; or introducing non-atomic legacy calendar migration requires a new ADR that explicitly supersedes ADR-021 and updates affected specifications.

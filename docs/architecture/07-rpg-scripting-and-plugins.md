@@ -5,7 +5,6 @@
 | ID | SPEC-07 |
 | Статус | Accepted |
 | Версия | 1.7 |
-| Владелец | Repository Owner |
 | Последняя проверка | 2026-07-24 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md) |
 | Заменяет | отсутствует |
@@ -23,11 +22,11 @@ RPG Framework владеет authoritative Character, Item, Quest, Dialogue, Fac
 | Aggregate | Минимальный authoritative contract |
 |---|---|
 | `Character` | PersistentId, archetype AssetId, attributes/resources, fixed-point namespaced SkillProficiency map, inventory reference, faction memberships, authoritative directed relationship dimensions, dialogue/interaction state, embodiment reference |
-| `Item` | PersistentId для instances, archetype AssetId, quantity/durability/state, owner/location, capability tags |
+| `Item` | PersistentId для instances, archetype AssetId, quantity/durability/state и capability tags; membership/location выводятся из owning Inventory/World Services state |
 | `Quest` | PersistentId, definition AssetId, explicit state machine, variables, participants, causal history |
 | `Dialogue` | session ID, participants, node/state, available choices, commitments, transcript policy |
 | `Faction` | PersistentId, memberships/ranks, generic policies/relations |
-| `InteractiveObject` | PersistentId, interaction state machine, capabilities, occupancy/reservations |
+| `InteractiveObject` | PersistentId, interaction state machine и capabilities; reservation reference проверяется против World Services |
 | `WorldChunk` | контракт SPEC-03 и resident gameplay records |
 
 Legacy-specific types, VM semantics и hard-coded game names запрещены. Content-specific behaviors выражаются data schemas, tags, Luau modules и generic commands.
@@ -50,7 +49,7 @@ Durable package-specific gameplay state не хранится в VM globals. О�
 
 ## Luau scripting
 
-Luau — Accepted gameplay/content scripting technology. Exact VM version pinned в implementation manifest и MUST повторять SCRIPT gates при upgrade; это не замораживает весь host API до PoC. Каждый package имеет manifest с package ID/version/content hash, requested capabilities, deterministic flag, entry points и compatible engine API range.
+Luau — Accepted gameplay/content scripting technology. Exact VM version pinned в implementation manifest и MUST повторять SCRIPT product checks при upgrade; это не замораживает весь host API до PoC. Каждый package имеет manifest с package ID/version/content hash, requested capabilities, deterministic flag, entry points и compatible engine API range.
 
 Default sandbox:
 
@@ -61,21 +60,21 @@ Default sandbox:
 - callback default authoritative budget: 100 000 VM instructions, 1 MiB cumulative transient allocations, declared live-memory ceiling, host-call cost units и proposed-command bytes/count из versioned `ExtensionBudgetPolicyV1`;
 - total per-gameplay-tick scripting work входит в ADR-016 mechanics row; scheduler defers non-critical callbacks только по deterministic queue policy, а critical command validation не исполняется в script.
 
-Instruction/fuel/allocation/host-call/command counters используют exact integer comparison и определяют reproducible overrun независимо от CPU/load/worker order. Wall watchdog защищает host, но его срабатывание всегда помечает весь run `NonConforming(EXTENSION_WALL_WATCHDOG)`, discard-ит весь uncommitted proposal batch, не добавляет authoritative violation/strike или gameplay event/outcome и не может дать PASS.
+Instruction/fuel/allocation/host-call/command counters используют exact integer comparison и определяют reproducible overrun независимо от CPU/load/worker order. Wall watchdog защищает host, но его срабатывание всегда помечает exact run как `Fail(EXTENSION_WALL_WATCHDOG)`, discard-ит весь uncommitted proposal batch, не добавляет authoritative violation/strike или gameplay event/outcome и не может дать `Pass`.
 
 ## Wasm plugins
 
-Plugin manifest содержит plugin ID/version/hash/signature metadata, WIT world ID, supported interface range, requested capabilities, max memory/tables/instances, fuel per call/gameplay tick, deterministic flag и dependencies. Default untrusted caps: 64 MiB linear memory, 1 table, 1 instance, 10 million fuel/call, 20 million fuel/gameplay tick; host MAY выдать меньше.
+Plugin manifest содержит plugin ID/version/content hash, source/provenance metadata, WIT world ID, supported interface range, requested capabilities, max memory/tables/instances, fuel per call/gameplay tick, deterministic flag и dependencies. Default untrusted caps: 64 MiB linear memory, 1 table, 1 instance, 10 million fuel/call, 20 million fuel/gameplay tick; host MAY выдать меньше.
 
 WIT contracts используют value/resource handles, PersistentId/AssetId и typed `result`; RuntimeEntityId/raw pointer/vendor handle запрещены. Host поддерживает current major N и предыдущий N-1 compatibility adapter в пределах опубликованной matrix. Major mismatch → plugin не загружается, игра продолжает без optional plugin либо отказывает до world load, если project manifest честно объявил plugin required.
 
-Wasmtime — Proposed backend. Component Model feature set pinned; preview/unstable proposals disabled, если не перечислены в manifest и evidence.
+Wasmtime — Proposed backend. Component Model feature set pinned; preview/unstable proposals disabled, если они явно не разрешены manifest.
 
 ## Capability model
 
-Capabilities granular и namespaced, например `rpg.character.read`, `rpg.command.inventory.propose`, `events.quest.subscribe`, `ui.panel.register`. Capability не подразумевает дочерние права. Install-time grant пересекается с project policy и runtime context; denial возвращает stable code и audit record. Gameplay package не может делегировать capability другому package.
+Capabilities granular и namespaced, например `rpg.character.read`, `rpg.command.inventory.propose`, `events.quest.subscribe`, `ui.panel.register`. Capability не подразумевает дочерние права. Install-time grant пересекается с project policy и runtime context; denial возвращает stable code и structured diagnostic. Gameplay package не может делегировать capability другому package.
 
-Все scripts/mechanic packages/plugins имеют content hash и JCS-canonical `PackageTrustManifestV1`. Official/trusted distribution требует valid scoped signature; local unsigned install разрешён только explicit consent и untrusted hard ceiling. Invalid/expired/revoked signature не downgrade-ится в unsigned mode. Effective capabilities равны пересечению request, API compatibility, signer scope, project policy, user consent и hard security ceiling; signature не является capability grant.
+Все scripts/mechanic packages/plugins имеют content hash и bounded source/provenance metadata. Effective capabilities равны пересечению request, API compatibility, project policy, explicit user grant и hard security ceiling. Hash, provenance или publisher label не выдаёт capability и не обходит sandbox, bounds или common validation.
 
 ## Data flow
 
@@ -83,29 +82,29 @@ Capabilities granular и namespaced, например `rpg.character.read`, `rpg
 
 ## Failure semantics
 
-- Luau error/authoritative quota overrun → callback abort на exact counter, uncommitted candidates discarded, package strike; critical package после threshold вызывает clean project error, optional отключается. Wall watchdog → `NonConforming(EXTENSION_WALL_WATCHDOG)`, никогда не authoritative violation/strike, gameplay event/outcome или PASS.
-- Wasm trap/fuel/memory violation → instance terminated, resources reclaimed, audit diagnostic; host/game не падает.
+- Luau error/authoritative quota overrun → callback abort на exact counter, uncommitted candidates discarded, package strike; critical package после threshold вызывает clean project error, optional отключается. Wall watchdog → `Fail(EXTENSION_WALL_WATCHDOG)` для exact run, никогда не authoritative violation/strike, gameplay event/outcome или `Pass`.
+- Wasm trap/fuel/memory violation → instance terminated, resources reclaimed, structured diagnostic; host/game не падает.
 - Capability denial → no side effect; script/plugin MAY выбрать documented fallback.
 - Incompatible required package/state migration → fail before world mutation.
 - Invalid skill ID/proficiency delta → progression command rejected; active motor route и model bytes не меняются.
 - Nondeterministic API request из deterministic package → denial.
 - Default circuit breaker отключает package/plugin principal после третьего authoritative violation в inclusive sliding window `1_800` gameplay ticks. Violation — только deterministic quota exhaustion, trap, invalid command/capability attempt или schema violation из versioned `ExtensionBudgetPolicyV1`; wall watchdog violation не добавляет.
-- На tick нового violation runtime вычисляет `window_start_tick = current_tick.saturating_sub(1_799)`, удаляет entries с `entry_tick < window_start_tick`, добавляет current entry и затем сравнивает count; count ≥3 открывает circuit. Поэтому на ticks `0…1_798` lower bound равен `0`, а начиная с tick `1_799` inclusive window всегда содержит не более `1_800` gameplay ticks. Reset разрешён только declared admin/load/migration command с audit; wall seconds, implicit reload и new-session reset запрещены.
+- На tick нового violation runtime вычисляет `window_start_tick = current_tick.saturating_sub(1_799)`, удаляет entries с `entry_tick < window_start_tick`, добавляет current entry и затем сравнивает count; count ≥3 открывает circuit. Поэтому на ticks `0…1_798` lower bound равен `0`, а начиная с tick `1_799` inclusive window всегда содержит не более `1_800` gameplay ticks. Reset разрешён только declared admin/load/migration command с committed diagnostic; wall seconds, implicit reload и new-session reset запрещены.
 
-## Verification gates
+## Product checks
 
-| Gate | Сценарий | Threshold | Evidence | Fallback |
-|---|---|---|---|---|
-| RPG-01 | generic NPC/dialogue/quest/item/skill vertical fixture | exact expected state/event hashes, fixed-point proficiency bounds и save/load parity | replay/report | release block |
-| SCRIPT-P1 | sandbox escape/adversarial API corpus | 100% filesystem/network/native/debug escape denied | audit + fuzz report | remove API/pin prior Luau |
-| SCRIPT-P2 | instruction/allocation/host-call/command quota boundaries | limit-1/limit/limit+1 produce exact accept/reject tick and diagnostic; 0 partial command; save/reload ledger exact | counter vectors, policy/ledger hashes | disable offending package |
-| SCRIPT-P3 | determinism replay | exact accepted commands/state hash for 100 seeds | replay report | mark/reject nondeterministic package |
-| SCRIPT-P4 | save migration N-1→N | 100% fixtures exact; invalid state fail-closed | migration report | require old package/export |
-| SCRIPT-P5 | same corpus under CPU/load/worker/watchdog permutations | counter outcomes and authoritative ledger exact; every injected wall trip is `NonConforming`, never PASS | VM counters, watchdog diagnostics, replay ledgers | fix/pin VM; disable package; gate remains failed |
-| PLUGIN-P1 | capability/trap/fuel/memory/table/instance corpus | 100% denied/overrun cases isolated and atomic; 0 partial proposal, host crash/leak; RSS residual ≤16 MiB | audit, proposal-discard, sanitizer/memory report | pin Wasmtime/disable loading |
-| PLUGIN-P2 | WIT N/N-1 negotiation | 100% declared matrix; N-2/major mismatch cleanly rejected before world mutation | compatibility report | compatibility adapter/pin prior runtime |
-| PLUGIN-P3 | public WIT/value boundary scan | 0 RuntimeEntityId/raw pointer/vendor handle; current and N-1 worlds reproduce golden typed results | schema/API/golden report | remove surface or retain prior world |
-| PLUGIN-P4 | malicious component fuzz 24 CPU-hours | 0 sandbox escape/host panic/UB | fuzz report | plugin feature release-blocked |
-| PLUGIN-P5 | required/optional failure startup | optional project remains playable; required fails before world mutation with stable code | scenario report | remove/replace plugin |
+| Check ID | Scenario / command | Expected behavior / fallback |
+|---|---|---|
+| RPG-01 | Generic NPC/dialogue/quest/item/skill fixture | State and event hashes, fixed-point proficiency bounds and save/load behavior are exact; invalid domain behavior blocks the affected package or build. |
+| SCRIPT-P1 | Sandbox-escape and adversarial API corpus | Filesystem, network, native and debug escapes are denied; remove the exposed API or pin the prior Luau runtime. |
+| SCRIPT-P2 | Instruction, allocation, host-call and command quotas at limit-1/limit/limit+1 | Accept/reject tick and diagnostic are exact, no partial command is committed, and save/reload preserves the ledger; disable the offending package on violation. |
+| SCRIPT-P3 | Determinism replay over 100 seeds | Accepted commands and state hashes match exactly; reject a nondeterministic package. |
+| SCRIPT-P4 | Save migration N-1→N | Valid fixtures migrate exactly and invalid state fails closed; use the prior package/export path if migration is unavailable. |
+| SCRIPT-P5 | Same corpus under CPU, load, worker and watchdog permutations | Deterministic counters and authoritative ledger remain exact; a wall watchdog trip stops the affected run/package and never silently changes gameplay. |
+| PLUGIN-P1 | Capability, trap, fuel, memory, table and instance corpus | Denials and overruns are isolated with no partial proposal, host crash or persistent leak; pin Wasmtime or disable the plugin. |
+| PLUGIN-P2 | WIT N/N-1 negotiation | The declared matrix is accepted and N-2/major mismatch is rejected before world mutation; use a compatibility adapter or prior runtime. |
+| PLUGIN-P3 | Public WIT/value boundary scan | No `RuntimeEntityId`, raw pointer or vendor handle crosses the boundary; current and N-1 worlds return the same typed results. |
+| PLUGIN-P4 | Malicious component fuzzing | No sandbox escape, host panic or undefined behavior; disable plugin loading until fixed. |
+| PLUGIN-P5 | Required/optional plugin startup failure | Optional failure leaves the project playable; required failure stops before world mutation with a stable code. |
 
-Mechanic package resolution, durable state, agent authoring и first-party shooting/magic gates определены SPEC-13. Physical skill/proficiency/policy routes дополнительно проходят SPEC-14; VM не создаёт альтернативный motor API.
+Mechanic package resolution, durable state, agent authoring и first-party shooting/magic checks определены SPEC-13. Physical skill/proficiency/policy routes дополнительно проходят SPEC-14; VM не создаёт альтернативный motor API.

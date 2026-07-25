@@ -174,7 +174,7 @@ def run_smoke(config: SmokeConfig) -> int:
         )
 
     repository_root = Path(__file__).resolve().parents[2]
-    output_root = repository_root / ".local/training/train-mac-p0"
+    output_root = repository_root / ".local/training/smoke"
     output_root.mkdir(parents=True, exist_ok=True)
     model_path = output_root / "policy.onnx"
 
@@ -217,10 +217,10 @@ def run_smoke(config: SmokeConfig) -> int:
 
     manifest = {
         "schema_version": 1,
-        "gate": "TRAIN-MAC-P0",
-        "status": "PASS" if passed else "FAIL",
-        "claim_scope": "training/export/inference toolchain smoke only",
-        "physical_certification": "AwaitingCapability",
+        "command": "smoke",
+        "check": "training-smoke",
+        "status": "passed" if passed else "failed",
+        "scope": "training/export/inference toolchain smoke only",
         "requested_device": config.device,
         "selected_device": selected_device,
         "fallback_reason": fallback_reason,
@@ -272,8 +272,9 @@ def run_smoke(config: SmokeConfig) -> int:
     _atomic_json(manifest_path, manifest)
 
     summary = {
+        "command": manifest["command"],
+        "check": manifest["check"],
         "status": manifest["status"],
-        "gate": manifest["gate"],
         "selected_device": selected_device,
         "fallback_reason": fallback_reason,
         "max_absolute_action_error": max_absolute_error,

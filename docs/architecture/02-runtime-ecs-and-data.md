@@ -5,9 +5,8 @@
 | ID | SPEC-02 |
 | Статус | Accepted |
 | Версия | 1.7 |
-| Владелец | Repository Owner |
 | Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
@@ -84,7 +83,7 @@ World-level `CommandLedgerV2` является authoritative state, содерж
 
 ### Scenario driver и probes
 
-`ScenarioAction` входит в runtime только через production `VirtualInputEvent`, WorldCommand/MechanicCommand proposal, lifecycle или declared adapter-fault boundary SPEC-15. Test runner не получает mutable ECS/component store. Fixture state создаётся cooker/load transaction до first tick.
+`ScenarioAction` входит в runtime только через production `VirtualInputEvent`, WorldCommand/MechanicCommand proposal, lifecycle или declared adapter-fault boundary. Test runner не получает mutable ECS/component store. Fixture state создаётся cooker/load transaction до first tick.
 
 `ProbeSpec` разрешает только documented immutable snapshot/query, ordered DomainEvent/diagnostic и normalized metrics. Probe execution не меняет schedule/access sets, RNG, queue ordering или state hash. Missing selector/revision возвращает stable typed result, не raw pointer/RuntimeEntityId.
 
@@ -96,28 +95,27 @@ Task получает owned immutable inputs и cancellation token. Completion �
 
 Facade предоставляет query/system registration, declared read/write sets, lifecycle hooks и snapshot extraction. Она MUST NOT обещать Bevy archetype/layout/event semantics. Bevy ECS/app crates — `Proposed` по [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md); exact version pin не влияет на schemas.
 
-## Failure semantics
+## Failure paths
 
-- Invalid external command → `CommandReceiptV1` rejection/structured diagnostic без `DomainEvent`; simulation продолжается.
-- Internal invariant violation, duplicate PersistentId или transaction rollback failure → simulation instance останавливается до следующего tick; создаётся crash/replay capsule.
-- Late async result → `STALE_REVISION`, без side effect.
-- Event subscriber overrun → consumer отключается/деградирует по policy; authoritative event order сохраняется.
-- State hash divergence в replay → немедленный fail с первым divergent tick и component ownership diff.
-- Test-only mutable access attempt или probe side effect → architecture violation; run invalid, changeset blocked.
-- Deterministic scenario repeat divergence → `NONDETERMINISTIC_RESULT`; diagnostic replay сохраняется, retry не считается pass.
+| ID | Trigger | Required result |
+|---|---|---|
+| `COMMAND_REJECTED` | Invalid external command | Return a rejected `CommandReceiptV1` and structured diagnostic without `DomainEvent`; continue simulation. |
+| `RUNTIME_INTERNAL_INVARIANT` | Internal invariant violation, duplicate `PersistentId` or transaction rollback failure | Stop the simulation instance before the next tick and create a crash/replay capsule. |
+| `STALE_REVISION` | Late async result | Reject without side effects. |
+| `EVENT_CONSUMER_OVERRUN` | Event subscriber exceeds its bounded policy | Disconnect or degrade that consumer while preserving authoritative event order. |
+| `NONDETERMINISTIC_RESULT` | Replay state-root divergence or deterministic scenario-repeat divergence | Stop at the first divergent tick, report the owned state difference and preserve the diagnostic replay. |
+| `SCENARIO_MUTATION_FORBIDDEN` | Test-only mutable access or a probe side effect | Reject the operation and invalidate the execution without mutating authoritative state. |
 
-## Verification gates
+## Product checks
 
-| Gate | Сценарий | Threshold | Evidence | Fallback |
-|---|---|---|---|---|
-| ECS-P1 | Bevy PoC из ADR-002 | Все thresholds ADR-002 | manifest/bench/API report | собственная facade implementation |
-| RUNTIME-01 | 10 000 ticks × 100 seed fixtures, два повтора | exact command/event order и final state hash на одной target triple | replay report | blocking schedule fix |
-| RUNTIME-02 | fuzz commands/schemas/preconditions 24 CPU-hours | 0 panic/UB/partial commit; все rejects stable-coded | fuzz corpus + sanitizer logs | blocking validator fix |
-| RUNTIME-03 | async completion permutations, 1 000 runs | final state exact; stale results 100% rejected | permutation report | serialize commit queue |
-| RUNTIME-04 | public boundary scan | 0 RuntimeEntityId в serialized/WIT/Luau/IPC schemas; 0 Bevy/vendor public types | schema/API scan | blocking boundary refactor |
-| RUNTIME-05 | production vs scenario control-plane scan | 100% scenario mutations проходят VirtualInputEvent/validated command/lifecycle/declared fault adapter; 0 mutable ECS/backend test API; probes preserve exact state hash | API/architecture scan, replay/probe report | remove test backdoor; block merge |
-| RUNTIME-06 | V2 body/claim arrival/duplicate/collision/gap/retry/exhaustion/priority/Ingress-Outcome permutations | 100% corpus даёт exact computed IDs/full body hashes, `CommandLedgerV2` root, `CommandStreamLedgerV2` states/reservations/4096-window/receipts, stage trace и state root; no sequence wrap; re-entry всегда `OUTCOME_REENTRY_FORBIDDEN` | versioned command corpus, ledger snapshots/receipt roots, stage traces, state roots | blocking validator/order fix |
-| RUNTIME-07 | causal spawn retry/slots/tombstone/provenance collisions | 100% golden IDs exact; collision всегда fatal до alternate ID/mutation | spawn vectors, save/reload ledger, collision corpus | blocking identity/migration fix |
-| CANON-01 | JCS/CanonicalBinaryV1/path/domain/Merkle vectors Win/Linux | 100% bytes/hashes exact; invalid Unicode/float/key/path vectors rejected | neutral vectors, raw-byte/hash reports | blocking canonicalization fix |
-
-Runtime Team владеет gates; Release Engineering принимает artifacts.
+| ID | Scenario / command | Expected behavior | Fallback |
+|---|---|---|---|
+| ECS-P1 | Bevy PoC из ADR-002 | Все technical thresholds ADR-002 выполнены без утечки backend semantics через facade. | Use the engine-owned facade implementation. |
+| RUNTIME-01 | 10 000 ticks × 100 seed fixtures, два повтора | Exact command/event order и final state hash на одной target triple. | Reject the schedule/profile revision. |
+| RUNTIME-02 | Fuzz commands, schemas and preconditions for 24 CPU-hours | 0 panic, UB or partial commit; every rejection is stable-coded. | Reject malformed input before mutation. |
+| RUNTIME-03 | 1 000 async-completion permutations | Final state remains exact and every stale result is rejected. | Serialize completion commit through the same deterministic queue. |
+| RUNTIME-04 | Public-boundary scan | No `RuntimeEntityId` in serialized/WIT/Luau/IPC schemas and no Bevy/vendor public types. | Keep the backend behind the runtime facade. |
+| RUNTIME-05 | Production and scenario control-plane comparison | Every scenario mutation uses `VirtualInputEvent`, validated command, lifecycle or declared fault adapter; probes preserve the state hash. | Remove the mutable test path. |
+| RUNTIME-06 | V2 body/claim duplicate, collision, gap, retry, exhaustion, priority and Ingress/Outcome permutations | Exact IDs, full body hashes, ledger state, receipts, stage trace and state root; no sequence wrap; re-entry returns `OUTCOME_REENTRY_FORBIDDEN`. | Reject the incompatible validator/order implementation. |
+| RUNTIME-07 | Causal spawn retry, slots, tombstones and provenance collisions | Golden IDs remain exact; collision stops before alternate ID or mutation. | Retain the prior identity state and reject the spawn. |
+| CANON-01 | JCS/CanonicalBinaryV1/path/domain/Merkle vectors on Windows and Linux | Bytes and hashes are exact; invalid Unicode, float, key and path vectors reject. | Reject noncanonical input. |

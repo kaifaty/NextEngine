@@ -36,13 +36,11 @@ This Code applies within community spaces and when an individual officially repr
 
 ## Enforcement
 
-During local bootstrap, concerns are reported through the out-of-band owner process described in [SECURITY.md](SECURITY.md). Do not include sensitive personal information in committed reports.
-
-`conduct_enforcement_status: BootstrapOutOfBand`
-
-`public_contact_status: AwaitingCapability`
-
-A permanent monitored enforcement address is a public-release blocker and will replace this bootstrap process before `GOV-01` may pass for a public release.
+During local bootstrap, concerns are reported privately to an available
+maintainer. Do not include sensitive personal information in committed reports.
+Community contact details may be added when public community spaces exist.
+Moderation decisions are separate from runtime behavior and ProductCheck
+results.
 
 ## Enforcement Guidelines
 

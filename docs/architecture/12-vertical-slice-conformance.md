@@ -1,106 +1,147 @@
-# SPEC-12: Vertical-slice conformance
+# SPEC-12: Product checks и playable slice
 
 | Поле | Значение |
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 1.8 |
-| Владелец | Repository Owner |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md), [ADR-024](adr/024-requirement-gate-evidence-and-profile-closure.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md) |
-| Заменяет | отсутствует |
+| Версия | 2.0 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
+| Заменяет | SPEC-12 1.9 |
 
 ## Назначение
 
-Vertical slice — первый интеграционный release gate, а не showcase. Он доказывает, что независимый engine может reproducibly построить, расширить public mechanic/creature packages, переключить заранее обученные motor skills, запустить, сохранить, воспроизвести и диагностировать bounded RPG scenario при соблюдении backend/security/importer/mod boundaries. Разработка и automatic acceptance MUST быть доступны CPU-only Linux agent без монитора, а качественная оценка observable changes MUST выполняться по hash-bound evidence dossier без обязательного интерактивного запуска игры. Ни один отдельный gate не заменяет весь пакет.
+Product checks дают короткую воспроизводимую обратную связь о том, что
+изменение сохраняет работоспособность продукта. Вместо проверки всей
+архитектуры выполняются небольшие checks, соответствующие фактически
+затронутым областям.
 
-`HOST-MAC-01` и `TRAIN-MAC-P0` являются bootstrap capability gates и не добавляют шестнадцатый vertical gate. Они разрешают portable разработку и раннюю проверку ML/export toolchain на Mac, но не закрывают Windows/Linux package, renderer, runtime/training correspondence или physical certification. Перед `PhysicalCertified` частью VS-14 MUST быть `TRAIN-RTX-01=PASS`; отсутствие capability даёт `AwaitingCapability`, а `PrototypeFallback` остаётся допустимым development result.
+Каждый ProductCheck имеет понятное имя, bounded scenario или command, ожидаемое
+поведение и результат `Pass`, `Fail` либо `NotRun(reason)`. Результаты
+машиночитаемы и полезны для локальной разработки, но не образуют отдельный
+workflow.
 
-## Source of truth, ownership и public boundary
+## Канонические ProductCheck
 
-Versioned `vertical-v1` TestScenarioManifest + root RunManifest являются source of truth для inputs, thresholds, выполненных gates и evidence hashes. Release Engineering владеет orchestration и итоговым pass/fail; subsystem owner владеет своим child gate, Verification & Evidence Team — impact/capture/evidence contracts, Security & Governance — release trust evidence. Public conformance boundary состоит из canonical scenario schema, future `next gate` CLI, `RequirementGraphV1`, `GateDescriptorV1`, RunManifest, EvidenceBundleManifest и `HumanReviewDecisionV2`/`AttestationEnvelopeV2`; CI runner/vendor formats не являются contract.
+| Check | Когда запускать | Что он доказывает |
+|---|---|---|
+| `fast` | для каждого изменения | workspace собирается; formatting/static analysis/focused tests и boundary scan не находят локальной ошибки |
+| `play` | при изменении runtime, gameplay, AI, input, physics, presentation или world behavior | малый neutral RPG scenario запускается offline и остаётся играбельным через production paths |
+| `persistence-replay` | при изменении authoritative state, commands/events, schema, save/load, RNG, scheduling или world lifecycle | save/load и replay воспроизводят ожидаемые state/event roots; corrupt input отклоняется без partial mutation |
+| `content-package` | при изменении assets, cooker, catalog, bundles, mechanics packages, Luau/Wasm, models, distribution или importer boundary | neutral content валидируется, готовится и загружается; malformed content и forbidden capabilities отклоняются безопасно |
+| `platform` | только если затронуты platform host, renderer backend, target packaging, target-specific dependency или launch/session path | изменённый target запускает релевантный smoke scenario без platform-specific утечки в public contracts |
+| `performance` | только если затронуты hot path, scheduling, physics/motor, renderer, streaming, memory/resource policy или declared budget | релевантный benchmark не имеет существенной регрессии относительно сохранённого числового результата |
 
-## Canonical scenario `vertical-v1`
+Cross-cutting change запускает объединение соответствующих checks. Если область
+неочевидна, выбирается дополнительный релевантный check; не требуется строить
+глобальный граф всех требований проекта.
 
-Один versioned scenario manifest MUST задавать fixed content/import whitelist, seeds, tick rates, supported machine profiles, expected state transitions, deliberate fault injection points, camera/render settings и thresholds.
+## `fast`
 
-Сценарий:
+Базовая локальная команда проекта:
 
-1. пользователь явно указывает локальную тестовую installation; importer экспортирует whitelisted scene subset, одного character archetype, items и reviewed declarative behavior в NIM;
-2. common validator/cooker публикует scene bundle; второй cook доказывает cache reuse; runtime больше не обращается к installation;
-3. player входит в B0-rendered scene, перемещается, взаимодействует с item/object и physical avatar obstacle/slope;
-4. generic NPC воспринимает player, вступает в dialogue, выдаёт/обновляет малый Quest и меняет одну relationship dimension через accepted commands;
-5. optional `ai-host` сначала работает, затем timeout/kill/restart; та же quest path корректно продолжается offline fallback;
-6. physical avatar проходит full/simplified/capsule transitions, perturbation и recovery с required media evidence;
-7. Luau overrun и Wasm forbidden capability инъецируются и изолируются;
-8. first-party ranged package выполняет aim/fire/reload, projectile/contact/effect и presentation-cue loop; first-party elemental package выполняет cast/interruption/projectile/area/status loop;
-9. cold author workflow из public AuthoringContextBundle добавляет data-only ranged variant и spell, создаёт AgentChangeSet и проходит validate/test/simulate без private source knowledge;
-10. package dependency/patch conflict, missing migration, unsafe changeset и optional MCP failure инъецируются; CLI/JSON baseline остаётся полным независимо от выбора MCP candidate;
-11. public SDK создаёт neutral quadruped prototype и certification candidate; foundation stand/locomotion/recovery, bite/lunge expert, data-driven habits и человеческий axe transition `SkillProficiency 0 → 6000` проходят success/failure suites;
-12. save создаётся до, во время и после policy switch; process закрывается, save с exact MechanicsLock/model/route hashes загружается, scenario завершается; replay повторяется headless;
-13. CPU-only Linux agent без display/GPU вычисляет ChangeImpactManifest, воспроизводит seeded regression, получает first divergent tick и minimized replay, исправляет изменение и проходит `agent-fast`/`changeset` automatic gates;
-14. portable CaptureJobManifest воспроизводит exact replay на displayless Vulkan worker; before/after/comparison/failure media и offline dossier проходят tamper/staleness tests, затем authorized human подписывает exact `Approve`, `Reject` либо `NeedsChanges`; только `Approve` с automatic `PASS` admission-eligible;
-15. packages собираются/запускаются на clean Windows/Linux, затем SBOM, protected-data/runtime symbol scans и review packet завершают suite.
+```text
+cargo run -p xtask -- host-check
+```
 
-## Reference profiles
+Она проверяет formatting, clippy с warnings denied, workspace tests и
+repository boundaries. Пока workspace неполон, реализованные части команды
+MAY явно сообщать `NotRun(reason)` вместо ложного `Pass`.
 
-Exact hardware models фиксируются milestone manifest, но MUST удовлетворять:
+Subsystem unit/property tests SHOULD быть достаточно малы для частого запуска.
+Негативные tests для public decoders, command validation и capability denial
+являются частью `fast`, когда меняется соответствующий boundary.
 
-- CPU profile: x86_64, 8 physical или performance-class cores, 16 GiB RAM;
-- agent CPU-only profile: pinned Linux container, no GPU device, display sockets и display environment variables; reference `agent-fast` workflow выполняет 0 display connection attempts;
-- GPU B0 profile: shipping cross-vendor Vulkan 1.3 discrete GPU, 6 GiB VRAM, RT/mesh features принудительно disabled;
-- capture profile: tagged pinned Vulkan 1.3 worker без monitor/window/surface/swapchain/X11/Wayland; resolution/FPS/camera/audio задаёт CapturePlan;
-- storage: SSD, cold и warm/cache runs разделены;
-- Windows current supported release и pinned Linux distribution/glibc baseline;
-- debug/validation profile для correctness и release profile для budgets.
+## `play`
 
-Изменение reference profile требует versioned scenario manifest и comparison run; hardware нельзя менять только для скрытия regression.
+Canonical neutral playable scenario использует independently licensed fixtures
+и production composition/input/command paths. Минимальный сценарий:
 
-## Обязательные gates
+1. запускает `game` или тот же runtime в headless режиме без network;
+2. загружает небольшую scene;
+3. принимает movement и interaction через normalized player action path;
+4. подбирает или использует item;
+5. выполняет bounded NPC dialogue/quest transition;
+6. продолжает обязательный outcome при отсутствии optional `ai-host`;
+7. завершает сценарий стабильным gameplay result.
 
-Все команды выполняются из clean checkout нового monorepo/importer repository согласно runbook milestone. До появления CI Release Engineering запускает те же команды локально; runner/vendor не входит в contract. Здесь команда является нормативным будущим CLI contract; данная specification task не создаёт binaries.
+Check сравнивает domain outcomes и stable diagnostics, а не screenshots или
+неупорядоченный текстовый log. Renderer/audio/UI changes MAY дополнительно
+просматриваться через optional capture из SPEC-15.
 
-| Gate | Owner | Команда/сценарий | Blocking child gates | Pass/fail threshold | Evidence artifacts | Fallback / rollback |
-|---|---|---|---|---|---|---|
-| VS-01 Import/cook/cache/load | Importer Team | `next gate VS-01 --scenario vertical-v1-import-smoke --platform $TARGET` | IMPORT-P1, IMPORT-P2, IMPORT-P7, ASSET-01, ASSET-02, CONTRACT-01, STREAM-01, PROJECT-P1, WORLD-RESIDENCY-P1, SCHEMA-P1, COMPAT-P1, RESOURCE-MEMORY-P1, RESOURCE-RESIDENCY-P1, IO-BACKPRESSURE-P1, CONTENT-P1, BUNDLE-P1, VARIANT-P1, WORLD-TOPOLOGY-P1, WORLD-OBJECT-P1, WORLD-STREAM-P1, PLATFORM-HOST-P1, PLATFORM-INPUT-P1, SESSION-P1, MATERIAL-P1 | First cook/load succeeds from one exact ProjectCompositionLock and schema/content/resource/partition/material/platform/session closure; second cook has at least 90% cache hits; runtime opens 0 source-install files; imported/NIM/cooked bytes and media never enter publishable evidence; dependency groups and session transitions publish atomically and durable population/objects are neither duplicated nor lost. | Sanitized provenance/validation/load projection, project/schema/content/resource/partition/material/platform/session hashes, compatibility/bundle/variant manifests, admission/residency/object/session traces, cook hashes and source-access/host-attempt/cleanup trace; no screenshot. | No publish; retain prior exact lock/registry/content/topology/material/session/active generation; fix mapping/cooker/admission; neutral demo does not satisfy importer criterion. |
-| VS-02 Player loop + persistence | Persistence Team | `next gate VS-02 --scenario vertical-v1 --fault-save-points all` | SAVE-01, SAVE-02, COMMAND-LEDGER-P1, CAUSAL-ID-P1, WORLD-01, PROJECT-P2, INPUT-P1, UI-P1, ACCESS-P1, RPG-MIGRATION-P1, WORLD-TIME-P1, WORLD-RESIDENCY-P1, SCHEMA-P1, COMPAT-P1, MIGRATION-P1, IO-BACKPRESSURE-P1, WORLD-OBJECT-P1, WORLD-STREAM-P1, MOTOR-STATE-P1, SESSION-P1, SESSION-RECOVERY-P1, PRESENTATION-CACHE-P1 | Interaction/movement and world-service outcomes exact; loaded root equals pre-close committed root; project/schema/RPG/calendar/population/motor/session migrations and recovery are unique and atomic; durable placements/references survive load; queue/stream/cache/device faults publish no partial generation; semantic UI/accessibility fallbacks preserve the same accepted action path; 100% power points retain a valid generation. | Project/schema/RPG/world-service/motor/session replay/save manifests, action frames, semantic UI/accessibility traces, migration/placement/reference/cache hashes, admission/backpressure/residency/session transitions, ledger and fault matrix. | Retain previous lock/schema/save/topology/tier/session/snapshot and safe semantic input defaults; discard staging/cache and block incompatible load/slice. |
-| VS-03 Generic NPC/dialogue/quest | RPG Team | `next gate VS-03 --scenario vertical-v1 --npc generic-01` | RPG-01, AI-03, RPG-DOMAIN-P1, RPG-TRANSACTION-P1, PLATFORM-INPUT-P1 | No legacy type/schema; normalized input maps through the same action/command boundary; semantic UI reads immutable projections; dialogue and quest transition exact through typed RPG operations and one atomic plan; relationship delta caused by accepted command; 100 repeats exact. | Platform/action/command trace, aggregate views, transaction plan, DomainEvents and RPG inspector report. | Reject invalid input/transaction; use compiled generic rules/authored dialogue; block incorrect outcome. |
-| VS-04 Offline AI + restart | Agent Team | `next gate VS-04 --scenario vertical-v1 --ai-faults absent,timeout,kill,restart,bad-version` | AI-01, AI-02, AI-03, AI-04, ARCH-03, WORLD-POP-P1, WORLD-ABSTRACT-P1 | All variants and declared population/tier-execution profiles complete the same mandatory outcome or exact upgrade/defer; no fabricated abstract result, blocked tick or duplicate command; fallback within one logical tick after deadline signal. | AI/population timeline, tier-profile/owner/outcome trace, fault report, integrated due-work trace and replay hashes. | Disable ai-host, use deterministic in-process planner and retain/pin sufficient safe population tier or declared defer. |
-| VS-05 Physical avatar + LOD | Physical Embodiment | `next gate VS-05 --scenario vertical-v1 --suite physical --render-artifacts` | PHYS-P1, PHYS-P2, PHYS-P3, PHYS-P4, PHYS-P5, PHYS-P6, PHYS-P7, PHYS-P8, MOTOR-P1, NUMERIC-P1, NAV-P2, WORLD-02, WORLD-POP-P1, WORLD-RESIDENCY-P1, RESOURCE-MEMORY-P1, RESOURCE-RESIDENCY-P1, CONTENT-P1, WORLD-TOPOLOGY-P1, WORLD-ABSTRACT-P1, PHYS-API-P1, PHYS-COLLISION-P1, PHYS-JOINT-P1, PHYS-QUERY-P1, PHYS-SNAPSHOT-P1, MOTOR-SCHEMA-P1, MOTOR-SCHEDULE-P1, MOTOR-SAFETY-P1, MOTOR-STATE-P1, MOTOR-ROUTE-P1, ANIM-GRAPH-P1, ANIM-ROOT-MOTION-P1, ANIM-RETARGET-P1, ANIM-IK-P1, ANIM-LOD-P1, PRESENTATION-P1, VFX-P1, PRESENTATION-CACHE-P1 | All physical/motor/animation/presentation/content/resource/world children pass; scenario aggregate at least 95%; 0 safety violation; canonical contact/query/snapshot/order, neutral collision/navigation content, deterministic motor fallback, root-motion authority, physical/presentation IK separation and declared physical/population LOD bounds hold. | Metrics, ownership graph, schema/content/topology/resource/tier/residency/route/physics/motor/animation/presentation traces, canonical roots and baseline/selected/failure/comparison media with SHA-256 RunManifest. | Same-contract backend, deterministic procedural motor/replan and validated presentation fallback; retain prior content/topology/source tier/snapshot and pins; block slice when none passes. |
-| VS-06 Luau/Wasm isolation | RPG Framework | `next gate VS-06 --scenario vertical-v1-neutral --inject extension-faults` | SCRIPT-P1, SCRIPT-P2, SCRIPT-P3, SCRIPT-P4, SCRIPT-P5, PLUGIN-P1, PLUGIN-P2, PLUGIN-P3, PLUGIN-P4, PLUGIN-P5, MOD-P2, RNG-P1, RPG-TRANSACTION-P1 | Forbidden capabilities denied 100%; outcomes and RPG transaction/event order exact across load permutations; breaker uses inclusive 1 800 gameplay ticks; every wall-watchdog trip NonConforming; 0 partial commit/host crash. | Audit, typed operation/transaction traces, trust/consent, fuel/instruction/allocation, tick-boundary/watchdog diagnostics and replay. | Abort transaction; pin runtime or disable optional plugin; required pre-world failure blocks. |
-| VS-07 Baseline renderer | Rendering Team | `next gate VS-07 --scenario vertical-v1 --tier B0 --disable rt,mesh-shader` | RENDER-P1, RENDER-02, RENDER-03, SHADER-P1, UI-P1, CAMERA-P1, CONTENT-P1, VARIANT-P1, ANIM-GRAPH-P1, ANIM-RETARGET-P1, ANIM-IK-P1, ANIM-LOD-P1, PRESENTATION-P1, MATERIAL-P1, COLOR-P1, VFX-P1 | At least 60 FPS at 1080p; p95 GPU at most 16.6 ms on reference GPU; SSIM at least 0.98; neutral animation/material/shader/color/VFX content and exact B0 variants validate with 0 API/schema errors; UI/camera/variant/LOD choices change 0 targeting/gameplay outcome; device loss preserves authority. | RunManifest, content/variant/animation/material/interface/color/VFX manifests, semantic UI/camera/targeting replay, snapshot roots, GPU/API trace, validation logs and screenshots/diff. | Stable neutral animation/material/VFX/variant/UI/authored-camera fallback; reject stale target/content/snapshot; unsupported GPU returns clean diagnostic. |
-| VS-08 Windows/Linux packages | Release Engineering | `next gate VS-08 --scenario vertical-v1 --targets windows-x86_64,linux-x86_64 --clean-vm` | PACKAGE-01, PROJECT-P1, COMPAT-P1, BUNDLE-P1, VARIANT-P1 | Clean install/launch/save/replay succeeds on both targets from byte-identical platform-neutral ProjectCompositionLock/schema/content closure and deterministic target variants; no undeclared libraries or unresolved required bundle; package/SBOM hashes present. | VM logs, project/schema/content/bundle/variant/package manifests, lock hashes, SBOM and hashes. | Roll back package, exact lock/schema/content generation and variant; target remains unshipped and slice blocked. |
-| VS-09 Protected-data absence | Security Team | `next gate VS-09 --scenario vertical-v1-neutral --scan repo,cache,build,package,artifacts,evidence,media,logs` | PRIVACY-01, PRIVACY-02, IMPORT-P5 | 0 protected source/derived/signature findings; cleanup complete; neutral bundle has no imported dependency; mixed fixture rejected. | Signed scanner report, fixture provenance and cleanup/quarantine audit. | Quarantine/remove generated artifacts, incident review and clean rerun. |
-| VS-10 No legacy runtime types | Repository Owner | `next gate VS-10 --scenario vertical-v1 --scan-api-link-schema` | ARCH-01, ARCH-08, IMPORT-P4, IMPORT-P8, CONTENT-P1, MATERIAL-P1 | 0 legacy parser/VM/product-specific dependencies, private composition bypasses or forbidden source/importer/OS/ECS/vendor/backend symbols in runtime/public neutral content/material/platform/presentation schemas. | Composition-root/source/API/schema/content/material/presentation scan, link map, architecture review record and SBOM. | Boundary/schema refactor; block slice. |
-| VS-11 Replay/headless parity | Runtime Team | `next gate VS-11 --scenario vertical-v1-neutral --compare game,headless,capture-worker` | RUNTIME-01, RUNTIME-03, RUNTIME-06, RUNTIME-07, CANON-01, REPLAY-01, COMMAND-ID-P1, CAUSAL-ID-P1, COMMAND-LEDGER-P1, CLOCK-P1, RNG-P1, SCHEDULE-P1, NUMERIC-P1, ARCH-02, LIFECYCLE-P1, INPUT-P1, CAMERA-P1, RPG-TRANSACTION-P1, RPG-MIGRATION-P1, WORLD-TIME-P1, SCHEMA-P1, MIGRATION-P1, JOB-P1, RESOURCE-RESIDENCY-P1, IO-BACKPRESSURE-P1, BUNDLE-P1, VARIANT-P1, WORLD-OBJECT-P1, WORLD-ABSTRACT-P1, WORLD-STREAM-P1, PHYS-SNAPSHOT-P1, MOTOR-SCHEDULE-P1, MOTOR-STATE-P1, ANIM-ROOT-MOTION-P1, PLATFORM-HOST-P1, PLATFORM-INPUT-P1, SESSION-P1, SESSION-RECOVERY-P1, PRESENTATION-P1, PRESENTATION-CACHE-P1 | All roots share exact project/schema/content/resource/partition/action/physics/motor/session/presentation contracts; closed ingress/job/stream admission batches, command/rejection/receipt/event/outcome sequences, camera-independent targeting, atomic migrations/RPG/session transactions, stepped/bulk/tier outcomes and same-target authoritative roots are exact; worker/I/O/cache/arrival/device variation changes 0 authoritative outcome. | Project/schema/content/resource/partition/platform/session/presentation closed-batch manifests, job/stream plans, action frames, targeting and RPG/migration records, command/identity/RNG/schedule/numeric/time/object/tier/physics/motor vectors, ledger, composition-root graph, state/snapshot roots and first-divergence report. | Retain exact lock/schema/content/topology/session/snapshot, discard stale job/stream/migration/cache plan, use stepped time and deterministic/common-substrate fix; no gameplay-divergence waiver. |
-| VS-12 Security/governance review | Security & Governance | `next gate VS-12 --scenario vertical-v1 --review-packet` | SEC-01, SEC-02, SEC-03, SEC-04, SEC-05, SEC-06, SEC-07, REVIEW-02, PRIVACY-01, PRIVACY-02, LIC-01, GOV-01, LEGAL-IMPORT-01, TRACE-01, PERF-01, COMMAND-V1-INVENTORY-P1, CONFIG-P1, RESOURCE-MEMORY-P1, ANIM-LOD-P1 | Every other VS manifest PASS; trace/config/owner/schema/content/resource/partition/animation-LOD closure 100%; PERF-01 and resident-memory/resource bounds independently PASS; redaction/prohibited-root scans clean; exact legal approval; all project/V2 graph/gate/evidence/trust/revocation hashes verify offline. | Project/config/schema/content/resource/partition/animation corpus, V2 payload/envelope/trust records, RequirementGraphV1, gate-descriptor-set hash, integrated performance/memory trace, SBOM, redaction/prohibited-root scans and root review packet. | Do not declare conformance; reject invalid override/schema/resource/LOD closure, quarantine/redact and rebuild; engine-only review may proceed without importer release, not vertical-v1 acceptance. |
-| VS-13 Mechanics/mod/agent authoring | Gameplay Extensibility | `next gate VS-13 --scenario vertical-v1 --suite mechanics-mod-agent --adapters cli` | MECH-01, MECH-02, MECH-03, MECH-04, MECH-05, MECH-06, MECH-07, AI-06, MOD-01, MOD-02, AGENT-01, AGENT-02, TOOL-03, RPG-DOMAIN-P1, RPG-TRANSACTION-P1, RPG-MIGRATION-P1, MIGRATION-P1 | Ranged/magic/reference-agent packages use 0 hidden API or RPG store; typed RPG operations and schema/RPG migrations/transactions use the same public paths and unique copy-on-write migration closure; NPC discovers affordances; CLI/JSON completes the workflow; optional MCP/panel failure does not affect baseline. | Package/project/schema lock, migration registry, RPG operation/transaction/migration and affordance graphs, context bundle, changesets, replay/performance/security reports and required media. | Disable optional MCP/panel, abort transaction/migration, reject/pin package or prior schema; add missing public primitive only by ADR. |
-| VS-14 Physical creature + progressive motor skills | Physical Embodiment | `next gate VS-14 --scenario vertical-v1 --suite physical-creature-skills` | TRAIN-RTX-01, EMB-01, POLICY-01, POLICY-02, SKILL-01, CREATURE-01, BEHAVIOR-01, TRAIN-P1, AUTHOR-P1, AI-07, TOOL-04, TRAIN-MAC-P0, MOTOR-SCHEMA-P1, MOTOR-SCHEDULE-P1, MOTOR-SAFETY-P1, MOTOR-STATE-P1, MOTOR-ROUTE-P1, ANIM-ROOT-MOTION-P1, ANIM-IK-P1 | Certification children pass on required hardware; observation/action/state/route schemas and safety/fallback exact; root motion and physical IK remain validated intent; save/load/replay exact across switches; mismatch, missing model, unsafe switch and unsupported skill use declared fallback. | Capability, package/model/provenance/certification manifests, motor schema/schedule/safety/route/state and animation intent traces, replay roots, holdout metrics, CLI reports and required media. | AwaitingCapability without RTX; retain deterministic procedural `PrototypeFallback`/previous route, reject unsafe animation intent and quarantine candidate. |
-| VS-15 Headless agent development + human evidence | Verification & Evidence | `next gate VS-15 --scenario vertical-v1-neutral --suite headless-agent-evidence --profiles agent-fast,changeset` | TEST-01, HEADLESS-01, IMPACT-01, DIAG-01, AGENT-03, CAPTURE-01, MEDIA-P1, EVIDENCE-01, REVIEW-01, REVIEW-02, PRIVACY-02, ARCH-07, RUNTIME-05, RENDER-04, AUDIO-02, TOOL-05, SEC-07, OBS-01, OBS-02, OBS-03, OBS-04, INPUT-P1, UI-P1, CAMERA-P1, ACCESS-P1, JOB-P1, IO-BACKPRESSURE-P1, ANIM-GRAPH-P1, ANIM-RETARGET-P1, ANIM-IK-P1, ANIM-LOD-P1, PLATFORM-HOST-P1, SESSION-P1, SESSION-RECOVERY-P1, PRESENTATION-P1, MATERIAL-P1, COLOR-P1, VFX-P1, PRESENTATION-CACHE-P1 | Seeded edit/failure/minimized replay reproduced; headless uses the same project/action/job/backpressure/session contracts and accessible semantic/presentation/animation fallback semantics; job/cancellation/profiling/exporter/platform/device/cache faults change 0 authoritative outcome or partial evidence publication; displayless worker creates exact neutral dossier and pinned SDR roots; tampered/revoked/agent/V1 admission rejected; missing capability is AwaitingCapability; null/capture gameplay hashes exact. | Project/action/job/session/cancellation/backpressure/UI/camera/accessibility/animation/material/color/VFX/cache manifests, impact/scenario/run manifests, replay/diagnostics/crash/exporter/display/device traces, profiling report, raw media roots, evidence bundle, V2 payload/envelope/trust/tamper audits. | CPU evidence remains valid; cancel/discard uncommitted job result/cache, safe accessibility/source-locale/SDR/presentation fallbacks remain; exporter may disable but incomplete required evidence fails; portable job waits; candidate/baseline/decision never promotes partially. |
+## `persistence-replay`
 
-## Integrated performance budgets
+Один небольшой deterministic scenario сохраняется в заранее объявленных
+точках, закрывает process state, загружается и воспроизводится повторно.
 
-On reference profile in release build, default 30 Hz gameplay/120 Hz physics/60 Hz motor inference:
+Check MUST проверить:
 
-- ADR-016 `GameplayBudgetMatrix` имеет mutually-exclusive owner rows, total p95 ≤8 000 us / p99 ≤12 000 us и reserved headroom ≥250/500 us;
-- Mechanics Runtime subset p95 ≤2 000 us / p99 ≤4 000 us, agent-planning and navigation rows each p95 ≤1 250 us / p99 ≤1 500 us в том же integrated run;
-- physics+motor 16 full avatars p95 ≤4 ms, p99 ≤6 ms;
-- renderer B0 p95 GPU ≤16.6 ms at 1080p;
-- streaming commit never blocks gameplay tick >2 ms; decompression/I/O async;
-- exact `MemoryBudgetProfile` closes to resident memory ≤12 GiB RAM and ≤5.5 GiB VRAM for canonical scene; every pin/lease has bounded owner/lifetime and eviction never selects authoritative outcome;
-- job/I/O queues have finite capacity and maximum logical age; archive/decompression expansion and per-result bytes are bounded before allocation/publication;
-- no unowned span, starvation or dropped due work; every bounded deterministic defer recorded.
-- reference `agent-fast` CPU workflow completes in ≤5 minutes;
-- complete ordinary changeset compute completes in ≤30 minutes, excluding worker queue and human wait; physical certification, fuzz and training gates remain explicitly named blocking long gates outside this budget.
+- exact supported schema/content/project hashes;
+- сохранение `PersistentId`, command/event order и named RNG state;
+- совпадение authoritative result для original run, loaded continuation и
+  replay на одном target/profile;
+- fail-closed behavior для truncated, corrupt, hash-mismatched и unsupported
+  save/replay;
+- отсутствие partial migration или partial world activation.
 
-`PERF-01` использует exact ADR-016 100-NPC membership/cadence phases, 1 000 warm-up + 10 000 measured ticks и nearest-rank percentiles. Budget failure blocks performance conformance, даже если функциональный outcome correct. Subsystem-only PASS не закрывает integrated failure; optimization не может менять state hash/ownership.
+Raw backend snapshot, wall-clock timing и renderer output не являются
+authoritative oracle.
 
-## Failure-path coverage
+## `content-package`
 
-Canonical suite MUST явно включать missing AI, incompatible AI protocol, invalid motor model, physical/body/policy compatibility mismatch, missing required model/state schema, unsafe/interrupted policy switch, unsupported skill без evaluated novice route, forged/incomplete certification, runtime-training request, missing RTX certification capability, MPS unavailable/unsupported with CPU smoke fallback, physics policy rejection, plugin capability denial, Luau/Wasm overrun, package dependency/patch/hook conflict, missing mechanic package/migration, invalid project catalog/range/prerelease/configuration/activation, malformed or conflicting player action/targeting input, lost optional device/UI/locale/preference fallback, stale/faulted RPG transaction, ambiguous RPG migration, invalid/unknown/reused schema field, unsupported compatibility, ambiguous/cyclic/partial schema migration, cancelled/stale/colliding job result, cancellation-tree fault, memory/pin/lease exhaustion, queue-age/backpressure overflow, archive/decompression limit, malformed/cyclic content manifest or bundle, missing/incompatible target variant, invalid neutral asset bounds/reference, cyclic partition topology, durable object identity/reference/placement conflict, stale streaming admission, blocked abstract world outcome, calendar authority/migration/residency lifecycle fault, stale/path-escaping AgentChangeSet, MCP unavailable/incompatible, corrupt save/checksum, missing bundle, unsupported B0 GPU, device loss, importer malformed input, protected-data positive fixture stored outside publish path, unknown/omitted impact, deterministic retry divergence, missing GPU/encoder/reviewer capability, capture crash/gameplay divergence/partial publish, missing/stale/tampered baseline/evidence/review и malicious/oversized/redaction-failed media or dossier. Каждый path имеет stable diagnostic и declared fallback; fallback itself проходит replay/ownership checks.
+Check использует малый CC0/engine-owned neutral fixture и public tooling:
 
-## Evidence packet и acceptance
+1. validate authored manifest/schema/references/bounds;
+2. cook immutable content;
+3. resolve exact package/content dependencies;
+4. load через production registry;
+5. выполнить одну first-party mechanic/package action;
+6. проверить malformed graph, missing blob/hash, path escape и
+   script/plugin capability or budget violation;
+7. при изменении distributable проверить отсутствие protected data и наличие
+   basic license metadata/notices.
 
-Release Engineering создаёт root `RunManifest`, ссылающийся на все child runs/artifacts. Verification & Evidence Team создаёт EvidenceBundleManifest; для каждого observable changeset Security & Governance проверяет exact `HumanReviewDecisionV2` и `AttestationEnvelopeV2`. Gate считается `PASS` только при доступных hash-verified evidence, успешных mandatory automatic gates и verified `Approve`; signed `Reject`/`NeedsChanges` остаются non-admitting feedback. Worst/failure physical episodes сохраняются рядом с successful. Missing compute artifact is `FAIL`; недоступная внешняя capture/review capability даёт `AwaitingCapability`, которое также не является `PASS`.
+Обычный engine check не требует Gothic installation. Importer smoke запускается
+отдельно только при изменении importer mapping или neutral import contract,
+использует user-provided local installation во временном root и не копирует
+source/imported bytes в engine repository.
 
-Architecture Working Group, subsystem owners, Security & Governance и Release Engineering MUST одобрить один immutable implementation evidence packet. `vertical-v1-conformant` version/tag создаётся только после 15/15 `PASS`; waiver обязательного automatic gate не допускается, а human review не может изменить его результат. Неуспех возвращает backend/package/implementation в engineering/research, но не переписывает Accepted architecture baseline: опровергнутый technology candidate меняется новым ADR и повторяет тот же conformance suite.
+## Conditional platform check
+
+Platform check выбирает только реально затронутые shipping targets:
+
+- shared portable/runtime change обычно покрывается `fast`, `play` и
+  `persistence-replay`;
+- Windows adapter/package change проверяется на Windows;
+- Linux adapter/package change проверяется на Linux;
+- shared renderer/platform ABI change проверяется на обоих shipping targets;
+- macOS developer-host run подтверждает только portable development scope.
+
+Если нужный host недоступен, результат записывается как `NotRun(reason)`, а
+утверждение о затронутом target не делается. Это не обесценивает результаты
+независимых checks и не блокирует работу в несвязанных областях.
+
+## Conditional performance check
+
+Performance check объявляет scenario, build profile, machine profile, warm-up,
+sample count, units и числовой comparison threshold. Один subsystem benchmark
+не должен выдавать вывод о другом subsystem или обо всём продукте.
+
+Correctness и determinism имеют приоритет: optimization, меняющая
+authoritative outcome, считается failure независимо от скорости. Wall-time
+variance MAY привести к повторному измерению по той же declared методике, но
+не к retry-to-green функциональных или deterministic failures.
+
+## Product result
+
+Перед handoff перечисляются:
+
+- какие product areas изменены;
+- какие ProductCheck запущены и их `Pass`/`Fail`;
+- какие conditional checks получили `NotRun(reason)`;
+- какой известный продуктовый риск остаётся.
+
+Для обычной разработки не требуется единый root result, фиксированное число
+обязательных checks или специальный product status. Release packaging MAY
+собрать результаты релевантных checks для удобства, но не меняет их технический
+смысл.

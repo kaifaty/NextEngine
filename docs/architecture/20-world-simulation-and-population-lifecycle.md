@@ -4,16 +4,14 @@
 |---|---|
 | ID | SPEC-20 |
 | Статус | Accepted |
-| Версия | 1.1 |
-| Владелец | Repository Owner |
-| Требуемые согласующие | Architecture Working Group, Runtime Team, Asset & Persistence Team, Agent Intelligence Team, RPG Framework Team, Physical Embodiment Team, World Services Team, Verification & Evidence Team, Release Engineering |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md) |
+| Версия | 1.2 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | отсутствует |
 
 ## История принятия
 
-SPEC-20 принят в architecture packet 1.7 вместе с foundation contracts SPEC-17…SPEC-19 и ADR-018…ADR-021. Он закрепляет World Services как единственного владельца world calendar, population schedule и logical residency tier, не передавая ему RPG, Agent, Runtime или Physical state. Принятие документа не объявляет `WORLD-POP-P1`, `WORLD-TIME-P1`, `WORLD-RESIDENCY-P1` либо vertical implementation conformance пройденными.
+SPEC-20 закрепляет World Services как единственного владельца world calendar, population schedule и logical residency tier, не передавая ему RPG, Agent, Runtime или Physical state.
 
 ## Назначение и invariants
 
@@ -36,12 +34,12 @@ SPEC-20 определяет deterministic lifecycle durable population across l
 
 | Mutable state | Единственный owner/source of truth | Allowed foreign projection / forbidden duplicate |
 |---|---|---|
-| `WorldCalendarStateV1`, time-advance cursor/plan, population membership, `WorldPartitionManifestV1` logical region/home and durable placement/tombstones, schedule cursor, abstract activity, `TierExecutionProfile` and `WorldResidencyTier` | World Services Team | immutable calendar/population/spatial snapshots; no content payload, RPG calendar field or renderer/wall-clock authority |
-| Character, item/inventory/equipment, quest/dialogue, faction/relationship, interactive-object and other RPG aggregates | RPG Framework Team | revisioned immutable facts in schedule evaluation; no mutable population summary |
-| Goals, plans, attention, habits, memory and pending `AgentIntent` | Agent Intelligence Team | revisioned immutable plan/affordance facts; no schedule-owned Agent plan |
-| Fixed `SimulationTick` transaction clock, command/system order, `RuntimeEntityId` and resident PersistentId↔runtime mapping | Runtime Team | World Services tier proposal; no durable population membership in ECS/residency cache |
-| Body pose, contacts, constraints, physical traversal outcome, motor route/policy state and physical LOD | Physical Embodiment Team | abstract logical location/capability facts; no population-owned pose or fabricated contact |
-| Schema/content/WorldChunk definitions and publish state, owner-segment encoding, save generations and migration orchestration | Asset & Persistence Team | staged immutable inputs; no durable placement/tier/domain ownership over decoded fields |
+| `WorldCalendarStateV1`, time-advance cursor/plan, population membership, `WorldPartitionManifestV1` logical region/home and durable placement/tombstones, schedule cursor, abstract activity, `TierExecutionProfile` and `WorldResidencyTier` | World Services | immutable calendar/population/spatial snapshots; no content payload, RPG calendar field or renderer/wall-clock authority |
+| Character, item/inventory/equipment, quest/dialogue, faction/relationship, interactive-object and other RPG aggregates | RPG Framework | revisioned immutable facts in schedule evaluation; no mutable population summary |
+| Goals, plans, attention, habits, memory and pending `AgentIntent` | Agent Intelligence | revisioned immutable plan/affordance facts; no schedule-owned Agent plan |
+| Fixed `SimulationTick` transaction clock, command/system order, `RuntimeEntityId` and resident PersistentId↔runtime mapping | Runtime | World Services tier proposal; no durable population membership in ECS/residency cache |
+| Body pose, contacts, constraints, physical traversal outcome, motor route/policy state and physical LOD | Physical Embodiment | abstract logical location/capability facts; no population-owned pose or fabricated contact |
+| Schema/content/WorldChunk definitions and publish state, owner-segment encoding, save generations and migration orchestration | Asset & Persistence | staged immutable inputs; no durable placement/tier/domain ownership over decoded fields |
 
 Runtime `SimulationTick` orders transactions. World Services `world_tick` is the authoritative in-world calendar cursor. The two nominal values MUST NOT be implicitly converted or treated as interchangeable; any project mapping between them is versioned, integer, hash-bound and part of compatibility metadata.
 
@@ -214,32 +212,51 @@ All queues are bounded and canonically ordered. Workers receive immutable revisi
 | `WORLD_STREAM_PLAN_STALE` | Discard complete admission plan; retain prior active/tier/object state and rebuild from current immutable revisions |
 | `NONDETERMINISTIC_RESULT` | Fail at first population/schedule/tier divergence; retry cannot turn green |
 
-## Verification gates
+## Product checks
 
-| Gate | Primary owner | Contributors | Reproducible command/scenario | Pass threshold | Required evidence | Fallback |
-|---|---|---|---|---|---|---|
-| `WORLD-POP-P1` | World Services Team | RPG Framework Team, Agent Intelligence Team | `next gate WORLD-POP-P1 --scenario population-schedules-v1 --records 1000 --ticks 10000` | 1,000 records × 10,000 world ticks × 100 repeats have exact partition/profile/schedule/proposal/accepted-command/final-owner hashes and 0 duplicate owner writes; Active/Simulated/Abstract mandatory outcomes match; every unsupported-resolution fixture upgrades or defers and emits 0 fabricated outcomes | partition/tier-profile/population/schedule manifests, immutable owner views, command/event/state hashes, tier/upgrade/defer traces | pin safe tier/cadence; block invalid schedule/outcome |
-| `WORLD-TIME-P1` | World Services Team | Runtime Team, Asset & Persistence Team | `next gate WORLD-TIME-P1 --scenario stepped-vs-bulk-time --seeds 100 --calendar-migration-matrix all` | 100 seeds converge to exact stepped/bulk calendar, command, event, cursor and owner-state hashes; every migration-matrix row returns exact result/code; failed migrations preserve source hash; 100% stale plans reject atomically; 0 authoritative wall-clock reads | advance plans/hashes, schedule traces, migration before/after hashes and fault matrix, replay roots, clock/API scan | stepped bounded advance; block time skip/load |
-| `WORLD-RESIDENCY-P1` | Runtime Team | World Services Team, Asset & Persistence Team, Physical Embodiment Team | `next gate WORLD-RESIDENCY-P1 --scenario population-residency-churn --cycles 10000` | 10,000 tier/chunk/load/save cycles retain exactly one PersistentId per subject with exact durable placement/tombstone/cross-chunk closure and 0 duplicate/lost IDs, dangling durable refs, partial transitions or uncommitted mandatory outcomes; every authoritative injected transition failure retains source state | partition/resolver/population/save manifests, placement/tombstone roots, owner revision graph, transition/fault/identity traces, memory report | pin current tier/chunk; retain prior topology/registry/save |
-
-These gates are implementation obligations. Their status remains evidence-driven; architecture acceptance does not create `PASS`.
+| Check ID | Scenario / command | Expected behavior / fallback |
+|---|---|---|
+| `WORLD-POP-P1` | `next check WORLD-POP-P1 --scenario population-schedules-v1 --records 1000 --ticks 10000` | Population, schedule, proposal, command and final owner state are exact across repeats and tiers; unsupported resolution upgrades or defers without fabricated outcomes, otherwise pin the safe tier/cadence. |
+| `WORLD-TIME-P1` | `next check WORLD-TIME-P1 --scenario stepped-vs-bulk-time --seeds 100 --calendar-migration-matrix all` | Stepped and bulk advance converge exactly, migrations preserve the source on failure, stale plans reject atomically, and wall clock is never authoritative; fall back to stepped bounded advance. |
+| `WORLD-RESIDENCY-P1` | `next check WORLD-RESIDENCY-P1 --scenario population-residency-churn --cycles 10000` | Tier/chunk/load/save churn keeps one durable `PersistentId`, no dangling references or partial transitions, and injected failure retains source state; pin the current tier/chunk and prior registry/save. |
 
 ## Requirements
 
-| ID | Требование | Primary owner | Contributors | Blocking gates |
-|---|---|---|---|---|
-| REQ-099 | World Services calendar/population/schedule/tier fields, RPG aggregates, Agent state, Runtime clock/residency mapping and Physical state MUST have exactly the distinct owners listed above; every tier and owner segment MUST reference one unchanged subject `PersistentId`. | World Services Team | RPG Framework Team, Agent Intelligence Team, Runtime Team, Physical Embodiment Team | WORLD-POP-P1, WORLD-RESIDENCY-P1 |
-| REQ-100 | `Active`, `Simulated`, `Abstract` and `Dormant` with exact `TierExecutionProfile` MUST preserve mandatory domain outcomes; an unsupported resolution MUST deterministically upgrade or defer without fabricated result, cursor advance or wall-time/input-completion authority. | World Services Team | RPG Framework Team, Agent Intelligence Team, Physical Embodiment Team | WORLD-POP-P1, WORLD-RESIDENCY-P1 |
-| REQ-101 | `WorldCalendarStateV1`, stepped advance, bounded bulk advance and legacy RPG-calendar migration MUST use one integer, revision-bound schedule/command path and produce exact equivalent committed hashes. | World Services Team | Runtime Team, Asset & Persistence Team | WORLD-TIME-P1 |
-| REQ-102 | Runtime spawn/despawn, chunk/resource residency, durable placement/tombstones and tier transitions MUST preserve the subject PersistentId, owner-segment save/replay closure and all-or-nothing authoritative lifecycle publication. | Runtime Team | World Services Team, Asset & Persistence Team, Physical Embodiment Team | WORLD-RESIDENCY-P1 |
+| ID | Requirement |
+|---|---|
+| REQ-099 | World Services calendar/population/schedule/tier fields, RPG aggregates, Agent state, Runtime clock/residency mapping and Physical state MUST have exactly the distinct owners listed above; every tier and owner segment MUST reference one unchanged subject `PersistentId`. |
+| REQ-100 | `Active`, `Simulated`, `Abstract` and `Dormant` with exact `TierExecutionProfile` MUST preserve mandatory domain outcomes; an unsupported resolution MUST deterministically upgrade or defer without fabricated result, cursor advance or wall-time/input-completion authority. |
+| REQ-101 | `WorldCalendarStateV1`, stepped advance, bounded bulk advance and legacy RPG-calendar migration MUST use one integer, revision-bound schedule/command path and produce exact equivalent committed hashes. |
+| REQ-102 | Runtime spawn/despawn, chunk/resource residency, durable placement/tombstones and tier transitions MUST preserve the subject PersistentId, owner-segment save/replay closure and all-or-nothing authoritative lifecycle publication. |
 
 ## Failure paths
 
-| ID | Trigger | Required result | Primary owner | Contributors | Blocking gates |
-|---|---|---|---|---|---|
-| FAIL-037 | Stale, unsupported, blocked, budgeted or overdue schedule/time/tier work | Reject the stale plan or retain exact activity/tier/cursor and deterministically upgrade/defer; no lost mandatory state, fabricated outcome, wall-time decision or partial commit. | World Services Team | Runtime Team, RPG Framework Team, Agent Intelligence Team | WORLD-POP-P1, WORLD-TIME-P1, WORLD-RESIDENCY-P1 |
-| FAIL-038 | Calendar migration conflict/fault, residency/load/schema failure, PersistentId conflict or interrupted lifecycle transition | Fail before world/owner publication, preserve source tier/registry/save generation and return the exact stable diagnostic; no partial entity lifecycle or second calendar owner. | Runtime Team | World Services Team, Asset & Persistence Team, RPG Framework Team, Physical Embodiment Team | WORLD-TIME-P1, WORLD-RESIDENCY-P1 |
+| ID | Trigger | Required result |
+|---|---|---|
+| FAIL-037 | Stale, unsupported, blocked, budgeted or overdue schedule/time/tier work | Reject the stale plan or retain exact activity/tier/cursor and deterministically upgrade/defer; no lost mandatory state, fabricated outcome, wall-time decision or partial commit. |
+| FAIL-038 | Calendar migration conflict/fault, residency/load/schema failure, PersistentId conflict or interrupted lifecycle transition | Fail before world/owner publication, preserve source tier/registry/save generation and return the exact stable diagnostic; no partial entity lifecycle or second calendar owner. |
 
 ## Technology neutrality
 
-This contract selects no navigation implementation, physics implementation, ECS, database, crowd system or other backend technology. Public values remain engine-owned and versioned; any replaceable implementation is an adapter/cache behind these ownership, determinism, migration and gate contracts.
+This contract selects no navigation implementation, physics implementation, ECS, database, crowd system or other backend technology. Public values remain engine-owned and versioned; any replaceable implementation is an adapter/cache behind these ownership, determinism, migration and behavior contracts.
+
+## Proposed SPEC-31 quest/narrative boundaries
+
+Если [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) станет
+Accepted, World Services продолжит владеть только calendar/population/schedule
+facts и будет передавать их как immutable revision-bound input в RPG command
+validation. Он не меняет quest aggregate самостоятельно.
+
+Committed shortage/threat/schedule facts MAY appear in `WorldNeedViewV1` and
+trigger deterministic evaluation of `QuestCandidateV1` at a declared
+quest-decision boundary. Сам факт, NPC schedule или proximity игрока не создаёт
+Quest. Они могут только поддержать admission, disclosure predicate или
+автономный переход, который затем проходит RPG-owned command validation.
+
+Quest deadline, hook и narrative commit boundary становятся declared
+simulation-time boundaries. Bulk advance MUST остановиться на каждой такой
+границе; при отсутствии уже staged valid candidate deterministic template
+fallback выбирается на первой следующей narrative commit boundary, после чего
+advance продолжается через тот же `WorldCommand` path. Wall time и arrival order
+не определяют outcome. Пока SPEC-31 остаётся Proposed, этот раздел не добавляет
+новые Accepted world-transition semantics.

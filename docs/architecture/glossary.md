@@ -4,11 +4,10 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 1.8 |
-| Владелец | Repository Owner |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | INDEX-001 |
-| Заменяет | отсутствует |
+| Версия | 2.0 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | INDEX-001, [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
+| Заменяет | GLOSSARY-001 1.9 |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -18,16 +17,15 @@
 | **Core runtime** | Детерминированное ядро scheduling, ECS facade, команд, событий, snapshots и persistence hooks. |
 | **RPG framework** | Generic доменная модель персонажей, предметов, квестов, диалогов, фракций и интерактивных объектов. |
 | **Backend** | Заменяемая реализация engine-owned interface. Vendor-типы не входят в interface. |
-| **DeveloperHostTier** | Поддержанный host для portable source/tool development и локальных gates, не создающий shipping/platform conformance claim; v1 включает `macOS-aarch64` по ADR-011. |
-| **TrainingCapabilityStatus** | `Available`, `AwaitingCapability` либо `Rejected` для exact hardware/backend profile; не выводится из наличия model file и не является package certification. |
-| **AwaitingCapability** | Blocking non-PASS state: обязательный gate известен, но подходящий GPU/encoder/reviewer/training host недоступен; completed independent evidence сохраняется. |
+| **DeveloperHostTier** | Поддержанный host для portable source/tool development и локальных ProductCheck, не создающий shipping-platform claim; v1 включает `macOS-aarch64` по ADR-011. |
+| **TrainingCapabilityStatus** | `Available`, `Unavailable` либо `Rejected` для exact hardware/backend profile; сообщает только доступность bounded training run и не выводится из наличия model file. |
 | **RuntimeEntityId** | Эфемерный идентификатор живой ECS entity. Действует только в пределах одного runtime instance и не сериализуется. |
 | **PersistentId** | Стабильный 128-bit opaque ID сущности или логического объекта между save/load, chunks и replay. Не кодирует ECS layout или vendor handle. |
 | **AssetId** | Стабильная ссылка на логический asset; конкретная cooked revision определяется manifest и content hash. |
 | **ContentHash** | SHA-256 канонических cooked bytes и параметров cooker, используемый для immutable bundle addressing. |
 | **ProjectManifest** | Versioned authored project intent с typed dependency ranges, roots, profiles, policies и provenance; не является runtime lock и не активируется до deterministic resolution. |
-| **ProjectCatalogSnapshot** | Immutable JCS-canonical, externally hash-bound resolver input с полными dependency records, hashes, compatibility/trust/budget metadata и `yanked` state; registry/network/cache state не входит в него. |
-| **ProjectCompositionLock** | Immutable content-addressed exact closure project, catalog, engine/schema/content/package/trust/budget/config/model и migration hashes, общая для `game`, `headless` и `capture-worker`; runtime не разрешает из неё floating ranges. |
+| **ProjectCatalogSnapshot** | Immutable JCS-canonical, externally hash-bound resolver input с полными dependency records, hashes, compatibility/capability/license/provenance/budget metadata и `yanked` state; registry/network/cache state не входит в него. |
+| **ProjectCompositionLock** | Immutable content-addressed exact closure project, catalog, engine/schema/content/package/capability/budget/config/model и migration hashes, общая для `game`, `headless` и `capture-worker`; runtime не разрешает из неё floating ranges. |
 | **SchemaDescriptorV1** | Immutable engine-owned schema declaration со stable schema/field IDs, wire shape, encoding, role, compatibility policy and canonical hash; storage/backend layout не является schema. |
 | **SchemaRegistryManifestV1** | Exact content-addressed set accepted schema descriptors, compatibility entries and migration authority, bound by `ProjectCompositionLock`; partial registry publication forbidden. |
 | **ContentManifestV1** | Immutable catalog root exact neutral asset revisions, typed dependency closure, provenance, bundle/blob hashes and target-variant policy; runtime resolves no floating content revision. |
@@ -61,7 +59,7 @@
 | **ApplicationSessionManifestV1** | Immutable composition-root session closure over exact project/launch/platform/runtime/schema/content/recovery/shutdown/presentation-target hashes. |
 | **ApplicationSessionStateV1** | Runtime-owned revisioned state in the closed `Created → CompositionStaged → RuntimeStaged → Active ↔ Suspended → Quiescing → Finalizing → Closed` lifecycle. |
 | **CloseSessionOperationJournalV1** | Durable full-request-bound progress journal that lets an exact close retry execute only its next missing edge/save step without revalidating the historical starting revision. |
-| **CloseSessionResultV1** | Closed terminal session result `Saved | ClosedUsingLastSafeGeneration`; only `Closed` publishes its receipt, while retry-pending or required-save failure remains typed non-Closed progress in `Finalizing`. |
+| **CloseSessionResultV1** | Closed terminal session result `Saved \| ClosedUsingLastSafeGeneration`; only `Closed` publishes its receipt, while retry-pending or required-save failure remains typed non-Closed progress in `Finalizing`. |
 | **RecoverySessionLinkV1** | Durable link from an immutable failed `Finalizing` session to one new live session, binding the exact prior state/manifest, same project lock and verified last-safe save; it is not a lifecycle edge or new project revision. |
 | **ActionMapManifest** | Immutable map stable device-independent action IDs to bounded semantic controls, contexts, conflict policy and accessibility metadata. |
 | **PlayerActionFrame** | Canonical immutable ordered device-independent action input for one ingress sample; it contains no physical-device identity, wall time, target tick, camera transform or backend object. |
@@ -86,9 +84,8 @@
 | **CrossTargetProjectionRoot** | Exact root canonical quantized physical projection для cross-target replay comparison. Raw backend samples могут иметь отдельно declared tolerance, но IDs, event classes, gameplay outcomes и projection root остаются exact. |
 | **RenderPose** | Read-only presentation pose, построенная из authoritative physics pose либо animation pose согласно physics LOD. |
 | **Physics LOD** | Разрешённый уровень embodied simulation: full articulation, simplified active ragdoll, capsule/animation или abstract simulation. |
-| **CreatureArchetypeManifest** | Public immutable manifest, связывающий generic Character, physical archetype, AgentArchetypeDefinition, mechanic packages, provenance и certification без package-specific runtime type. |
-| **PhysicalArchetypeBundle** | Cooked body/LOD/capability/policy package одной physical morphology revision с exact descriptors, fallbacks и evidence references. |
-| **PhysicalCertificationLevel** | `PrototypeFallback` либо `PhysicalCertified`; уровень заявляет доказанное physical behavior, а не доверие к publisher. |
+| **CreatureArchetypeManifest** | Public immutable manifest, связывающий generic Character, physical archetype, AgentArchetypeDefinition, mechanic packages, provenance и validation metadata без package-specific runtime type. |
+| **PhysicalArchetypeBundle** | Cooked body/LOD/capability/policy package одной physical morphology revision с exact descriptors, fallbacks и validation references. |
 | **MorphologyFamilyId** | Stable namespaced ID семейства совместимых body/motor representations; не означает совместимость без exact PolicyCompatibilityKey. |
 | **MotorSkillId** | Stable namespaced ID физически исполняемого навыка, независимый от конкретной model revision. |
 | **SkillProficiency** | RPG-owned unsigned fixed-point `u16` 0…10 000, сериализуемый уровень владения skill; не neural weight. |
@@ -118,16 +115,14 @@
 | **WorldAdvancePlanV1** | Immutable bounded revision-checked ordered World Services work for a world-tick interval; stepped and bulk execution must produce the same plan boundaries and committed results. |
 | **SaveManifest** | Корень сохранения: schema versions, build compatibility, world revision, loaded chunks, content hashes и ordered state segments. |
 | **ReplayManifest** | Корень replay: initial checkpoint, world/runtime/content hashes, named RNG state, `CommandLedgerV2` snapshot/root и ordered `ClosedIngressBatchV1`/`ClosedCommandAdmissionBatchV2` boundaries со всеми bounded authenticated/decodable command envelopes, включая duplicates, conflicts и deterministic rejections. |
-| **RunManifest** | Машиночитаемый манифест проверки: scenario, build, configs, hashes, metrics и artifacts. |
-| **VerificationPolicyManifest** | Project-owned versioned policy profiles, impact rules, observable categories, budgets, reviewers, baselines, quotas и redaction. |
-| **TestScenarioManifest** | Immutable generic deterministic scenario: fixtures, seeds/clocks, actions/faults, probes/assertions, captures, profiles и expected evidence. |
-| **ScenarioAction** | Timestamped production input/validated command/lifecycle/declared fault action; не mutable test hook. |
+| **RunManifest** | Локальный машиночитаемый результат одного run: scenario, build/config hashes, metrics, diagnostics и optional debug artifacts; не является глобальным product status. |
+| **TestScenarioManifest** | Immutable bounded scenario: exact fixtures/hashes, seeds/clocks, production actions, declared faults, probes/assertions, limits и optional capture. |
+| **ScenarioAction** | Production input/validated command/lifecycle/declared fault action, назначенная на simulation tick; не mutable test hook. |
 | **ProbeSpec** | Read-only selector documented state/event/diagnostic/normalized metric, не влияющий на schedule или state hash. |
-| **AssertionSpec** | Versioned oracle с owner, exact/tolerance/distribution/invariant/presentation/qualitative kind, explicit threshold и stable failure code. |
-| **ChangeImpactManifest** | Generated immutable result ImpactResolver: changed nodes/reasons, required suites/profiles/long gates, observable categories, captures и review flag. |
+| **AssertionSpec** | Versioned `Exact`, `Tolerance`, `Distribution`, `Invariant` или `PresentationMetric` oracle с explicit threshold и stable failure code. |
 | **OffscreenPresentationTarget** | Engine render target в GPU images/readback без PlatformHost window/surface/swapchain/display server. |
-| **CapturePlan** | Scenario-owned camera/audio/view/overlay/timeline/output specification для reproducible media. |
-| **CaptureJobManifest** | Portable immutable displayless worker job с exact base/candidate/content/replay/profile/CapturePlan hashes и artifact requirements. |
+| **CapturePlan** | Optional scenario-owned camera/audio/view/overlay/timeline/output specification для reproducible local debug media. |
+| **CaptureJobManifest** | Portable immutable displayless worker job с exact content/replay/profile/CapturePlan hashes и bounded local output requirements. |
 | **MaterialDefinitionV1** | Neutral immutable material parameter/texture/render-state/shader-interface schema with exact fallback and no compiled pipeline/device object. |
 | **MaterialInstanceV1** | Canonical values and texture bindings conforming to one exact material definition; it cannot alter interface or add backend bindings. |
 | **ShaderInterfaceManifestV1** | Neutral stage/input/resource/output semantic layout contract validated against target artifacts; compiler/backend objects are excluded. |
@@ -135,12 +130,6 @@
 | **SdrColorProfileV1** | Mandatory exact sRGB-D65, linear-compositing, straight-boundary/premultiplied-working alpha and rounding/output-transform contract; pinned capture fixes exact pixels. |
 | **VfxCueV1** | Event-derived stable presentation-only VFX lifecycle record with canonical dedupe/cancel/fallback semantics and no simulation write authority. |
 | **PresentationCacheManifestV1** | Reconstructible GPU/UI/VFX cache generation over exact content/profile/snapshot inputs; corruption/device loss preserves authoritative state. |
-| **EvidenceBaselineManifest** | Immutable human-approved scenario/profile/toolchain/content semantic/media reference; generated candidate не является approved baseline. |
-| **EvidenceBundleManifest** | Root content-addressed closure, объединяющий automatic results, impact, diagnostics, replay, metrics, raw media roots, review artifacts и baselines. |
-| **AttestationEnvelopeV2** | Closed JCS envelope с exact project/domain/payload type, signed `key_id`, payload/trust/revocation hashes и Ed25519 signature; cryptographic verification отделена от admission. V1 доступен только historical-audit verifier. |
-| **ReviewerTrustManifest** | Project-owned offline manifest разрешённых reviewer keys/roles, validity windows и revocations; agent, tool и service keys не получают human-review authority. |
-| **HumanReviewDecisionV2** | Closed JCS payload с exact enum `Approve`, `Reject` или `NeedsChanges`, привязанный через `AttestationEnvelopeV2` к project, changeset, evidence, baseline, policy, impact, fixture, automatic summary, `requirement_graph_sha256` и `gate_descriptor_set_sha256`. Все три решения подписываемы; только verified `Approve` вместе с automatic `PASS` admission-eligible; trace/gate drift требует нового payload/decision/signature. |
-| **HumanReviewRequired** | Impact state, при котором successful automatic gates недостаточны и exact changeset требует verified `HumanReviewDecisionV2::Approve`; `Reject` и `NeedsChanges` остаются signed non-admitting feedback. |
 | **Capability** | Явно выданное право script/plugin/process на именованную операцию или data view. Default — deny. |
 | **MechanicPackageId** | Стабильный namespaced ID gameplay/mod package; версия и publisher identity являются отдельными полями. |
 | **MechanicPackageManifest** | Author-declared metadata, dependencies, capabilities, exports, state schemas/migrations, provenance, licenses и tests package. |
@@ -155,16 +144,43 @@
 | **MechanicDeltaProposal** | Неавторитетное предложение namespaced state patch, EffectRequests, future commands, event payloads и presentation cues; authoritative DomainEvent создаётся engine только после commit. |
 | **PackagePatch** | Явное изменение чужого definition с target ID/path, expected revision hash и conflict policy; не implicit file override. |
 | **AuthoringContextBundle** | Замкнутый machine-readable SDK/context snapshot для человека или coding agent, привязанный к exact engine/project/package hashes. |
-| **AgentChangeSet** | Reviewable набор bounded edits/operations с base hashes, provenance, tests, risk flags, dry-run и atomic apply semantics. |
-| **AgentPolicy** | Project-owned правила разрешённых authoring roots/tools/budgets и условий automatic/reviewed AgentChangeSet apply. |
+| **AgentChangeSet** | Inspectable набор bounded edits/operations с base hashes, provenance, tests, risk flags, dry-run и atomic apply semantics. |
+| **AgentPolicy** | Project-owned правила разрешённых authoring roots/tools/budgets и preconditions для atomic AgentChangeSet apply. |
 | **PresentationCue** | Semantic non-authoritative запрос gameplay package на VFX/audio/UI/camera feedback. |
 | **ai-host** | Отдельный процесс для LLM, embeddings, ASR и TTS. Не участвует в deterministic simulation tick. |
 | **Headless runtime** | Тот же core/RPG runtime без renderer и интерактивного platform shell, предназначенный для validation, replay и tests. |
 | **Cooker** | Детерминированный tool, преобразующий validated NeutralAuthoringModel в immutable content-addressed bundles. |
-| **Conformance gate** | Воспроизводимая pass/fail проверка с владельцем, threshold, командой/сценарием и evidence artifacts. |
-| **GateDescriptorV1** | Machine-readable descriptor полного gate ID с единственным `descriptor_source_id`, classification/subject, owner, applicability, scenario, threshold, evidence, fallback, requirement/failure links, child/parent links и VS/profile closure. Несовместимое повторное semantic definition является `GATE_DESCRIPTOR_CONFLICT`. |
-| **RequirementGraphV1** | Canonical hash-bound projection indexed documents, stable technology IDs, reservations, Accepted requirements/failures, gate descriptors и двусторонних owner→gate→evidence→VS/profile edges. |
-| **GameplayBudgetMatrix** | Единая integer-microsecond матрица per-tick subsystem ceilings, integrated limits, cadence и measurement profile; отдельные subsystem gates не могут переопределить её суммарный budget. |
-| **Vertical slice** | Минимальная играбельная цепочка, одновременно доказывающая ключевые архитектурные границы и fallback paths. |
+| **ProductCheck** | Небольшая воспроизводимая инженерная проверка наблюдаемого product behavior. Canonical kinds: `fast`, `play`, `persistence-replay`, `content-package`, conditional `platform` и conditional `performance`; выбор определяется затронутой областью, а результат описывает только exact run. |
+| **GameplayBudgetMatrix** | Единая integer-microsecond матрица per-tick subsystem ceilings, integrated limits, cadence и measurement profile; отдельный subsystem benchmark не может переопределить её суммарный budget. |
+| **Vertical slice** | Минимальная играбельная цепочка, используемая `play` ProductCheck для проверки ключевого RPG loop и fallback paths. |
+
+## Proposed packet 1.9 terms
+
+Следующие термины принадлежат Proposed
+[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md). Они помогают
+обсуждать candidate consistently, но не являются Accepted runtime contract до
+явного принятия owning SPEC/ADR.
+
+| Термин | Proposed definition |
+|---|---|
+| **WorldNeedViewV1** | Immutable revision-bound projection of committed world/RPG facts that may justify an opportunity without creating a second fact owner. |
+| **QuestCandidateV1** | Bounded untrusted proposal that binds source facts, participants, verifiable outcomes, disclosure/autonomy/prior-fact policies and reward/difficulty envelopes; it becomes a Quest only after RPG admission. |
+| **QuestEngagementStateV1** | RPG-owned lifecycle state `Latent`, `Offered`, `Accepted` или `Resolved`; принятие игроком не создаёт QuestInstance. |
+| **QuestDisclosurePolicyV1** | Closed policy for `Direct`, `Solicited`, `Contextual` and `Public` disclosure of an already admitted latent opportunity. |
+| **QuestOfferDispositionV1** | RPG-owned disclosure-attempt and decline-cooldown record; decline is not a terminal Quest outcome. |
+| **QuestPriorFactPolicyV1** | Closed rule `ProspectiveOnly`, `SinceAdmission` or `CitedCommittedFacts` defining which already committed facts may satisfy Quest predicates. |
+| **DifficultyEnvelopeV1** | Candidate bounds and evidence requirements for typed challenge factors; it is not a final XP decision. |
+| **ChallengeAssessmentV1** | RPG-validated, policy-hash-bound integer challenge vector/band frozen when the player accepts the Quest. |
+| **QuestRewardContractV1** | Revisioned separation of promised world reward, system progression reward, world consequences, term variants and outcome modifiers. |
+| **QuestAutonomyPolicyV1** | Явная per-quest policy `PlayerProtected`, `WorldReactive` или `DeadlineBound`; default — `PlayerProtected`. |
+| **QuestOutcomeV1** | Closed committed outcome `Success`, `Failure`, `Expired`, `Cancelled` или `Superseded`. |
+| **NarrativeHookV1** | Bounded causal continuation opportunity, сохраняющая source quest, outcome и event identity. |
+| **NarrativeAnchorV1** | Authored immutable mandatory сюжетная опора/critical fact, которую generated patch не может изменить или сделать недостижимой. |
+| **NarrativeExtensionSlotV1** | Authored bounded capability point, внутри которого candidate MAY добавлять generated nodes/edges через зарегистрированные primitives. |
+| **QuestGraphRevisionV1** | Content-addressed world/save-local immutable quest graph revision с definitions, anchors, slots, lineage и exact parent hash. |
+| **QuestGraphPatchV1** | Atomic bounded proposal новой graph revision; partial publication запрещена. |
+| **NarrativeDirectorRequestV1** | Bounded immutable, revision-bound snapshot facts, live quest projections, hooks, slots, policies и exact simulation deadline. |
+| **NarrativeDirectorCandidateV1** | Untrusted canonical graph/text proposal с cited revisions/facts, provenance и proposal hash; не команда и не mutable state. |
+| **TemplateNarrativeDirector** | Deterministic in-process fallback, создающий упрощённые quest chains через тот же request, validators и validated command path. |
 
 `Entity`, `object handle`, `GUID` и `resource ID` не должны использоваться в публичном контракте без уточнения одного из нормативных ID выше.

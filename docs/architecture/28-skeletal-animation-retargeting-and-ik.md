@@ -4,21 +4,18 @@
 |---|---|
 | ID | SPEC-28 |
 | Статус | Accepted |
-| Версия | 1.0 |
-| Владелец | Physical Embodiment Team |
-| Требуемые согласующие | Repository Owner, Architecture Working Group, Runtime Team, Asset & Persistence Team, Rendering Team, Gameplay Extensibility Team, Security & Governance Team, Verification & Evidence Team, Release Engineering |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md), [ADR-024](adr/024-requirement-gate-evidence-and-profile-closure.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md) |
+| Версия | 1.1 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md) |
 | Заменяет | отсутствует |
 
 ## История принятия
 
 SPEC-28 подготовлен как часть consolidated architecture packet 1.8. Он
 закрепляет engine-owned skeletal-animation, graph, retargeting, root-motion и
-IK contracts поверх neutral content и physical layering ADR-027. Принятие
-exact packet root означает только architecture admission: оно не создаёт
-runtime implementation, verification gate `PASS`, `vertical-v1`,
-`PhysicalCertified` или release-readiness claim.
+IK contracts поверх neutral content и physical layering ADR-027. Документ не
+создаёт runtime implementation и не выбирает animation, retargeting или IK
+backend; implementation support определяется product checks ниже.
 
 ## Назначение и invariants
 
@@ -26,8 +23,8 @@ SPEC-28 задаёт один backend-neutral contract, по которому co
 runtime, motor/physics bridge, renderer, headless runner и capture-worker могут
 быть реализованы независимо.
 
-- Asset & Persistence Team публикует immutable `NeutralSkeletonV1` и
-  `NeutralAnimationV1`; Physical Embodiment Team владеет runtime descriptors,
+- Asset & Persistence subsystem публикует immutable `NeutralSkeletonV1` и
+  `NeutralAnimationV1`; Physical Embodiment subsystem владеет runtime descriptors,
   graph evaluation, retargeting, IK classification и animation/physics bridge.
 - Physics or the validated locomotion controller remains the only owner of an
   embodied transform. Animation pose, marker, cue, root track, retarget result
@@ -51,21 +48,21 @@ runtime, motor/physics bridge, renderer, headless runner и capture-worker мо�
 - `game`, `headless` and `capture-worker` use the same descriptor validation,
   intent graph, root-motion validator, fixed ordering and replay contracts.
   Headless execution does not require a renderer, GPU, window or display.
-- Observable animation, retarget, IK or root-motion changes always enter the
-  SPEC-15 impact/capture/review flow. Automatic evidence precedes required
-  `HumanReviewDecisionV2::Approve`; an agent cannot approve or waive a failure.
+- Observable animation, retarget, IK or root-motion changes use deterministic
+  product captures under a pinned profile. Captures remain presentation
+  diagnostics and never influence gameplay authority.
 
 ## Source of truth и authority split
 
 | State / output | Единственный owner/source of truth | Allowed projection / forbidden duplicate |
 |---|---|---|
-| Neutral skeleton/animation record, content hash and target-neutral channels | Asset & Persistence Team, exact SPEC-24 content generation | decoded immutable view; no mutable graph/physics state |
-| Skeleton compatibility, graph descriptor, intent cursor, retarget/IK descriptors and evaluation schedule | Physical Embodiment Team | immutable diagnostics/presentation views; no renderer-owned transition |
-| Accepted command sequence, fixed simulation stages and commit result | Runtime Team | immutable receipts/events; no animation callback mutation |
-| Active body/capsule pose, contacts, constraints and physical outcome | Physical Embodiment Team through SPEC-26 physics/motor boundary | quantized snapshot/RenderPose; no graph, IK or renderer write-back |
+| Neutral skeleton/animation record, content hash and target-neutral channels | Asset & Persistence subsystem, exact SPEC-24 content generation | decoded immutable view; no mutable graph/physics state |
+| Skeleton compatibility, graph descriptor, intent cursor, retarget/IK descriptors and evaluation schedule | Physical Embodiment subsystem | immutable diagnostics/presentation views; no renderer-owned transition |
+| Accepted command sequence, fixed simulation stages and commit result | Runtime subsystem | immutable receipts/events; no animation callback mutation |
+| Active body/capsule pose, contacts, constraints and physical outcome | Physical Embodiment subsystem through SPEC-26 physics/motor boundary | quantized snapshot/RenderPose; no graph, IK or renderer write-back |
 | Ability/effect timing and gameplay markers | Owning RPG/mechanics domain | animation may emit `PresentationCue`; an animation marker is not a gameplay event |
-| Render interpolation, skinning palette, presentation IK delta and GPU cache | Rendering Team | reconstructible presentation only; excluded from gameplay roots |
-| Save/replay generation and owner-segment encoding | Asset & Persistence Team | staged copy; no semantic ownership of decoded animation/physical state |
+| Render interpolation, skinning palette, presentation IK delta and GPU cache | Rendering subsystem | reconstructible presentation only; excluded from gameplay roots |
+| Save/replay generation and owner-segment encoding | Asset & Persistence subsystem | staged copy; no semantic ownership of decoded animation/physical state |
 
 `WorldResidencyTier`, physical LOD and animation LOD remain three distinct
 state machines. A committed residency view may constrain whether an embodied
@@ -277,7 +274,7 @@ retarget rules, IK iterations, pose joints and cue emissions per logical
 boundary. Required physical-intent work MUST fit the locked project profile
 before activation and cannot be dropped or downgraded by measured cost.
 Presentation work may use only the declared animation-LOD fallback in canonical
-subject/graph order. A wall-time miss fails the relevant ANIM/PERF gate and
+subject/graph order. A wall-time miss fails the relevant ANIM/PERF check and
 cannot choose a different root intent, physical constraint or authoritative
 outcome in the measured run.
 
@@ -337,7 +334,7 @@ collision, support, speed, acceleration, energy, contact, topology, policy or
 physical-LOD guards. Invalid or stale intent publishes no transform, pose,
 event or partial receipt result.
 
-Replay records the canonical proposal, command admission/rejection, receipt,
+Replay records the canonical proposal, command acceptance/rejection, receipt,
 applied physical intent and committed outcome. A different root-motion
 proposal is therefore a different explicit command input, never a hidden
 animation-dependent gameplay divergence.
@@ -451,8 +448,8 @@ Animation LOD never changes physical LOD or `WorldResidencyTier`, and never
 skips due `PhysicalIntentGraph` work. Canonical simulation-owned facts may
 select a project-declared animation LOD/cadence. Camera/frustum/occlusion and
 measured render cost MAY choose only a presentation level and are excluded
-from command/gameplay roots. Capture evidence uses one exact pinned LOD/profile
-hash; an unpinned adaptive capture cannot be a pixel baseline.
+from command/gameplay roots. Product captures use one exact pinned LOD/profile
+hash; an unpinned adaptive capture cannot be compared as a stable pixel result.
 
 LOD transition happens at a logical animation-tick boundary and publishes one
 complete new presentation snapshot or none. Missing optional presentation work
@@ -486,7 +483,7 @@ original save generation and activates no partial subject/graph state.
 
 Replay validates every root-motion proposal/receipt/outcome and exact intent
 cursor. Presentation pose, retarget, IK and LOD roots are separate observable
-projections; their mismatch fails the corresponding ANIM/capture gate but
+projections; their mismatch fails the corresponding ANIM product check but
 cannot be patched back into gameplay state. First divergence reports subject,
 logical animation/physics tick, descriptor/profile hash, graph stage, node or
 chain ID and first differing canonical field.
@@ -507,11 +504,11 @@ chain ID and first differing canonical field.
 | `ANIM_PUBLICATION_ABORTED` | Discard staging/working snapshot and retain the complete prior generation; expose no partial joint palette or graph state. |
 | `NONDETERMINISTIC_RESULT` | Fail at the first graph/intent/retarget/IK/LOD divergence; preserve minimized replay and never retry to green. |
 
-## Deterministic and observable evidence rules
+## Deterministic and observable product checks
 
 - Canonical skeleton/clip/graph/profile bytes and fixed-point pose/proposal
   roots are exact on Windows x86_64 and Linux x86_64. Final raster pixels are
-  exact only under the pinned capture-worker profile declared by SPEC-15.
+  exact only under a pinned capture-worker profile.
 - Backend-local skinning matrices, decompressed float caches and raw solver
   samples MAY use a declared presentation tolerance but are not command,
   contact, physical outcome or gameplay-hash inputs.
@@ -521,46 +518,38 @@ chain ID and first differing canonical field.
   root difference is `NONDETERMINISTIC_RESULT`.
 - Scenarios drive production actions/commands and use immutable probes. Mutable
   graph/pose/physics test backdoors are forbidden.
-- ImpactResolver classifies `animation`, `root_motion`, `retarget`, `ik` and
-  `animation_lod` as observable. Required automatic gates, replay and boundary
-  scans run before capture and hash-bound human review.
-- Capture uses exact project/content/replay/graph/skeleton/retarget/IK/LOD,
-  camera and toolchain hashes. It includes baseline/success/failure/comparison
-  views appropriate to the change plus raw canonical pose/intent/physics roots.
-- Missing GPU, encoder or reviewer is `AwaitingCapability`, never `PASS`.
-  Automatic evidence cannot synthesize `HumanReviewDecisionV2::Approve`.
+- Optional developer capture uses exact project/content/replay/graph/skeleton/
+  retarget/IK/LOD, camera and toolchain hashes. When useful, it includes
+  success/failure/comparison views plus raw canonical pose/intent/physics roots.
+- When a renderer or encoder is unavailable, authoritative headless checks
+  still run and the presentation capture is reported as unavailable; no
+  gameplay result is inferred from missing media.
 
-## Verification gates
+## Product checks
 
-Each row is the canonical `GateDescriptorV1` source for its gate.
-
-All five gates are `AcceptedBaseline`, `Blocking` children of the listed
-existing VS descriptors. Their unavailability is non-PASS and cannot be
-reclassified as CandidateOnly.
-
-| Gate | Descriptor ID / classification | Subject / applicability | Primary owner | Contributors | Reproducible command/scenario | Pass threshold | Required evidence | Fallback | Requirement IDs | Failure IDs | VS / profile closure |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| `ANIM-GRAPH-P1` | `nextengine.animation.graph.v1`; AcceptedBaseline, Blocking | Every admitted v1 skeleton/clip/graph/numeric profile and composition root | Physical Embodiment Team | Asset & Persistence Team, Rendering Team, Runtime Team | `next gate ANIM-GRAPH-P1 --scenario animation-graph-ordering-v1 --graphs 1000 --permutations all --roots game,headless,capture-worker` | 1,000 valid graph/state/parameter/worker/declaration/render-cadence permutations produce exact transition, cursor, marker, node, intent-proposal and canonical pose roots across all roots and shipping targets; every Clamp/Loop/PingPong zero/endpoint/multi-segment boundary vector is exact; 100% cycle, duplicate, cross-authority, invalid-transition, overflow and partial-publication cases reject with the exact diagnostic; public scan finds 0 forbidden type | Skeleton/clip/graph/profile manifests, canonical graph/cursor/marker/pose/proposal roots, ordering/task-merge traces, boundary/negative corpus, composition-root replay diff, publication and public-API scans | Reject candidate graph and retain the prior exact graph; optional presentation uses the locked bind-pose graph, required intent graph blocks activation | REQ-136, REQ-138, REQ-139 | FAIL-056, FAIL-057 | VS-05, VS-07, VS-15 |
-| `ANIM-ROOT-MOTION-P1` | `nextengine.animation.root-motion.v1`; AcceptedBaseline, Blocking | Every graph/clip capable of root intent and every accepted/rejected root-motion proposal | Physical Embodiment Team | Runtime Team, Gameplay Extensibility Team, Verification & Evidence Team | `next gate ANIM-ROOT-MOTION-P1 --scenario root-motion-command-boundary-v1 --cycles 10000 --faults all` | 10,000 accepted/rejected/retried/save/replay/LOD cycles route 100% root deltas through canonical proposal, command admission, receipt, motor/safety and physics outcome; every stale, duplicate, collision, bound, capability, body-revision and contact fault yields 0 direct/partial transform mutation; command/receipt/outcome/gameplay roots are exact across roots/targets | Root-intent curves/states/proposals, command bodies/receipts/events, motor/action/contact/physics traces, save/replay roots, fault matrix and direct-write boundary scan | Reject intent, retain prior physical state and use the declared validated locomotion/recovery controller; never teleport | REQ-137, REQ-138, REQ-139 | FAIL-056, FAIL-057 | VS-05, VS-11, VS-14 |
-| `ANIM-RETARGET-P1` | `nextengine.animation.retarget.v1`; AcceptedBaseline, Blocking | Every admitted source/target skeleton pair and retarget profile | Physical Embodiment Team | Asset & Persistence Team, Rendering Team | `next gate ANIM-RETARGET-P1 --scenario skeletal-retarget-matrix-v1 --profiles all --permutations 10000` | Every admitted source/target skeleton and declared optional/required-joint case produces exact mapping/local-pose or exact rejection under 10,000 rule/order/worker permutations; 100% signature, cycle, duplicate-target, missing-required, bounds and heuristic-mapping cases reject; presentation profile variation changes 0 command/gameplay roots | Source/target skeletons, retarget profiles/rule graphs, canonical mapping/pose roots, compatibility/negative matrix, replay/gameplay hashes and comparison captures | Use only an exact compatible authored profile; otherwise retain source/bind pose for optional presentation or block required physical reference | REQ-136, REQ-138, REQ-139 | FAIL-056, FAIL-057 | VS-05, VS-07, VS-15 |
-| `ANIM-IK-P1` | `nextengine.animation.ik.v1`; AcceptedBaseline, Blocking | Every admitted physical/presentation IK rig, chain and request class | Physical Embodiment Team | Rendering Team, Runtime Team, Verification & Evidence Team | `next gate ANIM-IK-P1 --scenario physical-presentation-ik-separation-v1 --requests 10000 --faults all` | 10,000 chain/order/target/LOD permutations across every V1 algorithm execute the exact fixed iteration/order and produce exact constraint/presentation-pose roots; 100% cross-class edge, invalid target, stale revision, limit, overflow and presentation-write escape cases reject; presentation IK enable/disable changes 0 command/contact/physical outcome/gameplay roots and physical IK never bypasses motor/safety | IK rig/request/constraint/delta manifests, algorithm golden vectors, iteration/order traces, motor/action/contact/state roots, escape/negative corpus, replay hashes and required captures | Reject the complete physical constraint set and use safe motor behavior; independently disable optional presentation IK | REQ-137, REQ-138, REQ-139 | FAIL-056, FAIL-057 | VS-05, VS-07, VS-14, VS-15 |
-| `ANIM-LOD-P1` | `nextengine.animation.lod.v1`; AcceptedBaseline, Blocking | Every admitted animation budget/LOD profile, transition and pinned capture profile | Physical Embodiment Team | Rendering Team, Runtime Team, Verification & Evidence Team | `next gate ANIM-LOD-P1 --scenario animation-lod-parity-v1 --transitions 10000 --presentation-permutations all` | 10,000 LOD/cadence/resource/fault transitions publish one complete snapshot or none, never skip due physical-intent work and produce exact root-motion/command/physical/gameplay roots; camera, frustum, render cost, cache and presentation-level permutations change 0 authoritative roots; every pinned capture profile produces its exact pose/media roots | LOD/profile/transition manifests, due-work and resource traces, intent/command/physics/gameplay roots, publication fault matrix, pinned pose/capture roots and comparison media | Pin the safe required evaluation level; use declared held/bind/cull presentation fallback and block when required intent work is unavailable | REQ-138, REQ-139 | FAIL-056, FAIL-057 | VS-05, VS-07, VS-12, VS-15 |
+| ID | Сценарий | Ожидаемый результат | Fallback |
+|---|---|---|---|
+| `ANIM-GRAPH-P1` | 1 000 graph/state/worker/declaration/render-cadence permutations across `game`, `headless`, `capture-worker` and shipping targets | transition, cursor, marker, proposal and canonical pose roots exact; all cycle, duplicate, authority, overflow and partial-publication cases reject | retain prior graph; optional presentation uses bind pose, required intent graph remains inactive |
+| `ANIM-ROOT-MOTION-P1` | 10 000 accepted/rejected/retried/save/replay/LOD cycles | every root delta passes canonical proposal, command validation, receipt, motor/safety and physics outcome; faults cause zero direct or partial transform mutation | reject intent and use validated locomotion/recovery controller; never teleport |
+| `ANIM-RETARGET-P1` | all declared skeleton pairs and 10 000 rule/order/worker permutations | exact mapping/local pose or exact rejection; all signature, cycle, duplicate-target, missing-required and bounds faults reject; presentation variation changes zero gameplay roots | use exact authored profile; otherwise optional bind pose or block required reference |
+| `ANIM-IK-P1` | 10 000 physical/presentation IK chain/order/target/LOD permutations | fixed iteration/order and exact constraint/presentation roots; presentation IK changes zero command/contact/outcome/gameplay roots; physical IK never bypasses safety | reject physical constraint set and use safe motor behavior; independently disable presentation IK |
+| `ANIM-LOD-P1` | 10 000 LOD/cadence/resource/fault transitions and optional pinned developer capture | one complete snapshot or none; due intent work never skipped; authoritative roots unchanged by camera/render/cache variation; captured roots are reproducible when requested | pin safe evaluation level; use held/bind/cull presentation fallback |
 
 ## Requirements
 
-| ID | Нормативное требование | Primary owner | Contributors | Blocking gates | Required evidence | Fallback / fail-closed outcome | VS / profile closure |
-|---|---|---|---|---|---|---|---|
-| REQ-136 | Every admitted skeleton, clip, animation graph and retarget profile MUST use the bounded engine-owned contracts above, exact content/schema hashes and canonical fixed evaluation/mapping order, with no vendor, backend, ECS, OS or importer public type. | Physical Embodiment Team | Asset & Persistence Team, Rendering Team | ANIM-GRAPH-P1, ANIM-RETARGET-P1 | Skeleton/clip/graph/retarget manifests, canonical bytes/roots, ordering and compatibility corpora, publication/public-API scans. | Reject the incompatible candidate and retain the prior exact graph/profile or declared optional bind-pose fallback. | VS-05, VS-07, VS-15 |
-| REQ-137 | Root motion MUST remain a bounded revision-checked intent passing the production `WorldCommandEnvelopeV2`/motor/safety/physics path, while physical IK and presentation IK MUST remain separate one-way authority classes with no direct pose, contact or gameplay mutation. | Physical Embodiment Team | Runtime Team, Gameplay Extensibility Team, Rendering Team | ANIM-ROOT-MOTION-P1, ANIM-IK-P1 | Root-intent/command/receipt/outcome and IK rig/request/constraint/delta corpora, motor/contact/state roots and direct-write/escape scans. | Reject the entire stale/invalid intent or physical constraint set; retain physical state, use safe controller and independently disable optional presentation IK. | VS-05, VS-07, VS-11, VS-14, VS-15 |
-| REQ-138 | Fixed graph stages, retarget/IK total orders, logical animation time, deterministic result merge and animation LOD MUST produce exact proposal/physical roots across `game`, `headless` and `capture-worker`; presentation variation MUST change zero gameplay hashes. | Physical Embodiment Team | Runtime Team, Rendering Team, Verification & Evidence Team | ANIM-GRAPH-P1, ANIM-ROOT-MOTION-P1, ANIM-RETARGET-P1, ANIM-IK-P1, ANIM-LOD-P1 | Cross-root/target graph, proposal, command, retarget, IK, LOD, physics and gameplay roots plus worker/order/cadence/resource permutation traces. | Fail at first divergence, preserve minimized replay and pin/reject the candidate profile; retry cannot turn green. | VS-05, VS-07, VS-11, VS-12, VS-14, VS-15 |
-| REQ-139 | Every observable animation, root-motion, retarget, IK or animation-LOD change MUST resolve all affected automatic gates and produce hash-bound SPEC-15 capture/evidence under one exact profile before authorized human approval. | Verification & Evidence Team | Physical Embodiment Team, Rendering Team, Security & Governance Team | ANIM-GRAPH-P1, ANIM-ROOT-MOTION-P1, ANIM-RETARGET-P1, ANIM-IK-P1, ANIM-LOD-P1 | ChangeImpactManifest, automatic RunManifests, replay/pose/physics roots, CaptureJob/result, baseline/comparison media, EvidenceBundle and V2 review decision. | Remain `AwaitingCapability` or `HumanReviewRequired`; retain the prior approved baseline and deny admission without automatic PASS plus authorized Approve. | VS-05, VS-07, VS-11, VS-12, VS-14, VS-15 |
+| ID | Technical requirement | Product checks |
+|---|---|---|
+| REQ-136 | Every supported skeleton, clip, graph and retarget profile MUST use bounded engine-owned contracts, exact hashes and canonical evaluation/mapping order, with no vendor/backend/ECS/OS/importer public type. | ANIM-GRAPH-P1, ANIM-RETARGET-P1 |
+| REQ-137 | Root motion MUST remain a bounded revision-checked intent through production command/motor/safety/physics, while physical and presentation IK remain separate one-way authority classes. | ANIM-ROOT-MOTION-P1, ANIM-IK-P1 |
+| REQ-138 | Fixed graph stages, retarget/IK order, logical time, deterministic result merge and animation LOD MUST produce exact authoritative roots across composition roots; presentation variation changes zero gameplay hashes. | ANIM-GRAPH-P1, ANIM-ROOT-MOTION-P1, ANIM-RETARGET-P1, ANIM-IK-P1, ANIM-LOD-P1 |
+| REQ-139 | Observable animation, root-motion, retarget, IK and LOD changes SHOULD remain inspectable through optional reproducible local capture under one pinned profile; capture absence does not change ProductCheck status or gameplay authority. | ANIM-GRAPH-P1, ANIM-ROOT-MOTION-P1, ANIM-RETARGET-P1, ANIM-IK-P1, ANIM-LOD-P1 |
 
 ## Failure paths
 
-| ID | Trigger | Required result | Primary owner | Contributors | Blocking gates | Required evidence | Fallback / fail-closed outcome | VS / profile closure |
-|---|---|---|---|---|---|---|---|---|
-| FAIL-056 | Invalid, cyclic, ambiguous, oversized, incompatible or partially available skeleton/clip/graph/retarget/IK/LOD descriptor, missing required joint/resource or publication fault | Reject the complete candidate before subject/graph activation, discard staging and preserve the prior exact descriptor, state and content/save generation; never guess mapping/order or publish a partial pose/rig. | Physical Embodiment Team | Asset & Persistence Team, Rendering Team, Runtime Team | ANIM-GRAPH-P1, ANIM-ROOT-MOTION-P1, ANIM-RETARGET-P1, ANIM-IK-P1, ANIM-LOD-P1 | Descriptor/profile negative corpus, compatibility/order roots, resource/publication fault matrix, preserved generation hashes and public-boundary scan. | Retain the prior exact revision or declared optional bind/held/cull presentation fallback; required intent/reference activation remains blocked. | VS-05, VS-07, VS-11, VS-12, VS-14, VS-15 |
-| FAIL-057 | Stale/conflicting/out-of-bounds root intent, nondeterministic graph/retarget/IK/LOD result, presentation-to-physical authority escape or missing observable evidence/reviewer capability | Reject the complete intent/constraint/result before physical or gameplay mutation, preserve prior command/pose/state roots, quarantine the escaping presentation path and report first divergence; no retry, visual fallback or human decision may waive an automatic failure. | Physical Embodiment Team | Runtime Team, Rendering Team, Verification & Evidence Team, Security & Governance Team | ANIM-GRAPH-P1, ANIM-ROOT-MOTION-P1, ANIM-RETARGET-P1, ANIM-IK-P1, ANIM-LOD-P1 | Intent/command/receipt/constraint/physics roots, divergence replay, authority-escape corpus, unchanged gameplay proof, EvidenceBundle/capability and V2 admission report. | Use the safe validated controller and independent presentation fallback; remain `AwaitingCapability`/`HumanReviewRequired` and retain the prior approved baseline. | VS-05, VS-07, VS-11, VS-12, VS-14, VS-15 |
+| ID | Trigger | Required behavior | Product checks |
+|---|---|---|---|
+| FAIL-056 | Invalid, cyclic, ambiguous, oversized, incompatible or partial descriptor; missing required joint/resource; publication fault | Reject before activation, discard staging and preserve prior exact descriptor/state/save generation; never guess mapping/order or publish partial pose/rig. | ANIM-GRAPH-P1, ANIM-ROOT-MOTION-P1, ANIM-RETARGET-P1, ANIM-IK-P1, ANIM-LOD-P1 |
+| FAIL-057 | Stale/conflicting/out-of-bounds root intent, nondeterministic result or presentation-to-physical authority escape | Reject before physical/gameplay mutation, preserve prior roots, quarantine the escaping path and report first divergence; retry or visual fallback cannot waive it. | ANIM-GRAPH-P1, ANIM-ROOT-MOTION-P1, ANIM-RETARGET-P1, ANIM-IK-P1, ANIM-LOD-P1 |
 
 ## Technology neutrality
 
@@ -569,4 +558,4 @@ IK solver, retargeting package, renderer, skinning implementation, ECS,
 physics backend, job system, importer, shader compiler or platform API.
 Replaceable implementations remain private adapters/caches behind these
 engine-owned schemas, one-way authority boundaries, deterministic schedules,
-fallbacks and exact gates.
+fallbacks and product checks.

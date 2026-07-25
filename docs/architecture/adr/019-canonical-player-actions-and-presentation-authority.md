@@ -1,59 +1,98 @@
-# ADR-019: Canonical player actions и presentation authority
+# ADR-019: Canonical player actions and presentation authority
 
 | Поле | Значение |
 |---|---|
 | ID | ADR-019 |
 | Статус | Accepted |
-| Версия | 1.0 |
-| Владелец | Player Experience Team |
-| Требуемые согласующие | Architecture Working Group, Rendering Team, Runtime Team, RPG Framework Team, Developer Experience Team, Verification & Evidence Team, Security & Governance Team |
+| Версия | 1.1 |
 | Дата решения | 2026-07-24 |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-04](../04-rendering-and-platform.md), [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [ADR-002](002-rust-first-ffi-and-ecs-facade.md), [ADR-014](014-deterministic-extensions-and-package-trust.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-023](023-human-review-decision-v2-and-offline-attestation.md) |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-04](../04-rendering-and-platform.md), [SPEC-07](../07-rpg-scripting-and-plugins.md), [ADR-002](002-rust-first-ffi-and-ecs-facade.md), [ADR-014](014-deterministic-extensions-and-package-trust.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
-| Заменён | не заменён |
+| Заменён | частично [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 
-## История принятия
+## Process baseline ADR-030
 
-ADR принят в architecture packet 1.7 как authority для canonical player actions и presentation-only UI/camera/localization/accessibility state. Downstream Player Experience specification depends on this ADR; reverse dependency отсутствует. Принятие contract не объявляет implementation gates или `vertical-v1` conformance пройденными и не выбирает input library, widget toolkit, UI framework или device backend.
+[ADR-030](030-product-first-development-and-lightweight-validation.md)
+заменяет прежний общий admission lifecycle. Canonical player actions и
+separation of presentation state from gameplay authority остаются техническим
+решением.
 
 ## Контекст
 
-SPEC-04 нормализует raw platform controls, но оставляет gameplay bindings выше platform layer. Existing contracts требуют UI/camera evidence и capability-scoped panels, однако без этого решения не задают одного owner, canonical action format, targeting boundary, localization identity или accessibility fallback. Widget/camera/device state иначе может стать скрытым gameplay input и разойтись между `game`, headless и replay.
+SPEC-04 нормализует raw platform controls, но gameplay bindings находятся выше
+platform layer. Без одного canonical action format, targeting boundary,
+localization identity и accessibility fallback widget, camera или device state
+может стать скрытым gameplay input и разойтись между `game`, headless и replay.
 
 ## Решение
 
-1. Player Experience Team владеет action maps, input contexts, semantic UI, camera presentation, localization и accessibility contracts внутри existing Presentation bounded context. Runtime/RPG/Mechanics сохраняют ownership ingress assignment, command validation and committed outcomes.
-2. Private PlatformHost adapter выдаёт engine-owned normalized semantic controls. Deterministic resolver produces canonical device-independent immutable `PlayerActionFrame` bytes at declared frame boundaries. Public schema excludes OS/vendor/ECS/backend objects and не фиксирует concrete input/UI implementation.
-3. Interactive input and headless scenario enqueue the same `PlayerActionFrame` schema through the common `InputSampleV1` gateway. ADR-022 current/next close barrier alone creates persisted `IngressAssignmentV1`; frame, wall clock, renderer cadence and scenario cannot choose target tick. Capture replay feeds the recorded closed ingress batch through the same mapper/validator.
-4. Player action is an input proposal, not authority. Production mapper derives command target tick only from `IngressAssignmentV1`; domain state changes only after the action-derived candidate passes common `WorldCommand` validation and atomic commit.
-5. Camera state is presentation-only. `TargetingIntent` carries assigned tick, quantized aim, gameplay targeting-profile identity and optional proposed `PersistentId`, never camera transform, GPU depth or rendered pose. Runtime reconstructs `AuthoritativeTargetingQueryV1` from authoritative snapshot/pose/ability data and validates it before commit.
-6. UI reads immutable `UiSemanticSnapshot` projections. First-party and capability-scoped extension panels publish actions/proposals through the same ADR-014 boundary; callbacks cannot mutate domain state, and denied/trapped/over-budget optional panels discard uncommitted proposals.
-7. Stable text/content IDs are locale-independent. Localization/accessibility/preferences cannot change command ordering, simulation schedule or authoritative outcome for the same assigned action input. Alternative controls invoke the same action ID and validation path.
-8. Action-to-command mapping and targeting validation inside the gameplay tick use the existing ADR-016 `core-command-rpg` budget row. This decision creates no new budget owner and never permits wall-time dropping/reordering of required assigned actions.
-9. Observable UI/camera changes retain SPEC-15 automatic evidence and authorized ADR-023 V2 human-review admission. Human review cannot waive semantic/replay failure.
+1. `ActionMapManifest` и input-context stack определяют action maps и binding
+   resolution. `UiSemanticSnapshot`, camera presentation config, localization
+   catalogs и accessibility profiles определяют presentation state.
+   `IngressAssignmentV1`, common command validator и committed domain state
+   сохраняют gameplay authority.
+2. Private PlatformHost adapter выдаёт engine-owned normalized semantic
+   controls. Deterministic resolver создаёт canonical device-independent
+   immutable `PlayerActionFrame` bytes на declared frame boundaries. Public
+   schema исключает OS/vendor/ECS/backend objects и не фиксирует concrete
+   input/UI implementation.
+3. Interactive input и headless scenario enqueue один `PlayerActionFrame`
+   schema через common `InputSampleV1` gateway. ADR-022 current/next close
+   barrier создаёт persisted `IngressAssignmentV1`; frame, wall clock, renderer
+   cadence и scenario не выбирают target tick. Replay подаёт recorded closed
+   ingress batch через тот же mapper/validator.
+4. Player action является input proposal, а не authority. Production mapper
+   derives command target tick только из `IngressAssignmentV1`; domain state
+   меняется после common `WorldCommand` validation и atomic commit.
+5. Camera state presentation-only. `TargetingIntent` carries assigned tick,
+   quantized aim, gameplay targeting-profile identity и optional proposed
+   `PersistentId`, но не camera transform, GPU depth или rendered pose. Runtime
+   reconstructs `AuthoritativeTargetingQueryV1` из authoritative
+   snapshot/pose/ability data и validates it before commit.
+6. UI читает immutable `UiSemanticSnapshot`. First-party и capability-scoped
+   extension panels публикуют actions/proposals через ADR-014 boundary;
+   callbacks не mutate domain state, а denied, trapped или over-budget optional
+   panel discards uncommitted proposals.
+7. Stable text/content IDs locale-independent. Localization, accessibility и
+   preferences не меняют command ordering, simulation schedule или
+   authoritative outcome для того же assigned action input. Alternative
+   controls используют тот же action ID и validation path.
+8. Action-to-command mapping и targeting validation используют существующую
+   ADR-016 `core-command-rpg` budget row. Required assigned actions не
+   отбрасываются и не переупорядочиваются по wall time.
 
 ## Рассмотренные варианты
 
-- Widget callbacks call gameplay services directly — `Rejected`: bypasses validation and creates UI-specific authority.
-- Persist device scancodes/native events as gameplay ABI — `Rejected`: platform/vendor coupling and poor accessibility.
-- Camera ray/GPU depth is authoritative targeting — `Rejected`: frame-rate/render/backend dependent.
-- Localized strings as quest/action IDs — `Rejected`: locale changes break saves/replays/packages.
-- Separate accessibility command paths — `Rejected`: hidden semantics and untested divergence.
-- Rendering Team owns all player semantics — `Rejected`: backend ownership would absorb domain-facing action/UI policy; dedicated Player Experience owner is explicit.
+- Widget callbacks call gameplay services directly — `Rejected`: обход
+  validation создаёт UI-specific authority.
+- Persist device scancodes/native events as gameplay ABI — `Rejected`:
+  platform/vendor coupling и poor accessibility.
+- Camera ray/GPU depth is authoritative targeting — `Rejected`: результат
+  зависит от renderer backend и frame timing.
+- Localized strings as quest/action IDs — `Rejected`: locale changes ломают
+  saves, replays и packages.
+- Separate accessibility command paths — `Rejected`: создают hidden semantics.
+- Rendering subsystem определяет player-facing action semantics — `Rejected`:
+  backend не должен владеть domain-facing action/UI policy.
+
+## Product checks
+
+| Сценарий | Ожидаемый результат | Fallback |
+|---|---|---|
+| Equivalent semantic controls проходят interactive и headless producers до/на/после ingress cutoff | Canonical `PlayerActionFrame`, assignment, action order и derived commands exact; target tick задаёт только close barrier | Reject affected frame либо disable optional adapter, сохранив accessible semantic-action path |
+| Targeting повторяется при разных camera transforms, renderer cadence и GPU depth | Authoritative query даёт одинаковый result для одного snapshot; stale/invalid intent отклоняется до commit | No-target result либо новый input на будущем tick |
+| Optional UI panel получает denied capability, trap или budget overrun | Ни одна domain mutation не публикуется; base UI и gameplay продолжают работать | Disable panel и использовать engine-owned semantic UI |
+| Locale, rebinding или alternative control profile меняется для той же action sequence | Stable IDs, command order и authoritative outcome совпадают | Source locale, readable default theme и default accessible bindings |
 
 ## Последствия
 
-- Input/UI/camera contracts become testable in CPU headless form.
-- Rebinding and accessibility can vary freely while semantic action IDs remain stable.
-- Targeting requires a versioned intent/query boundary and may reject visually plausible stale input rather than commit inconsistent state.
-- Observable presentation changes retain SPEC-15 human evidence requirements.
-- Public contracts remain implementation-neutral and expose no native device, widget, window, renderer or ECS type.
-
-## Gates и fallback
-
-Implementation verification requires `INPUT-P1`, `UI-P1`, `CAMERA-P1` and `ACCESS-P1`. A failing optional adapter/panel is disabled behind the same semantic contract; invalid required map/schema/profile fails before world mutation; declared bounded preference/source-locale/readable fallbacks remain available. Automatic semantic/replay failures cannot be waived by visual review.
-
-## Supersession
-
-ADR-019 does not supersede an earlier decision. Direct UI mutation, authoritative camera/GPU targeting, localized durable identity, device-specific action semantics, a private headless input path or a concrete public input/UI backend choice requires a new superseding ADR and synchronized downstream SPEC/trace/evidence updates.
+- Input, UI и camera contracts проверяемы в CPU headless form.
+- Rebinding и accessibility могут меняться, пока semantic action IDs стабильны.
+- Targeting может отвергнуть visually plausible stale input вместо commit
+  inconsistent state.
+- Public contracts не содержат native device, widget, window, renderer или ECS
+  type.
+- Direct UI mutation, authoritative camera/GPU targeting, localized durable
+  identity, device-specific action semantics или private headless input path
+  требуют нового ADR и обновления affected SPECs и lightweight traceability.

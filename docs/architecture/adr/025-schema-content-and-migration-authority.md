@@ -5,28 +5,22 @@
 | ID | ADR-025 |
 | Статус | Accepted |
 | Версия | 1.0 |
-| Владелец | Asset & Persistence Team |
-| Требуемые согласующие | Repository Owner, Architecture Working Group, Runtime Team, RPG Framework Team, World Services Team, Gameplay Extensibility Team, Security & Governance Team, Verification & Evidence Team, Release Engineering |
 | Дата решения | 2026-07-24 |
 | Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](018-authoritative-project-composition-and-configuration.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-024](024-requirement-gate-evidence-and-profile-closure.md) |
+| Нормативные зависимости | [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](018-authoritative-project-composition-and-configuration.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 
-## История принятия
-
-ADR принят как часть architecture packet 1.8 и устанавливает authority для engine-owned schema registry, compatibility classification и migration publication. Его `Accepted` status описывает архитектурное решение; он не объявляет runtime implementation, любой gate `PASS`, `vertical-v1` conformance или release readiness.
-
 ## Контекст
 
-Accepted packet требует один schema registry для `game`, `headless` и `capture-worker`, exact registry hash в project/save/replay closure и copy-on-write migrations. Однако без отдельного решения subsystem может переиспользовать удалённый field ID, consumer может самостоятельно угадать compatibility, а migration runner — выбрать неоднозначный путь либо частично опубликовать новые segments. Такие варианты превращают representation drift, tool order и storage behavior в скрытый authoritative input.
+Project composition требует один schema registry для `game`, `headless` и optional `capture-worker`, exact registry hash в project/save/replay closure и copy-on-write migrations. Однако без отдельного решения subsystem может переиспользовать удалённый field ID, consumer может самостоятельно угадать compatibility, а migration runner — выбрать неоднозначный путь либо частично опубликовать новые segments. Такие варианты превращают representation drift, tool order и storage behavior в скрытый authoritative input.
 
-Также требуется разделить domain meaning от publication authority. Профильный subsystem остаётся единственным владельцем смысла своих fields и invariants, а Asset & Persistence Team владеет allocation ledger, registry validation, compatibility result, migration orchestration и atomic generation publication. Content становится runtime-authoritative только как immutable closure, привязанная к exact registry hash; source files, staging и consumer-local decoder rules authority не получают.
+Также требуется разделить domain meaning от publication authority. Профильный subsystem state остаётся единственным источником смысла своих fields и invariants, а `SchemaRegistryState` определяет allocation ledger, registry validation и compatibility result; `MigrationPublisher` определяет migration plan и atomic generation publication. Content становится runtime-authoritative только как immutable closure, привязанная к exact registry hash; source files, staging и consumer-local decoder rules authority не получают.
 
 ## Решение
 
 1. Каждый engine-owned public schema имеет exact `SchemaDescriptorV1`, а один immutable `SchemaRegistryManifestV1` является единственным registry source of truth для exact project composition. `ProjectCompositionLock`, save и replay MUST связывать точный `schema_registry_manifest_sha256`; runtime roots не могут собирать registry из ambient modules или локальных decoder tables.
-2. Профильный subsystem является единственным semantic owner своих schema fields, transitions и invariants. Asset & Persistence Team является единственным owner выдачи schema, record и field identities, проверки descriptor history, compatibility classification, migration DAG и atomic publication. Ни один consumer не получает права переопределять class либо transform.
+2. Профильный subsystem contract является единственным semantic source для своих schema fields, transitions и invariants. `SchemaRegistryState` is authoritative for issued schema, record and field identities, descriptor history and compatibility classification; `MigrationPublisher` is authoritative for the migration DAG and atomic publication. Ни один consumer не получает права переопределять class либо transform.
 3. `SchemaKeyV1` равен exact pair `(schema_id, schema_version)`, где `schema_version` — positive monotonic `u32` внутри одного `schema_id`, а не SemVer и не global registry generation. `SchemaRefV1` дополнительно содержит exact `descriptor_sha256`.
 4. Field identity задаётся stable `(schema_id, record_id, field_id)`. Выданный `record_id` или `field_id` MUST оставаться в cumulative ledger навсегда. Retired identity не может быть удалён, повторно выдан, реактивирован или получить другое semantic meaning или wire shape.
 5. Compatibility является результатом одного closed enum: `Exact`, `BackwardCompatible`, `MigrationRequired` или `Unsupported`. Current engine не угадывает compatibility по unknown fields, source order, implementation language или best effort. Same-version hash drift, unknown schema и input вне declared support window являются `Unsupported`.
@@ -57,10 +51,14 @@ Accepted packet требует один schema registry для `game`, `headless
 - Cross-owner migrations require one complete target-generation validation and one publication point; subsystem transforms remain pure and cannot publish independently.
 - Project locks and artifacts gain exact registry and migration roots while implementation-specific lookup, storage and execution mechanisms stay private.
 
-## Gates и fallback
+## Product checks
 
-Implementation conformance is verified by `SCHEMA-P1`, `COMPAT-P1` and `MIGRATION-P1`. Their only canonical semantic descriptors are defined by the schema-registry specification; this ADR does not redefine their commands, thresholds, evidence or VS closure. Failure rejects the candidate registry or working generation, retains the prior exact registry, project lock and original save/content generation, and requires a compatible prior executable or explicit validated export where applicable. Accepted status itself creates no gate result.
+| Scenario | Expected | Fallback |
+|---|---|---|
+| Registry history includes retired/reused IDs, same-version hash drift, unknown fields and unsupported versions | Invalid descriptors are rejected before activation; every supported input has one exact compatibility class | Keep the prior exact registry and project lock |
+| `N`, additive `N-1` and exact `N-2 → N-1 → N` fixtures, including ambiguous and cyclic routes | Classification and output bytes are deterministic; exactly one adjacent route exists when migration is required | Use a compatible prior reader or explicit validated export |
+| Cross-segment migration with transform, validation or publication fault injection | The complete target generation publishes once only after all hashes, references and invariants pass | Discard staging and retain the original save/content generation |
 
 ## Supersession
 
-ADR-025 does not supersede an earlier decision and coexists with ADR-018, ADR-020, ADR-022 and ADR-024. Changing permanent identity, closed compatibility semantics, exact `N`, `N-1`, `N-2` support, unique adjacent migration or all-or-nothing copy-on-write publication requires a new superseding ADR with synchronized owning specifications, traceability and gate descriptors.
+ADR-025 does not supersede an earlier decision and coexists with ADR-018, ADR-020, ADR-022 and ADR-030. Changing permanent identity, closed compatibility semantics, exact `N`, `N-1`, `N-2` support, unique adjacent migration or all-or-nothing copy-on-write publication requires a new superseding ADR and corresponding updates to affected specifications.

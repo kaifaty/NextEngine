@@ -5,19 +5,13 @@
 | ID | SPEC-22 |
 | Статус | Accepted |
 | Версия | 1.0 |
-| Владелец | Asset & Persistence Team |
-| Требуемые согласующие | Repository Owner, Architecture Working Group, Runtime Team, RPG Framework Team, World Services Team, Gameplay Extensibility Team, Security & Governance Team, Verification & Evidence Team, Release Engineering |
 | Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-024](adr/024-requirement-gate-evidence-and-profile-closure.md), [ADR-025](adr/025-schema-content-and-migration-authority.md) |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md) |
 | Заменяет | отсутствует |
-
-## История принятия
-
-SPEC-22 принят в architecture packet 1.8 как schema-registry and migration foundation contract. Принятие документа не создаёт runtime implementation, verification evidence, gate `PASS`, `vertical-v1` conformance или release readiness.
 
 ## Назначение и invariants
 
-SPEC-22 задаёт один engine-owned schema contract для content, project composition, authoritative state, save/replay, commands, events, immutable projections, process protocols и evidence.
+SPEC-22 задаёт один engine-owned schema contract для content, project composition, authoritative state, save/replay, commands, events, immutable projections и process protocols.
 
 - Exact `SchemaRegistryManifestV1` MUST быть общим для `game`, `headless`, `tools` и `capture-worker`.
 - Каждый schema/record/field identity MUST быть immutable после allocation и MUST NOT переиспользоваться после retirement.
@@ -33,13 +27,13 @@ SPEC-22 задаёт один engine-owned schema contract для content, proje
 | State | Единственный owner/source of truth | Не является authority |
 |---|---|---|
 | Field meaning and domain invariants | Owning subsystem named by exact descriptor | consumer decoder, migration runner, presentation or cache |
-| Schema, record and field identity allocation | Asset & Persistence Team cumulative allocation ledger | source declaration order, code symbol or local module registry |
+| Schema, record and field identity allocation | Asset & Persistence subsystem cumulative allocation ledger | source declaration order, code symbol or local module registry |
 | Exact schema bytes and history | `SchemaDescriptorV1` plus exact descriptor hash | generated language type or documentation label |
 | Active registry and compatibility table | Atomically published `SchemaRegistryManifestV1` | dynamic plugin scan, package cache or process-local map |
 | Migration route and order | Hash-bound migration DAG in the exact registry manifest | filesystem discovery, worker completion or tool order |
 | Published content/save generation | Exact immutable generation manifest and atomic current pointer | staging output, partially transformed segment or inspector view |
 
-The owning subsystem authors semantic constraints and pure migration transforms. Asset & Persistence Team allocates identities, validates cumulative history, classifies compatibility, builds the migration plan and owns all-or-nothing publication. Runtime Team consumes only a validated exact registry and cannot override its result. A derived decoder table or storage index is reconstructible and cannot accept an independent write.
+The owning subsystem authors semantic constraints and pure migration transforms. Asset & Persistence subsystem allocates identities, validates cumulative history, classifies compatibility, builds the migration plan and owns all-or-nothing publication. Runtime subsystem consumes only a validated exact registry and cannot override its result. A derived decoder table or storage index is reconstructible and cannot accept an independent write.
 
 ## Common identity and hash rules
 
@@ -89,7 +83,7 @@ The external hash field is not part of `body`. JCS validation follows ADR-022: d
 | `schema_references` | Unique exact `SchemaRefV1` values ordered by `SchemaKeyV1`, then descriptor hash. |
 | `semantic_constraints_sha256` | Hash of the complete engine-owned invariant contract applied after structural validation. |
 
-`SchemaRoleV1` is the closed enum `AuthoritativeState`, `Command`, `DomainEvent`, `Manifest`, `NeutralContent`, `ImmutableProjection`, `ProcessProtocol` or `Evidence`. `SchemaEncodingV1` is the closed enum `CanonicalBinaryV1` or `JcsRfc8785`. `SchemaCompatibilityPolicyV1` is the closed enum `ExactOnly` or `MigrateNMinus2`; no descriptor may declare an arbitrary numeric window.
+`SchemaRoleV1` is the closed enum `AuthoritativeState`, `Command`, `DomainEvent`, `Manifest`, `NeutralContent`, `ImmutableProjection` or `ProcessProtocol`. `SchemaEncodingV1` is the closed enum `CanonicalBinaryV1` or `JcsRfc8785`. `SchemaCompatibilityPolicyV1` is the closed enum `ExactOnly` or `MigrateNMinus2`; no descriptor may declare an arbitrary numeric window.
 
 Unknown enum tag, missing field, extra field, zero version, zero bound, duplicate reference, reference range or reference to a descriptor absent from the same registry closure invalidates the descriptor.
 
@@ -185,9 +179,8 @@ When `N` is `1`, no historical version is synthesized. When `N` is `2`, only `N-
 | `migration_dependency_edges` | Unique ordered pairs `(predecessor_id, successor_id)` in canonical byte order. |
 | `migration_dag_sha256` | Hash of canonical units, transitions and dependency edges. |
 | `registry_limits_sha256` | Exact bounds for descriptor count, record/field count, canonical bytes, migration work and target-generation size. |
-| `fixture_set_sha256` | Exact positive, negative and power-fault fixture closure required by the three canonical gates. |
 
-The manifest MUST include exact current descriptor plus `N-1` and `N-2` descriptors when they exist and are admitted by `MigrateNMinus2`. Older descriptor bodies MAY remain in a separately content-addressed historical audit archive, but they are not activation inputs and cannot widen compatibility. Current tombstone ledgers preserve all issued record, field and variant IDs even when older descriptor bodies leave the active window.
+The manifest MUST include exact current descriptor plus `N-1` and `N-2` descriptors when they exist and are supported by `MigrateNMinus2`. Older descriptor bodies MAY remain in a separately content-addressed historical archive, but they are not activation inputs and cannot widen compatibility. Current tombstone ledgers preserve all issued record, field and variant IDs even when older descriptor bodies leave the active window.
 
 Each `CompatibilityEntryV1` contains source ref, current target ref, declared class and exact ordered `migration_id` route. `Exact` and `BackwardCompatible` have an empty activation route. `MigrationRequired` has the exact two-unit `N-2 → N-1 → N` route. The registry still carries the unique `N-1 → N` normalization unit used by that route and by explicit offline normalization. `Unsupported` is the closed default for absent or invalid pairs and is not expanded into an unbounded entry list.
 
@@ -217,12 +210,11 @@ MigrationUnitDescriptorV1 {
   transform_contract_sha256,
   preconditions_sha256,
   postconditions_sha256,
-  resource_policy_sha256,
-  fixture_set_sha256
+  resource_policy_sha256
 }
 ```
 
-`migration_id` is a stable namespaced NFC identifier. `transform_kind` is `Identity` or `CanonicalTransform`. A unit has at least one `SchemaTransitionV1 { source_ref, target_ref }`; each transition keeps the same `schema_id` and satisfies `target.schema_version = source.schema_version + 1`. One unit cannot contain two transitions from the same schema lineage. A cross-owner unit MAY move logically related fields only when every affected owner is listed and the postconditions prove single ownership; Asset & Persistence Team remains publication owner.
+`migration_id` is a stable namespaced NFC identifier. `transform_kind` is `Identity` or `CanonicalTransform`. A unit has at least one `SchemaTransitionV1 { source_ref, target_ref }`; each transition keeps the same `schema_id` and satisfies `target.schema_version = source.schema_version + 1`. One unit cannot contain two transitions from the same schema lineage. A cross-owner unit MAY move logically related fields only when every affected owner is listed and the postconditions prove single ownership; Asset & Persistence subsystem remains publication owner.
 
 The registry is valid only when all of the following hold:
 
@@ -232,7 +224,7 @@ The registry is valid only when all of the following hold:
 4. Every `N-2` route contains exactly its `N-2 → N-1` transition followed by its `N-1 → N` transition; every `N-1` route contains exactly the latter transition.
 5. Unit dependencies include all schema-reference and declared cross-owner preconditions. An undeclared read, emitted schema or owner write is invalid.
 6. The dependency graph is acyclic. Execution order is the unique Kahn topological order that repeatedly selects the ready unit with lexicographically smallest tuple `(migration_id bytes, transition source keys, transition target keys)`.
-7. Equal source generation, target registry, transform-contract, fixture, engine-build and policy hashes produce byte-identical target bytes, diagnostics and generation root on Windows and Linux regardless of worker count.
+7. Equal source generation, target registry, transform-contract, engine-build and policy hashes produce byte-identical target bytes, diagnostics and generation root on Windows and Linux regardless of worker count.
 8. `Identity` requires identical canonical payload bytes and still validates target descriptor and postconditions. `CanonicalTransform` consumes and emits only bounded canonical values.
 
 Rust traits, function pointers, callbacks, asynchronous task values, storage handles and implementation objects are not part of a migration unit. Internal implementations are selected only after exact IDs and hashes validate and cannot change the public plan.
@@ -274,36 +266,28 @@ The public boundary is limited to `SchemaKeyV1`, `SchemaRefV1`, `SchemaDescripto
 | `SCHEMA_MIGRATION_DAG_INVALID` | Reject skip, branch, cycle, duplicate transition, undeclared dependency or non-canonical order before staging. |
 | `SCHEMA_MIGRATION_FAILED` | Discard the complete working generation; preserve exact source bytes and previous publication. |
 | `SCHEMA_MIGRATION_PUBLICATION_FAILED` | Reopen the prior pointer or leave it unchanged; never expose a partial target closure. |
-| `NONDETERMINISTIC_RESULT` | Gate fails with the first differing descriptor, unit, record, field or generation root; retry cannot create `PASS`. |
+| `NONDETERMINISTIC_RESULT` | Stop at the first differing descriptor, unit, record, field or generation root and preserve the source generation. |
 
-## Canonical gate descriptors
+## Product checks
 
-These are `AcceptedBaseline`, `Blocking` gates. SPEC-22 is their only `descriptor_source_id`; other documents may aggregate or reference them but MUST NOT redefine their semantic descriptor.
+| ID | Scenario / command | Expected behavior | Fallback |
+|---|---|---|---|
+| `SCHEMA-P1` | `next check schema-registry --targets windows-x86_64,linux-x86_64 --roots game,headless,capture-worker --fixtures 10000` | Declaration/order permutations produce byte-identical descriptor and registry bytes on both targets and all roots; duplicate, gap, counter rollback, removed tombstone, reused/reactivated identity, hash/order/bound/reference and forbidden-public-type cases reject before publication. | Reject the candidate registry and retain the prior registry and project lock. |
+| `COMPAT-P1` | `next check schema-compatibility --versions n-2,n-1,n,n+1 --permutations 10000` | Every pair has exactly one compatibility class; `N` is exact, additive `N-1` is direct-read, `N-2` uses the unique two-edge migration, and non-additive `N-1`, hash drift, future, older and policy-denied inputs reject identically across roots. | Use exact current bytes, a compatible older executable or explicit export. |
+| `MIGRATION-P1` | `next check schema-migrations --versions n-2,n-1,n --targets windows-x86_64,linux-x86_64 --roots game,headless,capture-worker --power-faults all` | Valid migrations produce one byte-identical complete target generation; invalid DAG, transform, bound, cross-owner, reopen and publication faults expose no partial registry, segment or pointer and preserve source bytes. | Discard or quarantine staging and retain the source and prior published pointer. |
 
-| Gate | Primary owner | Contributors | Reproducible command/scenario | Pass threshold | Required evidence | Fallback | VS / profile closure |
-|---|---|---|---|---|---|---|---|
-| `SCHEMA-P1` | Asset & Persistence Team | Runtime Team, Security & Governance Team | `next gate SCHEMA-P1 --scenario schema-registry-v1 --targets windows-x86_64,linux-x86_64 --roots game,headless,capture-worker --fixtures 10000` | 10,000 valid declaration/order permutations produce byte-identical descriptor and registry bytes/hashes on both targets and all roots; 100% duplicate, gap, counter rollback, removed tombstone, reused/reactivated ID, hash/order/bound/reference and forbidden-public-type fixtures reject before publication; all roots report one exact registry hash | descriptor and registry corpus, cumulative record/field/variant allocation ledger, cross-target golden bytes/hashes, root manifests, ownership graph, public API/schema scan and diagnostics | reject candidate registry and retain the prior exact registry and ProjectCompositionLock; gate remains blocking | VS-01, VS-02, VS-11 |
-| `COMPAT-P1` | Asset & Persistence Team | Runtime Team, Release Engineering | `next gate COMPAT-P1 --scenario schema-compatibility-v1 --versions n-2,n-1,n,n+1 --permutations 10000` | 100% corpus pairs classify exactly one of `Exact`, `BackwardCompatible`, `MigrationRequired`, `Unsupported`; `N` is exact, additive `N-1` is direct-read backward-compatible, `N-2` requires the exact two-edge migration, while non-additive `N-1`, same-version hash drift, future, older and policy-denied input are unsupported over 10,000 order/target permutations; 0 consumer-specific or ambiguous result | compatibility matrix, exact source/target descriptor hashes, structural diff reports, route proofs, negative corpus, cross-target classifier bytes and diagnostics | reject unsupported input; use the exact current generation, a prior compatible executable or explicit validated export; no tolerant activation | VS-01, VS-02, VS-08 |
-| `MIGRATION-P1` | Asset & Persistence Team | Runtime Team, RPG Framework Team, World Services Team, Gameplay Extensibility Team | `next gate MIGRATION-P1 --scenario schema-generation-migrations --versions n-2,n-1,n --targets windows-x86_64,linux-x86_64 --roots game,headless,capture-worker --power-faults all` | Every valid `N-2 → N-1 → N`, `N-1 → N` and exact `N` fixture produces one byte-identical complete target-generation root across targets, roots and worker counts; 100% missing, duplicate, skip, alternate, branch, cycle, undeclared dependency/write, transform, bound, cross-owner, reopen and power/publication faults expose 0 partial registry/segment/pointer and preserve exact original bytes/hash and prior generation | registry and migration DAG manifests, canonical plans/unit orders, transform-contract and fixture hashes, before/after owner segments and full generation roots, cross-owner invariant report, fault/power matrix, reopen audit, publication trace and preserved-original proof | discard or quarantine the entire working generation, retain the original and prior published pointer, and use a prior compatible executable or explicit validated export; no partial retry | VS-02, VS-11, VS-13 |
+## Technical requirements
 
-Unavailable implementation evidence is non-PASS. Neither an agent, retry nor human decision can synthesize success or waive an automatic failure.
-
-## Requirements
-
-| Requirement | Нормативное требование | Primary owner | Contributors / required approvers | Blocking gates | Required evidence | Fail-closed fallback | VS / profile closure |
-|---|---|---|---|---|---|---|---|
-| `REQ-112` | Every engine-owned schema MUST have one exact `SchemaDescriptorV1`; every schema, record, field and variant identity MUST remain cumulative, immutable and non-reusable in one hash-bound `SchemaRegistryManifestV1` shared by all required roots. | Asset & Persistence Team | Repository Owner, Runtime Team, Security & Governance Team | `SCHEMA-P1` | Descriptor/registry golden corpus, cumulative allocation ledger, ownership graph, root registry hashes and public-boundary scan. | Reject the candidate registry before activation and retain the prior exact registry and ProjectCompositionLock. | VS-01, VS-02, VS-11 |
-| `REQ-113` | Compatibility MUST use only the closed classes: exact `N` is `Exact`, structurally additive `N-1` is direct-read `BackwardCompatible`, exact `N-2` is `MigrationRequired`, and non-additive `N-1`, same-version hash drift, unknown, future and older input are `Unsupported`. | Asset & Persistence Team | Runtime Team, Release Engineering | `COMPAT-P1` | Compatibility matrix, source/target descriptor hashes, structural diff and route proofs, negative corpus and deterministic classifier report. | Reject unsupported input without mutation and require exact current bytes, a prior compatible executable or explicit validated export. | VS-01, VS-02, VS-08 |
-| `REQ-114` | Every supported older persisted schema MUST resolve through one hash-bound adjacent migration DAG with one canonical order; `N-2` MUST traverse exact `N-2 → N-1 → N` and no skip, alternate, branch or cycle. | Asset & Persistence Team | RPG Framework Team, World Services Team, Gameplay Extensibility Team | `MIGRATION-P1` | Registry/DAG manifest, unique-route proof, canonical unit plan/order, transform/fixture hashes and cross-target target roots. | Reject the route before staging, retain the source generation and use a prior compatible executable or explicit validated export. | VS-02, VS-11, VS-13 |
-| `REQ-115` | Migration MUST build, validate, reopen and publish one complete copy-on-write target generation atomically; any fault MUST expose no partial registry, owner segment or current pointer and MUST preserve exact original bytes/hash. | Asset & Persistence Team | Runtime Team, Release Engineering, Security & Governance Team | `MIGRATION-P1` | Before/after full-generation manifests and roots, owner/cross-reference validation, fault/power matrix, reopen/publication audit and preserved-original proof. | Discard or quarantine the entire working generation and retain the original bytes and prior published pointer. | VS-02, VS-11, VS-13 |
+| ID | Technical requirement |
+|---|---|
+| `REQ-112` | Every engine-owned schema MUST have one exact `SchemaDescriptorV1`; every schema, record, field and variant identity MUST remain cumulative, immutable and non-reusable in one hash-bound `SchemaRegistryManifestV1` shared by all required roots. |
+| `REQ-113` | Compatibility MUST use only the closed classes: exact `N` is `Exact`, structurally additive `N-1` is direct-read `BackwardCompatible`, exact `N-2` is `MigrationRequired`, and non-additive `N-1`, same-version hash drift, unknown, future and older input are `Unsupported`. |
+| `REQ-114` | Every supported older persisted schema MUST resolve through one hash-bound adjacent migration DAG with one canonical order; `N-2` MUST traverse exact `N-2 → N-1 → N` and no skip, alternate, branch or cycle. |
+| `REQ-115` | Migration MUST build, validate, reopen and publish one complete copy-on-write target generation atomically; any fault MUST expose no partial registry, owner segment or current pointer and MUST preserve exact original bytes/hash. |
 
 ## Failure paths
 
-| Failure requirement | Failure / trigger | Primary owner | Contributors / required approvers | Нормативный путь | Blocking gates | Required evidence | Fail-closed fallback | VS / profile closure |
-|---|---|---|---|---|---|---|---|---|
-| `FAIL-044` | Invalid/tampered registry or descriptor, missing tombstone, reused identity, incompatible exact hash, unsupported version or ambiguous compatibility class | Asset & Persistence Team | Runtime Team, Security & Governance Team | Reject before registry, project, content, save or replay activation; publish no inferred descriptor/class and preserve the prior exact registry, lock and generation. | `SCHEMA-P1`, `COMPAT-P1` | Descriptor/registry and compatibility negative corpus, allocation ledger diff, hash/route proof, activation audit and unchanged prior-root proof. | Retain the prior exact registry and generation; require exact supported input or a validated offline export. | VS-01, VS-02, VS-08, VS-11 |
-| `FAIL-045` | Missing, duplicate, skipped, branching or cyclic migration; transform, bound, cross-owner, write, reopen, crash or publication fault | Asset & Persistence Team | Runtime Team, RPG Framework Team, World Services Team, Release Engineering | Abort the whole plan, discard or quarantine the isolated working generation, publish no segment/registry/pointer subset and preserve exact original bytes/hash and prior generation. | `MIGRATION-P1` | DAG negative corpus, canonical plan/unit trace, transform and cross-owner validation, all-boundary fault/power matrix, publication/recovery audit and preserved-original hashes. | Keep the original and prior published pointer immutable and use a prior compatible executable or explicit validated export. | VS-02, VS-11, VS-13 |
-
-## Architecture-admission boundary
-
-This specification allocates contracts, requirements, failures and gate descriptors only. Runtime suites, migration binaries, fixture artifacts and generation publications remain future implementation work. Architecture packet admission does not imply `SCHEMA-P1`, `COMPAT-P1`, `MIGRATION-P1`, any vertical gate or release readiness has passed.
+| ID | Trigger | Required result |
+|---|---|---|
+| `FAIL-044` | Invalid/tampered registry or descriptor, missing tombstone, reused identity, incompatible exact hash, unsupported version or ambiguous compatibility class | Reject before registry, project, content, save or replay activation; publish no inferred descriptor/class and preserve the prior exact registry, lock and generation. |
+| `FAIL-045` | Missing, duplicate, skipped, branching or cyclic migration; transform, bound, cross-owner write, reopen, crash or publication fault | Abort the whole plan, discard or quarantine the isolated working generation, publish no segment/registry/pointer subset and preserve exact original bytes/hash and prior generation. |

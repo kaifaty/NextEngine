@@ -4,16 +4,14 @@
 |---|---|
 | ID | SPEC-19 |
 | Статус | Accepted |
-| Версия | 1.0 |
-| Владелец | Repository Owner |
-| Требуемые согласующие | Architecture Working Group, Runtime Team, Gameplay Extensibility Team, Agent Intelligence Team, Asset & Persistence Team, World Services Team, Security & Governance Team, Verification & Evidence Team |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md) |
+| Версия | 1.1 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | отсутствует |
 
 ## История принятия
 
-SPEC принят в architecture packet 1.7 вместе с ADR-020 как generic RPG-domain foundation contract. Принятие документа не объявляет runtime implementation, любой RPG gate, `vertical-v1` или release readiness пройденными и не выбирает ECS, database, scripting, plugin либо AI backend.
+SPEC принят вместе с ADR-020 как generic RPG-domain foundation contract. Он не выбирает ECS, database, scripting, plugin либо AI backend.
 
 ## Назначение и invariants
 
@@ -45,7 +43,7 @@ SPEC-19 отделяет authoritative RPG domain от mechanics/script/plugin/A
 | Mechanics definitions and namespaced mechanic state | SPEC-13 Mechanics Registry/Runtime | RPG fields outside a typed operation |
 | Calendar, time, schedules, population and reservations | World Services | RPG save segment or Character fields |
 
-RPG Framework Team owns aggregate schemas, state machines, invariant validation, transaction planning and committed RPG event schemas. Runtime Team owns command admission, deterministic commit point, atomic publication, receipt and event-ID derivation. Asset & Persistence Team owns segment serialization, copy-on-write migration orchestration and atomic save generation, but not RPG meaning. A cache or index derived from these owners MUST be reconstructible and MUST NOT accept independent writes.
+RPG Framework owns aggregate schemas, state machines, invariant validation, transaction planning and committed RPG event schemas. Runtime owns command admission, deterministic commit point, atomic publication, receipt and event-ID derivation. Asset & Persistence owns segment serialization, copy-on-write migration orchestration and atomic save generation, but not RPG meaning. A cache or index derived from these owners MUST be reconstructible and MUST NOT accept independent writes.
 
 RPG segments MUST NOT retain a mutable calendar, time, schedule or population copy. Migration from any legacy RPG calendar representation removes those fields before the new RPG segment is eligible for publication; World Services remains the sole authority for the corresponding value.
 
@@ -141,7 +139,7 @@ An RPG `WorldCommand` payload is `RpgCommandV1`. It contains a bounded sequence 
 
 Every variant has a common prefix: contiguous `operation_slot: u32`, sorted unique target refs `(aggregate_kind, PersistentId, expected_revision)`, exact definition/policy hashes and its typed payload. Slots MUST equal `0..operation_count-1`. An intra-command reference may point only to an earlier operation or declared causal spawn slot; duplicate, gap, forward or cyclic reference rejects the command. `RpgCommandV1` and `CanonicalCommandBodyV2` MUST NOT contain `command_id`; the authoritative causal command ID is a validator result computed under ADR-022.
 
-Packages use definition IDs and typed values inside these variants; they cannot add a raw aggregate patch or private variant. Adding a variant or payload field is an engine-owned versioned contract change with migration and gate updates. First-party combat, magic, crafting and trade have no alternate Rust/store path.
+Packages use definition IDs and typed values inside these variants; they cannot add a raw aggregate patch or private variant. Adding a variant or payload field is an engine-owned versioned contract change with migration and product-check updates. First-party combat, magic, crafting and trade have no alternate Rust/store path.
 
 ## Immutable `RpgTransactionPlan`
 
@@ -208,7 +206,7 @@ Duplicate tuple, missing local slot or schema/order mismatch aborts the plan as 
 - Physical Embodiment and World Services expose revision/hash-bound immutable facts and receive future proposals/events; neither stores RPG fields.
 - UI/presentation reads immutable semantic projections and emits action-derived command candidates. Localized text, animation, camera and audio cannot pre-commit narrative fact.
 - Tools, scenarios and tests use the production `WorldCommand`/`RpgCommandV1` path and read-only probes; a mutable test or inspector backdoor is forbidden.
-- First-party code uses the same public operation variants, capability checks, diagnostics and gates as community packages. A private domain service, direct mutable ECS access or shared mutable database is non-conforming.
+- First-party code uses the same public operation variants, capability checks, diagnostics and product checks as community packages. A private domain service, direct mutable ECS access or shared mutable database is non-conforming.
 
 ## Persistence и copy-on-write migrations
 
@@ -234,7 +232,7 @@ Input older than `N-2`, a missing required definition/migration or an invalid re
 
 ## Compositional budget ownership
 
-Command admission, RPG validation, `RpgTransactionPlan` construction, staging and commit are measured only in ADR-016 `core-command-rpg` owner spans. Mechanics, AI and World Services proposal work remains in its own mutually exclusive budget row. No RPG gate redefines the integrated `GameplayBudgetMatrix`, and passing an RPG functional gate does not substitute for `PERF-01`.
+Command admission, RPG validation, `RpgTransactionPlan` construction, staging and commit are measured only in ADR-016 `core-command-rpg` owner spans. Mechanics, AI and World Services proposal work remains in its own mutually exclusive budget row. No RPG product check redefines the integrated `GameplayBudgetMatrix`, and passing an RPG functional check does not substitute for `PERF-01`.
 
 ## Stable diagnostics и failure semantics
 
@@ -254,30 +252,54 @@ Command admission, RPG validation, `RpgTransactionPlan` construction, staging an
 | `RPG_TRANSACTION_ABORTED` | Discard staged mutation/event set; committed state unchanged |
 | `RPG_MIGRATION_REQUIRED` | Fail closed with exact schema/definition path; preserve original bytes |
 | `RPG_COMMITMENT_REJECTED` | Do not present stateful claim as fact; use declared rejection/fallback |
-| `NONDETERMINISTIC_RESULT` | Gate fails at first divergent plan/aggregate/event; no retry-to-green |
+| `NONDETERMINISTIC_RESULT` | Product check fails at first divergent plan/aggregate/event; no retry-to-green |
 
-## Accepted gate descriptors
+## Product checks
 
-| Gate | Primary owner | Contributors | Reproducible command/scenario | Pass threshold | Required evidence | Fallback | VS / profile closure |
-|---|---|---|---|---|---|---|---|
-| `RPG-DOMAIN-P1` | RPG Framework Team | Gameplay Extensibility Team | `next gate RPG-DOMAIN-P1 --scenario rpg-aggregate-corpus --commands 10000 --repeats 100` | All aggregate kinds and operation variants produce exact accept/reject/revision/state/event hashes over 100 repeats; 100% state-machine/bound/revision-overflow cases enforced; public/API/store scan finds 0 hidden first-party path and 0 forbidden public type | command/operation corpus, schema/ownership/API graph, aggregate snapshots, revision/event/state hashes and diagnostics | reject invalid definition/command and pin prior compatible schema; gate remains blocking | VS-03, VS-13 |
-| `RPG-TRANSACTION-P1` | RPG Framework Team | Runtime Team | `next gate RPG-TRANSACTION-P1 --scenario rpg-atomic-faults --all-commit-points --roots game,headless,capture-worker` | 0 partial Character/Item/Inventory/Equipment/Quest/Dialogue/Faction/Membership/Relationship/InteractiveObject state, event or receipt publications across stale/conflict/abort/crash faults; exact plan/write/event/state roots and event IDs across roots and worker/order permutations | immutable plan/read/write/event traces, fault/power matrix, receipts, event IDs and state roots | discard staging and retain prior revisions/checkpoint; deterministic mismatch blocks admission | VS-03, VS-06, VS-11, VS-13 |
-| `RPG-MIGRATION-P1` | Asset & Persistence Team | RPG Framework Team | `next gate RPG-MIGRATION-P1 --scenario rpg-save-migrations --versions n-2,n-1,n --power-faults all` | Valid `N-2 → N-1 → N`, `N-1 → N` and `N` fixtures reach exact expected hashes; 100% missing/duplicate migration, definition/transition, revision/history, bounds/reference/cross-invariant and power faults fail closed; original hash/generation unchanged on every failure | migration registry/fixtures, before/after segment and definition hashes, revision/causal-history report, cross-reference validation, fault diagnostics and publication audit | use prior compatible engine/package or explicit copy-on-write export; never mutate original save | VS-02, VS-11, VS-13 |
-
-These are `AcceptedBaseline`, `Blocking` gates. Their canonical descriptor source is SPEC-19. Unavailable implementation evidence is non-PASS; no agent, retry or human decision can synthesize gate success.
+| Check ID | Scenario / command | Expected behavior / fallback |
+|---|---|---|
+| `RPG-DOMAIN-P1` | `next check RPG-DOMAIN-P1 --scenario rpg-aggregate-corpus --commands 10000 --repeats 100` | Every aggregate and operation has exact accept/reject/revision/state/event behavior, bounds and overflow are enforced, and no hidden first-party or forbidden public path exists; reject invalid input and retain the prior compatible schema. |
+| `RPG-TRANSACTION-P1` | `next check RPG-TRANSACTION-P1 --scenario rpg-atomic-faults --all-commit-points --roots game,headless,capture-worker` | Stale, conflict, abort and crash faults publish no partial state/event/receipt; all roots agree exactly, otherwise discard staging and retain the prior checkpoint. |
+| `RPG-MIGRATION-P1` | `next check RPG-MIGRATION-P1 --scenario rpg-save-migrations --versions n-2,n-1,n --power-faults all` | Valid N-2/N-1/N saves migrate exactly, every incompatible or interrupted path fails closed, and the original generation stays unchanged; use the prior compatible version or explicit copy-on-write export. |
 
 ## Requirements
 
-| Requirement | Нормативное требование | Primary owner | Contributors / required approvers | Blocking gates | Evidence | VS / profile closure |
-|---|---|---|---|---|---|---|
-| `REQ-095` | Every generic RPG aggregate has one owner, `RpgAggregateEnvelopeV1`, immutable revisioned view and explicit state machine. | RPG Framework Team | Repository Owner | `RPG-DOMAIN-P1` | schema/ownership/API graph, aggregate corpus, revision/state/event hashes | VS-03, VS-13 |
-| `REQ-096` | Character/item/inventory/equipment/quest/dialogue/faction/membership/relationship/object changes validate, stage and commit atomically through `WorldCommand` and immutable `RpgTransactionPlan` with canonical event order. | RPG Framework Team | Runtime Team | `RPG-TRANSACTION-P1` | plan/read/write/event traces, fault matrix, receipts and state roots | VS-03, VS-06, VS-11 |
-| `REQ-097` | First-party and community mechanics use the same typed RPG operations, capabilities and validators with no hidden operation, store or mutable API. | Gameplay Extensibility Team | RPG Framework Team, Security & Governance Team | `RPG-DOMAIN-P1` | public API/package/store graph, first-party/community operation corpus and denial audit | VS-13 |
-| `REQ-098` | RPG save segments preserve exact definitions, domain revisions and causal history and migrate copy-on-write from `N-2`/`N-1` to `N` with fail-closed atomic publication. | Asset & Persistence Team | RPG Framework Team | `RPG-MIGRATION-P1` | migration registry/corpus, before/after hashes, revision/history/cross-reference report and fault audit | VS-02, VS-11, VS-13 |
+| ID | Requirement |
+|---|---|
+| `REQ-095` | Every generic RPG aggregate has one owner, `RpgAggregateEnvelopeV1`, immutable revisioned view and explicit state machine. |
+| `REQ-096` | Character/item/inventory/equipment/quest/dialogue/faction/membership/relationship/object changes validate, stage and commit atomically through `WorldCommand` and immutable `RpgTransactionPlan` with canonical event order. |
+| `REQ-097` | First-party and community mechanics use the same typed RPG operations, capabilities and validators with no hidden operation, store or mutable API. |
+| `REQ-098` | RPG save segments preserve exact definitions, domain revisions and causal history and migrate copy-on-write from `N-2`/`N-1` to `N` with fail-closed atomic publication. |
 
 ## Failure paths
 
-| Failure requirement | Failure / trigger | Primary owner | Contributors / required approvers | Нормативный путь / fallback | Blocking gates | Evidence | VS / profile closure |
-|---|---|---|---|---|---|---|---|
-| `FAIL-035` | Invalid, stale, conflicting or faulted multi-aggregate operation/plan | RPG Framework Team | Runtime Team | Reject or discard the entire staged plan; publish no aggregate revision, DomainEvent or partial receipt result; retain the prior atomic checkpoint. | `RPG-TRANSACTION-P1` | fault/power matrix, plan/receipt/event/state roots and unchanged-state proof | VS-03, VS-06, VS-11, VS-13 |
-| `FAIL-036` | Missing/incompatible/ambiguous definition or `N-2 → N` migration, invalid cross-aggregate record or migration publication fault | Asset & Persistence Team | RPG Framework Team | Fail closed before publication, discard the working generation and preserve exact original bytes/hash, prior published generation, revisions and causal history. | `RPG-MIGRATION-P1` | migration negative corpus, original-generation hashes, revision/history report and atomic-publication audit | VS-02, VS-11, VS-13 |
+| ID | Trigger | Required result |
+|---|---|---|
+| `FAIL-035` | Invalid, stale, conflicting or faulted multi-aggregate operation/plan | Reject or discard the entire staged plan; publish no aggregate revision, `DomainEvent` or partial receipt result; retain the prior atomic checkpoint. |
+| `FAIL-036` | Missing/incompatible/ambiguous definition or `N-2 → N` migration, invalid cross-aggregate record or migration publication fault | Fail closed before publication, discard the working generation and preserve exact original bytes/hash, prior published generation, revisions and causal history. |
+
+## Proposed SPEC-31 Quest extension
+
+[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) предлагает
+versioned расширение Quest payload полями `engagement_state`,
+`autonomy_policy`, source/admission lineage, disclosure policy/history,
+offer disposition, prior-fact policy, frozen activation/challenge/reward
+revisions, graph revision и causal lineage. `AgentIntent`, world need,
+dialogue line и `QuestCandidateV1` не являются Quest state. Только
+`AdmitQuestOpportunity` или atomic graph admission создаёт live
+`QuestInstance(Latent)`; acceptance является отдельным revalidated RPG-owned
+transition.
+
+`DiscloseQuestOpportunity`, `AcceptQuest` и `DeclineQuestOffer` проходят общий
+command/transaction path. Direct, solicited, contextual и public discovery
+раскрывают один и тот же Quest instance. Decline сохраняет Quest и применяет
+bounded cooldown, а permanent withdrawal требует `Cancelled`/`Superseded`.
+Default policies — `PlayerProtected` и `ProspectiveOnly`; world-driven terminal
+transition или prior progress разрешаются только явно declared policy.
+
+Outcome и открываемый им `NarrativeHookV1` проходят тот же
+`WorldCommand → validation → atomic commit → DomainEvent` path, что и все
+Accepted RPG mutations. Narrative Director не становится aggregate owner,
+не выбирает `PersistentId`, final challenge/XP и не публикует partial graph.
+Пока SPEC-31/ADR-029 остаются Proposed, текущая Quest schema этого документа не
+меняется.

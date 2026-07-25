@@ -35,4 +35,7 @@ The annex remains a frozen research input, not an Accepted Next Engine implement
 
 The migrated documents were committed in the OpenGothic repository under its root MIT License, including the notice `Copyright (c) 2019 Try`. The standalone project uses Apache-2.0 for new engine code and documentation while retaining the MIT origin and notice for the migrated material in `THIRD_PARTY_NOTICES.md`.
 
-No conclusion about Gothic game data, trademarks, importer distribution, or derived assets is implied. Public release remains blocked until the naming, license, and provenance review defined by the architecture packet is complete.
+No conclusion about Gothic game data, trademarks, importer distribution, or
+derived assets is implied. A distributable artifact simply excludes material
+whose name, license, provenance or redistribution rights are not yet clear; no
+architecture packet or separate release-unblocking review is required.

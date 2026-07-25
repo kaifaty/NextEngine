@@ -4,23 +4,22 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 1.8 |
-| Владелец | Repository Owner |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md) |
+| Версия | 2.0 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
 
-## Source of truth и ownership
+## Technical authority boundary
 
 Authoritative visual inputs — immutable `PresentationSnapshotV2` и cooked
 render assets по
-[SPEC-30](30-presentation-extraction-and-render-content.md). Rendering Team
-владеет canonical snapshot staging/publication at the Runtime-declared
-boundary, bounded CPU `PresentationConsumptionStateV1`, private
-platform/window/input adapter, graphics-device state, render graph, GPU/UI/VFX
-caches, frame interpolation и capability selection. Player Experience владеет
-`ActionMapManifest`, `InputContext`, `PlayerActionFrame`, semantic
-UI/camera/localization/accessibility state по
+[SPEC-30](30-presentation-extraction-and-render-content.md). Presentation
+extraction publishes the canonical snapshot at the Runtime-declared boundary.
+The renderer keeps bounded CPU `PresentationConsumptionStateV1`, private
+platform/window/input adapters, graphics-device state, render graph, GPU/UI/VFX
+caches, frame interpolation and capability selection. `ActionMapManifest`,
+`InputContext`, `PlayerActionFrame` and semantic
+UI/camera/localization/accessibility state follow
 [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md).
 GPU resources, widget tree, camera output и current frame не являются gameplay
 source of truth; после device loss они MUST быть восстанавливаемы из exact
@@ -32,19 +31,29 @@ content/profile/snapshot plus validated consumption-state inputs.
 
 Input adapter нормализует physical device controls, но gameplay bindings, context stack, quantization и device-independent action IDs принадлежат SPEC-18 выше platform layer. Window close, focus loss, suspend и surface invalidation приходят typed events. Platform callback, UI callback или camera query MUST NOT менять world state напрямую.
 
-Capture worker не создаёт interactive `PlatformHost`: input/window/monitor/clipboard/surface lifecycle отсутствуют. Его `ApplicationSessionManifestV1` допускает только `DisplaylessOffscreen`; `OffscreenPresentationTarget` принадлежит render API и получает explicit extent/format/color metadata из `CaptureJobManifest`. `headless` допускает только presentation target `None`.
+Optional capture worker не создаёт interactive `PlatformHost`:
+input/window/monitor/clipboard/surface lifecycle отсутствуют. Его
+`ApplicationSessionManifestV1` допускает только `DisplaylessOffscreen`;
+`OffscreenPresentationTarget` принадлежит render API и получает explicit
+extent/format/color metadata из developer-selected capture request. `headless`
+допускает только presentation target `None`.
 
-Любое material изменение renderer, VFX, UI или camera output MUST объявлять соответствующую observable category и получать `HumanReviewRequired` через ImpactResolver. Rendering package не может снять этот флаг собственным test manifest; semantic/render automatic gates проходят до qualitative review по SPEC-15/ADR-023, а admission возможен только по verified `HumanReviewDecisionV2::Approve` + `AttestationEnvelopeV2` при всех automatic gates `PASS`. Signed `Reject`/`NeedsChanges` остаются non-admitting feedback.
+Screenshots, video capture, GPU traces and visual comparison MAY be used as
+developer diagnostics or playtesting tools. Their absence does not break the
+product contract and they never become gameplay authority.
 
 ## Capability tiers
 
 | Tier | Обязательные возможности | Поведение |
 |---|---|---|
-| B0 Baseline | Vulkan 1.3, dynamic rendering, synchronization2, timeline semaphores, buffer device address, indirect indexed draw; descriptor indexing только при доступности | MUST запускать vertical slice без RT/mesh shaders; bounded descriptors и conventional vertex/index path разрешены |
+| B0 Core | Vulkan 1.3, dynamic rendering, synchronization2, timeline semaphores, buffer device address, indirect indexed draw; descriptor indexing только при доступности | MUST запускать representative gameplay scene без RT/mesh shaders; bounded descriptors и conventional vertex/index path разрешены |
 | E1 Enhanced | B0 + descriptor indexing tier, draw-indirect-count, mesh shader при доказанном adapter support | GPU-driven compaction и meshlet task/mesh path MAY включаться |
 | E2 Ray features | E1 или B0 + ray query/RT subset, достаточный конкретному effect | Optional shadows/reflections/queries; отсутствие не меняет gameplay |
 
-Startup capability negotiation выбирает один declared path для каждого feature и записывает его в RunManifest. Неподдерживаемая обязательная B0 capability приводит к pre-world diagnostic `GPU_UNSUPPORTED`; optional tier тихо не эмулируется CPU без явного budget policy.
+Startup capability negotiation выбирает один declared path для каждого feature
+и сохраняет его в session diagnostics. Неподдерживаемая обязательная B0
+capability приводит к pre-world diagnostic `GPU_UNSUPPORTED`; optional tier
+тихо не эмулируется CPU без явного budget policy.
 
 ## Engine-owned render API
 
@@ -62,7 +71,14 @@ RenderGraph declares passes, read/write resources, queues и temporal dependenci
 
 ## Shader toolchain и caches
 
-Shader source компилируется offline. Canonical `ShaderInterface` фиксирует stages, entry points, resource bindings, push constants, specialization parameters, vertex/mesh payloads и source map. Cache key включает canonical source/include hashes, compiler binary hash/version, target profile, defines, optimization/debug flags и interface schema version.
+Shader source компилируется offline. Canonical `ShaderInterface` фиксирует
+stages, entry points, resource bindings, push constants, specialization
+parameters, vertex/mesh payloads и source map. Platform-neutral artifact key
+включает canonical source/include hashes, normalized compiler contract/build
+ID, target profile, defines, optimization/debug flags и interface schema
+version. Native compiler executable hash MAY сохраняться в developer
+diagnostics, but MUST NOT make an otherwise identical Win/Linux artifact key
+platform-specific.
 
 Slang и ash остаются `Proposed`. Slang mesh/task path не требуется B0. Fallback compiler chain MUST принять тот же ShaderInterface, выдать SPIR-V + reflection и пройти те же layout tests. Pipeline cache привязан к device/driver UUID, engine build и shader hashes; incompatible cache удаляется без потери gameplay data.
 
@@ -72,10 +88,14 @@ Slang и ash остаются `Proposed`. Slang mesh/task path не требуе
 2. Renderer получает latest two atomically published `PresentationSnapshotV2` values и presentation-only interpolation alpha.
 3. Streaming делает validated render resources resident, иначе declared placeholder.
 4. RenderGraph instance выбирает paths по immutable CapabilitySet.
-5. Backend records/submits, собирает GPU timestamps и presents.
+5. Backend records/submits and presents; GPU timestamps are collected only when
+   optional profiling is enabled.
 6. Presentation result/telemetry, widget state и interpolated camera targeting не модифицируют authoritative simulation; action-derived intent проходит common command validation.
 
-Для capture flow steps 1/5 window pump/present заменяются validated CaptureJob input и deterministic image readback. Frame index/timestamp выводится из simulation/capture timeline; wall clock и GPU completion order не определяют artifact sequence.
+For an optional developer capture, steps 1/5 replace the window pump/present
+with validated explicit input and deterministic image readback. Frame
+index/timestamp comes from the simulation/capture timeline; wall clock and GPU
+completion order do not determine output order.
 
 ## Device-loss и failure semantics
 
@@ -96,20 +116,22 @@ Shader/interface/material/color mismatch является pre-use content failur
 
 ## Platform packaging
 
-Windows package MUST использовать pinned Vulkan loader strategy и перечислять runtime dependencies; Linux package MUST объявлять supported glibc baseline/container target и проверять Vulkan loader/ICD. User GPU driver не включается. Debug layers/RenderDoc markers MAY быть optional package, но их отсутствие не меняет cache keys release shaders.
+Windows package MUST использовать pinned Vulkan loader strategy и перечислять
+runtime dependencies; Linux package MUST объявлять minimum supported glibc or
+container target и проверять Vulkan loader/ICD. User GPU driver не включается.
+Debug layers/RenderDoc markers MAY быть optional package, но их отсутствие не
+меняет cache keys release shaders.
 
-## Verification gates
+## Product checks
 
-`RENDER-P1` и `SHADER-P1` проверяют Accepted implementation-neutral Vulkan/`ShaderInterface` baseline независимо от выбранных binding/compiler adapters. `RENDER-ASH-P1`, `SHADER-SLANG-P1` и `PLATFORM-P1` являются `CandidateOnly`: их PASS допускает выбор exact Proposed adapter, но не заменяет baseline gate и не входит в обязательный vertical aggregate.
-
-| Gate | Сценарий | Threshold | Evidence | Fallback |
-|---|---|---|---|---|
-| RENDER-P1 | engine-owned `RenderDevice` Vulkan B0 scene на Win/Linux with the composition-locked binding adapter | 0 validation errors, 0 leaked objects; ≥60 FPS/1080p and p95 GPU ≤16.6 ms on reference Tier-B GPU; public/API scan finds 0 binding/vendor type outside backend | RunManifest, validation log, GPU trace, public API scan and screenshots | fix or replace binding adapter behind the same `RenderDevice`; optimize B0 path |
-| SHADER-P1 | compiler-neutral offline `ShaderInterface` matrix using the composition-locked compiler chain | VS/FS/compute SPIR-V, canonical reflection and cache keys are byte-identical across Win/Linux; layouts match 100%; optional task/mesh and ray-query samples pass or capability-skip without loading; compiler types do not cross the tool boundary | compiler manifest, SPIR-V/cache hashes, reflection/layout diff, API scan and captures | fix or replace compiler chain behind the same `ShaderInterface`; block incompatible shader assets |
-| RENDER-ASH-P1 | pinned ash adapter executes the complete `RENDER-P1` corpus | `RENDER-P1` thresholds pass for the exact ash version/checksum with 0 ash type outside the renderer backend | candidate manifest, dependency/API scan, validation log, GPU trace and screenshots | do not select ash; use internal/generated bindings behind the same API |
-| SHADER-SLANG-P1 | pinned Slang adapter executes the complete `SHADER-P1` corpus | `SHADER-P1` thresholds pass for the exact Slang binary/version/checksum; source mapping is present for every corpus entry | compiler/SBOM manifest, SPIR-V/cache hashes, reflection diff and captures | do not select Slang; use the verified GLSL/HLSL→SPIR-V chain |
-| PLATFORM-P1 | SDL adapter lifecycle/input/focus/surface tests | 10 000 create/resize/fullscreen/focus cycles, 0 crash/leak; input timestamp ordering exact; same normalized event fixtures Win/Linux | event trace, memory report | native adapters |
-| RENDER-02 | forced `no RT`, `no mesh shader`, bounded descriptors | vertical scene image-diff SSIM ≥0.98 vs approved B0 reference, no missing materials/geometry | capture + diff report | release blocking fix |
-| RENDER-03 | injected swapchain/device loss at 100 frame points | swapchain recovery 100%; device recovery or clean save-and-exit ≤10 s; 0 authoritative state corruption | fault report + replay hash | disable recovery attempt, clean exit |
-| PACKAGE-01 | clean Win/Linux VM install/run | package launches B0 scene, no undeclared shared library, SBOM complete | VM logs, SBOM, package hashes | block platform package |
-| RENDER-04 | windowless offscreen presentation target | CAPTURE-01 passes; 0 PlatformHost/window/surface/swapchain dependency in worker graph; same replay gameplay hash exact; canonical frame root repeated exact on pinned worker | render graph/API scan, replay/frame hashes, window/socket trace | fix target abstraction; observable review AwaitingCapability |
+| ID | Scenario | Expected behavior | Fallback |
+|---|---|---|---|
+| `RENDER-P1` | Run an engine-owned Vulkan B0 gameplay scene on available Win/Linux targets with the selected binding adapter. | No validation errors or leaked objects; the scene remains responsive at the declared product budget; no binding/vendor type escapes the renderer backend. | Fix or replace the adapter behind the same `RenderDevice`; reduce optional visual quality before changing gameplay. |
+| `SHADER-P1` | Compile the offline `ShaderInterface` matrix with the selected compiler chain. | VS/FS/compute SPIR-V, canonical reflection and platform-neutral artifact keys match across Win/Linux; layouts match exactly; unavailable optional task/mesh or ray-query paths remain unloaded. | Replace the compiler adapter behind the same interface and reject incompatible shader assets. |
+| `RENDER-ASH-P1` | Exercise the B0 scene through the proposed ash adapter. | The renderer behavior matches `RENDER-P1` and no ash type crosses the backend boundary. | Keep the internal/generated binding adapter. |
+| `SHADER-SLANG-P1` | Exercise the shader matrix through the proposed Slang adapter. | The behavior matches `SHADER-P1` and source mapping exists for every compiled entry. | Keep the verified GLSL/HLSL-to-SPIR-V compiler adapter. |
+| `PLATFORM-P1` | Repeated create/resize/fullscreen/focus/input/surface lifecycle on supported desktop hosts. | No crash or leak; normalized event ordering is stable and native handles remain private. | Use the thin native adapter behind the same platform contract. |
+| `RENDER-02` | Force `no RT`, `no mesh shader` and bounded descriptors. | The representative scene remains complete and playable with no missing required material or geometry. Optional screenshots or image diffs may help diagnose regressions but are not the correctness oracle. | Disable the unsupported enhanced path and use the cooked B0 path. |
+| `RENDER-03` | Inject swapchain and device loss at representative frame boundaries. | Interactive target recreation or clean suspension/exit completes without authoritative-state corruption; acknowledged presentation cues are not replayed. | Stop recovery attempts, preserve the last complete save/session state and exit cleanly. |
+| `PACKAGE-01` | Install and run a clean Win/Linux package. | The package launches the B0 gameplay scene and reports missing runtime dependencies clearly. | Do not distribute the broken target package; repair its loader/dependency declaration. |
+| `RENDER-04` | Optionally run a developer capture through the displayless offscreen target. | No window/display/surface/swapchain dependency is created; replay gameplay hash remains unchanged and repeated normalized frame output is stable for the selected profile. | Disable capture tooling and fix the target abstraction; normal game/headless operation remains available. |

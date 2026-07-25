@@ -4,28 +4,25 @@
 |---|---|
 | ID | SPEC-30 |
 | Статус | Accepted |
-| Версия | 1.0 |
-| Владелец | Rendering Team |
-| Требуемые согласующие | Repository Owner, Architecture Working Group, Runtime Team, Player Experience Team, Asset & Persistence Team, Physical Embodiment Team, Verification & Evidence Team, Release Engineering |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-29](29-platform-host-and-application-session.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md), [ADR-024](adr/024-requirement-gate-evidence-and-profile-closure.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md) |
+| Версия | 2.0 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-29](29-platform-host-and-application-session.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
 
 ## История принятия
 
 SPEC-30 подготовлен как часть consolidated architecture packet 1.8. Он
 фиксирует immutable presentation extraction, neutral material/shader/color
-contracts, VFX cue semantics и reconstructible cache boundary. Принятие exact
-root означает только architecture admission; оно не создаёт renderer,
-implementation gate `PASS`, qualitative approval, `vertical-v1` или release
-readiness.
+contracts, VFX cue semantics и reconstructible cache boundary. Версия 2.0
+сохраняет эти technical contracts и заменяет admission-oriented verification
+обычными product checks по ADR-030.
 
 ## Назначение и invariants
 
-- Rendering Team stages and atomically publishes one immutable
+- Presentation extraction stages and atomically publishes one immutable
   `PresentationSnapshotV2` from Runtime-owned projections at the
-  Runtime-declared extraction boundary. Renderer, UI, VFX and capture consume
-  it read-only.
+  Runtime-declared extraction boundary. Renderer, UI and VFX consume it
+  read-only; optional developer capture may consume the same snapshot.
 - Presentation state, visibility, camera, interpolation, device capability,
   shader compilation, GPU timing and cache state MUST NOT become gameplay
   authority or enter gameplay/replay hashes.
@@ -39,25 +36,25 @@ readiness.
   presentation snapshot/profile and bounded CPU
   `PresentationConsumptionStateV1`. Cache/device loss never resets cue
   acknowledgment/pending/active state or writes back to simulation.
-- Exact pixel comparison is required only on a pinned capture profile.
-  Gameplay/domain output remains exact across composition roots; non-pinned
-  physical/render numerics use explicitly declared tolerances.
-- Observable visual/UI/camera/animation/physics/motor/VFX changes MUST use the
-  SPEC-15 capture/evidence flow and signed `HumanReviewDecisionV2`.
+- Exact pixel comparison is an optional developer check on a pinned capture
+  profile. Gameplay/domain output remains exact across composition roots;
+  render numerics use explicitly declared tolerances where exact equality is
+  not part of the selected profile.
+- Screenshots, video, frame diffs and GPU profiling MAY aid playtesting and
+  debugging but are not mandatory architecture artifacts.
 
-## Source of truth и ownership
+## Technical authority boundary
 
-| State | Единственный owner/source of truth | Reconstructible/non-authority |
+| State | Authoritative representation | Reconstructible/non-authority |
 |---|---|---|
-| Domain/RPG/world/physics result | owning simulation bounded context | presentation copy |
-| Extracted immutable scene/camera/cue projection | Rendering Team stages and atomically publishes `PresentationSnapshotV2` at the Runtime-declared extraction boundary | renderer upload buffers |
-| Semantic UI/camera intent | Player Experience Team | widget tree, camera matrices after interpolation |
-| Neutral material/shader-interface/color definitions | Asset & Persistence Team cooked catalog | compiled pipeline and descriptor caches |
-| Presentation rendering and VFX realization | Rendering Team | current frame, particle instances, temporal history |
-| Cue consumption/acknowledgment state | Rendering Team engine-owned bounded CPU `PresentationConsumptionStateV1` | GPU/UI/VFX instances and cache generations |
-| Skeletal/IK presentation result | Physical Embodiment Team contract, presentation branch | skinning/pose buffers |
-| Capture comparison and review evidence | Verification & Evidence Team | local viewer/cache |
-| Gameplay hash | Runtime/domain owners | frame/audio/presentation hashes are separate evidence roots |
+| Domain/RPG/world/physics result | simulation bounded-context state | presentation copy |
+| Extracted immutable scene/camera/cue projection | atomically published `PresentationSnapshotV2` at the Runtime-declared extraction boundary | renderer upload buffers |
+| Semantic UI/camera intent | engine-owned Player Experience projection | widget tree, camera matrices after interpolation |
+| Neutral material/shader-interface/color definitions | cooked content catalog | compiled pipeline and descriptor caches |
+| Presentation rendering and VFX realization | renderer/presentation state | current frame, particle instances, temporal history |
+| Cue consumption/acknowledgment state | bounded CPU `PresentationConsumptionStateV1` | GPU/UI/VFX instances and cache generations |
+| Skeletal/IK presentation result | physical-presentation projection | skinning/pose buffers |
+| Gameplay hash | authoritative Runtime/domain state | frame/audio/presentation hashes |
 
 ## `PresentationSnapshotV2`
 
@@ -132,7 +129,7 @@ CanonicalPresentationBatchV1 {
 ```
 
 Worker fragments and worker-local batch boundaries are never observable.
-Before publication, Rendering Team flattens all fragments independently for
+Before publication, presentation extraction flattens all fragments independently for
 scene, camera, semantic-UI and cue record families, validates the complete
 family, applies its canonical sort and only then partitions the result using
 the positive finite `max_records_per_batch` for that family from the locked
@@ -319,8 +316,8 @@ The manifest describes semantics, numeric layouts, access, array bounds and
 cross-stage compatibility only. It contains no source-language AST, compiler
 object, binary-module handle or API-specific binding type. Offline toolchains
 may produce target variants only when reflection validates exact equality to
-the locked manifest. `SHADER-P1` remains the existing compiler/interface gate;
-this SPEC references it and does not redefine its descriptor.
+the locked manifest. `SHADER-P1` remains the compiler/interface product check
+defined by SPEC-04; this SPEC does not redefine it.
 
 ### Deterministic pipeline key
 
@@ -366,16 +363,16 @@ Material color fields declare whether the value is encoded sRGB or linear data.
 Normal/roughness/metalness/mask/data textures never receive implicit color
 conversion. Missing or ambiguous tag rejects cooking/publication.
 
-A pinned capture profile fixes numeric precision, operation order, rounding,
-output format and normalized frame hash, making SDR pixels exact for that
-profile. Other conforming devices may be tolerance-classified only where the
-profile says so; they cannot claim pinned-pixel equality.
+An optional pinned developer capture profile fixes numeric precision, operation
+order, rounding, output format and normalized frame hash, making SDR pixels
+exact for that profile. Other devices may be tolerance-classified only where
+the profile says so; they do not claim pinned-pixel equality.
 
 HDR is optional and separated by `HdrPresentationBoundaryV1`, which declares
 working primaries/white, transfer, luminance range, metadata and deterministic
 SDR fallback transform. Absence or failure of HDR uses that exact fallback and
 MUST NOT change material IDs, authoritative state, visibility/perception or SDR
-reference evidence.
+reference output.
 
 ## VFX cue contract
 
@@ -494,15 +491,17 @@ The cue consumer:
    can omit but never repeat an acknowledged one-shot;
 6. uses only the exact declared effect fallback when content/capability is
    unavailable;
-7. records missing/omitted/fallback disposition and separate observed
-   realization evidence without changing the source
+7. records missing/omitted/fallback disposition and the separate observed
+   realization outcome without changing the source
    `DomainEvent` or simulation state.
 
 Continuous VFX state is reconstructible from
 `PresentationConsumptionStateV1`, the current accepted snapshot and locked
 content. Unbounded particle state, random device seed or wall time is not
 persisted. Any stochastic presentation uses a presentation-only named seed
-recorded in capture evidence and excluded from gameplay hashes.
+derived from the locked presentation profile and cue identity. Optional
+developer capture metadata MAY record that seed; it remains excluded from
+gameplay hashes.
 
 ## Cue acknowledgment and bounded CPU consumption state
 
@@ -589,7 +588,7 @@ JCS(active_continuous_instances))` over that exact sorted list.
 `SHA-256("nextengine.presentation-consumption-state.v1\0" || JCS(body))`,
 where `body` omits only `canonical_hash`.
 
-For one contiguous cue prefix, Rendering Team privately stages:
+For one contiguous cue prefix, the presentation consumer privately stages:
 
 - the next stream prefix/root and sequence;
 - all pending-one-shot insert/cancel/maturation and acknowledgment-root
@@ -653,12 +652,12 @@ records. Cardinality for one atomic consumption transition is exact:
   to that lifecycle cue’s acknowledgment key;
 - an exact duplicate produces no additional record.
 
-An evidence generation closes only after the observation cutoff fixed by the
-locked presentation/capture profile. `SubmittedNotObserved` is the immutable
-terminal statement for that cutoff, not a placeholder. No later generation may
-replace an outcome for the same run/cue/state identity; a later observation is
-a different run/evidence identity. Recovery evidence may report loss after
-commit but cannot alter consumption state or reopen a cue.
+An outcome generation closes only after the observation cutoff fixed by the
+locked presentation profile. `SubmittedNotObserved` is the immutable terminal
+statement for that cutoff, not a placeholder. No later generation may replace
+an outcome for the same observation/cue/state identity; a later observation
+has a new identity. Recovery diagnostics may report loss after commit but
+cannot alter consumption state or reopen a cue.
 
 `PresentationConsumptionCheckpointV1` stores the canonical state bytes/hash as
 bounded presentation-session recovery metadata, separate from authoritative
@@ -672,15 +671,13 @@ exact. If no valid checkpoint exists for a nonzero stream position, the
 presentation path becomes unavailable and does not replay one-shots or infer
 active instances.
 
-Every transition/reconstruction emits
-`PresentationConsumptionEvidenceV1` containing prior/new state revisions and
+Every transition/reconstruction emits a bounded operational
+`PresentationConsumptionTransitionV1` containing prior/new state revisions and
 canonical hashes, consumed cue-slice roots, one-shot acknowledgment root,
 pending-one-shot root, active-instance root, realization-outcome root and
-recovery reason. Its
-canonical evidence hash is
-`SHA-256("nextengine.presentation-consumption-evidence.v1\0" || JCS(body))`.
-It is separate from gameplay hashes and is required by `VFX-P1` and
-`PRESENTATION-CACHE-P1`.
+recovery reason. Its canonical hash is
+`SHA-256("nextengine.presentation-consumption-transition.v1\0" || JCS(body))`.
+It is presentation-session recovery metadata, separate from gameplay hashes.
 
 ## Cache reconstruction and device loss
 
@@ -734,7 +731,7 @@ On device loss or cache corruption:
    while preserving the exact pending-one-shot map and restoring only the
    exact active continuous-instance map;
 6. atomically expose a complete new cache generation;
-7. emit typed recovery evidence including prior/new cache roots and exact
+7. emit a typed recovery diagnostic including prior/new cache roots and exact
    snapshot/consumption binding fields.
 
 Failure uses a validated fallback material/effect/presentation path or reports
@@ -780,38 +777,37 @@ Required codes include:
 All diagnostics use stable structured envelopes and exact causal/content/
 snapshot identifiers. Text logs and rendered pixels alone are never the oracle.
 
-## Verification gates
+## Product checks
 
-Each row is the canonical `GateDescriptorV1` source for its gate.
-
-| Gate | Primary owner | Contributors | Reproducible command/scenario | Pass threshold | Required evidence | Fallback | VS closure |
-|---|---|---|---|---|---|---|---|
-| `PRESENTATION-P1` | Rendering Team | Runtime Team, Player Experience Team | `next gate PRESENTATION-P1 --scenario extraction-parity-v2 --roots game,headless,capture-worker --permutations all` | Exact closed inputs produce byte-identical snapshot/object/camera/UI/common-cue-envelope roots and exact canonical batch boundaries across extraction-order, cue-family grouping, fragment-size, thread-count and worker permutations; 100% cue-kind/rank/ordinal/local-key/payload-hash/order tamper vectors reject; 0 partial publication, reverse write or gameplay-hash dependency | snapshot/batch/profile manifests, typed cue-envelope corpus, canonical record/batch roots, root-parity, mutation and publication audits | retain prior complete snapshot or publish explicit presentation-unavailable result | VS-05, VS-07, VS-11, VS-15 |
-| `MATERIAL-P1` | Asset & Persistence Team | Rendering Team | `next gate MATERIAL-P1 --scenario neutral-material-shader-interface --corpus all` | 100% definition/instance/interface/pipeline-key positive corpus canonicalizes identically; 100% unknown field, unit/color, binding, reflection, fallback and key faults reject before publication | content/material/interface manifests, canonical hashes, reflection and negative-corpus reports; existing SHADER-P1 result | reject candidate and retain previous material/interface generation or exact fallback | VS-01, VS-07, VS-10, VS-15 |
-| `COLOR-P1` | Rendering Team | Asset & Persistence Team, Verification & Evidence Team | `next gate COLOR-P1 --scenario sdr-color-alpha-v1 --vectors all --capture-profile pinned` | All transfer/composite/rounding vectors match exact expected values; transparent canonicalization has 0 violation; pinned SDR frame roots exact; HDR absence/fault produces exact SDR fallback | color/output/HDR manifests, golden vectors, normalized pinned frames and fallback report | reject incompatible profile; use exact locked SDR path | VS-07, VS-15 |
-| `VFX-P1` | Rendering Team | Asset & Persistence Team, Verification & Evidence Team | `next gate VFX-P1 --scenario vfx-cue-lifecycle --cycles 10000 --faults all` | 10,000 dedupe/pending/activation/start/update/stop/cancel/epoch-reset/recovery cycles and all worker/batch permutations produce exact cue-prefix, acknowledgment, pending-one-shot, active-instance, consumption-state and evidence roots; legal update/stop/cancel reuse of one active instance passes, while 100% competing-start/head, immutable-history, sequence/prefix/ack-key/target/presence/canonical-byte and cutoff-boundary tamper vectors reject atomically; every crash boundary before/after CPU-state commit causes 0 repeated one-shot, lost pending target, collision admission, unbounded state or simulation write; fallback exact | cue/content/profile/batch manifests, consumption checkpoints, one-shot/pending/active-instance/lifecycle/evidence roots, activation/cancel/cutoff and tamper corpus, crash/fault/recovery traces and required media evidence | cancel pending cue, omit exact cue or use only declared effect fallback; corrupt/missing noninitial checkpoint makes presentation unavailable; source event/state unchanged | VS-05, VS-07, VS-15 |
-| `PRESENTATION-CACHE-P1` | Rendering Team | Runtime Team, Player Experience Team | `next gate PRESENTATION-CACHE-P1 --scenario presentation-cache-reconstruction --fault-boundaries all --cycles 10000` | Every cache/device fault retains exact simulation/session/snapshot and CPU consumption-state roots and atomically rebuilds only manifest-bound pending/active presentation state or reports unavailable; 100% presentation_snapshot_hash/epoch/sequence/presentation_consumption_state_hash/revision/prefix-root and checkpoint/acknowledgment/pending/active-map tamper vectors reject before read, rebuild or exposure; 0 stale/partial exposure, acknowledged one-shot replay or cache-derived acknowledgment | cache/snapshot manifests, exact binding matrix, consumption checkpoints/evidence hashes, one-shot/pending/active-instance roots, before/after authoritative roots, tamper/fault matrix and atomic-publication audit | invalidate cache generation and rebuild/use validated fallback without simulation write; stale/invalid binding or consumption state fails presentation unavailable without replay | VS-02, VS-05, VS-11, VS-15 |
+| ID | Scenario | Expected behavior | Fallback |
+|---|---|---|---|
+| `PRESENTATION-P1` | Extract the same closed input while varying extraction order, cue-family grouping, fragment size, thread count and worker completion. | Snapshot/object/camera/UI/cue roots and canonical batch boundaries remain byte-identical; malformed or colliding records reject before publication; presentation never writes into gameplay. | Retain the previous complete snapshot or report presentation unavailable. |
+| `MATERIAL-P1` | Validate neutral material definitions/instances, shader interfaces and pipeline keys against positive and malformed corpora. | Equal inputs canonicalize identically; unknown fields, incompatible units/colors/bindings/reflection and invalid fallback references reject before publication. | Retain the prior material/interface generation or use only the exact declared fallback. |
+| `COLOR-P1` | Evaluate SDR transfer, compositing, alpha, rounding and HDR-fallback vectors; optionally repeat a pinned developer capture. | Exact vector results match the locked SDR profile, transparent pixels canonicalize correctly and HDR absence selects the exact SDR fallback. Optional capture output is stable for its selected profile. | Reject the incompatible profile and use the locked SDR path. |
+| `VFX-P1` | Exercise dedupe, pending activation, start/update/stop/cancel, epoch reset, crash and recovery around every CPU-state publication boundary. | Cue prefix, acknowledgment, pending and active-instance state remain bounded and exact; no acknowledged one-shot repeats, pending target is lost or presentation writes to simulation. | Cancel a pending cue, omit it or use only its declared effect fallback; invalid noninitial checkpoint makes presentation unavailable. |
+| `PRESENTATION-CACHE-P1` | Corrupt or lose GPU/UI/VFX caches and inject faults throughout reconstruction and atomic exposure. | Simulation/session/snapshot and CPU consumption state stay unchanged; only exact manifest-bound pending/active presentation state is rebuilt; stale/partial cache data never becomes visible. | Invalidate the generation and rebuild or use a validated presentation fallback without simulation writes. |
 
 ## Requirements
 
-| ID | Требование | Primary owner | Contributors | Blocking gates | Required evidence | VS / profile closure |
-|---|---|---|---|---|---|---|
-| REQ-144 | Rendering Team MUST stage and atomically publish one immutable canonical `PresentationSnapshotV2` at the Runtime-declared boundary, with stable epoch/object keys, one typed total-order `PresentationCueEnvelopeV1` across all cue kinds, deterministic worker-independent batch boundaries and no reverse authority into simulation. | Rendering Team | Runtime Team, Player Experience Team | PRESENTATION-P1 | snapshot/batch/profile manifests, typed cue-envelope/order corpus, canonical/root-parity, permutation, mutation and publication audits | VS-05, VS-07, VS-11, VS-15 |
-| REQ-145 | Neutral material definition/instance, shader-interface manifest, deterministic pipeline key and exact SDR color/alpha profile MUST be content-addressed, bounded and backend-free; optional HDR MUST have exact SDR fallback. | Asset & Persistence Team | Rendering Team, Verification & Evidence Team | MATERIAL-P1, COLOR-P1, SHADER-P1 | content/material/interface/color manifests, golden/reflection corpora, pipeline/frame roots and fallback report | VS-01, VS-07, VS-10, VS-15 |
-| REQ-146 | VFX cues MUST use exact epoch-independent event-derived cue/acknowledgment/continuous-instance identity, contiguous canonical order, lifecycle-compatible target/history rules, bounded checkpointed pending one-shots, legal active-instance reuse, exact dedupe/cancel semantics and bounded atomic CPU consumption state plus declared fallback without changing source events or simulation. | Rendering Team | Asset & Persistence Team, Verification & Evidence Team | VFX-P1 | cue/content/batch manifests, consumption checkpoints, lifecycle/acknowledgment/pending/active-instance/evidence roots, activation/cancel/cutoff and tamper corpus, fallback report and media evidence | VS-05, VS-07, VS-15 |
-| REQ-147 | GPU/UI/VFX caches MUST be reconstructible after corruption/device loss only from exact `PresentationCacheManifestV1` bindings to the accepted snapshot hash/epoch/sequence and bounded engine-owned CPU `PresentationConsumptionStateV1` hash/revision/prefix; consumption state remains outside cache invalidation, prevents acknowledged one-shot replay, preserves pending/active instances and authoritative roots, and only complete generations publish; observable output MUST follow SPEC-15 review. | Rendering Team | Runtime Team, Player Experience Team, Verification & Evidence Team | PRESENTATION-CACHE-P1, PRESENTATION-P1 | cache/snapshot manifests, exact binding corpus, consumption checkpoint/evidence hashes, acknowledgment/pending/active-instance roots, device-fault and tamper matrix, authoritative roots, capture bundle and V2 review decision when required | VS-02, VS-05, VS-07, VS-11, VS-15 |
+| ID | Требование |
+|---|---|
+| REQ-144 | Presentation extraction MUST stage and atomically publish one immutable canonical `PresentationSnapshotV2` at the Runtime-declared boundary, with stable epoch/object keys, one typed total-order `PresentationCueEnvelopeV1` across all cue kinds, deterministic worker-independent batch boundaries and no reverse authority into simulation. |
+| REQ-145 | Neutral material definition/instance, shader-interface manifest, deterministic pipeline key and exact SDR color/alpha profile MUST be content-addressed, bounded and backend-free; optional HDR MUST have exact SDR fallback. |
+| REQ-146 | VFX cues MUST use exact epoch-independent event-derived cue/acknowledgment/continuous-instance identity, contiguous canonical order, lifecycle-compatible target/history rules, bounded checkpointed pending one-shots, legal active-instance reuse, exact dedupe/cancel semantics and bounded atomic CPU consumption state plus declared fallback without changing source events or simulation. |
+| REQ-147 | GPU/UI/VFX caches MUST be reconstructible after corruption/device loss only from exact `PresentationCacheManifestV1` bindings to the accepted snapshot hash/epoch/sequence and bounded engine-owned CPU `PresentationConsumptionStateV1` hash/revision/prefix; consumption state remains outside cache invalidation, prevents acknowledged one-shot replay, preserves pending/active instances and authoritative roots, and only complete generations publish. |
 
 ## Failure paths
 
-| ID | Trigger | Required result | Primary owner | Contributors | Blocking gates | Required evidence | VS / profile closure |
-|---|---|---|---|---|---|---|---|
-| FAIL-060 | Invalid/stale/colliding snapshot, object key or typed cue envelope/order; malformed/incompatible material, shader interface, pipeline key, color/HDR profile or required content reference | Reject the complete candidate before publication, retain the previous snapshot/content generation and never expose backend data or infer a replacement authoritative value. | Rendering Team | Runtime Team, Asset & Persistence Team, Player Experience Team | PRESENTATION-P1, MATERIAL-P1, COLOR-P1, SHADER-P1 | complete cue/schema negative corpus, prior/candidate roots, reflection/color and atomic-publication audits | VS-01, VS-05, VS-07, VS-10, VS-11, VS-15 |
-| FAIL-061 | VFX cue sequence/prefix/identity/acknowledgment/start/history/head/target/lifecycle or pending/cutoff collision/tamper; missing content; consumption checkpoint corruption/overflow; cache binding/corruption, device loss or rebuild/publication fault | Reject the complete uncommitted transition; dedupe/cancel pending/omit or use only the exact declared presentation fallback; invalidate incomplete/stale cache while retaining valid bounded CPU consumption state; preserve simulation/session/snapshot roots and never replay acknowledged one-shots, lose/infer pending or active instances, or write presentation state back. A missing/corrupt noninitial consumption checkpoint or mismatched cache binding makes presentation unavailable until exact reconstruction succeeds. | Rendering Team | Runtime Team, Asset & Persistence Team, Verification & Evidence Team | VFX-P1, PRESENTATION-CACHE-P1 | cue/cache/binding/checkpoint/device tamper, activation/cutoff and crash-boundary matrix, before/after authoritative and consumption-state roots, acknowledgment/pending/active-instance/evidence hashes, atomic publication audit and media evidence | VS-02, VS-05, VS-07, VS-11, VS-15 |
+| ID | Trigger | Required result |
+|---|---|---|
+| FAIL-060 | Invalid/stale/colliding snapshot, object key or typed cue envelope/order; malformed/incompatible material, shader interface, pipeline key, color/HDR profile or required content reference | Reject the complete candidate before publication, retain the previous snapshot/content generation and never expose backend data or infer a replacement authoritative value. |
+| FAIL-061 | VFX cue sequence/prefix/identity/acknowledgment/start/history/head/target/lifecycle or pending/cutoff collision/tamper; missing content; consumption checkpoint corruption/overflow; cache binding/corruption, device loss or rebuild/publication fault | Reject the complete uncommitted transition; dedupe/cancel pending/omit or use only the exact declared presentation fallback; invalidate incomplete/stale cache while retaining valid bounded CPU consumption state; preserve simulation/session/snapshot roots and never replay acknowledged one-shots, lose/infer pending or active instances, or write presentation state back. A missing/corrupt noninitial consumption checkpoint or mismatched cache binding makes presentation unavailable until exact reconstruction succeeds. |
 
 ## Technology neutrality
 
 This contract selects no graphics API, renderer, render graph, shader language
 or compiler, window system, UI toolkit, VFX runtime, image library or GPU
-vendor. Adapter internals and caches remain private. Architecture admission
-does not claim exact pixels outside the pinned capture profile or satisfy any
-automatic/human/release gate by itself.
+vendor. Adapter internals and caches remain private. The contract establishes
+exact pixel equality only for an explicitly selected optional developer
+capture profile. Capture and visual comparison are tools, not a required
+authority path.

@@ -4,63 +4,94 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 1.7 |
-| Владелец | Repository Owner |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md), [ADR-024](adr/024-requirement-gate-evidence-and-profile-closure.md) |
+| Версия | 2.0 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
 
-## Source of truth и ownership
+## Technical authority boundary
 
-Subsystem owners владеют semantics и emit structured diagnostics/metrics. Developer Experience Team владеет CLI grammar, diagnostic envelope, RunManifest/artifact layout, inspectors, profiling integration и local/future-CI conformance orchestration. Verification & Evidence Team владеет scenario/impact/evidence/review application services; authorized human reviewer владеет только decision. Observability/evidence storage не является gameplay source и отключается без изменения simulation outcome.
+Каждый subsystem определяет semantics своих diagnostics, metrics и immutable
+inspector projections. Tooling определяет versioned CLI grammar, exit codes,
+JSON/diagnostic envelopes, optional developer run records, inspectors and
+profiling adapters. Tool output, telemetry, screenshots and local run data
+never become gameplay authority; disabling them does not change simulation
+outcome.
 
 ## Public boundary и data flow
 
-Public tool boundary — versioned CLI arguments/exit codes/JSON, ProjectManifest/ProjectCompositionLock resolution reports, PlayerActionFrame/action-map views, RPG aggregate/transaction and world calendar/population inspectors, AuthoringContextBundle/AgentChangeSet, VerificationPolicy/TestScenario/ChangeImpact/CaptureJob/Evidence/HumanReview schemas, physical/policy manifests и certification reports, diagnostic/telemetry envelopes, RunManifest и documented artifact schemas. Optional MCP adapter является projection того же application service, не вторым source. Profiler SDK, package-manager, CI/artifact-store/encoder/training-backend API, terminal/MCP library, OS crash API и internal Rust types не экспортируются. Поток `subsystem structured signal → bounded local collector → RunManifest/artifact/inspector/evidence` read-only относительно simulation; mutating development endpoint требует отдельной capability и делает run non-conforming.
+Public tool boundary включает versioned CLI arguments/exit codes/JSON,
+`ProjectManifest`/`ProjectCompositionLock` resolution reports, cooked/save/
+replay/package manifests, engine-owned inspector projections, physical/policy
+manifests, diagnostic and telemetry envelopes. Optional MCP or other adapters
+project the same application services and cannot create a second source of
+truth.
 
-## Обязательные CLI v1
+Profiler SDKs, package-manager internals, CI/artifact-store/encoder/training
+backend APIs, terminal libraries, OS crash APIs and internal Rust types remain
+private. Data flow
 
-Единый binary MAY называться `next` до product naming ADR. Exit codes: `0` success/pass, `2` validation/input failure, `3` incompatibility/unsupported capability, `4` conformance gate fail, `5` internal/tool crash. Human text локализуем; `--format json` schema стабилен в major CLI version.
+```text
+subsystem structured signal
+  → bounded local collector
+  → diagnostic / optional developer run record / inspector
+```
 
-| Команда | Обязательный контракт |
+is read-only relative to simulation. A mutation-capable development endpoint
+requires an explicit local capability and cannot bypass production
+command/transaction validation.
+
+## CLI v1
+
+One binary MAY be named `next` until product naming changes. Exit codes are:
+`0` success, `2` validation/input failure, `3` incompatible or unsupported
+capability, `4` product-check failure and `5` internal tool crash. Human text
+may be localized; `--format json` remains stable within a major CLI version.
+
+| Command | Contract |
 |---|---|
-| `next project resolve <manifest> --catalog <snapshot> --lock <path>` | deterministic exact-catalog resolution, canonical conflict report и atomic ProjectCompositionLock candidate; runtime не выполняет эту команду |
-| `next project validate\|diff <manifest-or-lock>` | read-only schema/dependency/config/trust/budget/target compatibility и exact lock diff |
-| `next cook --project <manifest> --target <profile> --out <dir>` | validate → deterministic cook → atomic publish; cache stats и manifest hash |
-| `next validate assets|project|bundle|save|plugin|model <path>` | read-only validation, stable diagnostic codes/source locations |
-| `next inspect import <neutral-manifest>` | provenance, namespace mappings, unsupported/dropped records; не читает proprietary source в engine repo |
-| `next replay run <replay> [--headless] [--compare <oracle>]` | first divergent tick/owner/schema; nonzero при mismatch |
-| `next inspect physical <run|live-endpoint>` | pose/joints/contacts/COM/support/LOD/motor/action safety и media export |
-| `next inspect ai <run|live-endpoint>` | perception/intents/rejections/plans/memory provenance/ai-host deadlines без hidden mutable access |
-| `next inspect mechanics <run|live-endpoint>` | package lock, ability phases, effects/statuses, reducer proposals/rejections, hook order и state revisions |
-| `next inspect player <run|live-endpoint>` | normalized-control/action-frame/context/UI/camera-target/fallback revisions without native device/widget handles |
-| `next inspect rpg <run|save>` | aggregate definitions/revisions, typed operations, RpgTransactionPlan result/event order и migration diagnostics; read-only |
-| `next inspect world <run|save>` | WorldCalendarStateV1, population/schedule/tier/WorldAdvancePlan revisions, stepped/bulk diff and migration diagnostics; read-only |
-| `next physical new\|describe\|validate\|pack <archetype>` | public physical-archetype scaffold, closed-schema description, validation и immutable package build |
-| `next policy inspect\|verify\|route-test\|transition-test\|certify <policy-or-project>` | compatibility/parity, deterministic resolver, switch supervisor и certification gates SPEC-14 |
-| `lab generate-env\|train\|evaluate\|compare\|export-onnx\|certify <config>` | replaceable offline training application service; algorithm/backend не входит в engine ABI |
-| `next test impact --changeset <manifest>` | deterministic affected suite/category/capture/review resolution + explanations |
-| `next test run --impact <manifest> --profile <profile> --artifact-root <dir>` | executes exact ChangeImpactManifest; produces RunManifests/replays/diagnostics |
-| `next scenario validate\|run\|minimize <input>` | generic scenario validation/run и same-failure replay minimization |
-| `next test explain --run <manifest> --format json` | first divergence, owner, code, assertion/causal typed diff |
-| `next capture render --job <manifest> --artifact-root <dir>` | short-lived displayless render/audio capture worker |
-| `next evidence build\|verify\|diff <input>` | content-addressed evidence assembly/validation/comparison |
-| `next review bundle <evidence> --out <dir>` | self-contained offline dossier rooted at `index.html`, no external resources |
-| `next review record <bundle> --decision <Approve\|Reject\|NeedsChanges> --attest <key-id>` | human-only canonical `HumanReviewDecisionV2` + `AttestationEnvelopeV2` через isolated signer adapter; все три exact case-sensitive token могут быть подписаны и cryptographically valid, но только `Approve` с automatic `PASS` admission-eligible; CLI принимает key ID, но никогда raw key/path/seed |
-| `next gate <gate-id|vertical-v1> --artifact-root <dir>` | executes exact pinned scenario, writes RunManifest и pass/fail |
-| `next package --target windows-x86_64|linux-x86_64` | validates licenses/SBOM/content and creates reproducible package manifest |
+| `next project resolve <manifest> --catalog <snapshot> --lock <path>` | Deterministic exact-catalog resolution, canonical conflict report and atomic `ProjectCompositionLock` candidate; runtime does not resolve projects. |
+| `next project validate\|diff <manifest-or-lock>` | Read-only schema/dependency/config/capability/license/budget/target compatibility and exact lock diff. |
+| `next cook --project <manifest> --target <profile> --out <dir>` | Validate, deterministically cook and atomically publish; report cache statistics and manifest hash. |
+| `next validate assets\|project\|bundle\|save\|plugin\|model <path>` | Read-only validation with stable diagnostic codes and source locations. |
+| `next inspect import <neutral-manifest>` | Show provenance, namespace mappings and unsupported/dropped records without reading proprietary source inside the engine repository. |
+| `next replay run <replay> [--headless] [--compare <oracle>]` | Report the first divergent tick/subsystem/schema and return nonzero on mismatch. |
+| `next inspect physical <run\|live-endpoint>` | Read pose/joints/contacts/COM/support/LOD/motor/action-safety projections without mutable access. |
+| `next inspect ai <run\|live-endpoint>` | Read perception/intents/rejections/plans/memory provenance and optional `ai-host` deadlines. |
+| `next inspect mechanics <run\|live-endpoint>` | Read package lock, ability phases, effects/statuses, proposals/rejections, hook order and state revisions. |
+| `next inspect player <run\|live-endpoint>` | Read normalized controls, action frames, contexts, semantic UI, camera targets and fallback revisions without native handles. |
+| `next inspect rpg <run\|save>` | Read aggregate definitions/revisions, typed operations, transaction results/event order and migration diagnostics. |
+| `next inspect world <run\|save>` | Read world calendar, population/schedule/tier revisions, advance-plan results and migration diagnostics. |
+| `next physical new\|describe\|validate\|pack <archetype>` | Create, describe, validate and package a neutral physical archetype through public schemas. |
+| `next policy inspect\|verify\|route-test\|transition-test <policy-or-project>` | Check compatibility, deterministic route selection, supervisor transitions and declared safety fallback. |
+| `lab generate-env\|train\|evaluate\|compare\|export-onnx <config>` | Optional replaceable offline training service; algorithm/backend does not enter the engine ABI. |
+| `next package --target windows-x86_64\|linux-x86_64` | Validate content, dependency/license notices and produce a reproducible package manifest. |
 
-Review verification имеет два closed modes: current `admission` (default для gates и mutation-capable workflows, принимает только V2) и explicit read-only `historical-audit` (может проверить V1 и вернуть только `HistoricalVerified`). V1 никогда не даёт `PASS`, admission, merge, promotion или baseline acceptance; попытка V1 admission даёт `REVIEW_SCHEMA_HISTORICAL_ONLY`. Unknown/missing decision token rejected as `REVIEW_DECISION_VALUE_INVALID` before signer invocation.
+Mechanic/mod/agent CLI families defined by SPEC-13 use the same
+exit-code/JSON/diagnostic contracts. Tools MUST support `--help`, `--version`,
+`--format json`, explicit output paths and non-interactive use. They MUST NOT
+upload telemetry or developer output unless the user supplies an explicit
+endpoint and consent.
 
-Mechanic/mod/agent CLI family (`next sdk`, `next mod`, `next mechanic`, `next changeset`, `next agent serve`) определяется SPEC-13 и MUST использовать те же exit-code/JSON/diagnostic contracts.
+## Optional developer utilities
 
-Physical `AuthoringContextBundle` scope MUST включать exact body/morphology/topology/actuator schemas, skill catalog, policy compatibility keys, normalization, training config schemas, evaluation/transition suites, certification rules, provenance requirements и structured diagnostics. Model promotion, license/provenance change и certification decision всегда создают review-required AgentChangeSet; отсутствие training backend не мешает собрать `PrototypeFallback` package.
+These utilities shorten debugging and playtesting but are not required for
+product correctness:
 
-Tools MUST support `--help`, `--version`, `--format json`, explicit output path и non-interactive CI. Они MUST NOT upload telemetry/artifacts unless user supplies explicit endpoint/consent.
+| Utility | Behavior |
+|---|---|
+| `next scenario validate\|run\|minimize <input>` | Validate or run a representative scenario and minimize to the same stable failure. |
+| `next capture render --input <manifest> --out <dir>` | Run the displayless `capture-worker` for screenshots, video or audio from explicit replay/presentation inputs. |
+| `next profile run <command> --out <dir>` | Enable bounded CPU/GPU/platform profiling and write a local report. |
+| `next inspect run <run-root>` | Open an optional developer run record and its referenced logs/traces/media. |
+
+Capture, screenshots and profiling are opt-in. Missing GPU, encoder or external
+profiler simply means that optional utility was not run; normal game,
+headless, save/replay and package work remains available.
 
 ## Local bootstrap orchestration
 
-До появления remote/CI repository admission выполняется локальными project-owned командами:
+Repository-owned convenience commands MAY combine focused checks:
 
 ```text
 cargo run -p xtask -- boundary-scan
@@ -69,24 +100,39 @@ uv run --project lab python -m next_lab doctor
 uv run --project lab python -m next_lab smoke --device auto
 ```
 
-`host-check` MUST объединять format check, clippy, workspace tests и boundary scan; Mac result имеет `DeveloperHostTier`, а не shipping status. Lab commands являются isolated development application service: Mac smoke MAY выбрать MPS или declared CPU fallback, но не закрывает `TRAIN-P1`, correspondence или certification. Local RunManifest фиксирует exact toolchain/device/fallback. Ни одна команда не требует remote, cloud account или CI token.
+When present, `host-check` combines formatting, clippy, workspace tests and the
+boundary scan. Mac results cover the developer-host portable core/tooling path,
+not Windows/Linux game or renderer shipping. Lab smoke may select MPS or a
+declared CPU fallback and proves only the exercised local train/export/
+inference path. No command requires remote CI, a cloud account or a CI token.
 
 ## Diagnostic envelope
 
-Каждая diagnostic запись содержит schema version, stable code, severity, subsystem/owner, message key + rendered message, process/build, optional tick/entity PersistentId/AssetId/source span, first divergent tick/event/schema/assertion, typed expected/actual, causal command/event chain, remediation key, replay/minimization reference и redaction classification. Raw vendor error MAY прикладываться как debug field, но stable code остаётся engine-owned.
+Each diagnostic record contains schema version, stable code, severity,
+subsystem, message key plus rendered message, process/build identity and, when
+applicable, tick, `PersistentId`, `AssetId`, source span, first divergent
+tick/event/schema/assertion, typed expected/actual, causal command/event chain,
+remediation key, replay/minimization reference and redaction classification.
+Raw vendor errors may appear only as a debug field; the stable code remains
+engine-owned.
 
-Severity: `info`, `warning`, `error` (operation fails), `fatal` (process/world unsafe). `warning` не может скрывать нарушение MUST gate.
+Severity is `info`, `warning`, `error` (operation fails) or `fatal`
+(process/world unsafe). Rendered text and unordered logs are never the
+correctness oracle.
 
-## Telemetry envelope
+## Telemetry and optional run records
 
-Metrics/traces используют monotonic timestamp + simulation tick when applicable, subsystem, scenario/run ID, build/config hashes, typed attributes и units. PersistentId MAY логироваться в local artifacts; user paths, dialogue text, prompts, voices и imported asset bytes default-redacted. Sampling не меняет control flow и не блокирует fixed tick.
+When telemetry is enabled, metrics/traces use a monotonic timestamp plus
+simulation tick where applicable, subsystem, scenario/run ID,
+build/config hashes, typed attributes and units. Sampling never changes
+control flow or blocks a fixed tick. User paths, dialogue text, prompts,
+voices and imported asset bytes are redacted by default.
 
-## RunManifest и artifact layout
+An optional `DeveloperRunRecordV1` may use this local layout:
 
 ```text
 run-root/
-  run-manifest.json
-  impact/
+  run.json
   replay/
   metrics/
   traces/
@@ -96,63 +142,90 @@ run-root/
   crash/
 ```
 
-RunManifest MUST быть JCS-canonical и содержать schema version; run/scenario/suite/profile ID; VerificationPolicy/ChangeImpact/CaptureJob hashes when applicable; UTC creation time только как metadata; engine/git/build/toolchain/platform/hardware; exact ProjectCompositionLock and project/content/save/replay/model/plugin/backend hashes; action-map/context, RPG aggregate schema and WorldCalendar/population profile hashes when applicable; physical archetype, body revision, proficiency band, resolved route, policy state schema и certification hashes when applicable; seeds/tick rates; exact command; configs; automatic gate thresholds/results; first-failure/minimized-replay status; artifact list с relative path, media type, bytes, SHA-256 и role; redaction/fixture classification; parent/base/candidate/baseline run IDs.
+The record may include schema version, run/scenario ID, engine/build/toolchain/
+platform/hardware, exact project/content/save/replay/model/plugin/backend
+hashes, seeds, tick rates, command, configs and a content-addressed list of
+local files. Media additionally records camera, semantic tick window,
+resolution/FPS/color/audio settings and encoder identity when those values
+matter to reproduction. The record is a debugging convenience, not a package,
+merge or release authority.
 
-Для HumanReviewRequired media manifest MUST фиксировать scenario/CapturePlan identity, base/candidate, camera, semantic tick window, render/audio settings, playback speed/FPS, overlays, raw frame/audio root, encoder/decoder manifests и reason выбора every worst/failure episode. Physical specialization дополнительно фиксирует policy compatibility/route/transition. Обязательные roles определены SPEC-15 и SPEC-05. Media generation failure записывается как AwaitingCapability/fail согласно required role; artifact нельзя молча исключить.
+## Inspectors and live access
 
-## Inspectors и live access
-
-Inspectors по умолчанию читают saved RunManifest/artifacts. Verification inspector показывает impact reasons, required/actual gates, first divergence, causal IDs, baseline/media/review status и missing capability без mutation. Physical inspector показывает deterministic resolver inputs, `MotorCapabilityView`, supervisor phase, previous/candidate route, shadow outputs, policy state/reset reason и proficiency event без mutable control. Live endpoint доступен только development build, loopback/local authenticated channel, read-only snapshots; mutating debug command требует отдельной unsafe-development capability и делает run non-conforming. Inspector schema versioned и не раскрывает vendor handles. Coding agents получают bounded saved views/context bundles; live access/interactive runtime не является условием полного authoring workflow.
+Inspectors normally read saves, replays, cooked manifests or optional developer
+run records. Live endpoints exist only in development builds over a local
+authenticated channel and expose versioned read-only snapshots. A mutating
+debug request requires a separate explicit capability and still enters the
+production command boundary. Inspector schemas contain no vendor handles,
+mutable ECS references or hidden first-party APIs.
 
 ## Crash isolation
 
-Каждый process пишет bounded crash capsule: build/config/content hashes, last completed tick, recent command/event IDs, owned subsystem health, redacted stack/minidump reference и replay checkpoint pointer. Crash handler не пытается сериализовать arbitrary corrupted world. `ai-host`, importer и tools crash не должны уронить `game`/повредить published output.
+Each process MAY write a bounded crash capsule containing build/config/content
+hashes, last completed tick, recent command/event IDs, subsystem health,
+redacted stack/minidump reference and replay checkpoint pointer. A crash
+handler never serializes an arbitrary possibly-corrupt world. Tool, importer
+or optional `ai-host` crashes cannot partially publish output or crash the
+running game process.
 
 ## Profiling hooks
 
-CPU spans, task/schedule stages, allocator counters, GPU timestamps, physics/motor timings, streaming I/O, script/plugin budgets и ai-host latency MUST иметь stable category names. Profiling off/on MUST давать одинаковые accepted command/state hashes. External profilers MAY подключаться через platform-specific adapters.
+CPU spans, schedule stages, allocator counters, GPU timestamps,
+physics/motor timings, streaming I/O, script/plugin budgets and optional
+`ai-host` latency use stable category names when profiling is enabled.
+Profiling off/on MUST produce identical accepted command and authoritative
+state hashes. External profilers connect only through private platform
+adapters.
 
 ## SDK stability
 
-V1 public SDK ограничен documented CLI JSON schemas, ProjectManifest/ProjectCompositionLock, player action/semantic projection, typed RPG/world-service values, scenario/impact/capture/evidence/review, mechanics/package/changeset/context schemas, cooked/save/replay manifests, Luau capability API, WIT worlds, `ai-host` IPC и neutral asset/import schemas. Rust internal crates, resolver/package-manager implementation, CI scheduler/artifact store, encoder implementation, MCP implementation library и live inspector protocol имеют `unstable` marker до отдельного ADR. SemVer applies to published schemas/packages; breaking major requires migration/compatibility note.
+V1 public SDK is limited to documented CLI JSON schemas,
+`ProjectManifest`/`ProjectCompositionLock`, player action and semantic
+projections, typed RPG/world values, mechanics/package/change schemas, cooked/
+save/replay manifests, Luau capability APIs, WIT worlds, optional `ai-host`
+IPC and neutral asset/import schemas. Developer capture, profiling, MCP
+implementation and live-inspector protocols remain unstable unless a future
+ADR promotes a specific contract. SemVer applies to published schemas and
+packages; breaking changes include a migration or compatibility note.
 
-## Future CI design (не является bootstrap dependency)
+## Future CI
 
-Bootstrap repository MUST NOT требовать `.github/workflows/`, CI vendor или remote. Будущий monorepo CI MUST проецировать те же local commands/application services и иметь stages: format/lint/license → impact resolution → agent-fast schema/unit/scenario → changeset replay/fault → displayless capture/media → evidence validation/human review when required → backend/long/security matrices → vertical slice → package/SBOM. Windows/Linux artifacts объединяются только после одинакового schema/content check. GPU/long gates MAY идти на tagged runners; отсутствие capability создаёт AwaitingCapability и никогда не считается pass.
+Bootstrap MUST NOT depend on `.github/workflows/`, a CI vendor or a remote.
+Future CI may run the same repository-owned `fast`, `play`,
+`persistence-replay`, `content-package` and conditional `platform` or
+`performance` checks described by ADR-030. CI scheduling and stored logs are automation details, not
+architectural authority. Optional GPU, capture, profiling or long scenarios
+run only when relevant capability is available.
 
 ## Failure semantics
 
-- Tool internal crash → exit 5, crash capsule, no atomic publish.
-- Artifact disk/full/hash failure → gate fails; prior artifact remains.
-- Unknown CLI/schema major → exit 3 before mutation.
-- Observability sink unavailable → local bounded buffer/drop counter; gameplay continues, но required gate с incomplete evidence fails.
-- Inspector corrupt input → read-only error, no repair unless explicit separate command.
-- MCP adapter unavailable/incompatible → complete CLI/JSON path; MCP error не меняет project/runtime state.
-- Stale/unsafe AgentChangeSet → reject before filesystem mutation, emit violated precondition/path/capability.
-- Incomplete/inconsistent physical certification claim → exit 4, package remains `PrototypeFallback` or previous certified revision remains published.
-- Training backend absent/incompatible → diagnostic + engine-owned headless-lab fallback; validation, route tests и prototype packaging remain available.
-- Impact resolver unknown/failed → maximal affected suite + HumanReviewRequired; no author-selected fallback.
-- GPU/encoder/reviewer capability unavailable → structured AwaitingCapability; completed CPU evidence preserved, changeset not admitted.
-- Evidence/review hash, trust-manifest/revocation snapshot, role/scope или attestation mismatch → reject before project mutation; old decision cannot be reused.
-- Cryptographically valid V2 `Reject`/`NeedsChanges` → stable `REVIEW_DECISION_NON_ADMITTING`; signed feedback is preserved, project unchanged.
-- V1 decision on current admission path → `REVIEW_SCHEMA_HISTORICAL_ONLY`; only explicit read-only historical audit remains available.
-- Deterministic retry divergence → gate failure `NONDETERMINISTIC_RESULT`; CI retry is diagnostic only.
-- MPS unavailable/unsupported operation → stable capability diagnostic + CPU smoke fallback; RunManifest не утверждает MPS pass.
-- Local RTX profile unavailable → `TRAIN-RTX-01=AwaitingCapability`; prototype validation доступна, certification promotion blocked.
+- Internal tool crash returns exit `5`; atomic output remains unpublished.
+- Disk-full, hash or atomic-publication failure retains the previous complete
+  output and returns a stable error.
+- Unknown CLI/schema major returns exit `3` before mutation.
+- Unavailable telemetry exporter uses a bounded local queue/drop counter and
+  never blocks gameplay.
+- Corrupt inspector input is a read-only error; repair requires an explicit
+  separate command.
+- Missing/incompatible MCP or other adapter falls back to the complete
+  CLI/JSON path without project/runtime mutation.
+- Stale or unsafe `AgentChangeSet` rejects before filesystem mutation with the
+  violated precondition/path/capability.
+- Missing training backend uses the engine-owned headless-lab fallback; model
+  validation and prototype packaging remain available.
+- A deterministic retry mismatch is `NONDETERMINISTIC_RESULT`, never
+  retry-to-green.
 
-## Verification gates
+## Product checks
 
-| Gate | Сценарий | Threshold | Evidence | Fallback |
-|---|---|---|---|---|
-| TOOL-01 | golden CLI success/error fixtures Win/Linux | exact stable codes/JSON schema; 0 partial publish | CLI report | release block |
-| TOOL-02 | inspect every v1 artifact/schema N/N-1 | 100% supported readable; incompatible clearly rejected | compatibility report | ship matching standalone inspector |
-| OBS-01 | profiling/telemetry disabled vs maximum declared sampling on the same 100 replay fixtures | accepted command/event/final gameplay hashes exact; runtime overhead p95 <3% CPU excluding media capture; sampling changes 0 control-flow outcomes | benchmark, sampling manifest and replay roots | reduce sampling/hooks; required evidence remains incomplete until rerun |
-| OBS-02 | crash injection across every process and atomic write point | bounded crash capsule produced for ≥99% injected crashes; source/published files are never partial; capsule contains the last completed tick and recent causal command/event IDs when safely available | crash-capsule corpus, fault matrix and publication-integrity report | harden crash/atomic boundary; preserve previous published generation |
-| OBS-03 | structured diagnostic/trace schema corpus across 100 injected failures | 100% records preserve stable code, owner, stage/tick and causal command/event identity; unordered rendered text is never an oracle; first divergence remains reproducible | diagnostic/trace schemas, canonical corpus and minimized replay report | reject diagnostic publication, preserve original replay and block diagnostic conformance |
-| OBS-04 | metrics/trace exporter absent, blocked, backpressured and crashed at every delivery boundary | 0 blocked gameplay tick, 0 authoritative state/outcome difference and a bounded local drop/incomplete-evidence counter for 100% faults | exporter fault trace, queue/drop counters and gameplay state roots | disable exporter, retain local bounded diagnostics; required evidence gate fails if artifacts are incomplete |
-| MANIFEST-01 | validate all gate runs | 100% required fields/artifacts/hashes exist and verify | manifest validator report | gate fails |
-| PRIVACY-01 | sensitive/redaction corpus plus prohibited-root scan before diagnostic/evidence publication | 0 raw user paths, secrets, prompts, voice or imported/protected bytes in default artifacts and publishable roots; every positive fixture is classified and quarantined | redaction corpus, scanner report and quarantine audit | quarantine, redact and regenerate; no publication |
-| PRIVACY-02 | import-smoke cleanup + neutral evidence closure | 0 protected bytes in repository/cache/build/package/final/evidence/media/log roots; mixed fixture class rejected | cleanup/source-access/privacy reports | quarantine; no publish/review |
-| TOOL-03 | CLI/JSON application service projection parity | mechanics/context/changeset outputs identical across direct CLI and adapters for all golden fixtures | schema/result diff | disable divergent adapter |
-| TOOL-04 | cold physical author workflow | public context + CLI create/validate/pack neutral prototype and prepare a certification changeset; all references close; 0 private crate/backend knowledge required | context closure, CLI transcript, AgentChangeSet, manifests | fix context/CLI; retain PrototypeFallback |
-| TOOL-05 | scenario/impact/evidence/review CLI projection parity | direct services и CLI/JSON produce exact TestScenario/ChangeImpact/CaptureJob/Evidence/`HumanReviewDecisionV2`/`AttestationEnvelopeV2` schemas and separate verified-vs-admission results for golden corpus; V1 is historical-audit only; no interactive/runtime-only step | schema/result diff, command transcript | disable divergent adapter; fix CLI before admission |
+| ID | Scenario | Expected behavior | Fallback |
+|---|---|---|---|
+| `TOOL-01` | Run golden CLI success/error fixtures on Win/Linux. | Stable exit codes and JSON schemas match; failed commands publish no partial output. | Fix the command contract before distributing the affected tool. |
+| `TOOL-02` | Inspect every supported current and previous-major artifact/schema fixture. | Supported data remains readable and incompatible input is rejected with a clear stable diagnostic. | Ship or retain a matching standalone inspector for the older format. |
+| `OBS-01` | Replay the same fixtures with profiling/telemetry disabled and at maximum configured sampling. | Accepted commands, events and final authoritative state hashes remain exact; enabled hooks stay within the declared local overhead budget. | Reduce sampling or disable the optional hooks. |
+| `OBS-02` | Inject crashes at process and atomic-write boundaries. | Published files are never partial; when safe, the bounded crash capsule identifies the last completed tick and recent causal IDs. | Harden the crash/atomic boundary and retain the previous complete generation. |
+| `OBS-03` | Inject representative failures across diagnostic and trace producers. | Records retain stable code, subsystem, stage/tick and causal identity; first divergence is reproducible without using rendered text as an oracle. | Drop the malformed diagnostic record while preserving the original save/replay/input. |
+| `OBS-04` | Remove, block, backpressure and crash telemetry exporters. | No gameplay tick blocks and authoritative state/outcome stays unchanged; bounded local drop counters report loss. | Disable the exporter and keep local diagnostics. |
+| `PRIVACY-01` | Run sensitive/redaction fixtures and scan developer outputs. | Default output contains no raw user paths, secrets, prompts, voices or imported/protected bytes. | Quarantine, redact and regenerate the affected local output. |
+| `TOOL-03` | Compare direct application-service results with CLI/JSON and optional adapters. | Canonical results match for every supported fixture. | Disable the divergent adapter and keep the CLI/JSON path. |
+| `TOOL-04` | Build a neutral physical prototype from a cold public-tool workflow. | Public context plus CLI can create, validate and pack it without private crate/backend knowledge. | Fix the context/CLI and keep the authored procedural fallback. |

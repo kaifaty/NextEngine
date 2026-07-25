@@ -5,25 +5,11 @@
 | ID | ADR-027 |
 | Статус | Accepted |
 | Версия | 1.0 |
-| Владелец | Physical Embodiment Team |
-| Требуемые согласующие | Repository Owner, Architecture Working Group, Runtime Team, RPG Framework Team, Physical Embodiment Team, Rendering Team, Verification & Evidence Team |
 | Дата решения | 2026-07-24 |
 | Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-013](013-self-contained-physical-avatar-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md) |
+| Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-013](013-self-contained-physical-avatar-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
-
-## История принятия
-
-ADR-027 принят как upstream authority decision consolidated architecture packet
-1.8. Downstream physics-world, motor-inference and skeletal-animation
-specifications MUST depend on this ADR; ADR-027 не зависит от них и не
-переопределяет их versioned schemas или gate descriptors.
-
-Принятие ADR фиксирует только архитектурное распределение authority. Оно не
-создаёт runtime implementation, не выбирает physics или inference backend, не
-создаёт verification evidence и не объявляет ни один PHYS, MOTOR, ANIM,
-`vertical-v1` или certification gate пройденным.
 
 ## Контекст
 
@@ -46,15 +32,15 @@ types или скрытого first-party пути.
 
 ## Решение
 
-### Единственный owner каждого слоя
+### Разделение authoritative state
 
-| State / fact | Единственный authority | Разрешённый вход | Запрещённый второй owner |
+| State / fact | Authoritative object | Разрешённый вход | Запрещённая запись извне |
 |---|---|---|---|
-| RPG, quest, inventory, damage, stamina и durable gameplay outcome | Owning RPG/Mechanics context через validated `WorldCommand` transaction | Engine-validated command/proposal | Physics callback, motor model, animation event или renderer |
-| Active physical pose, linear/angular velocity, contacts, constraints, topology и physics activation state | Physical Embodiment physics world | Validated descriptor/topology transaction, bounded force/impulse/kinematic request и accepted motor actuation | Animation graph, motor evaluator, renderer, AI, script, package или backend-native public handle |
-| Active policy route, bounded recurrent state и candidate `MotorAction` | Motor Runtime / `PolicySupervisor` | `PhysicalAvatarIntent`, canonical `MotorObservation`, exact route/profile hashes | Physics pose store, animation graph, Agent plan или mutable RPG state |
-| Reference motion, animation state-machine cursor, presentation-only secondary motion и visual local pose | Animation Runtime | Immutable authored animation content, intent and committed physical snapshots | Gameplay state, active physical pose, contact or collision transform |
-| `RenderPose`, interpolation, visual IK, camera-facing and GPU deformation | Presentation / Rendering | Immutable committed physics or animation projection according to physical LOD | Any authoritative simulation field |
+| RPG, quest, inventory, damage, stamina и durable gameplay outcome | `RpgDomainState` / Mechanics transaction через validated `WorldCommand` | Engine-validated command/proposal | Physics callback, motor model, animation event или renderer |
+| Active physical pose, linear/angular velocity, contacts, constraints, topology и physics activation state | `PhysicsWorldState` | Validated descriptor/topology transaction, bounded force/impulse/kinematic request и accepted motor actuation | Animation graph, motor evaluator, renderer, AI, script, package или backend-native public handle |
+| Active policy route, bounded recurrent state и candidate `MotorAction` | `PolicySupervisorState` | `PhysicalAvatarIntent`, canonical `MotorObservation`, exact route/profile hashes | Physics pose store, animation graph, Agent plan или mutable RPG state |
+| Reference motion, animation state-machine cursor, presentation-only secondary motion и visual local pose | `AnimationState` | Immutable authored animation content, intent and committed physical snapshots | Gameplay state, active physical pose, contact or collision transform |
+| `RenderPose`, interpolation, visual IK, camera-facing and GPU deformation | `PresentationState` | Immutable committed physics or animation projection according to physical LOD | Any authoritative simulation field |
 
 Physics authority означает authority над physical numerics, а не над foreign
 domain semantics. Только validated outcome transaction может превратить
@@ -108,7 +94,7 @@ Async model/content preparation возвращается immutable staged result
 - IDs, topology, enum classes, tick/substep, order, quantized integer values,
   contact/query classes, snapshot bytes/root and gameplay outcomes are exact.
   Tolerance допустима только для отдельно declared non-authoritative raw
-  correspondence metric и никогда не выбирает outcome или `PASS` exact
+  correspondence metric и никогда не выбирает outcome или скрывает exact
   mismatch.
 - Non-finite input, undeclared unit, overflow, missing quantization rule or
   projection mismatch aborts uncommitted physical transaction. Retry не может
@@ -126,15 +112,14 @@ callback.
 
 Model evaluator, procedural controller and heuristic fallback use the same
 action schema and safety validator. First-party policy не получает hidden
-actuation API. Exact `MotorAction` owner до validation — Motor Runtime; после
-validation physics consumes one immutable actuation record, but never transfers
-pose authority to the producer.
+actuation API. `PolicySupervisorState` retains the exact candidate
+`MotorAction` until validation; after validation physics consumes one immutable
+actuation record, but never transfers pose authority to the producer.
 
 Rejected, stale, non-finite, incompatible or unsafe action changes no body
 state. The declared deterministic safe-hold/recovery route remains available.
-Wall watchdog MAY protect the process only by marking the run
-`NonConforming`; it cannot be an authoritative policy-selection clock or gate
-evidence.
+Wall watchdog MAY abort an uncommitted evaluation and report a diagnostic; it
+cannot be an authoritative policy-selection clock or choose a fallback route.
 
 ### Animation и presentation не являются gameplay authority
 
@@ -153,8 +138,8 @@ collision transform while Animation Runtime owns only visual local pose. The
 declared visual leash is diagnostic/presentation behavior; visual pose cannot
 move the capsule or prove a contact.
 
-For `Abstract`, no hidden body/contact exists. World Services/RPG owners
-produce only their declared abstract outcomes. Animation and renderer absence
+For `Abstract`, no hidden body/contact exists. `WorldServicesState` and
+`RpgDomainState` produce only their declared abstract outcomes. Animation and renderer absence
 changes no mandatory result.
 
 Animation events MAY emit presentation cues or future command proposals, but
@@ -192,8 +177,8 @@ and immutable snapshots. Public schemas MUST NOT expose:
 - animation middleware graph/node handles or renderer/GPU buffer objects;
 - importer/source-format types.
 
-PhysX, Jolt and Bullet remain `Proposed` physics candidates in
-EVIDENCE-001. ONNX Runtime remains a `Proposed` motor inference candidate.
+PhysX, Jolt and Bullet remain `Proposed` physics candidates. ONNX Runtime
+remains a `Proposed` motor inference candidate.
 This ADR selects none of them. Each implementation maps privately to the same
 engine-owned contract and may be rejected without changing layer authority.
 
@@ -222,8 +207,8 @@ quantized canonical values may drive authority; raw tolerance is diagnostic.
 ### Select a physics or animation vendor in the layering ADR
 
 Rejected. Authority and public semantics must survive backend replacement.
-Technology selection requires separate evidence and, when status changes, a
-separate ADR.
+Technology selection requires a targeted product check and, when semantics
+change, a separate ADR.
 
 ## Последствия
 
@@ -235,9 +220,16 @@ separate ADR.
 - A backend may need an adapter or deterministic reference fallback to meet the
   canonical boundary. Inability to do so rejects that candidate; it does not
   weaken the contract.
-- Observable physical/motor/animation changes still require automatic gates
-  and hash-bound human evidence. This ADR creates neither evidence nor human
-  approval.
+- Observable physical/motor/animation changes exercise the affected playable
+  loop and, when relevant, a targeted platform or performance check.
+
+## Product checks
+
+| Scenario | Expected | Fallback |
+|---|---|---|
+| Same intent and content under worker-order, renderer-presence and backend-callback permutations | Canonical observation, accepted actuation, physical snapshot, contacts, gameplay outcomes and replay result remain exact | Serialize behind the same boundary or reject the incompatible adapter |
+| Stale, non-finite, topology-mismatched or unsafe `MotorAction` | No body state changes and no gameplay fact is emitted | Use the declared deterministic safe-hold or recovery controller |
+| LOD/topology transition fault and presentation/device-cache loss | The source physical state remains active until atomic transition commit; rebuilt presentation never rewrites simulation | Retain the last safe tier/topology/route and rebuild reconstructible caches |
 
 ## Supersession
 
@@ -245,4 +237,4 @@ ADR-027 complements ADR-009, ADR-013 and ADR-022 and does not supersede them.
 Changing physics numeric authority, allowing motor/animation/presentation to
 write active physical pose, or allowing raw tolerance to decide gameplay
 requires a new Accepted ADR with explicit supersession and synchronized
-specification, traceability, gate and evidence updates.
+updates to affected specifications.

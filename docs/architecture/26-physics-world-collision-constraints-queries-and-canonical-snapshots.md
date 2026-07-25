@@ -4,11 +4,9 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 1.0 |
-| Владелец | Physical Embodiment Team |
-| Требуемые согласующие | Repository Owner, Architecture Working Group, Runtime Team, Asset & Persistence Team, Physical Embodiment Team, RPG Framework Team, World Services Team, Verification & Evidence Team, Security & Governance Team, Release Engineering |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-024](adr/024-requirement-gate-evidence-and-profile-closure.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md) |
+| Версия | 1.1 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md) |
 | Заменяет | отсутствует |
 
 ## История принятия
@@ -17,17 +15,16 @@ SPEC-26 принят как часть consolidated architecture packet 1.8. О�
 специализирует upstream authority ADR-027 для physics-world API, collision,
 constraints, scene queries, contact stream and canonical snapshot/restore.
 
-Принятие exact architecture packet root означает только admission
-engine-owned contracts. Оно не создаёт runtime implementation, не выбирает
-physics backend, не создаёт gate result or evidence и не объявляет
-`vertical-v1`, shipping, training or `PhysicalCertified` conformance.
+Документ определяет engine-owned contracts, но не создаёт runtime
+implementation и не выбирает physics backend. Поддержка конкретного backend
+определяется только его поведением в product checks ниже.
 
 ## Назначение и invariants
 
 SPEC-26 задаёт единственную переносимую границу между simulation и
 replaceable physics implementation.
 
-- Physical Embodiment Team владеет active physics world, body pose/velocity,
+- Physical Embodiment subsystem владеет active physics world, body pose/velocity,
   constraints, collision/contact state, query semantics and canonical physical
   snapshot.
 - Public schemas являются engine-owned, versioned and registered through
@@ -57,10 +54,10 @@ replaceable physics implementation.
 
 | State | Единственный owner/source of truth | Allowed input / projection |
 |---|---|---|
-| Registered physics schemas and migrations | Asset & Persistence Team through SPEC-22/ADR-025 | Exact schema refs, compatibility and copy-on-write migration |
-| Immutable collision assets and their feature mapping | Asset & Persistence Team through SPEC-24 | Exact `AssetId`, revision, record hash and canonical feature table |
-| Active world/body/joint/contact/numeric state | Physical Embodiment Team | Validated descriptors, physical step batches and canonical snapshots |
-| Stage/tick assignment and deterministic task merge | Runtime Team | SPEC-21 schedule/clock plus SPEC-23/ADR-026 staged immutable results |
+| Registered physics schemas and migrations | Asset & Persistence subsystem through SPEC-22/ADR-025 | Exact schema refs, compatibility and copy-on-write migration |
+| Immutable collision assets and their feature mapping | Asset & Persistence subsystem through SPEC-24 | Exact `AssetId`, revision, record hash and canonical feature table |
+| Active world/body/joint/contact/numeric state | Physical Embodiment subsystem | Validated descriptors, physical step batches and canonical snapshots |
+| Stage/tick assignment and deterministic task merge | Runtime subsystem | SPEC-21 schedule/clock plus SPEC-23/ADR-026 staged immutable results |
 | Motor route/action proposal | Motor Runtime | Read-only observation; accepted action enters one bounded step batch |
 | RPG/mechanics result | Owning domain through common command transaction | Immutable physical outcome proposal |
 | Animation and render pose | Animation/Presentation according to ADR-027 | Read-only committed physical projection |
@@ -179,7 +176,7 @@ Vector magnitude is checked from exact components with checked integer
 arithmetic; checking components alone is insufficient. Count, decoded length,
 offset, product, squared magnitude or accumulation overflow rejects the entire
 staged descriptor/operation/query/snapshot before allocation or publication.
-SPEC-23 resource budgets MAY impose a lower admission result and never raise
+SPEC-23 resource budgets MAY impose a lower capacity result and never raise
 these hard bounds.
 
 ## Canonical descriptor envelope and identities
@@ -253,7 +250,7 @@ PhysicsWorldDescriptorV1 {
 fixed substeps, sleep/activation thresholds, continuous-collision class,
 constraint stabilization class and contact reporting obligations. It contains
 no iteration enum or native solver setting. A private backend configuration is
-conforming only when the gate proves the same public behavior.
+supported only when the product check proves the same public behavior.
 
 World activation is:
 
@@ -520,7 +517,7 @@ Step flow is atomic at the public boundary:
 
 1. validate world revision, exact profile/catalog hashes and all request
    preconditions;
-2. apply any admitted topology transaction on staging;
+2. apply any validated topology transaction on staging;
 3. map exact requests to private adapter objects;
 4. execute the declared fixed CPU substep without gameplay callback;
 5. read raw state/contact candidates;
@@ -703,13 +700,13 @@ Every physics field and assertion has exactly one class:
 
 | Class | Included values | Normative comparison and allowed use |
 |---|---|---|
-| `ExactCanonical` | schema/version/profile/content hashes; descriptor bytes/hashes; IDs and revisions; enum classes; body/shape/joint topology; layer/mask/filter decisions; ticks/substeps; counts; canonical order; query cardinality/boolean/truncation; contact phase/ID; snapshot bytes/root; command/event/gameplay result | Byte/integer exact. May drive branch, ordering, state, save/replay and gate result. Any mismatch is failure. |
+| `ExactCanonical` | schema/version/profile/content hashes; descriptor bytes/hashes; IDs and revisions; enum classes; body/shape/joint topology; layer/mask/filter decisions; ticks/substeps; counts; canonical order; query cardinality/boolean/truncation; contact phase/ID; snapshot bytes/root; command/event/gameplay result | Byte/integer exact. May drive branch, ordering, state, save/replay and product-check result. Any mismatch is failure. |
 | `QuantizedExact` | backend-derived pose, quaternion, velocity, acceleration, force/torque/impulse, mass/inertia observation, joint state, contact point/normal/relative velocity/effective mass, query fraction/distance/point/normal and solver-continuation values after the exact SPEC-21 rule | Resulting fixed-point integers and canonical bytes are exact. May drive branch/order/outcome/hash only after complete successful conversion. |
 | `ToleranceDiagnosticOnly` | private pre-quantization backend samples, solver residuals and separately captured runtime/training or candidate-backend correspondence metrics | Never public/durable/authoritative; never an ID/order/branch/outcome/root input; cannot waive an `ExactCanonical` or `QuantizedExact` mismatch. |
 
 A tolerance assertion is valid only when its scenario names the exact field,
 source format, unit, sample population, absolute/relative metric, finite
-threshold, aggregation and evidence artifact. Implicit epsilon,
+threshold, aggregation and diagnostic output. Implicit epsilon,
 platform-default tolerance, unordered float reduction, NaN/infinity and
 “close enough” snapshot/contact/query equality are forbidden. A missing
 classification is `PHYS_NUMERIC_CLASS_UNDECLARED`.
@@ -868,7 +865,7 @@ state.
 | `PHYS_DESCRIPTOR_ID_COLLISION` | Fail closed and quarantine conflicting revision; never rename, salt or choose by arrival order. |
 | `PHYS_UNIT_AXIS_MISMATCH` | Reject before conversion/publication; require an exact declared conversion/provenance recipe. |
 | `PHYS_LIMIT_EXCEEDED` | Reject before allocation or step mutation; checked overflow is not clamped unless the schema explicitly defines a pre-operation clamp. |
-| `PHYS_NUMERIC_CLASS_UNDECLARED` | Reject schema/scenario; an unclassified field cannot enter authority or tolerance evidence. |
+| `PHYS_NUMERIC_CLASS_UNDECLARED` | Reject schema/scenario; an unclassified field cannot enter authority or tolerance comparison. |
 | `PHYS_REFERENCE_INVALID` | Reject the complete world/topology transaction; no dangling material/body/shape/joint/content reference. |
 | `PHYS_COLLISION_FILTER_INVALID` | Reject shape/world descriptor or contact batch; retain prior filter/catalog. |
 | `PHYS_FEATURE_MAPPING_INVALID` | Reject authoritative collision/query/contact result; backend feature ID cannot leak or be guessed. |
@@ -886,55 +883,39 @@ diagnostic/crash capsule. Optional alternative backend may run the same full
 contract later, but no automatic mid-step backend switch, approximate contact
 or partial snapshot continuation is allowed.
 
-## Canonical gate descriptors
+## Product checks
 
-The following five rows are the sole semantic `GateDescriptorV1` sources for
-these IDs. Each has `descriptor_source_id = SPEC-26`,
-`classification = AcceptedBaseline` and `result_policy = Blocking`. Other
-documents may aggregate or reference them but MUST NOT redefine subject,
-scenario, threshold, evidence or fallback.
+| ID | Сценарий | Ожидаемый результат | Fallback |
+|---|---|---|---|
+| `PHYS-API-P1` | `physics-api-contract-v1` on Windows/Linux, 10 000 permutations and N−1/N/N+1 limits | canonical descriptor bytes/hashes/roots are exact; every invalid schema, ID, revision, unit, bound, reference or forbidden public type rejects before mutation | reject descriptor/backend and retain prior exact world/project lock |
+| `PHYS-COLLISION-P1` | `physics-collision-contact-v1`, 100 000 substeps and 10 000 order permutations | filter/material decisions, contact bytes/IDs/phases/order and roots are exact on both targets; every mapping, capacity and non-finite fault rejects atomically | abort uncommitted substep and retain last canonical checkpoint |
+| `PHYS-JOINT-P1` | all joint kinds, axis modes and 10 000 topology/snapshot cycles | descriptor/topology/joint/projection roots exact; stale endpoint, invalid frame/limit/mask/bound and unsafe action produce no partial graph | restore pre-transaction snapshot and retain prior topology/route |
+| `PHYS-QUERY-P1` | every query kind/cardinality, N−1/N/N+1 capacities and 10 000 order permutations | boolean/count/truncation/hit bytes/order/root exact on Windows/Linux; invalid or over-capacity query publishes no partial result | reject the complete query and use only a separately declared deterministic fallback |
+| `PHYS-SNAPSHOT-P1` | 1 000 checkpoint restores with 100-substep continuation across `game`, `headless`, `capture-worker`, worker counts and Windows/Linux | canonical snapshot/projection roots, joint state, query/contact order and outcomes byte-identical; faults expose only complete prior or restored world | retain prior valid checkpoint/save and reject incompatible backend/profile |
 
-| Gate ID | Subject / applicability | Primary owner | Contributors | Reproducible command/scenario | Pass threshold | Required evidence | Fallback / fail-closed outcome | Requirement IDs | Failure IDs | VS / profile closure |
-|---|---|---|---|---|---|---|---|---|---|---|
-| `PHYS-API-P1` | Engine-owned world/material/shape/body descriptors, IDs, units, limits and facade boundary; every v1 physics world/backend candidate | Physical Embodiment Team | Runtime Team, Asset & Persistence Team, Security & Governance Team | `next gate PHYS-API-P1 --scenario physics-api-contract-v1 --targets windows-x86_64,linux-x86_64 --permutations 10000 --limits n-1,n,n+1 --faults all` | Positive descriptor/catalog corpus produces byte-identical canonical bytes/hashes/roots on both targets under 10,000 declaration/registration/allocation permutations; every count/scalar limit at N−1/N/N+1 yields the exact result; 100% unknown schema/variant, duplicate ID, stale revision, unit/axis, bounds/overflow, missing reference and forbidden public type cases reject before world mutation; public/schema/link scan finds 0 ECS, OS, importer or vendor/backend type | Descriptor/catalog/profile bytes and hashes, cross-target vectors, limit and negative corpus, adapter round-trip report, unchanged-world proof and public/schema/link scan | Reject candidate descriptor/backend, retain prior exact world/project lock and run any alternative only through the same gate; no reduced contract | REQ-128 | FAIL-052 | VS-05 |
-| `PHYS-COLLISION-P1` | Collision filtering/material response, canonical feature mapping and normalized `ContactEventV1`; every world with collision/contact authority | Physical Embodiment Team | Runtime Team, Asset & Persistence Team, RPG Framework Team | `next gate PHYS-COLLISION-P1 --scenario physics-collision-contact-v1 --targets windows-x86_64,linux-x86_64 --substeps 100000 --permutations 10000 --faults all` | Across 100,000 fixed substeps and 10,000 body/shape registration, callback, manifold, worker and allocation permutations, filter/material/sensor decisions plus normalized contact bytes, IDs, Begin/Persist/End sequence and roots are exact on both targets; 100% quantization boundary/feature/filter/capacity/nonfinite faults reject before outcome/publication; 0 required contact missing, duplicate or reordered | World/material/shape/profile hashes, raw-to-quantized vectors, canonical feature maps, pair/filter/material tables, contact/continuity/event roots, permutation/fault traces and unchanged-checkpoint proof | Abort uncommitted substep/result and retain last canonical checkpoint; reject backend and repeat the unchanged suite on an alternative candidate | REQ-129 | FAIL-052, FAIL-053 | VS-05 |
-| `PHYS-JOINT-P1` | Joint/constraint descriptor graph, limits, actuation bounds, break classification and atomic topology mutation; every world with constraints | Physical Embodiment Team | Runtime Team, Motor Runtime | `next gate PHYS-JOINT-P1 --scenario physics-joints-v1 --targets windows-x86_64,linux-x86_64 --cycles 10000 --limits n-1,n,n+1 --faults all` | All five joint kinds and every locked/free/limited axis, threshold N−1/N/N+1 and allowed topology pattern complete 10,000 create/mutate/step/break/snapshot-restore cycles with exact descriptor/topology/joint-state/projection roots; every stale endpoint/revision, invalid frame/limit/mask/bound, unsafe action and adapter fault yields 0 partial graph or actuation | Joint/body catalogs and hashes, six-axis boundary vectors, topology transactions, actuation/safety traces, break/outcome records, snapshot/projection roots and full fault matrix | Restore pre-transaction canonical snapshot, retain prior topology/route and reject unsafe action/backend; no partial constraint graph | REQ-130 | FAIL-052, FAIL-053 | VS-05 |
-| `PHYS-QUERY-P1` | Authoritative ray/shape/overlap/closest queries, filters, bounded cardinality and canonical hit ordering; every gameplay-facing query profile | Physical Embodiment Team | Runtime Team, RPG Framework Team, World Services Team | `next gate PHYS-QUERY-P1 --scenario physics-queries-v1 --targets windows-x86_64,linux-x86_64 --permutations 10000 --limits n-1,n,n+1 --faults all` | Every permitted query-kind/cardinality pair at request/candidate/published-hit limits N−1/N/N+1 produces exact boolean/count/truncation/hit bytes/order/root across 10,000 registration, broadphase, callback, worker and allocation permutations on both targets; 100% stale snapshot, invalid kind/cardinality/direction/filter/exclusion/feature, nonfinite/overflow and capacity cases return the exact failure with 0 partial result/outcome | Query/profile/snapshot hashes, positive and negative query corpus, raw-to-quantized hit vectors, complete candidate/canonical top-k tables, permutation roots, capacity/fault and no-partial-result audit | Reject complete query and retain gameplay state; use only an independently declared deterministic non-query fallback, otherwise block the proposed outcome | REQ-130 | FAIL-052, FAIL-053 | VS-05 |
-| `PHYS-SNAPSHOT-P1` | Canonical physical checkpoint, exact projection and atomic restore/continuation; every save/replay and `game`/`headless`/`capture-worker` physical world | Physical Embodiment Team | Runtime Team, Asset & Persistence Team, Verification & Evidence Team | `next gate PHYS-SNAPSHOT-P1 --scenario physics-snapshot-replay-v1 --targets windows-x86_64,linux-x86_64 --compare game,headless,capture-worker --workers 1,2,8,16 --checkpoints 1000 --continuation-substeps 100 --faults all` | 1,000 checkpoints each restored and continued for 100 substeps produce byte-identical canonical snapshot/projection roots, joint states, query/contact order and physical outcome sequence across all three roots, worker counts and both targets; every decode/hash/profile/reference/limit/native-round-trip/publication fault exposes only the complete prior or complete restored world; tolerance metrics are separately classified and change 0 exact result | Snapshot bytes/roots, descriptor/catalog/project/profile hashes, restore/export round-trip records, continuation step/query/contact/joint/outcome roots, cross-root/target/worker comparison, injected fault/publication matrix and separately labeled raw correspondence report | Retain prior valid canonical checkpoint/save and block restore/backend/profile; no native-blob or tolerance fallback | REQ-131 | FAIL-053 | VS-05, VS-11 |
-
-Missing required Windows/Linux execution capability yields
-`AwaitingCapability`, not `PASS`. Architecture acceptance, a Mac developer-host
-run, a raw-tolerance report or a candidate-backend marketing claim cannot
-create these gate results.
-
-These gates do not redefine existing `PHYS-P1` through `PHYS-P8` or
-`NUMERIC-P1`. They provide the lower-level descriptor/collision/joint/query/
-snapshot closure consumed alongside those existing gates.
+These checks cover the lower-level descriptor, collision, joint, query and
+snapshot contracts consumed by `PHYS-P1`…`PHYS-P8` and `NUMERIC-P1`.
 
 ## Requirements
 
-| ID | Нормативное требование | Primary owner | Contributors | Blocking gates | Required evidence | Fallback / fail-closed outcome | VS / profile closure |
-|---|---|---|---|---|---|---|---|
-| REQ-128 | Every physics world, material, shape and body MUST use the bounded versioned engine-owned descriptors, canonical metres/kilograms/seconds/radians and right-handed axes above, with exact IDs/hashes and no ECS, OS, importer or vendor/backend public type. | Physical Embodiment Team | Runtime Team, Asset & Persistence Team, Security & Governance Team | PHYS-API-P1 | Cross-target descriptor/catalog/profile vectors and hashes, unit/axis/limit negative corpus, adapter round-trip and public/schema/link scan. | Reject candidate before adapter/world publication and retain the prior exact world/project lock. | VS-05 |
-| REQ-129 | Collision filtering, material combination, shape-feature mapping and `ContactEventV1` continuity MUST be backend-independent, bounded and published in the complete canonical participant/feature/quantized-value order with exact event classes and IDs. | Physical Embodiment Team | Runtime Team, Asset & Persistence Team, RPG Framework Team | PHYS-COLLISION-P1 | Pair/filter/material tables, canonical feature maps, raw-to-quantized vectors, contact/continuity/event roots and permutation/fault traces. | Abort uncommitted contact/result publication, retain the last canonical checkpoint and reject a backend that cannot supply required telemetry. | VS-05 |
-| REQ-130 | Joint/constraint graphs and authoritative scene queries MUST use closed bounded engine-owned descriptors, exact revisions/snapshot selectors, atomic mutation and complete canonical result ordering; motor/query callers MUST NOT access a backend handle or partial result. | Physical Embodiment Team | Runtime Team, Motor Runtime, RPG Framework Team, World Services Team | PHYS-JOINT-P1, PHYS-QUERY-P1 | Joint/topology/action boundary vectors, query candidate/hit corpus, canonical roots, capacity limits and no-partial-mutation/result fault matrix. | Restore the prior topology or reject the complete query/action; retain gameplay state and block unsupported outcome. | VS-05 |
-| REQ-131 | Every authoritative physical field MUST be classified `ExactCanonical`, `QuantizedExact` or `ToleranceDiagnosticOnly`, and save/replay MUST use one portable `PhysicsCanonicalSnapshotV1` whose atomic restore and continuation produce exact roots across `game`, `headless`, `capture-worker`, Windows and Linux. | Physical Embodiment Team | Runtime Team, Asset & Persistence Team, Verification & Evidence Team | PHYS-SNAPSHOT-P1 | Classification registry, canonical snapshot/projection bytes and roots, cross-root/target continuation report, restore fault matrix and separately labeled raw correspondence metrics. | Retain the prior valid canonical checkpoint/save and block incompatible restore/backend/profile; tolerance and native blobs cannot waive exact mismatch. | VS-05, VS-11 |
+| ID | Technical requirement | Product checks |
+|---|---|---|
+| REQ-128 | Every physics world, material, shape and body MUST use bounded versioned engine-owned descriptors, canonical units/right-handed axes and exact IDs/hashes, with no ECS, OS, importer or vendor/backend public type. | PHYS-API-P1 |
+| REQ-129 | Collision filtering, material combination, shape-feature mapping and `ContactEventV1` continuity MUST be backend-independent, bounded and published in complete canonical participant/feature/value order. | PHYS-COLLISION-P1 |
+| REQ-130 | Joint graphs and authoritative scene queries MUST use closed bounded descriptors, exact revisions/snapshot selectors, atomic mutation and complete canonical ordering; callers MUST NOT access backend handles or partial results. | PHYS-JOINT-P1, PHYS-QUERY-P1 |
+| REQ-131 | Every authoritative field MUST be `ExactCanonical`, `QuantizedExact` or `ToleranceDiagnosticOnly`; save/replay MUST use portable `PhysicsCanonicalSnapshotV1` with exact continuation across composition roots and shipping targets. | PHYS-SNAPSHOT-P1 |
 
 ## Failure paths
 
-| ID | Trigger | Required result | Primary owner | Contributors | Blocking gates | Required evidence | Fallback / fail-closed outcome | VS / profile closure |
-|---|---|---|---|---|---|---|---|---|
-| FAIL-052 | Unknown/stale/duplicate descriptor; invalid world/body/shape/material/joint/query schema or reference; unit/axis/range/count/length/overflow error; invalid filter/feature/frame/limit; forbidden public backend type | Reject the complete descriptor/catalog/topology/query before adapter mutation or publication, emit the stable first-cause diagnostic and prove the prior world/root unchanged. | Physical Embodiment Team | Runtime Team, Asset & Persistence Team, Security & Governance Team | PHYS-API-P1, PHYS-COLLISION-P1, PHYS-JOINT-P1, PHYS-QUERY-P1 | Descriptor/content/profile/limits negative corpus, diagnostics, unchanged-world/snapshot roots, adapter/publication audit and public/schema/link scan. | Quarantine/reject candidate and retain the prior exact world/topology/project lock; no guessed reference, implicit conversion or partial query. | VS-05 |
-| FAIL-053 | Non-finite backend value, missing quantization/feature mapping or required contact; callback/worker/order divergence; joint/contact/query exact mismatch; corrupt/incompatible snapshot; restore/export/continuation root mismatch | Abort the uncommitted step/query/restore, preserve the last valid canonical checkpoint and report `NONDETERMINISTIC_RESULT` at first divergence; retry, tolerance or native snapshot cannot turn it into `PASS`. | Physical Embodiment Team | Runtime Team, Asset & Persistence Team, Verification & Evidence Team | PHYS-COLLISION-P1, PHYS-JOINT-P1, PHYS-QUERY-P1, PHYS-SNAPSHOT-P1 | Raw-to-quantized and boundary vectors, contact/query/joint sequence roots, snapshot round-trip/continuation comparisons, first-divergence diagnostic and fault/publication matrix. | Stop or retain prior canonical world/save, reject the backend/profile and rerun any alternative only through the unchanged full gates. | VS-05, VS-11 |
+| ID | Trigger | Required behavior | Product checks |
+|---|---|---|---|
+| FAIL-052 | Unknown/stale/duplicate descriptor; invalid schema/reference/unit/axis/range/count/filter/feature/frame/limit; forbidden public backend type | Reject the complete descriptor/catalog/topology/query before adapter mutation, emit stable first-cause diagnostic and preserve prior world/root. | PHYS-API-P1, PHYS-COLLISION-P1, PHYS-JOINT-P1, PHYS-QUERY-P1 |
+| FAIL-053 | Non-finite backend value, missing mapping/contact, order divergence, exact mismatch, corrupt snapshot or continuation-root mismatch | Abort the uncommitted step/query/restore, preserve last valid checkpoint and report `NONDETERMINISTIC_RESULT`; retry, tolerance and native snapshots cannot waive it. | PHYS-COLLISION-P1, PHYS-JOINT-P1, PHYS-QUERY-P1, PHYS-SNAPSHOT-P1 |
 
 ## Technology neutrality
 
-This specification accepts no physics technology. PhysX (`TECH-007`), Jolt
-(`TECH-008`) and Bullet (`TECH-009`) remain separate `Proposed` candidates in
-EVIDENCE-001; none is selected, admitted or described as conforming here.
-
-A candidate adapter may use a private vendor SDK, native broadphase, solver,
-thread pool or optimized checkpoint only behind these exact engine-owned
-contracts. It must pass the same five baseline gates plus applicable existing
-PHYS/NUMERIC gates. Failure selects no automatic winner and never lowers
-descriptor, contact, query, snapshot or exactness requirements.
+PhysX (`TECH-007`), Jolt (`TECH-008`) and Bullet (`TECH-009`) remain
+replaceable `Proposed` candidates; this specification selects none. A private
+vendor adapter must implement the same engine-owned contracts and pass the
+same product checks without lowering descriptor, contact, query, snapshot or
+exactness requirements.

@@ -4,15 +4,14 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 1.8 |
-| Владелец | Repository Owner |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
+| Версия | 1.9 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
 
-До cooking source files и validated `ProjectManifest` являются authoring source of truth. После atomic publish `ProjectCompositionLock` + `SchemaRegistryManifestV1` + `ContentManifestV1` + `WorldPartitionManifestV1` + immutable content-addressed bundles являются единственным runtime project/schema/asset/world/model source. Save state владеет только mutable progression/deltas, durable placement/tombstones, selected model/route references и declared PolicyState; оно не копирует immutable model weights или asset payload. Asset & Persistence Team владеет schema/content publication, cooker, low-level streaming state machine, atomic lock publication, save transactions и migration execution; semantic schema compatibility задаёт SPEC-22/ADR-025, resource admission — SPEC-23/ADR-026, durable topology/placement — SPEC-25.
+До cooking source files и validated `ProjectManifest` являются authoring source of truth. После atomic publish `ProjectCompositionLock` + `SchemaRegistryManifestV1` + `ContentManifestV1` + `WorldPartitionManifestV1` + immutable content-addressed bundles являются единственным runtime project/schema/asset/world/model source. Save state владеет только mutable progression/deltas, durable placement/tombstones, selected model/route references и declared PolicyState; оно не копирует immutable model weights или asset payload. Asset & Persistence subsystem владеет schema/content publication, cooker, low-level streaming state machine, atomic lock publication, save transactions и migration execution; semantic schema compatibility задаёт SPEC-22/ADR-025, resource admission — SPEC-23/ADR-026, durable topology/placement — SPEC-25.
 
 ## Public boundary и data flow
 
@@ -39,7 +38,7 @@ game / headless / inspectors
 ## Cooking и content addressing
 
 - Cooker input включает exact source hashes, importer/tool versions, schema versions, target profile и deterministic options.
-- Public/policy/evidence manifests MUST использовать RFC 8785 JCS, а authoritative numeric/state segments — `CanonicalBinaryV1` из ADR-022. Canonicalization MUST нормализовать ordering, semantic negative zero, paths/case и NFC strings; duplicate keys, NaN/infinity и case-fold path collisions rejected.
+- Public and policy manifests MUST использовать RFC 8785 JCS, а authoritative numeric/state segments — `CanonicalBinaryV1` из ADR-022. Canonicalization MUST нормализовать ordering, semantic negative zero, paths/case и NFC strings; duplicate keys, NaN/infinity и case-fold path collisions rejected.
 - Bundle key MUST включать SHA-256 canonical payload. Published bundle immutable; изменение создаёт новый hash.
 - Publish MUST быть atomic: staging → validate schema registry, compatibility,
   content/dependency/variant hashes, provenance/license and resource bounds →
@@ -58,41 +57,68 @@ Chunk становится `Active` только на simulation commit point п
 
 Save procedure: freeze logical commit point → snapshot owner segments → write new staging save → fsync files/manifest where platform permits → validate → atomic pointer update. Autosave MUST NOT перезаписывать единственную известную валидную generation.
 
-Migration uses the unique schema-registry DAG and pure ordered transforms over a complete copy. Runtime-supported direct load is `N`/`N-1`; admitted copy-on-write migration reaches `N` from `N-2` only through the unique validated path defined by SPEC-22. Unknown required segment/field, checksum mismatch, missing content revision, ambiguous path or failed transform → fail-closed with original generation byte-identical. Legacy RPG-owned calendar fields переносятся в `WorldCalendarStateV1` одной atomic copy-on-write transaction: новый RPG segment без calendar fields и новый World Services segment публикуются только вместе после cross-segment validation. Любой duplicate/missing/conflicting calendar field, unsupported mapping, hash/revision mismatch или injected publication failure сохраняет original save bytes и не публикует ни один новый segment. User получает stable code, affected schema/segment и recovery choices.
+Migration uses the unique schema-registry DAG and pure ordered transforms over a complete copy. Runtime-supported direct load is `N`/`N-1`; validated copy-on-write migration reaches `N` from `N-2` only through the unique path defined by SPEC-22. Unknown required segment/field, checksum mismatch, missing content revision, ambiguous path or failed transform → fail-closed with original generation byte-identical. Legacy RPG-owned calendar fields переносятся в `WorldCalendarStateV1` одной atomic copy-on-write transaction: новый RPG segment без calendar fields и новый World Services segment публикуются только вместе после cross-segment validation. Любой duplicate/missing/conflicting calendar field, unsupported mapping, hash/revision mismatch или injected publication failure сохраняет original save bytes и не публикует ни один новый segment. User получает stable code, affected schema/segment и recovery choices.
 
 ## Replay
 
-`ReplayManifest` фиксирует initial save/snapshot, exact `ProjectCompositionLock`, `WorldIdentityManifestV1`, named RNG streams, `RuntimeDeterminismProfileV1`, content/build/schema/physical-archetype/model/policy-route/plugin/MechanicsLock hashes, world-level `CommandLedgerV2` snapshot/root с каждым `CommandStreamLedgerV2`, все `ClosedIngressBatchV1` и все `ClosedCommandAdmissionBatchV2`. Каждый ingress batch сохраняет bounded decoded input/completion records, exact assignments и исходную batch boundary. Каждый command-admission batch сохраняет все bounded/authenticated/decodable external `WorldCommandEnvelopeV2`, включая exact duplicates, conflicting bodies, invalid claims, deterministic rejections и finalized retries, с `simulation_tick`/`phase`/`batch_ordinal`, canonical candidate order и исходной batch boundary. Envelope transport metadata заменяется `None`; `CanonicalCommandBodyV2` не содержит собственного ID или transport metadata. Malformed/unauthenticated transport bytes не являются gameplay replay input и MAY сохраняться только отдельно как audit raw hash/structured diagnostic. Runtime-generated `Outcome` повторно выводится production systems; expected receipts/events, включая ActivePolicyRouteChanged, MAY сохраняться как oracle. Replay runner MUST сравнивать ADR-022 per-tick state root, exact command/rejection/receipt/event/outcome, RPG aggregate revision, population/calendar cursor outcomes и указывать first divergence. Cross-target tolerance не применяется к IDs, commands, events, manifests или gameplay outcomes.
+`ReplayManifest` фиксирует initial save/snapshot, exact `ProjectCompositionLock`, `WorldIdentityManifestV1`, named RNG streams, `RuntimeDeterminismProfileV1`, content/build/schema/physical-archetype/model/policy-route/plugin/MechanicsLock hashes, world-level `CommandLedgerV2` snapshot/root с каждым `CommandStreamLedgerV2`, все `ClosedIngressBatchV1` и все `ClosedCommandAdmissionBatchV2`. Каждый ingress batch сохраняет bounded decoded input/completion records, exact assignments и исходную batch boundary. Каждый command-admission batch сохраняет все bounded/authenticated/decodable external `WorldCommandEnvelopeV2`, включая exact duplicates, conflicting bodies, invalid claims, deterministic rejections и finalized retries, с `simulation_tick`/`phase`/`batch_ordinal`, canonical candidate order и исходной batch boundary. Envelope transport metadata заменяется `None`; `CanonicalCommandBodyV2` не содержит собственного ID или transport metadata. Malformed/unauthenticated transport bytes не являются gameplay replay input и MAY сохраняться только отдельно как raw hash/structured diagnostic. Runtime-generated `Outcome` повторно выводится production systems; expected receipts/events, включая ActivePolicyRouteChanged, MAY сохраняться как oracle. Replay runner MUST сравнивать ADR-022 per-tick state root, exact command/rejection/receipt/event/outcome, RPG aggregate revision, population/calendar cursor outcomes и указывать first divergence. Cross-target tolerance не применяется к IDs, commands, events, manifests или gameplay outcomes.
+
+V1 replay является read-only re-execution: runner rehydrates initial checkpoint,
+проверяет его state root, принимает только записанные authoritative inputs и
+останавливается на первом divergence. Подмена input, `branch()` и
+counterfactual continuation не входят в v1 replay API.
 
 ## Public boundaries
 
 Public schemas: NeutralAuthoringModel, `ProjectCompositionLock`, `SchemaRegistryManifestV1`, `ContentManifestV1`, neutral bundle/variant descriptors, `WorldPartitionManifestV1`, WorldChunk, durable spatial-object references, MechanicPackage/MechanicsLock references, physical archetype/policy/skill references, SaveManifest, ReplayManifest, TestScenario fixture references и typed diagnostics. Filesystem paths, package-manager state, worker/task/allocator state, training sessions/optimizer state, archive library handles, ECS IDs и importer legacy types не входят в contracts. Asset access в runtime — `AssetId + resolved revision`, не raw path.
 
-Scenario fixtures MAY быть cooked content bundles с neutral/generated assets и exact provenance. Evidence/media artifacts не являются runtime assets, хранятся под explicit external artifact root и ссылаются на runtime content только по immutable hash. Approved baseline не может неявно изменить ContentManifest или save.
+Scenario fixtures MAY быть cooked content bundles с neutral/generated assets и exact provenance. They use the same content validation and cannot implicitly change `ContentManifestV1` or save state.
 
-## Failure semantics
+## Failure paths
 
-- Corrupt/missing required bundle → chunk не активируется; если critical startup chunk — чистый отказ запуска до world mutation.
-- Optional asset missing → declared placeholder/fallback с diagnostic, если schema разрешает optional.
-- I/O cancellation → staging discarded; current active revision остаётся.
-- Save corruption/incompatibility → исходник не меняется, partial state не создаётся.
-- Missing required mechanic package/state migration → save не открывается; original сохраняется, пользователь получает exact lock/migration diagnostic.
-- Missing required physical archetype/model/PolicyState schema → save не открывается до world mutation; explicit predeclared downgrade выполняется только как copy-on-write migration с новым manifest hash.
-- Streaming budget overrun → throttle/preempt optional requests; authoritative active objects не выгружаются без quiesce.
-- Schema/compatibility/migration ambiguity → reject registry/load/migration before publication and retain exact prior registry/save generation.
-- Queue, memory, archive/decompression or I/O limit → deterministic bounded defer/reject/quarantine according to SPEC-23; required authoritative work is never silently dropped.
-- Invalid content variant, partition topology, durable placement or cross-chunk reference → reject the complete dependency/admission group and retain prior active world generation.
-- Hash collision evidence → security fatal; bundle quarantined.
-- Evidence/media bytes обнаружены в runtime/source bundle без explicit content role → validation failure; artifact остаётся во внешнем store.
+| ID | Trigger | Required result |
+|---|---|---|
+| `ASSET_REQUIRED_MISSING` | Corrupt or missing required bundle | Do not activate the chunk; a critical startup chunk fails before world mutation. |
+| `ASSET_OPTIONAL_MISSING` | Missing optional asset | Use only the schema-declared placeholder/fallback and emit a diagnostic. |
+| `ASSET_IO_CANCELLED` | I/O cancellation | Discard staging and retain the current active revision. |
+| `SAVE_INCOMPATIBLE` | Save corruption, checksum mismatch or incompatibility | Preserve source bytes and publish no partial state. |
+| `SAVE_REQUIRED_PACKAGE_MISSING` | Missing required mechanic package, archetype, model, `PolicyState` schema or migration | Reject before world mutation; preserve the original generation. A declared downgrade runs only as a new copy-on-write generation. |
+| `STREAM_BUDGET_BLOCKED` | Streaming budget, queue, memory, archive/decompression or I/O limit | Defer, reject or quarantine according to SPEC-23; never silently drop authoritative work or unload active authority without quiesce. |
+| `SCHEMA_COMPATIBILITY_AMBIGUOUS` | Schema, compatibility or migration ambiguity | Reject registry/load/migration before publication and retain the prior registry/save generation. |
+| `WORLD_STREAM_INPUT_INVALID` | Invalid content variant, topology, placement or cross-chunk reference | Reject the complete dependency group and retain the prior active world generation. |
+| `CONTENT_HASH_COLLISION` | Same logical hash resolves to different bytes | Quarantine the bundle and stop activation before mutation. |
 
-## Verification gates
+## Product checks
 
-| Gate | Сценарий | Threshold | Evidence | Fallback/rollback |
-|---|---|---|---|---|
-| ASSET-01 | cook same fixture twice на Win/Linux | platform-neutral artifacts byte-identical по `CANON-01`; cache second run ≥90% hits | manifests, raw-byte hashes, timing JSON | blocking canonicalization fix |
-| ASSET-02 | malformed/cyclic/missing deps corpus | 100% classified diagnostics; 0 partial publish | validator report | quarantine input |
-| STREAM-01 | 10 000 randomized load/unload cycles with cancellation, decompression and commit-point fault injection | Publication occurs only at a declared deterministic simulation commit point; 0 duplicate IDs, leaks, dangling active refs or partial authoritative publication; p99 commit ≤2 gameplay ticks after I/O ready | staging/commit trace, fault corpus, memory and resolver report | reject/discard staged result, retain previous active generation and reduce concurrent requests |
-| SAVE-01 | power-failure injection at every write boundary | одна из двух валидных generations загружается в 100% points | fault matrix | retain prior generation |
-| SAVE-02 | migration fixtures N-2,N-1,N + corrupt cases | valid fixtures exact expected hash; invalid 100% fail-closed | migration report | require older executable/export tool |
-| REPLAY-01 | 100 vertical fixtures + cutoff/admission negative batch corpus | 100% `ClosedIngressBatchV1` и `ClosedCommandAdmissionBatchV2` hashes/boundaries/assignments exact; command batches сохраняют every bounded/authenticated/decodable duplicate/conflict/invalid-claim/rejection/finalized-retry envelope, malformed/unauthenticated transport остаётся audit-only; exact computed IDs/full body hashes, `CommandLedgerV2` root, `CommandStreamLedgerV2` reservations/receipts/rejections/events/outcomes; state roots exact на same target triple, first divergence stable-coded | replay report, closed-batch manifests/hashes, assignment traces, transport audit, ledger snapshots/receipt roots | release blocking |
-| CONTRACT-01 | importer/editor/game/headless schema compatibility | 100% same schema registry; 0 source parser link in runtime | SBOM/link map/schema report | blocking package split |
+| ID | Scenario / command | Expected behavior | Fallback |
+|---|---|---|---|
+| ASSET-01 | Cook the same fixture twice on Windows and Linux | Platform-neutral artifacts are byte-identical under `CANON-01`; second-run cache hit rate is at least 90%. | Reject noncanonical cooker output. |
+| ASSET-02 | Malformed, cyclic and missing-dependency corpus | Every case returns the expected diagnostic and no partial publication occurs. | Quarantine the input. |
+| STREAM-01 | 10 000 randomized load/unload cycles with cancellation, decompression and commit-point faults | Publication occurs only at a deterministic simulation commit point; no duplicate IDs, leaks, dangling active refs or partial authoritative publication; ready results commit within two gameplay ticks. | Discard staging, retain the active generation and reduce concurrent requests. |
+| SAVE-01 | Inject power failure at every save write boundary | One complete valid generation loads at every fault point. | Retain the prior generation. |
+| SAVE-02 | Migrate N-2, N-1 and N fixtures plus corrupt cases | Valid fixtures produce the expected exact hash; invalid cases fail closed with source bytes unchanged. | Use a compatible older executable or explicit export. |
+| REPLAY-01 | 100 deterministic fixtures plus cutoff and command-admission negative batches | Closed ingress/command batches, assignments, IDs, ledger state, receipts, events, outcomes and state roots are exact; first divergence is stable-coded. | Stop replay at the first divergence. |
+| CONTRACT-01 | Importer, tools, game and headless schema compatibility | All roots use the same schema registry and runtime links no source-format parser. | Keep source parsing in a separate adapter/process. |
+
+## Proposed narrative persistence extension
+
+For projects using the proposed [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md)
+and [ADR-029](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md),
+save generation дополнительно хранит current
+`QuestGraphRevisionV1`, generated definitions, causal lineage, pending director
+request metadata и hashes принятых canonical candidates. Эти данные принадлежат
+конкретному world/save и MUST NOT публиковаться обратно в authored
+assets/packages без отдельного будущего authoring workflow.
+
+RPG save segment также сохраняет opportunity-admission source revisions,
+disclosure history/channel, offer cooldown, recognized prior-fact IDs, selected
+term variant и frozen `ChallengeAssessmentV1`/`QuestRewardContractV1` revisions.
+После load уже допущенный или раскрытый Quest не восстанавливается повторным
+planner/dialogue/LLM запросом.
+
+Replay и save/restart используют записанный candidate/result bytes и никогда не
+вызывают `ai-host`, сеть или модель для восстановления уже произошедшего.
+Unknown schema/policy/hash, corrupt generated definition или incomplete causal
+closure отклоняет новую load/migration generation до publication и сохраняет
+предыдущую generation. Пока SPEC-31 остаётся Proposed, этот раздел не расширяет
+Accepted save schema.

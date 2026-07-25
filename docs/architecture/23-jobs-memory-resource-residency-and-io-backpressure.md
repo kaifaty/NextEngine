@@ -4,21 +4,10 @@
 |---|---|
 | ID | SPEC-23 |
 | Статус | Accepted |
-| Версия | 1.0 |
-| Владелец | Runtime Team |
-| Требуемые согласующие | Repository Owner, Architecture Working Group, Asset & Persistence Team, World Services Team, Physical Embodiment Team, Rendering Team, Verification & Evidence Team, Security & Governance Team, Release Engineering |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-024](adr/024-requirement-gate-evidence-and-profile-closure.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md) |
+| Версия | 1.1 |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md) |
 | Заменяет | отсутствует |
-
-## История принятия
-
-SPEC-23 принят в architecture packet 1.8 вместе с ADR-026. Он закрывает
-engine-owned request admission, cancellation, logical memory charging,
-compute-resource residency and I/O backpressure without selecting a job runtime,
-allocator, archive implementation or storage backend. Принятие документа не
-создаёт runtime implementation, evidence, gate `PASS`, `vertical-v1` или
-release-readiness claim.
 
 ## Назначение и invariants
 
@@ -47,7 +36,7 @@ admission, stable schedule и completion merge SPEC-21.
 - Every queue has finite item, charged-byte and logical-age bounds. Exceeding a
   bound produces a stable decision; it never grows an unbounded hidden queue.
 - Memory decisions use canonical logical charges from a hash-bound
-  `MemoryBudgetProfileV1`. Measured RSS/VRAM is evidence, never an authoritative
+  `MemoryBudgetProfileV1`. Measured RSS/VRAM is telemetry, never an authoritative
   allocation or eviction oracle.
 - Pins and leases protect only qualified `ComputeResourceKeyV1` values.
   Compute-resource residency is a reconstructible runtime/cache concern and is
@@ -63,15 +52,15 @@ admission, stable schedule и completion merge SPEC-21.
 
 | State / decision | Единственный owner/source of truth | Allowed projection / forbidden duplicate |
 |---|---|---|
-| Job classes, queue profiles, request admission, cancellation-tree state, logical age and deterministic commit coordination | Runtime Team | immutable queue/job traces; no subsystem-private competing scheduler semantics |
-| Completion cutoff, assignment, task-result hashing, conflict/stale policy and canonical merge | Runtime Team through SPEC-21 | SPEC-23 request record; no second result ledger or arrival-order merge |
+| Job classes, queue profiles, request admission, cancellation-tree state, logical age and deterministic commit coordination | Runtime subsystem | immutable queue/job traces; no subsystem-private competing scheduler semantics |
+| Completion cutoff, assignment, task-result hashing, conflict/stale policy and canonical merge | Runtime subsystem through SPEC-21 | SPEC-23 request record; no second result ledger or arrival-order merge |
 | Authoritative payload state and whether due work remains mandatory | Owning subsystem named by `owner_id` | immutable input/revision view; Runtime cannot discard or fabricate owner outcome |
-| Immutable content, bundle/archive schema, content hashes and chunk publication state | Asset & Persistence Team | compute-residency record/cache; no alternate content authority |
-| World calendar, population tier, world-interest rank and mandatory world outcome | World Services Team | resource request/source-plan ordinal; compute-resource pressure cannot rewrite tier or cursor |
-| Physical pose, contacts, motor route and required physical assets | Physical Embodiment Team | immutable claim/pin; resource manager cannot choose physical outcome |
-| Logical memory charge, pool reservation, compute-resource pins/leases and eviction plan | Runtime Team | private allocator/device/cache statistics; no backend allocation object as authority |
+| Immutable content, bundle/archive schema, content hashes and chunk publication state | Asset & Persistence subsystem | compute-residency record/cache; no alternate content authority |
+| World calendar, population tier, world-interest rank and mandatory world outcome | World Services subsystem | resource request/source-plan ordinal; compute-resource pressure cannot rewrite tier or cursor |
+| Physical pose, contacts, motor route and required physical assets | Physical Embodiment subsystem | immutable claim/pin; resource manager cannot choose physical outcome |
+| Logical memory charge, pool reservation, compute-resource pins/leases and eviction plan | Runtime subsystem | private allocator/device/cache statistics; no backend allocation object as authority |
 | Presentation cache quality and optional presentation work | Presentation owner | immutable gameplay snapshot only; no presentation pin creates gameplay authority |
-| Integrated owner-row time budget | Release Engineering through ADR-016 `GameplayBudgetMatrix` | per-job spans charged exactly once; no multiplicative per-job budget |
+| Integrated owner-row time budget | Exact ADR-016 `GameplayBudgetMatrix` | per-job spans charged exactly once; no multiplicative per-job budget |
 
 Runtime owns admission mechanics, not domain meaning. A job result remains an
 immutable proposal until the owning subsystem revalidates revisions and the
@@ -109,7 +98,7 @@ JobClassV1 =
 | `AuthoritativeCompute` | Immutable fixed-stage/shard computation whose validated result may contribute to one owner transaction. It never mutates shared state from a worker. | Retain the exact due record at the owner and deterministically retry, or fail/abort the enclosing transaction/run at maximum logical age; never drop or commit a partial subset. |
 | `RequiredResource` | Fetch/decode/validate work required before a declared load, activation, transition, recovery or save operation may commit. It is not itself gameplay authority. | Retain prior active generation and the exact unmet prerequisite; backpressure or fail the enclosing plan before mutation. |
 | `OptionalResource` | Prefetch or quality input with an explicit content/profile fallback. | Canonically reject, preempt or cancel with a receipt; fallback may run only when already declared. |
-| `PresentationOnly` | Work over immutable presentation/evidence inputs that cannot change gameplay. | Canonically coalesce by declared semantic key, reject or cancel; record loss when evidence completeness requires it. |
+| `PresentationOnly` | Work over immutable presentation inputs that cannot change gameplay. | Canonically coalesce by declared semantic key, reject or cancel; authoritative state remains unchanged. |
 | `OfflineTool` | Cook/validate/inspect/package work outside a live mutable world. | Abort the atomic tool operation and preserve the previous published artifact. |
 
 Unknown tags fail closed. A job class cannot change after admission. Splitting
@@ -129,7 +118,6 @@ PinPurposeV1 =
   | 0x02 RequiredTransition
   | 0x03 InFlightImmutableInput
   | 0x04 AtomicPublication
-  | 0x05 EvidenceCapture
 
 ImmutableInputReferenceV1 {
   1 input_kind: NamespacedId,
@@ -230,7 +218,7 @@ JobAdmissionLimitsV1 {
 in private immutable staging; the public completion carries only a bounded
 engine-owned receipt/reference plus hashes. A project MAY lower a limit before
 creating an execution namespace. Increasing one requires a new named profile
-and repetition of security/resource gates. Every boundary is checked with
+and repetition of security/resource checks. Every boundary is checked with
 checked arithmetic before allocation or queue mutation.
 
 ### Queue profile and closed admission
@@ -327,7 +315,7 @@ queue instances are:
 An implementation MAY use a lower-concurrency dispatch, but it MUST preserve
 these logical queue decisions. A different capacity/age profile is
 content-addressed, fixed in `ProjectCompositionLock` or exact tool run manifest
-and repeats all applicable gates.
+and repeats all applicable product checks.
 
 At a declared admission barrier Runtime closes one batch, validates all bounds
 and source-plan revisions, deduplicates exact requests and sorts by:
@@ -497,15 +485,15 @@ pin/lease/reservation rather than multiplying the content charge.
 Canonical logical charge comes from validated schema lengths, decoded-size
 headers and profile accounting rules. Backend allocation size, pointer layout,
 allocator fragmentation, resident-set sampling and device-driver accounting
-are evidence only. If physical allocation fails despite an admitted logical
+are telemetry only. If physical allocation fails despite an admitted logical
 charge, the operation returns a typed failure and follows its class fallback;
 it cannot choose a different authoritative result. If an actual validated
 payload exceeds its reserved charge, the whole result is rejected as
 `RESOURCE_CHARGE_MISMATCH` before publication.
 
-The `vertical-v1/resource-reference-v1` profile retains the SPEC-12 canonical
+The `resource-reference-v1` profile retains the canonical
 scene ceilings of 12,884,901,888 host-resident bytes (12 GiB) and
-5,905,580,032 device-resident bytes (5.5 GiB). These measured ceilings are gate
+5,905,580,032 device-resident bytes (5.5 GiB). These measured ceilings are product-check
 thresholds, not authoritative eviction inputs.
 
 Every job span is charged exactly once to an existing mutually exclusive
@@ -560,7 +548,7 @@ replace the SPEC-03 `WorldChunk` lifecycle, own `WorldResidencyTier`, create a
 
 `ComputeResourcePinV1` contains qualified key, nominal pin ID, owner, closed
 purpose (`AuthoritativeOwnerState`, `RequiredTransition`,
-`InFlightImmutableInput`, `AtomicPublication` or `EvidenceCapture`), acquire
+`InFlightImmutableInput` or `AtomicPublication`), acquire
 epoch and explicit release precondition. Pins are admitted atomically under
 the profile's finite count/byte bounds. They do not expire implicitly.
 
@@ -708,7 +696,7 @@ publication, event and authoritative state roots.
 | `JOB_REQUEST_RESOURCE_LIMIT` | Reject before allocation/admission using the exact exceeded field and N−1/N/N+1 boundary. |
 | `JOB_QUEUE_BACKPRESSURE` | Apply the exact class action and preserve queue generation, owner due record and first-due age. |
 | `JOB_QUEUE_GENERATION_EXHAUSTED` | Reject the next close before reservation/publication; retain the previous valid queue checkpoint. |
-| `AUTHORITATIVE_WORK_STARVATION` | Fail the transaction/run at maximum logical age; retain diagnostic/replay evidence and never drop the due work. |
+| `AUTHORITATIVE_WORK_STARVATION` | Fail the transaction/run at maximum logical age; retain diagnostic replay state and never drop the due work. |
 | `REQUIRED_RESOURCE_STARVATION` | Block/fail the load or transition, retain prior active generation and exact unmet prerequisite. |
 | `JOB_CANCELLED` | Reject every uncommitted result in the effective subtree and publish no partial delta/resource generation. |
 | `TASK_RESULT_COLLISION` | Use SPEC-21 conflict receipt; no completion wins by arrival. |
@@ -722,68 +710,62 @@ publication, event and authoritative state roots.
 | `ARCHIVE_INVALID` | Reject all entries and publish no partial directory/bundle/resource generation. |
 | `IO_BACKPRESSURE` | Stop new physical dispatch, retain logical reservations and apply the exact class fallback. |
 | `IO_RESULT_INVALID` | Discard complete decode staging; retain prior active generation. |
-| `NONDETERMINISTIC_RESULT` | Fail on first admission/cancel/merge/eviction/publication divergence; retry cannot turn the run green. |
+| `NONDETERMINISTIC_RESULT` | Stop on the first admission, cancellation, merge, eviction or publication divergence; repeating identical inputs cannot select another result. |
 
 Diagnostics are stable engine-owned envelopes with owner, stage/logical epoch,
 job/request/scope/qualified-resource IDs, expected/actual bounded values,
 profile hashes and remediation. Backend strings and rendered text are not the
 oracle.
 
-## Verification gates
+## Product checks
 
-The following four rows are the sole canonical `GateDescriptorV1` sources for
-these IDs. Each is `AcceptedBaseline` with `Blocking` result policy. Other
-documents may aggregate or reference them but MUST NOT redefine their subject,
-threshold, evidence or fallback. `MEMORY-P1` is unrelated durable AI-memory
-coverage and is not reused.
+| ID | Scenario / command | Expected behavior | Fallback |
+|---|---|---|---|
+| `JOB-P1` | `next check deterministic-jobs --workers 1,2,8,16 --permutations 10000 --faults all` | Admission, dispatch, completion, cancellation and restart permutations produce exact batch, assignment, merge, event and state roots; N−1/N/N+1 bounds are exact; no mutable async access, partial publication, arrival-selected result or silent authoritative drop. | Serialize dispatch through the same profile, retain due work and block/fail the complete transaction. |
+| `RESOURCE-MEMORY-P1` | `next check resource-memory --boundary-matrix all --faults all` | Every logical pool, charge and reserve boundary returns the exact code without overflow; the reference scene stays within 12,884,901,888 host bytes and 5,905,580,032 device bytes; worker/cache/allocator permutations change no authoritative result. | Reclaim eligible reconstructible bytes or use a declared fallback; otherwise retain prior authority and block the plan. |
+| `RESOURCE-RESIDENCY-P1` | `next check compute-resource-residency --cycles 10000 --permutations all --faults all` | Reserve, stage, validate, pin, lease, renew, evict and restart cycles produce exact roots; pinned, leased, dirty, in-flight, authoritative and only-valid-generation state is never evicted or partially published. | Evict only canonical eligible candidates; otherwise reject optional work or retain the required generation. |
+| `IO-BACKPRESSURE-P1` | `next check bounded-io-archive --cycles 10000 --limits n-1,n,n+1 --faults all` | Queue, I/O, decode, cancel and restart permutations produce exact decisions; no unbounded allocation, authoritative drop, partial publication or gameplay result selected by I/O order; ready required results commit or reject stale within two gameplay ticks and commit work stays within 2,000 microseconds. | Reduce physical concurrency, reject/preempt optional work and discard staging; required work remains pending or fails closed. |
 
-Canonical subjects/applicability are:
+## Technical requirements
 
-- `JOB-P1` — `nextengine/job-admission-cancellation-v1`, all required
-  composition roots and simulation-capable tool runs;
-- `RESOURCE-MEMORY-P1` — `nextengine/logical-and-resident-memory-v1`, required
-  runtime roots plus the reference resource profile;
-- `RESOURCE-RESIDENCY-P1` —
-  `nextengine/qualified-compute-resource-residency-v1`, runtime/cache
-  residency in `game`, `headless` and `capture-worker`;
-- `IO-BACKPRESSURE-P1` — `nextengine/bounded-io-archive-backpressure-v1`,
-  runtime asset I/O and atomic offline content operations.
-
-| Gate | Primary owner | Contributors | Reproducible command/scenario | Pass threshold | Required evidence | Fallback | VS / profile closure |
-|---|---|---|---|---|---|---|---|
-| `JOB-P1` | Runtime Team | Verification & Evidence Team | `next gate JOB-P1 --scenario deterministic-jobs-v1 --workers 1,2,8,16 --permutations 10000 --faults all` | 10,000 admission/dispatch/completion/cancel/restart permutations and worker counts 1, 2, 8 and 16 produce exact closed-batch, cancellation, assignment, merge, event and state roots; every job/input/result/tree limit passes N−1/N/N+1; 0 mutable async access, partial authoritative publication, arrival-selected result or silent authoritative drop | job/queue/limits/profile manifests, closed admission receipts, cancellation trees, SPEC-21 completion assignments, task/stage/replay roots, boundary/API scan and fault corpus | serialize dispatch behind the same profile; retain owner due work and block/fail the exact transaction rather than change semantics | VS-11, VS-15 |
-| `RESOURCE-MEMORY-P1` | Runtime Team | Release Engineering, Asset & Persistence Team, Physical Embodiment Team | `next gate RESOURCE-MEMORY-P1 --scenario resource-memory-reference-v1 --boundary-matrix all --faults all` | Every logical pool/charge/reserve boundary at N−1/N/N+1 yields the exact admission code with 0 checked-overflow or hard-limit overrun; canonical scene measured host residency is at most 12,884,901,888 bytes and device residency at most 5,905,580,032 bytes; worker/cache/allocator permutations change 0 authoritative result and all bytes/spans have exactly one owner | memory/profile/accounting manifests, charge/reserve/owner ledger, RSS/device measurement report, boundary/fault corpus, integrated owner-span and no-drop report | reclaim only eligible optional/reconstructible bytes or use an already declared quality/tier fallback; otherwise block world/transition and retain prior authoritative state | VS-01, VS-05, VS-12 |
-| `RESOURCE-RESIDENCY-P1` | Runtime Team | Asset & Persistence Team, World Services Team, Physical Embodiment Team | `next gate RESOURCE-RESIDENCY-P1 --scenario compute-resource-residency-v1 --cycles 10000 --permutations all --faults all` | 10,000 reserve/stage/validate/pin/lease/renew/evict/restart cycles produce exact plan/generation/accounting roots across worker, cache-warmth and completion permutations; 0 pinned, leased, dirty, in-flight, authoritative or only-valid-generation eviction; 0 partial/stale publication or world-tier/physical-LOD ownership leak | qualified-resource manifests, pin/lease ledgers, residency/eviction plans, profile/generation hashes, owner graph, restart and fault traces | evict only canonical eligible reconstructible candidates; otherwise reject optional work or retain the prior required generation and block the plan | VS-01, VS-05, VS-11 |
-| `IO-BACKPRESSURE-P1` | Asset & Persistence Team | Runtime Team, Security & Governance Team, Verification & Evidence Team | `next gate IO-BACKPRESSURE-P1 --scenario bounded-io-archive-v1 --cycles 10000 --limits n-1,n,n+1 --faults all` | 10,000 queue/I/O/decode/cancel/restart permutations plus every archive/request/result/credit bound at N−1/N/N+1 produce exact admission/defer/completion/publication roots; 0 unbounded allocation, authoritative drop, partial archive/resource publication or gameplay outcome selected by I/O order; every valid ready required result commits or rejects stale within two gameplay ticks of its recorded completion assignment, and streaming commit blocks no gameplay tick more than 2,000 microseconds | I/O/queue/credit/profile manifests, bounded neutral archive corpus, raw length/hash/decode reports, completion assignments, defer/age/publication traces, tick-span report and fault/no-drop audit | reduce physical concurrency, canonically reject/preempt optional work and discard staging; required work retains prior active generation and remains recorded pending or fails closed | VS-01, VS-02, VS-11, VS-15 |
-
-These gates are implementation obligations. Architecture acceptance does not
-create their evidence or result.
-
-## Requirements
-
-| Requirement | Нормативное требование | Primary owner | Contributors / required approvers | Blocking gates | Evidence | Fallback | VS / profile closure |
-|---|---|---|---|---|---|---|---|
-| REQ-116 | Every delegated runtime work unit MUST use one closed `JobClassV1`, deterministic identity/order/admission, immutable input, bounded cancellation tree and the existing SPEC-21 completion/canonical merge path; no mutable async access or partial authoritative publication is allowed. | Runtime Team | Verification & Evidence Team, Asset & Persistence Team | JOB-P1 | job/profile manifests, closed admission receipts, cancellation trees, completion assignments, stage/replay roots and boundary scan | serialize execution behind the same contract; retain owner due work and block/fail the exact transaction rather than select a partial result | VS-11, VS-15 |
-| REQ-117 | Every runtime and tool execution profile MUST provide one hash-bound `MemoryBudgetProfileV1` with finite owner/pool/charge/reserve bounds, checked admission and exactly-once accounting; measured allocator/RSS/device state MUST NOT choose an authoritative outcome. | Runtime Team | Release Engineering, Asset & Persistence Team, Physical Embodiment Team | RESOURCE-MEMORY-P1 | memory/profile manifests, charge/reserve/owner ledger, boundary corpus, resident-memory report and integrated spans | reclaim declared optional/reconstructible bytes or use a predeclared quality/tier fallback; otherwise retain prior authority and block admission | VS-01, VS-05, VS-12 |
-| REQ-118 | Qualified compute-resource residency MUST use revisioned records, finite pins/leases, canonical eviction and atomic generation publication; pinned, leased, dirty, in-flight, authoritative and only-valid-generation state MUST never be evicted. | Runtime Team | Asset & Persistence Team, World Services Team, Physical Embodiment Team | RESOURCE-RESIDENCY-P1 | qualified-resource manifests, pin/lease ledgers, residency/eviction plans, generation/restart roots and ownership report | evict only eligible reconstructible candidates; otherwise reject optional work or retain the prior required generation and block the plan | VS-01, VS-05, VS-11 |
-| REQ-119 | Job and I/O queues, inline inputs, result manifests, archives and decompression MUST have finite hash-bound capacity/size/logical-age limits and deterministic credit backpressure; authoritative/required work MUST remain recorded until commit, validated cancellation or explicit blocking failure and MUST NOT be silently dropped. | Asset & Persistence Team | Runtime Team, Security & Governance Team, Verification & Evidence Team | IO-BACKPRESSURE-P1 | queue/credit/archive/decode manifests, N−1/N/N+1 corpus, completion/publication traces, age/no-drop audit and fault report | reduce physical concurrency, reject/preempt only optional work, discard staging and retain the prior active/published generation; required work remains pending or fails closed | VS-01, VS-02, VS-11, VS-15 |
+| ID | Technical requirement |
+|---|---|
+| REQ-116 | Every delegated runtime work unit MUST use one closed `JobClassV1`, deterministic identity/order/admission, immutable input, bounded cancellation tree and the existing SPEC-21 completion/canonical merge path; no mutable async access or partial authoritative publication is allowed. |
+| REQ-117 | Every runtime and tool execution profile MUST provide one hash-bound `MemoryBudgetProfileV1` with finite owner/pool/charge/reserve bounds, checked admission and exactly-once accounting; measured allocator/RSS/device state MUST NOT choose an authoritative outcome. |
+| REQ-118 | Qualified compute-resource residency MUST use revisioned records, finite pins/leases, canonical eviction and atomic generation publication; pinned, leased, dirty, in-flight, authoritative and only-valid-generation state MUST never be evicted. |
+| REQ-119 | Job and I/O queues, inline inputs, result manifests, archives and decompression MUST have finite hash-bound capacity/size/logical-age limits and deterministic credit backpressure; authoritative/required work MUST remain recorded until commit, validated cancellation or explicit blocking failure and MUST NOT be silently dropped. |
 
 ## Failure paths
 
-| Failure requirement | Failure / trigger | Primary owner | Contributors / required approvers | Нормативный путь / fallback | Blocking gates | Evidence | VS / profile closure |
-|---|---|---|---|---|---|---|---|
-| FAIL-046 | Invalid/duplicate/conflicting/oversized/stale job, queue overflow or maximum logical age, cancellation/result race, worker panic or restart during uncommitted work | Runtime Team | Verification & Evidence Team, Asset & Persistence Team | Reject the complete equivalence class/result or atomically cancel/abort it; preserve owner due record, first-due age and prior checkpoint; use SPEC-21 exact conflict/stale result and never publish a partial delta/event/resource generation. | JOB-P1 | job/limits/queue receipts, cancellation trees, completion assignments, stage/restart/fault roots and unchanged-state proof | VS-11, VS-15 |
-| FAIL-047 | Memory/pin/lease/residency exhaustion, charge mismatch, archive/decompression violation, I/O backpressure/starvation, cancellation or publication fault | Runtime Team | Asset & Persistence Team, World Services Team, Physical Embodiment Team, Security & Governance Team | Reject optional admission or retain the complete prior active/published state and exact required pending record; evict only eligible reconstructible bytes, discard all staging on failure and block/fail before authoritative mutation with zero silent drop. | RESOURCE-MEMORY-P1, RESOURCE-RESIDENCY-P1, IO-BACKPRESSURE-P1 | memory/charge/owner ledger, qualified-resource/pin/lease/eviction plans, bounded archive corpus, queue/credit/defer-age traces, fault matrix and unchanged-generation/no-drop report | VS-01, VS-02, VS-05, VS-11, VS-12, VS-15 |
+| ID | Trigger | Required result |
+|---|---|---|
+| FAIL-046 | Invalid, duplicate, conflicting, oversized or stale job; queue overflow or maximum logical age; cancellation/result race; worker panic or restart during uncommitted work | Reject the complete equivalence class/result or atomically cancel/abort it; preserve the owner due record, first-due age and prior checkpoint; publish no partial delta, event or resource generation. |
+| FAIL-047 | Memory/pin/lease/residency exhaustion, charge mismatch, archive/decompression violation, I/O backpressure/starvation, cancellation or publication fault | Reject optional admission or retain the complete prior active state and exact required pending record; evict only eligible reconstructible bytes, discard staging and fail before authoritative mutation. |
 
-## Technology neutrality and admission boundary
+## Technology neutrality
 
 This contract chooses no ECS scheduler, async runtime, allocator, compression or
 archive library, filesystem/storage API, database, render-resource manager,
 world-streaming implementation or vendor backend. Replaceable implementations
-remain private behind these engine-owned schemas and exact gates.
+remain private behind these engine-owned schemas and exact contracts.
 
 SPEC-23 does not create world partition/interest ordering, content schema,
 capture-worker network scheduling or a new `GameplayBudgetMatrix`. Downstream
 owners may provide canonical source plans and plan ordinals, but cannot bypass
 job/resource admission, weaken required criticality, reset logical age or
 publish outside the common deterministic commit path.
+
+## Proposed narrative work specialization
+
+The proposed [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md)
+uses closed job classes, immutable inputs, finite queues, logical age and the
+SPEC-23 current/next completion path for request construction, optional external
+generation, result validation and template fallback. Candidate bytes are
+bounded before validation and never receive mutable owner state.
+
+Queue/resource denial MAY отменить optional external generation, но MUST
+сохранить due narrative boundary/hook и выполнить deterministic template
+fallback через тот же validated command. Required fallback work не может быть
+silently dropped, а measured worker speed или resource availability не выбирает
+authoritative outcome. Эти specialization rules остаются Proposed вместе с
+SPEC-31.

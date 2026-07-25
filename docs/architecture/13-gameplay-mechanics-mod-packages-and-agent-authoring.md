@@ -5,16 +5,15 @@
 | ID | SPEC-13 |
 | Статус | Accepted |
 | Версия | 1.7 |
-| Владелец | Repository Owner |
 | Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-023](adr/023-human-review-decision-v2-and-offline-attestation.md) |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md) |
 | Заменяет | отсутствует |
 
 ## Назначение и product invariants
 
-Подсистема позволяет engine team, мододелам и автоматизированным coding agents создавать игровые механики через один публичный contract. First-party стрельба, магия и последующие mechanics MUST использовать те же package schemas, capabilities, commands, tests и diagnostics, что community packages. Hidden first-party gameplay API запрещён.
+Подсистема позволяет разработчикам движка, мододелам и автоматизированным coding agents создавать игровые механики через один публичный contract. First-party стрельба, магия и последующие mechanics MUST использовать те же package schemas, capabilities, commands, tests и diagnostics, что community packages. Hidden first-party gameplay API запрещён.
 
-Большинство новых механик MUST собираться из data + existing primitives. Luau применяется для author-friendly orchestration, Wasm Component Model — для сложных переносимых algorithms. Новый native Rust code требуется только когда package model не имеет фундаментального primitive; такое расширение проходит обычный RFC/ADR review и затем становится public primitive для всех авторов.
+Большинство новых механик MUST собираться из data + existing primitives. Luau применяется для author-friendly orchestration, Wasm Component Model — для сложных переносимых algorithms. Новый native Rust code требуется только когда package model не имеет фундаментального primitive; такое расширение оформляется как RFC/ADR и затем становится public primitive для всех авторов.
 
 ## Source of truth и ownership
 
@@ -25,16 +24,15 @@
 | Ability instances, statuses и package state | Engine-owned Mechanics Runtime store внутри WorldCommand transaction | reducer предлагает delta только своего namespace |
 | RPG attributes/resources/inventory/quest state | RPG Framework по SPEC-19 | package создаёт `EffectRequest`, который engine преобразует только в typed RPG operations и валидируемый `RpgTransactionPlan` |
 | Projectile/body/contact pose | Physical Embodiment/PhysicsBackend | package задаёт descriptors/intents; не записывает transforms |
-| Creature/physical/skill/model definitions | Cooked immutable content registry + SPEC-14 certification | package поставляет references/assets; не владеет proficiency или active route |
+| Creature/physical/skill/model definitions | Cooked immutable content registry + SPEC-14 compatibility state | package поставляет references/assets; не владеет proficiency или active route |
 | Presentation cues | PresentationSnapshot + presentation subsystem | package связывает semantic cue с assets; cue не authoritative |
 | Agent edits | Filesystem/git после явного apply; до apply — AgentChangeSet | agent не получает runtime authority |
-| Required test/review plan | Generated ChangeImpactManifest | package/agent может добавить suites, но не удалять resolved requirements |
 
-Gameplay Extensibility Team владеет Mechanics Runtime, registries, standard primitives, package/lock schemas, reducer host, extension-point ordering и authoring SDK. Package author владеет package source, schemas, migrations и tests, но authoritative commit всегда выполняет engine.
+Gameplay Extensibility subsystem владеет Mechanics Runtime, registries, standard primitives, package/lock schemas, reducer host, extension-point ordering и authoring SDK. Package author владеет package source, schemas, migrations и tests, но authoritative commit всегда выполняет engine.
 
 ## Public boundary и normative data flow
 
-Public boundary состоит из `MechanicPackageManifest`, `MechanicsLock`, definitions, namespaced schemas, reducer ABI для Luau/WIT, capability catalog, WorldCommand/DomainEvent schemas, immutable SPEC-19 RPG views/typed operations, TestScenario specialization, ChangeImpact/Evidence references, CLI/JSON authoring contracts и optional MCP projection.
+Public boundary состоит из `MechanicPackageManifest`, `MechanicsLock`, definitions, namespaced schemas, reducer ABI для Luau/WIT, capability catalog, WorldCommand/DomainEvent schemas, immutable SPEC-19 RPG views/typed operations, TestScenario specialization, CLI/JSON authoring contracts и optional MCP projection.
 
 ```text
 package source
@@ -54,18 +52,18 @@ Package code не получает mutable ECS reference, raw pointer, RuntimeEn
 
 ## Уровни расширения
 
-| Уровень | Содержимое | Typical use | Trust/runtime |
+| Уровень | Содержимое | Typical use | Runtime boundary |
 |---|---|---|---|
 | Data-only package | definitions, tags, assets, explicit patches, tests | новое оружие, spell variants, balance, statuses, recipes | no executable code; strongest portability |
 | Luau mechanic package | data + deterministic Luau reducers/orchestration | combo logic, cast phases, contextual interactions | SPEC-07 sandbox/budgets |
 | Wasm mechanic plugin | data + WIT component | custom targeting, ballistics, procedural effect algorithms | capabilities/fuel/memory; no ambient authority |
-| Native engine contribution | Rust core primitive/backend | новый physics query kind, scheduler/backend capability | не является mod package; RFC/ADR + engine release |
+| Native engine contribution | Rust core primitive/backend | новый physics query kind, scheduler/backend capability | не является mod package; engine source change through the normal workflow |
 
-Official package status MAY выдавать более высокий declared budget/capability, но MUST NOT открывать скрытый API или обходить WorldCommand validation.
+A project policy MAY выдать package более высокий declared budget/capability в пределах hard ceiling, но MUST NOT открывать скрытый API или обходить WorldCommand validation.
 
 ## Package identity, manifest и lock
 
-`MechanicPackageId` — stable reverse-domain-like lowercase namespace, например `org.nextengine.core.combat` или `community.author.spellpack`. ID не меняется при transfer ownership; publisher identity/signature хранится отдельно.
+`MechanicPackageId` — stable reverse-domain-like lowercase namespace, например `org.nextengine.core.combat` или `community.author.spellpack`. ID не меняется при transfer ownership; publisher/source metadata хранится отдельно и не влияет на capability grant.
 
 `MechanicPackageManifest` MUST содержать:
 
@@ -76,9 +74,9 @@ Official package status MAY выдавать более высокий declared 
 - exported definitions, commands, events, reducers, hooks и cue namespaces;
 - durable state schemas, migration graph и uninstall migration;
 - explicit patch targets с expected base AssetId/revision hash;
-- license, source/provenance, generated/AI-assisted disclosure и signature metadata;
-- test scenarios и expected artifact hashes.
-- exported creature/physical/policy/skill assets, model provenance и certification claims when present; claims валидируются SPEC-14 и не следуют из package signature.
+- license, source/provenance и generated/AI-assisted disclosure metadata;
+- test scenarios и expected state/output hashes;
+- exported creature/physical/policy/skill assets, model provenance и declared SPEC-14 compatibility state when present; compatibility доказывается exact schemas/hashes и product checks, а не publisher metadata.
 
 `MechanicsLock` является generated immutable resolution: exact package versions/hashes, dependency graph, enabled features, granted capabilities, patch order, schema/migration versions и package source. Runtime MUST NOT resolve floating ranges. Dependency cycle, missing required dependency, hash mismatch или incompatible exclusive extension point fails before world mutation.
 
@@ -102,7 +100,7 @@ Load order выводится dependency graph. Несвязанные nodes у�
 | `ProjectileDefinition` | Spawn/collision/lifetime/ownership/effect mapping; physics owns actual pose/contact |
 | `AreaFieldDefinition` | Versioned spatial effect source with cadence, membership query и lifetime |
 | `PresentationCue` | Semantic non-authoritative request for VFX/audio/UI/camera feedback |
-| `MechanicTestScenario` | SPEC-15 TestScenarioManifest specialization: initial fixture, package lock, seeds, commands/faults, probes/assertions/captures |
+| `MechanicTestScenario` | Bounded fixture: initial state, package lock, seeds, commands/faults and state/output assertions |
 | `MotorCapabilityRequirement` | Required MotorSkillId/capability state/proficiency band для physical ability; actual route проверяет SPEC-14 |
 
 Definitions immutable after cooking. Runtime-specific values находятся в instances/specs и ссылаются на AssetId + exact package revision.
@@ -138,7 +136,7 @@ Package MAY участвовать только в declared extension points. Co
 - emit deterministic perception stimulus;
 - update package-owned MechanicState namespace.
 
-Direct `set health`, arbitrary aggregate/component write, raw transform write и unvalidated event injection запрещены. Damage, healing и resource changes выражаются `EffectRequest`; engine alone converts accepted effects into revision-checked typed RPG operations and an atomic `RpgTransactionPlan`, чтобы armor, immunity, difficulty и audit оставались composable.
+Direct `set health`, arbitrary aggregate/component write, raw transform write и unvalidated event injection запрещены. Damage, healing и resource changes выражаются `EffectRequest`; engine alone converts accepted effects into revision-checked typed RPG operations and an atomic `RpgTransactionPlan`, чтобы armor, immunity, difficulty и effect accounting оставались composable.
 
 ## Reducers и durable extension state
 
@@ -199,27 +197,23 @@ Engine repository MAY содержать reference mechanic packages, но apps/
 
 ## Agent-ready authoring contract
 
-Coding agent не получает специальной runtime capability. Он использует тот же public SDK, filesystem review workflow и tests, что человек. Agent-friendly означает machine-discoverable, bounded и self-correcting tooling, а не автоматическое доверие к generated output.
+Coding agent не получает специальной runtime capability. Он использует тот же public SDK, bounded filesystem workflow и product checks, что человек. Agent-friendly означает machine-discoverable schemas, deterministic validation и actionable diagnostics, а не доверие к generated output.
 
-`AuthoringContextBundle` MUST содержать exact engine/package hashes, SDK manifest, resolved schemas, commands/events/capabilities/affordances, dependency/ownership/output-category graph, VerificationPolicy/TestScenario/ChangeImpact/diagnostic/fix-it registry, budgets, migration rules, minimal examples и relevant asset metadata. Physical scope дополнительно включает body/morphology/topology/actuator schemas, skill catalog, policy compatibility/normalization schemas, training configs, evaluation/transition suites, certification rules и provenance requirements из SPEC-14. Bundle не включает secrets, reviewer credentials, raw protected assets, raw training datasets/checkpoints, irrelevant repository files или mutable runtime handles. Все ссылки внутри bundle MUST быть замкнуты либо иметь explicit unavailable reason.
+`AuthoringContextBundle` MUST содержать exact engine/package hashes, SDK manifest, resolved schemas, commands/events/capabilities/affordances, dependency and state-ownership graph, budgets, migration rules, minimal examples и relevant asset metadata. Physical scope дополнительно включает body/morphology/topology/actuator schemas, skill catalog, policy compatibility/normalization schemas и training/evaluation configs из SPEC-14. Bundle не включает secrets, raw protected assets, raw training datasets/checkpoints, irrelevant repository files или mutable runtime handles.
 
-Обязательный workflow:
+Основной workflow:
 
 ```text
 describe/context → scaffold → edit → validate/fix-it
-→ ImpactResolver → agent-fast scenarios/diagnose/minimize
-→ changeset replay/fault/capture → EvidenceBundle
-→ AgentPolicy + verified HumanReviewDecisionV2::Approve/AttestationEnvelopeV2 when required
-→ admission → atomic apply/package
+→ focused product scenarios → replay/fault checks
+→ dry-run → atomic apply/package
 ```
 
-`AgentChangeSet` содержит objective, base file/package hashes, bounded file edits, requested tool operations, generated-asset provenance, author-declared impact additions, tests/gates run, artifacts и risk flags. Engine-generated ChangeImpactManifest является separate immutable admission input; author/agent не может уменьшить его. Apply MUST поддерживать dry-run, path allowlist, precondition/evidence/review hashes и atomic rollback. Stale base, out-of-root path, undeclared binary, missing resolved gate или invalid/non-admitting `HumanReviewDecisionV2`/`AttestationEnvelopeV2` blocks apply.
+`AgentChangeSet` содержит objective, base file/package hashes, bounded file edits, requested tool operations, generated-asset provenance, checks run и risk flags. Apply MUST поддерживать dry-run, path allowlist, base-hash preconditions и atomic rollback. Stale base, out-of-root path, undeclared binary, failed required product check или missing capability blocks apply.
 
-Project `AgentPolicy` задаёт разрешённые roots/package namespaces, tool operations, budgets и approval rules. Low-risk non-observable data/Luau changes MAY auto-apply в disposable branch/worktree после resolved automatic gates. Observable visual/UI/camera/animation/physics/motor/audio impact всегда требует SPEC-15 human review. New capability, durable migration, binary/Wasm, model-weight promotion, physical certification, license/provenance change, protected asset access или release branch mutation дополнительно требует explicit owner review. Policy decision и identity входят в AgentChangeSet audit; agent не может ослабить собственную policy или получить reviewer credential.
+Project `AgentPolicy` задаёт разрешённые roots/package namespaces, tool operations и budgets. New capability, durable migration, binary/Wasm, model-weight change, license/provenance change, protected asset access или release-branch mutation требуют explicit user authorization. Agent не может ослабить policy, которая ограничивает его собственный changeset.
 
 Machine diagnostic MAY включать safe fix-it как bounded text/data edit с base hash и schema reference. Fix-it является новым changeset candidate, не auto-executed command.
-
-AgentChangeSet, достигающий observable output, MUST связывать exact base/candidate scenarios, metrics/replay diff, CaptureJob/EvidenceBundle и `HumanReviewDecisionV2`/`AttestationEnvelopeV2`. Capture обязателен для всех SPEC-15 observable categories; physical-avatar/controller specialization SPEC-05 остаётся обязательной и включает representative failures, а не только successful episode. Только verified `Approve` при automatic `PASS` admission-eligible; `Reject`/`NeedsChanges` и human review не могут скрыть failed semantic/replay assertion.
 
 ## CLI и optional MCP adapter
 
@@ -228,30 +222,30 @@ CLI/JSON является normative source; graphical tools и MCP являют�
 | Команда | Contract |
 |---|---|
 | `next sdk export --scope mechanics --project <p> --out <dir>` | AuthoringContextBundle для exact lock/build |
-| `next mod new|describe|graph|validate|pack <package>` | scaffold/introspection/dependency validation/deterministic package build |
+| `next mod new\|describe\|graph\|validate\|pack <package>` | scaffold/introspection/dependency validation/deterministic package build |
 | `next mechanic test <package> --scenario <id>` | isolated reducer/ability/effect fixture |
-| `next mechanic simulate <package> --scenario <id> --headless` | integrated fixed-tick run + RunManifest/replay |
+| `next mechanic simulate <package> --scenario <id> --headless` | integrated fixed-tick run + replay summary |
 | `next mod diff <old> <new>` | API/schema/content/capability/save compatibility diff |
-| `next mod migrate <save|package-state> --to <version>` | copy-on-write migration/validation |
-| `next changeset validate|apply <manifest> [--dry-run]` | safe agent/human change application |
-| `next agent serve --transport stdio --project <p>` | optional local MCP projection of approved resources/tools |
+| `next mod migrate <save\|package-state> --to <version>` | copy-on-write migration/validation |
+| `next changeset validate\|apply <manifest> [--dry-run]` | safe changeset application |
+| `next agent serve --transport stdio --project <p>` | optional local MCP projection of declared resources/tools |
 
-Physical/policy/training commands определены SPEC-09 и SPEC-14: `next physical`, `next policy` и `lab`. Они MUST использовать тот же AuthoringContextBundle, AgentChangeSet, exit-code, diagnostic, RunManifest и review contract; training backend не получает private filesystem/runtime authority.
+Physical/policy/training commands определены SPEC-09 и SPEC-14: `next physical`, `next policy` и `lab`. Они MUST использовать тот же `AuthoringContextBundle`, `AgentChangeSet`, exit-code и diagnostic contract; training backend не получает private filesystem/runtime authority.
 
-Scenario/impact/capture/evidence/review commands определены SPEC-09/15 и являются mandatory complete CLI/JSON path. MCP MAY читать schemas/results или предложить AgentChangeSet, но не вызывает isolated human signer, не создаёт `AttestationEnvelopeV2` и не хранит reviewer credentials.
+MCP MAY читать schemas/results или предложить `AgentChangeSet`, но не обходит capability checks и path restrictions.
 
-MCP adapter имеет статус `Proposed`, pins stable protocol revision и MUST NOT использовать experimental protocol features для baseline. Resources предоставляют context/schema/graphs/diagnostics/artifacts. Read-only tools mirror describe/validate/test/simulate/diff. Mutating tool может только создать или dry-run/apply AgentChangeSet при explicit capability/user approval; generic shell/file/network tool запрещён. Adapter default local stdio, network-off, project-root scoped, fully audited. Fallback — CLI/JSON с той же semantics.
+MCP adapter имеет статус `Proposed`, pins stable protocol revision и MUST NOT использовать experimental protocol features в required workflow. Resources предоставляют context/schema/graphs/diagnostics/results. Read-only tools mirror describe/validate/test/simulate/diff. Mutating tool может только создать или dry-run/apply AgentChangeSet при explicit capability и user confirmation; generic shell/file/network tool запрещён. Adapter default local stdio, network-off and project-root scoped; every operation returns a structured result. Fallback — CLI/JSON с той же semantics.
 
 ## Versioning, distribution и uninstall
 
 - Stable mechanics schemas/WIT worlds follow SemVer and N/N-1 compatibility policy; experimental surface clearly namespaced and запрещён required v1 package без pin.
-- Cooked package MUST быть standard immutable content-addressed bundle SPEC-03 с package root manifest/lock fragment/SBOM/licenses/provenance/tests и `PackageTrustManifestV1`; отдельный runtime archive/parser format не создаётся. Valid scoped signature required для official/trusted distribution.
-- Unsigned local package получает только untrusted hard ceiling и явное user consent. Invalid/expired/revoked signature fail-closed и не превращается в unsigned install; подпись доказывает identity/integrity, но не обходит sandbox/validation и не выдаёт capability сама.
+- Cooked package MUST быть standard immutable content-addressed bundle SPEC-03 с package root manifest/lock fragment/SBOM/licenses/provenance/tests и exact content hashes; отдельный runtime archive/parser format не создаётся.
+- Любой package получает capabilities только из explicit project/user grant в пределах hard ceiling и проходит hash, bounds, schema, license и provenance validation. Publisher/source metadata не обходит sandbox и не выдаёт capability.
 - Save/replay records exact MechanicsLock and package state schemas/hashes.
 - Missing required package or incompatible state fails before world mutation.
 - Optional package can be removed only если uninstall migration eliminates/transfers all durable state/references. Silent state drop запрещён.
-- Hot reload разрешён только development: cancel callbacks, transactionally migrate state, increment registry revision и mark replay/run non-conforming.
-- Distributed policy weights являются licensed content assets. Raw datasets и intermediate checkpoints остаются вне engine repository; package содержит только необходимую provenance linkage, exported immutable model и certification artifacts.
+- Hot reload разрешён только development: cancel callbacks, transactionally migrate state, increment registry revision и пометить output development-only, непригодным как `persistence-replay` result.
+- Distributed policy weights являются licensed content assets. Raw datasets и intermediate checkpoints остаются вне engine repository; package содержит только необходимую provenance linkage и exported immutable model.
 
 ## Failure semantics
 
@@ -260,30 +254,26 @@ MCP adapter имеет статус `Proposed`, pins stable protocol revision и
 - Invalid/stale AgentChangeSet → reject without filesystem mutation.
 - MCP unavailable/incompatible → CLI/JSON workflow remains complete.
 - Missing migration/package → preserve original save/package; fail-closed or run explicit uninstall migration.
-- Package physical behavior fails contacts/safety/media gates → package version rejected; old valid version remains lockable.
-- Missing/inconsistent physical model provenance or certification → claim rejected before publish; package MAY remain explicit PrototypeFallback when its manifest permits it.
+- Package physical behavior fails contact or safety checks → package version rejected; old valid version remains lockable.
+- Missing/inconsistent physical model provenance or compatibility metadata → physical route is rejected before publish; package MAY remain explicit `PrototypeFallback` when its manifest permits it.
 - PresentationCue missing → declared presentation fallback; authoritative effect remains valid only when package declares cue optional.
-- First-party package requires hidden API → architecture gate failure, not exception.
-- Agent omits resolved suite/capture/review или declares unknown output non-observable → ImpactResolver replaces with maximal+HumanReviewRequired; apply blocked.
-- Automatic gate fails/`AwaitingCapability` при signed V2 `Approve` → admission rejected as `AUTO_GATE_NOT_PASS`, changeset unchanged.
-- Cryptographically valid V2 `Reject`/`NeedsChanges` → signed feedback preserved, result non-admitting, changeset unchanged.
+- First-party package requires hidden API → contract violation, not exception.
+- Apply-time validation failure → apply is rejected atomically and the changeset remains unchanged; a failed ProductCheck reports only the affected behavior.
 
-## Verification gates
+## Product checks
 
-| Gate | Сценарий | Threshold | Evidence | Fallback/rollback |
-|---|---|---|---|---|
-| MECH-01 | first-party ranged + elemental packages through public SDK | 100% commands/schemas/capabilities resolved publicly; 0 hidden/native gameplay dependency; all required fixtures pass | public API scan, package graphs, replay reports | add missing public primitive via RFC/ADR; no hidden bypass |
-| MECH-02 | reducer/effect determinism, 100 seeds × 10 repeats | exact proposal, accepted command, event and final state hashes | RunManifests/replay diff | reject nondeterministic reducer/package |
-| MECH-03 | hook/dependency/patch permutation and conflict corpus | valid permutations resolve identical DAG/order; 100% cycles/exclusive/precondition conflicts fail before world mutation | resolver report | remove conflicting package/explicit patch revision |
-| MECH-04 | save/load/migrate/uninstall N/N-1 + fault points | exact state hashes; 100% invalid/missing migrations fail-closed; original preserved | migration/fault report | pin old package or explicit export/uninstall tool |
-| MECH-05 | ADR-016 integrated fixture: 100 actors, 1 000 statuses, 200 active abilities | exclusive mechanics row p95 ≤2 000 us / p99 ≤4 000 us inside the same 10 000-tick PERF-01 run; no starvation, dropped due work or unowned span | GameplayBudgetMatrix/workload hashes, command/mechanic due/queue/span trace | lower deterministic mechanic LOD/cadence or optimize public primitive; integrated PERF-01 remains blocking |
-| MECH-06 | shooting/magic physical interaction suite | exact gameplay outcomes; required PHYS/contact/safety gates pass; material controller changes include SPEC-05 media artifacts | replay/contact traces/GIF/MP4 manifests | reject package version/pin prior |
-| MOD-01 | clean resolve/cook/package Win/Linux | exact MechanicsLock and platform-neutral package hashes; 0 implicit override | lock/hash/package reports | block package publish |
-| MOD-02 | unsigned/malicious package/capability/provenance corpus | 100% forbidden capabilities/paths/network denied; no host crash/partial commit | security/fuzz/audit report | quarantine/disable package |
-| MOD-P2 | signed/unsigned/invalid/expired/revoked signature matrix | exact content/policy hashes, signer scope, consent and effective capabilities match policy for 100% cases; invalid signature never downgrades | PackageTrustManifestV1, consent/signer/capability audit | quarantine/deny; explicit unsigned reinstall only as a new consent-bound transaction |
-| AGENT-01 | cold author workflow using only AuthoringContextBundle | 100% internal references resolve; reference harness fixes one seeded schema error, creates a new data-only spell + ranged variant, validates/tests/simulates without private source knowledge | context closure/fix-it report, changeset, RunManifests | fix SDK/context generator |
-| AGENT-02 | stale/path escape/binary/destructive/faulted AgentChangeSets | 100% unsafe/stale sets rejected; valid set dry-run/apply/rollback hashes exact; 0 out-of-root mutation | changeset audit/fault report | manual reviewed patch workflow |
-| MCP-P1 | MCP vs CLI parity on pinned stable revision | 100% resource/tool schemas map to CLI/JSON results; read-only and mutation capability tests pass; default run opens 0 network sockets | schema diff, audit log, packet capture | disable MCP adapter; CLI/JSON remains conforming |
-| MECH-07 | NPC planner discovers package affordances | NPC uses added spell/ranged variant in 100 deterministic scenarios without custom AI code; 100% planner-visible abilities have valid affordance; offline outcomes schema-correct | affordance registry, planner traces, replay reports | mark ability manual-only/fix affordance; package gate fails |
-
-Gameplay Extensibility Team владеет MECH/MOD/AGENT gates; Security co-owns MOD-02/MCP-P1, Release Engineering принимает artifacts.
+| Check ID | Scenario / command | Expected behavior / fallback |
+|---|---|---|
+| MECH-01 | First-party ranged and elemental packages through the public SDK | Every command, schema and capability resolves publicly with no hidden gameplay dependency; add a missing public primitive rather than a private bypass. |
+| MECH-02 | Reducer/effect determinism, 100 seeds × 10 repeats | Proposal, accepted command, event and final state hashes match exactly; reject a nondeterministic reducer/package. |
+| MECH-03 | Hook/dependency/patch permutations and conflicts | Valid permutations resolve one DAG/order and all cycles, exclusive-slot and precondition conflicts fail before world mutation. |
+| MECH-04 | Save/load/migrate/uninstall N/N-1 with injected faults | Valid state is exact, invalid or missing migration fails closed, and the original remains unchanged; pin the old package or use explicit export/uninstall. |
+| MECH-05 | ADR-016 fixture with 100 actors, 1,000 statuses and 200 active abilities | Mechanics stays within p95 ≤2,000 us / p99 ≤4,000 us with no starvation, dropped due work or unowned span; lower deterministic LOD/cadence or optimize a public primitive. |
+| MECH-06 | Shooting and magic physical interaction suite | Gameplay outcomes and contact/safety behavior are exact; reject the package version or pin the prior one on failure. |
+| MOD-01 | Clean resolve/cook/package on Windows and Linux | `MechanicsLock` and platform-neutral package hashes match with no implicit override; otherwise stop packaging. |
+| MOD-02 | Malicious package, capability and provenance corpus | Forbidden capabilities, paths and network access are denied with no host crash or partial commit; quarantine the package. |
+| MOD-P2 | Tampered hash, provenance mismatch and capability-policy matrix | Content hashes reject tampering; effective capabilities equal the explicit bounded grant; publisher/source metadata changes no capability. |
+| AGENT-01 | Cold author workflow using only `AuthoringContextBundle` | References resolve and the workflow can fix a schema error, create a data-only spell/ranged variant, validate and simulate without private source knowledge. |
+| AGENT-02 | Stale, path-escape, binary, destructive and faulted `AgentChangeSet` values | Unsafe/stale sets are rejected, valid dry-run/apply/rollback is exact, and no out-of-root mutation occurs. |
+| MCP-P1 | MCP versus CLI parity on a pinned stable revision | Resource/tool schemas return the same results, capability checks hold, and default operation opens no network socket; disable MCP and use CLI/JSON on mismatch. |
+| MECH-07 | NPC planner discovers package affordances | NPCs use added abilities without custom AI code, planner-visible abilities have valid affordances, and offline outcomes remain schema-correct; otherwise mark the ability manual-only. |

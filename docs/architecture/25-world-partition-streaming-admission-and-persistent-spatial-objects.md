@@ -5,19 +5,9 @@
 | ID | SPEC-25 |
 | Статус | Accepted |
 | Версия | 1.0 |
-| Владелец | World Services Team |
-| Требуемые согласующие | Repository Owner, Architecture Working Group, Runtime Team, Asset & Persistence Team, RPG Framework Team, Agent Intelligence Team, Physical Embodiment Team, Verification & Evidence Team, Release Engineering |
 | Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-024](adr/024-requirement-gate-evidence-and-profile-closure.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md) |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md) |
 | Заменяет | отсутствует |
-
-## История принятия
-
-SPEC-25 подготовлен как часть architecture packet 1.8. Он закрепляет
-engine-owned world topology, deterministic streaming admission, durable spatial
-placement и abstract-tier equivalence. Принятие exact packet root означает
-только architecture admission: оно не создаёт runtime implementation,
-verification gate `PASS`, `vertical-v1` или release-readiness claim.
 
 ## Назначение и invariants
 
@@ -58,13 +48,13 @@ partitioned world.
 
 | State | Единственный owner/source of truth | Allowed projection / forbidden duplicate |
 |---|---|---|
-| Cooked topology, cell/chunk definitions, dependency closure and immutable initial-placement seed catalog | Asset & Persistence Team, exact `ContentManifestV1`/bundle hashes | generation-zero seed input for World Services; no current placement/tombstone authority |
-| Logical regions, anchors, current durable placement/tombstone generation and root, interest facts and population tier | World Services Team | immutable spatial/population snapshots; no ECS entity or physical pose |
-| Resident `PersistentId` to ephemeral runtime mapping and activation commit | Runtime Team | diagnostic index; no durable registration authority |
-| Character/item/quest/dialogue/faction state | RPG Framework Team | revisioned facts; no duplicate values in placement record |
-| Agent plan, attention and memory | Agent Intelligence Team | immutable capability facts; no stream-owned plan |
-| Pose, contacts, constraints, traversal result and physical LOD | Physical Embodiment Team | quantized placement intent/result; no World Services-owned pose |
-| Save generations and owner-segment encoding | Asset & Persistence Team | staged copy; no semantic ownership of decoded placement fields |
+| Cooked topology, cell/chunk definitions, dependency closure and immutable initial-placement seed catalog | Asset & Persistence subsystem, exact `ContentManifestV1`/bundle hashes | generation-zero seed input for World Services; no current placement/tombstone authority |
+| Logical regions, anchors, current durable placement/tombstone generation and root, interest facts and population tier | World Services subsystem | immutable spatial/population snapshots; no ECS entity or physical pose |
+| Resident `PersistentId` to ephemeral runtime mapping and activation commit | Runtime subsystem | diagnostic index; no durable registration authority |
+| Character/item/quest/dialogue/faction state | RPG Framework | revisioned facts; no duplicate values in placement record |
+| Agent plan, attention and memory | Agent Intelligence subsystem | immutable capability facts; no stream-owned plan |
+| Pose, contacts, constraints, traversal result and physical LOD | Physical Embodiment subsystem | quantized placement intent/result; no World Services-owned pose |
+| Save generations and owner-segment encoding | Asset & Persistence subsystem | staged copy; no semantic ownership of decoded placement fields |
 
 Partition residency and `WorldResidencyTier` are related but not identical.
 Partition residency describes admitted content/data. Population tier describes
@@ -240,7 +230,7 @@ resident generation and plan hash. The planner MUST:
    a declared simulation commit point.
 
 Equal closed inputs MUST produce byte-identical plans. Worker count, I/O order,
-cache warmth and measured duration MAY affect readiness/performance evidence,
+cache warmth and measured duration MAY affect readiness/performance telemetry,
 but never rank, eviction choice, target tick or authoritative plan bytes.
 
 ## Persistent spatial objects
@@ -445,7 +435,7 @@ current state bytes as the manifest seed catalog; and a crash at every atomic
 publication boundary. The same vectors MUST produce exact roots in `game`,
 `headless` and `capture-worker`. Every integrity mismatch rejects before world
 publication with `WORLD_PLACEMENT_ROOT_MISMATCH`; a mismatch is never repaired
-by reseeding, unordered reconstruction or retry-to-green.
+by reseeding, unordered reconstruction or a repeated run with identical inputs.
 
 ## Stable diagnostics and failure semantics
 
@@ -461,34 +451,32 @@ by reseeding, unordered reconstruction or retry-to-green.
 | `WORLD_STREAM_BUDGET_BLOCKED` | Record the exact ranked defer; never drop mandatory work or evict a pin/lease. |
 | `WORLD_STREAM_PUBLICATION_ABORTED` | Discard staging; no partial chunk/object/registry visibility. |
 | `WORLD_ABSTRACT_OUTCOME_BLOCKED` | Retain tier/activity/cursor and stop before the unsupported owner outcome. |
-| `NONDETERMINISTIC_RESULT` | Fail at first rank/admission/object/outcome divergence; retry cannot turn the run green. |
+| `NONDETERMINISTIC_RESULT` | Stop at the first rank, admission, object or outcome divergence and preserve the prior state. |
 
-## Verification gates
+## Product checks
 
-Each row is the canonical `GateDescriptorV1` source for its gate.
+| ID | Scenario / command | Expected behavior | Fallback |
+|---|---|---|---|
+| `WORLD-TOPOLOGY-P1` | `next check world-topology --permutations 1000` | Declaration, order and target permutations produce one exact manifest/topology/initial-placement-catalog root set; cycle, bounds, overlap-priority, anchor, dependency, seed-catalog and hash faults reject before publication. | Reject the topology and retain the previous manifest. |
+| `WORLD-OBJECT-P1` | `next check persistent-spatial-objects --cycles 10000 --faults all` | Load, unload, register, move, reference, tombstone, save, replay and migration cycles retain one durable ID, unchanged seed binding and exact placement roots; every fault publishes no partial index, mapping or owner state. | Retain the prior placement root, index and save generation. |
+| `WORLD-ABSTRACT-P1` | `next check tier-execution-equivalence --profiles all --repeats 100` | Every tier/activity class produces the exact mandatory owner outcome or exact upgrade/defer result; no fabricated outcome, cursor advance, wall-time/visibility authority or physical-LOD conflation. | Pin a sufficient safe tier or retain the deferred activity. |
+| `WORLD-STREAM-P1` | `next check streaming-admission --cycles 10000 --io-permutations all` | Worker, cache and I/O permutations produce exact rank, admission, eviction and commit roots; no authoritative drop, protected eviction, duplicate ID, dangling required reference or partial publication; ready groups commit within two gameplay ticks. | Discard staging, retain the active generation and deterministically defer ranked work. |
 
-| Gate | Primary owner | Contributors | Reproducible command/scenario | Pass threshold | Required evidence | Fallback | VS closure |
-|---|---|---|---|---|---|---|---|
-| `WORLD-TOPOLOGY-P1` | World Services Team | Asset & Persistence Team | `next gate WORLD-TOPOLOGY-P1 --scenario world-topology-v1 --permutations 1000` | 1,000 declaration/order/target permutations produce one exact manifest/topology/initial-placement-catalog root set; 100% cycle, bounds, overlap-priority, anchor, dependency, seed-catalog and hash faults reject before publication | topology/content/schema/initial-placement manifests, canonical roots, negative corpus and publication audit | reject candidate topology and retain previous exact manifest | VS-01, VS-05 |
-| `WORLD-OBJECT-P1` | World Services Team | Runtime Team, Asset & Persistence Team | `next gate WORLD-OBJECT-P1 --scenario persistent-spatial-objects --cycles 10000 --faults all` | 10,000 load/unload/register/move/reference/tombstone/save/replay/migration cycles retain exactly one durable ID, an unchanged immutable seed binding and exact before/after `SpatialPlacementStateRootV1`; every injected fault yields `WORLD_PLACEMENT_ROOT_MISMATCH` or its exact first-cause diagnostic and 0 partial index/mapping/owner publication | initial-placement catalog, canonical placement/tombstone/reference states, generation and prior/current roots, command/event/save/replay/migration vectors, identity and fault traces | retain prior placement state root/index/save generation; reject conflicting object or migration | VS-01, VS-02, VS-11 |
-| `WORLD-ABSTRACT-P1` | World Services Team | RPG Framework Team, Agent Intelligence Team, Physical Embodiment Team | `next gate WORLD-ABSTRACT-P1 --scenario tier-execution-equivalence --profiles all` | 100 repeats across all declared tier/activity classes produce exact mandatory owner outcomes or the exact upgrade/defer result; 0 fabricated outcome, cursor advance, wall-time/visibility authority or physical-LOD conflation | tier/profile manifests, owner revisions, command/event/outcome roots and upgrade/defer corpus | pin sufficient safe tier or retain deferred activity and block at declared boundary | VS-04, VS-05, VS-11 |
-| `WORLD-STREAM-P1` | Runtime Team | World Services Team, Asset & Persistence Team | `next gate WORLD-STREAM-P1 --scenario streaming-admission-v1 --cycles 10000 --io-permutations all` | 10,000 cycles and worker/cache/I/O permutations produce exact rank/admission/eviction/commit roots; 0 authoritative drop, pin/lease eviction, duplicate ID, dangling required reference or partial publication; ready required groups commit within the declared two-gameplay-tick profile | interest/admission plans, job/resource traces, dependency/residency roots, commit/fault and no-drop reports | discard staging, retain prior active generation and deterministically defer ranked work | VS-01, VS-02, VS-11 |
+## Technical requirements
 
-## Requirements
-
-| ID | Требование | Primary owner | Contributors | Blocking gates | Required evidence | VS / profile closure |
-|---|---|---|---|---|---|---|
-| REQ-124 | `WorldPartitionManifestV1` MUST define one immutable validated topology of regions, cells, anchors and chunk bindings with canonical units, hashes and complete dependency closure. | World Services Team | Asset & Persistence Team | WORLD-TOPOLOGY-P1 | topology/content/schema manifests, canonical roots, negative corpus and publication audit | VS-01, VS-05 |
-| REQ-125 | Residency interests, dependency expansion, resource admission, eviction and activation MUST use one canonical rank and deterministic commit plan independent of wall time, visibility, worker count, cache warmth and I/O order. | World Services Team | Runtime Team, Asset & Persistence Team | WORLD-STREAM-P1 | interest/admission plans, job/resource traces, dependency/residency roots, commit and no-drop reports | VS-01, VS-02, VS-11 |
-| REQ-126 | Durable spatial placement, tombstones and cross-chunk references MUST retain one `PersistentId`, remain separate from foreign-owner state and publish atomically across load/unload/move/save/replay. | World Services Team | Runtime Team, Asset & Persistence Team | WORLD-OBJECT-P1 | placement/tombstone/reference manifests, command/event/save/replay roots, identity and fault traces | VS-01, VS-02, VS-11 |
-| REQ-127 | Every `TierExecutionProfile` MUST preserve mandatory outcomes exactly or produce the declared sufficient-tier upgrade/bounded defer; streaming or physical LOD MUST NOT fabricate an abstract outcome. | World Services Team | RPG Framework Team, Agent Intelligence Team, Physical Embodiment Team | WORLD-ABSTRACT-P1 | tier/profile manifests, owner revisions, command/event/outcome roots and upgrade/defer corpus | VS-04, VS-05, VS-11 |
+| ID | Technical requirement |
+|---|---|
+| REQ-124 | `WorldPartitionManifestV1` MUST define one immutable validated topology of regions, cells, anchors and chunk bindings with canonical units, hashes and complete dependency closure. |
+| REQ-125 | Residency interests, dependency expansion, resource admission, eviction and activation MUST use one canonical rank and deterministic commit plan independent of wall time, visibility, worker count, cache warmth and I/O order. |
+| REQ-126 | Durable spatial placement, tombstones and cross-chunk references MUST retain one `PersistentId`, remain separate from foreign-owner state and publish atomically across load/unload/move/save/replay. |
+| REQ-127 | Every `TierExecutionProfile` MUST preserve mandatory outcomes exactly or produce the declared sufficient-tier upgrade/bounded defer; streaming or physical LOD MUST NOT fabricate an abstract outcome. |
 
 ## Failure paths
 
-| ID | Trigger | Required result | Primary owner | Contributors | Blocking gates | Required evidence | VS / profile closure |
-|---|---|---|---|---|---|---|---|
-| FAIL-050 | Invalid/cyclic topology, bounds/anchor/dependency error, unresolved required cross-chunk reference, duplicate `PersistentId` or stale placement | Reject before publication, preserve the previous topology/placement/save generation and never guess identity, membership or reference target. | World Services Team | Asset & Persistence Team, Runtime Team | WORLD-TOPOLOGY-P1, WORLD-OBJECT-P1 | topology/object negative corpus, preserved roots, reference/identity and publication fault audit | VS-01, VS-02, VS-05, VS-11 |
-| FAIL-051 | Stale admission plan, unavailable required content/resource, cancellation/backpressure/publication fault or unsupported abstract outcome | Discard staging or retain the exact prior active/tier/activity/cursor state; deterministically defer/pin/block, with zero authoritative drop, partial publish or fabricated owner outcome. | World Services Team | Runtime Team, Asset & Persistence Team, RPG Framework Team, Agent Intelligence Team, Physical Embodiment Team | WORLD-STREAM-P1, WORLD-ABSTRACT-P1 | admission/job/resource/fault traces, unchanged active roots and exact upgrade/defer/outcome report | VS-01, VS-02, VS-04, VS-05, VS-11 |
+| ID | Trigger | Required result |
+|---|---|---|
+| FAIL-050 | Invalid/cyclic topology, bounds/anchor/dependency error, unresolved required cross-chunk reference, duplicate `PersistentId` or stale placement | Reject before publication, preserve the previous topology/placement/save generation and never guess identity, membership or reference target. |
+| FAIL-051 | Stale admission plan, unavailable required content/resource, cancellation/backpressure/publication fault or unsupported abstract outcome | Discard staging or retain the exact prior active/tier/activity/cursor state; deterministically defer, pin or block with no authoritative drop, partial publication or fabricated owner outcome. |
 
 ## Technology neutrality
 
@@ -496,4 +484,4 @@ This contract chooses no ECS, job system, world-streaming library, database,
 navigation/crowd backend, renderer, physics backend, archive implementation or
 platform API. Replaceable implementations remain private caches/adapters behind
 these engine-owned schemas, authority rules, deterministic admission contract
-and exact gates.
+and exact algorithms.

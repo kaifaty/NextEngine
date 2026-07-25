@@ -4,28 +4,33 @@
 |---|---|
 | ID | ADR-016 |
 | Статус | Accepted |
-| Версия | 1.1 |
-| Владелец | Release Engineering |
-| Требуемые согласующие | Architecture Working Group, Release Engineering, Runtime Team, RPG Framework Team, Gameplay Extensibility Team, Agent Intelligence Team, World Services Team, Persistence Team |
+| Версия | 1.2 |
 | Дата решения | 2026-07-23 |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md) |
+| Последняя проверка | 2026-07-25 |
+| Нормативные зависимости | [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
-| Заменён | не заменён |
+| Заменён | частично [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 
-## История принятия
+## Частичное supersession ADR-030
 
-ADR принят атомарно в packet 1.5 как performance contract. Его принятие не объявляет reference hardware/runtime или `PERF-01` PASS; implementation evidence остаётся отдельным gate.
+[ADR-030](030-product-first-development-and-lightweight-validation.md)
+заменяет прежний общий admission lifecycle. Compositional budget model и
+deterministic workload остаются targeted performance contract для изменений,
+которые materially затрагивают tick time, scheduling или related resource use.
 
 ## Контекст
 
-Независимые subsystem p95/p99 thresholds не складываются: каждый subsystem может пройти в изоляции, пока integrated gameplay tick систематически превышает общий budget. Reference 100-NPC workload также не воспроизводим, если due work выбирается wall clock, worker load или случайным iteration order.
+Независимые subsystem p95/p99 thresholds не складываются: каждый subsystem
+может уложиться в свой limit, пока integrated gameplay tick систематически
+превышает общий budget. Reference 100-NPC workload также не воспроизводим, если
+due work выбирается wall clock, worker load или случайным iteration order.
 
 ## GameplayBudgetMatrix
 
-`VerificationPolicyManifest` содержит versioned `GameplayBudgetMatrix`. Default profile имеет simulation rate 30 Hz и integer microsecond limits:
+Engine-owned versioned `GameplayBudgetMatrix` имеет simulation rate 30 Hz и
+integer microsecond limits:
 
-| Budget owner/stage ID | p95_us | p99_us |
+| Budget row/stage ID | p95_us | p99_us |
 |---|---:|---:|
 | core-command-rpg | 1500 | 2000 |
 | mechanics | 2000 | 4000 |
@@ -37,13 +42,19 @@ ADR принят атомарно в packet 1.5 как performance contract. Е�
 | reserved-headroom | 250 | 500 |
 | TOTAL | 8000 | 12000 |
 
-Rows являются mutually exclusive owner spans. Child span time включается ровно в одну row; nested instrumentation вычитается при построении exclusive duration. Work вне известных rows получает `UNOWNED_GAMEPLAY_SPAN` и invalidates run. Reserved headroom измеряется как declared unallocated allowance, а не executable owner.
+Rows являются mutually exclusive stage spans. Child span time включается ровно
+в одну row; nested instrumentation вычитается при построении exclusive
+duration. Work вне известных rows получает `UNOWNED_GAMEPLAY_SPAN` и делает
+измерение недействительным. Reserved headroom является declared unallocated
+allowance, а не executable stage.
 
-Matrix JCS-canonical, hash-bound к run и содержит profile ID, target triple, build/config/content hashes, reference hardware ID, tick rate, warm-up/measured counts, workload manifest hash и methodology version.
+Matrix canonical, hash-bound к run и содержит profile ID, target triple,
+build/config/content hashes, reference hardware ID, tick rate,
+warm-up/measured counts, workload manifest hash и methodology version.
 
 ## Deterministic 100-NPC workload
 
-Reference fixture содержит exact 100 PersistentIds и fixed membership:
+Reference fixture содержит exact 100 `PersistentId` и fixed membership:
 
 | Class | Count | Cadence at 30 Hz | Period ticks |
 |---|---:|---:|---:|
@@ -51,7 +62,9 @@ Reference fixture содержит exact 100 PersistentIds и fixed membership:
 | near | 32 | 2 Hz | 15 |
 | background | 52 | 0.5 Hz | 60 |
 
-Membership хранится в workload manifest, сортируется по PersistentId и не выводится из current distance/camera во время measured run. Для каждого NPC cadence phase:
+Membership хранится в workload manifest, сортируется по `PersistentId` и не
+выводится из current distance/camera во время measured run. Для каждого NPC
+cadence phase:
 
 ```text
 phase = u64_le(first_8_bytes(SHA256(
@@ -59,46 +72,63 @@ phase = u64_le(first_8_bytes(SHA256(
 ))) mod period_ticks
 ```
 
-NPC due на tick, когда `tick mod period_ticks == phase`. Manifest сохраняет computed phase и validator пересчитывает её. Wall clock, renderer frame, worker index, completion order и load не могут менять membership, phase или due count. Due tasks сортируются по `(service_stage, class_id, PersistentId)` до dispatch; results возвращаются через deterministic staging order.
+NPC due на tick, когда `tick mod period_ticks == phase`. Manifest сохраняет
+computed phase, а validator пересчитывает её. Wall clock, renderer frame,
+worker index, completion order и load не меняют membership, phase или due
+count. Due tasks сортируются по `(service_stage, class_id, PersistentId)` до
+dispatch; results возвращаются через deterministic staging order.
 
 ## Project overrides
 
-Project MAY заменить non-headroom row limits только versioned policy, если одновременно:
+Project может заменить non-headroom row limits только versioned policy, если:
 
 - сумма p95 rows не превышает `8_000` microseconds;
 - сумма p99 rows не превышает `12_000` microseconds;
 - reserved headroom остаётся не меньше `250/500` microseconds;
-- ни одна owner row не исчезает и unowned time не маскируется;
-- весь integrated `PERF-01` profile повторяется на exact override hash.
+- ни одна stage row не исчезает и unowned time не маскируется;
+- integrated reference scenario повторяется на exact override hash.
 
-Изолированный subsystem PASS не переносится на override. Изменение workload, methodology, reference hardware или total limits требует нового ADR, а не local threshold edit.
+Изолированный subsystem result не переносится на override. Изменение workload,
+methodology, reference hardware или total limits требует нового ADR, а не local
+threshold edit.
 
-## PERF-01 methodology
+## Reference performance scenario
 
-`PERF-01` выполняет release build на declared reference 8-core CPU profile:
+На declared reference 8-core CPU profile release build:
 
-1. загрузить exact neutral fixture/workload/policy manifests;
-2. выполнить `1_000` warm-up ticks, не включая их в percentiles;
-3. выполнить `10_000` consecutive measured gameplay ticks;
-4. записать per-owner exclusive microseconds, total gameplay time, due-work counts, queue depth, defers, starvation age и budget-overrun counters каждого tick;
-5. вычислить percentiles nearest-rank over per-tick values без dropping outliers;
-6. сравнить каждую row и integrated total с matrix; проверить deterministic due-work trace и отсутствие unowned spans.
+1. загружает exact neutral fixture, workload и policy;
+2. выполняет `1_000` warm-up ticks вне percentiles;
+3. выполняет `10_000` consecutive measured gameplay ticks;
+4. записывает per-row exclusive microseconds, total gameplay time, due-work
+   counts, queue depth, defers, starvation age и budget-overrun counters;
+5. вычисляет nearest-rank percentiles без dropping outliers;
+6. сравнивает каждую row и integrated total с matrix, проверяет deterministic
+   due-work trace и отсутствие unowned spans.
 
-Integrated PASS требует `total p95 <= 8_000 us` и `total p99 <= 12_000 us`, все owner rows внутри limits, no starvation, no dropped due work, no watchdog/non-conforming marker и exact expected due counts. Queue/defer policy MUST иметь finite deterministic maximum age; превышение даёт `PERF_QUEUE_STARVATION` независимо от total percentile.
+Ожидаемый результат: `total p95 <= 8_000 us`, `total p99 <= 12_000 us`, все
+rows внутри limits, нет starvation, dropped due work или watchdog marker,
+expected due counts exact. Queue/defer policy имеет finite deterministic maximum
+age; превышение даёт `PERF_QUEUE_STARVATION` независимо от total percentile.
 
-`AI-04` и `NAV-P3` измеряют total work due для соответствующей row на каждом tick, включая all scheduled entities/jobs и queue handling, а не per-agent/per-query budget, который можно умножить сверх matrix. `MECH-05` использует ту же fixture, spans и measured interval. Subsystem-only pass при integrated fail остаётся overall FAIL.
+Agent-planning и navigation rows измеряют всю due work на tick, включая
+scheduled entities/jobs и queue handling, а не per-agent/per-query allowance,
+который можно умножить сверх matrix. Mechanics использует ту же fixture, spans
+и measured interval. Хороший isolated result не компенсирует integrated
+overrun.
 
-## Gates и failure cases
+## Product checks
 
-| Gate | Owner | Threshold | Evidence | Fallback | VS / profile closure |
-|---|---|---|---|---|---|
-| PERF-01 | Release Engineering | Default/override sums valid; deterministic workload; every owner row and integrated total passes; no starvation, dropped due work, wall-watchdog marker or unowned span. | Policy/workload manifests, 11 000-tick trace, exclusive spans, due/queue/defer counters, percentile report. | Optimize without changing authoritative semantics; otherwise performance conformance and VS-12 remain blocked. | VS-12, `performance/reference-100-npc-v1` |
-| AI-04 | Agent Intelligence Team | Agent-planning row includes all due work and obeys matrix; individual PASS is only an input to PERF-01. | Per-tick membership/due trace and exclusive span. | Deterministically defer within declared finite age or use in-process planner; never choose route by wall time. | VS-04, VS-12, `performance/reference-100-npc-v1` |
-| NAV-P3 | World Services Team | Navigation row includes all due work and bounded deterministic deferral; individual PASS is only an input to PERF-01. | Query/due/queue/starvation trace and exclusive span. | Engine-owned graph navigation and bounded deterministic queue; never drop authoritative work. | VS-05, VS-12, `performance/reference-100-npc-v1` |
-| MECH-05 | Gameplay Extensibility Team | Mechanics row is measured in the same integrated fixture/interval; individual PASS is only an input to PERF-01. | Command/mechanic workload trace and exclusive span. | Reject or deterministically defer optional package work; required work cannot be silently dropped. | VS-12, VS-13, `performance/reference-100-npc-v1` |
+| Сценарий | Ожидаемый результат | Fallback |
+|---|---|---|
+| Integrated reference workload | Default/override sums valid; deterministic workload; каждая row и total внутри limits; нет starvation, dropped due work, watchdog marker или unowned span | Оптимизировать без изменения authoritative semantics; иначе не заявлять соответствующий performance target |
+| Agent-planning row со всеми due jobs | Membership/due order exact, row obeys matrix, deterministic deferral имеет finite maximum age | Использовать in-process planner или bounded deterministic deferral; не выбирать route по wall time |
+| Navigation row со всеми due queries | Query order, queue depth и starvation bounds deterministic; required work не теряется | Использовать engine-owned graph navigation и bounded deterministic queue |
+| Mechanics row в том же interval | Command/mechanic workload учитывается в одной row без double counting | Reject или deterministically defer optional package work; required work не отбрасывается |
+| Invalid sums, reduced headroom, worker-order permutation, starvation, dropped work или unowned span | Каждый случай даёт stable diagnostic и делает scenario result недействительным | Исправить policy, instrumentation или scheduling и повторить focused run |
 
-Negative corpus включает invalid default/override sum, reduced headroom, worker-order cadence permutation, subsystem-only pass при integrated fail, deliberate queue starvation, dropped due work, unowned span и owner/total overrun. Каждый случай MUST давать stable diagnostic и блокировать PASS.
+## Последствия
 
-## Последствия и синхронизация
-
-Packet 1.5 синхронно обновил SPEC-06, SPEC-08, SPEC-12, SPEC-13, `VerificationPolicyManifest`, AI-04, NAV-P3, MECH-05, traceability и glossary. Packet 1.6 добавляет `REQ-111`/`FAIL-043`, делает `PERF-01` самостоятельным blocking child `VS-12` и запрещает закрывать его тремя subsystem-only PASS. Release Engineering владеет integrated matrix/methodology; subsystem owners владеют своими rows и evidence.
+Subsystem budgets являются частями одного integrated matrix, а не независимыми
+разрешениями превысить total. Reference workload используется только когда
+изменение затрагивает performance; unrelated development не зависит от
+доступности exact reference hardware.
