@@ -744,7 +744,7 @@ mod tests {
                 .final_state_root()
                 .expect("scenario has ticks")
                 .to_hex(),
-            "469f02a590a8408408bf33c0c605a29d9addcaff92e817dee262fcf566e870fe"
+            "c029f729777971b98555cc9878ef6e9161fe3cfd8924c690d9cd16b7b64b0001"
         );
     }
 }

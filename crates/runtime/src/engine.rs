@@ -4,9 +4,10 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::{
-    CanonicalDecodeLimits, CanonicalError, CommandId, CommandLedgerSnapshot, CommandPayload,
-    CommandPhase, CommandStreamId, DomainEvent, IssuerPrincipal, RpgDecodeError, RpgSnapshot,
-    RuntimeSnapshot, SnapshotDecodeError, WorldCommand,
+    COMMAND_ENVELOPE_SCHEMA_VERSION, CanonicalDecodeLimits, CanonicalError, CommandId,
+    CommandLedgerSnapshot, CommandPayload, CommandPhase, CommandStreamId, DomainEvent,
+    IssuerPrincipal, RpgDecodeError, RpgSnapshot, RuntimeSnapshot, SnapshotDecodeError,
+    WorldCommand,
 };
 use next_rpg::{RpgApplyError, RpgState, RpgStateError};
 
@@ -284,6 +285,7 @@ struct LedgerEntry {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct ValidatedCommand {
     command: WorldCommand,
+    command_id: CommandId,
     canonical_bytes: Vec<u8>,
     order_key: CommandOrderKey,
 }
@@ -330,8 +332,39 @@ fn process_phase(
         .ok_or(RuntimeFatalError::TraceCountExhausted)?;
 
     let mut results = Vec::new();
-    let mut collision_groups: BTreeMap<CollisionKey, Vec<WorldCommand>> = BTreeMap::new();
+    let mut admission_rejected = 0_u64;
+    let mut claim_valid_commands = Vec::with_capacity(commands.len());
     for command in commands {
+        let Ok(computed_id) = command.compute_command_id() else {
+            claim_valid_commands.push(command);
+            continue;
+        };
+        let rejection = if command.envelope_schema_version != COMMAND_ENVELOPE_SCHEMA_VERSION {
+            Some(RejectionCode::SchemaMismatch)
+        } else if command
+            .claimed_command_id
+            .is_some_and(|claimed_id| claimed_id != computed_id)
+        {
+            Some(RejectionCode::CommandIdMismatch)
+        } else {
+            None
+        };
+        if let Some(rejection) = rejection {
+            admission_rejected = admission_rejected
+                .checked_add(1)
+                .ok_or(RuntimeFatalError::TraceCountExhausted)?;
+            results.push(OrderedResult::rejected(
+                CommandOrderKey::from_command(&command, context.registry),
+                computed_id,
+                command.sequence,
+                rejection,
+            ));
+        } else {
+            claim_valid_commands.push(command);
+        }
+    }
+    let mut collision_groups: BTreeMap<CollisionKey, Vec<WorldCommand>> = BTreeMap::new();
+    for command in claim_valid_commands {
         collision_groups
             .entry((command.stream_id, command.issuer.clone(), command.sequence))
             .or_default()
@@ -339,7 +372,6 @@ fn process_phase(
     }
 
     let mut candidates = Vec::new();
-    let mut admission_rejected = 0_u64;
     for mut group in collision_groups.into_values() {
         group.sort();
         let canonical_group: Vec<_> = group.iter().map(WorldCommand::canonical_bytes).collect();
@@ -350,18 +382,16 @@ fn process_phase(
                 canonical_group
                     .iter()
                     .all(|bytes| bytes.as_ref().is_ok_and(|bytes| bytes == first_bytes))
-                    && group
-                        .iter()
-                        .all(|command| command.command_id == group[0].command_id)
             });
         if group.len() > 1 && !exact_canonical_equivalence {
             admission_rejected = admission_rejected
                 .checked_add(count(group.len())?)
                 .ok_or(RuntimeFatalError::TraceCountExhausted)?;
             results.extend(group.into_iter().map(|command| {
+                let command_id = command.compute_command_id().unwrap_or_default();
                 OrderedResult::rejected(
                     CommandOrderKey::from_command(&command, context.registry),
-                    command.command_id,
+                    command_id,
                     command.sequence,
                     RejectionCode::CommandSequenceCollision,
                 )
@@ -377,7 +407,7 @@ fn process_phase(
                     .ok_or(RuntimeFatalError::TraceCountExhausted)?;
             }
             let order_key = CommandOrderKey::from_command(&command, context.registry);
-            let command_id = command.command_id;
+            let command_id = command.compute_command_id().unwrap_or_default();
             let sequence = command.sequence;
             let canonical_bytes = canonical_group
                 .into_iter()
@@ -418,11 +448,12 @@ fn process_phase(
     let mut committed_retry_deduplicated = 0_u64;
     let mut events = Vec::new();
     for candidate in candidates {
+        let command_id = candidate.command_id;
         let command = candidate.command;
         let ledger_key = (command.stream_id, command.issuer.clone());
         if let Some(entry) = staged.ledgers.get(&ledger_key) {
             if command.sequence == entry.last_sequence
-                && command.command_id == entry.command_id
+                && command_id == entry.command_id
                 && candidate.canonical_bytes == entry.canonical_bytes
             {
                 committed_retry_deduplicated = committed_retry_deduplicated
@@ -430,7 +461,7 @@ fn process_phase(
                     .ok_or(RuntimeFatalError::TraceCountExhausted)?;
                 results.push(OrderedResult::deduplicated(
                     candidate.order_key,
-                    command.command_id,
+                    command_id,
                     command.sequence,
                 ));
                 continue;
@@ -441,7 +472,7 @@ fn process_phase(
                     .ok_or(RuntimeFatalError::TraceCountExhausted)?;
                 results.push(OrderedResult::rejected(
                     candidate.order_key,
-                    command.command_id,
+                    command_id,
                     command.sequence,
                     RejectionCode::CommandSequenceExhausted,
                 ));
@@ -453,7 +484,7 @@ fn process_phase(
                     .ok_or(RuntimeFatalError::TraceCountExhausted)?;
                 results.push(OrderedResult::rejected(
                     candidate.order_key,
-                    command.command_id,
+                    command_id,
                     command.sequence,
                     RejectionCode::CommandSequenceReuse,
                 ));
@@ -467,14 +498,14 @@ fn process_phase(
                 .ok_or(RuntimeFatalError::TraceCountExhausted)?;
             results.push(OrderedResult::rejected(
                 candidate.order_key,
-                command.command_id,
+                command_id,
                 command.sequence,
                 RejectionCode::TargetTickMismatch,
             ));
             continue;
         }
         if command
-            .precondition_revision
+            .precondition_revision()
             .is_some_and(|revision| revision != context.phase_revision)
         {
             commit_rejected = commit_rejected
@@ -482,7 +513,7 @@ fn process_phase(
                 .ok_or(RuntimeFatalError::TraceCountExhausted)?;
             results.push(OrderedResult::rejected(
                 candidate.order_key,
-                command.command_id,
+                command_id,
                 command.sequence,
                 RejectionCode::PreconditionFailed,
             ));
@@ -491,7 +522,7 @@ fn process_phase(
 
         let event = match &command.payload {
             CommandPayload::Noop => {
-                DomainEvent::command_committed(context.tick, command.command_id, command.sequence)
+                DomainEvent::command_committed(context.tick, command_id, command.sequence)
                     .map_err(RuntimeFatalError::InternalCanonicalization)?
             }
             CommandPayload::Rpg(rpg_command) => {
@@ -503,14 +534,14 @@ fn process_phase(
                             .ok_or(RuntimeFatalError::TraceCountExhausted)?;
                         results.push(OrderedResult::rejected(
                             candidate.order_key,
-                            command.command_id,
+                            command_id,
                             command.sequence,
                             rpg_rejection_code(error),
                         ));
                         continue;
                     }
                 };
-                DomainEvent::rpg(context.tick, command.command_id, 0, rpg_event)
+                DomainEvent::rpg(context.tick, command_id, 0, rpg_event)
                     .map_err(RuntimeFatalError::InternalCanonicalization)?
             }
         };
@@ -526,7 +557,7 @@ fn process_phase(
             ledger_key,
             LedgerEntry {
                 last_sequence: command.sequence,
-                command_id: command.command_id,
+                command_id,
                 canonical_bytes: candidate.canonical_bytes,
             },
         );
@@ -535,7 +566,7 @@ fn process_phase(
             .ok_or(RuntimeFatalError::TraceCountExhausted)?;
         results.push(OrderedResult::committed(
             candidate.order_key,
-            command.command_id,
+            command_id,
             command.sequence,
         ));
         events.push(event);
@@ -577,7 +608,7 @@ fn validate_command(
     canonical_bytes: Result<Vec<u8>, CanonicalError>,
 ) -> Result<ValidatedCommand, RejectionCode> {
     let descriptor = registry
-        .descriptor(&command.schema_id, command.schema_version)
+        .descriptor(&command.payload_schema_id, command.payload_schema_version)
         .filter(|descriptor| descriptor.accepts_payload(&command.payload))
         .ok_or(RejectionCode::SchemaMismatch)?;
     if !descriptor.allows_phase(command.phase) {
@@ -600,14 +631,21 @@ fn validate_command(
     let expected_id = command
         .compute_command_id()
         .map_err(|_| RejectionCode::CanonicalCommandInvalid)?;
-    if command.command_id != expected_id {
+    if command
+        .claimed_command_id
+        .is_some_and(|claimed_id| claimed_id != expected_id)
+    {
         return Err(RejectionCode::CommandIdMismatch);
     }
 
     let grants = authority
         .grants(&command.issuer)
         .ok_or(RejectionCode::IssuerUnauthenticated)?;
-    let declared: BTreeSet<_> = command.declared_capabilities.iter().cloned().collect();
+    let declared: BTreeSet<_> = command
+        .capability_claims
+        .iter()
+        .map(|claim| claim.capability_id.clone())
+        .collect();
     for required in descriptor.required_capabilities() {
         if !declared.contains(required) {
             return Err(RejectionCode::CapabilityRequired);
@@ -625,6 +663,7 @@ fn validate_command(
     Ok(ValidatedCommand {
         order_key: CommandOrderKey::new(&command, descriptor.priority_class()),
         command,
+        command_id: expected_id,
         canonical_bytes,
     })
 }
@@ -699,13 +738,13 @@ impl CommandOrderKey {
             issuer_tag: command.issuer.tag(),
             issuer_id_bytes: command.issuer.identifier_bytes().to_vec(),
             sequence: command.sequence,
-            command_id: command.command_id,
+            command_id: command.compute_command_id().unwrap_or_default(),
         }
     }
 
     fn from_command(command: &WorldCommand, registry: &CommandKindRegistry) -> Self {
         let priority_class = registry
-            .descriptor(&command.schema_id, command.schema_version)
+            .descriptor(&command.payload_schema_id, command.payload_schema_version)
             .filter(|descriptor| descriptor.accepts_payload(&command.payload))
             .map_or(u16::MAX, |descriptor| descriptor.priority_class());
         Self::new(command, priority_class)
@@ -966,7 +1005,7 @@ impl From<RpgStateError> for SnapshotRestoreError {
 #[cfg(test)]
 mod tests {
     use next_contracts::{
-        CapabilityId, CommandId, CommandPhase, CommandStreamId, IssuerPrincipal,
+        CapabilityId, CapabilityRefV1, CommandId, CommandPhase, CommandStreamId, IssuerPrincipal,
         NOOP_COMMAND_CAPABILITY_ID, PlayerPrincipalId, SchemaId, SystemId, WorldCommand,
     };
 
@@ -1092,36 +1131,68 @@ mod tests {
     }
 
     #[test]
-    fn invalid_hash_variant_still_blocks_its_entire_equivalence_class() {
+    fn invalid_claim_is_rejected_without_blocking_the_valid_body() {
         let valid = command(1, 1, 0, 0);
         let mut conflicting = valid.clone();
-        conflicting.command_id = CommandId::from_bytes([9; 16]);
+        conflicting.claimed_command_id = Some(CommandId::from_bytes([9; 16]));
         let mut runtime = runtime_for_players([1]);
         let report = runtime
             .run_tick([valid, conflicting])
-            .expect("collision is a stable rejection");
+            .expect("claim mismatch is a stable rejection");
 
         assert_eq!(report.results.len(), 2);
-        assert!(report.results.iter().all(|result| {
-            result.disposition
-                == CommandDisposition::Rejected(RejectionCode::CommandSequenceCollision)
+        assert!(report.results.iter().any(|result| {
+            result.disposition == CommandDisposition::Rejected(RejectionCode::CommandIdMismatch)
         }));
-        assert!(report.events.is_empty());
-        assert!(report.snapshot.command_ledgers.is_empty());
+        assert!(
+            report
+                .results
+                .iter()
+                .any(|result| result.disposition == CommandDisposition::Committed)
+        );
+        assert_eq!(report.events.len(), 1);
+        assert_eq!(report.snapshot.command_ledgers.len(), 1);
+    }
+
+    #[test]
+    fn unsupported_envelope_version_is_rejected_without_blocking_the_valid_body() {
+        let valid = command(1, 1, 0, 0);
+        let mut unsupported = valid.clone();
+        unsupported.envelope_schema_version = 3;
+        let mut runtime = runtime_for_players([1]);
+        let report = runtime
+            .run_tick([valid, unsupported])
+            .expect("unsupported envelope is a stable rejection");
+
+        assert_eq!(report.results.len(), 2);
+        assert!(report.results.iter().any(|result| {
+            result.disposition == CommandDisposition::Rejected(RejectionCode::SchemaMismatch)
+        }));
+        assert!(
+            report
+                .results
+                .iter()
+                .any(|result| result.disposition == CommandDisposition::Committed)
+        );
+        assert_eq!(report.events.len(), 1);
+        assert_eq!(report.snapshot.command_ledgers.len(), 1);
     }
 
     #[test]
     fn canonical_equivalent_capability_order_is_not_a_collision() {
         let mut first = command(1, 1, 0, 0);
-        first.declared_capabilities = vec![
-            noop_capability(),
-            CapabilityId::new("world.read").expect("valid capability"),
+        first.capability_claims = vec![
+            CapabilityRefV1 {
+                capability_id: noop_capability(),
+                scope_hash: None,
+            },
+            CapabilityRefV1::unscoped("world.read").expect("valid capability"),
         ];
         first
             .refresh_command_id()
             .expect("capability set is canonical");
         let mut second = first.clone();
-        second.declared_capabilities.reverse();
+        second.capability_claims.reverse();
         let mut runtime = RuntimeState::new(authority([player(1)]));
         let report = runtime
             .run_tick([first, second])
@@ -1173,7 +1244,7 @@ mod tests {
     #[test]
     fn mismatched_command_id_is_rejected_without_ledger_mutation() {
         let mut command = command(1, 1, 0, 0);
-        command.command_id = CommandId::from_bytes([9; 16]);
+        command.claimed_command_id = Some(CommandId::from_bytes([9; 16]));
         let mut runtime = runtime_for_players([1]);
         let report = runtime
             .run_tick([command])
@@ -1226,7 +1297,7 @@ mod tests {
     #[test]
     fn missing_required_capability_is_rejected_before_mutation() {
         let mut command = command(1, 1, 0, 0);
-        command.declared_capabilities.clear();
+        command.capability_claims.clear();
         command
             .refresh_command_id()
             .expect("command remains canonical");
@@ -1262,7 +1333,7 @@ mod tests {
     #[test]
     fn unknown_schema_alias_cannot_spoof_registry_priority() {
         let mut command = command(1, 1, 0, 0);
-        command.schema_id =
+        command.payload_schema_id =
             SchemaId::new("nextengine.command.noop.high-priority").expect("valid schema ID");
         command
             .refresh_command_id()
@@ -1281,9 +1352,8 @@ mod tests {
     #[test]
     fn precondition_uses_phase_start_authoritative_revision() {
         let mut matching = command(1, 1, 0, 0);
-        matching.precondition_revision = Some(0);
         matching
-            .refresh_command_id()
+            .set_precondition_revision(Some(0))
             .expect("matching precondition is canonical");
         let mut runtime = runtime_for_players([1]);
         let report = runtime
@@ -1292,9 +1362,8 @@ mod tests {
         assert_eq!(report.snapshot.authoritative_revision, 1);
 
         let mut stale = command(1, 1, 1, 1);
-        stale.precondition_revision = Some(0);
         stale
-            .refresh_command_id()
+            .set_precondition_revision(Some(0))
             .expect("stale precondition is canonical");
         let report = runtime
             .run_tick([stale])

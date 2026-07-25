@@ -10,7 +10,7 @@ use crate::canonical::{
 use crate::{
     CommandDecodeError, CommandId, CommandLedgerHash, CommandStreamId, IssuerPrincipal,
     PrincipalDecodeError, WorldCommand, command_ledger_hash_from_bytes,
-    compute_command_id_from_canonical,
+    compute_command_id_from_body_bytes,
 };
 
 pub const RUNTIME_SNAPSHOT_SCHEMA_VERSION: u32 = 1;
@@ -360,12 +360,7 @@ fn decode_ledgers(
         let canonical_command_bytes = cursor
             .read_u32_length_prefixed(limits.max_total_bytes)?
             .to_vec();
-        let expected = compute_command_id_from_canonical(
-            stream_id,
-            &issuer,
-            last_sequence,
-            &canonical_command_bytes,
-        )?;
+        let expected = compute_command_id_from_body_bytes(&canonical_command_bytes)?;
         if expected != command_id {
             return Err(SnapshotDecodeError::CommandIdMismatch);
         }
@@ -373,7 +368,7 @@ fn decode_ledgers(
         if command.stream_id != stream_id
             || command.issuer != issuer
             || command.sequence != last_sequence
-            || command.command_id != command_id
+            || command.claimed_command_id != Some(command_id)
         {
             return Err(SnapshotDecodeError::LedgerCommandMismatch);
         }
@@ -414,7 +409,9 @@ mod tests {
             stream_id: command.stream_id,
             issuer: command.issuer.clone(),
             last_sequence: sequence,
-            command_id: command.command_id,
+            command_id: command
+                .claimed_command_id
+                .expect("constructor computes command ID claim"),
             canonical_command_bytes: command.canonical_bytes().expect("canonical command"),
         }
     }

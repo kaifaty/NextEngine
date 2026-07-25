@@ -7,12 +7,28 @@ use crate::ids::{IdentifierError, validate_identifier};
 
 pub const CANONICAL_BINARY_V1_MAGIC: [u8; 4] = *b"NECB";
 pub const CANONICAL_BINARY_V1_VERSION: u16 = 1;
-pub const CANONICAL_TYPE_BYTES: u8 = 1;
-pub const CANONICAL_TYPE_U64: u8 = 2;
-pub const CANONICAL_TYPE_U32: u8 = 3;
-pub const CANONICAL_TYPE_U8: u8 = 4;
-pub const CANONICAL_TYPE_SEQUENCE: u8 = 5;
-pub const CANONICAL_TYPE_OPTIONAL: u8 = 6;
+pub const CANONICAL_TYPE_UNIT: u8 = 0x00;
+pub const CANONICAL_TYPE_U8: u8 = 0x01;
+pub const CANONICAL_TYPE_U16: u8 = 0x02;
+pub const CANONICAL_TYPE_U32: u8 = 0x03;
+pub const CANONICAL_TYPE_U64: u8 = 0x04;
+pub const CANONICAL_TYPE_I8: u8 = 0x05;
+pub const CANONICAL_TYPE_I16: u8 = 0x06;
+pub const CANONICAL_TYPE_I32: u8 = 0x07;
+pub const CANONICAL_TYPE_I64: u8 = 0x08;
+pub const CANONICAL_TYPE_F32_BITS: u8 = 0x09;
+pub const CANONICAL_TYPE_F64_BITS: u8 = 0x0a;
+pub const CANONICAL_TYPE_BOOL: u8 = 0x0b;
+pub const CANONICAL_TYPE_BYTES: u8 = 0x0c;
+pub const CANONICAL_TYPE_UTF8_NFC: u8 = 0x0d;
+pub const CANONICAL_TYPE_ID128: u8 = 0x0e;
+pub const CANONICAL_TYPE_HASH256: u8 = 0x0f;
+pub const CANONICAL_TYPE_STRUCT: u8 = 0x10;
+pub const CANONICAL_TYPE_SEQUENCE: u8 = 17;
+pub const CANONICAL_TYPE_MAP: u8 = 0x12;
+pub const CANONICAL_TYPE_SET: u8 = 0x13;
+pub const CANONICAL_TYPE_OPTIONAL: u8 = 0x14;
+pub const CANONICAL_TYPE_TAGGED_UNION: u8 = 0x15;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CanonicalDecodeLimits {
@@ -430,12 +446,28 @@ impl<'a> CanonicalCursor<'a> {
 const fn is_known_type_tag(type_tag: u8) -> bool {
     matches!(
         type_tag,
-        CANONICAL_TYPE_BYTES
-            | CANONICAL_TYPE_U64
-            | CANONICAL_TYPE_U32
+        CANONICAL_TYPE_UNIT
             | CANONICAL_TYPE_U8
+            | CANONICAL_TYPE_U16
+            | CANONICAL_TYPE_U32
+            | CANONICAL_TYPE_U64
+            | CANONICAL_TYPE_I8
+            | CANONICAL_TYPE_I16
+            | CANONICAL_TYPE_I32
+            | CANONICAL_TYPE_I64
+            | CANONICAL_TYPE_F32_BITS
+            | CANONICAL_TYPE_F64_BITS
+            | CANONICAL_TYPE_BOOL
+            | CANONICAL_TYPE_BYTES
+            | CANONICAL_TYPE_UTF8_NFC
+            | CANONICAL_TYPE_ID128
+            | CANONICAL_TYPE_HASH256
+            | CANONICAL_TYPE_STRUCT
             | CANONICAL_TYPE_SEQUENCE
+            | CANONICAL_TYPE_MAP
+            | CANONICAL_TYPE_SET
             | CANONICAL_TYPE_OPTIONAL
+            | CANONICAL_TYPE_TAGGED_UNION
     )
 }
 

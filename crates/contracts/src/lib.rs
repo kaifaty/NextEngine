@@ -9,21 +9,29 @@ mod rpg;
 mod snapshot;
 
 pub use canonical::{
-    CANONICAL_BINARY_V1_MAGIC, CANONICAL_BINARY_V1_VERSION, CANONICAL_TYPE_BYTES,
-    CANONICAL_TYPE_OPTIONAL, CANONICAL_TYPE_SEQUENCE, CANONICAL_TYPE_U8, CANONICAL_TYPE_U32,
-    CANONICAL_TYPE_U64, CanonicalDecodeError, CanonicalDecodeLimits, CanonicalError,
+    CANONICAL_BINARY_V1_MAGIC, CANONICAL_BINARY_V1_VERSION, CANONICAL_TYPE_BOOL,
+    CANONICAL_TYPE_BYTES, CANONICAL_TYPE_F32_BITS, CANONICAL_TYPE_F64_BITS, CANONICAL_TYPE_HASH256,
+    CANONICAL_TYPE_I8, CANONICAL_TYPE_I16, CANONICAL_TYPE_I32, CANONICAL_TYPE_I64,
+    CANONICAL_TYPE_ID128, CANONICAL_TYPE_MAP, CANONICAL_TYPE_OPTIONAL, CANONICAL_TYPE_SEQUENCE,
+    CANONICAL_TYPE_SET, CANONICAL_TYPE_STRUCT, CANONICAL_TYPE_TAGGED_UNION, CANONICAL_TYPE_U8,
+    CANONICAL_TYPE_U16, CANONICAL_TYPE_U32, CANONICAL_TYPE_U64, CANONICAL_TYPE_UNIT,
+    CANONICAL_TYPE_UTF8_NFC, CanonicalDecodeError, CanonicalDecodeLimits, CanonicalError,
     CanonicalField, DecodedCanonicalSegment, decode_canonical_segment, encode_canonical_segment,
     sha256,
 };
 pub use command::{
-    COMMAND_SCHEMA_VERSION, CommandDecodeError, CommandPayload, CommandPhase, DomainEvent,
-    EventPayload, IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID, NOOP_COMMAND_SCHEMA_ID,
-    PrincipalDecodeError, WorldCommand, compute_command_id_from_canonical,
+    COMMAND_BODY_OWNER_ID, COMMAND_BODY_SCHEMA_ID, COMMAND_BODY_SCHEMA_VERSION,
+    COMMAND_BODY_SEGMENT_ID, COMMAND_ENVELOPE_SCHEMA_VERSION, COMMAND_SCHEMA_VERSION,
+    CanonicalCommandBodyV2, CapabilityRefV1, CommandDecodeError, CommandPayload, CommandPhase,
+    CommandPreconditionV1, DomainEvent, EventPayload, IssuerPrincipal, IssuerPrincipalV2,
+    NOOP_COMMAND_CAPABILITY_ID, NOOP_COMMAND_SCHEMA_ID, PrincipalDecodeError, WorldCommand,
+    WorldCommandEnvelopeV2, compute_command_id_from_body_bytes,
 };
 pub use ids::{
-    AssetId, CapabilityId, CommandId, CommandLedgerHash, CommandStreamId, ContentHash, EventId,
-    IdentifierError, MechanicPackageId, PersistentId, PlayerPrincipalId, PluginId, SchemaId,
-    StateRoot, SystemId, WorldNamespaceId, command_ledger_hash_from_bytes, content_hash_from_bytes,
+    AssetId, CapabilityId, CommandBodyHash, CommandId, CommandLedgerHash, CommandStreamId,
+    ContentHash, EventId, IdentifierError, MechanicPackageId, PersistentId, PlayerPrincipalId,
+    PluginId, SchemaId, ScriptPrincipalId, StateRoot, SystemId, ToolPrincipalId, WorldNamespaceId,
+    command_body_hash_from_bytes, command_ledger_hash_from_bytes, content_hash_from_bytes,
 };
 pub use persistence::{
     AuthorityGrant, CommandLedgerDescriptor, HashBinding, ManifestCodecError,

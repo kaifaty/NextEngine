@@ -52,6 +52,7 @@ opaque_id!(StateRoot, 32);
 opaque_id!(ContentHash, 32);
 opaque_id!(CommandLedgerHash, 32);
 opaque_id!(WorldNamespaceId, 16);
+opaque_id!(CommandBodyHash, 32);
 
 #[must_use]
 pub const fn content_hash_from_bytes(bytes: [u8; 32]) -> ContentHash {
@@ -61,6 +62,11 @@ pub const fn content_hash_from_bytes(bytes: [u8; 32]) -> ContentHash {
 #[must_use]
 pub const fn command_ledger_hash_from_bytes(bytes: [u8; 32]) -> CommandLedgerHash {
     CommandLedgerHash(bytes)
+}
+
+#[must_use]
+pub const fn command_body_hash_from_bytes(bytes: [u8; 32]) -> CommandBodyHash {
+    CommandBodyHash(bytes)
 }
 
 macro_rules! text_id {
@@ -101,6 +107,8 @@ text_id!(SchemaId);
 text_id!(CapabilityId);
 text_id!(MechanicPackageId);
 text_id!(PluginId);
+text_id!(ScriptPrincipalId);
+text_id!(ToolPrincipalId);
 text_id!(SystemId);
 
 impl PersistentId {

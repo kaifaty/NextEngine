@@ -244,7 +244,7 @@ pub struct ReplayCommandRecord {
 impl ReplayCommandRecord {
     pub fn from_command(command: &WorldCommand) -> Result<Self, CanonicalError> {
         Ok(Self {
-            command_id: command.command_id,
+            command_id: command.compute_command_id()?,
             canonical_command_bytes: command.canonical_bytes()?,
         })
     }
@@ -254,7 +254,7 @@ impl ReplayCommandRecord {
         limits: CanonicalDecodeLimits,
     ) -> Result<WorldCommand, ManifestValidationError> {
         let command = WorldCommand::from_canonical_bytes(&self.canonical_command_bytes, limits)?;
-        if command.command_id != self.command_id {
+        if command.compute_command_id()? != self.command_id {
             return Err(ManifestValidationError::ReplayCommandIdMismatch);
         }
         Ok(command)
@@ -516,7 +516,11 @@ mod tests {
             initial_state_root: StateRoot::from_bytes([0; 32]),
             authority: vec![AuthorityGrant {
                 principal,
-                capabilities: command.declared_capabilities.clone(),
+                capabilities: command
+                    .capability_claims
+                    .iter()
+                    .map(|capability| capability.capability_id.clone())
+                    .collect(),
             }],
             ticks: vec![ReplayTickManifest {
                 tick: 0,

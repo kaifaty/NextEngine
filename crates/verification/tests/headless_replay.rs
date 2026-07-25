@@ -94,7 +94,7 @@ fn all_three_command_arrival_permutations_match() {
 #[test]
 fn public_command_tamper_is_rejected_without_authoritative_ledger_mutation() {
     let mut tampered = command(1, 1, 0, 0);
-    tampered.command_id = CommandId::from_bytes([9; 16]);
+    tampered.claimed_command_id = Some(CommandId::from_bytes([9; 16]));
     let mut runtime = RuntimeState::new(authority([1]));
     let report = runtime
         .run_tick([tampered])

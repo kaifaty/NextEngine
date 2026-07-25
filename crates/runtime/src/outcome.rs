@@ -39,8 +39,7 @@ impl OutcomeProposal {
             tick,
         )?;
         command.phase = CommandPhase::Outcome;
-        command.precondition_revision = self.precondition_revision;
-        command.refresh_command_id()?;
+        command.set_precondition_revision(self.precondition_revision)?;
         Ok(command)
     }
 }
