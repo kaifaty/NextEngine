@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 1.9 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 1.11 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | отсутствует |
 
@@ -100,13 +100,13 @@ Scenario fixtures MAY быть cooked content bundles с neutral/generated asset
 | REPLAY-01 | 100 deterministic fixtures plus cutoff and command-admission negative batches | Closed ingress/command batches, assignments, IDs, ledger state, receipts, events, outcomes and state roots are exact; first divergence is stable-coded. | Stop replay at the first divergence. |
 | CONTRACT-01 | Importer, tools, game and headless schema compatibility | All roots use the same schema registry and runtime links no source-format parser. | Keep source parsing in a separate adapter/process. |
 
-## Proposed narrative persistence extension
+## Narrative and divine persistence extension
 
-For projects using the proposed [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md)
+For projects using [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md)
 and [ADR-029](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md),
 save generation дополнительно хранит current
 `QuestGraphRevisionV1`, generated definitions, causal lineage, pending director
-request metadata и hashes принятых canonical candidates. Эти данные принадлежат
+request/boundary metadata и hashes принятых canonical candidates. Эти данные принадлежат
 конкретному world/save и MUST NOT публиковаться обратно в authored
 assets/packages без отдельного будущего authoring workflow.
 
@@ -120,5 +120,33 @@ Replay и save/restart используют записанный candidate/resul
 вызывают `ai-host`, сеть или модель для восстановления уже произошедшего.
 Unknown schema/policy/hash, corrupt generated definition или incomplete causal
 closure отклоняет новую load/migration generation до publication и сохраняет
-предыдущую generation. Пока SPEC-31 остаётся Proposed, этот раздел не расширяет
-Accepted save schema.
+предыдущую generation.
+
+The RPG segment additionally stores `DivineStandingV1` aggregates, open and
+terminal `DivineOfferV1` records, covenant/vow/warning history, intervention
+cooldowns and committed judgment lineage. Save closure binds the exact
+byte-ordered world-locked patron set,
+`DivinePatronDefinitionV1`, `DivineEpistemicPolicyV1`,
+`PantheonRelationGraphV1`, standing-band/intervention/conflict-resolver hashes,
+open/consumed divine hooks, pending `DivineJudgmentBatchBaseV1`, per-god request
+metadata, `NarrativeDecisionBoundaryV1`, the boundary-closing ingress generation/
+`SimulationTick` and selected candidate/fallback/resolution hashes.
+
+A save taken with only some per-god completions assigned stores those exact
+assignments and the still-pending patrons; restart cannot ask already assigned
+patrons again or commit a partial standing vector. At the recorded boundary,
+missing patrons select their deterministic fallback. Replay injects the exact
+recorded divine completion bytes through SPEC-21 and makes zero `ai-host`,
+network or model calls.
+
+Missing/corrupt patron, pantheon, candidate or resolution artifact, mismatched
+base/standing revision or incomplete batch closure fails before world
+publication and preserves the prior save generation. Runtime-generated divine
+content remains world/save-local and cannot modify authored patron/pantheon
+assets.
+
+A schema migration may transform representation while preserving the exact
+patron set, standing IDs/revisions and causal history. A different patron set or
+pantheon graph hash is `DIVINE_PANTHEON_WORLD_MISMATCH` before publication;
+recovery uses the original content closure or a new world, never inferred
+add/remove/retirement.

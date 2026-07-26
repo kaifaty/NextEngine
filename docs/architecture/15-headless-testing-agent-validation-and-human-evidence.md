@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 2.2 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
-| Заменяет | SPEC-15 1.9 |
+| Заменяет | SPEC-15 2.0 |
 
 ## Назначение
 
@@ -205,11 +205,22 @@ Coding agent MAY создавать или запускать scenario, чита
 | Output quota exceeded | stop writer and remove incomplete local file |
 | Protected data detected | stop run and quarantine temporary output |
 
-## Proposed narrative scenarios
+## Narrative and divine scenarios
 
-Scenarios for Proposed
+Scenarios for
 [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) use the same
 actions, immutable probes, save/replay and diagnostics. A live external model
 response is recorded only as an untrusted candidate; deterministic replay uses
 the exact recorded candidate and never repeats the model call as an oracle.
 Absent model/network follows the same deterministic template fallback.
+
+Divine scenarios vary per-god completion order, timeout, crash, duplicate,
+collision and restart while probing one immutable batch base, fixed
+`NarrativeDecisionBoundaryV1` and final cross-context standing/effect/quest
+roots. They MUST include early/at/after-boundary assignments, whole-candidate
+fallback, opposite judgments of one act, authorized versus hidden-target
+spillover, every offer/covenant transition, warning/major-sanction causality,
+reaction-depth exhaustion, patron-set mismatch and save/restart after every
+partial completion. UI probes read qualitative bands/reasons/offers only. No
+scenario may mutate standing directly or treat a fresh LLM call as replay
+evidence.

@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-21 |
 | Статус | Accepted |
-| Версия | 1.1 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 1.3 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | отсутствует |
 
@@ -1519,17 +1519,43 @@ V1 command, replay or durable-identity artifacts MUST NOT load implicitly. Every
 
 Выбор ECS scheduler, ChaCha implementation crate, task runtime, fixed-point helper или physics backend не является public technology decision. Replaceable implementation допускается только за exact schemas and algorithms этого документа.
 
-## Proposed narrative completion and replay binding
+## Narrative completion, decision boundary and replay binding
 
 [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) использует
 существующий `CompletionSignalV1` и current/next ingress без нового async
 authority. Director response считается external input: request identity,
-deadline tick, exact candidate bytes/hash и accept/reject/fallback decision
-входят в replay/save closure. Late, duplicate, conflicting или stale completion
-отбрасывается до RPG mutation по существующему deterministic staging contract.
+exact candidate bytes/hash, `CompletionAssignmentV1` и
+accept/reject/fallback decision входят в replay/save closure.
+
+`NarrativeDecisionBoundaryV1.decision_world_tick` and
+`CompletionAssignmentV1.assigned_tick` are distinct nominal clock domains and
+MUST NOT be numerically compared. When World Services reaches the boundary,
+Runtime first closes stage-1 ingress and records the queue generation plus
+closing `SimulationTick`. Only results already assigned in that closed batch are
+eligible; a later assignment is `NARRATIVE_BOUNDARY_CLOSED`. Every result may be
+staged early, but none can move the commit boundary.
 
 Replay не выполняет внешний effect повторно и не перегенерирует candidate.
 Runtime-created graph/node/quest `PersistentId` выводятся из committed causal
-identity, а не из model-provided strings. Эти specialization rules остаются
-Proposed, пока SPEC-31/ADR-029 не приняты, и не изменяют Accepted
-`CompletionSignalV1`.
+identity, а не из model-provided strings. Replay restores the exact ingress
+assignments and boundary closure before rerunning production validation.
+
+Divine requests use one independent `(owner_id, request_id,
+input_hash)` per patron and one shared `DivineJudgmentBatchBaseV1.base_hash`.
+`CompletionSignalV1` assignment remains per request. Runtime never treats first
+completion, last completion or provider order as a council result.
+
+At the exact divine decision boundary, selected per-patron
+candidate/fallback hashes sort by patron `AssetId` bytes and request ID, then
+`PantheonConflictResolverV1` computes one resolution from the immutable base.
+The resulting `AdmitDivineJudgmentBatch` uses ordinary command identity,
+operation/event slots and atomic receipt semantics. Replay supplies the exact
+recorded per-god completion bytes and fallback selection and never reissues the
+requests.
+
+For `AdmitQuestGraphRevision` and `AdmitDivineJudgmentBatch` only, Runtime owns
+`CrossContextTransactionPlanV1`. It validates common command/body identity and
+immutable owner-built RPG, Mechanics and quest-graph subplans, merges their
+event drafts by the SPEC-31 owner-context tuple, stages one buffer and publishes
+the complete state/event/receipt set or nothing. Runtime does not construct or
+reinterpret an owner subplan.

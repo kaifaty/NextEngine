@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 2.2 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
-| Заменяет | SPEC-12 1.9 |
+| Заменяет | SPEC-12 2.0 |
 
 ## Назначение
 
@@ -145,3 +145,25 @@ variance MAY привести к повторному измерению по т
 обязательных checks или специальный product status. Release packaging MAY
 собрать результаты релевантных checks для удобства, но не меняет их технический
 смысл.
+
+## SPEC-31 check composition
+
+When the Accepted autonomous quest/divine contracts are implemented,
+`QUEST-*`, `NARRATIVE-*`, `DIVINE-*` and `PANTHEON-*` scenarios are focused
+instances of existing ProductCheck kinds, not new global gates:
+
+- `play` covers intent-to-quest, disclosure/activation, autonomous outcomes,
+  opposite per-god judgments, qualitative standing UI, offer/covenant choices
+  and deterministic template fallbacks offline;
+- `persistence-replay` covers recorded external candidates, per-god
+  completion/fallback assignment, fixed decision-boundary closure,
+  cross-context graph/standing/effect batches and save/restart without
+  model/network calls;
+- `content-package` covers patron epistemic policies, pantheon relation graphs,
+  intervention catalogs, covenant compatibility, anchors/extension slots and
+  template definitions;
+- `performance` is conditional only when request construction, validation or
+  conflict resolution materially changes a declared runtime budget.
+
+No fresh LLM response, screenshot or prose comparison can substitute for
+authoritative command/event/graph/standing/state-root assertions.

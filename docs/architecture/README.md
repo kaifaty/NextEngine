@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-07-25 |
-| Заменяет | INDEX-001 version 1.9 |
+| Версия | 2.1 |
+| Последняя проверка | 2026-07-26 |
+| Заменяет | INDEX-001 version 2.0 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -157,7 +157,7 @@ packets являются historical-only. Lightweight traceability — нави�
 | SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted |
 | SPEC-29 | [Platform host и application session](29-platform-host-and-application-session.md) | Accepted |
 | SPEC-30 | [Presentation extraction и render content](30-presentation-extraction-and-render-content.md) | Accepted |
-| SPEC-31 | [Autonomous quest lifecycle и narrative director](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
+| SPEC-31 | [Autonomous quest lifecycle, divine agency и narrative director](31-autonomous-quest-lifecycle-and-narrative-director.md) | Accepted |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -195,24 +195,31 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-026 | [Deterministic work, resources и streaming admission](adr/026-deterministic-work-resource-and-streaming-admission.md) | Accepted |
 | ADR-027 | [Physics, motor и animation layering](adr/027-physics-motor-and-animation-layering.md) | Accepted |
 | ADR-028 | [Platform session и presentation authority](adr/028-platform-session-and-presentation-authority.md) | Accepted |
-| ADR-029 | [RPG-owned quest graph и narrative director](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md) | Proposed |
+| ADR-029 | [RPG-owned quest graph и narrative director](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md) | Accepted |
 | ADR-030 | [Product-first development и lightweight validation](adr/030-product-first-development-and-lightweight-validation.md) | Accepted |
+| ADR-031 | [RPG-owned divine standing и atomic pantheon judgment](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md) | Accepted; partially supersedes ADR-020 aggregate enumeration |
 
 ## Proposed tracks
 
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
-- SPEC-31/ADR-029 — intent/need admission into autonomous Quest opportunities,
-  four deterministic disclosure channels, system-owned activation/rewards and
-  optional narrative director.
 
-Оба track сохраняют deterministic offline fallback, engine-owned contracts и
-untrusted proposal boundaries. Их принятие выполняется обычным repository
-workflow.
+Этот deferred track сохраняет deterministic offline fallback, engine-owned
+contracts и untrusted proposal boundaries. Его принятие выполняется обычным
+repository workflow.
+
+Accepted SPEC-31/ADR-029/ADR-031 определяют intent/need admission into
+autonomous Quest opportunities, four deterministic disclosure channels,
+system-owned activation/rewards, optional narrative director, RPG-owned divine
+standing и atomic conflict resolution for independently judging gods. Этот
+architecture status не означает runtime implementation или `PASS` будущих
+gameplay checks.
 
 ## Historical note
 
-Architecture packet 1.0–1.9 records сохраняются только как история принятых
-тогда решений и не являются текущим workflow или authority.
+Architecture packet 1.0–1.9 records сохраняются как исторические snapshots
+состояния review; они могут содержать proposed, pending, accepted и
+superseded формулировки своего момента и не являются текущим workflow или
+authority.
 
 `incubator/gothic-importer/` остаётся ignored independent nested repository и
 process boundary. Game installations, imported output, protected assets,

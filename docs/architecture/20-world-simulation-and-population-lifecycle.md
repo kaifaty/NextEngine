@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-20 |
 | Статус | Accepted |
-| Версия | 1.2 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 1.4 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | отсутствует |
 
@@ -240,10 +240,10 @@ All queues are bounded and canonically ordered. Workers receive immutable revisi
 
 This contract selects no navigation implementation, physics implementation, ECS, database, crowd system or other backend technology. Public values remain engine-owned and versioned; any replaceable implementation is an adapter/cache behind these ownership, determinism, migration and behavior contracts.
 
-## Proposed SPEC-31 quest/narrative boundaries
+## SPEC-31 quest/narrative boundaries
 
-Если [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) станет
-Accepted, World Services продолжит владеть только calendar/population/schedule
+For [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md), World
+Services продолжает владеть только calendar/population/schedule
 facts и будет передавать их как immutable revision-bound input в RPG command
 validation. Он не меняет quest aggregate самостоятельно.
 
@@ -253,10 +253,24 @@ quest-decision boundary. Сам факт, NPC schedule или proximity игро
 Quest. Они могут только поддержать admission, disclosure predicate или
 автономный переход, который затем проходит RPG-owned command validation.
 
-Quest deadline, hook и narrative commit boundary становятся declared
-simulation-time boundaries. Bulk advance MUST остановиться на каждой такой
-границе; при отсутствии уже staged valid candidate deterministic template
-fallback выбирается на первой следующей narrative commit boundary, после чего
-advance продолжается через тот же `WorldCommand` path. Wall time и arrival order
-не определяют outcome. Пока SPEC-31 остаётся Proposed, этот раздел не добавляет
-новые Accepted world-transition semantics.
+Quest deadline, hook и `NarrativeDecisionBoundaryV1.decision_world_tick`
+становятся declared world-time boundaries. Bulk advance MUST остановиться на
+каждой такой границе. Runtime first closes the current SPEC-21 stage-1 ingress
+batch and records its queue generation/`SimulationTick`, then uses every valid
+completion already assigned there and fills missing work with deterministic
+template fallback. Receiving all results early never moves the boundary.
+`world_tick` and `SimulationTick` are not compared or implicitly converted.
+
+Each `DivineJudgmentBatchBaseV1` references the same kind of
+`NarrativeDecisionBoundaryV1`. World Services supplies only committed world
+tick and authorized fact revisions; it neither chooses eligible gods nor
+changes `DivineStandingV1`.
+
+Stepped and bulk advance close the same eligible patron set from one
+pre-decision base at the exact boundary, use every valid completion in the
+boundary-closing ingress batch and fill each missing patron with its
+deterministic template result. They then submit one atomic
+`AdmitDivineJudgmentBatch`. Bulk advance does not wait for model/network and
+cannot commit one fast god before a slow god. Standing-change events do not
+create new world boundaries; only authored semantic hooks with bounded reaction
+depth do.

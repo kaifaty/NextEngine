@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-23 |
 | Статус | Accepted |
-| Версия | 1.1 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 1.3 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md) |
 | Заменяет | отсутствует |
 
@@ -755,9 +755,9 @@ owners may provide canonical source plans and plan ordinals, but cannot bypass
 job/resource admission, weaken required criticality, reset logical age or
 publish outside the common deterministic commit path.
 
-## Proposed narrative work specialization
+## Narrative work specialization
 
-The proposed [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md)
+The [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md)
 uses closed job classes, immutable inputs, finite queues, logical age and the
 SPEC-23 current/next completion path for request construction, optional external
 generation, result validation and template fallback. Candidate bytes are
@@ -766,6 +766,15 @@ bounded before validation and never receive mutable owner state.
 Queue/resource denial MAY отменить optional external generation, но MUST
 сохранить due narrative boundary/hook и выполнить deterministic template
 fallback через тот же validated command. Required fallback work не может быть
-silently dropped, а measured worker speed или resource availability не выбирает
-authoritative outcome. Эти specialization rules остаются Proposed вместе с
-SPEC-31.
+silently dropped, а measured worker speed или resource availability не меняет
+fixed decision boundary либо canonical merge order.
+
+Divine-role work MAY run one job per eligible patron, but every job owns a
+separate request identity and immutable input while sharing only the
+content-addressed `DivineJudgmentBatchBaseV1`. Completion order is not a merge
+order and receiving all completions early does not commit early. At the exact
+`NarrativeDecisionBoundaryV1`, resource-denied or unfinished patrons use their
+individual template fallback; the canonical selected set is resolved and
+committed as one bounded atomic batch. Queue pressure cannot silently remove a
+patron from the base, choose the most attentive/fastest patron, move the
+boundary or publish a partial standing vector.

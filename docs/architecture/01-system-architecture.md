@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-01 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последнее изменение | 2026-07-25 |
+| Версия | 2.2 |
+| Последнее изменение | 2026-07-26 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
 
 ## Архитектурная форма
@@ -147,9 +147,19 @@ These are normal executable checks, not admission objects. Они не треб�
 отдельного serialized approval/process graph. A failed check is fixed before
 claiming the affected feature works.
 
-## Proposed features
+## Autonomous narrative and divine architecture
 
 [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) and
 [ADR-029](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md)
-remain Proposed. They may be implemented when they improve the playable quest
-loop; they do not require a separate governance/admission ceremony.
+define the Accepted autonomous-quest and optional narrative-director boundary.
+Runtime implementation remains product work and is not implied by architecture
+acceptance.
+
+[ADR-031](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md)
+extends that track with RPG-owned divine standing and a directed
+pantheon conflict resolver. Several independent god-role LLM requests may run
+as optional async work, but they read one immutable pre-decision snapshot and
+publish only at one fixed world decision boundary through the Runtime-owned
+`CrossContextTransactionPlanV1`. RPG, Mechanics and quest-graph owner subplans
+commit together or not at all; external completion order cannot move the
+boundary or become merge order.

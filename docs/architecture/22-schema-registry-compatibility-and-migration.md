@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-22 |
 | Статус | Accepted |
-| Версия | 1.0 |
-| Последняя проверка | 2026-07-24 |
+| Версия | 1.1 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md) |
 | Заменяет | отсутствует |
 
@@ -247,6 +247,16 @@ The exact protocol is:
 10. Decode, compatibility, transform, bound, invariant, hash, write, reopen, power-loss or pointer-swap failure discards or quarantines staging and leaves source bytes, source hash and previous published pointer unchanged.
 
 A process crash yields either the prior valid generation or the complete new generation, never a mix. Recovery never resumes from an unauthenticated intermediate transform. Re-running the same exact plan MUST reproduce the same target root; a different result is `NONDETERMINISTIC_RESULT` and remains blocking.
+
+### World-locked pantheon specialization
+
+SPEC-31 freezes its byte-ordered patron set and pantheon graph hash in the
+world/project closure. An adjacent schema migration MAY transform
+`DivineStandingV1` representation only when every standing ID, patron binding,
+domain revision and causal history is preserved. A different patron set or
+pantheon graph hash is not a schema transition and MUST fail before staging as
+`DIVINE_PANTHEON_WORLD_MISMATCH`. V1 defines no add/remove/retirement transform
+for an existing world.
 
 ## Composition-root and public boundary
 

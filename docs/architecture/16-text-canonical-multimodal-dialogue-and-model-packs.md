@@ -5,8 +5,8 @@
 | ID | SPEC-16 |
 | Статус | Proposed |
 | Lifecycle | Deferred Proposed |
-| Версия | 0.3 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 0.5 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | отсутствует |
 
@@ -265,5 +265,13 @@ SPEC-31 владеет request/candidate/validation/fallback semantics и не �
 всего speech/dialogue stack. Pack с этой role остаётся Proposed и
 optional; отсутствие совместимого pack выбирает `TemplateNarrativeDirector`, а
 не блокирует мир и не меняет mandatory outcome.
+
+Authored gods from Accepted ADR-031 are role instances under that same
+compatibility role, not new mandatory model-pack kinds. Adapter routing MAY use
+different persona/system context per god, but request identity, epistemic fact
+ceiling, fixed decision boundary, output schema and whole-candidate per-god
+fallback remain engine-owned. One pack call
+cannot return an authoritative multi-god council verdict or bypass atomic
+pantheon resolution.
 
 Lifecycle остаётся `Deferred Proposed`; эти contracts не выбирают shipping model и не меняют Accepted runtime.

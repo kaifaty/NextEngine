@@ -4,10 +4,10 @@
 |---|---|
 | ID | TRACE-001 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 2.2 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
-| Заменяет | TRACE-001 1.9 |
+| Заменяет | TRACE-001 2.0 |
 
 ## Назначение
 
@@ -33,7 +33,8 @@ Canonical check names и правила conditional запуска опреде�
 | Не ухудшать затронутый hot path | conditional `performance` | declared numeric scenario остаётся в допустимом regression threshold без изменения gameplay result | SPEC-05, SPEC-06, SPEC-08, SPEC-16, SPEC-23, SPEC-26, SPEC-27, SPEC-30 |
 | Сохранять deterministic fallback для AI/physical policy | `play`, `persistence-replay`; `performance` при изменении hot path | absent/bad optional service или model route приводит к declared local fallback без blocked tick и duplicate command | SPEC-05, SPEC-06, SPEC-14, SPEC-27 |
 | Не смешивать Gothic data с engine runtime | `content-package` только при изменении importer/neutral contract | isolated importer output проходит bounds/provenance validation; runtime/packages не содержат legacy/protected bytes | SPEC-10, SPEC-11, SPEC-24 |
-| Развивать живые quest opportunities без сетевой зависимости | `play`, `persistence-replay` | NPC intent/world need становится Quest только после admission; direct/solicited/contextual/public disclosure, activation, autonomous outcome и exact recorded candidate/template fallback проходят тот же RPG command path и replay | Proposed SPEC-31 |
+| Развивать живые quest opportunities без сетевой зависимости | `play`, `persistence-replay` | NPC intent/world need становится Quest только после admission; direct/solicited/contextual/public disclosure, activation, autonomous outcome и exact recorded candidate/template fallback проходят fixed decision boundary, общий RPG command path и replay | SPEC-31 |
+| Дать конфликтующим богам независимо реагировать на игрока | `play`, `persistence-replay`, `content-package` | один committed act может улучшить qualitative standing у одного бога и ухудшить у другого; все боги читают один pre-decision snapshot, spillover затрагивает только eligible target, offers/covenants используют явные transitions, cross-context result атомарен, а replay не вызывает модель | SPEC-31, ADR-031 |
 
 ## Как выбирать checks
 

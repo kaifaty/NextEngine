@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-17 |
 | Статус | Accepted |
-| Версия | 1.2 |
-| Последняя проверка | 2026-07-24 |
+| Версия | 1.3 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | отсутствует |
 
@@ -100,6 +100,8 @@ Runtime roots MUST NOT читать registry, network/cache state, выбира�
 - `GameplayBudgetMatrix`, extension/resource budget policy and configuration-schema hashes; the resource policy binds exact job/cancellation/memory/residency/I/O/backpressure profiles;
 - canonical authoritative configuration and selected `LaunchProfile` authoritative-subset hashes;
 - physical archetype, policy/model catalog and required state-schema hashes; this closure additionally binds physics numeric/snapshot, motor observation/action/state/safety and required animation-state schema hashes;
+- for worlds using SPEC-31, the byte-ordered `DivinePatronDefinitionV1` set and
+  exact `PantheonRelationGraphV1`/epistemic/intervention/conflict-policy hashes;
 - platform-capability/timebase, `ApplicationSessionManifestV1` recovery/shutdown policy and allowed presentation-target hashes;
 - ordered migration set, target-independent project data и target-specific `PresentationSnapshotV2`/material/shader-interface/SDR/HDR/VFX/cache profile references;
 - resolved fallback for every optional dependency;

@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-13 |
 | Статус | Accepted |
-| Версия | 1.7 |
-| Последняя проверка | 2026-07-24 |
+| Версия | 1.8 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md) |
 | Заменяет | отсутствует |
 
@@ -95,7 +95,8 @@ Load order выводится dependency graph. Несвязанные nodes у�
 | `AttributeDefinition` | Namespaced typed value with base/current bounds, units, visibility и persistence policy |
 | `EffectDefinition` | Immutable composition of effect stages, duration/period, stacking, tags, mitigation и semantic cues |
 | `EffectRequest` | Runtime source/target/context/spec produced by ability/contact/world rule |
-| `EffectTransaction` | Canonical validated composition of one SPEC-19 `RpgTransactionPlan` plus Mechanics Runtime delta, applied atomically or not at all |
+| `MechanicsDeltaPlanV1` | Immutable owner-built Mechanics Runtime read/write/event plan bound to one causal command/body and exact registry/state revisions |
+| `EffectTransaction` | Canonical validated composition of one SPEC-19 `RpgTransactionPlan` plus `MechanicsDeltaPlanV1`, applied atomically or not at all |
 | `StatusDefinition/StatusInstance` | Persistent or timed buff/debuff/state with stacking, immunity, dispel и tick policy |
 | `ProjectileDefinition` | Spawn/collision/lifetime/ownership/effect mapping; physics owns actual pose/contact |
 | `AreaFieldDefinition` | Versioned spatial effect source with cadence, membership query и lifetime |
@@ -137,6 +138,15 @@ Package MAY участвовать только в declared extension points. Co
 - update package-owned MechanicState namespace.
 
 Direct `set health`, arbitrary aggregate/component write, raw transform write и unvalidated event injection запрещены. Damage, healing и resource changes выражаются `EffectRequest`; engine alone converts accepted effects into revision-checked typed RPG operations and an atomic `RpgTransactionPlan`, чтобы armor, immunity, difficulty и effect accounting оставались composable.
+
+For SPEC-31 `AdmitQuestGraphRevision` and `AdmitDivineJudgmentBatch`,
+`MechanicsDeltaPlanV1` MAY be embedded in the Runtime-owned
+`CrossContextTransactionPlanV1` together with the RPG and quest-graph owner
+subplans. Mechanics Runtime remains the sole builder/semantic validator of its
+delta. Runtime may validate common command identity, revisions, hashes and
+atomic staging, but cannot reinterpret effect semantics or accept a raw
+candidate-provided delta. No other V1 command may use this cross-context
+wrapper.
 
 ## Reducers и durable extension state
 

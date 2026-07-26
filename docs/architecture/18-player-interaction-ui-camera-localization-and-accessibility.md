@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-18 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 2.2 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
 
@@ -174,10 +174,10 @@ Accessibility alternative MUST invoke the same action ID and validation path as 
 | `FAIL-033` | Invalid, non-monotonic, stale, conflicting, oversized or cutoff-corrupt control/action/targeting input | Reject the affected event, frame or candidate before partial/duplicate gameplay command; preserve exact assignment/diagnostic and never reorder by arrival or retry to green. |
 | `FAIL-034` | Missing/lost optional device, failed optional UI panel, missing locale/glyph or invalid preference profile | Use only the declared bounded accessible semantic-action/source-locale/default-profile fallback; required schema failure remains pre-world; save/domain state and committed commands remain untouched. |
 
-## Proposed SPEC-31 quest disclosure and journal projection
+## SPEC-31 quest disclosure, journal and divine projection
 
-If [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) is
-accepted, quest UI reads an immutable RPG projection. A `Latent` opportunity is
+Quest UI reads the immutable RPG projection defined by
+[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md). A `Latent` opportunity is
 not shown merely because it exists. `Direct`, `Solicited`, `Contextual` and
 `Public` surfaces all submit the same semantic disclosure/action path and render
 the same Quest ID, term revision and availability state after commit.
@@ -193,8 +193,22 @@ The journal MAY present `Offered`, `Accepted` and `Resolved` instances with
 source/channel, deadline warnings, frozen terms and committed outcome. It MUST
 NOT reveal hidden latent facts, use localized title/text as identity or hide an
 authoritative deadline/outcome because the originating NPC or panel is unloaded.
-While SPEC-31 remains Proposed, this section does not change the Accepted UI
-schema.
+
+Divine UI reads only `DivineStandingProjectionV1`: stable qualitative
+favor/attention band IDs, player-visible open `DivineOfferV1` terms/expiry,
+active covenant/vow summaries and bounded recent committed reason references.
+Exact `favor_raw`, `attention_raw`, thresholds, hidden taboos, epistemic rules,
+prompts and uncommitted candidates MUST NOT be shown as authoritative values.
+
+One committed player act MAY produce several simultaneous patron messages, for
+example approval from one god and condemnation from its rival. UI sorts them by
+the committed batch event order, presents each patron and causal reason
+separately and MUST NOT collapse them into one karma score or imply that the
+player can satisfy every god. Offer acceptance/decline, covenant renunciation/
+restoration and divine quest acceptance remain explicit semantic player actions
+through production command paths. UI submits the exact offer ID/revision and
+renders only the committed `DivineOfferTransitioned`/
+`DivineCovenantChanged` result; it cannot expire an offer with a widget timer.
 
 ## Consequences
 

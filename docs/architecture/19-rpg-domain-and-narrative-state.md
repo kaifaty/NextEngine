@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-19 |
 | Статус | Accepted |
-| Версия | 1.1 |
-| Последняя проверка | 2026-07-25 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
+| Версия | 1.3 |
+| Последняя проверка | 2026-07-26 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-029](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md), [ADR-031](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md) |
 | Заменяет | отсутствует |
 
 ## История принятия
@@ -39,6 +39,7 @@ SPEC-19 отделяет authoritative RPG domain от mechanics/script/plugin/A
 | Faction state and faction-to-faction policy | RPG Framework `Faction` aggregate | presentation label, package definition cache |
 | Character membership and rank in one faction | RPG Framework `FactionMembership` aggregate | Character/Faction membership index |
 | Directed relationship dimensions | RPG Framework `Relationship` aggregate | AI sentiment/recollection, UI label |
+| Player standing, offers, covenant/vow/warning state and judgment lineage for one authored god | RPG Framework `DivineStanding` aggregate | AI/model memory, ordinary Relationship, UI band |
 | Interactive-object gameplay state | RPG Framework `InteractiveObject` aggregate | physics contact, UI panel, World Services reservation |
 | Mechanics definitions and namespaced mechanic state | SPEC-13 Mechanics Registry/Runtime | RPG fields outside a typed operation |
 | Calendar, time, schedules, population and reservations | World Services | RPG save segment or Character fields |
@@ -64,7 +65,7 @@ RpgAggregateEnvelopeV1 {
 }
 ```
 
-- `aggregate_kind` is the closed enum `Character`, `Item`, `Inventory`, `Equipment`, `Quest`, `Dialogue`, `Faction`, `FactionMembership`, `Relationship` or `InteractiveObject`.
+- `aggregate_kind` is the closed enum `Character`, `Item`, `Inventory`, `Equipment`, `Quest`, `Dialogue`, `Faction`, `FactionMembership`, `Relationship`, `DivineStanding` or `InteractiveObject`.
 - `persistent_id` is a `PersistentId`; `RuntimeEntityId`, names and storage keys are forbidden as durable identity.
 - `schema_version` is a positive `u32`. `revision` is a `u64` optimistic-concurrency counter.
 - A definition-backed record uses exact `DefinitionRefV1 { asset_id: AssetId, content_hash: ContentHash }`. A kind whose identity is created entirely by a transaction uses the declared `None` variant, not an omitted field.
@@ -110,6 +111,19 @@ The Faction envelope binds the exact definition reference. `FactionPayloadV1` co
 
 Character and Faction expose membership only as derived indexes. Symmetry is never implicit: an inverse relationship is a separate aggregate and requires an explicit operation in the same transaction when policy demands it. AI memory may retain recollection but cannot overwrite the current relationship. Bulk reputation expands into bounded typed operations with contiguous slots before plan construction.
 
+### DivineStanding
+
+`DivineStandingPayloadV1` belongs to one subject Character and one exact
+authored god definition without requiring that god to be a Character. It owns
+checked favor/attention, bounded `DivineOfferV1` values, covenant/vow/mandate
+state, warning ledger, intervention cooldowns and committed judgment lineage.
+It is not an ordinary Relationship or global karma.
+
+The containing envelope `payload_hash` is the sole standing payload hash.
+Attention cannot select whether an epistemically eligible god receives a
+request. Offer/covenant state changes use the exact SPEC-31 state machines; a
+model candidate cannot accept, decline, renounce or restore for the player.
+
 ### InteractiveObject
 
 The InteractiveObject envelope binds the exact definition reference. `InteractiveObjectPayloadV1` contains explicit state-machine state, capabilities, owner/region references and the committed reservation reference, when present. Physical overlap is an immutable candidate fact only. Use/lock/open/activate/consume validates object state, actor capability, World Services reservation and physical preconditions before plan construction.
@@ -135,6 +149,12 @@ An RPG `WorldCommand` payload is `RpgCommandV1`. It contains a bounded sequence 
 | `AdvanceDialogue` | Dialogue ref, stable choice/transition ID and typed commitment operation references |
 | `ChangeFactionMembership` | Membership, Character and Faction refs, stable membership/rank transition ID |
 | `AdjustRelationship` | Relationship ref, dimension ID, checked fixed-point delta and policy definition |
+| `CreateDivineStanding` | Subject Character ref, exact patron definition, authored initial state and causal spawn slot; `InternalSystem` initialization only |
+| `ApplyDivineJudgment` | Standing ref, expected revision, batch/result refs and exact policy-derived before/after values |
+| `CreateDivineOffer` | Standing ref, `Boon`/`Covenant` definition and terms, source judgment and causal offer spawn slot |
+| `TransitionDivineOffer` | Standing/offer refs and one exact `Accept`, `Decline`, `Expire` or `Supersede` transition with player/system authority |
+| `TransitionDivineCovenant` | Standing ref and exact activation, renunciation, breach or restoration transition with compatibility/prerequisite refs |
+| `RecordDivineWarning` | Standing ref, disclosed taboo/vow/policy reference and causal judgment/event refs |
 | `TransitionInteractiveObject` | Object ref, actor ref, stable transition ID and reservation/physical fact refs |
 
 Every variant has a common prefix: contiguous `operation_slot: u32`, sorted unique target refs `(aggregate_kind, PersistentId, expected_revision)`, exact definition/policy hashes and its typed payload. Slots MUST equal `0..operation_count-1`. An intra-command reference may point only to an earlier operation or declared causal spawn slot; duplicate, gap, forward or cyclic reference rejects the command. `RpgCommandV1` and `CanonicalCommandBodyV2` MUST NOT contain `command_id`; the authoritative causal command ID is a validator result computed under ADR-022.
@@ -181,6 +201,15 @@ Validation and publication use exactly this sequence:
 8. at the declared Runtime commit point, Runtime rechecks the bound read revisions/hashes and atomically publishes the whole write set, terminal receipt and committed event batch; any mismatch or failure discards the buffer and publishes no RPG state or event.
 
 No subscriber may re-enter the current transaction. A committed event may cause a future `WorldCommand` proposal only. Crash recovery sees either the previous atomic checkpoint or the fully committed plan; staging is never an authoritative shared store.
+
+For SPEC-31 `AdmitQuestGraphRevision` and
+`AdmitDivineJudgmentBatch`, RPG Framework additionally builds immutable
+`QuestGraphRegistryPlanV1` when graph registry state changes. Runtime embeds it,
+the ordinary `RpgTransactionPlan` and any owner-built Mechanics delta in the
+bounded `CrossContextTransactionPlanV1`. The wrapper does not transfer semantic
+ownership: RPG Framework remains the only builder of both RPG subplans, and a
+cross-context failure publishes no aggregate, graph slot, offer, effect, event
+or receipt subset.
 
 ## Stable event order
 
@@ -230,6 +259,11 @@ Load/migration follows these rules:
 
 Input older than `N-2`, a missing required definition/migration or an invalid record returns `RPG_MIGRATION_REQUIRED` or the more specific diagnostic. Package uninstall/export follows the same copy-on-write rule and cannot silently discard RPG fields or causal history.
 
+For `DivineStanding`, representation migrations additionally require the exact
+world-locked patron set and pantheon graph hash. A changed set/hash is
+`DIVINE_PANTHEON_WORLD_MISMATCH`, not an inferred record creation, deletion or
+retirement migration.
+
 ## Compositional budget ownership
 
 Command admission, RPG validation, `RpgTransactionPlan` construction, staging and commit are measured only in ADR-016 `core-command-rpg` owner spans. Mechanics, AI and World Services proposal work remains in its own mutually exclusive budget row. No RPG product check redefines the integrated `GameplayBudgetMatrix`, and passing an RPG functional check does not substitute for `PERF-01`.
@@ -267,7 +301,7 @@ Command admission, RPG validation, `RpgTransactionPlan` construction, staging an
 | ID | Requirement |
 |---|---|
 | `REQ-095` | Every generic RPG aggregate has one owner, `RpgAggregateEnvelopeV1`, immutable revisioned view and explicit state machine. |
-| `REQ-096` | Character/item/inventory/equipment/quest/dialogue/faction/membership/relationship/object changes validate, stage and commit atomically through `WorldCommand` and immutable `RpgTransactionPlan` with canonical event order. |
+| `REQ-096` | Character/item/inventory/equipment/quest/dialogue/faction/membership/relationship/divine-standing/object changes validate, stage and commit atomically through `WorldCommand` and immutable owner plans with canonical event order. |
 | `REQ-097` | First-party and community mechanics use the same typed RPG operations, capabilities and validators with no hidden operation, store or mutable API. |
 | `REQ-098` | RPG save segments preserve exact definitions, domain revisions and causal history and migrate copy-on-write from `N-2`/`N-1` to `N` with fail-closed atomic publication. |
 
@@ -278,7 +312,7 @@ Command admission, RPG validation, `RpgTransactionPlan` construction, staging an
 | `FAIL-035` | Invalid, stale, conflicting or faulted multi-aggregate operation/plan | Reject or discard the entire staged plan; publish no aggregate revision, `DomainEvent` or partial receipt result; retain the prior atomic checkpoint. |
 | `FAIL-036` | Missing/incompatible/ambiguous definition or `N-2 → N` migration, invalid cross-aggregate record or migration publication fault | Fail closed before publication, discard the working generation and preserve exact original bytes/hash, prior published generation, revisions and causal history. |
 
-## Proposed SPEC-31 Quest extension
+## Autonomous Quest extension
 
 [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) предлагает
 versioned расширение Quest payload полями `engagement_state`,
@@ -301,5 +335,42 @@ Outcome и открываемый им `NarrativeHookV1` проходят тот
 `WorldCommand → validation → atomic commit → DomainEvent` path, что и все
 Accepted RPG mutations. Narrative Director не становится aggregate owner,
 не выбирает `PersistentId`, final challenge/XP и не публикует partial graph.
-Пока SPEC-31/ADR-029 остаются Proposed, текущая Quest schema этого документа не
-меняется.
+
+## Divine-standing extension
+
+[ADR-031](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md)
+добавляет `DivineStanding` в closed
+`RpgAggregateEnvelopeV1.aggregate_kind`. Это dedicated aggregate одного
+subject Character и authored god definition; он не является special-case
+`Relationship`, не требует god Character и не переносит authority в Agent
+Intelligence.
+
+`DivineStandingV1` владеет checked signed favor, unsigned attention, bounded
+`DivineOfferV1` state/history, covenant/vow/mandate state, causal warning
+ledger, intervention cooldowns and bounded committed judgment history. Typed
+operations включают:
+
+- `CreateDivineStanding` с causal spawn slot и exact patron definition;
+- `ApplyDivineJudgment` с expected standing revision, exact policy-derived
+  before/after values and judgment/batch refs;
+- `CreateDivineOffer` и `TransitionDivineOffer` по closed offer lifecycle;
+- `TransitionDivineCovenant` с explicit player choice, compatibility and
+  renunciation preconditions;
+- `RecordDivineWarning` и intervention/cooldown transition по stable authored
+  IDs.
+
+Individual model/provider candidate cannot invoke these operations. Only RPG
+validation of `AdmitDivineJudgmentBatch` expands canonical per-god results into
+the complete ordered multi-aggregate plan. Runtime composes its
+`RpgTransactionPlan`, optional `QuestGraphRegistryPlanV1` and owner-built
+Mechanics delta through `CrossContextTransactionPlanV1`. All
+standing/offer/covenant records, mechanic effects and sponsored Quest
+opportunities publish atomically or none publish. Completion order, UI labels
+and prompt text never determine plan order.
+
+Player-facing views expose qualitative favor/attention bands, open player-visible
+offers and recent committed reasons, not raw numeric values or hidden
+thresholds. The patron set and pantheon graph hash are world-locked. Adjacent
+schema representation migration preserves every standing ID, patron binding,
+domain revision and causal history; it cannot add/remove/retire a patron in an
+existing V1 world.

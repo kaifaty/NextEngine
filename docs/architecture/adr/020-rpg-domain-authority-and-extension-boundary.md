@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-020 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.2 |
 | Дата решения | 2026-07-24 |
-| Последняя проверка | 2026-07-24 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](014-deterministic-extensions-and-package-trust.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
-| Заменён | не заменён |
+| Заменён | частично [ADR-031](031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md), только пункт 1 в части closed RPG aggregate set |
 
 ## Контекст
 
@@ -17,7 +17,7 @@ Generic RPG aggregates and Luau/Wasm execution were described in one subsystem, 
 
 ## Решение
 
-1. `RpgDomainState` is the sole authoritative store of revisioned `Character`, `Item`, `Inventory`, `Equipment`, `Quest`, `Dialogue`, `Faction`, `FactionMembership`, `Relationship` and `InteractiveObject` aggregates.
+1. `RpgDomainState` is the sole authoritative store of revisioned `Character`, `Item`, `Inventory`, `Equipment`, `Quest`, `Dialogue`, `Faction`, `FactionMembership`, `Relationship`, `DivineStanding` and `InteractiveObject` aggregates. Addition of `DivineStanding` is the narrow partial supersession defined by ADR-031.
 2. Every aggregate uses an engine-owned typed envelope with `PersistentId`, schema version, `u64` domain revision, exact definition reference and immutable view. A committed transaction increments each changed aggregate exactly once; rejection changes none and overflow fails closed.
 3. RPG mutation is expressed only as a closed typed engine-owned operation inside `WorldCommand`. Arbitrary field patching, mutable ECS access, backend/database objects and package-private operation variants are forbidden.
 4. Only RPG validation constructs immutable `RpgTransactionPlan` from the validator-computed ADR-022 command identity, exact target revisions, definition/policy hashes and immutable cross-context facts. Caller input never contains its own authoritative command ID or a trusted transaction plan.
@@ -60,3 +60,8 @@ Generic RPG aggregates and Luau/Wasm execution were described in one subsystem, 
 ## Supersession
 
 ADR-020 coexists with ADR-008, ADR-014, ADR-016, ADR-022 and ADR-030 and does not supersede them. Moving RPG authority into script/plugin/mechanics/AI/presentation/world-service state, allowing partial domain transaction, in-place migration, hidden first-party path, shared mutable store or forbidden public backend type requires a new superseding ADR and corresponding updates to affected specifications.
+
+[ADR-031](031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md)
+partially supersedes only decision item 1 by adding `DivineStanding` to the
+closed aggregate set while retaining every authority, typed-operation,
+atomicity and migration rule of this ADR.

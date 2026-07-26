@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-06 |
 | Статус | Accepted |
-| Версия | 1.8 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 1.10 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md) |
 | Заменяет | отсутствует |
 
@@ -114,9 +114,9 @@ Process получает минимальный serialized context, не filesys
 | AI-06 | Package affordance discovery | Every granted planner-visible ability is discoverable, new fixture abilities need no AI code change, and invalid/stale affordances are rejected; otherwise mark the ability manual-only. |
 | AI-07 | Agent archetype habits and motor capability boundary | Habits emit only `AgentIntent`/`InvokeAbility`; every capability state selects its deterministic authored planner fallback without direct motor or gameplay mutation. |
 
-## Proposed SPEC-31 narrative-director role
+## SPEC-31 narrative-director role
 
-[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) предлагает
+[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) defines
 отдельную Agent Intelligence role `narrative-director`. Она получает bounded
 immutable projection facts/quests/hooks/extension slots и возвращает только
 `NarrativeDirectorCandidateV1`; raw tools, code, arbitrary `WorldCommand` и
@@ -133,5 +133,22 @@ RPG-owned возможностей.
 Timeout, crash, protocol mismatch, late/conflicting result или отсутствие
 `ai-host` не блокирует simulation tick: deterministic
 `TemplateNarrativeDirector` использует тот же request, validators и command
-path. Пока SPEC-31/ADR-029 остаются Proposed, эта роль не меняет Accepted
-`ai-host` authority.
+path at the fixed `NarrativeDecisionBoundaryV1`.
+
+[ADR-031](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md)
+uses authored god instances of the same `narrative-director` role. Each god
+receives a separate `DivineDecisionRequestV1` constrained by its own
+`DivineEpistemicPolicyV1`; one provider session, shared prompt or model call
+cannot merge several gods into an authoritative council. Every request for one
+root event cites the same immutable `DivineJudgmentBatchBaseV1`, and no god sees
+another god's uncommitted result from that batch.
+
+AI/model output selects only a categorical judgment and one eligible authored
+intervention. RPG/Mechanics validators compute exact standing deltas,
+sanction/boon effects, offer/covenant transitions and authorized pantheon
+spillover. Every epistemically eligible god receives its own request regardless
+of attention. Invalid or missing completion replaces that god's complete
+candidate with one deterministic template candidate; valid completions of other
+gods remain independent. Agent memory MAY recollect committed divine events,
+but `DivineStandingV1`, offers, covenants, warnings and interventions belong to
+RPG Framework.

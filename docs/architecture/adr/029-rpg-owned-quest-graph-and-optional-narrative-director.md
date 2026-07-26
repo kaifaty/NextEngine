@@ -3,26 +3,26 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-029 |
-| Статус | Proposed |
-| Версия | 0.2 |
-| Дата предложения | 2026-07-25 |
-| Последняя проверка | 2026-07-25 |
-| Нормативные зависимости | [SPEC-31](../31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [SPEC-20](../20-world-simulation-and-population-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-021](021-deterministic-population-residency-and-time-advance.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](026-deterministic-work-resource-and-streaming-admission.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
+| Статус | Accepted |
+| Версия | 1.0 |
+| Дата решения | 2026-07-26 |
+| Последняя проверка | 2026-07-26 |
+| Нормативные зависимости | [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-20](../20-world-simulation-and-population-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-021](021-deterministic-population-residency-and-time-advance.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](026-deterministic-work-resource-and-streaming-admission.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 
 ## ADR-030 scope
 
 [ADR-030](030-product-first-development-and-lightweight-validation.md)
-заменяет прежние process clauses этого Proposed ADR. Quest/graph authority,
+заменяет прежние process clauses ранней proposal revision этого ADR. Quest/graph authority,
 bounded untrusted director proposals, deterministic fallback и
 replay-without-regeneration semantics сохраняются.
 
-## Статус предложения
+## История принятия
 
-ADR-029 остаётся `Proposed`: он определяет proposed contracts, но не выбирает
-LLM, provider или runtime и не утверждает их реализацию. SPEC-31 остаётся
-companion technical specification.
+ADR-029 принят как authority decision для autonomous Quest и narrative
+director. Он не выбирает LLM/provider и не утверждает runtime implementation;
+accepted detailed contract находится в SPEC-31.
 
 ## Контекст
 
@@ -39,12 +39,14 @@ Accepted architecture уже разделяет RPG authority, deterministic pop
 - может ли LLM добавлять graph topology и prose без превращения в RPG owner;
 - как live nondeterministic response становится replayable external input;
 - что происходит с generation, когда model/network отсутствует.
+- как тот же director boundary может исполнять authored роли богов, не делая
+  модель владельцем divine standing, санкций или наград;
+- как независимые конфликтующие боги оценивают один поступок из одного
+  snapshot, а затем атомарно применяют противоположные последствия.
 
 Без решения quest opportunity может жить только в UI/script, world service может начать менять RPG state, provider thread — стать вторым graph store, а replay — повторно вызвать модель и получить другое прошлое.
 
 ## Решение
-
-Если решение будет принято:
 
 1. **Intent is not a quest.** Private `AgentIntent`, committed world need, dialogue line and LLM output are inputs/proposals. A Quest begins only when RPG deterministic admission accepts a bounded `QuestCandidateV1`.
 2. **Quest exists before disclosure and acceptance.** Successful admission creates one RPG-owned `QuestInstance(Latent)`. `Latent`, `Offered`, `Accepted` and `Resolved` are engagement states of that aggregate.
@@ -57,11 +59,24 @@ Accepted architecture уже разделяет RPG authority, deterministic pop
 9. **RPG owns the graph.** Current `QuestGraphRevisionV1`, slot occupancy, Quest instances and outcomes belong to RPG Framework. World Services owns only its facts; Agent Intelligence owns only intent/planning and request/candidate routing.
 10. **Authored anchors remain mandatory.** LLM/template additions attach only to `NarrativeExtensionSlotV1`. They cannot alter anchors, protected facts, mandatory reachability or endings.
 11. **LLM output is external untrusted input.** Optional `ai-host` returns a bounded typed candidate. It receives no mutable tools and cannot emit a trusted command, authoritative ID, XP grant or transaction plan.
-12. **Admission is atomic.** `AdmitQuestOpportunity` admits one opportunity. `AdmitQuestGraphRevision` may atomically admit a generated graph batch, but uses the same per-opportunity validator and causal identity path.
-13. **Fallback is productive.** Deterministic `TemplateNarrativeDirector` uses the same request, slots, policies, validators and command path and may create simpler chains. Missing model is quality loss, not world-stall.
-14. **Replay never regenerates.** Live completion bytes become recorded external input after SPEC-21 assignment. Save/replay pins candidate and graph artifacts; replay makes zero model/network calls.
+12. **Admission is atomic.** `AdmitQuestOpportunity` admits one opportunity. `AdmitQuestGraphRevision` may atomically admit a generated graph batch, but uses the same per-opportunity validator, causal identity path and bounded Runtime-owned `CrossContextTransactionPlanV1`.
+13. **Fallback is productive at a fixed boundary.** Deterministic `TemplateNarrativeDirector` uses the same request, slots, policies, validators and command path and may create simpler chains. Results only stage before their `NarrativeDecisionBoundaryV1`; missing model selects fallback at that boundary rather than moving or blocking it.
+14. **Replay never regenerates.** Live completion bytes/assignments and decision-boundary closure become recorded external inputs. Save/replay pins candidate and graph artifacts; replay makes zero model/network calls.
 15. **Generated content is world-local.** Runtime cannot mutate project/package sources. Перенос результата в authored content выполняется отдельным inspectable `AgentChangeSet` вне runtime.
 16. **No new technology decision.** The protocol is engine-owned. Exact local/remote model/provider remains Proposed and is selected only after relevant product checks.
+17. **Gods are role instances, not a new authority.** Each authored god MAY use
+    an independent `narrative-director` request constrained by its own
+    epistemic policy and intervention catalog. LLM output remains a proposal.
+18. **Pantheon conflict is resolved atomically.** All gods eligible for one root
+    event read one immutable pre-decision base. A deterministic authored
+    resolver combines personal judgments and directed pantheon/covenant
+    spillover only for epistemically eligible targets into one atomic
+    multi-standing/effect/quest command. Invalid per-god candidate is replaced
+    wholly by its canonical template result; completion order cannot select a
+    merge or commit boundary.
+19. **Divine standing is RPG-owned.** The dedicated aggregate and
+    supersession of ADR-020's closed list are isolated in ADR-031. This ADR does
+    not reinterpret ordinary Relationship as divine reputation.
 
 ## Рассмотренные варианты
 
@@ -78,6 +93,13 @@ Accepted architecture уже разделяет RPG authority, deterministic pop
 - **No generation when ai-host is absent** — Rejected: every AI role needs an in-process deterministic fallback and the requested living-world capability must remain useful offline.
 - **Regenerate on replay** — Rejected: provider/model/prompt drift would make past behavior unrecoverable.
 - **Automatically save good quests into project assets** — Rejected: runtime would mutate source and bypass the explicit `AgentChangeSet` authoring boundary.
+- **One model call acts as a council of gods** — Rejected: merges epistemic
+  scopes and prevents independent per-god fallback and causal attribution.
+- **Commit god responses as they arrive** — Rejected: provider/worker latency
+  would change standing, later context and world outcome.
+- **Salvage a valid category from an invalid intervention** — Rejected: the
+  authoritative result would depend on validator repair policy rather than one
+  recorded candidate or one canonical template candidate.
 
 ## Последствия
 
@@ -90,15 +112,24 @@ Accepted architecture уже разделяет RPG authority, deterministic pop
 - Fresh LLM-assisted runs may differ in optional content, while replay of each recorded run remains exact.
 - Authors must declare main-story anchors, extension slots, autonomy/deadline policies and template fallbacks.
 - Graph validation and transaction planning consume existing ADR-016 subsystem budgets; no unaccounted span is introduced.
+- Authored patron epistemic scopes, pantheon relations and intervention
+  catalogs reuse the director protocol while final divine state belongs to the
+  RPG extension defined by ADR-031.
+- Fresh runs may receive different divine judgments; one recorded run preserves
+  exact per-god candidates, fallback choices and the final atomic standing
+  vector.
 
 ## Failure and fallback
 
 - Invalid/stale/oversized/unsafe candidate is rejected as one unit; previous graph, Quest aggregates and open hooks remain unchanged.
-- Missing/crashed/timed-out/restarted director selects `TemplateNarrativeDirector` at the exact narrative decision boundary.
+- Missing/crashed/timed-out/restarted director selects `TemplateNarrativeDirector` at the exact fixed narrative decision boundary; early completion only stages.
 - Conflicting result bytes for one request identity fail closed and cannot pass by retry.
 - Missing generated artifact fails load before world mutation and preserves previous save generation.
 - Replay divergence is `NONDETERMINISTIC_RESULT`; model regeneration is never a recovery strategy.
 - A committed quest consequence is not silently rolled back. Recovery or compensation is a new causal command/chain.
+- Invalid/late divine result falls back only for the affected god. A stale or
+  invalid final pantheon batch commits no partial standing, covenant, effect or
+  quest state.
 
 ## Product checks
 
@@ -109,14 +140,17 @@ Accepted architecture уже разделяет RPG authority, deterministic pop
 | Player accepts, declines or presents prior progress | Acceptance freezes validated challenge/reward terms; decline only applies cooldown; prior facts count only under explicit policy | Reject stale activation/fact and keep the previous Quest revision |
 | `Latent`, `Offered`, `Accepted` и `Resolved` transitions проходят через authored autonomy policies | Quest aggregate, outcomes and hooks change atomically through RPG-owned commands; invalid transition mutates no state | Preserve the previous Quest aggregate and emit a stable rejection |
 | Template or model candidate proposes bounded additions to declared extension slots | Anchors, protected facts, mandatory reachability and size limits remain valid; one graph revision publishes atomically | Reject the candidate and run `TemplateNarrativeDirector` |
-| Director times out, crashes, restarts or returns conflicting bytes for one request | Tick loop does not block; request identity and completion assignment stay deterministic | Select `TemplateNarrativeDirector` at the same narrative decision boundary |
+| Director completes early, times out, crashes, restarts or returns conflicting bytes for one request | Early result never commits before the fixed boundary; tick loop does not block and request/assignment/boundary identity stays recorded | Select `TemplateNarrativeDirector` for missing/invalid work at that same boundary |
 | Save/replay loads a run containing generated quest graph and text | Exact candidate and graph artifacts reconstruct the committed run with zero model or network calls | Fail closed before world mutation if a referenced artifact is missing |
+| Several rival gods judge the same committed player act | Every god reads the same authorized base; only eligible targets receive directed spillover, invalid candidates are wholly replaced, and one exact cross-context standing/effect/quest vector commits at the fixed boundary under every completion permutation | Use per-god template results and preserve all prior standings on final batch rejection |
 
 ## Supersession
 
-ADR-029 coexists with ADR-005, ADR-016, ADR-020, ADR-021, ADR-022, ADR-026
-and ADR-030 and does not supersede them. SPEC-31 owns detailed schemas and
-diagnostics for this proposed boundary.
+ADR-029 coexists with ADR-005, ADR-016, ADR-020, ADR-021, ADR-022, ADR-026,
+ADR-030 and ADR-031 and does not supersede them. SPEC-31 owns detailed
+schemas and diagnostics for this boundary. ADR-031 alone defines the
+partial supersession needed to add the dedicated RPG-owned
+`DivineStanding` aggregate.
 
 Moving graph/Quest authority into World Services, AI/model/provider/project
 source; treating intent/dialogue as a Quest; allowing NPC/LLM-assigned final XP,

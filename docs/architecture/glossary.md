@@ -4,10 +4,10 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 2.2 |
+| Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | INDEX-001, [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
-| Заменяет | GLOSSARY-001 1.9 |
+| Заменяет | GLOSSARY-001 2.0 |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -138,7 +138,9 @@
 | **AbilityInstance** | Runtime state machine конкретного выполнения AbilityDefinition с causal command, phase, targets и interruption state. |
 | **MechanicAffordance** | Machine-readable описание способности для planner/authoring tools: preconditions, target, cost/time/risk, expected outcome range и failures. |
 | **EffectRequest** | Валидируемое предложение применить semantic effect от source к target в заданном context. |
-| **EffectTransaction** | Каноническая atomic composition одного validated `RpgTransactionPlan` и Mechanics Runtime delta; либо committed полностью, либо не applied. |
+| **MechanicsDeltaPlanV1** | Immutable Mechanics Runtime-owned delta/read/write/event plan bound to one causal command and exact registry/state revisions. |
+| **EffectTransaction** | Каноническая atomic composition одного validated `RpgTransactionPlan` и `MechanicsDeltaPlanV1`; либо committed полностью, либо не applied. |
+| **CrossContextTransactionPlanV1** | Runtime-owned bounded wrapper used only by quest-graph/divine admission to atomically compose immutable RPG, Mechanics and quest-graph owner subplans without transferring semantic ownership. |
 | **StatusInstance** | Versioned runtime instance временного/постоянного gameplay status со stacking, immunity, duration и source provenance. |
 | **MechanicReducer** | Bounded deterministic Luau/Wasm function, преобразующая immutable context, command и own state в MechanicDeltaProposal. |
 | **MechanicDeltaProposal** | Неавторитетное предложение namespaced state patch, EffectRequests, future commands, event payloads и presentation cues; authoritative DomainEvent создаётся engine только после commit. |
@@ -154,14 +156,14 @@
 | **GameplayBudgetMatrix** | Единая integer-microsecond матрица per-tick subsystem ceilings, integrated limits, cadence и measurement profile; отдельный subsystem benchmark не может переопределить её суммарный budget. |
 | **Vertical slice** | Минимальная играбельная цепочка, используемая `play` ProductCheck для проверки ключевого RPG loop и fallback paths. |
 
-## Proposed packet 1.9 terms
+## SPEC-31/ADR-031 terms
 
-Следующие термины принадлежат Proposed
-[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md). Они помогают
-обсуждать candidate consistently, но не являются Accepted runtime contract до
-явного принятия owning SPEC/ADR.
+Следующие термины принадлежат Accepted
+[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md). Architecture
+acceptance defines the contract but does not claim that runtime implementation
+or its product checks already exist.
 
-| Термин | Proposed definition |
+| Термин | Definition |
 |---|---|
 | **WorldNeedViewV1** | Immutable revision-bound projection of committed world/RPG facts that may justify an opportunity without creating a second fact owner. |
 | **QuestCandidateV1** | Bounded untrusted proposal that binds source facts, participants, verifiable outcomes, disclosure/autonomy/prior-fact policies and reward/difficulty envelopes; it becomes a Quest only after RPG admission. |
@@ -175,12 +177,28 @@
 | **QuestAutonomyPolicyV1** | Явная per-quest policy `PlayerProtected`, `WorldReactive` или `DeadlineBound`; default — `PlayerProtected`. |
 | **QuestOutcomeV1** | Closed committed outcome `Success`, `Failure`, `Expired`, `Cancelled` или `Superseded`. |
 | **NarrativeHookV1** | Bounded causal continuation opportunity, сохраняющая source quest, outcome и event identity. |
+| **NarrativeDecisionBoundaryV1** | Immutable world-time decision boundary whose closing SPEC-21 ingress batch determines eligible staged completions; it never compares `world_tick` with `SimulationTick` or commits early. |
 | **NarrativeAnchorV1** | Authored immutable mandatory сюжетная опора/critical fact, которую generated patch не может изменить или сделать недостижимой. |
 | **NarrativeExtensionSlotV1** | Authored bounded capability point, внутри которого candidate MAY добавлять generated nodes/edges через зарегистрированные primitives. |
 | **QuestGraphRevisionV1** | Content-addressed world/save-local immutable quest graph revision с definitions, anchors, slots, lineage и exact parent hash. |
 | **QuestGraphPatchV1** | Atomic bounded proposal новой graph revision; partial publication запрещена. |
-| **NarrativeDirectorRequestV1** | Bounded immutable, revision-bound snapshot facts, live quest projections, hooks, slots, policies и exact simulation deadline. |
+| **QuestGraphRegistryPlanV1** | Immutable RPG Framework-owned graph-registry read/write/event plan bound to one causal command and exact graph/slot revisions. |
+| **NarrativeDirectorRequestV1** | Bounded immutable, revision-bound snapshot facts, live quest projections, hooks, slots, policies и exact `NarrativeDecisionBoundaryV1`. |
 | **NarrativeDirectorCandidateV1** | Untrusted canonical graph/text proposal с cited revisions/facts, provenance и proposal hash; не команда и не mutable state. |
 | **TemplateNarrativeDirector** | Deterministic in-process fallback, создающий упрощённые quest chains через тот же request, validators и validated command path. |
+| **DivinePatronDefinitionV1** | Immutable authored god role with domains, values/taboos, epistemic ceiling, intervention catalog, budgets/cooldowns, quest slots and deterministic fallback; it is not mutable LLM memory. |
+| **DivineEpistemicPolicyV1** | Closed allowlist of committed event/fact classes and bounded causal/participant/region scope one god may know and cite; objective existence never implies access to all hidden state. |
+| **DivineStandingV1** | RPG-owned aggregate for one subject/god pair containing independent checked favor, deterministic-policy attention, bounded offers, covenant/vow/warning state, intervention cooldowns and causal judgment history; it is not ordinary Relationship or global karma. |
+| **DivineStandingProjectionV1** | Player-facing immutable qualitative favor/attention bands, visible offers, covenant/vow summary and bounded recent committed reasons; raw standing numbers, thresholds and hidden taboos are excluded. |
+| **DivineOfferV1** | Bounded RPG-owned child record for an offered boon or covenant with exact terms, expiry and closed `Offered → Accepted | Declined | Expired | Superseded` lifecycle. |
+| **DivineCovenantStateV1** | Closed RPG-owned covenant lifecycle `None`, `Offered`, `Active`, `RenunciationPending` or `Broken`; incompatible activation requires explicit player transition and never silently replaces another covenant. |
+| **PantheonRelationGraphV1** | Authored content-addressed directed graph of `Allied`, `Tolerant`, `Rival`, `Hostile` and `Indifferent` god relations plus covenant, boon, spillover and bounded counterquest rules. |
+| **DivineJudgmentHookV1** | Bounded causal opportunity for one epistemically eligible god to judge an authored semantic root event; ordinary standing-change bookkeeping does not open it. |
+| **DivineJudgmentBatchBaseV1** | Immutable shared pre-decision snapshot for every eligible god judging one root event; no per-god request observes another uncommitted result. |
+| **DivineDecisionRequestV1** | Per-god bounded Narrative Director request containing only that god's authorized facts, standing/covenant projection, relevant pantheon edges, eligible interventions and exact decision boundary. |
+| **DivineDecisionCandidateV1** | Recorded untrusted per-god choice of one categorical judgment and optional eligible intervention/quest proposal; any invalid part rejects the complete candidate to one canonical template candidate. |
+| **PantheonConflictResolverV1** | Deterministic canonical reducer over one batch base, selected per-god candidates/fallbacks and authored directed relations whose targets are also epistemically eligible; it produces one atomic multi-standing/effect/quest resolution independent of completion order. |
+| **DivineJudgmentResolutionV1** | Canonical complete per-patron before/after standing, selected candidate/fallback, effect/quest proposal and resolution hash set produced by `PantheonConflictResolverV1` before one atomic command commit. |
+| **QuestSponsorV1** | Closed `Npc | Faction | WorldNeed | DivinePatron` source attribution for an admitted opportunity; sponsorship does not add a disclosure channel or auto-acceptance path. |
 
 `Entity`, `object handle`, `GUID` и `resource ID` не должны использоваться в публичном контракте без уточнения одного из нормативных ID выше.
