@@ -5,9 +5,13 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::{
-    CharacterSnapshot, DialogueSnapshot, FactionSnapshot, InteractiveObjectSnapshot, ItemSnapshot,
-    PersistentId, QuestSnapshot, RelationshipEntry, RpgCommand, RpgEvent, RpgSnapshot,
-    SKILL_PROFICIENCY_MAX, SkillProficiency, SkillProficiencyEntry, WorldChunkRecordSnapshot,
+    CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_OFFER_NODE_ID, CORE_DIALOGUE_QUEST_TRUST_DELTA,
+    CORE_HELP_DIALOGUE_DEFINITION_ID, CORE_HELP_QUEST_DEFINITION_ID, CORE_QUEST_ACTIVE_STATE_ID,
+    CORE_QUEST_AVAILABLE_STATE_ID, CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID,
+    CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CharacterSnapshot, DialogueSnapshot, FactionSnapshot,
+    InteractiveObjectSnapshot, ItemSnapshot, PersistentId, QuestSnapshot, RelationshipEntry,
+    RpgCommand, RpgEvent, RpgSnapshot, SKILL_PROFICIENCY_MAX, SkillProficiency,
+    SkillProficiencyEntry, WorldChunkRecordSnapshot,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -100,6 +104,13 @@ impl RpgState {
                     .dialogues
                     .get(dialogue_id)
                     .ok_or(RpgApplyError::AggregateNotFound(RpgAggregateKind::Dialogue))?;
+                if relationship_source != &dialogue.speaker
+                    || relationship_target != &dialogue.listener
+                {
+                    return Err(RpgApplyError::InvariantViolation(
+                        "RPG_DIALOGUE_PARTICIPANT_MISMATCH",
+                    ));
+                }
                 if &dialogue.node_id != expected_dialogue_node_id {
                     return Err(RpgApplyError::StatePreconditionFailed(
                         RpgAggregateKind::Dialogue,
@@ -120,6 +131,25 @@ impl RpgState {
                 if !self.characters.contains_key(relationship_target) {
                     return Err(RpgApplyError::AggregateNotFound(
                         RpgAggregateKind::Character,
+                    ));
+                }
+                let is_core_dialogue =
+                    dialogue.definition_id.as_str() == CORE_HELP_DIALOGUE_DEFINITION_ID;
+                let is_core_quest = quest.definition_id.as_str() == CORE_HELP_QUEST_DEFINITION_ID;
+                if (is_core_dialogue || is_core_quest)
+                    && (!is_core_dialogue
+                        || !is_core_quest
+                        || source.archetype_id.as_str() != CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID
+                        || expected_dialogue_node_id.as_str() != CORE_DIALOGUE_OFFER_NODE_ID
+                        || next_dialogue_node_id.as_str() != CORE_DIALOGUE_ACCEPTED_NODE_ID
+                        || expected_quest_state_id.as_str() != CORE_QUEST_AVAILABLE_STATE_ID
+                        || next_quest_state_id.as_str() != CORE_QUEST_ACTIVE_STATE_ID
+                        || relationship_dimension_id.as_str()
+                            != CORE_RELATIONSHIP_TRUST_DIMENSION_ID
+                        || *relationship_delta != CORE_DIALOGUE_QUEST_TRUST_DELTA)
+                {
+                    return Err(RpgApplyError::InvariantViolation(
+                        "RPG_CORE_INTERACTION_COMMAND_INVALID",
                     ));
                 }
                 let current_relationship = source
@@ -511,6 +541,10 @@ impl Error for RpgApplyError {}
 #[cfg(test)]
 mod tests {
     use next_contracts::{
+        CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_OFFER_NODE_ID,
+        CORE_DIALOGUE_QUEST_TRUST_DELTA, CORE_HELP_DIALOGUE_DEFINITION_ID,
+        CORE_HELP_QUEST_DEFINITION_ID, CORE_QUEST_ACTIVE_STATE_ID, CORE_QUEST_AVAILABLE_STATE_ID,
+        CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID, CORE_RELATIONSHIP_TRUST_DIMENSION_ID,
         CharacterSnapshot, DialogueSnapshot, ItemSnapshot, PersistentId, QuestSnapshot,
         RelationshipEntry, RpgCommand, RpgSnapshot, SchemaId, SkillProficiency,
         SkillProficiencyEntry,
@@ -648,5 +682,84 @@ mod tests {
             Err(RpgApplyError::SkillProficiencyOutOfRange)
         );
         assert_eq!(state.snapshot(), before);
+    }
+
+    #[test]
+    fn dialogue_relationship_participants_must_match_speaker_and_listener() {
+        let mut state = RpgState::from_snapshot(fixture()).expect("fixture is valid");
+        let before = state.snapshot();
+        let command = RpgCommand::AdvanceDialogueQuest {
+            dialogue_id: id(5),
+            expected_dialogue_node_id: schema("rpg.dialogue-node.offer"),
+            next_dialogue_node_id: schema("rpg.dialogue-node.accepted"),
+            quest_id: id(4),
+            expected_quest_state_id: schema("rpg.quest-state.available"),
+            next_quest_state_id: schema("rpg.quest-state.active"),
+            relationship_source: id(2),
+            relationship_target: id(1),
+            relationship_dimension_id: schema("rpg.relationship.trust"),
+            relationship_delta: 7,
+        };
+
+        assert_eq!(
+            state.apply(&command),
+            Err(RpgApplyError::InvariantViolation(
+                "RPG_DIALOGUE_PARTICIPANT_MISMATCH"
+            ))
+        );
+        assert_eq!(state.snapshot(), before);
+    }
+
+    #[test]
+    fn core_dialogue_transition_accepts_only_the_bounded_profile() {
+        let mut snapshot = fixture();
+        snapshot.characters[0].archetype_id = schema(CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID);
+        snapshot.dialogues[0].definition_id = schema(CORE_HELP_DIALOGUE_DEFINITION_ID);
+        snapshot.dialogues[0].node_id = schema(CORE_DIALOGUE_OFFER_NODE_ID);
+        snapshot.quests[0].definition_id = schema(CORE_HELP_QUEST_DEFINITION_ID);
+        snapshot.quests[0].state_id = schema(CORE_QUEST_AVAILABLE_STATE_ID);
+        let mut state = RpgState::from_snapshot(snapshot).expect("core fixture is valid");
+        let before = state.snapshot();
+        let invalid = RpgCommand::AdvanceDialogueQuest {
+            dialogue_id: id(5),
+            expected_dialogue_node_id: schema(CORE_DIALOGUE_OFFER_NODE_ID),
+            next_dialogue_node_id: schema(CORE_DIALOGUE_ACCEPTED_NODE_ID),
+            quest_id: id(4),
+            expected_quest_state_id: schema(CORE_QUEST_AVAILABLE_STATE_ID),
+            next_quest_state_id: schema(CORE_QUEST_ACTIVE_STATE_ID),
+            relationship_source: id(1),
+            relationship_target: id(2),
+            relationship_dimension_id: schema(CORE_RELATIONSHIP_TRUST_DIMENSION_ID),
+            relationship_delta: CORE_DIALOGUE_QUEST_TRUST_DELTA + 1,
+        };
+        assert_eq!(
+            state.apply(&invalid),
+            Err(RpgApplyError::InvariantViolation(
+                "RPG_CORE_INTERACTION_COMMAND_INVALID"
+            ))
+        );
+        assert_eq!(state.snapshot(), before);
+
+        let valid = RpgCommand::AdvanceDialogueQuest {
+            dialogue_id: id(5),
+            expected_dialogue_node_id: schema(CORE_DIALOGUE_OFFER_NODE_ID),
+            next_dialogue_node_id: schema(CORE_DIALOGUE_ACCEPTED_NODE_ID),
+            quest_id: id(4),
+            expected_quest_state_id: schema(CORE_QUEST_AVAILABLE_STATE_ID),
+            next_quest_state_id: schema(CORE_QUEST_ACTIVE_STATE_ID),
+            relationship_source: id(1),
+            relationship_target: id(2),
+            relationship_dimension_id: schema(CORE_RELATIONSHIP_TRUST_DIMENSION_ID),
+            relationship_delta: CORE_DIALOGUE_QUEST_TRUST_DELTA,
+        };
+        state.apply(&valid).expect("bounded transition commits");
+        assert_eq!(
+            state.dialogue(id(5)).expect("dialogue").node_id,
+            schema(CORE_DIALOGUE_ACCEPTED_NODE_ID)
+        );
+        assert_eq!(
+            state.quest(id(4)).expect("quest").state_id,
+            schema(CORE_QUEST_ACTIVE_STATE_ID)
+        );
     }
 }

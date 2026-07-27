@@ -17,6 +17,16 @@ pub const RPG_COMMAND_CAPABILITY_ID: &str = "rpg.command.propose";
 pub const CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID: &str = "nextengine.rpg.interactive.core-switch";
 pub const CORE_INTERACTIVE_OBJECT_READY_STATE_ID: &str = "nextengine.rpg.interactive.ready";
 pub const CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID: &str = "nextengine.rpg.interactive.activated";
+pub const CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID: &str =
+    "nextengine.rpg.character.core-quest-giver";
+pub const CORE_HELP_DIALOGUE_DEFINITION_ID: &str = "nextengine.rpg.dialogue.core-help";
+pub const CORE_DIALOGUE_OFFER_NODE_ID: &str = "nextengine.rpg.dialogue-node.offer";
+pub const CORE_DIALOGUE_ACCEPTED_NODE_ID: &str = "nextengine.rpg.dialogue-node.accepted";
+pub const CORE_HELP_QUEST_DEFINITION_ID: &str = "nextengine.rpg.quest.core-help";
+pub const CORE_QUEST_AVAILABLE_STATE_ID: &str = "nextengine.rpg.quest-state.available";
+pub const CORE_QUEST_ACTIVE_STATE_ID: &str = "nextengine.rpg.quest-state.active";
+pub const CORE_RELATIONSHIP_TRUST_DIMENSION_ID: &str = "nextengine.rpg.relationship.trust";
+pub const CORE_DIALOGUE_QUEST_TRUST_DELTA: i32 = 7;
 
 pub const RPG_EVENT_DIALOGUE_QUEST_ADVANCED_SCHEMA_ID: &str =
     "nextengine.event.rpg.dialogue-quest-advanced";
@@ -148,7 +158,128 @@ pub struct RpgSnapshot {
     pub world_chunk_records: Vec<WorldChunkRecordSnapshot>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CoreDialogueQuestProfileState {
+    Ready,
+    Completed,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ResolvedCoreDialogueQuestBinding {
+    pub npc_id: PersistentId,
+    pub player_id: PersistentId,
+    pub dialogue_id: PersistentId,
+    pub quest_id: PersistentId,
+    pub state: CoreDialogueQuestProfileState,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CoreDialogueQuestClosureError;
+
+impl CoreDialogueQuestClosureError {
+    #[must_use]
+    pub const fn stable_code(self) -> &'static str {
+        "RPG_CORE_INTERACTION_CLOSURE_INVALID"
+    }
+}
+
+impl Display for CoreDialogueQuestClosureError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.stable_code())
+    }
+}
+
+impl Error for CoreDialogueQuestClosureError {}
+
 impl RpgSnapshot {
+    #[must_use]
+    pub fn has_core_dialogue_quest_records(&self) -> bool {
+        self.characters.iter().any(|character| {
+            character.archetype_id.as_str() == CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID
+        }) || self
+            .dialogues
+            .iter()
+            .any(|dialogue| dialogue.definition_id.as_str() == CORE_HELP_DIALOGUE_DEFINITION_ID)
+            || self
+                .quests
+                .iter()
+                .any(|quest| quest.definition_id.as_str() == CORE_HELP_QUEST_DEFINITION_ID)
+    }
+
+    pub fn resolve_core_dialogue_quest_binding(
+        &self,
+        controlled_character_id: PersistentId,
+    ) -> Result<Option<ResolvedCoreDialogueQuestBinding>, CoreDialogueQuestClosureError> {
+        if !self.has_core_dialogue_quest_records() {
+            return Ok(None);
+        }
+
+        let mut quest_givers = self.characters.iter().filter(|character| {
+            character.archetype_id.as_str() == CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID
+        });
+        let npc = quest_givers.next().ok_or(CoreDialogueQuestClosureError)?;
+        if quest_givers.next().is_some() {
+            return Err(CoreDialogueQuestClosureError);
+        }
+
+        let mut dialogues = self
+            .dialogues
+            .iter()
+            .filter(|dialogue| dialogue.definition_id.as_str() == CORE_HELP_DIALOGUE_DEFINITION_ID);
+        let dialogue = dialogues.next().ok_or(CoreDialogueQuestClosureError)?;
+        if dialogues.next().is_some() {
+            return Err(CoreDialogueQuestClosureError);
+        }
+
+        let mut quests = self
+            .quests
+            .iter()
+            .filter(|quest| quest.definition_id.as_str() == CORE_HELP_QUEST_DEFINITION_ID);
+        let quest = quests.next().ok_or(CoreDialogueQuestClosureError)?;
+        if quests.next().is_some()
+            || !self
+                .characters
+                .iter()
+                .any(|character| character.id == controlled_character_id)
+            || dialogue.speaker != npc.id
+            || dialogue.listener != controlled_character_id
+        {
+            return Err(CoreDialogueQuestClosureError);
+        }
+
+        let trust_value = npc
+            .relationships
+            .iter()
+            .find(|relationship| {
+                relationship.target == controlled_character_id
+                    && relationship.dimension_id.as_str() == CORE_RELATIONSHIP_TRUST_DIMENSION_ID
+            })
+            .map_or(0, |relationship| relationship.value);
+        let state = match (
+            dialogue.node_id.as_str(),
+            quest.state_id.as_str(),
+            trust_value,
+        ) {
+            (CORE_DIALOGUE_OFFER_NODE_ID, CORE_QUEST_AVAILABLE_STATE_ID, 0) => {
+                CoreDialogueQuestProfileState::Ready
+            }
+            (
+                CORE_DIALOGUE_ACCEPTED_NODE_ID,
+                CORE_QUEST_ACTIVE_STATE_ID,
+                CORE_DIALOGUE_QUEST_TRUST_DELTA,
+            ) => CoreDialogueQuestProfileState::Completed,
+            _ => return Err(CoreDialogueQuestClosureError),
+        };
+
+        Ok(Some(ResolvedCoreDialogueQuestBinding {
+            npc_id: npc.id,
+            player_id: controlled_character_id,
+            dialogue_id: dialogue.id,
+            quest_id: quest.id,
+            state,
+        }))
+    }
+
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, CanonicalError> {
         encode_canonical_segment(
             RPG_SNAPSHOT_OWNER_ID,
@@ -1021,13 +1152,71 @@ fn read_i32(cursor: &mut CanonicalCursor<'_>) -> Result<i32, RpgDecodeError> {
 #[cfg(test)]
 mod tests {
     use super::{
-        CharacterSnapshot, RelationshipEntry, RpgCommand, RpgSnapshot, SkillProficiency,
-        SkillProficiencyEntry,
+        CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_OFFER_NODE_ID,
+        CORE_DIALOGUE_QUEST_TRUST_DELTA, CORE_HELP_DIALOGUE_DEFINITION_ID,
+        CORE_HELP_QUEST_DEFINITION_ID, CORE_QUEST_ACTIVE_STATE_ID, CORE_QUEST_AVAILABLE_STATE_ID,
+        CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID, CORE_RELATIONSHIP_TRUST_DIMENSION_ID,
+        CharacterSnapshot, CoreDialogueQuestClosureError, CoreDialogueQuestProfileState,
+        DialogueSnapshot, QuestSnapshot, RelationshipEntry, RpgCommand, RpgSnapshot,
+        SkillProficiency, SkillProficiencyEntry,
     };
     use crate::{CanonicalDecodeLimits, PersistentId, SchemaId};
 
     fn schema(value: &str) -> SchemaId {
         SchemaId::new(value).expect("test schema id is valid")
+    }
+
+    fn core_dialogue_fixture(completed: bool) -> RpgSnapshot {
+        let player_id = PersistentId::from_bytes([1; 16]);
+        let npc_id = PersistentId::from_bytes([2; 16]);
+        RpgSnapshot {
+            characters: vec![
+                CharacterSnapshot {
+                    id: player_id,
+                    revision: 0,
+                    archetype_id: schema("nextengine.rpg.character.player"),
+                    skills: Vec::new(),
+                    relationships: Vec::new(),
+                },
+                CharacterSnapshot {
+                    id: npc_id,
+                    revision: u64::from(completed),
+                    archetype_id: schema(CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID),
+                    skills: Vec::new(),
+                    relationships: completed
+                        .then(|| RelationshipEntry {
+                            target: player_id,
+                            dimension_id: schema(CORE_RELATIONSHIP_TRUST_DIMENSION_ID),
+                            value: CORE_DIALOGUE_QUEST_TRUST_DELTA,
+                        })
+                        .into_iter()
+                        .collect(),
+                },
+            ],
+            quests: vec![QuestSnapshot {
+                id: PersistentId::from_bytes([3; 16]),
+                revision: u64::from(completed),
+                definition_id: schema(CORE_HELP_QUEST_DEFINITION_ID),
+                state_id: schema(if completed {
+                    CORE_QUEST_ACTIVE_STATE_ID
+                } else {
+                    CORE_QUEST_AVAILABLE_STATE_ID
+                }),
+            }],
+            dialogues: vec![DialogueSnapshot {
+                id: PersistentId::from_bytes([4; 16]),
+                revision: u64::from(completed),
+                definition_id: schema(CORE_HELP_DIALOGUE_DEFINITION_ID),
+                speaker: npc_id,
+                listener: player_id,
+                node_id: schema(if completed {
+                    CORE_DIALOGUE_ACCEPTED_NODE_ID
+                } else {
+                    CORE_DIALOGUE_OFFER_NODE_ID
+                }),
+            }],
+            ..RpgSnapshot::default()
+        }
     }
 
     #[test]
@@ -1108,5 +1297,57 @@ mod tests {
     fn proficiency_rejects_values_above_fixed_point_bound() {
         assert!(SkillProficiency::new(10_000).is_ok());
         assert!(SkillProficiency::new(10_001).is_err());
+    }
+
+    #[test]
+    fn core_dialogue_profile_resolves_absent_ready_and_completed_states() {
+        let player_id = PersistentId::from_bytes([1; 16]);
+        assert_eq!(
+            RpgSnapshot::default()
+                .resolve_core_dialogue_quest_binding(player_id)
+                .expect("absent profile is valid"),
+            None
+        );
+        assert_eq!(
+            core_dialogue_fixture(false)
+                .resolve_core_dialogue_quest_binding(player_id)
+                .expect("ready profile is valid")
+                .expect("binding")
+                .state,
+            CoreDialogueQuestProfileState::Ready
+        );
+        assert_eq!(
+            core_dialogue_fixture(true)
+                .resolve_core_dialogue_quest_binding(player_id)
+                .expect("completed profile is valid")
+                .expect("binding")
+                .state,
+            CoreDialogueQuestProfileState::Completed
+        );
+    }
+
+    #[test]
+    fn partial_or_mixed_core_dialogue_profile_fails_closed() {
+        let player_id = PersistentId::from_bytes([1; 16]);
+        let mut partial = core_dialogue_fixture(false);
+        partial.quests.clear();
+        assert_eq!(
+            partial.resolve_core_dialogue_quest_binding(player_id),
+            Err(CoreDialogueQuestClosureError)
+        );
+
+        let mut mixed = core_dialogue_fixture(false);
+        mixed.quests[0].state_id = schema(CORE_QUEST_ACTIVE_STATE_ID);
+        assert_eq!(
+            mixed.resolve_core_dialogue_quest_binding(player_id),
+            Err(CoreDialogueQuestClosureError)
+        );
+
+        let mut wrong_listener = core_dialogue_fixture(false);
+        wrong_listener.dialogues[0].listener = PersistentId::from_bytes([9; 16]);
+        assert_eq!(
+            wrong_listener.resolve_core_dialogue_quest_binding(player_id),
+            Err(CoreDialogueQuestClosureError)
+        );
     }
 }

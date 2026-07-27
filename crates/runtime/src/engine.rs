@@ -6,30 +6,35 @@ use std::fmt::{Display, Formatter};
 use next_contracts::{
     AcceptedLocomotionIntentV2, AuthoritativeNumericProfileV1,
     CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION, CLOSED_INGRESS_BATCH_SCHEMA_VERSION,
-    COMMAND_ENVELOPE_SCHEMA_VERSION, COMMAND_RECEIPT_SCHEMA_VERSION, CORE_INTERACT_ACTION_ID,
-    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID,
-    CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CORE_MOVE_ACTION_ID, CanonicalDecodeLimits,
-    CanonicalError, CapabilityId, CausalIdentityKey, CausalIdentityKind,
-    ClosedCommandAdmissionBatchBodyV2, ClosedCommandAdmissionBatchV2, ClosedIngressBatchBodyV1,
-    ClosedIngressBatchV1, ClosedPhysicsContactBatchV1, CommandBodyArchiveV1,
-    CommandCollisionCandidateV1, CommandCollisionIncidentV1, CommandFinalResultV1, CommandId,
-    CommandIdentityOccurrenceV1, CommandLedgerError, CommandLedgerV2, CommandPayload, CommandPhase,
-    CommandReceiptSubjectV1, CommandReceiptV1, CommandReservationV1, CommandStreamId,
-    CommandStreamLedgerV2, CommandStreamRegistryV1, CommandStreamStateV1, ContentHash, DomainEvent,
-    IdentityContractError, IdentityInsertResult, IngressAssignmentProfileV1, IngressAssignmentV1,
-    IngressCheckpointV1, IngressEquivalenceReceiptV1, InputContractError, InputMappingCodeV1,
-    InputMappingReceiptV1, InputSampleV1, IssuerPrincipal, PHYSICS_STEP_INPUT_SCHEMA_VERSION,
-    PLAYER_ACTION_FRAME_SCHEMA_ID, PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS,
-    PLAYER_INTERACTION_SYSTEM_ID, PersistentId, PhysicalCommandV1, PhysicalEventV1,
-    PhysicsCanonicalSnapshotV2, PhysicsContractError, PhysicsCoordinateProfileV1,
-    PhysicsLimitsProfileV1, PhysicsQuantizationProfileV1, PhysicsSolverSemanticsProfileV1,
-    PhysicsStepInputV2, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
-    PhysicsWorldCheckpointV1, PhysicsWorldId, PlayerActionFrameV1, PlayerActionPhaseV1,
-    PlayerActionValueV1, PlayerControllerBindingV1, PlayerControllerRegistryV1,
-    PrincipalRegistryV1, ProjectId, RPG_COMMAND_CAPABILITY_ID, RpgCommand, RpgDecodeError,
-    RpgSnapshot, RuntimeAdmissionLimitsV1, RuntimeDeterminismProfileV1, RuntimeSnapshot, SchemaId,
+    COMMAND_ENVELOPE_SCHEMA_VERSION, COMMAND_RECEIPT_SCHEMA_VERSION,
+    CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_OFFER_NODE_ID, CORE_DIALOGUE_QUEST_TRUST_DELTA,
+    CORE_INTERACT_ACTION_ID, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
+    CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
+    CORE_MOVE_ACTION_ID, CORE_QUEST_ACTIVE_STATE_ID, CORE_QUEST_AVAILABLE_STATE_ID,
+    CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CanonicalDecodeLimits, CanonicalError, CapabilityId,
+    CausalIdentityKey, CausalIdentityKind, ClosedCommandAdmissionBatchBodyV2,
+    ClosedCommandAdmissionBatchV2, ClosedIngressBatchBodyV1, ClosedIngressBatchV1,
+    ClosedPhysicsContactBatchV1, CommandBodyArchiveV1, CommandCollisionCandidateV1,
+    CommandCollisionIncidentV1, CommandFinalResultV1, CommandId, CommandIdentityOccurrenceV1,
+    CommandLedgerError, CommandLedgerV2, CommandPayload, CommandPhase, CommandReceiptSubjectV1,
+    CommandReceiptV1, CommandReservationV1, CommandStreamId, CommandStreamLedgerV2,
+    CommandStreamRegistryV1, CommandStreamStateV1, ContentHash, CoreDialogueQuestClosureError,
+    DomainEvent, IdentityContractError, IdentityInsertResult, IngressAssignmentProfileV1,
+    IngressAssignmentV1, IngressCheckpointV1, IngressEquivalenceReceiptV1, InputContractError,
+    InputMappingCodeV1, InputMappingReceiptV1, InputSampleV1, IssuerPrincipal,
+    PHYSICS_STEP_INPUT_SCHEMA_VERSION, PLAYER_ACTION_FRAME_SCHEMA_ID,
+    PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PLAYER_INTERACTION_SYSTEM_ID,
+    PersistentId, PhysicalCommandV1, PhysicalEventV1, PhysicsCanonicalSnapshotV2, PhysicsContactId,
+    PhysicsContractError, PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1,
+    PhysicsQuantizationProfileV1, PhysicsSolverSemanticsProfileV1, PhysicsStepInputV2,
+    PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1, PhysicsWorldCheckpointV1, PhysicsWorldId,
+    PlayerActionFrameV1, PlayerActionPhaseV1, PlayerActionValueV1, PlayerControllerBindingV1,
+    PlayerControllerRegistryV1, PrincipalRegistryV1, ProjectId, RPG_COMMAND_CAPABILITY_ID,
+    ResolvedCoreDialogueQuestBinding, RpgCommand, RpgDecodeError, RpgSnapshot,
+    RuntimeAdmissionLimitsV1, RuntimeDeterminismProfileV1, RuntimeSnapshot, SchemaId,
     SnapshotDecodeError, SystemId, TickRateProfileV1, WorldCheckpointError, WorldCheckpointV3,
     WorldCommand, WorldIdentityManifestV1, content_hash_from_bytes, sha256,
+    validate_core_dialogue_quest_world_closure,
 };
 use next_physics_api::{
     PhysicsBackendError, PhysicsBackendKind, PhysicsBackendPolicy, PhysicsWorldHost,
@@ -299,6 +304,7 @@ impl RuntimeState {
     ) -> Result<Self, SnapshotRestoreError> {
         let registry = CommandKindRegistry::core_v1();
         validate_bootstrap(&bootstrap, &authority, &registry)?;
+        validate_core_interaction_runtime_closure(&bootstrap, &rpg.snapshot(), &authority)?;
         let physics = activate_physics(
             physics_options,
             bootstrap.physics_checkpoint,
@@ -408,23 +414,21 @@ impl RuntimeState {
         physics_options: PhysicsLaunchOptions,
     ) -> Result<Self, SnapshotRestoreError> {
         let registry = CommandKindRegistry::core_v1();
-        validate_bootstrap(
-            &RuntimeBootstrapV3 {
-                world_identity: snapshot.world_identity.clone(),
-                principal_registry: snapshot.principal_registry.clone(),
-                stream_registry: snapshot.stream_registry.clone(),
-                runtime_profile: snapshot.runtime_profile,
-                admission_limits: snapshot.admission_limits,
-                tick_rate_profile: snapshot.tick_rate_profile,
-                ingress_assignment_profile: snapshot.ingress_assignment_profile,
-                authoritative_numeric_profile: snapshot.authoritative_numeric_profile.clone(),
-                physics_quantization_profile: snapshot.physics_quantization_profile.clone(),
-                player_controller_registry: snapshot.player_controller_registry.clone(),
-                physics_checkpoint: physical.clone(),
-            },
-            &authority,
-            &registry,
-        )?;
+        let bootstrap = RuntimeBootstrapV3 {
+            world_identity: snapshot.world_identity.clone(),
+            principal_registry: snapshot.principal_registry.clone(),
+            stream_registry: snapshot.stream_registry.clone(),
+            runtime_profile: snapshot.runtime_profile,
+            admission_limits: snapshot.admission_limits,
+            tick_rate_profile: snapshot.tick_rate_profile,
+            ingress_assignment_profile: snapshot.ingress_assignment_profile,
+            authoritative_numeric_profile: snapshot.authoritative_numeric_profile.clone(),
+            physics_quantization_profile: snapshot.physics_quantization_profile.clone(),
+            player_controller_registry: snapshot.player_controller_registry.clone(),
+            physics_checkpoint: physical.clone(),
+        };
+        validate_bootstrap(&bootstrap, &authority, &registry)?;
+        validate_core_interaction_runtime_closure(&bootstrap, &rpg.snapshot(), &authority)?;
         if snapshot.command_ledger.command_kind_registry_hash != registry.canonical_hash() {
             return Err(SnapshotRestoreError::CommandRegistryMismatch);
         }
@@ -1165,6 +1169,46 @@ struct BuiltInInteractionOutcome {
     payload_hash: ContentHash,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum InteractionAffordance {
+    ActivateCoreSwitch {
+        object_id: PersistentId,
+    },
+    AdvanceCoreDialogueQuest {
+        binding: ResolvedCoreDialogueQuestBinding,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct InteractionCandidate {
+    subject_id: PersistentId,
+    contact_id: PhysicsContactId,
+    affordance_tag: u8,
+    dialogue_id: PersistentId,
+    quest_id: PersistentId,
+    affordance: InteractionAffordance,
+}
+
+impl InteractionCandidate {
+    fn order_key(
+        self,
+    ) -> (
+        PersistentId,
+        PhysicsContactId,
+        u8,
+        PersistentId,
+        PersistentId,
+    ) {
+        (
+            self.subject_id,
+            self.contact_id,
+            self.affordance_tag,
+            self.dialogue_id,
+            self.quest_id,
+        )
+    }
+}
+
 fn close_ingress(
     tick: u64,
     following_tick: u64,
@@ -1681,20 +1725,44 @@ fn build_interaction_outcomes(
         .expect("built-in interactive-object state identifier is valid");
     let mut outcomes = Vec::new();
     for intent in intents {
-        let Some(target) =
-            select_interaction_target(intent.controlled_body_id, physics, &rpg_snapshot)
+        let Some(affordance) =
+            select_interaction_affordance(intent.controlled_body_id, physics, &rpg_snapshot)?
         else {
             continue;
+        };
+        let payload = match affordance {
+            InteractionAffordance::ActivateCoreSwitch { object_id } => {
+                RpgCommand::SetInteractiveObjectState {
+                    object_id,
+                    expected_state_id: ready_state.clone(),
+                    next_state_id: activated_state.clone(),
+                }
+            }
+            InteractionAffordance::AdvanceCoreDialogueQuest { binding } => {
+                RpgCommand::AdvanceDialogueQuest {
+                    dialogue_id: binding.dialogue_id,
+                    expected_dialogue_node_id: SchemaId::new(CORE_DIALOGUE_OFFER_NODE_ID)
+                        .expect("built-in dialogue node identifier is valid"),
+                    next_dialogue_node_id: SchemaId::new(CORE_DIALOGUE_ACCEPTED_NODE_ID)
+                        .expect("built-in dialogue node identifier is valid"),
+                    quest_id: binding.quest_id,
+                    expected_quest_state_id: SchemaId::new(CORE_QUEST_AVAILABLE_STATE_ID)
+                        .expect("built-in quest state identifier is valid"),
+                    next_quest_state_id: SchemaId::new(CORE_QUEST_ACTIVE_STATE_ID)
+                        .expect("built-in quest state identifier is valid"),
+                    relationship_source: binding.npc_id,
+                    relationship_target: binding.player_id,
+                    relationship_dimension_id: SchemaId::new(CORE_RELATIONSHIP_TRUST_DIMENSION_ID)
+                        .expect("built-in relationship dimension identifier is valid"),
+                    relationship_delta: CORE_DIALOGUE_QUEST_TRUST_DELTA,
+                }
+            }
         };
         let proposal = crate::outcome::OutcomeProposal::rpg(
             route.system_id.clone(),
             route.stream_id,
             intent.source_sequence,
-            RpgCommand::SetInteractiveObjectState {
-                object_id: target,
-                expected_state_id: ready_state.clone(),
-                next_state_id: activated_state.clone(),
-            },
+            payload,
         )
         .with_precondition_revision(authoritative_revision);
         outcomes.push(BuiltInInteractionOutcome {
@@ -1707,16 +1775,21 @@ fn build_interaction_outcomes(
     Ok(outcomes)
 }
 
-fn select_interaction_target(
+fn select_interaction_affordance(
     controlled_body_id: PersistentId,
     physics: &PhysicsWorldHost,
     rpg: &RpgSnapshot,
-) -> Option<PersistentId> {
+) -> Result<Option<InteractionAffordance>, RuntimeFatalError> {
     let physical_body_id = physics
         .checkpoint()
         .catalog
         .avatar_bindings
-        .get(&controlled_body_id)?;
+        .get(&controlled_body_id)
+        .ok_or(RuntimeFatalError::PhysicalOutcomeInvariant)?;
+    let dialogue_binding = rpg
+        .resolve_core_dialogue_quest_binding(controlled_body_id)
+        .map_err(RuntimeFatalError::CoreInteractionClosure)?
+        .filter(|binding| binding.state == next_contracts::CoreDialogueQuestProfileState::Ready);
     let mut candidates = Vec::new();
     for contact in physics.snapshot().sorted_contact_continuity_states.values() {
         let other = if contact.participant_low.body_id == *physical_body_id {
@@ -1732,11 +1805,28 @@ fn select_interaction_target(
                 && object.archetype_id.as_str() == CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID
                 && object.state_id.as_str() == CORE_INTERACTIVE_OBJECT_READY_STATE_ID
         }) {
-            candidates.push((target, contact.contact_id));
+            candidates.push(InteractionCandidate {
+                subject_id: target,
+                contact_id: contact.contact_id,
+                affordance_tag: 0,
+                dialogue_id: PersistentId::from_bytes([0; 16]),
+                quest_id: PersistentId::from_bytes([0; 16]),
+                affordance: InteractionAffordance::ActivateCoreSwitch { object_id: target },
+            });
+        }
+        if let Some(binding) = dialogue_binding.filter(|binding| binding.npc_id == target) {
+            candidates.push(InteractionCandidate {
+                subject_id: target,
+                contact_id: contact.contact_id,
+                affordance_tag: 1,
+                dialogue_id: binding.dialogue_id,
+                quest_id: binding.quest_id,
+                affordance: InteractionAffordance::AdvanceCoreDialogueQuest { binding },
+            });
         }
     }
-    candidates.sort();
-    candidates.first().map(|(target, _)| *target)
+    candidates.sort_by_key(|candidate| candidate.order_key());
+    Ok(candidates.first().map(|candidate| candidate.affordance))
 }
 
 fn sort_command_batch(commands: &mut [WorldCommand]) -> Result<(), CanonicalError> {
@@ -3158,6 +3248,33 @@ fn validate_bootstrap(
     Ok(())
 }
 
+fn validate_core_interaction_runtime_closure(
+    bootstrap: &RuntimeBootstrapV3,
+    rpg_snapshot: &RpgSnapshot,
+    authority: &AuthorityRegistry,
+) -> Result<(), SnapshotRestoreError> {
+    let binding = validate_core_dialogue_quest_world_closure(
+        rpg_snapshot,
+        &bootstrap.player_controller_registry,
+        &bootstrap.principal_registry,
+        &bootstrap.stream_registry,
+        &bootstrap.physics_checkpoint,
+    )?;
+    if binding.is_some()
+        && resolve_interaction_outcome_route(
+            &bootstrap.principal_registry,
+            &bootstrap.stream_registry,
+            authority,
+        )
+        .is_none()
+    {
+        return Err(SnapshotRestoreError::CoreInteractionClosure(
+            CoreDialogueQuestClosureError,
+        ));
+    }
+    Ok(())
+}
+
 fn empty_physics_checkpoint(
     world_id: PhysicsWorldId,
     tick_rate_profile: &TickRateProfileV1,
@@ -3591,6 +3708,7 @@ pub enum RuntimeFatalError {
     Physics(PhysicsBackendError),
     PhysicalOutcomeInvariant,
     InternalIdentityCollision,
+    CoreInteractionClosure(CoreDialogueQuestClosureError),
     Snapshot(SnapshotDecodeError),
 }
 
@@ -3611,6 +3729,7 @@ impl RuntimeFatalError {
             Self::Physics(error) => error.stable_code(),
             Self::PhysicalOutcomeInvariant => "PHYSICAL_OUTCOME_INVARIANT_FAILED",
             Self::InternalIdentityCollision => "INTERNAL_IDENTITY_COLLISION",
+            Self::CoreInteractionClosure(error) => error.stable_code(),
             Self::Snapshot(_) => "RUNTIME_SNAPSHOT_CLOSURE_CORRUPT",
         }
     }
@@ -3666,6 +3785,7 @@ pub enum SnapshotRestoreError {
     InactivePrincipal,
     IdentityCollision,
     ControllerClosureMismatch,
+    CoreInteractionClosure(CoreDialogueQuestClosureError),
 }
 
 impl Display for SnapshotRestoreError {
@@ -3700,6 +3820,7 @@ impl Display for SnapshotRestoreError {
             Self::ControllerClosureMismatch => {
                 formatter.write_str("runtime controller registry closure does not match")
             }
+            Self::CoreInteractionClosure(error) => Display::fmt(error, formatter),
         }
     }
 }
@@ -3763,6 +3884,12 @@ impl From<RpgDecodeError> for SnapshotRestoreError {
 impl From<RpgStateError> for SnapshotRestoreError {
     fn from(error: RpgStateError) -> Self {
         Self::RpgState(error)
+    }
+}
+
+impl From<CoreDialogueQuestClosureError> for SnapshotRestoreError {
+    fn from(error: CoreDialogueQuestClosureError) -> Self {
+        Self::CoreInteractionClosure(error)
     }
 }
 

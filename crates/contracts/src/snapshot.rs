@@ -6,13 +6,14 @@ use crate::{
     CANONICAL_TYPE_U64, CanonicalDecodeError, CanonicalDecodeLimits, CanonicalError,
     CanonicalField, CausalIdentityKey, CausalIdentityKind, CommandBodyArchiveV1,
     CommandLedgerError, CommandLedgerHash, CommandLedgerV2, CommandStreamRegistryV1,
-    IdentityContractError, IngressAssignmentProfileV1, IngressCheckpointV1, InputContractError,
-    IssuerPrincipal, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
-    PhysicsContractError, PhysicsQuantizationProfileV1, PhysicsWorldCheckpointV1,
-    PlayerControllerRegistryV1, PrincipalRegistryV1, RpgDecodeError, RpgSnapshot,
-    RuntimeAdmissionLimitsV1, RuntimeDeterminismProfileV1, StateRoot, TickRateProfileV1,
-    WorldIdentityManifestV1, causal_provenance_hash, decode_canonical_segment,
-    encode_canonical_segment, sha256,
+    CoreDialogueQuestClosureError, IdentityContractError, IngressAssignmentProfileV1,
+    IngressCheckpointV1, InputContractError, IssuerPrincipal, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+    PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PLAYER_INTERACTION_SYSTEM_ID, PhysicsContractError,
+    PhysicsMotionKindV1, PhysicsQuantizationProfileV1, PhysicsWorldCheckpointV1,
+    PlayerControllerRegistryV1, PrincipalRegistryV1, ResolvedCoreDialogueQuestBinding,
+    RpgDecodeError, RpgSnapshot, RuntimeAdmissionLimitsV1, RuntimeDeterminismProfileV1, StateRoot,
+    SystemId, TickRateProfileV1, WorldIdentityManifestV1, causal_provenance_hash,
+    decode_canonical_segment, encode_canonical_segment, sha256,
 };
 
 pub const RUNTIME_SNAPSHOT_SCHEMA_VERSION: u32 = 2;
@@ -83,6 +84,13 @@ impl WorldCheckpointV3 {
             &self.runtime_snapshot.authoritative_numeric_profile,
             &self.runtime_snapshot.physics_quantization_profile,
         )?;
+        validate_core_dialogue_quest_world_closure(
+            &self.rpg_snapshot,
+            &self.runtime_snapshot.player_controller_registry,
+            &self.runtime_snapshot.principal_registry,
+            &self.runtime_snapshot.stream_registry,
+            &self.physics_checkpoint,
+        )?;
         let expected_physics_tick = self
             .runtime_snapshot
             .next_tick
@@ -124,6 +132,61 @@ impl WorldCheckpointV3 {
         }
         Ok(())
     }
+}
+
+pub fn validate_core_dialogue_quest_world_closure(
+    rpg_snapshot: &RpgSnapshot,
+    player_controller_registry: &PlayerControllerRegistryV1,
+    principal_registry: &PrincipalRegistryV1,
+    stream_registry: &CommandStreamRegistryV1,
+    physics_checkpoint: &PhysicsWorldCheckpointV1,
+) -> Result<Option<ResolvedCoreDialogueQuestBinding>, CoreDialogueQuestClosureError> {
+    if !rpg_snapshot.has_core_dialogue_quest_records() {
+        return Ok(None);
+    }
+    if player_controller_registry.bindings.len() != 1 {
+        return Err(CoreDialogueQuestClosureError);
+    }
+    let controller = player_controller_registry
+        .bindings
+        .values()
+        .next()
+        .ok_or(CoreDialogueQuestClosureError)?;
+    let binding = rpg_snapshot
+        .resolve_core_dialogue_quest_binding(controller.controlled_body_id)?
+        .ok_or(CoreDialogueQuestClosureError)?;
+    if !physics_checkpoint
+        .catalog
+        .avatar_bindings
+        .contains_key(&binding.player_id)
+    {
+        return Err(CoreDialogueQuestClosureError);
+    }
+    let mut npc_bodies = physics_checkpoint
+        .catalog
+        .bodies
+        .values()
+        .filter(|body| body.body_id.subject_id == binding.npc_id);
+    if npc_bodies
+        .next()
+        .is_none_or(|body| body.motion_kind != PhysicsMotionKindV1::Static)
+        || npc_bodies.next().is_some()
+    {
+        return Err(CoreDialogueQuestClosureError);
+    }
+
+    let interaction_principal = IssuerPrincipal::InternalSystem(
+        SystemId::new(PLAYER_INTERACTION_SYSTEM_ID)
+            .expect("built-in player interaction system identifier is valid"),
+    );
+    if !principal_registry.is_active(&interaction_principal)
+        || !stream_registry.entries.keys().any(|key| {
+            key.principal == interaction_principal && key.stream_slot == 0 && key.stream_epoch == 0
+        })
+    {
+        return Err(CoreDialogueQuestClosureError);
+    }
+    Ok(Some(binding))
 }
 
 pub fn world_checkpoint_v3_state_root(
@@ -225,6 +288,7 @@ pub enum WorldCheckpointError {
     Runtime(SnapshotDecodeError),
     Rpg(RpgDecodeError),
     Physics(PhysicsContractError),
+    CoreInteractionClosure(CoreDialogueQuestClosureError),
     ClosureMismatch,
 }
 
@@ -236,6 +300,7 @@ impl WorldCheckpointError {
             Self::Runtime(error) => error.stable_code(),
             Self::Rpg(_) => "WORLD_CHECKPOINT_RPG_CORRUPT",
             Self::Physics(_) => "WORLD_CHECKPOINT_PHYSICS_CORRUPT",
+            Self::CoreInteractionClosure(error) => error.stable_code(),
             Self::Canonicalization(_) => "WORLD_CHECKPOINT_CANONICALIZATION_FAILED",
         }
     }
@@ -270,6 +335,12 @@ impl From<RpgDecodeError> for WorldCheckpointError {
 impl From<PhysicsContractError> for WorldCheckpointError {
     fn from(error: PhysicsContractError) -> Self {
         Self::Physics(error)
+    }
+}
+
+impl From<CoreDialogueQuestClosureError> for WorldCheckpointError {
+    fn from(error: CoreDialogueQuestClosureError) -> Self {
+        Self::CoreInteractionClosure(error)
     }
 }
 

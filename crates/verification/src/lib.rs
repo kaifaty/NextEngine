@@ -36,8 +36,9 @@ pub use physics_parity::{
 pub use player_fixture::{
     CanonicalFixtureError, NeutralPlayerFixture, PhysicsCollisionBackend,
     PhysicsCollisionCheckReport, PlayCheckError, PlayCheckReport, build_neutral_player_fixture,
-    build_physx_player_fixture, player_action_sample, player_interact_sample,
-    run_physics_collision_check, run_physics_collision_check_with_backend, run_play_check,
+    build_physx_player_fixture, core_interaction_rpg_snapshot, player_action_sample,
+    player_interact_sample, run_physics_collision_check, run_physics_collision_check_with_backend,
+    run_play_check,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]

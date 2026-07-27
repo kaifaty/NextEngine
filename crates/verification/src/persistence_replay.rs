@@ -6,10 +6,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use next_assets::SaveStore;
 use next_contracts::{
-    AuthorityGrant, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
-    CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
-    CharacterSnapshot, CommandLedgerHash, ContactPhaseV1, ContentHash, EventPayload,
-    InputMappingCodeV1, InteractiveObjectSnapshot, IssuerPrincipal, ItemSnapshot,
+    AuthorityGrant, CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_QUEST_TRUST_DELTA,
+    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_QUEST_ACTIVE_STATE_ID,
+    CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CharacterSnapshot, CommandLedgerHash, ContactPhaseV1,
+    ContentHash, EventPayload, InputMappingCodeV1, IssuerPrincipal, ItemSnapshot,
     PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PersistentId,
     PhysicsPoseV1, PhysicsWorldCheckpointV1, PlayerActionPhaseV1, RPG_SNAPSHOT_OWNER_ID,
@@ -24,8 +24,9 @@ use next_runtime::{PhysicsLaunchOptions, RuntimeState, TickReport};
 
 use crate::{
     ReplayOutput, build_neutral_player_fixture, build_physx_player_fixture,
-    checkpoint_segment_hashes, compute_world_checkpoint_root, player_action_sample,
-    player_interact_sample, replay_command_results, run_replay_manifest_with_physics_options,
+    checkpoint_segment_hashes, compute_world_checkpoint_root, core_interaction_rpg_snapshot,
+    player_action_sample, player_interact_sample, replay_command_results,
+    run_replay_manifest_with_physics_options,
 };
 
 static NEXT_CHECK_DIRECTORY: AtomicU64 = AtomicU64::new(0);
@@ -37,6 +38,9 @@ pub struct PersistenceReplayCheckReport {
     pub final_pose: PhysicsPoseV1,
     pub rpg_events: u64,
     pub interactive_object_state: SchemaId,
+    pub dialogue_node_id: SchemaId,
+    pub quest_state_id: SchemaId,
+    pub npc_player_trust: i32,
     pub final_state_root: StateRoot,
     pub final_command_ledger_hash: CommandLedgerHash,
 }
@@ -148,7 +152,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
         build_neutral_player_fixture(project_id)
     }
     .map_err(|error| PersistenceReplayCheckError::new("build player fixture", error.to_string()))?;
-    let initial_rpg = initial_rpg_snapshot(fixture.interactive_object_id)?;
+    let initial_rpg = initial_rpg_snapshot(&fixture)?;
     let mut direct = RuntimeState::with_rpg_snapshot_and_physics_options(
         fixture.bootstrap.clone(),
         fixture.authority.clone(),
@@ -193,23 +197,75 @@ pub(crate) fn run_persistence_replay_check_for_project(
             PersistenceReplayCheckError::new("run pre-save movement", error.to_string())
         })?);
     }
+
+    let switch_interaction =
+        player_interact_sample(&fixture, 4, PlayerActionPhaseV1::Started, true, None)
+            .map_err(|error| PersistenceReplayCheckError::new("switch input", error.to_string()))?;
+    direct
+        .enqueue_input_sample(&fixture.principal, switch_interaction)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("enqueue switch input", error.to_string())
+        })?;
+    reports.push(direct.run_tick([]).map_err(|error| {
+        PersistenceReplayCheckError::new("run switch interaction", error.to_string())
+    })?);
+
+    let backward = player_action_sample(
+        &fixture,
+        5,
+        PlayerActionPhaseV1::Performed,
+        [0, -32_767],
+        None,
+    )
+    .map_err(|error| PersistenceReplayCheckError::new("backward input", error.to_string()))?;
+    direct
+        .enqueue_input_sample(&fixture.principal, backward)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("enqueue backward input", error.to_string())
+        })?;
+    reports.push(direct.run_tick([]).map_err(|error| {
+        PersistenceReplayCheckError::new("run backward movement", error.to_string())
+    })?);
+
+    for sequence in 6_u64..9 {
+        let right = player_action_sample(
+            &fixture,
+            sequence,
+            if sequence == 6 {
+                PlayerActionPhaseV1::Started
+            } else {
+                PlayerActionPhaseV1::Performed
+            },
+            [32_767, 0],
+            None,
+        )
+        .map_err(|error| PersistenceReplayCheckError::new("right input", error.to_string()))?;
+        direct
+            .enqueue_input_sample(&fixture.principal, right)
+            .map_err(|error| {
+                PersistenceReplayCheckError::new("enqueue right input", error.to_string())
+            })?;
+        reports.push(direct.run_tick([]).map_err(|error| {
+            PersistenceReplayCheckError::new("run right movement", error.to_string())
+        })?);
+    }
     if !direct
         .physics_snapshot()
         .sorted_contact_continuity_states
         .values()
         .any(|contact| {
-            contact.participant_low.body_id.subject_id == fixture.interactive_object_id
-                || contact.participant_high.body_id.subject_id == fixture.interactive_object_id
+            contact.participant_low.body_id.subject_id == fixture.npc_character_id
+                || contact.participant_high.body_id.subject_id == fixture.npc_character_id
         })
     {
         return Err(PersistenceReplayCheckError::condition(
-            "save boundary has active wall contact",
+            "save boundary has active NPC contact",
         ));
     }
 
     let queued_interaction = player_interact_sample(
         &fixture,
-        4,
+        9,
         PlayerActionPhaseV1::Started,
         true,
         Some(9_999_999),
@@ -275,7 +331,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
             .filter(|event| {
                 matches!(
                     event.payload,
-                    EventPayload::Rpg(RpgEvent::InteractiveObjectStateChanged { .. })
+                    EventPayload::Rpg(RpgEvent::DialogueQuestAdvanced { .. })
                 )
             })
             .count()
@@ -287,38 +343,44 @@ pub(crate) fn run_persistence_replay_check_for_project(
     }
     reports.push(direct_interaction);
 
-    let backward = player_action_sample(
+    let left = player_action_sample(
         &fixture,
-        5,
+        10,
         PlayerActionPhaseV1::Performed,
-        [0, -32_767],
+        [-32_767, 0],
         None,
     )
-    .map_err(|error| PersistenceReplayCheckError::new("backward input", error.to_string()))?;
+    .map_err(|error| PersistenceReplayCheckError::new("left input", error.to_string()))?;
     direct
-        .enqueue_input_sample(&fixture.principal, backward.clone())
+        .enqueue_input_sample(&fixture.principal, left.clone())
         .map_err(|error| {
-            PersistenceReplayCheckError::new("enqueue direct backward", error.to_string())
+            PersistenceReplayCheckError::new("enqueue direct left", error.to_string())
         })?;
     restored
-        .enqueue_input_sample(&fixture.principal, backward)
+        .enqueue_input_sample(&fixture.principal, left)
         .map_err(|error| {
-            PersistenceReplayCheckError::new("enqueue restored backward", error.to_string())
+            PersistenceReplayCheckError::new("enqueue restored left", error.to_string())
         })?;
-    let direct_backward = direct
+    let direct_left = direct
         .run_tick([])
-        .map_err(|error| PersistenceReplayCheckError::new("direct backward", error.to_string()))?;
-    let restored_backward = restored.run_tick([]).map_err(|error| {
-        PersistenceReplayCheckError::new("restored backward", error.to_string())
-    })?;
-    if direct_backward != restored_backward {
+        .map_err(|error| PersistenceReplayCheckError::new("direct left", error.to_string()))?;
+    let restored_left = restored
+        .run_tick([])
+        .map_err(|error| PersistenceReplayCheckError::new("restored left", error.to_string()))?;
+    if direct_left != restored_left
+        || !direct_left
+            .contact_batch
+            .events
+            .iter()
+            .any(|event| event.phase == ContactPhaseV1::End)
+    {
         return Err(PersistenceReplayCheckError::condition(
-            "backward movement remains exact after interaction restore",
+            "left movement ends NPC contact exactly after interaction restore",
         ));
     }
-    reports.push(direct_backward);
+    reports.push(direct_left);
 
-    let stop = player_action_sample(&fixture, 6, PlayerActionPhaseV1::Completed, [0, 0], None)
+    let stop = player_action_sample(&fixture, 11, PlayerActionPhaseV1::Completed, [0, 0], None)
         .map_err(|error| PersistenceReplayCheckError::new("stop input", error.to_string()))?;
     direct
         .enqueue_input_sample(&fixture.principal, stop.clone())
@@ -362,6 +424,11 @@ pub(crate) fn run_persistence_replay_check_for_project(
             Vec::new(),
             Vec::new(),
             Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
         ],
     )?;
     let replay = run_replay_manifest_with_physics_options(&replay_manifest, physics_options)
@@ -384,7 +451,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
         ));
     }
     let (corrupt_path, corrupt_bytes) =
-        corrupt_physics_segment(&store, &compatibility, generation_one.slot)?;
+        corrupt_rpg_segment(&store, &compatibility, generation_one.slot)?;
     let fallback = store
         .load_latest(&compatibility)
         .map_err(|error| PersistenceReplayCheckError::new("load fallback", error.to_string()))?;
@@ -400,7 +467,44 @@ pub(crate) fn run_persistence_replay_check_for_project(
         })? != corrupt_bytes
     {
         return Err(PersistenceReplayCheckError::condition(
-            "corrupt physics generation falls back without rewriting bytes",
+            "corrupt RPG generation falls back without rewriting bytes",
+        ));
+    }
+
+    let physics_directory = CheckDirectory::new()?;
+    let physics_store = SaveStore::new(&physics_directory.path);
+    physics_store
+        .commit_world_checkpoint(compatibility.clone(), &saved_checkpoint)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("commit physics fallback baseline", error.to_string())
+        })?;
+    let physics_latest = physics_store
+        .commit_world_checkpoint(compatibility.clone(), &final_checkpoint)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("commit physics fallback candidate", error.to_string())
+        })?;
+    let (corrupt_physics_path, corrupt_physics_bytes) =
+        corrupt_physics_segment(&physics_store, &compatibility, physics_latest.slot)?;
+    let physics_fallback = physics_store.load_latest(&compatibility).map_err(|error| {
+        PersistenceReplayCheckError::new("load physics fallback", error.to_string())
+    })?;
+    if physics_fallback.image.manifest.generation != 0
+        || physics_fallback.checkpoint != saved_checkpoint
+        || physics_fallback
+            .rejected_generations
+            .first()
+            .is_none_or(|rejected| {
+                !rejected
+                    .original_files
+                    .iter()
+                    .any(|file| file.bytes == corrupt_physics_bytes)
+            })
+        || fs::read(&corrupt_physics_path).map_err(|error| {
+            PersistenceReplayCheckError::new("read corrupt physics source", error.to_string())
+        })? != corrupt_physics_bytes
+    {
+        return Err(PersistenceReplayCheckError::condition(
+            "corrupt physics generation remains a separate exact fallback regression",
         ));
     }
 
@@ -411,7 +515,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
         .get(&fixture.physics_body_id)
         .ok_or_else(|| PersistenceReplayCheckError::condition("final capsule body exists"))?
         .pose;
-    if final_pose.translation_micrometres != [0, 900_000, 200_000] {
+    if final_pose.translation_micrometres != [200_000, 900_000, 200_000] {
         return Err(PersistenceReplayCheckError::condition(
             "queued movement applies exactly once",
         ));
@@ -430,12 +534,47 @@ pub(crate) fn run_persistence_replay_check_for_project(
         .filter(|event| {
             matches!(
                 event.payload,
-                EventPayload::Rpg(RpgEvent::InteractiveObjectStateChanged { .. })
+                EventPayload::Rpg(
+                    RpgEvent::InteractiveObjectStateChanged { .. }
+                        | RpgEvent::DialogueQuestAdvanced { .. }
+                )
             )
         })
         .count();
+    let dialogue_node_id = final_checkpoint
+        .rpg_snapshot
+        .dialogues
+        .iter()
+        .find(|dialogue| dialogue.id == fixture.dialogue_id)
+        .ok_or_else(|| PersistenceReplayCheckError::condition("final core dialogue exists"))?
+        .node_id
+        .clone();
+    let quest_state_id = final_checkpoint
+        .rpg_snapshot
+        .quests
+        .iter()
+        .find(|quest| quest.id == fixture.quest_id)
+        .ok_or_else(|| PersistenceReplayCheckError::condition("final core quest exists"))?
+        .state_id
+        .clone();
+    let npc_player_trust = final_checkpoint
+        .rpg_snapshot
+        .characters
+        .iter()
+        .find(|character| character.id == fixture.npc_character_id)
+        .ok_or_else(|| PersistenceReplayCheckError::condition("final core NPC exists"))?
+        .relationships
+        .iter()
+        .find(|relationship| {
+            relationship.target == fixture.body_id
+                && relationship.dimension_id.as_str() == CORE_RELATIONSHIP_TRUST_DIMENSION_ID
+        })
+        .map_or(0, |relationship| relationship.value);
     if interactive_object_state.as_str() != CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
-        || rpg_events != 1
+        || dialogue_node_id.as_str() != CORE_DIALOGUE_ACCEPTED_NODE_ID
+        || quest_state_id.as_str() != CORE_QUEST_ACTIVE_STATE_ID
+        || npc_player_trust != CORE_DIALOGUE_QUEST_TRUST_DELTA
+        || rpg_events != 2
     {
         return Err(PersistenceReplayCheckError::condition(
             "interaction activates object exactly once",
@@ -450,13 +589,16 @@ pub(crate) fn run_persistence_replay_check_for_project(
             PersistenceReplayCheckError::new("final ledger hash", error.to_string())
         })?;
     Ok(PersistenceReplayCheckReport {
-        ticks: 7,
+        ticks: 12,
         generations: 2,
         final_pose,
         rpg_events: u64::try_from(rpg_events).map_err(|error| {
             PersistenceReplayCheckError::new("RPG event count", error.to_string())
         })?,
         interactive_object_state,
+        dialogue_node_id,
+        quest_state_id,
+        npc_player_trust,
         final_state_root,
         final_command_ledger_hash,
     })
@@ -690,52 +832,39 @@ fn compare_replay(
 }
 
 fn initial_rpg_snapshot(
-    interactive_object_id: PersistentId,
+    fixture: &crate::NeutralPlayerFixture,
 ) -> Result<RpgSnapshot, PersistenceReplayCheckError> {
-    Ok(RpgSnapshot {
-        characters: vec![
-            CharacterSnapshot {
-                id: PersistentId::from_bytes([0x20; 16]),
-                revision: 0,
-                archetype_id: SchemaId::new("rpg.character.persistence-owner").map_err(
-                    |error| PersistenceReplayCheckError::new("owner archetype", error.to_string()),
-                )?,
-                skills: vec![],
-                relationships: vec![],
-            },
-            CharacterSnapshot {
-                id: PersistentId::from_bytes([0x30; 16]),
-                revision: 0,
-                archetype_id: SchemaId::new("rpg.character.persistence-recipient").map_err(
-                    |error| {
-                        PersistenceReplayCheckError::new("recipient archetype", error.to_string())
-                    },
-                )?,
-                skills: vec![],
-                relationships: vec![],
-            },
-        ],
-        items: vec![ItemSnapshot {
-            id: PersistentId::from_bytes([0x10; 16]),
+    let mut snapshot = core_interaction_rpg_snapshot(fixture);
+    snapshot.characters.extend([
+        CharacterSnapshot {
+            id: PersistentId::from_bytes([0x20; 16]),
             revision: 0,
-            archetype_id: SchemaId::new("rpg.item.persistence-token").map_err(|error| {
-                PersistenceReplayCheckError::new("item archetype", error.to_string())
+            archetype_id: SchemaId::new("rpg.character.persistence-owner").map_err(|error| {
+                PersistenceReplayCheckError::new("owner archetype", error.to_string())
             })?,
-            owner: Some(PersistentId::from_bytes([0x20; 16])),
-            quantity: 1,
-        }],
-        interactive_objects: vec![InteractiveObjectSnapshot {
-            id: interactive_object_id,
+            skills: vec![],
+            relationships: vec![],
+        },
+        CharacterSnapshot {
+            id: PersistentId::from_bytes([0x30; 16]),
             revision: 0,
-            archetype_id: SchemaId::new(CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID).map_err(|error| {
-                PersistenceReplayCheckError::new("interactive object archetype", error.to_string())
-            })?,
-            state_id: SchemaId::new(CORE_INTERACTIVE_OBJECT_READY_STATE_ID).map_err(|error| {
-                PersistenceReplayCheckError::new("interactive object state", error.to_string())
-            })?,
-        }],
-        ..RpgSnapshot::default()
-    })
+            archetype_id: SchemaId::new("rpg.character.persistence-recipient").map_err(
+                |error| PersistenceReplayCheckError::new("recipient archetype", error.to_string()),
+            )?,
+            skills: vec![],
+            relationships: vec![],
+        },
+    ]);
+    snapshot.items.push(ItemSnapshot {
+        id: PersistentId::from_bytes([0x10; 16]),
+        revision: 0,
+        archetype_id: SchemaId::new("rpg.item.persistence-token").map_err(|error| {
+            PersistenceReplayCheckError::new("item archetype", error.to_string())
+        })?,
+        owner: Some(PersistentId::from_bytes([0x20; 16])),
+        quantity: 1,
+    });
+    Ok(snapshot)
 }
 
 fn rpg_commands(
@@ -798,6 +927,68 @@ fn compatibility() -> Result<SaveCompatibility, PersistenceReplayCheckError> {
         policy_state_schemas: vec![],
         plugin_script_bindings: vec![],
     })
+}
+
+fn corrupt_rpg_segment(
+    store: &SaveStore,
+    compatibility: &SaveCompatibility,
+    slot: u8,
+) -> Result<(PathBuf, Vec<u8>), PersistenceReplayCheckError> {
+    let latest = store.load_latest(compatibility).map_err(|error| {
+        PersistenceReplayCheckError::new("inspect newest RPG generation", error.to_string())
+    })?;
+    let segment_index = latest
+        .image
+        .manifest
+        .segments
+        .iter()
+        .position(|descriptor| descriptor.owner_id.as_str() == RPG_SNAPSHOT_OWNER_ID)
+        .ok_or_else(|| PersistenceReplayCheckError::condition("newest RPG segment exists"))?;
+    let mut corrupt_snapshot = latest.checkpoint.rpg_snapshot;
+    corrupt_snapshot
+        .dialogues
+        .iter_mut()
+        .find(|dialogue| {
+            dialogue.definition_id.as_str() == next_contracts::CORE_HELP_DIALOGUE_DEFINITION_ID
+        })
+        .ok_or_else(|| PersistenceReplayCheckError::condition("newest core dialogue exists"))?
+        .listener = PersistentId::from_bytes([0xee; 16]);
+    let bytes = corrupt_snapshot.canonical_bytes().map_err(|error| {
+        PersistenceReplayCheckError::new("encode structural RPG corruption", error.to_string())
+    })?;
+    let segment_path = segment_path(store.root(), slot, segment_index);
+    fs::write(&segment_path, &bytes).map_err(|error| {
+        PersistenceReplayCheckError::new("corrupt RPG segment", error.to_string())
+    })?;
+    let mut manifest = latest.image.manifest;
+    let descriptor = manifest.segments[segment_index].clone();
+    manifest.segments[segment_index] = SaveSegmentDescriptor::for_bytes(
+        descriptor.owner_id,
+        descriptor.schema_id,
+        descriptor.segment_id,
+        descriptor.schema_version,
+        &bytes,
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("bind structural RPG corruption", error.to_string())
+    })?;
+    let manifest_path = store
+        .root()
+        .join(format!("slot-{slot}"))
+        .join("manifest.jcs");
+    fs::write(
+        &manifest_path,
+        manifest.to_jcs_bytes().map_err(|error| {
+            PersistenceReplayCheckError::new(
+                "encode corrupt RPG generation manifest",
+                error.to_string(),
+            )
+        })?,
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("write corrupt RPG generation manifest", error.to_string())
+    })?;
+    Ok((segment_path, bytes))
 }
 
 fn corrupt_physics_segment(
@@ -881,21 +1072,30 @@ fn segment_path(root: &Path, slot: u8, segment_index: usize) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::{CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, run_persistence_replay_check};
+    use super::{
+        CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
+        CORE_QUEST_ACTIVE_STATE_ID, run_persistence_replay_check,
+    };
 
     #[test]
-    fn product_check_covers_input_save_restore_replay_and_corrupt_physics_fallback() {
+    fn product_check_covers_npc_transition_replay_and_structural_fallbacks() {
         let report = run_persistence_replay_check().expect("product check passes");
-        assert_eq!(report.ticks, 7);
+        assert_eq!(report.ticks, 12);
         assert_eq!(report.generations, 2);
-        assert_eq!(report.rpg_events, 1);
+        assert_eq!(report.rpg_events, 2);
         assert_eq!(
             report.interactive_object_state.as_str(),
             CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
         );
         assert_eq!(
+            report.dialogue_node_id.as_str(),
+            CORE_DIALOGUE_ACCEPTED_NODE_ID
+        );
+        assert_eq!(report.quest_state_id.as_str(), CORE_QUEST_ACTIVE_STATE_ID);
+        assert_eq!(report.npc_player_trust, 7);
+        assert_eq!(
             report.final_pose.translation_micrometres,
-            [0, 900_000, 200_000]
+            [200_000, 900_000, 200_000]
         );
     }
 }

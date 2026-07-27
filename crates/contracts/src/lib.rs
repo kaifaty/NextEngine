@@ -112,18 +112,25 @@ pub use physics::{
     REFERENCE_GRAVITY_MICROMETRES_PER_SECOND_SQUARED, derive_physics_contact_id,
 };
 pub use rpg::{
+    CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_OFFER_NODE_ID, CORE_DIALOGUE_QUEST_TRUST_DELTA,
+    CORE_HELP_DIALOGUE_DEFINITION_ID, CORE_HELP_QUEST_DEFINITION_ID,
     CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID,
-    CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CharacterSnapshot, DialogueSnapshot, FactionSnapshot,
-    InteractiveObjectSnapshot, ItemSnapshot, QuestSnapshot, RPG_COMMAND_CAPABILITY_ID,
-    RPG_COMMAND_SCHEMA_ID, RPG_EVENT_DIALOGUE_QUEST_ADVANCED_SCHEMA_ID,
+    CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CORE_QUEST_ACTIVE_STATE_ID,
+    CORE_QUEST_AVAILABLE_STATE_ID, CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID,
+    CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CharacterSnapshot, CoreDialogueQuestClosureError,
+    CoreDialogueQuestProfileState, DialogueSnapshot, FactionSnapshot, InteractiveObjectSnapshot,
+    ItemSnapshot, QuestSnapshot, RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID,
+    RPG_EVENT_DIALOGUE_QUEST_ADVANCED_SCHEMA_ID,
     RPG_EVENT_INTERACTIVE_OBJECT_STATE_CHANGED_SCHEMA_ID, RPG_EVENT_ITEM_TRANSFERRED_SCHEMA_ID,
     RPG_EVENT_SKILL_LEARNED_SCHEMA_ID, RPG_SNAPSHOT_OWNER_ID, RPG_SNAPSHOT_SCHEMA_ID,
-    RPG_SNAPSHOT_SCHEMA_VERSION, RPG_SNAPSHOT_SEGMENT_ID, RelationshipEntry, RpgCommand,
-    RpgDecodeError, RpgEvent, RpgSnapshot, SKILL_PROFICIENCY_MAX, SkillProficiency,
-    SkillProficiencyEntry, SkillProficiencyError, WorldChunkRecordSnapshot,
+    RPG_SNAPSHOT_SCHEMA_VERSION, RPG_SNAPSHOT_SEGMENT_ID, RelationshipEntry,
+    ResolvedCoreDialogueQuestBinding, RpgCommand, RpgDecodeError, RpgEvent, RpgSnapshot,
+    SKILL_PROFICIENCY_MAX, SkillProficiency, SkillProficiencyEntry, SkillProficiencyError,
+    WorldChunkRecordSnapshot,
 };
 pub use snapshot::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SCHEMA_VERSION,
     RUNTIME_SNAPSHOT_SEGMENT_ID, RuntimeSnapshot, RuntimeSnapshotV2, SnapshotDecodeError,
-    WorldCheckpointError, WorldCheckpointV3, world_checkpoint_v3_state_root,
+    WorldCheckpointError, WorldCheckpointV3, validate_core_dialogue_quest_world_closure,
+    world_checkpoint_v3_state_root,
 };

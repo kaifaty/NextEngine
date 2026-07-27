@@ -86,6 +86,9 @@ runtime-обучение моделей и
 - contact-gated core interaction: действие игрока выбирает только объект в
   активном физическом контакте и меняет его RPG-состояние через Outcome
   `WorldCommand`;
+- bounded NPC interaction: тот же semantic `interact` при контакте с authored
+  quest-giver атомарно переводит dialogue и quest и обновляет отношение
+  NPC→player через Outcome `WorldCommand`;
 - атомарные поколения сохранений, восстановление, replay и проверка совпадения
   authoritative state roots;
 - переносимый `headless` composition root и локальные product checks;
@@ -93,9 +96,10 @@ runtime-обучение моделей и
   `train → ONNX → inference` для проверки локального ML toolchain.
 
 Это ещё не законченная игра: текущий `play` проверяет ограниченный neutral
-сценарий движения, столкновения и активации одного `core-switch`. Reference
-physics profile пока ограничен upright capsule и статическими Box colliders;
-предметы, диалоги и квестовые последствия остаются следующими срезами.
+сценарий движения, столкновения, активации `core-switch` и один authored
+NPC dialogue/quest transition. Reference physics profile пока ограничен upright
+capsule и статическими Box colliders; item pickup, inventory и общий
+content-authored dialogue graph остаются следующими срезами.
 
 ## Быстрый старт
 
@@ -111,7 +115,7 @@ cargo run -p next_headless
 Запустить основные локальные проверки:
 
 ```bash
-# Ввод игрока → grounded capsule → static collision → contact-gated activation
+# Ввод → collision → switch → contact-gated NPC dialogue/quest transition
 cargo run -p xtask -- play
 
 # Гравитация, столкновения с полом/стеной и жизненный цикл контактов

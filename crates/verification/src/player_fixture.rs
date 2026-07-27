@@ -3,20 +3,23 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::{
-    CORE_INTERACT_ACTION_ID, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
-    CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
-    CORE_MOVE_ACTION_ID, CapabilityId, CommandLedgerHash, CommandStreamId, ContactPhaseV1,
-    ContentHash, EventPayload, InputSampleV1, InputSourceId, InteractiveObjectSnapshot,
-    IssuerPrincipal, PHYSICAL_COMMAND_CAPABILITY_ID, PLAYER_ACTION_FRAME_SCHEMA_ID,
-    PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PLAYER_INTERACTION_SYSTEM_ID,
-    PersistentId, PhysicsBodyDescriptorV1, PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2,
-    PhysicsContactReportingV1, PhysicsCoordinateProfileV1, PhysicsGeometryV1,
-    PhysicsLimitsProfileV1, PhysicsMaterialDescriptorV1, PhysicsMotionKindV1,
+    CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_OFFER_NODE_ID, CORE_DIALOGUE_QUEST_TRUST_DELTA,
+    CORE_HELP_DIALOGUE_DEFINITION_ID, CORE_HELP_QUEST_DEFINITION_ID, CORE_INTERACT_ACTION_ID,
+    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID,
+    CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CORE_MOVE_ACTION_ID, CORE_QUEST_ACTIVE_STATE_ID,
+    CORE_QUEST_AVAILABLE_STATE_ID, CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID,
+    CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CapabilityId, CharacterSnapshot, CommandLedgerHash,
+    CommandStreamId, ContactPhaseV1, ContentHash, DialogueSnapshot, EventPayload, InputSampleV1,
+    InputSourceId, InteractiveObjectSnapshot, IssuerPrincipal, PHYSICAL_COMMAND_CAPABILITY_ID,
+    PLAYER_ACTION_FRAME_SCHEMA_ID, PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS,
+    PLAYER_INTERACTION_SYSTEM_ID, PersistentId, PhysicsBodyDescriptorV1, PhysicsBodyIdV1,
+    PhysicsCanonicalSnapshotV2, PhysicsContactReportingV1, PhysicsCoordinateProfileV1,
+    PhysicsGeometryV1, PhysicsLimitsProfileV1, PhysicsMaterialDescriptorV1, PhysicsMotionKindV1,
     PhysicsParticipationV1, PhysicsPoseV1, PhysicsShapeDescriptorV1, PhysicsShapeIdV1,
     PhysicsSolverSemanticsProfileV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
     PhysicsWorldCheckpointV1, PhysicsWorldId, PlayerActionFrameV1, PlayerActionPhaseV1,
     PlayerActionV1, PlayerActionValueV1, PlayerControllerBindingV1, PlayerPrincipalId,
-    RPG_COMMAND_CAPABILITY_ID, RpgEvent, RpgSnapshot, SchemaId, StateRoot, SystemId,
+    QuestSnapshot, RPG_COMMAND_CAPABILITY_ID, RpgEvent, RpgSnapshot, SchemaId, StateRoot, SystemId,
     core_player_action_map_v1_hash,
 };
 use next_physics_api::PhysicsBackendPolicy;
@@ -38,6 +41,9 @@ pub struct NeutralPlayerFixture {
     pub body_id: PersistentId,
     pub physics_body_id: PhysicsBodyIdV1,
     pub interactive_object_id: PersistentId,
+    pub npc_character_id: PersistentId,
+    pub dialogue_id: PersistentId,
+    pub quest_id: PersistentId,
     pub action_map_hash: ContentHash,
     pub context_stack_hash: ContentHash,
 }
@@ -123,6 +129,9 @@ fn build_neutral_player_fixture_with_profile(
         body_slot: 0,
     };
     let interactive_object_id = PersistentId::from_bytes([0x58; 16]);
+    let npc_character_id = PersistentId::from_bytes([0x59; 16]);
+    let dialogue_id = PersistentId::from_bytes([0x5a; 16]);
+    let quest_id = PersistentId::from_bytes([0x5b; 16]);
     bootstrap.physics_checkpoint = grounded_capsule_checkpoint(
         PhysicsWorldId::from_bytes(*bootstrap.world_identity.world_namespace.as_bytes()),
         physics_body_id,
@@ -142,6 +151,9 @@ fn build_neutral_player_fixture_with_profile(
         body_id,
         physics_body_id,
         interactive_object_id,
+        npc_character_id,
+        dialogue_id,
+        quest_id,
         action_map_hash,
         context_stack_hash,
     })
@@ -225,6 +237,21 @@ fn grounded_capsule_checkpoint(
         [0, 900_000, 700_000],
         [10_000_000, 10_000_000, 100_000],
     );
+    let npc_body_id = PhysicsBodyIdV1 {
+        subject_id: PersistentId::from_bytes([0x59; 16]),
+        body_slot: 0,
+    };
+    let npc_shape_id = PhysicsShapeIdV1 {
+        body_id: npc_body_id,
+        shape_slot: 0,
+    };
+    let npc = static_box_descriptor(
+        npc_body_id,
+        npc_shape_id,
+        &material_id,
+        [700_000, 900_000, 200_000],
+        [100_000, 900_000, 100_000],
+    );
     let catalog = PhysicsWorldCatalogV1::new(
         world_id,
         PhysicsWorldCatalogProfilesV1 {
@@ -240,11 +267,63 @@ fn grounded_capsule_checkpoint(
             (capsule_body_id, capsule),
             (floor_body_id, floor),
             (wall_body_id, wall),
+            (npc_body_id, npc),
         ]),
         BTreeMap::from([(capsule_body_id.subject_id, capsule_body_id)]),
     )?;
     let snapshot = PhysicsCanonicalSnapshotV2::genesis(&catalog, tick_rate, numeric, quantization)?;
     Ok(PhysicsWorldCheckpointV1::new(catalog, snapshot)?)
+}
+
+#[must_use]
+pub fn core_interaction_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapshot {
+    RpgSnapshot {
+        characters: vec![
+            CharacterSnapshot {
+                id: fixture.body_id,
+                revision: 0,
+                archetype_id: SchemaId::new("nextengine.rpg.character.player")
+                    .expect("built-in player character archetype is valid"),
+                skills: Vec::new(),
+                relationships: Vec::new(),
+            },
+            CharacterSnapshot {
+                id: fixture.npc_character_id,
+                revision: 0,
+                archetype_id: SchemaId::new(CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID)
+                    .expect("built-in quest-giver archetype is valid"),
+                skills: Vec::new(),
+                relationships: Vec::new(),
+            },
+        ],
+        quests: vec![QuestSnapshot {
+            id: fixture.quest_id,
+            revision: 0,
+            definition_id: SchemaId::new(CORE_HELP_QUEST_DEFINITION_ID)
+                .expect("built-in quest definition is valid"),
+            state_id: SchemaId::new(CORE_QUEST_AVAILABLE_STATE_ID)
+                .expect("built-in quest state is valid"),
+        }],
+        dialogues: vec![DialogueSnapshot {
+            id: fixture.dialogue_id,
+            revision: 0,
+            definition_id: SchemaId::new(CORE_HELP_DIALOGUE_DEFINITION_ID)
+                .expect("built-in dialogue definition is valid"),
+            speaker: fixture.npc_character_id,
+            listener: fixture.body_id,
+            node_id: SchemaId::new(CORE_DIALOGUE_OFFER_NODE_ID)
+                .expect("built-in dialogue node is valid"),
+        }],
+        interactive_objects: vec![InteractiveObjectSnapshot {
+            id: fixture.interactive_object_id,
+            revision: 0,
+            archetype_id: SchemaId::new(CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID)
+                .expect("built-in interactive-object archetype is valid"),
+            state_id: SchemaId::new(CORE_INTERACTIVE_OBJECT_READY_STATE_ID)
+                .expect("built-in interactive-object state is valid"),
+        }],
+        ..RpgSnapshot::default()
+    }
 }
 
 fn static_box_descriptor(
@@ -359,6 +438,9 @@ pub struct PlayCheckReport {
     pub events: u64,
     pub rpg_events: u64,
     pub interactive_object_state: SchemaId,
+    pub dialogue_node_id: SchemaId,
+    pub quest_state_id: SchemaId,
+    pub npc_player_trust: i32,
     pub final_command_ledger_hash: CommandLedgerHash,
     pub final_state_root: StateRoot,
 }
@@ -375,12 +457,42 @@ pub fn run_play_check() -> Result<PlayCheckReport, PlayCheckError> {
         .ok_or(PlayCheckError::InteractiveObjectMissing)?
         .state_id
         .clone();
+    let rpg = scenario.runtime.rpg_snapshot();
+    let dialogue_node_id = rpg
+        .dialogues
+        .iter()
+        .find(|dialogue| dialogue.id == scenario.dialogue_id)
+        .ok_or(PlayCheckError::CoreDialogueMissing)?
+        .node_id
+        .clone();
+    let quest_state_id = rpg
+        .quests
+        .iter()
+        .find(|quest| quest.id == scenario.quest_id)
+        .ok_or(PlayCheckError::CoreQuestMissing)?
+        .state_id
+        .clone();
+    let npc_player_trust = rpg
+        .characters
+        .iter()
+        .find(|character| character.id == scenario.npc_character_id)
+        .ok_or(PlayCheckError::CoreNpcMissing)?
+        .relationships
+        .iter()
+        .find(|relationship| {
+            relationship.target == scenario.player_character_id
+                && relationship.dimension_id.as_str() == CORE_RELATIONSHIP_TRUST_DIMENSION_ID
+        })
+        .map_or(0, |relationship| relationship.value);
     Ok(PlayCheckReport {
         ticks: scenario.ticks,
         final_pose: scenario.final_pose,
         events: scenario.events,
         rpg_events: scenario.rpg_events,
         interactive_object_state,
+        dialogue_node_id,
+        quest_state_id,
+        npc_player_trust,
         final_command_ledger_hash: checkpoint.runtime_snapshot.command_ledger_hash()?,
         final_state_root: compute_world_checkpoint_root(&checkpoint)?,
     })
@@ -485,6 +597,10 @@ struct GroundedCollisionScenario {
     end_contacts: u64,
     contact_batches_hash: ContentHash,
     interactive_object_id: PersistentId,
+    npc_character_id: PersistentId,
+    player_character_id: PersistentId,
+    dialogue_id: PersistentId,
+    quest_id: PersistentId,
     tick_reports: Vec<next_runtime::TickReport>,
 }
 
@@ -515,19 +631,10 @@ fn run_grounded_collision_scenario_with_backend(
     } else {
         build_neutral_player_fixture(project_id)?
     };
-    let rpg_snapshot = RpgSnapshot {
-        interactive_objects: include_interaction
-            .then(|| InteractiveObjectSnapshot {
-                id: fixture.interactive_object_id,
-                revision: 0,
-                archetype_id: SchemaId::new(CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID)
-                    .expect("built-in interactive-object archetype is valid"),
-                state_id: SchemaId::new(CORE_INTERACTIVE_OBJECT_READY_STATE_ID)
-                    .expect("built-in interactive-object state is valid"),
-            })
-            .into_iter()
-            .collect(),
-        ..RpgSnapshot::default()
+    let rpg_snapshot = if include_interaction {
+        core_interaction_rpg_snapshot(&fixture)
+    } else {
+        RpgSnapshot::default()
     };
     let mut runtime = RuntimeState::with_rpg_snapshot_and_physics_options(
         fixture.bootstrap.clone(),
@@ -543,11 +650,21 @@ fn run_grounded_collision_scenario_with_backend(
     ];
     if include_interaction {
         inputs.push(ScenarioAction::Interaction);
+        inputs.extend([
+            ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [0, -32_767]),
+            ScenarioAction::Movement(PlayerActionPhaseV1::Started, [32_767, 0]),
+            ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [32_767, 0]),
+            ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [32_767, 0]),
+            ScenarioAction::Interaction,
+            ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [-32_767, 0]),
+            ScenarioAction::Movement(PlayerActionPhaseV1::Completed, [0, 0]),
+        ]);
+    } else {
+        inputs.extend([
+            ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [0, -32_767]),
+            ScenarioAction::Movement(PlayerActionPhaseV1::Completed, [0, 0]),
+        ]);
     }
-    inputs.extend([
-        ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [0, -32_767]),
-        ScenarioAction::Movement(PlayerActionPhaseV1::Completed, [0, 0]),
-    ]);
     let mut events = 0_u64;
     let mut rpg_events = 0_u64;
     let mut begin_contacts = 0_u64;
@@ -587,7 +704,10 @@ fn run_grounded_collision_scenario_with_backend(
                         .filter(|event| {
                             matches!(
                                 &event.payload,
-                                EventPayload::Rpg(RpgEvent::InteractiveObjectStateChanged { .. })
+                                EventPayload::Rpg(
+                                    RpgEvent::InteractiveObjectStateChanged { .. }
+                                        | RpgEvent::DialogueQuestAdvanced { .. }
+                                )
                             )
                         })
                         .count(),
@@ -612,10 +732,18 @@ fn run_grounded_collision_scenario_with_backend(
         .get(&fixture.physics_body_id)
         .ok_or(PlayCheckError::BodyMissing)?
         .pose;
-    let expected_ticks = if include_interaction { 7 } else { 6 };
-    let expected_substeps = if include_interaction { 14 } else { 12 };
-    let expected_events = if include_interaction { 5 } else { 4 };
-    let expected_persists = if include_interaction { 17 } else { 13 };
+    let expected_ticks = if include_interaction { 12 } else { 6 };
+    let expected_substeps = if include_interaction { 24 } else { 12 };
+    let expected_events = if include_interaction { 10 } else { 4 };
+    let expected_persists = if include_interaction { 29 } else { 13 };
+    let expected_pose = if include_interaction {
+        [200_000, 900_000, 200_000]
+    } else {
+        [0, 900_000, 200_000]
+    };
+    let expected_rpg_events = if include_interaction { 2 } else { 0 };
+    let expected_begins = if include_interaction { 3 } else { 2 };
+    let expected_ends = if include_interaction { 2 } else { 1 };
     let object_is_activated = !include_interaction
         || runtime
             .rpg_snapshot()
@@ -625,14 +753,36 @@ fn run_grounded_collision_scenario_with_backend(
                 object.id == fixture.interactive_object_id
                     && object.state_id.as_str() == CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
             });
-    if final_pose.translation_micrometres != [0, 900_000, 200_000]
+    let core_dialogue_completed = !include_interaction
+        || runtime.rpg_snapshot().dialogues.iter().any(|dialogue| {
+            dialogue.id == fixture.dialogue_id
+                && dialogue.node_id.as_str() == CORE_DIALOGUE_ACCEPTED_NODE_ID
+        });
+    let core_quest_completed = !include_interaction
+        || runtime.rpg_snapshot().quests.iter().any(|quest| {
+            quest.id == fixture.quest_id && quest.state_id.as_str() == CORE_QUEST_ACTIVE_STATE_ID
+        });
+    let core_trust_applied = !include_interaction
+        || runtime.rpg_snapshot().characters.iter().any(|character| {
+            character.id == fixture.npc_character_id
+                && character.relationships.iter().any(|relationship| {
+                    relationship.target == fixture.body_id
+                        && relationship.dimension_id.as_str()
+                            == CORE_RELATIONSHIP_TRUST_DIMENSION_ID
+                        && relationship.value == CORE_DIALOGUE_QUEST_TRUST_DELTA
+                })
+        });
+    if final_pose.translation_micrometres != expected_pose
         || runtime.physics_snapshot().physics_tick != expected_substeps
         || events != expected_events
-        || rpg_events != u64::from(include_interaction)
-        || begin_contacts != 2
+        || rpg_events != expected_rpg_events
+        || begin_contacts != expected_begins
         || persist_contacts != expected_persists
-        || end_contacts != 1
+        || end_contacts != expected_ends
         || !object_is_activated
+        || !core_dialogue_completed
+        || !core_quest_completed
+        || !core_trust_applied
     {
         return Err(PlayCheckError::AcceptanceMismatch);
     }
@@ -647,6 +797,10 @@ fn run_grounded_collision_scenario_with_backend(
         end_contacts,
         contact_batches_hash: ContentHash::from_bytes(next_contracts::sha256(&contact_preimage)),
         interactive_object_id: fixture.interactive_object_id,
+        npc_character_id: fixture.npc_character_id,
+        player_character_id: fixture.body_id,
+        dialogue_id: fixture.dialogue_id,
+        quest_id: fixture.quest_id,
         tick_reports,
     })
 }
@@ -695,6 +849,9 @@ pub enum PlayCheckError {
     CountOverflow,
     BodyMissing,
     InteractiveObjectMissing,
+    CoreNpcMissing,
+    CoreDialogueMissing,
+    CoreQuestMissing,
     AcceptanceMismatch,
     BackendParityMismatch,
 }
@@ -717,6 +874,9 @@ impl Display for PlayCheckError {
             Self::InteractiveObjectMissing => {
                 formatter.write_str("play check interactive object is missing")
             }
+            Self::CoreNpcMissing => formatter.write_str("play check core NPC is missing"),
+            Self::CoreDialogueMissing => formatter.write_str("play check core dialogue is missing"),
+            Self::CoreQuestMissing => formatter.write_str("play check core quest is missing"),
             Self::AcceptanceMismatch => formatter.write_str("play check result did not match"),
             Self::BackendParityMismatch => {
                 formatter.write_str("reference and PhysX tick reports diverged")
@@ -1031,6 +1191,136 @@ mod tests {
             )
             .expect("enqueue retry");
         let retry = restored.run_tick([]).expect("retry tick");
+        assert_eq!(retry.mapping_receipts[0].code, InputMappingCodeV1::Accepted);
+        assert_eq!(retry.mapping_receipts[0].derived_command_id, None);
+        assert!(retry.results.is_empty());
+        assert!(retry.events.is_empty());
+        assert_eq!(restored.rpg_snapshot(), rpg_before);
+        assert_eq!(ledger_hash(&restored), ledger_before);
+    }
+
+    #[test]
+    fn core_dialogue_requires_contact_and_invalid_participant_closure_fails_activation() {
+        let fixture =
+            build_neutral_player_fixture("nextengine.test.dialogue-closure").expect("fixture");
+        let ready = core_interaction_rpg_snapshot(&fixture);
+        let mut runtime = RuntimeState::with_rpg_snapshot(
+            fixture.bootstrap.clone(),
+            fixture.authority.clone(),
+            ready.clone(),
+        )
+        .expect("ready core dialogue runtime");
+        let ledger_before = ledger_hash(&runtime);
+        runtime
+            .enqueue_input_sample(
+                &fixture.principal,
+                player_interact_sample(&fixture, 0, PlayerActionPhaseV1::Started, true, None)
+                    .expect("interaction sample"),
+            )
+            .expect("enqueue interaction");
+        let report = runtime.run_tick([]).expect("contact-free interaction tick");
+        assert_eq!(
+            report.mapping_receipts[0].code,
+            InputMappingCodeV1::Accepted
+        );
+        assert_eq!(report.mapping_receipts[0].derived_command_id, None);
+        assert!(report.results.is_empty());
+        assert_eq!(runtime.rpg_snapshot(), ready);
+        assert_eq!(ledger_hash(&runtime), ledger_before);
+
+        let mut invalid = core_interaction_rpg_snapshot(&fixture);
+        invalid.dialogues[0].listener = fixture.npc_character_id;
+        assert!(matches!(
+            RuntimeState::with_rpg_snapshot(fixture.bootstrap, fixture.authority, invalid),
+            Err(SnapshotRestoreError::CoreInteractionClosure(_))
+        ));
+    }
+
+    #[test]
+    fn same_contact_switch_precedes_npc_then_dialogue_transition_is_one_shot() {
+        let fixture =
+            build_neutral_player_fixture("nextengine.test.dialogue-tie-break").expect("fixture");
+        let mut rpg = core_interaction_rpg_snapshot(&fixture);
+        rpg.interactive_objects[0].id = fixture.npc_character_id;
+        let mut runtime = RuntimeState::with_rpg_snapshot(
+            fixture.bootstrap.clone(),
+            fixture.authority.clone(),
+            rpg,
+        )
+        .expect("runtime");
+        let movement = [
+            (PlayerActionPhaseV1::Started, [0, 32_767]),
+            (PlayerActionPhaseV1::Performed, [0, 32_767]),
+            (PlayerActionPhaseV1::Performed, [0, 32_767]),
+            (PlayerActionPhaseV1::Performed, [0, 32_767]),
+            (PlayerActionPhaseV1::Performed, [0, -32_767]),
+            (PlayerActionPhaseV1::Started, [32_767, 0]),
+            (PlayerActionPhaseV1::Performed, [32_767, 0]),
+            (PlayerActionPhaseV1::Performed, [32_767, 0]),
+        ];
+        for (sequence, (phase, direction)) in movement.into_iter().enumerate() {
+            let sequence = u64::try_from(sequence).expect("bounded test sequence");
+            runtime
+                .enqueue_input_sample(
+                    &fixture.principal,
+                    player_action_sample(&fixture, sequence, phase, direction, None)
+                        .expect("movement sample"),
+                )
+                .expect("enqueue movement");
+            let _ = runtime.run_tick([]).expect("movement tick");
+        }
+
+        runtime
+            .enqueue_input_sample(
+                &fixture.principal,
+                player_interact_sample(&fixture, 8, PlayerActionPhaseV1::Started, true, None)
+                    .expect("interaction sample"),
+            )
+            .expect("enqueue first interaction");
+        let switch = runtime.run_tick([]).expect("switch wins tie");
+        assert!(switch.events.iter().any(|event| matches!(
+            event.payload,
+            EventPayload::Rpg(RpgEvent::InteractiveObjectStateChanged { .. })
+        )));
+        assert_eq!(
+            runtime.rpg_snapshot().dialogues[0].node_id.as_str(),
+            CORE_DIALOGUE_OFFER_NODE_ID
+        );
+
+        runtime
+            .enqueue_input_sample(
+                &fixture.principal,
+                player_interact_sample(&fixture, 9, PlayerActionPhaseV1::Started, true, None)
+                    .expect("interaction sample"),
+            )
+            .expect("enqueue dialogue interaction");
+        let dialogue = runtime.run_tick([]).expect("dialogue transition");
+        assert_eq!(
+            dialogue
+                .events
+                .iter()
+                .filter(|event| matches!(
+                    event.payload,
+                    EventPayload::Rpg(RpgEvent::DialogueQuestAdvanced { .. })
+                ))
+                .count(),
+            1
+        );
+
+        let checkpoint = runtime.world_checkpoint().expect("checkpoint");
+        let mut restored =
+            RuntimeState::restore_world_checkpoint(checkpoint, fixture.authority.clone())
+                .expect("restore");
+        let rpg_before = restored.rpg_snapshot();
+        let ledger_before = ledger_hash(&restored);
+        restored
+            .enqueue_input_sample(
+                &fixture.principal,
+                player_interact_sample(&fixture, 9, PlayerActionPhaseV1::Started, true, Some(99))
+                    .expect("retry interaction"),
+            )
+            .expect("enqueue retry");
+        let retry = restored.run_tick([]).expect("completed interaction retry");
         assert_eq!(retry.mapping_receipts[0].code, InputMappingCodeV1::Accepted);
         assert_eq!(retry.mapping_receipts[0].derived_command_id, None);
         assert!(retry.results.is_empty());

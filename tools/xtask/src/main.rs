@@ -133,7 +133,7 @@ fn play() -> Result<(), String> {
     let report = next_verification::run_play_check().map_err(|error| error.to_string())?;
     let translation = report.final_pose.translation_micrometres;
     println!(
-        "{{\"status\":\"PASS\",\"ticks\":{},\"final_pose_um\":[{},{},{}],\"events\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"ledger_hash\":\"{}\",\"state_root\":\"{}\"}}",
+        "{{\"status\":\"PASS\",\"ticks\":{},\"final_pose_um\":[{},{},{}],\"events\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"dialogue_node\":\"{}\",\"quest_state\":\"{}\",\"npc_player_trust\":{},\"ledger_hash\":\"{}\",\"state_root\":\"{}\"}}",
         report.ticks,
         translation[0],
         translation[1],
@@ -141,6 +141,9 @@ fn play() -> Result<(), String> {
         report.events,
         report.rpg_events,
         report.interactive_object_state.as_str(),
+        report.dialogue_node_id.as_str(),
+        report.quest_state_id.as_str(),
+        report.npc_player_trust,
         report.final_command_ledger_hash.to_hex(),
         report.final_state_root.to_hex()
     );
@@ -151,11 +154,14 @@ fn persistence_replay(backend: next_verification::PersistenceReplayBackend) -> R
     let report = next_verification::run_persistence_replay_check_with_backend(backend)
         .map_err(|error| error.to_string())?;
     println!(
-        "{{\"status\":\"PASS\",\"ticks\":{},\"generations\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"final_state_root\":\"{}\",\"final_ledger_root\":\"{}\"}}",
+        "{{\"status\":\"PASS\",\"ticks\":{},\"generations\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"dialogue_node\":\"{}\",\"quest_state\":\"{}\",\"npc_player_trust\":{},\"final_state_root\":\"{}\",\"final_ledger_root\":\"{}\"}}",
         report.ticks,
         report.generations,
         report.rpg_events,
         report.interactive_object_state,
+        report.dialogue_node_id,
+        report.quest_state_id,
+        report.npc_player_trust,
         report.final_state_root.to_hex(),
         report.final_command_ledger_hash.to_hex()
     );
