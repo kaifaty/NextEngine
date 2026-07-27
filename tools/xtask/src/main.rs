@@ -14,9 +14,10 @@ fn main() {
 fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
-    let command = arguments
-        .next()
-        .ok_or_else(|| "expected boundary-scan or host-check".to_owned())?;
+    let command = arguments.next().ok_or_else(|| {
+        "expected boundary-scan, host-check, play, physics-collision or persistence-replay"
+            .to_owned()
+    })?;
     match command.as_str() {
         "boundary-scan" => {
             reject_extra_arguments(arguments)?;
@@ -26,8 +27,69 @@ fn run() -> Result<(), String> {
             reject_extra_arguments(arguments)?;
             host_check(&root)
         }
+        "persistence-replay" => {
+            reject_extra_arguments(arguments)?;
+            persistence_replay()
+        }
+        "play" => {
+            reject_extra_arguments(arguments)?;
+            play()
+        }
+        "physics-collision" => {
+            reject_extra_arguments(arguments)?;
+            physics_collision()
+        }
         _ => Err(format!("unknown command: {command}")),
     }
+}
+
+fn physics_collision() -> Result<(), String> {
+    let report =
+        next_verification::run_physics_collision_check().map_err(|error| error.to_string())?;
+    let translation = report.final_pose.translation_micrometres;
+    println!(
+        "{{\"status\":\"PASS\",\"gameplay_ticks\":{},\"physics_substeps\":{},\"contacts\":{{\"begin\":{},\"persist\":{},\"end\":{}}},\"final_pose_um\":[{},{},{}],\"contact_batches_hash\":\"{}\",\"physics_checkpoint_hash\":\"{}\"}}",
+        report.gameplay_ticks,
+        report.physics_substeps,
+        report.begin_contacts,
+        report.persist_contacts,
+        report.end_contacts,
+        translation[0],
+        translation[1],
+        translation[2],
+        report.contact_batches_hash.to_hex(),
+        report.physics_checkpoint_hash.to_hex()
+    );
+    Ok(())
+}
+
+fn play() -> Result<(), String> {
+    let report = next_verification::run_play_check().map_err(|error| error.to_string())?;
+    let translation = report.final_pose.translation_micrometres;
+    println!(
+        "{{\"status\":\"PASS\",\"ticks\":{},\"final_pose_um\":[{},{},{}],\"events\":{},\"ledger_hash\":\"{}\",\"state_root\":\"{}\"}}",
+        report.ticks,
+        translation[0],
+        translation[1],
+        translation[2],
+        report.events,
+        report.final_command_ledger_hash.to_hex(),
+        report.final_state_root.to_hex()
+    );
+    Ok(())
+}
+
+fn persistence_replay() -> Result<(), String> {
+    let report =
+        next_verification::run_persistence_replay_check().map_err(|error| error.to_string())?;
+    println!(
+        "{{\"status\":\"PASS\",\"ticks\":{},\"generations\":{},\"final_state_root\":\"{}\",\"final_ledger_root\":\"{}\"}}",
+        report.ticks,
+        report.generations,
+        report.final_state_root.to_hex(),
+        report.final_command_ledger_hash.to_hex()
+    );
+    Ok(())
 }
 
 fn reject_extra_arguments(mut arguments: impl Iterator<Item = String>) -> Result<(), String> {

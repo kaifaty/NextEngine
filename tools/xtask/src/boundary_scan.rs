@@ -35,7 +35,7 @@ fn validate_public_contracts(root: &Path) -> Result<(), String> {
     for file in contract_files {
         let lower = read(&file)?.to_ascii_lowercase();
         for needle in forbidden {
-            if lower.contains(needle) {
+            if contains_forbidden_public_token(&lower, needle) {
                 return Err(format!(
                     "BOUNDARY_FORBIDDEN_PUBLIC_TOKEN: {needle} in {}",
                     file.display()
@@ -44,6 +44,19 @@ fn validate_public_contracts(root: &Path) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+fn contains_forbidden_public_token(body: &str, needle: &str) -> bool {
+    if needle != "ash::" {
+        return body.contains(needle);
+    }
+    body.match_indices(needle).any(|(index, _)| {
+        index == 0
+            || body
+                .as_bytes()
+                .get(index - 1)
+                .is_some_and(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
+    })
 }
 
 fn validate_importer_boundary(root: &Path) -> Result<(), String> {
@@ -318,4 +331,19 @@ fn should_skip(path: &Path) -> bool {
         || path.file_name() == Some(OsStr::new(".local"))
         || path.file_name() == Some(OsStr::new("__pycache__"))
         || path.ends_with("incubator/gothic-importer")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::contains_forbidden_public_token;
+
+    #[test]
+    fn ash_path_scan_uses_an_identifier_boundary() {
+        assert!(contains_forbidden_public_token("ash::vk", "ash::"));
+        assert!(contains_forbidden_public_token("(ash::vk)", "ash::"));
+        assert!(!contains_forbidden_public_token(
+            "ContentHash::from_bytes",
+            "ash::"
+        ));
+    }
 }

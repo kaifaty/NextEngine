@@ -10,14 +10,25 @@ The pinned toolchain is Rust 1.93.0. Run:
 
 ```text
 cargo run -p xtask -- boundary-scan
+cargo run -p xtask -- play
+cargo run -p xtask -- physics-collision
+cargo run -p xtask -- persistence-replay
 cargo run -p xtask -- host-check
+cargo run -p next_headless
 uv run --project lab python -m next_lab doctor
 uv run --project lab python -m next_lab smoke --device auto
 ```
 
 `host-check` is the canonical `fast` check and runs formatting, clippy,
-workspace tests, and boundary checks. Affected gameplay, state, and content
-changes additionally use `play`, `persistence-replay`, and `content-package`;
+workspace tests, and boundary checks. `play` and `next_headless` enqueue
+canonical `PlayerActionFrameV1` input through the production ingress mapper and
+run the integer grounded-capsule reference controller. `physics-collision`
+checks gravity, static Box floor/wall collision and Begin/Persist/End contact
+continuity; this reference profile is intentionally limited to one upright
+kinematic capsule and identity-rotated static Boxes. `persistence-replay`
+executes the repository-owned runtime/RPG/physics save → restore → closed-batch
+replay equivalence scenario, including queued input and corrupt-generation
+fallback. Affected content changes additionally use `content-package`;
 `platform` and `performance` are conditional. The lab smoke validates train →
 ONNX → inference on MPS or CPU and does not replace those product checks; see
 [docs/development/training-capability.md](docs/development/training-capability.md).
@@ -31,8 +42,9 @@ the affected SPECs and lightweight traceability map. See
 
 ```text
 crates/contracts      engine-owned commands, events, manifests, IDs, and snapshots
+crates/physics-api    internal deterministic CapsuleAnimation reference controller
 crates/rpg            generic RPG aggregate owner and atomic domain transitions
-crates/runtime        deterministic command admission and staged tick transaction
+crates/runtime        deterministic ingress, command admission, and staged tick transaction
 crates/assets         recoverable save generations and owner-segment persistence
 crates/verification   state roots and deterministic headless replay
 apps/headless         portable headless composition root
