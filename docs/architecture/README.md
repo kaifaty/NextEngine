@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.1 |
-| Последняя проверка | 2026-07-26 |
-| Заменяет | INDEX-001 version 2.0 |
+| Версия | 2.2 |
+| Последняя проверка | 2026-07-27 |
+| Заменяет | INDEX-001 version 2.1 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -198,6 +198,7 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-029 | [RPG-owned quest graph и narrative director](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md) | Accepted |
 | ADR-030 | [Product-first development и lightweight validation](adr/030-product-first-development-and-lightweight-validation.md) | Accepted |
 | ADR-031 | [RPG-owned divine standing и atomic pantheon judgment](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md) | Accepted; partially supersedes ADR-020 aggregate enumeration |
+| ADR-032 | [Grounded capsule physics checkpoint version boundary](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md) | Accepted |
 
 ## Proposed tracks
 

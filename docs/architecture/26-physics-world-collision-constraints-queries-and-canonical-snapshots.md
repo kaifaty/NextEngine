@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 1.1 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 1.2 |
+| Последняя проверка | 2026-07-27 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md) |
 | Заменяет | отсутствует |
 
@@ -14,6 +14,10 @@
 SPEC-26 принят как часть consolidated architecture packet 1.8. Он
 специализирует upstream authority ADR-027 для physics-world API, collision,
 constraints, scene queries, contact stream and canonical snapshot/restore.
+
+ADR-032 сохраняет эти semantics, но резервирует active implementation version
+`PhysicsCanonicalSnapshotV2`: ранний private version-1 prototype не содержал
+complete body/contact/continuation closure и не изменяется same-version.
 
 Документ определяет engine-owned contracts, но не создаёт runtime
 implementation и не выбирает physics backend. Поддержка конкретного backend

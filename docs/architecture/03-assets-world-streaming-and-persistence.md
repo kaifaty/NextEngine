@@ -4,12 +4,18 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 1.11 |
-| Последняя проверка | 2026-07-26 |
+| Версия | 1.12 |
+| Последняя проверка | 2026-07-27 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
+
+ADR-032 специализирует active grounded-capsule persistence boundary:
+`SaveManifestV2` остаётся generic segment envelope, а complete physical owner
+segment содержит `PhysicsWorldCheckpointV1` с
+`PhysicsCanonicalSnapshotV2`. Prototype physics snapshot V1 не является
+activation или fallback candidate.
 
 До cooking source files и validated `ProjectManifest` являются authoring source of truth. После atomic publish `ProjectCompositionLock` + `SchemaRegistryManifestV1` + `ContentManifestV1` + `WorldPartitionManifestV1` + immutable content-addressed bundles являются единственным runtime project/schema/asset/world/model source. Save state владеет только mutable progression/deltas, durable placement/tombstones, selected model/route references и declared PolicyState; оно не копирует immutable model weights или asset payload. Asset & Persistence subsystem владеет schema/content publication, cooker, low-level streaming state machine, atomic lock publication, save transactions и migration execution; semantic schema compatibility задаёт SPEC-22/ADR-025, resource admission — SPEC-23/ADR-026, durable topology/placement — SPEC-25.
 
@@ -63,7 +69,7 @@ Migration uses the unique schema-registry DAG and pure ordered transforms over a
 
 `ReplayManifest` фиксирует initial save/snapshot, exact `ProjectCompositionLock`, `WorldIdentityManifestV1`, named RNG streams, `RuntimeDeterminismProfileV1`, content/build/schema/physical-archetype/model/policy-route/plugin/MechanicsLock hashes, world-level `CommandLedgerV2` snapshot/root с каждым `CommandStreamLedgerV2`, все `ClosedIngressBatchV1` и все `ClosedCommandAdmissionBatchV2`. Каждый ingress batch сохраняет bounded decoded input/completion records, exact assignments и исходную batch boundary. Каждый command-admission batch сохраняет все bounded/authenticated/decodable external `WorldCommandEnvelopeV2`, включая exact duplicates, conflicting bodies, invalid claims, deterministic rejections и finalized retries, с `simulation_tick`/`phase`/`batch_ordinal`, canonical candidate order и исходной batch boundary. Envelope transport metadata заменяется `None`; `CanonicalCommandBodyV2` не содержит собственного ID или transport metadata. Malformed/unauthenticated transport bytes не являются gameplay replay input и MAY сохраняться только отдельно как raw hash/structured diagnostic. Runtime-generated `Outcome` повторно выводится production systems; expected receipts/events, включая ActivePolicyRouteChanged, MAY сохраняться как oracle. Replay runner MUST сравнивать ADR-022 per-tick state root, exact command/rejection/receipt/event/outcome, RPG aggregate revision, population/calendar cursor outcomes и указывать first divergence. Cross-target tolerance не применяется к IDs, commands, events, manifests или gameplay outcomes.
 
-V1 replay является read-only re-execution: runner rehydrates initial checkpoint,
+Replay является read-only re-execution: runner rehydrates initial checkpoint,
 проверяет его state root, принимает только записанные authoritative inputs и
 останавливается на первом divergence. Подмена input, `branch()` и
 counterfactual continuation не входят в v1 replay API.
