@@ -48,18 +48,18 @@ pub use ids::{
 };
 pub use input::{
     CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION, CLOSED_INGRESS_BATCH_SCHEMA_VERSION,
-    CORE_MOVE_ACTION_ID, ClosedCommandAdmissionBatchBodyV2, ClosedCommandAdmissionBatchV2,
-    ClosedIngressBatchBodyV1, ClosedIngressBatchV1, INGRESS_ASSIGNMENT_PROFILE_SCHEMA_VERSION,
-    INGRESS_ASSIGNMENT_SCHEMA_VERSION, INGRESS_CHECKPOINT_SCHEMA_VERSION,
-    INPUT_SAMPLE_SCHEMA_VERSION, IngressAssignmentProfileV1, IngressAssignmentV1,
-    IngressCheckpointV1, IngressEquivalenceReceiptV1, IngressResultCodeV1, IngressSubjectKindV1,
-    InputContractError, InputMappingCodeV1, InputMappingReceiptV1, InputSampleV1,
-    MAX_PLAYER_ACTIONS_PER_FRAME, PLAYER_ACTION_FRAME_SCHEMA_ID,
+    CORE_INTERACT_ACTION_ID, CORE_MOVE_ACTION_ID, ClosedCommandAdmissionBatchBodyV2,
+    ClosedCommandAdmissionBatchV2, ClosedIngressBatchBodyV1, ClosedIngressBatchV1,
+    INGRESS_ASSIGNMENT_PROFILE_SCHEMA_VERSION, INGRESS_ASSIGNMENT_SCHEMA_VERSION,
+    INGRESS_CHECKPOINT_SCHEMA_VERSION, INPUT_SAMPLE_SCHEMA_VERSION, IngressAssignmentProfileV1,
+    IngressAssignmentV1, IngressCheckpointV1, IngressEquivalenceReceiptV1, IngressResultCodeV1,
+    IngressSubjectKindV1, InputContractError, InputMappingCodeV1, InputMappingReceiptV1,
+    InputSampleV1, MAX_PLAYER_ACTIONS_PER_FRAME, PLAYER_ACTION_FRAME_SCHEMA_ID,
     PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS,
-    PLAYER_CONTROLLER_REGISTRY_SCHEMA_VERSION, PlayerActionFrameV1, PlayerActionPhaseV1,
-    PlayerActionV1, PlayerActionValueV1, PlayerControllerBindingV1, PlayerControllerRegistryV1,
-    RUNTIME_ADMISSION_LIMITS_SCHEMA_VERSION, RuntimeAdmissionLimitsV1,
-    TICK_RATE_PROFILE_SCHEMA_VERSION, TickRateProfileV1,
+    PLAYER_CONTROLLER_REGISTRY_SCHEMA_VERSION, PLAYER_INTERACTION_SYSTEM_ID, PlayerActionFrameV1,
+    PlayerActionPhaseV1, PlayerActionV1, PlayerActionValueV1, PlayerControllerBindingV1,
+    PlayerControllerRegistryV1, RUNTIME_ADMISSION_LIMITS_SCHEMA_VERSION, RuntimeAdmissionLimitsV1,
+    TICK_RATE_PROFILE_SCHEMA_VERSION, TickRateProfileV1, core_player_action_map_v1_hash,
 };
 pub use ledger::{
     ArchiveInsertResult, CAUSAL_IDENTITY_REGISTRY_SCHEMA_VERSION,
@@ -108,9 +108,10 @@ pub use physics::{
     derive_physics_contact_id,
 };
 pub use rpg::{
-    CharacterSnapshot, DialogueSnapshot, FactionSnapshot, InteractiveObjectSnapshot, ItemSnapshot,
-    QuestSnapshot, RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID,
-    RPG_EVENT_DIALOGUE_QUEST_ADVANCED_SCHEMA_ID,
+    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID,
+    CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CharacterSnapshot, DialogueSnapshot, FactionSnapshot,
+    InteractiveObjectSnapshot, ItemSnapshot, QuestSnapshot, RPG_COMMAND_CAPABILITY_ID,
+    RPG_COMMAND_SCHEMA_ID, RPG_EVENT_DIALOGUE_QUEST_ADVANCED_SCHEMA_ID,
     RPG_EVENT_INTERACTIVE_OBJECT_STATE_CHANGED_SCHEMA_ID, RPG_EVENT_ITEM_TRANSFERRED_SCHEMA_ID,
     RPG_EVENT_SKILL_LEARNED_SCHEMA_ID, RPG_SNAPSHOT_OWNER_ID, RPG_SNAPSHOT_SCHEMA_ID,
     RPG_SNAPSHOT_SCHEMA_VERSION, RPG_SNAPSHOT_SEGMENT_ID, RelationshipEntry, RpgCommand,

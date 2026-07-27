@@ -6,22 +6,25 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use next_assets::SaveStore;
 use next_contracts::{
-    AuthorityGrant, CharacterSnapshot, CommandLedgerHash, ContentHash, IssuerPrincipal,
-    ItemSnapshot, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+    AuthorityGrant, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
+    CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
+    CharacterSnapshot, CommandLedgerHash, ContactPhaseV1, ContentHash, EventPayload,
+    InputMappingCodeV1, InteractiveObjectSnapshot, IssuerPrincipal, ItemSnapshot,
+    PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PersistentId,
     PhysicsPoseV1, PhysicsWorldCheckpointV1, PlayerActionPhaseV1, RPG_SNAPSHOT_OWNER_ID,
     RPG_SNAPSHOT_SCHEMA_ID, RPG_SNAPSHOT_SCHEMA_VERSION, RPG_SNAPSHOT_SEGMENT_ID,
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SCHEMA_VERSION,
     RUNTIME_SNAPSHOT_SEGMENT_ID, ReplayComparePointV3, ReplayManifestV3, ReplayOwnerSegmentV2,
-    ReplayTickManifestV3, RpgCommand, RpgSnapshot, SaveCompatibility, SaveSegmentDescriptor,
-    SchemaId, StateRoot, TickSettings, WorldCheckpointV3, WorldCommand,
+    ReplayTickManifestV3, RpgCommand, RpgEvent, RpgSnapshot, SaveCompatibility,
+    SaveSegmentDescriptor, SchemaId, StateRoot, TickSettings, WorldCheckpointV3, WorldCommand,
 };
 use next_runtime::{RuntimeState, TickReport};
 
 use crate::{
     ReplayOutput, build_neutral_player_fixture, checkpoint_segment_hashes,
-    compute_world_checkpoint_root, player_action_sample, replay_command_results,
-    run_replay_manifest,
+    compute_world_checkpoint_root, player_action_sample, player_interact_sample,
+    replay_command_results, run_replay_manifest,
 };
 
 static NEXT_CHECK_DIRECTORY: AtomicU64 = AtomicU64::new(0);
@@ -31,6 +34,8 @@ pub struct PersistenceReplayCheckReport {
     pub ticks: u64,
     pub generations: u64,
     pub final_pose: PhysicsPoseV1,
+    pub rpg_events: u64,
+    pub interactive_object_state: SchemaId,
     pub final_state_root: StateRoot,
     pub final_command_ledger_hash: CommandLedgerHash,
 }
@@ -102,7 +107,7 @@ pub fn run_persistence_replay_check()
         build_neutral_player_fixture("nextengine.persistence-replay").map_err(|error| {
             PersistenceReplayCheckError::new("build player fixture", error.to_string())
         })?;
-    let initial_rpg = initial_rpg_snapshot()?;
+    let initial_rpg = initial_rpg_snapshot(fixture.interactive_object_id)?;
     let mut direct = RuntimeState::with_rpg_snapshot(
         fixture.bootstrap.clone(),
         fixture.authority.clone(),
@@ -110,39 +115,68 @@ pub fn run_persistence_replay_check()
     )
     .map_err(|error| PersistenceReplayCheckError::new("create runtime", error.to_string()))?;
 
-    let first_input = player_action_sample(
-        &fixture,
-        0,
-        PlayerActionPhaseV1::Started,
-        [0, 32_767],
-        Some(1_000),
-    )
-    .map_err(|error| PersistenceReplayCheckError::new("first input", error.to_string()))?;
-    direct
-        .enqueue_input_sample(&fixture.principal, first_input)
-        .map_err(|error| {
-            PersistenceReplayCheckError::new("enqueue first input", error.to_string())
-        })?;
     let initial_checkpoint = direct.world_checkpoint().map_err(|error| {
         PersistenceReplayCheckError::new("initial checkpoint", error.to_string())
     })?;
     let direct_commands = rpg_commands(fixture.rpg_stream_id, fixture.principal.clone())?;
-    let first = direct
-        .run_tick(direct_commands.clone())
-        .map_err(|error| PersistenceReplayCheckError::new("run tick zero", error.to_string()))?;
+    let mut reports = Vec::new();
+    for sequence in 0_u64..4 {
+        let input = player_action_sample(
+            &fixture,
+            sequence,
+            if sequence == 0 {
+                PlayerActionPhaseV1::Started
+            } else {
+                PlayerActionPhaseV1::Performed
+            },
+            [0, 32_767],
+            Some(
+                i64::try_from(sequence).map_err(|error| {
+                    PersistenceReplayCheckError::new("movement wall time", error.to_string())
+                })? * 1_000,
+            ),
+        )
+        .map_err(|error| PersistenceReplayCheckError::new("movement input", error.to_string()))?;
+        direct
+            .enqueue_input_sample(&fixture.principal, input)
+            .map_err(|error| {
+                PersistenceReplayCheckError::new("enqueue movement input", error.to_string())
+            })?;
+        let commands = if sequence == 0 {
+            direct_commands.clone()
+        } else {
+            Vec::new()
+        };
+        reports.push(direct.run_tick(commands).map_err(|error| {
+            PersistenceReplayCheckError::new("run pre-save movement", error.to_string())
+        })?);
+    }
+    if !direct
+        .physics_snapshot()
+        .sorted_contact_continuity_states
+        .values()
+        .any(|contact| {
+            contact.participant_low.body_id.subject_id == fixture.interactive_object_id
+                || contact.participant_high.body_id.subject_id == fixture.interactive_object_id
+        })
+    {
+        return Err(PersistenceReplayCheckError::condition(
+            "save boundary has active wall contact",
+        ));
+    }
 
-    let queued_input = player_action_sample(
+    let queued_interaction = player_interact_sample(
         &fixture,
-        1,
-        PlayerActionPhaseV1::Performed,
-        [0, 32_767],
+        4,
+        PlayerActionPhaseV1::Started,
+        true,
         Some(9_999_999),
     )
-    .map_err(|error| PersistenceReplayCheckError::new("queued input", error.to_string()))?;
+    .map_err(|error| PersistenceReplayCheckError::new("interaction input", error.to_string()))?;
     direct
-        .enqueue_input_sample(&fixture.principal, queued_input)
+        .enqueue_input_sample(&fixture.principal, queued_interaction)
         .map_err(|error| {
-            PersistenceReplayCheckError::new("enqueue queued input", error.to_string())
+            PersistenceReplayCheckError::new("enqueue interaction input", error.to_string())
         })?;
 
     let directory = CheckDirectory::new()?;
@@ -170,19 +204,78 @@ pub fn run_persistence_replay_check()
                 PersistenceReplayCheckError::new("restore checkpoint", error.to_string())
             })?;
 
-    let direct_second = direct
-        .run_tick([])
-        .map_err(|error| PersistenceReplayCheckError::new("direct tick one", error.to_string()))?;
-    let restored_second = restored.run_tick([]).map_err(|error| {
-        PersistenceReplayCheckError::new("restored tick one", error.to_string())
+    let direct_interaction = direct.run_tick([]).map_err(|error| {
+        PersistenceReplayCheckError::new("direct interaction", error.to_string())
     })?;
-    if direct_second != restored_second {
+    let restored_interaction = restored.run_tick([]).map_err(|error| {
+        PersistenceReplayCheckError::new("restored interaction", error.to_string())
+    })?;
+    if direct_interaction != restored_interaction
+        || direct_interaction.mapping_receipts.len() != 1
+        || direct_interaction.mapping_receipts[0].code != InputMappingCodeV1::Accepted
+        || direct_interaction.mapping_receipts[0]
+            .derived_command_id
+            .is_none()
+        || direct_interaction
+            .contact_batch
+            .events
+            .iter()
+            .any(|event| event.phase == ContactPhaseV1::Begin)
+        || !direct_interaction
+            .contact_batch
+            .events
+            .iter()
+            .any(|event| event.phase == ContactPhaseV1::Persist)
+        || direct_interaction
+            .events
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event.payload,
+                    EventPayload::Rpg(RpgEvent::InteractiveObjectStateChanged { .. })
+                )
+            })
+            .count()
+            != 1
+    {
         return Err(PersistenceReplayCheckError::condition(
-            "queued input continues exactly after restore",
+            "queued contact-gated interaction continues exactly after restore",
         ));
     }
+    reports.push(direct_interaction);
 
-    let stop = player_action_sample(&fixture, 2, PlayerActionPhaseV1::Completed, [0, 0], None)
+    let backward = player_action_sample(
+        &fixture,
+        5,
+        PlayerActionPhaseV1::Performed,
+        [0, -32_767],
+        None,
+    )
+    .map_err(|error| PersistenceReplayCheckError::new("backward input", error.to_string()))?;
+    direct
+        .enqueue_input_sample(&fixture.principal, backward.clone())
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("enqueue direct backward", error.to_string())
+        })?;
+    restored
+        .enqueue_input_sample(&fixture.principal, backward)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("enqueue restored backward", error.to_string())
+        })?;
+    let direct_backward = direct
+        .run_tick([])
+        .map_err(|error| PersistenceReplayCheckError::new("direct backward", error.to_string()))?;
+    let restored_backward = restored.run_tick([]).map_err(|error| {
+        PersistenceReplayCheckError::new("restored backward", error.to_string())
+    })?;
+    if direct_backward != restored_backward {
+        return Err(PersistenceReplayCheckError::condition(
+            "backward movement remains exact after interaction restore",
+        ));
+    }
+    reports.push(direct_backward);
+
+    let stop = player_action_sample(&fixture, 6, PlayerActionPhaseV1::Completed, [0, 0], None)
         .map_err(|error| PersistenceReplayCheckError::new("stop input", error.to_string()))?;
     direct
         .enqueue_input_sample(&fixture.principal, stop.clone())
@@ -194,13 +287,13 @@ pub fn run_persistence_replay_check()
         .map_err(|error| {
             PersistenceReplayCheckError::new("enqueue restored stop", error.to_string())
         })?;
-    let direct_third = direct
+    let direct_stop = direct
         .run_tick([])
-        .map_err(|error| PersistenceReplayCheckError::new("direct tick two", error.to_string()))?;
-    let restored_third = restored.run_tick([]).map_err(|error| {
-        PersistenceReplayCheckError::new("restored tick two", error.to_string())
-    })?;
-    if direct_third != restored_third
+        .map_err(|error| PersistenceReplayCheckError::new("direct stop", error.to_string()))?;
+    let restored_stop = restored
+        .run_tick([])
+        .map_err(|error| PersistenceReplayCheckError::new("restored stop", error.to_string()))?;
+    if direct_stop != restored_stop
         || direct.world_checkpoint().map_err(|error| {
             PersistenceReplayCheckError::new("direct final checkpoint", error.to_string())
         })? != restored.world_checkpoint().map_err(|error| {
@@ -211,14 +304,22 @@ pub fn run_persistence_replay_check()
             "uninterrupted and restored worlds remain exact",
         ));
     }
+    reports.push(direct_stop);
 
-    let reports = vec![first, direct_second, direct_third];
     let replay_manifest = replay_manifest(
         compatibility.clone(),
         &fixture.authority,
         initial_checkpoint,
         &reports,
-        vec![direct_commands, Vec::new(), Vec::new()],
+        vec![
+            direct_commands,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        ],
     )?;
     let replay = run_replay_manifest(&replay_manifest).map_err(|error| {
         PersistenceReplayCheckError::new("closed-batch replay", error.to_string())
@@ -271,6 +372,31 @@ pub fn run_persistence_replay_check()
             "queued movement applies exactly once",
         ));
     }
+    let interactive_object_state = final_checkpoint
+        .rpg_snapshot
+        .interactive_objects
+        .iter()
+        .find(|object| object.id == fixture.interactive_object_id)
+        .ok_or_else(|| PersistenceReplayCheckError::condition("final interactive object exists"))?
+        .state_id
+        .clone();
+    let rpg_events = reports
+        .iter()
+        .flat_map(|report| &report.events)
+        .filter(|event| {
+            matches!(
+                event.payload,
+                EventPayload::Rpg(RpgEvent::InteractiveObjectStateChanged { .. })
+            )
+        })
+        .count();
+    if interactive_object_state.as_str() != CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
+        || rpg_events != 1
+    {
+        return Err(PersistenceReplayCheckError::condition(
+            "interaction activates object exactly once",
+        ));
+    }
     let final_state_root = compute_world_checkpoint_root(&final_checkpoint)
         .map_err(|error| PersistenceReplayCheckError::new("final state root", error.to_string()))?;
     let final_command_ledger_hash = final_checkpoint
@@ -280,9 +406,13 @@ pub fn run_persistence_replay_check()
             PersistenceReplayCheckError::new("final ledger hash", error.to_string())
         })?;
     Ok(PersistenceReplayCheckReport {
-        ticks: 3,
+        ticks: 7,
         generations: 2,
         final_pose,
+        rpg_events: u64::try_from(rpg_events).map_err(|error| {
+            PersistenceReplayCheckError::new("RPG event count", error.to_string())
+        })?,
+        interactive_object_state,
         final_state_root,
         final_command_ledger_hash,
     })
@@ -515,7 +645,9 @@ fn compare_replay(
     Ok(())
 }
 
-fn initial_rpg_snapshot() -> Result<RpgSnapshot, PersistenceReplayCheckError> {
+fn initial_rpg_snapshot(
+    interactive_object_id: PersistentId,
+) -> Result<RpgSnapshot, PersistenceReplayCheckError> {
     Ok(RpgSnapshot {
         characters: vec![
             CharacterSnapshot {
@@ -547,6 +679,16 @@ fn initial_rpg_snapshot() -> Result<RpgSnapshot, PersistenceReplayCheckError> {
             })?,
             owner: Some(PersistentId::from_bytes([0x20; 16])),
             quantity: 1,
+        }],
+        interactive_objects: vec![InteractiveObjectSnapshot {
+            id: interactive_object_id,
+            revision: 0,
+            archetype_id: SchemaId::new(CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID).map_err(|error| {
+                PersistenceReplayCheckError::new("interactive object archetype", error.to_string())
+            })?,
+            state_id: SchemaId::new(CORE_INTERACTIVE_OBJECT_READY_STATE_ID).map_err(|error| {
+                PersistenceReplayCheckError::new("interactive object state", error.to_string())
+            })?,
         }],
         ..RpgSnapshot::default()
     })
@@ -629,16 +771,60 @@ fn corrupt_physics_segment(
         .iter()
         .position(|descriptor| descriptor.owner_id.as_str() == PHYSICS_SNAPSHOT_OWNER_ID)
         .ok_or_else(|| PersistenceReplayCheckError::condition("newest physics segment exists"))?;
-    let segment_path = segment_path(store.root(), slot, segment_index);
-    let mut bytes = fs::read(&segment_path).map_err(|error| {
-        PersistenceReplayCheckError::new("read physics segment", error.to_string())
+    let mut corrupt_checkpoint = latest.checkpoint.physics_checkpoint;
+    let static_body_id = corrupt_checkpoint
+        .catalog
+        .bodies
+        .iter()
+        .find_map(|(body_id, descriptor)| {
+            (descriptor.motion_kind == next_contracts::PhysicsMotionKindV1::Static)
+                .then_some(*body_id)
+        })
+        .ok_or_else(|| {
+            PersistenceReplayCheckError::condition("newest physics catalog has a static body")
+        })?;
+    corrupt_checkpoint
+        .snapshot
+        .sorted_body_states
+        .get_mut(&static_body_id)
+        .ok_or_else(|| {
+            PersistenceReplayCheckError::condition("newest physics snapshot has static state")
+        })?
+        .linear_velocity_micrometres_per_second[0] = 1;
+    let bytes = corrupt_checkpoint.canonical_bytes().map_err(|error| {
+        PersistenceReplayCheckError::new("encode structural physics corruption", error.to_string())
     })?;
-    let first = bytes
-        .first_mut()
-        .ok_or_else(|| PersistenceReplayCheckError::condition("physics segment is not empty"))?;
-    *first ^= 0xff;
+    let segment_path = segment_path(store.root(), slot, segment_index);
     fs::write(&segment_path, &bytes).map_err(|error| {
         PersistenceReplayCheckError::new("corrupt physics segment", error.to_string())
+    })?;
+    let mut manifest = latest.image.manifest;
+    let descriptor = manifest.segments[segment_index].clone();
+    manifest.segments[segment_index] = SaveSegmentDescriptor::for_bytes(
+        descriptor.owner_id,
+        descriptor.schema_id,
+        descriptor.segment_id,
+        descriptor.schema_version,
+        &bytes,
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("bind structural physics corruption", error.to_string())
+    })?;
+    let manifest_path = store
+        .root()
+        .join(format!("slot-{slot}"))
+        .join("manifest.jcs");
+    fs::write(
+        &manifest_path,
+        manifest.to_jcs_bytes().map_err(|error| {
+            PersistenceReplayCheckError::new(
+                "encode corrupt generation manifest",
+                error.to_string(),
+            )
+        })?,
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("write corrupt generation manifest", error.to_string())
     })?;
     Ok((segment_path, bytes))
 }
@@ -651,13 +837,18 @@ fn segment_path(root: &Path, slot: u8, segment_index: usize) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::run_persistence_replay_check;
+    use super::{CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, run_persistence_replay_check};
 
     #[test]
     fn product_check_covers_input_save_restore_replay_and_corrupt_physics_fallback() {
         let report = run_persistence_replay_check().expect("product check passes");
-        assert_eq!(report.ticks, 3);
+        assert_eq!(report.ticks, 7);
         assert_eq!(report.generations, 2);
+        assert_eq!(report.rpg_events, 1);
+        assert_eq!(
+            report.interactive_object_state.as_str(),
+            CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
+        );
         assert_eq!(
             report.final_pose.translation_micrometres,
             [0, 900_000, 200_000]

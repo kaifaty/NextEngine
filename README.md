@@ -80,6 +80,9 @@ runtime-обучение моделей и
   изучения навыков и состояния интерактивных объектов;
 - целочисленный reference-контроллер grounded capsule, статические Box
   colliders и непрерывность контактов `Begin/Persist/End`;
+- contact-gated core interaction: действие игрока выбирает только объект в
+  активном физическом контакте и меняет его RPG-состояние через Outcome
+  `WorldCommand`;
 - атомарные поколения сохранений, восстановление, replay и проверка совпадения
   authoritative state roots;
 - переносимый `headless` composition root и локальные product checks;
@@ -87,8 +90,9 @@ runtime-обучение моделей и
   `train → ONNX → inference` для проверки локального ML toolchain.
 
 Это ещё не законченная игра: текущий `play` проверяет ограниченный neutral
-сценарий движения и столкновений, а RPG-поведение и persistence/replay
-покрываются отдельными сценариями через production paths.
+сценарий движения, столкновения и активации одного `core-switch`. Reference
+physics profile пока ограничен upright capsule и статическими Box colliders;
+предметы, диалоги и квестовые последствия остаются следующими срезами.
 
 ## Быстрый старт
 
@@ -104,7 +108,7 @@ cargo run -p next_headless
 Запустить основные локальные проверки:
 
 ```bash
-# Нейтральный ввод игрока → runtime → grounded capsule
+# Ввод игрока → grounded capsule → static collision → contact-gated activation
 cargo run -p xtask -- play
 
 # Гравитация, столкновения с полом/стеной и жизненный цикл контактов

@@ -195,7 +195,7 @@ impl ReferencePhysicsWorld {
         {
             return Err(ReferencePhysicsError::NonIntegralProfile);
         }
-        Ok(Self {
+        let world = Self {
             checkpoint,
             tick_rate_profile,
             numeric_profile,
@@ -209,7 +209,9 @@ impl ReferencePhysicsWorld {
             static_boxes,
             locomotion_per_substep: CAPSULE_LOCOMOTION_SPEED_MICROMETRES_PER_SECOND / physics_hz,
             gravity_velocity_delta: gravity / physics_hz,
-        })
+        };
+        world.validate_activation_snapshot()?;
+        Ok(world)
     }
 
     #[must_use]
@@ -258,7 +260,8 @@ impl ReferencePhysicsWorld {
             || input.expected_world_revision != self.checkpoint.snapshot.world_revision
             || input.expected_snapshot_hash != self.checkpoint.snapshot.snapshot_hash()?
             || input.expected_catalog_hash != self.checkpoint.catalog.catalog_hash()?
-            || input.first_physics_tick != self.checkpoint.snapshot.physics_tick
+            || self.checkpoint.snapshot.physics_tick.checked_add(1)
+                != Some(input.first_physics_tick)
             || input.physics_substeps != self.tick_rate_profile.physics_substeps_per_gameplay_tick
         {
             return Err(ReferencePhysicsError::StepInputMismatch);
@@ -411,9 +414,7 @@ impl ReferencePhysicsWorld {
                 } else {
                     ContactPhaseV1::Begin
                 };
-                if self.reporting_for_contact(state) == PhysicsContactReportingV1::BeginPersistEnd
-                    || phase != ContactPhaseV1::Persist
-                {
+                if should_report_contact(self.reporting_for_contact(state), phase) {
                     all_events.push(contact_event(
                         input.gameplay_tick,
                         physics_tick,
@@ -425,7 +426,12 @@ impl ReferencePhysicsWorld {
                 }
             }
             for (id, state) in previous {
-                if !current.contains_key(&id) {
+                if !current.contains_key(&id)
+                    && should_report_contact(
+                        self.reporting_for_contact(&state),
+                        ContactPhaseV1::End,
+                    )
+                {
                     all_events.push(contact_event(
                         input.gameplay_tick,
                         physics_tick,
@@ -446,6 +452,7 @@ impl ReferencePhysicsWorld {
             all_events,
             after_snapshot_hash,
         )?;
+        contact_batch.validate_against_catalog(&self.checkpoint.catalog)?;
         let mut related_ids = contact_batch
             .events
             .iter()
@@ -598,24 +605,8 @@ impl ReferencePhysicsWorld {
             if !self.collides_with(shape) {
                 continue;
             }
-            let dx = interval_distance(centre[0], shape.minimum[0], shape.maximum[0]);
-            let dz = interval_distance(centre[2], shape.minimum[2], shape.maximum[2]);
-            let segment_min = centre[1]
-                .checked_sub(self.capsule_half_segment)
-                .ok_or(ReferencePhysicsError::NumericOverflow)?;
-            let segment_max = centre[1]
-                .checked_add(self.capsule_half_segment)
-                .ok_or(ReferencePhysicsError::NumericOverflow)?;
-            let dy = interval_interval_distance(
-                segment_min,
-                segment_max,
-                shape.minimum[1],
-                shape.maximum[1],
-            );
-            let distance_squared = square(dx)?
-                .checked_add(square(dy)?)
-                .and_then(|value| value.checked_add(square(dz).ok()?))
-                .ok_or(ReferencePhysicsError::NumericOverflow)?;
+            let distance_squared =
+                capsule_box_distance_squared(centre, self.capsule_half_segment, shape)?;
             let forced = forced_hits
                 .iter()
                 .find(|hit| hit.shape_id == shape.shape_id);
@@ -694,6 +685,77 @@ impl ReferencePhysicsWorld {
         let box_to_capsule =
             shape.collision_mask & (1_u64 << u32::from(self.capsule_collision_layer)) != 0;
         capsule_to_box && box_to_capsule
+    }
+
+    fn validate_activation_snapshot(&self) -> Result<(), ReferencePhysicsError> {
+        let Some(capsule_body_id) = self.capsule_body_id else {
+            if self
+                .checkpoint
+                .snapshot
+                .sorted_contact_continuity_states
+                .is_empty()
+            {
+                return Ok(());
+            }
+            return Err(ReferencePhysicsError::SnapshotMismatch);
+        };
+        let body = self
+            .checkpoint
+            .snapshot
+            .sorted_body_states
+            .get(&capsule_body_id)
+            .ok_or(ReferencePhysicsError::SnapshotMismatch)?;
+        if !body.active
+            || body.pose.rotation_q1_30 != PhysicsPoseV1::default().rotation_q1_30
+            || body.angular_velocity_q16 != [0; 3]
+        {
+            return Err(ReferencePhysicsError::SnapshotMismatch);
+        }
+        let radius_squared = square(self.capsule_radius)?;
+        for shape in &self.static_boxes {
+            if self.collides_with(shape)
+                && capsule_box_distance_squared(
+                    body.pose.translation_micrometres,
+                    self.capsule_half_segment,
+                    shape,
+                )? < radius_squared
+            {
+                return Err(ReferencePhysicsError::SnapshotPenetrating);
+            }
+        }
+
+        let snapshot = &self.checkpoint.snapshot;
+        if snapshot.physics_tick == 0
+            && snapshot.world_revision == 0
+            && snapshot.sorted_contact_continuity_states.is_empty()
+        {
+            return Ok(());
+        }
+        let candidates =
+            self.contact_candidates(body.pose.translation_micrometres, &BTreeSet::new())?;
+        let mut recomputed = BTreeMap::new();
+        for candidate in candidates {
+            let (low, high, feature_low, feature_high, normal) =
+                self.canonicalize_contact(candidate);
+            let contact_id = derive_physics_contact_id(low, high, feature_low, feature_high);
+            recomputed.insert(
+                contact_id,
+                PhysicsContactContinuityStateV1 {
+                    contact_id,
+                    participant_low: low,
+                    participant_high: high,
+                    feature_low,
+                    feature_high,
+                    point_micrometres: candidate.point,
+                    normal_low_to_high_q1_30: normal,
+                    last_seen_physics_tick: snapshot.physics_tick,
+                },
+            );
+        }
+        if recomputed != snapshot.sorted_contact_continuity_states {
+            return Err(ReferencePhysicsError::SnapshotMismatch);
+        }
+        Ok(())
     }
 }
 
@@ -782,6 +844,46 @@ fn interval_interval_distance(
         first_minimum - second_maximum
     } else {
         0
+    }
+}
+
+fn capsule_box_distance_squared(
+    centre: [i64; 3],
+    half_segment: i64,
+    shape: &StaticBox,
+) -> Result<i128, ReferencePhysicsError> {
+    let dx = interval_distance(centre[0], shape.minimum[0], shape.maximum[0]);
+    let dz = interval_distance(centre[2], shape.minimum[2], shape.maximum[2]);
+    let segment_minimum = centre[1]
+        .checked_sub(half_segment)
+        .ok_or(ReferencePhysicsError::NumericOverflow)?;
+    let segment_maximum = centre[1]
+        .checked_add(half_segment)
+        .ok_or(ReferencePhysicsError::NumericOverflow)?;
+    let dy = interval_interval_distance(
+        segment_minimum,
+        segment_maximum,
+        shape.minimum[1],
+        shape.maximum[1],
+    );
+    square(dx)?
+        .checked_add(square(dy)?)
+        .and_then(|value| value.checked_add(square(dz).ok()?))
+        .ok_or(ReferencePhysicsError::NumericOverflow)
+}
+
+const fn should_report_contact(
+    reporting: PhysicsContactReportingV1,
+    phase: ContactPhaseV1,
+) -> bool {
+    match (reporting, phase) {
+        (PhysicsContactReportingV1::Disabled, _) => false,
+        (PhysicsContactReportingV1::BeginEnd, ContactPhaseV1::Persist) => false,
+        (
+            PhysicsContactReportingV1::BeginEnd | PhysicsContactReportingV1::BeginPersistEnd,
+            ContactPhaseV1::Begin | ContactPhaseV1::End,
+        )
+        | (PhysicsContactReportingV1::BeginPersistEnd, ContactPhaseV1::Persist) => true,
     }
 }
 
@@ -1038,6 +1140,7 @@ pub enum ReferencePhysicsError {
     BodyMissing,
     NumericOverflow,
     ContactCapacityExceeded,
+    SnapshotPenetrating,
 }
 
 impl ReferencePhysicsError {
@@ -1053,6 +1156,7 @@ impl ReferencePhysicsError {
             Self::BodyMissing => "PHYSICAL_TARGET_UNBOUND",
             Self::NumericOverflow => "PHYSICS_NUMERIC_OVERFLOW",
             Self::ContactCapacityExceeded => "PHYS_CONTACT_CAPACITY_EXCEEDED",
+            Self::SnapshotPenetrating => "PHYS_SNAPSHOT_PENETRATING",
         }
     }
 }
@@ -1112,6 +1216,26 @@ mod tests {
         wall_centre_z: i64,
         wall_half_extent_z: i64,
     ) -> ReferencePhysicsWorld {
+        world_with_wall_reporting(
+            gameplay_hz,
+            physics_hz,
+            initial_centre,
+            wall_collision_mask,
+            wall_centre_z,
+            wall_half_extent_z,
+            PhysicsContactReportingV1::BeginPersistEnd,
+        )
+    }
+
+    fn world_with_wall_reporting(
+        gameplay_hz: u32,
+        physics_hz: u32,
+        initial_centre: [i64; 3],
+        wall_collision_mask: u64,
+        wall_centre_z: i64,
+        wall_half_extent_z: i64,
+        contact_reporting: PhysicsContactReportingV1,
+    ) -> ReferencePhysicsWorld {
         let tick_rate = TickRateProfileV1 {
             schema_version: 1,
             gameplay_hz,
@@ -1153,6 +1277,7 @@ mod tests {
                 },
                 &material_id,
                 1,
+                contact_reporting,
             ),
         );
         let floor_body_id = PhysicsBodyIdV1 {
@@ -1174,6 +1299,7 @@ mod tests {
                 },
                 &material_id,
                 1,
+                contact_reporting,
             ),
         );
         let wall_body_id = PhysicsBodyIdV1 {
@@ -1195,6 +1321,7 @@ mod tests {
                 },
                 &material_id,
                 wall_collision_mask,
+                contact_reporting,
             ),
         );
         let catalog = PhysicsWorldCatalogV1::new(
@@ -1249,6 +1376,7 @@ mod tests {
         geometry: PhysicsGeometryV1,
         material_id: &SchemaId,
         collision_mask: u64,
+        contact_reporting: PhysicsContactReportingV1,
     ) -> PhysicsShapeDescriptorV1 {
         PhysicsShapeDescriptorV1 {
             shape_id,
@@ -1259,7 +1387,7 @@ mod tests {
             collision_layer: 0,
             collision_mask,
             participation: PhysicsParticipationV1::Solid,
-            contact_reporting: PhysicsContactReportingV1::BeginPersistEnd,
+            contact_reporting,
         }
     }
 
@@ -1296,7 +1424,10 @@ mod tests {
                 .catalog_hash()
                 .expect("catalog hash"),
             gameplay_tick,
-            first_physics_tick: snapshot.physics_tick,
+            first_physics_tick: snapshot
+                .physics_tick
+                .checked_add(1)
+                .expect("test physics tick remains bounded"),
             physics_substeps: world.tick_rate_profile().physics_substeps_per_gameplay_tick,
             accepted_intents,
         };
@@ -1312,6 +1443,248 @@ mod tests {
             .next()
             .expect("capsule binding");
         &world.snapshot().sorted_body_states[body_id]
+    }
+
+    fn reconstruct(
+        checkpoint: PhysicsWorldCheckpointV1,
+        source: &ReferencePhysicsWorld,
+    ) -> Result<ReferencePhysicsWorld, ReferencePhysicsError> {
+        ReferencePhysicsWorld::new(
+            checkpoint,
+            source.tick_rate_profile().to_owned(),
+            source.numeric_profile().to_owned(),
+            source.quantization_profile().to_owned(),
+        )
+    }
+
+    #[test]
+    fn activation_accepts_exact_touching_and_rejects_penetration() {
+        let source = world(30, 60, [0, 900_000, 0], 1);
+        let capsule_body_id = *source
+            .checkpoint()
+            .catalog
+            .avatar_bindings
+            .values()
+            .next()
+            .expect("capsule binding");
+
+        let mut touching = source.checkpoint().clone();
+        touching
+            .snapshot
+            .sorted_body_states
+            .get_mut(&capsule_body_id)
+            .expect("capsule state")
+            .pose
+            .translation_micrometres[2] = 300_000;
+        reconstruct(touching, &source).expect("exact touching activates");
+
+        let mut penetrating = source.checkpoint().clone();
+        penetrating
+            .snapshot
+            .sorted_body_states
+            .get_mut(&capsule_body_id)
+            .expect("capsule state")
+            .pose
+            .translation_micrometres[2] = 300_001;
+        assert_eq!(
+            reconstruct(penetrating, &source),
+            Err(ReferencePhysicsError::SnapshotPenetrating)
+        );
+    }
+
+    #[test]
+    fn checkpoint_closure_rejects_missing_body_static_drift_and_solver_mismatch() {
+        let mut world = world(30, 60, [0, 900_000, 0], 1);
+        let _ = step(&mut world, 0, None);
+        let checkpoint = world.checkpoint().clone();
+        let capsule_body_id = *checkpoint
+            .catalog
+            .avatar_bindings
+            .values()
+            .next()
+            .expect("capsule binding");
+        let static_body_id = checkpoint
+            .catalog
+            .bodies
+            .keys()
+            .copied()
+            .find(|body_id| *body_id != capsule_body_id)
+            .expect("static body");
+
+        let mut missing_body = checkpoint.clone();
+        missing_body
+            .snapshot
+            .sorted_body_states
+            .remove(&static_body_id);
+        assert_eq!(
+            missing_body.validate(),
+            Err(PhysicsContractError::ReferenceInvalid)
+        );
+
+        let mut static_drift = checkpoint.clone();
+        static_drift
+            .snapshot
+            .sorted_body_states
+            .get_mut(&static_body_id)
+            .expect("static state")
+            .linear_velocity_micrometres_per_second[0] = 1;
+        assert_eq!(
+            static_drift.validate(),
+            Err(PhysicsContractError::ReferenceInvalid)
+        );
+
+        let mut missing_solver_state = checkpoint;
+        missing_solver_state
+            .snapshot
+            .sorted_solver_continuation_states
+            .clear();
+        assert_eq!(
+            missing_solver_state.validate(),
+            Err(PhysicsContractError::ReferenceInvalid)
+        );
+    }
+
+    #[test]
+    fn checkpoint_and_contact_batch_reject_stale_ticks_and_invalid_features() {
+        let mut world = world(30, 60, [0, 900_000, 0], 1);
+        let step_result = step(&mut world, 0, None);
+        let checkpoint = world.checkpoint().clone();
+
+        let mut stale_tick = checkpoint.clone();
+        stale_tick
+            .snapshot
+            .sorted_contact_continuity_states
+            .values_mut()
+            .next()
+            .expect("floor contact")
+            .last_seen_physics_tick -= 1;
+        assert_eq!(
+            stale_tick.validate(),
+            Err(PhysicsContractError::ContactIdentityMismatch)
+        );
+
+        let mut invalid_feature = checkpoint.clone();
+        let (_, mut contact) = invalid_feature
+            .snapshot
+            .sorted_contact_continuity_states
+            .pop_first()
+            .expect("floor contact");
+        contact.feature_low = 0;
+        contact.contact_id = derive_physics_contact_id(
+            contact.participant_low,
+            contact.participant_high,
+            contact.feature_low,
+            contact.feature_high,
+        );
+        invalid_feature
+            .snapshot
+            .sorted_contact_continuity_states
+            .insert(contact.contact_id, contact.clone());
+        invalid_feature
+            .snapshot
+            .sorted_solver_continuation_states
+            .clear();
+        invalid_feature
+            .snapshot
+            .sorted_solver_continuation_states
+            .insert(contact.contact_id, [0; 3]);
+        assert_eq!(
+            invalid_feature.validate(),
+            Err(PhysicsContractError::ReferenceInvalid)
+        );
+
+        let event = step_result
+            .contact_batch
+            .events
+            .first()
+            .expect("floor begin")
+            .clone();
+        let mut wrong_tick = event.clone();
+        wrong_tick.physics_tick += 1;
+        assert_eq!(
+            ClosedPhysicsContactBatchV1::new(
+                step_result.contact_batch.gameplay_tick,
+                step_result.contact_batch.first_physics_tick,
+                step_result.contact_batch.substep_count,
+                vec![wrong_tick],
+                step_result.contact_batch.source_snapshot_hash,
+            ),
+            Err(PhysicsContractError::NonCanonicalOrder)
+        );
+
+        let mut wrong_feature = event;
+        wrong_feature.feature_low = 0;
+        wrong_feature.contact_id = derive_physics_contact_id(
+            wrong_feature.participant_low,
+            wrong_feature.participant_high,
+            wrong_feature.feature_low,
+            wrong_feature.feature_high,
+        );
+        let batch = ClosedPhysicsContactBatchV1::new(
+            step_result.contact_batch.gameplay_tick,
+            step_result.contact_batch.first_physics_tick,
+            step_result.contact_batch.substep_count,
+            vec![wrong_feature],
+            step_result.contact_batch.source_snapshot_hash,
+        )
+        .expect("identity-valid batch");
+        assert_eq!(
+            batch.validate_against_catalog(&checkpoint.catalog),
+            Err(PhysicsContractError::ReferenceInvalid)
+        );
+    }
+
+    #[test]
+    fn contact_reporting_policy_does_not_change_continuity() {
+        let mut disabled = world_with_wall_reporting(
+            30,
+            60,
+            [0, 900_000, 0],
+            1,
+            700_000,
+            100_000,
+            PhysicsContactReportingV1::Disabled,
+        );
+        for tick in 0..4 {
+            let result = step(&mut disabled, tick, Some([0, 32_767]));
+            assert!(result.contact_batch.events.is_empty());
+        }
+        assert!(
+            !disabled
+                .snapshot()
+                .sorted_contact_continuity_states
+                .is_empty()
+        );
+
+        let mut begin_end = world_with_wall_reporting(
+            30,
+            60,
+            [0, 900_000, 0],
+            1,
+            700_000,
+            100_000,
+            PhysicsContactReportingV1::BeginEnd,
+        );
+        let mut phases = Vec::new();
+        for tick in 0..4 {
+            phases.extend(
+                step(&mut begin_end, tick, Some([0, 32_767]))
+                    .contact_batch
+                    .events
+                    .into_iter()
+                    .map(|event| event.phase),
+            );
+        }
+        phases.extend(
+            step(&mut begin_end, 4, Some([0, -32_767]))
+                .contact_batch
+                .events
+                .into_iter()
+                .map(|event| event.phase),
+        );
+        assert!(phases.contains(&ContactPhaseV1::Begin));
+        assert!(phases.contains(&ContactPhaseV1::End));
+        assert!(!phases.contains(&ContactPhaseV1::Persist));
     }
 
     #[test]

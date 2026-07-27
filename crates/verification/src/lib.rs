@@ -30,7 +30,7 @@ pub use persistence_replay::{
 };
 pub use player_fixture::{
     CanonicalFixtureError, NeutralPlayerFixture, PhysicsCollisionCheckReport, PlayCheckError,
-    PlayCheckReport, build_neutral_player_fixture, player_action_sample,
+    PlayCheckReport, build_neutral_player_fixture, player_action_sample, player_interact_sample,
     run_physics_collision_check, run_play_check,
 };
 

@@ -2,9 +2,15 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::{
-    CanonicalError, CommandPhase, CommandStreamId, DomainEvent, IssuerPrincipal, SystemId,
-    WorldCommand,
+    CanonicalError, CommandPhase, CommandStreamId, DomainEvent, IssuerPrincipal, RpgCommand,
+    SystemId, WorldCommand,
 };
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum OutcomePayload {
+    Noop,
+    Rpg(RpgCommand),
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OutcomeProposal {
@@ -12,6 +18,7 @@ pub struct OutcomeProposal {
     stream_id: CommandStreamId,
     sequence: u64,
     precondition_revision: Option<u64>,
+    payload: OutcomePayload,
 }
 
 impl OutcomeProposal {
@@ -22,6 +29,23 @@ impl OutcomeProposal {
             stream_id,
             sequence,
             precondition_revision: None,
+            payload: OutcomePayload::Noop,
+        }
+    }
+
+    #[must_use]
+    pub const fn rpg(
+        system_id: SystemId,
+        stream_id: CommandStreamId,
+        sequence: u64,
+        payload: RpgCommand,
+    ) -> Self {
+        Self {
+            system_id,
+            stream_id,
+            sequence,
+            precondition_revision: None,
+            payload: OutcomePayload::Rpg(payload),
         }
     }
 
@@ -32,12 +56,15 @@ impl OutcomeProposal {
     }
 
     pub(crate) fn into_command(self, tick: u64) -> Result<WorldCommand, CanonicalError> {
-        let mut command = WorldCommand::noop(
-            self.stream_id,
-            IssuerPrincipal::InternalSystem(self.system_id),
-            self.sequence,
-            tick,
-        )?;
+        let issuer = IssuerPrincipal::InternalSystem(self.system_id);
+        let mut command = match self.payload {
+            OutcomePayload::Noop => {
+                WorldCommand::noop(self.stream_id, issuer, self.sequence, tick)?
+            }
+            OutcomePayload::Rpg(payload) => {
+                WorldCommand::rpg(self.stream_id, issuer, self.sequence, tick, payload)?
+            }
+        };
         command.phase = CommandPhase::Outcome;
         command.set_precondition_revision(self.precondition_revision)?;
         Ok(command)

@@ -1914,22 +1914,78 @@ impl PhysicsCanonicalSnapshotV2 {
             if id != &contact.contact_id {
                 return Err(PhysicsContractError::DuplicateKey);
             }
-            if derive_physics_contact_id(
-                contact.participant_low,
-                contact.participant_high,
-                contact.feature_low,
-                contact.feature_high,
-            ) != *id
+            if contact.participant_low >= contact.participant_high
+                || contact.last_seen_physics_tick != self.physics_tick
+                || derive_physics_contact_id(
+                    contact.participant_low,
+                    contact.participant_high,
+                    contact.feature_low,
+                    contact.feature_high,
+                ) != *id
             {
                 return Err(PhysicsContractError::ContactIdentityMismatch);
             }
         }
-        if self
+        if !self
             .sorted_solver_continuation_states
             .keys()
-            .any(|id| !self.sorted_contact_continuity_states.contains_key(id))
+            .eq(self.sorted_contact_continuity_states.keys())
         {
             return Err(PhysicsContractError::ReferenceInvalid);
+        }
+        Ok(())
+    }
+
+    fn validate_catalog_closure(
+        &self,
+        catalog: &PhysicsWorldCatalogV1,
+    ) -> Result<(), PhysicsContractError> {
+        if !self.sorted_body_states.keys().eq(catalog.bodies.keys()) {
+            return Err(PhysicsContractError::ReferenceInvalid);
+        }
+        for (body_id, descriptor) in &catalog.bodies {
+            let state = self
+                .sorted_body_states
+                .get(body_id)
+                .ok_or(PhysicsContractError::ReferenceInvalid)?;
+            if state.active != descriptor.active {
+                return Err(PhysicsContractError::ReferenceInvalid);
+            }
+            match descriptor.motion_kind {
+                PhysicsMotionKindV1::Static => {
+                    if state.body_revision != 0
+                        || state.pose != descriptor.initial_pose
+                        || state.linear_velocity_micrometres_per_second != [0; 3]
+                        || state.angular_velocity_q16 != [0; 3]
+                        || state.sleep_counter != 0
+                    {
+                        return Err(PhysicsContractError::ReferenceInvalid);
+                    }
+                }
+                PhysicsMotionKindV1::Kinematic | PhysicsMotionKindV1::Dynamic => {
+                    let has_capsule = descriptor
+                        .shapes
+                        .values()
+                        .any(|shape| matches!(shape.geometry, PhysicsGeometryV1::Capsule { .. }));
+                    if has_capsule
+                        && (state.pose.rotation_q1_30 != PhysicsPoseV1::default().rotation_q1_30
+                            || state.angular_velocity_q16 != [0; 3])
+                    {
+                        return Err(PhysicsContractError::ReferenceInvalid);
+                    }
+                }
+            }
+        }
+        for contact in self.sorted_contact_continuity_states.values() {
+            let low = catalog_shape(catalog, contact.participant_low)
+                .ok_or(PhysicsContractError::ReferenceInvalid)?;
+            let high = catalog_shape(catalog, contact.participant_high)
+                .ok_or(PhysicsContractError::ReferenceInvalid)?;
+            if !primitive_feature_is_valid(&low.geometry, contact.feature_low)
+                || !primitive_feature_is_valid(&high.geometry, contact.feature_high)
+            {
+                return Err(PhysicsContractError::ReferenceInvalid);
+            }
         }
         Ok(())
     }
@@ -2103,6 +2159,7 @@ impl PhysicsCanonicalSnapshotV2 {
         numeric: &AuthoritativeNumericProfileV1,
         quantization: &PhysicsQuantizationProfileV1,
     ) -> Result<(), PhysicsContractError> {
+        self.validate_catalog_closure(catalog)?;
         if self.world_id != catalog.world_descriptor.world_id
             || self.world_descriptor_hash
                 != physics_contract_hash(
@@ -2150,6 +2207,7 @@ impl PhysicsWorldCheckpointV1 {
         }
         self.catalog.validate()?;
         self.snapshot.validate()?;
+        self.snapshot.validate_catalog_closure(&self.catalog)?;
         if self.catalog.world_descriptor.world_id != self.snapshot.world_id
             || self.catalog.catalog_hash()? != self.snapshot.catalog_hash
         {
@@ -2404,6 +2462,37 @@ pub struct ContactEventV1 {
 }
 
 impl ContactEventV1 {
+    fn validate_identity(&self) -> Result<(), PhysicsContractError> {
+        if self.participant_low >= self.participant_high
+            || derive_physics_contact_id(
+                self.participant_low,
+                self.participant_high,
+                self.feature_low,
+                self.feature_high,
+            ) != self.contact_id
+        {
+            return Err(PhysicsContractError::ContactIdentityMismatch);
+        }
+        Ok(())
+    }
+
+    fn validate_against_catalog(
+        &self,
+        catalog: &PhysicsWorldCatalogV1,
+    ) -> Result<(), PhysicsContractError> {
+        self.validate_identity()?;
+        let low = catalog_shape(catalog, self.participant_low)
+            .ok_or(PhysicsContractError::ReferenceInvalid)?;
+        let high = catalog_shape(catalog, self.participant_high)
+            .ok_or(PhysicsContractError::ReferenceInvalid)?;
+        if !primitive_feature_is_valid(&low.geometry, self.feature_low)
+            || !primitive_feature_is_valid(&high.geometry, self.feature_high)
+        {
+            return Err(PhysicsContractError::ReferenceInvalid);
+        }
+        Ok(())
+    }
+
     fn canonical_record(&self) -> Result<Vec<u8>, CanonicalError> {
         encode_struct([
             field_id(1, self.contact_id.as_bytes()),
@@ -2479,15 +2568,7 @@ impl ContactEventV1 {
             normal_low_to_high_q1_30: decode_i32_vec3(&field_from(&fields, 11)?.payload)?,
             source_snapshot_hash: read_hash_fields(&fields, 12)?,
         };
-        if derive_physics_contact_id(
-            value.participant_low,
-            value.participant_high,
-            value.feature_low,
-            value.feature_high,
-        ) != value.contact_id
-        {
-            return Err(PhysicsContractError::ContactIdentityMismatch);
-        }
+        value.validate_identity()?;
         Ok(value)
     }
 }
@@ -2530,11 +2611,39 @@ impl ClosedPhysicsContactBatchV1 {
             || self.substep_count == 0
             || self.events.windows(2).any(|pair| pair[0] >= pair[1])
             || self.events.iter().any(|event| {
-                event.gameplay_tick != self.gameplay_tick || event.substep >= self.substep_count
+                event.gameplay_tick != self.gameplay_tick
+                    || event.substep >= self.substep_count
+                    || self
+                        .first_physics_tick
+                        .checked_add(u64::from(event.substep))
+                        != Some(event.physics_tick)
+                    || event.validate_identity().is_err()
             })
             || self.compute_batch_hash()? != self.batch_hash
         {
             return Err(PhysicsContractError::NonCanonicalOrder);
+        }
+        Ok(())
+    }
+
+    pub fn validate_against_catalog(
+        &self,
+        catalog: &PhysicsWorldCatalogV1,
+    ) -> Result<(), PhysicsContractError> {
+        self.validate()?;
+        if self.events.len()
+            > usize::try_from(catalog.limits_profile.maximum_contacts_per_substep)
+                .map_err(|_| PhysicsContractError::LimitExceeded)?
+                .checked_mul(
+                    usize::try_from(self.substep_count)
+                        .map_err(|_| PhysicsContractError::LimitExceeded)?,
+                )
+                .ok_or(PhysicsContractError::LimitExceeded)?
+        {
+            return Err(PhysicsContractError::LimitExceeded);
+        }
+        for event in &self.events {
+            event.validate_against_catalog(catalog)?;
         }
         Ok(())
     }
@@ -2692,6 +2801,23 @@ pub fn derive_physics_contact_id(
     let mut id = [0; 16];
     id.copy_from_slice(&hash[..16]);
     PhysicsContactId::from_bytes(id)
+}
+
+fn catalog_shape(
+    catalog: &PhysicsWorldCatalogV1,
+    shape_id: PhysicsShapeIdV1,
+) -> Option<&PhysicsShapeDescriptorV1> {
+    catalog.bodies.get(&shape_id.body_id)?.shapes.get(&shape_id)
+}
+
+fn primitive_feature_is_valid(geometry: &PhysicsGeometryV1, feature: u8) -> bool {
+    match geometry {
+        PhysicsGeometryV1::Box { .. } => (1..=26).contains(&feature),
+        PhysicsGeometryV1::Sphere { .. } | PhysicsGeometryV1::Capsule { .. } => feature == 1,
+        PhysicsGeometryV1::ConvexHull { .. }
+        | PhysicsGeometryV1::TriangleMesh { .. }
+        | PhysicsGeometryV1::HeightField { .. } => feature != 0,
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

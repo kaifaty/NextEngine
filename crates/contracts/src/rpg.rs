@@ -14,6 +14,9 @@ pub const RPG_SNAPSHOT_SCHEMA_ID: &str = "nextengine.rpg.snapshot";
 pub const RPG_SNAPSHOT_SEGMENT_ID: &str = "domain-state";
 pub const RPG_COMMAND_SCHEMA_ID: &str = "nextengine.command.rpg";
 pub const RPG_COMMAND_CAPABILITY_ID: &str = "rpg.command.propose";
+pub const CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID: &str = "nextengine.rpg.interactive.core-switch";
+pub const CORE_INTERACTIVE_OBJECT_READY_STATE_ID: &str = "nextengine.rpg.interactive.ready";
+pub const CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID: &str = "nextengine.rpg.interactive.activated";
 
 pub const RPG_EVENT_DIALOGUE_QUEST_ADVANCED_SCHEMA_ID: &str =
     "nextengine.event.rpg.dialogue-quest-advanced";

@@ -6,8 +6,10 @@ use std::fmt::{Display, Formatter};
 use next_contracts::{
     AcceptedLocomotionIntentV2, AuthoritativeNumericProfileV1,
     CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION, CLOSED_INGRESS_BATCH_SCHEMA_VERSION,
-    COMMAND_ENVELOPE_SCHEMA_VERSION, COMMAND_RECEIPT_SCHEMA_VERSION, CORE_MOVE_ACTION_ID,
-    CanonicalDecodeLimits, CanonicalError, CausalIdentityKey, CausalIdentityKind,
+    COMMAND_ENVELOPE_SCHEMA_VERSION, COMMAND_RECEIPT_SCHEMA_VERSION, CORE_INTERACT_ACTION_ID,
+    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID,
+    CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CORE_MOVE_ACTION_ID, CanonicalDecodeLimits,
+    CanonicalError, CapabilityId, CausalIdentityKey, CausalIdentityKind,
     ClosedCommandAdmissionBatchBodyV2, ClosedCommandAdmissionBatchV2, ClosedIngressBatchBodyV1,
     ClosedIngressBatchV1, ClosedPhysicsContactBatchV1, CommandBodyArchiveV1,
     CommandCollisionCandidateV1, CommandCollisionIncidentV1, CommandFinalResultV1, CommandId,
@@ -18,15 +20,16 @@ use next_contracts::{
     IngressCheckpointV1, IngressEquivalenceReceiptV1, InputContractError, InputMappingCodeV1,
     InputMappingReceiptV1, InputSampleV1, IssuerPrincipal, PHYSICS_STEP_INPUT_SCHEMA_VERSION,
     PLAYER_ACTION_FRAME_SCHEMA_ID, PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS,
-    PhysicalCommandV1, PhysicalEventV1, PhysicsCanonicalSnapshotV2, PhysicsContractError,
-    PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1, PhysicsQuantizationProfileV1,
-    PhysicsSolverSemanticsProfileV1, PhysicsStepInputV2, PhysicsWorldCatalogProfilesV1,
-    PhysicsWorldCatalogV1, PhysicsWorldCheckpointV1, PhysicsWorldId, PlayerActionFrameV1,
-    PlayerActionPhaseV1, PlayerActionValueV1, PlayerControllerBindingV1,
-    PlayerControllerRegistryV1, PrincipalRegistryV1, ProjectId, RpgDecodeError, RpgSnapshot,
-    RuntimeAdmissionLimitsV1, RuntimeDeterminismProfileV1, RuntimeSnapshot, SchemaId,
-    SnapshotDecodeError, TickRateProfileV1, WorldCheckpointError, WorldCheckpointV3, WorldCommand,
-    WorldIdentityManifestV1, content_hash_from_bytes, sha256,
+    PLAYER_INTERACTION_SYSTEM_ID, PersistentId, PhysicalCommandV1, PhysicalEventV1,
+    PhysicsCanonicalSnapshotV2, PhysicsContractError, PhysicsCoordinateProfileV1,
+    PhysicsLimitsProfileV1, PhysicsQuantizationProfileV1, PhysicsSolverSemanticsProfileV1,
+    PhysicsStepInputV2, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
+    PhysicsWorldCheckpointV1, PhysicsWorldId, PlayerActionFrameV1, PlayerActionPhaseV1,
+    PlayerActionValueV1, PlayerControllerBindingV1, PlayerControllerRegistryV1,
+    PrincipalRegistryV1, ProjectId, RPG_COMMAND_CAPABILITY_ID, RpgCommand, RpgDecodeError,
+    RpgSnapshot, RuntimeAdmissionLimitsV1, RuntimeDeterminismProfileV1, RuntimeSnapshot, SchemaId,
+    SnapshotDecodeError, SystemId, TickRateProfileV1, WorldCheckpointError, WorldCheckpointV3,
+    WorldCommand, WorldIdentityManifestV1, content_hash_from_bytes, sha256,
 };
 use next_physics_api::{ReferencePhysicsError, ReferencePhysicsWorld};
 use next_rpg::{RpgApplyError, RpgState, RpgStateError};
@@ -479,22 +482,28 @@ impl RuntimeState {
         self.run_tick_internal(direct_commands, &mut NoOutcomes, Some(closed_ingress_batch))
     }
 
-    fn preview_replay_command_batches(
+    fn preview_replay_ingress_batch(
         &self,
         closed_ingress_batch: ClosedIngressBatchV1,
         direct_commands: &[WorldCommand],
-    ) -> Result<(ClosedCommandAdmissionBatchV2, ClosedCommandAdmissionBatchV2), RuntimeFatalError>
-    {
+    ) -> Result<ClosedCommandAdmissionBatchV2, RuntimeFatalError> {
         let following_tick = self
             .next_tick
             .checked_add(1)
             .ok_or(RuntimeFatalError::TickExhausted)?;
         let mut staged_ingress = self.ingress_checkpoint.clone();
+        let interaction_enabled = resolve_interaction_outcome_route(
+            &self.principal_registry,
+            &self.stream_registry,
+            &self.authority,
+        )
+        .is_some();
         let closed_ingress = accept_closed_ingress(
             self.next_tick,
             following_tick,
             &self.admission_limits,
             &self.player_controller_registry,
+            interaction_enabled,
             &mut staged_ingress,
             closed_ingress_batch,
         )?;
@@ -510,16 +519,7 @@ impl RuntimeState {
                 envelopes: ingress_commands,
             })?;
         ingress_batch.validate(&self.admission_limits)?;
-        let outcome_batch =
-            ClosedCommandAdmissionBatchV2::from_body(ClosedCommandAdmissionBatchBodyV2 {
-                schema_version: CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION,
-                simulation_tick: self.next_tick,
-                phase: CommandPhase::Outcome,
-                batch_ordinal: 1,
-                envelopes: Vec::new(),
-            })?;
-        outcome_batch.validate(&self.admission_limits)?;
-        Ok((ingress_batch, outcome_batch))
+        Ok(ingress_batch)
     }
 
     fn run_tick_internal(
@@ -533,6 +533,11 @@ impl RuntimeState {
             .checked_add(1)
             .ok_or(RuntimeFatalError::TickExhausted)?;
         let tick = self.next_tick;
+        let interaction_route = resolve_interaction_outcome_route(
+            &self.principal_registry,
+            &self.stream_registry,
+            &self.authority,
+        );
         let mut staged = StagedAuthoritativeState {
             ledger: self.command_ledger.clone(),
             archive: self.body_archive.clone(),
@@ -543,12 +548,13 @@ impl RuntimeState {
             ingress: self.ingress_checkpoint.clone(),
         };
 
-        let closed_ingress = match replay_ingress {
+        let mut closed_ingress = match replay_ingress {
             Some(batch) => accept_closed_ingress(
                 tick,
                 following_tick,
                 &self.admission_limits,
                 &self.player_controller_registry,
+                interaction_route.is_some(),
                 &mut staged.ingress,
                 batch,
             )?,
@@ -557,6 +563,7 @@ impl RuntimeState {
                 following_tick,
                 &self.admission_limits,
                 &self.player_controller_registry,
+                interaction_route.is_some(),
                 &mut staged.ingress,
             )?,
         };
@@ -599,6 +606,13 @@ impl RuntimeState {
             .clone()
             .ok_or(RuntimeFatalError::PhysicalOutcomeInvariant)?;
 
+        let built_in_outcomes = build_interaction_outcomes(
+            &closed_ingress.pending_interactions,
+            interaction_route.as_ref(),
+            &staged.physics,
+            &staged.rpg,
+            staged.revision,
+        )?;
         let mut outcome_sink = OutcomeSink::new();
         outcome_provider
             .collect(
@@ -610,17 +624,47 @@ impl RuntimeState {
                 &mut outcome_sink,
             )
             .map_err(RuntimeFatalError::OutcomeCollection)?;
-        let proposals = outcome_sink.into_proposals();
-        let proposal_count = count(proposals.len())?;
-        let outcome_commands = proposals
-            .into_iter()
-            .map(|proposal| {
-                proposal
-                    .into_command(tick)
-                    .map_err(RuntimeFatalError::InternalCanonicalization)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let mut outcome_commands = outcome_commands;
+        let external_proposals = outcome_sink.into_proposals();
+        let proposal_count = count(
+            built_in_outcomes
+                .len()
+                .checked_add(external_proposals.len())
+                .ok_or(RuntimeFatalError::TraceCountExhausted)?,
+        )?;
+        let mut outcome_commands = Vec::with_capacity(
+            built_in_outcomes
+                .len()
+                .checked_add(external_proposals.len())
+                .ok_or(RuntimeFatalError::TraceCountExhausted)?,
+        );
+        for built_in in built_in_outcomes {
+            let command = built_in
+                .proposal
+                .into_command(tick)
+                .map_err(RuntimeFatalError::InternalCanonicalization)?;
+            let command_id = command.compute_command_id()?;
+            let receipt = closed_ingress
+                .mapping_receipts
+                .iter_mut()
+                .find(|receipt| {
+                    receipt.source_id == built_in.source_id
+                        && receipt.source_sequence == built_in.source_sequence
+                        && receipt.payload_hash == built_in.payload_hash
+                })
+                .ok_or(RuntimeFatalError::IngressCheckpointCorrupt)?;
+            receipt.derived_command_id = Some(command_id);
+            outcome_commands.push(command);
+        }
+        outcome_commands.extend(
+            external_proposals
+                .into_iter()
+                .map(|proposal| {
+                    proposal
+                        .into_command(tick)
+                        .map_err(RuntimeFatalError::InternalCanonicalization)
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        );
         sort_command_batch(&mut outcome_commands)?;
         let outcome_batch =
             ClosedCommandAdmissionBatchV2::from_body(ClosedCommandAdmissionBatchBodyV2 {
@@ -797,30 +841,35 @@ impl RuntimeReplayDriver {
         expected_contact_batch: &ClosedPhysicsContactBatchV1,
         expected_outcome_batch: &ClosedCommandAdmissionBatchV2,
     ) -> Result<TickReport, RuntimeReplayError> {
-        let (ingress_batch, outcome_batch) = self
+        let ingress_batch = self
             .runtime
-            .preview_replay_command_batches(closed_ingress_batch.clone(), &direct_commands)?;
+            .preview_replay_ingress_batch(closed_ingress_batch.clone(), &direct_commands)?;
         if &ingress_batch != expected_ingress_batch {
             return Err(RuntimeReplayError::CommandBatchMismatch {
                 tick: self.runtime.next_tick,
                 phase: CommandPhase::Ingress,
             });
         }
-        if &outcome_batch != expected_outcome_batch {
-            return Err(RuntimeReplayError::CommandBatchMismatch {
-                tick: self.runtime.next_tick,
-                phase: CommandPhase::Outcome,
-            });
-        }
-        let report = self
-            .runtime
-            .replay_closed_ingress_tick(closed_ingress_batch, direct_commands)?;
+        expected_contact_batch
+            .validate_against_catalog(&self.runtime.physics.checkpoint().catalog)
+            .map_err(ReferencePhysicsError::from)
+            .map_err(RuntimeFatalError::from)?;
+        let mut staged_runtime = self.runtime.clone();
+        let report =
+            staged_runtime.replay_closed_ingress_tick(closed_ingress_batch, direct_commands)?;
         if &report.physics_step_input != expected_physics_step_input {
             return Err(RuntimeReplayError::PhysicsStepInputMismatch { tick: report.tick });
         }
         if &report.contact_batch != expected_contact_batch {
             return Err(RuntimeReplayError::ContactBatchMismatch { tick: report.tick });
         }
+        if report.command_batches.get(1) != Some(expected_outcome_batch) {
+            return Err(RuntimeReplayError::CommandBatchMismatch {
+                tick: report.tick,
+                phase: CommandPhase::Outcome,
+            });
+        }
+        self.runtime = staged_runtime;
         Ok(report)
     }
 
@@ -904,7 +953,36 @@ struct ClosedIngressExecution {
     batch: ClosedIngressBatchV1,
     mapping_receipts: Vec<InputMappingReceiptV1>,
     derived_commands: Vec<WorldCommand>,
+    pending_interactions: Vec<PendingInteractionIntent>,
     deduplicated: u64,
+}
+
+struct PlayerActionMapping {
+    receipts: Vec<InputMappingReceiptV1>,
+    commands: Vec<WorldCommand>,
+    pending_interactions: Vec<PendingInteractionIntent>,
+}
+
+#[derive(Clone, Debug)]
+struct InteractionOutcomeRoute {
+    system_id: SystemId,
+    stream_id: CommandStreamId,
+}
+
+#[derive(Clone, Debug)]
+struct PendingInteractionIntent {
+    controlled_body_id: PersistentId,
+    source_id: next_contracts::InputSourceId,
+    source_sequence: u64,
+    payload_hash: ContentHash,
+}
+
+#[derive(Clone, Debug)]
+struct BuiltInInteractionOutcome {
+    proposal: crate::outcome::OutcomeProposal,
+    source_id: next_contracts::InputSourceId,
+    source_sequence: u64,
+    payload_hash: ContentHash,
 }
 
 fn close_ingress(
@@ -912,6 +990,7 @@ fn close_ingress(
     following_tick: u64,
     admission: &RuntimeAdmissionLimitsV1,
     controllers: &PlayerControllerRegistryV1,
+    interaction_enabled: bool,
     checkpoint: &mut IngressCheckpointV1,
 ) -> Result<ClosedIngressExecution, RuntimeFatalError> {
     if checkpoint.current_tick != tick {
@@ -1005,9 +1084,14 @@ fn close_ingress(
     assignments.sort();
     equivalence_receipts.sort();
 
-    let (mapping_receipts, mut derived_commands) =
-        map_player_actions(tick, &samples, &collision_keys, controllers)?;
-    sort_command_batch(&mut derived_commands)?;
+    let mut mapping = map_player_actions(
+        tick,
+        &samples,
+        &collision_keys,
+        controllers,
+        interaction_enabled,
+    )?;
+    sort_command_batch(&mut mapping.commands)?;
     let body = ClosedIngressBatchBodyV1 {
         schema_version: CLOSED_INGRESS_BATCH_SCHEMA_VERSION,
         queue_generation: checkpoint.current_generation,
@@ -1029,8 +1113,9 @@ fn close_ingress(
 
     Ok(ClosedIngressExecution {
         batch,
-        mapping_receipts,
-        derived_commands,
+        mapping_receipts: mapping.receipts,
+        derived_commands: mapping.commands,
+        pending_interactions: mapping.pending_interactions,
         deduplicated,
     })
 }
@@ -1040,6 +1125,7 @@ fn accept_closed_ingress(
     following_tick: u64,
     admission: &RuntimeAdmissionLimitsV1,
     controllers: &PlayerControllerRegistryV1,
+    interaction_enabled: bool,
     checkpoint: &mut IngressCheckpointV1,
     batch: ClosedIngressBatchV1,
 ) -> Result<ClosedIngressExecution, RuntimeFatalError> {
@@ -1103,13 +1189,14 @@ fn accept_closed_ingress(
     if collision_keys.len() != batch.body.equivalence_receipts.len() {
         return Err(RuntimeFatalError::IngressCheckpointCorrupt);
     }
-    let (mapping_receipts, mut derived_commands) = map_player_actions(
+    let mut mapping = map_player_actions(
         tick,
         &batch.body.input_samples,
         &collision_keys,
         controllers,
+        interaction_enabled,
     )?;
-    sort_command_batch(&mut derived_commands)?;
+    sort_command_batch(&mut mapping.commands)?;
 
     checkpoint.current_tick = following_tick;
     checkpoint.current_generation = next_generation;
@@ -1119,8 +1206,9 @@ fn accept_closed_ingress(
 
     Ok(ClosedIngressExecution {
         batch,
-        mapping_receipts,
-        derived_commands,
+        mapping_receipts: mapping.receipts,
+        derived_commands: mapping.commands,
+        pending_interactions: mapping.pending_interactions,
         deduplicated: 0,
     })
 }
@@ -1130,12 +1218,21 @@ fn map_player_actions(
     samples: &[InputSampleV1],
     collision_keys: &BTreeSet<(String, next_contracts::InputSourceId, u64)>,
     controllers: &PlayerControllerRegistryV1,
-) -> Result<(Vec<InputMappingReceiptV1>, Vec<WorldCommand>), RuntimeFatalError> {
-    struct MappedIntent {
-        binding: PlayerControllerBindingV1,
-        sequence: u64,
-        direction_q15: [i16; 2],
-        receipt_index: usize,
+    interaction_enabled: bool,
+) -> Result<PlayerActionMapping, RuntimeFatalError> {
+    enum MappedAction {
+        Movement {
+            binding: PlayerControllerBindingV1,
+            sequence: u64,
+            direction_q15: [i16; 2],
+            receipt_index: usize,
+        },
+        Interaction {
+            binding: PlayerControllerBindingV1,
+            sequence: u64,
+            payload_hash: ContentHash,
+        },
+        Noop,
     }
 
     let mut receipts = Vec::new();
@@ -1150,12 +1247,10 @@ fn map_player_actions(
             continue;
         }
         let payload_hash = sample.payload_hash()?;
-        let code_and_direction = map_player_action_sample(sample, controllers);
-        let (code, binding, direction) = match code_and_direction {
-            Ok((binding, direction)) => {
-                (InputMappingCodeV1::Accepted, Some(binding), Some(direction))
-            }
-            Err(code) => (code, None, None),
+        let mapped_action = map_player_action_sample(sample, controllers, interaction_enabled);
+        let (code, action) = match mapped_action {
+            Ok(action) => (InputMappingCodeV1::Accepted, Some(action)),
+            Err(code) => (code, None),
         };
         let receipt_index = receipts.len();
         receipts.push(InputMappingReceiptV1 {
@@ -1166,33 +1261,66 @@ fn map_player_actions(
             code,
             derived_command_id: None,
         });
-        if let (Some(binding), Some(direction_q15)) = (binding, direction) {
-            mapped.insert(
-                binding.controller_id,
-                MappedIntent {
+        if let Some(action) = action {
+            let controller_id = match &action {
+                MappedPlayerAction::Movement { binding, .. }
+                | MappedPlayerAction::Interaction { binding }
+                | MappedPlayerAction::Noop { binding } => binding.controller_id,
+            };
+            let action = match action {
+                MappedPlayerAction::Movement {
+                    binding,
+                    direction_q15,
+                } => MappedAction::Movement {
                     binding: binding.clone(),
                     sequence: sample.source_sequence,
                     direction_q15,
                     receipt_index,
                 },
-            );
+                MappedPlayerAction::Interaction { binding } => MappedAction::Interaction {
+                    binding: binding.clone(),
+                    sequence: sample.source_sequence,
+                    payload_hash,
+                },
+                MappedPlayerAction::Noop { .. } => MappedAction::Noop,
+            };
+            mapped.insert(controller_id, action);
         }
     }
 
     let mut commands = Vec::with_capacity(mapped.len());
-    for intent in mapped.into_values() {
-        let command = WorldCommand::physical(
-            intent.binding.command_stream_id,
-            intent.binding.principal,
-            intent.sequence,
-            tick,
-            intent.binding.controlled_body_id,
-            PhysicalCommandV1::SetCapsuleLocomotionIntent {
-                direction_q15: intent.direction_q15,
-            },
-        )?;
-        receipts[intent.receipt_index].derived_command_id = Some(command.compute_command_id()?);
-        commands.push(command);
+    let mut pending_interactions = Vec::new();
+    for action in mapped.into_values() {
+        match action {
+            MappedAction::Movement {
+                binding,
+                sequence,
+                direction_q15,
+                receipt_index,
+            } => {
+                let command = WorldCommand::physical(
+                    binding.command_stream_id,
+                    binding.principal,
+                    sequence,
+                    tick,
+                    binding.controlled_body_id,
+                    PhysicalCommandV1::SetCapsuleLocomotionIntent { direction_q15 },
+                )?;
+                receipts[receipt_index].derived_command_id = Some(command.compute_command_id()?);
+                commands.push(command);
+            }
+            MappedAction::Interaction {
+                binding,
+                sequence,
+                payload_hash,
+            } => pending_interactions.push(PendingInteractionIntent {
+                controlled_body_id: binding.controlled_body_id,
+                source_id: binding.source_id,
+                source_sequence: sequence,
+                payload_hash,
+            }),
+            MappedAction::Noop => {}
+        }
     }
     receipts.sort_by_key(|receipt| {
         (
@@ -1202,13 +1330,31 @@ fn map_player_actions(
             receipt.payload_hash,
         )
     });
-    Ok((receipts, commands))
+    Ok(PlayerActionMapping {
+        receipts,
+        commands,
+        pending_interactions,
+    })
+}
+
+enum MappedPlayerAction<'a> {
+    Movement {
+        binding: &'a PlayerControllerBindingV1,
+        direction_q15: [i16; 2],
+    },
+    Interaction {
+        binding: &'a PlayerControllerBindingV1,
+    },
+    Noop {
+        binding: &'a PlayerControllerBindingV1,
+    },
 }
 
 fn map_player_action_sample<'a>(
     sample: &InputSampleV1,
     controllers: &'a PlayerControllerRegistryV1,
-) -> Result<(&'a PlayerControllerBindingV1, [i16; 2]), InputMappingCodeV1> {
+    interaction_enabled: bool,
+) -> Result<MappedPlayerAction<'a>, InputMappingCodeV1> {
     if sample.source_class.as_str() != PLAYER_ACTION_SOURCE_CLASS
         || sample.payload_schema_id.as_str() != PLAYER_ACTION_FRAME_SCHEMA_ID
         || sample.payload_schema_version != u32::from(PLAYER_ACTION_FRAME_SCHEMA_VERSION)
@@ -1238,13 +1384,45 @@ fn map_player_action_sample<'a>(
     {
         return Err(InputMappingCodeV1::ContextStackStale);
     }
-    if frame.actions.is_empty()
-        || frame
-            .actions
-            .iter()
-            .any(|action| action.action_id.as_str() != CORE_MOVE_ACTION_ID)
-    {
+    if frame.actions.is_empty() {
         return Err(InputMappingCodeV1::ActionUnmapped);
+    }
+    let has_movement = frame
+        .actions
+        .iter()
+        .any(|action| action.action_id.as_str() == CORE_MOVE_ACTION_ID);
+    let has_interaction = frame
+        .actions
+        .iter()
+        .any(|action| action.action_id.as_str() == CORE_INTERACT_ACTION_ID);
+    let has_unknown = frame.actions.iter().any(|action| {
+        !matches!(
+            action.action_id.as_str(),
+            CORE_MOVE_ACTION_ID | CORE_INTERACT_ACTION_ID
+        )
+    });
+    if has_unknown || (has_movement && has_interaction) {
+        return Err(InputMappingCodeV1::ActionUnmapped);
+    }
+    if has_interaction {
+        if !interaction_enabled || frame.actions.len() != 1 {
+            return Err(if interaction_enabled {
+                InputMappingCodeV1::ValueOutOfProfile
+            } else {
+                InputMappingCodeV1::ActionUnmapped
+            });
+        }
+        let action = &frame.actions[0];
+        return match (action.phase, action.value) {
+            (PlayerActionPhaseV1::Started, PlayerActionValueV1::Digital(true)) => {
+                Ok(MappedPlayerAction::Interaction { binding })
+            }
+            (
+                PlayerActionPhaseV1::Completed | PlayerActionPhaseV1::Cancelled,
+                PlayerActionValueV1::Digital(false),
+            ) => Ok(MappedPlayerAction::Noop { binding }),
+            _ => Err(InputMappingCodeV1::ValueOutOfProfile),
+        };
     }
     let mut direction = None;
     for action in &frame.actions {
@@ -1265,10 +1443,120 @@ fn map_player_action_sample<'a>(
         }
         direction = Some(value);
     }
-    Ok((
+    Ok(MappedPlayerAction::Movement {
         binding,
-        direction.expect("nonempty validated action frame has a final movement value"),
-    ))
+        direction_q15: direction
+            .expect("nonempty validated action frame has a final movement value"),
+    })
+}
+
+fn resolve_interaction_outcome_route(
+    principals: &PrincipalRegistryV1,
+    streams: &CommandStreamRegistryV1,
+    authority: &AuthorityRegistry,
+) -> Option<InteractionOutcomeRoute> {
+    let system_id = SystemId::new(PLAYER_INTERACTION_SYSTEM_ID)
+        .expect("built-in interaction system identifier is valid");
+    let principal = IssuerPrincipal::InternalSystem(system_id.clone());
+    let capability = CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)
+        .expect("built-in RPG capability identifier is valid");
+    if !principals.is_active(&principal)
+        || !authority.is_authenticated(&principal)
+        || !authority
+            .grants(&principal)
+            .is_some_and(|grants| grants.contains(&capability))
+    {
+        return None;
+    }
+    let stream_id = streams
+        .entries
+        .iter()
+        .find(|(key, _)| {
+            key.principal == principal && key.stream_slot == 0 && key.stream_epoch == 0
+        })
+        .map(|(_, stream_id)| *stream_id)?;
+    Some(InteractionOutcomeRoute {
+        system_id,
+        stream_id,
+    })
+}
+
+fn build_interaction_outcomes(
+    intents: &[PendingInteractionIntent],
+    route: Option<&InteractionOutcomeRoute>,
+    physics: &ReferencePhysicsWorld,
+    rpg: &RpgState,
+    authoritative_revision: u64,
+) -> Result<Vec<BuiltInInteractionOutcome>, RuntimeFatalError> {
+    let Some(route) = route else {
+        if intents.is_empty() {
+            return Ok(Vec::new());
+        }
+        return Err(RuntimeFatalError::InternalIdentityCollision);
+    };
+    let rpg_snapshot = rpg.snapshot();
+    let ready_state = SchemaId::new(CORE_INTERACTIVE_OBJECT_READY_STATE_ID)
+        .expect("built-in interactive-object state identifier is valid");
+    let activated_state = SchemaId::new(CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID)
+        .expect("built-in interactive-object state identifier is valid");
+    let mut outcomes = Vec::new();
+    for intent in intents {
+        let Some(target) =
+            select_interaction_target(intent.controlled_body_id, physics, &rpg_snapshot)
+        else {
+            continue;
+        };
+        let proposal = crate::outcome::OutcomeProposal::rpg(
+            route.system_id.clone(),
+            route.stream_id,
+            intent.source_sequence,
+            RpgCommand::SetInteractiveObjectState {
+                object_id: target,
+                expected_state_id: ready_state.clone(),
+                next_state_id: activated_state.clone(),
+            },
+        )
+        .with_precondition_revision(authoritative_revision);
+        outcomes.push(BuiltInInteractionOutcome {
+            proposal,
+            source_id: intent.source_id,
+            source_sequence: intent.source_sequence,
+            payload_hash: intent.payload_hash,
+        });
+    }
+    Ok(outcomes)
+}
+
+fn select_interaction_target(
+    controlled_body_id: PersistentId,
+    physics: &ReferencePhysicsWorld,
+    rpg: &RpgSnapshot,
+) -> Option<PersistentId> {
+    let physical_body_id = physics
+        .checkpoint()
+        .catalog
+        .avatar_bindings
+        .get(&controlled_body_id)?;
+    let mut candidates = Vec::new();
+    for contact in physics.snapshot().sorted_contact_continuity_states.values() {
+        let other = if contact.participant_low.body_id == *physical_body_id {
+            contact.participant_high.body_id
+        } else if contact.participant_high.body_id == *physical_body_id {
+            contact.participant_low.body_id
+        } else {
+            continue;
+        };
+        let target = other.subject_id;
+        if rpg.interactive_objects.iter().any(|object| {
+            object.id == target
+                && object.archetype_id.as_str() == CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID
+                && object.state_id.as_str() == CORE_INTERACTIVE_OBJECT_READY_STATE_ID
+        }) {
+            candidates.push((target, contact.contact_id));
+        }
+    }
+    candidates.sort();
+    candidates.first().map(|(target, _)| *target)
 }
 
 fn sort_command_batch(commands: &mut [WorldCommand]) -> Result<(), CanonicalError> {
@@ -2138,7 +2426,10 @@ fn finish_physical_step(
         expected_snapshot_hash: before_snapshot.snapshot_hash()?,
         expected_catalog_hash: staged.physics.checkpoint().catalog.catalog_hash()?,
         gameplay_tick: context.tick,
-        first_physics_tick: before_snapshot.physics_tick,
+        first_physics_tick: before_snapshot
+            .physics_tick
+            .checked_add(1)
+            .ok_or(RuntimeFatalError::PhysicalOutcomeInvariant)?,
         physics_substeps: staged
             .physics
             .tick_rate_profile()

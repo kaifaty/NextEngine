@@ -29,7 +29,23 @@ pub const INGRESS_CHECKPOINT_SCHEMA_VERSION: u16 = 1;
 pub const PLAYER_ACTION_FRAME_SCHEMA_ID: &str = "nextengine.player-action-frame";
 pub const PLAYER_ACTION_SOURCE_CLASS: &str = "nextengine.input.player-action";
 pub const CORE_MOVE_ACTION_ID: &str = "nextengine.action.move";
+pub const CORE_INTERACT_ACTION_ID: &str = "nextengine.action.interact";
+pub const PLAYER_INTERACTION_SYSTEM_ID: &str = "nextengine.system.player-interaction";
 pub const MAX_PLAYER_ACTIONS_PER_FRAME: usize = 64;
+
+#[must_use]
+pub fn core_player_action_map_v1_hash() -> ContentHash {
+    let mut preimage = b"nextengine.core-player-action-map.v1\0".to_vec();
+    for action_id in [CORE_INTERACT_ACTION_ID, CORE_MOVE_ACTION_ID] {
+        preimage.extend_from_slice(
+            &u32::try_from(action_id.len())
+                .expect("built-in action identifier length fits u32")
+                .to_le_bytes(),
+        );
+        preimage.extend_from_slice(action_id.as_bytes());
+    }
+    ContentHash::from_bytes(sha256(&preimage))
+}
 
 const RUNTIME_OWNER_ID: &str = "nextengine.runtime";
 const INPUT_OWNER_ID: &str = "nextengine.input";
@@ -2331,6 +2347,14 @@ mod tests {
         assert_eq!(
             ingress.admission_limits_hash,
             limits.profile_hash().expect("hash")
+        );
+    }
+
+    #[test]
+    fn core_player_action_map_hash_binds_move_and_interact() {
+        assert_eq!(
+            core_player_action_map_v1_hash().to_hex(),
+            "78bcf0dea6dfdf4cfae9420f934d20eb4f04f1cc4d280cba852802dc38cd177c"
         );
     }
 
