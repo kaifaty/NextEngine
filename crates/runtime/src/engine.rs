@@ -31,7 +31,10 @@ use next_contracts::{
     SnapshotDecodeError, SystemId, TickRateProfileV1, WorldCheckpointError, WorldCheckpointV3,
     WorldCommand, WorldIdentityManifestV1, content_hash_from_bytes, sha256,
 };
-use next_physics_api::{ReferencePhysicsError, ReferencePhysicsWorld};
+use next_physics_api::{
+    PhysicsBackendError, PhysicsBackendKind, PhysicsBackendPolicy, PhysicsWorldHost,
+    ReferencePhysicsError, ReferencePhysicsFactory,
+};
 use next_rpg::{RpgApplyError, RpgState, RpgStateError};
 
 use crate::authority::AuthorityRegistry;
@@ -130,7 +133,95 @@ impl RuntimeBootstrapV3 {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct PhysicsLaunchOptions {
+    pub backend_policy: PhysicsBackendPolicy,
+}
+
+impl PhysicsLaunchOptions {
+    #[must_use]
+    pub const fn new(backend_policy: PhysicsBackendPolicy) -> Self {
+        Self { backend_policy }
+    }
+
+    const fn require(kind: PhysicsBackendKind) -> Self {
+        Self {
+            backend_policy: match kind {
+                PhysicsBackendKind::Reference => PhysicsBackendPolicy::ReferenceOnly,
+                PhysicsBackendKind::PhysX => PhysicsBackendPolicy::RequirePhysX,
+            },
+        }
+    }
+}
+
+fn activate_physics(
+    options: PhysicsLaunchOptions,
+    checkpoint: PhysicsWorldCheckpointV1,
+    tick_rate_profile: TickRateProfileV1,
+    numeric_profile: AuthoritativeNumericProfileV1,
+    quantization_profile: PhysicsQuantizationProfileV1,
+) -> Result<PhysicsWorldHost, PhysicsBackendError> {
+    match options.backend_policy {
+        PhysicsBackendPolicy::ReferenceOnly => PhysicsWorldHost::activate(
+            &ReferencePhysicsFactory,
+            checkpoint,
+            tick_rate_profile,
+            numeric_profile,
+            quantization_profile,
+        ),
+        PhysicsBackendPolicy::RequirePhysX => activate_physx(
+            checkpoint,
+            tick_rate_profile,
+            numeric_profile,
+            quantization_profile,
+        ),
+        PhysicsBackendPolicy::PreferPhysXThenReference => activate_physx(
+            checkpoint.clone(),
+            tick_rate_profile,
+            numeric_profile.clone(),
+            quantization_profile.clone(),
+        )
+        .or_else(|_| {
+            PhysicsWorldHost::activate(
+                &ReferencePhysicsFactory,
+                checkpoint,
+                tick_rate_profile,
+                numeric_profile,
+                quantization_profile,
+            )
+        }),
+    }
+}
+
+#[cfg(any(feature = "physx", feature = "physx-mock"))]
+fn activate_physx(
+    checkpoint: PhysicsWorldCheckpointV1,
+    tick_rate_profile: TickRateProfileV1,
+    numeric_profile: AuthoritativeNumericProfileV1,
+    quantization_profile: PhysicsQuantizationProfileV1,
+) -> Result<PhysicsWorldHost, PhysicsBackendError> {
+    PhysicsWorldHost::activate(
+        &next_physics_physx::PhysXPhysicsFactory,
+        checkpoint,
+        tick_rate_profile,
+        numeric_profile,
+        quantization_profile,
+    )
+}
+
+#[cfg(not(any(feature = "physx", feature = "physx-mock")))]
+fn activate_physx(
+    _checkpoint: PhysicsWorldCheckpointV1,
+    _tick_rate_profile: TickRateProfileV1,
+    _numeric_profile: AuthoritativeNumericProfileV1,
+    _quantization_profile: PhysicsQuantizationProfileV1,
+) -> Result<PhysicsWorldHost, PhysicsBackendError> {
+    Err(PhysicsBackendError::from(
+        ReferencePhysicsError::BackendUnavailable,
+    ))
+}
+
+#[derive(Debug)]
 pub struct RuntimeState {
     registry: CommandKindRegistry,
     authority: AuthorityRegistry,
@@ -148,7 +239,7 @@ pub struct RuntimeState {
     physics_quantization_profile: PhysicsQuantizationProfileV1,
     player_controller_registry: PlayerControllerRegistryV1,
     ingress_checkpoint: IngressCheckpointV1,
-    physics: ReferencePhysicsWorld,
+    physics: PhysicsWorldHost,
     last_closed_ingress_batch: Option<ClosedIngressBatchV1>,
     last_mapping_receipts: Vec<InputMappingReceiptV1>,
     last_command_batches: Vec<ClosedCommandAdmissionBatchV2>,
@@ -162,7 +253,15 @@ impl RuntimeState {
         bootstrap: RuntimeBootstrapV3,
         authority: AuthorityRegistry,
     ) -> Result<Self, SnapshotRestoreError> {
-        Self::from_bootstrap(bootstrap, authority, RpgState::default())
+        Self::new_with_physics_options(bootstrap, authority, PhysicsLaunchOptions::default())
+    }
+
+    pub fn new_with_physics_options(
+        bootstrap: RuntimeBootstrapV3,
+        authority: AuthorityRegistry,
+        physics_options: PhysicsLaunchOptions,
+    ) -> Result<Self, SnapshotRestoreError> {
+        Self::from_bootstrap(bootstrap, authority, RpgState::default(), physics_options)
     }
 
     pub fn with_rpg_snapshot(
@@ -170,17 +269,38 @@ impl RuntimeState {
         authority: AuthorityRegistry,
         snapshot: RpgSnapshot,
     ) -> Result<Self, SnapshotRestoreError> {
-        Self::from_bootstrap(bootstrap, authority, validate_rpg_snapshot(snapshot)?)
+        Self::with_rpg_snapshot_and_physics_options(
+            bootstrap,
+            authority,
+            snapshot,
+            PhysicsLaunchOptions::default(),
+        )
+    }
+
+    pub fn with_rpg_snapshot_and_physics_options(
+        bootstrap: RuntimeBootstrapV3,
+        authority: AuthorityRegistry,
+        snapshot: RpgSnapshot,
+        physics_options: PhysicsLaunchOptions,
+    ) -> Result<Self, SnapshotRestoreError> {
+        Self::from_bootstrap(
+            bootstrap,
+            authority,
+            validate_rpg_snapshot(snapshot)?,
+            physics_options,
+        )
     }
 
     fn from_bootstrap(
         bootstrap: RuntimeBootstrapV3,
         authority: AuthorityRegistry,
         rpg: RpgState,
+        physics_options: PhysicsLaunchOptions,
     ) -> Result<Self, SnapshotRestoreError> {
         let registry = CommandKindRegistry::core_v1();
         validate_bootstrap(&bootstrap, &authority, &registry)?;
-        let physics = ReferencePhysicsWorld::new(
+        let physics = activate_physics(
+            physics_options,
             bootstrap.physics_checkpoint,
             bootstrap.tick_rate_profile,
             bootstrap.authoritative_numeric_profile.clone(),
@@ -247,6 +367,18 @@ impl RuntimeState {
         checkpoint: WorldCheckpointV3,
         authority: AuthorityRegistry,
     ) -> Result<Self, SnapshotRestoreError> {
+        Self::restore_world_checkpoint_with_physics_options(
+            checkpoint,
+            authority,
+            PhysicsLaunchOptions::default(),
+        )
+    }
+
+    pub fn restore_world_checkpoint_with_physics_options(
+        checkpoint: WorldCheckpointV3,
+        authority: AuthorityRegistry,
+        physics_options: PhysicsLaunchOptions,
+    ) -> Result<Self, SnapshotRestoreError> {
         checkpoint.validate()?;
         let runtime_bytes = checkpoint.runtime_snapshot.canonical_bytes()?;
         let snapshot = RuntimeSnapshot::from_canonical_bytes(
@@ -259,7 +391,13 @@ impl RuntimeState {
             &physics_bytes,
             CanonicalDecodeLimits::default(),
         )?;
-        Self::restore_from_parts(snapshot, rpg, physics_checkpoint, authority)
+        Self::restore_from_parts(
+            snapshot,
+            rpg,
+            physics_checkpoint,
+            authority,
+            physics_options,
+        )
     }
 
     fn restore_from_parts(
@@ -267,6 +405,7 @@ impl RuntimeState {
         rpg: RpgState,
         physical: PhysicsWorldCheckpointV1,
         authority: AuthorityRegistry,
+        physics_options: PhysicsLaunchOptions,
     ) -> Result<Self, SnapshotRestoreError> {
         let registry = CommandKindRegistry::core_v1();
         validate_bootstrap(
@@ -289,7 +428,8 @@ impl RuntimeState {
         if snapshot.command_ledger.command_kind_registry_hash != registry.canonical_hash() {
             return Err(SnapshotRestoreError::CommandRegistryMismatch);
         }
-        let physics = ReferencePhysicsWorld::new(
+        let physics = activate_physics(
+            physics_options,
             physical,
             snapshot.tick_rate_profile,
             snapshot.authoritative_numeric_profile.clone(),
@@ -320,6 +460,16 @@ impl RuntimeState {
             body_archive: snapshot.body_archive,
             rpg,
         })
+    }
+
+    fn fork_from_checkpoint(&self) -> Result<Self, SnapshotRestoreError> {
+        Self::restore_from_parts(
+            self.snapshot(),
+            self.rpg.clone(),
+            self.physics.checkpoint().clone(),
+            self.authority.clone(),
+            PhysicsLaunchOptions::require(self.physics.backend_kind()),
+        )
     }
 
     pub fn world_checkpoint(&self) -> Result<WorldCheckpointV3, WorldCheckpointError> {
@@ -390,6 +540,11 @@ impl RuntimeState {
     #[must_use]
     pub fn physics_checkpoint(&self) -> &PhysicsWorldCheckpointV1 {
         self.physics.checkpoint()
+    }
+
+    #[must_use]
+    pub fn physics_backend_kind(&self) -> PhysicsBackendKind {
+        self.physics.backend_kind()
     }
 
     #[must_use]
@@ -544,7 +699,9 @@ impl RuntimeState {
             event_count: self.committed_event_count,
             revision: self.authoritative_revision,
             rpg: self.rpg.clone(),
-            physics: self.physics.clone(),
+            physics: self
+                .physics
+                .fork_from_checkpoint(self.physics.checkpoint().clone())?,
             ingress: self.ingress_checkpoint.clone(),
         };
 
@@ -827,8 +984,20 @@ impl RuntimeReplayDriver {
         checkpoint: WorldCheckpointV3,
         authority: AuthorityRegistry,
     ) -> Result<Self, SnapshotRestoreError> {
+        Self::new_with_physics_options(checkpoint, authority, PhysicsLaunchOptions::default())
+    }
+
+    pub fn new_with_physics_options(
+        checkpoint: WorldCheckpointV3,
+        authority: AuthorityRegistry,
+        physics_options: PhysicsLaunchOptions,
+    ) -> Result<Self, SnapshotRestoreError> {
         Ok(Self {
-            runtime: RuntimeState::restore_world_checkpoint(checkpoint, authority)?,
+            runtime: RuntimeState::restore_world_checkpoint_with_physics_options(
+                checkpoint,
+                authority,
+                physics_options,
+            )?,
         })
     }
 
@@ -853,8 +1022,9 @@ impl RuntimeReplayDriver {
         expected_contact_batch
             .validate_against_catalog(&self.runtime.physics.checkpoint().catalog)
             .map_err(ReferencePhysicsError::from)
+            .map_err(PhysicsBackendError::from)
             .map_err(RuntimeFatalError::from)?;
-        let mut staged_runtime = self.runtime.clone();
+        let mut staged_runtime = self.runtime.fork_from_checkpoint()?;
         let report =
             staged_runtime.replay_closed_ingress_tick(closed_ingress_batch, direct_commands)?;
         if &report.physics_step_input != expected_physics_step_input {
@@ -882,6 +1052,7 @@ impl RuntimeReplayDriver {
 #[non_exhaustive]
 pub enum RuntimeReplayError {
     Runtime(RuntimeFatalError),
+    Restore(SnapshotRestoreError),
     CommandBatchMismatch { tick: u64, phase: CommandPhase },
     PhysicsStepInputMismatch { tick: u64 },
     ContactBatchMismatch { tick: u64 },
@@ -892,6 +1063,7 @@ impl RuntimeReplayError {
     pub const fn stable_code(&self) -> &'static str {
         match self {
             Self::Runtime(error) => error.stable_code(),
+            Self::Restore(_) => "REPLAY_STAGING_RESTORE_FAILED",
             Self::CommandBatchMismatch { .. } => "REPLAY_COMMAND_BATCH_MISMATCH",
             Self::PhysicsStepInputMismatch { .. } => "REPLAY_PHYSICS_STEP_INPUT_MISMATCH",
             Self::ContactBatchMismatch { .. } => "REPLAY_CONTACT_BATCH_MISMATCH",
@@ -903,6 +1075,7 @@ impl Display for RuntimeReplayError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Runtime(error) => write!(formatter, "replay runtime failed: {error}"),
+            Self::Restore(error) => write!(formatter, "replay staging restore failed: {error}"),
             Self::CommandBatchMismatch { tick, phase } => {
                 write!(
                     formatter,
@@ -926,6 +1099,7 @@ impl Error for RuntimeReplayError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Runtime(error) => Some(error),
+            Self::Restore(error) => Some(error),
             Self::CommandBatchMismatch { .. }
             | Self::PhysicsStepInputMismatch { .. }
             | Self::ContactBatchMismatch { .. } => None,
@@ -936,6 +1110,12 @@ impl Error for RuntimeReplayError {
 impl From<RuntimeFatalError> for RuntimeReplayError {
     fn from(error: RuntimeFatalError) -> Self {
         Self::Runtime(error)
+    }
+}
+
+impl From<SnapshotRestoreError> for RuntimeReplayError {
+    fn from(error: SnapshotRestoreError) -> Self {
+        Self::Restore(error)
     }
 }
 
@@ -1484,7 +1664,7 @@ fn resolve_interaction_outcome_route(
 fn build_interaction_outcomes(
     intents: &[PendingInteractionIntent],
     route: Option<&InteractionOutcomeRoute>,
-    physics: &ReferencePhysicsWorld,
+    physics: &PhysicsWorldHost,
     rpg: &RpgState,
     authoritative_revision: u64,
 ) -> Result<Vec<BuiltInInteractionOutcome>, RuntimeFatalError> {
@@ -1529,7 +1709,7 @@ fn build_interaction_outcomes(
 
 fn select_interaction_target(
     controlled_body_id: PersistentId,
-    physics: &ReferencePhysicsWorld,
+    physics: &PhysicsWorldHost,
     rpg: &RpgSnapshot,
 ) -> Option<PersistentId> {
     let physical_body_id = physics
@@ -1631,7 +1811,7 @@ struct StagedAuthoritativeState {
     event_count: u64,
     revision: u64,
     rpg: RpgState,
-    physics: ReferencePhysicsWorld,
+    physics: PhysicsWorldHost,
     ingress: IngressCheckpointV1,
 }
 
@@ -3408,7 +3588,7 @@ pub enum RuntimeFatalError {
     OutcomeCollection(OutcomeCollectionError),
     InternalCanonicalization(CanonicalError),
     LedgerCorrupt(CommandLedgerError),
-    Physics(ReferencePhysicsError),
+    Physics(PhysicsBackendError),
     PhysicalOutcomeInvariant,
     InternalIdentityCollision,
     Snapshot(SnapshotDecodeError),
@@ -3462,8 +3642,8 @@ impl From<InputContractError> for RuntimeFatalError {
     }
 }
 
-impl From<ReferencePhysicsError> for RuntimeFatalError {
-    fn from(error: ReferencePhysicsError) -> Self {
+impl From<PhysicsBackendError> for RuntimeFatalError {
+    fn from(error: PhysicsBackendError) -> Self {
         Self::Physics(error)
     }
 }
@@ -3476,7 +3656,7 @@ pub enum SnapshotRestoreError {
     Identity(IdentityContractError),
     Input(InputContractError),
     Physics(PhysicsContractError),
-    PhysicsController(ReferencePhysicsError),
+    PhysicsController(PhysicsBackendError),
     WorldCheckpoint(WorldCheckpointError),
     Ledger(CommandLedgerError),
     RpgDecode(RpgDecodeError),
@@ -3556,8 +3736,8 @@ impl From<PhysicsContractError> for SnapshotRestoreError {
     }
 }
 
-impl From<ReferencePhysicsError> for SnapshotRestoreError {
-    fn from(error: ReferencePhysicsError) -> Self {
+impl From<PhysicsBackendError> for SnapshotRestoreError {
+    fn from(error: PhysicsBackendError) -> Self {
         Self::PhysicsController(error)
     }
 }
@@ -3611,6 +3791,32 @@ mod tests {
             "nextengine.runtime-fixture",
             IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([3; 16])),
         )
+    }
+
+    #[test]
+    fn physx_fallback_is_confined_to_world_activation() {
+        let bootstrap = RuntimeBootstrapV3::neutral_empty().expect("neutral bootstrap");
+        let runtime = RuntimeState::new_with_physics_options(
+            bootstrap.clone(),
+            AuthorityRegistry::new(),
+            PhysicsLaunchOptions::new(PhysicsBackendPolicy::PreferPhysXThenReference),
+        )
+        .expect("pre-activation fallback");
+        assert_eq!(
+            runtime.physics_backend_kind(),
+            PhysicsBackendKind::Reference
+        );
+
+        let required = RuntimeState::new_with_physics_options(
+            bootstrap,
+            AuthorityRegistry::new(),
+            PhysicsLaunchOptions::new(PhysicsBackendPolicy::RequirePhysX),
+        )
+        .expect_err("old reference-only profile cannot activate PhysX");
+        assert!(matches!(
+            required,
+            SnapshotRestoreError::PhysicsController(_)
+        ));
     }
 
     fn fixture_for(project_id: &str, principal: IssuerPrincipal) -> Fixture {
@@ -4089,14 +4295,12 @@ mod tests {
             .runtime
             .enqueue_input_sample(&fixture.principal, sample)
             .expect("enqueue");
-        let before = fixture.runtime.clone();
+        let before_snapshot = fixture.runtime.snapshot();
+        let before_physics = fixture.runtime.physics_snapshot().clone();
         let error = fixture.runtime.run_tick([]).expect_err("exhaustion");
         assert_eq!(error.stable_code(), "INGRESS_QUEUE_GENERATION_EXHAUSTED");
-        assert_eq!(fixture.runtime.snapshot(), before.snapshot());
-        assert_eq!(
-            fixture.runtime.physics_snapshot(),
-            before.physics_snapshot()
-        );
+        assert_eq!(fixture.runtime.snapshot(), before_snapshot);
+        assert_eq!(fixture.runtime.physics_snapshot(), &before_physics);
     }
 
     #[test]

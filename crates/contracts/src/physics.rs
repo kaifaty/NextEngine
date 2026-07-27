@@ -23,6 +23,19 @@ pub const LEGACY_PHYSICS_SNAPSHOT_SCHEMA_VERSION: u16 = 1;
 pub const AUTHORITATIVE_NUMERIC_PROFILE_SCHEMA_VERSION: u16 = 1;
 pub const PHYSICS_QUANTIZATION_PROFILE_SCHEMA_VERSION: u16 = 1;
 pub const CAPSULE_LOCOMOTION_SPEED_MICROMETRES_PER_SECOND: i64 = 3_000_000;
+pub const PHYSICS_SWEEP_DISTANCE_FIELD_ID: &str =
+    "nextengine.physics.raw.grounded-capsule.sweep-distance";
+pub const PHYSICS_CONTACT_NORMAL_X_FIELD_ID: &str =
+    "nextengine.physics.raw.grounded-capsule.contact-normal-x";
+pub const PHYSICS_CONTACT_NORMAL_Y_FIELD_ID: &str =
+    "nextengine.physics.raw.grounded-capsule.contact-normal-y";
+pub const PHYSICS_CONTACT_NORMAL_Z_FIELD_ID: &str =
+    "nextengine.physics.raw.grounded-capsule.contact-normal-z";
+pub const PHYSICS_METRES_UNIT_ID: &str = "nextengine.unit.metre";
+pub const PHYSICS_MICROMETRES_UNIT_ID: &str = "nextengine.unit.micrometre";
+pub const PHYSICS_SCALAR_UNIT_ID: &str = "nextengine.unit.scalar";
+pub const PHYSICS_MICROMETRES_FIXED_POINT_ID: &str = "nextengine.fixed.physics-micrometres-i64";
+pub const PHYSICS_Q1_30_FIXED_POINT_ID: &str = "nextengine.fixed.q1-30";
 
 pub const PHYSICS_SNAPSHOT_OWNER_ID: &str = "nextengine.physics";
 pub const PHYSICS_SNAPSHOT_SCHEMA_ID: &str = "nextengine.physics-canonical-snapshot";
@@ -208,10 +221,30 @@ impl FixedPointDescriptorV1 {
             || (!self.signed && self.storage_bits == 64)
             || self.rounding != 1
             || self.overflow != 1
+            || !self.bounds_fit_storage()
         {
             return Err(PhysicsContractError::InvalidProfile);
         }
         Ok(())
+    }
+
+    fn bounds_fit_storage(&self) -> bool {
+        if self.signed {
+            let maximum = if self.storage_bits == 64 {
+                i128::from(i64::MAX)
+            } else {
+                (1_i128 << (self.storage_bits - 1)) - 1
+            };
+            let minimum = if self.storage_bits == 64 {
+                i128::from(i64::MIN)
+            } else {
+                -(1_i128 << (self.storage_bits - 1))
+            };
+            i128::from(self.minimum_raw) >= minimum && i128::from(self.maximum_raw) <= maximum
+        } else {
+            let maximum = (1_i128 << self.storage_bits) - 1;
+            self.minimum_raw >= 0 && i128::from(self.maximum_raw) <= maximum
+        }
     }
 
     fn canonical_record(&self) -> Result<Vec<u8>, CanonicalError> {
@@ -264,11 +297,127 @@ impl FixedPointDescriptorV1 {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum PhysicsSourceFormatV1 {
+    Ieee754Binary32,
+    Ieee754Binary64,
+}
+
+impl PhysicsSourceFormatV1 {
+    const fn tag(self) -> u8 {
+        match self {
+            Self::Ieee754Binary32 => 1,
+            Self::Ieee754Binary64 => 2,
+        }
+    }
+
+    fn from_tag(tag: u8) -> Result<Self, PhysicsContractError> {
+        match tag {
+            1 => Ok(Self::Ieee754Binary32),
+            2 => Ok(Self::Ieee754Binary64),
+            _ => Err(PhysicsContractError::UnknownTag(tag)),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct PhysicsQuantizationRuleV1 {
+    pub field_id: SchemaId,
+    pub source_format: PhysicsSourceFormatV1,
+    pub source_unit: SchemaId,
+    pub destination_unit: SchemaId,
+    pub destination_fixed_point: SchemaId,
+    pub scale_numerator: i64,
+    pub scale_denominator: u64,
+    pub offset_raw: i64,
+    pub minimum_raw: i64,
+    pub maximum_raw: i64,
+}
+
+impl PhysicsQuantizationRuleV1 {
+    pub fn validate(&self) -> Result<(), PhysicsContractError> {
+        if self.scale_numerator == 0
+            || self.scale_denominator == 0
+            || self.minimum_raw > self.maximum_raw
+        {
+            return Err(PhysicsContractError::InvalidProfile);
+        }
+        Ok(())
+    }
+
+    fn canonical_record(&self) -> Result<Vec<u8>, CanonicalError> {
+        encode_struct([
+            CanonicalField::new(
+                1,
+                CANONICAL_TYPE_UTF8_NFC,
+                self.field_id.as_str().as_bytes().to_vec(),
+            ),
+            field_u8(2, self.source_format.tag()),
+            CanonicalField::new(
+                3,
+                CANONICAL_TYPE_UTF8_NFC,
+                self.source_unit.as_str().as_bytes().to_vec(),
+            ),
+            CanonicalField::new(
+                4,
+                CANONICAL_TYPE_UTF8_NFC,
+                self.destination_unit.as_str().as_bytes().to_vec(),
+            ),
+            CanonicalField::new(
+                5,
+                CANONICAL_TYPE_UTF8_NFC,
+                self.destination_fixed_point.as_str().as_bytes().to_vec(),
+            ),
+            field_i64(6, self.scale_numerator),
+            field_u64(7, self.scale_denominator),
+            field_i64(8, self.offset_raw),
+            field_i64(9, self.minimum_raw),
+            field_i64(10, self.maximum_raw),
+        ])
+    }
+
+    fn from_record(
+        bytes: &[u8],
+        limits: CanonicalDecodeLimits,
+    ) -> Result<Self, PhysicsContractError> {
+        let fields = decode_struct(bytes, limits)?;
+        require_fields(
+            &fields,
+            &[
+                (1, CANONICAL_TYPE_UTF8_NFC),
+                (2, CANONICAL_TYPE_U8),
+                (3, CANONICAL_TYPE_UTF8_NFC),
+                (4, CANONICAL_TYPE_UTF8_NFC),
+                (5, CANONICAL_TYPE_UTF8_NFC),
+                (6, CANONICAL_TYPE_I64),
+                (7, CANONICAL_TYPE_U64),
+                (8, CANONICAL_TYPE_I64),
+                (9, CANONICAL_TYPE_I64),
+                (10, CANONICAL_TYPE_I64),
+            ],
+        )?;
+        let value = Self {
+            field_id: SchemaId::new(read_utf8_fields(&fields, 1)?)?,
+            source_format: PhysicsSourceFormatV1::from_tag(read_u8_fields(&fields, 2)?)?,
+            source_unit: SchemaId::new(read_utf8_fields(&fields, 3)?)?,
+            destination_unit: SchemaId::new(read_utf8_fields(&fields, 4)?)?,
+            destination_fixed_point: SchemaId::new(read_utf8_fields(&fields, 5)?)?,
+            scale_numerator: read_i64_fields(&fields, 6)?,
+            scale_denominator: read_u64_fields(&fields, 7)?,
+            offset_raw: read_i64_fields(&fields, 8)?,
+            minimum_raw: read_i64_fields(&fields, 9)?,
+            maximum_raw: read_i64_fields(&fields, 10)?,
+        };
+        value.validate()?;
+        Ok(value)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PhysicsQuantizationProfileV1 {
     pub schema_version: u16,
     pub profile_id: SchemaId,
-    pub rules: BTreeMap<SchemaId, Vec<u8>>,
+    pub rules: BTreeMap<SchemaId, PhysicsQuantizationRuleV1>,
 }
 
 impl PhysicsQuantizationProfileV1 {
@@ -280,16 +429,86 @@ impl PhysicsQuantizationProfileV1 {
         })
     }
 
+    pub fn grounded_capsule_v2() -> Result<Self, crate::IdentifierError> {
+        let distance = PhysicsQuantizationRuleV1 {
+            field_id: SchemaId::new(PHYSICS_SWEEP_DISTANCE_FIELD_ID)?,
+            source_format: PhysicsSourceFormatV1::Ieee754Binary32,
+            source_unit: SchemaId::new(PHYSICS_METRES_UNIT_ID)?,
+            destination_unit: SchemaId::new(PHYSICS_MICROMETRES_UNIT_ID)?,
+            destination_fixed_point: SchemaId::new(PHYSICS_MICROMETRES_FIXED_POINT_ID)?,
+            scale_numerator: 1_000_000,
+            scale_denominator: 1,
+            offset_raw: 0,
+            minimum_raw: 0,
+            maximum_raw: 8_388_608_000_000,
+        };
+        let normal_rule = |field_id| -> Result<_, crate::IdentifierError> {
+            Ok(PhysicsQuantizationRuleV1 {
+                field_id: SchemaId::new(field_id)?,
+                source_format: PhysicsSourceFormatV1::Ieee754Binary32,
+                source_unit: SchemaId::new(PHYSICS_SCALAR_UNIT_ID)?,
+                destination_unit: SchemaId::new(PHYSICS_SCALAR_UNIT_ID)?,
+                destination_fixed_point: SchemaId::new(PHYSICS_Q1_30_FIXED_POINT_ID)?,
+                scale_numerator: 1,
+                scale_denominator: 1,
+                offset_raw: 0,
+                minimum_raw: -(1_i64 << 30),
+                maximum_raw: 1_i64 << 30,
+            })
+        };
+        let normal_x = normal_rule(PHYSICS_CONTACT_NORMAL_X_FIELD_ID)?;
+        let normal_y = normal_rule(PHYSICS_CONTACT_NORMAL_Y_FIELD_ID)?;
+        let normal_z = normal_rule(PHYSICS_CONTACT_NORMAL_Z_FIELD_ID)?;
+        Ok(Self {
+            schema_version: PHYSICS_QUANTIZATION_PROFILE_SCHEMA_VERSION,
+            profile_id: SchemaId::new("nextengine.physics.quantization.grounded-capsule-v2")?,
+            rules: BTreeMap::from([
+                (distance.field_id.clone(), distance),
+                (normal_x.field_id.clone(), normal_x),
+                (normal_y.field_id.clone(), normal_y),
+                (normal_z.field_id.clone(), normal_z),
+            ]),
+        })
+    }
+
     pub fn validate(&self) -> Result<(), PhysicsContractError> {
-        if self.schema_version != PHYSICS_QUANTIZATION_PROFILE_SCHEMA_VERSION
-            || !self.rules.is_empty()
-        {
+        if self.schema_version != PHYSICS_QUANTIZATION_PROFILE_SCHEMA_VERSION {
             return Err(PhysicsContractError::InvalidProfile);
+        }
+        let reference_id = "nextengine.physics.quantization.capsule-reference-v1";
+        if self.profile_id.as_str() == reference_id {
+            if !self.rules.is_empty() {
+                return Err(PhysicsContractError::InvalidProfile);
+            }
+            return Ok(());
+        }
+        if self.rules.is_empty() {
+            return Err(PhysicsContractError::InvalidProfile);
+        }
+        for (id, rule) in &self.rules {
+            if id != &rule.field_id {
+                return Err(PhysicsContractError::DuplicateKey);
+            }
+            rule.validate()?;
         }
         Ok(())
     }
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, CanonicalError> {
+        let rules = self
+            .rules
+            .iter()
+            .map(|(id, rule)| {
+                encode_struct([
+                    CanonicalField::new(
+                        1,
+                        CANONICAL_TYPE_UTF8_NFC,
+                        id.as_str().as_bytes().to_vec(),
+                    ),
+                    CanonicalField::new(2, CANONICAL_TYPE_STRUCT, rule.canonical_record()?),
+                ])
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         encode_canonical_segment(
             PHYSICS_OWNER_ID,
             QUANTIZATION_PROFILE_SCHEMA_ID,
@@ -301,7 +520,7 @@ impl PhysicsQuantizationProfileV1 {
                     CANONICAL_TYPE_UTF8_NFC,
                     self.profile_id.as_str().as_bytes().to_vec(),
                 ),
-                CanonicalField::new(3, CANONICAL_TYPE_MAP, encode_sequence(Vec::new())?),
+                CanonicalField::new(3, CANONICAL_TYPE_MAP, encode_sequence(rules)?),
             ],
         )
     }
@@ -322,13 +541,24 @@ impl PhysicsQuantizationProfileV1 {
                 (3, CANONICAL_TYPE_MAP),
             ],
         )?;
-        if !decode_sequence(field(&segment, 3)?, limits)?.is_empty() {
-            return Err(PhysicsContractError::InvalidProfile);
+        let mut rules = BTreeMap::new();
+        for entry in decode_sequence(field(&segment, 3)?, limits)? {
+            let fields = decode_struct(&entry, limits)?;
+            require_fields(
+                &fields,
+                &[(1, CANONICAL_TYPE_UTF8_NFC), (2, CANONICAL_TYPE_STRUCT)],
+            )?;
+            let id = SchemaId::new(read_utf8_fields(&fields, 1)?)?;
+            let rule =
+                PhysicsQuantizationRuleV1::from_record(&field_from(&fields, 2)?.payload, limits)?;
+            if rules.insert(id, rule).is_some() {
+                return Err(PhysicsContractError::DuplicateKey);
+            }
         }
         let value = Self {
             schema_version: read_u16(&segment, 1)?,
             profile_id: SchemaId::new(read_utf8(&segment, 2)?)?,
-            rules: BTreeMap::new(),
+            rules,
         };
         value.validate()?;
         require_round_trip(bytes, value.canonical_bytes()?)?;
@@ -368,6 +598,42 @@ impl AuthoritativeNumericProfileV1 {
             schema_version: AUTHORITATIVE_NUMERIC_PROFILE_SCHEMA_VERSION,
             integer_overflow: 1,
             fixed_points: BTreeMap::from([(descriptor.descriptor_id.clone(), descriptor)]),
+            authoritative_float_reduction: false,
+            fast_math_allowed: false,
+            physics_quantization_profile_hash: quantization.profile_hash()?,
+        })
+    }
+
+    pub fn grounded_capsule_v2(
+        quantization: &PhysicsQuantizationProfileV1,
+    ) -> Result<Self, CanonicalError> {
+        let q1_30 = FixedPointDescriptorV1 {
+            descriptor_id: SchemaId::new(PHYSICS_Q1_30_FIXED_POINT_ID)?,
+            storage_bits: 32,
+            signed: true,
+            fractional_bits: 30,
+            minimum_raw: -(1_i64 << 30),
+            maximum_raw: 1_i64 << 30,
+            rounding: 1,
+            overflow: 1,
+        };
+        let micrometres = FixedPointDescriptorV1 {
+            descriptor_id: SchemaId::new(PHYSICS_MICROMETRES_FIXED_POINT_ID)?,
+            storage_bits: 64,
+            signed: true,
+            fractional_bits: 0,
+            minimum_raw: -8_388_608_000_000,
+            maximum_raw: 8_388_608_000_000,
+            rounding: 1,
+            overflow: 1,
+        };
+        Ok(Self {
+            schema_version: AUTHORITATIVE_NUMERIC_PROFILE_SCHEMA_VERSION,
+            integer_overflow: 1,
+            fixed_points: BTreeMap::from([
+                (q1_30.descriptor_id.clone(), q1_30),
+                (micrometres.descriptor_id.clone(), micrometres),
+            ]),
             authoritative_float_reduction: false,
             fast_math_allowed: false,
             physics_quantization_profile_hash: quantization.profile_hash()?,
@@ -3555,6 +3821,55 @@ mod tests {
         assert_eq!(
             corrupt_profile.validate_profile_closure(&catalog, &tick, &numeric, &quantization),
             Err(PhysicsContractError::ProfileMismatch)
+        );
+    }
+
+    #[test]
+    fn grounded_capsule_v2_quantization_is_structured_and_fail_closed() {
+        let profile = PhysicsQuantizationProfileV1::grounded_capsule_v2().expect("v2 profile");
+        profile.validate().expect("v2 profile valid");
+        let bytes = profile.canonical_bytes().expect("encode v2 profile");
+        assert_eq!(
+            PhysicsQuantizationProfileV1::from_canonical_bytes(
+                &bytes,
+                CanonicalDecodeLimits::default()
+            )
+            .expect("decode v2 profile"),
+            profile
+        );
+        assert_ne!(
+            profile.profile_hash().expect("v2 hash"),
+            PhysicsQuantizationProfileV1::capsule_reference_v1()
+                .expect("v1 profile")
+                .profile_hash()
+                .expect("v1 hash")
+        );
+
+        let mut invalid_rule = profile.clone();
+        invalid_rule
+            .rules
+            .get_mut(&SchemaId::new(PHYSICS_SWEEP_DISTANCE_FIELD_ID).expect("distance field ID"))
+            .expect("distance rule")
+            .scale_denominator = 0;
+        assert_eq!(
+            invalid_rule.validate(),
+            Err(PhysicsContractError::InvalidProfile)
+        );
+
+        let mut mismatched_key = profile;
+        let distance_id =
+            SchemaId::new(PHYSICS_SWEEP_DISTANCE_FIELD_ID).expect("distance field ID");
+        let distance = mismatched_key
+            .rules
+            .remove(&distance_id)
+            .expect("distance rule");
+        mismatched_key.rules.insert(
+            SchemaId::new("nextengine.physics.raw.wrong-key").expect("wrong key"),
+            distance,
+        );
+        assert_eq!(
+            mismatched_key.validate(),
+            Err(PhysicsContractError::DuplicateKey)
         );
     }
 

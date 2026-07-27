@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-002 |
 | Статус | Accepted |
-| Версия | 1.0.1 |
+| Версия | 1.1 |
 | Дата решения | 2026-07-22 |
-| Последняя проверка | 2026-07-25 |
+| Последняя проверка | 2026-07-27 |
 | Нормативные зависимости | [ADR-001](001-product-repository-license-and-platforms.md), [SPEC-02](../02-runtime-ecs-and-data.md) |
 | Заменяет | отсутствует |
-| Заменён | не заменён |
+| Заменён | initial empty-allowlist clause частично заменён [ADR-033](033-physx-grounded-capsule-parity-ffi-boundary.md) |
 
 ## ADR-030 scope
 
@@ -38,8 +38,10 @@ Runtime нуждается в memory safety, предсказуемом native p
 ## Последствия
 
 Workspace MUST включать dependency boundary checks и compile-fail tests. Любое
-будущее исключение из workspace `unsafe_code` policy требует отдельного
-engine-owned FFI boundary ADR и explicit allowlist; initial allowlist пуст.
+исключение из workspace `unsafe_code` policy требует отдельного engine-owned
+FFI boundary ADR и explicit allowlist. ADR-033 разрешает первый и единственный
+текущий элемент allowlist — `next_physics_physx_ffi`; остальные crates
+сохраняют `unsafe_code = "forbid"`.
 
 ## Product checks
 

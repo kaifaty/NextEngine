@@ -9,7 +9,7 @@ pub fn boundary_scan(root: &Path) -> Result<(), String> {
     validate_importer_boundary(root)?;
     validate_ffi_policy(root)?;
     println!(
-        "PASS boundary-scan: public contracts, importer boundary and empty audited FFI allowlist verified"
+        "PASS boundary-scan: public contracts, importer boundary and audited FFI allowlist verified"
     );
     Ok(())
 }
@@ -223,7 +223,7 @@ fn contains_unsafe_code(body: &str) -> bool {
         code.contains("unsafe {")
             || code.contains("unsafe fn ")
             || code.contains("unsafe impl ")
-            || code.contains("extern \"C\"")
+            || code.contains("unsafe extern")
     })
 }
 
@@ -335,7 +335,7 @@ fn should_skip(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::contains_forbidden_public_token;
+    use super::{contains_forbidden_public_token, contains_unsafe_code};
 
     #[test]
     fn ash_path_scan_uses_an_identifier_boundary() {
@@ -344,6 +344,14 @@ mod tests {
         assert!(!contains_forbidden_public_token(
             "ContentHash::from_bytes",
             "ash::"
+        ));
+    }
+
+    #[test]
+    fn unsafe_scan_detects_extern_blocks_after_string_elision() {
+        assert!(contains_unsafe_code("unsafe extern \"C\" { fn call(); }"));
+        assert!(!contains_unsafe_code(
+            "const NOTE: &str = \"unsafe extern C\";"
         ));
     }
 }

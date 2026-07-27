@@ -5,6 +5,11 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+default = []
+physx = ["next_verification/physx"]
+physx-mock = ["next_verification/physx-mock"]
+
 [dependencies]
 next_verification.workspace = true
 

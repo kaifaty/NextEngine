@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.2 |
+| Версия | 2.3 |
 | Последняя проверка | 2026-07-27 |
-| Заменяет | INDEX-001 version 2.1 |
+| Заменяет | INDEX-001 version 2.2 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -199,10 +199,13 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-030 | [Product-first development и lightweight validation](adr/030-product-first-development-and-lightweight-validation.md) | Accepted |
 | ADR-031 | [RPG-owned divine standing и atomic pantheon judgment](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md) | Accepted; partially supersedes ADR-020 aggregate enumeration |
 | ADR-032 | [Grounded capsule physics checkpoint version boundary](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md) | Accepted |
+| ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Accepted; PhysX backend остаётся Proposed |
 
 ## Proposed tracks
 
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
+- ADR-033 — optional PhysX 5.9.0 grounded-capsule backend до полной parity на
+  Windows/Linux; reference остаётся default.
 
 Этот deferred track сохраняет deterministic offline fallback, engine-owned
 contracts и untrusted proposal boundaries. Его принятие выполняется обычным

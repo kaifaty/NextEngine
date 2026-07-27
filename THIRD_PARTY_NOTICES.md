@@ -31,3 +31,12 @@ SOFTWARE.
 This notice does not cover Gothic game data or importer output. Those materials are not part of this repository.
 
 The same notice applies to the mechanically copied frozen research annex at `docs/architecture/research/physical-avatar-research-spec.md`. Its exact source commit, Git blob, destination and SHA-256 are recorded in `MIGRATION_PROVENANCE.md`.
+
+## NVIDIA PhysX
+
+The optional `physx` feature can link a developer-supplied NVIDIA PhysX SDK
+5.9.0. No PhysX SDK source, binary, header or protected sample asset is
+vendored or distributed by this repository. The SDK remains subject to the
+license and notices supplied with that installation. The Next Engine adapter
+records the expected version and ABI boundary only; redistribution must add
+the applicable upstream PhysX notices alongside any SDK binaries.

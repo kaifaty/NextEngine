@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-05 |
 | Статус | Accepted |
-| Версия | 1.9 |
-| Последняя проверка | 2026-07-25 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md) |
+| Версия | 2.0 |
+| Последняя проверка | 2026-07-27 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-033](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
@@ -53,6 +53,14 @@ LLM, `ai-host`, network и filesystem запрещены на шагах 3–7. 
 ## Backend и runtime/training parity
 
 PhysX reduced-coordinate articulations — primary `Proposed`; Jolt, затем Bullet — fallbacks. CPU path является runtime source. GPU/batched simulator MAY обучать policy, если golden mapping доказывает одинаковые body frames, joint axes/limits, actuator/torque units, contacts, observation normalization и action semantics.
+
+ADR-033 добавляет более узкий реализованный experiment: PhysX 5.9.0 только
+для upright grounded capsule против static Box. `PhysicsWorldBackend` и
+`PhysicsWorldCheckpointV1` остаются engine-owned, reference backend —
+обязательный default/oracle, а PhysX feature — optional и `Proposed`.
+`ReferenceOnly`, `PreferPhysXThenReference` и `RequirePhysX` выбираются только
+до activation. После создания мира backend fatal/mismatch abort-ит staging и
+не разрешает mid-tick switch либо silent approximation.
 
 Export pipeline MUST записывать model SHA-256, ONNX opset, input/output schema hashes, normalization constants, training simulator/build/config и golden observation/action corpus. Runtime отказывается загружать mismatch/non-finite/unsupported model и включает deterministic controller fallback.
 

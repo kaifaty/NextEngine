@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod persistence_replay;
+mod physics_parity;
 mod player_fixture;
 
 use std::collections::BTreeMap;
@@ -26,12 +27,17 @@ use next_runtime::{
 };
 
 pub use persistence_replay::{
-    PersistenceReplayCheckError, PersistenceReplayCheckReport, run_persistence_replay_check,
+    PersistenceReplayBackend, PersistenceReplayCheckError, PersistenceReplayCheckReport,
+    run_persistence_replay_check, run_persistence_replay_check_with_backend,
+};
+pub use physics_parity::{
+    PhysicsBackendParityError, PhysicsBackendParityReport, run_physics_backend_parity_check,
 };
 pub use player_fixture::{
-    CanonicalFixtureError, NeutralPlayerFixture, PhysicsCollisionCheckReport, PlayCheckError,
-    PlayCheckReport, build_neutral_player_fixture, player_action_sample, player_interact_sample,
-    run_physics_collision_check, run_play_check,
+    CanonicalFixtureError, NeutralPlayerFixture, PhysicsCollisionBackend,
+    PhysicsCollisionCheckReport, PlayCheckError, PlayCheckReport, build_neutral_player_fixture,
+    build_physx_player_fixture, player_action_sample, player_interact_sample,
+    run_physics_collision_check, run_physics_collision_check_with_backend, run_play_check,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -552,6 +558,16 @@ pub fn run_rpg_replay(input: &RpgReplayInput) -> Result<RpgReplayOutput, ReplayE
 }
 
 pub fn run_replay_manifest(manifest: &ReplayManifestV3) -> Result<ReplayOutput, ReplayError> {
+    run_replay_manifest_with_physics_options(
+        manifest,
+        next_runtime::PhysicsLaunchOptions::default(),
+    )
+}
+
+pub(crate) fn run_replay_manifest_with_physics_options(
+    manifest: &ReplayManifestV3,
+    physics_options: next_runtime::PhysicsLaunchOptions,
+) -> Result<ReplayOutput, ReplayError> {
     let limits = CanonicalDecodeLimits::default();
     let (initial_checkpoint, decoded_ticks) = manifest.validate_and_decode(limits)?;
 
@@ -569,7 +585,11 @@ pub fn run_replay_manifest(manifest: &ReplayManifestV3) -> Result<ReplayOutput, 
             .register(grant.principal.clone(), grant.capabilities.clone())
             .map_err(|_| ManifestValidationError::AuthorityNotStrictlySorted)?;
     }
-    let mut replay = RuntimeReplayDriver::new(initial_checkpoint, authority)?;
+    let mut replay = RuntimeReplayDriver::new_with_physics_options(
+        initial_checkpoint,
+        authority,
+        physics_options,
+    )?;
     let mut records = Vec::with_capacity(decoded_ticks.len());
     for ((tick_manifest, tick), compare_point) in manifest
         .ticks

@@ -19,12 +19,13 @@ use next_contracts::{
     ReplayTickManifestV3, RpgCommand, RpgEvent, RpgSnapshot, SaveCompatibility,
     SaveSegmentDescriptor, SchemaId, StateRoot, TickSettings, WorldCheckpointV3, WorldCommand,
 };
-use next_runtime::{RuntimeState, TickReport};
+use next_physics_api::PhysicsBackendPolicy;
+use next_runtime::{PhysicsLaunchOptions, RuntimeState, TickReport};
 
 use crate::{
-    ReplayOutput, build_neutral_player_fixture, checkpoint_segment_hashes,
-    compute_world_checkpoint_root, player_action_sample, player_interact_sample,
-    replay_command_results, run_replay_manifest,
+    ReplayOutput, build_neutral_player_fixture, build_physx_player_fixture,
+    checkpoint_segment_hashes, compute_world_checkpoint_root, player_action_sample,
+    player_interact_sample, replay_command_results, run_replay_manifest_with_physics_options,
 };
 
 static NEXT_CHECK_DIRECTORY: AtomicU64 = AtomicU64::new(0);
@@ -38,6 +39,13 @@ pub struct PersistenceReplayCheckReport {
     pub interactive_object_state: SchemaId,
     pub final_state_root: StateRoot,
     pub final_command_ledger_hash: CommandLedgerHash,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum PersistenceReplayBackend {
+    #[default]
+    Reference,
+    PhysX,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -103,15 +111,49 @@ impl Drop for CheckDirectory {
 
 pub fn run_persistence_replay_check()
 -> Result<PersistenceReplayCheckReport, PersistenceReplayCheckError> {
-    let fixture =
-        build_neutral_player_fixture("nextengine.persistence-replay").map_err(|error| {
-            PersistenceReplayCheckError::new("build player fixture", error.to_string())
-        })?;
+    run_persistence_replay_check_with_backend(PersistenceReplayBackend::Reference)
+}
+
+pub fn run_persistence_replay_check_with_backend(
+    backend: PersistenceReplayBackend,
+) -> Result<PersistenceReplayCheckReport, PersistenceReplayCheckError> {
+    match backend {
+        PersistenceReplayBackend::Reference => run_persistence_replay_check_for_project(
+            backend,
+            "nextengine.persistence-replay",
+            false,
+        ),
+        PersistenceReplayBackend::PhysX => run_persistence_replay_check_for_project(
+            backend,
+            "nextengine.persistence-replay.physx",
+            true,
+        ),
+    }
+}
+
+pub(crate) fn run_persistence_replay_check_for_project(
+    backend: PersistenceReplayBackend,
+    project_id: &str,
+    physx_compatible_profile: bool,
+) -> Result<PersistenceReplayCheckReport, PersistenceReplayCheckError> {
+    let physics_options = match backend {
+        PersistenceReplayBackend::Reference => PhysicsLaunchOptions::default(),
+        PersistenceReplayBackend::PhysX => {
+            PhysicsLaunchOptions::new(PhysicsBackendPolicy::RequirePhysX)
+        }
+    };
+    let fixture = if physx_compatible_profile {
+        build_physx_player_fixture(project_id)
+    } else {
+        build_neutral_player_fixture(project_id)
+    }
+    .map_err(|error| PersistenceReplayCheckError::new("build player fixture", error.to_string()))?;
     let initial_rpg = initial_rpg_snapshot(fixture.interactive_object_id)?;
-    let mut direct = RuntimeState::with_rpg_snapshot(
+    let mut direct = RuntimeState::with_rpg_snapshot_and_physics_options(
         fixture.bootstrap.clone(),
         fixture.authority.clone(),
         initial_rpg,
+        physics_options,
     )
     .map_err(|error| PersistenceReplayCheckError::new("create runtime", error.to_string()))?;
 
@@ -198,11 +240,12 @@ pub fn run_persistence_replay_check()
     let loaded = store.load_latest(&compatibility).map_err(|error| {
         PersistenceReplayCheckError::new("load generation zero", error.to_string())
     })?;
-    let mut restored =
-        RuntimeState::restore_world_checkpoint(loaded.checkpoint, fixture.authority.clone())
-            .map_err(|error| {
-                PersistenceReplayCheckError::new("restore checkpoint", error.to_string())
-            })?;
+    let mut restored = RuntimeState::restore_world_checkpoint_with_physics_options(
+        loaded.checkpoint,
+        fixture.authority.clone(),
+        physics_options,
+    )
+    .map_err(|error| PersistenceReplayCheckError::new("restore checkpoint", error.to_string()))?;
 
     let direct_interaction = direct.run_tick([]).map_err(|error| {
         PersistenceReplayCheckError::new("direct interaction", error.to_string())
@@ -321,9 +364,10 @@ pub fn run_persistence_replay_check()
             Vec::new(),
         ],
     )?;
-    let replay = run_replay_manifest(&replay_manifest).map_err(|error| {
-        PersistenceReplayCheckError::new("closed-batch replay", error.to_string())
-    })?;
+    let replay = run_replay_manifest_with_physics_options(&replay_manifest, physics_options)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("closed-batch replay", error.to_string())
+        })?;
     compare_replay(&direct, &reports, &replay)?;
 
     let final_checkpoint = direct

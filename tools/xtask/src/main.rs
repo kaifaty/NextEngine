@@ -15,8 +15,7 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected boundary-scan, host-check, play, physics-collision or persistence-replay"
-            .to_owned()
+        "expected boundary-scan, host-check, play, physics-collision, physics-backend-parity or persistence-replay".to_owned()
     })?;
     match command.as_str() {
         "boundary-scan" => {
@@ -28,24 +27,73 @@ fn run() -> Result<(), String> {
             host_check(&root)
         }
         "persistence-replay" => {
+            let backend = parse_persistence_backend(&mut arguments)?;
             reject_extra_arguments(arguments)?;
-            persistence_replay()
+            persistence_replay(backend)
         }
         "play" => {
             reject_extra_arguments(arguments)?;
             play()
         }
         "physics-collision" => {
+            let backend = parse_physics_backend(&mut arguments)?;
             reject_extra_arguments(arguments)?;
-            physics_collision()
+            physics_collision(backend)
+        }
+        "physics-backend-parity" => {
+            let (substeps, permutations) = parse_parity_counts(arguments)?;
+            physics_backend_parity(substeps, permutations)
         }
         _ => Err(format!("unknown command: {command}")),
     }
 }
 
-fn physics_collision() -> Result<(), String> {
-    let report =
-        next_verification::run_physics_collision_check().map_err(|error| error.to_string())?;
+fn physics_backend_parity(substeps: u64, permutations: u64) -> Result<(), String> {
+    let report = next_verification::run_physics_backend_parity_check(substeps, permutations)
+        .map_err(|error| error.to_string())?;
+    println!(
+        "{{\"status\":\"PASS\",\"compared_substeps\":{},\"registration_permutations\":{},\"world_lifecycle_cycles\":{}}}",
+        report.compared_substeps, report.registration_permutations, report.world_lifecycle_cycles,
+    );
+    Ok(())
+}
+
+fn parse_parity_counts(mut arguments: impl Iterator<Item = String>) -> Result<(u64, u64), String> {
+    let mut substeps = 100_000;
+    let mut permutations = 10_000;
+    let mut saw_substeps = false;
+    let mut saw_permutations = false;
+    while let Some(flag) = arguments.next() {
+        let value = arguments
+            .next()
+            .ok_or_else(|| format!("{flag} requires a positive integer"))?;
+        let value = value
+            .parse::<u64>()
+            .map_err(|_| format!("{flag} requires a positive integer"))?;
+        if value == 0 {
+            return Err(format!("{flag} requires a positive integer"));
+        }
+        match flag.as_str() {
+            "--substeps" if !saw_substeps => {
+                substeps = value;
+                saw_substeps = true;
+            }
+            "--permutations" if !saw_permutations => {
+                permutations = value;
+                saw_permutations = true;
+            }
+            "--substeps" | "--permutations" => {
+                return Err(format!("duplicate argument: {flag}"));
+            }
+            _ => return Err(format!("unexpected argument: {flag}")),
+        }
+    }
+    Ok((substeps, permutations))
+}
+
+fn physics_collision(backend: next_verification::PhysicsCollisionBackend) -> Result<(), String> {
+    let report = next_verification::run_physics_collision_check_with_backend(backend)
+        .map_err(|error| error.to_string())?;
     let translation = report.final_pose.translation_micrometres;
     println!(
         "{{\"status\":\"PASS\",\"gameplay_ticks\":{},\"physics_substeps\":{},\"contacts\":{{\"begin\":{},\"persist\":{},\"end\":{}}},\"final_pose_um\":[{},{},{}],\"contact_batches_hash\":\"{}\",\"physics_checkpoint_hash\":\"{}\"}}",
@@ -61,6 +109,24 @@ fn physics_collision() -> Result<(), String> {
         report.physics_checkpoint_hash.to_hex()
     );
     Ok(())
+}
+
+fn parse_physics_backend(
+    arguments: &mut impl Iterator<Item = String>,
+) -> Result<next_verification::PhysicsCollisionBackend, String> {
+    let Some(flag) = arguments.next() else {
+        return Ok(next_verification::PhysicsCollisionBackend::Reference);
+    };
+    if flag != "--backend" {
+        return Err(format!("unexpected argument: {flag}"));
+    }
+    match arguments.next().as_deref() {
+        Some("reference") => Ok(next_verification::PhysicsCollisionBackend::Reference),
+        Some("physx") => Ok(next_verification::PhysicsCollisionBackend::PhysX),
+        Some("compare") => Ok(next_verification::PhysicsCollisionBackend::Compare),
+        Some(value) => Err(format!("unknown physics backend: {value}")),
+        None => Err("--backend requires reference, physx or compare".to_owned()),
+    }
 }
 
 fn play() -> Result<(), String> {
@@ -81,9 +147,9 @@ fn play() -> Result<(), String> {
     Ok(())
 }
 
-fn persistence_replay() -> Result<(), String> {
-    let report =
-        next_verification::run_persistence_replay_check().map_err(|error| error.to_string())?;
+fn persistence_replay(backend: next_verification::PersistenceReplayBackend) -> Result<(), String> {
+    let report = next_verification::run_persistence_replay_check_with_backend(backend)
+        .map_err(|error| error.to_string())?;
     println!(
         "{{\"status\":\"PASS\",\"ticks\":{},\"generations\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"final_state_root\":\"{}\",\"final_ledger_root\":\"{}\"}}",
         report.ticks,
@@ -94,6 +160,23 @@ fn persistence_replay() -> Result<(), String> {
         report.final_command_ledger_hash.to_hex()
     );
     Ok(())
+}
+
+fn parse_persistence_backend(
+    arguments: &mut impl Iterator<Item = String>,
+) -> Result<next_verification::PersistenceReplayBackend, String> {
+    let Some(flag) = arguments.next() else {
+        return Ok(next_verification::PersistenceReplayBackend::Reference);
+    };
+    if flag != "--backend" {
+        return Err(format!("unexpected argument: {flag}"));
+    }
+    match arguments.next().as_deref() {
+        Some("reference") => Ok(next_verification::PersistenceReplayBackend::Reference),
+        Some("physx") => Ok(next_verification::PersistenceReplayBackend::PhysX),
+        Some(value) => Err(format!("unknown persistence backend: {value}")),
+        None => Err("--backend requires reference or physx".to_owned()),
+    }
 }
 
 fn reject_extra_arguments(mut arguments: impl Iterator<Item = String>) -> Result<(), String> {

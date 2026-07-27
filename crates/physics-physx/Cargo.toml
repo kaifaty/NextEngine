@@ -1,20 +1,20 @@
 [package]
-name = "next_runtime"
+name = "next_physics_physx"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish = false
 
 [features]
 default = []
-physx = ["dep:next_physics_physx", "next_physics_physx/physx-sdk"]
-physx-mock = ["dep:next_physics_physx", "next_physics_physx/mock-abi"]
+mock-abi = ["next_physics_physx_ffi/mock-abi"]
+physx-sdk = ["next_physics_physx_ffi/physx-sdk"]
 
 [dependencies]
 next_contracts.workspace = true
 next_physics_api.workspace = true
-next_physics_physx = { workspace = true, optional = true }
-next_rpg.workspace = true
+next_physics_physx_ffi.workspace = true
 
 [lints]
 workspace = true

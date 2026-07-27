@@ -5,10 +5,16 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+default = []
+physx = ["dep:next_physics_physx", "next_runtime/physx"]
+physx-mock = ["dep:next_physics_physx", "next_runtime/physx-mock"]
+
 [dependencies]
 next_assets.workspace = true
 next_contracts.workspace = true
 next_physics_api.workspace = true
+next_physics_physx = { workspace = true, optional = true }
 next_runtime.workspace = true
 
 [lints]

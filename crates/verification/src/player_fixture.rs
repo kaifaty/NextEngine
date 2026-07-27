@@ -19,6 +19,8 @@ use next_contracts::{
     RPG_COMMAND_CAPABILITY_ID, RpgEvent, RpgSnapshot, SchemaId, StateRoot, SystemId,
     core_player_action_map_v1_hash,
 };
+use next_physics_api::PhysicsBackendPolicy;
+use next_runtime::PhysicsLaunchOptions;
 use next_runtime::{RuntimeFatalError, RuntimeState, SnapshotRestoreError};
 
 use crate::{NeutralFixtureError, build_neutral_runtime_fixture, compute_world_checkpoint_root};
@@ -42,6 +44,19 @@ pub struct NeutralPlayerFixture {
 
 pub fn build_neutral_player_fixture(
     project_id: &str,
+) -> Result<NeutralPlayerFixture, NeutralFixtureError> {
+    build_neutral_player_fixture_with_profile(project_id, false)
+}
+
+pub fn build_physx_player_fixture(
+    project_id: &str,
+) -> Result<NeutralPlayerFixture, NeutralFixtureError> {
+    build_neutral_player_fixture_with_profile(project_id, true)
+}
+
+fn build_neutral_player_fixture_with_profile(
+    project_id: &str,
+    physx_compatible: bool,
 ) -> Result<NeutralPlayerFixture, NeutralFixtureError> {
     let principal = IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([0x51; 16]));
     let interaction_principal =
@@ -69,6 +84,18 @@ pub fn build_neutral_player_fixture(
         .stream_for(&interaction_principal)
         .expect("neutral fixture allocates the interaction system stream");
     let mut bootstrap = base.bootstrap;
+    if physx_compatible {
+        let quantization = next_contracts::PhysicsQuantizationProfileV1::grounded_capsule_v2()?;
+        let numeric =
+            next_contracts::AuthoritativeNumericProfileV1::grounded_capsule_v2(&quantization)?;
+        bootstrap.runtime_profile.numeric_profile_hash = numeric.profile_hash()?;
+        bootstrap.runtime_profile.physics_quantization_profile_hash =
+            quantization.profile_hash()?;
+        bootstrap.world_identity.runtime_determinism_profile_hash =
+            bootstrap.runtime_profile.profile_hash()?;
+        bootstrap.authoritative_numeric_profile = numeric;
+        bootstrap.physics_quantization_profile = quantization;
+    }
     let rpg_stream_id = bootstrap
         .stream_registry
         .allocate_stream(principal.clone())?;
@@ -371,8 +398,70 @@ pub struct PhysicsCollisionCheckReport {
     pub physics_checkpoint_hash: ContentHash,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum PhysicsCollisionBackend {
+    #[default]
+    Reference,
+    PhysX,
+    Compare,
+}
+
 pub fn run_physics_collision_check() -> Result<PhysicsCollisionCheckReport, PlayCheckError> {
-    let scenario = run_grounded_collision_scenario(false)?;
+    run_physics_collision_check_with_backend(PhysicsCollisionBackend::Reference)
+}
+
+pub fn run_physics_collision_check_with_backend(
+    backend: PhysicsCollisionBackend,
+) -> Result<PhysicsCollisionCheckReport, PlayCheckError> {
+    let scenario = match backend {
+        PhysicsCollisionBackend::Reference => run_grounded_collision_scenario(false)?,
+        PhysicsCollisionBackend::PhysX => run_grounded_collision_scenario_with_backend(
+            false,
+            "nextengine.physics-collision.physx",
+            true,
+            PhysicsLaunchOptions::new(PhysicsBackendPolicy::RequirePhysX),
+        )?,
+        PhysicsCollisionBackend::Compare => {
+            let reference = run_grounded_collision_scenario_with_backend(
+                false,
+                "nextengine.physics-collision.compare",
+                true,
+                PhysicsLaunchOptions::new(PhysicsBackendPolicy::ReferenceOnly),
+            )?;
+            let physx = run_grounded_collision_scenario_with_backend(
+                false,
+                "nextengine.physics-collision.compare",
+                true,
+                PhysicsLaunchOptions::new(PhysicsBackendPolicy::RequirePhysX),
+            )?;
+            if reference.tick_reports != physx.tick_reports {
+                return Err(PlayCheckError::BackendParityMismatch);
+            }
+            let reference_checkpoint = reference.runtime.world_checkpoint()?;
+            let physx_checkpoint = physx.runtime.world_checkpoint()?;
+            if reference_checkpoint != physx_checkpoint
+                || compute_world_checkpoint_root(&reference_checkpoint)?
+                    != compute_world_checkpoint_root(&physx_checkpoint)?
+            {
+                return Err(PlayCheckError::BackendParityMismatch);
+            }
+            let reference_replay =
+                crate::persistence_replay::run_persistence_replay_check_for_project(
+                    crate::PersistenceReplayBackend::Reference,
+                    "nextengine.physics-collision.compare-replay",
+                    true,
+                )?;
+            let physx_replay = crate::persistence_replay::run_persistence_replay_check_for_project(
+                crate::PersistenceReplayBackend::PhysX,
+                "nextengine.physics-collision.compare-replay",
+                true,
+            )?;
+            if reference_replay != physx_replay {
+                return Err(PlayCheckError::BackendParityMismatch);
+            }
+            physx
+        }
+    };
     Ok(PhysicsCollisionCheckReport {
         gameplay_ticks: scenario.ticks,
         physics_substeps: scenario.runtime.physics_snapshot().physics_tick,
@@ -396,6 +485,7 @@ struct GroundedCollisionScenario {
     end_contacts: u64,
     contact_batches_hash: ContentHash,
     interactive_object_id: PersistentId,
+    tick_reports: Vec<next_runtime::TickReport>,
 }
 
 enum ScenarioAction {
@@ -406,7 +496,25 @@ enum ScenarioAction {
 fn run_grounded_collision_scenario(
     include_interaction: bool,
 ) -> Result<GroundedCollisionScenario, PlayCheckError> {
-    let fixture = build_neutral_player_fixture("nextengine.play")?;
+    run_grounded_collision_scenario_with_backend(
+        include_interaction,
+        "nextengine.play",
+        false,
+        PhysicsLaunchOptions::default(),
+    )
+}
+
+fn run_grounded_collision_scenario_with_backend(
+    include_interaction: bool,
+    project_id: &str,
+    physx_compatible: bool,
+    physics_options: PhysicsLaunchOptions,
+) -> Result<GroundedCollisionScenario, PlayCheckError> {
+    let fixture = if physx_compatible {
+        build_physx_player_fixture(project_id)?
+    } else {
+        build_neutral_player_fixture(project_id)?
+    };
     let rpg_snapshot = RpgSnapshot {
         interactive_objects: include_interaction
             .then(|| InteractiveObjectSnapshot {
@@ -421,10 +529,11 @@ fn run_grounded_collision_scenario(
             .collect(),
         ..RpgSnapshot::default()
     };
-    let mut runtime = RuntimeState::with_rpg_snapshot(
+    let mut runtime = RuntimeState::with_rpg_snapshot_and_physics_options(
         fixture.bootstrap.clone(),
         fixture.authority.clone(),
         rpg_snapshot,
+        physics_options,
     )?;
     let mut inputs = vec![
         ScenarioAction::Movement(PlayerActionPhaseV1::Started, [0, 32_767]),
@@ -445,6 +554,7 @@ fn run_grounded_collision_scenario(
     let mut persist_contacts = 0_u64;
     let mut end_contacts = 0_u64;
     let mut contact_preimage = b"nextengine.physics-collision-check.contacts.v1\0".to_vec();
+    let mut tick_reports = Vec::new();
     for (sequence, action) in inputs.into_iter().enumerate() {
         let sequence = u64::try_from(sequence).map_err(|_| PlayCheckError::CountOverflow)?;
         let wall_time =
@@ -494,6 +604,7 @@ fn run_grounded_collision_scenario(
             *count = count.checked_add(1).ok_or(PlayCheckError::CountOverflow)?;
         }
         contact_preimage.extend_from_slice(report.contact_batch.batch_hash.as_bytes());
+        tick_reports.push(report);
     }
     let final_pose = runtime
         .physics_snapshot()
@@ -536,6 +647,7 @@ fn run_grounded_collision_scenario(
         end_contacts,
         contact_batches_hash: ContentHash::from_bytes(next_contracts::sha256(&contact_preimage)),
         interactive_object_id: fixture.interactive_object_id,
+        tick_reports,
     })
 }
 
@@ -577,12 +689,14 @@ pub enum PlayCheckError {
     Restore(SnapshotRestoreError),
     Checkpoint(next_contracts::WorldCheckpointError),
     Replay(crate::ReplayError),
+    PersistenceReplay(crate::PersistenceReplayCheckError),
     Ledger(next_contracts::CommandLedgerError),
     Canonical(next_contracts::CanonicalError),
     CountOverflow,
     BodyMissing,
     InteractiveObjectMissing,
     AcceptanceMismatch,
+    BackendParityMismatch,
 }
 
 impl Display for PlayCheckError {
@@ -595,6 +709,7 @@ impl Display for PlayCheckError {
             Self::Restore(error) => write!(formatter, "{error}"),
             Self::Checkpoint(error) => write!(formatter, "{error}"),
             Self::Replay(error) => write!(formatter, "{error}"),
+            Self::PersistenceReplay(error) => write!(formatter, "{error}"),
             Self::Ledger(error) => write!(formatter, "{error}"),
             Self::Canonical(error) => write!(formatter, "{error}"),
             Self::CountOverflow => formatter.write_str("play check count overflow"),
@@ -603,6 +718,9 @@ impl Display for PlayCheckError {
                 formatter.write_str("play check interactive object is missing")
             }
             Self::AcceptanceMismatch => formatter.write_str("play check result did not match"),
+            Self::BackendParityMismatch => {
+                formatter.write_str("reference and PhysX tick reports diverged")
+            }
         }
     }
 }
@@ -648,6 +766,12 @@ impl From<next_contracts::WorldCheckpointError> for PlayCheckError {
 impl From<crate::ReplayError> for PlayCheckError {
     fn from(error: crate::ReplayError) -> Self {
         Self::Replay(error)
+    }
+}
+
+impl From<crate::PersistenceReplayCheckError> for PlayCheckError {
+    fn from(error: crate::PersistenceReplayCheckError) -> Self {
+        Self::PersistenceReplay(error)
     }
 }
 
@@ -715,6 +839,23 @@ mod tests {
             .runtime_snapshot
             .command_ledger_hash()
             .expect("ledger hash")
+    }
+
+    #[test]
+    #[cfg(any(feature = "physx", feature = "physx-mock"))]
+    fn prefer_physx_selects_physx_when_activation_succeeds() {
+        let fixture = build_physx_player_fixture("nextengine.test.prefer-physx").expect("fixture");
+        let runtime = RuntimeState::with_rpg_snapshot_and_physics_options(
+            fixture.bootstrap,
+            fixture.authority,
+            RpgSnapshot::default(),
+            PhysicsLaunchOptions::new(PhysicsBackendPolicy::PreferPhysXThenReference),
+        )
+        .expect("PhysX activation");
+        assert_eq!(
+            runtime.physics_backend_kind(),
+            next_physics_api::PhysicsBackendKind::PhysX
+        );
     }
 
     #[test]

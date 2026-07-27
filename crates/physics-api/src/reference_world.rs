@@ -15,7 +15,7 @@ use next_contracts::{
 const Q1_30_ONE: i32 = 1 << 30;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReferencePhysicsWorld {
+pub struct GroundedCapsuleWorld<Q> {
     checkpoint: PhysicsWorldCheckpointV1,
     tick_rate_profile: TickRateProfileV1,
     numeric_profile: AuthoritativeNumericProfileV1,
@@ -26,19 +26,20 @@ pub struct ReferencePhysicsWorld {
     capsule_half_segment: i64,
     capsule_collision_layer: u8,
     capsule_collision_mask: u64,
-    static_boxes: Vec<StaticBox>,
+    static_boxes: Vec<GroundedCapsuleStaticBox>,
     locomotion_per_substep: i64,
     gravity_velocity_delta: i64,
+    query: Q,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct StaticBox {
-    shape_id: PhysicsShapeIdV1,
-    minimum: [i64; 3],
-    maximum: [i64; 3],
-    contact_reporting: PhysicsContactReportingV1,
-    collision_layer: u8,
-    collision_mask: u64,
+pub struct GroundedCapsuleStaticBox {
+    pub shape_id: PhysicsShapeIdV1,
+    pub minimum: [i64; 3],
+    pub maximum: [i64; 3],
+    pub contact_reporting: PhysicsContactReportingV1,
+    pub collision_layer: u8,
+    pub collision_mask: u64,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -50,18 +51,71 @@ struct ContactCandidate {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-struct SweepHit {
-    shape_id: PhysicsShapeIdV1,
-    box_feature: u8,
-    normal_box_to_capsule: [i32; 3],
+pub struct GroundedCapsuleSweepHit {
+    pub shape_id: PhysicsShapeIdV1,
+    pub box_feature: u8,
+    pub normal_box_to_capsule: [i32; 3],
 }
 
-impl ReferencePhysicsWorld {
+pub struct GroundedCapsuleSweepRequest<'a> {
+    pub centre_micrometres: [i64; 3],
+    pub axis: u8,
+    pub delta_micrometres: i64,
+    pub capsule_radius_micrometres: i64,
+    pub capsule_half_segment_micrometres: i64,
+    pub capsule_collision_layer: u8,
+    pub capsule_collision_mask: u64,
+    pub static_boxes: &'a [GroundedCapsuleStaticBox],
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct GroundedCapsuleSweepResult {
+    pub applied_delta_micrometres: i64,
+    pub hit: Option<GroundedCapsuleSweepHit>,
+}
+
+pub trait GroundedCapsuleQuery: std::fmt::Debug {
+    fn backend_kind(&self) -> crate::PhysicsBackendKind;
+
+    fn recreate(&self) -> Result<Self, ReferencePhysicsError>
+    where
+        Self: Sized;
+
+    fn sweep_axis(
+        &mut self,
+        request: GroundedCapsuleSweepRequest<'_>,
+    ) -> Result<GroundedCapsuleSweepResult, ReferencePhysicsError>;
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ReferenceGroundedCapsuleQuery;
+
+pub type ReferencePhysicsWorld = GroundedCapsuleWorld<ReferenceGroundedCapsuleQuery>;
+
+impl GroundedCapsuleWorld<ReferenceGroundedCapsuleQuery> {
     pub fn new(
         checkpoint: PhysicsWorldCheckpointV1,
         tick_rate_profile: TickRateProfileV1,
         numeric_profile: AuthoritativeNumericProfileV1,
         quantization_profile: PhysicsQuantizationProfileV1,
+    ) -> Result<Self, ReferencePhysicsError> {
+        Self::with_query(
+            checkpoint,
+            tick_rate_profile,
+            numeric_profile,
+            quantization_profile,
+            ReferenceGroundedCapsuleQuery,
+        )
+    }
+}
+
+impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
+    pub fn with_query(
+        checkpoint: PhysicsWorldCheckpointV1,
+        tick_rate_profile: TickRateProfileV1,
+        numeric_profile: AuthoritativeNumericProfileV1,
+        quantization_profile: PhysicsQuantizationProfileV1,
+        query: Q,
     ) -> Result<Self, ReferencePhysicsError> {
         checkpoint.validate()?;
         tick_rate_profile
@@ -163,7 +217,7 @@ impl ReferencePhysicsWorld {
                     state.pose.translation_micrometres,
                     shape.local_pose.translation_micrometres,
                 )?;
-                static_boxes.push(StaticBox {
+                static_boxes.push(GroundedCapsuleStaticBox {
                     shape_id: shape.shape_id,
                     minimum: checked_sub_vec3(centre, half_extents_micrometres)?,
                     maximum: checked_add_vec3(centre, half_extents_micrometres)?,
@@ -209,9 +263,28 @@ impl ReferencePhysicsWorld {
             static_boxes,
             locomotion_per_substep: CAPSULE_LOCOMOTION_SPEED_MICROMETRES_PER_SECOND / physics_hz,
             gravity_velocity_delta: gravity / physics_hz,
+            query,
         };
         world.validate_activation_snapshot()?;
         Ok(world)
+    }
+
+    #[must_use]
+    pub fn backend_kind(&self) -> crate::PhysicsBackendKind {
+        self.query.backend_kind()
+    }
+
+    pub fn recreate_from_checkpoint(
+        &self,
+        checkpoint: PhysicsWorldCheckpointV1,
+    ) -> Result<Self, ReferencePhysicsError> {
+        Self::with_query(
+            checkpoint,
+            self.tick_rate_profile,
+            self.numeric_profile.clone(),
+            self.quantization_profile.clone(),
+            self.query.recreate()?,
+        )
     }
 
     #[must_use]
@@ -534,70 +607,28 @@ impl ReferencePhysicsWorld {
     }
 
     fn sweep_axis(
-        &self,
+        &mut self,
         centre: [i64; 3],
         axis: usize,
         delta: i64,
-    ) -> Result<(i64, Option<SweepHit>), ReferencePhysicsError> {
-        if delta == 0 {
-            return Ok((0, None));
-        }
-        let mut applied = delta;
-        let mut selected = None;
-        for shape in &self.static_boxes {
-            if !self.collides_with(shape) {
-                continue;
-            }
-            let Some((lower, upper)) = expanded_axis_interval(
-                centre,
-                axis,
-                self.capsule_radius,
-                self.capsule_half_segment,
-                shape,
-            )?
-            else {
-                continue;
-            };
-            let start = centre[axis];
-            let end = start
-                .checked_add(applied)
-                .ok_or(ReferencePhysicsError::NumericOverflow)?;
-            let hit = if delta > 0 && start <= lower && end > lower {
-                Some((
-                    lower - start,
-                    negative_axis_normal(axis),
-                    negative_face(axis),
-                ))
-            } else if delta < 0 && start >= upper && end < upper {
-                Some((
-                    upper - start,
-                    positive_axis_normal(axis),
-                    positive_face(axis),
-                ))
-            } else {
-                None
-            };
-            if let Some((candidate, normal, feature)) = hit
-                && (candidate.unsigned_abs() < applied.unsigned_abs()
-                    || (candidate.unsigned_abs() == applied.unsigned_abs()
-                        && selected
-                            .is_none_or(|existing: SweepHit| shape.shape_id < existing.shape_id)))
-            {
-                applied = candidate;
-                selected = Some(SweepHit {
-                    shape_id: shape.shape_id,
-                    box_feature: feature,
-                    normal_box_to_capsule: normal,
-                });
-            }
-        }
-        Ok((applied, selected))
+    ) -> Result<(i64, Option<GroundedCapsuleSweepHit>), ReferencePhysicsError> {
+        let result = self.query.sweep_axis(GroundedCapsuleSweepRequest {
+            centre_micrometres: centre,
+            axis: u8::try_from(axis).map_err(|_| ReferencePhysicsError::BackendFailure)?,
+            delta_micrometres: delta,
+            capsule_radius_micrometres: self.capsule_radius,
+            capsule_half_segment_micrometres: self.capsule_half_segment,
+            capsule_collision_layer: self.capsule_collision_layer,
+            capsule_collision_mask: self.capsule_collision_mask,
+            static_boxes: &self.static_boxes,
+        })?;
+        Ok((result.applied_delta_micrometres, result.hit))
     }
 
     fn contact_candidates(
         &self,
         centre: [i64; 3],
-        forced_hits: &BTreeSet<SweepHit>,
+        forced_hits: &BTreeSet<GroundedCapsuleSweepHit>,
     ) -> Result<Vec<ContactCandidate>, ReferencePhysicsError> {
         let radius_squared = square(self.capsule_radius)?;
         let mut candidates = Vec::new();
@@ -679,12 +710,12 @@ impl ReferencePhysicsWorld {
             })
     }
 
-    fn collides_with(&self, shape: &StaticBox) -> bool {
-        let capsule_to_box =
-            self.capsule_collision_mask & (1_u64 << u32::from(shape.collision_layer)) != 0;
-        let box_to_capsule =
-            shape.collision_mask & (1_u64 << u32::from(self.capsule_collision_layer)) != 0;
-        capsule_to_box && box_to_capsule
+    fn collides_with(&self, shape: &GroundedCapsuleStaticBox) -> bool {
+        grounded_capsule_collision_filter(
+            self.capsule_collision_layer,
+            self.capsule_collision_mask,
+            shape,
+        )
     }
 
     fn validate_activation_snapshot(&self) -> Result<(), ReferencePhysicsError> {
@@ -759,6 +790,130 @@ impl ReferencePhysicsWorld {
     }
 }
 
+impl GroundedCapsuleQuery for ReferenceGroundedCapsuleQuery {
+    fn backend_kind(&self) -> crate::PhysicsBackendKind {
+        crate::PhysicsBackendKind::Reference
+    }
+
+    fn recreate(&self) -> Result<Self, ReferencePhysicsError> {
+        Ok(*self)
+    }
+
+    fn sweep_axis(
+        &mut self,
+        request: GroundedCapsuleSweepRequest<'_>,
+    ) -> Result<GroundedCapsuleSweepResult, ReferencePhysicsError> {
+        reference_grounded_capsule_sweep(request)
+    }
+}
+
+pub fn reference_grounded_capsule_sweep(
+    request: GroundedCapsuleSweepRequest<'_>,
+) -> Result<GroundedCapsuleSweepResult, ReferencePhysicsError> {
+    if request.delta_micrometres == 0 {
+        return Ok(GroundedCapsuleSweepResult {
+            applied_delta_micrometres: 0,
+            hit: None,
+        });
+    }
+    let axis = usize::from(request.axis);
+    if axis >= 3 {
+        return Err(ReferencePhysicsError::BackendFailure);
+    }
+    let mut applied = request.delta_micrometres;
+    let mut selected = None;
+    for shape in request.static_boxes {
+        if !grounded_capsule_collision_filter(
+            request.capsule_collision_layer,
+            request.capsule_collision_mask,
+            shape,
+        ) {
+            continue;
+        }
+        let Some((lower, upper)) = expanded_axis_interval(
+            request.centre_micrometres,
+            axis,
+            request.capsule_radius_micrometres,
+            request.capsule_half_segment_micrometres,
+            shape,
+        )?
+        else {
+            continue;
+        };
+        let start = request.centre_micrometres[axis];
+        let end = start
+            .checked_add(applied)
+            .ok_or(ReferencePhysicsError::NumericOverflow)?;
+        let hit = if request.delta_micrometres > 0 && start <= lower && end > lower {
+            Some((
+                lower - start,
+                negative_axis_normal(axis),
+                negative_face(axis),
+            ))
+        } else if request.delta_micrometres < 0 && start >= upper && end < upper {
+            Some((
+                upper - start,
+                positive_axis_normal(axis),
+                positive_face(axis),
+            ))
+        } else {
+            None
+        };
+        if let Some((candidate, normal, feature)) = hit
+            && (candidate.unsigned_abs() < applied.unsigned_abs()
+                || (candidate.unsigned_abs() == applied.unsigned_abs()
+                    && selected.is_none_or(|existing: GroundedCapsuleSweepHit| {
+                        shape.shape_id < existing.shape_id
+                    })))
+        {
+            applied = candidate;
+            selected = Some(GroundedCapsuleSweepHit {
+                shape_id: shape.shape_id,
+                box_feature: feature,
+                normal_box_to_capsule: normal,
+            });
+        }
+    }
+    Ok(GroundedCapsuleSweepResult {
+        applied_delta_micrometres: applied,
+        hit: selected,
+    })
+}
+
+pub fn grounded_capsule_collision_filter(
+    capsule_collision_layer: u8,
+    capsule_collision_mask: u64,
+    shape: &GroundedCapsuleStaticBox,
+) -> bool {
+    let capsule_to_box = capsule_collision_mask & (1_u64 << u32::from(shape.collision_layer)) != 0;
+    let box_to_capsule = shape.collision_mask & (1_u64 << u32::from(capsule_collision_layer)) != 0;
+    capsule_to_box && box_to_capsule
+}
+
+pub fn grounded_capsule_axis_hit(
+    shape_id: PhysicsShapeIdV1,
+    axis: u8,
+    delta_micrometres: i64,
+) -> Result<GroundedCapsuleSweepHit, ReferencePhysicsError> {
+    let axis = usize::from(axis);
+    if axis >= 3 || delta_micrometres == 0 {
+        return Err(ReferencePhysicsError::BackendFailure);
+    }
+    Ok(if delta_micrometres > 0 {
+        GroundedCapsuleSweepHit {
+            shape_id,
+            box_feature: negative_face(axis),
+            normal_box_to_capsule: negative_axis_normal(axis),
+        }
+    } else {
+        GroundedCapsuleSweepHit {
+            shape_id,
+            box_feature: positive_face(axis),
+            normal_box_to_capsule: positive_axis_normal(axis),
+        }
+    })
+}
+
 fn validate_reference_shape(shape: &PhysicsShapeDescriptorV1) -> Result<(), ReferencePhysicsError> {
     shape.validate()?;
     if shape.participation != PhysicsParticipationV1::Solid
@@ -774,7 +929,7 @@ fn expanded_axis_interval(
     axis: usize,
     radius: i64,
     half_segment: i64,
-    shape: &StaticBox,
+    shape: &GroundedCapsuleStaticBox,
 ) -> Result<Option<(i64, i64)>, ReferencePhysicsError> {
     let mut perpendicular_squared = 0_i128;
     for other in 0..3 {
@@ -850,7 +1005,7 @@ fn interval_interval_distance(
 fn capsule_box_distance_squared(
     centre: [i64; 3],
     half_segment: i64,
-    shape: &StaticBox,
+    shape: &GroundedCapsuleStaticBox,
 ) -> Result<i128, ReferencePhysicsError> {
     let dx = interval_distance(centre[0], shape.minimum[0], shape.maximum[0]);
     let dz = interval_distance(centre[2], shape.minimum[2], shape.maximum[2]);
@@ -946,7 +1101,7 @@ const fn positive_face(axis: usize) -> u8 {
 fn contact_normal_and_feature(
     centre: [i64; 3],
     half_segment: i64,
-    shape: &StaticBox,
+    shape: &GroundedCapsuleStaticBox,
 ) -> Result<([i32; 3], u8), ReferencePhysicsError> {
     let segment_minimum = centre[1]
         .checked_sub(half_segment)
@@ -1141,6 +1296,14 @@ pub enum ReferencePhysicsError {
     NumericOverflow,
     ContactCapacityExceeded,
     SnapshotPenetrating,
+    BackendUnavailable,
+    BackendVersionMismatch,
+    BackendCapacityExceeded,
+    BackendFailure,
+    BackendHitMismatch,
+    BackendDistanceMismatch,
+    BackendFeatureMismatch,
+    BackendNormalMismatch,
 }
 
 impl ReferencePhysicsError {
@@ -1157,6 +1320,14 @@ impl ReferencePhysicsError {
             Self::NumericOverflow => "PHYSICS_NUMERIC_OVERFLOW",
             Self::ContactCapacityExceeded => "PHYS_CONTACT_CAPACITY_EXCEEDED",
             Self::SnapshotPenetrating => "PHYS_SNAPSHOT_PENETRATING",
+            Self::BackendUnavailable => "PHYS_BACKEND_UNAVAILABLE",
+            Self::BackendVersionMismatch => "PHYS_BACKEND_VERSION_MISMATCH",
+            Self::BackendCapacityExceeded => "PHYS_BACKEND_CAPACITY_EXCEEDED",
+            Self::BackendFailure => "PHYS_BACKEND_FAILURE",
+            Self::BackendHitMismatch => "PHYS_BACKEND_HIT_MISMATCH",
+            Self::BackendDistanceMismatch => "PHYS_BACKEND_DISTANCE_MISMATCH",
+            Self::BackendFeatureMismatch => "PHYS_BACKEND_FEATURE_MISMATCH",
+            Self::BackendNormalMismatch => "PHYS_BACKEND_NORMAL_MISMATCH",
         }
     }
 }
@@ -1191,6 +1362,26 @@ mod tests {
         PhysicsSolverSemanticsProfileV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
         PhysicsWorldId, SchemaId,
     };
+
+    #[derive(Debug)]
+    struct FailingQuery;
+
+    impl GroundedCapsuleQuery for FailingQuery {
+        fn backend_kind(&self) -> crate::PhysicsBackendKind {
+            crate::PhysicsBackendKind::PhysX
+        }
+
+        fn recreate(&self) -> Result<Self, ReferencePhysicsError> {
+            Ok(Self)
+        }
+
+        fn sweep_axis(
+            &mut self,
+            _request: GroundedCapsuleSweepRequest<'_>,
+        ) -> Result<GroundedCapsuleSweepResult, ReferencePhysicsError> {
+            Err(ReferencePhysicsError::BackendFailure)
+        }
+    }
 
     fn world(
         gameplay_hz: u32,
@@ -1490,6 +1681,103 @@ mod tests {
             reconstruct(penetrating, &source),
             Err(ReferencePhysicsError::SnapshotPenetrating)
         );
+    }
+
+    #[test]
+    fn unsupported_static_shape_is_rejected_before_world_activation() {
+        let source = world(30, 60, [0, 900_000, 0], 1);
+        let source_catalog = &source.checkpoint().catalog;
+        let mut bodies = source_catalog.bodies.clone();
+        let static_body = bodies
+            .values_mut()
+            .find(|body| body.motion_kind == PhysicsMotionKindV1::Static)
+            .expect("static body");
+        static_body
+            .shapes
+            .values_mut()
+            .next()
+            .expect("static shape")
+            .geometry = PhysicsGeometryV1::Sphere {
+            radius_micrometres: 100_000,
+        };
+        let catalog = PhysicsWorldCatalogV1::new(
+            source_catalog.world_descriptor.world_id,
+            PhysicsWorldCatalogProfilesV1 {
+                coordinate: source_catalog.coordinate_profile.clone(),
+                limits: source_catalog.limits_profile.clone(),
+                solver: source_catalog.solver_profile.clone(),
+                tick_rate_hash: source
+                    .tick_rate_profile()
+                    .profile_hash()
+                    .expect("tick hash"),
+                authoritative_numeric_hash: source
+                    .numeric_profile()
+                    .profile_hash()
+                    .expect("numeric hash"),
+                quantization_hash: source
+                    .quantization_profile()
+                    .profile_hash()
+                    .expect("quantization hash"),
+            },
+            source_catalog.materials.clone(),
+            bodies,
+            source_catalog.avatar_bindings.clone(),
+        )
+        .expect("valid generic sphere catalog");
+        let snapshot = PhysicsCanonicalSnapshotV2::genesis(
+            &catalog,
+            source.tick_rate_profile(),
+            source.numeric_profile(),
+            source.quantization_profile(),
+        )
+        .expect("valid generic sphere checkpoint");
+        let checkpoint = PhysicsWorldCheckpointV1::new(catalog, snapshot).expect("checkpoint");
+        assert_eq!(
+            ReferencePhysicsWorld::new(
+                checkpoint,
+                source.tick_rate_profile().to_owned(),
+                source.numeric_profile().to_owned(),
+                source.quantization_profile().to_owned(),
+            ),
+            Err(ReferencePhysicsError::UnsupportedProfile)
+        );
+    }
+
+    #[test]
+    fn backend_failure_leaves_the_previous_checkpoint_untouched() {
+        let source = world(30, 60, [0, 900_000, 0], 1);
+        let mut failing = GroundedCapsuleWorld::with_query(
+            source.checkpoint().clone(),
+            source.tick_rate_profile().to_owned(),
+            source.numeric_profile().to_owned(),
+            source.quantization_profile().to_owned(),
+            FailingQuery,
+        )
+        .expect("failing backend world activates");
+        let before = failing.checkpoint().clone();
+        let snapshot = failing.snapshot();
+        let input = PhysicsStepInputV2 {
+            schema_version: PHYSICS_STEP_INPUT_SCHEMA_VERSION,
+            world_id: snapshot.world_id,
+            expected_world_revision: snapshot.world_revision,
+            expected_snapshot_hash: snapshot.snapshot_hash().expect("snapshot hash"),
+            expected_catalog_hash: failing
+                .checkpoint()
+                .catalog
+                .catalog_hash()
+                .expect("catalog hash"),
+            gameplay_tick: 0,
+            first_physics_tick: 1,
+            physics_substeps: failing
+                .tick_rate_profile()
+                .physics_substeps_per_gameplay_tick,
+            accepted_intents: Vec::new(),
+        };
+        assert_eq!(
+            failing.step(&input),
+            Err(ReferencePhysicsError::BackendFailure)
+        );
+        assert_eq!(failing.checkpoint(), &before);
     }
 
     #[test]
@@ -1825,7 +2113,7 @@ mod tests {
             subject_id: PersistentId::from_bytes([0x44; 16]),
             body_slot: 0,
         };
-        let shape = StaticBox {
+        let shape = GroundedCapsuleStaticBox {
             shape_id: PhysicsShapeIdV1 {
                 body_id,
                 shape_slot: 0,

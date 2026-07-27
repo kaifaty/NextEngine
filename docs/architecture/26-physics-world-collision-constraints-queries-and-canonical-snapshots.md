@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 1.2 |
+| Версия | 1.3 |
 | Последняя проверка | 2026-07-27 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md) |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-033](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) |
 | Заменяет | отсутствует |
 
 ## История принятия
@@ -907,7 +907,7 @@ snapshot contracts consumed by `PHYS-P1`…`PHYS-P8` and `NUMERIC-P1`.
 | REQ-128 | Every physics world, material, shape and body MUST use bounded versioned engine-owned descriptors, canonical units/right-handed axes and exact IDs/hashes, with no ECS, OS, importer or vendor/backend public type. | PHYS-API-P1 |
 | REQ-129 | Collision filtering, material combination, shape-feature mapping and `ContactEventV1` continuity MUST be backend-independent, bounded and published in complete canonical participant/feature/value order. | PHYS-COLLISION-P1 |
 | REQ-130 | Joint graphs and authoritative scene queries MUST use closed bounded descriptors, exact revisions/snapshot selectors, atomic mutation and complete canonical ordering; callers MUST NOT access backend handles or partial results. | PHYS-JOINT-P1, PHYS-QUERY-P1 |
-| REQ-131 | Every authoritative field MUST be `ExactCanonical`, `QuantizedExact` or `ToleranceDiagnosticOnly`; save/replay MUST use portable `PhysicsCanonicalSnapshotV1` with exact continuation across composition roots and shipping targets. | PHYS-SNAPSHOT-P1 |
+| REQ-131 | Every authoritative field MUST be `ExactCanonical`, `QuantizedExact` or `ToleranceDiagnosticOnly`; active save/replay MUST use portable `PhysicsCanonicalSnapshotV2` inside `PhysicsWorldCheckpointV1` with exact continuation across composition roots and shipping targets. | PHYS-SNAPSHOT-P1 |
 
 ## Failure paths
 
@@ -923,3 +923,12 @@ replaceable `Proposed` candidates; this specification selects none. A private
 vendor adapter must implement the same engine-owned contracts and pass the
 same product checks without lowering descriptor, contact, query, snapshot or
 exactness requirements.
+
+ADR-033 фиксирует bounded PhysX 5.9.0 implementation experiment, но не
+promote-ит `TECH-007`. Его safe adapter поддерживает только grounded capsule
+против static Box и принимает quantization profile
+`nextengine.physics.quantization.grounded-capsule-v2`; legacy profile остаётся
+reference-only. Native face/shape IDs не входят в public feature identity.
+`physics-collision --backend compare`, backend-specific
+`persistence-replay` и `physics-backend-parity` являются focused
+implementation paths для `PHYS-COLLISION-P1`/`PHYS-SNAPSHOT-P1`.

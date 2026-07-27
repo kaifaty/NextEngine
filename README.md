@@ -80,6 +80,9 @@ runtime-обучение моделей и
   изучения навыков и состояния интерактивных объектов;
 - целочисленный reference-контроллер grounded capsule, статические Box
   colliders и непрерывность контактов `Begin/Persist/End`;
+- optional экспериментальный PhysX 5.9.0 backend для того же
+  grounded-capsule сценария за safe engine-owned boundary; reference остаётся
+  default и oracle;
 - contact-gated core interaction: действие игрока выбирает только объект в
   активном физическом контакте и меняет его RPG-состояние через Outcome
   `WorldCommand`;
@@ -123,6 +126,20 @@ cargo run -p xtask -- host-check
 
 Команды выводят компактный машиночитаемый результат. `host-check` — канонический
 широкий локальный `fast` check перед передачей изменения.
+
+Экспериментальный PhysX backend не входит в default features и не нужен этим
+командам. На Windows x86_64 или Linux x86_64 локальный SDK 5.9.0 задаётся
+через `NEXTENGINE_PHYSX_SDK_DIR`; сборка ничего не скачивает:
+
+```bash
+cargo run -p xtask --features physx -- physics-collision --backend compare
+cargo run -p xtask --features physx -- persistence-replay --backend physx
+cargo run -p xtask --features physx -- physics-backend-parity
+```
+
+Для portable проверки safe wrapper без SDK используется
+`--features physx-mock`. PhysX остаётся `Proposed`, не поддерживается как
+product backend на macOS и не переключается автоматически после activation.
 
 Опциональный ML smoke требует Python 3.12 и `uv`:
 
@@ -172,6 +189,8 @@ vendor types, importer structures, database connections и model sessions
 | `crates/runtime` | Admission, command ledger, fixed-stage execution и атомарные tick transactions |
 | `crates/rpg` | Generic RPG state и валидируемые доменные переходы |
 | `crates/physics-api` | Детерминированный reference physics world и grounded capsule |
+| `crates/physics-physx` | Safe optional PhysX adapter за engine-owned physics API |
+| `crates/physics-physx-ffi` | Единственная ADR-033 allowlisted native FFI-граница |
 | `crates/assets` | Copy-on-write поколения сохранений и восстановление |
 | `crates/verification` | Neutral fixtures, state roots, headless replay и product scenarios |
 | `apps/headless` | Текущий переносимый composition root без окна и renderer |
