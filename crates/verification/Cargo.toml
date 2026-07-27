@@ -6,11 +6,10 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-next_contracts.workspace = true
-next_runtime.workspace = true
-
-[dev-dependencies]
 next_assets.workspace = true
+next_contracts.workspace = true
+next_physics_api.workspace = true
+next_runtime.workspace = true
 
 [lints]
 workspace = true

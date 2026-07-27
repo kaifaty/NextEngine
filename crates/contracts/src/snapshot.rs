@@ -1,68 +1,421 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use crate::canonical::{
-    CANONICAL_TYPE_SEQUENCE, CANONICAL_TYPE_U32, CANONICAL_TYPE_U64, CanonicalCursor,
-    CanonicalDecodeError, CanonicalDecodeLimits, CanonicalError, CanonicalField,
-    DecodedCanonicalSegment, decode_canonical_segment, encode_canonical_segment,
-    extend_u32_length_prefixed, sha256,
-};
 use crate::{
-    CommandDecodeError, CommandId, CommandLedgerHash, CommandStreamId, IssuerPrincipal,
-    PrincipalDecodeError, WorldCommand, command_ledger_hash_from_bytes,
-    compute_command_id_from_body_bytes,
+    AuthoritativeNumericProfileV1, CANONICAL_TYPE_BYTES, CANONICAL_TYPE_U16, CANONICAL_TYPE_U32,
+    CANONICAL_TYPE_U64, CanonicalDecodeError, CanonicalDecodeLimits, CanonicalError,
+    CanonicalField, CausalIdentityKey, CausalIdentityKind, CommandBodyArchiveV1,
+    CommandLedgerError, CommandLedgerHash, CommandLedgerV2, CommandStreamRegistryV1,
+    IdentityContractError, IngressAssignmentProfileV1, IngressCheckpointV1, InputContractError,
+    IssuerPrincipal, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
+    PhysicsContractError, PhysicsQuantizationProfileV1, PhysicsWorldCheckpointV1,
+    PlayerControllerRegistryV1, PrincipalRegistryV1, RpgDecodeError, RpgSnapshot,
+    RuntimeAdmissionLimitsV1, RuntimeDeterminismProfileV1, StateRoot, TickRateProfileV1,
+    WorldIdentityManifestV1, causal_provenance_hash, decode_canonical_segment,
+    encode_canonical_segment, sha256,
 };
 
-pub const RUNTIME_SNAPSHOT_SCHEMA_VERSION: u32 = 1;
-pub const RUNTIME_SNAPSHOT_OWNER_ID: &str = "runtime";
-pub const RUNTIME_SNAPSHOT_SCHEMA_ID: &str = "nextengine.runtime.snapshot";
-pub const RUNTIME_SNAPSHOT_SEGMENT_ID: &str = "command-ledger";
-
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct CommandLedgerSnapshot {
-    pub stream_id: CommandStreamId,
-    pub issuer: IssuerPrincipal,
-    pub last_sequence: u64,
-    pub command_id: CommandId,
-    pub canonical_command_bytes: Vec<u8>,
-}
+pub const RUNTIME_SNAPSHOT_SCHEMA_VERSION: u32 = 2;
+pub const RUNTIME_SNAPSHOT_OWNER_ID: &str = "nextengine.runtime";
+pub const RUNTIME_SNAPSHOT_SCHEMA_ID: &str = "nextengine.runtime-snapshot";
+pub const RUNTIME_SNAPSHOT_SEGMENT_ID: &str = "v2";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RuntimeSnapshot {
+pub struct RuntimeSnapshotV2 {
     pub next_tick: u64,
     pub committed_event_count: u64,
     pub authoritative_revision: u64,
-    pub command_ledgers: Vec<CommandLedgerSnapshot>,
+    pub world_identity: WorldIdentityManifestV1,
+    pub principal_registry: PrincipalRegistryV1,
+    pub stream_registry: CommandStreamRegistryV1,
+    pub runtime_profile: RuntimeDeterminismProfileV1,
+    pub admission_limits: RuntimeAdmissionLimitsV1,
+    pub tick_rate_profile: TickRateProfileV1,
+    pub ingress_assignment_profile: IngressAssignmentProfileV1,
+    pub authoritative_numeric_profile: AuthoritativeNumericProfileV1,
+    pub physics_quantization_profile: PhysicsQuantizationProfileV1,
+    pub player_controller_registry: PlayerControllerRegistryV1,
+    pub ingress_checkpoint: IngressCheckpointV1,
+    pub command_ledger: CommandLedgerV2,
+    pub body_archive: CommandBodyArchiveV1,
 }
 
-impl RuntimeSnapshot {
-    pub fn canonical_bytes(&self) -> Result<Vec<u8>, CanonicalError> {
-        let mut ledgers = self.command_ledgers.clone();
-        ledgers.sort_by(|left, right| {
-            (&left.stream_id, &left.issuer).cmp(&(&right.stream_id, &right.issuer))
-        });
-        if ledgers
-            .windows(2)
-            .any(|pair| pair[0].stream_id == pair[1].stream_id && pair[0].issuer == pair[1].issuer)
-        {
-            return Err(CanonicalError::DuplicateSequenceValue);
-        }
+pub type RuntimeSnapshot = RuntimeSnapshotV2;
 
-        let mut ledger_bytes = Vec::new();
-        ledger_bytes.extend_from_slice(
-            &u32::try_from(ledgers.len())
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WorldCheckpointV3 {
+    pub runtime_snapshot: RuntimeSnapshotV2,
+    pub rpg_snapshot: RpgSnapshot,
+    pub physics_checkpoint: PhysicsWorldCheckpointV1,
+    pub state_root: StateRoot,
+}
+
+impl WorldCheckpointV3 {
+    pub fn new(
+        runtime_snapshot: RuntimeSnapshotV2,
+        rpg_snapshot: RpgSnapshot,
+        physics_checkpoint: PhysicsWorldCheckpointV1,
+    ) -> Result<Self, WorldCheckpointError> {
+        let state_root =
+            world_checkpoint_v3_state_root(&runtime_snapshot, &rpg_snapshot, &physics_checkpoint)?;
+        let checkpoint = Self {
+            runtime_snapshot,
+            rpg_snapshot,
+            physics_checkpoint,
+            state_root,
+        };
+        checkpoint.validate()?;
+        Ok(checkpoint)
+    }
+
+    pub fn validate(&self) -> Result<(), WorldCheckpointError> {
+        self.runtime_snapshot.validate()?;
+        let rpg_bytes = self.rpg_snapshot.canonical_bytes()?;
+        if RpgSnapshot::from_canonical_bytes(&rpg_bytes, CanonicalDecodeLimits::default())?
+            != self.rpg_snapshot
+        {
+            return Err(WorldCheckpointError::ClosureMismatch);
+        }
+        self.physics_checkpoint.validate()?;
+        self.physics_checkpoint.snapshot.validate_profile_closure(
+            &self.physics_checkpoint.catalog,
+            &self.runtime_snapshot.tick_rate_profile,
+            &self.runtime_snapshot.authoritative_numeric_profile,
+            &self.runtime_snapshot.physics_quantization_profile,
+        )?;
+        let expected_physics_tick = self
+            .runtime_snapshot
+            .next_tick
+            .checked_mul(u64::from(
+                self.runtime_snapshot
+                    .tick_rate_profile
+                    .physics_substeps_per_gameplay_tick,
+            ))
+            .ok_or(WorldCheckpointError::ClosureMismatch)?;
+        let bindings_close = self
+            .runtime_snapshot
+            .player_controller_registry
+            .bindings
+            .values()
+            .all(|binding| {
+                self.physics_checkpoint
+                    .catalog
+                    .avatar_bindings
+                    .get(&binding.controlled_body_id)
+                    .is_some_and(|body_id| {
+                        self.physics_checkpoint
+                            .snapshot
+                            .sorted_body_states
+                            .contains_key(body_id)
+                    })
+            });
+        if self.physics_checkpoint.snapshot.checkpoint_revision
+            != self.runtime_snapshot.authoritative_revision
+            || self.physics_checkpoint.snapshot.physics_tick != expected_physics_tick
+            || !bindings_close
+            || self.state_root
+                != world_checkpoint_v3_state_root(
+                    &self.runtime_snapshot,
+                    &self.rpg_snapshot,
+                    &self.physics_checkpoint,
+                )?
+        {
+            return Err(WorldCheckpointError::ClosureMismatch);
+        }
+        Ok(())
+    }
+}
+
+pub fn world_checkpoint_v3_state_root(
+    runtime_snapshot: &RuntimeSnapshotV2,
+    rpg_snapshot: &RpgSnapshot,
+    physics_checkpoint: &PhysicsWorldCheckpointV1,
+) -> Result<StateRoot, CanonicalError> {
+    let mut segments = [
+        (
+            RUNTIME_SNAPSHOT_OWNER_ID,
+            RUNTIME_SNAPSHOT_SCHEMA_ID,
+            RUNTIME_SNAPSHOT_SEGMENT_ID,
+            runtime_snapshot.canonical_bytes()?,
+        ),
+        (
+            crate::RPG_SNAPSHOT_OWNER_ID,
+            crate::RPG_SNAPSHOT_SCHEMA_ID,
+            crate::RPG_SNAPSHOT_SEGMENT_ID,
+            rpg_snapshot.canonical_bytes()?,
+        ),
+        (
+            crate::PHYSICS_SNAPSHOT_OWNER_ID,
+            PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+            PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
+            physics_checkpoint.canonical_bytes()?,
+        ),
+    ];
+    segments.sort_by_key(|(owner, schema, segment, _)| (*owner, *schema, *segment));
+    state_root_from_segments(segments)
+}
+
+fn state_root_from_segments<const N: usize>(
+    segments: [(&str, &str, &str, Vec<u8>); N],
+) -> Result<StateRoot, CanonicalError> {
+    let leaf_count = u64::try_from(segments.len()).map_err(|_| CanonicalError::LengthOverflow)?;
+    let mut nodes = Vec::with_capacity(segments.len());
+    for (owner, schema, segment, bytes) in segments {
+        let mut segment_preimage = Vec::new();
+        segment_preimage.extend_from_slice(b"nextengine.state-segment.v1\0");
+        segment_preimage.extend_from_slice(
+            &u64::try_from(bytes.len())
                 .map_err(|_| CanonicalError::LengthOverflow)?
                 .to_le_bytes(),
         );
-        for ledger in ledgers {
-            ledger_bytes.extend_from_slice(ledger.stream_id.as_bytes());
-            let principal = ledger.issuer.canonical_bytes()?;
-            extend_u32_length_prefixed(&mut ledger_bytes, &principal)?;
-            ledger_bytes.extend_from_slice(&ledger.last_sequence.to_le_bytes());
-            ledger_bytes.extend_from_slice(ledger.command_id.as_bytes());
-            extend_u32_length_prefixed(&mut ledger_bytes, &ledger.canonical_command_bytes)?;
-        }
+        segment_preimage.extend_from_slice(&bytes);
 
+        let mut leaf_preimage = Vec::new();
+        leaf_preimage.extend_from_slice(b"nextengine.state-leaf.v1\0");
+        extend_state_root_identifier(&mut leaf_preimage, owner)?;
+        extend_state_root_identifier(&mut leaf_preimage, schema)?;
+        extend_state_root_identifier(&mut leaf_preimage, segment)?;
+        leaf_preimage.extend_from_slice(&sha256(&segment_preimage));
+        nodes.push(sha256(&leaf_preimage));
+    }
+    while nodes.len() > 1 {
+        let mut parents = Vec::with_capacity(nodes.len().div_ceil(2));
+        for pair in nodes.chunks(2) {
+            let mut preimage = Vec::new();
+            if let [left, right] = pair {
+                preimage.extend_from_slice(b"nextengine.state-node.v1\0");
+                preimage.extend_from_slice(left);
+                preimage.extend_from_slice(right);
+            } else {
+                preimage.extend_from_slice(b"nextengine.state-carry.v1\0");
+                preimage.extend_from_slice(&pair[0]);
+            }
+            parents.push(sha256(&preimage));
+        }
+        nodes = parents;
+    }
+    let mut root_preimage = Vec::new();
+    root_preimage.extend_from_slice(b"nextengine.state-root.v1\0");
+    root_preimage.extend_from_slice(&leaf_count.to_le_bytes());
+    root_preimage.extend_from_slice(
+        nodes
+            .first()
+            .expect("a world checkpoint always contains owner segments"),
+    );
+    Ok(StateRoot::from_bytes(sha256(&root_preimage)))
+}
+
+fn extend_state_root_identifier(
+    target: &mut Vec<u8>,
+    identifier: &str,
+) -> Result<(), CanonicalError> {
+    target.extend_from_slice(
+        &u32::try_from(identifier.len())
+            .map_err(|_| CanonicalError::LengthOverflow)?
+            .to_le_bytes(),
+    );
+    target.extend_from_slice(identifier.as_bytes());
+    Ok(())
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum WorldCheckpointError {
+    Canonicalization(CanonicalError),
+    Runtime(SnapshotDecodeError),
+    Rpg(RpgDecodeError),
+    Physics(PhysicsContractError),
+    ClosureMismatch,
+}
+
+impl WorldCheckpointError {
+    #[must_use]
+    pub const fn stable_code(&self) -> &'static str {
+        match self {
+            Self::ClosureMismatch => "WORLD_CHECKPOINT_CLOSURE_CORRUPT",
+            Self::Runtime(error) => error.stable_code(),
+            Self::Rpg(_) => "WORLD_CHECKPOINT_RPG_CORRUPT",
+            Self::Physics(_) => "WORLD_CHECKPOINT_PHYSICS_CORRUPT",
+            Self::Canonicalization(_) => "WORLD_CHECKPOINT_CANONICALIZATION_FAILED",
+        }
+    }
+}
+
+impl Display for WorldCheckpointError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.stable_code())
+    }
+}
+
+impl Error for WorldCheckpointError {}
+
+impl From<CanonicalError> for WorldCheckpointError {
+    fn from(error: CanonicalError) -> Self {
+        Self::Canonicalization(error)
+    }
+}
+
+impl From<SnapshotDecodeError> for WorldCheckpointError {
+    fn from(error: SnapshotDecodeError) -> Self {
+        Self::Runtime(error)
+    }
+}
+
+impl From<RpgDecodeError> for WorldCheckpointError {
+    fn from(error: RpgDecodeError) -> Self {
+        Self::Rpg(error)
+    }
+}
+
+impl From<PhysicsContractError> for WorldCheckpointError {
+    fn from(error: PhysicsContractError) -> Self {
+        Self::Physics(error)
+    }
+}
+
+impl RuntimeSnapshotV2 {
+    pub fn validate(&self) -> Result<(), SnapshotDecodeError> {
+        self.world_identity.validate()?;
+        self.principal_registry.validate()?;
+        self.stream_registry.validate()?;
+        self.runtime_profile.validate()?;
+        self.admission_limits.validate()?;
+        self.tick_rate_profile.validate()?;
+        self.ingress_assignment_profile.validate()?;
+        self.authoritative_numeric_profile.validate()?;
+        self.physics_quantization_profile.validate()?;
+        self.player_controller_registry.validate()?;
+        self.ingress_checkpoint.validate(&self.admission_limits)?;
+        let profile_hash = self.runtime_profile.profile_hash()?;
+        let world = self.world_identity.world_namespace;
+        if self.world_identity.runtime_determinism_profile_hash != profile_hash
+            || self.principal_registry.world_namespace != world
+            || self.stream_registry.world_namespace != world
+            || self.player_controller_registry.world_namespace != world
+            || self.command_ledger.world_namespace != world
+            || self.command_ledger.runtime_determinism_profile_hash != profile_hash
+            || self.command_ledger.command_kind_registry_hash
+                != self.runtime_profile.command_kind_registry_hash
+        {
+            return Err(SnapshotDecodeError::ClosureMismatch);
+        }
+        if self.runtime_profile.admission_limits_profile_hash
+            != self.admission_limits.profile_hash()?
+            || self.runtime_profile.tick_rate_profile_hash
+                != self.tick_rate_profile.profile_hash()?
+            || self.runtime_profile.ingress_assignment_profile_hash
+                != self.ingress_assignment_profile.profile_hash()?
+            || self.runtime_profile.numeric_profile_hash
+                != self.authoritative_numeric_profile.profile_hash()?
+            || self.runtime_profile.physics_quantization_profile_hash
+                != self.physics_quantization_profile.profile_hash()?
+            || self.ingress_assignment_profile.admission_limits_hash
+                != self.admission_limits.profile_hash()?
+            || self
+                .authoritative_numeric_profile
+                .physics_quantization_profile_hash
+                != self.physics_quantization_profile.profile_hash()?
+            || self.ingress_checkpoint.current_tick != self.next_tick
+        {
+            return Err(SnapshotDecodeError::ProfileClosureMismatch);
+        }
+        for binding in self.player_controller_registry.bindings.values() {
+            if !self.principal_registry.is_active(&binding.principal)
+                || self.stream_registry.entries.iter().all(|(key, stream)| {
+                    key.principal != binding.principal || stream != &binding.command_stream_id
+                })
+            {
+                return Err(SnapshotDecodeError::ControllerRegistryMismatch);
+            }
+        }
+        for (stream_key, stream_id) in &self.stream_registry.entries {
+            if !self.principal_registry.is_active(&stream_key.principal) {
+                return Err(SnapshotDecodeError::InactivePrincipal);
+            }
+            let stream = self
+                .command_ledger
+                .streams
+                .get(stream_id)
+                .ok_or(SnapshotDecodeError::StreamRegistryMismatch)?;
+            if stream.issuer != stream_key.principal
+                || stream.stream_slot != stream_key.stream_slot
+                || stream.stream_epoch != stream_key.stream_epoch
+            {
+                return Err(SnapshotDecodeError::StreamRegistryMismatch);
+            }
+            let principal_bytes = stream_key.principal.canonical_bytes()?;
+            let mut provenance = Vec::new();
+            provenance.extend_from_slice(world.as_bytes());
+            provenance.extend_from_slice(
+                &u64::try_from(principal_bytes.len())
+                    .map_err(|_| CanonicalError::LengthOverflow)?
+                    .to_le_bytes(),
+            );
+            provenance.extend_from_slice(&principal_bytes);
+            provenance.extend_from_slice(&stream_key.stream_slot.to_le_bytes());
+            provenance.extend_from_slice(&stream_key.stream_epoch.to_le_bytes());
+            let expected = causal_provenance_hash(CausalIdentityKind::CommandStream, &provenance)?;
+            if self
+                .command_ledger
+                .causal_identity_registry
+                .bindings
+                .get(&CausalIdentityKey {
+                    identity_kind: CausalIdentityKind::CommandStream,
+                    identity_bytes: *stream_id.as_bytes(),
+                })
+                != Some(&expected)
+            {
+                return Err(SnapshotDecodeError::CausalRegistryMismatch);
+            }
+        }
+        if self.command_ledger.streams.len() != self.stream_registry.entries.len() {
+            return Err(SnapshotDecodeError::StreamRegistryMismatch);
+        }
+        for (principal, record) in &self.principal_registry.principals {
+            if let IssuerPrincipal::Player(id) = principal
+                && self
+                    .command_ledger
+                    .causal_identity_registry
+                    .bindings
+                    .get(&CausalIdentityKey {
+                        identity_kind: CausalIdentityKind::PlayerPrincipal,
+                        identity_bytes: *id.as_bytes(),
+                    })
+                    != Some(&record.provenance_hash)
+            {
+                return Err(SnapshotDecodeError::CausalRegistryMismatch);
+            }
+        }
+        let domain_event_count = self
+            .command_ledger
+            .causal_identity_registry
+            .bindings
+            .keys()
+            .filter(|key| key.identity_kind == CausalIdentityKind::DomainEvent)
+            .count();
+        if u64::try_from(domain_event_count).map_err(|_| CanonicalError::LengthOverflow)?
+            != self.committed_event_count
+        {
+            return Err(SnapshotDecodeError::CausalRegistryMismatch);
+        }
+        self.command_ledger.validate(&self.body_archive)?;
+        Ok(())
+    }
+
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, CanonicalError> {
+        self.validate().map_err(|error| match error {
+            SnapshotDecodeError::Canonicalization(error) => error,
+            SnapshotDecodeError::Identity(IdentityContractError::Canonical(error)) => error,
+            SnapshotDecodeError::Ledger(CommandLedgerError::Canonical(error)) => error,
+            _ => CanonicalError::DuplicateSequenceValue,
+        })?;
+        let ledger_bytes = self
+            .command_ledger
+            .canonical_bytes(&self.body_archive)
+            .map_err(|error| match error {
+                CommandLedgerError::Canonical(error) => error,
+                _ => CanonicalError::DuplicateSequenceValue,
+            })?;
         encode_canonical_segment(
             RUNTIME_SNAPSHOT_OWNER_ID,
             RUNTIME_SNAPSHOT_SCHEMA_ID,
@@ -70,8 +423,11 @@ impl RuntimeSnapshot {
             [
                 CanonicalField::new(
                     1,
-                    CANONICAL_TYPE_U32,
-                    RUNTIME_SNAPSHOT_SCHEMA_VERSION.to_le_bytes().to_vec(),
+                    CANONICAL_TYPE_U16,
+                    u16::try_from(RUNTIME_SNAPSHOT_SCHEMA_VERSION)
+                        .map_err(|_| CanonicalError::LengthOverflow)?
+                        .to_le_bytes()
+                        .to_vec(),
                 ),
                 CanonicalField::new(2, CANONICAL_TYPE_U64, self.next_tick.to_le_bytes().to_vec()),
                 CanonicalField::new(
@@ -84,7 +440,67 @@ impl RuntimeSnapshot {
                     CANONICAL_TYPE_U64,
                     self.authoritative_revision.to_le_bytes().to_vec(),
                 ),
-                CanonicalField::new(5, CANONICAL_TYPE_SEQUENCE, ledger_bytes),
+                CanonicalField::new(
+                    5,
+                    CANONICAL_TYPE_BYTES,
+                    self.world_identity.canonical_bytes()?,
+                ),
+                CanonicalField::new(
+                    6,
+                    CANONICAL_TYPE_BYTES,
+                    self.principal_registry.canonical_bytes()?,
+                ),
+                CanonicalField::new(
+                    7,
+                    CANONICAL_TYPE_BYTES,
+                    self.stream_registry.canonical_bytes()?,
+                ),
+                CanonicalField::new(
+                    8,
+                    CANONICAL_TYPE_BYTES,
+                    self.runtime_profile.canonical_bytes()?,
+                ),
+                CanonicalField::new(
+                    9,
+                    CANONICAL_TYPE_BYTES,
+                    self.admission_limits.canonical_bytes()?,
+                ),
+                CanonicalField::new(
+                    10,
+                    CANONICAL_TYPE_BYTES,
+                    self.tick_rate_profile.canonical_bytes()?,
+                ),
+                CanonicalField::new(
+                    11,
+                    CANONICAL_TYPE_BYTES,
+                    self.ingress_assignment_profile.canonical_bytes()?,
+                ),
+                CanonicalField::new(
+                    12,
+                    CANONICAL_TYPE_BYTES,
+                    self.authoritative_numeric_profile.canonical_bytes()?,
+                ),
+                CanonicalField::new(
+                    13,
+                    CANONICAL_TYPE_BYTES,
+                    self.physics_quantization_profile.canonical_bytes()?,
+                ),
+                CanonicalField::new(
+                    14,
+                    CANONICAL_TYPE_BYTES,
+                    self.player_controller_registry.canonical_bytes()?,
+                ),
+                CanonicalField::new(
+                    15,
+                    CANONICAL_TYPE_BYTES,
+                    self.ingress_checkpoint.canonical_bytes()?,
+                ),
+                CanonicalField::new(16, CANONICAL_TYPE_BYTES, ledger_bytes),
+                CanonicalField::new(
+                    17,
+                    CANONICAL_TYPE_BYTES,
+                    self.body_archive.canonical_bytes()?,
+                ),
             ],
         )
     }
@@ -94,20 +510,103 @@ impl RuntimeSnapshot {
         limits: CanonicalDecodeLimits,
     ) -> Result<Self, SnapshotDecodeError> {
         let segment = decode_canonical_segment(bytes, limits)?;
-        validate_snapshot_envelope(&segment)?;
-        validate_snapshot_fields(&segment)?;
-        let schema_version = decode_u32(&segment, 1)?;
-        if schema_version != RUNTIME_SNAPSHOT_SCHEMA_VERSION {
-            return Err(SnapshotDecodeError::UnsupportedSchemaVersion(
-                schema_version,
-            ));
+        if segment.owner_id != RUNTIME_SNAPSHOT_OWNER_ID
+            || segment.schema_id != RUNTIME_SNAPSHOT_SCHEMA_ID
+            || segment.segment_id != RUNTIME_SNAPSHOT_SEGMENT_ID
+        {
+            return Err(SnapshotDecodeError::WrongEnvelope);
         }
-        let snapshot = Self {
-            next_tick: decode_u64(&segment, 2)?,
-            committed_event_count: decode_u64(&segment, 3)?,
-            authoritative_revision: decode_u64(&segment, 4)?,
-            command_ledgers: decode_ledgers(&segment, limits)?,
+        let version_field = segment
+            .field(1)
+            .ok_or(SnapshotDecodeError::MissingField(1))?;
+        let version = match version_field.type_tag {
+            CANONICAL_TYPE_U16 if version_field.payload.len() == 2 => u32::from(
+                u16::from_le_bytes(version_field.payload.as_slice().try_into().map_err(|_| {
+                    SnapshotDecodeError::FieldLength {
+                        field_id: 1,
+                        expected: 2,
+                        actual: version_field.payload.len(),
+                    }
+                })?),
+            ),
+            CANONICAL_TYPE_U32 if version_field.payload.len() == 4 => {
+                u32::from_le_bytes(version_field.payload.as_slice().try_into().map_err(|_| {
+                    SnapshotDecodeError::FieldLength {
+                        field_id: 1,
+                        expected: 4,
+                        actual: version_field.payload.len(),
+                    }
+                })?)
+            }
+            _ => {
+                return Err(SnapshotDecodeError::FieldType {
+                    field_id: 1,
+                    expected: CANONICAL_TYPE_U16,
+                    actual: version_field.type_tag,
+                });
+            }
         };
+        if version != RUNTIME_SNAPSHOT_SCHEMA_VERSION {
+            return Err(SnapshotDecodeError::UnsupportedSchemaVersion(version));
+        }
+        require_fields(&segment)?;
+        let admission_limits =
+            RuntimeAdmissionLimitsV1::from_canonical_bytes(field(&segment, 9)?, limits)?;
+        let archive = CommandBodyArchiveV1::from_canonical_bytes(field(&segment, 17)?, limits)?;
+        let snapshot = Self {
+            next_tick: read_u64(&segment, 2)?,
+            committed_event_count: read_u64(&segment, 3)?,
+            authoritative_revision: read_u64(&segment, 4)?,
+            world_identity: WorldIdentityManifestV1::from_canonical_bytes(
+                field(&segment, 5)?,
+                limits,
+            )?,
+            principal_registry: PrincipalRegistryV1::from_canonical_bytes(
+                field(&segment, 6)?,
+                limits,
+            )?,
+            stream_registry: CommandStreamRegistryV1::from_canonical_bytes(
+                field(&segment, 7)?,
+                limits,
+            )?,
+            runtime_profile: RuntimeDeterminismProfileV1::from_canonical_bytes(
+                field(&segment, 8)?,
+                limits,
+            )?,
+            admission_limits,
+            tick_rate_profile: TickRateProfileV1::from_canonical_bytes(
+                field(&segment, 10)?,
+                limits,
+            )?,
+            ingress_assignment_profile: IngressAssignmentProfileV1::from_canonical_bytes(
+                field(&segment, 11)?,
+                limits,
+            )?,
+            authoritative_numeric_profile: AuthoritativeNumericProfileV1::from_canonical_bytes(
+                field(&segment, 12)?,
+                limits,
+            )?,
+            physics_quantization_profile: PhysicsQuantizationProfileV1::from_canonical_bytes(
+                field(&segment, 13)?,
+                limits,
+            )?,
+            player_controller_registry: PlayerControllerRegistryV1::from_canonical_bytes(
+                field(&segment, 14)?,
+                limits,
+            )?,
+            ingress_checkpoint: IngressCheckpointV1::from_canonical_bytes(
+                field(&segment, 15)?,
+                limits,
+                &admission_limits,
+            )?,
+            command_ledger: CommandLedgerV2::from_canonical_bytes(
+                field(&segment, 16)?,
+                &archive,
+                limits,
+            )?,
+            body_archive: archive,
+        };
+        snapshot.validate()?;
         if snapshot.canonical_bytes()? != bytes {
             return Err(SnapshotDecodeError::NonCanonicalEncoding);
         }
@@ -115,16 +614,12 @@ impl RuntimeSnapshot {
     }
 
     pub fn command_ledger_hash(&self) -> Result<CommandLedgerHash, CanonicalError> {
-        let bytes = self.canonical_bytes()?;
-        let mut preimage = Vec::new();
-        preimage.extend_from_slice(b"nextengine.command-ledger.v1\0");
-        preimage.extend_from_slice(
-            &u64::try_from(bytes.len())
-                .map_err(|_| CanonicalError::LengthOverflow)?
-                .to_le_bytes(),
-        );
-        preimage.extend_from_slice(&bytes);
-        Ok(command_ledger_hash_from_bytes(sha256(&preimage)))
+        self.command_ledger
+            .command_ledger_hash(&self.body_archive)
+            .map_err(|error| match error {
+                CommandLedgerError::Canonical(error) => error,
+                _ => CanonicalError::DuplicateSequenceValue,
+            })
     }
 }
 
@@ -133,8 +628,10 @@ impl RuntimeSnapshot {
 pub enum SnapshotDecodeError {
     Canonical(CanonicalDecodeError),
     Canonicalization(CanonicalError),
-    Principal(PrincipalDecodeError),
-    Command(CommandDecodeError),
+    Identity(IdentityContractError),
+    Ledger(CommandLedgerError),
+    Input(InputContractError),
+    Physics(PhysicsContractError),
     WrongEnvelope,
     UnknownField(u32),
     MissingField(u32),
@@ -149,14 +646,30 @@ pub enum SnapshotDecodeError {
         actual: usize,
     },
     UnsupportedSchemaVersion(u32),
-    TooManyLedgers {
-        actual: usize,
-        limit: usize,
-    },
-    LedgersNotStrictlySorted,
-    CommandIdMismatch,
-    LedgerCommandMismatch,
+    ClosureMismatch,
+    ProfileClosureMismatch,
+    ControllerRegistryMismatch,
+    InactivePrincipal,
+    StreamRegistryMismatch,
+    CausalRegistryMismatch,
     NonCanonicalEncoding,
+}
+
+impl SnapshotDecodeError {
+    #[must_use]
+    pub const fn stable_code(&self) -> &'static str {
+        match self {
+            Self::UnsupportedSchemaVersion(_) => "UNSUPPORTED_RUNTIME_SNAPSHOT_VERSION",
+            Self::ClosureMismatch
+            | Self::ProfileClosureMismatch
+            | Self::ControllerRegistryMismatch
+            | Self::InactivePrincipal
+            | Self::StreamRegistryMismatch
+            | Self::CausalRegistryMismatch
+            | Self::Ledger(_) => "RUNTIME_SNAPSHOT_CLOSURE_CORRUPT",
+            _ => "RUNTIME_SNAPSHOT_INVALID",
+        }
+    }
 }
 
 impl Display for SnapshotDecodeError {
@@ -166,18 +679,22 @@ impl Display for SnapshotDecodeError {
             Self::Canonicalization(error) => {
                 write!(formatter, "snapshot canonicalization failed: {error}")
             }
-            Self::Principal(error) => write!(formatter, "snapshot principal is invalid: {error}"),
-            Self::Command(error) => write!(formatter, "snapshot command is invalid: {error}"),
-            Self::WrongEnvelope => formatter.write_str("snapshot envelope does not match"),
-            Self::UnknownField(field_id) => write!(formatter, "unknown snapshot field {field_id}"),
-            Self::MissingField(field_id) => write!(formatter, "missing snapshot field {field_id}"),
+            Self::Identity(error) => write!(formatter, "snapshot identity is invalid: {error}"),
+            Self::Ledger(error) => write!(formatter, "snapshot ledger is invalid: {error}"),
+            Self::Input(error) => write!(formatter, "snapshot ingress is invalid: {error}"),
+            Self::Physics(error) => {
+                write!(formatter, "snapshot physics profile is invalid: {error}")
+            }
+            Self::WrongEnvelope => formatter.write_str("snapshot envelope does not match V2"),
+            Self::UnknownField(id) => write!(formatter, "unknown snapshot field {id}"),
+            Self::MissingField(id) => write!(formatter, "missing snapshot field {id}"),
             Self::FieldType {
                 field_id,
                 expected,
                 actual,
             } => write!(
                 formatter,
-                "snapshot field {field_id} has type {actual}; expected {expected}"
+                "snapshot field {field_id} has type {actual:#04x}; expected {expected:#04x}"
             ),
             Self::FieldLength {
                 field_id,
@@ -190,20 +707,26 @@ impl Display for SnapshotDecodeError {
             Self::UnsupportedSchemaVersion(version) => {
                 write!(formatter, "unsupported snapshot schema version {version}")
             }
-            Self::TooManyLedgers { actual, limit } => {
-                write!(formatter, "snapshot has {actual} ledgers; limit is {limit}")
+            Self::ClosureMismatch => {
+                formatter.write_str("snapshot world/profile/registry closure does not match")
             }
-            Self::LedgersNotStrictlySorted => {
-                formatter.write_str("snapshot ledgers are not strictly sorted")
+            Self::ProfileClosureMismatch => {
+                formatter.write_str("snapshot component profile closure does not match")
             }
-            Self::CommandIdMismatch => {
-                formatter.write_str("snapshot ledger command id does not match canonical bytes")
+            Self::ControllerRegistryMismatch => {
+                formatter.write_str("snapshot controller registry closure does not match")
             }
-            Self::LedgerCommandMismatch => {
-                formatter.write_str("snapshot ledger key does not match its canonical command")
+            Self::InactivePrincipal => {
+                formatter.write_str("snapshot stream references an inactive principal")
+            }
+            Self::StreamRegistryMismatch => {
+                formatter.write_str("snapshot stream registry does not match ledger streams")
+            }
+            Self::CausalRegistryMismatch => {
+                formatter.write_str("snapshot causal registry does not close identity provenance")
             }
             Self::NonCanonicalEncoding => {
-                formatter.write_str("decoded snapshot does not re-encode byte-exactly")
+                formatter.write_str("snapshot does not re-encode byte-exactly")
             }
         }
     }
@@ -223,279 +746,262 @@ impl From<CanonicalError> for SnapshotDecodeError {
     }
 }
 
-impl From<PrincipalDecodeError> for SnapshotDecodeError {
-    fn from(error: PrincipalDecodeError) -> Self {
-        Self::Principal(error)
+impl From<IdentityContractError> for SnapshotDecodeError {
+    fn from(error: IdentityContractError) -> Self {
+        Self::Identity(error)
     }
 }
 
-impl From<CommandDecodeError> for SnapshotDecodeError {
-    fn from(error: CommandDecodeError) -> Self {
-        Self::Command(error)
+impl From<CommandLedgerError> for SnapshotDecodeError {
+    fn from(error: CommandLedgerError) -> Self {
+        Self::Ledger(error)
     }
 }
 
-fn validate_snapshot_envelope(
-    segment: &DecodedCanonicalSegment,
-) -> Result<(), SnapshotDecodeError> {
-    if segment.owner_id != RUNTIME_SNAPSHOT_OWNER_ID
-        || segment.schema_id != RUNTIME_SNAPSHOT_SCHEMA_ID
-        || segment.segment_id != RUNTIME_SNAPSHOT_SEGMENT_ID
-    {
-        return Err(SnapshotDecodeError::WrongEnvelope);
+impl From<InputContractError> for SnapshotDecodeError {
+    fn from(error: InputContractError) -> Self {
+        Self::Input(error)
     }
-    Ok(())
 }
 
-fn validate_snapshot_fields(segment: &DecodedCanonicalSegment) -> Result<(), SnapshotDecodeError> {
-    const EXPECTED: [(u32, u8); 5] = [
-        (1, CANONICAL_TYPE_U32),
+impl From<PhysicsContractError> for SnapshotDecodeError {
+    fn from(error: PhysicsContractError) -> Self {
+        Self::Physics(error)
+    }
+}
+
+fn require_fields(segment: &crate::DecodedCanonicalSegment) -> Result<(), SnapshotDecodeError> {
+    const EXPECTED: [(u32, u8); 17] = [
+        (1, CANONICAL_TYPE_U16),
         (2, CANONICAL_TYPE_U64),
         (3, CANONICAL_TYPE_U64),
         (4, CANONICAL_TYPE_U64),
-        (5, CANONICAL_TYPE_SEQUENCE),
+        (5, CANONICAL_TYPE_BYTES),
+        (6, CANONICAL_TYPE_BYTES),
+        (7, CANONICAL_TYPE_BYTES),
+        (8, CANONICAL_TYPE_BYTES),
+        (9, CANONICAL_TYPE_BYTES),
+        (10, CANONICAL_TYPE_BYTES),
+        (11, CANONICAL_TYPE_BYTES),
+        (12, CANONICAL_TYPE_BYTES),
+        (13, CANONICAL_TYPE_BYTES),
+        (14, CANONICAL_TYPE_BYTES),
+        (15, CANONICAL_TYPE_BYTES),
+        (16, CANONICAL_TYPE_BYTES),
+        (17, CANONICAL_TYPE_BYTES),
     ];
-    for field in &segment.fields {
-        if !EXPECTED
-            .iter()
-            .any(|(field_id, _)| *field_id == field.field_id)
-        {
-            return Err(SnapshotDecodeError::UnknownField(field.field_id));
+    for actual in &segment.fields {
+        if !EXPECTED.iter().any(|(id, _)| *id == actual.field_id) {
+            return Err(SnapshotDecodeError::UnknownField(actual.field_id));
         }
     }
-    for (field_id, type_tag) in EXPECTED {
-        let _ = field(segment, field_id, type_tag)?;
+    for (id, expected) in EXPECTED {
+        let actual = segment
+            .field(id)
+            .ok_or(SnapshotDecodeError::MissingField(id))?;
+        if actual.type_tag != expected {
+            return Err(SnapshotDecodeError::FieldType {
+                field_id: id,
+                expected,
+                actual: actual.type_tag,
+            });
+        }
     }
     Ok(())
 }
 
-fn field(
-    segment: &DecodedCanonicalSegment,
-    field_id: u32,
-    expected_type: u8,
-) -> Result<&CanonicalField, SnapshotDecodeError> {
-    let field = segment
-        .field(field_id)
-        .ok_or(SnapshotDecodeError::MissingField(field_id))?;
-    if field.type_tag != expected_type {
-        return Err(SnapshotDecodeError::FieldType {
-            field_id,
-            expected: expected_type,
-            actual: field.type_tag,
-        });
-    }
-    Ok(field)
+fn field(segment: &crate::DecodedCanonicalSegment, id: u32) -> Result<&[u8], SnapshotDecodeError> {
+    Ok(&segment
+        .field(id)
+        .ok_or(SnapshotDecodeError::MissingField(id))?
+        .payload)
 }
 
-fn decode_fixed<const LENGTH: usize>(
-    segment: &DecodedCanonicalSegment,
-    field_id: u32,
-    expected_type: u8,
-) -> Result<[u8; LENGTH], SnapshotDecodeError> {
-    let payload = &field(segment, field_id, expected_type)?.payload;
-    payload
-        .as_slice()
-        .try_into()
-        .map_err(|_| SnapshotDecodeError::FieldLength {
-            field_id,
-            expected: LENGTH,
+fn read_u64(segment: &crate::DecodedCanonicalSegment, id: u32) -> Result<u64, SnapshotDecodeError> {
+    let payload = field(segment, id)?;
+    Ok(u64::from_le_bytes(payload.try_into().map_err(|_| {
+        SnapshotDecodeError::FieldLength {
+            field_id: id,
+            expected: 8,
             actual: payload.len(),
-        })
-}
-
-fn decode_u32(
-    segment: &DecodedCanonicalSegment,
-    field_id: u32,
-) -> Result<u32, SnapshotDecodeError> {
-    Ok(u32::from_le_bytes(decode_fixed::<4>(
-        segment,
-        field_id,
-        CANONICAL_TYPE_U32,
-    )?))
-}
-
-fn decode_u64(
-    segment: &DecodedCanonicalSegment,
-    field_id: u32,
-) -> Result<u64, SnapshotDecodeError> {
-    Ok(u64::from_le_bytes(decode_fixed::<8>(
-        segment,
-        field_id,
-        CANONICAL_TYPE_U64,
-    )?))
-}
-
-fn decode_ledgers(
-    segment: &DecodedCanonicalSegment,
-    limits: CanonicalDecodeLimits,
-) -> Result<Vec<CommandLedgerSnapshot>, SnapshotDecodeError> {
-    let payload = &field(segment, 5, CANONICAL_TYPE_SEQUENCE)?.payload;
-    let mut cursor = CanonicalCursor::new(payload);
-    let count = usize::try_from(cursor.read_u32()?)
-        .map_err(|_| SnapshotDecodeError::Canonical(CanonicalDecodeError::LengthOverflow))?;
-    if count > limits.max_sequence_items {
-        return Err(SnapshotDecodeError::TooManyLedgers {
-            actual: count,
-            limit: limits.max_sequence_items,
-        });
-    }
-    let mut ledgers = Vec::with_capacity(count);
-    for _ in 0..count {
-        let stream_id = CommandStreamId::from_bytes(
-            cursor
-                .read_exact(16)?
-                .try_into()
-                .map_err(|_| CanonicalDecodeError::UnexpectedEnd)?,
-        );
-        let principal_limit = limits.max_identifier_bytes.saturating_add(5).max(17);
-        let principal_bytes = cursor.read_u32_length_prefixed(principal_limit)?;
-        let issuer = IssuerPrincipal::from_canonical_bytes(principal_bytes, limits)?;
-        let last_sequence = cursor.read_u64()?;
-        let command_id = CommandId::from_bytes(
-            cursor
-                .read_exact(16)?
-                .try_into()
-                .map_err(|_| CanonicalDecodeError::UnexpectedEnd)?,
-        );
-        let canonical_command_bytes = cursor
-            .read_u32_length_prefixed(limits.max_total_bytes)?
-            .to_vec();
-        let expected = compute_command_id_from_body_bytes(&canonical_command_bytes)?;
-        if expected != command_id {
-            return Err(SnapshotDecodeError::CommandIdMismatch);
         }
-        let command = WorldCommand::from_canonical_bytes(&canonical_command_bytes, limits)?;
-        if command.stream_id != stream_id
-            || command.issuer != issuer
-            || command.sequence != last_sequence
-            || command.claimed_command_id != Some(command_id)
-        {
-            return Err(SnapshotDecodeError::LedgerCommandMismatch);
-        }
-        ledgers.push(CommandLedgerSnapshot {
-            stream_id,
-            issuer,
-            last_sequence,
-            command_id,
-            canonical_command_bytes,
-        });
-    }
-    cursor.finish()?;
-    if ledgers
-        .windows(2)
-        .any(|pair| (&pair[0].stream_id, &pair[0].issuer) >= (&pair[1].stream_id, &pair[1].issuer))
-    {
-        return Err(SnapshotDecodeError::LedgersNotStrictlySorted);
-    }
-    Ok(ledgers)
+    })?))
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use crate::{
-        CanonicalDecodeLimits, CommandId, CommandLedgerSnapshot, CommandStreamId, IssuerPrincipal,
-        PlayerPrincipalId, RuntimeSnapshot, WorldCommand,
+        AuthoritativeNumericProfileV1, CanonicalDecodeLimits, CommandLedgerV2,
+        CommandStreamLedgerV2, ContentHash, IngressAssignmentProfileV1, IngressCheckpointV1,
+        IssuerPrincipal, PhysicsQuantizationProfileV1, PlayerControllerRegistryV1,
+        PlayerPrincipalId, PrincipalRecordV1, PrincipalStatus, ProjectId, RuntimeAdmissionLimitsV1,
+        RuntimeDeterminismProfileV1, SchemaId, TickRateProfileV1, WorldIdentityManifestV1,
     };
 
-    fn ledger(stream: u8, issuer: u8, sequence: u64) -> CommandLedgerSnapshot {
-        let command = WorldCommand::noop(
-            CommandStreamId::from_bytes([stream; 16]),
-            IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([issuer; 16])),
-            sequence,
-            0,
+    use super::*;
+
+    fn fixture() -> RuntimeSnapshotV2 {
+        let command_hash = ContentHash::from_bytes([7; 32]);
+        let profile = RuntimeDeterminismProfileV1::bootstrap_default(command_hash);
+        let world = WorldIdentityManifestV1::new(
+            ProjectId::new("nextengine.snapshot-fixture").expect("project id"),
+            [1; 32],
+            [2; 32],
+            profile.profile_hash().expect("profile hash"),
         )
-        .expect("test command is canonical");
-        CommandLedgerSnapshot {
-            stream_id: command.stream_id,
-            issuer: command.issuer.clone(),
-            last_sequence: sequence,
-            command_id: command
-                .claimed_command_id
-                .expect("constructor computes command ID claim"),
-            canonical_command_bytes: command.canonical_bytes().expect("canonical command"),
+        .expect("world identity");
+        let principal = IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([3; 16]));
+        let mut principals = PrincipalRegistryV1::empty(world.world_namespace);
+        principals
+            .register(
+                principal.clone(),
+                PrincipalRecordV1 {
+                    provenance_hash: ContentHash::from_bytes([4; 32]),
+                    capability_subject_id: SchemaId::new("fixture.player").expect("subject"),
+                    status: PrincipalStatus::Active,
+                },
+            )
+            .expect("principal");
+        let mut streams = CommandStreamRegistryV1::empty(world.world_namespace);
+        let stream_id = streams
+            .allocate_stream(principal.clone())
+            .expect("stream allocation");
+        let (mut ledger, archive) = CommandLedgerV2::empty(
+            world.world_namespace,
+            command_hash,
+            profile.profile_hash().expect("profile hash"),
+        )
+        .expect("empty ledger");
+        ledger.streams.insert(
+            stream_id,
+            CommandStreamLedgerV2::genesis(stream_id, principal.clone(), 0, 0),
+        );
+        ledger
+            .causal_identity_registry
+            .compare_or_insert(
+                CausalIdentityKey {
+                    identity_kind: CausalIdentityKind::PlayerPrincipal,
+                    identity_bytes: match &principal {
+                        IssuerPrincipal::Player(id) => *id.as_bytes(),
+                        _ => unreachable!("fixture principal is a player"),
+                    },
+                },
+                ContentHash::from_bytes([4; 32]),
+            )
+            .expect("player provenance");
+        let principal_bytes = principal.canonical_bytes().expect("principal bytes");
+        let mut provenance = Vec::new();
+        provenance.extend_from_slice(world.world_namespace.as_bytes());
+        provenance.extend_from_slice(&(principal_bytes.len() as u64).to_le_bytes());
+        provenance.extend_from_slice(&principal_bytes);
+        provenance.extend_from_slice(&0_u32.to_le_bytes());
+        provenance.extend_from_slice(&0_u32.to_le_bytes());
+        ledger
+            .causal_identity_registry
+            .compare_or_insert_provenance(
+                CausalIdentityKind::CommandStream,
+                *stream_id.as_bytes(),
+                &provenance,
+            )
+            .expect("stream provenance");
+        let admission_limits = RuntimeAdmissionLimitsV1::default();
+        let tick_rate_profile = TickRateProfileV1::at_30_hz();
+        let ingress_assignment_profile =
+            IngressAssignmentProfileV1::core_v1(&admission_limits).expect("ingress profile");
+        let physics_quantization_profile =
+            PhysicsQuantizationProfileV1::capsule_reference_v1().expect("physics profile");
+        let authoritative_numeric_profile =
+            AuthoritativeNumericProfileV1::capsule_reference_v1(&physics_quantization_profile)
+                .expect("numeric profile");
+        let world_namespace = world.world_namespace;
+        RuntimeSnapshotV2 {
+            next_tick: 5,
+            committed_event_count: 0,
+            authoritative_revision: 3,
+            world_identity: world,
+            principal_registry: principals,
+            stream_registry: streams,
+            runtime_profile: profile,
+            admission_limits,
+            tick_rate_profile,
+            ingress_assignment_profile,
+            authoritative_numeric_profile,
+            physics_quantization_profile,
+            player_controller_registry: PlayerControllerRegistryV1 {
+                schema_version: 1,
+                world_namespace,
+                bindings: BTreeMap::new(),
+            },
+            ingress_checkpoint: IngressCheckpointV1 {
+                schema_version: 1,
+                current_tick: 5,
+                current_generation: 5,
+                current_samples: Vec::new(),
+                next_samples: Vec::new(),
+                last_closed_batch_hash: None,
+            },
+            command_ledger: ledger,
+            body_archive: archive,
         }
     }
 
     #[test]
-    fn ledger_order_does_not_change_snapshot_bytes() {
-        let first = ledger(1, 1, 4);
-        let second = ledger(2, 2, 5);
-        let ordered = RuntimeSnapshot {
-            next_tick: 6,
-            committed_event_count: 2,
-            authoritative_revision: 2,
-            command_ledgers: vec![first.clone(), second.clone()],
-        };
-        let reversed = RuntimeSnapshot {
-            command_ledgers: vec![second, first],
-            ..ordered.clone()
-        };
-        assert_eq!(
-            ordered.canonical_bytes().expect("canonical snapshot"),
-            reversed.canonical_bytes().expect("canonical snapshot")
-        );
-    }
-
-    #[test]
-    fn snapshot_round_trip_is_byte_exact() {
-        let snapshot = RuntimeSnapshot {
-            next_tick: 7,
-            committed_event_count: 2,
-            authoritative_revision: 2,
-            command_ledgers: vec![ledger(1, 2, 4), ledger(2, 1, 5)],
-        };
-        let bytes = snapshot.canonical_bytes().expect("canonical snapshot");
-        let restored =
-            RuntimeSnapshot::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
+    fn v2_snapshot_round_trip_is_byte_exact() {
+        let snapshot = fixture();
+        let bytes = snapshot.canonical_bytes().expect("snapshot bytes");
+        let decoded =
+            RuntimeSnapshotV2::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
                 .expect("snapshot decodes");
+        assert_eq!(decoded, snapshot);
+        assert_eq!(decoded.canonical_bytes().expect("decoded bytes"), bytes);
+    }
 
-        assert_eq!(restored, snapshot);
+    #[test]
+    fn v2_snapshot_rejects_ingress_controller_and_profile_closure_corruption() {
+        let mut corrupt_ingress = fixture();
+        corrupt_ingress.ingress_checkpoint.current_tick -= 1;
         assert_eq!(
-            restored
-                .canonical_bytes()
-                .expect("restored canonical bytes"),
-            bytes
+            corrupt_ingress.validate(),
+            Err(SnapshotDecodeError::ProfileClosureMismatch)
+        );
+
+        let mut corrupt_controller = fixture();
+        corrupt_controller
+            .player_controller_registry
+            .world_namespace = crate::WorldNamespaceId::from_bytes([0xff; 16]);
+        assert_eq!(
+            corrupt_controller.validate(),
+            Err(SnapshotDecodeError::ClosureMismatch)
+        );
+
+        let mut corrupt_profile = fixture();
+        corrupt_profile
+            .tick_rate_profile
+            .physics_substeps_per_gameplay_tick = 4;
+        assert_eq!(
+            corrupt_profile.validate(),
+            Err(SnapshotDecodeError::ProfileClosureMismatch)
         );
     }
 
     #[test]
-    fn tampered_ledger_command_is_rejected_without_mutating_input() {
-        let snapshot = RuntimeSnapshot {
-            next_tick: 1,
-            committed_event_count: 1,
-            authoritative_revision: 1,
-            command_ledgers: vec![ledger(1, 2, 0)],
-        };
-        let mut bytes = snapshot.canonical_bytes().expect("canonical snapshot");
-        let original = bytes.clone();
-        let last = bytes.len() - 1;
-        bytes[last] ^= 1;
-        let tampered = bytes.clone();
-
-        assert!(
-            RuntimeSnapshot::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
-                .is_err()
-        );
-        assert_eq!(bytes, tampered);
-        assert_ne!(bytes, original);
-    }
-
-    #[test]
-    fn mismatched_declared_command_id_is_rejected() {
-        let mut ledger = ledger(1, 2, 0);
-        ledger.command_id = CommandId::from_bytes([9; 16]);
-        let snapshot = RuntimeSnapshot {
-            next_tick: 1,
-            committed_event_count: 1,
-            authoritative_revision: 1,
-            command_ledgers: vec![ledger],
-        };
-        let bytes = snapshot
-            .canonical_bytes()
-            .expect("snapshot can encode bad input");
-        assert!(matches!(
-            RuntimeSnapshot::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default()),
-            Err(super::SnapshotDecodeError::CommandIdMismatch)
-        ));
+    fn v1_is_rejected_before_nested_state_decoding() {
+        let bytes = encode_canonical_segment(
+            RUNTIME_SNAPSHOT_OWNER_ID,
+            RUNTIME_SNAPSHOT_SCHEMA_ID,
+            RUNTIME_SNAPSHOT_SEGMENT_ID,
+            [CanonicalField::new(
+                1,
+                CANONICAL_TYPE_U32,
+                1_u32.to_le_bytes().to_vec(),
+            )],
+        )
+        .expect("legacy-shaped bytes");
+        let error =
+            RuntimeSnapshotV2::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
+                .expect_err("V1 must be rejected");
+        assert_eq!(error.stable_code(), "UNSUPPORTED_RUNTIME_SNAPSHOT_VERSION");
     }
 }

@@ -394,6 +394,61 @@ impl RpgEvent {
             }
         }
     }
+
+    pub fn canonical_payload_bytes(&self) -> Result<Vec<u8>, CanonicalError> {
+        let mut bytes = Vec::new();
+        match self {
+            Self::DialogueQuestAdvanced {
+                dialogue_id,
+                dialogue_node_id,
+                quest_id,
+                quest_state_id,
+                relationship_source,
+                relationship_target,
+                relationship_dimension_id,
+                relationship_value,
+            } => {
+                bytes.push(1);
+                bytes.extend_from_slice(dialogue_id.as_bytes());
+                extend_text(&mut bytes, dialogue_node_id)?;
+                bytes.extend_from_slice(quest_id.as_bytes());
+                extend_text(&mut bytes, quest_state_id)?;
+                bytes.extend_from_slice(relationship_source.as_bytes());
+                bytes.extend_from_slice(relationship_target.as_bytes());
+                extend_text(&mut bytes, relationship_dimension_id)?;
+                bytes.extend_from_slice(&relationship_value.to_le_bytes());
+            }
+            Self::ItemTransferred {
+                item_id,
+                previous_owner,
+                new_owner,
+            } => {
+                bytes.push(2);
+                bytes.extend_from_slice(item_id.as_bytes());
+                extend_optional_id(&mut bytes, *previous_owner);
+                extend_optional_id(&mut bytes, *new_owner);
+            }
+            Self::SkillLearned {
+                character_id,
+                skill_id,
+                proficiency,
+            } => {
+                bytes.push(3);
+                bytes.extend_from_slice(character_id.as_bytes());
+                extend_text(&mut bytes, skill_id)?;
+                bytes.extend_from_slice(&proficiency.get().to_le_bytes());
+            }
+            Self::InteractiveObjectStateChanged {
+                object_id,
+                state_id,
+            } => {
+                bytes.push(4);
+                bytes.extend_from_slice(object_id.as_bytes());
+                extend_text(&mut bytes, state_id)?;
+            }
+        }
+        Ok(bytes)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

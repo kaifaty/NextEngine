@@ -2,13 +2,19 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use crate::{
-    CanonicalDecodeLimits, CanonicalError, CapabilityId, CommandDecodeError, CommandId,
-    CommandLedgerHash, CommandLedgerSnapshot, CommandStreamId, ContentHash, IssuerPrincipal,
-    RuntimeSnapshot, SchemaId, StateRoot, WorldCommand, content_hash_from_bytes, sha256,
+    CanonicalDecodeLimits, CanonicalError, CapabilityId, ClosedCommandAdmissionBatchV2,
+    ClosedIngressBatchV1, ClosedPhysicsContactBatchV1, CommandDecodeError, CommandId,
+    CommandLedgerHash, ContentHash, DomainEvent, InputMappingReceiptV1, IssuerPrincipal,
+    PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+    PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PhysicsStepInputV2, PhysicsWorldCheckpointV1,
+    RPG_SNAPSHOT_OWNER_ID, RPG_SNAPSHOT_SCHEMA_ID, RPG_SNAPSHOT_SEGMENT_ID,
+    RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID,
+    RpgSnapshot, RuntimeSnapshot, SchemaId, StateRoot, WorldCheckpointV3, WorldCommand,
+    WorldNamespaceId, content_hash_from_bytes, sha256,
 };
 
-pub const SAVE_MANIFEST_SCHEMA_VERSION: u32 = 1;
-pub const REPLAY_MANIFEST_SCHEMA_VERSION: u32 = 1;
+pub const SAVE_MANIFEST_SCHEMA_VERSION: u32 = 2;
+pub const REPLAY_MANIFEST_V3_SCHEMA_VERSION: u32 = 3;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TickSettings {
@@ -44,23 +50,13 @@ pub struct SchemaBinding {
     pub content_hash: ContentHash,
 }
 
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct CommandLedgerDescriptor {
-    pub stream_id: CommandStreamId,
-    pub issuer: IssuerPrincipal,
-    pub last_sequence: u64,
-    pub command_id: CommandId,
-}
-
-impl From<&CommandLedgerSnapshot> for CommandLedgerDescriptor {
-    fn from(ledger: &CommandLedgerSnapshot) -> Self {
-        Self {
-            stream_id: ledger.stream_id,
-            issuer: ledger.issuer.clone(),
-            last_sequence: ledger.last_sequence,
-            command_id: ledger.command_id,
-        }
-    }
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct CommandLedgerDescriptorV2 {
+    pub world_namespace: WorldNamespaceId,
+    pub stream_count: u64,
+    pub archive_root: ContentHash,
+    pub identity_index_root: ContentHash,
+    pub runtime_snapshot_segment_hash: ContentHash,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -143,28 +139,22 @@ impl SaveCompatibility {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SaveManifestV1 {
+pub struct SaveManifestV2 {
     pub schema_version: u32,
     pub generation: u64,
     pub world_revision: u64,
     pub compatibility: SaveCompatibility,
-    pub command_ledgers: Vec<CommandLedgerDescriptor>,
+    pub command_ledger: CommandLedgerDescriptorV2,
     pub segments: Vec<SaveSegmentDescriptor>,
 }
 
-impl SaveManifestV1 {
+impl SaveManifestV2 {
     pub fn for_runtime_snapshot(
         generation: u64,
         compatibility: SaveCompatibility,
         snapshot: &RuntimeSnapshot,
         snapshot_bytes: &[u8],
     ) -> Result<Self, ManifestValidationError> {
-        let mut command_ledgers = snapshot
-            .command_ledgers
-            .iter()
-            .map(CommandLedgerDescriptor::from)
-            .collect::<Vec<_>>();
-        command_ledgers.sort();
         let segment = SaveSegmentDescriptor::for_bytes(
             SchemaId::new(crate::RUNTIME_SNAPSHOT_OWNER_ID)?,
             SchemaId::new(crate::RUNTIME_SNAPSHOT_SCHEMA_ID)?,
@@ -172,12 +162,20 @@ impl SaveManifestV1 {
             crate::RUNTIME_SNAPSHOT_SCHEMA_VERSION,
             snapshot_bytes,
         )?;
+        let command_ledger = CommandLedgerDescriptorV2 {
+            world_namespace: snapshot.world_identity.world_namespace,
+            stream_count: u64::try_from(snapshot.command_ledger.streams.len())
+                .map_err(|_| CanonicalError::LengthOverflow)?,
+            archive_root: snapshot.command_ledger.body_archive.archive_root,
+            identity_index_root: snapshot.command_ledger.identity_index.index_root,
+            runtime_snapshot_segment_hash: segment.content_hash,
+        };
         let manifest = Self {
             schema_version: SAVE_MANIFEST_SCHEMA_VERSION,
             generation,
             world_revision: snapshot.authoritative_revision,
             compatibility,
-            command_ledgers,
+            command_ledger,
             segments: vec![segment],
         };
         manifest.validate()?;
@@ -191,11 +189,6 @@ impl SaveManifestV1 {
             ));
         }
         self.compatibility.validate()?;
-        if self.command_ledgers.windows(2).any(|pair| {
-            (&pair[0].stream_id, &pair[0].issuer) >= (&pair[1].stream_id, &pair[1].issuer)
-        }) {
-            return Err(ManifestValidationError::CommandLedgersNotStrictlySorted);
-        }
         if self.segments.is_empty() {
             return Err(ManifestValidationError::MissingRequiredSegment);
         }
@@ -237,6 +230,8 @@ impl AuthorityGrant {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReplayCommandRecord {
+    pub envelope_schema_version: u16,
+    pub claimed_command_id: Option<CommandId>,
     pub command_id: CommandId,
     pub canonical_command_bytes: Vec<u8>,
 }
@@ -244,6 +239,8 @@ pub struct ReplayCommandRecord {
 impl ReplayCommandRecord {
     pub fn from_command(command: &WorldCommand) -> Result<Self, CanonicalError> {
         Ok(Self {
+            envelope_schema_version: command.envelope_schema_version,
+            claimed_command_id: command.claimed_command_id,
             command_id: command.compute_command_id()?,
             canonical_command_bytes: command.canonical_bytes()?,
         })
@@ -253,50 +250,157 @@ impl ReplayCommandRecord {
         &self,
         limits: CanonicalDecodeLimits,
     ) -> Result<WorldCommand, ManifestValidationError> {
-        let command = WorldCommand::from_canonical_bytes(&self.canonical_command_bytes, limits)?;
+        let mut command =
+            WorldCommand::from_canonical_bytes(&self.canonical_command_bytes, limits)?;
         if command.compute_command_id()? != self.command_id {
             return Err(ManifestValidationError::ReplayCommandIdMismatch);
         }
+        command.envelope_schema_version = self.envelope_schema_version;
+        command.claimed_command_id = self.claimed_command_id;
         Ok(command)
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReplayTickManifest {
-    pub tick: u64,
-    pub commands: Vec<ReplayCommandRecord>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct ReplayComparePoint {
-    pub tick: u64,
-    pub state_root: StateRoot,
-    pub command_ledger_hash: CommandLedgerHash,
+pub struct ReplayCommandResultV2 {
+    pub command_id: CommandId,
+    pub sequence: u64,
+    pub disposition_code: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReplayManifestV1 {
-    pub schema_version: u32,
-    pub compatibility: SaveCompatibility,
-    pub initial_snapshot_bytes: Vec<u8>,
-    pub initial_state_root: StateRoot,
-    pub authority: Vec<AuthorityGrant>,
-    pub ticks: Vec<ReplayTickManifest>,
-    pub compare_points: Vec<ReplayComparePoint>,
+pub struct ReplayOwnerSegmentV2 {
+    pub descriptor: SaveSegmentDescriptor,
+    pub canonical_bytes: Vec<u8>,
 }
 
-impl ReplayManifestV1 {
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReplayTickManifestV3 {
+    pub tick: u64,
+    pub closed_ingress_batch: ClosedIngressBatchV1,
+    pub direct_external_commands: Vec<ReplayCommandRecord>,
+    pub expected_ingress_command_batch: ClosedCommandAdmissionBatchV2,
+    pub expected_physics_step_input: PhysicsStepInputV2,
+    pub expected_contact_batch: ClosedPhysicsContactBatchV1,
+    pub expected_outcome_command_batch: ClosedCommandAdmissionBatchV2,
+    pub expected_mapping_receipts: Vec<InputMappingReceiptV1>,
+    pub expected_command_results: Vec<ReplayCommandResultV2>,
+    pub expected_events: Vec<DomainEvent>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ReplayComparePointV3 {
+    pub tick: u64,
+    pub state_root: StateRoot,
+    pub command_ledger_hash: CommandLedgerHash,
+    pub runtime_segment_hash: ContentHash,
+    pub rpg_segment_hash: ContentHash,
+    pub physics_segment_hash: ContentHash,
+    pub closed_ingress_batch_hash: ContentHash,
+    pub ingress_command_batch_hash: ContentHash,
+    pub physics_step_input_hash: ContentHash,
+    pub contact_batch_hash: ContentHash,
+    pub outcome_command_batch_hash: ContentHash,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReplayManifestV3 {
+    pub schema_version: u32,
+    pub compatibility: SaveCompatibility,
+    pub initial_owner_segments: Vec<ReplayOwnerSegmentV2>,
+    pub initial_state_root: StateRoot,
+    pub authority: Vec<AuthorityGrant>,
+    pub ticks: Vec<ReplayTickManifestV3>,
+    pub compare_points: Vec<ReplayComparePointV3>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DecodedReplayTickV3 {
+    pub tick: u64,
+    pub closed_ingress_batch: ClosedIngressBatchV1,
+    pub direct_external_commands: Vec<WorldCommand>,
+    pub expected_ingress_command_batch: ClosedCommandAdmissionBatchV2,
+    pub expected_physics_step_input: PhysicsStepInputV2,
+    pub expected_contact_batch: ClosedPhysicsContactBatchV1,
+    pub expected_outcome_command_batch: ClosedCommandAdmissionBatchV2,
+    pub expected_mapping_receipts: Vec<InputMappingReceiptV1>,
+    pub expected_command_results: Vec<ReplayCommandResultV2>,
+    pub expected_events: Vec<DomainEvent>,
+}
+
+impl ReplayManifestV3 {
+    pub fn to_jcs_bytes(&self) -> Result<Vec<u8>, ManifestCodecError> {
+        crate::manifest_jcs::encode_replay_manifest_v3(self)
+    }
+
+    pub fn from_jcs_bytes(
+        bytes: &[u8],
+        limits: CanonicalDecodeLimits,
+    ) -> Result<Self, ManifestCodecError> {
+        crate::manifest_jcs::decode_replay_manifest_v3(bytes, limits)
+    }
+
     pub fn validate_and_decode(
         &self,
         limits: CanonicalDecodeLimits,
-    ) -> Result<(RuntimeSnapshot, Vec<Vec<WorldCommand>>), ManifestValidationError> {
-        if self.schema_version != REPLAY_MANIFEST_SCHEMA_VERSION {
+    ) -> Result<(WorldCheckpointV3, Vec<DecodedReplayTickV3>), ManifestValidationError> {
+        if self.schema_version != REPLAY_MANIFEST_V3_SCHEMA_VERSION {
             return Err(ManifestValidationError::UnsupportedReplayVersion(
                 self.schema_version,
             ));
         }
         self.compatibility.validate()?;
-        let snapshot = RuntimeSnapshot::from_canonical_bytes(&self.initial_snapshot_bytes, limits)?;
+        if self.initial_owner_segments.len() != 3
+            || self.initial_owner_segments.windows(2).any(|pair| {
+                (
+                    &pair[0].descriptor.owner_id,
+                    &pair[0].descriptor.schema_id,
+                    &pair[0].descriptor.segment_id,
+                ) >= (
+                    &pair[1].descriptor.owner_id,
+                    &pair[1].descriptor.schema_id,
+                    &pair[1].descriptor.segment_id,
+                )
+            })
+            || self
+                .initial_owner_segments
+                .iter()
+                .any(|segment| !segment.descriptor.matches_bytes(&segment.canonical_bytes))
+        {
+            return Err(ManifestValidationError::ReplayInitialSegmentsInvalid);
+        }
+        let segment = |owner: &str, schema: &str, id: &str| {
+            self.initial_owner_segments.iter().find(|segment| {
+                segment.descriptor.owner_id.as_str() == owner
+                    && segment.descriptor.schema_id.as_str() == schema
+                    && segment.descriptor.segment_id.as_str() == id
+            })
+        };
+        let runtime = segment(
+            RUNTIME_SNAPSHOT_OWNER_ID,
+            RUNTIME_SNAPSHOT_SCHEMA_ID,
+            RUNTIME_SNAPSHOT_SEGMENT_ID,
+        )
+        .ok_or(ManifestValidationError::ReplayInitialSegmentsInvalid)?;
+        let rpg = segment(
+            RPG_SNAPSHOT_OWNER_ID,
+            RPG_SNAPSHOT_SCHEMA_ID,
+            RPG_SNAPSHOT_SEGMENT_ID,
+        )
+        .ok_or(ManifestValidationError::ReplayInitialSegmentsInvalid)?;
+        let physics = segment(
+            PHYSICS_SNAPSHOT_OWNER_ID,
+            PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+            PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
+        )
+        .ok_or(ManifestValidationError::ReplayInitialSegmentsInvalid)?;
+        let runtime_snapshot =
+            RuntimeSnapshot::from_canonical_bytes(&runtime.canonical_bytes, limits)?;
+        let rpg_snapshot = RpgSnapshot::from_canonical_bytes(&rpg.canonical_bytes, limits)?;
+        let physics_checkpoint =
+            PhysicsWorldCheckpointV1::from_canonical_bytes(&physics.canonical_bytes, limits)?;
+        let checkpoint =
+            WorldCheckpointV3::new(runtime_snapshot, rpg_snapshot, physics_checkpoint)?;
         if self
             .authority
             .windows(2)
@@ -310,27 +414,59 @@ impl ReplayManifestV1 {
         if self.ticks.len() != self.compare_points.len() {
             return Err(ManifestValidationError::ComparePointCountMismatch);
         }
-
-        let mut expected_tick = snapshot.next_tick;
+        let mut expected_tick = checkpoint.runtime_snapshot.next_tick;
         let mut decoded_ticks = Vec::with_capacity(self.ticks.len());
         for (tick, compare_point) in self.ticks.iter().zip(&self.compare_points) {
             if tick.tick != expected_tick || compare_point.tick != expected_tick {
                 return Err(ManifestValidationError::ReplayTickSequenceMismatch);
             }
-            let mut commands = Vec::with_capacity(tick.commands.len());
-            for record in &tick.commands {
-                let command = record.decode_command(limits)?;
-                if command.target_tick != tick.tick {
-                    return Err(ManifestValidationError::ReplayCommandTickMismatch);
-                }
-                commands.push(command);
+            tick.closed_ingress_batch
+                .validate(&checkpoint.runtime_snapshot.admission_limits)?;
+            tick.expected_ingress_command_batch
+                .validate(&checkpoint.runtime_snapshot.admission_limits)?;
+            tick.expected_physics_step_input.validate()?;
+            tick.expected_contact_batch.validate()?;
+            tick.expected_outcome_command_batch
+                .validate(&checkpoint.runtime_snapshot.admission_limits)?;
+            if tick.closed_ingress_batch.body.assigned_tick != expected_tick
+                || tick.expected_ingress_command_batch.body.simulation_tick != expected_tick
+                || tick.expected_ingress_command_batch.body.phase != crate::CommandPhase::Ingress
+                || tick.expected_physics_step_input.gameplay_tick != expected_tick
+                || tick.expected_contact_batch.gameplay_tick != expected_tick
+                || tick.expected_outcome_command_batch.body.simulation_tick != expected_tick
+                || tick.expected_outcome_command_batch.body.phase != crate::CommandPhase::Outcome
+                || compare_point.closed_ingress_batch_hash != tick.closed_ingress_batch.batch_hash
+                || compare_point.ingress_command_batch_hash
+                    != tick.expected_ingress_command_batch.batch_hash
+                || compare_point.physics_step_input_hash
+                    != tick.expected_physics_step_input.input_hash()?
+                || compare_point.contact_batch_hash != tick.expected_contact_batch.batch_hash
+                || compare_point.outcome_command_batch_hash
+                    != tick.expected_outcome_command_batch.batch_hash
+            {
+                return Err(ManifestValidationError::ReplayBatchMismatch);
             }
-            decoded_ticks.push(commands);
+            let mut commands = Vec::with_capacity(tick.direct_external_commands.len());
+            for record in &tick.direct_external_commands {
+                commands.push(record.decode_command(limits)?);
+            }
+            decoded_ticks.push(DecodedReplayTickV3 {
+                tick: tick.tick,
+                closed_ingress_batch: tick.closed_ingress_batch.clone(),
+                direct_external_commands: commands,
+                expected_ingress_command_batch: tick.expected_ingress_command_batch.clone(),
+                expected_physics_step_input: tick.expected_physics_step_input.clone(),
+                expected_contact_batch: tick.expected_contact_batch.clone(),
+                expected_outcome_command_batch: tick.expected_outcome_command_batch.clone(),
+                expected_mapping_receipts: tick.expected_mapping_receipts.clone(),
+                expected_command_results: tick.expected_command_results.clone(),
+                expected_events: tick.expected_events.clone(),
+            });
             expected_tick = expected_tick
                 .checked_add(1)
                 .ok_or(ManifestValidationError::ReplayTickExhausted)?;
         }
-        Ok((snapshot, decoded_ticks))
+        Ok((checkpoint, decoded_ticks))
     }
 }
 
@@ -344,7 +480,6 @@ pub enum ManifestValidationError {
     InvalidTickSettings,
     HashBindingsNotStrictlySorted,
     SchemaBindingsNotStrictlySorted,
-    CommandLedgersNotStrictlySorted,
     SegmentsNotStrictlySorted,
     CapabilitiesNotStrictlySorted,
     AuthorityNotStrictlySorted,
@@ -354,8 +489,13 @@ pub enum ManifestValidationError {
     ReplayCommandIdMismatch,
     ComparePointCountMismatch,
     ReplayTickSequenceMismatch,
-    ReplayCommandTickMismatch,
     ReplayTickExhausted,
+    ReplayInitialSegmentsInvalid,
+    ReplayBatchMismatch,
+    WorldCheckpoint(crate::WorldCheckpointError),
+    Rpg(crate::RpgDecodeError),
+    Physics(crate::PhysicsContractError),
+    Input(crate::InputContractError),
 }
 
 impl Display for ManifestValidationError {
@@ -373,9 +513,6 @@ impl Display for ManifestValidationError {
             }
             Self::SchemaBindingsNotStrictlySorted => {
                 formatter.write_str("manifest schema bindings are not strictly sorted")
-            }
-            Self::CommandLedgersNotStrictlySorted => {
-                formatter.write_str("manifest command ledgers are not strictly sorted")
             }
             Self::SegmentsNotStrictlySorted => {
                 formatter.write_str("manifest segments are not strictly sorted")
@@ -402,10 +539,19 @@ impl Display for ManifestValidationError {
             Self::ReplayTickSequenceMismatch => {
                 formatter.write_str("replay ticks or compare points are not contiguous")
             }
-            Self::ReplayCommandTickMismatch => {
-                formatter.write_str("replay command target tick does not match its tick record")
-            }
             Self::ReplayTickExhausted => formatter.write_str("replay tick sequence overflowed"),
+            Self::ReplayInitialSegmentsInvalid => {
+                formatter.write_str("replay initial owner segments are incomplete or invalid")
+            }
+            Self::ReplayBatchMismatch => {
+                formatter.write_str("replay closed batch closure does not match")
+            }
+            Self::WorldCheckpoint(error) => {
+                write!(formatter, "replay checkpoint is invalid: {error}")
+            }
+            Self::Rpg(error) => write!(formatter, "replay RPG segment is invalid: {error}"),
+            Self::Physics(error) => write!(formatter, "replay physics segment is invalid: {error}"),
+            Self::Input(error) => write!(formatter, "replay ingress batch is invalid: {error}"),
         }
     }
 }
@@ -433,6 +579,30 @@ impl From<crate::SnapshotDecodeError> for ManifestValidationError {
 impl From<CommandDecodeError> for ManifestValidationError {
     fn from(error: CommandDecodeError) -> Self {
         Self::Command(error)
+    }
+}
+
+impl From<crate::WorldCheckpointError> for ManifestValidationError {
+    fn from(error: crate::WorldCheckpointError) -> Self {
+        Self::WorldCheckpoint(error)
+    }
+}
+
+impl From<crate::RpgDecodeError> for ManifestValidationError {
+    fn from(error: crate::RpgDecodeError) -> Self {
+        Self::Rpg(error)
+    }
+}
+
+impl From<crate::PhysicsContractError> for ManifestValidationError {
+    fn from(error: crate::PhysicsContractError) -> Self {
+        Self::Physics(error)
+    }
+}
+
+impl From<crate::InputContractError> for ManifestValidationError {
+    fn from(error: crate::InputContractError) -> Self {
+        Self::Input(error)
     }
 }
 
@@ -464,81 +634,21 @@ pub use crate::manifest_jcs::ManifestCodecError;
 #[cfg(test)]
 mod tests {
     use crate::{
-        CanonicalDecodeLimits, CommandStreamId, IssuerPrincipal, PlayerPrincipalId,
-        ReplayCommandRecord, ReplayComparePoint, ReplayManifestV1, ReplayTickManifest,
-        RuntimeSnapshot, SchemaId, StateRoot, TickSettings, WorldCommand,
-        command_ledger_hash_from_bytes, content_hash_from_bytes,
+        CanonicalDecodeLimits, CommandId, CommandStreamId, IssuerPrincipal, PlayerPrincipalId,
+        ReplayCommandRecord, WorldCommand,
     };
 
-    use super::{AuthorityGrant, SaveCompatibility};
-
-    fn compatibility() -> SaveCompatibility {
-        SaveCompatibility {
-            engine_build_hash: content_hash_from_bytes([1; 32]),
-            game_build_hash: content_hash_from_bytes([2; 32]),
-            project_id: SchemaId::new("nextengine.test-project").expect("valid project"),
-            schema_registry_hash: content_hash_from_bytes([3; 32]),
-            content_manifest_hash: content_hash_from_bytes([4; 32]),
-            mechanics_lock_hash: content_hash_from_bytes([5; 32]),
-            tick_settings: TickSettings {
-                gameplay_hz: 30,
-                physics_hz: 120,
-                motor_hz: 60,
-            },
-            loaded_chunk_revisions: vec![],
-            rng_stream_states: vec![],
-            physical_bindings: vec![],
-            policy_state_schemas: vec![],
-            plugin_script_bindings: vec![],
-        }
-    }
-
     #[test]
-    fn replay_manifest_decodes_all_commands_before_execution() {
+    fn replay_record_preserves_invalid_envelope_claim_for_deterministic_rejection() {
         let principal = IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([1; 16]));
-        let command = WorldCommand::noop(
-            CommandStreamId::from_bytes([2; 16]),
-            principal.clone(),
-            0,
-            0,
-        )
-        .expect("canonical command");
-        let snapshot = RuntimeSnapshot {
-            next_tick: 0,
-            committed_event_count: 0,
-            authoritative_revision: 0,
-            command_ledgers: vec![],
-        };
-        let manifest = ReplayManifestV1 {
-            schema_version: super::REPLAY_MANIFEST_SCHEMA_VERSION,
-            compatibility: compatibility(),
-            initial_snapshot_bytes: snapshot.canonical_bytes().expect("canonical snapshot"),
-            initial_state_root: StateRoot::from_bytes([0; 32]),
-            authority: vec![AuthorityGrant {
-                principal,
-                capabilities: command
-                    .capability_claims
-                    .iter()
-                    .map(|capability| capability.capability_id.clone())
-                    .collect(),
-            }],
-            ticks: vec![ReplayTickManifest {
-                tick: 0,
-                commands: vec![
-                    ReplayCommandRecord::from_command(&command).expect("canonical replay command"),
-                ],
-            }],
-            compare_points: vec![ReplayComparePoint {
-                tick: 0,
-                state_root: StateRoot::from_bytes([0; 32]),
-                command_ledger_hash: command_ledger_hash_from_bytes([0; 32]),
-            }],
-        };
-
-        let (decoded_snapshot, decoded_ticks) = manifest
-            .validate_and_decode(CanonicalDecodeLimits::default())
-            .expect("manifest validates");
-        assert_eq!(decoded_snapshot, snapshot);
-        assert_eq!(decoded_ticks, vec![vec![command]]);
+        let mut command = WorldCommand::noop(CommandStreamId::from_bytes([2; 16]), principal, 0, 0)
+            .expect("canonical command");
+        command.envelope_schema_version = 1;
+        command.claimed_command_id = Some(CommandId::from_bytes([9; 16]));
+        let record = ReplayCommandRecord::from_command(&command).expect("record");
+        let decoded = record
+            .decode_command(CanonicalDecodeLimits::default())
+            .expect("record decodes");
+        assert_eq!(decoded, command);
     }
 }

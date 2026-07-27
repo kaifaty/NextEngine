@@ -3,19 +3,21 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use crate::canonical::{
-    CANONICAL_TYPE_HASH256, CANONICAL_TYPE_ID128, CANONICAL_TYPE_MAP, CANONICAL_TYPE_OPTIONAL,
-    CANONICAL_TYPE_SEQUENCE, CANONICAL_TYPE_STRUCT, CANONICAL_TYPE_TAGGED_UNION, CANONICAL_TYPE_U8,
-    CANONICAL_TYPE_U16, CANONICAL_TYPE_U32, CANONICAL_TYPE_U64, CANONICAL_TYPE_UNIT,
-    CANONICAL_TYPE_UTF8_NFC, CanonicalDecodeLimits, CanonicalError, CanonicalField,
-    encode_canonical_segment, sha256,
+    CANONICAL_TYPE_BYTES, CANONICAL_TYPE_HASH256, CANONICAL_TYPE_ID128, CANONICAL_TYPE_MAP,
+    CANONICAL_TYPE_OPTIONAL, CANONICAL_TYPE_SEQUENCE, CANONICAL_TYPE_STRUCT,
+    CANONICAL_TYPE_TAGGED_UNION, CANONICAL_TYPE_U8, CANONICAL_TYPE_U16, CANONICAL_TYPE_U32,
+    CANONICAL_TYPE_U64, CANONICAL_TYPE_UNIT, CANONICAL_TYPE_UTF8_NFC, CanonicalCursor,
+    CanonicalDecodeError, CanonicalDecodeLimits, CanonicalError, CanonicalField,
+    decode_canonical_segment, encode_canonical_segment, sha256,
 };
 use crate::command::{
-    CommandDecodeError, CommandPhase, IssuerPrincipal, WorldCommand,
+    CommandDecodeError, CommandPhase, IssuerPrincipal, PrincipalDecodeError, WorldCommand,
     compute_command_id_from_body_bytes,
 };
 use crate::ids::{
-    CommandBodyHash, CommandId, CommandStreamId, ContentHash, EventId, SchemaId, WorldNamespaceId,
-    command_body_hash_from_bytes, content_hash_from_bytes,
+    CommandBodyHash, CommandId, CommandLedgerHash, CommandStreamId, ContentHash, EventId, SchemaId,
+    WorldNamespaceId, command_body_hash_from_bytes, command_ledger_hash_from_bytes,
+    content_hash_from_bytes,
 };
 
 pub const COMMAND_RESERVATION_SCHEMA_VERSION: u16 = 1;
@@ -33,6 +35,12 @@ pub const COMMAND_RECEIPT_SEGMENT_ID: &str = "v1";
 pub const COMMAND_IDENTITY_INDEX_BODY_OWNER_ID: &str = "nextengine.runtime";
 pub const COMMAND_IDENTITY_INDEX_BODY_SCHEMA_ID: &str = "nextengine.command-identity-index-body";
 pub const COMMAND_IDENTITY_INDEX_BODY_SEGMENT_ID: &str = "v1";
+pub const COMMAND_LEDGER_OWNER_ID: &str = "nextengine.runtime";
+pub const COMMAND_LEDGER_SCHEMA_ID: &str = "nextengine.command-ledger";
+pub const COMMAND_LEDGER_SEGMENT_ID: &str = "v2";
+pub const COMMAND_BODY_ARCHIVE_OWNER_ID: &str = "nextengine.runtime";
+pub const COMMAND_BODY_ARCHIVE_SCHEMA_ID: &str = "nextengine.command-body-archive";
+pub const COMMAND_BODY_ARCHIVE_SEGMENT_ID: &str = "v1";
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
@@ -426,6 +434,77 @@ impl CommandBodyArchiveV1 {
         }
         let _ = self.manifest()?;
         Ok(())
+    }
+
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, CanonicalError> {
+        let mut entries = Vec::new();
+        entries.extend_from_slice(
+            &u32::try_from(self.entries.len())
+                .map_err(|_| CanonicalError::LengthOverflow)?
+                .to_le_bytes(),
+        );
+        for (body_hash, body_bytes) in &self.entries {
+            entries.extend_from_slice(body_hash.as_bytes());
+            extend_u32_bytes(&mut entries, body_bytes)?;
+        }
+        encode_canonical_segment(
+            COMMAND_BODY_ARCHIVE_OWNER_ID,
+            COMMAND_BODY_ARCHIVE_SCHEMA_ID,
+            COMMAND_BODY_ARCHIVE_SEGMENT_ID,
+            [
+                CanonicalField::new(
+                    1,
+                    CANONICAL_TYPE_U16,
+                    COMMAND_BODY_ARCHIVE_SCHEMA_VERSION.to_le_bytes().to_vec(),
+                ),
+                CanonicalField::new(2, CANONICAL_TYPE_MAP, entries),
+            ],
+        )
+    }
+
+    pub fn from_canonical_bytes(
+        bytes: &[u8],
+        limits: CanonicalDecodeLimits,
+    ) -> Result<Self, CommandLedgerError> {
+        let segment = decode_canonical_segment(bytes, limits)?;
+        if segment.owner_id != COMMAND_BODY_ARCHIVE_OWNER_ID
+            || segment.schema_id != COMMAND_BODY_ARCHIVE_SCHEMA_ID
+            || segment.segment_id != COMMAND_BODY_ARCHIVE_SEGMENT_ID
+        {
+            return Err(CommandLedgerError::WrongEnvelope);
+        }
+        require_ledger_fields(
+            &segment,
+            &[(1, CANONICAL_TYPE_U16), (2, CANONICAL_TYPE_MAP)],
+        )?;
+        let version = u16::from_le_bytes(fixed_field(&segment, 1)?);
+        if version != COMMAND_BODY_ARCHIVE_SCHEMA_VERSION {
+            return Err(CommandLedgerError::UnsupportedArchiveVersion(version));
+        }
+        let mut cursor = CanonicalCursor::new(&ledger_field(&segment, 2)?.payload);
+        let count = cursor.read_count(limits.max_sequence_items, |actual, limit| {
+            CanonicalDecodeError::TooManyFields { actual, limit }
+        })?;
+        let mut entries = BTreeMap::new();
+        let mut previous = None;
+        for _ in 0..count {
+            let body_hash = CommandBodyHash::from_bytes(read_array(&mut cursor)?);
+            if previous.is_some_and(|prior| prior >= body_hash) {
+                return Err(CommandLedgerError::MapNotStrictlySorted);
+            }
+            let body_bytes = cursor
+                .read_u32_length_prefixed(limits.max_total_bytes)?
+                .to_vec();
+            entries.insert(body_hash, body_bytes);
+            previous = Some(body_hash);
+        }
+        cursor.finish()?;
+        let archive = Self { entries };
+        archive.validate()?;
+        if archive.canonical_bytes()? != bytes {
+            return Err(CommandLedgerError::NonCanonicalEncoding);
+        }
+        Ok(archive)
     }
 }
 
@@ -1190,6 +1269,44 @@ pub struct CausalIdentityRegistryV1 {
     pub bindings: BTreeMap<CausalIdentityKey, ContentHash>,
 }
 
+impl CausalIdentityRegistryV1 {
+    pub fn compare_or_insert(
+        &mut self,
+        key: CausalIdentityKey,
+        provenance_hash: ContentHash,
+    ) -> Result<IdentityInsertResult, CommandLedgerError> {
+        if self.schema_version != CAUSAL_IDENTITY_REGISTRY_SCHEMA_VERSION {
+            return Err(CommandLedgerError::CausalIdentityRegistryMismatch);
+        }
+        match self.bindings.get(&key) {
+            Some(existing) if *existing == provenance_hash => Ok(IdentityInsertResult::Existing),
+            Some(_) => Ok(IdentityInsertResult::Collision),
+            None => {
+                let mut next = self.clone();
+                next.bindings.insert(key, provenance_hash);
+                *self = next;
+                Ok(IdentityInsertResult::Inserted)
+            }
+        }
+    }
+
+    pub fn compare_or_insert_provenance(
+        &mut self,
+        identity_kind: CausalIdentityKind,
+        identity_bytes: [u8; 16],
+        canonical_provenance_bytes: &[u8],
+    ) -> Result<IdentityInsertResult, CommandLedgerError> {
+        let provenance_hash = causal_provenance_hash(identity_kind, canonical_provenance_bytes)?;
+        self.compare_or_insert(
+            CausalIdentityKey {
+                identity_kind,
+                identity_bytes,
+            },
+            provenance_hash,
+        )
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandLedgerV2 {
     pub schema_version: u16,
@@ -1311,18 +1428,140 @@ impl CommandLedgerV2 {
         }
         Ok(())
     }
+
+    pub fn canonical_bytes(
+        &self,
+        archive: &CommandBodyArchiveV1,
+    ) -> Result<Vec<u8>, CommandLedgerError> {
+        self.validate(archive)?;
+        encode_canonical_segment(
+            COMMAND_LEDGER_OWNER_ID,
+            COMMAND_LEDGER_SCHEMA_ID,
+            COMMAND_LEDGER_SEGMENT_ID,
+            [
+                CanonicalField::new(
+                    1,
+                    CANONICAL_TYPE_U16,
+                    self.schema_version.to_le_bytes().to_vec(),
+                ),
+                CanonicalField::new(
+                    2,
+                    CANONICAL_TYPE_ID128,
+                    self.world_namespace.as_bytes().to_vec(),
+                ),
+                CanonicalField::new(3, CANONICAL_TYPE_MAP, encode_streams(&self.streams)?),
+                CanonicalField::new(
+                    4,
+                    CANONICAL_TYPE_HASH256,
+                    self.command_kind_registry_hash.as_bytes().to_vec(),
+                ),
+                CanonicalField::new(
+                    5,
+                    CANONICAL_TYPE_HASH256,
+                    self.runtime_determinism_profile_hash.as_bytes().to_vec(),
+                ),
+                CanonicalField::new(
+                    6,
+                    CANONICAL_TYPE_STRUCT,
+                    encode_archive_manifest(self.body_archive),
+                ),
+                CanonicalField::new(
+                    7,
+                    CANONICAL_TYPE_BYTES,
+                    encode_identity_index(&self.identity_index)?,
+                ),
+                CanonicalField::new(
+                    8,
+                    CANONICAL_TYPE_MAP,
+                    encode_causal_registry(&self.causal_identity_registry)?,
+                ),
+            ],
+        )
+        .map_err(Into::into)
+    }
+
+    pub fn from_canonical_bytes(
+        bytes: &[u8],
+        archive: &CommandBodyArchiveV1,
+        limits: CanonicalDecodeLimits,
+    ) -> Result<Self, CommandLedgerError> {
+        let segment = decode_canonical_segment(bytes, limits)?;
+        if segment.owner_id != COMMAND_LEDGER_OWNER_ID
+            || segment.schema_id != COMMAND_LEDGER_SCHEMA_ID
+            || segment.segment_id != COMMAND_LEDGER_SEGMENT_ID
+        {
+            return Err(CommandLedgerError::WrongEnvelope);
+        }
+        require_ledger_fields(
+            &segment,
+            &[
+                (1, CANONICAL_TYPE_U16),
+                (2, CANONICAL_TYPE_ID128),
+                (3, CANONICAL_TYPE_MAP),
+                (4, CANONICAL_TYPE_HASH256),
+                (5, CANONICAL_TYPE_HASH256),
+                (6, CANONICAL_TYPE_STRUCT),
+                (7, CANONICAL_TYPE_BYTES),
+                (8, CANONICAL_TYPE_MAP),
+            ],
+        )?;
+        let schema_version = u16::from_le_bytes(fixed_field(&segment, 1)?);
+        if schema_version != COMMAND_LEDGER_SCHEMA_VERSION {
+            return Err(CommandLedgerError::UnsupportedLedgerVersion(schema_version));
+        }
+        let world_namespace = WorldNamespaceId::from_bytes(fixed_field(&segment, 2)?);
+        let ledger = Self {
+            schema_version,
+            world_namespace,
+            streams: decode_streams(&ledger_field(&segment, 3)?.payload, limits)?,
+            command_kind_registry_hash: ContentHash::from_bytes(fixed_field(&segment, 4)?),
+            runtime_determinism_profile_hash: ContentHash::from_bytes(fixed_field(&segment, 5)?),
+            body_archive: decode_archive_manifest(&ledger_field(&segment, 6)?.payload)?,
+            identity_index: decode_identity_index(&ledger_field(&segment, 7)?.payload, limits)?,
+            causal_identity_registry: decode_causal_registry(
+                &ledger_field(&segment, 8)?.payload,
+                world_namespace,
+                limits,
+            )?,
+        };
+        ledger.validate(archive)?;
+        if ledger.canonical_bytes(archive)? != bytes {
+            return Err(CommandLedgerError::NonCanonicalEncoding);
+        }
+        Ok(ledger)
+    }
+
+    pub fn command_ledger_hash(
+        &self,
+        archive: &CommandBodyArchiveV1,
+    ) -> Result<CommandLedgerHash, CommandLedgerError> {
+        let bytes = self.canonical_bytes(archive)?;
+        let mut preimage = Vec::new();
+        preimage.extend_from_slice(b"nextengine.command-ledger.v2\0");
+        preimage.extend_from_slice(
+            &u64::try_from(bytes.len())
+                .map_err(|_| CommandLedgerError::CountOverflow)?
+                .to_le_bytes(),
+        );
+        preimage.extend_from_slice(&bytes);
+        Ok(command_ledger_hash_from_bytes(sha256(&preimage)))
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum CommandLedgerError {
     Canonical(CanonicalError),
+    Decode(CanonicalDecodeError),
     Command(CommandDecodeError),
+    Principal(PrincipalDecodeError),
+    Identifier(crate::IdentifierError),
     CountOverflow,
     UnsupportedLedgerVersion(u16),
     UnsupportedStreamLedgerVersion(u16),
     UnsupportedReceiptVersion(u16),
     UnsupportedIdentityIndexVersion(u16),
+    UnsupportedArchiveVersion(u16),
     CommandBodyHashCollision,
     CommandBodyArchiveCorrupt,
     IdentityIndexCountMismatch,
@@ -1355,13 +1594,32 @@ pub enum CommandLedgerError {
     BodyReferenceMissing,
     IdentityReferenceMissing,
     IdentityCommandIdMismatch,
+    WrongEnvelope,
+    MissingField(u32),
+    UnknownField(u32),
+    WrongFieldType {
+        field_id: u32,
+        expected: u8,
+        actual: u8,
+    },
+    InvalidFieldLength {
+        field_id: u32,
+        expected: usize,
+        actual: usize,
+    },
+    UnknownTag(u8),
+    MapNotStrictlySorted,
+    NonCanonicalEncoding,
 }
 
 impl Display for CommandLedgerError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Canonical(error) => write!(formatter, "ledger canonicalization failed: {error}"),
+            Self::Decode(error) => write!(formatter, "ledger encoding is invalid: {error}"),
             Self::Command(error) => write!(formatter, "ledger command body is invalid: {error}"),
+            Self::Principal(error) => write!(formatter, "ledger principal is invalid: {error}"),
+            Self::Identifier(error) => write!(formatter, "ledger identifier is invalid: {error}"),
             Self::CountOverflow => formatter.write_str("ledger count overflow"),
             Self::UnsupportedLedgerVersion(version) => {
                 write!(formatter, "unsupported command ledger version {version}")
@@ -1379,6 +1637,12 @@ impl Display for CommandLedgerError {
                 write!(
                     formatter,
                     "unsupported command identity index version {version}"
+                )
+            }
+            Self::UnsupportedArchiveVersion(version) => {
+                write!(
+                    formatter,
+                    "unsupported command body archive version {version}"
                 )
             }
             Self::CommandBodyHashCollision => {
@@ -1473,6 +1737,30 @@ impl Display for CommandLedgerError {
             Self::IdentityCommandIdMismatch => {
                 formatter.write_str("identity index command ID does not match archived body bytes")
             }
+            Self::WrongEnvelope => formatter.write_str("ledger envelope does not match"),
+            Self::MissingField(field_id) => write!(formatter, "ledger field {field_id} is missing"),
+            Self::UnknownField(field_id) => write!(formatter, "ledger field {field_id} is unknown"),
+            Self::WrongFieldType {
+                field_id,
+                expected,
+                actual,
+            } => write!(
+                formatter,
+                "ledger field {field_id} has type {actual:#04x}; expected {expected:#04x}"
+            ),
+            Self::InvalidFieldLength {
+                field_id,
+                expected,
+                actual,
+            } => write!(
+                formatter,
+                "ledger field {field_id} has {actual} bytes; expected {expected}"
+            ),
+            Self::UnknownTag(tag) => write!(formatter, "ledger tag {tag} is unknown"),
+            Self::MapNotStrictlySorted => formatter.write_str("ledger map is not strictly sorted"),
+            Self::NonCanonicalEncoding => {
+                formatter.write_str("ledger does not re-encode byte-exactly")
+            }
         }
     }
 }
@@ -1485,10 +1773,811 @@ impl From<CanonicalError> for CommandLedgerError {
     }
 }
 
+impl From<CanonicalDecodeError> for CommandLedgerError {
+    fn from(error: CanonicalDecodeError) -> Self {
+        Self::Decode(error)
+    }
+}
+
 impl From<CommandDecodeError> for CommandLedgerError {
     fn from(error: CommandDecodeError) -> Self {
         Self::Command(error)
     }
+}
+
+impl From<PrincipalDecodeError> for CommandLedgerError {
+    fn from(error: PrincipalDecodeError) -> Self {
+        Self::Principal(error)
+    }
+}
+
+impl From<crate::IdentifierError> for CommandLedgerError {
+    fn from(error: crate::IdentifierError) -> Self {
+        Self::Identifier(error)
+    }
+}
+
+pub fn causal_provenance_hash(
+    identity_kind: CausalIdentityKind,
+    canonical_provenance_bytes: &[u8],
+) -> Result<ContentHash, CanonicalError> {
+    let mut preimage = Vec::new();
+    preimage.extend_from_slice(b"nextengine.causal-provenance.v1\0");
+    preimage.push(identity_kind as u8);
+    preimage.extend_from_slice(
+        &u64::try_from(canonical_provenance_bytes.len())
+            .map_err(|_| CanonicalError::LengthOverflow)?
+            .to_le_bytes(),
+    );
+    preimage.extend_from_slice(canonical_provenance_bytes);
+    Ok(content_hash_from_bytes(sha256(&preimage)))
+}
+
+fn encode_streams(
+    streams: &BTreeMap<CommandStreamId, CommandStreamLedgerV2>,
+) -> Result<Vec<u8>, CommandLedgerError> {
+    let mut writer = LedgerWriter::default();
+    writer.count(streams.len())?;
+    for (stream_id, stream) in streams {
+        writer.bytes(stream_id.as_bytes());
+        encode_stream(&mut writer, stream)?;
+    }
+    Ok(writer.finish())
+}
+
+fn decode_streams(
+    bytes: &[u8],
+    limits: CanonicalDecodeLimits,
+) -> Result<BTreeMap<CommandStreamId, CommandStreamLedgerV2>, CommandLedgerError> {
+    let mut reader = LedgerReader::new(bytes, limits);
+    let count = reader.count()?;
+    let mut streams = BTreeMap::new();
+    let mut previous = None;
+    for _ in 0..count {
+        let stream_id = CommandStreamId::from_bytes(reader.array()?);
+        if previous.is_some_and(|prior| prior >= stream_id) {
+            return Err(CommandLedgerError::MapNotStrictlySorted);
+        }
+        let stream = decode_stream(&mut reader)?;
+        if stream.stream_id != stream_id || streams.insert(stream_id, stream).is_some() {
+            return Err(CommandLedgerError::StreamKeyMismatch);
+        }
+        previous = Some(stream_id);
+    }
+    reader.finish()?;
+    Ok(streams)
+}
+
+fn encode_stream(
+    writer: &mut LedgerWriter,
+    stream: &CommandStreamLedgerV2,
+) -> Result<(), CommandLedgerError> {
+    writer.u16(stream.schema_version);
+    writer.bytes(stream.stream_id.as_bytes());
+    writer.principal(&stream.issuer)?;
+    writer.u32(stream.stream_slot);
+    writer.u32(stream.stream_epoch);
+    writer.u8(stream.state as u8);
+    writer.option_u64(stream.admission_high_watermark);
+    writer.option_u64(stream.greatest_reserved_target_tick);
+    writer.count(stream.pending.len())?;
+    for (sequence, reservation) in &stream.pending {
+        writer.u64(*sequence);
+        encode_reservation(writer, reservation)?;
+    }
+    writer.count(stream.receipt_window.len())?;
+    for receipt in &stream.receipt_window {
+        encode_receipt(writer, receipt)?;
+    }
+    writer.u64(stream.finalized_receipt_count);
+    writer.bytes(stream.receipt_chain_root.as_bytes());
+    match &stream.collision_incident {
+        None => writer.u8(0),
+        Some(incident) => {
+            writer.u8(1);
+            encode_incident(writer, incident)?;
+        }
+    }
+    Ok(())
+}
+
+fn decode_stream(
+    reader: &mut LedgerReader<'_>,
+) -> Result<CommandStreamLedgerV2, CommandLedgerError> {
+    let schema_version = reader.u16()?;
+    if schema_version != COMMAND_STREAM_LEDGER_SCHEMA_VERSION {
+        return Err(CommandLedgerError::UnsupportedStreamLedgerVersion(
+            schema_version,
+        ));
+    }
+    let stream_id = CommandStreamId::from_bytes(reader.array()?);
+    let issuer = reader.principal()?;
+    let stream_slot = reader.u32()?;
+    let stream_epoch = reader.u32()?;
+    let state = match reader.u8()? {
+        0 => CommandStreamStateV1::Open,
+        1 => CommandStreamStateV1::CollisionLocked,
+        2 => CommandStreamStateV1::Exhausted,
+        3 => CommandStreamStateV1::Closed,
+        tag => return Err(CommandLedgerError::UnknownTag(tag)),
+    };
+    let admission_high_watermark = reader.option_u64()?;
+    let greatest_reserved_target_tick = reader.option_u64()?;
+    let pending_count = reader.count()?;
+    if pending_count > COMMAND_PENDING_CAPACITY {
+        return Err(CommandLedgerError::PendingLimit);
+    }
+    let mut pending = BTreeMap::new();
+    let mut previous = None;
+    for _ in 0..pending_count {
+        let sequence = reader.u64()?;
+        if previous.is_some_and(|prior| prior >= sequence) {
+            return Err(CommandLedgerError::MapNotStrictlySorted);
+        }
+        let reservation = decode_reservation(reader)?;
+        if reservation.sequence != sequence || pending.insert(sequence, reservation).is_some() {
+            return Err(CommandLedgerError::ReservationMismatch);
+        }
+        previous = Some(sequence);
+    }
+    let receipt_count = reader.count()?;
+    if receipt_count > COMMAND_RECEIPT_WINDOW_CAPACITY {
+        return Err(CommandLedgerError::ReceiptWindowLengthMismatch);
+    }
+    let mut receipt_window = Vec::with_capacity(receipt_count);
+    for _ in 0..receipt_count {
+        receipt_window.push(decode_receipt(reader)?);
+    }
+    let finalized_receipt_count = reader.u64()?;
+    let receipt_chain_root = ContentHash::from_bytes(reader.array()?);
+    let collision_incident = match reader.u8()? {
+        0 => None,
+        1 => Some(decode_incident(reader)?),
+        tag => return Err(CommandLedgerError::UnknownTag(tag)),
+    };
+    Ok(CommandStreamLedgerV2 {
+        schema_version,
+        stream_id,
+        issuer,
+        stream_slot,
+        stream_epoch,
+        state,
+        admission_high_watermark,
+        greatest_reserved_target_tick,
+        pending,
+        receipt_window,
+        finalized_receipt_count,
+        receipt_chain_root,
+        collision_incident,
+    })
+}
+
+fn encode_reservation(
+    writer: &mut LedgerWriter,
+    reservation: &CommandReservationV1,
+) -> Result<(), CommandLedgerError> {
+    writer.u16(reservation.schema_version);
+    writer.bytes(reservation.stream_id.as_bytes());
+    writer.principal(&reservation.issuer)?;
+    writer.u64(reservation.sequence);
+    writer.bytes(reservation.command_id.as_bytes());
+    writer.bytes(reservation.body_hash.as_bytes());
+    writer.bytes(reservation.canonical_body_ref.as_bytes());
+    writer.u64(reservation.reserved_at_tick);
+    writer.u64(reservation.target_tick);
+    writer.u8(reservation.phase as u8);
+    writer.u16(reservation.priority_class);
+    writer.bytes(reservation.command_kind_registry_hash.as_bytes());
+    Ok(())
+}
+
+fn decode_reservation(
+    reader: &mut LedgerReader<'_>,
+) -> Result<CommandReservationV1, CommandLedgerError> {
+    let schema_version = reader.u16()?;
+    if schema_version != COMMAND_RESERVATION_SCHEMA_VERSION {
+        return Err(CommandLedgerError::ReservationMismatch);
+    }
+    Ok(CommandReservationV1 {
+        schema_version,
+        stream_id: CommandStreamId::from_bytes(reader.array()?),
+        issuer: reader.principal()?,
+        sequence: reader.u64()?,
+        command_id: CommandId::from_bytes(reader.array()?),
+        body_hash: CommandBodyHash::from_bytes(reader.array()?),
+        canonical_body_ref: CommandBodyHash::from_bytes(reader.array()?),
+        reserved_at_tick: reader.u64()?,
+        target_tick: reader.u64()?,
+        phase: decode_phase(reader.u8()?)?,
+        priority_class: reader.u16()?,
+        command_kind_registry_hash: ContentHash::from_bytes(reader.array()?),
+    })
+}
+
+fn encode_candidate(writer: &mut LedgerWriter, candidate: &CommandCollisionCandidateV1) {
+    writer.bytes(candidate.command_id.as_bytes());
+    writer.bytes(candidate.body_hash.as_bytes());
+    writer.bytes(candidate.canonical_body_ref.as_bytes());
+}
+
+fn decode_candidate(
+    reader: &mut LedgerReader<'_>,
+) -> Result<CommandCollisionCandidateV1, CommandLedgerError> {
+    Ok(CommandCollisionCandidateV1 {
+        command_id: CommandId::from_bytes(reader.array()?),
+        body_hash: CommandBodyHash::from_bytes(reader.array()?),
+        canonical_body_ref: CommandBodyHash::from_bytes(reader.array()?),
+    })
+}
+
+fn encode_incident(
+    writer: &mut LedgerWriter,
+    incident: &CommandCollisionIncidentV1,
+) -> Result<(), CommandLedgerError> {
+    writer.bytes(incident.stream_id.as_bytes());
+    writer.principal(&incident.issuer)?;
+    writer.u64(incident.sequence);
+    writer.count(incident.candidates.len())?;
+    for candidate in &incident.candidates {
+        encode_candidate(writer, candidate);
+    }
+    writer.bytes(incident.candidates_root.as_bytes());
+    writer.bytes(incident.incident_digest.as_bytes());
+    Ok(())
+}
+
+fn decode_incident(
+    reader: &mut LedgerReader<'_>,
+) -> Result<CommandCollisionIncidentV1, CommandLedgerError> {
+    let stream_id = CommandStreamId::from_bytes(reader.array()?);
+    let issuer = reader.principal()?;
+    let sequence = reader.u64()?;
+    let count = reader.count()?;
+    let mut candidates = Vec::with_capacity(count);
+    for _ in 0..count {
+        candidates.push(decode_candidate(reader)?);
+    }
+    let incident = CommandCollisionIncidentV1 {
+        stream_id,
+        issuer,
+        sequence,
+        candidates,
+        candidates_root: ContentHash::from_bytes(reader.array()?),
+        incident_digest: ContentHash::from_bytes(reader.array()?),
+    };
+    incident.validate()?;
+    Ok(incident)
+}
+
+fn encode_receipt(
+    writer: &mut LedgerWriter,
+    receipt: &CommandReceiptV1,
+) -> Result<(), CommandLedgerError> {
+    writer.u16(receipt.schema_version);
+    writer.u64(receipt.finalization_ordinal);
+    match &receipt.subject {
+        CommandReceiptSubjectV1::Command {
+            stream_id,
+            issuer,
+            sequence,
+            command_id,
+            body_hash,
+            canonical_body_ref,
+        } => {
+            writer.u8(1);
+            writer.bytes(stream_id.as_bytes());
+            writer.principal(issuer)?;
+            writer.u64(*sequence);
+            writer.bytes(command_id.as_bytes());
+            writer.bytes(body_hash.as_bytes());
+            writer.bytes(canonical_body_ref.as_bytes());
+        }
+        CommandReceiptSubjectV1::CollisionSet {
+            stream_id,
+            issuer,
+            sequence,
+            candidates_root,
+            candidate_count,
+            candidates,
+        } => {
+            writer.u8(2);
+            writer.bytes(stream_id.as_bytes());
+            writer.principal(issuer)?;
+            writer.u64(*sequence);
+            writer.bytes(candidates_root.as_bytes());
+            writer.u32(*candidate_count);
+            writer.count(candidates.len())?;
+            for candidate in candidates {
+                encode_candidate(writer, candidate);
+            }
+        }
+    }
+    writer.u8(receipt.phase as u8);
+    writer.u64(receipt.target_tick);
+    writer.u64(receipt.finalized_at_tick);
+    writer.u16(receipt.priority_class);
+    writer.bytes(receipt.command_kind_registry_hash.as_bytes());
+    match &receipt.result {
+        CommandFinalResultV1::Committed => writer.u8(1),
+        CommandFinalResultV1::Rejected { code } => {
+            writer.u8(2);
+            writer.text(code.as_str())?;
+        }
+        CommandFinalResultV1::Collision { code } => {
+            writer.u8(3);
+            writer.text(code.as_str())?;
+        }
+    }
+    writer.option_hash(receipt.diagnostic_digest);
+    writer.count(receipt.event_ids.len())?;
+    for event_id in &receipt.event_ids {
+        writer.bytes(event_id.as_bytes());
+    }
+    writer.bytes(receipt.transaction_result_root.as_bytes());
+    Ok(())
+}
+
+fn decode_receipt(reader: &mut LedgerReader<'_>) -> Result<CommandReceiptV1, CommandLedgerError> {
+    let schema_version = reader.u16()?;
+    if schema_version != COMMAND_RECEIPT_SCHEMA_VERSION {
+        return Err(CommandLedgerError::UnsupportedReceiptVersion(
+            schema_version,
+        ));
+    }
+    let finalization_ordinal = reader.u64()?;
+    let subject = match reader.u8()? {
+        1 => CommandReceiptSubjectV1::Command {
+            stream_id: CommandStreamId::from_bytes(reader.array()?),
+            issuer: reader.principal()?,
+            sequence: reader.u64()?,
+            command_id: CommandId::from_bytes(reader.array()?),
+            body_hash: CommandBodyHash::from_bytes(reader.array()?),
+            canonical_body_ref: CommandBodyHash::from_bytes(reader.array()?),
+        },
+        2 => {
+            let stream_id = CommandStreamId::from_bytes(reader.array()?);
+            let issuer = reader.principal()?;
+            let sequence = reader.u64()?;
+            let candidates_root = ContentHash::from_bytes(reader.array()?);
+            let candidate_count = reader.u32()?;
+            let count = reader.count()?;
+            let mut candidates = Vec::with_capacity(count);
+            for _ in 0..count {
+                candidates.push(decode_candidate(reader)?);
+            }
+            CommandReceiptSubjectV1::CollisionSet {
+                stream_id,
+                issuer,
+                sequence,
+                candidates_root,
+                candidate_count,
+                candidates,
+            }
+        }
+        tag => return Err(CommandLedgerError::UnknownTag(tag)),
+    };
+    let phase = decode_phase(reader.u8()?)?;
+    let target_tick = reader.u64()?;
+    let finalized_at_tick = reader.u64()?;
+    let priority_class = reader.u16()?;
+    let command_kind_registry_hash = ContentHash::from_bytes(reader.array()?);
+    let result = match reader.u8()? {
+        1 => CommandFinalResultV1::Committed,
+        2 => CommandFinalResultV1::Rejected {
+            code: SchemaId::new(reader.text()?)?,
+        },
+        3 => CommandFinalResultV1::Collision {
+            code: SchemaId::new(reader.text()?)?,
+        },
+        tag => return Err(CommandLedgerError::UnknownTag(tag)),
+    };
+    let diagnostic_digest = reader.option_hash()?;
+    let event_count = reader.count()?;
+    let mut event_ids = Vec::with_capacity(event_count);
+    for _ in 0..event_count {
+        event_ids.push(EventId::from_bytes(reader.array()?));
+    }
+    let receipt = CommandReceiptV1 {
+        schema_version,
+        finalization_ordinal,
+        subject,
+        phase,
+        target_tick,
+        finalized_at_tick,
+        priority_class,
+        command_kind_registry_hash,
+        result,
+        diagnostic_digest,
+        event_ids,
+        transaction_result_root: ContentHash::from_bytes(reader.array()?),
+    };
+    receipt.validate()?;
+    Ok(receipt)
+}
+
+fn encode_archive_manifest(manifest: CommandBodyArchiveManifestV1) -> Vec<u8> {
+    let mut writer = LedgerWriter::default();
+    writer.u16(manifest.schema_version);
+    writer.u64(manifest.entry_count);
+    writer.bytes(manifest.archive_root.as_bytes());
+    writer.finish()
+}
+
+fn decode_archive_manifest(
+    bytes: &[u8],
+) -> Result<CommandBodyArchiveManifestV1, CommandLedgerError> {
+    let mut reader = LedgerReader::new(bytes, CanonicalDecodeLimits::default());
+    let manifest = CommandBodyArchiveManifestV1 {
+        schema_version: reader.u16()?,
+        entry_count: reader.u64()?,
+        archive_root: ContentHash::from_bytes(reader.array()?),
+    };
+    reader.finish()?;
+    if manifest.schema_version != COMMAND_BODY_ARCHIVE_SCHEMA_VERSION {
+        return Err(CommandLedgerError::UnsupportedArchiveVersion(
+            manifest.schema_version,
+        ));
+    }
+    Ok(manifest)
+}
+
+fn encode_identity_index(index: &CommandIdentityIndexV1) -> Result<Vec<u8>, CommandLedgerError> {
+    let mut writer = LedgerWriter::default();
+    writer.u16(index.schema_version);
+    writer.u16(index.body.schema_version);
+    writer.u64(index.body.command_id_count);
+    writer.u64(index.body.occurrence_count);
+    writer.count(index.body.bindings.len())?;
+    for (command_id, binding) in &index.body.bindings {
+        writer.bytes(command_id.as_bytes());
+        writer.bytes(binding.command_id.as_bytes());
+        writer.u8(binding.state as u8);
+        writer.count(binding.occurrences.len())?;
+        for occurrence in &binding.occurrences {
+            writer.bytes(occurrence.body_hash.as_bytes());
+            writer.bytes(occurrence.first_stream_id.as_bytes());
+            writer.u64(occurrence.first_sequence);
+        }
+    }
+    writer.bytes(index.index_root.as_bytes());
+    Ok(writer.finish())
+}
+
+fn decode_identity_index(
+    bytes: &[u8],
+    limits: CanonicalDecodeLimits,
+) -> Result<CommandIdentityIndexV1, CommandLedgerError> {
+    let mut reader = LedgerReader::new(bytes, limits);
+    let schema_version = reader.u16()?;
+    let body_schema_version = reader.u16()?;
+    let command_id_count = reader.u64()?;
+    let occurrence_count = reader.u64()?;
+    let count = reader.count()?;
+    let mut bindings = BTreeMap::new();
+    let mut previous = None;
+    for _ in 0..count {
+        let key = CommandId::from_bytes(reader.array()?);
+        if previous.is_some_and(|prior| prior >= key) {
+            return Err(CommandLedgerError::MapNotStrictlySorted);
+        }
+        let command_id = CommandId::from_bytes(reader.array()?);
+        let state = match reader.u8()? {
+            0 => CommandIdentityBindingState::Unique,
+            1 => CommandIdentityBindingState::Collision,
+            tag => return Err(CommandLedgerError::UnknownTag(tag)),
+        };
+        let occurrence_len = reader.count()?;
+        let mut occurrences = Vec::with_capacity(occurrence_len);
+        for _ in 0..occurrence_len {
+            occurrences.push(CommandIdentityOccurrenceV1 {
+                body_hash: CommandBodyHash::from_bytes(reader.array()?),
+                first_stream_id: CommandStreamId::from_bytes(reader.array()?),
+                first_sequence: reader.u64()?,
+            });
+        }
+        bindings.insert(
+            key,
+            CommandIdentityBindingV1 {
+                command_id,
+                occurrences,
+                state,
+            },
+        );
+        previous = Some(key);
+    }
+    let index = CommandIdentityIndexV1 {
+        schema_version,
+        body: CommandIdentityIndexBodyV1 {
+            schema_version: body_schema_version,
+            bindings,
+            command_id_count,
+            occurrence_count,
+        },
+        index_root: ContentHash::from_bytes(reader.array()?),
+    };
+    reader.finish()?;
+    index.validate()?;
+    Ok(index)
+}
+
+fn encode_causal_registry(
+    registry: &CausalIdentityRegistryV1,
+) -> Result<Vec<u8>, CommandLedgerError> {
+    let mut writer = LedgerWriter::default();
+    writer.u16(registry.schema_version);
+    writer.bytes(registry.world_namespace.as_bytes());
+    writer.count(registry.bindings.len())?;
+    for (key, hash) in &registry.bindings {
+        writer.u8(key.identity_kind as u8);
+        writer.bytes(&key.identity_bytes);
+        writer.bytes(hash.as_bytes());
+    }
+    Ok(writer.finish())
+}
+
+fn decode_causal_registry(
+    bytes: &[u8],
+    expected_world: WorldNamespaceId,
+    limits: CanonicalDecodeLimits,
+) -> Result<CausalIdentityRegistryV1, CommandLedgerError> {
+    let mut reader = LedgerReader::new(bytes, limits);
+    let schema_version = reader.u16()?;
+    let world_namespace = WorldNamespaceId::from_bytes(reader.array()?);
+    let count = reader.count()?;
+    let mut bindings = BTreeMap::new();
+    let mut previous = None;
+    for _ in 0..count {
+        let identity_kind = match reader.u8()? {
+            1 => CausalIdentityKind::PlayerPrincipal,
+            2 => CausalIdentityKind::CommandStream,
+            3 => CausalIdentityKind::DomainEvent,
+            4 => CausalIdentityKind::PersistentRecord,
+            5 => CausalIdentityKind::RngStream,
+            tag => return Err(CommandLedgerError::UnknownTag(tag)),
+        };
+        let key = CausalIdentityKey {
+            identity_kind,
+            identity_bytes: reader.array()?,
+        };
+        if previous.is_some_and(|prior| prior >= key) {
+            return Err(CommandLedgerError::MapNotStrictlySorted);
+        }
+        bindings.insert(key, ContentHash::from_bytes(reader.array()?));
+        previous = Some(key);
+    }
+    reader.finish()?;
+    if schema_version != CAUSAL_IDENTITY_REGISTRY_SCHEMA_VERSION
+        || world_namespace != expected_world
+    {
+        return Err(CommandLedgerError::CausalIdentityRegistryMismatch);
+    }
+    Ok(CausalIdentityRegistryV1 {
+        schema_version,
+        world_namespace,
+        bindings,
+    })
+}
+
+fn decode_phase(tag: u8) -> Result<CommandPhase, CommandLedgerError> {
+    match tag {
+        0 => Ok(CommandPhase::Ingress),
+        1 => Ok(CommandPhase::Outcome),
+        _ => Err(CommandLedgerError::UnknownTag(tag)),
+    }
+}
+
+fn extend_u32_bytes(output: &mut Vec<u8>, bytes: &[u8]) -> Result<(), CanonicalError> {
+    output.extend_from_slice(
+        &u32::try_from(bytes.len())
+            .map_err(|_| CanonicalError::LengthOverflow)?
+            .to_le_bytes(),
+    );
+    output.extend_from_slice(bytes);
+    Ok(())
+}
+
+fn require_ledger_fields(
+    segment: &crate::DecodedCanonicalSegment,
+    expected: &[(u32, u8)],
+) -> Result<(), CommandLedgerError> {
+    for actual in &segment.fields {
+        if !expected.iter().any(|(id, _)| *id == actual.field_id) {
+            return Err(CommandLedgerError::UnknownField(actual.field_id));
+        }
+    }
+    for (id, tag) in expected {
+        let actual = ledger_field(segment, *id)?;
+        if actual.type_tag != *tag {
+            return Err(CommandLedgerError::WrongFieldType {
+                field_id: *id,
+                expected: *tag,
+                actual: actual.type_tag,
+            });
+        }
+    }
+    Ok(())
+}
+
+fn ledger_field(
+    segment: &crate::DecodedCanonicalSegment,
+    id: u32,
+) -> Result<&CanonicalField, CommandLedgerError> {
+    segment
+        .field(id)
+        .ok_or(CommandLedgerError::MissingField(id))
+}
+
+fn fixed_field<const N: usize>(
+    segment: &crate::DecodedCanonicalSegment,
+    id: u32,
+) -> Result<[u8; N], CommandLedgerError> {
+    ledger_field(segment, id)?
+        .payload
+        .as_slice()
+        .try_into()
+        .map_err(|_| CommandLedgerError::InvalidFieldLength {
+            field_id: id,
+            expected: N,
+            actual: ledger_field(segment, id).map_or(0, |field| field.payload.len()),
+        })
+}
+
+#[derive(Default)]
+struct LedgerWriter {
+    bytes: Vec<u8>,
+}
+
+impl LedgerWriter {
+    fn finish(self) -> Vec<u8> {
+        self.bytes
+    }
+
+    fn bytes(&mut self, bytes: &[u8]) {
+        self.bytes.extend_from_slice(bytes);
+    }
+
+    fn u8(&mut self, value: u8) {
+        self.bytes.push(value);
+    }
+
+    fn u16(&mut self, value: u16) {
+        self.bytes.extend_from_slice(&value.to_le_bytes());
+    }
+
+    fn u32(&mut self, value: u32) {
+        self.bytes.extend_from_slice(&value.to_le_bytes());
+    }
+
+    fn u64(&mut self, value: u64) {
+        self.bytes.extend_from_slice(&value.to_le_bytes());
+    }
+
+    fn count(&mut self, value: usize) -> Result<(), CommandLedgerError> {
+        self.u32(u32::try_from(value).map_err(|_| CommandLedgerError::CountOverflow)?);
+        Ok(())
+    }
+
+    fn sized_bytes(&mut self, value: &[u8]) -> Result<(), CommandLedgerError> {
+        self.count(value.len())?;
+        self.bytes(value);
+        Ok(())
+    }
+
+    fn text(&mut self, value: &str) -> Result<(), CommandLedgerError> {
+        self.sized_bytes(value.as_bytes())
+    }
+
+    fn principal(&mut self, principal: &IssuerPrincipal) -> Result<(), CommandLedgerError> {
+        self.sized_bytes(&principal.canonical_bytes()?)
+    }
+
+    fn option_u64(&mut self, value: Option<u64>) {
+        match value {
+            None => self.u8(0),
+            Some(value) => {
+                self.u8(1);
+                self.u64(value);
+            }
+        }
+    }
+
+    fn option_hash(&mut self, value: Option<ContentHash>) {
+        match value {
+            None => self.u8(0),
+            Some(value) => {
+                self.u8(1);
+                self.bytes(value.as_bytes());
+            }
+        }
+    }
+}
+
+struct LedgerReader<'a> {
+    cursor: CanonicalCursor<'a>,
+    limits: CanonicalDecodeLimits,
+}
+
+impl<'a> LedgerReader<'a> {
+    fn new(bytes: &'a [u8], limits: CanonicalDecodeLimits) -> Self {
+        Self {
+            cursor: CanonicalCursor::new(bytes),
+            limits,
+        }
+    }
+
+    fn finish(self) -> Result<(), CommandLedgerError> {
+        self.cursor.finish().map_err(Into::into)
+    }
+
+    fn u8(&mut self) -> Result<u8, CommandLedgerError> {
+        self.cursor.read_u8().map_err(Into::into)
+    }
+
+    fn u16(&mut self) -> Result<u16, CommandLedgerError> {
+        self.cursor.read_u16().map_err(Into::into)
+    }
+
+    fn u32(&mut self) -> Result<u32, CommandLedgerError> {
+        self.cursor.read_u32().map_err(Into::into)
+    }
+
+    fn u64(&mut self) -> Result<u64, CommandLedgerError> {
+        self.cursor.read_u64().map_err(Into::into)
+    }
+
+    fn array<const N: usize>(&mut self) -> Result<[u8; N], CommandLedgerError> {
+        read_array(&mut self.cursor)
+    }
+
+    fn count(&mut self) -> Result<usize, CommandLedgerError> {
+        self.cursor
+            .read_count(self.limits.max_sequence_items, |actual, limit| {
+                CanonicalDecodeError::TooManyFields { actual, limit }
+            })
+            .map_err(Into::into)
+    }
+
+    fn sized_bytes(&mut self) -> Result<&'a [u8], CommandLedgerError> {
+        self.cursor
+            .read_u32_length_prefixed(self.limits.max_field_payload_bytes)
+            .map_err(Into::into)
+    }
+
+    fn text(&mut self) -> Result<&'a str, CommandLedgerError> {
+        std::str::from_utf8(self.sized_bytes()?)
+            .map_err(|_| CommandLedgerError::Decode(CanonicalDecodeError::InvalidUtf8))
+    }
+
+    fn principal(&mut self) -> Result<IssuerPrincipal, CommandLedgerError> {
+        let limits = self.limits;
+        let bytes = self.sized_bytes()?;
+        IssuerPrincipal::from_canonical_bytes(bytes, limits).map_err(Into::into)
+    }
+
+    fn option_u64(&mut self) -> Result<Option<u64>, CommandLedgerError> {
+        match self.u8()? {
+            0 => Ok(None),
+            1 => Ok(Some(self.u64()?)),
+            tag => Err(CommandLedgerError::UnknownTag(tag)),
+        }
+    }
+
+    fn option_hash(&mut self) -> Result<Option<ContentHash>, CommandLedgerError> {
+        match self.u8()? {
+            0 => Ok(None),
+            1 => Ok(Some(ContentHash::from_bytes(self.array()?))),
+            tag => Err(CommandLedgerError::UnknownTag(tag)),
+        }
+    }
+}
+
+fn read_array<const N: usize>(
+    cursor: &mut CanonicalCursor<'_>,
+) -> Result<[u8; N], CommandLedgerError> {
+    cursor
+        .read_exact(N)?
+        .try_into()
+        .map_err(|_| CommandLedgerError::Decode(CanonicalDecodeError::UnexpectedEnd))
 }
 
 fn collision_candidates_are_canonical(candidates: &[CommandCollisionCandidateV1]) -> bool {
@@ -1990,6 +3079,93 @@ mod tests {
             CommandIdentityBindingState::Collision
         );
         assert_eq!(index.body.occurrence_count, 2);
+    }
+
+    #[test]
+    fn complete_ledger_round_trip_rejects_corrupt_archive_index_and_chain_roots() {
+        let world_namespace = WorldNamespaceId::from_bytes([8; 16]);
+        let (mut ledger, mut archive) = CommandLedgerV2::empty(
+            world_namespace,
+            content_hash_from_bytes([3; 32]),
+            content_hash_from_bytes([5; 32]),
+        )
+        .expect("empty ledger");
+        let command = command(0, 0);
+        let command_id = command.compute_command_id().expect("command ID");
+        let body_hash = command.body_hash().expect("body hash");
+        archive.insert_command(&command).expect("archive command");
+        ledger
+            .identity_index
+            .insert_occurrence(
+                command_id,
+                CommandIdentityOccurrenceV1 {
+                    body_hash,
+                    first_stream_id: command.stream_id,
+                    first_sequence: command.sequence,
+                },
+            )
+            .expect("identity occurrence");
+        let mut stream =
+            CommandStreamLedgerV2::genesis(command.stream_id, command.issuer.clone(), 0, 0);
+        stream
+            .append_receipt(receipt(0, 0, CommandFinalResultV1::Committed))
+            .expect("receipt");
+        ledger.streams.insert(command.stream_id, stream);
+        ledger
+            .synchronize_archive(&archive)
+            .expect("archive closure");
+
+        let archive_bytes = archive.canonical_bytes().expect("archive bytes");
+        let decoded_archive = CommandBodyArchiveV1::from_canonical_bytes(
+            &archive_bytes,
+            CanonicalDecodeLimits::default(),
+        )
+        .expect("archive decodes");
+        assert_eq!(decoded_archive, archive);
+        let bytes = ledger.canonical_bytes(&archive).expect("ledger bytes");
+        let decoded = CommandLedgerV2::from_canonical_bytes(
+            &bytes,
+            &archive,
+            CanonicalDecodeLimits::default(),
+        )
+        .expect("ledger decodes");
+        assert_eq!(decoded, ledger);
+        assert_eq!(
+            decoded
+                .canonical_bytes(&archive)
+                .expect("ledger re-encodes"),
+            bytes
+        );
+
+        let mut corrupt_chain = ledger.clone();
+        corrupt_chain
+            .streams
+            .get_mut(&command.stream_id)
+            .expect("stream")
+            .receipt_chain_root = ContentHash::from_bytes([9; 32]);
+        assert_eq!(
+            corrupt_chain.validate(&archive),
+            Err(CommandLedgerError::ReceiptChainRootMismatch)
+        );
+
+        let mut corrupt_archive_root = ledger.clone();
+        corrupt_archive_root.body_archive.archive_root = ContentHash::from_bytes([9; 32]);
+        assert_eq!(
+            corrupt_archive_root.validate(&archive),
+            Err(CommandLedgerError::CommandBodyArchiveCorrupt)
+        );
+
+        let mut corrupt_index_root = ledger.clone();
+        corrupt_index_root.identity_index.index_root = ContentHash::from_bytes([9; 32]);
+        assert_eq!(
+            corrupt_index_root.validate(&archive),
+            Err(CommandLedgerError::IdentityIndexRootMismatch)
+        );
+
+        assert_eq!(
+            ledger.validate(&CommandBodyArchiveV1::default()),
+            Err(CommandLedgerError::CommandBodyArchiveCorrupt)
+        );
     }
 
     #[test]

@@ -67,6 +67,7 @@ name = "next_assets"
 version = "0.1.0"
 dependencies = [
  "next_contracts",
+ "next_runtime",
 ]
 
 [[package]]
@@ -87,6 +88,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "next_physics_api"
+version = "0.1.0"
+dependencies = [
+ "next_contracts",
+]
+
+[[package]]
 name = "next_rpg"
 version = "0.1.0"
 dependencies = [
@@ -98,6 +106,7 @@ name = "next_runtime"
 version = "0.1.0"
 dependencies = [
  "next_contracts",
+ "next_physics_api",
  "next_rpg",
 ]
 
@@ -107,6 +116,7 @@ version = "0.1.0"
 dependencies = [
  "next_assets",
  "next_contracts",
+ "next_physics_api",
  "next_runtime",
 ]
 
@@ -160,3 +170,6 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 [[package]]
 name = "xtask"
 version = "0.1.0"
+dependencies = [
+ "next_verification",
+]

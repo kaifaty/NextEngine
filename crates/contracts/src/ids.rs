@@ -53,6 +53,9 @@ opaque_id!(ContentHash, 32);
 opaque_id!(CommandLedgerHash, 32);
 opaque_id!(WorldNamespaceId, 16);
 opaque_id!(CommandBodyHash, 32);
+opaque_id!(InputSourceId, 16);
+opaque_id!(PhysicsWorldId, 16);
+opaque_id!(PhysicsContactId, 16);
 
 #[must_use]
 pub const fn content_hash_from_bytes(bytes: [u8; 32]) -> ContentHash {
@@ -104,6 +107,7 @@ macro_rules! text_id {
 }
 
 text_id!(SchemaId);
+text_id!(ProjectId);
 text_id!(CapabilityId);
 text_id!(MechanicPackageId);
 text_id!(PluginId);

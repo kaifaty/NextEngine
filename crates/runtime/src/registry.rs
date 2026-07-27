@@ -1,18 +1,21 @@
 use std::collections::BTreeMap;
 
 use next_contracts::{
-    CapabilityId, CommandPayload, CommandPhase, NOOP_COMMAND_CAPABILITY_ID, NOOP_COMMAND_SCHEMA_ID,
-    RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID, SchemaId,
+    CapabilityId, CommandPayload, CommandPhase, ContentHash, NOOP_COMMAND_CAPABILITY_ID,
+    NOOP_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_CAPABILITY_ID, PHYSICAL_COMMAND_SCHEMA_ID,
+    RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID, SchemaId, content_hash_from_bytes, sha256,
 };
 
 pub const COMMAND_KIND_REGISTRY_VERSION: u32 = 1;
 pub const NOOP_PRIORITY_CLASS: u16 = 100;
 pub const RPG_PRIORITY_CLASS: u16 = 200;
+pub const PHYSICAL_PRIORITY_CLASS: u16 = 300;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CommandPayloadKind {
     Noop,
     Rpg,
+    Physical,
 }
 
 impl CommandPayloadKind {
@@ -21,6 +24,7 @@ impl CommandPayloadKind {
         match payload {
             CommandPayload::Noop => Self::Noop,
             CommandPayload::Rpg(_) => Self::Rpg,
+            CommandPayload::Physical(_) => Self::Physical,
         }
     }
 }
@@ -63,6 +67,7 @@ impl CommandKindDescriptor {
             (self.payload_kind, CommandPayloadKind::of(payload)),
             (CommandPayloadKind::Noop, CommandPayloadKind::Noop)
                 | (CommandPayloadKind::Rpg, CommandPayloadKind::Rpg)
+                | (CommandPayloadKind::Physical, CommandPayloadKind::Physical)
         )
     }
 
@@ -112,11 +117,26 @@ impl CommandKindRegistry {
             ingress_allowed: true,
             outcome_allowed: true,
         };
+        let physical_schema_id = SchemaId::new(PHYSICAL_COMMAND_SCHEMA_ID)
+            .expect("built-in physical command schema ID is valid");
+        let physical_descriptor = CommandKindDescriptor {
+            schema_id: physical_schema_id.clone(),
+            schema_version: 1,
+            payload_kind: CommandPayloadKind::Physical,
+            priority_class: PHYSICAL_PRIORITY_CLASS,
+            required_capabilities: vec![
+                CapabilityId::new(PHYSICAL_COMMAND_CAPABILITY_ID)
+                    .expect("built-in physical command capability ID is valid"),
+            ],
+            ingress_allowed: true,
+            outcome_allowed: false,
+        };
         Self {
             version: COMMAND_KIND_REGISTRY_VERSION,
             descriptors: BTreeMap::from([
                 ((noop_schema_id, 1), noop_descriptor),
                 ((rpg_schema_id, 1), rpg_descriptor),
+                ((physical_schema_id, 1), physical_descriptor),
             ]),
         }
     }
@@ -134,6 +154,50 @@ impl CommandKindRegistry {
     ) -> Option<&CommandKindDescriptor> {
         self.descriptors.get(&(schema_id.clone(), schema_version))
     }
+
+    #[must_use]
+    pub fn canonical_hash(&self) -> ContentHash {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"nextengine.command-kind-registry.v1\0");
+        bytes.extend_from_slice(&self.version.to_le_bytes());
+        bytes.extend_from_slice(
+            &u32::try_from(self.descriptors.len())
+                .expect("built-in command registry fits u32")
+                .to_le_bytes(),
+        );
+        for ((schema_id, schema_version), descriptor) in &self.descriptors {
+            extend_text(&mut bytes, schema_id.as_str());
+            bytes.extend_from_slice(&schema_version.to_le_bytes());
+            extend_text(&mut bytes, descriptor.schema_id.as_str());
+            bytes.extend_from_slice(&descriptor.schema_version.to_le_bytes());
+            bytes.push(match descriptor.payload_kind {
+                CommandPayloadKind::Noop => 1,
+                CommandPayloadKind::Rpg => 2,
+                CommandPayloadKind::Physical => 3,
+            });
+            bytes.extend_from_slice(&descriptor.priority_class.to_le_bytes());
+            bytes.push(u8::from(descriptor.ingress_allowed));
+            bytes.push(u8::from(descriptor.outcome_allowed));
+            bytes.extend_from_slice(
+                &u32::try_from(descriptor.required_capabilities.len())
+                    .expect("built-in capability list fits u32")
+                    .to_le_bytes(),
+            );
+            for capability in &descriptor.required_capabilities {
+                extend_text(&mut bytes, capability.as_str());
+            }
+        }
+        content_hash_from_bytes(sha256(&bytes))
+    }
+}
+
+fn extend_text(bytes: &mut Vec<u8>, value: &str) {
+    bytes.extend_from_slice(
+        &u32::try_from(value.len())
+            .expect("validated identifier fits u32")
+            .to_le_bytes(),
+    );
+    bytes.extend_from_slice(value.as_bytes());
 }
 
 impl Default for CommandKindRegistry {

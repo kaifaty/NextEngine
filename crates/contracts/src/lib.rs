@@ -2,10 +2,13 @@
 
 mod canonical;
 mod command;
+mod identity;
 mod ids;
+mod input;
 mod ledger;
 mod manifest_jcs;
 mod persistence;
+mod physics;
 mod rpg;
 mod snapshot;
 
@@ -24,15 +27,39 @@ pub use command::{
     COMMAND_BODY_OWNER_ID, COMMAND_BODY_SCHEMA_ID, COMMAND_BODY_SCHEMA_VERSION,
     COMMAND_BODY_SEGMENT_ID, COMMAND_ENVELOPE_SCHEMA_VERSION, COMMAND_SCHEMA_VERSION,
     CanonicalCommandBodyV2, CapabilityRefV1, CommandDecodeError, CommandPayload, CommandPhase,
-    CommandPreconditionV1, DomainEvent, EventPayload, IssuerPrincipal, IssuerPrincipalV2,
-    NOOP_COMMAND_CAPABILITY_ID, NOOP_COMMAND_SCHEMA_ID, PrincipalDecodeError, WorldCommand,
-    WorldCommandEnvelopeV2, compute_command_id_from_body_bytes,
+    CommandPreconditionV1, DomainEvent, DomainEventEnvelopeV2, EventPayload, IssuerPrincipal,
+    IssuerPrincipalV2, NOOP_COMMAND_CAPABILITY_ID, NOOP_COMMAND_SCHEMA_ID, PrincipalDecodeError,
+    WorldCommand, WorldCommandEnvelopeV2, compute_command_id_from_body_bytes,
+};
+pub use identity::{
+    COMMAND_STREAM_REGISTRY_SCHEMA_VERSION, CommandStreamKeyV1, CommandStreamRegistryV1,
+    IdentityContractError, PRINCIPAL_REGISTRY_SCHEMA_VERSION, PrincipalRecordV1,
+    PrincipalRegistryV1, PrincipalStatus, RUNTIME_DETERMINISM_PROFILE_SCHEMA_VERSION,
+    RUNTIME_MAXIMUM_FUTURE_COMMAND_TICKS, RuntimeDeterminismProfileV1,
+    WORLD_IDENTITY_MANIFEST_SCHEMA_VERSION, WorldIdentityManifestV1, derive_command_stream_id,
+    derive_player_principal_id, derive_world_namespace, runtime_profile_hash,
 };
 pub use ids::{
     AssetId, CapabilityId, CommandBodyHash, CommandId, CommandLedgerHash, CommandStreamId,
-    ContentHash, EventId, IdentifierError, MechanicPackageId, PersistentId, PlayerPrincipalId,
-    PluginId, SchemaId, ScriptPrincipalId, StateRoot, SystemId, ToolPrincipalId, WorldNamespaceId,
+    ContentHash, EventId, IdentifierError, InputSourceId, MechanicPackageId, PersistentId,
+    PhysicsContactId, PhysicsWorldId, PlayerPrincipalId, PluginId, ProjectId, SchemaId,
+    ScriptPrincipalId, StateRoot, SystemId, ToolPrincipalId, WorldNamespaceId,
     command_body_hash_from_bytes, command_ledger_hash_from_bytes, content_hash_from_bytes,
+};
+pub use input::{
+    CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION, CLOSED_INGRESS_BATCH_SCHEMA_VERSION,
+    CORE_MOVE_ACTION_ID, ClosedCommandAdmissionBatchBodyV2, ClosedCommandAdmissionBatchV2,
+    ClosedIngressBatchBodyV1, ClosedIngressBatchV1, INGRESS_ASSIGNMENT_PROFILE_SCHEMA_VERSION,
+    INGRESS_ASSIGNMENT_SCHEMA_VERSION, INGRESS_CHECKPOINT_SCHEMA_VERSION,
+    INPUT_SAMPLE_SCHEMA_VERSION, IngressAssignmentProfileV1, IngressAssignmentV1,
+    IngressCheckpointV1, IngressEquivalenceReceiptV1, IngressResultCodeV1, IngressSubjectKindV1,
+    InputContractError, InputMappingCodeV1, InputMappingReceiptV1, InputSampleV1,
+    MAX_PLAYER_ACTIONS_PER_FRAME, PLAYER_ACTION_FRAME_SCHEMA_ID,
+    PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS,
+    PLAYER_CONTROLLER_REGISTRY_SCHEMA_VERSION, PlayerActionFrameV1, PlayerActionPhaseV1,
+    PlayerActionV1, PlayerActionValueV1, PlayerControllerBindingV1, PlayerControllerRegistryV1,
+    RUNTIME_ADMISSION_LIMITS_SCHEMA_VERSION, RuntimeAdmissionLimitsV1,
+    TICK_RATE_PROFILE_SCHEMA_VERSION, TickRateProfileV1,
 };
 pub use ledger::{
     ArchiveInsertResult, CAUSAL_IDENTITY_REGISTRY_SCHEMA_VERSION,
@@ -48,15 +75,37 @@ pub use ledger::{
     CommandIdentityIndexBodyV1, CommandIdentityIndexV1, CommandIdentityOccurrenceV1,
     CommandLedgerError, CommandLedgerV2, CommandReceiptSubjectV1, CommandReceiptV1,
     CommandReservationV1, CommandStreamLedgerV2, CommandStreamStateV1, IdentityInsertResult,
-    command_body_archive_root, command_collision_candidates_root,
+    causal_provenance_hash, command_body_archive_root, command_collision_candidates_root,
     command_collision_incident_digest, command_identity_index_root, command_receipt_chain_genesis,
     command_receipt_chain_next, command_receipt_digest,
 };
 pub use persistence::{
-    AuthorityGrant, CommandLedgerDescriptor, HashBinding, ManifestCodecError,
-    ManifestValidationError, REPLAY_MANIFEST_SCHEMA_VERSION, ReplayCommandRecord,
-    ReplayComparePoint, ReplayManifestV1, ReplayTickManifest, SAVE_MANIFEST_SCHEMA_VERSION,
-    SaveCompatibility, SaveManifestV1, SaveSegmentDescriptor, SchemaBinding, TickSettings,
+    AuthorityGrant, CommandLedgerDescriptorV2, DecodedReplayTickV3, HashBinding,
+    ManifestCodecError, ManifestValidationError, REPLAY_MANIFEST_V3_SCHEMA_VERSION,
+    ReplayCommandRecord, ReplayCommandResultV2, ReplayComparePointV3, ReplayManifestV3,
+    ReplayOwnerSegmentV2, ReplayTickManifestV3, SAVE_MANIFEST_SCHEMA_VERSION, SaveCompatibility,
+    SaveManifestV2, SaveSegmentDescriptor, SchemaBinding, TickSettings,
+};
+pub use physics::{
+    AUTHORITATIVE_NUMERIC_PROFILE_SCHEMA_VERSION, AcceptedLocomotionIntentV2,
+    AppliedLocomotionResultV1, AuthoritativeNumericProfileV1,
+    CAPSULE_LOCOMOTION_SPEED_MICROMETRES_PER_SECOND, CLOSED_PHYSICS_CONTACT_BATCH_SCHEMA_VERSION,
+    ClosedPhysicsContactBatchV1, ContactEventV1, ContactPhaseV1, FixedPointDescriptorV1,
+    LEGACY_PHYSICS_SNAPSHOT_SCHEMA_VERSION, LEGACY_PHYSICS_SNAPSHOT_SEGMENT_ID,
+    PHYSICAL_COMMAND_CAPABILITY_ID, PHYSICAL_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_SCHEMA_VERSION,
+    PHYSICS_QUANTIZATION_PROFILE_SCHEMA_VERSION, PHYSICS_SNAPSHOT_OWNER_ID,
+    PHYSICS_SNAPSHOT_SCHEMA_ID, PHYSICS_SNAPSHOT_SCHEMA_VERSION, PHYSICS_SNAPSHOT_SEGMENT_ID,
+    PHYSICS_STEP_INPUT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+    PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
+    PhysicalCommandV1, PhysicalEventV1, PhysicsBodyDescriptorV1, PhysicsBodyIdV1,
+    PhysicsBodyStateV2, PhysicsCanonicalSnapshotV2, PhysicsContactContinuityStateV1,
+    PhysicsContactReportingV1, PhysicsContractError, PhysicsCoordinateProfileV1, PhysicsGeometryV1,
+    PhysicsLimitsProfileV1, PhysicsMaterialDescriptorV1, PhysicsMotionKindV1,
+    PhysicsParticipationV1, PhysicsPoseV1, PhysicsQuantizationProfileV1, PhysicsShapeDescriptorV1,
+    PhysicsShapeIdV1, PhysicsSolverSemanticsProfileV1, PhysicsStepInputV2, PhysicsStepResultV1,
+    PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1, PhysicsWorldCheckpointV1,
+    PhysicsWorldDescriptorV1, REFERENCE_GRAVITY_MICROMETRES_PER_SECOND_SQUARED,
+    derive_physics_contact_id,
 };
 pub use rpg::{
     CharacterSnapshot, DialogueSnapshot, FactionSnapshot, InteractiveObjectSnapshot, ItemSnapshot,
@@ -69,7 +118,7 @@ pub use rpg::{
     SkillProficiencyEntry, SkillProficiencyError, WorldChunkRecordSnapshot,
 };
 pub use snapshot::{
-    CommandLedgerSnapshot, RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID,
-    RUNTIME_SNAPSHOT_SCHEMA_VERSION, RUNTIME_SNAPSHOT_SEGMENT_ID, RuntimeSnapshot,
-    SnapshotDecodeError,
+    RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SCHEMA_VERSION,
+    RUNTIME_SNAPSHOT_SEGMENT_ID, RuntimeSnapshot, RuntimeSnapshotV2, SnapshotDecodeError,
+    WorldCheckpointError, WorldCheckpointV3, world_checkpoint_v3_state_root,
 };

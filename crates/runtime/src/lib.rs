@@ -7,8 +7,9 @@ mod registry;
 
 pub use authority::{AuthorityRegistry, AuthorityRegistryError};
 pub use engine::{
-    CommandDisposition, CommandResult, RejectionCode, RuntimeFatalError, RuntimeState,
-    SnapshotRestoreError, StageTraceEntry, TickReport, TransactionStage,
+    CommandDisposition, CommandResult, InputAdmissionError, RejectionCode, RuntimeBootstrapV3,
+    RuntimeFatalError, RuntimeReplayDriver, RuntimeReplayError, RuntimeState, SnapshotRestoreError,
+    StageTraceEntry, TickReport, TransactionStage,
 };
 pub use outcome::{
     NoOutcomes, OutcomeCollectionError, OutcomeContext, OutcomeProposal, OutcomeProvider,
@@ -16,5 +17,5 @@ pub use outcome::{
 };
 pub use registry::{
     COMMAND_KIND_REGISTRY_VERSION, CommandKindDescriptor, CommandKindRegistry, CommandPayloadKind,
-    NOOP_PRIORITY_CLASS, RPG_PRIORITY_CLASS,
+    NOOP_PRIORITY_CLASS, PHYSICAL_PRIORITY_CLASS, RPG_PRIORITY_CLASS,
 };

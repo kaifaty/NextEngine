@@ -1,14 +1,18 @@
 use next_assets::SaveImage;
 use next_contracts::{
-    AuthorityGrant, CharacterSnapshot, CommandStreamId, ContentHash, DialogueSnapshot,
-    EventPayload, FactionSnapshot, InteractiveObjectSnapshot, IssuerPrincipal, ItemSnapshot,
-    PersistentId, PlayerPrincipalId, QuestSnapshot, RPG_COMMAND_CAPABILITY_ID, RelationshipEntry,
-    RpgCommand, RpgEvent, RpgSnapshot, SaveCompatibility, SchemaId, SkillProficiency,
-    SkillProficiencyEntry, TickSettings, WorldChunkRecordSnapshot, WorldCommand,
+    AuthorityGrant, CharacterSnapshot, ContentHash, DialogueSnapshot, EventPayload,
+    FactionSnapshot, InteractiveObjectSnapshot, IssuerPrincipal, ItemSnapshot, PersistentId,
+    PhysicsWorldCheckpointV1, PlayerPrincipalId, QuestSnapshot, RPG_COMMAND_CAPABILITY_ID,
+    RelationshipEntry, RpgCommand, RpgEvent, RpgSnapshot, SaveCompatibility, SchemaId,
+    SkillProficiency, SkillProficiencyEntry, TickSettings, WorldCheckpointV3,
+    WorldChunkRecordSnapshot, WorldCommand,
 };
-use next_runtime::{AuthorityRegistry, CommandDisposition, RejectionCode, RuntimeState};
+use next_runtime::{
+    AuthorityRegistry, CommandDisposition, RejectionCode, RuntimeBootstrapV3, RuntimeState,
+};
 use next_verification::{
-    ReplayTickInput, RpgReplayInput, compute_world_snapshot_root, run_rpg_replay,
+    NeutralRuntimeFixture, ReplayTickInput, RpgReplayInput, build_neutral_runtime_fixture,
+    compute_world_checkpoint_root, run_rpg_replay,
 };
 
 fn id(value: u8) -> PersistentId {
@@ -33,6 +37,24 @@ fn authority() -> AuthorityRegistry {
         )
         .expect("fixture principal is unique");
     authority
+}
+
+fn runtime_fixture() -> NeutralRuntimeFixture {
+    build_neutral_runtime_fixture(
+        "nextengine.rpg-slice",
+        [(
+            principal(),
+            vec![
+                next_contracts::CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)
+                    .expect("RPG capability is valid"),
+            ],
+        )],
+    )
+    .expect("neutral RPG fixture")
+}
+
+fn bootstrap() -> RuntimeBootstrapV3 {
+    runtime_fixture().bootstrap
 }
 
 fn fixture() -> RpgSnapshot {
@@ -103,8 +125,11 @@ fn fixture() -> RpgSnapshot {
 }
 
 fn command(sequence: u64, tick: u64, payload: RpgCommand) -> WorldCommand {
+    let fixture = runtime_fixture();
     WorldCommand::rpg(
-        CommandStreamId::from_bytes([7; 16]),
+        fixture
+            .stream_for(&principal())
+            .expect("fixture stream is allocated"),
         principal(),
         sequence,
         tick,
@@ -179,7 +204,7 @@ fn compatibility() -> SaveCompatibility {
         mechanics_lock_hash: ContentHash::from_bytes([5; 32]),
         tick_settings: TickSettings {
             gameplay_hz: 30,
-            physics_hz: 120,
+            physics_hz: 60,
             motor_hz: 60,
         },
         loaded_chunk_revisions: vec![],
@@ -193,6 +218,7 @@ fn compatibility() -> SaveCompatibility {
 #[test]
 fn generic_rpg_slice_repeats_with_exact_state_event_and_ledger_hashes() {
     let input = RpgReplayInput {
+        bootstrap: bootstrap(),
         authority: authority(),
         initial_rpg_snapshot: fixture(),
         ticks: slice_ticks(),
@@ -242,24 +268,27 @@ fn generic_rpg_slice_repeats_with_exact_state_event_and_ledger_hashes() {
 #[test]
 fn world_save_load_restores_rpg_owner_segment_and_exact_continuation() {
     let input = RpgReplayInput {
+        bootstrap: bootstrap(),
         authority: authority(),
         initial_rpg_snapshot: fixture(),
         ticks: slice_ticks(),
     };
     let output = run_rpg_replay(&input).expect("RPG replay completes");
-    let image = SaveImage::from_world_snapshots(
-        0,
-        compatibility(),
-        &output.final_runtime_snapshot,
-        &output.final_rpg_snapshot,
+    let checkpoint = WorldCheckpointV3::new(
+        output.final_runtime_snapshot.clone(),
+        output.final_rpg_snapshot.clone(),
+        PhysicsWorldCheckpointV1::new(
+            input.bootstrap.physics_checkpoint.catalog.clone(),
+            output.final_physics_snapshot.clone(),
+        )
+        .expect("physics checkpoint is valid"),
     )
-    .expect("world save image is valid");
+    .expect("world checkpoint is valid");
+    let image = SaveImage::from_world_checkpoint(0, compatibility(), &checkpoint)
+        .expect("world save image is valid");
     let loaded = image.validate_world().expect("world save image loads");
     assert_eq!(loaded.runtime_snapshot, output.final_runtime_snapshot);
-    assert_eq!(
-        loaded.rpg_snapshot.as_ref(),
-        Some(&output.final_rpg_snapshot)
-    );
+    assert_eq!(loaded.rpg_snapshot, output.final_rpg_snapshot);
 
     let continuation = command(
         4,
@@ -270,18 +299,10 @@ fn world_save_load_restores_rpg_owner_segment_and_exact_continuation() {
             delta: 10,
         },
     );
-    let mut direct = RuntimeState::restore_world(
-        output.final_runtime_snapshot,
-        output.final_rpg_snapshot,
-        authority(),
-    )
-    .expect("direct state restores");
-    let mut restored = RuntimeState::restore_world(
-        loaded.runtime_snapshot,
-        loaded.rpg_snapshot.expect("RPG owner segment is present"),
-        authority(),
-    )
-    .expect("loaded state restores");
+    let mut direct = RuntimeState::restore_world_checkpoint(checkpoint, authority())
+        .expect("direct state restores");
+    let mut restored = RuntimeState::restore_world_checkpoint(loaded.checkpoint, authority())
+        .expect("loaded state restores");
 
     assert_eq!(
         direct
@@ -292,18 +313,19 @@ fn world_save_load_restores_rpg_owner_segment_and_exact_continuation() {
             .expect("loaded continuation commits")
     );
     assert_eq!(
-        compute_world_snapshot_root(&direct.snapshot(), &direct.rpg_snapshot())
+        compute_world_checkpoint_root(&direct.world_checkpoint().expect("direct checkpoint"))
             .expect("direct root"),
-        compute_world_snapshot_root(&restored.snapshot(), &restored.rpg_snapshot())
+        compute_world_checkpoint_root(&restored.world_checkpoint().expect("restored checkpoint"))
             .expect("restored root")
     );
 }
 
 #[test]
-fn rejected_rpg_transition_does_not_partially_mutate_or_consume_sequence() {
+fn rejected_rpg_transition_does_not_partially_mutate_and_consumes_sequence() {
     let initial_rpg = fixture();
-    let mut runtime = RuntimeState::with_rpg_snapshot(authority(), initial_rpg.clone())
-        .expect("fixture restores");
+    let mut runtime =
+        RuntimeState::with_rpg_snapshot(bootstrap(), authority(), initial_rpg.clone())
+            .expect("fixture restores");
     let invalid = command(
         0,
         0,
@@ -329,12 +351,22 @@ fn rejected_rpg_transition_does_not_partially_mutate_or_consume_sequence() {
         CommandDisposition::Rejected(RejectionCode::RpgStatePreconditionFailed)
     );
     assert!(rejected.events.is_empty());
-    assert_eq!(rejected.snapshot.authoritative_revision, 0);
-    assert!(rejected.snapshot.command_ledgers.is_empty());
+    assert_eq!(
+        rejected.snapshot.authoritative_revision, 1,
+        "the RPG rejection is mutation-free, while the mandatory empty physics step advances"
+    );
+    let stream = rejected
+        .snapshot
+        .command_ledger
+        .streams
+        .values()
+        .next()
+        .expect("predeclared stream exists");
+    assert_eq!(stream.receipt_window.len(), 1);
     assert_eq!(rejected.rpg_snapshot, initial_rpg);
 
     let corrected = command(
-        0,
+        1,
         1,
         RpgCommand::AdvanceDialogueQuest {
             dialogue_id: id(5),

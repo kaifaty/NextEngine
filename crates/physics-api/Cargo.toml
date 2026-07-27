@@ -1,15 +1,13 @@
 [package]
-name = "next_assets"
+name = "next_physics_api"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish = false
 
 [dependencies]
 next_contracts.workspace = true
-
-[dev-dependencies]
-next_runtime.workspace = true
 
 [lints]
 workspace = true

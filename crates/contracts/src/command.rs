@@ -17,6 +17,10 @@ use crate::ids::{
 use crate::rpg::{
     RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID, RpgCommand, RpgDecodeError, RpgEvent,
 };
+use crate::{
+    PHYSICAL_COMMAND_CAPABILITY_ID, PHYSICAL_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_SCHEMA_VERSION,
+    PhysicalCommandV1, PhysicalEventV1, PhysicsContractError,
+};
 
 pub const COMMAND_BODY_SCHEMA_VERSION: u16 = 2;
 pub const COMMAND_ENVELOPE_SCHEMA_VERSION: u16 = 2;
@@ -27,6 +31,10 @@ pub const COMMAND_BODY_OWNER_ID: &str = "nextengine.runtime";
 pub const COMMAND_BODY_SCHEMA_ID: &str = "nextengine.canonical-command-body";
 pub const COMMAND_BODY_SEGMENT_ID: &str = "v2";
 const EVENT_SCHEMA_ID: &str = "nextengine.event.command-committed";
+const EVENT_OWNER_ID: &str = "nextengine.runtime";
+const EVENT_SEGMENT_ID: &str = "v1";
+const EVENT_ENVELOPE_SCHEMA_ID: &str = "nextengine.domain-event-envelope";
+const EVENT_ENVELOPE_SEGMENT_ID: &str = "v2";
 const REVISION_PRECONDITION_KIND: &str = "runtime.authoritative-revision";
 const REVISION_PRECONDITION_OWNER: &str = "nextengine.runtime";
 const REVISION_PRECONDITION_SCHEMA: &str = "nextengine.runtime.state";
@@ -202,6 +210,7 @@ pub enum CommandPhase {
 pub enum CommandPayload {
     Noop,
     Rpg(RpgCommand),
+    Physical(PhysicalCommandV1),
 }
 
 impl CommandPayload {
@@ -209,6 +218,7 @@ impl CommandPayload {
         match self {
             Self::Noop => Ok(Vec::new()),
             Self::Rpg(command) => command.canonical_payload_bytes(),
+            Self::Physical(command) => command.canonical_payload_bytes(),
         }
     }
 }
@@ -496,6 +506,9 @@ impl CanonicalCommandBodyV2 {
                 payload_bytes,
                 limits,
             )?),
+            PHYSICAL_COMMAND_SCHEMA_ID => CommandPayload::Physical(
+                PhysicalCommandV1::from_canonical_payload_bytes(payload_bytes, limits)?,
+            ),
             schema => return Err(CommandDecodeError::UnknownPayloadSchema(schema.to_owned())),
         };
         let body = Self {
@@ -598,6 +611,35 @@ impl WorldCommandEnvelopeV2 {
         Ok(command)
     }
 
+    pub fn physical(
+        stream_id: CommandStreamId,
+        issuer: IssuerPrincipal,
+        sequence: u64,
+        target_tick: u64,
+        target: PersistentId,
+        payload: PhysicalCommandV1,
+    ) -> Result<Self, CanonicalError> {
+        let mut command = Self {
+            envelope_schema_version: COMMAND_ENVELOPE_SCHEMA_VERSION,
+            claimed_command_id: None,
+            body: CanonicalCommandBodyV2 {
+                payload_schema_id: SchemaId::new(PHYSICAL_COMMAND_SCHEMA_ID)?,
+                payload_schema_version: PHYSICAL_COMMAND_SCHEMA_VERSION,
+                issuer,
+                stream_id,
+                sequence,
+                target_tick,
+                phase: CommandPhase::Ingress,
+                target: Some(target),
+                capability_claims: vec![CapabilityRefV1::unscoped(PHYSICAL_COMMAND_CAPABILITY_ID)?],
+                preconditions: Vec::new(),
+                payload: CommandPayload::Physical(payload),
+            },
+        };
+        command.refresh_command_id()?;
+        Ok(command)
+    }
+
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, CanonicalError> {
         self.body.canonical_bytes()
     }
@@ -676,6 +718,7 @@ pub enum CommandDecodeError {
     Canonicalization(CanonicalError),
     Principal(PrincipalDecodeError),
     Rpg(RpgDecodeError),
+    Physics(PhysicsContractError),
     Identifier(crate::IdentifierError),
     WrongEnvelope,
     UnknownField(u32),
@@ -718,6 +761,9 @@ impl Display for CommandDecodeError {
             }
             Self::Principal(error) => write!(formatter, "command principal is invalid: {error}"),
             Self::Rpg(error) => write!(formatter, "command RPG payload is invalid: {error}"),
+            Self::Physics(error) => {
+                write!(formatter, "command physical payload is invalid: {error}")
+            }
             Self::Identifier(error) => write!(formatter, "command identifier is invalid: {error}"),
             Self::WrongEnvelope => formatter.write_str("command body envelope does not match V2"),
             Self::UnknownField(field_id) => write!(formatter, "unknown command field {field_id}"),
@@ -802,6 +848,12 @@ impl From<PrincipalDecodeError> for CommandDecodeError {
 impl From<RpgDecodeError> for CommandDecodeError {
     fn from(error: RpgDecodeError) -> Self {
         Self::Rpg(error)
+    }
+}
+
+impl From<PhysicsContractError> for CommandDecodeError {
+    fn from(error: PhysicsContractError) -> Self {
+        Self::Physics(error)
     }
 }
 
@@ -1214,60 +1266,219 @@ fn decode_text(type_tag: u8, payload: &[u8]) -> Result<&str, PrincipalDecodeErro
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DomainEvent {
+pub struct DomainEventEnvelopeV2 {
+    pub schema_version: u16,
     pub event_id: EventId,
     pub tick: u64,
+    pub phase: CommandPhase,
     pub causal_command_id: CommandId,
+    pub event_slot: u32,
     pub schema_id: SchemaId,
-    pub schema_version: u32,
+    pub event_schema_version: u32,
+    pub event_body_hash: ContentHash,
     pub payload: EventPayload,
 }
 
-impl DomainEvent {
+pub type DomainEvent = DomainEventEnvelopeV2;
+
+impl DomainEventEnvelopeV2 {
     pub fn command_committed(
         tick: u64,
+        phase: CommandPhase,
         command_id: CommandId,
         command_sequence: u64,
     ) -> Result<Self, CanonicalError> {
-        let mut preimage = Vec::new();
-        preimage.extend_from_slice(b"nextengine.event-id.v1\0");
-        preimage.extend_from_slice(command_id.as_bytes());
-        preimage.extend_from_slice(&0_u32.to_le_bytes());
-        let digest = sha256(&preimage);
-        let mut event_id = [0; 16];
-        event_id.copy_from_slice(&digest[..16]);
-        Ok(Self {
-            event_id: EventId::from_bytes(event_id),
+        Self::build(
             tick,
-            causal_command_id: command_id,
-            schema_id: SchemaId::new(EVENT_SCHEMA_ID)?,
-            schema_version: 1,
-            payload: EventPayload::CommandCommitted { command_sequence },
-        })
+            phase,
+            command_id,
+            0,
+            SchemaId::new(EVENT_SCHEMA_ID)?,
+            EventPayload::CommandCommitted { command_sequence },
+        )
     }
 
     pub fn rpg(
         tick: u64,
+        phase: CommandPhase,
         command_id: CommandId,
         event_slot: u32,
         payload: RpgEvent,
     ) -> Result<Self, CanonicalError> {
-        let mut preimage = Vec::new();
-        preimage.extend_from_slice(b"nextengine.event-id.v1\0");
-        preimage.extend_from_slice(command_id.as_bytes());
-        preimage.extend_from_slice(&event_slot.to_le_bytes());
-        let digest = sha256(&preimage);
-        let mut event_id = [0; 16];
-        event_id.copy_from_slice(&digest[..16]);
         let schema_id = SchemaId::new(payload.schema_id())?;
-        Ok(Self {
-            event_id: EventId::from_bytes(event_id),
+        Self::build(
             tick,
-            causal_command_id: command_id,
+            phase,
+            command_id,
+            event_slot,
             schema_id,
-            schema_version: 1,
-            payload: EventPayload::Rpg(payload),
-        })
+            EventPayload::Rpg(payload),
+        )
+    }
+
+    pub fn physical(
+        tick: u64,
+        phase: CommandPhase,
+        command_id: CommandId,
+        event_slot: u32,
+        payload: PhysicalEventV1,
+    ) -> Result<Self, CanonicalError> {
+        let schema_id = SchemaId::new(payload.schema_id())?;
+        Self::build(
+            tick,
+            phase,
+            command_id,
+            event_slot,
+            schema_id,
+            EventPayload::Physical(payload),
+        )
+    }
+
+    fn build(
+        tick: u64,
+        phase: CommandPhase,
+        command_id: CommandId,
+        event_slot: u32,
+        schema_id: SchemaId,
+        payload: EventPayload,
+    ) -> Result<Self, CanonicalError> {
+        let event_body_bytes = payload.canonical_body_bytes(&schema_id)?;
+        let event_body_hash = event_body_hash(&event_body_bytes)?;
+        let event_id = derive_event_id(command_id, event_slot, &schema_id, event_body_hash)?;
+        let event = Self {
+            schema_version: 2,
+            event_id,
+            tick,
+            phase,
+            causal_command_id: command_id,
+            event_slot,
+            schema_id,
+            event_schema_version: 1,
+            event_body_hash,
+            payload,
+        };
+        event.validate()?;
+        Ok(event)
+    }
+
+    pub fn validate(&self) -> Result<(), CanonicalError> {
+        if self.schema_version != 2 || self.event_schema_version != 1 {
+            return Err(CanonicalError::LengthOverflow);
+        }
+        let body_bytes = self.payload.canonical_body_bytes(&self.schema_id)?;
+        let body_hash = event_body_hash(&body_bytes)?;
+        if body_hash != self.event_body_hash
+            || derive_event_id(
+                self.causal_command_id,
+                self.event_slot,
+                &self.schema_id,
+                body_hash,
+            )? != self.event_id
+        {
+            return Err(CanonicalError::DuplicateSequenceValue);
+        }
+        Ok(())
+    }
+
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, CanonicalError> {
+        self.validate()?;
+        encode_canonical_segment(
+            EVENT_OWNER_ID,
+            EVENT_ENVELOPE_SCHEMA_ID,
+            EVENT_ENVELOPE_SEGMENT_ID,
+            [
+                CanonicalField::new(
+                    1,
+                    CANONICAL_TYPE_U16,
+                    self.schema_version.to_le_bytes().to_vec(),
+                ),
+                CanonicalField::new(2, CANONICAL_TYPE_ID128, self.event_id.as_bytes().to_vec()),
+                CanonicalField::new(3, CANONICAL_TYPE_U64, self.tick.to_le_bytes().to_vec()),
+                CanonicalField::new(4, CANONICAL_TYPE_U8, vec![self.phase as u8]),
+                CanonicalField::new(
+                    5,
+                    CANONICAL_TYPE_ID128,
+                    self.causal_command_id.as_bytes().to_vec(),
+                ),
+                CanonicalField::new(
+                    6,
+                    CANONICAL_TYPE_U32,
+                    self.event_slot.to_le_bytes().to_vec(),
+                ),
+                CanonicalField::new(
+                    7,
+                    CANONICAL_TYPE_UTF8_NFC,
+                    self.schema_id.as_str().as_bytes().to_vec(),
+                ),
+                CanonicalField::new(
+                    8,
+                    CANONICAL_TYPE_U32,
+                    self.event_schema_version.to_le_bytes().to_vec(),
+                ),
+                CanonicalField::new(
+                    9,
+                    CANONICAL_TYPE_HASH256,
+                    self.event_body_hash.as_bytes().to_vec(),
+                ),
+                CanonicalField::new(
+                    10,
+                    CANONICAL_TYPE_BYTES,
+                    self.payload.canonical_body_bytes(&self.schema_id)?,
+                ),
+            ],
+        )
+    }
+}
+
+fn event_body_hash(event_body_bytes: &[u8]) -> Result<ContentHash, CanonicalError> {
+    let mut preimage = Vec::new();
+    preimage.extend_from_slice(b"nextengine.event-body.v1\0");
+    preimage.extend_from_slice(
+        &u64::try_from(event_body_bytes.len())
+            .map_err(|_| CanonicalError::LengthOverflow)?
+            .to_le_bytes(),
+    );
+    preimage.extend_from_slice(event_body_bytes);
+    Ok(content_hash_from_bytes(sha256(&preimage)))
+}
+
+fn derive_event_id(
+    command_id: CommandId,
+    event_slot: u32,
+    schema_id: &SchemaId,
+    body_hash: ContentHash,
+) -> Result<EventId, CanonicalError> {
+    let schema_bytes = schema_id.as_str().as_bytes();
+    let mut preimage = Vec::new();
+    preimage.extend_from_slice(b"nextengine.event-id.v1\0");
+    preimage.extend_from_slice(command_id.as_bytes());
+    preimage.extend_from_slice(&event_slot.to_le_bytes());
+    preimage.extend_from_slice(
+        &u64::try_from(schema_bytes.len())
+            .map_err(|_| CanonicalError::LengthOverflow)?
+            .to_le_bytes(),
+    );
+    preimage.extend_from_slice(schema_bytes);
+    preimage.extend_from_slice(body_hash.as_bytes());
+    let digest = sha256(&preimage);
+    let mut event_id = [0; 16];
+    event_id.copy_from_slice(&digest[..16]);
+    Ok(EventId::from_bytes(event_id))
+}
+
+impl EventPayload {
+    fn canonical_body_bytes(&self, schema_id: &SchemaId) -> Result<Vec<u8>, CanonicalError> {
+        let payload = match self {
+            Self::CommandCommitted { command_sequence } => command_sequence.to_le_bytes().to_vec(),
+            Self::Rpg(payload) => payload.canonical_payload_bytes()?,
+            Self::Physical(payload) => payload.canonical_payload_bytes()?,
+        };
+        encode_canonical_segment(
+            EVENT_OWNER_ID,
+            schema_id.as_str(),
+            EVENT_SEGMENT_ID,
+            [CanonicalField::new(1, CANONICAL_TYPE_BYTES, payload)],
+        )
     }
 }
 
@@ -1275,6 +1486,7 @@ impl DomainEvent {
 pub enum EventPayload {
     CommandCommitted { command_sequence: u64 },
     Rpg(RpgEvent),
+    Physical(PhysicalEventV1),
 }
 
 #[cfg(test)]
@@ -1286,7 +1498,7 @@ mod tests {
 
     use super::{
         COMMAND_BODY_OWNER_ID, COMMAND_BODY_SCHEMA_ID, COMMAND_BODY_SEGMENT_ID, CommandDecodeError,
-        IssuerPrincipal, WorldCommand,
+        CommandPhase, DomainEventEnvelopeV2, IssuerPrincipal, WorldCommand,
     };
 
     fn command() -> WorldCommand {
@@ -1331,6 +1543,28 @@ mod tests {
             second.claimed_command_id,
             Some(second.compute_command_id().expect("computed command ID"))
         );
+    }
+
+    #[test]
+    fn domain_event_id_is_body_sensitive_and_canonical() {
+        let command_id = command().compute_command_id().expect("command ID");
+        let first =
+            DomainEventEnvelopeV2::command_committed(11, CommandPhase::Ingress, command_id, 7)
+                .expect("event");
+        let second =
+            DomainEventEnvelopeV2::command_committed(11, CommandPhase::Ingress, command_id, 8)
+                .expect("event");
+
+        assert_ne!(first.event_id, second.event_id);
+        assert_ne!(first.event_body_hash, second.event_body_hash);
+        assert_ne!(
+            first.canonical_bytes().expect("first event"),
+            second.canonical_bytes().expect("second event")
+        );
+        first.validate().expect("first event validates");
+        let mut corrupt = first;
+        corrupt.event_body_hash = crate::ContentHash::from_bytes([9; 32]);
+        assert!(corrupt.validate().is_err());
     }
 
     #[test]
