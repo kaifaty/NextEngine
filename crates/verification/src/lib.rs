@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod agent_performance;
 mod content_package;
 mod persistence_replay;
 mod physics_parity;
@@ -29,6 +30,10 @@ use next_runtime::{
     SnapshotRestoreError,
 };
 
+pub use agent_performance::{
+    AgentPlanningPerformanceError, AgentPlanningPerformanceReport,
+    run_agent_planning_performance_check,
+};
 pub use content_package::{
     ContentPackageCheckError, ContentPackageCheckReport, run_content_package_check,
 };

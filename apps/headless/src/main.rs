@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let project_lock_json =
         project_lock.map_or_else(|| "null".to_owned(), |lock| format!("\"{lock}\""));
     println!(
-        "{{\"status\":\"PASS\",\"project_lock\":{},\"ticks\":{},\"final_pose_um\":[{},{},{}],\"events\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"dialogue_node\":\"{}\",\"quest_state\":\"{}\",\"npc_player_trust\":{},\"npc_health\":{},\"ledger_hash\":\"{}\",\"state_root\":\"{}\"}}",
+        "{{\"status\":\"PASS\",\"project_lock\":{},\"ticks\":{},\"final_pose_um\":[{},{},{}],\"events\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"dialogue_node\":\"{}\",\"quest_state\":\"{}\",\"npc_player_trust\":{},\"npc_health\":{},\"player_health\":{},\"agent_intent\":\"{}\",\"agent_projection\":\"{}\",\"ledger_hash\":\"{}\",\"state_root\":\"{}\"}}",
         project_lock_json,
         report.ticks,
         translation[0],
@@ -39,6 +39,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         report.quest_state_id.as_str(),
         report.npc_player_trust,
         report.npc_health,
+        report.player_health,
+        report.agent_intent_id.to_hex(),
+        report.agent_projection_hash.to_hex(),
         report.final_command_ledger_hash.to_hex(),
         report.final_state_root.to_hex()
     );

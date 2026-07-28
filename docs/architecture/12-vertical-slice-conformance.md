@@ -91,10 +91,10 @@ authoritative oracle.
 
 Check использует малый CC0/engine-owned neutral fixture и public tooling:
 
-Текущий M3/M7 implementation gate покрывает пункты 1–4, storage/schema failure
-matrix и atomic two-chunk admission тем же production loader. Пункты 5–6
-расширяются обычным public package path в M4/M6/M9/M10; это implementation
-status, а не ослабление финального контракта check.
+Текущий M3/M8 implementation gate покрывает пункты 1–5, storage/schema failure
+matrix и atomic two-chunk admission тем же production loader. Пункт 6
+расширяется script/plugin budget checks в M9/M10; это implementation status,
+а не ослабление финального контракта check.
 
 1. validate authored manifest/schema/references/bounds;
 2. cook immutable content;

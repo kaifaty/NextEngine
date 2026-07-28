@@ -23,7 +23,8 @@ use next_contracts::{
     PlayerActionV1, PlayerActionValueV1, PlayerControllerBindingV1, PlayerPrincipalId,
     ProvenanceBindingV1, QuestPayloadV1, RPG_COMMAND_CAPABILITY_ID, RelationshipDimensionV1,
     RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1,
-    RpgSnapshotV2, SchemaId, StateRoot, SystemId, core_player_action_map_v2_hash, domain_hash,
+    RpgPhysicalContactFactV1, RpgSnapshotV2, SchemaId, StateRoot, SystemId,
+    core_player_action_map_v2_hash, domain_hash,
 };
 use next_physics_api::PhysicsBackendPolicy;
 use next_presentation::{PresentationBindingV1, PresentationExtractorV1};
@@ -55,6 +56,11 @@ pub struct NeutralPlayerFixture {
     pub player_equipment_id: PersistentId,
     pub pickup_item_id: PersistentId,
     pub pickup_proxy_id: PersistentId,
+    pub npc_inventory_id: PersistentId,
+    pub npc_equipment_id: PersistentId,
+    pub npc_weapon_item_id: PersistentId,
+    pub agent_principal: IssuerPrincipal,
+    pub agent_stream_id: CommandStreamId,
     pub action_map_hash: ContentHash,
     pub context_stack_hash: ContentHash,
     pub activated_project: ActivatedProjectV1,
@@ -100,6 +106,8 @@ fn build_neutral_player_fixture_with_activated_project(
     let principal = IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([0x51; 16]));
     let interaction_principal =
         IssuerPrincipal::InternalSystem(SystemId::new(PLAYER_INTERACTION_SYSTEM_ID)?);
+    let agent_principal =
+        IssuerPrincipal::InternalSystem(SystemId::new("nextengine.agent.planner")?);
     let base = build_neutral_runtime_fixture(
         &project_id,
         [
@@ -114,6 +122,10 @@ fn build_neutral_player_fixture_with_activated_project(
                 interaction_principal.clone(),
                 vec![CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)?],
             ),
+            (
+                agent_principal.clone(),
+                vec![CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)?],
+            ),
         ],
     )?;
     let movement_stream_id = base
@@ -122,6 +134,9 @@ fn build_neutral_player_fixture_with_activated_project(
     let interaction_stream_id = base
         .stream_for(&interaction_principal)
         .expect("neutral fixture allocates the interaction system stream");
+    let agent_stream_id = base
+        .stream_for(&agent_principal)
+        .expect("neutral fixture allocates the agent planner stream");
     let mut bootstrap = base.bootstrap;
     if physx_compatible {
         let quantization = next_contracts::PhysicsQuantizationProfileV1::grounded_capsule_v2()?;
@@ -204,6 +219,9 @@ fn build_neutral_player_fixture_with_activated_project(
     let player_equipment_id = PersistentId::from_bytes([0x5e; 16]);
     let pickup_item_id = PersistentId::from_bytes([0x5f; 16]);
     let pickup_proxy_id = PersistentId::from_bytes([0x60; 16]);
+    let npc_inventory_id = PersistentId::from_bytes([0x61; 16]);
+    let npc_equipment_id = PersistentId::from_bytes([0x62; 16]);
+    let npc_weapon_item_id = PersistentId::from_bytes([0x63; 16]);
     bootstrap.physics_checkpoint = grounded_capsule_checkpoint(
         PhysicsWorldId::from_bytes(*bootstrap.world_identity.world_namespace.as_bytes()),
         physics_body_id,
@@ -231,6 +249,11 @@ fn build_neutral_player_fixture_with_activated_project(
         player_equipment_id,
         pickup_item_id,
         pickup_proxy_id,
+        npc_inventory_id,
+        npc_equipment_id,
+        npc_weapon_item_id,
+        agent_principal,
+        agent_stream_id,
         action_map_hash,
         context_stack_hash,
         activated_project,
@@ -465,10 +488,44 @@ pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapsho
             fixture.npc_character_id,
             0x59,
             RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
-                inventory_id: None,
-                equipment_id: None,
+                inventory_id: Some(fixture.npc_inventory_id),
+                equipment_id: Some(fixture.npc_equipment_id),
                 resources: vec![health_resource()],
                 skills: Vec::new(),
+            }),
+        ),
+        fixture_aggregate_from_asset(
+            fixture.npc_weapon_item_id,
+            ability_definition.required_item_definition,
+            RpgAggregatePayloadV1::Item(ItemPayloadV1 {
+                quantity: 1,
+                durability: 100,
+                custom_state: Vec::new(),
+            }),
+        ),
+        fixture_aggregate(
+            fixture.npc_inventory_id,
+            0x61,
+            RpgAggregatePayloadV1::Inventory(InventoryPayloadV1 {
+                owner_id: fixture.npc_character_id,
+                capacity: 1,
+                item_ids: vec![fixture.npc_weapon_item_id],
+                reservations: Vec::new(),
+            }),
+        ),
+        fixture_aggregate(
+            fixture.npc_equipment_id,
+            0x62,
+            RpgAggregatePayloadV1::Equipment(EquipmentPayloadV1 {
+                character_id: fixture.npc_character_id,
+                slot_policy: DefinitionRefV1::Exact {
+                    asset_id: AssetId::from_bytes([0x62; 16]),
+                    content_hash: next_runtime::bootstrap_equipment_slot_policy_hash_v1(),
+                },
+                assignments: vec![next_contracts::EquipmentSlotAssignmentV1 {
+                    slot_id: ability_definition.required_equipment_slot_id.clone(),
+                    item_id: fixture.npc_weapon_item_id,
+                }],
             }),
         ),
         fixture_aggregate_from_asset(
@@ -802,6 +859,9 @@ pub struct PlayCheckReport {
     pub quest_state_id: SchemaId,
     pub npc_player_trust: i32,
     pub npc_health: i32,
+    pub player_health: i32,
+    pub agent_intent_id: ContentHash,
+    pub agent_projection_hash: ContentHash,
     pub world_streaming_generation: u64,
     pub current_chunk_id: SchemaId,
     pub final_command_ledger_hash: CommandLedgerHash,
@@ -962,6 +1022,18 @@ fn play_check_report(
             .map_or(0, |resource| resource.current_value),
         _ => return Err(PlayCheckError::CookedNpcMissing),
     };
+    let player_health = match aggregate_payload(
+        &rpg,
+        RpgAggregateKindV1::Character,
+        scenario.player_character_id,
+    ) {
+        Some(RpgAggregatePayloadV1::Character(character)) => character
+            .resources
+            .iter()
+            .find(|resource| resource.resource_id.as_str() == CORE_CHARACTER_HEALTH_RESOURCE_ID)
+            .map_or(0, |resource| resource.current_value),
+        _ => return Err(PlayCheckError::CookedPlayerMissing),
+    };
     Ok(PlayCheckReport {
         ticks: scenario.ticks,
         final_pose: scenario.final_pose,
@@ -972,6 +1044,13 @@ fn play_check_report(
         quest_state_id,
         npc_player_trust,
         npc_health,
+        player_health,
+        agent_intent_id: scenario
+            .agent_intent_id
+            .ok_or(PlayCheckError::AgentActionMissing)?,
+        agent_projection_hash: scenario
+            .agent_projection_hash
+            .ok_or(PlayCheckError::AgentActionMissing)?,
         world_streaming_generation: scenario.world_streaming_snapshot.generation,
         current_chunk_id: scenario.world_streaming_snapshot.current_chunk_id.clone(),
         final_command_ledger_hash: checkpoint.runtime_snapshot.command_ledger_hash()?,
@@ -1097,6 +1176,8 @@ struct GroundedCollisionScenario {
     presentation_bindings: Vec<PresentationBindingV1>,
     tick_reports: Vec<next_runtime::TickReport>,
     world_streaming_snapshot: next_contracts::WorldStreamingSnapshotV1,
+    agent_intent_id: Option<ContentHash>,
+    agent_projection_hash: Option<ContentHash>,
 }
 
 enum ScenarioAction {
@@ -1105,6 +1186,7 @@ enum ScenarioAction {
     Pickup,
     EquipUse,
     Melee,
+    AgentMelee,
     ChunkTransition(SchemaId, bool),
 }
 
@@ -1191,6 +1273,7 @@ fn run_grounded_collision_scenario_with_backend(
             ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [32_767, 0]),
             ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [32_767, 0]),
             ScenarioAction::Melee,
+            ScenarioAction::AgentMelee,
             ScenarioAction::Interaction,
             ScenarioAction::ChunkTransition(initial_chunk_id, false),
             ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [-32_767, 0]),
@@ -1208,8 +1291,10 @@ fn run_grounded_collision_scenario_with_backend(
     let mut persist_contacts = 0_u64;
     let mut end_contacts = 0_u64;
     let mut contact_preimage = b"nextengine.physics-collision-check.contacts.v1\0".to_vec();
-    let mut tick_reports = Vec::new();
+    let mut tick_reports: Vec<next_runtime::TickReport> = Vec::new();
     let mut sequence = 0_u64;
+    let mut agent_intent_id = None;
+    let mut agent_projection_hash = None;
     for action in inputs {
         if let ScenarioAction::ChunkTransition(target_chunk_id, save_restore) = action {
             let rpg_before = runtime.rpg_snapshot();
@@ -1236,6 +1321,64 @@ fn run_grounded_collision_scenario_with_backend(
             if runtime.rpg_snapshot() != rpg_before {
                 return Err(PlayCheckError::WorldStreamingMutatedRpg);
             }
+            continue;
+        }
+        if matches!(&action, ScenarioAction::AgentMelee) {
+            let previous = tick_reports
+                .last()
+                .ok_or(PlayCheckError::AgentActionMissing)?;
+            let facts = rpg_contact_facts_from_report(
+                &previous.contact_batch,
+                runtime.physics_snapshot().checkpoint_revision,
+            );
+            let agent_rpg_snapshot = runtime.rpg_snapshot();
+            let request = next_agent::AgentPlanningRequestV1 {
+                gameplay_tick: previous.tick,
+                world_generation: world_streamer.snapshot().generation,
+                decision_seed: 0x4e45_5854,
+                source_character_id: fixture.npc_character_id,
+                target_character_id: fixture.body_id,
+                allowed_semantic_actions: vec![
+                    SchemaId::new(CORE_MELEE_ACTION_ID)
+                        .expect("engine-owned melee action is valid"),
+                ],
+                motor_state: next_contracts::MotorCapabilityStateV1::ProceduralFallback,
+                ai_host_available: false,
+                model_available: false,
+                rpg_snapshot: &agent_rpg_snapshot,
+                definitions: &fixture.activated_project.rpg_definitions,
+                physical_contact_facts: &facts,
+            };
+            let planned = next_agent::propose_world_command_v1(
+                &request,
+                next_agent::AgentCommandRouteV1 {
+                    issuer: fixture.agent_principal.clone(),
+                    stream_id: fixture.agent_stream_id,
+                    sequence: 0,
+                    target_tick: runtime.next_tick(),
+                },
+            )?;
+            let report = runtime.run_tick([planned.world_command])?;
+            if !report.results.iter().any(|result| {
+                matches!(
+                    result.disposition,
+                    next_runtime::CommandDisposition::Committed
+                )
+            }) {
+                return Err(PlayCheckError::AgentCommandRejected);
+            }
+            agent_intent_id = Some(planned.intent.intent_id);
+            agent_projection_hash = Some(planned.procedural_projection.projection_hash);
+            accumulate_report(
+                &report,
+                &mut events,
+                &mut rpg_events,
+                &mut begin_contacts,
+                &mut persist_contacts,
+                &mut end_contacts,
+                &mut contact_preimage,
+            )?;
+            tick_reports.push(report);
             continue;
         }
         let wall_time =
@@ -1272,36 +1415,20 @@ fn run_grounded_collision_scenario_with_backend(
                 true,
                 wall_time,
             )?,
+            ScenarioAction::AgentMelee => unreachable!("handled before input mapping"),
             ScenarioAction::ChunkTransition(_, _) => unreachable!("handled before input mapping"),
         };
         runtime.enqueue_input_sample(&fixture.principal, sample)?;
         let report = runtime.run_tick([])?;
-        events = events
-            .checked_add(
-                u64::try_from(report.events.len()).map_err(|_| PlayCheckError::CountOverflow)?,
-            )
-            .ok_or(PlayCheckError::CountOverflow)?;
-        rpg_events = rpg_events
-            .checked_add(
-                u64::try_from(
-                    report
-                        .events
-                        .iter()
-                        .filter(|event| matches!(&event.payload, EventPayload::Rpg(_)))
-                        .count(),
-                )
-                .map_err(|_| PlayCheckError::CountOverflow)?,
-            )
-            .ok_or(PlayCheckError::CountOverflow)?;
-        for contact in &report.contact_batch.events {
-            let count = match contact.phase {
-                ContactPhaseV1::Begin => &mut begin_contacts,
-                ContactPhaseV1::Persist => &mut persist_contacts,
-                ContactPhaseV1::End => &mut end_contacts,
-            };
-            *count = count.checked_add(1).ok_or(PlayCheckError::CountOverflow)?;
-        }
-        contact_preimage.extend_from_slice(report.contact_batch.batch_hash.as_bytes());
+        accumulate_report(
+            &report,
+            &mut events,
+            &mut rpg_events,
+            &mut begin_contacts,
+            &mut persist_contacts,
+            &mut end_contacts,
+            &mut contact_preimage,
+        )?;
         tick_reports.push(report);
         sequence = sequence
             .checked_add(1)
@@ -1313,16 +1440,16 @@ fn run_grounded_collision_scenario_with_backend(
         .get(&fixture.physics_body_id)
         .ok_or(PlayCheckError::BodyMissing)?
         .pose;
-    let expected_ticks = if include_interaction { 15 } else { 6 };
-    let expected_substeps = if include_interaction { 30 } else { 12 };
-    let expected_events = if include_interaction { 16 } else { 4 };
-    let expected_persists = if include_interaction { 49 } else { 15 };
+    let expected_ticks = if include_interaction { 16 } else { 6 };
+    let expected_substeps = if include_interaction { 32 } else { 12 };
+    let expected_events = if include_interaction { 17 } else { 4 };
+    let expected_persists = if include_interaction { 53 } else { 15 };
     let expected_pose = if include_interaction {
         [200_000, 900_000, 200_000]
     } else {
         [0, 900_000, 200_000]
     };
-    let expected_rpg_events = if include_interaction { 8 } else { 0 };
+    let expected_rpg_events = if include_interaction { 9 } else { 0 };
     let expected_begins = if include_interaction { 4 } else { 3 };
     let expected_ends = if include_interaction { 3 } else { 2 };
     let object_is_activated = !include_interaction
@@ -1416,6 +1543,19 @@ fn run_grounded_collision_scenario_with_backend(
                         && resource.current_value == 75
                 })
         );
+    let player_health_adjusted = !include_interaction
+        || matches!(
+            aggregate_payload(
+                &runtime.rpg_snapshot(),
+                RpgAggregateKindV1::Character,
+                fixture.body_id,
+            ),
+            Some(RpgAggregatePayloadV1::Character(character))
+                if character.resources.iter().any(|resource| {
+                    resource.resource_id.as_str() == CORE_CHARACTER_HEALTH_RESOURCE_ID
+                        && resource.current_value == 75
+                })
+        );
     if final_pose.translation_micrometres != expected_pose
         || runtime.physics_snapshot().physics_tick != expected_substeps
         || events != expected_events
@@ -1431,6 +1571,9 @@ fn run_grounded_collision_scenario_with_backend(
         || !item_is_owned
         || !item_is_equipped
         || !npc_health_adjusted
+        || !player_health_adjusted
+        || agent_intent_id.is_none()
+        || agent_projection_hash.is_none()
         || world_streamer.snapshot().generation != 2
         || world_streamer.snapshot().current_chunk_id
             != world_streamer
@@ -1446,9 +1589,11 @@ fn run_grounded_collision_scenario_with_backend(
              object={object_is_activated} dialogue={cooked_dialogue_completed} \
              quest={cooked_quest_completed} relationship={cooked_relationship_applied} \
              pickup={pickup_completed} owned={item_is_owned} equipped={item_is_equipped} \
-             health={npc_health_adjusted} world_generation={} current_chunk={}",
+             npc_health={npc_health_adjusted} player_health={player_health_adjusted} \
+             agent={} world_generation={} current_chunk={}",
             final_pose.translation_micrometres,
             runtime.physics_snapshot().physics_tick,
+            agent_intent_id.is_some() && agent_projection_hash.is_some(),
             world_streamer.snapshot().generation,
             world_streamer.snapshot().current_chunk_id.as_str(),
         )));
@@ -1481,7 +1626,84 @@ fn run_grounded_collision_scenario_with_backend(
         presentation_bindings: fixture_presentation_bindings(&fixture)?,
         tick_reports,
         world_streaming_snapshot: world_streamer.snapshot().clone(),
+        agent_intent_id,
+        agent_projection_hash,
     })
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the acceptance accumulator updates the complete deterministic report"
+)]
+fn accumulate_report(
+    report: &next_runtime::TickReport,
+    events: &mut u64,
+    rpg_events: &mut u64,
+    begin_contacts: &mut u64,
+    persist_contacts: &mut u64,
+    end_contacts: &mut u64,
+    contact_preimage: &mut Vec<u8>,
+) -> Result<(), PlayCheckError> {
+    *events = events
+        .checked_add(u64::try_from(report.events.len()).map_err(|_| PlayCheckError::CountOverflow)?)
+        .ok_or(PlayCheckError::CountOverflow)?;
+    *rpg_events = rpg_events
+        .checked_add(
+            u64::try_from(
+                report
+                    .events
+                    .iter()
+                    .filter(|event| matches!(&event.payload, EventPayload::Rpg(_)))
+                    .count(),
+            )
+            .map_err(|_| PlayCheckError::CountOverflow)?,
+        )
+        .ok_or(PlayCheckError::CountOverflow)?;
+    for contact in &report.contact_batch.events {
+        let count = match contact.phase {
+            ContactPhaseV1::Begin => &mut *begin_contacts,
+            ContactPhaseV1::Persist => &mut *persist_contacts,
+            ContactPhaseV1::End => &mut *end_contacts,
+        };
+        *count = count.checked_add(1).ok_or(PlayCheckError::CountOverflow)?;
+    }
+    contact_preimage.extend_from_slice(report.contact_batch.batch_hash.as_bytes());
+    Ok(())
+}
+
+fn rpg_contact_facts_from_report(
+    batch: &next_contracts::ClosedPhysicsContactBatchV1,
+    physics_checkpoint_revision: u64,
+) -> Vec<RpgPhysicalContactFactV1> {
+    let mut facts = batch
+        .events
+        .iter()
+        .filter(|event| matches!(event.phase, ContactPhaseV1::Begin | ContactPhaseV1::Persist))
+        .filter_map(|event| {
+            let first = event.participant_low.body_id.subject_id;
+            let second = event.participant_high.body_id.subject_id;
+            if first == second {
+                return None;
+            }
+            let (subject_low, subject_high) = if first < second {
+                (first, second)
+            } else {
+                (second, first)
+            };
+            Some(RpgPhysicalContactFactV1 {
+                gameplay_tick: batch.gameplay_tick,
+                contact_id: event.contact_id,
+                subject_low,
+                subject_high,
+                physics_checkpoint_revision,
+                source_snapshot_hash: event.source_snapshot_hash,
+                contact_batch_hash: batch.batch_hash,
+            })
+        })
+        .collect::<Vec<_>>();
+    facts.sort_unstable();
+    facts.dedup();
+    facts
 }
 
 fn fixture_presentation_bindings(
@@ -1617,6 +1839,7 @@ pub enum PlayCheckError {
     BodyMissing,
     InteractiveObjectMissing,
     CookedNpcMissing,
+    CookedPlayerMissing,
     CookedDialogueMissing,
     CookedQuestMissing,
     AcceptanceMismatch(String),
@@ -1627,6 +1850,9 @@ pub enum PlayCheckError {
     WorldStreamingContract(next_contracts::WorldStreamingContractError),
     WorldStreamingResumeMismatch,
     WorldStreamingMutatedRpg,
+    Agent(next_agent::AgentPlannerError),
+    AgentActionMissing,
+    AgentCommandRejected,
     PresentationExtraction(next_presentation::PresentationExtractionError),
     Render(next_render::RenderDeviceError),
 }
@@ -1650,6 +1876,7 @@ impl Display for PlayCheckError {
                 formatter.write_str("play check interactive object is missing")
             }
             Self::CookedNpcMissing => formatter.write_str("play check cooked NPC is missing"),
+            Self::CookedPlayerMissing => formatter.write_str("play check player is missing"),
             Self::CookedDialogueMissing => {
                 formatter.write_str("play check cooked dialogue is missing")
             }
@@ -1673,6 +1900,11 @@ impl Display for PlayCheckError {
             }
             Self::WorldStreamingMutatedRpg => {
                 formatter.write_str("world transition mutated durable RPG state")
+            }
+            Self::Agent(error) => write!(formatter, "{error}"),
+            Self::AgentActionMissing => formatter.write_str("deterministic NPC action is missing"),
+            Self::AgentCommandRejected => {
+                formatter.write_str("deterministic NPC command was rejected")
             }
             Self::PresentationExtraction(error) => write!(formatter, "{error}"),
             Self::Render(error) => write!(formatter, "{error}"),
@@ -1763,6 +1995,12 @@ impl From<WorldStreamingError> for PlayCheckError {
 impl From<next_contracts::WorldStreamingContractError> for PlayCheckError {
     fn from(error: next_contracts::WorldStreamingContractError) -> Self {
         Self::WorldStreamingContract(error)
+    }
+}
+
+impl From<next_agent::AgentPlannerError> for PlayCheckError {
+    fn from(error: next_agent::AgentPlannerError) -> Self {
+        Self::Agent(error)
     }
 }
 

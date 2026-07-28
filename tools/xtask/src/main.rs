@@ -61,15 +61,20 @@ fn run() -> Result<(), String> {
 }
 
 fn performance() -> Result<(), String> {
-    let report =
+    let streaming =
         next_verification::run_streaming_performance_check().map_err(|error| error.to_string())?;
+    let agent = next_verification::run_agent_planning_performance_check()
+        .map_err(|error| error.to_string())?;
     println!(
-        "{{\"status\":\"PASS\",\"scenario\":\"streaming-admission\",\"cycles\":{},\"staged_asset_references\":{},\"elapsed_microseconds\":{},\"final_generation\":{},\"final_world_state_hash\":\"{}\"}}",
-        report.cycles,
-        report.staged_asset_references,
-        report.elapsed_microseconds,
-        report.final_generation,
-        report.final_world_state_hash.to_hex(),
+        "{{\"status\":\"PASS\",\"streaming\":{{\"cycles\":{},\"staged_asset_references\":{},\"elapsed_microseconds\":{},\"final_generation\":{},\"final_world_state_hash\":\"{}\"}},\"agent_planning\":{{\"cycles\":{},\"elapsed_microseconds\":{},\"final_plan_hash\":\"{}\"}}}}",
+        streaming.cycles,
+        streaming.staged_asset_references,
+        streaming.elapsed_microseconds,
+        streaming.final_generation,
+        streaming.final_world_state_hash.to_hex(),
+        agent.cycles,
+        agent.elapsed_microseconds,
+        agent.final_plan_hash.to_hex(),
     );
     Ok(())
 }
@@ -189,7 +194,7 @@ fn play() -> Result<(), String> {
     let report = next_verification::run_play_check().map_err(|error| error.to_string())?;
     let translation = report.final_pose.translation_micrometres;
     println!(
-        "{{\"status\":\"PASS\",\"ticks\":{},\"final_pose_um\":[{},{},{}],\"events\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"dialogue_node\":\"{}\",\"quest_state\":\"{}\",\"npc_player_trust\":{},\"npc_health\":{},\"world_streaming_generation\":{},\"current_chunk\":\"{}\",\"ledger_hash\":\"{}\",\"state_root\":\"{}\"}}",
+        "{{\"status\":\"PASS\",\"ticks\":{},\"final_pose_um\":[{},{},{}],\"events\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"dialogue_node\":\"{}\",\"quest_state\":\"{}\",\"npc_player_trust\":{},\"npc_health\":{},\"player_health\":{},\"agent_intent\":\"{}\",\"agent_projection\":\"{}\",\"world_streaming_generation\":{},\"current_chunk\":\"{}\",\"ledger_hash\":\"{}\",\"state_root\":\"{}\"}}",
         report.ticks,
         translation[0],
         translation[1],
@@ -201,6 +206,9 @@ fn play() -> Result<(), String> {
         report.quest_state_id.as_str(),
         report.npc_player_trust,
         report.npc_health,
+        report.player_health,
+        report.agent_intent_id.to_hex(),
+        report.agent_projection_hash.to_hex(),
         report.world_streaming_generation,
         report.current_chunk_id.as_str(),
         report.final_command_ledger_hash.to_hex(),
@@ -213,7 +221,7 @@ fn persistence_replay(backend: next_verification::PersistenceReplayBackend) -> R
     let report = next_verification::run_persistence_replay_check_with_backend(backend)
         .map_err(|error| error.to_string())?;
     println!(
-        "{{\"status\":\"PASS\",\"ticks\":{},\"generations\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"dialogue_node\":\"{}\",\"quest_state\":\"{}\",\"npc_player_trust\":{},\"npc_health\":{},\"world_streaming_generation\":{},\"current_chunk\":\"{}\",\"final_state_root\":\"{}\",\"final_ledger_root\":\"{}\"}}",
+        "{{\"status\":\"PASS\",\"ticks\":{},\"generations\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"dialogue_node\":\"{}\",\"quest_state\":\"{}\",\"npc_player_trust\":{},\"npc_health\":{},\"player_health\":{},\"agent_intent\":\"{}\",\"agent_projection\":\"{}\",\"world_streaming_generation\":{},\"current_chunk\":\"{}\",\"final_state_root\":\"{}\",\"final_ledger_root\":\"{}\"}}",
         report.ticks,
         report.generations,
         report.rpg_events,
@@ -222,6 +230,9 @@ fn persistence_replay(backend: next_verification::PersistenceReplayBackend) -> R
         report.quest_state_id,
         report.npc_player_trust,
         report.npc_health,
+        report.player_health,
+        report.agent_intent_id.to_hex(),
+        report.agent_projection_hash.to_hex(),
         report.world_streaming_generation,
         report.current_chunk_id.as_str(),
         report.final_state_root.to_hex(),

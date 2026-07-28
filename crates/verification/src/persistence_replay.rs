@@ -18,8 +18,9 @@ use next_contracts::{
     RUNTIME_SNAPSHOT_SCHEMA_VERSION, RUNTIME_SNAPSHOT_SEGMENT_ID, ReplayComparePointV4,
     ReplayManifestV4, ReplayOwnerSegmentV2, ReplayTickManifestV4, RpgAggregateEnvelopeV1,
     RpgAggregateKindV1, RpgAggregatePayloadV1, RpgAggregateRefV1, RpgCommandV1, RpgEventV1,
-    RpgOperationPayloadV1, RpgOperationV1, RpgSnapshotV2, SaveCompatibility, SaveSegmentDescriptor,
-    SchemaId, StateRoot, TickSettings, WorldCheckpointV4, WorldCommand,
+    RpgOperationPayloadV1, RpgOperationV1, RpgPhysicalContactFactV1, RpgSnapshotV2,
+    SaveCompatibility, SaveSegmentDescriptor, SchemaId, StateRoot, TickSettings, WorldCheckpointV4,
+    WorldCommand,
 };
 use next_physics_api::PhysicsBackendPolicy;
 use next_runtime::{PhysicsLaunchOptions, RuntimeState, TickReport};
@@ -47,6 +48,9 @@ pub struct PersistenceReplayCheckReport {
     pub quest_state_id: SchemaId,
     pub npc_player_trust: i32,
     pub npc_health: i32,
+    pub player_health: i32,
+    pub agent_intent_id: ContentHash,
+    pub agent_projection_hash: ContentHash,
     pub world_streaming_generation: u64,
     pub current_chunk_id: SchemaId,
     pub final_state_root: StateRoot,
@@ -448,6 +452,65 @@ pub(crate) fn run_persistence_replay_check_for_project(
             "queued contact-gated melee continues exactly after restore",
         ));
     }
+    let direct_agent_facts = rpg_contact_facts_from_report(
+        &direct_melee.contact_batch,
+        direct.physics_snapshot().checkpoint_revision,
+    );
+    let restored_agent_facts = rpg_contact_facts_from_report(
+        &restored_melee.contact_batch,
+        restored.physics_snapshot().checkpoint_revision,
+    );
+    let direct_agent_snapshot = direct.rpg_snapshot();
+    let restored_agent_snapshot = restored.rpg_snapshot();
+    let direct_agent_request = next_agent::AgentPlanningRequestV1 {
+        gameplay_tick: direct_melee.tick,
+        world_generation: direct_world.snapshot().generation,
+        decision_seed: 0x4e45_5854,
+        source_character_id: fixture.npc_character_id,
+        target_character_id: fixture.body_id,
+        allowed_semantic_actions: vec![
+            SchemaId::new(next_contracts::CORE_MELEE_ACTION_ID)
+                .expect("engine-owned melee action is valid"),
+        ],
+        motor_state: next_contracts::MotorCapabilityStateV1::ProceduralFallback,
+        ai_host_available: false,
+        model_available: false,
+        rpg_snapshot: &direct_agent_snapshot,
+        definitions: &fixture.activated_project.rpg_definitions,
+        physical_contact_facts: &direct_agent_facts,
+    };
+    let restored_agent_request = next_agent::AgentPlanningRequestV1 {
+        rpg_snapshot: &restored_agent_snapshot,
+        physical_contact_facts: &restored_agent_facts,
+        ..direct_agent_request.clone()
+    };
+    let agent_route = next_agent::AgentCommandRouteV1 {
+        issuer: fixture.agent_principal.clone(),
+        stream_id: fixture.agent_stream_id,
+        sequence: 0,
+        target_tick: direct.next_tick(),
+    };
+    let direct_agent =
+        next_agent::propose_world_command_v1(&direct_agent_request, agent_route.clone()).map_err(
+            |error| PersistenceReplayCheckError::new("plan direct NPC action", error.to_string()),
+        )?;
+    let restored_agent = next_agent::propose_world_command_v1(&restored_agent_request, agent_route)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("plan restored NPC action", error.to_string())
+        })?;
+    if direct_agent.intent != restored_agent.intent
+        || direct_agent.procedural_projection != restored_agent.procedural_projection
+        || direct_agent.world_command != restored_agent.world_command
+    {
+        return Err(PersistenceReplayCheckError::condition(
+            "agent plan is exact across save and chunk restore",
+        ));
+    }
+    let replay_agent_command = direct_agent.world_command.clone();
+    let direct_agent_command = direct_agent.world_command;
+    let restored_agent_command = restored_agent.world_command;
+    let agent_intent_id = direct_agent.intent.intent_id;
+    let agent_projection_hash = direct_agent.procedural_projection.projection_hash;
     reports.push(direct_melee);
 
     let cooldown_retry =
@@ -464,12 +527,14 @@ pub(crate) fn run_persistence_replay_check_for_project(
         .map_err(|error| {
             PersistenceReplayCheckError::new("enqueue restored cooldown retry", error.to_string())
         })?;
-    let direct_cooldown = direct.run_tick([]).map_err(|error| {
+    let direct_cooldown = direct.run_tick([direct_agent_command]).map_err(|error| {
         PersistenceReplayCheckError::new("direct cooldown retry", error.to_string())
     })?;
-    let restored_cooldown = restored.run_tick([]).map_err(|error| {
-        PersistenceReplayCheckError::new("restored cooldown retry", error.to_string())
-    })?;
+    let restored_cooldown = restored
+        .run_tick([restored_agent_command])
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("restored cooldown retry", error.to_string())
+        })?;
     if direct_cooldown != restored_cooldown
         || direct_cooldown.mapping_receipts.len() != 1
         || direct_cooldown.mapping_receipts[0].code != InputMappingCodeV1::Accepted
@@ -479,10 +544,17 @@ pub(crate) fn run_persistence_replay_check_for_project(
         || direct_cooldown
             .events
             .iter()
-            .any(|event| matches!(event.payload, EventPayload::Rpg(_)))
+            .filter(|event| {
+                matches!(
+                    event.payload,
+                    EventPayload::Rpg(RpgEventV1::CharacterResourceAdjusted { .. })
+                )
+            })
+            .count()
+            != 1
     {
         return Err(PersistenceReplayCheckError::condition(
-            "cooldown retry is a deterministic accepted no-op after restore",
+            "cooldown retry is a no-op while the agent command commits exactly after restore",
         ));
     }
     reports.push(direct_cooldown);
@@ -633,7 +705,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
             Vec::new(),
             Vec::new(),
             Vec::new(),
-            Vec::new(),
+            vec![replay_agent_command],
             Vec::new(),
             Vec::new(),
             Vec::new(),
@@ -856,6 +928,22 @@ pub(crate) fn run_persistence_replay_check_for_project(
             ));
         }
     };
+    let player_health = match aggregate_payload(
+        &final_checkpoint.rpg_snapshot,
+        RpgAggregateKindV1::Character,
+        fixture.body_id,
+    ) {
+        Some(RpgAggregatePayloadV1::Character(character)) => character
+            .resources
+            .iter()
+            .find(|resource| resource.resource_id.as_str() == CORE_CHARACTER_HEALTH_RESOURCE_ID)
+            .map_or(0, |resource| resource.current_value),
+        _ => {
+            return Err(PersistenceReplayCheckError::condition(
+                "final player health resource exists",
+            ));
+        }
+    };
     let pickup_is_collected = matches!(
         aggregate_payload(
             &final_checkpoint.rpg_snapshot,
@@ -891,7 +979,8 @@ pub(crate) fn run_persistence_replay_check_for_project(
         || quest_state_id != expected_quest_state_id
         || npc_player_trust != expected_relationship_value
         || npc_health != 75
-        || rpg_events != 10
+        || player_health != 75
+        || rpg_events != 11
         || !pickup_is_collected
         || !pickup_is_owned
         || !pickup_is_equipped
@@ -925,6 +1014,9 @@ pub(crate) fn run_persistence_replay_check_for_project(
         quest_state_id,
         npc_player_trust,
         npc_health,
+        player_health,
+        agent_intent_id,
+        agent_projection_hash,
         world_streaming_generation: direct_world.snapshot().generation,
         current_chunk_id: direct_world.snapshot().current_chunk_id.clone(),
         final_state_root,
@@ -953,6 +1045,41 @@ fn transition_world(
         .commit(&staged, false)
         .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
     Ok(())
+}
+
+fn rpg_contact_facts_from_report(
+    batch: &next_contracts::ClosedPhysicsContactBatchV1,
+    physics_checkpoint_revision: u64,
+) -> Vec<RpgPhysicalContactFactV1> {
+    let mut facts = batch
+        .events
+        .iter()
+        .filter(|event| matches!(event.phase, ContactPhaseV1::Begin | ContactPhaseV1::Persist))
+        .filter_map(|event| {
+            let first = event.participant_low.body_id.subject_id;
+            let second = event.participant_high.body_id.subject_id;
+            if first == second {
+                return None;
+            }
+            let (subject_low, subject_high) = if first < second {
+                (first, second)
+            } else {
+                (second, first)
+            };
+            Some(RpgPhysicalContactFactV1 {
+                gameplay_tick: batch.gameplay_tick,
+                contact_id: event.contact_id,
+                subject_low,
+                subject_high,
+                physics_checkpoint_revision,
+                source_snapshot_hash: event.source_snapshot_hash,
+                contact_batch_hash: batch.batch_hash,
+            })
+        })
+        .collect::<Vec<_>>();
+    facts.sort_unstable();
+    facts.dedup();
+    facts
 }
 
 fn replay_manifest(
@@ -1486,7 +1613,7 @@ mod tests {
         let report = run_persistence_replay_check().expect("product check passes");
         assert_eq!(report.ticks, 16);
         assert_eq!(report.generations, 2);
-        assert_eq!(report.rpg_events, 10);
+        assert_eq!(report.rpg_events, 11);
         assert_eq!(
             report.interactive_object_state.as_str(),
             CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
@@ -1501,6 +1628,7 @@ mod tests {
         );
         assert_eq!(report.npc_player_trust, 7);
         assert_eq!(report.npc_health, 75);
+        assert_eq!(report.player_health, 75);
         assert_eq!(
             report.final_pose.translation_micrometres,
             [200_000, 900_000, 200_000]

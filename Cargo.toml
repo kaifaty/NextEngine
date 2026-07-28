@@ -2,6 +2,7 @@
 members = [
     "apps/game",
     "apps/headless",
+    "crates/agent",
     "crates/assets",
     "crates/contracts",
     "crates/desktop-sdl-ash",
@@ -30,6 +31,7 @@ repository = ""
 
 [workspace.dependencies]
 next_contracts = { path = "crates/contracts" }
+next_agent = { path = "crates/agent" }
 next_assets = { path = "crates/assets" }
 next_desktop_sdl_ash = { path = "crates/desktop-sdl-ash" }
 next_mechanics = { path = "crates/mechanics" }

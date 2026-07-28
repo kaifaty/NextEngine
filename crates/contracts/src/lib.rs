@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod agent;
 mod canonical;
 mod command;
 mod content;
@@ -19,6 +20,12 @@ mod rpg_v1;
 mod snapshot;
 mod world;
 
+pub use agent::{
+    AGENT_INTENT_SCHEMA_VERSION, AGENT_MAX_AFFORDANCES, AgentAffordanceCandidateV1,
+    AgentContractError, AgentIntentV1, AgentPlannerSnapshotV1, AvatarAnimationPhaseV1,
+    MotorCapabilityStateV1, ProceduralAvatarProjectionV1, ProceduralAvatarRouteV1,
+    ProceduralFallbackReasonV1,
+};
 pub use canonical::{
     CANONICAL_BINARY_V1_MAGIC, CANONICAL_BINARY_V1_VERSION, CANONICAL_TYPE_BOOL,
     CANONICAL_TYPE_BYTES, CANONICAL_TYPE_F32_BITS, CANONICAL_TYPE_F64_BITS, CANONICAL_TYPE_HASH256,

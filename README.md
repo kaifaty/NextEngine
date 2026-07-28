@@ -17,8 +17,9 @@ Next Engine создаётся для игр, в которых движение
 > SDL3/ash Vulkan adapter компилируется как `Proposed`, но ещё не прошёл
 > обязательные Windows/Linux product checks. Первый data-only combat package
 > уже проходит общий capability/effect/RPG transaction path. Двухчанковый
-> deterministic streaming с отдельным save owner segment работает в cooked
-> slice; planner, script/plugin hosts и shipping closure остаются целевым
+> deterministic streaming с отдельным save owner segment и первый
+> deterministic NPC planner/procedural avatar fallback работают в cooked
+> slice; script/plugin hosts и shipping closure остаются целевым
 > результатом v1, а не готовым продуктом.
 > Название Next Engine временное.
 
@@ -126,6 +127,11 @@ runtime-обучение моделей и
   canonical staging group, validated group публикуется атомарно, прежний chunk
   проходит `Quiescing → Unloaded`, а pending transition сохраняется отдельным
   `nextengine.world-services` owner segment и реконструируется после load;
+- deterministic NPC planner читает immutable revision/hash-bound RPG,
+  mechanics и contact projections, выбирает planner-visible affordance в
+  canonical order и предлагает обычный `WorldCommand`; при отсутствии
+  `ai-host`/model route публикуется procedural idle/locomotion/melee animation
+  projection, не имеющая обратной записи в simulation;
 - переносимый `headless` composition root и локальные product checks;
 - изолированный экспериментальный путь
   `train → ONNX → inference` для проверки локального ML toolchain.
@@ -135,8 +141,8 @@ runtime-обучение моделей и
 один authored NPC dialogue/quest transition и переход во второй chunk с
 возвратом. Reference physics profile пока ограничен upright capsule и
 статическими Box colliders; desktop adapter пока отображает только
-B0-примитивы и остаётся `Proposed`. NPC planner и procedural avatar fallback —
-следующий срез.
+B0-примитивы и остаётся `Proposed`. Script/plugin hosts и shipping closure —
+следующие срезы.
 
 ## Быстрый старт
 
@@ -166,7 +172,7 @@ cargo run -p next_game --features desktop-sdl-ash -- --interactive
 Запустить основные локальные проверки:
 
 ```bash
-# Ввод → collision → pickup/equip → melee → switch → NPC dialogue/quest transition
+# Ввод → pickup/equip → player/NPC melee → dialogue/quest → chunk round-trip
 cargo run -p xtask -- play
 
 # Гравитация, столкновения с полом/стеной и жизненный цикл контактов

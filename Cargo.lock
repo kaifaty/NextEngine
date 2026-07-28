@@ -113,6 +113,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "next_agent"
+version = "0.1.0"
+dependencies = [
+ "next_contracts",
+ "next_mechanics",
+ "next_project",
+]
+
+[[package]]
 name = "next_assets"
 version = "0.1.0"
 dependencies = [
@@ -239,6 +248,7 @@ dependencies = [
 name = "next_verification"
 version = "0.1.0"
 dependencies = [
+ "next_agent",
  "next_assets",
  "next_contracts",
  "next_physics_api",
