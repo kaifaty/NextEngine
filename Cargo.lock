@@ -161,6 +161,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "next_mechanics"
+version = "0.1.0"
+dependencies = [
+ "next_contracts",
+ "next_project",
+]
+
+[[package]]
 name = "next_physics_api"
 version = "0.1.0"
 dependencies = [
@@ -221,6 +229,7 @@ name = "next_runtime"
 version = "0.1.0"
 dependencies = [
  "next_contracts",
+ "next_mechanics",
  "next_physics_api",
  "next_physics_physx",
  "next_rpg",

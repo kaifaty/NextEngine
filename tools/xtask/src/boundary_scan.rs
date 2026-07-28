@@ -6,11 +6,35 @@ use std::process::Command;
 
 pub fn boundary_scan(root: &Path) -> Result<(), String> {
     validate_public_contracts(root)?;
+    validate_mechanics_package_boundary(root)?;
     validate_importer_boundary(root)?;
     validate_ffi_policy(root)?;
     println!(
-        "PASS boundary-scan: public contracts, importer boundary and audited FFI allowlist verified"
+        "PASS boundary-scan: public contracts, public mechanics package path, importer boundary and audited FFI allowlist verified"
     );
+    Ok(())
+}
+
+fn validate_mechanics_package_boundary(root: &Path) -> Result<(), String> {
+    for application in ["apps/game/Cargo.toml", "apps/headless/Cargo.toml"] {
+        let body = read(&root.join(application))?;
+        if body.contains("next_mechanics") || body.contains("next_rpg") {
+            return Err(format!(
+                "BOUNDARY_APP_PRIVATE_MECHANICS_DEPENDENCY: {application}"
+            ));
+        }
+    }
+    let runtime = read(&root.join("crates/runtime/src/engine.rs"))?;
+    if runtime.contains("org.nextengine.core.combat") {
+        return Err("BOUNDARY_RUNTIME_FIRST_PARTY_COMBAT_ID".to_owned());
+    }
+    let mechanics = read(&root.join("crates/mechanics/src/lib.rs"))?;
+    let production = mechanics
+        .split_once("#[cfg(test)]")
+        .map_or(mechanics.as_str(), |(production, _)| production);
+    if production.contains("org.nextengine.core.combat") {
+        return Err("BOUNDARY_MECHANICS_HOST_FIRST_PARTY_PACKAGE_ID".to_owned());
+    }
     Ok(())
 }
 

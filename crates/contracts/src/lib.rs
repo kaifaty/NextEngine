@@ -59,9 +59,9 @@ pub use ids::{
 };
 pub use input::{
     CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION, CLOSED_INGRESS_BATCH_SCHEMA_VERSION,
-    CORE_EQUIP_USE_ACTION_ID, CORE_INTERACT_ACTION_ID, CORE_MOVE_ACTION_ID, CORE_PICKUP_ACTION_ID,
-    ClosedCommandAdmissionBatchBodyV2, ClosedCommandAdmissionBatchV2, ClosedIngressBatchBodyV1,
-    ClosedIngressBatchV1, INGRESS_ASSIGNMENT_PROFILE_SCHEMA_VERSION,
+    CORE_EQUIP_USE_ACTION_ID, CORE_INTERACT_ACTION_ID, CORE_MELEE_ACTION_ID, CORE_MOVE_ACTION_ID,
+    CORE_PICKUP_ACTION_ID, ClosedCommandAdmissionBatchBodyV2, ClosedCommandAdmissionBatchV2,
+    ClosedIngressBatchBodyV1, ClosedIngressBatchV1, INGRESS_ASSIGNMENT_PROFILE_SCHEMA_VERSION,
     INGRESS_ASSIGNMENT_SCHEMA_VERSION, INGRESS_CHECKPOINT_SCHEMA_VERSION,
     INPUT_SAMPLE_SCHEMA_VERSION, IngressAssignmentProfileV1, IngressAssignmentV1,
     IngressCheckpointV1, IngressEquivalenceReceiptV1, IngressResultCodeV1, IngressSubjectKindV1,
@@ -93,11 +93,13 @@ pub use ledger::{
     command_receipt_chain_next, command_receipt_digest,
 };
 pub use mechanics::{
-    DATA_ONLY_PACKAGE_KIND_V1, DialogueDefinitionV1, InteractionDefinitionV1,
-    LockedMechanicPackageV1, MechanicPackageManifestV1, MechanicsContractError, MechanicsLockV1,
-    QuestDefinitionV1, RelationshipDefinitionV1, RpgDefinitionRegistryV1, StateTransitionV1,
-    dialogue_definition_hash, interaction_definition_hash, quest_definition_hash,
-    relationship_definition_hash,
+    AbilityDefinitionV1, AbilityTargetKindV1, CORE_CHARACTER_HEALTH_RESOURCE_ID, CooldownSpecV1,
+    DATA_ONLY_PACKAGE_KIND_V1, DialogueDefinitionV1, EffectRequestV1, InteractionDefinitionV1,
+    LockedMechanicPackageV1, MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID, MechanicAffordanceV1,
+    MechanicPackageManifestV1, MechanicsContractError, MechanicsLockV1,
+    PHYSICS_QUERY_CONTACT_CAPABILITY_ID, QuestDefinitionV1, RelationshipDefinitionV1,
+    RpgDefinitionRegistryV1, StateTransitionV1, ability_definition_hash, dialogue_definition_hash,
+    interaction_definition_hash, quest_definition_hash, relationship_definition_hash,
 };
 pub use persistence::{
     AuthorityGrant, CommandLedgerDescriptorV2, DecodedReplayTickV4, HashBinding,
@@ -177,18 +179,20 @@ pub use rpg::{
     WorldChunkRecordSnapshot,
 };
 pub use rpg_v1::{
-    CharacterPayloadV1, DefinitionRefV1, DialoguePayloadV1, DivineStandingPayloadV1,
-    EquipmentPayloadV1, EquipmentSlotAssignmentV1, FactionMembershipPayloadV1, FactionPayloadV1,
-    InteractiveObjectPayloadV1, InventoryPayloadV1, InventoryReservationV1, ItemPayloadV1,
-    ProvenanceBindingV1, QuestPayloadV1, RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
-    RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION,
-    RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID, RPG_MAX_AGGREGATES_PER_SNAPSHOT, RPG_MAX_COLLECTION_ENTRIES,
-    RPG_MAX_OPERATIONS_PER_COMMAND, RPG_TRANSACTION_COMMAND_SCHEMA_VERSION,
-    RPG_TRANSACTION_PLAN_SCHEMA_ID, RelationshipDimensionV1, RelationshipPayloadV1,
-    RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgAggregateRefV1,
-    RpgCommandV1, RpgContractErrorV1, RpgEventDraftV1, RpgEventV1, RpgOperationPayloadV1,
-    RpgOperationV1, RpgPhysicalContactFactV1, RpgReadSetEntryV1, RpgRuntimeBindingsV1,
-    RpgSnapshotV2, RpgTransactionPlanV1, RpgWriteSetEntryV1, SkillProficiencyEntryV1,
+    CharacterPayloadV1, CharacterResourceEntryV1, DefinitionRefV1, DialoguePayloadV1,
+    DivineStandingPayloadV1, EquipmentPayloadV1, EquipmentSlotAssignmentV1,
+    FactionMembershipPayloadV1, FactionPayloadV1, InteractiveObjectPayloadV1, InventoryPayloadV1,
+    InventoryReservationV1, ItemPayloadV1, ProvenanceBindingV1, QuestPayloadV1,
+    RPG_AGGREGATE_SNAPSHOT_OWNER_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+    RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION, RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID,
+    RPG_EVENT_CHARACTER_RESOURCE_ADJUSTED_SCHEMA_ID, RPG_MAX_AGGREGATES_PER_SNAPSHOT,
+    RPG_MAX_COLLECTION_ENTRIES, RPG_MAX_OPERATIONS_PER_COMMAND,
+    RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RPG_TRANSACTION_PLAN_SCHEMA_ID,
+    RelationshipDimensionV1, RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1,
+    RpgAggregatePayloadV1, RpgAggregateRefV1, RpgCommandV1, RpgContractErrorV1, RpgEventDraftV1,
+    RpgEventV1, RpgOperationPayloadV1, RpgOperationV1, RpgPhysicalContactFactV1, RpgReadSetEntryV1,
+    RpgRuntimeBindingsV1, RpgSnapshotV2, RpgTransactionPlanV1, RpgWriteSetEntryV1,
+    SkillProficiencyEntryV1,
 };
 pub use snapshot::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SCHEMA_VERSION,

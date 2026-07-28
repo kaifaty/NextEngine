@@ -4,14 +4,15 @@ use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use next_contracts::{
-    ActivatedProjectV1, AssetId, AssetRevisionRefV1, CORE_EQUIP_USE_ACTION_ID,
-    CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACT_ACTION_ID,
+    ActivatedProjectV1, AssetId, AssetRevisionRefV1, CORE_CHARACTER_HEALTH_RESOURCE_ID,
+    CORE_EQUIP_USE_ACTION_ID, CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACT_ACTION_ID,
     CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID,
-    CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CORE_MOVE_ACTION_ID, CORE_PICKUP_ACTION_ID,
-    CapabilityId, CharacterPayloadV1, CommandLedgerHash, CommandStreamId, ContactPhaseV1,
-    ContentHash, DefinitionRefV1, DialoguePayloadV1, EquipmentPayloadV1, EventPayload,
-    InputSampleV1, InputSourceId, InteractiveObjectPayloadV1, InventoryPayloadV1, IssuerPrincipal,
-    ItemPayloadV1, PHYSICAL_COMMAND_CAPABILITY_ID, PLAYER_ACTION_FRAME_SCHEMA_ID,
+    CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CORE_MELEE_ACTION_ID, CORE_MOVE_ACTION_ID,
+    CORE_PICKUP_ACTION_ID, CapabilityId, CharacterPayloadV1, CharacterResourceEntryV1,
+    CommandLedgerHash, CommandStreamId, ContactPhaseV1, ContentHash, DefinitionRefV1,
+    DialoguePayloadV1, EquipmentPayloadV1, EventPayload, InputSampleV1, InputSourceId,
+    InteractiveObjectPayloadV1, InventoryPayloadV1, IssuerPrincipal, ItemPayloadV1,
+    PHYSICAL_COMMAND_CAPABILITY_ID, PLAYER_ACTION_FRAME_SCHEMA_ID,
     PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PLAYER_INTERACTION_SYSTEM_ID,
     PersistentId, PhysicsBodyDescriptorV1, PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2,
     PhysicsContactReportingV1, PhysicsCoordinateProfileV1, PhysicsGeometryV1,
@@ -148,6 +149,16 @@ fn build_neutral_player_fixture_with_activated_project(
                 .interactions
                 .iter()
                 .map(next_contracts::interaction_definition_hash),
+        );
+    bootstrap
+        .rpg_bindings
+        .active_definition_policy_hashes
+        .extend(
+            activated_project
+                .rpg_definitions
+                .abilities
+                .iter()
+                .map(next_contracts::ability_definition_hash),
         );
     bootstrap
         .rpg_bindings
@@ -396,6 +407,17 @@ pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapsho
         .interactions
         .first()
         .expect("cooked fixture has one interaction definition");
+    let ability_definition = definitions
+        .abilities
+        .first()
+        .expect("cooked fixture has one ability definition");
+    let health_resource = || CharacterResourceEntryV1 {
+        resource_id: SchemaId::new(CORE_CHARACTER_HEALTH_RESOURCE_ID)
+            .expect("engine-owned health resource is valid"),
+        current_value: 100,
+        minimum_value: 0,
+        maximum_value: 100,
+    };
     let mut aggregates = vec![
         fixture_aggregate(
             fixture.body_id,
@@ -403,12 +425,13 @@ pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapsho
             RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
                 inventory_id: Some(fixture.player_inventory_id),
                 equipment_id: Some(fixture.player_equipment_id),
+                resources: vec![health_resource()],
                 skills: Vec::new(),
             }),
         ),
-        fixture_aggregate(
+        fixture_aggregate_from_asset(
             fixture.pickup_item_id,
-            0x5f,
+            ability_definition.required_item_definition,
             RpgAggregatePayloadV1::Item(ItemPayloadV1 {
                 quantity: 1,
                 durability: 100,
@@ -443,6 +466,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapsho
             RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
                 inventory_id: None,
                 equipment_id: None,
+                resources: vec![health_resource()],
                 skills: Vec::new(),
             }),
         ),
@@ -714,6 +738,23 @@ pub fn player_equip_use_sample(
     )
 }
 
+pub fn player_melee_sample(
+    fixture: &NeutralPlayerFixture,
+    sequence: u64,
+    phase: PlayerActionPhaseV1,
+    pressed: bool,
+    sampled_wall_time: Option<i64>,
+) -> Result<InputSampleV1, CanonicalFixtureError> {
+    player_semantic_action_sample(
+        fixture,
+        sequence,
+        CORE_MELEE_ACTION_ID,
+        phase,
+        pressed,
+        sampled_wall_time,
+    )
+}
+
 fn player_semantic_action_sample(
     fixture: &NeutralPlayerFixture,
     sequence: u64,
@@ -759,6 +800,7 @@ pub struct PlayCheckReport {
     pub dialogue_node_id: SchemaId,
     pub quest_state_id: SchemaId,
     pub npc_player_trust: i32,
+    pub npc_health: i32,
     pub final_command_ledger_hash: CommandLedgerHash,
     pub final_state_root: StateRoot,
 }
@@ -905,6 +947,18 @@ fn play_check_report(
         }
         _ => return Err(PlayCheckError::CookedNpcMissing),
     };
+    let npc_health = match aggregate_payload(
+        &rpg,
+        RpgAggregateKindV1::Character,
+        scenario.npc_character_id,
+    ) {
+        Some(RpgAggregatePayloadV1::Character(character)) => character
+            .resources
+            .iter()
+            .find(|resource| resource.resource_id.as_str() == CORE_CHARACTER_HEALTH_RESOURCE_ID)
+            .map_or(0, |resource| resource.current_value),
+        _ => return Err(PlayCheckError::CookedNpcMissing),
+    };
     Ok(PlayCheckReport {
         ticks: scenario.ticks,
         final_pose: scenario.final_pose,
@@ -914,6 +968,7 @@ fn play_check_report(
         dialogue_node_id,
         quest_state_id,
         npc_player_trust,
+        npc_health,
         final_command_ledger_hash: checkpoint.runtime_snapshot.command_ledger_hash()?,
         final_state_root: compute_world_checkpoint_root(&checkpoint)?,
     })
@@ -1038,6 +1093,7 @@ enum ScenarioAction {
     Interaction,
     Pickup,
     EquipUse,
+    Melee,
 }
 
 fn run_grounded_collision_scenario(
@@ -1101,6 +1157,7 @@ fn run_grounded_collision_scenario_with_backend(
             ScenarioAction::Movement(PlayerActionPhaseV1::Started, [32_767, 0]),
             ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [32_767, 0]),
             ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [32_767, 0]),
+            ScenarioAction::Melee,
             ScenarioAction::Interaction,
             ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [-32_767, 0]),
             ScenarioAction::Movement(PlayerActionPhaseV1::Completed, [0, 0]),
@@ -1147,6 +1204,13 @@ fn run_grounded_collision_scenario_with_backend(
                 true,
                 wall_time,
             )?,
+            ScenarioAction::Melee => player_melee_sample(
+                &fixture,
+                sequence,
+                PlayerActionPhaseV1::Started,
+                true,
+                wall_time,
+            )?,
         };
         runtime.enqueue_input_sample(&fixture.principal, sample)?;
         let report = runtime.run_tick([])?;
@@ -1184,16 +1248,16 @@ fn run_grounded_collision_scenario_with_backend(
         .get(&fixture.physics_body_id)
         .ok_or(PlayCheckError::BodyMissing)?
         .pose;
-    let expected_ticks = if include_interaction { 14 } else { 6 };
-    let expected_substeps = if include_interaction { 28 } else { 12 };
-    let expected_events = if include_interaction { 15 } else { 4 };
-    let expected_persists = if include_interaction { 45 } else { 15 };
+    let expected_ticks = if include_interaction { 15 } else { 6 };
+    let expected_substeps = if include_interaction { 30 } else { 12 };
+    let expected_events = if include_interaction { 16 } else { 4 };
+    let expected_persists = if include_interaction { 49 } else { 15 };
     let expected_pose = if include_interaction {
         [200_000, 900_000, 200_000]
     } else {
         [0, 900_000, 200_000]
     };
-    let expected_rpg_events = if include_interaction { 7 } else { 0 };
+    let expected_rpg_events = if include_interaction { 8 } else { 0 };
     let expected_begins = if include_interaction { 4 } else { 3 };
     let expected_ends = if include_interaction { 3 } else { 2 };
     let object_is_activated = !include_interaction
@@ -1274,6 +1338,19 @@ fn run_grounded_collision_scenario_with_backend(
                         && assignment.item_id == fixture.pickup_item_id
                 })
         );
+    let npc_health_adjusted = !include_interaction
+        || matches!(
+            aggregate_payload(
+                &runtime.rpg_snapshot(),
+                RpgAggregateKindV1::Character,
+                fixture.npc_character_id,
+            ),
+            Some(RpgAggregatePayloadV1::Character(character))
+                if character.resources.iter().any(|resource| {
+                    resource.resource_id.as_str() == CORE_CHARACTER_HEALTH_RESOURCE_ID
+                        && resource.current_value == 75
+                })
+        );
     if final_pose.translation_micrometres != expected_pose
         || runtime.physics_snapshot().physics_tick != expected_substeps
         || events != expected_events
@@ -1288,8 +1365,18 @@ fn run_grounded_collision_scenario_with_backend(
         || !pickup_completed
         || !item_is_owned
         || !item_is_equipped
+        || !npc_health_adjusted
     {
-        return Err(PlayCheckError::AcceptanceMismatch);
+        return Err(PlayCheckError::AcceptanceMismatch(format!(
+            "pose={:?} physics_tick={} events={events} rpg_events={rpg_events} \
+             contacts={begin_contacts}/{persist_contacts}/{end_contacts} \
+             object={object_is_activated} dialogue={cooked_dialogue_completed} \
+             quest={cooked_quest_completed} relationship={cooked_relationship_applied} \
+             pickup={pickup_completed} owned={item_is_owned} equipped={item_is_equipped} \
+             health={npc_health_adjusted}",
+            final_pose.translation_micrometres,
+            runtime.physics_snapshot().physics_tick,
+        )));
     }
     Ok(GroundedCollisionScenario {
         ticks: expected_ticks,
@@ -1456,7 +1543,7 @@ pub enum PlayCheckError {
     CookedNpcMissing,
     CookedDialogueMissing,
     CookedQuestMissing,
-    AcceptanceMismatch,
+    AcceptanceMismatch(String),
     BackendParityMismatch,
     PresentationAssetMissing,
     PresentationExtraction(next_presentation::PresentationExtractionError),
@@ -1486,7 +1573,9 @@ impl Display for PlayCheckError {
                 formatter.write_str("play check cooked dialogue is missing")
             }
             Self::CookedQuestMissing => formatter.write_str("play check cooked quest is missing"),
-            Self::AcceptanceMismatch => formatter.write_str("play check result did not match"),
+            Self::AcceptanceMismatch(details) => {
+                write!(formatter, "play check result did not match: {details}")
+            }
             Self::BackendParityMismatch => {
                 formatter.write_str("reference and PhysX tick reports diverged")
             }

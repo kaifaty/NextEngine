@@ -29,6 +29,8 @@ pub const RPG_EVENT_EQUIPMENT_ASSIGNED_SCHEMA_ID: &str =
     "nextengine.event.rpg.equipment-assigned.v1";
 pub const RPG_EVENT_INTERACTIVE_OBJECT_TRANSITIONED_SCHEMA_ID: &str =
     "nextengine.event.rpg.interactive-object-transitioned.v1";
+pub const RPG_EVENT_CHARACTER_RESOURCE_ADJUSTED_SCHEMA_ID: &str =
+    "nextengine.event.rpg.character-resource-adjusted.v1";
 pub const RPG_TRANSACTION_COMMAND_SCHEMA_VERSION: u32 = 2;
 pub const RPG_MAX_OPERATIONS_PER_COMMAND: usize = 64;
 pub const RPG_MAX_AGGREGATES_PER_SNAPSHOT: usize = 16_384;
@@ -185,7 +187,16 @@ pub enum ProvenanceBindingV1 {
 pub struct CharacterPayloadV1 {
     pub inventory_id: Option<PersistentId>,
     pub equipment_id: Option<PersistentId>,
+    pub resources: Vec<CharacterResourceEntryV1>,
     pub skills: Vec<SkillProficiencyEntryV1>,
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct CharacterResourceEntryV1 {
+    pub resource_id: SchemaId,
+    pub current_value: i32,
+    pub minimum_value: i32,
+    pub maximum_value: i32,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -325,6 +336,13 @@ impl RpgAggregatePayloadV1 {
             Self::Character(payload) => {
                 extend_optional_id(&mut bytes, payload.inventory_id);
                 extend_optional_id(&mut bytes, payload.equipment_id);
+                extend_count(&mut bytes, payload.resources.len())?;
+                for resource in &payload.resources {
+                    extend_schema_id(&mut bytes, &resource.resource_id)?;
+                    bytes.extend_from_slice(&resource.current_value.to_le_bytes());
+                    bytes.extend_from_slice(&resource.minimum_value.to_le_bytes());
+                    bytes.extend_from_slice(&resource.maximum_value.to_le_bytes());
+                }
                 extend_count(&mut bytes, payload.skills.len())?;
                 for skill in &payload.skills {
                     extend_schema_id(&mut bytes, &skill.skill_id)?;
@@ -411,6 +429,7 @@ impl RpgAggregatePayloadV1 {
             RpgAggregateKindV1::Character => Self::Character(CharacterPayloadV1 {
                 inventory_id: read_optional_id(&mut cursor)?,
                 equipment_id: read_optional_id(&mut cursor)?,
+                resources: read_resources(&mut cursor, limits)?,
                 skills: read_skills(&mut cursor, limits)?,
             }),
             RpgAggregateKindV1::Item => Self::Item(ItemPayloadV1 {
@@ -719,6 +738,13 @@ pub enum RpgOperationPayloadV1 {
         expected_state_id: SchemaId,
         next_state_id: SchemaId,
     },
+    AdjustCharacterResource {
+        source_character_id: PersistentId,
+        character_id: PersistentId,
+        resource_id: SchemaId,
+        expected_value: i32,
+        delta: i32,
+    },
 }
 
 impl RpgOperationPayloadV1 {
@@ -764,6 +790,14 @@ impl RpgOperationPayloadV1 {
             Self::TransitionInteractiveObject { object_id, .. } => {
                 vec![(RpgAggregateKindV1::InteractiveObject, *object_id)]
             }
+            Self::AdjustCharacterResource {
+                source_character_id,
+                character_id,
+                ..
+            } => vec![
+                (RpgAggregateKindV1::Character, *source_character_id),
+                (RpgAggregateKindV1::Character, *character_id),
+            ],
         };
         targets.sort_unstable();
         targets.dedup();
@@ -849,6 +883,20 @@ impl RpgOperationPayloadV1 {
                 extend_schema_id(&mut bytes, expected_state_id)?;
                 extend_schema_id(&mut bytes, next_state_id)?;
             }
+            Self::AdjustCharacterResource {
+                source_character_id,
+                character_id,
+                resource_id,
+                expected_value,
+                delta,
+            } => {
+                bytes.push(8);
+                bytes.extend_from_slice(source_character_id.as_bytes());
+                bytes.extend_from_slice(character_id.as_bytes());
+                extend_schema_id(&mut bytes, resource_id)?;
+                bytes.extend_from_slice(&expected_value.to_le_bytes());
+                bytes.extend_from_slice(&delta.to_le_bytes());
+            }
         }
         Ok(bytes)
     }
@@ -896,6 +944,13 @@ impl RpgOperationPayloadV1 {
                 object_id: read_id(&mut cursor)?,
                 expected_state_id: read_schema_id(&mut cursor, limits)?,
                 next_state_id: read_schema_id(&mut cursor, limits)?,
+            },
+            8 => Self::AdjustCharacterResource {
+                source_character_id: read_id(&mut cursor)?,
+                character_id: read_id(&mut cursor)?,
+                resource_id: read_schema_id(&mut cursor, limits)?,
+                expected_value: read_i32(&mut cursor)?,
+                delta: read_i32(&mut cursor)?,
             },
             tag => return Err(RpgContractErrorV1::UnknownOperationTag(tag)),
         };
@@ -963,6 +1018,16 @@ impl RpgOperationV1 {
             {
                 return Err(RpgContractErrorV1::PayloadInvariant(
                     "RPG_SKILL_PROFICIENCY_OUT_OF_RANGE",
+                ));
+            }
+            RpgOperationPayloadV1::AdjustCharacterResource {
+                source_character_id,
+                character_id,
+                delta,
+                ..
+            } if *delta == 0 || source_character_id == character_id => {
+                return Err(RpgContractErrorV1::PayloadInvariant(
+                    "RPG_CHARACTER_RESOURCE_INVALID",
                 ));
             }
             _ => {}
@@ -1106,6 +1171,11 @@ pub enum RpgEventV1 {
         object_id: PersistentId,
         state_id: SchemaId,
     },
+    CharacterResourceAdjusted {
+        character_id: PersistentId,
+        resource_id: SchemaId,
+        value: i32,
+    },
 }
 
 impl RpgEventV1 {
@@ -1120,6 +1190,9 @@ impl RpgEventV1 {
             Self::EquipmentAssigned { .. } => RPG_EVENT_EQUIPMENT_ASSIGNED_SCHEMA_ID,
             Self::InteractiveObjectTransitioned { .. } => {
                 RPG_EVENT_INTERACTIVE_OBJECT_TRANSITIONED_SCHEMA_ID
+            }
+            Self::CharacterResourceAdjusted { .. } => {
+                RPG_EVENT_CHARACTER_RESOURCE_ADJUSTED_SCHEMA_ID
             }
         }
     }
@@ -1143,6 +1216,9 @@ impl RpgEventV1 {
             }
             Self::InteractiveObjectTransitioned { object_id, .. } => {
                 (RpgAggregateKindV1::InteractiveObject, *object_id)
+            }
+            Self::CharacterResourceAdjusted { character_id, .. } => {
+                (RpgAggregateKindV1::Character, *character_id)
             }
         }
     }
@@ -1213,6 +1289,16 @@ impl RpgEventV1 {
                 bytes.extend_from_slice(object_id.as_bytes());
                 extend_schema_id(&mut bytes, state_id)?;
             }
+            Self::CharacterResourceAdjusted {
+                character_id,
+                resource_id,
+                value,
+            } => {
+                bytes.push(8);
+                bytes.extend_from_slice(character_id.as_bytes());
+                extend_schema_id(&mut bytes, resource_id)?;
+                bytes.extend_from_slice(&value.to_le_bytes());
+            }
         }
         Ok(bytes)
     }
@@ -1257,6 +1343,11 @@ impl RpgEventV1 {
             7 => Self::InteractiveObjectTransitioned {
                 object_id: read_id(&mut cursor)?,
                 state_id: read_schema_id(&mut cursor, limits)?,
+            },
+            8 => Self::CharacterResourceAdjusted {
+                character_id: read_id(&mut cursor)?,
+                resource_id: read_schema_id(&mut cursor, limits)?,
+                value: read_i32(&mut cursor)?,
             },
             tag => return Err(RpgContractErrorV1::UnknownEventTag(tag)),
         };
@@ -1668,8 +1759,18 @@ impl From<IdentifierError> for RpgContractErrorV1 {
 fn validate_payload(payload: &RpgAggregatePayloadV1) -> Result<(), RpgContractErrorV1> {
     match payload {
         RpgAggregatePayloadV1::Character(payload) => {
-            if !strictly_ordered_by(&payload.skills, |entry| entry.skill_id.clone()) {
-                return Err(RpgContractErrorV1::PayloadInvariant("RPG_DUPLICATE_SKILL"));
+            if payload.resources.len() > RPG_MAX_COLLECTION_ENTRIES
+                || !strictly_ordered_by(&payload.resources, |entry| entry.resource_id.clone())
+                || payload.resources.iter().any(|entry| {
+                    entry.minimum_value > entry.maximum_value
+                        || entry.current_value < entry.minimum_value
+                        || entry.current_value > entry.maximum_value
+                })
+                || !strictly_ordered_by(&payload.skills, |entry| entry.skill_id.clone())
+            {
+                return Err(RpgContractErrorV1::PayloadInvariant(
+                    "RPG_CHARACTER_INVALID",
+                ));
             }
         }
         RpgAggregatePayloadV1::Item(payload) => {
@@ -1933,6 +2034,23 @@ fn read_skills(
         .collect()
 }
 
+fn read_resources(
+    cursor: &mut CanonicalCursor<'_>,
+    limits: CanonicalDecodeLimits,
+) -> Result<Vec<CharacterResourceEntryV1>, RpgContractErrorV1> {
+    let count = read_bounded_count(cursor, RPG_MAX_COLLECTION_ENTRIES)?;
+    (0..count)
+        .map(|_| {
+            Ok(CharacterResourceEntryV1 {
+                resource_id: read_schema_id(cursor, limits)?,
+                current_value: read_i32(cursor)?,
+                minimum_value: read_i32(cursor)?,
+                maximum_value: read_i32(cursor)?,
+            })
+        })
+        .collect()
+}
+
 fn read_reservations(
     cursor: &mut CanonicalCursor<'_>,
     _limits: CanonicalDecodeLimits,
@@ -2048,6 +2166,7 @@ mod tests {
                     RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
                         inventory_id: Some(id(3)),
                         equipment_id: Some(id(4)),
+                        resources: vec![],
                         skills: vec![],
                     }),
                 ),
@@ -2114,6 +2233,7 @@ mod tests {
                     RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
                         inventory_id: None,
                         equipment_id: None,
+                        resources: vec![],
                         skills: vec![],
                     }),
                 ),

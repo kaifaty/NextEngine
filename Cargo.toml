@@ -5,6 +5,7 @@ members = [
     "crates/assets",
     "crates/contracts",
     "crates/desktop-sdl-ash",
+    "crates/mechanics",
     "crates/platform",
     "crates/presentation",
     "crates/physics-api",
@@ -30,6 +31,7 @@ repository = ""
 next_contracts = { path = "crates/contracts" }
 next_assets = { path = "crates/assets" }
 next_desktop_sdl_ash = { path = "crates/desktop-sdl-ash" }
+next_mechanics = { path = "crates/mechanics" }
 next_platform = { path = "crates/platform" }
 next_presentation = { path = "crates/presentation" }
 next_physics_api = { path = "crates/physics-api" }

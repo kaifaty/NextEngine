@@ -1032,6 +1032,16 @@ fn encode_event_payload(payload: &EventPayload) -> JcsValue {
             string(object_id.to_hex()),
             string(state_id.as_str()),
         ]),
+        EventPayload::Rpg(RpgEventV1::CharacterResourceAdjusted {
+            character_id,
+            resource_id,
+            value,
+        }) => JcsValue::Array(vec![
+            string("rpg_character_resource"),
+            string(character_id.to_hex()),
+            string(resource_id.as_str()),
+            string(value.to_string()),
+        ]),
         EventPayload::Physical(PhysicalEventV1::CapsuleStepApplied {
             body_id,
             physics_tick,

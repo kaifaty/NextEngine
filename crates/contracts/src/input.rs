@@ -32,6 +32,7 @@ pub const CORE_MOVE_ACTION_ID: &str = "nextengine.action.move";
 pub const CORE_INTERACT_ACTION_ID: &str = "nextengine.action.interact";
 pub const CORE_PICKUP_ACTION_ID: &str = "nextengine.action.pickup";
 pub const CORE_EQUIP_USE_ACTION_ID: &str = "nextengine.action.equip-use";
+pub const CORE_MELEE_ACTION_ID: &str = "nextengine.action.melee";
 pub const PLAYER_INTERACTION_SYSTEM_ID: &str = "nextengine.system.player-interaction";
 pub const MAX_PLAYER_ACTIONS_PER_FRAME: usize = 64;
 
@@ -55,6 +56,7 @@ pub fn core_player_action_map_v2_hash() -> ContentHash {
     for action_id in [
         CORE_EQUIP_USE_ACTION_ID,
         CORE_INTERACT_ACTION_ID,
+        CORE_MELEE_ACTION_ID,
         CORE_MOVE_ACTION_ID,
         CORE_PICKUP_ACTION_ID,
     ] {

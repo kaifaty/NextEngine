@@ -4,18 +4,21 @@ use std::fmt::{Display, Formatter};
 
 use next_assets::{ContentPublicationV1, PublicationFileV1};
 use next_contracts::{
-    AssetId, AssetRevisionRefV1, ContentAssetEntryV1, ContentDependencyEdgeV1, ContentHash,
-    ContentManifestBodyV1, ContentManifestV1, ContentProvenanceV1, ContentSemanticClassV1,
-    DialogueDefinitionV1, InteractionDefinitionV1, LockedMechanicPackageV1, MechanicPackageId,
+    AbilityDefinitionV1, AbilityTargetKindV1, AssetId, AssetRevisionRefV1, CapabilityId,
+    ContentAssetEntryV1, ContentDependencyEdgeV1, ContentHash, ContentManifestBodyV1,
+    ContentManifestV1, ContentProvenanceV1, ContentSemanticClassV1, CooldownSpecV1,
+    DialogueDefinitionV1, InteractionDefinitionV1, LockedMechanicPackageV1,
+    MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID, MechanicAffordanceV1, MechanicPackageId,
     MechanicPackageManifestV1, MechanicsContractError, MechanicsLockV1, NeutralPropertyV1,
-    NeutralRecordError, NeutralRecordKindV1, NeutralRecordV1, PersistentId, ProjectCatalogRecordV1,
-    ProjectCatalogSnapshotV1, ProjectCompositionLockV1, ProjectContractError,
-    ProjectDependencyKindV1, ProjectId, ProjectManifestV1, ProjectRequirementV1, QuestDefinitionV1,
-    RPG_COMMAND_CAPABILITY_ID, RelationshipDefinitionV1, RpgDefinitionRegistryV1,
-    SchemaDescriptorV1, SchemaEncodingV1, SchemaId, SchemaRefV1, SchemaRegistryManifestBodyV1,
-    SchemaRegistryManifestV1, SchemaRoleV1, SemanticVersionV1, StateTransitionV1,
-    WorldChunkBindingV1, WorldPartitionManifestBodyV1, WorldPartitionManifestV1,
-    canonical_empty_manifest_hash, domain_hash, interaction_definition_hash,
+    NeutralRecordError, NeutralRecordKindV1, NeutralRecordV1, PHYSICS_QUERY_CONTACT_CAPABILITY_ID,
+    PersistentId, ProjectCatalogRecordV1, ProjectCatalogSnapshotV1, ProjectCompositionLockV1,
+    ProjectContractError, ProjectDependencyKindV1, ProjectId, ProjectManifestV1,
+    ProjectRequirementV1, QuestDefinitionV1, RPG_COMMAND_CAPABILITY_ID, RelationshipDefinitionV1,
+    RpgDefinitionRegistryV1, SchemaDescriptorV1, SchemaEncodingV1, SchemaId, SchemaRefV1,
+    SchemaRegistryManifestBodyV1, SchemaRegistryManifestV1, SchemaRoleV1, SemanticVersionV1,
+    StateTransitionV1, WorldChunkBindingV1, WorldPartitionManifestBodyV1, WorldPartitionManifestV1,
+    ability_definition_hash, canonical_empty_manifest_hash, domain_hash,
+    interaction_definition_hash,
 };
 
 use crate::{ProjectResolutionError, resolve_project_records_v1};
@@ -30,6 +33,7 @@ pub const CONTENT_BLOB_DIRECTORY: &str = "blobs";
 pub const CORE_CONTENT_IDENTITY: &str = "org.nextengine.fixture.content";
 pub const CORE_RESOLVER_PROFILE_ID: &str = "nextengine.resolver.exact-minimum.v1";
 pub const CORE_INTERACTION_PACKAGE_ID: &str = "org.nextengine.core.interaction";
+pub const CORE_COMBAT_PACKAGE_ID: &str = "org.nextengine.core.combat";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SourceChunkBindingV1 {
@@ -323,11 +327,12 @@ pub fn neutral_vertical_slice_source_v1() -> Result<NeutralProjectSourceV1, Proj
         NeutralRecordKindV1::QuestDefinition,
         NeutralRecordKindV1::RelationshipDefinition,
         NeutralRecordKindV1::InteractionDefinition,
+        NeutralRecordKindV1::AbilityDefinition,
     ];
-    let asset_ids: Vec<_> = (1_u8..=10)
+    let asset_ids: Vec<_> = (1_u8..=11)
         .map(|byte| AssetId::from_bytes([byte; 16]))
         .collect();
-    let persistent_ids: Vec<_> = (31_u8..=40)
+    let persistent_ids: Vec<_> = (31_u8..=41)
         .map(|byte| PersistentId::from_bytes([byte; 16]))
         .collect();
     let mut records = Vec::new();
@@ -342,6 +347,7 @@ pub fn neutral_vertical_slice_source_v1() -> Result<NeutralProjectSourceV1, Proj
                 vec![persistent_ids[6], persistent_ids[7], persistent_ids[8]],
                 vec![asset_ids[6], asset_ids[7], asset_ids[8]],
             ),
+            NeutralRecordKindV1::AbilityDefinition => (vec![persistent_ids[3]], vec![asset_ids[3]]),
             _ => (Vec::new(), Vec::new()),
         };
         let mut properties = vec![NeutralPropertyV1 {
@@ -415,10 +421,17 @@ pub(crate) fn compile_rpg_definitions_v1(
     let interaction_record = by_kind
         .get(&NeutralRecordKindV1::InteractionDefinition)
         .ok_or(ProjectCookError::MissingReference)?;
+    let ability_record = by_kind
+        .get(&NeutralRecordKindV1::AbilityDefinition)
+        .ok_or(ProjectCookError::MissingReference)?;
+    let item_record = by_kind
+        .get(&NeutralRecordKindV1::ItemDefinition)
+        .ok_or(ProjectCookError::MissingReference)?;
     let dialogue_revision = asset_revision(dialogue_record)?;
     let quest_revision = asset_revision(quest_record)?;
     let relationship_revision = asset_revision(relationship_record)?;
     let interaction_revision = asset_revision(interaction_record)?;
+    let ability_revision = asset_revision(ability_record)?;
     let dialogue_transition_id = property_id(
         interaction_record,
         "nextengine.interaction.dialogue-transition",
@@ -485,23 +498,75 @@ pub(crate) fn compile_rpg_definitions_v1(
     let interaction_hash = interaction_definition_hash(&interaction);
     let rpg_capability = next_contracts::CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)
         .expect("engine-owned RPG capability is valid");
-    let package = MechanicPackageManifestV1::new(
+    let interaction_package = MechanicPackageManifestV1::new(
         MechanicPackageId::new(CORE_INTERACTION_PACKAGE_ID)?,
         1,
         vec![rpg_capability.clone()],
         vec![interaction_hash],
+        Vec::new(),
     )?;
-    let mechanics_lock = MechanicsLockV1::new(vec![LockedMechanicPackageV1 {
-        package_id: package.package_id.clone(),
-        package_manifest_sha256: package.package_manifest_sha256,
-        granted_capabilities: vec![rpg_capability],
-    }])?;
+    let effect_capability = CapabilityId::new(MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID)
+        .expect("engine-owned effect capability is valid");
+    let contact_capability = CapabilityId::new(PHYSICS_QUERY_CONTACT_CAPABILITY_ID)
+        .expect("engine-owned contact capability is valid");
+    let ability = AbilityDefinitionV1 {
+        asset_revision: ability_revision,
+        package_id: MechanicPackageId::new(CORE_COMBAT_PACKAGE_ID)?,
+        ability_id: property_id(ability_record, "nextengine.ability.definition-id")?,
+        required_item_definition: asset_revision(item_record)?,
+        required_equipment_slot_id: property_id(
+            ability_record,
+            "nextengine.ability.equipment-slot",
+        )?,
+        target_kind: AbilityTargetKindV1::ContactCharacter,
+        resource_id: property_id(ability_record, "nextengine.ability.resource")?,
+        resource_delta: property_i32(ability_record, "nextengine.ability.resource-delta")?,
+        cooldown: CooldownSpecV1 {
+            duration_ticks: property_u32(ability_record, "nextengine.ability.cooldown-ticks")?,
+            group_id: property_id(ability_record, "nextengine.ability.cooldown-group")?,
+        },
+        required_capabilities: vec![effect_capability.clone(), contact_capability.clone()],
+        affordance: MechanicAffordanceV1 {
+            semantic_action_id: property_id(ability_record, "nextengine.ability.semantic-action")?,
+            planner_visible: true,
+            requires_equipped_item: true,
+            requires_contact: true,
+            expected_resource_delta_minimum: -25,
+            expected_resource_delta_maximum: -25,
+            failure_modes: vec![
+                SchemaId::new("nextengine.mechanics.failure.contact-required")?,
+                SchemaId::new("nextengine.mechanics.failure.cooldown-active")?,
+                SchemaId::new("nextengine.mechanics.failure.equipment-required")?,
+            ],
+        },
+    };
+    let ability_hash = ability_definition_hash(&ability);
+    let combat_package = MechanicPackageManifestV1::new(
+        MechanicPackageId::new(CORE_COMBAT_PACKAGE_ID)?,
+        1,
+        vec![effect_capability.clone(), contact_capability.clone()],
+        Vec::new(),
+        vec![ability_hash],
+    )?;
+    let mechanics_lock = MechanicsLockV1::new(vec![
+        LockedMechanicPackageV1 {
+            package_id: interaction_package.package_id.clone(),
+            package_manifest_sha256: interaction_package.package_manifest_sha256,
+            granted_capabilities: vec![rpg_capability],
+        },
+        LockedMechanicPackageV1 {
+            package_id: combat_package.package_id.clone(),
+            package_manifest_sha256: combat_package.package_manifest_sha256,
+            granted_capabilities: vec![effect_capability, contact_capability],
+        },
+    ])?;
     Ok(RpgDefinitionRegistryV1::new(
         vec![dialogue],
         vec![quest],
         vec![relationship],
         vec![interaction],
-        vec![package],
+        vec![ability],
+        vec![interaction_package, combat_package],
         mechanics_lock,
     )?)
 }
@@ -552,6 +617,36 @@ fn definition_properties(
                 "nextengine.value.i32.7",
             ),
         ],
+        NeutralRecordKindV1::AbilityDefinition => &[
+            (
+                "nextengine.ability.definition-id",
+                "nextengine.fixture.ability.training-melee",
+            ),
+            (
+                "nextengine.ability.semantic-action",
+                "nextengine.action.melee",
+            ),
+            (
+                "nextengine.ability.resource",
+                "nextengine.rpg.resource.health",
+            ),
+            (
+                "nextengine.ability.resource-delta",
+                "nextengine.value.i32.-25",
+            ),
+            (
+                "nextengine.ability.cooldown-ticks",
+                "nextengine.value.u32.2",
+            ),
+            (
+                "nextengine.ability.cooldown-group",
+                "nextengine.cooldown.melee",
+            ),
+            (
+                "nextengine.ability.equipment-slot",
+                "nextengine.rpg.equipment-slot.main-hand",
+            ),
+        ],
         _ => &[],
     };
     pairs
@@ -586,6 +681,16 @@ fn property_i32(record: &NeutralRecordV1, property_key: &str) -> Result<i32, Pro
     value
         .as_str()
         .strip_prefix("nextengine.value.i32.")
+        .ok_or(ProjectCookError::InvalidValue)?
+        .parse()
+        .map_err(|_| ProjectCookError::InvalidValue)
+}
+
+fn property_u32(record: &NeutralRecordV1, property_key: &str) -> Result<u32, ProjectCookError> {
+    let value = property_id(record, property_key)?;
+    value
+        .as_str()
+        .strip_prefix("nextengine.value.u32.")
         .ok_or(ProjectCookError::InvalidValue)?
         .parse()
         .map_err(|_| ProjectCookError::InvalidValue)

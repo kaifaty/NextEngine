@@ -81,6 +81,7 @@ fn fixture() -> RpgSnapshotV2 {
             RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
                 inventory_id: Some(id(9)),
                 equipment_id: None,
+                resources: vec![],
                 skills: vec![SkillProficiencyEntryV1 {
                     skill_id: schema("rpg.skill.survival"),
                     proficiency: SkillProficiency::new(400).expect("bounded proficiency"),
@@ -92,6 +93,7 @@ fn fixture() -> RpgSnapshotV2 {
             RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
                 inventory_id: Some(id(10)),
                 equipment_id: None,
+                resources: vec![],
                 skills: vec![],
             }),
         ),

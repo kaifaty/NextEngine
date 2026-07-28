@@ -8,6 +8,9 @@ use crate::{
 };
 
 pub const DATA_ONLY_PACKAGE_KIND_V1: &str = "nextengine.mechanic-package.data-only.v1";
+pub const MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID: &str = "mechanics.effect.propose";
+pub const PHYSICS_QUERY_CONTACT_CAPABILITY_ID: &str = "physics.query.contact";
+pub const CORE_CHARACTER_HEALTH_RESOURCE_ID: &str = "nextengine.rpg.resource.health";
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct StateTransitionV1 {
@@ -51,6 +54,168 @@ pub struct InteractionDefinitionV1 {
     pub relationship_delta: i32,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum AbilityTargetKindV1 {
+    ContactCharacter,
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct CooldownSpecV1 {
+    pub duration_ticks: u32,
+    pub group_id: SchemaId,
+}
+
+impl CooldownSpecV1 {
+    pub fn validate_boundary(
+        &self,
+        prior_commit_tick: Option<u64>,
+        current_tick: u64,
+    ) -> Result<(), MechanicsContractError> {
+        if self.duration_ticks == 0 {
+            return Err(MechanicsContractError::InvalidBounds);
+        }
+        if prior_commit_tick.is_some_and(|prior| {
+            current_tick < prior.saturating_add(u64::from(self.duration_ticks))
+        }) {
+            return Err(MechanicsContractError::CooldownActive);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct MechanicAffordanceV1 {
+    pub semantic_action_id: SchemaId,
+    pub planner_visible: bool,
+    pub requires_equipped_item: bool,
+    pub requires_contact: bool,
+    pub expected_resource_delta_minimum: i32,
+    pub expected_resource_delta_maximum: i32,
+    pub failure_modes: Vec<SchemaId>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AbilityDefinitionV1 {
+    pub asset_revision: AssetRevisionRefV1,
+    pub package_id: MechanicPackageId,
+    pub ability_id: SchemaId,
+    pub required_item_definition: AssetRevisionRefV1,
+    pub required_equipment_slot_id: SchemaId,
+    pub target_kind: AbilityTargetKindV1,
+    pub resource_id: SchemaId,
+    pub resource_delta: i32,
+    pub cooldown: CooldownSpecV1,
+    pub required_capabilities: Vec<CapabilityId>,
+    pub affordance: MechanicAffordanceV1,
+}
+
+impl AbilityDefinitionV1 {
+    pub fn validate(&self) -> Result<(), MechanicsContractError> {
+        if self.resource_delta == 0
+            || self.cooldown.duration_ticks == 0
+            || self.required_capabilities.is_empty()
+            || !strictly_sorted(&self.required_capabilities)
+            || !strictly_sorted(&self.affordance.failure_modes)
+            || (self.affordance.planner_visible && self.affordance.failure_modes.is_empty())
+            || !self.affordance.requires_equipped_item
+            || !self.affordance.requires_contact
+            || self.affordance.expected_resource_delta_minimum
+                > self.affordance.expected_resource_delta_maximum
+            || self.resource_delta < self.affordance.expected_resource_delta_minimum
+            || self.resource_delta > self.affordance.expected_resource_delta_maximum
+        {
+            return Err(MechanicsContractError::InvalidAbility);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct EffectRequestV1 {
+    pub request_id: ContentHash,
+    pub package_id: MechanicPackageId,
+    pub ability_id: SchemaId,
+    pub ability_definition_hash: ContentHash,
+    pub source_character_id: crate::PersistentId,
+    pub source_character_revision: u64,
+    pub target_character_id: crate::PersistentId,
+    pub target_character_revision: u64,
+    pub resource_id: SchemaId,
+    pub expected_resource_value: i32,
+    pub delta: i32,
+    pub physical_fact_hash: ContentHash,
+    pub gameplay_tick: u64,
+}
+
+impl EffectRequestV1 {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the effect proposal identity binds every immutable source, target and physical fact"
+    )]
+    pub fn new(
+        package_id: MechanicPackageId,
+        ability_id: SchemaId,
+        ability_definition_hash: ContentHash,
+        source_character_id: crate::PersistentId,
+        source_character_revision: u64,
+        target_character_id: crate::PersistentId,
+        target_character_revision: u64,
+        resource_id: SchemaId,
+        expected_resource_value: i32,
+        delta: i32,
+        physical_fact_hash: ContentHash,
+        gameplay_tick: u64,
+    ) -> Result<Self, MechanicsContractError> {
+        if source_character_id == target_character_id || delta == 0 {
+            return Err(MechanicsContractError::InvalidEffect);
+        }
+        let mut value = Self {
+            request_id: ContentHash::default(),
+            package_id,
+            ability_id,
+            ability_definition_hash,
+            source_character_id,
+            source_character_revision,
+            target_character_id,
+            target_character_revision,
+            resource_id,
+            expected_resource_value,
+            delta,
+            physical_fact_hash,
+            gameplay_tick,
+        };
+        value.request_id = value.computed_id();
+        Ok(value)
+    }
+
+    pub fn validate(&self) -> Result<(), MechanicsContractError> {
+        if self.source_character_id == self.target_character_id
+            || self.delta == 0
+            || self.computed_id() != self.request_id
+        {
+            return Err(MechanicsContractError::InvalidEffect);
+        }
+        Ok(())
+    }
+
+    fn computed_id(&self) -> ContentHash {
+        let mut bytes = Vec::new();
+        extend_text(&mut bytes, self.package_id.as_str());
+        extend_text(&mut bytes, self.ability_id.as_str());
+        bytes.extend_from_slice(self.ability_definition_hash.as_bytes());
+        bytes.extend_from_slice(self.source_character_id.as_bytes());
+        bytes.extend_from_slice(&self.source_character_revision.to_le_bytes());
+        bytes.extend_from_slice(self.target_character_id.as_bytes());
+        bytes.extend_from_slice(&self.target_character_revision.to_le_bytes());
+        extend_text(&mut bytes, self.resource_id.as_str());
+        bytes.extend_from_slice(&self.expected_resource_value.to_le_bytes());
+        bytes.extend_from_slice(&self.delta.to_le_bytes());
+        bytes.extend_from_slice(self.physical_fact_hash.as_bytes());
+        bytes.extend_from_slice(&self.gameplay_tick.to_le_bytes());
+        domain_hash("nextengine.effect-request.v1", &bytes)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MechanicPackageManifestV1 {
     pub package_id: MechanicPackageId,
@@ -58,6 +223,7 @@ pub struct MechanicPackageManifestV1 {
     pub package_kind: SchemaId,
     pub required_capabilities: Vec<CapabilityId>,
     pub interaction_definition_hashes: Vec<ContentHash>,
+    pub ability_definition_hashes: Vec<ContentHash>,
     pub package_manifest_sha256: ContentHash,
 }
 
@@ -67,14 +233,17 @@ impl MechanicPackageManifestV1 {
         package_version: u32,
         mut required_capabilities: Vec<CapabilityId>,
         mut interaction_definition_hashes: Vec<ContentHash>,
+        mut ability_definition_hashes: Vec<ContentHash>,
     ) -> Result<Self, MechanicsContractError> {
         if package_version == 0 {
             return Err(MechanicsContractError::ZeroVersion);
         }
         required_capabilities.sort();
         interaction_definition_hashes.sort();
+        ability_definition_hashes.sort();
         ensure_unique(&required_capabilities)?;
         ensure_unique(&interaction_definition_hashes)?;
+        ensure_unique(&ability_definition_hashes)?;
         let mut manifest = Self {
             package_id,
             package_version,
@@ -82,6 +251,7 @@ impl MechanicPackageManifestV1 {
                 .expect("engine-owned package kind is valid"),
             required_capabilities,
             interaction_definition_hashes,
+            ability_definition_hashes,
             package_manifest_sha256: ContentHash::default(),
         };
         manifest.package_manifest_sha256 = manifest.computed_hash();
@@ -95,6 +265,7 @@ impl MechanicPackageManifestV1 {
         if self.package_kind.as_str() != DATA_ONLY_PACKAGE_KIND_V1
             || !strictly_sorted(&self.required_capabilities)
             || !strictly_sorted(&self.interaction_definition_hashes)
+            || !strictly_sorted(&self.ability_definition_hashes)
             || self.computed_hash() != self.package_manifest_sha256
         {
             return Err(MechanicsContractError::HashMismatch);
@@ -113,6 +284,10 @@ impl MechanicPackageManifestV1 {
         }
         bytes.extend_from_slice(&(self.interaction_definition_hashes.len() as u32).to_le_bytes());
         for hash in &self.interaction_definition_hashes {
+            bytes.extend_from_slice(hash.as_bytes());
+        }
+        bytes.extend_from_slice(&(self.ability_definition_hashes.len() as u32).to_le_bytes());
+        for hash in &self.ability_definition_hashes {
             bytes.extend_from_slice(hash.as_bytes());
         }
         domain_hash("nextengine.mechanic-package-manifest.v1", &bytes)
@@ -182,6 +357,7 @@ pub struct RpgDefinitionRegistryV1 {
     pub quests: Vec<QuestDefinitionV1>,
     pub relationships: Vec<RelationshipDefinitionV1>,
     pub interactions: Vec<InteractionDefinitionV1>,
+    pub abilities: Vec<AbilityDefinitionV1>,
     pub packages: Vec<MechanicPackageManifestV1>,
     pub mechanics_lock: MechanicsLockV1,
     pub registry_sha256: ContentHash,
@@ -190,6 +366,7 @@ pub struct RpgDefinitionRegistryV1 {
 impl RpgDefinitionRegistryV1 {
     pub fn empty() -> Result<Self, MechanicsContractError> {
         Self::new(
+            Vec::new(),
             Vec::new(),
             Vec::new(),
             Vec::new(),
@@ -204,6 +381,7 @@ impl RpgDefinitionRegistryV1 {
         mut quests: Vec<QuestDefinitionV1>,
         mut relationships: Vec<RelationshipDefinitionV1>,
         mut interactions: Vec<InteractionDefinitionV1>,
+        mut abilities: Vec<AbilityDefinitionV1>,
         mut packages: Vec<MechanicPackageManifestV1>,
         mechanics_lock: MechanicsLockV1,
     ) -> Result<Self, MechanicsContractError> {
@@ -211,12 +389,14 @@ impl RpgDefinitionRegistryV1 {
         quests.sort_by_key(|definition| definition.asset_revision);
         relationships.sort_by_key(|definition| definition.asset_revision);
         interactions.sort_by_key(|definition| definition.asset_revision);
+        abilities.sort_by_key(|definition| definition.asset_revision);
         packages.sort_by(|left, right| left.package_id.cmp(&right.package_id));
         let mut registry = Self {
             dialogues,
             quests,
             relationships,
             interactions,
+            abilities,
             packages,
             mechanics_lock,
             registry_sha256: ContentHash::default(),
@@ -258,11 +438,20 @@ impl RpgDefinitionRegistryV1 {
             .map(|index| &self.relationships[index])
     }
 
+    #[must_use]
+    pub fn ability(&self, asset: AssetRevisionRefV1) -> Option<&AbilityDefinitionV1> {
+        self.abilities
+            .binary_search_by_key(&asset, |definition| definition.asset_revision)
+            .ok()
+            .map(|index| &self.abilities[index])
+    }
+
     fn validate_without_hash(&self) -> Result<(), MechanicsContractError> {
         if !strictly_sorted_by(&self.dialogues, |value| value.asset_revision)
             || !strictly_sorted_by(&self.quests, |value| value.asset_revision)
             || !strictly_sorted_by(&self.relationships, |value| value.asset_revision)
             || !strictly_sorted_by(&self.interactions, |value| value.asset_revision)
+            || !strictly_sorted_by(&self.abilities, |value| value.asset_revision)
             || !self
                 .packages
                 .windows(2)
@@ -281,6 +470,9 @@ impl RpgDefinitionRegistryV1 {
             if definition.minimum_value > definition.maximum_value {
                 return Err(MechanicsContractError::InvalidBounds);
             }
+        }
+        for ability in &self.abilities {
+            ability.validate()?;
         }
         let package_hashes: BTreeSet<_> = self
             .packages
@@ -321,6 +513,12 @@ impl RpgDefinitionRegistryV1 {
             .map(interaction_definition_hash)
             .collect();
         for package in &self.packages {
+            let locked_package = self
+                .mechanics_lock
+                .packages
+                .iter()
+                .find(|locked| locked.package_id == package.package_id)
+                .ok_or(MechanicsContractError::PackageLockMismatch)?;
             let declared: BTreeSet<_> = package
                 .interaction_definition_hashes
                 .iter()
@@ -329,6 +527,42 @@ impl RpgDefinitionRegistryV1 {
             if !declared.is_subset(&interaction_hashes) {
                 return Err(MechanicsContractError::MissingDefinition);
             }
+            let ability_hashes: BTreeSet<_> = self
+                .abilities
+                .iter()
+                .filter(|ability| ability.package_id == package.package_id)
+                .map(ability_definition_hash)
+                .collect();
+            if package
+                .ability_definition_hashes
+                .iter()
+                .copied()
+                .collect::<BTreeSet<_>>()
+                != ability_hashes
+            {
+                return Err(MechanicsContractError::MissingDefinition);
+            }
+            for ability in self
+                .abilities
+                .iter()
+                .filter(|ability| ability.package_id == package.package_id)
+            {
+                if ability.required_capabilities.iter().any(|capability| {
+                    locked_package
+                        .granted_capabilities
+                        .binary_search(capability)
+                        .is_err()
+                }) {
+                    return Err(MechanicsContractError::CapabilityDenied);
+                }
+            }
+        }
+        if self.abilities.iter().any(|ability| {
+            self.packages
+                .iter()
+                .all(|package| package.package_id != ability.package_id)
+        }) {
+            return Err(MechanicsContractError::MissingDefinition);
         }
         for interaction in &self.interactions {
             let dialogue = self
@@ -379,6 +613,9 @@ impl RpgDefinitionRegistryV1 {
         for interaction in &self.interactions {
             bytes.extend_from_slice(interaction_definition_hash(interaction).as_bytes());
         }
+        for ability in &self.abilities {
+            bytes.extend_from_slice(ability_definition_hash(ability).as_bytes());
+        }
         bytes.extend_from_slice(self.mechanics_lock.mechanics_lock_sha256.as_bytes());
         domain_hash("nextengine.rpg-definition-registry.v1", &bytes)
     }
@@ -427,6 +664,50 @@ pub fn interaction_definition_hash(definition: &InteractionDefinitionV1) -> Cont
     domain_hash("nextengine.interaction-definition.v1", &bytes)
 }
 
+#[must_use]
+pub fn ability_definition_hash(definition: &AbilityDefinitionV1) -> ContentHash {
+    let mut bytes = asset_revision_bytes(definition.asset_revision);
+    extend_text(&mut bytes, definition.package_id.as_str());
+    extend_text(&mut bytes, definition.ability_id.as_str());
+    bytes.extend_from_slice(&asset_revision_bytes(definition.required_item_definition));
+    extend_text(&mut bytes, definition.required_equipment_slot_id.as_str());
+    bytes.push(match definition.target_kind {
+        AbilityTargetKindV1::ContactCharacter => 1,
+    });
+    extend_text(&mut bytes, definition.resource_id.as_str());
+    bytes.extend_from_slice(&definition.resource_delta.to_le_bytes());
+    bytes.extend_from_slice(&definition.cooldown.duration_ticks.to_le_bytes());
+    extend_text(&mut bytes, definition.cooldown.group_id.as_str());
+    bytes.extend_from_slice(&(definition.required_capabilities.len() as u32).to_le_bytes());
+    for capability in &definition.required_capabilities {
+        extend_text(&mut bytes, capability.as_str());
+    }
+    extend_text(
+        &mut bytes,
+        definition.affordance.semantic_action_id.as_str(),
+    );
+    bytes.push(u8::from(definition.affordance.planner_visible));
+    bytes.push(u8::from(definition.affordance.requires_equipped_item));
+    bytes.push(u8::from(definition.affordance.requires_contact));
+    bytes.extend_from_slice(
+        &definition
+            .affordance
+            .expected_resource_delta_minimum
+            .to_le_bytes(),
+    );
+    bytes.extend_from_slice(
+        &definition
+            .affordance
+            .expected_resource_delta_maximum
+            .to_le_bytes(),
+    );
+    bytes.extend_from_slice(&(definition.affordance.failure_modes.len() as u32).to_le_bytes());
+    for failure_mode in &definition.affordance.failure_modes {
+        extend_text(&mut bytes, failure_mode.as_str());
+    }
+    domain_hash("nextengine.ability-definition.v1", &bytes)
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum MechanicsContractError {
@@ -439,6 +720,9 @@ pub enum MechanicsContractError {
     InvalidTransitionGraph,
     InvalidBounds,
     CapabilityDenied,
+    InvalidAbility,
+    InvalidEffect,
+    CooldownActive,
 }
 
 impl Display for MechanicsContractError {
@@ -453,6 +737,9 @@ impl Display for MechanicsContractError {
             Self::InvalidTransitionGraph => "mechanic transition graph is invalid",
             Self::InvalidBounds => "mechanic bounds are invalid",
             Self::CapabilityDenied => "mechanic capability denied",
+            Self::InvalidAbility => "mechanic ability is invalid",
+            Self::InvalidEffect => "mechanic effect request is invalid",
+            Self::CooldownActive => "mechanic cooldown is active",
         })
     }
 }
@@ -591,6 +878,7 @@ mod tests {
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
+                Vec::new(),
                 vec![manifest],
                 lock,
             ),
@@ -612,6 +900,7 @@ mod tests {
 
         assert_eq!(
             RpgDefinitionRegistryV1::new(
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
@@ -645,6 +934,7 @@ mod tests {
             MechanicPackageId::new("org.nextengine.test.package").expect("package ID"),
             1,
             vec![CapabilityId::new(RPG_COMMAND_CAPABILITY_ID).expect("capability")],
+            Vec::new(),
             Vec::new(),
         )
         .expect("manifest")

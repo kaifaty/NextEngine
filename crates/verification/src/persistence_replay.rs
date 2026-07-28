@@ -6,10 +6,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use next_assets::SaveStore;
 use next_contracts::{
-    AuthorityGrant, CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
-    CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID, CharacterPayloadV1, CommandLedgerHash,
-    ContactPhaseV1, ContentHash, EventPayload, InputMappingCodeV1, InventoryPayloadV1,
-    IssuerPrincipal, ItemPayloadV1, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+    AuthorityGrant, CORE_CHARACTER_HEALTH_RESOURCE_ID, CORE_EQUIPMENT_MAIN_HAND_SLOT_ID,
+    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID,
+    CharacterPayloadV1, CommandLedgerHash, ContactPhaseV1, ContentHash, EventPayload,
+    InputMappingCodeV1, InventoryPayloadV1, IssuerPrincipal, ItemPayloadV1,
+    PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PersistentId,
     PhysicsPoseV1, PhysicsWorldCheckpointV1, PlayerActionPhaseV1, RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
     RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION,
@@ -28,7 +29,7 @@ use crate::{
     ReplayOutput, build_neutral_player_fixture, build_physx_player_fixture,
     checkpoint_segment_hashes, compute_world_checkpoint_root, cooked_interaction_outcome,
     cooked_project_rpg_snapshot, player_action_sample, player_equip_use_sample,
-    player_interact_sample, player_pickup_sample, replay_command_results,
+    player_interact_sample, player_melee_sample, player_pickup_sample, replay_command_results,
     run_replay_manifest_with_definitions_and_physics_options,
 };
 
@@ -44,6 +45,7 @@ pub struct PersistenceReplayCheckReport {
     pub dialogue_node_id: SchemaId,
     pub quest_state_id: SchemaId,
     pub npc_player_trust: i32,
+    pub npc_health: i32,
     pub final_state_root: StateRoot,
     pub final_command_ledger_hash: CommandLedgerHash,
 }
@@ -288,18 +290,18 @@ pub(crate) fn run_persistence_replay_check_for_project(
         ));
     }
 
-    let queued_interaction = player_interact_sample(
+    let queued_melee = player_melee_sample(
         &fixture,
         11,
         PlayerActionPhaseV1::Started,
         true,
         Some(11_999_999),
     )
-    .map_err(|error| PersistenceReplayCheckError::new("interaction input", error.to_string()))?;
+    .map_err(|error| PersistenceReplayCheckError::new("melee input", error.to_string()))?;
     direct
-        .enqueue_input_sample(&fixture.principal, queued_interaction)
+        .enqueue_input_sample(&fixture.principal, queued_melee)
         .map_err(|error| {
-            PersistenceReplayCheckError::new("enqueue interaction input", error.to_string())
+            PersistenceReplayCheckError::new("enqueue melee input", error.to_string())
         })?;
 
     let directory = CheckDirectory::new()?;
@@ -329,6 +331,97 @@ pub(crate) fn run_persistence_replay_check_for_project(
     )
     .map_err(|error| PersistenceReplayCheckError::new("restore checkpoint", error.to_string()))?;
 
+    let direct_melee = direct
+        .run_tick([])
+        .map_err(|error| PersistenceReplayCheckError::new("direct melee", error.to_string()))?;
+    let restored_melee = restored
+        .run_tick([])
+        .map_err(|error| PersistenceReplayCheckError::new("restored melee", error.to_string()))?;
+    if direct_melee != restored_melee
+        || direct_melee.mapping_receipts.len() != 1
+        || direct_melee.mapping_receipts[0].code != InputMappingCodeV1::Accepted
+        || direct_melee.mapping_receipts[0]
+            .derived_command_id
+            .is_none()
+        || direct_melee
+            .contact_batch
+            .events
+            .iter()
+            .any(|event| event.phase == ContactPhaseV1::Begin)
+        || !direct_melee
+            .contact_batch
+            .events
+            .iter()
+            .any(|event| event.phase == ContactPhaseV1::Persist)
+        || direct_melee
+            .events
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event.payload,
+                    EventPayload::Rpg(RpgEventV1::CharacterResourceAdjusted { .. })
+                )
+            })
+            .count()
+            != 1
+    {
+        return Err(PersistenceReplayCheckError::condition(
+            "queued contact-gated melee continues exactly after restore",
+        ));
+    }
+    reports.push(direct_melee);
+
+    let cooldown_retry =
+        player_melee_sample(&fixture, 12, PlayerActionPhaseV1::Started, true, None).map_err(
+            |error| PersistenceReplayCheckError::new("cooldown retry input", error.to_string()),
+        )?;
+    direct
+        .enqueue_input_sample(&fixture.principal, cooldown_retry.clone())
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("enqueue direct cooldown retry", error.to_string())
+        })?;
+    restored
+        .enqueue_input_sample(&fixture.principal, cooldown_retry)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("enqueue restored cooldown retry", error.to_string())
+        })?;
+    let direct_cooldown = direct.run_tick([]).map_err(|error| {
+        PersistenceReplayCheckError::new("direct cooldown retry", error.to_string())
+    })?;
+    let restored_cooldown = restored.run_tick([]).map_err(|error| {
+        PersistenceReplayCheckError::new("restored cooldown retry", error.to_string())
+    })?;
+    if direct_cooldown != restored_cooldown
+        || direct_cooldown.mapping_receipts.len() != 1
+        || direct_cooldown.mapping_receipts[0].code != InputMappingCodeV1::Accepted
+        || direct_cooldown.mapping_receipts[0]
+            .derived_command_id
+            .is_some()
+        || direct_cooldown
+            .events
+            .iter()
+            .any(|event| matches!(event.payload, EventPayload::Rpg(_)))
+    {
+        return Err(PersistenceReplayCheckError::condition(
+            "cooldown retry is a deterministic accepted no-op after restore",
+        ));
+    }
+    reports.push(direct_cooldown);
+
+    let queued_interaction =
+        player_interact_sample(&fixture, 13, PlayerActionPhaseV1::Started, true, None).map_err(
+            |error| PersistenceReplayCheckError::new("interaction input", error.to_string()),
+        )?;
+    direct
+        .enqueue_input_sample(&fixture.principal, queued_interaction.clone())
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("enqueue direct interaction", error.to_string())
+        })?;
+    restored
+        .enqueue_input_sample(&fixture.principal, queued_interaction)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("enqueue restored interaction", error.to_string())
+        })?;
     let direct_interaction = direct.run_tick([]).map_err(|error| {
         PersistenceReplayCheckError::new("direct interaction", error.to_string())
     })?;
@@ -336,21 +429,6 @@ pub(crate) fn run_persistence_replay_check_for_project(
         PersistenceReplayCheckError::new("restored interaction", error.to_string())
     })?;
     if direct_interaction != restored_interaction
-        || direct_interaction.mapping_receipts.len() != 1
-        || direct_interaction.mapping_receipts[0].code != InputMappingCodeV1::Accepted
-        || direct_interaction.mapping_receipts[0]
-            .derived_command_id
-            .is_none()
-        || direct_interaction
-            .contact_batch
-            .events
-            .iter()
-            .any(|event| event.phase == ContactPhaseV1::Begin)
-        || !direct_interaction
-            .contact_batch
-            .events
-            .iter()
-            .any(|event| event.phase == ContactPhaseV1::Persist)
         || direct_interaction
             .events
             .iter()
@@ -368,14 +446,14 @@ pub(crate) fn run_persistence_replay_check_for_project(
             != 3
     {
         return Err(PersistenceReplayCheckError::condition(
-            "queued contact-gated interaction continues exactly after restore",
+            "dialogue transaction remains exact after restored melee",
         ));
     }
     reports.push(direct_interaction);
 
     let left = player_action_sample(
         &fixture,
-        12,
+        14,
         PlayerActionPhaseV1::Performed,
         [-32_767, 0],
         None,
@@ -410,7 +488,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
     }
     reports.push(direct_left);
 
-    let stop = player_action_sample(&fixture, 13, PlayerActionPhaseV1::Completed, [0, 0], None)
+    let stop = player_action_sample(&fixture, 15, PlayerActionPhaseV1::Completed, [0, 0], None)
         .map_err(|error| PersistenceReplayCheckError::new("stop input", error.to_string()))?;
     direct
         .enqueue_input_sample(&fixture.principal, stop.clone())
@@ -448,6 +526,8 @@ pub(crate) fn run_persistence_replay_check_for_project(
         &reports,
         vec![
             direct_commands,
+            Vec::new(),
+            Vec::new(),
             Vec::new(),
             Vec::new(),
             Vec::new(),
@@ -637,6 +717,22 @@ pub(crate) fn run_persistence_replay_check_for_project(
             ));
         }
     };
+    let npc_health = match aggregate_payload(
+        &final_checkpoint.rpg_snapshot,
+        RpgAggregateKindV1::Character,
+        fixture.npc_character_id,
+    ) {
+        Some(RpgAggregatePayloadV1::Character(character)) => character
+            .resources
+            .iter()
+            .find(|resource| resource.resource_id.as_str() == CORE_CHARACTER_HEALTH_RESOURCE_ID)
+            .map_or(0, |resource| resource.current_value),
+        _ => {
+            return Err(PersistenceReplayCheckError::condition(
+                "final NPC health resource exists",
+            ));
+        }
+    };
     let pickup_is_collected = matches!(
         aggregate_payload(
             &final_checkpoint.rpg_snapshot,
@@ -671,7 +767,8 @@ pub(crate) fn run_persistence_replay_check_for_project(
         || dialogue_node_id != expected_dialogue_node_id
         || quest_state_id != expected_quest_state_id
         || npc_player_trust != expected_relationship_value
-        || rpg_events != 9
+        || npc_health != 75
+        || rpg_events != 10
         || !pickup_is_collected
         || !pickup_is_owned
         || !pickup_is_equipped
@@ -689,7 +786,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
             PersistenceReplayCheckError::new("final ledger hash", error.to_string())
         })?;
     Ok(PersistenceReplayCheckReport {
-        ticks: 14,
+        ticks: 16,
         generations: 2,
         final_pose,
         rpg_events: u64::try_from(rpg_events).map_err(|error| {
@@ -699,6 +796,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
         dialogue_node_id,
         quest_state_id,
         npc_player_trust,
+        npc_health,
         final_state_root,
         final_command_ledger_hash,
     })
@@ -961,6 +1059,7 @@ fn initial_rpg_snapshot(
             RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
                 inventory_id: Some(first_inventory_id),
                 equipment_id: None,
+                resources: Vec::new(),
                 skills: Vec::new(),
             }),
         ),
@@ -970,6 +1069,7 @@ fn initial_rpg_snapshot(
             RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
                 inventory_id: Some(second_inventory_id),
                 equipment_id: None,
+                resources: Vec::new(),
                 skills: Vec::new(),
             }),
         ),
@@ -1231,9 +1331,9 @@ mod tests {
     #[test]
     fn product_check_covers_npc_transition_replay_and_structural_fallbacks() {
         let report = run_persistence_replay_check().expect("product check passes");
-        assert_eq!(report.ticks, 14);
+        assert_eq!(report.ticks, 16);
         assert_eq!(report.generations, 2);
-        assert_eq!(report.rpg_events, 9);
+        assert_eq!(report.rpg_events, 10);
         assert_eq!(
             report.interactive_object_state.as_str(),
             CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
@@ -1247,6 +1347,7 @@ mod tests {
             "nextengine.fixture.quest.active"
         );
         assert_eq!(report.npc_player_trust, 7);
+        assert_eq!(report.npc_health, 75);
         assert_eq!(
             report.final_pose.translation_micrometres,
             [200_000, 900_000, 200_000]

@@ -15,8 +15,9 @@ Next Engine создаётся для игр, в которых движение
 > dialogue/quest/relationship definitions. Portable `game` root уже извлекает
 > immutable presentation snapshot и проходит B0 reference renderer; приватный
 > SDL3/ash Vulkan adapter компилируется как `Proposed`, но ещё не прошёл
-> обязательные Windows/Linux product checks. Combat, streaming и законченный
-> RPG-цикл остаются целевым результатом v1, а не готовым продуктом.
+> обязательные Windows/Linux product checks. Первый data-only combat package
+> уже проходит общий capability/effect/RPG transaction path; streaming и
+> законченный RPG-цикл остаются целевым результатом v1, а не готовым продуктом.
 > Название Next Engine временное.
 
 Next Engine — самостоятельный проект. Это не порт OpenGothic и не универсальный
@@ -105,6 +106,11 @@ runtime-обучение моделей и
   собранные в обычный data-only package с exact mechanics lock и capability
   grants; `headless --project <store> --lock <hash>` запускает тот же
   authoritative сценарий из production activation path без `ai-host`;
+- content-authored melee ability в ordinary package
+  `org.nextengine.core.combat`: equipped training item публикует
+  planner-visible affordance, immutable contact-bound `EffectRequestV1`
+  компилируется в `AdjustCharacterResource`, а health commit проходит через
+  тот же `RpgCommandV1` и capability grants, что доступны community packages;
 - общий `game`/`headless` activation path с exact project lock и совпадающими
   authoritative state/ledger roots; `game` публикует immutable
   `PresentationSnapshotV2`, содержащий floor, capsule, switch, item и NPC;
@@ -119,11 +125,10 @@ runtime-обучение моделей и
   `train → ONNX → inference` для проверки локального ML toolchain.
 
 Это ещё не законченная игра: текущий `play` проверяет ограниченный neutral
-сценарий движения, столкновения, pickup/equip, активации switch и один authored
-NPC dialogue/quest transition. Reference physics profile пока ограничен upright
+сценарий движения, столкновения, pickup/equip, melee damage, активации switch и
+один authored NPC dialogue/quest transition. Reference physics profile пока ограничен upright
 capsule и статическими Box colliders; desktop adapter пока отображает только
-B0-примитивы и остаётся `Proposed`. Combat package и world streaming —
-следующие срезы.
+B0-примитивы и остаётся `Proposed`. World streaming — следующий срез.
 
 ## Быстрый старт
 
@@ -153,7 +158,7 @@ cargo run -p next_game --features desktop-sdl-ash -- --interactive
 Запустить основные локальные проверки:
 
 ```bash
-# Ввод → collision → pickup/equip → switch → NPC dialogue/quest transition
+# Ввод → collision → pickup/equip → melee → switch → NPC dialogue/quest transition
 cargo run -p xtask -- play
 
 # Гравитация, столкновения с полом/стеной и жизненный цикл контактов
@@ -236,6 +241,7 @@ vendor types, importer structures, database connections и model sessions
 | `crates/contracts` | Публичные ID, commands/events, input, manifests, snapshots, persistence и physics/RPG contracts |
 | `crates/runtime` | Admission, command ledger, fixed-stage execution и атомарные tick transactions |
 | `crates/rpg` | Generic RPG state и валидируемые доменные переходы |
+| `crates/mechanics` | Public-package host: immutable affordances/effect requests → typed RPG commands |
 | `crates/physics-api` | Детерминированный reference physics world и grounded capsule |
 | `crates/physics-physx` | Safe optional PhysX adapter за engine-owned physics API |
 | `crates/physics-physx-ffi` | Единственная ADR-033 allowlisted native FFI-граница |

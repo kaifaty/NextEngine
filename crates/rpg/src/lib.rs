@@ -717,6 +717,40 @@ fn apply_operation(
                 state_id: next_state_id.clone(),
             })
         }
+        RpgOperationPayloadV1::AdjustCharacterResource {
+            source_character_id: _,
+            character_id,
+            resource_id,
+            expected_value,
+            delta,
+        } => {
+            let key = RpgAggregateKeyV1::new(RpgAggregateKindV1::Character, *character_id);
+            let payload = staged_payload_mut(state, staged_payloads, key)?;
+            let RpgAggregatePayloadV1::Character(character) = payload else {
+                return Err(RpgPlanBuildError::TransactionAborted);
+            };
+            let resource = character
+                .resources
+                .iter_mut()
+                .find(|entry| entry.resource_id == *resource_id)
+                .ok_or(RpgPlanBuildError::TransitionInvalid)?;
+            if resource.current_value != *expected_value {
+                return Err(RpgPlanBuildError::TransitionInvalid);
+            }
+            let next = resource
+                .current_value
+                .checked_add(*delta)
+                .ok_or(RpgPlanBuildError::TransitionInvalid)?;
+            if next < resource.minimum_value || next > resource.maximum_value {
+                return Err(RpgPlanBuildError::TransitionInvalid);
+            }
+            resource.current_value = next;
+            Ok(RpgEventV1::CharacterResourceAdjusted {
+                character_id: *character_id,
+                resource_id: resource_id.clone(),
+                value: next,
+            })
+        }
     }
 }
 
@@ -949,13 +983,13 @@ impl Error for RpgPlanMaterializeError {}
 mod tests {
     use next_contracts::{
         AssetId, CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID,
-        CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CharacterPayloadV1, CommandBodyHash, CommandId,
-        ContentHash, DefinitionRefV1, DialoguePayloadV1, EquipmentPayloadV1,
-        InteractiveObjectPayloadV1, InventoryPayloadV1, ItemPayloadV1, PhysicsContactId,
-        ProvenanceBindingV1, QuestPayloadV1, RelationshipDimensionV1, RelationshipPayloadV1,
-        RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgAggregateRefV1,
-        RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1, RpgPhysicalContactFactV1,
-        RpgSnapshotV2, SchemaId,
+        CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CharacterPayloadV1, CharacterResourceEntryV1,
+        CommandBodyHash, CommandId, ContentHash, DefinitionRefV1, DialoguePayloadV1,
+        EquipmentPayloadV1, InteractiveObjectPayloadV1, InventoryPayloadV1, ItemPayloadV1,
+        PhysicsContactId, ProvenanceBindingV1, QuestPayloadV1, RelationshipDimensionV1,
+        RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1,
+        RpgAggregateRefV1, RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1,
+        RpgPhysicalContactFactV1, RpgSnapshotV2, SchemaId,
     };
 
     use super::{
@@ -1001,6 +1035,7 @@ mod tests {
                 RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
                     inventory_id: Some(id(3)),
                     equipment_id: Some(id(4)),
+                    resources: vec![],
                     skills: vec![],
                 }),
             ),
@@ -1009,6 +1044,7 @@ mod tests {
                 RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
                     inventory_id: None,
                     equipment_id: None,
+                    resources: vec![],
                     skills: vec![],
                 }),
             ),
@@ -1546,6 +1582,76 @@ mod tests {
         assert_eq!(
             build_transaction_plan_v1(&state, &invalid_source, context(&[])),
             Err(RpgPlanBuildError::OwnershipConflict)
+        );
+    }
+
+    #[test]
+    fn character_resource_adjustment_is_atomic_revision_bound_and_bounded() {
+        let resource_id = schema("nextengine.test.resource.health");
+        let state = RpgState::from_snapshot(RpgSnapshotV2 {
+            aggregates: vec![
+                aggregate(
+                    1,
+                    RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                        inventory_id: None,
+                        equipment_id: None,
+                        resources: vec![],
+                        skills: vec![],
+                    }),
+                ),
+                aggregate(
+                    2,
+                    RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                        inventory_id: None,
+                        equipment_id: None,
+                        resources: vec![CharacterResourceEntryV1 {
+                            resource_id: resource_id.clone(),
+                            current_value: 100,
+                            minimum_value: 0,
+                            maximum_value: 100,
+                        }],
+                        skills: vec![],
+                    }),
+                ),
+            ],
+        })
+        .expect("resource fixture is valid");
+        let policy = ContentHash::from_bytes([0x77; 32]);
+        let command = |expected_revision, expected_value, delta| RpgCommandV1 {
+            operations: vec![RpgOperationV1 {
+                operation_slot: 0,
+                targets: vec![
+                    target(RpgAggregateKindV1::Character, 1, 0),
+                    target(RpgAggregateKindV1::Character, 2, expected_revision),
+                ],
+                definition_policy_hashes: vec![policy],
+                payload: RpgOperationPayloadV1::AdjustCharacterResource {
+                    source_character_id: id(1),
+                    character_id: id(2),
+                    resource_id: resource_id.clone(),
+                    expected_value,
+                    delta,
+                },
+            }],
+        };
+
+        let plan = build_transaction_plan_v1(&state, &command(0, 100, -25), context(&[policy]))
+            .expect("valid damage builds one atomic plan");
+        let committed =
+            materialize_transaction_plan_v1(&state, &plan).expect("valid damage commits");
+        assert!(matches!(
+            committed
+                .character(id(2))
+                .and_then(|character| character.resources.first()),
+            Some(resource) if resource.current_value == 75
+        ));
+        assert!(matches!(
+            build_transaction_plan_v1(&state, &command(1, 100, -25), context(&[policy])),
+            Err(RpgPlanBuildError::RevisionStale { .. })
+        ));
+        assert_eq!(
+            build_transaction_plan_v1(&state, &command(0, 100, -101), context(&[policy])),
+            Err(RpgPlanBuildError::TransitionInvalid)
         );
     }
 }

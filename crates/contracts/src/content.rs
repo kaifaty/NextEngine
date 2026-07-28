@@ -29,6 +29,7 @@ pub enum NeutralRecordKindV1 {
     QuestDefinition = 8,
     RelationshipDefinition = 9,
     InteractionDefinition = 10,
+    AbilityDefinition = 11,
 }
 
 impl NeutralRecordKindV1 {
@@ -45,6 +46,7 @@ impl NeutralRecordKindV1 {
             Self::QuestDefinition => "nextengine.content.quest-definition.v1",
             Self::RelationshipDefinition => "nextengine.content.relationship-definition.v1",
             Self::InteractionDefinition => "nextengine.content.interaction-definition.v1",
+            Self::AbilityDefinition => "nextengine.content.ability-definition.v1",
         }
     }
 
@@ -60,6 +62,7 @@ impl NeutralRecordKindV1 {
             8 => Ok(Self::QuestDefinition),
             9 => Ok(Self::RelationshipDefinition),
             10 => Ok(Self::InteractionDefinition),
+            11 => Ok(Self::AbilityDefinition),
             _ => Err(NeutralRecordError::UnknownKind),
         }
     }
@@ -500,6 +503,7 @@ mod tests {
             NeutralRecordKindV1::QuestDefinition,
             NeutralRecordKindV1::RelationshipDefinition,
             NeutralRecordKindV1::InteractionDefinition,
+            NeutralRecordKindV1::AbilityDefinition,
         ];
         for (index, kind) in kinds.into_iter().enumerate() {
             let record = NeutralRecordV1::new(

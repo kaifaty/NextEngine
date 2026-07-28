@@ -16,6 +16,7 @@ pub struct ContentPackageCheckReport {
     pub records: usize,
     pub chunks: usize,
     pub mechanic_packages: usize,
+    pub combat_npc_health: i32,
     pub schema_registry_hash: ContentHash,
     pub content_manifest_hash: ContentHash,
     pub world_partition_hash: ContentHash,
@@ -34,9 +35,12 @@ pub fn run_content_package_check() -> Result<ContentPackageCheckReport, ContentP
         let store = ContentStore::new(&output);
         store.publish(&cooked.publication()?)?;
         let activated = activate_project(&store)?;
-        if activated.content_manifest.body.asset_entries.len() != 10
+        let gameplay = crate::run_play_check_with_activated_project(activated.clone())?;
+        if activated.content_manifest.body.asset_entries.len() != 11
             || activated.world_partition.body.chunk_bindings.len() != 1
-            || activated.rpg_definitions.packages.len() != 1
+            || activated.rpg_definitions.packages.len() != 2
+            || activated.rpg_definitions.abilities.len() != 1
+            || gameplay.npc_health != 75
         {
             return Err(ContentPackageCheckError::FixtureClosureMismatch);
         }
@@ -44,6 +48,7 @@ pub fn run_content_package_check() -> Result<ContentPackageCheckReport, ContentP
             records: activated.content_manifest.body.asset_entries.len(),
             chunks: activated.world_partition.body.chunk_bindings.len(),
             mechanic_packages: activated.rpg_definitions.packages.len(),
+            combat_npc_health: gameplay.npc_health,
             schema_registry_hash: activated.schema_registry.schema_registry_manifest_sha256,
             content_manifest_hash: activated.content_manifest.content_manifest_sha256,
             world_partition_hash: activated.world_partition.world_partition_manifest_sha256,
@@ -62,6 +67,7 @@ pub enum ContentPackageCheckError {
     Cook(ProjectCookError),
     Store(next_assets::ContentStoreError),
     Activation(ProjectActivationError),
+    Gameplay(crate::PlayCheckError),
     Cleanup(std::io::Error),
     FixtureClosureMismatch,
 }
@@ -74,6 +80,7 @@ impl Display for ContentPackageCheckError {
             Self::Activation(error) => {
                 write!(formatter, "content-package activation failed: {error}")
             }
+            Self::Gameplay(error) => write!(formatter, "content-package gameplay failed: {error}"),
             Self::Cleanup(error) => write!(formatter, "content-package cleanup failed: {error}"),
             Self::FixtureClosureMismatch => {
                 formatter.write_str("content-package fixture closure mismatch")
@@ -102,6 +109,12 @@ impl From<ProjectActivationError> for ContentPackageCheckError {
     }
 }
 
+impl From<crate::PlayCheckError> for ContentPackageCheckError {
+    fn from(error: crate::PlayCheckError) -> Self {
+        Self::Gameplay(error)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::run_content_package_check;
@@ -109,8 +122,9 @@ mod tests {
     #[test]
     fn content_package_uses_cooker_publisher_and_production_loader() {
         let report = run_content_package_check().expect("content-package passes");
-        assert_eq!(report.records, 10);
+        assert_eq!(report.records, 11);
         assert_eq!(report.chunks, 1);
-        assert_eq!(report.mechanic_packages, 1);
+        assert_eq!(report.mechanic_packages, 2);
+        assert_eq!(report.combat_npc_health, 75);
     }
 }

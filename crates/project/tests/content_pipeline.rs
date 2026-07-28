@@ -37,7 +37,9 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         activated.composition_lock.composition_lock_sha256,
         first.composition_lock.composition_lock_sha256
     );
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 10);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 11);
+    assert_eq!(activated.rpg_definitions.abilities.len(), 1);
+    assert_eq!(activated.rpg_definitions.packages.len(), 2);
     std::fs::remove_dir_all(root).expect("remove test content");
 }
 
