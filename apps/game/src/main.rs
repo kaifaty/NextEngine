@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => (next_verification::prepare_game_frame()?, None),
     };
     if options.interactive {
-        run_interactive(&prepared.snapshot)?;
+        run_interactive(&prepared.snapshot, options.maximum_frames)?;
     }
     let report = prepared.check;
     let pose = report.play.final_pose.translation_micrometres;
@@ -48,6 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[derive(Debug, Default)]
 struct GameOptions {
     interactive: bool,
+    maximum_frames: Option<u64>,
     project: Option<std::path::PathBuf>,
     expected_lock: Option<String>,
 }
@@ -62,6 +63,20 @@ impl GameOptions {
                 "--interactive" => {
                     if std::mem::replace(&mut options.interactive, true) {
                         return Err("--interactive may only be specified once".into());
+                    }
+                }
+                "--maximum-frames" => {
+                    let value = arguments
+                        .next()
+                        .ok_or("--maximum-frames requires a positive integer")?;
+                    let maximum = value
+                        .parse::<u64>()
+                        .map_err(|_| "--maximum-frames requires a positive integer")?;
+                    if maximum == 0 {
+                        return Err("--maximum-frames requires a positive integer".into());
+                    }
+                    if options.maximum_frames.replace(maximum).is_some() {
+                        return Err("--maximum-frames may only be specified once".into());
                     }
                 }
                 "--project" => {
@@ -83,7 +98,7 @@ impl GameOptions {
                 }
                 "--help" | "-h" => {
                     println!(
-                        "usage: next_game [--interactive] [--project <cooked-store>] [--lock <sha256>]"
+                        "usage: next_game [--interactive [--maximum-frames <positive-integer>]] [--project <cooked-store>] [--lock <sha256>]"
                     );
                     std::process::exit(0);
                 }
@@ -92,6 +107,9 @@ impl GameOptions {
         }
         if options.project.is_none() && options.expected_lock.is_some() {
             return Err("--lock requires --project".into());
+        }
+        if options.maximum_frames.is_some() && !options.interactive {
+            return Err("--maximum-frames requires --interactive".into());
         }
         Ok(options)
     }
@@ -112,10 +130,14 @@ fn validate_lock(value: &str) -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(feature = "desktop-sdl-ash")]
 fn run_interactive(
     snapshot: &next_contracts::PresentationSnapshotV2,
+    maximum_frames: Option<u64>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let report = next_desktop_sdl_ash::run_interactive(
         snapshot,
-        &next_desktop_sdl_ash::DesktopRunOptions::default(),
+        &next_desktop_sdl_ash::DesktopRunOptions {
+            maximum_frames,
+            ..next_desktop_sdl_ash::DesktopRunOptions::default()
+        },
     )?;
     eprintln!(
         "desktop session closed: frames={}, resizes={}, focus_events={}, b0={}",
@@ -130,9 +152,39 @@ fn run_interactive(
 #[cfg(not(feature = "desktop-sdl-ash"))]
 fn run_interactive(
     _snapshot: &next_contracts::PresentationSnapshotV2,
+    _maximum_frames: Option<u64>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     Err(
         "interactive desktop adapter is not enabled; rebuild with --features desktop-sdl-ash"
             .into(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GameOptions;
+
+    #[test]
+    fn bounded_interactive_mode_requires_a_positive_frame_limit() {
+        let options = GameOptions::parse(
+            ["--interactive", "--maximum-frames", "1"]
+                .into_iter()
+                .map(str::to_owned),
+        )
+        .expect("bounded interactive options");
+        assert!(options.interactive);
+        assert_eq!(options.maximum_frames, Some(1));
+
+        assert!(
+            GameOptions::parse(["--maximum-frames", "1"].into_iter().map(str::to_owned)).is_err()
+        );
+        assert!(
+            GameOptions::parse(
+                ["--interactive", "--maximum-frames", "0"]
+                    .into_iter()
+                    .map(str::to_owned)
+            )
+            .is_err()
+        );
+    }
 }

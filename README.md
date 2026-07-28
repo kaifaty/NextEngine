@@ -22,7 +22,9 @@ Next Engine создаётся для игр, в которых движение
 > slice; deterministic Luau package host уже проходит sandbox/budget/state
 > checks. Wasm Component host на pinned Wasmtime проходит N/N−1 negotiation,
 > fuel/memory/capability/state checks и сохраняет обязательный headless
-> fallback; shipping closure ещё остаётся целевым результатом v1.
+> fallback. Локальная v1 closure matrix связывает exact project/content/
+> mechanics/extension roots; native Windows/Linux shipping evidence пока
+> остаётся `NOT_RUN`.
 > Название Next Engine временное.
 
 Next Engine — самостоятельный проект. Это не порт OpenGothic и не универсальный
@@ -153,8 +155,8 @@ runtime-обучение моделей и
 один authored NPC dialogue/quest transition и переход во второй chunk с
 возвратом. Reference physics profile пока ограничен upright capsule и
 статическими Box colliders; desktop adapter пока отображает только
-B0-примитивы и остаётся `Proposed`. Shipping closure и реальные
-Windows/Linux platform gates — следующий срез.
+B0-примитивы и остаётся `Proposed`. Локальная closure проходит, но реальные
+Windows/Linux platform/package gates ещё не выполнены.
 
 ## Быстрый старт
 
@@ -201,10 +203,25 @@ cargo run -p xtask -- platform
 
 # Форматирование, clippy, тесты workspace и архитектурные границы
 cargo run -p xtask -- host-check
+
+# Полная локальная closure matrix с exact hashes и честными target NOT_RUN
+cargo run -p xtask -- v1-closure
 ```
 
 Команды выводят компактный машиночитаемый результат. `host-check` — канонический
 широкий локальный `fast` check перед передачей изменения.
+
+На native Windows/Linux target после зелёной matrix собирается атомарный
+distribution directory с `game`, `headless`, exact cooked project и
+`package.manifest.jcs`. Перед публикацией команда запускает release
+`headless` и один bounded interactive Vulkan frame release `game`:
+
+```bash
+cargo run -p xtask -- v1-package --output dist/nextengine-v1
+```
+
+На macOS команда fail-closed возвращает
+`TARGET_PACKAGE_REQUIRES_NATIVE_WINDOWS_OR_LINUX_X86_64`.
 
 Экспериментальный PhysX backend не входит в default features и не нужен этим
 командам. На Windows x86_64 или Linux x86_64 локальный SDK 5.9.0 задаётся
@@ -268,6 +285,10 @@ vendor types, importer structures, database connections и model sessions
 | `crates/runtime` | Admission, command ledger, fixed-stage execution и атомарные tick transactions |
 | `crates/rpg` | Generic RPG state и валидируемые доменные переходы |
 | `crates/mechanics` | Public-package host: immutable affordances/effect requests → typed RPG commands |
+| `crates/script-luau` | Private deterministic Luau sandbox и package-state adapter |
+| `crates/plugin-host` | Engine-owned WIT v3/v2 и private bounded Wasmtime Component adapter |
+| `crates/agent` | Canonical NPC planner и procedural avatar fallback projection |
+| `crates/world` | Deterministic two-chunk staging/admission и world-service save segment |
 | `crates/physics-api` | Детерминированный reference physics world и grounded capsule |
 | `crates/physics-physx` | Safe optional PhysX adapter за engine-owned physics API |
 | `crates/physics-physx-ffi` | Единственная ADR-033 allowlisted native FFI-граница |

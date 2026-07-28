@@ -7,7 +7,7 @@ use next_contracts::{
 };
 use next_platform::{PlatformHost, PlatformHostError, ReferencePlatformHost};
 
-use crate::{GameCheckReport, PlayCheckError, run_game_check, run_play_check};
+use crate::{GameCheckReport, PlayCheckError, prepare_game_frame, run_play_check};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlatformCheckReport {
@@ -21,13 +21,17 @@ pub struct PlatformCheckReport {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PlatformCandidateStatus {
+    Pass,
     NotRunOnDeveloperHost,
+    NotRunAdapterDisabled,
 }
 
 pub fn run_platform_check() -> Result<PlatformCheckReport, PlatformCheckError> {
     let headless = run_play_check()?;
-    let game = run_game_check()?;
+    let prepared = prepare_game_frame()?;
+    let game = prepared.check;
     verify_authoritative_parity(&headless, &game)?;
+    let candidate_status = run_desktop_candidate(&prepared.snapshot)?;
 
     let mut host = ReferencePlatformHost::interactive()?;
     if host.presentation_target_kind() != PresentationTargetKindV1::Interactive
@@ -121,8 +125,45 @@ pub fn run_platform_check() -> Result<PlatformCheckReport, PlatformCheckError> {
         authoritative_state_root: game.play.final_state_root,
         authoritative_ledger_hash: game.play.final_command_ledger_hash,
         presentation_snapshot_hash: game.presentation_snapshot_hash,
-        candidate_status: PlatformCandidateStatus::NotRunOnDeveloperHost,
+        candidate_status,
     })
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+fn run_desktop_candidate(
+    snapshot: &next_contracts::PresentationSnapshotV2,
+) -> Result<PlatformCandidateStatus, PlatformCheckError> {
+    if !cfg!(all(
+        target_arch = "x86_64",
+        any(target_os = "windows", target_os = "linux")
+    )) {
+        return Ok(PlatformCandidateStatus::NotRunOnDeveloperHost);
+    }
+    let report = next_desktop_sdl_ash::run_interactive(
+        snapshot,
+        &next_desktop_sdl_ash::DesktopRunOptions {
+            maximum_frames: Some(1),
+            ..next_desktop_sdl_ash::DesktopRunOptions::default()
+        },
+    )?;
+    if report.rendered_frames != 1 || !report.b0_capabilities_verified {
+        return Err(PlatformCheckError::DesktopSmokeMismatch);
+    }
+    Ok(PlatformCandidateStatus::Pass)
+}
+
+#[cfg(not(feature = "desktop-sdl-ash"))]
+fn run_desktop_candidate(
+    _snapshot: &next_contracts::PresentationSnapshotV2,
+) -> Result<PlatformCandidateStatus, PlatformCheckError> {
+    if cfg!(all(
+        target_arch = "x86_64",
+        any(target_os = "windows", target_os = "linux")
+    )) {
+        Ok(PlatformCandidateStatus::NotRunAdapterDisabled)
+    } else {
+        Ok(PlatformCandidateStatus::NotRunOnDeveloperHost)
+    }
 }
 
 fn verify_authoritative_parity(
@@ -149,6 +190,9 @@ pub enum PlatformCheckError {
     AuthoritativeParityMismatch,
     HostContractMismatch,
     HeadlessCreatedPresentationTarget,
+    DesktopSmokeMismatch,
+    #[cfg(feature = "desktop-sdl-ash")]
+    Desktop(next_desktop_sdl_ash::DesktopAdapterError),
 }
 
 impl Display for PlatformCheckError {
@@ -167,6 +211,11 @@ impl Display for PlatformCheckError {
             Self::HeadlessCreatedPresentationTarget => {
                 formatter.write_str("headless created a presentation target")
             }
+            Self::DesktopSmokeMismatch => {
+                formatter.write_str("desktop adapter did not render the bounded B0 smoke frame")
+            }
+            #[cfg(feature = "desktop-sdl-ash")]
+            Self::Desktop(error) => write!(formatter, "desktop adapter smoke failed: {error}"),
         }
     }
 }
@@ -194,6 +243,13 @@ impl From<next_contracts::PlatformContractError> for PlatformCheckError {
 impl From<next_contracts::IdentifierError> for PlatformCheckError {
     fn from(error: next_contracts::IdentifierError) -> Self {
         Self::Identifier(error)
+    }
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+impl From<next_desktop_sdl_ash::DesktopAdapterError> for PlatformCheckError {
+    fn from(error: next_desktop_sdl_ash::DesktopAdapterError) -> Self {
+        Self::Desktop(error)
     }
 }
 

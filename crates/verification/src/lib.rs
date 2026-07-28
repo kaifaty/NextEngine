@@ -7,6 +7,7 @@ mod physics_parity;
 mod platform_check;
 mod player_fixture;
 mod streaming_performance;
+mod v1_closure;
 
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -59,6 +60,10 @@ pub use player_fixture::{
 };
 pub use streaming_performance::{
     StreamingPerformanceError, StreamingPerformanceReport, run_streaming_performance_check,
+};
+pub use v1_closure::{
+    TargetGateStatusV1, V1ClosureCheckError, V1ClosureCheckReport, V1TargetGateV1,
+    run_v1_closure_check,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]

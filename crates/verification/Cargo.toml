@@ -7,6 +7,7 @@ license.workspace = true
 
 [features]
 default = []
+desktop-sdl-ash = ["dep:next_desktop_sdl_ash"]
 physx = ["dep:next_physics_physx", "next_runtime/physx"]
 physx-mock = ["dep:next_physics_physx", "next_runtime/physx-mock"]
 
@@ -14,6 +15,7 @@ physx-mock = ["dep:next_physics_physx", "next_runtime/physx-mock"]
 next_agent.workspace = true
 next_assets.workspace = true
 next_contracts.workspace = true
+next_desktop_sdl_ash = { workspace = true, optional = true }
 next_physics_api.workspace = true
 next_physics_physx = { workspace = true, optional = true }
 next_platform.workspace = true

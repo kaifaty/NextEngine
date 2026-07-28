@@ -36,6 +36,12 @@ Cross-cutting change запускает объединение соответс�
 неочевидна, выбирается дополнительный релевантный check; не требуется строить
 глобальный граф всех требований проекта.
 
+`cargo run -p xtask -- v1-closure` агрегирует реализованные v1 checks, exact
+project/content/mechanics/extension roots и target package descriptors. На
+developer host недоступный Windows/Linux runtime check или desktop smoke остаётся
+`NotRun(reason)` и делает `shipping_ready = false`; portable local success не
+подменяет target product evidence.
+
 ## `fast`
 
 Базовая локальная команда проекта:

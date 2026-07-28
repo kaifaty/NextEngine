@@ -742,6 +742,7 @@ dependencies = [
  "next_agent",
  "next_assets",
  "next_contracts",
+ "next_desktop_sdl_ash",
  "next_physics_api",
  "next_physics_physx",
  "next_platform",
@@ -1602,6 +1603,9 @@ dependencies = [
 name = "xtask"
 version = "0.1.0"
 dependencies = [
+ "next_assets",
+ "next_contracts",
+ "next_project",
  "next_verification",
 ]
 

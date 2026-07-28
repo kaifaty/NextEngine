@@ -29,6 +29,7 @@ pub struct ContentPackageCheckReport {
     pub wasm_host_api_major: u16,
     pub schema_registry_hash: ContentHash,
     pub content_manifest_hash: ContentHash,
+    pub mechanics_lock_hash: ContentHash,
     pub world_partition_hash: ContentHash,
     pub composition_lock_hash: ContentHash,
 }
@@ -74,6 +75,10 @@ pub fn run_content_package_check() -> Result<ContentPackageCheckReport, ContentP
             wasm_host_api_major,
             schema_registry_hash: activated.schema_registry.schema_registry_manifest_sha256,
             content_manifest_hash: activated.content_manifest.content_manifest_sha256,
+            mechanics_lock_hash: activated
+                .rpg_definitions
+                .mechanics_lock
+                .mechanics_lock_sha256,
             world_partition_hash: activated.world_partition.world_partition_manifest_sha256,
             composition_lock_hash: activated.composition_lock.composition_lock_sha256,
         })
