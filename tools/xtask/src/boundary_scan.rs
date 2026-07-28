@@ -4,13 +4,95 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+const MAX_RUST_SOURCE_LINES: usize = 1_000;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct SourceSizeExemption {
+    path: &'static str,
+    max_lines: usize,
+}
+
+// Temporary ratchet for the pre-existing oversized files. Refactoring a file
+// below the hard limit must remove its entry in the same change.
+const SOURCE_SIZE_EXEMPTIONS: &[SourceSizeExemption] = &[
+    SourceSizeExemption {
+        path: "crates/runtime/src/engine.rs",
+        max_lines: 5_902,
+    },
+    SourceSizeExemption {
+        path: "crates/contracts/src/physics.rs",
+        max_lines: 3_893,
+    },
+    SourceSizeExemption {
+        path: "crates/contracts/src/ledger.rs",
+        max_lines: 3_468,
+    },
+    SourceSizeExemption {
+        path: "crates/contracts/src/input.rs",
+        max_lines: 2_607,
+    },
+    SourceSizeExemption {
+        path: "crates/verification/src/player_fixture.rs",
+        max_lines: 2_542,
+    },
+    SourceSizeExemption {
+        path: "crates/contracts/src/rpg_v1.rs",
+        max_lines: 2_503,
+    },
+    SourceSizeExemption {
+        path: "crates/contracts/src/project.rs",
+        max_lines: 2_198,
+    },
+    SourceSizeExemption {
+        path: "crates/physics-api/src/reference_world.rs",
+        max_lines: 2_153,
+    },
+    SourceSizeExemption {
+        path: "crates/contracts/src/manifest_jcs.rs",
+        max_lines: 2_015,
+    },
+    SourceSizeExemption {
+        path: "crates/verification/src/persistence_replay.rs",
+        max_lines: 1_738,
+    },
+    SourceSizeExemption {
+        path: "crates/contracts/src/command.rs",
+        max_lines: 1_702,
+    },
+    SourceSizeExemption {
+        path: "crates/rpg/src/lib.rs",
+        max_lines: 1_657,
+    },
+    SourceSizeExemption {
+        path: "crates/contracts/src/snapshot.rs",
+        max_lines: 1_437,
+    },
+    SourceSizeExemption {
+        path: "crates/contracts/src/identity.rs",
+        max_lines: 1_356,
+    },
+    SourceSizeExemption {
+        path: "crates/contracts/src/rpg.rs",
+        max_lines: 1_355,
+    },
+    SourceSizeExemption {
+        path: "crates/verification/src/lib.rs",
+        max_lines: 1_318,
+    },
+    SourceSizeExemption {
+        path: "crates/assets/src/save.rs",
+        max_lines: 1_312,
+    },
+];
+
 pub fn boundary_scan(root: &Path) -> Result<(), String> {
+    validate_source_file_sizes(root)?;
     validate_public_contracts(root)?;
     validate_mechanics_package_boundary(root)?;
     validate_importer_boundary(root)?;
     validate_ffi_policy(root)?;
     println!(
-        "PASS boundary-scan: public contracts, public mechanics package path, importer boundary and audited FFI allowlist verified"
+        "PASS boundary-scan: bounded Rust sources, public contracts, public mechanics package path, importer boundary and audited FFI allowlist verified"
     );
     Ok(())
 }
@@ -24,9 +106,14 @@ fn validate_mechanics_package_boundary(root: &Path) -> Result<(), String> {
             ));
         }
     }
-    let runtime = read(&root.join("crates/runtime/src/engine.rs"))?;
-    if runtime.contains("org.nextengine.core.combat") {
-        return Err("BOUNDARY_RUNTIME_FIRST_PARTY_COMBAT_ID".to_owned());
+    if let Some(path) = find_source_file_containing(
+        &root.join("crates/runtime/src"),
+        "org.nextengine.core.combat",
+    )? {
+        return Err(format!(
+            "BOUNDARY_RUNTIME_FIRST_PARTY_COMBAT_ID: {}",
+            path.display()
+        ));
     }
     let mechanics = read(&root.join("crates/mechanics/src/lib.rs"))?;
     let production = mechanics
@@ -36,6 +123,88 @@ fn validate_mechanics_package_boundary(root: &Path) -> Result<(), String> {
         return Err("BOUNDARY_MECHANICS_HOST_FIRST_PARTY_PACKAGE_ID".to_owned());
     }
     Ok(())
+}
+
+fn validate_source_file_sizes(root: &Path) -> Result<(), String> {
+    let mut source_sizes = BTreeMap::new();
+    for relative_root in ["apps", "crates", "tools"] {
+        let source_root = root.join(relative_root);
+        if !source_root.is_dir() {
+            return Err(format!("SOURCE_ROOT_MISSING: {}", source_root.display()));
+        }
+        let mut files = Vec::new();
+        collect_strict_source_files(&source_root, &mut files)?;
+        files.sort();
+        for file in files {
+            let relative = workspace_relative_path(root, &file)?;
+            let line_count = read(&file)?.lines().count();
+            if source_sizes.insert(relative.clone(), line_count).is_some() {
+                return Err(format!("SOURCE_FILE_DUPLICATE: {relative}"));
+            }
+        }
+    }
+    validate_source_size_inventory(&source_sizes, SOURCE_SIZE_EXEMPTIONS)
+}
+
+fn validate_source_size_inventory(
+    source_sizes: &BTreeMap<String, usize>,
+    exemptions: &[SourceSizeExemption],
+) -> Result<(), String> {
+    let mut exemption_limits = BTreeMap::new();
+    for exemption in exemptions {
+        if exemption_limits
+            .insert(exemption.path, exemption.max_lines)
+            .is_some()
+        {
+            return Err(format!(
+                "SOURCE_FILE_SIZE_EXEMPTION_DUPLICATE: {}",
+                exemption.path
+            ));
+        }
+    }
+
+    for (path, line_count) in source_sizes {
+        let Some(max_lines) = exemption_limits.get(path.as_str()).copied() else {
+            if *line_count > MAX_RUST_SOURCE_LINES {
+                return Err(format!(
+                    "SOURCE_FILE_TOO_LARGE: {path} has {line_count} lines; limit is {MAX_RUST_SOURCE_LINES}"
+                ));
+            }
+            continue;
+        };
+        if *line_count <= MAX_RUST_SOURCE_LINES {
+            return Err(format!(
+                "SOURCE_FILE_SIZE_EXEMPTION_STALE: {path} has {line_count} lines; remove its exemption"
+            ));
+        }
+        if *line_count > max_lines {
+            return Err(format!(
+                "SOURCE_FILE_SIZE_REGRESSION: {path} has {line_count} lines; exemption ceiling is {max_lines}"
+            ));
+        }
+    }
+
+    for path in exemption_limits.keys() {
+        if !source_sizes.contains_key(*path) {
+            return Err(format!("SOURCE_FILE_SIZE_EXEMPTION_MISSING: {path}"));
+        }
+    }
+    Ok(())
+}
+
+fn workspace_relative_path(root: &Path, path: &Path) -> Result<String, String> {
+    let relative = path.strip_prefix(root).map_err(|_| {
+        format!(
+            "SOURCE_FILE_OUTSIDE_WORKSPACE: {} is not under {}",
+            path.display(),
+            root.display()
+        )
+    })?;
+    Ok(relative
+        .components()
+        .map(|component| component.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/"))
 }
 
 fn validate_public_contracts(root: &Path) -> Result<(), String> {
@@ -298,6 +467,42 @@ fn read(path: &Path) -> Result<String, String> {
     fs::read_to_string(path).map_err(|error| format!("{}: {error}", path.display()))
 }
 
+fn find_source_file_containing(root: &Path, needle: &str) -> Result<Option<PathBuf>, String> {
+    let mut files = Vec::new();
+    collect_strict_source_files(root, &mut files)?;
+    files.sort();
+    for file in files {
+        if read(&file)?.contains(needle) {
+            return Ok(Some(file));
+        }
+    }
+    Ok(None)
+}
+
+fn collect_strict_source_files(root: &Path, output: &mut Vec<PathBuf>) -> Result<(), String> {
+    let root_metadata =
+        fs::symlink_metadata(root).map_err(|error| format!("{}: {error}", root.display()))?;
+    if root_metadata.file_type().is_symlink() {
+        return Err(format!("SOURCE_SYMLINK_FORBIDDEN: {}", root.display()));
+    }
+    for entry in fs::read_dir(root).map_err(|error| format!("{}: {error}", root.display()))? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let path = entry.path();
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("{}: {error}", path.display()))?;
+        if file_type.is_symlink() {
+            return Err(format!("SOURCE_SYMLINK_FORBIDDEN: {}", path.display()));
+        }
+        if file_type.is_dir() {
+            collect_strict_source_files(&path, output)?;
+        } else if file_type.is_file() && path.extension() == Some(OsStr::new("rs")) {
+            output.push(path);
+        }
+    }
+    Ok(())
+}
+
 fn collect_files(
     root: &Path,
     extension: Option<&str>,
@@ -359,7 +564,28 @@ fn should_skip(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{contains_forbidden_public_token, contains_unsafe_code};
+    use std::collections::BTreeMap;
+    use std::fs;
+    #[cfg(unix)]
+    use std::os::unix::fs::symlink;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::{
+        MAX_RUST_SOURCE_LINES, SourceSizeExemption, contains_forbidden_public_token,
+        contains_unsafe_code, find_source_file_containing, validate_source_size_inventory,
+    };
+
+    fn temporary_source_root(label: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock must follow the Unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "nextengine-boundary-scan-{label}-{}-{unique}",
+            std::process::id()
+        ))
+    }
 
     #[test]
     fn ash_path_scan_uses_an_identifier_boundary() {
@@ -377,5 +603,98 @@ mod tests {
         assert!(!contains_unsafe_code(
             "const NOTE: &str = \"unsafe extern C\";"
         ));
+    }
+
+    #[test]
+    fn source_size_inventory_rejects_a_new_oversized_file() {
+        let source_sizes = BTreeMap::from([(
+            "crates/example/src/lib.rs".to_owned(),
+            MAX_RUST_SOURCE_LINES + 1,
+        )]);
+
+        let error = validate_source_size_inventory(&source_sizes, &[])
+            .expect_err("an unexempted oversized source must fail");
+
+        assert!(error.starts_with("SOURCE_FILE_TOO_LARGE: crates/example/src/lib.rs"));
+    }
+
+    #[test]
+    fn source_size_inventory_ratchets_exemptions() {
+        let exemption = SourceSizeExemption {
+            path: "crates/example/src/lib.rs",
+            max_lines: 1_200,
+        };
+        let accepted = BTreeMap::from([(exemption.path.to_owned(), 1_200)]);
+        validate_source_size_inventory(&accepted, &[exemption])
+            .expect("a source at its exemption ceiling remains accepted");
+
+        let grown = BTreeMap::from([(exemption.path.to_owned(), 1_201)]);
+        let error = validate_source_size_inventory(&grown, &[exemption])
+            .expect_err("growth above an exemption ceiling must fail");
+        assert!(error.starts_with("SOURCE_FILE_SIZE_REGRESSION:"));
+
+        let refactored = BTreeMap::from([(exemption.path.to_owned(), MAX_RUST_SOURCE_LINES)]);
+        let error = validate_source_size_inventory(&refactored, &[exemption])
+            .expect_err("a completed refactor must remove its exemption");
+        assert!(error.starts_with("SOURCE_FILE_SIZE_EXEMPTION_STALE:"));
+    }
+
+    #[test]
+    fn source_size_inventory_rejects_missing_and_duplicate_exemptions() {
+        let exemption = SourceSizeExemption {
+            path: "crates/example/src/lib.rs",
+            max_lines: 1_200,
+        };
+        let error = validate_source_size_inventory(&BTreeMap::new(), &[exemption])
+            .expect_err("an exemption for a missing file must fail");
+        assert_eq!(
+            error,
+            "SOURCE_FILE_SIZE_EXEMPTION_MISSING: crates/example/src/lib.rs"
+        );
+
+        let source_sizes = BTreeMap::from([(exemption.path.to_owned(), 1_100)]);
+        let error = validate_source_size_inventory(&source_sizes, &[exemption, exemption])
+            .expect_err("duplicate exemptions must fail");
+        assert_eq!(
+            error,
+            "SOURCE_FILE_SIZE_EXEMPTION_DUPLICATE: crates/example/src/lib.rs"
+        );
+    }
+
+    #[test]
+    fn source_token_scan_descends_into_target_named_module() {
+        let root = temporary_source_root("target-module");
+        let nested = root.join("target/mod.rs");
+        fs::create_dir_all(
+            nested
+                .parent()
+                .expect("the nested fixture must have a parent"),
+        )
+        .expect("the test source tree must be created");
+        fs::write(&nested, "const PACKAGE: &str = \"forbidden.package\";\n")
+            .expect("the nested source fixture must be written");
+
+        let found = find_source_file_containing(&root, "forbidden.package")
+            .expect("the recursive scan must succeed");
+
+        assert_eq!(found.as_deref(), Some(nested.as_path()));
+        fs::remove_dir_all(&root).expect("the test source tree must be removed");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn source_token_scan_rejects_directory_symlinks() {
+        let root = temporary_source_root("symlink");
+        let external = temporary_source_root("external");
+        fs::create_dir_all(&root).expect("the source root must be created");
+        fs::create_dir_all(&external).expect("the external directory must be created");
+        symlink(&external, root.join("escaped")).expect("the directory symlink must be created");
+
+        let error = find_source_file_containing(&root, "forbidden.package")
+            .expect_err("source scans must not follow directory symlinks");
+
+        assert!(error.starts_with("SOURCE_SYMLINK_FORBIDDEN:"));
+        fs::remove_dir_all(&root).expect("the source root must be removed");
+        fs::remove_dir_all(&external).expect("the external directory must be removed");
     }
 }
