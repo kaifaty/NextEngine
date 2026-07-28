@@ -11,9 +11,10 @@ Next Engine создаётся для игр, в которых движение
 > **Статус:** ранний bootstrap. В репозитории уже работает детерминированный
 > headless-срез с вводом, командами, RPG-состоянием, эталонной физикой,
 > сохранением и replay, а neutral fixture проходит deterministic
-> validate/cook/publish/activation. Интерактивная игра, renderer, подключение
-> cooked project к gameplay root и законченный RPG-цикл остаются целевым
-> результатом v1, а не готовым продуктом.
+> validate/cook/publish/activation и снабжает gameplay root authored
+> dialogue/quest/relationship definitions. Интерактивная игра, renderer, combat,
+> streaming и законченный RPG-цикл остаются целевым результатом v1, а не
+> готовым продуктом.
 > Название Next Engine временное.
 
 Next Engine — самостоятельный проект. Это не порт OpenGothic и не универсальный
@@ -84,8 +85,8 @@ runtime-обучение моделей и
 - optional экспериментальный PhysX 5.9.0 backend для того же
   grounded-capsule сценария за safe engine-owned boundary; reference остаётся
   default и oracle;
-- contact-gated core interaction: действие игрока выбирает только объект в
-  активном физическом контакте и меняет его RPG-состояние через Outcome
+- contact-gated interaction: действие игрока выбирает только объект в активном
+  физическом контакте и меняет его RPG-состояние через Outcome
   `WorldCommand`;
 - contact-gated pickup и equipment: отдельные `Inventory` и `Equipment`
   aggregates атомарно принимают предмет, переводят pickup proxy в collected
@@ -98,6 +99,10 @@ runtime-обучение моделей и
   resolver и CC0 neutral fixture из scene, collider и RPG definition records;
   cooker публикует content-addressed generation атомарно, а production loader
   повторно проверяет lock, hashes, schema/reference closure и blobs;
+- content-authored dialogue, quest, relationship и interaction definitions,
+  собранные в обычный data-only package с exact mechanics lock и capability
+  grants; `headless --project <store> --lock <hash>` запускает тот же
+  authoritative сценарий из production activation path без `ai-host`;
 - атомарные поколения сохранений, восстановление, replay и проверка совпадения
   authoritative state roots;
 - переносимый `headless` composition root и локальные product checks;
@@ -105,12 +110,10 @@ runtime-обучение моделей и
   `train → ONNX → inference` для проверки локального ML toolchain.
 
 Это ещё не законченная игра: текущий `play` проверяет ограниченный neutral
-сценарий движения, столкновения, pickup/equip, активации `core-switch` и один
-authored NPC dialogue/quest transition. Cooker уже готовит exact cooked
-project, но gameplay root ещё не активирует из него interaction definitions.
-Reference physics profile пока ограничен upright capsule и статическими Box
-colliders; подключение cooked project к `headless`, content-authored
-interaction definitions и combat package остаются следующими срезами.
+сценарий движения, столкновения, pickup/equip, активации switch и один authored
+NPC dialogue/quest transition. Reference physics profile пока ограничен upright
+capsule и статическими Box colliders; интерактивный `game`, renderer, combat
+package и world streaming остаются следующими срезами.
 
 ## Быстрый старт
 
@@ -121,6 +124,9 @@ interaction definitions и combat package остаются следующими 
 
 ```bash
 cargo run -p next_headless
+
+# Либо активировать exact ранее приготовленный content store
+cargo run -p next_headless -- --project <cooked-store> --lock <composition-lock-sha256>
 ```
 
 Запустить основные локальные проверки:

@@ -6,13 +6,16 @@ use next_assets::{ContentPublicationV1, PublicationFileV1};
 use next_contracts::{
     AssetId, AssetRevisionRefV1, ContentAssetEntryV1, ContentDependencyEdgeV1, ContentHash,
     ContentManifestBodyV1, ContentManifestV1, ContentProvenanceV1, ContentSemanticClassV1,
-    NeutralPropertyV1, NeutralRecordError, NeutralRecordKindV1, NeutralRecordV1, PersistentId,
-    ProjectCatalogRecordV1, ProjectCatalogSnapshotV1, ProjectCompositionLockV1,
-    ProjectContractError, ProjectDependencyKindV1, ProjectId, ProjectManifestV1,
-    ProjectRequirementV1, SchemaDescriptorV1, SchemaEncodingV1, SchemaId, SchemaRefV1,
-    SchemaRegistryManifestBodyV1, SchemaRegistryManifestV1, SchemaRoleV1, SemanticVersionV1,
+    DialogueDefinitionV1, InteractionDefinitionV1, LockedMechanicPackageV1, MechanicPackageId,
+    MechanicPackageManifestV1, MechanicsContractError, MechanicsLockV1, NeutralPropertyV1,
+    NeutralRecordError, NeutralRecordKindV1, NeutralRecordV1, PersistentId, ProjectCatalogRecordV1,
+    ProjectCatalogSnapshotV1, ProjectCompositionLockV1, ProjectContractError,
+    ProjectDependencyKindV1, ProjectId, ProjectManifestV1, ProjectRequirementV1, QuestDefinitionV1,
+    RPG_COMMAND_CAPABILITY_ID, RelationshipDefinitionV1, RpgDefinitionRegistryV1,
+    SchemaDescriptorV1, SchemaEncodingV1, SchemaId, SchemaRefV1, SchemaRegistryManifestBodyV1,
+    SchemaRegistryManifestV1, SchemaRoleV1, SemanticVersionV1, StateTransitionV1,
     WorldChunkBindingV1, WorldPartitionManifestBodyV1, WorldPartitionManifestV1,
-    canonical_empty_manifest_hash, domain_hash,
+    canonical_empty_manifest_hash, domain_hash, interaction_definition_hash,
 };
 
 use crate::{ProjectResolutionError, resolve_project_records_v1};
@@ -26,6 +29,7 @@ pub const WORLD_PARTITION_PATH: &str = "manifests/world-partition.json";
 pub const CONTENT_BLOB_DIRECTORY: &str = "blobs";
 pub const CORE_CONTENT_IDENTITY: &str = "org.nextengine.fixture.content";
 pub const CORE_RESOLVER_PROFILE_ID: &str = "nextengine.resolver.exact-minimum.v1";
+pub const CORE_INTERACTION_PACKAGE_ID: &str = "org.nextengine.core.interaction";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SourceChunkBindingV1 {
@@ -59,6 +63,7 @@ pub struct CookedProjectV1 {
     pub schema_registry: SchemaRegistryManifestV1,
     pub content_manifest: ContentManifestV1,
     pub world_partition: WorldPartitionManifestV1,
+    pub rpg_definitions: RpgDefinitionRegistryV1,
     pub blobs: BTreeMap<ContentHash, Vec<u8>>,
 }
 
@@ -214,6 +219,7 @@ pub fn cook_project_v1(
         dependency_edges: edges,
         domain_closure_sha256: ContentHash::default(),
     })?;
+    let rpg_definitions = compile_rpg_definitions_v1(&source.records)?;
 
     let mut root_region_ids: Vec<_> = source
         .chunks
@@ -289,7 +295,7 @@ pub fn cook_project_v1(
         schema_registry_manifest_sha256: schema_registry.schema_registry_manifest_sha256,
         content_manifest_sha256: content_manifest.content_manifest_sha256,
         world_partition_manifest_sha256: world_partition.world_partition_manifest_sha256,
-        mechanics_lock_sha256: canonical_empty_manifest_hash("nextengine.mechanics-lock.v1"),
+        mechanics_lock_sha256: rpg_definitions.mechanics_lock.mechanics_lock_sha256,
         selected_records,
         composition_lock_sha256: ContentHash::default(),
     })?;
@@ -300,6 +306,7 @@ pub fn cook_project_v1(
         schema_registry,
         content_manifest,
         world_partition,
+        rpg_definitions,
         blobs,
     })
 }
@@ -337,6 +344,13 @@ pub fn neutral_vertical_slice_source_v1() -> Result<NeutralProjectSourceV1, Proj
             ),
             _ => (Vec::new(), Vec::new()),
         };
+        let mut properties = vec![NeutralPropertyV1 {
+            property_id: SchemaId::new("nextengine.fixture.role")
+                .expect("engine-owned identifier is valid"),
+            value_id: SchemaId::new(format!("nextengine.fixture.{:?}", kind).to_lowercase())
+                .expect("engine-owned identifier is valid"),
+        }];
+        properties.extend(definition_properties(kind)?);
         records.push(NeutralRecordV1::new(
             schema_ref(
                 kind.schema_id(),
@@ -348,12 +362,7 @@ pub fn neutral_vertical_slice_source_v1() -> Result<NeutralProjectSourceV1, Proj
             persistent_ids[index],
             persistent_references,
             asset_dependencies,
-            vec![NeutralPropertyV1 {
-                property_id: SchemaId::new("nextengine.fixture.role")
-                    .expect("engine-owned identifier is valid"),
-                value_id: SchemaId::new(format!("nextengine.fixture.{:?}", kind).to_lowercase())
-                    .expect("engine-owned identifier is valid"),
-            }],
+            properties,
         )?);
     }
 
@@ -383,6 +392,203 @@ pub fn neutral_vertical_slice_source_v1() -> Result<NeutralProjectSourceV1, Proj
             required_asset_ids: asset_ids[1..].to_vec(),
         }],
     })
+}
+
+pub(crate) fn compile_rpg_definitions_v1(
+    records: &[NeutralRecordV1],
+) -> Result<RpgDefinitionRegistryV1, ProjectCookError> {
+    let mut by_kind = BTreeMap::new();
+    for record in records {
+        if by_kind.insert(record.kind, record).is_some() {
+            return Err(ProjectCookError::DuplicateIdentity);
+        }
+    }
+    let dialogue_record = by_kind
+        .get(&NeutralRecordKindV1::DialogueDefinition)
+        .ok_or(ProjectCookError::MissingReference)?;
+    let quest_record = by_kind
+        .get(&NeutralRecordKindV1::QuestDefinition)
+        .ok_or(ProjectCookError::MissingReference)?;
+    let relationship_record = by_kind
+        .get(&NeutralRecordKindV1::RelationshipDefinition)
+        .ok_or(ProjectCookError::MissingReference)?;
+    let interaction_record = by_kind
+        .get(&NeutralRecordKindV1::InteractionDefinition)
+        .ok_or(ProjectCookError::MissingReference)?;
+    let dialogue_revision = asset_revision(dialogue_record)?;
+    let quest_revision = asset_revision(quest_record)?;
+    let relationship_revision = asset_revision(relationship_record)?;
+    let interaction_revision = asset_revision(interaction_record)?;
+    let dialogue_transition_id = property_id(
+        interaction_record,
+        "nextengine.interaction.dialogue-transition",
+    )?;
+    let quest_transition_id = property_id(
+        interaction_record,
+        "nextengine.interaction.quest-transition",
+    )?;
+    let dialogue = DialogueDefinitionV1 {
+        asset_revision: dialogue_revision,
+        entry_node_id: property_id(dialogue_record, "nextengine.dialogue.entry-node")?,
+        transitions: vec![StateTransitionV1 {
+            transition_id: dialogue_transition_id.clone(),
+            source_state_id: property_id(dialogue_record, "nextengine.dialogue.entry-node")?,
+            target_state_id: property_id(dialogue_record, "nextengine.dialogue.accepted-node")?,
+        }],
+    };
+    let quest = QuestDefinitionV1 {
+        asset_revision: quest_revision,
+        entry_state_id: property_id(quest_record, "nextengine.quest.entry-state")?,
+        transitions: vec![StateTransitionV1 {
+            transition_id: quest_transition_id.clone(),
+            source_state_id: property_id(quest_record, "nextengine.quest.entry-state")?,
+            target_state_id: property_id(quest_record, "nextengine.quest.active-state")?,
+        }],
+    };
+    let relationship = RelationshipDefinitionV1 {
+        asset_revision: relationship_revision,
+        dimension_id: property_id(relationship_record, "nextengine.relationship.dimension")?,
+        minimum_value: -100,
+        maximum_value: 100,
+    };
+    let dependency_revisions: BTreeMap<_, _> = interaction_record
+        .asset_dependencies
+        .iter()
+        .map(|asset_id| {
+            let record = records
+                .iter()
+                .find(|record| record.asset_id == *asset_id)
+                .ok_or(ProjectCookError::MissingReference)?;
+            Ok((record.kind, asset_revision(record)?))
+        })
+        .collect::<Result<_, ProjectCookError>>()?;
+    let interaction = InteractionDefinitionV1 {
+        asset_revision: interaction_revision,
+        interaction_id: property_id(interaction_record, "nextengine.interaction.definition-id")?,
+        dialogue_definition: *dependency_revisions
+            .get(&NeutralRecordKindV1::DialogueDefinition)
+            .ok_or(ProjectCookError::MissingReference)?,
+        dialogue_transition_id,
+        quest_definition: *dependency_revisions
+            .get(&NeutralRecordKindV1::QuestDefinition)
+            .ok_or(ProjectCookError::MissingReference)?,
+        quest_transition_id,
+        relationship_definition: *dependency_revisions
+            .get(&NeutralRecordKindV1::RelationshipDefinition)
+            .ok_or(ProjectCookError::MissingReference)?,
+        relationship_source_value: 0,
+        relationship_delta: property_i32(
+            interaction_record,
+            "nextengine.interaction.relationship-delta",
+        )?,
+    };
+    let interaction_hash = interaction_definition_hash(&interaction);
+    let rpg_capability = next_contracts::CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)
+        .expect("engine-owned RPG capability is valid");
+    let package = MechanicPackageManifestV1::new(
+        MechanicPackageId::new(CORE_INTERACTION_PACKAGE_ID)?,
+        1,
+        vec![rpg_capability.clone()],
+        vec![interaction_hash],
+    )?;
+    let mechanics_lock = MechanicsLockV1::new(vec![LockedMechanicPackageV1 {
+        package_id: package.package_id.clone(),
+        package_manifest_sha256: package.package_manifest_sha256,
+        granted_capabilities: vec![rpg_capability],
+    }])?;
+    Ok(RpgDefinitionRegistryV1::new(
+        vec![dialogue],
+        vec![quest],
+        vec![relationship],
+        vec![interaction],
+        vec![package],
+        mechanics_lock,
+    )?)
+}
+
+fn definition_properties(
+    kind: NeutralRecordKindV1,
+) -> Result<Vec<NeutralPropertyV1>, ProjectCookError> {
+    let pairs: &[(&str, &str)] = match kind {
+        NeutralRecordKindV1::DialogueDefinition => &[
+            (
+                "nextengine.dialogue.entry-node",
+                "nextengine.fixture.dialogue.offer",
+            ),
+            (
+                "nextengine.dialogue.accepted-node",
+                "nextengine.fixture.dialogue.accepted",
+            ),
+        ],
+        NeutralRecordKindV1::QuestDefinition => &[
+            (
+                "nextengine.quest.entry-state",
+                "nextengine.fixture.quest.available",
+            ),
+            (
+                "nextengine.quest.active-state",
+                "nextengine.fixture.quest.active",
+            ),
+        ],
+        NeutralRecordKindV1::RelationshipDefinition => &[(
+            "nextengine.relationship.dimension",
+            "nextengine.fixture.relationship.trust",
+        )],
+        NeutralRecordKindV1::InteractionDefinition => &[
+            (
+                "nextengine.interaction.definition-id",
+                "nextengine.fixture.interaction.accept-help",
+            ),
+            (
+                "nextengine.interaction.dialogue-transition",
+                "nextengine.fixture.transition.dialogue.accept",
+            ),
+            (
+                "nextengine.interaction.quest-transition",
+                "nextengine.fixture.transition.quest.accept",
+            ),
+            (
+                "nextengine.interaction.relationship-delta",
+                "nextengine.value.i32.7",
+            ),
+        ],
+        _ => &[],
+    };
+    pairs
+        .iter()
+        .map(|(key, value)| {
+            Ok(NeutralPropertyV1 {
+                property_id: SchemaId::new(*key)?,
+                value_id: SchemaId::new(*value)?,
+            })
+        })
+        .collect()
+}
+
+fn asset_revision(record: &NeutralRecordV1) -> Result<AssetRevisionRefV1, ProjectCookError> {
+    Ok(AssetRevisionRefV1 {
+        asset_id: record.asset_id,
+        record_sha256: record.record_sha256()?,
+    })
+}
+
+fn property_id(record: &NeutralRecordV1, property_id: &str) -> Result<SchemaId, ProjectCookError> {
+    record
+        .properties
+        .iter()
+        .find(|property| property.property_id.as_str() == property_id)
+        .map(|property| property.value_id.clone())
+        .ok_or(ProjectCookError::MissingReference)
+}
+
+fn property_i32(record: &NeutralRecordV1, property_key: &str) -> Result<i32, ProjectCookError> {
+    let value = property_id(record, property_key)?;
+    value
+        .as_str()
+        .strip_prefix("nextengine.value.i32.")
+        .ok_or(ProjectCookError::InvalidValue)?
+        .parse()
+        .map_err(|_| ProjectCookError::InvalidValue)
 }
 
 fn validate_source(source: &NeutralProjectSourceV1) -> Result<(), ProjectCookError> {
@@ -476,6 +682,8 @@ pub enum ProjectCookError {
     DuplicateIdentity,
     InvalidRevision,
     HashCollision,
+    Mechanics(MechanicsContractError),
+    InvalidValue,
 }
 
 impl ProjectCookError {
@@ -490,6 +698,8 @@ impl ProjectCookError {
             Self::DuplicateIdentity => "CONTENT_ID_DUPLICATE",
             Self::InvalidRevision => "CONTENT_REVISION_INVALID",
             Self::HashCollision => "CONTENT_HASH_COLLISION",
+            Self::Mechanics(_) => "MECHANICS_MANIFEST_INVALID",
+            Self::InvalidValue => "CONTENT_VALUE_INVALID",
         }
     }
 }
@@ -506,6 +716,8 @@ impl Display for ProjectCookError {
             Self::DuplicateIdentity => formatter.write_str("content identity is duplicated"),
             Self::InvalidRevision => formatter.write_str("content revision must be positive"),
             Self::HashCollision => formatter.write_str("content hash collision"),
+            Self::Mechanics(error) => write!(formatter, "mechanics contract invalid: {error}"),
+            Self::InvalidValue => formatter.write_str("content property value is invalid"),
         }
     }
 }
@@ -539,5 +751,11 @@ impl From<next_assets::ContentStoreError> for ProjectCookError {
 impl From<next_contracts::IdentifierError> for ProjectCookError {
     fn from(error: next_contracts::IdentifierError) -> Self {
         Self::Identifier(error)
+    }
+}
+
+impl From<MechanicsContractError> for ProjectCookError {
+    fn from(error: MechanicsContractError) -> Self {
+        Self::Mechanics(error)
     }
 }

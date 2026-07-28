@@ -4,40 +4,37 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::{
-    AcceptedLocomotionIntentV2, AuthoritativeNumericProfileV1,
+    AcceptedLocomotionIntentV2, AssetRevisionRefV1, AuthoritativeNumericProfileV1,
     CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION, CLOSED_INGRESS_BATCH_SCHEMA_VERSION,
-    COMMAND_ENVELOPE_SCHEMA_VERSION, COMMAND_RECEIPT_SCHEMA_VERSION,
-    CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_OFFER_NODE_ID, CORE_DIALOGUE_QUEST_TRUST_DELTA,
-    CORE_EQUIP_USE_ACTION_ID, CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACT_ACTION_ID,
+    COMMAND_ENVELOPE_SCHEMA_VERSION, COMMAND_RECEIPT_SCHEMA_VERSION, CORE_EQUIP_USE_ACTION_ID,
+    CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACT_ACTION_ID,
     CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID,
     CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CORE_MOVE_ACTION_ID, CORE_PICKUP_ACTION_ID,
-    CORE_QUEST_ACTIVE_STATE_ID, CORE_QUEST_AVAILABLE_STATE_ID,
-    CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CanonicalDecodeLimits, CanonicalError, CapabilityId,
-    CausalIdentityKey, CausalIdentityKind, ClosedCommandAdmissionBatchBodyV2,
-    ClosedCommandAdmissionBatchV2, ClosedIngressBatchBodyV1, ClosedIngressBatchV1,
-    ClosedPhysicsContactBatchV1, CommandBodyArchiveV1, CommandCollisionCandidateV1,
-    CommandCollisionIncidentV1, CommandFinalResultV1, CommandId, CommandIdentityOccurrenceV1,
-    CommandLedgerError, CommandLedgerV2, CommandPayload, CommandPhase, CommandReceiptSubjectV1,
-    CommandReceiptV1, CommandReservationV1, CommandStreamId, CommandStreamLedgerV2,
-    CommandStreamRegistryV1, CommandStreamStateV1, ContactPhaseV1, ContentHash,
-    CoreDialogueQuestClosureError, DefinitionRefV1, DomainEvent, IdentityContractError,
-    IdentityInsertResult, IngressAssignmentProfileV1, IngressAssignmentV1, IngressCheckpointV1,
-    IngressEquivalenceReceiptV1, InputContractError, InputMappingCodeV1, InputMappingReceiptV1,
-    InputSampleV1, IssuerPrincipal, PHYSICS_STEP_INPUT_SCHEMA_VERSION,
-    PLAYER_ACTION_FRAME_SCHEMA_ID, PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS,
-    PLAYER_INTERACTION_SYSTEM_ID, PersistentId, PhysicalCommandV1, PhysicalEventV1,
-    PhysicsCanonicalSnapshotV2, PhysicsContactId, PhysicsContractError, PhysicsCoordinateProfileV1,
-    PhysicsLimitsProfileV1, PhysicsMotionKindV1, PhysicsQuantizationProfileV1,
-    PhysicsSolverSemanticsProfileV1, PhysicsStepInputV2, PhysicsWorldCatalogProfilesV1,
-    PhysicsWorldCatalogV1, PhysicsWorldCheckpointV1, PhysicsWorldId, PlayerActionFrameV1,
-    PlayerActionPhaseV1, PlayerActionValueV1, PlayerControllerBindingV1,
+    CanonicalDecodeLimits, CanonicalError, CapabilityId, CausalIdentityKey, CausalIdentityKind,
+    ClosedCommandAdmissionBatchBodyV2, ClosedCommandAdmissionBatchV2, ClosedIngressBatchBodyV1,
+    ClosedIngressBatchV1, ClosedPhysicsContactBatchV1, CommandBodyArchiveV1,
+    CommandCollisionCandidateV1, CommandCollisionIncidentV1, CommandFinalResultV1, CommandId,
+    CommandIdentityOccurrenceV1, CommandLedgerError, CommandLedgerV2, CommandPayload, CommandPhase,
+    CommandReceiptSubjectV1, CommandReceiptV1, CommandReservationV1, CommandStreamId,
+    CommandStreamLedgerV2, CommandStreamRegistryV1, CommandStreamStateV1, ContactPhaseV1,
+    ContentHash, CoreDialogueQuestClosureError, DefinitionRefV1, DomainEvent,
+    IdentityContractError, IdentityInsertResult, IngressAssignmentProfileV1, IngressAssignmentV1,
+    IngressCheckpointV1, IngressEquivalenceReceiptV1, InputContractError, InputMappingCodeV1,
+    InputMappingReceiptV1, InputSampleV1, IssuerPrincipal, MechanicsContractError,
+    PHYSICS_STEP_INPUT_SCHEMA_VERSION, PLAYER_ACTION_FRAME_SCHEMA_ID,
+    PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PLAYER_INTERACTION_SYSTEM_ID,
+    PersistentId, PhysicalCommandV1, PhysicalEventV1, PhysicsCanonicalSnapshotV2, PhysicsContactId,
+    PhysicsContractError, PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1, PhysicsMotionKindV1,
+    PhysicsQuantizationProfileV1, PhysicsSolverSemanticsProfileV1, PhysicsStepInputV2,
+    PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1, PhysicsWorldCheckpointV1, PhysicsWorldId,
+    PlayerActionFrameV1, PlayerActionPhaseV1, PlayerActionValueV1, PlayerControllerBindingV1,
     PlayerControllerRegistryV1, PrincipalRegistryV1, ProjectId, RPG_COMMAND_CAPABILITY_ID,
     RpgAggregateKindV1, RpgAggregatePayloadV1, RpgAggregateRefV1, RpgCommandV1, RpgContractErrorV1,
-    RpgOperationPayloadV1, RpgOperationV1, RpgPhysicalContactFactV1, RpgRuntimeBindingsV1,
-    RpgSnapshotV2, RpgTransactionPlanV1, RuntimeAdmissionLimitsV1, RuntimeDeterminismProfileV1,
-    RuntimeSnapshot, SchemaId, SnapshotDecodeError, SystemId, TickRateProfileV1,
-    WorldCheckpointError, WorldCheckpointV4, WorldCommand, WorldIdentityManifestV1,
-    content_hash_from_bytes, sha256,
+    RpgDefinitionRegistryV1, RpgOperationPayloadV1, RpgOperationV1, RpgPhysicalContactFactV1,
+    RpgRuntimeBindingsV1, RpgSnapshotV2, RpgTransactionPlanV1, RuntimeAdmissionLimitsV1,
+    RuntimeDeterminismProfileV1, RuntimeSnapshot, SchemaId, SnapshotDecodeError, SystemId,
+    TickRateProfileV1, WorldCheckpointError, WorldCheckpointV4, WorldCommand,
+    WorldIdentityManifestV1, content_hash_from_bytes, interaction_definition_hash, sha256,
 };
 use next_physics_api::{
     PhysicsBackendError, PhysicsBackendKind, PhysicsBackendPolicy, PhysicsWorldHost,
@@ -120,6 +117,7 @@ pub struct RuntimeBootstrapV3 {
     pub player_controller_registry: PlayerControllerRegistryV1,
     pub physics_checkpoint: PhysicsWorldCheckpointV1,
     pub rpg_bindings: RpgRuntimeBindingsV1,
+    pub rpg_definitions: RpgDefinitionRegistryV1,
 }
 
 impl RuntimeBootstrapV3 {
@@ -130,6 +128,8 @@ impl RuntimeBootstrapV3 {
         runtime_profile: RuntimeDeterminismProfileV1,
     ) -> Self {
         let rpg_bindings = bootstrap_rpg_bindings(&world_identity, &runtime_profile);
+        let rpg_definitions =
+            RpgDefinitionRegistryV1::empty().expect("empty RPG definition registry is canonical");
         let admission_limits = RuntimeAdmissionLimitsV1::default();
         let tick_rate_profile = TickRateProfileV1::at_30_hz();
         let ingress_assignment_profile = IngressAssignmentProfileV1::core_v1(&admission_limits)
@@ -164,6 +164,7 @@ impl RuntimeBootstrapV3 {
             player_controller_registry,
             physics_checkpoint,
             rpg_bindings,
+            rpg_definitions,
         }
     }
 
@@ -317,6 +318,7 @@ pub struct RuntimeState {
     body_archive: CommandBodyArchiveV1,
     rpg: RpgState,
     rpg_bindings: RpgRuntimeBindingsV1,
+    rpg_definitions: RpgDefinitionRegistryV1,
 }
 
 impl RuntimeState {
@@ -433,6 +435,7 @@ impl RuntimeState {
             body_archive,
             rpg,
             rpg_bindings: bootstrap.rpg_bindings,
+            rpg_definitions: bootstrap.rpg_definitions,
         })
     }
 
@@ -452,6 +455,33 @@ impl RuntimeState {
         authority: AuthorityRegistry,
         physics_options: PhysicsLaunchOptions,
     ) -> Result<Self, SnapshotRestoreError> {
+        Self::restore_world_checkpoint_with_definitions_and_physics_options(
+            checkpoint,
+            authority,
+            RpgDefinitionRegistryV1::empty().expect("empty RPG definition registry is canonical"),
+            physics_options,
+        )
+    }
+
+    pub fn restore_world_checkpoint_with_definitions(
+        checkpoint: WorldCheckpointV4,
+        authority: AuthorityRegistry,
+        rpg_definitions: RpgDefinitionRegistryV1,
+    ) -> Result<Self, SnapshotRestoreError> {
+        Self::restore_world_checkpoint_with_definitions_and_physics_options(
+            checkpoint,
+            authority,
+            rpg_definitions,
+            PhysicsLaunchOptions::default(),
+        )
+    }
+
+    pub fn restore_world_checkpoint_with_definitions_and_physics_options(
+        checkpoint: WorldCheckpointV4,
+        authority: AuthorityRegistry,
+        rpg_definitions: RpgDefinitionRegistryV1,
+        physics_options: PhysicsLaunchOptions,
+    ) -> Result<Self, SnapshotRestoreError> {
         checkpoint.validate()?;
         let runtime_bytes = checkpoint.runtime_snapshot.canonical_bytes()?;
         let snapshot = RuntimeSnapshot::from_canonical_bytes(
@@ -469,6 +499,7 @@ impl RuntimeState {
             rpg,
             physics_checkpoint,
             authority,
+            rpg_definitions,
             physics_options,
         )
     }
@@ -478,6 +509,7 @@ impl RuntimeState {
         rpg: RpgState,
         physical: PhysicsWorldCheckpointV1,
         authority: AuthorityRegistry,
+        rpg_definitions: RpgDefinitionRegistryV1,
         physics_options: PhysicsLaunchOptions,
     ) -> Result<Self, SnapshotRestoreError> {
         let registry = CommandKindRegistry::core_v1();
@@ -494,6 +526,7 @@ impl RuntimeState {
             player_controller_registry: snapshot.player_controller_registry.clone(),
             physics_checkpoint: physical.clone(),
             rpg_bindings: snapshot.rpg_runtime_bindings.clone(),
+            rpg_definitions,
         };
         validate_bootstrap(&bootstrap, &authority, &registry)?;
         validate_core_interaction_runtime_closure(&bootstrap, &rpg, &authority)?;
@@ -532,6 +565,7 @@ impl RuntimeState {
             body_archive: snapshot.body_archive,
             rpg,
             rpg_bindings: bootstrap.rpg_bindings,
+            rpg_definitions: bootstrap.rpg_definitions,
         })
     }
 
@@ -541,6 +575,7 @@ impl RuntimeState {
             self.rpg.clone(),
             self.physics.checkpoint().clone(),
             self.authority.clone(),
+            self.rpg_definitions.clone(),
             PhysicsLaunchOptions::require(self.physics.backend_kind()),
         )
     }
@@ -848,6 +883,7 @@ impl RuntimeState {
             interaction_route.as_ref(),
             &staged.physics,
             &staged.rpg,
+            &self.rpg_definitions,
             staged.revision,
         )?;
         let mut outcome_sink = OutcomeSink::new();
@@ -1078,10 +1114,38 @@ impl RuntimeReplayDriver {
         authority: AuthorityRegistry,
         physics_options: PhysicsLaunchOptions,
     ) -> Result<Self, SnapshotRestoreError> {
+        Self::new_with_definitions_and_physics_options(
+            checkpoint,
+            authority,
+            RpgDefinitionRegistryV1::empty().expect("empty RPG definition registry is canonical"),
+            physics_options,
+        )
+    }
+
+    pub fn new_with_definitions(
+        checkpoint: WorldCheckpointV4,
+        authority: AuthorityRegistry,
+        rpg_definitions: RpgDefinitionRegistryV1,
+    ) -> Result<Self, SnapshotRestoreError> {
+        Self::new_with_definitions_and_physics_options(
+            checkpoint,
+            authority,
+            rpg_definitions,
+            PhysicsLaunchOptions::default(),
+        )
+    }
+
+    pub fn new_with_definitions_and_physics_options(
+        checkpoint: WorldCheckpointV4,
+        authority: AuthorityRegistry,
+        rpg_definitions: RpgDefinitionRegistryV1,
+        physics_options: PhysicsLaunchOptions,
+    ) -> Result<Self, SnapshotRestoreError> {
         Ok(Self {
-            runtime: RuntimeState::restore_world_checkpoint_with_physics_options(
+            runtime: RuntimeState::restore_world_checkpoint_with_definitions_and_physics_options(
                 checkpoint,
                 authority,
+                rpg_definitions,
                 physics_options,
             )?,
         })
@@ -1259,14 +1323,14 @@ struct BuiltInInteractionOutcome {
     payload_hash: ContentHash,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum InteractionAffordance {
     ActivateCoreSwitch {
         object_id: PersistentId,
         expected_revision: u64,
     },
-    AdvanceCoreDialogueQuest {
-        binding: CoreDialogueQuestBindingV2,
+    AdvanceDialogueQuest {
+        binding: AuthoredDialogueQuestBindingV1,
     },
     Pickup {
         proxy_id: PersistentId,
@@ -1289,7 +1353,7 @@ enum InteractionAffordance {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct CoreDialogueQuestBindingV2 {
+struct AuthoredDialogueQuestBindingV1 {
     npc_id: PersistentId,
     player_id: PersistentId,
     dialogue_id: PersistentId,
@@ -1298,10 +1362,11 @@ struct CoreDialogueQuestBindingV2 {
     quest_revision: u64,
     relationship_id: PersistentId,
     relationship_revision: u64,
+    interaction_definition_index: usize,
     ready: bool,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct InteractionCandidate {
     subject_id: PersistentId,
     contact_id: PhysicsContactId,
@@ -1313,7 +1378,7 @@ struct InteractionCandidate {
 
 impl InteractionCandidate {
     fn order_key(
-        self,
+        &self,
     ) -> (
         PersistentId,
         PhysicsContactId,
@@ -1851,6 +1916,7 @@ fn build_interaction_outcomes(
     route: Option<&InteractionOutcomeRoute>,
     physics: &PhysicsWorldHost,
     rpg: &RpgState,
+    rpg_definitions: &RpgDefinitionRegistryV1,
     authoritative_revision: u64,
 ) -> Result<Vec<BuiltInInteractionOutcome>, RuntimeFatalError> {
     let Some(route) = route else {
@@ -1869,8 +1935,13 @@ fn build_interaction_outcomes(
         .expect("built-in equipment slot identifier is valid");
     let mut outcomes = Vec::new();
     for intent in intents {
-        let Some(affordance) =
-            select_interaction_affordance(intent.controlled_body_id, intent.kind, physics, rpg)?
+        let Some(affordance) = select_interaction_affordance(
+            intent.controlled_body_id,
+            intent.kind,
+            physics,
+            rpg,
+            rpg_definitions,
+        )?
         else {
             continue;
         };
@@ -1894,8 +1965,43 @@ fn build_interaction_outcomes(
                     },
                 }],
             },
-            InteractionAffordance::AdvanceCoreDialogueQuest { binding } => {
-                let policy = core_rpg_policy_hash();
+            InteractionAffordance::AdvanceDialogueQuest { binding } => {
+                let interaction = rpg_definitions
+                    .interactions
+                    .get(binding.interaction_definition_index)
+                    .ok_or(RuntimeFatalError::CoreInteractionClosure(
+                        CoreDialogueQuestClosureError,
+                    ))?;
+                let dialogue_definition = rpg_definitions
+                    .dialogue(interaction.dialogue_definition)
+                    .ok_or(RuntimeFatalError::CoreInteractionClosure(
+                        CoreDialogueQuestClosureError,
+                    ))?;
+                let quest_definition = rpg_definitions.quest(interaction.quest_definition).ok_or(
+                    RuntimeFatalError::CoreInteractionClosure(CoreDialogueQuestClosureError),
+                )?;
+                let relationship_definition = rpg_definitions
+                    .relationship(interaction.relationship_definition)
+                    .ok_or(RuntimeFatalError::CoreInteractionClosure(
+                        CoreDialogueQuestClosureError,
+                    ))?;
+                let dialogue_transition = dialogue_definition
+                    .transitions
+                    .iter()
+                    .find(|transition| {
+                        transition.transition_id == interaction.dialogue_transition_id
+                    })
+                    .ok_or(RuntimeFatalError::CoreInteractionClosure(
+                        CoreDialogueQuestClosureError,
+                    ))?;
+                let quest_transition = quest_definition
+                    .transitions
+                    .iter()
+                    .find(|transition| transition.transition_id == interaction.quest_transition_id)
+                    .ok_or(RuntimeFatalError::CoreInteractionClosure(
+                        CoreDialogueQuestClosureError,
+                    ))?;
+                let policy = interaction_definition_hash(interaction);
                 RpgCommandV1 {
                     operations: vec![
                         RpgOperationV1 {
@@ -1908,10 +2014,8 @@ fn build_interaction_outcomes(
                             definition_policy_hashes: vec![policy],
                             payload: RpgOperationPayloadV1::AdvanceDialogue {
                                 dialogue_id: binding.dialogue_id,
-                                expected_node_id: SchemaId::new(CORE_DIALOGUE_OFFER_NODE_ID)
-                                    .expect("built-in dialogue node identifier is valid"),
-                                next_node_id: SchemaId::new(CORE_DIALOGUE_ACCEPTED_NODE_ID)
-                                    .expect("built-in dialogue node identifier is valid"),
+                                expected_node_id: dialogue_transition.source_state_id.clone(),
+                                next_node_id: dialogue_transition.target_state_id.clone(),
                             },
                         },
                         RpgOperationV1 {
@@ -1924,10 +2028,8 @@ fn build_interaction_outcomes(
                             definition_policy_hashes: vec![policy],
                             payload: RpgOperationPayloadV1::TransitionQuest {
                                 quest_id: binding.quest_id,
-                                expected_state_id: SchemaId::new(CORE_QUEST_AVAILABLE_STATE_ID)
-                                    .expect("built-in quest state identifier is valid"),
-                                next_state_id: SchemaId::new(CORE_QUEST_ACTIVE_STATE_ID)
-                                    .expect("built-in quest state identifier is valid"),
+                                expected_state_id: quest_transition.source_state_id.clone(),
+                                next_state_id: quest_transition.target_state_id.clone(),
                             },
                         },
                         RpgOperationV1 {
@@ -1940,9 +2042,8 @@ fn build_interaction_outcomes(
                             definition_policy_hashes: vec![policy],
                             payload: RpgOperationPayloadV1::AdjustRelationship {
                                 relationship_id: binding.relationship_id,
-                                dimension_id: SchemaId::new(CORE_RELATIONSHIP_TRUST_DIMENSION_ID)
-                                    .expect("built-in relationship dimension identifier is valid"),
-                                delta: CORE_DIALOGUE_QUEST_TRUST_DELTA,
+                                dimension_id: relationship_definition.dimension_id.clone(),
+                                delta: interaction.relationship_delta,
                             },
                         },
                     ],
@@ -2095,6 +2196,7 @@ fn select_interaction_affordance(
     kind: InteractionIntentKind,
     physics: &PhysicsWorldHost,
     rpg: &RpgState,
+    rpg_definitions: &RpgDefinitionRegistryV1,
 ) -> Result<Option<InteractionAffordance>, RuntimeFatalError> {
     if kind == InteractionIntentKind::EquipUse {
         return Ok(select_equip_use_affordance(controlled_body_id, rpg));
@@ -2105,9 +2207,10 @@ fn select_interaction_affordance(
         .avatar_bindings
         .get(&controlled_body_id)
         .ok_or(RuntimeFatalError::PhysicalOutcomeInvariant)?;
-    let dialogue_binding = resolve_core_dialogue_quest_binding_v2(rpg, controlled_body_id)
-        .map_err(RuntimeFatalError::CoreInteractionClosure)?
-        .filter(|binding| binding.ready);
+    let dialogue_binding =
+        resolve_dialogue_quest_binding_v2(rpg, rpg_definitions, controlled_body_id)
+            .map_err(RuntimeFatalError::CoreInteractionClosure)?
+            .filter(|binding| binding.ready);
     let mut candidates = Vec::new();
     for contact in physics.snapshot().sorted_contact_continuity_states.values() {
         let other = if contact.participant_low.body_id == *physical_body_id {
@@ -2184,12 +2287,14 @@ fn select_interaction_affordance(
                 affordance_tag: 1,
                 dialogue_id: binding.dialogue_id,
                 quest_id: binding.quest_id,
-                affordance: InteractionAffordance::AdvanceCoreDialogueQuest { binding },
+                affordance: InteractionAffordance::AdvanceDialogueQuest { binding },
             });
         }
     }
     candidates.sort_by_key(|candidate| candidate.order_key());
-    Ok(candidates.first().map(|candidate| candidate.affordance))
+    Ok(candidates
+        .first()
+        .map(|candidate| candidate.affordance.clone()))
 }
 
 fn select_equip_use_affordance(
@@ -2236,40 +2341,56 @@ fn select_equip_use_affordance(
     })
 }
 
-fn resolve_core_dialogue_quest_binding_v2(
+fn resolve_dialogue_quest_binding_v2(
     rpg: &RpgState,
+    definitions: &RpgDefinitionRegistryV1,
     controlled_character_id: PersistentId,
-) -> Result<Option<CoreDialogueQuestBindingV2>, CoreDialogueQuestClosureError> {
+) -> Result<Option<AuthoredDialogueQuestBindingV1>, CoreDialogueQuestClosureError> {
+    if definitions.interactions.is_empty() {
+        return Ok(None);
+    }
     let snapshot = rpg.snapshot();
-    let mut dialogues = snapshot.aggregates.iter().filter_map(|aggregate| {
-        let RpgAggregatePayloadV1::Dialogue(payload) = &aggregate.payload else {
-            return None;
-        };
-        (payload.listener_id == controlled_character_id
-            && matches!(
-                payload.node_id.as_str(),
-                CORE_DIALOGUE_OFFER_NODE_ID | CORE_DIALOGUE_ACCEPTED_NODE_ID
-            ))
-        .then_some((aggregate, payload))
-    });
-    let Some((dialogue_envelope, dialogue)) = dialogues.next() else {
-        let has_core_quest = snapshot.aggregates.iter().any(|aggregate| {
-            matches!(
-                &aggregate.payload,
-                RpgAggregatePayloadV1::Quest(payload)
-                    if matches!(
-                        payload.state_id.as_str(),
-                        CORE_QUEST_AVAILABLE_STATE_ID | CORE_QUEST_ACTIVE_STATE_ID
-                    )
-            )
+    let mut candidates = Vec::new();
+    for (interaction_index, interaction) in definitions.interactions.iter().enumerate() {
+        let dialogue_definition = definitions
+            .dialogue(interaction.dialogue_definition)
+            .ok_or(CoreDialogueQuestClosureError)?;
+        let transition = dialogue_definition
+            .transitions
+            .iter()
+            .find(|transition| transition.transition_id == interaction.dialogue_transition_id)
+            .ok_or(CoreDialogueQuestClosureError)?;
+        for aggregate in &snapshot.aggregates {
+            let RpgAggregatePayloadV1::Dialogue(payload) = &aggregate.payload else {
+                continue;
+            };
+            if payload.listener_id == controlled_character_id
+                && aggregate_definition_asset(aggregate) == Some(interaction.dialogue_definition)
+                && (payload.node_id == transition.source_state_id
+                    || payload.node_id == transition.target_state_id)
+            {
+                candidates.push((interaction_index, aggregate, payload));
+            }
+        }
+    }
+    let Some((interaction_index, dialogue_envelope, dialogue)) = candidates.first().copied() else {
+        let has_authored_state = snapshot.aggregates.iter().any(|aggregate| {
+            let Some(asset) = aggregate_definition_asset(aggregate) else {
+                return false;
+            };
+            definitions.interactions.iter().any(|interaction| {
+                asset == interaction.dialogue_definition
+                    || asset == interaction.quest_definition
+                    || asset == interaction.relationship_definition
+            })
         });
-        return if has_core_quest {
+        return if has_authored_state {
             Err(CoreDialogueQuestClosureError)
         } else {
             Ok(None)
         };
     };
-    if dialogues.next().is_some()
+    if candidates.len() != 1
         || rpg
             .aggregate(RpgAggregateKindV1::Character, controlled_character_id)
             .is_none()
@@ -2280,15 +2401,37 @@ fn resolve_core_dialogue_quest_binding_v2(
         return Err(CoreDialogueQuestClosureError);
     }
 
+    let interaction = definitions
+        .interactions
+        .get(interaction_index)
+        .ok_or(CoreDialogueQuestClosureError)?;
+    let dialogue_definition = definitions
+        .dialogue(interaction.dialogue_definition)
+        .ok_or(CoreDialogueQuestClosureError)?;
+    let dialogue_transition = dialogue_definition
+        .transitions
+        .iter()
+        .find(|transition| transition.transition_id == interaction.dialogue_transition_id)
+        .ok_or(CoreDialogueQuestClosureError)?;
+    let quest_definition = definitions
+        .quest(interaction.quest_definition)
+        .ok_or(CoreDialogueQuestClosureError)?;
+    let quest_transition = quest_definition
+        .transitions
+        .iter()
+        .find(|transition| transition.transition_id == interaction.quest_transition_id)
+        .ok_or(CoreDialogueQuestClosureError)?;
+    let relationship_definition = definitions
+        .relationship(interaction.relationship_definition)
+        .ok_or(CoreDialogueQuestClosureError)?;
     let mut quests = snapshot.aggregates.iter().filter_map(|aggregate| {
         let RpgAggregatePayloadV1::Quest(payload) = &aggregate.payload else {
             return None;
         };
-        matches!(
-            payload.state_id.as_str(),
-            CORE_QUEST_AVAILABLE_STATE_ID | CORE_QUEST_ACTIVE_STATE_ID
-        )
-        .then_some((aggregate, payload))
+        (aggregate_definition_asset(aggregate) == Some(interaction.quest_definition)
+            && (payload.state_id == quest_transition.source_state_id
+                || payload.state_id == quest_transition.target_state_id))
+            .then_some((aggregate, payload))
     });
     let (quest_envelope, quest) = quests.next().ok_or(CoreDialogueQuestClosureError)?;
     if quests.next().is_some() {
@@ -2299,7 +2442,9 @@ fn resolve_core_dialogue_quest_binding_v2(
         let RpgAggregatePayloadV1::Relationship(payload) = &aggregate.payload else {
             return None;
         };
-        (payload.source_id == dialogue.speaker_id && payload.target_id == controlled_character_id)
+        (aggregate_definition_asset(aggregate) == Some(interaction.relationship_definition)
+            && payload.source_id == dialogue.speaker_id
+            && payload.target_id == controlled_character_id)
             .then_some((aggregate, payload))
     });
     let (relationship_envelope, relationship) =
@@ -2310,19 +2455,27 @@ fn resolve_core_dialogue_quest_binding_v2(
     let trust = relationship
         .dimensions
         .iter()
-        .find(|dimension| dimension.dimension_id.as_str() == CORE_RELATIONSHIP_TRUST_DIMENSION_ID)
+        .find(|dimension| dimension.dimension_id == relationship_definition.dimension_id)
         .ok_or(CoreDialogueQuestClosureError)?
         .value;
-    let ready = match (dialogue.node_id.as_str(), quest.state_id.as_str(), trust) {
-        (CORE_DIALOGUE_OFFER_NODE_ID, CORE_QUEST_AVAILABLE_STATE_ID, 0) => true,
-        (
-            CORE_DIALOGUE_ACCEPTED_NODE_ID,
-            CORE_QUEST_ACTIVE_STATE_ID,
-            CORE_DIALOGUE_QUEST_TRUST_DELTA,
-        ) => false,
-        _ => return Err(CoreDialogueQuestClosureError),
+    let completed_relationship_value = interaction
+        .relationship_source_value
+        .checked_add(interaction.relationship_delta)
+        .ok_or(CoreDialogueQuestClosureError)?;
+    let ready = if dialogue.node_id == dialogue_transition.source_state_id
+        && quest.state_id == quest_transition.source_state_id
+        && trust == interaction.relationship_source_value
+    {
+        true
+    } else if dialogue.node_id == dialogue_transition.target_state_id
+        && quest.state_id == quest_transition.target_state_id
+        && trust == completed_relationship_value
+    {
+        false
+    } else {
+        return Err(CoreDialogueQuestClosureError);
     };
-    Ok(Some(CoreDialogueQuestBindingV2 {
+    Ok(Some(AuthoredDialogueQuestBindingV1 {
         npc_id: dialogue.speaker_id,
         player_id: controlled_character_id,
         dialogue_id: dialogue_envelope.persistent_id,
@@ -2331,8 +2484,24 @@ fn resolve_core_dialogue_quest_binding_v2(
         quest_revision: quest_envelope.revision,
         relationship_id: relationship_envelope.persistent_id,
         relationship_revision: relationship_envelope.revision,
+        interaction_definition_index: interaction_index,
         ready,
     }))
+}
+
+fn aggregate_definition_asset(
+    aggregate: &next_contracts::RpgAggregateEnvelopeV1,
+) -> Option<AssetRevisionRefV1> {
+    match &aggregate.definition_ref {
+        DefinitionRefV1::Exact {
+            asset_id,
+            content_hash,
+        } => Some(AssetRevisionRefV1 {
+            asset_id: *asset_id,
+            record_sha256: *content_hash,
+        }),
+        DefinitionRefV1::None => None,
+    }
 }
 
 fn sort_command_batch(commands: &mut [WorldCommand]) -> Result<(), CanonicalError> {
@@ -3757,6 +3926,7 @@ fn validate_bootstrap(
     bootstrap.physics_quantization_profile.validate()?;
     bootstrap.player_controller_registry.validate()?;
     bootstrap.rpg_bindings.validate()?;
+    bootstrap.rpg_definitions.validate()?;
     bootstrap.physics_checkpoint.validate()?;
     bootstrap
         .physics_checkpoint
@@ -3774,7 +3944,6 @@ fn validate_bootstrap(
         || bootstrap.stream_registry.world_namespace != world
         || bootstrap.player_controller_registry.world_namespace != world
         || bootstrap.runtime_profile.command_kind_registry_hash != registry.canonical_hash()
-        || bootstrap.rpg_bindings.schema_registry_hash != registry.canonical_hash()
         || bootstrap.runtime_profile.admission_limits_profile_hash
             != bootstrap.admission_limits.profile_hash()?
         || bootstrap.runtime_profile.tick_rate_profile_hash
@@ -3787,6 +3956,20 @@ fn validate_bootstrap(
             != bootstrap.physics_quantization_profile.profile_hash()?
         || bootstrap.ingress_assignment_profile.admission_limits_hash
             != bootstrap.admission_limits.profile_hash()?
+    {
+        return Err(SnapshotRestoreError::BootstrapClosureMismatch);
+    }
+    if bootstrap
+        .rpg_definitions
+        .interactions
+        .iter()
+        .any(|definition| {
+            bootstrap
+                .rpg_bindings
+                .active_definition_policy_hashes
+                .binary_search(&interaction_definition_hash(definition))
+                .is_err()
+        })
     {
         return Err(SnapshotRestoreError::BootstrapClosureMismatch);
     }
@@ -3843,7 +4026,11 @@ fn validate_core_interaction_runtime_closure(
                 .next()
                 .expect("single controller exists")
                 .controlled_body_id;
-            resolve_core_dialogue_quest_binding_v2(rpg, controlled_character_id)?
+            resolve_dialogue_quest_binding_v2(
+                rpg,
+                &bootstrap.rpg_definitions,
+                controlled_character_id,
+            )?
         }
         _ => return Err(CoreDialogueQuestClosureError.into()),
     };
@@ -4434,6 +4621,7 @@ pub enum SnapshotRestoreError {
     Ledger(CommandLedgerError),
     RpgContract(RpgContractErrorV1),
     RpgState(RpgStateError),
+    RpgDefinitions(MechanicsContractError),
     BootstrapClosureMismatch,
     CommandRegistryMismatch,
     InactivePrincipal,
@@ -4461,6 +4649,9 @@ impl Display for SnapshotRestoreError {
             Self::Ledger(error) => write!(formatter, "ledger validation failed: {error}"),
             Self::RpgContract(error) => write!(formatter, "RPG contract failed: {error}"),
             Self::RpgState(error) => write!(formatter, "RPG snapshot state failed: {error}"),
+            Self::RpgDefinitions(error) => {
+                write!(formatter, "RPG definition registry failed: {error}")
+            }
             Self::BootstrapClosureMismatch => {
                 formatter.write_str("runtime bootstrap world/profile closure does not match")
             }
@@ -4532,6 +4723,12 @@ impl From<CommandLedgerError> for SnapshotRestoreError {
 impl From<RpgContractErrorV1> for SnapshotRestoreError {
     fn from(error: RpgContractErrorV1) -> Self {
         Self::RpgContract(error)
+    }
+}
+
+impl From<MechanicsContractError> for SnapshotRestoreError {
+    fn from(error: MechanicsContractError) -> Self {
+        Self::RpgDefinitions(error)
     }
 }
 

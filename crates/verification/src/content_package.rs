@@ -15,6 +15,7 @@ static RUN_COUNTER: AtomicU64 = AtomicU64::new(0);
 pub struct ContentPackageCheckReport {
     pub records: usize,
     pub chunks: usize,
+    pub mechanic_packages: usize,
     pub schema_registry_hash: ContentHash,
     pub content_manifest_hash: ContentHash,
     pub world_partition_hash: ContentHash,
@@ -35,12 +36,14 @@ pub fn run_content_package_check() -> Result<ContentPackageCheckReport, ContentP
         let activated = activate_project(&store)?;
         if activated.content_manifest.body.asset_entries.len() != 10
             || activated.world_partition.body.chunk_bindings.len() != 1
+            || activated.rpg_definitions.packages.len() != 1
         {
             return Err(ContentPackageCheckError::FixtureClosureMismatch);
         }
         Ok(ContentPackageCheckReport {
             records: activated.content_manifest.body.asset_entries.len(),
             chunks: activated.world_partition.body.chunk_bindings.len(),
+            mechanic_packages: activated.rpg_definitions.packages.len(),
             schema_registry_hash: activated.schema_registry.schema_registry_manifest_sha256,
             content_manifest_hash: activated.content_manifest.content_manifest_sha256,
             world_partition_hash: activated.world_partition.world_partition_manifest_sha256,
@@ -108,5 +111,6 @@ mod tests {
         let report = run_content_package_check().expect("content-package passes");
         assert_eq!(report.records, 10);
         assert_eq!(report.chunks, 1);
+        assert_eq!(report.mechanic_packages, 1);
     }
 }

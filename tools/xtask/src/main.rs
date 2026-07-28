@@ -56,9 +56,10 @@ fn content_package() -> Result<(), String> {
     let report =
         next_verification::run_content_package_check().map_err(|error| error.to_string())?;
     println!(
-        "{{\"status\":\"PASS\",\"records\":{},\"chunks\":{},\"schema_registry_hash\":\"{}\",\"content_manifest_hash\":\"{}\",\"world_partition_hash\":\"{}\",\"composition_lock_hash\":\"{}\"}}",
+        "{{\"status\":\"PASS\",\"records\":{},\"chunks\":{},\"mechanic_packages\":{},\"schema_registry_hash\":\"{}\",\"content_manifest_hash\":\"{}\",\"world_partition_hash\":\"{}\",\"composition_lock_hash\":\"{}\"}}",
         report.records,
         report.chunks,
+        report.mechanic_packages,
         report.schema_registry_hash.to_hex(),
         report.content_manifest_hash.to_hex(),
         report.world_partition_hash.to_hex(),

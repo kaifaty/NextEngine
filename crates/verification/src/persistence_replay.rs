@@ -6,12 +6,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use next_assets::SaveStore;
 use next_contracts::{
-    AuthorityGrant, CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_QUEST_TRUST_DELTA,
-    CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
-    CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID, CORE_QUEST_ACTIVE_STATE_ID,
-    CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CharacterPayloadV1, CommandLedgerHash, ContactPhaseV1,
-    ContentHash, EventPayload, InputMappingCodeV1, InventoryPayloadV1, IssuerPrincipal,
-    ItemPayloadV1, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+    AuthorityGrant, CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
+    CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID, CharacterPayloadV1, CommandLedgerHash,
+    ContactPhaseV1, ContentHash, EventPayload, InputMappingCodeV1, InventoryPayloadV1,
+    IssuerPrincipal, ItemPayloadV1, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PersistentId,
     PhysicsPoseV1, PhysicsWorldCheckpointV1, PlayerActionPhaseV1, RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
     RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION,
@@ -28,9 +26,10 @@ use next_runtime::{PhysicsLaunchOptions, RuntimeState, TickReport};
 use crate::player_fixture::fixture_aggregate;
 use crate::{
     ReplayOutput, build_neutral_player_fixture, build_physx_player_fixture,
-    checkpoint_segment_hashes, compute_world_checkpoint_root, core_interaction_rpg_snapshot,
-    player_action_sample, player_equip_use_sample, player_interact_sample, player_pickup_sample,
-    replay_command_results, run_replay_manifest_with_physics_options,
+    checkpoint_segment_hashes, compute_world_checkpoint_root, cooked_interaction_outcome,
+    cooked_project_rpg_snapshot, player_action_sample, player_equip_use_sample,
+    player_interact_sample, player_pickup_sample, replay_command_results,
+    run_replay_manifest_with_definitions_and_physics_options,
 };
 
 static NEXT_CHECK_DIRECTORY: AtomicU64 = AtomicU64::new(0);
@@ -322,9 +321,10 @@ pub(crate) fn run_persistence_replay_check_for_project(
     let loaded = store.load_latest(&compatibility).map_err(|error| {
         PersistenceReplayCheckError::new("load generation zero", error.to_string())
     })?;
-    let mut restored = RuntimeState::restore_world_checkpoint_with_physics_options(
+    let mut restored = RuntimeState::restore_world_checkpoint_with_definitions_and_physics_options(
         loaded.checkpoint,
         fixture.authority.clone(),
+        fixture.activated_project.rpg_definitions.clone(),
         physics_options,
     )
     .map_err(|error| PersistenceReplayCheckError::new("restore checkpoint", error.to_string()))?;
@@ -463,10 +463,12 @@ pub(crate) fn run_persistence_replay_check_for_project(
             Vec::new(),
         ],
     )?;
-    let replay = run_replay_manifest_with_physics_options(&replay_manifest, physics_options)
-        .map_err(|error| {
-            PersistenceReplayCheckError::new("closed-batch replay", error.to_string())
-        })?;
+    let replay = run_replay_manifest_with_definitions_and_physics_options(
+        &replay_manifest,
+        fixture.activated_project.rpg_definitions.clone(),
+        physics_options,
+    )
+    .map_err(|error| PersistenceReplayCheckError::new("closed-batch replay", error.to_string()))?;
     compare_replay(&direct, &reports, &replay)?;
 
     let final_checkpoint = direct
@@ -487,19 +489,34 @@ pub(crate) fn run_persistence_replay_check_for_project(
     let fallback = store
         .load_latest(&compatibility)
         .map_err(|error| PersistenceReplayCheckError::new("load fallback", error.to_string()))?;
+    let preserved_corrupt = fallback
+        .rejected_generations
+        .first()
+        .is_some_and(|generation| {
+            generation
+                .original_files
+                .iter()
+                .any(|file| file.bytes == corrupt_bytes)
+        });
+    let source_unchanged = fs::read(&corrupt_path).map_err(|error| {
+        PersistenceReplayCheckError::new("read corrupt source", error.to_string())
+    })? == corrupt_bytes;
     if fallback.image.manifest.generation != 0
         || fallback.rejected_generations.len() != 1
         || fallback.checkpoint != saved_checkpoint
-        || !fallback.rejected_generations[0]
-            .original_files
-            .iter()
-            .any(|file| file.bytes == corrupt_bytes)
-        || fs::read(&corrupt_path).map_err(|error| {
-            PersistenceReplayCheckError::new("read corrupt source", error.to_string())
-        })? != corrupt_bytes
+        || !preserved_corrupt
+        || !source_unchanged
     {
-        return Err(PersistenceReplayCheckError::condition(
+        return Err(PersistenceReplayCheckError::new(
             "corrupt RPG generation falls back without rewriting bytes",
+            format!(
+                "generation={}, rejected={}, checkpoint_equal={}, preserved={}, source_unchanged={}",
+                fallback.image.manifest.generation,
+                fallback.rejected_generations.len(),
+                fallback.checkpoint == saved_checkpoint,
+                preserved_corrupt,
+                source_unchanged,
+            ),
         ));
     }
 
@@ -593,6 +610,12 @@ pub(crate) fn run_persistence_replay_check_for_project(
             ));
         }
     };
+    let (
+        expected_dialogue_node_id,
+        expected_quest_state_id,
+        relationship_dimension_id,
+        expected_relationship_value,
+    ) = cooked_interaction_outcome(&fixture);
     let npc_player_trust = match aggregate_payload(
         &final_checkpoint.rpg_snapshot,
         RpgAggregateKindV1::Relationship,
@@ -605,9 +628,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
             relationship
                 .dimensions
                 .iter()
-                .find(|dimension| {
-                    dimension.dimension_id.as_str() == CORE_RELATIONSHIP_TRUST_DIMENSION_ID
-                })
+                .find(|dimension| dimension.dimension_id == relationship_dimension_id)
                 .map_or(0, |dimension| dimension.value)
         }
         _ => {
@@ -647,9 +668,9 @@ pub(crate) fn run_persistence_replay_check_for_project(
             })
     );
     if interactive_object_state.as_str() != CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
-        || dialogue_node_id.as_str() != CORE_DIALOGUE_ACCEPTED_NODE_ID
-        || quest_state_id.as_str() != CORE_QUEST_ACTIVE_STATE_ID
-        || npc_player_trust != CORE_DIALOGUE_QUEST_TRUST_DELTA
+        || dialogue_node_id != expected_dialogue_node_id
+        || quest_state_id != expected_quest_state_id
+        || npc_player_trust != expected_relationship_value
         || rpg_events != 9
         || !pickup_is_collected
         || !pickup_is_owned
@@ -927,7 +948,7 @@ fn aggregate_payload(
 fn initial_rpg_snapshot(
     fixture: &crate::NeutralPlayerFixture,
 ) -> Result<RpgSnapshotV2, PersistenceReplayCheckError> {
-    let mut snapshot = core_interaction_rpg_snapshot(fixture);
+    let mut snapshot = cooked_project_rpg_snapshot(fixture);
     let item_id = PersistentId::from_bytes([0x10; 16]);
     let first_character_id = PersistentId::from_bytes([0x20; 16]);
     let first_inventory_id = PersistentId::from_bytes([0x21; 16]);
@@ -1121,34 +1142,6 @@ fn corrupt_rpg_segment(
     fs::write(&segment_path, &bytes).map_err(|error| {
         PersistenceReplayCheckError::new("corrupt RPG segment", error.to_string())
     })?;
-    let mut manifest = latest.image.manifest;
-    let descriptor = manifest.segments[segment_index].clone();
-    manifest.segments[segment_index] = SaveSegmentDescriptor::for_bytes(
-        descriptor.owner_id,
-        descriptor.schema_id,
-        descriptor.segment_id,
-        descriptor.schema_version,
-        &bytes,
-    )
-    .map_err(|error| {
-        PersistenceReplayCheckError::new("bind structural RPG corruption", error.to_string())
-    })?;
-    let manifest_path = store
-        .root()
-        .join(format!("slot-{slot}"))
-        .join("manifest.jcs");
-    fs::write(
-        &manifest_path,
-        manifest.to_jcs_bytes().map_err(|error| {
-            PersistenceReplayCheckError::new(
-                "encode corrupt RPG generation manifest",
-                error.to_string(),
-            )
-        })?,
-    )
-    .map_err(|error| {
-        PersistenceReplayCheckError::new("write corrupt RPG generation manifest", error.to_string())
-    })?;
     Ok((segment_path, bytes))
 }
 
@@ -1233,10 +1226,7 @@ fn segment_path(root: &Path, slot: u8, segment_index: usize) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
-        CORE_QUEST_ACTIVE_STATE_ID, run_persistence_replay_check,
-    };
+    use super::{CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, run_persistence_replay_check};
 
     #[test]
     fn product_check_covers_npc_transition_replay_and_structural_fallbacks() {
@@ -1250,9 +1240,12 @@ mod tests {
         );
         assert_eq!(
             report.dialogue_node_id.as_str(),
-            CORE_DIALOGUE_ACCEPTED_NODE_ID
+            "nextengine.fixture.dialogue.accepted"
         );
-        assert_eq!(report.quest_state_id.as_str(), CORE_QUEST_ACTIVE_STATE_ID);
+        assert_eq!(
+            report.quest_state_id.as_str(),
+            "nextengine.fixture.quest.active"
+        );
         assert_eq!(report.npc_player_trust, 7);
         assert_eq!(
             report.final_pose.translation_micrometres,

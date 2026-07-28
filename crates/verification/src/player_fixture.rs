@@ -1,18 +1,17 @@
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use next_contracts::{
-    AssetId, CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_OFFER_NODE_ID,
-    CORE_DIALOGUE_QUEST_TRUST_DELTA, CORE_EQUIP_USE_ACTION_ID, CORE_EQUIPMENT_MAIN_HAND_SLOT_ID,
-    CORE_INTERACT_ACTION_ID, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
-    CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
-    CORE_MOVE_ACTION_ID, CORE_PICKUP_ACTION_ID, CORE_QUEST_ACTIVE_STATE_ID,
-    CORE_QUEST_AVAILABLE_STATE_ID, CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CapabilityId,
-    CharacterPayloadV1, CommandLedgerHash, CommandStreamId, ContactPhaseV1, ContentHash,
-    DefinitionRefV1, DialoguePayloadV1, EquipmentPayloadV1, EventPayload, InputSampleV1,
-    InputSourceId, InteractiveObjectPayloadV1, InventoryPayloadV1, IssuerPrincipal, ItemPayloadV1,
-    PHYSICAL_COMMAND_CAPABILITY_ID, PLAYER_ACTION_FRAME_SCHEMA_ID,
+    ActivatedProjectV1, AssetId, AssetRevisionRefV1, CORE_EQUIP_USE_ACTION_ID,
+    CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACT_ACTION_ID,
+    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID,
+    CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CORE_MOVE_ACTION_ID, CORE_PICKUP_ACTION_ID,
+    CapabilityId, CharacterPayloadV1, CommandLedgerHash, CommandStreamId, ContactPhaseV1,
+    ContentHash, DefinitionRefV1, DialoguePayloadV1, EquipmentPayloadV1, EventPayload,
+    InputSampleV1, InputSourceId, InteractiveObjectPayloadV1, InventoryPayloadV1, IssuerPrincipal,
+    ItemPayloadV1, PHYSICAL_COMMAND_CAPABILITY_ID, PLAYER_ACTION_FRAME_SCHEMA_ID,
     PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PLAYER_INTERACTION_SYSTEM_ID,
     PersistentId, PhysicsBodyDescriptorV1, PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2,
     PhysicsContactReportingV1, PhysicsCoordinateProfileV1, PhysicsGeometryV1,
@@ -54,7 +53,10 @@ pub struct NeutralPlayerFixture {
     pub pickup_proxy_id: PersistentId,
     pub action_map_hash: ContentHash,
     pub context_stack_hash: ContentHash,
+    pub activated_project: ActivatedProjectV1,
 }
+
+static PROJECT_FIXTURE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 pub fn build_neutral_player_fixture(
     project_id: &str,
@@ -72,11 +74,30 @@ fn build_neutral_player_fixture_with_profile(
     project_id: &str,
     physx_compatible: bool,
 ) -> Result<NeutralPlayerFixture, NeutralFixtureError> {
+    let activated_project = activate_fixture_project(project_id)?;
+    build_neutral_player_fixture_with_activated_project(activated_project, physx_compatible)
+}
+
+pub fn build_neutral_player_fixture_from_activated_project(
+    activated_project: ActivatedProjectV1,
+) -> Result<NeutralPlayerFixture, NeutralFixtureError> {
+    build_neutral_player_fixture_with_activated_project(activated_project, false)
+}
+
+fn build_neutral_player_fixture_with_activated_project(
+    activated_project: ActivatedProjectV1,
+    physx_compatible: bool,
+) -> Result<NeutralPlayerFixture, NeutralFixtureError> {
+    let project_id = activated_project
+        .composition_lock
+        .project_id
+        .as_str()
+        .to_owned();
     let principal = IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([0x51; 16]));
     let interaction_principal =
         IssuerPrincipal::InternalSystem(SystemId::new(PLAYER_INTERACTION_SYSTEM_ID)?);
     let base = build_neutral_runtime_fixture(
-        project_id,
+        &project_id,
         [
             (
                 principal.clone(),
@@ -110,6 +131,30 @@ fn build_neutral_player_fixture_with_profile(
         bootstrap.authoritative_numeric_profile = numeric;
         bootstrap.physics_quantization_profile = quantization;
     }
+    bootstrap.rpg_definitions = activated_project.rpg_definitions.clone();
+    bootstrap.rpg_bindings.project_composition_lock_hash =
+        activated_project.composition_lock.composition_lock_sha256;
+    bootstrap.rpg_bindings.schema_registry_hash = activated_project
+        .schema_registry
+        .schema_registry_manifest_sha256;
+    bootstrap
+        .rpg_bindings
+        .active_definition_policy_hashes
+        .extend(
+            activated_project
+                .rpg_definitions
+                .interactions
+                .iter()
+                .map(next_contracts::interaction_definition_hash),
+        );
+    bootstrap
+        .rpg_bindings
+        .active_definition_policy_hashes
+        .sort_unstable();
+    bootstrap
+        .rpg_bindings
+        .active_definition_policy_hashes
+        .dedup();
     let rpg_stream_id = bootstrap
         .stream_registry
         .allocate_stream(principal.clone())?;
@@ -174,7 +219,28 @@ fn build_neutral_player_fixture_with_profile(
         pickup_proxy_id,
         action_map_hash,
         context_stack_hash,
+        activated_project,
     })
+}
+
+fn activate_fixture_project(project_id: &str) -> Result<ActivatedProjectV1, NeutralFixtureError> {
+    let mut source = next_project::neutral_vertical_slice_source_v1()?;
+    source.project_id = next_contracts::ProjectId::new(project_id)?;
+    let cooked = next_project::cook_project_v1(source)?;
+    let counter = PROJECT_FIXTURE_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let output = std::env::temp_dir().join(format!(
+        "nextengine-play-project-{}-{counter}",
+        std::process::id()
+    ));
+    let store = next_assets::ContentStore::new(&output);
+    let result = (|| {
+        store.publish(&cooked.publication()?)?;
+        Ok(next_project::activate_project(&store)?)
+    })();
+    if output.exists() {
+        std::fs::remove_dir_all(&output).map_err(next_assets::ContentStoreError::from)?;
+    }
+    result
 }
 
 fn grounded_capsule_checkpoint(
@@ -310,7 +376,24 @@ fn grounded_capsule_checkpoint(
 }
 
 #[must_use]
-pub fn core_interaction_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapshotV2 {
+pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapshotV2 {
+    let definitions = &fixture.activated_project.rpg_definitions;
+    let dialogue_definition = definitions
+        .dialogues
+        .first()
+        .expect("cooked fixture has one dialogue definition");
+    let quest_definition = definitions
+        .quests
+        .first()
+        .expect("cooked fixture has one quest definition");
+    let relationship_definition = definitions
+        .relationships
+        .first()
+        .expect("cooked fixture has one relationship definition");
+    let interaction_definition = definitions
+        .interactions
+        .first()
+        .expect("cooked fixture has one interaction definition");
     let mut aggregates = vec![
         fixture_aggregate(
             fixture.body_id,
@@ -361,34 +444,31 @@ pub fn core_interaction_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnaps
                 skills: Vec::new(),
             }),
         ),
-        fixture_aggregate(
+        fixture_aggregate_from_asset(
             fixture.quest_id,
-            0x5b,
+            quest_definition.asset_revision,
             RpgAggregatePayloadV1::Quest(QuestPayloadV1 {
-                state_id: SchemaId::new(CORE_QUEST_AVAILABLE_STATE_ID)
-                    .expect("built-in quest state is valid"),
+                state_id: quest_definition.entry_state_id.clone(),
             }),
         ),
-        fixture_aggregate(
+        fixture_aggregate_from_asset(
             fixture.dialogue_id,
-            0x5a,
+            dialogue_definition.asset_revision,
             RpgAggregatePayloadV1::Dialogue(DialoguePayloadV1 {
                 speaker_id: fixture.npc_character_id,
                 listener_id: fixture.body_id,
-                node_id: SchemaId::new(CORE_DIALOGUE_OFFER_NODE_ID)
-                    .expect("built-in dialogue node is valid"),
+                node_id: dialogue_definition.entry_node_id.clone(),
             }),
         ),
-        fixture_aggregate(
+        fixture_aggregate_from_asset(
             fixture.relationship_id,
-            0x5c,
+            relationship_definition.asset_revision,
             RpgAggregatePayloadV1::Relationship(RelationshipPayloadV1 {
                 source_id: fixture.npc_character_id,
                 target_id: fixture.body_id,
                 dimensions: vec![RelationshipDimensionV1 {
-                    dimension_id: SchemaId::new(CORE_RELATIONSHIP_TRUST_DIMENSION_ID)
-                        .expect("built-in relationship dimension is valid"),
-                    value: 0,
+                    dimension_id: relationship_definition.dimension_id.clone(),
+                    value: interaction_definition.relationship_source_value,
                 }],
             }),
         ),
@@ -413,6 +493,68 @@ pub fn core_interaction_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnaps
     ];
     aggregates.sort_by_key(|aggregate| (aggregate.aggregate_kind, aggregate.persistent_id));
     RpgSnapshotV2 { aggregates }
+}
+
+#[must_use]
+pub fn cooked_interaction_outcome(
+    fixture: &NeutralPlayerFixture,
+) -> (SchemaId, SchemaId, SchemaId, i32) {
+    let definitions = &fixture.activated_project.rpg_definitions;
+    let interaction = definitions
+        .interactions
+        .first()
+        .expect("cooked fixture has one interaction definition");
+    let dialogue = definitions
+        .dialogue(interaction.dialogue_definition)
+        .expect("interaction dialogue definition is closed");
+    let quest = definitions
+        .quest(interaction.quest_definition)
+        .expect("interaction quest definition is closed");
+    let relationship = definitions
+        .relationship(interaction.relationship_definition)
+        .expect("interaction relationship definition is closed");
+    let dialogue_target = dialogue
+        .transitions
+        .iter()
+        .find(|transition| transition.transition_id == interaction.dialogue_transition_id)
+        .expect("dialogue transition is closed")
+        .target_state_id
+        .clone();
+    let quest_target = quest
+        .transitions
+        .iter()
+        .find(|transition| transition.transition_id == interaction.quest_transition_id)
+        .expect("quest transition is closed")
+        .target_state_id
+        .clone();
+    (
+        dialogue_target,
+        quest_target,
+        relationship.dimension_id.clone(),
+        interaction
+            .relationship_source_value
+            .checked_add(interaction.relationship_delta)
+            .expect("cooked relationship outcome fits i32"),
+    )
+}
+
+fn fixture_aggregate_from_asset(
+    persistent_id: PersistentId,
+    definition: AssetRevisionRefV1,
+    payload: RpgAggregatePayloadV1,
+) -> RpgAggregateEnvelopeV1 {
+    RpgAggregateEnvelopeV1::new(
+        persistent_id,
+        1,
+        0,
+        DefinitionRefV1::Exact {
+            asset_id: definition.asset_id,
+            content_hash: definition.record_sha256,
+        },
+        ProvenanceBindingV1::None,
+        payload,
+    )
+    .expect("cooked fixture aggregate is canonical")
 }
 
 pub(crate) fn fixture_aggregate(
@@ -621,6 +763,30 @@ pub struct PlayCheckReport {
 
 pub fn run_play_check() -> Result<PlayCheckReport, PlayCheckError> {
     let scenario = run_grounded_collision_scenario(true)?;
+    play_check_report(scenario)
+}
+
+pub fn run_play_check_with_activated_project(
+    activated_project: ActivatedProjectV1,
+) -> Result<PlayCheckReport, PlayCheckError> {
+    let project_id = activated_project
+        .composition_lock
+        .project_id
+        .as_str()
+        .to_owned();
+    let scenario = run_grounded_collision_scenario_with_backend(
+        true,
+        &project_id,
+        false,
+        PhysicsLaunchOptions::default(),
+        Some(activated_project),
+    )?;
+    play_check_report(scenario)
+}
+
+fn play_check_report(
+    scenario: GroundedCollisionScenario,
+) -> Result<PlayCheckReport, PlayCheckError> {
     let checkpoint = scenario.runtime.world_checkpoint()?;
     let rpg = scenario.runtime.rpg_snapshot();
     let interactive_object_state = match aggregate_payload(
@@ -634,12 +800,12 @@ pub fn run_play_check() -> Result<PlayCheckReport, PlayCheckError> {
     let dialogue_node_id =
         match aggregate_payload(&rpg, RpgAggregateKindV1::Dialogue, scenario.dialogue_id) {
             Some(RpgAggregatePayloadV1::Dialogue(dialogue)) => dialogue.node_id.clone(),
-            _ => return Err(PlayCheckError::CoreDialogueMissing),
+            _ => return Err(PlayCheckError::CookedDialogueMissing),
         };
     let quest_state_id = match aggregate_payload(&rpg, RpgAggregateKindV1::Quest, scenario.quest_id)
     {
         Some(RpgAggregatePayloadV1::Quest(quest)) => quest.state_id.clone(),
-        _ => return Err(PlayCheckError::CoreQuestMissing),
+        _ => return Err(PlayCheckError::CookedQuestMissing),
     };
     let npc_player_trust = match aggregate_payload(
         &rpg,
@@ -653,12 +819,10 @@ pub fn run_play_check() -> Result<PlayCheckReport, PlayCheckError> {
             relationship
                 .dimensions
                 .iter()
-                .find(|dimension| {
-                    dimension.dimension_id.as_str() == CORE_RELATIONSHIP_TRUST_DIMENSION_ID
-                })
+                .find(|dimension| dimension.dimension_id == scenario.relationship_dimension_id)
                 .map_or(0, |dimension| dimension.value)
         }
-        _ => return Err(PlayCheckError::CoreNpcMissing),
+        _ => return Err(PlayCheckError::CookedNpcMissing),
     };
     Ok(PlayCheckReport {
         ticks: scenario.ticks,
@@ -708,6 +872,7 @@ pub fn run_physics_collision_check_with_backend(
             "nextengine.physics-collision.physx",
             true,
             PhysicsLaunchOptions::new(PhysicsBackendPolicy::RequirePhysX),
+            None,
         )?,
         PhysicsCollisionBackend::Compare => {
             let reference = run_grounded_collision_scenario_with_backend(
@@ -715,12 +880,14 @@ pub fn run_physics_collision_check_with_backend(
                 "nextengine.physics-collision.compare",
                 true,
                 PhysicsLaunchOptions::new(PhysicsBackendPolicy::ReferenceOnly),
+                None,
             )?;
             let physx = run_grounded_collision_scenario_with_backend(
                 false,
                 "nextengine.physics-collision.compare",
                 true,
                 PhysicsLaunchOptions::new(PhysicsBackendPolicy::RequirePhysX),
+                None,
             )?;
             if reference.tick_reports != physx.tick_reports {
                 return Err(PlayCheckError::BackendParityMismatch);
@@ -778,6 +945,7 @@ struct GroundedCollisionScenario {
     dialogue_id: PersistentId,
     quest_id: PersistentId,
     relationship_id: PersistentId,
+    relationship_dimension_id: SchemaId,
     tick_reports: Vec<next_runtime::TickReport>,
 }
 
@@ -796,6 +964,7 @@ fn run_grounded_collision_scenario(
         "nextengine.play",
         false,
         PhysicsLaunchOptions::default(),
+        None,
     )
 }
 
@@ -804,14 +973,24 @@ fn run_grounded_collision_scenario_with_backend(
     project_id: &str,
     physx_compatible: bool,
     physics_options: PhysicsLaunchOptions,
+    activated_project: Option<ActivatedProjectV1>,
 ) -> Result<GroundedCollisionScenario, PlayCheckError> {
-    let fixture = if physx_compatible {
-        build_physx_player_fixture(project_id)?
-    } else {
-        build_neutral_player_fixture(project_id)?
+    let fixture = match activated_project {
+        Some(project) => {
+            debug_assert!(!physx_compatible);
+            build_neutral_player_fixture_from_activated_project(project)?
+        }
+        None if physx_compatible => build_physx_player_fixture(project_id)?,
+        None => build_neutral_player_fixture(project_id)?,
     };
+    let (
+        expected_dialogue_node_id,
+        expected_quest_state_id,
+        relationship_dimension_id,
+        expected_relationship_value,
+    ) = cooked_interaction_outcome(&fixture);
     let rpg_snapshot = if include_interaction {
-        core_interaction_rpg_snapshot(&fixture)
+        cooked_project_rpg_snapshot(&fixture)
     } else {
         RpgSnapshotV2::default()
     };
@@ -943,7 +1122,7 @@ fn run_grounded_collision_scenario_with_backend(
             Some(RpgAggregatePayloadV1::InteractiveObject(object))
                 if object.state_id.as_str() == CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
         );
-    let core_dialogue_completed = !include_interaction
+    let cooked_dialogue_completed = !include_interaction
         || matches!(
             aggregate_payload(
                 &runtime.rpg_snapshot(),
@@ -951,9 +1130,9 @@ fn run_grounded_collision_scenario_with_backend(
                 fixture.dialogue_id,
             ),
             Some(RpgAggregatePayloadV1::Dialogue(dialogue))
-                if dialogue.node_id.as_str() == CORE_DIALOGUE_ACCEPTED_NODE_ID
+                if dialogue.node_id == expected_dialogue_node_id
         );
-    let core_quest_completed = !include_interaction
+    let cooked_quest_completed = !include_interaction
         || matches!(
             aggregate_payload(
                 &runtime.rpg_snapshot(),
@@ -961,9 +1140,9 @@ fn run_grounded_collision_scenario_with_backend(
                 fixture.quest_id,
             ),
             Some(RpgAggregatePayloadV1::Quest(quest))
-                if quest.state_id.as_str() == CORE_QUEST_ACTIVE_STATE_ID
+                if quest.state_id == expected_quest_state_id
         );
-    let core_trust_applied = !include_interaction
+    let cooked_relationship_applied = !include_interaction
         || matches!(
             aggregate_payload(
                 &runtime.rpg_snapshot(),
@@ -974,8 +1153,8 @@ fn run_grounded_collision_scenario_with_backend(
                 if relationship.source_id == fixture.npc_character_id
                     && relationship.target_id == fixture.body_id
                     && relationship.dimensions.iter().any(|dimension| {
-                        dimension.dimension_id.as_str() == CORE_RELATIONSHIP_TRUST_DIMENSION_ID
-                            && dimension.value == CORE_DIALOGUE_QUEST_TRUST_DELTA
+                        dimension.dimension_id == relationship_dimension_id
+                            && dimension.value == expected_relationship_value
                     })
         );
     let pickup_completed = !include_interaction
@@ -1019,9 +1198,9 @@ fn run_grounded_collision_scenario_with_backend(
         || persist_contacts != expected_persists
         || end_contacts != expected_ends
         || !object_is_activated
-        || !core_dialogue_completed
-        || !core_quest_completed
-        || !core_trust_applied
+        || !cooked_dialogue_completed
+        || !cooked_quest_completed
+        || !cooked_relationship_applied
         || !pickup_completed
         || !item_is_owned
         || !item_is_equipped
@@ -1044,6 +1223,7 @@ fn run_grounded_collision_scenario_with_backend(
         dialogue_id: fixture.dialogue_id,
         quest_id: fixture.quest_id,
         relationship_id: fixture.relationship_id,
+        relationship_dimension_id,
         tick_reports,
     })
 }
@@ -1092,9 +1272,9 @@ pub enum PlayCheckError {
     CountOverflow,
     BodyMissing,
     InteractiveObjectMissing,
-    CoreNpcMissing,
-    CoreDialogueMissing,
-    CoreQuestMissing,
+    CookedNpcMissing,
+    CookedDialogueMissing,
+    CookedQuestMissing,
     AcceptanceMismatch,
     BackendParityMismatch,
 }
@@ -1117,9 +1297,11 @@ impl Display for PlayCheckError {
             Self::InteractiveObjectMissing => {
                 formatter.write_str("play check interactive object is missing")
             }
-            Self::CoreNpcMissing => formatter.write_str("play check core NPC is missing"),
-            Self::CoreDialogueMissing => formatter.write_str("play check core dialogue is missing"),
-            Self::CoreQuestMissing => formatter.write_str("play check core quest is missing"),
+            Self::CookedNpcMissing => formatter.write_str("play check cooked NPC is missing"),
+            Self::CookedDialogueMissing => {
+                formatter.write_str("play check cooked dialogue is missing")
+            }
+            Self::CookedQuestMissing => formatter.write_str("play check cooked quest is missing"),
             Self::AcceptanceMismatch => formatter.write_str("play check result did not match"),
             Self::BackendParityMismatch => {
                 formatter.write_str("reference and PhysX tick reports diverged")
@@ -1421,9 +1603,12 @@ mod tests {
         );
 
         let checkpoint = runtime.world_checkpoint().expect("checkpoint");
-        let mut restored =
-            RuntimeState::restore_world_checkpoint(checkpoint, fixture.authority.clone())
-                .expect("restore");
+        let mut restored = RuntimeState::restore_world_checkpoint_with_definitions(
+            checkpoint,
+            fixture.authority.clone(),
+            fixture.activated_project.rpg_definitions.clone(),
+        )
+        .expect("restore");
         let ledger_before = ledger_hash(&restored);
         let rpg_before = restored.rpg_snapshot();
         restored
@@ -1449,7 +1634,7 @@ mod tests {
         let mut runtime = RuntimeState::with_rpg_snapshot(
             fixture.bootstrap.clone(),
             fixture.authority.clone(),
-            core_interaction_rpg_snapshot(&fixture),
+            cooked_project_rpg_snapshot(&fixture),
         )
         .expect("runtime");
         for sequence in 0_u64..4 {
@@ -1511,9 +1696,12 @@ mod tests {
         );
 
         let checkpoint = runtime.world_checkpoint().expect("checkpoint");
-        let mut restored =
-            RuntimeState::restore_world_checkpoint(checkpoint, fixture.authority.clone())
-                .expect("restore");
+        let mut restored = RuntimeState::restore_world_checkpoint_with_definitions(
+            checkpoint,
+            fixture.authority.clone(),
+            fixture.activated_project.rpg_definitions.clone(),
+        )
+        .expect("restore");
         let state_before = restored.rpg_snapshot();
         let ledger_before = ledger_hash(&restored);
 
@@ -1544,10 +1732,10 @@ mod tests {
     }
 
     #[test]
-    fn core_dialogue_requires_contact_and_invalid_participant_closure_fails_activation() {
+    fn cooked_dialogue_requires_contact_and_invalid_participant_closure_fails_activation() {
         let fixture =
             build_neutral_player_fixture("nextengine.test.dialogue-closure").expect("fixture");
-        let ready = core_interaction_rpg_snapshot(&fixture);
+        let ready = cooked_project_rpg_snapshot(&fixture);
         let mut runtime = RuntimeState::with_rpg_snapshot(
             fixture.bootstrap.clone(),
             fixture.authority.clone(),
@@ -1572,7 +1760,7 @@ mod tests {
         assert_eq!(runtime.rpg_snapshot(), ready);
         assert_eq!(ledger_hash(&runtime), ledger_before);
 
-        let mut invalid = core_interaction_rpg_snapshot(&fixture);
+        let mut invalid = cooked_project_rpg_snapshot(&fixture);
         let dialogue = invalid
             .aggregates
             .iter_mut()
@@ -1581,15 +1769,19 @@ mod tests {
                     && aggregate.persistent_id == fixture.dialogue_id
             })
             .expect("fixture dialogue");
-        *dialogue = fixture_aggregate(
-            fixture.dialogue_id,
-            0x5a,
-            RpgAggregatePayloadV1::Dialogue(DialoguePayloadV1 {
-                speaker_id: fixture.npc_character_id,
-                listener_id: fixture.npc_character_id,
-                node_id: SchemaId::new(CORE_DIALOGUE_OFFER_NODE_ID).expect("core dialogue node"),
-            }),
-        );
+        let RpgAggregatePayloadV1::Dialogue(mut payload) = dialogue.payload.clone() else {
+            panic!("fixture dialogue payload");
+        };
+        payload.listener_id = fixture.npc_character_id;
+        *dialogue = RpgAggregateEnvelopeV1::new(
+            dialogue.persistent_id,
+            dialogue.schema_version,
+            dialogue.revision,
+            dialogue.definition_ref.clone(),
+            dialogue.provenance.clone(),
+            RpgAggregatePayloadV1::Dialogue(payload),
+        )
+        .expect("mutated dialogue aggregate is canonical");
         assert!(matches!(
             RuntimeState::with_rpg_snapshot(fixture.bootstrap, fixture.authority, invalid),
             Err(SnapshotRestoreError::CoreInteractionClosure(_))
@@ -1600,7 +1792,15 @@ mod tests {
     fn same_contact_switch_precedes_npc_then_dialogue_transition_is_one_shot() {
         let fixture =
             build_neutral_player_fixture("nextengine.test.dialogue-tie-break").expect("fixture");
-        let mut rpg = core_interaction_rpg_snapshot(&fixture);
+        let entry_node = fixture
+            .activated_project
+            .rpg_definitions
+            .dialogues
+            .first()
+            .expect("dialogue definition")
+            .entry_node_id
+            .clone();
+        let mut rpg = cooked_project_rpg_snapshot(&fixture);
         rpg.aggregates
             .iter_mut()
             .find(|aggregate| {
@@ -1656,7 +1856,7 @@ mod tests {
                 fixture.dialogue_id,
             ),
             Some(RpgAggregatePayloadV1::Dialogue(dialogue))
-                if dialogue.node_id.as_str() == CORE_DIALOGUE_OFFER_NODE_ID
+                if dialogue.node_id == entry_node
         ));
 
         runtime
@@ -1684,9 +1884,12 @@ mod tests {
         );
 
         let checkpoint = runtime.world_checkpoint().expect("checkpoint");
-        let mut restored =
-            RuntimeState::restore_world_checkpoint(checkpoint, fixture.authority.clone())
-                .expect("restore");
+        let mut restored = RuntimeState::restore_world_checkpoint_with_definitions(
+            checkpoint,
+            fixture.authority.clone(),
+            fixture.activated_project.rpg_definitions.clone(),
+        )
+        .expect("restore");
         let rpg_before = restored.rpg_snapshot();
         let ledger_before = ledger_hash(&restored);
         restored

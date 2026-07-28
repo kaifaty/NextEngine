@@ -8,6 +8,7 @@ mod ids;
 mod input;
 mod ledger;
 mod manifest_jcs;
+mod mechanics;
 mod persistence;
 mod physics;
 mod project;
@@ -88,6 +89,13 @@ pub use ledger::{
     causal_provenance_hash, command_body_archive_root, command_collision_candidates_root,
     command_collision_incident_digest, command_identity_index_root, command_receipt_chain_genesis,
     command_receipt_chain_next, command_receipt_digest,
+};
+pub use mechanics::{
+    DATA_ONLY_PACKAGE_KIND_V1, DialogueDefinitionV1, InteractionDefinitionV1,
+    LockedMechanicPackageV1, MechanicPackageManifestV1, MechanicsContractError, MechanicsLockV1,
+    QuestDefinitionV1, RelationshipDefinitionV1, RpgDefinitionRegistryV1, StateTransitionV1,
+    dialogue_definition_hash, interaction_definition_hash, quest_definition_hash,
+    relationship_definition_hash,
 };
 pub use persistence::{
     AuthorityGrant, CommandLedgerDescriptorV2, DecodedReplayTickV4, HashBinding,

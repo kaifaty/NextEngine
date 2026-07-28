@@ -82,7 +82,9 @@ dependencies = [
 name = "next_headless"
 version = "0.1.0"
 dependencies = [
+ "next_assets",
  "next_contracts",
+ "next_project",
  "next_runtime",
  "next_verification",
 ]

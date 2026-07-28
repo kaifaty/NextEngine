@@ -40,9 +40,11 @@ pub use physics_parity::{
 pub use player_fixture::{
     CanonicalFixtureError, NeutralPlayerFixture, PhysicsCollisionBackend,
     PhysicsCollisionCheckReport, PlayCheckError, PlayCheckReport, build_neutral_player_fixture,
-    build_physx_player_fixture, core_interaction_rpg_snapshot, player_action_sample,
+    build_neutral_player_fixture_from_activated_project, build_physx_player_fixture,
+    cooked_interaction_outcome, cooked_project_rpg_snapshot, player_action_sample,
     player_equip_use_sample, player_interact_sample, player_pickup_sample,
     run_physics_collision_check, run_physics_collision_check_with_backend, run_play_check,
+    run_play_check_with_activated_project,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -269,6 +271,9 @@ pub enum NeutralFixtureError {
     Identity(next_contracts::IdentityContractError),
     Physics(next_contracts::PhysicsContractError),
     Authority(AuthorityRegistryError),
+    ProjectCook(next_project::ProjectCookError),
+    ProjectStore(next_assets::ContentStoreError),
+    ProjectActivation(next_project::ProjectActivationError),
     DuplicatePrincipal,
 }
 
@@ -280,6 +285,13 @@ impl Display for NeutralFixtureError {
             Self::Identity(error) => write!(formatter, "fixture identity failed: {error}"),
             Self::Physics(error) => write!(formatter, "fixture physics failed: {error}"),
             Self::Authority(error) => write!(formatter, "fixture authority failed: {error}"),
+            Self::ProjectCook(error) => write!(formatter, "fixture project cook failed: {error}"),
+            Self::ProjectStore(error) => {
+                write!(formatter, "fixture project publication failed: {error}")
+            }
+            Self::ProjectActivation(error) => {
+                write!(formatter, "fixture project activation failed: {error}")
+            }
             Self::DuplicatePrincipal => formatter.write_str("fixture principal is duplicated"),
         }
     }
@@ -314,6 +326,24 @@ impl From<next_contracts::PhysicsContractError> for NeutralFixtureError {
 impl From<AuthorityRegistryError> for NeutralFixtureError {
     fn from(error: AuthorityRegistryError) -> Self {
         Self::Authority(error)
+    }
+}
+
+impl From<next_project::ProjectCookError> for NeutralFixtureError {
+    fn from(error: next_project::ProjectCookError) -> Self {
+        Self::ProjectCook(error)
+    }
+}
+
+impl From<next_assets::ContentStoreError> for NeutralFixtureError {
+    fn from(error: next_assets::ContentStoreError) -> Self {
+        Self::ProjectStore(error)
+    }
+}
+
+impl From<next_project::ProjectActivationError> for NeutralFixtureError {
+    fn from(error: next_project::ProjectActivationError) -> Self {
+        Self::ProjectActivation(error)
     }
 }
 
@@ -576,6 +606,19 @@ pub(crate) fn run_replay_manifest_with_physics_options(
     manifest: &ReplayManifestV4,
     physics_options: next_runtime::PhysicsLaunchOptions,
 ) -> Result<ReplayOutput, ReplayError> {
+    run_replay_manifest_with_definitions_and_physics_options(
+        manifest,
+        next_contracts::RpgDefinitionRegistryV1::empty()
+            .expect("empty RPG definition registry is canonical"),
+        physics_options,
+    )
+}
+
+pub(crate) fn run_replay_manifest_with_definitions_and_physics_options(
+    manifest: &ReplayManifestV4,
+    rpg_definitions: next_contracts::RpgDefinitionRegistryV1,
+    physics_options: next_runtime::PhysicsLaunchOptions,
+) -> Result<ReplayOutput, ReplayError> {
     let limits = CanonicalDecodeLimits::default();
     let (initial_checkpoint, decoded_ticks) = manifest.validate_and_decode(limits)?;
 
@@ -593,9 +636,10 @@ pub(crate) fn run_replay_manifest_with_physics_options(
             .register(grant.principal.clone(), grant.capabilities.clone())
             .map_err(|_| ManifestValidationError::AuthorityNotStrictlySorted)?;
     }
-    let mut replay = RuntimeReplayDriver::new_with_physics_options(
+    let mut replay = RuntimeReplayDriver::new_with_definitions_and_physics_options(
         initial_checkpoint,
         authority,
+        rpg_definitions,
         physics_options,
     )?;
     let mut records = Vec::with_capacity(decoded_ticks.len());

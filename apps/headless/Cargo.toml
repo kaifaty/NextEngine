@@ -6,7 +6,9 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+next_assets.workspace = true
 next_contracts.workspace = true
+next_project.workspace = true
 next_runtime.workspace = true
 next_verification.workspace = true
 

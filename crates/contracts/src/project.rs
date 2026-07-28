@@ -914,11 +914,15 @@ pub struct ActivatedProjectV1 {
     pub schema_registry: SchemaRegistryManifestV1,
     pub content_manifest: ContentManifestV1,
     pub world_partition: WorldPartitionManifestV1,
+    pub rpg_definitions: crate::RpgDefinitionRegistryV1,
 }
 
 impl ActivatedProjectV1 {
     pub fn validate(&self) -> Result<(), ProjectContractError> {
         self.composition_lock.validate()?;
+        self.rpg_definitions
+            .validate()
+            .map_err(|_| ProjectContractError::HashMismatch)?;
         if self.composition_lock.project_id != self.content_manifest.body.project_id
             || self.composition_lock.schema_registry_manifest_sha256
                 != self.schema_registry.schema_registry_manifest_sha256
@@ -932,6 +936,8 @@ impl ActivatedProjectV1 {
                 != self.schema_registry.schema_registry_manifest_sha256
             || self.world_partition.body.content_manifest_sha256
                 != self.content_manifest.content_manifest_sha256
+            || self.composition_lock.mechanics_lock_sha256
+                != self.rpg_definitions.mechanics_lock.mechanics_lock_sha256
         {
             return Err(ProjectContractError::HashMismatch);
         }

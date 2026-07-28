@@ -13,7 +13,7 @@ use next_contracts::{
 use crate::cook::{
     CONTENT_BLOB_DIRECTORY, CONTENT_MANIFEST_PATH, PROJECT_CATALOG_PATH,
     PROJECT_COMPOSITION_LOCK_PATH, PROJECT_MANIFEST_PATH, SCHEMA_REGISTRY_PATH,
-    WORLD_PARTITION_PATH,
+    WORLD_PARTITION_PATH, compile_rpg_definitions_v1,
 };
 use crate::{ProjectResolutionError, resolve_project_records_v1};
 
@@ -89,6 +89,7 @@ pub fn activate_project(
     .map(str::to_owned)
     .collect();
     let mut record_dependencies = BTreeMap::<AssetId, BTreeSet<AssetId>>::new();
+    let mut neutral_records = Vec::new();
     for entry in &content_manifest.body.asset_entries {
         require_schema(&current_schemas, &entry.schema_ref)?;
         let blob_path = format!(
@@ -106,8 +107,9 @@ pub fn activate_project(
         }
         record_dependencies.insert(
             record.asset_id,
-            record.asset_dependencies.into_iter().collect(),
+            record.asset_dependencies.iter().copied().collect(),
         );
+        neutral_records.push(record);
     }
     if generation.files.keys().cloned().collect::<BTreeSet<_>>() != expected_files {
         return Err(ProjectActivationError::UnexpectedArtifact);
@@ -142,11 +144,14 @@ pub fn activate_project(
         }
     }
 
+    neutral_records.sort_by_key(|record| record.asset_id);
     let activated = ActivatedProjectV1 {
         composition_lock,
         schema_registry,
         content_manifest,
         world_partition,
+        rpg_definitions: compile_rpg_definitions_v1(&neutral_records)
+            .map_err(ProjectActivationError::Cook)?,
     };
     activated.validate()?;
     Ok(activated)
@@ -180,6 +185,7 @@ pub enum ProjectActivationError {
     Contract(ProjectContractError),
     Neutral(NeutralRecordError),
     Resolution(ProjectResolutionError),
+    Cook(crate::ProjectCookError),
     MissingArtifact(String),
     MissingReference,
     MissingSchema,
@@ -196,6 +202,7 @@ impl ProjectActivationError {
             Self::Store(_) | Self::MissingArtifact(_) => "PROJECT_ARTIFACT_MISSING",
             Self::Contract(_) | Self::Neutral(_) => "PROJECT_SCHEMA_INVALID",
             Self::Resolution(_) | Self::ResolutionMismatch => "PROJECT_LOCK_INVALID",
+            Self::Cook(_) => "PROJECT_DEFINITION_INVALID",
             Self::MissingReference => "PROJECT_REFERENCE_MISSING",
             Self::MissingSchema => "PROJECT_SCHEMA_MISSING",
             Self::HashMismatch => "PROJECT_HASH_MISMATCH",
@@ -212,6 +219,7 @@ impl Display for ProjectActivationError {
             Self::Contract(error) => write!(formatter, "project contract invalid: {error}"),
             Self::Neutral(error) => write!(formatter, "project record invalid: {error}"),
             Self::Resolution(error) => write!(formatter, "project resolution invalid: {error}"),
+            Self::Cook(error) => write!(formatter, "project definition compile failed: {error}"),
             Self::MissingArtifact(path) => write!(formatter, "project artifact missing: {path}"),
             Self::MissingReference => formatter.write_str("project reference missing"),
             Self::MissingSchema => formatter.write_str("project schema missing"),
