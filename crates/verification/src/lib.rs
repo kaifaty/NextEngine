@@ -13,12 +13,12 @@ use next_contracts::{
     CommandStreamRegistryV1, DomainEvent, IssuerPrincipal, ManifestValidationError,
     PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
-    PrincipalRecordV1, PrincipalRegistryV1, PrincipalStatus, ProjectId, RPG_SNAPSHOT_OWNER_ID,
-    RPG_SNAPSHOT_SCHEMA_ID, RPG_SNAPSHOT_SEGMENT_ID, RUNTIME_SNAPSHOT_OWNER_ID,
-    RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID, ReplayCommandResultV2,
-    ReplayManifestV3, RpgSnapshot, RuntimeDeterminismProfileV1, RuntimeSnapshot,
-    SaveSegmentDescriptor, SchemaId, StateRoot, WorldCheckpointV3, WorldCommand,
-    WorldIdentityManifestV1, content_hash_from_bytes, sha256,
+    PrincipalRecordV1, PrincipalRegistryV1, PrincipalStatus, ProjectId,
+    RPG_AGGREGATE_SNAPSHOT_OWNER_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+    RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID, RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID,
+    RUNTIME_SNAPSHOT_SEGMENT_ID, ReplayCommandResultV2, ReplayManifestV4, RpgSnapshotV2,
+    RuntimeDeterminismProfileV1, RuntimeSnapshot, SaveSegmentDescriptor, SchemaId, StateRoot,
+    WorldCheckpointV4, WorldCommand, WorldIdentityManifestV1, content_hash_from_bytes, sha256,
 };
 use next_runtime::{
     AuthorityRegistry, AuthorityRegistryError, CommandKindRegistry, CommandResult,
@@ -179,7 +179,7 @@ pub struct ReplayInput {
 pub struct RpgReplayInput {
     pub bootstrap: RuntimeBootstrapV3,
     pub authority: AuthorityRegistry,
-    pub initial_rpg_snapshot: RpgSnapshot,
+    pub initial_rpg_snapshot: RpgSnapshotV2,
     pub ticks: Vec<ReplayTickInput>,
 }
 
@@ -327,14 +327,14 @@ fn hex_identifier(bytes: &[u8]) -> String {
 pub struct ReplayOutput {
     pub ticks: Vec<ReplayTickRecord>,
     pub final_snapshot: RuntimeSnapshot,
-    pub final_checkpoint: WorldCheckpointV3,
+    pub final_checkpoint: WorldCheckpointV4,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RpgReplayOutput {
     pub ticks: Vec<ReplayTickRecord>,
     pub final_runtime_snapshot: RuntimeSnapshot,
-    pub final_rpg_snapshot: RpgSnapshot,
+    pub final_rpg_snapshot: RpgSnapshotV2,
     pub final_physics_snapshot: next_contracts::PhysicsCanonicalSnapshotV2,
 }
 
@@ -401,6 +401,9 @@ impl ReplayError {
             Self::Runtime(_) => "REPLAY_RUNTIME_FATAL",
             Self::Manifest(ManifestValidationError::UnsupportedReplayVersion(_)) => {
                 "UNSUPPORTED_REPLAY_MANIFEST_VERSION"
+            }
+            Self::Manifest(ManifestValidationError::RpgSchemaUnsupported) => {
+                "RPG_SCHEMA_UNSUPPORTED"
             }
             Self::Manifest(_) => "REPLAY_MANIFEST_INVALID",
             Self::SnapshotRestore(_) => "REPLAY_SNAPSHOT_RESTORE_FAILED",
@@ -558,7 +561,7 @@ pub fn run_rpg_replay(input: &RpgReplayInput) -> Result<RpgReplayOutput, ReplayE
     })
 }
 
-pub fn run_replay_manifest(manifest: &ReplayManifestV3) -> Result<ReplayOutput, ReplayError> {
+pub fn run_replay_manifest(manifest: &ReplayManifestV4) -> Result<ReplayOutput, ReplayError> {
     run_replay_manifest_with_physics_options(
         manifest,
         next_runtime::PhysicsLaunchOptions::default(),
@@ -566,7 +569,7 @@ pub fn run_replay_manifest(manifest: &ReplayManifestV3) -> Result<ReplayOutput, 
 }
 
 pub(crate) fn run_replay_manifest_with_physics_options(
-    manifest: &ReplayManifestV3,
+    manifest: &ReplayManifestV4,
     physics_options: next_runtime::PhysicsLaunchOptions,
 ) -> Result<ReplayOutput, ReplayError> {
     let limits = CanonicalDecodeLimits::default();
@@ -682,14 +685,14 @@ pub(crate) fn run_replay_manifest_with_physics_options(
 }
 
 pub fn compute_world_checkpoint_root(
-    checkpoint: &WorldCheckpointV3,
+    checkpoint: &WorldCheckpointV4,
 ) -> Result<StateRoot, ReplayError> {
     checkpoint.validate()?;
     Ok(checkpoint.state_root)
 }
 
 fn checkpoint_segment_hashes(
-    checkpoint: &WorldCheckpointV3,
+    checkpoint: &WorldCheckpointV4,
 ) -> Result<
     (
         next_contracts::ContentHash,
@@ -706,10 +709,13 @@ fn checkpoint_segment_hashes(
         &checkpoint.runtime_snapshot.canonical_bytes()?,
     )?;
     let rpg = SaveSegmentDescriptor::for_bytes(
-        SchemaId::new(RPG_SNAPSHOT_OWNER_ID).map_err(CanonicalError::InvalidIdentifier)?,
-        SchemaId::new(RPG_SNAPSHOT_SCHEMA_ID).map_err(CanonicalError::InvalidIdentifier)?,
-        SchemaId::new(RPG_SNAPSHOT_SEGMENT_ID).map_err(CanonicalError::InvalidIdentifier)?,
-        next_contracts::RPG_SNAPSHOT_SCHEMA_VERSION,
+        SchemaId::new(RPG_AGGREGATE_SNAPSHOT_OWNER_ID)
+            .map_err(CanonicalError::InvalidIdentifier)?,
+        SchemaId::new(RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID)
+            .map_err(CanonicalError::InvalidIdentifier)?,
+        SchemaId::new(RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID)
+            .map_err(CanonicalError::InvalidIdentifier)?,
+        next_contracts::RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION,
         &checkpoint.rpg_snapshot.canonical_bytes()?,
     )?;
     let physics = SaveSegmentDescriptor::for_bytes(
@@ -794,13 +800,13 @@ mod tests {
         ManifestCodecError, ManifestValidationError, NOOP_COMMAND_CAPABILITY_ID,
         PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
         PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
-        PhysicsWorldCheckpointV1, PlayerPrincipalId, REPLAY_MANIFEST_V3_SCHEMA_VERSION,
-        RPG_SNAPSHOT_OWNER_ID, RPG_SNAPSHOT_SCHEMA_ID, RPG_SNAPSHOT_SCHEMA_VERSION,
-        RPG_SNAPSHOT_SEGMENT_ID, RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID,
-        RUNTIME_SNAPSHOT_SCHEMA_VERSION, RUNTIME_SNAPSHOT_SEGMENT_ID, ReplayCommandRecord,
-        ReplayComparePointV3, ReplayManifestV3, ReplayOwnerSegmentV2, ReplayTickManifestV3,
-        SaveCompatibility, SaveSegmentDescriptor, SchemaId, StateRoot, TickSettings,
-        WorldCheckpointV3, WorldCommand,
+        PhysicsWorldCheckpointV1, PlayerPrincipalId, REPLAY_MANIFEST_V4_SCHEMA_VERSION,
+        RPG_AGGREGATE_SNAPSHOT_OWNER_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+        RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION, RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID,
+        RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SCHEMA_VERSION,
+        RUNTIME_SNAPSHOT_SEGMENT_ID, ReplayCommandRecord, ReplayComparePointV4, ReplayManifestV4,
+        ReplayOwnerSegmentV2, ReplayTickManifestV4, SaveCompatibility, SaveSegmentDescriptor,
+        SchemaId, StateRoot, TickSettings, WorldCheckpointV4, WorldCommand,
     };
     use next_runtime::{AuthorityRegistry, RuntimeReplayDriver, RuntimeReplayError, RuntimeState};
 
@@ -873,7 +879,7 @@ mod tests {
         }
     }
 
-    fn replay_manifest() -> (ReplayManifestV3, super::ReplayOutput) {
+    fn replay_manifest() -> (ReplayManifestV4, super::ReplayOutput) {
         let input = scenario();
         let expected = run_replay(&input).expect("reference replay runs");
         let mut runtime = RuntimeState::new(input.bootstrap.clone(), input.authority.clone())
@@ -894,7 +900,7 @@ mod tests {
             let report = runtime
                 .run_tick(input_tick.commands.clone())
                 .expect("recorded tick");
-            let checkpoint = WorldCheckpointV3::new(
+            let checkpoint = WorldCheckpointV4::new(
                 report.snapshot.clone(),
                 report.rpg_snapshot.clone(),
                 PhysicsWorldCheckpointV1::new(
@@ -906,7 +912,7 @@ mod tests {
             .expect("record checkpoint");
             let (runtime_segment_hash, rpg_segment_hash, physics_segment_hash) =
                 checkpoint_segment_hashes(&checkpoint).expect("segment hashes");
-            ticks.push(ReplayTickManifestV3 {
+            ticks.push(ReplayTickManifestV4 {
                 tick: report.tick,
                 closed_ingress_batch: report.closed_ingress_batch.clone(),
                 direct_external_commands: input_tick
@@ -925,7 +931,7 @@ mod tests {
                 expected_command_results: replay_command_results(&report.results),
                 expected_events: report.events.clone(),
             });
-            compare_points.push(ReplayComparePointV3 {
+            compare_points.push(ReplayComparePointV4 {
                 tick: report.tick,
                 state_root: compute_world_checkpoint_root(&checkpoint).expect("state root"),
                 command_ledger_hash: report.snapshot.command_ledger_hash().expect("ledger hash"),
@@ -943,8 +949,8 @@ mod tests {
             });
         }
         (
-            ReplayManifestV3 {
-                schema_version: REPLAY_MANIFEST_V3_SCHEMA_VERSION,
+            ReplayManifestV4 {
+                schema_version: REPLAY_MANIFEST_V4_SCHEMA_VERSION,
                 compatibility: compatibility(),
                 initial_owner_segments: replay_owner_segments(&initial_checkpoint),
                 initial_state_root: compute_world_checkpoint_root(&initial_checkpoint)
@@ -957,7 +963,7 @@ mod tests {
         )
     }
 
-    fn replay_owner_segments(checkpoint: &WorldCheckpointV3) -> Vec<ReplayOwnerSegmentV2> {
+    fn replay_owner_segments(checkpoint: &WorldCheckpointV4) -> Vec<ReplayOwnerSegmentV2> {
         let mut segments = [
             (
                 RUNTIME_SNAPSHOT_OWNER_ID,
@@ -970,10 +976,10 @@ mod tests {
                     .expect("runtime"),
             ),
             (
-                RPG_SNAPSHOT_OWNER_ID,
-                RPG_SNAPSHOT_SCHEMA_ID,
-                RPG_SNAPSHOT_SEGMENT_ID,
-                RPG_SNAPSHOT_SCHEMA_VERSION,
+                RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
+                RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+                RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID,
+                RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION,
                 checkpoint.rpg_snapshot.canonical_bytes().expect("RPG"),
             ),
             (
@@ -1109,10 +1115,10 @@ mod tests {
     }
 
     #[test]
-    fn replay_manifest_v3_jcs_round_trip_is_byte_exact() {
+    fn replay_manifest_v4_jcs_round_trip_is_byte_exact() {
         let (manifest, _) = replay_manifest();
         let bytes = manifest.to_jcs_bytes().expect("manifest encodes");
-        let decoded = ReplayManifestV3::from_jcs_bytes(&bytes, CanonicalDecodeLimits::default())
+        let decoded = ReplayManifestV4::from_jcs_bytes(&bytes, CanonicalDecodeLimits::default())
             .expect("manifest decodes");
         assert_eq!(decoded, manifest);
         assert_eq!(decoded.to_jcs_bytes().expect("manifest re-encodes"), bytes);
@@ -1122,9 +1128,20 @@ mod tests {
     fn replay_manifest_v2_jcs_is_rejected_before_nested_decoding() {
         let bytes = br#"{"schema_version":2}"#;
         assert!(matches!(
-            ReplayManifestV3::from_jcs_bytes(bytes, CanonicalDecodeLimits::default()),
+            ReplayManifestV4::from_jcs_bytes(bytes, CanonicalDecodeLimits::default()),
             Err(ManifestCodecError::Validation(
                 ManifestValidationError::UnsupportedReplayVersion(2)
+            ))
+        ));
+    }
+
+    #[test]
+    fn replay_manifest_v3_jcs_is_rejected_as_unsupported_rpg_schema() {
+        let bytes = br#"{"schema_version":3}"#;
+        assert!(matches!(
+            ReplayManifestV4::from_jcs_bytes(bytes, CanonicalDecodeLimits::default()),
+            Err(ManifestCodecError::Validation(
+                ManifestValidationError::RpgSchemaUnsupported
             ))
         ));
     }
@@ -1208,14 +1225,27 @@ mod tests {
     }
 
     #[test]
-    fn scenario_final_root_pins_v3_checkpoint_identity_ledger_archive_and_physics_closure() {
+    fn v3_replay_is_rejected_as_unsupported_rpg_schema_before_nested_decoding() {
+        let (mut manifest, _) = replay_manifest();
+        manifest.schema_version = 3;
+        manifest.initial_owner_segments.clear();
+        let error = run_replay_manifest(&manifest).expect_err("V3 replay fails closed");
+        assert!(matches!(
+            error,
+            ReplayError::Manifest(ManifestValidationError::RpgSchemaUnsupported)
+        ));
+        assert_eq!(error.stable_code(), "RPG_SCHEMA_UNSUPPORTED");
+    }
+
+    #[test]
+    fn scenario_final_root_pins_v4_checkpoint_identity_ledger_archive_and_physics_closure() {
         assert_eq!(
             run_replay(&scenario())
                 .expect("scenario runs")
                 .final_state_root()
                 .expect("scenario has ticks")
                 .to_hex(),
-            "d5937743dc3e0dd1fec6e55f8a65094e0225df14d7e4a8dfa7e3f4076b560419"
+            "e026f1e849b8d64b3748cd089e624d341377642734033b199794c706d7366e86"
         );
     }
 }

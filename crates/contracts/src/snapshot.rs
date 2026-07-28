@@ -3,26 +3,29 @@ use std::fmt::{Display, Formatter};
 
 use crate::{
     AuthoritativeNumericProfileV1, CANONICAL_TYPE_BYTES, CANONICAL_TYPE_U16, CANONICAL_TYPE_U32,
-    CANONICAL_TYPE_U64, CanonicalDecodeError, CanonicalDecodeLimits, CanonicalError,
-    CanonicalField, CausalIdentityKey, CausalIdentityKind, CommandBodyArchiveV1,
+    CANONICAL_TYPE_U64, CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_OFFER_NODE_ID,
+    CORE_DIALOGUE_QUEST_TRUST_DELTA, CORE_QUEST_ACTIVE_STATE_ID, CORE_QUEST_AVAILABLE_STATE_ID,
+    CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CanonicalDecodeError, CanonicalDecodeLimits,
+    CanonicalError, CanonicalField, CausalIdentityKey, CausalIdentityKind, CommandBodyArchiveV1,
     CommandLedgerError, CommandLedgerHash, CommandLedgerV2, CommandStreamRegistryV1,
     CoreDialogueQuestClosureError, IdentityContractError, IngressAssignmentProfileV1,
     IngressCheckpointV1, InputContractError, IssuerPrincipal, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PLAYER_INTERACTION_SYSTEM_ID, PhysicsContractError,
     PhysicsMotionKindV1, PhysicsQuantizationProfileV1, PhysicsWorldCheckpointV1,
     PlayerControllerRegistryV1, PrincipalRegistryV1, ResolvedCoreDialogueQuestBinding,
-    RpgDecodeError, RpgSnapshot, RuntimeAdmissionLimitsV1, RuntimeDeterminismProfileV1, StateRoot,
-    SystemId, TickRateProfileV1, WorldIdentityManifestV1, causal_provenance_hash,
-    decode_canonical_segment, encode_canonical_segment, sha256,
+    RpgAggregateKindV1, RpgAggregatePayloadV1, RpgContractErrorV1, RpgDecodeError,
+    RpgRuntimeBindingsV1, RpgSnapshot, RpgSnapshotV2, RuntimeAdmissionLimitsV1,
+    RuntimeDeterminismProfileV1, StateRoot, SystemId, TickRateProfileV1, WorldIdentityManifestV1,
+    causal_provenance_hash, decode_canonical_segment, encode_canonical_segment, sha256,
 };
 
-pub const RUNTIME_SNAPSHOT_SCHEMA_VERSION: u32 = 2;
+pub const RUNTIME_SNAPSHOT_SCHEMA_VERSION: u32 = 3;
 pub const RUNTIME_SNAPSHOT_OWNER_ID: &str = "nextengine.runtime";
 pub const RUNTIME_SNAPSHOT_SCHEMA_ID: &str = "nextengine.runtime-snapshot";
-pub const RUNTIME_SNAPSHOT_SEGMENT_ID: &str = "v2";
+pub const RUNTIME_SNAPSHOT_SEGMENT_ID: &str = "v3";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RuntimeSnapshotV2 {
+pub struct RuntimeSnapshotV3 {
     pub next_tick: u64,
     pub committed_event_count: u64,
     pub authoritative_revision: u64,
@@ -37,15 +40,16 @@ pub struct RuntimeSnapshotV2 {
     pub physics_quantization_profile: PhysicsQuantizationProfileV1,
     pub player_controller_registry: PlayerControllerRegistryV1,
     pub ingress_checkpoint: IngressCheckpointV1,
+    pub rpg_runtime_bindings: RpgRuntimeBindingsV1,
     pub command_ledger: CommandLedgerV2,
     pub body_archive: CommandBodyArchiveV1,
 }
 
-pub type RuntimeSnapshot = RuntimeSnapshotV2;
+pub type RuntimeSnapshot = RuntimeSnapshotV3;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WorldCheckpointV3 {
-    pub runtime_snapshot: RuntimeSnapshotV2,
+    pub runtime_snapshot: RuntimeSnapshotV3,
     pub rpg_snapshot: RpgSnapshot,
     pub physics_checkpoint: PhysicsWorldCheckpointV1,
     pub state_root: StateRoot,
@@ -53,7 +57,7 @@ pub struct WorldCheckpointV3 {
 
 impl WorldCheckpointV3 {
     pub fn new(
-        runtime_snapshot: RuntimeSnapshotV2,
+        runtime_snapshot: RuntimeSnapshotV3,
         rpg_snapshot: RpgSnapshot,
         physics_checkpoint: PhysicsWorldCheckpointV1,
     ) -> Result<Self, WorldCheckpointError> {
@@ -134,6 +138,246 @@ impl WorldCheckpointV3 {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WorldCheckpointV4 {
+    pub runtime_snapshot: RuntimeSnapshotV3,
+    pub rpg_snapshot: RpgSnapshotV2,
+    pub physics_checkpoint: PhysicsWorldCheckpointV1,
+    pub state_root: StateRoot,
+}
+
+impl WorldCheckpointV4 {
+    pub fn new(
+        runtime_snapshot: RuntimeSnapshotV3,
+        rpg_snapshot: RpgSnapshotV2,
+        physics_checkpoint: PhysicsWorldCheckpointV1,
+    ) -> Result<Self, WorldCheckpointError> {
+        let state_root =
+            world_checkpoint_v4_state_root(&runtime_snapshot, &rpg_snapshot, &physics_checkpoint)?;
+        let checkpoint = Self {
+            runtime_snapshot,
+            rpg_snapshot,
+            physics_checkpoint,
+            state_root,
+        };
+        checkpoint.validate()?;
+        Ok(checkpoint)
+    }
+
+    pub fn validate(&self) -> Result<(), WorldCheckpointError> {
+        self.runtime_snapshot.validate()?;
+        let rpg_bytes = self.rpg_snapshot.canonical_bytes()?;
+        if RpgSnapshotV2::from_canonical_bytes(&rpg_bytes, CanonicalDecodeLimits::default())?
+            != self.rpg_snapshot
+        {
+            return Err(WorldCheckpointError::ClosureMismatch);
+        }
+        self.physics_checkpoint.validate()?;
+        self.physics_checkpoint.snapshot.validate_profile_closure(
+            &self.physics_checkpoint.catalog,
+            &self.runtime_snapshot.tick_rate_profile,
+            &self.runtime_snapshot.authoritative_numeric_profile,
+            &self.runtime_snapshot.physics_quantization_profile,
+        )?;
+        validate_core_dialogue_quest_world_closure_v2(
+            &self.rpg_snapshot,
+            &self.runtime_snapshot.player_controller_registry,
+            &self.runtime_snapshot.principal_registry,
+            &self.runtime_snapshot.stream_registry,
+            &self.physics_checkpoint,
+        )?;
+        let expected_physics_tick = self
+            .runtime_snapshot
+            .next_tick
+            .checked_mul(u64::from(
+                self.runtime_snapshot
+                    .tick_rate_profile
+                    .physics_substeps_per_gameplay_tick,
+            ))
+            .ok_or(WorldCheckpointError::ClosureMismatch)?;
+        let bindings_close = self
+            .runtime_snapshot
+            .player_controller_registry
+            .bindings
+            .values()
+            .all(|binding| {
+                self.physics_checkpoint
+                    .catalog
+                    .avatar_bindings
+                    .get(&binding.controlled_body_id)
+                    .is_some_and(|body_id| {
+                        self.physics_checkpoint
+                            .snapshot
+                            .sorted_body_states
+                            .contains_key(body_id)
+                    })
+            });
+        if self.physics_checkpoint.snapshot.checkpoint_revision
+            != self.runtime_snapshot.authoritative_revision
+            || self.physics_checkpoint.snapshot.physics_tick != expected_physics_tick
+            || !bindings_close
+            || self.state_root
+                != world_checkpoint_v4_state_root(
+                    &self.runtime_snapshot,
+                    &self.rpg_snapshot,
+                    &self.physics_checkpoint,
+                )?
+        {
+            return Err(WorldCheckpointError::ClosureMismatch);
+        }
+        Ok(())
+    }
+}
+
+pub fn validate_core_dialogue_quest_world_closure_v2(
+    rpg_snapshot: &RpgSnapshotV2,
+    player_controller_registry: &PlayerControllerRegistryV1,
+    principal_registry: &PrincipalRegistryV1,
+    stream_registry: &CommandStreamRegistryV1,
+    physics_checkpoint: &PhysicsWorldCheckpointV1,
+) -> Result<(), CoreDialogueQuestClosureError> {
+    let has_core_records = rpg_snapshot.aggregates.iter().any(|aggregate| {
+        matches!(
+            &aggregate.payload,
+            RpgAggregatePayloadV1::Dialogue(payload)
+                if matches!(
+                    payload.node_id.as_str(),
+                    CORE_DIALOGUE_OFFER_NODE_ID | CORE_DIALOGUE_ACCEPTED_NODE_ID
+                )
+        ) || matches!(
+            &aggregate.payload,
+            RpgAggregatePayloadV1::Quest(payload)
+                if matches!(
+                    payload.state_id.as_str(),
+                    CORE_QUEST_AVAILABLE_STATE_ID | CORE_QUEST_ACTIVE_STATE_ID
+                )
+        )
+    });
+    if !has_core_records {
+        return Ok(());
+    }
+    if player_controller_registry.bindings.len() != 1 {
+        return Err(CoreDialogueQuestClosureError);
+    }
+    let controller = player_controller_registry
+        .bindings
+        .values()
+        .next()
+        .ok_or(CoreDialogueQuestClosureError)?;
+    let player_id = controller.controlled_body_id;
+
+    let mut dialogues = rpg_snapshot.aggregates.iter().filter_map(|aggregate| {
+        let RpgAggregatePayloadV1::Dialogue(payload) = &aggregate.payload else {
+            return None;
+        };
+        (payload.listener_id == player_id
+            && matches!(
+                payload.node_id.as_str(),
+                CORE_DIALOGUE_OFFER_NODE_ID | CORE_DIALOGUE_ACCEPTED_NODE_ID
+            ))
+        .then_some(payload)
+    });
+    let dialogue = dialogues.next().ok_or(CoreDialogueQuestClosureError)?;
+    if dialogues.next().is_some()
+        || !contains_aggregate(rpg_snapshot, RpgAggregateKindV1::Character, player_id)
+        || !contains_aggregate(
+            rpg_snapshot,
+            RpgAggregateKindV1::Character,
+            dialogue.speaker_id,
+        )
+    {
+        return Err(CoreDialogueQuestClosureError);
+    }
+
+    let mut quests = rpg_snapshot.aggregates.iter().filter_map(|aggregate| {
+        let RpgAggregatePayloadV1::Quest(payload) = &aggregate.payload else {
+            return None;
+        };
+        matches!(
+            payload.state_id.as_str(),
+            CORE_QUEST_AVAILABLE_STATE_ID | CORE_QUEST_ACTIVE_STATE_ID
+        )
+        .then_some(payload)
+    });
+    let quest = quests.next().ok_or(CoreDialogueQuestClosureError)?;
+    if quests.next().is_some() {
+        return Err(CoreDialogueQuestClosureError);
+    }
+
+    let mut relationships = rpg_snapshot.aggregates.iter().filter_map(|aggregate| {
+        let RpgAggregatePayloadV1::Relationship(payload) = &aggregate.payload else {
+            return None;
+        };
+        (payload.source_id == dialogue.speaker_id && payload.target_id == player_id)
+            .then_some(payload)
+    });
+    let relationship = relationships.next().ok_or(CoreDialogueQuestClosureError)?;
+    if relationships.next().is_some() {
+        return Err(CoreDialogueQuestClosureError);
+    }
+    let trust = relationship
+        .dimensions
+        .iter()
+        .find(|dimension| dimension.dimension_id.as_str() == CORE_RELATIONSHIP_TRUST_DIMENSION_ID)
+        .ok_or(CoreDialogueQuestClosureError)?
+        .value;
+    if !matches!(
+        (dialogue.node_id.as_str(), quest.state_id.as_str(), trust,),
+        (
+            CORE_DIALOGUE_OFFER_NODE_ID,
+            CORE_QUEST_AVAILABLE_STATE_ID,
+            0
+        ) | (
+            CORE_DIALOGUE_ACCEPTED_NODE_ID,
+            CORE_QUEST_ACTIVE_STATE_ID,
+            CORE_DIALOGUE_QUEST_TRUST_DELTA
+        )
+    ) {
+        return Err(CoreDialogueQuestClosureError);
+    }
+    if !physics_checkpoint
+        .catalog
+        .avatar_bindings
+        .contains_key(&player_id)
+    {
+        return Err(CoreDialogueQuestClosureError);
+    }
+    let mut npc_bodies = physics_checkpoint
+        .catalog
+        .bodies
+        .values()
+        .filter(|body| body.body_id.subject_id == dialogue.speaker_id);
+    if npc_bodies
+        .next()
+        .is_none_or(|body| body.motion_kind != PhysicsMotionKindV1::Static)
+        || npc_bodies.next().is_some()
+    {
+        return Err(CoreDialogueQuestClosureError);
+    }
+    let interaction_principal = IssuerPrincipal::InternalSystem(
+        SystemId::new(PLAYER_INTERACTION_SYSTEM_ID)
+            .expect("built-in player interaction system identifier is valid"),
+    );
+    if !principal_registry.is_active(&interaction_principal)
+        || !stream_registry.entries.keys().any(|key| {
+            key.principal == interaction_principal && key.stream_slot == 0 && key.stream_epoch == 0
+        })
+    {
+        return Err(CoreDialogueQuestClosureError);
+    }
+    Ok(())
+}
+
+fn contains_aggregate(
+    snapshot: &RpgSnapshotV2,
+    kind: RpgAggregateKindV1,
+    persistent_id: crate::PersistentId,
+) -> bool {
+    snapshot.aggregates.iter().any(|aggregate| {
+        aggregate.aggregate_kind == kind && aggregate.persistent_id == persistent_id
+    })
+}
+
 pub fn validate_core_dialogue_quest_world_closure(
     rpg_snapshot: &RpgSnapshot,
     player_controller_registry: &PlayerControllerRegistryV1,
@@ -190,7 +434,7 @@ pub fn validate_core_dialogue_quest_world_closure(
 }
 
 pub fn world_checkpoint_v3_state_root(
-    runtime_snapshot: &RuntimeSnapshotV2,
+    runtime_snapshot: &RuntimeSnapshotV3,
     rpg_snapshot: &RpgSnapshot,
     physics_checkpoint: &PhysicsWorldCheckpointV1,
 ) -> Result<StateRoot, CanonicalError> {
@@ -205,6 +449,35 @@ pub fn world_checkpoint_v3_state_root(
             crate::RPG_SNAPSHOT_OWNER_ID,
             crate::RPG_SNAPSHOT_SCHEMA_ID,
             crate::RPG_SNAPSHOT_SEGMENT_ID,
+            rpg_snapshot.canonical_bytes()?,
+        ),
+        (
+            crate::PHYSICS_SNAPSHOT_OWNER_ID,
+            PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+            PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
+            physics_checkpoint.canonical_bytes()?,
+        ),
+    ];
+    segments.sort_by_key(|(owner, schema, segment, _)| (*owner, *schema, *segment));
+    state_root_from_segments(segments)
+}
+
+pub fn world_checkpoint_v4_state_root(
+    runtime_snapshot: &RuntimeSnapshotV3,
+    rpg_snapshot: &RpgSnapshotV2,
+    physics_checkpoint: &PhysicsWorldCheckpointV1,
+) -> Result<StateRoot, CanonicalError> {
+    let mut segments = [
+        (
+            RUNTIME_SNAPSHOT_OWNER_ID,
+            RUNTIME_SNAPSHOT_SCHEMA_ID,
+            RUNTIME_SNAPSHOT_SEGMENT_ID,
+            runtime_snapshot.canonical_bytes()?,
+        ),
+        (
+            crate::RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
+            crate::RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+            crate::RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID,
             rpg_snapshot.canonical_bytes()?,
         ),
         (
@@ -287,6 +560,7 @@ pub enum WorldCheckpointError {
     Canonicalization(CanonicalError),
     Runtime(SnapshotDecodeError),
     Rpg(RpgDecodeError),
+    RpgV2(RpgContractErrorV1),
     Physics(PhysicsContractError),
     CoreInteractionClosure(CoreDialogueQuestClosureError),
     ClosureMismatch,
@@ -299,6 +573,7 @@ impl WorldCheckpointError {
             Self::ClosureMismatch => "WORLD_CHECKPOINT_CLOSURE_CORRUPT",
             Self::Runtime(error) => error.stable_code(),
             Self::Rpg(_) => "WORLD_CHECKPOINT_RPG_CORRUPT",
+            Self::RpgV2(error) => error.stable_code(),
             Self::Physics(_) => "WORLD_CHECKPOINT_PHYSICS_CORRUPT",
             Self::CoreInteractionClosure(error) => error.stable_code(),
             Self::Canonicalization(_) => "WORLD_CHECKPOINT_CANONICALIZATION_FAILED",
@@ -332,6 +607,12 @@ impl From<RpgDecodeError> for WorldCheckpointError {
     }
 }
 
+impl From<RpgContractErrorV1> for WorldCheckpointError {
+    fn from(error: RpgContractErrorV1) -> Self {
+        Self::RpgV2(error)
+    }
+}
+
 impl From<PhysicsContractError> for WorldCheckpointError {
     fn from(error: PhysicsContractError) -> Self {
         Self::Physics(error)
@@ -344,7 +625,7 @@ impl From<CoreDialogueQuestClosureError> for WorldCheckpointError {
     }
 }
 
-impl RuntimeSnapshotV2 {
+impl RuntimeSnapshotV3 {
     pub fn validate(&self) -> Result<(), SnapshotDecodeError> {
         self.world_identity.validate()?;
         self.principal_registry.validate()?;
@@ -357,6 +638,7 @@ impl RuntimeSnapshotV2 {
         self.physics_quantization_profile.validate()?;
         self.player_controller_registry.validate()?;
         self.ingress_checkpoint.validate(&self.admission_limits)?;
+        self.rpg_runtime_bindings.validate()?;
         let profile_hash = self.runtime_profile.profile_hash()?;
         let world = self.world_identity.world_namespace;
         if self.world_identity.runtime_determinism_profile_hash != profile_hash
@@ -572,6 +854,11 @@ impl RuntimeSnapshotV2 {
                     CANONICAL_TYPE_BYTES,
                     self.body_archive.canonical_bytes()?,
                 ),
+                CanonicalField::new(
+                    18,
+                    CANONICAL_TYPE_BYTES,
+                    self.rpg_runtime_bindings.canonical_bytes()?,
+                ),
             ],
         )
     }
@@ -670,6 +957,7 @@ impl RuntimeSnapshotV2 {
                 limits,
                 &admission_limits,
             )?,
+            rpg_runtime_bindings: RpgRuntimeBindingsV1::from_canonical_bytes(field(&segment, 18)?)?,
             command_ledger: CommandLedgerV2::from_canonical_bytes(
                 field(&segment, 16)?,
                 &archive,
@@ -703,6 +991,7 @@ pub enum SnapshotDecodeError {
     Ledger(CommandLedgerError),
     Input(InputContractError),
     Physics(PhysicsContractError),
+    RpgBindings(RpgContractErrorV1),
     WrongEnvelope,
     UnknownField(u32),
     MissingField(u32),
@@ -737,7 +1026,8 @@ impl SnapshotDecodeError {
             | Self::InactivePrincipal
             | Self::StreamRegistryMismatch
             | Self::CausalRegistryMismatch
-            | Self::Ledger(_) => "RUNTIME_SNAPSHOT_CLOSURE_CORRUPT",
+            | Self::Ledger(_)
+            | Self::RpgBindings(_) => "RUNTIME_SNAPSHOT_CLOSURE_CORRUPT",
             _ => "RUNTIME_SNAPSHOT_INVALID",
         }
     }
@@ -756,7 +1046,13 @@ impl Display for SnapshotDecodeError {
             Self::Physics(error) => {
                 write!(formatter, "snapshot physics profile is invalid: {error}")
             }
-            Self::WrongEnvelope => formatter.write_str("snapshot envelope does not match V2"),
+            Self::RpgBindings(error) => {
+                write!(
+                    formatter,
+                    "snapshot RPG runtime bindings are invalid: {error}"
+                )
+            }
+            Self::WrongEnvelope => formatter.write_str("snapshot envelope does not match V3"),
             Self::UnknownField(id) => write!(formatter, "unknown snapshot field {id}"),
             Self::MissingField(id) => write!(formatter, "missing snapshot field {id}"),
             Self::FieldType {
@@ -841,8 +1137,14 @@ impl From<PhysicsContractError> for SnapshotDecodeError {
     }
 }
 
+impl From<RpgContractErrorV1> for SnapshotDecodeError {
+    fn from(error: RpgContractErrorV1) -> Self {
+        Self::RpgBindings(error)
+    }
+}
+
 fn require_fields(segment: &crate::DecodedCanonicalSegment) -> Result<(), SnapshotDecodeError> {
-    const EXPECTED: [(u32, u8); 17] = [
+    const EXPECTED: [(u32, u8); 18] = [
         (1, CANONICAL_TYPE_U16),
         (2, CANONICAL_TYPE_U64),
         (3, CANONICAL_TYPE_U64),
@@ -860,6 +1162,7 @@ fn require_fields(segment: &crate::DecodedCanonicalSegment) -> Result<(), Snapsh
         (15, CANONICAL_TYPE_BYTES),
         (16, CANONICAL_TYPE_BYTES),
         (17, CANONICAL_TYPE_BYTES),
+        (18, CANONICAL_TYPE_BYTES),
     ];
     for actual in &segment.fields {
         if !EXPECTED.iter().any(|(id, _)| *id == actual.field_id) {
@@ -913,7 +1216,7 @@ mod tests {
 
     use super::*;
 
-    fn fixture() -> RuntimeSnapshotV2 {
+    fn fixture() -> RuntimeSnapshotV3 {
         let command_hash = ContentHash::from_bytes([7; 32]);
         let profile = RuntimeDeterminismProfileV1::bootstrap_default(command_hash);
         let world = WorldIdentityManifestV1::new(
@@ -987,7 +1290,7 @@ mod tests {
             AuthoritativeNumericProfileV1::capsule_reference_v1(&physics_quantization_profile)
                 .expect("numeric profile");
         let world_namespace = world.world_namespace;
-        RuntimeSnapshotV2 {
+        RuntimeSnapshotV3 {
             next_tick: 5,
             committed_event_count: 0,
             authoritative_revision: 3,
@@ -1013,24 +1316,30 @@ mod tests {
                 next_samples: Vec::new(),
                 last_closed_batch_hash: None,
             },
+            rpg_runtime_bindings: RpgRuntimeBindingsV1 {
+                project_composition_lock_hash: ContentHash::from_bytes([21; 32]),
+                schema_registry_hash: ContentHash::from_bytes([22; 32]),
+                budget_policy_hash: ContentHash::from_bytes([23; 32]),
+                active_definition_policy_hashes: vec![ContentHash::from_bytes([24; 32])],
+            },
             command_ledger: ledger,
             body_archive: archive,
         }
     }
 
     #[test]
-    fn v2_snapshot_round_trip_is_byte_exact() {
+    fn v3_snapshot_round_trip_is_byte_exact() {
         let snapshot = fixture();
         let bytes = snapshot.canonical_bytes().expect("snapshot bytes");
         let decoded =
-            RuntimeSnapshotV2::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
+            RuntimeSnapshotV3::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
                 .expect("snapshot decodes");
         assert_eq!(decoded, snapshot);
         assert_eq!(decoded.canonical_bytes().expect("decoded bytes"), bytes);
     }
 
     #[test]
-    fn v2_snapshot_rejects_ingress_controller_and_profile_closure_corruption() {
+    fn v3_snapshot_rejects_ingress_controller_and_profile_closure_corruption() {
         let mut corrupt_ingress = fixture();
         corrupt_ingress.ingress_checkpoint.current_tick -= 1;
         assert_eq!(
@@ -1071,7 +1380,7 @@ mod tests {
         )
         .expect("legacy-shaped bytes");
         let error =
-            RuntimeSnapshotV2::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
+            RuntimeSnapshotV3::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
                 .expect_err("V1 must be rejected");
         assert_eq!(error.stable_code(), "UNSUPPORTED_RUNTIME_SNAPSHOT_VERSION");
     }

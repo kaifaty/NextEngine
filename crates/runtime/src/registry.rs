@@ -3,10 +3,11 @@ use std::collections::BTreeMap;
 use next_contracts::{
     CapabilityId, CommandPayload, CommandPhase, ContentHash, NOOP_COMMAND_CAPABILITY_ID,
     NOOP_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_CAPABILITY_ID, PHYSICAL_COMMAND_SCHEMA_ID,
-    RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID, SchemaId, content_hash_from_bytes, sha256,
+    RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID, RPG_TRANSACTION_COMMAND_SCHEMA_VERSION,
+    SchemaId, content_hash_from_bytes, sha256,
 };
 
-pub const COMMAND_KIND_REGISTRY_VERSION: u32 = 1;
+pub const COMMAND_KIND_REGISTRY_VERSION: u32 = 2;
 pub const NOOP_PRIORITY_CLASS: u16 = 100;
 pub const RPG_PRIORITY_CLASS: u16 = 200;
 pub const PHYSICAL_PRIORITY_CLASS: u16 = 300;
@@ -107,7 +108,7 @@ impl CommandKindRegistry {
             SchemaId::new(RPG_COMMAND_SCHEMA_ID).expect("built-in RPG command schema ID is valid");
         let rpg_descriptor = CommandKindDescriptor {
             schema_id: rpg_schema_id.clone(),
-            schema_version: 1,
+            schema_version: RPG_TRANSACTION_COMMAND_SCHEMA_VERSION,
             payload_kind: CommandPayloadKind::Rpg,
             priority_class: RPG_PRIORITY_CLASS,
             required_capabilities: vec![
@@ -135,7 +136,10 @@ impl CommandKindRegistry {
             version: COMMAND_KIND_REGISTRY_VERSION,
             descriptors: BTreeMap::from([
                 ((noop_schema_id, 1), noop_descriptor),
-                ((rpg_schema_id, 1), rpg_descriptor),
+                (
+                    (rpg_schema_id, RPG_TRANSACTION_COMMAND_SCHEMA_VERSION),
+                    rpg_descriptor,
+                ),
                 ((physical_schema_id, 1), physical_descriptor),
             ]),
         }
@@ -210,7 +214,7 @@ impl Default for CommandKindRegistry {
 mod tests {
     use next_contracts::{
         COMMAND_SCHEMA_VERSION, CommandPayload, NOOP_COMMAND_SCHEMA_ID, RPG_COMMAND_SCHEMA_ID,
-        RpgCommand, SchemaId,
+        RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RpgCommandV1, SchemaId,
     };
 
     use super::{
@@ -235,22 +239,11 @@ mod tests {
         let rpg_schema =
             SchemaId::new(RPG_COMMAND_SCHEMA_ID).expect("built-in RPG command schema is valid");
         let rpg_descriptor = registry
-            .descriptor(&rpg_schema, COMMAND_SCHEMA_VERSION)
+            .descriptor(&rpg_schema, RPG_TRANSACTION_COMMAND_SCHEMA_VERSION)
             .expect("built-in RPG command kind is registered");
         assert_eq!(rpg_descriptor.priority_class(), RPG_PRIORITY_CLASS);
-        assert!(
-            rpg_descriptor.accepts_payload(&CommandPayload::Rpg(RpgCommand::TransferItem {
-                item_id: next_contracts::PersistentId::from_bytes([1; 16]),
-                expected_owner: None,
-                new_owner: None,
-            }))
-        );
-        assert!(
-            !descriptor.accepts_payload(&CommandPayload::Rpg(RpgCommand::TransferItem {
-                item_id: next_contracts::PersistentId::from_bytes([1; 16]),
-                expected_owner: None,
-                new_owner: None,
-            }))
-        );
+        let payload = CommandPayload::Rpg(RpgCommandV1 { operations: vec![] });
+        assert!(rpg_descriptor.accepts_payload(&payload));
+        assert!(!descriptor.accepts_payload(&payload));
     }
 }

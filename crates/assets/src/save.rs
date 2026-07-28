@@ -9,11 +9,12 @@ use next_contracts::{
     CanonicalDecodeLimits, CanonicalError, CommandLedgerDescriptorV2, ManifestCodecError,
     ManifestValidationError, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
-    PhysicsContractError, PhysicsWorldCheckpointV1, RPG_SNAPSHOT_OWNER_ID, RPG_SNAPSHOT_SCHEMA_ID,
-    RPG_SNAPSHOT_SCHEMA_VERSION, RPG_SNAPSHOT_SEGMENT_ID, RUNTIME_SNAPSHOT_OWNER_ID,
-    RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID, RpgDecodeError, RpgSnapshot,
-    RuntimeSnapshot, SaveCompatibility, SaveManifestV2, SaveSegmentDescriptor, SchemaId,
-    SnapshotDecodeError, WorldCheckpointError, WorldCheckpointV3,
+    PhysicsContractError, PhysicsWorldCheckpointV1, RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
+    RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION,
+    RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID, RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID,
+    RUNTIME_SNAPSHOT_SEGMENT_ID, RpgContractErrorV1, RpgSnapshotV2, RuntimeSnapshot,
+    SaveCompatibility, SaveManifestV2, SaveSegmentDescriptor, SchemaId, SnapshotDecodeError,
+    WorldCheckpointError, WorldCheckpointV4,
 };
 #[cfg(test)]
 use next_contracts::{
@@ -38,7 +39,7 @@ impl SaveImage {
     pub fn from_world_checkpoint(
         generation: u64,
         compatibility: SaveCompatibility,
-        checkpoint: &WorldCheckpointV3,
+        checkpoint: &WorldCheckpointV4,
     ) -> Result<Self, SaveStoreError> {
         checkpoint.validate()?;
         let runtime_snapshot = &checkpoint.runtime_snapshot;
@@ -57,10 +58,13 @@ impl SaveImage {
             "SAVE_RUNTIME_SNAPSHOT_MISSING",
         ))?;
         let rpg_descriptor = SaveSegmentDescriptor::for_bytes(
-            SchemaId::new(RPG_SNAPSHOT_OWNER_ID).map_err(CanonicalError::InvalidIdentifier)?,
-            SchemaId::new(RPG_SNAPSHOT_SCHEMA_ID).map_err(CanonicalError::InvalidIdentifier)?,
-            SchemaId::new(RPG_SNAPSHOT_SEGMENT_ID).map_err(CanonicalError::InvalidIdentifier)?,
-            RPG_SNAPSHOT_SCHEMA_VERSION,
+            SchemaId::new(RPG_AGGREGATE_SNAPSHOT_OWNER_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION,
             &rpg_bytes,
         )?;
         let physics_descriptor = SaveSegmentDescriptor::for_bytes(
@@ -146,18 +150,17 @@ impl SaveImage {
             return Err(SaveStoreError::InvalidImage("SAVE_COMMAND_LEDGER_MISMATCH"));
         }
         let rpg_index = self.manifest.segments.iter().position(|segment| {
-            segment.owner_id.as_str() == RPG_SNAPSHOT_OWNER_ID
-                && segment.schema_id.as_str() == RPG_SNAPSHOT_SCHEMA_ID
-                && segment.segment_id.as_str() == RPG_SNAPSHOT_SEGMENT_ID
+            segment.owner_id.as_str() == RPG_AGGREGATE_SNAPSHOT_OWNER_ID
+                && segment.schema_id.as_str() == RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID
+                && segment.segment_id.as_str() == RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID
         });
         let rpg_index =
             rpg_index.ok_or(SaveStoreError::InvalidImage("SAVE_RPG_SNAPSHOT_MISSING"))?;
-        if self.manifest.segments[rpg_index].schema_version != RPG_SNAPSHOT_SCHEMA_VERSION {
-            return Err(SaveStoreError::InvalidImage(
-                "SAVE_RPG_SNAPSHOT_VERSION_MISMATCH",
-            ));
+        if self.manifest.segments[rpg_index].schema_version != RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION
+        {
+            return Err(SaveStoreError::InvalidImage("RPG_SCHEMA_UNSUPPORTED"));
         }
-        let rpg_snapshot = RpgSnapshot::from_canonical_bytes(
+        let rpg_snapshot = RpgSnapshotV2::from_canonical_bytes(
             &self.segments[rpg_index],
             CanonicalDecodeLimits::default(),
         )?;
@@ -184,7 +187,7 @@ impl SaveImage {
             &self.segments[physics_index],
             CanonicalDecodeLimits::default(),
         )?;
-        let checkpoint = WorldCheckpointV3::new(
+        let checkpoint = WorldCheckpointV4::new(
             runtime_snapshot.clone(),
             rpg_snapshot.clone(),
             physics_checkpoint.clone(),
@@ -212,8 +215,8 @@ impl SaveImage {
 #[cfg(test)]
 fn synthetic_empty_checkpoint(
     runtime_snapshot: RuntimeSnapshot,
-    rpg_snapshot: RpgSnapshot,
-) -> Result<WorldCheckpointV3, SaveStoreError> {
+    rpg_snapshot: RpgSnapshotV2,
+) -> Result<WorldCheckpointV4, SaveStoreError> {
     if !runtime_snapshot
         .player_controller_registry
         .bindings
@@ -270,7 +273,7 @@ fn synthetic_empty_checkpoint(
     physics_checkpoint
         .canonical_bytes()
         .map_err(|_| SaveStoreError::InvalidImage("SAVE_PHYSICS_SNAPSHOT_INVALID"))?;
-    Ok(WorldCheckpointV3::new(
+    Ok(WorldCheckpointV4::new(
         runtime_snapshot,
         rpg_snapshot,
         physics_checkpoint,
@@ -279,9 +282,9 @@ fn synthetic_empty_checkpoint(
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ValidatedSaveImage {
-    pub checkpoint: WorldCheckpointV3,
+    pub checkpoint: WorldCheckpointV4,
     pub runtime_snapshot: RuntimeSnapshot,
-    pub rpg_snapshot: RpgSnapshot,
+    pub rpg_snapshot: RpgSnapshotV2,
     pub physics_checkpoint: PhysicsWorldCheckpointV1,
 }
 
@@ -294,9 +297,9 @@ pub struct SaveCommitReceipt {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LoadedSave {
     pub image: SaveImage,
-    pub checkpoint: WorldCheckpointV3,
+    pub checkpoint: WorldCheckpointV4,
     pub snapshot: RuntimeSnapshot,
-    pub rpg_snapshot: RpgSnapshot,
+    pub rpg_snapshot: RpgSnapshotV2,
     pub physics_checkpoint: PhysicsWorldCheckpointV1,
     pub slot: u8,
     pub rejected_generations: Vec<RejectedGeneration>,
@@ -337,7 +340,7 @@ impl SaveStore {
         compatibility: SaveCompatibility,
         snapshot: &RuntimeSnapshot,
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
-        let checkpoint = synthetic_empty_checkpoint(snapshot.clone(), RpgSnapshot::default())?;
+        let checkpoint = synthetic_empty_checkpoint(snapshot.clone(), RpgSnapshotV2::default())?;
         self.commit_world_checkpoint_inner(compatibility, &checkpoint, None)
     }
 
@@ -346,7 +349,7 @@ impl SaveStore {
         &self,
         compatibility: SaveCompatibility,
         runtime_snapshot: &RuntimeSnapshot,
-        rpg_snapshot: &RpgSnapshot,
+        rpg_snapshot: &RpgSnapshotV2,
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
         let checkpoint =
             synthetic_empty_checkpoint(runtime_snapshot.clone(), rpg_snapshot.clone())?;
@@ -356,7 +359,7 @@ impl SaveStore {
     pub fn commit_world_checkpoint(
         &self,
         compatibility: SaveCompatibility,
-        checkpoint: &WorldCheckpointV3,
+        checkpoint: &WorldCheckpointV4,
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
         self.commit_world_checkpoint_inner(compatibility, checkpoint, None)
     }
@@ -381,14 +384,14 @@ impl SaveStore {
         snapshot: &RuntimeSnapshot,
         fault: Option<CommitBoundary>,
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
-        let checkpoint = synthetic_empty_checkpoint(snapshot.clone(), RpgSnapshot::default())?;
+        let checkpoint = synthetic_empty_checkpoint(snapshot.clone(), RpgSnapshotV2::default())?;
         self.commit_world_checkpoint_inner(compatibility, &checkpoint, fault)
     }
 
     fn commit_world_checkpoint_inner(
         &self,
         compatibility: SaveCompatibility,
-        checkpoint: &WorldCheckpointV3,
+        checkpoint: &WorldCheckpointV4,
         fault: Option<CommitBoundary>,
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
         fs::create_dir_all(&self.root)
@@ -748,7 +751,7 @@ pub enum SaveStoreError {
     ManifestValidation(ManifestValidationError),
     ManifestCodec(ManifestCodecError),
     SnapshotDecode(SnapshotDecodeError),
-    RpgSnapshotDecode(RpgDecodeError),
+    RpgSnapshotDecode(RpgContractErrorV1),
     PhysicsSnapshotDecode(PhysicsContractError),
     WorldCheckpoint(WorldCheckpointError),
     InvalidImage(&'static str),
@@ -774,7 +777,7 @@ impl SaveStoreError {
             Self::ManifestValidation(_) => "SAVE_MANIFEST_INVALID",
             Self::ManifestCodec(_) => "SAVE_MANIFEST_CODEC_FAILED",
             Self::SnapshotDecode(_) => "SAVE_SNAPSHOT_INVALID",
-            Self::RpgSnapshotDecode(_) => "SAVE_RPG_SNAPSHOT_INVALID",
+            Self::RpgSnapshotDecode(error) => error.stable_code(),
             Self::PhysicsSnapshotDecode(_) => "SAVE_PHYSICS_SNAPSHOT_INVALID",
             Self::WorldCheckpoint(error) => error.stable_code(),
             Self::InvalidImage(code) | Self::InvalidStaging(code) => code,
@@ -856,8 +859,8 @@ impl From<SnapshotDecodeError> for SaveStoreError {
     }
 }
 
-impl From<RpgDecodeError> for SaveStoreError {
-    fn from(error: RpgDecodeError) -> Self {
+impl From<RpgContractErrorV1> for SaveStoreError {
+    fn from(error: RpgContractErrorV1) -> Self {
         Self::RpgSnapshotDecode(error)
     }
 }
@@ -901,7 +904,7 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use next_contracts::{
-        ContentHash, RpgSnapshot, RuntimeSnapshot, SaveCompatibility, SchemaId, TickSettings,
+        ContentHash, RpgSnapshotV2, RuntimeSnapshot, SaveCompatibility, SchemaId, TickSettings,
     };
 
     use super::{CommitBoundary, SaveStore};
@@ -991,7 +994,7 @@ mod tests {
         let directory = TestDirectory::new();
         let store = SaveStore::new(&directory.path);
         let compatibility = compatibility(1);
-        let rpg_snapshot = RpgSnapshot::default();
+        let rpg_snapshot = RpgSnapshotV2::default();
 
         store
             .commit_world_snapshot(compatibility.clone(), &snapshot(1), &rpg_snapshot)

@@ -10,6 +10,7 @@ mod manifest_jcs;
 mod persistence;
 mod physics;
 mod rpg;
+mod rpg_v1;
 mod snapshot;
 
 pub use canonical::{
@@ -80,10 +81,10 @@ pub use ledger::{
     command_receipt_chain_next, command_receipt_digest,
 };
 pub use persistence::{
-    AuthorityGrant, CommandLedgerDescriptorV2, DecodedReplayTickV3, HashBinding,
-    ManifestCodecError, ManifestValidationError, REPLAY_MANIFEST_V3_SCHEMA_VERSION,
-    ReplayCommandRecord, ReplayCommandResultV2, ReplayComparePointV3, ReplayManifestV3,
-    ReplayOwnerSegmentV2, ReplayTickManifestV3, SAVE_MANIFEST_SCHEMA_VERSION, SaveCompatibility,
+    AuthorityGrant, CommandLedgerDescriptorV2, DecodedReplayTickV4, HashBinding,
+    ManifestCodecError, ManifestValidationError, REPLAY_MANIFEST_V4_SCHEMA_VERSION,
+    ReplayCommandRecord, ReplayCommandResultV2, ReplayComparePointV4, ReplayManifestV4,
+    ReplayOwnerSegmentV2, ReplayTickManifestV4, SAVE_MANIFEST_SCHEMA_VERSION, SaveCompatibility,
     SaveManifestV2, SaveSegmentDescriptor, SchemaBinding, TickSettings,
 };
 pub use physics::{
@@ -128,9 +129,24 @@ pub use rpg::{
     SKILL_PROFICIENCY_MAX, SkillProficiency, SkillProficiencyEntry, SkillProficiencyError,
     WorldChunkRecordSnapshot,
 };
+pub use rpg_v1::{
+    CharacterPayloadV1, DefinitionRefV1, DialoguePayloadV1, DivineStandingPayloadV1,
+    EquipmentPayloadV1, EquipmentSlotAssignmentV1, FactionMembershipPayloadV1, FactionPayloadV1,
+    InteractiveObjectPayloadV1, InventoryPayloadV1, InventoryReservationV1, ItemPayloadV1,
+    ProvenanceBindingV1, QuestPayloadV1, RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
+    RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION,
+    RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID, RPG_MAX_AGGREGATES_PER_SNAPSHOT, RPG_MAX_COLLECTION_ENTRIES,
+    RPG_MAX_OPERATIONS_PER_COMMAND, RPG_TRANSACTION_COMMAND_SCHEMA_VERSION,
+    RPG_TRANSACTION_PLAN_SCHEMA_ID, RelationshipDimensionV1, RelationshipPayloadV1,
+    RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgAggregateRefV1,
+    RpgCommandV1, RpgContractErrorV1, RpgEventDraftV1, RpgEventV1, RpgOperationPayloadV1,
+    RpgOperationV1, RpgReadSetEntryV1, RpgRuntimeBindingsV1, RpgSnapshotV2, RpgTransactionPlanV1,
+    RpgWriteSetEntryV1, SkillProficiencyEntryV1,
+};
 pub use snapshot::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SCHEMA_VERSION,
-    RUNTIME_SNAPSHOT_SEGMENT_ID, RuntimeSnapshot, RuntimeSnapshotV2, SnapshotDecodeError,
-    WorldCheckpointError, WorldCheckpointV3, validate_core_dialogue_quest_world_closure,
-    world_checkpoint_v3_state_root,
+    RUNTIME_SNAPSHOT_SEGMENT_ID, RuntimeSnapshot, RuntimeSnapshotV3, SnapshotDecodeError,
+    WorldCheckpointError, WorldCheckpointV3, WorldCheckpointV4,
+    validate_core_dialogue_quest_world_closure, world_checkpoint_v3_state_root,
+    world_checkpoint_v4_state_root,
 };

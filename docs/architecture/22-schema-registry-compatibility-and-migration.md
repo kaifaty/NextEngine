@@ -4,17 +4,20 @@
 |---|---|
 | ID | SPEC-22 |
 | Статус | Accepted |
-| Версия | 1.2 |
-| Последняя проверка | 2026-07-27 |
+| Версия | 1.3 |
+| Последняя проверка | 2026-07-28 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md) |
 | Заменяет | отсутствует |
 
 ## Назначение и invariants
 
 ADR-032 применяет этот contract к grounded-capsule checkpoint: incomplete
-physics snapshot V1 и replay V2 имеют class `Unsupported`, active snapshot V2
-и replay V3 — `Exact`, а unchanged generic `SaveManifestV2` связывает новый
-physics segment через его exact descriptor.
+physics snapshot V1 и replay V2 имеют class `Unsupported`, active physical
+snapshot V2 — `Exact`, а unchanged generic `SaveManifestV2` связывает новый
+physics segment через его exact descriptor. Current RPG aggregate snapshot V2,
+`RuntimeSnapshotV3`, `WorldCheckpointV4` и `ReplayManifestV4` имеют class
+`Exact`; bootstrap RPG/replay V3 artifacts имеют class `Unsupported` и
+возвращают `RPG_SCHEMA_UNSUPPORTED` до nested decode или activation.
 
 SPEC-22 задаёт один engine-owned schema contract для content, project composition, authoritative state, save/replay, commands, events, immutable projections и process protocols.
 

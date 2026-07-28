@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 1.12 |
-| Последняя проверка | 2026-07-27 |
+| Версия | 1.13 |
+| Последняя проверка | 2026-07-28 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | отсутствует |
 
@@ -15,7 +15,10 @@ ADR-032 специализирует active grounded-capsule persistence boundar
 `SaveManifestV2` остаётся generic segment envelope, а complete physical owner
 segment содержит `PhysicsWorldCheckpointV1` с
 `PhysicsCanonicalSnapshotV2`. Prototype physics snapshot V1 не является
-activation или fallback candidate.
+activation или fallback candidate. Current composite activation использует
+`RuntimeSnapshotV3` + RPG aggregate snapshot V2 +
+`PhysicsWorldCheckpointV1` в `WorldCheckpointV4`; `ReplayManifestV4` связывает
+те же owner segments и fixed-stage compare points.
 
 До cooking source files и validated `ProjectManifest` являются authoring source of truth. После atomic publish `ProjectCompositionLock` + `SchemaRegistryManifestV1` + `ContentManifestV1` + `WorldPartitionManifestV1` + immutable content-addressed bundles являются единственным runtime project/schema/asset/world/model source. Save state владеет только mutable progression/deltas, durable placement/tombstones, selected model/route references и declared PolicyState; оно не копирует immutable model weights или asset payload. Asset & Persistence subsystem владеет schema/content publication, cooker, low-level streaming state machine, atomic lock publication, save transactions и migration execution; semantic schema compatibility задаёт SPEC-22/ADR-025, resource admission — SPEC-23/ADR-026, durable topology/placement — SPEC-25.
 

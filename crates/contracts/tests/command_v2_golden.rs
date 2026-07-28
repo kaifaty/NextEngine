@@ -1,6 +1,7 @@
 use next_contracts::{
     CanonicalDecodeLimits, CommandStreamId, IssuerPrincipal, PersistentId, PlayerPrincipalId,
-    RpgCommand, SchemaId, WorldCommand,
+    RpgAggregateKindV1, RpgAggregateRefV1, RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1,
+    SchemaId, WorldCommand,
 };
 
 struct GoldenVector<'a> {
@@ -98,10 +99,22 @@ fn rpg_command_matches_neutral_v2_golden_vector() {
         IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([5; 16])),
         8,
         13,
-        RpgCommand::LearnSkill {
-            character_id: PersistentId::from_bytes([6; 16]),
-            skill_id: SchemaId::new("rpg.skill.survival").expect("valid skill ID"),
-            delta: 25,
+        RpgCommandV1 {
+            operations: vec![RpgOperationV1 {
+                operation_slot: 0,
+                targets: vec![RpgAggregateRefV1 {
+                    aggregate_kind: RpgAggregateKindV1::Character,
+                    persistent_id: PersistentId::from_bytes([6; 16]),
+                    expected_revision: 0,
+                }],
+                definition_policy_hashes: vec![],
+                payload: RpgOperationPayloadV1::SetSkillProficiency {
+                    character_id: PersistentId::from_bytes([6; 16]),
+                    skill_id: SchemaId::new("rpg.skill.survival").expect("valid skill ID"),
+                    expected_value: 0,
+                    new_value: 25,
+                },
+            }],
         },
     )
     .expect("fixed RPG command is canonical");

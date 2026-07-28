@@ -8,20 +8,23 @@ use next_assets::SaveStore;
 use next_contracts::{
     AuthorityGrant, CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_QUEST_TRUST_DELTA,
     CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_QUEST_ACTIVE_STATE_ID,
-    CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CharacterSnapshot, CommandLedgerHash, ContactPhaseV1,
-    ContentHash, EventPayload, InputMappingCodeV1, IssuerPrincipal, ItemSnapshot,
-    PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+    CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CharacterPayloadV1, CommandLedgerHash, ContactPhaseV1,
+    ContentHash, EventPayload, InputMappingCodeV1, InventoryPayloadV1, IssuerPrincipal,
+    ItemPayloadV1, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PersistentId,
-    PhysicsPoseV1, PhysicsWorldCheckpointV1, PlayerActionPhaseV1, RPG_SNAPSHOT_OWNER_ID,
-    RPG_SNAPSHOT_SCHEMA_ID, RPG_SNAPSHOT_SCHEMA_VERSION, RPG_SNAPSHOT_SEGMENT_ID,
-    RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SCHEMA_VERSION,
-    RUNTIME_SNAPSHOT_SEGMENT_ID, ReplayComparePointV3, ReplayManifestV3, ReplayOwnerSegmentV2,
-    ReplayTickManifestV3, RpgCommand, RpgEvent, RpgSnapshot, SaveCompatibility,
-    SaveSegmentDescriptor, SchemaId, StateRoot, TickSettings, WorldCheckpointV3, WorldCommand,
+    PhysicsPoseV1, PhysicsWorldCheckpointV1, PlayerActionPhaseV1, RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
+    RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION,
+    RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID, RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID,
+    RUNTIME_SNAPSHOT_SCHEMA_VERSION, RUNTIME_SNAPSHOT_SEGMENT_ID, ReplayComparePointV4,
+    ReplayManifestV4, ReplayOwnerSegmentV2, ReplayTickManifestV4, RpgAggregateEnvelopeV1,
+    RpgAggregateKindV1, RpgAggregatePayloadV1, RpgAggregateRefV1, RpgCommandV1, RpgEventV1,
+    RpgOperationPayloadV1, RpgOperationV1, RpgSnapshotV2, SaveCompatibility, SaveSegmentDescriptor,
+    SchemaId, StateRoot, TickSettings, WorldCheckpointV4, WorldCommand,
 };
 use next_physics_api::PhysicsBackendPolicy;
 use next_runtime::{PhysicsLaunchOptions, RuntimeState, TickReport};
 
+use crate::player_fixture::fixture_aggregate;
 use crate::{
     ReplayOutput, build_neutral_player_fixture, build_physx_player_fixture,
     checkpoint_segment_hashes, compute_world_checkpoint_root, core_interaction_rpg_snapshot,
@@ -331,11 +334,15 @@ pub(crate) fn run_persistence_replay_check_for_project(
             .filter(|event| {
                 matches!(
                     event.payload,
-                    EventPayload::Rpg(RpgEvent::DialogueQuestAdvanced { .. })
+                    EventPayload::Rpg(
+                        RpgEventV1::DialogueAdvanced { .. }
+                            | RpgEventV1::QuestTransitioned { .. }
+                            | RpgEventV1::RelationshipAdjusted { .. }
+                    )
                 )
             })
             .count()
-            != 1
+            != 3
     {
         return Err(PersistenceReplayCheckError::condition(
             "queued contact-gated interaction continues exactly after restore",
@@ -520,61 +527,75 @@ pub(crate) fn run_persistence_replay_check_for_project(
             "queued movement applies exactly once",
         ));
     }
-    let interactive_object_state = final_checkpoint
-        .rpg_snapshot
-        .interactive_objects
-        .iter()
-        .find(|object| object.id == fixture.interactive_object_id)
-        .ok_or_else(|| PersistenceReplayCheckError::condition("final interactive object exists"))?
-        .state_id
-        .clone();
+    let interactive_object_state = match aggregate_payload(
+        &final_checkpoint.rpg_snapshot,
+        RpgAggregateKindV1::InteractiveObject,
+        fixture.interactive_object_id,
+    ) {
+        Some(RpgAggregatePayloadV1::InteractiveObject(object)) => object.state_id.clone(),
+        _ => {
+            return Err(PersistenceReplayCheckError::condition(
+                "final interactive object exists",
+            ));
+        }
+    };
     let rpg_events = reports
         .iter()
         .flat_map(|report| &report.events)
-        .filter(|event| {
-            matches!(
-                event.payload,
-                EventPayload::Rpg(
-                    RpgEvent::InteractiveObjectStateChanged { .. }
-                        | RpgEvent::DialogueQuestAdvanced { .. }
-                )
-            )
-        })
+        .filter(|event| matches!(event.payload, EventPayload::Rpg(_)))
         .count();
-    let dialogue_node_id = final_checkpoint
-        .rpg_snapshot
-        .dialogues
-        .iter()
-        .find(|dialogue| dialogue.id == fixture.dialogue_id)
-        .ok_or_else(|| PersistenceReplayCheckError::condition("final core dialogue exists"))?
-        .node_id
-        .clone();
-    let quest_state_id = final_checkpoint
-        .rpg_snapshot
-        .quests
-        .iter()
-        .find(|quest| quest.id == fixture.quest_id)
-        .ok_or_else(|| PersistenceReplayCheckError::condition("final core quest exists"))?
-        .state_id
-        .clone();
-    let npc_player_trust = final_checkpoint
-        .rpg_snapshot
-        .characters
-        .iter()
-        .find(|character| character.id == fixture.npc_character_id)
-        .ok_or_else(|| PersistenceReplayCheckError::condition("final core NPC exists"))?
-        .relationships
-        .iter()
-        .find(|relationship| {
-            relationship.target == fixture.body_id
-                && relationship.dimension_id.as_str() == CORE_RELATIONSHIP_TRUST_DIMENSION_ID
-        })
-        .map_or(0, |relationship| relationship.value);
+    let dialogue_node_id = match aggregate_payload(
+        &final_checkpoint.rpg_snapshot,
+        RpgAggregateKindV1::Dialogue,
+        fixture.dialogue_id,
+    ) {
+        Some(RpgAggregatePayloadV1::Dialogue(dialogue)) => dialogue.node_id.clone(),
+        _ => {
+            return Err(PersistenceReplayCheckError::condition(
+                "final core dialogue exists",
+            ));
+        }
+    };
+    let quest_state_id = match aggregate_payload(
+        &final_checkpoint.rpg_snapshot,
+        RpgAggregateKindV1::Quest,
+        fixture.quest_id,
+    ) {
+        Some(RpgAggregatePayloadV1::Quest(quest)) => quest.state_id.clone(),
+        _ => {
+            return Err(PersistenceReplayCheckError::condition(
+                "final core quest exists",
+            ));
+        }
+    };
+    let npc_player_trust = match aggregate_payload(
+        &final_checkpoint.rpg_snapshot,
+        RpgAggregateKindV1::Relationship,
+        fixture.relationship_id,
+    ) {
+        Some(RpgAggregatePayloadV1::Relationship(relationship))
+            if relationship.source_id == fixture.npc_character_id
+                && relationship.target_id == fixture.body_id =>
+        {
+            relationship
+                .dimensions
+                .iter()
+                .find(|dimension| {
+                    dimension.dimension_id.as_str() == CORE_RELATIONSHIP_TRUST_DIMENSION_ID
+                })
+                .map_or(0, |dimension| dimension.value)
+        }
+        _ => {
+            return Err(PersistenceReplayCheckError::condition(
+                "final core relationship exists",
+            ));
+        }
+    };
     if interactive_object_state.as_str() != CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
         || dialogue_node_id.as_str() != CORE_DIALOGUE_ACCEPTED_NODE_ID
         || quest_state_id.as_str() != CORE_QUEST_ACTIVE_STATE_ID
         || npc_player_trust != CORE_DIALOGUE_QUEST_TRUST_DELTA
-        || rpg_events != 2
+        || rpg_events != 6
     {
         return Err(PersistenceReplayCheckError::condition(
             "interaction activates object exactly once",
@@ -607,10 +628,10 @@ pub(crate) fn run_persistence_replay_check_for_project(
 fn replay_manifest(
     compatibility: SaveCompatibility,
     authority: &next_runtime::AuthorityRegistry,
-    initial_checkpoint: WorldCheckpointV3,
+    initial_checkpoint: WorldCheckpointV4,
     reports: &[TickReport],
     direct_commands: Vec<Vec<WorldCommand>>,
-) -> Result<ReplayManifestV3, PersistenceReplayCheckError> {
+) -> Result<ReplayManifestV4, PersistenceReplayCheckError> {
     let initial_state_root =
         compute_world_checkpoint_root(&initial_checkpoint).map_err(|error| {
             PersistenceReplayCheckError::new("initial replay root", error.to_string())
@@ -632,7 +653,7 @@ fn replay_manifest(
                 "recorded replay ticks are contiguous",
             ));
         }
-        let checkpoint = WorldCheckpointV3::new(
+        let checkpoint = WorldCheckpointV4::new(
             report.snapshot.clone(),
             report.rpg_snapshot.clone(),
             PhysicsWorldCheckpointV1::new(physics_catalog.clone(), report.physics_snapshot.clone())
@@ -657,7 +678,7 @@ fn replay_manifest(
             .map_err(|error| {
                 PersistenceReplayCheckError::new("record direct commands", error.to_string())
             })?;
-        ticks.push(ReplayTickManifestV3 {
+        ticks.push(ReplayTickManifestV4 {
             tick: report.tick,
             closed_ingress_batch: report.closed_ingress_batch.clone(),
             direct_external_commands,
@@ -669,7 +690,7 @@ fn replay_manifest(
             expected_command_results: replay_command_results(&report.results),
             expected_events: report.events.clone(),
         });
-        compare_points.push(ReplayComparePointV3 {
+        compare_points.push(ReplayComparePointV4 {
             tick: report.tick,
             state_root,
             command_ledger_hash: report.snapshot.command_ledger_hash().map_err(|error| {
@@ -687,8 +708,8 @@ fn replay_manifest(
             outcome_command_batch_hash: report.command_batches[1].batch_hash,
         });
     }
-    Ok(ReplayManifestV3 {
-        schema_version: next_contracts::REPLAY_MANIFEST_V3_SCHEMA_VERSION,
+    Ok(ReplayManifestV4 {
+        schema_version: next_contracts::REPLAY_MANIFEST_V4_SCHEMA_VERSION,
         compatibility,
         initial_owner_segments,
         initial_state_root,
@@ -699,7 +720,7 @@ fn replay_manifest(
 }
 
 fn owner_segments(
-    checkpoint: &WorldCheckpointV3,
+    checkpoint: &WorldCheckpointV4,
 ) -> Result<Vec<ReplayOwnerSegmentV2>, PersistenceReplayCheckError> {
     let raw = [
         (
@@ -715,10 +736,10 @@ fn owner_segments(
                 })?,
         ),
         (
-            RPG_SNAPSHOT_OWNER_ID,
-            RPG_SNAPSHOT_SCHEMA_ID,
-            RPG_SNAPSHOT_SEGMENT_ID,
-            RPG_SNAPSHOT_SCHEMA_VERSION,
+            RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
+            RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+            RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID,
+            RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION,
             checkpoint.rpg_snapshot.canonical_bytes().map_err(|error| {
                 PersistenceReplayCheckError::new("RPG segment", error.to_string())
             })?,
@@ -790,7 +811,7 @@ fn compare_replay(
         ));
     }
     for (report, replay_tick) in reports.iter().zip(&replay.ticks) {
-        let checkpoint = WorldCheckpointV3::new(
+        let checkpoint = WorldCheckpointV4::new(
             report.snapshot.clone(),
             report.rpg_snapshot.clone(),
             PhysicsWorldCheckpointV1::new(
@@ -831,39 +852,81 @@ fn compare_replay(
     Ok(())
 }
 
+fn aggregate_payload(
+    snapshot: &RpgSnapshotV2,
+    kind: RpgAggregateKindV1,
+    persistent_id: PersistentId,
+) -> Option<&RpgAggregatePayloadV1> {
+    snapshot
+        .aggregates
+        .iter()
+        .find(|aggregate| {
+            aggregate.aggregate_kind == kind && aggregate.persistent_id == persistent_id
+        })
+        .map(|aggregate| &aggregate.payload)
+}
+
 fn initial_rpg_snapshot(
     fixture: &crate::NeutralPlayerFixture,
-) -> Result<RpgSnapshot, PersistenceReplayCheckError> {
+) -> Result<RpgSnapshotV2, PersistenceReplayCheckError> {
     let mut snapshot = core_interaction_rpg_snapshot(fixture);
-    snapshot.characters.extend([
-        CharacterSnapshot {
-            id: PersistentId::from_bytes([0x20; 16]),
-            revision: 0,
-            archetype_id: SchemaId::new("rpg.character.persistence-owner").map_err(|error| {
-                PersistenceReplayCheckError::new("owner archetype", error.to_string())
-            })?,
-            skills: vec![],
-            relationships: vec![],
-        },
-        CharacterSnapshot {
-            id: PersistentId::from_bytes([0x30; 16]),
-            revision: 0,
-            archetype_id: SchemaId::new("rpg.character.persistence-recipient").map_err(
-                |error| PersistenceReplayCheckError::new("recipient archetype", error.to_string()),
-            )?,
-            skills: vec![],
-            relationships: vec![],
-        },
+    let item_id = PersistentId::from_bytes([0x10; 16]);
+    let first_character_id = PersistentId::from_bytes([0x20; 16]);
+    let first_inventory_id = PersistentId::from_bytes([0x21; 16]);
+    let second_character_id = PersistentId::from_bytes([0x30; 16]);
+    let second_inventory_id = PersistentId::from_bytes([0x31; 16]);
+    snapshot.aggregates.extend([
+        fixture_aggregate(
+            first_character_id,
+            0x20,
+            RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                inventory_id: Some(first_inventory_id),
+                equipment_id: None,
+                skills: Vec::new(),
+            }),
+        ),
+        fixture_aggregate(
+            second_character_id,
+            0x30,
+            RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                inventory_id: Some(second_inventory_id),
+                equipment_id: None,
+                skills: Vec::new(),
+            }),
+        ),
+        fixture_aggregate(
+            item_id,
+            0x10,
+            RpgAggregatePayloadV1::Item(ItemPayloadV1 {
+                quantity: 1,
+                durability: 100,
+                custom_state: Vec::new(),
+            }),
+        ),
+        fixture_aggregate(
+            first_inventory_id,
+            0x21,
+            RpgAggregatePayloadV1::Inventory(InventoryPayloadV1 {
+                owner_id: first_character_id,
+                capacity: 8,
+                item_ids: vec![item_id],
+                reservations: Vec::new(),
+            }),
+        ),
+        fixture_aggregate(
+            second_inventory_id,
+            0x31,
+            RpgAggregatePayloadV1::Inventory(InventoryPayloadV1 {
+                owner_id: second_character_id,
+                capacity: 8,
+                item_ids: Vec::new(),
+                reservations: Vec::new(),
+            }),
+        ),
     ]);
-    snapshot.items.push(ItemSnapshot {
-        id: PersistentId::from_bytes([0x10; 16]),
-        revision: 0,
-        archetype_id: SchemaId::new("rpg.item.persistence-token").map_err(|error| {
-            PersistenceReplayCheckError::new("item archetype", error.to_string())
-        })?,
-        owner: Some(PersistentId::from_bytes([0x20; 16])),
-        quantity: 1,
-    });
+    snapshot
+        .aggregates
+        .sort_by_key(|aggregate| (aggregate.aggregate_kind, aggregate.persistent_id));
     Ok(snapshot)
 }
 
@@ -872,19 +935,45 @@ fn rpg_commands(
     principal: IssuerPrincipal,
 ) -> Result<Vec<WorldCommand>, PersistenceReplayCheckError> {
     let item_id = PersistentId::from_bytes([0x10; 16]);
-    let first_owner = PersistentId::from_bytes([0x20; 16]);
-    let second_owner = PersistentId::from_bytes([0x30; 16]);
+    let first_inventory_id = PersistentId::from_bytes([0x21; 16]);
+    let second_inventory_id = PersistentId::from_bytes([0x31; 16]);
+    let operation =
+        |source_inventory_id, destination_inventory_id, inventory_revision| RpgCommandV1 {
+            operations: vec![RpgOperationV1 {
+                operation_slot: 0,
+                targets: vec![
+                    RpgAggregateRefV1 {
+                        aggregate_kind: RpgAggregateKindV1::Item,
+                        persistent_id: item_id,
+                        expected_revision: 0,
+                    },
+                    RpgAggregateRefV1 {
+                        aggregate_kind: RpgAggregateKindV1::Inventory,
+                        persistent_id: first_inventory_id,
+                        expected_revision: inventory_revision,
+                    },
+                    RpgAggregateRefV1 {
+                        aggregate_kind: RpgAggregateKindV1::Inventory,
+                        persistent_id: second_inventory_id,
+                        expected_revision: inventory_revision,
+                    },
+                ],
+                definition_policy_hashes: Vec::new(),
+                payload: RpgOperationPayloadV1::TransferItem {
+                    item_id,
+                    source_inventory_id: Some(source_inventory_id),
+                    destination_inventory_id: Some(destination_inventory_id),
+                    quantity: 1,
+                },
+            }],
+        };
     Ok(vec![
         WorldCommand::rpg(
             stream_id,
             principal.clone(),
             0,
             0,
-            RpgCommand::TransferItem {
-                item_id,
-                expected_owner: Some(first_owner),
-                new_owner: Some(second_owner),
-            },
+            operation(first_inventory_id, second_inventory_id, 0),
         )
         .map_err(|error| {
             PersistenceReplayCheckError::new("current RPG command", error.to_string())
@@ -894,11 +983,7 @@ fn rpg_commands(
             principal,
             1,
             2,
-            RpgCommand::TransferItem {
-                item_id,
-                expected_owner: Some(second_owner),
-                new_owner: Some(first_owner),
-            },
+            operation(second_inventory_id, first_inventory_id, 1),
         )
         .map_err(|error| {
             PersistenceReplayCheckError::new("future RPG command", error.to_string())
@@ -942,17 +1027,35 @@ fn corrupt_rpg_segment(
         .manifest
         .segments
         .iter()
-        .position(|descriptor| descriptor.owner_id.as_str() == RPG_SNAPSHOT_OWNER_ID)
+        .position(|descriptor| descriptor.owner_id.as_str() == RPG_AGGREGATE_SNAPSHOT_OWNER_ID)
         .ok_or_else(|| PersistenceReplayCheckError::condition("newest RPG segment exists"))?;
     let mut corrupt_snapshot = latest.checkpoint.rpg_snapshot;
-    corrupt_snapshot
-        .dialogues
+    let dialogue = corrupt_snapshot
+        .aggregates
         .iter_mut()
-        .find(|dialogue| {
-            dialogue.definition_id.as_str() == next_contracts::CORE_HELP_DIALOGUE_DEFINITION_ID
-        })
-        .ok_or_else(|| PersistenceReplayCheckError::condition("newest core dialogue exists"))?
-        .listener = PersistentId::from_bytes([0xee; 16]);
+        .find(|aggregate| aggregate.aggregate_kind == RpgAggregateKindV1::Dialogue)
+        .ok_or_else(|| PersistenceReplayCheckError::condition("newest core dialogue exists"))?;
+    let RpgAggregatePayloadV1::Dialogue(payload) = &dialogue.payload else {
+        return Err(PersistenceReplayCheckError::condition(
+            "newest core dialogue payload matches its kind",
+        ));
+    };
+    let replacement = RpgAggregateEnvelopeV1::new(
+        dialogue.persistent_id,
+        dialogue.schema_version,
+        dialogue.revision,
+        dialogue.definition_ref.clone(),
+        dialogue.provenance.clone(),
+        RpgAggregatePayloadV1::Dialogue(next_contracts::DialoguePayloadV1 {
+            speaker_id: payload.speaker_id,
+            listener_id: PersistentId::from_bytes([0xee; 16]),
+            node_id: payload.node_id.clone(),
+        }),
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("construct structural RPG corruption", error.to_string())
+    })?;
+    *dialogue = replacement;
     let bytes = corrupt_snapshot.canonical_bytes().map_err(|error| {
         PersistenceReplayCheckError::new("encode structural RPG corruption", error.to_string())
     })?;
@@ -1082,7 +1185,7 @@ mod tests {
         let report = run_persistence_replay_check().expect("product check passes");
         assert_eq!(report.ticks, 12);
         assert_eq!(report.generations, 2);
-        assert_eq!(report.rpg_events, 2);
+        assert_eq!(report.rpg_events, 6);
         assert_eq!(
             report.interactive_object_state.as_str(),
             CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID

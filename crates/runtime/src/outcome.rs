@@ -2,14 +2,14 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::{
-    CanonicalError, CommandPhase, CommandStreamId, DomainEvent, IssuerPrincipal, RpgCommand,
+    CanonicalError, CommandPhase, CommandStreamId, DomainEvent, IssuerPrincipal, RpgCommandV1,
     SystemId, WorldCommand,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum OutcomePayload {
     Noop,
-    Rpg(RpgCommand),
+    Rpg(RpgCommandV1),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -38,7 +38,7 @@ impl OutcomeProposal {
         system_id: SystemId,
         stream_id: CommandStreamId,
         sequence: u64,
-        payload: RpgCommand,
+        payload: RpgCommandV1,
     ) -> Self {
         Self {
             system_id,

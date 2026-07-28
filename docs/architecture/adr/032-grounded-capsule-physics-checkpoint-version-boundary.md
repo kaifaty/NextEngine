@@ -4,9 +4,9 @@
 |---|---|
 | ID | ADR-032 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.1 |
 | Дата решения | 2026-07-27 |
-| Последняя проверка | 2026-07-27 |
+| Последняя проверка | 2026-07-28 |
 | Нормативные зависимости | [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](../22-schema-registry-compatibility-and-migration.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-025](025-schema-content-and-migration-authority.md), [ADR-027](027-physics-motor-and-animation-layering.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
@@ -31,11 +31,16 @@ activation. Он не содержал descriptor closure, velocity, contact con
   body velocity и contact/solver continuation.
 - Self-contained durable physics segment использует новый
   `PhysicsWorldCheckpointV1`, содержащий immutable catalog и snapshot V2.
-- Cross-owner activation использует `WorldCheckpointV3`.
+- Grounded-capsule решение первоначально вошло в `WorldCheckpointV3`.
+  Последующий incompatible RPG aggregate schema cut повышает только composite
+  activation envelope до `WorldCheckpointV4`; физический owner segment
+  остаётся byte-exact `PhysicsWorldCheckpointV1`.
 - `SaveManifestV2` сохраняется: required physics segment определяется exact
   owner/schema/segment/version descriptor внутри неизменного envelope.
-- Replay использует `ReplayManifestV3` и связывает для каждого tick exact
-  `PhysicsStepInputV2`, closed contact batch и resulting compare point.
+- Current replay использует `ReplayManifestV4` и связывает для каждого tick
+  exact `PhysicsStepInputV2`, closed contact batch и resulting compare point.
+  `ReplayManifestV3` остаётся unsupported historical envelope с bootstrap RPG
+  schema и отклоняется до nested decode.
 - Physics snapshot V1 и replay V2 имеют compatibility class `Unsupported` для
   activation. Runtime не мигрирует, не дополняет и не reinterpret-ирует их.
 - Loader/replay decoder распознаёт unsupported top-level или segment version до
@@ -51,7 +56,7 @@ vendor backend.
 - Save envelope version не повышается без wire-shape change.
 - Contact history после restart является частью exact physics checkpoint, а
   replay divergence может быть локализован до step-input или contact stage.
-- Любое дальнейшее несовместимое изменение snapshot V2 или replay V3 требует
+- Любое дальнейшее несовместимое изменение snapshot V2 или replay V4 требует
   следующей schema version; same-version drift остаётся invalid.
 
 ## Rollback

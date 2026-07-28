@@ -3,24 +3,25 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::{
-    CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_OFFER_NODE_ID, CORE_DIALOGUE_QUEST_TRUST_DELTA,
-    CORE_HELP_DIALOGUE_DEFINITION_ID, CORE_HELP_QUEST_DEFINITION_ID, CORE_INTERACT_ACTION_ID,
-    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID,
-    CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CORE_MOVE_ACTION_ID, CORE_QUEST_ACTIVE_STATE_ID,
-    CORE_QUEST_AVAILABLE_STATE_ID, CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID,
-    CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CapabilityId, CharacterSnapshot, CommandLedgerHash,
-    CommandStreamId, ContactPhaseV1, ContentHash, DialogueSnapshot, EventPayload, InputSampleV1,
-    InputSourceId, InteractiveObjectSnapshot, IssuerPrincipal, PHYSICAL_COMMAND_CAPABILITY_ID,
-    PLAYER_ACTION_FRAME_SCHEMA_ID, PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS,
-    PLAYER_INTERACTION_SYSTEM_ID, PersistentId, PhysicsBodyDescriptorV1, PhysicsBodyIdV1,
-    PhysicsCanonicalSnapshotV2, PhysicsContactReportingV1, PhysicsCoordinateProfileV1,
-    PhysicsGeometryV1, PhysicsLimitsProfileV1, PhysicsMaterialDescriptorV1, PhysicsMotionKindV1,
+    AssetId, CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_OFFER_NODE_ID,
+    CORE_DIALOGUE_QUEST_TRUST_DELTA, CORE_INTERACT_ACTION_ID,
+    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
+    CORE_MOVE_ACTION_ID, CORE_QUEST_ACTIVE_STATE_ID, CORE_QUEST_AVAILABLE_STATE_ID,
+    CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CapabilityId, CharacterPayloadV1, CommandLedgerHash,
+    CommandStreamId, ContactPhaseV1, ContentHash, DefinitionRefV1, DialoguePayloadV1, EventPayload,
+    InputSampleV1, InputSourceId, InteractiveObjectPayloadV1, IssuerPrincipal,
+    PHYSICAL_COMMAND_CAPABILITY_ID, PLAYER_ACTION_FRAME_SCHEMA_ID,
+    PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PLAYER_INTERACTION_SYSTEM_ID,
+    PersistentId, PhysicsBodyDescriptorV1, PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2,
+    PhysicsContactReportingV1, PhysicsCoordinateProfileV1, PhysicsGeometryV1,
+    PhysicsLimitsProfileV1, PhysicsMaterialDescriptorV1, PhysicsMotionKindV1,
     PhysicsParticipationV1, PhysicsPoseV1, PhysicsShapeDescriptorV1, PhysicsShapeIdV1,
     PhysicsSolverSemanticsProfileV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
     PhysicsWorldCheckpointV1, PhysicsWorldId, PlayerActionFrameV1, PlayerActionPhaseV1,
     PlayerActionV1, PlayerActionValueV1, PlayerControllerBindingV1, PlayerPrincipalId,
-    QuestSnapshot, RPG_COMMAND_CAPABILITY_ID, RpgEvent, RpgSnapshot, SchemaId, StateRoot, SystemId,
-    core_player_action_map_v1_hash,
+    ProvenanceBindingV1, QuestPayloadV1, RPG_COMMAND_CAPABILITY_ID, RelationshipDimensionV1,
+    RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1,
+    RpgSnapshotV2, SchemaId, StateRoot, SystemId, core_player_action_map_v1_hash,
 };
 use next_physics_api::PhysicsBackendPolicy;
 use next_runtime::PhysicsLaunchOptions;
@@ -44,6 +45,7 @@ pub struct NeutralPlayerFixture {
     pub npc_character_id: PersistentId,
     pub dialogue_id: PersistentId,
     pub quest_id: PersistentId,
+    pub relationship_id: PersistentId,
     pub action_map_hash: ContentHash,
     pub context_stack_hash: ContentHash,
 }
@@ -132,6 +134,7 @@ fn build_neutral_player_fixture_with_profile(
     let npc_character_id = PersistentId::from_bytes([0x59; 16]);
     let dialogue_id = PersistentId::from_bytes([0x5a; 16]);
     let quest_id = PersistentId::from_bytes([0x5b; 16]);
+    let relationship_id = PersistentId::from_bytes([0x5c; 16]);
     bootstrap.physics_checkpoint = grounded_capsule_checkpoint(
         PhysicsWorldId::from_bytes(*bootstrap.world_identity.world_namespace.as_bytes()),
         physics_body_id,
@@ -154,6 +157,7 @@ fn build_neutral_player_fixture_with_profile(
         npc_character_id,
         dialogue_id,
         quest_id,
+        relationship_id,
         action_map_hash,
         context_stack_hash,
     })
@@ -276,54 +280,101 @@ fn grounded_capsule_checkpoint(
 }
 
 #[must_use]
-pub fn core_interaction_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapshot {
-    RpgSnapshot {
-        characters: vec![
-            CharacterSnapshot {
-                id: fixture.body_id,
-                revision: 0,
-                archetype_id: SchemaId::new("nextengine.rpg.character.player")
-                    .expect("built-in player character archetype is valid"),
+pub fn core_interaction_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapshotV2 {
+    let mut aggregates = vec![
+        fixture_aggregate(
+            fixture.body_id,
+            0x54,
+            RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                inventory_id: None,
+                equipment_id: None,
                 skills: Vec::new(),
-                relationships: Vec::new(),
-            },
-            CharacterSnapshot {
-                id: fixture.npc_character_id,
-                revision: 0,
-                archetype_id: SchemaId::new(CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID)
-                    .expect("built-in quest-giver archetype is valid"),
+            }),
+        ),
+        fixture_aggregate(
+            fixture.npc_character_id,
+            0x59,
+            RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                inventory_id: None,
+                equipment_id: None,
                 skills: Vec::new(),
-                relationships: Vec::new(),
-            },
-        ],
-        quests: vec![QuestSnapshot {
-            id: fixture.quest_id,
-            revision: 0,
-            definition_id: SchemaId::new(CORE_HELP_QUEST_DEFINITION_ID)
-                .expect("built-in quest definition is valid"),
-            state_id: SchemaId::new(CORE_QUEST_AVAILABLE_STATE_ID)
-                .expect("built-in quest state is valid"),
-        }],
-        dialogues: vec![DialogueSnapshot {
-            id: fixture.dialogue_id,
-            revision: 0,
-            definition_id: SchemaId::new(CORE_HELP_DIALOGUE_DEFINITION_ID)
-                .expect("built-in dialogue definition is valid"),
-            speaker: fixture.npc_character_id,
-            listener: fixture.body_id,
-            node_id: SchemaId::new(CORE_DIALOGUE_OFFER_NODE_ID)
-                .expect("built-in dialogue node is valid"),
-        }],
-        interactive_objects: vec![InteractiveObjectSnapshot {
-            id: fixture.interactive_object_id,
-            revision: 0,
-            archetype_id: SchemaId::new(CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID)
-                .expect("built-in interactive-object archetype is valid"),
-            state_id: SchemaId::new(CORE_INTERACTIVE_OBJECT_READY_STATE_ID)
-                .expect("built-in interactive-object state is valid"),
-        }],
-        ..RpgSnapshot::default()
-    }
+            }),
+        ),
+        fixture_aggregate(
+            fixture.quest_id,
+            0x5b,
+            RpgAggregatePayloadV1::Quest(QuestPayloadV1 {
+                state_id: SchemaId::new(CORE_QUEST_AVAILABLE_STATE_ID)
+                    .expect("built-in quest state is valid"),
+            }),
+        ),
+        fixture_aggregate(
+            fixture.dialogue_id,
+            0x5a,
+            RpgAggregatePayloadV1::Dialogue(DialoguePayloadV1 {
+                speaker_id: fixture.npc_character_id,
+                listener_id: fixture.body_id,
+                node_id: SchemaId::new(CORE_DIALOGUE_OFFER_NODE_ID)
+                    .expect("built-in dialogue node is valid"),
+            }),
+        ),
+        fixture_aggregate(
+            fixture.relationship_id,
+            0x5c,
+            RpgAggregatePayloadV1::Relationship(RelationshipPayloadV1 {
+                source_id: fixture.npc_character_id,
+                target_id: fixture.body_id,
+                dimensions: vec![RelationshipDimensionV1 {
+                    dimension_id: SchemaId::new(CORE_RELATIONSHIP_TRUST_DIMENSION_ID)
+                        .expect("built-in relationship dimension is valid"),
+                    value: 0,
+                }],
+            }),
+        ),
+        fixture_aggregate(
+            fixture.interactive_object_id,
+            0x58,
+            RpgAggregatePayloadV1::InteractiveObject(InteractiveObjectPayloadV1 {
+                state_id: SchemaId::new(CORE_INTERACTIVE_OBJECT_READY_STATE_ID)
+                    .expect("built-in interactive-object state is valid"),
+            }),
+        ),
+    ];
+    aggregates.sort_by_key(|aggregate| (aggregate.aggregate_kind, aggregate.persistent_id));
+    RpgSnapshotV2 { aggregates }
+}
+
+pub(crate) fn fixture_aggregate(
+    persistent_id: PersistentId,
+    definition_seed: u8,
+    payload: RpgAggregatePayloadV1,
+) -> RpgAggregateEnvelopeV1 {
+    RpgAggregateEnvelopeV1::new(
+        persistent_id,
+        1,
+        0,
+        DefinitionRefV1::Exact {
+            asset_id: AssetId::from_bytes([definition_seed; 16]),
+            content_hash: ContentHash::from_bytes([definition_seed; 32]),
+        },
+        ProvenanceBindingV1::Exact(ContentHash::from_bytes([definition_seed; 32])),
+        payload,
+    )
+    .expect("built-in fixture aggregate is valid")
+}
+
+fn aggregate_payload(
+    snapshot: &RpgSnapshotV2,
+    kind: RpgAggregateKindV1,
+    persistent_id: PersistentId,
+) -> Option<&RpgAggregatePayloadV1> {
+    snapshot
+        .aggregates
+        .iter()
+        .find(|aggregate| {
+            aggregate.aggregate_kind == kind && aggregate.persistent_id == persistent_id
+        })
+        .map(|aggregate| &aggregate.payload)
 }
 
 fn static_box_descriptor(
@@ -448,42 +499,44 @@ pub struct PlayCheckReport {
 pub fn run_play_check() -> Result<PlayCheckReport, PlayCheckError> {
     let scenario = run_grounded_collision_scenario(true)?;
     let checkpoint = scenario.runtime.world_checkpoint()?;
-    let interactive_object_state = scenario
-        .runtime
-        .rpg_snapshot()
-        .interactive_objects
-        .iter()
-        .find(|object| object.id == scenario.interactive_object_id)
-        .ok_or(PlayCheckError::InteractiveObjectMissing)?
-        .state_id
-        .clone();
     let rpg = scenario.runtime.rpg_snapshot();
-    let dialogue_node_id = rpg
-        .dialogues
-        .iter()
-        .find(|dialogue| dialogue.id == scenario.dialogue_id)
-        .ok_or(PlayCheckError::CoreDialogueMissing)?
-        .node_id
-        .clone();
-    let quest_state_id = rpg
-        .quests
-        .iter()
-        .find(|quest| quest.id == scenario.quest_id)
-        .ok_or(PlayCheckError::CoreQuestMissing)?
-        .state_id
-        .clone();
-    let npc_player_trust = rpg
-        .characters
-        .iter()
-        .find(|character| character.id == scenario.npc_character_id)
-        .ok_or(PlayCheckError::CoreNpcMissing)?
-        .relationships
-        .iter()
-        .find(|relationship| {
-            relationship.target == scenario.player_character_id
-                && relationship.dimension_id.as_str() == CORE_RELATIONSHIP_TRUST_DIMENSION_ID
-        })
-        .map_or(0, |relationship| relationship.value);
+    let interactive_object_state = match aggregate_payload(
+        &rpg,
+        RpgAggregateKindV1::InteractiveObject,
+        scenario.interactive_object_id,
+    ) {
+        Some(RpgAggregatePayloadV1::InteractiveObject(object)) => object.state_id.clone(),
+        _ => return Err(PlayCheckError::InteractiveObjectMissing),
+    };
+    let dialogue_node_id =
+        match aggregate_payload(&rpg, RpgAggregateKindV1::Dialogue, scenario.dialogue_id) {
+            Some(RpgAggregatePayloadV1::Dialogue(dialogue)) => dialogue.node_id.clone(),
+            _ => return Err(PlayCheckError::CoreDialogueMissing),
+        };
+    let quest_state_id = match aggregate_payload(&rpg, RpgAggregateKindV1::Quest, scenario.quest_id)
+    {
+        Some(RpgAggregatePayloadV1::Quest(quest)) => quest.state_id.clone(),
+        _ => return Err(PlayCheckError::CoreQuestMissing),
+    };
+    let npc_player_trust = match aggregate_payload(
+        &rpg,
+        RpgAggregateKindV1::Relationship,
+        scenario.relationship_id,
+    ) {
+        Some(RpgAggregatePayloadV1::Relationship(relationship))
+            if relationship.source_id == scenario.npc_character_id
+                && relationship.target_id == scenario.player_character_id =>
+        {
+            relationship
+                .dimensions
+                .iter()
+                .find(|dimension| {
+                    dimension.dimension_id.as_str() == CORE_RELATIONSHIP_TRUST_DIMENSION_ID
+                })
+                .map_or(0, |dimension| dimension.value)
+        }
+        _ => return Err(PlayCheckError::CoreNpcMissing),
+    };
     Ok(PlayCheckReport {
         ticks: scenario.ticks,
         final_pose: scenario.final_pose,
@@ -601,6 +654,7 @@ struct GroundedCollisionScenario {
     player_character_id: PersistentId,
     dialogue_id: PersistentId,
     quest_id: PersistentId,
+    relationship_id: PersistentId,
     tick_reports: Vec<next_runtime::TickReport>,
 }
 
@@ -634,7 +688,7 @@ fn run_grounded_collision_scenario_with_backend(
     let rpg_snapshot = if include_interaction {
         core_interaction_rpg_snapshot(&fixture)
     } else {
-        RpgSnapshot::default()
+        RpgSnapshotV2::default()
     };
     let mut runtime = RuntimeState::with_rpg_snapshot_and_physics_options(
         fixture.bootstrap.clone(),
@@ -701,15 +755,7 @@ fn run_grounded_collision_scenario_with_backend(
                     report
                         .events
                         .iter()
-                        .filter(|event| {
-                            matches!(
-                                &event.payload,
-                                EventPayload::Rpg(
-                                    RpgEvent::InteractiveObjectStateChanged { .. }
-                                        | RpgEvent::DialogueQuestAdvanced { .. }
-                                )
-                            )
-                        })
+                        .filter(|event| matches!(&event.payload, EventPayload::Rpg(_)))
                         .count(),
                 )
                 .map_err(|_| PlayCheckError::CountOverflow)?,
@@ -734,44 +780,61 @@ fn run_grounded_collision_scenario_with_backend(
         .pose;
     let expected_ticks = if include_interaction { 12 } else { 6 };
     let expected_substeps = if include_interaction { 24 } else { 12 };
-    let expected_events = if include_interaction { 10 } else { 4 };
+    let expected_events = if include_interaction { 12 } else { 4 };
     let expected_persists = if include_interaction { 29 } else { 13 };
     let expected_pose = if include_interaction {
         [200_000, 900_000, 200_000]
     } else {
         [0, 900_000, 200_000]
     };
-    let expected_rpg_events = if include_interaction { 2 } else { 0 };
+    let expected_rpg_events = if include_interaction { 4 } else { 0 };
     let expected_begins = if include_interaction { 3 } else { 2 };
     let expected_ends = if include_interaction { 2 } else { 1 };
     let object_is_activated = !include_interaction
-        || runtime
-            .rpg_snapshot()
-            .interactive_objects
-            .iter()
-            .any(|object| {
-                object.id == fixture.interactive_object_id
-                    && object.state_id.as_str() == CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
-            });
+        || matches!(
+            aggregate_payload(
+                &runtime.rpg_snapshot(),
+                RpgAggregateKindV1::InteractiveObject,
+                fixture.interactive_object_id,
+            ),
+            Some(RpgAggregatePayloadV1::InteractiveObject(object))
+                if object.state_id.as_str() == CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
+        );
     let core_dialogue_completed = !include_interaction
-        || runtime.rpg_snapshot().dialogues.iter().any(|dialogue| {
-            dialogue.id == fixture.dialogue_id
-                && dialogue.node_id.as_str() == CORE_DIALOGUE_ACCEPTED_NODE_ID
-        });
+        || matches!(
+            aggregate_payload(
+                &runtime.rpg_snapshot(),
+                RpgAggregateKindV1::Dialogue,
+                fixture.dialogue_id,
+            ),
+            Some(RpgAggregatePayloadV1::Dialogue(dialogue))
+                if dialogue.node_id.as_str() == CORE_DIALOGUE_ACCEPTED_NODE_ID
+        );
     let core_quest_completed = !include_interaction
-        || runtime.rpg_snapshot().quests.iter().any(|quest| {
-            quest.id == fixture.quest_id && quest.state_id.as_str() == CORE_QUEST_ACTIVE_STATE_ID
-        });
+        || matches!(
+            aggregate_payload(
+                &runtime.rpg_snapshot(),
+                RpgAggregateKindV1::Quest,
+                fixture.quest_id,
+            ),
+            Some(RpgAggregatePayloadV1::Quest(quest))
+                if quest.state_id.as_str() == CORE_QUEST_ACTIVE_STATE_ID
+        );
     let core_trust_applied = !include_interaction
-        || runtime.rpg_snapshot().characters.iter().any(|character| {
-            character.id == fixture.npc_character_id
-                && character.relationships.iter().any(|relationship| {
-                    relationship.target == fixture.body_id
-                        && relationship.dimension_id.as_str()
-                            == CORE_RELATIONSHIP_TRUST_DIMENSION_ID
-                        && relationship.value == CORE_DIALOGUE_QUEST_TRUST_DELTA
-                })
-        });
+        || matches!(
+            aggregate_payload(
+                &runtime.rpg_snapshot(),
+                RpgAggregateKindV1::Relationship,
+                fixture.relationship_id,
+            ),
+            Some(RpgAggregatePayloadV1::Relationship(relationship))
+                if relationship.source_id == fixture.npc_character_id
+                    && relationship.target_id == fixture.body_id
+                    && relationship.dimensions.iter().any(|dimension| {
+                        dimension.dimension_id.as_str() == CORE_RELATIONSHIP_TRUST_DIMENSION_ID
+                            && dimension.value == CORE_DIALOGUE_QUEST_TRUST_DELTA
+                    })
+        );
     if final_pose.translation_micrometres != expected_pose
         || runtime.physics_snapshot().physics_tick != expected_substeps
         || events != expected_events
@@ -801,6 +864,7 @@ fn run_grounded_collision_scenario_with_backend(
         player_character_id: fixture.body_id,
         dialogue_id: fixture.dialogue_id,
         quest_id: fixture.quest_id,
+        relationship_id: fixture.relationship_id,
         tick_reports,
     })
 }
@@ -950,18 +1014,17 @@ impl From<next_contracts::CanonicalError> for PlayCheckError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use next_contracts::{INPUT_SAMPLE_SCHEMA_VERSION, InputMappingCodeV1};
+    use next_contracts::{INPUT_SAMPLE_SCHEMA_VERSION, InputMappingCodeV1, RpgEventV1};
 
-    fn interactive_snapshot(fixture: &NeutralPlayerFixture, state: &str) -> RpgSnapshot {
-        RpgSnapshot {
-            interactive_objects: vec![InteractiveObjectSnapshot {
-                id: fixture.interactive_object_id,
-                revision: 0,
-                archetype_id: SchemaId::new(CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID)
-                    .expect("core-switch archetype"),
-                state_id: SchemaId::new(state).expect("interactive state"),
-            }],
-            ..RpgSnapshot::default()
+    fn interactive_snapshot(fixture: &NeutralPlayerFixture, state: &str) -> RpgSnapshotV2 {
+        RpgSnapshotV2 {
+            aggregates: vec![fixture_aggregate(
+                fixture.interactive_object_id,
+                0x58,
+                RpgAggregatePayloadV1::InteractiveObject(InteractiveObjectPayloadV1 {
+                    state_id: SchemaId::new(state).expect("interactive state"),
+                }),
+            )],
         }
     }
 
@@ -1008,7 +1071,7 @@ mod tests {
         let runtime = RuntimeState::with_rpg_snapshot_and_physics_options(
             fixture.bootstrap,
             fixture.authority,
-            RpgSnapshot::default(),
+            RpgSnapshotV2::default(),
             PhysicsLaunchOptions::new(PhysicsBackendPolicy::PreferPhysXThenReference),
         )
         .expect("PhysX activation");
@@ -1171,7 +1234,7 @@ mod tests {
                 .iter()
                 .filter(|event| matches!(
                     event.payload,
-                    EventPayload::Rpg(RpgEvent::InteractiveObjectStateChanged { .. })
+                    EventPayload::Rpg(RpgEventV1::InteractiveObjectTransitioned { .. })
                 ))
                 .count(),
             1
@@ -1229,7 +1292,23 @@ mod tests {
         assert_eq!(ledger_hash(&runtime), ledger_before);
 
         let mut invalid = core_interaction_rpg_snapshot(&fixture);
-        invalid.dialogues[0].listener = fixture.npc_character_id;
+        let dialogue = invalid
+            .aggregates
+            .iter_mut()
+            .find(|aggregate| {
+                aggregate.aggregate_kind == RpgAggregateKindV1::Dialogue
+                    && aggregate.persistent_id == fixture.dialogue_id
+            })
+            .expect("fixture dialogue");
+        *dialogue = fixture_aggregate(
+            fixture.dialogue_id,
+            0x5a,
+            RpgAggregatePayloadV1::Dialogue(DialoguePayloadV1 {
+                speaker_id: fixture.npc_character_id,
+                listener_id: fixture.npc_character_id,
+                node_id: SchemaId::new(CORE_DIALOGUE_OFFER_NODE_ID).expect("core dialogue node"),
+            }),
+        );
         assert!(matches!(
             RuntimeState::with_rpg_snapshot(fixture.bootstrap, fixture.authority, invalid),
             Err(SnapshotRestoreError::CoreInteractionClosure(_))
@@ -1241,7 +1320,14 @@ mod tests {
         let fixture =
             build_neutral_player_fixture("nextengine.test.dialogue-tie-break").expect("fixture");
         let mut rpg = core_interaction_rpg_snapshot(&fixture);
-        rpg.interactive_objects[0].id = fixture.npc_character_id;
+        rpg.aggregates
+            .iter_mut()
+            .find(|aggregate| {
+                aggregate.aggregate_kind == RpgAggregateKindV1::InteractiveObject
+                    && aggregate.persistent_id == fixture.interactive_object_id
+            })
+            .expect("fixture interactive object")
+            .persistent_id = fixture.npc_character_id;
         let mut runtime = RuntimeState::with_rpg_snapshot(
             fixture.bootstrap.clone(),
             fixture.authority.clone(),
@@ -1280,12 +1366,17 @@ mod tests {
         let switch = runtime.run_tick([]).expect("switch wins tie");
         assert!(switch.events.iter().any(|event| matches!(
             event.payload,
-            EventPayload::Rpg(RpgEvent::InteractiveObjectStateChanged { .. })
+            EventPayload::Rpg(RpgEventV1::InteractiveObjectTransitioned { .. })
         )));
-        assert_eq!(
-            runtime.rpg_snapshot().dialogues[0].node_id.as_str(),
-            CORE_DIALOGUE_OFFER_NODE_ID
-        );
+        assert!(matches!(
+            aggregate_payload(
+                &runtime.rpg_snapshot(),
+                RpgAggregateKindV1::Dialogue,
+                fixture.dialogue_id,
+            ),
+            Some(RpgAggregatePayloadV1::Dialogue(dialogue))
+                if dialogue.node_id.as_str() == CORE_DIALOGUE_OFFER_NODE_ID
+        ));
 
         runtime
             .enqueue_input_sample(
@@ -1301,10 +1392,14 @@ mod tests {
                 .iter()
                 .filter(|event| matches!(
                     event.payload,
-                    EventPayload::Rpg(RpgEvent::DialogueQuestAdvanced { .. })
+                    EventPayload::Rpg(
+                        RpgEventV1::DialogueAdvanced { .. }
+                            | RpgEventV1::QuestTransitioned { .. }
+                            | RpgEventV1::RelationshipAdjusted { .. }
+                    )
                 ))
                 .count(),
-            1
+            3
         );
 
         let checkpoint = runtime.world_checkpoint().expect("checkpoint");

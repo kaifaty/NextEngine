@@ -4,8 +4,8 @@
 |---|---|
 | ID | TRACE-001 |
 | Статус | Accepted |
-| Версия | 2.3 |
-| Последняя проверка | 2026-07-27 |
+| Версия | 2.4 |
+| Последняя проверка | 2026-07-28 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | TRACE-001 2.2 |
 
@@ -24,7 +24,7 @@ Canonical check names и правила conditional запуска опреде�
 |---|---|---|---|
 | Быстро получать полезную обратную связь | `fast` | workspace checks и focused tests завершаются с ясной причиной failure | SPEC-09, SPEC-15 |
 | Играть в малый RPG loop полностью offline | `play` | boot, movement, interaction, item и bounded NPC/quest outcome работают без network/`ai-host` | SPEC-00, SPEC-01, SPEC-06, SPEC-19, SPEC-20 |
-| Сохранять authoritative world и воспроизводить bug | `persistence-replay` | load и replay дают ожидаемые command/event/state roots; corrupt input не активируется частично | SPEC-02, SPEC-03, SPEC-21, SPEC-22 |
+| Сохранять authoritative world и воспроизводить bug | `persistence-replay` | `WorldCheckpointV4`/`ReplayManifestV4` load и replay дают ожидаемые command/event/state/ledger roots; corrupt или bootstrap RPG V3 input отклоняется до partial activation | SPEC-02, SPEC-03, SPEC-19, SPEC-21, SPEC-22 |
 | Загружать neutral content и public mechanic packages | `content-package` | validate/cook/resolve/load и first-party mechanic проходят через public paths | SPEC-03, SPEC-07, SPEC-13, SPEC-17, SPEC-24 |
 | Безопасно обрабатывать untrusted input | `fast`, `content-package` | malformed bounds/hash/version, forbidden capability и budget exhaustion отклоняются до mutation | SPEC-07, SPEC-10, SPEC-11, SPEC-24 |
 | Диагностировать regression без private test backdoor | relevant check + local scenario | stable diagnostic содержит first divergence; minimized replay сохраняет failure identity | SPEC-09, SPEC-15 |

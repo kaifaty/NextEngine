@@ -7,14 +7,14 @@ use crate::{
     CommandLedgerHash, ContentHash, DomainEvent, InputMappingReceiptV1, IssuerPrincipal,
     PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PhysicsStepInputV2, PhysicsWorldCheckpointV1,
-    RPG_SNAPSHOT_OWNER_ID, RPG_SNAPSHOT_SCHEMA_ID, RPG_SNAPSHOT_SEGMENT_ID,
-    RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID,
-    RpgSnapshot, RuntimeSnapshot, SchemaId, StateRoot, WorldCheckpointV3, WorldCommand,
-    WorldNamespaceId, content_hash_from_bytes, sha256,
+    RPG_AGGREGATE_SNAPSHOT_OWNER_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+    RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID, RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID,
+    RUNTIME_SNAPSHOT_SEGMENT_ID, RpgSnapshotV2, RuntimeSnapshot, SchemaId, StateRoot,
+    WorldCheckpointV4, WorldCommand, WorldNamespaceId, content_hash_from_bytes, sha256,
 };
 
 pub const SAVE_MANIFEST_SCHEMA_VERSION: u32 = 2;
-pub const REPLAY_MANIFEST_V3_SCHEMA_VERSION: u32 = 3;
+pub const REPLAY_MANIFEST_V4_SCHEMA_VERSION: u32 = 4;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TickSettings {
@@ -275,7 +275,7 @@ pub struct ReplayOwnerSegmentV2 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReplayTickManifestV3 {
+pub struct ReplayTickManifestV4 {
     pub tick: u64,
     pub closed_ingress_batch: ClosedIngressBatchV1,
     pub direct_external_commands: Vec<ReplayCommandRecord>,
@@ -289,7 +289,7 @@ pub struct ReplayTickManifestV3 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct ReplayComparePointV3 {
+pub struct ReplayComparePointV4 {
     pub tick: u64,
     pub state_root: StateRoot,
     pub command_ledger_hash: CommandLedgerHash,
@@ -304,18 +304,18 @@ pub struct ReplayComparePointV3 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReplayManifestV3 {
+pub struct ReplayManifestV4 {
     pub schema_version: u32,
     pub compatibility: SaveCompatibility,
     pub initial_owner_segments: Vec<ReplayOwnerSegmentV2>,
     pub initial_state_root: StateRoot,
     pub authority: Vec<AuthorityGrant>,
-    pub ticks: Vec<ReplayTickManifestV3>,
-    pub compare_points: Vec<ReplayComparePointV3>,
+    pub ticks: Vec<ReplayTickManifestV4>,
+    pub compare_points: Vec<ReplayComparePointV4>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DecodedReplayTickV3 {
+pub struct DecodedReplayTickV4 {
     pub tick: u64,
     pub closed_ingress_batch: ClosedIngressBatchV1,
     pub direct_external_commands: Vec<WorldCommand>,
@@ -328,23 +328,26 @@ pub struct DecodedReplayTickV3 {
     pub expected_events: Vec<DomainEvent>,
 }
 
-impl ReplayManifestV3 {
+impl ReplayManifestV4 {
     pub fn to_jcs_bytes(&self) -> Result<Vec<u8>, ManifestCodecError> {
-        crate::manifest_jcs::encode_replay_manifest_v3(self)
+        crate::manifest_jcs::encode_replay_manifest_v4(self)
     }
 
     pub fn from_jcs_bytes(
         bytes: &[u8],
         limits: CanonicalDecodeLimits,
     ) -> Result<Self, ManifestCodecError> {
-        crate::manifest_jcs::decode_replay_manifest_v3(bytes, limits)
+        crate::manifest_jcs::decode_replay_manifest_v4(bytes, limits)
     }
 
     pub fn validate_and_decode(
         &self,
         limits: CanonicalDecodeLimits,
-    ) -> Result<(WorldCheckpointV3, Vec<DecodedReplayTickV3>), ManifestValidationError> {
-        if self.schema_version != REPLAY_MANIFEST_V3_SCHEMA_VERSION {
+    ) -> Result<(WorldCheckpointV4, Vec<DecodedReplayTickV4>), ManifestValidationError> {
+        if self.schema_version != REPLAY_MANIFEST_V4_SCHEMA_VERSION {
+            if self.schema_version == 3 {
+                return Err(ManifestValidationError::RpgSchemaUnsupported);
+            }
             return Err(ManifestValidationError::UnsupportedReplayVersion(
                 self.schema_version,
             ));
@@ -383,9 +386,9 @@ impl ReplayManifestV3 {
         )
         .ok_or(ManifestValidationError::ReplayInitialSegmentsInvalid)?;
         let rpg = segment(
-            RPG_SNAPSHOT_OWNER_ID,
-            RPG_SNAPSHOT_SCHEMA_ID,
-            RPG_SNAPSHOT_SEGMENT_ID,
+            RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
+            RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+            RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID,
         )
         .ok_or(ManifestValidationError::ReplayInitialSegmentsInvalid)?;
         let physics = segment(
@@ -396,11 +399,11 @@ impl ReplayManifestV3 {
         .ok_or(ManifestValidationError::ReplayInitialSegmentsInvalid)?;
         let runtime_snapshot =
             RuntimeSnapshot::from_canonical_bytes(&runtime.canonical_bytes, limits)?;
-        let rpg_snapshot = RpgSnapshot::from_canonical_bytes(&rpg.canonical_bytes, limits)?;
+        let rpg_snapshot = RpgSnapshotV2::from_canonical_bytes(&rpg.canonical_bytes, limits)?;
         let physics_checkpoint =
             PhysicsWorldCheckpointV1::from_canonical_bytes(&physics.canonical_bytes, limits)?;
         let checkpoint =
-            WorldCheckpointV3::new(runtime_snapshot, rpg_snapshot, physics_checkpoint)?;
+            WorldCheckpointV4::new(runtime_snapshot, rpg_snapshot, physics_checkpoint)?;
         if self
             .authority
             .windows(2)
@@ -450,7 +453,7 @@ impl ReplayManifestV3 {
             for record in &tick.direct_external_commands {
                 commands.push(record.decode_command(limits)?);
             }
-            decoded_ticks.push(DecodedReplayTickV3 {
+            decoded_ticks.push(DecodedReplayTickV4 {
                 tick: tick.tick,
                 closed_ingress_batch: tick.closed_ingress_batch.clone(),
                 direct_external_commands: commands,
@@ -486,6 +489,7 @@ pub enum ManifestValidationError {
     MissingRequiredSegment,
     UnsupportedSaveVersion(u32),
     UnsupportedReplayVersion(u32),
+    RpgSchemaUnsupported,
     ReplayCommandIdMismatch,
     ComparePointCountMismatch,
     ReplayTickSequenceMismatch,
@@ -494,6 +498,7 @@ pub enum ManifestValidationError {
     ReplayBatchMismatch,
     WorldCheckpoint(crate::WorldCheckpointError),
     Rpg(crate::RpgDecodeError),
+    RpgV2(crate::RpgContractErrorV1),
     Physics(crate::PhysicsContractError),
     Input(crate::InputContractError),
 }
@@ -530,6 +535,7 @@ impl Display for ManifestValidationError {
             Self::UnsupportedReplayVersion(version) => {
                 write!(formatter, "unsupported replay manifest version {version}")
             }
+            Self::RpgSchemaUnsupported => formatter.write_str("RPG_SCHEMA_UNSUPPORTED"),
             Self::ReplayCommandIdMismatch => {
                 formatter.write_str("replay command id does not match canonical command bytes")
             }
@@ -550,6 +556,7 @@ impl Display for ManifestValidationError {
                 write!(formatter, "replay checkpoint is invalid: {error}")
             }
             Self::Rpg(error) => write!(formatter, "replay RPG segment is invalid: {error}"),
+            Self::RpgV2(error) => write!(formatter, "replay RPG segment is invalid: {error}"),
             Self::Physics(error) => write!(formatter, "replay physics segment is invalid: {error}"),
             Self::Input(error) => write!(formatter, "replay ingress batch is invalid: {error}"),
         }
@@ -591,6 +598,12 @@ impl From<crate::WorldCheckpointError> for ManifestValidationError {
 impl From<crate::RpgDecodeError> for ManifestValidationError {
     fn from(error: crate::RpgDecodeError) -> Self {
         Self::Rpg(error)
+    }
+}
+
+impl From<crate::RpgContractErrorV1> for ManifestValidationError {
+    fn from(error: crate::RpgContractErrorV1) -> Self {
+        Self::RpgV2(error)
     }
 }
 

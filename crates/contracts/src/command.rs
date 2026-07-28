@@ -14,8 +14,9 @@ use crate::ids::{
     MechanicPackageId, PersistentId, PlayerPrincipalId, PluginId, SchemaId, ScriptPrincipalId,
     SystemId, ToolPrincipalId, command_body_hash_from_bytes, content_hash_from_bytes,
 };
-use crate::rpg::{
-    RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID, RpgCommand, RpgDecodeError, RpgEvent,
+use crate::rpg::{RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID};
+use crate::rpg_v1::{
+    RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RpgCommandV1, RpgContractErrorV1, RpgEventV1,
 };
 use crate::{
     PHYSICAL_COMMAND_CAPABILITY_ID, PHYSICAL_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_SCHEMA_VERSION,
@@ -209,7 +210,7 @@ pub enum CommandPhase {
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum CommandPayload {
     Noop,
-    Rpg(RpgCommand),
+    Rpg(RpgCommandV1),
     Physical(PhysicalCommandV1),
 }
 
@@ -476,11 +477,6 @@ impl CanonicalCommandBodyV2 {
         }
         let payload_schema_id = SchemaId::new(decode_utf8(&field(&segment.fields, 2)?.payload)?)?;
         let payload_schema_version = decode_u32(&field(&segment.fields, 3)?.payload)?;
-        if payload_schema_version != COMMAND_SCHEMA_VERSION {
-            return Err(CommandDecodeError::UnsupportedPayloadSchemaVersion(
-                payload_schema_version,
-            ));
-        }
         let issuer = IssuerPrincipal::from_tagged_union_payload(
             &field(&segment.fields, 4)?.payload,
             limits,
@@ -499,17 +495,29 @@ impl CanonicalCommandBodyV2 {
             decode_capability_set(&field(&segment.fields, 10)?.payload, limits)?;
         let preconditions = decode_precondition_set(&field(&segment.fields, 11)?.payload, limits)?;
         let payload_bytes = &field(&segment.fields, 12)?.payload;
-        let payload = match payload_schema_id.as_str() {
-            NOOP_COMMAND_SCHEMA_ID if payload_bytes.is_empty() => CommandPayload::Noop,
-            NOOP_COMMAND_SCHEMA_ID => return Err(CommandDecodeError::InvalidNoopPayload),
-            RPG_COMMAND_SCHEMA_ID => CommandPayload::Rpg(RpgCommand::from_canonical_payload_bytes(
-                payload_bytes,
-                limits,
-            )?),
-            PHYSICAL_COMMAND_SCHEMA_ID => CommandPayload::Physical(
-                PhysicalCommandV1::from_canonical_payload_bytes(payload_bytes, limits)?,
+        let payload = match (payload_schema_id.as_str(), payload_schema_version) {
+            (NOOP_COMMAND_SCHEMA_ID, COMMAND_SCHEMA_VERSION) if payload_bytes.is_empty() => {
+                CommandPayload::Noop
+            }
+            (NOOP_COMMAND_SCHEMA_ID, COMMAND_SCHEMA_VERSION) => {
+                return Err(CommandDecodeError::InvalidNoopPayload);
+            }
+            (RPG_COMMAND_SCHEMA_ID, RPG_TRANSACTION_COMMAND_SCHEMA_VERSION) => CommandPayload::Rpg(
+                RpgCommandV1::from_canonical_payload_bytes(payload_bytes, limits)?,
             ),
-            schema => return Err(CommandDecodeError::UnknownPayloadSchema(schema.to_owned())),
+            (PHYSICAL_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_SCHEMA_VERSION) => {
+                CommandPayload::Physical(PhysicalCommandV1::from_canonical_payload_bytes(
+                    payload_bytes,
+                    limits,
+                )?)
+            }
+            (
+                NOOP_COMMAND_SCHEMA_ID | RPG_COMMAND_SCHEMA_ID | PHYSICAL_COMMAND_SCHEMA_ID,
+                version,
+            ) => {
+                return Err(CommandDecodeError::UnsupportedPayloadSchemaVersion(version));
+            }
+            (schema, _) => return Err(CommandDecodeError::UnknownPayloadSchema(schema.to_owned())),
         };
         let body = Self {
             payload_schema_id,
@@ -588,14 +596,14 @@ impl WorldCommandEnvelopeV2 {
         issuer: IssuerPrincipal,
         sequence: u64,
         target_tick: u64,
-        payload: RpgCommand,
+        payload: RpgCommandV1,
     ) -> Result<Self, CanonicalError> {
         let mut command = Self {
             envelope_schema_version: COMMAND_ENVELOPE_SCHEMA_VERSION,
             claimed_command_id: None,
             body: CanonicalCommandBodyV2 {
                 payload_schema_id: SchemaId::new(RPG_COMMAND_SCHEMA_ID)?,
-                payload_schema_version: COMMAND_SCHEMA_VERSION,
+                payload_schema_version: RPG_TRANSACTION_COMMAND_SCHEMA_VERSION,
                 issuer,
                 stream_id,
                 sequence,
@@ -717,7 +725,7 @@ pub enum CommandDecodeError {
     Canonical(CanonicalDecodeError),
     Canonicalization(CanonicalError),
     Principal(PrincipalDecodeError),
-    Rpg(RpgDecodeError),
+    Rpg(RpgContractErrorV1),
     Physics(PhysicsContractError),
     Identifier(crate::IdentifierError),
     WrongEnvelope,
@@ -845,8 +853,8 @@ impl From<PrincipalDecodeError> for CommandDecodeError {
     }
 }
 
-impl From<RpgDecodeError> for CommandDecodeError {
-    fn from(error: RpgDecodeError) -> Self {
+impl From<RpgContractErrorV1> for CommandDecodeError {
+    fn from(error: RpgContractErrorV1) -> Self {
         Self::Rpg(error)
     }
 }
@@ -1303,7 +1311,7 @@ impl DomainEventEnvelopeV2 {
         phase: CommandPhase,
         command_id: CommandId,
         event_slot: u32,
-        payload: RpgEvent,
+        payload: RpgEventV1,
     ) -> Result<Self, CanonicalError> {
         let schema_id = SchemaId::new(payload.schema_id())?;
         Self::build(
@@ -1485,7 +1493,7 @@ impl EventPayload {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EventPayload {
     CommandCommitted { command_sequence: u64 },
-    Rpg(RpgEvent),
+    Rpg(RpgEventV1),
     Physical(PhysicalEventV1),
 }
 
@@ -1609,10 +1617,23 @@ mod tests {
             IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([5; 16])),
             8,
             13,
-            crate::RpgCommand::LearnSkill {
-                character_id: crate::PersistentId::from_bytes([6; 16]),
-                skill_id: crate::SchemaId::new("rpg.skill.survival").expect("skill id is valid"),
-                delta: 25,
+            crate::RpgCommandV1 {
+                operations: vec![crate::RpgOperationV1 {
+                    operation_slot: 0,
+                    targets: vec![crate::RpgAggregateRefV1 {
+                        aggregate_kind: crate::RpgAggregateKindV1::Character,
+                        persistent_id: crate::PersistentId::from_bytes([6; 16]),
+                        expected_revision: 0,
+                    }],
+                    definition_policy_hashes: vec![],
+                    payload: crate::RpgOperationPayloadV1::SetSkillProficiency {
+                        character_id: crate::PersistentId::from_bytes([6; 16]),
+                        skill_id: crate::SchemaId::new("rpg.skill.survival")
+                            .expect("skill id is valid"),
+                        expected_value: 0,
+                        new_value: 25,
+                    },
+                }],
             },
         )
         .expect("RPG command is canonical");

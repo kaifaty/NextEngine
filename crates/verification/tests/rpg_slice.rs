@@ -1,11 +1,13 @@
 use next_assets::SaveImage;
 use next_contracts::{
-    AuthorityGrant, CharacterSnapshot, ContentHash, DialogueSnapshot, EventPayload,
-    FactionSnapshot, InteractiveObjectSnapshot, IssuerPrincipal, ItemSnapshot, PersistentId,
-    PhysicsWorldCheckpointV1, PlayerPrincipalId, QuestSnapshot, RPG_COMMAND_CAPABILITY_ID,
-    RelationshipEntry, RpgCommand, RpgEvent, RpgSnapshot, SaveCompatibility, SchemaId,
-    SkillProficiency, SkillProficiencyEntry, TickSettings, WorldCheckpointV3,
-    WorldChunkRecordSnapshot, WorldCommand,
+    AssetId, AuthorityGrant, CharacterPayloadV1, ContentHash, DefinitionRefV1, DialoguePayloadV1,
+    EventPayload, InteractiveObjectPayloadV1, InventoryPayloadV1, IssuerPrincipal, ItemPayloadV1,
+    PersistentId, PhysicsWorldCheckpointV1, PlayerPrincipalId, ProvenanceBindingV1, QuestPayloadV1,
+    RPG_COMMAND_CAPABILITY_ID, RelationshipDimensionV1, RelationshipPayloadV1,
+    RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgAggregateRefV1,
+    RpgCommandV1, RpgEventV1, RpgOperationPayloadV1, RpgOperationV1, RpgRuntimeBindingsV1,
+    RpgSnapshotV2, SaveCompatibility, SchemaId, SkillProficiency, SkillProficiencyEntryV1,
+    TickSettings, WorldCheckpointV4, WorldCommand,
 };
 use next_runtime::{
     AuthorityRegistry, CommandDisposition, RejectionCode, RuntimeBootstrapV3, RuntimeState,
@@ -57,74 +59,164 @@ fn bootstrap() -> RuntimeBootstrapV3 {
     runtime_fixture().bootstrap
 }
 
-fn fixture() -> RpgSnapshot {
-    RpgSnapshot {
-        characters: vec![
-            CharacterSnapshot {
-                id: id(1),
-                revision: 0,
-                archetype_id: schema("rpg.character.generic-npc"),
-                skills: vec![SkillProficiencyEntry {
+fn aggregate(value: u8, payload: RpgAggregatePayloadV1) -> RpgAggregateEnvelopeV1 {
+    RpgAggregateEnvelopeV1::new(
+        id(value),
+        1,
+        0,
+        DefinitionRefV1::Exact {
+            asset_id: AssetId::from_bytes([value; 16]),
+            content_hash: ContentHash::from_bytes([value; 32]),
+        },
+        ProvenanceBindingV1::Exact(ContentHash::from_bytes([value; 32])),
+        payload,
+    )
+    .expect("fixture aggregate is valid")
+}
+
+fn fixture() -> RpgSnapshotV2 {
+    let mut aggregates = vec![
+        aggregate(
+            1,
+            RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                inventory_id: Some(id(9)),
+                equipment_id: None,
+                skills: vec![SkillProficiencyEntryV1 {
                     skill_id: schema("rpg.skill.survival"),
                     proficiency: SkillProficiency::new(400).expect("bounded proficiency"),
                 }],
-                relationships: vec![RelationshipEntry {
-                    target: id(2),
+            }),
+        ),
+        aggregate(
+            2,
+            RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                inventory_id: Some(id(10)),
+                equipment_id: None,
+                skills: vec![],
+            }),
+        ),
+        aggregate(
+            3,
+            RpgAggregatePayloadV1::Item(ItemPayloadV1 {
+                quantity: 1,
+                durability: 100,
+                custom_state: vec![],
+            }),
+        ),
+        aggregate(
+            9,
+            RpgAggregatePayloadV1::Inventory(InventoryPayloadV1 {
+                owner_id: id(1),
+                capacity: 8,
+                item_ids: vec![id(3)],
+                reservations: vec![],
+            }),
+        ),
+        aggregate(
+            10,
+            RpgAggregatePayloadV1::Inventory(InventoryPayloadV1 {
+                owner_id: id(2),
+                capacity: 8,
+                item_ids: vec![],
+                reservations: vec![],
+            }),
+        ),
+        aggregate(
+            4,
+            RpgAggregatePayloadV1::Quest(QuestPayloadV1 {
+                state_id: schema("rpg.quest-state.available"),
+            }),
+        ),
+        aggregate(
+            5,
+            RpgAggregatePayloadV1::Dialogue(DialoguePayloadV1 {
+                speaker_id: id(1),
+                listener_id: id(2),
+                node_id: schema("rpg.dialogue-node.offer"),
+            }),
+        ),
+        aggregate(
+            6,
+            RpgAggregatePayloadV1::Relationship(RelationshipPayloadV1 {
+                source_id: id(1),
+                target_id: id(2),
+                dimensions: vec![RelationshipDimensionV1 {
                     dimension_id: schema("rpg.relationship.trust"),
                     value: 0,
                 }],
-            },
-            CharacterSnapshot {
-                id: id(2),
-                revision: 0,
-                archetype_id: schema("rpg.character.player"),
-                skills: vec![],
-                relationships: vec![],
-            },
-        ],
-        items: vec![ItemSnapshot {
-            id: id(3),
-            revision: 0,
-            archetype_id: schema("rpg.item.quest-token"),
-            owner: Some(id(1)),
-            quantity: 1,
-        }],
-        quests: vec![QuestSnapshot {
-            id: id(4),
-            revision: 0,
-            definition_id: schema("rpg.quest.generic-help"),
-            state_id: schema("rpg.quest-state.available"),
-        }],
-        dialogues: vec![DialogueSnapshot {
-            id: id(5),
-            revision: 0,
-            definition_id: schema("rpg.dialogue.generic-help"),
-            speaker: id(1),
-            listener: id(2),
-            node_id: schema("rpg.dialogue-node.offer"),
-        }],
-        factions: vec![FactionSnapshot {
-            id: id(6),
-            revision: 0,
-            definition_id: schema("rpg.faction.settlers"),
-            members: vec![id(1)],
-        }],
-        interactive_objects: vec![InteractiveObjectSnapshot {
-            id: id(7),
-            revision: 0,
-            archetype_id: schema("rpg.interactive-object.lever"),
-            state_id: schema("rpg.object-state.off"),
-        }],
-        world_chunk_records: vec![WorldChunkRecordSnapshot {
-            id: id(8),
-            revision: 0,
-            record_schema_id: schema("rpg.world-chunk-record.encounter"),
-            state_id: schema("rpg.world-chunk-state.dormant"),
-        }],
+            }),
+        ),
+        aggregate(
+            7,
+            RpgAggregatePayloadV1::InteractiveObject(InteractiveObjectPayloadV1 {
+                state_id: schema("rpg.object-state.off"),
+            }),
+        ),
+    ];
+    aggregates.sort_by_key(|record| (record.aggregate_kind, record.persistent_id));
+    RpgSnapshotV2 { aggregates }
+}
+
+fn target(
+    aggregate_kind: RpgAggregateKindV1,
+    persistent_id: PersistentId,
+    expected_revision: u64,
+) -> RpgAggregateRefV1 {
+    RpgAggregateRefV1 {
+        aggregate_kind,
+        persistent_id,
+        expected_revision,
     }
 }
 
-fn command(sequence: u64, tick: u64, payload: RpgCommand) -> WorldCommand {
+fn operation(
+    operation_slot: u32,
+    targets: Vec<RpgAggregateRefV1>,
+    payload: RpgOperationPayloadV1,
+) -> RpgOperationV1 {
+    RpgOperationV1 {
+        operation_slot,
+        targets,
+        definition_policy_hashes: vec![],
+        payload,
+    }
+}
+
+fn dialogue_quest_command(expected_quest_state: &str) -> RpgCommandV1 {
+    RpgCommandV1 {
+        operations: vec![
+            operation(
+                0,
+                vec![target(RpgAggregateKindV1::Dialogue, id(5), 0)],
+                RpgOperationPayloadV1::AdvanceDialogue {
+                    dialogue_id: id(5),
+                    expected_node_id: schema("rpg.dialogue-node.offer"),
+                    next_node_id: schema("rpg.dialogue-node.accepted"),
+                },
+            ),
+            operation(
+                1,
+                vec![target(RpgAggregateKindV1::Quest, id(4), 0)],
+                RpgOperationPayloadV1::TransitionQuest {
+                    quest_id: id(4),
+                    expected_state_id: schema(expected_quest_state),
+                    next_state_id: schema("rpg.quest-state.active"),
+                },
+            ),
+            operation(
+                2,
+                vec![target(RpgAggregateKindV1::Relationship, id(6), 0)],
+                RpgOperationPayloadV1::AdjustRelationship {
+                    relationship_id: id(6),
+                    dimension_id: schema("rpg.relationship.trust"),
+                    delta: 7,
+                },
+            ),
+        ],
+    }
+}
+
+fn command(sequence: u64, tick: u64, payload: RpgCommandV1) -> WorldCommand {
     let fixture = runtime_fixture();
     WorldCommand::rpg(
         fixture
@@ -144,28 +236,28 @@ fn slice_ticks() -> Vec<ReplayTickInput> {
             commands: vec![command(
                 0,
                 0,
-                RpgCommand::AdvanceDialogueQuest {
-                    dialogue_id: id(5),
-                    expected_dialogue_node_id: schema("rpg.dialogue-node.offer"),
-                    next_dialogue_node_id: schema("rpg.dialogue-node.accepted"),
-                    quest_id: id(4),
-                    expected_quest_state_id: schema("rpg.quest-state.available"),
-                    next_quest_state_id: schema("rpg.quest-state.active"),
-                    relationship_source: id(1),
-                    relationship_target: id(2),
-                    relationship_dimension_id: schema("rpg.relationship.trust"),
-                    relationship_delta: 7,
-                },
+                dialogue_quest_command("rpg.quest-state.available"),
             )],
         },
         ReplayTickInput {
             commands: vec![command(
                 1,
                 1,
-                RpgCommand::TransferItem {
-                    item_id: id(3),
-                    expected_owner: Some(id(1)),
-                    new_owner: Some(id(2)),
+                RpgCommandV1 {
+                    operations: vec![operation(
+                        0,
+                        vec![
+                            target(RpgAggregateKindV1::Item, id(3), 0),
+                            target(RpgAggregateKindV1::Inventory, id(9), 0),
+                            target(RpgAggregateKindV1::Inventory, id(10), 0),
+                        ],
+                        RpgOperationPayloadV1::TransferItem {
+                            item_id: id(3),
+                            source_inventory_id: Some(id(9)),
+                            destination_inventory_id: Some(id(10)),
+                            quantity: 1,
+                        },
+                    )],
                 },
             )],
         },
@@ -173,10 +265,17 @@ fn slice_ticks() -> Vec<ReplayTickInput> {
             commands: vec![command(
                 2,
                 2,
-                RpgCommand::LearnSkill {
-                    character_id: id(2),
-                    skill_id: schema("rpg.skill.survival"),
-                    delta: 250,
+                RpgCommandV1 {
+                    operations: vec![operation(
+                        0,
+                        vec![target(RpgAggregateKindV1::Character, id(2), 0)],
+                        RpgOperationPayloadV1::SetSkillProficiency {
+                            character_id: id(2),
+                            skill_id: schema("rpg.skill.survival"),
+                            expected_value: 0,
+                            new_value: 250,
+                        },
+                    )],
                 },
             )],
         },
@@ -184,14 +283,33 @@ fn slice_ticks() -> Vec<ReplayTickInput> {
             commands: vec![command(
                 3,
                 3,
-                RpgCommand::SetInteractiveObjectState {
-                    object_id: id(7),
-                    expected_state_id: schema("rpg.object-state.off"),
-                    next_state_id: schema("rpg.object-state.on"),
+                RpgCommandV1 {
+                    operations: vec![operation(
+                        0,
+                        vec![target(RpgAggregateKindV1::InteractiveObject, id(7), 0)],
+                        RpgOperationPayloadV1::TransitionInteractiveObject {
+                            object_id: id(7),
+                            expected_state_id: schema("rpg.object-state.off"),
+                            next_state_id: schema("rpg.object-state.on"),
+                        },
+                    )],
                 },
             )],
         },
     ]
+}
+
+fn payload(
+    snapshot: &RpgSnapshotV2,
+    kind: RpgAggregateKindV1,
+    persistent_id: PersistentId,
+) -> &RpgAggregatePayloadV1 {
+    &snapshot
+        .aggregates
+        .iter()
+        .find(|record| record.aggregate_kind == kind && record.persistent_id == persistent_id)
+        .expect("fixture aggregate exists")
+        .payload
 }
 
 fn compatibility() -> SaveCompatibility {
@@ -226,36 +344,60 @@ fn generic_rpg_slice_repeats_with_exact_state_event_and_ledger_hashes() {
     let expected = run_rpg_replay(&input).expect("baseline RPG replay completes");
 
     assert_eq!(expected.ticks.len(), 4);
-    assert!(expected.ticks.iter().all(|tick| {
-        tick.command_results[0].disposition == CommandDisposition::Committed
-            && tick.events.len() == 1
-    }));
+    assert!(
+        expected
+            .ticks
+            .iter()
+            .all(|tick| { tick.command_results[0].disposition == CommandDisposition::Committed })
+    );
+    assert_eq!(expected.ticks[0].events.len(), 3);
     assert!(matches!(
-        expected.ticks[0].events[0].payload,
-        EventPayload::Rpg(RpgEvent::DialogueQuestAdvanced {
-            relationship_value: 7,
-            ..
-        })
+        expected.ticks[0].events[2].payload,
+        EventPayload::Rpg(RpgEventV1::RelationshipAdjusted { value: 7, .. })
     ));
-    assert_eq!(
-        expected.final_rpg_snapshot.dialogues[0].node_id,
-        schema("rpg.dialogue-node.accepted")
-    );
-    assert_eq!(
-        expected.final_rpg_snapshot.quests[0].state_id,
-        schema("rpg.quest-state.active")
-    );
-    assert_eq!(
-        expected.final_rpg_snapshot.characters[0].relationships[0].value,
-        7
-    );
-    assert_eq!(expected.final_rpg_snapshot.items[0].owner, Some(id(2)));
-    assert_eq!(
-        expected.final_rpg_snapshot.characters[1].skills[0]
-            .proficiency
-            .get(),
-        250
-    );
+    assert!(matches!(
+        payload(
+            &expected.final_rpg_snapshot,
+            RpgAggregateKindV1::Dialogue,
+            id(5)
+        ),
+        RpgAggregatePayloadV1::Dialogue(value)
+            if value.node_id == schema("rpg.dialogue-node.accepted")
+    ));
+    assert!(matches!(
+        payload(
+            &expected.final_rpg_snapshot,
+            RpgAggregateKindV1::Quest,
+            id(4)
+        ),
+        RpgAggregatePayloadV1::Quest(value)
+            if value.state_id == schema("rpg.quest-state.active")
+    ));
+    assert!(matches!(
+        payload(
+            &expected.final_rpg_snapshot,
+            RpgAggregateKindV1::Relationship,
+            id(6)
+        ),
+        RpgAggregatePayloadV1::Relationship(value) if value.dimensions[0].value == 7
+    ));
+    assert!(matches!(
+        payload(
+            &expected.final_rpg_snapshot,
+            RpgAggregateKindV1::Inventory,
+            id(10)
+        ),
+        RpgAggregatePayloadV1::Inventory(value) if value.item_ids == vec![id(3)]
+    ));
+    assert!(matches!(
+        payload(
+            &expected.final_rpg_snapshot,
+            RpgAggregateKindV1::Character,
+            id(2)
+        ),
+        RpgAggregatePayloadV1::Character(value)
+            if value.skills[0].proficiency.get() == 250
+    ));
 
     for _ in 0..100 {
         assert_eq!(
@@ -274,7 +416,7 @@ fn world_save_load_restores_rpg_owner_segment_and_exact_continuation() {
         ticks: slice_ticks(),
     };
     let output = run_rpg_replay(&input).expect("RPG replay completes");
-    let checkpoint = WorldCheckpointV3::new(
+    let checkpoint = WorldCheckpointV4::new(
         output.final_runtime_snapshot.clone(),
         output.final_rpg_snapshot.clone(),
         PhysicsWorldCheckpointV1::new(
@@ -293,10 +435,17 @@ fn world_save_load_restores_rpg_owner_segment_and_exact_continuation() {
     let continuation = command(
         4,
         4,
-        RpgCommand::LearnSkill {
-            character_id: id(2),
-            skill_id: schema("rpg.skill.survival"),
-            delta: 10,
+        RpgCommandV1 {
+            operations: vec![operation(
+                0,
+                vec![target(RpgAggregateKindV1::Character, id(2), 1)],
+                RpgOperationPayloadV1::SetSkillProficiency {
+                    character_id: id(2),
+                    skill_id: schema("rpg.skill.survival"),
+                    expected_value: 250,
+                    new_value: 260,
+                },
+            )],
         },
     );
     let mut direct = RuntimeState::restore_world_checkpoint(checkpoint, authority())
@@ -326,29 +475,14 @@ fn rejected_rpg_transition_does_not_partially_mutate_and_consumes_sequence() {
     let mut runtime =
         RuntimeState::with_rpg_snapshot(bootstrap(), authority(), initial_rpg.clone())
             .expect("fixture restores");
-    let invalid = command(
-        0,
-        0,
-        RpgCommand::AdvanceDialogueQuest {
-            dialogue_id: id(5),
-            expected_dialogue_node_id: schema("rpg.dialogue-node.offer"),
-            next_dialogue_node_id: schema("rpg.dialogue-node.accepted"),
-            quest_id: id(4),
-            expected_quest_state_id: schema("rpg.quest-state.wrong"),
-            next_quest_state_id: schema("rpg.quest-state.active"),
-            relationship_source: id(1),
-            relationship_target: id(2),
-            relationship_dimension_id: schema("rpg.relationship.trust"),
-            relationship_delta: 7,
-        },
-    );
+    let invalid = command(0, 0, dialogue_quest_command("rpg.quest-state.wrong"));
 
     let rejected = runtime
         .run_tick([invalid])
         .expect("domain rejection is not a fatal tick error");
     assert_eq!(
         rejected.results[0].disposition,
-        CommandDisposition::Rejected(RejectionCode::RpgStatePreconditionFailed)
+        CommandDisposition::Rejected(RejectionCode::RpgTransitionInvalid)
     );
     assert!(rejected.events.is_empty());
     assert_eq!(
@@ -365,22 +499,7 @@ fn rejected_rpg_transition_does_not_partially_mutate_and_consumes_sequence() {
     assert_eq!(stream.receipt_window.len(), 1);
     assert_eq!(rejected.rpg_snapshot, initial_rpg);
 
-    let corrected = command(
-        1,
-        1,
-        RpgCommand::AdvanceDialogueQuest {
-            dialogue_id: id(5),
-            expected_dialogue_node_id: schema("rpg.dialogue-node.offer"),
-            next_dialogue_node_id: schema("rpg.dialogue-node.accepted"),
-            quest_id: id(4),
-            expected_quest_state_id: schema("rpg.quest-state.available"),
-            next_quest_state_id: schema("rpg.quest-state.active"),
-            relationship_source: id(1),
-            relationship_target: id(2),
-            relationship_dimension_id: schema("rpg.relationship.trust"),
-            relationship_delta: 7,
-        },
-    );
+    let corrected = command(1, 1, dialogue_quest_command("rpg.quest-state.available"));
     assert_eq!(
         runtime
             .run_tick([corrected])
@@ -401,4 +520,32 @@ fn public_manifest_authority_shape_remains_engine_owned() {
         ],
     };
     grant.validate().expect("authority grant is canonical");
+}
+
+#[test]
+fn exact_rpg_runtime_bindings_survive_checkpoint_restore() {
+    let bootstrap = bootstrap();
+    let bindings = RpgRuntimeBindingsV1 {
+        project_composition_lock_hash: ContentHash::from_bytes([0xa1; 32]),
+        schema_registry_hash: bootstrap.rpg_bindings.schema_registry_hash,
+        budget_policy_hash: ContentHash::from_bytes([0xa2; 32]),
+        active_definition_policy_hashes: vec![
+            ContentHash::from_bytes([0xa3; 32]),
+            ContentHash::from_bytes([0xa4; 32]),
+        ],
+    };
+    let runtime = RuntimeState::with_rpg_snapshot(
+        bootstrap.with_rpg_bindings(bindings.clone()),
+        authority(),
+        RpgSnapshotV2::default(),
+    )
+    .expect("runtime accepts exact bindings");
+    assert_eq!(runtime.snapshot().rpg_runtime_bindings, bindings);
+
+    let restored = RuntimeState::restore_world_checkpoint(
+        runtime.world_checkpoint().expect("checkpoint"),
+        authority(),
+    )
+    .expect("checkpoint restores");
+    assert_eq!(restored.snapshot().rpg_runtime_bindings, bindings);
 }

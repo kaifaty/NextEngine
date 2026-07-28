@@ -4,8 +4,8 @@ use std::fmt::{Display, Formatter};
 
 use crate::persistence::{
     AuthorityGrant, CommandLedgerDescriptorV2, HashBinding, ManifestValidationError,
-    REPLAY_MANIFEST_V3_SCHEMA_VERSION, ReplayCommandRecord, ReplayCommandResultV2,
-    ReplayComparePointV3, ReplayManifestV3, ReplayOwnerSegmentV2, ReplayTickManifestV3,
+    REPLAY_MANIFEST_V4_SCHEMA_VERSION, ReplayCommandRecord, ReplayCommandResultV2,
+    ReplayComparePointV4, ReplayManifestV4, ReplayOwnerSegmentV2, ReplayTickManifestV4,
     SaveCompatibility, SaveManifestV2, SaveSegmentDescriptor, SchemaBinding, TickSettings,
 };
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
     ClosedIngressBatchV1, ClosedPhysicsContactBatchV1, CommandId, CommandLedgerHash, CommandPhase,
     ContentHash, DomainEvent, EventPayload, InputMappingReceiptV1, IssuerPrincipal, PersistentId,
     PhysicalEventV1, PhysicsPoseV1, PhysicsStepInputV2, PrincipalDecodeError,
-    RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID, RpgEvent,
+    RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID, RpgEventV1,
     RuntimeAdmissionLimitsV1, RuntimeSnapshot, SchemaId, SkillProficiency, StateRoot,
     WorldNamespaceId, content_hash_from_bytes,
 };
@@ -277,8 +277,8 @@ pub(crate) fn decode_save_manifest(
     Ok(manifest)
 }
 
-pub(crate) fn encode_replay_manifest_v3(
-    manifest: &ReplayManifestV3,
+pub(crate) fn encode_replay_manifest_v4(
+    manifest: &ReplayManifestV4,
 ) -> Result<Vec<u8>, ManifestCodecError> {
     manifest.validate_and_decode(CanonicalDecodeLimits::default())?;
     let mut object = BTreeMap::new();
@@ -337,10 +337,10 @@ pub(crate) fn encode_replay_manifest_v3(
     Ok(encode_value(&JcsValue::Object(object)).into_bytes())
 }
 
-pub(crate) fn decode_replay_manifest_v3(
+pub(crate) fn decode_replay_manifest_v4(
     bytes: &[u8],
     limits: CanonicalDecodeLimits,
-) -> Result<ReplayManifestV3, ManifestCodecError> {
+) -> Result<ReplayManifestV4, ManifestCodecError> {
     if bytes.len() > limits.max_total_bytes {
         return Err(ManifestCodecError::InputTooLarge {
             actual: bytes.len(),
@@ -355,7 +355,10 @@ pub(crate) fn decode_replay_manifest_v3(
     }
     let mut object = into_object(value, "root")?;
     let schema_version = decode_u32(take(&mut object, "schema_version")?, "schema_version")?;
-    if schema_version != REPLAY_MANIFEST_V3_SCHEMA_VERSION {
+    if schema_version != REPLAY_MANIFEST_V4_SCHEMA_VERSION {
+        if schema_version == 3 {
+            return Err(ManifestValidationError::RpgSchemaUnsupported.into());
+        }
         return Err(ManifestValidationError::UnsupportedReplayVersion(schema_version).into());
     }
 
@@ -387,7 +390,7 @@ pub(crate) fn decode_replay_manifest_v3(
     if let Some(field) = object.into_keys().next() {
         return Err(ManifestCodecError::UnknownField(field));
     }
-    let manifest = ReplayManifestV3 {
+    let manifest = ReplayManifestV4 {
         schema_version,
         compatibility,
         initial_owner_segments,
@@ -585,7 +588,7 @@ fn decode_authority(
         .collect()
 }
 
-fn encode_replay_tick(tick: &ReplayTickManifestV3) -> Result<JcsValue, ManifestCodecError> {
+fn encode_replay_tick(tick: &ReplayTickManifestV4) -> Result<JcsValue, ManifestCodecError> {
     let mut object = BTreeMap::new();
     object.insert(
         "closed_ingress_batch".to_owned(),
@@ -661,7 +664,7 @@ fn decode_replay_ticks(
     value: JcsValue,
     limits: CanonicalDecodeLimits,
     admission: &RuntimeAdmissionLimitsV1,
-) -> Result<Vec<ReplayTickManifestV3>, ManifestCodecError> {
+) -> Result<Vec<ReplayTickManifestV4>, ManifestCodecError> {
     into_array(value, "ticks")?
         .into_iter()
         .map(|row| {
@@ -734,7 +737,7 @@ fn decode_replay_ticks(
             if let Some(field) = object.into_keys().next() {
                 return Err(ManifestCodecError::UnknownField(format!("ticks[].{field}")));
             }
-            Ok(ReplayTickManifestV3 {
+            Ok(ReplayTickManifestV4 {
                 tick,
                 closed_ingress_batch,
                 direct_external_commands,
@@ -850,7 +853,7 @@ fn decode_command_results(
         .collect()
 }
 
-fn encode_compare_point(point: &ReplayComparePointV3) -> JcsValue {
+fn encode_compare_point(point: &ReplayComparePointV4) -> JcsValue {
     JcsValue::Array(vec![
         string(point.tick.to_string()),
         string(point.state_root.to_hex()),
@@ -866,12 +869,12 @@ fn encode_compare_point(point: &ReplayComparePointV3) -> JcsValue {
     ])
 }
 
-fn decode_compare_points(value: JcsValue) -> Result<Vec<ReplayComparePointV3>, ManifestCodecError> {
+fn decode_compare_points(value: JcsValue) -> Result<Vec<ReplayComparePointV4>, ManifestCodecError> {
     into_array(value, "compare_points")?
         .into_iter()
         .map(|row| {
             let mut columns = into_array(row, "compare_points[]")?.into_iter();
-            let point = ReplayComparePointV3 {
+            let point = ReplayComparePointV4 {
                 tick: decode_u64_string(
                     next(&mut columns, "compare_points[].tick")?,
                     "compare_points[].tick",
@@ -941,47 +944,64 @@ fn encode_event_payload(payload: &EventPayload) -> JcsValue {
             string("command"),
             string(command_sequence.to_string()),
         ]),
-        EventPayload::Rpg(RpgEvent::DialogueQuestAdvanced {
+        EventPayload::Rpg(RpgEventV1::DialogueAdvanced {
             dialogue_id,
-            dialogue_node_id,
-            quest_id,
-            quest_state_id,
-            relationship_source,
-            relationship_target,
-            relationship_dimension_id,
-            relationship_value,
+            node_id,
         }) => JcsValue::Array(vec![
             string("rpg_dialogue"),
             string(dialogue_id.to_hex()),
-            string(dialogue_node_id.as_str()),
-            string(quest_id.to_hex()),
-            string(quest_state_id.as_str()),
-            string(relationship_source.to_hex()),
-            string(relationship_target.to_hex()),
-            string(relationship_dimension_id.as_str()),
-            string(relationship_value.to_string()),
+            string(node_id.as_str()),
         ]),
-        EventPayload::Rpg(RpgEvent::ItemTransferred {
+        EventPayload::Rpg(RpgEventV1::QuestTransitioned { quest_id, state_id }) => {
+            JcsValue::Array(vec![
+                string("rpg_quest"),
+                string(quest_id.to_hex()),
+                string(state_id.as_str()),
+            ])
+        }
+        EventPayload::Rpg(RpgEventV1::RelationshipAdjusted {
+            relationship_id,
+            dimension_id,
+            value,
+        }) => JcsValue::Array(vec![
+            string("rpg_relationship"),
+            string(relationship_id.to_hex()),
+            string(dimension_id.as_str()),
+            string(value.to_string()),
+        ]),
+        EventPayload::Rpg(RpgEventV1::ItemTransferred {
             item_id,
-            previous_owner,
-            new_owner,
+            source_inventory_id,
+            destination_inventory_id,
+            quantity,
         }) => JcsValue::Array(vec![
             string("rpg_item"),
             string(item_id.to_hex()),
-            encode_optional_persistent_id(*previous_owner),
-            encode_optional_persistent_id(*new_owner),
+            encode_optional_persistent_id(*source_inventory_id),
+            encode_optional_persistent_id(*destination_inventory_id),
+            JcsValue::Number(u64::from(*quantity)),
         ]),
-        EventPayload::Rpg(RpgEvent::SkillLearned {
+        EventPayload::Rpg(RpgEventV1::SkillProficiencySet {
             character_id,
             skill_id,
-            proficiency,
+            value,
         }) => JcsValue::Array(vec![
             string("rpg_skill"),
             string(character_id.to_hex()),
             string(skill_id.as_str()),
-            JcsValue::Number(u64::from(proficiency.get())),
+            JcsValue::Number(u64::from(value.get())),
         ]),
-        EventPayload::Rpg(RpgEvent::InteractiveObjectStateChanged {
+        EventPayload::Rpg(RpgEventV1::EquipmentAssigned {
+            equipment_id,
+            item_id,
+            slot_id,
+        }) => JcsValue::Array(vec![
+            string("rpg_equipment"),
+            string(equipment_id.to_hex()),
+            string(item_id.to_hex()),
+            string(slot_id.as_str()),
+        ]),
+        EventPayload::Rpg(RpgEventV1::InteractiveObjectTransitioned {
             object_id,
             state_id,
         }) => JcsValue::Array(vec![
@@ -1077,35 +1097,33 @@ fn decode_event_payload(value: JcsValue) -> Result<EventPayload, ManifestCodecEr
                 "ticks[].expected_events[].payload.command_sequence",
             )?,
         },
-        "rpg_dialogue" => EventPayload::Rpg(RpgEvent::DialogueQuestAdvanced {
+        "rpg_dialogue" => EventPayload::Rpg(RpgEventV1::DialogueAdvanced {
             dialogue_id: decode_persistent_id(next(&mut columns, "event.dialogue_id")?)?,
-            dialogue_node_id: decode_schema_id(next(&mut columns, "event.dialogue_node_id")?)?,
+            node_id: decode_schema_id(next(&mut columns, "event.dialogue_node_id")?)?,
+        }),
+        "rpg_quest" => EventPayload::Rpg(RpgEventV1::QuestTransitioned {
             quest_id: decode_persistent_id(next(&mut columns, "event.quest_id")?)?,
-            quest_state_id: decode_schema_id(next(&mut columns, "event.quest_state_id")?)?,
-            relationship_source: decode_persistent_id(next(
-                &mut columns,
-                "event.relationship_source",
-            )?)?,
-            relationship_target: decode_persistent_id(next(
-                &mut columns,
-                "event.relationship_target",
-            )?)?,
-            relationship_dimension_id: decode_schema_id(next(
-                &mut columns,
-                "event.relationship_dimension_id",
-            )?)?,
-            relationship_value: decode_i32_string(
+            state_id: decode_schema_id(next(&mut columns, "event.quest_state_id")?)?,
+        }),
+        "rpg_relationship" => EventPayload::Rpg(RpgEventV1::RelationshipAdjusted {
+            relationship_id: decode_persistent_id(next(&mut columns, "event.relationship_id")?)?,
+            dimension_id: decode_schema_id(next(&mut columns, "event.dimension_id")?)?,
+            value: decode_i32_string(
                 next(&mut columns, "event.relationship_value")?,
                 "event.relationship_value",
             )?,
         }),
-        "rpg_item" => EventPayload::Rpg(RpgEvent::ItemTransferred {
+        "rpg_item" => EventPayload::Rpg(RpgEventV1::ItemTransferred {
             item_id: decode_persistent_id(next(&mut columns, "event.item_id")?)?,
-            previous_owner: decode_optional_persistent_id(next(
+            source_inventory_id: decode_optional_persistent_id(next(
                 &mut columns,
-                "event.previous_owner",
+                "event.source_inventory_id",
             )?)?,
-            new_owner: decode_optional_persistent_id(next(&mut columns, "event.new_owner")?)?,
+            destination_inventory_id: decode_optional_persistent_id(next(
+                &mut columns,
+                "event.destination_inventory_id",
+            )?)?,
+            quantity: decode_u32(next(&mut columns, "event.quantity")?, "event.quantity")?,
         }),
         "rpg_skill" => {
             let character_id = decode_persistent_id(next(&mut columns, "event.character_id")?)?;
@@ -1119,13 +1137,18 @@ fn decode_event_payload(value: JcsValue) -> Result<EventPayload, ManifestCodecEr
                     ManifestCodecError::InvalidInteger("event.proficiency".to_owned())
                 })?)
                 .map_err(|_| ManifestCodecError::InvalidInteger("event.proficiency".to_owned()))?;
-            EventPayload::Rpg(RpgEvent::SkillLearned {
+            EventPayload::Rpg(RpgEventV1::SkillProficiencySet {
                 character_id,
                 skill_id,
-                proficiency,
+                value: proficiency,
             })
         }
-        "rpg_object" => EventPayload::Rpg(RpgEvent::InteractiveObjectStateChanged {
+        "rpg_equipment" => EventPayload::Rpg(RpgEventV1::EquipmentAssigned {
+            equipment_id: decode_persistent_id(next(&mut columns, "event.equipment_id")?)?,
+            item_id: decode_persistent_id(next(&mut columns, "event.item_id")?)?,
+            slot_id: decode_schema_id(next(&mut columns, "event.slot_id")?)?,
+        }),
+        "rpg_object" => EventPayload::Rpg(RpgEventV1::InteractiveObjectTransitioned {
             object_id: decode_persistent_id(next(&mut columns, "event.object_id")?)?,
             state_id: decode_schema_id(next(&mut columns, "event.state_id")?)?,
         }),
