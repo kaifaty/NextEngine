@@ -28,16 +28,8 @@ const SOURCE_SIZE_EXEMPTIONS: &[SourceSizeExemption] = &[
         max_lines: 2_542,
     },
     SourceSizeExemption {
-        path: "crates/contracts/src/project.rs",
-        max_lines: 2_198,
-    },
-    SourceSizeExemption {
         path: "crates/physics-api/src/reference_world.rs",
         max_lines: 2_153,
-    },
-    SourceSizeExemption {
-        path: "crates/contracts/src/manifest_jcs.rs",
-        max_lines: 2_015,
     },
     SourceSizeExemption {
         path: "crates/verification/src/persistence_replay.rs",
@@ -50,10 +42,6 @@ const SOURCE_SIZE_EXEMPTIONS: &[SourceSizeExemption] = &[
     SourceSizeExemption {
         path: "crates/verification/src/lib.rs",
         max_lines: 1_318,
-    },
-    SourceSizeExemption {
-        path: "crates/assets/src/save.rs",
-        max_lines: 1_312,
     },
 ];
 
