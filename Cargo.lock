@@ -108,6 +108,14 @@ name = "next_physics_physx_ffi"
 version = "0.1.0"
 
 [[package]]
+name = "next_project"
+version = "0.1.0"
+dependencies = [
+ "next_assets",
+ "next_contracts",
+]
+
+[[package]]
 name = "next_rpg"
 version = "0.1.0"
 dependencies = [
@@ -132,6 +140,7 @@ dependencies = [
  "next_contracts",
  "next_physics_api",
  "next_physics_physx",
+ "next_project",
  "next_runtime",
 ]
 

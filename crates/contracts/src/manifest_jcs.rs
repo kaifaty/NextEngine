@@ -122,11 +122,34 @@ impl From<crate::IdentifierError> for ManifestCodecError {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-enum JcsValue {
+pub(crate) enum JcsValue {
     String(String),
     Number(u64),
     Array(Vec<JcsValue>),
     Object(BTreeMap<String, JcsValue>),
+}
+
+pub(crate) fn encode_canonical_jcs(value: &JcsValue) -> Vec<u8> {
+    encode_value(value).into_bytes()
+}
+
+pub(crate) fn decode_canonical_jcs(
+    bytes: &[u8],
+    limits: CanonicalDecodeLimits,
+) -> Result<JcsValue, ManifestCodecError> {
+    if bytes.len() > limits.max_total_bytes {
+        return Err(ManifestCodecError::InputTooLarge {
+            actual: bytes.len(),
+            limit: limits.max_total_bytes,
+        });
+    }
+    let mut parser = Parser::new(bytes, limits.max_sequence_items);
+    let value = parser.parse_value(0)?;
+    parser.finish()?;
+    if encode_value(&value).as_bytes() != bytes {
+        return Err(ManifestCodecError::NonCanonicalJcs);
+    }
+    Ok(value)
 }
 
 pub(crate) fn encode_save_manifest(

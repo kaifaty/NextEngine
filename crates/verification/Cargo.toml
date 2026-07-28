@@ -15,6 +15,7 @@ next_assets.workspace = true
 next_contracts.workspace = true
 next_physics_api.workspace = true
 next_physics_physx = { workspace = true, optional = true }
+next_project.workspace = true
 next_runtime.workspace = true
 
 [lints]

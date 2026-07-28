@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod content_package;
 mod persistence_replay;
 mod physics_parity;
 mod player_fixture;
@@ -26,6 +27,9 @@ use next_runtime::{
     SnapshotRestoreError,
 };
 
+pub use content_package::{
+    ContentPackageCheckError, ContentPackageCheckReport, run_content_package_check,
+};
 pub use persistence_replay::{
     PersistenceReplayBackend, PersistenceReplayCheckError, PersistenceReplayCheckReport,
     run_persistence_replay_check, run_persistence_replay_check_with_backend,

@@ -6,6 +6,7 @@ members = [
     "crates/physics-api",
     "crates/physics-physx",
     "crates/physics-physx-ffi",
+    "crates/project",
     "crates/rpg",
     "crates/runtime",
     "crates/verification",
@@ -26,6 +27,7 @@ next_assets = { path = "crates/assets" }
 next_physics_api = { path = "crates/physics-api" }
 next_physics_physx = { path = "crates/physics-physx" }
 next_physics_physx_ffi = { path = "crates/physics-physx-ffi" }
+next_project = { path = "crates/project" }
 next_rpg = { path = "crates/rpg" }
 next_runtime = { path = "crates/runtime" }
 next_verification = { path = "crates/verification" }

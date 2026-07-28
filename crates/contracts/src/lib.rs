@@ -2,6 +2,7 @@
 
 mod canonical;
 mod command;
+mod content;
 mod identity;
 mod ids;
 mod input;
@@ -9,6 +10,7 @@ mod ledger;
 mod manifest_jcs;
 mod persistence;
 mod physics;
+mod project;
 mod rpg;
 mod rpg_v1;
 mod snapshot;
@@ -31,6 +33,11 @@ pub use command::{
     CommandPreconditionV1, DomainEvent, DomainEventEnvelopeV2, EventPayload, IssuerPrincipal,
     IssuerPrincipalV2, NOOP_COMMAND_CAPABILITY_ID, NOOP_COMMAND_SCHEMA_ID, PrincipalDecodeError,
     WorldCommand, WorldCommandEnvelopeV2, compute_command_id_from_body_bytes,
+};
+pub use content::{
+    NEUTRAL_RECORD_MAX_PROPERTIES, NEUTRAL_RECORD_MAX_REFERENCES, NEUTRAL_RECORD_OWNER_ID,
+    NEUTRAL_RECORD_SCHEMA_VERSION, NEUTRAL_RECORD_SEGMENT_ID, NeutralPropertyV1,
+    NeutralRecordError, NeutralRecordKindV1, NeutralRecordV1,
 };
 pub use identity::{
     COMMAND_STREAM_REGISTRY_SCHEMA_VERSION, CommandStreamKeyV1, CommandStreamRegistryV1,
@@ -113,6 +120,19 @@ pub use physics::{
     PhysicsStepResultV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
     PhysicsWorldCheckpointV1, PhysicsWorldDescriptorV1,
     REFERENCE_GRAVITY_MICROMETRES_PER_SECOND_SQUARED, derive_physics_contact_id,
+};
+pub use project::{
+    ActivatedProjectV1, AssetRevisionRefV1, CONTENT_MANIFEST_FORMAT_V1, ContentAssetEntryV1,
+    ContentDependencyEdgeV1, ContentManifestBodyV1, ContentManifestV1, ContentProvenanceV1,
+    ContentSemanticClassV1, EmptyContentManifestProfilesV1, PROJECT_CATALOG_FORMAT_V1,
+    PROJECT_COMPOSITION_LOCK_FORMAT_V1, PROJECT_MANIFEST_FORMAT_V1, PROJECT_MAX_DEPENDENCIES_V1,
+    PROJECT_MAX_RECORDS_V1, ProjectCatalogRecordV1, ProjectCatalogSnapshotV1,
+    ProjectCompositionLockV1, ProjectContractError, ProjectDependencyKindV1, ProjectManifestV1,
+    ProjectRequirementV1, ResolvedProjectRecordV1, SCHEMA_REGISTRY_MANIFEST_FORMAT_V1,
+    SchemaDescriptorV1, SchemaEncodingV1, SchemaRefV1, SchemaRegistryManifestBodyV1,
+    SchemaRegistryManifestV1, SchemaRoleV1, SemanticVersionV1, WORLD_PARTITION_MANIFEST_FORMAT_V1,
+    WorldChunkBindingV1, WorldPartitionManifestBodyV1, WorldPartitionManifestV1,
+    canonical_empty_manifest_hash, domain_hash,
 };
 pub use rpg::{
     CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_OFFER_NODE_ID, CORE_DIALOGUE_QUEST_TRUST_DELTA,

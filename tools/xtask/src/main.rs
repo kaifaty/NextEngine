@@ -15,12 +15,16 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected boundary-scan, host-check, play, physics-collision, physics-backend-parity or persistence-replay".to_owned()
+        "expected boundary-scan, content-package, host-check, play, physics-collision, physics-backend-parity or persistence-replay".to_owned()
     })?;
     match command.as_str() {
         "boundary-scan" => {
             reject_extra_arguments(arguments)?;
             xtask::boundary_scan::boundary_scan(&root)
+        }
+        "content-package" => {
+            reject_extra_arguments(arguments)?;
+            content_package()
         }
         "host-check" => {
             reject_extra_arguments(arguments)?;
@@ -46,6 +50,21 @@ fn run() -> Result<(), String> {
         }
         _ => Err(format!("unknown command: {command}")),
     }
+}
+
+fn content_package() -> Result<(), String> {
+    let report =
+        next_verification::run_content_package_check().map_err(|error| error.to_string())?;
+    println!(
+        "{{\"status\":\"PASS\",\"records\":{},\"chunks\":{},\"schema_registry_hash\":\"{}\",\"content_manifest_hash\":\"{}\",\"world_partition_hash\":\"{}\",\"composition_lock_hash\":\"{}\"}}",
+        report.records,
+        report.chunks,
+        report.schema_registry_hash.to_hex(),
+        report.content_manifest_hash.to_hex(),
+        report.world_partition_hash.to_hex(),
+        report.composition_lock_hash.to_hex(),
+    );
+    Ok(())
 }
 
 fn physics_backend_parity(substeps: u64, permutations: u64) -> Result<(), String> {

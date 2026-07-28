@@ -10,9 +10,10 @@ Next Engine создаётся для игр, в которых движение
 
 > **Статус:** ранний bootstrap. В репозитории уже работает детерминированный
 > headless-срез с вводом, командами, RPG-состоянием, эталонной физикой,
-> сохранением и replay. Интерактивная игра, renderer, полный конвейер подготовки
-> контента и законченный RPG-цикл остаются целевым результатом v1, а не готовым
-> продуктом.
+> сохранением и replay, а neutral fixture проходит deterministic
+> validate/cook/publish/activation. Интерактивная игра, renderer, подключение
+> cooked project к gameplay root и законченный RPG-цикл остаются целевым
+> результатом v1, а не готовым продуктом.
 > Название Next Engine временное.
 
 Next Engine — самостоятельный проект. Это не порт OpenGothic и не универсальный
@@ -93,6 +94,10 @@ runtime-обучение моделей и
 - bounded NPC interaction: тот же semantic `interact` при контакте с authored
   quest-giver атомарно переводит dialogue и quest и обновляет отношение
   NPC→player через Outcome `WorldCommand`;
+- canonical project/schema/content/world manifests, deterministic exact
+  resolver и CC0 neutral fixture из scene, collider и RPG definition records;
+  cooker публикует content-addressed generation атомарно, а production loader
+  повторно проверяет lock, hashes, schema/reference closure и blobs;
 - атомарные поколения сохранений, восстановление, replay и проверка совпадения
   authoritative state roots;
 - переносимый `headless` composition root и локальные product checks;
@@ -101,10 +106,11 @@ runtime-обучение моделей и
 
 Это ещё не законченная игра: текущий `play` проверяет ограниченный neutral
 сценарий движения, столкновения, pickup/equip, активации `core-switch` и один
-authored NPC dialogue/quest transition. Reference physics profile пока
-ограничен upright capsule и статическими Box colliders; cooked project,
-content-authored interaction definitions и combat package остаются следующими
-срезами.
+authored NPC dialogue/quest transition. Cooker уже готовит exact cooked
+project, но gameplay root ещё не активирует из него interaction definitions.
+Reference physics profile пока ограничен upright capsule и статическими Box
+colliders; подключение cooked project к `headless`, content-authored
+interaction definitions и combat package остаются следующими срезами.
 
 ## Быстрый старт
 
@@ -128,6 +134,9 @@ cargo run -p xtask -- physics-collision
 
 # Сохранение → восстановление → replay и fallback повреждённого поколения
 cargo run -p xtask -- persistence-replay
+
+# Neutral fixture → deterministic cook → atomic publish → production activation
+cargo run -p xtask -- content-package
 
 # Форматирование, clippy, тесты workspace и архитектурные границы
 cargo run -p xtask -- host-check
@@ -200,7 +209,8 @@ vendor types, importer structures, database connections и model sessions
 | `crates/physics-api` | Детерминированный reference physics world и grounded capsule |
 | `crates/physics-physx` | Safe optional PhysX adapter за engine-owned physics API |
 | `crates/physics-physx-ffi` | Единственная ADR-033 allowlisted native FFI-граница |
-| `crates/assets` | Copy-on-write поколения сохранений и восстановление |
+| `crates/assets` | Copy-on-write save/content generations, atomic publication и bounded load |
+| `crates/project` | Exact resolver, neutral cooker и production project activation |
 | `crates/verification` | Neutral fixtures, state roots, headless replay и product scenarios |
 | `apps/headless` | Текущий переносимый composition root без окна и renderer |
 | `tools/xtask` | Локальные product checks и проверка архитектурных границ |
