@@ -20,8 +20,9 @@ Next Engine создаётся для игр, в которых движение
 > deterministic streaming с отдельным save owner segment и первый
 > deterministic NPC planner/procedural avatar fallback работают в cooked
 > slice; deterministic Luau package host уже проходит sandbox/budget/state
-> checks, а Wasm plugin host и shipping closure остаются целевым
-> результатом v1, а не готовым продуктом.
+> checks. Wasm Component host на pinned Wasmtime проходит N/N−1 negotiation,
+> fuel/memory/capability/state checks и сохраняет обязательный headless
+> fallback; shipping closure ещё остаётся целевым результатом v1.
 > Название Next Engine временное.
 
 Next Engine — самостоятельный проект. Это не порт OpenGothic и не универсальный
@@ -138,6 +139,11 @@ runtime-обучение моделей и
   immutable queries и typed proposals, а instruction/allocation/live-memory/
   host-call/command budgets, atomic proposal discard, persisted package state
   и three-strike circuit проверяются локальными product checks;
+- private Wasmtime `45.0.0` adapter исполняет engine-owned WIT v3/v2
+  Component worlds без ambient WASI: exact component hash, N/N−1
+  compatibility selection, fuel per call/tick, linear-memory/table/instance
+  limits, opaque resource handles, required/optional startup и canonical
+  plugin state проверяются до общего mechanics/RPG command path;
 - переносимый `headless` composition root и локальные product checks;
 - изолированный экспериментальный путь
   `train → ONNX → inference` для проверки локального ML toolchain.
@@ -147,8 +153,8 @@ runtime-обучение моделей и
 один authored NPC dialogue/quest transition и переход во второй chunk с
 возвратом. Reference physics profile пока ограничен upright capsule и
 статическими Box colliders; desktop adapter пока отображает только
-B0-примитивы и остаётся `Proposed`. Wasm Component host и shipping closure —
-следующие срезы.
+B0-примитивы и остаётся `Proposed`. Shipping closure и реальные
+Windows/Linux platform gates — следующий срез.
 
 ## Быстрый старт
 

@@ -1,0 +1,27 @@
+package nextengine:extension@2.0.0;
+
+interface host {
+  record persistent-id {
+    high: u64,
+    low: u64,
+  }
+
+  resource query;
+
+  get-character-health: func(
+    view: borrow<query>,
+    target: persistent-id,
+  ) -> result<s32, u32>;
+
+  propose-action: func(
+    actor: persistent-id,
+    target: persistent-id,
+    semantic-action: string,
+  ) -> result<u32, u32>;
+}
+
+world plugin-v2 {
+  import host;
+  use host.{query};
+  export run: func(view: borrow<query>) -> result<u32, u32>;
+}

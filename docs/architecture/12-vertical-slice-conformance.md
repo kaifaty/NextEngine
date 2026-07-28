@@ -91,10 +91,11 @@ authoritative oracle.
 
 Check использует малый CC0/engine-owned neutral fixture и public tooling:
 
-Текущий M3/M9 implementation gate покрывает пункты 1–6 для data-only и Luau,
-storage/schema failure matrix и atomic two-chunk admission тем же production
-loader. Wasm часть пункта 6 добавляется в M10; это implementation status, а не
-ослабление финального контракта check.
+Текущий M3/M10 implementation gate покрывает пункты 1–6 для data-only, Luau и
+Wasm, storage/schema failure matrix и atomic two-chunk admission тем же
+production loader. Wasm component выполняется через pinned private Wasmtime
+adapter, engine-owned WIT N/N−1, empty ambient linker и общий mechanics/RPG
+proposal path; shipping status всё ещё определяется отдельными platform gates.
 
 1. validate authored manifest/schema/references/bounds;
 2. cook immutable content;

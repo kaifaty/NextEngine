@@ -8,6 +8,7 @@ members = [
     "crates/desktop-sdl-ash",
     "crates/mechanics",
     "crates/platform",
+    "crates/plugin-host",
     "crates/presentation",
     "crates/physics-api",
     "crates/physics-physx",
@@ -37,6 +38,7 @@ next_assets = { path = "crates/assets" }
 next_desktop_sdl_ash = { path = "crates/desktop-sdl-ash" }
 next_mechanics = { path = "crates/mechanics" }
 next_platform = { path = "crates/platform" }
+next_plugin_host = { path = "crates/plugin-host" }
 next_presentation = { path = "crates/presentation" }
 next_physics_api = { path = "crates/physics-api" }
 next_physics_physx = { path = "crates/physics-physx" }
@@ -53,6 +55,7 @@ unicode-normalization = "=0.1.25"
 ash = { version = "=0.38.0", default-features = false, features = ["loaded", "std"] }
 sdl3 = { version = "=0.18.4", features = ["ash", "build-from-source-static"] }
 mlua = { version = "=0.12.0", default-features = false, features = ["luau"] }
+wasmtime = { version = "=45.0.0", default-features = false, features = ["component-model", "cranelift", "runtime", "std", "wat"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

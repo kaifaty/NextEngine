@@ -52,6 +52,7 @@ pub struct PersistenceReplayCheckReport {
     pub agent_intent_id: ContentHash,
     pub agent_projection_hash: ContentHash,
     pub luau_package_state_hash: ContentHash,
+    pub wasm_plugin_state_hash: ContentHash,
     pub world_streaming_generation: u64,
     pub current_chunk_id: SchemaId,
     pub final_state_root: StateRoot,
@@ -166,6 +167,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
     }
     .map_err(|error| PersistenceReplayCheckError::new("build player fixture", error.to_string()))?;
     let luau_package_state_hash = verify_luau_state_round_trip()?;
+    let wasm_plugin_state_hash = verify_wasm_state_round_trip()?;
     let initial_rpg = initial_rpg_snapshot(&fixture)?;
     let initial_chunk_id = fixture
         .activated_project
@@ -1020,11 +1022,60 @@ pub(crate) fn run_persistence_replay_check_for_project(
         agent_intent_id,
         agent_projection_hash,
         luau_package_state_hash,
+        wasm_plugin_state_hash,
         world_streaming_generation: direct_world.snapshot().generation,
         current_chunk_id: direct_world.snapshot().current_chunk_id.clone(),
         final_state_root,
         final_command_ledger_hash,
     })
+}
+
+fn verify_wasm_state_round_trip() -> Result<ContentHash, PersistenceReplayCheckError> {
+    let manifest = next_plugin_host::reference_wasm_manifest_v1(true).map_err(|error| {
+        PersistenceReplayCheckError::new("create Wasm manifest", error.to_string())
+    })?;
+    let component = next_plugin_host::REFERENCE_COMPONENT_WAT
+        .as_bytes()
+        .to_vec();
+    let grants = manifest.requested_capabilities.clone();
+    let startup = next_plugin_host::WasmPluginRuntimeV1::activate(
+        manifest.clone(),
+        Some(component.clone()),
+        grants.clone(),
+    )
+    .map_err(|error| PersistenceReplayCheckError::new("create Wasm runtime", error.to_string()))?;
+    let next_plugin_host::WasmPluginStartupV1::Active(mut direct) = startup else {
+        return Err(PersistenceReplayCheckError::condition(
+            "required Wasm plugin activates",
+        ));
+    };
+    let first = direct.execute_i32(1, 0).map_err(|error| {
+        PersistenceReplayCheckError::new("execute Wasm before save", error.to_string())
+    })?;
+    let bytes = direct.state().canonical_bytes().map_err(|error| {
+        PersistenceReplayCheckError::new("encode Wasm plugin state", error.to_string())
+    })?;
+    let state = next_contracts::WasmPluginStateV1::from_canonical_bytes(
+        &bytes,
+        next_contracts::CanonicalDecodeLimits::default(),
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("decode Wasm plugin state", error.to_string())
+    })?;
+    let mut restored =
+        next_plugin_host::WasmPluginRuntimeV1::restore(manifest, component, grants, state)
+            .map_err(|error| {
+                PersistenceReplayCheckError::new("restore Wasm runtime", error.to_string())
+            })?;
+    let retried = restored.execute_i32(2, 0).map_err(|error| {
+        PersistenceReplayCheckError::new("execute Wasm after load", error.to_string())
+    })?;
+    if first.value != retried.value || direct.state().state_bytes != restored.state().state_bytes {
+        return Err(PersistenceReplayCheckError::condition(
+            "Wasm plugin state and retry are exact after load",
+        ));
+    }
+    Ok(restored.state().state_hash)
 }
 
 fn verify_luau_state_round_trip() -> Result<ContentHash, PersistenceReplayCheckError> {

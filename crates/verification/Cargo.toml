@@ -17,6 +17,7 @@ next_contracts.workspace = true
 next_physics_api.workspace = true
 next_physics_physx = { workspace = true, optional = true }
 next_platform.workspace = true
+next_plugin_host.workspace = true
 next_presentation.workspace = true
 next_project.workspace = true
 next_render.workspace = true

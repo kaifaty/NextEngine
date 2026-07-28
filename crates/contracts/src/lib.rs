@@ -55,6 +55,11 @@ pub use extension::{
     EXTENSION_CIRCUIT_THRESHOLD, EXTENSION_CIRCUIT_WINDOW_TICKS,
     EXTENSION_PACKAGE_STATE_SCHEMA_VERSION, ExtensionBudgetPolicyV1, ExtensionContractError,
     ExtensionPackageStateV1, ExtensionViolationCodeV1, LuauPackageManifestV1,
+    WASM_DEFAULT_FUEL_PER_CALL, WASM_DEFAULT_FUEL_PER_TICK, WASM_DEFAULT_INSTANCE_LIMIT,
+    WASM_DEFAULT_LINEAR_MEMORY_BYTES, WASM_DEFAULT_TABLE_LIMIT, WASM_HOST_CURRENT_API_MAJOR,
+    WASM_HOST_PREVIOUS_API_MAJOR, WASM_PLUGIN_STATE_SCHEMA_VERSION, WasmPluginManifestV1,
+    WasmPluginStateV1, WasmResourceLimitsV1, WitInterfaceSelectionV1, WitResourceHandleV1,
+    negotiate_wit_interface_v1,
 };
 pub use identity::{
     COMMAND_STREAM_REGISTRY_SCHEMA_VERSION, CommandStreamKeyV1, CommandStreamRegistryV1,
