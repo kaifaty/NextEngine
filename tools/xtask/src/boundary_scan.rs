@@ -28,10 +28,6 @@ const SOURCE_SIZE_EXEMPTIONS: &[SourceSizeExemption] = &[
         max_lines: 2_542,
     },
     SourceSizeExemption {
-        path: "crates/contracts/src/rpg_v1.rs",
-        max_lines: 2_503,
-    },
-    SourceSizeExemption {
         path: "crates/contracts/src/project.rs",
         max_lines: 2_198,
     },
@@ -50,14 +46,6 @@ const SOURCE_SIZE_EXEMPTIONS: &[SourceSizeExemption] = &[
     SourceSizeExemption {
         path: "crates/rpg/src/lib.rs",
         max_lines: 1_657,
-    },
-    SourceSizeExemption {
-        path: "crates/contracts/src/snapshot.rs",
-        max_lines: 1_437,
-    },
-    SourceSizeExemption {
-        path: "crates/contracts/src/rpg.rs",
-        max_lines: 1_355,
     },
     SourceSizeExemption {
         path: "crates/verification/src/lib.rs",
