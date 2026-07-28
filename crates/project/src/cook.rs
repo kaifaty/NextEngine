@@ -328,11 +328,13 @@ pub fn neutral_vertical_slice_source_v1() -> Result<NeutralProjectSourceV1, Proj
         NeutralRecordKindV1::RelationshipDefinition,
         NeutralRecordKindV1::InteractionDefinition,
         NeutralRecordKindV1::AbilityDefinition,
+        NeutralRecordKindV1::WorldChunk,
+        NeutralRecordKindV1::WorldChunk,
     ];
-    let asset_ids: Vec<_> = (1_u8..=11)
+    let asset_ids: Vec<_> = (1_u8..=13)
         .map(|byte| AssetId::from_bytes([byte; 16]))
         .collect();
-    let persistent_ids: Vec<_> = (31_u8..=41)
+    let persistent_ids: Vec<_> = (31_u8..=43)
         .map(|byte| PersistentId::from_bytes([byte; 16]))
         .collect();
     let mut records = Vec::new();
@@ -348,6 +350,12 @@ pub fn neutral_vertical_slice_source_v1() -> Result<NeutralProjectSourceV1, Proj
                 vec![asset_ids[6], asset_ids[7], asset_ids[8]],
             ),
             NeutralRecordKindV1::AbilityDefinition => (vec![persistent_ids[3]], vec![asset_ids[3]]),
+            NeutralRecordKindV1::WorldChunk if index == 11 => {
+                (persistent_ids[1..=5].to_vec(), asset_ids[1..=5].to_vec())
+            }
+            NeutralRecordKindV1::WorldChunk => {
+                (persistent_ids[2..=10].to_vec(), asset_ids[2..=10].to_vec())
+            }
             _ => (Vec::new(), Vec::new()),
         };
         let mut properties = vec![NeutralPropertyV1 {
@@ -391,12 +399,20 @@ pub fn neutral_vertical_slice_source_v1() -> Result<NeutralProjectSourceV1, Proj
         ),
         partition_id: SchemaId::new("nextengine.fixture.partition.v1")?,
         coordinate_profile_id: SchemaId::new("nextengine.coordinates.right-handed-metres.v1")?,
-        chunks: vec![SourceChunkBindingV1 {
-            chunk_id: SchemaId::new("nextengine.fixture.chunk.start")?,
-            region_id: SchemaId::new("nextengine.fixture.region.start")?,
-            chunk_asset_id: asset_ids[0],
-            required_asset_ids: asset_ids[1..].to_vec(),
-        }],
+        chunks: vec![
+            SourceChunkBindingV1 {
+                chunk_id: SchemaId::new("nextengine.fixture.chunk.start")?,
+                region_id: SchemaId::new("nextengine.fixture.region.start")?,
+                chunk_asset_id: asset_ids[11],
+                required_asset_ids: asset_ids[1..=5].to_vec(),
+            },
+            SourceChunkBindingV1 {
+                chunk_id: SchemaId::new("nextengine.fixture.chunk.frontier")?,
+                region_id: SchemaId::new("nextengine.fixture.region.frontier")?,
+                chunk_asset_id: asset_ids[12],
+                required_asset_ids: asset_ids[2..=10].to_vec(),
+            },
+        ],
     })
 }
 
@@ -405,6 +421,9 @@ pub(crate) fn compile_rpg_definitions_v1(
 ) -> Result<RpgDefinitionRegistryV1, ProjectCookError> {
     let mut by_kind = BTreeMap::new();
     for record in records {
+        if record.kind == NeutralRecordKindV1::WorldChunk {
+            continue;
+        }
         if by_kind.insert(record.kind, record).is_some() {
             return Err(ProjectCookError::DuplicateIdentity);
         }

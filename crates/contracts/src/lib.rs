@@ -17,6 +17,7 @@ mod project;
 mod rpg;
 mod rpg_v1;
 mod snapshot;
+mod world;
 
 pub use canonical::{
     CANONICAL_BINARY_V1_MAGIC, CANONICAL_BINARY_V1_VERSION, CANONICAL_TYPE_BOOL,
@@ -199,5 +200,12 @@ pub use snapshot::{
     RUNTIME_SNAPSHOT_SEGMENT_ID, RuntimeSnapshot, RuntimeSnapshotV3, SnapshotDecodeError,
     WorldCheckpointError, WorldCheckpointV3, WorldCheckpointV4,
     validate_core_dialogue_quest_world_closure, world_checkpoint_v3_state_root,
-    world_checkpoint_v4_state_root,
+    world_checkpoint_v4_state_root, world_checkpoint_with_streaming_v1_state_root,
+};
+pub use world::{
+    WORLD_STREAMING_MAX_ASSETS_PER_GROUP, WORLD_STREAMING_MAX_CHUNKS,
+    WORLD_STREAMING_SNAPSHOT_OWNER_ID, WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
+    WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION, WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
+    WorldChunkLifecycleV1, WorldChunkResidencyRecordV1, WorldChunkTransitionV1,
+    WorldStreamingContractError, WorldStreamingPlanV1, WorldStreamingSnapshotV1,
 };

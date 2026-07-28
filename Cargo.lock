@@ -248,6 +248,16 @@ dependencies = [
  "next_project",
  "next_render",
  "next_runtime",
+ "next_world",
+]
+
+[[package]]
+name = "next_world"
+version = "0.1.0"
+dependencies = [
+ "next_assets",
+ "next_contracts",
+ "next_project",
 ]
 
 [[package]]

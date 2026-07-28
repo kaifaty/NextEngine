@@ -30,6 +30,7 @@ use next_presentation::{PresentationBindingV1, PresentationExtractorV1};
 use next_render::{ReferenceB0Renderer, RenderDevice, RenderTargetV1};
 use next_runtime::PhysicsLaunchOptions;
 use next_runtime::{RuntimeFatalError, RuntimeState, SnapshotRestoreError};
+use next_world::{WorldStreamerV1, WorldStreamingError};
 
 use crate::{NeutralFixtureError, build_neutral_runtime_fixture, compute_world_checkpoint_root};
 
@@ -801,6 +802,8 @@ pub struct PlayCheckReport {
     pub quest_state_id: SchemaId,
     pub npc_player_trust: i32,
     pub npc_health: i32,
+    pub world_streaming_generation: u64,
+    pub current_chunk_id: SchemaId,
     pub final_command_ledger_hash: CommandLedgerHash,
     pub final_state_root: StateRoot,
 }
@@ -969,8 +972,15 @@ fn play_check_report(
         quest_state_id,
         npc_player_trust,
         npc_health,
+        world_streaming_generation: scenario.world_streaming_snapshot.generation,
+        current_chunk_id: scenario.world_streaming_snapshot.current_chunk_id.clone(),
         final_command_ledger_hash: checkpoint.runtime_snapshot.command_ledger_hash()?,
-        final_state_root: compute_world_checkpoint_root(&checkpoint)?,
+        final_state_root: next_contracts::world_checkpoint_with_streaming_v1_state_root(
+            &checkpoint.runtime_snapshot,
+            &checkpoint.rpg_snapshot,
+            &checkpoint.physics_checkpoint,
+            &scenario.world_streaming_snapshot,
+        )?,
     })
 }
 
@@ -1086,6 +1096,7 @@ struct GroundedCollisionScenario {
     content_manifest_hash: ContentHash,
     presentation_bindings: Vec<PresentationBindingV1>,
     tick_reports: Vec<next_runtime::TickReport>,
+    world_streaming_snapshot: next_contracts::WorldStreamingSnapshotV1,
 }
 
 enum ScenarioAction {
@@ -1094,6 +1105,7 @@ enum ScenarioAction {
     Pickup,
     EquipUse,
     Melee,
+    ChunkTransition(SchemaId, bool),
 }
 
 fn run_grounded_collision_scenario(
@@ -1140,6 +1152,26 @@ fn run_grounded_collision_scenario_with_backend(
         rpg_snapshot,
         physics_options,
     )?;
+    let initial_chunk_id = fixture
+        .activated_project
+        .world_partition
+        .body
+        .chunk_bindings
+        .first()
+        .ok_or(PlayCheckError::WorldPartitionEmpty)?
+        .chunk_id
+        .clone();
+    let transition_chunk_id = fixture
+        .activated_project
+        .world_partition
+        .body
+        .chunk_bindings
+        .get(1)
+        .ok_or(PlayCheckError::WorldPartitionEmpty)?
+        .chunk_id
+        .clone();
+    let mut world_streamer =
+        WorldStreamerV1::activate(fixture.activated_project.clone(), initial_chunk_id.clone())?;
     let mut inputs = vec![
         ScenarioAction::Movement(PlayerActionPhaseV1::Started, [0, 32_767]),
         ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [0, 32_767]),
@@ -1150,6 +1182,7 @@ fn run_grounded_collision_scenario_with_backend(
         inputs.extend([
             ScenarioAction::Pickup,
             ScenarioAction::EquipUse,
+            ScenarioAction::ChunkTransition(transition_chunk_id, true),
             ScenarioAction::Interaction,
         ]);
         inputs.extend([
@@ -1159,6 +1192,7 @@ fn run_grounded_collision_scenario_with_backend(
             ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [32_767, 0]),
             ScenarioAction::Melee,
             ScenarioAction::Interaction,
+            ScenarioAction::ChunkTransition(initial_chunk_id, false),
             ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [-32_767, 0]),
             ScenarioAction::Movement(PlayerActionPhaseV1::Completed, [0, 0]),
         ]);
@@ -1175,8 +1209,35 @@ fn run_grounded_collision_scenario_with_backend(
     let mut end_contacts = 0_u64;
     let mut contact_preimage = b"nextengine.physics-collision-check.contacts.v1\0".to_vec();
     let mut tick_reports = Vec::new();
-    for (sequence, action) in inputs.into_iter().enumerate() {
-        let sequence = u64::try_from(sequence).map_err(|_| PlayCheckError::CountOverflow)?;
+    let mut sequence = 0_u64;
+    for action in inputs {
+        if let ScenarioAction::ChunkTransition(target_chunk_id, save_restore) = action {
+            let rpg_before = runtime.rpg_snapshot();
+            let plan = world_streamer.begin_transition(target_chunk_id, sequence)?;
+            let mut worker_order = plan.ordered_required_asset_ids.clone();
+            worker_order.reverse();
+            let staged = world_streamer.stage(&plan, &worker_order)?;
+            if save_restore {
+                let saved = world_streamer.snapshot().canonical_bytes()?;
+                let decoded = next_contracts::WorldStreamingSnapshotV1::from_canonical_bytes(
+                    &saved,
+                    next_contracts::CanonicalDecodeLimits::default(),
+                )?;
+                world_streamer =
+                    WorldStreamerV1::restore(fixture.activated_project.clone(), decoded)?;
+                let (_, rebuilt) = world_streamer.resume_pending()?;
+                if rebuilt != staged {
+                    return Err(PlayCheckError::WorldStreamingResumeMismatch);
+                }
+            } else {
+                world_streamer.validate_staged(&staged)?;
+            }
+            world_streamer.commit(&staged, false)?;
+            if runtime.rpg_snapshot() != rpg_before {
+                return Err(PlayCheckError::WorldStreamingMutatedRpg);
+            }
+            continue;
+        }
         let wall_time =
             Some(i64::try_from(sequence).map_err(|_| PlayCheckError::CountOverflow)? * 1000);
         let sample = match action {
@@ -1211,6 +1272,7 @@ fn run_grounded_collision_scenario_with_backend(
                 true,
                 wall_time,
             )?,
+            ScenarioAction::ChunkTransition(_, _) => unreachable!("handled before input mapping"),
         };
         runtime.enqueue_input_sample(&fixture.principal, sample)?;
         let report = runtime.run_tick([])?;
@@ -1241,6 +1303,9 @@ fn run_grounded_collision_scenario_with_backend(
         }
         contact_preimage.extend_from_slice(report.contact_batch.batch_hash.as_bytes());
         tick_reports.push(report);
+        sequence = sequence
+            .checked_add(1)
+            .ok_or(PlayCheckError::CountOverflow)?;
     }
     let final_pose = runtime
         .physics_snapshot()
@@ -1366,6 +1431,14 @@ fn run_grounded_collision_scenario_with_backend(
         || !item_is_owned
         || !item_is_equipped
         || !npc_health_adjusted
+        || world_streamer.snapshot().generation != 2
+        || world_streamer.snapshot().current_chunk_id
+            != world_streamer
+                .snapshot()
+                .chunks
+                .first()
+                .ok_or(PlayCheckError::WorldPartitionEmpty)?
+                .chunk_id
     {
         return Err(PlayCheckError::AcceptanceMismatch(format!(
             "pose={:?} physics_tick={} events={events} rpg_events={rpg_events} \
@@ -1373,9 +1446,11 @@ fn run_grounded_collision_scenario_with_backend(
              object={object_is_activated} dialogue={cooked_dialogue_completed} \
              quest={cooked_quest_completed} relationship={cooked_relationship_applied} \
              pickup={pickup_completed} owned={item_is_owned} equipped={item_is_equipped} \
-             health={npc_health_adjusted}",
+             health={npc_health_adjusted} world_generation={} current_chunk={}",
             final_pose.translation_micrometres,
             runtime.physics_snapshot().physics_tick,
+            world_streamer.snapshot().generation,
+            world_streamer.snapshot().current_chunk_id.as_str(),
         )));
     }
     Ok(GroundedCollisionScenario {
@@ -1405,6 +1480,7 @@ fn run_grounded_collision_scenario_with_backend(
             .content_manifest_sha256,
         presentation_bindings: fixture_presentation_bindings(&fixture)?,
         tick_reports,
+        world_streaming_snapshot: world_streamer.snapshot().clone(),
     })
 }
 
@@ -1546,6 +1622,11 @@ pub enum PlayCheckError {
     AcceptanceMismatch(String),
     BackendParityMismatch,
     PresentationAssetMissing,
+    WorldPartitionEmpty,
+    WorldStreaming(WorldStreamingError),
+    WorldStreamingContract(next_contracts::WorldStreamingContractError),
+    WorldStreamingResumeMismatch,
+    WorldStreamingMutatedRpg,
     PresentationExtraction(next_presentation::PresentationExtractionError),
     Render(next_render::RenderDeviceError),
 }
@@ -1581,6 +1662,17 @@ impl Display for PlayCheckError {
             }
             Self::PresentationAssetMissing => {
                 formatter.write_str("cooked presentation asset is missing")
+            }
+            Self::WorldPartitionEmpty => {
+                formatter.write_str("cooked world partition requires two chunks")
+            }
+            Self::WorldStreaming(error) => write!(formatter, "{error}"),
+            Self::WorldStreamingContract(error) => write!(formatter, "{error}"),
+            Self::WorldStreamingResumeMismatch => {
+                formatter.write_str("restaged world group changed after save/restore")
+            }
+            Self::WorldStreamingMutatedRpg => {
+                formatter.write_str("world transition mutated durable RPG state")
             }
             Self::PresentationExtraction(error) => write!(formatter, "{error}"),
             Self::Render(error) => write!(formatter, "{error}"),
@@ -1659,6 +1751,18 @@ impl From<next_presentation::PresentationExtractionError> for PlayCheckError {
 impl From<next_render::RenderDeviceError> for PlayCheckError {
     fn from(error: next_render::RenderDeviceError) -> Self {
         Self::Render(error)
+    }
+}
+
+impl From<WorldStreamingError> for PlayCheckError {
+    fn from(error: WorldStreamingError) -> Self {
+        Self::WorldStreaming(error)
+    }
+}
+
+impl From<next_contracts::WorldStreamingContractError> for PlayCheckError {
+    fn from(error: next_contracts::WorldStreamingContractError) -> Self {
+        Self::WorldStreamingContract(error)
     }
 }
 

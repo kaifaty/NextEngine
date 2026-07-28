@@ -16,8 +16,10 @@ Next Engine создаётся для игр, в которых движение
 > immutable presentation snapshot и проходит B0 reference renderer; приватный
 > SDL3/ash Vulkan adapter компилируется как `Proposed`, но ещё не прошёл
 > обязательные Windows/Linux product checks. Первый data-only combat package
-> уже проходит общий capability/effect/RPG transaction path; streaming и
-> законченный RPG-цикл остаются целевым результатом v1, а не готовым продуктом.
+> уже проходит общий capability/effect/RPG transaction path. Двухчанковый
+> deterministic streaming с отдельным save owner segment работает в cooked
+> slice; planner, script/plugin hosts и shipping closure остаются целевым
+> результатом v1, а не готовым продуктом.
 > Название Next Engine временное.
 
 Next Engine — самостоятельный проект. Это не порт OpenGothic и не универсальный
@@ -120,15 +122,21 @@ runtime-обучение моделей и
   adapter crate и не протекают в публичные contracts;
 - атомарные поколения сохранений, восстановление, replay и проверка совпадения
   authoritative state roots;
+- deterministic two-chunk admission: immutable worker results сходятся к
+  canonical staging group, validated group публикуется атомарно, прежний chunk
+  проходит `Quiescing → Unloaded`, а pending transition сохраняется отдельным
+  `nextengine.world-services` owner segment и реконструируется после load;
 - переносимый `headless` composition root и локальные product checks;
 - изолированный экспериментальный путь
   `train → ONNX → inference` для проверки локального ML toolchain.
 
 Это ещё не законченная игра: текущий `play` проверяет ограниченный neutral
-сценарий движения, столкновения, pickup/equip, melee damage, активации switch и
-один authored NPC dialogue/quest transition. Reference physics profile пока ограничен upright
-capsule и статическими Box colliders; desktop adapter пока отображает только
-B0-примитивы и остаётся `Proposed`. World streaming — следующий срез.
+сценарий движения, столкновения, pickup/equip, melee damage, активации switch,
+один authored NPC dialogue/quest transition и переход во второй chunk с
+возвратом. Reference physics profile пока ограничен upright capsule и
+статическими Box colliders; desktop adapter пока отображает только
+B0-примитивы и остаётся `Proposed`. NPC planner и procedural avatar fallback —
+следующий срез.
 
 ## Быстрый старт
 

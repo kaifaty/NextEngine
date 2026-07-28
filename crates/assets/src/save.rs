@@ -14,7 +14,9 @@ use next_contracts::{
     RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID, RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID,
     RUNTIME_SNAPSHOT_SEGMENT_ID, RpgContractErrorV1, RpgSnapshotV2, RuntimeSnapshot,
     SaveCompatibility, SaveManifestV2, SaveSegmentDescriptor, SchemaId, SnapshotDecodeError,
-    WorldCheckpointError, WorldCheckpointV4,
+    WORLD_STREAMING_SNAPSHOT_OWNER_ID, WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
+    WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION, WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
+    WorldCheckpointError, WorldCheckpointV4, WorldStreamingContractError, WorldStreamingSnapshotV1,
 };
 #[cfg(test)]
 use next_contracts::{
@@ -98,6 +100,54 @@ impl SaveImage {
             segments: segments.into_iter().map(|(_, bytes)| bytes).collect(),
         };
         let _ = image.validate_world()?;
+        Ok(image)
+    }
+
+    pub fn from_world_checkpoint_with_streaming(
+        generation: u64,
+        compatibility: SaveCompatibility,
+        checkpoint: &WorldCheckpointV4,
+        world_streaming_snapshot: &WorldStreamingSnapshotV1,
+    ) -> Result<Self, SaveStoreError> {
+        world_streaming_snapshot.validate()?;
+        let mut image = Self::from_world_checkpoint(generation, compatibility, checkpoint)?;
+        let bytes = world_streaming_snapshot.canonical_bytes()?;
+        let descriptor = SaveSegmentDescriptor::for_bytes(
+            SchemaId::new(WORLD_STREAMING_SNAPSHOT_OWNER_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(WORLD_STREAMING_SNAPSHOT_SCHEMA_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(WORLD_STREAMING_SNAPSHOT_SEGMENT_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION,
+            &bytes,
+        )?;
+        let mut segments = image
+            .manifest
+            .segments
+            .into_iter()
+            .zip(image.segments)
+            .collect::<Vec<_>>();
+        segments.push((descriptor, bytes));
+        segments.sort_by(|left, right| {
+            (&left.0.owner_id, &left.0.schema_id, &left.0.segment_id).cmp(&(
+                &right.0.owner_id,
+                &right.0.schema_id,
+                &right.0.segment_id,
+            ))
+        });
+        image.manifest.segments = segments
+            .iter()
+            .map(|(descriptor, _)| descriptor.clone())
+            .collect();
+        image.segments = segments.into_iter().map(|(_, bytes)| bytes).collect();
+        image.manifest.validate()?;
+        let validated = image.validate_world()?;
+        if validated.world_streaming_snapshot.as_ref() != Some(world_streaming_snapshot) {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_WORLD_STREAMING_ROUND_TRIP_MISMATCH",
+            ));
+        }
         Ok(image)
     }
 
@@ -192,6 +242,35 @@ impl SaveImage {
             rpg_snapshot.clone(),
             physics_checkpoint.clone(),
         )?;
+        let world_streaming_indices = self
+            .manifest
+            .segments
+            .iter()
+            .enumerate()
+            .filter(|(_, segment)| segment.owner_id.as_str() == WORLD_STREAMING_SNAPSHOT_OWNER_ID)
+            .collect::<Vec<_>>();
+        if world_streaming_indices.len() > 1 {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_WORLD_STREAMING_SEGMENT_DUPLICATE",
+            ));
+        }
+        let world_streaming_snapshot =
+            if let Some((world_index, descriptor)) = world_streaming_indices.first().copied() {
+                if descriptor.schema_id.as_str() != WORLD_STREAMING_SNAPSHOT_SCHEMA_ID
+                    || descriptor.segment_id.as_str() != WORLD_STREAMING_SNAPSHOT_SEGMENT_ID
+                    || descriptor.schema_version != WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION
+                {
+                    return Err(SaveStoreError::InvalidImage(
+                        "WORLD_STREAM_SCHEMA_UNSUPPORTED",
+                    ));
+                }
+                Some(WorldStreamingSnapshotV1::from_canonical_bytes(
+                    &self.segments[world_index],
+                    CanonicalDecodeLimits::default(),
+                )?)
+            } else {
+                None
+            };
         let tick = &self.manifest.compatibility.tick_settings;
         if tick.gameplay_hz != runtime_snapshot.tick_rate_profile.gameplay_hz
             || tick.physics_hz != runtime_snapshot.tick_rate_profile.physics_hz()
@@ -208,6 +287,7 @@ impl SaveImage {
             runtime_snapshot,
             rpg_snapshot,
             physics_checkpoint,
+            world_streaming_snapshot,
         })
     }
 }
@@ -286,6 +366,7 @@ pub struct ValidatedSaveImage {
     pub runtime_snapshot: RuntimeSnapshot,
     pub rpg_snapshot: RpgSnapshotV2,
     pub physics_checkpoint: PhysicsWorldCheckpointV1,
+    pub world_streaming_snapshot: Option<WorldStreamingSnapshotV1>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -301,6 +382,7 @@ pub struct LoadedSave {
     pub snapshot: RuntimeSnapshot,
     pub rpg_snapshot: RpgSnapshotV2,
     pub physics_checkpoint: PhysicsWorldCheckpointV1,
+    pub world_streaming_snapshot: Option<WorldStreamingSnapshotV1>,
     pub slot: u8,
     pub rejected_generations: Vec<RejectedGeneration>,
 }
@@ -364,6 +446,20 @@ impl SaveStore {
         self.commit_world_checkpoint_inner(compatibility, checkpoint, None)
     }
 
+    pub fn commit_world_checkpoint_with_streaming(
+        &self,
+        compatibility: SaveCompatibility,
+        checkpoint: &WorldCheckpointV4,
+        world_streaming_snapshot: &WorldStreamingSnapshotV1,
+    ) -> Result<SaveCommitReceipt, SaveStoreError> {
+        self.commit_world_checkpoint_inner_with_streaming(
+            compatibility,
+            checkpoint,
+            Some(world_streaming_snapshot),
+            None,
+        )
+    }
+
     pub fn load_latest(
         &self,
         expected_compatibility: &SaveCompatibility,
@@ -394,6 +490,16 @@ impl SaveStore {
         checkpoint: &WorldCheckpointV4,
         fault: Option<CommitBoundary>,
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
+        self.commit_world_checkpoint_inner_with_streaming(compatibility, checkpoint, None, fault)
+    }
+
+    fn commit_world_checkpoint_inner_with_streaming(
+        &self,
+        compatibility: SaveCompatibility,
+        checkpoint: &WorldCheckpointV4,
+        world_streaming_snapshot: Option<&WorldStreamingSnapshotV1>,
+        fault: Option<CommitBoundary>,
+    ) -> Result<SaveCommitReceipt, SaveStoreError> {
         fs::create_dir_all(&self.root)
             .map_err(|source| SaveStoreError::io("create save root", &self.root, source))?;
         let (candidates, _) = self.load_candidates(None);
@@ -406,7 +512,15 @@ impl SaveStore {
                     .checked_add(1)
                     .ok_or(SaveStoreError::GenerationExhausted)
             })?;
-        let image = SaveImage::from_world_checkpoint(next_generation, compatibility, checkpoint)?;
+        let image = match world_streaming_snapshot {
+            Some(snapshot) => SaveImage::from_world_checkpoint_with_streaming(
+                next_generation,
+                compatibility,
+                checkpoint,
+                snapshot,
+            )?,
+            None => SaveImage::from_world_checkpoint(next_generation, compatibility, checkpoint)?,
+        };
         let slot = u8::try_from(next_generation % SLOT_COUNT)
             .map_err(|_| SaveStoreError::GenerationExhausted)?;
         let staging = self.staging_path(slot);
@@ -571,6 +685,7 @@ fn read_generation_directory(
         snapshot: validated.runtime_snapshot,
         rpg_snapshot: validated.rpg_snapshot,
         physics_checkpoint: validated.physics_checkpoint,
+        world_streaming_snapshot: validated.world_streaming_snapshot,
         slot,
         rejected_generations: vec![],
     })
@@ -753,6 +868,7 @@ pub enum SaveStoreError {
     SnapshotDecode(SnapshotDecodeError),
     RpgSnapshotDecode(RpgContractErrorV1),
     PhysicsSnapshotDecode(PhysicsContractError),
+    WorldStreamingSnapshotDecode(WorldStreamingContractError),
     WorldCheckpoint(WorldCheckpointError),
     InvalidImage(&'static str),
     InvalidStaging(&'static str),
@@ -779,6 +895,12 @@ impl SaveStoreError {
             Self::SnapshotDecode(_) => "SAVE_SNAPSHOT_INVALID",
             Self::RpgSnapshotDecode(error) => error.stable_code(),
             Self::PhysicsSnapshotDecode(_) => "SAVE_PHYSICS_SNAPSHOT_INVALID",
+            Self::WorldStreamingSnapshotDecode(error) => match error {
+                WorldStreamingContractError::UnsupportedVersion(_) => {
+                    "WORLD_STREAM_SCHEMA_UNSUPPORTED"
+                }
+                _ => "SAVE_WORLD_STREAMING_SNAPSHOT_INVALID",
+            },
             Self::WorldCheckpoint(error) => error.stable_code(),
             Self::InvalidImage(code) | Self::InvalidStaging(code) => code,
             Self::GenerationExhausted => "SAVE_GENERATION_EXHAUSTED",
@@ -809,6 +931,12 @@ impl Display for SaveStoreError {
             Self::PhysicsSnapshotDecode(error) => {
                 write!(formatter, "save physics snapshot is invalid: {error}")
             }
+            Self::WorldStreamingSnapshotDecode(error) => {
+                write!(
+                    formatter,
+                    "save world streaming snapshot is invalid: {error}"
+                )
+            }
             Self::WorldCheckpoint(error) => {
                 write!(formatter, "save world checkpoint is invalid: {error}")
             }
@@ -829,6 +957,7 @@ impl Error for SaveStoreError {
             Self::SnapshotDecode(error) => Some(error),
             Self::RpgSnapshotDecode(error) => Some(error),
             Self::PhysicsSnapshotDecode(error) => Some(error),
+            Self::WorldStreamingSnapshotDecode(error) => Some(error),
             Self::WorldCheckpoint(error) => Some(error),
             _ => None,
         }
@@ -871,6 +1000,12 @@ impl From<PhysicsContractError> for SaveStoreError {
     }
 }
 
+impl From<WorldStreamingContractError> for SaveStoreError {
+    fn from(error: WorldStreamingContractError) -> Self {
+        Self::WorldStreamingSnapshotDecode(error)
+    }
+}
+
 impl From<WorldCheckpointError> for SaveStoreError {
     fn from(error: WorldCheckpointError) -> Self {
         Self::WorldCheckpoint(error)
@@ -904,7 +1039,9 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use next_contracts::{
-        ContentHash, RpgSnapshotV2, RuntimeSnapshot, SaveCompatibility, SchemaId, TickSettings,
+        AssetId, AssetRevisionRefV1, ContentHash, RpgSnapshotV2, RuntimeSnapshot,
+        SaveCompatibility, SchemaId, TickSettings, WorldChunkLifecycleV1,
+        WorldChunkResidencyRecordV1, WorldStreamingSnapshotV1,
     };
 
     use super::{CommitBoundary, SaveStore};
@@ -968,6 +1105,27 @@ mod tests {
         snapshot
     }
 
+    fn world_streaming_snapshot() -> WorldStreamingSnapshotV1 {
+        WorldStreamingSnapshotV1 {
+            partition_manifest_hash: ContentHash::from_bytes([0x31; 32]),
+            content_manifest_hash: ContentHash::from_bytes([0x32; 32]),
+            topology_revision: 1,
+            generation: 2,
+            current_chunk_id: SchemaId::new("nextengine.save-test.chunk").expect("chunk ID"),
+            chunks: vec![WorldChunkResidencyRecordV1 {
+                chunk_id: SchemaId::new("nextengine.save-test.chunk").expect("chunk ID"),
+                chunk_asset: AssetRevisionRefV1 {
+                    asset_id: AssetId::from_bytes([0x33; 16]),
+                    record_sha256: ContentHash::from_bytes([0x34; 32]),
+                },
+                lifecycle: WorldChunkLifecycleV1::Active,
+                lifecycle_revision: 3,
+                required_asset_ids: vec![AssetId::from_bytes([0x35; 16])],
+            }],
+            pending_transition: None,
+        }
+    }
+
     #[test]
     fn two_generations_commit_and_latest_loads() {
         let directory = TestDirectory::new();
@@ -1005,6 +1163,27 @@ mod tests {
 
         assert_eq!(loaded.snapshot, snapshot(1));
         assert_eq!(loaded.rpg_snapshot, rpg_snapshot);
+    }
+
+    #[test]
+    fn world_generation_round_trips_streaming_owner_segment() {
+        let directory = TestDirectory::new();
+        let store = SaveStore::new(&directory.path);
+        let compatibility = compatibility(1);
+        let checkpoint = super::synthetic_empty_checkpoint(snapshot(1), RpgSnapshotV2::default())
+            .expect("checkpoint");
+        let world = world_streaming_snapshot();
+
+        store
+            .commit_world_checkpoint_with_streaming(compatibility.clone(), &checkpoint, &world)
+            .expect("streaming generation commits");
+        let loaded = store
+            .load_latest(&compatibility)
+            .expect("streaming generation loads");
+
+        assert_eq!(loaded.world_streaming_snapshot, Some(world));
+        assert_eq!(loaded.checkpoint, checkpoint);
+        assert_eq!(loaded.image.manifest.segments.len(), 4);
     }
 
     #[test]

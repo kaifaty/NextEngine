@@ -23,6 +23,7 @@ use next_contracts::{
 };
 use next_physics_api::PhysicsBackendPolicy;
 use next_runtime::{PhysicsLaunchOptions, RuntimeState, TickReport};
+use next_world::WorldStreamerV1;
 
 use crate::player_fixture::fixture_aggregate;
 use crate::{
@@ -46,6 +47,8 @@ pub struct PersistenceReplayCheckReport {
     pub quest_state_id: SchemaId,
     pub npc_player_trust: i32,
     pub npc_health: i32,
+    pub world_streaming_generation: u64,
+    pub current_chunk_id: SchemaId,
     pub final_state_root: StateRoot,
     pub final_command_ledger_hash: CommandLedgerHash,
 }
@@ -158,6 +161,29 @@ pub(crate) fn run_persistence_replay_check_for_project(
     }
     .map_err(|error| PersistenceReplayCheckError::new("build player fixture", error.to_string()))?;
     let initial_rpg = initial_rpg_snapshot(&fixture)?;
+    let initial_chunk_id = fixture
+        .activated_project
+        .world_partition
+        .body
+        .chunk_bindings
+        .first()
+        .ok_or_else(|| PersistenceReplayCheckError::condition("initial world chunk exists"))?
+        .chunk_id
+        .clone();
+    let transition_chunk_id = fixture
+        .activated_project
+        .world_partition
+        .body
+        .chunk_bindings
+        .get(1)
+        .ok_or_else(|| PersistenceReplayCheckError::condition("second world chunk exists"))?
+        .chunk_id
+        .clone();
+    let mut direct_world =
+        WorldStreamerV1::activate(fixture.activated_project.clone(), initial_chunk_id.clone())
+            .map_err(|error| {
+                PersistenceReplayCheckError::new("activate world streaming", error.to_string())
+            })?;
     let mut direct = RuntimeState::with_rpg_snapshot_and_physics_options(
         fixture.bootstrap.clone(),
         fixture.authority.clone(),
@@ -310,8 +336,25 @@ pub(crate) fn run_persistence_replay_check_for_project(
     let saved_checkpoint = direct.world_checkpoint().map_err(|error| {
         PersistenceReplayCheckError::new("mid-run checkpoint", error.to_string())
     })?;
+    let world_plan = direct_world
+        .begin_transition(transition_chunk_id.clone(), 11)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("begin saved world transition", error.to_string())
+        })?;
+    let mut worker_order = world_plan.ordered_required_asset_ids.clone();
+    worker_order.reverse();
+    let staged_world = direct_world
+        .stage(&world_plan, &worker_order)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("stage saved world transition", error.to_string())
+        })?;
+    let saved_world_snapshot = direct_world.snapshot().clone();
     let generation_zero = store
-        .commit_world_checkpoint(compatibility.clone(), &saved_checkpoint)
+        .commit_world_checkpoint_with_streaming(
+            compatibility.clone(),
+            &saved_checkpoint,
+            &saved_world_snapshot,
+        )
         .map_err(|error| {
             PersistenceReplayCheckError::new("commit generation zero", error.to_string())
         })?;
@@ -323,6 +366,42 @@ pub(crate) fn run_persistence_replay_check_for_project(
     let loaded = store.load_latest(&compatibility).map_err(|error| {
         PersistenceReplayCheckError::new("load generation zero", error.to_string())
     })?;
+    let loaded_world = loaded.world_streaming_snapshot.clone().ok_or_else(|| {
+        PersistenceReplayCheckError::condition("loaded streaming owner segment exists")
+    })?;
+    let mut restored_world = WorldStreamerV1::restore(
+        fixture.activated_project.clone(),
+        loaded_world,
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("restore saved world transition", error.to_string())
+    })?;
+    let (_, rebuilt_world) = restored_world.resume_pending().map_err(|error| {
+        PersistenceReplayCheckError::new("resume saved world transition", error.to_string())
+    })?;
+    if rebuilt_world != staged_world {
+        return Err(PersistenceReplayCheckError::condition(
+            "world staging reconstructs exactly after save",
+        ));
+    }
+    direct_world
+        .validate_staged(&staged_world)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("validate direct staged world", error.to_string())
+        })?;
+    direct_world.commit(&staged_world, false).map_err(|error| {
+        PersistenceReplayCheckError::new("commit direct world", error.to_string())
+    })?;
+    restored_world
+        .commit(&rebuilt_world, false)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("commit restored world", error.to_string())
+        })?;
+    if direct_world.snapshot() != restored_world.snapshot() {
+        return Err(PersistenceReplayCheckError::condition(
+            "direct and restored world streaming states match",
+        ));
+    }
     let mut restored = RuntimeState::restore_world_checkpoint_with_definitions_and_physics_options(
         loaded.checkpoint,
         fixture.authority.clone(),
@@ -518,6 +597,23 @@ pub(crate) fn run_persistence_replay_check_for_project(
         ));
     }
     reports.push(direct_stop);
+    transition_world(
+        &mut direct_world,
+        initial_chunk_id.clone(),
+        16,
+        "return direct world",
+    )?;
+    transition_world(
+        &mut restored_world,
+        initial_chunk_id.clone(),
+        16,
+        "return restored world",
+    )?;
+    if direct_world.snapshot() != restored_world.snapshot() {
+        return Err(PersistenceReplayCheckError::condition(
+            "world return remains exact after restore",
+        ));
+    }
 
     let replay_manifest = replay_manifest(
         compatibility.clone(),
@@ -550,12 +646,38 @@ pub(crate) fn run_persistence_replay_check_for_project(
     )
     .map_err(|error| PersistenceReplayCheckError::new("closed-batch replay", error.to_string()))?;
     compare_replay(&direct, &reports, &replay)?;
+    let mut replay_world =
+        WorldStreamerV1::activate(fixture.activated_project.clone(), initial_chunk_id.clone())
+            .map_err(|error| {
+                PersistenceReplayCheckError::new("activate replay world", error.to_string())
+            })?;
+    transition_world(
+        &mut replay_world,
+        transition_chunk_id,
+        11,
+        "replay forward world",
+    )?;
+    transition_world(
+        &mut replay_world,
+        initial_chunk_id,
+        16,
+        "replay return world",
+    )?;
+    if replay_world.snapshot() != direct_world.snapshot() {
+        return Err(PersistenceReplayCheckError::condition(
+            "world streaming replay reaches the same state",
+        ));
+    }
 
     let final_checkpoint = direct
         .world_checkpoint()
         .map_err(|error| PersistenceReplayCheckError::new("final checkpoint", error.to_string()))?;
     let generation_one = store
-        .commit_world_checkpoint(compatibility.clone(), &final_checkpoint)
+        .commit_world_checkpoint_with_streaming(
+            compatibility.clone(),
+            &final_checkpoint,
+            direct_world.snapshot(),
+        )
         .map_err(|error| {
             PersistenceReplayCheckError::new("commit generation one", error.to_string())
         })?;
@@ -584,6 +706,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
     if fallback.image.manifest.generation != 0
         || fallback.rejected_generations.len() != 1
         || fallback.checkpoint != saved_checkpoint
+        || fallback.world_streaming_snapshot.as_ref() != Some(&saved_world_snapshot)
         || !preserved_corrupt
         || !source_unchanged
     {
@@ -777,8 +900,13 @@ pub(crate) fn run_persistence_replay_check_for_project(
             "interaction activates object exactly once",
         ));
     }
-    let final_state_root = compute_world_checkpoint_root(&final_checkpoint)
-        .map_err(|error| PersistenceReplayCheckError::new("final state root", error.to_string()))?;
+    let final_state_root = next_contracts::world_checkpoint_with_streaming_v1_state_root(
+        &final_checkpoint.runtime_snapshot,
+        &final_checkpoint.rpg_snapshot,
+        &final_checkpoint.physics_checkpoint,
+        direct_world.snapshot(),
+    )
+    .map_err(|error| PersistenceReplayCheckError::new("final state root", error.to_string()))?;
     let final_command_ledger_hash = final_checkpoint
         .runtime_snapshot
         .command_ledger_hash()
@@ -797,9 +925,34 @@ pub(crate) fn run_persistence_replay_check_for_project(
         quest_state_id,
         npc_player_trust,
         npc_health,
+        world_streaming_generation: direct_world.snapshot().generation,
+        current_chunk_id: direct_world.snapshot().current_chunk_id.clone(),
         final_state_root,
         final_command_ledger_hash,
     })
+}
+
+fn transition_world(
+    world: &mut WorldStreamerV1,
+    target_chunk_id: SchemaId,
+    gameplay_tick: u64,
+    context: &'static str,
+) -> Result<(), PersistenceReplayCheckError> {
+    let plan = world
+        .begin_transition(target_chunk_id, gameplay_tick)
+        .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
+    let mut worker_order = plan.ordered_required_asset_ids.clone();
+    worker_order.reverse();
+    let staged = world
+        .stage(&plan, &worker_order)
+        .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
+    world
+        .validate_staged(&staged)
+        .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
+    world
+        .commit(&staged, false)
+        .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
+    Ok(())
 }
 
 fn replay_manifest(

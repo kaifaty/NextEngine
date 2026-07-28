@@ -5,6 +5,7 @@ mod persistence_replay;
 mod physics_parity;
 mod platform_check;
 mod player_fixture;
+mod streaming_performance;
 
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -50,6 +51,9 @@ pub use player_fixture::{
     player_pickup_sample, prepare_game_frame, prepare_game_frame_with_activated_project,
     run_game_check, run_physics_collision_check, run_physics_collision_check_with_backend,
     run_play_check, run_play_check_with_activated_project,
+};
+pub use streaming_performance::{
+    StreamingPerformanceError, StreamingPerformanceReport, run_streaming_performance_check,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]

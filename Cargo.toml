@@ -16,6 +16,7 @@ members = [
     "crates/rpg",
     "crates/runtime",
     "crates/verification",
+    "crates/world",
     "tools/xtask",
 ]
 resolver = "3"
@@ -42,6 +43,7 @@ next_render = { path = "crates/render" }
 next_rpg = { path = "crates/rpg" }
 next_runtime = { path = "crates/runtime" }
 next_verification = { path = "crates/verification" }
+next_world = { path = "crates/world" }
 sha2 = "=0.10.9"
 unicode-normalization = "=0.1.25"
 ash = { version = "=0.38.0", default-features = false, features = ["loaded", "std"] }

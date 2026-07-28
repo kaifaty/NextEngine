@@ -36,8 +36,8 @@ pub fn run_content_package_check() -> Result<ContentPackageCheckReport, ContentP
         store.publish(&cooked.publication()?)?;
         let activated = activate_project(&store)?;
         let gameplay = crate::run_play_check_with_activated_project(activated.clone())?;
-        if activated.content_manifest.body.asset_entries.len() != 11
-            || activated.world_partition.body.chunk_bindings.len() != 1
+        if activated.content_manifest.body.asset_entries.len() != 13
+            || activated.world_partition.body.chunk_bindings.len() != 2
             || activated.rpg_definitions.packages.len() != 2
             || activated.rpg_definitions.abilities.len() != 1
             || gameplay.npc_health != 75
@@ -122,8 +122,8 @@ mod tests {
     #[test]
     fn content_package_uses_cooker_publisher_and_production_loader() {
         let report = run_content_package_check().expect("content-package passes");
-        assert_eq!(report.records, 11);
-        assert_eq!(report.chunks, 1);
+        assert_eq!(report.records, 13);
+        assert_eq!(report.chunks, 2);
         assert_eq!(report.mechanic_packages, 2);
         assert_eq!(report.combat_npc_health, 75);
     }

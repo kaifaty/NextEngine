@@ -491,6 +491,43 @@ pub fn world_checkpoint_v4_state_root(
     state_root_from_segments(segments)
 }
 
+pub fn world_checkpoint_with_streaming_v1_state_root(
+    runtime_snapshot: &RuntimeSnapshotV3,
+    rpg_snapshot: &RpgSnapshotV2,
+    physics_checkpoint: &PhysicsWorldCheckpointV1,
+    world_streaming_snapshot: &crate::WorldStreamingSnapshotV1,
+) -> Result<StateRoot, WorldCheckpointError> {
+    world_streaming_snapshot.validate()?;
+    let mut segments = [
+        (
+            RUNTIME_SNAPSHOT_OWNER_ID,
+            RUNTIME_SNAPSHOT_SCHEMA_ID,
+            RUNTIME_SNAPSHOT_SEGMENT_ID,
+            runtime_snapshot.canonical_bytes()?,
+        ),
+        (
+            crate::RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
+            crate::RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+            crate::RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID,
+            rpg_snapshot.canonical_bytes()?,
+        ),
+        (
+            crate::PHYSICS_SNAPSHOT_OWNER_ID,
+            PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+            PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
+            physics_checkpoint.canonical_bytes()?,
+        ),
+        (
+            crate::WORLD_STREAMING_SNAPSHOT_OWNER_ID,
+            crate::WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
+            crate::WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
+            world_streaming_snapshot.canonical_bytes()?,
+        ),
+    ];
+    segments.sort_by_key(|(owner, schema, segment, _)| (*owner, *schema, *segment));
+    Ok(state_root_from_segments(segments)?)
+}
+
 fn state_root_from_segments<const N: usize>(
     segments: [(&str, &str, &str, Vec<u8>); N],
 ) -> Result<StateRoot, CanonicalError> {
@@ -562,6 +599,7 @@ pub enum WorldCheckpointError {
     Rpg(RpgDecodeError),
     RpgV2(RpgContractErrorV1),
     Physics(PhysicsContractError),
+    WorldStreaming(crate::WorldStreamingContractError),
     CoreInteractionClosure(CoreDialogueQuestClosureError),
     ClosureMismatch,
 }
@@ -575,6 +613,12 @@ impl WorldCheckpointError {
             Self::Rpg(_) => "WORLD_CHECKPOINT_RPG_CORRUPT",
             Self::RpgV2(error) => error.stable_code(),
             Self::Physics(_) => "WORLD_CHECKPOINT_PHYSICS_CORRUPT",
+            Self::WorldStreaming(error) => match error {
+                crate::WorldStreamingContractError::UnsupportedVersion(_) => {
+                    "WORLD_STREAM_SCHEMA_UNSUPPORTED"
+                }
+                _ => "WORLD_CHECKPOINT_STREAMING_CORRUPT",
+            },
             Self::CoreInteractionClosure(error) => error.stable_code(),
             Self::Canonicalization(_) => "WORLD_CHECKPOINT_CANONICALIZATION_FAILED",
         }
@@ -616,6 +660,12 @@ impl From<RpgContractErrorV1> for WorldCheckpointError {
 impl From<PhysicsContractError> for WorldCheckpointError {
     fn from(error: PhysicsContractError) -> Self {
         Self::Physics(error)
+    }
+}
+
+impl From<crate::WorldStreamingContractError> for WorldCheckpointError {
+    fn from(error: crate::WorldStreamingContractError) -> Self {
+        Self::WorldStreaming(error)
     }
 }
 
