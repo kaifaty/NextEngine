@@ -24,14 +24,6 @@ const SOURCE_SIZE_EXEMPTIONS: &[SourceSizeExemption] = &[
         max_lines: 3_893,
     },
     SourceSizeExemption {
-        path: "crates/contracts/src/ledger.rs",
-        max_lines: 3_468,
-    },
-    SourceSizeExemption {
-        path: "crates/contracts/src/input.rs",
-        max_lines: 2_607,
-    },
-    SourceSizeExemption {
         path: "crates/verification/src/player_fixture.rs",
         max_lines: 2_542,
     },
