@@ -22,9 +22,11 @@ use next_contracts::{
     PlayerActionV1, PlayerActionValueV1, PlayerControllerBindingV1, PlayerPrincipalId,
     ProvenanceBindingV1, QuestPayloadV1, RPG_COMMAND_CAPABILITY_ID, RelationshipDimensionV1,
     RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1,
-    RpgSnapshotV2, SchemaId, StateRoot, SystemId, core_player_action_map_v2_hash,
+    RpgSnapshotV2, SchemaId, StateRoot, SystemId, core_player_action_map_v2_hash, domain_hash,
 };
 use next_physics_api::PhysicsBackendPolicy;
+use next_presentation::{PresentationBindingV1, PresentationExtractorV1};
+use next_render::{ReferenceB0Renderer, RenderDevice, RenderTargetV1};
 use next_runtime::PhysicsLaunchOptions;
 use next_runtime::{RuntimeFatalError, RuntimeState, SnapshotRestoreError};
 
@@ -761,9 +763,88 @@ pub struct PlayCheckReport {
     pub final_state_root: StateRoot,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GameCheckReport {
+    pub play: PlayCheckReport,
+    pub presentation_snapshot_hash: ContentHash,
+    pub rendered_object_count: u32,
+    pub frame_plan_hash: ContentHash,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PreparedGameFrameV1 {
+    pub check: GameCheckReport,
+    pub snapshot: next_contracts::PresentationSnapshotV2,
+}
+
 pub fn run_play_check() -> Result<PlayCheckReport, PlayCheckError> {
     let scenario = run_grounded_collision_scenario(true)?;
     play_check_report(scenario)
+}
+
+pub fn run_game_check() -> Result<GameCheckReport, PlayCheckError> {
+    Ok(prepare_game_frame()?.check)
+}
+
+pub fn prepare_game_frame() -> Result<PreparedGameFrameV1, PlayCheckError> {
+    let scenario = run_grounded_collision_scenario(true)?;
+    prepare_game_frame_from_scenario(scenario)
+}
+
+pub fn prepare_game_frame_with_activated_project(
+    activated_project: ActivatedProjectV1,
+) -> Result<PreparedGameFrameV1, PlayCheckError> {
+    let project_id = activated_project
+        .composition_lock
+        .project_id
+        .as_str()
+        .to_owned();
+    let scenario = run_grounded_collision_scenario_with_backend(
+        true,
+        &project_id,
+        false,
+        PhysicsLaunchOptions::default(),
+        Some(activated_project),
+    )?;
+    prepare_game_frame_from_scenario(scenario)
+}
+
+fn prepare_game_frame_from_scenario(
+    scenario: GroundedCollisionScenario,
+) -> Result<PreparedGameFrameV1, PlayCheckError> {
+    let mut extractor = PresentationExtractorV1::new(
+        scenario.project_composition_lock_hash,
+        domain_hash(
+            "nextengine.presentation-profile.b0.v1",
+            b"sdr-reference-no-optional-features",
+        ),
+        8,
+    )?;
+    let snapshot = extractor
+        .extract(
+            scenario.ticks,
+            scenario.project_composition_lock_hash,
+            scenario.content_manifest_hash,
+            scenario.runtime.physics_snapshot(),
+            &scenario.presentation_bindings,
+        )?
+        .clone();
+    let mut renderer = ReferenceB0Renderer::new();
+    let frame = renderer.render(
+        &snapshot,
+        RenderTargetV1 {
+            extent: [960, 540],
+            target_revision: 1,
+        },
+    )?;
+    let play = play_check_report(scenario)?;
+    let check = GameCheckReport {
+        play,
+        presentation_snapshot_hash: snapshot.canonical_hash,
+        rendered_object_count: frame.rendered_object_count,
+        frame_plan_hash: frame.frame_plan_hash,
+    };
+    Ok(PreparedGameFrameV1 { check, snapshot })
 }
 
 pub fn run_play_check_with_activated_project(
@@ -946,6 +1027,9 @@ struct GroundedCollisionScenario {
     quest_id: PersistentId,
     relationship_id: PersistentId,
     relationship_dimension_id: SchemaId,
+    project_composition_lock_hash: ContentHash,
+    content_manifest_hash: ContentHash,
+    presentation_bindings: Vec<PresentationBindingV1>,
     tick_reports: Vec<next_runtime::TickReport>,
 }
 
@@ -1224,8 +1308,105 @@ fn run_grounded_collision_scenario_with_backend(
         quest_id: fixture.quest_id,
         relationship_id: fixture.relationship_id,
         relationship_dimension_id,
+        project_composition_lock_hash: fixture
+            .activated_project
+            .composition_lock
+            .composition_lock_sha256,
+        content_manifest_hash: fixture
+            .activated_project
+            .content_manifest
+            .content_manifest_sha256,
+        presentation_bindings: fixture_presentation_bindings(&fixture)?,
         tick_reports,
     })
+}
+
+fn fixture_presentation_bindings(
+    fixture: &NeutralPlayerFixture,
+) -> Result<Vec<PresentationBindingV1>, PlayCheckError> {
+    let asset = |kind: next_contracts::NeutralRecordKindV1| {
+        fixture
+            .activated_project
+            .neutral_records
+            .iter()
+            .find(|record| record.kind == kind)
+            .map(|record| record.asset_id)
+            .ok_or(PlayCheckError::PresentationAssetMissing)
+    };
+    Ok(vec![
+        PresentationBindingV1 {
+            persistent_id: PersistentId::from_bytes([0x57; 16]),
+            presentation_role: next_contracts::PresentationRoleV1::Environment,
+            incarnation: 0,
+            presentation_layer: 0,
+            asset_id: asset(next_contracts::NeutralRecordKindV1::Scene)?,
+            instance_ordinal: 0,
+            primitive: next_contracts::PresentationPrimitiveV1::Floor,
+            physics_body_id: Some(PhysicsBodyIdV1 {
+                subject_id: PersistentId::from_bytes([0x57; 16]),
+                body_slot: 0,
+            }),
+            fallback_transform: next_contracts::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
+            persistent_id: fixture.body_id,
+            presentation_role: next_contracts::PresentationRoleV1::PlayerAvatar,
+            incarnation: 0,
+            presentation_layer: 1,
+            asset_id: asset(next_contracts::NeutralRecordKindV1::Collider)?,
+            instance_ordinal: 0,
+            primitive: next_contracts::PresentationPrimitiveV1::Capsule,
+            physics_body_id: Some(fixture.physics_body_id),
+            fallback_transform: next_contracts::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
+            persistent_id: fixture.interactive_object_id,
+            presentation_role: next_contracts::PresentationRoleV1::InteractiveObject,
+            incarnation: 0,
+            presentation_layer: 2,
+            asset_id: asset(next_contracts::NeutralRecordKindV1::InteractionDefinition)?,
+            instance_ordinal: 0,
+            primitive: next_contracts::PresentationPrimitiveV1::Switch,
+            physics_body_id: Some(PhysicsBodyIdV1 {
+                subject_id: fixture.interactive_object_id,
+                body_slot: 0,
+            }),
+            fallback_transform: next_contracts::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
+            persistent_id: fixture.pickup_item_id,
+            presentation_role: next_contracts::PresentationRoleV1::Item,
+            incarnation: 0,
+            presentation_layer: 3,
+            asset_id: asset(next_contracts::NeutralRecordKindV1::ItemDefinition)?,
+            instance_ordinal: 0,
+            primitive: next_contracts::PresentationPrimitiveV1::Item,
+            physics_body_id: Some(PhysicsBodyIdV1 {
+                subject_id: fixture.pickup_proxy_id,
+                body_slot: 0,
+            }),
+            fallback_transform: next_contracts::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
+            persistent_id: fixture.npc_character_id,
+            presentation_role: next_contracts::PresentationRoleV1::Character,
+            incarnation: 0,
+            presentation_layer: 4,
+            asset_id: asset(next_contracts::NeutralRecordKindV1::CharacterDefinition)?,
+            instance_ordinal: 0,
+            primitive: next_contracts::PresentationPrimitiveV1::Character,
+            physics_body_id: Some(PhysicsBodyIdV1 {
+                subject_id: fixture.npc_character_id,
+                body_slot: 0,
+            }),
+            fallback_transform: next_contracts::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+    ])
 }
 
 #[derive(Debug)]
@@ -1277,6 +1458,9 @@ pub enum PlayCheckError {
     CookedQuestMissing,
     AcceptanceMismatch,
     BackendParityMismatch,
+    PresentationAssetMissing,
+    PresentationExtraction(next_presentation::PresentationExtractionError),
+    Render(next_render::RenderDeviceError),
 }
 
 impl Display for PlayCheckError {
@@ -1306,6 +1490,11 @@ impl Display for PlayCheckError {
             Self::BackendParityMismatch => {
                 formatter.write_str("reference and PhysX tick reports diverged")
             }
+            Self::PresentationAssetMissing => {
+                formatter.write_str("cooked presentation asset is missing")
+            }
+            Self::PresentationExtraction(error) => write!(formatter, "{error}"),
+            Self::Render(error) => write!(formatter, "{error}"),
         }
     }
 }
@@ -1369,6 +1558,18 @@ impl From<next_contracts::CommandLedgerError> for PlayCheckError {
 impl From<next_contracts::CanonicalError> for PlayCheckError {
     fn from(error: next_contracts::CanonicalError) -> Self {
         Self::Canonical(error)
+    }
+}
+
+impl From<next_presentation::PresentationExtractionError> for PlayCheckError {
+    fn from(error: next_presentation::PresentationExtractionError) -> Self {
+        Self::PresentationExtraction(error)
+    }
+}
+
+impl From<next_render::RenderDeviceError> for PlayCheckError {
+    fn from(error: next_render::RenderDeviceError) -> Self {
+        Self::Render(error)
     }
 }
 

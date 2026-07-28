@@ -15,7 +15,7 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected boundary-scan, content-package, host-check, play, physics-collision, physics-backend-parity or persistence-replay".to_owned()
+        "expected boundary-scan, content-package, host-check, platform, play, physics-collision, physics-backend-parity or persistence-replay".to_owned()
     })?;
     match command.as_str() {
         "boundary-scan" => {
@@ -35,6 +35,10 @@ fn run() -> Result<(), String> {
             reject_extra_arguments(arguments)?;
             persistence_replay(backend)
         }
+        "platform" => {
+            reject_extra_arguments(arguments)?;
+            platform()
+        }
         "play" => {
             reject_extra_arguments(arguments)?;
             play()
@@ -50,6 +54,19 @@ fn run() -> Result<(), String> {
         }
         _ => Err(format!("unknown command: {command}")),
     }
+}
+
+fn platform() -> Result<(), String> {
+    let report = next_verification::run_platform_check().map_err(|error| error.to_string())?;
+    println!(
+        "{{\"status\":\"PASS\",\"portable_contract\":\"PASS\",\"sdl_ash_candidate\":\"NOT_RUN_DEVELOPER_HOST\",\"normalized_events\":{},\"rendered_objects\":{},\"presentation_snapshot_hash\":\"{}\",\"ledger_hash\":\"{}\",\"state_root\":\"{}\"}}",
+        report.normalized_events,
+        report.rendered_objects,
+        report.presentation_snapshot_hash.to_hex(),
+        report.authoritative_ledger_hash.to_hex(),
+        report.authoritative_state_root.to_hex(),
+    );
+    Ok(())
 }
 
 fn content_package() -> Result<(), String> {

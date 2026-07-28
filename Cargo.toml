@@ -1,12 +1,17 @@
 [workspace]
 members = [
+    "apps/game",
     "apps/headless",
     "crates/assets",
     "crates/contracts",
+    "crates/desktop-sdl-ash",
+    "crates/platform",
+    "crates/presentation",
     "crates/physics-api",
     "crates/physics-physx",
     "crates/physics-physx-ffi",
     "crates/project",
+    "crates/render",
     "crates/rpg",
     "crates/runtime",
     "crates/verification",
@@ -24,15 +29,21 @@ repository = ""
 [workspace.dependencies]
 next_contracts = { path = "crates/contracts" }
 next_assets = { path = "crates/assets" }
+next_desktop_sdl_ash = { path = "crates/desktop-sdl-ash" }
+next_platform = { path = "crates/platform" }
+next_presentation = { path = "crates/presentation" }
 next_physics_api = { path = "crates/physics-api" }
 next_physics_physx = { path = "crates/physics-physx" }
 next_physics_physx_ffi = { path = "crates/physics-physx-ffi" }
 next_project = { path = "crates/project" }
+next_render = { path = "crates/render" }
 next_rpg = { path = "crates/rpg" }
 next_runtime = { path = "crates/runtime" }
 next_verification = { path = "crates/verification" }
 sha2 = "=0.10.9"
 unicode-normalization = "=0.1.25"
+ash = { version = "=0.38.0", default-features = false, features = ["loaded", "std"] }
+sdl3 = { version = "=0.18.4", features = ["ash", "build-from-source-static"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -43,4 +54,4 @@ todo = "deny"
 unimplemented = "deny"
 
 [workspace.metadata.nextengine.ffi]
-allowed_crates = ["next_physics_physx_ffi"]
+allowed_crates = ["next_desktop_sdl_ash", "next_physics_physx_ffi"]

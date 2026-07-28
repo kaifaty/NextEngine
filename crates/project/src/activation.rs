@@ -150,6 +150,7 @@ pub fn activate_project(
         schema_registry,
         content_manifest,
         world_partition,
+        neutral_records: neutral_records.clone(),
         rpg_definitions: compile_rpg_definitions_v1(&neutral_records)
             .map_err(ProjectActivationError::Cook)?,
     };

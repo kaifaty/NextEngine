@@ -3,6 +3,7 @@
 mod content_package;
 mod persistence_replay;
 mod physics_parity;
+mod platform_check;
 mod player_fixture;
 
 use std::collections::BTreeMap;
@@ -37,12 +38,16 @@ pub use persistence_replay::{
 pub use physics_parity::{
     PhysicsBackendParityError, PhysicsBackendParityReport, run_physics_backend_parity_check,
 };
+pub use platform_check::{
+    PlatformCandidateStatus, PlatformCheckError, PlatformCheckReport, run_platform_check,
+};
 pub use player_fixture::{
-    CanonicalFixtureError, NeutralPlayerFixture, PhysicsCollisionBackend,
-    PhysicsCollisionCheckReport, PlayCheckError, PlayCheckReport, build_neutral_player_fixture,
-    build_neutral_player_fixture_from_activated_project, build_physx_player_fixture,
-    cooked_interaction_outcome, cooked_project_rpg_snapshot, player_action_sample,
-    player_equip_use_sample, player_interact_sample, player_pickup_sample,
+    CanonicalFixtureError, GameCheckReport, NeutralPlayerFixture, PhysicsCollisionBackend,
+    PhysicsCollisionCheckReport, PlayCheckError, PlayCheckReport, PreparedGameFrameV1,
+    build_neutral_player_fixture, build_neutral_player_fixture_from_activated_project,
+    build_physx_player_fixture, cooked_interaction_outcome, cooked_project_rpg_snapshot,
+    player_action_sample, player_equip_use_sample, player_interact_sample, player_pickup_sample,
+    prepare_game_frame, prepare_game_frame_with_activated_project, run_game_check,
     run_physics_collision_check, run_physics_collision_check_with_backend, run_play_check,
     run_play_check_with_activated_project,
 };

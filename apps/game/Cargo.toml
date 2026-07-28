@@ -1,0 +1,22 @@
+[package]
+name = "next_game"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[features]
+default = []
+desktop-sdl-ash = ["dep:next_desktop_sdl_ash"]
+
+[dependencies]
+next_assets.workspace = true
+next_contracts.workspace = true
+next_desktop_sdl_ash = { workspace = true, optional = true }
+next_platform.workspace = true
+next_project.workspace = true
+next_verification.workspace = true
+
+[lints]
+workspace = true

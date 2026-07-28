@@ -11,6 +11,8 @@ mod manifest_jcs;
 mod mechanics;
 mod persistence;
 mod physics;
+mod platform;
+mod presentation;
 mod project;
 mod rpg;
 mod rpg_v1;
@@ -128,6 +130,20 @@ pub use physics::{
     PhysicsStepResultV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
     PhysicsWorldCheckpointV1, PhysicsWorldDescriptorV1,
     REFERENCE_GRAVITY_MICROMETRES_PER_SECOND_SQUARED, derive_physics_contact_id,
+};
+pub use platform::{
+    NORMALIZED_CONTROL_EVENT_SCHEMA_VERSION, NormalizedControlEventV1, NormalizedControlPhaseV1,
+    NormalizedPlatformCapabilityV1, PLATFORM_CAPABILITY_SET_SCHEMA_VERSION,
+    PLATFORM_EVENT_SCHEMA_VERSION, PLATFORM_MAX_CAPABILITIES, PLATFORM_MAX_CONTROL_COMPONENTS,
+    PLATFORM_MAX_MODIFIERS, PLATFORM_TIMEBASE_SCHEMA_VERSION, PlatformCapabilitySetV1,
+    PlatformContractError, PlatformEventKindV1, PlatformEventPayloadV1, PlatformEventV1,
+    PlatformTimebaseV1, PlatformTimebaseWrapPolicyV1, PresentationTargetKindV1,
+};
+pub use presentation::{
+    PRESENTATION_MAX_SCENE_RECORDS, PRESENTATION_SCENE_RECORD_SCHEMA_VERSION,
+    PRESENTATION_SNAPSHOT_SCHEMA_VERSION, PresentationContractError, PresentationObjectKeyV1,
+    PresentationPrimitiveV1, PresentationRoleV1, PresentationSnapshotV2,
+    QuantizedPresentationTransformV1, ScenePresentationBatchV1, ScenePresentationRecordV2,
 };
 pub use project::{
     ActivatedProjectV1, AssetRevisionRefV1, CONTENT_MANIFEST_FORMAT_V1, ContentAssetEntryV1,

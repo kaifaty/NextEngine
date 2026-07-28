@@ -12,9 +12,11 @@ Next Engine создаётся для игр, в которых движение
 > headless-срез с вводом, командами, RPG-состоянием, эталонной физикой,
 > сохранением и replay, а neutral fixture проходит deterministic
 > validate/cook/publish/activation и снабжает gameplay root authored
-> dialogue/quest/relationship definitions. Интерактивная игра, renderer, combat,
-> streaming и законченный RPG-цикл остаются целевым результатом v1, а не
-> готовым продуктом.
+> dialogue/quest/relationship definitions. Portable `game` root уже извлекает
+> immutable presentation snapshot и проходит B0 reference renderer; приватный
+> SDL3/ash Vulkan adapter компилируется как `Proposed`, но ещё не прошёл
+> обязательные Windows/Linux product checks. Combat, streaming и законченный
+> RPG-цикл остаются целевым результатом v1, а не готовым продуктом.
 > Название Next Engine временное.
 
 Next Engine — самостоятельный проект. Это не порт OpenGothic и не универсальный
@@ -103,6 +105,13 @@ runtime-обучение моделей и
   собранные в обычный data-only package с exact mechanics lock и capability
   grants; `headless --project <store> --lock <hash>` запускает тот же
   authoritative сценарий из production activation path без `ai-host`;
+- общий `game`/`headless` activation path с exact project lock и совпадающими
+  authoritative state/ledger roots; `game` публикует immutable
+  `PresentationSnapshotV2`, содержащий floor, capsule, switch, item и NPC;
+- engine-owned platform/input lifecycle contracts, детерминированное
+  presentation extraction и reference B0 render plan с изоляцией device loss;
+  SDL3 `0.18.4` и ash `0.38.0` находятся только в приватном experimental
+  adapter crate и не протекают в публичные contracts;
 - атомарные поколения сохранений, восстановление, replay и проверка совпадения
   authoritative state roots;
 - переносимый `headless` composition root и локальные product checks;
@@ -112,8 +121,9 @@ runtime-обучение моделей и
 Это ещё не законченная игра: текущий `play` проверяет ограниченный neutral
 сценарий движения, столкновения, pickup/equip, активации switch и один authored
 NPC dialogue/quest transition. Reference physics profile пока ограничен upright
-capsule и статическими Box colliders; интерактивный `game`, renderer, combat
-package и world streaming остаются следующими срезами.
+capsule и статическими Box colliders; desktop adapter пока отображает только
+B0-примитивы и остаётся `Proposed`. Combat package и world streaming —
+следующие срезы.
 
 ## Быстрый старт
 
@@ -127,6 +137,17 @@ cargo run -p next_headless
 
 # Либо активировать exact ранее приготовленный content store
 cargo run -p next_headless -- --project <cooked-store> --lock <composition-lock-sha256>
+```
+
+Запустить тот же cooked slice через `game` composition root и reference
+presentation path:
+
+```bash
+cargo run -p next_game
+cargo run -p next_game -- --project <cooked-store> --lock <composition-lock-sha256>
+
+# Experimental SDL3/ash Vulkan B0 window; shipped status требует Windows/Linux checks
+cargo run -p next_game --features desktop-sdl-ash -- --interactive
 ```
 
 Запустить основные локальные проверки:
@@ -143,6 +164,9 @@ cargo run -p xtask -- persistence-replay
 
 # Neutral fixture → deterministic cook → atomic publish → production activation
 cargo run -p xtask -- content-package
+
+# game/headless parity, normalized platform events и presentation/device-loss isolation
+cargo run -p xtask -- platform
 
 # Форматирование, clippy, тесты workspace и архитектурные границы
 cargo run -p xtask -- host-check
@@ -217,8 +241,13 @@ vendor types, importer structures, database connections и model sessions
 | `crates/physics-physx-ffi` | Единственная ADR-033 allowlisted native FFI-граница |
 | `crates/assets` | Copy-on-write save/content generations, atomic publication и bounded load |
 | `crates/project` | Exact resolver, neutral cooker и production project activation |
+| `crates/platform` | Backend-free platform capabilities, lifecycle normalization и headless target |
+| `crates/presentation` | Immutable revision-bound extraction в `PresentationSnapshotV2` |
+| `crates/render` | Backend-neutral B0 render boundary и deterministic reference frame plan |
+| `crates/desktop-sdl-ash` | Приватный `Proposed` SDL3/ash Vulkan adapter за ADR-003 boundary |
 | `crates/verification` | Neutral fixtures, state roots, headless replay и product scenarios |
 | `apps/headless` | Текущий переносимый composition root без окна и renderer |
+| `apps/game` | Portable game composition root; optional experimental desktop adapter |
 | `tools/xtask` | Локальные product checks и проверка архитектурных границ |
 | `lab` | Изолированные ML-эксперименты; не часть игрового runtime |
 
