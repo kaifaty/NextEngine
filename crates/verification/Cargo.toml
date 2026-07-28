@@ -21,6 +21,7 @@ next_presentation.workspace = true
 next_project.workspace = true
 next_render.workspace = true
 next_runtime.workspace = true
+next_script_luau.workspace = true
 next_world.workspace = true
 
 [lints]

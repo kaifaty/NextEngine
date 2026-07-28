@@ -96,11 +96,14 @@ fn content_package() -> Result<(), String> {
     let report =
         next_verification::run_content_package_check().map_err(|error| error.to_string())?;
     println!(
-        "{{\"status\":\"PASS\",\"records\":{},\"chunks\":{},\"mechanic_packages\":{},\"combat_npc_health\":{},\"schema_registry_hash\":\"{}\",\"content_manifest_hash\":\"{}\",\"world_partition_hash\":\"{}\",\"composition_lock_hash\":\"{}\"}}",
+        "{{\"status\":\"PASS\",\"records\":{},\"chunks\":{},\"mechanic_packages\":{},\"luau_packages\":{},\"combat_npc_health\":{},\"scripted_player_health\":{},\"luau_state_hash\":\"{}\",\"schema_registry_hash\":\"{}\",\"content_manifest_hash\":\"{}\",\"world_partition_hash\":\"{}\",\"composition_lock_hash\":\"{}\"}}",
         report.records,
         report.chunks,
         report.mechanic_packages,
+        report.luau_packages,
         report.combat_npc_health,
+        report.scripted_player_health,
+        report.luau_package_state_hash.to_hex(),
         report.schema_registry_hash.to_hex(),
         report.content_manifest_hash.to_hex(),
         report.world_partition_hash.to_hex(),
@@ -221,7 +224,7 @@ fn persistence_replay(backend: next_verification::PersistenceReplayBackend) -> R
     let report = next_verification::run_persistence_replay_check_with_backend(backend)
         .map_err(|error| error.to_string())?;
     println!(
-        "{{\"status\":\"PASS\",\"ticks\":{},\"generations\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"dialogue_node\":\"{}\",\"quest_state\":\"{}\",\"npc_player_trust\":{},\"npc_health\":{},\"player_health\":{},\"agent_intent\":\"{}\",\"agent_projection\":\"{}\",\"world_streaming_generation\":{},\"current_chunk\":\"{}\",\"final_state_root\":\"{}\",\"final_ledger_root\":\"{}\"}}",
+        "{{\"status\":\"PASS\",\"ticks\":{},\"generations\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"dialogue_node\":\"{}\",\"quest_state\":\"{}\",\"npc_player_trust\":{},\"npc_health\":{},\"player_health\":{},\"agent_intent\":\"{}\",\"agent_projection\":\"{}\",\"luau_state_hash\":\"{}\",\"world_streaming_generation\":{},\"current_chunk\":\"{}\",\"final_state_root\":\"{}\",\"final_ledger_root\":\"{}\"}}",
         report.ticks,
         report.generations,
         report.rpg_events,
@@ -233,6 +236,7 @@ fn persistence_replay(backend: next_verification::PersistenceReplayBackend) -> R
         report.player_health,
         report.agent_intent_id.to_hex(),
         report.agent_projection_hash.to_hex(),
+        report.luau_package_state_hash.to_hex(),
         report.world_streaming_generation,
         report.current_chunk_id.as_str(),
         report.final_state_root.to_hex(),

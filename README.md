@@ -19,7 +19,8 @@ Next Engine создаётся для игр, в которых движение
 > уже проходит общий capability/effect/RPG transaction path. Двухчанковый
 > deterministic streaming с отдельным save owner segment и первый
 > deterministic NPC planner/procedural avatar fallback работают в cooked
-> slice; script/plugin hosts и shipping closure остаются целевым
+> slice; deterministic Luau package host уже проходит sandbox/budget/state
+> checks, а Wasm plugin host и shipping closure остаются целевым
 > результатом v1, а не готовым продуктом.
 > Название Next Engine временное.
 
@@ -132,6 +133,11 @@ runtime-обучение моделей и
   canonical order и предлагает обычный `WorldCommand`; при отсутствии
   `ai-host`/model route публикуется procedural idle/locomotion/melee animation
   projection, не имеющая обратной записи в simulation;
+- private Luau 728 adapter через pinned `mlua 0.12.0` выполняет package
+  callbacks в read-only sandbox: scripts получают только capability-scoped
+  immutable queries и typed proposals, а instruction/allocation/live-memory/
+  host-call/command budgets, atomic proposal discard, persisted package state
+  и three-strike circuit проверяются локальными product checks;
 - переносимый `headless` composition root и локальные product checks;
 - изолированный экспериментальный путь
   `train → ONNX → inference` для проверки локального ML toolchain.
@@ -141,7 +147,7 @@ runtime-обучение моделей и
 один authored NPC dialogue/quest transition и переход во второй chunk с
 возвратом. Reference physics profile пока ограничен upright capsule и
 статическими Box colliders; desktop adapter пока отображает только
-B0-примитивы и остаётся `Proposed`. Script/plugin hosts и shipping closure —
+B0-примитивы и остаётся `Proposed`. Wasm Component host и shipping closure —
 следующие срезы.
 
 ## Быстрый старт

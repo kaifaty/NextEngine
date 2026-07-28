@@ -1,0 +1,18 @@
+[package]
+name = "next_script_luau"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+mlua.workspace = true
+next_contracts.workspace = true
+next_mechanics.workspace = true
+
+[dev-dependencies]
+next_project.workspace = true
+
+[lints]
+workspace = true

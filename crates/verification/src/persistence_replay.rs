@@ -51,6 +51,7 @@ pub struct PersistenceReplayCheckReport {
     pub player_health: i32,
     pub agent_intent_id: ContentHash,
     pub agent_projection_hash: ContentHash,
+    pub luau_package_state_hash: ContentHash,
     pub world_streaming_generation: u64,
     pub current_chunk_id: SchemaId,
     pub final_state_root: StateRoot,
@@ -164,6 +165,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
         build_neutral_player_fixture(project_id)
     }
     .map_err(|error| PersistenceReplayCheckError::new("build player fixture", error.to_string()))?;
+    let luau_package_state_hash = verify_luau_state_round_trip()?;
     let initial_rpg = initial_rpg_snapshot(&fixture)?;
     let initial_chunk_id = fixture
         .activated_project
@@ -1017,11 +1019,59 @@ pub(crate) fn run_persistence_replay_check_for_project(
         player_health,
         agent_intent_id,
         agent_projection_hash,
+        luau_package_state_hash,
         world_streaming_generation: direct_world.snapshot().generation,
         current_chunk_id: direct_world.snapshot().current_chunk_id.clone(),
         final_state_root,
         final_command_ledger_hash,
     })
+}
+
+fn verify_luau_state_round_trip() -> Result<ContentHash, PersistenceReplayCheckError> {
+    let manifest = next_script_luau::reference_scripted_melee_manifest_v1().map_err(|error| {
+        PersistenceReplayCheckError::new("create Luau manifest", error.to_string())
+    })?;
+    let source = next_script_luau::REFERENCE_SCRIPTED_MELEE_SOURCE
+        .as_bytes()
+        .to_vec();
+    let granted_capabilities = manifest.requested_capabilities.clone();
+    let mut direct = next_script_luau::LuauPackageRuntimeV1::new(manifest.clone(), source.clone())
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("create Luau runtime", error.to_string())
+        })?;
+    let input = |gameplay_tick| next_script_luau::LuauCallbackInputV1 {
+        gameplay_tick,
+        target_health: 100,
+        granted_capabilities: granted_capabilities.clone(),
+    };
+    let first = direct.execute(input(1)).map_err(|error| {
+        PersistenceReplayCheckError::new("execute Luau before save", error.to_string())
+    })?;
+    let bytes = direct.state().canonical_bytes().map_err(|error| {
+        PersistenceReplayCheckError::new("encode Luau package state", error.to_string())
+    })?;
+    let state = next_contracts::ExtensionPackageStateV1::from_canonical_bytes(
+        &bytes,
+        next_contracts::CanonicalDecodeLimits::default(),
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("decode Luau package state", error.to_string())
+    })?;
+    let mut restored = next_script_luau::LuauPackageRuntimeV1::restore(manifest, source, state)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("restore Luau runtime", error.to_string())
+        })?;
+    let retried = restored.execute(input(2)).map_err(|error| {
+        PersistenceReplayCheckError::new("execute Luau after load", error.to_string())
+    })?;
+    if first.proposed_semantic_actions != retried.proposed_semantic_actions
+        || direct.state().state_bytes != restored.state().state_bytes
+    {
+        return Err(PersistenceReplayCheckError::condition(
+            "Luau package state and retry are exact after load",
+        ));
+    }
+    Ok(restored.state().state_hash)
 }
 
 fn transition_world(

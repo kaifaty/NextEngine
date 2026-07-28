@@ -4,6 +4,7 @@ mod agent;
 mod canonical;
 mod command;
 mod content;
+mod extension;
 mod identity;
 mod ids;
 mod input;
@@ -49,6 +50,11 @@ pub use content::{
     NEUTRAL_RECORD_MAX_PROPERTIES, NEUTRAL_RECORD_MAX_REFERENCES, NEUTRAL_RECORD_OWNER_ID,
     NEUTRAL_RECORD_SCHEMA_VERSION, NEUTRAL_RECORD_SEGMENT_ID, NeutralPropertyV1,
     NeutralRecordError, NeutralRecordKindV1, NeutralRecordV1,
+};
+pub use extension::{
+    EXTENSION_CIRCUIT_THRESHOLD, EXTENSION_CIRCUIT_WINDOW_TICKS,
+    EXTENSION_PACKAGE_STATE_SCHEMA_VERSION, ExtensionBudgetPolicyV1, ExtensionContractError,
+    ExtensionPackageStateV1, ExtensionViolationCodeV1, LuauPackageManifestV1,
 };
 pub use identity::{
     COMMAND_STREAM_REGISTRY_SCHEMA_VERSION, CommandStreamKeyV1, CommandStreamRegistryV1,
