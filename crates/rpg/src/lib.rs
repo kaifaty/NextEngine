@@ -6,12 +6,13 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 use next_contracts::{
-    CharacterPayloadV1, CommandBodyHash, CommandId, ContentHash, DialoguePayloadV1,
-    EquipmentPayloadV1, FactionMembershipPayloadV1, InventoryPayloadV1, PersistentId,
-    QuestPayloadV1, RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1,
-    RpgAggregatePayloadV1, RpgAggregateRefV1, RpgCommandV1, RpgContractErrorV1, RpgEventDraftV1,
-    RpgEventV1, RpgOperationPayloadV1, RpgReadSetEntryV1, RpgSnapshotV2, RpgTransactionPlanV1,
-    RpgWriteSetEntryV1, SchemaId, SkillProficiency, SkillProficiencyEntryV1,
+    CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID, CharacterPayloadV1, CommandBodyHash, CommandId,
+    ContentHash, DefinitionRefV1, DialoguePayloadV1, EquipmentPayloadV1,
+    FactionMembershipPayloadV1, InventoryPayloadV1, PersistentId, QuestPayloadV1,
+    RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1,
+    RpgAggregateRefV1, RpgCommandV1, RpgContractErrorV1, RpgEventDraftV1, RpgEventV1,
+    RpgOperationPayloadV1, RpgPhysicalContactFactV1, RpgReadSetEntryV1, RpgSnapshotV2,
+    RpgTransactionPlanV1, RpgWriteSetEntryV1, SchemaId, SkillProficiency, SkillProficiencyEntryV1,
 };
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -259,12 +260,14 @@ fn ensure_kind_exists(
 
 #[derive(Clone, Copy, Debug)]
 pub struct RpgPlanningContextV1<'a> {
+    pub gameplay_tick: u64,
     pub causal_command_id: CommandId,
     pub canonical_command_body_hash: CommandBodyHash,
     pub project_composition_lock_hash: ContentHash,
     pub schema_registry_hash: ContentHash,
     pub budget_policy_hash: ContentHash,
     pub active_definition_policy_hashes: &'a [ContentHash],
+    pub physical_contact_facts: &'a [RpgPhysicalContactFactV1],
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -286,6 +289,7 @@ pub fn build_transaction_plan_v1(
     if !strictly_ordered_unique(context.active_definition_policy_hashes) {
         return Err(RpgPlanBuildError::DefinitionMismatch);
     }
+    let validated_fact_hashes = validate_physical_preconditions(state, command, context)?;
 
     let mut reads = BTreeMap::new();
     let mut staged_payloads = BTreeMap::new();
@@ -298,6 +302,7 @@ pub fn build_transaction_plan_v1(
         ) {
             return Err(RpgPlanBuildError::DefinitionMismatch);
         }
+        validate_operation_policy(state, operation)?;
         for target in &operation.targets {
             let key = RpgAggregateKeyV1::new(target.aggregate_kind, target.persistent_id);
             let aggregate = state
@@ -387,6 +392,7 @@ pub fn build_transaction_plan_v1(
         project_composition_lock_hash: context.project_composition_lock_hash,
         schema_registry_hash: context.schema_registry_hash,
         definition_policy_hashes,
+        validated_fact_hashes,
         ordered_operations: command.operations.clone(),
         ordered_read_set,
         ordered_write_set,
@@ -399,6 +405,93 @@ pub fn build_transaction_plan_v1(
         .map_err(|_| RpgPlanBuildError::TransactionAborted)?;
     plan.validate().map_err(RpgPlanBuildError::Contract)?;
     Ok(BuiltRpgTransactionPlanV1(plan))
+}
+
+fn validate_physical_preconditions(
+    state: &RpgState,
+    command: &RpgCommandV1,
+    context: RpgPlanningContextV1<'_>,
+) -> Result<Vec<ContentHash>, RpgPlanBuildError> {
+    let mut validated_fact_hashes = Vec::new();
+    for operation in &command.operations {
+        let RpgOperationPayloadV1::TransferItem {
+            item_id,
+            source_inventory_id: None,
+            destination_inventory_id: Some(destination_inventory_id),
+            ..
+        } = &operation.payload
+        else {
+            continue;
+        };
+        let inventory = state.inventory(*destination_inventory_id).ok_or(
+            RpgPlanBuildError::AggregateNotFound(RpgAggregateKindV1::Inventory),
+        )?;
+        let mut matching_proxies = command.operations.iter().filter_map(|candidate| {
+            let RpgOperationPayloadV1::TransitionInteractiveObject {
+                object_id,
+                next_state_id,
+                ..
+            } = &candidate.payload
+            else {
+                return None;
+            };
+            let object = state.interactive_object(*object_id)?;
+            (object.linked_item_id == Some(*item_id)
+                && next_state_id.as_str() == CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID)
+                .then_some(*object_id)
+        });
+        let proxy_id = matching_proxies
+            .next()
+            .ok_or(RpgPlanBuildError::PhysicalPreconditionMissing)?;
+        if matching_proxies.next().is_some() {
+            return Err(RpgPlanBuildError::PhysicalPreconditionMissing);
+        }
+        let fact_hash = context
+            .physical_contact_facts
+            .iter()
+            .filter(|fact| {
+                fact.gameplay_tick == context.gameplay_tick
+                    && fact.connects(inventory.owner_id, proxy_id)
+            })
+            .map(|fact| {
+                fact.validate().map_err(RpgPlanBuildError::Contract)?;
+                fact.fact_hash()
+                    .map_err(|_| RpgPlanBuildError::TransactionAborted)
+            })
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .min()
+            .ok_or(RpgPlanBuildError::PhysicalPreconditionMissing)?;
+        validated_fact_hashes.push(fact_hash);
+    }
+    validated_fact_hashes.sort_unstable();
+    validated_fact_hashes.dedup();
+    Ok(validated_fact_hashes)
+}
+
+fn validate_operation_policy(
+    state: &RpgState,
+    operation: &next_contracts::RpgOperationV1,
+) -> Result<(), RpgPlanBuildError> {
+    let RpgOperationPayloadV1::AssignEquipment { equipment_id, .. } = &operation.payload else {
+        return Ok(());
+    };
+    let equipment = state
+        .equipment(*equipment_id)
+        .ok_or(RpgPlanBuildError::AggregateNotFound(
+            RpgAggregateKindV1::Equipment,
+        ))?;
+    let DefinitionRefV1::Exact { content_hash, .. } = &equipment.slot_policy else {
+        return Err(RpgPlanBuildError::DefinitionMismatch);
+    };
+    if operation
+        .definition_policy_hashes
+        .binary_search(content_hash)
+        .is_err()
+    {
+        return Err(RpgPlanBuildError::DefinitionMismatch);
+    }
+    Ok(())
 }
 
 fn apply_operation(
@@ -775,6 +868,7 @@ pub enum RpgPlanBuildError {
     TransitionInvalid,
     OwnershipConflict,
     ReservationInvalid,
+    PhysicalPreconditionMissing,
     DefinitionMismatch,
     CommitmentRejected,
     TransactionAborted,
@@ -791,6 +885,7 @@ impl RpgPlanBuildError {
             Self::TransitionInvalid => "RPG_TRANSITION_INVALID",
             Self::OwnershipConflict => "RPG_OWNERSHIP_CONFLICT",
             Self::ReservationInvalid => "RPG_RESERVATION_INVALID",
+            Self::PhysicalPreconditionMissing => "RPG_PHYSICAL_PRECONDITION_MISSING",
             Self::DefinitionMismatch => "RPG_DEFINITION_MISMATCH",
             Self::CommitmentRejected => "RPG_COMMITMENT_REJECTED",
             Self::TransactionAborted => "RPG_TRANSACTION_ABORTED",
@@ -853,11 +948,14 @@ impl Error for RpgPlanMaterializeError {}
 #[cfg(test)]
 mod tests {
     use next_contracts::{
-        AssetId, CharacterPayloadV1, CommandBodyHash, CommandId, ContentHash, DefinitionRefV1,
-        DialoguePayloadV1, EquipmentPayloadV1, InventoryPayloadV1, ItemPayloadV1,
+        AssetId, CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID,
+        CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CharacterPayloadV1, CommandBodyHash, CommandId,
+        ContentHash, DefinitionRefV1, DialoguePayloadV1, EquipmentPayloadV1,
+        InteractiveObjectPayloadV1, InventoryPayloadV1, ItemPayloadV1, PhysicsContactId,
         ProvenanceBindingV1, QuestPayloadV1, RelationshipDimensionV1, RelationshipPayloadV1,
         RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgAggregateRefV1,
-        RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1, RpgSnapshotV2, SchemaId,
+        RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1, RpgPhysicalContactFactV1,
+        RpgSnapshotV2, SchemaId,
     };
 
     use super::{
@@ -893,87 +991,114 @@ mod tests {
     }
 
     fn fixture() -> RpgState {
-        RpgState::from_snapshot(RpgSnapshotV2 {
-            aggregates: vec![
-                aggregate(
-                    1,
-                    RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
-                        inventory_id: Some(id(3)),
-                        equipment_id: Some(id(4)),
-                        skills: vec![],
-                    }),
-                ),
-                aggregate(
-                    2,
-                    RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
-                        inventory_id: None,
-                        equipment_id: None,
-                        skills: vec![],
-                    }),
-                ),
-                aggregate(
-                    5,
-                    RpgAggregatePayloadV1::Item(ItemPayloadV1 {
-                        quantity: 1,
-                        durability: 100,
-                        custom_state: vec![],
-                    }),
-                ),
-                aggregate(
-                    3,
-                    RpgAggregatePayloadV1::Inventory(InventoryPayloadV1 {
-                        owner_id: id(1),
-                        capacity: 8,
-                        item_ids: vec![id(5)],
-                        reservations: vec![],
-                    }),
-                ),
-                aggregate(
-                    4,
-                    RpgAggregatePayloadV1::Equipment(EquipmentPayloadV1 {
-                        character_id: id(1),
-                        slot_policy: definition(44),
-                        assignments: vec![],
-                    }),
-                ),
-                aggregate(
-                    6,
-                    RpgAggregatePayloadV1::Quest(QuestPayloadV1 {
-                        state_id: schema("rpg.quest.available"),
-                    }),
-                ),
-                aggregate(
-                    7,
-                    RpgAggregatePayloadV1::Dialogue(DialoguePayloadV1 {
-                        speaker_id: id(1),
-                        listener_id: id(2),
-                        node_id: schema("rpg.dialogue.offer"),
-                    }),
-                ),
-                aggregate(
-                    8,
-                    RpgAggregatePayloadV1::Relationship(RelationshipPayloadV1 {
-                        source_id: id(1),
-                        target_id: id(2),
-                        dimensions: vec![RelationshipDimensionV1 {
-                            dimension_id: schema("rpg.relationship.trust"),
-                            value: 0,
-                        }],
-                    }),
-                ),
-            ],
-        })
-        .expect("fixture is valid")
+        fixture_with_capacity(8)
+    }
+
+    fn fixture_with_capacity(capacity: u32) -> RpgState {
+        let mut aggregates = vec![
+            aggregate(
+                1,
+                RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                    inventory_id: Some(id(3)),
+                    equipment_id: Some(id(4)),
+                    skills: vec![],
+                }),
+            ),
+            aggregate(
+                2,
+                RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                    inventory_id: None,
+                    equipment_id: None,
+                    skills: vec![],
+                }),
+            ),
+            aggregate(
+                5,
+                RpgAggregatePayloadV1::Item(ItemPayloadV1 {
+                    quantity: 1,
+                    durability: 100,
+                    custom_state: vec![],
+                }),
+            ),
+            aggregate(
+                3,
+                RpgAggregatePayloadV1::Inventory(InventoryPayloadV1 {
+                    owner_id: id(1),
+                    capacity,
+                    item_ids: vec![id(5)],
+                    reservations: vec![],
+                }),
+            ),
+            aggregate(
+                4,
+                RpgAggregatePayloadV1::Equipment(EquipmentPayloadV1 {
+                    character_id: id(1),
+                    slot_policy: definition(44),
+                    assignments: vec![],
+                }),
+            ),
+            aggregate(
+                6,
+                RpgAggregatePayloadV1::Quest(QuestPayloadV1 {
+                    state_id: schema("rpg.quest.available"),
+                }),
+            ),
+            aggregate(
+                7,
+                RpgAggregatePayloadV1::Dialogue(DialoguePayloadV1 {
+                    speaker_id: id(1),
+                    listener_id: id(2),
+                    node_id: schema("rpg.dialogue.offer"),
+                }),
+            ),
+            aggregate(
+                8,
+                RpgAggregatePayloadV1::Relationship(RelationshipPayloadV1 {
+                    source_id: id(1),
+                    target_id: id(2),
+                    dimensions: vec![RelationshipDimensionV1 {
+                        dimension_id: schema("rpg.relationship.trust"),
+                        value: 0,
+                    }],
+                }),
+            ),
+            aggregate(
+                9,
+                RpgAggregatePayloadV1::Item(ItemPayloadV1 {
+                    quantity: 1,
+                    durability: 100,
+                    custom_state: vec![],
+                }),
+            ),
+            aggregate(
+                10,
+                RpgAggregatePayloadV1::InteractiveObject(InteractiveObjectPayloadV1 {
+                    state_id: schema(CORE_INTERACTIVE_OBJECT_READY_STATE_ID),
+                    linked_item_id: Some(id(9)),
+                }),
+            ),
+        ];
+        aggregates.sort_by_key(|aggregate| (aggregate.aggregate_kind, aggregate.persistent_id));
+        RpgState::from_snapshot(RpgSnapshotV2 { aggregates }).expect("fixture is valid")
     }
 
     fn context<'a>(active: &'a [ContentHash]) -> RpgPlanningContextV1<'a> {
+        context_with_facts(active, &[])
+    }
+
+    fn context_with_facts<'a>(
+        active: &'a [ContentHash],
+        physical_contact_facts: &'a [RpgPhysicalContactFactV1],
+    ) -> RpgPlanningContextV1<'a> {
         RpgPlanningContextV1 {
+            gameplay_tick: 0,
             causal_command_id: CommandId::from_bytes([1; 16]),
             canonical_command_body_hash: CommandBodyHash::from_bytes([2; 32]),
             project_composition_lock_hash: ContentHash::from_bytes([3; 32]),
             schema_registry_hash: ContentHash::from_bytes([4; 32]),
             budget_policy_hash: ContentHash::from_bytes([5; 32]),
             active_definition_policy_hashes: active,
+            physical_contact_facts,
         }
     }
 
@@ -1019,6 +1144,69 @@ mod tests {
                     },
                 },
             ],
+        }
+    }
+
+    fn pickup_command(policy: ContentHash, expected_proxy_state: &str) -> RpgCommandV1 {
+        RpgCommandV1 {
+            operations: vec![
+                RpgOperationV1 {
+                    operation_slot: 0,
+                    targets: vec![
+                        target(RpgAggregateKindV1::Item, 9, 0),
+                        target(RpgAggregateKindV1::Inventory, 3, 0),
+                    ],
+                    definition_policy_hashes: vec![policy],
+                    payload: RpgOperationPayloadV1::TransferItem {
+                        item_id: id(9),
+                        source_inventory_id: None,
+                        destination_inventory_id: Some(id(3)),
+                        quantity: 1,
+                    },
+                },
+                RpgOperationV1 {
+                    operation_slot: 1,
+                    targets: vec![target(RpgAggregateKindV1::InteractiveObject, 10, 0)],
+                    definition_policy_hashes: vec![policy],
+                    payload: RpgOperationPayloadV1::TransitionInteractiveObject {
+                        object_id: id(10),
+                        expected_state_id: schema(expected_proxy_state),
+                        next_state_id: schema(CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID),
+                    },
+                },
+            ],
+        }
+    }
+
+    fn pickup_fact() -> RpgPhysicalContactFactV1 {
+        RpgPhysicalContactFactV1 {
+            gameplay_tick: 0,
+            contact_id: PhysicsContactId::from_bytes([12; 16]),
+            subject_low: id(1),
+            subject_high: id(10),
+            physics_checkpoint_revision: 7,
+            source_snapshot_hash: ContentHash::from_bytes([13; 32]),
+            contact_batch_hash: ContentHash::from_bytes([14; 32]),
+        }
+    }
+
+    fn assign_equipment_command(policy: ContentHash, equipment_revision: u64) -> RpgCommandV1 {
+        RpgCommandV1 {
+            operations: vec![RpgOperationV1 {
+                operation_slot: 0,
+                targets: vec![
+                    target(RpgAggregateKindV1::Item, 5, 0),
+                    target(RpgAggregateKindV1::Inventory, 3, 0),
+                    target(RpgAggregateKindV1::Equipment, 4, equipment_revision),
+                ],
+                definition_policy_hashes: vec![policy],
+                payload: RpgOperationPayloadV1::AssignEquipment {
+                    equipment_id: id(4),
+                    inventory_id: id(3),
+                    item_id: id(5),
+                    slot_id: schema("rpg.equipment.main-hand"),
+                },
+            }],
         }
     }
 
@@ -1225,6 +1413,139 @@ mod tests {
                 .canonical_bytes()
                 .expect("snapshot canonicalizes"),
             before
+        );
+    }
+
+    #[test]
+    fn pickup_requires_a_current_revision_bound_contact_fact() {
+        let state = fixture();
+        let policy = ContentHash::from_bytes([9; 32]);
+        let active = [policy];
+        let command = pickup_command(policy, CORE_INTERACTIVE_OBJECT_READY_STATE_ID);
+
+        assert_eq!(
+            build_transaction_plan_v1(&state, &command, context(&active)),
+            Err(RpgPlanBuildError::PhysicalPreconditionMissing)
+        );
+
+        let fact = pickup_fact();
+        let facts = [fact];
+        let plan = build_transaction_plan_v1(&state, &command, context_with_facts(&active, &facts))
+            .expect("contact-gated pickup plan builds");
+        assert_eq!(
+            plan.as_contract().validated_fact_hashes,
+            vec![fact.fact_hash().expect("fact hashes")]
+        );
+        let next = materialize_transaction_plan_v1(&state, &plan).expect("pickup materializes");
+        assert_eq!(
+            next.inventory(id(3)).expect("inventory").item_ids,
+            [id(5), id(9)]
+        );
+        assert_eq!(
+            next.interactive_object(id(10)).expect("proxy").state_id,
+            schema(CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID)
+        );
+    }
+
+    #[test]
+    fn pickup_rejects_full_inventory_without_partial_proxy_transition() {
+        let state = fixture_with_capacity(1);
+        let before = state.snapshot();
+        let policy = ContentHash::from_bytes([9; 32]);
+        let active = [policy];
+        let facts = [pickup_fact()];
+
+        assert_eq!(
+            build_transaction_plan_v1(
+                &state,
+                &pickup_command(policy, CORE_INTERACTIVE_OBJECT_READY_STATE_ID),
+                context_with_facts(&active, &facts),
+            ),
+            Err(RpgPlanBuildError::OwnershipConflict)
+        );
+        assert_eq!(state.snapshot(), before);
+    }
+
+    #[test]
+    fn pickup_fault_after_staged_transfer_is_byte_exact() {
+        let state = fixture();
+        let before = state
+            .snapshot()
+            .canonical_bytes()
+            .expect("snapshot canonicalizes");
+        let policy = ContentHash::from_bytes([9; 32]);
+        let active = [policy];
+        let facts = [pickup_fact()];
+
+        assert_eq!(
+            build_transaction_plan_v1(
+                &state,
+                &pickup_command(policy, "rpg.interactive.wrong"),
+                context_with_facts(&active, &facts),
+            ),
+            Err(RpgPlanBuildError::TransitionInvalid)
+        );
+        assert_eq!(
+            state
+                .snapshot()
+                .canonical_bytes()
+                .expect("snapshot canonicalizes"),
+            before
+        );
+    }
+
+    #[test]
+    fn inventory_membership_and_equipment_slot_policy_are_enforced() {
+        let state = fixture();
+        let policy = ContentHash::from_bytes([44; 32]);
+        let active = [policy];
+        let plan = build_transaction_plan_v1(
+            &state,
+            &assign_equipment_command(policy, 0),
+            context(&active),
+        )
+        .expect("first assignment builds");
+        let equipped =
+            materialize_transaction_plan_v1(&state, &plan).expect("first assignment materializes");
+
+        assert_eq!(
+            build_transaction_plan_v1(
+                &equipped,
+                &assign_equipment_command(policy, 1),
+                context(&active),
+            ),
+            Err(RpgPlanBuildError::OwnershipConflict)
+        );
+
+        let wrong_policy = ContentHash::from_bytes([45; 32]);
+        assert_eq!(
+            build_transaction_plan_v1(
+                &state,
+                &assign_equipment_command(wrong_policy, 0),
+                context(&[wrong_policy]),
+            ),
+            Err(RpgPlanBuildError::DefinitionMismatch)
+        );
+
+        let invalid_source = RpgCommandV1 {
+            operations: vec![RpgOperationV1 {
+                operation_slot: 0,
+                targets: vec![
+                    target(RpgAggregateKindV1::Item, 9, 0),
+                    target(RpgAggregateKindV1::Inventory, 3, 0),
+                ],
+                definition_policy_hashes: vec![],
+                payload: RpgOperationPayloadV1::TransferItem {
+                    item_id: id(9),
+                    source_inventory_id: Some(id(3)),
+                    destination_inventory_id: None,
+                    quantity: 1,
+                },
+            }],
+        };
+        assert_eq!(
+            build_transaction_plan_v1(&state, &invalid_source, context(&[])),
+            Err(RpgPlanBuildError::OwnershipConflict)
         );
     }
 }

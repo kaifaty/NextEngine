@@ -7,7 +7,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use next_assets::SaveStore;
 use next_contracts::{
     AuthorityGrant, CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_QUEST_TRUST_DELTA,
-    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_QUEST_ACTIVE_STATE_ID,
+    CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
+    CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID, CORE_QUEST_ACTIVE_STATE_ID,
     CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CharacterPayloadV1, CommandLedgerHash, ContactPhaseV1,
     ContentHash, EventPayload, InputMappingCodeV1, InventoryPayloadV1, IssuerPrincipal,
     ItemPayloadV1, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
@@ -28,8 +29,8 @@ use crate::player_fixture::fixture_aggregate;
 use crate::{
     ReplayOutput, build_neutral_player_fixture, build_physx_player_fixture,
     checkpoint_segment_hashes, compute_world_checkpoint_root, core_interaction_rpg_snapshot,
-    player_action_sample, player_interact_sample, replay_command_results,
-    run_replay_manifest_with_physics_options,
+    player_action_sample, player_equip_use_sample, player_interact_sample, player_pickup_sample,
+    replay_command_results, run_replay_manifest_with_physics_options,
 };
 
 static NEXT_CHECK_DIRECTORY: AtomicU64 = AtomicU64::new(0);
@@ -201,8 +202,30 @@ pub(crate) fn run_persistence_replay_check_for_project(
         })?);
     }
 
+    let pickup = player_pickup_sample(&fixture, 4, PlayerActionPhaseV1::Started, true, None)
+        .map_err(|error| PersistenceReplayCheckError::new("pickup input", error.to_string()))?;
+    direct
+        .enqueue_input_sample(&fixture.principal, pickup)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("enqueue pickup input", error.to_string())
+        })?;
+    reports.push(direct.run_tick([]).map_err(|error| {
+        PersistenceReplayCheckError::new("run pickup interaction", error.to_string())
+    })?);
+
+    let equip = player_equip_use_sample(&fixture, 5, PlayerActionPhaseV1::Started, true, None)
+        .map_err(|error| PersistenceReplayCheckError::new("equip input", error.to_string()))?;
+    direct
+        .enqueue_input_sample(&fixture.principal, equip)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("enqueue equip input", error.to_string())
+        })?;
+    reports.push(direct.run_tick([]).map_err(|error| {
+        PersistenceReplayCheckError::new("run equip interaction", error.to_string())
+    })?);
+
     let switch_interaction =
-        player_interact_sample(&fixture, 4, PlayerActionPhaseV1::Started, true, None)
+        player_interact_sample(&fixture, 6, PlayerActionPhaseV1::Started, true, None)
             .map_err(|error| PersistenceReplayCheckError::new("switch input", error.to_string()))?;
     direct
         .enqueue_input_sample(&fixture.principal, switch_interaction)
@@ -215,7 +238,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
 
     let backward = player_action_sample(
         &fixture,
-        5,
+        7,
         PlayerActionPhaseV1::Performed,
         [0, -32_767],
         None,
@@ -230,11 +253,11 @@ pub(crate) fn run_persistence_replay_check_for_project(
         PersistenceReplayCheckError::new("run backward movement", error.to_string())
     })?);
 
-    for sequence in 6_u64..9 {
+    for sequence in 8_u64..11 {
         let right = player_action_sample(
             &fixture,
             sequence,
-            if sequence == 6 {
+            if sequence == 8 {
                 PlayerActionPhaseV1::Started
             } else {
                 PlayerActionPhaseV1::Performed
@@ -268,10 +291,10 @@ pub(crate) fn run_persistence_replay_check_for_project(
 
     let queued_interaction = player_interact_sample(
         &fixture,
-        9,
+        11,
         PlayerActionPhaseV1::Started,
         true,
-        Some(9_999_999),
+        Some(11_999_999),
     )
     .map_err(|error| PersistenceReplayCheckError::new("interaction input", error.to_string()))?;
     direct
@@ -352,7 +375,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
 
     let left = player_action_sample(
         &fixture,
-        10,
+        12,
         PlayerActionPhaseV1::Performed,
         [-32_767, 0],
         None,
@@ -387,7 +410,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
     }
     reports.push(direct_left);
 
-    let stop = player_action_sample(&fixture, 11, PlayerActionPhaseV1::Completed, [0, 0], None)
+    let stop = player_action_sample(&fixture, 13, PlayerActionPhaseV1::Completed, [0, 0], None)
         .map_err(|error| PersistenceReplayCheckError::new("stop input", error.to_string()))?;
     direct
         .enqueue_input_sample(&fixture.principal, stop.clone())
@@ -425,6 +448,8 @@ pub(crate) fn run_persistence_replay_check_for_project(
         &reports,
         vec![
             direct_commands,
+            Vec::new(),
+            Vec::new(),
             Vec::new(),
             Vec::new(),
             Vec::new(),
@@ -591,11 +616,44 @@ pub(crate) fn run_persistence_replay_check_for_project(
             ));
         }
     };
+    let pickup_is_collected = matches!(
+        aggregate_payload(
+            &final_checkpoint.rpg_snapshot,
+            RpgAggregateKindV1::InteractiveObject,
+            fixture.pickup_proxy_id,
+        ),
+        Some(RpgAggregatePayloadV1::InteractiveObject(object))
+            if object.state_id.as_str() == CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID
+    );
+    let pickup_is_owned = matches!(
+        aggregate_payload(
+            &final_checkpoint.rpg_snapshot,
+            RpgAggregateKindV1::Inventory,
+            fixture.player_inventory_id,
+        ),
+        Some(RpgAggregatePayloadV1::Inventory(inventory))
+            if inventory.item_ids == [fixture.pickup_item_id]
+    );
+    let pickup_is_equipped = matches!(
+        aggregate_payload(
+            &final_checkpoint.rpg_snapshot,
+            RpgAggregateKindV1::Equipment,
+            fixture.player_equipment_id,
+        ),
+        Some(RpgAggregatePayloadV1::Equipment(equipment))
+            if equipment.assignments.iter().any(|assignment| {
+                assignment.slot_id.as_str() == CORE_EQUIPMENT_MAIN_HAND_SLOT_ID
+                    && assignment.item_id == fixture.pickup_item_id
+            })
+    );
     if interactive_object_state.as_str() != CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
         || dialogue_node_id.as_str() != CORE_DIALOGUE_ACCEPTED_NODE_ID
         || quest_state_id.as_str() != CORE_QUEST_ACTIVE_STATE_ID
         || npc_player_trust != CORE_DIALOGUE_QUEST_TRUST_DELTA
-        || rpg_events != 6
+        || rpg_events != 9
+        || !pickup_is_collected
+        || !pickup_is_owned
+        || !pickup_is_equipped
     {
         return Err(PersistenceReplayCheckError::condition(
             "interaction activates object exactly once",
@@ -610,7 +668,7 @@ pub(crate) fn run_persistence_replay_check_for_project(
             PersistenceReplayCheckError::new("final ledger hash", error.to_string())
         })?;
     Ok(PersistenceReplayCheckReport {
-        ticks: 12,
+        ticks: 14,
         generations: 2,
         final_pose,
         rpg_events: u64::try_from(rpg_events).map_err(|error| {
@@ -1183,9 +1241,9 @@ mod tests {
     #[test]
     fn product_check_covers_npc_transition_replay_and_structural_fallbacks() {
         let report = run_persistence_replay_check().expect("product check passes");
-        assert_eq!(report.ticks, 12);
+        assert_eq!(report.ticks, 14);
         assert_eq!(report.generations, 2);
-        assert_eq!(report.rpg_events, 6);
+        assert_eq!(report.rpg_events, 9);
         assert_eq!(
             report.interactive_object_state.as_str(),
             CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID

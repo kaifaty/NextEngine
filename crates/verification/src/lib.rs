@@ -37,8 +37,8 @@ pub use player_fixture::{
     CanonicalFixtureError, NeutralPlayerFixture, PhysicsCollisionBackend,
     PhysicsCollisionCheckReport, PlayCheckError, PlayCheckReport, build_neutral_player_fixture,
     build_physx_player_fixture, core_interaction_rpg_snapshot, player_action_sample,
-    player_interact_sample, run_physics_collision_check, run_physics_collision_check_with_backend,
-    run_play_check,
+    player_equip_use_sample, player_interact_sample, player_pickup_sample,
+    run_physics_collision_check, run_physics_collision_check_with_backend, run_play_check,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1245,7 +1245,7 @@ mod tests {
                 .final_state_root()
                 .expect("scenario has ticks")
                 .to_hex(),
-            "e026f1e849b8d64b3748cd089e624d341377642734033b199794c706d7366e86"
+            "73b473a42565b2bf2bad98d2edca3052bcd15b2ccfe40692cd76abe7dc799de9"
         );
     }
 }

@@ -150,6 +150,7 @@ fn fixture() -> RpgSnapshotV2 {
             7,
             RpgAggregatePayloadV1::InteractiveObject(InteractiveObjectPayloadV1 {
                 state_id: schema("rpg.object-state.off"),
+                linked_item_id: None,
             }),
         ),
     ];

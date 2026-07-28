@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-19 |
 | Статус | Accepted |
-| Версия | 1.3 |
-| Последняя проверка | 2026-07-26 |
+| Версия | 1.4 |
+| Последняя проверка | 2026-07-28 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-029](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md), [ADR-031](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md) |
-| Заменяет | отсутствует |
+| Заменяет | SPEC-19 1.3 (editorial schema clarification; no semantic decision change) |
 
 ## История принятия
 
@@ -173,6 +173,7 @@ RpgTransactionPlan {
   project_composition_lock_hash,
   schema_registry_hash,
   definition_policy_hashes[],
+  validated_fact_hashes[],
   ordered_operations[],
   ordered_read_set[],
   ordered_write_set[],
@@ -187,6 +188,9 @@ RpgTransactionPlan {
 - `ordered_read_set` and `ordered_write_set` sort by `(aggregate_kind_tag, PersistentId bytes)`. A read entry binds revision and canonical state hash. A write entry binds before/after revision, before/after hash and the complete staged envelope.
 - `ordered_event_drafts` contains only events derivable from the complete write set. An event draft is not a published `DomainEvent`.
 - `definition_policy_hashes` are unique and byte-sorted. `plan_hash` covers every preceding field in canonical encoding.
+- `validated_fact_hashes` are unique and byte-sorted hashes of immutable
+  revision-bound physics/query facts actually consumed by validation. Facts
+  are supplied by Runtime context and never by the command payload.
 - The plan contains no mutable reference, ECS/entity handle, database transaction, task handle, VM object, callback or backend/vendor value.
 
 Validation and publication use exactly this sequence:

@@ -30,6 +30,8 @@ pub const PLAYER_ACTION_FRAME_SCHEMA_ID: &str = "nextengine.player-action-frame"
 pub const PLAYER_ACTION_SOURCE_CLASS: &str = "nextengine.input.player-action";
 pub const CORE_MOVE_ACTION_ID: &str = "nextengine.action.move";
 pub const CORE_INTERACT_ACTION_ID: &str = "nextengine.action.interact";
+pub const CORE_PICKUP_ACTION_ID: &str = "nextengine.action.pickup";
+pub const CORE_EQUIP_USE_ACTION_ID: &str = "nextengine.action.equip-use";
 pub const PLAYER_INTERACTION_SYSTEM_ID: &str = "nextengine.system.player-interaction";
 pub const MAX_PLAYER_ACTIONS_PER_FRAME: usize = 64;
 
@@ -37,6 +39,25 @@ pub const MAX_PLAYER_ACTIONS_PER_FRAME: usize = 64;
 pub fn core_player_action_map_v1_hash() -> ContentHash {
     let mut preimage = b"nextengine.core-player-action-map.v1\0".to_vec();
     for action_id in [CORE_INTERACT_ACTION_ID, CORE_MOVE_ACTION_ID] {
+        preimage.extend_from_slice(
+            &u32::try_from(action_id.len())
+                .expect("built-in action identifier length fits u32")
+                .to_le_bytes(),
+        );
+        preimage.extend_from_slice(action_id.as_bytes());
+    }
+    ContentHash::from_bytes(sha256(&preimage))
+}
+
+#[must_use]
+pub fn core_player_action_map_v2_hash() -> ContentHash {
+    let mut preimage = b"nextengine.core-player-action-map.v2\0".to_vec();
+    for action_id in [
+        CORE_EQUIP_USE_ACTION_ID,
+        CORE_INTERACT_ACTION_ID,
+        CORE_MOVE_ACTION_ID,
+        CORE_PICKUP_ACTION_ID,
+    ] {
         preimage.extend_from_slice(
             &u32::try_from(action_id.len())
                 .expect("built-in action identifier length fits u32")
@@ -2351,10 +2372,15 @@ mod tests {
     }
 
     #[test]
-    fn core_player_action_map_hash_binds_move_and_interact() {
+    fn core_player_action_map_hashes_bind_their_exact_semantic_action_sets() {
         assert_eq!(
             core_player_action_map_v1_hash().to_hex(),
             "78bcf0dea6dfdf4cfae9420f934d20eb4f04f1cc4d280cba852802dc38cd177c"
+        );
+        assert_ne!(core_player_action_map_v2_hash(), ContentHash::default());
+        assert_ne!(
+            core_player_action_map_v2_hash(),
+            core_player_action_map_v1_hash()
         );
     }
 

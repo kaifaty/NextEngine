@@ -17,6 +17,8 @@ pub const RPG_COMMAND_CAPABILITY_ID: &str = "rpg.command.propose";
 pub const CORE_INTERACTIVE_OBJECT_ARCHETYPE_ID: &str = "nextengine.rpg.interactive.core-switch";
 pub const CORE_INTERACTIVE_OBJECT_READY_STATE_ID: &str = "nextengine.rpg.interactive.ready";
 pub const CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID: &str = "nextengine.rpg.interactive.activated";
+pub const CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID: &str = "nextengine.rpg.interactive.collected";
+pub const CORE_EQUIPMENT_MAIN_HAND_SLOT_ID: &str = "nextengine.rpg.equipment-slot.main-hand";
 pub const CORE_QUEST_GIVER_CHARACTER_ARCHETYPE_ID: &str =
     "nextengine.rpg.character.core-quest-giver";
 pub const CORE_HELP_DIALOGUE_DEFINITION_ID: &str = "nextengine.rpg.dialogue.core-help";

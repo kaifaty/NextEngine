@@ -10,6 +10,7 @@ pub use engine::{
     CommandDisposition, CommandResult, InputAdmissionError, PhysicsLaunchOptions, RejectionCode,
     RuntimeBootstrapV3, RuntimeFatalError, RuntimeReplayDriver, RuntimeReplayError, RuntimeState,
     SnapshotRestoreError, StageTraceEntry, TickReport, TransactionStage,
+    bootstrap_equipment_slot_policy_hash_v1,
 };
 pub use outcome::{
     NoOutcomes, OutcomeCollectionError, OutcomeContext, OutcomeProposal, OutcomeProvider,

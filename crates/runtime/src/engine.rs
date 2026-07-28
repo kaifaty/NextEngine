@@ -8,18 +8,20 @@ use next_contracts::{
     CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION, CLOSED_INGRESS_BATCH_SCHEMA_VERSION,
     COMMAND_ENVELOPE_SCHEMA_VERSION, COMMAND_RECEIPT_SCHEMA_VERSION,
     CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_OFFER_NODE_ID, CORE_DIALOGUE_QUEST_TRUST_DELTA,
-    CORE_INTERACT_ACTION_ID, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
-    CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CORE_MOVE_ACTION_ID, CORE_QUEST_ACTIVE_STATE_ID,
-    CORE_QUEST_AVAILABLE_STATE_ID, CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CanonicalDecodeLimits,
-    CanonicalError, CapabilityId, CausalIdentityKey, CausalIdentityKind,
-    ClosedCommandAdmissionBatchBodyV2, ClosedCommandAdmissionBatchV2, ClosedIngressBatchBodyV1,
-    ClosedIngressBatchV1, ClosedPhysicsContactBatchV1, CommandBodyArchiveV1,
-    CommandCollisionCandidateV1, CommandCollisionIncidentV1, CommandFinalResultV1, CommandId,
-    CommandIdentityOccurrenceV1, CommandLedgerError, CommandLedgerV2, CommandPayload, CommandPhase,
-    CommandReceiptSubjectV1, CommandReceiptV1, CommandReservationV1, CommandStreamId,
-    CommandStreamLedgerV2, CommandStreamRegistryV1, CommandStreamStateV1, ContentHash,
-    CoreDialogueQuestClosureError, DomainEvent, IdentityContractError, IdentityInsertResult,
-    IngressAssignmentProfileV1, IngressAssignmentV1, IngressCheckpointV1,
+    CORE_EQUIP_USE_ACTION_ID, CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACT_ACTION_ID,
+    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID,
+    CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CORE_MOVE_ACTION_ID, CORE_PICKUP_ACTION_ID,
+    CORE_QUEST_ACTIVE_STATE_ID, CORE_QUEST_AVAILABLE_STATE_ID,
+    CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CanonicalDecodeLimits, CanonicalError, CapabilityId,
+    CausalIdentityKey, CausalIdentityKind, ClosedCommandAdmissionBatchBodyV2,
+    ClosedCommandAdmissionBatchV2, ClosedIngressBatchBodyV1, ClosedIngressBatchV1,
+    ClosedPhysicsContactBatchV1, CommandBodyArchiveV1, CommandCollisionCandidateV1,
+    CommandCollisionIncidentV1, CommandFinalResultV1, CommandId, CommandIdentityOccurrenceV1,
+    CommandLedgerError, CommandLedgerV2, CommandPayload, CommandPhase, CommandReceiptSubjectV1,
+    CommandReceiptV1, CommandReservationV1, CommandStreamId, CommandStreamLedgerV2,
+    CommandStreamRegistryV1, CommandStreamStateV1, ContactPhaseV1, ContentHash,
+    CoreDialogueQuestClosureError, DefinitionRefV1, DomainEvent, IdentityContractError,
+    IdentityInsertResult, IngressAssignmentProfileV1, IngressAssignmentV1, IngressCheckpointV1,
     IngressEquivalenceReceiptV1, InputContractError, InputMappingCodeV1, InputMappingReceiptV1,
     InputSampleV1, IssuerPrincipal, PHYSICS_STEP_INPUT_SCHEMA_VERSION,
     PLAYER_ACTION_FRAME_SCHEMA_ID, PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS,
@@ -31,10 +33,11 @@ use next_contracts::{
     PlayerActionPhaseV1, PlayerActionValueV1, PlayerControllerBindingV1,
     PlayerControllerRegistryV1, PrincipalRegistryV1, ProjectId, RPG_COMMAND_CAPABILITY_ID,
     RpgAggregateKindV1, RpgAggregatePayloadV1, RpgAggregateRefV1, RpgCommandV1, RpgContractErrorV1,
-    RpgOperationPayloadV1, RpgOperationV1, RpgRuntimeBindingsV1, RpgSnapshotV2,
-    RpgTransactionPlanV1, RuntimeAdmissionLimitsV1, RuntimeDeterminismProfileV1, RuntimeSnapshot,
-    SchemaId, SnapshotDecodeError, SystemId, TickRateProfileV1, WorldCheckpointError,
-    WorldCheckpointV4, WorldCommand, WorldIdentityManifestV1, content_hash_from_bytes, sha256,
+    RpgOperationPayloadV1, RpgOperationV1, RpgPhysicalContactFactV1, RpgRuntimeBindingsV1,
+    RpgSnapshotV2, RpgTransactionPlanV1, RuntimeAdmissionLimitsV1, RuntimeDeterminismProfileV1,
+    RuntimeSnapshot, SchemaId, SnapshotDecodeError, SystemId, TickRateProfileV1,
+    WorldCheckpointError, WorldCheckpointV4, WorldCommand, WorldIdentityManifestV1,
+    content_hash_from_bytes, sha256,
 };
 use next_physics_api::{
     PhysicsBackendError, PhysicsBackendKind, PhysicsBackendPolicy, PhysicsWorldHost,
@@ -70,7 +73,14 @@ fn bootstrap_rpg_bindings(
         ),
         schema_registry_hash: CommandKindRegistry::core_v1().canonical_hash(),
         budget_policy_hash: domain_hash(b"nextengine.bootstrap-rpg-budget.v1\0", &budget_bytes),
-        active_definition_policy_hashes: vec![core_rpg_policy_hash()],
+        active_definition_policy_hashes: {
+            let mut hashes = vec![
+                core_rpg_policy_hash(),
+                bootstrap_equipment_slot_policy_hash_v1(),
+            ];
+            hashes.sort_unstable();
+            hashes
+        },
     }
 }
 
@@ -78,6 +88,14 @@ fn core_rpg_policy_hash() -> ContentHash {
     domain_hash(
         b"nextengine.bootstrap-rpg-policy.v1\0",
         b"dialogue|quest|relationship|interactive-object",
+    )
+}
+
+#[must_use]
+pub fn bootstrap_equipment_slot_policy_hash_v1() -> ContentHash {
+    domain_hash(
+        b"nextengine.bootstrap-equipment-slot-policy.v1\0",
+        CORE_EQUIPMENT_MAIN_HAND_SLOT_ID.as_bytes(),
     )
 }
 
@@ -803,6 +821,7 @@ impl RuntimeState {
                 profile: &self.runtime_profile,
                 rpg_bindings: &self.rpg_bindings,
                 controllers: &self.player_controller_registry,
+                physical_contact_facts: &[],
                 source: ValidationSource::ExternalIngress,
                 tick,
                 phase: CommandPhase::Ingress,
@@ -819,6 +838,10 @@ impl RuntimeState {
             .contact_batch
             .clone()
             .ok_or(RuntimeFatalError::PhysicalOutcomeInvariant)?;
+        let physical_contact_facts = rpg_physical_contact_facts(
+            &contact_batch,
+            staged.physics.snapshot().checkpoint_revision,
+        )?;
 
         let built_in_outcomes = build_interaction_outcomes(
             &closed_ingress.pending_interactions,
@@ -900,6 +923,7 @@ impl RuntimeState {
                 profile: &self.runtime_profile,
                 rpg_bindings: &self.rpg_bindings,
                 controllers: &self.player_controller_registry,
+                physical_contact_facts: &physical_contact_facts,
                 source: ValidationSource::InternalOutcome,
                 tick,
                 phase: CommandPhase::Outcome,
@@ -1214,9 +1238,17 @@ struct InteractionOutcomeRoute {
 #[derive(Clone, Debug)]
 struct PendingInteractionIntent {
     controlled_body_id: PersistentId,
+    kind: InteractionIntentKind,
     source_id: next_contracts::InputSourceId,
     source_sequence: u64,
     payload_hash: ContentHash,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum InteractionIntentKind {
+    General,
+    Pickup,
+    EquipUse,
 }
 
 #[derive(Clone, Debug)]
@@ -1235,6 +1267,24 @@ enum InteractionAffordance {
     },
     AdvanceCoreDialogueQuest {
         binding: CoreDialogueQuestBindingV2,
+    },
+    Pickup {
+        proxy_id: PersistentId,
+        proxy_revision: u64,
+        item_id: PersistentId,
+        item_revision: u64,
+        item_quantity: u32,
+        destination_inventory_id: PersistentId,
+        destination_inventory_revision: u64,
+    },
+    EquipUse {
+        equipment_id: PersistentId,
+        equipment_revision: u64,
+        inventory_id: PersistentId,
+        inventory_revision: u64,
+        item_id: PersistentId,
+        item_revision: u64,
+        slot_policy_hash: ContentHash,
     },
 }
 
@@ -1525,6 +1575,7 @@ fn map_player_actions(
         },
         Interaction {
             binding: PlayerControllerBindingV1,
+            kind: InteractionIntentKind,
             sequence: u64,
             payload_hash: ContentHash,
         },
@@ -1560,7 +1611,7 @@ fn map_player_actions(
         if let Some(action) = action {
             let controller_id = match &action {
                 MappedPlayerAction::Movement { binding, .. }
-                | MappedPlayerAction::Interaction { binding }
+                | MappedPlayerAction::Interaction { binding, .. }
                 | MappedPlayerAction::Noop { binding } => binding.controller_id,
             };
             let action = match action {
@@ -1573,8 +1624,9 @@ fn map_player_actions(
                     direction_q15,
                     receipt_index,
                 },
-                MappedPlayerAction::Interaction { binding } => MappedAction::Interaction {
+                MappedPlayerAction::Interaction { binding, kind } => MappedAction::Interaction {
                     binding: binding.clone(),
+                    kind,
                     sequence: sample.source_sequence,
                     payload_hash,
                 },
@@ -1607,10 +1659,12 @@ fn map_player_actions(
             }
             MappedAction::Interaction {
                 binding,
+                kind,
                 sequence,
                 payload_hash,
             } => pending_interactions.push(PendingInteractionIntent {
                 controlled_body_id: binding.controlled_body_id,
+                kind,
                 source_id: binding.source_id,
                 source_sequence: sequence,
                 payload_hash,
@@ -1640,6 +1694,7 @@ enum MappedPlayerAction<'a> {
     },
     Interaction {
         binding: &'a PlayerControllerBindingV1,
+        kind: InteractionIntentKind,
     },
     Noop {
         binding: &'a PlayerControllerBindingV1,
@@ -1687,17 +1742,30 @@ fn map_player_action_sample<'a>(
         .actions
         .iter()
         .any(|action| action.action_id.as_str() == CORE_MOVE_ACTION_ID);
-    let has_interaction = frame
+    let semantic_actions = frame
         .actions
         .iter()
-        .any(|action| action.action_id.as_str() == CORE_INTERACT_ACTION_ID);
+        .filter_map(|action| match action.action_id.as_str() {
+            CORE_INTERACT_ACTION_ID => Some(InteractionIntentKind::General),
+            CORE_PICKUP_ACTION_ID => Some(InteractionIntentKind::Pickup),
+            CORE_EQUIP_USE_ACTION_ID => Some(InteractionIntentKind::EquipUse),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let has_interaction = !semantic_actions.is_empty();
     let has_unknown = frame.actions.iter().any(|action| {
         !matches!(
             action.action_id.as_str(),
-            CORE_MOVE_ACTION_ID | CORE_INTERACT_ACTION_ID
+            CORE_MOVE_ACTION_ID
+                | CORE_INTERACT_ACTION_ID
+                | CORE_PICKUP_ACTION_ID
+                | CORE_EQUIP_USE_ACTION_ID
         )
     });
-    if has_unknown || (has_movement && has_interaction) {
+    if has_unknown
+        || (has_movement && has_interaction)
+        || semantic_actions.windows(2).any(|pair| pair[0] != pair[1])
+    {
         return Err(InputMappingCodeV1::ActionUnmapped);
     }
     if has_interaction {
@@ -1709,9 +1777,10 @@ fn map_player_action_sample<'a>(
             });
         }
         let action = &frame.actions[0];
+        let kind = semantic_actions[0];
         return match (action.phase, action.value) {
             (PlayerActionPhaseV1::Started, PlayerActionValueV1::Digital(true)) => {
-                Ok(MappedPlayerAction::Interaction { binding })
+                Ok(MappedPlayerAction::Interaction { binding, kind })
             }
             (
                 PlayerActionPhaseV1::Completed | PlayerActionPhaseV1::Cancelled,
@@ -1794,10 +1863,14 @@ fn build_interaction_outcomes(
         .expect("built-in interactive-object state identifier is valid");
     let activated_state = SchemaId::new(CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID)
         .expect("built-in interactive-object state identifier is valid");
+    let collected_state = SchemaId::new(CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID)
+        .expect("built-in interactive-object state identifier is valid");
+    let main_hand_slot = SchemaId::new(CORE_EQUIPMENT_MAIN_HAND_SLOT_ID)
+        .expect("built-in equipment slot identifier is valid");
     let mut outcomes = Vec::new();
     for intent in intents {
         let Some(affordance) =
-            select_interaction_affordance(intent.controlled_body_id, physics, rpg)?
+            select_interaction_affordance(intent.controlled_body_id, intent.kind, physics, rpg)?
         else {
             continue;
         };
@@ -1875,6 +1948,91 @@ fn build_interaction_outcomes(
                     ],
                 }
             }
+            InteractionAffordance::Pickup {
+                proxy_id,
+                proxy_revision,
+                item_id,
+                item_revision,
+                item_quantity,
+                destination_inventory_id,
+                destination_inventory_revision,
+            } => RpgCommandV1 {
+                operations: vec![
+                    RpgOperationV1 {
+                        operation_slot: 0,
+                        targets: vec![
+                            RpgAggregateRefV1 {
+                                aggregate_kind: RpgAggregateKindV1::Item,
+                                persistent_id: item_id,
+                                expected_revision: item_revision,
+                            },
+                            RpgAggregateRefV1 {
+                                aggregate_kind: RpgAggregateKindV1::Inventory,
+                                persistent_id: destination_inventory_id,
+                                expected_revision: destination_inventory_revision,
+                            },
+                        ],
+                        definition_policy_hashes: vec![core_rpg_policy_hash()],
+                        payload: RpgOperationPayloadV1::TransferItem {
+                            item_id,
+                            source_inventory_id: None,
+                            destination_inventory_id: Some(destination_inventory_id),
+                            quantity: item_quantity,
+                        },
+                    },
+                    RpgOperationV1 {
+                        operation_slot: 1,
+                        targets: vec![RpgAggregateRefV1 {
+                            aggregate_kind: RpgAggregateKindV1::InteractiveObject,
+                            persistent_id: proxy_id,
+                            expected_revision: proxy_revision,
+                        }],
+                        definition_policy_hashes: vec![core_rpg_policy_hash()],
+                        payload: RpgOperationPayloadV1::TransitionInteractiveObject {
+                            object_id: proxy_id,
+                            expected_state_id: ready_state.clone(),
+                            next_state_id: collected_state.clone(),
+                        },
+                    },
+                ],
+            },
+            InteractionAffordance::EquipUse {
+                equipment_id,
+                equipment_revision,
+                inventory_id,
+                inventory_revision,
+                item_id,
+                item_revision,
+                slot_policy_hash,
+            } => RpgCommandV1 {
+                operations: vec![RpgOperationV1 {
+                    operation_slot: 0,
+                    targets: vec![
+                        RpgAggregateRefV1 {
+                            aggregate_kind: RpgAggregateKindV1::Item,
+                            persistent_id: item_id,
+                            expected_revision: item_revision,
+                        },
+                        RpgAggregateRefV1 {
+                            aggregate_kind: RpgAggregateKindV1::Inventory,
+                            persistent_id: inventory_id,
+                            expected_revision: inventory_revision,
+                        },
+                        RpgAggregateRefV1 {
+                            aggregate_kind: RpgAggregateKindV1::Equipment,
+                            persistent_id: equipment_id,
+                            expected_revision: equipment_revision,
+                        },
+                    ],
+                    definition_policy_hashes: vec![slot_policy_hash],
+                    payload: RpgOperationPayloadV1::AssignEquipment {
+                        equipment_id,
+                        inventory_id,
+                        item_id,
+                        slot_id: main_hand_slot.clone(),
+                    },
+                }],
+            },
         };
         let proposal = crate::outcome::OutcomeProposal::rpg(
             route.system_id.clone(),
@@ -1893,11 +2051,54 @@ fn build_interaction_outcomes(
     Ok(outcomes)
 }
 
+fn rpg_physical_contact_facts(
+    batch: &ClosedPhysicsContactBatchV1,
+    physics_checkpoint_revision: u64,
+) -> Result<Vec<RpgPhysicalContactFactV1>, RuntimeFatalError> {
+    let mut facts = batch
+        .events
+        .iter()
+        .filter(|event| matches!(event.phase, ContactPhaseV1::Begin | ContactPhaseV1::Persist))
+        .filter_map(|event| {
+            let first = event.participant_low.body_id.subject_id;
+            let second = event.participant_high.body_id.subject_id;
+            if first == second {
+                return None;
+            }
+            let (subject_low, subject_high) = if first < second {
+                (first, second)
+            } else {
+                (second, first)
+            };
+            Some(RpgPhysicalContactFactV1 {
+                gameplay_tick: batch.gameplay_tick,
+                contact_id: event.contact_id,
+                subject_low,
+                subject_high,
+                physics_checkpoint_revision,
+                source_snapshot_hash: event.source_snapshot_hash,
+                contact_batch_hash: batch.batch_hash,
+            })
+        })
+        .collect::<Vec<_>>();
+    facts.sort_unstable();
+    facts.dedup();
+    for fact in &facts {
+        fact.validate()
+            .map_err(|_| RuntimeFatalError::PhysicalOutcomeInvariant)?;
+    }
+    Ok(facts)
+}
+
 fn select_interaction_affordance(
     controlled_body_id: PersistentId,
+    kind: InteractionIntentKind,
     physics: &PhysicsWorldHost,
     rpg: &RpgState,
 ) -> Result<Option<InteractionAffordance>, RuntimeFatalError> {
+    if kind == InteractionIntentKind::EquipUse {
+        return Ok(select_equip_use_affordance(controlled_body_id, rpg));
+    }
     let physical_body_id = physics
         .checkpoint()
         .catalog
@@ -1919,24 +2120,64 @@ fn select_interaction_affordance(
         let target = other.subject_id;
         if rpg.interactive_object(target).is_some_and(|object| {
             object.state_id.as_str() == CORE_INTERACTIVE_OBJECT_READY_STATE_ID
+                && match kind {
+                    InteractionIntentKind::General => object.linked_item_id.is_none(),
+                    InteractionIntentKind::Pickup => object.linked_item_id.is_some(),
+                    InteractionIntentKind::EquipUse => false,
+                }
         }) {
             let expected_revision = rpg
                 .aggregate(RpgAggregateKindV1::InteractiveObject, target)
                 .expect("typed object lookup closes aggregate lookup")
                 .revision;
+            let affordance = if let Some(item_id) = rpg
+                .interactive_object(target)
+                .and_then(|object| object.linked_item_id)
+            {
+                let Some(character) = rpg.character(controlled_body_id) else {
+                    continue;
+                };
+                let Some(destination_inventory_id) = character.inventory_id else {
+                    continue;
+                };
+                let Some(item) = rpg.aggregate(RpgAggregateKindV1::Item, item_id) else {
+                    continue;
+                };
+                let Some(destination) =
+                    rpg.aggregate(RpgAggregateKindV1::Inventory, destination_inventory_id)
+                else {
+                    continue;
+                };
+                let RpgAggregatePayloadV1::Item(item_payload) = &item.payload else {
+                    continue;
+                };
+                InteractionAffordance::Pickup {
+                    proxy_id: target,
+                    proxy_revision: expected_revision,
+                    item_id,
+                    item_revision: item.revision,
+                    item_quantity: item_payload.quantity,
+                    destination_inventory_id,
+                    destination_inventory_revision: destination.revision,
+                }
+            } else {
+                InteractionAffordance::ActivateCoreSwitch {
+                    object_id: target,
+                    expected_revision,
+                }
+            };
             candidates.push(InteractionCandidate {
                 subject_id: target,
                 contact_id: contact.contact_id,
                 affordance_tag: 0,
                 dialogue_id: PersistentId::from_bytes([0; 16]),
                 quest_id: PersistentId::from_bytes([0; 16]),
-                affordance: InteractionAffordance::ActivateCoreSwitch {
-                    object_id: target,
-                    expected_revision,
-                },
+                affordance,
             });
         }
-        if let Some(binding) = dialogue_binding.filter(|binding| binding.npc_id == target) {
+        if kind == InteractionIntentKind::General
+            && let Some(binding) = dialogue_binding.filter(|binding| binding.npc_id == target)
+        {
             candidates.push(InteractionCandidate {
                 subject_id: target,
                 contact_id: contact.contact_id,
@@ -1949,6 +2190,50 @@ fn select_interaction_affordance(
     }
     candidates.sort_by_key(|candidate| candidate.order_key());
     Ok(candidates.first().map(|candidate| candidate.affordance))
+}
+
+fn select_equip_use_affordance(
+    controlled_character_id: PersistentId,
+    rpg: &RpgState,
+) -> Option<InteractionAffordance> {
+    let character = rpg.character(controlled_character_id)?;
+    let inventory_id = character.inventory_id?;
+    let equipment_id = character.equipment_id?;
+    let inventory = rpg.inventory(inventory_id)?;
+    let equipment = rpg.equipment(equipment_id)?;
+    if equipment
+        .assignments
+        .iter()
+        .any(|assignment| assignment.slot_id.as_str() == CORE_EQUIPMENT_MAIN_HAND_SLOT_ID)
+    {
+        return None;
+    }
+    let item_id = inventory.item_ids.iter().copied().find(|item_id| {
+        !equipment
+            .assignments
+            .iter()
+            .any(|assignment| assignment.item_id == *item_id)
+    })?;
+    let DefinitionRefV1::Exact {
+        content_hash: slot_policy_hash,
+        ..
+    } = &equipment.slot_policy
+    else {
+        return None;
+    };
+    Some(InteractionAffordance::EquipUse {
+        equipment_id,
+        equipment_revision: rpg
+            .aggregate(RpgAggregateKindV1::Equipment, equipment_id)?
+            .revision,
+        inventory_id,
+        inventory_revision: rpg
+            .aggregate(RpgAggregateKindV1::Inventory, inventory_id)?
+            .revision,
+        item_id,
+        item_revision: rpg.aggregate(RpgAggregateKindV1::Item, item_id)?.revision,
+        slot_policy_hash: *slot_policy_hash,
+    })
 }
 
 fn resolve_core_dialogue_quest_binding_v2(
@@ -2112,6 +2397,7 @@ struct PhaseContext<'a> {
     profile: &'a RuntimeDeterminismProfileV1,
     rpg_bindings: &'a RpgRuntimeBindingsV1,
     controllers: &'a PlayerControllerRegistryV1,
+    physical_contact_facts: &'a [RpgPhysicalContactFactV1],
     source: ValidationSource,
     tick: u64,
     phase: CommandPhase,
@@ -2825,6 +3111,7 @@ fn execute_candidate(
         ),
         CommandPayload::Rpg(rpg_command) => {
             let planning_context = RpgPlanningContextV1 {
+                gameplay_tick: context.tick,
                 causal_command_id: candidate.command_id,
                 canonical_command_body_hash: command.body_hash()?,
                 project_composition_lock_hash: context.rpg_bindings.project_composition_lock_hash,
@@ -2833,6 +3120,7 @@ fn execute_candidate(
                 active_definition_policy_hashes: &context
                     .rpg_bindings
                     .active_definition_policy_hashes,
+                physical_contact_facts: context.physical_contact_facts,
             };
             let plan = match build_transaction_plan_v1(&staged.rpg, rpg_command, planning_context) {
                 Ok(plan) => plan,
@@ -3706,6 +3994,9 @@ fn rpg_rejection_code(error: &RpgPlanBuildError) -> RejectionCode {
         RpgPlanBuildError::TransitionInvalid => RejectionCode::RpgTransitionInvalid,
         RpgPlanBuildError::OwnershipConflict => RejectionCode::RpgOwnershipConflict,
         RpgPlanBuildError::ReservationInvalid => RejectionCode::RpgReservationInvalid,
+        RpgPlanBuildError::PhysicalPreconditionMissing => {
+            RejectionCode::RpgPhysicalPreconditionMissing
+        }
         RpgPlanBuildError::DefinitionMismatch => RejectionCode::RpgDefinitionMismatch,
         RpgPlanBuildError::CommitmentRejected => RejectionCode::RpgCommitmentRejected,
         RpgPlanBuildError::TransactionAborted => RejectionCode::RpgTransactionAborted,
@@ -3787,6 +4078,7 @@ pub enum RejectionCode {
     RpgTransitionInvalid,
     RpgOwnershipConflict,
     RpgReservationInvalid,
+    RpgPhysicalPreconditionMissing,
     RpgDefinitionMismatch,
     RpgPlanStale,
     RpgEventOrderInvalid,
@@ -3830,6 +4122,7 @@ impl RejectionCode {
             Self::RpgTransitionInvalid => "RPG_TRANSITION_INVALID",
             Self::RpgOwnershipConflict => "RPG_OWNERSHIP_CONFLICT",
             Self::RpgReservationInvalid => "RPG_RESERVATION_INVALID",
+            Self::RpgPhysicalPreconditionMissing => "RPG_PHYSICAL_PRECONDITION_MISSING",
             Self::RpgDefinitionMismatch => "RPG_DEFINITION_MISMATCH",
             Self::RpgPlanStale => "RPG_PLAN_STALE",
             Self::RpgEventOrderInvalid => "RPG_EVENT_ORDER_INVALID",
@@ -3872,6 +4165,7 @@ impl RejectionCode {
             Self::RpgTransitionInvalid,
             Self::RpgOwnershipConflict,
             Self::RpgReservationInvalid,
+            Self::RpgPhysicalPreconditionMissing,
             Self::RpgDefinitionMismatch,
             Self::RpgPlanStale,
             Self::RpgEventOrderInvalid,

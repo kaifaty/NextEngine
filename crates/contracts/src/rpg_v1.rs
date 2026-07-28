@@ -7,8 +7,8 @@ use crate::canonical::{
     encode_canonical_segment, extend_u32_length_prefixed,
 };
 use crate::{
-    AssetId, CommandBodyHash, CommandId, ContentHash, IdentifierError, PersistentId, SchemaId,
-    SkillProficiency, content_hash_from_bytes, sha256,
+    AssetId, CommandBodyHash, CommandId, ContentHash, IdentifierError, PersistentId,
+    PhysicsContactId, SchemaId, SkillProficiency, content_hash_from_bytes, sha256,
 };
 
 pub const RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION: u32 = 2;
@@ -81,6 +81,53 @@ impl RpgRuntimeBindingsV1 {
             return Err(RpgContractErrorV1::NonCanonicalEncoding);
         }
         Ok(bindings)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct RpgPhysicalContactFactV1 {
+    pub gameplay_tick: u64,
+    pub contact_id: PhysicsContactId,
+    pub subject_low: PersistentId,
+    pub subject_high: PersistentId,
+    pub physics_checkpoint_revision: u64,
+    pub source_snapshot_hash: ContentHash,
+    pub contact_batch_hash: ContentHash,
+}
+
+impl RpgPhysicalContactFactV1 {
+    pub fn validate(self) -> Result<(), RpgContractErrorV1> {
+        if self.subject_low >= self.subject_high {
+            return Err(RpgContractErrorV1::PhysicalFactInvalid);
+        }
+        Ok(())
+    }
+
+    pub fn canonical_bytes(self) -> Result<Vec<u8>, CanonicalError> {
+        self.validate().map_err(contract_as_canonical)?;
+        let mut bytes = b"nextengine.rpg-physical-contact-fact.v1\0".to_vec();
+        bytes.extend_from_slice(&self.gameplay_tick.to_le_bytes());
+        bytes.extend_from_slice(self.contact_id.as_bytes());
+        bytes.extend_from_slice(self.subject_low.as_bytes());
+        bytes.extend_from_slice(self.subject_high.as_bytes());
+        bytes.extend_from_slice(&self.physics_checkpoint_revision.to_le_bytes());
+        bytes.extend_from_slice(self.source_snapshot_hash.as_bytes());
+        bytes.extend_from_slice(self.contact_batch_hash.as_bytes());
+        Ok(bytes)
+    }
+
+    pub fn fact_hash(self) -> Result<ContentHash, CanonicalError> {
+        Ok(content_hash_from_bytes(sha256(&self.canonical_bytes()?)))
+    }
+
+    #[must_use]
+    pub fn connects(self, first: PersistentId, second: PersistentId) -> bool {
+        let (low, high) = if first < second {
+            (first, second)
+        } else {
+            (second, first)
+        };
+        (self.subject_low, self.subject_high) == (low, high)
     }
 }
 
@@ -235,6 +282,7 @@ pub struct DivineStandingPayloadV1 {
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct InteractiveObjectPayloadV1 {
     pub state_id: SchemaId,
+    pub linked_item_id: Option<PersistentId>,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -347,6 +395,7 @@ impl RpgAggregatePayloadV1 {
             }
             Self::InteractiveObject(payload) => {
                 extend_schema_id(&mut bytes, &payload.state_id)?;
+                extend_optional_id(&mut bytes, payload.linked_item_id);
             }
         }
         Ok(bytes)
@@ -419,6 +468,7 @@ impl RpgAggregatePayloadV1 {
             RpgAggregateKindV1::InteractiveObject => {
                 Self::InteractiveObject(InteractiveObjectPayloadV1 {
                     state_id: read_schema_id(&mut cursor, limits)?,
+                    linked_item_id: read_optional_id(&mut cursor)?,
                 })
             }
         };
@@ -1252,6 +1302,7 @@ pub struct RpgTransactionPlanV1 {
     pub project_composition_lock_hash: ContentHash,
     pub schema_registry_hash: ContentHash,
     pub definition_policy_hashes: Vec<ContentHash>,
+    pub validated_fact_hashes: Vec<ContentHash>,
     pub ordered_operations: Vec<RpgOperationV1>,
     pub ordered_read_set: Vec<RpgReadSetEntryV1>,
     pub ordered_write_set: Vec<RpgWriteSetEntryV1>,
@@ -1270,6 +1321,7 @@ impl RpgTransactionPlanV1 {
         bytes.extend_from_slice(self.project_composition_lock_hash.as_bytes());
         bytes.extend_from_slice(self.schema_registry_hash.as_bytes());
         extend_hashes(&mut bytes, &self.definition_policy_hashes)?;
+        extend_hashes(&mut bytes, &self.validated_fact_hashes)?;
         extend_count(&mut bytes, self.ordered_operations.len())?;
         for operation in &self.ordered_operations {
             extend_u32_length_prefixed(&mut bytes, &operation.canonical_record()?)?;
@@ -1314,7 +1366,10 @@ impl RpgTransactionPlanV1 {
             operations: self.ordered_operations.clone(),
         }
         .validate()?;
-        if !strictly_ordered_unique(&self.definition_policy_hashes)
+        if self.validated_fact_hashes.len() > RPG_MAX_COLLECTION_ENTRIES
+            || !strictly_ordered_unique(&self.definition_policy_hashes)
+            || (!self.validated_fact_hashes.is_empty()
+                && !strictly_ordered_unique(&self.validated_fact_hashes))
             || !strictly_ordered_by(&self.ordered_read_set, |entry| {
                 (
                     entry.aggregate_ref.aggregate_kind,
@@ -1420,6 +1475,7 @@ impl RpgTransactionPlanV1 {
         let project_composition_lock_hash = ContentHash::from_bytes(read_array(&mut cursor)?);
         let schema_registry_hash = ContentHash::from_bytes(read_array(&mut cursor)?);
         let definition_policy_hashes = read_hashes(&mut cursor)?;
+        let validated_fact_hashes = read_hashes(&mut cursor)?;
 
         let operation_count = read_bounded_count(&mut cursor, RPG_MAX_OPERATIONS_PER_COMMAND)?;
         let mut ordered_operations = Vec::with_capacity(operation_count);
@@ -1487,6 +1543,7 @@ impl RpgTransactionPlanV1 {
             project_composition_lock_hash,
             schema_registry_hash,
             definition_policy_hashes,
+            validated_fact_hashes,
             ordered_operations,
             ordered_read_set,
             ordered_write_set,
@@ -1525,6 +1582,7 @@ pub enum RpgContractErrorV1 {
     OperationOrderInvalid,
     TargetSetInvalid,
     DefinitionPolicySetInvalid,
+    PhysicalFactInvalid,
     InvalidTag(u8),
     PayloadInvariant(&'static str),
     PlanOrderInvalid,
@@ -1553,6 +1611,7 @@ impl RpgContractErrorV1 {
             Self::OperationOrderInvalid => "RPG_OPERATION_ORDER_INVALID",
             Self::TargetSetInvalid => "RPG_TARGET_SET_INVALID",
             Self::DefinitionPolicySetInvalid => "RPG_DEFINITION_MISMATCH",
+            Self::PhysicalFactInvalid => "RPG_PHYSICAL_PRECONDITION_MISSING",
             Self::InvalidTag(_) => "RPG_SCHEMA_INVALID",
             Self::PayloadInvariant(code) => code,
             Self::PlanWriteInvalid => "RPG_PLAN_WRITE_INVALID",
@@ -2223,6 +2282,7 @@ mod tests {
             project_composition_lock_hash: ContentHash::from_bytes([3; 32]),
             schema_registry_hash: ContentHash::from_bytes([4; 32]),
             definition_policy_hashes: vec![policy_hash],
+            validated_fact_hashes: vec![],
             ordered_operations: vec![operation],
             ordered_read_set: vec![RpgReadSetEntryV1 {
                 aggregate_ref: RpgAggregateRefV1 {
@@ -2290,5 +2350,34 @@ mod tests {
         plan.ordered_event_drafts[0].event_schema_id = schema("nextengine.event.rpg.wrong.v1");
         plan.plan_hash = plan.recompute_plan_hash().expect("tampered plan hashes");
         assert_eq!(plan.validate(), Err(RpgContractErrorV1::EventOrderInvalid));
+    }
+
+    #[test]
+    fn physical_contact_fact_is_canonical_and_subject_ordered() {
+        let fact = RpgPhysicalContactFactV1 {
+            gameplay_tick: 7,
+            contact_id: PhysicsContactId::from_bytes([1; 16]),
+            subject_low: id(1),
+            subject_high: id(2),
+            physics_checkpoint_revision: 9,
+            source_snapshot_hash: ContentHash::from_bytes([3; 32]),
+            contact_batch_hash: ContentHash::from_bytes([4; 32]),
+        };
+        assert_eq!(fact.validate(), Ok(()));
+        assert_ne!(
+            fact.fact_hash().expect("fact hashes"),
+            ContentHash::default()
+        );
+        assert!(fact.connects(id(2), id(1)));
+
+        let invalid = RpgPhysicalContactFactV1 {
+            subject_low: id(2),
+            subject_high: id(1),
+            ..fact
+        };
+        assert_eq!(
+            invalid.validate(),
+            Err(RpgContractErrorV1::PhysicalFactInvalid)
+        );
     }
 }

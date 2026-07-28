@@ -4,12 +4,14 @@ use std::fmt::{Display, Formatter};
 
 use next_contracts::{
     AssetId, CORE_DIALOGUE_ACCEPTED_NODE_ID, CORE_DIALOGUE_OFFER_NODE_ID,
-    CORE_DIALOGUE_QUEST_TRUST_DELTA, CORE_INTERACT_ACTION_ID,
-    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
-    CORE_MOVE_ACTION_ID, CORE_QUEST_ACTIVE_STATE_ID, CORE_QUEST_AVAILABLE_STATE_ID,
-    CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CapabilityId, CharacterPayloadV1, CommandLedgerHash,
-    CommandStreamId, ContactPhaseV1, ContentHash, DefinitionRefV1, DialoguePayloadV1, EventPayload,
-    InputSampleV1, InputSourceId, InteractiveObjectPayloadV1, IssuerPrincipal,
+    CORE_DIALOGUE_QUEST_TRUST_DELTA, CORE_EQUIP_USE_ACTION_ID, CORE_EQUIPMENT_MAIN_HAND_SLOT_ID,
+    CORE_INTERACT_ACTION_ID, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
+    CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
+    CORE_MOVE_ACTION_ID, CORE_PICKUP_ACTION_ID, CORE_QUEST_ACTIVE_STATE_ID,
+    CORE_QUEST_AVAILABLE_STATE_ID, CORE_RELATIONSHIP_TRUST_DIMENSION_ID, CapabilityId,
+    CharacterPayloadV1, CommandLedgerHash, CommandStreamId, ContactPhaseV1, ContentHash,
+    DefinitionRefV1, DialoguePayloadV1, EquipmentPayloadV1, EventPayload, InputSampleV1,
+    InputSourceId, InteractiveObjectPayloadV1, InventoryPayloadV1, IssuerPrincipal, ItemPayloadV1,
     PHYSICAL_COMMAND_CAPABILITY_ID, PLAYER_ACTION_FRAME_SCHEMA_ID,
     PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PLAYER_INTERACTION_SYSTEM_ID,
     PersistentId, PhysicsBodyDescriptorV1, PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2,
@@ -21,7 +23,7 @@ use next_contracts::{
     PlayerActionV1, PlayerActionValueV1, PlayerControllerBindingV1, PlayerPrincipalId,
     ProvenanceBindingV1, QuestPayloadV1, RPG_COMMAND_CAPABILITY_ID, RelationshipDimensionV1,
     RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1,
-    RpgSnapshotV2, SchemaId, StateRoot, SystemId, core_player_action_map_v1_hash,
+    RpgSnapshotV2, SchemaId, StateRoot, SystemId, core_player_action_map_v2_hash,
 };
 use next_physics_api::PhysicsBackendPolicy;
 use next_runtime::PhysicsLaunchOptions;
@@ -46,6 +48,10 @@ pub struct NeutralPlayerFixture {
     pub dialogue_id: PersistentId,
     pub quest_id: PersistentId,
     pub relationship_id: PersistentId,
+    pub player_inventory_id: PersistentId,
+    pub player_equipment_id: PersistentId,
+    pub pickup_item_id: PersistentId,
+    pub pickup_proxy_id: PersistentId,
     pub action_map_hash: ContentHash,
     pub context_stack_hash: ContentHash,
 }
@@ -110,7 +116,7 @@ fn build_neutral_player_fixture_with_profile(
     let source_id = InputSourceId::from_bytes([0x52; 16]);
     let controller_id = PersistentId::from_bytes([0x53; 16]);
     let body_id = PersistentId::from_bytes([0x54; 16]);
-    let action_map_hash = core_player_action_map_v1_hash();
+    let action_map_hash = core_player_action_map_v2_hash();
     let context_stack_hash = ContentHash::from_bytes([0x56; 32]);
     bootstrap.player_controller_registry.bindings.insert(
         source_id,
@@ -135,6 +141,10 @@ fn build_neutral_player_fixture_with_profile(
     let dialogue_id = PersistentId::from_bytes([0x5a; 16]);
     let quest_id = PersistentId::from_bytes([0x5b; 16]);
     let relationship_id = PersistentId::from_bytes([0x5c; 16]);
+    let player_inventory_id = PersistentId::from_bytes([0x5d; 16]);
+    let player_equipment_id = PersistentId::from_bytes([0x5e; 16]);
+    let pickup_item_id = PersistentId::from_bytes([0x5f; 16]);
+    let pickup_proxy_id = PersistentId::from_bytes([0x60; 16]);
     bootstrap.physics_checkpoint = grounded_capsule_checkpoint(
         PhysicsWorldId::from_bytes(*bootstrap.world_identity.world_namespace.as_bytes()),
         physics_body_id,
@@ -158,6 +168,10 @@ fn build_neutral_player_fixture_with_profile(
         dialogue_id,
         quest_id,
         relationship_id,
+        player_inventory_id,
+        player_equipment_id,
+        pickup_item_id,
+        pickup_proxy_id,
         action_map_hash,
         context_stack_hash,
     })
@@ -241,6 +255,21 @@ fn grounded_capsule_checkpoint(
         [0, 900_000, 700_000],
         [10_000_000, 10_000_000, 100_000],
     );
+    let pickup_proxy_body_id = PhysicsBodyIdV1 {
+        subject_id: PersistentId::from_bytes([0x60; 16]),
+        body_slot: 0,
+    };
+    let pickup_proxy_shape_id = PhysicsShapeIdV1 {
+        body_id: pickup_proxy_body_id,
+        shape_slot: 0,
+    };
+    let pickup_proxy = static_box_descriptor(
+        pickup_proxy_body_id,
+        pickup_proxy_shape_id,
+        &material_id,
+        [0, 900_000, 700_000],
+        [100_000, 900_000, 100_000],
+    );
     let npc_body_id = PhysicsBodyIdV1 {
         subject_id: PersistentId::from_bytes([0x59; 16]),
         body_slot: 0,
@@ -271,6 +300,7 @@ fn grounded_capsule_checkpoint(
             (capsule_body_id, capsule),
             (floor_body_id, floor),
             (wall_body_id, wall),
+            (pickup_proxy_body_id, pickup_proxy),
             (npc_body_id, npc),
         ]),
         BTreeMap::from([(capsule_body_id.subject_id, capsule_body_id)]),
@@ -286,9 +316,40 @@ pub fn core_interaction_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnaps
             fixture.body_id,
             0x54,
             RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
-                inventory_id: None,
-                equipment_id: None,
+                inventory_id: Some(fixture.player_inventory_id),
+                equipment_id: Some(fixture.player_equipment_id),
                 skills: Vec::new(),
+            }),
+        ),
+        fixture_aggregate(
+            fixture.pickup_item_id,
+            0x5f,
+            RpgAggregatePayloadV1::Item(ItemPayloadV1 {
+                quantity: 1,
+                durability: 100,
+                custom_state: Vec::new(),
+            }),
+        ),
+        fixture_aggregate(
+            fixture.player_inventory_id,
+            0x5d,
+            RpgAggregatePayloadV1::Inventory(InventoryPayloadV1 {
+                owner_id: fixture.body_id,
+                capacity: 8,
+                item_ids: Vec::new(),
+                reservations: Vec::new(),
+            }),
+        ),
+        fixture_aggregate(
+            fixture.player_equipment_id,
+            0x5e,
+            RpgAggregatePayloadV1::Equipment(EquipmentPayloadV1 {
+                character_id: fixture.body_id,
+                slot_policy: DefinitionRefV1::Exact {
+                    asset_id: AssetId::from_bytes([0x5e; 16]),
+                    content_hash: next_runtime::bootstrap_equipment_slot_policy_hash_v1(),
+                },
+                assignments: Vec::new(),
             }),
         ),
         fixture_aggregate(
@@ -337,6 +398,16 @@ pub fn core_interaction_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnaps
             RpgAggregatePayloadV1::InteractiveObject(InteractiveObjectPayloadV1 {
                 state_id: SchemaId::new(CORE_INTERACTIVE_OBJECT_READY_STATE_ID)
                     .expect("built-in interactive-object state is valid"),
+                linked_item_id: None,
+            }),
+        ),
+        fixture_aggregate(
+            fixture.pickup_proxy_id,
+            0x60,
+            RpgAggregatePayloadV1::InteractiveObject(InteractiveObjectPayloadV1 {
+                state_id: SchemaId::new(CORE_INTERACTIVE_OBJECT_READY_STATE_ID)
+                    .expect("built-in interactive-object state is valid"),
+                linked_item_id: Some(fixture.pickup_item_id),
             }),
         ),
     ];
@@ -455,6 +526,58 @@ pub fn player_interact_sample(
     pressed: bool,
     sampled_wall_time: Option<i64>,
 ) -> Result<InputSampleV1, CanonicalFixtureError> {
+    player_semantic_action_sample(
+        fixture,
+        sequence,
+        CORE_INTERACT_ACTION_ID,
+        phase,
+        pressed,
+        sampled_wall_time,
+    )
+}
+
+pub fn player_pickup_sample(
+    fixture: &NeutralPlayerFixture,
+    sequence: u64,
+    phase: PlayerActionPhaseV1,
+    pressed: bool,
+    sampled_wall_time: Option<i64>,
+) -> Result<InputSampleV1, CanonicalFixtureError> {
+    player_semantic_action_sample(
+        fixture,
+        sequence,
+        CORE_PICKUP_ACTION_ID,
+        phase,
+        pressed,
+        sampled_wall_time,
+    )
+}
+
+pub fn player_equip_use_sample(
+    fixture: &NeutralPlayerFixture,
+    sequence: u64,
+    phase: PlayerActionPhaseV1,
+    pressed: bool,
+    sampled_wall_time: Option<i64>,
+) -> Result<InputSampleV1, CanonicalFixtureError> {
+    player_semantic_action_sample(
+        fixture,
+        sequence,
+        CORE_EQUIP_USE_ACTION_ID,
+        phase,
+        pressed,
+        sampled_wall_time,
+    )
+}
+
+fn player_semantic_action_sample(
+    fixture: &NeutralPlayerFixture,
+    sequence: u64,
+    action_id: &str,
+    phase: PlayerActionPhaseV1,
+    pressed: bool,
+    sampled_wall_time: Option<i64>,
+) -> Result<InputSampleV1, CanonicalFixtureError> {
     let frame = PlayerActionFrameV1 {
         schema_version: PLAYER_ACTION_FRAME_SCHEMA_VERSION,
         controller_id: fixture.controller_id,
@@ -464,7 +587,7 @@ pub fn player_interact_sample(
         context_stack_hash: fixture.context_stack_hash,
         context_stack_revision: 1,
         actions: vec![PlayerActionV1 {
-            action_id: SchemaId::new(CORE_INTERACT_ACTION_ID)?,
+            action_id: SchemaId::new(action_id)?,
             phase,
             value: PlayerActionValueV1::Digital(pressed),
             semantic_occurrence_ordinal: 0,
@@ -661,6 +784,8 @@ struct GroundedCollisionScenario {
 enum ScenarioAction {
     Movement(PlayerActionPhaseV1, [i16; 2]),
     Interaction,
+    Pickup,
+    EquipUse,
 }
 
 fn run_grounded_collision_scenario(
@@ -703,7 +828,11 @@ fn run_grounded_collision_scenario_with_backend(
         ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [0, 32_767]),
     ];
     if include_interaction {
-        inputs.push(ScenarioAction::Interaction);
+        inputs.extend([
+            ScenarioAction::Pickup,
+            ScenarioAction::EquipUse,
+            ScenarioAction::Interaction,
+        ]);
         inputs.extend([
             ScenarioAction::Movement(PlayerActionPhaseV1::Performed, [0, -32_767]),
             ScenarioAction::Movement(PlayerActionPhaseV1::Started, [32_767, 0]),
@@ -735,6 +864,20 @@ fn run_grounded_collision_scenario_with_backend(
                 player_action_sample(&fixture, sequence, phase, direction, wall_time)?
             }
             ScenarioAction::Interaction => player_interact_sample(
+                &fixture,
+                sequence,
+                PlayerActionPhaseV1::Started,
+                true,
+                wall_time,
+            )?,
+            ScenarioAction::Pickup => player_pickup_sample(
+                &fixture,
+                sequence,
+                PlayerActionPhaseV1::Started,
+                true,
+                wall_time,
+            )?,
+            ScenarioAction::EquipUse => player_equip_use_sample(
                 &fixture,
                 sequence,
                 PlayerActionPhaseV1::Started,
@@ -778,18 +921,18 @@ fn run_grounded_collision_scenario_with_backend(
         .get(&fixture.physics_body_id)
         .ok_or(PlayCheckError::BodyMissing)?
         .pose;
-    let expected_ticks = if include_interaction { 12 } else { 6 };
-    let expected_substeps = if include_interaction { 24 } else { 12 };
-    let expected_events = if include_interaction { 12 } else { 4 };
-    let expected_persists = if include_interaction { 29 } else { 13 };
+    let expected_ticks = if include_interaction { 14 } else { 6 };
+    let expected_substeps = if include_interaction { 28 } else { 12 };
+    let expected_events = if include_interaction { 15 } else { 4 };
+    let expected_persists = if include_interaction { 45 } else { 15 };
     let expected_pose = if include_interaction {
         [200_000, 900_000, 200_000]
     } else {
         [0, 900_000, 200_000]
     };
-    let expected_rpg_events = if include_interaction { 4 } else { 0 };
-    let expected_begins = if include_interaction { 3 } else { 2 };
-    let expected_ends = if include_interaction { 2 } else { 1 };
+    let expected_rpg_events = if include_interaction { 7 } else { 0 };
+    let expected_begins = if include_interaction { 4 } else { 3 };
+    let expected_ends = if include_interaction { 3 } else { 2 };
     let object_is_activated = !include_interaction
         || matches!(
             aggregate_payload(
@@ -835,6 +978,39 @@ fn run_grounded_collision_scenario_with_backend(
                             && dimension.value == CORE_DIALOGUE_QUEST_TRUST_DELTA
                     })
         );
+    let pickup_completed = !include_interaction
+        || matches!(
+            aggregate_payload(
+                &runtime.rpg_snapshot(),
+                RpgAggregateKindV1::InteractiveObject,
+                fixture.pickup_proxy_id,
+            ),
+            Some(RpgAggregatePayloadV1::InteractiveObject(object))
+                if object.state_id.as_str() == CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID
+        );
+    let item_is_owned = !include_interaction
+        || matches!(
+            aggregate_payload(
+                &runtime.rpg_snapshot(),
+                RpgAggregateKindV1::Inventory,
+                fixture.player_inventory_id,
+            ),
+            Some(RpgAggregatePayloadV1::Inventory(inventory))
+                if inventory.item_ids == [fixture.pickup_item_id]
+        );
+    let item_is_equipped = !include_interaction
+        || matches!(
+            aggregate_payload(
+                &runtime.rpg_snapshot(),
+                RpgAggregateKindV1::Equipment,
+                fixture.player_equipment_id,
+            ),
+            Some(RpgAggregatePayloadV1::Equipment(equipment))
+                if equipment.assignments.iter().any(|assignment| {
+                    assignment.slot_id.as_str() == CORE_EQUIPMENT_MAIN_HAND_SLOT_ID
+                        && assignment.item_id == fixture.pickup_item_id
+                })
+        );
     if final_pose.translation_micrometres != expected_pose
         || runtime.physics_snapshot().physics_tick != expected_substeps
         || events != expected_events
@@ -846,6 +1022,9 @@ fn run_grounded_collision_scenario_with_backend(
         || !core_dialogue_completed
         || !core_quest_completed
         || !core_trust_applied
+        || !pickup_completed
+        || !item_is_owned
+        || !item_is_equipped
     {
         return Err(PlayCheckError::AcceptanceMismatch);
     }
@@ -1023,6 +1202,7 @@ mod tests {
                 0x58,
                 RpgAggregatePayloadV1::InteractiveObject(InteractiveObjectPayloadV1 {
                     state_id: SchemaId::new(state).expect("interactive state"),
+                    linked_item_id: None,
                 }),
             )],
         }
@@ -1259,6 +1439,107 @@ mod tests {
         assert!(retry.results.is_empty());
         assert!(retry.events.is_empty());
         assert_eq!(restored.rpg_snapshot(), rpg_before);
+        assert_eq!(ledger_hash(&restored), ledger_before);
+    }
+
+    #[test]
+    fn pickup_and_equip_retry_after_restore_do_not_duplicate_state_or_events() {
+        let fixture =
+            build_neutral_player_fixture("nextengine.test.pickup-equip-retry").expect("fixture");
+        let mut runtime = RuntimeState::with_rpg_snapshot(
+            fixture.bootstrap.clone(),
+            fixture.authority.clone(),
+            core_interaction_rpg_snapshot(&fixture),
+        )
+        .expect("runtime");
+        for sequence in 0_u64..4 {
+            runtime
+                .enqueue_input_sample(
+                    &fixture.principal,
+                    player_action_sample(
+                        &fixture,
+                        sequence,
+                        if sequence == 0 {
+                            PlayerActionPhaseV1::Started
+                        } else {
+                            PlayerActionPhaseV1::Performed
+                        },
+                        [0, 32_767],
+                        None,
+                    )
+                    .expect("movement sample"),
+                )
+                .expect("enqueue movement");
+            runtime.run_tick([]).expect("movement tick");
+        }
+        runtime
+            .enqueue_input_sample(
+                &fixture.principal,
+                player_pickup_sample(&fixture, 4, PlayerActionPhaseV1::Started, true, None)
+                    .expect("pickup sample"),
+            )
+            .expect("enqueue pickup");
+        let pickup = runtime.run_tick([]).expect("pickup tick");
+        assert_eq!(
+            pickup
+                .events
+                .iter()
+                .filter(|event| matches!(event.payload, EventPayload::Rpg(_)))
+                .count(),
+            2
+        );
+        assert_eq!(pickup.rpg_plan_traces.len(), 1);
+
+        runtime
+            .enqueue_input_sample(
+                &fixture.principal,
+                player_equip_use_sample(&fixture, 5, PlayerActionPhaseV1::Started, true, None)
+                    .expect("equip sample"),
+            )
+            .expect("enqueue equip");
+        let equip = runtime.run_tick([]).expect("equip tick");
+        assert_eq!(
+            equip
+                .events
+                .iter()
+                .filter(|event| matches!(
+                    event.payload,
+                    EventPayload::Rpg(RpgEventV1::EquipmentAssigned { .. })
+                ))
+                .count(),
+            1
+        );
+
+        let checkpoint = runtime.world_checkpoint().expect("checkpoint");
+        let mut restored =
+            RuntimeState::restore_world_checkpoint(checkpoint, fixture.authority.clone())
+                .expect("restore");
+        let state_before = restored.rpg_snapshot();
+        let ledger_before = ledger_hash(&restored);
+
+        for (sequence, sample) in [
+            (
+                4,
+                player_pickup_sample(&fixture, 4, PlayerActionPhaseV1::Started, true, Some(42))
+                    .expect("pickup retry"),
+            ),
+            (
+                5,
+                player_equip_use_sample(&fixture, 5, PlayerActionPhaseV1::Started, true, Some(43))
+                    .expect("equip retry"),
+            ),
+        ] {
+            restored
+                .enqueue_input_sample(&fixture.principal, sample)
+                .expect("enqueue retry");
+            let retry = restored.run_tick([]).expect("retry tick");
+            assert_eq!(retry.mapping_receipts[0].source_sequence, sequence);
+            assert_eq!(retry.mapping_receipts[0].code, InputMappingCodeV1::Accepted);
+            assert_eq!(retry.mapping_receipts[0].derived_command_id, None);
+            assert!(retry.events.is_empty());
+            assert!(retry.results.is_empty());
+        }
+        assert_eq!(restored.rpg_snapshot(), state_before);
         assert_eq!(ledger_hash(&restored), ledger_before);
     }
 
