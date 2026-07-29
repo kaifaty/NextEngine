@@ -11,11 +11,15 @@ use next_contracts::project::{
     ProjectContractError, ProjectDependencyKindV1, ProjectManifestV1, SchemaRefV1,
     SchemaRegistryManifestV1, WorldPartitionManifestV1,
 };
+use next_contracts::render_content::{
+    B0CookedMeshV1, NeutralRenderRecordV1, RenderContentCatalogV1, RenderContentContractError,
+};
 
 use crate::cook::{
     CONTENT_BLOB_DIRECTORY, CONTENT_MANIFEST_PATH, PROJECT_CATALOG_PATH,
-    PROJECT_COMPOSITION_LOCK_PATH, PROJECT_MANIFEST_PATH, SCHEMA_REGISTRY_PATH,
-    WORLD_PARTITION_PATH, compile_rpg_definitions_v1,
+    PROJECT_COMPOSITION_LOCK_PATH, PROJECT_MANIFEST_PATH, RENDER_CONTENT_CATALOG_PATH,
+    RENDER_CONTENT_MESH_DIRECTORY, SCHEMA_REGISTRY_PATH, WORLD_PARTITION_PATH,
+    compile_render_content_catalog_v1, compile_rpg_definitions_v1,
 };
 use crate::{ProjectResolutionError, resolve_project_records_v1};
 
@@ -86,12 +90,14 @@ pub fn activate_project(
         SCHEMA_REGISTRY_PATH,
         CONTENT_MANIFEST_PATH,
         WORLD_PARTITION_PATH,
+        RENDER_CONTENT_CATALOG_PATH,
     ]
     .into_iter()
     .map(str::to_owned)
     .collect();
     let mut record_dependencies = BTreeMap::<AssetId, BTreeSet<AssetId>>::new();
     let mut neutral_records = Vec::new();
+    let mut render_records = Vec::new();
     for entry in &content_manifest.body.asset_entries {
         require_schema(&current_schemas, &entry.schema_ref)?;
         let blob_path = format!(
@@ -100,21 +106,40 @@ pub fn activate_project(
         );
         expected_files.insert(blob_path.clone());
         let blob = required_file(&generation.files, &blob_path)?;
-        let record = NeutralRecordV1::from_canonical_bytes(blob, limits)?;
-        if record.asset_id != entry.asset_revision.asset_id
-            || record.schema_ref != entry.schema_ref
-            || record.record_sha256()? != entry.asset_revision.record_sha256
-        {
-            return Err(ProjectActivationError::HashMismatch);
+        if NeutralRenderRecordV1::supports_schema_id(&entry.schema_ref.schema_id) {
+            let record = NeutralRenderRecordV1::from_canonical_bytes(blob, limits)?;
+            if record.asset_id() != entry.asset_revision.asset_id
+                || record.schema_ref() != &entry.schema_ref
+                || record.record_sha256()? != entry.asset_revision.record_sha256
+                || entry.semantic_class != record.semantic_class()
+            {
+                return Err(ProjectActivationError::HashMismatch);
+            }
+            record_dependencies.insert(
+                record.asset_id(),
+                record
+                    .dependencies()
+                    .into_iter()
+                    .map(|reference| reference.asset_id)
+                    .collect(),
+            );
+            render_records.push(record);
+        } else {
+            let record = NeutralRecordV1::from_canonical_bytes(blob, limits)?;
+            if record.asset_id != entry.asset_revision.asset_id
+                || record.schema_ref != entry.schema_ref
+                || record.record_sha256()? != entry.asset_revision.record_sha256
+                || entry.semantic_class
+                    != next_contracts::project::ContentSemanticClassV1::DomainRelevant
+            {
+                return Err(ProjectActivationError::HashMismatch);
+            }
+            record_dependencies.insert(
+                record.asset_id,
+                record.asset_dependencies.iter().copied().collect(),
+            );
+            neutral_records.push(record);
         }
-        record_dependencies.insert(
-            record.asset_id,
-            record.asset_dependencies.iter().copied().collect(),
-        );
-        neutral_records.push(record);
-    }
-    if generation.files.keys().cloned().collect::<BTreeSet<_>>() != expected_files {
-        return Err(ProjectActivationError::UnexpectedArtifact);
     }
     for entry in &content_manifest.body.asset_entries {
         let declared: BTreeSet<_> = content_manifest
@@ -147,6 +172,30 @@ pub fn activate_project(
     }
 
     neutral_records.sort_by_key(|record| record.asset_id);
+    render_records.sort_by_key(NeutralRenderRecordV1::asset_id);
+    let render_content_catalog = compile_render_content_catalog_v1(&render_records)?;
+    let published_catalog = RenderContentCatalogV1::from_canonical_bytes(
+        required_file(&generation.files, RENDER_CONTENT_CATALOG_PATH)?,
+        limits,
+    )?;
+    if published_catalog != render_content_catalog {
+        return Err(ProjectActivationError::HashMismatch);
+    }
+    for cooked_mesh in render_content_catalog.cooked_meshes() {
+        let path = format!(
+            "{RENDER_CONTENT_MESH_DIRECTORY}/{}.bin",
+            cooked_mesh.payload_sha256().to_hex()
+        );
+        expected_files.insert(path.clone());
+        let published =
+            B0CookedMeshV1::from_canonical_bytes(required_file(&generation.files, &path)?, limits)?;
+        if &published != cooked_mesh {
+            return Err(ProjectActivationError::HashMismatch);
+        }
+    }
+    if generation.files.keys().cloned().collect::<BTreeSet<_>>() != expected_files {
+        return Err(ProjectActivationError::UnexpectedArtifact);
+    }
     let activated = ActivatedProjectV2 {
         composition_lock,
         schema_registry,
@@ -155,6 +204,7 @@ pub fn activate_project(
         neutral_records: neutral_records.clone(),
         rpg_definitions: compile_rpg_definitions_v1(&neutral_records)
             .map_err(ProjectActivationError::Cook)?,
+        render_content_catalog,
     };
     activated.validate()?;
     Ok(activated)
@@ -187,6 +237,7 @@ pub enum ProjectActivationError {
     Store(ContentStoreError),
     Contract(ProjectContractError),
     Neutral(NeutralRecordError),
+    Render(RenderContentContractError),
     Resolution(ProjectResolutionError),
     Cook(crate::ProjectCookError),
     MissingArtifact(String),
@@ -204,6 +255,7 @@ impl ProjectActivationError {
         match self {
             Self::Store(_) | Self::MissingArtifact(_) => "PROJECT_ARTIFACT_MISSING",
             Self::Contract(_) | Self::Neutral(_) => "PROJECT_SCHEMA_INVALID",
+            Self::Render(error) => error.diagnostic_code(),
             Self::Resolution(_) | Self::ResolutionMismatch => "PROJECT_LOCK_INVALID",
             Self::Cook(_) => "PROJECT_DEFINITION_INVALID",
             Self::MissingReference => "PROJECT_REFERENCE_MISSING",
@@ -221,6 +273,7 @@ impl Display for ProjectActivationError {
             Self::Store(error) => write!(formatter, "project store load failed: {error}"),
             Self::Contract(error) => write!(formatter, "project contract invalid: {error}"),
             Self::Neutral(error) => write!(formatter, "project record invalid: {error}"),
+            Self::Render(error) => write!(formatter, "project render content invalid: {error}"),
             Self::Resolution(error) => write!(formatter, "project resolution invalid: {error}"),
             Self::Cook(error) => write!(formatter, "project definition compile failed: {error}"),
             Self::MissingArtifact(path) => write!(formatter, "project artifact missing: {path}"),
@@ -253,6 +306,12 @@ impl From<ProjectContractError> for ProjectActivationError {
 impl From<NeutralRecordError> for ProjectActivationError {
     fn from(error: NeutralRecordError) -> Self {
         Self::Neutral(error)
+    }
+}
+
+impl From<RenderContentContractError> for ProjectActivationError {
+    fn from(error: RenderContentContractError) -> Self {
+        Self::Render(error)
     }
 }
 

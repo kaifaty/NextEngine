@@ -69,7 +69,8 @@ fn run_platform_check_scoped(
     let prepared = frame_directory.finish(frame_result, platform_scratch_error)?;
     let game = prepared.check;
     verify_authoritative_parity(&headless, &game)?;
-    let candidate_status = run_desktop_candidate(&prepared.snapshot)?;
+    let candidate_status =
+        run_desktop_candidate(&prepared.snapshot, &prepared.render_content_catalog)?;
 
     let mut host = ReferencePlatformHost::interactive()?;
     if host.presentation_target_kind() != PresentationTargetKindV1::Interactive
@@ -176,6 +177,7 @@ fn platform_scratch_error(error: std::io::Error) -> PlatformCheckError {
 #[cfg(feature = "desktop-sdl-ash")]
 fn run_desktop_candidate(
     snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    render_content_catalog: &next_contracts::render_content::RenderContentCatalogV1,
 ) -> Result<PlatformCandidateStatus, PlatformCheckError> {
     if !cfg!(all(
         target_arch = "x86_64",
@@ -185,6 +187,7 @@ fn run_desktop_candidate(
     }
     let report = next_desktop_sdl_ash::run_interactive(
         snapshot,
+        render_content_catalog,
         &next_desktop_sdl_ash::DesktopRunOptions {
             maximum_frames: Some(1),
             maximum_event_loop_iterations: Some(600),
@@ -193,7 +196,26 @@ fn run_desktop_candidate(
             ..next_desktop_sdl_ash::DesktopRunOptions::default()
         },
     )?;
+    let drawable_extent = report
+        .last_drawable_extent
+        .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
+    let target_revision = report
+        .last_target_revision
+        .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
+    let expected_plan = next_render::build_b0_frame_plan(
+        snapshot,
+        render_content_catalog,
+        next_render::RenderTargetV1 {
+            extent: drawable_extent,
+            target_revision,
+        },
+    )
+    .map_err(|_| PlatformCheckError::DesktopSmokeMismatch)?;
     if report.rendered_frames != 1
+        || report.rendered_objects != u64::from(expected_plan.visible_object_count)
+        || report.indexed_draws != u64::from(expected_plan.indexed_draw_count)
+        || report.fallback_material_draws != u64::from(expected_plan.fallback_material_draw_count)
+        || report.last_frame_plan_hash != Some(expected_plan.frame_plan_hash)
         || report.control_events != 4
         || report.resize_events < 1
         || report.focus_events < 2
@@ -210,6 +232,7 @@ fn run_desktop_candidate(
 #[cfg(not(feature = "desktop-sdl-ash"))]
 fn run_desktop_candidate(
     _snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    _render_content_catalog: &next_contracts::render_content::RenderContentCatalogV1,
 ) -> Result<PlatformCandidateStatus, PlatformCheckError> {
     if cfg!(all(
         target_arch = "x86_64",

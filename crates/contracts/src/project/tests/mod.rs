@@ -70,6 +70,38 @@ fn empty_manifests_have_stable_nonzero_hashes() {
 }
 
 #[test]
+fn neutral_content_schema_role_round_trips_through_registry_jcs() {
+    let schema_ref = SchemaRefV1 {
+        schema_id: SchemaId::new("nextengine.content.mesh").expect("schema"),
+        schema_version: 1,
+        descriptor_sha256: domain_hash("descriptor", b"mesh"),
+        role: SchemaRoleV1::NeutralContent,
+        encoding: SchemaEncodingV1::CanonicalBinaryV1,
+    };
+    let registry = super::SchemaRegistryManifestV1::new(super::SchemaRegistryManifestBodyV1 {
+        registry_revision: 1,
+        canonicalization_profile_sha256: domain_hash("canonical", b"profile"),
+        ownership_registry_sha256: domain_hash("ownership", b"assets"),
+        descriptors: vec![super::SchemaDescriptorV1 {
+            schema_ref: schema_ref.clone(),
+            owner_context_id: SchemaId::new("nextengine.assets").expect("owner"),
+            field_registry_sha256: domain_hash("fields", b"mesh"),
+        }],
+        current_schema_refs: vec![schema_ref],
+        migration_dag_sha256: domain_hash("migration", b"none"),
+        registry_limits_sha256: domain_hash("limits", b"bounded"),
+    })
+    .expect("registry");
+    let bytes = registry.to_jcs_bytes().expect("registry bytes");
+    assert!(String::from_utf8_lossy(&bytes).contains("\"role\":\"neutral-content\""));
+    assert_eq!(
+        SchemaRegistryManifestV1::from_jcs_bytes(&bytes, CanonicalDecodeLimits::default(),)
+            .expect("decode"),
+        registry
+    );
+}
+
+#[test]
 fn project_lock_v2_round_trips_and_rejects_v1_before_field_use() {
     let lock = project_lock_v2();
     let bytes = lock.to_jcs_bytes();

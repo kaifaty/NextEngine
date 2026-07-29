@@ -9,5 +9,9 @@ publish = false
 [dependencies]
 next_contracts.workspace = true
 
+[dev-dependencies]
+next_project.workspace = true
+next_reference_game.workspace = true
+
 [lints]
 workspace = true

@@ -3,10 +3,15 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use next_assets::{
     CONTENT_GENERATIONS_DIRECTORY, ContentPublicationV1, ContentStore, PublicationFileV1,
 };
+use next_contracts::content::NeutralRecordKindV1;
+use next_contracts::ids::PersistentId;
 use next_contracts::ids::{AssetId, ContentHash, SchemaId, content_hash_from_bytes};
 use next_contracts::project::{
     ProjectCatalogRecordV1, ProjectCatalogSnapshotV1, ProjectDependencyKindV1, ProjectManifestV1,
     ProjectRequirementV1, SemanticVersionV1,
+};
+use next_contracts::render_content::{
+    B0RenderContentProfileV1, NeutralRenderRecordV1, RenderContentContractError,
 };
 use next_project::{
     ProjectActivationError, ProjectCookError, ProjectResolutionError, activate_project,
@@ -19,8 +24,12 @@ static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() {
     let first = cook_project_v1(next_reference_game::project_source_v2().expect("fixture"))
         .expect("first cook");
-    let second = cook_project_v1(next_reference_game::project_source_v2().expect("fixture"))
-        .expect("second cook");
+    let mut reordered = next_reference_game::project_source_v2().expect("fixture");
+    reordered.records.reverse();
+    reordered.render_records.reverse();
+    reordered.root_asset_ids.reverse();
+    reordered.chunks.reverse();
+    let second = cook_project_v1(reordered).expect("second cook");
     assert_eq!(first, second);
     assert_eq!(
         first.publication().expect("publication"),
@@ -37,11 +46,40 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         activated.composition_lock.composition_lock_sha256,
         first.composition_lock.composition_lock_sha256
     );
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 13);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 20);
     assert_eq!(activated.world_partition.body.chunk_bindings.len(), 2);
     assert_eq!(activated.rpg_definitions.abilities.len(), 1);
     assert_eq!(activated.rpg_definitions.packages.len(), 2);
+    assert_eq!(activated.render_content_catalog.meshes().len(), 2);
+    assert_eq!(activated.render_content_catalog.materials().len(), 2);
+    assert_eq!(activated.render_content_catalog.textures().len(), 2);
+    assert!(
+        activated
+            .render_content_catalog
+            .cooked_meshes()
+            .iter()
+            .all(|mesh| !mesh.meshlets().is_empty())
+    );
     std::fs::remove_dir_all(root).expect("remove test content");
+}
+
+#[test]
+fn multiple_presentation_records_do_not_change_rpg_singleton_selection() {
+    let mut source = next_reference_game::project_source_v2().expect("fixture");
+    let mut second_scene = source
+        .records
+        .iter()
+        .find(|record| record.kind == NeutralRecordKindV1::Scene)
+        .expect("reference scene")
+        .clone();
+    second_scene.asset_id = AssetId::from_bytes([0xe1; 16]);
+    second_scene.record_id = PersistentId::from_bytes([0xe2; 16]);
+    source.records.push(second_scene);
+
+    let cooked = cook_project_v1(source).expect("multiple presentation records");
+
+    assert_eq!(cooked.rpg_definitions.abilities.len(), 1);
+    assert_eq!(cooked.rpg_definitions.interactions.len(), 1);
 }
 
 #[test]
@@ -82,6 +120,69 @@ fn missing_blob_and_blob_hash_mismatch_fail_before_activation() {
         Err(ProjectActivationError::Store(_))
     ));
     std::fs::remove_dir_all(root).expect("remove hash store");
+}
+
+#[test]
+fn missing_cooked_mesh_payload_fails_before_activation() {
+    let cooked =
+        cook_project_v1(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
+    let root = test_root("missing-cooked-mesh");
+    let store = ContentStore::new(&root);
+    store
+        .publish(&cooked.publication().expect("publication"))
+        .expect("publish");
+    let payload_hash = cooked
+        .render_content_catalog
+        .cooked_meshes()
+        .first()
+        .expect("cooked mesh")
+        .payload_sha256();
+    let payload_path = generation_path(&root, cooked.composition_lock.composition_lock_sha256)
+        .join(format!(
+            "render-content/meshes/{}.bin",
+            payload_hash.to_hex()
+        ));
+    std::fs::remove_file(payload_path).expect("remove cooked mesh payload");
+
+    assert!(matches!(
+        activate_project(&store),
+        Err(ProjectActivationError::Store(_))
+    ));
+    std::fs::remove_dir_all(root).expect("remove cooked mesh store");
+}
+
+#[test]
+fn storage_valid_but_corrupt_render_catalog_fails_activation() {
+    let cooked =
+        cook_project_v1(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
+    let original = cooked.publication().expect("publication");
+    let files = original
+        .files
+        .iter()
+        .map(|file| {
+            let bytes = if file.relative_path() == "render-content/catalog.bin" {
+                b"corrupt-render-catalog".to_vec()
+            } else {
+                file.bytes().to_vec()
+            };
+            PublicationFileV1::new(file.relative_path(), bytes)
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .expect("tampered publication files");
+    let root = test_root("corrupt-render-catalog");
+    let store = ContentStore::new(&root);
+    store
+        .publish(
+            &ContentPublicationV1::new(original.generation_id, files)
+                .expect("storage-valid publication"),
+        )
+        .expect("publish storage-valid corruption");
+
+    assert!(matches!(
+        activate_project(&store),
+        Err(ProjectActivationError::Render(_))
+    ));
+    std::fs::remove_dir_all(root).expect("remove corrupt render catalog store");
 }
 
 #[test]
@@ -155,6 +256,67 @@ fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
     assert!(matches!(
         cook_project_v1(duplicate),
         Err(ProjectCookError::DuplicateIdentity)
+    ));
+
+    let mut cross_kind_duplicate = next_reference_game::project_source_v2().expect("fixture");
+    cross_kind_duplicate.records[0].asset_id = cross_kind_duplicate.render_records[0].asset_id();
+    assert!(matches!(
+        cook_project_v1(cross_kind_duplicate),
+        Err(ProjectCookError::DuplicateIdentity)
+    ));
+
+    let mut missing_fallback = next_reference_game::project_source_v2().expect("fixture");
+    let fallback_texture = missing_fallback
+        .render_records
+        .iter()
+        .find_map(|record| match record {
+            NeutralRenderRecordV1::Profile(profile) => Some(profile.fallback_texture().asset_id),
+            _ => None,
+        })
+        .expect("fallback texture");
+    missing_fallback
+        .render_records
+        .retain(|record| record.asset_id() != fallback_texture);
+    assert!(matches!(
+        cook_project_v1(missing_fallback),
+        Err(ProjectCookError::MissingReference)
+    ));
+
+    let mut missing_profile = next_reference_game::project_source_v2().expect("fixture");
+    missing_profile
+        .render_records
+        .retain(|record| !matches!(record, NeutralRenderRecordV1::Profile(_)));
+    assert!(matches!(
+        cook_project_v1(missing_profile),
+        Err(ProjectCookError::Render(
+            RenderContentContractError::MissingReference
+        ))
+    ));
+
+    let mut duplicate_profile = next_reference_game::project_source_v2().expect("fixture");
+    let profile = duplicate_profile
+        .render_records
+        .iter()
+        .find_map(|record| match record {
+            NeutralRenderRecordV1::Profile(profile) => Some(profile),
+            _ => None,
+        })
+        .expect("profile");
+    let second_profile = B0RenderContentProfileV1::new(
+        profile.schema_ref().clone(),
+        AssetId::from_bytes([0xe3; 16]),
+        profile.record_revision(),
+        profile.shader_interface_manifest_sha256(),
+        profile.fallback_material(),
+        profile.fallback_texture(),
+    )
+    .expect("second profile");
+    duplicate_profile.render_records.push(second_profile.into());
+    assert!(matches!(
+        cook_project_v1(duplicate_profile),
+        Err(ProjectCookError::Render(
+            RenderContentContractError::DuplicateIdentity
+        ))
     ));
 
     let mut cycle = next_reference_game::project_source_v2().expect("fixture");

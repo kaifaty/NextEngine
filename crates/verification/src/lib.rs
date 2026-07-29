@@ -6,6 +6,7 @@ mod persistence_replay;
 mod physics_parity;
 mod platform_check;
 mod player_fixture;
+mod render_performance;
 mod replay;
 mod runtime_fixture;
 mod scratch;
@@ -43,6 +44,10 @@ pub use player_fixture::{
     prepare_game_frame_with_activated_project, run_game_check, run_physics_collision_check,
     run_physics_collision_check_with_backend, run_play_check, run_play_check_in,
     run_play_check_with_activated_project,
+};
+pub use render_performance::{
+    RenderFramePlanningPerformanceError, RenderFramePlanningPerformanceReport,
+    run_render_frame_planning_performance_check, run_render_frame_planning_performance_check_in,
 };
 pub use replay::{
     ReplayComparePointMismatch, ReplayError, ReplayInput, ReplayOutput, ReplayTickInput,

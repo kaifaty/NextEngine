@@ -4,12 +4,29 @@ use next_contracts::platform::PresentationTargetKindV1;
 use next_contracts::project::{
     ContentProvenanceV1, SchemaEncodingV1, SchemaRefV1, SchemaRoleV1, domain_hash,
 };
+use next_contracts::render_content::{
+    AabbI64V1, B0_RENDER_CONTENT_PROFILE_SCHEMA_ID, B0RenderContentProfileV1, MaterialAlphaModeV1,
+    MaterialColorSpaceV1, MaterialTextureSlotV1, MeshPrimitiveTopologyV1,
+    NEUTRAL_MATERIAL_SCHEMA_ID, NEUTRAL_MESH_SCHEMA_ID, NEUTRAL_TEXTURE_SCHEMA_ID,
+    NeutralMaterialTextureBindingV1, NeutralMaterialV1, NeutralMeshPrimitiveV1, NeutralMeshV1,
+    NeutralRenderRecordV1, NeutralTexelEncodingV1, NeutralTextureAlphaSemanticsV1,
+    NeutralTextureColorSpaceV1, NeutralTextureDimensionV1, NeutralTextureMipLevelV1,
+    NeutralTextureV1, UvTransformV1, b0_shader_interface_manifest_sha256,
+};
 use next_contracts::session::{RecoveryPolicyV1, ShutdownPolicyV1};
 use next_project::{NeutralProjectSourceV1, ProjectCookError, SourceChunkBindingV1};
 
 pub const REFERENCE_GAME_PROJECT_ID: &str = "org.nextengine.reference-game";
 const REFERENCE_CONTENT_IDENTITY: &str = "org.nextengine.reference-game.content";
 const REFERENCE_RESOLVER_PROFILE_ID: &str = "nextengine.resolver.exact-minimum.v1";
+
+pub const REFERENCE_FLOOR_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x81; 16]);
+pub const REFERENCE_MARKER_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x82; 16]);
+pub const REFERENCE_BASE_TEXTURE_ASSET_ID: AssetId = AssetId::from_bytes([0x83; 16]);
+pub const REFERENCE_FALLBACK_TEXTURE_ASSET_ID: AssetId = AssetId::from_bytes([0x84; 16]);
+pub const REFERENCE_BASE_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0x85; 16]);
+pub const REFERENCE_FALLBACK_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0x86; 16]);
+pub const REFERENCE_RENDER_PROFILE_ASSET_ID: AssetId = AssetId::from_bytes([0x87; 16]);
 
 pub fn project_source_v2() -> Result<NeutralProjectSourceV1, ProjectCookError> {
     project_source_v2_with_id(REFERENCE_GAME_PROJECT_ID)
@@ -80,6 +97,15 @@ pub fn project_source_v2_with_id(
         )?);
     }
 
+    let render_records = reference_render_records()?;
+    let render_root_asset_ids = [
+        REFERENCE_FLOOR_MESH_ASSET_ID,
+        REFERENCE_MARKER_MESH_ASSET_ID,
+        REFERENCE_BASE_MATERIAL_ASSET_ID,
+        REFERENCE_RENDER_PROFILE_ASSET_ID,
+    ];
+    let mut root_asset_ids = vec![asset_ids[0]];
+    root_asset_ids.extend(render_root_asset_ids);
     Ok(NeutralProjectSourceV1 {
         project_id: ProjectId::new(project_id)?,
         project_revision: 2,
@@ -87,7 +113,8 @@ pub fn project_source_v2_with_id(
         resolver_profile_id: SchemaId::new(REFERENCE_RESOLVER_PROFILE_ID)?,
         resolver_profile_version: 1,
         records,
-        root_asset_ids: vec![asset_ids[0]],
+        render_records,
+        root_asset_ids,
         provenance: ContentProvenanceV1::new(
             SchemaId::new("nextengine.reference.provenance.cc0")?,
             SchemaId::new("CC0-1.0")?,
@@ -121,6 +148,163 @@ pub fn project_source_v2_with_id(
             PresentationTargetKindV1::DisplaylessOffscreen,
         ],
     })
+}
+
+fn reference_render_records() -> Result<Vec<NeutralRenderRecordV1>, ProjectCookError> {
+    let base_texture = NeutralTextureV1::new(
+        schema_ref(
+            NEUTRAL_TEXTURE_SCHEMA_ID,
+            SchemaRoleV1::NeutralContent,
+            SchemaEncodingV1::CanonicalBinaryV1,
+        )?,
+        REFERENCE_BASE_TEXTURE_ASSET_ID,
+        1,
+        NeutralTextureDimensionV1::D2,
+        [2, 2, 1],
+        1,
+        NeutralTextureColorSpaceV1::Srgb,
+        NeutralTextureAlphaSemanticsV1::Opaque,
+        NeutralTexelEncodingV1::Rgba8Unorm,
+        vec![NeutralTextureMipLevelV1::new(
+            [2, 2, 1],
+            vec![
+                255, 255, 255, 255, 220, 235, 255, 255, 220, 235, 255, 255, 255, 255, 255, 255,
+            ],
+        )],
+    )?;
+    let fallback_texture = NeutralTextureV1::new(
+        schema_ref(
+            NEUTRAL_TEXTURE_SCHEMA_ID,
+            SchemaRoleV1::NeutralContent,
+            SchemaEncodingV1::CanonicalBinaryV1,
+        )?,
+        REFERENCE_FALLBACK_TEXTURE_ASSET_ID,
+        1,
+        NeutralTextureDimensionV1::D2,
+        [2, 2, 1],
+        1,
+        NeutralTextureColorSpaceV1::Srgb,
+        NeutralTextureAlphaSemanticsV1::Opaque,
+        NeutralTexelEncodingV1::Rgba8Unorm,
+        vec![NeutralTextureMipLevelV1::new(
+            [2, 2, 1],
+            vec![
+                255, 0, 255, 255, 16, 16, 16, 255, 16, 16, 16, 255, 255, 0, 255, 255,
+            ],
+        )],
+    )?;
+    let base_material = reference_material(
+        REFERENCE_BASE_MATERIAL_ASSET_ID,
+        base_texture.asset_revision()?,
+    )?;
+    let fallback_material = reference_material(
+        REFERENCE_FALLBACK_MATERIAL_ASSET_ID,
+        fallback_texture.asset_revision()?,
+    )?;
+    let floor_mesh = reference_quad_mesh(
+        REFERENCE_FLOOR_MESH_ASSET_ID,
+        [[-1_000_000, -1_000_000, 0], [1_000_000, 1_000_000, 0]],
+    )?;
+    let marker_mesh = reference_quad_mesh(
+        REFERENCE_MARKER_MESH_ASSET_ID,
+        [[-80_000, -120_000, 0], [80_000, 120_000, 0]],
+    )?;
+    let profile = B0RenderContentProfileV1::new(
+        schema_ref(
+            B0_RENDER_CONTENT_PROFILE_SCHEMA_ID,
+            SchemaRoleV1::NeutralContent,
+            SchemaEncodingV1::CanonicalBinaryV1,
+        )?,
+        REFERENCE_RENDER_PROFILE_ASSET_ID,
+        1,
+        b0_shader_interface_manifest_sha256(),
+        fallback_material.asset_revision()?,
+        fallback_texture.asset_revision()?,
+    )?;
+    Ok(vec![
+        floor_mesh.into(),
+        marker_mesh.into(),
+        base_texture.into(),
+        fallback_texture.into(),
+        base_material.into(),
+        fallback_material.into(),
+        profile.into(),
+    ])
+}
+
+fn reference_material(
+    asset_id: AssetId,
+    texture: next_contracts::project::AssetRevisionRefV1,
+) -> Result<NeutralMaterialV1, ProjectCookError> {
+    Ok(NeutralMaterialV1::new(
+        schema_ref(
+            NEUTRAL_MATERIAL_SCHEMA_ID,
+            SchemaRoleV1::NeutralContent,
+            SchemaEncodingV1::CanonicalBinaryV1,
+        )?,
+        asset_id,
+        1,
+        [u16::MAX; 4],
+        MaterialColorSpaceV1::Linear,
+        0,
+        u16::MAX,
+        [0; 3],
+        MaterialColorSpaceV1::Linear,
+        0,
+        65_536,
+        u16::MAX,
+        MaterialAlphaModeV1::Opaque,
+        0,
+        false,
+        vec![NeutralMaterialTextureBindingV1::new(
+            MaterialTextureSlotV1::BaseColor,
+            texture,
+            0,
+            UvTransformV1::identity(),
+        )?],
+        Vec::new(),
+    )?)
+}
+
+fn reference_quad_mesh(
+    asset_id: AssetId,
+    corners: [[i64; 3]; 2],
+) -> Result<NeutralMeshV1, ProjectCookError> {
+    let [minimum, maximum] = corners;
+    let bounds = AabbI64V1::new(
+        [minimum[0], minimum[1], -1],
+        [
+            maximum[0].saturating_add(1),
+            maximum[1].saturating_add(1),
+            1,
+        ],
+    )?;
+    Ok(NeutralMeshV1::new(
+        schema_ref(
+            NEUTRAL_MESH_SCHEMA_ID,
+            SchemaRoleV1::NeutralContent,
+            SchemaEncodingV1::CanonicalBinaryV1,
+        )?,
+        asset_id,
+        1,
+        bounds,
+        vec![
+            [minimum[0], minimum[1], 0],
+            [maximum[0], minimum[1], 0],
+            [maximum[0], maximum[1], 0],
+            [minimum[0], maximum[1], 0],
+        ],
+        None,
+        None,
+        vec![vec![[0, 0], [65_536, 0], [65_536, 65_536], [0, 65_536]]],
+        vec![0, 1, 2, 2, 3, 0],
+        vec![NeutralMeshPrimitiveV1::new(
+            MeshPrimitiveTopologyV1::Triangles,
+            0,
+            6,
+            0,
+        )?],
+    )?)
 }
 
 fn definition_properties(

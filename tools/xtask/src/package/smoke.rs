@@ -144,7 +144,62 @@ pub(super) fn run_packaged_binary_with_timeout(
         &report.authoritative_state_root,
     )?;
     validate_hash("run command ledger hash", &report.command_ledger_hash)?;
+    validate_presentation_contract(&report, expected_composition_root)?;
     Ok(report)
+}
+
+pub(super) fn validate_presentation_contract(
+    report: &next_application::RunReportV1,
+    expected_composition_root: &str,
+) -> Result<(), String> {
+    match expected_composition_root {
+        "Game" => {
+            if report.interactive_host_object_count == 0 {
+                return package_error("packaged Game smoke reported zero interactive host objects");
+            }
+            let presentation = report.presentation.as_ref().ok_or_else(|| {
+                "NATIVE_GATE_PACKAGE_INVALID: packaged Game smoke omitted its presentation snapshot"
+                    .to_owned()
+            })?;
+            if presentation.target != "Interactive" {
+                return package_error(format!(
+                    "packaged Game smoke reported unexpected presentation target {}",
+                    presentation.target
+                ));
+            }
+            validate_hash(
+                "packaged Game presentation snapshot hash",
+                &presentation.snapshot_hash,
+            )?;
+            if presentation.object_count == 0 {
+                return package_error(
+                    "packaged Game smoke reported an empty presentation snapshot",
+                );
+            }
+            if report.interactive_host_object_count != presentation.object_count {
+                return package_error(format!(
+                    "packaged Game smoke rendered {} objects but its presentation snapshot contains {}",
+                    report.interactive_host_object_count, presentation.object_count
+                ));
+            }
+        }
+        "Headless" => {
+            if report.interactive_host_object_count != 0 {
+                return package_error("packaged Headless smoke reported interactive host objects");
+            }
+            if report.presentation.is_some() {
+                return package_error(
+                    "packaged Headless smoke unexpectedly reported a presentation snapshot",
+                );
+            }
+        }
+        other => {
+            return package_error(format!(
+                "package smoke presentation contract is undefined for composition root {other}"
+            ));
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn runtime_prerequisite_failure_code(

@@ -11,9 +11,8 @@ use std::time::Duration;
 use ash::vk;
 use next_contracts::ids::{ContentHash, PersistentId};
 use next_contracts::platform::{NormalizedControlPhaseV1, PlatformEventKindV1, PlatformEventV1};
-use next_contracts::presentation::{
-    PresentationPrimitiveV1, PresentationSnapshotV2, ScenePresentationRecordV2,
-};
+use next_contracts::presentation::PresentationSnapshotV2;
+use next_contracts::render_content::RenderContentCatalogV1;
 use sdl3::event::{Event, WindowEvent};
 use sdl3::keyboard::{Mod, Scancode};
 use sdl3::video::Window;
@@ -48,6 +47,12 @@ impl Default for DesktopRunOptions {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DesktopRunReport {
     pub rendered_frames: u64,
+    pub rendered_objects: u64,
+    pub indexed_draws: u64,
+    pub fallback_material_draws: u64,
+    pub last_frame_plan_hash: Option<ContentHash>,
+    pub last_drawable_extent: Option<[u32; 2]>,
+    pub last_target_revision: Option<u64>,
     pub normalized_events: u64,
     pub control_events: u64,
     pub lifecycle_events: u64,
@@ -66,13 +71,15 @@ pub struct DesktopRunReport {
 
 pub fn run_interactive(
     snapshot: &PresentationSnapshotV2,
+    render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
-    run_interactive_with_event_sink(snapshot, options, |_| Ok(()))
+    run_interactive_with_event_sink(snapshot, render_content_catalog, options, |_| Ok(()))
 }
 
 pub fn run_interactive_with_event_sink(
     snapshot: &PresentationSnapshotV2,
+    render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
     mut event_sink: impl FnMut(&[PlatformEventV1]) -> Result<(), DesktopAdapterError>,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
@@ -101,10 +108,16 @@ pub fn run_interactive_with_event_sink(
             options.initial_extent,
         )?;
     }
-    let mut graphics = Some(GraphicsContext::new(&window)?);
+    let mut graphics = Some(GraphicsContext::new(&window, render_content_catalog)?);
     let mut normalizer = lifecycle::DesktopEventNormalizer::new(options.host_instance_id)?;
     let mut event_stats = DesktopEventStats::default();
     let mut rendered_frames = 0_u64;
+    let mut rendered_objects = 0_u64;
+    let mut indexed_draws = 0_u64;
+    let mut fallback_material_draws = 0_u64;
+    let mut last_frame_plan_hash = None;
+    let mut last_drawable_extent = None;
+    let mut last_target_revision = None;
     let mut close_requested = false;
     let mut rendering_suspended = false;
     let mut fullscreen = false;
@@ -292,6 +305,7 @@ pub fn run_interactive_with_event_sink(
                     recover_graphics(
                         &mut graphics,
                         &window,
+                        render_content_catalog,
                         &mut normalizer,
                         &mut event_sink,
                         &mut event_stats,
@@ -311,6 +325,7 @@ pub fn run_interactive_with_event_sink(
             recover_graphics(
                 &mut graphics,
                 &window,
+                render_content_catalog,
                 &mut normalizer,
                 &mut event_sink,
                 &mut event_stats,
@@ -326,12 +341,13 @@ pub fn run_interactive_with_event_sink(
             .as_mut()
             .ok_or(DesktopAdapterError::GraphicsContextMissing)?
             .render(snapshot, &window);
-        let rendered = match render_result {
-            Ok(rendered) => rendered,
+        let submitted = match render_result {
+            Ok(submitted) => submitted,
             Err(error) if error.is_recoverable_presentation_loss() => {
                 recover_graphics(
                     &mut graphics,
                     &window,
+                    render_content_catalog,
                     &mut normalizer,
                     &mut event_sink,
                     &mut event_stats,
@@ -340,14 +356,20 @@ pub fn run_interactive_with_event_sink(
                     event_timestamp_fallback(rendered_frames),
                     error.presentation_loss_reason(),
                 )?;
-                false
+                None
             }
             Err(error) => return Err(error),
         };
-        if rendered {
+        if let Some(submitted) = submitted {
             rendered_frames = rendered_frames
                 .checked_add(1)
                 .ok_or(DesktopAdapterError::CounterOverflow)?;
+            rendered_objects = submitted.rendered_objects;
+            indexed_draws = submitted.indexed_draws;
+            fallback_material_draws = submitted.fallback_material_draws;
+            last_frame_plan_hash = Some(submitted.frame_plan_hash);
+            last_drawable_extent = Some(submitted.drawable_extent);
+            last_target_revision = Some(submitted.target_revision);
         }
         if options
             .maximum_frames
@@ -363,6 +385,12 @@ pub fn run_interactive_with_event_sink(
         .wait_idle()?;
     Ok(DesktopRunReport {
         rendered_frames,
+        rendered_objects,
+        indexed_draws,
+        fallback_material_draws,
+        last_frame_plan_hash,
+        last_drawable_extent,
+        last_target_revision,
         normalized_events: event_stats.normalized_events,
         control_events: event_stats.control_events,
         lifecycle_events: event_stats.lifecycle_events,
@@ -380,9 +408,11 @@ pub fn run_interactive_with_event_sink(
     })
 }
 
+mod gpu_content;
 mod graphics;
 mod lifecycle;
 mod native_events;
+mod shader_assets;
 
 use graphics::GraphicsContext;
 
@@ -478,6 +508,7 @@ fn publish_observations(
 fn recover_graphics(
     graphics: &mut Option<GraphicsContext>,
     window: &Window,
+    render_content_catalog: &RenderContentCatalogV1,
     normalizer: &mut lifecycle::DesktopEventNormalizer,
     event_sink: &mut impl FnMut(&[PlatformEventV1]) -> Result<(), DesktopAdapterError>,
     event_stats: &mut DesktopEventStats,
@@ -507,7 +538,7 @@ fn recover_graphics(
         .take()
         .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
     drop(prior);
-    *graphics = Some(GraphicsContext::new(window)?);
+    *graphics = Some(GraphicsContext::new(window, render_content_catalog)?);
     *recovery_count = recovery_count
         .checked_add(1)
         .ok_or(DesktopAdapterError::CounterOverflow)?;
@@ -658,55 +689,6 @@ fn normalized_modifiers(modifiers: Mod) -> Vec<&'static str> {
     normalized
 }
 
-fn primitive_color(primitive: PresentationPrimitiveV1) -> vk::ClearValue {
-    let color = match primitive {
-        PresentationPrimitiveV1::Floor => [0.10, 0.12, 0.16, 1.0],
-        PresentationPrimitiveV1::Capsule => [0.22, 0.66, 1.0, 1.0],
-        PresentationPrimitiveV1::Switch => [1.0, 0.38, 0.18, 1.0],
-        PresentationPrimitiveV1::Item => [1.0, 0.82, 0.22, 1.0],
-        PresentationPrimitiveV1::Character => [0.68, 0.34, 0.92, 1.0],
-    };
-    vk::ClearValue {
-        color: vk::ClearColorValue { float32: color },
-    }
-}
-
-fn record_rectangle(record: &ScenePresentationRecordV2, extent: vk::Extent2D) -> vk::ClearRect {
-    let [x, _, z] = record.current_transform.translation_micrometres;
-    let width_i64 = i64::from(extent.width);
-    let height_i64 = i64::from(extent.height);
-    let center_x =
-        ((x.saturating_add(1_000_000)).clamp(0, 2_000_000) * width_i64 / 2_000_000) as i32;
-    let center_y =
-        ((z.saturating_add(1_000_000)).clamp(0, 2_000_000) * height_i64 / 2_000_000) as i32;
-    let [width, height] = match record.primitive {
-        PresentationPrimitiveV1::Floor => [extent.width, extent.height],
-        PresentationPrimitiveV1::Capsule => [28, 52],
-        PresentationPrimitiveV1::Switch => [34, 34],
-        PresentationPrimitiveV1::Item => [18, 18],
-        PresentationPrimitiveV1::Character => [30, 54],
-    };
-    let max_x = i32::try_from(extent.width.saturating_sub(width)).unwrap_or(i32::MAX);
-    let max_y = i32::try_from(extent.height.saturating_sub(height)).unwrap_or(i32::MAX);
-    let offset_x = center_x
-        .saturating_sub(i32::try_from(width / 2).unwrap_or(0))
-        .clamp(0, max_x);
-    let offset_y = center_y
-        .saturating_sub(i32::try_from(height / 2).unwrap_or(0))
-        .clamp(0, max_y);
-    vk::ClearRect {
-        rect: vk::Rect2D {
-            offset: vk::Offset2D {
-                x: offset_x,
-                y: offset_y,
-            },
-            extent: vk::Extent2D { width, height },
-        },
-        base_array_layer: 0,
-        layer_count: 1,
-    }
-}
-
 fn sdl_error(error: impl Display) -> DesktopAdapterError {
     DesktopAdapterError::Sdl(error.to_string())
 }
@@ -715,6 +697,8 @@ fn sdl_error(error: impl Display) -> DesktopAdapterError {
 #[non_exhaustive]
 pub enum DesktopAdapterError {
     Presentation(next_contracts::presentation::PresentationContractError),
+    Render(next_render::RenderDeviceError),
+    RenderContent(String),
     Platform(next_contracts::platform::PlatformContractError),
     Identifier(next_contracts::ids::IdentifierError),
     Sdl(String),
@@ -738,6 +722,8 @@ impl DesktopAdapterError {
     pub const fn diagnostic_code(&self) -> &'static str {
         match self {
             Self::Presentation(_) => "PRESENTATION_SNAPSHOT_INVALID",
+            Self::Render(_) => "PRESENTATION_RENDER_PLAN_INVALID",
+            Self::RenderContent(_) => "PRESENTATION_RENDER_CONTENT_FAILED",
             Self::Platform(_) | Self::Identifier(_) => "PLATFORM_EVENT_SCHEMA_INVALID",
             Self::Sdl(_) => "PLATFORM_DESKTOP_RUNTIME_UNAVAILABLE",
             Self::Loader(_) => "PLATFORM_GRAPHICS_LOADER_UNAVAILABLE",
@@ -781,6 +767,10 @@ impl Display for DesktopAdapterError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Presentation(error) => write!(formatter, "{error}"),
+            Self::Render(error) => write!(formatter, "B0 frame planning failed: {error}"),
+            Self::RenderContent(error) => {
+                write!(formatter, "B0 GPU content failed: {error}")
+            }
             Self::Platform(error) => write!(formatter, "{error}"),
             Self::Identifier(error) => write!(formatter, "{error}"),
             Self::Sdl(error) => write!(
@@ -836,6 +826,21 @@ impl Error for DesktopAdapterError {}
 impl From<next_contracts::presentation::PresentationContractError> for DesktopAdapterError {
     fn from(error: next_contracts::presentation::PresentationContractError) -> Self {
         Self::Presentation(error)
+    }
+}
+
+impl From<next_render::RenderDeviceError> for DesktopAdapterError {
+    fn from(error: next_render::RenderDeviceError) -> Self {
+        Self::Render(error)
+    }
+}
+
+impl From<gpu_content::B0GpuContentError> for DesktopAdapterError {
+    fn from(error: gpu_content::B0GpuContentError) -> Self {
+        match error {
+            gpu_content::B0GpuContentError::Graphics(error) => Self::Graphics(error),
+            error => Self::RenderContent(error.to_string()),
+        }
     }
 }
 

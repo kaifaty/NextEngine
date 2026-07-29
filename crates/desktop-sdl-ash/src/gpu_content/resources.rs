@@ -1,0 +1,673 @@
+use std::collections::BTreeMap;
+
+use ash::vk;
+use next_contracts::project::AssetRevisionRefV1;
+
+use super::{B0GpuContentError, FRAME_UNIFORM_SIZE, MINIMUM_BUFFER_SIZE, PreparedContent};
+
+pub(super) struct BufferAllocation {
+    pub(super) device: ash::Device,
+    pub(super) buffer: vk::Buffer,
+    memory: vk::DeviceMemory,
+    size: vk::DeviceSize,
+}
+
+impl BufferAllocation {
+    pub(super) fn new(
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        device: &ash::Device,
+        size: vk::DeviceSize,
+        usage: vk::BufferUsageFlags,
+        memory_properties: vk::MemoryPropertyFlags,
+    ) -> Result<Self, B0GpuContentError> {
+        let size = size.max(MINIMUM_BUFFER_SIZE);
+        let buffer_info = vk::BufferCreateInfo::default()
+            .size(size)
+            .usage(usage)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE);
+        // SAFETY: the create info contains no retained host pointers and the
+        // returned buffer is owned and destroyed by this allocation.
+        let buffer = unsafe { device.create_buffer(&buffer_info, None) }?;
+        // SAFETY: the buffer was created by this live logical device.
+        let requirements = unsafe { device.get_buffer_memory_requirements(buffer) };
+        let memory_type_index = match memory_type_index(
+            instance,
+            physical_device,
+            requirements.memory_type_bits,
+            memory_properties,
+        ) {
+            Ok(index) => index,
+            Err(error) => {
+                // SAFETY: creation succeeded and no memory was bound.
+                unsafe { device.destroy_buffer(buffer, None) };
+                return Err(error);
+            }
+        };
+        let allocation_info = vk::MemoryAllocateInfo::default()
+            .allocation_size(requirements.size)
+            .memory_type_index(memory_type_index);
+        // SAFETY: the allocation targets a supported memory type queried for
+        // this physical device and retains no host pointer.
+        let memory = match unsafe { device.allocate_memory(&allocation_info, None) } {
+            Ok(memory) => memory,
+            Err(error) => {
+                // SAFETY: the unbound buffer remains owned by this device.
+                unsafe { device.destroy_buffer(buffer, None) };
+                return Err(error.into());
+            }
+        };
+        // SAFETY: memory satisfies this buffer's exact requirements and is
+        // bound at aligned offset zero exactly once.
+        if let Err(error) = unsafe { device.bind_buffer_memory(buffer, memory, 0) } {
+            // SAFETY: neither handle is used after this failed binding.
+            unsafe {
+                device.free_memory(memory, None);
+                device.destroy_buffer(buffer, None);
+            }
+            return Err(error.into());
+        }
+        Ok(Self {
+            device: device.clone(),
+            buffer,
+            memory,
+            size,
+        })
+    }
+
+    pub(super) fn write(
+        &self,
+        offset: vk::DeviceSize,
+        bytes: &[u8],
+    ) -> Result<(), B0GpuContentError> {
+        if bytes.is_empty() {
+            return Ok(());
+        }
+        let byte_count =
+            u64::try_from(bytes.len()).map_err(|_| B0GpuContentError::CountOverflow)?;
+        if offset
+            .checked_add(byte_count)
+            .is_none_or(|end| end > self.size)
+        {
+            return Err(B0GpuContentError::CountOverflow);
+        }
+        // SAFETY: this allocation was created HOST_VISIBLE for every caller of
+        // `write`; the checked range lies within the allocation.
+        let mapped = unsafe {
+            self.device
+                .map_memory(self.memory, offset, byte_count, vk::MemoryMapFlags::empty())
+        }?;
+        // SAFETY: Vulkan returned a writable mapping for `byte_count` bytes
+        // and the source slice is valid and non-overlapping.
+        unsafe {
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), mapped.cast::<u8>(), bytes.len());
+            self.device.unmap_memory(self.memory);
+        }
+        Ok(())
+    }
+}
+
+impl Drop for BufferAllocation {
+    fn drop(&mut self) {
+        // SAFETY: these handles were created together by this allocation and
+        // the buffer is destroyed before its bound memory is freed.
+        unsafe {
+            self.device.destroy_buffer(self.buffer, None);
+            self.device.free_memory(self.memory, None);
+        }
+    }
+}
+
+struct ImageAllocation {
+    device: ash::Device,
+    image: vk::Image,
+    memory: vk::DeviceMemory,
+}
+
+impl ImageAllocation {
+    fn new(
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        device: &ash::Device,
+        extent: vk::Extent3D,
+    ) -> Result<Self, B0GpuContentError> {
+        let image_info = vk::ImageCreateInfo::default()
+            .image_type(vk::ImageType::TYPE_2D)
+            .format(vk::Format::R8G8B8A8_SRGB)
+            .extent(extent)
+            .mip_levels(1)
+            .array_layers(1)
+            .samples(vk::SampleCountFlags::TYPE_1)
+            .tiling(vk::ImageTiling::OPTIMAL)
+            .usage(vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE)
+            .initial_layout(vk::ImageLayout::UNDEFINED);
+        // SAFETY: the create info is self-contained and the image is retained
+        // by this allocation until child views have been destroyed.
+        let image = unsafe { device.create_image(&image_info, None) }?;
+        // SAFETY: the image belongs to this device and is not concurrently
+        // mutated during construction.
+        let requirements = unsafe { device.get_image_memory_requirements(image) };
+        let memory_type_index = match memory_type_index(
+            instance,
+            physical_device,
+            requirements.memory_type_bits,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        ) {
+            Ok(index) => index,
+            Err(error) => {
+                // SAFETY: image creation succeeded and memory is not bound.
+                unsafe { device.destroy_image(image, None) };
+                return Err(error);
+            }
+        };
+        let allocation_info = vk::MemoryAllocateInfo::default()
+            .allocation_size(requirements.size)
+            .memory_type_index(memory_type_index);
+        // SAFETY: allocation size and type came from this image's exact
+        // requirements.
+        let memory = match unsafe { device.allocate_memory(&allocation_info, None) } {
+            Ok(memory) => memory,
+            Err(error) => {
+                // SAFETY: the image has no bound memory after allocation
+                // failure.
+                unsafe { device.destroy_image(image, None) };
+                return Err(error.into());
+            }
+        };
+        // SAFETY: memory meets the image requirements and is bound at the
+        // required aligned offset zero exactly once.
+        if let Err(error) = unsafe { device.bind_image_memory(image, memory, 0) } {
+            // SAFETY: neither handle is referenced after the failed binding.
+            unsafe {
+                device.free_memory(memory, None);
+                device.destroy_image(image, None);
+            }
+            return Err(error.into());
+        }
+        Ok(Self {
+            device: device.clone(),
+            image,
+            memory,
+        })
+    }
+}
+
+impl Drop for ImageAllocation {
+    fn drop(&mut self) {
+        // SAFETY: all child views are destroyed by `TextureResource` first,
+        // then this owned image is destroyed before freeing bound memory.
+        unsafe {
+            self.device.destroy_image(self.image, None);
+            self.device.free_memory(self.memory, None);
+        }
+    }
+}
+
+pub(super) struct TextureResource {
+    device: ash::Device,
+    view: vk::ImageView,
+    image: ImageAllocation,
+}
+
+impl TextureResource {
+    pub(super) fn new(
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        device: &ash::Device,
+        extent: vk::Extent3D,
+    ) -> Result<Self, B0GpuContentError> {
+        let image = ImageAllocation::new(instance, physical_device, device, extent)?;
+        let subresource = vk::ImageSubresourceRange::default()
+            .aspect_mask(vk::ImageAspectFlags::COLOR)
+            .base_mip_level(0)
+            .level_count(1)
+            .base_array_layer(0)
+            .layer_count(1);
+        let view_info = vk::ImageViewCreateInfo::default()
+            .image(image.image)
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(vk::Format::R8G8B8A8_SRGB)
+            .subresource_range(subresource);
+        // SAFETY: image is live, format-compatible, and remains owned by this
+        // resource until after the view is destroyed.
+        let view = unsafe { device.create_image_view(&view_info, None) }?;
+        Ok(Self {
+            device: device.clone(),
+            view,
+            image,
+        })
+    }
+}
+
+impl Drop for TextureResource {
+    fn drop(&mut self) {
+        // SAFETY: the view belongs to this device and is destroyed before the
+        // `image` field is dropped.
+        unsafe { self.device.destroy_image_view(self.view, None) };
+    }
+}
+
+fn memory_type_index(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+    type_bits: u32,
+    required: vk::MemoryPropertyFlags,
+) -> Result<u32, B0GpuContentError> {
+    // SAFETY: the physical-device handle was enumerated from this instance and
+    // the query only returns value data.
+    let properties = unsafe { instance.get_physical_device_memory_properties(physical_device) };
+    properties
+        .memory_types
+        .iter()
+        .enumerate()
+        .take(properties.memory_type_count as usize)
+        .find(|(index, memory_type)| {
+            type_bits & (1_u32 << index) != 0 && memory_type.property_flags.contains(required)
+        })
+        .map(|(index, _)| index as u32)
+        .ok_or(B0GpuContentError::MemoryTypeUnavailable)
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the one-shot upload explicitly names every owned transfer resource"
+)]
+pub(super) fn upload_content(
+    device: &ash::Device,
+    queue: vk::Queue,
+    queue_family_index: u32,
+    staging: &BufferAllocation,
+    geometry: &BufferAllocation,
+    indirect: &BufferAllocation,
+    textures: &BTreeMap<AssetRevisionRefV1, TextureResource>,
+    prepared: &PreparedContent,
+) -> Result<(), B0GpuContentError> {
+    let pool_info = vk::CommandPoolCreateInfo::default()
+        .queue_family_index(queue_family_index)
+        .flags(vk::CommandPoolCreateFlags::TRANSIENT);
+    // SAFETY: the queue family belongs to this live logical device.
+    let command_pool = unsafe { device.create_command_pool(&pool_info, None) }?;
+    let mut upload_completion_known = true;
+    let result = (|| {
+        let allocation_info = vk::CommandBufferAllocateInfo::default()
+            .command_pool(command_pool)
+            .level(vk::CommandBufferLevel::PRIMARY)
+            .command_buffer_count(1);
+        // SAFETY: the transient pool is live and owned for the whole upload.
+        let command_buffer = unsafe { device.allocate_command_buffers(&allocation_info) }?[0];
+        let begin_info = vk::CommandBufferBeginInfo::default()
+            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+        // SAFETY: the newly allocated primary command buffer is in the initial
+        // state and is recorded exactly once before submission.
+        unsafe { device.begin_command_buffer(command_buffer, &begin_info) }?;
+
+        if prepared.geometry_payload_size != 0 {
+            let regions = [vk::BufferCopy::default()
+                .src_offset(prepared.geometry_staging_offset)
+                .dst_offset(0)
+                .size(prepared.geometry_payload_size)];
+            // SAFETY: source and destination buffers are live, non-overlapping
+            // allocations and the region lies within their checked sizes.
+            unsafe {
+                device.cmd_copy_buffer(command_buffer, staging.buffer, geometry.buffer, &regions);
+            }
+        }
+        if prepared.indirect_payload_size != 0 {
+            let regions = [vk::BufferCopy::default()
+                .src_offset(prepared.indirect_staging_offset)
+                .dst_offset(0)
+                .size(prepared.indirect_payload_size)];
+            // SAFETY: both buffers are live and the initialized indirect bytes
+            // fit the device-local destination.
+            unsafe {
+                device.cmd_copy_buffer(command_buffer, staging.buffer, indirect.buffer, &regions);
+            }
+        }
+        let mut buffer_barriers = Vec::with_capacity(2);
+        if prepared.geometry_payload_size != 0 {
+            buffer_barriers.push(
+                vk::BufferMemoryBarrier2::default()
+                    .src_stage_mask(vk::PipelineStageFlags2::TRANSFER)
+                    .src_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
+                    .dst_stage_mask(vk::PipelineStageFlags2::VERTEX_INPUT)
+                    .dst_access_mask(
+                        vk::AccessFlags2::VERTEX_ATTRIBUTE_READ | vk::AccessFlags2::INDEX_READ,
+                    )
+                    .buffer(geometry.buffer)
+                    .offset(0)
+                    .size(prepared.geometry_payload_size),
+            );
+        }
+        if prepared.indirect_payload_size != 0 {
+            buffer_barriers.push(
+                vk::BufferMemoryBarrier2::default()
+                    .src_stage_mask(vk::PipelineStageFlags2::TRANSFER)
+                    .src_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
+                    .dst_stage_mask(vk::PipelineStageFlags2::DRAW_INDIRECT)
+                    .dst_access_mask(vk::AccessFlags2::INDIRECT_COMMAND_READ)
+                    .buffer(indirect.buffer)
+                    .offset(0)
+                    .size(prepared.indirect_payload_size),
+            );
+        }
+        if !buffer_barriers.is_empty() {
+            let dependency = vk::DependencyInfo::default().buffer_memory_barriers(&buffer_barriers);
+            // SAFETY: the transfer copies above initialize the complete buffer
+            // ranges, and this barrier makes them visible to subsequent vertex,
+            // index, and indirect reads on the same queue.
+            unsafe { device.cmd_pipeline_barrier2(command_buffer, &dependency) };
+        }
+
+        let subresource_range = vk::ImageSubresourceRange::default()
+            .aspect_mask(vk::ImageAspectFlags::COLOR)
+            .base_mip_level(0)
+            .level_count(1)
+            .base_array_layer(0)
+            .layer_count(1);
+        let to_transfer = prepared
+            .textures
+            .iter()
+            .map(|texture| {
+                let resource = textures
+                    .get(&texture.revision)
+                    .ok_or(B0GpuContentError::ResourceMissing("upload texture image"))?;
+                Ok(vk::ImageMemoryBarrier2::default()
+                    .src_stage_mask(vk::PipelineStageFlags2::NONE)
+                    .src_access_mask(vk::AccessFlags2::NONE)
+                    .dst_stage_mask(vk::PipelineStageFlags2::TRANSFER)
+                    .dst_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
+                    .old_layout(vk::ImageLayout::UNDEFINED)
+                    .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
+                    .image(resource.image.image)
+                    .subresource_range(subresource_range))
+            })
+            .collect::<Result<Vec<_>, B0GpuContentError>>()?;
+        if !to_transfer.is_empty() {
+            let dependency = vk::DependencyInfo::default().image_memory_barriers(&to_transfer);
+            // SAFETY: every image starts in UNDEFINED and each barrier targets
+            // its sole color mip and layer in this recording command buffer.
+            unsafe { device.cmd_pipeline_barrier2(command_buffer, &dependency) };
+        }
+        for texture in &prepared.textures {
+            let resource = textures
+                .get(&texture.revision)
+                .ok_or(B0GpuContentError::ResourceMissing("upload texture image"))?;
+            let region = [vk::BufferImageCopy::default()
+                .buffer_offset(texture.staging_offset)
+                .buffer_row_length(0)
+                .buffer_image_height(0)
+                .image_subresource(
+                    vk::ImageSubresourceLayers::default()
+                        .aspect_mask(vk::ImageAspectFlags::COLOR)
+                        .mip_level(0)
+                        .base_array_layer(0)
+                        .layer_count(1),
+                )
+                .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
+                .image_extent(texture.extent)];
+            // SAFETY: the source offset is four-byte aligned, image extent
+            // matches the exact RGBA8 mip payload, and layout is TRANSFER_DST.
+            unsafe {
+                device.cmd_copy_buffer_to_image(
+                    command_buffer,
+                    staging.buffer,
+                    resource.image.image,
+                    vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                    &region,
+                );
+            }
+        }
+        let to_shader = prepared
+            .textures
+            .iter()
+            .map(|texture| {
+                let resource = textures
+                    .get(&texture.revision)
+                    .ok_or(B0GpuContentError::ResourceMissing("uploaded texture image"))?;
+                Ok(vk::ImageMemoryBarrier2::default()
+                    .src_stage_mask(vk::PipelineStageFlags2::TRANSFER)
+                    .src_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
+                    .dst_stage_mask(vk::PipelineStageFlags2::FRAGMENT_SHADER)
+                    .dst_access_mask(vk::AccessFlags2::SHADER_SAMPLED_READ)
+                    .old_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
+                    .new_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+                    .image(resource.image.image)
+                    .subresource_range(subresource_range))
+            })
+            .collect::<Result<Vec<_>, B0GpuContentError>>()?;
+        if !to_shader.is_empty() {
+            let dependency = vk::DependencyInfo::default().image_memory_barriers(&to_shader);
+            // SAFETY: every listed image was populated earlier in this command
+            // buffer and remains alive through queue completion.
+            unsafe { device.cmd_pipeline_barrier2(command_buffer, &dependency) };
+        }
+        // SAFETY: recording is active and all commands reference live resources.
+        unsafe { device.end_command_buffer(command_buffer) }?;
+
+        let command_buffers = [command_buffer];
+        let submit_infos = [vk::SubmitInfo::default().command_buffers(&command_buffers)];
+        let fence_info = vk::FenceCreateInfo::default();
+        // SAFETY: fence creation retains no host pointer.
+        let fence = unsafe { device.create_fence(&fence_info, None) }?;
+        // SAFETY: command buffer is executable, queue belongs to its family,
+        // and fence is unsignaled and used for this one submission.
+        let submit_result = unsafe { device.queue_submit(queue, &submit_infos, fence) };
+        let wait_result: Result<(), B0GpuContentError> = match submit_result {
+            Err(error) => Err(error.into()),
+            Ok(()) => {
+                // SAFETY: the fence belongs to this device and will remain live
+                // until this unbounded setup-time wait returns.
+                match unsafe { device.wait_for_fences(&[fence], true, u64::MAX) } {
+                    Ok(()) => Ok(()),
+                    Err(vk::Result::ERROR_DEVICE_LOST) => Err(vk::Result::ERROR_DEVICE_LOST.into()),
+                    Err(wait_error) => {
+                        // SAFETY: this fallback waits for every submission on
+                        // the same queue before any upload object is destroyed.
+                        match unsafe { device.queue_wait_idle(queue) } {
+                            Ok(()) => Err(wait_error.into()),
+                            Err(vk::Result::ERROR_DEVICE_LOST) => {
+                                Err(vk::Result::ERROR_DEVICE_LOST.into())
+                            }
+                            Err(idle_error) => {
+                                upload_completion_known = false;
+                                Err(B0GpuContentError::UploadCompletionUnknown(idle_error))
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        if upload_completion_known {
+            // SAFETY: submission either never started, has completed, or the
+            // device was lost; the fence is no longer in use.
+            unsafe { device.destroy_fence(fence, None) };
+        }
+        wait_result?;
+        Ok(())
+    })();
+    if upload_completion_known {
+        // SAFETY: successful upload waits for completion; on an error, work
+        // either was not submitted, was made idle by the fallback, or the
+        // device was lost. Unknown pending work deliberately leaks this pool.
+        unsafe { device.destroy_command_pool(command_pool, None) };
+    }
+    result
+}
+
+pub(super) struct DescriptorState {
+    device: ash::Device,
+    pool: vk::DescriptorPool,
+    pub(super) frame_layout: vk::DescriptorSetLayout,
+    pub(super) texture_layout: vk::DescriptorSetLayout,
+    sampler: vk::Sampler,
+    pub(super) frame_set: vk::DescriptorSet,
+    pub(super) texture_sets: BTreeMap<AssetRevisionRefV1, vk::DescriptorSet>,
+}
+
+impl DescriptorState {
+    pub(super) fn new(
+        device: &ash::Device,
+        frame_uniform: &BufferAllocation,
+        textures: &BTreeMap<AssetRevisionRefV1, TextureResource>,
+    ) -> Result<Self, B0GpuContentError> {
+        let frame_bindings = [vk::DescriptorSetLayoutBinding::default()
+            .binding(0)
+            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+            .descriptor_count(1)
+            .stage_flags(vk::ShaderStageFlags::VERTEX)];
+        let texture_bindings = [vk::DescriptorSetLayoutBinding::default()
+            .binding(0)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_count(1)
+            .stage_flags(vk::ShaderStageFlags::FRAGMENT)];
+        let frame_layout_info =
+            vk::DescriptorSetLayoutCreateInfo::default().bindings(&frame_bindings);
+        let texture_layout_info =
+            vk::DescriptorSetLayoutCreateInfo::default().bindings(&texture_bindings);
+        // SAFETY: bindings are closed B0 values and no pointer is retained.
+        let frame_layout =
+            unsafe { device.create_descriptor_set_layout(&frame_layout_info, None) }?;
+        // SAFETY: same ownership conditions as the frame layout.
+        let texture_layout =
+            match unsafe { device.create_descriptor_set_layout(&texture_layout_info, None) } {
+                Ok(layout) => layout,
+                Err(error) => {
+                    // SAFETY: frame layout creation succeeded and it has no
+                    // dependent pipeline or descriptor sets yet.
+                    unsafe { device.destroy_descriptor_set_layout(frame_layout, None) };
+                    return Err(error.into());
+                }
+            };
+        let sampler_info = vk::SamplerCreateInfo::default()
+            .mag_filter(vk::Filter::NEAREST)
+            .min_filter(vk::Filter::NEAREST)
+            .mipmap_mode(vk::SamplerMipmapMode::NEAREST)
+            .address_mode_u(vk::SamplerAddressMode::REPEAT)
+            .address_mode_v(vk::SamplerAddressMode::REPEAT)
+            .address_mode_w(vk::SamplerAddressMode::REPEAT)
+            .min_lod(0.0)
+            .max_lod(0.0);
+        // SAFETY: sampler uses only core, non-anisotropic B0 features.
+        let sampler = match unsafe { device.create_sampler(&sampler_info, None) } {
+            Ok(sampler) => sampler,
+            Err(error) => {
+                // SAFETY: layouts have no dependants after sampler failure.
+                unsafe {
+                    device.destroy_descriptor_set_layout(texture_layout, None);
+                    device.destroy_descriptor_set_layout(frame_layout, None);
+                }
+                return Err(error.into());
+            }
+        };
+
+        let texture_count =
+            u32::try_from(textures.len()).map_err(|_| B0GpuContentError::CountOverflow)?;
+        let mut pool_sizes = vec![vk::DescriptorPoolSize {
+            ty: vk::DescriptorType::UNIFORM_BUFFER,
+            descriptor_count: 1,
+        }];
+        if texture_count != 0 {
+            pool_sizes.push(vk::DescriptorPoolSize {
+                ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+                descriptor_count: texture_count,
+            });
+        }
+        let max_sets = texture_count
+            .checked_add(1)
+            .ok_or(B0GpuContentError::CountOverflow)?;
+        let pool_info = vk::DescriptorPoolCreateInfo::default()
+            .max_sets(max_sets)
+            .pool_sizes(&pool_sizes);
+        // SAFETY: pool sizes exactly cover the immutable B0 descriptor sets.
+        let pool = match unsafe { device.create_descriptor_pool(&pool_info, None) } {
+            Ok(pool) => pool,
+            Err(error) => {
+                // SAFETY: no sets or pipelines depend on these objects.
+                unsafe {
+                    device.destroy_sampler(sampler, None);
+                    device.destroy_descriptor_set_layout(texture_layout, None);
+                    device.destroy_descriptor_set_layout(frame_layout, None);
+                }
+                return Err(error.into());
+            }
+        };
+
+        let mut layouts = Vec::with_capacity(textures.len() + 1);
+        layouts.push(frame_layout);
+        layouts.extend(std::iter::repeat_n(texture_layout, textures.len()));
+        let allocation_info = vk::DescriptorSetAllocateInfo::default()
+            .descriptor_pool(pool)
+            .set_layouts(&layouts);
+        // SAFETY: pool and every requested layout are live and owned by the
+        // same device.
+        let sets = match unsafe { device.allocate_descriptor_sets(&allocation_info) } {
+            Ok(sets) => sets,
+            Err(error) => {
+                // SAFETY: failed allocation leaves no externally owned sets.
+                unsafe {
+                    device.destroy_descriptor_pool(pool, None);
+                    device.destroy_sampler(sampler, None);
+                    device.destroy_descriptor_set_layout(texture_layout, None);
+                    device.destroy_descriptor_set_layout(frame_layout, None);
+                }
+                return Err(error.into());
+            }
+        };
+        let frame_set = sets[0];
+        let frame_info = [vk::DescriptorBufferInfo::default()
+            .buffer(frame_uniform.buffer)
+            .offset(0)
+            .range(FRAME_UNIFORM_SIZE)];
+        let frame_writes = [vk::WriteDescriptorSet::default()
+            .dst_set(frame_set)
+            .dst_binding(0)
+            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+            .buffer_info(&frame_info)];
+        // SAFETY: destination set and uniform buffer are live; Vulkan copies
+        // descriptor values during this call.
+        unsafe { device.update_descriptor_sets(&frame_writes, &[]) };
+
+        let mut texture_sets = BTreeMap::new();
+        for ((revision, texture), descriptor_set) in textures.iter().zip(sets.into_iter().skip(1)) {
+            let image_info = [vk::DescriptorImageInfo::default()
+                .sampler(sampler)
+                .image_view(texture.view)
+                .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
+            let writes = [vk::WriteDescriptorSet::default()
+                .dst_set(descriptor_set)
+                .dst_binding(0)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .image_info(&image_info)];
+            // SAFETY: exact image view, shared sampler, and set are live;
+            // descriptor payload is copied synchronously.
+            unsafe { device.update_descriptor_sets(&writes, &[]) };
+            texture_sets.insert(*revision, descriptor_set);
+        }
+
+        Ok(Self {
+            device: device.clone(),
+            pool,
+            frame_layout,
+            texture_layout,
+            sampler,
+            frame_set,
+            texture_sets,
+        })
+    }
+}
+
+impl Drop for DescriptorState {
+    fn drop(&mut self) {
+        // SAFETY: the graphics pipeline has already been destroyed. The pool
+        // releases sets before their sampler and layouts are destroyed.
+        unsafe {
+            self.device.destroy_descriptor_pool(self.pool, None);
+            self.device.destroy_sampler(self.sampler, None);
+            self.device
+                .destroy_descriptor_set_layout(self.texture_layout, None);
+            self.device
+                .destroy_descriptor_set_layout(self.frame_layout, None);
+        }
+    }
+}

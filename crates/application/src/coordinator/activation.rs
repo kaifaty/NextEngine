@@ -172,11 +172,12 @@ fn activate_selected_project(
         ProjectSelectionV1::PublishedStateRoot(root) => root.clone(),
     };
     let store = ContentStore::new(&project_root);
-    if matches!(launch.project, ProjectSelectionV1::Reference)
-        && !project_root
-            .join(next_assets::CONTENT_CURRENT_FILE)
-            .exists()
-    {
+    if matches!(launch.project, ProjectSelectionV1::Reference) {
+        // The embedded reference project is an exact engine-owned fixture.
+        // Publishing its current generation on every activation atomically
+        // advances legacy local packages after a schema/content-profile
+        // change, while `ContentStore` still rejects corruption if the exact
+        // generation already exists.
         let cooked = cook_project_v1(project_source_v2()?)?;
         store.publish(&cooked.publication()?)?;
     }

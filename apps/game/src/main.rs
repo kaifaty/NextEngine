@@ -65,6 +65,10 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
     let run = application
         .run_reference_game(true)
         .map_err(AppFailure::application)?;
+    let render_content_catalog = application
+        .activated_project()
+        .render_content_catalog
+        .clone();
     let adapter = if options.interactive {
         let snapshot = run.presentation_snapshot.as_ref().ok_or_else(|| {
             AppFailure::cli(
@@ -72,9 +76,9 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
                 "interactive target produced no presentation snapshot",
             )
         })?;
-        run_interactive(snapshot, options.maximum_frames)
+        run_interactive(snapshot, &render_content_catalog, options.maximum_frames)
     } else {
-        Ok(())
+        Ok(0)
     };
     let close = application
         .close(next_application::CloseExecutionOptionsV1::default())
@@ -85,8 +89,14 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
             "application close did not reach a terminal receipt",
         ));
     }
-    adapter?;
-    RunReportV1::new(CompositionRootV1::Game, &run, &close, 0).ok_or_else(|| {
+    let interactive_host_object_count = adapter?;
+    RunReportV1::new(
+        CompositionRootV1::Game,
+        &run,
+        &close,
+        interactive_host_object_count,
+    )
+    .ok_or_else(|| {
         AppFailure::cli(
             "SESSION_TERMINAL_RECEIPT_MISSING",
             "closed application has no terminal receipt",
@@ -201,10 +211,12 @@ const fn hex_nibble(value: u8) -> u8 {
 #[cfg(feature = "desktop-sdl-ash")]
 fn run_interactive(
     snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    render_content_catalog: &next_contracts::render_content::RenderContentCatalogV1,
     maximum_frames: Option<u64>,
-) -> Result<(), AppFailure> {
+) -> Result<u64, AppFailure> {
     let report = next_desktop_sdl_ash::run_interactive(
         snapshot,
+        render_content_catalog,
         &next_desktop_sdl_ash::DesktopRunOptions {
             maximum_frames,
             ..next_desktop_sdl_ash::DesktopRunOptions::default()
@@ -221,14 +233,15 @@ fn run_interactive(
         report.fullscreen_events,
         report.device_recoveries,
     );
-    Ok(())
+    Ok(report.rendered_objects)
 }
 
 #[cfg(not(feature = "desktop-sdl-ash"))]
 fn run_interactive(
     _snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    _render_content_catalog: &next_contracts::render_content::RenderContentCatalogV1,
     _maximum_frames: Option<u64>,
-) -> Result<(), AppFailure> {
+) -> Result<u64, AppFailure> {
     Err(AppFailure::cli(
         "PLATFORM_INTERACTIVE_ADAPTER_UNAVAILABLE",
         "interactive desktop adapter is not enabled",

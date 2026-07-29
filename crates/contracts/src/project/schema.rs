@@ -39,6 +39,7 @@ impl SchemaEncodingV1 {
 pub enum SchemaRoleV1 {
     Definition = 1,
     Manifest = 2,
+    NeutralContent = 3,
 }
 
 impl SchemaRoleV1 {
@@ -46,6 +47,7 @@ impl SchemaRoleV1 {
         match self {
             Self::Definition => "definition",
             Self::Manifest => "manifest",
+            Self::NeutralContent => "neutral-content",
         }
     }
 
@@ -53,6 +55,7 @@ impl SchemaRoleV1 {
         match value {
             "definition" => Ok(Self::Definition),
             "manifest" => Ok(Self::Manifest),
+            "neutral-content" => Ok(Self::NeutralContent),
             _ => Err(ProjectContractError::UnknownClosedValue),
         }
     }

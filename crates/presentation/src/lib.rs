@@ -3,14 +3,14 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::ids::{AssetId, ContentHash, PersistentId};
+use next_contracts::ids::{ContentHash, PersistentId};
 use next_contracts::physics::{PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2};
 use next_contracts::presentation::{
-    PresentationContractError, PresentationObjectKeyV1, PresentationPrimitiveV1,
-    PresentationRoleV1, PresentationSnapshotV2, QuantizedPresentationTransformV1,
-    ScenePresentationRecordV2,
+    PresentationContractError, PresentationObjectKeyV1, PresentationRoleV1, PresentationSnapshotV2,
+    QuantizedPresentationTransformV1, ScenePresentationFlagsV1, ScenePresentationRecordV2,
 };
-use next_contracts::project::domain_hash;
+use next_contracts::project::{AssetRevisionRefV1, domain_hash};
+use next_contracts::render_content::AabbI64V1;
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct PresentationBindingV1 {
@@ -18,9 +18,11 @@ pub struct PresentationBindingV1 {
     pub presentation_role: PresentationRoleV1,
     pub incarnation: u32,
     pub presentation_layer: u16,
-    pub asset_id: AssetId,
+    pub mesh_revision: AssetRevisionRefV1,
+    pub material_revision: AssetRevisionRefV1,
     pub instance_ordinal: u32,
-    pub primitive: PresentationPrimitiveV1,
+    pub local_bounds: AabbI64V1,
+    pub feature_flags: ScenePresentationFlagsV1,
     pub physics_body_id: Option<PhysicsBodyIdV1>,
     pub fallback_transform: QuantizedPresentationTransformV1,
     pub visible: bool,
@@ -100,9 +102,11 @@ impl PresentationExtractorV1 {
                         presentation_role: binding.presentation_role,
                         incarnation: binding.incarnation,
                     },
-                    binding.asset_id,
+                    binding.mesh_revision,
+                    binding.material_revision,
                     binding.instance_ordinal,
-                    binding.primitive,
+                    binding.local_bounds,
+                    binding.feature_flags,
                     previous,
                     current,
                     binding.visible,
@@ -178,7 +182,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use next_contracts::ids::PhysicsWorldId;
+    use next_contracts::ids::{AssetId, PhysicsWorldId};
     use next_contracts::input::TickRateProfileV1;
     use next_contracts::physics::{
         AuthoritativeNumericProfileV1, PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1,
@@ -222,9 +226,17 @@ mod tests {
             presentation_role: PresentationRoleV1::Item,
             incarnation: 0,
             presentation_layer: 3,
-            asset_id: AssetId::from_bytes([id; 16]),
+            mesh_revision: AssetRevisionRefV1 {
+                asset_id: AssetId::from_bytes([id; 16]),
+                record_sha256: domain_hash("test.mesh", &[id]),
+            },
+            material_revision: AssetRevisionRefV1 {
+                asset_id: AssetId::from_bytes([id.saturating_add(32); 16]),
+                record_sha256: domain_hash("test.material", &[id]),
+            },
             instance_ordinal: 0,
-            primitive: PresentationPrimitiveV1::Item,
+            local_bounds: AabbI64V1::new([-1_000_000; 3], [1_000_001; 3]).expect("bounds"),
+            feature_flags: ScenePresentationFlagsV1::NONE,
             physics_body_id: None,
             fallback_transform: QuantizedPresentationTransformV1::default(),
             visible: true,

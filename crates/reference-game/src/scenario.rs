@@ -36,6 +36,7 @@ pub struct ReferenceRunOutcomeV1 {
     pub relationship_dimension_id: SchemaId,
     pub project_composition_lock_hash: ContentHash,
     pub content_manifest_hash: ContentHash,
+    pub render_content_catalog: next_contracts::render_content::RenderContentCatalogV1,
     pub presentation_bindings: Vec<PresentationBindingV1>,
     pub tick_reports: Vec<next_runtime::TickReport>,
     pub world_streaming_snapshot: next_contracts::world::WorldStreamingSnapshotV1,
@@ -324,6 +325,7 @@ pub fn run_reference_game_with_backend(
             .activated_project
             .content_manifest
             .content_manifest_sha256,
+        render_content_catalog: fixture.activated_project.render_content_catalog.clone(),
         presentation_bindings: fixture_presentation_bindings(&fixture)?,
         tick_reports,
         world_streaming_snapshot: world_streaming_snapshot.clone(),
@@ -414,24 +416,47 @@ fn rpg_contact_facts_from_report(
 fn fixture_presentation_bindings(
     fixture: &ReferenceGameSession,
 ) -> Result<Vec<PresentationBindingV1>, ReferenceGameError> {
-    let asset = |kind: next_contracts::content::NeutralRecordKindV1| {
+    let revision = |asset_id| {
         fixture
             .activated_project
-            .neutral_records
+            .content_manifest
+            .body
+            .asset_entries
             .iter()
-            .find(|record| record.kind == kind)
-            .map(|record| record.asset_id)
+            .find(|entry| entry.asset_revision.asset_id == asset_id)
+            .map(|entry| entry.asset_revision)
             .ok_or(ReferenceGameError::PresentationAssetMissing)
     };
+    let floor_mesh = revision(crate::source::REFERENCE_FLOOR_MESH_ASSET_ID)?;
+    let marker_mesh = revision(crate::source::REFERENCE_MARKER_MESH_ASSET_ID)?;
+    let material = revision(crate::source::REFERENCE_BASE_MATERIAL_ASSET_ID)?;
+    let floor_bounds = fixture
+        .activated_project
+        .render_content_catalog
+        .meshes()
+        .iter()
+        .find(|mesh| mesh.asset_id() == floor_mesh.asset_id)
+        .map(next_contracts::render_content::NeutralMeshV1::bounds)
+        .ok_or(ReferenceGameError::PresentationAssetMissing)?;
+    let marker_bounds = fixture
+        .activated_project
+        .render_content_catalog
+        .meshes()
+        .iter()
+        .find(|mesh| mesh.asset_id() == marker_mesh.asset_id)
+        .map(next_contracts::render_content::NeutralMeshV1::bounds)
+        .ok_or(ReferenceGameError::PresentationAssetMissing)?;
     Ok(vec![
         PresentationBindingV1 {
             persistent_id: PersistentId::from_bytes([0x57; 16]),
             presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
             incarnation: 0,
             presentation_layer: 0,
-            asset_id: asset(next_contracts::content::NeutralRecordKindV1::Scene)?,
+            mesh_revision: floor_mesh,
+            material_revision: material,
             instance_ordinal: 0,
-            primitive: next_contracts::presentation::PresentationPrimitiveV1::Floor,
+            local_bounds: floor_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
             physics_body_id: Some(PhysicsBodyIdV1 {
                 subject_id: PersistentId::from_bytes([0x57; 16]),
                 body_slot: 0,
@@ -445,9 +470,11 @@ fn fixture_presentation_bindings(
             presentation_role: next_contracts::presentation::PresentationRoleV1::PlayerAvatar,
             incarnation: 0,
             presentation_layer: 1,
-            asset_id: asset(next_contracts::content::NeutralRecordKindV1::Collider)?,
+            mesh_revision: marker_mesh,
+            material_revision: material,
             instance_ordinal: 0,
-            primitive: next_contracts::presentation::PresentationPrimitiveV1::Capsule,
+            local_bounds: marker_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
             physics_body_id: Some(fixture.physics_body_id),
             fallback_transform:
                 next_contracts::presentation::QuantizedPresentationTransformV1::default(),
@@ -458,9 +485,11 @@ fn fixture_presentation_bindings(
             presentation_role: next_contracts::presentation::PresentationRoleV1::InteractiveObject,
             incarnation: 0,
             presentation_layer: 2,
-            asset_id: asset(next_contracts::content::NeutralRecordKindV1::InteractionDefinition)?,
+            mesh_revision: marker_mesh,
+            material_revision: material,
             instance_ordinal: 0,
-            primitive: next_contracts::presentation::PresentationPrimitiveV1::Switch,
+            local_bounds: marker_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
             physics_body_id: Some(PhysicsBodyIdV1 {
                 subject_id: fixture.interactive_object_id,
                 body_slot: 0,
@@ -474,9 +503,11 @@ fn fixture_presentation_bindings(
             presentation_role: next_contracts::presentation::PresentationRoleV1::Item,
             incarnation: 0,
             presentation_layer: 3,
-            asset_id: asset(next_contracts::content::NeutralRecordKindV1::ItemDefinition)?,
+            mesh_revision: marker_mesh,
+            material_revision: material,
             instance_ordinal: 0,
-            primitive: next_contracts::presentation::PresentationPrimitiveV1::Item,
+            local_bounds: marker_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
             physics_body_id: Some(PhysicsBodyIdV1 {
                 subject_id: fixture.pickup_proxy_id,
                 body_slot: 0,
@@ -490,9 +521,11 @@ fn fixture_presentation_bindings(
             presentation_role: next_contracts::presentation::PresentationRoleV1::Character,
             incarnation: 0,
             presentation_layer: 4,
-            asset_id: asset(next_contracts::content::NeutralRecordKindV1::CharacterDefinition)?,
+            mesh_revision: marker_mesh,
+            material_revision: material,
             instance_ordinal: 0,
-            primitive: next_contracts::presentation::PresentationPrimitiveV1::Character,
+            local_bounds: marker_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
             physics_body_id: Some(PhysicsBodyIdV1 {
                 subject_id: fixture.npc_character_id,
                 body_slot: 0,

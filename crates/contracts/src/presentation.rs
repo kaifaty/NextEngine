@@ -2,9 +2,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use crate::ids::{AssetId, ContentHash, PersistentId};
+use crate::ids::{ContentHash, PersistentId};
 use crate::manifest_jcs::{JcsValue, encode_canonical_jcs};
-use crate::project::domain_hash;
+use crate::project::{AssetRevisionRefV1, domain_hash};
+use crate::render_content::AabbI64V1;
 
 pub const PRESENTATION_SNAPSHOT_SCHEMA_VERSION: u32 = 2;
 pub const PRESENTATION_SCENE_RECORD_SCHEMA_VERSION: u32 = 2;
@@ -32,25 +33,26 @@ impl PresentationRoleV1 {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-#[repr(u8)]
-pub enum PresentationPrimitiveV1 {
-    Floor = 0,
-    Capsule = 1,
-    Switch = 2,
-    Item = 3,
-    Character = 4,
-}
+#[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
+pub struct ScenePresentationFlagsV1(u32);
 
-impl PresentationPrimitiveV1 {
-    const fn token(self) -> &'static str {
-        match self {
-            Self::Floor => "Floor",
-            Self::Capsule => "Capsule",
-            Self::Switch => "Switch",
-            Self::Item => "Item",
-            Self::Character => "Character",
+impl ScenePresentationFlagsV1 {
+    pub const NONE: Self = Self(0);
+    pub const DOUBLE_SIDED: Self = Self(1 << 0);
+    pub const ALPHA_TESTED: Self = Self(1 << 1);
+    pub const SKINNED: Self = Self(1 << 2);
+    const KNOWN_BITS: u32 = Self::DOUBLE_SIDED.0 | Self::ALPHA_TESTED.0 | Self::SKINNED.0;
+
+    pub fn from_bits(bits: u32) -> Result<Self, PresentationContractError> {
+        if bits & !Self::KNOWN_BITS != 0 {
+            return Err(PresentationContractError::UnknownSceneFeature);
         }
+        Ok(Self(bits))
+    }
+
+    #[must_use]
+    pub const fn bits(self) -> u32 {
+        self.0
     }
 }
 
@@ -82,9 +84,11 @@ pub struct ScenePresentationRecordV2 {
     pub schema_version: u32,
     pub presentation_layer: u16,
     pub object_key: PresentationObjectKeyV1,
-    pub asset_id: AssetId,
+    pub mesh_revision: AssetRevisionRefV1,
+    pub material_revision: AssetRevisionRefV1,
     pub instance_ordinal: u32,
-    pub primitive: PresentationPrimitiveV1,
+    pub local_bounds: AabbI64V1,
+    pub feature_flags: ScenePresentationFlagsV1,
     pub previous_transform: QuantizedPresentationTransformV1,
     pub current_transform: QuantizedPresentationTransformV1,
     pub visible: bool,
@@ -99,9 +103,11 @@ impl ScenePresentationRecordV2 {
     pub fn new(
         presentation_layer: u16,
         object_key: PresentationObjectKeyV1,
-        asset_id: AssetId,
+        mesh_revision: AssetRevisionRefV1,
+        material_revision: AssetRevisionRefV1,
         instance_ordinal: u32,
-        primitive: PresentationPrimitiveV1,
+        local_bounds: AabbI64V1,
+        feature_flags: ScenePresentationFlagsV1,
         previous_transform: QuantizedPresentationTransformV1,
         current_transform: QuantizedPresentationTransformV1,
         visible: bool,
@@ -110,9 +116,11 @@ impl ScenePresentationRecordV2 {
             schema_version: PRESENTATION_SCENE_RECORD_SCHEMA_VERSION,
             presentation_layer,
             object_key,
-            asset_id,
+            mesh_revision,
+            material_revision,
             instance_ordinal,
-            primitive,
+            local_bounds,
+            feature_flags,
             previous_transform,
             current_transform,
             visible,
@@ -125,6 +133,11 @@ impl ScenePresentationRecordV2 {
     pub fn validate(&self) -> Result<(), PresentationContractError> {
         if self.schema_version != PRESENTATION_SCENE_RECORD_SCHEMA_VERSION {
             return Err(PresentationContractError::UnsupportedVersion);
+        }
+        if self.mesh_revision.record_sha256 == ContentHash::default()
+            || self.material_revision.record_sha256 == ContentHash::default()
+        {
+            return Err(PresentationContractError::InvalidAssetRevision);
         }
         validate_orientation(self.previous_transform.orientation_q30)?;
         validate_orientation(self.current_transform.orientation_q30)?;
@@ -143,16 +156,21 @@ impl ScenePresentationRecordV2 {
 
     fn body_value(&self) -> JcsValue {
         object([
-            ("asset_id", string(self.asset_id.to_hex())),
             ("current_transform", transform_value(self.current_transform)),
+            ("feature_flags", number(self.feature_flags.bits())),
             ("instance_ordinal", number(self.instance_ordinal)),
+            ("local_bounds", bounds_value(self.local_bounds)),
+            (
+                "material_revision",
+                asset_revision_value(self.material_revision),
+            ),
+            ("mesh_revision", asset_revision_value(self.mesh_revision)),
             ("object_key", object_key_value(self.object_key)),
             ("presentation_layer", number(self.presentation_layer)),
             (
                 "previous_transform",
                 transform_value(self.previous_transform),
             ),
-            ("primitive", string(self.primitive.token())),
             ("schema_version", number(self.schema_version)),
             (
                 "visible",
@@ -266,6 +284,12 @@ impl PresentationSnapshotV2 {
         if scene_records.len() > PRESENTATION_MAX_SCENE_RECORDS {
             return Err(PresentationContractError::LimitExceeded);
         }
+        for record in &scene_records {
+            record.validate()?;
+            if record.object_key.snapshot_epoch != snapshot_epoch {
+                return Err(PresentationContractError::SnapshotEpochMismatch);
+            }
+        }
         scene_records.sort_by_key(scene_sort_key);
         ensure_record_keys_unique(&scene_records)?;
         let scene_batches = scene_records
@@ -317,6 +341,13 @@ impl PresentationSnapshotV2 {
                 return Err(PresentationContractError::InvalidBatchBoundary);
             }
             batch.validate()?;
+            if batch
+                .records
+                .iter()
+                .any(|record| record.object_key.snapshot_epoch != self.snapshot_epoch)
+            {
+                return Err(PresentationContractError::SnapshotEpochMismatch);
+            }
             expected_batch_index = expected_batch_index
                 .checked_add(1)
                 .ok_or(PresentationContractError::LimitExceeded)?;
@@ -403,6 +434,9 @@ impl PresentationSnapshotV2 {
 pub enum PresentationContractError {
     UnsupportedVersion,
     InvalidOrientation,
+    UnknownSceneFeature,
+    InvalidAssetRevision,
+    SnapshotEpochMismatch,
     HashMismatch,
     DuplicateObjectKey,
     NonCanonicalOrder,
@@ -417,6 +451,9 @@ impl Display for PresentationContractError {
         formatter.write_str(match self {
             Self::UnsupportedVersion => "presentation schema version unsupported",
             Self::InvalidOrientation => "presentation orientation is invalid",
+            Self::UnknownSceneFeature => "presentation scene feature flag is unknown",
+            Self::InvalidAssetRevision => "presentation asset revision hash is zero",
+            Self::SnapshotEpochMismatch => "presentation record snapshot epoch does not match",
             Self::HashMismatch => "presentation canonical hash mismatch",
             Self::DuplicateObjectKey => "presentation object key is duplicated",
             Self::NonCanonicalOrder => "presentation records are not canonically ordered",
@@ -444,11 +481,18 @@ fn validate_orientation(orientation: [i32; 4]) -> Result<(), PresentationContrac
 
 fn scene_sort_key(
     record: &ScenePresentationRecordV2,
-) -> (u16, PresentationObjectKeyV1, AssetId, u32) {
+) -> (
+    u16,
+    PresentationObjectKeyV1,
+    AssetRevisionRefV1,
+    AssetRevisionRefV1,
+    u32,
+) {
     (
         record.presentation_layer,
         record.object_key,
-        record.asset_id,
+        record.mesh_revision,
+        record.material_revision,
         record.instance_ordinal,
     )
 }
@@ -508,6 +552,38 @@ fn transform_value(transform: QuantizedPresentationTransformV1) -> JcsValue {
     ])
 }
 
+fn asset_revision_value(revision: AssetRevisionRefV1) -> JcsValue {
+    object([
+        ("asset_id", string(revision.asset_id.to_hex())),
+        ("record_sha256", string(revision.record_sha256.to_hex())),
+    ])
+}
+
+fn bounds_value(bounds: AabbI64V1) -> JcsValue {
+    object([
+        (
+            "max",
+            JcsValue::Array(
+                bounds
+                    .max()
+                    .iter()
+                    .map(|value| string(format!("{:016x}", *value as u64)))
+                    .collect(),
+            ),
+        ),
+        (
+            "min",
+            JcsValue::Array(
+                bounds
+                    .min()
+                    .iter()
+                    .map(|value| string(format!("{:016x}", *value as u64)))
+                    .collect(),
+            ),
+        ),
+    ])
+}
+
 fn hash_array_value(values: &[ContentHash]) -> JcsValue {
     JcsValue::Array(values.iter().map(|value| string(value.to_hex())).collect())
 }
@@ -542,6 +618,7 @@ fn hex_bytes(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ids::AssetId;
 
     #[test]
     fn extraction_order_and_batch_profile_produce_canonical_records() {
@@ -606,9 +683,11 @@ mod tests {
         let second = ScenePresentationRecordV2::new(
             first.presentation_layer,
             first.object_key,
-            AssetId::from_bytes([9; 16]),
+            asset_revision(9, "test.mesh.second"),
+            first.material_revision,
             1,
-            first.primitive,
+            first.local_bounds,
+            first.feature_flags,
             first.previous_transform,
             first.current_transform,
             first.visible,
@@ -629,6 +708,55 @@ mod tests {
         );
     }
 
+    #[test]
+    fn scene_record_rejects_zero_exact_revision_hashes() {
+        let epoch = domain_hash("test.presentation.epoch", b"epoch");
+        let zero_mesh = ScenePresentationRecordV2::new(
+            0,
+            PresentationObjectKeyV1 {
+                snapshot_epoch: epoch,
+                persistent_id: PersistentId::from_bytes([1; 16]),
+                presentation_role: PresentationRoleV1::Item,
+                incarnation: 0,
+            },
+            AssetRevisionRefV1 {
+                asset_id: AssetId::from_bytes([2; 16]),
+                record_sha256: ContentHash::default(),
+            },
+            asset_revision(3, "test.material"),
+            0,
+            AabbI64V1::new([-1; 3], [1; 3]).expect("bounds"),
+            ScenePresentationFlagsV1::NONE,
+            QuantizedPresentationTransformV1::default(),
+            QuantizedPresentationTransformV1::default(),
+            true,
+        );
+        assert_eq!(
+            zero_mesh.validate(),
+            Err(PresentationContractError::InvalidAssetRevision)
+        );
+    }
+
+    #[test]
+    fn snapshot_rejects_record_from_another_epoch() {
+        let snapshot_epoch = domain_hash("test.presentation.epoch", b"snapshot");
+        let record_epoch = domain_hash("test.presentation.epoch", b"record");
+        assert_eq!(
+            PresentationSnapshotV2::new(
+                snapshot_epoch,
+                0,
+                0,
+                domain_hash("test.lock", b"lock"),
+                domain_hash("test.content", b"content"),
+                domain_hash("test.profile", b"profile"),
+                vec![record(record_epoch, 1, PresentationRoleV1::PlayerAvatar)],
+                8,
+                domain_hash("test.environment", b"environment"),
+            ),
+            Err(PresentationContractError::SnapshotEpochMismatch)
+        );
+    }
+
     fn record(
         epoch: ContentHash,
         persistent: u8,
@@ -642,18 +770,21 @@ mod tests {
                 presentation_role: role,
                 incarnation: 0,
             },
-            AssetId::from_bytes([persistent; 16]),
+            asset_revision(persistent, "test.mesh"),
+            asset_revision(persistent.saturating_add(32), "test.material"),
             0,
-            match role {
-                PresentationRoleV1::Environment => PresentationPrimitiveV1::Floor,
-                PresentationRoleV1::PlayerAvatar => PresentationPrimitiveV1::Capsule,
-                PresentationRoleV1::InteractiveObject => PresentationPrimitiveV1::Switch,
-                PresentationRoleV1::Item => PresentationPrimitiveV1::Item,
-                PresentationRoleV1::Character => PresentationPrimitiveV1::Character,
-            },
+            AabbI64V1::new([-1_000_000; 3], [1_000_001; 3]).expect("bounds"),
+            ScenePresentationFlagsV1::NONE,
             QuantizedPresentationTransformV1::default(),
             QuantizedPresentationTransformV1::default(),
             true,
         )
+    }
+
+    fn asset_revision(id: u8, domain: &str) -> AssetRevisionRefV1 {
+        AssetRevisionRefV1 {
+            asset_id: AssetId::from_bytes([id; 16]),
+            record_sha256: domain_hash(domain, &[id]),
+        }
     }
 }

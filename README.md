@@ -12,10 +12,16 @@ Next Engine создаётся для игр, в которых движение
 > headless-срез с вводом, командами, RPG-состоянием, эталонной физикой,
 > сохранением и replay, а neutral fixture проходит deterministic
 > validate/cook/publish/activation и снабжает gameplay root authored
-> dialogue/quest/relationship definitions. Portable `game` root уже извлекает
-> immutable presentation snapshot и проходит B0 reference renderer; приватный
-> SDL3/ash Vulkan adapter остаётся `Proposed`: Windows Desktop B0 path проходит
-> локально, а native Linux gate прошёл на Mesa llvmpipe. Первый data-only
+> dialogue/quest/relationship definitions. Portable `game` root извлекает
+> immutable presentation snapshot с exact mesh/material revisions и проходит
+> B0 reference renderer. Minimal render-content implementation уже включает
+> neutral mesh/material/texture/profile records, deterministic cook/activation,
+> checked-in offline SPIR-V, CPU visible list, Vulkan indexed-indirect draw и
+> declared fallback material. Приватный SDL3/ash Vulkan adapter остаётся
+> `Proposed`; релевантные Windows `content-package`, `platform`, `performance`
+> и clean `v1-package` проходят локально, а накопленные Linux-действия
+> выполняются позже асинхронно.
+> Первый data-only
 > combat package уже проходит общий capability/effect/RPG transaction path.
 > Двухчанковый
 > deterministic streaming с отдельным save owner segment и первый
@@ -124,11 +130,18 @@ runtime-обучение моделей и
   тот же `RpgCommandV1` и capability grants, что доступны community packages;
 - общий `game`/`headless` activation path с exact project lock и совпадающими
   authoritative state/ledger roots; `game` публикует immutable
-  `PresentationSnapshotV2`, содержащий floor, capsule, switch, item и NPC;
+  `PresentationSnapshotV2`, где floor, capsule, switch, item и NPC ссылаются на
+  exact mesh/material revisions и presentation bounds;
+- engine-owned neutral mesh/material/texture records и один B0 profile
+  собираются в canonical render-content catalog; cooker публикует проверяемые
+  catalog и derived meshlet payloads, а activation отклоняет missing, corrupt
+  или extra render artifacts до запуска;
 - engine-owned platform/input lifecycle contracts, детерминированное
-  presentation extraction и reference B0 render plan с изоляцией device loss;
-  SDL3 `0.18.4` и ash `0.38.0` находятся только в приватном experimental
-  adapter crate и не протекают в публичные contracts;
+  presentation extraction и reference B0 frame plan с CPU visible list,
+  indexed-indirect draws, declared material fallback и изоляцией device loss;
+  offline vertex/fragment SPIR-V, source и provenance хранятся вместе в
+  repository, а SDL3 `0.18.4` и ash `0.38.0` остаются только в приватном
+  experimental adapter crate и не протекают в публичные contracts;
 - атомарные поколения сохранений, восстановление, replay и проверка совпадения
   authoritative state roots;
 - deterministic two-chunk admission: immutable worker results сходятся к
@@ -158,10 +171,12 @@ runtime-обучение моделей и
 сценарий движения, столкновения, pickup/equip, melee damage, активации switch,
 один authored NPC dialogue/quest transition и переход во второй chunk с
 возвратом. Reference physics profile пока ограничен upright capsule и
-статическими Box colliders; desktop adapter пока отображает только
-B0-примитивы и остаётся `Proposed`. Windows platform/package checks и Linux
-gate на Mesa llvmpipe проходят, но paired same-commit compare и representative
-Linux hardware-GPU evidence ещё не выполнены.
+статическими Box colliders. Minimal B0 mesh/material/texture path реализован,
+но пока обслуживает небольшой engine-owned fixture; skeleton, animation, audio
+и достаточный lawful representative slice ещё отсутствуют. SDL3/ash остаётся
+`Proposed`; Windows product checks нового render-content increment проходят,
+но paired same-commit compare и representative Linux hardware-GPU evidence ещё
+не выполнены.
 
 ## Быстрый старт
 
@@ -196,6 +211,14 @@ Vulkan loader, B0 GPU capability или исчерпанный recovery budget �
 стабильный diagnostic code; физические controls ещё не являются gameplay
 actions до следующего ActionMap work package.
 
+Для каждого frame adapter строит детерминированный CPU visible list из exact
+snapshot/catalog revisions, загружает neutral geometry и RGBA8 textures в
+private Vulkan resources и исполняет conventional indexed-indirect B0 draws.
+Pipeline создаётся из проверяемых checked-in SPIR-V modules; отсутствующий
+material revision выбирает exact fallback из активного B0 profile. Этот путь
+локально проходит Windows `content-package`, `platform`, `performance` и clean
+`v1-package`; Linux validation остаётся отдельной асинхронной задачей.
+
 Запустить основные локальные проверки:
 
 ```bash
@@ -208,11 +231,14 @@ cargo run -p xtask -- physics-collision
 # Сохранение → восстановление → replay и fallback повреждённого поколения
 cargo run -p xtask -- persistence-replay
 
-# Neutral fixture → deterministic cook → atomic publish → production activation
+# Neutral fixture + render catalog → deterministic cook → publish → activation
 cargo run -p xtask -- content-package
 
 # game/headless parity, SDL event/lifecycle probe и Vulkan device-loss recovery
 cargo run -p xtask --features desktop-sdl-ash -- platform
+
+# Deterministic frame-plan stability и bounded render-planning hot path
+cargo run -p xtask -- performance
 
 # Форматирование, clippy, тесты workspace и архитектурные границы
 cargo run -p xtask -- host-check
@@ -251,8 +277,9 @@ R1 runtime baseline фиксирован следующим образом:
 
 Перед публикацией команда запускает именно скопированные release binaries из
 `package/bin` с очищенным environment и изолированными state/home/temp
-directories, сверяет их state/ledger roots и выполняет один bounded interactive
-Vulkan frame `game`. Каждый smoke ограничен 30 секундами. Ошибки runtime profile,
+directories, сверяет их state/ledger roots, отсутствие опубликованного smoke
+state и parity ожидаемого snapshot/host-object count, затем выполняет один
+bounded interactive Vulkan frame `game`. Каждый smoke ограничен 30 секундами. Ошибки runtime profile,
 отсутствующая dependency, неподдерживаемый ABI и timeout возвращают соответственно
 `NATIVE_GATE_PACKAGE_RUNTIME_PROFILE_INVALID`,
 `NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING`,
@@ -352,7 +379,7 @@ vendor types, importer structures, database connections и model sessions
 
 | Путь | Роль сегодня |
 |---|---|
-| `crates/contracts` | Публичные ID, commands/events, input, manifests, snapshots, persistence и physics/RPG contracts |
+| `crates/contracts` | Публичные ID, commands/events, input, manifests, snapshots, neutral render content, persistence и physics/RPG contracts |
 | `crates/runtime` | Admission, command ledger, fixed-stage execution и атомарные tick transactions |
 | `crates/rpg` | Generic RPG state и валидируемые доменные переходы |
 | `crates/mechanics` | Public-package host: immutable affordances/effect requests → typed RPG commands |
@@ -364,10 +391,10 @@ vendor types, importer structures, database connections и model sessions
 | `crates/physics-physx` | Safe optional PhysX adapter за engine-owned physics API |
 | `crates/physics-physx-ffi` | Единственная ADR-033 allowlisted native FFI-граница |
 | `crates/assets` | Copy-on-write save/content generations, atomic publication и bounded load |
-| `crates/project` | Exact resolver, neutral cooker и production project activation |
+| `crates/project` | Exact resolver, neutral cooker/catalog publication и production project activation |
 | `crates/platform` | Backend-free platform capabilities, lifecycle normalization и headless target |
 | `crates/presentation` | Immutable revision-bound extraction в `PresentationSnapshotV2` |
-| `crates/render` | Backend-neutral B0 render boundary и deterministic reference frame plan |
+| `crates/render` | Backend-neutral B0 boundary, exact catalog resolution и deterministic indexed frame plan |
 | `crates/desktop-sdl-ash` | Приватный `Proposed` SDL3/ash Vulkan adapter за ADR-003 boundary |
 | `crates/verification` | Neutral fixtures, state roots, headless replay и product scenarios |
 | `apps/headless` | Текущий переносимый composition root без окна и renderer |

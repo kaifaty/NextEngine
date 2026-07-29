@@ -4,11 +4,12 @@ use std::path::Path;
 
 use next_assets::ContentStore;
 use next_contracts::command::WorldCommand;
-use next_contracts::ids::{ContentHash, PhysicsContactId};
+use next_contracts::ids::{AssetId, ContentHash, PhysicsContactId};
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::physics::ContactPhaseV1;
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1};
 use next_project::{ProjectActivationError, ProjectCookError, activate_project, cook_project_v1};
+use next_render::{RenderTargetV1, build_b0_frame_plan};
 
 use crate::scratch::ScratchContext;
 
@@ -55,15 +56,30 @@ pub(crate) fn run_content_package_check_with_scratch(
         let store = ContentStore::new(directory.path());
         store.publish(&cooked.publication()?)?;
         let activated = activate_project(&store)?;
-        let gameplay = crate::run_play_check_with_activated_project(activated.clone())?;
+        let prepared = crate::prepare_game_frame_with_activated_project(activated.clone())?;
+        let gameplay = &prepared.check.play;
         let (scripted_player_health, luau_package_state_hash) =
             run_reference_luau_package(activated.clone())?;
         let (wasm_player_health, wasm_plugin_state_hash, wasm_host_api_major) =
             run_reference_wasm_plugin(activated.clone())?;
-        if activated.content_manifest.body.asset_entries.len() != 13
+        let catalog = &activated.render_content_catalog;
+        let fallback_plan = fallback_material_plan(&prepared)?;
+        if activated.content_manifest.body.asset_entries.len() != 20
             || activated.world_partition.body.chunk_bindings.len() != 2
             || activated.rpg_definitions.packages.len() != 2
             || activated.rpg_definitions.abilities.len() != 1
+            || catalog.meshes().len() != 2
+            || catalog.materials().len() != 2
+            || catalog.textures().len() != 2
+            || catalog.cooked_meshes().len() != 2
+            || catalog
+                .cooked_meshes()
+                .iter()
+                .any(|mesh| mesh.meshlets().is_empty())
+            || prepared.check.rendered_object_count != 5
+            || prepared.check.indexed_draw_count != 5
+            || prepared.check.fallback_material_draw_count != 0
+            || fallback_plan.fallback_material_draw_count != 1
             || gameplay.npc_health != 75
             || scripted_player_health != 75
             || wasm_player_health != 75
@@ -93,6 +109,62 @@ pub(crate) fn run_content_package_check_with_scratch(
         })
     })();
     directory.finish(result, ContentPackageCheckError::Cleanup)
+}
+
+fn fallback_material_plan(
+    prepared: &crate::PreparedGameFrameV1,
+) -> Result<next_render::B0FramePlanV1, ContentPackageCheckError> {
+    let snapshot = &prepared.snapshot;
+    let records = snapshot
+        .scene_records()
+        .enumerate()
+        .map(|(index, record)| {
+            next_contracts::presentation::ScenePresentationRecordV2::new(
+                record.presentation_layer,
+                record.object_key,
+                record.mesh_revision,
+                if index == 0 {
+                    next_contracts::project::AssetRevisionRefV1 {
+                        asset_id: AssetId::from_bytes([0xee; 16]),
+                        record_sha256: next_contracts::project::domain_hash(
+                            "nextengine.verification.missing-material.v1",
+                            b"missing",
+                        ),
+                    }
+                } else {
+                    record.material_revision
+                },
+                record.instance_ordinal,
+                record.local_bounds,
+                record.feature_flags,
+                record.previous_transform,
+                record.current_transform,
+                record.visible,
+            )
+        })
+        .collect();
+    let fallback_snapshot = next_contracts::presentation::PresentationSnapshotV2::new(
+        snapshot.snapshot_epoch,
+        snapshot.snapshot_sequence,
+        snapshot.simulation_tick,
+        snapshot.project_composition_lock_hash,
+        snapshot.content_manifest_hash,
+        snapshot.presentation_profile_hash,
+        records,
+        8,
+        snapshot.environment_batch,
+    )
+    .map_err(ContentPackageCheckError::Presentation)?;
+    build_b0_frame_plan(
+        &fallback_snapshot,
+        &prepared.render_content_catalog,
+        RenderTargetV1 {
+            extent: [960, 540],
+            target_revision: 1,
+        },
+    )
+    .map_err(crate::PlayCheckError::from)
+    .map_err(ContentPackageCheckError::from)
 }
 
 fn run_reference_wasm_plugin(
@@ -279,6 +351,7 @@ pub enum ContentPackageCheckError {
     Store(next_assets::ContentStoreError),
     Activation(ProjectActivationError),
     Gameplay(crate::PlayCheckError),
+    Presentation(next_contracts::presentation::PresentationContractError),
     Fixture(crate::NeutralFixtureError),
     Luau(next_script_luau::LuauHostError),
     Wasm(next_plugin_host::WasmHostError),
@@ -298,6 +371,9 @@ impl Display for ContentPackageCheckError {
                 write!(formatter, "content-package activation failed: {error}")
             }
             Self::Gameplay(error) => write!(formatter, "content-package gameplay failed: {error}"),
+            Self::Presentation(error) => {
+                write!(formatter, "content-package presentation failed: {error}")
+            }
             Self::Fixture(error) => write!(formatter, "content-package fixture failed: {error}"),
             Self::Luau(error) => write!(formatter, "content-package Luau failed: {error}"),
             Self::Wasm(error) => write!(formatter, "content-package Wasm failed: {error}"),
@@ -381,7 +457,7 @@ mod tests {
     #[test]
     fn content_package_uses_cooker_publisher_and_production_loader() {
         let report = run_content_package_check().expect("content-package passes");
-        assert_eq!(report.records, 13);
+        assert_eq!(report.records, 20);
         assert_eq!(report.chunks, 2);
         assert_eq!(report.mechanic_packages, 2);
         assert_eq!(report.wasm_plugins, 1);

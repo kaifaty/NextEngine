@@ -1,4 +1,6 @@
 use super::*;
+use crate::gpu_content::B0GpuContent;
+use next_render::{RenderTargetV1, build_b0_frame_plan};
 
 pub(super) struct GraphicsContext {
     _entry: ash::Entry,
@@ -11,20 +13,122 @@ pub(super) struct GraphicsContext {
     queue_family_index: u32,
     swapchain_loader: ash::khr::swapchain::Device,
     swapchain: Option<SwapchainState>,
+    render_content_catalog: RenderContentCatalogV1,
+    b0_content: Option<B0GpuContent>,
     command_pool: vk::CommandPool,
     command_buffer: vk::CommandBuffer,
     image_available: vk::Semaphore,
-    render_finished: vk::Semaphore,
     frame_fence: vk::Fence,
 }
 
 struct SwapchainState {
+    device: ash::Device,
+    loader: ash::khr::swapchain::Device,
     handle: vk::SwapchainKHR,
+    format: vk::Format,
     extent: vk::Extent2D,
     images: Vec<vk::Image>,
     image_views: Vec<vk::ImageView>,
+    render_finished: Vec<vk::Semaphore>,
     initialized: Vec<bool>,
 }
+
+impl Drop for SwapchainState {
+    fn drop(&mut self) {
+        // SAFETY: swapchain states are dropped only while their device is
+        // idle, or before a newly created state has escaped construction.
+        // Children are destroyed before the parent swapchain.
+        unsafe {
+            for semaphore in self.render_finished.drain(..) {
+                self.device.destroy_semaphore(semaphore, None);
+            }
+            for view in self.image_views.drain(..) {
+                self.device.destroy_image_view(view, None);
+            }
+            self.loader.destroy_swapchain(self.handle, None);
+        }
+    }
+}
+
+struct GraphicsInitializationGuard {
+    armed: bool,
+    instance: ash::Instance,
+    surface_loader: Option<ash::khr::surface::Instance>,
+    surface: vk::SurfaceKHR,
+    device: Option<ash::Device>,
+    swapchain: Option<SwapchainState>,
+    command_pool: vk::CommandPool,
+    image_available: vk::Semaphore,
+    frame_fence: vk::Fence,
+}
+
+impl GraphicsInitializationGuard {
+    fn new(instance: ash::Instance) -> Self {
+        Self {
+            armed: true,
+            instance,
+            surface_loader: None,
+            surface: vk::SurfaceKHR::null(),
+            device: None,
+            swapchain: None,
+            command_pool: vk::CommandPool::null(),
+            image_available: vk::Semaphore::null(),
+            frame_fence: vk::Fence::null(),
+        }
+    }
+
+    fn finish(mut self) -> Option<SwapchainState> {
+        self.armed = false;
+        self.swapchain.take()
+    }
+}
+
+impl Drop for GraphicsInitializationGuard {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        // SAFETY: every non-null handle was recorded immediately after its
+        // successful creation and has not escaped. The device is made idle
+        // before child-first teardown; device loss still permits teardown.
+        unsafe {
+            if let Some(device) = self.device.as_ref() {
+                let _ = device.device_wait_idle();
+                if self.frame_fence != vk::Fence::null() {
+                    device.destroy_fence(self.frame_fence, None);
+                }
+                if self.image_available != vk::Semaphore::null() {
+                    device.destroy_semaphore(self.image_available, None);
+                }
+                if self.command_pool != vk::CommandPool::null() {
+                    device.destroy_command_pool(self.command_pool, None);
+                }
+                drop(self.swapchain.take());
+                device.destroy_device(None);
+            }
+            if self.surface != vk::SurfaceKHR::null()
+                && let Some(surface_loader) = self.surface_loader.as_ref()
+            {
+                surface_loader.destroy_surface(self.surface, None);
+            }
+            self.instance.destroy_instance(None);
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) struct SubmittedB0Frame {
+    pub(super) rendered_objects: u64,
+    pub(super) indexed_draws: u64,
+    pub(super) fallback_material_draws: u64,
+    pub(super) frame_plan_hash: ContentHash,
+    pub(super) drawable_extent: [u32; 2],
+    pub(super) target_revision: u64,
+}
+
+const B0_TARGET_REVISION: u64 = 1;
+const B0_SURFACE_COLOR_SPACE: vk::ColorSpaceKHR = vk::ColorSpaceKHR::SRGB_NONLINEAR;
+const B0_SURFACE_FORMATS: [vk::Format; 2] = [vk::Format::B8G8R8A8_SRGB, vk::Format::R8G8B8A8_SRGB];
 
 fn validate_loader_api_version(actual: u32) -> Result<(), DesktopAdapterError> {
     if actual < vk::API_VERSION_1_3 {
@@ -105,6 +209,23 @@ fn select_composite_alpha(
     .find(|candidate| supported.contains(*candidate))
 }
 
+fn select_b0_surface_format(formats: &[vk::SurfaceFormatKHR]) -> Option<vk::SurfaceFormatKHR> {
+    if formats.len() == 1
+        && formats[0].format == vk::Format::UNDEFINED
+        && formats[0].color_space == B0_SURFACE_COLOR_SPACE
+    {
+        return Some(vk::SurfaceFormatKHR {
+            format: B0_SURFACE_FORMATS[0],
+            color_space: formats[0].color_space,
+        });
+    }
+    B0_SURFACE_FORMATS.iter().find_map(|required_format| {
+        formats.iter().copied().find(|candidate| {
+            candidate.format == *required_format && candidate.color_space == B0_SURFACE_COLOR_SPACE
+        })
+    })
+}
+
 fn defer_out_of_date<T>(result: Result<T, vk::Result>) -> Result<Option<T>, DesktopAdapterError> {
     match result {
         Ok(value) => Ok(Some(value)),
@@ -138,7 +259,10 @@ fn select_surface_extent(
 }
 
 impl GraphicsContext {
-    pub(super) fn new(window: &Window) -> Result<Self, DesktopAdapterError> {
+    pub(super) fn new(
+        window: &Window,
+        render_content_catalog: &RenderContentCatalogV1,
+    ) -> Result<Self, DesktopAdapterError> {
         // SAFETY: loading the process graphics loader creates an owned entry;
         // all child objects are destroyed in reverse ownership order below.
         let entry = unsafe { ash::Entry::load() }
@@ -173,11 +297,14 @@ impl GraphicsContext {
         // no custom allocator is retained.
         let instance = unsafe { entry.create_instance(&instance_info, None) }
             .map_err(classify_instance_creation_error)?;
+        let mut initialization = GraphicsInitializationGuard::new(instance.clone());
         // SAFETY: the SDL window was created with its graphics-surface flag and
         // remains alive until after this context has been dropped.
         let surface =
             unsafe { window.vulkan_create_surface(instance.handle()) }.map_err(sdl_error)?;
         let surface_loader = ash::khr::surface::Instance::new(&entry, &instance);
+        initialization.surface = surface;
+        initialization.surface_loader = Some(surface_loader.clone());
         let (physical_device, queue_family_index) =
             select_physical_device(&instance, &surface_loader, surface)?;
 
@@ -201,9 +328,11 @@ impl GraphicsContext {
         // instance and the feature chain contains only stack-owned call data.
         let device = unsafe { instance.create_device(physical_device, &device_info, None) }
             .map_err(classify_device_creation_error)?;
+        initialization.device = Some(device.clone());
         // SAFETY: queue zero exists because one priority was requested.
         let queue = unsafe { device.get_device_queue(queue_family_index, 0) };
         let swapchain_loader = ash::khr::swapchain::Device::new(&instance, &device);
+        let mut old_swapchain_retired = false;
         let swapchain = create_swapchain(
             window,
             physical_device,
@@ -213,12 +342,16 @@ impl GraphicsContext {
             &device,
             &swapchain_loader,
             vk::SwapchainKHR::null(),
+            &mut old_swapchain_retired,
         )?;
+        debug_assert!(!old_swapchain_retired);
+        initialization.swapchain = swapchain;
         let command_pool_info = vk::CommandPoolCreateInfo::default()
             .queue_family_index(queue_family_index)
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
         // SAFETY: queue family belongs to the selected logical device.
         let command_pool = unsafe { device.create_command_pool(&command_pool_info, None) }?;
+        initialization.command_pool = command_pool;
         let command_buffer_info = vk::CommandBufferAllocateInfo::default()
             .command_pool(command_pool)
             .level(vk::CommandBufferLevel::PRIMARY)
@@ -228,11 +361,27 @@ impl GraphicsContext {
         let semaphore_info = vk::SemaphoreCreateInfo::default();
         // SAFETY: device is live and synchronization objects use no callbacks.
         let image_available = unsafe { device.create_semaphore(&semaphore_info, None) }?;
-        // SAFETY: same ownership conditions as `image_available`.
-        let render_finished = unsafe { device.create_semaphore(&semaphore_info, None) }?;
+        initialization.image_available = image_available;
         let fence_info = vk::FenceCreateInfo::default().flags(vk::FenceCreateFlags::SIGNALED);
         // SAFETY: device is live and fence uses no callbacks.
         let frame_fence = unsafe { device.create_fence(&fence_info, None) }?;
+        initialization.frame_fence = frame_fence;
+        let b0_content = initialization
+            .swapchain
+            .as_ref()
+            .map(|swapchain| {
+                B0GpuContent::new(
+                    &instance,
+                    physical_device,
+                    &device,
+                    queue,
+                    queue_family_index,
+                    swapchain.format,
+                    render_content_catalog,
+                )
+            })
+            .transpose()?;
+        let swapchain = initialization.finish();
         Ok(Self {
             _entry: entry,
             instance,
@@ -244,10 +393,11 @@ impl GraphicsContext {
             queue_family_index,
             swapchain_loader,
             swapchain,
+            render_content_catalog: render_content_catalog.clone(),
+            b0_content,
             command_pool,
             command_buffer,
             image_available,
-            render_finished,
             frame_fence,
         })
     }
@@ -256,11 +406,11 @@ impl GraphicsContext {
         &mut self,
         snapshot: &PresentationSnapshotV2,
         window: &Window,
-    ) -> Result<bool, DesktopAdapterError> {
+    ) -> Result<Option<SubmittedB0Frame>, DesktopAdapterError> {
         if self.swapchain.is_none() {
             self.recreate_swapchain(window)?;
             if self.swapchain.is_none() {
-                return Ok(false);
+                return Ok(None);
             }
         }
         // SAFETY: the fence belongs to this device and guards the one reusable
@@ -286,7 +436,7 @@ impl GraphicsContext {
         };
         let Some((image_index, acquisition_suboptimal)) = defer_out_of_date(acquired)? else {
             self.recreate_swapchain(window)?;
-            return Ok(false);
+            return Ok(None);
         };
         // SAFETY: the frame fence has completed and the command buffer is not
         // pending. Reset operations target objects owned by this context.
@@ -305,6 +455,11 @@ impl GraphicsContext {
             .swapchain
             .as_ref()
             .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
+        let target = RenderTargetV1 {
+            extent: [swapchain.extent.width, swapchain.extent.height],
+            target_revision: B0_TARGET_REVISION,
+        };
+        let frame_plan = build_b0_frame_plan(snapshot, &self.render_content_catalog, target)?;
         let old_layout = if swapchain.initialized[image_usize] {
             vk::ImageLayout::PRESENT_SRC_KHR
         } else {
@@ -361,23 +516,10 @@ impl GraphicsContext {
             self.device
                 .cmd_begin_rendering(self.command_buffer, &rendering_info);
         }
-        for record in snapshot.scene_records().filter(|record| record.visible) {
-            if record.primitive == PresentationPrimitiveV1::Floor {
-                continue;
-            }
-            let attachment = [vk::ClearAttachment {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
-                color_attachment: 0,
-                clear_value: primitive_color(record.primitive),
-            }];
-            let rectangles = [record_rectangle(record, swapchain.extent)];
-            // SAFETY: clear rectangles lie within the render area and target
-            // color attachment zero of the active dynamic rendering instance.
-            unsafe {
-                self.device
-                    .cmd_clear_attachments(self.command_buffer, &attachment, &rectangles);
-            }
-        }
+        self.b0_content
+            .as_ref()
+            .ok_or(DesktopAdapterError::GraphicsContextMissing)?
+            .record(self.command_buffer, &frame_plan, swapchain.extent)?;
         // SAFETY: a dynamic rendering instance is active on this command
         // buffer and is ended exactly once.
         unsafe {
@@ -404,7 +546,7 @@ impl GraphicsContext {
         let wait_semaphores = [self.image_available];
         let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
         let command_buffers = [self.command_buffer];
-        let signal_semaphores = [self.render_finished];
+        let signal_semaphores = [swapchain.render_finished[image_usize]];
         let submit_info = [vk::SubmitInfo::default()
             .wait_semaphores(&wait_semaphores)
             .wait_dst_stage_mask(&wait_stages)
@@ -423,14 +565,16 @@ impl GraphicsContext {
             .swapchains(&swapchains)
             .image_indices(&image_indices);
         // SAFETY: image index was acquired from this swapchain and rendering
-        // completion is signaled by `render_finished`.
+        // completion is signaled by the semaphore owned by this acquired
+        // swapchain image. Reacquiring the image proves the presentation
+        // engine consumed its prior wait before that semaphore is reused.
         let presented = defer_out_of_date(unsafe {
             self.swapchain_loader
                 .queue_present(self.queue, &present_info)
         })?;
         let Some(present_suboptimal) = presented else {
             self.recreate_swapchain(window)?;
-            return Ok(false);
+            return Ok(None);
         };
         self.swapchain
             .as_mut()
@@ -439,7 +583,14 @@ impl GraphicsContext {
         if acquisition_suboptimal || present_suboptimal {
             self.recreate_swapchain(window)?;
         }
-        Ok(true)
+        Ok(Some(SubmittedB0Frame {
+            rendered_objects: u64::from(frame_plan.visible_object_count),
+            indexed_draws: u64::from(frame_plan.indexed_draw_count),
+            fallback_material_draws: u64::from(frame_plan.fallback_material_draw_count),
+            frame_plan_hash: frame_plan.frame_plan_hash,
+            drawable_extent: target.extent,
+            target_revision: target.target_revision,
+        }))
     }
 
     pub(super) fn recreate_swapchain(
@@ -447,10 +598,11 @@ impl GraphicsContext {
         window: &Window,
     ) -> Result<(), DesktopAdapterError> {
         self.wait_idle()?;
-        let old = self
+        let old_swapchain = self
             .swapchain
             .as_ref()
             .map_or(vk::SwapchainKHR::null(), |swapchain| swapchain.handle);
+        let mut old_swapchain_retired = false;
         let replacement = create_swapchain(
             window,
             self.physical_device,
@@ -459,10 +611,34 @@ impl GraphicsContext {
             self.surface,
             &self.device,
             &self.swapchain_loader,
-            old,
-        )?;
-        if let Some(mut previous) = self.swapchain.take() {
-            destroy_swapchain_state(&self.device, &self.swapchain_loader, &mut previous);
+            old_swapchain,
+            &mut old_swapchain_retired,
+        )
+        .inspect_err(|_| {
+            if old_swapchain_retired {
+                drop(self.swapchain.take());
+            }
+        })?;
+        let replacement_format = replacement.as_ref().map(|swapchain| swapchain.format);
+        let current_format = self.swapchain.as_ref().map(|swapchain| swapchain.format);
+        if replacement_format != current_format || self.b0_content.is_none() {
+            let replacement_content = replacement_format
+                .map(|format| {
+                    B0GpuContent::new(
+                        &self.instance,
+                        self.physical_device,
+                        &self.device,
+                        self.queue,
+                        self.queue_family_index,
+                        format,
+                        &self.render_content_catalog,
+                    )
+                })
+                .transpose();
+            if replacement_content.is_err() && old_swapchain_retired {
+                drop(self.swapchain.take());
+            }
+            self.b0_content = replacement_content?;
         }
         self.swapchain = replacement;
         Ok(())
@@ -481,13 +657,11 @@ impl Drop for GraphicsContext {
         // child-before-parent ownership and ignores only shutdown-time errors.
         unsafe {
             let _ = self.device.device_wait_idle();
+            drop(self.b0_content.take());
             self.device.destroy_fence(self.frame_fence, None);
-            self.device.destroy_semaphore(self.render_finished, None);
             self.device.destroy_semaphore(self.image_available, None);
             self.device.destroy_command_pool(self.command_pool, None);
-            if let Some(swapchain) = self.swapchain.as_mut() {
-                destroy_swapchain_state(&self.device, &self.swapchain_loader, swapchain);
-            }
+            drop(self.swapchain.take());
             self.device.destroy_device(None);
             self.surface_loader.destroy_surface(self.surface, None);
             self.instance.destroy_instance(None);
@@ -569,7 +743,9 @@ fn create_swapchain(
     device: &ash::Device,
     swapchain_loader: &ash::khr::swapchain::Device,
     old_swapchain: vk::SwapchainKHR,
+    old_swapchain_retired: &mut bool,
 ) -> Result<Option<SwapchainState>, DesktopAdapterError> {
+    debug_assert!(!*old_swapchain_retired);
     // SAFETY: physical device and surface share a live instance.
     let capabilities = unsafe {
         surface_loader.get_physical_device_surface_capabilities(physical_device, surface)?
@@ -577,15 +753,8 @@ fn create_swapchain(
     // SAFETY: same ownership as the capability query.
     let formats =
         unsafe { surface_loader.get_physical_device_surface_formats(physical_device, surface)? };
-    let selected_format = formats
-        .iter()
-        .copied()
-        .find(|format| {
-            format.format == vk::Format::B8G8R8A8_UNORM
-                && format.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR
-        })
-        .or_else(|| formats.first().copied())
-        .ok_or(DesktopAdapterError::GpuUnsupported)?;
+    let selected_format =
+        select_b0_surface_format(&formats).ok_or(DesktopAdapterError::GpuUnsupported)?;
     let (window_width, window_height) = window.size_in_pixels();
     let Some(extent) = select_surface_extent(&capabilities, [window_width, window_height]) else {
         return Ok(None);
@@ -617,10 +786,22 @@ fn create_swapchain(
     // SAFETY: all references in create info live for the call and the surface
     // belongs to the same instance/device pair.
     let handle = unsafe { swapchain_loader.create_swapchain(&create_info, None) }?;
+    *old_swapchain_retired = old_swapchain != vk::SwapchainKHR::null();
+    let mut state = SwapchainState {
+        device: device.clone(),
+        loader: swapchain_loader.clone(),
+        handle,
+        format: selected_format.format,
+        extent,
+        images: Vec::new(),
+        image_views: Vec::new(),
+        render_finished: Vec::new(),
+        initialized: Vec::new(),
+    };
     // SAFETY: handle is the live swapchain just created.
-    let images = unsafe { swapchain_loader.get_swapchain_images(handle) }?;
-    let mut image_views = Vec::with_capacity(images.len());
-    for image in &images {
+    state.images = unsafe { swapchain_loader.get_swapchain_images(handle) }?;
+    state.image_views.reserve(state.images.len());
+    for image in &state.images {
         let view_info = vk::ImageViewCreateInfo::default()
             .image(*image)
             .view_type(vk::ImageViewType::TYPE_2D)
@@ -635,49 +816,20 @@ fn create_swapchain(
             );
         // SAFETY: image belongs to the swapchain and view metadata matches its
         // selected format.
-        match unsafe { device.create_image_view(&view_info, None) } {
-            Ok(view) => image_views.push(view),
-            Err(error) => {
-                // SAFETY: these views and swapchain were created in this
-                // function and have not escaped.
-                unsafe {
-                    for view in image_views {
-                        device.destroy_image_view(view, None);
-                    }
-                    swapchain_loader.destroy_swapchain(handle, None);
-                }
-                return Err(error.into());
-            }
-        }
+        state
+            .image_views
+            .push(unsafe { device.create_image_view(&view_info, None) }?);
     }
-    Ok(Some(SwapchainState {
-        handle,
-        extent,
-        initialized: vec![false; images.len()],
-        images,
-        image_views,
-    }))
-}
-
-fn destroy_swapchain_state(
-    device: &ash::Device,
-    loader: &ash::khr::swapchain::Device,
-    state: &mut SwapchainState,
-) {
-    for view in state.image_views.drain(..) {
-        // SAFETY: caller guarantees the device is idle and each view belongs
-        // to this device and is destroyed once.
-        unsafe {
-            device.destroy_image_view(view, None);
-        }
+    state.render_finished.reserve(state.images.len());
+    for _ in &state.images {
+        // SAFETY: each binary semaphore is device-owned and has no retained
+        // host pointers. It is dedicated to one swapchain image.
+        state
+            .render_finished
+            .push(unsafe { device.create_semaphore(&vk::SemaphoreCreateInfo::default(), None) }?);
     }
-    if state.handle != vk::SwapchainKHR::null() {
-        // SAFETY: caller guarantees the swapchain is no longer in use.
-        unsafe {
-            loader.destroy_swapchain(state.handle, None);
-        }
-        state.handle = vk::SwapchainKHR::null();
-    }
+    state.initialized = vec![false; state.images.len()];
+    Ok(Some(state))
 }
 
 #[cfg(test)]
@@ -764,6 +916,38 @@ mod tests {
             vk::CompositeAlphaFlagsKHR::POST_MULTIPLIED | vk::CompositeAlphaFlagsKHR::OPAQUE;
         assert!(select_composite_alpha(supported) == Some(vk::CompositeAlphaFlagsKHR::OPAQUE));
         assert!(select_composite_alpha(vk::CompositeAlphaFlagsKHR::empty()).is_none());
+    }
+
+    #[test]
+    fn b0_surface_format_requires_srgb_storage_and_fails_closed() {
+        let bgra_srgb = vk::SurfaceFormatKHR {
+            format: vk::Format::B8G8R8A8_SRGB,
+            color_space: vk::ColorSpaceKHR::SRGB_NONLINEAR,
+        };
+        let rgba_srgb = vk::SurfaceFormatKHR {
+            format: vk::Format::R8G8B8A8_SRGB,
+            color_space: vk::ColorSpaceKHR::SRGB_NONLINEAR,
+        };
+        let bgra_unorm = vk::SurfaceFormatKHR {
+            format: vk::Format::B8G8R8A8_UNORM,
+            color_space: vk::ColorSpaceKHR::SRGB_NONLINEAR,
+        };
+        assert!(select_b0_surface_format(&[rgba_srgb, bgra_srgb, bgra_unorm]) == Some(bgra_srgb));
+        assert!(select_b0_surface_format(&[rgba_srgb]) == Some(rgba_srgb));
+        assert!(select_b0_surface_format(&[bgra_unorm]).is_none());
+        assert!(
+            select_b0_surface_format(&[vk::SurfaceFormatKHR {
+                format: vk::Format::UNDEFINED,
+                color_space: vk::ColorSpaceKHR::SRGB_NONLINEAR,
+            }]) == Some(bgra_srgb)
+        );
+        assert!(
+            select_b0_surface_format(&[vk::SurfaceFormatKHR {
+                format: vk::Format::UNDEFINED,
+                color_space: vk::ColorSpaceKHR::DISPLAY_P3_NONLINEAR_EXT,
+            }])
+            .is_none()
+        );
     }
 
     #[test]

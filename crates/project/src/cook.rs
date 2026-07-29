@@ -25,6 +25,9 @@ use next_contracts::project::{
     SchemaRoleV1, SemanticVersionV1, WorldChunkBindingV1, WorldPartitionManifestBodyV1,
     WorldPartitionManifestV1, canonical_empty_manifest_hash, domain_hash,
 };
+use next_contracts::render_content::{
+    NeutralRenderRecordV1, RenderContentCatalogV1, RenderContentContractError,
+};
 use next_contracts::rpg::RPG_COMMAND_CAPABILITY_ID;
 use next_contracts::session::{RecoveryPolicyV1, ShutdownPolicyV1};
 
@@ -37,6 +40,8 @@ pub const SCHEMA_REGISTRY_PATH: &str = "manifests/schema-registry.json";
 pub const CONTENT_MANIFEST_PATH: &str = "manifests/content.json";
 pub const WORLD_PARTITION_PATH: &str = "manifests/world-partition.json";
 pub const CONTENT_BLOB_DIRECTORY: &str = "blobs";
+pub const RENDER_CONTENT_CATALOG_PATH: &str = "render-content/catalog.bin";
+pub const RENDER_CONTENT_MESH_DIRECTORY: &str = "render-content/meshes";
 pub const CORE_INTERACTION_PACKAGE_ID: &str = "org.nextengine.core.interaction";
 pub const CORE_COMBAT_PACKAGE_ID: &str = "org.nextengine.core.combat";
 
@@ -56,6 +61,7 @@ pub struct NeutralProjectSourceV1 {
     pub resolver_profile_id: SchemaId,
     pub resolver_profile_version: u32,
     pub records: Vec<NeutralRecordV1>,
+    pub render_records: Vec<NeutralRenderRecordV1>,
     pub root_asset_ids: Vec<AssetId>,
     pub provenance: ContentProvenanceV1,
     pub license_manifest_sha256: ContentHash,
@@ -76,6 +82,7 @@ pub struct CookedProjectV1 {
     pub content_manifest: ContentManifestV1,
     pub world_partition: WorldPartitionManifestV1,
     pub rpg_definitions: RpgDefinitionRegistryV1,
+    pub render_content_catalog: RenderContentCatalogV1,
     pub blobs: BTreeMap<ContentHash, Vec<u8>>,
 }
 
@@ -91,7 +98,26 @@ impl CookedProjectV1 {
             PublicationFileV1::new(SCHEMA_REGISTRY_PATH, self.schema_registry.to_jcs_bytes()?)?,
             PublicationFileV1::new(CONTENT_MANIFEST_PATH, self.content_manifest.to_jcs_bytes()?)?,
             PublicationFileV1::new(WORLD_PARTITION_PATH, self.world_partition.to_jcs_bytes()?)?,
+            PublicationFileV1::new(
+                RENDER_CONTENT_CATALOG_PATH,
+                self.render_content_catalog.canonical_bytes()?,
+            )?,
         ];
+        files.extend(
+            self.render_content_catalog
+                .cooked_meshes()
+                .iter()
+                .map(|mesh| {
+                    Ok(PublicationFileV1::new(
+                        format!(
+                            "{RENDER_CONTENT_MESH_DIRECTORY}/{}.bin",
+                            mesh.payload_sha256().to_hex()
+                        ),
+                        mesh.canonical_bytes()?,
+                    )?)
+                })
+                .collect::<Result<Vec<_>, ProjectCookError>>()?,
+        );
         files.extend(
             self.blobs
                 .iter()
@@ -114,6 +140,9 @@ pub fn cook_project_v1(
     mut source: NeutralProjectSourceV1,
 ) -> Result<CookedProjectV1, ProjectCookError> {
     source.records.sort_by_key(|record| record.asset_id);
+    source
+        .render_records
+        .sort_by_key(NeutralRenderRecordV1::asset_id);
     source.root_asset_ids.sort();
     source
         .chunks
@@ -134,6 +163,12 @@ pub fn cook_project_v1(
         .iter()
         .map(|record| record.schema_ref.clone())
         .collect();
+    schema_refs.extend(
+        source
+            .render_records
+            .iter()
+            .map(|record| record.schema_ref().clone()),
+    );
     let content_schema_ref = schema_ref(
         "nextengine.content.manifest",
         SchemaRoleV1::Manifest,
@@ -177,7 +212,9 @@ pub fn cook_project_v1(
             asset_id: record.asset_id,
             record_sha256: record_hash,
         };
-        revisions.insert(record.asset_id, revision);
+        if revisions.insert(record.asset_id, revision).is_some() {
+            return Err(ProjectCookError::DuplicateIdentity);
+        }
         entries.push(ContentAssetEntryV1 {
             asset_revision: revision,
             schema_ref: record.schema_ref.clone(),
@@ -198,6 +235,37 @@ pub fn cook_project_v1(
             });
         }
     }
+    for record in &source.render_records {
+        let bytes = record.canonical_bytes()?;
+        let record_hash = record.record_sha256()?;
+        if blobs.insert(record_hash, bytes).is_some() {
+            return Err(ProjectCookError::HashCollision);
+        }
+        let revision = record.asset_revision()?;
+        if revisions.insert(record.asset_id(), revision).is_some() {
+            return Err(ProjectCookError::DuplicateIdentity);
+        }
+        entries.push(ContentAssetEntryV1 {
+            asset_revision: revision,
+            schema_ref: record.schema_ref().clone(),
+            neutral_record_blob_sha256: record_hash,
+            semantic_class: record.semantic_class(),
+            provenance_sha256: source.provenance.provenance_sha256,
+            license_manifest_sha256: source.license_manifest_sha256,
+            owning_bundle_id: SchemaId::new("nextengine.fixture.bundle.v1")
+                .expect("engine-owned identifier is valid"),
+        });
+        for target in record.dependencies() {
+            edges.push(ContentDependencyEdgeV1 {
+                source_asset_id: record.asset_id(),
+                target_asset_id: target.asset_id,
+                dependency_kind: SchemaId::new("nextengine.content.required")
+                    .expect("engine-owned identifier is valid"),
+                required: true,
+            });
+        }
+    }
+    let render_content_catalog = compile_render_content_catalog_v1(&source.render_records)?;
     let root_assets = source
         .root_asset_ids
         .iter()
@@ -342,8 +410,32 @@ pub fn cook_project_v1(
         content_manifest,
         world_partition,
         rpg_definitions,
+        render_content_catalog,
         blobs,
     })
+}
+
+pub(crate) fn compile_render_content_catalog_v1(
+    records: &[NeutralRenderRecordV1],
+) -> Result<RenderContentCatalogV1, RenderContentContractError> {
+    let mut profile = None;
+    let mut meshes = Vec::new();
+    let mut materials = Vec::new();
+    let mut textures = Vec::new();
+    for record in records {
+        match record {
+            NeutralRenderRecordV1::Mesh(value) => meshes.push(value.clone()),
+            NeutralRenderRecordV1::Material(value) => materials.push(value.clone()),
+            NeutralRenderRecordV1::Texture(value) => textures.push(value.clone()),
+            NeutralRenderRecordV1::Profile(value) => {
+                if profile.replace(value.clone()).is_some() {
+                    return Err(RenderContentContractError::DuplicateIdentity);
+                }
+            }
+        }
+    }
+    let profile = profile.ok_or(RenderContentContractError::MissingReference)?;
+    RenderContentCatalogV1::new(profile, meshes, materials, textures)
 }
 
 pub(crate) fn compile_rpg_definitions_v1(
@@ -351,7 +443,15 @@ pub(crate) fn compile_rpg_definitions_v1(
 ) -> Result<RpgDefinitionRegistryV1, ProjectCookError> {
     let mut by_kind = BTreeMap::new();
     for record in records {
-        if record.kind == NeutralRecordKindV1::WorldChunk {
+        if !matches!(
+            record.kind,
+            NeutralRecordKindV1::DialogueDefinition
+                | NeutralRecordKindV1::QuestDefinition
+                | NeutralRecordKindV1::RelationshipDefinition
+                | NeutralRecordKindV1::InteractionDefinition
+                | NeutralRecordKindV1::AbilityDefinition
+                | NeutralRecordKindV1::ItemDefinition
+        ) {
             continue;
         }
         if by_kind.insert(record.kind, record).is_some() {
@@ -571,7 +671,14 @@ fn validate_source(source: &NeutralProjectSourceV1) -> Result<(), ProjectCookErr
     if source.allowed_presentation_targets.is_empty() {
         return Err(ProjectCookError::InvalidValue);
     }
-    ensure_unique(source.records.iter().map(|record| record.asset_id))?;
+    ensure_unique(
+        source.records.iter().map(|record| record.asset_id).chain(
+            source
+                .render_records
+                .iter()
+                .map(NeutralRenderRecordV1::asset_id),
+        ),
+    )?;
     ensure_unique(source.records.iter().map(|record| record.record_id))?;
     ensure_unique(source.root_asset_ids.iter().copied())?;
     ensure_unique(source.chunks.iter().map(|chunk| chunk.chunk_id.as_str()))?;
@@ -579,7 +686,20 @@ fn validate_source(source: &NeutralProjectSourceV1) -> Result<(), ProjectCookErr
         .records
         .iter()
         .map(|record| record.asset_id)
+        .chain(
+            source
+                .render_records
+                .iter()
+                .map(NeutralRenderRecordV1::asset_id),
+        )
         .collect();
+    let mut revisions = BTreeMap::new();
+    for record in &source.records {
+        revisions.insert(record.asset_id, asset_revision(record)?);
+    }
+    for record in &source.render_records {
+        revisions.insert(record.asset_id(), record.asset_revision()?);
+    }
     let records: BTreeSet<_> = source
         .records
         .iter()
@@ -602,6 +722,24 @@ fn validate_source(source: &NeutralProjectSourceV1) -> Result<(), ProjectCookErr
             return Err(ProjectCookError::MissingReference);
         }
     }
+    for record in &source.render_records {
+        let bytes = record.canonical_bytes()?;
+        if NeutralRenderRecordV1::from_canonical_bytes(
+            &bytes,
+            next_contracts::canonical::CanonicalDecodeLimits::default(),
+        )? != record.clone()
+        {
+            return Err(ProjectCookError::Render(
+                RenderContentContractError::NonCanonical,
+            ));
+        }
+        for dependency in record.dependencies() {
+            if revisions.get(&dependency.asset_id) != Some(&dependency) {
+                return Err(ProjectCookError::MissingReference);
+            }
+        }
+    }
+    compile_render_content_catalog_v1(&source.render_records)?;
     if source
         .root_asset_ids
         .iter()
@@ -651,6 +789,7 @@ fn ensure_unique<T: Ord>(values: impl IntoIterator<Item = T>) -> Result<(), Proj
 pub enum ProjectCookError {
     Contract(ProjectContractError),
     Neutral(NeutralRecordError),
+    Render(RenderContentContractError),
     Resolution(ProjectResolutionError),
     Store(next_assets::ContentStoreError),
     Identifier(next_contracts::ids::IdentifierError),
@@ -667,6 +806,7 @@ impl ProjectCookError {
     pub const fn diagnostic_code(&self) -> &'static str {
         match self {
             Self::Contract(_) | Self::Neutral(_) => "CONTENT_SCHEMA_INVALID",
+            Self::Render(error) => error.diagnostic_code(),
             Self::Resolution(_) => "PROJECT_RESOLUTION_FAILED",
             Self::Store(_) => "CONTENT_PUBLICATION_FAILED",
             Self::Identifier(_) => "CONTENT_IDENTIFIER_INVALID",
@@ -685,6 +825,7 @@ impl Display for ProjectCookError {
         match self {
             Self::Contract(error) => write!(formatter, "content contract invalid: {error}"),
             Self::Neutral(error) => write!(formatter, "neutral record invalid: {error}"),
+            Self::Render(error) => write!(formatter, "render content invalid: {error}"),
             Self::Resolution(error) => write!(formatter, "project resolution failed: {error}"),
             Self::Store(error) => write!(formatter, "content publication failed: {error}"),
             Self::Identifier(error) => write!(formatter, "content identifier invalid: {error}"),
@@ -709,6 +850,12 @@ impl From<ProjectContractError> for ProjectCookError {
 impl From<NeutralRecordError> for ProjectCookError {
     fn from(error: NeutralRecordError) -> Self {
         Self::Neutral(error)
+    }
+}
+
+impl From<RenderContentContractError> for ProjectCookError {
+    fn from(error: RenderContentContractError) -> Self {
+        Self::Render(error)
     }
 }
 

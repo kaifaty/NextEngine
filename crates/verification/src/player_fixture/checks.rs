@@ -44,6 +44,8 @@ pub struct GameCheckReport {
     pub play: PlayCheckReport,
     pub presentation_snapshot_hash: ContentHash,
     pub rendered_object_count: u32,
+    pub indexed_draw_count: u32,
+    pub fallback_material_draw_count: u32,
     pub frame_plan_hash: ContentHash,
 }
 
@@ -51,6 +53,7 @@ pub struct GameCheckReport {
 pub struct PreparedGameFrameV1 {
     pub check: GameCheckReport,
     pub snapshot: next_contracts::presentation::PresentationSnapshotV2,
+    pub render_content_catalog: next_contracts::render_content::RenderContentCatalogV1,
 }
 
 pub fn run_play_check() -> Result<PlayCheckReport, PlayCheckError> {
@@ -133,7 +136,8 @@ fn prepare_game_frame_from_scenario(
             &scenario.presentation_bindings,
         )?
         .clone();
-    let mut renderer = ReferenceB0Renderer::new();
+    let render_content_catalog = scenario.render_content_catalog.clone();
+    let mut renderer = ReferenceB0Renderer::new(render_content_catalog.clone())?;
     let frame = renderer.render(
         &snapshot,
         RenderTargetV1 {
@@ -146,9 +150,15 @@ fn prepare_game_frame_from_scenario(
         play,
         presentation_snapshot_hash: snapshot.canonical_hash,
         rendered_object_count: frame.rendered_object_count,
+        indexed_draw_count: frame.indexed_draw_count,
+        fallback_material_draw_count: frame.fallback_material_draw_count,
         frame_plan_hash: frame.frame_plan_hash,
     };
-    Ok(PreparedGameFrameV1 { check, snapshot })
+    Ok(PreparedGameFrameV1 {
+        check,
+        snapshot,
+        render_content_catalog,
+    })
 }
 
 pub fn run_play_check_with_activated_project(

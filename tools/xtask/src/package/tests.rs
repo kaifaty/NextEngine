@@ -2,6 +2,8 @@ use super::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
+mod publish;
+
 #[cfg(any(
     all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
     all(target_arch = "x86_64", target_os = "linux", target_env = "gnu")
@@ -110,18 +112,26 @@ fn main() {
         .file_name()
         .and_then(|value| value.to_str())
         .unwrap_or_else(|| fail("executable name is not UTF-8"));
-    let composition_root = if file_name.starts_with("next_headless") {
+    let (composition_root, interactive_host_object_count, presentation) =
+        if file_name.starts_with("next_headless") {
         if arguments.iter().any(|argument| argument == "--interactive") {
             fail("headless smoke unexpectedly received --interactive");
         }
-        "Headless"
+        ("Headless", 0, "null".to_owned())
     } else if file_name.starts_with("next_game") {
         if !arguments.iter().any(|argument| argument == "--interactive")
             || argument_value(&arguments, "--maximum-frames") != "1"
         {
             fail("game smoke is not the bounded interactive launch");
         }
-        "Game"
+        (
+            "Game",
+            1,
+            format!(
+                "{{\"target\":\"Interactive\",\"snapshot_hash\":\"{}\",\"object_count\":1}}",
+                "9".repeat(64)
+            ),
+        )
     } else {
         fail("unexpected packaged binary name");
     };
@@ -139,7 +149,8 @@ fn main() {
 \"ticks\":1,\"events\":1,\"rpg_events\":1,\"authoritative_revision\":1,\
 \"authoritative_state_root\":\"{state}\",\"command_archive_root\":\"{archive}\",\
 \"command_identity_index_root\":\"{identity}\",\"command_ledger_hash\":\"{ledger}\",\
-\"interactive_host_object_count\":0,\"presentation\":null}}"
+\"interactive_host_object_count\":{interactive_host_object_count},\
+\"presentation\":{presentation}}}"
     );
 }
 "#;
@@ -658,6 +669,71 @@ fn smoke_failure_routes_known_runtime_prerequisite_diagnostics() {
 }
 
 #[test]
+fn smoke_requires_interactive_game_presentation_and_nonzero_host_objects() {
+    let mut report = fixture_smoke_report("Game");
+    report.interactive_host_object_count = 0;
+    let error = super::smoke::validate_presentation_contract(&report, "Game")
+        .expect_err("zero rendered objects must fail package smoke");
+    assert_eq!(
+        error,
+        "NATIVE_GATE_PACKAGE_INVALID: packaged Game smoke reported zero interactive host objects"
+    );
+
+    report.interactive_host_object_count = 1;
+    report.presentation = None;
+    let error = super::smoke::validate_presentation_contract(&report, "Game")
+        .expect_err("missing presentation must fail package smoke");
+    assert_eq!(
+        error,
+        "NATIVE_GATE_PACKAGE_INVALID: packaged Game smoke omitted its presentation snapshot"
+    );
+
+    report.presentation = Some(next_application::PresentationReportV1 {
+        target: "Interactive".to_owned(),
+        snapshot_hash: "c".repeat(64),
+        object_count: 1,
+    });
+    super::smoke::validate_presentation_contract(&report, "Game")
+        .expect("interactive Game report is truthful");
+
+    report.interactive_host_object_count = 2;
+    let error = super::smoke::validate_presentation_contract(&report, "Game")
+        .expect_err("rendered and published object counts must agree");
+    assert_eq!(
+        error,
+        "NATIVE_GATE_PACKAGE_INVALID: packaged Game smoke rendered 2 objects but its presentation snapshot contains 1"
+    );
+}
+
+#[test]
+fn smoke_requires_headless_to_remain_presentation_free() {
+    let mut report = fixture_smoke_report("Headless");
+    super::smoke::validate_presentation_contract(&report, "Headless")
+        .expect("headless report is presentation-free");
+
+    report.interactive_host_object_count = 1;
+    let error = super::smoke::validate_presentation_contract(&report, "Headless")
+        .expect_err("headless host objects must fail package smoke");
+    assert_eq!(
+        error,
+        "NATIVE_GATE_PACKAGE_INVALID: packaged Headless smoke reported interactive host objects"
+    );
+
+    report.interactive_host_object_count = 0;
+    report.presentation = Some(next_application::PresentationReportV1 {
+        target: "Interactive".to_owned(),
+        snapshot_hash: "c".repeat(64),
+        object_count: 1,
+    });
+    let error = super::smoke::validate_presentation_contract(&report, "Headless")
+        .expect_err("headless presentation must fail package smoke");
+    assert_eq!(
+        error,
+        "NATIVE_GATE_PACKAGE_INVALID: packaged Headless smoke unexpectedly reported a presentation snapshot"
+    );
+}
+
+#[test]
 #[cfg(any(
     all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
     all(target_arch = "x86_64", target_os = "linux", target_env = "gnu")
@@ -684,6 +760,29 @@ fn smoke_timeout_kills_child_and_bounds_both_output_streams() {
     assert!(error.contains("[stderr truncated]"));
 }
 
+fn fixture_smoke_report(composition_root: &str) -> next_application::RunReportV1 {
+    next_application::RunReportV1 {
+        schema_version: 1,
+        status: "PASS".to_owned(),
+        composition_root: composition_root.to_owned(),
+        session_id: "1".repeat(64),
+        close_receipt_hash: "2".repeat(64),
+        close_result: "Saved".to_owned(),
+        final_save_generation_hash: None,
+        project_composition_lock_hash: "3".repeat(64),
+        ticks: 1,
+        events: 1,
+        rpg_events: 1,
+        authoritative_revision: 1,
+        authoritative_state_root: "4".repeat(64),
+        command_archive_root: "5".repeat(64),
+        command_identity_index_root: "6".repeat(64),
+        command_ledger_hash: "7".repeat(64),
+        interactive_host_object_count: 0,
+        presentation: None,
+    }
+}
+
 #[test]
 fn smoke_inventory_requires_byte_identity() {
     let before = vec![PackageFileV2 {
@@ -695,30 +794,6 @@ fn smoke_inventory_requires_byte_identity() {
     assert!(ensure_inventory_unchanged(&before, &after).is_ok());
     after[0].sha256 = "b".repeat(64);
     assert!(ensure_inventory_unchanged(&before, &after).is_err());
-}
-
-#[test]
-fn publish_lock_and_destination_checks_never_accept_existing_objects() {
-    let temporary = TestDirectory::new("publish-collision");
-    let output = temporary.path().join("package");
-    let first_lock = PublishLock::acquire(&output).expect("first publish lock");
-    assert!(PublishLock::acquire(&output).is_err());
-    drop(first_lock);
-    assert!(PublishLock::acquire(&output).is_ok());
-
-    fs::write(&output, b"existing").expect("destination");
-    assert!(ensure_publish_destination_absent(&output).is_err());
-}
-
-#[cfg(unix)]
-#[test]
-fn destination_check_rejects_dangling_symlink() {
-    use std::os::unix::fs::symlink;
-
-    let temporary = TestDirectory::new("dangling-destination");
-    let output = temporary.path().join("package");
-    symlink("missing", &output).expect("dangling symlink");
-    assert!(ensure_publish_destination_absent(&output).is_err());
 }
 
 #[test]

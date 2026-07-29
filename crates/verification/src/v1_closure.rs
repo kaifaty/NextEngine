@@ -11,6 +11,7 @@ use crate::content_package::run_content_package_check_with_scratch;
 use crate::persistence_replay::run_persistence_replay_check_with_backend_and_scratch;
 use crate::platform_check::run_platform_check_with_scratch;
 use crate::player_fixture::run_play_check_with_scratch;
+use crate::render_performance::run_render_frame_planning_performance_check_with_scratch;
 use crate::scratch::ScratchContext;
 use crate::streaming_performance::run_streaming_performance_check_with_scratch;
 
@@ -152,6 +153,16 @@ fn run_v1_closure_check_scoped(
             .map_err(|error| V1ClosureCheckError::new("performance.agent", error.to_string()));
     let agent = agent_directory.finish(agent_result, |error| {
         V1ClosureCheckError::new("remove agent scratch", error.to_string())
+    })?;
+
+    let render_directory = scratch
+        .create_directory("performance-render")
+        .map_err(|error| V1ClosureCheckError::new("render scratch", error.to_string()))?;
+    let render_result =
+        run_render_frame_planning_performance_check_with_scratch(&render_directory.context())
+            .map_err(|error| V1ClosureCheckError::new("performance.render", error.to_string()));
+    let _render = render_directory.finish(render_result, |error| {
+        V1ClosureCheckError::new("remove render scratch", error.to_string())
     })?;
 
     if platform.authoritative_state_root != play.final_state_root
@@ -503,6 +514,7 @@ mod tests {
             "game-frame",
             "performance-streaming",
             "performance-agent",
+            "performance-render",
         ] {
             assert!(
                 allocations.iter().any(|path| path

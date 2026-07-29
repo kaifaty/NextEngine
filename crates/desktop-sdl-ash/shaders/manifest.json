@@ -1,0 +1,90 @@
+{
+  "schema": "nextengine.render.shader_asset_manifest",
+  "schema_version": 1,
+  "suite": "b0_textured",
+  "interface_contract_sha256": "8091123413e9b20e6410d2f841d9db55113aa9069c4fe8cd491d36ecb2dd80c0",
+  "source_language": {
+    "name": "GLSL",
+    "version": "450"
+  },
+  "compiler": {
+    "name": "glslangValidator",
+    "version": "11.7.0",
+    "spirv_generator": 10,
+    "distribution": "Android Emulator",
+    "binary_size_bytes": 7572296,
+    "binary_sha256": "0b7b2ea92af3f4b74f4bea9b4389dd2bbda3bed345cc8fece8a8d22bcf7b9d7f",
+    "command_template": "glslangValidator --quiet -V --target-env vulkan1.2 -S <stage> -e main -o <module> <source>"
+  },
+  "target": {
+    "environment": "vulkan1.2",
+    "spirv_version": "1.5",
+    "entry_point": "main"
+  },
+  "interface": {
+    "vertex_inputs": [
+      {
+        "location": 0,
+        "type": "vec3",
+        "semantic": "position"
+      },
+      {
+        "location": 1,
+        "type": "vec2",
+        "semantic": "uv0"
+      }
+    ],
+    "descriptors": [
+      {
+        "set": 0,
+        "binding": 0,
+        "type": "uniform_buffer",
+        "stages": [
+          "vertex"
+        ],
+        "minimum_size_bytes": 64
+      },
+      {
+        "set": 1,
+        "binding": 0,
+        "type": "combined_image_sampler",
+        "stages": [
+          "fragment"
+        ],
+        "count": 1
+      }
+    ],
+    "push_constants": [
+      {
+        "offset_bytes": 0,
+        "size_bytes": 80,
+        "stages": [
+          "vertex",
+          "fragment"
+        ]
+      }
+    ],
+    "fragment_outputs": [
+      {
+        "location": 0,
+        "type": "vec4"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "stage": "vertex",
+      "source": "b0_textured.vert",
+      "source_sha256": "872d0a7cdcb986cdc300df5a9d26c1ea8eb06d819a6ae744e227fb05666b1a58",
+      "module": "b0_textured.vert.spv",
+      "module_sha256": "9957f29a421307bd2e93eee6594438291f06904457cb2098076ca7106daa345f"
+    },
+    {
+      "stage": "fragment",
+      "source": "b0_textured.frag",
+      "source_sha256": "de853cf922ce990bd5ad50c3cbb8f8cb8dda701d980edd03841d063c30923723",
+      "module": "b0_textured.frag.spv",
+      "module_sha256": "21ca7f029466a2c23f7d0dff4da99dfca01ece2a7512645c980e70ed8b6f84ee"
+    }
+  ]
+}

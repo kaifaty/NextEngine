@@ -222,16 +222,7 @@ where
         }
     };
 
-    ensure_publish_destination_absent(&output)?;
-    if let Err(error) = fs::rename(&staging, &output) {
-        return cleanup_failed_build(
-            &staging,
-            format!(
-                "NATIVE_GATE_PACKAGE_INVALID: failed to atomically publish {}: {error}",
-                output.display()
-            ),
-        );
-    }
+    publish_staged_directory(&staging, &output)?;
 
     Ok(PackageBuildResult {
         manifest,
@@ -883,6 +874,39 @@ fn ensure_publish_destination_absent(output: &Path) -> Result<(), String> {
             "NATIVE_GATE_OUTPUT_EXISTS: v1 package output already exists: {}",
             output.display()
         ));
+    }
+    Ok(())
+}
+
+fn publish_staged_directory(staging: &Path, output: &Path) -> Result<(), String> {
+    publish_staged_directory_with(staging, output, |from, to| fs::rename(from, to))
+}
+
+fn publish_staged_directory_with(
+    staging: &Path,
+    output: &Path,
+    rename: impl FnOnce(&Path, &Path) -> std::io::Result<()>,
+) -> Result<(), String> {
+    if let Err(error) = ensure_publish_destination_absent(output) {
+        return cleanup_failed_build(staging, error);
+    }
+    if let Err(rename_error) = rename(staging, output) {
+        let diagnostic = match path_exists_without_following(output) {
+            Ok(true) => format!(
+                "NATIVE_GATE_OUTPUT_EXISTS: v1 package output already exists: {}",
+                output.display()
+            ),
+            Ok(false) => format!(
+                "NATIVE_GATE_PACKAGE_INVALID: failed to atomically publish {}: {error}",
+                output.display(),
+                error = rename_error
+            ),
+            Err(inspect_error) => format!(
+                "{inspect_error}; atomic publish also failed for {}: {rename_error}",
+                output.display()
+            ),
+        };
+        return cleanup_failed_build(staging, diagnostic);
     }
     Ok(())
 }

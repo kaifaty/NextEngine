@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-07-30 |
-| Текущая точка | локально завершённый bootstrap M0–M11, native gate harness и Windows Desktop B0 hardening; следующий Windows package — minimal render content, а Linux-only действия накапливаются в отдельном asynchronous validation backlog |
+| Текущая точка | minimal render-content implementation и релевантная Windows validation завершены локально; следующий Windows package — ActionMap/context + camera/targeting, а Linux-only действия накапливаются в отдельном asynchronous validation backlog |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -67,14 +67,19 @@ Roadmap намеренно не содержит календарных обещ
 - deterministic two-chunk streaming;
 - deterministic NPC affordance planner и procedural avatar projection;
 - data-only mechanics, bounded Luau и Wasm Component paths;
-- immutable presentation extraction и reference B0 render plan;
+- exact revision-bound presentation extraction и reference B0 render plan;
+- neutral mesh/material/texture/profile catalog, deterministic cook/activation
+  и derived B0 meshlet payloads;
+- checked-in offline SPIR-V и B0 CPU visible-list/indexed-indirect path с
+  deterministic fallback material;
 - Windows SDL3/ash B0 path с canonical keyboard/lifecycle events, fullscreen,
-  swapchain recreation, bounded device-loss recovery и clean package smoke;
+  swapchain recreation, bounded device-loss recovery и package smoke;
 - локальная v1 closure matrix.
 
 Это сильный bootstrap, но ещё не пользовательская alpha. Текущий сценарий
 жёстко ограничен одним neutral fixture, двумя chunks, одной combat ability,
-одним NPC transition и B0-примитивами.
+одним NPC transition и небольшим B0 mesh/material/texture набором без
+skeleton/animation/audio.
 
 ### Реализация по подсистемам
 
@@ -85,7 +90,7 @@ Roadmap намеренно не содержит календарных обещ
 | Persistence/replay | Реализован текущий owner set | Нет реального schema migration graph и будущих owner segments. |
 | RPG | Частично: основные aggregates и восемь операций | Нет полного faction/membership, status/effect, quest-graph, reward и divine command lifecycle. |
 | Mechanics/packages | Частично: contact melee + Luau/Wasm examples | Нет общего ability phase/cost/cooldown/status lifecycle и creator-facing SDK workflow. |
-| Content/cooker | Частично: generic neutral records и reference fixture | Нет production-complete mesh/material/texture/skeleton/animation/audio/navigation catalog и migrations. |
+| Content/cooker | Частично: generic records плюс canonical mesh/material/texture/profile catalog, deterministic cook/activation и derived meshlet payloads | Нет skeleton/animation/audio/navigation catalog, реальных migrations и достаточного lawful representative content. |
 | World/streaming | Частично: deterministic two-chunk transition | Нет general partition interest, resource residency, calendar, population, schedules и region transfers. |
 | Jobs/resources | Spec-only | Нет общего bounded job, memory, I/O credit, pin/lease и backpressure substrate. |
 | Physics | Частично: upright capsule + static Box | Нет полного shape/body/constraint/query profile и production physical-character stack. |
@@ -93,7 +98,7 @@ Roadmap намеренно не содержит календарных обещ
 | Agent AI | Частично: один canonical affordance planner | Нет perception, hierarchy, schedules, memory и 100-NPC workload. |
 | Navigation/audio | Spec-only | Нет runtime service, cooker или baseline adapters. |
 | Player experience | Частично: normalized input contracts + Windows SDL keyboard/lifecycle path | Нет ActionMap/context service, camera/targeting, semantic UI, localization и accessibility implementation. |
-| Presentation/render | Частично: snapshot + B0 primitives + Windows swapchain/device recovery | Нет production material/shader/content path, VFX consumption state, paired same-commit target proof и representative Linux hardware-GPU evidence. |
+| Presentation/render | Частично: exact revision-bound snapshot, offline SPIR-V, CPU visible list/indexed-indirect B0 path, fallback material и проверенные локально Windows swapchain/device recovery/package paths | Нет skeleton/VFX consumption state, paired same-commit target proof и representative Linux hardware-GPU evidence. |
 | Tooling | Частично: repository `xtask` checks | Нет creator-facing `next` CLI, inspectors, scenario/minimizer и stable external SDK workflow. |
 | Autonomous narrative | Contract fragments only | SPEC-31 runtime, graph admission, director fallback и divine batch transaction отсутствуют. |
 
@@ -182,9 +187,11 @@ Windows/Linux execution не считается выполненным и пер
 
 ## R1 — Native Windows/Linux developer preview
 
-**Статус:** `IN_PROGRESS`. Native gate harness и Windows Desktop B0 hardening
-реализованы; Windows `platform` и clean `v1-package` smoke проходят локально.
-Native Linux target report и package имеют отдельный `PASS`; paired
+**Статус:** `IN_PROGRESS`. Native gate harness, Windows Desktop B0 hardening и
+minimal render-content implementation реализованы; релевантные Windows
+`content-package`, `platform`, `performance` и clean `v1-package` проходят
+локально. Native Linux target report и package на более раннем checkpoint
+имеют отдельный `PASS`; paired
 same-commit Windows report и compare ещё не выполнены. Exact checkpoint,
 environment и coordination status ведутся в
 [Linux validation backlog](development/linux-validation-backlog.md).
@@ -256,7 +263,8 @@ ADR-028, ADR-030.
   flow;
 - source locale, deterministic text IDs, pseudo-locale и readable fallback;
 - keyboard/mouse и минимум один controller profile через одинаковые action IDs;
-- production mesh/material/texture path для B0 renderer;
+- validate и расширить реализованный minimal mesh/material/texture path для B0
+  renderer до representative alpha content;
 - baseline sample playback, attenuation/panning, voice limiting и subtitle
   fallback;
 - один CC0/engine-owned 20–30 minute project slice с началом, конфликтом и
@@ -277,7 +285,6 @@ ADR-028, ADR-030.
 **Hard blockers:**
 
 - R1 native package closure;
-- выбранный минимальный neutral render-content profile;
 - CC0/engine-owned art, UI text и audio fixture с подтверждённой provenance;
 - отсутствие hidden direct-mutation path из UI/camera.
 
@@ -599,8 +606,8 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 | ID | Blocker | Блокирует закрытие | Условие снятия |
 |---|---|---|---|
 | B-01 | `OPEN`: standalone Linux `PASS` записан; paired same-commit Windows report и cross-target compare отсутствуют. Coordination хранится в [Linux validation backlog](development/linux-validation-backlog.md). | R1, R7 | На одном exact clean commit собраны Windows/Linux target `PASS` reports и packages с matching roots, а `native-gate-compare` сообщает `native_gate_ready = true`. |
-| B-02 | SDL3/ash остаётся `Proposed` target candidate; Windows B0 path проходит локально, software-Vulkan Linux evidence записан, а representative hardware-GPU action поставлен в [Linux validation backlog](development/linux-validation-backlog.md). | R1, R2 | B0 lifecycle/input/device-loss checks проходят на обеих targets либо выбран thin adapter за тем же contract. |
-| B-03 | Нет production render/content profile и достаточного CC0 content | R2, R5, R7 | Зафиксирован минимальный mesh/material/texture/skeleton/audio profile и lawful fixture/project. |
+| B-02 | SDL3/ash остаётся `Proposed` target candidate; Windows B0 lifecycle/render-content path проходит локально, software-Vulkan Linux evidence записан, а representative hardware-GPU action поставлен в [Linux validation backlog](development/linux-validation-backlog.md). | R1, R2 | B0 lifecycle/input/device-loss checks проходят на обеих targets либо выбран thin adapter за тем же contract. |
+| B-03 | `PARTIAL`: minimal mesh/material/texture profile и engine-owned fixture реализованы и проверены на Windows; skeleton/audio и достаточный lawful representative slice отсутствуют | R2, R5, R7 | Зафиксирован и проверен минимальный mesh/material/texture/skeleton/audio profile и lawful fixture/project. |
 | B-04 | Нет общего job/resource/backpressure substrate | R3–R5 | Finite queues, canonical merge, logical budgets, pin/lease/eviction and fault checks реализованы production owners. |
 | B-05 | Schema migration DAG фактически пуст | R3, R7 | Реальная N−1→N copy-on-write migration проходит valid/corrupt/fault matrix. |
 | B-06 | World ограничен двумя chunks | R3, R4 | General partition interest/admission and multi-region save/restart scenario проходят. |
@@ -643,25 +650,31 @@ restore/fullscreen, surface recreation и bounded device-loss recovery прох�
 production adapter path. Оставшиеся target claims учитываются отдельно и не
 возвращают этот implementation package в активную очередь.
 
-1. **Minimal render content (`NEXT`):** neutral mesh/material/texture records,
-   cooker, B0 upload and fallback material.
-2. **Player action and camera:** ActionMap/context resolution, third-person
+Реализация **Minimal render content (`DONE_LOCAL_WINDOWS`)**
+добавляет neutral mesh/material/texture/profile catalog, exact revision-bound
+presentation, deterministic cook/activation и meshlet payloads, checked-in
+offline SPIR-V, CPU visible list/indexed-indirect B0 path и declared fallback.
+`content-package`, `platform`, `performance` и clean package smoke проходят
+локально на Windows; `LNX-004` выполняется позднее асинхронно и не удерживает
+следующий Windows package.
+
+1. **Player action and camera (`NEXT`):** ActionMap/context resolution, third-person
    camera, interaction focus and targeting query.
-3. **Semantic UI:** HUD, inventory/equipment, dialogue, quest journal,
+2. **Semantic UI:** HUD, inventory/equipment, dialogue, quest journal,
    pause/save/load and pseudo-locale.
-4. **Baseline audio:** clips, emitters/listener, priority/voice limits,
+3. **Baseline audio:** clips, emitters/listener, priority/voice limits,
    attenuation/panning and subtitle fallback.
-5. **Playable alpha project:** заменить technical fixture на один complete
+4. **Playable alpha project:** заменить technical fixture на один complete
    CC0/engine-owned 20–30 minute slice.
-6. **Jobs/resources vertical:** сначала content cook/stream use case, затем
+5. **Jobs/resources vertical:** сначала content cook/stream use case, затем
    shared bounded admission primitives.
-7. **General partition and migration:** multi-region streaming plus first real
+6. **General partition and migration:** multi-region streaming plus first real
    save/content schema migration.
-8. **Living-world vertical:** calendar + small population + graph navigation,
+7. **Living-world vertical:** calendar + small population + graph navigation,
      затем масштабирование к integrated 100-NPC scenario.
 
 Каждый package должен быть отдельным product increment с focused checks. Work
-package 6 не следует начинать как универсальный scheduler design без package 5
+package 5 не следует начинать как универсальный scheduler design без package 4
 и конкретного streaming workload.
 
 ## Обновление roadmap

@@ -4,10 +4,10 @@
 |---|---|
 | ID | TRACE-001 |
 | Статус | Accepted |
-| Версия | 2.8 |
-| Последняя проверка | 2026-07-29 |
+| Версия | 2.9 |
+| Последняя проверка | 2026-07-30 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
-| Заменяет | TRACE-001 2.7 |
+| Заменяет | TRACE-001 2.8 |
 
 ## Назначение
 
@@ -29,10 +29,11 @@ Canonical check names и правила conditional запуска опреде�
 | Сохранять authoritative world и воспроизводить bug | `persistence-replay` | `WorldCheckpointV4`/`ReplayManifestV4` плюс отдельный world-streaming owner segment сохраняют inventory membership, equipment, collected state, character health, pending chunk transition и replay agent command с ожидаемыми command/event/state/ledger roots; corrupt или bootstrap RPG V3 input отклоняется до partial activation | SPEC-02, SPEC-03, SPEC-06, SPEC-14, SPEC-19, SPEC-21, SPEC-22, SPEC-25, SPEC-27 |
 | Детерминированно загружать и выгружать chunks | `play`, `persistence-replay`; conditional `performance` | worker completion permutations дают один staging/commit hash; duplicate/corrupt required group и injected publication fault сохраняют прежнюю active generation; unload/reload не воскрешает durable RPG state | SPEC-03, SPEC-20, SPEC-23, SPEC-25, ADR-021, ADR-026 |
 | Загружать neutral content и public mechanic packages | `content-package` | validate/cook/resolve/atomic publish/production load; first-party interaction, combat, Luau scripted-melee и Wasm Component packages проходят тот же public capability, affordance, effect-request и RPG command path | SPEC-03, SPEC-07, SPEC-13, SPEC-17, SPEC-24 |
+| Готовить и отображать minimal neutral render content | `content-package`; conditional `platform`, `performance`; `v1-package` при packaging change | exact mesh/material/texture/profile revisions детерминированно cook/activate в canonical catalog и derived meshlet payloads; B0 строит стабильный CPU visible list и conventional indexed-indirect draws из checked-in offline SPIR-V, missing material выбирает declared fallback, а copied package binaries подтверждают snapshot/host-object parity без публикации smoke state | SPEC-04, SPEC-12, SPEC-17, SPEC-24, SPEC-30 |
 | Безопасно обрабатывать untrusted input | `fast`, `content-package` | malformed bounds/hash/version, Luau sandbox escape, Wasm ambient import/forged handle, forbidden capability, trap и instruction/fuel/allocation/live-memory/host-call/command budget exhaustion отклоняются до mutation; package/plugin state и circuit round-trip exact | SPEC-07, SPEC-10, SPEC-11, SPEC-13, SPEC-24, ADR-014 |
 | Диагностировать regression без private test backdoor | relevant check + local scenario | stable diagnostic содержит first divergence; minimized replay сохраняет failure identity | SPEC-09, SPEC-15 |
 | Автоматизировать operational output без text oracle | relevant JSON-producing command | stdout декодируется как ровно один versioned typed `RunReportV1`, `DiagnosticReportV1` или command report; progress идёт в stderr, stable code проверяется полем | SPEC-09, SPEC-15, SPEC-29 |
-| Сохранять player-facing presentation | `play`; optional capture | UI/camera/animation/audio/render change виден в том же gameplay scenario и не меняет authority | SPEC-04, SPEC-08, SPEC-18, SPEC-28, SPEC-30 |
+| Сохранять player-facing presentation | `play`; optional capture | exact revision-bound mesh/material references, bounds, UI/camera/animation/audio/render change видны в том же gameplay scenario и не меняют authority | SPEC-04, SPEC-08, SPEC-18, SPEC-28, SPEC-30 |
 | Поддерживать shipping platform, которую реально изменили | conditional `platform` | релевантный smoke запускается на affected Windows/Linux target; public API остаётся engine-owned | SPEC-04, SPEC-17, SPEC-29 |
 | Закрыть v1 без ложного platform success | `v1-closure` и `v1-package` внутри `native-gate-run` на каждом target; затем `native-gate-compare` | каждый clean same-commit Windows/Linux run сохраняет свой `PASS` и честный remote-target `NOT_RUN`; только пара native target reports с matching project/content/mechanics/WIT/extension/state/ledger roots даёт `native_gate_ready = true`, не подменяя остальные критерии R1/v1 | SPEC-04, SPEC-07, SPEC-12, SPEC-15, SPEC-17, SPEC-29, ADR-030 |
 | Не ухудшать затронутый hot path | conditional `performance` | declared numeric scenario остаётся в допустимом regression threshold без изменения gameplay result | SPEC-05, SPEC-06, SPEC-08, SPEC-16, SPEC-23, SPEC-26, SPEC-27, SPEC-30 |

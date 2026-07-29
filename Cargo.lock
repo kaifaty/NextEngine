@@ -641,6 +641,7 @@ version = "0.1.0"
 dependencies = [
  "ash",
  "next_contracts",
+ "next_render",
  "sdl3",
 ]
 
@@ -750,6 +751,8 @@ name = "next_render"
 version = "0.1.0"
 dependencies = [
  "next_contracts",
+ "next_project",
+ "next_reference_game",
 ]
 
 [[package]]

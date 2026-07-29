@@ -16,6 +16,7 @@ pub mod physics;
 pub mod platform;
 pub mod presentation;
 pub mod project;
+pub mod render_content;
 pub mod rpg;
 pub mod session;
 pub mod snapshot;
