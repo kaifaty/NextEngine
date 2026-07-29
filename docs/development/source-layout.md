@@ -14,11 +14,10 @@ crates still require an architectural ownership or dependency boundary.
 - Tests count toward the file limit. Move a large `#[cfg(test)]` block into a
   sibling `tests` module instead of treating test code as exempt.
 
-`cargo run -p xtask -- boundary-scan` enforces the hard limit. During the
-existing-file cleanup, the scanner contains an explicit path-and-ceiling
-exemption for each legacy oversized file. Exempt files cannot grow. An
-exemption also fails once its file reaches the hard limit, so the refactor and
-exemption removal land together.
+`cargo run -p xtask -- boundary-scan` enforces the hard limit without source
+file exemptions. It also rejects source-including `include!` invocations and
+aliases, plus direct or conditional `#[path]` module escape hatches, under the
+scanned source roots.
 
 ## Module shape
 

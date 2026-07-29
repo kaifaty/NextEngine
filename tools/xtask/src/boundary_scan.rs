@@ -4,20 +4,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const MAX_RUST_SOURCE_LINES: usize = 1_000;
+mod source_layout;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct SourceSizeExemption {
-    path: &'static str,
-    max_lines: usize,
-}
-
-// Temporary ratchet for the pre-existing oversized files. Refactoring a file
-// below the hard limit must remove its entry in the same change.
-const SOURCE_SIZE_EXEMPTIONS: &[SourceSizeExemption] = &[];
+use source_layout::{collect_strict_source_files, validate_source_layout};
 
 pub fn boundary_scan(root: &Path) -> Result<(), String> {
-    validate_source_file_sizes(root)?;
+    validate_source_layout(root)?;
     validate_public_contracts(root)?;
     validate_mechanics_package_boundary(root)?;
     validate_importer_boundary(root)?;
@@ -54,88 +46,6 @@ fn validate_mechanics_package_boundary(root: &Path) -> Result<(), String> {
         return Err("BOUNDARY_MECHANICS_HOST_FIRST_PARTY_PACKAGE_ID".to_owned());
     }
     Ok(())
-}
-
-fn validate_source_file_sizes(root: &Path) -> Result<(), String> {
-    let mut source_sizes = BTreeMap::new();
-    for relative_root in ["apps", "crates", "tools"] {
-        let source_root = root.join(relative_root);
-        if !source_root.is_dir() {
-            return Err(format!("SOURCE_ROOT_MISSING: {}", source_root.display()));
-        }
-        let mut files = Vec::new();
-        collect_strict_source_files(&source_root, &mut files)?;
-        files.sort();
-        for file in files {
-            let relative = workspace_relative_path(root, &file)?;
-            let line_count = read(&file)?.lines().count();
-            if source_sizes.insert(relative.clone(), line_count).is_some() {
-                return Err(format!("SOURCE_FILE_DUPLICATE: {relative}"));
-            }
-        }
-    }
-    validate_source_size_inventory(&source_sizes, SOURCE_SIZE_EXEMPTIONS)
-}
-
-fn validate_source_size_inventory(
-    source_sizes: &BTreeMap<String, usize>,
-    exemptions: &[SourceSizeExemption],
-) -> Result<(), String> {
-    let mut exemption_limits = BTreeMap::new();
-    for exemption in exemptions {
-        if exemption_limits
-            .insert(exemption.path, exemption.max_lines)
-            .is_some()
-        {
-            return Err(format!(
-                "SOURCE_FILE_SIZE_EXEMPTION_DUPLICATE: {}",
-                exemption.path
-            ));
-        }
-    }
-
-    for (path, line_count) in source_sizes {
-        let Some(max_lines) = exemption_limits.get(path.as_str()).copied() else {
-            if *line_count > MAX_RUST_SOURCE_LINES {
-                return Err(format!(
-                    "SOURCE_FILE_TOO_LARGE: {path} has {line_count} lines; limit is {MAX_RUST_SOURCE_LINES}"
-                ));
-            }
-            continue;
-        };
-        if *line_count <= MAX_RUST_SOURCE_LINES {
-            return Err(format!(
-                "SOURCE_FILE_SIZE_EXEMPTION_STALE: {path} has {line_count} lines; remove its exemption"
-            ));
-        }
-        if *line_count > max_lines {
-            return Err(format!(
-                "SOURCE_FILE_SIZE_REGRESSION: {path} has {line_count} lines; exemption ceiling is {max_lines}"
-            ));
-        }
-    }
-
-    for path in exemption_limits.keys() {
-        if !source_sizes.contains_key(*path) {
-            return Err(format!("SOURCE_FILE_SIZE_EXEMPTION_MISSING: {path}"));
-        }
-    }
-    Ok(())
-}
-
-fn workspace_relative_path(root: &Path, path: &Path) -> Result<String, String> {
-    let relative = path.strip_prefix(root).map_err(|_| {
-        format!(
-            "SOURCE_FILE_OUTSIDE_WORKSPACE: {} is not under {}",
-            path.display(),
-            root.display()
-        )
-    })?;
-    Ok(relative
-        .components()
-        .map(|component| component.as_os_str().to_string_lossy())
-        .collect::<Vec<_>>()
-        .join("/"))
 }
 
 fn validate_public_contracts(root: &Path) -> Result<(), String> {
@@ -410,30 +320,6 @@ fn find_source_file_containing(root: &Path, needle: &str) -> Result<Option<PathB
     Ok(None)
 }
 
-fn collect_strict_source_files(root: &Path, output: &mut Vec<PathBuf>) -> Result<(), String> {
-    let root_metadata =
-        fs::symlink_metadata(root).map_err(|error| format!("{}: {error}", root.display()))?;
-    if root_metadata.file_type().is_symlink() {
-        return Err(format!("SOURCE_SYMLINK_FORBIDDEN: {}", root.display()));
-    }
-    for entry in fs::read_dir(root).map_err(|error| format!("{}: {error}", root.display()))? {
-        let entry = entry.map_err(|error| error.to_string())?;
-        let path = entry.path();
-        let file_type = entry
-            .file_type()
-            .map_err(|error| format!("{}: {error}", path.display()))?;
-        if file_type.is_symlink() {
-            return Err(format!("SOURCE_SYMLINK_FORBIDDEN: {}", path.display()));
-        }
-        if file_type.is_dir() {
-            collect_strict_source_files(&path, output)?;
-        } else if file_type.is_file() && path.extension() == Some(OsStr::new("rs")) {
-            output.push(path);
-        }
-    }
-    Ok(())
-}
-
 fn collect_files(
     root: &Path,
     extension: Option<&str>,
@@ -495,7 +381,6 @@ fn should_skip(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
     use std::fs;
     #[cfg(unix)]
     use std::os::unix::fs::symlink;
@@ -503,8 +388,7 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        MAX_RUST_SOURCE_LINES, SourceSizeExemption, contains_forbidden_public_token,
-        contains_unsafe_code, find_source_file_containing, validate_source_size_inventory,
+        contains_forbidden_public_token, contains_unsafe_code, find_source_file_containing,
     };
 
     fn temporary_source_root(label: &str) -> PathBuf {
@@ -534,62 +418,6 @@ mod tests {
         assert!(!contains_unsafe_code(
             "const NOTE: &str = \"unsafe extern C\";"
         ));
-    }
-
-    #[test]
-    fn source_size_inventory_rejects_a_new_oversized_file() {
-        let source_sizes = BTreeMap::from([(
-            "crates/example/src/lib.rs".to_owned(),
-            MAX_RUST_SOURCE_LINES + 1,
-        )]);
-
-        let error = validate_source_size_inventory(&source_sizes, &[])
-            .expect_err("an unexempted oversized source must fail");
-
-        assert!(error.starts_with("SOURCE_FILE_TOO_LARGE: crates/example/src/lib.rs"));
-    }
-
-    #[test]
-    fn source_size_inventory_ratchets_exemptions() {
-        let exemption = SourceSizeExemption {
-            path: "crates/example/src/lib.rs",
-            max_lines: 1_200,
-        };
-        let accepted = BTreeMap::from([(exemption.path.to_owned(), 1_200)]);
-        validate_source_size_inventory(&accepted, &[exemption])
-            .expect("a source at its exemption ceiling remains accepted");
-
-        let grown = BTreeMap::from([(exemption.path.to_owned(), 1_201)]);
-        let error = validate_source_size_inventory(&grown, &[exemption])
-            .expect_err("growth above an exemption ceiling must fail");
-        assert!(error.starts_with("SOURCE_FILE_SIZE_REGRESSION:"));
-
-        let refactored = BTreeMap::from([(exemption.path.to_owned(), MAX_RUST_SOURCE_LINES)]);
-        let error = validate_source_size_inventory(&refactored, &[exemption])
-            .expect_err("a completed refactor must remove its exemption");
-        assert!(error.starts_with("SOURCE_FILE_SIZE_EXEMPTION_STALE:"));
-    }
-
-    #[test]
-    fn source_size_inventory_rejects_missing_and_duplicate_exemptions() {
-        let exemption = SourceSizeExemption {
-            path: "crates/example/src/lib.rs",
-            max_lines: 1_200,
-        };
-        let error = validate_source_size_inventory(&BTreeMap::new(), &[exemption])
-            .expect_err("an exemption for a missing file must fail");
-        assert_eq!(
-            error,
-            "SOURCE_FILE_SIZE_EXEMPTION_MISSING: crates/example/src/lib.rs"
-        );
-
-        let source_sizes = BTreeMap::from([(exemption.path.to_owned(), 1_100)]);
-        let error = validate_source_size_inventory(&source_sizes, &[exemption, exemption])
-            .expect_err("duplicate exemptions must fail");
-        assert_eq!(
-            error,
-            "SOURCE_FILE_SIZE_EXEMPTION_DUPLICATE: crates/example/src/lib.rs"
-        );
     }
 
     #[test]
