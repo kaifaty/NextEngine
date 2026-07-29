@@ -17,7 +17,7 @@ struct SourceSizeExemption {
 const SOURCE_SIZE_EXEMPTIONS: &[SourceSizeExemption] = &[
     SourceSizeExemption {
         path: "crates/runtime/src/engine.rs",
-        max_lines: 5_902,
+        max_lines: 4_899,
     },
     SourceSizeExemption {
         path: "crates/verification/src/player_fixture.rs",
