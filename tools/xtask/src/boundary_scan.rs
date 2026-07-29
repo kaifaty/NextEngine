@@ -28,10 +28,6 @@ const SOURCE_SIZE_EXEMPTIONS: &[SourceSizeExemption] = &[
         max_lines: 1_738,
     },
     SourceSizeExemption {
-        path: "crates/rpg/src/lib.rs",
-        max_lines: 1_657,
-    },
-    SourceSizeExemption {
         path: "crates/verification/src/lib.rs",
         max_lines: 1_318,
     },
