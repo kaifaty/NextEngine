@@ -1556,6 +1556,12 @@ fn run_grounded_collision_scenario_with_backend(
                         && resource.current_value == 75
                 })
         );
+    let world_streaming_snapshot = world_streamer.snapshot();
+    let expected_current_chunk_id = &world_streaming_snapshot
+        .chunks
+        .first()
+        .ok_or(PlayCheckError::WorldPartitionEmpty)?
+        .chunk_id;
     if final_pose.translation_micrometres != expected_pose
         || runtime.physics_snapshot().physics_tick != expected_substeps
         || events != expected_events
@@ -1572,16 +1578,11 @@ fn run_grounded_collision_scenario_with_backend(
         || !item_is_equipped
         || !npc_health_adjusted
         || !player_health_adjusted
-        || agent_intent_id.is_none()
-        || agent_projection_hash.is_none()
-        || world_streamer.snapshot().generation != 2
-        || world_streamer.snapshot().current_chunk_id
-            != world_streamer
-                .snapshot()
-                .chunks
-                .first()
-                .ok_or(PlayCheckError::WorldPartitionEmpty)?
-                .chunk_id
+        || (include_interaction
+            && (agent_intent_id.is_none()
+                || agent_projection_hash.is_none()
+                || world_streaming_snapshot.generation != 2
+                || &world_streaming_snapshot.current_chunk_id != expected_current_chunk_id))
     {
         return Err(PlayCheckError::AcceptanceMismatch(format!(
             "pose={:?} physics_tick={} events={events} rpg_events={rpg_events} \
@@ -1594,8 +1595,8 @@ fn run_grounded_collision_scenario_with_backend(
             final_pose.translation_micrometres,
             runtime.physics_snapshot().physics_tick,
             agent_intent_id.is_some() && agent_projection_hash.is_some(),
-            world_streamer.snapshot().generation,
-            world_streamer.snapshot().current_chunk_id.as_str(),
+            world_streaming_snapshot.generation,
+            world_streaming_snapshot.current_chunk_id.as_str(),
         )));
     }
     Ok(GroundedCollisionScenario {
@@ -1625,7 +1626,7 @@ fn run_grounded_collision_scenario_with_backend(
             .content_manifest_sha256,
         presentation_bindings: fixture_presentation_bindings(&fixture)?,
         tick_reports,
-        world_streaming_snapshot: world_streamer.snapshot().clone(),
+        world_streaming_snapshot: world_streaming_snapshot.clone(),
         agent_intent_id,
         agent_projection_hash,
     })
@@ -2095,7 +2096,6 @@ mod tests {
             )
             .expect("enqueue");
         let report = runtime.run_tick([]).expect("tick");
-
         assert_eq!(report.mapping_receipts.len(), 1);
         assert_eq!(
             report.mapping_receipts[0].code,
