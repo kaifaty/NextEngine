@@ -1,12 +1,21 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use next_assets::ContentStore;
 use next_contracts::ids::SchemaId;
 use next_contracts::session::{
-    ApplicationSessionStatusV1, BoundedDeadlineClassV1, CloseSessionRequestV1, CompositionRootV1,
-    FailureDispositionV1, PresentationTargetKindV1, ShutdownPolicyV1,
+    ApplicationSessionStatusV1, BoundedDeadlineClassV1, CloseSessionRequestV1,
+    CloseSessionResultV1, CompositionRootV1, FailureDispositionV1, PresentationTargetKindV1,
+    ShutdownPolicyV1,
+};
+use next_project::cook_project_v1;
+use next_reference_game::project_source_v2;
+
+use crate::{
+    ApplicationCloseOutcomeV1, CloseExecutionOptionsV1, FinalSaveAttemptFailureV1, LaunchRequestV1,
+    ProjectSelectionV1,
 };
 
-use super::*;
+use super::ApplicationCoordinator;
 
 static TEST_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 

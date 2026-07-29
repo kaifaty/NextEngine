@@ -1,7 +1,107 @@
-use super::*;
+use next_contracts::ids::{ContentHash, SchemaId};
+use next_contracts::session::{
+    ApplicationLifecycleEventV1, ApplicationSessionStatusV1, BoundedDeadlineClassV1,
+    CausalInputReferenceV1, CausalInputSourceKindV1, CloseSessionOperationJournalV1,
+    CloseSessionProgressResultV1, CloseSessionReceiptV1, CloseSessionRequestV1,
+    CloseSessionResultV1, FinalSavePolicyV1, FinalSaveReceiptV1, LifecycleReasonKindV1,
+    LifecycleReasonV1, SessionFinalSaveLedgerEntryV1, can_close_after_failed_save,
+    close_request_archive_ref,
+};
+use next_runtime::{SessionTransitionPlanV1, SessionTransitionReferencesV1};
+
+use crate::ApplicationError;
+use crate::close::{ApplicationCloseOutcomeV1, CloseExecutionOptionsV1, FinalSaveAttemptFailureV1};
+use crate::durable::DurableCloseOperationV1;
+
+use super::ApplicationCoordinator;
+use super::identity::{derive_close_request_id, domain_hash};
+use super::recovery::{
+    durable_ledger, progress, rebuild_journal, rebuild_retryable_ledger, reservation,
+    save_compatibility, save_identity,
+};
 
 impl ApplicationCoordinator {
-    pub(super) fn register_or_validate_close(
+    pub fn close_request(
+        &self,
+        deadline: BoundedDeadlineClassV1,
+    ) -> Result<CloseSessionRequestV1, ApplicationError> {
+        self.build_close_request(
+            self.machine.state().revision,
+            self.machine.state().state,
+            deadline,
+        )
+    }
+
+    pub fn close(
+        &mut self,
+        options: CloseExecutionOptionsV1,
+    ) -> Result<ApplicationCloseOutcomeV1, ApplicationError> {
+        let request = if let Some(close) = &self.durable.close {
+            let request = self.build_close_request(
+                close.starting_session_revision,
+                close.starting_session_state,
+                BoundedDeadlineClassV1::Standard,
+            )?;
+            if request.canonical_close_request_hash != close.canonical_close_request_hash
+                || request.canonical_bytes()? != close.canonical_close_request_bytes
+            {
+                return Err(ApplicationError::CloseJournalInvalid);
+            }
+            request
+        } else {
+            self.close_request(BoundedDeadlineClassV1::Standard)?
+        };
+        self.close_with_request(request, options)
+    }
+
+    pub fn close_with_request(
+        &mut self,
+        request: CloseSessionRequestV1,
+        options: CloseExecutionOptionsV1,
+    ) -> Result<ApplicationCloseOutcomeV1, ApplicationError> {
+        request.validate()?;
+        self.register_or_validate_close(&request, options.last_safe_generation_hash)?;
+        if self.machine.state().state == ApplicationSessionStatusV1::Closed {
+            return self.closed_outcome();
+        }
+        self.advance_to_finalizing(&request)?;
+        self.execute_final_save_attempt(&request, options)
+    }
+
+    fn build_close_request(
+        &self,
+        starting_revision: u64,
+        starting_state: ApplicationSessionStatusV1,
+        deadline: BoundedDeadlineClassV1,
+    ) -> Result<CloseSessionRequestV1, ApplicationError> {
+        let session_id = self.machine.state().session_id;
+        let causal_hash = domain_hash(
+            b"nextengine.close-request-cause.v1\0",
+            &[session_id.as_bytes(), &starting_revision.to_le_bytes()],
+        );
+        let close_request_id = derive_close_request_id(session_id, starting_revision, causal_hash);
+        Ok(CloseSessionRequestV1::new(
+            close_request_id,
+            session_id,
+            starting_revision,
+            starting_state,
+            self.activated_project
+                .composition_lock
+                .shutdown_policy_sha256,
+            FinalSavePolicyV1::Always,
+            deadline,
+            LifecycleReasonV1 {
+                kind: LifecycleReasonKindV1::UserCloseRequested,
+                reason_code: SchemaId::new("nextengine.session.close-requested")?,
+            },
+            CausalInputReferenceV1 {
+                source_kind: CausalInputSourceKindV1::SystemPolicy,
+                canonical_hash: causal_hash,
+            },
+        )?)
+    }
+
+    fn register_or_validate_close(
         &mut self,
         request: &CloseSessionRequestV1,
         last_safe_generation_hash: Option<ContentHash>,
@@ -69,7 +169,7 @@ impl ApplicationCoordinator {
         )
     }
 
-    pub(super) fn advance_to_finalizing(
+    fn advance_to_finalizing(
         &mut self,
         close_request: &CloseSessionRequestV1,
     ) -> Result<(), ApplicationError> {
@@ -156,7 +256,7 @@ impl ApplicationCoordinator {
         Ok(())
     }
 
-    pub(super) fn execute_final_save_attempt(
+    fn execute_final_save_attempt(
         &mut self,
         close_request: &CloseSessionRequestV1,
         options: CloseExecutionOptionsV1,
@@ -438,7 +538,7 @@ impl ApplicationCoordinator {
         })
     }
 
-    pub(super) fn closed_outcome(&self) -> Result<ApplicationCloseOutcomeV1, ApplicationError> {
+    fn closed_outcome(&self) -> Result<ApplicationCloseOutcomeV1, ApplicationError> {
         let close = self
             .durable
             .close
@@ -465,5 +565,19 @@ impl ApplicationCoordinator {
             result,
             save_generation_hash,
         })
+    }
+
+    #[cfg(test)]
+    pub(super) fn inject_pause_after_save_commit(&mut self) {
+        self.pause_after_save_commit = true;
+    }
+}
+
+fn planned_event(
+    plan: &SessionTransitionPlanV1,
+) -> Result<ApplicationLifecycleEventV1, ApplicationError> {
+    match plan {
+        SessionTransitionPlanV1::Publish { event, .. }
+        | SessionTransitionPlanV1::ExactRetry { event, .. } => Ok(event.clone()),
     }
 }
