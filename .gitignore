@@ -9,6 +9,7 @@
 /media/
 /incubator/gothic-importer/
 /.codex-artifacts/
+/.qmd/
 
 .DS_Store
 *.onnx

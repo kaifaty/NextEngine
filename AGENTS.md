@@ -8,6 +8,14 @@
 - Architecture documents follow the normal repository workflow. A semantic change to an Accepted decision needs a short ADR that names what it supersedes; update affected SPECs and the lightweight traceability map in the same change.
 - `Proposed` technology is an experiment, not a default. State its fallback and do not present it as shipped before the affected product check passes.
 
+## Documentation retrieval
+
+- For architecture-sensitive, roadmap-sensitive or cross-cutting work, invoke the `qmd` skill and search the `nextengine-docs` collection before broad documentation scans to discover the relevant subsystem SPECs, ADRs, plans and reviews.
+- Prefer a structured QMD query with an explicit `intent` plus agent-authored `lex` and `vec` searches; add `hyde` only when a hypothetical source passage materially improves recall.
+- Retrieve and read the complete candidate documents with QMD `get` or `multi_get` before making claims or edits. Search snippets and ranking scores are discovery aids, not authority, and do not replace the mandatory direct reads or precedence rules above.
+- Prefer `rg` and direct file reads for exact source-code symbols, known paths and verification after retrieval.
+- If QMD is unavailable, incomplete or stale, fall back to `rg` plus direct reads and report the fallback. Index mutation is local maintenance: use `node tools/qmd/setup.mjs` only for setup or an explicitly requested refresh.
+
 ## Roadmap context
 
 - Use `docs/roadmap.md` as planning context when a task affects product scope, implementation order, stage dependencies, a roadmap blocker, an exit criterion or the reported state of a subsystem. Routine local fixes that do not change those facts do not require reading or editing the roadmap.
