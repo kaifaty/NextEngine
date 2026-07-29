@@ -244,7 +244,7 @@ pub(super) struct OrderedResult {
 }
 
 impl OrderedResult {
-    pub(super) fn with_disposition(
+    fn with_disposition(
         order_key: CommandOrderKey,
         command_id: CommandId,
         sequence: u64,

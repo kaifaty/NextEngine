@@ -206,7 +206,7 @@ pub(super) fn sequence_is_retained(stream: &CommandStreamLedgerV2, sequence: u64
             .any(|receipt| receipt.subject.sequence() == sequence)
 }
 
-pub(super) fn retained_collision_candidates(
+fn retained_collision_candidates(
     stream: &CommandStreamLedgerV2,
     sequence: u64,
 ) -> Vec<CommandCollisionCandidateV1> {

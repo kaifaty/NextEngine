@@ -35,7 +35,7 @@ impl LedgerWriter {
         Ok(())
     }
 
-    pub(super) fn sized_bytes(&mut self, value: &[u8]) -> Result<(), CommandLedgerError> {
+    fn sized_bytes(&mut self, value: &[u8]) -> Result<(), CommandLedgerError> {
         self.count(value.len())?;
         self.bytes(value);
         Ok(())
@@ -118,7 +118,7 @@ impl<'a> LedgerReader<'a> {
             .map_err(Into::into)
     }
 
-    pub(super) fn sized_bytes(&mut self) -> Result<&'a [u8], CommandLedgerError> {
+    fn sized_bytes(&mut self) -> Result<&'a [u8], CommandLedgerError> {
         self.cursor
             .read_u32_length_prefixed(self.limits.max_field_payload_bytes)
             .map_err(Into::into)

@@ -36,7 +36,7 @@ pub(super) fn decode_streams(
     Ok(streams)
 }
 
-pub(super) fn encode_stream(
+fn encode_stream(
     writer: &mut LedgerWriter,
     stream: &CommandStreamLedgerV2,
 ) -> Result<(), CommandLedgerError> {
@@ -69,7 +69,7 @@ pub(super) fn encode_stream(
     Ok(())
 }
 
-pub(super) fn decode_stream(
+fn decode_stream(
     reader: &mut LedgerReader<'_>,
 ) -> Result<CommandStreamLedgerV2, CommandLedgerError> {
     let schema_version = reader.u16()?;
@@ -140,7 +140,7 @@ pub(super) fn decode_stream(
     })
 }
 
-pub(super) fn encode_reservation(
+fn encode_reservation(
     writer: &mut LedgerWriter,
     reservation: &CommandReservationV1,
 ) -> Result<(), CommandLedgerError> {
@@ -159,7 +159,7 @@ pub(super) fn encode_reservation(
     Ok(())
 }
 
-pub(super) fn decode_reservation(
+fn decode_reservation(
     reader: &mut LedgerReader<'_>,
 ) -> Result<CommandReservationV1, CommandLedgerError> {
     let schema_version = reader.u16()?;
@@ -182,13 +182,13 @@ pub(super) fn decode_reservation(
     })
 }
 
-pub(super) fn encode_candidate(writer: &mut LedgerWriter, candidate: &CommandCollisionCandidateV1) {
+fn encode_candidate(writer: &mut LedgerWriter, candidate: &CommandCollisionCandidateV1) {
     writer.bytes(candidate.command_id.as_bytes());
     writer.bytes(candidate.body_hash.as_bytes());
     writer.bytes(candidate.canonical_body_ref.as_bytes());
 }
 
-pub(super) fn decode_candidate(
+fn decode_candidate(
     reader: &mut LedgerReader<'_>,
 ) -> Result<CommandCollisionCandidateV1, CommandLedgerError> {
     Ok(CommandCollisionCandidateV1 {
@@ -198,7 +198,7 @@ pub(super) fn decode_candidate(
     })
 }
 
-pub(super) fn encode_incident(
+fn encode_incident(
     writer: &mut LedgerWriter,
     incident: &CommandCollisionIncidentV1,
 ) -> Result<(), CommandLedgerError> {
@@ -214,7 +214,7 @@ pub(super) fn encode_incident(
     Ok(())
 }
 
-pub(super) fn decode_incident(
+fn decode_incident(
     reader: &mut LedgerReader<'_>,
 ) -> Result<CommandCollisionIncidentV1, CommandLedgerError> {
     let stream_id = CommandStreamId::from_bytes(reader.array()?);
@@ -237,7 +237,7 @@ pub(super) fn decode_incident(
     Ok(incident)
 }
 
-pub(super) fn encode_receipt(
+fn encode_receipt(
     writer: &mut LedgerWriter,
     receipt: &CommandReceiptV1,
 ) -> Result<(), CommandLedgerError> {
@@ -305,9 +305,7 @@ pub(super) fn encode_receipt(
     Ok(())
 }
 
-pub(super) fn decode_receipt(
-    reader: &mut LedgerReader<'_>,
-) -> Result<CommandReceiptV1, CommandLedgerError> {
+fn decode_receipt(reader: &mut LedgerReader<'_>) -> Result<CommandReceiptV1, CommandLedgerError> {
     let schema_version = reader.u16()?;
     if schema_version != COMMAND_RECEIPT_SCHEMA_VERSION {
         return Err(CommandLedgerError::UnsupportedReceiptVersion(
@@ -550,7 +548,7 @@ pub(super) fn decode_causal_registry(
     })
 }
 
-pub(super) fn decode_phase(tag: u8) -> Result<CommandPhase, CommandLedgerError> {
+fn decode_phase(tag: u8) -> Result<CommandPhase, CommandLedgerError> {
     match tag {
         0 => Ok(CommandPhase::Ingress),
         1 => Ok(CommandPhase::Outcome),
