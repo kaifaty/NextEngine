@@ -13,6 +13,7 @@ physx = ["next_verification/physx"]
 physx-mock = ["next_verification/physx-mock"]
 
 [dependencies]
+goblin.workspace = true
 next_assets.workspace = true
 next_application.workspace = true
 next_contracts.workspace = true

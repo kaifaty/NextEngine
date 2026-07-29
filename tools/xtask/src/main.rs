@@ -708,13 +708,13 @@ fn host_check_report(
     run_checked(
         root,
         "cargo",
-        host_check_clippy_arguments(state_root),
+        &host_check_clippy_arguments(state_root, cfg!(feature = "desktop-sdl-ash")),
         state_root,
     )?;
     run_checked(
         root,
         "cargo",
-        host_check_test_arguments(state_root),
+        &host_check_test_arguments(state_root, cfg!(feature = "desktop-sdl-ash")),
         state_root,
     )?;
     xtask::boundary_scan::boundary_scan(root)?;
@@ -728,35 +728,38 @@ fn host_check_report(
     ))
 }
 
-fn host_check_clippy_arguments(state_root: Option<&Path>) -> &'static [&'static str] {
+const DESKTOP_HOST_CHECK_FEATURES: &str =
+    "xtask/desktop-sdl-ash,next_verification/desktop-sdl-ash,next_game/desktop-sdl-ash";
+
+fn host_check_clippy_arguments(
+    state_root: Option<&Path>,
+    desktop_sdl_ash: bool,
+) -> Vec<&'static str> {
+    let mut arguments = vec!["clippy"];
     if state_root.is_some() {
-        &[
-            "clippy",
-            "--locked",
-            "--workspace",
-            "--all-targets",
-            "--",
-            "-D",
-            "warnings",
-        ]
-    } else {
-        &[
-            "clippy",
-            "--workspace",
-            "--all-targets",
-            "--",
-            "-D",
-            "warnings",
-        ]
+        arguments.push("--locked");
     }
+    arguments.extend(["--workspace", "--all-targets"]);
+    if desktop_sdl_ash {
+        arguments.extend(["--features", DESKTOP_HOST_CHECK_FEATURES]);
+    }
+    arguments.extend(["--", "-D", "warnings"]);
+    arguments
 }
 
-fn host_check_test_arguments(state_root: Option<&Path>) -> &'static [&'static str] {
+fn host_check_test_arguments(
+    state_root: Option<&Path>,
+    desktop_sdl_ash: bool,
+) -> Vec<&'static str> {
+    let mut arguments = vec!["test"];
     if state_root.is_some() {
-        &["test", "--locked", "--workspace"]
-    } else {
-        &["test", "--workspace"]
+        arguments.push("--locked");
     }
+    arguments.push("--workspace");
+    if desktop_sdl_ash {
+        arguments.extend(["--features", DESKTOP_HOST_CHECK_FEATURES]);
+    }
+    arguments
 }
 
 fn run_checked(
@@ -841,6 +844,14 @@ fn diagnostic_code(error: &str) -> &'static str {
         "NATIVE_GATE_COMMIT_MISMATCH"
     } else if error.starts_with("NATIVE_GATE_ROOT_MISMATCH") {
         "NATIVE_GATE_ROOT_MISMATCH"
+    } else if error.starts_with("NATIVE_GATE_PACKAGE_RUNTIME_PROFILE_INVALID") {
+        "NATIVE_GATE_PACKAGE_RUNTIME_PROFILE_INVALID"
+    } else if error.starts_with("NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING") {
+        "NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING"
+    } else if error.starts_with("NATIVE_GATE_PACKAGE_RUNTIME_ABI_UNSUPPORTED") {
+        "NATIVE_GATE_PACKAGE_RUNTIME_ABI_UNSUPPORTED"
+    } else if error.starts_with("NATIVE_GATE_PACKAGE_SMOKE_TIMEOUT") {
+        "NATIVE_GATE_PACKAGE_SMOKE_TIMEOUT"
     } else if error.starts_with("NATIVE_GATE_PACKAGE_INVALID") {
         "NATIVE_GATE_PACKAGE_INVALID"
     } else if error.starts_with("NATIVE_GATE_OUTPUT_EXISTS") {

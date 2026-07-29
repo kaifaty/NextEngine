@@ -399,7 +399,7 @@ pub(super) fn write_target_report(bundle: &TempBundle, report: &NativeGateTarget
 
 fn package_manifest_from_summary(
     report: &NativeGateTargetReportV1,
-) -> crate::package::PackageManifestV2 {
+) -> crate::package::PackageManifestV3 {
     let summary = report.package.as_ref().expect("package summary");
     let roots = crate::package::PackageTargetNeutralRootsV2 {
         content_manifest_sha256: summary.content_manifest_sha256.clone(),
@@ -422,7 +422,7 @@ fn package_manifest_from_summary(
             project_composition_lock_hash: summary.composition_lock_sha256.clone(),
         }
     };
-    crate::package::PackageManifestV2 {
+    crate::package::PackageManifestV3 {
         binaries: crate::package::PackageBinariesV2 {
             game: packaged_run(
                 "Game",
@@ -439,6 +439,13 @@ fn package_manifest_from_summary(
         },
         file_inventory: Vec::new(),
         required_notices: Vec::new(),
+        runtime_profile: crate::package::PackageRuntimeProfileV3 {
+            abi: crate::package::PackageRuntimeAbiV3::WindowsMsvcX64 {
+                crt: crate::package::PackageWindowsCrtV3::DynamicSystem,
+            },
+            binaries: Vec::new(),
+            external_prerequisites: Vec::new(),
+        },
         schema_version: crate::package::PACKAGE_MANIFEST_SCHEMA_VERSION,
         target_neutral_roots: roots,
         target_triple: report.target_triple.clone(),
@@ -584,6 +591,22 @@ fn comparison_requires_two_complete_pass_reports() {
     validate_native_gate_target_report(&linux).expect("controlled FAIL report is valid");
     let error = comparison_error(&windows, &linux);
     assert_eq!(error.code(), NATIVE_GATE_REPORT_INVALID);
+}
+
+#[test]
+fn package_failure_diagnostics_are_valid_native_gate_codes() {
+    for code in [
+        NATIVE_GATE_PACKAGE_RUNTIME_PROFILE_INVALID,
+        NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING,
+        NATIVE_GATE_PACKAGE_RUNTIME_ABI_UNSUPPORTED,
+        NATIVE_GATE_PACKAGE_SMOKE_TIMEOUT,
+    ] {
+        validate_diagnostic(&NativeGateDiagnosticV1 {
+            code: code.to_owned(),
+            message: "controlled package failure".to_owned(),
+        })
+        .expect("package diagnostic is allowlisted");
+    }
 }
 
 #[test]

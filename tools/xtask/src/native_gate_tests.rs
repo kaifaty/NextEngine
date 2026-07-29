@@ -294,10 +294,10 @@ fn matrix_scheduler_rejects_reordering_and_never_retries_after_failure() {
 }
 
 #[test]
-fn host_check_preserves_standalone_cli_arguments_and_locks_gate_commands() {
+fn host_check_preserves_standalone_arguments_and_enables_only_desktop_gate_features() {
     assert_eq!(
-        host_check_clippy_arguments(None),
-        &[
+        host_check_clippy_arguments(None, false),
+        vec![
             "clippy",
             "--workspace",
             "--all-targets",
@@ -306,25 +306,53 @@ fn host_check_preserves_standalone_cli_arguments_and_locks_gate_commands() {
             "warnings"
         ]
     );
-    assert_eq!(host_check_test_arguments(None), &["test", "--workspace"]);
+    assert_eq!(
+        host_check_test_arguments(None, false),
+        vec!["test", "--workspace"]
+    );
 
     let state_root = Path::new("isolated-state");
     assert_eq!(
-        host_check_clippy_arguments(Some(state_root)),
-        &[
+        host_check_clippy_arguments(Some(state_root), true),
+        vec![
             "clippy",
             "--locked",
             "--workspace",
             "--all-targets",
+            "--features",
+            "xtask/desktop-sdl-ash,next_verification/desktop-sdl-ash,next_game/desktop-sdl-ash",
             "--",
             "-D",
             "warnings"
         ]
     );
     assert_eq!(
-        host_check_test_arguments(Some(state_root)),
-        &["test", "--locked", "--workspace"]
+        host_check_test_arguments(Some(state_root), true),
+        vec![
+            "test",
+            "--locked",
+            "--workspace",
+            "--features",
+            "xtask/desktop-sdl-ash,next_verification/desktop-sdl-ash,next_game/desktop-sdl-ash"
+        ]
     );
+    assert!(!host_check_clippy_arguments(Some(state_root), true).contains(&"--all-features"));
+    assert!(!host_check_test_arguments(Some(state_root), true).contains(&"--all-features"));
+}
+
+#[test]
+fn package_failure_prefixes_route_to_stable_native_gate_diagnostics() {
+    for code in [
+        "NATIVE_GATE_PACKAGE_RUNTIME_PROFILE_INVALID",
+        "NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING",
+        "NATIVE_GATE_PACKAGE_RUNTIME_ABI_UNSUPPORTED",
+        "NATIVE_GATE_PACKAGE_SMOKE_TIMEOUT",
+    ] {
+        assert_eq!(
+            diagnostic_code(&format!("{code}: controlled package failure")),
+            code
+        );
+    }
 }
 
 #[test]

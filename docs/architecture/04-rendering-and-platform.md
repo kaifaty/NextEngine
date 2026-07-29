@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 2.1 |
+| Последняя проверка | 2026-07-29 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
 
@@ -116,9 +116,37 @@ Shader/interface/material/color mismatch является pre-use content failur
 
 ## Platform packaging
 
-Windows package MUST использовать pinned Vulkan loader strategy и перечислять
-runtime dependencies; Linux package MUST объявлять minimum supported glibc or
-container target и проверять Vulkan loader/ICD. User GPU driver не включается.
+Shipping package использует `PackageManifestV3`. Его `runtime_profile` MUST
+объявлять target ABI, canonical direct-library list каждого binary, maximum
+required GLIBC и все внешние runtime prerequisites. V2 package artifacts
+являются rebuild-only и MUST NOT неявно мигрироваться либо приниматься как V3.
+
+Windows x86_64 MSVC profile использует dynamic system VC++ x64 runtime и
+системный Vulkan loader `vulkan-1.dll`; выбранная loader ABI strategy требует
+Vulkan API 1.3. Linux x86_64 GNU profile использует Ubuntu 22.04 / glibc 2.35
+как minimum baseline, системный loader `libvulkan.so.1`, Vulkan API 1.3 и
+активную X11 либо Wayland desktop session. На обеих targets Vulkan ICD/GPU
+driver является внешним user-installed prerequisite; loader и driver MUST NOT
+включаться в package. SDL3 для R1 компонуется статически.
+
+Packaging check MUST сверять заявленные direct dependencies с PE64/ELF64
+binary. ELF с machine-local `RPATH`/`RUNPATH`, non-standard x86_64 GNU
+interpreter или требованием GLIBC выше 2.35 отклоняется до публикации. Unknown
+или незаявленная third-party library также является package failure.
+
+Copied release binaries MUST запускаться из package с очищенным environment,
+изолированными state/home/temp paths и без inherited `LD_*`, `VK_*` или `SDL_*`
+loader overrides. Linux smoke MAY сохранить только desktop-session variables,
+то есть `DISPLAY`, `WAYLAND_DISPLAY`, `XDG_RUNTIME_DIR`,
+`DBUS_SESSION_BUS_ADDRESS`, `XAUTHORITY`, необходимые выбранному X11/Wayland
+host; Windows smoke MAY сохранить `SYSTEMROOT`/`WINDIR`. Каждый smoke имеет
+30-second timeout и bounded output.
+Runtime profile, dependency, ABI и timeout failures используют стабильные коды
+`NATIVE_GATE_PACKAGE_RUNTIME_PROFILE_INVALID`,
+`NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING`,
+`NATIVE_GATE_PACKAGE_RUNTIME_ABI_UNSUPPORTED` и
+`NATIVE_GATE_PACKAGE_SMOKE_TIMEOUT`.
+
 Debug layers/RenderDoc markers MAY быть optional package, но их отсутствие не
 меняет cache keys release shaders.
 
@@ -133,5 +161,5 @@ Debug layers/RenderDoc markers MAY быть optional package, но их отсу
 | `PLATFORM-P1` | Repeated create/resize/fullscreen/focus/input/surface lifecycle on supported desktop hosts. | No crash or leak; normalized event ordering is stable and native handles remain private. | Use the thin native adapter behind the same platform contract. |
 | `RENDER-02` | Force `no RT`, `no mesh shader` and bounded descriptors. | The representative scene remains complete and playable with no missing required material or geometry. Optional screenshots or image diffs may help diagnose regressions but are not the correctness oracle. | Disable the unsupported enhanced path and use the cooked B0 path. |
 | `RENDER-03` | Inject swapchain and device loss at representative frame boundaries. | Interactive target recreation or clean suspension/exit completes without authoritative-state corruption; acknowledged presentation cues are not replayed. | Stop recovery attempts, preserve the last complete save/session state and exit cleanly. |
-| `PACKAGE-01` | Install and run a clean Win/Linux package. | The package launches the B0 gameplay scene and reports missing runtime dependencies clearly. | Do not distribute the broken target package; repair its loader/dependency declaration. |
+| `PACKAGE-01` | Install and run a clean Win/Linux package. | `PackageManifestV3` matches PE/ELF imports and the declared ABI baseline; isolated copied `game`/`headless` launches pass and missing runtime prerequisites have stable diagnostics. | Do not distribute the broken target package; repair its loader/dependency declaration. |
 | `RENDER-04` | Optionally run a developer capture through the displayless offscreen target. | No window/display/surface/swapchain dependency is created; replay gameplay hash remains unchanged and repeated normalized frame output is stable for the selected profile. | Disable capture tooling and fix the target abstraction; normal game/headless operation remains available. |

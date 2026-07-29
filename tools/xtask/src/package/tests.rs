@@ -1,5 +1,6 @@
 use super::*;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 
 #[cfg(any(
     all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
@@ -84,11 +85,25 @@ fn main() {
         "LOCALAPPDATA",
         "APPDATA",
         "XDG_STATE_HOME",
+        "PROGRAMDATA",
+        "ALLUSERSPROFILE",
         "TMP",
         "TEMP",
         "TMPDIR",
     ] {
         require_isolated_directory(&package_root, name);
+    }
+    for (name, _) in env::vars_os() {
+        let Some(name) = name.to_str() else {
+            fail("environment variable name is not UTF-8");
+        };
+        if name == "PATH"
+            || name.starts_with("LD_")
+            || name.starts_with("VK_")
+            || name.starts_with("SDL_")
+        {
+            fail(&format!("forbidden inherited environment variable {name}"));
+        }
     }
 
     let file_name = executable
@@ -129,13 +144,68 @@ fn main() {
 }
 "#;
 
+#[cfg(any(
+    all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
+    all(target_arch = "x86_64", target_os = "linux", target_env = "gnu")
+))]
+const PACKAGE_SMOKE_TIMEOUT_FIXTURE_SOURCE: &str = r#"
+use std::io::Write;
+use std::time::Duration;
+
+fn main() {
+    std::io::stdout()
+        .write_all(&vec![b'o'; 2 * 1024 * 1024])
+        .expect("stdout");
+    std::io::stderr()
+        .write_all(&vec![b'e'; 128 * 1024])
+        .expect("stderr");
+    std::thread::sleep(Duration::from_secs(60));
+}
+"#;
+
 #[test]
 fn manifest_encoding_is_canonical_and_round_trips() {
     let manifest = fixture_manifest();
     let bytes = canonical_json_bytes(&manifest).expect("canonical JSON");
-    let decoded: PackageManifestV2 = serde_json::from_slice(&bytes).expect("manifest decodes");
+    let decoded: PackageManifestV3 = serde_json::from_slice(&bytes).expect("manifest decodes");
     assert_eq!(decoded, manifest);
     assert!(bytes.starts_with(br#"{"binaries":"#));
+}
+
+#[test]
+fn manifest_v2_and_unknown_fields_are_rejected_without_migration() {
+    let manifest = fixture_manifest();
+    let mut value = serde_json::to_value(&manifest).expect("manifest value");
+    let object = value.as_object_mut().expect("manifest object");
+    object.remove("runtime_profile");
+    object.insert("schema_version".to_owned(), serde_json::json!(2));
+    let bytes = serde_json::to_vec(&value).expect("legacy manifest");
+    assert!(serde_json::from_slice::<PackageManifestV3>(&bytes).is_err());
+
+    let mut value = serde_json::to_value(&manifest).expect("manifest value");
+    value
+        .as_object_mut()
+        .expect("manifest object")
+        .insert("unexpected".to_owned(), serde_json::json!(true));
+    let bytes = serde_json::to_vec(&value).expect("unknown-field manifest");
+    assert!(serde_json::from_slice::<PackageManifestV3>(&bytes).is_err());
+
+    let mut value = serde_json::to_value(&manifest).expect("manifest value");
+    value["runtime_profile"]["abi"]["unexpected"] = serde_json::json!(true);
+    let bytes = serde_json::to_vec(&value).expect("unknown nested field manifest");
+    assert!(serde_json::from_slice::<PackageManifestV3>(&bytes).is_err());
+
+    let mut value = serde_json::to_value(&manifest).expect("manifest value");
+    value["runtime_profile"]["binaries"][0]
+        .as_object_mut()
+        .expect("runtime binary")
+        .remove("direct_libraries");
+    let bytes = serde_json::to_vec(&value).expect("missing nested field manifest");
+    assert!(serde_json::from_slice::<PackageManifestV3>(&bytes).is_err());
+
+    let mut wrong_version = manifest;
+    wrong_version.schema_version = 2;
+    assert!(validate_manifest_fields(&wrong_version).is_err());
 }
 
 #[test]
@@ -407,6 +477,211 @@ fn package_pipeline_copies_and_smokes_packaged_binaries_without_nested_cargo() {
         "disposable smoke state must be removed"
     );
     assert!(!staging_root.exists(), "staging must be atomically renamed");
+
+    let mut tampered_profile = result.manifest.runtime_profile.clone();
+    tampered_profile.binaries[0]
+        .direct_libraries
+        .push("vendor-renderer.dll".to_owned());
+    assert!(
+        runtime::validate_runtime_profile(
+            &output,
+            target_triple,
+            &tampered_profile,
+            &[
+                result.manifest.binaries.game.binary_path.as_str(),
+                result.manifest.binaries.headless.binary_path.as_str(),
+            ],
+        )
+        .is_err()
+    );
+}
+
+#[test]
+#[cfg(any(
+    all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
+    all(target_arch = "x86_64", target_os = "linux", target_env = "gnu")
+))]
+fn package_pipeline_audits_binary_abi_before_smoke_launch() {
+    let temporary = TestDirectory::new("audit-before-smoke");
+    let malformed_binary = temporary.path().join("malformed-binary");
+    fs::write(&malformed_binary, b"not a native executable").expect("malformed binary");
+    let repository_root = fs::canonicalize(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .expect("xtask belongs to the repository workspace"),
+    )
+    .expect("repository root");
+    let output = temporary.path().join("package");
+    let error = build_v1_package_with_binary_sources(&repository_root, &output, |_, _| {
+        Ok(PackageBinarySources {
+            game: malformed_binary.clone(),
+            headless: malformed_binary.clone(),
+        })
+    })
+    .expect_err("malformed binary must fail before smoke");
+    assert!(
+        error.starts_with("NATIVE_GATE_PACKAGE_RUNTIME_ABI_UNSUPPORTED:"),
+        "{error}"
+    );
+    assert!(!output.exists(), "invalid package must not publish");
+    assert!(
+        !temporary
+            .path()
+            .join(format!(".package.smoke-{}", std::process::id()))
+            .exists(),
+        "runtime audit must fail before smoke root creation"
+    );
+}
+
+#[test]
+fn smoke_environment_is_explicit_and_drops_loader_overrides() {
+    let temporary = TestDirectory::new("smoke-environment");
+    let home = temporary.path().join("home");
+    let local_app_data = temporary.path().join("local");
+    let roaming_app_data = temporary.path().join("roaming");
+    let xdg_state_home = temporary.path().join("state");
+    let program_data = temporary.path().join("program-data");
+    let temp = temporary.path().join("temp");
+    let mut command = Command::new("fixture");
+    configure_smoke_environment(
+        &mut command,
+        &home,
+        &local_app_data,
+        &roaming_app_data,
+        &xdg_state_home,
+        &program_data,
+        &temp,
+    );
+
+    let environment = command
+        .get_envs()
+        .map(|(name, value)| {
+            (
+                name.to_string_lossy().into_owned(),
+                value.map(|value| value.to_os_string()),
+            )
+        })
+        .collect::<Vec<_>>();
+    for required in [
+        "HOME",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "APPDATA",
+        "XDG_STATE_HOME",
+        "PROGRAMDATA",
+        "ALLUSERSPROFILE",
+        "TMP",
+        "TEMP",
+        "TMPDIR",
+    ] {
+        assert!(
+            environment
+                .iter()
+                .any(|(name, value)| name == required && value.is_some()),
+            "{required}"
+        );
+    }
+    assert!(environment.iter().all(|(name, _)| {
+        name != "PATH"
+            && !name.starts_with("LD_")
+            && !name.starts_with("VK_")
+            && !name.starts_with("SDL_")
+    }));
+}
+
+#[test]
+fn smoke_failure_routes_known_runtime_prerequisite_diagnostics() {
+    assert_eq!(
+        runtime_prerequisite_failure_code(
+            Some(2),
+            br#"{"code":"PLATFORM_GRAPHICS_LOADER_UNAVAILABLE"}"#,
+            b"",
+        ),
+        Some("NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING")
+    );
+    assert_eq!(
+        runtime_prerequisite_failure_code(
+            Some(2),
+            b"",
+            b"PLATFORM_GRAPHICS_ICD_UNAVAILABLE: no driver",
+        ),
+        Some("NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING")
+    );
+    assert_eq!(
+        runtime_prerequisite_failure_code(
+            Some(2),
+            b"",
+            b"PLATFORM_GRAPHICS_LOADER_VERSION_UNSUPPORTED: 1.2",
+        ),
+        Some("NATIVE_GATE_PACKAGE_RUNTIME_ABI_UNSUPPORTED")
+    );
+    assert_eq!(
+        runtime_prerequisite_failure_code(Some(2), b"", b"GPU_UNSUPPORTED: feature missing"),
+        None
+    );
+    assert_eq!(
+        runtime_prerequisite_failure_code(
+            Some(LINUX_DYNAMIC_LOADER_FAILURE_EXIT_CODE),
+            b"",
+            b"next_game: error while loading shared libraries: libfoo.so.1: cannot open shared object file",
+        ),
+        Some("NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING")
+    );
+    assert_eq!(
+        runtime_prerequisite_failure_code(
+            Some(1),
+            b"",
+            b"error while loading shared libraries: libfoo.so.1",
+        ),
+        None,
+        "glibc text without the native loader exit code is not enough"
+    );
+    assert_eq!(
+        runtime_prerequisite_failure_code(Some(WINDOWS_STATUS_DLL_NOT_FOUND), b"", b""),
+        Some("NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING")
+    );
+    for status in [
+        WINDOWS_STATUS_INVALID_IMAGE_FORMAT,
+        WINDOWS_STATUS_INVALID_IMAGE_LE_FORMAT,
+        WINDOWS_STATUS_INVALID_IMAGE_NOT_MZ,
+        WINDOWS_STATUS_INVALID_IMAGE_WIN_16,
+        WINDOWS_STATUS_ORDINAL_NOT_FOUND,
+        WINDOWS_STATUS_ENTRYPOINT_NOT_FOUND,
+    ] {
+        assert_eq!(
+            runtime_prerequisite_failure_code(Some(status), b"", b""),
+            Some("NATIVE_GATE_PACKAGE_RUNTIME_ABI_UNSUPPORTED"),
+            "{status:#010x}"
+        );
+    }
+}
+
+#[test]
+#[cfg(any(
+    all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
+    all(target_arch = "x86_64", target_os = "linux", target_env = "gnu")
+))]
+fn smoke_timeout_kills_child_and_bounds_both_output_streams() {
+    let temporary = TestDirectory::new("smoke-timeout");
+    let fixture = compile_rust_fixture(
+        temporary.path(),
+        "package-smoke-timeout-fixture",
+        PACKAGE_SMOKE_TIMEOUT_FIXTURE_SOURCE,
+    );
+    let error = run_packaged_binary_with_timeout(
+        &fixture,
+        &[],
+        &temporary.path().join("smoke"),
+        temporary.path(),
+        "Game",
+        &"a".repeat(64),
+        Duration::from_millis(250),
+    )
+    .expect_err("fixture must time out");
+    assert!(error.starts_with("NATIVE_GATE_PACKAGE_SMOKE_TIMEOUT:"));
+    assert!(error.contains("[stdout truncated]"));
+    assert!(error.contains("[stderr truncated]"));
 }
 
 #[test]
@@ -474,11 +749,31 @@ fn manifest_validator_requires_game_headless_authority_parity() {
     all(target_arch = "x86_64", target_os = "linux", target_env = "gnu")
 ))]
 fn compile_package_smoke_fixture(directory: &Path) -> PathBuf {
-    let source = directory.join("package-smoke-fixture.rs");
-    fs::write(&source, PACKAGE_SMOKE_FIXTURE_SOURCE).expect("fixture source");
+    compile_rust_fixture(
+        directory,
+        "package-smoke-fixture",
+        PACKAGE_SMOKE_FIXTURE_SOURCE,
+    )
+}
+
+#[cfg(any(
+    all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
+    all(target_arch = "x86_64", target_os = "linux", target_env = "gnu")
+))]
+fn compile_rust_fixture(directory: &Path, name: &str, source_text: &str) -> PathBuf {
+    let source = directory.join(format!("{name}.rs"));
+    fs::write(&source, source_text).expect("fixture source");
     let executable_suffix = if cfg!(windows) { ".exe" } else { "" };
-    let executable = directory.join(format!("package-smoke-fixture{executable_suffix}"));
-    let rustc = env::var_os("RUSTC").unwrap_or_else(|| "rustc".into());
+    let executable = directory.join(format!("{name}{executable_suffix}"));
+    let rustc = env::var_os("RUSTC")
+        .map(PathBuf::from)
+        .or_else(|| option_env!("RUSTC").map(PathBuf::from))
+        .or_else(|| {
+            option_env!("CARGO").map(|cargo| {
+                Path::new(cargo).with_file_name(if cfg!(windows) { "rustc.exe" } else { "rustc" })
+            })
+        })
+        .unwrap_or_else(|| PathBuf::from("rustc"));
     let output = Command::new(rustc)
         .arg("--edition=2024")
         .arg("-C")
@@ -497,13 +792,13 @@ fn compile_package_smoke_fixture(directory: &Path) -> PathBuf {
     executable
 }
 
-fn fixture_manifest() -> PackageManifestV2 {
+fn fixture_manifest() -> PackageManifestV3 {
     let project_lock = "1".repeat(64);
     let state = "2".repeat(64);
     let ledger = "3".repeat(64);
     let game_hash = "4".repeat(64);
     let headless_hash = "5".repeat(64);
-    PackageManifestV2 {
+    PackageManifestV3 {
         binaries: PackageBinariesV2 {
             game: PackagedRunV2 {
                 authoritative_state_root: state.clone(),
@@ -537,6 +832,24 @@ fn fixture_manifest() -> PackageManifestV2 {
             },
         ],
         required_notices: required_notice_paths(),
+        runtime_profile: PackageRuntimeProfileV3 {
+            abi: PackageRuntimeAbiV3::WindowsMsvcX64 {
+                crt: PackageWindowsCrtV3::DynamicSystem,
+            },
+            binaries: vec![
+                PackageBinaryRuntimeV3 {
+                    binary_path: "bin/next_game.exe".to_owned(),
+                    direct_libraries: vec!["kernel32.dll".to_owned()],
+                    maximum_required_glibc: None,
+                },
+                PackageBinaryRuntimeV3 {
+                    binary_path: "bin/next_headless.exe".to_owned(),
+                    direct_libraries: vec!["kernel32.dll".to_owned()],
+                    maximum_required_glibc: None,
+                },
+            ],
+            external_prerequisites: Vec::new(),
+        },
         schema_version: PACKAGE_MANIFEST_SCHEMA_VERSION,
         target_neutral_roots: PackageTargetNeutralRootsV2 {
             content_manifest_sha256: "6".repeat(64),

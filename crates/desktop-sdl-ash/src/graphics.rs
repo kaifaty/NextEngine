@@ -10,7 +10,7 @@ pub(super) struct GraphicsContext {
     queue: vk::Queue,
     queue_family_index: u32,
     swapchain_loader: ash::khr::swapchain::Device,
-    swapchain: SwapchainState,
+    swapchain: Option<SwapchainState>,
     command_pool: vk::CommandPool,
     command_buffer: vk::CommandBuffer,
     image_available: vk::Semaphore,
@@ -26,12 +26,129 @@ struct SwapchainState {
     initialized: Vec<bool>,
 }
 
+fn validate_loader_api_version(actual: u32) -> Result<(), DesktopAdapterError> {
+    if actual < vk::API_VERSION_1_3 {
+        return Err(DesktopAdapterError::LoaderVersionUnsupported {
+            required: vk::API_VERSION_1_3,
+            actual,
+        });
+    }
+    Ok(())
+}
+
+fn classify_instance_creation_error(error: vk::Result) -> DesktopAdapterError {
+    if matches!(
+        error,
+        vk::Result::ERROR_INCOMPATIBLE_DRIVER | vk::Result::ERROR_INITIALIZATION_FAILED
+    ) {
+        DesktopAdapterError::IcdUnavailable { error: Some(error) }
+    } else {
+        DesktopAdapterError::Graphics(error)
+    }
+}
+
+fn classify_physical_device_enumeration_error(error: vk::Result) -> DesktopAdapterError {
+    if error == vk::Result::ERROR_INITIALIZATION_FAILED {
+        DesktopAdapterError::IcdUnavailable { error: Some(error) }
+    } else {
+        DesktopAdapterError::Graphics(error)
+    }
+}
+
+fn classify_device_creation_error(error: vk::Result) -> DesktopAdapterError {
+    match error {
+        vk::Result::ERROR_FEATURE_NOT_PRESENT | vk::Result::ERROR_EXTENSION_NOT_PRESENT => {
+            DesktopAdapterError::GpuUnsupported
+        }
+        vk::Result::ERROR_INCOMPATIBLE_DRIVER | vk::Result::ERROR_INITIALIZATION_FAILED => {
+            DesktopAdapterError::IcdUnavailable { error: Some(error) }
+        }
+        _ => DesktopAdapterError::Graphics(error),
+    }
+}
+
+fn supports_required_device_extension(
+    properties: &[vk::ExtensionProperties],
+    required: &std::ffi::CStr,
+) -> bool {
+    properties
+        .iter()
+        .any(|property| extension_property_matches(property, required))
+}
+
+fn extension_property_matches(
+    property: &vk::ExtensionProperties,
+    required: &std::ffi::CStr,
+) -> bool {
+    let required = required.to_bytes_with_nul();
+    property
+        .extension_name
+        .get(..required.len())
+        .is_some_and(|candidate| {
+            candidate
+                .iter()
+                .map(|byte| *byte as u8)
+                .eq(required.iter().copied())
+        })
+}
+
+fn select_composite_alpha(
+    supported: vk::CompositeAlphaFlagsKHR,
+) -> Option<vk::CompositeAlphaFlagsKHR> {
+    [
+        vk::CompositeAlphaFlagsKHR::OPAQUE,
+        vk::CompositeAlphaFlagsKHR::PRE_MULTIPLIED,
+        vk::CompositeAlphaFlagsKHR::POST_MULTIPLIED,
+        vk::CompositeAlphaFlagsKHR::INHERIT,
+    ]
+    .into_iter()
+    .find(|candidate| supported.contains(*candidate))
+}
+
+fn defer_out_of_date<T>(result: Result<T, vk::Result>) -> Result<Option<T>, DesktopAdapterError> {
+    match result {
+        Ok(value) => Ok(Some(value)),
+        Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => Ok(None),
+        Err(error) => Err(error.into()),
+    }
+}
+
+fn select_surface_extent(
+    capabilities: &vk::SurfaceCapabilitiesKHR,
+    window_extent: [u32; 2],
+) -> Option<vk::Extent2D> {
+    if window_extent[0] == 0 || window_extent[1] == 0 {
+        return None;
+    }
+    let extent = if capabilities.current_extent.width != u32::MAX {
+        capabilities.current_extent
+    } else {
+        vk::Extent2D {
+            width: window_extent[0].clamp(
+                capabilities.min_image_extent.width,
+                capabilities.max_image_extent.width,
+            ),
+            height: window_extent[1].clamp(
+                capabilities.min_image_extent.height,
+                capabilities.max_image_extent.height,
+            ),
+        }
+    };
+    (extent.width > 0 && extent.height > 0).then_some(extent)
+}
+
 impl GraphicsContext {
     pub(super) fn new(window: &Window) -> Result<Self, DesktopAdapterError> {
         // SAFETY: loading the process graphics loader creates an owned entry;
         // all child objects are destroyed in reverse ownership order below.
         let entry = unsafe { ash::Entry::load() }
             .map_err(|error| DesktopAdapterError::Loader(error.to_string()))?;
+        // SAFETY: the loaded entry owns the Vulkan loader function table and
+        // the query writes no caller-provided memory.
+        let loader_api_version = unsafe { entry.try_enumerate_instance_version() }
+            .map_err(|error| DesktopAdapterError::Loader(error.to_string()))?
+            .unwrap_or(vk::API_VERSION_1_0);
+        validate_loader_api_version(loader_api_version)?;
         let application_name =
             CString::new("Next Engine").map_err(|_| DesktopAdapterError::InvalidName)?;
         let application_info = vk::ApplicationInfo::default()
@@ -54,7 +171,8 @@ impl GraphicsContext {
             .enabled_extension_names(&extension_pointers);
         // SAFETY: all pointer arrays in `instance_info` live for the call and
         // no custom allocator is retained.
-        let instance = unsafe { entry.create_instance(&instance_info, None) }?;
+        let instance = unsafe { entry.create_instance(&instance_info, None) }
+            .map_err(classify_instance_creation_error)?;
         // SAFETY: the SDL window was created with its graphics-surface flag and
         // remains alive until after this context has been dropped.
         let surface =
@@ -81,7 +199,8 @@ impl GraphicsContext {
             .push_next(&mut features_13);
         // SAFETY: the selected device and queue family were queried from this
         // instance and the feature chain contains only stack-owned call data.
-        let device = unsafe { instance.create_device(physical_device, &device_info, None) }?;
+        let device = unsafe { instance.create_device(physical_device, &device_info, None) }
+            .map_err(classify_device_creation_error)?;
         // SAFETY: queue zero exists because one priority was requested.
         let queue = unsafe { device.get_device_queue(queue_family_index, 0) };
         let swapchain_loader = ash::khr::swapchain::Device::new(&instance, &device);
@@ -138,29 +257,36 @@ impl GraphicsContext {
         snapshot: &PresentationSnapshotV2,
         window: &Window,
     ) -> Result<bool, DesktopAdapterError> {
+        if self.swapchain.is_none() {
+            self.recreate_swapchain(window)?;
+            if self.swapchain.is_none() {
+                return Ok(false);
+            }
+        }
         // SAFETY: the fence belongs to this device and guards the one reusable
         // command buffer and frame synchronization set.
         unsafe {
             self.device
                 .wait_for_fences(&[self.frame_fence], true, u64::MAX)?;
         }
+        let swapchain_handle = self
+            .swapchain
+            .as_ref()
+            .ok_or(DesktopAdapterError::GraphicsContextMissing)?
+            .handle;
         // SAFETY: swapchain and semaphore are live; no fence is needed for
         // acquisition because the frame fence guards prior use.
         let acquired = unsafe {
             self.swapchain_loader.acquire_next_image(
-                self.swapchain.handle,
+                swapchain_handle,
                 u64::MAX,
                 self.image_available,
                 vk::Fence::null(),
             )
         };
-        let (image_index, acquisition_suboptimal) = match acquired {
-            Ok(value) => value,
-            Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
-                self.recreate_swapchain(window)?;
-                return Ok(false);
-            }
-            Err(error) => return Err(error.into()),
+        let Some((image_index, acquisition_suboptimal)) = defer_out_of_date(acquired)? else {
+            self.recreate_swapchain(window)?;
+            return Ok(false);
         };
         // SAFETY: the frame fence has completed and the command buffer is not
         // pending. Reset operations target objects owned by this context.
@@ -175,7 +301,11 @@ impl GraphicsContext {
         }
         let image_usize =
             usize::try_from(image_index).map_err(|_| DesktopAdapterError::CounterOverflow)?;
-        let old_layout = if self.swapchain.initialized[image_usize] {
+        let swapchain = self
+            .swapchain
+            .as_ref()
+            .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
+        let old_layout = if swapchain.initialized[image_usize] {
             vk::ImageLayout::PRESENT_SRC_KHR
         } else {
             vk::ImageLayout::UNDEFINED
@@ -197,7 +327,7 @@ impl GraphicsContext {
             .dst_access_mask(vk::AccessFlags2::COLOR_ATTACHMENT_WRITE)
             .old_layout(old_layout)
             .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .image(self.swapchain.images[image_usize])
+            .image(swapchain.images[image_usize])
             .subresource_range(subresource)];
         let to_color_dependency = vk::DependencyInfo::default().image_memory_barriers(&to_color);
         // SAFETY: the image belongs to the acquired swapchain index and the
@@ -212,14 +342,14 @@ impl GraphicsContext {
             },
         };
         let color_attachments = [vk::RenderingAttachmentInfo::default()
-            .image_view(self.swapchain.image_views[image_usize])
+            .image_view(swapchain.image_views[image_usize])
             .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
             .load_op(vk::AttachmentLoadOp::CLEAR)
             .store_op(vk::AttachmentStoreOp::STORE)
             .clear_value(clear)];
         let render_area = vk::Rect2D {
             offset: vk::Offset2D { x: 0, y: 0 },
-            extent: self.swapchain.extent,
+            extent: swapchain.extent,
         };
         let rendering_info = vk::RenderingInfo::default()
             .render_area(render_area)
@@ -240,7 +370,7 @@ impl GraphicsContext {
                 color_attachment: 0,
                 clear_value: primitive_color(record.primitive),
             }];
-            let rectangles = [record_rectangle(record, self.swapchain.extent)];
+            let rectangles = [record_rectangle(record, swapchain.extent)];
             // SAFETY: clear rectangles lie within the render area and target
             // color attachment zero of the active dynamic rendering instance.
             unsafe {
@@ -260,7 +390,7 @@ impl GraphicsContext {
             .dst_access_mask(vk::AccessFlags2::NONE)
             .old_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
             .new_layout(vk::ImageLayout::PRESENT_SRC_KHR)
-            .image(self.swapchain.images[image_usize])
+            .image(swapchain.images[image_usize])
             .subresource_range(subresource)];
         let to_present_dependency =
             vk::DependencyInfo::default().image_memory_barriers(&to_present);
@@ -286,7 +416,7 @@ impl GraphicsContext {
             self.device
                 .queue_submit(self.queue, &submit_info, self.frame_fence)?;
         }
-        let swapchains = [self.swapchain.handle];
+        let swapchains = [swapchain_handle];
         let image_indices = [image_index];
         let present_info = vk::PresentInfoKHR::default()
             .wait_semaphores(&signal_semaphores)
@@ -294,15 +424,18 @@ impl GraphicsContext {
             .image_indices(&image_indices);
         // SAFETY: image index was acquired from this swapchain and rendering
         // completion is signaled by `render_finished`.
-        let present_suboptimal = match unsafe {
+        let presented = defer_out_of_date(unsafe {
             self.swapchain_loader
                 .queue_present(self.queue, &present_info)
-        } {
-            Ok(value) => value,
-            Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => true,
-            Err(error) => return Err(error.into()),
+        })?;
+        let Some(present_suboptimal) = presented else {
+            self.recreate_swapchain(window)?;
+            return Ok(false);
         };
-        self.swapchain.initialized[image_usize] = true;
+        self.swapchain
+            .as_mut()
+            .ok_or(DesktopAdapterError::GraphicsContextMissing)?
+            .initialized[image_usize] = true;
         if acquisition_suboptimal || present_suboptimal {
             self.recreate_swapchain(window)?;
         }
@@ -314,7 +447,10 @@ impl GraphicsContext {
         window: &Window,
     ) -> Result<(), DesktopAdapterError> {
         self.wait_idle()?;
-        let old = self.swapchain.handle;
+        let old = self
+            .swapchain
+            .as_ref()
+            .map_or(vk::SwapchainKHR::null(), |swapchain| swapchain.handle);
         let replacement = create_swapchain(
             window,
             self.physical_device,
@@ -325,7 +461,9 @@ impl GraphicsContext {
             &self.swapchain_loader,
             old,
         )?;
-        destroy_swapchain_state(&self.device, &self.swapchain_loader, &mut self.swapchain);
+        if let Some(mut previous) = self.swapchain.take() {
+            destroy_swapchain_state(&self.device, &self.swapchain_loader, &mut previous);
+        }
         self.swapchain = replacement;
         Ok(())
     }
@@ -347,7 +485,9 @@ impl Drop for GraphicsContext {
             self.device.destroy_semaphore(self.render_finished, None);
             self.device.destroy_semaphore(self.image_available, None);
             self.device.destroy_command_pool(self.command_pool, None);
-            destroy_swapchain_state(&self.device, &self.swapchain_loader, &mut self.swapchain);
+            if let Some(swapchain) = self.swapchain.as_mut() {
+                destroy_swapchain_state(&self.device, &self.swapchain_loader, swapchain);
+            }
             self.device.destroy_device(None);
             self.surface_loader.destroy_surface(self.surface, None);
             self.instance.destroy_instance(None);
@@ -361,7 +501,11 @@ fn select_physical_device(
     surface: vk::SurfaceKHR,
 ) -> Result<(vk::PhysicalDevice, u32), DesktopAdapterError> {
     // SAFETY: instance is live and enumeration writes owned handles.
-    let physical_devices = unsafe { instance.enumerate_physical_devices() }?;
+    let physical_devices = unsafe { instance.enumerate_physical_devices() }
+        .map_err(classify_physical_device_enumeration_error)?;
+    if physical_devices.is_empty() {
+        return Err(DesktopAdapterError::IcdUnavailable { error: None });
+    }
     for physical_device in physical_devices {
         // SAFETY: physical device belongs to the instance.
         let properties = unsafe { instance.get_physical_device_properties(physical_device) };
@@ -382,6 +526,13 @@ fn select_physical_device(
             || features_13.dynamic_rendering == 0
             || features_13.synchronization2 == 0
         {
+            continue;
+        }
+        // SAFETY: physical device belongs to this live instance and the
+        // returned extension properties are copied into Rust-owned storage.
+        let extensions =
+            unsafe { instance.enumerate_device_extension_properties(physical_device) }?;
+        if !supports_required_device_extension(&extensions, ash::khr::swapchain::NAME) {
             continue;
         }
         // SAFETY: physical device belongs to the instance.
@@ -418,7 +569,7 @@ fn create_swapchain(
     device: &ash::Device,
     swapchain_loader: &ash::khr::swapchain::Device,
     old_swapchain: vk::SwapchainKHR,
-) -> Result<SwapchainState, DesktopAdapterError> {
+) -> Result<Option<SwapchainState>, DesktopAdapterError> {
     // SAFETY: physical device and surface share a live instance.
     let capabilities = unsafe {
         surface_loader.get_physical_device_surface_capabilities(physical_device, surface)?
@@ -436,23 +587,11 @@ fn create_swapchain(
         .or_else(|| formats.first().copied())
         .ok_or(DesktopAdapterError::GpuUnsupported)?;
     let (window_width, window_height) = window.size_in_pixels();
-    let extent = if capabilities.current_extent.width != u32::MAX {
-        capabilities.current_extent
-    } else {
-        vk::Extent2D {
-            width: window_width.clamp(
-                capabilities.min_image_extent.width,
-                capabilities.max_image_extent.width,
-            ),
-            height: window_height.clamp(
-                capabilities.min_image_extent.height,
-                capabilities.max_image_extent.height,
-            ),
-        }
+    let Some(extent) = select_surface_extent(&capabilities, [window_width, window_height]) else {
+        return Ok(None);
     };
-    if extent.width == 0 || extent.height == 0 {
-        return Err(DesktopAdapterError::InvalidExtent);
-    }
+    let composite_alpha = select_composite_alpha(capabilities.supported_composite_alpha)
+        .ok_or(DesktopAdapterError::GpuUnsupported)?;
     let desired = capabilities.min_image_count.saturating_add(1);
     let image_count = if capabilities.max_image_count == 0 {
         desired
@@ -471,7 +610,7 @@ fn create_swapchain(
         .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
         .queue_family_indices(&queue_families)
         .pre_transform(capabilities.current_transform)
-        .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
+        .composite_alpha(composite_alpha)
         .present_mode(vk::PresentModeKHR::FIFO)
         .clipped(true)
         .old_swapchain(old_swapchain);
@@ -511,13 +650,13 @@ fn create_swapchain(
             }
         }
     }
-    Ok(SwapchainState {
+    Ok(Some(SwapchainState {
         handle,
         extent,
         initialized: vec![false; images.len()],
         images,
         image_views,
-    })
+    }))
 }
 
 fn destroy_swapchain_state(
@@ -538,5 +677,130 @@ fn destroy_swapchain_state(
             loader.destroy_swapchain(state.handle, None);
         }
         state.handle = vk::SwapchainKHR::null();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn extension_property(name: &std::ffi::CStr) -> vk::ExtensionProperties {
+        let mut property = vk::ExtensionProperties::default();
+        for (target, source) in property
+            .extension_name
+            .iter_mut()
+            .zip(name.to_bytes_with_nul())
+        {
+            *target = i8::try_from(*source).expect("extension names are ASCII");
+        }
+        property
+    }
+
+    #[test]
+    fn loader_version_requires_vulkan_1_3() {
+        validate_loader_api_version(vk::API_VERSION_1_3).expect("Vulkan 1.3 loader");
+        let error =
+            validate_loader_api_version(vk::API_VERSION_1_2).expect_err("Vulkan 1.2 is below B0");
+        assert_eq!(
+            error.diagnostic_code(),
+            "PLATFORM_GRAPHICS_LOADER_VERSION_UNSUPPORTED"
+        );
+    }
+
+    #[test]
+    fn startup_error_classifiers_separate_icd_from_gpu_capability_failures() {
+        assert_eq!(
+            classify_instance_creation_error(vk::Result::ERROR_INCOMPATIBLE_DRIVER)
+                .diagnostic_code(),
+            "PLATFORM_GRAPHICS_ICD_UNAVAILABLE"
+        );
+        assert_eq!(
+            classify_physical_device_enumeration_error(vk::Result::ERROR_INITIALIZATION_FAILED)
+                .diagnostic_code(),
+            "PLATFORM_GRAPHICS_ICD_UNAVAILABLE"
+        );
+        assert_eq!(
+            classify_device_creation_error(vk::Result::ERROR_FEATURE_NOT_PRESENT).diagnostic_code(),
+            "GPU_UNSUPPORTED"
+        );
+        assert_eq!(
+            classify_device_creation_error(vk::Result::ERROR_EXTENSION_NOT_PRESENT)
+                .diagnostic_code(),
+            "GPU_UNSUPPORTED"
+        );
+        assert_eq!(
+            classify_instance_creation_error(vk::Result::ERROR_OUT_OF_HOST_MEMORY)
+                .diagnostic_code(),
+            "PRESENTATION_GRAPHICS_FAILED"
+        );
+    }
+
+    #[test]
+    fn required_swapchain_extension_is_matched_by_exact_name() {
+        let swapchain = extension_property(ash::khr::swapchain::NAME);
+        let near_match = std::ffi::CString::new("VK_KHR_swapchain_extra").expect("extension name");
+        let properties = [swapchain, extension_property(&near_match)];
+
+        assert!(supports_required_device_extension(
+            &properties,
+            ash::khr::swapchain::NAME
+        ));
+        assert!(!supports_required_device_extension(
+            &properties[1..],
+            ash::khr::swapchain::NAME
+        ));
+        let missing = std::ffi::CString::new("VK_EXT_missing").expect("extension name");
+        assert!(!supports_required_device_extension(&properties, &missing));
+    }
+
+    #[test]
+    fn composite_alpha_uses_fixed_preference_order() {
+        let supported =
+            vk::CompositeAlphaFlagsKHR::INHERIT | vk::CompositeAlphaFlagsKHR::PRE_MULTIPLIED;
+        assert!(
+            select_composite_alpha(supported) == Some(vk::CompositeAlphaFlagsKHR::PRE_MULTIPLIED)
+        );
+        let supported =
+            vk::CompositeAlphaFlagsKHR::POST_MULTIPLIED | vk::CompositeAlphaFlagsKHR::OPAQUE;
+        assert!(select_composite_alpha(supported) == Some(vk::CompositeAlphaFlagsKHR::OPAQUE));
+        assert!(select_composite_alpha(vk::CompositeAlphaFlagsKHR::empty()).is_none());
+    }
+
+    #[test]
+    fn zero_extent_and_out_of_date_defer_presentation() {
+        let variable_capabilities = vk::SurfaceCapabilitiesKHR {
+            current_extent: vk::Extent2D {
+                width: u32::MAX,
+                height: u32::MAX,
+            },
+            min_image_extent: vk::Extent2D {
+                width: 1,
+                height: 1,
+            },
+            max_image_extent: vk::Extent2D {
+                width: 1_920,
+                height: 1_080,
+            },
+            ..vk::SurfaceCapabilitiesKHR::default()
+        };
+        assert!(select_surface_extent(&variable_capabilities, [0, 720]).is_none());
+        let selected = select_surface_extent(&variable_capabilities, [1_280, 720])
+            .expect("positive variable extent");
+        assert_eq!([selected.width, selected.height], [1_280, 720]);
+        let fixed_zero_capabilities = vk::SurfaceCapabilitiesKHR {
+            current_extent: vk::Extent2D {
+                width: 0,
+                height: 0,
+            },
+            ..variable_capabilities
+        };
+        assert!(select_surface_extent(&fixed_zero_capabilities, [1_280, 720]).is_none());
+
+        let deferred = defer_out_of_date::<bool>(Err(vk::Result::ERROR_OUT_OF_DATE_KHR))
+            .expect("out-of-date is a deferred presentation result");
+        assert_eq!(deferred, None);
+        let device_loss = defer_out_of_date::<bool>(Err(vk::Result::ERROR_DEVICE_LOST))
+            .expect_err("device loss remains a recoverable presentation error");
+        assert_eq!(device_loss.diagnostic_code(), "PRESENTATION_DEVICE_LOST");
     }
 }

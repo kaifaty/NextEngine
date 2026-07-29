@@ -7,14 +7,26 @@ use std::process::Command;
 use serde::{Deserialize, Serialize};
 
 mod inventory;
+mod runtime;
+mod smoke;
 
 use inventory::{
     checked_metadata, collect_inventory, hash_file, read_bounded, validate_package_root,
     validate_project_store_layout, validate_relative_package_path,
 };
+use smoke::run_packaged_binary;
+#[cfg(test)]
+use smoke::{
+    LINUX_DYNAMIC_LOADER_FAILURE_EXIT_CODE, WINDOWS_STATUS_DLL_NOT_FOUND,
+    WINDOWS_STATUS_ENTRYPOINT_NOT_FOUND, WINDOWS_STATUS_INVALID_IMAGE_FORMAT,
+    WINDOWS_STATUS_INVALID_IMAGE_LE_FORMAT, WINDOWS_STATUS_INVALID_IMAGE_NOT_MZ,
+    WINDOWS_STATUS_INVALID_IMAGE_WIN_16, WINDOWS_STATUS_ORDINAL_NOT_FOUND,
+    configure_smoke_environment, run_packaged_binary_with_timeout,
+    runtime_prerequisite_failure_code,
+};
 
 pub const PACKAGE_MANIFEST_FILE: &str = "package.manifest.jcs";
-pub const PACKAGE_MANIFEST_SCHEMA_VERSION: u32 = 2;
+pub const PACKAGE_MANIFEST_SCHEMA_VERSION: u32 = 3;
 
 const MAX_MANIFEST_BYTES: usize = 8 * 1024 * 1024;
 const REQUIRED_NOTICE_PATHS: [&str; 4] = [
@@ -26,13 +38,52 @@ const REQUIRED_NOTICE_PATHS: [&str; 4] = [
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PackageManifestV2 {
+pub struct PackageManifestV3 {
     pub binaries: PackageBinariesV2,
     pub file_inventory: Vec<PackageFileV2>,
     pub required_notices: Vec<String>,
+    pub runtime_profile: PackageRuntimeProfileV3,
     pub schema_version: u32,
     pub target_neutral_roots: PackageTargetNeutralRootsV2,
     pub target_triple: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackageRuntimeProfileV3 {
+    pub abi: PackageRuntimeAbiV3,
+    pub binaries: Vec<PackageBinaryRuntimeV3>,
+    pub external_prerequisites: Vec<PackageExternalPrerequisiteV3>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PackageRuntimeAbiV3 {
+    WindowsMsvcX64 { crt: PackageWindowsCrtV3 },
+    LinuxGnuX64 { minimum_glibc: String },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PackageWindowsCrtV3 {
+    DynamicSystem,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackageBinaryRuntimeV3 {
+    pub binary_path: String,
+    pub direct_libraries: Vec<String>,
+    pub maximum_required_glibc: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackageExternalPrerequisiteV3 {
+    pub diagnostic_code: String,
+    pub id: String,
+    pub locator: String,
+    pub requirement: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -74,7 +125,7 @@ pub struct PackageTargetNeutralRootsV2 {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PackageBuildResult {
-    pub manifest: PackageManifestV2,
+    pub manifest: PackageManifestV3,
     pub output: PathBuf,
     pub package_manifest_sha256: String,
 }
@@ -189,7 +240,7 @@ where
     })
 }
 
-pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV2, String> {
+pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV3, String> {
     validate_package_root(package_root)?;
     let manifest_path = package_root.join(PACKAGE_MANIFEST_FILE);
     let manifest_metadata = checked_metadata(&manifest_path)?;
@@ -204,7 +255,7 @@ pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV2, Str
         ));
     }
     let manifest_bytes = read_bounded(&manifest_path, MAX_MANIFEST_BYTES as u64)?;
-    let manifest: PackageManifestV2 = serde_json::from_slice(&manifest_bytes)
+    let manifest: PackageManifestV3 = serde_json::from_slice(&manifest_bytes)
         .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: invalid manifest JSON: {error}"))?;
     let canonical = canonical_json_bytes(&manifest)?;
     if manifest_bytes != canonical {
@@ -218,6 +269,15 @@ pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV2, Str
         return package_error("package file inventory does not exactly match package files");
     }
     validate_binary_inventory(&manifest)?;
+    runtime::validate_runtime_profile(
+        package_root,
+        &manifest.target_triple,
+        &manifest.runtime_profile,
+        &[
+            manifest.binaries.game.binary_path.as_str(),
+            manifest.binaries.headless.binary_path.as_str(),
+        ],
+    )?;
     validate_activated_project(package_root, &manifest.target_neutral_roots)?;
     Ok(manifest)
 }
@@ -228,7 +288,7 @@ fn build_staged_package(
     smoke_root: &Path,
     target_triple: &str,
     binary_sources: &PackageBinarySources,
-) -> Result<(PackageManifestV2, Vec<u8>), String> {
+) -> Result<(PackageManifestV3, Vec<u8>), String> {
     let bin_directory = staging.join("bin");
     fs::create_dir(&bin_directory).map_err(|error| {
         format!("NATIVE_GATE_PACKAGE_INVALID: failed to create package bin: {error}")
@@ -266,6 +326,13 @@ fn build_staged_package(
     let headless_destination = bin_directory.join(&headless_name);
     copy_binary(&binary_sources.game, &game_destination)?;
     copy_binary(&binary_sources.headless, &headless_destination)?;
+    let game_binary_path = format!("bin/{game_name}");
+    let headless_binary_path = format!("bin/{headless_name}");
+    let runtime_profile = runtime::build_runtime_profile(
+        staging,
+        target_triple,
+        &[game_binary_path.as_str(), headless_binary_path.as_str()],
+    )?;
     let inventory_before_smoke = collect_inventory(staging)?;
 
     fs::create_dir(smoke_root).map_err(|error| {
@@ -331,10 +398,11 @@ fn build_staged_package(
         &headless_destination,
         headless_report,
     )?;
-    let manifest = PackageManifestV2 {
+    let manifest = PackageManifestV3 {
         binaries: PackageBinariesV2 { game, headless },
         file_inventory: inventory_after_smoke,
         required_notices: required_notice_paths(),
+        runtime_profile,
         schema_version: PACKAGE_MANIFEST_SCHEMA_VERSION,
         target_neutral_roots: roots,
         target_triple: target_triple.to_owned(),
@@ -387,93 +455,6 @@ fn prepare_release_binary_sources(
     })
 }
 
-fn run_packaged_binary(
-    binary: &Path,
-    arguments: &[&str],
-    smoke_session_root: &Path,
-    package_root: &Path,
-    expected_composition_root: &str,
-    expected_project_lock: &str,
-) -> Result<next_application::RunReportV1, String> {
-    let state_root = smoke_session_root.join("state");
-    let home = smoke_session_root.join("home");
-    let local_app_data = smoke_session_root.join("local-app-data");
-    let xdg_state_home = smoke_session_root.join("xdg-state");
-    let roaming_app_data = smoke_session_root.join("roaming-app-data");
-    let temporary = smoke_session_root.join("temp");
-    for directory in [
-        &state_root,
-        &home,
-        &local_app_data,
-        &xdg_state_home,
-        &roaming_app_data,
-        &temporary,
-    ] {
-        fs::create_dir_all(directory).map_err(|error| {
-            format!(
-                "NATIVE_GATE_PACKAGE_INVALID: failed to prepare smoke directory {}: {error}",
-                directory.display()
-            )
-        })?;
-    }
-    let output = Command::new(binary)
-        .args(arguments)
-        .arg("--state-root")
-        .arg(&state_root)
-        .env("HOME", &home)
-        .env("USERPROFILE", &home)
-        .env("LOCALAPPDATA", &local_app_data)
-        .env("APPDATA", &roaming_app_data)
-        .env("XDG_STATE_HOME", &xdg_state_home)
-        .env("TMP", &temporary)
-        .env("TEMP", &temporary)
-        .env("TMPDIR", &temporary)
-        .current_dir(package_root)
-        .output()
-        .map_err(|error| {
-            format!(
-                "NATIVE_GATE_PACKAGE_INVALID: failed to launch copied binary {}: {error}",
-                binary.display()
-            )
-        })?;
-    if !output.status.success() {
-        return package_error(format!(
-            "{} smoke failed with {}: {}",
-            binary.display(),
-            output.status,
-            bounded_text(&output.stderr)
-        ));
-    }
-    if output.stdout.len() > 1024 * 1024 {
-        return package_error(format!("{} smoke report exceeds 1 MiB", binary.display()));
-    }
-    let report: next_application::RunReportV1 =
-        serde_json::from_slice(trim_ascii_whitespace(&output.stdout)).map_err(|error| {
-            format!(
-                "NATIVE_GATE_PACKAGE_INVALID: {} emitted invalid run report JSON: {error}",
-                binary.display()
-            )
-        })?;
-    if report.schema_version != 1
-        || report.status != "PASS"
-        || report.composition_root != expected_composition_root
-        || report.project_composition_lock_hash != expected_project_lock
-        || report.close_result != "Saved"
-    {
-        return package_error(format!(
-            "{} did not report a successful exact-project {} run",
-            binary.display(),
-            expected_composition_root
-        ));
-    }
-    validate_hash(
-        "run authoritative state root",
-        &report.authoritative_state_root,
-    )?;
-    validate_hash("run command ledger hash", &report.command_ledger_hash)?;
-    Ok(report)
-}
-
 fn packaged_run(
     binary_directory: &str,
     binary_name: &str,
@@ -491,7 +472,7 @@ fn packaged_run(
     })
 }
 
-fn validate_manifest_fields(manifest: &PackageManifestV2) -> Result<(), String> {
+fn validate_manifest_fields(manifest: &PackageManifestV3) -> Result<(), String> {
     if manifest.schema_version != PACKAGE_MANIFEST_SCHEMA_VERSION {
         return package_error(format!(
             "unsupported package schema version {}",
@@ -595,7 +576,7 @@ fn validate_packaged_run(
     Ok(())
 }
 
-fn validate_binary_inventory(manifest: &PackageManifestV2) -> Result<(), String> {
+fn validate_binary_inventory(manifest: &PackageManifestV3) -> Result<(), String> {
     for run in [&manifest.binaries.game, &manifest.binaries.headless] {
         let entry = manifest
             .file_inventory

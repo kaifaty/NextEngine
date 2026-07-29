@@ -13,7 +13,7 @@ use super::{
 pub(super) fn validate_package_manifest_summary(
     report: &NativeGateTargetReportV1,
     summary: &NativeGatePackageSummaryV1,
-    manifest: &crate::package::PackageManifestV2,
+    manifest: &crate::package::PackageManifestV3,
 ) -> Result<(), NativeGateComparisonError> {
     if manifest.target_triple != report.target_triple
         || manifest.target_triple != summary.target_triple

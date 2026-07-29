@@ -23,6 +23,7 @@ pub struct DesktopRunOptions {
     pub title: String,
     pub initial_extent: [u32; 2],
     pub maximum_frames: Option<u64>,
+    pub maximum_event_loop_iterations: Option<u64>,
     pub maximum_device_recoveries: u16,
     pub inject_device_loss_after_frames: Option<u64>,
     pub inject_startup_lifecycle_probe: bool,
@@ -35,6 +36,7 @@ impl Default for DesktopRunOptions {
             title: "Next Engine — Cooked Offline RPG Slice".to_owned(),
             initial_extent: [960, 540],
             maximum_frames: None,
+            maximum_event_loop_iterations: None,
             maximum_device_recoveries: 2,
             inject_device_loss_after_frames: None,
             inject_startup_lifecycle_probe: false,
@@ -108,8 +110,13 @@ pub fn run_interactive_with_event_sink(
     let mut fullscreen = false;
     let mut device_recoveries = 0_u64;
     let mut injected_device_loss = false;
+    let mut event_loop_iterations = 0_u64;
 
     'application: loop {
+        event_loop_iterations = advance_event_loop_iteration(
+            event_loop_iterations,
+            options.maximum_event_loop_iterations,
+        )?;
         let mut observations = Vec::new();
         let mut swapchain_dirty = false;
         let mut fullscreen_toggle_count = 0_u64;
@@ -135,6 +142,7 @@ pub fn run_interactive_with_event_sink(
                         | WindowEvent::PixelSizeChanged(width, height),
                     ..
                 } => {
+                    swapchain_dirty = true;
                     if width > 0 && height > 0 {
                         let width =
                             u32::try_from(width).map_err(|_| DesktopAdapterError::InvalidExtent)?;
@@ -148,7 +156,6 @@ pub fn run_interactive_with_event_sink(
                                 height,
                             },
                         });
-                        swapchain_dirty = true;
                     }
                 }
                 Event::Window { win_event, .. } => match win_event {
@@ -554,6 +561,20 @@ const fn event_timestamp_fallback(rendered_frames: u64) -> u64 {
     rendered_frames
 }
 
+fn advance_event_loop_iteration(
+    completed_iterations: u64,
+    maximum_iterations: Option<u64>,
+) -> Result<u64, DesktopAdapterError> {
+    if let Some(maximum) = maximum_iterations
+        && completed_iterations >= maximum
+    {
+        return Err(DesktopAdapterError::EventLoopIterationLimitExceeded { maximum });
+    }
+    completed_iterations
+        .checked_add(1)
+        .ok_or(DesktopAdapterError::CounterOverflow)
+}
+
 fn is_fullscreen_shortcut(scancode: Option<Scancode>, modifiers: Mod) -> bool {
     scancode == Some(Scancode::F11)
         || (scancode == Some(Scancode::Return) && modifiers.intersects(Mod::LALTMOD | Mod::RALTMOD))
@@ -698,12 +719,15 @@ pub enum DesktopAdapterError {
     Identifier(next_contracts::ids::IdentifierError),
     Sdl(String),
     Loader(String),
+    LoaderVersionUnsupported { required: u32, actual: u32 },
+    IcdUnavailable { error: Option<vk::Result> },
     Graphics(vk::Result),
     InvalidName,
     InvalidExtent,
     GpuUnsupported,
     CounterOverflow,
     EventBatchLimitExceeded,
+    EventLoopIterationLimitExceeded { maximum: u64 },
     TimebaseRegression { previous: u64, actual: u64 },
     GraphicsContextMissing,
     DeviceRecoveryLimitExceeded { maximum: u16 },
@@ -717,6 +741,8 @@ impl DesktopAdapterError {
             Self::Platform(_) | Self::Identifier(_) => "PLATFORM_EVENT_SCHEMA_INVALID",
             Self::Sdl(_) => "PLATFORM_DESKTOP_RUNTIME_UNAVAILABLE",
             Self::Loader(_) => "PLATFORM_GRAPHICS_LOADER_UNAVAILABLE",
+            Self::LoaderVersionUnsupported { .. } => "PLATFORM_GRAPHICS_LOADER_VERSION_UNSUPPORTED",
+            Self::IcdUnavailable { .. } => "PLATFORM_GRAPHICS_ICD_UNAVAILABLE",
             Self::Graphics(vk::Result::ERROR_DEVICE_LOST) => "PRESENTATION_DEVICE_LOST",
             Self::Graphics(vk::Result::ERROR_SURFACE_LOST_KHR) => "PRESENTATION_SURFACE_LOST",
             Self::Graphics(_) => "PRESENTATION_GRAPHICS_FAILED",
@@ -725,6 +751,9 @@ impl DesktopAdapterError {
             Self::GpuUnsupported => "GPU_UNSUPPORTED",
             Self::CounterOverflow => "PLATFORM_COUNTER_OVERFLOW",
             Self::EventBatchLimitExceeded => "PLATFORM_EVENT_BATCH_LIMIT_EXCEEDED",
+            Self::EventLoopIterationLimitExceeded { .. } => {
+                "PLATFORM_EVENT_LOOP_ITERATION_LIMIT_EXCEEDED"
+            }
             Self::TimebaseRegression { .. } => "PLATFORM_TIMEBASE_INVALID",
             Self::GraphicsContextMissing => "PRESENTATION_GRAPHICS_CONTEXT_MISSING",
             Self::DeviceRecoveryLimitExceeded { .. } => "PRESENTATION_DEVICE_RECOVERY_EXHAUSTED",
@@ -762,6 +791,17 @@ impl Display for DesktopAdapterError {
                 formatter,
                 "PLATFORM_GRAPHICS_LOADER_UNAVAILABLE: graphics loader failed: {error}"
             ),
+            Self::LoaderVersionUnsupported { required, actual } => write!(
+                formatter,
+                "PLATFORM_GRAPHICS_LOADER_VERSION_UNSUPPORTED: required API version {required:#010x}, got {actual:#010x}"
+            ),
+            Self::IcdUnavailable { error: Some(error) } => write!(
+                formatter,
+                "PLATFORM_GRAPHICS_ICD_UNAVAILABLE: graphics driver initialization failed: {error:?}"
+            ),
+            Self::IcdUnavailable { error: None } => formatter.write_str(
+                "PLATFORM_GRAPHICS_ICD_UNAVAILABLE: no graphics devices were enumerated",
+            ),
             Self::Graphics(error) => write!(formatter, "graphics API failed: {error:?}"),
             Self::InvalidName => formatter.write_str("desktop application name invalid"),
             Self::InvalidExtent => formatter.write_str("desktop surface extent invalid"),
@@ -772,6 +812,10 @@ impl Display for DesktopAdapterError {
             Self::EventBatchLimitExceeded => {
                 formatter.write_str("platform event batch limit exceeded")
             }
+            Self::EventLoopIterationLimitExceeded { maximum } => write!(
+                formatter,
+                "PLATFORM_EVENT_LOOP_ITERATION_LIMIT_EXCEEDED: maximum iterations {maximum}"
+            ),
             Self::TimebaseRegression { previous, actual } => write!(
                 formatter,
                 "platform timebase regressed: previous {previous}, got {actual}"
@@ -853,6 +897,50 @@ mod tests {
         assert_eq!(
             exhausted.diagnostic_code(),
             "PRESENTATION_DEVICE_RECOVERY_EXHAUSTED"
+        );
+    }
+
+    #[test]
+    fn graphics_startup_failures_have_distinct_stable_diagnostics() {
+        let loader = DesktopAdapterError::Loader("not found".to_owned());
+        let version = DesktopAdapterError::LoaderVersionUnsupported {
+            required: vk::API_VERSION_1_3,
+            actual: vk::API_VERSION_1_2,
+        };
+        let icd = DesktopAdapterError::IcdUnavailable { error: None };
+        let gpu = DesktopAdapterError::GpuUnsupported;
+
+        assert_eq!(
+            loader.diagnostic_code(),
+            "PLATFORM_GRAPHICS_LOADER_UNAVAILABLE"
+        );
+        assert_eq!(
+            version.diagnostic_code(),
+            "PLATFORM_GRAPHICS_LOADER_VERSION_UNSUPPORTED"
+        );
+        assert_eq!(icd.diagnostic_code(), "PLATFORM_GRAPHICS_ICD_UNAVAILABLE");
+        assert_eq!(gpu.diagnostic_code(), "GPU_UNSUPPORTED");
+    }
+
+    #[test]
+    fn event_loop_iteration_budget_fails_before_exceeding_limit() {
+        assert!(matches!(
+            advance_event_loop_iteration(0, Some(0)),
+            Err(DesktopAdapterError::EventLoopIterationLimitExceeded { maximum: 0 })
+        ));
+        assert_eq!(
+            advance_event_loop_iteration(0, Some(1)).expect("first iteration"),
+            1
+        );
+        let exhausted = advance_event_loop_iteration(1, Some(1))
+            .expect_err("second iteration must exceed the budget");
+        assert_eq!(
+            exhausted.diagnostic_code(),
+            "PLATFORM_EVENT_LOOP_ITERATION_LIMIT_EXCEEDED"
+        );
+        assert_eq!(
+            advance_event_loop_iteration(41, None).expect("unbounded iteration"),
+            42
         );
     }
 }

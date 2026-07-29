@@ -187,6 +187,7 @@ fn run_desktop_candidate(
         snapshot,
         &next_desktop_sdl_ash::DesktopRunOptions {
             maximum_frames: Some(1),
+            maximum_event_loop_iterations: Some(600),
             inject_device_loss_after_frames: Some(0),
             inject_startup_lifecycle_probe: true,
             ..next_desktop_sdl_ash::DesktopRunOptions::default()

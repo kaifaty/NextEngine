@@ -213,28 +213,54 @@ cargo run -p xtask --features desktop-sdl-ash -- platform
 # Форматирование, clippy, тесты workspace и архитектурные границы
 cargo run -p xtask -- host-check
 
+# Та же проверка с desktop feature graph для xtask, verification и game
+cargo run -p xtask --features desktop-sdl-ash -- host-check
+
 # Полная локальная closure matrix с exact hashes и честными target NOT_RUN
 cargo run -p xtask -- v1-closure
 ```
 
 Команды выводят компактный машиночитаемый результат. `host-check` — канонический
-широкий локальный `fast` check перед передачей изменения.
+широкий локальный `fast` check перед передачей изменения. Если сам `xtask`
+собран с `desktop-sdl-ash`, его дочерние clippy/test запускаются с явными
+package-qualified features `xtask/desktop-sdl-ash`,
+`next_verification/desktop-sdl-ash` и `next_game/desktop-sdl-ash`; несвязанные
+экспериментальные features через `--all-features` не включаются.
 
 На native Windows/Linux target после зелёной matrix собирается атомарный
 distribution directory с `game`, `headless`, exact cooked project,
-`PackageManifestV2` в `package.manifest.jcs` и обязательными `LICENSE`,
+`PackageManifestV3` в `package.manifest.jcs` и обязательными `LICENSE`,
 `NOTICE`, `THIRD_PARTY_NOTICES.md`, `MIGRATION_PROVENANCE.md`. Manifest хранит
 sorted полный inventory payload-файлов с SHA-256 (сам canonical manifest
-проверяется отдельно по hash из target report). Перед публикацией команда
-запускает именно скопированные release binaries из `package/bin`, сверяет их
-state/ledger roots и выполняет один bounded interactive Vulkan frame `game`:
+проверяется отдельно по hash из target report), target ABI, direct runtime
+libraries, maximum required GLIBC и внешние prerequisites.
+
+R1 runtime baseline фиксирован следующим образом:
+
+- Windows x86_64 MSVC использует dynamic system VC++ x64 runtime, системный
+  Vulkan loader `vulkan-1.dll` и установленный пользователем Vulkan ICD/GPU
+  driver;
+- Linux x86_64 GNU использует Ubuntu 22.04 / glibc 2.35 baseline, системный
+  loader `libvulkan.so.1`, установленный пользователем ICD/GPU driver и
+  активную X11 либо Wayland desktop session;
+- SDL3 входит статически; Vulkan loader и GPU driver в package не включаются.
+
+Перед публикацией команда запускает именно скопированные release binaries из
+`package/bin` с очищенным environment и изолированными state/home/temp
+directories, сверяет их state/ledger roots и выполняет один bounded interactive
+Vulkan frame `game`. Каждый smoke ограничен 30 секундами. Ошибки runtime profile,
+отсутствующая dependency, неподдерживаемый ABI и timeout возвращают соответственно
+`NATIVE_GATE_PACKAGE_RUNTIME_PROFILE_INVALID`,
+`NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING`,
+`NATIVE_GATE_PACKAGE_RUNTIME_ABI_UNSUPPORTED` и
+`NATIVE_GATE_PACKAGE_SMOKE_TIMEOUT`:
 
 ```bash
 cargo run --locked -p xtask -- v1-package --output dist/nextengine-v1
 ```
 
 Старые локальные package directories не мигрируются и не перезаписываются:
-удалите или выберите новый output и пересоберите их как `PackageManifestV2`.
+удалите или выберите новый output и пересоберите их как `PackageManifestV3`.
 
 На macOS команда fail-closed возвращает
 `TARGET_PACKAGE_REQUIRES_NATIVE_WINDOWS_OR_LINUX_X86_64`.
@@ -245,11 +271,10 @@ commit, использовать закреплённый Rust `1.93.0` и не�
 Cross-compilation, WSL-only run или перенос отчёта с dirty worktree не заменяют
 native target evidence.
 
-Текущий workflow разработки — Windows-first: частые native checks и Desktop B0
-work выполняются на `x86_64-pc-windows-msvc`. Native Linux host пока не входит
-в ближайший приоритет и будет проверен отдельным поздним validation run.
-Отсутствие Linux evidence не блокирует текущую Windows-разработку, но до этого
-R1/B-01 остаются открытыми и `native_gate_ready` не выставляется.
+Частые native checks и Desktop B0 work можно выполнять отдельно на любом
+поддерживаемом host. Однако до получения paired evidence с native Windows и
+Ubuntu 22.04 для одного exact commit R1/B-01 остаются открытыми и
+`native_gate_ready` не выставляется.
 
 На каждом target во время соответствующего validation run из clean checkout
 выполняется одна команда:
