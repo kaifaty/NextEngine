@@ -14,9 +14,10 @@ Next Engine создаётся для игр, в которых движение
 > validate/cook/publish/activation и снабжает gameplay root authored
 > dialogue/quest/relationship definitions. Portable `game` root уже извлекает
 > immutable presentation snapshot и проходит B0 reference renderer; приватный
-> SDL3/ash Vulkan adapter компилируется как `Proposed`, но ещё не прошёл
-> обязательные Windows/Linux product checks. Первый data-only combat package
-> уже проходит общий capability/effect/RPG transaction path. Двухчанковый
+> SDL3/ash Vulkan adapter остаётся `Proposed`: Windows Desktop B0 path проходит
+> локально, а native Linux gate прошёл на Mesa llvmpipe. Первый data-only
+> combat package уже проходит общий capability/effect/RPG transaction path.
+> Двухчанковый
 > deterministic streaming с отдельным save owner segment и первый
 > deterministic NPC planner/procedural avatar fallback работают в cooked
 > slice; deterministic Luau package host уже проходит sandbox/budget/state
@@ -25,7 +26,9 @@ Next Engine создаётся для игр, в которых движение
 > fallback. Локальная v1 closure matrix связывает exact project/content/
 > mechanics/extension roots. Native gate harness уже сохраняет target reports
 > и сравнивает их roots, но same-commit Windows/Linux pair ещё не получена,
-> поэтому shipping evidence пока остаётся `NOT_RUN`.
+> поэтому `native_gate_ready` пока не выставлен. Текущая разработка идёт
+> Windows-first; отложенные native Linux действия накапливаются в
+> [Linux validation backlog](docs/development/linux-validation-backlog.md).
 > Название Next Engine временное.
 
 Next Engine — самостоятельный проект. Это не порт OpenGothic и не универсальный
@@ -156,8 +159,9 @@ runtime-обучение моделей и
 один authored NPC dialogue/quest transition и переход во второй chunk с
 возвратом. Reference physics profile пока ограничен upright capsule и
 статическими Box colliders; desktop adapter пока отображает только
-B0-примитивы и остаётся `Proposed`. Локальная closure проходит, но реальные
-Windows/Linux platform/package gates ещё не выполнены.
+B0-примитивы и остаётся `Proposed`. Windows platform/package checks и Linux
+gate на Mesa llvmpipe проходят, но paired same-commit compare и representative
+Linux hardware-GPU evidence ещё не выполнены.
 
 ## Быстрый старт
 
@@ -271,55 +275,24 @@ commit, использовать закреплённый Rust `1.93.0` и не�
 Cross-compilation, WSL-only run или перенос отчёта с dirty worktree не заменяют
 native target evidence.
 
-Частые native checks и Desktop B0 work можно выполнять отдельно на любом
-поддерживаемом host. Однако до получения paired evidence с native Windows и
-Ubuntu 22.04 для одного exact commit R1/B-01 остаются открытыми и
-`native_gate_ready` не выставляется.
+Основной developer host — Windows. Ожидание Linux-машины не блокирует
+несвязанные Windows work packages: требующие native Linux host проверки
+добавляются в [Linux validation backlog](docs/development/linux-validation-backlog.md)
+и выполняются позже пакетами на зафиксированных checkpoints. До фактического
+run соответствующий Linux result остаётся `NotRun(reason)`, а target/stage claim
+не объявляется.
 
-На каждом target во время соответствующего validation run из clean checkout
-выполняется одна команда:
+Полный target checkpoint запускается одной командой:
 
 ```bash
 cargo run --locked -p xtask --features desktop-sdl-ash -- native-gate-run --output artifacts/native-gate/<commit>
 ```
 
-Она последовательно запускает `host-check`, `play`, `persistence-replay`,
-`content-package`, `platform`, `performance`, `v1-closure` и `v1-package`.
-Каждый check получает отдельный свежий state root. Результат сохраняется в
-игнорируемом Git каталоге:
-
-```text
-artifacts/native-gate/<commit>/
-  targets/
-    x86_64-pc-windows-msvc/
-      target-report.json
-      checks/
-      package/
-    x86_64-unknown-linux-gnu/
-      target-report.json
-      checks/
-      package/
-  cross-target-report.json
-```
-
-Публикация target directory атомарна. При первой ошибке сохраняется строгий
-`FAIL` report с уже завершёнными checks и
-`NOT_RUN(PRIOR_CHECK_FAILED)` для хвоста матрицы; незавершённый package и
-временный state не публикуются. Существующий output никогда не перезаписывается.
-
-После run на обоих hosts каталог отсутствующего target вручную переносится в
-тот же `artifacts/native-gate/<commit>/targets/`. Затем на любом checkout того
-же commit отчёты сравниваются:
-
-```bash
-cargo run --locked -p xtask -- native-gate-compare --windows artifacts/native-gate/<commit>/targets/x86_64-pc-windows-msvc/target-report.json --linux artifacts/native-gate/<commit>/targets/x86_64-unknown-linux-gnu/target-report.json --output artifacts/native-gate/<commit>/cross-target-report.json
-```
-
-Отдельный `v1-closure` остаётся честным: он даёт `PASS` только native target
-текущего host, сохраняет `NOT_RUN` для другого target и не выставляет
-`shipping_ready`. Только успешный compare двух target reports одного commit
-выставляет `native_gate_ready = true`; это ещё не означает автоматического
-закрытия всего R1.
+Актуальная накопительная очередь, Linux preflight, полный состав переносимого
+bundle, failure policy и команда compare находятся только в
+[Linux validation backlog](docs/development/linux-validation-backlog.md).
+Успешный compare двух same-commit target reports выставляет
+`native_gate_ready = true`, но не закрывает автоматически весь R1.
 
 Экспериментальный PhysX backend не входит в default features и не нужен этим
 командам. На Windows x86_64 или Linux x86_64 локальный SDK 5.9.0 задаётся

@@ -3,8 +3,8 @@
 | Поле | Значение |
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
-| Последнее обновление | 2026-07-29 |
-| Текущая точка | локально завершённый bootstrap M0–M11, native gate harness и Windows Desktop B0 hardening; следующий package — minimal render content, а native Linux validation и same-commit compare отложены на отдельный поздний прогон |
+| Последнее обновление | 2026-07-30 |
+| Текущая точка | локально завершённый bootstrap M0–M11, native gate harness и Windows Desktop B0 hardening; следующий Windows package — minimal render content, а Linux-only действия накапливаются в отдельном asynchronous validation backlog |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -93,7 +93,7 @@ Roadmap намеренно не содержит календарных обещ
 | Agent AI | Частично: один canonical affordance planner | Нет perception, hierarchy, schedules, memory и 100-NPC workload. |
 | Navigation/audio | Spec-only | Нет runtime service, cooker или baseline adapters. |
 | Player experience | Частично: normalized input contracts + Windows SDL keyboard/lifecycle path | Нет ActionMap/context service, camera/targeting, semantic UI, localization и accessibility implementation. |
-| Presentation/render | Частично: snapshot + B0 primitives + Windows swapchain/device recovery | Нет production material/shader/content path, VFX consumption state и Linux native target proof. |
+| Presentation/render | Частично: snapshot + B0 primitives + Windows swapchain/device recovery | Нет production material/shader/content path, VFX consumption state, paired same-commit target proof и representative Linux hardware-GPU evidence. |
 | Tooling | Частично: repository `xtask` checks | Нет creator-facing `next` CLI, inspectors, scenario/minimizer и stable external SDK workflow. |
 | Autonomous narrative | Contract fragments only | SPEC-31 runtime, graph admission, director fallback и divine batch transaction отсутствуют. |
 
@@ -184,15 +184,20 @@ Windows/Linux execution не считается выполненным и пер
 
 **Статус:** `IN_PROGRESS`. Native gate harness и Windows Desktop B0 hardening
 реализованы; Windows `platform` и clean `v1-package` smoke проходят локально.
-Native Linux target report и package прошли на exact clean commit
-`f58b2a5557a59aa0e5735844a9cbe927043b314e`; matching Windows report и
-same-commit compare ещё не выполнены.
+Native Linux target report и package имеют отдельный `PASS`; paired
+same-commit Windows report и compare ещё не выполнены. Exact checkpoint,
+environment и coordination status ведутся в
+[Linux validation backlog](development/linux-validation-backlog.md).
 
 **Текущая execution policy:** native Windows x86_64/MSVC/Vulkan — основной
-developer host и приоритет текущих work packages. Linux gate выполнен отдельно
-на native Linux x86_64 в Ubuntu 22.04 userspace с Vulkan 1.3 Mesa llvmpipe;
-полученный `PASS` не закрывает R1/B-01: для `native_gate_ready = true`
-по-прежнему нужны matching Windows target `PASS` report и успешный compare.
+developer host и приоритет текущих work packages. Linux validation выполняется
+отдельными асинхронными checkpoint-сессиями; standalone Linux `PASS` не
+закрывает R1/B-01 без matching Windows target `PASS` report и успешного compare.
+Отложенные Linux-only действия ведутся в
+[Linux validation backlog](development/linux-validation-backlog.md) и
+выполняются асинхронными checkpoint-сессиями. Их ожидание не блокирует
+несвязанные Windows work packages, но соответствующие R1/v1 criteria до
+фактического run остаются открытыми.
 
 **Цель:** превратить portable local closure в честно запускаемый native
 developer package.
@@ -224,11 +229,10 @@ developer package.
 
 **Hard blockers:**
 
-- matching native Windows x86_64 `PASS` report и package для exact Linux
-  evidence commit;
-- representative hardware-GPU Linux smoke сверх уже пройденного Mesa llvmpipe
-  evidence остаётся release confidence gap, но не подменяет обязательный
-  same-commit compare;
+- paired native Windows/Linux `PASS` reports и package на одном exact commit;
+- representative hardware-GPU Linux smoke; текущий checkpoint и pending
+  actions записаны в
+  [Linux validation backlog](development/linux-validation-backlog.md);
 - SDL3/ash candidate должен пройти target smoke; cross-compilation недостаточно;
 - любой cross-target canonical/hash mismatch;
 - packaging/runtime dependency, которая не включена или не диагностируется.
@@ -276,6 +280,9 @@ ADR-028, ADR-030.
 - выбранный минимальный neutral render-content profile;
 - CC0/engine-owned art, UI text и audio fixture с подтверждённой provenance;
 - отсутствие hidden direct-mutation path из UI/camera.
+
+Эти blockers ограничивают закрытие R2 и соответствующий alpha claim, но не
+начало или продолжение перечисленных Windows work packages.
 
 **Scope guard:** editor, advanced renderer, photoreal assets и procedural world
 generation не входят в этот этап.
@@ -572,9 +579,14 @@ and notices добавляются вместе с happy path.
 
 ### Platform
 
-Windows and Linux checks запускаются на каждом этапе, который меняет platform,
-renderer, physics, packaging or performance. Нельзя снова накопить несколько
-этапов portable-only work и отложить native integration до R7.
+Windows checks запускаются вместе с каждым work package, который меняет
+platform, renderer, physics, packaging or performance. Требующие native Linux
+host действия добавляются в
+[отдельный backlog](development/linux-validation-backlog.md) и могут
+выполняться асинхронно пакетами на зафиксированных exact-commit checkpoints.
+Отсутствие Linux run не блокирует unrelated Windows development, но stage exit
+или shipping claim, требующий Linux evidence, остаётся открытым. Накопленные
+Linux checks нельзя молча переносить за соответствующий stage/release gate.
 
 ### Physical R&D
 
@@ -584,10 +596,10 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 
 ## Blocker register
 
-| ID | Blocker | Блокирует | Условие снятия |
+| ID | Blocker | Блокирует закрытие | Условие снятия |
 |---|---|---|---|
-| B-01 | `OPEN`: Linux target report и package имеют `PASS` на `f58b2a5557a59aa0e5735844a9cbe927043b314e`; matching Windows report и cross-target compare отсутствуют | R1, R7 | На одном exact clean commit собраны Windows/Linux target `PASS` reports и packages с matching roots, а `native-gate-compare` сообщает `native_gate_ready = true`. |
-| B-02 | SDL3/ash остаётся `Proposed` target candidate; Windows B0 path проходит локально, Linux `platform` и package desktop smoke прошли на Mesa llvmpipe; representative hardware-GPU evidence отсутствует | R1, R2 | B0 lifecycle/input/device-loss checks проходят на обеих targets либо выбран thin adapter за тем же contract. |
+| B-01 | `OPEN`: standalone Linux `PASS` записан; paired same-commit Windows report и cross-target compare отсутствуют. Coordination хранится в [Linux validation backlog](development/linux-validation-backlog.md). | R1, R7 | На одном exact clean commit собраны Windows/Linux target `PASS` reports и packages с matching roots, а `native-gate-compare` сообщает `native_gate_ready = true`. |
+| B-02 | SDL3/ash остаётся `Proposed` target candidate; Windows B0 path проходит локально, software-Vulkan Linux evidence записан, а representative hardware-GPU action поставлен в [Linux validation backlog](development/linux-validation-backlog.md). | R1, R2 | B0 lifecycle/input/device-loss checks проходят на обеих targets либо выбран thin adapter за тем же contract. |
 | B-03 | Нет production render/content profile и достаточного CC0 content | R2, R5, R7 | Зафиксирован минимальный mesh/material/texture/skeleton/audio profile и lawful fixture/project. |
 | B-04 | Нет общего job/resource/backpressure substrate | R3–R5 | Finite queues, canonical merge, logical budgets, pin/lease/eviction and fault checks реализованы production owners. |
 | B-05 | Schema migration DAG фактически пуст | R3, R7 | Реальная N−1→N copy-on-write migration проходит valid/corrupt/fault matrix. |
@@ -616,39 +628,40 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 
 ## Ближайшая implementation queue
 
-Ближайшая очередь остаётся Windows-first. Реальный Linux target run выполнен;
-следующий validation work package должен воспроизвести native Windows gate на
-exact commit `f58b2a5557a59aa0e5735844a9cbe927043b314e` и выполнить cross-target
-compare. Оба same-commit reports и успешный compare остаются обязательными
-перед закрытием R1/B-01.
+Ближайшая очередь является Windows-first. Linux validation не занимает позицию
+в implementation queue: требующие native Linux host действия накапливаются в
+[Linux validation backlog](development/linux-validation-backlog.md) и
+выполняются отдельными checkpoint-сессиями. Это не блокирует начало следующего
+Windows increment. Оба same-commit reports и успешный compare остаются
+обязательными перед закрытием R1/B-01.
 
 Следующие work packages рекомендуется выполнять в этом порядке:
 
-1. **Desktop B0 hardening (`DONE_LOCAL_WINDOWS`, Linux validation pending):**
-   SDL keyboard input нормализуется в engine-owned events; resize/focus/
-   minimize/restore/fullscreen, surface recreation и bounded device-loss
-   recovery проходят production adapter path. Windows `platform` и clean
-   `v1-package` smoke имеют локальный `PASS`; shipping claim, R1 и B-02 остаются
-   открытыми до Linux evidence.
-2. **Minimal render content (`NEXT`):** neutral mesh/material/texture records,
+Завершённый Windows baseline: **Desktop B0 hardening (`DONE_LOCAL_WINDOWS`)**.
+SDL keyboard input нормализуется в engine-owned events; resize/focus/minimize/
+restore/fullscreen, surface recreation и bounded device-loss recovery проходят
+production adapter path. Оставшиеся target claims учитываются отдельно и не
+возвращают этот implementation package в активную очередь.
+
+1. **Minimal render content (`NEXT`):** neutral mesh/material/texture records,
    cooker, B0 upload and fallback material.
-3. **Player action and camera:** ActionMap/context resolution, third-person
+2. **Player action and camera:** ActionMap/context resolution, third-person
    camera, interaction focus and targeting query.
-4. **Semantic UI:** HUD, inventory/equipment, dialogue, quest journal,
+3. **Semantic UI:** HUD, inventory/equipment, dialogue, quest journal,
    pause/save/load and pseudo-locale.
-5. **Baseline audio:** clips, emitters/listener, priority/voice limits,
+4. **Baseline audio:** clips, emitters/listener, priority/voice limits,
    attenuation/panning and subtitle fallback.
-6. **Playable alpha project:** заменить technical fixture на один complete
+5. **Playable alpha project:** заменить technical fixture на один complete
    CC0/engine-owned 20–30 minute slice.
-7. **Jobs/resources vertical:** сначала content cook/stream use case, затем
+6. **Jobs/resources vertical:** сначала content cook/stream use case, затем
    shared bounded admission primitives.
-8. **General partition and migration:** multi-region streaming plus first real
+7. **General partition and migration:** multi-region streaming plus first real
    save/content schema migration.
-9. **Living-world vertical:** calendar + small population + graph navigation,
-    затем масштабирование к integrated 100-NPC scenario.
+8. **Living-world vertical:** calendar + small population + graph navigation,
+     затем масштабирование к integrated 100-NPC scenario.
 
 Каждый package должен быть отдельным product increment с focused checks. Work
-package 7 не следует начинать как универсальный scheduler design без package 6
+package 6 не следует начинать как универсальный scheduler design без package 5
 и конкретного streaming workload.
 
 ## Обновление roadmap

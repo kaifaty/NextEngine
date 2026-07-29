@@ -2,12 +2,17 @@
 
 ## Status
 
-The implementation sequence `M0 → M11` is present in the repository. The full
-portable/local closure passes on the pinned Rust `1.93.0` Apple Silicon
-developer host. This is **not yet a shipping declaration**: native
-Windows x86_64 and Linux x86_64 runtime/desktop/package gates must run on
-those targets.
-`v1-closure` reports them as `NOT_RUN`, never as success.
+This file is a historical implementation record for the `M0 → M11` sequence.
+Its local-result table describes the closure state when that sequence
+completed; it is not the current native-target status or execution queue.
+Current stage status lives in [roadmap.md](roadmap.md), and deferred native
+Linux work lives in
+[development/linux-validation-backlog.md](development/linux-validation-backlog.md).
+
+The implementation sequence is present in the repository. At record time, the
+full portable/local closure passed on the pinned Rust `1.93.0` Apple Silicon
+developer host while native Windows/Linux slots remained `NOT_RUN`. Later
+native evidence must not be inferred from this historical snapshot.
 
 The implementation follows the Accepted architecture without a semantic
 departure, so it did not add a superseding ADR.
@@ -119,33 +124,20 @@ Stable compatibility/fallback diagnostics in the closure are
 `RPG_SCHEMA_UNSUPPORTED`, `WIT_API_N_MINUS_2_UNSUPPORTED`,
 `OPTIONAL_EXTENSION_DISABLED` and `AI_HOST_OPTIONAL_FALLBACK`.
 
-## Remaining release gates
+## Current native validation entry point
 
-On the exact implementation commit, run the following natively on both
-`x86_64-pc-windows-msvc` and `x86_64-unknown-linux-gnu`:
+The earlier manual per-check matrix has been replaced by the native gate
+harness. On each selected exact clean checkpoint, run:
 
 ```bash
-cargo run -p xtask -- host-check
-cargo run -p xtask -- play
-cargo run -p xtask -- persistence-replay
-cargo run -p xtask -- content-package
-cargo run -p xtask --features desktop-sdl-ash -- platform
-cargo run -p xtask -- performance
-cargo run -p xtask --features desktop-sdl-ash -- v1-closure
-cargo run -p xtask -- v1-package --output dist/nextengine-v1
+cargo run --locked -p xtask --features desktop-sdl-ash -- native-gate-run --output artifacts/native-gate/<commit>
 ```
 
-`v1-package` builds release `game`/`headless` (including the desktop adapter),
-publishes and reactivates the exact cooked project in a staging directory,
-launches release `headless` and a bounded one-frame interactive release `game`
-against that exact lock, hashes both binaries, writes a canonical package
-manifest and atomically renames the complete distribution directory. It
-rejects a non-shipping host, failed launch or pre-existing output. Compare the
-reported package, project, state and ledger roots across the two native
-reports. One invocation can certify only its current native target; release
-readiness is the aggregate of matching Windows and Linux evidence. An
-unavailable target remains `NOT_RUN`; it must not be manually promoted to
-`PASS`.
+The authoritative command semantics remain in SPEC-12. The active asynchronous
+Linux queue, preflight, complete-bundle transfer and paired compare procedure
+are maintained in
+[development/linux-validation-backlog.md](development/linux-validation-backlog.md);
+they are intentionally not duplicated in this historical record.
 
 Learned motor policy, LLM narrative and SPEC-31 runtime remain gated behind a
 separate implementation plan with mandatory procedural/template fallback.
