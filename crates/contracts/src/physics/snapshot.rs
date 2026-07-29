@@ -6,7 +6,8 @@ use crate::canonical::{
     CANONICAL_TYPE_U64, CanonicalDecodeLimits, CanonicalError, CanonicalField,
     decode_canonical_segment, encode_canonical_segment,
 };
-use crate::{ContentHash, PhysicsContactId, PhysicsWorldId, TickRateProfileV1};
+use crate::ids::{ContentHash, PhysicsContactId, PhysicsWorldId};
+use crate::input::TickRateProfileV1;
 
 use super::catalog::{PhysicsWorldCatalogV1, catalog_shape};
 use super::codec::*;

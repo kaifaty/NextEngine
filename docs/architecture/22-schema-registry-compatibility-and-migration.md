@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-22 |
 | Статус | Accepted |
-| Версия | 1.3 |
-| Последняя проверка | 2026-07-28 |
+| Версия | 1.4 |
+| Последняя проверка | 2026-07-29 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md) |
 | Заменяет | отсутствует |
 
@@ -18,6 +18,24 @@ physics segment через его exact descriptor. Current RPG aggregate snapsh
 `RuntimeSnapshotV3`, `WorldCheckpointV4` и `ReplayManifestV4` имеют class
 `Exact`; bootstrap RPG/replay V3 artifacts имеют class `Unsupported` и
 возвращают `RPG_SCHEMA_UNSUPPORTED` до nested decode или activation.
+Current project composition uses `ProjectCompositionLockV2` and
+`ActivatedProjectV2`; V1 project lock has class `Unsupported` with
+`PROJECT_LOCK_INVALID` before nested closure decode or activation.
+No compatibility decoder, alias or in-place rewrite exists for either removed
+family.
+
+| Artifact family | Current exact form | Removed/unsupported form | Required early result |
+|---|---|---|---|
+| RPG projection | `RpgSnapshotV2` | bootstrap/aggregate legacy RPG snapshot | `RPG_SCHEMA_UNSUPPORTED` |
+| Runtime snapshot | `RuntimeSnapshotV3` | unversioned `RuntimeSnapshot` | unsupported header/schema |
+| World checkpoint | `WorldCheckpointV4` | `WorldCheckpointV3` | `RPG_SCHEMA_UNSUPPORTED` when its RPG family is probed |
+| Replay | `ReplayManifestV4` | bootstrap `ReplayManifestV3` | `RPG_SCHEMA_UNSUPPORTED` |
+| Project activation | `ProjectCompositionLockV2` / `ActivatedProjectV2` | V1 project lock | `PROJECT_LOCK_INVALID` |
+
+For these families the bounded outer format/version probe runs before nested
+JCS/CanonicalBinary decode, hash traversal, store publication or Runtime
+mutation. A malformed nested payload cannot mask the stable unsupported-version
+result of an otherwise recognizable retired header.
 
 SPEC-22 задаёт один engine-owned schema contract для content, project composition, authoritative state, save/replay, commands, events, immutable projections и process protocols.
 

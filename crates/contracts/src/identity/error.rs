@@ -1,8 +1,8 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use crate::IdentifierError;
 use crate::canonical::{CanonicalDecodeError, CanonicalError};
+use crate::ids::IdentifierError;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -10,7 +10,7 @@ pub enum IdentityContractError {
     Canonical(CanonicalError),
     Decode(CanonicalDecodeError),
     Identifier(IdentifierError),
-    Principal(crate::PrincipalDecodeError),
+    Principal(crate::command::PrincipalDecodeError),
     WrongEnvelope,
     MissingField(u32),
     UnknownField(u32),
@@ -122,8 +122,8 @@ impl From<IdentifierError> for IdentityContractError {
     }
 }
 
-impl From<crate::PrincipalDecodeError> for IdentityContractError {
-    fn from(error: crate::PrincipalDecodeError) -> Self {
+impl From<crate::command::PrincipalDecodeError> for IdentityContractError {
+    fn from(error: crate::command::PrincipalDecodeError) -> Self {
         Self::Principal(error)
     }
 }

@@ -5,12 +5,12 @@ use crate::ids::{
     CommandBodyHash, CommandId, CommandStreamId, PersistentId, SchemaId,
     command_body_hash_from_bytes,
 };
-use crate::rpg::{RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID};
-use crate::rpg_v1::{RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RpgCommandV1};
-use crate::{
+use crate::physics::{
     PHYSICAL_COMMAND_CAPABILITY_ID, PHYSICAL_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_SCHEMA_VERSION,
     PhysicalCommandV1,
 };
+use crate::rpg::{RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID};
+use crate::rpg::{RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RpgCommandV1};
 
 use super::body::{
     COMMAND_SCHEMA_VERSION, CanonicalCommandBodyV2, CapabilityRefV1, CommandPayload, CommandPhase,

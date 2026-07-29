@@ -3,24 +3,24 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use next_assets::{
     CONTENT_GENERATIONS_DIRECTORY, ContentPublicationV1, ContentStore, PublicationFileV1,
 };
-use next_contracts::{
-    AssetId, ContentHash, ProjectCatalogRecordV1, ProjectCatalogSnapshotV1,
-    ProjectDependencyKindV1, ProjectManifestV1, ProjectRequirementV1, SchemaId, SemanticVersionV1,
-    content_hash_from_bytes,
+use next_contracts::ids::{AssetId, ContentHash, SchemaId, content_hash_from_bytes};
+use next_contracts::project::{
+    ProjectCatalogRecordV1, ProjectCatalogSnapshotV1, ProjectDependencyKindV1, ProjectManifestV1,
+    ProjectRequirementV1, SemanticVersionV1,
 };
 use next_project::{
     ProjectActivationError, ProjectCookError, ProjectResolutionError, activate_project,
-    cook_project_v1, neutral_vertical_slice_source_v1, resolve_project_records_v1,
+    cook_project_v1, resolve_project_records_v1,
 };
 
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[test]
 fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() {
-    let first =
-        cook_project_v1(neutral_vertical_slice_source_v1().expect("fixture")).expect("first cook");
-    let second =
-        cook_project_v1(neutral_vertical_slice_source_v1().expect("fixture")).expect("second cook");
+    let first = cook_project_v1(next_reference_game::project_source_v2().expect("fixture"))
+        .expect("first cook");
+    let second = cook_project_v1(next_reference_game::project_source_v2().expect("fixture"))
+        .expect("second cook");
     assert_eq!(first, second);
     assert_eq!(
         first.publication().expect("publication"),
@@ -47,7 +47,7 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
 #[test]
 fn missing_blob_and_blob_hash_mismatch_fail_before_activation() {
     let cooked =
-        cook_project_v1(neutral_vertical_slice_source_v1().expect("fixture")).expect("cook");
+        cook_project_v1(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
     let root = test_root("missing");
     let store = ContentStore::new(&root);
     store
@@ -87,7 +87,7 @@ fn missing_blob_and_blob_hash_mismatch_fail_before_activation() {
 #[test]
 fn invalid_activation_never_replaces_the_callers_active_project() {
     let cooked =
-        cook_project_v1(neutral_vertical_slice_source_v1().expect("fixture")).expect("cook");
+        cook_project_v1(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
     let root = test_root("activation-fault");
     let store = ContentStore::new(&root);
     store
@@ -133,7 +133,7 @@ fn invalid_activation_never_replaces_the_callers_active_project() {
 
 #[test]
 fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
-    let mut malformed = neutral_vertical_slice_source_v1().expect("fixture");
+    let mut malformed = next_reference_game::project_source_v2().expect("fixture");
     malformed.records[0].schema_ref.schema_id =
         SchemaId::new("nextengine.content.wrong.v1").expect("valid ID");
     assert!(matches!(
@@ -141,7 +141,7 @@ fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
         Err(ProjectCookError::Neutral(_))
     ));
 
-    let mut missing = neutral_vertical_slice_source_v1().expect("fixture");
+    let mut missing = next_reference_game::project_source_v2().expect("fixture");
     missing.records[0]
         .asset_dependencies
         .push(AssetId::from_bytes([0xfe; 16]));
@@ -150,20 +150,20 @@ fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
         Err(ProjectCookError::MissingReference)
     ));
 
-    let mut duplicate = neutral_vertical_slice_source_v1().expect("fixture");
+    let mut duplicate = next_reference_game::project_source_v2().expect("fixture");
     duplicate.records[1].asset_id = duplicate.records[0].asset_id;
     assert!(matches!(
         cook_project_v1(duplicate),
         Err(ProjectCookError::DuplicateIdentity)
     ));
 
-    let mut cycle = neutral_vertical_slice_source_v1().expect("fixture");
+    let mut cycle = next_reference_game::project_source_v2().expect("fixture");
     let scene = cycle.records[0].asset_id;
     cycle.records[1].asset_dependencies.push(scene);
     assert!(matches!(
         cook_project_v1(cycle),
         Err(ProjectCookError::Contract(
-            next_contracts::ProjectContractError::DependencyCycle
+            next_contracts::project::ProjectContractError::DependencyCycle
         ))
     ));
 }
@@ -171,7 +171,7 @@ fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
 #[test]
 fn project_resolver_rejects_dependency_cycle() {
     let project = ProjectManifestV1::new(
-        next_contracts::ProjectId::new("org.nextengine.resolver-test").expect("project"),
+        next_contracts::ids::ProjectId::new("org.nextengine.resolver-test").expect("project"),
         1,
         vec![requirement("a")],
     )

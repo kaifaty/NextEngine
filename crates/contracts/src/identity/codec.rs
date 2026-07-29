@@ -2,7 +2,8 @@ use crate::canonical::{
     CANONICAL_TYPE_STRUCT, CANONICAL_TYPE_TAGGED_UNION, CanonicalCursor, CanonicalDecodeError,
     CanonicalDecodeLimits, CanonicalError, CanonicalField, DecodedCanonicalSegment,
 };
-use crate::{ContentHash, IssuerPrincipal};
+use crate::command::IssuerPrincipal;
+use crate::ids::ContentHash;
 
 use super::error::IdentityContractError;
 

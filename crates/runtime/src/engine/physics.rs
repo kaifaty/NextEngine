@@ -1,10 +1,12 @@
 use std::collections::BTreeMap;
 
-use next_contracts::{
+use next_contracts::ids::PhysicsWorldId;
+use next_contracts::input::TickRateProfileV1;
+use next_contracts::physics::{
     AuthoritativeNumericProfileV1, PhysicsCanonicalSnapshotV2, PhysicsContractError,
     PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1, PhysicsQuantizationProfileV1,
     PhysicsSolverSemanticsProfileV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
-    PhysicsWorldCheckpointV1, PhysicsWorldId, TickRateProfileV1,
+    PhysicsWorldCheckpointV1,
 };
 #[cfg(not(any(feature = "physx", feature = "physx-mock")))]
 use next_physics_api::ReferencePhysicsError;

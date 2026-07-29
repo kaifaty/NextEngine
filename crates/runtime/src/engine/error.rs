@@ -1,11 +1,15 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{
-    CanonicalError, CommandLedgerError, CoreDialogueQuestClosureError, IdentityContractError,
-    InputContractError, MechanicsContractError, PhysicsContractError, RpgContractErrorV1,
-    SnapshotDecodeError, WorldCheckpointError,
-};
+use next_contracts::canonical::CanonicalError;
+use next_contracts::identity::IdentityContractError;
+use next_contracts::input::InputContractError;
+use next_contracts::ledger::CommandLedgerError;
+use next_contracts::mechanics::MechanicsContractError;
+use next_contracts::physics::PhysicsContractError;
+use next_contracts::rpg::CoreDialogueQuestClosureError;
+use next_contracts::rpg::RpgContractErrorV1;
+use next_contracts::snapshot::{SnapshotDecodeError, WorldCheckpointError};
 use next_mechanics::MechanicsHostError;
 use next_physics_api::PhysicsBackendError;
 use next_rpg::RpgStateError;

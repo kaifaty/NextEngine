@@ -4,7 +4,7 @@ use crate::canonical::{
     CanonicalDecodeError, CanonicalDecodeLimits, CanonicalError, CanonicalField,
     DecodedCanonicalSegment, decode_canonical_segment, sha256,
 };
-use crate::{ContentHash, content_hash_from_bytes};
+use crate::ids::{ContentHash, content_hash_from_bytes};
 
 use super::error::PhysicsContractError;
 

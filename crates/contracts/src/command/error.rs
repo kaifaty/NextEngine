@@ -1,9 +1,9 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use crate::PhysicsContractError;
 use crate::canonical::{CanonicalDecodeError, CanonicalError};
-use crate::rpg_v1::RpgContractErrorV1;
+use crate::physics::PhysicsContractError;
+use crate::rpg::RpgContractErrorV1;
 
 use super::principal::PrincipalDecodeError;
 
@@ -15,7 +15,7 @@ pub enum CommandDecodeError {
     Principal(PrincipalDecodeError),
     Rpg(RpgContractErrorV1),
     Physics(PhysicsContractError),
-    Identifier(crate::IdentifierError),
+    Identifier(crate::ids::IdentifierError),
     WrongEnvelope,
     UnknownField(u32),
     MissingField(u32),
@@ -153,8 +153,8 @@ impl From<PhysicsContractError> for CommandDecodeError {
     }
 }
 
-impl From<crate::IdentifierError> for CommandDecodeError {
-    fn from(error: crate::IdentifierError) -> Self {
+impl From<crate::ids::IdentifierError> for CommandDecodeError {
+    fn from(error: crate::ids::IdentifierError) -> Self {
         Self::Identifier(error)
     }
 }

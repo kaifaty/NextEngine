@@ -1,16 +1,28 @@
 use std::collections::BTreeMap;
 
-use next_contracts::{
+use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::command::{CommandPayload, IssuerPrincipal, WorldCommand};
+use next_contracts::identity::{CommandStreamRegistryV1, PrincipalRegistryV1};
+use next_contracts::ids::{
+    CapabilityId, CommandBodyHash, CommandStreamId, ContentHash, PersistentId, SchemaId, SystemId,
+};
+use next_contracts::input::{CORE_MELEE_ACTION_ID, PLAYER_INTERACTION_SYSTEM_ID};
+use next_contracts::ledger::{
+    CommandBodyArchiveV1, CommandFinalResultV1, CommandLedgerError, CommandLedgerV2,
+    CommandReceiptSubjectV1,
+};
+use next_contracts::mechanics::{
+    MechanicsContractError, RpgDefinitionRegistryV1, interaction_definition_hash,
+};
+use next_contracts::physics::{ClosedPhysicsContactBatchV1, ContactPhaseV1};
+use next_contracts::rpg::{
     CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
     CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
-    CORE_MELEE_ACTION_ID, CanonicalDecodeLimits, CapabilityId, ClosedPhysicsContactBatchV1,
-    CommandBodyArchiveV1, CommandBodyHash, CommandFinalResultV1, CommandLedgerError,
-    CommandLedgerV2, CommandPayload, CommandReceiptSubjectV1, CommandStreamId,
-    CommandStreamRegistryV1, ContactPhaseV1, ContentHash, CoreDialogueQuestClosureError,
-    IssuerPrincipal, MechanicsContractError, PLAYER_INTERACTION_SYSTEM_ID, PersistentId,
-    PrincipalRegistryV1, RPG_COMMAND_CAPABILITY_ID, RpgAggregateKindV1, RpgAggregateRefV1,
-    RpgCommandV1, RpgDefinitionRegistryV1, RpgOperationPayloadV1, RpgOperationV1,
-    RpgPhysicalContactFactV1, SchemaId, SystemId, WorldCommand, interaction_definition_hash,
+    CoreDialogueQuestClosureError, RPG_COMMAND_CAPABILITY_ID,
+};
+use next_contracts::rpg::{
+    RpgAggregateKindV1, RpgAggregateRefV1, RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1,
+    RpgPhysicalContactFactV1,
 };
 use next_mechanics::{AbilityInvocationV1, MechanicsHostError, compile_contact_ability_v1};
 use next_physics_api::PhysicsWorldHost;
@@ -32,7 +44,7 @@ pub(super) struct InteractionOutcomeRoute {
 #[derive(Clone, Debug)]
 pub(super) struct BuiltInInteractionOutcome {
     pub(super) proposal: crate::outcome::OutcomeProposal,
-    pub(super) source_id: next_contracts::InputSourceId,
+    pub(super) source_id: next_contracts::ids::InputSourceId,
     pub(super) source_sequence: u64,
     pub(super) payload_hash: ContentHash,
 }
@@ -166,7 +178,7 @@ pub(super) fn build_interaction_outcomes(
                 .abilities
                 .iter()
                 .find(|ability| {
-                    next_contracts::ability_definition_hash(ability)
+                    next_contracts::mechanics::ability_definition_hash(ability)
                         == compiled.ability_definition_hash
                 })
                 .ok_or(RuntimeFatalError::InternalIdentityCollision)?;

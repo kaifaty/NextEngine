@@ -1,8 +1,6 @@
 use super::*;
-use crate::{
-    CommandStreamId, IssuerPrincipal, PlayerPrincipalId, SchemaId, WorldCommand,
-    content_hash_from_bytes,
-};
+use crate::command::{IssuerPrincipal, WorldCommand};
+use crate::ids::{CommandStreamId, PlayerPrincipalId, SchemaId, content_hash_from_bytes};
 
 fn command(sequence: u64, target_tick: u64) -> WorldCommand {
     WorldCommand::noop(

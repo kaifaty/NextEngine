@@ -1,20 +1,20 @@
-use next_contracts::{
+use next_contracts::ids::SchemaId;
+use next_contracts::input::{
     CORE_EQUIP_USE_ACTION_ID, CORE_INTERACT_ACTION_ID, CORE_MELEE_ACTION_ID, CORE_MOVE_ACTION_ID,
     CORE_PICKUP_ACTION_ID, InputSampleV1, PLAYER_ACTION_FRAME_SCHEMA_ID,
     PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PlayerActionFrameV1,
-    PlayerActionPhaseV1, PlayerActionV1, PlayerActionValueV1, SchemaId,
+    PlayerActionPhaseV1, PlayerActionV1, PlayerActionValueV1,
 };
 
-use super::construction::NeutralPlayerFixture;
-use super::error::CanonicalFixtureError;
+use crate::{ReferenceGameSession, ReferenceInputError};
 
 pub fn player_action_sample(
-    fixture: &NeutralPlayerFixture,
+    fixture: &ReferenceGameSession,
     sequence: u64,
     phase: PlayerActionPhaseV1,
     direction_q15: [i16; 2],
     sampled_wall_time: Option<i64>,
-) -> Result<InputSampleV1, CanonicalFixtureError> {
+) -> Result<InputSampleV1, ReferenceInputError> {
     let frame = PlayerActionFrameV1 {
         schema_version: PLAYER_ACTION_FRAME_SCHEMA_VERSION,
         controller_id: fixture.controller_id,
@@ -43,12 +43,12 @@ pub fn player_action_sample(
 }
 
 pub fn player_interact_sample(
-    fixture: &NeutralPlayerFixture,
+    fixture: &ReferenceGameSession,
     sequence: u64,
     phase: PlayerActionPhaseV1,
     pressed: bool,
     sampled_wall_time: Option<i64>,
-) -> Result<InputSampleV1, CanonicalFixtureError> {
+) -> Result<InputSampleV1, ReferenceInputError> {
     player_semantic_action_sample(
         fixture,
         sequence,
@@ -60,12 +60,12 @@ pub fn player_interact_sample(
 }
 
 pub fn player_pickup_sample(
-    fixture: &NeutralPlayerFixture,
+    fixture: &ReferenceGameSession,
     sequence: u64,
     phase: PlayerActionPhaseV1,
     pressed: bool,
     sampled_wall_time: Option<i64>,
-) -> Result<InputSampleV1, CanonicalFixtureError> {
+) -> Result<InputSampleV1, ReferenceInputError> {
     player_semantic_action_sample(
         fixture,
         sequence,
@@ -77,12 +77,12 @@ pub fn player_pickup_sample(
 }
 
 pub fn player_equip_use_sample(
-    fixture: &NeutralPlayerFixture,
+    fixture: &ReferenceGameSession,
     sequence: u64,
     phase: PlayerActionPhaseV1,
     pressed: bool,
     sampled_wall_time: Option<i64>,
-) -> Result<InputSampleV1, CanonicalFixtureError> {
+) -> Result<InputSampleV1, ReferenceInputError> {
     player_semantic_action_sample(
         fixture,
         sequence,
@@ -94,12 +94,12 @@ pub fn player_equip_use_sample(
 }
 
 pub fn player_melee_sample(
-    fixture: &NeutralPlayerFixture,
+    fixture: &ReferenceGameSession,
     sequence: u64,
     phase: PlayerActionPhaseV1,
     pressed: bool,
     sampled_wall_time: Option<i64>,
-) -> Result<InputSampleV1, CanonicalFixtureError> {
+) -> Result<InputSampleV1, ReferenceInputError> {
     player_semantic_action_sample(
         fixture,
         sequence,
@@ -111,13 +111,13 @@ pub fn player_melee_sample(
 }
 
 fn player_semantic_action_sample(
-    fixture: &NeutralPlayerFixture,
+    fixture: &ReferenceGameSession,
     sequence: u64,
     action_id: &str,
     phase: PlayerActionPhaseV1,
     pressed: bool,
     sampled_wall_time: Option<i64>,
-) -> Result<InputSampleV1, CanonicalFixtureError> {
+) -> Result<InputSampleV1, ReferenceInputError> {
     let frame = PlayerActionFrameV1 {
         schema_version: PLAYER_ACTION_FRAME_SCHEMA_VERSION,
         controller_id: fixture.controller_id,

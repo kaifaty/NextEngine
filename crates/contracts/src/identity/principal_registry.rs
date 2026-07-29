@@ -5,7 +5,8 @@ use crate::canonical::{
     CANONICAL_TYPE_U16, CANONICAL_TYPE_UTF8_NFC, CanonicalDecodeLimits, CanonicalError,
     CanonicalField, decode_canonical_segment, encode_canonical_segment,
 };
-use crate::{ContentHash, IssuerPrincipal, SchemaId, WorldNamespaceId};
+use crate::command::IssuerPrincipal;
+use crate::ids::{ContentHash, SchemaId, WorldNamespaceId};
 
 use super::codec::{
     decode_map, decode_nested_struct, encode_map, field, nested_array, nested_struct, nested_text,

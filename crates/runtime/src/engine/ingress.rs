@@ -1,15 +1,18 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use next_contracts::{
+use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::command::WorldCommand;
+use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
+use next_contracts::input::{
     CLOSED_INGRESS_BATCH_SCHEMA_VERSION, CORE_EQUIP_USE_ACTION_ID, CORE_INTERACT_ACTION_ID,
-    CORE_MELEE_ACTION_ID, CORE_MOVE_ACTION_ID, CORE_PICKUP_ACTION_ID, CanonicalDecodeLimits,
-    ClosedIngressBatchBodyV1, ClosedIngressBatchV1, ContentHash, IngressAssignmentV1,
-    IngressCheckpointV1, IngressEquivalenceReceiptV1, InputMappingCodeV1, InputMappingReceiptV1,
-    InputSampleV1, PLAYER_ACTION_FRAME_SCHEMA_ID, PLAYER_ACTION_FRAME_SCHEMA_VERSION,
-    PLAYER_ACTION_SOURCE_CLASS, PersistentId, PhysicalCommandV1, PlayerActionFrameV1,
+    CORE_MELEE_ACTION_ID, CORE_MOVE_ACTION_ID, CORE_PICKUP_ACTION_ID, ClosedIngressBatchBodyV1,
+    ClosedIngressBatchV1, IngressAssignmentV1, IngressCheckpointV1, IngressEquivalenceReceiptV1,
+    InputMappingCodeV1, InputMappingReceiptV1, InputSampleV1, PLAYER_ACTION_FRAME_SCHEMA_ID,
+    PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PlayerActionFrameV1,
     PlayerActionPhaseV1, PlayerActionValueV1, PlayerControllerBindingV1,
-    PlayerControllerRegistryV1, RuntimeAdmissionLimitsV1, SchemaId, WorldCommand,
+    PlayerControllerRegistryV1, RuntimeAdmissionLimitsV1,
 };
+use next_contracts::physics::PhysicalCommandV1;
 
 use super::error::RuntimeFatalError;
 use super::order::sort_command_batch;
@@ -33,7 +36,7 @@ struct PlayerActionMapping {
 pub(super) struct PendingInteractionIntent {
     pub(super) controlled_body_id: PersistentId,
     pub(super) kind: InteractionIntentKind,
-    pub(super) source_id: next_contracts::InputSourceId,
+    pub(super) source_id: next_contracts::ids::InputSourceId,
     pub(super) source_sequence: u64,
     pub(super) payload_hash: ContentHash,
 }
@@ -95,7 +98,7 @@ pub(super) fn close_ingress(
     )?;
 
     let mut collisions: BTreeMap<
-        (SchemaId, next_contracts::InputSourceId, u64),
+        (SchemaId, next_contracts::ids::InputSourceId, u64),
         BTreeSet<ContentHash>,
     > = BTreeMap::new();
     for sample in &samples {
@@ -277,7 +280,7 @@ pub(super) fn accept_closed_ingress(
 fn map_player_actions(
     tick: u64,
     samples: &[InputSampleV1],
-    collision_keys: &BTreeSet<(String, next_contracts::InputSourceId, u64)>,
+    collision_keys: &BTreeSet<(String, next_contracts::ids::InputSourceId, u64)>,
     controllers: &PlayerControllerRegistryV1,
     interaction_enabled: bool,
 ) -> Result<PlayerActionMapping, RuntimeFatalError> {

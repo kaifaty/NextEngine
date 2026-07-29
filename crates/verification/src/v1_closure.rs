@@ -1,7 +1,8 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{ContentHash, content_hash_from_bytes, sha256};
+use next_contracts::canonical::sha256;
+use next_contracts::ids::{ContentHash, content_hash_from_bytes};
 
 use crate::{
     run_agent_planning_performance_check, run_content_package_check, run_persistence_replay_check,
@@ -46,10 +47,10 @@ pub struct V1ClosureCheckReport {
     pub wit_v2_hash: ContentHash,
     pub wit_v3_hash: ContentHash,
     pub extension_compatibility_hash: ContentHash,
-    pub play_state_root: next_contracts::StateRoot,
-    pub play_ledger_hash: next_contracts::CommandLedgerHash,
-    pub replay_state_root: next_contracts::StateRoot,
-    pub replay_ledger_hash: next_contracts::CommandLedgerHash,
+    pub play_state_root: next_contracts::ids::StateRoot,
+    pub play_ledger_hash: next_contracts::ids::CommandLedgerHash,
+    pub replay_state_root: next_contracts::ids::StateRoot,
+    pub replay_ledger_hash: next_contracts::ids::CommandLedgerHash,
     pub streaming_performance_hash: ContentHash,
     pub agent_performance_hash: ContentHash,
     pub headless_game_parity: bool,
@@ -257,8 +258,8 @@ fn extension_compatibility_hash(
     bytes.extend_from_slice(wasm_manifest_hash.as_bytes());
     bytes.extend_from_slice(wit_v2_hash.as_bytes());
     bytes.extend_from_slice(wit_v3_hash.as_bytes());
-    bytes.extend_from_slice(&next_contracts::WASM_HOST_CURRENT_API_MAJOR.to_le_bytes());
-    bytes.extend_from_slice(&next_contracts::WASM_HOST_PREVIOUS_API_MAJOR.to_le_bytes());
+    bytes.extend_from_slice(&next_contracts::extension::WASM_HOST_CURRENT_API_MAJOR.to_le_bytes());
+    bytes.extend_from_slice(&next_contracts::extension::WASM_HOST_PREVIOUS_API_MAJOR.to_le_bytes());
     extend_text(&mut bytes, RPG_SCHEMA_UNSUPPORTED_DIAGNOSTIC);
     extend_text(&mut bytes, WIT_N_MINUS_2_UNSUPPORTED_DIAGNOSTIC);
     extend_text(&mut bytes, OPTIONAL_EXTENSION_DISABLED_DIAGNOSTIC);
@@ -351,7 +352,7 @@ impl Error for V1ClosureCheckError {}
 #[cfg(test)]
 mod tests {
     use super::{TargetGateStatusV1, run_v1_closure_check};
-    use next_contracts::ContentHash;
+    use next_contracts::ids::ContentHash;
 
     #[test]
     fn closure_binds_exact_roots_and_never_masks_unavailable_targets() {

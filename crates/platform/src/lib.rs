@@ -4,11 +4,12 @@ use std::collections::{BTreeMap, VecDeque};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{
-    CapabilityId, NormalizedPlatformCapabilityV1, PersistentId, PlatformCapabilitySetV1,
-    PlatformContractError, PlatformEventV1, PlatformTimebaseV1, PresentationTargetKindV1, SchemaId,
-    domain_hash,
+use next_contracts::ids::{CapabilityId, PersistentId, SchemaId};
+use next_contracts::platform::{
+    NormalizedPlatformCapabilityV1, PlatformCapabilitySetV1, PlatformContractError,
+    PlatformEventV1, PlatformTimebaseV1, PresentationTargetKindV1,
 };
+use next_contracts::project::domain_hash;
 
 pub const PLATFORM_EVENT_BATCH_LIMIT: usize = 4_096;
 
@@ -164,7 +165,7 @@ impl PlatformHost for ReferencePlatformHost {
 #[non_exhaustive]
 pub enum PlatformHostError {
     Contract(PlatformContractError),
-    Identifier(next_contracts::IdentifierError),
+    Identifier(next_contracts::ids::IdentifierError),
     ForbiddenTarget,
     InvalidExtent,
     CapabilityMismatch,
@@ -199,8 +200,8 @@ impl From<PlatformContractError> for PlatformHostError {
     }
 }
 
-impl From<next_contracts::IdentifierError> for PlatformHostError {
-    fn from(error: next_contracts::IdentifierError) -> Self {
+impl From<next_contracts::ids::IdentifierError> for PlatformHostError {
+    fn from(error: next_contracts::ids::IdentifierError) -> Self {
         Self::Identifier(error)
     }
 }
@@ -208,7 +209,7 @@ impl From<next_contracts::IdentifierError> for PlatformHostError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use next_contracts::{PlatformEventKindV1, PlatformEventPayloadV1};
+    use next_contracts::platform::{PlatformEventKindV1, PlatformEventPayloadV1};
 
     #[test]
     fn event_arrival_permutations_close_to_one_order() {

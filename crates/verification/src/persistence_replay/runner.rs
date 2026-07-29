@@ -5,10 +5,11 @@ mod replay;
 mod restore;
 
 use next_assets::SaveStore;
-use next_contracts::{
-    ContentHash, SaveCompatibility, SchemaId, WorldCheckpointV4, WorldCommand,
-    WorldStreamingSnapshotV1,
-};
+use next_contracts::command::WorldCommand;
+use next_contracts::ids::{ContentHash, SchemaId};
+use next_contracts::persistence::SaveCompatibility;
+use next_contracts::snapshot::WorldCheckpointV4;
+use next_contracts::world::WorldStreamingSnapshotV1;
 use next_runtime::{PhysicsLaunchOptions, RuntimeState, TickReport};
 use next_world::WorldStreamerV1;
 

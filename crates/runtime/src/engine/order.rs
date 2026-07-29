@@ -1,4 +1,5 @@
-use next_contracts::{CanonicalError, WorldCommand};
+use next_contracts::canonical::CanonicalError;
+use next_contracts::command::WorldCommand;
 
 pub(super) fn sort_command_batch(commands: &mut [WorldCommand]) -> Result<(), CanonicalError> {
     let mut keys = Vec::with_capacity(commands.len());

@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::canonical::CanonicalDecodeLimits;
+use crate::ids::{ContentHash, SchemaId};
 use crate::manifest_jcs::{JcsValue, decode_canonical_jcs, encode_canonical_jcs};
-use crate::{CanonicalDecodeLimits, ContentHash, SchemaId};
 
 use super::codec::{
     ProjectContractError, array, domain_hash, enforce_limit, ensure_unique, expect_format, hash,

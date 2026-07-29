@@ -1,14 +1,23 @@
 use std::collections::BTreeMap;
 
-use crate::{
-    AuthoritativeNumericProfileV1, CANONICAL_TYPE_U32, CanonicalDecodeLimits, CanonicalField,
-    CausalIdentityKey, CausalIdentityKind, CommandLedgerV2, CommandStreamLedgerV2,
-    CommandStreamRegistryV1, ContentHash, IngressAssignmentProfileV1, IngressCheckpointV1,
-    IssuerPrincipal, PhysicsQuantizationProfileV1, PlayerControllerRegistryV1, PlayerPrincipalId,
-    PrincipalRecordV1, PrincipalRegistryV1, PrincipalStatus, ProjectId, RpgRuntimeBindingsV1,
-    RuntimeAdmissionLimitsV1, RuntimeDeterminismProfileV1, SchemaId, TickRateProfileV1,
-    WorldIdentityManifestV1, encode_canonical_segment,
+use crate::canonical::{
+    CANONICAL_TYPE_U32, CanonicalDecodeLimits, CanonicalField, encode_canonical_segment,
 };
+use crate::command::IssuerPrincipal;
+use crate::identity::{
+    CommandStreamRegistryV1, PrincipalRecordV1, PrincipalRegistryV1, PrincipalStatus,
+    RuntimeDeterminismProfileV1, WorldIdentityManifestV1,
+};
+use crate::ids::{ContentHash, PlayerPrincipalId, ProjectId, SchemaId};
+use crate::input::{
+    IngressAssignmentProfileV1, IngressCheckpointV1, PlayerControllerRegistryV1,
+    RuntimeAdmissionLimitsV1, TickRateProfileV1,
+};
+use crate::ledger::{
+    CausalIdentityKey, CausalIdentityKind, CommandLedgerV2, CommandStreamLedgerV2,
+};
+use crate::physics::{AuthoritativeNumericProfileV1, PhysicsQuantizationProfileV1};
+use crate::rpg::RpgRuntimeBindingsV1;
 
 use super::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID,
@@ -148,7 +157,7 @@ fn v3_snapshot_rejects_ingress_controller_and_profile_closure_corruption() {
     let mut corrupt_controller = fixture();
     corrupt_controller
         .player_controller_registry
-        .world_namespace = crate::WorldNamespaceId::from_bytes([0xff; 16]);
+        .world_namespace = crate::ids::WorldNamespaceId::from_bytes([0xff; 16]);
     assert_eq!(
         corrupt_controller.validate(),
         Err(SnapshotDecodeError::ClosureMismatch)

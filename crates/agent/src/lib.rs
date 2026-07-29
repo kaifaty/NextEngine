@@ -3,13 +3,16 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{
+use next_contracts::agent::{
     AgentAffordanceCandidateV1, AgentContractError, AgentIntentV1, AgentPlannerSnapshotV1,
-    CommandStreamId, IssuerPrincipal, MotorCapabilityStateV1, PersistentId,
-    ProceduralAvatarProjectionV1, ProceduralAvatarRouteV1, ProceduralFallbackReasonV1,
-    RpgAggregateKindV1, RpgDefinitionRegistryV1, RpgPhysicalContactFactV1, RpgSnapshotV2, SchemaId,
-    WorldCommand, ability_definition_hash, content_hash_from_bytes, sha256,
+    MotorCapabilityStateV1, ProceduralAvatarProjectionV1, ProceduralAvatarRouteV1,
+    ProceduralFallbackReasonV1,
 };
+use next_contracts::canonical::sha256;
+use next_contracts::command::{IssuerPrincipal, WorldCommand};
+use next_contracts::ids::{CommandStreamId, PersistentId, SchemaId, content_hash_from_bytes};
+use next_contracts::mechanics::{RpgDefinitionRegistryV1, ability_definition_hash};
+use next_contracts::rpg::{RpgAggregateKindV1, RpgPhysicalContactFactV1, RpgSnapshotV2};
 use next_mechanics::{
     AbilityInvocationV1, CompiledAbilityEffectV1, MechanicsHostError, compile_contact_ability_v1,
 };
@@ -206,9 +209,9 @@ fn aggregate_revision(snapshot: &RpgSnapshotV2, id: PersistentId) -> Option<u64>
 #[non_exhaustive]
 pub enum AgentPlannerError {
     Contract(AgentContractError),
-    RpgContract(next_contracts::RpgContractErrorV1),
+    RpgContract(next_contracts::rpg::RpgContractErrorV1),
     Mechanics(MechanicsHostError),
-    Canonical(next_contracts::CanonicalError),
+    Canonical(next_contracts::canonical::CanonicalError),
     CharacterMissing,
     AffordanceUnavailable,
     MotorUnavailable,
@@ -248,8 +251,8 @@ impl From<AgentContractError> for AgentPlannerError {
     }
 }
 
-impl From<next_contracts::RpgContractErrorV1> for AgentPlannerError {
-    fn from(value: next_contracts::RpgContractErrorV1) -> Self {
+impl From<next_contracts::rpg::RpgContractErrorV1> for AgentPlannerError {
+    fn from(value: next_contracts::rpg::RpgContractErrorV1) -> Self {
         Self::RpgContract(value)
     }
 }
@@ -260,20 +263,21 @@ impl From<MechanicsHostError> for AgentPlannerError {
     }
 }
 
-impl From<next_contracts::CanonicalError> for AgentPlannerError {
-    fn from(value: next_contracts::CanonicalError) -> Self {
+impl From<next_contracts::canonical::CanonicalError> for AgentPlannerError {
+    fn from(value: next_contracts::canonical::CanonicalError) -> Self {
         Self::Canonical(value)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use next_contracts::{
-        AssetId, CharacterPayloadV1, CharacterResourceEntryV1, ContactPhaseV1, ContentHash,
-        DefinitionRefV1, EquipmentPayloadV1, EquipmentSlotAssignmentV1, InventoryPayloadV1,
-        ItemPayloadV1, MotorCapabilityStateV1, PersistentId, PhysicsContactId, ProvenanceBindingV1,
+    use next_contracts::agent::MotorCapabilityStateV1;
+    use next_contracts::ids::{AssetId, ContentHash, PersistentId, PhysicsContactId, SchemaId};
+    use next_contracts::physics::ContactPhaseV1;
+    use next_contracts::rpg::{
+        CharacterPayloadV1, CharacterResourceEntryV1, DefinitionRefV1, EquipmentPayloadV1,
+        EquipmentSlotAssignmentV1, InventoryPayloadV1, ItemPayloadV1, ProvenanceBindingV1,
         RpgAggregateEnvelopeV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1, RpgSnapshotV2,
-        SchemaId,
     };
 
     use super::{AgentPlannerError, AgentPlanningRequestV1, build_planner_snapshot_v1};
@@ -284,7 +288,7 @@ mod tests {
         let (snapshot, source, target, facts) = state(&registry);
         let allowed = vec![
             SchemaId::new("nextengine.action.unavailable").expect("action"),
-            SchemaId::new(next_contracts::CORE_MELEE_ACTION_ID).expect("melee"),
+            SchemaId::new(next_contracts::input::CORE_MELEE_ACTION_ID).expect("melee"),
         ];
         let first = request(
             &snapshot,
@@ -326,10 +330,10 @@ mod tests {
         let mut unavailable = request(&snapshot, &registry, &facts, vec![melee()], source, target);
         unavailable.motor_state = MotorCapabilityStateV1::Unavailable;
         let route = super::AgentCommandRouteV1 {
-            issuer: next_contracts::IssuerPrincipal::InternalSystem(
-                next_contracts::SystemId::new("nextengine.test.agent").expect("system"),
+            issuer: next_contracts::command::IssuerPrincipal::InternalSystem(
+                next_contracts::ids::SystemId::new("nextengine.test.agent").expect("system"),
             ),
-            stream_id: next_contracts::CommandStreamId::from_bytes([7; 16]),
+            stream_id: next_contracts::ids::CommandStreamId::from_bytes([7; 16]),
             sequence: 0,
             target_tick: 8,
         };
@@ -347,10 +351,10 @@ mod tests {
         let planner_snapshot =
             build_planner_snapshot_v1(&initial_request).expect("planner snapshot");
         let route = super::AgentCommandRouteV1 {
-            issuer: next_contracts::IssuerPrincipal::InternalSystem(
-                next_contracts::SystemId::new("nextengine.test.agent").expect("system"),
+            issuer: next_contracts::command::IssuerPrincipal::InternalSystem(
+                next_contracts::ids::SystemId::new("nextengine.test.agent").expect("system"),
             ),
-            stream_id: next_contracts::CommandStreamId::from_bytes([7; 16]),
+            stream_id: next_contracts::ids::CommandStreamId::from_bytes([7; 16]),
             sequence: 0,
             target_tick: 9,
         };
@@ -376,10 +380,10 @@ mod tests {
         .expect("revision change remains canonical");
         let changed_request = request(&changed, &registry, &facts, vec![melee()], source, target);
         let valid_route = super::AgentCommandRouteV1 {
-            issuer: next_contracts::IssuerPrincipal::InternalSystem(
-                next_contracts::SystemId::new("nextengine.test.agent").expect("system"),
+            issuer: next_contracts::command::IssuerPrincipal::InternalSystem(
+                next_contracts::ids::SystemId::new("nextengine.test.agent").expect("system"),
             ),
-            stream_id: next_contracts::CommandStreamId::from_bytes([7; 16]),
+            stream_id: next_contracts::ids::CommandStreamId::from_bytes([7; 16]),
             sequence: 0,
             target_tick: 8,
         };
@@ -395,7 +399,7 @@ mod tests {
 
     fn request<'a>(
         snapshot: &'a RpgSnapshotV2,
-        definitions: &'a next_contracts::RpgDefinitionRegistryV1,
+        definitions: &'a next_contracts::mechanics::RpgDefinitionRegistryV1,
         facts: &'a [RpgPhysicalContactFactV1],
         allowed_semantic_actions: Vec<SchemaId>,
         source_character_id: PersistentId,
@@ -418,19 +422,17 @@ mod tests {
     }
 
     fn melee() -> SchemaId {
-        SchemaId::new(next_contracts::CORE_MELEE_ACTION_ID).expect("melee")
+        SchemaId::new(next_contracts::input::CORE_MELEE_ACTION_ID).expect("melee")
     }
 
-    fn registry() -> next_contracts::RpgDefinitionRegistryV1 {
-        next_project::cook_project_v1(
-            next_project::neutral_vertical_slice_source_v1().expect("source"),
-        )
-        .expect("cook")
-        .rpg_definitions
+    fn registry() -> next_contracts::mechanics::RpgDefinitionRegistryV1 {
+        next_project::cook_project_v1(next_reference_game::project_source_v2().expect("source"))
+            .expect("cook")
+            .rpg_definitions
     }
 
     fn state(
-        registry: &next_contracts::RpgDefinitionRegistryV1,
+        registry: &next_contracts::mechanics::RpgDefinitionRegistryV1,
     ) -> (
         RpgSnapshotV2,
         PersistentId,

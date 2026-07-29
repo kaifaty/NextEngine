@@ -1,8 +1,11 @@
 use std::collections::BTreeMap;
 
-use next_contracts::{
-    CausalIdentityKind, CommandFinalResultV1, CommandLedgerError, DomainEvent,
-    IdentityInsertResult, PHYSICS_STEP_INPUT_SCHEMA_VERSION, PhysicalEventV1, PhysicsStepInputV2,
+use next_contracts::command::DomainEvent;
+use next_contracts::ledger::{
+    CausalIdentityKind, CommandFinalResultV1, CommandLedgerError, IdentityInsertResult,
+};
+use next_contracts::physics::{
+    PHYSICS_STEP_INPUT_SCHEMA_VERSION, PhysicalEventV1, PhysicsStepInputV2,
 };
 
 use super::ledger::{command_receipt, transaction_result_root};

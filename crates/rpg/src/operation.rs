@@ -1,8 +1,10 @@
 use std::collections::{BTreeMap, btree_map::Entry};
 
-use next_contracts::{
-    InventoryPayloadV1, PersistentId, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgEventV1,
-    RpgOperationPayloadV1, SkillProficiency, SkillProficiencyEntryV1,
+use next_contracts::ids::PersistentId;
+use next_contracts::rpg::SkillProficiency;
+use next_contracts::rpg::{
+    InventoryPayloadV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgEventV1,
+    RpgOperationPayloadV1, SkillProficiencyEntryV1,
 };
 
 use crate::{RpgAggregateKeyV1, RpgPlanBuildError, RpgState};
@@ -199,7 +201,7 @@ pub(super) fn apply_operation(
                 Ok(_) => return Err(RpgPlanBuildError::OwnershipConflict),
                 Err(index) => equipment.assignments.insert(
                     index,
-                    next_contracts::EquipmentSlotAssignmentV1 {
+                    next_contracts::rpg::EquipmentSlotAssignmentV1 {
                         slot_id: slot_id.clone(),
                         item_id: *item_id,
                     },

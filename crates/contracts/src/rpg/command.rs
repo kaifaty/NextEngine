@@ -323,8 +323,8 @@ impl RpgOperationV1 {
                 expected_value,
                 new_value,
                 ..
-            } if *expected_value > crate::SKILL_PROFICIENCY_MAX
-                || *new_value > crate::SKILL_PROFICIENCY_MAX =>
+            } if *expected_value > crate::rpg::SKILL_PROFICIENCY_MAX
+                || *new_value > crate::rpg::SKILL_PROFICIENCY_MAX =>
             {
                 return Err(RpgContractErrorV1::PayloadInvariant(
                     "RPG_SKILL_PROFICIENCY_OUT_OF_RANGE",

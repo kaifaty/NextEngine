@@ -1,8 +1,11 @@
-use next_contracts::{
-    AssetRevisionRefV1, CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
-    ContentHash, CoreDialogueQuestClosureError, DefinitionRefV1, PersistentId, PhysicsContactId,
-    RpgAggregateKindV1, RpgAggregatePayloadV1, RpgDefinitionRegistryV1,
+use next_contracts::ids::{ContentHash, PersistentId, PhysicsContactId};
+use next_contracts::mechanics::RpgDefinitionRegistryV1;
+use next_contracts::project::AssetRevisionRefV1;
+use next_contracts::rpg::{
+    CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
+    CoreDialogueQuestClosureError,
 };
+use next_contracts::rpg::{DefinitionRefV1, RpgAggregateKindV1, RpgAggregatePayloadV1};
 use next_physics_api::PhysicsWorldHost;
 use next_rpg::RpgState;
 
@@ -381,7 +384,7 @@ pub(super) fn resolve_dialogue_quest_binding_v2(
 }
 
 fn aggregate_definition_asset(
-    aggregate: &next_contracts::RpgAggregateEnvelopeV1,
+    aggregate: &next_contracts::rpg::RpgAggregateEnvelopeV1,
 ) -> Option<AssetRevisionRefV1> {
     match &aggregate.definition_ref {
         DefinitionRefV1::Exact {

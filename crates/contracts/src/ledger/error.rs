@@ -7,7 +7,7 @@ pub enum CommandLedgerError {
     Decode(CanonicalDecodeError),
     Command(CommandDecodeError),
     Principal(PrincipalDecodeError),
-    Identifier(crate::IdentifierError),
+    Identifier(crate::ids::IdentifierError),
     CountOverflow,
     UnsupportedLedgerVersion(u16),
     UnsupportedStreamLedgerVersion(u16),
@@ -243,8 +243,8 @@ impl From<PrincipalDecodeError> for CommandLedgerError {
     }
 }
 
-impl From<crate::IdentifierError> for CommandLedgerError {
-    fn from(error: crate::IdentifierError) -> Self {
+impl From<crate::ids::IdentifierError> for CommandLedgerError {
+    fn from(error: crate::ids::IdentifierError) -> Self {
         Self::Identifier(error)
     }
 }

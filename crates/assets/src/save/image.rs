@@ -1,13 +1,25 @@
-use next_contracts::{
-    CanonicalDecodeLimits, CanonicalError, CommandLedgerDescriptorV2, PHYSICS_SNAPSHOT_OWNER_ID,
-    PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION,
-    PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PhysicsWorldCheckpointV1, RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
-    RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION,
-    RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID, RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID,
-    RUNTIME_SNAPSHOT_SEGMENT_ID, RpgSnapshotV2, RuntimeSnapshot, SaveCompatibility, SaveManifestV2,
-    SaveSegmentDescriptor, SchemaId, WORLD_STREAMING_SNAPSHOT_OWNER_ID,
-    WORLD_STREAMING_SNAPSHOT_SCHEMA_ID, WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION,
-    WORLD_STREAMING_SNAPSHOT_SEGMENT_ID, WorldCheckpointV4, WorldStreamingSnapshotV1,
+use next_contracts::canonical::{CanonicalDecodeLimits, CanonicalError};
+use next_contracts::ids::SchemaId;
+use next_contracts::persistence::{
+    CommandLedgerDescriptorV2, SaveCompatibility, SaveManifestV2, SaveSegmentDescriptor,
+};
+use next_contracts::physics::{
+    PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+    PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
+    PhysicsWorldCheckpointV1,
+};
+use next_contracts::rpg::{
+    RPG_AGGREGATE_SNAPSHOT_OWNER_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+    RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION, RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID, RpgSnapshotV2,
+};
+use next_contracts::snapshot::{
+    RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID,
+    RuntimeSnapshotV3, WorldCheckpointV4,
+};
+use next_contracts::world::{
+    WORLD_STREAMING_SNAPSHOT_OWNER_ID, WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
+    WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION, WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
+    WorldStreamingSnapshotV1,
 };
 
 use super::error::SaveStoreError;
@@ -156,13 +168,13 @@ impl SaveImage {
                 "SAVE_RUNTIME_SNAPSHOT_MISSING",
             ))?;
         if self.manifest.segments[runtime_index].schema_version
-            != next_contracts::RUNTIME_SNAPSHOT_SCHEMA_VERSION
+            != next_contracts::snapshot::RUNTIME_SNAPSHOT_SCHEMA_VERSION
         {
             return Err(SaveStoreError::InvalidImage(
                 "SAVE_RUNTIME_SNAPSHOT_VERSION_MISMATCH",
             ));
         }
-        let runtime_snapshot = RuntimeSnapshot::from_canonical_bytes(
+        let runtime_snapshot = RuntimeSnapshotV3::from_canonical_bytes(
             &self.segments[runtime_index],
             CanonicalDecodeLimits::default(),
         )?;
@@ -276,7 +288,7 @@ impl SaveImage {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ValidatedSaveImage {
     pub checkpoint: WorldCheckpointV4,
-    pub runtime_snapshot: RuntimeSnapshot,
+    pub runtime_snapshot: RuntimeSnapshotV3,
     pub rpg_snapshot: RpgSnapshotV2,
     pub physics_checkpoint: PhysicsWorldCheckpointV1,
     pub world_streaming_snapshot: Option<WorldStreamingSnapshotV1>,

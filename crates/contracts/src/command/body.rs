@@ -5,9 +5,11 @@ use crate::canonical::{
     CanonicalError, CanonicalField, decode_canonical_segment, encode_canonical_segment,
 };
 use crate::ids::{CapabilityId, CommandStreamId, ContentHash, PersistentId, SchemaId};
+use crate::physics::{
+    PHYSICAL_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_SCHEMA_VERSION, PhysicalCommandV1,
+};
 use crate::rpg::RPG_COMMAND_SCHEMA_ID;
-use crate::rpg_v1::{RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RpgCommandV1};
-use crate::{PHYSICAL_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_SCHEMA_VERSION, PhysicalCommandV1};
+use crate::rpg::{RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RpgCommandV1};
 
 use super::codec::{
     decode_capability_set, decode_exact, decode_optional_hash, decode_optional_id,
@@ -61,7 +63,7 @@ pub struct CapabilityRefV1 {
 }
 
 impl CapabilityRefV1 {
-    pub fn unscoped(capability_id: impl Into<String>) -> Result<Self, crate::IdentifierError> {
+    pub fn unscoped(capability_id: impl Into<String>) -> Result<Self, crate::ids::IdentifierError> {
         Ok(Self {
             capability_id: CapabilityId::new(capability_id)?,
             scope_hash: None,

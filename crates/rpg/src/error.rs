@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{RpgAggregateKindV1, RpgContractErrorV1};
+use next_contracts::rpg::{RpgAggregateKindV1, RpgContractErrorV1};
 
 use crate::RpgAggregateKeyV1;
 

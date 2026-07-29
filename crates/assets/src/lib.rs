@@ -2,6 +2,7 @@
 
 mod content;
 mod save;
+mod session;
 
 pub use content::{
     CONTENT_CURRENT_FILE, CONTENT_GENERATIONS_DIRECTORY, CONTENT_INDEX_FILE,
@@ -11,4 +12,8 @@ pub use content::{
 pub use save::{
     LoadedSave, PreservedFile, RejectedGeneration, SaveCommitReceipt, SaveImage, SaveLoadError,
     SaveStore, SaveStoreError, ValidatedSaveImage,
+};
+pub use session::{
+    PublishedSessionGenerationV1, SessionObjectV1, SessionPublicationV1, SessionStore,
+    SessionStoreError,
 };

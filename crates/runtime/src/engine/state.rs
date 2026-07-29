@@ -1,13 +1,22 @@
-use next_contracts::{
-    AuthoritativeNumericProfileV1, CanonicalDecodeLimits, ClosedCommandAdmissionBatchV2,
-    ClosedIngressBatchV1, CommandBodyArchiveV1, CommandLedgerV2, CommandStreamLedgerV2,
-    CommandStreamRegistryV1, IngressAssignmentProfileV1, IngressCheckpointV1,
-    InputMappingReceiptV1, InputSampleV1, IssuerPrincipal, PhysicsCanonicalSnapshotV2,
-    PhysicsQuantizationProfileV1, PhysicsWorldCheckpointV1, PlayerControllerRegistryV1,
-    PrincipalRegistryV1, RpgDefinitionRegistryV1, RpgRuntimeBindingsV1, RpgSnapshotV2,
-    RuntimeAdmissionLimitsV1, RuntimeDeterminismProfileV1, RuntimeSnapshot, TickRateProfileV1,
-    WorldCheckpointError, WorldCheckpointV4, WorldIdentityManifestV1,
+use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::command::IssuerPrincipal;
+use next_contracts::identity::{
+    CommandStreamRegistryV1, PrincipalRegistryV1, RuntimeDeterminismProfileV1,
+    WorldIdentityManifestV1,
 };
+use next_contracts::input::{
+    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, IngressAssignmentProfileV1,
+    IngressCheckpointV1, InputMappingReceiptV1, InputSampleV1, PlayerControllerRegistryV1,
+    RuntimeAdmissionLimitsV1, TickRateProfileV1,
+};
+use next_contracts::ledger::{CommandBodyArchiveV1, CommandLedgerV2, CommandStreamLedgerV2};
+use next_contracts::mechanics::RpgDefinitionRegistryV1;
+use next_contracts::physics::{
+    AuthoritativeNumericProfileV1, PhysicsCanonicalSnapshotV2, PhysicsQuantizationProfileV1,
+    PhysicsWorldCheckpointV1,
+};
+use next_contracts::rpg::{RpgRuntimeBindingsV1, RpgSnapshotV2};
+use next_contracts::snapshot::{RuntimeSnapshotV3, WorldCheckpointError, WorldCheckpointV4};
 use next_physics_api::{PhysicsBackendKind, PhysicsWorldHost};
 use next_rpg::RpgState;
 
@@ -213,7 +222,7 @@ impl RuntimeState {
     ) -> Result<Self, SnapshotRestoreError> {
         checkpoint.validate()?;
         let runtime_bytes = checkpoint.runtime_snapshot.canonical_bytes()?;
-        let snapshot = RuntimeSnapshot::from_canonical_bytes(
+        let snapshot = RuntimeSnapshotV3::from_canonical_bytes(
             &runtime_bytes,
             CanonicalDecodeLimits::default(),
         )?;
@@ -234,7 +243,7 @@ impl RuntimeState {
     }
 
     fn restore_from_parts(
-        snapshot: RuntimeSnapshot,
+        snapshot: RuntimeSnapshotV3,
         rpg: RpgState,
         physical: PhysicsWorldCheckpointV1,
         authority: AuthorityRegistry,
@@ -343,8 +352,8 @@ impl RuntimeState {
     }
 
     #[must_use]
-    pub fn snapshot(&self) -> RuntimeSnapshot {
-        RuntimeSnapshot {
+    pub fn snapshot(&self) -> RuntimeSnapshotV3 {
+        RuntimeSnapshotV3 {
             next_tick: self.next_tick,
             committed_event_count: self.committed_event_count,
             authoritative_revision: self.authoritative_revision,

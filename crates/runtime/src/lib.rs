@@ -4,6 +4,7 @@ mod authority;
 mod engine;
 mod outcome;
 mod registry;
+mod session;
 
 pub use authority::{AuthorityRegistry, AuthorityRegistryError};
 pub use engine::{
@@ -19,4 +20,8 @@ pub use outcome::{
 pub use registry::{
     COMMAND_KIND_REGISTRY_VERSION, CommandKindDescriptor, CommandKindRegistry, CommandPayloadKind,
     NOOP_PRIORITY_CLASS, PHYSICAL_PRIORITY_CLASS, RPG_PRIORITY_CLASS,
+};
+pub use session::{
+    ApplicationSessionMachine, ArchivedLifecycleRequestV1, SessionMachineError,
+    SessionStatePublicationPlanV1, SessionTransitionPlanV1, SessionTransitionReferencesV1,
 };

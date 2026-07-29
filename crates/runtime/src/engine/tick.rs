@@ -1,8 +1,9 @@
-use next_contracts::{
+use next_contracts::command::{CommandPayload, CommandPhase, WorldCommand};
+use next_contracts::input::{
     CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION, ClosedCommandAdmissionBatchBodyV2,
-    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, CommandPayload, CommandPhase,
-    RuntimeSnapshot, WorldCommand,
+    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1,
 };
+use next_contracts::snapshot::RuntimeSnapshotV3;
 
 use crate::outcome::{NoOutcomes, OutcomeContext, OutcomeProvider, OutcomeSink};
 
@@ -287,7 +288,7 @@ impl RuntimeState {
         let mut rpg_plan_traces = ingress.rpg_plan_traces;
         rpg_plan_traces.extend(outcome.rpg_plan_traces);
 
-        let snapshot = RuntimeSnapshot {
+        let snapshot = RuntimeSnapshotV3 {
             next_tick: following_tick,
             committed_event_count: staged.event_count,
             authoritative_revision: staged.revision,

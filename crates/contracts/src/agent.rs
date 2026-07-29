@@ -1,7 +1,8 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use crate::{ContentHash, PersistentId, SchemaId, content_hash_from_bytes, sha256};
+use crate::canonical::sha256;
+use crate::ids::{ContentHash, PersistentId, SchemaId, content_hash_from_bytes};
 
 pub const AGENT_INTENT_SCHEMA_VERSION: u32 = 1;
 pub const AGENT_MAX_AFFORDANCES: usize = 256;

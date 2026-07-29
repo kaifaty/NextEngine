@@ -1,13 +1,13 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::PhysicsContractError;
+use next_contracts::physics::PhysicsContractError;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ReferencePhysicsError {
     Contract(PhysicsContractError),
-    Canonical(next_contracts::CanonicalError),
+    Canonical(next_contracts::canonical::CanonicalError),
     UnsupportedProfile,
     NonIntegralProfile,
     SnapshotMismatch,
@@ -66,8 +66,8 @@ impl From<PhysicsContractError> for ReferencePhysicsError {
     }
 }
 
-impl From<next_contracts::CanonicalError> for ReferencePhysicsError {
-    fn from(error: next_contracts::CanonicalError) -> Self {
+impl From<next_contracts::canonical::CanonicalError> for ReferencePhysicsError {
+    fn from(error: next_contracts::canonical::CanonicalError) -> Self {
         Self::Canonical(error)
     }
 }

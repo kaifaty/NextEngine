@@ -3,23 +3,30 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_assets::{ContentPublicationV1, PublicationFileV1};
-use next_contracts::{
-    AbilityDefinitionV1, AbilityTargetKindV1, AssetId, AssetRevisionRefV1, CapabilityId,
-    ContentAssetEntryV1, ContentDependencyEdgeV1, ContentHash, ContentManifestBodyV1,
-    ContentManifestV1, ContentProvenanceV1, ContentSemanticClassV1, CooldownSpecV1,
-    DialogueDefinitionV1, InteractionDefinitionV1, LockedMechanicPackageV1,
-    MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID, MechanicAffordanceV1, MechanicPackageId,
-    MechanicPackageManifestV1, MechanicsContractError, MechanicsLockV1, NeutralPropertyV1,
-    NeutralRecordError, NeutralRecordKindV1, NeutralRecordV1, PHYSICS_QUERY_CONTACT_CAPABILITY_ID,
-    PersistentId, ProjectCatalogRecordV1, ProjectCatalogSnapshotV1, ProjectCompositionLockV1,
-    ProjectContractError, ProjectDependencyKindV1, ProjectId, ProjectManifestV1,
-    ProjectRequirementV1, QuestDefinitionV1, RPG_COMMAND_CAPABILITY_ID, RelationshipDefinitionV1,
-    RpgDefinitionRegistryV1, SchemaDescriptorV1, SchemaEncodingV1, SchemaId, SchemaRefV1,
-    SchemaRegistryManifestBodyV1, SchemaRegistryManifestV1, SchemaRoleV1, SemanticVersionV1,
-    StateTransitionV1, WorldChunkBindingV1, WorldPartitionManifestBodyV1, WorldPartitionManifestV1,
-    ability_definition_hash, canonical_empty_manifest_hash, domain_hash,
+use next_contracts::content::{NeutralRecordError, NeutralRecordKindV1, NeutralRecordV1};
+use next_contracts::ids::{
+    AssetId, CapabilityId, ContentHash, MechanicPackageId, ProjectId, SchemaId,
+};
+use next_contracts::mechanics::{
+    AbilityDefinitionV1, AbilityTargetKindV1, CooldownSpecV1, DialogueDefinitionV1,
+    InteractionDefinitionV1, LockedMechanicPackageV1, MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID,
+    MechanicAffordanceV1, MechanicPackageManifestV1, MechanicsContractError, MechanicsLockV1,
+    PHYSICS_QUERY_CONTACT_CAPABILITY_ID, QuestDefinitionV1, RelationshipDefinitionV1,
+    RpgDefinitionRegistryV1, StateTransitionV1, ability_definition_hash,
     interaction_definition_hash,
 };
+use next_contracts::platform::PresentationTargetKindV1;
+use next_contracts::project::{
+    AssetRevisionRefV1, ContentAssetEntryV1, ContentDependencyEdgeV1, ContentManifestBodyV1,
+    ContentManifestV1, ContentProvenanceV1, ContentSemanticClassV1, ProjectCatalogRecordV1,
+    ProjectCatalogSnapshotV1, ProjectCompositionLockV2, ProjectContractError,
+    ProjectDependencyKindV1, ProjectManifestV1, ProjectRequirementV1, SchemaDescriptorV1,
+    SchemaEncodingV1, SchemaRefV1, SchemaRegistryManifestBodyV1, SchemaRegistryManifestV1,
+    SchemaRoleV1, SemanticVersionV1, WorldChunkBindingV1, WorldPartitionManifestBodyV1,
+    WorldPartitionManifestV1, canonical_empty_manifest_hash, domain_hash,
+};
+use next_contracts::rpg::RPG_COMMAND_CAPABILITY_ID;
+use next_contracts::session::{RecoveryPolicyV1, ShutdownPolicyV1};
 
 use crate::{ProjectResolutionError, resolve_project_records_v1};
 
@@ -30,8 +37,6 @@ pub const SCHEMA_REGISTRY_PATH: &str = "manifests/schema-registry.json";
 pub const CONTENT_MANIFEST_PATH: &str = "manifests/content.json";
 pub const WORLD_PARTITION_PATH: &str = "manifests/world-partition.json";
 pub const CONTENT_BLOB_DIRECTORY: &str = "blobs";
-pub const CORE_CONTENT_IDENTITY: &str = "org.nextengine.fixture.content";
-pub const CORE_RESOLVER_PROFILE_ID: &str = "nextengine.resolver.exact-minimum.v1";
 pub const CORE_INTERACTION_PACKAGE_ID: &str = "org.nextengine.core.interaction";
 pub const CORE_COMBAT_PACKAGE_ID: &str = "org.nextengine.core.combat";
 
@@ -57,13 +62,16 @@ pub struct NeutralProjectSourceV1 {
     pub partition_id: SchemaId,
     pub coordinate_profile_id: SchemaId,
     pub chunks: Vec<SourceChunkBindingV1>,
+    pub recovery_policy: RecoveryPolicyV1,
+    pub shutdown_policy: ShutdownPolicyV1,
+    pub allowed_presentation_targets: Vec<PresentationTargetKindV1>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CookedProjectV1 {
     pub project_manifest: ProjectManifestV1,
     pub catalog_snapshot: ProjectCatalogSnapshotV1,
-    pub composition_lock: ProjectCompositionLockV1,
+    pub composition_lock: ProjectCompositionLockV2,
     pub schema_registry: SchemaRegistryManifestV1,
     pub content_manifest: ContentManifestV1,
     pub world_partition: WorldPartitionManifestV1,
@@ -288,7 +296,7 @@ pub fn cook_project_v1(
     let mut resolver_bytes = Vec::new();
     resolver_bytes.extend_from_slice(source.resolver_profile_id.as_str().as_bytes());
     resolver_bytes.extend_from_slice(&source.resolver_profile_version.to_le_bytes());
-    let composition_lock = ProjectCompositionLockV1::new(ProjectCompositionLockV1 {
+    let composition_lock = ProjectCompositionLockV2::new(ProjectCompositionLockV2 {
         project_id: source.project_id,
         project_manifest_sha256: project_manifest.manifest_sha256,
         catalog_snapshot_sha256: catalog_snapshot.catalog_snapshot_sha256,
@@ -300,6 +308,29 @@ pub fn cook_project_v1(
         content_manifest_sha256: content_manifest.content_manifest_sha256,
         world_partition_manifest_sha256: world_partition.world_partition_manifest_sha256,
         mechanics_lock_sha256: rpg_definitions.mechanics_lock.mechanics_lock_sha256,
+        runtime_determinism_profile_sha256: domain_hash(
+            "nextengine.runtime-determinism-profile.v1",
+            b"fixed-stage-order+adr-022-ingress",
+        ),
+        launch_profiles_sha256: domain_hash(
+            "nextengine.launch-profiles.v1",
+            b"game:interactive|none;headless:none;tools:none|interactive;capture-worker:displayless-offscreen",
+        ),
+        recovery_policy_sha256: source.recovery_policy.canonical_hash,
+        shutdown_policy_sha256: source.shutdown_policy.canonical_hash,
+        recovery_permit_required_save: source.recovery_policy.permit_required_save_recovery,
+        recovery_preserve_prior_history: source.recovery_policy.preserve_prior_history,
+        shutdown_maximum_attempts: source.shutdown_policy.maximum_attempts,
+        shutdown_failure_disposition: source.shutdown_policy.failure_disposition,
+        platform_capability_profile_sha256: domain_hash(
+            "nextengine.platform-capability-profile.v1",
+            b"normalized-engine-owned-capabilities",
+        ),
+        platform_timebase_profile_sha256: domain_hash(
+            "nextengine.platform-timebase-profile.v1",
+            b"diagnostic-only-monotonic-v1",
+        ),
+        allowed_presentation_targets: source.allowed_presentation_targets,
         selected_records,
         composition_lock_sha256: ContentHash::default(),
     })?;
@@ -312,107 +343,6 @@ pub fn cook_project_v1(
         world_partition,
         rpg_definitions,
         blobs,
-    })
-}
-
-pub fn neutral_vertical_slice_source_v1() -> Result<NeutralProjectSourceV1, ProjectCookError> {
-    let kinds = [
-        NeutralRecordKindV1::Scene,
-        NeutralRecordKindV1::Collider,
-        NeutralRecordKindV1::CharacterDefinition,
-        NeutralRecordKindV1::ItemDefinition,
-        NeutralRecordKindV1::InventoryDefinition,
-        NeutralRecordKindV1::EquipmentDefinition,
-        NeutralRecordKindV1::DialogueDefinition,
-        NeutralRecordKindV1::QuestDefinition,
-        NeutralRecordKindV1::RelationshipDefinition,
-        NeutralRecordKindV1::InteractionDefinition,
-        NeutralRecordKindV1::AbilityDefinition,
-        NeutralRecordKindV1::WorldChunk,
-        NeutralRecordKindV1::WorldChunk,
-    ];
-    let asset_ids: Vec<_> = (1_u8..=13)
-        .map(|byte| AssetId::from_bytes([byte; 16]))
-        .collect();
-    let persistent_ids: Vec<_> = (31_u8..=43)
-        .map(|byte| PersistentId::from_bytes([byte; 16]))
-        .collect();
-    let mut records = Vec::new();
-    for (index, kind) in kinds.into_iter().enumerate() {
-        let (persistent_references, asset_dependencies) = match kind {
-            NeutralRecordKindV1::Scene => (persistent_ids[1..].to_vec(), asset_ids[1..].to_vec()),
-            NeutralRecordKindV1::CharacterDefinition => (
-                vec![persistent_ids[4], persistent_ids[5]],
-                vec![asset_ids[4], asset_ids[5]],
-            ),
-            NeutralRecordKindV1::InteractionDefinition => (
-                vec![persistent_ids[6], persistent_ids[7], persistent_ids[8]],
-                vec![asset_ids[6], asset_ids[7], asset_ids[8]],
-            ),
-            NeutralRecordKindV1::AbilityDefinition => (vec![persistent_ids[3]], vec![asset_ids[3]]),
-            NeutralRecordKindV1::WorldChunk if index == 11 => {
-                (persistent_ids[1..=5].to_vec(), asset_ids[1..=5].to_vec())
-            }
-            NeutralRecordKindV1::WorldChunk => {
-                (persistent_ids[2..=10].to_vec(), asset_ids[2..=10].to_vec())
-            }
-            _ => (Vec::new(), Vec::new()),
-        };
-        let mut properties = vec![NeutralPropertyV1 {
-            property_id: SchemaId::new("nextengine.fixture.role")
-                .expect("engine-owned identifier is valid"),
-            value_id: SchemaId::new(format!("nextengine.fixture.{:?}", kind).to_lowercase())
-                .expect("engine-owned identifier is valid"),
-        }];
-        properties.extend(definition_properties(kind)?);
-        records.push(NeutralRecordV1::new(
-            schema_ref(
-                kind.schema_id(),
-                SchemaRoleV1::Definition,
-                SchemaEncodingV1::CanonicalBinaryV1,
-            )?,
-            asset_ids[index],
-            kind,
-            persistent_ids[index],
-            persistent_references,
-            asset_dependencies,
-            properties,
-        )?);
-    }
-
-    Ok(NeutralProjectSourceV1 {
-        project_id: ProjectId::new("org.nextengine.fixture.vertical-slice")?,
-        project_revision: 1,
-        content_identity: SchemaId::new(CORE_CONTENT_IDENTITY)?,
-        resolver_profile_id: SchemaId::new(CORE_RESOLVER_PROFILE_ID)?,
-        resolver_profile_version: 1,
-        records,
-        root_asset_ids: vec![asset_ids[0]],
-        provenance: ContentProvenanceV1::new(
-            SchemaId::new("nextengine.fixture.provenance.cc0")?,
-            SchemaId::new("CC0-1.0")?,
-            "Next Engine generated neutral verification fixture; CC0-1.0",
-        )?,
-        license_manifest_sha256: domain_hash(
-            "nextengine.license-manifest.v1",
-            b"CC0-1.0\0Next Engine generated verification fixture",
-        ),
-        partition_id: SchemaId::new("nextengine.fixture.partition.v1")?,
-        coordinate_profile_id: SchemaId::new("nextengine.coordinates.right-handed-metres.v1")?,
-        chunks: vec![
-            SourceChunkBindingV1 {
-                chunk_id: SchemaId::new("nextengine.fixture.chunk.start")?,
-                region_id: SchemaId::new("nextengine.fixture.region.start")?,
-                chunk_asset_id: asset_ids[11],
-                required_asset_ids: asset_ids[1..=5].to_vec(),
-            },
-            SourceChunkBindingV1 {
-                chunk_id: SchemaId::new("nextengine.fixture.chunk.frontier")?,
-                region_id: SchemaId::new("nextengine.fixture.region.frontier")?,
-                chunk_asset_id: asset_ids[12],
-                required_asset_ids: asset_ids[2..=10].to_vec(),
-            },
-        ],
     })
 }
 
@@ -515,7 +445,7 @@ pub(crate) fn compile_rpg_definitions_v1(
         )?,
     };
     let interaction_hash = interaction_definition_hash(&interaction);
-    let rpg_capability = next_contracts::CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)
+    let rpg_capability = next_contracts::ids::CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)
         .expect("engine-owned RPG capability is valid");
     let interaction_package = MechanicPackageManifestV1::new(
         MechanicPackageId::new(CORE_INTERACTION_PACKAGE_ID)?,
@@ -590,95 +520,6 @@ pub(crate) fn compile_rpg_definitions_v1(
     )?)
 }
 
-fn definition_properties(
-    kind: NeutralRecordKindV1,
-) -> Result<Vec<NeutralPropertyV1>, ProjectCookError> {
-    let pairs: &[(&str, &str)] = match kind {
-        NeutralRecordKindV1::DialogueDefinition => &[
-            (
-                "nextengine.dialogue.entry-node",
-                "nextengine.fixture.dialogue.offer",
-            ),
-            (
-                "nextengine.dialogue.accepted-node",
-                "nextengine.fixture.dialogue.accepted",
-            ),
-        ],
-        NeutralRecordKindV1::QuestDefinition => &[
-            (
-                "nextengine.quest.entry-state",
-                "nextengine.fixture.quest.available",
-            ),
-            (
-                "nextengine.quest.active-state",
-                "nextengine.fixture.quest.active",
-            ),
-        ],
-        NeutralRecordKindV1::RelationshipDefinition => &[(
-            "nextengine.relationship.dimension",
-            "nextengine.fixture.relationship.trust",
-        )],
-        NeutralRecordKindV1::InteractionDefinition => &[
-            (
-                "nextengine.interaction.definition-id",
-                "nextengine.fixture.interaction.accept-help",
-            ),
-            (
-                "nextengine.interaction.dialogue-transition",
-                "nextengine.fixture.transition.dialogue.accept",
-            ),
-            (
-                "nextengine.interaction.quest-transition",
-                "nextengine.fixture.transition.quest.accept",
-            ),
-            (
-                "nextengine.interaction.relationship-delta",
-                "nextengine.value.i32.7",
-            ),
-        ],
-        NeutralRecordKindV1::AbilityDefinition => &[
-            (
-                "nextengine.ability.definition-id",
-                "nextengine.fixture.ability.training-melee",
-            ),
-            (
-                "nextengine.ability.semantic-action",
-                "nextengine.action.melee",
-            ),
-            (
-                "nextengine.ability.resource",
-                "nextengine.rpg.resource.health",
-            ),
-            (
-                "nextengine.ability.resource-delta",
-                "nextengine.value.i32.-25",
-            ),
-            (
-                "nextengine.ability.cooldown-ticks",
-                "nextengine.value.u32.2",
-            ),
-            (
-                "nextengine.ability.cooldown-group",
-                "nextengine.cooldown.melee",
-            ),
-            (
-                "nextengine.ability.equipment-slot",
-                "nextengine.rpg.equipment-slot.main-hand",
-            ),
-        ],
-        _ => &[],
-    };
-    pairs
-        .iter()
-        .map(|(key, value)| {
-            Ok(NeutralPropertyV1 {
-                property_id: SchemaId::new(*key)?,
-                value_id: SchemaId::new(*value)?,
-            })
-        })
-        .collect()
-}
-
 fn asset_revision(record: &NeutralRecordV1) -> Result<AssetRevisionRefV1, ProjectCookError> {
     Ok(AssetRevisionRefV1 {
         asset_id: record.asset_id,
@@ -719,6 +560,17 @@ fn validate_source(source: &NeutralProjectSourceV1) -> Result<(), ProjectCookErr
     if source.project_revision == 0 || source.resolver_profile_version == 0 {
         return Err(ProjectCookError::InvalidRevision);
     }
+    source
+        .recovery_policy
+        .validate()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    source
+        .shutdown_policy
+        .validate()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    if source.allowed_presentation_targets.is_empty() {
+        return Err(ProjectCookError::InvalidValue);
+    }
     ensure_unique(source.records.iter().map(|record| record.asset_id))?;
     ensure_unique(source.records.iter().map(|record| record.record_id))?;
     ensure_unique(source.root_asset_ids.iter().copied())?;
@@ -736,7 +588,7 @@ fn validate_source(source: &NeutralProjectSourceV1) -> Result<(), ProjectCookErr
     for record in &source.records {
         NeutralRecordV1::from_canonical_bytes(
             &record.canonical_bytes()?,
-            next_contracts::CanonicalDecodeLimits::default(),
+            next_contracts::canonical::CanonicalDecodeLimits::default(),
         )?;
         if record
             .asset_dependencies
@@ -801,7 +653,7 @@ pub enum ProjectCookError {
     Neutral(NeutralRecordError),
     Resolution(ProjectResolutionError),
     Store(next_assets::ContentStoreError),
-    Identifier(next_contracts::IdentifierError),
+    Identifier(next_contracts::ids::IdentifierError),
     MissingReference,
     DuplicateIdentity,
     InvalidRevision,
@@ -872,8 +724,8 @@ impl From<next_assets::ContentStoreError> for ProjectCookError {
     }
 }
 
-impl From<next_contracts::IdentifierError> for ProjectCookError {
-    fn from(error: next_contracts::IdentifierError) -> Self {
+impl From<next_contracts::ids::IdentifierError> for ProjectCookError {
+    fn from(error: next_contracts::ids::IdentifierError) -> Self {
         Self::Identifier(error)
     }
 }

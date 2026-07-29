@@ -2,10 +2,11 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::time::Instant;
 
-use next_contracts::{
-    CORE_MELEE_ACTION_ID, ContentHash, MotorCapabilityStateV1, PhysicsContactId,
-    RpgPhysicalContactFactV1, SchemaId, content_hash_from_bytes, sha256,
-};
+use next_contracts::agent::MotorCapabilityStateV1;
+use next_contracts::canonical::sha256;
+use next_contracts::ids::{ContentHash, PhysicsContactId, SchemaId, content_hash_from_bytes};
+use next_contracts::input::CORE_MELEE_ACTION_ID;
+use next_contracts::rpg::RpgPhysicalContactFactV1;
 
 use crate::{build_neutral_player_fixture, cooked_project_rpg_snapshot};
 
@@ -111,7 +112,7 @@ mod tests {
         assert_eq!(report.cycles, 1_000);
         assert_ne!(
             report.final_plan_hash,
-            next_contracts::ContentHash::default()
+            next_contracts::ids::ContentHash::default()
         );
     }
 }

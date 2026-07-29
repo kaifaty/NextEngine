@@ -1,7 +1,9 @@
-use crate::{
-    CANONICAL_TYPE_BYTES, CanonicalDecodeLimits, CanonicalField, CapabilityRefV1, CommandId,
-    CommandStreamId, PlayerPrincipalId, decode_canonical_segment, encode_canonical_segment,
+use crate::canonical::{
+    CANONICAL_TYPE_BYTES, CanonicalDecodeLimits, CanonicalField, decode_canonical_segment,
+    encode_canonical_segment,
 };
+use crate::command::CapabilityRefV1;
+use crate::ids::{CommandId, CommandStreamId, PlayerPrincipalId};
 
 use super::{
     COMMAND_BODY_OWNER_ID, COMMAND_BODY_SCHEMA_ID, COMMAND_BODY_SEGMENT_ID, CommandDecodeError,
@@ -68,7 +70,7 @@ fn domain_event_id_is_body_sensitive_and_canonical() {
     );
     first.validate().expect("first event validates");
     let mut corrupt = first;
-    corrupt.event_body_hash = crate::ContentHash::from_bytes([9; 32]);
+    corrupt.event_body_hash = crate::ids::ContentHash::from_bytes([9; 32]);
     assert!(corrupt.validate().is_err());
 }
 
@@ -114,18 +116,18 @@ fn rpg_command_round_trip_is_byte_exact() {
         IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([5; 16])),
         8,
         13,
-        crate::RpgCommandV1 {
-            operations: vec![crate::RpgOperationV1 {
+        crate::rpg::RpgCommandV1 {
+            operations: vec![crate::rpg::RpgOperationV1 {
                 operation_slot: 0,
-                targets: vec![crate::RpgAggregateRefV1 {
-                    aggregate_kind: crate::RpgAggregateKindV1::Character,
-                    persistent_id: crate::PersistentId::from_bytes([6; 16]),
+                targets: vec![crate::rpg::RpgAggregateRefV1 {
+                    aggregate_kind: crate::rpg::RpgAggregateKindV1::Character,
+                    persistent_id: crate::ids::PersistentId::from_bytes([6; 16]),
                     expected_revision: 0,
                 }],
                 definition_policy_hashes: vec![],
-                payload: crate::RpgOperationPayloadV1::SetSkillProficiency {
-                    character_id: crate::PersistentId::from_bytes([6; 16]),
-                    skill_id: crate::SchemaId::new("rpg.skill.survival")
+                payload: crate::rpg::RpgOperationPayloadV1::SetSkillProficiency {
+                    character_id: crate::ids::PersistentId::from_bytes([6; 16]),
+                    skill_id: crate::ids::SchemaId::new("rpg.skill.survival")
                         .expect("skill id is valid"),
                     expected_value: 0,
                     new_value: 25,
@@ -192,7 +194,7 @@ fn decoder_applies_total_input_bound_before_parsing() {
     assert!(matches!(
         WorldCommand::from_canonical_bytes(&bytes, limits),
         Err(CommandDecodeError::Canonical(
-            crate::CanonicalDecodeError::InputTooLarge { .. }
+            crate::canonical::CanonicalDecodeError::InputTooLarge { .. }
         ))
     ));
 }

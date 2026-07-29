@@ -5,11 +5,12 @@ use super::jcs::{
     JcsValue, Parser, decode_fixed_hex, decode_hash, decode_u32, decode_u64_string, encode_value,
     ensure_no_more, into_array, into_object, into_string, next, string, take,
 };
+use crate::canonical::CanonicalDecodeLimits;
+use crate::ids::{SchemaId, WorldNamespaceId};
 use crate::persistence::{
     CommandLedgerDescriptorV2, HashBinding, SaveCompatibility, SaveManifestV2,
     SaveSegmentDescriptor, SchemaBinding, TickSettings,
 };
-use crate::{CanonicalDecodeLimits, SchemaId, WorldNamespaceId};
 
 pub(crate) fn encode_save_manifest(
     manifest: &SaveManifestV2,

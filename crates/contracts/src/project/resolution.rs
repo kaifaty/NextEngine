@@ -1,14 +1,17 @@
 use std::collections::BTreeMap;
 
+use crate::canonical::CanonicalDecodeLimits;
+use crate::ids::{ContentHash, ProjectId, SchemaId};
 use crate::manifest_jcs::{JcsValue, decode_canonical_jcs, encode_canonical_jcs};
-use crate::{CanonicalDecodeLimits, ContentHash, ProjectId, SchemaId};
+use crate::platform::PresentationTargetKindV1;
+use crate::session::{FailureDispositionV1, RecoveryPolicyV1, ShutdownPolicyV1};
 
 use super::codec::{
     ProjectContractError, array, domain_hash, enforce_limit, ensure_unique, expect_format, hash,
     object, plain_jcs_hash, reject_unknown, string, take, text, u32_number, u64_text,
 };
 use super::{
-    PROJECT_CATALOG_FORMAT_V1, PROJECT_COMPOSITION_LOCK_FORMAT_V1, PROJECT_MANIFEST_FORMAT_V1,
+    PROJECT_CATALOG_FORMAT_V1, PROJECT_COMPOSITION_LOCK_FORMAT_V2, PROJECT_MANIFEST_FORMAT_V1,
     PROJECT_MAX_DEPENDENCIES_V1, PROJECT_MAX_RECORDS_V1,
 };
 
@@ -340,7 +343,7 @@ pub struct ResolvedProjectRecordV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ProjectCompositionLockV1 {
+pub struct ProjectCompositionLockV2 {
     pub project_id: ProjectId,
     pub project_manifest_sha256: ContentHash,
     pub catalog_snapshot_sha256: ContentHash,
@@ -349,22 +352,52 @@ pub struct ProjectCompositionLockV1 {
     pub content_manifest_sha256: ContentHash,
     pub world_partition_manifest_sha256: ContentHash,
     pub mechanics_lock_sha256: ContentHash,
+    pub runtime_determinism_profile_sha256: ContentHash,
+    pub launch_profiles_sha256: ContentHash,
+    pub recovery_policy_sha256: ContentHash,
+    pub shutdown_policy_sha256: ContentHash,
+    pub recovery_permit_required_save: bool,
+    pub recovery_preserve_prior_history: bool,
+    pub shutdown_maximum_attempts: u16,
+    pub shutdown_failure_disposition: FailureDispositionV1,
+    pub platform_capability_profile_sha256: ContentHash,
+    pub platform_timebase_profile_sha256: ContentHash,
+    pub allowed_presentation_targets: Vec<PresentationTargetKindV1>,
     pub selected_records: Vec<ResolvedProjectRecordV1>,
     pub composition_lock_sha256: ContentHash,
 }
 
-impl ProjectCompositionLockV1 {
+impl ProjectCompositionLockV2 {
     pub fn new(mut value: Self) -> Result<Self, ProjectContractError> {
         value.selected_records.sort();
+        value.allowed_presentation_targets.sort();
         ensure_unique(
             value
                 .selected_records
                 .iter()
                 .map(|record| (record.kind, record.identity.as_str())),
         )?;
+        ensure_unique(value.allowed_presentation_targets.iter().copied())?;
+        if value.allowed_presentation_targets.is_empty() {
+            return Err(ProjectContractError::MissingReference);
+        }
+        let recovery = RecoveryPolicyV1::new(
+            value.recovery_permit_required_save,
+            value.recovery_preserve_prior_history,
+        );
+        let shutdown = ShutdownPolicyV1::new(
+            value.shutdown_maximum_attempts,
+            value.shutdown_failure_disposition,
+        )
+        .map_err(|_| ProjectContractError::UnknownClosedValue)?;
+        if recovery.canonical_hash != value.recovery_policy_sha256
+            || shutdown.canonical_hash != value.shutdown_policy_sha256
+        {
+            return Err(ProjectContractError::HashMismatch);
+        }
         value.composition_lock_sha256 = ContentHash::default();
         value.composition_lock_sha256 =
-            domain_hash(PROJECT_COMPOSITION_LOCK_FORMAT_V1, &value.body_bytes());
+            domain_hash(PROJECT_COMPOSITION_LOCK_FORMAT_V2, &value.body_bytes());
         Ok(value)
     }
 
@@ -387,7 +420,7 @@ impl ProjectCompositionLockV1 {
     ) -> Result<Self, ProjectContractError> {
         let value = decode_canonical_jcs(bytes, limits)?;
         let mut object = object(value, "project_lock")?;
-        expect_format(&mut object, PROJECT_COMPOSITION_LOCK_FORMAT_V1)?;
+        expect_format(&mut object, PROJECT_COMPOSITION_LOCK_FORMAT_V2)?;
         let lock = Self {
             project_id: ProjectId::new(text(take(&mut object, "project_id")?, "project_id")?)?,
             project_manifest_sha256: hash(
@@ -418,6 +451,51 @@ impl ProjectCompositionLockV1 {
                 take(&mut object, "mechanics_lock_sha256")?,
                 "mechanics_lock_sha256",
             )?,
+            runtime_determinism_profile_sha256: hash(
+                take(&mut object, "runtime_determinism_profile_sha256")?,
+                "runtime_determinism_profile_sha256",
+            )?,
+            launch_profiles_sha256: hash(
+                take(&mut object, "launch_profiles_sha256")?,
+                "launch_profiles_sha256",
+            )?,
+            recovery_policy_sha256: hash(
+                take(&mut object, "recovery_policy_sha256")?,
+                "recovery_policy_sha256",
+            )?,
+            shutdown_policy_sha256: hash(
+                take(&mut object, "shutdown_policy_sha256")?,
+                "shutdown_policy_sha256",
+            )?,
+            recovery_permit_required_save: decode_bool(
+                take(&mut object, "recovery_permit_required_save")?,
+                "recovery_permit_required_save",
+            )?,
+            recovery_preserve_prior_history: decode_bool(
+                take(&mut object, "recovery_preserve_prior_history")?,
+                "recovery_preserve_prior_history",
+            )?,
+            shutdown_maximum_attempts: u16_number(
+                take(&mut object, "shutdown_maximum_attempts")?,
+                "shutdown_maximum_attempts",
+            )?,
+            shutdown_failure_disposition: FailureDispositionV1::parse(&text(
+                take(&mut object, "shutdown_failure_disposition")?,
+                "shutdown_failure_disposition",
+            )?)
+            .map_err(|_| ProjectContractError::UnknownClosedValue)?,
+            platform_capability_profile_sha256: hash(
+                take(&mut object, "platform_capability_profile_sha256")?,
+                "platform_capability_profile_sha256",
+            )?,
+            platform_timebase_profile_sha256: hash(
+                take(&mut object, "platform_timebase_profile_sha256")?,
+                "platform_timebase_profile_sha256",
+            )?,
+            allowed_presentation_targets: decode_presentation_targets(take(
+                &mut object,
+                "allowed_presentation_targets",
+            )?)?,
             selected_records: decode_resolved_records(take(&mut object, "selected_records")?)?,
             composition_lock_sha256: ContentHash::default(),
         };
@@ -432,6 +510,15 @@ impl ProjectCompositionLockV1 {
     fn body_bytes(&self) -> Vec<u8> {
         let mut body = BTreeMap::new();
         body.insert(
+            "allowed_presentation_targets".to_owned(),
+            JcsValue::Array(
+                self.allowed_presentation_targets
+                    .iter()
+                    .map(|target| string(presentation_target_token(*target)))
+                    .collect(),
+            ),
+        );
+        body.insert(
             "catalog_snapshot_sha256".to_owned(),
             string(self.catalog_snapshot_sha256.to_hex()),
         );
@@ -440,12 +527,24 @@ impl ProjectCompositionLockV1 {
             string(self.content_manifest_sha256.to_hex()),
         );
         body.insert(
+            "launch_profiles_sha256".to_owned(),
+            string(self.launch_profiles_sha256.to_hex()),
+        );
+        body.insert(
             "lock_format".to_owned(),
-            string(PROJECT_COMPOSITION_LOCK_FORMAT_V1),
+            string(PROJECT_COMPOSITION_LOCK_FORMAT_V2),
         );
         body.insert(
             "mechanics_lock_sha256".to_owned(),
             string(self.mechanics_lock_sha256.to_hex()),
+        );
+        body.insert(
+            "platform_capability_profile_sha256".to_owned(),
+            string(self.platform_capability_profile_sha256.to_hex()),
+        );
+        body.insert(
+            "platform_timebase_profile_sha256".to_owned(),
+            string(self.platform_timebase_profile_sha256.to_hex()),
         );
         body.insert("project_id".to_owned(), string(self.project_id.as_str()));
         body.insert(
@@ -453,8 +552,32 @@ impl ProjectCompositionLockV1 {
             string(self.project_manifest_sha256.to_hex()),
         );
         body.insert(
+            "recovery_policy_sha256".to_owned(),
+            string(self.recovery_policy_sha256.to_hex()),
+        );
+        body.insert(
+            "recovery_permit_required_save".to_owned(),
+            string(if self.recovery_permit_required_save {
+                "true"
+            } else {
+                "false"
+            }),
+        );
+        body.insert(
+            "recovery_preserve_prior_history".to_owned(),
+            string(if self.recovery_preserve_prior_history {
+                "true"
+            } else {
+                "false"
+            }),
+        );
+        body.insert(
             "resolver_profile_sha256".to_owned(),
             string(self.resolver_profile_sha256.to_hex()),
+        );
+        body.insert(
+            "runtime_determinism_profile_sha256".to_owned(),
+            string(self.runtime_determinism_profile_sha256.to_hex()),
         );
         body.insert(
             "schema_registry_manifest_sha256".to_owned(),
@@ -468,6 +591,18 @@ impl ProjectCompositionLockV1 {
                     .map(resolved_record_value)
                     .collect(),
             ),
+        );
+        body.insert(
+            "shutdown_policy_sha256".to_owned(),
+            string(self.shutdown_policy_sha256.to_hex()),
+        );
+        body.insert(
+            "shutdown_failure_disposition".to_owned(),
+            string(self.shutdown_failure_disposition.token()),
+        );
+        body.insert(
+            "shutdown_maximum_attempts".to_owned(),
+            JcsValue::Number(u64::from(self.shutdown_maximum_attempts)),
         );
         body.insert(
             "world_partition_manifest_sha256".to_owned(),
@@ -625,6 +760,34 @@ fn decode_resolved_records(
             Ok(record)
         })
         .collect()
+}
+
+fn presentation_target_token(target: PresentationTargetKindV1) -> &'static str {
+    target.token()
+}
+
+fn decode_presentation_targets(
+    value: JcsValue,
+) -> Result<Vec<PresentationTargetKindV1>, ProjectContractError> {
+    array(value, "allowed_presentation_targets")?
+        .into_iter()
+        .map(|value| {
+            PresentationTargetKindV1::parse(&text(value, "allowed_presentation_target")?)
+                .map_err(|_| ProjectContractError::UnknownClosedValue)
+        })
+        .collect()
+}
+
+fn decode_bool(value: JcsValue, field: &'static str) -> Result<bool, ProjectContractError> {
+    match text(value, field)?.as_str() {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        _ => Err(ProjectContractError::UnknownClosedValue),
+    }
+}
+
+fn u16_number(value: JcsValue, field: &'static str) -> Result<u16, ProjectContractError> {
+    u16::try_from(u32_number(value, field)?).map_err(|_| ProjectContractError::UnknownClosedValue)
 }
 
 fn parse_semver_component(value: Option<&str>) -> Result<u32, ProjectContractError> {

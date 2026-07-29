@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use next_assets::ContentStore;
-use next_contracts::{ContentHash, SchemaId};
+use next_contracts::ids::{ContentHash, SchemaId};
 use next_world::WorldStreamerV1;
 
 static PERFORMANCE_DIRECTORY_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -45,7 +45,7 @@ impl Error for StreamingPerformanceError {}
 
 pub fn run_streaming_performance_check()
 -> Result<StreamingPerformanceReport, StreamingPerformanceError> {
-    let source = next_project::neutral_vertical_slice_source_v1()
+    let source = next_reference_game::project_source_v2()
         .map_err(|error| StreamingPerformanceError::new("fixture source", error.to_string()))?;
     let cooked = next_project::cook_project_v1(source)
         .map_err(|error| StreamingPerformanceError::new("cook fixture", error.to_string()))?;

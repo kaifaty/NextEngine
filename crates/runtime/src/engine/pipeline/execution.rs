@@ -1,11 +1,14 @@
 use std::collections::BTreeSet;
 
-use next_contracts::{
-    AcceptedLocomotionIntentV2, CanonicalError, CausalIdentityKind, CommandCollisionCandidateV1,
-    CommandCollisionIncidentV1, CommandFinalResultV1, CommandLedgerError, CommandPayload,
-    CommandReceiptSubjectV1, CommandReservationV1, CommandStreamLedgerV2, CommandStreamStateV1,
-    DomainEvent, IdentityInsertResult, IssuerPrincipal, PhysicalCommandV1, RpgTransactionPlanV1,
+use next_contracts::canonical::CanonicalError;
+use next_contracts::command::{CommandPayload, DomainEvent, IssuerPrincipal};
+use next_contracts::ledger::{
+    CausalIdentityKind, CommandCollisionCandidateV1, CommandCollisionIncidentV1,
+    CommandFinalResultV1, CommandLedgerError, CommandReceiptSubjectV1, CommandReservationV1,
+    CommandStreamLedgerV2, CommandStreamStateV1, IdentityInsertResult,
 };
+use next_contracts::physics::{AcceptedLocomotionIntentV2, PhysicalCommandV1};
+use next_contracts::rpg::RpgTransactionPlanV1;
 use next_rpg::{
     RpgPlanBuildError, RpgPlanMaterializeError, RpgPlanningContextV1, build_transaction_plan_v1,
     materialize_transaction_plan_v1,
@@ -26,7 +29,7 @@ pub(super) fn execute_candidate(
     context: PhaseContext<'_>,
     candidate: ValidatedCommand,
     staged: &mut StagedAuthoritativeState,
-    physical_bodies: &mut BTreeSet<next_contracts::PersistentId>,
+    physical_bodies: &mut BTreeSet<next_contracts::ids::PersistentId>,
 ) -> Result<CandidateExecution, RuntimeFatalError> {
     let command = &candidate.command;
     let stream =
@@ -123,7 +126,9 @@ pub(super) fn execute_candidate(
             .ledger
             .streams
             .get(&command.stream_id)
-            .is_some_and(|stream| stream.pending.len() >= next_contracts::COMMAND_PENDING_CAPACITY)
+            .is_some_and(|stream| {
+                stream.pending.len() >= next_contracts::ledger::COMMAND_PENDING_CAPACITY
+            })
     {
         return Ok(CandidateExecution::Result(
             OrderedResult::rejected(
@@ -600,7 +605,7 @@ fn finalize_rejection(
             command,
             candidate.command_id,
             CommandFinalResultV1::Rejected {
-                code: next_contracts::SchemaId::new(code.as_str())
+                code: next_contracts::ids::SchemaId::new(code.as_str())
                     .expect("stable rejection code is a valid identifier"),
             },
             Vec::new(),

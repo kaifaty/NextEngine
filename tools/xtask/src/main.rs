@@ -5,9 +5,18 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+mod report;
+
+use report::*;
+
 fn main() {
     if let Err(error) = run() {
         eprintln!("xtask: {error}");
+        let report = next_application::DiagnosticReportV1::new(
+            diagnostic_code(&error),
+            next_application::DiagnosticContextV1::message(&error),
+        );
+        println!("{}", report.to_json().expect("diagnostic serializes"));
         std::process::exit(1);
     }
 }
@@ -21,7 +30,21 @@ fn run() -> Result<(), String> {
     match command.as_str() {
         "boundary-scan" => {
             reject_extra_arguments(arguments)?;
-            xtask::boundary_scan::boundary_scan(&root)
+            xtask::boundary_scan::boundary_scan(&root)?;
+            CommandReportV1::emit(
+                "boundary-scan",
+                "PASS",
+                BoundaryScanDetailsV1 {
+                    checks: vec![
+                        "source_layout".to_owned(),
+                        "publish_policy".to_owned(),
+                        "public_contracts".to_owned(),
+                        "production_verification_boundary".to_owned(),
+                        "importer_boundary".to_owned(),
+                        "ffi_policy".to_owned(),
+                    ],
+                },
+            )
         }
         "content-package" => {
             reject_extra_arguments(arguments)?;
@@ -137,8 +160,7 @@ fn v1_package(root: &Path, requested_output: &Path) -> Result<(), String> {
         fs::create_dir_all(staging.join("bin"))
             .map_err(|error| format!("failed to create package bin directory: {error}"))?;
         let project_store = next_assets::ContentStore::new(staging.join("project"));
-        let source =
-            next_project::neutral_vertical_slice_source_v1().map_err(|error| error.to_string())?;
+        let source = next_reference_game::project_source_v2().map_err(|error| error.to_string())?;
         let cooked = next_project::cook_project_v1(source).map_err(|error| error.to_string())?;
         project_store
             .publish(&cooked.publication().map_err(|error| error.to_string())?)
@@ -184,32 +206,35 @@ fn v1_package(root: &Path, requested_output: &Path) -> Result<(), String> {
             &staging.join("project"),
             &project_lock,
         )?;
-        let manifest = format!(
-            "{{\"composition_lock_sha256\":\"{}\",\"content_manifest_sha256\":\"{}\",\"game_binary\":\"bin/{}\",\"game_binary_sha256\":\"{}\",\"game_launch\":\"PASS\",\"headless_binary\":\"bin/{}\",\"headless_binary_sha256\":\"{}\",\"headless_launch\":\"PASS\",\"mechanics_lock_sha256\":\"{}\",\"schema_registry_sha256\":\"{}\",\"target_triple\":\"{}\",\"world_partition_sha256\":\"{}\"}}",
-            project_lock,
-            cooked.content_manifest.content_manifest_sha256.to_hex(),
-            game_name,
-            game_hash.to_hex(),
-            headless_name,
-            headless_hash.to_hex(),
-            cooked
+        let manifest = PackageManifestV1 {
+            composition_lock_sha256: project_lock,
+            content_manifest_sha256: cooked.content_manifest.content_manifest_sha256.to_hex(),
+            game_binary: format!("bin/{game_name}"),
+            game_binary_sha256: game_hash.to_hex(),
+            game_launch: "PASS".to_owned(),
+            headless_binary: format!("bin/{headless_name}"),
+            headless_binary_sha256: headless_hash.to_hex(),
+            headless_launch: "PASS".to_owned(),
+            mechanics_lock_sha256: cooked
                 .rpg_definitions
                 .mechanics_lock
                 .mechanics_lock_sha256
                 .to_hex(),
-            cooked
+            schema_registry_sha256: cooked
                 .schema_registry
                 .schema_registry_manifest_sha256
                 .to_hex(),
-            target_triple,
-            cooked
+            target_triple: target_triple.to_owned(),
+            world_partition_sha256: cooked
                 .world_partition
                 .world_partition_manifest_sha256
                 .to_hex(),
+        };
+        let manifest = serde_json::to_vec(&manifest).map_err(|error| error.to_string())?;
+        let manifest_hash = next_contracts::ids::content_hash_from_bytes(
+            next_contracts::canonical::sha256(&manifest),
         );
-        let manifest_hash =
-            next_contracts::content_hash_from_bytes(next_contracts::sha256(manifest.as_bytes()));
-        fs::write(staging.join("package.manifest.jcs"), manifest.as_bytes())
+        fs::write(staging.join("package.manifest.jcs"), &manifest)
             .map_err(|error| format!("failed to write package manifest: {error}"))?;
         fs::rename(&staging, &output).map_err(|error| {
             format!(
@@ -217,16 +242,20 @@ fn v1_package(root: &Path, requested_output: &Path) -> Result<(), String> {
                 output.display()
             )
         })?;
-        println!(
-            "{{\"status\":\"PASS\",\"target\":\"{}\",\"output\":\"{}\",\"package_manifest_hash\":\"{}\",\"composition_lock_hash\":\"{}\",\"game_binary_hash\":\"{}\",\"headless_binary_hash\":\"{}\",\"game_launch\":\"PASS\",\"headless_launch\":\"PASS\"}}",
-            target_triple,
-            output.display(),
-            manifest_hash.to_hex(),
-            cooked.composition_lock.composition_lock_sha256.to_hex(),
-            game_hash.to_hex(),
-            headless_hash.to_hex(),
-        );
-        Ok(())
+        CommandReportV1::emit(
+            "v1-package",
+            "PASS",
+            PackageDetailsV1 {
+                target: target_triple.to_owned(),
+                output: output.display().to_string(),
+                package_manifest_hash: manifest_hash.to_hex(),
+                composition_lock_hash: cooked.composition_lock.composition_lock_sha256.to_hex(),
+                game_binary_hash: game_hash.to_hex(),
+                headless_binary_hash: headless_hash.to_hex(),
+                game_launch: "PASS".to_owned(),
+                headless_launch: "PASS".to_owned(),
+            },
+        )
     })();
     if result.is_err() && staging.exists() {
         fs::remove_dir_all(&staging).map_err(|error| {
@@ -239,11 +268,11 @@ fn v1_package(root: &Path, requested_output: &Path) -> Result<(), String> {
     result
 }
 
-fn file_hash(path: &Path) -> Result<next_contracts::ContentHash, String> {
+fn file_hash(path: &Path) -> Result<next_contracts::ids::ContentHash, String> {
     let bytes =
         fs::read(path).map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-    Ok(next_contracts::content_hash_from_bytes(
-        next_contracts::sha256(&bytes),
+    Ok(next_contracts::ids::content_hash_from_bytes(
+        next_contracts::canonical::sha256(&bytes),
     ))
 }
 
@@ -254,12 +283,16 @@ fn run_packaged_binary_smoke(
     project: &Path,
     project_lock: &str,
 ) -> Result<(), String> {
+    let package_root = project
+        .parent()
+        .ok_or_else(|| "packaged project has no parent directory".to_owned())?;
     run_project_binary(
         root,
         headless,
         &["--project"],
         project,
         &["--lock", project_lock],
+        &package_root.join("state-headless"),
         project_lock,
     )?;
     run_project_binary(
@@ -268,6 +301,7 @@ fn run_packaged_binary_smoke(
         &["--interactive", "--maximum-frames", "1", "--project"],
         project,
         &["--lock", project_lock],
+        &package_root.join("state-game"),
         project_lock,
     )
 }
@@ -278,12 +312,15 @@ fn run_project_binary(
     arguments_before_project: &[&str],
     project: &Path,
     arguments_after_project: &[&str],
+    state_root: &Path,
     project_lock: &str,
 ) -> Result<(), String> {
     let output = Command::new(binary)
         .args(arguments_before_project)
         .arg(project)
         .args(arguments_after_project)
+        .arg("--state-root")
+        .arg(state_root)
         .current_dir(root)
         .output()
         .map_err(|error| format!("failed to launch {}: {error}", binary.display()))?;
@@ -296,8 +333,14 @@ fn run_project_binary(
     }
     let stdout = String::from_utf8(output.stdout)
         .map_err(|error| format!("{} emitted non-UTF-8 output: {error}", binary.display()))?;
-    let expected_lock = format!("\"project_lock\":\"{project_lock}\"");
-    if !stdout.contains("\"status\":\"PASS\"") || !stdout.contains(&expected_lock) {
+    let report: next_application::RunReportV1 =
+        serde_json::from_str(stdout.trim()).map_err(|error| {
+            format!(
+                "{} emitted an invalid run report: {error}",
+                binary.display()
+            )
+        })?;
+    if report.status != "PASS" || report.project_composition_lock_hash != project_lock {
         return Err(format!(
             "{} release smoke did not report the exact activated project lock",
             binary.display()
@@ -335,41 +378,56 @@ fn shipping_target_triple() -> Result<&'static str, String> {
 }
 
 fn v1_closure() -> Result<(), String> {
+    let _ = run_tool_session("tools-v1-closure")?;
     let report = next_verification::run_v1_closure_check().map_err(|error| error.to_string())?;
     let status = if report.shipping_ready {
         "PASS"
     } else {
         "LOCAL_PASS_SHIPPING_TARGETS_NOT_RUN"
     };
-    println!(
-        "{{\"status\":\"{}\",\"shipping_ready\":{},\"checks\":{{\"content_package\":\"PASS\",\"play\":\"PASS\",\"persistence_replay\":\"PASS\",\"platform_contract\":\"PASS\",\"performance\":\"PASS\",\"headless_game_parity\":\"PASS\",\"fallback_without_ai_luau_wasm\":\"PASS\"}},\"project_composition_lock_hash\":\"{}\",\"schema_registry_hash\":\"{}\",\"content_manifest_hash\":\"{}\",\"mechanics_lock_hash\":\"{}\",\"world_partition_hash\":\"{}\",\"luau_manifest_hash\":\"{}\",\"wasm_manifest_hash\":\"{}\",\"wit_v2_hash\":\"{}\",\"wit_v3_hash\":\"{}\",\"extension_compatibility_hash\":\"{}\",\"play_state_root\":\"{}\",\"play_ledger_hash\":\"{}\",\"replay_state_root\":\"{}\",\"replay_ledger_hash\":\"{}\",\"windows\":{{\"target\":\"{}\",\"package_descriptor_hash\":\"{}\",\"runtime_check\":\"{}\",\"desktop_smoke\":\"{}\"}},\"linux\":{{\"target\":\"{}\",\"package_descriptor_hash\":\"{}\",\"runtime_check\":\"{}\",\"desktop_smoke\":\"{}\"}},\"closure_hash\":\"{}\"}}",
+    CommandReportV1::emit(
+        "v1-closure",
         status,
-        report.shipping_ready,
-        report.project_composition_lock_hash.to_hex(),
-        report.schema_registry_hash.to_hex(),
-        report.content_manifest_hash.to_hex(),
-        report.mechanics_lock_hash.to_hex(),
-        report.world_partition_hash.to_hex(),
-        report.luau_manifest_hash.to_hex(),
-        report.wasm_manifest_hash.to_hex(),
-        report.wit_v2_hash.to_hex(),
-        report.wit_v3_hash.to_hex(),
-        report.extension_compatibility_hash.to_hex(),
-        report.play_state_root.to_hex(),
-        report.play_ledger_hash.to_hex(),
-        report.replay_state_root.to_hex(),
-        report.replay_ledger_hash.to_hex(),
-        report.windows.target_triple,
-        report.windows.package_descriptor_hash.to_hex(),
-        target_status(&report.windows.runtime_check_status),
-        target_status(&report.windows.desktop_smoke_status),
-        report.linux.target_triple,
-        report.linux.package_descriptor_hash.to_hex(),
-        target_status(&report.linux.runtime_check_status),
-        target_status(&report.linux.desktop_smoke_status),
-        report.closure_hash.to_hex(),
-    );
-    Ok(())
+        V1ClosureDetailsV1 {
+            shipping_ready: report.shipping_ready,
+            checks: vec![
+                "content_package".to_owned(),
+                "play".to_owned(),
+                "persistence_replay".to_owned(),
+                "platform_contract".to_owned(),
+                "performance".to_owned(),
+                "headless_game_parity".to_owned(),
+                "fallback_without_ai_luau_wasm".to_owned(),
+            ],
+            project_composition_lock_hash: report.project_composition_lock_hash.to_hex(),
+            schema_registry_hash: report.schema_registry_hash.to_hex(),
+            content_manifest_hash: report.content_manifest_hash.to_hex(),
+            mechanics_lock_hash: report.mechanics_lock_hash.to_hex(),
+            world_partition_hash: report.world_partition_hash.to_hex(),
+            luau_manifest_hash: report.luau_manifest_hash.to_hex(),
+            wasm_manifest_hash: report.wasm_manifest_hash.to_hex(),
+            wit_v2_hash: report.wit_v2_hash.to_hex(),
+            wit_v3_hash: report.wit_v3_hash.to_hex(),
+            extension_compatibility_hash: report.extension_compatibility_hash.to_hex(),
+            play_state_root: report.play_state_root.to_hex(),
+            play_ledger_hash: report.play_ledger_hash.to_hex(),
+            replay_state_root: report.replay_state_root.to_hex(),
+            replay_ledger_hash: report.replay_ledger_hash.to_hex(),
+            windows: TargetGateDetailsV1 {
+                target: report.windows.target_triple.to_owned(),
+                package_descriptor_hash: report.windows.package_descriptor_hash.to_hex(),
+                runtime_check: target_status(&report.windows.runtime_check_status),
+                desktop_smoke: target_status(&report.windows.desktop_smoke_status),
+            },
+            linux: TargetGateDetailsV1 {
+                target: report.linux.target_triple.to_owned(),
+                package_descriptor_hash: report.linux.package_descriptor_hash.to_hex(),
+                runtime_check: target_status(&report.linux.runtime_check_status),
+                desktop_smoke: target_status(&report.linux.desktop_smoke_status),
+            },
+            closure_hash: report.closure_hash.to_hex(),
+        },
+    )
 }
 
 fn target_status(status: &next_verification::TargetGateStatusV1) -> String {
@@ -382,25 +440,33 @@ fn target_status(status: &next_verification::TargetGateStatusV1) -> String {
 }
 
 fn performance() -> Result<(), String> {
+    let _ = run_tool_session("tools-performance")?;
     let streaming =
         next_verification::run_streaming_performance_check().map_err(|error| error.to_string())?;
     let agent = next_verification::run_agent_planning_performance_check()
         .map_err(|error| error.to_string())?;
-    println!(
-        "{{\"status\":\"PASS\",\"streaming\":{{\"cycles\":{},\"staged_asset_references\":{},\"elapsed_microseconds\":{},\"final_generation\":{},\"final_world_state_hash\":\"{}\"}},\"agent_planning\":{{\"cycles\":{},\"elapsed_microseconds\":{},\"final_plan_hash\":\"{}\"}}}}",
-        streaming.cycles,
-        streaming.staged_asset_references,
-        streaming.elapsed_microseconds,
-        streaming.final_generation,
-        streaming.final_world_state_hash.to_hex(),
-        agent.cycles,
-        agent.elapsed_microseconds,
-        agent.final_plan_hash.to_hex(),
-    );
-    Ok(())
+    CommandReportV1::emit(
+        "performance",
+        "PASS",
+        PerformanceDetailsV1 {
+            streaming: StreamingPerformanceDetailsV1 {
+                cycles: streaming.cycles,
+                staged_asset_references: streaming.staged_asset_references,
+                elapsed_microseconds: streaming.elapsed_microseconds,
+                final_generation: streaming.final_generation,
+                final_world_state_hash: streaming.final_world_state_hash.to_hex(),
+            },
+            agent_planning: AgentPerformanceDetailsV1 {
+                cycles: agent.cycles,
+                elapsed_microseconds: agent.elapsed_microseconds,
+                final_plan_hash: agent.final_plan_hash.to_hex(),
+            },
+        },
+    )
 }
 
 fn platform() -> Result<(), String> {
+    let _ = run_tool_session("tools-platform")?;
     let report = next_verification::run_platform_check().map_err(|error| error.to_string())?;
     let candidate_status = match report.candidate_status {
         next_verification::PlatformCandidateStatus::Pass => "PASS",
@@ -411,51 +477,61 @@ fn platform() -> Result<(), String> {
             "NOT_RUN_ADAPTER_DISABLED"
         }
     };
-    println!(
-        "{{\"status\":\"PASS\",\"portable_contract\":\"PASS\",\"sdl_ash_candidate\":\"{}\",\"normalized_events\":{},\"rendered_objects\":{},\"presentation_snapshot_hash\":\"{}\",\"ledger_hash\":\"{}\",\"state_root\":\"{}\"}}",
-        candidate_status,
-        report.normalized_events,
-        report.rendered_objects,
-        report.presentation_snapshot_hash.to_hex(),
-        report.authoritative_ledger_hash.to_hex(),
-        report.authoritative_state_root.to_hex(),
-    );
-    Ok(())
+    CommandReportV1::emit(
+        "platform",
+        "PASS",
+        PlatformDetailsV1 {
+            portable_contract: "PASS".to_owned(),
+            sdl_ash_candidate: candidate_status.to_owned(),
+            normalized_events: report.normalized_events,
+            rendered_objects: report.rendered_objects,
+            presentation_snapshot_hash: report.presentation_snapshot_hash.to_hex(),
+            ledger_hash: report.authoritative_ledger_hash.to_hex(),
+            state_root: report.authoritative_state_root.to_hex(),
+        },
+    )
 }
 
 fn content_package() -> Result<(), String> {
     let report =
         next_verification::run_content_package_check().map_err(|error| error.to_string())?;
-    println!(
-        "{{\"status\":\"PASS\",\"records\":{},\"chunks\":{},\"mechanic_packages\":{},\"luau_packages\":{},\"wasm_plugins\":{},\"combat_npc_health\":{},\"scripted_player_health\":{},\"wasm_player_health\":{},\"luau_state_hash\":\"{}\",\"wasm_state_hash\":\"{}\",\"wasm_host_api_major\":{},\"schema_registry_hash\":\"{}\",\"content_manifest_hash\":\"{}\",\"mechanics_lock_hash\":\"{}\",\"world_partition_hash\":\"{}\",\"composition_lock_hash\":\"{}\"}}",
-        report.records,
-        report.chunks,
-        report.mechanic_packages,
-        report.luau_packages,
-        report.wasm_plugins,
-        report.combat_npc_health,
-        report.scripted_player_health,
-        report.wasm_player_health,
-        report.luau_package_state_hash.to_hex(),
-        report.wasm_plugin_state_hash.to_hex(),
-        report.wasm_host_api_major,
-        report.schema_registry_hash.to_hex(),
-        report.content_manifest_hash.to_hex(),
-        report.mechanics_lock_hash.to_hex(),
-        report.world_partition_hash.to_hex(),
-        report.composition_lock_hash.to_hex(),
-    );
-    Ok(())
+    CommandReportV1::emit(
+        "content-package",
+        "PASS",
+        ContentPackageDetailsV1 {
+            records: report.records,
+            chunks: report.chunks,
+            mechanic_packages: report.mechanic_packages,
+            luau_packages: report.luau_packages,
+            wasm_plugins: report.wasm_plugins,
+            combat_npc_health: report.combat_npc_health,
+            scripted_player_health: report.scripted_player_health,
+            wasm_player_health: report.wasm_player_health,
+            luau_state_hash: report.luau_package_state_hash.to_hex(),
+            wasm_state_hash: report.wasm_plugin_state_hash.to_hex(),
+            wasm_host_api_major: report.wasm_host_api_major,
+            schema_registry_hash: report.schema_registry_hash.to_hex(),
+            content_manifest_hash: report.content_manifest_hash.to_hex(),
+            mechanics_lock_hash: report.mechanics_lock_hash.to_hex(),
+            world_partition_hash: report.world_partition_hash.to_hex(),
+            composition_lock_hash: report.composition_lock_hash.to_hex(),
+        },
+    )
 }
 
 fn physics_backend_parity(substeps: u64, permutations: u64) -> Result<(), String> {
+    let _ = run_tool_session("tools-physics-backend-parity")?;
     let report = next_verification::run_physics_backend_parity_check(substeps, permutations)
         .map_err(|error| error.to_string())?;
-    println!(
-        "{{\"status\":\"PASS\",\"compared_substeps\":{},\"registration_permutations\":{},\"world_lifecycle_cycles\":{}}}",
-        report.compared_substeps, report.registration_permutations, report.world_lifecycle_cycles,
-    );
-    Ok(())
+    CommandReportV1::emit(
+        "physics-backend-parity",
+        "PASS",
+        PhysicsParityDetailsV1 {
+            compared_substeps: report.compared_substeps,
+            registration_permutations: report.registration_permutations,
+            world_lifecycle_cycles: report.world_lifecycle_cycles,
+        },
+    )
 }
 
 fn parse_parity_counts(mut arguments: impl Iterator<Item = String>) -> Result<(u64, u64), String> {
@@ -492,23 +568,24 @@ fn parse_parity_counts(mut arguments: impl Iterator<Item = String>) -> Result<(u
 }
 
 fn physics_collision(backend: next_verification::PhysicsCollisionBackend) -> Result<(), String> {
+    let _ = run_tool_session("tools-physics-collision")?;
     let report = next_verification::run_physics_collision_check_with_backend(backend)
         .map_err(|error| error.to_string())?;
     let translation = report.final_pose.translation_micrometres;
-    println!(
-        "{{\"status\":\"PASS\",\"gameplay_ticks\":{},\"physics_substeps\":{},\"contacts\":{{\"begin\":{},\"persist\":{},\"end\":{}}},\"final_pose_um\":[{},{},{}],\"contact_batches_hash\":\"{}\",\"physics_checkpoint_hash\":\"{}\"}}",
-        report.gameplay_ticks,
-        report.physics_substeps,
-        report.begin_contacts,
-        report.persist_contacts,
-        report.end_contacts,
-        translation[0],
-        translation[1],
-        translation[2],
-        report.contact_batches_hash.to_hex(),
-        report.physics_checkpoint_hash.to_hex()
-    );
-    Ok(())
+    CommandReportV1::emit(
+        "physics-collision",
+        "PASS",
+        PhysicsCollisionDetailsV1 {
+            gameplay_ticks: report.gameplay_ticks,
+            physics_substeps: report.physics_substeps,
+            begin_contacts: report.begin_contacts,
+            persist_contacts: report.persist_contacts,
+            end_contacts: report.end_contacts,
+            final_pose_um: translation,
+            contact_batches_hash: report.contact_batches_hash.to_hex(),
+            physics_checkpoint_hash: report.physics_checkpoint_hash.to_hex(),
+        },
+    )
 }
 
 fn parse_physics_backend(
@@ -530,56 +607,81 @@ fn parse_physics_backend(
 }
 
 fn play() -> Result<(), String> {
-    let report = next_verification::run_play_check().map_err(|error| error.to_string())?;
-    let translation = report.final_pose.translation_micrometres;
-    println!(
-        "{{\"status\":\"PASS\",\"ticks\":{},\"final_pose_um\":[{},{},{}],\"events\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"dialogue_node\":\"{}\",\"quest_state\":\"{}\",\"npc_player_trust\":{},\"npc_health\":{},\"player_health\":{},\"agent_intent\":\"{}\",\"agent_projection\":\"{}\",\"world_streaming_generation\":{},\"current_chunk\":\"{}\",\"ledger_hash\":\"{}\",\"state_root\":\"{}\"}}",
-        report.ticks,
-        translation[0],
-        translation[1],
-        translation[2],
-        report.events,
-        report.rpg_events,
-        report.interactive_object_state.as_str(),
-        report.dialogue_node_id.as_str(),
-        report.quest_state_id.as_str(),
-        report.npc_player_trust,
-        report.npc_health,
-        report.player_health,
-        report.agent_intent_id.to_hex(),
-        report.agent_projection_hash.to_hex(),
-        report.world_streaming_generation,
-        report.current_chunk_id.as_str(),
-        report.final_command_ledger_hash.to_hex(),
-        report.final_state_root.to_hex()
-    );
+    let expected = next_verification::run_play_check().map_err(|error| error.to_string())?;
+    let (run, close) = run_tool_session("tools-play")?;
+    if run.ticks != expected.ticks
+        || run.events != expected.events
+        || run.rpg_events != expected.rpg_events
+        || run.authoritative_state_root.as_bytes() != expected.final_state_root.as_bytes()
+        || run.command_ledger_hash.as_bytes() != expected.final_command_ledger_hash.as_bytes()
+    {
+        return Err("PLAY_APPLICATION_SESSION_PARITY_MISMATCH".to_owned());
+    }
+    let report = next_application::RunReportV1::new(
+        next_contracts::session::CompositionRootV1::Tools,
+        &run,
+        &close,
+        0,
+    )
+    .ok_or_else(|| "SESSION_TERMINAL_RECEIPT_MISSING".to_owned())?;
+    println!("{}", report.to_json().map_err(|error| error.to_string())?);
     Ok(())
 }
 
 fn persistence_replay(backend: next_verification::PersistenceReplayBackend) -> Result<(), String> {
+    let _ = run_tool_session("tools-persistence-replay")?;
     let report = next_verification::run_persistence_replay_check_with_backend(backend)
         .map_err(|error| error.to_string())?;
-    println!(
-        "{{\"status\":\"PASS\",\"ticks\":{},\"generations\":{},\"rpg_events\":{},\"interactive_object_state\":\"{}\",\"dialogue_node\":\"{}\",\"quest_state\":\"{}\",\"npc_player_trust\":{},\"npc_health\":{},\"player_health\":{},\"agent_intent\":\"{}\",\"agent_projection\":\"{}\",\"luau_state_hash\":\"{}\",\"wasm_state_hash\":\"{}\",\"world_streaming_generation\":{},\"current_chunk\":\"{}\",\"final_state_root\":\"{}\",\"final_ledger_root\":\"{}\"}}",
-        report.ticks,
-        report.generations,
-        report.rpg_events,
-        report.interactive_object_state,
-        report.dialogue_node_id,
-        report.quest_state_id,
-        report.npc_player_trust,
-        report.npc_health,
-        report.player_health,
-        report.agent_intent_id.to_hex(),
-        report.agent_projection_hash.to_hex(),
-        report.luau_package_state_hash.to_hex(),
-        report.wasm_plugin_state_hash.to_hex(),
-        report.world_streaming_generation,
-        report.current_chunk_id.as_str(),
-        report.final_state_root.to_hex(),
-        report.final_command_ledger_hash.to_hex()
+    CommandReportV1::emit(
+        "persistence-replay",
+        "PASS",
+        PersistenceReplayDetailsV1 {
+            ticks: report.ticks,
+            generations: report.generations,
+            rpg_events: report.rpg_events,
+            interactive_object_state: report.interactive_object_state.as_str().to_owned(),
+            dialogue_node: report.dialogue_node_id.as_str().to_owned(),
+            quest_state: report.quest_state_id.as_str().to_owned(),
+            npc_player_trust: report.npc_player_trust,
+            npc_health: report.npc_health,
+            player_health: report.player_health,
+            agent_intent: report.agent_intent_id.to_hex(),
+            agent_projection: report.agent_projection_hash.to_hex(),
+            luau_state_hash: report.luau_package_state_hash.to_hex(),
+            wasm_state_hash: report.wasm_plugin_state_hash.to_hex(),
+            world_streaming_generation: report.world_streaming_generation,
+            current_chunk: report.current_chunk_id.as_str().to_owned(),
+            final_state_root: report.final_state_root.to_hex(),
+            final_ledger_root: report.final_command_ledger_hash.to_hex(),
+        },
+    )
+}
+
+fn run_tool_session(
+    application_id: &str,
+) -> Result<
+    (
+        next_application::ApplicationRunOutcomeV1,
+        next_application::ApplicationCloseOutcomeV1,
+    ),
+    String,
+> {
+    let state_root = next_application::default_user_state_root(application_id)
+        .map_err(|error| format!("{}: {error}", error.diagnostic_code()))?;
+    let launch = next_application::LaunchRequestV1::reference(
+        state_root,
+        next_contracts::session::CompositionRootV1::Tools,
+        next_contracts::session::PresentationTargetKindV1::None,
     );
-    Ok(())
+    let mut application = next_application::ApplicationCoordinator::launch_or_resume(launch)
+        .map_err(|error| format!("{}: {error}", error.diagnostic_code()))?;
+    let run = application
+        .run_reference_game(true)
+        .map_err(|error| format!("{}: {error}", error.diagnostic_code()))?;
+    let close = application
+        .close(next_application::CloseExecutionOptionsV1::default())
+        .map_err(|error| format!("{}: {error}", error.diagnostic_code()))?;
+    Ok((run, close))
 }
 
 fn parse_persistence_backend(
@@ -640,23 +742,52 @@ fn host_check(root: &Path) -> Result<(), String> {
     )?;
     run_checked(root, "cargo", &["test", "--workspace"])?;
     xtask::boundary_scan::boundary_scan(root)?;
-    println!("PASS host-check: host={host}, rustc=1.93.0");
-    Ok(())
+    CommandReportV1::emit(
+        "host-check",
+        "PASS",
+        HostCheckDetailsV1 {
+            host: host.to_owned(),
+            rustc_release: "1.93.0".to_owned(),
+        },
+    )
 }
 
 fn run_checked(root: &Path, program: &str, arguments: &[&str]) -> Result<(), String> {
-    let status = Command::new(program)
+    let output = Command::new(program)
         .args(arguments)
         .current_dir(root)
-        .status()
+        .output()
         .map_err(|error| format!("failed to run {program}: {error}"))?;
-    if status.success() {
+    if !output.stdout.is_empty() {
+        eprint!("{}", String::from_utf8_lossy(&output.stdout));
+    }
+    if !output.stderr.is_empty() {
+        eprint!("{}", String::from_utf8_lossy(&output.stderr));
+    }
+    if output.status.success() {
         Ok(())
     } else {
         Err(format!(
-            "{program} {} failed with {status}",
-            arguments.join(" ")
+            "{program} {} failed with {}",
+            arguments.join(" "),
+            output.status,
         ))
+    }
+}
+
+fn diagnostic_code(error: &str) -> &'static str {
+    if error.contains("argument")
+        || error.contains("requires")
+        || error.contains("unknown command")
+        || error.contains("unexpected")
+    {
+        "CLI_ARGUMENT_INVALID"
+    } else if error.contains("PROJECT_LOCK_MISMATCH") {
+        "PROJECT_LOCK_MISMATCH"
+    } else if error.contains("SESSION_") {
+        "SESSION_RUNTIME_FAILED"
+    } else {
+        "XTASK_COMMAND_FAILED"
     }
 }
 

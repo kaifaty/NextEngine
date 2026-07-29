@@ -1,10 +1,11 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use next_contracts::{
+use next_contracts::ids::PersistentId;
+use next_contracts::rpg::{
     CharacterPayloadV1, DialoguePayloadV1, EquipmentPayloadV1, FactionMembershipPayloadV1,
-    InventoryPayloadV1, PersistentId, QuestPayloadV1, RelationshipPayloadV1,
-    RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2,
+    InventoryPayloadV1, QuestPayloadV1, RelationshipPayloadV1, RpgAggregateEnvelopeV1,
+    RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2,
 };
 
 use crate::RpgStateError;
@@ -122,7 +123,7 @@ impl RpgState {
     pub fn interactive_object(
         &self,
         id: PersistentId,
-    ) -> Option<&next_contracts::InteractiveObjectPayloadV1> {
+    ) -> Option<&next_contracts::rpg::InteractiveObjectPayloadV1> {
         match &self
             .aggregate(RpgAggregateKindV1::InteractiveObject, id)?
             .payload

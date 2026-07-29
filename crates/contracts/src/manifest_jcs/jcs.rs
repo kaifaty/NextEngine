@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use super::ManifestCodecError;
-use crate::{CanonicalDecodeLimits, ContentHash, content_hash_from_bytes};
+use crate::canonical::CanonicalDecodeLimits;
+use crate::ids::{ContentHash, content_hash_from_bytes};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum JcsValue {

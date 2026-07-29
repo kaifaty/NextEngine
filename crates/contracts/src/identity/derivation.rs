@@ -1,6 +1,7 @@
 use crate::canonical::{CanonicalError, sha256};
-use crate::{
-    CommandStreamId, ContentHash, IssuerPrincipal, PlayerPrincipalId, ProjectId, WorldNamespaceId,
+use crate::command::IssuerPrincipal;
+use crate::ids::{
+    CommandStreamId, ContentHash, PlayerPrincipalId, ProjectId, WorldNamespaceId,
     content_hash_from_bytes,
 };
 

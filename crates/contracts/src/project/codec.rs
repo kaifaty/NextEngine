@@ -2,11 +2,13 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
+use crate::canonical::sha256;
+use crate::ids::{AssetId, ContentHash, content_hash_from_bytes};
 use crate::manifest_jcs::JcsValue;
-use crate::{AssetId, ContentHash, ManifestCodecError, content_hash_from_bytes, sha256};
+use crate::persistence::ManifestCodecError;
 
 use super::{
-    PROJECT_CATALOG_FORMAT_V1, PROJECT_COMPOSITION_LOCK_FORMAT_V1,
+    PROJECT_CATALOG_FORMAT_V1, PROJECT_COMPOSITION_LOCK_FORMAT_V2,
     SCHEMA_REGISTRY_MANIFEST_FORMAT_V1,
 };
 
@@ -14,7 +16,7 @@ use super::{
 #[non_exhaustive]
 pub enum ProjectContractError {
     Manifest(ManifestCodecError),
-    Identifier(crate::IdentifierError),
+    Identifier(crate::ids::IdentifierError),
     ZeroRevision,
     DuplicateIdentity,
     LimitExceeded { actual: usize, limit: usize },
@@ -58,8 +60,8 @@ impl From<ManifestCodecError> for ProjectContractError {
     }
 }
 
-impl From<crate::IdentifierError> for ProjectContractError {
-    fn from(error: crate::IdentifierError) -> Self {
+impl From<crate::ids::IdentifierError> for ProjectContractError {
+    fn from(error: crate::ids::IdentifierError) -> Self {
         Self::Identifier(error)
     }
 }
@@ -155,7 +157,7 @@ pub(super) fn expect_format(
 ) -> Result<(), ProjectContractError> {
     let field = if expected == PROJECT_CATALOG_FORMAT_V1 {
         "catalog_format"
-    } else if expected == PROJECT_COMPOSITION_LOCK_FORMAT_V1 {
+    } else if expected == PROJECT_COMPOSITION_LOCK_FORMAT_V2 {
         "lock_format"
     } else if expected == SCHEMA_REGISTRY_MANIFEST_FORMAT_V1 {
         "manifest_schema"

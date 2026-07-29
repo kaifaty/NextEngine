@@ -1,0 +1,21 @@
+[package]
+name = "next_reference_game"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+next_agent.workspace = true
+next_contracts.workspace = true
+next_presentation.workspace = true
+next_project.workspace = true
+next_runtime.workspace = true
+next_world.workspace = true
+
+[dev-dependencies]
+next_assets.workspace = true
+
+[lints]
+workspace = true

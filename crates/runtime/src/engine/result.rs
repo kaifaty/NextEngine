@@ -1,10 +1,15 @@
 use std::cmp::Ordering;
 
-use next_contracts::{
-    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, ClosedPhysicsContactBatchV1, CommandId,
-    CommandPhase, ContentHash, DomainEvent, InputMappingReceiptV1, PhysicsCanonicalSnapshotV2,
-    PhysicsStepInputV2, RpgSnapshotV2, RuntimeSnapshot, WorldCommand,
+use next_contracts::command::{CommandPhase, DomainEvent, WorldCommand};
+use next_contracts::ids::{CommandId, ContentHash};
+use next_contracts::input::{
+    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, InputMappingReceiptV1,
 };
+use next_contracts::physics::{
+    ClosedPhysicsContactBatchV1, PhysicsCanonicalSnapshotV2, PhysicsStepInputV2,
+};
+use next_contracts::rpg::RpgSnapshotV2;
+use next_contracts::snapshot::RuntimeSnapshotV3;
 
 use crate::registry::CommandKindRegistry;
 
@@ -219,7 +224,7 @@ pub struct TickReport {
     pub results: Vec<CommandResult>,
     pub events: Vec<DomainEvent>,
     pub stage_trace: Vec<StageTraceEntry>,
-    pub snapshot: RuntimeSnapshot,
+    pub snapshot: RuntimeSnapshotV3,
     pub rpg_snapshot: RpgSnapshotV2,
     pub physics_snapshot: PhysicsCanonicalSnapshotV2,
     pub physics_step_input: PhysicsStepInputV2,

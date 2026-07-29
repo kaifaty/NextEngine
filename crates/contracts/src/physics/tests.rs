@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use crate::canonical::{CanonicalDecodeLimits, encode_canonical_segment};
-use crate::{ContentHash, PhysicsWorldId, SchemaId, TickRateProfileV1, content_hash_from_bytes};
+use crate::ids::{ContentHash, PhysicsWorldId, SchemaId, content_hash_from_bytes};
+use crate::input::TickRateProfileV1;
 
 use super::codec::field_u16;
 use super::*;

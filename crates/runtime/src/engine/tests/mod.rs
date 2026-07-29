@@ -2,21 +2,31 @@ mod fixtures;
 
 use std::collections::BTreeMap;
 
-use next_contracts::{
-    AuthoritativeNumericProfileV1, CORE_MOVE_ACTION_ID, CapabilityId, CausalIdentityKey,
-    CausalIdentityKind, CommandId, CommandPhase, CommandStreamId, CommandStreamKeyV1,
-    CommandStreamRegistryV1, CommandStreamStateV1, ContentHash, DomainEvent, InputMappingCodeV1,
-    InputSampleV1, InputSourceId, IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID,
-    PHYSICAL_COMMAND_CAPABILITY_ID, PLAYER_ACTION_FRAME_SCHEMA_ID,
-    PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PersistentId,
-    PhysicsBodyDescriptorV1, PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2,
-    PhysicsContactReportingV1, PhysicsGeometryV1, PhysicsMaterialDescriptorV1, PhysicsMotionKindV1,
-    PhysicsParticipationV1, PhysicsPoseV1, PhysicsQuantizationProfileV1, PhysicsShapeDescriptorV1,
-    PhysicsShapeIdV1, PhysicsWorldCheckpointV1, PhysicsWorldId, PlayerActionFrameV1,
+use next_contracts::command::{
+    CommandPhase, DomainEvent, IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID, WorldCommand,
+};
+use next_contracts::identity::{
+    CommandStreamKeyV1, CommandStreamRegistryV1, PrincipalRecordV1, PrincipalRegistryV1,
+    PrincipalStatus, RuntimeDeterminismProfileV1, WorldIdentityManifestV1,
+};
+use next_contracts::ids::{
+    CapabilityId, CommandId, CommandStreamId, ContentHash, InputSourceId, PersistentId,
+    PhysicsWorldId, PlayerPrincipalId, ProjectId, SchemaId, SystemId, WorldNamespaceId,
+    content_hash_from_bytes,
+};
+use next_contracts::input::{
+    CORE_MOVE_ACTION_ID, InputMappingCodeV1, InputSampleV1, PLAYER_ACTION_FRAME_SCHEMA_ID,
+    PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PlayerActionFrameV1,
     PlayerActionPhaseV1, PlayerActionV1, PlayerActionValueV1, PlayerControllerBindingV1,
-    PlayerPrincipalId, PrincipalRecordV1, PrincipalRegistryV1, PrincipalStatus, ProjectId,
-    RuntimeDeterminismProfileV1, SchemaId, SystemId, TickRateProfileV1, WorldCommand,
-    WorldIdentityManifestV1, WorldNamespaceId, content_hash_from_bytes,
+    TickRateProfileV1,
+};
+use next_contracts::ledger::{CausalIdentityKey, CausalIdentityKind, CommandStreamStateV1};
+use next_contracts::physics::{
+    AuthoritativeNumericProfileV1, PHYSICAL_COMMAND_CAPABILITY_ID, PhysicsBodyDescriptorV1,
+    PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2, PhysicsContactReportingV1, PhysicsGeometryV1,
+    PhysicsMaterialDescriptorV1, PhysicsMotionKindV1, PhysicsParticipationV1, PhysicsPoseV1,
+    PhysicsQuantizationProfileV1, PhysicsShapeDescriptorV1, PhysicsShapeIdV1,
+    PhysicsWorldCheckpointV1,
 };
 use next_physics_api::{PhysicsBackendKind, PhysicsBackendPolicy};
 
@@ -597,7 +607,7 @@ fn event_identity_collision_rolls_back_domain_and_ledger_staging() {
 #[test]
 fn pending_capacity_rejects_257th_without_archive_or_receipt_insert() {
     let mut fixture = fixture();
-    let commands: Vec<_> = (0..=next_contracts::COMMAND_PENDING_CAPACITY)
+    let commands: Vec<_> = (0..=next_contracts::ledger::COMMAND_PENDING_CAPACITY)
         .map(|sequence| command(&fixture, sequence as u64, 120))
         .collect();
     let report = fixture
@@ -607,7 +617,7 @@ fn pending_capacity_rejects_257th_without_archive_or_receipt_insert() {
     let stream = &report.snapshot.command_ledger.streams[&fixture.stream_id];
     assert_eq!(
         stream.pending.len(),
-        next_contracts::COMMAND_PENDING_CAPACITY
+        next_contracts::ledger::COMMAND_PENDING_CAPACITY
     );
     assert_eq!(report.snapshot.body_archive.entries().len(), 256);
     assert_eq!(stream.finalized_receipt_count, 0);

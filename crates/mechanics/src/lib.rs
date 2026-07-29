@@ -3,12 +3,16 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{
-    AbilityDefinitionV1, AbilityTargetKindV1, AssetRevisionRefV1, DefinitionRefV1, EffectRequestV1,
-    MechanicsContractError, PersistentId, RpgAggregateEnvelopeV1, RpgAggregateKindV1,
-    RpgAggregatePayloadV1, RpgAggregateRefV1, RpgCommandV1, RpgContractErrorV1,
-    RpgDefinitionRegistryV1, RpgOperationPayloadV1, RpgOperationV1, RpgPhysicalContactFactV1,
-    RpgSnapshotV2, SchemaId, ability_definition_hash,
+use next_contracts::ids::{PersistentId, SchemaId};
+use next_contracts::mechanics::{
+    AbilityDefinitionV1, AbilityTargetKindV1, EffectRequestV1, MechanicsContractError,
+    RpgDefinitionRegistryV1, ability_definition_hash,
+};
+use next_contracts::project::AssetRevisionRefV1;
+use next_contracts::rpg::{
+    DefinitionRefV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1,
+    RpgAggregateRefV1, RpgCommandV1, RpgContractErrorV1, RpgOperationPayloadV1, RpgOperationV1,
+    RpgPhysicalContactFactV1, RpgSnapshotV2,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -22,7 +26,7 @@ pub struct AbilityInvocationV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompiledAbilityEffectV1 {
-    pub ability_definition_hash: next_contracts::ContentHash,
+    pub ability_definition_hash: next_contracts::ids::ContentHash,
     pub effect_request: EffectRequestV1,
     pub rpg_command: RpgCommandV1,
 }
@@ -213,7 +217,7 @@ fn aggregate(
 
 fn character(
     aggregate: &RpgAggregateEnvelopeV1,
-) -> Result<&next_contracts::CharacterPayloadV1, MechanicsHostError> {
+) -> Result<&next_contracts::rpg::CharacterPayloadV1, MechanicsHostError> {
     match &aggregate.payload {
         RpgAggregatePayloadV1::Character(payload) => Ok(payload),
         _ => Err(MechanicsHostError::AggregateKindMismatch),
@@ -259,7 +263,7 @@ fn validate_package_grants(
 pub enum MechanicsHostError {
     Contract(MechanicsContractError),
     RpgContract(RpgContractErrorV1),
-    Canonical(next_contracts::CanonicalError),
+    Canonical(next_contracts::canonical::CanonicalError),
     SourceCharacterMissing,
     AggregateKindMismatch,
     EquipmentRequired,
@@ -306,20 +310,22 @@ impl From<RpgContractErrorV1> for MechanicsHostError {
     }
 }
 
-impl From<next_contracts::CanonicalError> for MechanicsHostError {
-    fn from(value: next_contracts::CanonicalError) -> Self {
+impl From<next_contracts::canonical::CanonicalError> for MechanicsHostError {
+    fn from(value: next_contracts::canonical::CanonicalError) -> Self {
         Self::Canonical(value)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use next_contracts::{
-        AssetId, CharacterPayloadV1, CharacterResourceEntryV1, ContentHash, CooldownSpecV1,
-        DefinitionRefV1, EquipmentPayloadV1, EquipmentSlotAssignmentV1, InventoryPayloadV1,
-        ItemPayloadV1, MechanicsContractError, MechanicsLockV1, PersistentId, PhysicsContactId,
-        ProvenanceBindingV1, RpgAggregateEnvelopeV1, RpgAggregatePayloadV1,
-        RpgDefinitionRegistryV1, RpgPhysicalContactFactV1, RpgSnapshotV2, SchemaId,
+    use next_contracts::ids::{AssetId, ContentHash, PersistentId, PhysicsContactId, SchemaId};
+    use next_contracts::mechanics::{
+        CooldownSpecV1, MechanicsContractError, MechanicsLockV1, RpgDefinitionRegistryV1,
+    };
+    use next_contracts::rpg::{
+        CharacterPayloadV1, CharacterResourceEntryV1, DefinitionRefV1, EquipmentPayloadV1,
+        EquipmentSlotAssignmentV1, InventoryPayloadV1, ItemPayloadV1, ProvenanceBindingV1,
+        RpgAggregateEnvelopeV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1, RpgSnapshotV2,
     };
 
     #[test]
@@ -330,7 +336,7 @@ mod tests {
         };
         assert_eq!(
             cooldown.validate_boundary(Some(10), 11),
-            Err(next_contracts::MechanicsContractError::CooldownActive)
+            Err(next_contracts::mechanics::MechanicsContractError::CooldownActive)
         );
         assert_eq!(cooldown.validate_boundary(Some(10), 12), Ok(()));
     }
@@ -401,11 +407,9 @@ mod tests {
     }
 
     fn cooked_registry() -> RpgDefinitionRegistryV1 {
-        next_project::cook_project_v1(
-            next_project::neutral_vertical_slice_source_v1().expect("source"),
-        )
-        .expect("cook")
-        .rpg_definitions
+        next_project::cook_project_v1(next_reference_game::project_source_v2().expect("source"))
+            .expect("cook")
+            .rpg_definitions
     }
 
     fn combat_snapshot(

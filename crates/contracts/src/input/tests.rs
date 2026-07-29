@@ -1,6 +1,6 @@
-use crate::{
-    CanonicalDecodeLimits, CommandId, ContentHash, InputSourceId, PersistentId, SchemaId,
-    content_hash_from_bytes,
+use crate::canonical::CanonicalDecodeLimits;
+use crate::ids::{
+    CommandId, ContentHash, InputSourceId, PersistentId, SchemaId, content_hash_from_bytes,
 };
 
 use super::*;

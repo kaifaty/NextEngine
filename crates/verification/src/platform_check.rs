@@ -1,9 +1,10 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{
-    NormalizedControlEventV1, NormalizedControlPhaseV1, PersistentId, PlatformEventKindV1,
-    PlatformEventPayloadV1, PlatformEventV1, PresentationTargetKindV1, SchemaId,
+use next_contracts::ids::{PersistentId, SchemaId};
+use next_contracts::platform::{
+    NormalizedControlEventV1, NormalizedControlPhaseV1, PlatformEventKindV1,
+    PlatformEventPayloadV1, PlatformEventV1, PresentationTargetKindV1,
 };
 use next_platform::{PlatformHost, PlatformHostError, ReferencePlatformHost};
 
@@ -13,9 +14,9 @@ use crate::{GameCheckReport, PlayCheckError, prepare_game_frame, run_play_check}
 pub struct PlatformCheckReport {
     pub normalized_events: usize,
     pub rendered_objects: u32,
-    pub authoritative_state_root: next_contracts::StateRoot,
-    pub authoritative_ledger_hash: next_contracts::CommandLedgerHash,
-    pub presentation_snapshot_hash: next_contracts::ContentHash,
+    pub authoritative_state_root: next_contracts::ids::StateRoot,
+    pub authoritative_ledger_hash: next_contracts::ids::CommandLedgerHash,
+    pub presentation_snapshot_hash: next_contracts::ids::ContentHash,
     pub candidate_status: PlatformCandidateStatus,
 }
 
@@ -131,7 +132,7 @@ pub fn run_platform_check() -> Result<PlatformCheckReport, PlatformCheckError> {
 
 #[cfg(feature = "desktop-sdl-ash")]
 fn run_desktop_candidate(
-    snapshot: &next_contracts::PresentationSnapshotV2,
+    snapshot: &next_contracts::presentation::PresentationSnapshotV2,
 ) -> Result<PlatformCandidateStatus, PlatformCheckError> {
     if !cfg!(all(
         target_arch = "x86_64",
@@ -154,7 +155,7 @@ fn run_desktop_candidate(
 
 #[cfg(not(feature = "desktop-sdl-ash"))]
 fn run_desktop_candidate(
-    _snapshot: &next_contracts::PresentationSnapshotV2,
+    _snapshot: &next_contracts::presentation::PresentationSnapshotV2,
 ) -> Result<PlatformCandidateStatus, PlatformCheckError> {
     if cfg!(all(
         target_arch = "x86_64",
@@ -185,8 +186,8 @@ fn verify_authoritative_parity(
 pub enum PlatformCheckError {
     Play(PlayCheckError),
     Platform(PlatformHostError),
-    Contract(next_contracts::PlatformContractError),
-    Identifier(next_contracts::IdentifierError),
+    Contract(next_contracts::platform::PlatformContractError),
+    Identifier(next_contracts::ids::IdentifierError),
     AuthoritativeParityMismatch,
     HostContractMismatch,
     HeadlessCreatedPresentationTarget,
@@ -234,14 +235,14 @@ impl From<PlatformHostError> for PlatformCheckError {
     }
 }
 
-impl From<next_contracts::PlatformContractError> for PlatformCheckError {
-    fn from(error: next_contracts::PlatformContractError) -> Self {
+impl From<next_contracts::platform::PlatformContractError> for PlatformCheckError {
+    fn from(error: next_contracts::platform::PlatformContractError) -> Self {
         Self::Contract(error)
     }
 }
 
-impl From<next_contracts::IdentifierError> for PlatformCheckError {
-    fn from(error: next_contracts::IdentifierError) -> Self {
+impl From<next_contracts::ids::IdentifierError> for PlatformCheckError {
+    fn from(error: next_contracts::ids::IdentifierError) -> Self {
         Self::Identifier(error)
     }
 }

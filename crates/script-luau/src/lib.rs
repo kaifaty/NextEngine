@@ -7,11 +7,14 @@ use std::sync::{Arc, Mutex};
 
 use mlua::chunk::ChunkMode;
 use mlua::{Error as LuaError, Lua, LuaString, Value, VmState};
-use next_contracts::{
-    CapabilityId, ContentHash, ExtensionContractError, ExtensionPackageStateV1,
-    ExtensionViolationCodeV1, LuauPackageManifestV1, RpgDefinitionRegistryV1,
-    RpgPhysicalContactFactV1, RpgSnapshotV2, SchemaId, content_hash_from_bytes, sha256,
+use next_contracts::canonical::sha256;
+use next_contracts::extension::{
+    ExtensionContractError, ExtensionPackageStateV1, ExtensionViolationCodeV1,
+    LuauPackageManifestV1,
 };
+use next_contracts::ids::{CapabilityId, ContentHash, SchemaId, content_hash_from_bytes};
+use next_contracts::mechanics::RpgDefinitionRegistryV1;
+use next_contracts::rpg::{RpgPhysicalContactFactV1, RpgSnapshotV2};
 use next_mechanics::{
     AbilityInvocationV1, CompiledAbilityEffectV1, MechanicsHostError, compile_contact_ability_v1,
 };
@@ -32,12 +35,12 @@ pub fn reference_scripted_melee_manifest_v1() -> Result<LuauPackageManifestV1, L
     let mut capabilities = vec![
         CapabilityId::new(RPG_QUERY_CHARACTER_RESOURCE_CAPABILITY_ID)
             .expect("engine-owned query capability is canonical"),
-        CapabilityId::new(next_contracts::MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID)
+        CapabilityId::new(next_contracts::mechanics::MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID)
             .expect("engine-owned proposal capability is canonical"),
     ];
     capabilities.sort();
     Ok(LuauPackageManifestV1::new(
-        next_contracts::MechanicPackageId::new("org.nextengine.reference.scripted-melee")
+        next_contracts::ids::MechanicPackageId::new("org.nextengine.reference.scripted-melee")
             .expect("engine-owned package ID is canonical"),
         1,
         content_hash_from_bytes(sha256(REFERENCE_SCRIPTED_MELEE_SOURCE.as_bytes())),
@@ -46,7 +49,9 @@ pub fn reference_scripted_melee_manifest_v1() -> Result<LuauPackageManifestV1, L
             .expect("engine-owned state schema is canonical"),
         1,
         false,
-        next_contracts::ExtensionBudgetPolicyV1::new(100_000, 1_048_576, 1_048_576, 64, 4, 4_096)?,
+        next_contracts::extension::ExtensionBudgetPolicyV1::new(
+            100_000, 1_048_576, 1_048_576, 64, 4, 4_096,
+        )?,
     )?)
 }
 
@@ -215,7 +220,7 @@ pub fn compile_first_scripted_action_v1(
     registry: &RpgDefinitionRegistryV1,
     snapshot: &RpgSnapshotV2,
     gameplay_tick: u64,
-    source_character_id: next_contracts::PersistentId,
+    source_character_id: next_contracts::ids::PersistentId,
     physical_contact_facts: Vec<RpgPhysicalContactFactV1>,
 ) -> Result<CompiledAbilityEffectV1, LuauHostError> {
     let semantic_action_id = outcome
@@ -255,7 +260,7 @@ fn execute_luau(
     prior_state: &[u8],
     input: &LuauCallbackInputV1,
     counters: ExecutionCounters,
-    budget: &next_contracts::ExtensionBudgetPolicyV1,
+    budget: &next_contracts::extension::ExtensionBudgetPolicyV1,
 ) -> Result<(), LuaError> {
     let lua = Lua::new();
     let baseline = lua.used_memory();
@@ -447,7 +452,7 @@ fn validate_capabilities(
 ) -> Result<(), LuauHostError> {
     for required in [
         RPG_QUERY_CHARACTER_RESOURCE_CAPABILITY_ID,
-        next_contracts::MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID,
+        next_contracts::mechanics::MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID,
     ] {
         let capability =
             CapabilityId::new(required).expect("engine-owned script capability is canonical");
@@ -543,11 +548,12 @@ impl From<MechanicsHostError> for LuauHostError {
 mod tests {
     use std::sync::atomic::{AtomicU8, AtomicU64};
 
-    use next_contracts::{
-        CanonicalDecodeLimits, CapabilityId, ExtensionBudgetPolicyV1, ExtensionPackageStateV1,
-        ExtensionViolationCodeV1, LuauPackageManifestV1, MechanicPackageId, SchemaId,
-        content_hash_from_bytes, sha256,
+    use next_contracts::canonical::{CanonicalDecodeLimits, sha256};
+    use next_contracts::extension::{
+        ExtensionBudgetPolicyV1, ExtensionPackageStateV1, ExtensionViolationCodeV1,
+        LuauPackageManifestV1,
     };
+    use next_contracts::ids::{CapabilityId, MechanicPackageId, SchemaId, content_hash_from_bytes};
 
     use super::{
         LuauCallbackInputV1, LuauHostError, LuauPackageRuntimeV1,
@@ -688,7 +694,7 @@ mod tests {
     fn capabilities() -> Vec<CapabilityId> {
         let mut values = vec![
             CapabilityId::new(RPG_QUERY_CHARACTER_RESOURCE_CAPABILITY_ID).expect("query"),
-            CapabilityId::new(next_contracts::MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID)
+            CapabilityId::new(next_contracts::mechanics::MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID)
                 .expect("proposal"),
         ];
         values.sort();

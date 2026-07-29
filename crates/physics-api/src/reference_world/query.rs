@@ -1,4 +1,4 @@
-use next_contracts::{
+use next_contracts::physics::{
     PhysicsContactReportingV1, PhysicsParticipationV1, PhysicsPoseV1, PhysicsShapeDescriptorV1,
     PhysicsShapeIdV1,
 };

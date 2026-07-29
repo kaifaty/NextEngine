@@ -10,5 +10,8 @@ publish = false
 next_assets.workspace = true
 next_contracts.workspace = true
 
+[dev-dependencies]
+next_reference_game.workspace = true
+
 [lints]
 workspace = true

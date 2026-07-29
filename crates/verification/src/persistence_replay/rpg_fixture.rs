@@ -1,8 +1,10 @@
-use next_contracts::{
-    CharacterPayloadV1, ContentHash, InventoryPayloadV1, IssuerPrincipal, ItemPayloadV1,
-    PersistentId, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgAggregateRefV1, RpgCommandV1,
-    RpgOperationPayloadV1, RpgOperationV1, RpgSnapshotV2, SaveCompatibility, SchemaId,
-    TickSettings, WorldCommand,
+use next_contracts::command::{IssuerPrincipal, WorldCommand};
+use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
+use next_contracts::persistence::{SaveCompatibility, TickSettings};
+use next_contracts::rpg::{
+    CharacterPayloadV1, InventoryPayloadV1, ItemPayloadV1, RpgAggregateKindV1,
+    RpgAggregatePayloadV1, RpgAggregateRefV1, RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1,
+    RpgSnapshotV2,
 };
 
 use crate::cooked_project_rpg_snapshot;
@@ -91,7 +93,7 @@ pub(super) fn initial_rpg_snapshot(
 }
 
 pub(super) fn rpg_commands(
-    stream_id: next_contracts::CommandStreamId,
+    stream_id: next_contracts::ids::CommandStreamId,
     principal: IssuerPrincipal,
 ) -> Result<Vec<WorldCommand>, PersistenceReplayCheckError> {
     let item_id = PersistentId::from_bytes([0x10; 16]);

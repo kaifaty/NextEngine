@@ -1,4 +1,4 @@
-use next_contracts::PlayerActionPhaseV1;
+use next_contracts::input::PlayerActionPhaseV1;
 use next_physics_api::PhysicsBackendPolicy;
 use next_runtime::{PhysicsLaunchOptions, RuntimeState};
 use next_world::WorldStreamerV1;

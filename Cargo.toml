@@ -3,6 +3,7 @@ members = [
     "apps/game",
     "apps/headless",
     "crates/agent",
+    "crates/application",
     "crates/assets",
     "crates/contracts",
     "crates/desktop-sdl-ash",
@@ -14,6 +15,7 @@ members = [
     "crates/physics-physx",
     "crates/physics-physx-ffi",
     "crates/project",
+    "crates/reference-game",
     "crates/render",
     "crates/rpg",
     "crates/runtime",
@@ -34,6 +36,7 @@ repository = ""
 [workspace.dependencies]
 next_contracts = { path = "crates/contracts" }
 next_agent = { path = "crates/agent" }
+next_application = { path = "crates/application" }
 next_assets = { path = "crates/assets" }
 next_desktop_sdl_ash = { path = "crates/desktop-sdl-ash" }
 next_mechanics = { path = "crates/mechanics" }
@@ -44,6 +47,7 @@ next_physics_api = { path = "crates/physics-api" }
 next_physics_physx = { path = "crates/physics-physx" }
 next_physics_physx_ffi = { path = "crates/physics-physx-ffi" }
 next_project = { path = "crates/project" }
+next_reference_game = { path = "crates/reference-game" }
 next_render = { path = "crates/render" }
 next_rpg = { path = "crates/rpg" }
 next_runtime = { path = "crates/runtime" }
@@ -56,6 +60,8 @@ ash = { version = "=0.38.0", default-features = false, features = ["loaded", "st
 sdl3 = { version = "=0.18.4", features = ["ash", "build-from-source-static"] }
 mlua = { version = "=0.12.0", default-features = false, features = ["luau"] }
 wasmtime = { version = "=45.0.0", default-features = false, features = ["component-model", "cranelift", "runtime", "std", "wat"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

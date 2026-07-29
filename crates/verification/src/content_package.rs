@@ -3,14 +3,12 @@ use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use next_assets::ContentStore;
-use next_contracts::{
-    CORE_CHARACTER_HEALTH_RESOURCE_ID, ContactPhaseV1, ContentHash, PhysicsContactId,
-    RpgAggregateKindV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1, WorldCommand,
-};
-use next_project::{
-    ProjectActivationError, ProjectCookError, activate_project, cook_project_v1,
-    neutral_vertical_slice_source_v1,
-};
+use next_contracts::command::WorldCommand;
+use next_contracts::ids::{ContentHash, PhysicsContactId};
+use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
+use next_contracts::physics::ContactPhaseV1;
+use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1};
+use next_project::{ProjectActivationError, ProjectCookError, activate_project, cook_project_v1};
 
 static RUN_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -35,7 +33,7 @@ pub struct ContentPackageCheckReport {
 }
 
 pub fn run_content_package_check() -> Result<ContentPackageCheckReport, ContentPackageCheckError> {
-    let source = neutral_vertical_slice_source_v1()?;
+    let source = next_reference_game::project_source_v2()?;
     let cooked = cook_project_v1(source)?;
     let counter = RUN_COUNTER.fetch_add(1, Ordering::Relaxed);
     let output = std::env::temp_dir().join(format!(
@@ -90,7 +88,7 @@ pub fn run_content_package_check() -> Result<ContentPackageCheckReport, ContentP
 }
 
 fn run_reference_wasm_plugin(
-    activated: next_contracts::ActivatedProjectV1,
+    activated: next_contracts::project::ActivatedProjectV2,
 ) -> Result<(i32, ContentHash, u16), ContentPackageCheckError> {
     let fixture = crate::build_neutral_player_fixture_from_activated_project(activated)?;
     let snapshot = crate::cooked_project_rpg_snapshot(&fixture);
@@ -175,7 +173,7 @@ fn run_reference_wasm_plugin(
 }
 
 fn run_reference_luau_package(
-    activated: next_contracts::ActivatedProjectV1,
+    activated: next_contracts::project::ActivatedProjectV2,
 ) -> Result<(i32, ContentHash), ContentPackageCheckError> {
     let fixture = crate::build_neutral_player_fixture_from_activated_project(activated)?;
     let snapshot = crate::cooked_project_rpg_snapshot(&fixture);
@@ -245,7 +243,7 @@ fn run_reference_luau_package(
 
 fn character_health(
     runtime: &next_runtime::RuntimeState,
-    character_id: next_contracts::PersistentId,
+    character_id: next_contracts::ids::PersistentId,
 ) -> Result<i32, ContentPackageCheckError> {
     runtime
         .rpg_snapshot()
@@ -278,7 +276,7 @@ pub enum ContentPackageCheckError {
     Wasm(next_plugin_host::WasmHostError),
     Runtime(next_runtime::RuntimeFatalError),
     Restore(next_runtime::SnapshotRestoreError),
-    Canonical(next_contracts::CanonicalError),
+    Canonical(next_contracts::canonical::CanonicalError),
     Cleanup(std::io::Error),
     FixtureClosureMismatch,
 }
@@ -362,8 +360,8 @@ impl From<next_runtime::SnapshotRestoreError> for ContentPackageCheckError {
     }
 }
 
-impl From<next_contracts::CanonicalError> for ContentPackageCheckError {
-    fn from(error: next_contracts::CanonicalError) -> Self {
+impl From<next_contracts::canonical::CanonicalError> for ContentPackageCheckError {
+    fn from(error: next_contracts::canonical::CanonicalError) -> Self {
         Self::Canonical(error)
     }
 }

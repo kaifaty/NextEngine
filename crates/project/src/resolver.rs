@@ -2,9 +2,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{
+use next_contracts::ids::SchemaId;
+use next_contracts::project::{
     ProjectCatalogRecordV1, ProjectCatalogSnapshotV1, ProjectDependencyKindV1, ProjectManifestV1,
-    ProjectRequirementV1, ResolvedProjectRecordV1, SchemaId, SemanticVersionV1,
+    ProjectRequirementV1, ResolvedProjectRecordV1, SemanticVersionV1,
 };
 
 type DependencyKey = (ProjectDependencyKindV1, SchemaId);
@@ -15,11 +16,11 @@ pub fn resolve_project_records_v1(
 ) -> Result<Vec<ResolvedProjectRecordV1>, ProjectResolutionError> {
     ProjectManifestV1::from_jcs_bytes(
         &manifest.to_jcs_bytes(),
-        next_contracts::CanonicalDecodeLimits::default(),
+        next_contracts::canonical::CanonicalDecodeLimits::default(),
     )?;
     ProjectCatalogSnapshotV1::from_jcs_bytes(
         &catalog.to_jcs_bytes(),
-        next_contracts::CanonicalDecodeLimits::default(),
+        next_contracts::canonical::CanonicalDecodeLimits::default(),
     )?;
 
     let mut constraints = BTreeMap::<DependencyKey, SemanticVersionV1>::new();
@@ -159,7 +160,7 @@ fn ensure_no_dependency_cycle(
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ProjectResolutionError {
-    Contract(next_contracts::ProjectContractError),
+    Contract(next_contracts::project::ProjectContractError),
     NoCandidate {
         kind: ProjectDependencyKindV1,
         identity: SchemaId,
@@ -201,8 +202,8 @@ impl Display for ProjectResolutionError {
 
 impl Error for ProjectResolutionError {}
 
-impl From<next_contracts::ProjectContractError> for ProjectResolutionError {
-    fn from(error: next_contracts::ProjectContractError) -> Self {
+impl From<next_contracts::project::ProjectContractError> for ProjectResolutionError {
+    fn from(error: next_contracts::project::ProjectContractError) -> Self {
         Self::Contract(error)
     }
 }

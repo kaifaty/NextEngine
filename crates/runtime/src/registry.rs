@@ -1,11 +1,13 @@
 use std::collections::BTreeMap;
 
-use next_contracts::{
-    CapabilityId, CommandPayload, CommandPhase, ContentHash, NOOP_COMMAND_CAPABILITY_ID,
-    NOOP_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_CAPABILITY_ID, PHYSICAL_COMMAND_SCHEMA_ID,
-    RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID, RPG_TRANSACTION_COMMAND_SCHEMA_VERSION,
-    SchemaId, content_hash_from_bytes, sha256,
+use next_contracts::canonical::sha256;
+use next_contracts::command::{
+    CommandPayload, CommandPhase, NOOP_COMMAND_CAPABILITY_ID, NOOP_COMMAND_SCHEMA_ID,
 };
+use next_contracts::ids::{CapabilityId, ContentHash, SchemaId, content_hash_from_bytes};
+use next_contracts::physics::{PHYSICAL_COMMAND_CAPABILITY_ID, PHYSICAL_COMMAND_SCHEMA_ID};
+use next_contracts::rpg::RPG_TRANSACTION_COMMAND_SCHEMA_VERSION;
+use next_contracts::rpg::{RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID};
 
 pub const COMMAND_KIND_REGISTRY_VERSION: u32 = 2;
 pub const NOOP_PRIORITY_CLASS: u16 = 100;
@@ -212,10 +214,10 @@ impl Default for CommandKindRegistry {
 
 #[cfg(test)]
 mod tests {
-    use next_contracts::{
-        COMMAND_SCHEMA_VERSION, CommandPayload, NOOP_COMMAND_SCHEMA_ID, RPG_COMMAND_SCHEMA_ID,
-        RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RpgCommandV1, SchemaId,
-    };
+    use next_contracts::command::{COMMAND_SCHEMA_VERSION, CommandPayload, NOOP_COMMAND_SCHEMA_ID};
+    use next_contracts::ids::SchemaId;
+    use next_contracts::rpg::RPG_COMMAND_SCHEMA_ID;
+    use next_contracts::rpg::{RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RpgCommandV1};
 
     use super::{
         COMMAND_KIND_REGISTRY_VERSION, CommandKindRegistry, NOOP_PRIORITY_CLASS, RPG_PRIORITY_CLASS,

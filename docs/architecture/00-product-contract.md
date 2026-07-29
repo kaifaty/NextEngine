@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-00 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последнее изменение | 2026-07-25 |
+| Версия | 2.1 |
+| Последнее изменение | 2026-07-29 |
 | Нормативные зависимости | [INDEX-001](README.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
 
 ## Назначение
@@ -47,7 +47,9 @@ V1 MUST:
 14. выполнять async jobs, streaming и I/O через bounded staging без partial
     authoritative publication;
 15. предоставлять короткие локальные product checks для gameplay,
-    persistence/replay и content/package paths.
+    persistence/replay и content/package paths;
+16. запускать runtime-bearing roots через один application-session lifecycle с
+    exactly-once final save, durable close receipt и restart recovery.
 
 `capture-worker`, external `ai-host`, imported Gothic content, policy training,
 advanced renderer features и remote CI являются optional. Их отсутствие не
@@ -64,7 +66,9 @@ advanced renderer features и remote CI являются optional. Их отсу
   остаётся ephemeral.
 - Vendor, OS, ECS-backend и importer types не пересекают public contract boundary.
 - `game` и `headless` используют одинаковые command validation, system order,
-  persistence и replay semantics.
+  project activation, application coordination, persistence и replay semantics.
+- Verification код только сравнивает production outcomes и не является
+  dependency или execution path production composition root.
 - Corrupt, oversized, incompatible или ambiguous authoritative input rejected
   до publication; prior complete generation остаётся доступной.
 - Presentation, UI, camera, audio и diagnostic state не являются gameplay

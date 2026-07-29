@@ -5,7 +5,8 @@ use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 
-use next_contracts::{ContentHash, content_hash_from_bytes, sha256};
+use next_contracts::canonical::sha256;
+use next_contracts::ids::{ContentHash, content_hash_from_bytes};
 
 pub const CONTENT_GENERATIONS_DIRECTORY: &str = "generations";
 pub const CONTENT_CURRENT_FILE: &str = "CURRENT";
@@ -102,7 +103,7 @@ impl PublishedContentGenerationV1 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum PublishFault {
+pub(crate) enum ContentPublishFault {
     None,
     BeforeGenerationCommit,
     BeforeCurrentSwitch,
@@ -120,7 +121,16 @@ impl ContentStore {
     }
 
     pub fn publish(&self, publication: &ContentPublicationV1) -> Result<(), ContentStoreError> {
-        self.publish_inner(publication, PublishFault::None)
+        self.publish_inner(publication, ContentPublishFault::None)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn publish_with_fault(
+        &self,
+        publication: &ContentPublicationV1,
+        fault: ContentPublishFault,
+    ) -> Result<(), ContentStoreError> {
+        self.publish_inner(publication, fault)
     }
 
     pub fn load_current(&self) -> Result<PublishedContentGenerationV1, ContentStoreError> {
@@ -138,7 +148,7 @@ impl ContentStore {
     fn publish_inner(
         &self,
         publication: &ContentPublicationV1,
-        fault: PublishFault,
+        fault: ContentPublishFault,
     ) -> Result<(), ContentStoreError> {
         let canonical =
             ContentPublicationV1::new(publication.generation_id, publication.files.clone())?;
@@ -174,7 +184,7 @@ impl ContentStore {
                 )?;
                 let loaded = load_generation(&staging_path, canonical.generation_id)?;
                 ensure_matches(&loaded, &canonical)?;
-                if fault == PublishFault::BeforeGenerationCommit {
+                if fault == ContentPublishFault::BeforeGenerationCommit {
                     return Err(ContentStoreError::InjectedFault);
                 }
                 fs::rename(&staging_path, &generation_path)?;
@@ -186,7 +196,7 @@ impl ContentStore {
             staging_result?;
         }
 
-        if fault == PublishFault::BeforeCurrentSwitch {
+        if fault == ContentPublishFault::BeforeCurrentSwitch {
             return Err(ContentStoreError::InjectedFault);
         }
         let current_tmp = self
@@ -467,9 +477,10 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use super::{
-        ContentPublicationV1, ContentStore, ContentStoreError, PublicationFileV1, PublishFault,
+        ContentPublicationV1, ContentPublishFault, ContentStore, ContentStoreError,
+        PublicationFileV1,
     };
-    use next_contracts::content_hash_from_bytes;
+    use next_contracts::ids::content_hash_from_bytes;
 
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -493,7 +504,7 @@ mod tests {
         store.publish(&first).expect("first publication");
         let second = publication(2, b"second");
         assert!(matches!(
-            store.publish_inner(&second, PublishFault::BeforeCurrentSwitch),
+            store.publish_inner(&second, ContentPublishFault::BeforeCurrentSwitch),
             Err(ContentStoreError::InjectedFault)
         ));
         let loaded = store

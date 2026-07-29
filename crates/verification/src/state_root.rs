@@ -1,7 +1,8 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{SchemaId, StateRoot, sha256};
+use next_contracts::canonical::sha256;
+use next_contracts::ids::{SchemaId, StateRoot};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StateSegment {

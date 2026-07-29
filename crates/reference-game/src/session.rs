@@ -1,22 +1,28 @@
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 
-use next_contracts::{
-    ActivatedProjectV1, CapabilityId, CommandStreamId, ContentHash, InputSourceId, IssuerPrincipal,
-    PHYSICAL_COMMAND_CAPABILITY_ID, PLAYER_INTERACTION_SYSTEM_ID, PersistentId,
-    PhysicsBodyDescriptorV1, PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2,
-    PhysicsContactReportingV1, PhysicsCoordinateProfileV1, PhysicsGeometryV1,
-    PhysicsLimitsProfileV1, PhysicsMaterialDescriptorV1, PhysicsMotionKindV1,
+use next_contracts::command::IssuerPrincipal;
+use next_contracts::ids::{
+    CapabilityId, CommandStreamId, ContentHash, InputSourceId, PersistentId, PhysicsWorldId,
+    PlayerPrincipalId, SchemaId, SystemId,
+};
+use next_contracts::input::{
+    PLAYER_INTERACTION_SYSTEM_ID, PlayerControllerBindingV1, core_player_action_map_v2_hash,
+};
+use next_contracts::physics::{
+    PHYSICAL_COMMAND_CAPABILITY_ID, PhysicsBodyDescriptorV1, PhysicsBodyIdV1,
+    PhysicsCanonicalSnapshotV2, PhysicsContactReportingV1, PhysicsCoordinateProfileV1,
+    PhysicsGeometryV1, PhysicsLimitsProfileV1, PhysicsMaterialDescriptorV1, PhysicsMotionKindV1,
     PhysicsParticipationV1, PhysicsPoseV1, PhysicsShapeDescriptorV1, PhysicsShapeIdV1,
     PhysicsSolverSemanticsProfileV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
-    PhysicsWorldCheckpointV1, PhysicsWorldId, PlayerControllerBindingV1, PlayerPrincipalId,
-    RPG_COMMAND_CAPABILITY_ID, SchemaId, SystemId, core_player_action_map_v2_hash,
+    PhysicsWorldCheckpointV1,
 };
+use next_contracts::project::ActivatedProjectV2;
+use next_contracts::rpg::RPG_COMMAND_CAPABILITY_ID;
 
-use crate::{NeutralFixtureError, build_neutral_runtime_fixture};
+use crate::{ReferenceGameError, build_reference_runtime_bootstrap};
 
 #[derive(Clone, Debug)]
-pub struct NeutralPlayerFixture {
+pub struct ReferenceGameSession {
     pub bootstrap: next_runtime::RuntimeBootstrapV3,
     pub authority: next_runtime::AuthorityRegistry,
     pub principal: IssuerPrincipal,
@@ -43,41 +49,19 @@ pub struct NeutralPlayerFixture {
     pub agent_stream_id: CommandStreamId,
     pub action_map_hash: ContentHash,
     pub context_stack_hash: ContentHash,
-    pub activated_project: ActivatedProjectV1,
+    pub activated_project: ActivatedProjectV2,
 }
 
-static PROJECT_FIXTURE_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-pub fn build_neutral_player_fixture(
-    project_id: &str,
-) -> Result<NeutralPlayerFixture, NeutralFixtureError> {
-    build_neutral_player_fixture_with_profile(project_id, false)
+pub fn build_reference_game_session(
+    activated_project: ActivatedProjectV2,
+) -> Result<ReferenceGameSession, ReferenceGameError> {
+    build_reference_game_session_with_profile(activated_project, false)
 }
 
-pub fn build_physx_player_fixture(
-    project_id: &str,
-) -> Result<NeutralPlayerFixture, NeutralFixtureError> {
-    build_neutral_player_fixture_with_profile(project_id, true)
-}
-
-fn build_neutral_player_fixture_with_profile(
-    project_id: &str,
+pub fn build_reference_game_session_with_profile(
+    activated_project: ActivatedProjectV2,
     physx_compatible: bool,
-) -> Result<NeutralPlayerFixture, NeutralFixtureError> {
-    let activated_project = activate_fixture_project(project_id)?;
-    build_neutral_player_fixture_with_activated_project(activated_project, physx_compatible)
-}
-
-pub fn build_neutral_player_fixture_from_activated_project(
-    activated_project: ActivatedProjectV1,
-) -> Result<NeutralPlayerFixture, NeutralFixtureError> {
-    build_neutral_player_fixture_with_activated_project(activated_project, false)
-}
-
-fn build_neutral_player_fixture_with_activated_project(
-    activated_project: ActivatedProjectV1,
-    physx_compatible: bool,
-) -> Result<NeutralPlayerFixture, NeutralFixtureError> {
+) -> Result<ReferenceGameSession, ReferenceGameError> {
     let project_id = activated_project
         .composition_lock
         .project_id
@@ -88,7 +72,7 @@ fn build_neutral_player_fixture_with_activated_project(
         IssuerPrincipal::InternalSystem(SystemId::new(PLAYER_INTERACTION_SYSTEM_ID)?);
     let agent_principal =
         IssuerPrincipal::InternalSystem(SystemId::new("nextengine.agent.planner")?);
-    let base = build_neutral_runtime_fixture(
+    let base = build_reference_runtime_bootstrap(
         &project_id,
         [
             (
@@ -119,9 +103,11 @@ fn build_neutral_player_fixture_with_activated_project(
         .expect("neutral fixture allocates the agent planner stream");
     let mut bootstrap = base.bootstrap;
     if physx_compatible {
-        let quantization = next_contracts::PhysicsQuantizationProfileV1::grounded_capsule_v2()?;
-        let numeric =
-            next_contracts::AuthoritativeNumericProfileV1::grounded_capsule_v2(&quantization)?;
+        let quantization =
+            next_contracts::physics::PhysicsQuantizationProfileV1::grounded_capsule_v2()?;
+        let numeric = next_contracts::physics::AuthoritativeNumericProfileV1::grounded_capsule_v2(
+            &quantization,
+        )?;
         bootstrap.runtime_profile.numeric_profile_hash = numeric.profile_hash()?;
         bootstrap.runtime_profile.physics_quantization_profile_hash =
             quantization.profile_hash()?;
@@ -144,7 +130,7 @@ fn build_neutral_player_fixture_with_activated_project(
                 .rpg_definitions
                 .interactions
                 .iter()
-                .map(next_contracts::interaction_definition_hash),
+                .map(next_contracts::mechanics::interaction_definition_hash),
         );
     bootstrap
         .rpg_bindings
@@ -154,7 +140,7 @@ fn build_neutral_player_fixture_with_activated_project(
                 .rpg_definitions
                 .abilities
                 .iter()
-                .map(next_contracts::ability_definition_hash),
+                .map(next_contracts::mechanics::ability_definition_hash),
         );
     bootstrap
         .rpg_bindings
@@ -209,7 +195,7 @@ fn build_neutral_player_fixture_with_activated_project(
         &bootstrap.authoritative_numeric_profile,
         &bootstrap.physics_quantization_profile,
     )?;
-    Ok(NeutralPlayerFixture {
+    Ok(ReferenceGameSession {
         bootstrap,
         authority: base.authority,
         principal,
@@ -240,33 +226,13 @@ fn build_neutral_player_fixture_with_activated_project(
     })
 }
 
-fn activate_fixture_project(project_id: &str) -> Result<ActivatedProjectV1, NeutralFixtureError> {
-    let mut source = next_project::neutral_vertical_slice_source_v1()?;
-    source.project_id = next_contracts::ProjectId::new(project_id)?;
-    let cooked = next_project::cook_project_v1(source)?;
-    let counter = PROJECT_FIXTURE_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let output = std::env::temp_dir().join(format!(
-        "nextengine-play-project-{}-{counter}",
-        std::process::id()
-    ));
-    let store = next_assets::ContentStore::new(&output);
-    let result = (|| {
-        store.publish(&cooked.publication()?)?;
-        Ok(next_project::activate_project(&store)?)
-    })();
-    if output.exists() {
-        std::fs::remove_dir_all(&output).map_err(next_assets::ContentStoreError::from)?;
-    }
-    result
-}
-
 fn grounded_capsule_checkpoint(
     world_id: PhysicsWorldId,
     capsule_body_id: PhysicsBodyIdV1,
-    tick_rate: &next_contracts::TickRateProfileV1,
-    numeric: &next_contracts::AuthoritativeNumericProfileV1,
-    quantization: &next_contracts::PhysicsQuantizationProfileV1,
-) -> Result<PhysicsWorldCheckpointV1, NeutralFixtureError> {
+    tick_rate: &next_contracts::input::TickRateProfileV1,
+    numeric: &next_contracts::physics::AuthoritativeNumericProfileV1,
+    quantization: &next_contracts::physics::PhysicsQuantizationProfileV1,
+) -> Result<PhysicsWorldCheckpointV1, ReferenceGameError> {
     let material_id = SchemaId::new("nextengine.physics.material.reference-zero")?;
     let material = PhysicsMaterialDescriptorV1 {
         material_id: material_id.clone(),

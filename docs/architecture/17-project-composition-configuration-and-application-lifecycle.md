@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-17 |
 | Статус | Accepted |
-| Версия | 1.3 |
-| Последняя проверка | 2026-07-26 |
+| Версия | 1.4 |
+| Последняя проверка | 2026-07-29 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
 | Заменяет | отсутствует |
 
@@ -88,9 +88,14 @@ Resolution MUST выполнять один contract:
 
 Runtime roots MUST NOT читать registry, network/cache state, выбирать package version или повторно разрешать floating range. Они только валидируют exact lock closure/hashes and activate it. New catalog snapshot, un-yank/yank state, newly declared prerelease or changed range always requires a new resolution and a new lock hash.
 
-### ProjectCompositionLock
+### ProjectCompositionLockV2
 
-`ProjectCompositionLock` является immutable closure и содержит exact:
+Current public contract — `ProjectCompositionLockV2`; активированная форма —
+`ActivatedProjectV2`. V1 lock больше не является compatibility input: его
+version/header отвергается до activation, nested artifact decode и world
+mutation. Compatibility decoder или unversioned alias отсутствует.
+
+`ProjectCompositionLockV2` является immutable closure и содержит exact:
 
 - project/manifest identity и canonical hash;
 - catalog snapshot, resolver profile and canonical resolution-trace hashes;
@@ -108,6 +113,15 @@ Runtime roots MUST NOT читать registry, network/cache state, выбира�
 - lock schema version и canonical closure hash.
 
 Runtime получает только lock values and resolved assets, никогда ranges, catalog resolver/package-manager handles или paths. Equal valid inputs MUST produce the same platform-neutral lock bytes on Windows/Linux. Target presentation payloads имеют отдельные hashes и не меняют domain subset. PresentationOnly/DeveloperOnly current values не входят в domain hash; lock фиксирует class/owner registry и authoritative subset, а launch/run manifests отдельно записывают enabled non-authoritative values.
+
+V2 непосредственно хранит и повторно вычисляет bindings
+`runtime_determinism_profile_sha256`, `launch_profiles_sha256`,
+`recovery_policy_sha256`, `shutdown_policy_sha256`,
+`platform_capability_profile_sha256`, `platform_timebase_profile_sha256` и
+canonical sorted `allowed_presentation_targets`. Recovery/shutdown bodies
+дублируются bounded typed fields only для самостоятельной validation и обязаны
+re-hash exactly к policy hashes; ambient filesystem/environment input для
+validation запрещён.
 
 ### LaunchProfile и ConfigurationClass
 
@@ -155,6 +169,23 @@ reconnection under the existing `Activated` project revision: it is not another 
 The superseded session remains immutable non-live history, and no different
 project revision may stage or activate until the recovered live session shuts
 down and this project lifecycle reaches `Closed`.
+
+## Implementation mapping
+
+- `next_project` владеет generic cook/resolve/publish/activate и не содержит
+  first-party gameplay scenario.
+- `next_reference_game` владеет reference project source, stable product IDs,
+  Runtime bootstrap, scripted vertical-slice controller и presentation
+  bindings.
+- `next_application` является coordinator: активирует exact
+  `ActivatedProjectV2`, открывает/восстанавливает SPEC-29 session, запускает
+  reference loop и production replay executor, извлекает presentation и
+  координирует close.
+- `next_runtime` принимает решения о lifecycle/state revision;
+  `next_assets` публикует immutable project/save/session generations и atomic
+  current-generation pointer.
+- `next_verification` строит expected-value/fault assertions поверх production
+  outcomes и не является dependency production roots.
 
 ## Composition-root parity
 

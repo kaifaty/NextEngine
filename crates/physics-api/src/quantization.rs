@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{
+use next_contracts::physics::{
     AuthoritativeNumericProfileV1, PhysicsQuantizationProfileV1, PhysicsQuantizationRuleV1,
     PhysicsSourceFormatV1,
 };
@@ -316,7 +316,9 @@ impl Error for PhysicsQuantizationError {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use next_contracts::{PHYSICS_CONTACT_NORMAL_X_FIELD_ID, PHYSICS_SWEEP_DISTANCE_FIELD_ID};
+    use next_contracts::physics::{
+        PHYSICS_CONTACT_NORMAL_X_FIELD_ID, PHYSICS_SWEEP_DISTANCE_FIELD_ID,
+    };
 
     fn quantizer() -> (PhysicsQuantizationProfileV1, AuthoritativeNumericProfileV1) {
         let profile = PhysicsQuantizationProfileV1::grounded_capsule_v2().expect("profile");
@@ -402,7 +404,7 @@ mod tests {
         profile
             .rules
             .get_mut(
-                &next_contracts::SchemaId::new(PHYSICS_SWEEP_DISTANCE_FIELD_ID)
+                &next_contracts::ids::SchemaId::new(PHYSICS_SWEEP_DISTANCE_FIELD_ID)
                     .expect("distance field ID"),
             )
             .expect("distance rule")

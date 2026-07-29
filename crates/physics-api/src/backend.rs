@@ -1,9 +1,10 @@
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 
-use next_contracts::{
+use next_contracts::input::TickRateProfileV1;
+use next_contracts::physics::{
     AuthoritativeNumericProfileV1, PhysicsCanonicalSnapshotV2, PhysicsQuantizationProfileV1,
-    PhysicsStepInputV2, PhysicsStepResultV1, PhysicsWorldCheckpointV1, TickRateProfileV1,
+    PhysicsStepInputV2, PhysicsStepResultV1, PhysicsWorldCheckpointV1,
 };
 
 use crate::{GroundedCapsuleQuery, GroundedCapsuleWorld, ReferencePhysicsError};
@@ -217,7 +218,7 @@ impl PhysicsWorldHost {
 
     pub fn checkpoint_hash(
         &self,
-    ) -> Result<next_contracts::ContentHash, next_contracts::CanonicalError> {
+    ) -> Result<next_contracts::ids::ContentHash, next_contracts::canonical::CanonicalError> {
         self.checkpoint().checkpoint_hash()
     }
 }

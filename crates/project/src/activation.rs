@@ -3,11 +3,13 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_assets::{ContentStore, ContentStoreError};
-use next_contracts::{
-    ActivatedProjectV1, AssetId, CanonicalDecodeLimits, ContentManifestV1, NeutralRecordError,
-    NeutralRecordV1, ProjectCatalogSnapshotV1, ProjectCompositionLockV1, ProjectContractError,
-    ProjectDependencyKindV1, ProjectManifestV1, SchemaRefV1, SchemaRegistryManifestV1,
-    WorldPartitionManifestV1,
+use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::content::{NeutralRecordError, NeutralRecordV1};
+use next_contracts::ids::AssetId;
+use next_contracts::project::{
+    ActivatedProjectV2, ContentManifestV1, ProjectCatalogSnapshotV1, ProjectCompositionLockV2,
+    ProjectContractError, ProjectDependencyKindV1, ProjectManifestV1, SchemaRefV1,
+    SchemaRegistryManifestV1, WorldPartitionManifestV1,
 };
 
 use crate::cook::{
@@ -19,7 +21,7 @@ use crate::{ProjectResolutionError, resolve_project_records_v1};
 
 pub fn activate_project(
     store: &ContentStore,
-) -> Result<ActivatedProjectV1, ProjectActivationError> {
+) -> Result<ActivatedProjectV2, ProjectActivationError> {
     let generation = store.load_current()?;
     let limits = CanonicalDecodeLimits::default();
     let project_manifest = ProjectManifestV1::from_jcs_bytes(
@@ -30,7 +32,7 @@ pub fn activate_project(
         required_file(&generation.files, PROJECT_CATALOG_PATH)?,
         limits,
     )?;
-    let composition_lock = ProjectCompositionLockV1::from_jcs_bytes(
+    let composition_lock = ProjectCompositionLockV2::from_jcs_bytes(
         required_file(&generation.files, PROJECT_COMPOSITION_LOCK_PATH)?,
         limits,
     )?;
@@ -145,7 +147,7 @@ pub fn activate_project(
     }
 
     neutral_records.sort_by_key(|record| record.asset_id);
-    let activated = ActivatedProjectV1 {
+    let activated = ActivatedProjectV2 {
         composition_lock,
         schema_registry,
         content_manifest,

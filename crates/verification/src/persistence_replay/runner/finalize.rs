@@ -1,12 +1,16 @@
 use std::fs;
 
 use next_assets::SaveStore;
-use next_contracts::{
-    CORE_CHARACTER_HEALTH_RESOURCE_ID, CORE_EQUIPMENT_MAIN_HAND_SLOT_ID,
-    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID,
-    EventPayload, PersistentId, PhysicsPoseV1, RpgAggregateKindV1, RpgAggregatePayloadV1,
-    RpgSnapshotV2, SchemaId, WorldCheckpointV4,
+use next_contracts::command::EventPayload;
+use next_contracts::ids::{PersistentId, SchemaId};
+use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
+use next_contracts::physics::PhysicsPoseV1;
+use next_contracts::rpg::{
+    CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID,
+    CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID,
 };
+use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2};
+use next_contracts::snapshot::WorldCheckpointV4;
 
 use crate::cooked_interaction_outcome;
 
@@ -37,7 +41,7 @@ pub(super) fn complete(
         .map_err(|error| PersistenceReplayCheckError::new("final checkpoint", error.to_string()))?;
     verify_corrupt_fallbacks(direct, restored, &final_checkpoint)?;
     let outcome = read_final_outcome(direct, &final_checkpoint)?;
-    let final_state_root = next_contracts::world_checkpoint_with_streaming_v1_state_root(
+    let final_state_root = next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
         &final_checkpoint.runtime_snapshot,
         &final_checkpoint.rpg_snapshot,
         &final_checkpoint.physics_checkpoint,
@@ -144,7 +148,7 @@ fn verify_corrupt_fallbacks(
 }
 
 fn verify_physics_fallback(
-    compatibility: &next_contracts::SaveCompatibility,
+    compatibility: &next_contracts::persistence::SaveCompatibility,
     saved_checkpoint: &WorldCheckpointV4,
     final_checkpoint: &WorldCheckpointV4,
 ) -> Result<(), PersistenceReplayCheckError> {

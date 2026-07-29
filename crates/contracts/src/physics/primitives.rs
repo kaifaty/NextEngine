@@ -3,7 +3,7 @@ use crate::canonical::{
     CANONICAL_TYPE_STRUCT, CANONICAL_TYPE_U32, CanonicalCursor, CanonicalDecodeLimits,
     CanonicalError, CanonicalField,
 };
-use crate::{AssetId, ContentHash, PersistentId};
+use crate::ids::{AssetId, ContentHash, PersistentId};
 
 use super::codec::*;
 use super::error::PhysicsContractError;

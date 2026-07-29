@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.4 |
-| Последняя проверка | 2026-07-28 |
-| Заменяет | INDEX-001 version 2.3 |
+| Версия | 2.5 |
+| Последняя проверка | 2026-07-29 |
+| Заменяет | INDEX-001 version 2.4 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -61,6 +61,12 @@ composition roots и adapters к engine-owned contracts. Runtime, RPG,
 presentation, physical embodiment, agent intelligence, gameplay extensibility,
 assets/tooling и importer не делят mutable object graph или общий
 mutable database.
+
+Production application coordination находится в `crates/application`;
+first-party project/source/scenario — в `crates/reference-game`. Runtime
+остаётся authority для application-session state, Assets — owner атомарной
+durable publication, а `game`, `headless` и runtime-bearing `tools` входят в
+эти production paths без зависимости от verification crate.
 
 ## Product checks
 

@@ -13,7 +13,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use next_contracts::{CommandLedgerHash, ContentHash, PhysicsPoseV1, SchemaId, StateRoot};
+use next_contracts::ids::{CommandLedgerHash, ContentHash, SchemaId, StateRoot};
+use next_contracts::physics::PhysicsPoseV1;
 
 pub(crate) use runner::run_persistence_replay_check_for_project;
 

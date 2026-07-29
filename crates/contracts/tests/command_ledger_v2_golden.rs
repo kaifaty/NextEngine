@@ -1,8 +1,9 @@
-use next_contracts::{
-    CommandBodyArchiveV1, CommandFinalResultV1, CommandIdentityIndexV1, CommandPhase,
-    CommandReceiptSubjectV1, CommandReceiptV1, CommandStreamId, IssuerPrincipal, PlayerPrincipalId,
-    WorldCommand, command_receipt_chain_genesis, command_receipt_chain_next,
-    command_receipt_digest, content_hash_from_bytes,
+use next_contracts::command::{CommandPhase, IssuerPrincipal, WorldCommand};
+use next_contracts::ids::{CommandStreamId, PlayerPrincipalId, content_hash_from_bytes};
+use next_contracts::ledger::{
+    CommandBodyArchiveV1, CommandFinalResultV1, CommandIdentityIndexV1, CommandReceiptSubjectV1,
+    CommandReceiptV1, command_receipt_chain_genesis, command_receipt_chain_next,
+    command_receipt_digest,
 };
 
 fn encode_hex(bytes: &[u8]) -> String {

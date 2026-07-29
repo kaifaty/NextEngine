@@ -1,4 +1,4 @@
-use next_contracts::CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID;
+use next_contracts::rpg::CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID;
 
 use super::run_persistence_replay_check;
 
@@ -14,11 +14,11 @@ fn product_check_covers_npc_transition_replay_and_structural_fallbacks() {
     );
     assert_eq!(
         report.dialogue_node_id.as_str(),
-        "nextengine.fixture.dialogue.accepted"
+        "nextengine.reference.dialogue.accepted"
     );
     assert_eq!(
         report.quest_state_id.as_str(),
-        "nextengine.fixture.quest.active"
+        "nextengine.reference.quest.active"
     );
     assert_eq!(report.npc_player_trust, 7);
     assert_eq!(report.npc_health, 75);

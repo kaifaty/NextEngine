@@ -12,6 +12,20 @@ those targets.
 The implementation follows the Accepted architecture without a semantic
 departure, so it did not add a superseding ADR.
 
+The 2026-07-29 refactoring closure additionally delivers:
+
+- domain-namespaced current-only `next_contracts` API and
+  `ProjectCompositionLockV2`;
+- `next_reference_game` as owner of the first-party project/source/scenario;
+- `next_application` as the production coordinator shared by `game`,
+  `headless` and runtime-bearing `tools`;
+- Runtime-owned SPEC-29 lifecycle decisions and Assets-owned atomic durable
+  session generations;
+- exactly-once final save/terminal receipt, restart recovery, required-save
+  failure recovery and 1,000-cycle live-session/receipt stress coverage;
+- versioned typed application/xtask JSON reports and a boundary rule that
+  forbids production dependencies on `next_verification`.
+
 ## Milestone ledger
 
 | Milestone | Commit | Implemented outcome |
@@ -61,26 +75,30 @@ The canonical command is:
 cargo run -p xtask -- v1-closure
 ```
 
-At the implementation commit it binds these roots:
+The verified 2026-07-29 local closure binds these roots:
 
 | Root | SHA-256 |
 |---|---|
-| Project composition lock | `26f9ef6523278c6c50b5219bd4e71ed5fe24ea0257f3ae07ebc5f43c162d57b0` |
+| Project composition lock | `1858ada0e1d5314d0d4992041668fbe35154e4c8039d149204728ee9b29fe0b8` |
 | Schema registry | `a6eeccc359d0169d1cbe1c4428f47d81ace3d2e2eaec6b9be5c09f4a8618b4d3` |
-| Content manifest | `76eb8adab27ada7844cf0f0ce6874d286f8b4ea574e118efc93100ec81459ef5` |
-| Mechanics lock | `fc0513d102cd593ec498df316ce0f123a89b64131365c04c1b93c696806903ce` |
-| World partition | `a7880df9ae6153a4d1db51f133503106ef78fa03ae152454b1d49f22d229ec36` |
+| Content manifest | `3308ca242003e035db22f533f9a056b05f9542a896a1ff787da53aeab218ee1d` |
+| Mechanics lock | `7e5006f72a5eb6d6772aa91a97623c8e2fe7ba85efa63fb7cac7743ee97709c1` |
+| World partition | `05b0a58f35d0b25be9409262f1c363598ff0b863fea5dbe897640be5f4d55ef0` |
 | Luau manifest | `f54e7027ccf4f6ed3f1a896656f081f4e6626bad1065cf242704f0f9dda13ce8` |
 | Wasm manifest | `9e59c4601037e3ffaf18a0bf4db33c9eb29e22b914b2b24611c33889c5c57f9e` |
 | WIT v2 | `fb10af980777d42471fb27f8b511077518f989bf99917ff75d7545fc03a8fc20` |
 | WIT v3 | `ce48d84af4035e2aa843af44993c01b94e8f5eec3378c3a750ca0cf0ca3109e4` |
 | Extension compatibility | `9229ac99743b7dc5d38ed677c56385527622698934799c262337d590655e5097` |
-| Local closure | `7b482d9473f73c797a9d51d50a6f35707c43ccfa5a789ed51d1bf4fff3aac6fd` |
+| Play authoritative state | `6a8497c815b769d887e59c88a3e87dfd631968a77fc11fcbc2824afb3131e63b` |
+| Play command ledger | `505f38f1d5cfa93cb39514593823b8abb2b6e113f0e945ad3ec4c8acf523a98a` |
+| Replay authoritative state | `dfaf8d0da19986b02f6595912bd81eb442c4da8f73daf103e738fe76d21e8924` |
+| Replay command ledger | `5745d14b1f61943afa171f9bce0852c9fb54c4cec527ae0c8f2f05167d2dfc01` |
+| Local closure | `233fbece67817ee62f276ca357042aabce3a6064fdec4e1575101cb0111cab44` |
 
 The Windows and Linux target package descriptor hashes are respectively
-`5b0d09c3adc8b0d73078d27848de640c0daa5723f4edc0fec81489280ea88e80`
+`8700dd9a04a8b4e59401a360b4c35114621b145d7f6577f305e150b2d29b6bca`
 and
-`d0dde6560aeab748d4bfb58f2ec1512a323b805c48de2d760b80946cb33b0a9b`.
+`65598d7b168862ab64d2cf1e6b259908288c8455c3328057d63891b08d79d732`.
 A descriptor binds target triple, `game`/`headless` roots and every exact
 project/content/mechanics/extension hash; it does not claim that a target
 binary was built or launched.

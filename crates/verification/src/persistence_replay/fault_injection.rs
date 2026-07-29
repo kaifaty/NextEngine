@@ -2,10 +2,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use next_assets::SaveStore;
-use next_contracts::{
-    PHYSICS_SNAPSHOT_OWNER_ID, PersistentId, RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
-    RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, SaveCompatibility,
-    SaveSegmentDescriptor,
+use next_contracts::ids::PersistentId;
+use next_contracts::persistence::{SaveCompatibility, SaveSegmentDescriptor};
+use next_contracts::physics::PHYSICS_SNAPSHOT_OWNER_ID;
+use next_contracts::rpg::{
+    RPG_AGGREGATE_SNAPSHOT_OWNER_ID, RpgAggregateEnvelopeV1, RpgAggregateKindV1,
+    RpgAggregatePayloadV1,
 };
 
 use super::PersistenceReplayCheckError;
@@ -42,7 +44,7 @@ pub(super) fn corrupt_rpg_segment(
         dialogue.revision,
         dialogue.definition_ref.clone(),
         dialogue.provenance.clone(),
-        RpgAggregatePayloadV1::Dialogue(next_contracts::DialoguePayloadV1 {
+        RpgAggregatePayloadV1::Dialogue(next_contracts::rpg::DialoguePayloadV1 {
             speaker_id: payload.speaker_id,
             listener_id: PersistentId::from_bytes([0xee; 16]),
             node_id: payload.node_id.clone(),
@@ -83,7 +85,7 @@ pub(super) fn corrupt_physics_segment(
         .bodies
         .iter()
         .find_map(|(body_id, descriptor)| {
-            (descriptor.motion_kind == next_contracts::PhysicsMotionKindV1::Static)
+            (descriptor.motion_kind == next_contracts::physics::PhysicsMotionKindV1::Static)
                 .then_some(*body_id)
         })
         .ok_or_else(|| {

@@ -11,16 +11,22 @@ use super::save::{
     decode_compatibility, decode_segment_descriptor, encode_compatibility,
     encode_segment_descriptor,
 };
+use crate::canonical::CanonicalDecodeLimits;
+use crate::command::IssuerPrincipal;
+use crate::ids::{CapabilityId, CommandId, CommandLedgerHash, StateRoot};
+use crate::input::{
+    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, InputMappingReceiptV1,
+    RuntimeAdmissionLimitsV1,
+};
 use crate::persistence::{
     AuthorityGrant, ManifestValidationError, REPLAY_MANIFEST_V4_SCHEMA_VERSION,
     ReplayCommandRecord, ReplayCommandResultV2, ReplayComparePointV4, ReplayManifestV4,
     ReplayOwnerSegmentV2, ReplayTickManifestV4,
 };
-use crate::{
-    CanonicalDecodeLimits, CapabilityId, ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1,
-    ClosedPhysicsContactBatchV1, CommandId, CommandLedgerHash, InputMappingReceiptV1,
-    IssuerPrincipal, PhysicsStepInputV2, RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID,
-    RUNTIME_SNAPSHOT_SEGMENT_ID, RuntimeAdmissionLimitsV1, RuntimeSnapshot, StateRoot,
+use crate::physics::{ClosedPhysicsContactBatchV1, PhysicsStepInputV2};
+use crate::snapshot::{
+    RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID,
+    RuntimeSnapshotV3,
 };
 
 pub(crate) fn encode_replay_manifest_v4(
@@ -124,7 +130,7 @@ pub(crate) fn decode_replay_manifest_v4(
         })
         .ok_or(ManifestValidationError::ReplayInitialSegmentsInvalid)?;
     let runtime_snapshot =
-        RuntimeSnapshot::from_canonical_bytes(&runtime_segment.canonical_bytes, limits)
+        RuntimeSnapshotV3::from_canonical_bytes(&runtime_segment.canonical_bytes, limits)
             .map_err(ManifestValidationError::from)?;
     let authority = decode_authority(take(&mut object, "authority")?, limits)?;
     let ticks = decode_replay_ticks(

@@ -1,14 +1,20 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 
-use next_contracts::{
-    AcceptedLocomotionIntentV2, COMMAND_ENVELOPE_SCHEMA_VERSION, CanonicalDecodeLimits,
-    ClosedPhysicsContactBatchV1, CommandBodyArchiveV1, CommandId, CommandLedgerError,
-    CommandLedgerV2, CommandPhase, CommandStreamId, CommandStreamRegistryV1, DomainEvent,
-    IngressCheckpointV1, IssuerPrincipal, PhysicsStepInputV2, PlayerControllerRegistryV1,
-    PrincipalRegistryV1, RpgPhysicalContactFactV1, RpgRuntimeBindingsV1,
-    RuntimeDeterminismProfileV1, WorldCommand,
+use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::command::{
+    COMMAND_ENVELOPE_SCHEMA_VERSION, CommandPhase, DomainEvent, IssuerPrincipal, WorldCommand,
 };
+use next_contracts::identity::{
+    CommandStreamRegistryV1, PrincipalRegistryV1, RuntimeDeterminismProfileV1,
+};
+use next_contracts::ids::{CommandId, CommandStreamId};
+use next_contracts::input::{IngressCheckpointV1, PlayerControllerRegistryV1};
+use next_contracts::ledger::{CommandBodyArchiveV1, CommandLedgerError, CommandLedgerV2};
+use next_contracts::physics::{
+    AcceptedLocomotionIntentV2, ClosedPhysicsContactBatchV1, PhysicsStepInputV2,
+};
+use next_contracts::rpg::{RpgPhysicalContactFactV1, RpgRuntimeBindingsV1};
 use next_physics_api::PhysicsWorldHost;
 use next_rpg::RpgState;
 

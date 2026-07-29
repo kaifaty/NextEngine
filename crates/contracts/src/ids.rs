@@ -56,6 +56,10 @@ opaque_id!(CommandBodyHash, 32);
 opaque_id!(InputSourceId, 16);
 opaque_id!(PhysicsWorldId, 16);
 opaque_id!(PhysicsContactId, 16);
+opaque_id!(ApplicationSessionId, 16);
+opaque_id!(SessionRequestId, 16);
+opaque_id!(SessionTransitionId, 16);
+opaque_id!(CloseRequestId, 16);
 
 #[must_use]
 pub const fn content_hash_from_bytes(bytes: [u8; 32]) -> ContentHash {
@@ -133,7 +137,7 @@ impl PersistentId {
         preimage.extend_from_slice(&spawn_slot.to_le_bytes());
         preimage.extend_from_slice(&record_kind_length.to_le_bytes());
         preimage.extend_from_slice(record_kind_bytes);
-        let digest = crate::sha256(&preimage);
+        let digest = crate::canonical::sha256(&preimage);
         let mut truncated = [0; 16];
         truncated.copy_from_slice(&digest[..16]);
         Self::from_bytes(truncated)

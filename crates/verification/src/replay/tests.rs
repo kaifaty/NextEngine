@@ -1,15 +1,23 @@
-use next_contracts::{
-    AuthorityGrant, CanonicalDecodeLimits, CapabilityId, ContentHash, IssuerPrincipal,
-    ManifestCodecError, ManifestValidationError, NOOP_COMMAND_CAPABILITY_ID,
+use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::command::{IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID, WorldCommand};
+use next_contracts::ids::{CapabilityId, ContentHash, PlayerPrincipalId, SchemaId, StateRoot};
+use next_contracts::persistence::{
+    AuthorityGrant, ManifestCodecError, ManifestValidationError, REPLAY_MANIFEST_V4_SCHEMA_VERSION,
+    ReplayCommandRecord, ReplayComparePointV4, ReplayManifestV4, ReplayOwnerSegmentV2,
+    ReplayTickManifestV4, SaveCompatibility, SaveSegmentDescriptor, TickSettings,
+};
+use next_contracts::physics::{
     PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
-    PhysicsWorldCheckpointV1, PlayerPrincipalId, REPLAY_MANIFEST_V4_SCHEMA_VERSION,
+    PhysicsWorldCheckpointV1,
+};
+use next_contracts::rpg::{
     RPG_AGGREGATE_SNAPSHOT_OWNER_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
     RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION, RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID,
+};
+use next_contracts::snapshot::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SCHEMA_VERSION,
-    RUNTIME_SNAPSHOT_SEGMENT_ID, ReplayCommandRecord, ReplayComparePointV4, ReplayManifestV4,
-    ReplayOwnerSegmentV2, ReplayTickManifestV4, SaveCompatibility, SaveSegmentDescriptor, SchemaId,
-    StateRoot, TickSettings, WorldCheckpointV4, WorldCommand,
+    RUNTIME_SNAPSHOT_SEGMENT_ID, WorldCheckpointV4,
 };
 use next_runtime::{AuthorityRegistry, RuntimeReplayDriver, RuntimeReplayError, RuntimeState};
 
@@ -21,7 +29,7 @@ use super::{
 use crate::{StateSegment, build_neutral_runtime_fixture, compute_state_root};
 
 fn command(
-    stream: next_contracts::CommandStreamId,
+    stream: next_contracts::ids::CommandStreamId,
     issuer: IssuerPrincipal,
     sequence: u64,
     tick: u64,
@@ -401,7 +409,7 @@ fn replay_driver_rejects_command_batch_before_state_mutation() {
         error,
         RuntimeReplayError::CommandBatchMismatch {
             tick: 0,
-            phase: next_contracts::CommandPhase::Ingress,
+            phase: next_contracts::command::CommandPhase::Ingress,
         }
     ));
     assert_eq!(

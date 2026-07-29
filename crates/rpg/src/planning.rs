@@ -1,10 +1,11 @@
 use std::collections::BTreeMap;
 
-use next_contracts::{
-    CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID, CommandBodyHash, CommandId, ContentHash,
+use next_contracts::ids::{CommandBodyHash, CommandId, ContentHash, SchemaId};
+use next_contracts::rpg::CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID;
+use next_contracts::rpg::{
     DefinitionRefV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregateRefV1, RpgCommandV1,
     RpgEventDraftV1, RpgOperationPayloadV1, RpgPhysicalContactFactV1, RpgReadSetEntryV1,
-    RpgTransactionPlanV1, RpgWriteSetEntryV1, SchemaId,
+    RpgTransactionPlanV1, RpgWriteSetEntryV1,
 };
 
 use crate::operation::apply_operation;
@@ -223,7 +224,7 @@ fn validate_physical_preconditions(
 
 fn validate_operation_policy(
     state: &RpgState,
-    operation: &next_contracts::RpgOperationV1,
+    operation: &next_contracts::rpg::RpgOperationV1,
 ) -> Result<(), RpgPlanBuildError> {
     let RpgOperationPayloadV1::AssignEquipment { equipment_id, .. } = &operation.payload else {
         return Ok(());

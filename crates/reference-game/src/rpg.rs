@@ -1,16 +1,18 @@
-use next_contracts::{
-    AssetId, AssetRevisionRefV1, CORE_CHARACTER_HEALTH_RESOURCE_ID,
-    CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CharacterPayloadV1, CharacterResourceEntryV1,
-    ContentHash, DefinitionRefV1, DialoguePayloadV1, EquipmentPayloadV1,
-    InteractiveObjectPayloadV1, InventoryPayloadV1, ItemPayloadV1, PersistentId,
+use next_contracts::ids::{AssetId, ContentHash, PersistentId, SchemaId};
+use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
+use next_contracts::project::AssetRevisionRefV1;
+use next_contracts::rpg::CORE_INTERACTIVE_OBJECT_READY_STATE_ID;
+use next_contracts::rpg::{
+    CharacterPayloadV1, CharacterResourceEntryV1, DefinitionRefV1, DialoguePayloadV1,
+    EquipmentPayloadV1, InteractiveObjectPayloadV1, InventoryPayloadV1, ItemPayloadV1,
     ProvenanceBindingV1, QuestPayloadV1, RelationshipDimensionV1, RelationshipPayloadV1,
-    RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2, SchemaId,
+    RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2,
 };
 
-use super::construction::NeutralPlayerFixture;
+use crate::ReferenceGameSession;
 
 #[must_use]
-pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapshotV2 {
+pub fn cooked_project_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapshotV2 {
     let definitions = &fixture.activated_project.rpg_definitions;
     let dialogue_definition = definitions
         .dialogues
@@ -40,7 +42,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapsho
         maximum_value: 100,
     };
     let mut aggregates = vec![
-        fixture_aggregate(
+        reference_aggregate(
             fixture.body_id,
             0x54,
             RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
@@ -59,7 +61,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapsho
                 custom_state: Vec::new(),
             }),
         ),
-        fixture_aggregate(
+        reference_aggregate(
             fixture.player_inventory_id,
             0x5d,
             RpgAggregatePayloadV1::Inventory(InventoryPayloadV1 {
@@ -69,7 +71,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapsho
                 reservations: Vec::new(),
             }),
         ),
-        fixture_aggregate(
+        reference_aggregate(
             fixture.player_equipment_id,
             0x5e,
             RpgAggregatePayloadV1::Equipment(EquipmentPayloadV1 {
@@ -81,7 +83,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapsho
                 assignments: Vec::new(),
             }),
         ),
-        fixture_aggregate(
+        reference_aggregate(
             fixture.npc_character_id,
             0x59,
             RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
@@ -100,7 +102,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapsho
                 custom_state: Vec::new(),
             }),
         ),
-        fixture_aggregate(
+        reference_aggregate(
             fixture.npc_inventory_id,
             0x61,
             RpgAggregatePayloadV1::Inventory(InventoryPayloadV1 {
@@ -110,7 +112,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapsho
                 reservations: Vec::new(),
             }),
         ),
-        fixture_aggregate(
+        reference_aggregate(
             fixture.npc_equipment_id,
             0x62,
             RpgAggregatePayloadV1::Equipment(EquipmentPayloadV1 {
@@ -119,7 +121,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapsho
                     asset_id: AssetId::from_bytes([0x62; 16]),
                     content_hash: next_runtime::bootstrap_equipment_slot_policy_hash_v1(),
                 },
-                assignments: vec![next_contracts::EquipmentSlotAssignmentV1 {
+                assignments: vec![next_contracts::rpg::EquipmentSlotAssignmentV1 {
                     slot_id: ability_definition.required_equipment_slot_id.clone(),
                     item_id: fixture.npc_weapon_item_id,
                 }],
@@ -153,7 +155,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapsho
                 }],
             }),
         ),
-        fixture_aggregate(
+        reference_aggregate(
             fixture.interactive_object_id,
             0x58,
             RpgAggregatePayloadV1::InteractiveObject(InteractiveObjectPayloadV1 {
@@ -162,7 +164,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapsho
                 linked_item_id: None,
             }),
         ),
-        fixture_aggregate(
+        reference_aggregate(
             fixture.pickup_proxy_id,
             0x60,
             RpgAggregatePayloadV1::InteractiveObject(InteractiveObjectPayloadV1 {
@@ -178,7 +180,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &NeutralPlayerFixture) -> RpgSnapsho
 
 #[must_use]
 pub fn cooked_interaction_outcome(
-    fixture: &NeutralPlayerFixture,
+    fixture: &ReferenceGameSession,
 ) -> (SchemaId, SchemaId, SchemaId, i32) {
     let definitions = &fixture.activated_project.rpg_definitions;
     let interaction = definitions
@@ -238,7 +240,7 @@ fn fixture_aggregate_from_asset(
     .expect("cooked fixture aggregate is canonical")
 }
 
-pub(crate) fn fixture_aggregate(
+pub fn reference_aggregate(
     persistent_id: PersistentId,
     definition_seed: u8,
     payload: RpgAggregatePayloadV1,
@@ -257,7 +259,7 @@ pub(crate) fn fixture_aggregate(
     .expect("built-in fixture aggregate is valid")
 }
 
-pub(super) fn aggregate_payload(
+pub fn aggregate_payload(
     snapshot: &RpgSnapshotV2,
     kind: RpgAggregateKindV1,
     persistent_id: PersistentId,

@@ -2,12 +2,14 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use crate::canonical::CanonicalCursor;
-use crate::{
-    AssetId, CANONICAL_TYPE_HASH256, CANONICAL_TYPE_ID128, CANONICAL_TYPE_MAP,
-    CANONICAL_TYPE_SEQUENCE, CANONICAL_TYPE_U8, CANONICAL_TYPE_U32, CanonicalDecodeError,
-    CanonicalDecodeLimits, CanonicalError, CanonicalField, ContentHash, PersistentId,
-    ProjectContractError, SchemaEncodingV1, SchemaId, SchemaRefV1, SchemaRoleV1,
-    decode_canonical_segment, domain_hash, encode_canonical_segment,
+use crate::canonical::{
+    CANONICAL_TYPE_HASH256, CANONICAL_TYPE_ID128, CANONICAL_TYPE_MAP, CANONICAL_TYPE_SEQUENCE,
+    CANONICAL_TYPE_U8, CANONICAL_TYPE_U32, CanonicalDecodeError, CanonicalDecodeLimits,
+    CanonicalError, CanonicalField, decode_canonical_segment, encode_canonical_segment,
+};
+use crate::ids::{AssetId, ContentHash, PersistentId, SchemaId};
+use crate::project::{
+    ProjectContractError, SchemaEncodingV1, SchemaRefV1, SchemaRoleV1, domain_hash,
 };
 
 pub const NEUTRAL_RECORD_OWNER_ID: &str = "nextengine.assets";
@@ -254,7 +256,7 @@ impl NeutralRecordV1 {
 pub enum NeutralRecordError {
     Canonical(CanonicalError),
     Decode(CanonicalDecodeError),
-    Identifier(crate::IdentifierError),
+    Identifier(crate::ids::IdentifierError),
     Project(ProjectContractError),
     SchemaMismatch,
     EnvelopeMismatch,
@@ -310,8 +312,8 @@ impl From<CanonicalDecodeError> for NeutralRecordError {
     }
 }
 
-impl From<crate::IdentifierError> for NeutralRecordError {
-    fn from(error: crate::IdentifierError) -> Self {
+impl From<crate::ids::IdentifierError> for NeutralRecordError {
+    fn from(error: crate::ids::IdentifierError) -> Self {
         Self::Identifier(error)
     }
 }
@@ -323,7 +325,7 @@ impl From<ProjectContractError> for NeutralRecordError {
 }
 
 fn field(
-    segment: &crate::DecodedCanonicalSegment,
+    segment: &crate::canonical::DecodedCanonicalSegment,
     field_id: u32,
     expected_type: u8,
 ) -> Result<&[u8], NeutralRecordError> {
@@ -488,10 +490,9 @@ fn enforce_limit(actual: usize, limit: usize) -> Result<(), NeutralRecordError> 
 #[cfg(test)]
 mod tests {
     use super::{NeutralPropertyV1, NeutralRecordKindV1, NeutralRecordV1};
-    use crate::{
-        AssetId, CanonicalDecodeLimits, PersistentId, SchemaEncodingV1, SchemaId, SchemaRefV1,
-        SchemaRoleV1, domain_hash,
-    };
+    use crate::canonical::CanonicalDecodeLimits;
+    use crate::ids::{AssetId, PersistentId, SchemaId};
+    use crate::project::{SchemaEncodingV1, SchemaRefV1, SchemaRoleV1, domain_hash};
 
     #[test]
     fn every_neutral_kind_round_trips_canonically() {

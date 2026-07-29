@@ -4,7 +4,9 @@ use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{ContentHash, PresentationPrimitiveV1, PresentationSnapshotV2, domain_hash};
+use next_contracts::ids::ContentHash;
+use next_contracts::presentation::{PresentationPrimitiveV1, PresentationSnapshotV2};
+use next_contracts::project::domain_hash;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RenderTargetV1 {
@@ -111,7 +113,7 @@ impl RenderDevice for ReferenceB0Renderer {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum RenderDeviceError {
-    Presentation(next_contracts::PresentationContractError),
+    Presentation(next_contracts::presentation::PresentationContractError),
     InvalidTarget,
     DeviceLost,
     RequiredScenePrimitiveMissing,
@@ -134,8 +136,8 @@ impl Display for RenderDeviceError {
 
 impl Error for RenderDeviceError {}
 
-impl From<next_contracts::PresentationContractError> for RenderDeviceError {
-    fn from(error: next_contracts::PresentationContractError) -> Self {
+impl From<next_contracts::presentation::PresentationContractError> for RenderDeviceError {
+    fn from(error: next_contracts::presentation::PresentationContractError) -> Self {
         Self::Presentation(error)
     }
 }
@@ -143,9 +145,10 @@ impl From<next_contracts::PresentationContractError> for RenderDeviceError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use next_contracts::{
-        AssetId, PersistentId, PresentationObjectKeyV1, PresentationRoleV1,
-        QuantizedPresentationTransformV1, ScenePresentationRecordV2,
+    use next_contracts::ids::{AssetId, PersistentId};
+    use next_contracts::presentation::{
+        PresentationObjectKeyV1, PresentationRoleV1, QuantizedPresentationTransformV1,
+        ScenePresentationRecordV2,
     };
 
     #[test]

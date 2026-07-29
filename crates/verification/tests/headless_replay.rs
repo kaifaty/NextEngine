@@ -1,7 +1,5 @@
-use next_contracts::{
-    CapabilityId, CommandId, CommandStreamId, IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID,
-    PlayerPrincipalId, WorldCommand,
-};
+use next_contracts::command::{IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID, WorldCommand};
+use next_contracts::ids::{CapabilityId, CommandId, CommandStreamId, PlayerPrincipalId};
 use next_runtime::{CommandDisposition, RejectionCode, RuntimeState};
 use next_verification::{
     NeutralRuntimeFixture, ReplayInput, ReplayTickInput, build_neutral_runtime_fixture,

@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish = false
 
 [features]
 default = []
@@ -13,9 +14,13 @@ physx-mock = ["next_verification/physx-mock"]
 
 [dependencies]
 next_assets.workspace = true
+next_application.workspace = true
 next_contracts.workspace = true
 next_project.workspace = true
+next_reference_game.workspace = true
 next_verification.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

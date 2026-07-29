@@ -2,7 +2,7 @@ use crate::canonical::{
     CANONICAL_TYPE_HASH256, CANONICAL_TYPE_U16, CANONICAL_TYPE_U32, CanonicalDecodeLimits,
     CanonicalError, CanonicalField, decode_canonical_segment, encode_canonical_segment, sha256,
 };
-use crate::{ContentHash, content_hash_from_bytes};
+use crate::ids::{ContentHash, content_hash_from_bytes};
 
 use super::codec::{read_hash, read_u16, read_u32, require_envelope, require_fields};
 use super::derivation::runtime_profile_hash;
@@ -36,16 +36,16 @@ impl RuntimeDeterminismProfileV1 {
     #[must_use]
     pub fn bootstrap_default(command_kind_registry_hash: ContentHash) -> Self {
         let fixed = |name: &[u8]| content_hash_from_bytes(sha256(name));
-        let admission_limits = crate::RuntimeAdmissionLimitsV1::default();
-        let tick_rate_profile = crate::TickRateProfileV1::at_30_hz();
+        let admission_limits = crate::input::RuntimeAdmissionLimitsV1::default();
+        let tick_rate_profile = crate::input::TickRateProfileV1::at_30_hz();
         let ingress_assignment_profile =
-            crate::IngressAssignmentProfileV1::core_v1(&admission_limits)
+            crate::input::IngressAssignmentProfileV1::core_v1(&admission_limits)
                 .expect("the built-in ingress profile is canonically representable");
         let physics_quantization_profile =
-            crate::PhysicsQuantizationProfileV1::capsule_reference_v1()
+            crate::physics::PhysicsQuantizationProfileV1::capsule_reference_v1()
                 .expect("the built-in physics profile identifiers are valid");
         let authoritative_numeric_profile =
-            crate::AuthoritativeNumericProfileV1::capsule_reference_v1(
+            crate::physics::AuthoritativeNumericProfileV1::capsule_reference_v1(
                 &physics_quantization_profile,
             )
             .expect("the built-in numeric profile is canonically representable");

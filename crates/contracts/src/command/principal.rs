@@ -127,7 +127,7 @@ impl IssuerPrincipal {
 pub enum PrincipalDecodeError {
     InputTooLarge { actual: usize, limit: usize },
     Canonical(CanonicalDecodeError),
-    Identifier(crate::IdentifierError),
+    Identifier(crate::ids::IdentifierError),
     WrongType(u8),
     InvalidNestedType { expected: u8, actual: u8 },
     InvalidNestedLength { expected: usize, actual: usize },
@@ -168,8 +168,8 @@ impl From<CanonicalDecodeError> for PrincipalDecodeError {
     }
 }
 
-impl From<crate::IdentifierError> for PrincipalDecodeError {
-    fn from(error: crate::IdentifierError) -> Self {
+impl From<crate::ids::IdentifierError> for PrincipalDecodeError {
+    fn from(error: crate::ids::IdentifierError) -> Self {
         Self::Identifier(error)
     }
 }

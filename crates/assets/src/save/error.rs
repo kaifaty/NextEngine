@@ -2,10 +2,12 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 
-use next_contracts::{
-    CanonicalError, ManifestCodecError, ManifestValidationError, PhysicsContractError,
-    RpgContractErrorV1, SnapshotDecodeError, WorldCheckpointError, WorldStreamingContractError,
-};
+use next_contracts::canonical::CanonicalError;
+use next_contracts::persistence::{ManifestCodecError, ManifestValidationError};
+use next_contracts::physics::PhysicsContractError;
+use next_contracts::rpg::RpgContractErrorV1;
+use next_contracts::snapshot::{SnapshotDecodeError, WorldCheckpointError};
+use next_contracts::world::WorldStreamingContractError;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PreservedFile {

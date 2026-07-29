@@ -1,18 +1,29 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use crate::{
-    AuthoritativeNumericProfileV1, CANONICAL_TYPE_BYTES, CANONICAL_TYPE_U16, CANONICAL_TYPE_U32,
-    CANONICAL_TYPE_U64, CanonicalDecodeError, CanonicalDecodeLimits, CanonicalError,
-    CanonicalField, CausalIdentityKey, CausalIdentityKind, CommandBodyArchiveV1,
-    CommandLedgerError, CommandLedgerHash, CommandLedgerV2, CommandStreamRegistryV1,
-    IdentityContractError, IngressAssignmentProfileV1, IngressCheckpointV1, InputContractError,
-    IssuerPrincipal, PhysicsContractError, PhysicsQuantizationProfileV1,
-    PlayerControllerRegistryV1, PrincipalRegistryV1, RpgContractErrorV1, RpgRuntimeBindingsV1,
-    RuntimeAdmissionLimitsV1, RuntimeDeterminismProfileV1, TickRateProfileV1,
-    WorldIdentityManifestV1, causal_provenance_hash, decode_canonical_segment,
-    encode_canonical_segment,
+use crate::canonical::{
+    CANONICAL_TYPE_BYTES, CANONICAL_TYPE_U16, CANONICAL_TYPE_U32, CANONICAL_TYPE_U64,
+    CanonicalDecodeError, CanonicalDecodeLimits, CanonicalError, CanonicalField,
+    decode_canonical_segment, encode_canonical_segment,
 };
+use crate::command::IssuerPrincipal;
+use crate::identity::{
+    CommandStreamRegistryV1, IdentityContractError, PrincipalRegistryV1,
+    RuntimeDeterminismProfileV1, WorldIdentityManifestV1,
+};
+use crate::ids::CommandLedgerHash;
+use crate::input::{
+    IngressAssignmentProfileV1, IngressCheckpointV1, InputContractError,
+    PlayerControllerRegistryV1, RuntimeAdmissionLimitsV1, TickRateProfileV1,
+};
+use crate::ledger::{
+    CausalIdentityKey, CausalIdentityKind, CommandBodyArchiveV1, CommandLedgerError,
+    CommandLedgerV2, causal_provenance_hash,
+};
+use crate::physics::{
+    AuthoritativeNumericProfileV1, PhysicsContractError, PhysicsQuantizationProfileV1,
+};
+use crate::rpg::{RpgContractErrorV1, RpgRuntimeBindingsV1};
 
 pub const RUNTIME_SNAPSHOT_SCHEMA_VERSION: u32 = 3;
 pub const RUNTIME_SNAPSHOT_OWNER_ID: &str = "nextengine.runtime";
@@ -39,8 +50,6 @@ pub struct RuntimeSnapshotV3 {
     pub command_ledger: CommandLedgerV2,
     pub body_archive: CommandBodyArchiveV1,
 }
-
-pub type RuntimeSnapshot = RuntimeSnapshotV3;
 
 impl RuntimeSnapshotV3 {
     pub fn validate(&self) -> Result<(), SnapshotDecodeError> {
@@ -560,7 +569,9 @@ impl From<RpgContractErrorV1> for SnapshotDecodeError {
     }
 }
 
-fn require_fields(segment: &crate::DecodedCanonicalSegment) -> Result<(), SnapshotDecodeError> {
+fn require_fields(
+    segment: &crate::canonical::DecodedCanonicalSegment,
+) -> Result<(), SnapshotDecodeError> {
     const EXPECTED: [(u32, u8); 18] = [
         (1, CANONICAL_TYPE_U16),
         (2, CANONICAL_TYPE_U64),
@@ -601,14 +612,20 @@ fn require_fields(segment: &crate::DecodedCanonicalSegment) -> Result<(), Snapsh
     Ok(())
 }
 
-fn field(segment: &crate::DecodedCanonicalSegment, id: u32) -> Result<&[u8], SnapshotDecodeError> {
+fn field(
+    segment: &crate::canonical::DecodedCanonicalSegment,
+    id: u32,
+) -> Result<&[u8], SnapshotDecodeError> {
     Ok(&segment
         .field(id)
         .ok_or(SnapshotDecodeError::MissingField(id))?
         .payload)
 }
 
-fn read_u64(segment: &crate::DecodedCanonicalSegment, id: u32) -> Result<u64, SnapshotDecodeError> {
+fn read_u64(
+    segment: &crate::canonical::DecodedCanonicalSegment,
+    id: u32,
+) -> Result<u64, SnapshotDecodeError> {
     let payload = field(segment, id)?;
     Ok(u64::from_le_bytes(payload.try_into().map_err(|_| {
         SnapshotDecodeError::FieldLength {

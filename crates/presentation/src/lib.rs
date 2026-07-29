@@ -3,12 +3,14 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{
-    AssetId, ContentHash, PersistentId, PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2,
+use next_contracts::ids::{AssetId, ContentHash, PersistentId};
+use next_contracts::physics::{PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2};
+use next_contracts::presentation::{
     PresentationContractError, PresentationObjectKeyV1, PresentationPrimitiveV1,
     PresentationRoleV1, PresentationSnapshotV2, QuantizedPresentationTransformV1,
-    ScenePresentationRecordV2, domain_hash,
+    ScenePresentationRecordV2,
 };
+use next_contracts::project::domain_hash;
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct PresentationBindingV1 {
@@ -176,10 +178,12 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use next_contracts::{
+    use next_contracts::ids::PhysicsWorldId;
+    use next_contracts::input::TickRateProfileV1;
+    use next_contracts::physics::{
         AuthoritativeNumericProfileV1, PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1,
         PhysicsQuantizationProfileV1, PhysicsSolverSemanticsProfileV1,
-        PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1, PhysicsWorldId, TickRateProfileV1,
+        PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
     };
 
     #[test]

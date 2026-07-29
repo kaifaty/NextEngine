@@ -1,9 +1,12 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use next_contracts::{
-    AssetId, AssetRevisionRefV1, ContentHash, RpgSnapshotV2, RuntimeSnapshot, SaveCompatibility,
-    SchemaId, TickSettings, WorldChunkLifecycleV1, WorldChunkResidencyRecordV1,
-    WorldStreamingSnapshotV1,
+use next_contracts::ids::{AssetId, ContentHash, SchemaId};
+use next_contracts::persistence::{SaveCompatibility, TickSettings};
+use next_contracts::project::AssetRevisionRefV1;
+use next_contracts::rpg::RpgSnapshotV2;
+use next_contracts::snapshot::RuntimeSnapshotV3;
+use next_contracts::world::{
+    WorldChunkLifecycleV1, WorldChunkResidencyRecordV1, WorldStreamingSnapshotV1,
 };
 
 use super::error::SaveLoadError;
@@ -56,7 +59,7 @@ fn compatibility(seed: u8) -> SaveCompatibility {
     }
 }
 
-fn snapshot(revision: u64) -> RuntimeSnapshot {
+fn snapshot(revision: u64) -> RuntimeSnapshotV3 {
     let bootstrap =
         next_runtime::RuntimeBootstrapV3::neutral_empty().expect("neutral bootstrap is valid");
     let runtime =

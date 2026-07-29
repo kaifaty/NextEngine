@@ -1,11 +1,11 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{
-    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, ClosedPhysicsContactBatchV1, CommandPhase,
-    PhysicsStepInputV2, RpgDefinitionRegistryV1, WorldCheckpointError, WorldCheckpointV4,
-    WorldCommand,
-};
+use next_contracts::command::{CommandPhase, WorldCommand};
+use next_contracts::input::{ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1};
+use next_contracts::mechanics::RpgDefinitionRegistryV1;
+use next_contracts::physics::{ClosedPhysicsContactBatchV1, PhysicsStepInputV2};
+use next_contracts::snapshot::{WorldCheckpointError, WorldCheckpointV4};
 use next_physics_api::{PhysicsBackendError, ReferencePhysicsError};
 
 use crate::authority::AuthorityRegistry;

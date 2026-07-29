@@ -1,10 +1,15 @@
-use next_contracts::{
-    CORE_INTERACT_ACTION_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID, CORE_MOVE_ACTION_ID,
-    CommandLedgerHash, EventPayload, INPUT_SAMPLE_SCHEMA_VERSION, InputMappingCodeV1,
-    InputSampleV1, InteractiveObjectPayloadV1, PLAYER_ACTION_FRAME_SCHEMA_ID,
-    PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PlayerActionFrameV1,
-    PlayerActionPhaseV1, PlayerActionV1, PlayerActionValueV1, RpgAggregateEnvelopeV1,
-    RpgAggregateKindV1, RpgAggregatePayloadV1, RpgEventV1, RpgSnapshotV2, SchemaId,
+use next_contracts::command::EventPayload;
+use next_contracts::ids::{CommandLedgerHash, SchemaId};
+use next_contracts::input::{
+    CORE_INTERACT_ACTION_ID, CORE_MOVE_ACTION_ID, INPUT_SAMPLE_SCHEMA_VERSION, InputMappingCodeV1,
+    InputSampleV1, PLAYER_ACTION_FRAME_SCHEMA_ID, PLAYER_ACTION_FRAME_SCHEMA_VERSION,
+    PLAYER_ACTION_SOURCE_CLASS, PlayerActionFrameV1, PlayerActionPhaseV1, PlayerActionV1,
+    PlayerActionValueV1,
+};
+use next_contracts::rpg::CORE_INTERACTIVE_OBJECT_READY_STATE_ID;
+use next_contracts::rpg::{
+    InteractiveObjectPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1,
+    RpgEventV1, RpgSnapshotV2,
 };
 #[cfg(any(feature = "physx", feature = "physx-mock"))]
 use next_physics_api::PhysicsBackendPolicy;
@@ -12,8 +17,8 @@ use next_physics_api::PhysicsBackendPolicy;
 use next_runtime::PhysicsLaunchOptions;
 use next_runtime::{RuntimeState, SnapshotRestoreError};
 
-use super::rpg::aggregate_payload;
 use super::*;
+use next_reference_game::aggregate_payload;
 
 fn interactive_snapshot(fixture: &NeutralPlayerFixture, state: &str) -> RpgSnapshotV2 {
     RpgSnapshotV2 {

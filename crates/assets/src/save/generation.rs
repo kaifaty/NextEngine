@@ -3,11 +3,14 @@ use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 
-use next_contracts::{
-    CanonicalDecodeLimits, ManifestCodecError, ManifestValidationError, PhysicsWorldCheckpointV1,
-    RpgSnapshotV2, RuntimeSnapshot, SaveCompatibility, SaveManifestV2, WorldCheckpointV4,
-    WorldStreamingSnapshotV1,
+use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::persistence::{
+    ManifestCodecError, ManifestValidationError, SaveCompatibility, SaveManifestV2,
 };
+use next_contracts::physics::PhysicsWorldCheckpointV1;
+use next_contracts::rpg::RpgSnapshotV2;
+use next_contracts::snapshot::{RuntimeSnapshotV3, WorldCheckpointV4};
+use next_contracts::world::WorldStreamingSnapshotV1;
 
 use super::error::{PreservedFile, RejectedGeneration, SaveStoreError};
 use super::image::SaveImage;
@@ -20,7 +23,7 @@ pub(super) const SEGMENTS_DIRECTORY: &str = "segments";
 pub struct LoadedSave {
     pub image: SaveImage,
     pub checkpoint: WorldCheckpointV4,
-    pub snapshot: RuntimeSnapshot,
+    pub snapshot: RuntimeSnapshotV3,
     pub rpg_snapshot: RpgSnapshotV2,
     pub physics_checkpoint: PhysicsWorldCheckpointV1,
     pub world_streaming_snapshot: Option<WorldStreamingSnapshotV1>,

@@ -10,14 +10,82 @@ use source_layout::{collect_strict_source_files, validate_source_layout};
 
 pub fn boundary_scan(root: &Path) -> Result<(), String> {
     validate_source_layout(root)?;
+    validate_publish_policy(root)?;
     validate_public_contracts(root)?;
     validate_mechanics_package_boundary(root)?;
+    validate_production_verification_boundary(root)?;
     validate_importer_boundary(root)?;
     validate_ffi_policy(root)?;
-    println!(
-        "PASS boundary-scan: bounded Rust sources, public contracts, public mechanics package path, importer boundary and audited FFI allowlist verified"
-    );
     Ok(())
+}
+
+fn validate_production_verification_boundary(root: &Path) -> Result<(), String> {
+    for manifest in ["apps/game/Cargo.toml", "apps/headless/Cargo.toml"] {
+        let body = read(&root.join(manifest))?;
+        let dependencies = body
+            .split_once("[dependencies]")
+            .map(|(_, body)| body.split("\n[").next().unwrap_or(body))
+            .unwrap_or_default();
+        if dependencies.contains("next_verification") {
+            return Err(format!(
+                "BOUNDARY_PRODUCTION_VERIFICATION_DEPENDENCY: {manifest}"
+            ));
+        }
+    }
+    for directory in [
+        "apps/game/src",
+        "apps/headless/src",
+        "crates/application/src",
+        "crates/assets/src",
+        "crates/project/src",
+        "crates/reference-game/src",
+        "crates/runtime/src",
+    ] {
+        if let Some(path) = find_source_file_containing(&root.join(directory), "next_verification")?
+        {
+            return Err(format!(
+                "BOUNDARY_PRODUCTION_VERIFICATION_REFERENCE: {}",
+                path.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_publish_policy(root: &Path) -> Result<(), String> {
+    let mut manifests = Vec::new();
+    collect_named_files(root, "Cargo.toml", &mut manifests)?;
+    for manifest in manifests
+        .into_iter()
+        .filter(|manifest| manifest != &root.join("Cargo.toml"))
+    {
+        let body = read(&manifest)?;
+        let Some(name) = package_name(&body) else {
+            continue;
+        };
+        if !package_publish_is_false(&body) {
+            return Err(format!(
+                "PACKAGE_PUBLISH_POLICY_MISSING: {name} in {}",
+                manifest.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn package_publish_is_false(manifest: &str) -> bool {
+    let mut in_package = false;
+    for line in manifest.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') {
+            in_package = trimmed == "[package]";
+            continue;
+        }
+        if in_package && trimmed == "publish = false" {
+            return true;
+        }
+    }
+    false
 }
 
 fn validate_mechanics_package_boundary(root: &Path) -> Result<(), String> {
@@ -389,6 +457,7 @@ mod tests {
 
     use super::{
         contains_forbidden_public_token, contains_unsafe_code, find_source_file_containing,
+        package_publish_is_false,
     };
 
     fn temporary_source_root(label: &str) -> PathBuf {
@@ -417,6 +486,19 @@ mod tests {
         assert!(contains_unsafe_code("unsafe extern \"C\" { fn call(); }"));
         assert!(!contains_unsafe_code(
             "const NOTE: &str = \"unsafe extern C\";"
+        ));
+    }
+
+    #[test]
+    fn publish_policy_must_be_explicit_and_false_in_the_package_section() {
+        assert!(package_publish_is_false(
+            "[package]\nname = \"demo\"\npublish = false\n\n[dependencies]\n"
+        ));
+        assert!(!package_publish_is_false(
+            "[package]\nname = \"demo\"\n\n[dependencies]\npublish = false\n"
+        ));
+        assert!(!package_publish_is_false(
+            "[package]\nname = \"demo\"\npublish = true\n"
         ));
     }
 

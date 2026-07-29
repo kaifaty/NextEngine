@@ -5,7 +5,8 @@ use crate::canonical::{
     CANONICAL_TYPE_U32, CanonicalDecodeLimits, CanonicalError, CanonicalField,
     decode_canonical_segment, encode_canonical_segment,
 };
-use crate::{CommandStreamId, IssuerPrincipal, WorldNamespaceId};
+use crate::command::IssuerPrincipal;
+use crate::ids::{CommandStreamId, WorldNamespaceId};
 
 use super::codec::{
     decode_map, decode_nested_fixed, decode_nested_id, decode_nested_struct, encode_map, field,

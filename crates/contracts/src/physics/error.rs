@@ -8,7 +8,7 @@ use crate::canonical::{CanonicalDecodeError, CanonicalError};
 pub enum PhysicsContractError {
     Canonical(CanonicalDecodeError),
     Canonicalization(CanonicalError),
-    Identifier(crate::IdentifierError),
+    Identifier(crate::ids::IdentifierError),
     WrongEnvelope,
     UnknownField(u32),
     MissingField(u32),
@@ -108,17 +108,19 @@ impl From<CanonicalError> for PhysicsContractError {
     }
 }
 
-impl From<crate::IdentifierError> for PhysicsContractError {
-    fn from(error: crate::IdentifierError) -> Self {
+impl From<crate::ids::IdentifierError> for PhysicsContractError {
+    fn from(error: crate::ids::IdentifierError) -> Self {
         Self::Identifier(error)
     }
 }
 
-impl From<crate::InputContractError> for PhysicsContractError {
-    fn from(error: crate::InputContractError) -> Self {
+impl From<crate::input::InputContractError> for PhysicsContractError {
+    fn from(error: crate::input::InputContractError) -> Self {
         match error {
-            crate::InputContractError::Canonical(error) => Self::Canonical(error),
-            crate::InputContractError::Canonicalization(error) => Self::Canonicalization(error),
+            crate::input::InputContractError::Canonical(error) => Self::Canonical(error),
+            crate::input::InputContractError::Canonicalization(error) => {
+                Self::Canonicalization(error)
+            }
             _ => Self::InvalidProfile,
         }
     }

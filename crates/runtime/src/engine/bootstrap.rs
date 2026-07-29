@@ -1,15 +1,26 @@
 use std::collections::BTreeMap;
 
-use next_contracts::{
-    AuthoritativeNumericProfileV1, CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CanonicalDecodeLimits,
-    CausalIdentityKey, CausalIdentityKind, CommandLedgerV2, CommandStreamRegistryV1, ContentHash,
-    CoreDialogueQuestClosureError, IdentityInsertResult, IngressAssignmentProfileV1,
-    IssuerPrincipal, PhysicsMotionKindV1, PhysicsQuantizationProfileV1, PhysicsWorldCheckpointV1,
-    PhysicsWorldId, PlayerControllerRegistryV1, PrincipalRegistryV1, ProjectId,
-    RpgDefinitionRegistryV1, RpgRuntimeBindingsV1, RpgSnapshotV2, RuntimeAdmissionLimitsV1,
-    RuntimeDeterminismProfileV1, TickRateProfileV1, WorldIdentityManifestV1,
-    interaction_definition_hash,
+use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::command::IssuerPrincipal;
+use next_contracts::identity::{
+    CommandStreamRegistryV1, PrincipalRegistryV1, RuntimeDeterminismProfileV1,
+    WorldIdentityManifestV1,
 };
+use next_contracts::ids::{ContentHash, PhysicsWorldId, ProjectId};
+use next_contracts::input::{
+    IngressAssignmentProfileV1, PlayerControllerRegistryV1, RuntimeAdmissionLimitsV1,
+    TickRateProfileV1,
+};
+use next_contracts::ledger::{
+    CausalIdentityKey, CausalIdentityKind, CommandLedgerV2, IdentityInsertResult,
+};
+use next_contracts::mechanics::{RpgDefinitionRegistryV1, interaction_definition_hash};
+use next_contracts::physics::{
+    AuthoritativeNumericProfileV1, PhysicsMotionKindV1, PhysicsQuantizationProfileV1,
+    PhysicsWorldCheckpointV1,
+};
+use next_contracts::rpg::{CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CoreDialogueQuestClosureError};
+use next_contracts::rpg::{RpgRuntimeBindingsV1, RpgSnapshotV2};
 use next_rpg::RpgState;
 
 use crate::authority::AuthorityRegistry;

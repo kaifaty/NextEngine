@@ -591,6 +591,21 @@ dependencies = [
  "next_contracts",
  "next_mechanics",
  "next_project",
+ "next_reference_game",
+]
+
+[[package]]
+name = "next_application"
+version = "0.1.0"
+dependencies = [
+ "next_assets",
+ "next_contracts",
+ "next_presentation",
+ "next_project",
+ "next_reference_game",
+ "next_runtime",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -622,23 +637,27 @@ dependencies = [
 name = "next_game"
 version = "0.1.0"
 dependencies = [
+ "next_application",
  "next_assets",
  "next_contracts",
  "next_desktop_sdl_ash",
- "next_platform",
  "next_project",
- "next_verification",
+ "next_reference_game",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
 name = "next_headless"
 version = "0.1.0"
 dependencies = [
+ "next_application",
  "next_assets",
  "next_contracts",
  "next_project",
- "next_runtime",
- "next_verification",
+ "next_reference_game",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -647,6 +666,7 @@ version = "0.1.0"
 dependencies = [
  "next_contracts",
  "next_project",
+ "next_reference_game",
 ]
 
 [[package]]
@@ -698,6 +718,20 @@ version = "0.1.0"
 dependencies = [
  "next_assets",
  "next_contracts",
+ "next_reference_game",
+]
+
+[[package]]
+name = "next_reference_game"
+version = "0.1.0"
+dependencies = [
+ "next_agent",
+ "next_assets",
+ "next_contracts",
+ "next_presentation",
+ "next_project",
+ "next_runtime",
+ "next_world",
 ]
 
 [[package]]
@@ -740,6 +774,7 @@ name = "next_verification"
 version = "0.1.0"
 dependencies = [
  "next_agent",
+ "next_application",
  "next_assets",
  "next_contracts",
  "next_desktop_sdl_ash",
@@ -749,6 +784,7 @@ dependencies = [
  "next_plugin_host",
  "next_presentation",
  "next_project",
+ "next_reference_game",
  "next_render",
  "next_runtime",
  "next_script_luau",
@@ -762,6 +798,7 @@ dependencies = [
  "next_assets",
  "next_contracts",
  "next_project",
+ "next_reference_game",
 ]
 
 [[package]]
@@ -1603,10 +1640,14 @@ dependencies = [
 name = "xtask"
 version = "0.1.0"
 dependencies = [
+ "next_application",
  "next_assets",
  "next_contracts",
  "next_project",
+ "next_reference_game",
  "next_verification",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

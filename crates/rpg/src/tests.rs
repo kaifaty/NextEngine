@@ -1,11 +1,15 @@
-use next_contracts::{
-    AssetId, CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
-    CharacterPayloadV1, CharacterResourceEntryV1, CommandBodyHash, CommandId, ContentHash,
-    DefinitionRefV1, DialoguePayloadV1, EquipmentPayloadV1, InteractiveObjectPayloadV1,
-    InventoryPayloadV1, ItemPayloadV1, PhysicsContactId, ProvenanceBindingV1, QuestPayloadV1,
-    RelationshipDimensionV1, RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1,
-    RpgAggregatePayloadV1, RpgAggregateRefV1, RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1,
-    RpgPhysicalContactFactV1, RpgSnapshotV2, SchemaId,
+use next_contracts::ids::{
+    AssetId, CommandBodyHash, CommandId, ContentHash, PhysicsContactId, SchemaId,
+};
+use next_contracts::rpg::{
+    CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
+};
+use next_contracts::rpg::{
+    CharacterPayloadV1, CharacterResourceEntryV1, DefinitionRefV1, DialoguePayloadV1,
+    EquipmentPayloadV1, InteractiveObjectPayloadV1, InventoryPayloadV1, ItemPayloadV1,
+    ProvenanceBindingV1, QuestPayloadV1, RelationshipDimensionV1, RelationshipPayloadV1,
+    RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgAggregateRefV1,
+    RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1, RpgPhysicalContactFactV1, RpgSnapshotV2,
 };
 
 use super::{
@@ -13,8 +17,8 @@ use super::{
     build_transaction_plan_v1, materialize_transaction_plan_v1, recheck_transaction_plan_v1,
 };
 
-fn id(value: u8) -> next_contracts::PersistentId {
-    next_contracts::PersistentId::from_bytes([value; 16])
+fn id(value: u8) -> next_contracts::ids::PersistentId {
+    next_contracts::ids::PersistentId::from_bytes([value; 16])
 }
 
 fn schema(value: &str) -> SchemaId {

@@ -2,8 +2,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
+use crate::ids::{AssetId, ContentHash, PersistentId};
 use crate::manifest_jcs::{JcsValue, encode_canonical_jcs};
-use crate::{AssetId, ContentHash, PersistentId, domain_hash};
+use crate::project::domain_hash;
 
 pub const PRESENTATION_SNAPSHOT_SCHEMA_VERSION: u32 = 2;
 pub const PRESENTATION_SCENE_RECORD_SCHEMA_VERSION: u32 = 2;

@@ -1,20 +1,20 @@
 use super::codec::ProjectContractError;
 use super::content::ContentManifestV1;
-use super::resolution::ProjectCompositionLockV1;
+use super::resolution::ProjectCompositionLockV2;
 use super::schema::SchemaRegistryManifestV1;
 use super::world_partition::WorldPartitionManifestV1;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ActivatedProjectV1 {
-    pub composition_lock: ProjectCompositionLockV1,
+pub struct ActivatedProjectV2 {
+    pub composition_lock: ProjectCompositionLockV2,
     pub schema_registry: SchemaRegistryManifestV1,
     pub content_manifest: ContentManifestV1,
     pub world_partition: WorldPartitionManifestV1,
-    pub neutral_records: Vec<crate::NeutralRecordV1>,
-    pub rpg_definitions: crate::RpgDefinitionRegistryV1,
+    pub neutral_records: Vec<crate::content::NeutralRecordV1>,
+    pub rpg_definitions: crate::mechanics::RpgDefinitionRegistryV1,
 }
 
-impl ActivatedProjectV1 {
+impl ActivatedProjectV2 {
     pub fn validate(&self) -> Result<(), ProjectContractError> {
         self.composition_lock.validate()?;
         self.rpg_definitions

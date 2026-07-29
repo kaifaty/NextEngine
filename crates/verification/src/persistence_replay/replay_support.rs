@@ -1,12 +1,22 @@
-use next_contracts::{
-    AuthorityGrant, ContactPhaseV1, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+use next_contracts::command::WorldCommand;
+use next_contracts::ids::SchemaId;
+use next_contracts::persistence::{
+    AuthorityGrant, ReplayComparePointV4, ReplayManifestV4, ReplayOwnerSegmentV2,
+    ReplayTickManifestV4, SaveCompatibility, SaveSegmentDescriptor,
+};
+use next_contracts::physics::{
+    ContactPhaseV1, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
-    PhysicsWorldCheckpointV1, RPG_AGGREGATE_SNAPSHOT_OWNER_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+    PhysicsWorldCheckpointV1,
+};
+use next_contracts::rpg::{
+    RPG_AGGREGATE_SNAPSHOT_OWNER_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
     RPG_AGGREGATE_SNAPSHOT_SCHEMA_VERSION, RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID,
+    RpgPhysicalContactFactV1,
+};
+use next_contracts::snapshot::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SCHEMA_VERSION,
-    RUNTIME_SNAPSHOT_SEGMENT_ID, ReplayComparePointV4, ReplayManifestV4, ReplayOwnerSegmentV2,
-    ReplayTickManifestV4, RpgPhysicalContactFactV1, SaveCompatibility, SaveSegmentDescriptor,
-    SchemaId, WorldCheckpointV4, WorldCommand,
+    RUNTIME_SNAPSHOT_SEGMENT_ID, WorldCheckpointV4,
 };
 use next_runtime::{RuntimeState, TickReport};
 use next_world::WorldStreamerV1;
@@ -41,7 +51,7 @@ pub(super) fn transition_world(
 }
 
 pub(super) fn rpg_contact_facts_from_report(
-    batch: &next_contracts::ClosedPhysicsContactBatchV1,
+    batch: &next_contracts::physics::ClosedPhysicsContactBatchV1,
     physics_checkpoint_revision: u64,
 ) -> Vec<RpgPhysicalContactFactV1> {
     let mut facts = batch
@@ -123,7 +133,7 @@ pub(super) fn replay_manifest(
             })?;
         let direct_external_commands = direct
             .iter()
-            .map(next_contracts::ReplayCommandRecord::from_command)
+            .map(next_contracts::persistence::ReplayCommandRecord::from_command)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| {
                 PersistenceReplayCheckError::new("record direct commands", error.to_string())
@@ -159,7 +169,7 @@ pub(super) fn replay_manifest(
         });
     }
     Ok(ReplayManifestV4 {
-        schema_version: next_contracts::REPLAY_MANIFEST_V4_SCHEMA_VERSION,
+        schema_version: next_contracts::persistence::REPLAY_MANIFEST_V4_SCHEMA_VERSION,
         compatibility,
         initial_owner_segments,
         initial_state_root,

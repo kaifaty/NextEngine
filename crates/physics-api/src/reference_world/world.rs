@@ -1,8 +1,10 @@
-use next_contracts::{
-    AuthoritativeNumericProfileV1, CAPSULE_LOCOMOTION_SPEED_MICROMETRES_PER_SECOND, ContentHash,
+use next_contracts::ids::ContentHash;
+use next_contracts::input::TickRateProfileV1;
+use next_contracts::physics::{
+    AuthoritativeNumericProfileV1, CAPSULE_LOCOMOTION_SPEED_MICROMETRES_PER_SECOND,
     PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2, PhysicsContractError, PhysicsGeometryV1,
     PhysicsMotionKindV1, PhysicsPoseV1, PhysicsQuantizationProfileV1, PhysicsShapeIdV1,
-    PhysicsWorldCheckpointV1, TickRateProfileV1,
+    PhysicsWorldCheckpointV1,
 };
 
 use super::error::ReferencePhysicsError;
@@ -251,11 +253,13 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         &self.quantization_profile
     }
 
-    pub fn snapshot_hash(&self) -> Result<ContentHash, next_contracts::CanonicalError> {
+    pub fn snapshot_hash(&self) -> Result<ContentHash, next_contracts::canonical::CanonicalError> {
         self.checkpoint.snapshot.snapshot_hash()
     }
 
-    pub fn checkpoint_hash(&self) -> Result<ContentHash, next_contracts::CanonicalError> {
+    pub fn checkpoint_hash(
+        &self,
+    ) -> Result<ContentHash, next_contracts::canonical::CanonicalError> {
         self.checkpoint.checkpoint_hash()
     }
 

@@ -1,7 +1,6 @@
-use crate::{
-    CanonicalDecodeLimits, ContentHash, IssuerPrincipal, PlayerPrincipalId, ProjectId, SchemaId,
-    WorldNamespaceId,
-};
+use crate::canonical::CanonicalDecodeLimits;
+use crate::command::IssuerPrincipal;
+use crate::ids::{ContentHash, PlayerPrincipalId, ProjectId, SchemaId, WorldNamespaceId};
 
 use super::*;
 

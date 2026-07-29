@@ -1,7 +1,8 @@
-use next_contracts::{
-    ContactPhaseV1, EventPayload, InputMappingCodeV1, PlayerActionPhaseV1, RpgEventV1, SchemaId,
-    WorldCommand,
-};
+use next_contracts::command::{EventPayload, WorldCommand};
+use next_contracts::ids::SchemaId;
+use next_contracts::input::{InputMappingCodeV1, PlayerActionPhaseV1};
+use next_contracts::physics::ContactPhaseV1;
+use next_contracts::rpg::RpgEventV1;
 
 use crate::{player_action_sample, player_interact_sample, player_melee_sample};
 
@@ -94,10 +95,10 @@ fn run_queued_melee_and_plan_agent(
         source_character_id: direct.fixture.npc_character_id,
         target_character_id: direct.fixture.body_id,
         allowed_semantic_actions: vec![
-            SchemaId::new(next_contracts::CORE_MELEE_ACTION_ID)
+            SchemaId::new(next_contracts::input::CORE_MELEE_ACTION_ID)
                 .expect("engine-owned melee action is valid"),
         ],
-        motor_state: next_contracts::MotorCapabilityStateV1::ProceduralFallback,
+        motor_state: next_contracts::agent::MotorCapabilityStateV1::ProceduralFallback,
         ai_host_available: false,
         model_available: false,
         rpg_snapshot: &direct_agent_snapshot,

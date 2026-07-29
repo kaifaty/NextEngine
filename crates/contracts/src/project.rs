@@ -5,14 +5,14 @@ mod resolution;
 mod schema;
 mod world_partition;
 
-pub use activation::ActivatedProjectV1;
+pub use activation::ActivatedProjectV2;
 pub use codec::{ProjectContractError, canonical_empty_manifest_hash, domain_hash};
 pub use content::{
     AssetRevisionRefV1, ContentAssetEntryV1, ContentDependencyEdgeV1, ContentManifestBodyV1,
     ContentManifestV1, ContentProvenanceV1, ContentSemanticClassV1, EmptyContentManifestProfilesV1,
 };
 pub use resolution::{
-    ProjectCatalogRecordV1, ProjectCatalogSnapshotV1, ProjectCompositionLockV1,
+    ProjectCatalogRecordV1, ProjectCatalogSnapshotV1, ProjectCompositionLockV2,
     ProjectDependencyKindV1, ProjectManifestV1, ProjectRequirementV1, ResolvedProjectRecordV1,
     SemanticVersionV1,
 };
@@ -26,7 +26,7 @@ pub use world_partition::{
 
 pub const PROJECT_MANIFEST_FORMAT_V1: &str = "nextengine.project-manifest.v1";
 pub const PROJECT_CATALOG_FORMAT_V1: &str = "nextengine.project-catalog-snapshot.v1";
-pub const PROJECT_COMPOSITION_LOCK_FORMAT_V1: &str = "nextengine.project-composition-lock.v1";
+pub const PROJECT_COMPOSITION_LOCK_FORMAT_V2: &str = "nextengine.project-composition-lock.v2";
 pub const SCHEMA_REGISTRY_MANIFEST_FORMAT_V1: &str = "nextengine.schema-registry-manifest.v1";
 pub const CONTENT_MANIFEST_FORMAT_V1: &str = "nextengine.content-manifest.v1";
 pub const WORLD_PARTITION_MANIFEST_FORMAT_V1: &str = "nextengine.world-partition-manifest.v1";

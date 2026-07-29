@@ -5,7 +5,7 @@ use crate::canonical::{
     CANONICAL_TYPE_STRUCT, CANONICAL_TYPE_U16, CANONICAL_TYPE_U32, CANONICAL_TYPE_UTF8_NFC,
     CanonicalDecodeLimits, CanonicalError, CanonicalField, encode_canonical_segment, sha256,
 };
-use crate::{ContentHash, PersistentId, PhysicsWorldId, SchemaId, content_hash_from_bytes};
+use crate::ids::{ContentHash, PersistentId, PhysicsWorldId, SchemaId, content_hash_from_bytes};
 
 use super::codec::*;
 use super::descriptors::{
@@ -38,7 +38,7 @@ impl PhysicsCoordinateProfileV1 {
         )
     }
 
-    pub fn reference_v1() -> Result<Self, crate::IdentifierError> {
+    pub fn reference_v1() -> Result<Self, crate::ids::IdentifierError> {
         Ok(Self {
             schema_version: 1,
             profile_id: SchemaId::new("nextengine.physics.coordinate.right-handed-y-up-v1")?,
@@ -60,7 +60,7 @@ pub struct PhysicsLimitsProfileV1 {
 }
 
 impl PhysicsLimitsProfileV1 {
-    pub fn reference_v1() -> Result<Self, crate::IdentifierError> {
+    pub fn reference_v1() -> Result<Self, crate::ids::IdentifierError> {
         Ok(Self {
             schema_version: 1,
             profile_id: SchemaId::new("nextengine.physics.limits.grounded-capsule-v1")?,
@@ -116,7 +116,7 @@ pub struct PhysicsSolverSemanticsProfileV1 {
 }
 
 impl PhysicsSolverSemanticsProfileV1 {
-    pub fn grounded_capsule_v1() -> Result<Self, crate::IdentifierError> {
+    pub fn grounded_capsule_v1() -> Result<Self, crate::ids::IdentifierError> {
         Ok(Self {
             schema_version: 1,
             profile_id: SchemaId::new("nextengine.physics.solver.grounded-capsule-v1")?,

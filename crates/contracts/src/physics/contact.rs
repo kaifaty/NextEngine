@@ -4,7 +4,7 @@ use crate::canonical::{
     CANONICAL_TYPE_U64, CanonicalDecodeLimits, CanonicalError, CanonicalField,
     encode_canonical_segment, sha256,
 };
-use crate::{ContentHash, PhysicsContactId};
+use crate::ids::{ContentHash, PhysicsContactId};
 
 use super::catalog::{PhysicsWorldCatalogV1, catalog_shape};
 use super::codec::*;

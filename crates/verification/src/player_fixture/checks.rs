@@ -1,7 +1,8 @@
-use next_contracts::{
-    ActivatedProjectV1, CORE_CHARACTER_HEALTH_RESOURCE_ID, CommandLedgerHash, ContentHash,
-    PhysicsPoseV1, RpgAggregateKindV1, RpgAggregatePayloadV1, SchemaId, StateRoot, domain_hash,
-};
+use next_contracts::ids::{CommandLedgerHash, ContentHash, SchemaId, StateRoot};
+use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
+use next_contracts::physics::PhysicsPoseV1;
+use next_contracts::project::{ActivatedProjectV2, domain_hash};
+use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1};
 use next_physics_api::PhysicsBackendPolicy;
 use next_presentation::PresentationExtractorV1;
 use next_render::{ReferenceB0Renderer, RenderDevice, RenderTargetV1};
@@ -9,11 +10,10 @@ use next_runtime::PhysicsLaunchOptions;
 
 use crate::compute_world_checkpoint_root;
 
+use super::activate_fixture_project;
 use super::error::PlayCheckError;
-use super::rpg::aggregate_payload;
-use super::scenario::{
-    GroundedCollisionScenario, run_grounded_collision_scenario,
-    run_grounded_collision_scenario_with_backend,
+use next_reference_game::{
+    ReferenceRunOutcomeV1, aggregate_payload, run_reference_game, run_reference_game_with_backend,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -47,11 +47,14 @@ pub struct GameCheckReport {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PreparedGameFrameV1 {
     pub check: GameCheckReport,
-    pub snapshot: next_contracts::PresentationSnapshotV2,
+    pub snapshot: next_contracts::presentation::PresentationSnapshotV2,
 }
 
 pub fn run_play_check() -> Result<PlayCheckReport, PlayCheckError> {
-    let scenario = run_grounded_collision_scenario(true)?;
+    let scenario = run_reference_game(
+        activate_fixture_project(next_reference_game::REFERENCE_GAME_PROJECT_ID)?,
+        true,
+    )?;
     play_check_report(scenario)
 }
 
@@ -60,30 +63,27 @@ pub fn run_game_check() -> Result<GameCheckReport, PlayCheckError> {
 }
 
 pub fn prepare_game_frame() -> Result<PreparedGameFrameV1, PlayCheckError> {
-    let scenario = run_grounded_collision_scenario(true)?;
+    let scenario = run_reference_game(
+        activate_fixture_project(next_reference_game::REFERENCE_GAME_PROJECT_ID)?,
+        true,
+    )?;
     prepare_game_frame_from_scenario(scenario)
 }
 
 pub fn prepare_game_frame_with_activated_project(
-    activated_project: ActivatedProjectV1,
+    activated_project: ActivatedProjectV2,
 ) -> Result<PreparedGameFrameV1, PlayCheckError> {
-    let project_id = activated_project
-        .composition_lock
-        .project_id
-        .as_str()
-        .to_owned();
-    let scenario = run_grounded_collision_scenario_with_backend(
+    let scenario = run_reference_game_with_backend(
         true,
-        &project_id,
         false,
         PhysicsLaunchOptions::default(),
-        Some(activated_project),
+        activated_project,
     )?;
     prepare_game_frame_from_scenario(scenario)
 }
 
 fn prepare_game_frame_from_scenario(
-    scenario: GroundedCollisionScenario,
+    scenario: ReferenceRunOutcomeV1,
 ) -> Result<PreparedGameFrameV1, PlayCheckError> {
     let mut extractor = PresentationExtractorV1::new(
         scenario.project_composition_lock_hash,
@@ -121,26 +121,18 @@ fn prepare_game_frame_from_scenario(
 }
 
 pub fn run_play_check_with_activated_project(
-    activated_project: ActivatedProjectV1,
+    activated_project: ActivatedProjectV2,
 ) -> Result<PlayCheckReport, PlayCheckError> {
-    let project_id = activated_project
-        .composition_lock
-        .project_id
-        .as_str()
-        .to_owned();
-    let scenario = run_grounded_collision_scenario_with_backend(
+    let scenario = run_reference_game_with_backend(
         true,
-        &project_id,
         false,
         PhysicsLaunchOptions::default(),
-        Some(activated_project),
+        activated_project,
     )?;
     play_check_report(scenario)
 }
 
-fn play_check_report(
-    scenario: GroundedCollisionScenario,
-) -> Result<PlayCheckReport, PlayCheckError> {
+fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport, PlayCheckError> {
     let checkpoint = scenario.runtime.world_checkpoint()?;
     let rpg = scenario.runtime.rpg_snapshot();
     let interactive_object_state = match aggregate_payload(
@@ -202,7 +194,7 @@ fn play_check_report(
             .map_or(0, |resource| resource.current_value),
         _ => return Err(PlayCheckError::CookedPlayerMissing),
     };
-    Ok(PlayCheckReport {
+    let report = PlayCheckReport {
         ticks: scenario.ticks,
         final_pose: scenario.final_pose,
         events: scenario.events,
@@ -222,13 +214,43 @@ fn play_check_report(
         world_streaming_generation: scenario.world_streaming_snapshot.generation,
         current_chunk_id: scenario.world_streaming_snapshot.current_chunk_id.clone(),
         final_command_ledger_hash: checkpoint.runtime_snapshot.command_ledger_hash()?,
-        final_state_root: next_contracts::world_checkpoint_with_streaming_v1_state_root(
+        final_state_root: next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
             &checkpoint.runtime_snapshot,
             &checkpoint.rpg_snapshot,
             &checkpoint.physics_checkpoint,
             &scenario.world_streaming_snapshot,
         )?,
-    })
+    };
+    if report.ticks != 16
+        || report.final_pose.translation_micrometres != [200_000, 900_000, 200_000]
+        || report.events != 17
+        || report.rpg_events != 9
+        || report.interactive_object_state.as_str()
+            != next_contracts::rpg::CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
+        || report.dialogue_node_id.as_str() != "nextengine.reference.dialogue.accepted"
+        || report.quest_state_id.as_str() != "nextengine.reference.quest.active"
+        || report.npc_player_trust != 7
+        || report.npc_health != 75
+        || report.player_health != 75
+        || report.world_streaming_generation != 2
+    {
+        return Err(PlayCheckError::AcceptanceMismatch(format!(
+            "ticks={} pose={:?} events={} rpg_events={} object={} dialogue={} quest={} \
+             trust={} npc_health={} player_health={} world_generation={}",
+            report.ticks,
+            report.final_pose.translation_micrometres,
+            report.events,
+            report.rpg_events,
+            report.interactive_object_state,
+            report.dialogue_node_id,
+            report.quest_state_id,
+            report.npc_player_trust,
+            report.npc_health,
+            report.player_health,
+            report.world_streaming_generation,
+        )));
+    }
+    Ok(report)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -259,28 +281,28 @@ pub fn run_physics_collision_check_with_backend(
     backend: PhysicsCollisionBackend,
 ) -> Result<PhysicsCollisionCheckReport, PlayCheckError> {
     let scenario = match backend {
-        PhysicsCollisionBackend::Reference => run_grounded_collision_scenario(false)?,
-        PhysicsCollisionBackend::PhysX => run_grounded_collision_scenario_with_backend(
+        PhysicsCollisionBackend::Reference => run_reference_game(
+            activate_fixture_project("nextengine.physics-collision.reference")?,
             false,
-            "nextengine.physics-collision.physx",
+        )?,
+        PhysicsCollisionBackend::PhysX => run_reference_game_with_backend(
+            false,
             true,
             PhysicsLaunchOptions::new(PhysicsBackendPolicy::RequirePhysX),
-            None,
+            activate_fixture_project("nextengine.physics-collision.physx")?,
         )?,
         PhysicsCollisionBackend::Compare => {
-            let reference = run_grounded_collision_scenario_with_backend(
+            let reference = run_reference_game_with_backend(
                 false,
-                "nextengine.physics-collision.compare",
                 true,
                 PhysicsLaunchOptions::new(PhysicsBackendPolicy::ReferenceOnly),
-                None,
+                activate_fixture_project("nextengine.physics-collision.compare")?,
             )?;
-            let physx = run_grounded_collision_scenario_with_backend(
+            let physx = run_reference_game_with_backend(
                 false,
-                "nextengine.physics-collision.compare",
                 true,
                 PhysicsLaunchOptions::new(PhysicsBackendPolicy::RequirePhysX),
-                None,
+                activate_fixture_project("nextengine.physics-collision.compare")?,
             )?;
             if reference.tick_reports != physx.tick_reports {
                 return Err(PlayCheckError::BackendParityMismatch);

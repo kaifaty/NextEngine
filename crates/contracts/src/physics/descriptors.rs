@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
-use crate::SchemaId;
 use crate::canonical::{
     CANONICAL_TYPE_BOOL, CANONICAL_TYPE_BYTES, CANONICAL_TYPE_MAP, CANONICAL_TYPE_SEQUENCE,
     CANONICAL_TYPE_STRUCT, CANONICAL_TYPE_TAGGED_UNION, CANONICAL_TYPE_U8, CANONICAL_TYPE_U32,
     CANONICAL_TYPE_U64, CANONICAL_TYPE_UTF8_NFC, CanonicalDecodeError, CanonicalDecodeLimits,
     CanonicalError, CanonicalField,
 };
+use crate::ids::SchemaId;
 
 use super::codec::*;
 use super::error::PhysicsContractError;

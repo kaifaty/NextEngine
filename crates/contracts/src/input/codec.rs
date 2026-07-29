@@ -10,9 +10,9 @@ use crate::ids::*;
 pub enum InputContractError {
     Canonical(CanonicalDecodeError),
     Canonicalization(CanonicalError),
-    Identifier(crate::IdentifierError),
-    Principal(crate::PrincipalDecodeError),
-    Command(crate::CommandDecodeError),
+    Identifier(crate::ids::IdentifierError),
+    Principal(crate::command::PrincipalDecodeError),
+    Command(crate::command::CommandDecodeError),
     WrongEnvelope,
     UnknownField(u32),
     MissingField(u32),
@@ -103,20 +103,20 @@ impl From<CanonicalError> for InputContractError {
     }
 }
 
-impl From<crate::IdentifierError> for InputContractError {
-    fn from(error: crate::IdentifierError) -> Self {
+impl From<crate::ids::IdentifierError> for InputContractError {
+    fn from(error: crate::ids::IdentifierError) -> Self {
         Self::Identifier(error)
     }
 }
 
-impl From<crate::PrincipalDecodeError> for InputContractError {
-    fn from(error: crate::PrincipalDecodeError) -> Self {
+impl From<crate::command::PrincipalDecodeError> for InputContractError {
+    fn from(error: crate::command::PrincipalDecodeError) -> Self {
         Self::Principal(error)
     }
 }
 
-impl From<crate::CommandDecodeError> for InputContractError {
-    fn from(error: crate::CommandDecodeError) -> Self {
+impl From<crate::command::CommandDecodeError> for InputContractError {
+    fn from(error: crate::command::CommandDecodeError) -> Self {
         Self::Command(error)
     }
 }

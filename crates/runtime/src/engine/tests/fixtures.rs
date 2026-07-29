@@ -1,6 +1,7 @@
-use next_contracts::{
-    CommandStreamId, PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1,
-    PhysicsSolverSemanticsProfileV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
+use next_contracts::ids::CommandStreamId;
+use next_contracts::physics::{
+    PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1, PhysicsSolverSemanticsProfileV1,
+    PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
 };
 
 use super::*;

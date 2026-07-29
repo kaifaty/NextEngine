@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-01 |
 | Статус | Accepted |
-| Версия | 2.2 |
-| Последнее изменение | 2026-07-26 |
+| Версия | 2.3 |
+| Последнее изменение | 2026-07-29 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
 
 ## Архитектурная форма
@@ -19,6 +19,9 @@ Public system boundary находится в `crates/contracts` и содерж�
 versioned engine-owned values: nominal IDs, project/content/schema manifests,
 `WorldCommand`, `DomainEvent`, immutable queries/snapshots, RPG operations,
 world/physics/motor/animation contracts и process/plugin protocols.
+Public Rust API сгруппирован по domain namespaces (`ids`, `command`, `project`,
+`session`, `persistence`, `rpg`, `platform` и остальные owning domains);
+root-level facade и legacy parallel contract families отсутствуют.
 
 ECS components/storage, allocator/task handles, OS/window/device objects,
 database connections, importer records, compiler objects и vendor/backend types
@@ -65,47 +68,57 @@ outcome — нет.
 ## Target monorepo layering
 
 ```text
-crates/contracts          public schemas and nominal IDs
-crates/core-runtime       schedule, command bus, ECS facade
-crates/resource-runtime   jobs, memory/residency and I/O staging
-crates/rpg                generic RPG domain
-crates/world              calendar, population and spatial services
-crates/physics-api        engine-owned backend interface
-crates/physics-*          replaceable backend adapters
-crates/physical-archetypes body/skill/policy manifests and supervisor
-crates/render-api         presentation contracts
-crates/render-*           renderer adapters
-crates/agent-runtime      deterministic AI and optional ai-host client
-crates/mechanics          abilities, effects, statuses and package state
-crates/scripting          Luau capability host
-crates/plugin-host        WIT/Wasm capability host
-crates/assets             neutral content, streaming and persistence
-tools/*                   cooker, validators, inspectors and packaging
-apps/game, apps/headless  required composition roots
-lab/*                     isolated offline training/experiments
+crates/contracts            public schemas and nominal IDs
+crates/application          production activation/session/run/close/replay coordinator
+crates/reference-game       first-party project source, bootstrap and scripted product loop
+crates/runtime              schedule, command bus, authority and session state machine
+crates/rpg, crates/world    generic RPG and world/streaming domains
+crates/project              deterministic project cook/resolve/publish/activate
+crates/assets               content, save and durable session-generation publication
+crates/platform             normalized engine-owned host facts
+crates/presentation         immutable extraction
+crates/render               presentation consumer
+crates/desktop-sdl-ash      private interactive SDL/ash adapter
+crates/physics-api          engine-owned backend interface and reference backend
+crates/physics-physx*       replaceable PhysX adapter and narrow FFI boundary
+crates/agent                deterministic agent planning
+crates/mechanics            abilities, effects and package state
+crates/script-luau          Luau capability host
+crates/plugin-host          WIT/Wasm capability host
+crates/verification         assertions, comparisons and fault scenarios only
+tools/xtask                 checks, packaging and runtime-bearing Tools root
+apps/game, apps/headless    required production composition roots
 ```
 
 Dependencies point from roots and adapters toward engine contracts. Contracts
-never depend on a vendor implementation.
+never depend on a vendor implementation. Production layering is
+`apps/tools → application → reference-game/runtime/project/assets/platform →
+contracts`; verification depends on production crates and no production crate
+depends on verification.
 
 ## Production data flow
 
-1. Platform adapter emits normalized device-independent controls.
-2. Player/AI/script/plugin/world logic produces command proposals, never direct
+1. Application coordinator validates the exact project lock, opens or resumes
+   one durable session and stages Runtime through the closed lifecycle.
+2. Platform adapter emits normalized device-independent controls.
+3. Player/AI/script/plugin/world logic produces command proposals, never direct
    mutable references.
-3. Runtime validates capability, schema, target tick and preconditions, derives
+4. Runtime validates capability, schema, target tick and preconditions, derives
    canonical command identity and reserves it in the durable ledger.
-4. Domain systems stage changes against expected revisions.
-5. One transaction publishes all owned deltas and ordered `DomainEvent`, or
+5. Domain systems stage changes against expected revisions.
+6. One transaction publishes all owned deltas and ordered `DomainEvent`, or
    publishes nothing.
-6. Async work receives immutable inputs and returns a revision-bound result to a
+7. Async work receives immutable inputs and returns a revision-bound result to a
    deterministic commit point.
-7. Physics and motor advance at fixed stages; learned output passes the same
+8. Physics and motor advance at fixed stages; learned output passes the same
    deterministic safety and fallback path as procedural output.
-8. Presentation extracts an immutable snapshot and cannot write back to
+9. Presentation extracts an immutable snapshot and cannot write back to
    simulation.
-9. Save/replay serializes only engine-owned authoritative state and declared
+10. Save/replay serializes only engine-owned authoritative state and declared
    future-affecting scheduler/session state.
+11. Close stages Runtime transitions and immutable save bytes, then Assets
+    atomically publishes their generation before Runtime commits the in-memory
+    plan.
 
 ## Scheduling and async boundary
 

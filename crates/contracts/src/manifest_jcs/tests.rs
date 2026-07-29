@@ -1,12 +1,11 @@
+use crate::canonical::CanonicalDecodeLimits;
+use crate::ids::{SchemaId, WorldNamespaceId, content_hash_from_bytes};
+use crate::persistence::{CommandLedgerDescriptorV2, ManifestCodecError};
 use crate::persistence::{SaveCompatibility, SaveManifestV2, SaveSegmentDescriptor, TickSettings};
-use crate::{
-    CanonicalDecodeLimits, CommandLedgerDescriptorV2, ManifestCodecError, SchemaId,
-    WorldNamespaceId, content_hash_from_bytes,
-};
 
 fn manifest() -> SaveManifestV2 {
     SaveManifestV2 {
-        schema_version: crate::SAVE_MANIFEST_SCHEMA_VERSION,
+        schema_version: crate::persistence::SAVE_MANIFEST_SCHEMA_VERSION,
         generation: u64::MAX,
         world_revision: 7,
         compatibility: SaveCompatibility {
@@ -36,10 +35,10 @@ fn manifest() -> SaveManifestV2 {
         },
         segments: vec![
             SaveSegmentDescriptor::for_bytes(
-                SchemaId::new(crate::RUNTIME_SNAPSHOT_OWNER_ID).expect("valid owner"),
-                SchemaId::new(crate::RUNTIME_SNAPSHOT_SCHEMA_ID).expect("valid schema"),
-                SchemaId::new(crate::RUNTIME_SNAPSHOT_SEGMENT_ID).expect("valid segment"),
-                crate::RUNTIME_SNAPSHOT_SCHEMA_VERSION,
+                SchemaId::new(crate::snapshot::RUNTIME_SNAPSHOT_OWNER_ID).expect("valid owner"),
+                SchemaId::new(crate::snapshot::RUNTIME_SNAPSHOT_SCHEMA_ID).expect("valid schema"),
+                SchemaId::new(crate::snapshot::RUNTIME_SNAPSHOT_SEGMENT_ID).expect("valid segment"),
+                crate::snapshot::RUNTIME_SNAPSHOT_SCHEMA_VERSION,
                 b"snapshot",
             )
             .expect("valid segment"),

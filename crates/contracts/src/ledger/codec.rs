@@ -567,7 +567,7 @@ pub(super) fn extend_u32_bytes(output: &mut Vec<u8>, bytes: &[u8]) -> Result<(),
 }
 
 pub(super) fn require_ledger_fields(
-    segment: &crate::DecodedCanonicalSegment,
+    segment: &crate::canonical::DecodedCanonicalSegment,
     expected: &[(u32, u8)],
 ) -> Result<(), CommandLedgerError> {
     for actual in &segment.fields {
@@ -589,7 +589,7 @@ pub(super) fn require_ledger_fields(
 }
 
 pub(super) fn ledger_field(
-    segment: &crate::DecodedCanonicalSegment,
+    segment: &crate::canonical::DecodedCanonicalSegment,
     id: u32,
 ) -> Result<&CanonicalField, CommandLedgerError> {
     segment
@@ -598,7 +598,7 @@ pub(super) fn ledger_field(
 }
 
 pub(super) fn fixed_field<const N: usize>(
-    segment: &crate::DecodedCanonicalSegment,
+    segment: &crate::canonical::DecodedCanonicalSegment,
     id: u32,
 ) -> Result<[u8; N], CommandLedgerError> {
     ledger_field(segment, id)?

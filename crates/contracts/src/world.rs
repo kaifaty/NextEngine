@@ -1,10 +1,9 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use crate::{
-    AssetId, AssetRevisionRefV1, CanonicalDecodeLimits, ContentHash, SchemaId,
-    content_hash_from_bytes, sha256,
-};
+use crate::canonical::{CanonicalDecodeLimits, sha256};
+use crate::ids::{AssetId, ContentHash, SchemaId, content_hash_from_bytes};
+use crate::project::AssetRevisionRefV1;
 
 pub const WORLD_STREAMING_SNAPSHOT_OWNER_ID: &str = "nextengine.world-services";
 pub const WORLD_STREAMING_SNAPSHOT_SCHEMA_ID: &str = "nextengine.world-streaming-snapshot";
@@ -326,7 +325,7 @@ pub enum WorldStreamingContractError {
     Truncated,
     TrailingBytes,
     LengthOverflow,
-    Identifier(crate::IdentifierError),
+    Identifier(crate::ids::IdentifierError),
     NonCanonical,
 }
 
@@ -352,8 +351,8 @@ impl Display for WorldStreamingContractError {
 
 impl Error for WorldStreamingContractError {}
 
-impl From<crate::IdentifierError> for WorldStreamingContractError {
-    fn from(value: crate::IdentifierError) -> Self {
+impl From<crate::ids::IdentifierError> for WorldStreamingContractError {
+    fn from(value: crate::ids::IdentifierError) -> Self {
         Self::Identifier(value)
     }
 }

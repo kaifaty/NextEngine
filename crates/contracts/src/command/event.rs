@@ -1,11 +1,11 @@
-use crate::PhysicalEventV1;
 use crate::canonical::{
     CANONICAL_TYPE_BYTES, CANONICAL_TYPE_HASH256, CANONICAL_TYPE_ID128, CANONICAL_TYPE_U8,
     CANONICAL_TYPE_U16, CANONICAL_TYPE_U32, CANONICAL_TYPE_U64, CANONICAL_TYPE_UTF8_NFC,
     CanonicalError, CanonicalField, encode_canonical_segment, sha256,
 };
 use crate::ids::{CommandId, ContentHash, EventId, SchemaId, content_hash_from_bytes};
-use crate::rpg_v1::RpgEventV1;
+use crate::physics::PhysicalEventV1;
+use crate::rpg::RpgEventV1;
 
 use super::body::CommandPhase;
 

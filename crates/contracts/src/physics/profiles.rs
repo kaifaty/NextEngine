@@ -6,7 +6,7 @@ use crate::canonical::{
     CANONICAL_TYPE_UTF8_NFC, CanonicalDecodeLimits, CanonicalError, CanonicalField,
     encode_canonical_segment,
 };
-use crate::{ContentHash, SchemaId};
+use crate::ids::{ContentHash, SchemaId};
 
 use super::codec::*;
 use super::error::PhysicsContractError;
@@ -239,7 +239,7 @@ pub struct PhysicsQuantizationProfileV1 {
 }
 
 impl PhysicsQuantizationProfileV1 {
-    pub fn capsule_reference_v1() -> Result<Self, crate::IdentifierError> {
+    pub fn capsule_reference_v1() -> Result<Self, crate::ids::IdentifierError> {
         Ok(Self {
             schema_version: PHYSICS_QUANTIZATION_PROFILE_SCHEMA_VERSION,
             profile_id: SchemaId::new("nextengine.physics.quantization.capsule-reference-v1")?,
@@ -247,7 +247,7 @@ impl PhysicsQuantizationProfileV1 {
         })
     }
 
-    pub fn grounded_capsule_v2() -> Result<Self, crate::IdentifierError> {
+    pub fn grounded_capsule_v2() -> Result<Self, crate::ids::IdentifierError> {
         let distance = PhysicsQuantizationRuleV1 {
             field_id: SchemaId::new(PHYSICS_SWEEP_DISTANCE_FIELD_ID)?,
             source_format: PhysicsSourceFormatV1::Ieee754Binary32,
@@ -260,7 +260,7 @@ impl PhysicsQuantizationProfileV1 {
             minimum_raw: 0,
             maximum_raw: 8_388_608_000_000,
         };
-        let normal_rule = |field_id| -> Result<_, crate::IdentifierError> {
+        let normal_rule = |field_id| -> Result<_, crate::ids::IdentifierError> {
             Ok(PhysicsQuantizationRuleV1 {
                 field_id: SchemaId::new(field_id)?,
                 source_format: PhysicsSourceFormatV1::Ieee754Binary32,

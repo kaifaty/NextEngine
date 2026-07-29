@@ -3,7 +3,7 @@ use crate::canonical::{
     CANONICAL_TYPE_UTF8_NFC, CanonicalDecodeLimits, CanonicalError, CanonicalField,
     decode_canonical_segment, encode_canonical_segment,
 };
-use crate::{ContentHash, ProjectId, WorldNamespaceId};
+use crate::ids::{ContentHash, ProjectId, WorldNamespaceId};
 
 use super::codec::{read_array, read_text, read_u16, read_u32, require_envelope, require_fields};
 use super::derivation::derive_world_namespace;
@@ -83,7 +83,7 @@ impl WorldIdentityManifestV1 {
                 ),
                 CanonicalField::new(
                     3,
-                    crate::CANONICAL_TYPE_BYTES,
+                    crate::canonical::CANONICAL_TYPE_BYTES,
                     self.world_creation_nonce.to_vec(),
                 ),
                 CanonicalField::new(
@@ -96,7 +96,11 @@ impl WorldIdentityManifestV1 {
                     CANONICAL_TYPE_U32,
                     self.identity_epoch.to_le_bytes().to_vec(),
                 ),
-                CanonicalField::new(6, crate::CANONICAL_TYPE_BYTES, self.rng_root_seed.to_vec()),
+                CanonicalField::new(
+                    6,
+                    crate::canonical::CANONICAL_TYPE_BYTES,
+                    self.rng_root_seed.to_vec(),
+                ),
                 CanonicalField::new(
                     7,
                     CANONICAL_TYPE_HASH256,
@@ -122,10 +126,10 @@ impl WorldIdentityManifestV1 {
             &[
                 (1, CANONICAL_TYPE_U16),
                 (2, CANONICAL_TYPE_UTF8_NFC),
-                (3, crate::CANONICAL_TYPE_BYTES),
+                (3, crate::canonical::CANONICAL_TYPE_BYTES),
                 (4, CANONICAL_TYPE_ID128),
                 (5, CANONICAL_TYPE_U32),
-                (6, crate::CANONICAL_TYPE_BYTES),
+                (6, crate::canonical::CANONICAL_TYPE_BYTES),
                 (7, CANONICAL_TYPE_HASH256),
             ],
         )?;

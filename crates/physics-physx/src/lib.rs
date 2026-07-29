@@ -4,11 +4,12 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 
-use next_contracts::{
+use next_contracts::input::TickRateProfileV1;
+use next_contracts::physics::{
     AuthoritativeNumericProfileV1, PHYSICS_CONTACT_NORMAL_X_FIELD_ID,
     PHYSICS_CONTACT_NORMAL_Y_FIELD_ID, PHYSICS_CONTACT_NORMAL_Z_FIELD_ID,
     PHYSICS_SWEEP_DISTANCE_FIELD_ID, PhysicsQuantizationProfileV1, PhysicsShapeIdV1,
-    PhysicsWorldCheckpointV1, TickRateProfileV1,
+    PhysicsWorldCheckpointV1,
 };
 use next_physics_api::{
     GroundedCapsuleQuery, GroundedCapsuleStaticBox, GroundedCapsuleSweepRequest,
@@ -425,7 +426,7 @@ mod tests {
         quantization
             .rules
             .get_mut(
-                &next_contracts::SchemaId::new(PHYSICS_SWEEP_DISTANCE_FIELD_ID)
+                &next_contracts::ids::SchemaId::new(PHYSICS_SWEEP_DISTANCE_FIELD_ID)
                     .expect("distance field ID"),
             )
             .expect("distance rule")

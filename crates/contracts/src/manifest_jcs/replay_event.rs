@@ -3,11 +3,12 @@ use super::jcs::{
     JcsValue, decode_fixed_hex, decode_hex, decode_i32_string, decode_i64_string, decode_u32,
     decode_u64_string, ensure_no_more, hex_bytes, into_array, into_string, next, string,
 };
+use crate::command::{CommandPhase, DomainEvent, EventPayload};
+use crate::ids::{CommandId, PersistentId, SchemaId};
 use crate::persistence::ManifestValidationError;
-use crate::{
-    CommandId, CommandPhase, DomainEvent, EventPayload, PersistentId, PhysicalEventV1,
-    PhysicsPoseV1, RpgEventV1, SchemaId, SkillProficiency,
-};
+use crate::physics::{PhysicalEventV1, PhysicsPoseV1};
+use crate::rpg::RpgEventV1;
+use crate::rpg::SkillProficiency;
 
 pub(super) fn encode_domain_event(event: &DomainEvent) -> Result<JcsValue, ManifestCodecError> {
     event.validate()?;

@@ -1,49 +1,46 @@
-use next_contracts::{
-    ActivatedProjectV1, CORE_CHARACTER_HEALTH_RESOURCE_ID, CORE_EQUIPMENT_MAIN_HAND_SLOT_ID,
-    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID,
-    CORE_MELEE_ACTION_ID, ContactPhaseV1, ContentHash, EventPayload, PersistentId, PhysicsBodyIdV1,
-    PhysicsPoseV1, PlayerActionPhaseV1, RpgAggregateKindV1, RpgAggregatePayloadV1,
-    RpgPhysicalContactFactV1, RpgSnapshotV2, SchemaId,
-};
+use next_contracts::command::EventPayload;
+use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
+use next_contracts::input::{CORE_MELEE_ACTION_ID, PlayerActionPhaseV1};
+use next_contracts::physics::{ContactPhaseV1, PhysicsBodyIdV1, PhysicsPoseV1};
+use next_contracts::project::ActivatedProjectV2;
+use next_contracts::rpg::{RpgPhysicalContactFactV1, RpgSnapshotV2};
 use next_presentation::PresentationBindingV1;
 use next_runtime::{PhysicsLaunchOptions, RuntimeState};
 use next_world::WorldStreamerV1;
 
-use super::construction::{
-    NeutralPlayerFixture, build_neutral_player_fixture,
-    build_neutral_player_fixture_from_activated_project, build_physx_player_fixture,
+use crate::rpg::{cooked_interaction_outcome, cooked_project_rpg_snapshot};
+use crate::session::{
+    ReferenceGameSession, build_reference_game_session, build_reference_game_session_with_profile,
 };
-use super::error::PlayCheckError;
-use super::input::{
-    player_action_sample, player_equip_use_sample, player_interact_sample, player_melee_sample,
-    player_pickup_sample,
+use crate::{
+    ReferenceGameError, player_action_sample, player_equip_use_sample, player_interact_sample,
+    player_melee_sample, player_pickup_sample,
 };
-use super::rpg::{aggregate_payload, cooked_interaction_outcome, cooked_project_rpg_snapshot};
 
-pub(super) struct GroundedCollisionScenario {
-    pub(super) runtime: RuntimeState,
-    pub(super) ticks: u64,
-    pub(super) final_pose: PhysicsPoseV1,
-    pub(super) events: u64,
-    pub(super) rpg_events: u64,
-    pub(super) begin_contacts: u64,
-    pub(super) persist_contacts: u64,
-    pub(super) end_contacts: u64,
-    pub(super) contact_batches_hash: ContentHash,
-    pub(super) interactive_object_id: PersistentId,
-    pub(super) npc_character_id: PersistentId,
-    pub(super) player_character_id: PersistentId,
-    pub(super) dialogue_id: PersistentId,
-    pub(super) quest_id: PersistentId,
-    pub(super) relationship_id: PersistentId,
-    pub(super) relationship_dimension_id: SchemaId,
-    pub(super) project_composition_lock_hash: ContentHash,
-    pub(super) content_manifest_hash: ContentHash,
-    pub(super) presentation_bindings: Vec<PresentationBindingV1>,
-    pub(super) tick_reports: Vec<next_runtime::TickReport>,
-    pub(super) world_streaming_snapshot: next_contracts::WorldStreamingSnapshotV1,
-    pub(super) agent_intent_id: Option<ContentHash>,
-    pub(super) agent_projection_hash: Option<ContentHash>,
+pub struct ReferenceRunOutcomeV1 {
+    pub runtime: RuntimeState,
+    pub ticks: u64,
+    pub final_pose: PhysicsPoseV1,
+    pub events: u64,
+    pub rpg_events: u64,
+    pub begin_contacts: u64,
+    pub persist_contacts: u64,
+    pub end_contacts: u64,
+    pub contact_batches_hash: ContentHash,
+    pub interactive_object_id: PersistentId,
+    pub npc_character_id: PersistentId,
+    pub player_character_id: PersistentId,
+    pub dialogue_id: PersistentId,
+    pub quest_id: PersistentId,
+    pub relationship_id: PersistentId,
+    pub relationship_dimension_id: SchemaId,
+    pub project_composition_lock_hash: ContentHash,
+    pub content_manifest_hash: ContentHash,
+    pub presentation_bindings: Vec<PresentationBindingV1>,
+    pub tick_reports: Vec<next_runtime::TickReport>,
+    pub world_streaming_snapshot: next_contracts::world::WorldStreamingSnapshotV1,
+    pub agent_intent_id: Option<ContentHash>,
+    pub agent_projection_hash: Option<ContentHash>,
 }
 
 enum ScenarioAction {
@@ -56,39 +53,30 @@ enum ScenarioAction {
     ChunkTransition(SchemaId, bool),
 }
 
-pub(super) fn run_grounded_collision_scenario(
+pub fn run_reference_game(
+    activated_project: ActivatedProjectV2,
     include_interaction: bool,
-) -> Result<GroundedCollisionScenario, PlayCheckError> {
-    run_grounded_collision_scenario_with_backend(
+) -> Result<ReferenceRunOutcomeV1, ReferenceGameError> {
+    run_reference_game_with_backend(
         include_interaction,
-        "nextengine.play",
         false,
         PhysicsLaunchOptions::default(),
-        None,
+        activated_project,
     )
 }
 
-pub(super) fn run_grounded_collision_scenario_with_backend(
+pub fn run_reference_game_with_backend(
     include_interaction: bool,
-    project_id: &str,
     physx_compatible: bool,
     physics_options: PhysicsLaunchOptions,
-    activated_project: Option<ActivatedProjectV1>,
-) -> Result<GroundedCollisionScenario, PlayCheckError> {
-    let fixture = match activated_project {
-        Some(project) => {
-            debug_assert!(!physx_compatible);
-            build_neutral_player_fixture_from_activated_project(project)?
-        }
-        None if physx_compatible => build_physx_player_fixture(project_id)?,
-        None => build_neutral_player_fixture(project_id)?,
+    activated_project: ActivatedProjectV2,
+) -> Result<ReferenceRunOutcomeV1, ReferenceGameError> {
+    let fixture = if physx_compatible {
+        build_reference_game_session_with_profile(activated_project, true)?
+    } else {
+        build_reference_game_session(activated_project)?
     };
-    let (
-        expected_dialogue_node_id,
-        expected_quest_state_id,
-        relationship_dimension_id,
-        expected_relationship_value,
-    ) = cooked_interaction_outcome(&fixture);
+    let (_, _, relationship_dimension_id, _) = cooked_interaction_outcome(&fixture);
     let rpg_snapshot = if include_interaction {
         cooked_project_rpg_snapshot(&fixture)
     } else {
@@ -106,7 +94,7 @@ pub(super) fn run_grounded_collision_scenario_with_backend(
         .body
         .chunk_bindings
         .first()
-        .ok_or(PlayCheckError::WorldPartitionEmpty)?
+        .ok_or(ReferenceGameError::WorldPartitionEmpty)?
         .chunk_id
         .clone();
     let transition_chunk_id = fixture
@@ -115,7 +103,7 @@ pub(super) fn run_grounded_collision_scenario_with_backend(
         .body
         .chunk_bindings
         .get(1)
-        .ok_or(PlayCheckError::WorldPartitionEmpty)?
+        .ok_or(ReferenceGameError::WorldPartitionEmpty)?
         .chunk_id
         .clone();
     let mut world_streamer =
@@ -170,29 +158,30 @@ pub(super) fn run_grounded_collision_scenario_with_backend(
             let staged = world_streamer.stage(&plan, &worker_order)?;
             if save_restore {
                 let saved = world_streamer.snapshot().canonical_bytes()?;
-                let decoded = next_contracts::WorldStreamingSnapshotV1::from_canonical_bytes(
-                    &saved,
-                    next_contracts::CanonicalDecodeLimits::default(),
-                )?;
+                let decoded =
+                    next_contracts::world::WorldStreamingSnapshotV1::from_canonical_bytes(
+                        &saved,
+                        next_contracts::canonical::CanonicalDecodeLimits::default(),
+                    )?;
                 world_streamer =
                     WorldStreamerV1::restore(fixture.activated_project.clone(), decoded)?;
                 let (_, rebuilt) = world_streamer.resume_pending()?;
                 if rebuilt != staged {
-                    return Err(PlayCheckError::WorldStreamingResumeMismatch);
+                    return Err(ReferenceGameError::WorldStreamingResumeMismatch);
                 }
             } else {
                 world_streamer.validate_staged(&staged)?;
             }
             world_streamer.commit(&staged, false)?;
             if runtime.rpg_snapshot() != rpg_before {
-                return Err(PlayCheckError::WorldStreamingMutatedRpg);
+                return Err(ReferenceGameError::WorldStreamingMutatedRpg);
             }
             continue;
         }
         if matches!(&action, ScenarioAction::AgentMelee) {
             let previous = tick_reports
                 .last()
-                .ok_or(PlayCheckError::AgentActionMissing)?;
+                .ok_or(ReferenceGameError::AgentActionMissing)?;
             let facts = rpg_contact_facts_from_report(
                 &previous.contact_batch,
                 runtime.physics_snapshot().checkpoint_revision,
@@ -208,7 +197,7 @@ pub(super) fn run_grounded_collision_scenario_with_backend(
                     SchemaId::new(CORE_MELEE_ACTION_ID)
                         .expect("engine-owned melee action is valid"),
                 ],
-                motor_state: next_contracts::MotorCapabilityStateV1::ProceduralFallback,
+                motor_state: next_contracts::agent::MotorCapabilityStateV1::ProceduralFallback,
                 ai_host_available: false,
                 model_available: false,
                 rpg_snapshot: &agent_rpg_snapshot,
@@ -231,7 +220,7 @@ pub(super) fn run_grounded_collision_scenario_with_backend(
                     next_runtime::CommandDisposition::Committed
                 )
             }) {
-                return Err(PlayCheckError::AgentCommandRejected);
+                return Err(ReferenceGameError::AgentCommandRejected);
             }
             agent_intent_id = Some(planned.intent.intent_id);
             agent_projection_hash = Some(planned.procedural_projection.projection_hash);
@@ -248,7 +237,7 @@ pub(super) fn run_grounded_collision_scenario_with_backend(
             continue;
         }
         let wall_time =
-            Some(i64::try_from(sequence).map_err(|_| PlayCheckError::CountOverflow)? * 1000);
+            Some(i64::try_from(sequence).map_err(|_| ReferenceGameError::CountOverflow)? * 1000);
         let sample = match action {
             ScenarioAction::Movement(phase, direction) => {
                 player_action_sample(&fixture, sequence, phase, direction, wall_time)?
@@ -298,175 +287,18 @@ pub(super) fn run_grounded_collision_scenario_with_backend(
         tick_reports.push(report);
         sequence = sequence
             .checked_add(1)
-            .ok_or(PlayCheckError::CountOverflow)?;
+            .ok_or(ReferenceGameError::CountOverflow)?;
     }
     let final_pose = runtime
         .physics_snapshot()
         .sorted_body_states
         .get(&fixture.physics_body_id)
-        .ok_or(PlayCheckError::BodyMissing)?
+        .ok_or(ReferenceGameError::BodyMissing)?
         .pose;
-    let expected_ticks = if include_interaction { 16 } else { 6 };
-    let expected_substeps = if include_interaction { 32 } else { 12 };
-    let expected_events = if include_interaction { 17 } else { 4 };
-    let expected_persists = if include_interaction { 53 } else { 15 };
-    let expected_pose = if include_interaction {
-        [200_000, 900_000, 200_000]
-    } else {
-        [0, 900_000, 200_000]
-    };
-    let expected_rpg_events = if include_interaction { 9 } else { 0 };
-    let expected_begins = if include_interaction { 4 } else { 3 };
-    let expected_ends = if include_interaction { 3 } else { 2 };
-    let object_is_activated = !include_interaction
-        || matches!(
-            aggregate_payload(
-                &runtime.rpg_snapshot(),
-                RpgAggregateKindV1::InteractiveObject,
-                fixture.interactive_object_id,
-            ),
-            Some(RpgAggregatePayloadV1::InteractiveObject(object))
-                if object.state_id.as_str() == CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
-        );
-    let cooked_dialogue_completed = !include_interaction
-        || matches!(
-            aggregate_payload(
-                &runtime.rpg_snapshot(),
-                RpgAggregateKindV1::Dialogue,
-                fixture.dialogue_id,
-            ),
-            Some(RpgAggregatePayloadV1::Dialogue(dialogue))
-                if dialogue.node_id == expected_dialogue_node_id
-        );
-    let cooked_quest_completed = !include_interaction
-        || matches!(
-            aggregate_payload(
-                &runtime.rpg_snapshot(),
-                RpgAggregateKindV1::Quest,
-                fixture.quest_id,
-            ),
-            Some(RpgAggregatePayloadV1::Quest(quest))
-                if quest.state_id == expected_quest_state_id
-        );
-    let cooked_relationship_applied = !include_interaction
-        || matches!(
-            aggregate_payload(
-                &runtime.rpg_snapshot(),
-                RpgAggregateKindV1::Relationship,
-                fixture.relationship_id,
-            ),
-            Some(RpgAggregatePayloadV1::Relationship(relationship))
-                if relationship.source_id == fixture.npc_character_id
-                    && relationship.target_id == fixture.body_id
-                    && relationship.dimensions.iter().any(|dimension| {
-                        dimension.dimension_id == relationship_dimension_id
-                            && dimension.value == expected_relationship_value
-                    })
-        );
-    let pickup_completed = !include_interaction
-        || matches!(
-            aggregate_payload(
-                &runtime.rpg_snapshot(),
-                RpgAggregateKindV1::InteractiveObject,
-                fixture.pickup_proxy_id,
-            ),
-            Some(RpgAggregatePayloadV1::InteractiveObject(object))
-                if object.state_id.as_str() == CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID
-        );
-    let item_is_owned = !include_interaction
-        || matches!(
-            aggregate_payload(
-                &runtime.rpg_snapshot(),
-                RpgAggregateKindV1::Inventory,
-                fixture.player_inventory_id,
-            ),
-            Some(RpgAggregatePayloadV1::Inventory(inventory))
-                if inventory.item_ids == [fixture.pickup_item_id]
-        );
-    let item_is_equipped = !include_interaction
-        || matches!(
-            aggregate_payload(
-                &runtime.rpg_snapshot(),
-                RpgAggregateKindV1::Equipment,
-                fixture.player_equipment_id,
-            ),
-            Some(RpgAggregatePayloadV1::Equipment(equipment))
-                if equipment.assignments.iter().any(|assignment| {
-                    assignment.slot_id.as_str() == CORE_EQUIPMENT_MAIN_HAND_SLOT_ID
-                        && assignment.item_id == fixture.pickup_item_id
-                })
-        );
-    let npc_health_adjusted = !include_interaction
-        || matches!(
-            aggregate_payload(
-                &runtime.rpg_snapshot(),
-                RpgAggregateKindV1::Character,
-                fixture.npc_character_id,
-            ),
-            Some(RpgAggregatePayloadV1::Character(character))
-                if character.resources.iter().any(|resource| {
-                    resource.resource_id.as_str() == CORE_CHARACTER_HEALTH_RESOURCE_ID
-                        && resource.current_value == 75
-                })
-        );
-    let player_health_adjusted = !include_interaction
-        || matches!(
-            aggregate_payload(
-                &runtime.rpg_snapshot(),
-                RpgAggregateKindV1::Character,
-                fixture.body_id,
-            ),
-            Some(RpgAggregatePayloadV1::Character(character))
-                if character.resources.iter().any(|resource| {
-                    resource.resource_id.as_str() == CORE_CHARACTER_HEALTH_RESOURCE_ID
-                        && resource.current_value == 75
-                })
-        );
+    let ticks = runtime.next_tick();
     let world_streaming_snapshot = world_streamer.snapshot();
-    let expected_current_chunk_id = &world_streaming_snapshot
-        .chunks
-        .first()
-        .ok_or(PlayCheckError::WorldPartitionEmpty)?
-        .chunk_id;
-    if final_pose.translation_micrometres != expected_pose
-        || runtime.physics_snapshot().physics_tick != expected_substeps
-        || events != expected_events
-        || rpg_events != expected_rpg_events
-        || begin_contacts != expected_begins
-        || persist_contacts != expected_persists
-        || end_contacts != expected_ends
-        || !object_is_activated
-        || !cooked_dialogue_completed
-        || !cooked_quest_completed
-        || !cooked_relationship_applied
-        || !pickup_completed
-        || !item_is_owned
-        || !item_is_equipped
-        || !npc_health_adjusted
-        || !player_health_adjusted
-        || (include_interaction
-            && (agent_intent_id.is_none()
-                || agent_projection_hash.is_none()
-                || world_streaming_snapshot.generation != 2
-                || &world_streaming_snapshot.current_chunk_id != expected_current_chunk_id))
-    {
-        return Err(PlayCheckError::AcceptanceMismatch(format!(
-            "pose={:?} physics_tick={} events={events} rpg_events={rpg_events} \
-             contacts={begin_contacts}/{persist_contacts}/{end_contacts} \
-             object={object_is_activated} dialogue={cooked_dialogue_completed} \
-             quest={cooked_quest_completed} relationship={cooked_relationship_applied} \
-             pickup={pickup_completed} owned={item_is_owned} equipped={item_is_equipped} \
-             npc_health={npc_health_adjusted} player_health={player_health_adjusted} \
-             agent={} world_generation={} current_chunk={}",
-            final_pose.translation_micrometres,
-            runtime.physics_snapshot().physics_tick,
-            agent_intent_id.is_some() && agent_projection_hash.is_some(),
-            world_streaming_snapshot.generation,
-            world_streaming_snapshot.current_chunk_id.as_str(),
-        )));
-    }
-    Ok(GroundedCollisionScenario {
-        ticks: expected_ticks,
+    Ok(ReferenceRunOutcomeV1 {
+        ticks,
         final_pose,
         events,
         rpg_events,
@@ -474,7 +306,9 @@ pub(super) fn run_grounded_collision_scenario_with_backend(
         begin_contacts,
         persist_contacts,
         end_contacts,
-        contact_batches_hash: ContentHash::from_bytes(next_contracts::sha256(&contact_preimage)),
+        contact_batches_hash: ContentHash::from_bytes(next_contracts::canonical::sha256(
+            &contact_preimage,
+        )),
         interactive_object_id: fixture.interactive_object_id,
         npc_character_id: fixture.npc_character_id,
         player_character_id: fixture.body_id,
@@ -510,10 +344,12 @@ fn accumulate_report(
     persist_contacts: &mut u64,
     end_contacts: &mut u64,
     contact_preimage: &mut Vec<u8>,
-) -> Result<(), PlayCheckError> {
+) -> Result<(), ReferenceGameError> {
     *events = events
-        .checked_add(u64::try_from(report.events.len()).map_err(|_| PlayCheckError::CountOverflow)?)
-        .ok_or(PlayCheckError::CountOverflow)?;
+        .checked_add(
+            u64::try_from(report.events.len()).map_err(|_| ReferenceGameError::CountOverflow)?,
+        )
+        .ok_or(ReferenceGameError::CountOverflow)?;
     *rpg_events = rpg_events
         .checked_add(
             u64::try_from(
@@ -523,23 +359,25 @@ fn accumulate_report(
                     .filter(|event| matches!(&event.payload, EventPayload::Rpg(_)))
                     .count(),
             )
-            .map_err(|_| PlayCheckError::CountOverflow)?,
+            .map_err(|_| ReferenceGameError::CountOverflow)?,
         )
-        .ok_or(PlayCheckError::CountOverflow)?;
+        .ok_or(ReferenceGameError::CountOverflow)?;
     for contact in &report.contact_batch.events {
         let count = match contact.phase {
             ContactPhaseV1::Begin => &mut *begin_contacts,
             ContactPhaseV1::Persist => &mut *persist_contacts,
             ContactPhaseV1::End => &mut *end_contacts,
         };
-        *count = count.checked_add(1).ok_or(PlayCheckError::CountOverflow)?;
+        *count = count
+            .checked_add(1)
+            .ok_or(ReferenceGameError::CountOverflow)?;
     }
     contact_preimage.extend_from_slice(report.contact_batch.batch_hash.as_bytes());
     Ok(())
 }
 
 fn rpg_contact_facts_from_report(
-    batch: &next_contracts::ClosedPhysicsContactBatchV1,
+    batch: &next_contracts::physics::ClosedPhysicsContactBatchV1,
     physics_checkpoint_revision: u64,
 ) -> Vec<RpgPhysicalContactFactV1> {
     let mut facts = batch
@@ -574,88 +412,93 @@ fn rpg_contact_facts_from_report(
 }
 
 fn fixture_presentation_bindings(
-    fixture: &NeutralPlayerFixture,
-) -> Result<Vec<PresentationBindingV1>, PlayCheckError> {
-    let asset = |kind: next_contracts::NeutralRecordKindV1| {
+    fixture: &ReferenceGameSession,
+) -> Result<Vec<PresentationBindingV1>, ReferenceGameError> {
+    let asset = |kind: next_contracts::content::NeutralRecordKindV1| {
         fixture
             .activated_project
             .neutral_records
             .iter()
             .find(|record| record.kind == kind)
             .map(|record| record.asset_id)
-            .ok_or(PlayCheckError::PresentationAssetMissing)
+            .ok_or(ReferenceGameError::PresentationAssetMissing)
     };
     Ok(vec![
         PresentationBindingV1 {
             persistent_id: PersistentId::from_bytes([0x57; 16]),
-            presentation_role: next_contracts::PresentationRoleV1::Environment,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
             incarnation: 0,
             presentation_layer: 0,
-            asset_id: asset(next_contracts::NeutralRecordKindV1::Scene)?,
+            asset_id: asset(next_contracts::content::NeutralRecordKindV1::Scene)?,
             instance_ordinal: 0,
-            primitive: next_contracts::PresentationPrimitiveV1::Floor,
+            primitive: next_contracts::presentation::PresentationPrimitiveV1::Floor,
             physics_body_id: Some(PhysicsBodyIdV1 {
                 subject_id: PersistentId::from_bytes([0x57; 16]),
                 body_slot: 0,
             }),
-            fallback_transform: next_contracts::QuantizedPresentationTransformV1::default(),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
             visible: true,
         },
         PresentationBindingV1 {
             persistent_id: fixture.body_id,
-            presentation_role: next_contracts::PresentationRoleV1::PlayerAvatar,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::PlayerAvatar,
             incarnation: 0,
             presentation_layer: 1,
-            asset_id: asset(next_contracts::NeutralRecordKindV1::Collider)?,
+            asset_id: asset(next_contracts::content::NeutralRecordKindV1::Collider)?,
             instance_ordinal: 0,
-            primitive: next_contracts::PresentationPrimitiveV1::Capsule,
+            primitive: next_contracts::presentation::PresentationPrimitiveV1::Capsule,
             physics_body_id: Some(fixture.physics_body_id),
-            fallback_transform: next_contracts::QuantizedPresentationTransformV1::default(),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
             visible: true,
         },
         PresentationBindingV1 {
             persistent_id: fixture.interactive_object_id,
-            presentation_role: next_contracts::PresentationRoleV1::InteractiveObject,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::InteractiveObject,
             incarnation: 0,
             presentation_layer: 2,
-            asset_id: asset(next_contracts::NeutralRecordKindV1::InteractionDefinition)?,
+            asset_id: asset(next_contracts::content::NeutralRecordKindV1::InteractionDefinition)?,
             instance_ordinal: 0,
-            primitive: next_contracts::PresentationPrimitiveV1::Switch,
+            primitive: next_contracts::presentation::PresentationPrimitiveV1::Switch,
             physics_body_id: Some(PhysicsBodyIdV1 {
                 subject_id: fixture.interactive_object_id,
                 body_slot: 0,
             }),
-            fallback_transform: next_contracts::QuantizedPresentationTransformV1::default(),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
             visible: true,
         },
         PresentationBindingV1 {
             persistent_id: fixture.pickup_item_id,
-            presentation_role: next_contracts::PresentationRoleV1::Item,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Item,
             incarnation: 0,
             presentation_layer: 3,
-            asset_id: asset(next_contracts::NeutralRecordKindV1::ItemDefinition)?,
+            asset_id: asset(next_contracts::content::NeutralRecordKindV1::ItemDefinition)?,
             instance_ordinal: 0,
-            primitive: next_contracts::PresentationPrimitiveV1::Item,
+            primitive: next_contracts::presentation::PresentationPrimitiveV1::Item,
             physics_body_id: Some(PhysicsBodyIdV1 {
                 subject_id: fixture.pickup_proxy_id,
                 body_slot: 0,
             }),
-            fallback_transform: next_contracts::QuantizedPresentationTransformV1::default(),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
             visible: true,
         },
         PresentationBindingV1 {
             persistent_id: fixture.npc_character_id,
-            presentation_role: next_contracts::PresentationRoleV1::Character,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Character,
             incarnation: 0,
             presentation_layer: 4,
-            asset_id: asset(next_contracts::NeutralRecordKindV1::CharacterDefinition)?,
+            asset_id: asset(next_contracts::content::NeutralRecordKindV1::CharacterDefinition)?,
             instance_ordinal: 0,
-            primitive: next_contracts::PresentationPrimitiveV1::Character,
+            primitive: next_contracts::presentation::PresentationPrimitiveV1::Character,
             physics_body_id: Some(PhysicsBodyIdV1 {
                 subject_id: fixture.npc_character_id,
                 body_slot: 0,
             }),
-            fallback_transform: next_contracts::QuantizedPresentationTransformV1::default(),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
             visible: true,
         },
     ])

@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use next_contracts::{
+use next_contracts::ids::ContentHash;
+use next_contracts::physics::{
     AppliedLocomotionResultV1, ClosedPhysicsContactBatchV1, ContactEventV1, ContactPhaseV1,
-    ContentHash, PhysicsContactContinuityStateV1, PhysicsContactReportingV1, PhysicsPoseV1,
-    PhysicsShapeIdV1, PhysicsStepInputV2, PhysicsStepResultV1, derive_physics_contact_id,
+    PhysicsContactContinuityStateV1, PhysicsContactReportingV1, PhysicsPoseV1, PhysicsShapeIdV1,
+    PhysicsStepInputV2, PhysicsStepResultV1, derive_physics_contact_id,
 };
 
 use super::error::ReferencePhysicsError;

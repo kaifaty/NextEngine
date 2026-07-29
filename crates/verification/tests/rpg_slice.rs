@@ -1,14 +1,17 @@
 use next_assets::SaveImage;
-use next_contracts::{
-    AssetId, AuthorityGrant, CharacterPayloadV1, ContentHash, DefinitionRefV1, DialoguePayloadV1,
-    EventPayload, InteractiveObjectPayloadV1, InventoryPayloadV1, IssuerPrincipal, ItemPayloadV1,
-    PersistentId, PhysicsWorldCheckpointV1, PlayerPrincipalId, ProvenanceBindingV1, QuestPayloadV1,
-    RPG_COMMAND_CAPABILITY_ID, RelationshipDimensionV1, RelationshipPayloadV1,
-    RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgAggregateRefV1,
-    RpgCommandV1, RpgEventV1, RpgOperationPayloadV1, RpgOperationV1, RpgRuntimeBindingsV1,
-    RpgSnapshotV2, SaveCompatibility, SchemaId, SkillProficiency, SkillProficiencyEntryV1,
-    TickSettings, WorldCheckpointV4, WorldCommand,
+use next_contracts::command::{EventPayload, IssuerPrincipal, WorldCommand};
+use next_contracts::ids::{AssetId, ContentHash, PersistentId, PlayerPrincipalId, SchemaId};
+use next_contracts::persistence::{AuthorityGrant, SaveCompatibility, TickSettings};
+use next_contracts::physics::PhysicsWorldCheckpointV1;
+use next_contracts::rpg::{
+    CharacterPayloadV1, DefinitionRefV1, DialoguePayloadV1, InteractiveObjectPayloadV1,
+    InventoryPayloadV1, ItemPayloadV1, ProvenanceBindingV1, QuestPayloadV1,
+    RelationshipDimensionV1, RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1,
+    RpgAggregatePayloadV1, RpgAggregateRefV1, RpgCommandV1, RpgEventV1, RpgOperationPayloadV1,
+    RpgOperationV1, RpgRuntimeBindingsV1, RpgSnapshotV2, SkillProficiencyEntryV1,
 };
+use next_contracts::rpg::{RPG_COMMAND_CAPABILITY_ID, SkillProficiency};
+use next_contracts::snapshot::WorldCheckpointV4;
 use next_runtime::{
     AuthorityRegistry, CommandDisposition, RejectionCode, RuntimeBootstrapV3, RuntimeState,
 };
@@ -34,8 +37,10 @@ fn authority() -> AuthorityRegistry {
     authority
         .register(
             principal(),
-            [next_contracts::CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)
-                .expect("RPG capability is valid")],
+            [
+                next_contracts::ids::CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)
+                    .expect("RPG capability is valid"),
+            ],
         )
         .expect("fixture principal is unique");
     authority
@@ -47,7 +52,7 @@ fn runtime_fixture() -> NeutralRuntimeFixture {
         [(
             principal(),
             vec![
-                next_contracts::CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)
+                next_contracts::ids::CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)
                     .expect("RPG capability is valid"),
             ],
         )],
@@ -518,7 +523,7 @@ fn public_manifest_authority_shape_remains_engine_owned() {
     let grant = AuthorityGrant {
         principal: principal(),
         capabilities: vec![
-            next_contracts::CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)
+            next_contracts::ids::CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)
                 .expect("RPG capability is valid"),
         ],
     };

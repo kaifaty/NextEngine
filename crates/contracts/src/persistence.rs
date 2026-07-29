@@ -1,16 +1,24 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use crate::{
-    CanonicalDecodeLimits, CanonicalError, CapabilityId, ClosedCommandAdmissionBatchV2,
-    ClosedIngressBatchV1, ClosedPhysicsContactBatchV1, CommandDecodeError, CommandId,
-    CommandLedgerHash, ContentHash, DomainEvent, InputMappingReceiptV1, IssuerPrincipal,
-    PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+use crate::canonical::{CanonicalDecodeLimits, CanonicalError, sha256};
+use crate::command::{CommandDecodeError, DomainEvent, IssuerPrincipal, WorldCommand};
+use crate::ids::{
+    CapabilityId, CommandId, CommandLedgerHash, ContentHash, SchemaId, StateRoot, WorldNamespaceId,
+    content_hash_from_bytes,
+};
+use crate::input::{ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, InputMappingReceiptV1};
+use crate::physics::{
+    ClosedPhysicsContactBatchV1, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PhysicsStepInputV2, PhysicsWorldCheckpointV1,
+};
+use crate::rpg::{
     RPG_AGGREGATE_SNAPSHOT_OWNER_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
-    RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID, RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID,
-    RUNTIME_SNAPSHOT_SEGMENT_ID, RpgSnapshotV2, RuntimeSnapshot, SchemaId, StateRoot,
-    WorldCheckpointV4, WorldCommand, WorldNamespaceId, content_hash_from_bytes, sha256,
+    RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID, RpgSnapshotV2,
+};
+use crate::snapshot::{
+    RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID,
+    RuntimeSnapshotV3, WorldCheckpointV4,
 };
 
 pub const SAVE_MANIFEST_SCHEMA_VERSION: u32 = 2;
@@ -152,14 +160,14 @@ impl SaveManifestV2 {
     pub fn for_runtime_snapshot(
         generation: u64,
         compatibility: SaveCompatibility,
-        snapshot: &RuntimeSnapshot,
+        snapshot: &RuntimeSnapshotV3,
         snapshot_bytes: &[u8],
     ) -> Result<Self, ManifestValidationError> {
         let segment = SaveSegmentDescriptor::for_bytes(
-            SchemaId::new(crate::RUNTIME_SNAPSHOT_OWNER_ID)?,
-            SchemaId::new(crate::RUNTIME_SNAPSHOT_SCHEMA_ID)?,
-            SchemaId::new(crate::RUNTIME_SNAPSHOT_SEGMENT_ID)?,
-            crate::RUNTIME_SNAPSHOT_SCHEMA_VERSION,
+            SchemaId::new(crate::snapshot::RUNTIME_SNAPSHOT_OWNER_ID)?,
+            SchemaId::new(crate::snapshot::RUNTIME_SNAPSHOT_SCHEMA_ID)?,
+            SchemaId::new(crate::snapshot::RUNTIME_SNAPSHOT_SEGMENT_ID)?,
+            crate::snapshot::RUNTIME_SNAPSHOT_SCHEMA_VERSION,
             snapshot_bytes,
         )?;
         let command_ledger = CommandLedgerDescriptorV2 {
@@ -398,7 +406,7 @@ impl ReplayManifestV4 {
         )
         .ok_or(ManifestValidationError::ReplayInitialSegmentsInvalid)?;
         let runtime_snapshot =
-            RuntimeSnapshot::from_canonical_bytes(&runtime.canonical_bytes, limits)?;
+            RuntimeSnapshotV3::from_canonical_bytes(&runtime.canonical_bytes, limits)?;
         let rpg_snapshot = RpgSnapshotV2::from_canonical_bytes(&rpg.canonical_bytes, limits)?;
         let physics_checkpoint =
             PhysicsWorldCheckpointV1::from_canonical_bytes(&physics.canonical_bytes, limits)?;
@@ -433,11 +441,13 @@ impl ReplayManifestV4 {
                 .validate(&checkpoint.runtime_snapshot.admission_limits)?;
             if tick.closed_ingress_batch.body.assigned_tick != expected_tick
                 || tick.expected_ingress_command_batch.body.simulation_tick != expected_tick
-                || tick.expected_ingress_command_batch.body.phase != crate::CommandPhase::Ingress
+                || tick.expected_ingress_command_batch.body.phase
+                    != crate::command::CommandPhase::Ingress
                 || tick.expected_physics_step_input.gameplay_tick != expected_tick
                 || tick.expected_contact_batch.gameplay_tick != expected_tick
                 || tick.expected_outcome_command_batch.body.simulation_tick != expected_tick
-                || tick.expected_outcome_command_batch.body.phase != crate::CommandPhase::Outcome
+                || tick.expected_outcome_command_batch.body.phase
+                    != crate::command::CommandPhase::Outcome
                 || compare_point.closed_ingress_batch_hash != tick.closed_ingress_batch.batch_hash
                 || compare_point.ingress_command_batch_hash
                     != tick.expected_ingress_command_batch.batch_hash
@@ -476,9 +486,9 @@ impl ReplayManifestV4 {
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ManifestValidationError {
-    Identifier(crate::IdentifierError),
+    Identifier(crate::ids::IdentifierError),
     Canonicalization(CanonicalError),
-    Snapshot(crate::SnapshotDecodeError),
+    Snapshot(crate::snapshot::SnapshotDecodeError),
     Command(CommandDecodeError),
     InvalidTickSettings,
     HashBindingsNotStrictlySorted,
@@ -496,11 +506,10 @@ pub enum ManifestValidationError {
     ReplayTickExhausted,
     ReplayInitialSegmentsInvalid,
     ReplayBatchMismatch,
-    WorldCheckpoint(crate::WorldCheckpointError),
-    Rpg(crate::RpgDecodeError),
-    RpgV2(crate::RpgContractErrorV1),
-    Physics(crate::PhysicsContractError),
-    Input(crate::InputContractError),
+    WorldCheckpoint(crate::snapshot::WorldCheckpointError),
+    RpgV2(crate::rpg::RpgContractErrorV1),
+    Physics(crate::physics::PhysicsContractError),
+    Input(crate::input::InputContractError),
 }
 
 impl Display for ManifestValidationError {
@@ -555,7 +564,6 @@ impl Display for ManifestValidationError {
             Self::WorldCheckpoint(error) => {
                 write!(formatter, "replay checkpoint is invalid: {error}")
             }
-            Self::Rpg(error) => write!(formatter, "replay RPG segment is invalid: {error}"),
             Self::RpgV2(error) => write!(formatter, "replay RPG segment is invalid: {error}"),
             Self::Physics(error) => write!(formatter, "replay physics segment is invalid: {error}"),
             Self::Input(error) => write!(formatter, "replay ingress batch is invalid: {error}"),
@@ -565,8 +573,8 @@ impl Display for ManifestValidationError {
 
 impl Error for ManifestValidationError {}
 
-impl From<crate::IdentifierError> for ManifestValidationError {
-    fn from(error: crate::IdentifierError) -> Self {
+impl From<crate::ids::IdentifierError> for ManifestValidationError {
+    fn from(error: crate::ids::IdentifierError) -> Self {
         Self::Identifier(error)
     }
 }
@@ -577,8 +585,8 @@ impl From<CanonicalError> for ManifestValidationError {
     }
 }
 
-impl From<crate::SnapshotDecodeError> for ManifestValidationError {
-    fn from(error: crate::SnapshotDecodeError) -> Self {
+impl From<crate::snapshot::SnapshotDecodeError> for ManifestValidationError {
+    fn from(error: crate::snapshot::SnapshotDecodeError) -> Self {
         Self::Snapshot(error)
     }
 }
@@ -589,32 +597,26 @@ impl From<CommandDecodeError> for ManifestValidationError {
     }
 }
 
-impl From<crate::WorldCheckpointError> for ManifestValidationError {
-    fn from(error: crate::WorldCheckpointError) -> Self {
+impl From<crate::snapshot::WorldCheckpointError> for ManifestValidationError {
+    fn from(error: crate::snapshot::WorldCheckpointError) -> Self {
         Self::WorldCheckpoint(error)
     }
 }
 
-impl From<crate::RpgDecodeError> for ManifestValidationError {
-    fn from(error: crate::RpgDecodeError) -> Self {
-        Self::Rpg(error)
-    }
-}
-
-impl From<crate::RpgContractErrorV1> for ManifestValidationError {
-    fn from(error: crate::RpgContractErrorV1) -> Self {
+impl From<crate::rpg::RpgContractErrorV1> for ManifestValidationError {
+    fn from(error: crate::rpg::RpgContractErrorV1) -> Self {
         Self::RpgV2(error)
     }
 }
 
-impl From<crate::PhysicsContractError> for ManifestValidationError {
-    fn from(error: crate::PhysicsContractError) -> Self {
+impl From<crate::physics::PhysicsContractError> for ManifestValidationError {
+    fn from(error: crate::physics::PhysicsContractError) -> Self {
         Self::Physics(error)
     }
 }
 
-impl From<crate::InputContractError> for ManifestValidationError {
-    fn from(error: crate::InputContractError) -> Self {
+impl From<crate::input::InputContractError> for ManifestValidationError {
+    fn from(error: crate::input::InputContractError) -> Self {
         Self::Input(error)
     }
 }
@@ -646,10 +648,10 @@ pub use crate::manifest_jcs::ManifestCodecError;
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        CanonicalDecodeLimits, CommandId, CommandStreamId, IssuerPrincipal, PlayerPrincipalId,
-        ReplayCommandRecord, WorldCommand,
-    };
+    use crate::canonical::CanonicalDecodeLimits;
+    use crate::command::{IssuerPrincipal, WorldCommand};
+    use crate::ids::{CommandId, CommandStreamId, PlayerPrincipalId};
+    use crate::persistence::ReplayCommandRecord;
 
     #[test]
     fn replay_record_preserves_invalid_envelope_claim_for_deterministic_rejection() {

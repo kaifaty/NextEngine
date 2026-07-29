@@ -1,4 +1,5 @@
-use next_contracts::{ContentHash, content_hash_from_bytes, sha256};
+use next_contracts::canonical::sha256;
+use next_contracts::ids::{ContentHash, content_hash_from_bytes};
 
 pub(super) fn core_rpg_policy_hash() -> ContentHash {
     domain_hash(

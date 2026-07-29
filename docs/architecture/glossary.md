@@ -4,8 +4,8 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 2.2 |
-| Последняя проверка | 2026-07-26 |
+| Версия | 2.3 |
+| Последняя проверка | 2026-07-29 |
 | Нормативные зависимости | INDEX-001, [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | GLOSSARY-001 2.0 |
 
@@ -25,7 +25,7 @@
 | **ContentHash** | SHA-256 канонических cooked bytes и параметров cooker, используемый для immutable bundle addressing. |
 | **ProjectManifest** | Versioned authored project intent с typed dependency ranges, roots, profiles, policies и provenance; не является runtime lock и не активируется до deterministic resolution. |
 | **ProjectCatalogSnapshot** | Immutable JCS-canonical, externally hash-bound resolver input с полными dependency records, hashes, compatibility/capability/license/provenance/budget metadata и `yanked` state; registry/network/cache state не входит в него. |
-| **ProjectCompositionLock** | Immutable content-addressed exact closure project, catalog, engine/schema/content/package/capability/budget/config/model и migration hashes, общая для `game`, `headless` и `capture-worker`; runtime не разрешает из неё floating ranges. |
+| **ProjectCompositionLockV2** | Current immutable content-addressed exact closure project, catalog, engine/schema/content/package/capability/budget/config/model/migration plus runtime/launch/recovery/shutdown/platform/presentation-profile hashes, общая для `game`, `headless` и `capture-worker`; V1 unsupported, runtime не разрешает floating ranges. |
 | **SchemaDescriptorV1** | Immutable engine-owned schema declaration со stable schema/field IDs, wire shape, encoding, role, compatibility policy and canonical hash; storage/backend layout не является schema. |
 | **SchemaRegistryManifestV1** | Exact content-addressed set accepted schema descriptors, compatibility entries and migration authority, bound by `ProjectCompositionLock`; partial registry publication forbidden. |
 | **ContentManifestV1** | Immutable catalog root exact neutral asset revisions, typed dependency closure, provenance, bundle/blob hashes and target-variant policy; runtime resolves no floating content revision. |
@@ -58,6 +58,9 @@
 | **NormalizedControlEventV1** | Bounded engine-owned semantic control value from a private device adapter; native object, wall time and target tick are excluded. |
 | **ApplicationSessionManifestV1** | Immutable composition-root session closure over exact project/launch/platform/runtime/schema/content/recovery/shutdown/presentation-target hashes. |
 | **ApplicationSessionStateV1** | Runtime-owned revisioned state in the closed `Created → CompositionStaged → RuntimeStaged → Active ↔ Suspended → Quiescing → Finalizing → Closed` lifecycle. |
+| **ApplicationCoordinator** | Production application service в `next_application`, который связывает exact project activation, Runtime-owned session plans, Assets-owned atomic durable publication, reference-game execution, presentation extraction, close/recovery и replay; сам не становится source of truth этих состояний. |
+| **SessionStore** | Assets-owned content-addressed durable store one complete session generation plus atomic generation pointer and single live-session registry; orphan staged objects не являются committed state. |
+| **ReferenceGame** | First-party product owner в `next_reference_game`: authored reference source, stable IDs, Runtime bootstrap, scripted vertical slice and presentation bindings, без test assertions или temporary fault fixtures. |
 | **CloseSessionOperationJournalV1** | Durable full-request-bound progress journal that lets an exact close retry execute only its next missing edge/save step without revalidating the historical starting revision. |
 | **CloseSessionResultV1** | Closed terminal session result `Saved \| ClosedUsingLastSafeGeneration`; only `Closed` publishes its receipt, while retry-pending or required-save failure remains typed non-Closed progress in `Finalizing`. |
 | **RecoverySessionLinkV1** | Durable link from an immutable failed `Finalizing` session to one new live session, binding the exact prior state/manifest, same project lock and verified last-safe save; it is not a lifecycle edge or new project revision. |

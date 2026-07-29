@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-29 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 2.1 |
+| Последняя проверка | 2026-07-29 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
 
@@ -49,7 +49,29 @@ contracts и заменяет admission-oriented verification обычными p
 | Project/runtime activation | exact `ProjectCompositionLock` plus Runtime activation receipt | filesystem, environment or launcher cache |
 | Save generation | persistence transaction and published save manifest | close callback or session UI |
 | Interactive presentation device | private renderer/platform adapter | simulation or save |
-| Terminal close/save receipt | Runtime session journal | repeated callback result reconstructed from memory |
+| Terminal close/save receipt | Runtime-owned close semantics, atomically published by Assets session store | repeated callback result reconstructed from memory |
+
+## Implementation mapping
+
+The accepted boundary is implemented by these production owners:
+
+| Contract/behavior | Implementation owner |
+|---|---|
+| Manifest/state validation, nine legal edges, exact retry and collision detection | `next_runtime::session::ApplicationSessionMachine` |
+| Immutable lifecycle/observation plans and post-publication in-memory commit | `next_runtime::session` |
+| Content-addressed session objects, generation manifest, single live-session registry and atomic pointer | `next_assets::session::SessionStore` |
+| Project activation, ID derivation, reference-game execution, presentation extraction, close and recovery sequencing | `next_application::ApplicationCoordinator` |
+| Production replay execution over `RuntimeReplayDriver` | `next_application::replay` |
+| First-party source/bootstrap/scenario/presentation bindings | `next_reference_game` |
+| Platform-event normalization only | `next_platform` and private `next_desktop_sdl_ash` adapter |
+| Expected-value comparisons and fault scenarios | `next_verification`; never a production dependency |
+
+Every coordinator state change follows validate → immutable plan → one Assets
+generation publication → infallible Runtime commit. A failure before the
+generation pointer replacement leaves the preceding generation authoritative;
+staged content-addressed objects are not committed state. `game`, `headless`
+and runtime-bearing `tools` all enter through this coordinator. Headless does
+not construct the desktop adapter.
 
 ## Public contracts
 

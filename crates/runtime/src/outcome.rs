@@ -1,10 +1,10 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{
-    CanonicalError, CommandPhase, CommandStreamId, DomainEvent, IssuerPrincipal, RpgCommandV1,
-    SystemId, WorldCommand,
-};
+use next_contracts::canonical::CanonicalError;
+use next_contracts::command::{CommandPhase, DomainEvent, IssuerPrincipal, WorldCommand};
+use next_contracts::ids::{CommandStreamId, SystemId};
+use next_contracts::rpg::RpgCommandV1;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum OutcomePayload {

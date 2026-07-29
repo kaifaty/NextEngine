@@ -2,7 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{CapabilityId, IssuerPrincipal};
+use next_contracts::command::IssuerPrincipal;
+use next_contracts::ids::CapabilityId;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct AuthorityRegistry {

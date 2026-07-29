@@ -8,8 +8,8 @@ use crate::NeutralFixtureError;
 
 #[derive(Debug)]
 pub enum CanonicalFixtureError {
-    Identifier(next_contracts::IdentifierError),
-    Canonical(next_contracts::CanonicalError),
+    Identifier(next_contracts::ids::IdentifierError),
+    Canonical(next_contracts::canonical::CanonicalError),
 }
 
 impl Display for CanonicalFixtureError {
@@ -23,14 +23,14 @@ impl Display for CanonicalFixtureError {
 
 impl Error for CanonicalFixtureError {}
 
-impl From<next_contracts::IdentifierError> for CanonicalFixtureError {
-    fn from(error: next_contracts::IdentifierError) -> Self {
+impl From<next_contracts::ids::IdentifierError> for CanonicalFixtureError {
+    fn from(error: next_contracts::ids::IdentifierError) -> Self {
         Self::Identifier(error)
     }
 }
 
-impl From<next_contracts::CanonicalError> for CanonicalFixtureError {
-    fn from(error: next_contracts::CanonicalError) -> Self {
+impl From<next_contracts::canonical::CanonicalError> for CanonicalFixtureError {
+    fn from(error: next_contracts::canonical::CanonicalError) -> Self {
         Self::Canonical(error)
     }
 }
@@ -38,15 +38,17 @@ impl From<next_contracts::CanonicalError> for CanonicalFixtureError {
 #[derive(Debug)]
 pub enum PlayCheckError {
     Fixture(NeutralFixtureError),
+    ReferenceGame(next_reference_game::ReferenceGameError),
+    ReferenceInput(next_reference_game::ReferenceInputError),
     CanonicalFixture(CanonicalFixtureError),
     Input(next_runtime::InputAdmissionError),
     Runtime(RuntimeFatalError),
     Restore(SnapshotRestoreError),
-    Checkpoint(next_contracts::WorldCheckpointError),
+    Checkpoint(next_contracts::snapshot::WorldCheckpointError),
     Replay(crate::ReplayError),
     PersistenceReplay(crate::PersistenceReplayCheckError),
-    Ledger(next_contracts::CommandLedgerError),
-    Canonical(next_contracts::CanonicalError),
+    Ledger(next_contracts::ledger::CommandLedgerError),
+    Canonical(next_contracts::canonical::CanonicalError),
     CountOverflow,
     BodyMissing,
     InteractiveObjectMissing,
@@ -59,7 +61,7 @@ pub enum PlayCheckError {
     PresentationAssetMissing,
     WorldPartitionEmpty,
     WorldStreaming(WorldStreamingError),
-    WorldStreamingContract(next_contracts::WorldStreamingContractError),
+    WorldStreamingContract(next_contracts::world::WorldStreamingContractError),
     WorldStreamingResumeMismatch,
     WorldStreamingMutatedRpg,
     Agent(next_agent::AgentPlannerError),
@@ -73,6 +75,8 @@ impl Display for PlayCheckError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Fixture(error) => write!(formatter, "{error}"),
+            Self::ReferenceGame(error) => write!(formatter, "{error}"),
+            Self::ReferenceInput(error) => write!(formatter, "{error}"),
             Self::CanonicalFixture(error) => write!(formatter, "{error}"),
             Self::Input(error) => write!(formatter, "{error}"),
             Self::Runtime(error) => write!(formatter, "{error}"),
@@ -132,6 +136,18 @@ impl From<NeutralFixtureError> for PlayCheckError {
     }
 }
 
+impl From<next_reference_game::ReferenceGameError> for PlayCheckError {
+    fn from(error: next_reference_game::ReferenceGameError) -> Self {
+        Self::ReferenceGame(error)
+    }
+}
+
+impl From<next_reference_game::ReferenceInputError> for PlayCheckError {
+    fn from(error: next_reference_game::ReferenceInputError) -> Self {
+        Self::ReferenceInput(error)
+    }
+}
+
 impl From<CanonicalFixtureError> for PlayCheckError {
     fn from(error: CanonicalFixtureError) -> Self {
         Self::CanonicalFixture(error)
@@ -156,8 +172,8 @@ impl From<SnapshotRestoreError> for PlayCheckError {
     }
 }
 
-impl From<next_contracts::WorldCheckpointError> for PlayCheckError {
-    fn from(error: next_contracts::WorldCheckpointError) -> Self {
+impl From<next_contracts::snapshot::WorldCheckpointError> for PlayCheckError {
+    fn from(error: next_contracts::snapshot::WorldCheckpointError) -> Self {
         Self::Checkpoint(error)
     }
 }
@@ -174,14 +190,14 @@ impl From<crate::PersistenceReplayCheckError> for PlayCheckError {
     }
 }
 
-impl From<next_contracts::CommandLedgerError> for PlayCheckError {
-    fn from(error: next_contracts::CommandLedgerError) -> Self {
+impl From<next_contracts::ledger::CommandLedgerError> for PlayCheckError {
+    fn from(error: next_contracts::ledger::CommandLedgerError) -> Self {
         Self::Ledger(error)
     }
 }
 
-impl From<next_contracts::CanonicalError> for PlayCheckError {
-    fn from(error: next_contracts::CanonicalError) -> Self {
+impl From<next_contracts::canonical::CanonicalError> for PlayCheckError {
+    fn from(error: next_contracts::canonical::CanonicalError) -> Self {
         Self::Canonical(error)
     }
 }
@@ -204,8 +220,8 @@ impl From<WorldStreamingError> for PlayCheckError {
     }
 }
 
-impl From<next_contracts::WorldStreamingContractError> for PlayCheckError {
-    fn from(error: next_contracts::WorldStreamingContractError) -> Self {
+impl From<next_contracts::world::WorldStreamingContractError> for PlayCheckError {
+    fn from(error: next_contracts::world::WorldStreamingContractError) -> Self {
         Self::WorldStreamingContract(error)
     }
 }

@@ -1,7 +1,8 @@
 mod fixture;
 
-use next_contracts::{
-    ClosedPhysicsContactBatchV1, ContactPhaseV1, PHYSICS_STEP_INPUT_SCHEMA_VERSION, PersistentId,
+use next_contracts::ids::PersistentId;
+use next_contracts::physics::{
+    ClosedPhysicsContactBatchV1, ContactPhaseV1, PHYSICS_STEP_INPUT_SCHEMA_VERSION,
     PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2, PhysicsContactReportingV1, PhysicsContractError,
     PhysicsGeometryV1, PhysicsMotionKindV1, PhysicsShapeIdV1, PhysicsStepInputV2,
     PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1, PhysicsWorldCheckpointV1,

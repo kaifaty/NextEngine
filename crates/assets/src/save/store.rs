@@ -4,12 +4,20 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 #[cfg(test)]
-use next_contracts::{
+use next_contracts::ids::PhysicsWorldId;
+use next_contracts::persistence::SaveCompatibility;
+#[cfg(test)]
+use next_contracts::physics::{
     PhysicsCanonicalSnapshotV2, PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1,
     PhysicsSolverSemanticsProfileV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
-    PhysicsWorldCheckpointV1, PhysicsWorldId, RpgSnapshotV2, RuntimeSnapshot,
+    PhysicsWorldCheckpointV1,
 };
-use next_contracts::{SaveCompatibility, WorldCheckpointV4, WorldStreamingSnapshotV1};
+#[cfg(test)]
+use next_contracts::rpg::RpgSnapshotV2;
+#[cfg(test)]
+use next_contracts::snapshot::RuntimeSnapshotV3;
+use next_contracts::snapshot::WorldCheckpointV4;
+use next_contracts::world::WorldStreamingSnapshotV1;
 
 use super::error::{RejectedGeneration, SaveLoadError, SaveStoreError};
 use super::generation::{
@@ -24,7 +32,7 @@ const CURRENT_STAGING_FILE: &str = "CURRENT.new";
 
 #[cfg(test)]
 pub(super) fn synthetic_empty_checkpoint(
-    runtime_snapshot: RuntimeSnapshot,
+    runtime_snapshot: RuntimeSnapshotV3,
     rpg_snapshot: RpgSnapshotV2,
 ) -> Result<WorldCheckpointV4, SaveStoreError> {
     if !runtime_snapshot
@@ -116,7 +124,7 @@ impl SaveStore {
     pub(super) fn commit_runtime_snapshot(
         &self,
         compatibility: SaveCompatibility,
-        snapshot: &RuntimeSnapshot,
+        snapshot: &RuntimeSnapshotV3,
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
         let checkpoint = synthetic_empty_checkpoint(snapshot.clone(), RpgSnapshotV2::default())?;
         self.commit_world_checkpoint_inner(compatibility, &checkpoint, None)
@@ -126,7 +134,7 @@ impl SaveStore {
     pub(super) fn commit_world_snapshot(
         &self,
         compatibility: SaveCompatibility,
-        runtime_snapshot: &RuntimeSnapshot,
+        runtime_snapshot: &RuntimeSnapshotV3,
         rpg_snapshot: &RpgSnapshotV2,
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
         let checkpoint =
@@ -173,7 +181,7 @@ impl SaveStore {
     pub(super) fn commit_runtime_snapshot_inner(
         &self,
         compatibility: SaveCompatibility,
-        snapshot: &RuntimeSnapshot,
+        snapshot: &RuntimeSnapshotV3,
         fault: Option<CommitBoundary>,
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
         let checkpoint = synthetic_empty_checkpoint(snapshot.clone(), RpgSnapshotV2::default())?;

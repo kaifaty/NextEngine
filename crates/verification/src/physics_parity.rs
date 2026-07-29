@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 #[cfg(any(feature = "physx", feature = "physx-mock"))]
-use next_contracts::{
+use next_contracts::physics::{
     PhysicsGeometryV1, PhysicsMotionKindV1, PhysicsParticipationV1, PhysicsPoseV1,
 };
 #[cfg(any(feature = "physx", feature = "physx-mock"))]
@@ -137,7 +137,7 @@ fn compare_sweep(
 
 #[cfg(any(feature = "physx", feature = "physx-mock"))]
 fn collect_static_boxes(
-    checkpoint: &next_contracts::PhysicsWorldCheckpointV1,
+    checkpoint: &next_contracts::physics::PhysicsWorldCheckpointV1,
 ) -> Result<Vec<GroundedCapsuleStaticBox>, PhysicsBackendParityError> {
     let mut boxes = Vec::new();
     for (body_id, body) in &checkpoint.catalog.bodies {

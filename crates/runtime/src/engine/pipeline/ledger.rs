@@ -1,9 +1,11 @@
-use next_contracts::{
+use next_contracts::canonical::sha256;
+use next_contracts::command::{CommandPhase, IssuerPrincipal, WorldCommand};
+use next_contracts::ids::{CommandId, ContentHash, content_hash_from_bytes};
+use next_contracts::ledger::{
     COMMAND_RECEIPT_SCHEMA_VERSION, CommandBodyArchiveV1, CommandCollisionCandidateV1,
-    CommandCollisionIncidentV1, CommandFinalResultV1, CommandId, CommandIdentityOccurrenceV1,
-    CommandLedgerError, CommandLedgerV2, CommandPhase, CommandReceiptSubjectV1, CommandReceiptV1,
-    CommandStreamLedgerV2, CommandStreamStateV1, ContentHash, IdentityInsertResult,
-    IssuerPrincipal, WorldCommand, content_hash_from_bytes, sha256,
+    CommandCollisionIncidentV1, CommandFinalResultV1, CommandIdentityOccurrenceV1,
+    CommandLedgerError, CommandLedgerV2, CommandReceiptSubjectV1, CommandReceiptV1,
+    CommandStreamLedgerV2, CommandStreamStateV1, IdentityInsertResult,
 };
 
 use super::{PhaseContext, StagedAuthoritativeState, ValidatedCommand};
@@ -119,7 +121,7 @@ pub(super) fn command_receipt(
     command: &WorldCommand,
     command_id: CommandId,
     result: CommandFinalResultV1,
-    event_ids: Vec<next_contracts::EventId>,
+    event_ids: Vec<next_contracts::ids::EventId>,
     transaction_result_root: ContentHash,
 ) -> Result<CommandReceiptV1, RuntimeFatalError> {
     let body_hash = command.body_hash()?;
@@ -170,8 +172,10 @@ pub(super) fn collision_receipt(
         priority_class: u16::MAX,
         command_kind_registry_hash: context.registry.canonical_hash(),
         result: CommandFinalResultV1::Collision {
-            code: next_contracts::SchemaId::new(RejectionCode::CommandSequenceCollision.as_str())
-                .expect("stable collision code is valid"),
+            code: next_contracts::ids::SchemaId::new(
+                RejectionCode::CommandSequenceCollision.as_str(),
+            )
+            .expect("stable collision code is valid"),
         },
         diagnostic_digest: None,
         event_ids: Vec::new(),
@@ -244,7 +248,7 @@ pub(super) fn transaction_result_root(
     identity: &[u8],
     phase: CommandPhase,
     delta_bytes: &[u8],
-    event_ids: &[next_contracts::EventId],
+    event_ids: &[next_contracts::ids::EventId],
 ) -> ContentHash {
     let mut delta_preimage = Vec::new();
     delta_preimage.extend_from_slice(b"nextengine.transaction-deltas.v1\0");

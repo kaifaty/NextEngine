@@ -4,7 +4,7 @@ use crate::canonical::{
     CANONICAL_TYPE_U64, CanonicalCursor, CanonicalDecodeLimits, CanonicalError, CanonicalField,
     encode_canonical_segment,
 };
-use crate::{CommandId, ContentHash, PersistentId, PhysicsContactId, PhysicsWorldId};
+use crate::ids::{CommandId, ContentHash, PersistentId, PhysicsContactId, PhysicsWorldId};
 
 use super::codec::*;
 use super::contact::ClosedPhysicsContactBatchV1;

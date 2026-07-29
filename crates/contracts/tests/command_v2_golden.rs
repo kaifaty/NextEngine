@@ -1,7 +1,8 @@
-use next_contracts::{
-    CanonicalDecodeLimits, CommandStreamId, IssuerPrincipal, PersistentId, PlayerPrincipalId,
+use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::command::{IssuerPrincipal, WorldCommand};
+use next_contracts::ids::{CommandStreamId, PersistentId, PlayerPrincipalId, SchemaId};
+use next_contracts::rpg::{
     RpgAggregateKindV1, RpgAggregateRefV1, RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1,
-    SchemaId, WorldCommand,
 };
 
 struct GoldenVector<'a> {

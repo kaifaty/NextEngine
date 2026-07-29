@@ -1,8 +1,9 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
+use crate::canonical::CanonicalError;
+use crate::command::PrincipalDecodeError;
 use crate::persistence::ManifestValidationError;
-use crate::{CanonicalError, PrincipalDecodeError};
 
 mod jcs;
 mod replay;
@@ -22,7 +23,7 @@ pub enum ManifestCodecError {
     Validation(ManifestValidationError),
     Canonicalization(CanonicalError),
     Principal(PrincipalDecodeError),
-    Identifier(crate::IdentifierError),
+    Identifier(crate::ids::IdentifierError),
     InputTooLarge {
         actual: usize,
         limit: usize,
@@ -113,8 +114,8 @@ impl From<PrincipalDecodeError> for ManifestCodecError {
     }
 }
 
-impl From<crate::IdentifierError> for ManifestCodecError {
-    fn from(error: crate::IdentifierError) -> Self {
+impl From<crate::ids::IdentifierError> for ManifestCodecError {
+    fn from(error: crate::ids::IdentifierError) -> Self {
         Self::Identifier(error)
     }
 }

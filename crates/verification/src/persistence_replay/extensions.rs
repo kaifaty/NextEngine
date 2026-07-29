@@ -1,4 +1,4 @@
-use next_contracts::ContentHash;
+use next_contracts::ids::ContentHash;
 
 use super::PersistenceReplayCheckError;
 
@@ -27,9 +27,9 @@ pub(super) fn verify_wasm_state_round_trip() -> Result<ContentHash, PersistenceR
     let bytes = direct.state().canonical_bytes().map_err(|error| {
         PersistenceReplayCheckError::new("encode Wasm plugin state", error.to_string())
     })?;
-    let state = next_contracts::WasmPluginStateV1::from_canonical_bytes(
+    let state = next_contracts::extension::WasmPluginStateV1::from_canonical_bytes(
         &bytes,
-        next_contracts::CanonicalDecodeLimits::default(),
+        next_contracts::canonical::CanonicalDecodeLimits::default(),
     )
     .map_err(|error| {
         PersistenceReplayCheckError::new("decode Wasm plugin state", error.to_string())
@@ -73,9 +73,9 @@ pub(super) fn verify_luau_state_round_trip() -> Result<ContentHash, PersistenceR
     let bytes = direct.state().canonical_bytes().map_err(|error| {
         PersistenceReplayCheckError::new("encode Luau package state", error.to_string())
     })?;
-    let state = next_contracts::ExtensionPackageStateV1::from_canonical_bytes(
+    let state = next_contracts::extension::ExtensionPackageStateV1::from_canonical_bytes(
         &bytes,
-        next_contracts::CanonicalDecodeLimits::default(),
+        next_contracts::canonical::CanonicalDecodeLimits::default(),
     )
     .map_err(|error| {
         PersistenceReplayCheckError::new("decode Luau package state", error.to_string())

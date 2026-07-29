@@ -4,11 +4,13 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::{
-    ActivatedProjectV1, AssetId, AssetRevisionRefV1, ContentHash, NeutralRecordV1, PersistentId,
-    SchemaId, WorldChunkLifecycleV1, WorldChunkResidencyRecordV1, WorldChunkTransitionV1,
+use next_contracts::canonical::sha256;
+use next_contracts::content::NeutralRecordV1;
+use next_contracts::ids::{AssetId, ContentHash, PersistentId, SchemaId, content_hash_from_bytes};
+use next_contracts::project::{ActivatedProjectV2, AssetRevisionRefV1};
+use next_contracts::world::{
+    WorldChunkLifecycleV1, WorldChunkResidencyRecordV1, WorldChunkTransitionV1,
     WorldStreamingContractError, WorldStreamingPlanV1, WorldStreamingSnapshotV1,
-    content_hash_from_bytes, sha256,
 };
 
 const STAGED_WORLD_CHUNK_GROUP_DOMAIN_V1: &[u8] = b"nextengine.staged-world-chunk-group.v1\0";
@@ -75,13 +77,13 @@ pub struct WorldTransitionCommitV1 {
 
 #[derive(Clone, Debug)]
 pub struct WorldStreamerV1 {
-    project: ActivatedProjectV1,
+    project: ActivatedProjectV2,
     snapshot: WorldStreamingSnapshotV1,
 }
 
 impl WorldStreamerV1 {
     pub fn activate(
-        project: ActivatedProjectV1,
+        project: ActivatedProjectV2,
         initial_chunk_id: SchemaId,
     ) -> Result<Self, WorldStreamingError> {
         project.validate()?;
@@ -128,7 +130,7 @@ impl WorldStreamerV1 {
     }
 
     pub fn restore(
-        project: ActivatedProjectV1,
+        project: ActivatedProjectV2,
         snapshot: WorldStreamingSnapshotV1,
     ) -> Result<Self, WorldStreamingError> {
         project.validate()?;
@@ -519,8 +521,8 @@ fn extend_count(bytes: &mut Vec<u8>, count: usize) -> Result<(), WorldStreamingE
 #[non_exhaustive]
 pub enum WorldStreamingError {
     Contract(WorldStreamingContractError),
-    Project(next_contracts::ProjectContractError),
-    Neutral(next_contracts::NeutralRecordError),
+    Project(next_contracts::project::ProjectContractError),
+    Neutral(next_contracts::content::NeutralRecordError),
     UnknownChunk,
     ProjectMismatch,
     TransitionAlreadyPending,
@@ -563,14 +565,14 @@ impl From<WorldStreamingContractError> for WorldStreamingError {
     }
 }
 
-impl From<next_contracts::ProjectContractError> for WorldStreamingError {
-    fn from(value: next_contracts::ProjectContractError) -> Self {
+impl From<next_contracts::project::ProjectContractError> for WorldStreamingError {
+    fn from(value: next_contracts::project::ProjectContractError) -> Self {
         Self::Project(value)
     }
 }
 
-impl From<next_contracts::NeutralRecordError> for WorldStreamingError {
-    fn from(value: next_contracts::NeutralRecordError) -> Self {
+impl From<next_contracts::content::NeutralRecordError> for WorldStreamingError {
+    fn from(value: next_contracts::content::NeutralRecordError) -> Self {
         Self::Neutral(value)
     }
 }
@@ -580,7 +582,7 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use next_assets::ContentStore;
-    use next_project::{activate_project, cook_project_v1, neutral_vertical_slice_source_v1};
+    use next_project::{activate_project, cook_project_v1};
 
     use super::*;
 
@@ -589,8 +591,8 @@ mod tests {
     #[test]
     fn worker_permutations_produce_the_same_atomic_transition() {
         let project = fixture_project("permutations");
-        let initial = SchemaId::new("nextengine.fixture.chunk.start").expect("initial");
-        let target = SchemaId::new("nextengine.fixture.chunk.frontier").expect("target");
+        let initial = SchemaId::new("nextengine.reference.chunk.start").expect("initial");
+        let target = SchemaId::new("nextengine.reference.chunk.frontier").expect("target");
         let mut forward =
             WorldStreamerV1::activate(project.clone(), initial.clone()).expect("activate");
         let plan = forward
@@ -624,8 +626,8 @@ mod tests {
     #[test]
     fn transition_round_trip_preserves_generation_and_unloads_previous_chunk() {
         let project = fixture_project("round-trip");
-        let start = SchemaId::new("nextengine.fixture.chunk.start").expect("start");
-        let frontier = SchemaId::new("nextengine.fixture.chunk.frontier").expect("frontier");
+        let start = SchemaId::new("nextengine.reference.chunk.start").expect("start");
+        let frontier = SchemaId::new("nextengine.reference.chunk.frontier").expect("frontier");
         let mut streamer = WorldStreamerV1::activate(project, start.clone()).expect("activate");
         execute_transition(&mut streamer, frontier, 10);
         execute_transition(&mut streamer, start.clone(), 20);
@@ -646,8 +648,8 @@ mod tests {
     #[test]
     fn save_restore_reconstructs_pending_transition_without_worker_state() {
         let project = fixture_project("restore");
-        let start = SchemaId::new("nextengine.fixture.chunk.start").expect("start");
-        let frontier = SchemaId::new("nextengine.fixture.chunk.frontier").expect("frontier");
+        let start = SchemaId::new("nextengine.reference.chunk.start").expect("start");
+        let frontier = SchemaId::new("nextengine.reference.chunk.frontier").expect("frontier");
         let mut streamer = WorldStreamerV1::activate(project.clone(), start).expect("activate");
         let plan = streamer
             .begin_transition(frontier.clone(), 31)
@@ -658,7 +660,7 @@ mod tests {
         let bytes = saved.canonical_bytes().expect("snapshot bytes");
         let decoded = WorldStreamingSnapshotV1::from_canonical_bytes(
             &bytes,
-            next_contracts::CanonicalDecodeLimits::default(),
+            next_contracts::canonical::CanonicalDecodeLimits::default(),
         )
         .expect("decode");
         let mut restored = WorldStreamerV1::restore(project, decoded).expect("restore");
@@ -671,8 +673,8 @@ mod tests {
     #[test]
     fn corrupt_collision_and_publication_fault_leave_previous_generation_intact() {
         let project = fixture_project("faults");
-        let start = SchemaId::new("nextengine.fixture.chunk.start").expect("start");
-        let frontier = SchemaId::new("nextengine.fixture.chunk.frontier").expect("frontier");
+        let start = SchemaId::new("nextengine.reference.chunk.start").expect("start");
+        let frontier = SchemaId::new("nextengine.reference.chunk.frontier").expect("frontier");
         let mut streamer = WorldStreamerV1::activate(project, start).expect("activate");
         let plan = streamer.begin_transition(frontier, 42).expect("begin");
         let order = plan.ordered_required_asset_ids.clone();
@@ -716,9 +718,10 @@ mod tests {
         streamer.commit(&staged, false).expect("commit");
     }
 
-    fn fixture_project(label: &str) -> ActivatedProjectV1 {
-        let cooked = cook_project_v1(neutral_vertical_slice_source_v1().expect("fixture source"))
-            .expect("cook fixture");
+    fn fixture_project(label: &str) -> ActivatedProjectV2 {
+        let cooked =
+            cook_project_v1(next_reference_game::project_source_v2().expect("fixture source"))
+                .expect("cook fixture");
         let root = std::env::temp_dir().join(format!(
             "nextengine-world-{label}-{}-{}",
             std::process::id(),

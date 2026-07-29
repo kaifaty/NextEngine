@@ -1,15 +1,15 @@
 use std::collections::BTreeMap;
 
-use next_contracts::{
-    AcceptedLocomotionIntentV2, AuthoritativeNumericProfileV1, CommandId,
-    PHYSICS_STEP_INPUT_SCHEMA_VERSION, PersistentId, PhysicsBodyDescriptorV1, PhysicsBodyIdV1,
-    PhysicsBodyStateV2, PhysicsCanonicalSnapshotV2, PhysicsContactReportingV1,
-    PhysicsCoordinateProfileV1, PhysicsGeometryV1, PhysicsLimitsProfileV1,
-    PhysicsMaterialDescriptorV1, PhysicsMotionKindV1, PhysicsParticipationV1, PhysicsPoseV1,
-    PhysicsQuantizationProfileV1, PhysicsShapeDescriptorV1, PhysicsShapeIdV1,
-    PhysicsSolverSemanticsProfileV1, PhysicsStepInputV2, PhysicsStepResultV1,
-    PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1, PhysicsWorldCheckpointV1, PhysicsWorldId,
-    SchemaId, TickRateProfileV1,
+use next_contracts::ids::{CommandId, PersistentId, PhysicsWorldId, SchemaId};
+use next_contracts::input::TickRateProfileV1;
+use next_contracts::physics::{
+    AcceptedLocomotionIntentV2, AuthoritativeNumericProfileV1, PHYSICS_STEP_INPUT_SCHEMA_VERSION,
+    PhysicsBodyDescriptorV1, PhysicsBodyIdV1, PhysicsBodyStateV2, PhysicsCanonicalSnapshotV2,
+    PhysicsContactReportingV1, PhysicsCoordinateProfileV1, PhysicsGeometryV1,
+    PhysicsLimitsProfileV1, PhysicsMaterialDescriptorV1, PhysicsMotionKindV1,
+    PhysicsParticipationV1, PhysicsPoseV1, PhysicsQuantizationProfileV1, PhysicsShapeDescriptorV1,
+    PhysicsShapeIdV1, PhysicsSolverSemanticsProfileV1, PhysicsStepInputV2, PhysicsStepResultV1,
+    PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1, PhysicsWorldCheckpointV1,
 };
 
 use super::super::{
