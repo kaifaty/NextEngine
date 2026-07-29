@@ -1,19 +1,27 @@
 mod fixtures;
 
+use std::collections::BTreeMap;
+
 use next_contracts::{
-    CORE_MOVE_ACTION_ID, CapabilityId, CommandId, CommandStreamId, CommandStreamKeyV1,
-    CommandStreamStateV1, DomainEvent, InputMappingCodeV1, InputSourceId,
-    NOOP_COMMAND_CAPABILITY_ID, PHYSICAL_COMMAND_CAPABILITY_ID, PLAYER_ACTION_FRAME_SCHEMA_ID,
+    AuthoritativeNumericProfileV1, CORE_MOVE_ACTION_ID, CapabilityId, CausalIdentityKey,
+    CausalIdentityKind, CommandId, CommandPhase, CommandStreamId, CommandStreamKeyV1,
+    CommandStreamRegistryV1, CommandStreamStateV1, ContentHash, DomainEvent, InputMappingCodeV1,
+    InputSampleV1, InputSourceId, IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID,
+    PHYSICAL_COMMAND_CAPABILITY_ID, PLAYER_ACTION_FRAME_SCHEMA_ID,
     PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PersistentId,
-    PhysicsBodyDescriptorV1, PhysicsBodyIdV1, PhysicsContactReportingV1, PhysicsGeometryV1,
-    PhysicsMaterialDescriptorV1, PhysicsMotionKindV1, PhysicsParticipationV1, PhysicsPoseV1,
-    PhysicsShapeDescriptorV1, PhysicsShapeIdV1, PlayerActionFrameV1, PlayerActionPhaseV1,
-    PlayerActionV1, PlayerActionValueV1, PlayerControllerBindingV1, PlayerPrincipalId,
-    PrincipalRecordV1, PrincipalStatus, SchemaId, SystemId, WorldNamespaceId,
+    PhysicsBodyDescriptorV1, PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2,
+    PhysicsContactReportingV1, PhysicsGeometryV1, PhysicsMaterialDescriptorV1, PhysicsMotionKindV1,
+    PhysicsParticipationV1, PhysicsPoseV1, PhysicsQuantizationProfileV1, PhysicsShapeDescriptorV1,
+    PhysicsShapeIdV1, PhysicsWorldCheckpointV1, PhysicsWorldId, PlayerActionFrameV1,
+    PlayerActionPhaseV1, PlayerActionV1, PlayerActionValueV1, PlayerControllerBindingV1,
+    PlayerPrincipalId, PrincipalRecordV1, PrincipalRegistryV1, PrincipalStatus, ProjectId,
+    RuntimeDeterminismProfileV1, SchemaId, SystemId, TickRateProfileV1, WorldCommand,
+    WorldIdentityManifestV1, WorldNamespaceId, content_hash_from_bytes,
 };
-use next_physics_api::PhysicsBackendPolicy;
+use next_physics_api::{PhysicsBackendKind, PhysicsBackendPolicy};
 
 use super::*;
+use crate::{AuthorityRegistry, CommandKindRegistry};
 use fixtures::{command, fixture, fixture_for, movement_sample, physical_fixture};
 
 #[test]

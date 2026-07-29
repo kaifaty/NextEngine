@@ -19,8 +19,9 @@ use next_rpg::RpgState;
 use crate::authority::AuthorityRegistry;
 
 use super::affordance::{InteractionAffordance, select_interaction_affordance};
+use super::error::RuntimeFatalError;
 use super::ingress::{InteractionIntentKind, PendingInteractionIntent};
-use super::{RuntimeFatalError, core_rpg_policy_hash};
+use super::policy::core_rpg_policy_hash;
 
 #[derive(Clone, Debug)]
 pub(super) struct InteractionOutcomeRoute {

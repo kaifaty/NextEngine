@@ -16,10 +16,6 @@ struct SourceSizeExemption {
 // below the hard limit must remove its entry in the same change.
 const SOURCE_SIZE_EXEMPTIONS: &[SourceSizeExemption] = &[
     SourceSizeExemption {
-        path: "crates/runtime/src/engine.rs",
-        max_lines: 1_252,
-    },
-    SourceSizeExemption {
         path: "crates/verification/src/player_fixture.rs",
         max_lines: 2_542,
     },
