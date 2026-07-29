@@ -1648,6 +1648,7 @@ dependencies = [
  "next_verification",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]

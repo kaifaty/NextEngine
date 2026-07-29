@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CommandReportV1<T> {
     pub schema_version: u32,
     pub status: String,
@@ -9,33 +10,44 @@ pub struct CommandReportV1<T> {
 }
 
 impl<T: Serialize> CommandReportV1<T> {
-    pub fn emit(command: &str, status: &str, details: T) -> Result<(), String> {
-        let report = Self {
+    pub fn new(command: &str, status: &str, details: T) -> Self {
+        Self {
             schema_version: 1,
             status: status.to_owned(),
             command: command.to_owned(),
             details,
-        };
-        println!(
-            "{}",
-            serde_json::to_string(&report).map_err(|error| error.to_string())?
-        );
+        }
+    }
+
+    pub fn to_json(&self) -> Result<String, String> {
+        serde_json::to_string(self).map_err(|error| error.to_string())
+    }
+
+    pub fn emit_report(&self) -> Result<(), String> {
+        println!("{}", self.to_json()?);
         Ok(())
+    }
+
+    pub fn emit(command: &str, status: &str, details: T) -> Result<(), String> {
+        Self::new(command, status, details).emit_report()
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BoundaryScanDetailsV1 {
     pub checks: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct HostCheckDetailsV1 {
     pub host: String,
     pub rustc_release: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PackageDetailsV1 {
     pub target: String,
     pub output: String,
@@ -48,22 +60,7 @@ pub struct PackageDetailsV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct PackageManifestV1 {
-    pub composition_lock_sha256: String,
-    pub content_manifest_sha256: String,
-    pub game_binary: String,
-    pub game_binary_sha256: String,
-    pub game_launch: String,
-    pub headless_binary: String,
-    pub headless_binary_sha256: String,
-    pub headless_launch: String,
-    pub mechanics_lock_sha256: String,
-    pub schema_registry_sha256: String,
-    pub target_triple: String,
-    pub world_partition_sha256: String,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TargetGateDetailsV1 {
     pub target: String,
     pub package_descriptor_hash: String,
@@ -72,6 +69,7 @@ pub struct TargetGateDetailsV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct V1ClosureDetailsV1 {
     pub shipping_ready: bool,
     pub checks: Vec<String>,
@@ -95,6 +93,7 @@ pub struct V1ClosureDetailsV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct StreamingPerformanceDetailsV1 {
     pub cycles: u64,
     pub staged_asset_references: u64,
@@ -104,6 +103,7 @@ pub struct StreamingPerformanceDetailsV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AgentPerformanceDetailsV1 {
     pub cycles: u64,
     pub elapsed_microseconds: u128,
@@ -111,12 +111,14 @@ pub struct AgentPerformanceDetailsV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PerformanceDetailsV1 {
     pub streaming: StreamingPerformanceDetailsV1,
     pub agent_planning: AgentPerformanceDetailsV1,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PlatformDetailsV1 {
     pub portable_contract: String,
     pub sdl_ash_candidate: String,
@@ -128,6 +130,7 @@ pub struct PlatformDetailsV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ContentPackageDetailsV1 {
     pub records: usize,
     pub chunks: usize,
@@ -148,6 +151,7 @@ pub struct ContentPackageDetailsV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PhysicsParityDetailsV1 {
     pub compared_substeps: u64,
     pub registration_permutations: u64,
@@ -155,6 +159,7 @@ pub struct PhysicsParityDetailsV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PhysicsCollisionDetailsV1 {
     pub gameplay_ticks: u64,
     pub physics_substeps: u64,
@@ -167,6 +172,7 @@ pub struct PhysicsCollisionDetailsV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PersistenceReplayDetailsV1 {
     pub ticks: u64,
     pub generations: u64,

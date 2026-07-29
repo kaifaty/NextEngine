@@ -9,16 +9,12 @@ mod tests;
 
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::fs;
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::path::Path;
 
 use next_contracts::ids::{CommandLedgerHash, ContentHash, SchemaId, StateRoot};
 use next_contracts::physics::PhysicsPoseV1;
 
-pub(crate) use runner::run_persistence_replay_check_for_project;
-
-static NEXT_CHECK_DIRECTORY: AtomicU64 = AtomicU64::new(0);
+use crate::scratch::{ScratchContext, ScratchDirectory};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PersistenceReplayCheckReport {
@@ -77,36 +73,19 @@ impl Display for PersistenceReplayCheckError {
 impl Error for PersistenceReplayCheckError {}
 
 struct CheckDirectory {
-    path: PathBuf,
+    directory: ScratchDirectory,
 }
 
 impl CheckDirectory {
-    fn new() -> Result<Self, PersistenceReplayCheckError> {
-        let sequence = NEXT_CHECK_DIRECTORY.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "nextengine-persistence-replay-{}-{sequence}",
-            std::process::id()
-        ));
-        match fs::remove_dir_all(&path) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => {
-                return Err(PersistenceReplayCheckError::new(
-                    "remove stale product-check directory",
-                    error.to_string(),
-                ));
-            }
-        }
-        fs::create_dir_all(&path).map_err(|error| {
+    fn new(scratch: &ScratchContext, label: &str) -> Result<Self, PersistenceReplayCheckError> {
+        let directory = scratch.create_directory(label).map_err(|error| {
             PersistenceReplayCheckError::new("create product-check directory", error.to_string())
         })?;
-        Ok(Self { path })
+        Ok(Self { directory })
     }
-}
 
-impl Drop for CheckDirectory {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.path);
+    fn path(&self) -> &Path {
+        self.directory.path()
     }
 }
 
@@ -118,16 +97,73 @@ pub fn run_persistence_replay_check()
 pub fn run_persistence_replay_check_with_backend(
     backend: PersistenceReplayBackend,
 ) -> Result<PersistenceReplayCheckReport, PersistenceReplayCheckError> {
+    run_persistence_replay_check_with_backend_in(backend, &std::env::temp_dir())
+}
+
+pub fn run_persistence_replay_check_with_backend_in(
+    backend: PersistenceReplayBackend,
+    scratch_root: &Path,
+) -> Result<PersistenceReplayCheckReport, PersistenceReplayCheckError> {
+    let scratch = ScratchContext::new(scratch_root)
+        .map_err(|error| PersistenceReplayCheckError::new("scratch root", error.to_string()))?;
+    run_persistence_replay_check_with_backend_and_scratch(backend, &scratch)
+}
+
+pub(crate) fn run_persistence_replay_check_with_backend_and_scratch(
+    backend: PersistenceReplayBackend,
+    scratch: &ScratchContext,
+) -> Result<PersistenceReplayCheckReport, PersistenceReplayCheckError> {
+    let directory = scratch
+        .create_directory("persistence-replay")
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("create persistence scratch", error.to_string())
+        })?;
+    let scoped = directory.context();
     match backend {
-        PersistenceReplayBackend::Reference => run_persistence_replay_check_for_project(
-            backend,
-            "nextengine.persistence-replay",
-            false,
-        ),
-        PersistenceReplayBackend::PhysX => run_persistence_replay_check_for_project(
-            backend,
-            "nextengine.persistence-replay.physx",
-            true,
-        ),
+        PersistenceReplayBackend::Reference => {
+            let result = runner::run_persistence_replay_check_for_project_with_scratch(
+                &scoped,
+                backend,
+                "nextengine.persistence-replay",
+                false,
+            );
+            directory.finish(result, |error| {
+                PersistenceReplayCheckError::new("remove persistence scratch", error.to_string())
+            })
+        }
+        PersistenceReplayBackend::PhysX => {
+            let result = runner::run_persistence_replay_check_for_project_with_scratch(
+                &scoped,
+                backend,
+                "nextengine.persistence-replay.physx",
+                true,
+            );
+            directory.finish(result, |error| {
+                PersistenceReplayCheckError::new("remove persistence scratch", error.to_string())
+            })
+        }
     }
+}
+
+pub(crate) fn run_persistence_replay_check_for_project(
+    backend: PersistenceReplayBackend,
+    project_id: &str,
+    physx_compatible_profile: bool,
+) -> Result<PersistenceReplayCheckReport, PersistenceReplayCheckError> {
+    let scratch = ScratchContext::new(&std::env::temp_dir())
+        .map_err(|error| PersistenceReplayCheckError::new("scratch root", error.to_string()))?;
+    let directory = scratch
+        .create_directory("persistence-replay")
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("create persistence scratch", error.to_string())
+        })?;
+    let result = runner::run_persistence_replay_check_for_project_with_scratch(
+        &directory.context(),
+        backend,
+        project_id,
+        physx_compatible_profile,
+    );
+    directory.finish(result, |error| {
+        PersistenceReplayCheckError::new("remove persistence scratch", error.to_string())
+    })
 }

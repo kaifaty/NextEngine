@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::path::Path;
 use std::time::Instant;
 
 use next_contracts::agent::MotorCapabilityStateV1;
@@ -8,7 +9,9 @@ use next_contracts::ids::{ContentHash, PhysicsContactId, SchemaId, content_hash_
 use next_contracts::input::CORE_MELEE_ACTION_ID;
 use next_contracts::rpg::RpgPhysicalContactFactV1;
 
-use crate::{build_neutral_player_fixture, cooked_project_rpg_snapshot};
+use crate::cooked_project_rpg_snapshot;
+use crate::player_fixture::build_neutral_player_fixture_with_scratch;
+use crate::scratch::ScratchContext;
 
 const AGENT_PLANNING_CYCLES: u64 = 1_000;
 const AGENT_PLANNING_MAX_MICROSECONDS: u128 = 30_000_000;
@@ -22,8 +25,23 @@ pub struct AgentPlanningPerformanceReport {
 
 pub fn run_agent_planning_performance_check()
 -> Result<AgentPlanningPerformanceReport, AgentPlanningPerformanceError> {
-    let fixture = build_neutral_player_fixture("nextengine.performance.agent")
+    run_agent_planning_performance_check_in(&std::env::temp_dir())
+}
+
+pub fn run_agent_planning_performance_check_in(
+    scratch_root: &Path,
+) -> Result<AgentPlanningPerformanceReport, AgentPlanningPerformanceError> {
+    let scratch = ScratchContext::new(scratch_root)
         .map_err(|error| AgentPlanningPerformanceError::Setup(error.to_string()))?;
+    run_agent_planning_performance_check_with_scratch(&scratch)
+}
+
+pub(crate) fn run_agent_planning_performance_check_with_scratch(
+    scratch: &ScratchContext,
+) -> Result<AgentPlanningPerformanceReport, AgentPlanningPerformanceError> {
+    let fixture =
+        build_neutral_player_fixture_with_scratch(scratch, "nextengine.performance.agent")
+            .map_err(|error| AgentPlanningPerformanceError::Setup(error.to_string()))?;
     let rpg_snapshot = cooked_project_rpg_snapshot(&fixture);
     let (subject_low, subject_high) = if fixture.npc_character_id < fixture.body_id {
         (fixture.npc_character_id, fixture.body_id)

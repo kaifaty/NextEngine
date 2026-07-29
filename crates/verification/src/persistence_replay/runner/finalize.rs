@@ -13,6 +13,7 @@ use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshot
 use next_contracts::snapshot::WorldCheckpointV4;
 
 use crate::cooked_interaction_outcome;
+use crate::scratch::ScratchContext;
 
 use super::super::fault_injection::{corrupt_physics_segment, corrupt_rpg_segment};
 use super::super::rpg_fixture::aggregate_payload;
@@ -31,6 +32,7 @@ struct FinalOutcome {
 }
 
 pub(super) fn complete(
+    scratch: &ScratchContext,
     direct: &DirectScenario,
     restored: &RestoredScenario,
     agent: &AgentEvidence,
@@ -39,7 +41,7 @@ pub(super) fn complete(
         .runtime
         .world_checkpoint()
         .map_err(|error| PersistenceReplayCheckError::new("final checkpoint", error.to_string()))?;
-    verify_corrupt_fallbacks(direct, restored, &final_checkpoint)?;
+    verify_corrupt_fallbacks(scratch, direct, restored, &final_checkpoint)?;
     let outcome = read_final_outcome(direct, &final_checkpoint)?;
     let final_state_root = next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
         &final_checkpoint.runtime_snapshot,
@@ -80,6 +82,7 @@ pub(super) fn complete(
 }
 
 fn verify_corrupt_fallbacks(
+    scratch: &ScratchContext,
     direct: &DirectScenario,
     restored: &RestoredScenario,
     final_checkpoint: &WorldCheckpointV4,
@@ -141,6 +144,7 @@ fn verify_corrupt_fallbacks(
     }
 
     verify_physics_fallback(
+        scratch,
         &restored.compatibility,
         &restored.saved_checkpoint,
         final_checkpoint,
@@ -148,12 +152,13 @@ fn verify_corrupt_fallbacks(
 }
 
 fn verify_physics_fallback(
+    scratch: &ScratchContext,
     compatibility: &next_contracts::persistence::SaveCompatibility,
     saved_checkpoint: &WorldCheckpointV4,
     final_checkpoint: &WorldCheckpointV4,
 ) -> Result<(), PersistenceReplayCheckError> {
-    let directory = CheckDirectory::new()?;
-    let store = SaveStore::new(&directory.path);
+    let directory = CheckDirectory::new(scratch, "physics-fallback")?;
+    let store = SaveStore::new(directory.path());
     store
         .commit_world_checkpoint(compatibility.clone(), saved_checkpoint)
         .map_err(|error| {

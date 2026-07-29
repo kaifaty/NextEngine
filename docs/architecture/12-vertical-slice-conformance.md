@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 2.2 |
-| Последняя проверка | 2026-07-26 |
+| Версия | 2.3 |
+| Последняя проверка | 2026-07-29 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
-| Заменяет | SPEC-12 2.0 |
+| Заменяет | SPEC-12 2.2 |
 
 ## Назначение
 
@@ -41,6 +41,47 @@ project/content/mechanics/extension roots и target package descriptors. На
 developer host недоступный Windows/Linux runtime check или desktop smoke остаётся
 `NotRun(reason)` и делает `shipping_ready = false`; portable local success не
 подменяет target product evidence.
+
+## Native Windows/Linux gate
+
+R1 native evidence собирается существующими ProductCheck, а не новым видом
+глобального допуска. На native Windows x86_64 и Linux x86_64 hosts с
+Vulkan-capable driver один и тот же clean commit выполняет:
+
+```text
+cargo run --locked -p xtask --features desktop-sdl-ash -- native-gate-run --output artifacts/native-gate/<commit>
+```
+
+Команда MUST проверить exact commit, pinned Rust toolchain, `Cargo.lock`, native
+target и чистоту worktree до и после run. Она последовательно запускает
+`host-check`, `play`, `persistence-replay`, `content-package`, `platform`,
+`performance`, `v1-closure` и `v1-package`, изолируя state root каждого check.
+Target report, per-check reports и package публикуются атомарно под
+`artifacts/native-gate/<commit>/targets/<target-triple>/`; generated artifacts
+не коммитятся. Первая ошибка останавливает matrix и атомарно публикует `FAIL`
+report с сохранённым пройденным prefix и
+`NOT_RUN(PRIOR_CHECK_FAILED)` для оставшихся checks; incomplete package,
+smoke-state и другие transient files публиковать запрещено. Существующий output
+не перезаписывается.
+
+После ручного переноса обоих target каталогов их сравнивает:
+
+```text
+cargo run --locked -p xtask -- native-gate-compare --windows <windows-target-report.json> --linux <linux-target-report.json> --output <cross-target-report.json>
+```
+
+Comparator MUST принимать ровно один Windows и один Linux `PASS` report одного
+commit/toolchain/lock, проверять target-local package и exact platform-neutral
+roots и fail closed при отсутствующем target, несовпадении commit или root.
+Windows и Linux package descriptors сравниваются каждый только со своим
+одноимённым slot во втором report; descriptors разных OS между собой, binary
+hashes, package-manifest hashes и timings не являются cross-target oracle.
+
+Каждый отдельный `v1-closure` сохраняет `PASS` только для native target
+текущего host и честный `NotRun(reason)` для другого target; поэтому его
+`shipping_ready` остаётся false. Только успешный cross-target compare MAY
+выставить `native_gate_ready = true`. Он не переписывает исходные check results
+и сам по себе не объявляет весь roadmap stage или v1 завершённым.
 
 ## `fast`
 

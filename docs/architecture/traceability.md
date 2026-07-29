@@ -4,10 +4,10 @@
 |---|---|
 | ID | TRACE-001 |
 | Статус | Accepted |
-| Версия | 2.7 |
+| Версия | 2.8 |
 | Последняя проверка | 2026-07-29 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
-| Заменяет | TRACE-001 2.5 |
+| Заменяет | TRACE-001 2.7 |
 
 ## Назначение
 
@@ -34,7 +34,7 @@ Canonical check names и правила conditional запуска опреде�
 | Автоматизировать operational output без text oracle | relevant JSON-producing command | stdout декодируется как ровно один versioned typed `RunReportV1`, `DiagnosticReportV1` или command report; progress идёт в stderr, stable code проверяется полем | SPEC-09, SPEC-15, SPEC-29 |
 | Сохранять player-facing presentation | `play`; optional capture | UI/camera/animation/audio/render change виден в том же gameplay scenario и не меняет authority | SPEC-04, SPEC-08, SPEC-18, SPEC-28, SPEC-30 |
 | Поддерживать shipping platform, которую реально изменили | conditional `platform` | релевантный smoke запускается на affected Windows/Linux target; public API остаётся engine-owned | SPEC-04, SPEC-17, SPEC-29 |
-| Закрыть v1 без ложного platform success | `v1-closure` после всех relevant checks; `v1-package` на каждом target | exact project/content/mechanics/WIT/extension/package descriptor hashes связаны одним closure root; Windows/Linux runtime/desktop smoke имеют `PASS` только на соответствующем target, а release package публикуется только после запуска обоих binaries | SPEC-04, SPEC-07, SPEC-12, SPEC-17, SPEC-29, ADR-030 |
+| Закрыть v1 без ложного platform success | `v1-closure` и `v1-package` внутри `native-gate-run` на каждом target; затем `native-gate-compare` | каждый clean same-commit Windows/Linux run сохраняет свой `PASS` и честный remote-target `NOT_RUN`; только пара native target reports с matching project/content/mechanics/WIT/extension/state/ledger roots даёт `native_gate_ready = true`, не подменяя остальные критерии R1/v1 | SPEC-04, SPEC-07, SPEC-12, SPEC-15, SPEC-17, SPEC-29, ADR-030 |
 | Не ухудшать затронутый hot path | conditional `performance` | declared numeric scenario остаётся в допустимом regression threshold без изменения gameplay result | SPEC-05, SPEC-06, SPEC-08, SPEC-16, SPEC-23, SPEC-26, SPEC-27, SPEC-30 |
 | Сохранять deterministic fallback для AI/physical policy | `play`, `persistence-replay`; `performance` при изменении hot path | absent/bad optional service или model route приводит к declared local fallback без blocked tick и duplicate command | SPEC-05, SPEC-06, SPEC-14, SPEC-27 |
 | Проверять заменяемость grounded-capsule physics backend | `physics-collision --backend compare`, `persistence-replay --backend reference\|physx`, `physics-backend-parity`; conditional `platform`, `performance` | reference и PhysX дают exact canonical pose/contact phase/order/checkpoint/replay result; activation fallback не меняет tick, а runtime failure сохраняет previous checkpoint | SPEC-05, SPEC-21, SPEC-26, ADR-033 |

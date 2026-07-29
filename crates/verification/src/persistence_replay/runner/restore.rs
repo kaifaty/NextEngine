@@ -2,15 +2,18 @@ use next_assets::SaveStore;
 use next_runtime::RuntimeState;
 use next_world::WorldStreamerV1;
 
+use crate::scratch::ScratchContext;
+
 use super::super::rpg_fixture::compatibility;
 use super::super::{CheckDirectory, PersistenceReplayCheckError};
 use super::{DirectScenario, RestoredScenario};
 
 pub(super) fn save_and_restore(
+    scratch: &ScratchContext,
     direct: &mut DirectScenario,
 ) -> Result<RestoredScenario, PersistenceReplayCheckError> {
-    let directory = CheckDirectory::new()?;
-    let store = SaveStore::new(&directory.path);
+    let directory = CheckDirectory::new(scratch, "save-restore")?;
+    let store = SaveStore::new(directory.path());
     let compatibility = compatibility()?;
     let saved_checkpoint = direct.runtime.world_checkpoint().map_err(|error| {
         PersistenceReplayCheckError::new("mid-run checkpoint", error.to_string())

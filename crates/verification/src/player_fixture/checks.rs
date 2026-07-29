@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use next_contracts::ids::{CommandLedgerHash, ContentHash, SchemaId, StateRoot};
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::physics::PhysicsPoseV1;
@@ -9,9 +11,10 @@ use next_render::{ReferenceB0Renderer, RenderDevice, RenderTargetV1};
 use next_runtime::PhysicsLaunchOptions;
 
 use crate::compute_world_checkpoint_root;
+use crate::scratch::ScratchContext;
 
-use super::activate_fixture_project;
 use super::error::PlayCheckError;
+use super::{activate_fixture_project, activate_fixture_project_with_scratch};
 use next_reference_game::{
     ReferenceRunOutcomeV1, aggregate_payload, run_reference_game, run_reference_game_with_backend,
 };
@@ -51,8 +54,22 @@ pub struct PreparedGameFrameV1 {
 }
 
 pub fn run_play_check() -> Result<PlayCheckReport, PlayCheckError> {
+    run_play_check_in(&std::env::temp_dir())
+}
+
+pub fn run_play_check_in(scratch_root: &Path) -> Result<PlayCheckReport, PlayCheckError> {
+    let scratch = ScratchContext::new(scratch_root).map_err(scratch_error)?;
+    run_play_check_with_scratch(&scratch)
+}
+
+pub(crate) fn run_play_check_with_scratch(
+    scratch: &ScratchContext,
+) -> Result<PlayCheckReport, PlayCheckError> {
     let scenario = run_reference_game(
-        activate_fixture_project(next_reference_game::REFERENCE_GAME_PROJECT_ID)?,
+        activate_fixture_project_with_scratch(
+            scratch,
+            next_reference_game::REFERENCE_GAME_PROJECT_ID,
+        )?,
         true,
     )?;
     play_check_report(scenario)
@@ -63,8 +80,22 @@ pub fn run_game_check() -> Result<GameCheckReport, PlayCheckError> {
 }
 
 pub fn prepare_game_frame() -> Result<PreparedGameFrameV1, PlayCheckError> {
+    prepare_game_frame_in(&std::env::temp_dir())
+}
+
+pub fn prepare_game_frame_in(scratch_root: &Path) -> Result<PreparedGameFrameV1, PlayCheckError> {
+    let scratch = ScratchContext::new(scratch_root).map_err(scratch_error)?;
+    prepare_game_frame_with_scratch(&scratch)
+}
+
+pub(crate) fn prepare_game_frame_with_scratch(
+    scratch: &ScratchContext,
+) -> Result<PreparedGameFrameV1, PlayCheckError> {
     let scenario = run_reference_game(
-        activate_fixture_project(next_reference_game::REFERENCE_GAME_PROJECT_ID)?,
+        activate_fixture_project_with_scratch(
+            scratch,
+            next_reference_game::REFERENCE_GAME_PROJECT_ID,
+        )?,
         true,
     )?;
     prepare_game_frame_from_scenario(scenario)
@@ -251,6 +282,10 @@ fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport,
         )));
     }
     Ok(report)
+}
+
+fn scratch_error(error: std::io::Error) -> PlayCheckError {
+    PlayCheckError::Fixture(crate::NeutralFixtureError::Cleanup(error))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

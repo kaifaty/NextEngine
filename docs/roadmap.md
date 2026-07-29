@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-07-29 |
-| Текущая точка | локально завершённый bootstrap M0–M11; native Windows/Linux gates ещё `NOT_RUN` |
+| Текущая точка | локально завершённый bootstrap M0–M11 и реализованный native gate harness; same-commit Windows/Linux compare ещё `NOT_RUN` |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -135,7 +135,7 @@ motor policy входят в v1 только если их собственны�
 
 ```mermaid
 flowchart LR
-    R0["R0 Bootstrap<br/>DONE_LOCAL"] --> R1["R1 Native developer preview<br/>NEXT"]
+    R0["R0 Bootstrap<br/>DONE_LOCAL"] --> R1["R1 Native developer preview<br/>IN_PROGRESS"]
     R1 --> R2["R2 Playable alpha"]
     R2 --> R3["R3 Scalable content and streaming"]
     R3 --> R4["R4 Systemic living world"]
@@ -152,7 +152,7 @@ flowchart LR
 | Этап | Статус | Размер | Product outcome |
 |---|---|---:|---|
 | R0. Walking skeleton | `DONE_LOCAL` | — | Узкий deterministic slice доказал end-to-end architecture. |
-| R1. Native developer preview | `NEXT` | S–M | Один exact package действительно запускается на обеих shipping targets. |
+| R1. Native developer preview | `IN_PROGRESS` | S–M | Один exact package действительно запускается на обеих shipping targets. |
 | R2. Playable alpha | `PLANNED` | L | В slice можно играть через нормальный camera/UI/presentation loop. |
 | R3. Scalable content and streaming | `PLANNED` | XL | Движок перестаёт зависеть от hard-coded two-chunk fixture. |
 | R4. Systemic living world | `PLANNED` | XL | NPC, schedules, navigation и RPG consequences образуют живой offline world. |
@@ -180,6 +180,9 @@ Windows/Linux execution не считается выполненным и пер
 
 ## R1 — Native Windows/Linux developer preview
 
+**Статус:** `IN_PROGRESS`. Native gate harness реализован; реальная пара
+same-commit Windows/Linux `PASS` reports и успешный compare ещё не получены.
+
 **Цель:** превратить portable local closure в честно запускаемый native
 developer package.
 
@@ -198,7 +201,9 @@ developer package.
 
 - на обеих targets проходят `host-check`, `play`, `persistence-replay`,
   `content-package`, `platform`, `performance` и `v1-closure`;
-- `v1-closure` сообщает target `PASS`, а не `NOT_RUN`;
+- каждый `v1-closure` сообщает `PASS` для native target текущего host и честный
+  `NOT_RUN` для другого target; успешный same-commit `native-gate-compare`
+  выставляет `native_gate_ready = true`;
 - `v1-package` создаёт installable directory и оба release binaries запускаются
   против exact packaged lock;
 - B0 scene обрабатывает real input и типовые lifecycle transitions без
@@ -566,7 +571,7 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 
 | ID | Blocker | Блокирует | Условие снятия |
 |---|---|---|---|
-| B-01 | Нет подтверждённого native Windows/Linux execution | R1, R7 | На exact commit собраны target `PASS` reports и packages с matching roots. |
+| B-01 | `OPEN`: нет подтверждённого native Windows/Linux execution; harness реализован, target evidence отсутствует | R1, R7 | На одном exact clean commit собраны Windows/Linux target `PASS` reports и packages с matching roots, а `native-gate-compare` сообщает `native_gate_ready = true`. |
 | B-02 | SDL3/ash остаётся `Proposed` target candidate | R1, R2 | B0 lifecycle/input/device-loss checks проходят на обеих targets либо выбран thin adapter за тем же contract. |
 | B-03 | Нет production render/content profile и достаточного CC0 content | R2, R5, R7 | Зафиксирован минимальный mesh/material/texture/skeleton/audio profile и lawful fixture/project. |
 | B-04 | Нет общего job/resource/backpressure substrate | R3–R5 | Finite queues, canonical merge, logical budgets, pin/lease/eviction and fault checks реализованы production owners. |
@@ -598,8 +603,10 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 
 Следующие work packages рекомендуется выполнять в этом порядке:
 
-1. **Native gate harness:** воспроизводимый запуск полного check/package matrix
-   на Windows and Linux с сохранением structured reports.
+1. **Native gate harness (`IMPLEMENTED`, execution pending):** воспроизводимый
+   запуск полного check/package matrix на Windows and Linux с сохранением
+   structured reports; следующий gate — реальный same-commit run на обоих
+   native Vulkan hosts и успешный compare.
 2. **Desktop B0 hardening:** real input, resize/focus/fullscreen, surface and
    device-loss lifecycle, clean package dependency diagnostics.
 3. **Minimal render content:** neutral mesh/material/texture records, cooker,

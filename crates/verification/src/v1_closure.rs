@@ -1,13 +1,18 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::path::Path;
 
 use next_contracts::canonical::sha256;
 use next_contracts::ids::{ContentHash, content_hash_from_bytes};
 
-use crate::{
-    run_agent_planning_performance_check, run_content_package_check, run_persistence_replay_check,
-    run_platform_check, run_play_check, run_streaming_performance_check,
-};
+use crate::PersistenceReplayBackend;
+use crate::agent_performance::run_agent_planning_performance_check_with_scratch;
+use crate::content_package::run_content_package_check_with_scratch;
+use crate::persistence_replay::run_persistence_replay_check_with_backend_and_scratch;
+use crate::platform_check::run_platform_check_with_scratch;
+use crate::player_fixture::run_play_check_with_scratch;
+use crate::scratch::ScratchContext;
+use crate::streaming_performance::run_streaming_performance_check_with_scratch;
 
 pub const RPG_SCHEMA_UNSUPPORTED_DIAGNOSTIC: &str = "RPG_SCHEMA_UNSUPPORTED";
 pub const WIT_N_MINUS_2_UNSUPPORTED_DIAGNOSTIC: &str = "WIT_API_N_MINUS_2_UNSUPPORTED";
@@ -64,18 +69,90 @@ pub struct V1ClosureCheckReport {
 }
 
 pub fn run_v1_closure_check() -> Result<V1ClosureCheckReport, V1ClosureCheckError> {
-    let content = run_content_package_check()
-        .map_err(|error| V1ClosureCheckError::new("content-package", error.to_string()))?;
-    let play =
-        run_play_check().map_err(|error| V1ClosureCheckError::new("play", error.to_string()))?;
-    let replay = run_persistence_replay_check()
-        .map_err(|error| V1ClosureCheckError::new("persistence-replay", error.to_string()))?;
-    let platform = run_platform_check()
-        .map_err(|error| V1ClosureCheckError::new("platform", error.to_string()))?;
-    let streaming = run_streaming_performance_check()
-        .map_err(|error| V1ClosureCheckError::new("performance.streaming", error.to_string()))?;
-    let agent = run_agent_planning_performance_check()
-        .map_err(|error| V1ClosureCheckError::new("performance.agent", error.to_string()))?;
+    run_v1_closure_check_in(&std::env::temp_dir())
+}
+
+pub fn run_v1_closure_check_in(
+    scratch_root: &Path,
+) -> Result<V1ClosureCheckReport, V1ClosureCheckError> {
+    let scratch = ScratchContext::new(scratch_root)
+        .map_err(|error| V1ClosureCheckError::new("scratch root", error.to_string()))?;
+    run_v1_closure_check_with_scratch(&scratch)
+}
+
+pub(crate) fn run_v1_closure_check_with_scratch(
+    scratch: &ScratchContext,
+) -> Result<V1ClosureCheckReport, V1ClosureCheckError> {
+    let directory = scratch
+        .create_directory("v1-closure")
+        .map_err(|error| V1ClosureCheckError::new("v1-closure scratch", error.to_string()))?;
+    let result = run_v1_closure_check_scoped(&directory.context());
+    directory.finish(result, |error| {
+        V1ClosureCheckError::new("remove v1-closure scratch", error.to_string())
+    })
+}
+
+fn run_v1_closure_check_scoped(
+    scratch: &ScratchContext,
+) -> Result<V1ClosureCheckReport, V1ClosureCheckError> {
+    let content_directory = scratch
+        .create_directory("content-package")
+        .map_err(|error| V1ClosureCheckError::new("content-package scratch", error.to_string()))?;
+    let content_result = run_content_package_check_with_scratch(&content_directory.context())
+        .map_err(|error| V1ClosureCheckError::new("content-package", error.to_string()));
+    let content = content_directory.finish(content_result, |error| {
+        V1ClosureCheckError::new("remove content-package scratch", error.to_string())
+    })?;
+
+    let play_directory = scratch
+        .create_directory("play")
+        .map_err(|error| V1ClosureCheckError::new("play scratch", error.to_string()))?;
+    let play_result = run_play_check_with_scratch(&play_directory.context())
+        .map_err(|error| V1ClosureCheckError::new("play", error.to_string()));
+    let play = play_directory.finish(play_result, |error| {
+        V1ClosureCheckError::new("remove play scratch", error.to_string())
+    })?;
+
+    let replay_directory = scratch
+        .create_directory("persistence-replay")
+        .map_err(|error| V1ClosureCheckError::new("persistence scratch", error.to_string()))?;
+    let replay_result = run_persistence_replay_check_with_backend_and_scratch(
+        PersistenceReplayBackend::Reference,
+        &replay_directory.context(),
+    )
+    .map_err(|error| V1ClosureCheckError::new("persistence-replay", error.to_string()));
+    let replay = replay_directory.finish(replay_result, |error| {
+        V1ClosureCheckError::new("remove persistence scratch", error.to_string())
+    })?;
+
+    let platform_directory = scratch
+        .create_directory("platform")
+        .map_err(|error| V1ClosureCheckError::new("platform scratch", error.to_string()))?;
+    let platform_result = run_platform_check_with_scratch(&platform_directory.context())
+        .map_err(|error| V1ClosureCheckError::new("platform", error.to_string()));
+    let platform = platform_directory.finish(platform_result, |error| {
+        V1ClosureCheckError::new("remove platform scratch", error.to_string())
+    })?;
+
+    let streaming_directory = scratch
+        .create_directory("performance-streaming")
+        .map_err(|error| V1ClosureCheckError::new("streaming scratch", error.to_string()))?;
+    let streaming_result =
+        run_streaming_performance_check_with_scratch(&streaming_directory.context())
+            .map_err(|error| V1ClosureCheckError::new("performance.streaming", error.to_string()));
+    let streaming = streaming_directory.finish(streaming_result, |error| {
+        V1ClosureCheckError::new("remove streaming scratch", error.to_string())
+    })?;
+
+    let agent_directory = scratch
+        .create_directory("performance-agent")
+        .map_err(|error| V1ClosureCheckError::new("agent scratch", error.to_string()))?;
+    let agent_result =
+        run_agent_planning_performance_check_with_scratch(&agent_directory.context())
+            .map_err(|error| V1ClosureCheckError::new("performance.agent", error.to_string()));
+    let agent = agent_directory.finish(agent_result, |error| {
+        V1ClosureCheckError::new("remove agent scratch", error.to_string())
+    })?;
 
     if platform.authoritative_state_root != play.final_state_root
         || platform.authoritative_ledger_hash != play.final_command_ledger_hash
@@ -133,7 +210,11 @@ pub fn run_v1_closure_check() -> Result<V1ClosureCheckReport, V1ClosureCheckErro
     );
     let linux = target_gate(
         "x86_64-unknown-linux-gnu",
-        cfg!(all(target_arch = "x86_64", target_os = "linux")),
+        cfg!(all(
+            target_arch = "x86_64",
+            target_os = "linux",
+            target_env = "gnu"
+        )) && !current_host_is_wsl(),
         platform.candidate_status,
         &content,
         extension_compatibility_hash,
@@ -307,7 +388,9 @@ fn extend_text(bytes: &mut Vec<u8>, value: &str) {
 }
 
 fn current_host_label() -> &'static str {
-    if cfg!(all(target_arch = "aarch64", target_os = "macos")) {
+    if current_host_is_wsl() {
+        "WSL"
+    } else if cfg!(all(target_arch = "aarch64", target_os = "macos")) {
         "AARCH64_APPLE_DARWIN"
     } else if cfg!(all(
         target_arch = "x86_64",
@@ -315,11 +398,35 @@ fn current_host_label() -> &'static str {
         target_env = "msvc"
     )) {
         "X86_64_PC_WINDOWS_MSVC"
-    } else if cfg!(all(target_arch = "x86_64", target_os = "linux")) {
+    } else if cfg!(all(
+        target_arch = "x86_64",
+        target_os = "linux",
+        target_env = "gnu"
+    )) {
         "X86_64_UNKNOWN_LINUX_GNU"
     } else {
         "UNSUPPORTED_HOST"
     }
+}
+
+#[cfg(target_os = "linux")]
+fn current_host_is_wsl() -> bool {
+    let os_release = std::fs::read_to_string("/proc/sys/kernel/osrelease").unwrap_or_default();
+    wsl_markers_present(
+        std::env::var_os("WSL_INTEROP").is_some(),
+        std::env::var_os("WSL_DISTRO_NAME").is_some(),
+        &os_release,
+    )
+}
+
+#[cfg(not(target_os = "linux"))]
+const fn current_host_is_wsl() -> bool {
+    false
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn wsl_markers_present(has_wsl_interop: bool, has_wsl_distro_name: bool, os_release: &str) -> bool {
+    has_wsl_interop || has_wsl_distro_name || os_release.to_ascii_lowercase().contains("microsoft")
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -351,12 +458,66 @@ impl Error for V1ClosureCheckError {}
 
 #[cfg(test)]
 mod tests {
-    use super::{TargetGateStatusV1, run_v1_closure_check};
+    use super::{
+        TargetGateStatusV1, current_host_is_wsl, run_v1_closure_check_in,
+        run_v1_closure_check_with_scratch, wsl_markers_present,
+    };
+    use crate::scratch::ScratchContext;
     use next_contracts::ids::ContentHash;
+    use std::collections::HashSet;
+    use std::fs;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static TEST_ROOT_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     #[test]
     fn closure_binds_exact_roots_and_never_masks_unavailable_targets() {
-        let report = run_v1_closure_check().expect("local v1 closure passes");
+        let root = std::env::temp_dir().join(format!(
+            "nextengine-v1-closure-scratch-test-{}-{}",
+            std::process::id(),
+            TEST_ROOT_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir(&root).expect("create closure scratch root");
+        let canonical_root = fs::canonicalize(&root).expect("canonical closure scratch root");
+        let scratch = ScratchContext::new(&root).expect("closure scratch context");
+        let report = run_v1_closure_check_with_scratch(&scratch).expect("local v1 closure passes");
+        let allocations = scratch.allocated_paths();
+        assert!(!allocations.is_empty());
+        assert!(
+            allocations
+                .iter()
+                .all(|path| path.starts_with(&canonical_root))
+        );
+        assert_eq!(
+            allocations.iter().collect::<HashSet<_>>().len(),
+            allocations.len()
+        );
+        for label in [
+            "content-package",
+            "play-project",
+            "persistence-replay",
+            "save-restore",
+            "physics-fallback",
+            "platform",
+            "headless",
+            "game-frame",
+            "performance-streaming",
+            "performance-agent",
+        ] {
+            assert!(
+                allocations.iter().any(|path| path
+                    .file_name()
+                    .is_some_and(|name| name.to_string_lossy().contains(label))),
+                "missing isolated scratch allocation for {label}"
+            );
+        }
+        assert_eq!(
+            fs::read_dir(&root)
+                .expect("read cleaned closure root")
+                .count(),
+            0
+        );
+        fs::remove_dir(&root).expect("remove closure scratch root");
         assert_ne!(report.closure_hash, ContentHash::default());
         assert_ne!(
             report.windows.package_descriptor_hash,
@@ -385,8 +546,10 @@ mod tests {
         if cfg!(all(
             target_arch = "x86_64",
             target_os = "linux",
+            target_env = "gnu",
             feature = "desktop-sdl-ash"
-        )) {
+        )) && !current_host_is_wsl()
+        {
             assert_eq!(report.linux.desktop_smoke_status, TargetGateStatusV1::Pass);
         } else {
             assert!(matches!(
@@ -394,5 +557,28 @@ mod tests {
                 TargetGateStatusV1::NotRun { .. }
             ));
         }
+    }
+
+    #[test]
+    fn explicit_closure_scratch_root_must_already_exist() {
+        let missing = std::env::temp_dir().join(format!(
+            "nextengine-v1-closure-missing-test-{}-{}",
+            std::process::id(),
+            TEST_ROOT_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        assert!(run_v1_closure_check_in(&missing).is_err());
+        assert!(!missing.exists());
+    }
+
+    #[test]
+    fn wsl_markers_never_count_as_native_linux_evidence() {
+        assert!(wsl_markers_present(true, false, "6.6.0-generic"));
+        assert!(wsl_markers_present(false, true, "6.6.0-generic"));
+        assert!(wsl_markers_present(
+            false,
+            false,
+            "5.15.153.1-microsoft-standard-WSL2"
+        ));
+        assert!(!wsl_markers_present(false, false, "6.8.0-31-generic"));
     }
 }

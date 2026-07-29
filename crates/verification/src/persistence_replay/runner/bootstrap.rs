@@ -3,9 +3,13 @@ use next_physics_api::PhysicsBackendPolicy;
 use next_runtime::{PhysicsLaunchOptions, RuntimeState};
 use next_world::WorldStreamerV1;
 
+use crate::player_fixture::{
+    build_neutral_player_fixture_with_scratch, build_physx_player_fixture_with_scratch,
+};
+use crate::scratch::ScratchContext;
 use crate::{
-    build_neutral_player_fixture, build_physx_player_fixture, player_action_sample,
-    player_equip_use_sample, player_interact_sample, player_melee_sample, player_pickup_sample,
+    player_action_sample, player_equip_use_sample, player_interact_sample, player_melee_sample,
+    player_pickup_sample,
 };
 
 use super::super::extensions::{verify_luau_state_round_trip, verify_wasm_state_round_trip};
@@ -14,6 +18,7 @@ use super::super::{PersistenceReplayBackend, PersistenceReplayCheckError};
 use super::DirectScenario;
 
 pub(super) fn initialize(
+    scratch: &ScratchContext,
     backend: PersistenceReplayBackend,
     project_id: &str,
     physx_compatible_profile: bool,
@@ -25,9 +30,9 @@ pub(super) fn initialize(
         }
     };
     let fixture = if physx_compatible_profile {
-        build_physx_player_fixture(project_id)
+        build_physx_player_fixture_with_scratch(scratch, project_id)
     } else {
-        build_neutral_player_fixture(project_id)
+        build_neutral_player_fixture_with_scratch(scratch, project_id)
     }
     .map_err(|error| PersistenceReplayCheckError::new("build player fixture", error.to_string()))?;
     let luau_package_state_hash = verify_luau_state_round_trip()?;

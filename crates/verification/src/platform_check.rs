@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::path::Path;
 
 use next_contracts::ids::{PersistentId, SchemaId};
 use next_contracts::platform::{
@@ -8,7 +9,9 @@ use next_contracts::platform::{
 };
 use next_platform::{PlatformHost, PlatformHostError, ReferencePlatformHost};
 
-use crate::{GameCheckReport, PlayCheckError, prepare_game_frame, run_play_check};
+use crate::player_fixture::{prepare_game_frame_with_scratch, run_play_check_with_scratch};
+use crate::scratch::ScratchContext;
+use crate::{GameCheckReport, PlayCheckError};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlatformCheckReport {
@@ -28,8 +31,42 @@ pub enum PlatformCandidateStatus {
 }
 
 pub fn run_platform_check() -> Result<PlatformCheckReport, PlatformCheckError> {
-    let headless = run_play_check()?;
-    let prepared = prepare_game_frame()?;
+    run_platform_check_in(&std::env::temp_dir())
+}
+
+pub fn run_platform_check_in(
+    scratch_root: &Path,
+) -> Result<PlatformCheckReport, PlatformCheckError> {
+    let scratch = ScratchContext::new(scratch_root).map_err(platform_scratch_error)?;
+    run_platform_check_with_scratch(&scratch)
+}
+
+pub(crate) fn run_platform_check_with_scratch(
+    scratch: &ScratchContext,
+) -> Result<PlatformCheckReport, PlatformCheckError> {
+    let platform_directory = scratch
+        .create_directory("platform")
+        .map_err(platform_scratch_error)?;
+    let platform_scratch = platform_directory.context();
+    let result = run_platform_check_scoped(&platform_scratch);
+    platform_directory.finish(result, platform_scratch_error)
+}
+
+fn run_platform_check_scoped(
+    scratch: &ScratchContext,
+) -> Result<PlatformCheckReport, PlatformCheckError> {
+    let headless_directory = scratch
+        .create_directory("headless")
+        .map_err(platform_scratch_error)?;
+    let headless_result = run_play_check_with_scratch(&headless_directory.context())
+        .map_err(PlatformCheckError::from);
+    let headless = headless_directory.finish(headless_result, platform_scratch_error)?;
+    let frame_directory = scratch
+        .create_directory("game-frame")
+        .map_err(platform_scratch_error)?;
+    let frame_result = prepare_game_frame_with_scratch(&frame_directory.context())
+        .map_err(PlatformCheckError::from);
+    let prepared = frame_directory.finish(frame_result, platform_scratch_error)?;
     let game = prepared.check;
     verify_authoritative_parity(&headless, &game)?;
     let candidate_status = run_desktop_candidate(&prepared.snapshot)?;
@@ -128,6 +165,12 @@ pub fn run_platform_check() -> Result<PlatformCheckReport, PlatformCheckError> {
         presentation_snapshot_hash: game.presentation_snapshot_hash,
         candidate_status,
     })
+}
+
+fn platform_scratch_error(error: std::io::Error) -> PlatformCheckError {
+    PlatformCheckError::Play(PlayCheckError::Fixture(
+        crate::NeutralFixtureError::Cleanup(error),
+    ))
 }
 
 #[cfg(feature = "desktop-sdl-ash")]

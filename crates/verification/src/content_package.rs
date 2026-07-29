@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::path::Path;
 
 use next_assets::ContentStore;
 use next_contracts::command::WorldCommand;
@@ -10,7 +10,7 @@ use next_contracts::physics::ContactPhaseV1;
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1};
 use next_project::{ProjectActivationError, ProjectCookError, activate_project, cook_project_v1};
 
-static RUN_COUNTER: AtomicU64 = AtomicU64::new(0);
+use crate::scratch::ScratchContext;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContentPackageCheckReport {
@@ -33,15 +33,26 @@ pub struct ContentPackageCheckReport {
 }
 
 pub fn run_content_package_check() -> Result<ContentPackageCheckReport, ContentPackageCheckError> {
+    run_content_package_check_in(&std::env::temp_dir())
+}
+
+pub fn run_content_package_check_in(
+    scratch_root: &Path,
+) -> Result<ContentPackageCheckReport, ContentPackageCheckError> {
+    let scratch = ScratchContext::new(scratch_root).map_err(ContentPackageCheckError::Cleanup)?;
+    run_content_package_check_with_scratch(&scratch)
+}
+
+pub(crate) fn run_content_package_check_with_scratch(
+    scratch: &ScratchContext,
+) -> Result<ContentPackageCheckReport, ContentPackageCheckError> {
     let source = next_reference_game::project_source_v2()?;
     let cooked = cook_project_v1(source)?;
-    let counter = RUN_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let output = std::env::temp_dir().join(format!(
-        "nextengine-content-package-{}-{counter}",
-        std::process::id()
-    ));
+    let directory = scratch
+        .create_directory("content-package")
+        .map_err(ContentPackageCheckError::Cleanup)?;
     let result = (|| {
-        let store = ContentStore::new(&output);
+        let store = ContentStore::new(directory.path());
         store.publish(&cooked.publication()?)?;
         let activated = activate_project(&store)?;
         let gameplay = crate::run_play_check_with_activated_project(activated.clone())?;
@@ -81,10 +92,7 @@ pub fn run_content_package_check() -> Result<ContentPackageCheckReport, ContentP
             composition_lock_hash: activated.composition_lock.composition_lock_sha256,
         })
     })();
-    if output.exists() {
-        std::fs::remove_dir_all(&output).map_err(ContentPackageCheckError::Cleanup)?;
-    }
-    result
+    directory.finish(result, ContentPackageCheckError::Cleanup)
 }
 
 fn run_reference_wasm_plugin(

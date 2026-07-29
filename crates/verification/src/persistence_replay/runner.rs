@@ -14,6 +14,7 @@ use next_runtime::{PhysicsLaunchOptions, RuntimeState, TickReport};
 use next_world::WorldStreamerV1;
 
 use crate::NeutralPlayerFixture;
+use crate::scratch::ScratchContext;
 
 use super::{
     CheckDirectory, PersistenceReplayBackend, PersistenceReplayCheckError,
@@ -50,15 +51,16 @@ struct AgentEvidence {
     projection_hash: ContentHash,
 }
 
-pub(crate) fn run_persistence_replay_check_for_project(
+pub(crate) fn run_persistence_replay_check_for_project_with_scratch(
+    scratch: &ScratchContext,
     backend: PersistenceReplayBackend,
     project_id: &str,
     physx_compatible_profile: bool,
 ) -> Result<PersistenceReplayCheckReport, PersistenceReplayCheckError> {
-    let mut direct = bootstrap::initialize(backend, project_id, physx_compatible_profile)?;
+    let mut direct = bootstrap::initialize(scratch, backend, project_id, physx_compatible_profile)?;
     bootstrap::run_pre_save(&mut direct)?;
-    let mut restored = restore::save_and_restore(&mut direct)?;
+    let mut restored = restore::save_and_restore(scratch, &mut direct)?;
     let agent = continuation::run(&mut direct, &mut restored)?;
     replay::verify(&direct, &restored, &agent)?;
-    finalize::complete(&direct, &restored, &agent)
+    finalize::complete(scratch, &direct, &restored, &agent)
 }

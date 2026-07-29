@@ -1,13 +1,14 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 use next_assets::ContentStore;
 use next_contracts::ids::{ContentHash, SchemaId};
 use next_world::WorldStreamerV1;
 
-static PERFORMANCE_DIRECTORY_COUNTER: AtomicU64 = AtomicU64::new(0);
+use crate::scratch::ScratchContext;
+
 const STREAMING_PERFORMANCE_CYCLES: u64 = 1_000;
 const STREAMING_PERFORMANCE_LIMIT: Duration = Duration::from_secs(30);
 
@@ -45,16 +46,30 @@ impl Error for StreamingPerformanceError {}
 
 pub fn run_streaming_performance_check()
 -> Result<StreamingPerformanceReport, StreamingPerformanceError> {
+    run_streaming_performance_check_in(&std::env::temp_dir())
+}
+
+pub fn run_streaming_performance_check_in(
+    scratch_root: &Path,
+) -> Result<StreamingPerformanceReport, StreamingPerformanceError> {
+    let scratch = ScratchContext::new(scratch_root)
+        .map_err(|error| StreamingPerformanceError::new("scratch root", error.to_string()))?;
+    run_streaming_performance_check_with_scratch(&scratch)
+}
+
+pub(crate) fn run_streaming_performance_check_with_scratch(
+    scratch: &ScratchContext,
+) -> Result<StreamingPerformanceReport, StreamingPerformanceError> {
     let source = next_reference_game::project_source_v2()
         .map_err(|error| StreamingPerformanceError::new("fixture source", error.to_string()))?;
     let cooked = next_project::cook_project_v1(source)
         .map_err(|error| StreamingPerformanceError::new("cook fixture", error.to_string()))?;
-    let directory = std::env::temp_dir().join(format!(
-        "nextengine-streaming-performance-{}-{}",
-        std::process::id(),
-        PERFORMANCE_DIRECTORY_COUNTER.fetch_add(1, Ordering::Relaxed)
-    ));
-    let store = ContentStore::new(&directory);
+    let directory = scratch
+        .create_directory("streaming-performance")
+        .map_err(|error| {
+            StreamingPerformanceError::new("create performance fixture", error.to_string())
+        })?;
+    let store = ContentStore::new(directory.path());
     let result = (|| {
         store
             .publish(&cooked.publication().map_err(|error| {
@@ -137,10 +152,7 @@ pub fn run_streaming_performance_check()
             })?,
         })
     })();
-    if directory.exists() {
-        std::fs::remove_dir_all(&directory).map_err(|error| {
-            StreamingPerformanceError::new("remove performance fixture", error.to_string())
-        })?;
-    }
-    result
+    directory.finish(result, |error| {
+        StreamingPerformanceError::new("remove performance fixture", error.to_string())
+    })
 }

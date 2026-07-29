@@ -23,8 +23,9 @@ Next Engine создаётся для игр, в которых движение
 > checks. Wasm Component host на pinned Wasmtime проходит N/N−1 negotiation,
 > fuel/memory/capability/state checks и сохраняет обязательный headless
 > fallback. Локальная v1 closure matrix связывает exact project/content/
-> mechanics/extension roots; native Windows/Linux shipping evidence пока
-> остаётся `NOT_RUN`.
+> mechanics/extension roots. Native gate harness уже сохраняет target reports
+> и сравнивает их roots, но same-commit Windows/Linux pair ещё не получена,
+> поэтому shipping evidence пока остаётся `NOT_RUN`.
 > Название Next Engine временное.
 
 Next Engine — самостоятельный проект. Это не порт OpenGothic и не универсальный
@@ -212,16 +213,73 @@ cargo run -p xtask -- v1-closure
 широкий локальный `fast` check перед передачей изменения.
 
 На native Windows/Linux target после зелёной matrix собирается атомарный
-distribution directory с `game`, `headless`, exact cooked project и
-`package.manifest.jcs`. Перед публикацией команда запускает release
-`headless` и один bounded interactive Vulkan frame release `game`:
+distribution directory с `game`, `headless`, exact cooked project,
+`PackageManifestV2` в `package.manifest.jcs` и обязательными `LICENSE`,
+`NOTICE`, `THIRD_PARTY_NOTICES.md`, `MIGRATION_PROVENANCE.md`. Manifest хранит
+sorted полный inventory payload-файлов с SHA-256 (сам canonical manifest
+проверяется отдельно по hash из target report). Перед публикацией команда
+запускает именно скопированные release binaries из `package/bin`, сверяет их
+state/ledger roots и выполняет один bounded interactive Vulkan frame `game`:
 
 ```bash
-cargo run -p xtask -- v1-package --output dist/nextengine-v1
+cargo run --locked -p xtask -- v1-package --output dist/nextengine-v1
 ```
+
+Старые локальные package directories не мигрируются и не перезаписываются:
+удалите или выберите новый output и пересоберите их как `PackageManifestV2`.
 
 На macOS команда fail-closed возвращает
 `TARGET_PACKAGE_REQUIRES_NATIVE_WINDOWS_OR_LINUX_X86_64`.
+
+Полный R1 native gate запускается вручную на двух native x86_64 hosts с
+Vulkan-capable driver. Оба checkout должны указывать на один и тот же clean
+commit, использовать закреплённый Rust `1.93.0` и неизменённый `Cargo.lock`.
+Cross-compilation, WSL-only run или перенос отчёта с dirty worktree не заменяют
+native target evidence.
+
+На Windows и Linux из clean checkout выполняется одна команда:
+
+```bash
+cargo run --locked -p xtask --features desktop-sdl-ash -- native-gate-run --output artifacts/native-gate/<commit>
+```
+
+Она последовательно запускает `host-check`, `play`, `persistence-replay`,
+`content-package`, `platform`, `performance`, `v1-closure` и `v1-package`.
+Каждый check получает отдельный свежий state root. Результат сохраняется в
+игнорируемом Git каталоге:
+
+```text
+artifacts/native-gate/<commit>/
+  targets/
+    x86_64-pc-windows-msvc/
+      target-report.json
+      checks/
+      package/
+    x86_64-unknown-linux-gnu/
+      target-report.json
+      checks/
+      package/
+  cross-target-report.json
+```
+
+Публикация target directory атомарна. При первой ошибке сохраняется строгий
+`FAIL` report с уже завершёнными checks и
+`NOT_RUN(PRIOR_CHECK_FAILED)` для хвоста матрицы; незавершённый package и
+временный state не публикуются. Существующий output никогда не перезаписывается.
+
+После run на обоих hosts каталог отсутствующего target вручную переносится в
+тот же `artifacts/native-gate/<commit>/targets/`. Затем на любом checkout того
+же commit отчёты сравниваются:
+
+```bash
+cargo run --locked -p xtask -- native-gate-compare --windows artifacts/native-gate/<commit>/targets/x86_64-pc-windows-msvc/target-report.json --linux artifacts/native-gate/<commit>/targets/x86_64-unknown-linux-gnu/target-report.json --output artifacts/native-gate/<commit>/cross-target-report.json
+```
+
+Отдельный `v1-closure` остаётся честным: он даёт `PASS` только native target
+текущего host, сохраняет `NOT_RUN` для другого target и не выставляет
+`shipping_ready`. Только успешный compare двух target reports одного commit
+выставляет `native_gate_ready = true`; это ещё не означает автоматического
+закрытия всего R1.
 
 Экспериментальный PhysX backend не входит в default features и не нужен этим
 командам. На Windows x86_64 или Linux x86_64 локальный SDK 5.9.0 задаётся
