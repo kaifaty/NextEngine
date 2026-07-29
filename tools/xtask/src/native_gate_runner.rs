@@ -12,7 +12,7 @@ use crate::native_gate_projection::{
 use crate::native_gate_publish::{CooperativePublishLock, path_exists_without_following};
 use crate::native_gate_schedule as schedule;
 pub(crate) use crate::native_gate_target::native_shipping_target_for_host;
-#[cfg(any(target_os = "linux", test))]
+#[cfg(test)]
 pub(crate) use crate::native_gate_target::wsl_markers_present;
 use crate::*;
 pub(crate) use schedule::NativeGateMatrixSchedule;
