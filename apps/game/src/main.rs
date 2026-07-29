@@ -210,10 +210,16 @@ fn run_interactive(
             ..next_desktop_sdl_ash::DesktopRunOptions::default()
         },
     )
-    .map_err(|error| AppFailure::cli("PLATFORM_INTERACTIVE_ADAPTER_FAILED", error.to_string()))?;
+    .map_err(|error| AppFailure::cli(error.diagnostic_code(), error.to_string()))?;
     eprintln!(
-        "next_game: desktop session closed: frames={}, resizes={}, focus_events={}",
-        report.rendered_frames, report.resize_events, report.focus_events,
+        "next_game: desktop session closed: frames={}, platform_events={}, controls={}, resizes={}, focus_events={}, fullscreen={}, recoveries={}",
+        report.rendered_frames,
+        report.normalized_events,
+        report.control_events,
+        report.resize_events,
+        report.focus_events,
+        report.fullscreen_events,
+        report.device_recoveries,
     );
     Ok(())
 }

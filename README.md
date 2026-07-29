@@ -184,6 +184,14 @@ cargo run -p next_game -- --project <cooked-store> --lock <composition-lock-sha2
 cargo run -p next_game --features desktop-sdl-ash -- --interactive
 ```
 
+Desktop B0 adapter нормализует поддерживаемые keyboard controls в
+engine-owned `PlatformEventV1`, обрабатывает focus/minimize/restore/resize и
+переключает fullscreen по `F11` или `Alt+Enter`. Surface/device loss использует
+bounded recreation без записи в authoritative state. Отсутствующий SDL runtime,
+Vulkan loader, B0 GPU capability или исчерпанный recovery budget возвращают
+стабильный diagnostic code; физические controls ещё не являются gameplay
+actions до следующего ActionMap work package.
+
 Запустить основные локальные проверки:
 
 ```bash
@@ -199,8 +207,8 @@ cargo run -p xtask -- persistence-replay
 # Neutral fixture → deterministic cook → atomic publish → production activation
 cargo run -p xtask -- content-package
 
-# game/headless parity, normalized platform events и presentation/device-loss isolation
-cargo run -p xtask -- platform
+# game/headless parity, SDL event/lifecycle probe и Vulkan device-loss recovery
+cargo run -p xtask --features desktop-sdl-ash -- platform
 
 # Форматирование, clippy, тесты workspace и архитектурные границы
 cargo run -p xtask -- host-check
@@ -237,7 +245,14 @@ commit, использовать закреплённый Rust `1.93.0` и не�
 Cross-compilation, WSL-only run или перенос отчёта с dirty worktree не заменяют
 native target evidence.
 
-На Windows и Linux из clean checkout выполняется одна команда:
+Текущий workflow разработки — Windows-first: частые native checks и Desktop B0
+work выполняются на `x86_64-pc-windows-msvc`. Native Linux host пока не входит
+в ближайший приоритет и будет проверен отдельным поздним validation run.
+Отсутствие Linux evidence не блокирует текущую Windows-разработку, но до этого
+R1/B-01 остаются открытыми и `native_gate_ready` не выставляется.
+
+На каждом target во время соответствующего validation run из clean checkout
+выполняется одна команда:
 
 ```bash
 cargo run --locked -p xtask --features desktop-sdl-ash -- native-gate-run --output artifacts/native-gate/<commit>

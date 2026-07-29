@@ -187,10 +187,20 @@ fn run_desktop_candidate(
         snapshot,
         &next_desktop_sdl_ash::DesktopRunOptions {
             maximum_frames: Some(1),
+            inject_device_loss_after_frames: Some(0),
+            inject_startup_lifecycle_probe: true,
             ..next_desktop_sdl_ash::DesktopRunOptions::default()
         },
     )?;
-    if report.rendered_frames != 1 || !report.b0_capabilities_verified {
+    if report.rendered_frames != 1
+        || report.control_events != 4
+        || report.resize_events < 1
+        || report.focus_events < 2
+        || report.fullscreen_events != 1
+        || report.device_loss_events != 1
+        || report.device_recoveries != 1
+        || !report.b0_capabilities_verified
+    {
         return Err(PlatformCheckError::DesktopSmokeMismatch);
     }
     Ok(PlatformCandidateStatus::Pass)

@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-07-29 |
-| Текущая точка | локально завершённый bootstrap M0–M11 и реализованный native gate harness; same-commit Windows/Linux compare ещё `NOT_RUN` |
+| Текущая точка | локально завершённый bootstrap M0–M11, native gate harness и Windows Desktop B0 hardening; следующий package — minimal render content, а native Linux validation и same-commit compare отложены на отдельный поздний прогон |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -68,6 +68,8 @@ Roadmap намеренно не содержит календарных обещ
 - deterministic NPC affordance planner и procedural avatar projection;
 - data-only mechanics, bounded Luau и Wasm Component paths;
 - immutable presentation extraction и reference B0 render plan;
+- Windows SDL3/ash B0 path с canonical keyboard/lifecycle events, fullscreen,
+  swapchain recreation, bounded device-loss recovery и clean package smoke;
 - локальная v1 closure matrix.
 
 Это сильный bootstrap, но ещё не пользовательская alpha. Текущий сценарий
@@ -90,8 +92,8 @@ Roadmap намеренно не содержит календарных обещ
 | Animation/motor | Только procedural projection/contract fragments | Нет skeleton graph, retargeting, IK, root-motion intent или deterministic inference supervisor. |
 | Agent AI | Частично: один canonical affordance planner | Нет perception, hierarchy, schedules, memory и 100-NPC workload. |
 | Navigation/audio | Spec-only | Нет runtime service, cooker или baseline adapters. |
-| Player experience | Частично: normalized input contracts | Нет ActionMap/context service, camera/targeting, semantic UI, localization и accessibility implementation. |
-| Presentation/render | Частично: snapshot + B0 primitives | Нет production material/shader/content path, VFX consumption state и native target proof. |
+| Player experience | Частично: normalized input contracts + Windows SDL keyboard/lifecycle path | Нет ActionMap/context service, camera/targeting, semantic UI, localization и accessibility implementation. |
+| Presentation/render | Частично: snapshot + B0 primitives + Windows swapchain/device recovery | Нет production material/shader/content path, VFX consumption state и Linux native target proof. |
 | Tooling | Частично: repository `xtask` checks | Нет creator-facing `next` CLI, inspectors, scenario/minimizer и stable external SDK workflow. |
 | Autonomous narrative | Contract fragments only | SPEC-31 runtime, graph admission, director fallback и divine batch transaction отсутствуют. |
 
@@ -180,8 +182,18 @@ Windows/Linux execution не считается выполненным и пер
 
 ## R1 — Native Windows/Linux developer preview
 
-**Статус:** `IN_PROGRESS`. Native gate harness реализован; реальная пара
-same-commit Windows/Linux `PASS` reports и успешный compare ещё не получены.
+**Статус:** `IN_PROGRESS`. Native gate harness и Windows Desktop B0 hardening
+реализованы; Windows `platform` и clean `v1-package` smoke проходят локально.
+Native Linux `PASS` report и same-commit compare отложены на отдельный поздний
+validation run.
+
+**Текущая execution policy:** native Windows x86_64/MSVC/Vulkan — основной
+developer host и приоритет текущих work packages. Отсутствие native Linux host
+не блокирует Windows-first Desktop B0 hardening и последующую реализацию.
+Linux gate запускается отдельно, когда для него выделен host и стабилизирован
+соответствующий Windows path. Это sequencing-решение не удаляет Linux из v1
+shipping targets и не закрывает R1/B-01: для `native_gate_ready = true`
+по-прежнему нужны оба same-commit target `PASS` reports и успешный compare.
 
 **Цель:** превратить portable local closure в честно запускаемый native
 developer package.
@@ -213,7 +225,10 @@ developer package.
 
 **Hard blockers:**
 
-- доступ к native Windows x86_64 и Linux x86_64 hosts с Vulkan-capable driver;
+- доступ к native Windows x86_64 host с Vulkan-capable driver для текущей
+  Windows-first разработки;
+- доступ к native Linux x86_64 host с Vulkan-capable driver остаётся blocker
+  для закрытия R1/B-01, но не для текущих Windows work packages;
 - SDL3/ash candidate должен пройти target smoke; cross-compilation недостаточно;
 - любой cross-target canonical/hash mismatch;
 - packaging/runtime dependency, которая не включена или не диагностируется.
@@ -571,8 +586,8 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 
 | ID | Blocker | Блокирует | Условие снятия |
 |---|---|---|---|
-| B-01 | `OPEN`: нет подтверждённого native Windows/Linux execution; harness реализован, target evidence отсутствует | R1, R7 | На одном exact clean commit собраны Windows/Linux target `PASS` reports и packages с matching roots, а `native-gate-compare` сообщает `native_gate_ready = true`. |
-| B-02 | SDL3/ash остаётся `Proposed` target candidate | R1, R2 | B0 lifecycle/input/device-loss checks проходят на обеих targets либо выбран thin adapter за тем же contract. |
+| B-01 | `OPEN`: harness реализован; Windows — текущий developer target, native Linux evidence запланирован отдельным поздним прогоном | R1, R7 | На одном exact clean commit собраны Windows/Linux target `PASS` reports и packages с matching roots, а `native-gate-compare` сообщает `native_gate_ready = true`. |
+| B-02 | SDL3/ash остаётся `Proposed` target candidate; Windows B0 lifecycle/input/device-loss path проходит локально, Linux evidence отсутствует | R1, R2 | B0 lifecycle/input/device-loss checks проходят на обеих targets либо выбран thin adapter за тем же contract. |
 | B-03 | Нет production render/content profile и достаточного CC0 content | R2, R5, R7 | Зафиксирован минимальный mesh/material/texture/skeleton/audio profile и lawful fixture/project. |
 | B-04 | Нет общего job/resource/backpressure substrate | R3–R5 | Finite queues, canonical merge, logical budgets, pin/lease/eviction and fault checks реализованы production owners. |
 | B-05 | Schema migration DAG фактически пуст | R3, R7 | Реальная N−1→N copy-on-write migration проходит valid/corrupt/fault matrix. |
@@ -601,33 +616,39 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 
 ## Ближайшая implementation queue
 
+Ближайшая очередь Windows-first; отсутствие native Linux host её не
+останавливает. Реальный Linux target run и cross-target compare не входят в
+эту очередь и планируются отдельным validation work package позднее. Они
+остаются обязательными перед закрытием R1/B-01 и не заменяются WSL или
+cross-compilation.
+
 Следующие work packages рекомендуется выполнять в этом порядке:
 
-1. **Native gate harness (`IMPLEMENTED`, execution pending):** воспроизводимый
-   запуск полного check/package matrix на Windows and Linux с сохранением
-   structured reports; следующий gate — реальный same-commit run на обоих
-   native Vulkan hosts и успешный compare.
-2. **Desktop B0 hardening:** real input, resize/focus/fullscreen, surface and
-   device-loss lifecycle, clean package dependency diagnostics.
-3. **Minimal render content:** neutral mesh/material/texture records, cooker,
-   B0 upload and fallback material.
-4. **Player action and camera:** ActionMap/context resolution, third-person
+1. **Desktop B0 hardening (`DONE_LOCAL_WINDOWS`, Linux validation pending):**
+   SDL keyboard input нормализуется в engine-owned events; resize/focus/
+   minimize/restore/fullscreen, surface recreation и bounded device-loss
+   recovery проходят production adapter path. Windows `platform` и clean
+   `v1-package` smoke имеют локальный `PASS`; shipping claim, R1 и B-02 остаются
+   открытыми до Linux evidence.
+2. **Minimal render content (`NEXT`):** neutral mesh/material/texture records,
+   cooker, B0 upload and fallback material.
+3. **Player action and camera:** ActionMap/context resolution, third-person
    camera, interaction focus and targeting query.
-5. **Semantic UI:** HUD, inventory/equipment, dialogue, quest journal,
+4. **Semantic UI:** HUD, inventory/equipment, dialogue, quest journal,
    pause/save/load and pseudo-locale.
-6. **Baseline audio:** clips, emitters/listener, priority/voice limits,
+5. **Baseline audio:** clips, emitters/listener, priority/voice limits,
    attenuation/panning and subtitle fallback.
-7. **Playable alpha project:** заменить technical fixture на один complete
+6. **Playable alpha project:** заменить technical fixture на один complete
    CC0/engine-owned 20–30 minute slice.
-8. **Jobs/resources vertical:** сначала content cook/stream use case, затем
+7. **Jobs/resources vertical:** сначала content cook/stream use case, затем
    shared bounded admission primitives.
-9. **General partition and migration:** multi-region streaming plus first real
+8. **General partition and migration:** multi-region streaming plus first real
    save/content schema migration.
-10. **Living-world vertical:** calendar + small population + graph navigation,
+9. **Living-world vertical:** calendar + small population + graph navigation,
     затем масштабирование к integrated 100-NPC scenario.
 
 Каждый package должен быть отдельным product increment с focused checks. Work
-package 8 не следует начинать как универсальный scheduler design без package 7
+package 7 не следует начинать как универсальный scheduler design без package 6
 и конкретного streaming workload.
 
 ## Обновление roadmap
