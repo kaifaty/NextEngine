@@ -14,10 +14,7 @@ struct SourceSizeExemption {
 
 // Temporary ratchet for the pre-existing oversized files. Refactoring a file
 // below the hard limit must remove its entry in the same change.
-const SOURCE_SIZE_EXEMPTIONS: &[SourceSizeExemption] = &[SourceSizeExemption {
-    path: "crates/verification/src/persistence_replay.rs",
-    max_lines: 1_738,
-}];
+const SOURCE_SIZE_EXEMPTIONS: &[SourceSizeExemption] = &[];
 
 pub fn boundary_scan(root: &Path) -> Result<(), String> {
     validate_source_file_sizes(root)?;
