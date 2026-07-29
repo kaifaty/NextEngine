@@ -184,16 +184,15 @@ Windows/Linux execution не считается выполненным и пер
 
 **Статус:** `IN_PROGRESS`. Native gate harness и Windows Desktop B0 hardening
 реализованы; Windows `platform` и clean `v1-package` smoke проходят локально.
-Native Linux `PASS` report и same-commit compare отложены на отдельный поздний
-validation run.
+Native Linux target report и package прошли на exact clean commit
+`f58b2a5557a59aa0e5735844a9cbe927043b314e`; matching Windows report и
+same-commit compare ещё не выполнены.
 
 **Текущая execution policy:** native Windows x86_64/MSVC/Vulkan — основной
-developer host и приоритет текущих work packages. Отсутствие native Linux host
-не блокирует Windows-first Desktop B0 hardening и последующую реализацию.
-Linux gate запускается отдельно, когда для него выделен host и стабилизирован
-соответствующий Windows path. Это sequencing-решение не удаляет Linux из v1
-shipping targets и не закрывает R1/B-01: для `native_gate_ready = true`
-по-прежнему нужны оба same-commit target `PASS` reports и успешный compare.
+developer host и приоритет текущих work packages. Linux gate выполнен отдельно
+на native Linux x86_64 в Ubuntu 22.04 userspace с Vulkan 1.3 Mesa llvmpipe;
+полученный `PASS` не закрывает R1/B-01: для `native_gate_ready = true`
+по-прежнему нужны matching Windows target `PASS` report и успешный compare.
 
 **Цель:** превратить portable local closure в честно запускаемый native
 developer package.
@@ -225,10 +224,11 @@ developer package.
 
 **Hard blockers:**
 
-- доступ к native Windows x86_64 host с Vulkan-capable driver для текущей
-  Windows-first разработки;
-- доступ к native Linux x86_64 host с Vulkan-capable driver остаётся blocker
-  для закрытия R1/B-01, но не для текущих Windows work packages;
+- matching native Windows x86_64 `PASS` report и package для exact Linux
+  evidence commit;
+- representative hardware-GPU Linux smoke сверх уже пройденного Mesa llvmpipe
+  evidence остаётся release confidence gap, но не подменяет обязательный
+  same-commit compare;
 - SDL3/ash candidate должен пройти target smoke; cross-compilation недостаточно;
 - любой cross-target canonical/hash mismatch;
 - packaging/runtime dependency, которая не включена или не диагностируется.
@@ -586,8 +586,8 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 
 | ID | Blocker | Блокирует | Условие снятия |
 |---|---|---|---|
-| B-01 | `OPEN`: harness реализован; Windows — текущий developer target, native Linux evidence запланирован отдельным поздним прогоном | R1, R7 | На одном exact clean commit собраны Windows/Linux target `PASS` reports и packages с matching roots, а `native-gate-compare` сообщает `native_gate_ready = true`. |
-| B-02 | SDL3/ash остаётся `Proposed` target candidate; Windows B0 lifecycle/input/device-loss path проходит локально, Linux evidence отсутствует | R1, R2 | B0 lifecycle/input/device-loss checks проходят на обеих targets либо выбран thin adapter за тем же contract. |
+| B-01 | `OPEN`: Linux target report и package имеют `PASS` на `f58b2a5557a59aa0e5735844a9cbe927043b314e`; matching Windows report и cross-target compare отсутствуют | R1, R7 | На одном exact clean commit собраны Windows/Linux target `PASS` reports и packages с matching roots, а `native-gate-compare` сообщает `native_gate_ready = true`. |
+| B-02 | SDL3/ash остаётся `Proposed` target candidate; Windows B0 path проходит локально, Linux `platform` и package desktop smoke прошли на Mesa llvmpipe; representative hardware-GPU evidence отсутствует | R1, R2 | B0 lifecycle/input/device-loss checks проходят на обеих targets либо выбран thin adapter за тем же contract. |
 | B-03 | Нет production render/content profile и достаточного CC0 content | R2, R5, R7 | Зафиксирован минимальный mesh/material/texture/skeleton/audio profile и lawful fixture/project. |
 | B-04 | Нет общего job/resource/backpressure substrate | R3–R5 | Finite queues, canonical merge, logical budgets, pin/lease/eviction and fault checks реализованы production owners. |
 | B-05 | Schema migration DAG фактически пуст | R3, R7 | Реальная N−1→N copy-on-write migration проходит valid/corrupt/fault matrix. |
@@ -616,11 +616,11 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 
 ## Ближайшая implementation queue
 
-Ближайшая очередь Windows-first; отсутствие native Linux host её не
-останавливает. Реальный Linux target run и cross-target compare не входят в
-эту очередь и планируются отдельным validation work package позднее. Они
-остаются обязательными перед закрытием R1/B-01 и не заменяются WSL или
-cross-compilation.
+Ближайшая очередь остаётся Windows-first. Реальный Linux target run выполнен;
+следующий validation work package должен воспроизвести native Windows gate на
+exact commit `f58b2a5557a59aa0e5735844a9cbe927043b314e` и выполнить cross-target
+compare. Оба same-commit reports и успешный compare остаются обязательными
+перед закрытием R1/B-01.
 
 Следующие work packages рекомендуется выполнять в этом порядке:
 
