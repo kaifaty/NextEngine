@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
+
+#[cfg(not(windows))]
+use std::fs::File;
 
 use next_contracts::canonical::CanonicalDecodeLimits;
 use next_contracts::persistence::{
@@ -183,6 +186,7 @@ pub(super) fn write_new_synced(path: &Path, bytes: &[u8]) -> Result<(), SaveStor
         .map_err(|source| SaveStoreError::io("sync staged save file", path, source))
 }
 
+#[cfg(not(windows))]
 pub(super) fn sync_directory(path: &Path) -> Result<(), SaveStoreError> {
     match File::open(path).and_then(|directory| directory.sync_all()) {
         Ok(()) => Ok(()),
@@ -196,6 +200,14 @@ pub(super) fn sync_directory(path: &Path) -> Result<(), SaveStoreError> {
         }
         Err(source) => Err(SaveStoreError::io("sync save directory", path, source)),
     }
+}
+
+#[cfg(windows)]
+pub(super) fn sync_directory(_path: &Path) -> Result<(), SaveStoreError> {
+    // Rust's portable filesystem API cannot open a Windows directory for
+    // `sync_all`. Save files are still synced individually before each atomic
+    // rename; SPEC-03 requires directory fsync only where the platform permits.
+    Ok(())
 }
 
 pub(super) fn remove_directory_if_present(path: &Path) -> Result<(), SaveStoreError> {

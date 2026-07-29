@@ -373,7 +373,13 @@ fn owning_package(
 }
 
 fn read(path: &Path) -> Result<String, String> {
-    fs::read_to_string(path).map_err(|error| format!("{}: {error}", path.display()))
+    fs::read_to_string(path)
+        .map(|body| normalize_line_endings(&body))
+        .map_err(|error| format!("{}: {error}", path.display()))
+}
+
+fn normalize_line_endings(body: &str) -> String {
+    body.replace("\r\n", "\n")
 }
 
 fn find_source_file_containing(root: &Path, needle: &str) -> Result<Option<PathBuf>, String> {
@@ -457,7 +463,7 @@ mod tests {
 
     use super::{
         contains_forbidden_public_token, contains_unsafe_code, find_source_file_containing,
-        package_publish_is_false,
+        normalize_line_endings, package_publish_is_false,
     };
 
     fn temporary_source_root(label: &str) -> PathBuf {
@@ -500,6 +506,14 @@ mod tests {
         assert!(!package_publish_is_false(
             "[package]\nname = \"demo\"\npublish = true\n"
         ));
+    }
+
+    #[test]
+    fn manifest_scans_are_independent_of_checkout_line_endings() {
+        assert_eq!(
+            normalize_line_endings("[workspace.lints.rust]\r\nunsafe_code = \"forbid\"\r\n"),
+            "[workspace.lints.rust]\nunsafe_code = \"forbid\"\n"
+        );
     }
 
     #[test]

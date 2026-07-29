@@ -369,7 +369,8 @@ mod tests {
         if cfg!(all(
             target_arch = "x86_64",
             target_os = "windows",
-            target_env = "msvc"
+            target_env = "msvc",
+            feature = "desktop-sdl-ash"
         )) {
             assert_eq!(
                 report.windows.runtime_check_status,
@@ -381,7 +382,11 @@ mod tests {
                 TargetGateStatusV1::NotRun { .. }
             ));
         }
-        if cfg!(all(target_arch = "x86_64", target_os = "linux")) {
+        if cfg!(all(
+            target_arch = "x86_64",
+            target_os = "linux",
+            feature = "desktop-sdl-ash"
+        )) {
             assert_eq!(report.linux.desktop_smoke_status, TargetGateStatusV1::Pass);
         } else {
             assert!(matches!(

@@ -92,5 +92,6 @@ fn command_ledger_roots_match_neutral_v2_golden_vector() {
             .to_hex(),
     );
 
-    assert_eq!(actual, include_str!("fixtures/command_ledger_v2.vector"));
+    let expected = include_str!("fixtures/command_ledger_v2.vector").replace("\r\n", "\n");
+    assert_eq!(actual, expected);
 }
