@@ -20,16 +20,8 @@ const SOURCE_SIZE_EXEMPTIONS: &[SourceSizeExemption] = &[
         max_lines: 5_902,
     },
     SourceSizeExemption {
-        path: "crates/contracts/src/physics.rs",
-        max_lines: 3_893,
-    },
-    SourceSizeExemption {
         path: "crates/verification/src/player_fixture.rs",
         max_lines: 2_542,
-    },
-    SourceSizeExemption {
-        path: "crates/physics-api/src/reference_world.rs",
-        max_lines: 2_153,
     },
     SourceSizeExemption {
         path: "crates/verification/src/persistence_replay.rs",
