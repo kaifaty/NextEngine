@@ -330,6 +330,10 @@ shipping-платформы, GPU или доступности внешнего 
 4. [глоссария](docs/architecture/glossary.md);
 5. [playable slice и product checks](docs/architecture/12-vertical-slice-conformance.md).
 
+Порядок дальнейшей реализации, этапы, exit criteria и текущие blockers
+собраны в [долгосрочном roadmap](docs/roadmap.md). Roadmap является planning
+document и не заменяет нормативные SPEC/ADR.
+
 Семантическое изменение принятого решения оформляется коротким ADR и обновляет
 затронутые спецификации. Процесс разработки остаётся product-first:
 см. [ADR-030](docs/architecture/adr/030-product-first-development-and-lightweight-validation.md).

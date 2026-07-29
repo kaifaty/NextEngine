@@ -8,6 +8,15 @@
 - Architecture documents follow the normal repository workflow. A semantic change to an Accepted decision needs a short ADR that names what it supersedes; update affected SPECs and the lightweight traceability map in the same change.
 - `Proposed` technology is an experiment, not a default. State its fallback and do not present it as shipped before the affected product check passes.
 
+## Roadmap context
+
+- Use `docs/roadmap.md` as planning context when a task affects product scope, implementation order, stage dependencies, a roadmap blocker, an exit criterion or the reported state of a subsystem. Routine local fixes that do not change those facts do not require reading or editing the roadmap.
+- Treat the roadmap as a living planning document, not normative architecture. Accepted SPEC/ADR and the precedence rules above remain authoritative if they conflict with roadmap wording.
+- Before roadmap-sensitive implementation, identify the affected stage or work package and its stated prerequisites, blockers, success criteria and scope guard. Do not expand a bounded task merely to close unrelated roadmap work.
+- Update `docs/roadmap.md` in the same change when completed work materially changes its facts: subsystem implementation status, stage status, an exit criterion, blocker state, a recorded decision or the near-term implementation queue. Keep unrelated roadmap text stable.
+- Mark a stage or blocker complete only when the documented observable criteria and relevant ProductCheck actually pass. `NOT_RUN`, a public contract, an Accepted SPEC, a compiling adapter or partial implementation is not completion.
+- If implementation changes Accepted semantics, follow the ADR/SPEC workflow independently of the roadmap update. A priority or sequencing change by itself normally updates only the roadmap.
+
 ## Product baseline
 
 - Next Engine is an independent, AI-first open-source engine and toolchain for systemic single-player RPGs. It is not an OpenGothic port and not a general-purpose engine.
@@ -54,10 +63,10 @@
 
 ## Change workflow
 
-1. Identify the affected public contract and technical state boundary.
+1. Identify the affected public contract, technical state boundary and, when relevant, roadmap stage or work package.
 2. Keep the change small and product-driven. Add an ADR only for a real semantic or cross-context decision.
 3. Implement through production paths with focused positive and failure coverage.
-4. Update affected schemas, migrations, examples and architecture text together.
+4. Update affected schemas, migrations, examples, architecture text and material roadmap facts together.
 5. Run focused checks and `cargo run -p xtask -- host-check`.
 6. Report each relevant check as passed, failed or not run, with the remaining product risk.
 
