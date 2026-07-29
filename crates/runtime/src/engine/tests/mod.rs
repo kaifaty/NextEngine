@@ -1,13 +1,14 @@
 mod fixtures;
 
 use next_contracts::{
-    CORE_MOVE_ACTION_ID, CapabilityId, CommandStreamKeyV1, InputSourceId,
+    CORE_MOVE_ACTION_ID, CapabilityId, CommandStreamKeyV1, InputMappingCodeV1, InputSourceId,
     NOOP_COMMAND_CAPABILITY_ID, PHYSICAL_COMMAND_CAPABILITY_ID, PLAYER_ACTION_FRAME_SCHEMA_ID,
-    PLAYER_ACTION_SOURCE_CLASS, PersistentId, PhysicsBodyDescriptorV1, PhysicsBodyIdV1,
-    PhysicsContactReportingV1, PhysicsGeometryV1, PhysicsMaterialDescriptorV1, PhysicsMotionKindV1,
-    PhysicsParticipationV1, PhysicsPoseV1, PhysicsShapeDescriptorV1, PhysicsShapeIdV1,
-    PlayerActionV1, PlayerPrincipalId, PrincipalRecordV1, PrincipalStatus, SchemaId, SystemId,
-    WorldNamespaceId,
+    PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PersistentId,
+    PhysicsBodyDescriptorV1, PhysicsBodyIdV1, PhysicsContactReportingV1, PhysicsGeometryV1,
+    PhysicsMaterialDescriptorV1, PhysicsMotionKindV1, PhysicsParticipationV1, PhysicsPoseV1,
+    PhysicsShapeDescriptorV1, PhysicsShapeIdV1, PlayerActionFrameV1, PlayerActionPhaseV1,
+    PlayerActionV1, PlayerActionValueV1, PlayerControllerBindingV1, PlayerPrincipalId,
+    PrincipalRecordV1, PrincipalStatus, SchemaId, SystemId, WorldNamespaceId,
 };
 
 use super::*;
