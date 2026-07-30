@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use next_contracts::ids::ContentHash;
 use next_contracts::platform::{PlatformEventKindV1, PlatformEventV1};
+use next_contracts::presentation::PresentationSnapshotV2;
 use next_contracts::session::ApplicationSessionStatusV1;
 
 use crate::{ApplicationCoordinator, ApplicationError, ApplicationRunOutcomeV1};
@@ -9,7 +10,6 @@ use crate::{ApplicationCoordinator, ApplicationError, ApplicationRunOutcomeV1};
 const REFERENCE_GAMEPLAY_HZ: u128 = 30;
 const SCALED_SECOND: u128 = 1_000_000_000;
 const MAXIMUM_STEPS_PER_PUMP: u32 = 8;
-const MAXIMUM_BACKLOG_STEPS: u128 = 120;
 // One scheduler backlog becomes one production input frame at the next fixed
 // boundary. Keep it aligned with both the desktop adapter's per-pump batch
 // limit and the player input resolver's per-frame admission limit.
@@ -18,9 +18,11 @@ const MAXIMUM_PENDING_PLATFORM_EVENTS: usize = 4_096;
 /// Host-side fixed-step scheduler for the reference live game.
 ///
 /// Wall time determines only how many already-declared fixed gameplay
-/// boundaries are due. Platform events remain buffered until the next
-/// boundary, and rendering may read the latest published presentation
-/// snapshot at any cadence.
+/// boundaries are due. Active catch-up is bounded to one pump budget, so a
+/// host that cannot sustain real time slows the live simulation instead of
+/// accumulating an unbounded wall-time debt. Platform events remain buffered
+/// until the next boundary, and rendering may read the latest published
+/// presentation snapshot at any cadence.
 #[derive(Debug, Default)]
 pub struct FixedStepLiveSchedulerV1 {
     accumulated_scaled_nanoseconds: u128,
@@ -65,16 +67,52 @@ impl FixedStepLiveSchedulerV1 {
         lifecycle_plan.extend_from_slice(events);
         canonicalize_platform_events(&mut lifecycle_plan);
         application.with_platform_event_admission(events, &lifecycle_plan, |application| {
-            self.advance_reference_game_with_admitted_events(application, elapsed, events)
+            self.advance_reference_game_with_admitted_events(
+                application,
+                elapsed,
+                events,
+                ApplicationCoordinator::advance_reference_game_live_admitted,
+            )
         })
     }
 
-    fn advance_reference_game_with_admitted_events(
+    /// Interactive hot path: advances the same fixed authoritative boundaries
+    /// while returning only the immutable presentation projection between
+    /// durable checkpoint boundaries.
+    pub fn advance_reference_game_presentation(
         &mut self,
         application: &mut ApplicationCoordinator,
         elapsed: Duration,
         events: &[PlatformEventV1],
-    ) -> Result<Option<ApplicationRunOutcomeV1>, ApplicationError> {
+    ) -> Result<Option<PresentationSnapshotV2>, ApplicationError> {
+        let crossed_suspend_boundary = self.retry_consumed_lifecycle_events(application)?;
+        if crossed_suspend_boundary {
+            self.accumulated_scaled_nanoseconds = 0;
+        }
+        let mut lifecycle_plan = self.pending_events.clone();
+        lifecycle_plan.extend_from_slice(&self.deferred_events);
+        lifecycle_plan.extend_from_slice(events);
+        canonicalize_platform_events(&mut lifecycle_plan);
+        application.with_platform_event_admission(events, &lifecycle_plan, |application| {
+            self.advance_reference_game_with_admitted_events(
+                application,
+                elapsed,
+                events,
+                ApplicationCoordinator::advance_reference_game_live_presentation_admitted,
+            )
+        })
+    }
+
+    fn advance_reference_game_with_admitted_events<T>(
+        &mut self,
+        application: &mut ApplicationCoordinator,
+        elapsed: Duration,
+        events: &[PlatformEventV1],
+        mut advance_step: impl FnMut(
+            &mut ApplicationCoordinator,
+            &[PlatformEventV1],
+        ) -> Result<T, ApplicationError>,
+    ) -> Result<Option<T>, ApplicationError> {
         if application.state().state == ApplicationSessionStatusV1::Suspended {
             return self.advance_suspended(application, events);
         }
@@ -90,11 +128,9 @@ impl FixedStepLiveSchedulerV1 {
             .accumulated_scaled_nanoseconds
             .checked_add(scaled_delta)
             .ok_or(ApplicationError::LiveTickBacklogExceeded)?;
-        if candidate_accumulator > MAXIMUM_BACKLOG_STEPS * SCALED_SECOND {
-            return Err(ApplicationError::LiveTickBacklogExceeded);
-        }
-        let due_steps =
-            (candidate_accumulator / SCALED_SECOND).min(u128::from(MAXIMUM_STEPS_PER_PUMP));
+        let maximum_accumulator = u128::from(MAXIMUM_STEPS_PER_PUMP).saturating_mul(SCALED_SECOND);
+        let bounded_accumulator = candidate_accumulator.min(maximum_accumulator);
+        let due_steps = bounded_accumulator / SCALED_SECOND;
         let pending_after_due = if due_steps == 0 {
             self.pending_events.len()
         } else {
@@ -107,7 +143,7 @@ impl FixedStepLiveSchedulerV1 {
         if candidate_pending_event_count > MAXIMUM_PENDING_PLATFORM_EVENTS {
             return Err(ApplicationError::LivePlatformEventBacklogExceeded);
         }
-        self.accumulated_scaled_nanoseconds = candidate_accumulator;
+        self.accumulated_scaled_nanoseconds = bounded_accumulator;
 
         let mut latest = None;
         let mut steps = 0_u32;
@@ -116,7 +152,7 @@ impl FixedStepLiveSchedulerV1 {
             let mut consumed_events = self.pending_events.clone();
             canonicalize_platform_events(&mut consumed_events);
             let state_before_step = application.state().state;
-            let run = application.advance_reference_game_live_admitted(&consumed_events)?;
+            let run = advance_step(application, &consumed_events)?;
             let crossed_suspend_boundary = state_before_step == ApplicationSessionStatusV1::Active
                 && application.state().state == ApplicationSessionStatusV1::Suspended;
             self.pending_events.clear();
@@ -151,11 +187,11 @@ impl FixedStepLiveSchedulerV1 {
         Ok(latest)
     }
 
-    fn advance_suspended(
+    fn advance_suspended<T>(
         &mut self,
         application: &mut ApplicationCoordinator,
         events: &[PlatformEventV1],
-    ) -> Result<Option<ApplicationRunOutcomeV1>, ApplicationError> {
+    ) -> Result<Option<T>, ApplicationError> {
         let candidate_pending_event_count = self
             .pending_events
             .len()

@@ -23,6 +23,8 @@ mod error;
 
 pub use error::DesktopAdapterError;
 
+const INTERACTIVE_FRAME_INTERVAL: Duration = Duration::from_nanos(16_666_667);
+
 #[derive(Clone, Debug)]
 pub struct DesktopRunOptions {
     pub title: String,
@@ -88,6 +90,36 @@ pub fn desktop_capability_set_hash() -> Result<ContentHash, DesktopAdapterError>
     Ok(desktop_capability_set()?.canonical_hash)
 }
 
+#[derive(Debug, Default)]
+struct InteractivePacingClock {
+    prior_pump_time: Option<Instant>,
+    first_frame_submitted: bool,
+}
+
+impl InteractivePacingClock {
+    fn elapsed_for_pump(&mut self, now: Instant) -> Duration {
+        let elapsed = if self.first_frame_submitted {
+            self.prior_pump_time
+                .map_or(Duration::ZERO, |prior| now.duration_since(prior))
+        } else {
+            Duration::ZERO
+        };
+        self.prior_pump_time = Some(now);
+        elapsed
+    }
+
+    fn observe_frame_submission(&mut self, now: Instant) {
+        if !self.first_frame_submitted {
+            self.first_frame_submitted = true;
+            self.prior_pump_time = Some(now);
+        }
+    }
+}
+
+fn remaining_frame_budget(elapsed: Duration) -> Duration {
+    INTERACTIVE_FRAME_INTERVAL.saturating_sub(elapsed)
+}
+
 pub fn run_interactive(
     snapshot: &PresentationSnapshotV2,
     render_content_catalog: &RenderContentCatalogV1,
@@ -129,10 +161,12 @@ pub fn run_interactive_with_frame_source(
     )
 }
 
-/// Runs the native desktop loop with a monotonic elapsed interval that is
-/// independent of Vulkan initialization and available to a fixed-step
-/// application scheduler. The callback is still free to publish no new
-/// snapshot, allowing rendering to repeat the latest immutable projection.
+/// Runs the native desktop loop with a monotonic elapsed interval that starts
+/// after the first successful frame submission and is then available to a
+/// fixed-step application scheduler. Vulkan initialization and cold first-frame
+/// work cannot become simulation catch-up. The callback is still free to
+/// publish no new snapshot, allowing rendering to repeat the latest immutable
+/// projection.
 pub fn run_interactive_with_timed_frame_source(
     snapshot: &PresentationSnapshotV2,
     render_content_catalog: &RenderContentCatalogV1,
@@ -171,7 +205,7 @@ pub fn run_interactive_with_timed_frame_source(
     let mut graphics = Some(GraphicsContext::new(&window, render_content_catalog)?);
     let mut normalizer = lifecycle::DesktopEventNormalizer::new(options.host_instance_id)?;
     let mut event_stats = DesktopEventStats::default();
-    let resumed_suspended_application = {
+    {
         let mut resume_sink = |events: &[PlatformEventV1], elapsed: Duration| {
             apply_frame_source_result(&current_snapshot, &mut frame_source, events, elapsed)
         };
@@ -182,12 +216,9 @@ pub fn run_interactive_with_timed_frame_source(
             &mut event_stats,
         )?
     };
-    let mut prior_frame_source_time = resumed_suspended_application.then(Instant::now);
+    let pacing_clock = RefCell::new(InteractivePacingClock::default());
     let mut event_sink = |events: &[PlatformEventV1]| {
-        let now = Instant::now();
-        let elapsed = prior_frame_source_time
-            .replace(now)
-            .map_or(Duration::ZERO, |prior| now.duration_since(prior));
+        let elapsed = pacing_clock.borrow_mut().elapsed_for_pump(Instant::now());
         apply_frame_source_result(&current_snapshot, &mut frame_source, events, elapsed)
     };
     let mut rendered_frames = 0_u64;
@@ -205,6 +236,7 @@ pub fn run_interactive_with_timed_frame_source(
     let mut event_loop_iterations = 0_u64;
 
     'application: loop {
+        let frame_started = Instant::now();
         event_loop_iterations = advance_event_loop_iteration(
             event_loop_iterations,
             options.maximum_event_loop_iterations,
@@ -382,7 +414,7 @@ pub fn run_interactive_with_timed_frame_source(
             break 'application;
         }
         if rendering_suspended {
-            std::thread::sleep(Duration::from_millis(16));
+            std::thread::sleep(remaining_frame_budget(frame_started.elapsed()));
             continue;
         }
 
@@ -461,6 +493,9 @@ pub fn run_interactive_with_timed_frame_source(
             last_frame_plan_hash = Some(submitted.frame_plan_hash);
             last_drawable_extent = Some(submitted.drawable_extent);
             last_target_revision = Some(submitted.target_revision);
+            pacing_clock
+                .borrow_mut()
+                .observe_frame_submission(Instant::now());
         }
         if options
             .maximum_frames
@@ -468,7 +503,7 @@ pub fn run_interactive_with_timed_frame_source(
         {
             break;
         }
-        std::thread::sleep(Duration::from_millis(16));
+        std::thread::sleep(remaining_frame_budget(frame_started.elapsed()));
     }
     graphics
         .as_ref()

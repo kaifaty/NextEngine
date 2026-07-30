@@ -288,14 +288,14 @@ fn run_interactive(
             let scheduler_events =
                 platform_events_before_close_boundary(events, platform_close_event);
             let run = fixed_step
-                .advance_reference_game(application, elapsed, &scheduler_events)
+                .advance_reference_game_presentation(application, elapsed, &scheduler_events)
                 .map_err(|error| {
                     next_desktop_sdl_ash::DesktopAdapterError::client(
                         error.diagnostic_code(),
                         error.to_string(),
                     )
                 })?;
-            Ok(run.and_then(|run| run.presentation_snapshot))
+            Ok(run)
         },
     )
     .map_err(|error| AppFailure::cli(error.diagnostic_code(), error.to_string()))?;

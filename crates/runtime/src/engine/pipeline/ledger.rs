@@ -101,7 +101,8 @@ pub(super) fn handle_collision(
         let receipt = collision_receipt(context, stream, &incident, root)?;
         stream.append_collision_receipt(incident, receipt)?;
     }
-    staged.ledger.synchronize_archive(&staged.archive)?;
+    // The complete staged ledger/archive pair is synchronized and validated
+    // once at the tick commit boundary.
     Ok(candidates
         .into_iter()
         .map(|candidate| {

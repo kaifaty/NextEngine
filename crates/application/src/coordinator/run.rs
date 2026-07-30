@@ -134,14 +134,71 @@ impl ApplicationCoordinator {
         Ok(summary)
     }
 
-    pub fn current_live_run(&self) -> Result<ApplicationRunOutcomeV1, ApplicationError> {
-        if self.live_run.is_none() {
-            return Err(ApplicationError::NoLiveRun);
+    /// Advances the interactive live driver while publishing only the
+    /// immutable presentation projection on ordinary ticks. Complete
+    /// authoritative checkpoints remain forced at the declared cadence and
+    /// lifecycle boundaries.
+    pub(crate) fn advance_reference_game_live_presentation_admitted(
+        &mut self,
+        platform_events: &[PlatformEventV1],
+    ) -> Result<next_contracts::presentation::PresentationSnapshotV2, ApplicationError> {
+        if self.machine.state().state != ApplicationSessionStatusV1::Active {
+            return Err(ApplicationError::CloseStateInvalid);
         }
-        self.prepared_run
+        let staged = {
+            let driver = self.live_run.as_ref().ok_or(ApplicationError::NoLiveRun)?;
+            driver.stage_advance(platform_events)?
+        };
+        let suspend = platform_events
+            .iter()
+            .find(|event| event.kind == PlatformEventKindV1::SuspendRequested);
+        let checkpoint_due = staged
+            .next_tick()
+            .is_multiple_of(LIVE_CHECKPOINT_INTERVAL_TICKS)
+            || suspend.is_some();
+
+        if checkpoint_due {
+            let state = staged.state()?;
+            let prepared = prepare_live_state(
+                self.machine.state().session_id,
+                state,
+                self.launch.presentation_target,
+            )?;
+            let presentation = prepared
+                .summary
+                .presentation_snapshot
+                .clone()
+                .ok_or(ApplicationError::NoRunOutcome)?;
+            if let Some(suspend) = suspend {
+                self.suspend_from_admitted_platform_event_with_prepared_run(suspend, &prepared)?;
+                self.prepared_run = Some(prepared);
+            } else {
+                self.publish_prepared_run(prepared)?;
+            }
+            self.live_run = Some(staged);
+            return Ok(presentation);
+        }
+
+        let presentation = staged.presentation_snapshot()?.clone();
+        self.live_run = Some(staged);
+        Ok(presentation)
+    }
+
+    pub fn current_live_run(&self) -> Result<ApplicationRunOutcomeV1, ApplicationError> {
+        let driver = self.live_run.as_ref().ok_or(ApplicationError::NoLiveRun)?;
+        if let Some(prepared) = self
+            .prepared_run
             .as_ref()
-            .map(|prepared| prepared.summary.clone())
-            .ok_or(ApplicationError::NoRunOutcome)
+            .filter(|prepared| prepared.summary.ticks == driver.next_tick())
+        {
+            return Ok(prepared.summary.clone());
+        }
+        Ok(prepare_live_state(
+            self.machine.state().session_id,
+            driver.state()?,
+            self.launch.presentation_target,
+        )?
+        .summary)
     }
 
     pub(super) fn record_prepared_run(
@@ -197,13 +254,27 @@ impl ApplicationCoordinator {
     }
 
     pub(super) fn flush_reference_game_live_checkpoint(&mut self) -> Result<(), ApplicationError> {
-        if self.live_run.is_none() {
+        let Some(driver) = self.live_run.as_ref() else {
+            return Ok(());
+        };
+        let live_tick = driver.next_tick();
+        let prepared_tick = self
+            .prepared_run
+            .as_ref()
+            .map(|prepared| prepared.summary.ticks);
+        if prepared_tick != Some(live_tick) {
+            let prepared = prepare_live_state(
+                self.machine.state().session_id,
+                driver.state()?,
+                self.launch.presentation_target,
+            )?;
+            self.publish_prepared_run(prepared)?;
             return Ok(());
         }
         let prepared = self
             .prepared_run
             .as_ref()
-            .ok_or(ApplicationError::NoRunOutcome)?;
+            .expect("matching prepared tick exists");
         if self.machine.state().active_runtime_revision
             == Some(prepared.summary.authoritative_revision)
         {

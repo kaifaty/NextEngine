@@ -312,6 +312,17 @@ impl ReferenceGameDriverV1 {
             .ok_or(ReferenceGameError::PresentationSnapshotMissing)
     }
 
+    #[must_use]
+    pub const fn next_tick(&self) -> u64 {
+        self.runtime.next_tick()
+    }
+
+    pub fn presentation_snapshot(&self) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
+        self.presentation_extractor
+            .accepted_snapshot()
+            .ok_or(ReferenceGameError::PresentationSnapshotMissing)
+    }
+
     /// Produces one complete next live generation without changing the current
     /// driver. Application publication can commit this value only after its
     /// durable session generation succeeds.

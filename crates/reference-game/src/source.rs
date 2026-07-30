@@ -201,10 +201,7 @@ fn reference_render_records() -> Result<Vec<NeutralRenderRecordV1>, ProjectCookE
         REFERENCE_FALLBACK_MATERIAL_ASSET_ID,
         fallback_texture.asset_revision()?,
     )?;
-    let floor_mesh = reference_quad_mesh(
-        REFERENCE_FLOOR_MESH_ASSET_ID,
-        [[-1_000_000, -1_000_000, 0], [1_000_000, 1_000_000, 0]],
-    )?;
+    let floor_mesh = reference_floor_mesh(REFERENCE_FLOOR_MESH_ASSET_ID)?;
     let marker_mesh = reference_quad_mesh(
         REFERENCE_MARKER_MESH_ASSET_ID,
         [[-80_000, -120_000, 0], [80_000, 120_000, 0]],
@@ -297,6 +294,49 @@ fn reference_quad_mesh(
         None,
         None,
         vec![vec![[0, 0], [65_536, 0], [65_536, 65_536], [0, 65_536]]],
+        // Presentation markers are camera-facing placeholders, not physical
+        // surfaces. Emit both windings so they remain visible while orbiting
+        // the third-person camera under the B0 back-face-culling pipeline.
+        vec![0, 1, 2, 2, 3, 0, 0, 2, 1, 2, 0, 3],
+        vec![NeutralMeshPrimitiveV1::new(
+            MeshPrimitiveTopologyV1::Triangles,
+            0,
+            12,
+            0,
+        )?],
+    )?)
+}
+
+fn reference_floor_mesh(asset_id: AssetId) -> Result<NeutralMeshV1, ProjectCookError> {
+    // The reference physics profile is Y-up. The floor body is centred at
+    // y=-100 mm with a 100 mm half-height, so its walkable top is local
+    // y=+100 mm and world y=0. Match the 20 m x 20 m physical footprint.
+    const HALF_EXTENT: i64 = 10_000_000;
+    const LOCAL_TOP_Y: i64 = 100_000;
+    let bounds = AabbI64V1::new(
+        [-HALF_EXTENT, LOCAL_TOP_Y - 1, -HALF_EXTENT],
+        [HALF_EXTENT + 1, LOCAL_TOP_Y + 1, HALF_EXTENT + 1],
+    )?;
+    Ok(NeutralMeshV1::new(
+        schema_ref(
+            NEUTRAL_MESH_SCHEMA_ID,
+            SchemaRoleV1::NeutralContent,
+            SchemaEncodingV1::CanonicalBinaryV1,
+        )?,
+        asset_id,
+        1,
+        bounds,
+        // Counter-clockwise from above (+Y), matching the B0 front-face
+        // contract after the Vulkan projection Y flip.
+        vec![
+            [-HALF_EXTENT, LOCAL_TOP_Y, -HALF_EXTENT],
+            [-HALF_EXTENT, LOCAL_TOP_Y, HALF_EXTENT],
+            [HALF_EXTENT, LOCAL_TOP_Y, HALF_EXTENT],
+            [HALF_EXTENT, LOCAL_TOP_Y, -HALF_EXTENT],
+        ],
+        None,
+        None,
+        vec![vec![[0, 0], [0, 65_536], [65_536, 65_536], [65_536, 0]]],
         vec![0, 1, 2, 2, 3, 0],
         vec![NeutralMeshPrimitiveV1::new(
             MeshPrimitiveTopologyV1::Triangles,
@@ -408,4 +448,32 @@ fn schema_ref(
         role,
         encoding,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{REFERENCE_FLOOR_MESH_ASSET_ID, reference_floor_mesh};
+
+    #[test]
+    fn reference_floor_matches_the_y_up_physics_surface() {
+        let mesh =
+            reference_floor_mesh(REFERENCE_FLOOR_MESH_ASSET_ID).expect("reference floor mesh");
+        assert_eq!(
+            mesh.positions_micrometres(),
+            &[
+                [-10_000_000, 100_000, -10_000_000],
+                [-10_000_000, 100_000, 10_000_000],
+                [10_000_000, 100_000, 10_000_000],
+                [10_000_000, 100_000, -10_000_000],
+            ]
+        );
+
+        let [a, b, c, _] = mesh.positions_micrometres() else {
+            panic!("floor is one quad");
+        };
+        let ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+        let ac = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+        let normal_y = ab[2] * ac[0] - ab[0] * ac[2];
+        assert!(normal_y > 0, "floor front face must point toward +Y");
+    }
 }

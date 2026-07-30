@@ -1,6 +1,58 @@
 use super::*;
 
 #[test]
+fn interactive_presentation_path_defers_full_checkpoint_until_tick_thirty() {
+    let root = test_root("interactive-presentation-checkpoint-cadence");
+    let mut game = ApplicationCoordinator::launch(LaunchRequestV1::reference(
+        &root,
+        CompositionRootV1::Game,
+        PresentationTargetKindV1::Interactive,
+    ))
+    .expect("game launch");
+    game.begin_reference_game_live(true)
+        .expect("begin live reference game");
+    let generation_at_zero = game.current_generation;
+    let mut scheduler = FixedStepLiveSchedulerV1::reference_game_v1();
+
+    for expected_tick in 1_u64..30 {
+        let presentation = scheduler
+            .advance_reference_game_presentation(&mut game, Duration::from_millis(34), &[])
+            .expect("interactive presentation step")
+            .expect("one fixed step is due");
+        assert_eq!(presentation.simulation_tick, expected_tick);
+        assert_eq!(
+            game.prepared_run
+                .as_ref()
+                .expect("tick-zero checkpoint")
+                .summary
+                .ticks,
+            0,
+            "ordinary presentation ticks must not rebuild a durable checkpoint"
+        );
+        assert_eq!(game.current_generation, generation_at_zero);
+    }
+
+    let presentation = scheduler
+        .advance_reference_game_presentation(&mut game, Duration::from_millis(34), &[])
+        .expect("tick-thirty presentation step")
+        .expect("one fixed step is due");
+    assert_eq!(presentation.simulation_tick, 30);
+    assert_eq!(
+        game.prepared_run
+            .as_ref()
+            .expect("tick-thirty checkpoint")
+            .summary
+            .ticks,
+        30
+    );
+    assert_ne!(game.current_generation, generation_at_zero);
+
+    game.close(CloseExecutionOptionsV1::default())
+        .expect("interactive game close");
+    cleanup(root);
+}
+
+#[test]
 fn prepared_run_object_inventory_replaces_more_than_2_500_generations_in_memory() {
     let root = test_root("prepared-run-object-inventory");
     let mut game = ApplicationCoordinator::launch(LaunchRequestV1::reference(
@@ -310,8 +362,8 @@ fn fixed_step_live_scheduler_rejects_event_4_097_without_mutation() {
 }
 
 #[test]
-fn failed_scheduler_preflight_does_not_commit_multi_event_source_cursor() {
-    let root = test_root("fixed-step-cursor-preflight-rollback");
+fn fixed_step_overload_is_bounded_and_preserves_observed_input() {
+    let root = test_root("fixed-step-bounded-overload");
     let mut game = ApplicationCoordinator::launch(LaunchRequestV1::reference(
         &root,
         CompositionRootV1::Game,
@@ -327,20 +379,32 @@ fn failed_scheduler_preflight_does_not_commit_multi_event_source_cursor() {
     let batch = [first, second];
     let mut scheduler = FixedStepLiveSchedulerV1::reference_game_v1();
 
-    let error = scheduler
+    let overloaded = scheduler
         .advance_reference_game(&mut game, Duration::from_secs(121), &batch)
-        .expect_err("oversized elapsed time must fail after source preflight");
+        .expect("host overload must remain a live, bounded condition")
+        .expect("bounded catch-up must publish the latest completed tick");
     assert_eq!(
-        error.diagnostic_code(),
-        "SESSION_FIXED_TICK_BACKLOG_EXCEEDED"
+        overloaded.ticks, 8,
+        "one pump may execute only the bounded catch-up budget"
     );
-    assert_eq!(scheduler.pending_event_count(), 0);
+    assert_eq!(game.state().state, ApplicationSessionStatusV1::Active);
+    assert_eq!(
+        scheduler.pending_event_count(),
+        2,
+        "events observed during catch-up remain pending for the next boundary"
+    );
     assert_eq!(scheduler.accumulated_scaled_nanoseconds(), 0);
 
-    scheduler
-        .advance_reference_game(&mut game, Duration::ZERO, &batch)
-        .expect("the exact multi-event batch remains admissible");
-    assert_eq!(scheduler.pending_event_count(), 2);
+    let next = scheduler
+        .advance_reference_game(&mut game, Duration::from_millis(34), &[])
+        .expect("live simulation must continue after overload")
+        .expect("the next fixed boundary must run");
+    assert_eq!(next.ticks, 9);
+    assert_eq!(
+        scheduler.pending_event_count(),
+        0,
+        "the preserved input is consumed exactly once"
+    );
     game.close(CloseExecutionOptionsV1::default())
         .expect("live game close");
     cleanup(root);

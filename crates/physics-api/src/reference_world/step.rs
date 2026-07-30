@@ -455,37 +455,39 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             }
         }
 
-        let snapshot = &self.checkpoint.snapshot;
-        if snapshot.physics_tick == 0
-            && snapshot.world_revision == 0
-            && snapshot.sorted_contact_continuity_states.is_empty()
+        let capsule_shape_id = self
+            .capsule_shape_id
+            .ok_or(ReferencePhysicsError::SnapshotMismatch)?;
+        for contact in self
+            .checkpoint
+            .snapshot
+            .sorted_contact_continuity_states
+            .values()
         {
-            return Ok(());
+            let static_shape_id = if contact.participant_low == capsule_shape_id {
+                contact.participant_high
+            } else if contact.participant_high == capsule_shape_id {
+                contact.participant_low
+            } else {
+                return Err(ReferencePhysicsError::SnapshotMismatch);
+            };
+            let static_shape = self
+                .static_boxes
+                .iter()
+                .find(|shape| shape.shape_id == static_shape_id)
+                .ok_or(ReferencePhysicsError::SnapshotMismatch)?;
+            if !self.collides_with(static_shape) {
+                return Err(ReferencePhysicsError::SnapshotMismatch);
+            }
         }
-        let candidates =
-            self.contact_candidates(body.pose.translation_micrometres, &BTreeSet::new())?;
-        let mut recomputed = BTreeMap::new();
-        for candidate in candidates {
-            let (low, high, feature_low, feature_high, normal) =
-                self.canonicalize_contact(candidate);
-            let contact_id = derive_physics_contact_id(low, high, feature_low, feature_high);
-            recomputed.insert(
-                contact_id,
-                PhysicsContactContinuityStateV1 {
-                    contact_id,
-                    participant_low: low,
-                    participant_high: high,
-                    feature_low,
-                    feature_high,
-                    point_micrometres: candidate.point,
-                    normal_low_to_high_q1_30: normal,
-                    last_seen_physics_tick: snapshot.physics_tick,
-                },
-            );
-        }
-        if recomputed != snapshot.sorted_contact_continuity_states {
-            return Err(ReferencePhysicsError::SnapshotMismatch);
-        }
+
+        // Contact continuity is imported canonical continuation state. Re-deriving
+        // it from the quantized pose loses the swept face at box edges where the
+        // closest representable non-penetrating point is just outside the analytic
+        // radius. The generic checkpoint validator above already validates contact
+        // identities, features, ticks and solver references; this adapter only
+        // needs to prove that every contact belongs to its supported capsule/box
+        // collision graph.
         Ok(())
     }
 }

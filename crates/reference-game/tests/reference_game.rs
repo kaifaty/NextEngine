@@ -3,8 +3,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use next_assets::ContentStore;
 use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
 use next_contracts::input::{
-    CORE_MOVE_ACTION_ID, CORE_PICKUP_ACTION_ID, KEYBOARD_DEVICE_CLASS_ID,
-    KEYBOARD_W_CONTROL_PATH_ID, MOUSE_DELTA_CONTROL_PATH_ID, MOUSE_DEVICE_CLASS_ID,
+    CORE_MOVE_ACTION_ID, CORE_PICKUP_ACTION_ID, KEYBOARD_D_CONTROL_PATH_ID,
+    KEYBOARD_DEVICE_CLASS_ID, KEYBOARD_S_CONTROL_PATH_ID, KEYBOARD_W_CONTROL_PATH_ID,
+    MOUSE_DELTA_CONTROL_PATH_ID, MOUSE_DEVICE_CLASS_ID,
 };
 use next_contracts::platform::{
     NormalizedControlEventV1, NormalizedControlPhaseV1, PlatformEventKindV1,
@@ -233,6 +234,107 @@ fn live_normalized_controls_move_the_player_while_camera_input_stays_nonauthorit
     assert_ne!(
         camera.presentation_snapshot.canonical_hash,
         neutral.presentation_snapshot.canonical_hash
+    );
+    std::fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn live_driver_continues_after_quantized_corner_contact() {
+    let root = test_root("live-corner-contact");
+    let store = ContentStore::new(&root);
+    let cooked = next_project::cook_project_v1(
+        next_reference_game::project_source_v2().expect("reference source"),
+    )
+    .expect("cook");
+    store
+        .publish(&cooked.publication().expect("publication"))
+        .expect("publish");
+    let activated = next_project::activate_project(&store).expect("activate");
+    let mut driver =
+        next_reference_game::ReferenceGameDriverV1::new(activated, true).expect("live driver");
+
+    driver
+        .advance(&[control_event_with_sequence(
+            KEYBOARD_DEVICE_CLASS_ID,
+            KEYBOARD_S_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Started,
+            vec![i16::MAX],
+            0,
+        )])
+        .expect("start moving backward");
+    for _ in 0..3 {
+        driver.advance(&[]).expect("continue moving backward");
+    }
+    driver
+        .advance(&[
+            control_event_with_sequence(
+                KEYBOARD_DEVICE_CLASS_ID,
+                KEYBOARD_S_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Completed,
+                vec![0],
+                1,
+            ),
+            control_event_with_sequence(
+                KEYBOARD_DEVICE_CLASS_ID,
+                KEYBOARD_D_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Started,
+                vec![i16::MAX],
+                2,
+            ),
+        ])
+        .expect("turn right");
+    for _ in 0..3 {
+        driver.advance(&[]).expect("continue moving right");
+    }
+    driver
+        .advance(&[
+            control_event_with_sequence(
+                KEYBOARD_DEVICE_CLASS_ID,
+                KEYBOARD_D_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Completed,
+                vec![0],
+                3,
+            ),
+            control_event_with_sequence(
+                KEYBOARD_DEVICE_CLASS_ID,
+                KEYBOARD_W_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Started,
+                vec![i16::MAX],
+                4,
+            ),
+        ])
+        .expect("turn toward the obstacle");
+    driver.advance(&[]).expect("approach the obstacle");
+    driver
+        .advance(&[])
+        .expect("commit the quantized corner contact");
+    driver
+        .advance(&[])
+        .expect("fork and continue from the corner-contact checkpoint");
+
+    let state = driver.state().expect("live state");
+    let body_id = next_contracts::physics::PhysicsBodyIdV1 {
+        subject_id: PersistentId::from_bytes([0x54; 16]),
+        body_slot: 0,
+    };
+    assert_eq!(
+        state
+            .checkpoint
+            .physics_checkpoint
+            .snapshot
+            .sorted_body_states[&body_id]
+            .pose
+            .translation_micrometres,
+        [400_000, 900_000, -123_607]
+    );
+    assert_eq!(
+        state
+            .checkpoint
+            .physics_checkpoint
+            .snapshot
+            .sorted_contact_continuity_states
+            .len(),
+        2
     );
     std::fs::remove_dir_all(root).expect("cleanup");
 }

@@ -65,6 +65,62 @@ fn suspended_recovery_publishes_one_fresh_host_resume_with_zero_elapsed() {
 }
 
 #[test]
+fn pacing_clock_excludes_cold_first_frame_without_hiding_later_overload() {
+    let start = Instant::now();
+    let mut clock = InteractivePacingClock::default();
+
+    assert_eq!(clock.elapsed_for_pump(start), Duration::ZERO);
+    assert_eq!(
+        clock.elapsed_for_pump(start + Duration::from_secs(10)),
+        Duration::ZERO,
+        "startup pumps before the first submitted frame are not simulation time"
+    );
+
+    let first_submission = start + Duration::from_secs(12);
+    clock.observe_frame_submission(first_submission);
+    assert_eq!(
+        clock.elapsed_for_pump(first_submission + Duration::from_millis(16)),
+        Duration::from_millis(16)
+    );
+    assert_eq!(
+        clock.elapsed_for_pump(first_submission + Duration::from_secs(5)),
+        Duration::from_millis(4_984),
+        "post-startup overload remains visible to the bounded scheduler"
+    );
+}
+
+#[test]
+fn pacing_clock_arms_only_once() {
+    let start = Instant::now();
+    let mut clock = InteractivePacingClock::default();
+    clock.observe_frame_submission(start);
+    clock.observe_frame_submission(start + Duration::from_secs(10));
+
+    assert_eq!(
+        clock.elapsed_for_pump(start + Duration::from_millis(16)),
+        Duration::from_millis(16),
+        "later submissions must not reset fixed-step pacing"
+    );
+}
+
+#[test]
+fn frame_pacing_sleeps_only_the_unused_part_of_the_sixty_hz_budget() {
+    assert_eq!(
+        remaining_frame_budget(Duration::from_millis(5)),
+        Duration::from_nanos(11_666_667)
+    );
+    assert_eq!(
+        remaining_frame_budget(INTERACTIVE_FRAME_INTERVAL),
+        Duration::ZERO
+    );
+    assert_eq!(
+        remaining_frame_budget(Duration::from_millis(40)),
+        Duration::ZERO,
+        "slow simulation or FIFO presentation must not receive a second delay"
+    );
+}
+
+#[test]
 fn keyboard_controls_use_engine_owned_paths_and_modifiers() {
     assert_eq!(
         keyboard_control_path(Scancode::W),

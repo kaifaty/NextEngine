@@ -203,6 +203,55 @@ fn checkpoint_closure_rejects_missing_body_static_drift_and_solver_mismatch() {
 }
 
 #[test]
+fn activation_rejects_continuity_outside_the_capsule_box_graph() {
+    let mut source = world(30, 60, [0, 900_000, 0], 1);
+    let _ = step(&mut source, 0, None);
+    let mut checkpoint = source.checkpoint().clone();
+    let static_shapes = checkpoint
+        .catalog
+        .bodies
+        .values()
+        .filter(|body| body.motion_kind == PhysicsMotionKindV1::Static)
+        .flat_map(|body| body.shapes.keys().copied())
+        .collect::<Vec<_>>();
+    let (_, mut contact) = checkpoint
+        .snapshot
+        .sorted_contact_continuity_states
+        .pop_first()
+        .expect("floor contact");
+    contact.participant_low = static_shapes[0];
+    contact.participant_high = static_shapes[1];
+    contact.feature_low = 1;
+    contact.feature_high = 1;
+    contact.contact_id = derive_physics_contact_id(
+        contact.participant_low,
+        contact.participant_high,
+        contact.feature_low,
+        contact.feature_high,
+    );
+    checkpoint
+        .snapshot
+        .sorted_contact_continuity_states
+        .insert(contact.contact_id, contact.clone());
+    checkpoint
+        .snapshot
+        .sorted_solver_continuation_states
+        .clear();
+    checkpoint
+        .snapshot
+        .sorted_solver_continuation_states
+        .insert(contact.contact_id, [0; 3]);
+    checkpoint
+        .validate()
+        .expect("the generic checkpoint closure remains structurally valid");
+
+    assert_eq!(
+        reconstruct(checkpoint, &source),
+        Err(ReferencePhysicsError::SnapshotMismatch)
+    );
+}
+
+#[test]
 fn checkpoint_and_contact_batch_reject_stale_ticks_and_invalid_features() {
     let mut world = world(30, 60, [0, 900_000, 0], 1);
     let step_result = step(&mut world, 0, None);
@@ -456,6 +505,82 @@ fn restored_contact_continuity_resumes_with_persist() {
             .iter()
             .any(|event| event.phase == ContactPhaseV1::Persist)
     );
+}
+
+#[test]
+fn checkpoint_after_quantized_corner_sweep_reconstructs_exactly() {
+    let source = world(30, 60, [0, 900_000, 0], 1);
+    let source_catalog = &source.checkpoint().catalog;
+    let mut bodies = source_catalog.bodies.clone();
+    let obstacle_body_id = PhysicsBodyIdV1 {
+        subject_id: PersistentId::from_bytes([3; 16]),
+        body_slot: 0,
+    };
+    let obstacle = bodies
+        .get_mut(&obstacle_body_id)
+        .expect("reference obstacle body");
+    obstacle.initial_pose.translation_micrometres = [700_000, 900_000, 200_000];
+    obstacle
+        .shapes
+        .values_mut()
+        .next()
+        .expect("reference obstacle shape")
+        .geometry = PhysicsGeometryV1::Box {
+        half_extents_micrometres: [100_000, 900_000, 100_000],
+    };
+    let catalog = PhysicsWorldCatalogV1::new(
+        source_catalog.world_descriptor.world_id,
+        PhysicsWorldCatalogProfilesV1 {
+            coordinate: source_catalog.coordinate_profile.clone(),
+            limits: source_catalog.limits_profile.clone(),
+            solver: source_catalog.solver_profile.clone(),
+            tick_rate_hash: source
+                .tick_rate_profile()
+                .profile_hash()
+                .expect("tick hash"),
+            authoritative_numeric_hash: source
+                .numeric_profile()
+                .profile_hash()
+                .expect("numeric hash"),
+            quantization_hash: source
+                .quantization_profile()
+                .profile_hash()
+                .expect("quantization hash"),
+        },
+        source_catalog.materials.clone(),
+        bodies,
+        source_catalog.avatar_bindings.clone(),
+    )
+    .expect("corner-obstacle catalog");
+    let snapshot = PhysicsCanonicalSnapshotV2::genesis(
+        &catalog,
+        source.tick_rate_profile(),
+        source.numeric_profile(),
+        source.quantization_profile(),
+    )
+    .expect("corner-obstacle snapshot");
+    let checkpoint = PhysicsWorldCheckpointV1::new(catalog, snapshot).expect("checkpoint");
+    let mut original = ReferencePhysicsWorld::new(
+        checkpoint,
+        source.tick_rate_profile().to_owned(),
+        source.numeric_profile().to_owned(),
+        source.quantization_profile().to_owned(),
+    )
+    .expect("corner-obstacle world");
+
+    for tick in 0..4 {
+        let _ = step(&mut original, tick, Some([32_767, 0]));
+    }
+    assert_eq!(
+        original.snapshot().sorted_contact_continuity_states.len(),
+        2,
+        "the capsule should retain floor and corner-obstacle continuity"
+    );
+
+    let checkpoint = original.checkpoint().clone();
+    let restored = reconstruct(checkpoint.clone(), &original)
+        .expect("a checkpoint produced by a committed step must reconstruct");
+    assert_eq!(restored.checkpoint(), &checkpoint);
 }
 
 #[test]

@@ -151,7 +151,10 @@ pub(super) fn execute_candidate(
         if identity_result == IdentityInsertResult::Collision {
             return collision_from_identity_index(context, candidate, staged);
         }
-        staged.ledger.synchronize_archive(&staged.archive)?;
+        // The staged archive manifest is synchronized once after both command
+        // phases. Per-candidate synchronization rescans the complete retained
+        // ledger and turns a fixed-rate live tick into work proportional to
+        // the entire session history.
         let descriptor = context
             .registry
             .descriptor(&command.payload_schema_id, command.payload_schema_version)
