@@ -9,6 +9,7 @@ publish = false
 [dependencies]
 next_agent.workspace = true
 next_contracts.workspace = true
+next_player.workspace = true
 next_presentation.workspace = true
 next_project.workspace = true
 next_runtime.workspace = true

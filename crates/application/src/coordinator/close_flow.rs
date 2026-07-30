@@ -1,11 +1,13 @@
+use next_contracts::canonical::CanonicalDecodeLimits;
 use next_contracts::ids::{ContentHash, SchemaId};
+use next_contracts::platform::{PlatformContractError, PlatformEventKindV1, PlatformEventV1};
 use next_contracts::session::{
-    ApplicationLifecycleEventV1, ApplicationSessionStatusV1, BoundedDeadlineClassV1,
-    CausalInputReferenceV1, CausalInputSourceKindV1, CloseSessionOperationJournalV1,
-    CloseSessionProgressResultV1, CloseSessionReceiptV1, CloseSessionRequestV1,
-    CloseSessionResultV1, FinalSavePolicyV1, FinalSaveReceiptV1, LifecycleReasonKindV1,
-    LifecycleReasonV1, SessionFinalSaveLedgerEntryV1, can_close_after_failed_save,
-    close_request_archive_ref,
+    ApplicationLifecycleEventV1, ApplicationLifecycleRequestV1, ApplicationSessionStatusV1,
+    BoundedDeadlineClassV1, CausalInputReferenceV1, CausalInputSourceKindV1,
+    CloseSessionOperationJournalV1, CloseSessionProgressResultV1, CloseSessionReceiptV1,
+    CloseSessionRequestV1, CloseSessionResultV1, FinalSavePolicyV1, FinalSaveReceiptV1,
+    LifecycleReasonKindV1, LifecycleReasonV1, SessionFinalSaveLedgerEntryV1,
+    can_close_after_failed_save, close_request_archive_ref,
 };
 use next_runtime::{SessionTransitionPlanV1, SessionTransitionReferencesV1};
 
@@ -14,21 +16,87 @@ use crate::close::{ApplicationCloseOutcomeV1, CloseExecutionOptionsV1, FinalSave
 use crate::durable::DurableCloseOperationV1;
 
 use super::ApplicationCoordinator;
-use super::identity::{derive_close_request_id, domain_hash};
+use super::identity::{derive_close_request_id, derive_request_id, domain_hash};
 use super::recovery::{
     durable_ledger, progress, rebuild_journal, rebuild_retryable_ledger, reservation,
     save_compatibility, save_identity,
 };
+
+struct CloseRequestIntentV1<'a> {
+    deadline: BoundedDeadlineClassV1,
+    reason_kind: LifecycleReasonKindV1,
+    reason_code: &'a str,
+    causal_source_kind: CausalInputSourceKindV1,
+    causal_hash: ContentHash,
+}
 
 impl ApplicationCoordinator {
     pub fn close_request(
         &self,
         deadline: BoundedDeadlineClassV1,
     ) -> Result<CloseSessionRequestV1, ApplicationError> {
+        if let Some(close) = &self.durable.close {
+            return archived_close_request(close);
+        }
         self.build_close_request(
             self.machine.state().revision,
             self.machine.state().state,
-            deadline,
+            CloseRequestIntentV1 {
+                deadline,
+                reason_kind: LifecycleReasonKindV1::UserCloseRequested,
+                reason_code: "nextengine.session.close-requested",
+                causal_source_kind: CausalInputSourceKindV1::SystemPolicy,
+                causal_hash: domain_hash(
+                    b"nextengine.close-request-cause.v1\0",
+                    &[
+                        self.machine.state().session_id.as_bytes(),
+                        &self.machine.state().revision.to_le_bytes(),
+                    ],
+                ),
+            },
+        )
+    }
+
+    pub fn close_request_from_platform_event(
+        &mut self,
+        event: &PlatformEventV1,
+        deadline: BoundedDeadlineClassV1,
+    ) -> Result<CloseSessionRequestV1, ApplicationError> {
+        if event.kind != PlatformEventKindV1::CloseRequested {
+            return Err(PlatformContractError::KindPayloadMismatch.into());
+        }
+        self.with_platform_event_admission(
+            std::slice::from_ref(event),
+            std::slice::from_ref(event),
+            |coordinator| coordinator.close_request_from_admitted_platform_event(event, deadline),
+        )
+    }
+
+    fn close_request_from_admitted_platform_event(
+        &self,
+        event: &PlatformEventV1,
+        deadline: BoundedDeadlineClassV1,
+    ) -> Result<CloseSessionRequestV1, ApplicationError> {
+        if let Some(close) = &self.durable.close {
+            let request = archived_close_request(close)?;
+            if request.causal_input_reference.source_kind != CausalInputSourceKindV1::PlatformEvent
+                || request.causal_input_reference.canonical_hash != event.platform_event_id
+                || request.bounded_deadline_class != deadline
+            {
+                return Err(ApplicationError::CloseIdentityCollision);
+            }
+            return Ok(request);
+        }
+        self.build_close_request(
+            self.machine.state().revision,
+            self.machine.state().state,
+            CloseRequestIntentV1 {
+                deadline,
+                reason_kind: LifecycleReasonKindV1::HostCloseRequested,
+                reason_code: "nextengine.session.host-close-requested",
+                causal_source_kind: CausalInputSourceKindV1::PlatformEvent,
+                causal_hash: event.platform_event_id,
+            },
         )
     }
 
@@ -36,21 +104,17 @@ impl ApplicationCoordinator {
         &mut self,
         options: CloseExecutionOptionsV1,
     ) -> Result<ApplicationCloseOutcomeV1, ApplicationError> {
-        let request = if let Some(close) = &self.durable.close {
-            let request = self.build_close_request(
-                close.starting_session_revision,
-                close.starting_session_state,
-                BoundedDeadlineClassV1::Standard,
-            )?;
-            if request.canonical_close_request_hash != close.canonical_close_request_hash
-                || request.canonical_bytes()? != close.canonical_close_request_bytes
-            {
-                return Err(ApplicationError::CloseJournalInvalid);
-            }
-            request
-        } else {
-            self.close_request(BoundedDeadlineClassV1::Standard)?
-        };
+        let request = self.close_request(BoundedDeadlineClassV1::Standard)?;
+        self.close_with_request(request, options)
+    }
+
+    pub fn close_from_platform_event(
+        &mut self,
+        event: &PlatformEventV1,
+        options: CloseExecutionOptionsV1,
+    ) -> Result<ApplicationCloseOutcomeV1, ApplicationError> {
+        let request =
+            self.close_request_from_platform_event(event, BoundedDeadlineClassV1::Standard)?;
         self.close_with_request(request, options)
     }
 
@@ -60,6 +124,8 @@ impl ApplicationCoordinator {
         options: CloseExecutionOptionsV1,
     ) -> Result<ApplicationCloseOutcomeV1, ApplicationError> {
         request.validate()?;
+        self.validate_close_request_preconditions(&request, options.last_safe_generation_hash)?;
+        self.flush_reference_game_live_checkpoint()?;
         self.register_or_validate_close(&request, options.last_safe_generation_hash)?;
         if self.machine.state().state == ApplicationSessionStatusV1::Closed {
             return self.closed_outcome();
@@ -72,14 +138,11 @@ impl ApplicationCoordinator {
         &self,
         starting_revision: u64,
         starting_state: ApplicationSessionStatusV1,
-        deadline: BoundedDeadlineClassV1,
+        intent: CloseRequestIntentV1<'_>,
     ) -> Result<CloseSessionRequestV1, ApplicationError> {
         let session_id = self.machine.state().session_id;
-        let causal_hash = domain_hash(
-            b"nextengine.close-request-cause.v1\0",
-            &[session_id.as_bytes(), &starting_revision.to_le_bytes()],
-        );
-        let close_request_id = derive_close_request_id(session_id, starting_revision, causal_hash);
+        let close_request_id =
+            derive_close_request_id(session_id, starting_revision, intent.causal_hash);
         Ok(CloseSessionRequestV1::new(
             close_request_id,
             session_id,
@@ -89,52 +152,26 @@ impl ApplicationCoordinator {
                 .composition_lock
                 .shutdown_policy_sha256,
             FinalSavePolicyV1::Always,
-            deadline,
+            intent.deadline,
             LifecycleReasonV1 {
-                kind: LifecycleReasonKindV1::UserCloseRequested,
-                reason_code: SchemaId::new("nextengine.session.close-requested")?,
+                kind: intent.reason_kind,
+                reason_code: SchemaId::new(intent.reason_code)?,
             },
             CausalInputReferenceV1 {
-                source_kind: CausalInputSourceKindV1::SystemPolicy,
-                canonical_hash: causal_hash,
+                source_kind: intent.causal_source_kind,
+                canonical_hash: intent.causal_hash,
             },
         )?)
     }
 
-    fn register_or_validate_close(
+    pub(super) fn register_or_validate_close(
         &mut self,
         request: &CloseSessionRequestV1,
         last_safe_generation_hash: Option<ContentHash>,
     ) -> Result<(), ApplicationError> {
-        if let Some(existing) = &self.durable.close {
-            if existing.close_request_id != request.close_request_id
-                || existing.canonical_close_request_hash != request.canonical_close_request_hash
-                || existing.canonical_close_request_bytes != request.canonical_bytes()?
-                || last_safe_generation_hash
-                    .is_some_and(|hash| Some(hash) != existing.last_safe_generation_hash)
-            {
-                return Err(ApplicationError::CloseIdentityCollision);
-            }
+        self.validate_close_request_preconditions(request, last_safe_generation_hash)?;
+        if self.durable.close.is_some() {
             return Ok(());
-        }
-        if request.session_id != self.machine.state().session_id
-            || request.starting_session_revision != self.machine.state().revision
-            || request.starting_session_state != self.machine.state().state
-        {
-            return Err(ApplicationError::CloseStateInvalid);
-        }
-        if let Some(expected_last_safe) = last_safe_generation_hash {
-            self.ensure_prepared_run()?;
-            let checkpoint = &self
-                .prepared_run
-                .as_ref()
-                .ok_or(ApplicationError::NoRunOutcome)?
-                .checkpoint;
-            let compatibility = save_compatibility(&self.activated_project, checkpoint)?;
-            let loaded = self.save_store.load_latest(&compatibility)?;
-            if save_identity(&loaded.image.manifest)?.0 != expected_last_safe {
-                return Err(ApplicationError::RecoveryIncompatible);
-            }
         }
         let bytes = request.canonical_bytes()?;
         let archive_ref = close_request_archive_ref(&bytes);
@@ -159,17 +196,72 @@ impl ApplicationCoordinator {
             closed_event_hash: None,
             last_safe_generation_hash,
         };
-        self.durable.close = Some(close);
-        self.record_object(bytes);
-        self.record_object(journal.canonical_hash.as_bytes().to_vec());
-        self.publish_current(
-            Some(self.current_generation),
-            Some(self.machine.state().session_id),
-            None,
-        )
+        self.with_publication_rollback(|coordinator| {
+            coordinator.durable.close = Some(close);
+            coordinator.record_object(bytes);
+            coordinator.record_object(journal.canonical_hash.as_bytes().to_vec());
+            coordinator.publish_current(
+                Some(coordinator.current_generation),
+                Some(coordinator.machine.state().session_id),
+                None,
+            )
+        })
     }
 
-    fn advance_to_finalizing(
+    fn validate_close_request_preconditions(
+        &self,
+        request: &CloseSessionRequestV1,
+        last_safe_generation_hash: Option<ContentHash>,
+    ) -> Result<(), ApplicationError> {
+        if let Some(existing) = &self.durable.close {
+            if existing.close_request_id != request.close_request_id
+                || existing.canonical_close_request_hash != request.canonical_close_request_hash
+                || existing.canonical_close_request_bytes != request.canonical_bytes()?
+                || last_safe_generation_hash
+                    .is_some_and(|hash| Some(hash) != existing.last_safe_generation_hash)
+            {
+                return Err(ApplicationError::CloseIdentityCollision);
+            }
+            return Ok(());
+        }
+        if request.session_id != self.machine.state().session_id
+            || request.starting_session_revision != self.machine.state().revision
+            || request.starting_session_state != self.machine.state().state
+            || !matches!(
+                request.starting_session_state,
+                ApplicationSessionStatusV1::Active | ApplicationSessionStatusV1::Suspended
+            )
+            || request.shutdown_policy_hash
+                != self
+                    .activated_project
+                    .composition_lock
+                    .shutdown_policy_sha256
+            || request.final_save_policy != FinalSavePolicyV1::Always
+            || request.close_request_id
+                != derive_close_request_id(
+                    request.session_id,
+                    request.starting_session_revision,
+                    request.causal_input_reference.canonical_hash,
+                )
+        {
+            return Err(ApplicationError::CloseStateInvalid);
+        }
+        if let Some(expected_last_safe) = last_safe_generation_hash {
+            let checkpoint = &self
+                .prepared_run
+                .as_ref()
+                .ok_or(ApplicationError::NoRunOutcome)?
+                .checkpoint;
+            let compatibility = save_compatibility(&self.activated_project, checkpoint)?;
+            let loaded = self.save_store.load_latest(&compatibility)?;
+            if save_identity(&loaded.image.manifest)?.0 != expected_last_safe {
+                return Err(ApplicationError::RecoveryIncompatible);
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn advance_to_finalizing(
         &mut self,
         close_request: &CloseSessionRequestV1,
     ) -> Result<(), ApplicationError> {
@@ -182,13 +274,22 @@ impl ApplicationCoordinator {
                 .as_ref()
                 .map(|run| run.summary.authoritative_revision)
                 .or(self.machine.state().active_runtime_revision);
-            let request = self.lifecycle_request(
-                ApplicationSessionStatusV1::Quiescing,
-                LifecycleReasonKindV1::UserCloseRequested,
-                "nextengine.session.quiescing",
-                self.activated_project
-                    .composition_lock
-                    .shutdown_policy_sha256,
+            let state = self.machine.state();
+            let target = ApplicationSessionStatusV1::Quiescing;
+            let request = ApplicationLifecycleRequestV1::new(
+                derive_request_id(
+                    state.session_id,
+                    state.revision,
+                    target,
+                    close_request.causal_input_reference.canonical_hash,
+                ),
+                state.session_id,
+                state.revision,
+                state.state,
+                target,
+                close_request.reason.clone(),
+                close_request.shutdown_policy_hash,
+                close_request.causal_input_reference.clone(),
             )?;
             let plan = self.machine.plan_transition(
                 request.clone(),
@@ -300,7 +401,7 @@ impl ApplicationCoordinator {
         self.finalize_closed(close_request, CloseSessionResultV1::Saved)
     }
 
-    fn record_save_failure(
+    pub(super) fn record_save_failure(
         &mut self,
         close_request: &CloseSessionRequestV1,
         failure: FinalSaveAttemptFailureV1,
@@ -341,14 +442,16 @@ impl ApplicationCoordinator {
         close.stage = stage;
         close.operation_journal_hash = journal.canonical_hash;
         close.ledger = Some(durable_ledger(&ledger));
-        self.durable.close = Some(close.clone());
-        self.record_object(ledger.entry_hash.as_bytes().to_vec());
-        self.record_object(journal.canonical_hash.as_bytes().to_vec());
-        self.publish_current(
-            Some(self.current_generation),
-            Some(self.machine.state().session_id),
-            None,
-        )?;
+        self.with_publication_rollback(|coordinator| {
+            coordinator.durable.close = Some(close.clone());
+            coordinator.record_object(ledger.entry_hash.as_bytes().to_vec());
+            coordinator.record_object(journal.canonical_hash.as_bytes().to_vec());
+            coordinator.publish_current(
+                Some(coordinator.current_generation),
+                Some(coordinator.machine.state().session_id),
+                None,
+            )
+        })?;
         if ledger.status == next_contracts::session::FinalSaveLedgerStatusV1::RetryPending {
             return Ok(ApplicationCloseOutcomeV1::Progress(progress(
                 &close,
@@ -370,7 +473,7 @@ impl ApplicationCoordinator {
         }
     }
 
-    fn commit_final_save(
+    pub(super) fn commit_final_save(
         &mut self,
         close_request: &CloseSessionRequestV1,
     ) -> Result<(), ApplicationError> {
@@ -432,14 +535,16 @@ impl ApplicationCoordinator {
         close.stage = journal.stage;
         close.operation_journal_hash = journal.canonical_hash;
         close.ledger = Some(durable_ledger(&ledger));
-        self.durable.close = Some(close);
-        self.record_object(receipt.canonical_hash.as_bytes().to_vec());
-        self.record_object(ledger.entry_hash.as_bytes().to_vec());
-        self.record_object(journal.canonical_hash.as_bytes().to_vec());
         let state_plan = self
             .machine
             .plan_state_publication(None, Some(save_generation_hash))?;
-        self.publish_state_plan(state_plan)
+        self.with_publication_rollback(|coordinator| {
+            coordinator.durable.close = Some(close);
+            coordinator.record_object(receipt.canonical_hash.as_bytes().to_vec());
+            coordinator.record_object(ledger.entry_hash.as_bytes().to_vec());
+            coordinator.record_object(journal.canonical_hash.as_bytes().to_vec());
+            coordinator.publish_state_plan(state_plan)
+        })
     }
 
     fn finalize_closed(
@@ -580,4 +685,23 @@ fn planned_event(
         SessionTransitionPlanV1::Publish { event, .. }
         | SessionTransitionPlanV1::ExactRetry { event, .. } => Ok(event.clone()),
     }
+}
+
+fn archived_close_request(
+    close: &DurableCloseOperationV1,
+) -> Result<CloseSessionRequestV1, ApplicationError> {
+    let request = CloseSessionRequestV1::from_canonical_bytes(
+        &close.canonical_close_request_bytes,
+        CanonicalDecodeLimits::default(),
+    )?;
+    if request.close_request_id != close.close_request_id
+        || request.canonical_close_request_hash != close.canonical_close_request_hash
+        || request.starting_session_revision != close.starting_session_revision
+        || request.starting_session_state != close.starting_session_state
+        || close_request_archive_ref(&close.canonical_close_request_bytes)
+            != close.close_request_archive_ref
+    {
+        return Err(ApplicationError::CloseJournalInvalid);
+    }
+    Ok(request)
 }

@@ -1,8 +1,10 @@
 use next_contracts::command::WorldCommand;
 use next_contracts::ids::SchemaId;
 use next_contracts::persistence::{
-    AuthorityGrant, ReplayComparePointV4, ReplayManifestV4, ReplayOwnerSegmentV2,
-    ReplayTickManifestV4, SaveCompatibility, SaveSegmentDescriptor,
+    AuthorityGrant, ReplayComparePointV5, ReplayManifestV5, ReplayOwnerSegmentV2,
+    ReplayTickManifestV5, SaveCompatibility, SaveSegmentDescriptor,
+    replay_physics_query_batch_hash, replay_physics_query_results_hash,
+    replay_targeting_query_trace_hash,
 };
 use next_contracts::physics::{
     ContactPhaseV1, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
@@ -91,7 +93,7 @@ pub(super) fn replay_manifest(
     initial_checkpoint: WorldCheckpointV4,
     reports: &[TickReport],
     direct_commands: Vec<Vec<WorldCommand>>,
-) -> Result<ReplayManifestV4, PersistenceReplayCheckError> {
+) -> Result<ReplayManifestV5, PersistenceReplayCheckError> {
     let initial_state_root =
         compute_world_checkpoint_root(&initial_checkpoint).map_err(|error| {
             PersistenceReplayCheckError::new("initial replay root", error.to_string())
@@ -138,19 +140,25 @@ pub(super) fn replay_manifest(
             .map_err(|error| {
                 PersistenceReplayCheckError::new("record direct commands", error.to_string())
             })?;
-        ticks.push(ReplayTickManifestV4 {
+        ticks.push(ReplayTickManifestV5 {
             tick: report.tick,
             closed_ingress_batch: report.closed_ingress_batch.clone(),
             direct_external_commands,
             expected_ingress_command_batch: report.command_batches[0].clone(),
             expected_physics_step_input: report.physics_step_input.clone(),
             expected_contact_batch: report.contact_batch.clone(),
+            expected_targeting_intents: report.targeting_intents.clone(),
+            expected_authoritative_targeting_queries: report
+                .authoritative_targeting_queries
+                .clone(),
+            expected_physics_query_batch: report.physics_query_batch.clone(),
+            expected_physics_query_results: report.physics_query_results.clone(),
             expected_outcome_command_batch: report.command_batches[1].clone(),
-            expected_mapping_receipts: report.mapping_receipts.clone(),
+            expected_mapping_receipts: report.mapping_receipts_v2.clone(),
             expected_command_results: replay_command_results(&report.results),
             expected_events: report.events.clone(),
         });
-        compare_points.push(ReplayComparePointV4 {
+        compare_points.push(ReplayComparePointV5 {
             tick: report.tick,
             state_root,
             command_ledger_hash: report.snapshot.command_ledger_hash().map_err(|error| {
@@ -165,11 +173,37 @@ pub(super) fn replay_manifest(
                 PersistenceReplayCheckError::new("record physics input hash", error.to_string())
             })?,
             contact_batch_hash: report.contact_batch.batch_hash,
+            physics_query_batch_hash: replay_physics_query_batch_hash(&report.physics_query_batch)
+                .map_err(|error| {
+                    PersistenceReplayCheckError::new(
+                        "record physics query batch hash",
+                        error.to_string(),
+                    )
+                })?,
+            physics_query_results_hash: replay_physics_query_results_hash(
+                &report.physics_query_results,
+            )
+            .map_err(|error| {
+                PersistenceReplayCheckError::new(
+                    "record physics query results hash",
+                    error.to_string(),
+                )
+            })?,
+            targeting_query_trace_hash: replay_targeting_query_trace_hash(
+                &report.targeting_intents,
+                &report.authoritative_targeting_queries,
+            )
+            .map_err(|error| {
+                PersistenceReplayCheckError::new(
+                    "record targeting query trace hash",
+                    error.to_string(),
+                )
+            })?,
             outcome_command_batch_hash: report.command_batches[1].batch_hash,
         });
     }
-    Ok(ReplayManifestV4 {
-        schema_version: next_contracts::persistence::REPLAY_MANIFEST_V4_SCHEMA_VERSION,
+    Ok(ReplayManifestV5 {
+        schema_version: next_contracts::persistence::REPLAY_MANIFEST_V5_SCHEMA_VERSION,
         compatibility,
         initial_owner_segments,
         initial_state_root,

@@ -34,6 +34,7 @@ use super::affordance::{InteractionAffordance, select_interaction_affordance};
 use super::error::RuntimeFatalError;
 use super::ingress::{InteractionIntentKind, PendingInteractionIntent};
 use super::policy::core_rpg_policy_hash;
+use super::targeting::ResolvedInteractionTargetingV1;
 
 #[derive(Clone, Debug)]
 pub(super) struct InteractionOutcomeRoute {
@@ -47,6 +48,13 @@ pub(super) struct BuiltInInteractionOutcome {
     pub(super) source_id: next_contracts::ids::InputSourceId,
     pub(super) source_sequence: u64,
     pub(super) payload_hash: ContentHash,
+    pub(super) source_action_ordinal: u32,
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct BuiltInInteractionResolution {
+    pub(super) outcomes: Vec<BuiltInInteractionOutcome>,
+    pub(super) targeting: Vec<ResolvedInteractionTargetingV1>,
 }
 
 pub(super) fn rpg_physical_contact_facts(
@@ -122,7 +130,7 @@ pub(super) fn resolve_interaction_outcome_route(
 pub(super) fn build_interaction_outcomes(
     intents: &[PendingInteractionIntent],
     context: InteractionBuildContext<'_>,
-) -> Result<Vec<BuiltInInteractionOutcome>, RuntimeFatalError> {
+) -> Result<BuiltInInteractionResolution, RuntimeFatalError> {
     let InteractionBuildContext {
         route,
         physics,
@@ -136,7 +144,10 @@ pub(super) fn build_interaction_outcomes(
     } = context;
     let Some(route) = route else {
         if intents.is_empty() {
-            return Ok(Vec::new());
+            return Ok(BuiltInInteractionResolution {
+                outcomes: Vec::new(),
+                targeting: Vec::new(),
+            });
         }
         return Err(RuntimeFatalError::InternalIdentityCollision);
     };
@@ -149,7 +160,10 @@ pub(super) fn build_interaction_outcomes(
     let main_hand_slot = SchemaId::new(CORE_EQUIPMENT_MAIN_HAND_SLOT_ID)
         .expect("built-in equipment slot identifier is valid");
     let mut outcomes = Vec::new();
-    for intent in intents {
+    let mut targeting_facts = Vec::new();
+    for (intent_index, intent) in intents.iter().enumerate() {
+        let query_slot =
+            u32::try_from(intent_index).map_err(|_| RuntimeFatalError::TraceCountExhausted)?;
         let payload = if intent.kind == InteractionIntentKind::Melee {
             let compiled = match compile_contact_ability_v1(
                 rpg_definitions,
@@ -203,14 +217,19 @@ pub(super) fn build_interaction_outcomes(
                 }
             }
         } else {
-            let Some(affordance) = select_interaction_affordance(
-                intent.controlled_body_id,
-                intent.kind,
+            let selection = select_interaction_affordance(
+                intent,
+                gameplay_tick,
+                query_slot,
+                route.stream_id,
                 physics,
                 rpg,
                 rpg_definitions,
-            )?
-            else {
+            )?;
+            if let Some(targeting) = selection.targeting {
+                targeting_facts.push(targeting);
+            }
+            let Some(affordance) = selection.affordance else {
                 continue;
             };
             match affordance {
@@ -420,9 +439,13 @@ pub(super) fn build_interaction_outcomes(
             source_id: intent.source_id,
             source_sequence: intent.source_sequence,
             payload_hash: intent.payload_hash,
+            source_action_ordinal: intent.source_action_ordinal,
         });
     }
-    Ok(outcomes)
+    Ok(BuiltInInteractionResolution {
+        outcomes,
+        targeting: targeting_facts,
+    })
 }
 
 #[derive(Clone, Copy)]

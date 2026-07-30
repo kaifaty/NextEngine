@@ -248,6 +248,14 @@ fn decode_event_payload(value: JcsValue) -> Result<EventPayload, ManifestCodecEr
             object_id: decode_persistent_id(next(&mut columns, "event.object_id")?)?,
             state_id: decode_schema_id(next(&mut columns, "event.state_id")?)?,
         }),
+        "rpg_character_resource" => EventPayload::Rpg(RpgEventV1::CharacterResourceAdjusted {
+            character_id: decode_persistent_id(next(&mut columns, "event.character_id")?)?,
+            resource_id: decode_schema_id(next(&mut columns, "event.resource_id")?)?,
+            value: decode_i32_string(
+                next(&mut columns, "event.resource_value")?,
+                "event.resource_value",
+            )?,
+        }),
         "physical_capsule_step" => EventPayload::Physical(PhysicalEventV1::CapsuleStepApplied {
             body_id: decode_persistent_id(next(&mut columns, "event.body_id")?)?,
             physics_tick: decode_u64_string(

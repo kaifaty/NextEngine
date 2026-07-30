@@ -1,18 +1,21 @@
 mod fixture;
 
-use next_contracts::ids::PersistentId;
+use next_contracts::ids::{CommandStreamId, PersistentId};
 use next_contracts::physics::{
-    ClosedPhysicsContactBatchV1, ContactPhaseV1, PHYSICS_STEP_INPUT_SCHEMA_VERSION,
-    PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2, PhysicsContactReportingV1, PhysicsContractError,
-    PhysicsGeometryV1, PhysicsMotionKindV1, PhysicsShapeIdV1, PhysicsStepInputV2,
-    PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1, PhysicsWorldCheckpointV1,
-    derive_physics_contact_id,
+    ClosedPhysicsContactBatchV1, ContactPhaseV1, PHYSICS_QUERY_SCHEMA_VERSION,
+    PHYSICS_STEP_INPUT_SCHEMA_VERSION, PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2,
+    PhysicsContactReportingV1, PhysicsContractError, PhysicsGeometryV1, PhysicsMotionKindV1,
+    PhysicsQueryCardinalityV1, PhysicsQueryFilterV1, PhysicsQueryGeometryV1, PhysicsQueryIdV1,
+    PhysicsQueryRequestV1, PhysicsQueryResultPayloadV1, PhysicsShapeIdV1,
+    PhysicsSnapshotSelectorV1, PhysicsStepInputV2, PhysicsWorldCatalogProfilesV1,
+    PhysicsWorldCatalogV1, PhysicsWorldCheckpointV1, derive_physics_contact_id,
 };
 
 use super::query::contact_normal_and_feature;
 use super::{
     GroundedCapsuleStaticBox, GroundedCapsuleWorld, ReferencePhysicsError, ReferencePhysicsWorld,
 };
+use crate::{PhysicsSceneQueryError, execute_scene_query};
 use fixture::*;
 
 #[test]
@@ -516,4 +519,171 @@ fn supported_cadences_move_exactly_three_metres_per_second_without_wall() {
             );
         }
     }
+}
+
+fn closest_point_request(
+    world: &ReferencePhysicsWorld,
+    point_micrometres: [i64; 3],
+    cardinality: PhysicsQueryCardinalityV1,
+    maximum_published_hits: u32,
+) -> PhysicsQueryRequestV1 {
+    let snapshot = world.snapshot();
+    PhysicsQueryRequestV1 {
+        schema_version: PHYSICS_QUERY_SCHEMA_VERSION,
+        query_id: PhysicsQueryIdV1 {
+            physics_tick: snapshot.physics_tick,
+            query_slot: 0,
+            issuer_stream_id: CommandStreamId::from_bytes([0x51; 16]),
+        },
+        world_id: snapshot.world_id,
+        snapshot_selector: PhysicsSnapshotSelectorV1 {
+            physics_tick: snapshot.physics_tick,
+            completed_substep: 0,
+            physics_snapshot_hash: snapshot.snapshot_hash().expect("snapshot hash"),
+        },
+        geometry: PhysicsQueryGeometryV1::ClosestPoint {
+            point_micrometres,
+            maximum_distance_micrometres: 5_000_000,
+        },
+        filter: PhysicsQueryFilterV1 {
+            query_collision_layer: 0,
+            query_collision_mask: 1,
+            include_solid: true,
+            include_sensor: false,
+            include_query_only: false,
+            excluded_bodies: Vec::new(),
+            excluded_shapes: Vec::new(),
+        },
+        cardinality,
+        maximum_published_hits,
+    }
+}
+
+#[test]
+fn closest_point_query_is_exact_for_box_and_capsule_and_excludes_actor() {
+    let world = world(30, 60, [0, 900_000, 0], 1);
+    let mut actor_query = closest_point_request(
+        &world,
+        [0, 900_000, 0],
+        PhysicsQueryCardinalityV1::Closest,
+        1,
+    );
+    let result =
+        execute_scene_query(world.checkpoint(), &actor_query).expect("closest actor query");
+    let PhysicsQueryResultPayloadV1::Closest {
+        hit: Some(actor_hit),
+    } = result.payload
+    else {
+        panic!("closest actor hit");
+    };
+    assert_eq!(
+        actor_hit.shape_id.body_id.subject_id,
+        PersistentId::from_bytes([1; 16])
+    );
+    assert_eq!(actor_hit.distance_micrometres, 0);
+    assert_eq!(actor_hit.feature_id, 1);
+
+    actor_query
+        .filter
+        .excluded_bodies
+        .push(actor_hit.shape_id.body_id);
+    let result =
+        execute_scene_query(world.checkpoint(), &actor_query).expect("actor exclusion query");
+    let PhysicsQueryResultPayloadV1::Closest { hit: Some(box_hit) } = result.payload else {
+        panic!("closest box hit");
+    };
+    assert_eq!(
+        box_hit.shape_id.body_id.subject_id,
+        PersistentId::from_bytes([3; 16])
+    );
+    assert_eq!(box_hit.distance_micrometres, 600_000);
+    assert_eq!(box_hit.feature_id, 5);
+    assert_eq!(box_hit.outward_normal_q1_30, [0, 0, -(1 << 30)]);
+}
+
+#[test]
+fn closest_point_query_publishes_canonical_prefix_after_complete_scan() {
+    let world = world(30, 60, [0, 900_000, 0], 1);
+    let request = closest_point_request(
+        &world,
+        [0, 900_000, 350_000],
+        PhysicsQueryCardinalityV1::All,
+        2,
+    );
+    let first = execute_scene_query(world.checkpoint(), &request).expect("all query");
+    let second = execute_scene_query(world.checkpoint(), &request).expect("repeat query");
+    assert_eq!(first, second);
+    let PhysicsQueryResultPayloadV1::All {
+        eligible_hit_count,
+        truncated,
+        hits,
+    } = first.payload
+    else {
+        panic!("all result");
+    };
+    assert_eq!(eligible_hit_count, 3);
+    assert!(truncated);
+    assert_eq!(hits.len(), 2);
+    assert_eq!(
+        hits[0].cmp_canonical_for_kind(&hits[1], request.geometry.kind()),
+        std::cmp::Ordering::Less
+    );
+    assert_eq!(
+        hits[0].shape_id.body_id.subject_id,
+        PersistentId::from_bytes([1; 16])
+    );
+    assert_eq!(
+        hits[1].shape_id.body_id.subject_id,
+        PersistentId::from_bytes([3; 16])
+    );
+}
+
+#[test]
+fn scene_query_rejects_wrong_snapshot_and_unsupported_kind_without_partial_result() {
+    let world = world(30, 60, [0, 900_000, 0], 1);
+    let mut stale = closest_point_request(
+        &world,
+        [0, 900_000, 0],
+        PhysicsQueryCardinalityV1::Closest,
+        1,
+    );
+    stale.snapshot_selector.physics_snapshot_hash =
+        next_contracts::ids::content_hash_from_bytes([0; 32]);
+    assert_eq!(
+        execute_scene_query(world.checkpoint(), &stale),
+        Err(PhysicsSceneQueryError::SnapshotMismatch)
+    );
+
+    let mut ray = closest_point_request(
+        &world,
+        [0, 900_000, 0],
+        PhysicsQueryCardinalityV1::Closest,
+        1,
+    );
+    ray.geometry = PhysicsQueryGeometryV1::RayCast {
+        origin_micrometres: [0, 900_000, 0],
+        unit_direction_q1_30: [0, 0, 1 << 30],
+        maximum_distance_micrometres: 5_000_000,
+    };
+    assert_eq!(
+        execute_scene_query(world.checkpoint(), &ray),
+        Err(PhysicsSceneQueryError::UnsupportedQueryKind(
+            next_contracts::physics::PhysicsQueryKindV1::RayCast
+        ))
+    );
+}
+
+#[test]
+fn scene_query_applies_bilateral_layer_filter_before_geometry() {
+    let world = world(30, 60, [0, 900_000, 0], 1);
+    let mut request =
+        closest_point_request(&world, [0, 900_000, 0], PhysicsQueryCardinalityV1::Any, 0);
+    request.filter.query_collision_mask = 0;
+    let result = execute_scene_query(world.checkpoint(), &request).expect("filtered query");
+    assert_eq!(
+        result.payload,
+        PhysicsQueryResultPayloadV1::Any {
+            eligible_hit: false
+        }
+    );
 }

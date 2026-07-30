@@ -35,12 +35,18 @@ pub enum ReferenceGameError {
     Canonical(next_contracts::canonical::CanonicalError),
     Identifier(next_contracts::ids::IdentifierError),
     Identity(next_contracts::identity::IdentityContractError),
+    Input(next_contracts::input::InputContractError),
+    PlayerInput(next_player::PlayerInputError),
+    Platform(next_contracts::platform::PlatformContractError),
     Physics(next_contracts::physics::PhysicsContractError),
     Authority(next_runtime::AuthorityRegistryError),
     InputContract(ReferenceInputError),
     InputAdmission(next_runtime::InputAdmissionError),
     Restore(next_runtime::SnapshotRestoreError),
     Runtime(next_runtime::RuntimeFatalError),
+    Checkpoint(next_contracts::snapshot::WorldCheckpointError),
+    PresentationContract(next_contracts::presentation::PresentationContractError),
+    Presentation(next_presentation::PresentationExtractionError),
     WorldStreaming(next_world::WorldStreamingError),
     WorldStreamingContract(next_contracts::world::WorldStreamingContractError),
     Agent(next_agent::AgentPlannerError),
@@ -52,7 +58,10 @@ pub enum ReferenceGameError {
     WorldStreamingMutatedRpg,
     AgentActionMissing,
     AgentCommandRejected,
+    InputFrameMissing,
     PresentationAssetMissing,
+    PresentationSnapshotMissing,
+    RecoveryInvalid,
 }
 
 impl Display for ReferenceGameError {
@@ -61,12 +70,18 @@ impl Display for ReferenceGameError {
             Self::Canonical(error) => write!(formatter, "{error}"),
             Self::Identifier(error) => write!(formatter, "{error}"),
             Self::Identity(error) => write!(formatter, "{error}"),
+            Self::Input(error) => write!(formatter, "{error}"),
+            Self::PlayerInput(error) => write!(formatter, "{error}"),
+            Self::Platform(error) => write!(formatter, "{error}"),
             Self::Physics(error) => write!(formatter, "{error}"),
             Self::Authority(error) => write!(formatter, "{error}"),
             Self::InputContract(error) => write!(formatter, "{error}"),
             Self::InputAdmission(error) => write!(formatter, "{error}"),
             Self::Restore(error) => write!(formatter, "{error}"),
             Self::Runtime(error) => write!(formatter, "{error}"),
+            Self::Checkpoint(error) => write!(formatter, "{error}"),
+            Self::PresentationContract(error) => write!(formatter, "{error}"),
+            Self::Presentation(error) => write!(formatter, "{error}"),
             Self::WorldStreaming(error) => write!(formatter, "{error}"),
             Self::WorldStreamingContract(error) => write!(formatter, "{error}"),
             Self::Agent(error) => write!(formatter, "{error}"),
@@ -84,8 +99,17 @@ impl Display for ReferenceGameError {
             Self::AgentCommandRejected => {
                 formatter.write_str("reference agent command was rejected")
             }
+            Self::InputFrameMissing => {
+                formatter.write_str("reference semantic control produced no input frame")
+            }
             Self::PresentationAssetMissing => {
                 formatter.write_str("reference presentation asset is missing")
+            }
+            Self::PresentationSnapshotMissing => {
+                formatter.write_str("reference presentation snapshot is missing")
+            }
+            Self::RecoveryInvalid => {
+                formatter.write_str("reference live recovery state is invalid")
             }
         }
     }
@@ -106,12 +130,21 @@ macro_rules! from_error {
 from_error!(next_contracts::canonical::CanonicalError, Canonical);
 from_error!(next_contracts::ids::IdentifierError, Identifier);
 from_error!(next_contracts::identity::IdentityContractError, Identity);
+from_error!(next_contracts::input::InputContractError, Input);
+from_error!(next_player::PlayerInputError, PlayerInput);
+from_error!(next_contracts::platform::PlatformContractError, Platform);
 from_error!(next_contracts::physics::PhysicsContractError, Physics);
 from_error!(next_runtime::AuthorityRegistryError, Authority);
 from_error!(ReferenceInputError, InputContract);
 from_error!(next_runtime::InputAdmissionError, InputAdmission);
 from_error!(next_runtime::SnapshotRestoreError, Restore);
 from_error!(next_runtime::RuntimeFatalError, Runtime);
+from_error!(next_contracts::snapshot::WorldCheckpointError, Checkpoint);
+from_error!(
+    next_contracts::presentation::PresentationContractError,
+    PresentationContract
+);
+from_error!(next_presentation::PresentationExtractionError, Presentation);
 from_error!(next_world::WorldStreamingError, WorldStreaming);
 from_error!(
     next_contracts::world::WorldStreamingContractError,

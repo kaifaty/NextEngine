@@ -5,7 +5,9 @@ use next_contracts::canonical::{CanonicalDecodeLimits, CanonicalError};
 use next_contracts::command::{DomainEvent, WorldCommand};
 use next_contracts::ids::{CommandLedgerHash, SchemaId, StateRoot};
 use next_contracts::persistence::{
-    ManifestValidationError, ReplayCommandResultV2, ReplayManifestV4, SaveSegmentDescriptor,
+    ManifestValidationError, ReplayCommandResultV2, ReplayManifestV4, ReplayManifestV5,
+    SaveSegmentDescriptor, replay_physics_query_batch_hash, replay_physics_query_results_hash,
+    replay_targeting_query_trace_hash,
 };
 use next_contracts::physics::{
     PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
@@ -383,6 +385,143 @@ pub fn run_replay_manifest_with_definitions_and_physics_options(
             || physics_segment_hash != compare_point.physics_segment_hash
             || report.physics_step_input.input_hash()? != compare_point.physics_step_input_hash
             || report.contact_batch.batch_hash != compare_point.contact_batch_hash
+        {
+            return Err(ReplayError::ComparePointMismatch(Box::new(
+                ReplayComparePointMismatch {
+                    first_divergent_tick: tick_manifest.tick,
+                    expected_state_root: compare_point.state_root,
+                    actual_state_root: state_root,
+                    expected_command_ledger_hash: compare_point.command_ledger_hash,
+                    actual_command_ledger_hash: command_ledger_hash,
+                },
+            )));
+        }
+        records.push(ReplayTickRecord {
+            tick: report.tick,
+            command_results: report.results,
+            events: report.events,
+            state_root,
+            command_ledger_hash,
+        });
+    }
+    let final_checkpoint = replay.world_checkpoint()?;
+    Ok(ReplayOutput {
+        ticks: records,
+        final_snapshot: final_checkpoint.runtime_snapshot.clone(),
+        final_checkpoint,
+    })
+}
+
+pub fn run_replay_manifest_v5(manifest: &ReplayManifestV5) -> Result<ReplayOutput, ReplayError> {
+    run_replay_manifest_v5_with_definitions_and_physics_options(
+        manifest,
+        next_contracts::mechanics::RpgDefinitionRegistryV1::empty()
+            .expect("empty RPG definition registry is canonical"),
+        next_runtime::PhysicsLaunchOptions::default(),
+    )
+}
+
+pub fn run_replay_manifest_v5_with_definitions_and_physics_options(
+    manifest: &ReplayManifestV5,
+    rpg_definitions: next_contracts::mechanics::RpgDefinitionRegistryV1,
+    physics_options: next_runtime::PhysicsLaunchOptions,
+) -> Result<ReplayOutput, ReplayError> {
+    let limits = CanonicalDecodeLimits::default();
+    let (initial_checkpoint, decoded_ticks) = manifest.validate_and_decode(limits)?;
+
+    let actual_initial_root = compute_world_checkpoint_root(&initial_checkpoint)?;
+    if actual_initial_root != manifest.initial_state_root {
+        return Err(ReplayError::InitialSnapshotMismatch {
+            expected_state_root: manifest.initial_state_root,
+            actual_state_root: actual_initial_root,
+        });
+    }
+
+    let mut authority = AuthorityRegistry::new();
+    for grant in &manifest.authority {
+        authority
+            .register(grant.principal.clone(), grant.capabilities.clone())
+            .map_err(|_| ManifestValidationError::AuthorityNotStrictlySorted)?;
+    }
+    let mut replay = RuntimeReplayDriver::new_with_definitions_and_physics_options(
+        initial_checkpoint,
+        authority,
+        rpg_definitions,
+        physics_options,
+    )?;
+    let mut records = Vec::with_capacity(decoded_ticks.len());
+    for ((tick_manifest, tick), compare_point) in manifest
+        .ticks
+        .iter()
+        .zip(decoded_ticks)
+        .zip(&manifest.compare_points)
+    {
+        let report = match replay.replay_tick_v5(
+            tick.closed_ingress_batch,
+            tick.direct_external_commands,
+            &tick.expected_ingress_command_batch,
+            &tick.expected_physics_step_input,
+            &tick.expected_contact_batch,
+            &tick.expected_targeting_intents,
+            &tick.expected_authoritative_targeting_queries,
+            &tick.expected_physics_query_batch,
+            &tick.expected_physics_query_results,
+            &tick.expected_outcome_command_batch,
+        ) {
+            Ok(report) => report,
+            Err(RuntimeReplayError::Runtime(error)) => return Err(error.into()),
+            Err(
+                RuntimeReplayError::CommandBatchMismatch { .. }
+                | RuntimeReplayError::PhysicsStepInputMismatch { .. }
+                | RuntimeReplayError::ContactBatchMismatch { .. }
+                | RuntimeReplayError::TargetingIntentMismatch { .. }
+                | RuntimeReplayError::TargetingQueryMismatch { .. }
+                | RuntimeReplayError::PhysicsQueryBatchMismatch { .. }
+                | RuntimeReplayError::PhysicsQueryResultMismatch { .. },
+            ) => {
+                return Err(ReplayError::RecordedStageMismatch {
+                    tick: tick_manifest.tick,
+                    stage: "closed-authoritative-query-outcome",
+                });
+            }
+            Err(_) => {
+                return Err(ReplayError::RecordedStageMismatch {
+                    tick: tick_manifest.tick,
+                    stage: "replay-driver",
+                });
+            }
+        };
+        if report.mapping_receipts_v2 != tick.expected_mapping_receipts
+            || replay_command_results(&report.results) != tick.expected_command_results
+            || report.events != tick.expected_events
+        {
+            return Err(ReplayError::RecordedStageMismatch {
+                tick: tick_manifest.tick,
+                stage: "closed-ingress-command-outcome",
+            });
+        }
+        let checkpoint = replay
+            .world_checkpoint()
+            .map_err(SnapshotRestoreError::from)?;
+        let state_root = compute_world_checkpoint_root(&checkpoint)?;
+        let command_ledger_hash = report.snapshot.command_ledger_hash()?;
+        let (runtime_segment_hash, rpg_segment_hash, physics_segment_hash) =
+            checkpoint_segment_hashes(&checkpoint)?;
+        if state_root != compare_point.state_root
+            || command_ledger_hash != compare_point.command_ledger_hash
+            || runtime_segment_hash != compare_point.runtime_segment_hash
+            || rpg_segment_hash != compare_point.rpg_segment_hash
+            || physics_segment_hash != compare_point.physics_segment_hash
+            || report.physics_step_input.input_hash()? != compare_point.physics_step_input_hash
+            || report.contact_batch.batch_hash != compare_point.contact_batch_hash
+            || replay_physics_query_batch_hash(&report.physics_query_batch)?
+                != compare_point.physics_query_batch_hash
+            || replay_physics_query_results_hash(&report.physics_query_results)?
+                != compare_point.physics_query_results_hash
+            || replay_targeting_query_trace_hash(
+                &report.targeting_intents,
+                &report.authoritative_targeting_queries,
+            )? != compare_point.targeting_query_trace_hash
         {
             return Err(ReplayError::ComparePointMismatch(Box::new(
                 ReplayComparePointMismatch {

@@ -1,5 +1,6 @@
-use next_contracts::ids::{ContentHash, PersistentId, PhysicsContactId};
+use next_contracts::ids::{CommandStreamId, ContentHash, PersistentId};
 use next_contracts::mechanics::RpgDefinitionRegistryV1;
+use next_contracts::physics::{PhysicsQueryHitV1, PhysicsQueryResultPayloadV1};
 use next_contracts::project::AssetRevisionRefV1;
 use next_contracts::rpg::{
     CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
@@ -10,7 +11,8 @@ use next_physics_api::PhysicsWorldHost;
 use next_rpg::RpgState;
 
 use super::RuntimeFatalError;
-use super::ingress::InteractionIntentKind;
+use super::ingress::{InteractionIntentKind, PendingInteractionIntent};
+use super::targeting::{ResolvedInteractionTargetingV1, resolve_interaction_targeting};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) enum InteractionAffordance {
@@ -58,63 +60,58 @@ pub(super) struct AuthoredDialogueQuestBindingV1 {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct InteractionCandidate {
     subject_id: PersistentId,
-    contact_id: PhysicsContactId,
+    target_hit: PhysicsQueryHitV1,
     affordance_tag: u8,
     dialogue_id: PersistentId,
     quest_id: PersistentId,
     affordance: InteractionAffordance,
 }
 
-impl InteractionCandidate {
-    fn order_key(
-        &self,
-    ) -> (
-        PersistentId,
-        PhysicsContactId,
-        u8,
-        PersistentId,
-        PersistentId,
-    ) {
-        (
-            self.subject_id,
-            self.contact_id,
-            self.affordance_tag,
-            self.dialogue_id,
-            self.quest_id,
-        )
-    }
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct InteractionAffordanceSelection {
+    pub(super) affordance: Option<InteractionAffordance>,
+    pub(super) targeting: Option<ResolvedInteractionTargetingV1>,
 }
 
 pub(super) fn select_interaction_affordance(
-    controlled_body_id: PersistentId,
-    kind: InteractionIntentKind,
+    intent: &PendingInteractionIntent,
+    gameplay_tick: u64,
+    query_slot: u32,
+    issuer_stream_id: CommandStreamId,
     physics: &PhysicsWorldHost,
     rpg: &RpgState,
     rpg_definitions: &RpgDefinitionRegistryV1,
-) -> Result<Option<InteractionAffordance>, RuntimeFatalError> {
+) -> Result<InteractionAffordanceSelection, RuntimeFatalError> {
+    let controlled_body_id = intent.controlled_body_id;
+    let kind = intent.kind;
     if kind == InteractionIntentKind::EquipUse {
-        return Ok(select_equip_use_affordance(controlled_body_id, rpg));
+        return Ok(InteractionAffordanceSelection {
+            affordance: select_equip_use_affordance(controlled_body_id, rpg),
+            targeting: None,
+        });
     }
-    let physical_body_id = physics
-        .checkpoint()
-        .catalog
-        .avatar_bindings
-        .get(&controlled_body_id)
-        .ok_or(RuntimeFatalError::PhysicalOutcomeInvariant)?;
+    let targeting = resolve_interaction_targeting(
+        intent,
+        gameplay_tick,
+        query_slot,
+        issuer_stream_id,
+        physics,
+    )?;
+    let PhysicsQueryResultPayloadV1::All {
+        truncated: false,
+        hits,
+        ..
+    } = &targeting.result.payload
+    else {
+        return Err(RuntimeFatalError::PhysicalOutcomeInvariant);
+    };
     let dialogue_binding =
         resolve_dialogue_quest_binding_v2(rpg, rpg_definitions, controlled_body_id)
             .map_err(RuntimeFatalError::CoreInteractionClosure)?
             .filter(|binding| binding.ready);
     let mut candidates = Vec::new();
-    for contact in physics.snapshot().sorted_contact_continuity_states.values() {
-        let other = if contact.participant_low.body_id == *physical_body_id {
-            contact.participant_high.body_id
-        } else if contact.participant_high.body_id == *physical_body_id {
-            contact.participant_low.body_id
-        } else {
-            continue;
-        };
-        let target = other.subject_id;
+    for hit in hits {
+        let target = hit.shape_id.body_id.subject_id;
         if rpg.interactive_object(target).is_some_and(|object| {
             object.state_id.as_str() == CORE_INTERACTIVE_OBJECT_READY_STATE_ID
                 && match kind {
@@ -165,7 +162,7 @@ pub(super) fn select_interaction_affordance(
             };
             candidates.push(InteractionCandidate {
                 subject_id: target,
-                contact_id: contact.contact_id,
+                target_hit: hit.clone(),
                 affordance_tag: 0,
                 dialogue_id: PersistentId::from_bytes([0; 16]),
                 quest_id: PersistentId::from_bytes([0; 16]),
@@ -177,7 +174,7 @@ pub(super) fn select_interaction_affordance(
         {
             candidates.push(InteractionCandidate {
                 subject_id: target,
-                contact_id: contact.contact_id,
+                target_hit: hit.clone(),
                 affordance_tag: 1,
                 dialogue_id: binding.dialogue_id,
                 quest_id: binding.quest_id,
@@ -185,10 +182,23 @@ pub(super) fn select_interaction_affordance(
             });
         }
     }
-    candidates.sort_by_key(|candidate| candidate.order_key());
-    Ok(candidates
-        .first()
-        .map(|candidate| candidate.affordance.clone()))
+    candidates.sort_by(|left, right| {
+        left.target_hit
+            .cmp_canonical_for_kind(
+                &right.target_hit,
+                next_contracts::physics::PhysicsQueryKindV1::ClosestPoint,
+            )
+            .then_with(|| left.subject_id.cmp(&right.subject_id))
+            .then_with(|| left.affordance_tag.cmp(&right.affordance_tag))
+            .then_with(|| left.dialogue_id.cmp(&right.dialogue_id))
+            .then_with(|| left.quest_id.cmp(&right.quest_id))
+    });
+    Ok(InteractionAffordanceSelection {
+        affordance: candidates
+            .first()
+            .map(|candidate| candidate.affordance.clone()),
+        targeting: Some(targeting),
+    })
 }
 
 fn select_equip_use_affordance(

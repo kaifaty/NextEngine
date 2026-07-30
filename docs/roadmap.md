@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-07-30 |
-| Текущая точка | minimal render-content implementation и релевантная Windows validation завершены локально; следующий Windows package — ActionMap/context + camera/targeting, а Linux-only действия накапливаются в отдельном asynchronous validation backlog |
+| Текущая точка | Player action and camera завершён локально на Windows со статусом `DONE_LOCAL_WINDOWS`; следующий Windows work package — Semantic UI (`NEXT`), а Linux-only `LNX-005` остаётся открытым в asynchronous validation backlog |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -33,6 +33,7 @@ Roadmap намеренно не содержит календарных обещ
 | Статус | Значение |
 |---|---|
 | `DONE_LOCAL` | Реализация и релевантные checks проходят на developer host; это не shipping claim. |
+| `DONE_LOCAL_WINDOWS` | Windows implementation/checkpoint завершён локально; Linux и cross-target claims остаются отдельными и открытыми. |
 | `NEXT` | Следующий этап критического пути. |
 | `PLANNED` | Нужен для v1, но зависит от более ранних этапов. |
 | `PARALLEL` | Может развиваться параллельно, но имеет указанную integration gate. |
@@ -55,7 +56,7 @@ Roadmap намеренно не содержит календарных обещ
 ## Текущая точка
 
 [M0–M11 implementation record](nextengine-v1-vertical-slice-implementation-plan.md)
-фиксирует рабочий walking skeleton. На 2026-07-29 локально присутствуют:
+фиксирует рабочий walking skeleton. На 2026-07-30 локально присутствуют:
 
 - canonical commands, command ledger, fixed-stage runtime и atomic RPG
   transactions;
@@ -72,6 +73,24 @@ Roadmap намеренно не содержит календарных обещ
   и derived B0 meshlet payloads;
 - checked-in offline SPIR-V и B0 CPU visible-list/indexed-indirect path с
   deterministic fallback material;
+- Windows-local keyboard/mouse ActionMap/InputContext resolver для live `game` и
+  headless scenario, persisted ingress assignment и exact physics-snapshot
+  `ClosestPoint` targeting, независимый от camera state;
+- complete in-memory snapshots на каждой 30 Hz fixed-step boundary и typed
+  integer/fixed-point third-person camera в `PresentationSnapshotV2`/B0 plan;
+  renderer повторяет последний snapshot при любой cadence, а приватный Vulkan
+  backend преобразует camera state в float view-projection и depth;
+- bounded active-run durability: same-session checkpoint на tick `0`, каждые
+  `30` ticks и forced atomically на suspend/close; crash rollback ограничен
+  `29` ticks, resume не делает wall-time catch-up, lifecycle retry/publication
+  rollback сохраняют prior generation, full lifecycle archive bounded,
+  session store удерживает current+previous raw generations, а required-save
+  lineage переносится bounded цепочкой до `64` entries с exact prior durable
+  snapshots и полными referenced object closures;
+- session-bound desktop host/capability registration отклоняет stale adapter
+  lifetime, а same-session authoritative restart начинает fresh presentation
+  epoch с sequence `0` и camera cuts по
+  [ADR-035](architecture/adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md);
 - Windows SDL3/ash B0 path с canonical keyboard/lifecycle events, fullscreen,
   swapchain recreation, bounded device-loss recovery и package smoke;
 - локальная v1 closure matrix.
@@ -86,19 +105,19 @@ skeleton/animation/audio.
 | Область | Состояние в коде | Главный gap |
 |---|---|---|
 | Contracts/runtime/ledger | Реализован фундамент | Расширять только вместе с реальным gameplay use case; не строить второй runtime framework. |
-| Project/application/session | Реализован production path | Нужна native platform/package closure и дальнейшие real-project lifecycle cases. |
+| Project/application/session | Production path реализован; same-session active restart, platform-causal lifecycle rollback, full bounded retry archive, current-host binding и tick-0/30 checkpoint model прошли Windows-local checkpoint | Нужны native cross-target platform/package closure и дальнейшие real-project lifecycle cases. |
 | Persistence/replay | Реализован текущий owner set | Нет реального schema migration graph и будущих owner segments. |
 | RPG | Частично: основные aggregates и восемь операций | Нет полного faction/membership, status/effect, quest-graph, reward и divine command lifecycle. |
 | Mechanics/packages | Частично: contact melee + Luau/Wasm examples | Нет общего ability phase/cost/cooldown/status lifecycle и creator-facing SDK workflow. |
 | Content/cooker | Частично: generic records плюс canonical mesh/material/texture/profile catalog, deterministic cook/activation и derived meshlet payloads | Нет skeleton/animation/audio/navigation catalog, реальных migrations и достаточного lawful representative content. |
 | World/streaming | Частично: deterministic two-chunk transition | Нет general partition interest, resource residency, calendar, population, schedules и region transfers. |
 | Jobs/resources | Spec-only | Нет общего bounded job, memory, I/O credit, pin/lease и backpressure substrate. |
-| Physics | Частично: upright capsule + static Box | Нет полного shape/body/constraint/query profile и production physical-character stack. |
+| Physics | Частично: upright capsule, static Box и exact B0 `ClosestPoint` scene query | Нет полного shape/body/constraint/query profile и production physical-character stack. |
 | Animation/motor | Только procedural projection/contract fragments | Нет skeleton graph, retargeting, IK, root-motion intent или deterministic inference supervisor. |
 | Agent AI | Частично: один canonical affordance planner | Нет perception, hierarchy, schedules, memory и 100-NPC workload. |
 | Navigation/audio | Spec-only | Нет runtime service, cooker или baseline adapters. |
-| Player experience | Частично: normalized input contracts + Windows SDL keyboard/lifecycle path | Нет ActionMap/context service, camera/targeting, semantic UI, localization и accessibility implementation. |
-| Presentation/render | Частично: exact revision-bound snapshot, offline SPIR-V, CPU visible list/indexed-indirect B0 path, fallback material и проверенные локально Windows swapchain/device recovery/package paths | Нет skeleton/VFX consumption state, paired same-commit target proof и representative Linux hardware-GPU evidence. |
+| Player experience | Частично: общий keyboard/mouse ActionMap/InputContext resolver, persisted targeting intent/query и live third-person camera path | Нет semantic UI, controller profile, localization и accessibility implementation. |
+| Presentation/render | Частично: exact revision-bound snapshot с typed camera, offline SPIR-V, CPU visible list/indexed-indirect B0 path, camera view-projection/depth, fallback material и проверенные локально Windows swapchain/device recovery/package paths | Нет skeleton/VFX consumption state, paired same-commit target proof и representative Linux hardware-GPU evidence. |
 | Tooling | Частично: repository `xtask` checks | Нет creator-facing `next` CLI, inspectors, scenario/minimizer и stable external SDK workflow. |
 | Autonomous narrative | Contract fragments only | SPEC-31 runtime, graph admission, director fallback и divine batch transaction отсутствуют. |
 
@@ -270,6 +289,29 @@ ADR-028, ADR-030.
 - один CC0/engine-owned 20–30 minute project slice с началом, конфликтом и
   завершением.
 
+Первый Windows increment этого этапа, **Player action and camera
+(`DONE_LOCAL_WINDOWS`)**, содержит общий keyboard/mouse ActionMap/InputContext
+resolver для live `game` и headless scenario, persisted ingress assignment,
+authoritative B0 `ClosestPoint` targeting из exact physics snapshot,
+`ReplayManifestV5` query provenance и typed integer/fixed-point third-person
+camera. Live loop создаёт complete in-memory snapshot на каждой 30 Hz boundary;
+durable same-session checkpoint публикуется на tick `0`, каждые `30` ticks и
+forced atomically на suspend/close. Crash может откатить до `29` последних
+in-memory ticks, resume не догоняет wall time, exact lifecycle retry и
+publication rollback сохраняют prior state, full request/event archive bounded,
+а session store удерживает current+previous raw generations и переносит до
+`64` required-save recovery entries с exact prior snapshot/object closures.
+Fresh session-bound desktop host
+registration отклоняет stale lifecycle/control events; authoritative restart
+публикует new presentation epoch, sequence `0` и camera cuts. Exact semantics
+зафиксированы [ADR-035](architecture/adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md).
+Локальный Windows checkpoint подтверждён `host-check`, `play`,
+`persistence-replay`, `content-package`, `platform`, `performance`,
+`v1-closure` и fresh-output `v1-package`. `v1-closure` сообщает Windows-local `PASS`
+и честный Linux `NOT_RUN`; это не закрывает R2, R1/B-01, B-02,
+`native_gate_ready`, shipping или Linux/native target criteria. `LNX-005`
+остаётся отдельной асинхронной проверкой.
+
 **Критерии успеха:**
 
 - новый пользователь может запустить package, пройти movement → pickup/equip →
@@ -295,7 +337,7 @@ ADR-028, ADR-030.
 generation не входят в этот этап.
 
 **Основные источники:** SPEC-04, SPEC-08, SPEC-12, SPEC-18, SPEC-24, SPEC-29,
-SPEC-30, ADR-019.
+SPEC-30, ADR-019, ADR-034, ADR-035.
 
 ## R3 — Scalable content, jobs and streaming
 
@@ -658,23 +700,40 @@ offline SPIR-V, CPU visible list/indexed-indirect B0 path и declared fallback.
 локально на Windows; `LNX-004` выполняется позднее асинхронно и не удерживает
 следующий Windows package.
 
-1. **Player action and camera (`NEXT`):** ActionMap/context resolution, third-person
-   camera, interaction focus and targeting query.
-2. **Semantic UI:** HUD, inventory/equipment, dialogue, quest journal,
-   pause/save/load and pseudo-locale.
-3. **Baseline audio:** clips, emitters/listener, priority/voice limits,
+Завершённый Windows checkpoint **Player action and camera
+(`DONE_LOCAL_WINDOWS`)** добавляет общий
+для live `game` и headless scenario ActionMap/InputContext resolver с WASD,
+pickup/equip-use/interact/melee и relative mouse orbit; persisted ingress
+assignment и exact physics-snapshot `ClosestPoint` query определяют
+authoritative target; `ReplayManifestV5` связывает V2 mapping receipts и exact
+targeting/query facts. Typed integer/fixed-point camera, complete in-memory
+30 Hz snapshots и private Vulkan float view-projection/depth остаются
+presentation-only. Durable same-session checkpoint использует cadence tick
+`0`/каждые `30` ticks и forced atomic suspend/close publication; crash rollback
+ограничен `29` ticks, resume не делает catch-up, exact lifecycle retry,
+publication rollback, full bounded request/event archive, current+previous raw
+retention и carry-forward chain до `64` recovery evidence entries с prior
+snapshot/object closures сохраняют bounded recovery. Current host/capability
+registration отклоняет stale adapter events;
+authoritative restart создаёт fresh presentation epoch/sequence `0` и camera
+cuts по ADR-035. `LNX-005` выполняется позднее асинхронно; R1/B-01 и весь R2
+этим не закрываются.
+
+1. **Semantic UI (`NEXT`):** HUD, inventory/equipment, dialogue, quest
+   journal, pause/save/load and pseudo-locale.
+2. **Baseline audio (`PLANNED`):** clips, emitters/listener, priority/voice limits,
    attenuation/panning and subtitle fallback.
-4. **Playable alpha project:** заменить technical fixture на один complete
+3. **Playable alpha project (`PLANNED`):** заменить technical fixture на один complete
    CC0/engine-owned 20–30 minute slice.
-5. **Jobs/resources vertical:** сначала content cook/stream use case, затем
+4. **Jobs/resources vertical (`PLANNED`):** сначала content cook/stream use case, затем
    shared bounded admission primitives.
-6. **General partition and migration:** multi-region streaming plus first real
+5. **General partition and migration (`PLANNED`):** multi-region streaming plus first real
    save/content schema migration.
-7. **Living-world vertical:** calendar + small population + graph navigation,
+6. **Living-world vertical (`PLANNED`):** calendar + small population + graph navigation,
      затем масштабирование к integrated 100-NPC scenario.
 
 Каждый package должен быть отдельным product increment с focused checks. Work
-package 5 не следует начинать как универсальный scheduler design без package 4
+package 4 не следует начинать как универсальный scheduler design без package 3
 и конкретного streaming workload.
 
 ## Обновление roadmap

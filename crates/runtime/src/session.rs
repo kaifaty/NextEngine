@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
+use next_contracts::canonical::CanonicalDecodeLimits;
 use next_contracts::canonical::sha256;
 use next_contracts::ids::{ContentHash, SessionRequestId, SessionTransitionId};
 use next_contracts::session::{
@@ -79,11 +80,69 @@ impl ApplicationSessionMachine {
             return Err(SessionMachineError::ManifestStateMismatch);
         }
         let mut requests = BTreeMap::new();
+        let mut history = Vec::new();
         for archived in archived_requests {
+            let request = ApplicationLifecycleRequestV1::from_jcs_bytes(
+                &archived.canonical_request_bytes,
+                CanonicalDecodeLimits::default(),
+            )?;
+            let event = ApplicationLifecycleEventV1::from_jcs_bytes(
+                &archived.event.canonical_bytes(),
+                &request,
+                CanonicalDecodeLimits::default(),
+            )?;
             if archived.event.request_id != archived.request_id
                 || archived.event.session_id != state.session_id
-                || archived.canonical_request_hash == ContentHash::default()
+                || request.request_id != archived.request_id
+                || request.canonical_hash != archived.canonical_request_hash
+                || request.session_id != state.session_id
+                || event != archived.event
+                || event.transition_id != derive_transition_id(&request)
+                || event.after_revision > state.revision
                 || requests.insert(archived.request_id, archived).is_some()
+            {
+                return Err(SessionMachineError::ArchiveInvalid);
+            }
+            history.push(event);
+        }
+        history.sort_by_key(|event| event.before_revision);
+        let expected_history_len =
+            usize::try_from(state.revision).map_err(|_| SessionMachineError::ArchiveInvalid)?;
+        if history.len() != expected_history_len {
+            return Err(SessionMachineError::ArchiveInvalid);
+        }
+        if history.is_empty() {
+            if state.state != ApplicationSessionStatusV1::Created
+                || state.revision != 0
+                || state.last_transition_id.is_some()
+            {
+                return Err(SessionMachineError::ArchiveInvalid);
+            }
+        } else {
+            for (revision, event) in history.iter().enumerate() {
+                let before_revision =
+                    u64::try_from(revision).map_err(|_| SessionMachineError::ArchiveInvalid)?;
+                let after_revision = before_revision
+                    .checked_add(1)
+                    .ok_or(SessionMachineError::ArchiveInvalid)?;
+                if event.before_revision != before_revision
+                    || event.after_revision != after_revision
+                    || (before_revision == 0
+                        && event.from_state != ApplicationSessionStatusV1::Created)
+                {
+                    return Err(SessionMachineError::ArchiveInvalid);
+                }
+            }
+            if history.windows(2).any(|pair| {
+                pair[0].after_revision != pair[1].before_revision
+                    || pair[0].to_state != pair[1].from_state
+            }) {
+                return Err(SessionMachineError::ArchiveInvalid);
+            }
+            let last = history.last().expect("non-empty history was checked above");
+            if last.after_revision != state.revision
+                || last.to_state != state.state
+                || state.last_transition_id != Some(last.transition_id)
             {
                 return Err(SessionMachineError::ArchiveInvalid);
             }

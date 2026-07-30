@@ -3,6 +3,7 @@
 mod backend;
 mod quantization;
 mod reference_world;
+mod scene_query;
 
 pub use backend::{
     PhysicsBackendError, PhysicsBackendFactory, PhysicsBackendKind, PhysicsBackendPolicy,
@@ -15,3 +16,4 @@ pub use reference_world::{
     ReferenceGroundedCapsuleQuery, ReferencePhysicsError, ReferencePhysicsWorld,
     grounded_capsule_axis_hit, grounded_capsule_collision_filter, reference_grounded_capsule_sweep,
 };
+pub use scene_query::{PhysicsSceneQueryError, execute_scene_query};

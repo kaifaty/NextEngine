@@ -1,5 +1,5 @@
 use super::*;
-use crate::gpu_content::B0GpuContent;
+use crate::gpu_content::{B0GpuContent, DepthAttachment};
 use next_render::{RenderTargetV1, build_b0_frame_plan};
 
 pub(super) struct GraphicsContext {
@@ -26,11 +26,14 @@ struct SwapchainState {
     loader: ash::khr::swapchain::Device,
     handle: vk::SwapchainKHR,
     format: vk::Format,
+    depth_format: vk::Format,
     extent: vk::Extent2D,
     images: Vec<vk::Image>,
     image_views: Vec<vk::ImageView>,
+    depth_attachments: Vec<DepthAttachment>,
     render_finished: Vec<vk::Semaphore>,
     initialized: Vec<bool>,
+    depth_initialized: Vec<bool>,
 }
 
 impl Drop for SwapchainState {
@@ -42,6 +45,7 @@ impl Drop for SwapchainState {
             for semaphore in self.render_finished.drain(..) {
                 self.device.destroy_semaphore(semaphore, None);
             }
+            self.depth_attachments.clear();
             for view in self.image_views.drain(..) {
                 self.device.destroy_image_view(view, None);
             }
@@ -129,6 +133,7 @@ pub(super) struct SubmittedB0Frame {
 const B0_TARGET_REVISION: u64 = 1;
 const B0_SURFACE_COLOR_SPACE: vk::ColorSpaceKHR = vk::ColorSpaceKHR::SRGB_NONLINEAR;
 const B0_SURFACE_FORMATS: [vk::Format; 2] = [vk::Format::B8G8R8A8_SRGB, vk::Format::R8G8B8A8_SRGB];
+const B0_DEPTH_FORMATS: [vk::Format; 2] = [vk::Format::D32_SFLOAT, vk::Format::D16_UNORM];
 
 fn validate_loader_api_version(actual: u32) -> Result<(), DesktopAdapterError> {
     if actual < vk::API_VERSION_1_3 {
@@ -224,6 +229,29 @@ fn select_b0_surface_format(formats: &[vk::SurfaceFormatKHR]) -> Option<vk::Surf
             candidate.format == *required_format && candidate.color_space == B0_SURFACE_COLOR_SPACE
         })
     })
+}
+
+fn select_b0_depth_format(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+) -> Option<vk::Format> {
+    select_b0_depth_format_with(|format| {
+        // SAFETY: the physical-device handle belongs to this live instance and
+        // the query returns format capability value data only.
+        let properties =
+            unsafe { instance.get_physical_device_format_properties(physical_device, format) };
+        properties
+            .optimal_tiling_features
+            .contains(vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT)
+    })
+}
+
+fn select_b0_depth_format_with(
+    mut supports_depth_attachment: impl FnMut(vk::Format) -> bool,
+) -> Option<vk::Format> {
+    B0_DEPTH_FORMATS
+        .into_iter()
+        .find(|format| supports_depth_attachment(*format))
 }
 
 fn defer_out_of_date<T>(result: Result<T, vk::Result>) -> Result<Option<T>, DesktopAdapterError> {
@@ -335,6 +363,7 @@ impl GraphicsContext {
         let mut old_swapchain_retired = false;
         let swapchain = create_swapchain(
             window,
+            &instance,
             physical_device,
             queue_family_index,
             &surface_loader,
@@ -377,6 +406,7 @@ impl GraphicsContext {
                     queue,
                     queue_family_index,
                     swapchain.format,
+                    swapchain.depth_format,
                     render_content_catalog,
                 )
             })
@@ -471,29 +501,73 @@ impl GraphicsContext {
             .level_count(1)
             .base_array_layer(0)
             .layer_count(1);
-        let to_color = [vk::ImageMemoryBarrier2::default()
-            .src_stage_mask(if old_layout == vk::ImageLayout::UNDEFINED {
-                vk::PipelineStageFlags2::NONE
-            } else {
-                vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT
-            })
-            .src_access_mask(vk::AccessFlags2::NONE)
-            .dst_stage_mask(vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
-            .dst_access_mask(vk::AccessFlags2::COLOR_ATTACHMENT_WRITE)
-            .old_layout(old_layout)
-            .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .image(swapchain.images[image_usize])
-            .subresource_range(subresource)];
-        let to_color_dependency = vk::DependencyInfo::default().image_memory_barriers(&to_color);
-        // SAFETY: the image belongs to the acquired swapchain index and the
-        // barrier is recorded into the reset primary command buffer.
+        let depth_old_layout = if swapchain.depth_initialized[image_usize] {
+            vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL
+        } else {
+            vk::ImageLayout::UNDEFINED
+        };
+        let depth_subresource = vk::ImageSubresourceRange::default()
+            .aspect_mask(vk::ImageAspectFlags::DEPTH)
+            .base_mip_level(0)
+            .level_count(1)
+            .base_array_layer(0)
+            .layer_count(1);
+        let attachment_barriers = [
+            vk::ImageMemoryBarrier2::default()
+                .src_stage_mask(if old_layout == vk::ImageLayout::UNDEFINED {
+                    vk::PipelineStageFlags2::NONE
+                } else {
+                    vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT
+                })
+                .src_access_mask(vk::AccessFlags2::NONE)
+                .dst_stage_mask(vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
+                .dst_access_mask(vk::AccessFlags2::COLOR_ATTACHMENT_WRITE)
+                .old_layout(old_layout)
+                .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .image(swapchain.images[image_usize])
+                .subresource_range(subresource),
+            vk::ImageMemoryBarrier2::default()
+                .src_stage_mask(if depth_old_layout == vk::ImageLayout::UNDEFINED {
+                    vk::PipelineStageFlags2::NONE
+                } else {
+                    vk::PipelineStageFlags2::EARLY_FRAGMENT_TESTS
+                        | vk::PipelineStageFlags2::LATE_FRAGMENT_TESTS
+                })
+                .src_access_mask(if depth_old_layout == vk::ImageLayout::UNDEFINED {
+                    vk::AccessFlags2::NONE
+                } else {
+                    vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE
+                })
+                .dst_stage_mask(
+                    vk::PipelineStageFlags2::EARLY_FRAGMENT_TESTS
+                        | vk::PipelineStageFlags2::LATE_FRAGMENT_TESTS,
+                )
+                .dst_access_mask(
+                    vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_READ
+                        | vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                )
+                .old_layout(depth_old_layout)
+                .new_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
+                .image(swapchain.depth_attachments[image_usize].image())
+                .subresource_range(depth_subresource),
+        ];
+        let attachment_dependency =
+            vk::DependencyInfo::default().image_memory_barriers(&attachment_barriers);
+        // SAFETY: both images belong to the acquired swapchain slot and the
+        // barriers are recorded into the reset primary command buffer.
         unsafe {
             self.device
-                .cmd_pipeline_barrier2(self.command_buffer, &to_color_dependency);
+                .cmd_pipeline_barrier2(self.command_buffer, &attachment_dependency);
         }
-        let clear = vk::ClearValue {
+        let color_clear = vk::ClearValue {
             color: vk::ClearColorValue {
                 float32: [0.035, 0.045, 0.065, 1.0],
+            },
+        };
+        let depth_clear = vk::ClearValue {
+            depth_stencil: vk::ClearDepthStencilValue {
+                depth: 1.0,
+                stencil: 0,
             },
         };
         let color_attachments = [vk::RenderingAttachmentInfo::default()
@@ -501,7 +575,13 @@ impl GraphicsContext {
             .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
             .load_op(vk::AttachmentLoadOp::CLEAR)
             .store_op(vk::AttachmentStoreOp::STORE)
-            .clear_value(clear)];
+            .clear_value(color_clear)];
+        let depth_attachment = vk::RenderingAttachmentInfo::default()
+            .image_view(swapchain.depth_attachments[image_usize].view())
+            .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
+            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .store_op(vk::AttachmentStoreOp::DONT_CARE)
+            .clear_value(depth_clear);
         let render_area = vk::Rect2D {
             offset: vk::Offset2D { x: 0, y: 0 },
             extent: swapchain.extent,
@@ -509,9 +589,10 @@ impl GraphicsContext {
         let rendering_info = vk::RenderingInfo::default()
             .render_area(render_area)
             .layer_count(1)
-            .color_attachments(&color_attachments);
+            .color_attachments(&color_attachments)
+            .depth_attachment(&depth_attachment);
         // SAFETY: dynamic rendering was checked and enabled; the attachment
-        // image is in color-attachment layout for the acquired index.
+        // images are in their declared attachment layouts for this index.
         unsafe {
             self.device
                 .cmd_begin_rendering(self.command_buffer, &rendering_info);
@@ -576,10 +657,12 @@ impl GraphicsContext {
             self.recreate_swapchain(window)?;
             return Ok(None);
         };
-        self.swapchain
+        let swapchain = self
+            .swapchain
             .as_mut()
-            .ok_or(DesktopAdapterError::GraphicsContextMissing)?
-            .initialized[image_usize] = true;
+            .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
+        swapchain.initialized[image_usize] = true;
+        swapchain.depth_initialized[image_usize] = true;
         if acquisition_suboptimal || present_suboptimal {
             self.recreate_swapchain(window)?;
         }
@@ -605,6 +688,7 @@ impl GraphicsContext {
         let mut old_swapchain_retired = false;
         let replacement = create_swapchain(
             window,
+            &self.instance,
             self.physical_device,
             self.queue_family_index,
             &self.surface_loader,
@@ -619,18 +703,24 @@ impl GraphicsContext {
                 drop(self.swapchain.take());
             }
         })?;
-        let replacement_format = replacement.as_ref().map(|swapchain| swapchain.format);
-        let current_format = self.swapchain.as_ref().map(|swapchain| swapchain.format);
-        if replacement_format != current_format || self.b0_content.is_none() {
-            let replacement_content = replacement_format
-                .map(|format| {
+        let replacement_formats = replacement
+            .as_ref()
+            .map(|swapchain| (swapchain.format, swapchain.depth_format));
+        let current_formats = self
+            .swapchain
+            .as_ref()
+            .map(|swapchain| (swapchain.format, swapchain.depth_format));
+        if replacement_formats != current_formats || self.b0_content.is_none() {
+            let replacement_content = replacement_formats
+                .map(|(color_format, depth_format)| {
                     B0GpuContent::new(
                         &self.instance,
                         self.physical_device,
                         &self.device,
                         self.queue,
                         self.queue_family_index,
-                        format,
+                        color_format,
+                        depth_format,
                         &self.render_content_catalog,
                     )
                 })
@@ -736,6 +826,7 @@ fn select_physical_device(
 )]
 fn create_swapchain(
     window: &Window,
+    instance: &ash::Instance,
     physical_device: vk::PhysicalDevice,
     queue_family_index: u32,
     surface_loader: &ash::khr::surface::Instance,
@@ -755,6 +846,8 @@ fn create_swapchain(
         unsafe { surface_loader.get_physical_device_surface_formats(physical_device, surface)? };
     let selected_format =
         select_b0_surface_format(&formats).ok_or(DesktopAdapterError::GpuUnsupported)?;
+    let depth_format = select_b0_depth_format(instance, physical_device)
+        .ok_or(DesktopAdapterError::GpuUnsupported)?;
     let (window_width, window_height) = window.size_in_pixels();
     let Some(extent) = select_surface_extent(&capabilities, [window_width, window_height]) else {
         return Ok(None);
@@ -792,11 +885,14 @@ fn create_swapchain(
         loader: swapchain_loader.clone(),
         handle,
         format: selected_format.format,
+        depth_format,
         extent,
         images: Vec::new(),
         image_views: Vec::new(),
+        depth_attachments: Vec::new(),
         render_finished: Vec::new(),
         initialized: Vec::new(),
+        depth_initialized: Vec::new(),
     };
     // SAFETY: handle is the live swapchain just created.
     state.images = unsafe { swapchain_loader.get_swapchain_images(handle) }?;
@@ -820,6 +916,16 @@ fn create_swapchain(
             .image_views
             .push(unsafe { device.create_image_view(&view_info, None) }?);
     }
+    state.depth_attachments.reserve(state.images.len());
+    for _ in &state.images {
+        state.depth_attachments.push(DepthAttachment::new(
+            instance,
+            physical_device,
+            device,
+            depth_format,
+            extent,
+        )?);
+    }
     state.render_finished.reserve(state.images.len());
     for _ in &state.images {
         // SAFETY: each binary semaphore is device-owned and has no retained
@@ -829,162 +935,9 @@ fn create_swapchain(
             .push(unsafe { device.create_semaphore(&vk::SemaphoreCreateInfo::default(), None) }?);
     }
     state.initialized = vec![false; state.images.len()];
+    state.depth_initialized = vec![false; state.images.len()];
     Ok(Some(state))
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn extension_property(name: &std::ffi::CStr) -> vk::ExtensionProperties {
-        let mut property = vk::ExtensionProperties::default();
-        for (target, source) in property
-            .extension_name
-            .iter_mut()
-            .zip(name.to_bytes_with_nul())
-        {
-            *target = i8::try_from(*source).expect("extension names are ASCII");
-        }
-        property
-    }
-
-    #[test]
-    fn loader_version_requires_vulkan_1_3() {
-        validate_loader_api_version(vk::API_VERSION_1_3).expect("Vulkan 1.3 loader");
-        let error =
-            validate_loader_api_version(vk::API_VERSION_1_2).expect_err("Vulkan 1.2 is below B0");
-        assert_eq!(
-            error.diagnostic_code(),
-            "PLATFORM_GRAPHICS_LOADER_VERSION_UNSUPPORTED"
-        );
-    }
-
-    #[test]
-    fn startup_error_classifiers_separate_icd_from_gpu_capability_failures() {
-        assert_eq!(
-            classify_instance_creation_error(vk::Result::ERROR_INCOMPATIBLE_DRIVER)
-                .diagnostic_code(),
-            "PLATFORM_GRAPHICS_ICD_UNAVAILABLE"
-        );
-        assert_eq!(
-            classify_physical_device_enumeration_error(vk::Result::ERROR_INITIALIZATION_FAILED)
-                .diagnostic_code(),
-            "PLATFORM_GRAPHICS_ICD_UNAVAILABLE"
-        );
-        assert_eq!(
-            classify_device_creation_error(vk::Result::ERROR_FEATURE_NOT_PRESENT).diagnostic_code(),
-            "GPU_UNSUPPORTED"
-        );
-        assert_eq!(
-            classify_device_creation_error(vk::Result::ERROR_EXTENSION_NOT_PRESENT)
-                .diagnostic_code(),
-            "GPU_UNSUPPORTED"
-        );
-        assert_eq!(
-            classify_instance_creation_error(vk::Result::ERROR_OUT_OF_HOST_MEMORY)
-                .diagnostic_code(),
-            "PRESENTATION_GRAPHICS_FAILED"
-        );
-    }
-
-    #[test]
-    fn required_swapchain_extension_is_matched_by_exact_name() {
-        let swapchain = extension_property(ash::khr::swapchain::NAME);
-        let near_match = std::ffi::CString::new("VK_KHR_swapchain_extra").expect("extension name");
-        let properties = [swapchain, extension_property(&near_match)];
-
-        assert!(supports_required_device_extension(
-            &properties,
-            ash::khr::swapchain::NAME
-        ));
-        assert!(!supports_required_device_extension(
-            &properties[1..],
-            ash::khr::swapchain::NAME
-        ));
-        let missing = std::ffi::CString::new("VK_EXT_missing").expect("extension name");
-        assert!(!supports_required_device_extension(&properties, &missing));
-    }
-
-    #[test]
-    fn composite_alpha_uses_fixed_preference_order() {
-        let supported =
-            vk::CompositeAlphaFlagsKHR::INHERIT | vk::CompositeAlphaFlagsKHR::PRE_MULTIPLIED;
-        assert!(
-            select_composite_alpha(supported) == Some(vk::CompositeAlphaFlagsKHR::PRE_MULTIPLIED)
-        );
-        let supported =
-            vk::CompositeAlphaFlagsKHR::POST_MULTIPLIED | vk::CompositeAlphaFlagsKHR::OPAQUE;
-        assert!(select_composite_alpha(supported) == Some(vk::CompositeAlphaFlagsKHR::OPAQUE));
-        assert!(select_composite_alpha(vk::CompositeAlphaFlagsKHR::empty()).is_none());
-    }
-
-    #[test]
-    fn b0_surface_format_requires_srgb_storage_and_fails_closed() {
-        let bgra_srgb = vk::SurfaceFormatKHR {
-            format: vk::Format::B8G8R8A8_SRGB,
-            color_space: vk::ColorSpaceKHR::SRGB_NONLINEAR,
-        };
-        let rgba_srgb = vk::SurfaceFormatKHR {
-            format: vk::Format::R8G8B8A8_SRGB,
-            color_space: vk::ColorSpaceKHR::SRGB_NONLINEAR,
-        };
-        let bgra_unorm = vk::SurfaceFormatKHR {
-            format: vk::Format::B8G8R8A8_UNORM,
-            color_space: vk::ColorSpaceKHR::SRGB_NONLINEAR,
-        };
-        assert!(select_b0_surface_format(&[rgba_srgb, bgra_srgb, bgra_unorm]) == Some(bgra_srgb));
-        assert!(select_b0_surface_format(&[rgba_srgb]) == Some(rgba_srgb));
-        assert!(select_b0_surface_format(&[bgra_unorm]).is_none());
-        assert!(
-            select_b0_surface_format(&[vk::SurfaceFormatKHR {
-                format: vk::Format::UNDEFINED,
-                color_space: vk::ColorSpaceKHR::SRGB_NONLINEAR,
-            }]) == Some(bgra_srgb)
-        );
-        assert!(
-            select_b0_surface_format(&[vk::SurfaceFormatKHR {
-                format: vk::Format::UNDEFINED,
-                color_space: vk::ColorSpaceKHR::DISPLAY_P3_NONLINEAR_EXT,
-            }])
-            .is_none()
-        );
-    }
-
-    #[test]
-    fn zero_extent_and_out_of_date_defer_presentation() {
-        let variable_capabilities = vk::SurfaceCapabilitiesKHR {
-            current_extent: vk::Extent2D {
-                width: u32::MAX,
-                height: u32::MAX,
-            },
-            min_image_extent: vk::Extent2D {
-                width: 1,
-                height: 1,
-            },
-            max_image_extent: vk::Extent2D {
-                width: 1_920,
-                height: 1_080,
-            },
-            ..vk::SurfaceCapabilitiesKHR::default()
-        };
-        assert!(select_surface_extent(&variable_capabilities, [0, 720]).is_none());
-        let selected = select_surface_extent(&variable_capabilities, [1_280, 720])
-            .expect("positive variable extent");
-        assert_eq!([selected.width, selected.height], [1_280, 720]);
-        let fixed_zero_capabilities = vk::SurfaceCapabilitiesKHR {
-            current_extent: vk::Extent2D {
-                width: 0,
-                height: 0,
-            },
-            ..variable_capabilities
-        };
-        assert!(select_surface_extent(&fixed_zero_capabilities, [1_280, 720]).is_none());
-
-        let deferred = defer_out_of_date::<bool>(Err(vk::Result::ERROR_OUT_OF_DATE_KHR))
-            .expect("out-of-date is a deferred presentation result");
-        assert_eq!(deferred, None);
-        let device_loss = defer_out_of_date::<bool>(Err(vk::Result::ERROR_DEVICE_LOST))
-            .expect_err("device loss remains a recoverable presentation error");
-        assert_eq!(device_loss.diagnostic_code(), "PRESENTATION_DEVICE_LOST");
-    }
-}
+mod tests;

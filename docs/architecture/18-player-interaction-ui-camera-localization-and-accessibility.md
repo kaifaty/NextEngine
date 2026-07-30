@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-18 |
 | Статус | Accepted |
-| Версия | 2.2 |
-| Последняя проверка | 2026-07-26 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
+| Версия | 2.3 |
+| Последняя проверка | 2026-07-30 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) |
 | Заменяет | отсутствует |
 
 ## История принятия
@@ -82,7 +82,7 @@ Physical device/source identity, native sample reference, wall-clock timestamp, 
 
 Interactive input service and headless scenario producer enqueue the same `PlayerActionFrame` schema through the same gateway. The ADR-022 current/next close barrier creates persisted `IngressAssignmentV1`; enqueue before the barrier belongs to current tick, while enqueue linearized in or after the barrier belongs to next tick. Wall time, renderer cadence and worker completion do not decide the side. The production mapper derives command target tick only from the persisted assignment, never from a frame field or scenario override.
 
-The frame is production input, not committed gameplay. Input gateway maps assigned actions to declared command candidates; common capability/schema/domain/physics validation still decides outcome. Replay stores the `ClosedIngressBatchV1` frame and assignment together with the closed command-admission batches, feeds them through the same mapper/validator and compares exact commands, receipts, events and roots. Neither stored action nor expected command is a direct mutable backdoor.
+The frame is production input, not committed gameplay. Input gateway maps assigned actions to declared command candidates; common capability/schema/domain/physics validation still decides outcome. Current replay stores the `ClosedIngressBatchV1` frame and assignment together with the closed command-admission batches, feeds them through the same mapper/validator and compares exact commands, receipts, events and roots. `InputMappingReceiptV2` binds ordered per-action mapping results to contiguous canonical command references, so one composite frame can prove both movement and interaction provenance without a single-command shortcut. Neither stored action nor expected command is a direct mutable backdoor.
 
 ## Camera, aiming и targeting
 
@@ -91,6 +91,12 @@ The frame is production input, not committed gameplay. Input gateway maps assign
 An assigned action requiring gameplay targeting creates a `TargetingIntent` with `IngressAssignmentV1` tick, player/ability/action IDs, quantized aim values, declared query kind, `TargetingQueryProfile` ID/hash and optional proposed target `PersistentId`. It MUST NOT contain a camera transform/profile, rendered depth, interpolated pose, display extent or post-processing result.
 
 Runtime reconstructs `AuthoritativeTargetingQueryV1` only from the authoritative snapshot at the assigned tick, authoritative actor pose, ability/mechanic definition and hash-bound gameplay `TargetingQueryProfile`. The common validator resolves visibility/range/collision/affordance and accepts or rejects the resulting command candidate. Presentation camera consumes the immutable targeting projection/result to place reticle, lock-on and feedback; the data flow never reverses.
+
+`ReplayManifestV5` stores the ordered targeting intents, reconstructed queries,
+closed physics query batch/results and their compare hashes. Replay повторно
+выполняет production mapper/query path и отклоняет первое отличие receipt,
+intent, query, result, command, event или root. Legacy V4 может воспроизводить
+свои прежние facts, но не является evidence для этого targeting closure.
 
 Camera collision/occlusion, smoothing, shake, FOV, aspect and framing are
 presentation. Lock-on target or interaction selection becomes durable only

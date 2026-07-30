@@ -1,0 +1,223 @@
+use super::*;
+
+#[test]
+fn desktop_capability_helper_is_the_normalizer_source_of_truth() {
+    let capabilities = desktop_capability_set().expect("desktop capability set");
+    capabilities.validate().expect("valid capability set");
+    assert_eq!(
+        desktop_capability_set_hash().expect("desktop capability set hash"),
+        capabilities.canonical_hash
+    );
+
+    let normalizer = lifecycle::DesktopEventNormalizer::new(PersistentId::from_bytes([0x31; 16]))
+        .expect("normalizer");
+    assert_eq!(
+        normalizer.capability_set_hash(),
+        capabilities.canonical_hash
+    );
+}
+
+#[test]
+fn suspended_recovery_publishes_one_fresh_host_resume_with_zero_elapsed() {
+    assert!(!DesktopRunOptions::default().resume_suspended_application);
+    let host_instance_id = PersistentId::from_bytes([0x32; 16]);
+    let mut normalizer =
+        lifecycle::DesktopEventNormalizer::new(host_instance_id).expect("normalizer");
+    let mut stats = DesktopEventStats::default();
+    let mut callbacks = Vec::new();
+    let mut sink = |events: &[PlatformEventV1], elapsed: Duration| {
+        callbacks.push((events.to_vec(), elapsed));
+        Ok(())
+    };
+
+    assert!(
+        !publish_fresh_host_resume_if_requested(false, &mut normalizer, &mut sink, &mut stats,)
+            .expect("disabled resume")
+    );
+    assert!(
+        publish_fresh_host_resume_if_requested(true, &mut normalizer, &mut sink, &mut stats,)
+            .expect("fresh-host resume")
+    );
+
+    assert_eq!(callbacks.len(), 1);
+    assert_eq!(callbacks[0].1, Duration::ZERO);
+    let events = &callbacks[0].0;
+    assert_eq!(events.len(), 1);
+    let event = &events[0];
+    assert_eq!(event.host_instance_id, host_instance_id);
+    assert_eq!(event.source_sequence, 0);
+    assert_eq!(event.platform_sample_tick, 0);
+    assert_eq!(event.kind, PlatformEventKindV1::ResumeRequested);
+    assert_eq!(
+        event.capability_set_hash,
+        desktop_capability_set_hash().expect("capability set hash")
+    );
+    let next_contracts::platform::PlatformEventPayloadV1::Reason { reason } = &event.payload else {
+        panic!("fresh-host resume must carry a typed reason");
+    };
+    assert_eq!(
+        reason.as_str(),
+        "nextengine.platform.reason.fresh-host-ready"
+    );
+    assert_eq!(stats.normalized_events, 1);
+    assert_eq!(stats.lifecycle_events, 1);
+    assert_eq!(stats.last_platform_event_id, Some(event.platform_event_id));
+}
+
+#[test]
+fn keyboard_controls_use_engine_owned_paths_and_modifiers() {
+    assert_eq!(
+        keyboard_control_path(Scancode::W),
+        Some("nextengine.input.keyboard.w")
+    );
+    assert_eq!(keyboard_control_path(Scancode::F1), None);
+    assert_eq!(
+        normalized_modifiers(Mod::LSHIFTMOD | Mod::RCTRLMOD),
+        vec![
+            "nextengine.input.modifier.shift",
+            "nextengine.input.modifier.control"
+        ]
+    );
+}
+
+#[test]
+fn relative_mouse_motion_uses_the_normalized_vector_control() {
+    let observation =
+        mouse_motion_observation(17, 3, 4.4, -2.6).expect("nonzero finite relative motion");
+    assert_eq!(observation.source, lifecycle::DesktopEventSource::Mouse);
+    assert_eq!(observation.platform_sample_tick, 17);
+    let lifecycle::DesktopObservationKind::Control {
+        control_path,
+        device_class,
+        phase,
+        quantized_value,
+        ..
+    } = observation.kind
+    else {
+        panic!("mouse motion must be a normalized control");
+    };
+    assert_eq!(control_path, "nextengine.input.mouse.delta");
+    assert_eq!(device_class, "nextengine.input.mouse");
+    assert_eq!(phase, NormalizedControlPhaseV1::Changed);
+    assert_eq!(quantized_value, vec![4, -3]);
+    assert!(mouse_motion_observation(17, 3, 0.0, 0.0).is_none());
+    assert!(mouse_motion_observation(17, 3, f32::NAN, 1.0).is_none());
+    assert_eq!(quantize_mouse_delta(f32::MAX), Some(i16::MAX));
+}
+
+#[test]
+fn fullscreen_shortcuts_are_shell_requests_not_close_requests() {
+    assert!(is_fullscreen_shortcut(Some(Scancode::F11), Mod::NOMOD));
+    assert!(is_fullscreen_shortcut(Some(Scancode::Return), Mod::LALTMOD));
+    assert!(!is_fullscreen_shortcut(Some(Scancode::Escape), Mod::NOMOD));
+}
+
+#[test]
+fn graphics_loss_has_stable_recovery_diagnostics() {
+    let device = DesktopAdapterError::Graphics(vk::Result::ERROR_DEVICE_LOST);
+    let surface = DesktopAdapterError::Graphics(vk::Result::ERROR_SURFACE_LOST_KHR);
+    assert!(device.is_recoverable_presentation_loss());
+    assert!(surface.is_recoverable_presentation_loss());
+    assert_eq!(device.diagnostic_code(), "PRESENTATION_DEVICE_LOST");
+    assert_eq!(surface.diagnostic_code(), "PRESENTATION_SURFACE_LOST");
+
+    let exhausted = DesktopAdapterError::DeviceRecoveryLimitExceeded { maximum: 2 };
+    assert_eq!(
+        exhausted.diagnostic_code(),
+        "PRESENTATION_DEVICE_RECOVERY_EXHAUSTED"
+    );
+}
+
+#[test]
+fn graphics_startup_failures_have_distinct_stable_diagnostics() {
+    let loader = DesktopAdapterError::Loader("not found".to_owned());
+    let version = DesktopAdapterError::LoaderVersionUnsupported {
+        required: vk::API_VERSION_1_3,
+        actual: vk::API_VERSION_1_2,
+    };
+    let icd = DesktopAdapterError::IcdUnavailable { error: None };
+    let gpu = DesktopAdapterError::GpuUnsupported;
+
+    assert_eq!(
+        loader.diagnostic_code(),
+        "PLATFORM_GRAPHICS_LOADER_UNAVAILABLE"
+    );
+    assert_eq!(
+        version.diagnostic_code(),
+        "PLATFORM_GRAPHICS_LOADER_VERSION_UNSUPPORTED"
+    );
+    assert_eq!(icd.diagnostic_code(), "PLATFORM_GRAPHICS_ICD_UNAVAILABLE");
+    assert_eq!(gpu.diagnostic_code(), "GPU_UNSUPPORTED");
+}
+
+#[test]
+fn application_callback_errors_preserve_their_stable_diagnostic() {
+    let error = DesktopAdapterError::client("SESSION_RUNTIME_FAILED", "tick rejected");
+    assert_eq!(error.diagnostic_code(), "SESSION_RUNTIME_FAILED");
+    assert_eq!(error.to_string(), "SESSION_RUNTIME_FAILED: tick rejected");
+}
+
+#[test]
+fn dynamic_snapshot_replacement_rejects_regression_and_unmarked_epoch_reset() {
+    let current = test_snapshot(1, 4, 7, 10);
+    let next = test_snapshot(1, 5, 8, 10);
+    validate_snapshot_transition(&current, &next).expect("strict same-epoch progress");
+
+    let stale = test_snapshot(1, 4, 8, 10);
+    assert_eq!(
+        validate_snapshot_transition(&current, &stale)
+            .expect_err("same-epoch sequence regression")
+            .diagnostic_code(),
+        "PRESENTATION_SNAPSHOT_TRANSITION_INVALID"
+    );
+
+    let reset = test_snapshot(2, 0, 8, 10);
+    validate_snapshot_transition(&current, &reset).expect("explicit cut epoch reset");
+    let unmarked_reset = test_snapshot(2, 1, 8, 10);
+    assert!(validate_snapshot_transition(&current, &unmarked_reset).is_err());
+
+    let foreign_project = test_snapshot(1, 5, 8, 11);
+    assert!(validate_snapshot_transition(&current, &foreign_project).is_err());
+}
+
+#[test]
+fn event_loop_iteration_budget_fails_before_exceeding_limit() {
+    assert!(matches!(
+        advance_event_loop_iteration(0, Some(0)),
+        Err(DesktopAdapterError::EventLoopIterationLimitExceeded { maximum: 0 })
+    ));
+    assert_eq!(
+        advance_event_loop_iteration(0, Some(1)).expect("first iteration"),
+        1
+    );
+    let exhausted = advance_event_loop_iteration(1, Some(1))
+        .expect_err("second iteration must exceed the budget");
+    assert_eq!(
+        exhausted.diagnostic_code(),
+        "PLATFORM_EVENT_LOOP_ITERATION_LIMIT_EXCEEDED"
+    );
+    assert_eq!(
+        advance_event_loop_iteration(41, None).expect("unbounded iteration"),
+        42
+    );
+}
+
+fn test_snapshot(
+    epoch: u8,
+    sequence: u64,
+    simulation_tick: u64,
+    project: u8,
+) -> PresentationSnapshotV2 {
+    PresentationSnapshotV2::new(
+        ContentHash::from_bytes([epoch; 32]),
+        sequence,
+        simulation_tick,
+        ContentHash::from_bytes([project; 32]),
+        ContentHash::from_bytes([20; 32]),
+        ContentHash::from_bytes([30; 32]),
+        Vec::new(),
+        1,
+        ContentHash::from_bytes([40; 32]),
+    )
+    .expect("test snapshot")
+}

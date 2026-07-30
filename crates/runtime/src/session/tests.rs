@@ -35,13 +35,17 @@ fn exact_retry_returns_event_before_historical_revision_validation() {
 
 #[test]
 fn same_id_with_different_bytes_collides_without_mutation() {
-    let machine = ApplicationSessionMachine::new(manifest()).expect("machine");
+    let mut machine = ApplicationSessionMachine::new(manifest()).expect("machine");
     let first = request(
         1,
         0,
         ApplicationSessionStatusV1::Created,
         ApplicationSessionStatusV1::CompositionStaged,
     );
+    let plan = machine
+        .plan_transition(first.clone(), SessionTransitionReferencesV1::default())
+        .expect("plan");
+    let event = machine.commit(plan);
     let mut restored = ApplicationSessionMachine::restore(
         machine.manifest().clone(),
         machine.state().clone(),
@@ -49,14 +53,7 @@ fn same_id_with_different_bytes_collides_without_mutation() {
             request_id: first.request_id,
             canonical_request_hash: first.canonical_hash,
             canonical_request_bytes: first.canonical_bytes(),
-            event: next_contracts::session::ApplicationLifecycleEventV1::committed(
-                next_contracts::ids::SessionTransitionId::from_bytes([8; 16]),
-                &first,
-                None,
-                None,
-                None,
-            )
-            .expect("event"),
+            event,
         }],
     )
     .expect("restored");
@@ -84,7 +81,7 @@ fn same_id_with_different_bytes_collides_without_mutation() {
         restored.plan_transition(collision, SessionTransitionReferencesV1::default()),
         Err(SessionMachineError::RequestIdentityCollision)
     );
-    assert_eq!(restored.state().revision, 0);
+    assert_eq!(restored.state().revision, 1);
     let _ = &mut restored;
 }
 
@@ -119,6 +116,132 @@ fn runtime_observation_is_published_before_in_memory_commit_and_cannot_regress()
         machine.plan_state_publication(Some(11), None),
         Err(SessionMachineError::ObservationRegression)
     );
+}
+
+#[test]
+fn restore_requires_empty_history_exactly_for_created_revision_zero() {
+    let created = ApplicationSessionMachine::new(manifest()).expect("created machine");
+    ApplicationSessionMachine::restore(
+        created.manifest().clone(),
+        created.state().clone(),
+        Vec::new(),
+    )
+    .expect("created revision zero has an empty complete history");
+
+    let mut advanced = ApplicationSessionMachine::new(manifest()).expect("advanced machine");
+    advance(
+        &mut advanced,
+        request(
+            1,
+            0,
+            ApplicationSessionStatusV1::Created,
+            ApplicationSessionStatusV1::CompositionStaged,
+        ),
+    );
+    assert_eq!(
+        ApplicationSessionMachine::restore(
+            advanced.manifest().clone(),
+            advanced.state().clone(),
+            Vec::new(),
+        )
+        .expect_err("nonzero revision cannot restore without its history"),
+        SessionMachineError::ArchiveInvalid
+    );
+}
+
+#[test]
+fn restore_rejects_a_valid_suffix_instead_of_a_complete_lifecycle_chain() {
+    let mut machine = ApplicationSessionMachine::new(manifest()).expect("machine");
+    advance(
+        &mut machine,
+        request(
+            1,
+            0,
+            ApplicationSessionStatusV1::Created,
+            ApplicationSessionStatusV1::CompositionStaged,
+        ),
+    );
+    advance(
+        &mut machine,
+        request(
+            2,
+            1,
+            ApplicationSessionStatusV1::CompositionStaged,
+            ApplicationSessionStatusV1::RuntimeStaged,
+        ),
+    );
+    let mut suffix = machine.archived_requests();
+    suffix.retain(|archived| archived.event.before_revision != 0);
+    assert_eq!(
+        ApplicationSessionMachine::restore(
+            machine.manifest().clone(),
+            machine.state().clone(),
+            suffix,
+        )
+        .expect_err("a valid suffix is not the complete chain"),
+        SessionMachineError::ArchiveInvalid
+    );
+}
+
+#[test]
+fn restore_rejects_duplicate_revision_events_even_when_archive_count_matches() {
+    let mut machine = ApplicationSessionMachine::new(manifest()).expect("machine");
+    advance(
+        &mut machine,
+        request(
+            1,
+            0,
+            ApplicationSessionStatusV1::Created,
+            ApplicationSessionStatusV1::CompositionStaged,
+        ),
+    );
+    advance(
+        &mut machine,
+        request(
+            2,
+            1,
+            ApplicationSessionStatusV1::CompositionStaged,
+            ApplicationSessionStatusV1::RuntimeStaged,
+        ),
+    );
+
+    let mut alternate = ApplicationSessionMachine::new(manifest()).expect("alternate machine");
+    advance(
+        &mut alternate,
+        request(
+            3,
+            0,
+            ApplicationSessionStatusV1::Created,
+            ApplicationSessionStatusV1::CompositionStaged,
+        ),
+    );
+    let alternate_first = alternate
+        .archived_requests()
+        .into_iter()
+        .next()
+        .expect("alternate first event");
+    let mut duplicate_revision = machine.archived_requests();
+    duplicate_revision[1] = alternate_first;
+
+    assert_eq!(
+        ApplicationSessionMachine::restore(
+            machine.manifest().clone(),
+            machine.state().clone(),
+            duplicate_revision,
+        )
+        .expect_err("two revision-zero events do not form a chain"),
+        SessionMachineError::ArchiveInvalid
+    );
+}
+
+fn advance(
+    machine: &mut ApplicationSessionMachine,
+    request: ApplicationLifecycleRequestV1,
+) -> ApplicationLifecycleEventV1 {
+    let plan = machine
+        .plan_transition(request, SessionTransitionReferencesV1::default())
+        .expect("transition plan");
+    machine.commit(plan)
 }
 
 fn manifest() -> ApplicationSessionManifestV1 {

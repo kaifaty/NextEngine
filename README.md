@@ -17,10 +17,28 @@ Next Engine создаётся для игр, в которых движение
 > B0 reference renderer. Minimal render-content implementation уже включает
 > neutral mesh/material/texture/profile records, deterministic cook/activation,
 > checked-in offline SPIR-V, CPU visible list, Vulkan indexed-indirect draw и
-> declared fallback material. Приватный SDL3/ash Vulkan adapter остаётся
-> `Proposed`; релевантные Windows `content-package`, `platform`, `performance`
-> и clean `v1-package` проходят локально, а накопленные Linux-действия
-> выполняются позже асинхронно.
+> declared fallback material. Локальный Windows increment player action/camera
+> завершён со статусом `DONE_LOCAL_WINDOWS`; реализация добавляет общий для
+> live `game` и headless scenario
+> `ActionMapManifestV1`/`InputContextStackV1` resolver, authoritative
+> `ClosestPoint` targeting по exact physics snapshot и `ReplayManifestV5`
+> provenance. Typed integer/fixed-point third-person camera использует
+> millidegree/micrometre state и deterministic integer CORDIC. Interactive loop
+> создаёт complete in-memory `PresentationSnapshotV2` на каждой 30 Hz
+> fixed-step boundary с bounded catch-up; renderer при любой cadence повторяет
+> последний complete snapshot. Durable same-session checkpoint создаётся на
+> tick `0`, затем каждые `30` ticks и forced atomically на suspend/close. Crash
+> может вернуть не более `29` последних in-memory ticks; resume не выполняет
+> wall-time catch-up. Lifecycle retry exact, publication fault откатывает
+> in-memory/durable state, а session store удерживает current+previous
+> generations. Приватный Vulkan B0 преобразует camera state в float
+> view-projection/depth, не делая его gameplay authority. SDL3/ash adapter
+> остаётся `Proposed`. Windows checkpoint подтверждён локальными
+> `host-check`, `play`, `persistence-replay`, `content-package`, `platform`,
+> `performance`, `v1-closure` и fresh-output `v1-package`; `v1-closure` честно
+> оставляет Linux target в `NOT_RUN`, поэтому это не R2, shipping или
+> cross-target completion. Следующий Windows package — Semantic UI (`NEXT`),
+> а накопленные Linux-действия выполняются позже асинхронно.
 > Первый data-only
 > combat package уже проходит общий capability/effect/RPG transaction path.
 > Двухчанковый
@@ -96,8 +114,11 @@ runtime-обучение моделей и
   `unsafe_code = "forbid"`;
 - engine-owned идентификаторы, канонические команды и события, command ledger,
   immutable snapshots и versioned manifests;
-- production-путь от device-independent `PlayerActionFrameV1` до проверенной
-  команды и фиксированного simulation tick;
+- production-путь от normalized keyboard/mouse controls через общий
+  `ActionMapManifestV1`/`InputContextStackV1` resolver и
+  device-independent `PlayerActionFrameV1` до persisted current/next ingress
+  assignment, проверенной команды и фиксированного simulation tick; live
+  `game` и headless scenario используют один resolver;
 - транзакционный RPG-срез для диалога и квеста, отношений, передачи предметов,
   изучения навыков и состояния интерактивных объектов;
 - целочисленный reference-контроллер grounded capsule, статические Box
@@ -105,16 +126,17 @@ runtime-обучение моделей и
 - optional экспериментальный PhysX 5.9.0 backend для того же
   grounded-capsule сценария за safe engine-owned boundary; reference остаётся
   default и oracle;
-- contact-gated interaction: действие игрока выбирает только объект в активном
-  физическом контакте и меняет его RPG-состояние через Outcome
-  `WorldCommand`;
-- contact-gated pickup и equipment: отдельные `Inventory` и `Equipment`
-  aggregates атомарно принимают предмет, переводят pickup proxy в collected
-  state и назначают main-hand slot; immutable contact fact включается в hash
-  RPG transaction plan;
-- bounded NPC interaction: тот же semantic `interact` при контакте с authored
-  quest-giver атомарно переводит dialogue и quest и обновляет отношение
-  NPC→player через Outcome `WorldCommand`;
+- authoritative interaction targeting: assigned semantic action
+  реконструирует B0 `ClosestPoint` query из persisted ingress assignment,
+  профиля и exact authoritative physics snapshot, а выбранный affordance
+  меняет RPG-состояние только через Outcome `WorldCommand`; camera/render
+  данные не участвуют в выборе;
+- authoritative-query pickup и equipment: `pickup` выбирает предмет exact B0
+  query, после чего отдельные `Inventory` и `Equipment` aggregates атомарно
+  принимают его, переводят proxy в collected state и назначают main-hand slot;
+- bounded NPC interaction: тот же semantic `interact` выбирает authored
+  quest-giver через exact B0 query, атомарно переводит dialogue и quest и
+  обновляет отношение NPC→player через Outcome `WorldCommand`;
 - canonical project/schema/content/world manifests, deterministic exact
   resolver и CC0 neutral fixture из scene, collider и RPG definition records;
   cooker публикует content-addressed generation атомарно, а production loader
@@ -139,9 +161,19 @@ runtime-обучение моделей и
 - engine-owned platform/input lifecycle contracts, детерминированное
   presentation extraction и reference B0 frame plan с CPU visible list,
   indexed-indirect draws, declared material fallback и изоляцией device loss;
+  typed integer/fixed-point third-person camera входит в
+  `PresentationSnapshotV2` и B0 frame plan; live application создаёт только
+  complete in-memory 30 Hz fixed-step snapshots, desktop renderer может
+  повторять последний snapshot при любой cadence, а приватный Vulkan path
+  преобразует camera state в float view-projection и depth attachment;
   offline vertex/fragment SPIR-V, source и provenance хранятся вместе в
   repository, а SDL3 `0.18.4` и ash `0.38.0` остаются только в приватном
   experimental adapter crate и не протекают в публичные contracts;
+- bounded active-run durability: same-session checkpoint на tick `0`, каждые
+  `30` ticks и forced atomically на suspend/close; crash rollback ограничен
+  `29` ticks, resume не догоняет wall time, exact lifecycle retry и publication
+  rollback сохраняют prior generation, а session store удерживает только
+  current+previous session generations;
 - атомарные поколения сохранений, восстановление, replay и проверка совпадения
   authoritative state roots;
 - deterministic two-chunk admission: immutable worker results сходятся к
@@ -170,13 +202,15 @@ runtime-обучение моделей и
 Это ещё не законченная игра: текущий `play` проверяет ограниченный neutral
 сценарий движения, столкновения, pickup/equip, melee damage, активации switch,
 один authored NPC dialogue/quest transition и переход во второй chunk с
-возвратом. Reference physics profile пока ограничен upright capsule и
-статическими Box colliders. Minimal B0 mesh/material/texture path реализован,
-но пока обслуживает небольшой engine-owned fixture; skeleton, animation, audio
-и достаточный lawful representative slice ещё отсутствуют. SDL3/ash остаётся
-`Proposed`; Windows product checks нового render-content increment проходят,
-но paired same-commit compare и representative Linux hardware-GPU evidence ещё
-не выполнены.
+возвратом. Reference physics profile пока ограничен upright capsule,
+статическими Box colliders и exact B0 `ClosestPoint` query. Minimal B0
+mesh/material/texture path и Windows-local third-person camera increment
+реализованы, но оба пока обслуживают небольшой engine-owned fixture; Semantic
+UI (`NEXT`), controller profile,
+skeleton, animation, audio и достаточный lawful representative slice ещё
+отсутствуют. SDL3/ash остаётся `Proposed`; локальная Windows-готовность
+increments не закрывает paired same-commit compare или representative Linux
+hardware-GPU evidence.
 
 ## Быстрый старт
 
@@ -187,6 +221,9 @@ runtime-обучение моделей и
 
 ```bash
 cargo run -p next_headless
+
+# Запустить production live-session path и закрыть его сразу после tick-0 checkpoint
+cargo run -p next_headless -- --live-ticks 0
 
 # Либо активировать exact ранее приготовленный content store
 cargo run -p next_headless -- --project <cooked-store> --lock <composition-lock-sha256>
@@ -203,13 +240,34 @@ cargo run -p next_game -- --project <cooked-store> --lock <composition-lock-sha2
 cargo run -p next_game --features desktop-sdl-ash -- --interactive
 ```
 
-Desktop B0 adapter нормализует поддерживаемые keyboard controls в
-engine-owned `PlatformEventV1`, обрабатывает focus/minimize/restore/resize и
-переключает fullscreen по `F11` или `Alt+Enter`. Surface/device loss использует
-bounded recreation без записи в authoritative state. Отсутствующий SDL runtime,
-Vulkan loader, B0 GPU capability или исчерпанный recovery budget возвращают
-стабильный diagnostic code; физические controls ещё не являются gameplay
-actions до следующего ActionMap work package.
+Desktop B0 adapter нормализует keyboard и relative mouse controls в
+engine-owned `PlatformEventV1`. Общий ActionMap/context resolver преобразует
+их в те же semantic actions, которые использует headless scenario:
+
+| Control | Действие |
+|---|---|
+| `W` / `S` | движение по продольной оси |
+| `A` / `D` | движение по поперечной оси |
+| `Q` | pickup |
+| `R` | equip/use |
+| `E` | interact |
+| `F` | melee |
+| relative mouse | orbit third-person camera |
+| `F11` или `Alt+Enter` | fullscreen |
+
+Текущий B0 movement profile принимает одну canonical WASD-ось на action frame;
+resolver квантует её детерминированно. Adapter также обрабатывает
+focus/minimize/restore/resize. Surface/device loss использует bounded
+recreation без записи в authoritative state. Отсутствующий SDL runtime, Vulkan
+loader, B0 GPU capability или исчерпанный recovery budget возвращают
+стабильный diagnostic code.
+
+Platform admission проверяет непрерывную `source_sequence` отдельно для каждого
+bounded source: exact duplicates схлопываются, identity collision отклоняется,
+а gap возвращает `PLATFORM_EVENT_SEQUENCE_GAP`. Весь lifecycle batch проходит
+preflight до изменения source cursors, simulation tick или session state;
+stale close request отклоняется до forced checkpoint и не публикует durable
+поколение.
 
 Для каждого frame adapter строит детерминированный CPU visible list из exact
 snapshot/catalog revisions, загружает neutral geometry и RGBA8 textures в
@@ -277,9 +335,12 @@ R1 runtime baseline фиксирован следующим образом:
 
 Перед публикацией команда запускает именно скопированные release binaries из
 `package/bin` с очищенным environment и изолированными state/home/temp
-directories, сверяет их state/ledger roots, отсутствие опубликованного smoke
-state и parity ожидаемого snapshot/host-object count, затем выполняет один
-bounded interactive Vulkan frame `game`. Каждый smoke ограничен 30 секундами. Ошибки runtime profile,
+directories: `headless --live-ticks 0` проходит production live-session
+tick-0/checkpoint/close path, затем `game` выполняет один bounded interactive
+Vulkan frame. Валидатор сверяет exact game/headless authoritative state и
+ledger roots, ожидаемый snapshot/host-object count и неизменность package
+inventory; disposable sibling smoke state удаляется до атомарной публикации.
+Каждый smoke ограничен 30 секундами. Ошибки runtime profile,
 отсутствующая dependency, неподдерживаемый ABI и timeout возвращают соответственно
 `NATIVE_GATE_PACKAGE_RUNTIME_PROFILE_INVALID`,
 `NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING`,
@@ -381,6 +442,7 @@ vendor types, importer structures, database connections и model sessions
 |---|---|
 | `crates/contracts` | Публичные ID, commands/events, input, manifests, snapshots, neutral render content, persistence и physics/RPG contracts |
 | `crates/runtime` | Admission, command ledger, fixed-stage execution и атомарные tick transactions |
+| `crates/application` | Production coordinator, 30 Hz live loop, bounded durable checkpoint/restart и exact lifecycle publication |
 | `crates/rpg` | Generic RPG state и валидируемые доменные переходы |
 | `crates/mechanics` | Public-package host: immutable affordances/effect requests → typed RPG commands |
 | `crates/script-luau` | Private deterministic Luau sandbox и package-state adapter |
@@ -390,9 +452,10 @@ vendor types, importer structures, database connections и model sessions
 | `crates/physics-api` | Детерминированный reference physics world и grounded capsule |
 | `crates/physics-physx` | Safe optional PhysX adapter за engine-owned physics API |
 | `crates/physics-physx-ffi` | Единственная ADR-033 allowlisted native FFI-граница |
-| `crates/assets` | Copy-on-write save/content generations, atomic publication и bounded load |
+| `crates/assets` | Copy-on-write save/content generations, atomic publication, bounded load и current+previous session-generation retention |
 | `crates/project` | Exact resolver, neutral cooker/catalog publication и production project activation |
 | `crates/platform` | Backend-free platform capabilities, lifecycle normalization и headless target |
+| `crates/player` | Device-independent ActionMap/InputContext resolution для live game и headless scenario |
 | `crates/presentation` | Immutable revision-bound extraction в `PresentationSnapshotV2` |
 | `crates/render` | Backend-neutral B0 boundary, exact catalog resolution и deterministic indexed frame plan |
 | `crates/desktop-sdl-ash` | Приватный `Proposed` SDL3/ash Vulkan adapter за ADR-003 boundary |

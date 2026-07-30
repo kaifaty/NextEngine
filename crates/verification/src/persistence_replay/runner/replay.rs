@@ -1,6 +1,8 @@
+use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::persistence::ReplayManifestV5;
 use next_world::WorldStreamerV1;
 
-use crate::run_replay_manifest_with_definitions_and_physics_options;
+use crate::run_replay_manifest_v5_with_definitions_and_physics_options;
 
 use super::super::PersistenceReplayCheckError;
 use super::super::replay_support::{compare_replay, replay_manifest, transition_world};
@@ -35,8 +37,20 @@ pub(super) fn verify(
             Vec::new(),
         ],
     )?;
-    let replay = run_replay_manifest_with_definitions_and_physics_options(
-        &replay_manifest,
+    let replay_bytes = replay_manifest
+        .to_jcs_bytes()
+        .map_err(|error| PersistenceReplayCheckError::new("encode replay V5", error.to_string()))?;
+    let decoded_replay_manifest =
+        ReplayManifestV5::from_jcs_bytes(&replay_bytes, CanonicalDecodeLimits::default()).map_err(
+            |error| PersistenceReplayCheckError::new("decode replay V5", error.to_string()),
+        )?;
+    if decoded_replay_manifest != replay_manifest {
+        return Err(PersistenceReplayCheckError::condition(
+            "replay V5 JCS round trip is exact",
+        ));
+    }
+    let replay = run_replay_manifest_v5_with_definitions_and_physics_options(
+        &decoded_replay_manifest,
         direct.fixture.activated_project.rpg_definitions.clone(),
         direct.physics_options,
     )

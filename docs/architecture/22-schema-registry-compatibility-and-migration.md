@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-22 |
 | Статус | Accepted |
-| Версия | 1.4 |
-| Последняя проверка | 2026-07-29 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md) |
+| Версия | 1.5 |
+| Последняя проверка | 2026-07-30 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) |
 | Заменяет | отсутствует |
 
 ## Назначение и invariants
@@ -15,8 +15,10 @@ ADR-032 применяет этот contract к grounded-capsule checkpoint: inc
 physics snapshot V1 и replay V2 имеют class `Unsupported`, active physical
 snapshot V2 — `Exact`, а unchanged generic `SaveManifestV2` связывает новый
 physics segment через его exact descriptor. Current RPG aggregate snapshot V2,
-`RuntimeSnapshotV3`, `WorldCheckpointV4` и `ReplayManifestV4` имеют class
-`Exact`; bootstrap RPG/replay V3 artifacts имеют class `Unsupported` и
+`RuntimeSnapshotV3`, `WorldCheckpointV4` и generated `ReplayManifestV5` имеют
+class `Exact`. `ReplayManifestV4` сохраняет отдельный legacy exact-only runner
+вне V5 activation/migration path; V4 не публикуется заново и не имеет
+V4→V5 route. Bootstrap RPG/replay V3 artifacts имеют class `Unsupported` и
 возвращают `RPG_SCHEMA_UNSUPPORTED` до nested decode или activation.
 Current project composition uses `ProjectCompositionLockV2` and
 `ActivatedProjectV2`; V1 project lock has class `Unsupported` with
@@ -29,7 +31,7 @@ family.
 | RPG projection | `RpgSnapshotV2` | bootstrap/aggregate legacy RPG snapshot | `RPG_SCHEMA_UNSUPPORTED` |
 | Runtime snapshot | `RuntimeSnapshotV3` | unversioned `RuntimeSnapshot` | unsupported header/schema |
 | World checkpoint | `WorldCheckpointV4` | `WorldCheckpointV3` | `RPG_SCHEMA_UNSUPPORTED` when its RPG family is probed |
-| Replay | `ReplayManifestV4` | bootstrap `ReplayManifestV3` | `RPG_SCHEMA_UNSUPPORTED` |
+| Replay | `ReplayManifestV5`; отдельный legacy exact-only runner V4 | bootstrap `ReplayManifestV3` | `RPG_SCHEMA_UNSUPPORTED` |
 | Project activation | `ProjectCompositionLockV2` / `ActivatedProjectV2` | V1 project lock | `PROJECT_LOCK_INVALID` |
 
 For these families the bounded outer format/version probe runs before nested

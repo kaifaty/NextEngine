@@ -6,7 +6,9 @@ use next_contracts::input::{
     PLAYER_ACTION_SOURCE_CLASS, PlayerActionFrameV1, PlayerActionPhaseV1, PlayerActionV1,
     PlayerActionValueV1,
 };
-use next_contracts::rpg::CORE_INTERACTIVE_OBJECT_READY_STATE_ID;
+use next_contracts::rpg::{
+    CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
+};
 use next_contracts::rpg::{
     InteractiveObjectPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1,
     RpgEventV1, RpgSnapshotV2,
@@ -87,7 +89,7 @@ fn prefer_physx_selects_physx_when_activation_succeeds() {
 }
 
 #[test]
-fn interaction_without_eligible_contact_is_accepted_without_ledger_or_rpg_mutation() {
+fn interaction_query_reaches_an_eligible_target_without_contact() {
     let fixture =
         build_neutral_player_fixture("nextengine.test.interaction-no-contact").expect("fixture");
     let initial_rpg = interactive_snapshot(&fixture, CORE_INTERACTIVE_OBJECT_READY_STATE_ID);
@@ -111,14 +113,26 @@ fn interaction_without_eligible_contact_is_accepted_without_ledger_or_rpg_mutati
         report.mapping_receipts[0].code,
         InputMappingCodeV1::Accepted
     );
-    assert_eq!(report.mapping_receipts[0].derived_command_id, None);
-    assert!(report.results.is_empty());
-    assert_eq!(runtime.rpg_snapshot(), initial_rpg);
-    assert_eq!(ledger_hash(&runtime), ledger_before);
+    assert!(report.mapping_receipts[0].derived_command_id.is_some());
+    assert!(!report.results.is_empty());
+    assert!(report.events.iter().any(|event| matches!(
+        event.payload,
+        EventPayload::Rpg(RpgEventV1::InteractiveObjectTransitioned { .. })
+    )));
+    assert!(matches!(
+        aggregate_payload(
+            &runtime.rpg_snapshot(),
+            RpgAggregateKindV1::InteractiveObject,
+            fixture.interactive_object_id,
+        ),
+        Some(RpgAggregatePayloadV1::InteractiveObject(payload))
+            if payload.state_id.as_str() == CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
+    ));
+    assert_ne!(ledger_hash(&runtime), ledger_before);
 }
 
 #[test]
-fn invalid_mixed_and_colliding_interaction_input_never_mutates_rpg() {
+fn invalid_composite_and_colliding_interaction_inputs_keep_their_exact_boundaries() {
     let fixture =
         build_neutral_player_fixture("nextengine.test.interaction-invalid").expect("fixture");
     let initial_rpg = interactive_snapshot(&fixture, CORE_INTERACTIVE_OBJECT_READY_STATE_ID);
@@ -132,7 +146,7 @@ fn invalid_mixed_and_colliding_interaction_input_never_mutates_rpg() {
     runtime
         .enqueue_input_sample(
             &fixture.principal,
-            player_interact_sample(&fixture, 0, PlayerActionPhaseV1::Performed, true, None)
+            player_interact_sample(&fixture, 0, PlayerActionPhaseV1::Started, false, None)
                 .expect("invalid interaction"),
         )
         .expect("enqueue invalid interaction");
@@ -166,7 +180,22 @@ fn invalid_mixed_and_colliding_interaction_input_never_mutates_rpg() {
     let mixed_report = runtime.run_tick([]).expect("mixed tick is nonfatal");
     assert_eq!(
         mixed_report.mapping_receipts[0].code,
-        InputMappingCodeV1::ActionUnmapped
+        InputMappingCodeV1::Accepted
+    );
+    assert!(
+        mixed_report.mapping_receipts[0]
+            .derived_command_id
+            .is_some()
+    );
+    assert!(mixed_report.events.iter().any(|event| matches!(
+        event.payload,
+        EventPayload::Rpg(RpgEventV1::InteractiveObjectTransitioned { .. })
+    )));
+    assert_eq!(
+        mixed_report.physics_snapshot.sorted_body_states[&fixture.physics_body_id]
+            .pose
+            .translation_micrometres,
+        [0, 900_000, 100_000]
     );
 
     let interact = player_interact_sample(&fixture, 2, PlayerActionPhaseV1::Started, true, None)
@@ -180,6 +209,8 @@ fn invalid_mixed_and_colliding_interaction_input_never_mutates_rpg() {
     runtime
         .enqueue_input_sample(&fixture.principal, movement)
         .expect("enqueue movement collision candidate");
+    let rpg_before_collision = runtime.rpg_snapshot();
+    let ledger_before_collision = ledger_hash(&runtime);
     let collision = runtime.run_tick([]).expect("collision tick is nonfatal");
     assert!(collision.mapping_receipts.is_empty());
     assert_eq!(
@@ -190,7 +221,8 @@ fn invalid_mixed_and_colliding_interaction_input_never_mutates_rpg() {
             .len(),
         1
     );
-    assert_eq!(runtime.rpg_snapshot(), initial_rpg);
+    assert_eq!(runtime.rpg_snapshot(), rpg_before_collision);
+    assert_eq!(ledger_hash(&runtime), ledger_before_collision);
 }
 
 #[test]
@@ -373,7 +405,7 @@ fn pickup_and_equip_retry_after_restore_do_not_duplicate_state_or_events() {
 }
 
 #[test]
-fn cooked_dialogue_requires_contact_and_invalid_participant_closure_fails_activation() {
+fn cooked_dialogue_uses_query_targeting_and_invalid_participant_closure_fails_activation() {
     let fixture =
         build_neutral_player_fixture("nextengine.test.dialogue-closure").expect("fixture");
     let ready = cooked_project_rpg_snapshot(&fixture);
@@ -391,15 +423,21 @@ fn cooked_dialogue_requires_contact_and_invalid_participant_closure_fails_activa
                 .expect("interaction sample"),
         )
         .expect("enqueue interaction");
-    let report = runtime.run_tick([]).expect("contact-free interaction tick");
+    let report = runtime
+        .run_tick([])
+        .expect("query-targeted interaction tick");
     assert_eq!(
         report.mapping_receipts[0].code,
         InputMappingCodeV1::Accepted
     );
-    assert_eq!(report.mapping_receipts[0].derived_command_id, None);
-    assert!(report.results.is_empty());
-    assert_eq!(runtime.rpg_snapshot(), ready);
-    assert_eq!(ledger_hash(&runtime), ledger_before);
+    assert!(report.mapping_receipts[0].derived_command_id.is_some());
+    assert!(!report.results.is_empty());
+    assert!(report.events.iter().any(|event| matches!(
+        event.payload,
+        EventPayload::Rpg(RpgEventV1::InteractiveObjectTransitioned { .. })
+    )));
+    assert_ne!(runtime.rpg_snapshot(), ready);
+    assert_ne!(ledger_hash(&runtime), ledger_before);
 
     let mut invalid = cooked_project_rpg_snapshot(&fixture);
     let dialogue = invalid
@@ -430,7 +468,7 @@ fn cooked_dialogue_requires_contact_and_invalid_participant_closure_fails_activa
 }
 
 #[test]
-fn same_contact_switch_precedes_npc_then_dialogue_transition_is_one_shot() {
+fn nearest_query_switch_precedes_npc_then_dialogue_transition_is_one_shot() {
     let fixture =
         build_neutral_player_fixture("nextengine.test.dialogue-tie-break").expect("fixture");
     let entry_node = fixture
@@ -482,7 +520,9 @@ fn same_contact_switch_precedes_npc_then_dialogue_transition_is_one_shot() {
                 .expect("interaction sample"),
         )
         .expect("enqueue first interaction");
-    let switch = runtime.run_tick([]).expect("switch wins tie");
+    let switch = runtime
+        .run_tick([])
+        .expect("nearest switch wins query order");
     assert!(switch.events.iter().any(|event| matches!(
         event.payload,
         EventPayload::Rpg(RpgEventV1::InteractiveObjectTransitioned { .. })

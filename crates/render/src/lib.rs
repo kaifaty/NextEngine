@@ -4,9 +4,11 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::canonical::sha256;
-use next_contracts::ids::{ContentHash, content_hash_from_bytes};
+use next_contracts::ids::{ContentHash, PersistentId, content_hash_from_bytes};
 use next_contracts::presentation::{
-    PresentationSnapshotV2, QuantizedPresentationTransformV1, ScenePresentationFlagsV1,
+    CameraInterpolationPolicyV1, CameraProjectionProfileV1, CameraResultSampleV1, CameraRoleV1,
+    CameraViewportV1, PresentationSnapshotV2, QuantizedPresentationTransformV1,
+    ScenePresentationFlagsV1,
 };
 use next_contracts::project::AssetRevisionRefV1;
 use next_contracts::render_content::{
@@ -17,13 +19,28 @@ use next_contracts::render_content::{
 pub const B0_MAX_INDEXED_DRAWS_PER_FRAME: u32 = 65_536;
 
 const B0_FRAME_PLAN_HASH_DOMAIN: &str = "nextengine.render-frame-plan.b0.v1";
-const B0_FRAME_PLAN_HASH_HEADER_BYTES: usize = 88;
+const B0_FRAME_PLAN_HASH_BASE_HEADER_BYTES: usize = 89;
+const B0_FRAME_PLAN_HASH_CAMERA_BYTES: usize = 257;
 const B0_FRAME_PLAN_HASH_DRAW_BYTES: usize = 185;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RenderTargetV1 {
     pub extent: [u32; 2],
     pub target_revision: u64,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct B0CameraFrameV1 {
+    pub camera_record_hash: ContentHash,
+    pub camera_id: PersistentId,
+    pub camera_role: CameraRoleV1,
+    pub viewport: CameraViewportV1,
+    pub projection_profile: CameraProjectionProfileV1,
+    pub exposure_profile_revision: AssetRevisionRefV1,
+    pub previous_result_sample: CameraResultSampleV1,
+    pub current_result_sample: CameraResultSampleV1,
+    pub cut: bool,
+    pub interpolation_policy: CameraInterpolationPolicyV1,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -44,6 +61,7 @@ pub struct B0FramePlanV1 {
     pub snapshot_hash: ContentHash,
     pub catalog_hash: ContentHash,
     pub target: RenderTargetV1,
+    pub camera: Option<B0CameraFrameV1>,
     pub visible_object_count: u32,
     pub indexed_draw_count: u32,
     pub fallback_material_draw_count: u32,
@@ -57,6 +75,7 @@ pub struct RenderFrameReportV1 {
     pub rendered_object_count: u32,
     pub indexed_draw_count: u32,
     pub fallback_material_draw_count: u32,
+    pub camera_record_hash: Option<ContentHash>,
     pub target_revision: u64,
     pub frame_plan_hash: ContentHash,
 }
@@ -109,6 +128,7 @@ impl RenderDevice for ReferenceB0Renderer {
             rendered_object_count: plan.visible_object_count,
             indexed_draw_count: plan.indexed_draw_count,
             fallback_material_draw_count: plan.fallback_material_draw_count,
+            camera_record_hash: plan.camera.map(|camera| camera.camera_record_hash),
             target_revision: target.target_revision,
             frame_plan_hash: plan.frame_plan_hash,
         })
@@ -133,6 +153,7 @@ pub fn build_b0_frame_plan(
     }
     snapshot.validate()?;
     validate_shader_interface(catalog)?;
+    let camera = select_b0_camera(snapshot, catalog.profile_revision())?;
 
     let fallback_revision = catalog.profile().fallback_material();
     let fallback_material = catalog
@@ -209,6 +230,7 @@ pub fn build_b0_frame_plan(
         snapshot.canonical_hash,
         catalog.catalog_sha256(),
         target,
+        camera.as_ref(),
         visible_object_count,
         fallback_material_draw_count,
         &draws,
@@ -217,12 +239,41 @@ pub fn build_b0_frame_plan(
         snapshot_hash: snapshot.canonical_hash,
         catalog_hash: catalog.catalog_sha256(),
         target,
+        camera,
         visible_object_count,
         indexed_draw_count,
         fallback_material_draw_count,
         draws,
         frame_plan_hash,
     })
+}
+
+fn select_b0_camera(
+    snapshot: &PresentationSnapshotV2,
+    expected_exposure_profile_revision: AssetRevisionRefV1,
+) -> Result<Option<B0CameraFrameV1>, RenderDeviceError> {
+    let mut cameras = snapshot.camera_records();
+    let Some(camera) = cameras.next() else {
+        return Ok(None);
+    };
+    if cameras.next().is_some() || camera.camera_role != CameraRoleV1::PrimaryThirdPerson {
+        return Err(RenderDeviceError::UnsupportedCameraConfiguration);
+    }
+    if camera.exposure_profile_revision != expected_exposure_profile_revision {
+        return Err(RenderDeviceError::CameraExposureProfileMismatch);
+    }
+    Ok(Some(B0CameraFrameV1 {
+        camera_record_hash: camera.canonical_hash,
+        camera_id: camera.camera_id,
+        camera_role: camera.camera_role,
+        viewport: camera.viewport,
+        projection_profile: camera.projection_profile,
+        exposure_profile_revision: camera.exposure_profile_revision,
+        previous_result_sample: camera.previous_result_sample,
+        current_result_sample: camera.current_result_sample,
+        cut: camera.cut,
+        interpolation_policy: camera.interpolation_policy,
+    }))
 }
 
 fn preflight_b0_indexed_draw_count(
@@ -269,6 +320,7 @@ fn frame_plan_hash(
     snapshot_hash: ContentHash,
     catalog_hash: ContentHash,
     target: RenderTargetV1,
+    camera: Option<&B0CameraFrameV1>,
     visible_object_count: u32,
     fallback_material_draw_count: u32,
     draws: &[B0IndexedDrawV1],
@@ -278,7 +330,14 @@ fn frame_plan_hash(
     let draw_bytes = B0_FRAME_PLAN_HASH_DRAW_BYTES
         .checked_mul(draws.len())
         .ok_or(RenderDeviceError::CountOverflow)?;
-    let body_len = B0_FRAME_PLAN_HASH_HEADER_BYTES
+    let camera_bytes = if camera.is_some() {
+        B0_FRAME_PLAN_HASH_CAMERA_BYTES
+    } else {
+        0
+    };
+    let body_len = B0_FRAME_PLAN_HASH_BASE_HEADER_BYTES
+        .checked_add(camera_bytes)
+        .ok_or(RenderDeviceError::CountOverflow)?
         .checked_add(draw_bytes)
         .ok_or(RenderDeviceError::CountOverflow)?;
     let body_len_u64 = u64::try_from(body_len).map_err(|_| RenderDeviceError::CountOverflow)?;
@@ -302,6 +361,13 @@ fn frame_plan_hash(
     preimage.extend_from_slice(&target.target_revision.to_le_bytes());
     preimage.extend_from_slice(&visible_object_count.to_le_bytes());
     preimage.extend_from_slice(&fallback_material_draw_count.to_le_bytes());
+    match camera {
+        Some(camera) => {
+            preimage.push(1);
+            extend_camera_frame(&mut preimage, camera);
+        }
+        None => preimage.push(0),
+    }
     for draw in draws {
         preimage.extend_from_slice(draw.scene_record_hash.as_bytes());
         extend_revision(&mut preimage, draw.mesh_revision);
@@ -313,6 +379,54 @@ fn frame_plan_hash(
     }
     debug_assert_eq!(preimage.len(), preimage_len);
     Ok(content_hash_from_bytes(sha256(&preimage)))
+}
+
+fn extend_camera_frame(bytes: &mut Vec<u8>, camera: &B0CameraFrameV1) {
+    bytes.extend_from_slice(camera.camera_record_hash.as_bytes());
+    bytes.extend_from_slice(camera.camera_id.as_bytes());
+    bytes.push(camera.camera_role as u8);
+    bytes.extend_from_slice(&camera.viewport.viewport_id.to_le_bytes());
+    for value in camera.viewport.origin_unorm16 {
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
+    for value in camera.viewport.extent_unorm16 {
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
+    bytes.extend_from_slice(
+        &camera
+            .projection_profile
+            .vertical_fov_millidegrees
+            .to_le_bytes(),
+    );
+    bytes.extend_from_slice(
+        &camera
+            .projection_profile
+            .near_plane_micrometres
+            .to_le_bytes(),
+    );
+    bytes.extend_from_slice(
+        &camera
+            .projection_profile
+            .far_plane_micrometres
+            .to_le_bytes(),
+    );
+    extend_revision(bytes, camera.exposure_profile_revision);
+    extend_camera_result(bytes, camera.previous_result_sample);
+    extend_camera_result(bytes, camera.current_result_sample);
+    bytes.push(u8::from(camera.cut));
+    bytes.push(camera.interpolation_policy as u8);
+}
+
+fn extend_camera_result(bytes: &mut Vec<u8>, result: CameraResultSampleV1) {
+    for value in result.pose.translation_micrometres {
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
+    for value in result.pose.orientation_q30 {
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
+    for value in result.focus_point_micrometres {
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
 }
 
 fn extend_revision(bytes: &mut Vec<u8>, revision: AssetRevisionRefV1) {
@@ -333,6 +447,8 @@ pub enum RenderDeviceError {
     FallbackMaterialMissing,
     MaterialBindingInvalid,
     PresentationBoundsMismatch,
+    UnsupportedCameraConfiguration,
+    CameraExposureProfileMismatch,
     UnsupportedSceneFeature,
     UnsupportedTopology,
     UnsupportedMaterialSlot,
@@ -361,6 +477,12 @@ impl Display for RenderDeviceError {
             }
             Self::PresentationBoundsMismatch => {
                 formatter.write_str("presentation bounds do not match exact mesh revision")
+            }
+            Self::UnsupportedCameraConfiguration => {
+                formatter.write_str("B0 supports one primary third-person camera")
+            }
+            Self::CameraExposureProfileMismatch => {
+                formatter.write_str("camera exposure profile does not match the exact B0 profile")
             }
             Self::UnsupportedSceneFeature => {
                 formatter.write_str("scene feature is unsupported by B0")
@@ -402,7 +524,9 @@ mod tests {
     use super::*;
     use next_contracts::ids::{AssetId, PersistentId};
     use next_contracts::presentation::{
-        PresentationObjectKeyV1, PresentationRoleV1, ScenePresentationRecordV2,
+        CameraInterpolationPolicyV1, CameraPresentationRecordV2, CameraProjectionProfileV1,
+        CameraResultSampleV1, CameraRoleV1, CameraViewportV1, PresentationObjectKeyV1,
+        PresentationRoleV1, ScenePresentationRecordV2, ThirdPersonCameraIntentSampleV1,
     };
     use next_contracts::project::domain_hash;
 
@@ -451,6 +575,100 @@ mod tests {
     }
 
     #[test]
+    fn typed_third_person_camera_is_bound_into_the_frame_plan_hash() {
+        let catalog = catalog();
+        let without_camera = snapshot(&catalog, false);
+        let camera_record = CameraPresentationRecordV2::new(
+            without_camera.snapshot_epoch,
+            PersistentId::from_bytes([0xc0; 16]),
+            CameraRoleV1::PrimaryThirdPerson,
+            CameraViewportV1::full(0),
+            CameraProjectionProfileV1::new(60_000, 100_000, 100_000_000).expect("projection"),
+            ThirdPersonCameraIntentSampleV1 {
+                focus_subject_id: Some(PersistentId::from_bytes([2; 16])),
+                focus_point_micrometres: [0, 1_000_000, 0],
+                orbit_yaw_millidegrees: 0,
+                orbit_pitch_millidegrees: -15_000,
+                distance_micrometres: 3_000_000,
+                shoulder_offset_micrometres: [350_000, 0, 0],
+            },
+            camera_result([0, 2_000_000, 3_000_000]),
+            camera_result([250_000, 2_000_000, 3_000_000]),
+            catalog.profile_revision(),
+            false,
+            CameraInterpolationPolicyV1::LinearPose,
+        )
+        .expect("camera");
+        let with_camera = PresentationSnapshotV2::new_with_camera_records(
+            without_camera.snapshot_epoch,
+            without_camera.snapshot_sequence,
+            without_camera.simulation_tick,
+            without_camera.project_composition_lock_hash,
+            without_camera.content_manifest_hash,
+            without_camera.presentation_profile_hash,
+            without_camera.scene_records().cloned().collect(),
+            vec![camera_record.clone()],
+            8,
+            8,
+            without_camera.environment_batch,
+        )
+        .expect("camera snapshot");
+        let target = RenderTargetV1 {
+            extent: [960, 540],
+            target_revision: 1,
+        };
+        let camera_plan = build_b0_frame_plan(&with_camera, &catalog, target).expect("camera plan");
+        let plain_plan =
+            build_b0_frame_plan(&without_camera, &catalog, target).expect("plain plan");
+        assert_eq!(
+            camera_plan.camera.map(|camera| camera.camera_record_hash),
+            Some(camera_record.canonical_hash)
+        );
+        assert_eq!(
+            camera_plan
+                .camera
+                .map(|camera| camera.exposure_profile_revision),
+            Some(catalog.profile_revision())
+        );
+        assert_ne!(camera_plan.frame_plan_hash, plain_plan.frame_plan_hash);
+
+        let wrong_profile_camera = CameraPresentationRecordV2::new(
+            camera_record.snapshot_epoch,
+            camera_record.camera_id,
+            camera_record.camera_role,
+            camera_record.viewport,
+            camera_record.projection_profile,
+            camera_record.intent_sample,
+            camera_record.previous_result_sample,
+            camera_record.current_result_sample,
+            catalog.materials()[0]
+                .asset_revision()
+                .expect("non-profile revision"),
+            camera_record.cut,
+            camera_record.interpolation_policy,
+        )
+        .expect("well-formed camera with unavailable profile");
+        let wrong_profile_snapshot = PresentationSnapshotV2::new_with_camera_records(
+            without_camera.snapshot_epoch,
+            without_camera.snapshot_sequence,
+            without_camera.simulation_tick,
+            without_camera.project_composition_lock_hash,
+            without_camera.content_manifest_hash,
+            without_camera.presentation_profile_hash,
+            without_camera.scene_records().cloned().collect(),
+            vec![wrong_profile_camera],
+            8,
+            8,
+            without_camera.environment_batch,
+        )
+        .expect("camera snapshot");
+        assert!(matches!(
+            build_b0_frame_plan(&wrong_profile_snapshot, &catalog, target),
+            Err(RenderDeviceError::CameraExposureProfileMismatch)
+        ));
+    }
+
+    #[test]
     fn indexed_draw_budget_accepts_limit_and_rejects_next_draw() {
         assert_eq!(
             validate_b0_indexed_draw_budget(u64::from(B0_MAX_INDEXED_DRAWS_PER_FRAME))
@@ -464,6 +682,16 @@ mod tests {
                 limit: B0_MAX_INDEXED_DRAWS_PER_FRAME
             }) if requested == u64::from(B0_MAX_INDEXED_DRAWS_PER_FRAME) + 1
         ));
+    }
+
+    fn camera_result(translation_micrometres: [i64; 3]) -> CameraResultSampleV1 {
+        CameraResultSampleV1 {
+            pose: QuantizedPresentationTransformV1 {
+                translation_micrometres,
+                ..QuantizedPresentationTransformV1::default()
+            },
+            focus_point_micrometres: [0, 1_000_000, 0],
+        }
     }
 
     fn catalog() -> RenderContentCatalogV1 {

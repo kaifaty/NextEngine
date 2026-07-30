@@ -7,6 +7,17 @@ use crate::manifest_jcs::{JcsValue, encode_canonical_jcs};
 use crate::project::{AssetRevisionRefV1, domain_hash};
 use crate::render_content::AabbI64V1;
 
+mod camera;
+
+pub use camera::{
+    CAMERA_PRESENTATION_RECORD_SCHEMA_VERSION, CameraInterpolationPolicyV1,
+    CameraPresentationBatchV1, CameraPresentationRecordV2, CameraProjectionProfileV1,
+    CameraResultSampleV1, CameraRoleV1, CameraViewportV1, PRESENTATION_MAX_CAMERA_RECORDS,
+    ThirdPersonCameraIntentSampleV1,
+};
+
+use camera::{build_camera_batches, camera_batches_value, validate_camera_batches};
+
 pub const PRESENTATION_SNAPSHOT_SCHEMA_VERSION: u32 = 2;
 pub const PRESENTATION_SCENE_RECORD_SCHEMA_VERSION: u32 = 2;
 pub const PRESENTATION_MAX_SCENE_RECORDS: usize = 16_384;
@@ -255,7 +266,7 @@ pub struct PresentationSnapshotV2 {
     pub content_manifest_hash: ContentHash,
     pub presentation_profile_hash: ContentHash,
     pub scene_batches: Vec<ScenePresentationBatchV1>,
-    pub camera_batches: Vec<ContentHash>,
+    pub camera_batches: Vec<CameraPresentationBatchV1>,
     pub semantic_ui_batches: Vec<ContentHash>,
     pub cue_batches: Vec<ContentHash>,
     pub environment_batch: ContentHash,
@@ -274,11 +285,43 @@ impl PresentationSnapshotV2 {
         project_composition_lock_hash: ContentHash,
         content_manifest_hash: ContentHash,
         presentation_profile_hash: ContentHash,
-        mut scene_records: Vec<ScenePresentationRecordV2>,
+        scene_records: Vec<ScenePresentationRecordV2>,
         max_records_per_batch: usize,
         environment_batch: ContentHash,
     ) -> Result<Self, PresentationContractError> {
-        if max_records_per_batch == 0 {
+        Self::new_with_camera_records(
+            snapshot_epoch,
+            snapshot_sequence,
+            simulation_tick,
+            project_composition_lock_hash,
+            content_manifest_hash,
+            presentation_profile_hash,
+            scene_records,
+            Vec::new(),
+            max_records_per_batch,
+            max_records_per_batch,
+            environment_batch,
+        )
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "scene and camera family limits are explicit at the atomic publication boundary"
+    )]
+    pub fn new_with_camera_records(
+        snapshot_epoch: ContentHash,
+        snapshot_sequence: u64,
+        simulation_tick: u64,
+        project_composition_lock_hash: ContentHash,
+        content_manifest_hash: ContentHash,
+        presentation_profile_hash: ContentHash,
+        mut scene_records: Vec<ScenePresentationRecordV2>,
+        camera_records: Vec<CameraPresentationRecordV2>,
+        max_scene_records_per_batch: usize,
+        max_camera_records_per_batch: usize,
+        environment_batch: ContentHash,
+    ) -> Result<Self, PresentationContractError> {
+        if max_scene_records_per_batch == 0 || max_camera_records_per_batch == 0 {
             return Err(PresentationContractError::InvalidBatchProfile);
         }
         if scene_records.len() > PRESENTATION_MAX_SCENE_RECORDS {
@@ -293,11 +336,11 @@ impl PresentationSnapshotV2 {
         scene_records.sort_by_key(scene_sort_key);
         ensure_record_keys_unique(&scene_records)?;
         let scene_batches = scene_records
-            .chunks(max_records_per_batch)
+            .chunks(max_scene_records_per_batch)
             .enumerate()
             .map(|(batch_index, records)| {
                 let first = batch_index
-                    .checked_mul(max_records_per_batch)
+                    .checked_mul(max_scene_records_per_batch)
                     .and_then(|value| u32::try_from(value).ok())
                     .ok_or(PresentationContractError::LimitExceeded)?;
                 ScenePresentationBatchV1::new(
@@ -308,6 +351,8 @@ impl PresentationSnapshotV2 {
                 )
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let camera_batches =
+            build_camera_batches(snapshot_epoch, camera_records, max_camera_records_per_batch)?;
         let mut value = Self {
             schema_version: PRESENTATION_SNAPSHOT_SCHEMA_VERSION,
             snapshot_epoch,
@@ -317,7 +362,7 @@ impl PresentationSnapshotV2 {
             content_manifest_hash,
             presentation_profile_hash,
             scene_batches,
-            camera_batches: Vec::new(),
+            camera_batches,
             semantic_ui_batches: Vec::new(),
             cue_batches: Vec::new(),
             environment_batch,
@@ -367,6 +412,7 @@ impl PresentationSnapshotV2 {
             return Err(PresentationContractError::NonCanonicalOrder);
         }
         ensure_record_refs_unique(&records)?;
+        validate_camera_batches(self.snapshot_epoch, &self.camera_batches)?;
         if self.computed_hash() != self.canonical_hash {
             return Err(PresentationContractError::HashMismatch);
         }
@@ -379,11 +425,17 @@ impl PresentationSnapshotV2 {
             .flat_map(|batch| batch.records.iter())
     }
 
+    pub fn camera_records(&self) -> impl Iterator<Item = &CameraPresentationRecordV2> {
+        self.camera_batches
+            .iter()
+            .flat_map(|batch| batch.records.iter())
+    }
+
     fn computed_hash(&self) -> ContentHash {
         domain_hash(
             "nextengine.presentation-snapshot.v2",
             &encode_canonical_jcs(&object([
-                ("camera_batches", hash_array_value(&self.camera_batches)),
+                ("camera_batches", camera_batches_value(&self.camera_batches)),
                 (
                     "content_manifest_hash",
                     string(self.content_manifest_hash.to_hex()),
@@ -439,11 +491,17 @@ pub enum PresentationContractError {
     SnapshotEpochMismatch,
     HashMismatch,
     DuplicateObjectKey,
+    DuplicateCameraKey,
     NonCanonicalOrder,
     InvalidBatchProfile,
     InvalidBatchBoundary,
     EmptyBatch,
     LimitExceeded,
+    InvalidCameraViewport,
+    InvalidCameraProjection,
+    InvalidCameraIntent,
+    InvalidCameraResult,
+    InvalidCameraPolicy,
 }
 
 impl Display for PresentationContractError {
@@ -456,11 +514,17 @@ impl Display for PresentationContractError {
             Self::SnapshotEpochMismatch => "presentation record snapshot epoch does not match",
             Self::HashMismatch => "presentation canonical hash mismatch",
             Self::DuplicateObjectKey => "presentation object key is duplicated",
+            Self::DuplicateCameraKey => "presentation camera key is duplicated",
             Self::NonCanonicalOrder => "presentation records are not canonically ordered",
             Self::InvalidBatchProfile => "presentation batch profile is invalid",
             Self::InvalidBatchBoundary => "presentation batch boundary is invalid",
             Self::EmptyBatch => "presentation batch may not be empty",
             Self::LimitExceeded => "presentation contract limit exceeded",
+            Self::InvalidCameraViewport => "presentation camera viewport is invalid",
+            Self::InvalidCameraProjection => "presentation camera projection is invalid",
+            Self::InvalidCameraIntent => "presentation camera intent is invalid",
+            Self::InvalidCameraResult => "presentation camera result is invalid",
+            Self::InvalidCameraPolicy => "presentation camera cut/interpolation policy is invalid",
         })
     }
 }

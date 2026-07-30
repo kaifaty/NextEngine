@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter};
 #[derive(Debug)]
 pub enum ApplicationError {
     Identifier(next_contracts::ids::IdentifierError),
+    Platform(next_contracts::platform::PlatformContractError),
     SessionContract(next_contracts::session::SessionContractError),
     SessionMachine(next_runtime::SessionMachineError),
     SessionStore(next_assets::SessionStoreError),
@@ -22,7 +23,16 @@ pub enum ApplicationError {
     Io(std::io::Error),
     ProjectLockMismatch,
     ProjectTargetForbidden,
+    PlatformCapabilityRequired,
+    PlatformEventIdentityCollision,
+    PlatformEventSequenceInvalid,
     SessionAlreadyLive,
+    LiveRunAlreadyActive,
+    LiveTickBacklogExceeded,
+    LivePlatformEventBacklogExceeded,
+    LifecycleArchiveBudgetExceeded,
+    RecoveryEvidenceBudgetExceeded,
+    NoLiveRun,
     NoRunOutcome,
     CloseIdentityCollision,
     CloseStateInvalid,
@@ -40,13 +50,23 @@ impl ApplicationError {
         match self {
             Self::ProjectLockMismatch => "PROJECT_LOCK_MISMATCH",
             Self::ProjectTargetForbidden => "PLATFORM_FORBIDDEN_PRESENTATION_TARGET",
+            Self::PlatformCapabilityRequired => "PLATFORM_CAPABILITY_REQUIRED",
+            Self::PlatformEventIdentityCollision => "PLATFORM_EVENT_IDENTITY_COLLISION",
+            Self::PlatformEventSequenceInvalid => "PLATFORM_EVENT_SEQUENCE_GAP",
             Self::SessionAlreadyLive => "SESSION_LIVE_REGISTRY_CONFLICT",
+            Self::LiveRunAlreadyActive => "SESSION_RUNTIME_ALREADY_ACTIVE",
+            Self::LiveTickBacklogExceeded => "SESSION_FIXED_TICK_BACKLOG_EXCEEDED",
+            Self::LivePlatformEventBacklogExceeded => "SESSION_FIXED_TICK_EVENT_BACKLOG_EXCEEDED",
+            Self::LifecycleArchiveBudgetExceeded => "SESSION_PLATFORM_LIFECYCLE_BUDGET_EXCEEDED",
+            Self::RecoveryEvidenceBudgetExceeded => "SESSION_RECOVERY_EVIDENCE_BUDGET_EXCEEDED",
+            Self::NoLiveRun => "SESSION_RUNTIME_NOT_ACTIVE",
             Self::CloseIdentityCollision => "SESSION_FINAL_SAVE_IDENTITY_COLLISION",
             Self::CloseStateInvalid | Self::CloseJournalInvalid => "SESSION_TRANSITION_INVALID",
             Self::FinalSaveFailed => "SESSION_FINAL_SAVE_FAILED",
             Self::RecoveryIncompatible => "SESSION_RECOVERY_INCOMPATIBLE",
             Self::TerminalReceiptMissing => "SESSION_TERMINAL_RECEIPT_MISSING",
             Self::StateRootUnavailable => "SESSION_STORAGE_UNAVAILABLE",
+            Self::Platform(error) => error.diagnostic_code(),
             Self::SessionMachine(error) => error.diagnostic_code(),
             Self::SessionStore(error) => error.diagnostic_code(),
             Self::SessionContract(error) => error.diagnostic_code(),
@@ -74,6 +94,7 @@ impl Display for ApplicationError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Identifier(error) => write!(formatter, "{error}"),
+            Self::Platform(error) => write!(formatter, "{error}"),
             Self::SessionContract(error) => write!(formatter, "{error}"),
             Self::SessionMachine(error) => write!(formatter, "{error}"),
             Self::SessionStore(error) => write!(formatter, "{error}"),
@@ -94,7 +115,31 @@ impl Display for ApplicationError {
             Self::ProjectTargetForbidden => {
                 formatter.write_str("presentation target is not allowed by project")
             }
+            Self::PlatformCapabilityRequired => {
+                formatter.write_str("required platform capability set is missing or incompatible")
+            }
+            Self::PlatformEventIdentityCollision => {
+                formatter.write_str("platform event does not belong to the registered host")
+            }
+            Self::PlatformEventSequenceInvalid => {
+                formatter.write_str("platform event source sequence is invalid")
+            }
             Self::SessionAlreadyLive => formatter.write_str("an application session is live"),
+            Self::LiveRunAlreadyActive => {
+                formatter.write_str("a live reference run is already active")
+            }
+            Self::LiveTickBacklogExceeded => {
+                formatter.write_str("live fixed-tick backlog exceeds the bounded host budget")
+            }
+            Self::LivePlatformEventBacklogExceeded => formatter
+                .write_str("live fixed-tick pending platform events exceed the input-frame limit"),
+            Self::LifecycleArchiveBudgetExceeded => {
+                formatter.write_str("platform lifecycle transition budget is exhausted")
+            }
+            Self::RecoveryEvidenceBudgetExceeded => {
+                formatter.write_str("recovery evidence archive budget is exhausted")
+            }
+            Self::NoLiveRun => formatter.write_str("a live reference run is not active"),
             Self::NoRunOutcome => formatter.write_str("reference game has not run"),
             Self::CloseIdentityCollision => formatter.write_str("close request identity collides"),
             Self::CloseStateInvalid => formatter.write_str("close state is invalid"),
@@ -121,6 +166,7 @@ macro_rules! from_error {
 }
 
 from_error!(next_contracts::ids::IdentifierError, Identifier);
+from_error!(next_contracts::platform::PlatformContractError, Platform);
 from_error!(
     next_contracts::session::SessionContractError,
     SessionContract

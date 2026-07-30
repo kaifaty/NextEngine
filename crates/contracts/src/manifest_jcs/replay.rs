@@ -20,14 +20,19 @@ use crate::input::{
 };
 use crate::persistence::{
     AuthorityGrant, ManifestValidationError, REPLAY_MANIFEST_V4_SCHEMA_VERSION,
-    ReplayCommandRecord, ReplayCommandResultV2, ReplayComparePointV4, ReplayManifestV4,
-    ReplayOwnerSegmentV2, ReplayTickManifestV4,
+    REPLAY_MANIFEST_V5_SCHEMA_VERSION, ReplayCommandRecord, ReplayCommandResultV2,
+    ReplayComparePointV4, ReplayComparePointV5, ReplayManifestV4, ReplayManifestV5,
+    ReplayOwnerSegmentV2, ReplayTickManifestV4, ReplayTickManifestV5,
 };
 use crate::physics::{ClosedPhysicsContactBatchV1, PhysicsStepInputV2};
 use crate::snapshot::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID,
     RuntimeSnapshotV3,
 };
+
+mod ticks_v5;
+
+use ticks_v5::decode_replay_ticks_v5;
 
 pub(crate) fn encode_replay_manifest_v4(
     manifest: &ReplayManifestV4,
@@ -143,6 +148,129 @@ pub(crate) fn decode_replay_manifest_v4(
         return Err(ManifestCodecError::UnknownField(field));
     }
     let manifest = ReplayManifestV4 {
+        schema_version,
+        compatibility,
+        initial_owner_segments,
+        initial_state_root,
+        authority,
+        ticks,
+        compare_points,
+    };
+    manifest.validate_and_decode(limits)?;
+    Ok(manifest)
+}
+
+pub(crate) fn encode_replay_manifest_v5(
+    manifest: &ReplayManifestV5,
+) -> Result<Vec<u8>, ManifestCodecError> {
+    manifest.validate_and_decode(CanonicalDecodeLimits::default())?;
+    let mut object = BTreeMap::new();
+    object.insert(
+        "authority".to_owned(),
+        JcsValue::Array(
+            manifest
+                .authority
+                .iter()
+                .map(encode_authority_grant)
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+    );
+    object.insert(
+        "compare_points".to_owned(),
+        JcsValue::Array(
+            manifest
+                .compare_points
+                .iter()
+                .map(encode_compare_point_v5)
+                .collect(),
+        ),
+    );
+    object.insert(
+        "compatibility".to_owned(),
+        encode_compatibility(&manifest.compatibility),
+    );
+    object.insert(
+        "initial_owner_segments".to_owned(),
+        JcsValue::Array(
+            manifest
+                .initial_owner_segments
+                .iter()
+                .map(encode_owner_segment)
+                .collect(),
+        ),
+    );
+    object.insert(
+        "initial_state_root".to_owned(),
+        string(manifest.initial_state_root.to_hex()),
+    );
+    object.insert(
+        "schema_version".to_owned(),
+        JcsValue::Number(u64::from(manifest.schema_version)),
+    );
+    object.insert(
+        "ticks".to_owned(),
+        JcsValue::Array(
+            manifest
+                .ticks
+                .iter()
+                .map(encode_replay_tick_v5)
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+    );
+    Ok(encode_value(&JcsValue::Object(object)).into_bytes())
+}
+
+pub(crate) fn decode_replay_manifest_v5(
+    bytes: &[u8],
+    limits: CanonicalDecodeLimits,
+) -> Result<ReplayManifestV5, ManifestCodecError> {
+    if bytes.len() > limits.max_total_bytes {
+        return Err(ManifestCodecError::InputTooLarge {
+            actual: bytes.len(),
+            limit: limits.max_total_bytes,
+        });
+    }
+    let mut parser = Parser::new(bytes, limits.max_sequence_items);
+    let value = parser.parse_value(0)?;
+    parser.finish()?;
+    if encode_value(&value).as_bytes() != bytes {
+        return Err(ManifestCodecError::NonCanonicalJcs);
+    }
+    let mut object = into_object(value, "root")?;
+    let schema_version = decode_u32(take(&mut object, "schema_version")?, "schema_version")?;
+    if schema_version != REPLAY_MANIFEST_V5_SCHEMA_VERSION {
+        return Err(ManifestValidationError::UnsupportedReplayVersion(schema_version).into());
+    }
+
+    let compatibility = decode_compatibility(take(&mut object, "compatibility")?)?;
+    let initial_owner_segments =
+        decode_owner_segments(take(&mut object, "initial_owner_segments")?)?;
+    let initial_state_root = StateRoot::from_bytes(decode_fixed_hex::<32>(
+        take(&mut object, "initial_state_root")?,
+        "initial_state_root",
+    )?);
+    let runtime_segment = initial_owner_segments
+        .iter()
+        .find(|segment| {
+            segment.descriptor.owner_id.as_str() == RUNTIME_SNAPSHOT_OWNER_ID
+                && segment.descriptor.schema_id.as_str() == RUNTIME_SNAPSHOT_SCHEMA_ID
+                && segment.descriptor.segment_id.as_str() == RUNTIME_SNAPSHOT_SEGMENT_ID
+        })
+        .ok_or(ManifestValidationError::ReplayInitialSegmentsInvalid)?;
+    let runtime_snapshot =
+        RuntimeSnapshotV3::from_canonical_bytes(&runtime_segment.canonical_bytes, limits)
+            .map_err(ManifestValidationError::from)?;
+    let authority = decode_authority(take(&mut object, "authority")?, limits)?;
+    let ticks = decode_replay_ticks_v5(
+        take(&mut object, "ticks")?,
+        limits,
+        &runtime_snapshot.admission_limits,
+    )?;
+    let compare_points = decode_compare_points_v5(take(&mut object, "compare_points")?)?;
+    if let Some(field) = object.into_keys().next() {
+        return Err(ManifestCodecError::UnknownField(field));
+    }
+    let manifest = ReplayManifestV5 {
         schema_version,
         compatibility,
         initial_owner_segments,
@@ -295,6 +423,123 @@ fn encode_replay_tick(tick: &ReplayTickManifestV4) -> Result<JcsValue, ManifestC
         string(hex_bytes(
             &tick.expected_physics_step_input.canonical_bytes()?,
         )),
+    );
+    object.insert("tick".to_owned(), string(tick.tick.to_string()));
+    Ok(JcsValue::Object(object))
+}
+
+fn encode_replay_tick_v5(tick: &ReplayTickManifestV5) -> Result<JcsValue, ManifestCodecError> {
+    let mut object = BTreeMap::new();
+    object.insert(
+        "closed_ingress_batch".to_owned(),
+        string(hex_bytes(&tick.closed_ingress_batch.canonical_bytes()?)),
+    );
+    object.insert(
+        "direct_external_commands".to_owned(),
+        JcsValue::Array(
+            tick.direct_external_commands
+                .iter()
+                .map(encode_command_record)
+                .collect(),
+        ),
+    );
+    object.insert(
+        "expected_authoritative_targeting_queries".to_owned(),
+        JcsValue::Array(
+            tick.expected_authoritative_targeting_queries
+                .iter()
+                .map(|query| {
+                    query
+                        .canonical_bytes()
+                        .map(|bytes| string(hex_bytes(&bytes)))
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+    );
+    object.insert(
+        "expected_command_results".to_owned(),
+        JcsValue::Array(
+            tick.expected_command_results
+                .iter()
+                .map(encode_command_result)
+                .collect(),
+        ),
+    );
+    object.insert(
+        "expected_contact_batch".to_owned(),
+        string(hex_bytes(&tick.expected_contact_batch.canonical_bytes()?)),
+    );
+    object.insert(
+        "expected_events".to_owned(),
+        JcsValue::Array(
+            tick.expected_events
+                .iter()
+                .map(encode_domain_event)
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+    );
+    object.insert(
+        "expected_ingress_command_batch".to_owned(),
+        string(hex_bytes(
+            &tick.expected_ingress_command_batch.canonical_bytes()?,
+        )),
+    );
+    object.insert(
+        "expected_mapping_receipts".to_owned(),
+        JcsValue::Array(
+            tick.expected_mapping_receipts
+                .iter()
+                .map(|receipt| {
+                    receipt
+                        .canonical_bytes()
+                        .map(|bytes| string(hex_bytes(&bytes)))
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+    );
+    object.insert(
+        "expected_outcome_command_batch".to_owned(),
+        string(hex_bytes(
+            &tick.expected_outcome_command_batch.canonical_bytes()?,
+        )),
+    );
+    object.insert(
+        "expected_physics_query_batch".to_owned(),
+        string(hex_bytes(
+            &tick.expected_physics_query_batch.canonical_bytes()?,
+        )),
+    );
+    object.insert(
+        "expected_physics_query_results".to_owned(),
+        JcsValue::Array(
+            tick.expected_physics_query_results
+                .iter()
+                .map(|result| {
+                    result
+                        .canonical_bytes()
+                        .map(|bytes| string(hex_bytes(&bytes)))
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+    );
+    object.insert(
+        "expected_physics_step_input".to_owned(),
+        string(hex_bytes(
+            &tick.expected_physics_step_input.canonical_bytes()?,
+        )),
+    );
+    object.insert(
+        "expected_targeting_intents".to_owned(),
+        JcsValue::Array(
+            tick.expected_targeting_intents
+                .iter()
+                .map(|intent| {
+                    intent
+                        .canonical_bytes()
+                        .map(|bytes| string(hex_bytes(&bytes)))
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
     );
     object.insert("tick".to_owned(), string(tick.tick.to_string()));
     Ok(JcsValue::Object(object))
@@ -554,6 +799,96 @@ fn decode_compare_points(value: JcsValue) -> Result<Vec<ReplayComparePointV4>, M
                 contact_batch_hash: decode_hash(
                     next(&mut columns, "compare_points[].contact_batch_hash")?,
                     "compare_points[].contact_batch_hash",
+                )?,
+                outcome_command_batch_hash: decode_hash(
+                    next(&mut columns, "compare_points[].outcome_command_batch_hash")?,
+                    "compare_points[].outcome_command_batch_hash",
+                )?,
+            };
+            ensure_no_more(columns, "compare_points[]")?;
+            Ok(point)
+        })
+        .collect()
+}
+
+fn encode_compare_point_v5(point: &ReplayComparePointV5) -> JcsValue {
+    JcsValue::Array(vec![
+        string(point.tick.to_string()),
+        string(point.state_root.to_hex()),
+        string(point.command_ledger_hash.to_hex()),
+        string(point.runtime_segment_hash.to_hex()),
+        string(point.rpg_segment_hash.to_hex()),
+        string(point.physics_segment_hash.to_hex()),
+        string(point.closed_ingress_batch_hash.to_hex()),
+        string(point.ingress_command_batch_hash.to_hex()),
+        string(point.physics_step_input_hash.to_hex()),
+        string(point.contact_batch_hash.to_hex()),
+        string(point.physics_query_batch_hash.to_hex()),
+        string(point.physics_query_results_hash.to_hex()),
+        string(point.targeting_query_trace_hash.to_hex()),
+        string(point.outcome_command_batch_hash.to_hex()),
+    ])
+}
+
+fn decode_compare_points_v5(
+    value: JcsValue,
+) -> Result<Vec<ReplayComparePointV5>, ManifestCodecError> {
+    into_array(value, "compare_points")?
+        .into_iter()
+        .map(|row| {
+            let mut columns = into_array(row, "compare_points[]")?.into_iter();
+            let point = ReplayComparePointV5 {
+                tick: decode_u64_string(
+                    next(&mut columns, "compare_points[].tick")?,
+                    "compare_points[].tick",
+                )?,
+                state_root: StateRoot::from_bytes(decode_fixed_hex::<32>(
+                    next(&mut columns, "compare_points[].state_root")?,
+                    "compare_points[].state_root",
+                )?),
+                command_ledger_hash: CommandLedgerHash::from_bytes(decode_fixed_hex::<32>(
+                    next(&mut columns, "compare_points[].command_ledger_hash")?,
+                    "compare_points[].command_ledger_hash",
+                )?),
+                runtime_segment_hash: decode_hash(
+                    next(&mut columns, "compare_points[].runtime_segment_hash")?,
+                    "compare_points[].runtime_segment_hash",
+                )?,
+                rpg_segment_hash: decode_hash(
+                    next(&mut columns, "compare_points[].rpg_segment_hash")?,
+                    "compare_points[].rpg_segment_hash",
+                )?,
+                physics_segment_hash: decode_hash(
+                    next(&mut columns, "compare_points[].physics_segment_hash")?,
+                    "compare_points[].physics_segment_hash",
+                )?,
+                closed_ingress_batch_hash: decode_hash(
+                    next(&mut columns, "compare_points[].closed_ingress_batch_hash")?,
+                    "compare_points[].closed_ingress_batch_hash",
+                )?,
+                ingress_command_batch_hash: decode_hash(
+                    next(&mut columns, "compare_points[].ingress_command_batch_hash")?,
+                    "compare_points[].ingress_command_batch_hash",
+                )?,
+                physics_step_input_hash: decode_hash(
+                    next(&mut columns, "compare_points[].physics_step_input_hash")?,
+                    "compare_points[].physics_step_input_hash",
+                )?,
+                contact_batch_hash: decode_hash(
+                    next(&mut columns, "compare_points[].contact_batch_hash")?,
+                    "compare_points[].contact_batch_hash",
+                )?,
+                physics_query_batch_hash: decode_hash(
+                    next(&mut columns, "compare_points[].physics_query_batch_hash")?,
+                    "compare_points[].physics_query_batch_hash",
+                )?,
+                physics_query_results_hash: decode_hash(
+                    next(&mut columns, "compare_points[].physics_query_results_hash")?,
+                    "compare_points[].physics_query_results_hash",
+                )?,
+                targeting_query_trace_hash: decode_hash(
+                    next(&mut columns, "compare_points[].targeting_query_trace_hash")?,
+                    "compare_points[].targeting_query_trace_hash",
                 )?,
                 outcome_command_batch_hash: decode_hash(
                     next(&mut columns, "compare_points[].outcome_command_batch_hash")?,

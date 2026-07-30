@@ -10,8 +10,9 @@ use next_contracts::physics::PhysicsContractError;
 use next_contracts::rpg::CoreDialogueQuestClosureError;
 use next_contracts::rpg::RpgContractErrorV1;
 use next_contracts::snapshot::{SnapshotDecodeError, WorldCheckpointError};
+use next_contracts::targeting::TargetingContractError;
 use next_mechanics::MechanicsHostError;
-use next_physics_api::PhysicsBackendError;
+use next_physics_api::{PhysicsBackendError, PhysicsSceneQueryError};
 use next_rpg::RpgStateError;
 
 use crate::outcome::OutcomeCollectionError;
@@ -59,6 +60,8 @@ pub enum RuntimeFatalError {
     InternalCanonicalization(CanonicalError),
     LedgerCorrupt(CommandLedgerError),
     Physics(PhysicsBackendError),
+    PhysicsQuery(PhysicsSceneQueryError),
+    Targeting(TargetingContractError),
     PhysicalOutcomeInvariant,
     InternalIdentityCollision,
     CoreInteractionClosure(CoreDialogueQuestClosureError),
@@ -81,6 +84,8 @@ impl RuntimeFatalError {
             Self::InternalCanonicalization(_) => "INTERNAL_CANONICALIZATION_FAILED",
             Self::LedgerCorrupt(_) => "COMMAND_LEDGER_CORRUPT",
             Self::Physics(error) => error.stable_code(),
+            Self::PhysicsQuery(error) => error.stable_code(),
+            Self::Targeting(error) => error.stable_code(),
             Self::PhysicalOutcomeInvariant => "PHYSICAL_OUTCOME_INVARIANT_FAILED",
             Self::InternalIdentityCollision => "INTERNAL_IDENTITY_COLLISION",
             Self::CoreInteractionClosure(error) => error.stable_code(),
@@ -119,6 +124,18 @@ impl From<InputContractError> for RuntimeFatalError {
 impl From<PhysicsBackendError> for RuntimeFatalError {
     fn from(error: PhysicsBackendError) -> Self {
         Self::Physics(error)
+    }
+}
+
+impl From<PhysicsSceneQueryError> for RuntimeFatalError {
+    fn from(error: PhysicsSceneQueryError) -> Self {
+        Self::PhysicsQuery(error)
+    }
+}
+
+impl From<TargetingContractError> for RuntimeFatalError {
+    fn from(error: TargetingContractError) -> Self {
+        Self::Targeting(error)
     }
 }
 

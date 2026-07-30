@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use crate::canonical::{CanonicalDecodeLimits, sha256};
-use crate::ids::{ApplicationSessionId, ContentHash, content_hash_from_bytes};
+use crate::ids::{
+    ApplicationSessionId, CloseRequestId, ContentHash, SessionRequestId, SessionTransitionId,
+    content_hash_from_bytes,
+};
 use crate::manifest_jcs::{JcsValue, decode_canonical_jcs, encode_canonical_jcs};
 use crate::persistence::ManifestCodecError;
 
@@ -49,6 +52,13 @@ fn require_object(
         }
         .into()),
     }
+}
+
+pub(crate) fn nested_object(
+    value: JcsValue,
+    field: &'static str,
+) -> Result<BTreeMap<String, JcsValue>, SessionContractError> {
+    require_object(value, field)
 }
 
 pub(crate) fn array(value: Vec<JcsValue>) -> JcsValue {
@@ -113,6 +123,17 @@ pub(crate) fn u32_value(value: JcsValue, field: &'static str) -> Result<u32, Ses
     }
 }
 
+pub(crate) fn u64_value(value: JcsValue, field: &'static str) -> Result<u64, SessionContractError> {
+    match value {
+        JcsValue::Number(value) => Ok(value),
+        _ => Err(ManifestCodecError::WrongType {
+            field: field.to_owned(),
+            expected: "an unsigned integer",
+        }
+        .into()),
+    }
+}
+
 pub(crate) fn hash(
     value: JcsValue,
     field: &'static str,
@@ -138,6 +159,36 @@ pub(crate) fn session_id(
     field: &'static str,
 ) -> Result<ApplicationSessionId, SessionContractError> {
     Ok(ApplicationSessionId::from_bytes(hex::<16>(
+        &text(value, field)?,
+        field,
+    )?))
+}
+
+pub(crate) fn request_id(
+    value: JcsValue,
+    field: &'static str,
+) -> Result<SessionRequestId, SessionContractError> {
+    Ok(SessionRequestId::from_bytes(hex::<16>(
+        &text(value, field)?,
+        field,
+    )?))
+}
+
+pub(crate) fn close_request_id(
+    value: JcsValue,
+    field: &'static str,
+) -> Result<CloseRequestId, SessionContractError> {
+    Ok(CloseRequestId::from_bytes(hex::<16>(
+        &text(value, field)?,
+        field,
+    )?))
+}
+
+pub(crate) fn transition_id(
+    value: JcsValue,
+    field: &'static str,
+) -> Result<SessionTransitionId, SessionContractError> {
+    Ok(SessionTransitionId::from_bytes(hex::<16>(
         &text(value, field)?,
         field,
     )?))

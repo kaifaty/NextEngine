@@ -117,6 +117,9 @@ fn main() {
         if arguments.iter().any(|argument| argument == "--interactive") {
             fail("headless smoke unexpectedly received --interactive");
         }
+        if argument_value(&arguments, "--live-ticks") != "0" {
+            fail("headless smoke is not the exact zero-tick live launch");
+        }
         ("Headless", 0, "null".to_owned())
     } else if file_name.starts_with("next_game") {
         if !arguments.iter().any(|argument| argument == "--interactive")

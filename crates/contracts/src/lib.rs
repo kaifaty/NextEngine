@@ -20,4 +20,5 @@ pub mod render_content;
 pub mod rpg;
 pub mod session;
 pub mod snapshot;
+pub mod targeting;
 pub mod world;

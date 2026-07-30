@@ -8,13 +8,11 @@ use next_presentation::PresentationBindingV1;
 use next_runtime::{PhysicsLaunchOptions, RuntimeState};
 use next_world::WorldStreamerV1;
 
+use crate::ReferenceGameError;
+use crate::input::NormalizedReferenceInputV1;
 use crate::rpg::{cooked_interaction_outcome, cooked_project_rpg_snapshot};
 use crate::session::{
     ReferenceGameSession, build_reference_game_session, build_reference_game_session_with_profile,
-};
-use crate::{
-    ReferenceGameError, player_action_sample, player_equip_use_sample, player_interact_sample,
-    player_melee_sample, player_pickup_sample,
 };
 
 pub struct ReferenceRunOutcomeV1 {
@@ -89,6 +87,7 @@ pub fn run_reference_game_with_backend(
         rpg_snapshot,
         physics_options,
     )?;
+    let mut input_producer = NormalizedReferenceInputV1::new(&fixture)?;
     let initial_chunk_id = fixture
         .activated_project
         .world_partition
@@ -237,40 +236,19 @@ pub fn run_reference_game_with_backend(
             tick_reports.push(report);
             continue;
         }
-        let wall_time =
-            Some(i64::try_from(sequence).map_err(|_| ReferenceGameError::CountOverflow)? * 1000);
         let sample = match action {
-            ScenarioAction::Movement(phase, direction) => {
-                player_action_sample(&fixture, sequence, phase, direction, wall_time)?
+            ScenarioAction::Movement(_phase, direction) => {
+                input_producer.movement_sample(sequence, direction)?
             }
-            ScenarioAction::Interaction => player_interact_sample(
-                &fixture,
-                sequence,
-                PlayerActionPhaseV1::Started,
-                true,
-                wall_time,
-            )?,
-            ScenarioAction::Pickup => player_pickup_sample(
-                &fixture,
-                sequence,
-                PlayerActionPhaseV1::Started,
-                true,
-                wall_time,
-            )?,
-            ScenarioAction::EquipUse => player_equip_use_sample(
-                &fixture,
-                sequence,
-                PlayerActionPhaseV1::Started,
-                true,
-                wall_time,
-            )?,
-            ScenarioAction::Melee => player_melee_sample(
-                &fixture,
-                sequence,
-                PlayerActionPhaseV1::Started,
-                true,
-                wall_time,
-            )?,
+            ScenarioAction::Interaction => input_producer
+                .semantic_sample(sequence, next_contracts::input::CORE_INTERACT_ACTION_ID)?,
+            ScenarioAction::Pickup => input_producer
+                .semantic_sample(sequence, next_contracts::input::CORE_PICKUP_ACTION_ID)?,
+            ScenarioAction::EquipUse => input_producer
+                .semantic_sample(sequence, next_contracts::input::CORE_EQUIP_USE_ACTION_ID)?,
+            ScenarioAction::Melee => {
+                input_producer.semantic_sample(sequence, CORE_MELEE_ACTION_ID)?
+            }
             ScenarioAction::AgentMelee => unreachable!("handled before input mapping"),
             ScenarioAction::ChunkTransition(_, _) => unreachable!("handled before input mapping"),
         };
@@ -413,7 +391,7 @@ fn rpg_contact_facts_from_report(
     facts
 }
 
-fn fixture_presentation_bindings(
+pub(super) fn fixture_presentation_bindings(
     fixture: &ReferenceGameSession,
 ) -> Result<Vec<PresentationBindingV1>, ReferenceGameError> {
     let revision = |asset_id| {

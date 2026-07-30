@@ -29,6 +29,10 @@ pub enum PhysicsContractError {
     LimitExceeded,
     ContactIdentityMismatch,
     ReferenceProfileUnsupported,
+    InvalidQuery,
+    QueryCapacityExceeded,
+    QueryUnsupported,
+    SnapshotSelectorMismatch,
 }
 
 impl PhysicsContractError {
@@ -43,6 +47,10 @@ impl PhysicsContractError {
             Self::LimitExceeded => "PHYS_LIMIT_EXCEEDED",
             Self::ContactIdentityMismatch => "PHYS_CONTACT_IDENTITY_INVALID",
             Self::ReferenceProfileUnsupported => "PHYS_REFERENCE_PROFILE_UNSUPPORTED",
+            Self::InvalidQuery => "PHYS_QUERY_INVALID",
+            Self::QueryCapacityExceeded => "PHYS_QUERY_CAPACITY_EXCEEDED",
+            Self::QueryUnsupported => "PHYS_QUERY_UNSUPPORTED",
+            Self::SnapshotSelectorMismatch => "PHYS_QUERY_SNAPSHOT_MISMATCH",
             _ => "PHYSICS_CONTRACT_INVALID",
         }
     }
@@ -89,6 +97,16 @@ impl Display for PhysicsContractError {
             }
             Self::ReferenceProfileUnsupported => {
                 formatter.write_str("physics descriptor is outside the reference profile")
+            }
+            Self::InvalidQuery => formatter.write_str("physics query is invalid"),
+            Self::QueryCapacityExceeded => {
+                formatter.write_str("physics query capacity is exceeded")
+            }
+            Self::QueryUnsupported => {
+                formatter.write_str("physics query is unsupported by this implementation")
+            }
+            Self::SnapshotSelectorMismatch => {
+                formatter.write_str("physics query snapshot selector does not match")
             }
         }
     }

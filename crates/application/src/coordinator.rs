@@ -12,10 +12,12 @@ use crate::durable::DurableApplicationSnapshotV1;
 mod activation;
 mod close_flow;
 mod identity;
+mod platform_host;
 mod publication;
 mod recovery;
 mod run;
 
+use platform_host::RegisteredPlatformHostV1;
 use run::PreparedRunV1;
 
 const PROJECT_DIRECTORY: &str = "project";
@@ -47,9 +49,14 @@ pub struct ApplicationCoordinator {
     durable: DurableApplicationSnapshotV1,
     current_generation: ContentHash,
     objects: BTreeMap<ContentHash, Vec<u8>>,
+    prepared_run_objects: BTreeMap<ContentHash, Vec<u8>>,
     prepared_run: Option<PreparedRunV1>,
+    live_run: Option<next_reference_game::ReferenceGameDriverV1>,
+    platform_host: Option<RegisteredPlatformHostV1>,
     #[cfg(test)]
     pause_after_save_commit: bool,
+    #[cfg(test)]
+    fail_next_state_publication: bool,
 }
 
 impl ApplicationCoordinator {

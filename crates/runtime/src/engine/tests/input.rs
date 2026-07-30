@@ -1,0 +1,611 @@
+use super::*;
+
+#[test]
+fn physx_fallback_is_confined_to_world_activation() {
+    let bootstrap = RuntimeBootstrapV3::neutral_empty().expect("neutral bootstrap");
+    let runtime = RuntimeState::new_with_physics_options(
+        bootstrap.clone(),
+        AuthorityRegistry::new(),
+        PhysicsLaunchOptions::new(PhysicsBackendPolicy::PreferPhysXThenReference),
+    )
+    .expect("pre-activation fallback");
+    assert_eq!(
+        runtime.physics_backend_kind(),
+        PhysicsBackendKind::Reference
+    );
+
+    let required = RuntimeState::new_with_physics_options(
+        bootstrap,
+        AuthorityRegistry::new(),
+        PhysicsLaunchOptions::new(PhysicsBackendPolicy::RequirePhysX),
+    )
+    .expect_err("old reference-only profile cannot activate PhysX");
+    assert!(matches!(
+        required,
+        SnapshotRestoreError::PhysicsController(_)
+    ));
+}
+
+#[test]
+fn action_frames_move_capsule_exactly_and_wall_time_is_nonauthoritative() {
+    let mut fixture = physical_fixture();
+    for sequence in 0..3 {
+        let sample = movement_sample(
+            &fixture,
+            sequence,
+            PlayerActionPhaseV1::Performed,
+            [0, 32_767],
+            Some(i64::try_from(sequence).expect("small") * 999),
+        );
+        fixture
+            .runtime
+            .enqueue_input_sample(&fixture.principal, sample)
+            .expect("enqueue");
+        let report = fixture.runtime.run_tick([]).expect("movement tick");
+        assert_eq!(report.results[0].disposition, CommandDisposition::Committed);
+        assert_eq!(report.events.len(), 1);
+        assert_eq!(
+            report.mapping_receipts[0].code,
+            InputMappingCodeV1::Accepted
+        );
+    }
+    let body = &fixture.runtime.physics_snapshot().sorted_body_states[&fixture.physics_body_id];
+    assert_eq!(body.pose.translation_micrometres, [0, 900_000, 300_000]);
+    assert_eq!(fixture.runtime.physics_snapshot().physics_tick, 6);
+}
+
+#[test]
+fn invalid_and_colliding_input_never_reaches_command_ledger() {
+    let mut fixture = physical_fixture();
+    let diagonal = movement_sample(
+        &fixture,
+        0,
+        PlayerActionPhaseV1::Performed,
+        [32_767, 32_767],
+        None,
+    );
+    fixture
+        .runtime
+        .enqueue_input_sample(&fixture.principal, diagonal)
+        .expect("enqueue diagonal");
+    let invalid = fixture.runtime.run_tick([]).expect("mapping rejection");
+    assert!(invalid.results.is_empty());
+    assert!(invalid.events.is_empty());
+    assert_eq!(
+        invalid.mapping_receipts[0].code,
+        InputMappingCodeV1::ValueOutOfProfile
+    );
+    assert_eq!(
+        invalid
+            .snapshot
+            .command_ledger
+            .streams
+            .values()
+            .next()
+            .expect("stream")
+            .finalized_receipt_count,
+        0
+    );
+
+    let first = movement_sample(
+        &fixture,
+        1,
+        PlayerActionPhaseV1::Performed,
+        [0, 32_767],
+        None,
+    );
+    let second = movement_sample(
+        &fixture,
+        1,
+        PlayerActionPhaseV1::Performed,
+        [0, -32_767],
+        None,
+    );
+    fixture
+        .runtime
+        .enqueue_input_sample(&fixture.principal, first)
+        .expect("first");
+    fixture
+        .runtime
+        .enqueue_input_sample(&fixture.principal, second)
+        .expect("second");
+    let collision = fixture.runtime.run_tick([]).expect("input collision");
+    assert!(collision.results.is_empty());
+    assert_eq!(
+        collision
+            .closed_ingress_batch
+            .body
+            .equivalence_receipts
+            .len(),
+        1
+    );
+    assert_eq!(
+        collision
+            .snapshot
+            .command_ledger
+            .streams
+            .values()
+            .next()
+            .expect("stream")
+            .finalized_receipt_count,
+        0
+    );
+}
+
+#[test]
+fn ingress_rejects_noncanonical_action_order_against_the_exact_registry() {
+    let mut fixture = physical_fixture();
+    let sample = exact_player_sample(
+        &fixture,
+        0,
+        vec![
+            PlayerActionV1 {
+                action_id: SchemaId::new(CORE_MOVE_ACTION_ID).expect("movement action"),
+                phase: PlayerActionPhaseV1::Performed,
+                value: PlayerActionValueV1::Vector2Q15([0, 32_767]),
+                semantic_occurrence_ordinal: 0,
+            },
+            PlayerActionV1 {
+                action_id: SchemaId::new(CORE_CAMERA_ORBIT_ACTION_ID).expect("camera action"),
+                phase: PlayerActionPhaseV1::Performed,
+                value: PlayerActionValueV1::Vector2Q15([12, -9]),
+                semantic_occurrence_ordinal: 1,
+            },
+        ],
+    );
+    fixture
+        .runtime
+        .enqueue_input_sample(&fixture.principal, sample)
+        .expect("sample is structurally admissible");
+
+    let report = fixture.runtime.run_tick([]).expect("mapping close");
+    assert!(report.results.is_empty());
+    assert!(report.events.is_empty());
+    assert_eq!(
+        report.mapping_receipts[0].code,
+        InputMappingCodeV1::FrameInvalid
+    );
+}
+
+#[test]
+fn ingress_rejects_a_phase_not_declared_by_the_exact_action_map() {
+    let mut fixture = physical_fixture();
+    let sample = exact_player_sample(
+        &fixture,
+        0,
+        vec![PlayerActionV1 {
+            action_id: SchemaId::new(CORE_CAMERA_ORBIT_ACTION_ID).expect("camera action"),
+            phase: PlayerActionPhaseV1::Started,
+            value: PlayerActionValueV1::Vector2Q15([12, -9]),
+            semantic_occurrence_ordinal: 0,
+        }],
+    );
+    fixture
+        .runtime
+        .enqueue_input_sample(&fixture.principal, sample)
+        .expect("sample is structurally admissible");
+
+    let report = fixture.runtime.run_tick([]).expect("mapping close");
+    assert!(report.results.is_empty());
+    assert!(report.events.is_empty());
+    assert_eq!(
+        report.mapping_receipts[0].code,
+        InputMappingCodeV1::FrameInvalid
+    );
+}
+
+#[test]
+fn input_configuration_activation_is_atomic_revision_bound_and_queue_safe() {
+    let mut fixture = physical_fixture();
+    let original = fixture
+        .runtime
+        .player_controller_registry
+        .bindings
+        .get(&fixture.source_id)
+        .expect("controller binding")
+        .clone();
+
+    fixture
+        .runtime
+        .activate_player_input_configuration(
+            fixture.source_id,
+            original.action_map.clone(),
+            original.context_stack.clone(),
+        )
+        .expect("same exact registration is idempotent");
+
+    let mut collision_actions = original.action_map.actions.clone();
+    let movement = collision_actions
+        .iter_mut()
+        .find(|action| action.action_id.as_str() == CORE_MOVE_ACTION_ID)
+        .expect("movement action");
+    let north = movement
+        .binding_slots
+        .iter_mut()
+        .find(|binding| {
+            matches!(
+                binding.transform,
+                ActionBindingTransformV1::Vector2ContributionQ15 {
+                    contribution_q15: [0, 32_767]
+                }
+            )
+        })
+        .expect("north binding");
+    north.transform = ActionBindingTransformV1::Vector2ContributionQ15 {
+        contribution_q15: [0, 32_766],
+    };
+    let collision_map = ActionMapManifestV1::new(
+        original.action_map.action_map_id.clone(),
+        original.action_map.revision,
+        original.action_map.supported_device_classes.clone(),
+        collision_actions,
+    )
+    .expect("same-revision collision map");
+    assert_eq!(
+        fixture.runtime.activate_player_input_configuration(
+            fixture.source_id,
+            collision_map,
+            original.context_stack.clone(),
+        ),
+        Err(InputContractError::RegistryCollision)
+    );
+    assert_eq!(
+        fixture
+            .runtime
+            .player_controller_registry
+            .bindings
+            .get(&fixture.source_id)
+            .expect("binding after collision"),
+        &original
+    );
+
+    let queued = movement_sample(
+        &fixture,
+        0,
+        PlayerActionPhaseV1::Performed,
+        [0, 32_767],
+        None,
+    );
+    fixture
+        .runtime
+        .enqueue_input_sample(&fixture.principal, queued)
+        .expect("old revision queued");
+    let next_map = ActionMapManifestV1::new(
+        original.action_map.action_map_id.clone(),
+        original.action_map.revision + 1,
+        original.action_map.supported_device_classes.clone(),
+        original.action_map.actions.clone(),
+    )
+    .expect("next action map");
+    let next_context = InputContextStackV1::new(
+        original.context_stack.stack_id.clone(),
+        original.context_stack.revision + 1,
+        original.context_stack.entries.clone(),
+    )
+    .expect("next context stack");
+    assert_eq!(
+        fixture.runtime.activate_player_input_configuration(
+            fixture.source_id,
+            next_map.clone(),
+            next_context.clone(),
+        ),
+        Err(InputContractError::InvalidProfile)
+    );
+    assert_eq!(
+        fixture
+            .runtime
+            .run_tick([])
+            .expect("old queued revision remains valid")
+            .mapping_receipts[0]
+            .code,
+        InputMappingCodeV1::Accepted
+    );
+
+    fixture
+        .runtime
+        .activate_player_input_configuration(
+            fixture.source_id,
+            next_map.clone(),
+            next_context.clone(),
+        )
+        .expect("next revision activates at an empty ingress boundary");
+    let activated = fixture
+        .runtime
+        .player_controller_registry
+        .bindings
+        .get(&fixture.source_id)
+        .expect("activated binding");
+    assert_eq!(activated.action_map_hash, next_map.content_hash);
+    assert_eq!(activated.action_map_revision, next_map.revision);
+    assert_eq!(activated.context_stack_hash, next_context.content_hash);
+    assert_eq!(activated.context_stack_revision, next_context.revision);
+
+    let sample = exact_player_sample(
+        &fixture,
+        1,
+        vec![PlayerActionV1 {
+            action_id: SchemaId::new(CORE_MOVE_ACTION_ID).expect("movement action"),
+            phase: PlayerActionPhaseV1::Performed,
+            value: PlayerActionValueV1::Vector2Q15([0, 32_767]),
+            semantic_occurrence_ordinal: 0,
+        }],
+    );
+    fixture
+        .runtime
+        .enqueue_input_sample(&fixture.principal, sample)
+        .expect("new revision queued");
+    assert_eq!(
+        fixture
+            .runtime
+            .run_tick([])
+            .expect("new revision tick")
+            .mapping_receipts[0]
+            .code,
+        InputMappingCodeV1::Accepted
+    );
+}
+
+#[test]
+fn exact_duplicate_input_closes_and_moves_once() {
+    let mut fixture = physical_fixture();
+    let sample = movement_sample(
+        &fixture,
+        0,
+        PlayerActionPhaseV1::Performed,
+        [0, 32_767],
+        Some(1),
+    );
+    fixture
+        .runtime
+        .enqueue_input_sample(&fixture.principal, sample.clone())
+        .expect("first duplicate");
+    fixture
+        .runtime
+        .enqueue_input_sample(&fixture.principal, sample)
+        .expect("second duplicate");
+    let report = fixture.runtime.run_tick([]).expect("tick");
+    assert_eq!(report.closed_ingress_batch.body.input_samples.len(), 1);
+    assert_eq!(
+        report.stage_trace[0],
+        StageTraceEntry {
+            stage: TransactionStage::IngressClose,
+            received: 1,
+            accepted: 1,
+            rejected: 0,
+            committed: 1,
+            deduplicated: 1,
+        }
+    );
+    assert_eq!(
+        report.physics_snapshot.sorted_body_states[&fixture.physics_body_id]
+            .pose
+            .translation_micrometres,
+        [0, 900_000, 100_000]
+    );
+}
+
+#[test]
+fn player_mapping_binds_the_assignment_with_the_exact_source_class() {
+    let mut fixture = physical_fixture();
+    let frame = PlayerActionFrameV1 {
+        schema_version: PLAYER_ACTION_FRAME_SCHEMA_VERSION,
+        controller_id: fixture.controller_id,
+        logical_frame_sequence: 0,
+        action_map_hash: fixture.action_map_hash,
+        action_map_revision: 1,
+        context_stack_hash: fixture.context_stack_hash,
+        context_stack_revision: 1,
+        actions: vec![PlayerActionV1 {
+            action_id: SchemaId::new(CORE_INTERACT_ACTION_ID).expect("action"),
+            phase: PlayerActionPhaseV1::Started,
+            value: PlayerActionValueV1::Digital(true),
+            semantic_occurrence_ordinal: 0,
+        }],
+    };
+    let player = InputSampleV1 {
+        schema_version: 1,
+        source_class: SchemaId::new(PLAYER_ACTION_SOURCE_CLASS).expect("source class"),
+        source_id: fixture.source_id,
+        source_sequence: 0,
+        payload_schema_id: SchemaId::new(PLAYER_ACTION_FRAME_SCHEMA_ID).expect("schema"),
+        payload_schema_version: u32::from(PLAYER_ACTION_FRAME_SCHEMA_VERSION),
+        payload: frame.canonical_bytes().expect("frame"),
+        sampled_wall_time: None,
+    };
+    let foreign = InputSampleV1 {
+        source_class: SchemaId::new("aaa.foreign-input").expect("foreign source class"),
+        ..player.clone()
+    };
+    fixture.runtime.ingress_checkpoint.current_samples = vec![foreign, player];
+    let closed = super::ingress::close_ingress(
+        0,
+        1,
+        &fixture.runtime.admission_limits,
+        &fixture.runtime.player_controller_registry,
+        true,
+        &mut fixture.runtime.ingress_checkpoint,
+    )
+    .expect("closed ingress");
+
+    assert_eq!(closed.pending_interactions.len(), 1);
+    assert_eq!(
+        closed.pending_interactions[0]
+            .assignment
+            .source_class
+            .as_str(),
+        PLAYER_ACTION_SOURCE_CLASS
+    );
+}
+
+#[test]
+fn replay_v5_rejects_query_batch_divergence_before_state_commit() {
+    let mut recorded = fixture();
+    let direct = command(&recorded, 0, 0);
+    let initial_checkpoint = recorded
+        .runtime
+        .world_checkpoint()
+        .expect("initial checkpoint");
+    let authority = recorded.runtime.authority.clone();
+    let report = recorded
+        .runtime
+        .run_tick([direct.clone()])
+        .expect("recorded tick");
+    let mut wrong_query_batch = report.physics_query_batch.clone();
+    wrong_query_batch.snapshot_selector.physics_snapshot_hash = ContentHash::from_bytes([0xee; 32]);
+
+    let mut replay =
+        RuntimeReplayDriver::new(initial_checkpoint.clone(), authority).expect("replay driver");
+    let error = replay
+        .replay_tick_v5(
+            report.closed_ingress_batch.clone(),
+            vec![direct],
+            &report.command_batches[0],
+            &report.physics_step_input,
+            &report.contact_batch,
+            &report.targeting_intents,
+            &report.authoritative_targeting_queries,
+            &wrong_query_batch,
+            &report.physics_query_results,
+            &report.command_batches[1],
+        )
+        .expect_err("query batch divergence");
+
+    assert!(matches!(
+        error,
+        RuntimeReplayError::PhysicsQueryBatchMismatch { tick: 0 }
+    ));
+    assert_eq!(
+        replay.world_checkpoint().expect("checkpoint after failure"),
+        initial_checkpoint
+    );
+}
+
+#[test]
+fn presentation_only_camera_action_is_admitted_without_a_world_command() {
+    let mut fixture = physical_fixture();
+    let frame = PlayerActionFrameV1 {
+        schema_version: PLAYER_ACTION_FRAME_SCHEMA_VERSION,
+        controller_id: fixture.controller_id,
+        logical_frame_sequence: 0,
+        action_map_hash: fixture.action_map_hash,
+        action_map_revision: 1,
+        context_stack_hash: fixture.context_stack_hash,
+        context_stack_revision: 1,
+        actions: vec![PlayerActionV1 {
+            action_id: SchemaId::new(CORE_CAMERA_ORBIT_ACTION_ID).expect("camera action"),
+            phase: PlayerActionPhaseV1::Performed,
+            value: PlayerActionValueV1::Vector2Q15([12, -9]),
+            semantic_occurrence_ordinal: 0,
+        }],
+    };
+    let sample = InputSampleV1 {
+        schema_version: 1,
+        source_class: SchemaId::new(PLAYER_ACTION_SOURCE_CLASS).expect("source class"),
+        source_id: fixture.source_id,
+        source_sequence: 0,
+        payload_schema_id: SchemaId::new(PLAYER_ACTION_FRAME_SCHEMA_ID).expect("schema"),
+        payload_schema_version: u32::from(PLAYER_ACTION_FRAME_SCHEMA_VERSION),
+        payload: frame.canonical_bytes().expect("frame"),
+        sampled_wall_time: None,
+    };
+    fixture
+        .runtime
+        .enqueue_input_sample(&fixture.principal, sample)
+        .expect("enqueue camera frame");
+    let report = fixture.runtime.run_tick([]).expect("camera-only tick");
+    assert_eq!(
+        report.mapping_receipts[0].code,
+        InputMappingCodeV1::Accepted
+    );
+    assert!(report.command_batches[0].body.envelopes.is_empty());
+    assert!(report.results.is_empty());
+    assert!(report.events.is_empty());
+}
+
+#[test]
+fn explicitly_late_input_is_persisted_for_the_following_tick() {
+    let mut fixture = physical_fixture();
+    let sample = movement_sample(
+        &fixture,
+        0,
+        PlayerActionPhaseV1::Performed,
+        [0, 32_767],
+        Some(777),
+    );
+    fixture
+        .runtime
+        .enqueue_input_sample_for_next_tick(&fixture.principal, sample)
+        .expect("enqueue after current close barrier");
+
+    let current = fixture.runtime.run_tick([]).expect("current tick");
+    assert!(current.closed_ingress_batch.body.input_samples.is_empty());
+    assert!(current.mapping_receipts.is_empty());
+    assert_eq!(
+        current.physics_snapshot.sorted_body_states[&fixture.physics_body_id]
+            .pose
+            .translation_micrometres,
+        [0, 900_000, 0]
+    );
+
+    let following = fixture.runtime.run_tick([]).expect("following tick");
+    assert_eq!(following.closed_ingress_batch.body.input_samples.len(), 1);
+    assert_eq!(
+        following.mapping_receipts[0].code,
+        InputMappingCodeV1::Accepted
+    );
+    assert_eq!(
+        following.physics_snapshot.sorted_body_states[&fixture.physics_body_id]
+            .pose
+            .translation_micrometres,
+        [0, 900_000, 100_000]
+    );
+}
+
+#[test]
+fn input_arrival_permutations_close_to_identical_batches_and_state() {
+    let mut left = physical_fixture();
+    let mut right = physical_fixture();
+    let first = movement_sample(
+        &left,
+        0,
+        PlayerActionPhaseV1::Performed,
+        [32_767, 0],
+        Some(1),
+    );
+    let second = movement_sample(
+        &left,
+        1,
+        PlayerActionPhaseV1::Performed,
+        [0, 32_767],
+        Some(2),
+    );
+    for sample in [first.clone(), second.clone()] {
+        left.runtime
+            .enqueue_input_sample(&left.principal, sample)
+            .expect("left enqueue");
+    }
+    for sample in [second, first] {
+        right
+            .runtime
+            .enqueue_input_sample(&right.principal, sample)
+            .expect("right enqueue");
+    }
+    let left = left.runtime.run_tick([]).expect("left tick");
+    let right = right.runtime.run_tick([]).expect("right tick");
+    assert_eq!(left.closed_ingress_batch, right.closed_ingress_batch);
+    assert_eq!(left.command_batches, right.command_batches);
+    assert_eq!(left.results, right.results);
+    assert_eq!(left.events, right.events);
+    assert_eq!(left.physics_snapshot, right.physics_snapshot);
+    assert_eq!(left.snapshot.command_ledger, right.snapshot.command_ledger);
+    assert!(
+        left.mapping_receipts
+            .iter()
+            .all(|receipt| receipt.code == InputMappingCodeV1::FrameInvalid)
+    );
+    assert!(
+        left.mapping_receipts_v2
+            .iter()
+            .all(|receipt| receipt.frame_code == InputMappingCodeV1::FrameInvalid)
+    );
+}

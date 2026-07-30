@@ -611,6 +611,7 @@ version = "0.1.0"
 dependencies = [
  "next_assets",
  "next_contracts",
+ "next_player",
  "next_presentation",
  "next_project",
  "next_reference_game",
@@ -709,6 +710,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "next_player"
+version = "0.1.0"
+dependencies = [
+ "next_contracts",
+]
+
+[[package]]
 name = "next_plugin_host"
 version = "0.1.0"
 dependencies = [
@@ -740,6 +748,7 @@ dependencies = [
  "next_agent",
  "next_assets",
  "next_contracts",
+ "next_player",
  "next_presentation",
  "next_project",
  "next_runtime",

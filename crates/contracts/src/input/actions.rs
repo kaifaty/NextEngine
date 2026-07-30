@@ -4,6 +4,7 @@ use crate::ids::*;
 use super::codec::*;
 use super::constants::*;
 use super::profiles::RuntimeAdmissionLimitsV1;
+use super::{ActionMapManifestV1, InputContextStackV1, PlayerActionValueKindV1};
 
 #[must_use]
 pub fn core_player_action_map_v1_hash() -> ContentHash {
@@ -48,7 +49,7 @@ pub enum PlayerActionPhaseV1 {
 }
 
 impl PlayerActionPhaseV1 {
-    fn from_tag(tag: u8) -> Result<Self, InputContractError> {
+    pub(super) fn from_tag(tag: u8) -> Result<Self, InputContractError> {
         match tag {
             1 => Ok(Self::Started),
             2 => Ok(Self::Performed),
@@ -187,10 +188,6 @@ impl PlayerActionFrameV1 {
         if self.actions.len() > MAX_PLAYER_ACTIONS_PER_FRAME {
             return Err(InputContractError::ResourceLimit);
         }
-        let order_is_invalid = self.actions.windows(2).any(|pair| {
-            (&pair[0].action_id, pair[0].semantic_occurrence_ordinal)
-                >= (&pair[1].action_id, pair[1].semantic_occurrence_ordinal)
-        });
         let mut ordinals = self
             .actions
             .iter()
@@ -201,8 +198,60 @@ impl PlayerActionFrameV1 {
             .iter()
             .enumerate()
             .any(|(index, ordinal)| usize::try_from(*ordinal).ok() != Some(index));
-        if order_is_invalid || ordinals_are_invalid {
+        if ordinals_are_invalid {
             return Err(InputContractError::NonCanonicalOrder);
+        }
+        Ok(())
+    }
+
+    pub fn validate_against(
+        &self,
+        action_map: &ActionMapManifestV1,
+        context_stack: &InputContextStackV1,
+    ) -> Result<(), InputContractError> {
+        self.validate()?;
+        context_stack.validate_against_action_map(action_map)?;
+        if self.action_map_hash != action_map.content_hash
+            || self.context_stack_hash != context_stack.content_hash
+        {
+            return Err(InputContractError::HashMismatch);
+        }
+        if self.action_map_revision != action_map.revision
+            || self.context_stack_revision != context_stack.revision
+        {
+            return Err(InputContractError::InvalidProfile);
+        }
+
+        let mut previous_key = None;
+        for action in &self.actions {
+            let definition = action_map
+                .action(&action.action_id)
+                .ok_or(InputContractError::InvalidValue)?;
+            if definition
+                .allowed_phases
+                .binary_search(&action.phase)
+                .is_err()
+                || !action_value_matches_kind(action.value, definition.value_kind)
+            {
+                return Err(InputContractError::InvalidValue);
+            }
+            let priority = context_stack
+                .action_priority(&action.action_id)
+                .ok_or(InputContractError::InvalidValue)?;
+            let key = (
+                std::cmp::Reverse(priority),
+                action.action_id.clone(),
+                action.phase,
+                action_value_sort_key(action.value),
+                action.semantic_occurrence_ordinal,
+            );
+            if previous_key
+                .as_ref()
+                .is_some_and(|previous| previous >= &key)
+            {
+                return Err(InputContractError::NonCanonicalOrder);
+            }
+            previous_key = Some(key);
         }
         Ok(())
     }
@@ -269,6 +318,40 @@ impl PlayerActionFrameV1 {
         value.validate()?;
         require_round_trip(bytes, value.canonical_bytes()?)?;
         Ok(value)
+    }
+}
+
+const fn action_value_matches_kind(
+    value: PlayerActionValueV1,
+    kind: PlayerActionValueKindV1,
+) -> bool {
+    matches!(
+        (value, kind),
+        (
+            PlayerActionValueV1::Digital(_),
+            PlayerActionValueKindV1::Digital
+        ) | (
+            PlayerActionValueV1::ScalarQ15(_),
+            PlayerActionValueKindV1::ScalarQ15
+        ) | (
+            PlayerActionValueV1::Vector2Q15(_),
+            PlayerActionValueKindV1::Vector2Q15
+        )
+    )
+}
+
+fn action_value_sort_key(value: PlayerActionValueV1) -> [u8; 5] {
+    match value {
+        PlayerActionValueV1::Digital(value) => [1, u8::from(value), 0, 0, 0],
+        PlayerActionValueV1::ScalarQ15(value) => {
+            let bytes = value.to_le_bytes();
+            [2, bytes[0], bytes[1], 0, 0]
+        }
+        PlayerActionValueV1::Vector2Q15(value) => {
+            let x = value[0].to_le_bytes();
+            let y = value[1].to_le_bytes();
+            [3, x[0], x[1], y[0], y[1]]
+        }
     }
 }
 

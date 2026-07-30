@@ -16,8 +16,9 @@ use next_contracts::render_content::{
 use next_render::B0FramePlanV1;
 
 use self::pipeline::{
-    PipelineState, draw_push_constant_bytes, frame_projection_bytes, identity_matrix_bytes,
+    PipelineState, draw_push_constant_bytes, frame_raster_state, identity_matrix_bytes,
 };
+pub(crate) use self::resources::DepthAttachment;
 use self::resources::{BufferAllocation, DescriptorState, TextureResource, upload_content};
 
 const VERTEX_STRIDE: u32 = 20;
@@ -107,6 +108,7 @@ impl B0GpuContent {
         queue: vk::Queue,
         queue_family_index: u32,
         color_format: vk::Format,
+        depth_format: vk::Format,
         catalog: &RenderContentCatalogV1,
     ) -> Result<Self, B0GpuContentError> {
         let prepared = PreparedContent::from_catalog(catalog)?;
@@ -185,6 +187,7 @@ impl B0GpuContent {
         let pipeline = PipelineState::new(
             device,
             color_format,
+            depth_format,
             descriptors.frame_layout,
             descriptors.texture_layout,
         )?;
@@ -233,20 +236,11 @@ impl B0GpuContent {
             ));
         }
 
+        let raster_state = frame_raster_state(plan.camera.as_ref(), extent)?;
         self.frame_uniform
-            .write(0, &frame_projection_bytes(extent))?;
-        let viewports = [vk::Viewport {
-            x: 0.0,
-            y: 0.0,
-            width: extent.width as f32,
-            height: extent.height as f32,
-            min_depth: 0.0,
-            max_depth: 1.0,
-        }];
-        let scissors = [vk::Rect2D {
-            offset: vk::Offset2D { x: 0, y: 0 },
-            extent,
-        }];
+            .write(0, &raster_state.view_projection_bytes)?;
+        let viewports = [raster_state.viewport];
+        let scissors = [raster_state.scissor];
         let vertex_buffers = [self.geometry.buffer];
         let vertex_offsets = [0];
         let frame_sets = [self.descriptors.frame_set];

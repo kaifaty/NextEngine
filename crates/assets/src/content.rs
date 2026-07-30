@@ -13,6 +13,8 @@ pub const CONTENT_CURRENT_FILE: &str = "CURRENT";
 pub const CONTENT_INDEX_FILE: &str = "INDEX.v1";
 pub const CONTENT_MAX_FILES: usize = 16_384;
 pub const CONTENT_MAX_FILE_BYTES: usize = 256 * 1024 * 1024;
+const CONTENT_MAX_REMOVAL_TREE_DEPTH: usize = 64;
+const CONTENT_MAX_REMOVAL_TREE_ENTRIES: usize = CONTENT_MAX_FILES * 16;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PublicationFileV1 {
@@ -143,6 +145,46 @@ impl ContentStore {
             .join(CONTENT_GENERATIONS_DIRECTORY)
             .join(generation_id.to_hex());
         load_generation(&generation_path, generation_id)
+    }
+
+    pub(crate) fn prune_generations_except(
+        &self,
+        retained_generations: &[ContentHash],
+    ) -> Result<(), ContentStoreError> {
+        let generations_path = self.root.join(CONTENT_GENERATIONS_DIRECTORY);
+        let generations_metadata = match fs::symlink_metadata(&generations_path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(error.into()),
+        };
+        validate_plain_directory(&generations_metadata)?;
+
+        let mut entries: Vec<_> = fs::read_dir(&generations_path)?.collect::<Result<_, _>>()?;
+        entries.sort_by_key(std::fs::DirEntry::file_name);
+        for entry in entries {
+            let file_name = entry.file_name();
+            let file_name = file_name.to_str().ok_or(ContentStoreError::InvalidPath)?;
+            let generation_path = entry.path();
+            if generation_path.parent() != Some(generations_path.as_path()) {
+                return Err(ContentStoreError::InvalidPath);
+            }
+            if is_staging_generation_name(file_name) {
+                validate_generation_tree_for_removal(&generation_path, &generation_path)?;
+                fs::remove_dir_all(&generation_path)?;
+                continue;
+            }
+            let generation_id =
+                parse_hash(file_name).map_err(|_| ContentStoreError::InvalidPath)?;
+            validate_plain_directory(&fs::symlink_metadata(&generation_path)?)?;
+
+            if retained_generations.contains(&generation_id) {
+                continue;
+            }
+
+            validate_generation_tree_for_removal(&generation_path, &generation_path)?;
+            fs::remove_dir_all(&generation_path)?;
+        }
+        Ok(())
     }
 
     fn publish_inner(
@@ -395,6 +437,86 @@ fn collect_files(
     Ok(())
 }
 
+fn validate_generation_tree_for_removal(
+    root: &Path,
+    directory: &Path,
+) -> Result<(), ContentStoreError> {
+    let mut visited_entries = 0;
+    validate_generation_tree_for_removal_inner(root, directory, 0, &mut visited_entries)
+}
+
+fn validate_generation_tree_for_removal_inner(
+    root: &Path,
+    directory: &Path,
+    depth: usize,
+    visited_entries: &mut usize,
+) -> Result<(), ContentStoreError> {
+    if depth > CONTENT_MAX_REMOVAL_TREE_DEPTH {
+        return Err(ContentStoreError::LimitExceeded {
+            actual: depth,
+            limit: CONTENT_MAX_REMOVAL_TREE_DEPTH,
+        });
+    }
+    let metadata = fs::symlink_metadata(directory)?;
+    validate_plain_directory(&metadata)?;
+
+    for entry in fs::read_dir(directory)? {
+        let entry = entry?;
+        *visited_entries =
+            visited_entries
+                .checked_add(1)
+                .ok_or(ContentStoreError::LimitExceeded {
+                    actual: usize::MAX,
+                    limit: CONTENT_MAX_REMOVAL_TREE_ENTRIES,
+                })?;
+        if *visited_entries > CONTENT_MAX_REMOVAL_TREE_ENTRIES {
+            return Err(ContentStoreError::LimitExceeded {
+                actual: *visited_entries,
+                limit: CONTENT_MAX_REMOVAL_TREE_ENTRIES,
+            });
+        }
+        let path = entry.path();
+        let relative = path
+            .strip_prefix(root)
+            .map_err(|_| ContentStoreError::InvalidPath)?
+            .to_str()
+            .ok_or(ContentStoreError::InvalidPath)?
+            .replace(std::path::MAIN_SEPARATOR, "/");
+        validate_relative_path(&relative)?;
+
+        let metadata = fs::symlink_metadata(&path)?;
+        if is_reparse_point(&metadata) {
+            return Err(ContentStoreError::InvalidPath);
+        }
+        if metadata.is_dir() {
+            validate_generation_tree_for_removal_inner(root, &path, depth + 1, visited_entries)?;
+        } else if !metadata.is_file() {
+            return Err(ContentStoreError::InvalidPath);
+        }
+    }
+    Ok(())
+}
+
+fn validate_plain_directory(metadata: &fs::Metadata) -> Result<(), ContentStoreError> {
+    if !metadata.is_dir() || is_reparse_point(metadata) {
+        return Err(ContentStoreError::InvalidPath);
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn is_reparse_point(metadata: &fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt;
+
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+    metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+}
+
+#[cfg(not(windows))]
+fn is_reparse_point(metadata: &fs::Metadata) -> bool {
+    metadata.file_type().is_symlink()
+}
+
 fn ensure_matches(
     loaded: &PublishedContentGenerationV1,
     publication: &ContentPublicationV1,
@@ -450,11 +572,7 @@ fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, ContentStoreError>
 }
 
 fn parse_hash(value: &str) -> Result<ContentHash, ContentStoreError> {
-    if value.len() != 64
-        || !value
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-    {
+    if !is_lower_hex_digest(value) {
         return Err(ContentStoreError::InvalidIndex);
     }
     let mut output = [0_u8; 32];
@@ -462,6 +580,28 @@ fn parse_hash(value: &str) -> Result<ContentHash, ContentStoreError> {
         output[index] = (hex_nibble(pair[0]) << 4) | hex_nibble(pair[1]);
     }
     Ok(content_hash_from_bytes(output))
+}
+
+fn is_staging_generation_name(value: &str) -> bool {
+    let Some(value) = value.strip_prefix('.') else {
+        return false;
+    };
+    let Some((generation, process_id)) = value.split_once(".staging.") else {
+        return false;
+    };
+    let Ok(parsed_process_id) = process_id.parse::<u32>() else {
+        return false;
+    };
+    is_lower_hex_digest(generation)
+        && parsed_process_id != 0
+        && process_id == parsed_process_id.to_string()
+}
+
+fn is_lower_hex_digest(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn hex_nibble(value: u8) -> u8 {
@@ -477,8 +617,8 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use super::{
-        ContentPublicationV1, ContentPublishFault, ContentStore, ContentStoreError,
-        PublicationFileV1,
+        CONTENT_GENERATIONS_DIRECTORY, ContentPublicationV1, ContentPublishFault, ContentStore,
+        ContentStoreError, PublicationFileV1,
     };
     use next_contracts::ids::content_hash_from_bytes;
 
@@ -532,6 +672,23 @@ mod tests {
                 .file("manifests/value.bin"),
             Some(b"same".as_slice())
         );
+        std::fs::remove_dir_all(root).expect("remove test store");
+    }
+
+    #[test]
+    fn generic_content_store_keeps_all_published_generations() {
+        let root = test_root("no-global-retention");
+        let store = ContentStore::new(&root);
+        for (id, bytes) in [(1, b"one".as_slice()), (2, b"two"), (3, b"three")] {
+            store
+                .publish(&publication(id, bytes))
+                .expect("content publication");
+        }
+        let generations = std::fs::read_dir(root.join(CONTENT_GENERATIONS_DIRECTORY))
+            .expect("generation directory")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("generation entries");
+        assert_eq!(generations.len(), 3);
         std::fs::remove_dir_all(root).expect("remove test store");
     }
 

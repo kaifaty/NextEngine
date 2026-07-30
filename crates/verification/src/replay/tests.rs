@@ -1,10 +1,18 @@
 use next_contracts::canonical::CanonicalDecodeLimits;
 use next_contracts::command::{IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID, WorldCommand};
-use next_contracts::ids::{CapabilityId, ContentHash, PlayerPrincipalId, SchemaId, StateRoot};
+use next_contracts::ids::{
+    CapabilityId, ContentHash, InputSourceId, PlayerPrincipalId, SchemaId, StateRoot,
+};
+use next_contracts::input::{
+    INPUT_MAPPING_RECEIPT_SCHEMA_VERSION, InputMappingCodeV1, InputMappingReceiptV2,
+};
 use next_contracts::persistence::{
     AuthorityGrant, ManifestCodecError, ManifestValidationError, REPLAY_MANIFEST_V4_SCHEMA_VERSION,
-    ReplayCommandRecord, ReplayComparePointV4, ReplayManifestV4, ReplayOwnerSegmentV2,
-    ReplayTickManifestV4, SaveCompatibility, SaveSegmentDescriptor, TickSettings,
+    REPLAY_MANIFEST_V5_SCHEMA_VERSION, ReplayCommandRecord, ReplayComparePointV4,
+    ReplayComparePointV5, ReplayManifestV4, ReplayManifestV5, ReplayOwnerSegmentV2,
+    ReplayTickManifestV4, ReplayTickManifestV5, SaveCompatibility, SaveSegmentDescriptor,
+    TickSettings, replay_physics_query_batch_hash, replay_physics_query_results_hash,
+    replay_targeting_query_trace_hash,
 };
 use next_contracts::physics::{
     PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
@@ -24,7 +32,7 @@ use next_runtime::{AuthorityRegistry, RuntimeReplayDriver, RuntimeReplayError, R
 use super::{
     ReplayError, ReplayInput, ReplayTickInput, checkpoint_segment_hashes, compare_replay_outputs,
     compute_world_checkpoint_root, replay_command_results, run_replay, run_replay_manifest,
-    verify_replay,
+    run_replay_manifest_v5, verify_replay,
 };
 use crate::{StateSegment, build_neutral_runtime_fixture, compute_state_root};
 
@@ -158,6 +166,103 @@ fn replay_manifest() -> (ReplayManifestV4, super::ReplayOutput) {
     (
         ReplayManifestV4 {
             schema_version: REPLAY_MANIFEST_V4_SCHEMA_VERSION,
+            compatibility: compatibility(),
+            initial_owner_segments: replay_owner_segments(&initial_checkpoint),
+            initial_state_root: compute_world_checkpoint_root(&initial_checkpoint)
+                .expect("initial root computes"),
+            authority,
+            ticks,
+            compare_points,
+        },
+        expected,
+    )
+}
+
+fn replay_manifest_v5() -> (ReplayManifestV5, super::ReplayOutput) {
+    let input = scenario();
+    let expected = run_replay(&input).expect("reference replay runs");
+    let mut runtime = RuntimeState::new(input.bootstrap.clone(), input.authority.clone())
+        .expect("initial runtime");
+    let initial_checkpoint = runtime.world_checkpoint().expect("initial checkpoint");
+    let authority = input
+        .authority
+        .entries()
+        .map(|(principal, capabilities)| AuthorityGrant {
+            principal: principal.clone(),
+            capabilities: capabilities.iter().cloned().collect(),
+        })
+        .collect();
+    let mut ticks = Vec::new();
+    let mut compare_points = Vec::new();
+    let physics_catalog = initial_checkpoint.physics_checkpoint.catalog.clone();
+    for input_tick in &input.ticks {
+        let report = runtime
+            .run_tick(input_tick.commands.clone())
+            .expect("recorded tick");
+        let checkpoint = WorldCheckpointV4::new(
+            report.snapshot.clone(),
+            report.rpg_snapshot.clone(),
+            PhysicsWorldCheckpointV1::new(physics_catalog.clone(), report.physics_snapshot.clone())
+                .expect("physics checkpoint"),
+        )
+        .expect("record checkpoint");
+        let (runtime_segment_hash, rpg_segment_hash, physics_segment_hash) =
+            checkpoint_segment_hashes(&checkpoint).expect("segment hashes");
+        ticks.push(ReplayTickManifestV5 {
+            tick: report.tick,
+            closed_ingress_batch: report.closed_ingress_batch.clone(),
+            direct_external_commands: input_tick
+                .commands
+                .iter()
+                .map(|command| {
+                    ReplayCommandRecord::from_command(command).expect("test command is canonical")
+                })
+                .collect(),
+            expected_ingress_command_batch: report.command_batches[0].clone(),
+            expected_physics_step_input: report.physics_step_input.clone(),
+            expected_contact_batch: report.contact_batch.clone(),
+            expected_targeting_intents: report.targeting_intents.clone(),
+            expected_authoritative_targeting_queries: report
+                .authoritative_targeting_queries
+                .clone(),
+            expected_physics_query_batch: report.physics_query_batch.clone(),
+            expected_physics_query_results: report.physics_query_results.clone(),
+            expected_outcome_command_batch: report.command_batches[1].clone(),
+            expected_mapping_receipts: report.mapping_receipts_v2.clone(),
+            expected_command_results: replay_command_results(&report.results),
+            expected_events: report.events.clone(),
+        });
+        compare_points.push(ReplayComparePointV5 {
+            tick: report.tick,
+            state_root: compute_world_checkpoint_root(&checkpoint).expect("state root"),
+            command_ledger_hash: report.snapshot.command_ledger_hash().expect("ledger hash"),
+            runtime_segment_hash,
+            rpg_segment_hash,
+            physics_segment_hash,
+            closed_ingress_batch_hash: report.closed_ingress_batch.batch_hash,
+            ingress_command_batch_hash: report.command_batches[0].batch_hash,
+            physics_step_input_hash: report
+                .physics_step_input
+                .input_hash()
+                .expect("physics input hash"),
+            contact_batch_hash: report.contact_batch.batch_hash,
+            physics_query_batch_hash: replay_physics_query_batch_hash(&report.physics_query_batch)
+                .expect("query batch hash"),
+            physics_query_results_hash: replay_physics_query_results_hash(
+                &report.physics_query_results,
+            )
+            .expect("query results hash"),
+            targeting_query_trace_hash: replay_targeting_query_trace_hash(
+                &report.targeting_intents,
+                &report.authoritative_targeting_queries,
+            )
+            .expect("targeting trace hash"),
+            outcome_command_batch_hash: report.command_batches[1].batch_hash,
+        });
+    }
+    (
+        ReplayManifestV5 {
+            schema_version: REPLAY_MANIFEST_V5_SCHEMA_VERSION,
             compatibility: compatibility(),
             initial_owner_segments: replay_owner_segments(&initial_checkpoint),
             initial_state_root: compute_world_checkpoint_root(&initial_checkpoint)
@@ -329,6 +434,76 @@ fn replay_manifest_v4_jcs_round_trip_is_byte_exact() {
         .expect("manifest decodes");
     assert_eq!(decoded, manifest);
     assert_eq!(decoded.to_jcs_bytes().expect("manifest re-encodes"), bytes);
+}
+
+#[test]
+fn replay_manifest_v5_round_trips_and_replays_query_and_v2_receipt_facts() {
+    let (manifest, expected) = replay_manifest_v5();
+    let bytes = manifest.to_jcs_bytes().expect("manifest encodes");
+    let decoded = ReplayManifestV5::from_jcs_bytes(&bytes, CanonicalDecodeLimits::default())
+        .expect("manifest decodes");
+    assert_eq!(decoded, manifest);
+    assert_eq!(decoded.to_jcs_bytes().expect("manifest re-encodes"), bytes);
+    assert_eq!(
+        run_replay_manifest_v5(&decoded).expect("V5 replay is exact"),
+        expected
+    );
+}
+
+#[test]
+fn replay_manifest_v5_rejects_v2_receipt_divergence() {
+    let (mut manifest, _) = replay_manifest_v5();
+    manifest.ticks[0]
+        .expected_mapping_receipts
+        .push(InputMappingReceiptV2 {
+            schema_version: INPUT_MAPPING_RECEIPT_SCHEMA_VERSION,
+            assigned_tick: 0,
+            source_id: InputSourceId::from_bytes([0x91; 16]),
+            source_sequence: 0,
+            payload_hash: ContentHash::from_bytes([0x92; 32]),
+            frame_code: InputMappingCodeV1::Accepted,
+            action_results: Vec::new(),
+            derived_commands: Vec::new(),
+        });
+    let error = run_replay_manifest_v5(&manifest).expect_err("receipt mismatch");
+    assert!(matches!(
+        error,
+        ReplayError::RecordedStageMismatch {
+            tick: 0,
+            stage: "closed-ingress-command-outcome",
+        }
+    ));
+}
+
+#[test]
+fn replay_manifest_v5_rejects_query_batch_divergence_after_valid_rehash() {
+    let (mut manifest, _) = replay_manifest_v5();
+    manifest.ticks[0]
+        .expected_physics_query_batch
+        .snapshot_selector
+        .physics_snapshot_hash = ContentHash::from_bytes([0x93; 32]);
+    manifest.compare_points[0].physics_query_batch_hash =
+        replay_physics_query_batch_hash(&manifest.ticks[0].expected_physics_query_batch)
+            .expect("updated query batch hash");
+    let error = run_replay_manifest_v5(&manifest).expect_err("query mismatch");
+    assert!(matches!(
+        error,
+        ReplayError::RecordedStageMismatch {
+            tick: 0,
+            stage: "closed-authoritative-query-outcome",
+        }
+    ));
+}
+
+#[test]
+fn replay_manifest_v5_rejects_targeting_trace_root_mismatch() {
+    let (mut manifest, _) = replay_manifest_v5();
+    manifest.compare_points[0].targeting_query_trace_hash = ContentHash::from_bytes([0x94; 32]);
+    let error = run_replay_manifest_v5(&manifest).expect_err("target trace mismatch");
+    assert!(matches!(
+        error,
+        ReplayError::Manifest(ManifestValidationError::ReplayQueryFactsInvalid)
+    ));
 }
 
 #[test]

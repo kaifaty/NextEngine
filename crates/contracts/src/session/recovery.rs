@@ -1,7 +1,11 @@
+use crate::canonical::CanonicalDecodeLimits;
 use crate::ids::{ApplicationSessionId, CloseRequestId, ContentHash, SchemaId};
 use crate::manifest_jcs::JcsValue;
 
-use super::codec::{number, object, session_hash, string};
+use super::codec::{
+    close_request_id, decoded_object, encoded, hash, number, object, reject_unknown, session_hash,
+    session_id, string, take, text, u32_value, u64_value,
+};
 use super::{APPLICATION_SESSION_SCHEMA_VERSION, SessionContractError};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -100,6 +104,78 @@ impl RecoverySessionLinkV1 {
             return Err(SessionContractError::HashMismatch);
         }
         Ok(())
+    }
+
+    #[must_use]
+    pub fn to_jcs_bytes(&self) -> Vec<u8> {
+        encoded(&self.body_value())
+    }
+
+    pub fn from_jcs_bytes(
+        bytes: &[u8],
+        limits: CanonicalDecodeLimits,
+    ) -> Result<Self, SessionContractError> {
+        let mut value = decoded_object(bytes, limits, "recovery_session_link")?;
+        let schema_version = u32_value(take(&mut value, "schema_version")?, "schema_version")?;
+        if schema_version != APPLICATION_SESSION_SCHEMA_VERSION {
+            return Err(SessionContractError::UnsupportedVersion);
+        }
+        if text(
+            take(&mut value, "prior_session_disposition")?,
+            "prior_session_disposition",
+        )? != "RecoverySuperseded"
+        {
+            return Err(SessionContractError::UnknownClosedValue);
+        }
+        let link = Self::new(
+            session_id(take(&mut value, "prior_session_id")?, "prior_session_id")?,
+            hash(
+                take(&mut value, "prior_session_state_hash")?,
+                "prior_session_state_hash",
+            )?,
+            u64_value(
+                take(&mut value, "prior_session_revision")?,
+                "prior_session_revision",
+            )?,
+            close_request_id(
+                take(&mut value, "prior_close_request_id")?,
+                "prior_close_request_id",
+            )?,
+            hash(
+                take(&mut value, "canonical_close_request_hash")?,
+                "canonical_close_request_hash",
+            )?,
+            hash(
+                take(&mut value, "failed_final_save_ledger_entry_hash")?,
+                "failed_final_save_ledger_entry_hash",
+            )?,
+            hash(
+                take(&mut value, "project_composition_lock_hash")?,
+                "project_composition_lock_hash",
+            )?,
+            hash(
+                take(&mut value, "prior_application_session_manifest_hash")?,
+                "prior_application_session_manifest_hash",
+            )?,
+            hash(
+                take(&mut value, "last_safe_save_generation_hash")?,
+                "last_safe_save_generation_hash",
+            )?,
+            hash(
+                take(&mut value, "last_safe_save_manifest_hash")?,
+                "last_safe_save_manifest_hash",
+            )?,
+            session_id(take(&mut value, "new_session_id")?, "new_session_id")?,
+            SchemaId::new(text(
+                take(&mut value, "recovery_reason")?,
+                "recovery_reason",
+            )?)?,
+        )?;
+        reject_unknown(value)?;
+        if link.to_jcs_bytes() != bytes {
+            return Err(SessionContractError::HashMismatch);
+        }
+        Ok(link)
     }
 
     fn body_value(&self) -> JcsValue {

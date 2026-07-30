@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-29 |
 | Статус | Accepted |
-| Версия | 2.1 |
-| Последняя проверка | 2026-07-29 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
+| Версия | 2.3 |
+| Последняя проверка | 2026-07-30 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) |
 | Заменяет | отсутствует |
 
 ## История принятия
@@ -15,7 +15,11 @@ SPEC-29 подготовлен как часть consolidated architecture packe
 фиксирует engine-owned platform normalization, one application-session state
 machine и composition-root parity. Версия 2.0 сохраняет эти technical
 contracts и заменяет admission-oriented verification обычными product checks
-по ADR-030.
+по ADR-030. Версия 2.2 зафиксировала implementation shape bounded active-run
+checkpoint/restart и platform-causal lifecycle rollback. Версия 2.3
+синхронизирует exact cadence, archive/retention bounds, session-bound
+platform-host identity и presentation recovery cut с ADR-035; новые public
+contracts или technology decisions не вводятся.
 
 ## Назначение и invariants
 
@@ -48,6 +52,8 @@ contracts и заменяет admission-oriented verification обычными p
 | Session state and transition revision | Runtime `ApplicationSessionStateV1` | OS process state, window visibility, UI mode |
 | Project/runtime activation | exact `ProjectCompositionLock` plus Runtime activation receipt | filesystem, environment or launcher cache |
 | Save generation | persistence transaction and published save manifest | close callback or session UI |
+| Complete live state at a fixed tick | coordinator-owned in-memory runtime/RPG/physics/streaming/input/presentation closure | renderer frame, partial subsystem cache |
+| Durable active-run checkpoint | newest complete atomically published session generation for the same session ID | every volatile tick, staging directory or partially written object set |
 | Interactive presentation device | private renderer/platform adapter | simulation or save |
 | Terminal close/save receipt | Runtime-owned close semantics, atomically published by Assets session store | repeated callback result reconstructed from memory |
 
@@ -59,8 +65,8 @@ The accepted boundary is implemented by these production owners:
 |---|---|
 | Manifest/state validation, nine legal edges, exact retry and collision detection | `next_runtime::session::ApplicationSessionMachine` |
 | Immutable lifecycle/observation plans and post-publication in-memory commit | `next_runtime::session` |
-| Content-addressed session objects, generation manifest, single live-session registry and atomic pointer | `next_assets::session::SessionStore` |
-| Project activation, ID derivation, reference-game execution, presentation extraction, close and recovery sequencing | `next_application::ApplicationCoordinator` |
+| Content-addressed session objects, generation manifest, single live-session registry, atomic pointer and validated current+previous raw session-generation retention | `next_assets::session::SessionStore` |
+| Project activation, ID derivation, 30 Hz live execution, bounded durable checkpointing, full exact lifecycle archive, carry-forward recovery-link evidence, session-bound platform-host registration, same-session active restart/presentation cut and platform-causal suspend/resume/close sequencing | `next_application::ApplicationCoordinator` |
 | Production replay execution over `RuntimeReplayDriver` | `next_application::replay` |
 | First-party source/bootstrap/scenario/presentation bindings | `next_reference_game` |
 | Platform-event normalization only | `next_platform` and private `next_desktop_sdl_ash` adapter |
@@ -72,6 +78,39 @@ generation pointer replacement leaves the preceding generation authoritative;
 staged content-addressed objects are not committed state. `game`, `headless`
 and runtime-bearing `tools` all enter through this coordinator. Headless does
 not construct the desktop adapter.
+
+The interactive reference path produces one complete in-memory live closure and
+`PresentationSnapshotV2` at every committed 30 Hz simulation boundary. This
+volatile publication lets a 30/60/144 Hz renderer repeat the newest complete
+snapshot, but it is not a durable filesystem generation.
+
+The bounded durable cadence is exact: publish an active-run checkpoint at tick
+`0`, then after every `30` committed ticks, and force one atomically when
+processing suspend or close. The private checkpoint closure binds the exact
+session/project, Runtime/RPG/physics/world-streaming state, input resolver
+state, presentation snapshot/camera state, logical sequences, revisions and
+roots. A process crash resumes the same active session from the newest complete
+durable checkpoint and therefore MAY lose at most `29` already committed
+in-memory ticks. Recovery never invents those ticks, replays renderer callbacks
+or converts paused wall time into simulation catch-up. The first rebuilt
+presentation snapshot after authoritative restart uses a fresh recovery epoch,
+sequence `0` and cut camera records; renderer interpolation cannot cross that
+boundary.
+
+Every durable checkpoint and lifecycle publication follows stage → validate →
+atomic pointer replacement → infallible in-memory commit. A publication failure
+restores the preceding session machine, durable snapshot and object closure.
+`SessionStore` validates the complete tree before pruning and retains only the
+current and immediately previous raw session generations, so pointer rollback
+still has one known-good predecessor. Full canonical request/event objects for
+the current session remain reachable through a bounded lifecycle archive
+(`1 040` total entries, at most `1 024` platform-sourced requests). A
+required-save recovery carries forward a separately validated ordered chain
+of at most `64` evidence entries. Each entry binds canonical
+`RecoverySessionLinkV1` bytes, the exact prior durable snapshot and its full
+referenced object closure; aggregate object-reference and unique-object budgets
+are `16 384` and `1 984`. This retention rule is session-specific and does not
+prune generic content generations.
 
 ## Public contracts
 
@@ -98,9 +137,19 @@ normalized and hashed before composition staging. Required absence rejects
 before Runtime staging with `PLATFORM_CAPABILITY_REQUIRED`; optional absence
 selects only the exact fallback bound by `ProjectCompositionLock`.
 
+For an interactive target, the application coordinator registers one current
+adapter lifetime only after validating the complete capability set. Its
+canonical hash MUST equal
+`ApplicationSessionManifestV1.platform_capability_set_hash_or_none`; the
+coordinator then issues a fresh opaque `host_instance_id` bound to that
+session/generation. Registration state is ephemeral and non-authoritative.
+After restart a new adapter lifetime registers again and receives a fresh host
+ID.
+
 `headless` requires no presentation target capability. `capture-worker` may
 require `DisplaylessOffscreen` but MUST reject a profile that can satisfy it
-only by creating an interactive window/display/surface.
+only by creating an interactive window/display/surface. A presentation target
+`None` cannot register or accept an interactive host.
 
 ### `PlatformTimebaseV1`
 
@@ -154,6 +203,14 @@ Events sort and deduplicate by
 duplicate bytes collapse; same identity with different bytes is
 `PLATFORM_EVENT_IDENTITY_COLLISION`. A missing sequence is reported and the
 affected batch fails closed; callback arrival order is never used as fallback.
+
+Every first-seen interactive event MUST match both the currently registered
+`host_instance_id` and its exact capability-set hash. An unregistered host
+fails with `PLATFORM_CAPABILITY_REQUIRED`; a stale host lifetime or changed
+binding fails with `PLATFORM_EVENT_IDENTITY_COLLISION`. An exact event already
+bound to an archived lifecycle/close request remains eligible only for its
+journal-proven idempotent retry, even after a fresh host registers; it cannot
+start a new transition.
 
 Lifecycle payloads contain closed reasons and bounded values. `Control` embeds
 exactly one `NormalizedControlEventV1`; unknown kind/payload combinations,
@@ -304,20 +361,40 @@ No error publishes a partial state. Exact retry returns the prior event/receipt.
 Same request ID with different canonical bytes fails
 `SESSION_REQUEST_IDENTITY_COLLISION`.
 
+The durable archive stores the full canonical request and event bytes as
+content-addressed objects, not only their hashes. The current session retains
+at most `1 040` lifecycle entries, of which at most `1 024` may be sourced by
+platform events. An exact retry reuses its entry; a first-seen platform
+transition beyond the bound fails before publication with
+`SESSION_PLATFORM_LIFECYCLE_BUDGET_EXCEEDED`. Silent eviction or accepting a
+forgotten request ID as new is forbidden.
+
 ### Suspend, recovery and device loss
 
 - Focus loss emits a fact. The project-locked policy may request `Suspended`,
   keep `Active`, or cancel local controls; it cannot mutate domain state.
 - Suspend closes the input batch at the ordinary ADR-022 boundary, records all
-  accepted assignments, quiesces external proposals and publishes one session
-  transition. It does not guess elapsed world time on resume.
-- Resume validates the same lock/save/runtime revisions before `Active`.
+  accepted assignments, quiesces external proposals and atomically publishes a
+  forced active-run checkpoint with one session transition. A publication fault
+  leaves the prior active generation and in-memory state unchanged.
+- Resume validates the same lock/save/runtime revisions before `Active`, starts
+  fixed-step pacing from a zero accumulator and does not guess elapsed world
+  time or catch up ticks spent suspended. Same-session process restart first
+  validates the persisted presentation snapshot as evidence, then publishes a
+  fresh authoritative-recovery epoch at sequence `0`; every rebuilt camera is
+  a cut whose previous/current sample is equal.
+- A close request likewise forces the newest complete live checkpoint before
+  its lifecycle/close journal becomes current. Exact duplicate platform events
+  return the archived event/progress; a changed event under the same identity
+  is a collision.
 - Presentation device loss never changes session state by itself. It invalidates
   presentation caches and emits typed diagnostic/event. Policy MAY request
   `Suspended`; simulation behavior remains declared and replayable.
 - Fatal host fault requests `Quiescing` if the runtime can still journal safely;
-  otherwise recovery starts from the last complete save/session receipt. An
-  incomplete transition is never inferred as committed.
+  otherwise an active session restarts under the same session ID from its newest
+  complete tick-0/30 durable checkpoint. A failed required-save recovery remains
+  the distinct path that creates one linked new live session from the verified
+  last-safe save. An incomplete transition is never inferred as committed.
 
 ## Exactly-once close and save
 
@@ -624,9 +701,27 @@ in the exact `ApplicationSessionStateV1` named by
 `project_composition_lock_hash`. Runtime then atomically publishes the link,
 marks the prior session non-live in the durable session registry and stages the
 new `ApplicationSessionManifestV1` with this exact link hash, same
-`project_composition_lock_hash` and last-safe save generation. The old state and
-events remain read-only history; `RecoverySuperseded` is a registry disposition,
-not a lifecycle state or edge.
+`project_composition_lock_hash` and last-safe save generation.
+`RecoverySuperseded` is a registry disposition, not a lifecycle state or edge.
+
+Per ADR-035, raw session-generation retention is bounded to current and
+immediately previous complete generations. Every recovered live session
+instead carries an ordered evidence archive containing the full canonical
+bytes and content hash of every retained `RecoverySessionLinkV1`, the exact
+prior durable snapshot and a canonical sorted hash list for its referenced
+manifest, lifecycle request/event, close/journal/failed-ledger and live closure
+objects. The chain MUST keep the same project lock, validate every named prior
+`Finalizing` state and full lifecycle/close evidence, connect each
+`new_session_id` to the next `prior_session_id`, terminate at the current
+manifest/session and remain within `64` entries, `16 384` object references and
+`1 984` unique carry-forward objects. Missing, reordered, disconnected or
+hash-mismatched evidence rejects before activation. Exhausting any bound fails
+before publication with `SESSION_RECOVERY_EVIDENCE_BUDGET_EXCEEDED`.
+
+This bounded evidence keeps prior immutable state/events as read-only canonical
+history without retaining unbounded raw generation directories. It does not
+rewrite historical session state, fabricate `Closed` or loosen exact link
+validation.
 
 The link canonical hash is
 `SHA-256("nextengine.recovery-session-link.v1\0" || JCS(body))`, with only
@@ -662,6 +757,8 @@ Required stable codes include:
 - `SESSION_FINAL_SAVE_RETRY_EXHAUSTED`;
 - `SESSION_RECOVERY_INCOMPATIBLE`;
 - `SESSION_RECOVERY_LINK_IDENTITY_COLLISION`;
+- `SESSION_PLATFORM_LIFECYCLE_BUDGET_EXCEEDED`;
+- `SESSION_RECOVERY_EVIDENCE_BUDGET_EXCEEDED`;
 - `SESSION_TERMINAL_RECEIPT_MISSING`.
 
 Diagnostics use the SPEC-09 envelope with stable typed expected/actual fields,
@@ -671,26 +768,26 @@ session/event/request IDs and causal references. Rendered text is not the oracle
 
 | ID | Scenario | Expected behavior | Fallback |
 |---|---|---|---|
-| `PLATFORM-HOST-P1` | Exercise capability, event, timebase, focus, suspend and device-loss cycles with malformed/stale/forbidden-target cases. | Normalized events remain bounded and stable; invalid inputs reject before Runtime mutation; `headless` and optional `capture-worker` create no interactive host objects. | Reject the required host profile or select only a project-declared optional adapter fallback before activation. |
+| `PLATFORM-HOST-P1` | Exercise capability, event, timebase, focus, suspend and device-loss cycles with unregistered/stale/wrong-capability host lifetimes, exact archived retries and malformed/forbidden-target cases. | First-seen interactive events match the coordinator-registered current host/capability binding; stale bindings reject before mutation, exact archived retries remain idempotent, and `headless`/optional `capture-worker` create no interactive host objects. | Reject the event/required host profile or select only a project-declared optional adapter fallback before activation. |
 | `PLATFORM-INPUT-P1` | Feed equivalent native samples in different callback and batch permutations around the current/next ingress boundary. | Canonical control/action bytes and ADR-022 assignments match; wall time, native timestamp and render frame never select the simulation tick. | Reject the affected input batch and retain prior authoritative state. |
-| `SESSION-P1` | Run every legal and representative illegal lifecycle transition for `game`, `headless`, `tools` and optional `capture-worker`. | Each accepted edge publishes one complete revision/event; illegal or partial transitions publish nothing; authoritative gameplay behavior remains shared by game/headless roots. | Preserve the prior complete session revision and reject the transition. |
-| `SESSION-RECOVERY-P1` | Inject faults before and after close registration, lifecycle edges, save publication, receipt publication and restart. | A close ID creates at most one committed final save and one terminal receipt; exact retry resumes only the next journal-proven step and collision/tamper cases fail closed. | Retain journal-proven `Finalizing` progress, use only the policy-allowed last-safe generation, or recover one live session under the same project activation. |
+| `SESSION-P1` | Run every legal and representative illegal lifecycle transition for `game`, `headless`, `tools` and optional `capture-worker`, including duplicate/colliding platform suspend, resume and close events, archive exhaustion and publication faults. | Each accepted edge publishes one complete revision/event plus full canonical request/event objects; exact retry returns the archived result, collision/budget exhaustion fail closed, and publication failure rolls back in-memory and durable state to the prior generation. | Preserve the prior complete session revision and reject the transition. |
+| `SESSION-RECOVERY-P1` | Crash active live runs before/at/after ticks `0`, `30` and `60`; inject suspend/close, pointer, pruning, close-registration, final-save, receipt, recovery-evidence-chain and restart faults. | Every 30 Hz tick has a complete in-memory snapshot; durable checkpoints occur only at tick `0`, every `30` ticks and forced suspend/close boundaries. Active restart keeps the same session, loses at most `29` ticks without wall-time catch-up and publishes a fresh presentation epoch/sequence `0` with camera cuts. Current+previous raw generations and at most `64` carried recovery entries retain exact prior snapshot/object closures; chain tamper/overflow fails closed. Required-save recovery still creates exactly one linked new live session, and a close ID creates at most one final save/terminal receipt. | Resume the newest complete same-session checkpoint, retain journal-proven `Finalizing` progress, or use only the policy-allowed last-safe save for one linked recovery session. |
 
 ## Requirements
 
 | ID | Требование |
 |---|---|
-| REQ-140 | `PlatformCapabilitySetV1`, `PlatformTimebaseV1`, `PlatformEventV1` and `NormalizedControlEventV1` MUST normalize bounded platform facts without exposing native types or selecting authoritative tick/outcome. |
+| REQ-140 | `PlatformCapabilitySetV1`, `PlatformTimebaseV1`, `PlatformEventV1` and `NormalizedControlEventV1` MUST normalize bounded platform facts without exposing native types or selecting authoritative tick/outcome; a first-seen interactive event MUST match the current coordinator-registered session host and exact capability-set hash. |
 | REQ-141 | Every composition root MUST use `ApplicationSessionManifestV1` and the exact closed lifecycle with validated atomic revision transitions. |
 | REQ-142 | `headless` and optional `capture-worker` MUST remain displayless while sharing the same authoritative project/runtime/schema/persistence/replay substrate as `game`. |
-| REQ-143 | Close, bounded final-save attempts, terminal receipt and recovery MUST be exactly-once by a full canonical request identity and journal-proven progress across callback duplication, faults and restart; only `Closed` has a terminal close receipt, and failed required-save recovery MUST bind one new live session to the same project activation and verified last-safe generation. |
+| REQ-143 | Platform lifecycle, close, bounded final-save attempts, terminal receipt and recovery MUST be exactly-once by a full canonical request identity and journal-proven progress across callback duplication, faults and restart. Active-run restart MUST preserve the same session from the newest tick-0/30 or forced durable checkpoint with at most 29 ticks of rollback, no wall-time catch-up and a fresh presentation epoch/sequence-0 camera cut. Current+previous raw generations, full bounded lifecycle request/event objects and at most 64 ordered recovery evidence entries carrying exact prior snapshot/object closures MUST fail closed on gap/tamper/overflow; only `Closed` has a terminal close receipt, and failed required-save recovery MUST bind one new live session to the same project activation and verified last-safe generation. |
 
 ## Failure paths
 
 | ID | Trigger | Required result |
 |---|---|---|
-| FAIL-058 | Malformed/unknown/colliding platform event, invalid timebase/capability, illegal lifecycle transition or forbidden interactive target | Reject the exact event/profile/transition before authoritative mutation; preserve prior session state and never derive tick/outcome from callback order or wall time. |
-| FAIL-059 | Suspend/device-loss/close/save/finalize crash, retryable or terminal save failure, stale starting revision on exact retry, full-request/receipt/recovery-link collision or tamper, duplicate request or restart at any publication boundary | Lookup and compare the archived full request first; return exact prior journal progress/receipt or execute only its next missing step, preserving the last complete session/save generation. Create at most one committed final save and terminal receipt, never invent a state outside the closed enum, retain `Finalizing` with typed non-success when policy cannot close, and recover only under the exact prior lock/activation/last-safe save. |
+| FAIL-058 | Malformed/unknown/colliding platform event, unregistered/stale/wrong-capability host, invalid timebase/capability, illegal lifecycle transition or forbidden interactive target | Reject the exact event/profile/transition before authoritative mutation; accept an old-host event only as an exact archived retry, preserve prior session state and never derive tick/outcome from callback order or wall time. |
+| FAIL-059 | Suspend/device-loss/close/save/finalize crash, active-checkpoint/archive/retention fault or budget exhaustion, retryable or terminal save failure, stale starting revision on exact retry, full-request/receipt/recovery-link collision or tamper, duplicate request or restart at any publication boundary | Lookup and compare the archived full request first; return exact prior journal progress/receipt or execute only its next missing step. Roll back a failed publication, preserve current+previous complete raw generations plus bounded exact lifecycle/recovery-link evidence, never infer volatile ticks after the newest durable checkpoint and cut presentation on authoritative restart. Create at most one committed final save and terminal receipt, retain `Finalizing` with typed non-success when policy cannot close, and use a new linked session only for exact prior lock/activation/last-safe-save recovery. |
 
 ## Technology neutrality
 

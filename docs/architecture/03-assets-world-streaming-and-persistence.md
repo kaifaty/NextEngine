@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 1.13 |
-| Последняя проверка | 2026-07-28 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
+| Версия | 1.14 |
+| Последняя проверка | 2026-07-30 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
@@ -17,8 +17,11 @@ segment содержит `PhysicsWorldCheckpointV1` с
 `PhysicsCanonicalSnapshotV2`. Prototype physics snapshot V1 не является
 activation или fallback candidate. Current composite activation использует
 `RuntimeSnapshotV3` + RPG aggregate snapshot V2 +
-`PhysicsWorldCheckpointV1` в `WorldCheckpointV4`; `ReplayManifestV4` связывает
-те же owner segments и fixed-stage compare points.
+`PhysicsWorldCheckpointV1` в `WorldCheckpointV4`; current
+`ReplayManifestV5` связывает те же owner segments и fixed-stage compare points,
+а также exact player-action mapping receipts и authoritative targeting/query
+facts. `ReplayManifestV4` остаётся legacy exact-only runner вне V5
+activation/migration path и не публикуется новым persistence path.
 
 До cooking source files и validated `ProjectManifest` являются authoring source of truth. После atomic publish `ProjectCompositionLock` + `SchemaRegistryManifestV1` + `ContentManifestV1` + `WorldPartitionManifestV1` + immutable content-addressed bundles являются единственным runtime project/schema/asset/world/model source. Save state владеет только mutable progression/deltas, durable placement/tombstones, selected model/route references и declared PolicyState; оно не копирует immutable model weights или asset payload. Asset & Persistence subsystem владеет schema/content publication, cooker, low-level streaming state machine, atomic lock publication, save transactions и migration execution; semantic schema compatibility задаёт SPEC-22/ADR-025, resource admission — SPEC-23/ADR-026, durable topology/placement — SPEC-25.
 
@@ -70,7 +73,7 @@ Migration uses the unique schema-registry DAG and pure ordered transforms over a
 
 ## Replay
 
-`ReplayManifest` фиксирует initial save/snapshot, exact `ProjectCompositionLock`, `WorldIdentityManifestV1`, named RNG streams, `RuntimeDeterminismProfileV1`, content/build/schema/physical-archetype/model/policy-route/plugin/MechanicsLock hashes, world-level `CommandLedgerV2` snapshot/root с каждым `CommandStreamLedgerV2`, все `ClosedIngressBatchV1` и все `ClosedCommandAdmissionBatchV2`. Каждый ingress batch сохраняет bounded decoded input/completion records, exact assignments и исходную batch boundary. Каждый command-admission batch сохраняет все bounded/authenticated/decodable external `WorldCommandEnvelopeV2`, включая exact duplicates, conflicting bodies, invalid claims, deterministic rejections и finalized retries, с `simulation_tick`/`phase`/`batch_ordinal`, canonical candidate order и исходной batch boundary. Envelope transport metadata заменяется `None`; `CanonicalCommandBodyV2` не содержит собственного ID или transport metadata. Malformed/unauthenticated transport bytes не являются gameplay replay input и MAY сохраняться только отдельно как raw hash/structured diagnostic. Runtime-generated `Outcome` повторно выводится production systems; expected receipts/events, включая ActivePolicyRouteChanged, MAY сохраняться как oracle. Replay runner MUST сравнивать ADR-022 per-tick state root, exact command/rejection/receipt/event/outcome, RPG aggregate revision, population/calendar cursor outcomes и указывать first divergence. Cross-target tolerance не применяется к IDs, commands, events, manifests или gameplay outcomes.
+`ReplayManifest` фиксирует initial save/snapshot, exact `ProjectCompositionLock`, `WorldIdentityManifestV1`, named RNG streams, `RuntimeDeterminismProfileV1`, content/build/schema/physical-archetype/model/policy-route/plugin/MechanicsLock hashes, world-level `CommandLedgerV2` snapshot/root с каждым `CommandStreamLedgerV2`, все `ClosedIngressBatchV1` и все `ClosedCommandAdmissionBatchV2`. Current `ReplayManifestV5` дополнительно сохраняет per tick exact `InputMappingReceiptV2`, ordered `TargetingIntentV1` → `AuthoritativeTargetingQueryV1`, closed `PhysicsQueryBatchV1`, ordered results и compare hashes query batch/results/targeting trace. Каждый ingress batch сохраняет bounded decoded input/completion records, exact assignments и исходную batch boundary. Каждый command-admission batch сохраняет все bounded/authenticated/decodable external `WorldCommandEnvelopeV2`, включая exact duplicates, conflicting bodies, invalid claims, deterministic rejections и finalized retries, с `simulation_tick`/`phase`/`batch_ordinal`, canonical candidate order и исходной batch boundary. Envelope transport metadata заменяется `None`; `CanonicalCommandBodyV2` не содержит собственного ID или transport metadata. Malformed/unauthenticated transport bytes не являются gameplay replay input и MAY сохраняться только отдельно как raw hash/structured diagnostic. Runtime-generated `Outcome` повторно выводится production systems; expected receipts/events, включая ActivePolicyRouteChanged, MAY сохраняться как oracle. Replay runner MUST сравнивать ADR-022 per-tick state root, exact command/rejection/receipt/event/outcome, RPG aggregate revision, population/calendar cursor outcomes и указывать first divergence. Cross-target tolerance не применяется к IDs, commands, events, manifests или gameplay outcomes.
 
 Replay является read-only re-execution: runner rehydrates initial checkpoint,
 проверяет его state root, принимает только записанные authoritative inputs и

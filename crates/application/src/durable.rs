@@ -1,11 +1,12 @@
 use next_contracts::canonical::{
     CANONICAL_TYPE_BYTES, CANONICAL_TYPE_HASH256, CANONICAL_TYPE_ID128, CANONICAL_TYPE_OPTIONAL,
-    CANONICAL_TYPE_STRUCT, CANONICAL_TYPE_U8, CANONICAL_TYPE_U16, CANONICAL_TYPE_U32,
-    CANONICAL_TYPE_U64, CANONICAL_TYPE_UTF8_NFC, CanonicalDecodeLimits, CanonicalField,
-    DecodedCanonicalSegment, decode_canonical_segment, encode_canonical_segment,
+    CANONICAL_TYPE_SEQUENCE, CANONICAL_TYPE_STRUCT, CANONICAL_TYPE_U8, CANONICAL_TYPE_U16,
+    CANONICAL_TYPE_U32, CANONICAL_TYPE_U64, CANONICAL_TYPE_UTF8_NFC, CanonicalDecodeLimits,
+    CanonicalField, DecodedCanonicalSegment, decode_canonical_segment, encode_canonical_segment,
 };
 use next_contracts::ids::{
-    ApplicationSessionId, CloseRequestId, ContentHash, SchemaId, SessionTransitionId,
+    ApplicationSessionId, CloseRequestId, ContentHash, SchemaId, SessionRequestId,
+    SessionTransitionId,
 };
 use next_contracts::session::{
     ApplicationSessionManifestV1, ApplicationSessionStateV1, ApplicationSessionStatusV1,
@@ -14,7 +15,31 @@ use next_contracts::session::{
 
 use crate::ApplicationError;
 
-const DURABLE_SNAPSHOT_SCHEMA_VERSION: u32 = 1;
+const DURABLE_SNAPSHOT_SCHEMA_VERSION_V1: u32 = 1;
+const DURABLE_SNAPSHOT_SCHEMA_VERSION_V2: u32 = 2;
+const DURABLE_SNAPSHOT_SCHEMA_VERSION: u32 = 3;
+// 1,024 platform-owned requests plus 16 engine-owned launch/close edges.
+// At two object records per edge this stays well below SessionStore's 4,096
+// object ceiling and leaves deterministic capacity for live recovery and close.
+pub(crate) const LIFECYCLE_ARCHIVE_MAX_ENTRIES: usize = 1_040;
+pub(crate) const RECOVERY_EVIDENCE_ARCHIVE_MAX_ENTRIES: usize = 64;
+pub(crate) const RECOVERY_EVIDENCE_ARCHIVE_MAX_OBJECT_REFERENCES: usize = 16_384;
+pub(crate) const RECOVERY_EVIDENCE_OBJECT_BUDGET: usize = 1_984;
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub(crate) struct DurableLifecycleArchiveEntryV1 {
+    pub request_id: SessionRequestId,
+    pub request_object_hash: ContentHash,
+    pub event_object_hash: ContentHash,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct DurableRecoveryEvidenceEntryV1 {
+    pub recovery_link_hash: ContentHash,
+    pub recovery_link_object_hash: ContentHash,
+    pub prior_snapshot_object_hash: ContentHash,
+    pub evidence_object_hashes: Vec<ContentHash>,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct DurableLedgerV1 {
@@ -53,6 +78,18 @@ pub(crate) struct DurableApplicationSnapshotV1 {
     pub manifest: ApplicationSessionManifestV1,
     pub state: ApplicationSessionStateV1,
     pub close: Option<DurableCloseOperationV1>,
+    pub live_run_recovery_manifest_hash: Option<ContentHash>,
+    /// Records whether the decoded durable generation carried the v2 recovery
+    /// field. This is intentionally not an independent serialized value:
+    /// every newly published generation is v3 and carries it, while a decoded
+    /// v1 generation must remain distinguishable until recovery policy has
+    /// been applied.
+    pub live_run_recovery_field_present: bool,
+    pub lifecycle_archive: Vec<DurableLifecycleArchiveEntryV1>,
+    /// Like the live-recovery marker, this distinguishes a legacy v1/v2
+    /// generation from a newly published v3 generation with an empty archive.
+    pub lifecycle_archive_field_present: bool,
+    pub recovery_evidence_archive: Vec<DurableRecoveryEvidenceEntryV1>,
 }
 
 impl DurableApplicationSnapshotV1 {
@@ -81,21 +118,36 @@ impl DurableApplicationSnapshotV1 {
                     CANONICAL_TYPE_OPTIONAL,
                     self.close.as_ref().map_or(Ok(Vec::new()), encode_close)?,
                 ),
+                optional_hash_field(6, self.live_run_recovery_manifest_hash),
+                CanonicalField::new(
+                    7,
+                    CANONICAL_TYPE_SEQUENCE,
+                    encode_lifecycle_archive(&self.lifecycle_archive)?,
+                ),
+                CanonicalField::new(
+                    8,
+                    CANONICAL_TYPE_SEQUENCE,
+                    encode_recovery_evidence_archive(&self.recovery_evidence_archive)?,
+                ),
             ],
         )?)
     }
 
     pub fn from_canonical_bytes(bytes: &[u8]) -> Result<Self, ApplicationError> {
         let decoded = decode_canonical_segment(bytes, CanonicalDecodeLimits::default())?;
+        let schema_version = decode_u32(field(&decoded, 1, CANONICAL_TYPE_U32)?)?;
+        let expected_field_count = match schema_version {
+            DURABLE_SNAPSHOT_SCHEMA_VERSION_V1 => 5,
+            DURABLE_SNAPSHOT_SCHEMA_VERSION_V2 => 6,
+            DURABLE_SNAPSHOT_SCHEMA_VERSION => 8,
+            _ => return Err(ApplicationError::DurableSnapshotInvalid),
+        };
         ensure_segment(
             &decoded,
             "nextengine.application",
             "nextengine.application-durable-snapshot.v1",
-            5,
+            expected_field_count,
         )?;
-        if decode_u32(field(&decoded, 1, CANONICAL_TYPE_U32)?)? != DURABLE_SNAPSHOT_SCHEMA_VERSION {
-            return Err(ApplicationError::DurableSnapshotInvalid);
-        }
         let manifest = ApplicationSessionManifestV1::from_jcs_bytes(
             field(&decoded, 3, CANONICAL_TYPE_BYTES)?,
             CanonicalDecodeLimits::default(),
@@ -120,8 +172,217 @@ impl DurableApplicationSnapshotV1 {
             manifest,
             state,
             close,
+            live_run_recovery_manifest_hash: if schema_version == DURABLE_SNAPSHOT_SCHEMA_VERSION_V1
+            {
+                None
+            } else {
+                decode_optional_hash(field(&decoded, 6, CANONICAL_TYPE_OPTIONAL)?)?
+            },
+            live_run_recovery_field_present: schema_version >= DURABLE_SNAPSHOT_SCHEMA_VERSION_V2,
+            lifecycle_archive: if schema_version == DURABLE_SNAPSHOT_SCHEMA_VERSION {
+                decode_lifecycle_archive(field(&decoded, 7, CANONICAL_TYPE_SEQUENCE)?)?
+            } else {
+                Vec::new()
+            },
+            lifecycle_archive_field_present: schema_version == DURABLE_SNAPSHOT_SCHEMA_VERSION,
+            recovery_evidence_archive: if schema_version == DURABLE_SNAPSHOT_SCHEMA_VERSION {
+                decode_recovery_evidence_archive(field(&decoded, 8, CANONICAL_TYPE_SEQUENCE)?)?
+            } else {
+                Vec::new()
+            },
         })
     }
+}
+
+fn encode_lifecycle_archive(
+    entries: &[DurableLifecycleArchiveEntryV1],
+) -> Result<Vec<u8>, ApplicationError> {
+    if entries.len() > LIFECYCLE_ARCHIVE_MAX_ENTRIES
+        || entries
+            .windows(2)
+            .any(|pair| pair[0].request_id >= pair[1].request_id)
+        || entries.iter().any(|entry| {
+            entry.request_object_hash == ContentHash::default()
+                || entry.event_object_hash == ContentHash::default()
+        })
+    {
+        return Err(ApplicationError::DurableSnapshotInvalid);
+    }
+    let count =
+        u32::try_from(entries.len()).map_err(|_| ApplicationError::DurableSnapshotInvalid)?;
+    let mut bytes = Vec::with_capacity(4 + entries.len() * 80);
+    bytes.extend_from_slice(&count.to_le_bytes());
+    for entry in entries {
+        bytes.extend_from_slice(entry.request_id.as_bytes());
+        bytes.extend_from_slice(entry.request_object_hash.as_bytes());
+        bytes.extend_from_slice(entry.event_object_hash.as_bytes());
+    }
+    Ok(bytes)
+}
+
+fn decode_lifecycle_archive(
+    bytes: &[u8],
+) -> Result<Vec<DurableLifecycleArchiveEntryV1>, ApplicationError> {
+    let (count_bytes, mut remainder) = bytes
+        .split_at_checked(4)
+        .ok_or(ApplicationError::DurableSnapshotInvalid)?;
+    let count = usize::try_from(decode_u32(count_bytes)?)
+        .map_err(|_| ApplicationError::DurableSnapshotInvalid)?;
+    if count > LIFECYCLE_ARCHIVE_MAX_ENTRIES
+        || remainder.len()
+            != count
+                .checked_mul(80)
+                .ok_or(ApplicationError::DurableSnapshotInvalid)?
+    {
+        return Err(ApplicationError::DurableSnapshotInvalid);
+    }
+    let mut entries = Vec::with_capacity(count);
+    for _ in 0..count {
+        let (request_id, next) = remainder
+            .split_at_checked(16)
+            .ok_or(ApplicationError::DurableSnapshotInvalid)?;
+        let (request_object_hash, next) = next
+            .split_at_checked(32)
+            .ok_or(ApplicationError::DurableSnapshotInvalid)?;
+        let (event_object_hash, next) = next
+            .split_at_checked(32)
+            .ok_or(ApplicationError::DurableSnapshotInvalid)?;
+        entries.push(DurableLifecycleArchiveEntryV1 {
+            request_id: SessionRequestId::from_bytes(
+                request_id
+                    .try_into()
+                    .map_err(|_| ApplicationError::DurableSnapshotInvalid)?,
+            ),
+            request_object_hash: decode_hash(request_object_hash)?,
+            event_object_hash: decode_hash(event_object_hash)?,
+        });
+        remainder = next;
+    }
+    if entries
+        .windows(2)
+        .any(|pair| pair[0].request_id >= pair[1].request_id)
+        || entries.iter().any(|entry| {
+            entry.request_object_hash == ContentHash::default()
+                || entry.event_object_hash == ContentHash::default()
+        })
+    {
+        return Err(ApplicationError::DurableSnapshotInvalid);
+    }
+    Ok(entries)
+}
+
+fn encode_recovery_evidence_archive(
+    entries: &[DurableRecoveryEvidenceEntryV1],
+) -> Result<Vec<u8>, ApplicationError> {
+    let reference_count = entries.iter().try_fold(0_usize, |count, entry| {
+        count
+            .checked_add(entry.evidence_object_hashes.len())
+            .ok_or(ApplicationError::DurableSnapshotInvalid)
+    })?;
+    if entries.len() > RECOVERY_EVIDENCE_ARCHIVE_MAX_ENTRIES
+        || reference_count > RECOVERY_EVIDENCE_ARCHIVE_MAX_OBJECT_REFERENCES
+        || entries.iter().any(|entry| {
+            entry.recovery_link_hash == ContentHash::default()
+                || entry.recovery_link_object_hash == ContentHash::default()
+                || entry.prior_snapshot_object_hash == ContentHash::default()
+                || entry.evidence_object_hashes.len() > RECOVERY_EVIDENCE_OBJECT_BUDGET
+                || entry
+                    .evidence_object_hashes
+                    .iter()
+                    .any(|hash| *hash == ContentHash::default())
+                || entry
+                    .evidence_object_hashes
+                    .windows(2)
+                    .any(|pair| pair[0] >= pair[1])
+        })
+        || entries.iter().enumerate().any(|(index, entry)| {
+            entries[..index].iter().any(|prior| {
+                prior.recovery_link_hash == entry.recovery_link_hash
+                    || prior.recovery_link_object_hash == entry.recovery_link_object_hash
+                    || prior.prior_snapshot_object_hash == entry.prior_snapshot_object_hash
+            })
+        })
+    {
+        return Err(ApplicationError::DurableSnapshotInvalid);
+    }
+    let count =
+        u32::try_from(entries.len()).map_err(|_| ApplicationError::DurableSnapshotInvalid)?;
+    let capacity = 4_usize
+        .checked_add(
+            entries
+                .len()
+                .checked_mul(100)
+                .ok_or(ApplicationError::DurableSnapshotInvalid)?,
+        )
+        .and_then(|value| value.checked_add(reference_count.checked_mul(32)?))
+        .ok_or(ApplicationError::DurableSnapshotInvalid)?;
+    let mut bytes = Vec::with_capacity(capacity);
+    bytes.extend_from_slice(&count.to_le_bytes());
+    for entry in entries {
+        bytes.extend_from_slice(entry.recovery_link_hash.as_bytes());
+        bytes.extend_from_slice(entry.recovery_link_object_hash.as_bytes());
+        bytes.extend_from_slice(entry.prior_snapshot_object_hash.as_bytes());
+        bytes.extend_from_slice(
+            &u32::try_from(entry.evidence_object_hashes.len())
+                .map_err(|_| ApplicationError::DurableSnapshotInvalid)?
+                .to_le_bytes(),
+        );
+        for hash in &entry.evidence_object_hashes {
+            bytes.extend_from_slice(hash.as_bytes());
+        }
+    }
+    Ok(bytes)
+}
+
+fn decode_recovery_evidence_archive(
+    bytes: &[u8],
+) -> Result<Vec<DurableRecoveryEvidenceEntryV1>, ApplicationError> {
+    let (count_bytes, mut remainder) = bytes
+        .split_at_checked(4)
+        .ok_or(ApplicationError::DurableSnapshotInvalid)?;
+    let count = usize::try_from(decode_u32(count_bytes)?)
+        .map_err(|_| ApplicationError::DurableSnapshotInvalid)?;
+    if count > RECOVERY_EVIDENCE_ARCHIVE_MAX_ENTRIES {
+        return Err(ApplicationError::DurableSnapshotInvalid);
+    }
+    let mut entries = Vec::with_capacity(count);
+    let mut reference_count = 0_usize;
+    for _ in 0..count {
+        let (header, next) = remainder
+            .split_at_checked(100)
+            .ok_or(ApplicationError::DurableSnapshotInvalid)?;
+        let object_count = usize::try_from(decode_u32(&header[96..100])?)
+            .map_err(|_| ApplicationError::DurableSnapshotInvalid)?;
+        reference_count = reference_count
+            .checked_add(object_count)
+            .ok_or(ApplicationError::DurableSnapshotInvalid)?;
+        if object_count > RECOVERY_EVIDENCE_OBJECT_BUDGET
+            || reference_count > RECOVERY_EVIDENCE_ARCHIVE_MAX_OBJECT_REFERENCES
+        {
+            return Err(ApplicationError::DurableSnapshotInvalid);
+        }
+        let object_bytes = object_count
+            .checked_mul(32)
+            .ok_or(ApplicationError::DurableSnapshotInvalid)?;
+        let (objects, next_remainder) = next
+            .split_at_checked(object_bytes)
+            .ok_or(ApplicationError::DurableSnapshotInvalid)?;
+        entries.push(DurableRecoveryEvidenceEntryV1 {
+            recovery_link_hash: decode_hash(&header[..32])?,
+            recovery_link_object_hash: decode_hash(&header[32..64])?,
+            prior_snapshot_object_hash: decode_hash(&header[64..96])?,
+            evidence_object_hashes: objects
+                .chunks_exact(32)
+                .map(decode_hash)
+                .collect::<Result<Vec<_>, _>>()?,
+        });
+        remainder = next_remainder;
+    }
+    if !remainder.is_empty() {
+        return Err(ApplicationError::DurableSnapshotInvalid);
+    }
+    encode_recovery_evidence_archive(&entries)?;
+    Ok(entries)
 }
 
 fn encode_state(state: &ApplicationSessionStateV1) -> Result<Vec<u8>, ApplicationError> {

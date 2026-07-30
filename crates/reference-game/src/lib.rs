@@ -2,6 +2,7 @@
 
 mod error;
 mod input;
+mod live;
 mod rpg;
 mod runtime_bootstrap;
 mod scenario;
@@ -12,6 +13,10 @@ pub use error::{ReferenceGameError, ReferenceInputError};
 pub use input::{
     player_action_sample, player_equip_use_sample, player_interact_sample, player_melee_sample,
     player_pickup_sample,
+};
+pub use live::{
+    ReferenceGameDriverV1, ReferenceLiveDriverRecoveryV1, ReferenceLiveStateV1,
+    reference_b0_presentation_profile_hash,
 };
 pub use rpg::{
     aggregate_payload, cooked_interaction_outcome, cooked_project_rpg_snapshot, reference_aggregate,

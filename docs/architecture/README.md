@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.5 |
-| Последняя проверка | 2026-07-29 |
-| Заменяет | INDEX-001 version 2.4 |
+| Версия | 2.7 |
+| Последняя проверка | 2026-07-30 |
+| Заменяет | INDEX-001 version 2.6 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -200,12 +200,14 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-025 | [Schema, content и migration authority](adr/025-schema-content-and-migration-authority.md) | Accepted |
 | ADR-026 | [Deterministic work, resources и streaming admission](adr/026-deterministic-work-resource-and-streaming-admission.md) | Accepted |
 | ADR-027 | [Physics, motor и animation layering](adr/027-physics-motor-and-animation-layering.md) | Accepted |
-| ADR-028 | [Platform session и presentation authority](adr/028-platform-session-and-presentation-authority.md) | Accepted |
+| ADR-028 | [Platform session и presentation authority](adr/028-platform-session-and-presentation-authority.md) | Accepted; active-run cadence, bounded recovery evidence, host binding и presentation-cut clauses partially superseded by ADR-035 |
 | ADR-029 | [RPG-owned quest graph и narrative director](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md) | Accepted |
 | ADR-030 | [Product-first development и lightweight validation](adr/030-product-first-development-and-lightweight-validation.md) | Accepted |
 | ADR-031 | [RPG-owned divine standing и atomic pantheon judgment](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md) | Accepted; partially supersedes ADR-020 aggregate enumeration |
-| ADR-032 | [Grounded capsule physics checkpoint version boundary](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md) | Accepted |
+| ADR-032 | [Grounded capsule physics checkpoint version boundary](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md) | Accepted; designation of V4 as current generated replay partially superseded by ADR-034 |
 | ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Accepted; PhysX backend остаётся Proposed |
+| ADR-034 | [Player targeting replay V5 и exact mapping provenance](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) | Accepted |
+| ADR-035 | [Bounded live recovery, platform-host binding и presentation cut](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) | Accepted; partially supersedes ADR-028 |
 
 ## Proposed tracks
 

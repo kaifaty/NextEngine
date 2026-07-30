@@ -1,6 +1,8 @@
 use crate::canonical::{
     CANONICAL_TYPE_HASH256, CANONICAL_TYPE_ID128, CANONICAL_TYPE_U8, CANONICAL_TYPE_U16,
-    CANONICAL_TYPE_U32, CANONICAL_TYPE_U64, CanonicalField, encode_canonical_segment, sha256,
+    CANONICAL_TYPE_U32, CANONICAL_TYPE_U64, CanonicalDecodeError, CanonicalDecodeLimits,
+    CanonicalField, DecodedCanonicalSegment, decode_canonical_segment, encode_canonical_segment,
+    sha256,
 };
 use crate::ids::{
     ApplicationSessionId, CloseRequestId, ContentHash, SchemaId, content_hash_from_bytes,
@@ -10,8 +12,25 @@ use crate::manifest_jcs::JcsValue;
 use super::codec::{number, object, optional_hash, session_hash, string};
 use super::{
     APPLICATION_SESSION_SCHEMA_VERSION, ApplicationSessionStatusV1, BoundedDeadlineClassV1,
-    CausalInputReferenceV1, FinalSavePolicyV1, LifecycleReasonV1, SessionContractError,
+    CausalInputReferenceV1, CausalInputSourceKindV1, FinalSavePolicyV1, LifecycleReasonKindV1,
+    LifecycleReasonV1, SessionContractError,
 };
+
+const CLOSE_SESSION_REQUEST_OWNER_ID: &str = "nextengine.runtime";
+const CLOSE_SESSION_REQUEST_SCHEMA_ID: &str = "nextengine.close-session-request.v1";
+const CLOSE_SESSION_REQUEST_FIELDS: [(u32, u8); 11] = [
+    (1, CANONICAL_TYPE_U32),
+    (2, CANONICAL_TYPE_ID128),
+    (3, CANONICAL_TYPE_ID128),
+    (4, CANONICAL_TYPE_U64),
+    (5, CANONICAL_TYPE_U8),
+    (6, CANONICAL_TYPE_HASH256),
+    (7, CANONICAL_TYPE_U8),
+    (8, CANONICAL_TYPE_U8),
+    (9, CANONICAL_TYPE_U16),
+    (10, CANONICAL_TYPE_HASH256),
+    (11, CANONICAL_TYPE_HASH256),
+];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CloseSessionRequestV1 {
@@ -94,17 +113,68 @@ impl CloseSessionRequestV1 {
             self.canonical_close_request_hash.as_bytes().to_vec(),
         ));
         Ok(encode_canonical_segment(
-            "nextengine.runtime",
-            "nextengine.close-session-request.v1",
+            CLOSE_SESSION_REQUEST_OWNER_ID,
+            CLOSE_SESSION_REQUEST_SCHEMA_ID,
             &self.close_request_id.to_hex(),
             fields,
         )?)
     }
 
+    pub fn from_canonical_bytes(
+        bytes: &[u8],
+        limits: CanonicalDecodeLimits,
+    ) -> Result<Self, SessionContractError> {
+        let segment = decode_canonical_segment(bytes, limits)?;
+        if segment.owner_id != CLOSE_SESSION_REQUEST_OWNER_ID {
+            return Err(SessionContractError::InvalidStateFields);
+        }
+        if segment.schema_id != CLOSE_SESSION_REQUEST_SCHEMA_ID {
+            return Err(SessionContractError::UnsupportedVersion);
+        }
+        require_close_request_fields(&segment)?;
+
+        let schema_version = read_u32(&segment, 1)?;
+        if schema_version != APPLICATION_SESSION_SCHEMA_VERSION {
+            return Err(SessionContractError::UnsupportedVersion);
+        }
+        let close_request_id = CloseRequestId::from_bytes(read_exact(&segment, 2)?);
+        if segment.segment_id != close_request_id.to_hex() {
+            return Err(SessionContractError::IdentityMismatch);
+        }
+        let session_id = ApplicationSessionId::from_bytes(read_exact(&segment, 3)?);
+        let starting_session_revision = read_u64(&segment, 4)?;
+        let starting_session_state = application_session_status(read_u8(&segment, 5)?)?;
+        let shutdown_policy_hash = ContentHash::from_bytes(read_exact(&segment, 6)?);
+        let final_save_policy = final_save_policy(read_u8(&segment, 7)?)?;
+        let bounded_deadline_class = bounded_deadline_class(read_u8(&segment, 8)?)?;
+        let reason = read_lifecycle_reason(&segment)?;
+        let causal_input_reference = read_causal_input_reference(&segment)?;
+        let embedded_hash = ContentHash::from_bytes(read_exact(&segment, 11)?);
+
+        let request = Self::new(
+            close_request_id,
+            session_id,
+            starting_session_revision,
+            starting_session_state,
+            shutdown_policy_hash,
+            final_save_policy,
+            bounded_deadline_class,
+            reason,
+            causal_input_reference,
+        )?;
+        if request.canonical_close_request_hash != embedded_hash {
+            return Err(SessionContractError::HashMismatch);
+        }
+        if request.canonical_bytes()?.as_slice() != bytes {
+            return Err(SessionContractError::HashMismatch);
+        }
+        Ok(request)
+    }
+
     fn canonical_bytes_without_hash(&self) -> Result<Vec<u8>, SessionContractError> {
         Ok(encode_canonical_segment(
-            "nextengine.runtime",
-            "nextengine.close-session-request.v1",
+            CLOSE_SESSION_REQUEST_OWNER_ID,
+            CLOSE_SESSION_REQUEST_SCHEMA_ID,
             &self.close_request_id.to_hex(),
             self.fields(),
         )?)
@@ -165,6 +235,146 @@ impl CloseSessionRequestV1 {
         preimage.extend_from_slice(bytes);
         content_hash_from_bytes(sha256(&preimage))
     }
+}
+
+fn require_close_request_fields(
+    segment: &DecodedCanonicalSegment,
+) -> Result<(), SessionContractError> {
+    if segment.fields.len() != CLOSE_SESSION_REQUEST_FIELDS.len() {
+        return Err(SessionContractError::InvalidStateFields);
+    }
+    for (actual, expected) in segment
+        .fields
+        .iter()
+        .zip(CLOSE_SESSION_REQUEST_FIELDS.iter())
+    {
+        if (actual.field_id, actual.type_tag) != *expected {
+            return Err(SessionContractError::InvalidStateFields);
+        }
+    }
+    Ok(())
+}
+
+fn close_request_field(
+    segment: &DecodedCanonicalSegment,
+    field_id: u32,
+) -> Result<&[u8], SessionContractError> {
+    segment
+        .field(field_id)
+        .map(|field| field.payload.as_slice())
+        .ok_or(SessionContractError::InvalidStateFields)
+}
+
+fn read_exact<const N: usize>(
+    segment: &DecodedCanonicalSegment,
+    field_id: u32,
+) -> Result<[u8; N], SessionContractError> {
+    close_request_field(segment, field_id)?
+        .try_into()
+        .map_err(|_| SessionContractError::InvalidStateFields)
+}
+
+fn read_u8(segment: &DecodedCanonicalSegment, field_id: u32) -> Result<u8, SessionContractError> {
+    Ok(read_exact::<1>(segment, field_id)?[0])
+}
+
+fn read_u32(segment: &DecodedCanonicalSegment, field_id: u32) -> Result<u32, SessionContractError> {
+    Ok(u32::from_le_bytes(read_exact(segment, field_id)?))
+}
+
+fn read_u64(segment: &DecodedCanonicalSegment, field_id: u32) -> Result<u64, SessionContractError> {
+    Ok(u64::from_le_bytes(read_exact(segment, field_id)?))
+}
+
+fn application_session_status(
+    value: u8,
+) -> Result<ApplicationSessionStatusV1, SessionContractError> {
+    match value {
+        1 => Ok(ApplicationSessionStatusV1::Created),
+        2 => Ok(ApplicationSessionStatusV1::CompositionStaged),
+        3 => Ok(ApplicationSessionStatusV1::RuntimeStaged),
+        4 => Ok(ApplicationSessionStatusV1::Active),
+        5 => Ok(ApplicationSessionStatusV1::Suspended),
+        6 => Ok(ApplicationSessionStatusV1::Quiescing),
+        7 => Ok(ApplicationSessionStatusV1::Finalizing),
+        8 => Ok(ApplicationSessionStatusV1::Closed),
+        _ => Err(SessionContractError::UnknownClosedValue),
+    }
+}
+
+fn final_save_policy(value: u8) -> Result<FinalSavePolicyV1, SessionContractError> {
+    match value {
+        1 => Ok(FinalSavePolicyV1::Always),
+        _ => Err(SessionContractError::UnknownClosedValue),
+    }
+}
+
+fn bounded_deadline_class(value: u8) -> Result<BoundedDeadlineClassV1, SessionContractError> {
+    match value {
+        1 => Ok(BoundedDeadlineClassV1::Immediate),
+        2 => Ok(BoundedDeadlineClassV1::Short),
+        3 => Ok(BoundedDeadlineClassV1::Standard),
+        _ => Err(SessionContractError::UnknownClosedValue),
+    }
+}
+
+fn lifecycle_reason_kind(value: u8) -> Result<LifecycleReasonKindV1, SessionContractError> {
+    match value {
+        1 => Ok(LifecycleReasonKindV1::Launch),
+        2 => Ok(LifecycleReasonKindV1::CompositionReady),
+        3 => Ok(LifecycleReasonKindV1::RuntimeReady),
+        4 => Ok(LifecycleReasonKindV1::SuspendRequested),
+        5 => Ok(LifecycleReasonKindV1::ResumeRequested),
+        6 => Ok(LifecycleReasonKindV1::UserCloseRequested),
+        7 => Ok(LifecycleReasonKindV1::HostCloseRequested),
+        8 => Ok(LifecycleReasonKindV1::FatalHostFault),
+        9 => Ok(LifecycleReasonKindV1::FinalSaveReady),
+        10 => Ok(LifecycleReasonKindV1::Recovery),
+        _ => Err(SessionContractError::UnknownClosedValue),
+    }
+}
+
+fn causal_input_source_kind(value: u8) -> Result<CausalInputSourceKindV1, SessionContractError> {
+    match value {
+        1 => Ok(CausalInputSourceKindV1::PlatformEvent),
+        2 => Ok(CausalInputSourceKindV1::PlayerAction),
+        3 => Ok(CausalInputSourceKindV1::ToolRequest),
+        4 => Ok(CausalInputSourceKindV1::RecoveryLink),
+        5 => Ok(CausalInputSourceKindV1::SystemPolicy),
+        _ => Err(SessionContractError::UnknownClosedValue),
+    }
+}
+
+fn read_lifecycle_reason(
+    segment: &DecodedCanonicalSegment,
+) -> Result<LifecycleReasonV1, SessionContractError> {
+    let payload = close_request_field(segment, 9)?;
+    let (kind, reason_code) = payload
+        .split_first()
+        .ok_or(SessionContractError::InvalidStateFields)?;
+    let reason_code = std::str::from_utf8(reason_code)
+        .map_err(|_| SessionContractError::CanonicalDecode(CanonicalDecodeError::InvalidUtf8))?;
+    Ok(LifecycleReasonV1 {
+        kind: lifecycle_reason_kind(*kind)?,
+        reason_code: SchemaId::new(reason_code)?,
+    })
+}
+
+fn read_causal_input_reference(
+    segment: &DecodedCanonicalSegment,
+) -> Result<CausalInputReferenceV1, SessionContractError> {
+    let payload = close_request_field(segment, 10)?;
+    let bytes: [u8; 33] = payload
+        .try_into()
+        .map_err(|_| SessionContractError::InvalidStateFields)?;
+    Ok(CausalInputReferenceV1 {
+        source_kind: causal_input_source_kind(bytes[0])?,
+        canonical_hash: ContentHash::from_bytes(
+            bytes[1..]
+                .try_into()
+                .map_err(|_| SessionContractError::InvalidStateFields)?,
+        ),
+    })
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]

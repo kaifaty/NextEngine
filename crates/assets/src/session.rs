@@ -191,8 +191,11 @@ impl SessionStore {
         &self,
         publication: &SessionPublicationV1,
     ) -> Result<ContentHash, SessionStoreError> {
+        let content_publication = publication.content_publication()?;
         self.validate_registry_transition(publication)?;
-        self.content.publish(&publication.content_publication()?)?;
+        self.prepare_superseded_generations(publication)?;
+        self.content.publish(&content_publication)?;
+        self.prune_superseded_generations_after_commit(publication);
         Ok(publication.generation_id)
     }
 
@@ -284,13 +287,43 @@ impl SessionStore {
         Ok(())
     }
 
+    fn prune_superseded_generations_after_commit(&self, publication: &SessionPublicationV1) {
+        let retained = retained_generations(publication);
+        // CURRENT is the publication commit point. Cleanup is preflighted
+        // before that switch, but an external I/O/TOCTOU failure afterwards
+        // must not report the already committed publication as rolled back.
+        // Any retained obsolete generation is non-authoritative and the next
+        // publication preflight retries the bounded cleanup.
+        let _cleanup_result = self.content.prune_generations_except(&retained);
+    }
+
+    fn prepare_superseded_generations(
+        &self,
+        publication: &SessionPublicationV1,
+    ) -> Result<(), SessionStoreError> {
+        let mut retained = retained_generations(publication);
+        if self.root.join(crate::CONTENT_CURRENT_FILE).exists()
+            && let Some(previous_generation) = self.load_current()?.expected_previous_generation
+        {
+            retained.push(previous_generation);
+        }
+        // Before a new commit, remove only generations older than the current
+        // and its declared previous generation. This preserves both recovery
+        // points if the new publication later fails, while preventing a prior
+        // post-CURRENT cleanup failure from growing history without bound.
+        self.content.prune_generations_except(&retained)?;
+        Ok(())
+    }
+
     #[cfg(test)]
     fn publish_with_fault(
         &self,
         publication: &SessionPublicationV1,
         fault: SessionPublishFault,
     ) -> Result<(), SessionStoreError> {
+        let content_publication = publication.content_publication()?;
         self.validate_registry_transition(publication)?;
+        self.prepare_superseded_generations(publication)?;
         let content_fault = match fault {
             SessionPublishFault::BeforeGenerationCommit => {
                 ContentPublishFault::BeforeGenerationCommit
@@ -298,9 +331,18 @@ impl SessionStore {
             SessionPublishFault::BeforePointerSwitch => ContentPublishFault::BeforeCurrentSwitch,
         };
         self.content
-            .publish_with_fault(&publication.content_publication()?, content_fault)?;
+            .publish_with_fault(&content_publication, content_fault)?;
+        self.prune_superseded_generations_after_commit(publication);
         Ok(())
     }
+}
+
+fn retained_generations(publication: &SessionPublicationV1) -> Vec<ContentHash> {
+    let mut retained = vec![publication.generation_id];
+    if let Some(previous_generation) = publication.expected_previous_generation {
+        retained.push(previous_generation);
+    }
+    retained
 }
 
 struct SessionIndexV1 {
@@ -581,6 +623,246 @@ mod tests {
     }
 
     #[test]
+    fn successful_publication_retains_only_current_and_previous_generations() {
+        let root = test_root("bounded-generations");
+        let store = SessionStore::new(&root);
+        let mut previous = None;
+        let mut prior_target: Option<ContentHash> = None;
+        for sequence in 0..12 {
+            let next = publication(sequence, previous, 1, None);
+            store.publish(&next).expect("session publication");
+
+            let generations = generation_names(&root);
+            let mut expected = vec![next.generation_id.to_hex()];
+            if let Some(prior_target) = prior_target {
+                expected.push(prior_target.to_hex());
+            }
+            expected.sort();
+            assert_eq!(generations, expected);
+
+            previous = Some(next.generation_id);
+            prior_target = Some(next.generation_id);
+        }
+        assert_eq!(
+            store.load_current().expect("current").generation_id,
+            previous.expect("published generation")
+        );
+        std::fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn failed_third_publication_preserves_current_and_previous_generations() {
+        let root = test_root("failed-third-preserves-history");
+        let store = SessionStore::new(&root);
+        let first = publication(0, None, 1, None);
+        store.publish(&first).expect("first generation");
+        let second = publication(1, Some(first.generation_id), 1, None);
+        store.publish(&second).expect("second generation");
+        let third = publication(2, Some(second.generation_id), 1, None);
+
+        assert!(matches!(
+            store.publish_with_fault(&third, SessionPublishFault::BeforeGenerationCommit),
+            Err(SessionStoreError::Content(ContentStoreError::InjectedFault))
+        ));
+        assert_eq!(
+            store
+                .load_current()
+                .expect("second remains current")
+                .generation_id,
+            second.generation_id
+        );
+        let mut retained = vec![first.generation_id.to_hex(), second.generation_id.to_hex()];
+        retained.sort();
+        assert_eq!(generation_names(&root), retained);
+
+        store.publish(&third).expect("third retry");
+        let mut retained = vec![second.generation_id.to_hex(), third.generation_id.to_hex()];
+        retained.sort();
+        assert_eq!(generation_names(&root), retained);
+        std::fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn next_publication_repairs_a_prior_post_commit_cleanup_miss() {
+        let root = test_root("repair-post-commit-cleanup");
+        let store = SessionStore::new(&root);
+        let first = publication(0, None, 1, None);
+        store.publish(&first).expect("first generation");
+        let second = publication(1, Some(first.generation_id), 1, None);
+        store.publish(&second).expect("second generation");
+        let third = publication(2, Some(second.generation_id), 1, None);
+
+        store
+            .content
+            .publish(
+                &third
+                    .content_publication()
+                    .expect("third content publication"),
+            )
+            .expect("simulate CURRENT commit before cleanup");
+        assert_eq!(
+            store.load_current().expect("third current").generation_id,
+            third.generation_id
+        );
+        assert_eq!(generation_names(&root).len(), 3);
+
+        let fourth = publication(3, Some(third.generation_id), 1, None);
+        store
+            .publish(&fourth)
+            .expect("next publication repairs history");
+        let mut retained = vec![third.generation_id.to_hex(), fourth.generation_id.to_hex()];
+        retained.sort();
+        assert_eq!(generation_names(&root), retained);
+        std::fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn target_left_by_pointer_fault_is_retained_for_retry() {
+        let root = test_root("pointer-retry");
+        let store = SessionStore::new(&root);
+        let first = publication(0, None, 1, None);
+        store.publish(&first).expect("initial");
+        let second = publication(1, Some(first.generation_id), 1, None);
+        assert!(matches!(
+            store.publish_with_fault(&second, SessionPublishFault::BeforePointerSwitch),
+            Err(SessionStoreError::Content(ContentStoreError::InjectedFault))
+        ));
+        assert_eq!(generation_names(&root).len(), 2);
+
+        store.publish(&second).expect("idempotent retry");
+        assert_eq!(
+            store.load_current().expect("retried current").generation_id,
+            second.generation_id
+        );
+        assert_eq!(generation_names(&root).len(), 2);
+        std::fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn invalid_generation_path_blocks_publish_before_current_switch() {
+        let root = test_root("invalid-generation-path");
+        let store = SessionStore::new(&root);
+        let first = publication(0, None, 1, None);
+        store.publish(&first).expect("initial");
+        std::fs::create_dir(
+            root.join(crate::CONTENT_GENERATIONS_DIRECTORY)
+                .join("escape"),
+        )
+        .expect("invalid generation entry");
+
+        let second = publication(1, Some(first.generation_id), 1, None);
+        assert!(matches!(
+            store.publish(&second),
+            Err(SessionStoreError::Content(ContentStoreError::InvalidPath))
+        ));
+        assert_eq!(
+            store
+                .load_current()
+                .expect("prior current remains")
+                .generation_id,
+            first.generation_id
+        );
+        assert!(
+            !root
+                .join(crate::CONTENT_GENERATIONS_DIRECTORY)
+                .join(second.generation_id.to_hex())
+                .exists()
+        );
+        std::fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn crash_staging_at_partial_depths_is_removed_without_switching_current() {
+        let root = test_root("crash-staging-retry");
+        let store = SessionStore::new(&root);
+        let first = publication(0, None, 1, None);
+        store.publish(&first).expect("initial");
+        let generations = root.join(crate::CONTENT_GENERATIONS_DIRECTORY);
+
+        for (ordinal, relative_path) in [
+            (1_u8, None),
+            (2, Some("session")),
+            (3, Some("objects/nested/partial.bin")),
+        ] {
+            let staging = generations.join(format!(
+                ".{}.staging.{}",
+                ContentHash::from_bytes([ordinal; 32]).to_hex(),
+                4_000_000_000_u32 + u32::from(ordinal)
+            ));
+            std::fs::create_dir(&staging).expect("staging root");
+            if let Some(relative_path) = relative_path {
+                let partial = staging.join(relative_path);
+                if partial.extension().is_some() {
+                    std::fs::create_dir_all(partial.parent().expect("partial parent"))
+                        .expect("partial parent tree");
+                    std::fs::write(partial, b"partial").expect("partial file");
+                } else {
+                    std::fs::create_dir_all(partial).expect("partial directory");
+                }
+            }
+        }
+
+        let second = publication(1, Some(first.generation_id), 1, None);
+        assert!(matches!(
+            store.publish_with_fault(&second, SessionPublishFault::BeforePointerSwitch),
+            Err(SessionStoreError::Content(ContentStoreError::InjectedFault))
+        ));
+        assert_eq!(
+            store
+                .load_current()
+                .expect("fault keeps prior CURRENT")
+                .generation_id,
+            first.generation_id
+        );
+        let mut expected_generations =
+            vec![first.generation_id.to_hex(), second.generation_id.to_hex()];
+        expected_generations.sort();
+        assert_eq!(generation_names(&root), expected_generations);
+
+        store.publish(&second).expect("retry after crash cleanup");
+        assert_eq!(
+            store.load_current().expect("retried current").generation_id,
+            second.generation_id
+        );
+        std::fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn staging_shaped_non_directory_fails_closed_without_switching_current() {
+        let root = test_root("crash-staging-file");
+        let store = SessionStore::new(&root);
+        let first = publication(0, None, 1, None);
+        store.publish(&first).expect("initial");
+        let staging = root
+            .join(crate::CONTENT_GENERATIONS_DIRECTORY)
+            .join(format!(
+                ".{}.staging.4000000001",
+                ContentHash::from_bytes([0x7a; 32]).to_hex()
+            ));
+        std::fs::write(&staging, b"not a directory").expect("staging-shaped file");
+
+        let second = publication(1, Some(first.generation_id), 1, None);
+        assert!(matches!(
+            store.publish(&second),
+            Err(SessionStoreError::Content(ContentStoreError::InvalidPath))
+        ));
+        assert_eq!(
+            store
+                .load_current()
+                .expect("prior current remains")
+                .generation_id,
+            first.generation_id
+        );
+        assert!(
+            !root
+                .join(crate::CONTENT_GENERATIONS_DIRECTORY)
+                .join(second.generation_id.to_hex())
+                .exists()
+        );
+        std::fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
     fn one_thousand_open_close_cycles_keep_one_live_session_and_unique_receipts() {
         let root = test_root("thousand-cycles");
         let store = SessionStore::new(&root);
@@ -627,6 +909,7 @@ mod tests {
             sequence += 1;
         }
         assert_eq!(receipts.len(), 1_000);
+        assert_eq!(generation_names(&root).len(), 2);
         std::fs::remove_dir_all(root).expect("cleanup");
     }
 
@@ -654,5 +937,20 @@ mod tests {
             std::process::id(),
             COUNTER.fetch_add(1, Ordering::Relaxed)
         ))
+    }
+
+    fn generation_names(root: &Path) -> Vec<String> {
+        let mut names = std::fs::read_dir(root.join(crate::CONTENT_GENERATIONS_DIRECTORY))
+            .expect("generation directory")
+            .map(|entry| {
+                entry
+                    .expect("generation entry")
+                    .file_name()
+                    .into_string()
+                    .expect("utf-8 generation name")
+            })
+            .collect::<Vec<_>>();
+        names.sort();
+        names
     }
 }

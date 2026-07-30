@@ -1,14 +1,17 @@
 use next_contracts::command::{CommandPayload, CommandPhase, WorldCommand};
 use next_contracts::input::{
     CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION, ClosedCommandAdmissionBatchBodyV2,
-    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1,
+    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, InputDerivedCommandRefV2,
+    InputMappingCodeV1,
 };
+use next_contracts::physics::PhysicsQueryBatchV1;
 use next_contracts::snapshot::RuntimeSnapshotV3;
+use next_physics_api::PhysicsSceneQueryError;
 
 use crate::outcome::{NoOutcomes, OutcomeContext, OutcomeProvider, OutcomeSink};
 
 use super::error::RuntimeFatalError;
-use super::ingress::{accept_closed_ingress, close_ingress};
+use super::ingress::{accept_closed_ingress, close_ingress, finalize_mapping_receipt_v2};
 use super::interaction::{
     InteractionBuildContext, build_interaction_outcomes, resolve_interaction_outcome_route,
     rpg_physical_contact_facts,
@@ -176,7 +179,7 @@ impl RuntimeState {
             staged.physics.snapshot().checkpoint_revision,
         )?;
 
-        let built_in_outcomes = build_interaction_outcomes(
+        let mut built_in_resolution = build_interaction_outcomes(
             &closed_ingress.pending_interactions,
             InteractionBuildContext {
                 route: interaction_route.as_ref(),
@@ -190,6 +193,46 @@ impl RuntimeState {
                 authoritative_revision: staged.revision,
             },
         )?;
+        built_in_resolution
+            .targeting
+            .sort_by_key(|targeting| targeting.query.physics_query.query_id);
+        let query_snapshot_selector =
+            staged
+                .physics
+                .checkpoint()
+                .snapshot
+                .snapshot_hash()
+                .map(|physics_snapshot_hash| {
+                    next_contracts::physics::PhysicsSnapshotSelectorV1 {
+                        physics_tick: staged.physics.snapshot().physics_tick,
+                        completed_substep: 0,
+                        physics_snapshot_hash,
+                    }
+                })?;
+        let physics_query_batch = PhysicsQueryBatchV1::new(
+            query_snapshot_selector,
+            built_in_resolution
+                .targeting
+                .iter()
+                .map(|targeting| targeting.query.physics_query.clone())
+                .collect(),
+        )
+        .map_err(PhysicsSceneQueryError::from)?;
+        let targeting_intents = built_in_resolution
+            .targeting
+            .iter()
+            .map(|targeting| targeting.intent.clone())
+            .collect::<Vec<_>>();
+        let authoritative_targeting_queries = built_in_resolution
+            .targeting
+            .iter()
+            .map(|targeting| targeting.query.clone())
+            .collect::<Vec<_>>();
+        let physics_query_results = built_in_resolution
+            .targeting
+            .iter()
+            .map(|targeting| targeting.result.clone())
+            .collect::<Vec<_>>();
         let mut outcome_sink = OutcomeSink::new();
         outcome_provider
             .collect(
@@ -203,18 +246,20 @@ impl RuntimeState {
             .map_err(RuntimeFatalError::OutcomeCollection)?;
         let external_proposals = outcome_sink.into_proposals();
         let proposal_count = count(
-            built_in_outcomes
+            built_in_resolution
+                .outcomes
                 .len()
                 .checked_add(external_proposals.len())
                 .ok_or(RuntimeFatalError::TraceCountExhausted)?,
         )?;
         let mut outcome_commands = Vec::with_capacity(
-            built_in_outcomes
+            built_in_resolution
+                .outcomes
                 .len()
                 .checked_add(external_proposals.len())
                 .ok_or(RuntimeFatalError::TraceCountExhausted)?,
         );
-        for built_in in built_in_outcomes {
+        for built_in in built_in_resolution.outcomes {
             let command = built_in
                 .proposal
                 .into_command(tick)
@@ -227,10 +272,32 @@ impl RuntimeState {
                     receipt.source_id == built_in.source_id
                         && receipt.source_sequence == built_in.source_sequence
                         && receipt.payload_hash == built_in.payload_hash
+                        && receipt.code == InputMappingCodeV1::Accepted
                 })
                 .ok_or(RuntimeFatalError::IngressCheckpointCorrupt)?;
-            receipt.derived_command_id = Some(command_id);
+            if receipt.derived_command_id.is_none() {
+                receipt.derived_command_id = Some(command_id);
+            }
+            let receipt_v2 = closed_ingress
+                .mapping_receipts_v2
+                .iter_mut()
+                .find(|receipt| {
+                    receipt.source_id == built_in.source_id
+                        && receipt.source_sequence == built_in.source_sequence
+                        && receipt.payload_hash == built_in.payload_hash
+                        && receipt.frame_code == InputMappingCodeV1::Accepted
+                })
+                .ok_or(RuntimeFatalError::IngressCheckpointCorrupt)?;
+            receipt_v2.derived_commands.push(InputDerivedCommandRefV2 {
+                command_ordinal: 0,
+                source_action_ordinal: built_in.source_action_ordinal,
+                mapper_command_slot: 0,
+                command_id,
+            });
             outcome_commands.push(command);
+        }
+        for receipt in &mut closed_ingress.mapping_receipts_v2 {
+            finalize_mapping_receipt_v2(receipt)?;
         }
         outcome_commands.extend(
             external_proposals
@@ -376,6 +443,7 @@ impl RuntimeState {
         self.ingress_checkpoint = staged.ingress;
         self.last_closed_ingress_batch = Some(closed_ingress.batch);
         self.last_mapping_receipts = closed_ingress.mapping_receipts;
+        self.last_mapping_receipts_v2 = closed_ingress.mapping_receipts_v2;
         self.last_command_batches = vec![ingress_batch, outcome_batch];
 
         Ok(TickReport {
@@ -389,11 +457,16 @@ impl RuntimeState {
             physics_step_input,
             contact_batch,
             physics_checkpoint_hash: self.physics.checkpoint_hash()?,
+            targeting_intents,
+            authoritative_targeting_queries,
+            physics_query_batch,
+            physics_query_results,
             closed_ingress_batch: self
                 .last_closed_ingress_batch
                 .clone()
                 .expect("successful tick publishes its closed ingress batch"),
             mapping_receipts: self.last_mapping_receipts.clone(),
+            mapping_receipts_v2: self.last_mapping_receipts_v2.clone(),
             command_batches: self.last_command_batches.clone(),
             rpg_plan_traces,
         })

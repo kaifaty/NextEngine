@@ -112,6 +112,7 @@ pub(super) fn sort_key(event: &Event) -> (u64, u8, i64, i64) {
             scancode.map_or(-1, |value| i64::from(value as i32)),
             i64::from(*which),
         ),
+        Event::MouseMotion { which, .. } => (timestamp, 42, i64::from(*which), 0),
         Event::Quit { .. } | Event::AppTerminating { .. } => (timestamp, 50, 0, 0),
         _ => (timestamp, u8::MAX, 0, 0),
     }

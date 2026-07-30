@@ -7,10 +7,14 @@ use crate::ids::{
     CapabilityId, CommandId, CommandLedgerHash, ContentHash, SchemaId, StateRoot, WorldNamespaceId,
     content_hash_from_bytes,
 };
-use crate::input::{ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, InputMappingReceiptV1};
+use crate::input::{
+    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, InputMappingReceiptV1,
+    InputMappingReceiptV2,
+};
 use crate::physics::{
     ClosedPhysicsContactBatchV1, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
-    PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PhysicsStepInputV2, PhysicsWorldCheckpointV1,
+    PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PhysicsQueryBatchV1, PhysicsQueryResultV1,
+    PhysicsStepInputV2, PhysicsWorldCheckpointV1,
 };
 use crate::rpg::{
     RPG_AGGREGATE_SNAPSHOT_OWNER_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
@@ -20,9 +24,14 @@ use crate::snapshot::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID,
     RuntimeSnapshotV3, WorldCheckpointV4,
 };
+use crate::targeting::{
+    AUTHORITATIVE_TARGETING_QUERY_SCHEMA_VERSION, AuthoritativeTargetingQueryV1,
+    TargetingContractError, TargetingIntentV1,
+};
 
 pub const SAVE_MANIFEST_SCHEMA_VERSION: u32 = 2;
 pub const REPLAY_MANIFEST_V4_SCHEMA_VERSION: u32 = 4;
+pub const REPLAY_MANIFEST_V5_SCHEMA_VERSION: u32 = 5;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TickSettings {
@@ -323,6 +332,53 @@ pub struct ReplayManifestV4 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReplayTickManifestV5 {
+    pub tick: u64,
+    pub closed_ingress_batch: ClosedIngressBatchV1,
+    pub direct_external_commands: Vec<ReplayCommandRecord>,
+    pub expected_ingress_command_batch: ClosedCommandAdmissionBatchV2,
+    pub expected_physics_step_input: PhysicsStepInputV2,
+    pub expected_contact_batch: ClosedPhysicsContactBatchV1,
+    pub expected_targeting_intents: Vec<TargetingIntentV1>,
+    pub expected_authoritative_targeting_queries: Vec<AuthoritativeTargetingQueryV1>,
+    pub expected_physics_query_batch: PhysicsQueryBatchV1,
+    pub expected_physics_query_results: Vec<PhysicsQueryResultV1>,
+    pub expected_outcome_command_batch: ClosedCommandAdmissionBatchV2,
+    pub expected_mapping_receipts: Vec<InputMappingReceiptV2>,
+    pub expected_command_results: Vec<ReplayCommandResultV2>,
+    pub expected_events: Vec<DomainEvent>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ReplayComparePointV5 {
+    pub tick: u64,
+    pub state_root: StateRoot,
+    pub command_ledger_hash: CommandLedgerHash,
+    pub runtime_segment_hash: ContentHash,
+    pub rpg_segment_hash: ContentHash,
+    pub physics_segment_hash: ContentHash,
+    pub closed_ingress_batch_hash: ContentHash,
+    pub ingress_command_batch_hash: ContentHash,
+    pub physics_step_input_hash: ContentHash,
+    pub contact_batch_hash: ContentHash,
+    pub physics_query_batch_hash: ContentHash,
+    pub physics_query_results_hash: ContentHash,
+    pub targeting_query_trace_hash: ContentHash,
+    pub outcome_command_batch_hash: ContentHash,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReplayManifestV5 {
+    pub schema_version: u32,
+    pub compatibility: SaveCompatibility,
+    pub initial_owner_segments: Vec<ReplayOwnerSegmentV2>,
+    pub initial_state_root: StateRoot,
+    pub authority: Vec<AuthorityGrant>,
+    pub ticks: Vec<ReplayTickManifestV5>,
+    pub compare_points: Vec<ReplayComparePointV5>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DecodedReplayTickV4 {
     pub tick: u64,
     pub closed_ingress_batch: ClosedIngressBatchV1,
@@ -334,6 +390,97 @@ pub struct DecodedReplayTickV4 {
     pub expected_mapping_receipts: Vec<InputMappingReceiptV1>,
     pub expected_command_results: Vec<ReplayCommandResultV2>,
     pub expected_events: Vec<DomainEvent>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DecodedReplayTickV5 {
+    pub tick: u64,
+    pub closed_ingress_batch: ClosedIngressBatchV1,
+    pub direct_external_commands: Vec<WorldCommand>,
+    pub expected_ingress_command_batch: ClosedCommandAdmissionBatchV2,
+    pub expected_physics_step_input: PhysicsStepInputV2,
+    pub expected_contact_batch: ClosedPhysicsContactBatchV1,
+    pub expected_targeting_intents: Vec<TargetingIntentV1>,
+    pub expected_authoritative_targeting_queries: Vec<AuthoritativeTargetingQueryV1>,
+    pub expected_physics_query_batch: PhysicsQueryBatchV1,
+    pub expected_physics_query_results: Vec<PhysicsQueryResultV1>,
+    pub expected_outcome_command_batch: ClosedCommandAdmissionBatchV2,
+    pub expected_mapping_receipts: Vec<InputMappingReceiptV2>,
+    pub expected_command_results: Vec<ReplayCommandResultV2>,
+    pub expected_events: Vec<DomainEvent>,
+}
+
+pub fn replay_physics_query_batch_hash(
+    batch: &PhysicsQueryBatchV1,
+) -> Result<ContentHash, CanonicalError> {
+    replay_framed_hash(
+        b"nextengine.replay-physics-query-batch.v1\0",
+        [batch.canonical_bytes()?],
+    )
+}
+
+pub fn replay_physics_query_results_hash(
+    results: &[PhysicsQueryResultV1],
+) -> Result<ContentHash, CanonicalError> {
+    replay_framed_hash(
+        b"nextengine.replay-physics-query-results.v1\0",
+        results
+            .iter()
+            .map(PhysicsQueryResultV1::canonical_bytes)
+            .collect::<Result<Vec<_>, _>>()?,
+    )
+}
+
+pub fn replay_targeting_query_trace_hash(
+    intents: &[TargetingIntentV1],
+    queries: &[AuthoritativeTargetingQueryV1],
+) -> Result<ContentHash, CanonicalError> {
+    let records = intents
+        .iter()
+        .zip(queries)
+        .map(|(intent, query)| {
+            let intent = intent.canonical_bytes()?;
+            let query = query.canonical_bytes()?;
+            let mut record = Vec::new();
+            record.extend_from_slice(
+                &u64::try_from(intent.len())
+                    .map_err(|_| CanonicalError::LengthOverflow)?
+                    .to_le_bytes(),
+            );
+            record.extend_from_slice(&intent);
+            record.extend_from_slice(
+                &u64::try_from(query.len())
+                    .map_err(|_| CanonicalError::LengthOverflow)?
+                    .to_le_bytes(),
+            );
+            record.extend_from_slice(&query);
+            Ok(record)
+        })
+        .collect::<Result<Vec<_>, CanonicalError>>()?;
+    replay_framed_hash(b"nextengine.replay-targeting-query-trace.v1\0", records)
+}
+
+fn replay_framed_hash(
+    domain: &[u8],
+    records: impl IntoIterator<Item = Vec<u8>>,
+) -> Result<ContentHash, CanonicalError> {
+    let records = records.into_iter().collect::<Vec<_>>();
+    let mut preimage = Vec::new();
+    preimage.extend_from_slice(domain);
+    preimage.extend_from_slice(
+        &u64::try_from(records.len())
+            .map_err(|_| CanonicalError::LengthOverflow)?
+            .to_le_bytes(),
+    );
+    for record in records {
+        preimage.extend_from_slice(
+            &u64::try_from(record.len())
+                .map_err(|_| CanonicalError::LengthOverflow)?
+                .to_le_bytes(),
+        );
+        preimage.extend_from_slice(&record);
+    }
+    Ok(content_hash_from_bytes(sha256(&preimage)))
 }
 
 impl ReplayManifestV4 {
@@ -483,6 +630,155 @@ impl ReplayManifestV4 {
     }
 }
 
+impl ReplayManifestV5 {
+    pub fn to_jcs_bytes(&self) -> Result<Vec<u8>, ManifestCodecError> {
+        crate::manifest_jcs::encode_replay_manifest_v5(self)
+    }
+
+    pub fn from_jcs_bytes(
+        bytes: &[u8],
+        limits: CanonicalDecodeLimits,
+    ) -> Result<Self, ManifestCodecError> {
+        crate::manifest_jcs::decode_replay_manifest_v5(bytes, limits)
+    }
+
+    pub fn validate_and_decode(
+        &self,
+        limits: CanonicalDecodeLimits,
+    ) -> Result<(WorldCheckpointV4, Vec<DecodedReplayTickV5>), ManifestValidationError> {
+        if self.schema_version != REPLAY_MANIFEST_V5_SCHEMA_VERSION {
+            return Err(ManifestValidationError::UnsupportedReplayVersion(
+                self.schema_version,
+            ));
+        }
+        let legacy = self.legacy_projection();
+        let (checkpoint, decoded_legacy) = legacy.validate_and_decode(limits)?;
+        let mut decoded = Vec::with_capacity(self.ticks.len());
+        for ((tick, point), legacy_tick) in self
+            .ticks
+            .iter()
+            .zip(&self.compare_points)
+            .zip(decoded_legacy)
+        {
+            validate_replay_query_facts(tick)?;
+            if point.physics_query_batch_hash
+                != replay_physics_query_batch_hash(&tick.expected_physics_query_batch)?
+                || point.physics_query_results_hash
+                    != replay_physics_query_results_hash(&tick.expected_physics_query_results)?
+                || point.targeting_query_trace_hash
+                    != replay_targeting_query_trace_hash(
+                        &tick.expected_targeting_intents,
+                        &tick.expected_authoritative_targeting_queries,
+                    )?
+            {
+                return Err(ManifestValidationError::ReplayQueryFactsInvalid);
+            }
+            decoded.push(DecodedReplayTickV5 {
+                tick: legacy_tick.tick,
+                closed_ingress_batch: legacy_tick.closed_ingress_batch,
+                direct_external_commands: legacy_tick.direct_external_commands,
+                expected_ingress_command_batch: legacy_tick.expected_ingress_command_batch,
+                expected_physics_step_input: legacy_tick.expected_physics_step_input,
+                expected_contact_batch: legacy_tick.expected_contact_batch,
+                expected_targeting_intents: tick.expected_targeting_intents.clone(),
+                expected_authoritative_targeting_queries: tick
+                    .expected_authoritative_targeting_queries
+                    .clone(),
+                expected_physics_query_batch: tick.expected_physics_query_batch.clone(),
+                expected_physics_query_results: tick.expected_physics_query_results.clone(),
+                expected_outcome_command_batch: legacy_tick.expected_outcome_command_batch,
+                expected_mapping_receipts: tick.expected_mapping_receipts.clone(),
+                expected_command_results: legacy_tick.expected_command_results,
+                expected_events: legacy_tick.expected_events,
+            });
+        }
+        Ok((checkpoint, decoded))
+    }
+
+    fn legacy_projection(&self) -> ReplayManifestV4 {
+        ReplayManifestV4 {
+            schema_version: REPLAY_MANIFEST_V4_SCHEMA_VERSION,
+            compatibility: self.compatibility.clone(),
+            initial_owner_segments: self.initial_owner_segments.clone(),
+            initial_state_root: self.initial_state_root,
+            authority: self.authority.clone(),
+            ticks: self
+                .ticks
+                .iter()
+                .map(|tick| ReplayTickManifestV4 {
+                    tick: tick.tick,
+                    closed_ingress_batch: tick.closed_ingress_batch.clone(),
+                    direct_external_commands: tick.direct_external_commands.clone(),
+                    expected_ingress_command_batch: tick.expected_ingress_command_batch.clone(),
+                    expected_physics_step_input: tick.expected_physics_step_input.clone(),
+                    expected_contact_batch: tick.expected_contact_batch.clone(),
+                    expected_outcome_command_batch: tick.expected_outcome_command_batch.clone(),
+                    expected_mapping_receipts: Vec::new(),
+                    expected_command_results: tick.expected_command_results.clone(),
+                    expected_events: tick.expected_events.clone(),
+                })
+                .collect(),
+            compare_points: self
+                .compare_points
+                .iter()
+                .map(|point| ReplayComparePointV4 {
+                    tick: point.tick,
+                    state_root: point.state_root,
+                    command_ledger_hash: point.command_ledger_hash,
+                    runtime_segment_hash: point.runtime_segment_hash,
+                    rpg_segment_hash: point.rpg_segment_hash,
+                    physics_segment_hash: point.physics_segment_hash,
+                    closed_ingress_batch_hash: point.closed_ingress_batch_hash,
+                    ingress_command_batch_hash: point.ingress_command_batch_hash,
+                    physics_step_input_hash: point.physics_step_input_hash,
+                    contact_batch_hash: point.contact_batch_hash,
+                    outcome_command_batch_hash: point.outcome_command_batch_hash,
+                })
+                .collect(),
+        }
+    }
+}
+
+fn validate_replay_query_facts(tick: &ReplayTickManifestV5) -> Result<(), ManifestValidationError> {
+    tick.expected_physics_query_batch.validate()?;
+    for receipt in &tick.expected_mapping_receipts {
+        receipt.validate()?;
+        if receipt.assigned_tick != tick.tick {
+            return Err(ManifestValidationError::ReplayBatchMismatch);
+        }
+    }
+    let request_count = tick.expected_physics_query_batch.requests.len();
+    if tick.expected_targeting_intents.len() != request_count
+        || tick.expected_authoritative_targeting_queries.len() != request_count
+        || tick.expected_physics_query_results.len() != request_count
+    {
+        return Err(ManifestValidationError::ReplayQueryFactsInvalid);
+    }
+    for (((intent, targeting_query), request), result) in tick
+        .expected_targeting_intents
+        .iter()
+        .zip(&tick.expected_authoritative_targeting_queries)
+        .zip(&tick.expected_physics_query_batch.requests)
+        .zip(&tick.expected_physics_query_results)
+    {
+        intent.validate()?;
+        if intent.assignment.assigned_tick != tick.tick
+            || targeting_query.schema_version != AUTHORITATIVE_TARGETING_QUERY_SCHEMA_VERSION
+            || targeting_query.intent_hash != intent.intent_hash()?
+            || targeting_query.assignment != intent.assignment
+            || targeting_query.actor_id != intent.player_id
+            || targeting_query.actor_id != targeting_query.actor_body_id.subject_id
+            || targeting_query.targeting_profile_hash != intent.targeting_profile_hash
+            || targeting_query.physics_query != *request
+            || intent.query_kind != request.geometry.kind()
+        {
+            return Err(ManifestValidationError::ReplayQueryFactsInvalid);
+        }
+        result.validate_against_request(request)?;
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ManifestValidationError {
@@ -506,10 +802,12 @@ pub enum ManifestValidationError {
     ReplayTickExhausted,
     ReplayInitialSegmentsInvalid,
     ReplayBatchMismatch,
+    ReplayQueryFactsInvalid,
     WorldCheckpoint(crate::snapshot::WorldCheckpointError),
     RpgV2(crate::rpg::RpgContractErrorV1),
     Physics(crate::physics::PhysicsContractError),
     Input(crate::input::InputContractError),
+    Targeting(TargetingContractError),
 }
 
 impl Display for ManifestValidationError {
@@ -561,12 +859,18 @@ impl Display for ManifestValidationError {
             Self::ReplayBatchMismatch => {
                 formatter.write_str("replay closed batch closure does not match")
             }
+            Self::ReplayQueryFactsInvalid => {
+                formatter.write_str("replay targeting/query facts do not form an exact closure")
+            }
             Self::WorldCheckpoint(error) => {
                 write!(formatter, "replay checkpoint is invalid: {error}")
             }
             Self::RpgV2(error) => write!(formatter, "replay RPG segment is invalid: {error}"),
             Self::Physics(error) => write!(formatter, "replay physics segment is invalid: {error}"),
             Self::Input(error) => write!(formatter, "replay ingress batch is invalid: {error}"),
+            Self::Targeting(error) => {
+                write!(formatter, "replay targeting fact is invalid: {error}")
+            }
         }
     }
 }
@@ -618,6 +922,12 @@ impl From<crate::physics::PhysicsContractError> for ManifestValidationError {
 impl From<crate::input::InputContractError> for ManifestValidationError {
     fn from(error: crate::input::InputContractError) -> Self {
         Self::Input(error)
+    }
+}
+
+impl From<TargetingContractError> for ManifestValidationError {
+    fn from(error: TargetingContractError) -> Self {
+        Self::Targeting(error)
     }
 }
 

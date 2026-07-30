@@ -26,7 +26,7 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
     let options = HeadlessOptions::parse(arguments)?;
     if options.help {
         eprintln!(
-            "usage: next_headless [--project <cooked-store>] [--lock <sha256>] [--state-root <directory>]"
+            "usage: next_headless [--live-ticks <nonnegative-integer>] [--project <cooked-store>] [--lock <sha256>] [--state-root <directory>]"
         );
         return Err(AppFailure::help());
     }
@@ -42,6 +42,7 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
         state_root,
         composition_root: CompositionRootV1::Headless,
         presentation_target: PresentationTargetKindV1::None,
+        platform_capability_set: None,
     };
     let mut application =
         ApplicationCoordinator::launch_or_resume(launch).map_err(AppFailure::application)?;
@@ -49,9 +50,25 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
         "next_headless: session {} active",
         application.state().session_id.to_hex()
     );
-    let run = application
-        .run_reference_game(true)
-        .map_err(AppFailure::application)?;
+    let run = if let Some(live_ticks) = options.live_ticks {
+        let mut run = match application.current_live_run() {
+            Ok(run) => run,
+            Err(ApplicationError::NoLiveRun) => application
+                .begin_reference_game_live(true)
+                .map_err(AppFailure::application)?,
+            Err(error) => return Err(AppFailure::application(error)),
+        };
+        for _ in 0..live_ticks {
+            run = application
+                .advance_reference_game_live(&[])
+                .map_err(AppFailure::application)?;
+        }
+        run
+    } else {
+        application
+            .run_reference_game(true)
+            .map_err(AppFailure::application)?
+    };
     let close = application
         .close(next_application::CloseExecutionOptionsV1::default())
         .map_err(AppFailure::application)?;
@@ -71,6 +88,7 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
 
 #[derive(Debug, Default)]
 struct HeadlessOptions {
+    live_ticks: Option<u64>,
     project: Option<PathBuf>,
     expected_lock: Option<ContentHash>,
     state_root: Option<PathBuf>,
@@ -82,6 +100,15 @@ impl HeadlessOptions {
         let mut options = Self::default();
         while let Some(argument) = arguments.next() {
             match argument.as_str() {
+                "--live-ticks" => {
+                    let value = required_value(&mut arguments, "--live-ticks")?;
+                    let ticks = value.parse::<u64>().map_err(|_| {
+                        AppFailure::argument("--live-ticks requires a nonnegative integer")
+                    })?;
+                    if options.live_ticks.replace(ticks).is_some() {
+                        return Err(AppFailure::argument("--live-ticks specified twice"));
+                    }
+                }
                 "--project" => {
                     let value = required_value(&mut arguments, "--project")?;
                     if options.project.replace(value.into()).is_some() {
@@ -113,6 +140,29 @@ impl HeadlessOptions {
             return Err(AppFailure::argument("--lock requires --project"));
         }
         Ok(options)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::HeadlessOptions;
+
+    #[test]
+    fn live_tick_mode_accepts_zero_and_rejects_invalid_or_duplicate_counts() {
+        let zero = HeadlessOptions::parse(["--live-ticks", "0"].into_iter().map(str::to_owned))
+            .expect("zero-tick live smoke");
+        assert_eq!(zero.live_ticks, Some(0));
+        assert!(
+            HeadlessOptions::parse(["--live-ticks", "-1"].into_iter().map(str::to_owned)).is_err()
+        );
+        assert!(
+            HeadlessOptions::parse(
+                ["--live-ticks", "0", "--live-ticks", "1"]
+                    .into_iter()
+                    .map(str::to_owned)
+            )
+            .is_err()
+        );
     }
 }
 

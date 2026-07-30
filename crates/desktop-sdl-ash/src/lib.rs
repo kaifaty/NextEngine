@@ -3,19 +3,25 @@
     reason = "ADR-003 confines graphics API calls and native surface ownership to this crate"
 )]
 
-use std::error::Error;
+use std::cell::RefCell;
 use std::ffi::CString;
-use std::fmt::{Display, Formatter};
-use std::time::Duration;
+use std::fmt::Display;
+use std::time::{Duration, Instant};
 
 use ash::vk;
 use next_contracts::ids::{ContentHash, PersistentId};
-use next_contracts::platform::{NormalizedControlPhaseV1, PlatformEventKindV1, PlatformEventV1};
+use next_contracts::platform::{
+    NormalizedControlPhaseV1, PlatformCapabilitySetV1, PlatformEventKindV1, PlatformEventV1,
+};
 use next_contracts::presentation::PresentationSnapshotV2;
 use next_contracts::render_content::RenderContentCatalogV1;
 use sdl3::event::{Event, WindowEvent};
 use sdl3::keyboard::{Mod, Scancode};
 use sdl3::video::Window;
+
+mod error;
+
+pub use error::DesktopAdapterError;
 
 #[derive(Clone, Debug)]
 pub struct DesktopRunOptions {
@@ -27,6 +33,7 @@ pub struct DesktopRunOptions {
     pub inject_device_loss_after_frames: Option<u64>,
     pub inject_startup_lifecycle_probe: bool,
     pub host_instance_id: PersistentId,
+    pub resume_suspended_application: bool,
 }
 
 impl Default for DesktopRunOptions {
@@ -40,6 +47,7 @@ impl Default for DesktopRunOptions {
             inject_device_loss_after_frames: None,
             inject_startup_lifecycle_probe: false,
             host_instance_id: PersistentId::from_bytes([0x64; 16]),
+            resume_suspended_application: false,
         }
     }
 }
@@ -69,12 +77,23 @@ pub struct DesktopRunReport {
     pub last_platform_event_id: Option<ContentHash>,
 }
 
+/// Returns the exact engine-owned desktop capability descriptor embedded in
+/// every normalized event emitted by this adapter.
+pub fn desktop_capability_set() -> Result<PlatformCapabilitySetV1, DesktopAdapterError> {
+    lifecycle::desktop_capability_set()
+}
+
+/// Returns the canonical hash of [`desktop_capability_set`].
+pub fn desktop_capability_set_hash() -> Result<ContentHash, DesktopAdapterError> {
+    Ok(desktop_capability_set()?.canonical_hash)
+}
+
 pub fn run_interactive(
     snapshot: &PresentationSnapshotV2,
     render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
-    run_interactive_with_event_sink(snapshot, render_content_catalog, options, |_| Ok(()))
+    run_interactive_with_frame_source(snapshot, render_content_catalog, options, |_| Ok(None))
 }
 
 pub fn run_interactive_with_event_sink(
@@ -83,7 +102,48 @@ pub fn run_interactive_with_event_sink(
     options: &DesktopRunOptions,
     mut event_sink: impl FnMut(&[PlatformEventV1]) -> Result<(), DesktopAdapterError>,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
+    run_interactive_with_frame_source(snapshot, render_content_catalog, options, |events| {
+        if !events.is_empty() {
+            event_sink(events)?;
+        }
+        Ok(None)
+    })
+}
+
+/// Runs the native desktop loop while allowing the application to advance the
+/// simulation and atomically replace the immutable presentation snapshot once
+/// per event-loop iteration.
+pub fn run_interactive_with_frame_source(
+    snapshot: &PresentationSnapshotV2,
+    render_content_catalog: &RenderContentCatalogV1,
+    options: &DesktopRunOptions,
+    mut frame_source: impl FnMut(
+        &[PlatformEventV1],
+    ) -> Result<Option<PresentationSnapshotV2>, DesktopAdapterError>,
+) -> Result<DesktopRunReport, DesktopAdapterError> {
+    run_interactive_with_timed_frame_source(
+        snapshot,
+        render_content_catalog,
+        options,
+        |events, _elapsed| frame_source(events),
+    )
+}
+
+/// Runs the native desktop loop with a monotonic elapsed interval that is
+/// independent of Vulkan initialization and available to a fixed-step
+/// application scheduler. The callback is still free to publish no new
+/// snapshot, allowing rendering to repeat the latest immutable projection.
+pub fn run_interactive_with_timed_frame_source(
+    snapshot: &PresentationSnapshotV2,
+    render_content_catalog: &RenderContentCatalogV1,
+    options: &DesktopRunOptions,
+    mut frame_source: impl FnMut(
+        &[PlatformEventV1],
+        Duration,
+    ) -> Result<Option<PresentationSnapshotV2>, DesktopAdapterError>,
+) -> Result<DesktopRunReport, DesktopAdapterError> {
     snapshot.validate()?;
+    let current_snapshot = RefCell::new(snapshot.clone());
     if options.initial_extent[0] == 0 || options.initial_extent[1] == 0 {
         return Err(DesktopAdapterError::InvalidExtent);
     }
@@ -111,6 +171,25 @@ pub fn run_interactive_with_event_sink(
     let mut graphics = Some(GraphicsContext::new(&window, render_content_catalog)?);
     let mut normalizer = lifecycle::DesktopEventNormalizer::new(options.host_instance_id)?;
     let mut event_stats = DesktopEventStats::default();
+    let resumed_suspended_application = {
+        let mut resume_sink = |events: &[PlatformEventV1], elapsed: Duration| {
+            apply_frame_source_result(&current_snapshot, &mut frame_source, events, elapsed)
+        };
+        publish_fresh_host_resume_if_requested(
+            options.resume_suspended_application,
+            &mut normalizer,
+            &mut resume_sink,
+            &mut event_stats,
+        )?
+    };
+    let mut prior_frame_source_time = resumed_suspended_application.then(Instant::now);
+    let mut event_sink = |events: &[PlatformEventV1]| {
+        let now = Instant::now();
+        let elapsed = prior_frame_source_time
+            .replace(now)
+            .map_or(Duration::ZERO, |prior| now.duration_since(prior));
+        apply_frame_source_result(&current_snapshot, &mut frame_source, events, elapsed)
+    };
     let mut rendered_frames = 0_u64;
     let mut rendered_objects = 0_u64;
     let mut indexed_draws = 0_u64;
@@ -266,16 +345,28 @@ pub fn run_interactive_with_event_sink(
                         observations.push(observation);
                     }
                 }
+                Event::MouseMotion {
+                    which, xrel, yrel, ..
+                } => {
+                    if let Some(observation) =
+                        mouse_motion_observation(platform_sample_tick, which, xrel, yrel)
+                    {
+                        observations.push(observation);
+                    }
+                }
                 _ => {}
             }
         }
 
-        publish_observations(
+        let published = publish_observations(
             &mut normalizer,
             observations,
             &mut event_sink,
             &mut event_stats,
         )?;
+        if !published {
+            event_sink(&[])?;
+        }
 
         if fullscreen_toggle_count % 2 == 1 {
             fullscreen = !fullscreen;
@@ -340,7 +431,7 @@ pub fn run_interactive_with_event_sink(
         let render_result = graphics
             .as_mut()
             .ok_or(DesktopAdapterError::GraphicsContextMissing)?
-            .render(snapshot, &window);
+            .render(&current_snapshot.borrow(), &window);
         let submitted = match render_result {
             Ok(submitted) => submitted,
             Err(error) if error.is_recoverable_presentation_loss() => {
@@ -406,6 +497,44 @@ pub fn run_interactive_with_event_sink(
         timebase_hash: normalizer.timebase_hash(),
         last_platform_event_id: event_stats.last_platform_event_id,
     })
+}
+
+fn validate_snapshot_transition(
+    current: &PresentationSnapshotV2,
+    next: &PresentationSnapshotV2,
+) -> Result<(), DesktopAdapterError> {
+    next.validate()?;
+    if next.project_composition_lock_hash != current.project_composition_lock_hash
+        || next.content_manifest_hash != current.content_manifest_hash
+        || next.presentation_profile_hash != current.presentation_profile_hash
+        || next.simulation_tick < current.simulation_tick
+    {
+        return Err(DesktopAdapterError::SnapshotTransitionInvalid);
+    }
+    if next.snapshot_epoch == current.snapshot_epoch {
+        if next.snapshot_sequence <= current.snapshot_sequence {
+            return Err(DesktopAdapterError::SnapshotTransitionInvalid);
+        }
+    } else if next.snapshot_sequence != 0 || next.camera_records().any(|camera| !camera.cut) {
+        return Err(DesktopAdapterError::SnapshotTransitionInvalid);
+    }
+    Ok(())
+}
+
+fn apply_frame_source_result(
+    current_snapshot: &RefCell<PresentationSnapshotV2>,
+    frame_source: &mut impl FnMut(
+        &[PlatformEventV1],
+        Duration,
+    ) -> Result<Option<PresentationSnapshotV2>, DesktopAdapterError>,
+    events: &[PlatformEventV1],
+    elapsed: Duration,
+) -> Result<(), DesktopAdapterError> {
+    if let Some(next_snapshot) = frame_source(events, elapsed)? {
+        validate_snapshot_transition(&current_snapshot.borrow(), &next_snapshot)?;
+        *current_snapshot.borrow_mut() = next_snapshot;
+    }
+    Ok(())
 }
 
 mod gpu_content;
@@ -492,13 +621,32 @@ fn publish_observations(
     observations: Vec<lifecycle::DesktopObservation>,
     event_sink: &mut impl FnMut(&[PlatformEventV1]) -> Result<(), DesktopAdapterError>,
     event_stats: &mut DesktopEventStats,
-) -> Result<(), DesktopAdapterError> {
+) -> Result<bool, DesktopAdapterError> {
     let events = normalizer.normalize(observations)?;
     if events.is_empty() {
-        return Ok(());
+        return Ok(false);
     }
     event_sink(&events)?;
-    event_stats.observe(&events)
+    event_stats.observe(&events)?;
+    Ok(true)
+}
+
+fn publish_fresh_host_resume_if_requested(
+    requested: bool,
+    normalizer: &mut lifecycle::DesktopEventNormalizer,
+    event_sink: &mut impl FnMut(&[PlatformEventV1], Duration) -> Result<(), DesktopAdapterError>,
+    event_stats: &mut DesktopEventStats,
+) -> Result<bool, DesktopAdapterError> {
+    if !requested {
+        return Ok(false);
+    }
+    let events = normalizer.normalize(vec![resume_observation(
+        0,
+        "nextengine.platform.reason.fresh-host-ready",
+    )])?;
+    event_sink(&events, Duration::ZERO)?;
+    event_stats.observe(&events)?;
+    Ok(true)
 }
 
 #[allow(
@@ -522,7 +670,7 @@ fn recover_graphics(
             maximum: maximum_recoveries,
         });
     }
-    publish_observations(
+    let _ = publish_observations(
         normalizer,
         vec![lifecycle::DesktopObservation {
             source: lifecycle::DesktopEventSource::Graphics,
@@ -554,6 +702,7 @@ fn recover_graphics(
         event_sink,
         event_stats,
     )
+    .map(|_| ())
 }
 
 fn close_observation(platform_sample_tick: u64) -> lifecycle::DesktopObservation {
@@ -653,6 +802,7 @@ fn keyboard_observation(
         platform_sample_tick,
         kind: lifecycle::DesktopObservationKind::Control {
             control_path,
+            device_class: "nextengine.input.keyboard",
             device_instance_nonce: lifecycle::keyboard_device_nonce(device_id),
             modifier_set: normalized_modifiers(modifiers),
             phase,
@@ -663,6 +813,40 @@ fn keyboard_observation(
             }],
         },
     })
+}
+
+fn mouse_motion_observation(
+    platform_sample_tick: u64,
+    device_id: u32,
+    x_relative: f32,
+    y_relative: f32,
+) -> Option<lifecycle::DesktopObservation> {
+    let quantized_value = [
+        quantize_mouse_delta(x_relative)?,
+        quantize_mouse_delta(y_relative)?,
+    ];
+    if quantized_value == [0, 0] {
+        return None;
+    }
+    Some(lifecycle::DesktopObservation {
+        source: lifecycle::DesktopEventSource::Mouse,
+        platform_sample_tick,
+        kind: lifecycle::DesktopObservationKind::Control {
+            control_path: "nextengine.input.mouse.delta",
+            device_class: "nextengine.input.mouse",
+            device_instance_nonce: lifecycle::mouse_device_nonce(device_id),
+            modifier_set: Vec::new(),
+            phase: NormalizedControlPhaseV1::Changed,
+            quantized_value: quantized_value.to_vec(),
+        },
+    })
+}
+
+fn quantize_mouse_delta(value: f32) -> Option<i16> {
+    if !value.is_finite() {
+        return None;
+    }
+    Some(value.round().clamp(-32_767.0, 32_767.0) as i16)
 }
 
 fn normalized_modifiers(modifiers: Mod) -> Vec<&'static str> {
@@ -693,259 +877,5 @@ fn sdl_error(error: impl Display) -> DesktopAdapterError {
     DesktopAdapterError::Sdl(error.to_string())
 }
 
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum DesktopAdapterError {
-    Presentation(next_contracts::presentation::PresentationContractError),
-    Render(next_render::RenderDeviceError),
-    RenderContent(String),
-    Platform(next_contracts::platform::PlatformContractError),
-    Identifier(next_contracts::ids::IdentifierError),
-    Sdl(String),
-    Loader(String),
-    LoaderVersionUnsupported { required: u32, actual: u32 },
-    IcdUnavailable { error: Option<vk::Result> },
-    Graphics(vk::Result),
-    InvalidName,
-    InvalidExtent,
-    GpuUnsupported,
-    CounterOverflow,
-    EventBatchLimitExceeded,
-    EventLoopIterationLimitExceeded { maximum: u64 },
-    TimebaseRegression { previous: u64, actual: u64 },
-    GraphicsContextMissing,
-    DeviceRecoveryLimitExceeded { maximum: u16 },
-}
-
-impl DesktopAdapterError {
-    #[must_use]
-    pub const fn diagnostic_code(&self) -> &'static str {
-        match self {
-            Self::Presentation(_) => "PRESENTATION_SNAPSHOT_INVALID",
-            Self::Render(_) => "PRESENTATION_RENDER_PLAN_INVALID",
-            Self::RenderContent(_) => "PRESENTATION_RENDER_CONTENT_FAILED",
-            Self::Platform(_) | Self::Identifier(_) => "PLATFORM_EVENT_SCHEMA_INVALID",
-            Self::Sdl(_) => "PLATFORM_DESKTOP_RUNTIME_UNAVAILABLE",
-            Self::Loader(_) => "PLATFORM_GRAPHICS_LOADER_UNAVAILABLE",
-            Self::LoaderVersionUnsupported { .. } => "PLATFORM_GRAPHICS_LOADER_VERSION_UNSUPPORTED",
-            Self::IcdUnavailable { .. } => "PLATFORM_GRAPHICS_ICD_UNAVAILABLE",
-            Self::Graphics(vk::Result::ERROR_DEVICE_LOST) => "PRESENTATION_DEVICE_LOST",
-            Self::Graphics(vk::Result::ERROR_SURFACE_LOST_KHR) => "PRESENTATION_SURFACE_LOST",
-            Self::Graphics(_) => "PRESENTATION_GRAPHICS_FAILED",
-            Self::InvalidName => "PLATFORM_NATIVE_NAME_INVALID",
-            Self::InvalidExtent => "PLATFORM_DRAWABLE_EXTENT_INVALID",
-            Self::GpuUnsupported => "GPU_UNSUPPORTED",
-            Self::CounterOverflow => "PLATFORM_COUNTER_OVERFLOW",
-            Self::EventBatchLimitExceeded => "PLATFORM_EVENT_BATCH_LIMIT_EXCEEDED",
-            Self::EventLoopIterationLimitExceeded { .. } => {
-                "PLATFORM_EVENT_LOOP_ITERATION_LIMIT_EXCEEDED"
-            }
-            Self::TimebaseRegression { .. } => "PLATFORM_TIMEBASE_INVALID",
-            Self::GraphicsContextMissing => "PRESENTATION_GRAPHICS_CONTEXT_MISSING",
-            Self::DeviceRecoveryLimitExceeded { .. } => "PRESENTATION_DEVICE_RECOVERY_EXHAUSTED",
-        }
-    }
-
-    const fn is_recoverable_presentation_loss(&self) -> bool {
-        matches!(
-            self,
-            Self::Graphics(vk::Result::ERROR_DEVICE_LOST | vk::Result::ERROR_SURFACE_LOST_KHR)
-        )
-    }
-
-    const fn presentation_loss_reason(&self) -> &'static str {
-        match self {
-            Self::Graphics(vk::Result::ERROR_SURFACE_LOST_KHR) => {
-                "nextengine.platform.reason.surface-lost"
-            }
-            _ => "nextengine.platform.reason.device-lost",
-        }
-    }
-}
-
-impl Display for DesktopAdapterError {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Presentation(error) => write!(formatter, "{error}"),
-            Self::Render(error) => write!(formatter, "B0 frame planning failed: {error}"),
-            Self::RenderContent(error) => {
-                write!(formatter, "B0 GPU content failed: {error}")
-            }
-            Self::Platform(error) => write!(formatter, "{error}"),
-            Self::Identifier(error) => write!(formatter, "{error}"),
-            Self::Sdl(error) => write!(
-                formatter,
-                "PLATFORM_DESKTOP_RUNTIME_UNAVAILABLE: desktop host failed: {error}"
-            ),
-            Self::Loader(error) => write!(
-                formatter,
-                "PLATFORM_GRAPHICS_LOADER_UNAVAILABLE: graphics loader failed: {error}"
-            ),
-            Self::LoaderVersionUnsupported { required, actual } => write!(
-                formatter,
-                "PLATFORM_GRAPHICS_LOADER_VERSION_UNSUPPORTED: required API version {required:#010x}, got {actual:#010x}"
-            ),
-            Self::IcdUnavailable { error: Some(error) } => write!(
-                formatter,
-                "PLATFORM_GRAPHICS_ICD_UNAVAILABLE: graphics driver initialization failed: {error:?}"
-            ),
-            Self::IcdUnavailable { error: None } => formatter.write_str(
-                "PLATFORM_GRAPHICS_ICD_UNAVAILABLE: no graphics devices were enumerated",
-            ),
-            Self::Graphics(error) => write!(formatter, "graphics API failed: {error:?}"),
-            Self::InvalidName => formatter.write_str("desktop application name invalid"),
-            Self::InvalidExtent => formatter.write_str("desktop surface extent invalid"),
-            Self::GpuUnsupported => {
-                formatter.write_str("GPU_UNSUPPORTED: required B0 capabilities unavailable")
-            }
-            Self::CounterOverflow => formatter.write_str("desktop adapter counter overflow"),
-            Self::EventBatchLimitExceeded => {
-                formatter.write_str("platform event batch limit exceeded")
-            }
-            Self::EventLoopIterationLimitExceeded { maximum } => write!(
-                formatter,
-                "PLATFORM_EVENT_LOOP_ITERATION_LIMIT_EXCEEDED: maximum iterations {maximum}"
-            ),
-            Self::TimebaseRegression { previous, actual } => write!(
-                formatter,
-                "platform timebase regressed: previous {previous}, got {actual}"
-            ),
-            Self::GraphicsContextMissing => {
-                formatter.write_str("presentation graphics context missing")
-            }
-            Self::DeviceRecoveryLimitExceeded { maximum } => write!(
-                formatter,
-                "PRESENTATION_DEVICE_RECOVERY_EXHAUSTED: maximum recoveries {maximum}"
-            ),
-        }
-    }
-}
-
-impl Error for DesktopAdapterError {}
-
-impl From<next_contracts::presentation::PresentationContractError> for DesktopAdapterError {
-    fn from(error: next_contracts::presentation::PresentationContractError) -> Self {
-        Self::Presentation(error)
-    }
-}
-
-impl From<next_render::RenderDeviceError> for DesktopAdapterError {
-    fn from(error: next_render::RenderDeviceError) -> Self {
-        Self::Render(error)
-    }
-}
-
-impl From<gpu_content::B0GpuContentError> for DesktopAdapterError {
-    fn from(error: gpu_content::B0GpuContentError) -> Self {
-        match error {
-            gpu_content::B0GpuContentError::Graphics(error) => Self::Graphics(error),
-            error => Self::RenderContent(error.to_string()),
-        }
-    }
-}
-
-impl From<next_contracts::platform::PlatformContractError> for DesktopAdapterError {
-    fn from(error: next_contracts::platform::PlatformContractError) -> Self {
-        Self::Platform(error)
-    }
-}
-
-impl From<next_contracts::ids::IdentifierError> for DesktopAdapterError {
-    fn from(error: next_contracts::ids::IdentifierError) -> Self {
-        Self::Identifier(error)
-    }
-}
-
-impl From<vk::Result> for DesktopAdapterError {
-    fn from(error: vk::Result) -> Self {
-        Self::Graphics(error)
-    }
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn keyboard_controls_use_engine_owned_paths_and_modifiers() {
-        assert_eq!(
-            keyboard_control_path(Scancode::W),
-            Some("nextengine.input.keyboard.w")
-        );
-        assert_eq!(keyboard_control_path(Scancode::F1), None);
-        assert_eq!(
-            normalized_modifiers(Mod::LSHIFTMOD | Mod::RCTRLMOD),
-            vec![
-                "nextengine.input.modifier.shift",
-                "nextengine.input.modifier.control"
-            ]
-        );
-    }
-
-    #[test]
-    fn fullscreen_shortcuts_are_shell_requests_not_close_requests() {
-        assert!(is_fullscreen_shortcut(Some(Scancode::F11), Mod::NOMOD));
-        assert!(is_fullscreen_shortcut(Some(Scancode::Return), Mod::LALTMOD));
-        assert!(!is_fullscreen_shortcut(Some(Scancode::Escape), Mod::NOMOD));
-    }
-
-    #[test]
-    fn graphics_loss_has_stable_recovery_diagnostics() {
-        let device = DesktopAdapterError::Graphics(vk::Result::ERROR_DEVICE_LOST);
-        let surface = DesktopAdapterError::Graphics(vk::Result::ERROR_SURFACE_LOST_KHR);
-        assert!(device.is_recoverable_presentation_loss());
-        assert!(surface.is_recoverable_presentation_loss());
-        assert_eq!(device.diagnostic_code(), "PRESENTATION_DEVICE_LOST");
-        assert_eq!(surface.diagnostic_code(), "PRESENTATION_SURFACE_LOST");
-
-        let exhausted = DesktopAdapterError::DeviceRecoveryLimitExceeded { maximum: 2 };
-        assert_eq!(
-            exhausted.diagnostic_code(),
-            "PRESENTATION_DEVICE_RECOVERY_EXHAUSTED"
-        );
-    }
-
-    #[test]
-    fn graphics_startup_failures_have_distinct_stable_diagnostics() {
-        let loader = DesktopAdapterError::Loader("not found".to_owned());
-        let version = DesktopAdapterError::LoaderVersionUnsupported {
-            required: vk::API_VERSION_1_3,
-            actual: vk::API_VERSION_1_2,
-        };
-        let icd = DesktopAdapterError::IcdUnavailable { error: None };
-        let gpu = DesktopAdapterError::GpuUnsupported;
-
-        assert_eq!(
-            loader.diagnostic_code(),
-            "PLATFORM_GRAPHICS_LOADER_UNAVAILABLE"
-        );
-        assert_eq!(
-            version.diagnostic_code(),
-            "PLATFORM_GRAPHICS_LOADER_VERSION_UNSUPPORTED"
-        );
-        assert_eq!(icd.diagnostic_code(), "PLATFORM_GRAPHICS_ICD_UNAVAILABLE");
-        assert_eq!(gpu.diagnostic_code(), "GPU_UNSUPPORTED");
-    }
-
-    #[test]
-    fn event_loop_iteration_budget_fails_before_exceeding_limit() {
-        assert!(matches!(
-            advance_event_loop_iteration(0, Some(0)),
-            Err(DesktopAdapterError::EventLoopIterationLimitExceeded { maximum: 0 })
-        ));
-        assert_eq!(
-            advance_event_loop_iteration(0, Some(1)).expect("first iteration"),
-            1
-        );
-        let exhausted = advance_event_loop_iteration(1, Some(1))
-            .expect_err("second iteration must exceed the budget");
-        assert_eq!(
-            exhausted.diagnostic_code(),
-            "PLATFORM_EVENT_LOOP_ITERATION_LIMIT_EXCEEDED"
-        );
-        assert_eq!(
-            advance_event_loop_iteration(41, None).expect("unbounded iteration"),
-            42
-        );
-    }
-}
+mod tests;

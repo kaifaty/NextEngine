@@ -1,4 +1,5 @@
 use next_contracts::ids::CommandStreamId;
+use next_contracts::input::{ActionMapManifestV1, InputContextStackV1};
 use next_contracts::physics::{
     PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1, PhysicsSolverSemanticsProfileV1,
     PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
@@ -74,11 +75,11 @@ pub(super) fn command(fixture: &Fixture, sequence: u64, target_tick: u64) -> Wor
 pub(super) struct PhysicalFixture {
     pub(super) runtime: RuntimeState,
     pub(super) principal: IssuerPrincipal,
-    source_id: InputSourceId,
-    controller_id: PersistentId,
+    pub(super) source_id: InputSourceId,
+    pub(super) controller_id: PersistentId,
     pub(super) physics_body_id: PhysicsBodyIdV1,
-    action_map_hash: ContentHash,
-    context_stack_hash: ContentHash,
+    pub(super) action_map_hash: ContentHash,
+    pub(super) context_stack_hash: ContentHash,
 }
 
 pub(super) fn physical_fixture() -> PhysicalFixture {
@@ -116,8 +117,10 @@ pub(super) fn physical_fixture() -> PhysicalFixture {
     let source_id = InputSourceId::from_bytes([17; 16]);
     let controller_id = PersistentId::from_bytes([18; 16]);
     let body_id = PersistentId::from_bytes([19; 16]);
-    let action_map_hash = content_hash_from_bytes([20; 32]);
-    let context_stack_hash = content_hash_from_bytes([21; 32]);
+    let action_map = ActionMapManifestV1::core_keyboard_mouse_v1().expect("core action map");
+    let action_map_hash = action_map.content_hash;
+    let context_stack = InputContextStackV1::gameplay_v1().expect("gameplay context stack");
+    let context_stack_hash = context_stack.content_hash;
     let mut bootstrap = RuntimeBootstrapV3::new(world, principals, streams, profile);
     let binding = PlayerControllerBindingV1 {
         principal: principal.clone(),
@@ -129,6 +132,8 @@ pub(super) fn physical_fixture() -> PhysicalFixture {
         action_map_revision: 1,
         context_stack_hash,
         context_stack_revision: 1,
+        action_map,
+        context_stack,
     };
     bootstrap
         .player_controller_registry

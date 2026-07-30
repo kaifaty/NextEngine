@@ -4,9 +4,11 @@ use next_contracts::identity::{
     CommandStreamRegistryV1, PrincipalRegistryV1, RuntimeDeterminismProfileV1,
     WorldIdentityManifestV1,
 };
+use next_contracts::ids::InputSourceId;
 use next_contracts::input::{
-    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, IngressAssignmentProfileV1,
-    IngressCheckpointV1, InputMappingReceiptV1, InputSampleV1, PlayerControllerRegistryV1,
+    ActionMapManifestV1, ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1,
+    IngressAssignmentProfileV1, IngressCheckpointV1, InputContextStackV1, InputContractError,
+    InputMappingReceiptV1, InputMappingReceiptV2, InputSampleV1, PlayerControllerRegistryV1,
     RuntimeAdmissionLimitsV1, TickRateProfileV1,
 };
 use next_contracts::ledger::{CommandBodyArchiveV1, CommandLedgerV2, CommandStreamLedgerV2};
@@ -51,6 +53,7 @@ pub struct RuntimeState {
     pub(super) physics: PhysicsWorldHost,
     pub(super) last_closed_ingress_batch: Option<ClosedIngressBatchV1>,
     pub(super) last_mapping_receipts: Vec<InputMappingReceiptV1>,
+    pub(super) last_mapping_receipts_v2: Vec<InputMappingReceiptV2>,
     pub(super) last_command_batches: Vec<ClosedCommandAdmissionBatchV2>,
     pub(super) command_ledger: CommandLedgerV2,
     pub(super) body_archive: CommandBodyArchiveV1,
@@ -168,6 +171,7 @@ impl RuntimeState {
             physics,
             last_closed_ingress_batch: None,
             last_mapping_receipts: Vec::new(),
+            last_mapping_receipts_v2: Vec::new(),
             last_command_batches: Vec::new(),
             command_ledger,
             body_archive,
@@ -298,6 +302,7 @@ impl RuntimeState {
             physics,
             last_closed_ingress_batch: None,
             last_mapping_receipts: Vec::new(),
+            last_mapping_receipts_v2: Vec::new(),
             last_command_batches: Vec::new(),
             command_ledger: snapshot.command_ledger,
             body_archive: snapshot.body_archive,
@@ -307,7 +312,10 @@ impl RuntimeState {
         })
     }
 
-    pub(super) fn fork_from_checkpoint(&self) -> Result<Self, SnapshotRestoreError> {
+    /// Reconstructs an isolated equivalent runtime generation for transactional
+    /// staging. Backend caches are rebuilt from the canonical checkpoint and
+    /// never become shared mutable authority.
+    pub fn fork_from_checkpoint(&self) -> Result<Self, SnapshotRestoreError> {
         Self::restore_from_parts(
             self.snapshot(),
             self.rpg.clone(),
@@ -405,14 +413,62 @@ impl RuntimeState {
     }
 
     #[must_use]
+    pub fn last_mapping_receipts_v2(&self) -> &[InputMappingReceiptV2] {
+        &self.last_mapping_receipts_v2
+    }
+
+    #[must_use]
     pub fn last_command_batches(&self) -> &[ClosedCommandAdmissionBatchV2] {
         &self.last_command_batches
+    }
+
+    /// Activates an exact input-map/context revision at an ingress boundary.
+    ///
+    /// Both ingress queues must be empty so no sample captured against the old
+    /// revision can be interpreted against the new registry entry. Revision
+    /// and hash collisions fail before the live registry is changed.
+    pub fn activate_player_input_configuration(
+        &mut self,
+        source_id: InputSourceId,
+        action_map: ActionMapManifestV1,
+        context_stack: InputContextStackV1,
+    ) -> Result<(), InputContractError> {
+        if !self.ingress_checkpoint.current_samples.is_empty()
+            || !self.ingress_checkpoint.next_samples.is_empty()
+        {
+            return Err(InputContractError::InvalidProfile);
+        }
+        let mut candidate = self.player_controller_registry.clone();
+        candidate.activate_input_configuration(source_id, action_map, context_stack)?;
+        candidate.validate()?;
+        self.player_controller_registry = candidate;
+        Ok(())
     }
 
     pub fn enqueue_input_sample(
         &mut self,
         principal: &IssuerPrincipal,
         sample: InputSampleV1,
+    ) -> Result<(), InputAdmissionError> {
+        self.enqueue_input_sample_in_queue(principal, sample, IngressQueueV1::Current)
+    }
+
+    /// Enqueues an input sample on the far side of the current ingress close
+    /// barrier. The sample is persisted in `next_samples` and cannot be
+    /// assigned before the following gameplay tick.
+    pub fn enqueue_input_sample_for_next_tick(
+        &mut self,
+        principal: &IssuerPrincipal,
+        sample: InputSampleV1,
+    ) -> Result<(), InputAdmissionError> {
+        self.enqueue_input_sample_in_queue(principal, sample, IngressQueueV1::Next)
+    }
+
+    fn enqueue_input_sample_in_queue(
+        &mut self,
+        principal: &IssuerPrincipal,
+        sample: InputSampleV1,
+        queue: IngressQueueV1,
     ) -> Result<(), InputAdmissionError> {
         sample
             .validate(&self.admission_limits)
@@ -434,7 +490,11 @@ impl RuntimeState {
         }
         let maximum = usize::try_from(self.admission_limits.max_commands_per_closed_batch)
             .map_err(|_| InputAdmissionError::ResourceLimit)?;
-        if self.ingress_checkpoint.current_samples.len() >= maximum {
+        let samples = match queue {
+            IngressQueueV1::Current => &mut self.ingress_checkpoint.current_samples,
+            IngressQueueV1::Next => &mut self.ingress_checkpoint.next_samples,
+        };
+        if samples.len() >= maximum {
             return Err(InputAdmissionError::ResourceLimit);
         }
         let canonical = sample
@@ -446,20 +506,24 @@ impl RuntimeState {
             &self.admission_limits,
         )
         .map_err(InputAdmissionError::Contract)?;
-        self.ingress_checkpoint.current_samples.push(sample);
-        self.ingress_checkpoint
-            .current_samples
-            .sort_by(|left, right| {
-                left.sort_key()
-                    .expect("validated input sample has a canonical sort key")
-                    .cmp(
-                        &right
-                            .sort_key()
-                            .expect("validated input sample has a canonical sort key"),
-                    )
-            });
+        samples.push(sample);
+        samples.sort_by(|left, right| {
+            left.sort_key()
+                .expect("validated input sample has a canonical sort key")
+                .cmp(
+                    &right
+                        .sort_key()
+                        .expect("validated input sample has a canonical sort key"),
+                )
+        });
         Ok(())
     }
+}
+
+#[derive(Clone, Copy)]
+enum IngressQueueV1 {
+    Current,
+    Next,
 }
 
 impl Default for RuntimeState {

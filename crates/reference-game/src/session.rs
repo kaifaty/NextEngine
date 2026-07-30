@@ -6,7 +6,8 @@ use next_contracts::ids::{
     PlayerPrincipalId, SchemaId, SystemId,
 };
 use next_contracts::input::{
-    PLAYER_INTERACTION_SYSTEM_ID, PlayerControllerBindingV1, core_player_action_map_v2_hash,
+    ActionMapManifestV1, InputContextStackV1, PLAYER_INTERACTION_SYSTEM_ID,
+    PlayerControllerBindingV1,
 };
 use next_contracts::physics::{
     PHYSICAL_COMMAND_CAPABILITY_ID, PhysicsBodyDescriptorV1, PhysicsBodyIdV1,
@@ -47,7 +48,9 @@ pub struct ReferenceGameSession {
     pub npc_weapon_item_id: PersistentId,
     pub agent_principal: IssuerPrincipal,
     pub agent_stream_id: CommandStreamId,
+    pub action_map: ActionMapManifestV1,
     pub action_map_hash: ContentHash,
+    pub context_stack: InputContextStackV1,
     pub context_stack_hash: ContentHash,
     pub activated_project: ActivatedProjectV2,
 }
@@ -156,8 +159,10 @@ pub fn build_reference_game_session_with_profile(
     let source_id = InputSourceId::from_bytes([0x52; 16]);
     let controller_id = PersistentId::from_bytes([0x53; 16]);
     let body_id = PersistentId::from_bytes([0x54; 16]);
-    let action_map_hash = core_player_action_map_v2_hash();
-    let context_stack_hash = ContentHash::from_bytes([0x56; 32]);
+    let action_map = ActionMapManifestV1::core_keyboard_mouse_v1()?;
+    let action_map_hash = action_map.content_hash;
+    let context_stack = InputContextStackV1::gameplay_v1()?;
+    let context_stack_hash = context_stack.content_hash;
     bootstrap.player_controller_registry.bindings.insert(
         source_id,
         PlayerControllerBindingV1 {
@@ -167,9 +172,11 @@ pub fn build_reference_game_session_with_profile(
             controlled_body_id: body_id,
             command_stream_id: movement_stream_id,
             action_map_hash,
-            action_map_revision: 1,
+            action_map_revision: action_map.revision,
             context_stack_hash,
-            context_stack_revision: 1,
+            context_stack_revision: context_stack.revision,
+            action_map: action_map.clone(),
+            context_stack: context_stack.clone(),
         },
     );
     let physics_body_id = PhysicsBodyIdV1 {
@@ -220,7 +227,9 @@ pub fn build_reference_game_session_with_profile(
         npc_weapon_item_id,
         agent_principal,
         agent_stream_id,
+        action_map,
         action_map_hash,
+        context_stack,
         context_stack_hash,
         activated_project,
     })

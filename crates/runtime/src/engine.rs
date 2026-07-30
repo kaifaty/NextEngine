@@ -10,6 +10,7 @@ mod policy;
 mod replay;
 mod result;
 mod state;
+mod targeting;
 mod tick;
 
 pub use bootstrap::{RuntimeBootstrapV3, bootstrap_equipment_slot_policy_hash_v1};

@@ -3,13 +3,15 @@ use crate::ids::{ApplicationSessionId, ContentHash, SessionRequestId, SessionTra
 use crate::manifest_jcs::JcsValue;
 
 use super::codec::{
-    decoded_object, encoded, hash, number, object, optional_hash, optional_hash_value,
-    reject_unknown, session_hash, session_id, string, take, text, u32_value,
+    decoded_object, encoded, hash, nested_object, number, object, optional_hash,
+    optional_hash_value, reject_unknown, request_id, session_hash, session_id, string, take, text,
+    transition_id, u32_value, u64_value,
 };
 use super::{
     APPLICATION_SESSION_MANIFEST_FORMAT_V1, APPLICATION_SESSION_SCHEMA_VERSION,
-    ApplicationSessionStatusV1, CausalInputReferenceV1, CompositionRootV1, LifecycleReasonV1,
-    PresentationTargetKindV1, SessionContractError, validate_root_target,
+    ApplicationSessionStatusV1, CausalInputReferenceV1, CausalInputSourceKindV1, CompositionRootV1,
+    LifecycleReasonKindV1, LifecycleReasonV1, PresentationTargetKindV1, SessionContractError,
+    validate_root_target,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -409,6 +411,58 @@ impl ApplicationLifecycleRequestV1 {
         encoded(&self.body_value())
     }
 
+    pub fn from_jcs_bytes(
+        bytes: &[u8],
+        limits: CanonicalDecodeLimits,
+    ) -> Result<Self, SessionContractError> {
+        let mut value = decoded_object(bytes, limits, "application_lifecycle_request")?;
+        let schema_version = u32_value(take(&mut value, "schema_version")?, "schema_version")?;
+        if schema_version != APPLICATION_SESSION_SCHEMA_VERSION {
+            return Err(SessionContractError::UnsupportedVersion);
+        }
+        let mut causal = nested_object(
+            take(&mut value, "causal_input_reference")?,
+            "causal_input_reference",
+        )?;
+        let request = Self::new(
+            request_id(take(&mut value, "request_id")?, "request_id")?,
+            session_id(take(&mut value, "session_id")?, "session_id")?,
+            u64_value(take(&mut value, "expected_revision")?, "expected_revision")?,
+            parse_session_status(&text(
+                take(&mut value, "expected_state")?,
+                "expected_state",
+            )?)?,
+            parse_session_status(&text(
+                take(&mut value, "requested_state")?,
+                "requested_state",
+            )?)?,
+            LifecycleReasonV1 {
+                kind: parse_lifecycle_reason_kind(&text(
+                    take(&mut value, "reason_kind")?,
+                    "reason_kind",
+                )?)?,
+                reason_code: crate::ids::SchemaId::new(text(
+                    take(&mut value, "reason_code")?,
+                    "reason_code",
+                )?)?,
+            },
+            hash(take(&mut value, "policy_hash")?, "policy_hash")?,
+            CausalInputReferenceV1 {
+                source_kind: parse_causal_source_kind(&text(
+                    take(&mut causal, "source_kind")?,
+                    "source_kind",
+                )?)?,
+                canonical_hash: hash(take(&mut causal, "canonical_hash")?, "canonical_hash")?,
+            },
+        )?;
+        reject_unknown(causal)?;
+        reject_unknown(value)?;
+        if request.canonical_bytes() != bytes {
+            return Err(SessionContractError::HashMismatch);
+        }
+        Ok(request)
+    }
+
     pub fn validate(&self) -> Result<(), SessionContractError> {
         if self.schema_version != APPLICATION_SESSION_SCHEMA_VERSION {
             return Err(SessionContractError::UnsupportedVersion);
@@ -526,6 +580,70 @@ impl ApplicationLifecycleEventV1 {
         Ok(value)
     }
 
+    #[must_use]
+    pub fn canonical_bytes(&self) -> Vec<u8> {
+        encoded(&self.body_value())
+    }
+
+    pub fn from_jcs_bytes(
+        bytes: &[u8],
+        request: &ApplicationLifecycleRequestV1,
+        limits: CanonicalDecodeLimits,
+    ) -> Result<Self, SessionContractError> {
+        let mut value = decoded_object(bytes, limits, "application_lifecycle_event")?;
+        let schema_version = u32_value(take(&mut value, "schema_version")?, "schema_version")?;
+        if schema_version != APPLICATION_SESSION_SCHEMA_VERSION {
+            return Err(SessionContractError::UnsupportedVersion);
+        }
+        let decoded_transition_id =
+            transition_id(take(&mut value, "transition_id")?, "transition_id")?;
+        let decoded_request_id = request_id(take(&mut value, "request_id")?, "request_id")?;
+        let decoded_session_id = session_id(take(&mut value, "session_id")?, "session_id")?;
+        let decoded_from_state =
+            parse_session_status(&text(take(&mut value, "from_state")?, "from_state")?)?;
+        let decoded_to_state =
+            parse_session_status(&text(take(&mut value, "to_state")?, "to_state")?)?;
+        let decoded_before_revision =
+            u64_value(take(&mut value, "before_revision")?, "before_revision")?;
+        let decoded_after_revision =
+            u64_value(take(&mut value, "after_revision")?, "after_revision")?;
+        if text(take(&mut value, "outcome")?, "outcome")? != "Committed" {
+            return Err(SessionContractError::UnknownClosedValue);
+        }
+        let activation_receipt_hash = optional_hash_value(
+            take(&mut value, "activation_receipt_hash_or_none")?,
+            "activation_receipt_hash_or_none",
+        )?;
+        let save_receipt_hash = optional_hash_value(
+            take(&mut value, "save_receipt_hash_or_none")?,
+            "save_receipt_hash_or_none",
+        )?;
+        let diagnostic_hash = optional_hash_value(
+            take(&mut value, "diagnostic_hash_or_none")?,
+            "diagnostic_hash_or_none",
+        )?;
+        reject_unknown(value)?;
+        if decoded_request_id != request.request_id
+            || decoded_session_id != request.session_id
+            || decoded_from_state != request.expected_state
+            || decoded_to_state != request.requested_state
+            || decoded_before_revision != request.expected_revision
+        {
+            return Err(SessionContractError::InvalidTransition);
+        }
+        let event = Self::committed(
+            decoded_transition_id,
+            request,
+            activation_receipt_hash,
+            save_receipt_hash,
+            diagnostic_hash,
+        )?;
+        if event.after_revision != decoded_after_revision || event.canonical_bytes() != bytes {
+            return Err(SessionContractError::HashMismatch);
+        }
+        Ok(event)
+    }
+
     pub fn next_state(
         &self,
         current: &ApplicationSessionStateV1,
@@ -584,5 +702,46 @@ impl ApplicationLifecycleEventV1 {
             ("to_state", string(self.to_state.token())),
             ("transition_id", string(self.transition_id.to_hex())),
         ])
+    }
+}
+
+fn parse_session_status(value: &str) -> Result<ApplicationSessionStatusV1, SessionContractError> {
+    match value {
+        "Created" => Ok(ApplicationSessionStatusV1::Created),
+        "CompositionStaged" => Ok(ApplicationSessionStatusV1::CompositionStaged),
+        "RuntimeStaged" => Ok(ApplicationSessionStatusV1::RuntimeStaged),
+        "Active" => Ok(ApplicationSessionStatusV1::Active),
+        "Suspended" => Ok(ApplicationSessionStatusV1::Suspended),
+        "Quiescing" => Ok(ApplicationSessionStatusV1::Quiescing),
+        "Finalizing" => Ok(ApplicationSessionStatusV1::Finalizing),
+        "Closed" => Ok(ApplicationSessionStatusV1::Closed),
+        _ => Err(SessionContractError::UnknownClosedValue),
+    }
+}
+
+fn parse_lifecycle_reason_kind(value: &str) -> Result<LifecycleReasonKindV1, SessionContractError> {
+    match value {
+        "Launch" => Ok(LifecycleReasonKindV1::Launch),
+        "CompositionReady" => Ok(LifecycleReasonKindV1::CompositionReady),
+        "RuntimeReady" => Ok(LifecycleReasonKindV1::RuntimeReady),
+        "SuspendRequested" => Ok(LifecycleReasonKindV1::SuspendRequested),
+        "ResumeRequested" => Ok(LifecycleReasonKindV1::ResumeRequested),
+        "UserCloseRequested" => Ok(LifecycleReasonKindV1::UserCloseRequested),
+        "HostCloseRequested" => Ok(LifecycleReasonKindV1::HostCloseRequested),
+        "FatalHostFault" => Ok(LifecycleReasonKindV1::FatalHostFault),
+        "FinalSaveReady" => Ok(LifecycleReasonKindV1::FinalSaveReady),
+        "Recovery" => Ok(LifecycleReasonKindV1::Recovery),
+        _ => Err(SessionContractError::UnknownClosedValue),
+    }
+}
+
+fn parse_causal_source_kind(value: &str) -> Result<CausalInputSourceKindV1, SessionContractError> {
+    match value {
+        "PlatformEvent" => Ok(CausalInputSourceKindV1::PlatformEvent),
+        "PlayerAction" => Ok(CausalInputSourceKindV1::PlayerAction),
+        "ToolRequest" => Ok(CausalInputSourceKindV1::ToolRequest),
+        "RecoveryLink" => Ok(CausalInputSourceKindV1::RecoveryLink),
+        "SystemPolicy" => Ok(CausalInputSourceKindV1::SystemPolicy),
+        _ => Err(SessionContractError::UnknownClosedValue),
     }
 }

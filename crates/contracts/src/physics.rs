@@ -5,6 +5,7 @@ mod descriptors;
 mod error;
 mod primitives;
 mod profiles;
+mod query;
 mod snapshot;
 mod step;
 
@@ -27,6 +28,12 @@ pub use primitives::{
 pub use profiles::{
     AuthoritativeNumericProfileV1, FixedPointDescriptorV1, PhysicsQuantizationProfileV1,
     PhysicsQuantizationRuleV1, PhysicsSourceFormatV1,
+};
+pub use query::{
+    PhysicsQueryBatchV1, PhysicsQueryCardinalityV1, PhysicsQueryFilterV1, PhysicsQueryGeometryV1,
+    PhysicsQueryHitV1, PhysicsQueryIdV1, PhysicsQueryKindV1, PhysicsQueryRequestV1,
+    PhysicsQueryResultPayloadV1, PhysicsQueryResultV1, PhysicsQueryShapeV1,
+    PhysicsSnapshotSelectorV1,
 };
 pub use snapshot::{PhysicsBodyStateV2, PhysicsCanonicalSnapshotV2, PhysicsWorldCheckpointV1};
 pub use step::{
@@ -65,6 +72,14 @@ pub const PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID: &str = "nextengine.physics-world-c
 pub const PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID: &str = "v1";
 pub const PHYSICS_STEP_INPUT_SCHEMA_VERSION: u16 = 2;
 pub const CLOSED_PHYSICS_CONTACT_BATCH_SCHEMA_VERSION: u16 = 1;
+pub const PHYSICS_QUERY_SCHEMA_VERSION: u16 = 1;
+pub const PHYSICS_QUERY_BATCH_SCHEMA_VERSION: u16 = 1;
+pub const PHYSICS_QUERY_RESULT_SCHEMA_VERSION: u16 = 1;
+pub const MAX_PHYSICS_QUERY_REQUESTS_PER_BATCH: usize = 65_536;
+pub const MAX_PHYSICS_QUERY_EXCLUSIONS: usize = 4_096;
+pub const MAX_PHYSICS_QUERY_CANDIDATE_HITS: usize = 4_194_304;
+pub const MAX_PHYSICS_QUERY_PUBLISHED_HITS: u32 = 4_096;
+pub const MAX_PHYSICS_QUERY_DISTANCE_MICROMETRES: i64 = 33_554_432_000_000;
 pub const REFERENCE_GRAVITY_MICROMETRES_PER_SECOND_SQUARED: i64 = -9_792_000;
 const PHYSICS_OWNER_ID: &str = "nextengine.physics";
 const NUMERIC_OWNER_ID: &str = "nextengine.runtime";

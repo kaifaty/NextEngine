@@ -335,7 +335,14 @@ fn build_staged_package(
     let project_lock = cooked.composition_lock.composition_lock_sha256.to_hex();
     let headless_report = run_packaged_binary(
         &headless_destination,
-        &["--project", "project", "--lock", &project_lock],
+        &[
+            "--live-ticks",
+            "0",
+            "--project",
+            "project",
+            "--lock",
+            &project_lock,
+        ],
         &smoke_root.join("headless"),
         staging,
         "Headless",

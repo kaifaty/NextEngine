@@ -130,16 +130,18 @@ impl ImageAllocation {
         physical_device: vk::PhysicalDevice,
         device: &ash::Device,
         extent: vk::Extent3D,
+        format: vk::Format,
+        usage: vk::ImageUsageFlags,
     ) -> Result<Self, B0GpuContentError> {
         let image_info = vk::ImageCreateInfo::default()
             .image_type(vk::ImageType::TYPE_2D)
-            .format(vk::Format::R8G8B8A8_SRGB)
+            .format(format)
             .extent(extent)
             .mip_levels(1)
             .array_layers(1)
             .samples(vk::SampleCountFlags::TYPE_1)
             .tiling(vk::ImageTiling::OPTIMAL)
-            .usage(vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED)
+            .usage(usage)
             .sharing_mode(vk::SharingMode::EXCLUSIVE)
             .initial_layout(vk::ImageLayout::UNDEFINED);
         // SAFETY: the create info is self-contained and the image is retained
@@ -195,8 +197,8 @@ impl ImageAllocation {
 
 impl Drop for ImageAllocation {
     fn drop(&mut self) {
-        // SAFETY: all child views are destroyed by `TextureResource` first,
-        // then this owned image is destroyed before freeing bound memory.
+        // SAFETY: the owning texture/depth resource destroys child views
+        // first, then this image is destroyed before freeing bound memory.
         unsafe {
             self.device.destroy_image(self.image, None);
             self.device.free_memory(self.memory, None);
@@ -217,7 +219,14 @@ impl TextureResource {
         device: &ash::Device,
         extent: vk::Extent3D,
     ) -> Result<Self, B0GpuContentError> {
-        let image = ImageAllocation::new(instance, physical_device, device, extent)?;
+        let image = ImageAllocation::new(
+            instance,
+            physical_device,
+            device,
+            extent,
+            vk::Format::R8G8B8A8_SRGB,
+            vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
+        )?;
         let subresource = vk::ImageSubresourceRange::default()
             .aspect_mask(vk::ImageAspectFlags::COLOR)
             .base_mip_level(0)
@@ -237,6 +246,72 @@ impl TextureResource {
             view,
             image,
         })
+    }
+}
+
+/// One device-local depth target. Swapchain ownership keeps one allocation per
+/// color image so a reacquired image never aliases depth work still in flight.
+pub(crate) struct DepthAttachment {
+    device: ash::Device,
+    view: vk::ImageView,
+    image: ImageAllocation,
+}
+
+impl DepthAttachment {
+    pub(crate) fn new(
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        device: &ash::Device,
+        format: vk::Format,
+        extent: vk::Extent2D,
+    ) -> Result<Self, B0GpuContentError> {
+        let image = ImageAllocation::new(
+            instance,
+            physical_device,
+            device,
+            vk::Extent3D {
+                width: extent.width,
+                height: extent.height,
+                depth: 1,
+            },
+            format,
+            vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+        )?;
+        let subresource = vk::ImageSubresourceRange::default()
+            .aspect_mask(vk::ImageAspectFlags::DEPTH)
+            .base_mip_level(0)
+            .level_count(1)
+            .base_array_layer(0)
+            .layer_count(1);
+        let view_info = vk::ImageViewCreateInfo::default()
+            .image(image.image)
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(format)
+            .subresource_range(subresource);
+        // SAFETY: the image is live, was created with this exact depth format,
+        // and remains owned until after the view is destroyed.
+        let view = unsafe { device.create_image_view(&view_info, None) }?;
+        Ok(Self {
+            device: device.clone(),
+            view,
+            image,
+        })
+    }
+
+    pub(crate) fn image(&self) -> vk::Image {
+        self.image.image
+    }
+
+    pub(crate) fn view(&self) -> vk::ImageView {
+        self.view
+    }
+}
+
+impl Drop for DepthAttachment {
+    fn drop(&mut self) {
+        // SAFETY: the view belongs to this device and is destroyed before the
+        // backing image allocation is dropped automatically.
+        unsafe { self.device.destroy_image_view(self.view, None) };
     }
 }
 

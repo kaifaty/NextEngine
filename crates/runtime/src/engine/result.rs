@@ -4,12 +4,15 @@ use next_contracts::command::{CommandPhase, DomainEvent, WorldCommand};
 use next_contracts::ids::{CommandId, ContentHash};
 use next_contracts::input::{
     ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, InputMappingReceiptV1,
+    InputMappingReceiptV2,
 };
 use next_contracts::physics::{
-    ClosedPhysicsContactBatchV1, PhysicsCanonicalSnapshotV2, PhysicsStepInputV2,
+    ClosedPhysicsContactBatchV1, PhysicsCanonicalSnapshotV2, PhysicsQueryBatchV1,
+    PhysicsQueryResultV1, PhysicsStepInputV2,
 };
 use next_contracts::rpg::RpgSnapshotV2;
 use next_contracts::snapshot::RuntimeSnapshotV3;
+use next_contracts::targeting::{AuthoritativeTargetingQueryV1, TargetingIntentV1};
 
 use crate::registry::CommandKindRegistry;
 
@@ -230,8 +233,13 @@ pub struct TickReport {
     pub physics_step_input: PhysicsStepInputV2,
     pub contact_batch: ClosedPhysicsContactBatchV1,
     pub physics_checkpoint_hash: ContentHash,
+    pub targeting_intents: Vec<TargetingIntentV1>,
+    pub authoritative_targeting_queries: Vec<AuthoritativeTargetingQueryV1>,
+    pub physics_query_batch: PhysicsQueryBatchV1,
+    pub physics_query_results: Vec<PhysicsQueryResultV1>,
     pub closed_ingress_batch: ClosedIngressBatchV1,
     pub mapping_receipts: Vec<InputMappingReceiptV1>,
+    pub mapping_receipts_v2: Vec<InputMappingReceiptV2>,
     pub command_batches: Vec<ClosedCommandAdmissionBatchV2>,
     pub rpg_plan_traces: Vec<CommittedRpgPlanTraceV1>,
 }
