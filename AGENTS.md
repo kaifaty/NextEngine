@@ -14,7 +14,6 @@
 - Prefer a structured QMD query with an explicit `intent` plus agent-authored `lex` and `vec` searches; add `hyde` only when a hypothetical source passage materially improves recall.
 - Retrieve and read the complete candidate documents with QMD `get` or `multi_get` before making claims or edits. Search snippets and ranking scores are discovery aids, not authority, and do not replace the mandatory direct reads or precedence rules above.
 - Prefer `rg` and direct file reads for exact source-code symbols, known paths and verification after retrieval.
-- On a new workstation, follow `tools/qmd/README.md`: run `node tools/qmd/setup.mjs`, start the long-lived server with `node tools/qmd/daemon.mjs start`, verify it with `node tools/qmd/daemon.mjs status`, then restart Codex and confirm `qmd` in `/mcp`. Do not benchmark model-backed latency with repeated standalone `qmd query` processes; each process pays the cold model-load cost.
 - If QMD is unavailable, incomplete or stale, fall back to `rg` plus direct reads and report the fallback. Index mutation is local maintenance: use `node tools/qmd/setup.mjs` only for setup or an explicitly requested refresh.
 
 ## Roadmap context

@@ -278,6 +278,21 @@ qmd pull
 and common environment overrides. If a model-backed command fails, run it before
 changing configuration.
 
+### NextEngine workstation bootstrap
+
+In the NextEngine repository, follow `tools/qmd/README.md` on a new workstation:
+
+```bash
+node tools/qmd/setup.mjs
+node tools/qmd/daemon.mjs start
+node tools/qmd/daemon.mjs status
+```
+
+Then restart Codex or open a new task and confirm that `qmd` appears in `/mcp`.
+The project uses the long-lived HTTP daemon so local models remain warm across
+tasks. Do not benchmark model-backed latency with repeated standalone
+`qmd query` processes: every new process pays the cold model-load cost.
+
 ## MCP setup
 
 See `references/mcp-setup.md` for Claude Code, Claude Desktop, OpenClaw, and HTTP
