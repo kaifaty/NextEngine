@@ -49,12 +49,12 @@ fn encode_stream(
     writer.option_u64(stream.admission_high_watermark);
     writer.option_u64(stream.greatest_reserved_target_tick);
     writer.count(stream.pending.len())?;
-    for (sequence, reservation) in &stream.pending {
+    for (sequence, reservation) in stream.pending.iter() {
         writer.u64(*sequence);
         encode_reservation(writer, reservation)?;
     }
     writer.count(stream.receipt_window.len())?;
-    for receipt in &stream.receipt_window {
+    for receipt in stream.receipt_window.iter() {
         encode_receipt(writer, receipt)?;
     }
     writer.u64(stream.finalized_receipt_count);
@@ -132,8 +132,8 @@ fn decode_stream(
         state,
         admission_high_watermark,
         greatest_reserved_target_tick,
-        pending,
-        receipt_window,
+        pending: Arc::new(pending),
+        receipt_window: Arc::new(receipt_window),
         finalized_receipt_count,
         receipt_chain_root,
         collision_incident,
@@ -418,7 +418,7 @@ pub(super) fn encode_identity_index(
     writer.u64(index.body.command_id_count);
     writer.u64(index.body.occurrence_count);
     writer.count(index.body.bindings.len())?;
-    for (command_id, binding) in &index.body.bindings {
+    for (command_id, binding) in index.body.bindings.iter() {
         writer.bytes(command_id.as_bytes());
         writer.bytes(binding.command_id.as_bytes());
         writer.u8(binding.state as u8);
@@ -479,7 +479,7 @@ pub(super) fn decode_identity_index(
         schema_version,
         body: CommandIdentityIndexBodyV1 {
             schema_version: body_schema_version,
-            bindings,
+            bindings: Arc::new(bindings),
             command_id_count,
             occurrence_count,
         },
@@ -497,7 +497,7 @@ pub(super) fn encode_causal_registry(
     writer.u16(registry.schema_version);
     writer.bytes(registry.world_namespace.as_bytes());
     writer.count(registry.bindings.len())?;
-    for (key, hash) in &registry.bindings {
+    for (key, hash) in registry.bindings.iter() {
         writer.u8(key.identity_kind as u8);
         writer.bytes(&key.identity_bytes);
         writer.bytes(hash.as_bytes());
@@ -544,7 +544,7 @@ pub(super) fn decode_causal_registry(
     Ok(CausalIdentityRegistryV1 {
         schema_version,
         world_namespace,
-        bindings,
+        bindings: Arc::new(bindings),
     })
 }
 

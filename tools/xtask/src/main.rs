@@ -371,6 +371,11 @@ fn performance_report(
         None => next_verification::run_render_frame_planning_performance_check(),
     }
     .map_err(|error| error.to_string())?;
+    let _live_runtime = match state_root {
+        Some(root) => next_verification::run_live_runtime_performance_check_in(root),
+        None => next_verification::run_live_runtime_performance_check(),
+    }
+    .map_err(|error| error.to_string())?;
     Ok(CommandReportV1::new(
         "performance",
         "PASS",

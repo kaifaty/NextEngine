@@ -471,7 +471,7 @@ fn latest_ability_commit_tick(
 ) -> Result<Option<u64>, RuntimeFatalError> {
     let mut finalized = BTreeMap::<CommandBodyHash, (&CommandFinalResultV1, u64)>::new();
     for stream in ledger.streams.values() {
-        for receipt in &stream.receipt_window {
+        for receipt in stream.receipt_window.iter() {
             if let CommandReceiptSubjectV1::Command {
                 canonical_body_ref, ..
             } = &receipt.subject

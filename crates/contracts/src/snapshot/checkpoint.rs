@@ -19,7 +19,7 @@ use crate::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgContractErrorV1, 
 
 use super::runtime::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID,
-    RuntimeSnapshotV3, SnapshotDecodeError,
+    RuntimeSnapshotV3, SnapshotDecodeError, snapshot_validation_error,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -36,19 +36,36 @@ impl WorldCheckpointV4 {
         rpg_snapshot: RpgSnapshotV2,
         physics_checkpoint: PhysicsWorldCheckpointV1,
     ) -> Result<Self, WorldCheckpointError> {
-        let state_root =
-            world_checkpoint_v4_state_root(&runtime_snapshot, &rpg_snapshot, &physics_checkpoint)?;
-        let checkpoint = Self {
+        let mut checkpoint = Self {
             runtime_snapshot,
             rpg_snapshot,
             physics_checkpoint,
-            state_root,
+            state_root: StateRoot::default(),
         };
-        checkpoint.validate()?;
+        checkpoint.validate_components()?;
+        checkpoint.state_root = world_checkpoint_v4_state_root_validated(
+            &checkpoint.runtime_snapshot,
+            &checkpoint.rpg_snapshot,
+            &checkpoint.physics_checkpoint,
+        )?;
         Ok(checkpoint)
     }
 
     pub fn validate(&self) -> Result<(), WorldCheckpointError> {
+        self.validate_components()?;
+        if self.state_root
+            != world_checkpoint_v4_state_root_validated(
+                &self.runtime_snapshot,
+                &self.rpg_snapshot,
+                &self.physics_checkpoint,
+            )?
+        {
+            return Err(WorldCheckpointError::ClosureMismatch);
+        }
+        Ok(())
+    }
+
+    fn validate_components(&self) -> Result<(), WorldCheckpointError> {
         self.runtime_snapshot.validate()?;
         let rpg_bytes = self.rpg_snapshot.canonical_bytes()?;
         if RpgSnapshotV2::from_canonical_bytes(&rpg_bytes, CanonicalDecodeLimits::default())?
@@ -100,12 +117,6 @@ impl WorldCheckpointV4 {
             != self.runtime_snapshot.authoritative_revision
             || self.physics_checkpoint.snapshot.physics_tick != expected_physics_tick
             || !bindings_close
-            || self.state_root
-                != world_checkpoint_v4_state_root(
-                    &self.runtime_snapshot,
-                    &self.rpg_snapshot,
-                    &self.physics_checkpoint,
-                )?
         {
             return Err(WorldCheckpointError::ClosureMismatch);
         }
@@ -267,12 +278,23 @@ pub fn world_checkpoint_v4_state_root(
     rpg_snapshot: &RpgSnapshotV2,
     physics_checkpoint: &PhysicsWorldCheckpointV1,
 ) -> Result<StateRoot, CanonicalError> {
+    runtime_snapshot
+        .validate()
+        .map_err(snapshot_validation_error)?;
+    world_checkpoint_v4_state_root_validated(runtime_snapshot, rpg_snapshot, physics_checkpoint)
+}
+
+fn world_checkpoint_v4_state_root_validated(
+    runtime_snapshot: &RuntimeSnapshotV3,
+    rpg_snapshot: &RpgSnapshotV2,
+    physics_checkpoint: &PhysicsWorldCheckpointV1,
+) -> Result<StateRoot, CanonicalError> {
     let mut segments = [
         (
             RUNTIME_SNAPSHOT_OWNER_ID,
             RUNTIME_SNAPSHOT_SCHEMA_ID,
             RUNTIME_SNAPSHOT_SEGMENT_ID,
-            runtime_snapshot.canonical_bytes()?,
+            runtime_snapshot.canonical_bytes_validated()?,
         ),
         (
             crate::rpg::RPG_AGGREGATE_SNAPSHOT_OWNER_ID,

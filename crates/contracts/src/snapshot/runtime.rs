@@ -182,15 +182,14 @@ impl RuntimeSnapshotV3 {
     }
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, CanonicalError> {
-        self.validate().map_err(|error| match error {
-            SnapshotDecodeError::Canonicalization(error) => error,
-            SnapshotDecodeError::Identity(IdentityContractError::Canonical(error)) => error,
-            SnapshotDecodeError::Ledger(CommandLedgerError::Canonical(error)) => error,
-            _ => CanonicalError::DuplicateSequenceValue,
-        })?;
+        self.validate().map_err(snapshot_validation_error)?;
+        self.canonical_bytes_validated()
+    }
+
+    pub(crate) fn canonical_bytes_validated(&self) -> Result<Vec<u8>, CanonicalError> {
         let ledger_bytes = self
             .command_ledger
-            .canonical_bytes(&self.body_archive)
+            .canonical_bytes_validated()
             .map_err(|error| match error {
                 CommandLedgerError::Canonical(error) => error,
                 _ => CanonicalError::DuplicateSequenceValue,
@@ -392,7 +391,7 @@ impl RuntimeSnapshotV3 {
             body_archive: archive,
         };
         snapshot.validate()?;
-        if snapshot.canonical_bytes()? != bytes {
+        if snapshot.canonical_bytes_validated()? != bytes {
             return Err(SnapshotDecodeError::NonCanonicalEncoding);
         }
         Ok(snapshot)
@@ -405,6 +404,15 @@ impl RuntimeSnapshotV3 {
                 CommandLedgerError::Canonical(error) => error,
                 _ => CanonicalError::DuplicateSequenceValue,
             })
+    }
+}
+
+pub(crate) fn snapshot_validation_error(error: SnapshotDecodeError) -> CanonicalError {
+    match error {
+        SnapshotDecodeError::Canonicalization(error) => error,
+        SnapshotDecodeError::Identity(IdentityContractError::Canonical(error)) => error,
+        SnapshotDecodeError::Ledger(CommandLedgerError::Canonical(error)) => error,
+        _ => CanonicalError::DuplicateSequenceValue,
     }
 }
 

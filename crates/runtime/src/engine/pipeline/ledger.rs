@@ -192,7 +192,7 @@ pub(super) fn insert_archive_identity(
 ) -> Result<IdentityInsertResult, RuntimeFatalError> {
     let body_hash = command.body_hash()?;
     archive.insert_command(command)?;
-    let result = ledger.identity_index.insert_occurrence(
+    let result = ledger.identity_index.insert_occurrence_incremental(
         command_id,
         CommandIdentityOccurrenceV1 {
             body_hash,

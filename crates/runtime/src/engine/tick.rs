@@ -340,7 +340,9 @@ impl RuntimeState {
             &mut staged,
         )?;
 
-        staged.ledger.synchronize_archive(&staged.archive)?;
+        staged
+            .ledger
+            .synchronize_archive_incremental(&staged.archive)?;
         staged.physics.set_checkpoint_revision(staged.revision);
         let mut ordered_results = ingress.results;
         ordered_results.extend(outcome.results);
@@ -373,12 +375,10 @@ impl RuntimeState {
             command_ledger: staged.ledger.clone(),
             body_archive: staged.archive.clone(),
         };
-        // `synchronize_archive` above performs the one complete ledger/archive
-        // validation for this transaction. All remaining snapshot fields are
-        // either immutable validated launch data or values produced by the
-        // bounded ingress/physics/RPG stages, so repeating full historical
-        // snapshot validation here is redundant. Durable serialization and
-        // restore still validate the complete public snapshot.
+        // Incremental mutation APIs validate the exact affected archive,
+        // identity, stream and receipt boundaries. Durable serialization and
+        // restore still validate the complete public snapshot and historical
+        // closure.
 
         let mut stage_trace = vec![StageTraceEntry {
             stage: TransactionStage::IngressClose,

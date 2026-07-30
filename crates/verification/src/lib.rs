@@ -2,6 +2,7 @@
 
 mod agent_performance;
 mod content_package;
+mod live_runtime_performance;
 mod persistence_replay;
 mod physics_parity;
 mod platform_check;
@@ -21,6 +22,10 @@ pub use agent_performance::{
 pub use content_package::{
     ContentPackageCheckError, ContentPackageCheckReport, run_content_package_check,
     run_content_package_check_in,
+};
+pub use live_runtime_performance::{
+    LiveRuntimePerformanceError, LiveRuntimePerformanceReport, run_live_runtime_performance_check,
+    run_live_runtime_performance_check_in,
 };
 pub use persistence_replay::{
     PersistenceReplayBackend, PersistenceReplayCheckError, PersistenceReplayCheckReport,

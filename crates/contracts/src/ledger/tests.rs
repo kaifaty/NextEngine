@@ -102,9 +102,8 @@ fn body_archive_is_order_independent_and_rejects_corrupt_keys() {
     forward.validate().expect("archive closure validates");
 
     let body_bytes = first.canonical_bytes().expect("canonical body");
-    forward
-        .entries
-        .insert(command_body_hash_from_bytes([9; 32]), body_bytes);
+    Arc::make_mut(&mut forward.entries)
+        .insert(command_body_hash_from_bytes([9; 32]), Arc::from(body_bytes));
     assert_eq!(
         forward.validate(),
         Err(CommandLedgerError::CommandBodyArchiveCorrupt)
@@ -497,9 +496,10 @@ fn archive_synchronization_is_atomic_on_corrupt_input() {
     .expect("empty ledger");
     let before = ledger.clone();
     let mut corrupt = CommandBodyArchiveV1::default();
-    corrupt
-        .entries
-        .insert(command_body_hash_from_bytes([9; 32]), vec![1, 2, 3]);
+    Arc::make_mut(&mut corrupt.entries).insert(
+        command_body_hash_from_bytes([9; 32]),
+        Arc::from(vec![1, 2, 3]),
+    );
 
     assert!(ledger.synchronize_archive(&corrupt).is_err());
     assert_eq!(ledger, before);

@@ -30,7 +30,7 @@ pub(super) fn collision_candidates_are_canonical(
 }
 
 pub fn command_body_archive_root(
-    entries: &BTreeMap<CommandBodyHash, Vec<u8>>,
+    entries: &BTreeMap<CommandBodyHash, Arc<[u8]>>,
 ) -> Result<ContentHash, CanonicalError> {
     let mut nodes = Vec::with_capacity(entries.len());
     for (body_hash, body_bytes) in entries {
@@ -42,7 +42,7 @@ pub fn command_body_archive_root(
                 .map_err(|_| CanonicalError::LengthOverflow)?
                 .to_le_bytes(),
         );
-        preimage.extend_from_slice(body_bytes);
+        preimage.extend_from_slice(body_bytes.as_ref());
         nodes.push(sha256(&preimage));
     }
     let merkle_root = if nodes.is_empty() {

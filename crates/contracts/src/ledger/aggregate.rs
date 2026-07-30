@@ -32,7 +32,7 @@ impl CommandLedgerV2 {
             causal_identity_registry: CausalIdentityRegistryV1 {
                 schema_version: CAUSAL_IDENTITY_REGISTRY_SCHEMA_VERSION,
                 world_namespace,
-                bindings: BTreeMap::new(),
+                bindings: Arc::new(BTreeMap::new()),
             },
         };
         ledger.validate(&archive)?;
@@ -48,6 +48,39 @@ impl CommandLedgerV2 {
         next.body_archive = archive.manifest()?;
         next.validate(archive)?;
         *self = next;
+        Ok(())
+    }
+
+    /// Publishes exact archive metadata for a transaction assembled only
+    /// through the incremental archive/identity/stream mutation APIs.
+    ///
+    /// Full historical closure validation remains mandatory when decoding,
+    /// serializing or restoring a durable public snapshot.
+    pub fn synchronize_archive_incremental(
+        &mut self,
+        archive: &CommandBodyArchiveV1,
+    ) -> Result<(), CommandLedgerError> {
+        if self.schema_version != COMMAND_LEDGER_SCHEMA_VERSION {
+            return Err(CommandLedgerError::UnsupportedLedgerVersion(
+                self.schema_version,
+            ));
+        }
+        if self.identity_index.schema_version != COMMAND_IDENTITY_INDEX_SCHEMA_VERSION {
+            return Err(CommandLedgerError::UnsupportedIdentityIndexVersion(
+                self.identity_index.schema_version,
+            ));
+        }
+        if self.identity_index.body.schema_version != COMMAND_IDENTITY_INDEX_SCHEMA_VERSION {
+            return Err(CommandLedgerError::UnsupportedIdentityIndexVersion(
+                self.identity_index.body.schema_version,
+            ));
+        }
+        let entry_count = u64::try_from(archive.entries().len())
+            .map_err(|_| CommandLedgerError::CountOverflow)?;
+        if entry_count != self.identity_index.body.occurrence_count {
+            return Err(CommandLedgerError::CommandBodyArchiveCorrupt);
+        }
+        self.body_archive = archive.manifest()?;
         Ok(())
     }
 
@@ -83,7 +116,7 @@ impl CommandLedgerV2 {
         if archive_hashes != occurrence_hashes {
             return Err(CommandLedgerError::CommandBodyArchiveCorrupt);
         }
-        for (command_id, binding) in &self.identity_index.body.bindings {
+        for (command_id, binding) in self.identity_index.body.bindings.iter() {
             for occurrence in &binding.occurrences {
                 let body_bytes = archive
                     .entries()
@@ -107,7 +140,7 @@ impl CommandLedgerV2 {
                     &self.identity_index,
                 )?;
             }
-            for receipt in &stream.receipt_window {
+            for receipt in stream.receipt_window.iter() {
                 validate_receipt_references(receipt, &archive_hashes, &self.identity_index)?;
             }
             if let Some(incident) = &stream.collision_incident {
@@ -129,6 +162,10 @@ impl CommandLedgerV2 {
         archive: &CommandBodyArchiveV1,
     ) -> Result<Vec<u8>, CommandLedgerError> {
         self.validate(archive)?;
+        self.canonical_bytes_validated()
+    }
+
+    pub(crate) fn canonical_bytes_validated(&self) -> Result<Vec<u8>, CommandLedgerError> {
         encode_canonical_segment(
             COMMAND_LEDGER_OWNER_ID,
             COMMAND_LEDGER_SCHEMA_ID,
@@ -220,7 +257,7 @@ impl CommandLedgerV2 {
             )?,
         };
         ledger.validate(archive)?;
-        if ledger.canonical_bytes(archive)? != bytes {
+        if ledger.canonical_bytes_validated()? != bytes {
             return Err(CommandLedgerError::NonCanonicalEncoding);
         }
         Ok(ledger)

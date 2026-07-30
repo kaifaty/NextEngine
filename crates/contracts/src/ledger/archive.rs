@@ -12,12 +12,12 @@ pub struct CommandBodyArchiveManifestV1 {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CommandBodyArchiveV1 {
-    pub(super) entries: BTreeMap<CommandBodyHash, Vec<u8>>,
+    pub(super) entries: Arc<BTreeMap<CommandBodyHash, Arc<[u8]>>>,
 }
 
 impl CommandBodyArchiveV1 {
     #[must_use]
-    pub fn entries(&self) -> &BTreeMap<CommandBodyHash, Vec<u8>> {
+    pub fn entries(&self) -> &BTreeMap<CommandBodyHash, Arc<[u8]>> {
         &self.entries
     }
 
@@ -30,14 +30,21 @@ impl CommandBodyArchiveV1 {
         if command.canonical_bytes()? != body_bytes {
             return Err(CommandLedgerError::CommandBodyArchiveCorrupt);
         }
+        self.insert_validated_body_bytes(body_bytes)
+    }
+
+    fn insert_validated_body_bytes(
+        &mut self,
+        body_bytes: Vec<u8>,
+    ) -> Result<ArchiveInsertResult, CommandLedgerError> {
         let body_hash = command_body_hash_from_bytes(sha256(&body_bytes));
         match self.entries.get(&body_hash) {
-            Some(existing) if existing == &body_bytes => {
+            Some(existing) if existing.as_ref() == body_bytes.as_slice() => {
                 Ok(ArchiveInsertResult::Existing(body_hash))
             }
             Some(_) => Err(CommandLedgerError::CommandBodyHashCollision),
             None => {
-                self.entries.insert(body_hash, body_bytes);
+                Arc::make_mut(&mut self.entries).insert(body_hash, Arc::from(body_bytes));
                 Ok(ArchiveInsertResult::Inserted(body_hash))
             }
         }
@@ -47,7 +54,7 @@ impl CommandBodyArchiveV1 {
         &mut self,
         command: &WorldCommand,
     ) -> Result<ArchiveInsertResult, CommandLedgerError> {
-        self.insert_body_bytes(command.canonical_bytes()?)
+        self.insert_validated_body_bytes(command.canonical_bytes()?)
     }
 
     pub fn manifest(&self) -> Result<CommandBodyArchiveManifestV1, CommandLedgerError> {
@@ -61,13 +68,15 @@ impl CommandBodyArchiveV1 {
     }
 
     pub fn validate(&self) -> Result<(), CommandLedgerError> {
-        for (declared_hash, body_bytes) in &self.entries {
-            let command =
-                WorldCommand::from_canonical_bytes(body_bytes, CanonicalDecodeLimits::default())?;
-            if command.canonical_bytes()? != *body_bytes {
+        for (declared_hash, body_bytes) in self.entries.iter() {
+            let command = WorldCommand::from_canonical_bytes(
+                body_bytes.as_ref(),
+                CanonicalDecodeLimits::default(),
+            )?;
+            if command.canonical_bytes()?.as_slice() != body_bytes.as_ref() {
                 return Err(CommandLedgerError::CommandBodyArchiveCorrupt);
             }
-            let computed_hash = command_body_hash_from_bytes(sha256(body_bytes));
+            let computed_hash = command_body_hash_from_bytes(sha256(body_bytes.as_ref()));
             if declared_hash != &computed_hash {
                 return Err(CommandLedgerError::CommandBodyArchiveCorrupt);
             }
@@ -83,7 +92,7 @@ impl CommandBodyArchiveV1 {
                 .map_err(|_| CanonicalError::LengthOverflow)?
                 .to_le_bytes(),
         );
-        for (body_hash, body_bytes) in &self.entries {
+        for (body_hash, body_bytes) in self.entries.iter() {
             entries.extend_from_slice(body_hash.as_bytes());
             extend_u32_bytes(&mut entries, body_bytes)?;
         }
@@ -135,11 +144,13 @@ impl CommandBodyArchiveV1 {
             let body_bytes = cursor
                 .read_u32_length_prefixed(limits.max_total_bytes)?
                 .to_vec();
-            entries.insert(body_hash, body_bytes);
+            entries.insert(body_hash, Arc::from(body_bytes));
             previous = Some(body_hash);
         }
         cursor.finish()?;
-        let archive = Self { entries };
+        let archive = Self {
+            entries: Arc::new(entries),
+        };
         archive.validate()?;
         if archive.canonical_bytes()? != bytes {
             return Err(CommandLedgerError::NonCanonicalEncoding);

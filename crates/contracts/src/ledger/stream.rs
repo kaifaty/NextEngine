@@ -61,8 +61,8 @@ pub struct CommandStreamLedgerV2 {
     pub state: CommandStreamStateV1,
     pub admission_high_watermark: Option<u64>,
     pub greatest_reserved_target_tick: Option<u64>,
-    pub pending: BTreeMap<u64, CommandReservationV1>,
-    pub receipt_window: Vec<CommandReceiptV1>,
+    pub pending: Arc<BTreeMap<u64, CommandReservationV1>>,
+    pub receipt_window: Arc<Vec<CommandReceiptV1>>,
     pub finalized_receipt_count: u64,
     pub receipt_chain_root: ContentHash,
     pub collision_incident: Option<CommandCollisionIncidentV1>,
@@ -85,8 +85,8 @@ impl CommandStreamLedgerV2 {
             state: CommandStreamStateV1::Open,
             admission_high_watermark: None,
             greatest_reserved_target_tick: None,
-            pending: BTreeMap::new(),
-            receipt_window: Vec::new(),
+            pending: Arc::new(BTreeMap::new()),
+            receipt_window: Arc::new(Vec::new()),
             finalized_receipt_count: 0,
             receipt_chain_root: command_receipt_chain_genesis(),
             collision_incident: None,
@@ -95,6 +95,16 @@ impl CommandStreamLedgerV2 {
 
     pub fn reserve(&mut self, reservation: CommandReservationV1) -> Result<(), CommandLedgerError> {
         self.validate()?;
+        self.reserve_incremental(reservation)
+    }
+
+    /// Reserves one command against a stream already validated at the current
+    /// transaction boundary, without rescanning the retained receipt window.
+    pub fn reserve_incremental(
+        &mut self,
+        reservation: CommandReservationV1,
+    ) -> Result<(), CommandLedgerError> {
+        self.validate_append_boundary()?;
         if reservation.schema_version != COMMAND_RESERVATION_SCHEMA_VERSION
             || reservation.stream_id != self.stream_id
             || reservation.issuer != self.issuer
@@ -135,8 +145,8 @@ impl CommandStreamLedgerV2 {
         if reservation.sequence == u64::MAX {
             self.state = CommandStreamStateV1::Exhausted;
         }
-        self.pending.insert(reservation.sequence, reservation);
-        self.validate()
+        Arc::make_mut(&mut self.pending).insert(reservation.sequence, reservation);
+        Ok(())
     }
 
     pub fn lock_for_collision(
@@ -273,11 +283,11 @@ impl CommandStreamLedgerV2 {
             .ok_or(CommandLedgerError::FinalizationOrdinalExhausted)?;
 
         self.admission_high_watermark = next_high_watermark;
-        self.pending.remove(&sequence);
+        Arc::make_mut(&mut self.pending).remove(&sequence);
         self.receipt_chain_root = next_chain_root;
-        self.receipt_window.push(receipt);
+        Arc::make_mut(&mut self.receipt_window).push(receipt);
         if self.receipt_window.len() > COMMAND_RECEIPT_WINDOW_CAPACITY {
-            self.receipt_window.remove(0);
+            Arc::make_mut(&mut self.receipt_window).remove(0);
         }
         self.finalized_receipt_count = next_count;
         if self.state == CommandStreamStateV1::Open
@@ -297,7 +307,7 @@ impl CommandStreamLedgerV2 {
         if self.pending.len() > COMMAND_PENDING_CAPACITY {
             return Err(CommandLedgerError::PendingLimit);
         }
-        for (sequence, reservation) in &self.pending {
+        for (sequence, reservation) in self.pending.iter() {
             if sequence != &reservation.sequence
                 || reservation.stream_id != self.stream_id
                 || reservation.issuer != self.issuer
@@ -361,7 +371,7 @@ impl CommandStreamLedgerV2 {
             }
         } else if self.finalized_receipt_count <= COMMAND_RECEIPT_WINDOW_CAPACITY as u64 {
             let mut root = command_receipt_chain_genesis();
-            for receipt in &self.receipt_window {
+            for receipt in self.receipt_window.iter() {
                 root = command_receipt_chain_next(root, receipt)?;
             }
             if root != self.receipt_chain_root {

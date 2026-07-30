@@ -25,7 +25,7 @@ pub struct CommandIdentityBindingV1 {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandIdentityIndexBodyV1 {
     pub schema_version: u16,
-    pub bindings: BTreeMap<CommandId, CommandIdentityBindingV1>,
+    pub bindings: Arc<BTreeMap<CommandId, CommandIdentityBindingV1>>,
     pub command_id_count: u64,
     pub occurrence_count: u64,
 }
@@ -80,7 +80,7 @@ impl CommandIdentityIndexBodyV1 {
             return Err(CommandLedgerError::IdentityIndexCountMismatch);
         }
         let mut occurrence_count = 0_u64;
-        for (command_id, binding) in &self.bindings {
+        for (command_id, binding) in self.bindings.iter() {
             if command_id != &binding.command_id {
                 return Err(CommandLedgerError::IdentityIndexKeyMismatch);
             }
@@ -179,7 +179,7 @@ impl CommandIdentityIndexV1 {
         })?;
         let body = CommandIdentityIndexBodyV1 {
             schema_version: COMMAND_IDENTITY_INDEX_SCHEMA_VERSION,
-            bindings,
+            bindings: Arc::new(bindings),
             command_id_count,
             occurrence_count,
         };
@@ -197,10 +197,30 @@ impl CommandIdentityIndexV1 {
         occurrence: CommandIdentityOccurrenceV1,
     ) -> Result<IdentityInsertResult, CommandLedgerError> {
         self.validate()?;
+        self.insert_occurrence_incremental(command_id, occurrence)
+    }
+
+    /// Stages one occurrence against an index that was validated at the
+    /// transaction boundary. The affected binding and exact public root are
+    /// rebuilt, while historical bindings are not decoded or revalidated.
+    pub fn insert_occurrence_incremental(
+        &mut self,
+        command_id: CommandId,
+        occurrence: CommandIdentityOccurrenceV1,
+    ) -> Result<IdentityInsertResult, CommandLedgerError> {
+        if self.schema_version != COMMAND_IDENTITY_INDEX_SCHEMA_VERSION
+            || self.body.schema_version != COMMAND_IDENTITY_INDEX_SCHEMA_VERSION
+            || self.body.command_id_count
+                != u64::try_from(self.body.bindings.len())
+                    .map_err(|_| CommandLedgerError::CountOverflow)?
+        {
+            return Err(CommandLedgerError::IdentityIndexCountMismatch);
+        }
         let mut next = self.clone();
-        let result = match next.body.bindings.get_mut(&command_id) {
+        let bindings = Arc::make_mut(&mut next.body.bindings);
+        let result = match bindings.get_mut(&command_id) {
             None => {
-                next.body.bindings.insert(
+                bindings.insert(
                     command_id,
                     CommandIdentityBindingV1 {
                         command_id,
@@ -208,6 +228,16 @@ impl CommandIdentityIndexV1 {
                         state: CommandIdentityBindingState::Unique,
                     },
                 );
+                next.body.command_id_count = next
+                    .body
+                    .command_id_count
+                    .checked_add(1)
+                    .ok_or(CommandLedgerError::CountOverflow)?;
+                next.body.occurrence_count = next
+                    .body
+                    .occurrence_count
+                    .checked_add(1)
+                    .ok_or(CommandLedgerError::CountOverflow)?;
                 IdentityInsertResult::Inserted
             }
             Some(binding)
@@ -216,7 +246,7 @@ impl CommandIdentityIndexV1 {
                     .iter()
                     .any(|existing| existing.body_hash == occurrence.body_hash) =>
             {
-                IdentityInsertResult::Existing
+                return Ok(IdentityInsertResult::Existing);
             }
             Some(binding) => {
                 binding.occurrences.push(occurrence);
@@ -224,10 +254,15 @@ impl CommandIdentityIndexV1 {
                     .occurrences
                     .sort_by_key(|occurrence| occurrence.body_hash);
                 binding.state = CommandIdentityBindingState::Collision;
+                next.body.occurrence_count = next
+                    .body
+                    .occurrence_count
+                    .checked_add(1)
+                    .ok_or(CommandLedgerError::CountOverflow)?;
                 IdentityInsertResult::Collision
             }
         };
-        next.recompute_metadata()?;
+        next.index_root = command_identity_index_root(&next.body)?;
         *self = next;
         Ok(result)
     }
@@ -243,25 +278,6 @@ impl CommandIdentityIndexV1 {
             return Err(CommandLedgerError::IdentityIndexRootMismatch);
         }
         Ok(())
-    }
-
-    fn recompute_metadata(&mut self) -> Result<(), CommandLedgerError> {
-        self.body.command_id_count = u64::try_from(self.body.bindings.len())
-            .map_err(|_| CommandLedgerError::CountOverflow)?;
-        self.body.occurrence_count =
-            self.body
-                .bindings
-                .values()
-                .try_fold(0_u64, |count, binding| {
-                    count
-                        .checked_add(
-                            u64::try_from(binding.occurrences.len())
-                                .map_err(|_| CommandLedgerError::CountOverflow)?,
-                        )
-                        .ok_or(CommandLedgerError::CountOverflow)
-                })?;
-        self.index_root = command_identity_index_root(&self.body)?;
-        self.validate()
     }
 }
 

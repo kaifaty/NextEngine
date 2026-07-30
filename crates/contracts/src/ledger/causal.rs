@@ -21,7 +21,7 @@ pub struct CausalIdentityKey {
 pub struct CausalIdentityRegistryV1 {
     pub schema_version: u16,
     pub world_namespace: WorldNamespaceId,
-    pub bindings: BTreeMap<CausalIdentityKey, ContentHash>,
+    pub bindings: Arc<BTreeMap<CausalIdentityKey, ContentHash>>,
 }
 
 impl CausalIdentityRegistryV1 {
@@ -38,7 +38,7 @@ impl CausalIdentityRegistryV1 {
             Some(_) => Ok(IdentityInsertResult::Collision),
             None => {
                 let mut next = self.clone();
-                next.bindings.insert(key, provenance_hash);
+                Arc::make_mut(&mut next.bindings).insert(key, provenance_hash);
                 *self = next;
                 Ok(IdentityInsertResult::Inserted)
             }

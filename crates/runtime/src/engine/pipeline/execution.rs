@@ -215,7 +215,7 @@ pub(super) fn execute_candidate(
             .ok_or(RuntimeFatalError::LedgerCorrupt(
                 CommandLedgerError::StreamKeyMismatch,
             ))?
-            .reserve(reservation);
+            .reserve_incremental(reservation);
         if let Err(CommandLedgerError::TargetTickRegression) = reserve {
             return finalize_rejection(
                 context,
