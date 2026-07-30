@@ -12,6 +12,7 @@ import {
   COLLECTION,
   EMBEDDING_MODEL,
   GENERATE_MODEL,
+  qmdModelEnvironment,
   REQUIRED_QMD_VERSION,
   RERANK_MODEL,
 } from "./config.mjs";
@@ -25,7 +26,7 @@ function runQmd(args, { capture = false } = {}) {
   return execFileSync(qmd.command, [...qmd.prefixArgs, ...args], {
     cwd: projectRoot,
     encoding: capture ? "utf8" : undefined,
-    env: process.env,
+    env: qmdModelEnvironment(),
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
   });
 }

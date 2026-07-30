@@ -1,9 +1,7 @@
 #:schema https://developers.openai.com/codex/config-schema.json
 
 [mcp_servers.qmd]
-command = "node"
-args = ["tools/qmd/mcp.mjs"]
-cwd = "."
+url = "http://127.0.0.1:8181/mcp"
 enabled = true
 required = false
 enabled_tools = ["query", "get", "multi_get", "status"]

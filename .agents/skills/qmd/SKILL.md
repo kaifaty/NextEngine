@@ -92,8 +92,18 @@ that is a job for `qmd search`, not bare `qmd query`:
 qmd query --format json --explain $'intent: ...\nlex: ...\nvec: ...'  # inspect ranking
 ```
 
-If `qmd query` is slow or model/GPU setup fails, fall back to `qmd search` with
-better lexical terms.
+If reranking is slow or fails, retry the same structured query without
+reranking before discarding semantic retrieval:
+
+```bash
+qmd query --no-rerank $'intent: ...\nlex: ...\nvec: ...'
+```
+
+For MCP `query`, set `"rerank": false`. This keeps lexical and vector retrieval
+plus RRF fusion. If reranking is still valuable but too slow at its default
+candidate pool, use `-C 12` in the CLI or `"candidateLimit": 12` in MCP.
+Fall back to `qmd search` with stronger lexical terms only when embedding/vector
+search is also unavailable or too slow.
 
 ## Retrieve sources
 
@@ -212,7 +222,8 @@ When using the MCP server, prefer structured searches:
   ],
   "intent": "Find the concept note about using metrics as instruments without becoming metric-driven.",
   "collections": ["concepts"],
-  "limit": 10
+  "limit": 10,
+  "candidateLimit": 12
 }
 ```
 
@@ -285,9 +296,10 @@ server configuration.
   faster and often better.
 - **Do not mutate indexes casually.** `qmd collection add`, `qmd update`, and
   `qmd embed` change local state and can be expensive.
-- **Model-backed commands can be environment-sensitive.** If `qmd query`,
-  `qmd vsearch`, or reranking fails because local models/GPU are unavailable,
-  use `qmd search` and stronger lexical/structured terms.
+- **Model-backed commands can be environment-sensitive.** If reranking fails,
+  retry the structured query with `--no-rerank` (CLI) or `rerank: false` (MCP)
+  so lexical and vector retrieval still contribute. Use `qmd search` with
+  stronger lexical terms only when vector search is also unavailable.
 - **Ambiguous user wording needs intent.** Add `intent:` rather than hoping query
   expansion guesses the right domain.
 - **Collection names matter.** Search `concepts` for synthesized wiki pages,
