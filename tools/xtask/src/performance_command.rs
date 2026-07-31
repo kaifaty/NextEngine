@@ -307,7 +307,7 @@ fn performance_report_for(
         ),
         xtask::performance::PerformanceScenarioV1::LongSessionSoak => {
             xtask::performance::sha256_hex(
-                b"nextengine.performance.long-session-soak.v2:3600-live-ticks:1200-tick-windows:held-movement:camera-every-15-ticks:driver-and-interactive-application",
+                b"nextengine.performance.long-session-soak.v3:3600-live-ticks:1200-tick-windows:held-movement:camera-every-15-ticks:driver-and-interactive-application:one-fixed-step-per-measured-pump",
             )
         }
         _ => unreachable!("unavailable representative scenarios return before execution"),
@@ -360,6 +360,42 @@ fn performance_report_for(
     if request.scenario == xtask::performance::PerformanceScenarioV1::LongSessionSoak {
         run.metrics
             .push(xtask::performance::PerformanceMetricV1::from_samples(
+                "long-session-soak.live-runtime.driver-prepare",
+                "microseconds",
+                live_runtime
+                    .driver_prepare_microseconds
+                    .iter()
+                    .copied()
+                    .map(microseconds_u64)
+                    .collect::<Result<Vec<_>, _>>()?,
+                None,
+            )?);
+        run.metrics
+            .push(xtask::performance::PerformanceMetricV1::from_samples(
+                "long-session-soak.live-runtime.driver-commit",
+                "microseconds",
+                live_runtime
+                    .driver_commit_microseconds
+                    .iter()
+                    .copied()
+                    .map(microseconds_u64)
+                    .collect::<Result<Vec<_>, _>>()?,
+                None,
+            )?);
+        run.metrics
+            .push(xtask::performance::PerformanceMetricV1::from_samples(
+                "long-session-soak.live-runtime.checkpoint-materialization",
+                "microseconds",
+                live_runtime
+                    .driver_checkpoint_materialization_microseconds
+                    .iter()
+                    .copied()
+                    .map(microseconds_u64)
+                    .collect::<Result<Vec<_>, _>>()?,
+                None,
+            )?);
+        run.metrics
+            .push(xtask::performance::PerformanceMetricV1::from_samples(
                 "long-session-soak.application.window",
                 "microseconds",
                 live_runtime
@@ -376,6 +412,30 @@ fn performance_report_for(
                 live_runtime
                     .application_checkpoint_microseconds
                     .into_iter()
+                    .map(microseconds_u64)
+                    .collect::<Result<Vec<_>, _>>()?,
+                None,
+            )?);
+        run.metrics
+            .push(xtask::performance::PerformanceMetricV1::from_samples(
+                "long-session-soak.application.ordinary-tick",
+                "microseconds",
+                live_runtime
+                    .application_ordinary_tick_microseconds
+                    .iter()
+                    .copied()
+                    .map(microseconds_u64)
+                    .collect::<Result<Vec<_>, _>>()?,
+                None,
+            )?);
+        run.metrics
+            .push(xtask::performance::PerformanceMetricV1::from_samples(
+                "long-session-soak.application.checkpoint-tick",
+                "microseconds",
+                live_runtime
+                    .application_checkpoint_tick_microseconds
+                    .iter()
+                    .copied()
                     .map(microseconds_u64)
                     .collect::<Result<Vec<_>, _>>()?,
                 None,

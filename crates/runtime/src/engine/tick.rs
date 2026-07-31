@@ -1,16 +1,20 @@
-use next_contracts::command::{CommandPayload, CommandPhase, WorldCommand};
+use next_contracts::command::{CommandPayload, CommandPhase, IssuerPrincipal, WorldCommand};
 use next_contracts::input::{
     CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION, ClosedCommandAdmissionBatchBodyV2,
-    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, InputDerivedCommandRefV2,
-    InputMappingCodeV1,
+    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, IngressCheckpointV1,
+    InputDerivedCommandRefV2, InputMappingCodeV1, InputMappingReceiptV1, InputMappingReceiptV2,
+    InputSampleV1,
 };
 use next_contracts::physics::PhysicsQueryBatchV1;
-use next_contracts::snapshot::RuntimeSnapshotV3;
+use next_contracts::snapshot::{
+    RuntimeSnapshotV3, WorldCheckpointCanonicalComponentsV1, WorldCheckpointError,
+    WorldCheckpointV4,
+};
 use next_physics_api::PhysicsSceneQueryError;
 
 use crate::outcome::{NoOutcomes, OutcomeContext, OutcomeProvider, OutcomeSink};
 
-use super::error::RuntimeFatalError;
+use super::error::{InputAdmissionError, RuntimeFatalError};
 use super::ingress::{accept_closed_ingress, close_ingress, finalize_mapping_receipt_v2};
 use super::interaction::{
     InteractionBuildContext, build_interaction_outcomes, resolve_interaction_outcome_route,
@@ -21,9 +25,169 @@ use super::pipeline::{
     PhaseContext, StagedAuthoritativeState, ValidationSource, count, process_phase,
 };
 use super::result::{StageTraceEntry, TickReport, TransactionStage};
-use super::state::RuntimeState;
+use super::state::{IngressQueueV1, RuntimeState, enqueue_input_sample_in_checkpoint};
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RuntimeGenerationV1 {
+    next_tick: u64,
+    authoritative_revision: u64,
+    committed_event_count: u64,
+    ingress_checkpoint: IngressCheckpointV1,
+}
+
+impl RuntimeGenerationV1 {
+    fn capture(runtime: &RuntimeState) -> Self {
+        Self {
+            next_tick: runtime.next_tick,
+            authoritative_revision: runtime.authoritative_revision,
+            committed_event_count: runtime.committed_event_count,
+            ingress_checkpoint: runtime.ingress_checkpoint.clone(),
+        }
+    }
+
+    fn matches(&self, runtime: &RuntimeState) -> bool {
+        self.next_tick == runtime.next_tick
+            && self.authoritative_revision == runtime.authoritative_revision
+            && self.committed_event_count == runtime.committed_event_count
+            && self.ingress_checkpoint == runtime.ingress_checkpoint
+    }
+}
+
+/// Opaque staging scope for one runtime tick.
+///
+/// Input ingress is copied into this scope, so admission and tick preparation
+/// cannot mutate the live runtime generation.
+pub struct RuntimeTickPreparation<'a> {
+    runtime: &'a RuntimeState,
+    base_generation: RuntimeGenerationV1,
+    ingress_checkpoint: IngressCheckpointV1,
+}
+
+impl RuntimeTickPreparation<'_> {
+    pub fn enqueue_input_sample(
+        &mut self,
+        principal: &IssuerPrincipal,
+        sample: InputSampleV1,
+    ) -> Result<(), InputAdmissionError> {
+        enqueue_input_sample_in_checkpoint(
+            &self.runtime.admission_limits,
+            &self.runtime.principal_registry,
+            &self.runtime.authority,
+            &self.runtime.player_controller_registry,
+            &mut self.ingress_checkpoint,
+            principal,
+            sample,
+            IngressQueueV1::Current,
+        )
+    }
+
+    pub fn prepare(
+        self,
+        commands: impl IntoIterator<Item = WorldCommand>,
+    ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
+        self.prepare_with_outcomes(commands, &mut NoOutcomes)
+    }
+
+    pub fn prepare_with_outcomes(
+        self,
+        commands: impl IntoIterator<Item = WorldCommand>,
+        outcome_provider: &mut impl OutcomeProvider,
+    ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
+        self.prepare_internal(commands, outcome_provider, None)
+    }
+
+    fn prepare_internal(
+        self,
+        commands: impl IntoIterator<Item = WorldCommand>,
+        outcome_provider: &mut impl OutcomeProvider,
+        replay_ingress: Option<ClosedIngressBatchV1>,
+    ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
+        self.runtime.prepare_tick_internal(
+            self.base_generation,
+            self.ingress_checkpoint,
+            commands,
+            outcome_provider,
+            replay_ingress,
+        )
+    }
+}
+
+/// A completely staged and checked next tick. The live runtime is unchanged.
+pub struct PreparedRuntimeTick {
+    base_generation: RuntimeGenerationV1,
+    staged: StagedAuthoritativeState,
+    report: TickReport,
+    last_closed_ingress_batch: ClosedIngressBatchV1,
+    last_mapping_receipts: Vec<InputMappingReceiptV1>,
+    last_mapping_receipts_v2: Vec<InputMappingReceiptV2>,
+    last_command_batches: Vec<ClosedCommandAdmissionBatchV2>,
+}
+
+impl PreparedRuntimeTick {
+    #[must_use]
+    pub fn report(&self) -> &TickReport {
+        &self.report
+    }
+
+    #[must_use]
+    pub const fn next_tick(&self) -> u64 {
+        self.report.snapshot.next_tick
+    }
+
+    #[must_use]
+    pub fn physics_snapshot(&self) -> &next_contracts::physics::PhysicsCanonicalSnapshotV2 {
+        &self.report.physics_snapshot
+    }
+
+    pub fn world_checkpoint_with_canonical_components(
+        &self,
+    ) -> Result<(WorldCheckpointV4, WorldCheckpointCanonicalComponentsV1), WorldCheckpointError>
+    {
+        WorldCheckpointV4::new_with_canonical_components(
+            self.report.snapshot.clone(),
+            self.report.rpg_snapshot.clone(),
+            self.staged.physics.checkpoint().clone(),
+        )
+    }
+}
+
+/// A prepared tick bound to the runtime generation that validated it.
+pub struct ValidatedRuntimeTick(PreparedRuntimeTick);
+
+impl ValidatedRuntimeTick {
+    #[must_use]
+    pub fn report(&self) -> &TickReport {
+        self.0.report()
+    }
+
+    #[must_use]
+    pub const fn next_tick(&self) -> u64 {
+        self.0.next_tick()
+    }
+
+    #[must_use]
+    pub fn physics_snapshot(&self) -> &next_contracts::physics::PhysicsCanonicalSnapshotV2 {
+        self.0.physics_snapshot()
+    }
+
+    pub fn world_checkpoint_with_canonical_components(
+        &self,
+    ) -> Result<(WorldCheckpointV4, WorldCheckpointCanonicalComponentsV1), WorldCheckpointError>
+    {
+        self.0.world_checkpoint_with_canonical_components()
+    }
+}
 
 impl RuntimeState {
+    #[must_use]
+    pub fn tick_preparation(&self) -> RuntimeTickPreparation<'_> {
+        RuntimeTickPreparation {
+            runtime: self,
+            base_generation: RuntimeGenerationV1::capture(self),
+            ingress_checkpoint: self.ingress_checkpoint.clone(),
+        }
+    }
+
     pub fn run_tick(
         &mut self,
         commands: impl IntoIterator<Item = WorldCommand>,
@@ -36,7 +200,40 @@ impl RuntimeState {
         commands: impl IntoIterator<Item = WorldCommand>,
         outcome_provider: &mut impl OutcomeProvider,
     ) -> Result<TickReport, RuntimeFatalError> {
-        self.run_tick_internal(commands, outcome_provider, None)
+        let prepared = self
+            .tick_preparation()
+            .prepare_with_outcomes(commands, outcome_provider)?;
+        let validated = self.validate_prepared_tick(prepared)?;
+        Ok(self.commit_validated_tick(validated))
+    }
+
+    pub fn validate_prepared_tick(
+        &self,
+        prepared: PreparedRuntimeTick,
+    ) -> Result<ValidatedRuntimeTick, RuntimeFatalError> {
+        if !prepared.base_generation.matches(self) {
+            return Err(RuntimeFatalError::PreparedGenerationStale);
+        }
+        Ok(ValidatedRuntimeTick(prepared))
+    }
+
+    #[must_use]
+    pub fn commit_validated_tick(&mut self, validated: ValidatedRuntimeTick) -> TickReport {
+        let ValidatedRuntimeTick(prepared) = validated;
+        debug_assert!(prepared.base_generation.matches(self));
+        self.next_tick = prepared.report.snapshot.next_tick;
+        self.committed_event_count = prepared.staged.event_count;
+        self.authoritative_revision = prepared.staged.revision;
+        self.command_ledger = prepared.staged.ledger;
+        self.body_archive = prepared.staged.archive;
+        self.rpg = prepared.staged.rpg;
+        self.physics = prepared.staged.physics;
+        self.ingress_checkpoint = prepared.staged.ingress;
+        self.last_closed_ingress_batch = Some(prepared.last_closed_ingress_batch);
+        self.last_mapping_receipts = prepared.last_mapping_receipts;
+        self.last_mapping_receipts_v2 = prepared.last_mapping_receipts_v2;
+        self.last_command_batches = prepared.last_command_batches;
+        prepared.report
     }
 
     pub(super) fn replay_closed_ingress_tick(
@@ -44,7 +241,13 @@ impl RuntimeState {
         closed_ingress_batch: ClosedIngressBatchV1,
         direct_commands: impl IntoIterator<Item = WorldCommand>,
     ) -> Result<TickReport, RuntimeFatalError> {
-        self.run_tick_internal(direct_commands, &mut NoOutcomes, Some(closed_ingress_batch))
+        let prepared = self.tick_preparation().prepare_internal(
+            direct_commands,
+            &mut NoOutcomes,
+            Some(closed_ingress_batch),
+        )?;
+        let validated = self.validate_prepared_tick(prepared)?;
+        Ok(self.commit_validated_tick(validated))
     }
 
     pub(super) fn preview_replay_ingress_batch(
@@ -87,12 +290,14 @@ impl RuntimeState {
         Ok(ingress_batch)
     }
 
-    fn run_tick_internal(
-        &mut self,
+    fn prepare_tick_internal(
+        &self,
+        base_generation: RuntimeGenerationV1,
+        ingress_checkpoint: IngressCheckpointV1,
         commands: impl IntoIterator<Item = WorldCommand>,
         outcome_provider: &mut impl OutcomeProvider,
         replay_ingress: Option<ClosedIngressBatchV1>,
-    ) -> Result<TickReport, RuntimeFatalError> {
+    ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
         let following_tick = self
             .next_tick
             .checked_add(1)
@@ -112,7 +317,7 @@ impl RuntimeState {
             physics: self
                 .physics
                 .fork_from_checkpoint(self.physics.checkpoint().clone())?,
-            ingress: self.ingress_checkpoint.clone(),
+            ingress: ingress_checkpoint,
         };
 
         let mut closed_ingress = match replay_ingress {
@@ -437,42 +642,37 @@ impl RuntimeState {
             deduplicated: 0,
         });
 
-        self.next_tick = following_tick;
-        self.committed_event_count = staged.event_count;
-        self.authoritative_revision = staged.revision;
-        self.command_ledger = staged.ledger;
-        self.body_archive = staged.archive;
-        self.rpg = staged.rpg;
-        self.physics = staged.physics;
-        self.ingress_checkpoint = staged.ingress;
-        self.last_closed_ingress_batch = Some(closed_ingress.batch);
-        self.last_mapping_receipts = closed_ingress.mapping_receipts;
-        self.last_mapping_receipts_v2 = closed_ingress.mapping_receipts_v2;
-        self.last_command_batches = vec![ingress_batch, outcome_batch];
-
-        Ok(TickReport {
+        let last_command_batches = vec![ingress_batch, outcome_batch];
+        let report = TickReport {
             tick,
             results,
             events,
             stage_trace,
             snapshot,
-            rpg_snapshot: self.rpg.snapshot(),
-            physics_snapshot: self.physics.snapshot().clone(),
+            rpg_snapshot: staged.rpg.snapshot(),
+            physics_snapshot: staged.physics.snapshot().clone(),
             physics_step_input,
             contact_batch,
-            physics_checkpoint_hash: self.physics.checkpoint_hash()?,
+            physics_checkpoint_hash: staged.physics.checkpoint_hash()?,
             targeting_intents,
             authoritative_targeting_queries,
             physics_query_batch,
             physics_query_results,
-            closed_ingress_batch: self
-                .last_closed_ingress_batch
-                .clone()
-                .expect("successful tick publishes its closed ingress batch"),
-            mapping_receipts: self.last_mapping_receipts.clone(),
-            mapping_receipts_v2: self.last_mapping_receipts_v2.clone(),
-            command_batches: self.last_command_batches.clone(),
+            closed_ingress_batch: closed_ingress.batch.clone(),
+            mapping_receipts: closed_ingress.mapping_receipts.clone(),
+            mapping_receipts_v2: closed_ingress.mapping_receipts_v2.clone(),
+            command_batches: last_command_batches.clone(),
             rpg_plan_traces,
+        };
+
+        Ok(PreparedRuntimeTick {
+            base_generation,
+            staged,
+            report,
+            last_closed_ingress_batch: closed_ingress.batch,
+            last_mapping_receipts: closed_ingress.mapping_receipts,
+            last_mapping_receipts_v2: closed_ingress.mapping_receipts_v2,
+            last_command_batches,
         })
     }
 }

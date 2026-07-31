@@ -1,6 +1,128 @@
 use super::*;
 
 #[test]
+fn prepared_tick_is_non_mutating_and_commits_the_exact_preview() {
+    let mut prepared_fixture = physical_fixture();
+    let mut ordinary_fixture = physical_fixture();
+    let sample = movement_sample(
+        &prepared_fixture,
+        0,
+        PlayerActionPhaseV1::Performed,
+        [0, 32_767],
+        None,
+    );
+    let before_snapshot = prepared_fixture.runtime.snapshot();
+    let before_physics = prepared_fixture.runtime.physics_checkpoint().clone();
+
+    let mut preparation = prepared_fixture.runtime.tick_preparation();
+    preparation
+        .enqueue_input_sample(&prepared_fixture.principal, sample.clone())
+        .expect("stage input");
+    let prepared = preparation.prepare([]).expect("prepare tick");
+    let preview = prepared.report().clone();
+    let preview_checkpoint = prepared
+        .world_checkpoint_with_canonical_components()
+        .expect("prepared checkpoint")
+        .0;
+
+    assert_eq!(prepared_fixture.runtime.snapshot(), before_snapshot);
+    assert_eq!(
+        prepared_fixture.runtime.physics_checkpoint(),
+        &before_physics
+    );
+    assert!(
+        prepared_fixture
+            .runtime
+            .last_closed_ingress_batch()
+            .is_none()
+    );
+
+    let validated = prepared_fixture
+        .runtime
+        .validate_prepared_tick(prepared)
+        .expect("validate prepared tick");
+    let committed = prepared_fixture.runtime.commit_validated_tick(validated);
+    ordinary_fixture
+        .runtime
+        .enqueue_input_sample(&ordinary_fixture.principal, sample)
+        .expect("enqueue ordinary input");
+    let ordinary = ordinary_fixture
+        .runtime
+        .run_tick([])
+        .expect("ordinary tick");
+
+    assert_eq!(committed, preview);
+    assert_eq!(committed, ordinary);
+    assert_eq!(
+        prepared_fixture
+            .runtime
+            .world_checkpoint()
+            .expect("committed checkpoint"),
+        preview_checkpoint
+    );
+}
+
+#[test]
+fn prepared_tick_rejects_a_stale_runtime_generation() {
+    let mut fixture = physical_fixture();
+    let prepared = fixture
+        .runtime
+        .tick_preparation()
+        .prepare([])
+        .expect("prepare tick");
+
+    fixture.runtime.run_tick([]).expect("advance live runtime");
+    let error = fixture
+        .runtime
+        .validate_prepared_tick(prepared)
+        .err()
+        .expect("stale preparation must fail");
+
+    assert_eq!(error, RuntimeFatalError::PreparedGenerationStale);
+    assert_eq!(error.stable_code(), "RUNTIME_PREPARED_GENERATION_STALE");
+    assert_eq!(fixture.runtime.next_tick(), 1);
+}
+
+#[test]
+fn prepared_tick_generation_includes_the_exact_ingress_checkpoint() {
+    let mut fixture = physical_fixture();
+    let prepared = fixture
+        .runtime
+        .tick_preparation()
+        .prepare([])
+        .expect("prepare tick");
+    let sample = movement_sample(
+        &fixture,
+        0,
+        PlayerActionPhaseV1::Performed,
+        [0, 32_767],
+        None,
+    );
+    fixture
+        .runtime
+        .enqueue_input_sample(&fixture.principal, sample)
+        .expect("mutate live ingress only");
+
+    let error = fixture
+        .runtime
+        .validate_prepared_tick(prepared)
+        .err()
+        .expect("ingress drift must stale the preparation");
+    assert_eq!(error, RuntimeFatalError::PreparedGenerationStale);
+    assert_eq!(fixture.runtime.next_tick(), 0);
+    assert_eq!(
+        fixture
+            .runtime
+            .snapshot()
+            .ingress_checkpoint
+            .current_samples
+            .len(),
+        1
+    );
+    assert!(fixture.runtime.last_closed_ingress_batch().is_none());
+}
+
+#[test]
 fn physx_fallback_is_confined_to_world_activation() {
     let bootstrap = RuntimeBootstrapV3::neutral_empty().expect("neutral bootstrap");
     let runtime = RuntimeState::new_with_physics_options(

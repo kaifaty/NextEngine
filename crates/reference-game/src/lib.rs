@@ -15,8 +15,8 @@ pub use input::{
     player_pickup_sample,
 };
 pub use live::{
-    ReferenceGameDriverV1, ReferenceLiveDriverRecoveryV1, ReferenceLiveStateV1,
-    reference_b0_presentation_profile_hash,
+    PreparedReferenceGameAdvance, ReferenceGameDriverV1, ReferenceLiveDriverRecoveryV1,
+    ReferenceLiveStateV1, ValidatedReferenceGameAdvance, reference_b0_presentation_profile_hash,
 };
 pub use rpg::{
     aggregate_payload, cooked_interaction_outcome, cooked_project_rpg_snapshot, reference_aggregate,

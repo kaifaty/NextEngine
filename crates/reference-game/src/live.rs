@@ -3,6 +3,7 @@ use next_contracts::ids::{ContentHash, PersistentId};
 use next_contracts::input::{
     CORE_CAMERA_ORBIT_ACTION_ID, PlayerActionFrameV1, PlayerActionValueV1,
 };
+use next_contracts::physics::PhysicsCanonicalSnapshotV2;
 use next_contracts::platform::PlatformEventV1;
 use next_contracts::presentation::{
     CameraProjectionProfileV1, CameraResultSampleV1, CameraRoleV1, PresentationSnapshotV2,
@@ -14,7 +15,7 @@ use next_player::PlayerInputSessionV1;
 use next_presentation::{
     CameraPresentationBindingV1, PresentationBindingV1, PresentationExtractorV1,
 };
-use next_runtime::{PhysicsLaunchOptions, RuntimeState};
+use next_runtime::{PhysicsLaunchOptions, PreparedRuntimeTick, RuntimeState, ValidatedRuntimeTick};
 use next_world::WorldStreamerV1;
 
 use crate::ReferenceGameError;
@@ -135,6 +136,105 @@ pub struct ReferenceGameDriverV1 {
     camera_yaw_millidegrees: i32,
     camera_pitch_millidegrees: i32,
     camera_cut: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct ReferenceGameGenerationV1 {
+    next_logical_frame_sequence: u64,
+    events: u64,
+    rpg_events: u64,
+    camera_yaw_millidegrees: i32,
+    camera_pitch_millidegrees: i32,
+    camera_cut: bool,
+    input_last_logical_frame_sequence: Option<u64>,
+    presentation_snapshot_sequence: u64,
+    presentation_simulation_tick: u64,
+}
+
+impl ReferenceGameGenerationV1 {
+    fn capture(driver: &ReferenceGameDriverV1) -> Result<Self, ReferenceGameError> {
+        let presentation = driver.presentation_snapshot()?;
+        Ok(Self {
+            next_logical_frame_sequence: driver.next_logical_frame_sequence,
+            events: driver.events,
+            rpg_events: driver.rpg_events,
+            camera_yaw_millidegrees: driver.camera_yaw_millidegrees,
+            camera_pitch_millidegrees: driver.camera_pitch_millidegrees,
+            camera_cut: driver.camera_cut,
+            input_last_logical_frame_sequence: driver.input.last_logical_frame_sequence(),
+            presentation_snapshot_sequence: presentation.snapshot_sequence,
+            presentation_simulation_tick: presentation.simulation_tick,
+        })
+    }
+
+    fn matches(&self, driver: &ReferenceGameDriverV1) -> bool {
+        let Some(presentation) = driver.presentation_extractor.accepted_snapshot() else {
+            return false;
+        };
+        self.next_logical_frame_sequence == driver.next_logical_frame_sequence
+            && self.events == driver.events
+            && self.rpg_events == driver.rpg_events
+            && self.camera_yaw_millidegrees == driver.camera_yaw_millidegrees
+            && self.camera_pitch_millidegrees == driver.camera_pitch_millidegrees
+            && self.camera_cut == driver.camera_cut
+            && self.input_last_logical_frame_sequence == driver.input.last_logical_frame_sequence()
+            && self.presentation_snapshot_sequence == presentation.snapshot_sequence
+            && self.presentation_simulation_tick == presentation.simulation_tick
+    }
+}
+
+struct PreparedReferenceGameState {
+    input: PlayerInputSessionV1,
+    presentation_extractor: PresentationExtractorV1,
+    next_logical_frame_sequence: u64,
+    events: u64,
+    rpg_events: u64,
+    camera_yaw_millidegrees: i32,
+    camera_pitch_millidegrees: i32,
+    camera_cut: bool,
+}
+
+/// An isolated next reference-game generation with a read-only presentation
+/// preview. The live driver has not changed.
+pub struct PreparedReferenceGameAdvance {
+    base_generation: ReferenceGameGenerationV1,
+    runtime: PreparedRuntimeTick,
+    state: PreparedReferenceGameState,
+}
+
+impl PreparedReferenceGameAdvance {
+    #[must_use]
+    pub const fn next_tick(&self) -> u64 {
+        self.runtime.next_tick()
+    }
+
+    pub fn presentation_snapshot(&self) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
+        self.state
+            .presentation_extractor
+            .accepted_snapshot()
+            .ok_or(ReferenceGameError::PresentationSnapshotMissing)
+    }
+}
+
+/// A prepared reference-game generation bound to the current runtime and
+/// driver generation and ready for an infallible commit.
+pub struct ValidatedReferenceGameAdvance {
+    runtime: ValidatedRuntimeTick,
+    state: PreparedReferenceGameState,
+}
+
+impl ValidatedReferenceGameAdvance {
+    #[must_use]
+    pub const fn next_tick(&self) -> u64 {
+        self.runtime.next_tick()
+    }
+
+    pub fn presentation_snapshot(&self) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
+        self.state
+            .presentation_extractor
+            .accepted_snapshot()
+            .ok_or(ReferenceGameError::PresentationSnapshotMissing)
+    }
 }
 
 impl ReferenceGameDriverV1 {
@@ -306,11 +406,9 @@ impl ReferenceGameDriverV1 {
         &mut self,
         platform_events: &[PlatformEventV1],
     ) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
-        let staged = self.stage_advance(platform_events)?;
-        *self = staged;
-        self.presentation_extractor
-            .accepted_snapshot()
-            .ok_or(ReferenceGameError::PresentationSnapshotMissing)
+        let prepared = self.stage_advance(platform_events)?;
+        let validated = self.validate_prepared_advance(prepared)?;
+        Ok(self.commit_validated_advance(validated))
     }
 
     #[must_use]
@@ -325,67 +423,49 @@ impl ReferenceGameDriverV1 {
     }
 
     /// Produces one complete next live generation without changing the current
-    /// driver. Application publication can commit this value only after its
-    /// durable session generation succeeds.
+    /// driver. Only mutable input/presentation state is cloned; immutable
+    /// fixture, streaming and binding state stays shared through this driver.
     pub fn stage_advance(
         &self,
         platform_events: &[PlatformEventV1],
-    ) -> Result<Self, ReferenceGameError> {
-        let mut staged = self.fork_from_checkpoint()?;
-        staged.advance_in_place(platform_events)?;
-        Ok(staged)
-    }
+    ) -> Result<PreparedReferenceGameAdvance, ReferenceGameError> {
+        let base_generation = ReferenceGameGenerationV1::capture(self)?;
+        let mut input_session = self.input.clone();
+        let mut presentation_extractor = self.presentation_extractor.clone();
+        let mut camera_yaw_millidegrees = self.camera_yaw_millidegrees;
+        let mut camera_pitch_millidegrees = self.camera_pitch_millidegrees;
 
-    /// Creates an isolated live generation. The caller may publish the staged
-    /// state and replace the current driver only after durable publication
-    /// succeeds.
-    pub fn fork_from_checkpoint(&self) -> Result<Self, ReferenceGameError> {
-        Ok(Self {
-            fixture: self.fixture.clone(),
-            runtime: self.runtime.fork_from_checkpoint()?,
-            world_streamer: self.world_streamer.clone(),
-            input: self.input.clone(),
-            presentation_bindings: self.presentation_bindings.clone(),
-            presentation_extractor: self.presentation_extractor.clone(),
-            next_logical_frame_sequence: self.next_logical_frame_sequence,
-            events: self.events,
-            rpg_events: self.rpg_events,
-            camera_yaw_millidegrees: self.camera_yaw_millidegrees,
-            camera_pitch_millidegrees: self.camera_pitch_millidegrees,
-            camera_cut: self.camera_cut,
-        })
-    }
-
-    fn advance_in_place(
-        &mut self,
-        platform_events: &[PlatformEventV1],
-    ) -> Result<(), ReferenceGameError> {
-        self.input.submit_platform_events(platform_events)?;
-        let input = self.input.close_frame(self.next_logical_frame_sequence)?;
-        self.next_logical_frame_sequence = self
+        input_session.submit_platform_events(platform_events)?;
+        let input = input_session.close_frame(self.next_logical_frame_sequence)?;
+        let next_logical_frame_sequence = self
             .next_logical_frame_sequence
             .checked_add(1)
             .ok_or(ReferenceGameError::CountOverflow)?;
+        let mut runtime_preparation = self.runtime.tick_preparation();
         if let Some(resolved) = input.resolved {
-            self.update_camera(&resolved.frame);
+            update_camera_state(
+                &resolved.frame,
+                &mut camera_yaw_millidegrees,
+                &mut camera_pitch_millidegrees,
+            );
             if let Some(sample) = runtime_sample_without_camera_actions(
                 &resolved.frame,
                 &resolved.sample,
-                &self.input,
+                &input_session,
             )? {
-                self.runtime
-                    .enqueue_input_sample(&self.fixture.principal, sample)?;
+                runtime_preparation.enqueue_input_sample(&self.fixture.principal, sample)?;
             }
         }
-        let report = self.runtime.run_tick([])?;
-        self.events = self
+        let prepared_runtime = runtime_preparation.prepare([])?;
+        let report = prepared_runtime.report();
+        let events = self
             .events
             .checked_add(
                 u64::try_from(report.events.len())
                     .map_err(|_| ReferenceGameError::CountOverflow)?,
             )
             .ok_or(ReferenceGameError::CountOverflow)?;
-        self.rpg_events = self
+        let rpg_events = self
             .rpg_events
             .checked_add(
                 u64::try_from(
@@ -398,8 +478,77 @@ impl ReferenceGameDriverV1 {
                 .map_err(|_| ReferenceGameError::CountOverflow)?,
             )
             .ok_or(ReferenceGameError::CountOverflow)?;
-        self.publish_presentation()?;
-        Ok(())
+        let camera = self.camera_binding_for(
+            prepared_runtime.physics_snapshot(),
+            camera_yaw_millidegrees,
+            camera_pitch_millidegrees,
+            self.camera_cut,
+        )?;
+        presentation_extractor.extract_with_cameras(
+            prepared_runtime.next_tick(),
+            self.fixture
+                .activated_project
+                .composition_lock
+                .composition_lock_sha256,
+            self.fixture
+                .activated_project
+                .content_manifest
+                .content_manifest_sha256,
+            prepared_runtime.physics_snapshot(),
+            &self.presentation_bindings,
+            &[camera],
+        )?;
+        if presentation_extractor.accepted_snapshot().is_none() {
+            return Err(ReferenceGameError::PresentationSnapshotMissing);
+        }
+
+        Ok(PreparedReferenceGameAdvance {
+            base_generation,
+            runtime: prepared_runtime,
+            state: PreparedReferenceGameState {
+                input: input_session,
+                presentation_extractor,
+                next_logical_frame_sequence,
+                events,
+                rpg_events,
+                camera_yaw_millidegrees,
+                camera_pitch_millidegrees,
+                camera_cut: false,
+            },
+        })
+    }
+
+    pub fn validate_prepared_advance(
+        &self,
+        prepared: PreparedReferenceGameAdvance,
+    ) -> Result<ValidatedReferenceGameAdvance, ReferenceGameError> {
+        if !prepared.base_generation.matches(self) {
+            return Err(next_runtime::RuntimeFatalError::PreparedGenerationStale.into());
+        }
+        let runtime = self.runtime.validate_prepared_tick(prepared.runtime)?;
+        Ok(ValidatedReferenceGameAdvance {
+            runtime,
+            state: prepared.state,
+        })
+    }
+
+    #[must_use]
+    pub fn commit_validated_advance(
+        &mut self,
+        validated: ValidatedReferenceGameAdvance,
+    ) -> &PresentationSnapshotV2 {
+        let _ = self.runtime.commit_validated_tick(validated.runtime);
+        self.input = validated.state.input;
+        self.presentation_extractor = validated.state.presentation_extractor;
+        self.next_logical_frame_sequence = validated.state.next_logical_frame_sequence;
+        self.events = validated.state.events;
+        self.rpg_events = validated.state.rpg_events;
+        self.camera_yaw_millidegrees = validated.state.camera_yaw_millidegrees;
+        self.camera_pitch_millidegrees = validated.state.camera_pitch_millidegrees;
+        self.camera_cut = validated.state.camera_cut;
+        self.presentation_extractor
+            .accepted_snapshot()
+            .expect("validated reference advance contains a presentation snapshot")
     }
 
     pub fn state(&self) -> Result<ReferenceLiveStateV1, ReferenceGameError> {
@@ -441,6 +590,75 @@ impl ReferenceGameDriverV1 {
                 camera_cut: self.camera_cut,
                 input_session_bytes: self.input.recovery_bytes()?,
                 presentation_snapshot_bytes: self.presentation_extractor.recovery_bytes()?,
+            },
+        })
+    }
+
+    pub fn prepared_state(
+        &self,
+        prepared: &PreparedReferenceGameAdvance,
+    ) -> Result<ReferenceLiveStateV1, ReferenceGameError> {
+        let checkpoint = prepared
+            .runtime
+            .world_checkpoint_with_canonical_components()?;
+        self.state_from_prepared_parts(checkpoint, prepared.next_tick(), &prepared.state)
+    }
+
+    pub fn validated_state(
+        &self,
+        validated: &ValidatedReferenceGameAdvance,
+    ) -> Result<ReferenceLiveStateV1, ReferenceGameError> {
+        let checkpoint = validated
+            .runtime
+            .world_checkpoint_with_canonical_components()?;
+        self.state_from_prepared_parts(checkpoint, validated.next_tick(), &validated.state)
+    }
+
+    fn state_from_prepared_parts(
+        &self,
+        (checkpoint, checkpoint_canonical_components): (
+            WorldCheckpointV4,
+            WorldCheckpointCanonicalComponentsV1,
+        ),
+        ticks: u64,
+        state: &PreparedReferenceGameState,
+    ) -> Result<ReferenceLiveStateV1, ReferenceGameError> {
+        let presentation_input_count = u64::try_from(self.presentation_bindings.len())
+            .map_err(|_| ReferenceGameError::CountOverflow)?
+            .checked_add(1)
+            .ok_or(ReferenceGameError::CountOverflow)?;
+        Ok(ReferenceLiveStateV1 {
+            checkpoint,
+            checkpoint_canonical_components,
+            world_streaming_snapshot: self.world_streamer.snapshot().clone(),
+            ticks,
+            events: state.events,
+            rpg_events: state.rpg_events,
+            project_composition_lock_hash: self
+                .fixture
+                .activated_project
+                .composition_lock
+                .composition_lock_sha256,
+            content_manifest_hash: self
+                .fixture
+                .activated_project
+                .content_manifest
+                .content_manifest_sha256,
+            presentation_input_count,
+            presentation_snapshot: state
+                .presentation_extractor
+                .accepted_snapshot()
+                .cloned()
+                .ok_or(ReferenceGameError::PresentationSnapshotMissing)?,
+            driver_recovery: ReferenceLiveDriverRecoveryV1 {
+                next_logical_frame_sequence: state.next_logical_frame_sequence,
+                events: state.events,
+                rpg_events: state.rpg_events,
+                camera_yaw_millidegrees: state.camera_yaw_millidegrees,
+                camera_pitch_millidegrees: state.camera_pitch_millidegrees,
+                camera_cut: state.camera_cut,
+                input_session_bytes: state.input.recovery_bytes()?,
+                presentation_snapshot_bytes: state.presentation_extractor.recovery_bytes()?,
             },
         })
     }
@@ -499,41 +717,33 @@ impl ReferenceGameDriverV1 {
             .ok_or(ReferenceGameError::PresentationSnapshotMissing)
     }
 
-    fn update_camera(&mut self, frame: &PlayerActionFrameV1) {
-        let Some(PlayerActionValueV1::Vector2Q15([yaw, pitch])) = frame
-            .actions
-            .iter()
-            .find(|action| action.action_id.as_str() == CORE_CAMERA_ORBIT_ACTION_ID)
-            .map(|action| action.value)
-        else {
-            return;
-        };
-        let yaw_delta = i32::from(yaw).saturating_mul(CAMERA_MOUSE_MILLIDEGREES_PER_UNIT);
-        let unwrapped = self.camera_yaw_millidegrees.saturating_add(yaw_delta);
-        self.camera_yaw_millidegrees =
-            (unwrapped.saturating_add(180_000)).rem_euclid(360_000) - 180_000;
-        let pitch_delta = i32::from(pitch).saturating_mul(CAMERA_MOUSE_MILLIDEGREES_PER_UNIT);
-        self.camera_pitch_millidegrees = self
-            .camera_pitch_millidegrees
-            .saturating_add(pitch_delta)
-            .clamp(-75_000, 75_000);
+    fn camera_binding(&self) -> Result<CameraPresentationBindingV1, ReferenceGameError> {
+        self.camera_binding_for(
+            self.runtime.physics_snapshot(),
+            self.camera_yaw_millidegrees,
+            self.camera_pitch_millidegrees,
+            self.camera_cut,
+        )
     }
 
-    fn camera_binding(&self) -> Result<CameraPresentationBindingV1, ReferenceGameError> {
-        let player = self
-            .runtime
-            .physics_snapshot()
+    fn camera_binding_for(
+        &self,
+        physics_snapshot: &PhysicsCanonicalSnapshotV2,
+        camera_yaw_millidegrees: i32,
+        camera_pitch_millidegrees: i32,
+        camera_cut: bool,
+    ) -> Result<CameraPresentationBindingV1, ReferenceGameError> {
+        let player = self.fixture.physics_body_id;
+        let player = physics_snapshot
             .sorted_body_states
-            .get(&self.fixture.physics_body_id)
+            .get(&player)
             .ok_or(ReferenceGameError::BodyMissing)?;
         let mut focus = player.pose.translation_micrometres;
         focus[1] = focus[1]
             .checked_add(CAMERA_FOCUS_HEIGHT_MICROMETRES)
             .ok_or(ReferenceGameError::CountOverflow)?;
-        let offset = camera_orbit_offset_micrometres(
-            self.camera_yaw_millidegrees,
-            self.camera_pitch_millidegrees,
-        )?;
+        let offset =
+            camera_orbit_offset_micrometres(camera_yaw_millidegrees, camera_pitch_millidegrees)?;
         let translation = [
             focus[0]
                 .checked_add(offset[0])
@@ -552,8 +762,8 @@ impl ReferenceGameDriverV1 {
             ThirdPersonCameraIntentSampleV1 {
                 focus_subject_id: Some(self.fixture.body_id),
                 focus_point_micrometres: focus,
-                orbit_yaw_millidegrees: self.camera_yaw_millidegrees,
-                orbit_pitch_millidegrees: self.camera_pitch_millidegrees,
+                orbit_yaw_millidegrees: camera_yaw_millidegrees,
+                orbit_pitch_millidegrees: camera_pitch_millidegrees,
                 distance_micrometres: CAMERA_DISTANCE_MICROMETRES,
                 shoulder_offset_micrometres: [CAMERA_SHOULDER_MICROMETRES, 0, 0],
             },
@@ -568,9 +778,31 @@ impl ReferenceGameDriverV1 {
                 .activated_project
                 .render_content_catalog
                 .profile_revision(),
-            self.camera_cut,
+            camera_cut,
         ))
     }
+}
+
+fn update_camera_state(
+    frame: &PlayerActionFrameV1,
+    camera_yaw_millidegrees: &mut i32,
+    camera_pitch_millidegrees: &mut i32,
+) {
+    let Some(PlayerActionValueV1::Vector2Q15([yaw, pitch])) = frame
+        .actions
+        .iter()
+        .find(|action| action.action_id.as_str() == CORE_CAMERA_ORBIT_ACTION_ID)
+        .map(|action| action.value)
+    else {
+        return;
+    };
+    let yaw_delta = i32::from(yaw).saturating_mul(CAMERA_MOUSE_MILLIDEGREES_PER_UNIT);
+    let unwrapped = camera_yaw_millidegrees.saturating_add(yaw_delta);
+    *camera_yaw_millidegrees = (unwrapped.saturating_add(180_000)).rem_euclid(360_000) - 180_000;
+    let pitch_delta = i32::from(pitch).saturating_mul(CAMERA_MOUSE_MILLIDEGREES_PER_UNIT);
+    *camera_pitch_millidegrees = camera_pitch_millidegrees
+        .saturating_add(pitch_delta)
+        .clamp(-75_000, 75_000);
 }
 
 fn runtime_sample_without_camera_actions(

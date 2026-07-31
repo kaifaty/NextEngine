@@ -8,9 +8,10 @@ mod session;
 
 pub use authority::{AuthorityRegistry, AuthorityRegistryError};
 pub use engine::{
-    CommandDisposition, CommandResult, InputAdmissionError, PhysicsLaunchOptions, RejectionCode,
-    RuntimeBootstrapV3, RuntimeFatalError, RuntimeReplayDriver, RuntimeReplayError, RuntimeState,
-    SnapshotRestoreError, StageTraceEntry, TickReport, TransactionStage,
+    CommandDisposition, CommandResult, InputAdmissionError, PhysicsLaunchOptions,
+    PreparedRuntimeTick, RejectionCode, RuntimeBootstrapV3, RuntimeFatalError, RuntimeReplayDriver,
+    RuntimeReplayError, RuntimeState, RuntimeTickPreparation, SnapshotRestoreError,
+    StageTraceEntry, TickReport, TransactionStage, ValidatedRuntimeTick,
     bootstrap_equipment_slot_policy_hash_v1,
 };
 pub use outcome::{

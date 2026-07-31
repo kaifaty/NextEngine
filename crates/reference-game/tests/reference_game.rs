@@ -145,6 +145,132 @@ fn reference_source_recooks_byte_identically_and_runs_through_production_paths()
 }
 
 #[test]
+fn prepared_live_advance_preserves_driver_and_commits_its_exact_preview() {
+    let root = test_root("prepared-live-advance");
+    let store = ContentStore::new(&root);
+    let cooked = next_project::cook_project_v1(
+        next_reference_game::project_source_v2().expect("reference source"),
+    )
+    .expect("cook");
+    store
+        .publish(&cooked.publication().expect("publication"))
+        .expect("publish");
+    let activated = next_project::activate_project(&store).expect("activate");
+    let mut prepared_driver =
+        next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+            .expect("prepared driver");
+    let mut ordinary_driver =
+        next_reference_game::ReferenceGameDriverV1::new(activated, true).expect("ordinary driver");
+    let event = control_event(
+        KEYBOARD_DEVICE_CLASS_ID,
+        KEYBOARD_W_CONTROL_PATH_ID,
+        NormalizedControlPhaseV1::Started,
+        vec![i16::MAX],
+    );
+    let before = prepared_driver.state().expect("before state");
+
+    let prepared = prepared_driver
+        .stage_advance(std::slice::from_ref(&event))
+        .expect("prepare advance");
+    let after_prepare = prepared_driver.state().expect("unchanged state");
+    assert_live_state_eq(&after_prepare, &before);
+    let preview = prepared_driver
+        .prepared_state(&prepared)
+        .expect("prepared preview");
+    let validated = prepared_driver
+        .validate_prepared_advance(prepared)
+        .expect("validate advance");
+    let validated_preview = prepared_driver
+        .validated_state(&validated)
+        .expect("validated preview");
+    assert_live_state_eq(&validated_preview, &preview);
+    let _ = prepared_driver.commit_validated_advance(validated);
+    ordinary_driver
+        .advance(&[event])
+        .expect("ordinary compatible advance");
+
+    assert_live_state_eq(
+        &prepared_driver.state().expect("prepared committed state"),
+        &preview,
+    );
+    assert_live_state_eq(
+        &prepared_driver.state().expect("prepared committed state"),
+        &ordinary_driver.state().expect("ordinary committed state"),
+    );
+    std::fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn prepared_live_advance_rejects_a_stale_driver_generation() {
+    let root = test_root("stale-prepared-live-advance");
+    let store = ContentStore::new(&root);
+    let cooked = next_project::cook_project_v1(
+        next_reference_game::project_source_v2().expect("reference source"),
+    )
+    .expect("cook");
+    store
+        .publish(&cooked.publication().expect("publication"))
+        .expect("publish");
+    let activated = next_project::activate_project(&store).expect("activate");
+    let mut driver =
+        next_reference_game::ReferenceGameDriverV1::new(activated, true).expect("live driver");
+    let prepared = driver.stage_advance(&[]).expect("prepare advance");
+    driver.advance(&[]).expect("advance current driver");
+
+    let error = driver
+        .validate_prepared_advance(prepared)
+        .err()
+        .expect("stale prepared advance");
+    assert!(
+        error
+            .to_string()
+            .contains("RUNTIME_PREPARED_GENERATION_STALE")
+    );
+    assert_eq!(driver.next_tick(), 1);
+    std::fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn failed_live_staging_preserves_input_camera_ledger_and_physics() {
+    let root = test_root("failed-live-staging");
+    let store = ContentStore::new(&root);
+    let cooked = next_project::cook_project_v1(
+        next_reference_game::project_source_v2().expect("reference source"),
+    )
+    .expect("cook");
+    store
+        .publish(&cooked.publication().expect("publication"))
+        .expect("publish");
+    let activated = next_project::activate_project(&store).expect("activate");
+    let driver =
+        next_reference_game::ReferenceGameDriverV1::new(activated, true).expect("live driver");
+    let before = driver.state().expect("before state");
+    let conflicting = [
+        control_event_with_sequence(
+            KEYBOARD_DEVICE_CLASS_ID,
+            KEYBOARD_W_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Started,
+            vec![i16::MAX],
+            0,
+        ),
+        control_event_with_sequence(
+            KEYBOARD_DEVICE_CLASS_ID,
+            KEYBOARD_W_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Started,
+            vec![i16::MAX / 2],
+            0,
+        ),
+    ];
+
+    driver
+        .stage_advance(&conflicting)
+        .err()
+        .expect("identity collision must fail staging");
+    assert_live_state_eq(&driver.state().expect("unchanged state"), &before);
+    std::fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
 fn live_normalized_controls_move_the_player_while_camera_input_stays_nonauthoritative() {
     let root = test_root("live-input");
     let store = ContentStore::new(&root);
@@ -445,6 +571,35 @@ fn live_recovery_republishes_sequence_zero_camera_cut_under_a_new_epoch() {
             && camera.previous_result_sample == camera.current_result_sample
     }));
     std::fs::remove_dir_all(root).expect("cleanup");
+}
+
+fn assert_live_state_eq(
+    left: &next_reference_game::ReferenceLiveStateV1,
+    right: &next_reference_game::ReferenceLiveStateV1,
+) {
+    assert_eq!(left.checkpoint, right.checkpoint);
+    assert_eq!(
+        left.checkpoint_canonical_components,
+        right.checkpoint_canonical_components
+    );
+    assert_eq!(
+        left.world_streaming_snapshot,
+        right.world_streaming_snapshot
+    );
+    assert_eq!(left.ticks, right.ticks);
+    assert_eq!(left.events, right.events);
+    assert_eq!(left.rpg_events, right.rpg_events);
+    assert_eq!(
+        left.project_composition_lock_hash,
+        right.project_composition_lock_hash
+    );
+    assert_eq!(left.content_manifest_hash, right.content_manifest_hash);
+    assert_eq!(
+        left.presentation_input_count,
+        right.presentation_input_count
+    );
+    assert_eq!(left.presentation_snapshot, right.presentation_snapshot);
+    assert_eq!(left.driver_recovery, right.driver_recovery);
 }
 
 fn control_event(

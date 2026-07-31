@@ -742,7 +742,22 @@ engine-owned device-allocation ceiling реализованы; release smoke н�
 Private session storage дополнительно объединяет logical objects в один или
 несколько bounded generation packs, сокращая Windows durable file barriers,
 сохраняет legacy raw load и final logical hash validation; packing не меняет
-generation/state/ledger roots. Отдельные 4-KiB chunk files были отвергнуты после
+generation/state/ledger roots. Prepared-tick package дополнительно убирает
+полный `ReferenceGameDriverV1`/Runtime checkpoint fork из каждого live tick,
+сохраняя его для replay/recovery. Runtime и reference-game tick теперь проходят
+`prepare → generation validation → infallible commit`; checkpoint, suspend и
+close publication по-прежнему выполняется между validation и commit. Три
+instrumented-before run commit `37f3cc2` и три after run на одном THOTH
+`long-session-soak.v3` сохранили authoritative root
+`5e45825e1a627113902640184c00bf448964bb2b8daf10d6e0947d40fd5a6e17` и exact
+driver/application ledger/archive parity. Median run p95 изменился так:
+ordinary application tick `5 231 → 4 268 µs` (`-18.4%`), checkpoint application
+tick `209 588 → 178 017 µs` (`-15.1%`), application 1 200-tick window
+`12.787 → 10.731 s` (`-16.1%`), driver window `9.970 → 9.002 s` (`-9.7%`) и
+checkpoint materialization `129 150 → 128 122 µs` (`-0.8%`). Все шесть run
+остались `REPORT_ONLY`; host preflight был шумным, поэтому числа принимают эту
+ограниченную оптимизацию, но не являются ten-run hard calibration и не закрывают
+B-12. Отдельные 4-KiB chunk files были отвергнуты после
 release soak из-за многократной checkpoint-latency regression. Итоговое
 storage/performance hardening по ADR-037 в одном Windows-local `REPORT_ONLY`
 soak улучшило checkpoint windows примерно на `13.8% / 15.3% / 8.0%` против

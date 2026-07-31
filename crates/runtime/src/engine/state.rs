@@ -484,60 +484,77 @@ impl RuntimeState {
         sample: InputSampleV1,
         queue: IngressQueueV1,
     ) -> Result<(), InputAdmissionError> {
-        sample
-            .validate(&self.admission_limits)
-            .map_err(InputAdmissionError::Contract)?;
-        if !self.principal_registry.is_active(principal)
-            || !self.authority.is_authenticated(principal)
-        {
-            return Err(InputAdmissionError::PrincipalUnauthenticated);
-        }
-        let Some(binding) = self
-            .player_controller_registry
-            .bindings
-            .get(&sample.source_id)
-        else {
-            return Err(InputAdmissionError::SourceUnbound);
-        };
-        if &binding.principal != principal {
-            return Err(InputAdmissionError::SourceUnbound);
-        }
-        let maximum = usize::try_from(self.admission_limits.max_commands_per_closed_batch)
-            .map_err(|_| InputAdmissionError::ResourceLimit)?;
-        let samples = match queue {
-            IngressQueueV1::Current => &mut self.ingress_checkpoint.current_samples,
-            IngressQueueV1::Next => &mut self.ingress_checkpoint.next_samples,
-        };
-        if samples.len() >= maximum {
-            return Err(InputAdmissionError::ResourceLimit);
-        }
-        let canonical = sample
-            .canonical_bytes()
-            .map_err(InputAdmissionError::Canonical)?;
-        let sample = InputSampleV1::from_canonical_bytes(
-            &canonical,
-            CanonicalDecodeLimits::default(),
+        enqueue_input_sample_in_checkpoint(
             &self.admission_limits,
+            &self.principal_registry,
+            &self.authority,
+            &self.player_controller_registry,
+            &mut self.ingress_checkpoint,
+            principal,
+            sample,
+            queue,
         )
-        .map_err(InputAdmissionError::Contract)?;
-        samples.push(sample);
-        samples.sort_by(|left, right| {
-            left.sort_key()
-                .expect("validated input sample has a canonical sort key")
-                .cmp(
-                    &right
-                        .sort_key()
-                        .expect("validated input sample has a canonical sort key"),
-                )
-        });
-        Ok(())
     }
 }
 
 #[derive(Clone, Copy)]
-enum IngressQueueV1 {
+pub(super) enum IngressQueueV1 {
     Current,
     Next,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn enqueue_input_sample_in_checkpoint(
+    admission_limits: &RuntimeAdmissionLimitsV1,
+    principal_registry: &PrincipalRegistryV1,
+    authority: &AuthorityRegistry,
+    player_controller_registry: &PlayerControllerRegistryV1,
+    ingress_checkpoint: &mut IngressCheckpointV1,
+    principal: &IssuerPrincipal,
+    sample: InputSampleV1,
+    queue: IngressQueueV1,
+) -> Result<(), InputAdmissionError> {
+    sample
+        .validate(admission_limits)
+        .map_err(InputAdmissionError::Contract)?;
+    if !principal_registry.is_active(principal) || !authority.is_authenticated(principal) {
+        return Err(InputAdmissionError::PrincipalUnauthenticated);
+    }
+    let Some(binding) = player_controller_registry.bindings.get(&sample.source_id) else {
+        return Err(InputAdmissionError::SourceUnbound);
+    };
+    if &binding.principal != principal {
+        return Err(InputAdmissionError::SourceUnbound);
+    }
+    let maximum = usize::try_from(admission_limits.max_commands_per_closed_batch)
+        .map_err(|_| InputAdmissionError::ResourceLimit)?;
+    let samples = match queue {
+        IngressQueueV1::Current => &mut ingress_checkpoint.current_samples,
+        IngressQueueV1::Next => &mut ingress_checkpoint.next_samples,
+    };
+    if samples.len() >= maximum {
+        return Err(InputAdmissionError::ResourceLimit);
+    }
+    let canonical = sample
+        .canonical_bytes()
+        .map_err(InputAdmissionError::Canonical)?;
+    let sample = InputSampleV1::from_canonical_bytes(
+        &canonical,
+        CanonicalDecodeLimits::default(),
+        admission_limits,
+    )
+    .map_err(InputAdmissionError::Contract)?;
+    samples.push(sample);
+    samples.sort_by(|left, right| {
+        left.sort_key()
+            .expect("validated input sample has a canonical sort key")
+            .cmp(
+                &right
+                    .sort_key()
+                    .expect("validated input sample has a canonical sort key"),
+            )
+    });
+    Ok(())
 }
 
 impl Default for RuntimeState {

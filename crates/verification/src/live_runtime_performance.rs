@@ -27,6 +27,7 @@ const LONG_SESSION_TICKS: u64 = 3_600;
 const LONG_SESSION_WINDOW_TICKS: u64 = 1_200;
 const LONG_SESSION_CAMERA_INTERVAL_TICKS: u64 = 15;
 const CHECKPOINT_INTERVAL_TICKS: u64 = 30;
+const APPLICATION_ONE_TICK_ELAPSED: Duration = Duration::from_nanos(33_333_334);
 #[cfg(not(debug_assertions))]
 const LIVE_MOVEMENT_LIMIT: Duration = Duration::from_secs(30);
 #[cfg(debug_assertions)]
@@ -68,11 +69,16 @@ pub struct LiveRuntimePerformanceReport {
     pub elapsed_microseconds: u128,
     pub window_microseconds: [u128; 3],
     pub checkpoint_microseconds: [u128; 3],
+    pub driver_prepare_microseconds: Vec<u128>,
+    pub driver_commit_microseconds: Vec<u128>,
+    pub driver_checkpoint_materialization_microseconds: Vec<u128>,
     pub identity_index_root_probe_microseconds: [u128; 3],
     pub archive_root_probe_microseconds: [u128; 3],
     pub camera_event_count: u64,
     pub application_window_microseconds: [u128; 3],
     pub application_checkpoint_microseconds: [u128; 3],
+    pub application_ordinary_tick_microseconds: Vec<u128>,
+    pub application_checkpoint_tick_microseconds: Vec<u128>,
     pub application_final_state_root: Option<ContentHash>,
     pub final_command_archive_root: ContentHash,
     pub final_command_identity_index_root: ContentHash,
@@ -142,6 +148,8 @@ pub fn run_live_runtime_long_session_performance_check_in(
     }
     report.application_window_microseconds = application.window_microseconds;
     report.application_checkpoint_microseconds = application.checkpoint_microseconds;
+    report.application_ordinary_tick_microseconds = application.ordinary_tick_microseconds;
+    report.application_checkpoint_tick_microseconds = application.checkpoint_tick_microseconds;
     report.application_final_state_root = Some(application.authoritative_state_root);
     Ok(report)
 }
@@ -189,6 +197,19 @@ fn run_live_runtime_performance_check_with_scratch(
         let mut window_started = started;
         let mut window_microseconds = [0_u128; 3];
         let mut checkpoint_microseconds = [0_u128; 3];
+        let mut driver_prepare_microseconds =
+            Vec::with_capacity(usize::try_from(workload.ticks).map_err(|error| {
+                LiveRuntimePerformanceError::new("driver prepare samples", error.to_string())
+            })?);
+        let mut driver_commit_microseconds =
+            Vec::with_capacity(usize::try_from(workload.ticks).map_err(|error| {
+                LiveRuntimePerformanceError::new("driver commit samples", error.to_string())
+            })?);
+        let mut driver_checkpoint_materialization_microseconds = Vec::with_capacity(
+            usize::try_from(workload.ticks / CHECKPOINT_INTERVAL_TICKS).map_err(|error| {
+                LiveRuntimePerformanceError::new("driver checkpoint samples", error.to_string())
+            })?,
+        );
         let mut identity_index_root_probe_microseconds = [0_u128; 3];
         let mut archive_root_probe_microseconds = [0_u128; 3];
         let mut checkpoint_root = StateRoot::default();
@@ -214,9 +235,19 @@ fn run_live_runtime_performance_check_with_scratch(
                     LiveRuntimePerformanceError::new("camera event count", "count overflow")
                 })?;
             }
-            driver.advance(&events).map_err(|error| {
-                LiveRuntimePerformanceError::new("advance live movement", error.to_string())
+            let prepare_started = Instant::now();
+            let prepared = driver.stage_advance(&events).map_err(|error| {
+                LiveRuntimePerformanceError::new("prepare live movement", error.to_string())
             })?;
+            let validated = driver
+                .validate_prepared_advance(prepared)
+                .map_err(|error| {
+                    LiveRuntimePerformanceError::new("validate live movement", error.to_string())
+                })?;
+            driver_prepare_microseconds.push(prepare_started.elapsed().as_micros());
+            let commit_started = Instant::now();
+            let _ = driver.commit_validated_advance(validated);
+            driver_commit_microseconds.push(commit_started.elapsed().as_micros());
             let mut checkpoint_state = None;
             if tick.is_multiple_of(CHECKPOINT_INTERVAL_TICKS) {
                 let checkpoint_started = Instant::now();
@@ -231,8 +262,10 @@ fn run_live_runtime_performance_check_with_scratch(
                             error.to_string(),
                         )
                     })?;
+                let checkpoint_elapsed = checkpoint_started.elapsed().as_micros();
+                driver_checkpoint_materialization_microseconds.push(checkpoint_elapsed);
                 checkpoint_microseconds[window_index] = checkpoint_microseconds[window_index]
-                    .checked_add(checkpoint_started.elapsed().as_micros())
+                    .checked_add(checkpoint_elapsed)
                     .ok_or_else(|| {
                         LiveRuntimePerformanceError::new(
                             "checkpoint measurement",
@@ -378,11 +411,16 @@ fn run_live_runtime_performance_check_with_scratch(
             elapsed_microseconds: measured_elapsed_microseconds,
             window_microseconds,
             checkpoint_microseconds,
+            driver_prepare_microseconds,
+            driver_commit_microseconds,
+            driver_checkpoint_materialization_microseconds,
             identity_index_root_probe_microseconds,
             archive_root_probe_microseconds,
             camera_event_count,
             application_window_microseconds: [0; 3],
             application_checkpoint_microseconds: [0; 3],
+            application_ordinary_tick_microseconds: Vec::new(),
+            application_checkpoint_tick_microseconds: Vec::new(),
             application_final_state_root: None,
             final_command_archive_root: state
                 .checkpoint
@@ -408,6 +446,8 @@ struct ApplicationLongSessionReport {
     ticks: u64,
     window_microseconds: [u128; 3],
     checkpoint_microseconds: [u128; 3],
+    ordinary_tick_microseconds: Vec<u128>,
+    checkpoint_tick_microseconds: Vec<u128>,
     authoritative_state_root: ContentHash,
     command_archive_root: ContentHash,
     command_identity_index_root: ContentHash,
@@ -458,17 +498,48 @@ fn run_live_application_long_session_in(
         let movement =
             movement_started_event_for_host(host_instance_id, capabilities.canonical_hash)?;
         let mut scheduler = FixedStepLiveSchedulerV1::reference_game_v1();
+        let staged = scheduler
+            .advance_reference_game_presentation(
+                &mut application,
+                Duration::ZERO,
+                std::slice::from_ref(&movement),
+            )
+            .map_err(|error| {
+                LiveRuntimePerformanceError::new(
+                    "stage application movement input",
+                    error.to_string(),
+                )
+            })?;
+        if staged.is_some() {
+            return Err(LiveRuntimePerformanceError::new(
+                "stage application movement input",
+                "zero elapsed time advanced the live runtime",
+            ));
+        }
         let mut source_sequence = 1_u64;
-        let mut previous_elapsed_nanos = 0_u64;
         let mut last_tick = 0_u64;
         let mut window_started = Instant::now();
         let mut window_microseconds = [0_u128; 3];
         let mut checkpoint_microseconds = [0_u128; 3];
+        let mut ordinary_tick_microseconds = Vec::with_capacity(
+            usize::try_from(LONG_SESSION_TICKS - LONG_SESSION_TICKS / CHECKPOINT_INTERVAL_TICKS)
+                .map_err(|error| {
+                    LiveRuntimePerformanceError::new(
+                        "application ordinary samples",
+                        error.to_string(),
+                    )
+                })?,
+        );
+        let mut checkpoint_tick_microseconds = Vec::with_capacity(
+            usize::try_from(LONG_SESSION_TICKS / CHECKPOINT_INTERVAL_TICKS).map_err(|error| {
+                LiveRuntimePerformanceError::new(
+                    "application checkpoint samples",
+                    error.to_string(),
+                )
+            })?,
+        );
         for callback in 1..=LONG_SESSION_TICKS {
-            let mut events = Vec::with_capacity(2);
-            if callback == 1 {
-                events.push(movement.clone());
-            }
+            let mut events = Vec::with_capacity(1);
             if callback.is_multiple_of(LONG_SESSION_CAMERA_INTERVAL_TICKS) {
                 events.push(camera_changed_event_for_host(
                     host_instance_id,
@@ -483,29 +554,13 @@ fn run_live_application_long_session_in(
                     )
                 })?;
             }
-            let total_elapsed_nanos = callback
-                .checked_mul(1_000_000_000)
-                .and_then(|value| value.checked_div(30))
-                .ok_or_else(|| {
-                    LiveRuntimePerformanceError::new(
-                        "application scheduler interval",
-                        "elapsed nanoseconds overflow",
-                    )
-                })?;
-            let elapsed = Duration::from_nanos(
-                total_elapsed_nanos
-                    .checked_sub(previous_elapsed_nanos)
-                    .ok_or_else(|| {
-                        LiveRuntimePerformanceError::new(
-                            "application scheduler interval",
-                            "elapsed nanoseconds underflow",
-                        )
-                    })?,
-            );
-            previous_elapsed_nanos = total_elapsed_nanos;
             let call_started = Instant::now();
             let presentation = scheduler
-                .advance_reference_game_presentation(&mut application, elapsed, &events)
+                .advance_reference_game_presentation(
+                    &mut application,
+                    APPLICATION_ONE_TICK_ELAPSED,
+                    &events,
+                )
                 .map_err(|error| {
                     LiveRuntimePerformanceError::new("advance live application", error.to_string())
                 })?;
@@ -522,6 +577,7 @@ fn run_live_application_long_session_in(
                     )
                 })?;
             if last_tick.is_multiple_of(CHECKPOINT_INTERVAL_TICKS) {
+                checkpoint_tick_microseconds.push(call_microseconds);
                 checkpoint_microseconds[window_index] = checkpoint_microseconds[window_index]
                     .checked_add(call_microseconds)
                     .ok_or_else(|| {
@@ -530,6 +586,8 @@ fn run_live_application_long_session_in(
                             "elapsed microseconds overflow",
                         )
                     })?;
+            } else {
+                ordinary_tick_microseconds.push(call_microseconds);
             }
             if last_tick.is_multiple_of(LONG_SESSION_WINDOW_TICKS) {
                 window_microseconds[window_index] = window_started.elapsed().as_micros();
@@ -548,11 +606,40 @@ fn run_live_application_long_session_in(
                 ),
             ));
         }
+        if ordinary_tick_microseconds.len()
+            != usize::try_from(LONG_SESSION_TICKS - LONG_SESSION_TICKS / CHECKPOINT_INTERVAL_TICKS)
+                .map_err(|error| {
+                    LiveRuntimePerformanceError::new(
+                        "application ordinary sample count",
+                        error.to_string(),
+                    )
+                })?
+            || checkpoint_tick_microseconds.len()
+                != usize::try_from(LONG_SESSION_TICKS / CHECKPOINT_INTERVAL_TICKS).map_err(
+                    |error| {
+                        LiveRuntimePerformanceError::new(
+                            "application checkpoint sample count",
+                            error.to_string(),
+                        )
+                    },
+                )?
+        {
+            return Err(LiveRuntimePerformanceError::new(
+                "application per-tick measurement",
+                format!(
+                    "ordinary_samples={}, checkpoint_samples={}",
+                    ordinary_tick_microseconds.len(),
+                    checkpoint_tick_microseconds.len()
+                ),
+            ));
+        }
         drop(application);
         Ok(ApplicationLongSessionReport {
             ticks: run.ticks,
             window_microseconds,
             checkpoint_microseconds,
+            ordinary_tick_microseconds,
+            checkpoint_tick_microseconds,
             authoritative_state_root: run.authoritative_state_root,
             command_archive_root: run.command_archive_root,
             command_identity_index_root: run.command_identity_index_root,
@@ -720,6 +807,12 @@ mod tests {
         println!("{report:?}");
         assert_eq!(report.ticks, 900);
         assert_eq!(report.command_body_count, 900);
+        assert_eq!(report.driver_prepare_microseconds.len(), 900);
+        assert_eq!(report.driver_commit_microseconds.len(), 900);
+        assert_eq!(
+            report.driver_checkpoint_materialization_microseconds.len(),
+            30
+        );
         assert_ne!(
             report.final_state_root,
             next_contracts::ids::StateRoot::default()

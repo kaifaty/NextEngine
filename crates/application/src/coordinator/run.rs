@@ -103,11 +103,13 @@ impl ApplicationCoordinator {
         if self.machine.state().state != ApplicationSessionStatusV1::Active {
             return Err(ApplicationError::CloseStateInvalid);
         }
-        let staged = {
+        let (validated, state) = {
             let driver = self.live_run.as_ref().ok_or(ApplicationError::NoLiveRun)?;
-            driver.stage_advance(platform_events)?
+            let prepared = driver.stage_advance(platform_events)?;
+            let validated = driver.validate_prepared_advance(prepared)?;
+            let state = driver.validated_state(&validated)?;
+            (validated, state)
         };
-        let state = staged.state()?;
         let prepared = prepare_live_state(
             self.machine.state().session_id,
             state,
@@ -132,7 +134,11 @@ impl ApplicationCoordinator {
             self.prepared_run = Some(prepared);
             summary
         };
-        self.live_run = Some(staged);
+        let driver = self
+            .live_run
+            .as_mut()
+            .expect("validated live advance retains its driver");
+        let _ = driver.commit_validated_advance(validated);
         Ok(summary)
     }
 
@@ -147,20 +153,25 @@ impl ApplicationCoordinator {
         if self.machine.state().state != ApplicationSessionStatusV1::Active {
             return Err(ApplicationError::CloseStateInvalid);
         }
-        let staged = {
+        let validated = {
             let driver = self.live_run.as_ref().ok_or(ApplicationError::NoLiveRun)?;
-            driver.stage_advance(platform_events)?
+            let prepared = driver.stage_advance(platform_events)?;
+            driver.validate_prepared_advance(prepared)?
         };
         let suspend = platform_events
             .iter()
             .find(|event| event.kind == PlatformEventKindV1::SuspendRequested);
-        let checkpoint_due = staged
+        let checkpoint_due = validated
             .next_tick()
             .is_multiple_of(LIVE_CHECKPOINT_INTERVAL_TICKS)
             || suspend.is_some();
 
         if checkpoint_due {
-            let state = staged.state()?;
+            let state = self
+                .live_run
+                .as_ref()
+                .expect("validated live advance retains its driver")
+                .validated_state(&validated)?;
             let prepared = prepare_live_state(
                 self.machine.state().session_id,
                 state,
@@ -177,12 +188,20 @@ impl ApplicationCoordinator {
             } else {
                 self.publish_prepared_run(prepared)?;
             }
-            self.live_run = Some(staged);
+            let driver = self
+                .live_run
+                .as_mut()
+                .expect("validated live advance retains its driver");
+            let _ = driver.commit_validated_advance(validated);
             return Ok(presentation);
         }
 
-        let presentation = staged.presentation_snapshot()?.clone();
-        self.live_run = Some(staged);
+        let presentation = validated.presentation_snapshot()?.clone();
+        let driver = self
+            .live_run
+            .as_mut()
+            .expect("validated live advance retains its driver");
+        let _ = driver.commit_validated_advance(validated);
         Ok(presentation)
     }
 

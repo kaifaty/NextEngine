@@ -728,6 +728,8 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
                 "3,600 live ticks in three 1,200-tick windows with held movement and periodic camera input run through both the live driver and interactive application scheduler".to_owned(),
                 "identity-index and command-body archive roots are recomputed after each window outside the window timing".to_owned(),
                 "application checkpoint samples include the mandatory 30-tick durable publication path and reuse validated canonical component bytes".to_owned(),
+                "report-only granular samples separate driver prepare, infallible driver commit, checkpoint materialization, ordinary application ticks, and checkpoint application ticks".to_owned(),
+                "application input is staged before timing and each measured host pump advances exactly one 30 Hz fixed step".to_owned(),
                 "the soak is report-only and diagnoses history-dependent degradation; it cannot close B-12".to_owned(),
             ];
         }

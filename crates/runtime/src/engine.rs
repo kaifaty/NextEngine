@@ -21,6 +21,7 @@ pub use result::{
     CommandDisposition, CommandResult, RejectionCode, StageTraceEntry, TickReport, TransactionStage,
 };
 pub use state::RuntimeState;
+pub use tick::{PreparedRuntimeTick, RuntimeTickPreparation, ValidatedRuntimeTick};
 
 #[cfg(test)]
 mod tests;
