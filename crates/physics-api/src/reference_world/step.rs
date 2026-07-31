@@ -332,7 +332,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
     ) -> Result<Vec<ContactCandidate>, ReferencePhysicsError> {
         let radius_squared = square(self.capsule_radius)?;
         let mut candidates = Vec::new();
-        for shape in &self.static_boxes {
+        for shape in self.static_boxes.iter() {
             if !self.collides_with(shape) {
                 continue;
             }
@@ -443,7 +443,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             return Err(ReferencePhysicsError::SnapshotMismatch);
         }
         let radius_squared = square(self.capsule_radius)?;
-        for shape in &self.static_boxes {
+        for shape in self.static_boxes.iter() {
             if self.collides_with(shape)
                 && capsule_box_distance_squared(
                     body.pose.translation_micrometres,

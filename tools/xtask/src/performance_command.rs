@@ -2,14 +2,19 @@
 
 use std::collections::BTreeMap;
 use std::env;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use xtask::report::*;
 
 use crate::run_tool_session;
+
+mod support;
+
+use support::*;
+
+const INTERACTIVE_FRAME_SOAK_FRAMES: u32 = 240;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PerformanceArguments {
@@ -141,6 +146,16 @@ fn performance_report_for(
         run.verdict = xtask::performance::PerformanceVerdict::NotRun;
         return Ok(performance_command_report(run, None, None, None, None));
     }
+    if request.scenario == xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak
+        && request.mode == xtask::performance::PerformanceModeV1::Gate
+    {
+        run.diagnostics.push(
+            "PERF_INTERACTIVE_FRAME_SOAK_REPORT_ONLY: the interactive frame soak is diagnostic and cannot gate"
+                .to_owned(),
+        );
+        run.verdict = xtask::performance::PerformanceVerdict::NotRun;
+        return Ok(performance_command_report(run, None, None, None, None));
+    }
 
     let resource_counters_before = xtask::performance::inspect_process_counters();
     let (tool_run, _) = run_tool_session("tools-performance", state_root)?;
@@ -226,21 +241,39 @@ fn performance_report_for(
             started.elapsed(),
         ));
 
-    let desktop_frame_timing = if profiling_enabled {
+    let desktop_frame_timing_requested = profiling_enabled
+        || request.scenario == xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak;
+    let desktop_frame_timing = if desktop_frame_timing_requested {
         let started = Instant::now();
-        let report = match state_root {
-            Some(root) => next_verification::run_desktop_frame_timing_smoke_in(root),
-            None => next_verification::run_desktop_frame_timing_smoke(),
+        let report = match (request.scenario, state_root) {
+            (xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak, Some(root)) => {
+                next_verification::run_desktop_frame_timing_workload_in(
+                    root,
+                    INTERACTIVE_FRAME_SOAK_FRAMES,
+                    [1_920, 1_080],
+                )
+            }
+            (xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak, None) => {
+                next_verification::run_desktop_frame_timing_workload_in(
+                    &std::env::temp_dir(),
+                    INTERACTIVE_FRAME_SOAK_FRAMES,
+                    [1_920, 1_080],
+                )
+            }
+            (_, Some(root)) => next_verification::run_desktop_frame_timing_smoke_in(root),
+            (_, None) => next_verification::run_desktop_frame_timing_smoke(),
         }
         .map_err(|error| error.to_string())?;
-        instrumentation_overhead_nanoseconds =
-            instrumentation_overhead_nanoseconds.saturating_add(record_performance_span(
-                true,
-                &mut recorded_spans,
-                &mut dropped_spans,
-                "render-extraction",
-                started.elapsed(),
-            ));
+        if profiling_enabled {
+            instrumentation_overhead_nanoseconds = instrumentation_overhead_nanoseconds
+                .saturating_add(record_performance_span(
+                    profiling_enabled,
+                    &mut recorded_spans,
+                    &mut dropped_spans,
+                    "render-extraction",
+                    started.elapsed(),
+                ));
+        }
         report
     } else {
         None
@@ -291,10 +324,12 @@ fn performance_report_for(
             !diagnostic.starts_with("Vulkan timestamps require")
                 && !diagnostic.starts_with("device residency requires")
         });
-        run.methodology.notes.push(
-            "four-frame Vulkan timing smoke uses production render inputs and remains report-only"
-                .to_owned(),
-        );
+        run.methodology.notes.push(format!(
+            "{}-frame Vulkan timing workload uses production render inputs at {}x{} drawable extent and remains report-only",
+            frame_timing.samples.len(),
+            frame_timing.drawable_extent[0],
+            frame_timing.drawable_extent[1],
+        ));
         run.methodology.notes.push(format!(
             "device residency uses a conservative ceiling of {} engine-owned bound Vulkan allocations; swapchain storage is driver-owned",
             frame_timing.device_allocation_count
@@ -310,12 +345,20 @@ fn performance_report_for(
                 b"nextengine.performance.long-session-soak.v3:3600-live-ticks:1200-tick-windows:held-movement:camera-every-15-ticks:driver-and-interactive-application:one-fixed-step-per-measured-pump",
             )
         }
+        xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak => {
+            xtask::performance::sha256_hex(
+                b"nextengine.performance.interactive-frame-soak.v1:240-fifo-frames:1920x1080:reference-render-inputs:phase-timings:frame-plan-cache",
+            )
+        }
         _ => unreachable!("unavailable representative scenarios return before execution"),
     };
     let live_metric_prefix = match request.scenario {
         xtask::performance::PerformanceScenarioV1::Smoke => "smoke.live-runtime",
         xtask::performance::PerformanceScenarioV1::LongSessionSoak => {
             "long-session-soak.live-runtime"
+        }
+        xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak => {
+            "interactive-frame-soak.live-runtime-control"
         }
         _ => unreachable!("unavailable representative scenarios return before execution"),
     };
@@ -442,32 +485,32 @@ fn performance_report_for(
             )?);
     }
     if let Some(frame_timing) = &desktop_frame_timing {
-        run.metrics
-            .push(xtask::performance::PerformanceMetricV1::from_samples(
-                "smoke.frame.cpu-extract-submit",
-                "microseconds",
+        let frame_prefix = if request.scenario
+            == xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak
+        {
+            "interactive-frame-soak.frame"
+        } else {
+            "smoke.frame"
+        };
+        let phase_samples = [
+            (
+                "cpu-extract-submit",
                 frame_timing
                     .samples
                     .iter()
                     .map(|sample| sample.cpu_extract_and_submit_microseconds)
                     .collect(),
-                None,
-            )?);
-        run.metrics
-            .push(xtask::performance::PerformanceMetricV1::from_samples(
-                "smoke.frame.gpu",
-                "microseconds",
+            ),
+            (
+                "gpu",
                 frame_timing
                     .samples
                     .iter()
                     .map(|sample| sample.gpu_duration_microseconds)
                     .collect(),
-                None,
-            )?);
-        run.metrics
-            .push(xtask::performance::PerformanceMetricV1::from_samples(
-                "smoke.frame.critical-path",
-                "microseconds",
+            ),
+            (
+                "critical-path",
                 frame_timing
                     .samples
                     .iter()
@@ -477,12 +520,148 @@ fn performance_report_for(
                             .max(sample.gpu_duration_microseconds)
                     })
                     .collect(),
-                None,
-            )?);
+            ),
+            (
+                "event-frame-source-update",
+                frame_timing
+                    .samples
+                    .iter()
+                    .map(|sample| sample.event_and_frame_source_update_microseconds)
+                    .collect(),
+            ),
+            (
+                "frame-slot-wait",
+                frame_timing
+                    .samples
+                    .iter()
+                    .map(|sample| sample.frame_slot_wait_microseconds)
+                    .collect(),
+            ),
+            (
+                "image-acquire-wait",
+                frame_timing
+                    .samples
+                    .iter()
+                    .map(|sample| sample.image_acquire_wait_microseconds)
+                    .collect(),
+            ),
+            (
+                "swapchain-image-wait",
+                frame_timing
+                    .samples
+                    .iter()
+                    .map(|sample| sample.swapchain_image_wait_microseconds)
+                    .collect(),
+            ),
+            (
+                "frame-plan",
+                frame_timing
+                    .samples
+                    .iter()
+                    .map(|sample| sample.frame_plan_microseconds)
+                    .collect(),
+            ),
+            (
+                "command-record",
+                frame_timing
+                    .samples
+                    .iter()
+                    .map(|sample| sample.command_record_microseconds)
+                    .collect(),
+            ),
+            (
+                "queue-submit",
+                frame_timing
+                    .samples
+                    .iter()
+                    .map(|sample| sample.queue_submit_microseconds)
+                    .collect(),
+            ),
+            (
+                "present-wait",
+                frame_timing
+                    .samples
+                    .iter()
+                    .map(|sample| sample.present_wait_microseconds)
+                    .collect(),
+            ),
+        ];
+        for (name, samples) in phase_samples {
+            run.metrics
+                .push(xtask::performance::PerformanceMetricV1::from_samples(
+                    format!("{frame_prefix}.{name}"),
+                    "microseconds",
+                    samples,
+                    None,
+                )?);
+        }
+        let deadline_misses = u64::try_from(
+            frame_timing
+                .samples
+                .iter()
+                .filter(|sample| {
+                    sample
+                        .cpu_extract_and_submit_microseconds
+                        .max(sample.gpu_duration_microseconds)
+                        > 16_667
+                })
+                .count(),
+        )
+        .map_err(|error| error.to_string())?;
+        for (name, unit, value) in [
+            ("primary-deadline-misses", "count", deadline_misses),
+            (
+                "software-paced-iterations",
+                "count",
+                frame_timing.software_paced_iterations,
+            ),
+            (
+                "software-pacing-sleep",
+                "microseconds",
+                frame_timing.software_pacing_sleep_microseconds,
+            ),
+            (
+                "frame-plan-cache-hits",
+                "count",
+                frame_timing.frame_plan_cache_hits,
+            ),
+            (
+                "frame-plan-cache-misses",
+                "count",
+                frame_timing.frame_plan_cache_misses,
+            ),
+            (
+                "frame-plan-build-failures",
+                "count",
+                frame_timing.frame_plan_build_failures,
+            ),
+            (
+                "frame-plan-explicit-invalidations",
+                "count",
+                frame_timing.frame_plan_explicit_invalidations,
+            ),
+        ] {
+            run.metrics
+                .push(xtask::performance::PerformanceMetricV1::from_samples(
+                    format!("{frame_prefix}.{name}"),
+                    unit,
+                    vec![value],
+                    None,
+                )?);
+        }
     }
     run.authoritative_hashes =
         smoke_authoritative_hashes(&streaming, &agent, &render_planning, &live_runtime);
     run.verdict = xtask::performance::aggregate_metric_verdict(&run.metrics);
+    if request.scenario == xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak
+        && desktop_frame_timing.is_none()
+    {
+        run.diagnostics.push(
+            "PERF_INTERACTIVE_FRAME_TIMING_UNAVAILABLE: build xtask with --features desktop-sdl-ash on a supported desktop host"
+                .to_owned(),
+        );
+        run.verdict = xtask::performance::PerformanceVerdict::NotRun;
+    }
     if let Err(error) = run.instrumentation.validate() {
         run.diagnostics.push(error);
         run.verdict = xtask::performance::PerformanceVerdict::NotRun;
@@ -579,12 +758,16 @@ fn run_live_runtime_scenario(
     next_verification::LiveRuntimePerformanceError,
 > {
     match (scenario, state_root) {
-        (xtask::performance::PerformanceScenarioV1::Smoke, Some(root)) => {
-            next_verification::run_live_runtime_performance_check_in(root)
-        }
-        (xtask::performance::PerformanceScenarioV1::Smoke, None) => {
-            next_verification::run_live_runtime_performance_check()
-        }
+        (
+            xtask::performance::PerformanceScenarioV1::Smoke
+            | xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak,
+            Some(root),
+        ) => next_verification::run_live_runtime_performance_check_in(root),
+        (
+            xtask::performance::PerformanceScenarioV1::Smoke
+            | xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak,
+            None,
+        ) => next_verification::run_live_runtime_performance_check(),
         (xtask::performance::PerformanceScenarioV1::LongSessionSoak, Some(root)) => {
             next_verification::run_live_runtime_long_session_performance_check_in(root)
         }
@@ -731,119 +914,6 @@ fn validate_gate_prerequisites(
     }
 }
 
-fn record_performance_span(
-    enabled: bool,
-    spans: &mut Vec<xtask::performance::PerformanceSpanV1>,
-    dropped_spans: &mut u64,
-    category: &str,
-    elapsed: Duration,
-) -> u128 {
-    if enabled {
-        let started = Instant::now();
-        if spans.len() < usize::try_from(xtask::performance::MAX_SPANS_PER_THREAD).unwrap_or(0) {
-            spans.push(xtask::performance::PerformanceSpanV1 {
-                category: category.to_owned(),
-                thread_index: 0,
-                duration_microseconds: u64::try_from(elapsed.as_micros()).unwrap_or(u64::MAX),
-            });
-        } else {
-            *dropped_spans = dropped_spans.saturating_add(1);
-        }
-        started.elapsed().as_nanos()
-    } else {
-        0
-    }
-}
-
-fn smoke_metric(
-    name: &str,
-    elapsed_microseconds: u128,
-) -> Result<xtask::performance::PerformanceMetricV1, String> {
-    xtask::performance::PerformanceMetricV1::from_samples(
-        name,
-        "microseconds",
-        vec![microseconds_u64(elapsed_microseconds)?],
-        None,
-    )
-}
-
-fn microseconds_u64(value: u128) -> Result<u64, String> {
-    u64::try_from(value).map_err(|error| format!("performance duration overflow: {error}"))
-}
-
-fn read_performance_baseline(
-    path: &Path,
-) -> Result<xtask::performance::PerformanceBaselineV1, String> {
-    const MAX_BASELINE_BYTES: u64 = 64 * 1024 * 1024;
-    let metadata = fs::metadata(path)
-        .map_err(|error| format!("failed to inspect baseline {}: {error}", path.display()))?;
-    if !metadata.is_file() || metadata.len() > MAX_BASELINE_BYTES {
-        return Err(format!(
-            "performance baseline must be a regular file no larger than {MAX_BASELINE_BYTES} bytes"
-        ));
-    }
-    let bytes = fs::read(path)
-        .map_err(|error| format!("failed to read baseline {}: {error}", path.display()))?;
-    serde_json::from_slice(&bytes)
-        .map_err(|error| format!("invalid PerformanceBaselineV1: {error}"))
-}
-
-fn performance_command_report(
-    run: xtask::performance::PerformanceRunV1,
-    streaming: Option<StreamingPerformanceDetailsV1>,
-    agent_planning: Option<AgentPerformanceDetailsV1>,
-    render_planning: Option<RenderPlanningPerformanceDetailsV1>,
-    live_runtime: Option<LiveRuntimePerformanceDetailsV1>,
-) -> CommandReportV1<PerformanceDetailsV1> {
-    let status = match run.verdict {
-        xtask::performance::PerformanceVerdict::Pass => "PASS",
-        xtask::performance::PerformanceVerdict::Fail => "FAIL",
-        xtask::performance::PerformanceVerdict::Warning => "WARNING",
-        xtask::performance::PerformanceVerdict::ReportOnly => "PASS",
-        xtask::performance::PerformanceVerdict::NotRun => "NOT_RUN",
-    };
-    CommandReportV1::new(
-        "performance",
-        status,
-        PerformanceDetailsV1 {
-            run: Some(run),
-            streaming,
-            agent_planning,
-            render_planning,
-            live_runtime,
-        },
-    )
-}
-
-fn write_performance_report(output: &Path, bytes: &[u8]) -> Result<(), String> {
-    fs::create_dir_all(output).map_err(|error| {
-        format!(
-            "failed to create performance output {}: {error}",
-            output.display()
-        )
-    })?;
-    let final_path = output.join("performance-report-v1.json");
-    let temporary_path = output.join(".performance-report-v1.json.tmp");
-    if final_path.exists() || temporary_path.exists() {
-        return Err(format!(
-            "performance output already exists: {}",
-            final_path.display()
-        ));
-    }
-    fs::write(&temporary_path, bytes).map_err(|error| {
-        format!(
-            "failed to write performance report {}: {error}",
-            temporary_path.display()
-        )
-    })?;
-    fs::rename(&temporary_path, &final_path).map_err(|error| {
-        format!(
-            "failed to publish performance report {}: {error}",
-            final_path.display()
-        )
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -892,6 +962,22 @@ mod tests {
         assert_eq!(
             request.scenario,
             xtask::performance::PerformanceScenarioV1::LongSessionSoak
+        );
+        assert_eq!(request.mode, xtask::performance::PerformanceModeV1::Report);
+        assert_eq!(request.target, None);
+    }
+
+    #[test]
+    fn performance_cli_accepts_the_report_only_interactive_frame_soak() {
+        let request = parse_arguments(
+            ["--scenario", "interactive-frame-soak", "--mode", "report"]
+                .into_iter()
+                .map(str::to_owned),
+        )
+        .expect("interactive frame soak arguments");
+        assert_eq!(
+            request.scenario,
+            xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak
         );
         assert_eq!(request.mode, xtask::performance::PerformanceModeV1::Report);
         assert_eq!(request.target, None);

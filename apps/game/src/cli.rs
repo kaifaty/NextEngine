@@ -1,0 +1,145 @@
+use std::path::PathBuf;
+
+use next_application::ApplicationError;
+use next_contracts::ids::ContentHash;
+
+#[derive(Debug, Default)]
+pub(super) struct GameOptions {
+    pub(super) interactive: bool,
+    pub(super) maximum_frames: Option<u64>,
+    pub(super) project: Option<PathBuf>,
+    pub(super) expected_lock: Option<ContentHash>,
+    pub(super) state_root: Option<PathBuf>,
+    pub(super) help: bool,
+}
+
+impl GameOptions {
+    pub(super) fn parse(mut arguments: impl Iterator<Item = String>) -> Result<Self, AppFailure> {
+        let mut options = Self::default();
+        while let Some(argument) = arguments.next() {
+            match argument.as_str() {
+                "--interactive" => {
+                    if std::mem::replace(&mut options.interactive, true) {
+                        return Err(AppFailure::argument("--interactive specified twice"));
+                    }
+                }
+                "--maximum-frames" => {
+                    let value = required_value(&mut arguments, "--maximum-frames")?;
+                    let maximum = value.parse::<u64>().map_err(|_| {
+                        AppFailure::argument("--maximum-frames requires a positive integer")
+                    })?;
+                    if maximum == 0 || options.maximum_frames.replace(maximum).is_some() {
+                        return Err(AppFailure::argument(
+                            "--maximum-frames must be one positive integer",
+                        ));
+                    }
+                }
+                "--project" => {
+                    let value = required_value(&mut arguments, "--project")?;
+                    if options.project.replace(value.into()).is_some() {
+                        return Err(AppFailure::argument("--project specified twice"));
+                    }
+                }
+                "--lock" => {
+                    let value = required_value(&mut arguments, "--lock")?;
+                    let hash = parse_hash(&value)?;
+                    if options.expected_lock.replace(hash).is_some() {
+                        return Err(AppFailure::argument("--lock specified twice"));
+                    }
+                }
+                "--state-root" => {
+                    let value = required_value(&mut arguments, "--state-root")?;
+                    if options.state_root.replace(value.into()).is_some() {
+                        return Err(AppFailure::argument("--state-root specified twice"));
+                    }
+                }
+                "--help" | "-h" => options.help = true,
+                _ => {
+                    return Err(AppFailure::argument(format!(
+                        "unsupported argument: {argument}"
+                    )));
+                }
+            }
+        }
+        if options.project.is_none() && options.expected_lock.is_some() {
+            return Err(AppFailure::argument("--lock requires --project"));
+        }
+        if options.maximum_frames.is_some() && !options.interactive {
+            return Err(AppFailure::argument(
+                "--maximum-frames requires --interactive",
+            ));
+        }
+        Ok(options)
+    }
+}
+
+fn required_value(
+    arguments: &mut impl Iterator<Item = String>,
+    flag: &str,
+) -> Result<String, AppFailure> {
+    arguments
+        .next()
+        .ok_or_else(|| AppFailure::argument(format!("{flag} requires a value")))
+}
+
+fn parse_hash(value: &str) -> Result<ContentHash, AppFailure> {
+    if value.len() != 64
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(AppFailure::argument(
+            "--lock must be a 64-character lowercase hex digest",
+        ));
+    }
+    let mut bytes = [0_u8; 32];
+    for (index, pair) in value.as_bytes().chunks_exact(2).enumerate() {
+        bytes[index] = (hex_nibble(pair[0]) << 4) | hex_nibble(pair[1]);
+    }
+    Ok(ContentHash::from_bytes(bytes))
+}
+
+const fn hex_nibble(value: u8) -> u8 {
+    match value {
+        b'0'..=b'9' => value - b'0',
+        b'a'..=b'f' => value - b'a' + 10,
+        _ => 0,
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct AppFailure {
+    pub(super) code: &'static str,
+    pub(super) message: String,
+    pub(super) exit_code: i32,
+}
+
+impl AppFailure {
+    pub(super) fn cli(code: &'static str, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+            exit_code: 2,
+        }
+    }
+
+    fn argument(message: impl Into<String>) -> Self {
+        Self::cli("CLI_ARGUMENT_INVALID", message)
+    }
+
+    pub(super) fn application(error: ApplicationError) -> Self {
+        Self {
+            code: error.diagnostic_code(),
+            message: error.to_string(),
+            exit_code: 1,
+        }
+    }
+
+    pub(super) fn help() -> Self {
+        Self {
+            code: "CLI_HELP_REQUESTED",
+            message: "help requested".to_owned(),
+            exit_code: 0,
+        }
+    }
+}

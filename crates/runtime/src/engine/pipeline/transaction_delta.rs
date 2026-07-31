@@ -154,6 +154,9 @@ impl PreparedCommandLedgerTransaction {
         staged_ledger: &CommandLedgerV2,
         base_archive: &CommandBodyArchiveV1,
     ) -> (CommandLedgerV2, CommandBodyArchiveV1) {
+        // Initialize the prepared generation exactly once before cloning it.
+        // The clone carries the populated OnceLock into the committed archive.
+        let archive_manifest = self.archive.manifest();
         let mut archive = base_archive.clone();
         archive.commit_prepared_additions(self.archive.clone());
         let mut ledger = staged_ledger.clone();
@@ -166,7 +169,7 @@ impl PreparedCommandLedgerTransaction {
                 .iter()
                 .map(|(key, hash)| (*key, *hash)),
         );
-        ledger.body_archive = self.archive.manifest();
+        ledger.body_archive = archive_manifest;
         (ledger, archive)
     }
 

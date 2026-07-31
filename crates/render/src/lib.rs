@@ -69,6 +69,10 @@ pub struct B0FramePlanV1 {
     pub frame_plan_hash: ContentHash,
 }
 
+mod planner;
+
+pub use planner::{B0FramePlannerMetricsV1, B0FramePlannerV1};
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RenderFrameReportV1 {
     pub snapshot_hash: ContentHash,
@@ -96,6 +100,7 @@ pub trait RenderDevice {
 pub struct ReferenceB0Renderer {
     catalog: RenderContentCatalogV1,
     device_available: bool,
+    frame_planner: B0FramePlannerV1,
 }
 
 impl ReferenceB0Renderer {
@@ -104,12 +109,18 @@ impl ReferenceB0Renderer {
         Ok(Self {
             catalog,
             device_available: true,
+            frame_planner: B0FramePlannerV1::new(),
         })
     }
 
     #[must_use]
     pub const fn catalog(&self) -> &RenderContentCatalogV1 {
         &self.catalog
+    }
+
+    #[must_use]
+    pub const fn frame_planner_metrics(&self) -> B0FramePlannerMetricsV1 {
+        self.frame_planner.metrics()
     }
 }
 
@@ -122,7 +133,9 @@ impl RenderDevice for ReferenceB0Renderer {
         if !self.device_available {
             return Err(RenderDeviceError::DeviceLost);
         }
-        let plan = build_b0_frame_plan(snapshot, &self.catalog, target)?;
+        let plan = self
+            .frame_planner
+            .build_or_reuse(snapshot, &self.catalog, target)?;
         Ok(RenderFrameReportV1 {
             snapshot_hash: plan.snapshot_hash,
             rendered_object_count: plan.visible_object_count,
@@ -148,6 +161,47 @@ pub fn build_b0_frame_plan(
     catalog: &RenderContentCatalogV1,
     target: RenderTargetV1,
 ) -> Result<B0FramePlanV1, RenderDeviceError> {
+    let mut draws = Vec::new();
+    let mut hash_preimage = Vec::new();
+    let parts =
+        build_b0_frame_plan_parts(snapshot, catalog, target, &mut draws, &mut hash_preimage)?;
+    Ok(parts.finish(draws))
+}
+
+struct B0FramePlanPartsV1 {
+    snapshot_hash: ContentHash,
+    catalog_hash: ContentHash,
+    target: RenderTargetV1,
+    camera: Option<B0CameraFrameV1>,
+    visible_object_count: u32,
+    indexed_draw_count: u32,
+    fallback_material_draw_count: u32,
+    frame_plan_hash: ContentHash,
+}
+
+impl B0FramePlanPartsV1 {
+    fn finish(self, draws: Vec<B0IndexedDrawV1>) -> B0FramePlanV1 {
+        B0FramePlanV1 {
+            snapshot_hash: self.snapshot_hash,
+            catalog_hash: self.catalog_hash,
+            target: self.target,
+            camera: self.camera,
+            visible_object_count: self.visible_object_count,
+            indexed_draw_count: self.indexed_draw_count,
+            fallback_material_draw_count: self.fallback_material_draw_count,
+            draws,
+            frame_plan_hash: self.frame_plan_hash,
+        }
+    }
+}
+
+fn build_b0_frame_plan_parts(
+    snapshot: &PresentationSnapshotV2,
+    catalog: &RenderContentCatalogV1,
+    target: RenderTargetV1,
+    draws: &mut Vec<B0IndexedDrawV1>,
+    hash_preimage: &mut Vec<u8>,
+) -> Result<B0FramePlanPartsV1, RenderDeviceError> {
     if target.extent[0] == 0 || target.extent[1] == 0 {
         return Err(RenderDeviceError::InvalidTarget);
     }
@@ -162,7 +216,7 @@ pub fn build_b0_frame_plan(
     let indexed_draw_count = preflight_b0_indexed_draw_count(snapshot, catalog)?;
     let draw_capacity =
         usize::try_from(indexed_draw_count).map_err(|_| RenderDeviceError::CountOverflow)?;
-    let mut draws = Vec::new();
+    draws.clear();
     draws
         .try_reserve_exact(draw_capacity)
         .map_err(|_| RenderDeviceError::FramePlanAllocationFailed)?;
@@ -227,15 +281,18 @@ pub fn build_b0_frame_plan(
 
     debug_assert_eq!(draws.len(), draw_capacity);
     let frame_plan_hash = frame_plan_hash(
-        snapshot.canonical_hash,
-        catalog.catalog_sha256(),
-        target,
-        camera.as_ref(),
-        visible_object_count,
-        fallback_material_draw_count,
-        &draws,
+        B0FramePlanHashInputV1 {
+            snapshot_hash: snapshot.canonical_hash,
+            catalog_hash: catalog.catalog_sha256(),
+            target,
+            camera: camera.as_ref(),
+            visible_object_count,
+            fallback_material_draw_count,
+            draws,
+        },
+        hash_preimage,
     )?;
-    Ok(B0FramePlanV1 {
+    Ok(B0FramePlanPartsV1 {
         snapshot_hash: snapshot.canonical_hash,
         catalog_hash: catalog.catalog_sha256(),
         target,
@@ -243,7 +300,6 @@ pub fn build_b0_frame_plan(
         visible_object_count,
         indexed_draw_count,
         fallback_material_draw_count,
-        draws,
         frame_plan_hash,
     })
 }
@@ -316,21 +372,27 @@ fn validate_shader_interface(catalog: &RenderContentCatalogV1) -> Result<(), Ren
     }
 }
 
-fn frame_plan_hash(
+struct B0FramePlanHashInputV1<'a> {
     snapshot_hash: ContentHash,
     catalog_hash: ContentHash,
     target: RenderTargetV1,
-    camera: Option<&B0CameraFrameV1>,
+    camera: Option<&'a B0CameraFrameV1>,
     visible_object_count: u32,
     fallback_material_draw_count: u32,
-    draws: &[B0IndexedDrawV1],
+    draws: &'a [B0IndexedDrawV1],
+}
+
+fn frame_plan_hash(
+    input: B0FramePlanHashInputV1<'_>,
+    preimage: &mut Vec<u8>,
 ) -> Result<ContentHash, RenderDeviceError> {
-    let draw_count = u64::try_from(draws.len()).map_err(|_| RenderDeviceError::CountOverflow)?;
+    let draw_count =
+        u64::try_from(input.draws.len()).map_err(|_| RenderDeviceError::CountOverflow)?;
     let _ = validate_b0_indexed_draw_budget(draw_count)?;
     let draw_bytes = B0_FRAME_PLAN_HASH_DRAW_BYTES
-        .checked_mul(draws.len())
+        .checked_mul(input.draws.len())
         .ok_or(RenderDeviceError::CountOverflow)?;
-    let camera_bytes = if camera.is_some() {
+    let camera_bytes = if input.camera.is_some() {
         B0_FRAME_PLAN_HASH_CAMERA_BYTES
     } else {
         0
@@ -347,38 +409,38 @@ fn frame_plan_hash(
         .and_then(|length| length.checked_add(std::mem::size_of::<u64>()))
         .and_then(|length| length.checked_add(body_len))
         .ok_or(RenderDeviceError::CountOverflow)?;
-    let mut preimage = Vec::new();
+    preimage.clear();
     preimage
         .try_reserve_exact(preimage_len)
         .map_err(|_| RenderDeviceError::FramePlanAllocationFailed)?;
     preimage.extend_from_slice(B0_FRAME_PLAN_HASH_DOMAIN.as_bytes());
     preimage.push(0);
     preimage.extend_from_slice(&body_len_u64.to_le_bytes());
-    preimage.extend_from_slice(snapshot_hash.as_bytes());
-    preimage.extend_from_slice(catalog_hash.as_bytes());
-    preimage.extend_from_slice(&target.extent[0].to_le_bytes());
-    preimage.extend_from_slice(&target.extent[1].to_le_bytes());
-    preimage.extend_from_slice(&target.target_revision.to_le_bytes());
-    preimage.extend_from_slice(&visible_object_count.to_le_bytes());
-    preimage.extend_from_slice(&fallback_material_draw_count.to_le_bytes());
-    match camera {
+    preimage.extend_from_slice(input.snapshot_hash.as_bytes());
+    preimage.extend_from_slice(input.catalog_hash.as_bytes());
+    preimage.extend_from_slice(&input.target.extent[0].to_le_bytes());
+    preimage.extend_from_slice(&input.target.extent[1].to_le_bytes());
+    preimage.extend_from_slice(&input.target.target_revision.to_le_bytes());
+    preimage.extend_from_slice(&input.visible_object_count.to_le_bytes());
+    preimage.extend_from_slice(&input.fallback_material_draw_count.to_le_bytes());
+    match input.camera {
         Some(camera) => {
             preimage.push(1);
-            extend_camera_frame(&mut preimage, camera);
+            extend_camera_frame(preimage, camera);
         }
         None => preimage.push(0),
     }
-    for draw in draws {
+    for draw in input.draws {
         preimage.extend_from_slice(draw.scene_record_hash.as_bytes());
-        extend_revision(&mut preimage, draw.mesh_revision);
-        extend_revision(&mut preimage, draw.material_revision);
-        extend_revision(&mut preimage, draw.texture_revision);
+        extend_revision(preimage, draw.mesh_revision);
+        extend_revision(preimage, draw.material_revision);
+        extend_revision(preimage, draw.texture_revision);
         preimage.extend_from_slice(&draw.first_index.to_le_bytes());
         preimage.extend_from_slice(&draw.index_count.to_le_bytes());
         preimage.push(u8::from(draw.fallback_material));
     }
     debug_assert_eq!(preimage.len(), preimage_len);
-    Ok(content_hash_from_bytes(sha256(&preimage)))
+    Ok(content_hash_from_bytes(sha256(preimage)))
 }
 
 fn extend_camera_frame(bytes: &mut Vec<u8>, camera: &B0CameraFrameV1) {
@@ -550,6 +612,155 @@ mod tests {
         ));
         renderer.recover_device();
         assert_eq!(renderer.render(&snapshot, target).expect("frame"), first);
+        assert_eq!(
+            renderer.frame_planner_metrics(),
+            B0FramePlannerMetricsV1 {
+                cache_hits: 1,
+                cache_misses: 1,
+                build_failures: 0,
+                explicit_invalidations: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn reusable_planner_hits_for_exact_inputs_and_matches_uncached_builder() {
+        let catalog = catalog();
+        let snapshot = snapshot(&catalog, false);
+        let target = RenderTargetV1 {
+            extent: [960, 540],
+            target_revision: 1,
+        };
+        let expected = build_b0_frame_plan(&snapshot, &catalog, target).expect("uncached plan");
+        let equivalent_catalog = catalog.clone();
+        let mut planner = B0FramePlannerV1::new();
+
+        let first = planner
+            .build_or_reuse(&snapshot, &catalog, target)
+            .expect("cache miss")
+            .clone();
+        let second = planner
+            .build_or_reuse(&snapshot, &equivalent_catalog, target)
+            .expect("cache hit");
+
+        assert_eq!(first, expected);
+        assert_eq!(second, &expected);
+        assert_eq!(planner.cached_plan(), Some(&expected));
+        assert_eq!(
+            planner.metrics(),
+            B0FramePlannerMetricsV1 {
+                cache_hits: 1,
+                cache_misses: 1,
+                build_failures: 0,
+                explicit_invalidations: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn reusable_planner_invalidates_on_snapshot_and_target_change() {
+        let catalog = catalog();
+        let first_snapshot = snapshot(&catalog, false);
+        let next_snapshot = snapshot_at(&catalog, false, 1, 1);
+        let first_target = RenderTargetV1 {
+            extent: [960, 540],
+            target_revision: 1,
+        };
+        let next_target = RenderTargetV1 {
+            extent: [1280, 720],
+            target_revision: 2,
+        };
+        let mut planner = B0FramePlannerV1::new();
+
+        let first = planner
+            .build_or_reuse(&first_snapshot, &catalog, first_target)
+            .expect("first snapshot")
+            .clone();
+        let next = planner
+            .build_or_reuse(&next_snapshot, &catalog, first_target)
+            .expect("next snapshot")
+            .clone();
+        let resized = planner
+            .build_or_reuse(&next_snapshot, &catalog, next_target)
+            .expect("resized target")
+            .clone();
+        let repeated = planner
+            .build_or_reuse(&next_snapshot, &catalog, next_target)
+            .expect("repeated resized target");
+
+        assert_ne!(first.snapshot_hash, next.snapshot_hash);
+        assert_ne!(next.frame_plan_hash, resized.frame_plan_hash);
+        assert_eq!(repeated, &resized);
+        assert_eq!(planner.metrics().cache_misses, 3);
+        assert_eq!(planner.metrics().cache_hits, 1);
+        assert_eq!(planner.metrics().build_failures, 0);
+    }
+
+    #[test]
+    fn failed_rebuild_preserves_the_last_exact_cached_plan() {
+        let catalog = catalog();
+        let snapshot = snapshot(&catalog, false);
+        let target = RenderTargetV1 {
+            extent: [960, 540],
+            target_revision: 1,
+        };
+        let mut planner = B0FramePlannerV1::new();
+        let baseline = planner
+            .build_or_reuse(&snapshot, &catalog, target)
+            .expect("baseline")
+            .clone();
+        let mut malformed = snapshot.clone();
+        malformed.simulation_tick = malformed.simulation_tick.saturating_add(1);
+
+        assert!(matches!(
+            planner.build_or_reuse(&malformed, &catalog, target),
+            Err(RenderDeviceError::Presentation(
+                next_contracts::presentation::PresentationContractError::HashMismatch
+            ))
+        ));
+        assert_eq!(planner.cached_plan(), Some(&baseline));
+        assert_eq!(
+            planner
+                .build_or_reuse(&snapshot, &catalog, target)
+                .expect("prior exact input remains cached"),
+            &baseline
+        );
+        assert_eq!(
+            planner.metrics(),
+            B0FramePlannerMetricsV1 {
+                cache_hits: 1,
+                cache_misses: 2,
+                build_failures: 1,
+                explicit_invalidations: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn explicit_invalidation_drops_only_the_cached_value_and_reuses_the_planner() {
+        let catalog = catalog();
+        let snapshot = snapshot(&catalog, false);
+        let target = RenderTargetV1 {
+            extent: [960, 540],
+            target_revision: 1,
+        };
+        let mut planner = B0FramePlannerV1::new();
+        let expected = planner
+            .build_or_reuse(&snapshot, &catalog, target)
+            .expect("initial plan")
+            .clone();
+
+        planner.invalidate();
+        planner.invalidate();
+        assert!(planner.cached_plan().is_none());
+        assert_eq!(planner.metrics().explicit_invalidations, 1);
+        assert_eq!(
+            planner
+                .build_or_reuse(&snapshot, &catalog, target)
+                .expect("rebuilt plan"),
+            &expected
+        );
+        assert_eq!(planner.metrics().cache_misses, 2);
     }
 
     #[test]
@@ -704,6 +915,15 @@ mod tests {
         catalog: &RenderContentCatalogV1,
         missing_first_material: bool,
     ) -> PresentationSnapshotV2 {
+        snapshot_at(catalog, missing_first_material, 0, 0)
+    }
+
+    fn snapshot_at(
+        catalog: &RenderContentCatalogV1,
+        missing_first_material: bool,
+        snapshot_sequence: u64,
+        simulation_tick: u64,
+    ) -> PresentationSnapshotV2 {
         let epoch = domain_hash("test.epoch", b"epoch");
         let floor = &catalog.meshes()[0];
         let marker = &catalog.meshes()[1];
@@ -757,8 +977,8 @@ mod tests {
             .collect();
         PresentationSnapshotV2::new(
             epoch,
-            0,
-            0,
+            snapshot_sequence,
+            simulation_tick,
             domain_hash("test.lock", b"lock"),
             domain_hash("test.content", b"content"),
             domain_hash("test.profile", b"profile"),

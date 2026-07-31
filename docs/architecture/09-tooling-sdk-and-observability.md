@@ -213,6 +213,14 @@ history-dependent degradation: одинаковые held-movement/periodic-camer
 ticks. Отдельно сохраняются три окна, mandatory 30-tick durable checkpoint
 samples и isolated identity-index/archive-root probes; exact ledger-root
 parity обязательна, но этот fixture не становится hard timing authority.
+`interactive-frame-soak` отдельно выполняет `240` FIFO-presented кадров при
+requested `1920×1080` через production Vulkan path и сохраняет report-only CPU/GPU critical path,
+event-polling плюс immutable frame-source update, frame-slot/acquire/image waits,
+frame-plan, command-record, submit и present phases вместе с software-pacing и
+frame-plan-cache counters. Этот diagnostic fixture использует статические
+reference render inputs и поэтому не измеряет main-to-simulation-worker handoff
+composition root; этот handoff остаётся отдельным diagnostic gap. Fixture не подменяет
+representative R2 alpha project и не закрывает B-12.
 Тяжёлые captures, WPA/perf/samply profiles и generated reports остаются
 machine-local и не коммитятся.
 

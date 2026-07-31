@@ -62,8 +62,11 @@ fn failed_recovery_publication_keeps_the_prior_failed_session_current() {
         Some(link.canonical_hash)
     );
     assert_eq!(
-        recovered.objects.get(&evidence.prior_snapshot_object_hash),
-        Some(&failed_publication.snapshot)
+        recovered
+            .objects
+            .get(&evidence.prior_snapshot_object_hash)
+            .map(AsRef::as_ref),
+        Some(failed_publication.snapshot.as_slice())
     );
     assert_eq!(
         evidence.evidence_object_hashes,
@@ -95,8 +98,11 @@ fn failed_recovery_publication_keeps_the_prior_failed_session_current() {
         Some(&link_bytes)
     );
     assert_eq!(
-        restarted.objects.get(&evidence.prior_snapshot_object_hash),
-        Some(&failed_publication.snapshot)
+        restarted
+            .objects
+            .get(&evidence.prior_snapshot_object_hash)
+            .map(AsRef::as_ref),
+        Some(failed_publication.snapshot.as_slice())
     );
     for (hash, bytes) in &failed_publication.objects {
         assert_eq!(restarted.objects.get(hash), Some(bytes));
@@ -200,10 +206,10 @@ fn recovery_evidence_prior_snapshot_tamper_is_rejected_on_restart() {
         .objects
         .get(&evidence.prior_snapshot_object_hash)
         .expect("full prior durable snapshot");
-    let mut tampered_bytes = original.clone();
+    let mut tampered_bytes = original.to_vec();
     let final_byte = tampered_bytes.last_mut().expect("nonempty prior snapshot");
     *final_byte ^= 0x01;
-    assert_ne!(tampered_bytes, *original);
+    assert_ne!(tampered_bytes.as_slice(), original.as_ref());
     let tampered_object = SessionObjectV1::new(tampered_bytes);
     let mut durable = recovered.durable.clone();
     durable.store_sequence = published.sequence + 1;
@@ -211,7 +217,7 @@ fn recovery_evidence_prior_snapshot_tamper_is_rejected_on_restart() {
         .recovery_evidence_archive
         .last_mut()
         .expect("mutable recovery evidence")
-        .prior_snapshot_object_hash = tampered_object.content_hash;
+        .prior_snapshot_object_hash = tampered_object.content_hash();
     let mut objects: Vec<_> = published
         .objects
         .into_values()

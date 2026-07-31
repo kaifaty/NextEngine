@@ -1,4 +1,5 @@
 use super::*;
+use next_contracts::snapshot::WorldCheckpointV4;
 
 #[test]
 fn checkpoint_canonical_components_preserve_exact_bytes_and_ledger_hash() {
@@ -7,6 +8,25 @@ fn checkpoint_canonical_components_preserve_exact_bytes_and_ledger_hash() {
         .runtime
         .world_checkpoint_with_canonical_components()
         .expect("checkpoint with canonical components");
+    let (fully_validated, full_components) = WorldCheckpointV4::new_with_canonical_components(
+        checkpoint.runtime_snapshot.clone(),
+        checkpoint.rpg_snapshot.clone(),
+        checkpoint.physics_checkpoint.clone(),
+    )
+    .expect("full checkpoint validation");
+    assert_eq!(checkpoint, fully_validated);
+    assert_eq!(
+        components.runtime_snapshot_bytes(),
+        full_components.runtime_snapshot_bytes()
+    );
+    assert_eq!(
+        components
+            .command_ledger_hash()
+            .expect("cached ledger hash"),
+        full_components
+            .command_ledger_hash()
+            .expect("fully validated cached ledger hash")
+    );
     assert_eq!(
         components.runtime_snapshot_bytes(),
         checkpoint

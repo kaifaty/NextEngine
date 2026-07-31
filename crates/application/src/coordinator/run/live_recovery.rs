@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 use next_assets::SessionObjectV1;
 use next_contracts::canonical::{
@@ -197,11 +198,11 @@ impl LiveRunRecoveryManifestV1 {
 
 pub(super) struct LiveRunObjectClosureV1 {
     pub(super) manifest_hash: ContentHash,
-    pub(super) objects: BTreeMap<ContentHash, Vec<u8>>,
+    pub(super) objects: BTreeMap<ContentHash, Arc<[u8]>>,
 }
 
 pub(crate) fn validate_live_run_evidence_closure(
-    objects: &BTreeMap<ContentHash, Vec<u8>>,
+    objects: &BTreeMap<ContentHash, Arc<[u8]>>,
     manifest_hash: ContentHash,
     session_id: ApplicationSessionId,
     project_composition_lock_hash: ContentHash,
@@ -223,7 +224,7 @@ pub(crate) fn validate_live_run_evidence_closure(
 
 #[cfg(test)]
 pub(crate) fn live_run_evidence_payload_hashes(
-    objects: &BTreeMap<ContentHash, Vec<u8>>,
+    objects: &BTreeMap<ContentHash, Arc<[u8]>>,
     manifest_hash: ContentHash,
 ) -> Result<[ContentHash; 6], ApplicationError> {
     let manifest_bytes = required_object(objects, manifest_hash)?;
@@ -236,7 +237,7 @@ pub(crate) fn live_run_evidence_payload_hashes(
 
 #[cfg(test)]
 pub(crate) fn replace_live_run_evidence_payload(
-    objects: &mut BTreeMap<ContentHash, Vec<u8>>,
+    objects: &mut BTreeMap<ContentHash, Arc<[u8]>>,
     manifest_hash: ContentHash,
     payload_index: usize,
     replacement_bytes: Vec<u8>,
@@ -245,27 +246,28 @@ pub(crate) fn replace_live_run_evidence_payload(
     let mut manifest = LiveRunRecoveryManifestV1::from_canonical_bytes(manifest_bytes)?;
     let replacement = SessionObjectV1::new(replacement_bytes);
     match payload_index {
-        0 => manifest.payloads.runtime_snapshot = replacement.content_hash,
-        1 => manifest.payloads.rpg_snapshot = replacement.content_hash,
-        2 => manifest.payloads.physics_checkpoint = replacement.content_hash,
-        3 => manifest.payloads.world_streaming_snapshot = replacement.content_hash,
-        4 => manifest.payloads.presentation_snapshot = replacement.content_hash,
-        5 => manifest.payloads.input_session = replacement.content_hash,
+        0 => manifest.payloads.runtime_snapshot = replacement.content_hash(),
+        1 => manifest.payloads.rpg_snapshot = replacement.content_hash(),
+        2 => manifest.payloads.physics_checkpoint = replacement.content_hash(),
+        3 => manifest.payloads.world_streaming_snapshot = replacement.content_hash(),
+        4 => manifest.payloads.presentation_snapshot = replacement.content_hash(),
+        5 => manifest.payloads.input_session = replacement.content_hash(),
         _ => return Err(ApplicationError::RecoveryIncompatible),
     }
     let replacement_manifest = SessionObjectV1::new(manifest.canonical_bytes()?);
+    let replacement_manifest_hash = replacement_manifest.content_hash();
     objects.remove(&manifest_hash);
-    objects.insert(replacement.content_hash, replacement.bytes);
+    objects.insert(replacement.content_hash(), replacement.into_shared_bytes());
     objects.insert(
-        replacement_manifest.content_hash,
-        replacement_manifest.bytes,
+        replacement_manifest.content_hash(),
+        replacement_manifest.into_shared_bytes(),
     );
-    Ok(replacement_manifest.content_hash)
+    Ok(replacement_manifest_hash)
 }
 
 pub(crate) struct RecoveredLiveRunV1 {
-    pub(crate) lifecycle_objects: BTreeMap<ContentHash, Vec<u8>>,
-    pub(crate) prepared_run_objects: BTreeMap<ContentHash, Vec<u8>>,
+    pub(crate) lifecycle_objects: BTreeMap<ContentHash, Arc<[u8]>>,
+    pub(crate) prepared_run_objects: BTreeMap<ContentHash, Arc<[u8]>>,
     pub(crate) live_run_recovery_manifest_hash: ContentHash,
     pub(crate) prepared_run: PreparedRunV1,
     pub(crate) live_run: ReferenceGameDriverV1,
@@ -282,20 +284,17 @@ pub(super) fn live_run_object_closure(
     let runtime = SessionObjectV1::new(
         prepared
             .checkpoint_canonical_components
-            .runtime_snapshot_bytes()
-            .to_vec(),
+            .runtime_snapshot_shared_bytes(),
     );
     let rpg = SessionObjectV1::new(
         prepared
             .checkpoint_canonical_components
-            .rpg_snapshot_bytes()
-            .to_vec(),
+            .rpg_snapshot_shared_bytes(),
     );
     let physics = SessionObjectV1::new(
         prepared
             .checkpoint_canonical_components
-            .physics_checkpoint_bytes()
-            .to_vec(),
+            .physics_checkpoint_shared_bytes(),
     );
     let streaming = SessionObjectV1::new(
         prepared
@@ -306,12 +305,12 @@ pub(super) fn live_run_object_closure(
     let presentation = SessionObjectV1::new(recovery.presentation_snapshot_bytes.clone());
     let input = SessionObjectV1::new(recovery.input_session_bytes.clone());
     let payloads = LiveRunPayloadHashesV1 {
-        runtime_snapshot: runtime.content_hash,
-        rpg_snapshot: rpg.content_hash,
-        physics_checkpoint: physics.content_hash,
-        world_streaming_snapshot: streaming.content_hash,
-        presentation_snapshot: presentation.content_hash,
-        input_session: input.content_hash,
+        runtime_snapshot: runtime.content_hash(),
+        rpg_snapshot: rpg.content_hash(),
+        physics_checkpoint: physics.content_hash(),
+        world_streaming_snapshot: streaming.content_hash(),
+        presentation_snapshot: presentation.content_hash(),
+        input_session: input.content_hash(),
     };
     payloads.validate()?;
 
@@ -352,18 +351,18 @@ pub(super) fn live_run_object_closure(
     };
     let manifest = SessionObjectV1::new(manifest.canonical_bytes()?);
     if [
-        runtime.content_hash,
-        rpg.content_hash,
-        physics.content_hash,
-        streaming.content_hash,
-        presentation.content_hash,
-        input.content_hash,
+        runtime.content_hash(),
+        rpg.content_hash(),
+        physics.content_hash(),
+        streaming.content_hash(),
+        presentation.content_hash(),
+        input.content_hash(),
     ]
-    .contains(&manifest.content_hash)
+    .contains(&manifest.content_hash())
     {
         return Err(ApplicationError::RecoveryIncompatible);
     }
-    let manifest_hash = manifest.content_hash;
+    let manifest_hash = manifest.content_hash();
     let objects = [
         runtime,
         rpg,
@@ -374,7 +373,7 @@ pub(super) fn live_run_object_closure(
         manifest,
     ]
     .into_iter()
-    .map(|object| (object.content_hash, object.bytes))
+    .map(|object| (object.content_hash(), object.into_shared_bytes()))
     .collect();
     Ok(LiveRunObjectClosureV1 {
         manifest_hash,
@@ -394,7 +393,7 @@ struct ValidatedPersistedLiveRunV1 {
     reason = "historical evidence must bind the exact session, project, content, revision and target"
 )]
 fn validate_persisted_live_run_closure(
-    published_objects: &BTreeMap<ContentHash, Vec<u8>>,
+    published_objects: &BTreeMap<ContentHash, Arc<[u8]>>,
     manifest_hash: ContentHash,
     session_id: ApplicationSessionId,
     project_composition_lock_hash: ContentHash,
@@ -519,7 +518,7 @@ fn validate_persisted_live_run_closure(
 }
 
 pub(crate) fn restore_live_run(
-    mut published_objects: BTreeMap<ContentHash, Vec<u8>>,
+    mut published_objects: BTreeMap<ContentHash, Arc<[u8]>>,
     manifest_hash: ContentHash,
     session_id: ApplicationSessionId,
     activated_project: ActivatedProjectV2,
@@ -564,13 +563,13 @@ pub(crate) fn restore_live_run(
 }
 
 fn required_object(
-    objects: &BTreeMap<ContentHash, Vec<u8>>,
+    objects: &BTreeMap<ContentHash, Arc<[u8]>>,
     hash: ContentHash,
 ) -> Result<&[u8], ApplicationError> {
     let bytes = objects
         .get(&hash)
         .ok_or(ApplicationError::RecoveryIncompatible)?;
-    if SessionObjectV1::new(bytes.clone()).content_hash != hash {
+    if SessionObjectV1::new(bytes.clone()).content_hash() != hash {
         return Err(ApplicationError::RecoveryIncompatible);
     }
     Ok(bytes)

@@ -47,6 +47,15 @@ pub trait PhysicsWorldBackend: Debug {
         &mut self,
         input: &PhysicsStepInputV2,
     ) -> Result<PhysicsStepResultV1, PhysicsBackendError>;
+    /// Forks an independent private world for an uncommitted live tick.
+    ///
+    /// The default deliberately reconstructs from the canonical checkpoint.
+    /// A backend may override it only when it can copy every future-affecting
+    /// private field. Durable recovery and replay continue to use
+    /// `fork_from_checkpoint` regardless of this optimization.
+    fn fork_for_staging(&self) -> Result<Box<dyn PhysicsWorldBackend>, PhysicsBackendError> {
+        self.fork_from_checkpoint(self.checkpoint().clone())
+    }
     fn fork_from_checkpoint(
         &self,
         checkpoint: PhysicsWorldCheckpointV1,
@@ -90,6 +99,13 @@ where
         input: &PhysicsStepInputV2,
     ) -> Result<PhysicsStepResultV1, PhysicsBackendError> {
         GroundedCapsuleWorld::step(self, input).map_err(PhysicsBackendError::from)
+    }
+
+    fn fork_for_staging(&self) -> Result<Box<dyn PhysicsWorldBackend>, PhysicsBackendError> {
+        if let Some(staged) = GroundedCapsuleWorld::try_fork_for_staging(self)? {
+            return Ok(Box::new(staged));
+        }
+        self.fork_from_checkpoint(self.checkpoint().clone())
     }
 
     fn fork_from_checkpoint(
@@ -173,6 +189,18 @@ impl PhysicsWorldHost {
         Ok(Self {
             world: self.world.fork_from_checkpoint(checkpoint)?,
         })
+    }
+
+    /// Creates an independent uncommitted live-tick generation.
+    ///
+    /// Backends without a proven complete private-state copy automatically use
+    /// the canonical checkpoint reconstruction path.
+    pub fn fork_for_staging(&self) -> Result<Self, PhysicsBackendError> {
+        let world = self.world.fork_for_staging()?;
+        if world.backend_kind() != self.world.backend_kind() {
+            return Err(PhysicsBackendError::BackendIdentityMismatch);
+        }
+        Ok(Self { world })
     }
 
     #[must_use]

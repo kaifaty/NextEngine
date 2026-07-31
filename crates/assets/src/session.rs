@@ -30,17 +30,38 @@ const SESSION_OBJECT_PACK_LOCATION_BYTES: usize = 32 + 4 + 8 + 8;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SessionObjectV1 {
-    pub content_hash: ContentHash,
-    pub bytes: Vec<u8>,
+    content_hash: ContentHash,
+    bytes: Arc<[u8]>,
 }
 
 impl SessionObjectV1 {
     #[must_use]
-    pub fn new(bytes: Vec<u8>) -> Self {
+    pub fn new(bytes: impl Into<Arc<[u8]>>) -> Self {
+        let bytes = bytes.into();
         Self {
             content_hash: content_hash_from_bytes(sha256(&bytes)),
             bytes,
         }
+    }
+
+    #[must_use]
+    pub const fn content_hash(&self) -> ContentHash {
+        self.content_hash
+    }
+
+    #[must_use]
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    #[must_use]
+    pub fn shared_bytes(&self) -> Arc<[u8]> {
+        self.bytes.clone()
+    }
+
+    #[must_use]
+    pub fn into_shared_bytes(self) -> Arc<[u8]> {
+        self.bytes
     }
 }
 
@@ -76,15 +97,10 @@ impl SessionPublicationV1 {
         if objects.len() > SESSION_MAX_OBJECTS {
             return Err(SessionStoreError::ObjectLimitExceeded);
         }
-        objects.sort_by_key(|object| object.content_hash);
-        for object in &objects {
-            if content_hash_from_bytes(sha256(&object.bytes)) != object.content_hash {
-                return Err(SessionStoreError::ObjectHashMismatch);
-            }
-        }
+        objects.sort_by_key(SessionObjectV1::content_hash);
         if objects
             .windows(2)
-            .any(|pair| pair[0].content_hash == pair[1].content_hash)
+            .any(|pair| pair[0].content_hash() == pair[1].content_hash())
         {
             return Err(SessionStoreError::DuplicateObject);
         }
@@ -94,7 +110,7 @@ impl SessionPublicationV1 {
             return Err(SessionStoreError::LiveSessionConflict);
         }
         let snapshot_hash = content_hash_from_bytes(sha256(&snapshot));
-        let object_hashes: Vec<_> = objects.iter().map(|object| object.content_hash).collect();
+        let object_hashes: Vec<_> = objects.iter().map(SessionObjectV1::content_hash).collect();
         let index = encode_index(
             sequence,
             project_composition_lock_hash,
@@ -133,7 +149,7 @@ impl SessionPublicationV1 {
             &self
                 .objects
                 .iter()
-                .map(|object| object.content_hash)
+                .map(SessionObjectV1::content_hash)
                 .collect::<Vec<_>>(),
         )
     }
@@ -151,9 +167,9 @@ impl SessionPublicationV1 {
         let mut packs: Vec<Vec<u8>> = Vec::new();
         let mut locations = Vec::with_capacity(self.objects.len());
         for object in &self.objects {
-            if object.bytes.len() > CONTENT_MAX_FILE_BYTES {
+            if object.bytes().len() > CONTENT_MAX_FILE_BYTES {
                 return Err(ContentStoreError::LimitExceeded {
-                    actual: object.bytes.len(),
+                    actual: object.bytes().len(),
                     limit: CONTENT_MAX_FILE_BYTES,
                 }
                 .into());
@@ -162,21 +178,21 @@ impl SessionPublicationV1 {
                 !pack.is_empty()
                     && pack
                         .len()
-                        .checked_add(object.bytes.len())
+                        .checked_add(object.bytes().len())
                         .is_none_or(|length| length > CONTENT_MAX_FILE_BYTES)
             });
             if needs_new_pack {
-                packs.push(Vec::with_capacity(object.bytes.len()));
+                packs.push(Vec::with_capacity(object.bytes().len()));
             }
             let pack_index = packs.len() - 1;
             let pack = packs.last_mut().expect("pack was created");
             let offset = pack.len();
-            pack.extend_from_slice(&object.bytes);
+            pack.extend_from_slice(object.bytes());
             locations.push(SessionObjectPackLocationV1 {
-                object_hash: object.content_hash,
+                object_hash: object.content_hash(),
                 pack_index,
                 offset,
-                length: object.bytes.len(),
+                length: object.bytes().len(),
             });
         }
         files.push(PublicationFileV1::new(
@@ -214,7 +230,7 @@ pub struct PublishedSessionGenerationV1 {
     pub expected_previous_generation: Option<ContentHash>,
     pub superseded_session_id: Option<ApplicationSessionId>,
     pub snapshot: Vec<u8>,
-    pub objects: BTreeMap<ContentHash, Vec<u8>>,
+    pub objects: BTreeMap<ContentHash, Arc<[u8]>>,
 }
 
 #[derive(Clone, Debug)]
@@ -310,7 +326,7 @@ impl SessionStore {
                     return Err(SessionStoreError::ObjectHashMismatch);
                 }
                 consumed_pack_bytes[location.pack_index] = end;
-                objects.insert(location.object_hash, bytes);
+                objects.insert(location.object_hash, Arc::from(bytes));
             }
             if packs
                 .iter()
@@ -333,7 +349,7 @@ impl SessionStore {
                 if content_hash_from_bytes(sha256(&bytes)) != *hash {
                     return Err(SessionStoreError::ObjectHashMismatch);
                 }
-                objects.insert(*hash, bytes);
+                objects.insert(*hash, Arc::from(bytes));
             }
             let expected_paths = 2 + index.object_hashes.len();
             if generation.files.len() != expected_paths {
@@ -509,7 +525,7 @@ fn published_generation(publication: &SessionPublicationV1) -> PublishedSessionG
         objects: publication
             .objects
             .iter()
-            .map(|object| (object.content_hash, object.bytes.clone()))
+            .map(|object| (object.content_hash(), object.shared_bytes()))
             .collect(),
     }
 }

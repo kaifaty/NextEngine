@@ -240,6 +240,15 @@ pub(super) fn step(
     gameplay_tick: u64,
     direction: Option<[i16; 2]>,
 ) -> PhysicsStepResultV1 {
+    let input = step_input(world, gameplay_tick, direction);
+    world.step(&input).expect("physics step")
+}
+
+pub(super) fn step_input(
+    world: &ReferencePhysicsWorld,
+    gameplay_tick: u64,
+    direction: Option<[i16; 2]>,
+) -> PhysicsStepInputV2 {
     let snapshot = world.snapshot();
     let accepted_intents = direction.map_or_else(Vec::new, |direction_q15| {
         let body_id = *world
@@ -257,7 +266,7 @@ pub(super) fn step(
             direction_q15,
         }]
     });
-    let input = PhysicsStepInputV2 {
+    PhysicsStepInputV2 {
         schema_version: PHYSICS_STEP_INPUT_SCHEMA_VERSION,
         world_id: snapshot.world_id,
         expected_world_revision: snapshot.world_revision,
@@ -274,8 +283,7 @@ pub(super) fn step(
             .expect("test physics tick remains bounded"),
         physics_substeps: world.tick_rate_profile().physics_substeps_per_gameplay_tick,
         accepted_intents,
-    };
-    world.step(&input).expect("physics step")
+    }
 }
 
 pub(super) fn capsule_state(world: &ReferencePhysicsWorld) -> &PhysicsBodyStateV2 {

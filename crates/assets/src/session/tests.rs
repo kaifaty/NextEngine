@@ -1,8 +1,35 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+};
 
 use super::*;
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+#[test]
+fn publication_cache_reuses_immutable_session_object_storage() {
+    let shared: Arc<[u8]> = Arc::from(vec![1, 2, 3, 4]);
+    let object = SessionObjectV1::new(shared.clone());
+    let object_hash = object.content_hash();
+    assert!(Arc::ptr_eq(&shared, &object.shared_bytes()));
+
+    let publication = SessionPublicationV1::new(
+        0,
+        ContentHash::from_bytes([9; 32]),
+        Some(ApplicationSessionId::from_bytes([1; 16])),
+        None,
+        None,
+        vec![5],
+        vec![object],
+    )
+    .expect("publication");
+    let cached = published_generation(&publication);
+    assert!(Arc::ptr_eq(
+        &shared,
+        cached.objects.get(&object_hash).expect("cached object")
+    ));
+}
 
 #[test]
 fn atomic_faults_keep_prior_generation_and_one_live_session() {
@@ -290,8 +317,11 @@ fn session_objects_roundtrip_through_one_generation_pack() {
     store.publish(&first).expect("packed generation");
     let loaded = store.load_current().expect("packed generation roundtrip");
     assert_eq!(
-        loaded.objects.get(&first.objects[0].content_hash),
-        Some(&first_bytes)
+        loaded
+            .objects
+            .get(&first.objects[0].content_hash())
+            .map(AsRef::as_ref),
+        Some(first_bytes.as_slice())
     );
     let physical = store
         .content
@@ -306,7 +336,7 @@ fn session_objects_roundtrip_through_one_generation_pack() {
         physical
             .file(&format!(
                 "{SESSION_OBJECT_DIRECTORY}/{}.bin",
-                first.objects[0].content_hash.to_hex()
+                first.objects[0].content_hash().to_hex()
             ))
             .is_none()
     );
@@ -381,8 +411,11 @@ fn pointer_fault_keeps_prior_packed_closure_and_retry_is_exact() {
     store.publish(&second).expect("packed retry");
     let loaded = store.load_current().expect("retried packed current");
     assert_eq!(
-        loaded.objects.get(&second.objects[0].content_hash),
-        Some(&second_bytes)
+        loaded
+            .objects
+            .get(&second.objects[0].content_hash())
+            .map(AsRef::as_ref),
+        Some(second_bytes.as_slice())
     );
     std::fs::remove_dir_all(root).expect("cleanup");
 }
@@ -465,7 +498,7 @@ fn legacy_raw_object_generation_remains_readable() {
             PublicationFileV1::new(
                 format!(
                     "{SESSION_OBJECT_DIRECTORY}/{}.bin",
-                    object.content_hash.to_hex()
+                    object.content_hash().to_hex()
                 ),
                 bytes.clone(),
             )
@@ -476,7 +509,13 @@ fn legacy_raw_object_generation_remains_readable() {
     store.content.publish(&content).expect("legacy publication");
 
     let loaded = store.load_current().expect("legacy raw load");
-    assert_eq!(loaded.objects.get(&object.content_hash), Some(&bytes));
+    assert_eq!(
+        loaded
+            .objects
+            .get(&object.content_hash())
+            .map(AsRef::as_ref),
+        Some(bytes.as_slice())
+    );
     std::fs::remove_dir_all(root).expect("cleanup");
 }
 
@@ -508,7 +547,7 @@ fn one_thousand_open_close_cycles_keep_one_live_session_and_unique_receipts() {
         sequence += 1;
 
         let receipt = SessionObjectV1::new(format!("receipt-{ordinal}").into_bytes());
-        assert!(receipts.insert(receipt.content_hash));
+        assert!(receipts.insert(receipt.content_hash()));
         let closed = SessionPublicationV1::new(
             sequence,
             ContentHash::from_bytes([9; 32]),

@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 use next_assets::SessionObjectV1;
 use next_contracts::canonical::{CanonicalDecodeLimits, sha256};
@@ -129,8 +130,8 @@ impl ApplicationCoordinator {
         let mut recovery_evidence_archive = self.durable.recovery_evidence_archive.clone();
         recovery_evidence_archive.push(DurableRecoveryEvidenceEntryV1 {
             recovery_link_hash: recovery_link.canonical_hash,
-            recovery_link_object_hash: recovery_link_object.content_hash,
-            prior_snapshot_object_hash: prior_snapshot_object.content_hash,
+            recovery_link_object_hash: recovery_link_object.content_hash(),
+            prior_snapshot_object_hash: prior_snapshot_object.content_hash(),
             evidence_object_hashes,
         });
         let mut recovery_evidence_objects = prior_publication.objects;
@@ -185,7 +186,7 @@ impl ApplicationCoordinator {
 
 pub(super) fn restore_recovery_evidence_archive(
     durable: &DurableApplicationSnapshotV1,
-    objects: &BTreeMap<ContentHash, Vec<u8>>,
+    objects: &BTreeMap<ContentHash, Arc<[u8]>>,
 ) -> Result<Vec<RecoverySessionLinkV1>, ApplicationError> {
     if durable.recovery_evidence_archive.is_empty() {
         return if durable.manifest.body.recovery_session_link_hash.is_none() {
@@ -202,7 +203,7 @@ pub(super) fn restore_recovery_evidence_archive(
         let bytes = objects
             .get(&entry.recovery_link_object_hash)
             .ok_or(ApplicationError::RecoveryIncompatible)?;
-        if SessionObjectV1::new(bytes.clone()).content_hash != entry.recovery_link_object_hash {
+        if SessionObjectV1::new(bytes.clone()).content_hash() != entry.recovery_link_object_hash {
             return Err(ApplicationError::RecoveryIncompatible);
         }
         let link = RecoverySessionLinkV1::from_jcs_bytes(bytes, CanonicalDecodeLimits::default())?;
@@ -219,7 +220,7 @@ pub(super) fn restore_recovery_evidence_archive(
         let prior_snapshot_bytes = objects
             .get(&entry.prior_snapshot_object_hash)
             .ok_or(ApplicationError::RecoveryIncompatible)?;
-        if SessionObjectV1::new(prior_snapshot_bytes.clone()).content_hash
+        if SessionObjectV1::new(prior_snapshot_bytes.clone()).content_hash()
             != entry.prior_snapshot_object_hash
         {
             return Err(ApplicationError::RecoveryIncompatible);
@@ -238,7 +239,7 @@ pub(super) fn restore_recovery_evidence_archive(
                     .get(hash)
                     .cloned()
                     .ok_or(ApplicationError::RecoveryIncompatible)?;
-                if SessionObjectV1::new(bytes.clone()).content_hash != *hash {
+                if SessionObjectV1::new(bytes.clone()).content_hash() != *hash {
                     return Err(ApplicationError::RecoveryIncompatible);
                 }
                 Ok((*hash, bytes))
@@ -258,7 +259,7 @@ pub(super) fn restore_recovery_evidence_archive(
 
 fn validate_prior_recovery_evidence(
     prior: &DurableApplicationSnapshotV1,
-    objects: &BTreeMap<ContentHash, Vec<u8>>,
+    objects: &BTreeMap<ContentHash, Arc<[u8]>>,
     link: &RecoverySessionLinkV1,
 ) -> Result<(), ApplicationError> {
     if prior.state.session_id != link.prior_session_id
@@ -382,27 +383,30 @@ fn rebuild_failed_ledger(
 }
 
 fn require_evidence_bytes(
-    objects: &BTreeMap<ContentHash, Vec<u8>>,
+    objects: &BTreeMap<ContentHash, Arc<[u8]>>,
     bytes: &[u8],
 ) -> Result<(), ApplicationError> {
     let object = SessionObjectV1::new(bytes.to_vec());
-    if objects.get(&object.content_hash) != Some(&object.bytes) {
+    if objects
+        .get(&object.content_hash())
+        .is_none_or(|stored| stored.as_ref() != object.bytes())
+    {
         return Err(ApplicationError::RecoveryIncompatible);
     }
     Ok(())
 }
 
 fn insert_evidence_object(
-    objects: &mut BTreeMap<ContentHash, Vec<u8>>,
+    objects: &mut BTreeMap<ContentHash, Arc<[u8]>>,
     object: SessionObjectV1,
 ) -> Result<(), ApplicationError> {
     if objects
-        .get(&object.content_hash)
-        .is_some_and(|bytes| bytes != &object.bytes)
+        .get(&object.content_hash())
+        .is_some_and(|bytes| bytes.as_ref() != object.bytes())
     {
         return Err(ApplicationError::RecoveryIncompatible);
     }
-    objects.insert(object.content_hash, object.bytes);
+    objects.insert(object.content_hash(), object.into_shared_bytes());
     Ok(())
 }
 

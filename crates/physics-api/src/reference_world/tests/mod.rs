@@ -1,5 +1,8 @@
 mod fixture;
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use next_contracts::ids::{CommandStreamId, PersistentId};
 use next_contracts::physics::{
     ClosedPhysicsContactBatchV1, ContactPhaseV1, PHYSICS_QUERY_SCHEMA_VERSION,
@@ -13,10 +16,165 @@ use next_contracts::physics::{
 
 use super::query::contact_normal_and_feature;
 use super::{
-    GroundedCapsuleStaticBox, GroundedCapsuleWorld, ReferencePhysicsError, ReferencePhysicsWorld,
+    GroundedCapsuleQuery, GroundedCapsuleStaticBox, GroundedCapsuleSweepRequest,
+    GroundedCapsuleSweepResult, GroundedCapsuleWorld, ReferencePhysicsError, ReferencePhysicsWorld,
+    reference_grounded_capsule_sweep,
 };
-use crate::{PhysicsSceneQueryError, execute_scene_query};
+use crate::{
+    PhysicsBackendError, PhysicsSceneQueryError, PhysicsWorldBackend, execute_scene_query,
+};
 use fixture::*;
+
+#[derive(Debug)]
+struct CountingStagingQuery {
+    fast_forks: Arc<AtomicUsize>,
+    recreates: Arc<AtomicUsize>,
+    supports_fast_fork: bool,
+    reject_fast_fork: bool,
+}
+
+impl GroundedCapsuleQuery for CountingStagingQuery {
+    fn backend_kind(&self) -> crate::PhysicsBackendKind {
+        crate::PhysicsBackendKind::Reference
+    }
+
+    fn try_fork_for_staging(&self) -> Result<Option<Self>, ReferencePhysicsError> {
+        if self.reject_fast_fork {
+            return Err(ReferencePhysicsError::BackendFailure);
+        }
+        if !self.supports_fast_fork {
+            return Ok(None);
+        }
+        self.fast_forks.fetch_add(1, Ordering::Relaxed);
+        Ok(Some(Self {
+            fast_forks: Arc::clone(&self.fast_forks),
+            recreates: Arc::clone(&self.recreates),
+            supports_fast_fork: true,
+            reject_fast_fork: false,
+        }))
+    }
+
+    fn recreate(&self) -> Result<Self, ReferencePhysicsError> {
+        self.recreates.fetch_add(1, Ordering::Relaxed);
+        Ok(Self {
+            fast_forks: Arc::clone(&self.fast_forks),
+            recreates: Arc::clone(&self.recreates),
+            supports_fast_fork: self.supports_fast_fork,
+            reject_fast_fork: self.reject_fast_fork,
+        })
+    }
+
+    fn sweep_axis(
+        &mut self,
+        request: GroundedCapsuleSweepRequest<'_>,
+    ) -> Result<GroundedCapsuleSweepResult, ReferencePhysicsError> {
+        reference_grounded_capsule_sweep(request)
+    }
+}
+
+#[test]
+fn staging_fork_matches_checkpoint_reconstruction_without_mutating_source() {
+    let source = world(30, 60, [0, 900_000, 0], 1);
+    let before = source.checkpoint().clone();
+    let input = step_input(&source, 0, Some([0, 32_767]));
+
+    let mut fast = PhysicsWorldBackend::fork_for_staging(&source).expect("fast staging fork");
+    let mut reconstructed = PhysicsWorldBackend::fork_from_checkpoint(&source, before.clone())
+        .expect("checkpoint reconstruction");
+
+    assert_eq!(source.checkpoint(), &before);
+    let fast_result = fast.step(&input).expect("fast staged step");
+    let reconstructed_result = reconstructed
+        .step(&input)
+        .expect("reconstructed staged step");
+
+    assert_eq!(fast_result, reconstructed_result);
+    assert_eq!(fast.checkpoint(), reconstructed.checkpoint());
+    assert_eq!(
+        fast.checkpoint().checkpoint_hash().expect("fast hash"),
+        reconstructed
+            .checkpoint()
+            .checkpoint_hash()
+            .expect("reconstructed hash")
+    );
+    assert_eq!(source.checkpoint(), &before);
+}
+
+#[test]
+fn staging_fork_uses_fast_copy_or_checkpoint_fallback_explicitly() {
+    let source = world(30, 60, [0, 900_000, 0], 1);
+    let fast_forks = Arc::new(AtomicUsize::new(0));
+    let recreates = Arc::new(AtomicUsize::new(0));
+    let fast_world = GroundedCapsuleWorld::with_query(
+        source.checkpoint().clone(),
+        *source.tick_rate_profile(),
+        source.numeric_profile().clone(),
+        source.quantization_profile().clone(),
+        CountingStagingQuery {
+            fast_forks: Arc::clone(&fast_forks),
+            recreates: Arc::clone(&recreates),
+            supports_fast_fork: true,
+            reject_fast_fork: false,
+        },
+    )
+    .expect("fast world");
+    let fast_before = fast_world.checkpoint().clone();
+    let fast_staging =
+        PhysicsWorldBackend::fork_for_staging(&fast_world).expect("fast staging world");
+    assert_eq!(fast_forks.load(Ordering::Relaxed), 1);
+    assert_eq!(recreates.load(Ordering::Relaxed), 0);
+    assert_eq!(fast_staging.checkpoint(), &fast_before);
+    assert_eq!(fast_world.checkpoint(), &fast_before);
+
+    let fallback_world = GroundedCapsuleWorld::with_query(
+        source.checkpoint().clone(),
+        *source.tick_rate_profile(),
+        source.numeric_profile().clone(),
+        source.quantization_profile().clone(),
+        CountingStagingQuery {
+            fast_forks: Arc::clone(&fast_forks),
+            recreates: Arc::clone(&recreates),
+            supports_fast_fork: false,
+            reject_fast_fork: false,
+        },
+    )
+    .expect("fallback world");
+    let fallback_before = fallback_world.checkpoint().clone();
+    let fallback_staging =
+        PhysicsWorldBackend::fork_for_staging(&fallback_world).expect("fallback staging world");
+    assert_eq!(fast_forks.load(Ordering::Relaxed), 1);
+    assert_eq!(recreates.load(Ordering::Relaxed), 1);
+    assert_eq!(fallback_staging.checkpoint(), &fallback_before);
+    assert_eq!(fallback_world.checkpoint(), &fallback_before);
+}
+
+#[test]
+fn staging_fork_failure_leaves_source_generation_unchanged() {
+    let source = world(30, 60, [0, 900_000, 0], 1);
+    let mut candidate = GroundedCapsuleWorld::with_query(
+        source.checkpoint().clone(),
+        *source.tick_rate_profile(),
+        source.numeric_profile().clone(),
+        source.quantization_profile().clone(),
+        CountingStagingQuery {
+            fast_forks: Arc::new(AtomicUsize::new(0)),
+            recreates: Arc::new(AtomicUsize::new(0)),
+            supports_fast_fork: true,
+            reject_fast_fork: true,
+        },
+    )
+    .expect("candidate world");
+    candidate.set_checkpoint_revision(41);
+    let before_failure = candidate.checkpoint().clone();
+
+    let error = PhysicsWorldBackend::fork_for_staging(&candidate)
+        .expect_err("fast-fork error must be visible");
+    assert_eq!(
+        error,
+        PhysicsBackendError::World(ReferencePhysicsError::BackendFailure)
+    );
+    assert_eq!(candidate.checkpoint(), &before_failure);
+}
 
 #[test]
 fn activation_accepts_exact_touching_and_rejects_penetration() {

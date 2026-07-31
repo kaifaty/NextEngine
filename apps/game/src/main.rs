@@ -1,15 +1,26 @@
 #![forbid(unsafe_code)]
 
-use std::path::PathBuf;
-
 #[cfg(feature = "desktop-sdl-ash")]
-use next_application::FixedStepLiveSchedulerV1;
-use next_application::{
-    ApplicationCloseOutcomeV1, ApplicationCoordinator, ApplicationError, DiagnosticContextV1,
-    DiagnosticReportV1, LaunchRequestV1, ProjectSelectionV1, RunReportV1, default_user_state_root,
+use std::sync::mpsc;
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+use std::sync::{
+    Arc, RwLock,
+    mpsc::{Receiver, SyncSender},
 };
-use next_contracts::ids::ContentHash;
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+use std::time::Duration;
+
+use next_application::{
+    ApplicationCloseOutcomeV1, ApplicationCoordinator, DiagnosticContextV1, DiagnosticReportV1,
+    LaunchRequestV1, ProjectSelectionV1, RunReportV1, default_user_state_root,
+};
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+use next_application::{ApplicationError, FixedStepLiveSchedulerV1};
 use next_contracts::session::{CompositionRootV1, PresentationTargetKindV1};
+
+mod cli;
+
+use cli::{AppFailure, GameOptions};
 
 fn main() {
     match run(std::env::args().skip(1)) {
@@ -70,55 +81,20 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
         presentation_target: target,
         platform_capability_set,
     };
+    if options.interactive {
+        return run_interactive_session(launch, options.maximum_frames);
+    }
+
     let mut application =
         ApplicationCoordinator::launch_or_resume(launch).map_err(AppFailure::application)?;
     eprintln!(
         "next_game: session {} active",
         application.state().session_id.to_hex()
     );
-    let mut run = if options.interactive {
-        begin_or_resume_reference_game_live(&mut application)?
-    } else {
-        application
-            .run_reference_game(true)
-            .map_err(AppFailure::application)?
-    };
-    let render_content_catalog = application
-        .activated_project()
-        .render_content_catalog
-        .clone();
-    let mut platform_close_event = None;
-    let adapter = if options.interactive {
-        let snapshot = run.presentation_snapshot.as_ref().ok_or_else(|| {
-            AppFailure::cli(
-                "PLATFORM_PRESENTATION_SNAPSHOT_MISSING",
-                "interactive target produced no presentation snapshot",
-            )
-        })?;
-        run_interactive(
-            &mut application,
-            snapshot,
-            &render_content_catalog,
-            options.maximum_frames,
-            &mut platform_close_event,
-        )
-    } else {
-        Ok(0)
-    };
-    if options.interactive {
-        run = application
-            .current_live_run()
-            .map_err(AppFailure::application)?;
-    }
+    let run = application
+        .run_reference_game(true)
+        .map_err(AppFailure::application)?;
     let close_options = next_application::CloseExecutionOptionsV1::default();
-    #[cfg(feature = "desktop-sdl-ash")]
-    let close = if let Some(event) = platform_close_event.as_ref() {
-        application.close_from_platform_event(event, close_options)
-    } else {
-        application.close(close_options)
-    }
-    .map_err(AppFailure::application)?;
-    #[cfg(not(feature = "desktop-sdl-ash"))]
     let close = application
         .close(close_options)
         .map_err(AppFailure::application)?;
@@ -128,14 +104,7 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
             "application close did not reach a terminal receipt",
         ));
     }
-    let interactive_host_object_count = adapter?;
-    RunReportV1::new(
-        CompositionRootV1::Game,
-        &run,
-        &close,
-        interactive_host_object_count,
-    )
-    .ok_or_else(|| {
+    RunReportV1::new(CompositionRootV1::Game, &run, &close, 0).ok_or_else(|| {
         AppFailure::cli(
             "SESSION_TERMINAL_RECEIPT_MISSING",
             "closed application has no terminal receipt",
@@ -143,6 +112,7 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
     })
 }
 
+#[cfg(any(feature = "desktop-sdl-ash", test))]
 fn begin_or_resume_reference_game_live(
     application: &mut ApplicationCoordinator,
 ) -> Result<next_application::ApplicationRunOutcomeV1, AppFailure> {
@@ -155,161 +125,432 @@ fn begin_or_resume_reference_game_live(
     }
 }
 
-#[derive(Debug, Default)]
-struct GameOptions {
-    interactive: bool,
-    maximum_frames: Option<u64>,
-    project: Option<PathBuf>,
-    expected_lock: Option<ContentHash>,
-    state_root: Option<PathBuf>,
-    help: bool,
-}
-
-impl GameOptions {
-    fn parse(mut arguments: impl Iterator<Item = String>) -> Result<Self, AppFailure> {
-        let mut options = Self::default();
-        while let Some(argument) = arguments.next() {
-            match argument.as_str() {
-                "--interactive" => {
-                    if std::mem::replace(&mut options.interactive, true) {
-                        return Err(AppFailure::argument("--interactive specified twice"));
-                    }
-                }
-                "--maximum-frames" => {
-                    let value = required_value(&mut arguments, "--maximum-frames")?;
-                    let maximum = value.parse::<u64>().map_err(|_| {
-                        AppFailure::argument("--maximum-frames requires a positive integer")
-                    })?;
-                    if maximum == 0 || options.maximum_frames.replace(maximum).is_some() {
-                        return Err(AppFailure::argument(
-                            "--maximum-frames must be one positive integer",
-                        ));
-                    }
-                }
-                "--project" => {
-                    let value = required_value(&mut arguments, "--project")?;
-                    if options.project.replace(value.into()).is_some() {
-                        return Err(AppFailure::argument("--project specified twice"));
-                    }
-                }
-                "--lock" => {
-                    let value = required_value(&mut arguments, "--lock")?;
-                    let hash = parse_hash(&value)?;
-                    if options.expected_lock.replace(hash).is_some() {
-                        return Err(AppFailure::argument("--lock specified twice"));
-                    }
-                }
-                "--state-root" => {
-                    let value = required_value(&mut arguments, "--state-root")?;
-                    if options.state_root.replace(value.into()).is_some() {
-                        return Err(AppFailure::argument("--state-root specified twice"));
-                    }
-                }
-                "--help" | "-h" => options.help = true,
-                _ => {
-                    return Err(AppFailure::argument(format!(
-                        "unsupported argument: {argument}"
-                    )));
-                }
-            }
-        }
-        if options.project.is_none() && options.expected_lock.is_some() {
-            return Err(AppFailure::argument("--lock requires --project"));
-        }
-        if options.maximum_frames.is_some() && !options.interactive {
-            return Err(AppFailure::argument(
-                "--maximum-frames requires --interactive",
-            ));
-        }
-        Ok(options)
-    }
-}
-
-fn required_value(
-    arguments: &mut impl Iterator<Item = String>,
-    flag: &str,
-) -> Result<String, AppFailure> {
-    arguments
-        .next()
-        .ok_or_else(|| AppFailure::argument(format!("{flag} requires a value")))
-}
-
-fn parse_hash(value: &str) -> Result<ContentHash, AppFailure> {
-    if value.len() != 64
-        || !value
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-    {
-        return Err(AppFailure::argument(
-            "--lock must be a 64-character lowercase hex digest",
-        ));
-    }
-    let mut bytes = [0_u8; 32];
-    for (index, pair) in value.as_bytes().chunks_exact(2).enumerate() {
-        bytes[index] = (hex_nibble(pair[0]) << 4) | hex_nibble(pair[1]);
-    }
-    Ok(ContentHash::from_bytes(bytes))
-}
-
-const fn hex_nibble(value: u8) -> u8 {
-    match value {
-        b'0'..=b'9' => value - b'0',
-        b'a'..=b'f' => value - b'a' + 10,
-        _ => 0,
-    }
-}
-
 #[cfg(feature = "desktop-sdl-ash")]
-fn run_interactive(
-    application: &mut ApplicationCoordinator,
-    snapshot: &next_contracts::presentation::PresentationSnapshotV2,
-    render_content_catalog: &next_contracts::render_content::RenderContentCatalogV1,
+fn run_interactive_session(
+    launch: LaunchRequestV1,
     maximum_frames: Option<u64>,
-    platform_close_event: &mut Option<next_contracts::platform::PlatformEventV1>,
-) -> Result<u64, AppFailure> {
-    let mut fixed_step = FixedStepLiveSchedulerV1::reference_game_v1();
-    let capabilities = next_desktop_sdl_ash::desktop_capability_set()
-        .map_err(|error| AppFailure::cli(error.diagnostic_code(), error.to_string()))?;
-    let host_instance_id = application
-        .register_platform_host(&capabilities)
-        .map_err(AppFailure::application)?;
-    let resume_suspended_application =
-        application.state().state == next_contracts::session::ApplicationSessionStatusV1::Suspended;
-    let report = next_desktop_sdl_ash::run_interactive_with_timed_frame_source(
-        snapshot,
-        render_content_catalog,
+) -> Result<RunReportV1, AppFailure> {
+    let capabilities = launch.platform_capability_set.clone().ok_or_else(|| {
+        AppFailure::cli(
+            "PLATFORM_CAPABILITY_SET_REQUIRED",
+            "interactive launch requires a platform capability set",
+        )
+    })?;
+    let latest_snapshot = Arc::new(RwLock::new(None));
+    let (work_sender, work_receiver) = mpsc::sync_channel(INTERACTIVE_SIMULATION_QUEUE_CAPACITY);
+    let (failure_sender, failure_receiver) = mpsc::sync_channel(1);
+    let (ready_sender, ready_receiver) = mpsc::sync_channel(1);
+    let worker_snapshot = Arc::clone(&latest_snapshot);
+    let worker = std::thread::Builder::new()
+        .name("next-simulation".to_owned())
+        .spawn(move || {
+            run_interactive_simulation_session_worker(
+                launch,
+                capabilities,
+                work_receiver,
+                worker_snapshot,
+                ready_sender,
+                failure_sender,
+            )
+        })
+        .map_err(|error| {
+            AppFailure::cli(
+                "SESSION_RUNTIME_FAILED",
+                format!("failed to start the simulation worker: {error}"),
+            )
+        })?;
+
+    let ready = match ready_receiver.recv() {
+        Ok(Ok(ready)) => ready,
+        Ok(Err(failure)) => {
+            let _ = worker.join();
+            return Err(failure);
+        }
+        Err(_) => return join_interactive_worker(worker),
+    };
+    let platform_close_event = std::cell::RefCell::new(None);
+    let worker_result = std::cell::RefCell::new(None);
+    let shutdown_sender = work_sender.clone();
+    let mut worker = Some(worker);
+    let mut finalization_retries = 0_u64;
+    let mut last_rendered_generation = (
+        ready.initial_snapshot.snapshot_epoch,
+        ready.initial_snapshot.snapshot_sequence,
+    );
+
+    let adapter = next_desktop_sdl_ash::run_interactive_with_shared_timed_frame_source_and_finalize(
+        Arc::clone(&ready.initial_snapshot),
+        &ready.render_content_catalog,
         &next_desktop_sdl_ash::DesktopRunOptions {
             maximum_frames,
-            host_instance_id,
-            resume_suspended_application,
+            host_instance_id: ready.host_instance_id,
+            resume_suspended_application: ready.resume_suspended_application,
             ..next_desktop_sdl_ash::DesktopRunOptions::default()
         },
         |events, elapsed| {
-            let scheduler_events =
-                platform_events_before_close_boundary(events, platform_close_event);
-            let run = fixed_step
-                .advance_reference_game_presentation(application, elapsed, &scheduler_events)
-                .map_err(|error| {
-                    next_desktop_sdl_ash::DesktopAdapterError::client(
-                        error.diagnostic_code(),
-                        error.to_string(),
-                    )
+            if let Ok(failure) = failure_receiver.try_recv() {
+                return Err(next_desktop_sdl_ash::DesktopAdapterError::client(
+                    failure.code,
+                    failure.message,
+                ));
+            }
+            let scheduler_events = platform_events_before_close_boundary(
+                events,
+                &mut platform_close_event.borrow_mut(),
+            );
+            work_sender
+                .send(InteractiveSimulationMessageV1::Advance {
+                    elapsed,
+                    events: scheduler_events,
+                })
+                .map_err(|_| {
+                    let failure = failure_receiver.try_recv().unwrap_or_else(|_| {
+                        AppFailure::cli(
+                            "SESSION_RUNTIME_FAILED",
+                            "simulation worker stopped before accepting a frame batch",
+                        )
+                    });
+                    next_desktop_sdl_ash::DesktopAdapterError::client(failure.code, failure.message)
                 })?;
-            Ok(run)
+            if let Ok(failure) = failure_receiver.try_recv() {
+                return Err(next_desktop_sdl_ash::DesktopAdapterError::client(
+                    failure.code,
+                    failure.message,
+                ));
+            }
+
+            let latest = latest_snapshot.read().map_err(|_| {
+                next_desktop_sdl_ash::DesktopAdapterError::client(
+                    "PLATFORM_PRESENTATION_STATE_POISONED",
+                    "latest presentation snapshot lock was poisoned",
+                )
+            })?;
+            let latest = latest.as_ref().ok_or_else(|| {
+                next_desktop_sdl_ash::DesktopAdapterError::client(
+                    "PLATFORM_PRESENTATION_SNAPSHOT_MISSING",
+                    "simulation worker published no initial presentation snapshot",
+                )
+            })?;
+            let generation = (latest.snapshot_epoch, latest.snapshot_sequence);
+            if generation == last_rendered_generation {
+                Ok(None)
+            } else {
+                last_rendered_generation = generation;
+                Ok(Some(Arc::clone(latest)))
+            }
         },
-    )
-    .map_err(|error| AppFailure::cli(error.diagnostic_code(), error.to_string()))?;
+        || {
+            let (completion_sender, completion_receiver) = mpsc::sync_channel(1);
+            let shutdown = InteractiveSimulationMessageV1::Shutdown {
+                platform_close_event: platform_close_event.borrow().clone().map(Box::new),
+                rendered_objects: 0,
+                completion_sender,
+            };
+            let completion = if worker.is_some() && shutdown_sender.send(shutdown).is_ok() {
+                completion_receiver.recv().ok()
+            } else {
+                None
+            };
+            if completion.as_ref().is_some_and(|reply| reply.closed) {
+                let joined = worker.take().map_or_else(
+                    || {
+                        Err(AppFailure::cli(
+                            "SESSION_RUNTIME_FAILED",
+                            "simulation worker was finalized more than once",
+                        ))
+                    },
+                    join_interactive_worker,
+                );
+                *worker_result.borrow_mut() = Some(joined);
+                return next_desktop_sdl_ash::DesktopApplicationFinalization::Complete;
+            }
+
+            finalization_retries = finalization_retries.saturating_add(1);
+            if finalization_retries.is_power_of_two() {
+                let message = completion
+                    .as_ref()
+                    .and_then(|reply| reply.result.as_ref().err())
+                    .map_or(
+                        "simulation worker did not confirm durable Closed",
+                        |failure| failure.message.as_str(),
+                    );
+                eprintln!(
+                    "next_game: keeping desktop adapter alive for exact close retry {}: {}",
+                    finalization_retries, message
+                );
+            }
+            next_desktop_sdl_ash::DesktopApplicationFinalization::Retry
+        },
+    );
+
+    let mut worker_report = worker_result.into_inner().ok_or_else(|| {
+        AppFailure::cli(
+            "SESSION_RUNTIME_FAILED",
+            "desktop adapter released without finalizing the simulation worker",
+        )
+    })??;
+    let adapter =
+        adapter.map_err(|error| AppFailure::cli(error.diagnostic_code(), error.to_string()))?;
+    worker_report.interactive_host_object_count = adapter.rendered_objects;
+
     eprintln!(
         "next_game: desktop session closed: frames={}, platform_events={}, controls={}, resizes={}, focus_events={}, fullscreen={}, recoveries={}",
-        report.rendered_frames,
-        report.normalized_events,
-        report.control_events,
-        report.resize_events,
-        report.focus_events,
-        report.fullscreen_events,
-        report.device_recoveries,
+        adapter.rendered_frames,
+        adapter.normalized_events,
+        adapter.control_events,
+        adapter.resize_events,
+        adapter.focus_events,
+        adapter.fullscreen_events,
+        adapter.device_recoveries,
     );
-    Ok(report.rendered_objects)
+    Ok(worker_report)
+}
+
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+const INTERACTIVE_SIMULATION_QUEUE_CAPACITY: usize = 8;
+
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+enum InteractiveSimulationMessageV1 {
+    Advance {
+        elapsed: Duration,
+        events: Vec<next_contracts::platform::PlatformEventV1>,
+    },
+    Shutdown {
+        platform_close_event: Option<Box<next_contracts::platform::PlatformEventV1>>,
+        rendered_objects: u64,
+        completion_sender: SyncSender<InteractiveShutdownReplyV1>,
+    },
+}
+
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+struct InteractiveShutdownReplyV1 {
+    closed: bool,
+    result: Result<RunReportV1, AppFailure>,
+}
+
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+enum InteractiveShutdownAttemptV1<T> {
+    Retry(AppFailure),
+    Closed(Result<T, AppFailure>),
+}
+
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+fn resolve_interactive_shutdown_attempt<T>(
+    close_result: Result<T, AppFailure>,
+    pending_failure: Option<&AppFailure>,
+) -> InteractiveShutdownAttemptV1<T> {
+    match close_result {
+        Ok(value) => {
+            InteractiveShutdownAttemptV1::Closed(pending_failure.cloned().map_or(Ok(value), Err))
+        }
+        Err(failure) => InteractiveShutdownAttemptV1::Retry(failure),
+    }
+}
+
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+struct InteractiveReadyV1 {
+    initial_snapshot: Arc<next_contracts::presentation::PresentationSnapshotV2>,
+    render_content_catalog: next_contracts::render_content::RenderContentCatalogV1,
+    host_instance_id: next_contracts::ids::PersistentId,
+    resume_suspended_application: bool,
+}
+
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+fn run_interactive_simulation_session_worker(
+    launch: LaunchRequestV1,
+    capabilities: next_contracts::platform::PlatformCapabilitySetV1,
+    work_receiver: Receiver<InteractiveSimulationMessageV1>,
+    latest_snapshot: Arc<RwLock<Option<Arc<next_contracts::presentation::PresentationSnapshotV2>>>>,
+    ready_sender: SyncSender<Result<InteractiveReadyV1, AppFailure>>,
+    failure_sender: SyncSender<AppFailure>,
+) -> Result<RunReportV1, AppFailure> {
+    let prepared = prepare_interactive_worker(launch, &capabilities, &latest_snapshot);
+    let (mut application, ready) = match prepared {
+        Ok(prepared) => prepared,
+        Err(failure) => {
+            let _ = ready_sender.send(Err(failure.clone()));
+            return Err(failure);
+        }
+    };
+    if ready_sender.send(Ok(ready)).is_err() {
+        return finish_interactive_worker(&mut application, None, 0).and(Err(AppFailure::cli(
+            "SESSION_RUNTIME_FAILED",
+            "interactive host stopped before receiving worker readiness",
+        )));
+    }
+
+    let mut fixed_step = FixedStepLiveSchedulerV1::reference_game_v1();
+    let mut pending_failure = None;
+    loop {
+        let message = match work_receiver.recv() {
+            Ok(message) => message,
+            Err(_) => {
+                let failure = pending_failure.unwrap_or_else(|| {
+                    AppFailure::cli(
+                        "SESSION_RUNTIME_FAILED",
+                        "interactive frame queue disconnected before shutdown",
+                    )
+                });
+                return finish_interactive_worker(&mut application, None, 0).and(Err(failure));
+            }
+        };
+        match message {
+            InteractiveSimulationMessageV1::Advance { elapsed, events }
+                if pending_failure.is_none() =>
+            {
+                match fixed_step
+                    .advance_reference_game_presentation(&mut application, elapsed, &events)
+                    .map_err(AppFailure::application)
+                {
+                    Ok(Some(next_snapshot)) => match latest_snapshot.write() {
+                        Ok(mut latest) => *latest = Some(Arc::new(next_snapshot)),
+                        Err(_) => record_interactive_worker_failure(
+                            &mut pending_failure,
+                            &failure_sender,
+                            AppFailure::cli(
+                                "PLATFORM_PRESENTATION_STATE_POISONED",
+                                "latest presentation snapshot lock was poisoned",
+                            ),
+                        ),
+                    },
+                    Ok(None) => {}
+                    Err(failure) => record_interactive_worker_failure(
+                        &mut pending_failure,
+                        &failure_sender,
+                        failure,
+                    ),
+                }
+            }
+            InteractiveSimulationMessageV1::Advance { .. } => {}
+            InteractiveSimulationMessageV1::Shutdown {
+                platform_close_event,
+                rendered_objects,
+                completion_sender,
+            } => {
+                let report = finish_interactive_worker(
+                    &mut application,
+                    platform_close_event.as_deref(),
+                    rendered_objects,
+                );
+                match resolve_interactive_shutdown_attempt(report, pending_failure.as_ref()) {
+                    InteractiveShutdownAttemptV1::Closed(result) => {
+                        let _ = completion_sender.send(InteractiveShutdownReplyV1 {
+                            closed: true,
+                            result: result.clone(),
+                        });
+                        return result;
+                    }
+                    InteractiveShutdownAttemptV1::Retry(failure) => {
+                        let _ = completion_sender.send(InteractiveShutdownReplyV1 {
+                            closed: false,
+                            result: Err(failure),
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+fn prepare_interactive_worker(
+    launch: LaunchRequestV1,
+    capabilities: &next_contracts::platform::PlatformCapabilitySetV1,
+    latest_snapshot: &Arc<
+        RwLock<Option<Arc<next_contracts::presentation::PresentationSnapshotV2>>>,
+    >,
+) -> Result<(ApplicationCoordinator, InteractiveReadyV1), AppFailure> {
+    let mut application =
+        ApplicationCoordinator::launch_or_resume(launch).map_err(AppFailure::application)?;
+    eprintln!(
+        "next_game: session {} active",
+        application.state().session_id.to_hex()
+    );
+    let resume_suspended_application =
+        application.state().state == next_contracts::session::ApplicationSessionStatusV1::Suspended;
+    let run = begin_or_resume_reference_game_live(&mut application)?;
+    let initial_snapshot = Arc::new(run.presentation_snapshot.ok_or_else(|| {
+        AppFailure::cli(
+            "PLATFORM_PRESENTATION_SNAPSHOT_MISSING",
+            "interactive target produced no presentation snapshot",
+        )
+    })?);
+    let render_content_catalog = application
+        .activated_project()
+        .render_content_catalog
+        .clone();
+    let host_instance_id = application
+        .register_platform_host(capabilities)
+        .map_err(AppFailure::application)?;
+    *latest_snapshot.write().map_err(|_| {
+        AppFailure::cli(
+            "PLATFORM_PRESENTATION_STATE_POISONED",
+            "latest presentation snapshot lock was poisoned",
+        )
+    })? = Some(Arc::clone(&initial_snapshot));
+    Ok((
+        application,
+        InteractiveReadyV1 {
+            initial_snapshot,
+            render_content_catalog,
+            host_instance_id,
+            resume_suspended_application,
+        },
+    ))
+}
+
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+fn record_interactive_worker_failure(
+    pending_failure: &mut Option<AppFailure>,
+    failure_sender: &SyncSender<AppFailure>,
+    failure: AppFailure,
+) {
+    if pending_failure.is_none() {
+        let _ = failure_sender.try_send(failure.clone());
+        *pending_failure = Some(failure);
+    }
+}
+
+#[cfg(any(feature = "desktop-sdl-ash", test))]
+fn finish_interactive_worker(
+    application: &mut ApplicationCoordinator,
+    platform_close_event: Option<&next_contracts::platform::PlatformEventV1>,
+    rendered_objects: u64,
+) -> Result<RunReportV1, AppFailure> {
+    let run = application
+        .current_live_run()
+        .map_err(AppFailure::application)?;
+    let close_options = next_application::CloseExecutionOptionsV1::default();
+    let close = if let Some(event) = platform_close_event {
+        application.close_from_platform_event(event, close_options)
+    } else {
+        application.close(close_options)
+    }
+    .map_err(AppFailure::application)?;
+    if !matches!(close, ApplicationCloseOutcomeV1::Closed { .. }) {
+        return Err(AppFailure::cli(
+            "SESSION_FINAL_SAVE_FAILED",
+            "application close did not reach a terminal receipt",
+        ));
+    }
+    RunReportV1::new(CompositionRootV1::Game, &run, &close, rendered_objects).ok_or_else(|| {
+        AppFailure::cli(
+            "SESSION_TERMINAL_RECEIPT_MISSING",
+            "closed application has no terminal receipt",
+        )
+    })
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+fn join_interactive_worker(
+    worker: std::thread::JoinHandle<Result<RunReportV1, AppFailure>>,
+) -> Result<RunReportV1, AppFailure> {
+    worker.join().map_err(|_| {
+        AppFailure::cli(
+            "SESSION_RUNTIME_FAILED",
+            "simulation worker panicked during the interactive session",
+        )
+    })?
 }
 
 #[cfg(any(feature = "desktop-sdl-ash", test))]
@@ -355,62 +596,26 @@ fn platform_events_before_close_boundary(
 }
 
 #[cfg(not(feature = "desktop-sdl-ash"))]
-fn run_interactive(
-    _application: &mut ApplicationCoordinator,
-    _snapshot: &next_contracts::presentation::PresentationSnapshotV2,
-    _render_content_catalog: &next_contracts::render_content::RenderContentCatalogV1,
+fn run_interactive_session(
+    _launch: LaunchRequestV1,
     _maximum_frames: Option<u64>,
-    _platform_close_event: &mut Option<next_contracts::platform::PlatformEventV1>,
-) -> Result<u64, AppFailure> {
+) -> Result<RunReportV1, AppFailure> {
     Err(AppFailure::cli(
         "PLATFORM_INTERACTIVE_ADAPTER_UNAVAILABLE",
         "interactive desktop adapter is not enabled",
     ))
 }
 
-#[derive(Debug)]
-struct AppFailure {
-    code: &'static str,
-    message: String,
-    exit_code: i32,
-}
-
-impl AppFailure {
-    fn cli(code: &'static str, message: impl Into<String>) -> Self {
-        Self {
-            code,
-            message: message.into(),
-            exit_code: 2,
-        }
-    }
-
-    fn argument(message: impl Into<String>) -> Self {
-        Self::cli("CLI_ARGUMENT_INVALID", message)
-    }
-
-    fn application(error: ApplicationError) -> Self {
-        Self {
-            code: error.diagnostic_code(),
-            message: error.to_string(),
-            exit_code: 1,
-        }
-    }
-
-    fn help() -> Self {
-        Self {
-            code: "CLI_HELP_REQUESTED",
-            message: "help requested".to_owned(),
-            exit_code: 0,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, RwLock, mpsc};
     use std::time::Duration;
 
     use super::{
-        GameOptions, begin_or_resume_reference_game_live, platform_events_before_close_boundary,
+        AppFailure, GameOptions, INTERACTIVE_SIMULATION_QUEUE_CAPACITY,
+        InteractiveShutdownAttemptV1, InteractiveSimulationMessageV1,
+        begin_or_resume_reference_game_live, platform_events_before_close_boundary,
+        resolve_interactive_shutdown_attempt, run_interactive_simulation_session_worker,
     };
     use next_application::{
         ApplicationCloseOutcomeV1, ApplicationCoordinator, CloseExecutionOptionsV1,
@@ -433,6 +638,146 @@ mod tests {
         assert!(
             GameOptions::parse(["--maximum-frames", "1"].into_iter().map(str::to_owned)).is_err()
         );
+    }
+
+    #[test]
+    fn shutdown_failure_retries_before_a_later_closed_confirmation() {
+        let publication_failure = AppFailure::cli(
+            "SESSION_RUNTIME_FAILED",
+            "injected durable publication fault",
+        );
+        assert!(matches!(
+            resolve_interactive_shutdown_attempt::<u8>(Err(publication_failure), None),
+            InteractiveShutdownAttemptV1::Retry(_)
+        ));
+
+        let closed = resolve_interactive_shutdown_attempt(Ok(7_u8), None);
+        assert!(matches!(
+            closed,
+            InteractiveShutdownAttemptV1::Closed(Ok(7))
+        ));
+
+        let pending_runtime_failure =
+            AppFailure::cli("SESSION_RUNTIME_FAILED", "prior simulation failure");
+        let closed_with_pending_failure =
+            resolve_interactive_shutdown_attempt(Ok(9_u8), Some(&pending_runtime_failure));
+        assert!(matches!(
+            closed_with_pending_failure,
+            InteractiveShutdownAttemptV1::Closed(Err(_))
+        ));
+    }
+
+    #[test]
+    fn simulation_worker_preserves_fifo_fixed_step_roots_and_publishes_only_latest_snapshot() {
+        let serial_root = unique_test_directory("serial-worker-reference");
+        let mut serial = ApplicationCoordinator::launch(LaunchRequestV1::reference(
+            serial_root.clone(),
+            CompositionRootV1::Game,
+            PresentationTargetKindV1::Interactive,
+        ))
+        .expect("serial launch");
+        begin_or_resume_reference_game_live(&mut serial).expect("serial live run");
+        let mut serial_scheduler = FixedStepLiveSchedulerV1::reference_game_v1();
+        for _ in 0..4 {
+            serial_scheduler
+                .advance_reference_game_presentation(&mut serial, Duration::from_millis(34), &[])
+                .expect("serial fixed step");
+        }
+        let serial_run = serial.current_live_run().expect("serial current run");
+        serial
+            .close(CloseExecutionOptionsV1::default())
+            .expect("serial close");
+
+        let worker_root = unique_test_directory("threaded-worker-reference");
+        let launch = LaunchRequestV1::reference(
+            worker_root.clone(),
+            CompositionRootV1::Game,
+            PresentationTargetKindV1::Interactive,
+        );
+        let capabilities = launch
+            .platform_capability_set
+            .clone()
+            .expect("interactive capabilities");
+        let latest = Arc::new(RwLock::new(None));
+        let (work_sender, work_receiver) =
+            mpsc::sync_channel(INTERACTIVE_SIMULATION_QUEUE_CAPACITY);
+        let (ready_sender, ready_receiver) = mpsc::sync_channel(1);
+        let (failure_sender, failure_receiver) = mpsc::sync_channel(1);
+        let worker_latest = Arc::clone(&latest);
+        let worker = std::thread::spawn(move || {
+            run_interactive_simulation_session_worker(
+                launch,
+                capabilities,
+                work_receiver,
+                worker_latest,
+                ready_sender,
+                failure_sender,
+            )
+        });
+        let ready = ready_receiver
+            .recv()
+            .expect("worker readiness channel")
+            .expect("worker readiness");
+        assert_eq!(ready.initial_snapshot.simulation_tick, 0);
+        assert_ne!(
+            ready.render_content_catalog.catalog_sha256(),
+            next_contracts::ids::ContentHash::default()
+        );
+        assert_ne!(
+            ready.host_instance_id,
+            next_contracts::ids::PersistentId::default()
+        );
+        assert!(!ready.resume_suspended_application);
+        for _ in 0..4 {
+            work_sender
+                .send(InteractiveSimulationMessageV1::Advance {
+                    elapsed: Duration::from_millis(34),
+                    events: Vec::new(),
+                })
+                .expect("bounded FIFO accepts fixed-step batch");
+        }
+        let (completion_sender, completion_receiver) = mpsc::sync_channel(1);
+        work_sender
+            .send(InteractiveSimulationMessageV1::Shutdown {
+                platform_close_event: None,
+                rendered_objects: 7,
+                completion_sender,
+            })
+            .expect("ordered worker shutdown");
+        let completion = completion_receiver
+            .recv()
+            .expect("worker shutdown completion");
+        assert!(completion.closed);
+        assert!(completion.result.is_ok());
+        let threaded_report = worker
+            .join()
+            .expect("worker does not panic")
+            .expect("worker session succeeds");
+        assert!(failure_receiver.try_recv().is_err());
+        let latest = latest
+            .read()
+            .expect("latest snapshot lock")
+            .clone()
+            .expect("latest snapshot");
+
+        assert_eq!(latest.simulation_tick, 4);
+        assert_eq!(threaded_report.ticks, serial_run.ticks);
+        assert_eq!(
+            threaded_report.authoritative_state_root,
+            serial_run.authoritative_state_root.to_hex()
+        );
+        assert_eq!(
+            threaded_report.command_archive_root,
+            serial_run.command_archive_root.to_hex()
+        );
+        assert_eq!(
+            threaded_report.command_identity_index_root,
+            serial_run.command_identity_index_root.to_hex()
+        );
+        assert_eq!(threaded_report.interactive_host_object_count, 7);
+
+        std::fs::remove_dir_all(serial_root).expect("remove serial state");
+        std::fs::remove_dir_all(worker_root).expect("remove worker state");
     }
 
     #[test]

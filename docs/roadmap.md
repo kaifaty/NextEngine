@@ -783,6 +783,36 @@ application window `10.852 → 6.662 s` (`-38.6%`). Все run остались
 локальную оптимизацию, но не заменяет ten-run hard calibration и не закрывает
 B-12. Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 изменились.
+Следующий seven-package performance pass добавил bounded `Arc` latest-snapshot
+handoff без копирования projection между main/render и simulation/persistence worker, retry-capable
+`Closed` barrier до освобождения SDL/Vulkan adapters, два Vulkan frame slots с
+retirement stale image-fence aliases, exact-key frame-plan cache, reference
+physics staging fork с shared immutable geometry и canonical fallback для opaque backends, incremental
+checkpoint validation/shared private object bytes. Отдельный
+`interactive-frame-soak` измеряет `240` production FIFO frames при запрошенных
+`1920×1080`; THOTH run получил `239` cache hits / `1` cold miss, `0` deadline
+misses, `0` software-paced iterations, critical-path p95/p99 `125/215 µs`, GPU
+p95 `10 µs`, event/frame-source p95 `13 µs` и frame-slot-wait p95 `7 093 µs`.
+Fixture использует статический
+immutable render snapshot: он измеряет event/frame-source overhead и Vulkan
+path, но не main-to-simulation-worker handoff; отдельный production-worker
+timing остаётся diagnostic gap. Три before run commit `ad5e4da` и
+три after run окончательного engine candidate сохранили authoritative root
+`5e45825e1a627113902640184c00bf448964bb2b8daf10d6e0947d40fd5a6e17`, exact
+driver/application ledger/archive parity и дали median p95: application window
+`6.938 → 5.926 s` (`-14.6%`), application checkpoint window
+`3.825 → 3.305 s` (`-13.6%`), driver window `4.933 → 4.349 s` (`-11.9%`),
+ordinary application tick `3 157 → 2 758 µs` (`-12.6%`), checkpoint tick
+`106 380 → 93 987 µs` (`-11.6%`), checkpoint materialization
+`50 425 → 48 446 µs` (`-3.9%`), driver prepare `2 688 → 2 429 µs`
+(`-9.6%`) и driver commit `591 → 480 µs` (`-18.8%`). Все long-session и
+interactive измерения остаются `REPORT_ONLY`: preflight
+не достиг idle CPU/20-GiB free-RAM условий. Opt-in `release-thin-lto` и
+`release-pgo` workflow не меняет default `release`; representative R2–R5
+ten-run comparison и PGO merge остаются `NOT_RUN`, поэтому codegen profiles не
+promoted. Workflow требует exact executable/build sidecars для baseline и
+candidate, отклоняет чужие rustflags/profile overrides и строит общий CI прямым
+scenario-cluster bootstrap. B-12 остаётся открытым.
 Exact global host allocator counter и ten-run calibration evidence ещё
 отсутствуют. Это не меняет product queue: calibration начинается после
 стабилизации последнего required counter/noise, а hard

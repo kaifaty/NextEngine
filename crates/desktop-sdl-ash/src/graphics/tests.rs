@@ -1,4 +1,5 @@
 use super::*;
+use ash::vk::Handle;
 
 fn extension_property(name: &std::ffi::CStr) -> vk::ExtensionProperties {
     let mut property = vk::ExtensionProperties::default();
@@ -157,4 +158,52 @@ fn zero_extent_and_out_of_date_defer_presentation() {
     let device_loss = defer_out_of_date::<bool>(Err(vk::Result::ERROR_DEVICE_LOST))
         .expect_err("device loss remains a recoverable presentation error");
     assert_eq!(device_loss.diagnostic_code(), "PRESENTATION_DEVICE_LOST");
+}
+
+#[test]
+fn frame_slot_ring_is_two_deep_and_wraps_without_aliasing_adjacent_frames() {
+    assert_eq!(FRAME_SLOT_COUNT, 2);
+    assert_eq!(next_frame_slot(0, FRAME_SLOT_COUNT), Some(1));
+    assert_eq!(next_frame_slot(1, FRAME_SLOT_COUNT), Some(0));
+    assert_eq!(next_frame_slot(0, 0), None);
+}
+
+#[test]
+fn acquired_image_waits_only_for_a_different_live_frame_slot() {
+    let current = vk::Fence::from_raw(11);
+    let prior = vk::Fence::from_raw(22);
+    assert_eq!(image_fence_to_wait(vk::Fence::null(), current), None);
+    assert_eq!(image_fence_to_wait(current, current), None);
+    assert_eq!(image_fence_to_wait(prior, current), Some(prior));
+}
+
+#[test]
+fn completed_slot_fence_aliases_are_retired_before_fence_reuse() {
+    let completed = vk::Fence::from_raw(11);
+    let still_pending = vk::Fence::from_raw(22);
+    let mut images_in_flight = [completed, still_pending, completed, vk::Fence::null()];
+
+    assert_eq!(
+        retire_completed_image_fence_mappings(&mut images_in_flight, completed),
+        2
+    );
+    assert_eq!(
+        images_in_flight,
+        [
+            vk::Fence::null(),
+            still_pending,
+            vk::Fence::null(),
+            vk::Fence::null(),
+        ]
+    );
+    assert_eq!(
+        retire_completed_image_fence_mappings(&mut images_in_flight, vk::Fence::null()),
+        0,
+        "a null sentinel is not a submitted fence and must not retire empty slots"
+    );
+}
+
+#[test]
+fn b0_swapchain_uses_fifo_as_its_only_presentation_pacing_source() {
+    assert!(B0_PRESENT_MODE == vk::PresentModeKHR::FIFO);
 }

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use next_contracts::ids::ContentHash;
 use next_contracts::input::TickRateProfileV1;
 use next_contracts::physics::{
@@ -25,7 +27,7 @@ pub struct GroundedCapsuleWorld<Q> {
     pub(super) capsule_half_segment: i64,
     pub(super) capsule_collision_layer: u8,
     pub(super) capsule_collision_mask: u64,
-    pub(super) static_boxes: Vec<GroundedCapsuleStaticBox>,
+    pub(super) static_boxes: Arc<[GroundedCapsuleStaticBox]>,
     pub(super) locomotion_per_substep: i64,
     pub(super) gravity_velocity_delta: i64,
     pub(super) query: Q,
@@ -201,7 +203,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             capsule_half_segment,
             capsule_collision_layer,
             capsule_collision_mask,
-            static_boxes,
+            static_boxes: Arc::from(static_boxes),
             locomotion_per_substep: CAPSULE_LOCOMOTION_SPEED_MICROMETRES_PER_SECOND / physics_hz,
             gravity_velocity_delta: gravity / physics_hz,
             query,
@@ -226,6 +228,33 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             self.quantization_profile.clone(),
             self.query.recreate()?,
         )
+    }
+
+    /// Creates an independent live-tick staging world without revalidating or
+    /// reconstructing the already validated canonical world closure.
+    ///
+    /// `None` means the private query/backend state cannot be copied safely and
+    /// the caller must use canonical checkpoint reconstruction instead.
+    pub fn try_fork_for_staging(&self) -> Result<Option<Self>, ReferencePhysicsError> {
+        let Some(query) = self.query.try_fork_for_staging()? else {
+            return Ok(None);
+        };
+        Ok(Some(Self {
+            checkpoint: self.checkpoint.clone(),
+            tick_rate_profile: self.tick_rate_profile,
+            numeric_profile: self.numeric_profile.clone(),
+            quantization_profile: self.quantization_profile.clone(),
+            capsule_body_id: self.capsule_body_id,
+            capsule_shape_id: self.capsule_shape_id,
+            capsule_radius: self.capsule_radius,
+            capsule_half_segment: self.capsule_half_segment,
+            capsule_collision_layer: self.capsule_collision_layer,
+            capsule_collision_mask: self.capsule_collision_mask,
+            static_boxes: self.static_boxes.clone(),
+            locomotion_per_substep: self.locomotion_per_substep,
+            gravity_velocity_delta: self.gravity_velocity_delta,
+            query,
+        }))
     }
 
     #[must_use]

@@ -1,6 +1,69 @@
 use super::*;
 
 #[test]
+fn adapter_finalizer_runs_once_before_owned_adapter_resources_drop() {
+    struct DropMarker<'a>(&'a RefCell<Vec<&'static str>>);
+
+    impl Drop for DropMarker<'_> {
+        fn drop(&mut self) {
+            self.0.borrow_mut().push("adapter-drop");
+        }
+    }
+
+    fn fail_after_adapter_setup(order: &RefCell<Vec<&'static str>>) -> Result<(), ()> {
+        let adapter;
+        let _finalizer = AdapterFinalizer::new(|| {
+            order.borrow_mut().push("finalize");
+            DesktopApplicationFinalization::Complete
+        });
+        adapter = DropMarker(order);
+        let _ = &adapter;
+        Err(())
+    }
+
+    let early_return_order = RefCell::new(Vec::new());
+    assert!(fail_after_adapter_setup(&early_return_order).is_err());
+    assert_eq!(
+        early_return_order.into_inner(),
+        ["finalize", "adapter-drop"]
+    );
+
+    let explicit_finish_order = RefCell::new(Vec::new());
+    {
+        let adapter;
+        let mut finalizer = AdapterFinalizer::new(|| {
+            explicit_finish_order.borrow_mut().push("finalize");
+            DesktopApplicationFinalization::Complete
+        });
+        adapter = DropMarker(&explicit_finish_order);
+        finalizer.finish();
+        let _ = &adapter;
+    }
+    assert_eq!(
+        explicit_finish_order.into_inner(),
+        ["finalize", "adapter-drop"]
+    );
+}
+
+#[test]
+fn adapter_finalizer_retries_without_releasing_adapter_ownership() {
+    let attempts = RefCell::new(0_u8);
+    let mut finalizer = AdapterFinalizer::new(|| {
+        let mut attempts = attempts.borrow_mut();
+        *attempts += 1;
+        if *attempts < 3 {
+            DesktopApplicationFinalization::Retry
+        } else {
+            DesktopApplicationFinalization::Complete
+        }
+    });
+
+    finalizer.finish();
+    drop(finalizer);
+    assert_eq!(attempts.into_inner(), 3);
+}
+
+#[test]
 fn desktop_capability_helper_is_the_normalizer_source_of_truth() {
     let capabilities = desktop_capability_set().expect("desktop capability set");
     capabilities.validate().expect("valid capability set");
@@ -118,6 +181,16 @@ fn frame_pacing_sleeps_only_the_unused_part_of_the_sixty_hz_budget() {
         Duration::ZERO,
         "slow simulation or FIFO presentation must not receive a second delay"
     );
+    assert_eq!(
+        software_pacing_delay(Duration::from_millis(5), true),
+        Duration::ZERO,
+        "a successfully submitted FIFO frame must not also be software-paced"
+    );
+    assert_eq!(
+        software_pacing_delay(Duration::from_millis(5), false),
+        Duration::from_nanos(11_666_667),
+        "a deferred frame keeps bounded anti-spin pacing"
+    );
 }
 
 #[test]
@@ -234,6 +307,22 @@ fn dynamic_snapshot_replacement_rejects_regression_and_unmarked_epoch_reset() {
 
     let foreign_project = test_snapshot(1, 5, 8, 11);
     assert!(validate_snapshot_transition(&current, &foreign_project).is_err());
+}
+
+#[test]
+fn shared_frame_source_transfers_the_exact_immutable_projection() {
+    let current = Arc::new(test_snapshot(1, 4, 7, 10));
+    let next = Arc::new(test_snapshot(1, 5, 8, 10));
+    let current_slot = RefCell::new(current);
+    let published = Arc::clone(&next);
+    let mut frame_source = move |_: &[PlatformEventV1], _: Duration| {
+        Ok::<_, DesktopAdapterError>(Some(Arc::clone(&published)))
+    };
+
+    apply_frame_source_result(&current_slot, &mut frame_source, &[], Duration::ZERO)
+        .expect("shared projection transition");
+
+    assert!(Arc::ptr_eq(&current_slot.borrow(), &next));
 }
 
 #[test]

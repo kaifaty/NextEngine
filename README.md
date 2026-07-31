@@ -315,6 +315,10 @@ package-qualified features `xtask/desktop-sdl-ash`,
 `next_verification/desktop-sdl-ash` и `next_game/desktop-sdl-ash`; несвязанные
 экспериментальные features через `--all-features` не включаются.
 
+Opt-in Thin LTO/PGO не включены в default `release`. Воспроизводимый
+report-only workflow, обязательные R2–R5 prerequisites и fallback описаны в
+[docs/development/performance-codegen.md](docs/development/performance-codegen.md).
+
 На native Windows/Linux target после зелёной matrix собирается атомарный
 distribution directory с `game`, `headless`, exact cooked project,
 `PackageManifestV3` в `package.manifest.jcs` и обязательными `LICENSE`,

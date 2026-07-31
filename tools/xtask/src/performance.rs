@@ -27,6 +27,8 @@ pub enum PerformanceScenarioV1 {
     Smoke,
     #[serde(rename = "long-session-soak")]
     LongSessionSoak,
+    #[serde(rename = "interactive-frame-soak")]
+    InteractiveFrameSoak,
     #[serde(rename = "r2-alpha-render")]
     R2AlphaRender,
     #[serde(rename = "r3-multiregion-streaming")]
@@ -42,6 +44,7 @@ impl PerformanceScenarioV1 {
         match self {
             Self::Smoke => "smoke",
             Self::LongSessionSoak => "long-session-soak",
+            Self::InteractiveFrameSoak => "interactive-frame-soak",
             Self::R2AlphaRender => "r2-alpha-render",
             Self::R3MultiregionStreaming => "r3-multiregion-streaming",
             Self::R4_100Npc => "r4-100npc",
@@ -53,6 +56,7 @@ impl PerformanceScenarioV1 {
         match value {
             "smoke" => Ok(Self::Smoke),
             "long-session-soak" => Ok(Self::LongSessionSoak),
+            "interactive-frame-soak" => Ok(Self::InteractiveFrameSoak),
             "r2-alpha-render" => Ok(Self::R2AlphaRender),
             "r3-multiregion-streaming" => Ok(Self::R3MultiregionStreaming),
             "r4-100npc" => Ok(Self::R4_100Npc),
@@ -63,7 +67,7 @@ impl PerformanceScenarioV1 {
 
     pub const fn unavailable_reason(self) -> Option<&'static str> {
         match self {
-            Self::Smoke | Self::LongSessionSoak => None,
+            Self::Smoke | Self::LongSessionSoak | Self::InteractiveFrameSoak => None,
             Self::R2AlphaRender => Some(
                 "R2_ALPHA_PROJECT_UNAVAILABLE: the representative alpha project and 60-second semantic action windows are not implemented",
             ),
@@ -731,6 +735,17 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
                 "report-only granular samples separate driver prepare, infallible driver commit, checkpoint materialization, ordinary application ticks, and checkpoint application ticks".to_owned(),
                 "application input is staged before timing and each measured host pump advances exactly one 30 Hz fixed step".to_owned(),
                 "the soak is report-only and diagnoses history-dependent degradation; it cannot close B-12".to_owned(),
+            ];
+        }
+        PerformanceScenarioV1::InteractiveFrameSoak => {
+            methodology.measured_samples = 240;
+            methodology.frame_critical_path =
+                Some("max(cpu_extract_and_submit_us,gpu_timestamp_duration_us)".to_owned());
+            methodology.notes = vec![
+                "240 FIFO-presented frames use the production Vulkan frame path at requested 1920x1080 and immutable reference-game render inputs".to_owned(),
+                "phase timings separate event polling plus immutable frame-source update, frame-slot/acquire/image waits, frame-plan, command recording, submit, present and GPU execution".to_owned(),
+                "the static render-input fixture does not time the game composition root's main-to-simulation-worker handoff; that remains a separate production-worker diagnostic gap".to_owned(),
+                "the workload is report-only and diagnostic; it is not the representative R2 alpha project and cannot close B-12".to_owned(),
             ];
         }
         PerformanceScenarioV1::R2AlphaRender => {

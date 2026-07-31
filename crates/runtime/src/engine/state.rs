@@ -352,7 +352,7 @@ impl RuntimeState {
         &self,
     ) -> Result<(WorldCheckpointV4, WorldCheckpointCanonicalComponentsV1), WorldCheckpointError>
     {
-        WorldCheckpointV4::new_with_canonical_components(
+        WorldCheckpointV4::new_with_incrementally_validated_canonical_components(
             self.snapshot(),
             self.rpg_snapshot(),
             self.physics.checkpoint().clone(),

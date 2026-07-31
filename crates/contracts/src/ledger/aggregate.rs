@@ -157,6 +157,106 @@ impl CommandLedgerV2 {
         Ok(())
     }
 
+    /// Checks the bounded/current closure needed to materialize a checkpoint
+    /// from an in-process ledger assembled through the prepared incremental
+    /// archive and identity-index APIs.
+    ///
+    /// Unlike [`Self::validate`], this does not re-hash every retained command
+    /// body or rebuild the global archive/index membership sets. Decode,
+    /// restore, migration and any other untrusted-data boundary must continue
+    /// to call the complete validator.
+    pub(crate) fn validate_incremental_checkpoint(
+        &self,
+        archive: &CommandBodyArchiveV1,
+    ) -> Result<(), CommandLedgerError> {
+        if self.schema_version != COMMAND_LEDGER_SCHEMA_VERSION {
+            return Err(CommandLedgerError::UnsupportedLedgerVersion(
+                self.schema_version,
+            ));
+        }
+        if self.causal_identity_registry.schema_version != CAUSAL_IDENTITY_REGISTRY_SCHEMA_VERSION
+            || self.causal_identity_registry.world_namespace != self.world_namespace
+        {
+            return Err(CommandLedgerError::CausalIdentityRegistryMismatch);
+        }
+        if archive.manifest()? != self.body_archive {
+            return Err(CommandLedgerError::CommandBodyArchiveCorrupt);
+        }
+        self.identity_index.validate()?;
+        let mut occurrence_count = 0_u64;
+        for (command_id, binding) in self.identity_index.body.bindings.iter() {
+            for occurrence in &binding.occurrences {
+                if archive.command_id_for_body_hash(&occurrence.body_hash) != Some(*command_id) {
+                    return Err(CommandLedgerError::IdentityCommandIdMismatch);
+                }
+                occurrence_count = occurrence_count
+                    .checked_add(1)
+                    .ok_or(CommandLedgerError::CountOverflow)?;
+            }
+        }
+        if occurrence_count != self.body_archive.entry_count {
+            return Err(CommandLedgerError::CommandBodyArchiveCorrupt);
+        }
+        for (stream_id, stream) in &self.streams {
+            if stream_id != &stream.stream_id {
+                return Err(CommandLedgerError::StreamKeyMismatch);
+            }
+            stream.validate()?;
+            for reservation in stream.pending.values() {
+                validate_body_reference_incremental(
+                    archive,
+                    reservation.command_id,
+                    reservation.body_hash,
+                    &self.identity_index,
+                )?;
+            }
+            for receipt in stream.receipt_window.iter() {
+                match &receipt.subject {
+                    CommandReceiptSubjectV1::Command {
+                        command_id,
+                        body_hash,
+                        canonical_body_ref,
+                        ..
+                    } => {
+                        if body_hash != canonical_body_ref {
+                            return Err(CommandLedgerError::BodyReferenceMissing);
+                        }
+                        validate_body_reference_incremental(
+                            archive,
+                            *command_id,
+                            *body_hash,
+                            &self.identity_index,
+                        )?;
+                    }
+                    CommandReceiptSubjectV1::CollisionSet { candidates, .. } => {
+                        for candidate in candidates {
+                            if candidate.body_hash != candidate.canonical_body_ref {
+                                return Err(CommandLedgerError::BodyReferenceMissing);
+                            }
+                            validate_body_reference_incremental(
+                                archive,
+                                candidate.command_id,
+                                candidate.body_hash,
+                                &self.identity_index,
+                            )?;
+                        }
+                    }
+                }
+            }
+            if let Some(incident) = &stream.collision_incident {
+                for candidate in &incident.candidates {
+                    validate_body_reference_incremental(
+                        archive,
+                        candidate.command_id,
+                        candidate.body_hash,
+                        &self.identity_index,
+                    )?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn canonical_bytes(
         &self,
         archive: &CommandBodyArchiveV1,
@@ -278,4 +378,28 @@ impl CommandLedgerV2 {
         preimage.extend_from_slice(&bytes);
         Ok(command_ledger_hash_from_bytes(sha256(&preimage)))
     }
+}
+
+fn validate_body_reference_incremental(
+    archive: &CommandBodyArchiveV1,
+    command_id: CommandId,
+    body_hash: CommandBodyHash,
+    identity_index: &CommandIdentityIndexV1,
+) -> Result<(), CommandLedgerError> {
+    if !archive.entries().contains_key(&body_hash) {
+        return Err(CommandLedgerError::BodyReferenceMissing);
+    }
+    let binding = identity_index
+        .body
+        .bindings
+        .get(&command_id)
+        .ok_or(CommandLedgerError::IdentityReferenceMissing)?;
+    if !binding
+        .occurrences
+        .iter()
+        .any(|occurrence| occurrence.body_hash == body_hash)
+    {
+        return Err(CommandLedgerError::IdentityReferenceMissing);
+    }
+    Ok(())
 }

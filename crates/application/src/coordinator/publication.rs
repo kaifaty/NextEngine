@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use next_assets::{SessionObjectV1, SessionPublicationV1};
 use next_contracts::canonical::CanonicalDecodeLimits;
@@ -457,9 +458,10 @@ impl ApplicationCoordinator {
         Ok(())
     }
 
-    pub(super) fn record_object(&mut self, bytes: Vec<u8>) {
+    pub(super) fn record_object(&mut self, bytes: impl Into<Arc<[u8]>>) {
         let object = SessionObjectV1::new(bytes);
-        self.objects.insert(object.content_hash, object.bytes);
+        self.objects
+            .insert(object.content_hash(), object.into_shared_bytes());
     }
 
     pub(super) fn record_lifecycle_archive_entry(
@@ -482,22 +484,24 @@ impl ApplicationCoordinator {
         for object in [&request_object, &event_object] {
             if self
                 .objects
-                .get(&object.content_hash)
-                .is_some_and(|bytes| bytes != &object.bytes)
+                .get(&object.content_hash())
+                .is_some_and(|bytes| bytes.as_ref() != object.bytes())
             {
                 return Err(ApplicationError::DurableSnapshotInvalid);
             }
         }
+        let request_object_hash = request_object.content_hash();
+        let event_object_hash = event_object.content_hash();
         self.objects
-            .insert(request_object.content_hash, request_object.bytes);
+            .insert(request_object_hash, request_object.into_shared_bytes());
         self.objects
-            .insert(event_object.content_hash, event_object.bytes);
+            .insert(event_object_hash, event_object.into_shared_bytes());
         self.durable
             .lifecycle_archive
             .push(DurableLifecycleArchiveEntryV1 {
                 request_id,
-                request_object_hash: request_object.content_hash,
-                event_object_hash: event_object.content_hash,
+                request_object_hash,
+                event_object_hash,
             });
         self.durable
             .lifecycle_archive
@@ -518,7 +522,7 @@ pub(super) fn ensure_platform_lifecycle_budget(
 
 pub(super) fn restore_lifecycle_archive(
     durable: &DurableApplicationSnapshotV1,
-    objects: &BTreeMap<ContentHash, Vec<u8>>,
+    objects: &BTreeMap<ContentHash, Arc<[u8]>>,
 ) -> Result<Vec<ArchivedLifecycleRequestV1>, ApplicationError> {
     if !durable.lifecycle_archive_field_present {
         return if durable.state.revision == 0
@@ -565,7 +569,7 @@ pub(super) fn restore_lifecycle_archive(
             Ok(ArchivedLifecycleRequestV1 {
                 request_id: entry.request_id,
                 canonical_request_hash: request.canonical_hash,
-                canonical_request_bytes: request_bytes,
+                canonical_request_bytes: request_bytes.to_vec(),
                 event,
             })
         })

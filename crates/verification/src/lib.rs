@@ -40,7 +40,8 @@ pub use physics_parity::{
 pub use platform_check::{
     DesktopFrameTimingSmokeReport, DesktopFrameTimingSmokeSample, PlatformCandidateStatus,
     PlatformCheckError, PlatformCheckReport, run_desktop_frame_timing_smoke,
-    run_desktop_frame_timing_smoke_in, run_platform_check, run_platform_check_in,
+    run_desktop_frame_timing_smoke_in, run_desktop_frame_timing_workload_in, run_platform_check,
+    run_platform_check_in,
 };
 pub use player_fixture::{
     CanonicalFixtureError, GameCheckReport, NeutralPlayerFixture, PhysicsCollisionBackend,

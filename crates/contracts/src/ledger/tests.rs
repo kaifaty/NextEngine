@@ -148,12 +148,18 @@ fn prepared_archive_and_identity_updates_match_eager_mutation() {
     expected_archive
         .insert_command(&second)
         .expect("eager body inserts");
+    assert!(!base_archive.manifest_is_materialized());
     base_archive.commit_prepared_additions(archive_update);
     assert_eq!(base_archive, expected_archive);
+    assert!(
+        !base_archive.manifest_is_materialized(),
+        "ordinary prepared commit must preserve deferred archive-root work"
+    );
     assert_eq!(
         base_archive.manifest().expect("prepared manifest"),
         expected_archive.manifest().expect("eager manifest")
     );
+    assert!(base_archive.manifest_is_materialized());
 
     let first_id = first.compute_command_id().expect("first command ID");
     let second_id = second.compute_command_id().expect("second command ID");
@@ -191,6 +197,28 @@ fn prepared_archive_and_identity_updates_match_eager_mutation() {
     base_index.commit_prepared_replacements(index_update);
     assert_eq!(base_index, expected_index);
     base_index.validate().expect("prepared index validates");
+}
+
+#[test]
+fn prepared_archive_commit_transfers_an_already_materialized_manifest() {
+    let command = command(7, 1);
+    let body_hash = command.body_hash().expect("body hash");
+    let mut archive = CommandBodyArchiveV1::default();
+    let update = archive
+        .prepare_additions(BTreeMap::from([(
+            body_hash,
+            Arc::from(command.canonical_bytes().expect("body bytes")),
+        )]))
+        .expect("archive update prepares");
+    let expected_manifest = update.manifest();
+
+    archive.commit_prepared_additions(update);
+
+    assert!(archive.manifest_is_materialized());
+    assert_eq!(
+        archive.manifest().expect("transferred manifest"),
+        expected_manifest
+    );
 }
 
 #[test]
@@ -315,6 +343,48 @@ fn complete_ledger_round_trip_rejects_corrupt_archive_index_and_chain_roots() {
     assert_eq!(
         ledger.validate(&CommandBodyArchiveV1::default()),
         Err(CommandLedgerError::CommandBodyArchiveCorrupt)
+    );
+}
+
+#[test]
+fn incremental_checkpoint_rejects_a_re_rooted_identity_command_id_forgery() {
+    let (mut ledger, mut archive) = CommandLedgerV2::empty(
+        WorldNamespaceId::from_bytes([8; 16]),
+        content_hash_from_bytes([3; 32]),
+        content_hash_from_bytes([5; 32]),
+    )
+    .expect("empty ledger");
+    let archived = command(0, 0);
+    let body_hash = archived.body_hash().expect("body hash");
+    archive.insert_command(&archived).expect("archive command");
+    ledger.body_archive = archive.manifest().expect("archive manifest");
+
+    let forged_command_id = CommandId::from_bytes([7; 16]);
+    assert_ne!(
+        forged_command_id,
+        archived.compute_command_id().expect("computed command ID")
+    );
+    ledger.identity_index = CommandIdentityIndexV1::from_bindings(BTreeMap::from([(
+        forged_command_id,
+        CommandIdentityBindingV1 {
+            command_id: forged_command_id,
+            occurrences: vec![CommandIdentityOccurrenceV1 {
+                body_hash,
+                first_stream_id: archived.stream_id,
+                first_sequence: archived.sequence,
+            }],
+            state: CommandIdentityBindingState::Unique,
+        },
+    )]))
+    .expect("forged index has a self-consistent public root");
+    ledger
+        .identity_index
+        .validate()
+        .expect("public identity structure and root are internally valid");
+
+    assert_eq!(
+        ledger.validate_incremental_checkpoint(&archive),
+        Err(CommandLedgerError::IdentityCommandIdMismatch)
     );
 }
 

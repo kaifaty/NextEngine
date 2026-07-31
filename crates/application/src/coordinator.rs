@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use next_assets::{SaveStore, SessionStore};
 use next_contracts::ids::{ApplicationSessionId, CommandLedgerHash, ContentHash};
@@ -48,8 +49,8 @@ pub struct ApplicationCoordinator {
     machine: ApplicationSessionMachine,
     durable: DurableApplicationSnapshotV1,
     current_generation: ContentHash,
-    objects: BTreeMap<ContentHash, Vec<u8>>,
-    prepared_run_objects: BTreeMap<ContentHash, Vec<u8>>,
+    objects: BTreeMap<ContentHash, Arc<[u8]>>,
+    prepared_run_objects: BTreeMap<ContentHash, Arc<[u8]>>,
     prepared_run: Option<PreparedRunV1>,
     live_run: Option<next_reference_game::ReferenceGameDriverV1>,
     platform_host: Option<RegisteredPlatformHostV1>,

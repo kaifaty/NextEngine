@@ -13,6 +13,8 @@ use crate::player_fixture::{prepare_game_frame_with_scratch, run_play_check_with
 use crate::scratch::ScratchContext;
 use crate::{GameCheckReport, PlayCheckError};
 
+const MAX_DESKTOP_FRAME_TIMING_SAMPLES: u32 = 65_536;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlatformCheckReport {
     pub normalized_events: usize,
@@ -27,14 +29,29 @@ pub struct PlatformCheckReport {
 pub struct DesktopFrameTimingSmokeSample {
     pub cpu_extract_and_submit_microseconds: u64,
     pub gpu_duration_microseconds: u64,
+    pub event_and_frame_source_update_microseconds: u64,
+    pub frame_slot_wait_microseconds: u64,
+    pub image_acquire_wait_microseconds: u64,
+    pub swapchain_image_wait_microseconds: u64,
+    pub frame_plan_microseconds: u64,
+    pub command_record_microseconds: u64,
+    pub queue_submit_microseconds: u64,
+    pub present_wait_microseconds: u64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DesktopFrameTimingSmokeReport {
     pub samples: Vec<DesktopFrameTimingSmokeSample>,
+    pub drawable_extent: [u32; 2],
     pub timestamp_query_count: u64,
     pub dropped_samples: u64,
     pub frame_plan_hash: next_contracts::ids::ContentHash,
+    pub frame_plan_cache_hits: u64,
+    pub frame_plan_cache_misses: u64,
+    pub frame_plan_build_failures: u64,
+    pub frame_plan_explicit_invalidations: u64,
+    pub software_paced_iterations: u64,
+    pub software_pacing_sleep_microseconds: u64,
     pub device_allocation_bytes: u64,
     pub device_allocation_count: u64,
 }
@@ -65,12 +82,27 @@ pub fn run_desktop_frame_timing_smoke()
 pub fn run_desktop_frame_timing_smoke_in(
     scratch_root: &Path,
 ) -> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
+    run_desktop_frame_timing_workload_in(scratch_root, 4, [960, 540])
+}
+
+pub fn run_desktop_frame_timing_workload_in(
+    scratch_root: &Path,
+    measured_frames: u32,
+    initial_extent: [u32; 2],
+) -> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
+    if measured_frames == 0
+        || measured_frames > MAX_DESKTOP_FRAME_TIMING_SAMPLES
+        || initial_extent.contains(&0)
+    {
+        return Err(PlatformCheckError::DesktopSmokeMismatch);
+    }
     let scratch = ScratchContext::new(scratch_root).map_err(platform_scratch_error)?;
     let timing_directory = scratch
         .create_directory("desktop-frame-timing")
         .map_err(platform_scratch_error)?;
     let timing_scratch = timing_directory.context();
-    let result = run_desktop_frame_timing_smoke_scoped(&timing_scratch);
+    let result =
+        run_desktop_frame_timing_smoke_scoped(&timing_scratch, measured_frames, initial_extent);
     timing_directory.finish(result, platform_scratch_error)
 }
 
@@ -210,6 +242,8 @@ fn platform_scratch_error(error: std::io::Error) -> PlatformCheckError {
 #[cfg(feature = "desktop-sdl-ash")]
 fn run_desktop_frame_timing_smoke_scoped(
     scratch: &ScratchContext,
+    measured_frames: u32,
+    initial_extent: [u32; 2],
 ) -> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
     if !cfg!(all(
         target_arch = "x86_64",
@@ -217,25 +251,32 @@ fn run_desktop_frame_timing_smoke_scoped(
     )) {
         return Ok(None);
     }
-    const MEASURED_FRAMES: u64 = 4;
+    let measured_frames_u64 = u64::from(measured_frames);
+    let maximum_event_loop_iterations = measured_frames_u64
+        .checked_mul(300)
+        .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
     let prepared = prepare_game_frame_with_scratch(scratch)?;
     let report = next_desktop_sdl_ash::run_interactive(
         &prepared.snapshot,
         &prepared.render_content_catalog,
         &next_desktop_sdl_ash::DesktopRunOptions {
-            maximum_frames: Some(MEASURED_FRAMES),
-            maximum_event_loop_iterations: Some(1_200),
-            frame_profiling_sample_capacity: u32::try_from(MEASURED_FRAMES)
-                .map_err(|_| PlatformCheckError::DesktopSmokeMismatch)?,
+            initial_extent,
+            maximum_frames: Some(measured_frames_u64),
+            maximum_event_loop_iterations: Some(maximum_event_loop_iterations),
+            frame_profiling_sample_capacity: measured_frames,
             ..next_desktop_sdl_ash::DesktopRunOptions::default()
         },
     )?;
-    if report.rendered_frames != MEASURED_FRAMES
+    if report.rendered_frames != measured_frames_u64
         || report.frame_timings.len()
-            != usize::try_from(MEASURED_FRAMES)
+            != usize::try_from(measured_frames)
                 .map_err(|_| PlatformCheckError::DesktopSmokeMismatch)?
-        || report.vulkan_timestamp_queries != MEASURED_FRAMES * 2
+        || report.vulkan_timestamp_queries != measured_frames_u64 * 2
         || report.dropped_frame_timing_samples != 0
+        || report.frame_plan_cache_misses != 1
+        || report.frame_plan_cache_hits != measured_frames_u64.saturating_sub(1)
+        || report.frame_plan_build_failures != 0
+        || report.frame_plan_explicit_invalidations != 0
         || report.device_allocation_bytes == 0
         || report.device_allocation_count == 0
     {
@@ -244,6 +285,10 @@ fn run_desktop_frame_timing_smoke_scoped(
     let frame_plan_hash = report
         .last_frame_plan_hash
         .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
+    let drawable_extent = report
+        .last_drawable_extent
+        .filter(|extent| !extent.contains(&0))
+        .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
     Ok(Some(DesktopFrameTimingSmokeReport {
         samples: report
             .frame_timings
@@ -251,11 +296,27 @@ fn run_desktop_frame_timing_smoke_scoped(
             .map(|sample| DesktopFrameTimingSmokeSample {
                 cpu_extract_and_submit_microseconds: sample.cpu_extract_and_submit_microseconds,
                 gpu_duration_microseconds: sample.gpu_duration_microseconds,
+                event_and_frame_source_update_microseconds: sample
+                    .event_and_frame_source_update_microseconds,
+                frame_slot_wait_microseconds: sample.frame_slot_wait_microseconds,
+                image_acquire_wait_microseconds: sample.image_acquire_wait_microseconds,
+                swapchain_image_wait_microseconds: sample.swapchain_image_wait_microseconds,
+                frame_plan_microseconds: sample.frame_plan_microseconds,
+                command_record_microseconds: sample.command_record_microseconds,
+                queue_submit_microseconds: sample.queue_submit_microseconds,
+                present_wait_microseconds: sample.present_wait_microseconds,
             })
             .collect(),
+        drawable_extent,
         timestamp_query_count: report.vulkan_timestamp_queries,
         dropped_samples: report.dropped_frame_timing_samples,
         frame_plan_hash,
+        frame_plan_cache_hits: report.frame_plan_cache_hits,
+        frame_plan_cache_misses: report.frame_plan_cache_misses,
+        frame_plan_build_failures: report.frame_plan_build_failures,
+        frame_plan_explicit_invalidations: report.frame_plan_explicit_invalidations,
+        software_paced_iterations: report.software_paced_iterations,
+        software_pacing_sleep_microseconds: report.software_pacing_sleep_microseconds,
         device_allocation_bytes: report.device_allocation_bytes,
         device_allocation_count: report.device_allocation_count,
     }))
@@ -264,6 +325,8 @@ fn run_desktop_frame_timing_smoke_scoped(
 #[cfg(not(feature = "desktop-sdl-ash"))]
 fn run_desktop_frame_timing_smoke_scoped(
     _scratch: &ScratchContext,
+    _measured_frames: u32,
+    _initial_extent: [u32; 2],
 ) -> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
     Ok(None)
 }
@@ -427,12 +490,33 @@ impl From<next_desktop_sdl_ash::DesktopAdapterError> for PlatformCheckError {
 
 #[cfg(test)]
 mod tests {
-    use super::run_platform_check;
+    use super::{
+        MAX_DESKTOP_FRAME_TIMING_SAMPLES, PlatformCheckError, run_desktop_frame_timing_workload_in,
+        run_platform_check,
+    };
 
     #[test]
     fn game_headless_platform_and_presentation_contracts_match() {
         let report = run_platform_check().expect("platform check");
         assert_eq!(report.normalized_events, 4);
         assert_eq!(report.rendered_objects, 5);
+    }
+
+    #[test]
+    fn desktop_timing_workload_rejects_zero_and_unbounded_sample_counts() {
+        for sample_count in [0, MAX_DESKTOP_FRAME_TIMING_SAMPLES + 1] {
+            assert!(matches!(
+                run_desktop_frame_timing_workload_in(
+                    &std::env::temp_dir(),
+                    sample_count,
+                    [960, 540],
+                ),
+                Err(PlatformCheckError::DesktopSmokeMismatch)
+            ));
+        }
+        assert!(matches!(
+            run_desktop_frame_timing_workload_in(&std::env::temp_dir(), 1, [0, 540]),
+            Err(PlatformCheckError::DesktopSmokeMismatch)
+        ));
     }
 }

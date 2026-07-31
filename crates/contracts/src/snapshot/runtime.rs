@@ -53,6 +53,25 @@ pub struct RuntimeSnapshotV3 {
 
 impl RuntimeSnapshotV3 {
     pub fn validate(&self) -> Result<(), SnapshotDecodeError> {
+        self.validate_without_command_history()?;
+        self.command_ledger.validate(&self.body_archive)?;
+        Ok(())
+    }
+
+    /// Validates a live snapshot whose command history was assembled only by
+    /// the incrementally checked ledger/archive transaction APIs.
+    ///
+    /// This deliberately remains separate from [`Self::validate`]. Durable or
+    /// otherwise untrusted bytes must always use `from_canonical_bytes`, which
+    /// performs the complete historical validation before returning a value.
+    pub(crate) fn validate_incremental_checkpoint(&self) -> Result<(), SnapshotDecodeError> {
+        self.validate_without_command_history()?;
+        self.command_ledger
+            .validate_incremental_checkpoint(&self.body_archive)?;
+        Ok(())
+    }
+
+    fn validate_without_command_history(&self) -> Result<(), SnapshotDecodeError> {
         self.world_identity.validate()?;
         self.principal_registry.validate()?;
         self.stream_registry.validate()?;
@@ -177,7 +196,6 @@ impl RuntimeSnapshotV3 {
         {
             return Err(SnapshotDecodeError::CausalRegistryMismatch);
         }
-        self.command_ledger.validate(&self.body_archive)?;
         Ok(())
     }
 

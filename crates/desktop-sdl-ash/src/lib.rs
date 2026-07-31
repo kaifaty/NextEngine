@@ -6,6 +6,7 @@
 use std::cell::RefCell;
 use std::ffi::CString;
 use std::fmt::Display;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use ash::vk;
@@ -20,82 +21,16 @@ use sdl3::keyboard::{Mod, Scancode};
 use sdl3::video::Window;
 
 mod error;
+mod run_state;
 
 pub use error::DesktopAdapterError;
-
-const INTERACTIVE_FRAME_INTERVAL: Duration = Duration::from_nanos(16_666_667);
-pub const MAX_FRAME_PROFILING_SAMPLES: u32 = 65_536;
-
-#[derive(Clone, Debug)]
-pub struct DesktopRunOptions {
-    pub title: String,
-    pub initial_extent: [u32; 2],
-    pub maximum_frames: Option<u64>,
-    pub maximum_event_loop_iterations: Option<u64>,
-    pub maximum_device_recoveries: u16,
-    pub inject_device_loss_after_frames: Option<u64>,
-    pub inject_startup_lifecycle_probe: bool,
-    pub host_instance_id: PersistentId,
-    pub resume_suspended_application: bool,
-    /// Zero disables CPU/GPU frame timing. A non-zero value enables a bounded
-    /// Vulkan timestamp buffer in the same release binary.
-    pub frame_profiling_sample_capacity: u32,
-}
-
-impl Default for DesktopRunOptions {
-    fn default() -> Self {
-        Self {
-            title: "Next Engine — Cooked Offline RPG Slice".to_owned(),
-            initial_extent: [960, 540],
-            maximum_frames: None,
-            maximum_event_loop_iterations: None,
-            maximum_device_recoveries: 2,
-            inject_device_loss_after_frames: None,
-            inject_startup_lifecycle_probe: false,
-            host_instance_id: PersistentId::from_bytes([0x64; 16]),
-            resume_suspended_application: false,
-            frame_profiling_sample_capacity: 0,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct DesktopFrameTimingSample {
-    pub cpu_extract_and_submit_microseconds: u64,
-    pub gpu_duration_microseconds: u64,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DesktopRunReport {
-    pub rendered_frames: u64,
-    pub rendered_objects: u64,
-    pub indexed_draws: u64,
-    pub fallback_material_draws: u64,
-    pub last_frame_plan_hash: Option<ContentHash>,
-    pub last_drawable_extent: Option<[u32; 2]>,
-    pub last_target_revision: Option<u64>,
-    pub normalized_events: u64,
-    pub control_events: u64,
-    pub lifecycle_events: u64,
-    pub resize_events: u64,
-    pub focus_events: u64,
-    pub fullscreen_events: u64,
-    pub device_loss_events: u64,
-    pub device_recoveries: u64,
-    pub close_requested: bool,
-    pub api_version: u32,
-    pub b0_capabilities_verified: bool,
-    pub capability_set_hash: ContentHash,
-    pub timebase_hash: ContentHash,
-    pub last_platform_event_id: Option<ContentHash>,
-    pub frame_timings: Vec<DesktopFrameTimingSample>,
-    pub vulkan_timestamp_queries: u64,
-    pub dropped_frame_timing_samples: u64,
-    /// Engine-owned, currently bound Vulkan memory. This is a conservative
-    /// residency ceiling and excludes presentation-engine swapchain storage.
-    pub device_allocation_bytes: u64,
-    pub device_allocation_count: u64,
-}
+use run_state::{AdapterFinalizer, InteractivePacingClock, apply_software_pacing};
+pub use run_state::{
+    DesktopApplicationFinalization, DesktopFrameTimingSample, DesktopRunOptions, DesktopRunReport,
+    MAX_FRAME_PROFILING_SAMPLES,
+};
+#[cfg(test)]
+use run_state::{INTERACTIVE_FRAME_INTERVAL, remaining_frame_budget, software_pacing_delay};
 
 /// Returns the exact engine-owned desktop capability descriptor embedded in
 /// every normalized event emitted by this adapter.
@@ -106,36 +41,6 @@ pub fn desktop_capability_set() -> Result<PlatformCapabilitySetV1, DesktopAdapte
 /// Returns the canonical hash of [`desktop_capability_set`].
 pub fn desktop_capability_set_hash() -> Result<ContentHash, DesktopAdapterError> {
     Ok(desktop_capability_set()?.canonical_hash)
-}
-
-#[derive(Debug, Default)]
-struct InteractivePacingClock {
-    prior_pump_time: Option<Instant>,
-    first_frame_submitted: bool,
-}
-
-impl InteractivePacingClock {
-    fn elapsed_for_pump(&mut self, now: Instant) -> Duration {
-        let elapsed = if self.first_frame_submitted {
-            self.prior_pump_time
-                .map_or(Duration::ZERO, |prior| now.duration_since(prior))
-        } else {
-            Duration::ZERO
-        };
-        self.prior_pump_time = Some(now);
-        elapsed
-    }
-
-    fn observe_frame_submission(&mut self, now: Instant) {
-        if !self.first_frame_submitted {
-            self.first_frame_submitted = true;
-            self.prior_pump_time = Some(now);
-        }
-    }
-}
-
-fn remaining_frame_budget(elapsed: Duration) -> Duration {
-    INTERACTIVE_FRAME_INTERVAL.saturating_sub(elapsed)
 }
 
 pub fn run_interactive(
@@ -189,19 +94,84 @@ pub fn run_interactive_with_timed_frame_source(
     snapshot: &PresentationSnapshotV2,
     render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
-    mut frame_source: impl FnMut(
+    frame_source: impl FnMut(
         &[PlatformEventV1],
         Duration,
     ) -> Result<Option<PresentationSnapshotV2>, DesktopAdapterError>,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
+    run_interactive_with_timed_frame_source_and_finalize(
+        snapshot,
+        render_content_catalog,
+        options,
+        frame_source,
+        || DesktopApplicationFinalization::Complete,
+    )
+}
+
+/// Runs the timed desktop loop and invokes `finalize_application` before any
+/// owned SDL or Vulkan adapter resource is released.
+///
+/// The hook is also invoked when initialization or the event/render loop
+/// returns an error. It exists so an application can durably publish its
+/// terminal `Closed` state while the platform adapter is still alive. A
+/// [`DesktopApplicationFinalization::Retry`] result keeps all adapter resources
+/// alive and repeats the hook after a short non-authoritative host delay. The
+/// hook must be exact-retry safe and must not call back into this adapter.
+pub fn run_interactive_with_timed_frame_source_and_finalize(
+    snapshot: &PresentationSnapshotV2,
+    render_content_catalog: &RenderContentCatalogV1,
+    options: &DesktopRunOptions,
+    mut frame_source: impl FnMut(
+        &[PlatformEventV1],
+        Duration,
+    ) -> Result<Option<PresentationSnapshotV2>, DesktopAdapterError>,
+    finalize_application: impl FnMut() -> DesktopApplicationFinalization,
+) -> Result<DesktopRunReport, DesktopAdapterError> {
+    run_interactive_with_shared_timed_frame_source_and_finalize(
+        Arc::new(snapshot.clone()),
+        render_content_catalog,
+        options,
+        move |events, elapsed| frame_source(events, elapsed).map(|snapshot| snapshot.map(Arc::new)),
+        finalize_application,
+    )
+}
+
+/// Shared-snapshot variant for composition roots that publish immutable
+/// presentation generations from a simulation worker.
+///
+/// Ownership transfer is `Arc`-only on the frame boundary, so a large
+/// projection is not copied merely to move it from the simulation worker to
+/// the render thread. Snapshot validation and monotonic transition checks are
+/// identical to [`run_interactive_with_timed_frame_source_and_finalize`].
+pub fn run_interactive_with_shared_timed_frame_source_and_finalize(
+    snapshot: Arc<PresentationSnapshotV2>,
+    render_content_catalog: &RenderContentCatalogV1,
+    options: &DesktopRunOptions,
+    mut frame_source: impl FnMut(
+        &[PlatformEventV1],
+        Duration,
+    )
+        -> Result<Option<Arc<PresentationSnapshotV2>>, DesktopAdapterError>,
+    finalize_application: impl FnMut() -> DesktopApplicationFinalization,
+) -> Result<DesktopRunReport, DesktopAdapterError> {
+    // These owners are declared before the guard so Rust's reverse local drop
+    // order always runs application finalization before platform teardown,
+    // including every `?`/early-return path below.
+    let sdl;
+    let video;
+    let mut window;
+    let mut events;
+    let mut graphics;
+    let mut finalizer = AdapterFinalizer::new(finalize_application);
+
     snapshot.validate()?;
-    let current_snapshot = RefCell::new(snapshot.clone());
+    let current_snapshot = RefCell::new(snapshot);
     if options.initial_extent[0] == 0 || options.initial_extent[1] == 0 {
         return Err(DesktopAdapterError::InvalidExtent);
     }
-    let sdl = sdl3::init().map_err(sdl_error)?;
-    let video = sdl.video().map_err(sdl_error)?;
-    let mut window = video
+    sdl = sdl3::init().map_err(sdl_error)?;
+    video = sdl.video().map_err(sdl_error)?;
+    window = video
         .window(
             &options.title,
             options.initial_extent[0],
@@ -212,7 +182,7 @@ pub fn run_interactive_with_timed_frame_source(
         .position_centered()
         .build()
         .map_err(|error| DesktopAdapterError::Sdl(error.to_string()))?;
-    let mut events = sdl.event_pump().map_err(sdl_error)?;
+    events = sdl.event_pump().map_err(sdl_error)?;
     if options.inject_startup_lifecycle_probe {
         native_events::inject_startup_lifecycle_probe(
             &sdl.event().map_err(sdl_error)?,
@@ -225,7 +195,7 @@ pub fn run_interactive_with_timed_frame_source(
             maximum: MAX_FRAME_PROFILING_SAMPLES,
         });
     }
-    let mut graphics = Some(GraphicsContext::new(
+    graphics = Some(GraphicsContext::new(
         &window,
         render_content_catalog,
         options.frame_profiling_sample_capacity,
@@ -261,6 +231,8 @@ pub fn run_interactive_with_timed_frame_source(
     let mut device_recoveries = 0_u64;
     let mut injected_device_loss = false;
     let mut event_loop_iterations = 0_u64;
+    let mut software_paced_iterations = 0_u64;
+    let mut software_pacing_sleep_microseconds = 0_u64;
 
     'application: loop {
         let frame_started = Instant::now();
@@ -441,7 +413,12 @@ pub fn run_interactive_with_timed_frame_source(
             break 'application;
         }
         if rendering_suspended {
-            std::thread::sleep(remaining_frame_budget(frame_started.elapsed()));
+            apply_software_pacing(
+                frame_started.elapsed(),
+                false,
+                &mut software_paced_iterations,
+                &mut software_pacing_sleep_microseconds,
+            )?;
             continue;
         }
 
@@ -489,10 +466,23 @@ pub fn run_interactive_with_timed_frame_source(
             injected_device_loss = true;
         }
 
+        let event_and_frame_source_update_microseconds =
+            if options.frame_profiling_sample_capacity == 0 {
+                0
+            } else {
+                u64::try_from(frame_started.elapsed().as_micros())
+                    .map_err(|_| DesktopAdapterError::CounterOverflow)?
+            };
+        let current_snapshot = current_snapshot.borrow();
         let render_result = graphics
             .as_mut()
             .ok_or(DesktopAdapterError::GraphicsContextMissing)?
-            .render(&current_snapshot.borrow(), &window);
+            .render(
+                current_snapshot.as_ref(),
+                &window,
+                event_and_frame_source_update_microseconds,
+            );
+        drop(current_snapshot);
         let submitted = match render_result {
             Ok(submitted) => submitted,
             Err(error) if error.is_recoverable_presentation_loss() => {
@@ -533,17 +523,27 @@ pub fn run_interactive_with_timed_frame_source(
         {
             break;
         }
-        std::thread::sleep(remaining_frame_budget(frame_started.elapsed()));
+        apply_software_pacing(
+            frame_started.elapsed(),
+            submitted.is_some(),
+            &mut software_paced_iterations,
+            &mut software_pacing_sleep_microseconds,
+        )?;
     }
-    let (frame_profiling, device_allocation_bytes, device_allocation_count) = {
+    let (frame_profiling, device_allocation_bytes, device_allocation_count, frame_plan_metrics) = {
         let graphics = graphics
             .as_mut()
             .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
         graphics.wait_idle()?;
         let (bytes, allocations) = graphics.device_allocation_stats()?;
-        (graphics.take_frame_profiling(), bytes, allocations)
+        (
+            graphics.take_frame_profiling(),
+            bytes,
+            allocations,
+            graphics.frame_plan_metrics(),
+        )
     };
-    Ok(DesktopRunReport {
+    let report = DesktopRunReport {
         rendered_frames,
         rendered_objects,
         indexed_draws,
@@ -568,9 +568,17 @@ pub fn run_interactive_with_timed_frame_source(
         frame_timings: frame_profiling.samples,
         vulkan_timestamp_queries: frame_profiling.timestamp_query_count,
         dropped_frame_timing_samples: frame_profiling.dropped_samples,
+        software_paced_iterations,
+        software_pacing_sleep_microseconds,
+        frame_plan_cache_hits: frame_plan_metrics.cache_hits,
+        frame_plan_cache_misses: frame_plan_metrics.cache_misses,
+        frame_plan_build_failures: frame_plan_metrics.build_failures,
+        frame_plan_explicit_invalidations: frame_plan_metrics.explicit_invalidations,
         device_allocation_bytes,
         device_allocation_count,
-    })
+    };
+    finalizer.finish();
+    Ok(report)
 }
 
 fn validate_snapshot_transition(
@@ -596,16 +604,17 @@ fn validate_snapshot_transition(
 }
 
 fn apply_frame_source_result(
-    current_snapshot: &RefCell<PresentationSnapshotV2>,
+    current_snapshot: &RefCell<Arc<PresentationSnapshotV2>>,
     frame_source: &mut impl FnMut(
         &[PlatformEventV1],
         Duration,
-    ) -> Result<Option<PresentationSnapshotV2>, DesktopAdapterError>,
+    )
+        -> Result<Option<Arc<PresentationSnapshotV2>>, DesktopAdapterError>,
     events: &[PlatformEventV1],
     elapsed: Duration,
 ) -> Result<(), DesktopAdapterError> {
     if let Some(next_snapshot) = frame_source(events, elapsed)? {
-        validate_snapshot_transition(&current_snapshot.borrow(), &next_snapshot)?;
+        validate_snapshot_transition(current_snapshot.borrow().as_ref(), next_snapshot.as_ref())?;
         *current_snapshot.borrow_mut() = next_snapshot;
     }
     Ok(())

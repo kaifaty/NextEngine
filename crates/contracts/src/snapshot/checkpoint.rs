@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-use crate::canonical::{CanonicalDecodeLimits, CanonicalError, sha256};
+use crate::canonical::{CanonicalError, sha256};
 use crate::command::IssuerPrincipal;
 use crate::identity::{CommandStreamRegistryV1, PrincipalRegistryV1};
 use crate::ids::{CommandLedgerHash, StateRoot, SystemId, command_ledger_hash_from_bytes};
@@ -35,6 +35,7 @@ pub struct WorldCheckpointV4 {
 pub struct WorldCheckpointCanonicalComponentsV1 {
     runtime_snapshot: Arc<[u8]>,
     command_ledger: Arc<[u8]>,
+    command_ledger_hash: CommandLedgerHash,
     rpg_snapshot: Arc<[u8]>,
     physics_checkpoint: Arc<[u8]>,
 }
@@ -46,26 +47,47 @@ impl WorldCheckpointCanonicalComponentsV1 {
     }
 
     #[must_use]
+    pub fn runtime_snapshot_shared_bytes(&self) -> Arc<[u8]> {
+        self.runtime_snapshot.clone()
+    }
+
+    #[must_use]
     pub fn rpg_snapshot_bytes(&self) -> &[u8] {
         &self.rpg_snapshot
     }
 
-    pub fn command_ledger_hash(&self) -> Result<CommandLedgerHash, CanonicalError> {
+    #[must_use]
+    pub fn rpg_snapshot_shared_bytes(&self) -> Arc<[u8]> {
+        self.rpg_snapshot.clone()
+    }
+
+    pub const fn command_ledger_hash(&self) -> Result<CommandLedgerHash, CanonicalError> {
+        Ok(self.command_ledger_hash)
+    }
+
+    fn compute_command_ledger_hash(
+        command_ledger: &[u8],
+    ) -> Result<CommandLedgerHash, CanonicalError> {
         let mut hasher = sha2::Sha256::new();
         use sha2::Digest as _;
         hasher.update(b"nextengine.command-ledger.v2\0");
         hasher.update(
-            u64::try_from(self.command_ledger.len())
+            u64::try_from(command_ledger.len())
                 .map_err(|_| CanonicalError::LengthOverflow)?
                 .to_le_bytes(),
         );
-        hasher.update(&self.command_ledger);
+        hasher.update(command_ledger);
         Ok(command_ledger_hash_from_bytes(hasher.finalize().into()))
     }
 
     #[must_use]
     pub fn physics_checkpoint_bytes(&self) -> &[u8] {
         &self.physics_checkpoint
+    }
+
+    #[must_use]
+    pub fn physics_checkpoint_shared_bytes(&self) -> Arc<[u8]> {
+        self.physics_checkpoint.clone()
     }
 }
 
@@ -84,19 +106,59 @@ impl WorldCheckpointV4 {
         rpg_snapshot: RpgSnapshotV2,
         physics_checkpoint: PhysicsWorldCheckpointV1,
     ) -> Result<(Self, WorldCheckpointCanonicalComponentsV1), WorldCheckpointError> {
+        Self::new_with_canonical_components_internal(
+            runtime_snapshot,
+            rpg_snapshot,
+            physics_checkpoint,
+            RuntimeCheckpointValidation::Complete,
+        )
+    }
+
+    /// Materializes a checkpoint from a live runtime generation whose command
+    /// history was produced by prepared incremental ledger/archive commits.
+    ///
+    /// This remains a safe validation path rather than a trust escape hatch:
+    /// the ledger/archive caches and mutation APIs that prove each incremental
+    /// addition are private to this crate and cannot be forged by a caller.
+    /// Durable decode, restore, recovery and migration must still use
+    /// [`Self::new_with_canonical_components`] (or the canonical decoders),
+    /// which retain complete historical revalidation of untrusted bytes.
+    #[doc(hidden)]
+    pub fn new_with_incrementally_validated_canonical_components(
+        runtime_snapshot: RuntimeSnapshotV3,
+        rpg_snapshot: RpgSnapshotV2,
+        physics_checkpoint: PhysicsWorldCheckpointV1,
+    ) -> Result<(Self, WorldCheckpointCanonicalComponentsV1), WorldCheckpointError> {
+        Self::new_with_canonical_components_internal(
+            runtime_snapshot,
+            rpg_snapshot,
+            physics_checkpoint,
+            RuntimeCheckpointValidation::IncrementalLive,
+        )
+    }
+
+    fn new_with_canonical_components_internal(
+        runtime_snapshot: RuntimeSnapshotV3,
+        rpg_snapshot: RpgSnapshotV2,
+        physics_checkpoint: PhysicsWorldCheckpointV1,
+        validation: RuntimeCheckpointValidation,
+    ) -> Result<(Self, WorldCheckpointCanonicalComponentsV1), WorldCheckpointError> {
         let mut checkpoint = Self {
             runtime_snapshot,
             rpg_snapshot,
             physics_checkpoint,
             state_root: StateRoot::default(),
         };
-        let rpg_snapshot = checkpoint.validate_components_with_rpg_bytes()?;
+        let rpg_snapshot = checkpoint.validate_components_with_rpg_bytes(validation)?;
         let (runtime_snapshot, command_ledger) = checkpoint
             .runtime_snapshot
             .canonical_bytes_and_ledger_bytes_validated()?;
+        let command_ledger_hash =
+            WorldCheckpointCanonicalComponentsV1::compute_command_ledger_hash(&command_ledger)?;
         let components = WorldCheckpointCanonicalComponentsV1 {
             runtime_snapshot: Arc::from(runtime_snapshot),
             command_ledger: Arc::from(command_ledger),
+            command_ledger_hash,
             rpg_snapshot: Arc::from(rpg_snapshot),
             physics_checkpoint: Arc::from(checkpoint.physics_checkpoint.canonical_bytes()?),
         };
@@ -120,17 +182,21 @@ impl WorldCheckpointV4 {
     }
 
     fn validate_components(&self) -> Result<(), WorldCheckpointError> {
-        self.validate_components_with_rpg_bytes().map(drop)
+        self.validate_components_with_rpg_bytes(RuntimeCheckpointValidation::Complete)
+            .map(drop)
     }
 
-    fn validate_components_with_rpg_bytes(&self) -> Result<Vec<u8>, WorldCheckpointError> {
-        self.runtime_snapshot.validate()?;
-        let rpg_bytes = self.rpg_snapshot.canonical_bytes()?;
-        if RpgSnapshotV2::from_canonical_bytes(&rpg_bytes, CanonicalDecodeLimits::default())?
-            != self.rpg_snapshot
-        {
-            return Err(WorldCheckpointError::ClosureMismatch);
+    fn validate_components_with_rpg_bytes(
+        &self,
+        validation: RuntimeCheckpointValidation,
+    ) -> Result<Vec<u8>, WorldCheckpointError> {
+        match validation {
+            RuntimeCheckpointValidation::Complete => self.runtime_snapshot.validate()?,
+            RuntimeCheckpointValidation::IncrementalLive => {
+                self.runtime_snapshot.validate_incremental_checkpoint()?
+            }
         }
+        let rpg_bytes = self.rpg_snapshot.canonical_bytes()?;
         self.physics_checkpoint.validate()?;
         self.physics_checkpoint.snapshot.validate_profile_closure(
             &self.physics_checkpoint.catalog,
@@ -180,6 +246,12 @@ impl WorldCheckpointV4 {
         }
         Ok(rpg_bytes)
     }
+}
+
+#[derive(Clone, Copy)]
+enum RuntimeCheckpointValidation {
+    Complete,
+    IncrementalLive,
 }
 
 pub fn validate_core_dialogue_quest_world_closure_v2(

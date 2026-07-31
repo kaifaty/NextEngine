@@ -89,7 +89,7 @@ pub(super) struct B0GpuContent {
     descriptors: DescriptorState,
     textures: BTreeMap<AssetRevisionRefV1, TextureResource>,
     indirect: BufferAllocation,
-    frame_uniform: BufferAllocation,
+    frame_uniforms: Vec<BufferAllocation>,
     geometry: BufferAllocation,
     index_buffer_offset: vk::DeviceSize,
     draw_offsets: BTreeMap<DrawKey, vk::DeviceSize>,
@@ -110,7 +110,13 @@ impl B0GpuContent {
         color_format: vk::Format,
         depth_format: vk::Format,
         catalog: &RenderContentCatalogV1,
+        frame_slot_count: usize,
     ) -> Result<Self, B0GpuContentError> {
+        if frame_slot_count == 0 {
+            return Err(B0GpuContentError::InvalidCatalog(
+                "frame slot count must be non-zero",
+            ));
+        }
         let prepared = PreparedContent::from_catalog(catalog)?;
         let geometry = BufferAllocation::new(
             instance,
@@ -130,15 +136,19 @@ impl B0GpuContent {
             vk::BufferUsageFlags::INDIRECT_BUFFER | vk::BufferUsageFlags::TRANSFER_DST,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
         )?;
-        let frame_uniform = BufferAllocation::new(
-            instance,
-            physical_device,
-            device,
-            FRAME_UNIFORM_SIZE,
-            vk::BufferUsageFlags::UNIFORM_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        )?;
-        frame_uniform.write(0, &identity_matrix_bytes())?;
+        let mut frame_uniforms = Vec::with_capacity(frame_slot_count);
+        for _ in 0..frame_slot_count {
+            let frame_uniform = BufferAllocation::new(
+                instance,
+                physical_device,
+                device,
+                FRAME_UNIFORM_SIZE,
+                vk::BufferUsageFlags::UNIFORM_BUFFER,
+                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            )?;
+            frame_uniform.write(0, &identity_matrix_bytes())?;
+            frame_uniforms.push(frame_uniform);
+        }
 
         let mut textures = BTreeMap::new();
         for texture in &prepared.textures {
@@ -183,7 +193,7 @@ impl B0GpuContent {
         }
         drop(staging);
 
-        let descriptors = DescriptorState::new(device, &frame_uniform, &textures)?;
+        let descriptors = DescriptorState::new(device, &frame_uniforms, &textures)?;
         let pipeline = PipelineState::new(
             device,
             color_format,
@@ -197,7 +207,7 @@ impl B0GpuContent {
             descriptors,
             textures,
             indirect,
-            frame_uniform,
+            frame_uniforms,
             geometry,
             index_buffer_offset: prepared.index_buffer_offset,
             draw_offsets: prepared.draw_offsets,
@@ -212,6 +222,7 @@ impl B0GpuContent {
         command_buffer: vk::CommandBuffer,
         plan: &B0FramePlanV1,
         extent: vk::Extent2D,
+        frame_slot_index: usize,
     ) -> Result<(), B0GpuContentError> {
         if extent.width == 0 || extent.height == 0 {
             return Err(B0GpuContentError::InvalidFramePlan(
@@ -236,14 +247,26 @@ impl B0GpuContent {
             ));
         }
 
+        let frame_uniform = self.frame_uniforms.get(frame_slot_index).ok_or(
+            B0GpuContentError::InvalidFramePlan(
+                "frame slot index is outside the allocated uniform ring",
+            ),
+        )?;
+        let frame_set = self
+            .descriptors
+            .frame_sets
+            .get(frame_slot_index)
+            .copied()
+            .ok_or(B0GpuContentError::InvalidFramePlan(
+                "frame slot index is outside the descriptor ring",
+            ))?;
         let raster_state = frame_raster_state(plan.camera.as_ref(), extent)?;
-        self.frame_uniform
-            .write(0, &raster_state.view_projection_bytes)?;
+        frame_uniform.write(0, &raster_state.view_projection_bytes)?;
         let viewports = [raster_state.viewport];
         let scissors = [raster_state.scissor];
         let vertex_buffers = [self.geometry.buffer];
         let vertex_offsets = [0];
-        let frame_sets = [self.descriptors.frame_set];
+        let frame_sets = [frame_set];
 
         // SAFETY: all bound objects belong to the same live device, the
         // command buffer is recording inside dynamic rendering, and ranges
@@ -344,8 +367,12 @@ impl B0GpuContent {
             .geometry
             .allocation_size()
             .checked_add(self.indirect.allocation_size())
-            .and_then(|value| value.checked_add(self.frame_uniform.allocation_size()))
             .ok_or(B0GpuContentError::CountOverflow)?;
+        for frame_uniform in &self.frame_uniforms {
+            bytes = bytes
+                .checked_add(frame_uniform.allocation_size())
+                .ok_or(B0GpuContentError::CountOverflow)?;
+        }
         for texture in self.textures.values() {
             bytes = bytes
                 .checked_add(texture.allocation_size())
@@ -353,8 +380,11 @@ impl B0GpuContent {
         }
         let texture_count =
             u64::try_from(self.textures.len()).map_err(|_| B0GpuContentError::CountOverflow)?;
-        let allocation_count = 3_u64
-            .checked_add(texture_count)
+        let frame_uniform_count = u64::try_from(self.frame_uniforms.len())
+            .map_err(|_| B0GpuContentError::CountOverflow)?;
+        let allocation_count = 2_u64
+            .checked_add(frame_uniform_count)
+            .and_then(|value| value.checked_add(texture_count))
             .ok_or(B0GpuContentError::CountOverflow)?;
         Ok((bytes, allocation_count))
     }

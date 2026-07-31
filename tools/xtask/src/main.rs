@@ -13,6 +13,7 @@ mod native_gate_target;
 #[cfg(test)]
 mod native_gate_tests;
 mod performance_baseline_command;
+mod performance_codegen_command;
 mod performance_command;
 
 use serde::{Serialize, Serializer};
@@ -99,7 +100,7 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, platform, play, physics-collision, physics-backend-parity, persistence-replay, v1-closure or v1-package".to_owned()
+        "expected boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, platform, play, physics-collision, physics-backend-parity, persistence-replay, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
         "boundary-scan" => {
@@ -148,6 +149,10 @@ fn run() -> Result<(), String> {
         "performance-baseline" => {
             let request = performance_baseline_command::parse_arguments(arguments)?;
             performance_baseline_command::performance_baseline(&root, &request)
+        }
+        "performance-codegen" => {
+            let request = performance_codegen_command::parse_arguments(arguments)?;
+            performance_codegen_command::performance_codegen(&root, &request)
         }
         "platform" => {
             reject_extra_arguments(arguments)?;

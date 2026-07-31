@@ -346,11 +346,14 @@ fn lifecycle_archive_recovery_rejects_event_bytes_that_do_not_match_the_request(
         .objects
         .get(&archive_entry.event_object_hash)
         .expect("archived event bytes");
-    let tampered_event_bytes = String::from_utf8(original_event_bytes.clone())
+    let tampered_event_bytes = String::from_utf8(original_event_bytes.to_vec())
         .expect("event JCS is utf8")
         .replace("\"to_state\":\"Suspended\"", "\"to_state\":\"Active\"")
         .into_bytes();
-    assert_ne!(tampered_event_bytes, *original_event_bytes);
+    assert_ne!(
+        tampered_event_bytes.as_slice(),
+        original_event_bytes.as_ref()
+    );
     let tampered_event = SessionObjectV1::new(tampered_event_bytes);
     let mut durable = application.durable.clone();
     durable.store_sequence = published.sequence + 1;
@@ -359,7 +362,7 @@ fn lifecycle_archive_recovery_rejects_event_bytes_that_do_not_match_the_request(
         .iter_mut()
         .find(|entry| entry.request_id == event.request_id)
         .expect("mutable suspend archive entry")
-        .event_object_hash = tampered_event.content_hash;
+        .event_object_hash = tampered_event.content_hash();
     let mut objects: Vec<_> = published
         .objects
         .into_values()

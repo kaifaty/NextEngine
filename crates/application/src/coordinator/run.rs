@@ -9,6 +9,7 @@ use next_reference_game::{
     ReferenceGameDriverV1, ReferenceLiveDriverRecoveryV1, ReferenceLiveStateV1,
     ReferenceRunOutcomeV1, run_reference_game,
 };
+use std::sync::Arc;
 
 use crate::ApplicationError;
 
@@ -235,28 +236,28 @@ impl ApplicationCoordinator {
         let object_bytes = [
             prepared
                 .checkpoint_canonical_components
-                .runtime_snapshot_bytes()
-                .to_vec(),
+                .runtime_snapshot_shared_bytes(),
             prepared
                 .checkpoint_canonical_components
-                .rpg_snapshot_bytes()
-                .to_vec(),
+                .rpg_snapshot_shared_bytes(),
             prepared
                 .checkpoint_canonical_components
-                .physics_checkpoint_bytes()
-                .to_vec(),
-            prepared.streaming.canonical_bytes()?,
+                .physics_checkpoint_shared_bytes(),
+            Arc::from(prepared.streaming.canonical_bytes()?),
         ];
         self.replace_prepared_run_object_bytes(object_bytes);
         self.durable.live_run_recovery_manifest_hash = None;
         Ok(())
     }
 
-    pub(super) fn replace_prepared_run_object_bytes(&mut self, object_bytes: [Vec<u8>; 4]) {
+    pub(super) fn replace_prepared_run_object_bytes<B>(&mut self, object_bytes: [B; 4])
+    where
+        B: Into<Arc<[u8]>>,
+    {
         self.prepared_run_objects = object_bytes
             .into_iter()
             .map(SessionObjectV1::new)
-            .map(|object| (object.content_hash, object.bytes))
+            .map(|object| (object.content_hash(), object.into_shared_bytes()))
             .collect();
     }
 

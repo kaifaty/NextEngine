@@ -44,6 +44,20 @@ pub struct GroundedCapsuleSweepResult {
 pub trait GroundedCapsuleQuery: std::fmt::Debug {
     fn backend_kind(&self) -> crate::PhysicsBackendKind;
 
+    /// Returns an independent copy of all query state that can affect future
+    /// results, or `None` when the backend must be reconstructed from the
+    /// canonical physics checkpoint.
+    ///
+    /// This is a live-tick optimization only. Implementations must not return
+    /// `Some` unless the copy is semantically complete; the default keeps the
+    /// canonical reconstruction path for native or otherwise opaque backends.
+    fn try_fork_for_staging(&self) -> Result<Option<Self>, ReferencePhysicsError>
+    where
+        Self: Sized,
+    {
+        Ok(None)
+    }
+
     fn recreate(&self) -> Result<Self, ReferencePhysicsError>
     where
         Self: Sized;
@@ -60,6 +74,10 @@ pub struct ReferenceGroundedCapsuleQuery;
 impl GroundedCapsuleQuery for ReferenceGroundedCapsuleQuery {
     fn backend_kind(&self) -> crate::PhysicsBackendKind {
         crate::PhysicsBackendKind::Reference
+    }
+
+    fn try_fork_for_staging(&self) -> Result<Option<Self>, ReferencePhysicsError> {
+        Ok(Some(*self))
     }
 
     fn recreate(&self) -> Result<Self, ReferencePhysicsError> {

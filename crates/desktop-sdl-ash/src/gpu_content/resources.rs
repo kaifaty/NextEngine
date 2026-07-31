@@ -596,16 +596,23 @@ pub(super) struct DescriptorState {
     pub(super) frame_layout: vk::DescriptorSetLayout,
     pub(super) texture_layout: vk::DescriptorSetLayout,
     sampler: vk::Sampler,
-    pub(super) frame_set: vk::DescriptorSet,
+    pub(super) frame_sets: Vec<vk::DescriptorSet>,
     pub(super) texture_sets: BTreeMap<AssetRevisionRefV1, vk::DescriptorSet>,
 }
 
 impl DescriptorState {
     pub(super) fn new(
         device: &ash::Device,
-        frame_uniform: &BufferAllocation,
+        frame_uniforms: &[BufferAllocation],
         textures: &BTreeMap<AssetRevisionRefV1, TextureResource>,
     ) -> Result<Self, B0GpuContentError> {
+        let frame_count =
+            u32::try_from(frame_uniforms.len()).map_err(|_| B0GpuContentError::CountOverflow)?;
+        if frame_count == 0 {
+            return Err(B0GpuContentError::InvalidCatalog(
+                "descriptor frame ring must be non-empty",
+            ));
+        }
         let frame_bindings = [vk::DescriptorSetLayoutBinding::default()
             .binding(0)
             .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
@@ -660,7 +667,7 @@ impl DescriptorState {
             u32::try_from(textures.len()).map_err(|_| B0GpuContentError::CountOverflow)?;
         let mut pool_sizes = vec![vk::DescriptorPoolSize {
             ty: vk::DescriptorType::UNIFORM_BUFFER,
-            descriptor_count: 1,
+            descriptor_count: frame_count,
         }];
         if texture_count != 0 {
             pool_sizes.push(vk::DescriptorPoolSize {
@@ -669,7 +676,7 @@ impl DescriptorState {
             });
         }
         let max_sets = texture_count
-            .checked_add(1)
+            .checked_add(frame_count)
             .ok_or(B0GpuContentError::CountOverflow)?;
         let pool_info = vk::DescriptorPoolCreateInfo::default()
             .max_sets(max_sets)
@@ -688,8 +695,13 @@ impl DescriptorState {
             }
         };
 
-        let mut layouts = Vec::with_capacity(textures.len() + 1);
-        layouts.push(frame_layout);
+        let mut layouts = Vec::with_capacity(
+            textures
+                .len()
+                .checked_add(frame_uniforms.len())
+                .ok_or(B0GpuContentError::CountOverflow)?,
+        );
+        layouts.extend(std::iter::repeat_n(frame_layout, frame_uniforms.len()));
         layouts.extend(std::iter::repeat_n(texture_layout, textures.len()));
         let allocation_info = vk::DescriptorSetAllocateInfo::default()
             .descriptor_pool(pool)
@@ -709,22 +721,27 @@ impl DescriptorState {
                 return Err(error.into());
             }
         };
-        let frame_set = sets[0];
-        let frame_info = [vk::DescriptorBufferInfo::default()
-            .buffer(frame_uniform.buffer)
-            .offset(0)
-            .range(FRAME_UNIFORM_SIZE)];
-        let frame_writes = [vk::WriteDescriptorSet::default()
-            .dst_set(frame_set)
-            .dst_binding(0)
-            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-            .buffer_info(&frame_info)];
-        // SAFETY: destination set and uniform buffer are live; Vulkan copies
-        // descriptor values during this call.
-        unsafe { device.update_descriptor_sets(&frame_writes, &[]) };
+        let frame_set_count = frame_uniforms.len();
+        let frame_sets = sets[..frame_set_count].to_vec();
+        for (frame_uniform, frame_set) in frame_uniforms.iter().zip(&frame_sets) {
+            let frame_info = [vk::DescriptorBufferInfo::default()
+                .buffer(frame_uniform.buffer)
+                .offset(0)
+                .range(FRAME_UNIFORM_SIZE)];
+            let frame_writes = [vk::WriteDescriptorSet::default()
+                .dst_set(*frame_set)
+                .dst_binding(0)
+                .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                .buffer_info(&frame_info)];
+            // SAFETY: destination set and uniform buffer are live; Vulkan
+            // copies descriptor values during this call.
+            unsafe { device.update_descriptor_sets(&frame_writes, &[]) };
+        }
 
         let mut texture_sets = BTreeMap::new();
-        for ((revision, texture), descriptor_set) in textures.iter().zip(sets.into_iter().skip(1)) {
+        for ((revision, texture), descriptor_set) in
+            textures.iter().zip(sets.into_iter().skip(frame_set_count))
+        {
             let image_info = [vk::DescriptorImageInfo::default()
                 .sampler(sampler)
                 .image_view(texture.view)
@@ -746,7 +763,7 @@ impl DescriptorState {
             frame_layout,
             texture_layout,
             sampler,
-            frame_set,
+            frame_sets,
             texture_sets,
         })
     }

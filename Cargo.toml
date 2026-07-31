@@ -82,3 +82,16 @@ allowed_crates = ["next_desktop_sdl_ash", "next_physics_physx_ffi"]
 [profile.profiling]
 inherits = "release"
 debug = "line-tables-only"
+
+# Opt-in code-generation experiments. The default `release` profile remains the
+# shipping baseline until ADR-036's representative R2-R5 comparison accepts a
+# candidate. PGO adds `-Cprofile-generate` / `-Cprofile-use` at invocation time.
+[profile.release-thin-lto]
+inherits = "release"
+lto = "thin"
+codegen-units = 1
+
+[profile.release-pgo]
+inherits = "release"
+lto = "thin"
+codegen-units = 1

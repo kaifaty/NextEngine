@@ -233,7 +233,7 @@ impl PreparedRuntimeTick {
         &self,
     ) -> Result<(WorldCheckpointV4, WorldCheckpointCanonicalComponentsV1), WorldCheckpointError>
     {
-        WorldCheckpointV4::new_with_canonical_components(
+        WorldCheckpointV4::new_with_incrementally_validated_canonical_components(
             self.report().snapshot.clone(),
             self.report_parts.rpg_snapshot.clone(),
             self.staged.physics.checkpoint().clone(),
@@ -497,9 +497,7 @@ impl RuntimeState {
             event_count: self.committed_event_count,
             revision: self.authoritative_revision,
             rpg: self.rpg.clone(),
-            physics: self
-                .physics
-                .fork_from_checkpoint(self.physics.checkpoint().clone())?,
+            physics: self.physics.fork_for_staging()?,
             ingress: ingress_checkpoint,
         };
 

@@ -1,12 +1,16 @@
 use super::*;
 use crate::gpu_content::{B0GpuContent, DepthAttachment};
-use next_render::{RenderTargetV1, build_b0_frame_plan};
+use next_render::{B0FramePlannerMetricsV1, B0FramePlannerV1, RenderTargetV1};
 
 mod capabilities;
 mod profiling;
+mod setup;
 
 use capabilities::select_physical_device;
-use profiling::{FrameProfilingReport, VulkanFrameProfiler};
+use profiling::{CpuFramePhaseTimings, FrameProfilingReport, VulkanFrameProfiler};
+use setup::*;
+
+const FRAME_SLOT_COUNT: usize = 2;
 
 pub(super) struct GraphicsContext {
     _entry: ash::Entry,
@@ -20,12 +24,19 @@ pub(super) struct GraphicsContext {
     swapchain_loader: ash::khr::swapchain::Device,
     swapchain: Option<SwapchainState>,
     render_content_catalog: RenderContentCatalogV1,
+    frame_planner: B0FramePlannerV1,
     b0_content: Option<B0GpuContent>,
     command_pool: vk::CommandPool,
+    frame_slots: Vec<FrameSlot>,
+    next_frame_slot: usize,
+    frame_profiler: Option<VulkanFrameProfiler>,
+}
+
+#[derive(Clone, Copy)]
+struct FrameSlot {
     command_buffer: vk::CommandBuffer,
     image_available: vk::Semaphore,
-    frame_fence: vk::Fence,
-    frame_profiler: Option<VulkanFrameProfiler>,
+    fence: vk::Fence,
 }
 
 struct SwapchainState {
@@ -41,6 +52,7 @@ struct SwapchainState {
     render_finished: Vec<vk::Semaphore>,
     initialized: Vec<bool>,
     depth_initialized: Vec<bool>,
+    images_in_flight: Vec<vk::Fence>,
 }
 
 impl Drop for SwapchainState {
@@ -69,8 +81,8 @@ struct GraphicsInitializationGuard {
     device: Option<ash::Device>,
     swapchain: Option<SwapchainState>,
     command_pool: vk::CommandPool,
-    image_available: vk::Semaphore,
-    frame_fence: vk::Fence,
+    image_available: Vec<vk::Semaphore>,
+    frame_fences: Vec<vk::Fence>,
 }
 
 impl GraphicsInitializationGuard {
@@ -83,8 +95,8 @@ impl GraphicsInitializationGuard {
             device: None,
             swapchain: None,
             command_pool: vk::CommandPool::null(),
-            image_available: vk::Semaphore::null(),
-            frame_fence: vk::Fence::null(),
+            image_available: Vec::new(),
+            frame_fences: Vec::new(),
         }
     }
 
@@ -105,11 +117,11 @@ impl Drop for GraphicsInitializationGuard {
         unsafe {
             if let Some(device) = self.device.as_ref() {
                 let _ = device.device_wait_idle();
-                if self.frame_fence != vk::Fence::null() {
-                    device.destroy_fence(self.frame_fence, None);
+                for fence in self.frame_fences.drain(..) {
+                    device.destroy_fence(fence, None);
                 }
-                if self.image_available != vk::Semaphore::null() {
-                    device.destroy_semaphore(self.image_available, None);
+                for semaphore in self.image_available.drain(..) {
+                    device.destroy_semaphore(semaphore, None);
                 }
                 if self.command_pool != vk::CommandPool::null() {
                     device.destroy_command_pool(self.command_pool, None);
@@ -135,162 +147,6 @@ pub(super) struct SubmittedB0Frame {
     pub(super) frame_plan_hash: ContentHash,
     pub(super) drawable_extent: [u32; 2],
     pub(super) target_revision: u64,
-}
-
-const B0_TARGET_REVISION: u64 = 1;
-const B0_SURFACE_COLOR_SPACE: vk::ColorSpaceKHR = vk::ColorSpaceKHR::SRGB_NONLINEAR;
-const B0_SURFACE_FORMATS: [vk::Format; 2] = [vk::Format::B8G8R8A8_SRGB, vk::Format::R8G8B8A8_SRGB];
-const B0_DEPTH_FORMATS: [vk::Format; 2] = [vk::Format::D32_SFLOAT, vk::Format::D16_UNORM];
-
-fn validate_loader_api_version(actual: u32) -> Result<(), DesktopAdapterError> {
-    if actual < vk::API_VERSION_1_3 {
-        return Err(DesktopAdapterError::LoaderVersionUnsupported {
-            required: vk::API_VERSION_1_3,
-            actual,
-        });
-    }
-    Ok(())
-}
-
-fn classify_instance_creation_error(error: vk::Result) -> DesktopAdapterError {
-    if matches!(
-        error,
-        vk::Result::ERROR_INCOMPATIBLE_DRIVER | vk::Result::ERROR_INITIALIZATION_FAILED
-    ) {
-        DesktopAdapterError::IcdUnavailable { error: Some(error) }
-    } else {
-        DesktopAdapterError::Graphics(error)
-    }
-}
-
-fn classify_physical_device_enumeration_error(error: vk::Result) -> DesktopAdapterError {
-    if error == vk::Result::ERROR_INITIALIZATION_FAILED {
-        DesktopAdapterError::IcdUnavailable { error: Some(error) }
-    } else {
-        DesktopAdapterError::Graphics(error)
-    }
-}
-
-fn classify_device_creation_error(error: vk::Result) -> DesktopAdapterError {
-    match error {
-        vk::Result::ERROR_FEATURE_NOT_PRESENT | vk::Result::ERROR_EXTENSION_NOT_PRESENT => {
-            DesktopAdapterError::GpuUnsupported
-        }
-        vk::Result::ERROR_INCOMPATIBLE_DRIVER | vk::Result::ERROR_INITIALIZATION_FAILED => {
-            DesktopAdapterError::IcdUnavailable { error: Some(error) }
-        }
-        _ => DesktopAdapterError::Graphics(error),
-    }
-}
-
-fn supports_required_device_extension(
-    properties: &[vk::ExtensionProperties],
-    required: &std::ffi::CStr,
-) -> bool {
-    properties
-        .iter()
-        .any(|property| extension_property_matches(property, required))
-}
-
-fn extension_property_matches(
-    property: &vk::ExtensionProperties,
-    required: &std::ffi::CStr,
-) -> bool {
-    let required = required.to_bytes_with_nul();
-    property
-        .extension_name
-        .get(..required.len())
-        .is_some_and(|candidate| {
-            candidate
-                .iter()
-                .map(|byte| *byte as u8)
-                .eq(required.iter().copied())
-        })
-}
-
-fn select_composite_alpha(
-    supported: vk::CompositeAlphaFlagsKHR,
-) -> Option<vk::CompositeAlphaFlagsKHR> {
-    [
-        vk::CompositeAlphaFlagsKHR::OPAQUE,
-        vk::CompositeAlphaFlagsKHR::PRE_MULTIPLIED,
-        vk::CompositeAlphaFlagsKHR::POST_MULTIPLIED,
-        vk::CompositeAlphaFlagsKHR::INHERIT,
-    ]
-    .into_iter()
-    .find(|candidate| supported.contains(*candidate))
-}
-
-fn select_b0_surface_format(formats: &[vk::SurfaceFormatKHR]) -> Option<vk::SurfaceFormatKHR> {
-    if formats.len() == 1
-        && formats[0].format == vk::Format::UNDEFINED
-        && formats[0].color_space == B0_SURFACE_COLOR_SPACE
-    {
-        return Some(vk::SurfaceFormatKHR {
-            format: B0_SURFACE_FORMATS[0],
-            color_space: formats[0].color_space,
-        });
-    }
-    B0_SURFACE_FORMATS.iter().find_map(|required_format| {
-        formats.iter().copied().find(|candidate| {
-            candidate.format == *required_format && candidate.color_space == B0_SURFACE_COLOR_SPACE
-        })
-    })
-}
-
-fn select_b0_depth_format(
-    instance: &ash::Instance,
-    physical_device: vk::PhysicalDevice,
-) -> Option<vk::Format> {
-    select_b0_depth_format_with(|format| {
-        // SAFETY: the physical-device handle belongs to this live instance and
-        // the query returns format capability value data only.
-        let properties =
-            unsafe { instance.get_physical_device_format_properties(physical_device, format) };
-        properties
-            .optimal_tiling_features
-            .contains(vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT)
-    })
-}
-
-fn select_b0_depth_format_with(
-    mut supports_depth_attachment: impl FnMut(vk::Format) -> bool,
-) -> Option<vk::Format> {
-    B0_DEPTH_FORMATS
-        .into_iter()
-        .find(|format| supports_depth_attachment(*format))
-}
-
-fn defer_out_of_date<T>(result: Result<T, vk::Result>) -> Result<Option<T>, DesktopAdapterError> {
-    match result {
-        Ok(value) => Ok(Some(value)),
-        Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => Ok(None),
-        Err(error) => Err(error.into()),
-    }
-}
-
-fn select_surface_extent(
-    capabilities: &vk::SurfaceCapabilitiesKHR,
-    window_extent: [u32; 2],
-) -> Option<vk::Extent2D> {
-    if window_extent[0] == 0 || window_extent[1] == 0 {
-        return None;
-    }
-    let extent = if capabilities.current_extent.width != u32::MAX {
-        capabilities.current_extent
-    } else {
-        vk::Extent2D {
-            width: window_extent[0].clamp(
-                capabilities.min_image_extent.width,
-                capabilities.max_image_extent.width,
-            ),
-            height: window_extent[1].clamp(
-                capabilities.min_image_extent.height,
-                capabilities.max_image_extent.height,
-            ),
-        }
-    };
-    (extent.width > 0 && extent.height > 0).then_some(extent)
 }
 
 impl GraphicsContext {
@@ -406,17 +262,29 @@ impl GraphicsContext {
         let command_buffer_info = vk::CommandBufferAllocateInfo::default()
             .command_pool(command_pool)
             .level(vk::CommandBufferLevel::PRIMARY)
-            .command_buffer_count(1);
+            .command_buffer_count(
+                u32::try_from(FRAME_SLOT_COUNT)
+                    .map_err(|_| DesktopAdapterError::CounterOverflow)?,
+            );
         // SAFETY: command pool is live and owned by this device.
-        let command_buffer = unsafe { device.allocate_command_buffers(&command_buffer_info) }?[0];
+        let command_buffers = unsafe { device.allocate_command_buffers(&command_buffer_info) }?;
         let semaphore_info = vk::SemaphoreCreateInfo::default();
-        // SAFETY: device is live and synchronization objects use no callbacks.
-        let image_available = unsafe { device.create_semaphore(&semaphore_info, None) }?;
-        initialization.image_available = image_available;
         let fence_info = vk::FenceCreateInfo::default().flags(vk::FenceCreateFlags::SIGNALED);
-        // SAFETY: device is live and fence uses no callbacks.
-        let frame_fence = unsafe { device.create_fence(&fence_info, None) }?;
-        initialization.frame_fence = frame_fence;
+        let mut frame_slots = Vec::with_capacity(FRAME_SLOT_COUNT);
+        for command_buffer in command_buffers {
+            // SAFETY: device is live and synchronization objects use no
+            // callbacks. Handles are recorded in the guard immediately.
+            let image_available = unsafe { device.create_semaphore(&semaphore_info, None) }?;
+            initialization.image_available.push(image_available);
+            // SAFETY: device is live and fence uses no callbacks.
+            let fence = unsafe { device.create_fence(&fence_info, None) }?;
+            initialization.frame_fences.push(fence);
+            frame_slots.push(FrameSlot {
+                command_buffer,
+                image_available,
+                fence,
+            });
+        }
         let b0_content = initialization
             .swapchain
             .as_ref()
@@ -430,6 +298,7 @@ impl GraphicsContext {
                     swapchain.format,
                     swapchain.depth_format,
                     render_content_catalog,
+                    frame_slots.len(),
                 )
             })
             .transpose()?;
@@ -440,6 +309,7 @@ impl GraphicsContext {
                     frame_profiling_sample_capacity,
                     physical_device_properties.limits.timestamp_period,
                     timestamp_valid_bits,
+                    frame_slots.len(),
                 )
             })
             .transpose()?;
@@ -456,11 +326,11 @@ impl GraphicsContext {
             swapchain_loader,
             swapchain,
             render_content_catalog: render_content_catalog.clone(),
+            frame_planner: B0FramePlannerV1::new(),
             b0_content,
             command_pool,
-            command_buffer,
-            image_available,
-            frame_fence,
+            frame_slots,
+            next_frame_slot: 0,
             frame_profiler,
         })
     }
@@ -469,6 +339,7 @@ impl GraphicsContext {
         &mut self,
         snapshot: &PresentationSnapshotV2,
         window: &Window,
+        event_and_frame_source_update_microseconds: u64,
     ) -> Result<Option<SubmittedB0Frame>, DesktopAdapterError> {
         if self.swapchain.is_none() {
             self.recreate_swapchain(window)?;
@@ -476,51 +347,98 @@ impl GraphicsContext {
                 return Ok(None);
             }
         }
-        // SAFETY: the fence belongs to this device and guards the one reusable
-        // command buffer and frame synchronization set.
+        let frame_slot_index = self.next_frame_slot;
+        let frame_slot = self
+            .frame_slots
+            .get(frame_slot_index)
+            .copied()
+            .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
+        let profiling_enabled = self.frame_profiler.is_some();
+        let frame_slot_wait_started = profiling_enabled.then(Instant::now);
+        // SAFETY: this slot fence guards its reusable command buffer, acquire
+        // semaphore and uniform/descriptor pair.
         unsafe {
             self.device
-                .wait_for_fences(&[self.frame_fence], true, u64::MAX)?;
+                .wait_for_fences(&[frame_slot.fence], true, u64::MAX)?;
         }
+        // The fence is about to be reused for another submission. Retire every
+        // image alias proven complete by the wait first, otherwise an old
+        // image could later appear to depend on the slot's unrelated new work.
+        retire_completed_image_fence_mappings(
+            &mut self
+                .swapchain
+                .as_mut()
+                .ok_or(DesktopAdapterError::GraphicsContextMissing)?
+                .images_in_flight,
+            frame_slot.fence,
+        );
+        let mut cpu_phases = CpuFramePhaseTimings {
+            event_and_frame_source_update_microseconds,
+            frame_slot_wait_microseconds: elapsed_microseconds(frame_slot_wait_started)?,
+            ..CpuFramePhaseTimings::default()
+        };
         if let Some(profiler) = self.frame_profiler.as_mut() {
-            profiler.collect_pending()?;
+            profiler.collect_pending(frame_slot_index)?;
         }
         let swapchain_handle = self
             .swapchain
             .as_ref()
             .ok_or(DesktopAdapterError::GraphicsContextMissing)?
             .handle;
-        // SAFETY: swapchain and semaphore are live; no fence is needed for
-        // acquisition because the frame fence guards prior use.
+        let image_acquire_wait_started = profiling_enabled.then(Instant::now);
+        // SAFETY: swapchain and the slot's acquire semaphore are live; the slot
+        // fence established that the semaphore's prior wait was consumed.
         let acquired = unsafe {
             self.swapchain_loader.acquire_next_image(
                 swapchain_handle,
                 u64::MAX,
-                self.image_available,
+                frame_slot.image_available,
                 vk::Fence::null(),
             )
         };
+        cpu_phases.image_acquire_wait_microseconds =
+            elapsed_microseconds(image_acquire_wait_started)?;
         let Some((image_index, acquisition_suboptimal)) = defer_out_of_date(acquired)? else {
             self.recreate_swapchain(window)?;
             return Ok(None);
         };
-        // SAFETY: the frame fence has completed and the command buffer is not
-        // pending. Reset operations target objects owned by this context.
+        let image_usize =
+            usize::try_from(image_index).map_err(|_| DesktopAdapterError::CounterOverflow)?;
+        let prior_image_fence = self
+            .swapchain
+            .as_ref()
+            .and_then(|swapchain| swapchain.images_in_flight.get(image_usize))
+            .copied()
+            .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
+        let swapchain_image_wait_started = profiling_enabled.then(Instant::now);
+        if let Some(prior_image_fence) = image_fence_to_wait(prior_image_fence, frame_slot.fence) {
+            // SAFETY: the fence is owned by another live frame slot and the
+            // acquired image cannot be reused until that submission completes.
+            unsafe {
+                self.device
+                    .wait_for_fences(&[prior_image_fence], true, u64::MAX)?;
+            }
+        }
+        cpu_phases.swapchain_image_wait_microseconds =
+            elapsed_microseconds(swapchain_image_wait_started)?;
+
+        // SAFETY: the slot fence completed, so its command buffer is no longer
+        // pending. The fence remains signaled until immediately before submit,
+        // preventing a recording failure from leaving a dead slot.
         unsafe {
-            self.device.reset_fences(&[self.frame_fence])?;
-            self.device
-                .reset_command_buffer(self.command_buffer, vk::CommandBufferResetFlags::empty())?;
+            self.device.reset_command_buffer(
+                frame_slot.command_buffer,
+                vk::CommandBufferResetFlags::empty(),
+            )?;
             self.device.begin_command_buffer(
-                self.command_buffer,
+                frame_slot.command_buffer,
                 &vk::CommandBufferBeginInfo::default(),
             )?;
         }
-        let cpu_profile_started = self.frame_profiler.as_ref().map(|_| Instant::now());
+        let cpu_profile_started = profiling_enabled.then(Instant::now);
         if let Some(profiler) = self.frame_profiler.as_ref() {
-            profiler.write_start(self.command_buffer);
+            profiler.write_start(frame_slot.command_buffer, frame_slot_index)?;
         }
-        let image_usize =
-            usize::try_from(image_index).map_err(|_| DesktopAdapterError::CounterOverflow)?;
         let swapchain = self
             .swapchain
             .as_ref()
@@ -529,7 +447,12 @@ impl GraphicsContext {
             extent: [swapchain.extent.width, swapchain.extent.height],
             target_revision: B0_TARGET_REVISION,
         };
-        let frame_plan = build_b0_frame_plan(snapshot, &self.render_content_catalog, target)?;
+        let frame_plan_started = profiling_enabled.then(Instant::now);
+        let frame_plan =
+            self.frame_planner
+                .build_or_reuse(snapshot, &self.render_content_catalog, target)?;
+        cpu_phases.frame_plan_microseconds = elapsed_microseconds(frame_plan_started)?;
+        let command_record_started = profiling_enabled.then(Instant::now);
         let old_layout = if swapchain.initialized[image_usize] {
             vk::ImageLayout::PRESENT_SRC_KHR
         } else {
@@ -597,7 +520,7 @@ impl GraphicsContext {
         // barriers are recorded into the reset primary command buffer.
         unsafe {
             self.device
-                .cmd_pipeline_barrier2(self.command_buffer, &attachment_dependency);
+                .cmd_pipeline_barrier2(frame_slot.command_buffer, &attachment_dependency);
         }
         let color_clear = vk::ClearValue {
             color: vk::ClearColorValue {
@@ -635,16 +558,21 @@ impl GraphicsContext {
         // images are in their declared attachment layouts for this index.
         unsafe {
             self.device
-                .cmd_begin_rendering(self.command_buffer, &rendering_info);
+                .cmd_begin_rendering(frame_slot.command_buffer, &rendering_info);
         }
         self.b0_content
             .as_ref()
             .ok_or(DesktopAdapterError::GraphicsContextMissing)?
-            .record(self.command_buffer, &frame_plan, swapchain.extent)?;
+            .record(
+                frame_slot.command_buffer,
+                frame_plan,
+                swapchain.extent,
+                frame_slot_index,
+            )?;
         // SAFETY: a dynamic rendering instance is active on this command
         // buffer and is ended exactly once.
         unsafe {
-            self.device.cmd_end_rendering(self.command_buffer);
+            self.device.cmd_end_rendering(frame_slot.command_buffer);
         }
         let to_present = [vk::ImageMemoryBarrier2::default()
             .src_stage_mask(vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
@@ -661,53 +589,81 @@ impl GraphicsContext {
         // acquired swapchain image.
         unsafe {
             self.device
-                .cmd_pipeline_barrier2(self.command_buffer, &to_present_dependency);
+                .cmd_pipeline_barrier2(frame_slot.command_buffer, &to_present_dependency);
         }
         if let Some(profiler) = self.frame_profiler.as_ref() {
-            profiler.write_end(self.command_buffer);
+            profiler.write_end(frame_slot.command_buffer, frame_slot_index)?;
         }
         // SAFETY: all render and profiling commands have been recorded and the
         // primary command buffer is still in the recording state.
         unsafe {
-            self.device.end_command_buffer(self.command_buffer)?;
+            self.device.end_command_buffer(frame_slot.command_buffer)?;
         }
-        let wait_semaphores = [self.image_available];
+        cpu_phases.command_record_microseconds = elapsed_microseconds(command_record_started)?;
+        let wait_semaphores = [frame_slot.image_available];
         let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-        let command_buffers = [self.command_buffer];
+        let command_buffers = [frame_slot.command_buffer];
         let signal_semaphores = [swapchain.render_finished[image_usize]];
         let submit_info = [vk::SubmitInfo::default()
             .wait_semaphores(&wait_semaphores)
             .wait_dst_stage_mask(&wait_stages)
             .command_buffers(&command_buffers)
             .signal_semaphores(&signal_semaphores)];
-        // SAFETY: synchronization objects and command buffer are live and the
-        // frame fence is unsignaled for this one submission.
+        let queue_submit_started = profiling_enabled.then(Instant::now);
+        // SAFETY: synchronization objects and command buffer are live. The
+        // completed slot fence is reset immediately before this one submission.
         unsafe {
+            self.device.reset_fences(&[frame_slot.fence])?;
             self.device
-                .queue_submit(self.queue, &submit_info, self.frame_fence)?;
+                .queue_submit(self.queue, &submit_info, frame_slot.fence)?;
         }
+        cpu_phases.queue_submit_microseconds = elapsed_microseconds(queue_submit_started)?;
         if let Some(started) = cpu_profile_started {
-            let cpu_extract_and_submit_microseconds = u64::try_from(started.elapsed().as_micros())
-                .map_err(|_| DesktopAdapterError::CounterOverflow)?;
+            let cpu_extract_and_submit_microseconds = elapsed_microseconds(Some(started))?;
             self.frame_profiler
                 .as_mut()
                 .ok_or(DesktopAdapterError::GpuTimestampStateInvalid)?
-                .mark_submitted(cpu_extract_and_submit_microseconds)?;
+                .mark_submitted(
+                    frame_slot_index,
+                    cpu_extract_and_submit_microseconds,
+                    cpu_phases,
+                )?;
         }
+        let submitted_frame = SubmittedB0Frame {
+            rendered_objects: u64::from(frame_plan.visible_object_count),
+            indexed_draws: u64::from(frame_plan.indexed_draw_count),
+            fallback_material_draws: u64::from(frame_plan.fallback_material_draw_count),
+            frame_plan_hash: frame_plan.frame_plan_hash,
+            drawable_extent: target.extent,
+            target_revision: target.target_revision,
+        };
+        self.swapchain
+            .as_mut()
+            .and_then(|swapchain| swapchain.images_in_flight.get_mut(image_usize))
+            .map(|image_fence| *image_fence = frame_slot.fence)
+            .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
+        self.next_frame_slot = next_frame_slot(frame_slot_index, self.frame_slots.len())
+            .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
         let swapchains = [swapchain_handle];
         let image_indices = [image_index];
         let present_info = vk::PresentInfoKHR::default()
             .wait_semaphores(&signal_semaphores)
             .swapchains(&swapchains)
             .image_indices(&image_indices);
+        let present_wait_started = profiling_enabled.then(Instant::now);
         // SAFETY: image index was acquired from this swapchain and rendering
         // completion is signaled by the semaphore owned by this acquired
         // swapchain image. Reacquiring the image proves the presentation
         // engine consumed its prior wait before that semaphore is reused.
-        let presented = defer_out_of_date(unsafe {
+        let presented = unsafe {
             self.swapchain_loader
                 .queue_present(self.queue, &present_info)
-        })?;
+        };
+        let present_wait_microseconds = elapsed_microseconds(present_wait_started)?;
+        if let Some(profiler) = self.frame_profiler.as_mut() {
+            profiler.mark_presented(frame_slot_index, present_wait_microseconds)?;
+        }
+        let presented = defer_out_of_date(presented)?;
         let Some(present_suboptimal) = presented else {
             self.recreate_swapchain(window)?;
             return Ok(None);
@@ -721,14 +677,7 @@ impl GraphicsContext {
         if acquisition_suboptimal || present_suboptimal {
             self.recreate_swapchain(window)?;
         }
-        Ok(Some(SubmittedB0Frame {
-            rendered_objects: u64::from(frame_plan.visible_object_count),
-            indexed_draws: u64::from(frame_plan.indexed_draw_count),
-            fallback_material_draws: u64::from(frame_plan.fallback_material_draw_count),
-            frame_plan_hash: frame_plan.frame_plan_hash,
-            drawable_extent: target.extent,
-            target_revision: target.target_revision,
-        }))
+        Ok(Some(submitted_frame))
     }
 
     pub(super) fn recreate_swapchain(
@@ -777,6 +726,7 @@ impl GraphicsContext {
                         color_format,
                         depth_format,
                         &self.render_content_catalog,
+                        self.frame_slots.len(),
                     )
                 })
                 .transpose();
@@ -793,7 +743,7 @@ impl GraphicsContext {
         // SAFETY: device remains live throughout the context lifetime.
         unsafe { self.device.device_wait_idle()? };
         if let Some(profiler) = self.frame_profiler.as_mut() {
-            profiler.collect_pending()?;
+            profiler.collect_all_pending()?;
         }
         Ok(())
     }
@@ -824,6 +774,10 @@ impl GraphicsContext {
         }
         Ok((bytes, allocations))
     }
+
+    pub(super) const fn frame_plan_metrics(&self) -> B0FramePlannerMetricsV1 {
+        self.frame_planner.metrics()
+    }
 }
 
 impl Drop for GraphicsContext {
@@ -834,8 +788,11 @@ impl Drop for GraphicsContext {
             let _ = self.device.device_wait_idle();
             drop(self.frame_profiler.take());
             drop(self.b0_content.take());
-            self.device.destroy_fence(self.frame_fence, None);
-            self.device.destroy_semaphore(self.image_available, None);
+            for frame_slot in &self.frame_slots {
+                self.device.destroy_fence(frame_slot.fence, None);
+                self.device
+                    .destroy_semaphore(frame_slot.image_available, None);
+            }
             self.device.destroy_command_pool(self.command_pool, None);
             drop(self.swapchain.take());
             self.device.destroy_device(None);
@@ -898,7 +855,7 @@ fn create_swapchain(
         .queue_family_indices(&queue_families)
         .pre_transform(capabilities.current_transform)
         .composite_alpha(composite_alpha)
-        .present_mode(vk::PresentModeKHR::FIFO)
+        .present_mode(B0_PRESENT_MODE)
         .clipped(true)
         .old_swapchain(old_swapchain);
     // SAFETY: all references in create info live for the call and the surface
@@ -918,6 +875,7 @@ fn create_swapchain(
         render_finished: Vec::new(),
         initialized: Vec::new(),
         depth_initialized: Vec::new(),
+        images_in_flight: Vec::new(),
     };
     // SAFETY: handle is the live swapchain just created.
     state.images = unsafe { swapchain_loader.get_swapchain_images(handle) }?;
@@ -961,6 +919,7 @@ fn create_swapchain(
     }
     state.initialized = vec![false; state.images.len()];
     state.depth_initialized = vec![false; state.images.len()];
+    state.images_in_flight = vec![vk::Fence::null(); state.images.len()];
     Ok(Some(state))
 }
 
