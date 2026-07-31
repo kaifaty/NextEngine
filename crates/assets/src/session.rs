@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use next_contracts::canonical::{
     CANONICAL_TYPE_HASH256, CANONICAL_TYPE_OPTIONAL, CANONICAL_TYPE_SEQUENCE, CANONICAL_TYPE_U32,
@@ -12,14 +13,20 @@ use next_contracts::ids::{ApplicationSessionId, ContentHash, content_hash_from_b
 
 #[cfg(test)]
 use crate::content::ContentPublishFault;
-use crate::content::{ContentPublicationV1, ContentStore, ContentStoreError, PublicationFileV1};
+use crate::content::{
+    CONTENT_MAX_FILE_BYTES, ContentPublicationV1, ContentStore, ContentStoreError,
+    PublicationFileV1, PublishedContentGenerationV1,
+};
 
 const SESSION_INDEX_FILE: &str = "session/index.bin";
 const SESSION_SNAPSHOT_FILE: &str = "session/snapshot.bin";
 const SESSION_OBJECT_DIRECTORY: &str = "objects";
+const SESSION_OBJECT_PACK_INDEX_FILE: &str = "session/object-pack-index.bin";
 const SESSION_INDEX_SCHEMA_VERSION: u32 = 1;
+const SESSION_OBJECT_PACK_INDEX_SCHEMA_VERSION: u32 = 1;
 const SESSION_MAX_OBJECTS: usize = 4_096;
 const SESSION_MAX_SNAPSHOT_BYTES: usize = 16 * 1024 * 1024;
+const SESSION_OBJECT_PACK_LOCATION_BYTES: usize = 32 + 4 + 8 + 8;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SessionObjectV1 {
@@ -131,27 +138,71 @@ impl SessionPublicationV1 {
         )
     }
 
+    #[cfg(test)]
     fn content_publication(&self) -> Result<ContentPublicationV1, SessionStoreError> {
+        Ok(self.packing_plan()?.content)
+    }
+
+    fn packing_plan(&self) -> Result<SessionPackingPlanV1, SessionStoreError> {
         let mut files = vec![
             PublicationFileV1::new(SESSION_INDEX_FILE, self.index_bytes()?)?,
             PublicationFileV1::new(SESSION_SNAPSHOT_FILE, self.snapshot.clone())?,
         ];
-        files.extend(
-            self.objects
-                .iter()
-                .map(|object| {
-                    PublicationFileV1::new(
-                        format!(
-                            "{SESSION_OBJECT_DIRECTORY}/{}.bin",
-                            object.content_hash.to_hex()
-                        ),
-                        object.bytes.clone(),
-                    )
-                })
-                .collect::<Result<Vec<_>, _>>()?,
-        );
-        Ok(ContentPublicationV1::new(self.generation_id, files)?)
+        let mut packs: Vec<Vec<u8>> = Vec::new();
+        let mut locations = Vec::with_capacity(self.objects.len());
+        for object in &self.objects {
+            if object.bytes.len() > CONTENT_MAX_FILE_BYTES {
+                return Err(ContentStoreError::LimitExceeded {
+                    actual: object.bytes.len(),
+                    limit: CONTENT_MAX_FILE_BYTES,
+                }
+                .into());
+            }
+            let needs_new_pack = packs.last().is_none_or(|pack| {
+                !pack.is_empty()
+                    && pack
+                        .len()
+                        .checked_add(object.bytes.len())
+                        .is_none_or(|length| length > CONTENT_MAX_FILE_BYTES)
+            });
+            if needs_new_pack {
+                packs.push(Vec::with_capacity(object.bytes.len()));
+            }
+            let pack_index = packs.len() - 1;
+            let pack = packs.last_mut().expect("pack was created");
+            let offset = pack.len();
+            pack.extend_from_slice(&object.bytes);
+            locations.push(SessionObjectPackLocationV1 {
+                object_hash: object.content_hash,
+                pack_index,
+                offset,
+                length: object.bytes.len(),
+            });
+        }
+        files.push(PublicationFileV1::new(
+            SESSION_OBJECT_PACK_INDEX_FILE,
+            encode_object_pack_index(packs.len(), &locations)?,
+        )?);
+        for (ordinal, bytes) in packs.into_iter().enumerate() {
+            files.push(PublicationFileV1::new(object_pack_path(ordinal), bytes)?);
+        }
+        Ok(SessionPackingPlanV1 {
+            content: ContentPublicationV1::new(self.generation_id, files)?,
+        })
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct SessionObjectPackLocationV1 {
+    object_hash: ContentHash,
+    pack_index: usize,
+    offset: usize,
+    length: usize,
+}
+
+#[derive(Debug)]
+struct SessionPackingPlanV1 {
+    content: ContentPublicationV1,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -170,6 +221,12 @@ pub struct PublishedSessionGenerationV1 {
 pub struct SessionStore {
     root: PathBuf,
     content: ContentStore,
+    cache: Arc<Mutex<SessionStoreCacheV1>>,
+}
+
+#[derive(Debug, Default)]
+struct SessionStoreCacheV1 {
+    current: Option<PublishedSessionGenerationV1>,
 }
 
 impl SessionStore {
@@ -179,6 +236,7 @@ impl SessionStore {
         Self {
             content: ContentStore::new(&root),
             root,
+            cache: Arc::new(Mutex::new(SessionStoreCacheV1::default())),
         }
     }
 
@@ -191,16 +249,29 @@ impl SessionStore {
         &self,
         publication: &SessionPublicationV1,
     ) -> Result<ContentHash, SessionStoreError> {
-        let content_publication = publication.content_publication()?;
-        self.validate_registry_transition(publication)?;
-        self.prepare_superseded_generations(publication)?;
-        self.content.publish(&content_publication)?;
+        let plan = publication.packing_plan()?;
+        let mut cache = self.cache()?;
+        let current = self.current_for_publish(&mut cache)?;
+        self.validate_registry_transition(publication, current.as_ref())?;
+        self.prepare_superseded_generations(publication, current.as_ref())?;
+        self.content.publish(&plan.content)?;
         self.prune_superseded_generations_after_commit(publication);
+        cache.current = Some(published_generation(publication));
         Ok(publication.generation_id)
     }
 
     pub fn load_current(&self) -> Result<PublishedSessionGenerationV1, SessionStoreError> {
-        let generation = self.content.load_current()?;
+        let generation_id = self.content.current_generation_id()?;
+        let publication = self.load_generation_closure(generation_id)?;
+        let mut cache = self.cache()?;
+        cache.current = Some(publication.clone());
+        Ok(publication)
+    }
+
+    fn decode_generation(
+        &self,
+        generation: PublishedContentGenerationV1,
+    ) -> Result<PublishedSessionGenerationV1, SessionStoreError> {
         let index_bytes = generation
             .file(SESSION_INDEX_FILE)
             .ok_or(SessionStoreError::IndexInvalid)?;
@@ -213,20 +284,61 @@ impl SessionStore {
             return Err(SessionStoreError::SnapshotInvalid);
         }
         let mut objects = BTreeMap::new();
-        for hash in &index.object_hashes {
-            let path = format!("{SESSION_OBJECT_DIRECTORY}/{}.bin", hash.to_hex());
-            let bytes = generation
-                .file(&path)
-                .ok_or(SessionStoreError::ObjectMissing)?
-                .to_vec();
-            if content_hash_from_bytes(sha256(&bytes)) != *hash {
-                return Err(SessionStoreError::ObjectHashMismatch);
+        if let Some(pack_index_bytes) = generation.file(SESSION_OBJECT_PACK_INDEX_FILE) {
+            let pack_index = decode_object_pack_index(pack_index_bytes, &index.object_hashes)?;
+            let packs = (0..pack_index.pack_count)
+                .map(|ordinal| {
+                    generation
+                        .file(&object_pack_path(ordinal))
+                        .ok_or(SessionStoreError::ObjectMissing)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let mut consumed_pack_bytes = vec![0_usize; pack_index.pack_count];
+            for location in pack_index.locations {
+                let pack = packs
+                    .get(location.pack_index)
+                    .ok_or(SessionStoreError::ObjectPackIndexInvalid)?;
+                let end = location
+                    .offset
+                    .checked_add(location.length)
+                    .ok_or(SessionStoreError::ObjectPackIndexInvalid)?;
+                let bytes = pack
+                    .get(location.offset..end)
+                    .ok_or(SessionStoreError::ObjectPackIndexInvalid)?
+                    .to_vec();
+                if content_hash_from_bytes(sha256(&bytes)) != location.object_hash {
+                    return Err(SessionStoreError::ObjectHashMismatch);
+                }
+                consumed_pack_bytes[location.pack_index] = end;
+                objects.insert(location.object_hash, bytes);
             }
-            objects.insert(*hash, bytes);
-        }
-        let expected_paths = 2 + index.object_hashes.len();
-        if generation.files.len() != expected_paths {
-            return Err(SessionStoreError::UnexpectedObject);
+            if packs
+                .iter()
+                .zip(consumed_pack_bytes)
+                .any(|(pack, consumed)| pack.len() != consumed)
+            {
+                return Err(SessionStoreError::ObjectPackIndexInvalid);
+            }
+            let expected_paths = 3 + pack_index.pack_count;
+            if generation.files.len() != expected_paths {
+                return Err(SessionStoreError::UnexpectedObject);
+            }
+        } else {
+            for hash in &index.object_hashes {
+                let raw_path = format!("{SESSION_OBJECT_DIRECTORY}/{}.bin", hash.to_hex());
+                let bytes = generation
+                    .file(&raw_path)
+                    .ok_or(SessionStoreError::ObjectMissing)?
+                    .to_vec();
+                if content_hash_from_bytes(sha256(&bytes)) != *hash {
+                    return Err(SessionStoreError::ObjectHashMismatch);
+                }
+                objects.insert(*hash, bytes);
+            }
+            let expected_paths = 2 + index.object_hashes.len();
+            if generation.files.len() != expected_paths {
+                return Err(SessionStoreError::UnexpectedObject);
+            }
         }
         Ok(PublishedSessionGenerationV1 {
             generation_id: generation.generation_id,
@@ -240,15 +352,45 @@ impl SessionStore {
         })
     }
 
+    fn load_generation_closure(
+        &self,
+        generation_id: ContentHash,
+    ) -> Result<PublishedSessionGenerationV1, SessionStoreError> {
+        let generation = self.content.load_generation_by_id(generation_id)?;
+        let loaded = self.decode_generation(generation)?;
+        if let Some(previous_generation) = loaded.expected_previous_generation {
+            let previous = self.content.load_generation_by_id(previous_generation)?;
+            self.decode_generation(previous)?;
+        }
+        Ok(loaded)
+    }
+
+    fn current_for_publish(
+        &self,
+        cache: &mut SessionStoreCacheV1,
+    ) -> Result<Option<PublishedSessionGenerationV1>, SessionStoreError> {
+        if !self.root.join(crate::CONTENT_CURRENT_FILE).exists() {
+            *cache = SessionStoreCacheV1::default();
+            return Ok(None);
+        }
+        let current_id = self.content.current_generation_id()?;
+        if cache
+            .current
+            .as_ref()
+            .is_some_and(|current| current.generation_id == current_id)
+        {
+            return Ok(cache.current.clone());
+        }
+        let publication = self.load_generation_closure(current_id)?;
+        cache.current = Some(publication.clone());
+        Ok(Some(publication))
+    }
+
     fn validate_registry_transition(
         &self,
         publication: &SessionPublicationV1,
+        current: Option<&PublishedSessionGenerationV1>,
     ) -> Result<(), SessionStoreError> {
-        let current = if self.root.join(crate::CONTENT_CURRENT_FILE).exists() {
-            Some(self.load_current()?)
-        } else {
-            None
-        };
         match current {
             None => {
                 if publication.expected_previous_generation.is_some()
@@ -300,10 +442,11 @@ impl SessionStore {
     fn prepare_superseded_generations(
         &self,
         publication: &SessionPublicationV1,
+        current: Option<&PublishedSessionGenerationV1>,
     ) -> Result<(), SessionStoreError> {
         let mut retained = retained_generations(publication);
-        if self.root.join(crate::CONTENT_CURRENT_FILE).exists()
-            && let Some(previous_generation) = self.load_current()?.expected_previous_generation
+        if let Some(previous_generation) =
+            current.and_then(|current| current.expected_previous_generation)
         {
             retained.push(previous_generation);
         }
@@ -315,15 +458,23 @@ impl SessionStore {
         Ok(())
     }
 
+    fn cache(&self) -> Result<MutexGuard<'_, SessionStoreCacheV1>, SessionStoreError> {
+        self.cache
+            .lock()
+            .map_err(|_| SessionStoreError::CacheUnavailable)
+    }
+
     #[cfg(test)]
     fn publish_with_fault(
         &self,
         publication: &SessionPublicationV1,
         fault: SessionPublishFault,
     ) -> Result<(), SessionStoreError> {
-        let content_publication = publication.content_publication()?;
-        self.validate_registry_transition(publication)?;
-        self.prepare_superseded_generations(publication)?;
+        let plan = publication.packing_plan()?;
+        let mut cache = self.cache()?;
+        let current = self.current_for_publish(&mut cache)?;
+        self.validate_registry_transition(publication, current.as_ref())?;
+        self.prepare_superseded_generations(publication, current.as_ref())?;
         let content_fault = match fault {
             SessionPublishFault::BeforeGenerationCommit => {
                 ContentPublishFault::BeforeGenerationCommit
@@ -331,8 +482,9 @@ impl SessionStore {
             SessionPublishFault::BeforePointerSwitch => ContentPublishFault::BeforeCurrentSwitch,
         };
         self.content
-            .publish_with_fault(&content_publication, content_fault)?;
+            .publish_with_fault(&plan.content, content_fault)?;
         self.prune_superseded_generations_after_commit(publication);
+        cache.current = Some(published_generation(publication));
         Ok(())
     }
 }
@@ -343,6 +495,206 @@ fn retained_generations(publication: &SessionPublicationV1) -> Vec<ContentHash> 
         retained.push(previous_generation);
     }
     retained
+}
+
+fn published_generation(publication: &SessionPublicationV1) -> PublishedSessionGenerationV1 {
+    PublishedSessionGenerationV1 {
+        generation_id: publication.generation_id,
+        sequence: publication.sequence,
+        project_composition_lock_hash: publication.project_composition_lock_hash,
+        live_session_id: publication.live_session_id,
+        expected_previous_generation: publication.expected_previous_generation,
+        superseded_session_id: publication.superseded_session_id,
+        snapshot: publication.snapshot.clone(),
+        objects: publication
+            .objects
+            .iter()
+            .map(|object| (object.content_hash, object.bytes.clone()))
+            .collect(),
+    }
+}
+
+struct SessionObjectPackIndexV1 {
+    pack_count: usize,
+    locations: Vec<SessionObjectPackLocationV1>,
+}
+
+fn object_pack_path(ordinal: usize) -> String {
+    format!("{SESSION_OBJECT_DIRECTORY}/pack-{ordinal:04}.bin")
+}
+
+fn encode_object_pack_index(
+    pack_count: usize,
+    locations: &[SessionObjectPackLocationV1],
+) -> Result<Vec<u8>, SessionStoreError> {
+    if pack_count > SESSION_MAX_OBJECTS || locations.len() > SESSION_MAX_OBJECTS {
+        return Err(SessionStoreError::ObjectPackIndexInvalid);
+    }
+    let mut records = Vec::with_capacity(locations.len() * SESSION_OBJECT_PACK_LOCATION_BYTES);
+    for location in locations {
+        if location.pack_index >= pack_count
+            || location.length > CONTENT_MAX_FILE_BYTES
+            || location
+                .offset
+                .checked_add(location.length)
+                .is_none_or(|end| end > CONTENT_MAX_FILE_BYTES)
+        {
+            return Err(SessionStoreError::ObjectPackIndexInvalid);
+        }
+        records.extend_from_slice(location.object_hash.as_bytes());
+        records.extend_from_slice(
+            &u32::try_from(location.pack_index)
+                .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?
+                .to_le_bytes(),
+        );
+        records.extend_from_slice(
+            &u64::try_from(location.offset)
+                .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?
+                .to_le_bytes(),
+        );
+        records.extend_from_slice(
+            &u64::try_from(location.length)
+                .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?
+                .to_le_bytes(),
+        );
+    }
+    Ok(encode_canonical_segment(
+        "nextengine.assets",
+        "nextengine.session-object-pack-index.v1",
+        "current",
+        [
+            CanonicalField::new(
+                1,
+                CANONICAL_TYPE_U32,
+                SESSION_OBJECT_PACK_INDEX_SCHEMA_VERSION
+                    .to_le_bytes()
+                    .to_vec(),
+            ),
+            CanonicalField::new(
+                2,
+                CANONICAL_TYPE_U32,
+                u32::try_from(pack_count)
+                    .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?
+                    .to_le_bytes()
+                    .to_vec(),
+            ),
+            CanonicalField::new(3, CANONICAL_TYPE_SEQUENCE, records),
+        ],
+    )?)
+}
+
+fn decode_object_pack_index(
+    bytes: &[u8],
+    expected_hashes: &[ContentHash],
+) -> Result<SessionObjectPackIndexV1, SessionStoreError> {
+    let decoded = decode_canonical_segment(bytes, CanonicalDecodeLimits::default())
+        .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?;
+    if decoded.owner_id != "nextengine.assets"
+        || decoded.schema_id != "nextengine.session-object-pack-index.v1"
+        || decoded.segment_id != "current"
+        || decoded.fields.len() != 3
+    {
+        return Err(SessionStoreError::ObjectPackIndexInvalid);
+    }
+    let field = |id, tag| -> Result<&[u8], SessionStoreError> {
+        let field = decoded
+            .field(id)
+            .ok_or(SessionStoreError::ObjectPackIndexInvalid)?;
+        if field.type_tag != tag {
+            return Err(SessionStoreError::ObjectPackIndexInvalid);
+        }
+        Ok(&field.payload)
+    };
+    let schema = u32::from_le_bytes(
+        field(1, CANONICAL_TYPE_U32)?
+            .try_into()
+            .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?,
+    );
+    let pack_count = usize::try_from(u32::from_le_bytes(
+        field(2, CANONICAL_TYPE_U32)?
+            .try_into()
+            .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?,
+    ))
+    .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?;
+    let records = field(3, CANONICAL_TYPE_SEQUENCE)?;
+    if schema != SESSION_OBJECT_PACK_INDEX_SCHEMA_VERSION
+        || pack_count > SESSION_MAX_OBJECTS
+        || records.len() % SESSION_OBJECT_PACK_LOCATION_BYTES != 0
+        || records.len() / SESSION_OBJECT_PACK_LOCATION_BYTES != expected_hashes.len()
+    {
+        return Err(SessionStoreError::ObjectPackIndexInvalid);
+    }
+    let locations = records
+        .chunks_exact(SESSION_OBJECT_PACK_LOCATION_BYTES)
+        .zip(expected_hashes)
+        .map(|(record, expected_hash)| {
+            let object_hash = ContentHash::from_bytes(
+                record[..32]
+                    .try_into()
+                    .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?,
+            );
+            let pack_index = usize::try_from(u32::from_le_bytes(
+                record[32..36]
+                    .try_into()
+                    .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?,
+            ))
+            .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?;
+            let offset = usize::try_from(u64::from_le_bytes(
+                record[36..44]
+                    .try_into()
+                    .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?,
+            ))
+            .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?;
+            let length = usize::try_from(u64::from_le_bytes(
+                record[44..52]
+                    .try_into()
+                    .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?,
+            ))
+            .map_err(|_| SessionStoreError::ObjectPackIndexInvalid)?;
+            if object_hash != *expected_hash
+                || pack_index >= pack_count
+                || length > CONTENT_MAX_FILE_BYTES
+                || offset
+                    .checked_add(length)
+                    .is_none_or(|end| end > CONTENT_MAX_FILE_BYTES)
+            {
+                return Err(SessionStoreError::ObjectPackIndexInvalid);
+            }
+            Ok(SessionObjectPackLocationV1 {
+                object_hash,
+                pack_index,
+                offset,
+                length,
+            })
+        })
+        .collect::<Result<Vec<_>, SessionStoreError>>()?;
+    if expected_hashes.is_empty() != (pack_count == 0) {
+        return Err(SessionStoreError::ObjectPackIndexInvalid);
+    }
+    let mut expected_pack_index = 0_usize;
+    let mut expected_offset = 0_usize;
+    for location in &locations {
+        if location.pack_index == expected_pack_index {
+            if location.offset != expected_offset {
+                return Err(SessionStoreError::ObjectPackIndexInvalid);
+            }
+        } else if location.pack_index == expected_pack_index + 1 && location.offset == 0 {
+            expected_pack_index = location.pack_index;
+        } else {
+            return Err(SessionStoreError::ObjectPackIndexInvalid);
+        }
+        expected_offset = location
+            .offset
+            .checked_add(location.length)
+            .ok_or(SessionStoreError::ObjectPackIndexInvalid)?;
+    }
+    if !locations.is_empty() && expected_pack_index + 1 != pack_count {
+        return Err(SessionStoreError::ObjectPackIndexInvalid);
+    }
+    Ok(SessionObjectPackIndexV1 {
+        pack_count,
+        locations,
+    })
 }
 
 struct SessionIndexV1 {
@@ -501,6 +853,8 @@ pub enum SessionStoreError {
     DuplicateObject,
     ObjectMissing,
     UnexpectedObject,
+    ObjectPackIndexInvalid,
+    CacheUnavailable,
     PriorGenerationMismatch,
     LiveSessionConflict,
     SequenceStale,
@@ -523,7 +877,9 @@ impl SessionStoreError {
             | Self::ObjectHashMismatch
             | Self::DuplicateObject
             | Self::ObjectMissing
-            | Self::UnexpectedObject => "SESSION_STORAGE_UNAVAILABLE",
+            | Self::UnexpectedObject
+            | Self::ObjectPackIndexInvalid
+            | Self::CacheUnavailable => "SESSION_STORAGE_UNAVAILABLE",
         }
     }
 }
@@ -541,6 +897,10 @@ impl Display for SessionStoreError {
             Self::DuplicateObject => formatter.write_str("session object is duplicated"),
             Self::ObjectMissing => formatter.write_str("session object is missing"),
             Self::UnexpectedObject => formatter.write_str("unexpected session object exists"),
+            Self::ObjectPackIndexInvalid => {
+                formatter.write_str("session object pack index is invalid")
+            }
+            Self::CacheUnavailable => formatter.write_str("session store cache is unavailable"),
             Self::PriorGenerationMismatch => {
                 formatter.write_str("session prior generation does not match")
             }
@@ -578,379 +938,4 @@ enum SessionPublishFault {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    use super::*;
-
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    #[test]
-    fn atomic_faults_keep_prior_generation_and_one_live_session() {
-        for fault in [
-            SessionPublishFault::BeforeGenerationCommit,
-            SessionPublishFault::BeforePointerSwitch,
-        ] {
-            let root = test_root("fault");
-            let store = SessionStore::new(&root);
-            let first = publication(0, None, 1, None);
-            store.publish(&first).expect("initial");
-            let second = publication(1, Some(first.generation_id), 1, None);
-            assert!(store.publish_with_fault(&second, fault).is_err());
-            let loaded = store.load_current().expect("prior remains");
-            assert_eq!(loaded.generation_id, first.generation_id);
-            assert_eq!(
-                loaded.live_session_id,
-                Some(ApplicationSessionId::from_bytes([1; 16]))
-            );
-            std::fs::remove_dir_all(root).expect("cleanup");
-        }
-    }
-
-    #[test]
-    fn recovery_atomically_replaces_live_session() {
-        let root = test_root("recovery");
-        let store = SessionStore::new(&root);
-        let first = publication(0, None, 1, None);
-        store.publish(&first).expect("initial");
-        let recovered = publication(1, Some(first.generation_id), 2, Some(1));
-        store.publish(&recovered).expect("recovery");
-        assert_eq!(
-            store.load_current().expect("current").live_session_id,
-            Some(ApplicationSessionId::from_bytes([2; 16]))
-        );
-        std::fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn successful_publication_retains_only_current_and_previous_generations() {
-        let root = test_root("bounded-generations");
-        let store = SessionStore::new(&root);
-        let mut previous = None;
-        let mut prior_target: Option<ContentHash> = None;
-        for sequence in 0..12 {
-            let next = publication(sequence, previous, 1, None);
-            store.publish(&next).expect("session publication");
-
-            let generations = generation_names(&root);
-            let mut expected = vec![next.generation_id.to_hex()];
-            if let Some(prior_target) = prior_target {
-                expected.push(prior_target.to_hex());
-            }
-            expected.sort();
-            assert_eq!(generations, expected);
-
-            previous = Some(next.generation_id);
-            prior_target = Some(next.generation_id);
-        }
-        assert_eq!(
-            store.load_current().expect("current").generation_id,
-            previous.expect("published generation")
-        );
-        std::fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn failed_third_publication_preserves_current_and_previous_generations() {
-        let root = test_root("failed-third-preserves-history");
-        let store = SessionStore::new(&root);
-        let first = publication(0, None, 1, None);
-        store.publish(&first).expect("first generation");
-        let second = publication(1, Some(first.generation_id), 1, None);
-        store.publish(&second).expect("second generation");
-        let third = publication(2, Some(second.generation_id), 1, None);
-
-        assert!(matches!(
-            store.publish_with_fault(&third, SessionPublishFault::BeforeGenerationCommit),
-            Err(SessionStoreError::Content(ContentStoreError::InjectedFault))
-        ));
-        assert_eq!(
-            store
-                .load_current()
-                .expect("second remains current")
-                .generation_id,
-            second.generation_id
-        );
-        let mut retained = vec![first.generation_id.to_hex(), second.generation_id.to_hex()];
-        retained.sort();
-        assert_eq!(generation_names(&root), retained);
-
-        store.publish(&third).expect("third retry");
-        let mut retained = vec![second.generation_id.to_hex(), third.generation_id.to_hex()];
-        retained.sort();
-        assert_eq!(generation_names(&root), retained);
-        std::fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn next_publication_repairs_a_prior_post_commit_cleanup_miss() {
-        let root = test_root("repair-post-commit-cleanup");
-        let store = SessionStore::new(&root);
-        let first = publication(0, None, 1, None);
-        store.publish(&first).expect("first generation");
-        let second = publication(1, Some(first.generation_id), 1, None);
-        store.publish(&second).expect("second generation");
-        let third = publication(2, Some(second.generation_id), 1, None);
-
-        store
-            .content
-            .publish(
-                &third
-                    .content_publication()
-                    .expect("third content publication"),
-            )
-            .expect("simulate CURRENT commit before cleanup");
-        assert_eq!(
-            store.load_current().expect("third current").generation_id,
-            third.generation_id
-        );
-        assert_eq!(generation_names(&root).len(), 3);
-
-        let fourth = publication(3, Some(third.generation_id), 1, None);
-        store
-            .publish(&fourth)
-            .expect("next publication repairs history");
-        let mut retained = vec![third.generation_id.to_hex(), fourth.generation_id.to_hex()];
-        retained.sort();
-        assert_eq!(generation_names(&root), retained);
-        std::fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn target_left_by_pointer_fault_is_retained_for_retry() {
-        let root = test_root("pointer-retry");
-        let store = SessionStore::new(&root);
-        let first = publication(0, None, 1, None);
-        store.publish(&first).expect("initial");
-        let second = publication(1, Some(first.generation_id), 1, None);
-        assert!(matches!(
-            store.publish_with_fault(&second, SessionPublishFault::BeforePointerSwitch),
-            Err(SessionStoreError::Content(ContentStoreError::InjectedFault))
-        ));
-        assert_eq!(generation_names(&root).len(), 2);
-
-        store.publish(&second).expect("idempotent retry");
-        assert_eq!(
-            store.load_current().expect("retried current").generation_id,
-            second.generation_id
-        );
-        assert_eq!(generation_names(&root).len(), 2);
-        std::fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn invalid_generation_path_blocks_publish_before_current_switch() {
-        let root = test_root("invalid-generation-path");
-        let store = SessionStore::new(&root);
-        let first = publication(0, None, 1, None);
-        store.publish(&first).expect("initial");
-        std::fs::create_dir(
-            root.join(crate::CONTENT_GENERATIONS_DIRECTORY)
-                .join("escape"),
-        )
-        .expect("invalid generation entry");
-
-        let second = publication(1, Some(first.generation_id), 1, None);
-        assert!(matches!(
-            store.publish(&second),
-            Err(SessionStoreError::Content(ContentStoreError::InvalidPath))
-        ));
-        assert_eq!(
-            store
-                .load_current()
-                .expect("prior current remains")
-                .generation_id,
-            first.generation_id
-        );
-        assert!(
-            !root
-                .join(crate::CONTENT_GENERATIONS_DIRECTORY)
-                .join(second.generation_id.to_hex())
-                .exists()
-        );
-        std::fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn crash_staging_at_partial_depths_is_removed_without_switching_current() {
-        let root = test_root("crash-staging-retry");
-        let store = SessionStore::new(&root);
-        let first = publication(0, None, 1, None);
-        store.publish(&first).expect("initial");
-        let generations = root.join(crate::CONTENT_GENERATIONS_DIRECTORY);
-
-        for (ordinal, relative_path) in [
-            (1_u8, None),
-            (2, Some("session")),
-            (3, Some("objects/nested/partial.bin")),
-        ] {
-            let staging = generations.join(format!(
-                ".{}.staging.{}",
-                ContentHash::from_bytes([ordinal; 32]).to_hex(),
-                4_000_000_000_u32 + u32::from(ordinal)
-            ));
-            std::fs::create_dir(&staging).expect("staging root");
-            if let Some(relative_path) = relative_path {
-                let partial = staging.join(relative_path);
-                if partial.extension().is_some() {
-                    std::fs::create_dir_all(partial.parent().expect("partial parent"))
-                        .expect("partial parent tree");
-                    std::fs::write(partial, b"partial").expect("partial file");
-                } else {
-                    std::fs::create_dir_all(partial).expect("partial directory");
-                }
-            }
-        }
-
-        let second = publication(1, Some(first.generation_id), 1, None);
-        assert!(matches!(
-            store.publish_with_fault(&second, SessionPublishFault::BeforePointerSwitch),
-            Err(SessionStoreError::Content(ContentStoreError::InjectedFault))
-        ));
-        assert_eq!(
-            store
-                .load_current()
-                .expect("fault keeps prior CURRENT")
-                .generation_id,
-            first.generation_id
-        );
-        let mut expected_generations =
-            vec![first.generation_id.to_hex(), second.generation_id.to_hex()];
-        expected_generations.sort();
-        assert_eq!(generation_names(&root), expected_generations);
-
-        store.publish(&second).expect("retry after crash cleanup");
-        assert_eq!(
-            store.load_current().expect("retried current").generation_id,
-            second.generation_id
-        );
-        std::fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn staging_shaped_non_directory_fails_closed_without_switching_current() {
-        let root = test_root("crash-staging-file");
-        let store = SessionStore::new(&root);
-        let first = publication(0, None, 1, None);
-        store.publish(&first).expect("initial");
-        let staging = root
-            .join(crate::CONTENT_GENERATIONS_DIRECTORY)
-            .join(format!(
-                ".{}.staging.4000000001",
-                ContentHash::from_bytes([0x7a; 32]).to_hex()
-            ));
-        std::fs::write(&staging, b"not a directory").expect("staging-shaped file");
-
-        let second = publication(1, Some(first.generation_id), 1, None);
-        assert!(matches!(
-            store.publish(&second),
-            Err(SessionStoreError::Content(ContentStoreError::InvalidPath))
-        ));
-        assert_eq!(
-            store
-                .load_current()
-                .expect("prior current remains")
-                .generation_id,
-            first.generation_id
-        );
-        assert!(
-            !root
-                .join(crate::CONTENT_GENERATIONS_DIRECTORY)
-                .join(second.generation_id.to_hex())
-                .exists()
-        );
-        std::fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn one_thousand_open_close_cycles_keep_one_live_session_and_unique_receipts() {
-        let root = test_root("thousand-cycles");
-        let store = SessionStore::new(&root);
-        let mut previous = None;
-        let mut sequence = 0_u64;
-        let mut receipts = std::collections::BTreeSet::new();
-        for ordinal in 0..1_000_u64 {
-            let mut id_bytes = [0_u8; 16];
-            id_bytes[..8].copy_from_slice(&ordinal.to_le_bytes());
-            let session_id = ApplicationSessionId::from_bytes(id_bytes);
-            let opened = SessionPublicationV1::new(
-                sequence,
-                ContentHash::from_bytes([9; 32]),
-                Some(session_id),
-                previous,
-                None,
-                format!("open-{ordinal}").into_bytes(),
-                vec![],
-            )
-            .expect("open publication");
-            store.publish(&opened).expect("open");
-            let current = store.load_current().expect("opened current");
-            assert_eq!(current.live_session_id, Some(session_id));
-            previous = Some(opened.generation_id);
-            sequence += 1;
-
-            let receipt = SessionObjectV1::new(format!("receipt-{ordinal}").into_bytes());
-            assert!(receipts.insert(receipt.content_hash));
-            let closed = SessionPublicationV1::new(
-                sequence,
-                ContentHash::from_bytes([9; 32]),
-                None,
-                previous,
-                None,
-                format!("closed-{ordinal}").into_bytes(),
-                vec![receipt],
-            )
-            .expect("close publication");
-            store.publish(&closed).expect("close");
-            let current = store.load_current().expect("closed current");
-            assert_eq!(current.live_session_id, None);
-            assert_eq!(current.objects.len(), 1);
-            previous = Some(closed.generation_id);
-            sequence += 1;
-        }
-        assert_eq!(receipts.len(), 1_000);
-        assert_eq!(generation_names(&root).len(), 2);
-        std::fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    fn publication(
-        sequence: u64,
-        previous: Option<ContentHash>,
-        live: u8,
-        superseded: Option<u8>,
-    ) -> SessionPublicationV1 {
-        SessionPublicationV1::new(
-            sequence,
-            ContentHash::from_bytes([9; 32]),
-            Some(ApplicationSessionId::from_bytes([live; 16])),
-            previous,
-            superseded.map(|id| ApplicationSessionId::from_bytes([id; 16])),
-            vec![sequence as u8 + 1],
-            vec![SessionObjectV1::new(vec![42, sequence as u8])],
-        )
-        .expect("publication")
-    }
-
-    fn test_root(label: &str) -> PathBuf {
-        std::env::temp_dir().join(format!(
-            "nextengine-session-store-{label}-{}-{}",
-            std::process::id(),
-            COUNTER.fetch_add(1, Ordering::Relaxed)
-        ))
-    }
-
-    fn generation_names(root: &Path) -> Vec<String> {
-        let mut names = std::fs::read_dir(root.join(crate::CONTENT_GENERATIONS_DIRECTORY))
-            .expect("generation directory")
-            .map(|entry| {
-                entry
-                    .expect("generation entry")
-                    .file_name()
-                    .into_string()
-                    .expect("utf-8 generation name")
-            })
-            .collect::<Vec<_>>();
-        names.sort();
-        names
-    }
-}
+mod tests;

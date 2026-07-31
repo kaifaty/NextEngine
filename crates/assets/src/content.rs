@@ -136,10 +136,21 @@ impl ContentStore {
     }
 
     pub fn load_current(&self) -> Result<PublishedContentGenerationV1, ContentStoreError> {
+        let generation_id = self.current_generation_id()?;
+        self.load_generation_by_id(generation_id)
+    }
+
+    pub(crate) fn current_generation_id(&self) -> Result<ContentHash, ContentStoreError> {
         let current_path = self.root.join(CONTENT_CURRENT_FILE);
         let current = read_bounded(&current_path, 65)?;
         let current = std::str::from_utf8(&current).map_err(|_| ContentStoreError::InvalidIndex)?;
-        let generation_id = parse_hash(current.trim_end_matches('\n'))?;
+        parse_hash(current.trim_end_matches('\n'))
+    }
+
+    pub(crate) fn load_generation_by_id(
+        &self,
+        generation_id: ContentHash,
+    ) -> Result<PublishedContentGenerationV1, ContentStoreError> {
         let generation_path = self
             .root
             .join(CONTENT_GENERATIONS_DIRECTORY)

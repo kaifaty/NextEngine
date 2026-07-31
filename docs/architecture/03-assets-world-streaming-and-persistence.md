@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 1.14 |
-| Последняя проверка | 2026-07-30 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) |
+| Версия | 1.15 |
+| Последняя проверка | 2026-07-31 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-037](adr/037-packed-session-object-storage.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
@@ -68,6 +68,16 @@ Chunk становится `Active` только на simulation commit point п
 `SaveManifest` MUST содержать engine/game build identity, project ID, exact `ProjectCompositionLock` hash, `SchemaRegistryManifestV1`, `ContentManifestV1`, resource-policy and `WorldPartitionManifestV1` hashes, exact MechanicsLock hash/package-state schemas, tick/time settings, loaded chunk revisions, `WorldIdentityManifestV1`, `RuntimeDeterminismProfileV1`, named RNG stream states, physical archetype/model catalog/active route hashes, PolicyState schemas, plugin/script hashes, полный world-level `CommandLedgerV2` с каждым `CommandStreamLedgerV2` (high-watermark/state/reservations/4096-receipt window/count/root) и ordered segment table. Каждая command reservation и каждый ordinary receipt сохраняют полный body hash. Каждый segment имеет ровно одного owner, schema/version, byte length и ADR-022 domain-separated SHA-256. RPG aggregates/revisions находятся в RPG segment; `WorldCalendarStateV1`, population/schedule cursors, durable placements/tombstones and abstract activities — в World Services segment; transition/PolicyState — в Motor Runtime segment; immutable bundle/model payloads, worker queues and cache state в save запрещены.
 
 Save procedure: freeze logical commit point → snapshot owner segments → write new staging save → fsync files/manifest where platform permits → validate → atomic pointer update. Autosave MUST NOT перезаписывать единственную известную валидную generation.
+
+Private application-session storage следует ADR-037. Logical session object
+остаётся exact content-addressed byte string и входит в generation identity
+только своим прежним hash; objects MAY физически храниться в одном или нескольких
+canonical-indexed generation pack files. Packing choice, ordinal/offset и
+validated in-process cache не входят в save/replay/state roots. Current и
+previous session generations считаются complete только при наличии и проверке
+всех legacy raw objects либо всех pack files с последующей проверкой каждого
+final logical object hash. Legacy raw representation остаётся читаемым, а pack
+split использует прежний per-file size budget без нового logical rejection.
 
 Migration uses the unique schema-registry DAG and pure ordered transforms over a complete copy. Runtime-supported direct load is `N`/`N-1`; validated copy-on-write migration reaches `N` from `N-2` only through the unique path defined by SPEC-22. Unknown required segment/field, checksum mismatch, missing content revision, ambiguous path or failed transform → fail-closed with original generation byte-identical. Legacy RPG-owned calendar fields переносятся в `WorldCalendarStateV1` одной atomic copy-on-write transaction: новый RPG segment без calendar fields и новый World Services segment публикуются только вместе после cross-segment validation. Любой duplicate/missing/conflicting calendar field, unsupported mapping, hash/revision mismatch или injected publication failure сохраняет original save bytes и не публикует ни один новый segment. User получает stable code, affected schema/segment и recovery choices.
 

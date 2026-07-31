@@ -84,7 +84,8 @@ Roadmap намеренно не содержит календарных обещ
   `30` ticks и forced atomically на suspend/close; crash rollback ограничен
   `29` ticks, resume не делает wall-time catch-up, lifecycle retry/publication
   rollback сохраняют prior generation, full lifecycle archive bounded,
-  session store удерживает current+previous raw generations, а required-save
+  session store удерживает current+previous complete logical generations и
+  упаковывает logical objects в bounded object packs по ADR-037, а required-save
   lineage переносится bounded цепочкой до `64` entries с exact prior durable
   snapshots и полными referenced object closures;
 - session-bound desktop host/capability registration отклоняет stale adapter
@@ -303,7 +304,8 @@ durable same-session checkpoint публикуется на tick `0`, кажды
 forced atomically на suspend/close. Crash может откатить до `29` последних
 in-memory ticks, resume не догоняет wall time, exact lifecycle retry и
 publication rollback сохраняют prior state, full request/event archive bounded,
-а session store удерживает current+previous raw generations и переносит до
+а session store удерживает current+previous complete logical generations,
+физически объединяет objects в bounded generation packs по ADR-037 и переносит до
 `64` required-save recovery entries с exact prior snapshot/object closures.
 Fresh session-bound desktop host
 registration отклоняет stale lifecycle/control events; authoritative restart
@@ -715,8 +717,9 @@ targeting/query facts. Typed integer/fixed-point camera, complete in-memory
 presentation-only. Durable same-session checkpoint использует cadence tick
 `0`/каждые `30` ticks и forced atomic suspend/close publication; crash rollback
 ограничен `29` ticks, resume не делает catch-up, exact lifecycle retry,
-publication rollback, full bounded request/event archive, current+previous raw
-retention и carry-forward chain до `64` recovery evidence entries с prior
+publication rollback, full bounded request/event archive, current+previous
+logical retention с bounded object packing по ADR-037 и carry-forward chain
+до `64` recovery evidence entries с prior
 snapshot/object closures сохраняют bounded recovery. Current host/capability
 registration отклоняет stale adapter events;
 authoritative restart создаёт fresh presentation epoch/sequence `0` и camera
@@ -736,6 +739,14 @@ canonical component bytes, а identity-index root больше не требуе
 Windows process I/O deltas, bounded CPU/Vulkan frame timing и conservative
 engine-owned device-allocation ceiling реализованы; release smoke на THOTH
 получил timestamp samples без dropped queries.
+Private session storage дополнительно объединяет logical objects в один или
+несколько bounded generation packs, сокращая Windows durable file barriers,
+сохраняет legacy raw load и final logical hash validation; packing не меняет
+generation/state/ledger roots. Отдельные 4-KiB chunk files были отвергнуты после
+release soak из-за многократной checkpoint-latency regression. Итоговое
+storage/performance hardening по ADR-037 в одном Windows-local `REPORT_ONLY`
+soak улучшило checkpoint windows примерно на `13.8% / 15.3% / 8.0%` против
+preceding implementation и не меняет product queue.
 Exact global host allocator counter и ten-run calibration evidence ещё
 отсутствуют. Это не меняет product queue: calibration начинается после
 стабилизации последнего required counter/noise, а hard

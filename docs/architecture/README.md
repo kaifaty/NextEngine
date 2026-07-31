@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.8 |
-| Последняя проверка | 2026-07-30 |
-| Заменяет | INDEX-001 version 2.6 |
+| Версия | 2.9 |
+| Последняя проверка | 2026-07-31 |
+| Заменяет | INDEX-001 version 2.8 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -209,6 +209,7 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-034 | [Player targeting replay V5 и exact mapping provenance](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) | Accepted |
 | ADR-035 | [Bounded live recovery, platform-host binding и presentation cut](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) | Accepted; partially supersedes ADR-028 |
 | ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; заменяет reference 8-core qualifier ADR-016/SPEC-05 без изменения budgets |
+| ADR-037 | [Packed session object storage](adr/037-packed-session-object-storage.md) | Accepted; узко заменяет physical raw-generation representation ADR-035 без изменения logical roots/cadence |
 
 ## Proposed tracks
 
