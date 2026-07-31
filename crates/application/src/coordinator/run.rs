@@ -28,6 +28,8 @@ const LIVE_CHECKPOINT_INTERVAL_TICKS: u64 = 30;
 #[derive(Clone)]
 pub(super) struct PreparedRunV1 {
     pub(super) checkpoint: WorldCheckpointV4,
+    pub(super) checkpoint_canonical_components:
+        next_contracts::snapshot::WorldCheckpointCanonicalComponentsV1,
     pub(super) streaming: WorldStreamingSnapshotV1,
     pub(super) summary: ApplicationRunOutcomeV1,
     pub(super) driver_recovery: Option<ReferenceLiveDriverRecoveryV1>,
@@ -212,9 +214,18 @@ impl ApplicationCoordinator {
             return Ok(());
         }
         let object_bytes = [
-            prepared.checkpoint.runtime_snapshot.canonical_bytes()?,
-            prepared.checkpoint.rpg_snapshot.canonical_bytes()?,
-            prepared.checkpoint.physics_checkpoint.canonical_bytes()?,
+            prepared
+                .checkpoint_canonical_components
+                .runtime_snapshot_bytes()
+                .to_vec(),
+            prepared
+                .checkpoint_canonical_components
+                .rpg_snapshot_bytes()
+                .to_vec(),
+            prepared
+                .checkpoint_canonical_components
+                .physics_checkpoint_bytes()
+                .to_vec(),
             prepared.streaming.canonical_bytes()?,
         ];
         self.replace_prepared_run_object_bytes(object_bytes);
@@ -333,6 +344,7 @@ fn prepare_live_state(
 ) -> Result<PreparedRunV1, ApplicationError> {
     let ReferenceLiveStateV1 {
         checkpoint,
+        checkpoint_canonical_components,
         world_streaming_snapshot,
         ticks,
         events,
@@ -344,10 +356,8 @@ fn prepare_live_state(
         driver_recovery,
     } = state;
     let authoritative_state_root =
-        next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
-            &checkpoint.runtime_snapshot,
-            &checkpoint.rpg_snapshot,
-            &checkpoint.physics_checkpoint,
+        next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root_from_canonical_components(
+            &checkpoint_canonical_components,
             &world_streaming_snapshot,
         )?;
     let summary = ApplicationRunOutcomeV1 {
@@ -368,13 +378,14 @@ fn prepare_live_state(
             .command_ledger
             .identity_index
             .index_root,
-        command_ledger_hash: checkpoint.runtime_snapshot.command_ledger_hash()?,
+        command_ledger_hash: checkpoint_canonical_components.command_ledger_hash()?,
         presentation_input_count,
         presentation_snapshot: (presentation_target != PresentationTargetKindV1::None)
             .then_some(presentation_snapshot),
     };
     Ok(PreparedRunV1 {
         checkpoint,
+        checkpoint_canonical_components,
         streaming: world_streaming_snapshot,
         summary,
         driver_recovery: Some(driver_recovery),
@@ -388,7 +399,8 @@ fn prepare_reference_run(
     presentation_target: PresentationTargetKindV1,
 ) -> Result<PreparedRunV1, ApplicationError> {
     let run: ReferenceRunOutcomeV1 = run_reference_game(project, include_interaction)?;
-    let checkpoint = run.runtime.world_checkpoint()?;
+    let (checkpoint, checkpoint_canonical_components) =
+        run.runtime.world_checkpoint_with_canonical_components()?;
     let presentation_snapshot = if presentation_target == PresentationTargetKindV1::None {
         None
     } else {
@@ -417,10 +429,8 @@ fn prepare_reference_run(
     let presentation_input_count = u64::try_from(run.presentation_bindings.len())
         .map_err(|_| ApplicationError::DurableSnapshotInvalid)?;
     let authoritative_state_root =
-        next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
-            &checkpoint.runtime_snapshot,
-            &checkpoint.rpg_snapshot,
-            &checkpoint.physics_checkpoint,
+        next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root_from_canonical_components(
+            &checkpoint_canonical_components,
             &run.world_streaming_snapshot,
         )?;
     let summary = ApplicationRunOutcomeV1 {
@@ -441,12 +451,13 @@ fn prepare_reference_run(
             .command_ledger
             .identity_index
             .index_root,
-        command_ledger_hash: checkpoint.runtime_snapshot.command_ledger_hash()?,
+        command_ledger_hash: checkpoint_canonical_components.command_ledger_hash()?,
         presentation_input_count,
         presentation_snapshot,
     };
     Ok(PreparedRunV1 {
         checkpoint,
+        checkpoint_canonical_components,
         streaming: run.world_streaming_snapshot,
         summary,
         driver_recovery: None,

@@ -24,7 +24,9 @@ pub use content_package::{
     run_content_package_check_in,
 };
 pub use live_runtime_performance::{
-    LiveRuntimePerformanceError, LiveRuntimePerformanceReport, run_live_runtime_performance_check,
+    LiveRuntimePerformanceError, LiveRuntimePerformanceReport,
+    run_live_runtime_long_session_performance_check,
+    run_live_runtime_long_session_performance_check_in, run_live_runtime_performance_check,
     run_live_runtime_performance_check_in,
 };
 pub use persistence_replay::{

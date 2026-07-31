@@ -18,7 +18,10 @@ use next_contracts::physics::{
     PhysicsWorldCheckpointV1,
 };
 use next_contracts::rpg::{RpgRuntimeBindingsV1, RpgSnapshotV2};
-use next_contracts::snapshot::{RuntimeSnapshotV3, WorldCheckpointError, WorldCheckpointV4};
+use next_contracts::snapshot::{
+    RuntimeSnapshotV3, WorldCheckpointCanonicalComponentsV1, WorldCheckpointError,
+    WorldCheckpointV4,
+};
 use next_physics_api::{PhysicsBackendKind, PhysicsWorldHost};
 use next_rpg::RpgState;
 
@@ -328,6 +331,17 @@ impl RuntimeState {
 
     pub fn world_checkpoint(&self) -> Result<WorldCheckpointV4, WorldCheckpointError> {
         WorldCheckpointV4::new(
+            self.snapshot(),
+            self.rpg_snapshot(),
+            self.physics.checkpoint().clone(),
+        )
+    }
+
+    pub fn world_checkpoint_with_canonical_components(
+        &self,
+    ) -> Result<(WorldCheckpointV4, WorldCheckpointCanonicalComponentsV1), WorldCheckpointError>
+    {
+        WorldCheckpointV4::new_with_canonical_components(
             self.snapshot(),
             self.rpg_snapshot(),
             self.physics.checkpoint().clone(),

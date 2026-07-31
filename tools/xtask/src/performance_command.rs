@@ -132,6 +132,15 @@ fn performance_report_for(
         run.verdict = xtask::performance::PerformanceVerdict::NotRun;
         return Ok(performance_command_report(run, None, None, None, None));
     }
+    if request.scenario == xtask::performance::PerformanceScenarioV1::LongSessionSoak
+        && request.mode == xtask::performance::PerformanceModeV1::Gate
+    {
+        run.diagnostics.push(
+            "PERF_LONG_SESSION_SOAK_REPORT_ONLY: the long-session soak has no hard timing budget and cannot gate".to_owned(),
+        );
+        run.verdict = xtask::performance::PerformanceVerdict::NotRun;
+        return Ok(performance_command_report(run, None, None, None, None));
+    }
 
     let resource_counters_before = xtask::performance::inspect_process_counters();
     let (tool_run, _) = run_tool_session("tools-performance", state_root)?;
@@ -157,7 +166,7 @@ fn performance_report_for(
     let mut dropped_spans = 0_u64;
     let mut instrumentation_overhead_nanoseconds = 0_u128;
     let profiler_control = profiling_enabled
-        .then(|| run_profiler_control(state_root))
+        .then(|| run_profiler_control(request.scenario, state_root))
         .transpose()?;
 
     let started = Instant::now();
@@ -206,11 +215,8 @@ fn performance_report_for(
         ));
 
     let started = Instant::now();
-    let live_runtime = match state_root {
-        Some(root) => next_verification::run_live_runtime_performance_check_in(root),
-        None => next_verification::run_live_runtime_performance_check(),
-    }
-    .map_err(|error| error.to_string())?;
+    let live_runtime = run_live_runtime_scenario(request.scenario, state_root)
+        .map_err(|error| error.to_string())?;
     instrumentation_overhead_nanoseconds =
         instrumentation_overhead_nanoseconds.saturating_add(record_performance_span(
             profiling_enabled,
@@ -295,9 +301,24 @@ fn performance_report_for(
         ));
     }
     run.content_hash = tool_run.project_composition_lock_hash.to_hex();
-    run.scenario_hash = xtask::performance::sha256_hex(
-        b"nextengine.performance.smoke.v2:two-chunk:five-object:one-agent:900-live-ticks",
-    );
+    run.scenario_hash = match request.scenario {
+        xtask::performance::PerformanceScenarioV1::Smoke => xtask::performance::sha256_hex(
+            b"nextengine.performance.smoke.v2:two-chunk:five-object:one-agent:900-live-ticks",
+        ),
+        xtask::performance::PerformanceScenarioV1::LongSessionSoak => {
+            xtask::performance::sha256_hex(
+                b"nextengine.performance.long-session-soak.v2:3600-live-ticks:1200-tick-windows:held-movement:camera-every-15-ticks:driver-and-interactive-application",
+            )
+        }
+        _ => unreachable!("unavailable representative scenarios return before execution"),
+    };
+    let live_metric_prefix = match request.scenario {
+        xtask::performance::PerformanceScenarioV1::Smoke => "smoke.live-runtime",
+        xtask::performance::PerformanceScenarioV1::LongSessionSoak => {
+            "long-session-soak.live-runtime"
+        }
+        _ => unreachable!("unavailable representative scenarios return before execution"),
+    };
     run.metrics = vec![
         smoke_metric("smoke.streaming.total", streaming.elapsed_microseconds)?,
         smoke_metric("smoke.agent-planning.total", agent.elapsed_microseconds)?,
@@ -306,7 +327,7 @@ fn performance_report_for(
             render_planning.elapsed_microseconds,
         )?,
         xtask::performance::PerformanceMetricV1::from_samples(
-            "smoke.live-runtime.window",
+            format!("{live_metric_prefix}.window"),
             "microseconds",
             live_runtime
                 .window_microseconds
@@ -315,7 +336,51 @@ fn performance_report_for(
                 .collect::<Result<Vec<_>, _>>()?,
             None,
         )?,
+        xtask::performance::PerformanceMetricV1::from_samples(
+            format!("{live_metric_prefix}.identity-index-root-probe"),
+            "microseconds",
+            live_runtime
+                .identity_index_root_probe_microseconds
+                .into_iter()
+                .map(microseconds_u64)
+                .collect::<Result<Vec<_>, _>>()?,
+            None,
+        )?,
+        xtask::performance::PerformanceMetricV1::from_samples(
+            format!("{live_metric_prefix}.archive-root-probe"),
+            "microseconds",
+            live_runtime
+                .archive_root_probe_microseconds
+                .into_iter()
+                .map(microseconds_u64)
+                .collect::<Result<Vec<_>, _>>()?,
+            None,
+        )?,
     ];
+    if request.scenario == xtask::performance::PerformanceScenarioV1::LongSessionSoak {
+        run.metrics
+            .push(xtask::performance::PerformanceMetricV1::from_samples(
+                "long-session-soak.application.window",
+                "microseconds",
+                live_runtime
+                    .application_window_microseconds
+                    .into_iter()
+                    .map(microseconds_u64)
+                    .collect::<Result<Vec<_>, _>>()?,
+                None,
+            )?);
+        run.metrics
+            .push(xtask::performance::PerformanceMetricV1::from_samples(
+                "long-session-soak.application.checkpoint",
+                "microseconds",
+                live_runtime
+                    .application_checkpoint_microseconds
+                    .into_iter()
+                    .map(microseconds_u64)
+                    .collect::<Result<Vec<_>, _>>()?,
+                None,
+            )?);
+    }
     if let Some(frame_timing) = &desktop_frame_timing {
         run.metrics
             .push(xtask::performance::PerformanceMetricV1::from_samples(
@@ -420,7 +485,10 @@ struct ProfilerControl {
     authoritative_hashes: BTreeMap<String, String>,
 }
 
-fn run_profiler_control(state_root: Option<&Path>) -> Result<ProfilerControl, String> {
+fn run_profiler_control(
+    scenario: xtask::performance::PerformanceScenarioV1,
+    state_root: Option<&Path>,
+) -> Result<ProfilerControl, String> {
     let streaming = match state_root {
         Some(root) => next_verification::run_streaming_performance_check_in(root),
         None => next_verification::run_streaming_performance_check(),
@@ -436,14 +504,35 @@ fn run_profiler_control(state_root: Option<&Path>) -> Result<ProfilerControl, St
         None => next_verification::run_render_frame_planning_performance_check(),
     }
     .map_err(|error| error.to_string())?;
-    let live = match state_root {
-        Some(root) => next_verification::run_live_runtime_performance_check_in(root),
-        None => next_verification::run_live_runtime_performance_check(),
-    }
-    .map_err(|error| error.to_string())?;
+    let live =
+        run_live_runtime_scenario(scenario, state_root).map_err(|error| error.to_string())?;
     Ok(ProfilerControl {
         authoritative_hashes: smoke_authoritative_hashes(&streaming, &agent, &render, &live),
     })
+}
+
+fn run_live_runtime_scenario(
+    scenario: xtask::performance::PerformanceScenarioV1,
+    state_root: Option<&Path>,
+) -> Result<
+    next_verification::LiveRuntimePerformanceReport,
+    next_verification::LiveRuntimePerformanceError,
+> {
+    match (scenario, state_root) {
+        (xtask::performance::PerformanceScenarioV1::Smoke, Some(root)) => {
+            next_verification::run_live_runtime_performance_check_in(root)
+        }
+        (xtask::performance::PerformanceScenarioV1::Smoke, None) => {
+            next_verification::run_live_runtime_performance_check()
+        }
+        (xtask::performance::PerformanceScenarioV1::LongSessionSoak, Some(root)) => {
+            next_verification::run_live_runtime_long_session_performance_check_in(root)
+        }
+        (xtask::performance::PerformanceScenarioV1::LongSessionSoak, None) => {
+            next_verification::run_live_runtime_long_session_performance_check()
+        }
+        _ => unreachable!("unavailable representative scenarios return before execution"),
+    }
 }
 
 fn smoke_authoritative_hashes(
@@ -730,5 +819,21 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn performance_cli_accepts_the_report_only_long_session_soak() {
+        let request = parse_arguments(
+            ["--scenario", "long-session-soak", "--mode", "report"]
+                .into_iter()
+                .map(str::to_owned),
+        )
+        .expect("long-session soak arguments");
+        assert_eq!(
+            request.scenario,
+            xtask::performance::PerformanceScenarioV1::LongSessionSoak
+        );
+        assert_eq!(request.mode, xtask::performance::PerformanceModeV1::Report);
+        assert_eq!(request.target, None);
     }
 }

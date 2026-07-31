@@ -1,10 +1,11 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 use crate::canonical::{CanonicalDecodeLimits, CanonicalError, sha256};
 use crate::command::IssuerPrincipal;
 use crate::identity::{CommandStreamRegistryV1, PrincipalRegistryV1};
-use crate::ids::{StateRoot, SystemId};
+use crate::ids::{CommandLedgerHash, StateRoot, SystemId, command_ledger_hash_from_bytes};
 use crate::input::{PLAYER_INTERACTION_SYSTEM_ID, PlayerControllerRegistryV1};
 use crate::physics::{
     PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PhysicsContractError,
@@ -30,25 +31,78 @@ pub struct WorldCheckpointV4 {
     pub state_root: StateRoot,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WorldCheckpointCanonicalComponentsV1 {
+    runtime_snapshot: Arc<[u8]>,
+    command_ledger: Arc<[u8]>,
+    rpg_snapshot: Arc<[u8]>,
+    physics_checkpoint: Arc<[u8]>,
+}
+
+impl WorldCheckpointCanonicalComponentsV1 {
+    #[must_use]
+    pub fn runtime_snapshot_bytes(&self) -> &[u8] {
+        &self.runtime_snapshot
+    }
+
+    #[must_use]
+    pub fn rpg_snapshot_bytes(&self) -> &[u8] {
+        &self.rpg_snapshot
+    }
+
+    pub fn command_ledger_hash(&self) -> Result<CommandLedgerHash, CanonicalError> {
+        let mut hasher = sha2::Sha256::new();
+        use sha2::Digest as _;
+        hasher.update(b"nextengine.command-ledger.v2\0");
+        hasher.update(
+            u64::try_from(self.command_ledger.len())
+                .map_err(|_| CanonicalError::LengthOverflow)?
+                .to_le_bytes(),
+        );
+        hasher.update(&self.command_ledger);
+        Ok(command_ledger_hash_from_bytes(hasher.finalize().into()))
+    }
+
+    #[must_use]
+    pub fn physics_checkpoint_bytes(&self) -> &[u8] {
+        &self.physics_checkpoint
+    }
+}
+
 impl WorldCheckpointV4 {
     pub fn new(
         runtime_snapshot: RuntimeSnapshotV3,
         rpg_snapshot: RpgSnapshotV2,
         physics_checkpoint: PhysicsWorldCheckpointV1,
     ) -> Result<Self, WorldCheckpointError> {
+        Self::new_with_canonical_components(runtime_snapshot, rpg_snapshot, physics_checkpoint)
+            .map(|(checkpoint, _)| checkpoint)
+    }
+
+    pub fn new_with_canonical_components(
+        runtime_snapshot: RuntimeSnapshotV3,
+        rpg_snapshot: RpgSnapshotV2,
+        physics_checkpoint: PhysicsWorldCheckpointV1,
+    ) -> Result<(Self, WorldCheckpointCanonicalComponentsV1), WorldCheckpointError> {
         let mut checkpoint = Self {
             runtime_snapshot,
             rpg_snapshot,
             physics_checkpoint,
             state_root: StateRoot::default(),
         };
-        checkpoint.validate_components()?;
-        checkpoint.state_root = world_checkpoint_v4_state_root_validated(
-            &checkpoint.runtime_snapshot,
-            &checkpoint.rpg_snapshot,
-            &checkpoint.physics_checkpoint,
-        )?;
-        Ok(checkpoint)
+        let rpg_snapshot = checkpoint.validate_components_with_rpg_bytes()?;
+        let (runtime_snapshot, command_ledger) = checkpoint
+            .runtime_snapshot
+            .canonical_bytes_and_ledger_bytes_validated()?;
+        let components = WorldCheckpointCanonicalComponentsV1 {
+            runtime_snapshot: Arc::from(runtime_snapshot),
+            command_ledger: Arc::from(command_ledger),
+            rpg_snapshot: Arc::from(rpg_snapshot),
+            physics_checkpoint: Arc::from(checkpoint.physics_checkpoint.canonical_bytes()?),
+        };
+        checkpoint.state_root =
+            world_checkpoint_v4_state_root_from_canonical_components(&components)?;
+        Ok((checkpoint, components))
     }
 
     pub fn validate(&self) -> Result<(), WorldCheckpointError> {
@@ -66,6 +120,10 @@ impl WorldCheckpointV4 {
     }
 
     fn validate_components(&self) -> Result<(), WorldCheckpointError> {
+        self.validate_components_with_rpg_bytes().map(drop)
+    }
+
+    fn validate_components_with_rpg_bytes(&self) -> Result<Vec<u8>, WorldCheckpointError> {
         self.runtime_snapshot.validate()?;
         let rpg_bytes = self.rpg_snapshot.canonical_bytes()?;
         if RpgSnapshotV2::from_canonical_bytes(&rpg_bytes, CanonicalDecodeLimits::default())?
@@ -120,7 +178,7 @@ impl WorldCheckpointV4 {
         {
             return Err(WorldCheckpointError::ClosureMismatch);
         }
-        Ok(())
+        Ok(rpg_bytes)
     }
 }
 
@@ -313,6 +371,33 @@ fn world_checkpoint_v4_state_root_validated(
     state_root_from_segments(segments)
 }
 
+fn world_checkpoint_v4_state_root_from_canonical_components(
+    components: &WorldCheckpointCanonicalComponentsV1,
+) -> Result<StateRoot, CanonicalError> {
+    let mut segments = [
+        (
+            RUNTIME_SNAPSHOT_OWNER_ID,
+            RUNTIME_SNAPSHOT_SCHEMA_ID,
+            RUNTIME_SNAPSHOT_SEGMENT_ID,
+            components.runtime_snapshot_bytes(),
+        ),
+        (
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID,
+            components.rpg_snapshot_bytes(),
+        ),
+        (
+            crate::physics::PHYSICS_SNAPSHOT_OWNER_ID,
+            PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+            PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
+            components.physics_checkpoint_bytes(),
+        ),
+    ];
+    segments.sort_by_key(|(owner, schema, segment, _)| (*owner, *schema, *segment));
+    state_root_from_segments(segments)
+}
+
 pub fn world_checkpoint_with_streaming_v1_state_root(
     runtime_snapshot: &RuntimeSnapshotV3,
     rpg_snapshot: &RpgSnapshotV2,
@@ -350,27 +435,65 @@ pub fn world_checkpoint_with_streaming_v1_state_root(
     Ok(state_root_from_segments(segments)?)
 }
 
-fn state_root_from_segments<const N: usize>(
-    segments: [(&str, &str, &str, Vec<u8>); N],
+pub fn world_checkpoint_with_streaming_v1_state_root_from_canonical_components(
+    components: &WorldCheckpointCanonicalComponentsV1,
+    world_streaming_snapshot: &crate::world::WorldStreamingSnapshotV1,
+) -> Result<StateRoot, WorldCheckpointError> {
+    world_streaming_snapshot.validate()?;
+    let streaming_bytes = world_streaming_snapshot.canonical_bytes()?;
+    let mut segments = [
+        (
+            RUNTIME_SNAPSHOT_OWNER_ID,
+            RUNTIME_SNAPSHOT_SCHEMA_ID,
+            RUNTIME_SNAPSHOT_SEGMENT_ID,
+            components.runtime_snapshot_bytes(),
+        ),
+        (
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID,
+            components.rpg_snapshot_bytes(),
+        ),
+        (
+            crate::physics::PHYSICS_SNAPSHOT_OWNER_ID,
+            PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+            PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
+            components.physics_checkpoint_bytes(),
+        ),
+        (
+            crate::world::WORLD_STREAMING_SNAPSHOT_OWNER_ID,
+            crate::world::WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
+            crate::world::WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
+            streaming_bytes.as_slice(),
+        ),
+    ];
+    segments.sort_by_key(|(owner, schema, segment, _)| (*owner, *schema, *segment));
+    Ok(state_root_from_segments(segments)?)
+}
+
+fn state_root_from_segments<const N: usize, B: AsRef<[u8]>>(
+    segments: [(&str, &str, &str, B); N],
 ) -> Result<StateRoot, CanonicalError> {
     let leaf_count = u64::try_from(segments.len()).map_err(|_| CanonicalError::LengthOverflow)?;
     let mut nodes = Vec::with_capacity(segments.len());
     for (owner, schema, segment, bytes) in segments {
-        let mut segment_preimage = Vec::new();
-        segment_preimage.extend_from_slice(b"nextengine.state-segment.v1\0");
-        segment_preimage.extend_from_slice(
-            &u64::try_from(bytes.len())
+        let bytes = bytes.as_ref();
+        let mut segment_hasher = sha2::Sha256::new();
+        use sha2::Digest as _;
+        segment_hasher.update(b"nextengine.state-segment.v1\0");
+        segment_hasher.update(
+            u64::try_from(bytes.len())
                 .map_err(|_| CanonicalError::LengthOverflow)?
                 .to_le_bytes(),
         );
-        segment_preimage.extend_from_slice(&bytes);
+        segment_hasher.update(bytes);
 
         let mut leaf_preimage = Vec::new();
         leaf_preimage.extend_from_slice(b"nextengine.state-leaf.v1\0");
         extend_state_root_identifier(&mut leaf_preimage, owner)?;
         extend_state_root_identifier(&mut leaf_preimage, schema)?;
         extend_state_root_identifier(&mut leaf_preimage, segment)?;
-        leaf_preimage.extend_from_slice(&sha256(&segment_preimage));
+        leaf_preimage.extend_from_slice(&segment_hasher.finalize());
         nodes.push(sha256(&leaf_preimage));
     }
     while nodes.len() > 1 {

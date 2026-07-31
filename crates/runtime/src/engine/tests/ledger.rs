@@ -1,6 +1,45 @@
 use super::*;
 
 #[test]
+fn checkpoint_canonical_components_preserve_exact_bytes_and_ledger_hash() {
+    let fixture = physical_fixture();
+    let (checkpoint, components) = fixture
+        .runtime
+        .world_checkpoint_with_canonical_components()
+        .expect("checkpoint with canonical components");
+    assert_eq!(
+        components.runtime_snapshot_bytes(),
+        checkpoint
+            .runtime_snapshot
+            .canonical_bytes()
+            .expect("runtime snapshot bytes")
+    );
+    assert_eq!(
+        components.rpg_snapshot_bytes(),
+        checkpoint
+            .rpg_snapshot
+            .canonical_bytes()
+            .expect("RPG snapshot bytes")
+    );
+    assert_eq!(
+        components.physics_checkpoint_bytes(),
+        checkpoint
+            .physics_checkpoint
+            .canonical_bytes()
+            .expect("physics checkpoint bytes")
+    );
+    assert_eq!(
+        components
+            .command_ledger_hash()
+            .expect("cached ledger hash"),
+        checkpoint
+            .runtime_snapshot
+            .command_ledger_hash()
+            .expect("reference ledger hash")
+    );
+}
+
+#[test]
 fn ingress_generation_exhaustion_preserves_queued_input_and_world_state() {
     let mut fixture = physical_fixture();
     fixture.runtime.ingress_checkpoint.current_generation = u64::MAX;

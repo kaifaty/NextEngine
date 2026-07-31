@@ -82,7 +82,7 @@ Repository command:
 
 ```text
 cargo run --release -p xtask -- performance \
-  --scenario <smoke|r2-alpha-render|r3-multiregion-streaming|r4-100npc|r5-physics-16> \
+  --scenario <smoke|long-session-soak|r2-alpha-render|r3-multiregion-streaming|r4-100npc|r5-physics-16> \
   --mode <report|gate> \
   [--target ref-win-thoth-v1] \
   [--baseline <baseline.json>] \
@@ -94,6 +94,11 @@ cargo run --release -p xtask -- performance-baseline \
 ```
 
 Default без аргументов сохраняется как совместимый `smoke/report`.
+`long-session-soak` — отдельный report-only diagnostic: он выполняет `3 600`
+live ticks через driver и interactive application scheduler, сохраняет три
+окна по `1 200` ticks, обязательные 30-tick checkpoint samples и isolated
+identity-index/archive-root probes. Как и `smoke`, он не имеет hard budget и
+не может закрыть B-12.
 `PerformanceRunV1`, `PerformanceMetricV1`, `PerformanceBaselineV1` и
 `PerformanceVerdict` являются versioned tooling JSON, не public gameplay
 contracts. Run сохраняет commit/cleanliness, toolchain, build profile,
@@ -166,6 +171,7 @@ oracle. Gameplay/replay semantics и public contracts не меняются.
 | Check | Scenario | Expected | Fallback |
 |---|---|---|---|
 | `performance --scenario smoke --mode report` | Текущие two-chunk/one-agent/five-object/live fixtures | Versioned report содержит все четыре результата, build/methodology/fingerprint и exact roots; timings имеют `REPORT_ONLY` | Исправить tooling; не делать product timing claim |
+| `performance --scenario long-session-soak --mode report` | `3 600` live ticks с held movement, periodic camera input и тем же workload через interactive application scheduler | Три 1 200-tick окна, 30-tick durable checkpoint samples, isolated identity/archive root probes и exact driver/application ledger-root parity имеют `REPORT_ONLY` | Диагностировать history-dependent growth; не подменять representative R2–R5 gate |
 | `performance-baseline --runs <dir> --output <dir>` | Ровно десять clean compatible THOTH reports одного commit | Один strict `PerformanceBaselineV1`; malformed, incomplete, missing-counter или mixed набор отклоняется | Исправить calibration environment; baseline не синтезируется из частичных runs |
 | `performance --scenario <R2–R5> --mode gate` | Release run на THOTH с compatible baseline | Exact fingerprint/preflight; absolute и relative verdict; correctness roots неизменны | `NOT_RUN` при несовместимой среде/workload; bounded presentation/LOD fallback не скрывает primary failure |
 | `performance` schema/fingerprint tests | Known percentile/bootstrap vectors, malformed JSON/baseline и wrong host | Nearest-rank exact; unknown fields reject; wrong host `NOT_RUN` | Reject baseline/run до timing verdict |

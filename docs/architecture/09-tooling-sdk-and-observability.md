@@ -207,6 +207,12 @@ presentation/telemetry data и не входит в gameplay authority. Глоб
 allocator counters остаются unavailable, пока отдельный runtime allocation hook
 не даст exact end-to-end evidence; approximate process-private memory не
 подменяет allocator metric.
+`long-session-soak` дополняет быстрый smoke report-only диагностикой
+history-dependent degradation: одинаковые held-movement/periodic-camera inputs
+проходят через live driver и interactive application scheduler на `3 600`
+ticks. Отдельно сохраняются три окна, mandatory 30-tick durable checkpoint
+samples и isolated identity-index/archive-root probes; exact ledger-root
+parity обязательна, но этот fixture не становится hard timing authority.
 Тяжёлые captures, WPA/perf/samply profiles и generated reports остаются
 machine-local и не коммитятся.
 

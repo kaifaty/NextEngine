@@ -25,6 +25,8 @@ pub const MAX_SPANS_PER_THREAD: u32 = 65_536;
 pub enum PerformanceScenarioV1 {
     #[serde(rename = "smoke")]
     Smoke,
+    #[serde(rename = "long-session-soak")]
+    LongSessionSoak,
     #[serde(rename = "r2-alpha-render")]
     R2AlphaRender,
     #[serde(rename = "r3-multiregion-streaming")]
@@ -39,6 +41,7 @@ impl PerformanceScenarioV1 {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Smoke => "smoke",
+            Self::LongSessionSoak => "long-session-soak",
             Self::R2AlphaRender => "r2-alpha-render",
             Self::R3MultiregionStreaming => "r3-multiregion-streaming",
             Self::R4_100Npc => "r4-100npc",
@@ -49,6 +52,7 @@ impl PerformanceScenarioV1 {
     pub fn parse(value: &str) -> Result<Self, String> {
         match value {
             "smoke" => Ok(Self::Smoke),
+            "long-session-soak" => Ok(Self::LongSessionSoak),
             "r2-alpha-render" => Ok(Self::R2AlphaRender),
             "r3-multiregion-streaming" => Ok(Self::R3MultiregionStreaming),
             "r4-100npc" => Ok(Self::R4_100Npc),
@@ -59,7 +63,7 @@ impl PerformanceScenarioV1 {
 
     pub const fn unavailable_reason(self) -> Option<&'static str> {
         match self {
-            Self::Smoke => None,
+            Self::Smoke | Self::LongSessionSoak => None,
             Self::R2AlphaRender => Some(
                 "R2_ALPHA_PROJECT_UNAVAILABLE: the representative alpha project and 60-second semantic action windows are not implemented",
             ),
@@ -716,6 +720,15 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
             methodology.notes = vec![
                 "two-chunk streaming, five-object render planning, one-agent planning and live movement are smoke fixtures only".to_owned(),
                 "aggregate smoke timings are report-only and cannot close B-12".to_owned(),
+            ];
+        }
+        PerformanceScenarioV1::LongSessionSoak => {
+            methodology.measured_samples = 3;
+            methodology.notes = vec![
+                "3,600 live ticks in three 1,200-tick windows with held movement and periodic camera input run through both the live driver and interactive application scheduler".to_owned(),
+                "identity-index and command-body archive roots are recomputed after each window outside the window timing".to_owned(),
+                "application checkpoint samples include the mandatory 30-tick durable publication path and reuse validated canonical component bytes".to_owned(),
+                "the soak is report-only and diagnoses history-dependent degradation; it cannot close B-12".to_owned(),
             ];
         }
         PerformanceScenarioV1::R2AlphaRender => {

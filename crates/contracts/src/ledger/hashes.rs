@@ -98,15 +98,15 @@ pub(super) fn command_body_archive_root_from_leaves(
 pub fn command_identity_index_root(
     body: &CommandIdentityIndexBodyV1,
 ) -> Result<ContentHash, CanonicalError> {
-    let bytes = body.canonical_bytes()?;
+    let layout = body.canonical_layout()?;
     let mut hasher = Sha256::new();
     hasher.update(b"nextengine.command-identity-index.v1\0");
     hasher.update(
-        u64::try_from(bytes.len())
+        u64::try_from(layout.total_bytes)
             .map_err(|_| CanonicalError::LengthOverflow)?
             .to_le_bytes(),
     );
-    hasher.update(&bytes);
+    body.visit_canonical_bytes(layout, &mut |chunk| hasher.update(chunk))?;
     Ok(content_hash_from_bytes(hasher.finalize().into()))
 }
 

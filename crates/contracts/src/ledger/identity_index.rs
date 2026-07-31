@@ -58,6 +58,79 @@ impl CommandIdentityIndexBodyV1 {
         )
     }
 
+    pub(super) fn canonical_layout(
+        &self,
+    ) -> Result<CommandIdentityIndexCanonicalLayout, CanonicalError> {
+        let bindings_bytes = identity_bindings_byte_len(&self.bindings)?;
+        let total_bytes = crate::canonical::CANONICAL_BINARY_V1_MAGIC
+            .len()
+            .checked_add(std::mem::size_of::<u16>())
+            .and_then(|length| {
+                length.checked_add(
+                    std::mem::size_of::<u32>() + COMMAND_IDENTITY_INDEX_BODY_OWNER_ID.len(),
+                )
+            })
+            .and_then(|length| {
+                length.checked_add(
+                    std::mem::size_of::<u32>() + COMMAND_IDENTITY_INDEX_BODY_SCHEMA_ID.len(),
+                )
+            })
+            .and_then(|length| {
+                length.checked_add(
+                    std::mem::size_of::<u32>() + COMMAND_IDENTITY_INDEX_BODY_SEGMENT_ID.len(),
+                )
+            })
+            .and_then(|length| length.checked_add(std::mem::size_of::<u32>()))
+            .and_then(|length| {
+                length.checked_add(canonical_field_bytes(std::mem::size_of::<u16>()).ok()?)
+            })
+            .and_then(|length| length.checked_add(canonical_field_bytes(bindings_bytes).ok()?))
+            .and_then(|length| {
+                length.checked_add(canonical_field_bytes(std::mem::size_of::<u64>()).ok()?)
+            })
+            .and_then(|length| {
+                length.checked_add(canonical_field_bytes(std::mem::size_of::<u64>()).ok()?)
+            })
+            .ok_or(CanonicalError::LengthOverflow)?;
+        Ok(CommandIdentityIndexCanonicalLayout {
+            bindings_bytes,
+            total_bytes,
+        })
+    }
+
+    pub(super) fn visit_canonical_bytes(
+        &self,
+        layout: CommandIdentityIndexCanonicalLayout,
+        write: &mut impl FnMut(&[u8]),
+    ) -> Result<(), CanonicalError> {
+        write(&crate::canonical::CANONICAL_BINARY_V1_MAGIC);
+        write(&crate::canonical::CANONICAL_BINARY_V1_VERSION.to_le_bytes());
+        visit_u32_length_prefixed(write, COMMAND_IDENTITY_INDEX_BODY_OWNER_ID.as_bytes())?;
+        visit_u32_length_prefixed(write, COMMAND_IDENTITY_INDEX_BODY_SCHEMA_ID.as_bytes())?;
+        visit_u32_length_prefixed(write, COMMAND_IDENTITY_INDEX_BODY_SEGMENT_ID.as_bytes())?;
+        write(&4_u32.to_le_bytes());
+        visit_field(
+            write,
+            1,
+            CANONICAL_TYPE_U16,
+            &self.schema_version.to_le_bytes(),
+        )?;
+        visit_field_header(write, 2, CANONICAL_TYPE_MAP, layout.bindings_bytes)?;
+        visit_identity_bindings(write, &self.bindings)?;
+        visit_field(
+            write,
+            3,
+            CANONICAL_TYPE_U64,
+            &self.command_id_count.to_le_bytes(),
+        )?;
+        visit_field(
+            write,
+            4,
+            CANONICAL_TYPE_U64,
+            &self.occurrence_count.to_le_bytes(),
+        )
+    }
+
     #[cfg(test)]
     fn canonical_bytes_reference(&self) -> Result<Vec<u8>, CanonicalError> {
         let bindings = encode_map(
@@ -142,26 +215,54 @@ impl CommandIdentityIndexBodyV1 {
     }
 }
 
+#[derive(Clone, Copy)]
+pub(super) struct CommandIdentityIndexCanonicalLayout {
+    bindings_bytes: usize,
+    pub(super) total_bytes: usize,
+}
+
 fn encode_identity_bindings(
     bindings: &BTreeMap<CommandId, CommandIdentityBindingV1>,
 ) -> Result<Vec<u8>, CanonicalError> {
-    let mut bytes = Vec::new();
-    bytes.extend_from_slice(
+    let expected_bytes = identity_bindings_byte_len(bindings)?;
+    let mut bytes = Vec::with_capacity(expected_bytes);
+    visit_identity_bindings(&mut |chunk| bytes.extend_from_slice(chunk), bindings)?;
+    debug_assert_eq!(bytes.len(), expected_bytes);
+    Ok(bytes)
+}
+
+fn identity_bindings_byte_len(
+    bindings: &BTreeMap<CommandId, CommandIdentityBindingV1>,
+) -> Result<usize, CanonicalError> {
+    u32::try_from(bindings.len()).map_err(|_| CanonicalError::LengthOverflow)?;
+    bindings
+        .values()
+        .try_fold(std::mem::size_of::<u32>(), |length, binding| {
+            let binding_bytes = identity_binding_byte_len(binding)?;
+            length
+                .checked_add(CANONICAL_NESTED_HEADER_BYTES + std::mem::size_of::<u128>())
+                .and_then(|length| length.checked_add(binding_bytes))
+                .ok_or(CanonicalError::LengthOverflow)
+        })
+}
+
+fn visit_identity_bindings(
+    write: &mut impl FnMut(&[u8]),
+    bindings: &BTreeMap<CommandId, CommandIdentityBindingV1>,
+) -> Result<(), CanonicalError> {
+    write(
         &u32::try_from(bindings.len())
             .map_err(|_| CanonicalError::LengthOverflow)?
             .to_le_bytes(),
     );
     for (command_id, binding) in bindings {
-        append_nested_value(&mut bytes, CANONICAL_TYPE_ID128, command_id.as_bytes())?;
-        append_identity_binding(&mut bytes, binding)?;
+        visit_nested_value(write, CANONICAL_TYPE_ID128, command_id.as_bytes())?;
+        visit_identity_binding(write, binding)?;
     }
-    Ok(bytes)
+    Ok(())
 }
 
-fn append_identity_binding(
-    bytes: &mut Vec<u8>,
-    binding: &CommandIdentityBindingV1,
-) -> Result<(), CanonicalError> {
+fn identity_binding_byte_len(binding: &CommandIdentityBindingV1) -> Result<usize, CanonicalError> {
     let occurrences_bytes = std::mem::size_of::<u32>()
         .checked_add(
             binding
@@ -178,28 +279,50 @@ fn append_identity_binding(
             length.checked_add(canonical_field_bytes(std::mem::size_of::<u8>()).ok()?)
         })
         .ok_or(CanonicalError::LengthOverflow)?;
-    append_nested_header(bytes, CANONICAL_TYPE_STRUCT, payload_bytes)?;
-    bytes.extend_from_slice(&3_u32.to_le_bytes());
-    append_field(
-        bytes,
+    CANONICAL_NESTED_HEADER_BYTES
+        .checked_add(payload_bytes)
+        .ok_or(CanonicalError::LengthOverflow)
+}
+
+fn visit_identity_binding(
+    write: &mut impl FnMut(&[u8]),
+    binding: &CommandIdentityBindingV1,
+) -> Result<(), CanonicalError> {
+    let binding_bytes = identity_binding_byte_len(binding)?;
+    let payload_bytes = binding_bytes
+        .checked_sub(CANONICAL_NESTED_HEADER_BYTES)
+        .ok_or(CanonicalError::LengthOverflow)?;
+    let occurrences_bytes = std::mem::size_of::<u32>()
+        .checked_add(
+            binding
+                .occurrences
+                .len()
+                .checked_mul(IDENTITY_OCCURRENCE_RECORD_BYTES)
+                .ok_or(CanonicalError::LengthOverflow)?,
+        )
+        .ok_or(CanonicalError::LengthOverflow)?;
+    visit_nested_header(write, CANONICAL_TYPE_STRUCT, payload_bytes)?;
+    write(&3_u32.to_le_bytes());
+    visit_field(
+        write,
         1,
         CANONICAL_TYPE_ID128,
         binding.command_id.as_bytes(),
     )?;
-    append_field_header(bytes, 2, CANONICAL_TYPE_SEQUENCE, occurrences_bytes)?;
-    bytes.extend_from_slice(
+    visit_field_header(write, 2, CANONICAL_TYPE_SEQUENCE, occurrences_bytes)?;
+    write(
         &u32::try_from(binding.occurrences.len())
             .map_err(|_| CanonicalError::LengthOverflow)?
             .to_le_bytes(),
     );
     for occurrence in &binding.occurrences {
-        append_identity_occurrence(bytes, occurrence)?;
+        visit_identity_occurrence(write, occurrence)?;
     }
-    append_field(bytes, 3, CANONICAL_TYPE_U8, &[binding.state as u8])
+    visit_field(write, 3, CANONICAL_TYPE_U8, &[binding.state as u8])
 }
 
-fn append_identity_occurrence(
-    bytes: &mut Vec<u8>,
+fn visit_identity_occurrence(
+    write: &mut impl FnMut(&[u8]),
     occurrence: &CommandIdentityOccurrenceV1,
 ) -> Result<(), CanonicalError> {
     let payload_bytes = std::mem::size_of::<u32>()
@@ -215,22 +338,22 @@ fn append_identity_occurrence(
             length.checked_add(canonical_field_bytes(std::mem::size_of::<u64>()).ok()?)
         })
         .ok_or(CanonicalError::LengthOverflow)?;
-    append_nested_header(bytes, CANONICAL_TYPE_STRUCT, payload_bytes)?;
-    bytes.extend_from_slice(&3_u32.to_le_bytes());
-    append_field(
-        bytes,
+    visit_nested_header(write, CANONICAL_TYPE_STRUCT, payload_bytes)?;
+    write(&3_u32.to_le_bytes());
+    visit_field(
+        write,
         1,
         CANONICAL_TYPE_HASH256,
         occurrence.body_hash.as_bytes(),
     )?;
-    append_field(
-        bytes,
+    visit_field(
+        write,
         2,
         CANONICAL_TYPE_ID128,
         occurrence.first_stream_id.as_bytes(),
     )?;
-    append_field(
-        bytes,
+    visit_field(
+        write,
         3,
         CANONICAL_TYPE_U64,
         &occurrence.first_sequence.to_le_bytes(),
@@ -255,23 +378,36 @@ fn canonical_field_bytes(payload_bytes: usize) -> Result<usize, CanonicalError> 
         .ok_or(CanonicalError::LengthOverflow)
 }
 
-fn append_nested_value(
-    bytes: &mut Vec<u8>,
-    type_tag: u8,
+fn visit_u32_length_prefixed(
+    write: &mut impl FnMut(&[u8]),
     payload: &[u8],
 ) -> Result<(), CanonicalError> {
-    append_nested_header(bytes, type_tag, payload.len())?;
-    bytes.extend_from_slice(payload);
+    write(
+        &u32::try_from(payload.len())
+            .map_err(|_| CanonicalError::LengthOverflow)?
+            .to_le_bytes(),
+    );
+    write(payload);
     Ok(())
 }
 
-fn append_nested_header(
-    bytes: &mut Vec<u8>,
+fn visit_nested_value(
+    write: &mut impl FnMut(&[u8]),
+    type_tag: u8,
+    payload: &[u8],
+) -> Result<(), CanonicalError> {
+    visit_nested_header(write, type_tag, payload.len())?;
+    write(payload);
+    Ok(())
+}
+
+fn visit_nested_header(
+    write: &mut impl FnMut(&[u8]),
     type_tag: u8,
     payload_bytes: usize,
 ) -> Result<(), CanonicalError> {
-    bytes.push(type_tag);
-    bytes.extend_from_slice(
+    write(&[type_tag]);
+    write(
         &u64::try_from(payload_bytes)
             .map_err(|_| CanonicalError::LengthOverflow)?
             .to_le_bytes(),
@@ -279,26 +415,26 @@ fn append_nested_header(
     Ok(())
 }
 
-fn append_field(
-    bytes: &mut Vec<u8>,
+fn visit_field(
+    write: &mut impl FnMut(&[u8]),
     field_id: u32,
     type_tag: u8,
     payload: &[u8],
 ) -> Result<(), CanonicalError> {
-    append_field_header(bytes, field_id, type_tag, payload.len())?;
-    bytes.extend_from_slice(payload);
+    visit_field_header(write, field_id, type_tag, payload.len())?;
+    write(payload);
     Ok(())
 }
 
-fn append_field_header(
-    bytes: &mut Vec<u8>,
+fn visit_field_header(
+    write: &mut impl FnMut(&[u8]),
     field_id: u32,
     type_tag: u8,
     payload_bytes: usize,
 ) -> Result<(), CanonicalError> {
-    bytes.extend_from_slice(&field_id.to_le_bytes());
-    bytes.push(type_tag);
-    bytes.extend_from_slice(
+    write(&field_id.to_le_bytes());
+    write(&[type_tag]);
+    write(
         &u64::try_from(payload_bytes)
             .map_err(|_| CanonicalError::LengthOverflow)?
             .to_le_bytes(),
@@ -353,6 +489,17 @@ mod tests {
     #[test]
     fn optimized_identity_encoding_is_byte_exact_for_unique_and_collision_bindings() {
         let mut index = CommandIdentityIndexV1::empty().expect("empty index");
+        let empty_expected = index.body.canonical_bytes().expect("empty canonical bytes");
+        let empty_layout = index.body.canonical_layout().expect("empty layout");
+        let mut empty_streamed = Vec::with_capacity(empty_layout.total_bytes);
+        index
+            .body
+            .visit_canonical_bytes(empty_layout, &mut |chunk| {
+                empty_streamed.extend_from_slice(chunk);
+            })
+            .expect("empty streamed encoding");
+        assert_eq!(empty_streamed, empty_expected);
+
         let collision_id = CommandId::from_bytes([7; 16]);
         for (body, stream, sequence) in [([1; 32], [2; 16], 3), ([4; 32], [5; 16], 6)] {
             index
@@ -384,6 +531,18 @@ mod tests {
                 .canonical_bytes_reference()
                 .expect("reference encoding")
         );
+
+        let expected = index.body.canonical_bytes().expect("canonical bytes");
+        let layout = index.body.canonical_layout().expect("canonical layout");
+        let mut streamed = Vec::with_capacity(layout.total_bytes);
+        index
+            .body
+            .visit_canonical_bytes(layout, &mut |chunk| {
+                streamed.extend_from_slice(chunk);
+            })
+            .expect("streamed encoding");
+        assert_eq!(layout.total_bytes, expected.len());
+        assert_eq!(streamed, expected);
     }
 }
 

@@ -281,24 +281,21 @@ pub(super) fn live_run_object_closure(
         .ok_or(ApplicationError::RecoveryIncompatible)?;
     let runtime = SessionObjectV1::new(
         prepared
-            .checkpoint
-            .runtime_snapshot
-            .canonical_bytes()
-            .map_err(|_| ApplicationError::RecoveryIncompatible)?,
+            .checkpoint_canonical_components
+            .runtime_snapshot_bytes()
+            .to_vec(),
     );
     let rpg = SessionObjectV1::new(
         prepared
-            .checkpoint
-            .rpg_snapshot
-            .canonical_bytes()
-            .map_err(|_| ApplicationError::RecoveryIncompatible)?,
+            .checkpoint_canonical_components
+            .rpg_snapshot_bytes()
+            .to_vec(),
     );
     let physics = SessionObjectV1::new(
         prepared
-            .checkpoint
-            .physics_checkpoint
-            .canonical_bytes()
-            .map_err(|_| ApplicationError::RecoveryIncompatible)?,
+            .checkpoint_canonical_components
+            .physics_checkpoint_bytes()
+            .to_vec(),
     );
     let streaming = SessionObjectV1::new(
         prepared
@@ -427,15 +424,16 @@ fn validate_persisted_live_run_closure(
     let input_bytes = required_object(published_objects, manifest.payloads.input_session)?;
 
     let limits = CanonicalDecodeLimits::default();
-    let checkpoint = WorldCheckpointV4::new(
-        RuntimeSnapshotV3::from_canonical_bytes(runtime_bytes, limits)
-            .map_err(|_| ApplicationError::RecoveryIncompatible)?,
-        RpgSnapshotV2::from_canonical_bytes(rpg_bytes, limits)
-            .map_err(|_| ApplicationError::RecoveryIncompatible)?,
-        PhysicsWorldCheckpointV1::from_canonical_bytes(physics_bytes, limits)
-            .map_err(|_| ApplicationError::RecoveryIncompatible)?,
-    )
-    .map_err(|_| ApplicationError::RecoveryIncompatible)?;
+    let (checkpoint, checkpoint_canonical_components) =
+        WorldCheckpointV4::new_with_canonical_components(
+            RuntimeSnapshotV3::from_canonical_bytes(runtime_bytes, limits)
+                .map_err(|_| ApplicationError::RecoveryIncompatible)?,
+            RpgSnapshotV2::from_canonical_bytes(rpg_bytes, limits)
+                .map_err(|_| ApplicationError::RecoveryIncompatible)?,
+            PhysicsWorldCheckpointV1::from_canonical_bytes(physics_bytes, limits)
+                .map_err(|_| ApplicationError::RecoveryIncompatible)?,
+        )
+        .map_err(|_| ApplicationError::RecoveryIncompatible)?;
     let streaming = WorldStreamingSnapshotV1::from_canonical_bytes(streaming_bytes, limits)
         .map_err(|_| ApplicationError::RecoveryIncompatible)?;
     let input_session = PlayerInputSessionV1::restore_from_recovery_bytes(input_bytes)
@@ -490,6 +488,7 @@ fn validate_persisted_live_run_closure(
         session_id,
         ReferenceLiveStateV1 {
             checkpoint: checkpoint.clone(),
+            checkpoint_canonical_components,
             world_streaming_snapshot: streaming.clone(),
             ticks: recovery.next_logical_frame_sequence,
             events: recovery.events,

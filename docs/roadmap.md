@@ -727,10 +727,15 @@ Performance measurement foundation (`DONE_LOCAL_WINDOWS`) добавляет
 `PerformanceRunV1`/`PerformanceMetricV1`/`PerformanceBaselineV1`, полный
 THOTH fingerprint и idle/RAM/thermal preflight, profile `profiling`, raw
 nearest-rank smoke metrics и explicit `NOT_RUN` для ещё отсутствующих
-representative R2–R5 workloads. Следующий instrumentation increment добавляет
-strict `performance-baseline` publisher, Windows process I/O deltas, bounded
-CPU/Vulkan frame timing и conservative engine-owned device-allocation ceiling;
-release smoke на THOTH получил timestamp samples без dropped queries.
+representative R2–R5 workloads. Report-only `long-session-soak` теперь
+воспроизводит `3 600` live ticks через driver и interactive application path,
+показывает 30-tick durable checkpoint growth и проверяет exact ledger-root
+parity. Checkpoint publication переиспользует один набор уже проверенных
+canonical component bytes, а identity-index root больше не требует полного
+временного serialization buffer. Strict `performance-baseline` publisher,
+Windows process I/O deltas, bounded CPU/Vulkan frame timing и conservative
+engine-owned device-allocation ceiling реализованы; release smoke на THOTH
+получил timestamp samples без dropped queries.
 Exact global host allocator counter и ten-run calibration evidence ещё
 отсутствуют. Это не меняет product queue: calibration начинается после
 стабилизации последнего required counter/noise, а hard

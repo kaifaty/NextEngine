@@ -8,7 +8,7 @@ use next_contracts::presentation::{
     CameraProjectionProfileV1, CameraResultSampleV1, CameraRoleV1, PresentationSnapshotV2,
     QuantizedPresentationTransformV1, ThirdPersonCameraIntentSampleV1,
 };
-use next_contracts::snapshot::WorldCheckpointV4;
+use next_contracts::snapshot::{WorldCheckpointCanonicalComponentsV1, WorldCheckpointV4};
 use next_contracts::world::WorldStreamingSnapshotV1;
 use next_player::PlayerInputSessionV1;
 use next_presentation::{
@@ -98,6 +98,7 @@ pub fn reference_b0_presentation_profile_hash() -> ContentHash {
 
 pub struct ReferenceLiveStateV1 {
     pub checkpoint: WorldCheckpointV4,
+    pub checkpoint_canonical_components: WorldCheckpointCanonicalComponentsV1,
     pub world_streaming_snapshot: WorldStreamingSnapshotV1,
     pub ticks: u64,
     pub events: u64,
@@ -406,8 +407,11 @@ impl ReferenceGameDriverV1 {
             .map_err(|_| ReferenceGameError::CountOverflow)?
             .checked_add(1)
             .ok_or(ReferenceGameError::CountOverflow)?;
+        let (checkpoint, checkpoint_canonical_components) =
+            self.runtime.world_checkpoint_with_canonical_components()?;
         Ok(ReferenceLiveStateV1 {
-            checkpoint: self.runtime.world_checkpoint()?,
+            checkpoint,
+            checkpoint_canonical_components,
             world_streaming_snapshot: self.world_streamer.snapshot().clone(),
             ticks: self.runtime.next_tick(),
             events: self.events,

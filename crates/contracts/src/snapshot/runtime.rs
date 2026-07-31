@@ -187,6 +187,13 @@ impl RuntimeSnapshotV3 {
     }
 
     pub(crate) fn canonical_bytes_validated(&self) -> Result<Vec<u8>, CanonicalError> {
+        self.canonical_bytes_and_ledger_bytes_validated()
+            .map(|(snapshot_bytes, _)| snapshot_bytes)
+    }
+
+    pub(crate) fn canonical_bytes_and_ledger_bytes_validated(
+        &self,
+    ) -> Result<(Vec<u8>, Vec<u8>), CanonicalError> {
         let ledger_bytes = self
             .command_ledger
             .canonical_bytes_validated()
@@ -194,7 +201,7 @@ impl RuntimeSnapshotV3 {
                 CommandLedgerError::Canonical(error) => error,
                 _ => CanonicalError::DuplicateSequenceValue,
             })?;
-        encode_canonical_segment(
+        let snapshot_bytes = encode_canonical_segment(
             RUNTIME_SNAPSHOT_OWNER_ID,
             RUNTIME_SNAPSHOT_SCHEMA_ID,
             RUNTIME_SNAPSHOT_SEGMENT_ID,
@@ -273,7 +280,7 @@ impl RuntimeSnapshotV3 {
                     CANONICAL_TYPE_BYTES,
                     self.ingress_checkpoint.canonical_bytes()?,
                 ),
-                CanonicalField::new(16, CANONICAL_TYPE_BYTES, ledger_bytes),
+                CanonicalField::new(16, CANONICAL_TYPE_BYTES, ledger_bytes.clone()),
                 CanonicalField::new(
                     17,
                     CANONICAL_TYPE_BYTES,
@@ -285,7 +292,8 @@ impl RuntimeSnapshotV3 {
                     self.rpg_runtime_bindings.canonical_bytes()?,
                 ),
             ],
-        )
+        )?;
+        Ok((snapshot_bytes, ledger_bytes))
     }
 
     pub fn from_canonical_bytes(
