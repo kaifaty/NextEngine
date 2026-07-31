@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-05 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-07-27 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-033](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) |
-| Заменяет | отсутствует |
+| Версия | 2.1 |
+| Последняя проверка | 2026-07-30 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-033](adr/033-physx-grounded-capsule-parity-ffi-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md) |
+| Заменяет | SPEC-05 2.0 |
 
 ## Source of truth и ownership
 
@@ -125,7 +125,7 @@ Checks используют fixed scenarios/seeds и [RunManifest из SPEC-09](
 | PHYS-P1 | descriptor parity corpus | 100% bodies/axes/limits; mass/inertia ≤0.1%; torque conversion ≤1% | попробовать следующий backend через тот же contract |
 | PHYS-P2 | contact/query/topology suite | 100% required contacts в canonical total order; query/contact output exact under callback, manifold, worker and registration permutations; все key-field vectors проходят `NUMERIC-P1`; 1 000 topology cycles без invalid handle/leak | отвергнуть backend и сохранить последнюю canonical world state |
 | PHYS-P3 | same-target replay и cross-target quantized projection | full authoritative `state_root`, applied canonical actions, contact/outcome sequences exact over 100 repeats; Windows/Linux `physics_projection_root`, canonical contact/query order и gameplay outcomes byte-identical | исправить deterministic boundary или выбрать другой backend |
-| PHYS-P4 | 16 full avatars на reference 8-core CPU | physics+motor p95 ≤4 ms, p99 ≤6 ms; no missed critical steps | offline tuning следующего manifest integer LOD budget; safe-tier pin |
+| PHYS-P4 | 16 full avatars на полном `ref-win-thoth-v1` без CPU affinity restriction | physics 120 Hz, motor 60 Hz; physics+motor p95 ≤4 ms, p99 ≤6 ms; no missed critical steps; inference p99 ≤0.5 ms/avatar или ≤2 ms для batch 16 | offline tuning следующего manifest integer LOD budget; safe-tier pin |
 | MOTOR-P1 | 10 000 golden observations | ONNX vs training max abs raw action error ≤1e-5; applied safety-clamped/quantized `MotorAction` exact; 0 schema mismatch accepted | reference CPU evaluator или heuristic controller |
 | PHYS-P5 | runtime/training golden trajectories | normalized RMSE ≤0.05; contact F1 ≥0.98; outcome pass-rate delta ≤2 percentage points | retrain, mapping fix или backend fallback |
 | PHYS-P6 | push, slope, stair, trip, carry, fall/recovery | per-scenario thresholds; aggregate ≥95%; 0 safety violation | recovery controller; unsupported learned route остаётся отключён |

@@ -1,4 +1,5 @@
 use super::*;
+use sha2::{Digest, Sha256};
 
 pub fn causal_provenance_hash(
     identity_kind: CausalIdentityKind,
@@ -34,62 +35,79 @@ pub fn command_body_archive_root(
 ) -> Result<ContentHash, CanonicalError> {
     let mut nodes = Vec::with_capacity(entries.len());
     for (body_hash, body_bytes) in entries {
-        let mut preimage = Vec::new();
-        preimage.extend_from_slice(b"nextengine.command-body-archive-leaf.v1\0");
-        preimage.extend_from_slice(body_hash.as_bytes());
-        preimage.extend_from_slice(
-            &u64::try_from(body_bytes.len())
-                .map_err(|_| CanonicalError::LengthOverflow)?
-                .to_le_bytes(),
-        );
-        preimage.extend_from_slice(body_bytes.as_ref());
-        nodes.push(sha256(&preimage));
+        nodes.push(command_body_archive_leaf_hash(
+            *body_hash,
+            body_bytes.as_ref(),
+        )?);
     }
+    command_body_archive_root_from_leaves(
+        nodes,
+        u64::try_from(entries.len()).map_err(|_| CanonicalError::LengthOverflow)?,
+    )
+}
+
+pub(super) fn command_body_archive_leaf_hash(
+    body_hash: CommandBodyHash,
+    body_bytes: &[u8],
+) -> Result<[u8; 32], CanonicalError> {
+    let mut hasher = Sha256::new();
+    hasher.update(b"nextengine.command-body-archive-leaf.v1\0");
+    hasher.update(body_hash.as_bytes());
+    hasher.update(
+        u64::try_from(body_bytes.len())
+            .map_err(|_| CanonicalError::LengthOverflow)?
+            .to_le_bytes(),
+    );
+    hasher.update(body_bytes);
+    Ok(hasher.finalize().into())
+}
+
+pub(super) fn command_body_archive_root_from_leaves(
+    leaves: impl IntoIterator<Item = [u8; 32]>,
+    entry_count: u64,
+) -> Result<ContentHash, CanonicalError> {
+    let mut nodes: Vec<_> = leaves.into_iter().collect();
     let merkle_root = if nodes.is_empty() {
         sha256(b"nextengine.command-body-archive-empty.v1\0")
     } else {
         while nodes.len() > 1 {
             let mut parents = Vec::with_capacity(nodes.len().div_ceil(2));
             for pair in nodes.chunks(2) {
-                let mut preimage = Vec::new();
+                let mut hasher = Sha256::new();
                 if let [left, right] = pair {
-                    preimage.extend_from_slice(b"nextengine.command-body-archive-node.v1\0");
-                    preimage.extend_from_slice(left);
-                    preimage.extend_from_slice(right);
+                    hasher.update(b"nextengine.command-body-archive-node.v1\0");
+                    hasher.update(left);
+                    hasher.update(right);
                 } else {
-                    preimage.extend_from_slice(b"nextengine.command-body-archive-carry.v1\0");
-                    preimage.extend_from_slice(&pair[0]);
+                    hasher.update(b"nextengine.command-body-archive-carry.v1\0");
+                    hasher.update(pair[0]);
                 }
-                parents.push(sha256(&preimage));
+                parents.push(hasher.finalize().into());
             }
             nodes = parents;
         }
         nodes[0]
     };
-    let mut preimage = Vec::new();
-    preimage.extend_from_slice(b"nextengine.command-body-archive-root.v1\0");
-    preimage.extend_from_slice(
-        &u64::try_from(entries.len())
-            .map_err(|_| CanonicalError::LengthOverflow)?
-            .to_le_bytes(),
-    );
-    preimage.extend_from_slice(&merkle_root);
-    Ok(content_hash_from_bytes(sha256(&preimage)))
+    let mut hasher = Sha256::new();
+    hasher.update(b"nextengine.command-body-archive-root.v1\0");
+    hasher.update(entry_count.to_le_bytes());
+    hasher.update(merkle_root);
+    Ok(content_hash_from_bytes(hasher.finalize().into()))
 }
 
 pub fn command_identity_index_root(
     body: &CommandIdentityIndexBodyV1,
 ) -> Result<ContentHash, CanonicalError> {
     let bytes = body.canonical_bytes()?;
-    let mut preimage = Vec::new();
-    preimage.extend_from_slice(b"nextengine.command-identity-index.v1\0");
-    preimage.extend_from_slice(
-        &u64::try_from(bytes.len())
+    let mut hasher = Sha256::new();
+    hasher.update(b"nextengine.command-identity-index.v1\0");
+    hasher.update(
+        u64::try_from(bytes.len())
             .map_err(|_| CanonicalError::LengthOverflow)?
             .to_le_bytes(),
     );
-    preimage.extend_from_slice(&bytes);
-    Ok(content_hash_from_bytes(sha256(&preimage)))
+    hasher.update(&bytes);
+    Ok(content_hash_from_bytes(hasher.finalize().into()))
 }
 
 #[must_use]
@@ -320,6 +338,7 @@ pub(super) fn encode_sequence(records: Vec<Vec<u8>>) -> Result<Vec<u8>, Canonica
     Ok(payload)
 }
 
+#[cfg(test)]
 pub(super) fn encode_map(mut entries: Vec<(Vec<u8>, Vec<u8>)>) -> Result<Vec<u8>, CanonicalError> {
     entries.sort_by(|left, right| left.0.cmp(&right.0));
     if entries.windows(2).any(|pair| pair[0].0 == pair[1].0) {

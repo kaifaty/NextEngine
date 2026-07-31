@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 2.3 |
-| Последняя проверка | 2026-07-29 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
-| Заменяет | SPEC-12 2.2 |
+| Версия | 2.4 |
+| Последняя проверка | 2026-07-30 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md) |
+| Заменяет | SPEC-12 2.3 |
 
 ## Назначение
 
@@ -184,6 +184,24 @@ Correctness и determinism имеют приоритет: optimization, меня
 authoritative outcome, считается failure независимо от скорости. Wall-time
 variance MAY привести к повторному измерению по той же declared методике, но
 не к retry-to-green функциональных или deterministic failures.
+
+Hard timing verdict следует ADR-036: только `release`, compatible baseline и
+полный `ref-win-thoth-v1` могут дать timing `PASS`/`FAIL`. Linux timings всегда
+`REPORT_ONLY`, но Linux native build/platform/replay/hash correctness остаются
+обязательными. Несовместимый host, driver/BIOS/power plan/toolchain/content/
+methodology, недостаточный idle/free-memory/thermal preflight или
+неimplemented representative workload возвращает `NOT_RUN`.
+
+Текущие two-chunk, one-agent, five-object и live-movement fixtures являются
+только `smoke/report`. Они могут дать outer ProductCheck execution `PASS` с
+вложенным timing verdict `REPORT_ONLY`, но не закрывают absolute budget, B-12
+или соответствующий R2–R5 gate.
+
+Baseline строится из десяти clean runs одного commit. Percentiles —
+nearest-rank без удаления outliers. Absolute THOTH budget overrun даёт
+немедленный `FAIL`; compatible relative regression `<2%` считается noise,
+`2–5%` — `WARNING`, `>=5%` при 95% confidence interval — `FAIL`. Fallback
+renderer result всегда сообщается отдельно и не переписывает primary failure.
 
 ## Product result
 

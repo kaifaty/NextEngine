@@ -10,6 +10,7 @@ pub(super) struct BufferAllocation {
     pub(super) buffer: vk::Buffer,
     memory: vk::DeviceMemory,
     size: vk::DeviceSize,
+    allocation_size: vk::DeviceSize,
 }
 
 impl BufferAllocation {
@@ -72,7 +73,12 @@ impl BufferAllocation {
             buffer,
             memory,
             size,
+            allocation_size: requirements.size,
         })
+    }
+
+    pub(super) const fn allocation_size(&self) -> vk::DeviceSize {
+        self.allocation_size
     }
 
     pub(super) fn write(
@@ -122,6 +128,7 @@ struct ImageAllocation {
     device: ash::Device,
     image: vk::Image,
     memory: vk::DeviceMemory,
+    allocation_size: vk::DeviceSize,
 }
 
 impl ImageAllocation {
@@ -191,7 +198,12 @@ impl ImageAllocation {
             device: device.clone(),
             image,
             memory,
+            allocation_size: requirements.size,
         })
+    }
+
+    const fn allocation_size(&self) -> vk::DeviceSize {
+        self.allocation_size
     }
 }
 
@@ -246,6 +258,10 @@ impl TextureResource {
             view,
             image,
         })
+    }
+
+    pub(super) const fn allocation_size(&self) -> vk::DeviceSize {
+        self.image.allocation_size()
     }
 }
 
@@ -304,6 +320,10 @@ impl DepthAttachment {
 
     pub(crate) fn view(&self) -> vk::ImageView {
         self.view
+    }
+
+    pub(crate) const fn allocation_size(&self) -> vk::DeviceSize {
+        self.image.allocation_size()
     }
 }
 

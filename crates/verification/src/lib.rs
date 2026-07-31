@@ -36,8 +36,9 @@ pub use physics_parity::{
     PhysicsBackendParityError, PhysicsBackendParityReport, run_physics_backend_parity_check,
 };
 pub use platform_check::{
-    PlatformCandidateStatus, PlatformCheckError, PlatformCheckReport, run_platform_check,
-    run_platform_check_in,
+    DesktopFrameTimingSmokeReport, DesktopFrameTimingSmokeSample, PlatformCandidateStatus,
+    PlatformCheckError, PlatformCheckReport, run_desktop_frame_timing_smoke,
+    run_desktop_frame_timing_smoke_in, run_platform_check, run_platform_check_in,
 };
 pub use player_fixture::{
     CanonicalFixtureError, GameCheckReport, NeutralPlayerFixture, PhysicsCollisionBackend,

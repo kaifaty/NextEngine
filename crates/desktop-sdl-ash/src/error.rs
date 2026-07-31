@@ -20,6 +20,9 @@ pub enum DesktopAdapterError {
     InvalidName,
     InvalidExtent,
     GpuUnsupported,
+    GpuTimestampsUnsupported,
+    GpuProfilingSampleCapacityExceeded { maximum: u32 },
+    GpuTimestampStateInvalid,
     CounterOverflow,
     EventBatchLimitExceeded,
     EventLoopIterationLimitExceeded { maximum: u64 },
@@ -56,6 +59,9 @@ impl DesktopAdapterError {
             Self::InvalidName => "PLATFORM_NATIVE_NAME_INVALID",
             Self::InvalidExtent => "PLATFORM_DRAWABLE_EXTENT_INVALID",
             Self::GpuUnsupported => "GPU_UNSUPPORTED",
+            Self::GpuTimestampsUnsupported => "PERF_GPU_TIMESTAMPS_UNSUPPORTED",
+            Self::GpuProfilingSampleCapacityExceeded { .. } => "PERF_GPU_SAMPLE_CAPACITY_EXCEEDED",
+            Self::GpuTimestampStateInvalid => "PERF_GPU_TIMESTAMP_STATE_INVALID",
             Self::CounterOverflow => "PLATFORM_COUNTER_OVERFLOW",
             Self::EventBatchLimitExceeded => "PLATFORM_EVENT_BATCH_LIMIT_EXCEEDED",
             Self::EventLoopIterationLimitExceeded { .. } => {
@@ -121,6 +127,16 @@ impl Display for DesktopAdapterError {
             Self::GpuUnsupported => {
                 formatter.write_str("GPU_UNSUPPORTED: required B0 capabilities unavailable")
             }
+            Self::GpuTimestampsUnsupported => formatter.write_str(
+                "PERF_GPU_TIMESTAMPS_UNSUPPORTED: selected graphics queue has no usable timestamp support",
+            ),
+            Self::GpuProfilingSampleCapacityExceeded { maximum } => write!(
+                formatter,
+                "PERF_GPU_SAMPLE_CAPACITY_EXCEEDED: maximum samples {maximum}"
+            ),
+            Self::GpuTimestampStateInvalid => formatter.write_str(
+                "PERF_GPU_TIMESTAMP_STATE_INVALID: a submitted frame was not collected before query reuse",
+            ),
             Self::CounterOverflow => formatter.write_str("desktop adapter counter overflow"),
             Self::EventBatchLimitExceeded => {
                 formatter.write_str("platform event batch limit exceeded")

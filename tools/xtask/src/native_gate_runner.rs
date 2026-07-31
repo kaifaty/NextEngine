@@ -308,7 +308,7 @@ fn run_native_gate_matrix(
         Ok(report)
     });
     let performance = run_check!(NativeGateCheckNameV1::Performance, |state_root| {
-        performance_report(Some(state_root))
+        crate::performance_command::performance_report(root, Some(state_root))
     });
     let closure = run_check!(NativeGateCheckNameV1::V1Closure, |state_root| {
         let report = v1_closure_report(Some(state_root))?;

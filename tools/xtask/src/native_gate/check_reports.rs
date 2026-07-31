@@ -236,14 +236,20 @@ fn parse_check_report(
         NativeGateCheckNameV1::Performance => {
             let report =
                 parse_command_report::<PerformanceDetailsV1>(check, bytes, "performance", "PASS")?;
+            let streaming =
+                report.details.streaming.as_ref().ok_or_else(|| {
+                    report_invalid("performance streaming smoke result is missing")
+                })?;
+            let agent_planning = report
+                .details
+                .agent_planning
+                .as_ref()
+                .ok_or_else(|| report_invalid("performance agent smoke result is missing"))?;
             validate_hash(
                 "streaming final_world_state_hash",
-                &report.details.streaming.final_world_state_hash,
+                &streaming.final_world_state_hash,
             )?;
-            validate_hash(
-                "agent final_plan_hash",
-                &report.details.agent_planning.final_plan_hash,
-            )?;
+            validate_hash("agent final_plan_hash", &agent_planning.final_plan_hash)?;
             Ok(ValidatedCheckReportV1::Performance(Box::new(report)))
         }
         NativeGateCheckNameV1::V1Closure => {
@@ -574,14 +580,24 @@ fn validate_pass_bindings(
     let ValidatedCheckReportV1::Performance(performance) = &reports[5] else {
         return Err(report_invalid("performance typed report is out of order"));
     };
+    let streaming = performance
+        .details
+        .streaming
+        .as_ref()
+        .ok_or_else(|| report_invalid("performance streaming smoke result is missing"))?;
+    let agent_planning = performance
+        .details
+        .agent_planning
+        .as_ref()
+        .ok_or_else(|| report_invalid("performance agent smoke result is missing"))?;
     bind(
         "streaming performance root",
-        &performance.details.streaming.final_world_state_hash,
+        &streaming.final_world_state_hash,
         &roots.streaming_performance_hash,
     )?;
     bind(
         "agent performance root",
-        &performance.details.agent_planning.final_plan_hash,
+        &agent_planning.final_plan_hash,
         &roots.agent_performance_hash,
     )?;
 

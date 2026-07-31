@@ -24,6 +24,7 @@ mod error;
 pub use error::DesktopAdapterError;
 
 const INTERACTIVE_FRAME_INTERVAL: Duration = Duration::from_nanos(16_666_667);
+pub const MAX_FRAME_PROFILING_SAMPLES: u32 = 65_536;
 
 #[derive(Clone, Debug)]
 pub struct DesktopRunOptions {
@@ -36,6 +37,9 @@ pub struct DesktopRunOptions {
     pub inject_startup_lifecycle_probe: bool,
     pub host_instance_id: PersistentId,
     pub resume_suspended_application: bool,
+    /// Zero disables CPU/GPU frame timing. A non-zero value enables a bounded
+    /// Vulkan timestamp buffer in the same release binary.
+    pub frame_profiling_sample_capacity: u32,
 }
 
 impl Default for DesktopRunOptions {
@@ -50,8 +54,15 @@ impl Default for DesktopRunOptions {
             inject_startup_lifecycle_probe: false,
             host_instance_id: PersistentId::from_bytes([0x64; 16]),
             resume_suspended_application: false,
+            frame_profiling_sample_capacity: 0,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DesktopFrameTimingSample {
+    pub cpu_extract_and_submit_microseconds: u64,
+    pub gpu_duration_microseconds: u64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -77,6 +88,13 @@ pub struct DesktopRunReport {
     pub capability_set_hash: ContentHash,
     pub timebase_hash: ContentHash,
     pub last_platform_event_id: Option<ContentHash>,
+    pub frame_timings: Vec<DesktopFrameTimingSample>,
+    pub vulkan_timestamp_queries: u64,
+    pub dropped_frame_timing_samples: u64,
+    /// Engine-owned, currently bound Vulkan memory. This is a conservative
+    /// residency ceiling and excludes presentation-engine swapchain storage.
+    pub device_allocation_bytes: u64,
+    pub device_allocation_count: u64,
 }
 
 /// Returns the exact engine-owned desktop capability descriptor embedded in
@@ -202,7 +220,16 @@ pub fn run_interactive_with_timed_frame_source(
             options.initial_extent,
         )?;
     }
-    let mut graphics = Some(GraphicsContext::new(&window, render_content_catalog)?);
+    if options.frame_profiling_sample_capacity > MAX_FRAME_PROFILING_SAMPLES {
+        return Err(DesktopAdapterError::GpuProfilingSampleCapacityExceeded {
+            maximum: MAX_FRAME_PROFILING_SAMPLES,
+        });
+    }
+    let mut graphics = Some(GraphicsContext::new(
+        &window,
+        render_content_catalog,
+        options.frame_profiling_sample_capacity,
+    )?);
     let mut normalizer = lifecycle::DesktopEventNormalizer::new(options.host_instance_id)?;
     let mut event_stats = DesktopEventStats::default();
     {
@@ -429,6 +456,7 @@ pub fn run_interactive_with_timed_frame_source(
                         &mut graphics,
                         &window,
                         render_content_catalog,
+                        options.frame_profiling_sample_capacity,
                         &mut normalizer,
                         &mut event_sink,
                         &mut event_stats,
@@ -449,6 +477,7 @@ pub fn run_interactive_with_timed_frame_source(
                 &mut graphics,
                 &window,
                 render_content_catalog,
+                options.frame_profiling_sample_capacity,
                 &mut normalizer,
                 &mut event_sink,
                 &mut event_stats,
@@ -471,6 +500,7 @@ pub fn run_interactive_with_timed_frame_source(
                     &mut graphics,
                     &window,
                     render_content_catalog,
+                    options.frame_profiling_sample_capacity,
                     &mut normalizer,
                     &mut event_sink,
                     &mut event_stats,
@@ -505,10 +535,14 @@ pub fn run_interactive_with_timed_frame_source(
         }
         std::thread::sleep(remaining_frame_budget(frame_started.elapsed()));
     }
-    graphics
-        .as_ref()
-        .ok_or(DesktopAdapterError::GraphicsContextMissing)?
-        .wait_idle()?;
+    let (frame_profiling, device_allocation_bytes, device_allocation_count) = {
+        let graphics = graphics
+            .as_mut()
+            .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
+        graphics.wait_idle()?;
+        let (bytes, allocations) = graphics.device_allocation_stats()?;
+        (graphics.take_frame_profiling(), bytes, allocations)
+    };
     Ok(DesktopRunReport {
         rendered_frames,
         rendered_objects,
@@ -531,6 +565,11 @@ pub fn run_interactive_with_timed_frame_source(
         capability_set_hash: normalizer.capability_set_hash(),
         timebase_hash: normalizer.timebase_hash(),
         last_platform_event_id: event_stats.last_platform_event_id,
+        frame_timings: frame_profiling.samples,
+        vulkan_timestamp_queries: frame_profiling.timestamp_query_count,
+        dropped_frame_timing_samples: frame_profiling.dropped_samples,
+        device_allocation_bytes,
+        device_allocation_count,
     })
 }
 
@@ -692,6 +731,7 @@ fn recover_graphics(
     graphics: &mut Option<GraphicsContext>,
     window: &Window,
     render_content_catalog: &RenderContentCatalogV1,
+    frame_profiling_sample_capacity: u32,
     normalizer: &mut lifecycle::DesktopEventNormalizer,
     event_sink: &mut impl FnMut(&[PlatformEventV1]) -> Result<(), DesktopAdapterError>,
     event_stats: &mut DesktopEventStats,
@@ -721,7 +761,11 @@ fn recover_graphics(
         .take()
         .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
     drop(prior);
-    *graphics = Some(GraphicsContext::new(window, render_content_catalog)?);
+    *graphics = Some(GraphicsContext::new(
+        window,
+        render_content_catalog,
+        frame_profiling_sample_capacity,
+    )?);
     *recovery_count = recovery_count
         .checked_add(1)
         .ok_or(DesktopAdapterError::CounterOverflow)?;

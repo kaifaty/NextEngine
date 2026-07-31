@@ -338,6 +338,26 @@ impl B0GpuContent {
         }
         Ok(())
     }
+
+    pub(super) fn device_allocation_stats(&self) -> Result<(u64, u64), B0GpuContentError> {
+        let mut bytes = self
+            .geometry
+            .allocation_size()
+            .checked_add(self.indirect.allocation_size())
+            .and_then(|value| value.checked_add(self.frame_uniform.allocation_size()))
+            .ok_or(B0GpuContentError::CountOverflow)?;
+        for texture in self.textures.values() {
+            bytes = bytes
+                .checked_add(texture.allocation_size())
+                .ok_or(B0GpuContentError::CountOverflow)?;
+        }
+        let texture_count =
+            u64::try_from(self.textures.len()).map_err(|_| B0GpuContentError::CountOverflow)?;
+        let allocation_count = 3_u64
+            .checked_add(texture_count)
+            .ok_or(B0GpuContentError::CountOverflow)?;
+        Ok((bytes, allocation_count))
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]

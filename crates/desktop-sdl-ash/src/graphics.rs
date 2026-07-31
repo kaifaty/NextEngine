@@ -2,6 +2,12 @@ use super::*;
 use crate::gpu_content::{B0GpuContent, DepthAttachment};
 use next_render::{RenderTargetV1, build_b0_frame_plan};
 
+mod capabilities;
+mod profiling;
+
+use capabilities::select_physical_device;
+use profiling::{FrameProfilingReport, VulkanFrameProfiler};
+
 pub(super) struct GraphicsContext {
     _entry: ash::Entry,
     instance: ash::Instance,
@@ -19,6 +25,7 @@ pub(super) struct GraphicsContext {
     command_buffer: vk::CommandBuffer,
     image_available: vk::Semaphore,
     frame_fence: vk::Fence,
+    frame_profiler: Option<VulkanFrameProfiler>,
 }
 
 struct SwapchainState {
@@ -290,6 +297,7 @@ impl GraphicsContext {
     pub(super) fn new(
         window: &Window,
         render_content_catalog: &RenderContentCatalogV1,
+        frame_profiling_sample_capacity: u32,
     ) -> Result<Self, DesktopAdapterError> {
         // SAFETY: loading the process graphics loader creates an owned entry;
         // all child objects are destroyed in reverse ownership order below.
@@ -335,6 +343,20 @@ impl GraphicsContext {
         initialization.surface_loader = Some(surface_loader.clone());
         let (physical_device, queue_family_index) =
             select_physical_device(&instance, &surface_loader, surface)?;
+        // SAFETY: both capability queries return value data for the selected
+        // physical device and do not retain host pointers.
+        let physical_device_properties =
+            unsafe { instance.get_physical_device_properties(physical_device) };
+        // SAFETY: physical device belongs to this live instance.
+        let queue_family_properties =
+            unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
+        let timestamp_valid_bits = queue_family_properties
+            .get(
+                usize::try_from(queue_family_index)
+                    .map_err(|_| DesktopAdapterError::CounterOverflow)?,
+            )
+            .ok_or(DesktopAdapterError::GpuUnsupported)?
+            .timestamp_valid_bits;
 
         let priorities = [1.0_f32];
         let queue_info = [vk::DeviceQueueCreateInfo::default()
@@ -411,6 +433,16 @@ impl GraphicsContext {
                 )
             })
             .transpose()?;
+        let frame_profiler = (frame_profiling_sample_capacity > 0)
+            .then(|| {
+                VulkanFrameProfiler::new(
+                    &device,
+                    frame_profiling_sample_capacity,
+                    physical_device_properties.limits.timestamp_period,
+                    timestamp_valid_bits,
+                )
+            })
+            .transpose()?;
         let swapchain = initialization.finish();
         Ok(Self {
             _entry: entry,
@@ -429,6 +461,7 @@ impl GraphicsContext {
             command_buffer,
             image_available,
             frame_fence,
+            frame_profiler,
         })
     }
 
@@ -448,6 +481,9 @@ impl GraphicsContext {
         unsafe {
             self.device
                 .wait_for_fences(&[self.frame_fence], true, u64::MAX)?;
+        }
+        if let Some(profiler) = self.frame_profiler.as_mut() {
+            profiler.collect_pending()?;
         }
         let swapchain_handle = self
             .swapchain
@@ -478,6 +514,10 @@ impl GraphicsContext {
                 self.command_buffer,
                 &vk::CommandBufferBeginInfo::default(),
             )?;
+        }
+        let cpu_profile_started = self.frame_profiler.as_ref().map(|_| Instant::now());
+        if let Some(profiler) = self.frame_profiler.as_ref() {
+            profiler.write_start(self.command_buffer);
         }
         let image_usize =
             usize::try_from(image_index).map_err(|_| DesktopAdapterError::CounterOverflow)?;
@@ -622,6 +662,13 @@ impl GraphicsContext {
         unsafe {
             self.device
                 .cmd_pipeline_barrier2(self.command_buffer, &to_present_dependency);
+        }
+        if let Some(profiler) = self.frame_profiler.as_ref() {
+            profiler.write_end(self.command_buffer);
+        }
+        // SAFETY: all render and profiling commands have been recorded and the
+        // primary command buffer is still in the recording state.
+        unsafe {
             self.device.end_command_buffer(self.command_buffer)?;
         }
         let wait_semaphores = [self.image_available];
@@ -638,6 +685,14 @@ impl GraphicsContext {
         unsafe {
             self.device
                 .queue_submit(self.queue, &submit_info, self.frame_fence)?;
+        }
+        if let Some(started) = cpu_profile_started {
+            let cpu_extract_and_submit_microseconds = u64::try_from(started.elapsed().as_micros())
+                .map_err(|_| DesktopAdapterError::CounterOverflow)?;
+            self.frame_profiler
+                .as_mut()
+                .ok_or(DesktopAdapterError::GpuTimestampStateInvalid)?
+                .mark_submitted(cpu_extract_and_submit_microseconds)?;
         }
         let swapchains = [swapchain_handle];
         let image_indices = [image_index];
@@ -734,10 +789,40 @@ impl GraphicsContext {
         Ok(())
     }
 
-    pub(super) fn wait_idle(&self) -> Result<(), DesktopAdapterError> {
+    pub(super) fn wait_idle(&mut self) -> Result<(), DesktopAdapterError> {
         // SAFETY: device remains live throughout the context lifetime.
         unsafe { self.device.device_wait_idle()? };
+        if let Some(profiler) = self.frame_profiler.as_mut() {
+            profiler.collect_pending()?;
+        }
         Ok(())
+    }
+
+    pub(super) fn take_frame_profiling(&mut self) -> FrameProfilingReport {
+        self.frame_profiler.as_mut().map_or_else(
+            FrameProfilingReport::default,
+            VulkanFrameProfiler::take_report,
+        )
+    }
+
+    pub(super) fn device_allocation_stats(&self) -> Result<(u64, u64), DesktopAdapterError> {
+        let (mut bytes, mut allocations) = self
+            .b0_content
+            .as_ref()
+            .map(B0GpuContent::device_allocation_stats)
+            .transpose()?
+            .unwrap_or((0, 0));
+        if let Some(swapchain) = &self.swapchain {
+            for attachment in &swapchain.depth_attachments {
+                bytes = bytes
+                    .checked_add(attachment.allocation_size())
+                    .ok_or(DesktopAdapterError::CounterOverflow)?;
+                allocations = allocations
+                    .checked_add(1)
+                    .ok_or(DesktopAdapterError::CounterOverflow)?;
+            }
+        }
+        Ok((bytes, allocations))
     }
 }
 
@@ -747,6 +832,7 @@ impl Drop for GraphicsContext {
         // child-before-parent ownership and ignores only shutdown-time errors.
         unsafe {
             let _ = self.device.device_wait_idle();
+            drop(self.frame_profiler.take());
             drop(self.b0_content.take());
             self.device.destroy_fence(self.frame_fence, None);
             self.device.destroy_semaphore(self.image_available, None);
@@ -757,67 +843,6 @@ impl Drop for GraphicsContext {
             self.instance.destroy_instance(None);
         }
     }
-}
-
-fn select_physical_device(
-    instance: &ash::Instance,
-    surface_loader: &ash::khr::surface::Instance,
-    surface: vk::SurfaceKHR,
-) -> Result<(vk::PhysicalDevice, u32), DesktopAdapterError> {
-    // SAFETY: instance is live and enumeration writes owned handles.
-    let physical_devices = unsafe { instance.enumerate_physical_devices() }
-        .map_err(classify_physical_device_enumeration_error)?;
-    if physical_devices.is_empty() {
-        return Err(DesktopAdapterError::IcdUnavailable { error: None });
-    }
-    for physical_device in physical_devices {
-        // SAFETY: physical device belongs to the instance.
-        let properties = unsafe { instance.get_physical_device_properties(physical_device) };
-        if properties.api_version < vk::API_VERSION_1_3 {
-            continue;
-        }
-        let mut features_12 = vk::PhysicalDeviceVulkan12Features::default();
-        let mut features_13 = vk::PhysicalDeviceVulkan13Features::default();
-        let mut features = vk::PhysicalDeviceFeatures2::default()
-            .push_next(&mut features_12)
-            .push_next(&mut features_13);
-        // SAFETY: feature output chain is valid and stack-owned for the call.
-        unsafe {
-            instance.get_physical_device_features2(physical_device, &mut features);
-        }
-        if features_12.timeline_semaphore == 0
-            || features_12.buffer_device_address == 0
-            || features_13.dynamic_rendering == 0
-            || features_13.synchronization2 == 0
-        {
-            continue;
-        }
-        // SAFETY: physical device belongs to this live instance and the
-        // returned extension properties are copied into Rust-owned storage.
-        let extensions =
-            unsafe { instance.enumerate_device_extension_properties(physical_device) }?;
-        if !supports_required_device_extension(&extensions, ash::khr::swapchain::NAME) {
-            continue;
-        }
-        // SAFETY: physical device belongs to the instance.
-        let queue_families =
-            unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
-        for (index, family) in queue_families.iter().enumerate() {
-            let index = u32::try_from(index).map_err(|_| DesktopAdapterError::CounterOverflow)?;
-            // SAFETY: surface and physical device share the same instance.
-            let present = unsafe {
-                surface_loader.get_physical_device_surface_support(
-                    physical_device,
-                    index,
-                    surface,
-                )?
-            };
-            if family.queue_flags.contains(vk::QueueFlags::GRAPHICS) && present {
-                return Ok((physical_device, index));
-            }
-        }
-    }
-    Err(DesktopAdapterError::GpuUnsupported)
 }
 
 #[allow(

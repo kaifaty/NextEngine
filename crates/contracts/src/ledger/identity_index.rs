@@ -32,6 +32,34 @@ pub struct CommandIdentityIndexBodyV1 {
 
 impl CommandIdentityIndexBodyV1 {
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, CanonicalError> {
+        let bindings = encode_identity_bindings(&self.bindings)?;
+        encode_canonical_segment(
+            COMMAND_IDENTITY_INDEX_BODY_OWNER_ID,
+            COMMAND_IDENTITY_INDEX_BODY_SCHEMA_ID,
+            COMMAND_IDENTITY_INDEX_BODY_SEGMENT_ID,
+            [
+                CanonicalField::new(
+                    1,
+                    CANONICAL_TYPE_U16,
+                    self.schema_version.to_le_bytes().to_vec(),
+                ),
+                CanonicalField::new(2, CANONICAL_TYPE_MAP, bindings),
+                CanonicalField::new(
+                    3,
+                    CANONICAL_TYPE_U64,
+                    self.command_id_count.to_le_bytes().to_vec(),
+                ),
+                CanonicalField::new(
+                    4,
+                    CANONICAL_TYPE_U64,
+                    self.occurrence_count.to_le_bytes().to_vec(),
+                ),
+            ],
+        )
+    }
+
+    #[cfg(test)]
+    fn canonical_bytes_reference(&self) -> Result<Vec<u8>, CanonicalError> {
         let bindings = encode_map(
             self.bindings
                 .iter()
@@ -114,6 +142,171 @@ impl CommandIdentityIndexBodyV1 {
     }
 }
 
+fn encode_identity_bindings(
+    bindings: &BTreeMap<CommandId, CommandIdentityBindingV1>,
+) -> Result<Vec<u8>, CanonicalError> {
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(
+        &u32::try_from(bindings.len())
+            .map_err(|_| CanonicalError::LengthOverflow)?
+            .to_le_bytes(),
+    );
+    for (command_id, binding) in bindings {
+        append_nested_value(&mut bytes, CANONICAL_TYPE_ID128, command_id.as_bytes())?;
+        append_identity_binding(&mut bytes, binding)?;
+    }
+    Ok(bytes)
+}
+
+fn append_identity_binding(
+    bytes: &mut Vec<u8>,
+    binding: &CommandIdentityBindingV1,
+) -> Result<(), CanonicalError> {
+    let occurrences_bytes = std::mem::size_of::<u32>()
+        .checked_add(
+            binding
+                .occurrences
+                .len()
+                .checked_mul(IDENTITY_OCCURRENCE_RECORD_BYTES)
+                .ok_or(CanonicalError::LengthOverflow)?,
+        )
+        .ok_or(CanonicalError::LengthOverflow)?;
+    let payload_bytes = std::mem::size_of::<u32>()
+        .checked_add(canonical_field_bytes(binding.command_id.as_bytes().len())?)
+        .and_then(|length| length.checked_add(canonical_field_bytes(occurrences_bytes).ok()?))
+        .and_then(|length| {
+            length.checked_add(canonical_field_bytes(std::mem::size_of::<u8>()).ok()?)
+        })
+        .ok_or(CanonicalError::LengthOverflow)?;
+    append_nested_header(bytes, CANONICAL_TYPE_STRUCT, payload_bytes)?;
+    bytes.extend_from_slice(&3_u32.to_le_bytes());
+    append_field(
+        bytes,
+        1,
+        CANONICAL_TYPE_ID128,
+        binding.command_id.as_bytes(),
+    )?;
+    append_field_header(bytes, 2, CANONICAL_TYPE_SEQUENCE, occurrences_bytes)?;
+    bytes.extend_from_slice(
+        &u32::try_from(binding.occurrences.len())
+            .map_err(|_| CanonicalError::LengthOverflow)?
+            .to_le_bytes(),
+    );
+    for occurrence in &binding.occurrences {
+        append_identity_occurrence(bytes, occurrence)?;
+    }
+    append_field(bytes, 3, CANONICAL_TYPE_U8, &[binding.state as u8])
+}
+
+fn append_identity_occurrence(
+    bytes: &mut Vec<u8>,
+    occurrence: &CommandIdentityOccurrenceV1,
+) -> Result<(), CanonicalError> {
+    let payload_bytes = std::mem::size_of::<u32>()
+        .checked_add(canonical_field_bytes(
+            occurrence.body_hash.as_bytes().len(),
+        )?)
+        .and_then(|length| {
+            length.checked_add(
+                canonical_field_bytes(occurrence.first_stream_id.as_bytes().len()).ok()?,
+            )
+        })
+        .and_then(|length| {
+            length.checked_add(canonical_field_bytes(std::mem::size_of::<u64>()).ok()?)
+        })
+        .ok_or(CanonicalError::LengthOverflow)?;
+    append_nested_header(bytes, CANONICAL_TYPE_STRUCT, payload_bytes)?;
+    bytes.extend_from_slice(&3_u32.to_le_bytes());
+    append_field(
+        bytes,
+        1,
+        CANONICAL_TYPE_HASH256,
+        occurrence.body_hash.as_bytes(),
+    )?;
+    append_field(
+        bytes,
+        2,
+        CANONICAL_TYPE_ID128,
+        occurrence.first_stream_id.as_bytes(),
+    )?;
+    append_field(
+        bytes,
+        3,
+        CANONICAL_TYPE_U64,
+        &occurrence.first_sequence.to_le_bytes(),
+    )
+}
+
+const CANONICAL_NESTED_HEADER_BYTES: usize = std::mem::size_of::<u8>() + std::mem::size_of::<u64>();
+const CANONICAL_FIELD_HEADER_BYTES: usize =
+    std::mem::size_of::<u32>() + std::mem::size_of::<u8>() + std::mem::size_of::<u64>();
+const IDENTITY_OCCURRENCE_RECORD_BYTES: usize = CANONICAL_NESTED_HEADER_BYTES
+    + std::mem::size_of::<u32>()
+    + (3 * CANONICAL_FIELD_HEADER_BYTES)
+    + 32
+    + 16
+    + 8;
+
+fn canonical_field_bytes(payload_bytes: usize) -> Result<usize, CanonicalError> {
+    std::mem::size_of::<u32>()
+        .checked_add(std::mem::size_of::<u8>())
+        .and_then(|length| length.checked_add(std::mem::size_of::<u64>()))
+        .and_then(|length| length.checked_add(payload_bytes))
+        .ok_or(CanonicalError::LengthOverflow)
+}
+
+fn append_nested_value(
+    bytes: &mut Vec<u8>,
+    type_tag: u8,
+    payload: &[u8],
+) -> Result<(), CanonicalError> {
+    append_nested_header(bytes, type_tag, payload.len())?;
+    bytes.extend_from_slice(payload);
+    Ok(())
+}
+
+fn append_nested_header(
+    bytes: &mut Vec<u8>,
+    type_tag: u8,
+    payload_bytes: usize,
+) -> Result<(), CanonicalError> {
+    bytes.push(type_tag);
+    bytes.extend_from_slice(
+        &u64::try_from(payload_bytes)
+            .map_err(|_| CanonicalError::LengthOverflow)?
+            .to_le_bytes(),
+    );
+    Ok(())
+}
+
+fn append_field(
+    bytes: &mut Vec<u8>,
+    field_id: u32,
+    type_tag: u8,
+    payload: &[u8],
+) -> Result<(), CanonicalError> {
+    append_field_header(bytes, field_id, type_tag, payload.len())?;
+    bytes.extend_from_slice(payload);
+    Ok(())
+}
+
+fn append_field_header(
+    bytes: &mut Vec<u8>,
+    field_id: u32,
+    type_tag: u8,
+    payload_bytes: usize,
+) -> Result<(), CanonicalError> {
+    bytes.extend_from_slice(&field_id.to_le_bytes());
+    bytes.push(type_tag);
+    bytes.extend_from_slice(
+        &u64::try_from(payload_bytes)
+            .map_err(|_| CanonicalError::LengthOverflow)?
+            .to_le_bytes(),
+    );
+    Ok(())
+}
+
+#[cfg(test)]
 impl CommandIdentityBindingV1 {
     fn canonical_record(&self) -> Result<Vec<u8>, CanonicalError> {
         let occurrences = encode_sequence(
@@ -130,6 +323,7 @@ impl CommandIdentityBindingV1 {
     }
 }
 
+#[cfg(test)]
 impl CommandIdentityOccurrenceV1 {
     fn canonical_record(&self) -> Result<Vec<u8>, CanonicalError> {
         struct_record([
@@ -149,6 +343,47 @@ impl CommandIdentityOccurrenceV1 {
                 self.first_sequence.to_le_bytes().to_vec(),
             ),
         ])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn optimized_identity_encoding_is_byte_exact_for_unique_and_collision_bindings() {
+        let mut index = CommandIdentityIndexV1::empty().expect("empty index");
+        let collision_id = CommandId::from_bytes([7; 16]);
+        for (body, stream, sequence) in [([1; 32], [2; 16], 3), ([4; 32], [5; 16], 6)] {
+            index
+                .insert_occurrence(
+                    collision_id,
+                    CommandIdentityOccurrenceV1 {
+                        body_hash: command_body_hash_from_bytes(body),
+                        first_stream_id: CommandStreamId::from_bytes(stream),
+                        first_sequence: sequence,
+                    },
+                )
+                .expect("collision occurrence");
+        }
+        index
+            .insert_occurrence(
+                CommandId::from_bytes([8; 16]),
+                CommandIdentityOccurrenceV1 {
+                    body_hash: command_body_hash_from_bytes([9; 32]),
+                    first_stream_id: CommandStreamId::from_bytes([10; 16]),
+                    first_sequence: 11,
+                },
+            )
+            .expect("unique occurrence");
+
+        assert_eq!(
+            index.body.canonical_bytes().expect("optimized encoding"),
+            index
+                .body
+                .canonical_bytes_reference()
+                .expect("reference encoding")
+        );
     }
 }
 

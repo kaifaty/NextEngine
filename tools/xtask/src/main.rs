@@ -12,6 +12,8 @@ mod native_gate_schedule;
 mod native_gate_target;
 #[cfg(test)]
 mod native_gate_tests;
+mod performance_baseline_command;
+mod performance_command;
 
 use serde::{Serialize, Serializer};
 use xtask::native_gate::{
@@ -97,7 +99,7 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, platform, play, physics-collision, physics-backend-parity, persistence-replay, v1-closure or v1-package".to_owned()
+        "expected boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, platform, play, physics-collision, physics-backend-parity, persistence-replay, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
         "boundary-scan" => {
@@ -140,8 +142,12 @@ fn run() -> Result<(), String> {
             persistence_replay(backend)
         }
         "performance" => {
-            reject_extra_arguments(arguments)?;
-            performance()
+            let request = performance_command::parse_arguments(arguments)?;
+            performance_command::performance(&root, &request)
+        }
+        "performance-baseline" => {
+            let request = performance_baseline_command::parse_arguments(arguments)?;
+            performance_baseline_command::performance_baseline(&root, &request)
         }
         "platform" => {
             reject_extra_arguments(arguments)?;
@@ -346,54 +352,6 @@ fn target_status(status: &next_verification::TargetGateStatusV1) -> String {
             format!("NOT_RUN({reason})")
         }
     }
-}
-
-fn performance() -> Result<(), String> {
-    performance_report(None)?.emit_report()
-}
-
-fn performance_report(
-    state_root: Option<&Path>,
-) -> Result<CommandReportV1<PerformanceDetailsV1>, String> {
-    let _ = run_tool_session("tools-performance", state_root)?;
-    let streaming = match state_root {
-        Some(root) => next_verification::run_streaming_performance_check_in(root),
-        None => next_verification::run_streaming_performance_check(),
-    }
-    .map_err(|error| error.to_string())?;
-    let agent = match state_root {
-        Some(root) => next_verification::run_agent_planning_performance_check_in(root),
-        None => next_verification::run_agent_planning_performance_check(),
-    }
-    .map_err(|error| error.to_string())?;
-    let _render_planning = match state_root {
-        Some(root) => next_verification::run_render_frame_planning_performance_check_in(root),
-        None => next_verification::run_render_frame_planning_performance_check(),
-    }
-    .map_err(|error| error.to_string())?;
-    let _live_runtime = match state_root {
-        Some(root) => next_verification::run_live_runtime_performance_check_in(root),
-        None => next_verification::run_live_runtime_performance_check(),
-    }
-    .map_err(|error| error.to_string())?;
-    Ok(CommandReportV1::new(
-        "performance",
-        "PASS",
-        PerformanceDetailsV1 {
-            streaming: StreamingPerformanceDetailsV1 {
-                cycles: streaming.cycles,
-                staged_asset_references: streaming.staged_asset_references,
-                elapsed_microseconds: streaming.elapsed_microseconds,
-                final_generation: streaming.final_generation,
-                final_world_state_hash: streaming.final_world_state_hash.to_hex(),
-            },
-            agent_planning: AgentPerformanceDetailsV1 {
-                cycles: agent.cycles,
-                elapsed_microseconds: agent.elapsed_microseconds,
-                final_plan_hash: agent.final_plan_hash.to_hex(),
-            },
-        },
-    ))
 }
 
 fn platform() -> Result<(), String> {

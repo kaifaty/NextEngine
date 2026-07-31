@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-07-25 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
-| Заменяет | отсутствует |
+| Версия | 2.1 |
+| Последняя проверка | 2026-07-30 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md) |
+| Заменяет | SPEC-09 2.0 |
 
 ## Technical authority boundary
 
@@ -83,6 +83,8 @@ product correctness:
 | `next scenario validate\|run\|minimize <input>` | Validate or run a representative scenario and minimize to the same stable failure. |
 | `next capture render --input <manifest> --out <dir>` | Run the displayless `capture-worker` for screenshots, video or audio from explicit replay/presentation inputs. |
 | `next profile run <command> --out <dir>` | Enable bounded CPU/GPU/platform profiling and write a local report. |
+| `cargo run --release -p xtask -- performance --scenario <id> --mode report\|gate [--target ref-win-thoth-v1] [--baseline <file>] [--output <dir>]` | Run repository-owned versioned performance report; incompatible host/baseline/workload returns `NOT_RUN`. |
+| `cargo run --release -p xtask -- performance-baseline --runs <ten-run-dir> --output <dir>` | Strictly validate ten clean compatible THOTH reports and atomically publish one `PerformanceBaselineV1`; never overwrite an existing baseline. |
 | `next inspect run <run-root>` | Open an optional developer run record and its referenced logs/traces/media. |
 
 Capture, screenshots and profiling are opt-in. Missing GPU, encoder or external
@@ -176,6 +178,37 @@ physics/motor timings, streaming I/O, script/plugin budgets and optional
 Profiling off/on MUST produce identical accepted command and authoritative
 state hashes. External profilers connect only through private platform
 adapters.
+
+Performance tooling serializes `PerformanceRunV1`, `PerformanceMetricV1`,
+`PerformanceBaselineV1` and `PerformanceVerdict` under ADR-036. Эти schemas
+принадлежат tooling и не добавляются в `crates/contracts`. Raw samples
+сохраняются вместе с nearest-rank p50/p95/p99; outliers не удаляются.
+Relative comparison хранится fixed-point basis points и deterministic
+bootstrap 95% interval.
+
+Stable CPU span categories включают runtime stages, render extraction,
+physics/motor, streaming/I/O, agent planning и navigation. Per-thread buffers
+preallocated и bounded; overflow, dropped sample или
+`UNOWNED_GAMEPLAY_SPAN` invalidates run. Profiler state включается runtime
+setting в той же release binary, не feature-specific gameplay build.
+Declared overhead bound — 3% и 64 MiB.
+
+Allocator, process/device residency, I/O counters и Vulkan timestamp queries
+помечают unavailable source явно. Отсутствующий required counter в hard
+scenario даёт `NOT_RUN`, но smoke/report MAY сохранить unavailable diagnostic.
+Windows process I/O хранится как workload delta между двумя
+`GetProcessIoCounters` snapshots. Private Vulkan adapter при runtime-enabled
+profiling preallocates a finite frame-sample buffer, writes top/bottom timestamp
+queries and pairs each completed GPU duration with CPU extract/submit time.
+Overflow or an uncollected query increments a dropped-sample counter. Device
+residency reporting uses the conservative sum of engine-owned bound Vulkan
+allocations and explicitly excludes driver-owned swapchain storage. Это
+presentation/telemetry data и не входит в gameplay authority. Глобальные host
+allocator counters остаются unavailable, пока отдельный runtime allocation hook
+не даст exact end-to-end evidence; approximate process-private memory не
+подменяет allocator metric.
+Тяжёлые captures, WPA/perf/samply profiles и generated reports остаются
+machine-local и не коммитятся.
 
 ## SDK stability
 

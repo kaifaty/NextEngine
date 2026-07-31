@@ -94,6 +94,10 @@ fn body_archive_is_order_independent_and_rejects_corrupt_keys() {
         reverse.manifest().expect("manifest")
     );
     assert_eq!(
+        forward.manifest().expect("cached manifest").archive_root,
+        command_body_archive_root(forward.entries()).expect("recomputed archive root")
+    );
+    assert_eq!(
         forward
             .insert_command(&first)
             .expect("exact retry is idempotent"),

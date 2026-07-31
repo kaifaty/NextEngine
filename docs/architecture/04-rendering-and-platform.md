@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 2.1 |
-| Последняя проверка | 2026-07-29 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
-| Заменяет | отсутствует |
+| Версия | 2.2 |
+| Последняя проверка | 2026-07-30 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md) |
+| Заменяет | SPEC-04 2.1 |
 
 ## Technical authority boundary
 
@@ -150,11 +150,32 @@ Runtime profile, dependency, ABI и timeout failures используют ста
 Debug layers/RenderDoc markers MAY быть optional package, но их отсутствие не
 меняет cache keys release shaders.
 
+## B0 performance profile
+
+Hard B0 timing следует ADR-036 и принимается только на полном
+`ref-win-thoth-v1` в `release`:
+
+- primary `1920×1080`: `p95 <= 14,000 us`, `p99 <= 16,670 us`;
+- fallback `b0-safe-720p30`, `1280×720`: `p99 <= 33,330 us`.
+
+Полный frame sample равен
+`max(cpu_extract_and_submit_us, gpu_timestamp_duration_us)`. VSync wait
+исключается, missed deadlines сохраняются отдельным counter. Три
+representative 60-second окна — exploration, combat и UI/dialogue — каждое
+использует 600 warm-up и 3,600 measured frames. Nearest-rank percentiles
+сохраняют все outliers.
+
+Fallback выбирается только при launch в v1. Его `PASS` не меняет primary
+`FAIL`. Render quality, timestamp query state, profiler state и chosen
+presentation profile не меняют commands/events/replay result или
+authoritative roots. Пока representative R2 alpha project отсутствует, этот
+gate возвращает `NOT_RUN`; текущий five-object plan остаётся smoke.
+
 ## Product checks
 
 | ID | Scenario | Expected behavior | Fallback |
 |---|---|---|---|
-| `RENDER-P1` | Run an engine-owned Vulkan B0 gameplay scene on available Win/Linux targets with the selected binding adapter. | No validation errors or leaked objects; the scene remains responsive at the declared product budget; no binding/vendor type escapes the renderer backend. | Fix or replace the adapter behind the same `RenderDevice`; reduce optional visual quality before changing gameplay. |
+| `RENDER-P1` | Run an engine-owned Vulkan B0 gameplay scene on available Win/Linux targets with the selected binding adapter. | No validation errors or leaked objects; THOTH primary/fallback results are reported independently against ADR-036, Linux timing is `REPORT_ONLY`, and no binding/vendor type escapes the renderer backend. | Fix or replace the adapter behind the same `RenderDevice`; select declared `b0-safe-720p30` at launch without hiding primary failure or changing gameplay. |
 | `SHADER-P1` | Compile the offline `ShaderInterface` matrix with the selected compiler chain. | VS/FS/compute SPIR-V, canonical reflection and platform-neutral artifact keys match across Win/Linux; layouts match exactly; unavailable optional task/mesh or ray-query paths remain unloaded. | Replace the compiler adapter behind the same interface and reject incompatible shader assets. |
 | `RENDER-ASH-P1` | Exercise the B0 scene through the proposed ash adapter. | The renderer behavior matches `RENDER-P1` and no ash type crosses the backend boundary. | Keep the internal/generated binding adapter. |
 | `SHADER-SLANG-P1` | Exercise the shader matrix through the proposed Slang adapter. | The behavior matches `SHADER-P1` and source mapping exists for every compiled entry. | Keep the verified GLSL/HLSL-to-SPIR-V compiler adapter. |

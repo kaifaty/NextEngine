@@ -24,6 +24,22 @@ pub struct PlatformCheckReport {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DesktopFrameTimingSmokeSample {
+    pub cpu_extract_and_submit_microseconds: u64,
+    pub gpu_duration_microseconds: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DesktopFrameTimingSmokeReport {
+    pub samples: Vec<DesktopFrameTimingSmokeSample>,
+    pub timestamp_query_count: u64,
+    pub dropped_samples: u64,
+    pub frame_plan_hash: next_contracts::ids::ContentHash,
+    pub device_allocation_bytes: u64,
+    pub device_allocation_count: u64,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PlatformCandidateStatus {
     Pass,
     NotRunOnDeveloperHost,
@@ -39,6 +55,23 @@ pub fn run_platform_check_in(
 ) -> Result<PlatformCheckReport, PlatformCheckError> {
     let scratch = ScratchContext::new(scratch_root).map_err(platform_scratch_error)?;
     run_platform_check_with_scratch(&scratch)
+}
+
+pub fn run_desktop_frame_timing_smoke()
+-> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
+    run_desktop_frame_timing_smoke_in(&std::env::temp_dir())
+}
+
+pub fn run_desktop_frame_timing_smoke_in(
+    scratch_root: &Path,
+) -> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
+    let scratch = ScratchContext::new(scratch_root).map_err(platform_scratch_error)?;
+    let timing_directory = scratch
+        .create_directory("desktop-frame-timing")
+        .map_err(platform_scratch_error)?;
+    let timing_scratch = timing_directory.context();
+    let result = run_desktop_frame_timing_smoke_scoped(&timing_scratch);
+    timing_directory.finish(result, platform_scratch_error)
 }
 
 pub(crate) fn run_platform_check_with_scratch(
@@ -172,6 +205,67 @@ fn platform_scratch_error(error: std::io::Error) -> PlatformCheckError {
     PlatformCheckError::Play(PlayCheckError::Fixture(
         crate::NeutralFixtureError::Cleanup(error),
     ))
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+fn run_desktop_frame_timing_smoke_scoped(
+    scratch: &ScratchContext,
+) -> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
+    if !cfg!(all(
+        target_arch = "x86_64",
+        any(target_os = "windows", target_os = "linux")
+    )) {
+        return Ok(None);
+    }
+    const MEASURED_FRAMES: u64 = 4;
+    let prepared = prepare_game_frame_with_scratch(scratch)?;
+    let report = next_desktop_sdl_ash::run_interactive(
+        &prepared.snapshot,
+        &prepared.render_content_catalog,
+        &next_desktop_sdl_ash::DesktopRunOptions {
+            maximum_frames: Some(MEASURED_FRAMES),
+            maximum_event_loop_iterations: Some(1_200),
+            frame_profiling_sample_capacity: u32::try_from(MEASURED_FRAMES)
+                .map_err(|_| PlatformCheckError::DesktopSmokeMismatch)?,
+            ..next_desktop_sdl_ash::DesktopRunOptions::default()
+        },
+    )?;
+    if report.rendered_frames != MEASURED_FRAMES
+        || report.frame_timings.len()
+            != usize::try_from(MEASURED_FRAMES)
+                .map_err(|_| PlatformCheckError::DesktopSmokeMismatch)?
+        || report.vulkan_timestamp_queries != MEASURED_FRAMES * 2
+        || report.dropped_frame_timing_samples != 0
+        || report.device_allocation_bytes == 0
+        || report.device_allocation_count == 0
+    {
+        return Err(PlatformCheckError::DesktopSmokeMismatch);
+    }
+    let frame_plan_hash = report
+        .last_frame_plan_hash
+        .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
+    Ok(Some(DesktopFrameTimingSmokeReport {
+        samples: report
+            .frame_timings
+            .into_iter()
+            .map(|sample| DesktopFrameTimingSmokeSample {
+                cpu_extract_and_submit_microseconds: sample.cpu_extract_and_submit_microseconds,
+                gpu_duration_microseconds: sample.gpu_duration_microseconds,
+            })
+            .collect(),
+        timestamp_query_count: report.vulkan_timestamp_queries,
+        dropped_samples: report.dropped_frame_timing_samples,
+        frame_plan_hash,
+        device_allocation_bytes: report.device_allocation_bytes,
+        device_allocation_count: report.device_allocation_count,
+    }))
+}
+
+#[cfg(not(feature = "desktop-sdl-ash"))]
+fn run_desktop_frame_timing_smoke_scoped(
+    _scratch: &ScratchContext,
+) -> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
+    Ok(None)
 }
 
 #[cfg(feature = "desktop-sdl-ash")]

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::performance::PerformanceRunV1;
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CommandReportV1<T> {
@@ -112,9 +114,39 @@ pub struct AgentPerformanceDetailsV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct RenderPlanningPerformanceDetailsV1 {
+    pub cycles: u64,
+    pub elapsed_microseconds: u128,
+    pub visible_object_count: u32,
+    pub indexed_draw_count: u32,
+    pub fallback_material_draw_count: u32,
+    pub frame_plan_hash: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LiveRuntimePerformanceDetailsV1 {
+    pub ticks: u64,
+    pub command_body_count: u64,
+    pub elapsed_microseconds: u128,
+    pub window_microseconds: [u128; 3],
+    pub checkpoint_microseconds: [u128; 3],
+    pub final_state_root: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PerformanceDetailsV1 {
-    pub streaming: StreamingPerformanceDetailsV1,
-    pub agent_planning: AgentPerformanceDetailsV1,
+    #[serde(default)]
+    pub run: Option<PerformanceRunV1>,
+    #[serde(default)]
+    pub streaming: Option<StreamingPerformanceDetailsV1>,
+    #[serde(default)]
+    pub agent_planning: Option<AgentPerformanceDetailsV1>,
+    #[serde(default)]
+    pub render_planning: Option<RenderPlanningPerformanceDetailsV1>,
+    #[serde(default)]
+    pub live_runtime: Option<LiveRuntimePerformanceDetailsV1>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

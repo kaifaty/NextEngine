@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-016 |
 | Статус | Accepted |
-| Версия | 1.2 |
+| Версия | 1.3 |
 | Дата решения | 2026-07-23 |
-| Последняя проверка | 2026-07-25 |
+| Последняя проверка | 2026-07-30 |
 | Нормативные зависимости | [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
-| Заменён | частично [ADR-030](030-product-first-development-and-lightweight-validation.md) |
+| Заменён | частично [ADR-030](030-product-first-development-and-lightweight-validation.md) и [ADR-036](036-thoth-reference-performance-profile.md) |
 
 ## Частичное supersession ADR-030
 
@@ -17,6 +17,11 @@
 заменяет прежний общий admission lifecycle. Compositional budget model и
 deterministic workload остаются targeted performance contract для изменений,
 которые materially затрагивают tick time, scheduling или related resource use.
+
+[ADR-036](036-thoth-reference-performance-profile.md) заменяет только
+неполный qualifier `reference 8-core CPU` на exact полный
+`ref-win-thoth-v1`. GameplayBudgetMatrix, workload cadence и числовые limits
+этого ADR не меняются.
 
 ## Контекст
 
@@ -94,7 +99,7 @@ threshold edit.
 
 ## Reference performance scenario
 
-На declared reference 8-core CPU profile release build:
+На полном `ref-win-thoth-v1` по ADR-036 в `release` build:
 
 1. загружает exact neutral fixture, workload и policy;
 2. выполняет `1_000` warm-up ticks вне percentiles;

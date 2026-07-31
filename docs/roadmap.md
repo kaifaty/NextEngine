@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-07-30 |
-| Текущая точка | Player action and camera завершён локально на Windows со статусом `DONE_LOCAL_WINDOWS`; следующий Windows work package — Semantic UI (`NEXT`), а Linux-only `LNX-005` остаётся открытым в asynchronous validation backlog |
+| Текущая точка | Player action and camera и performance measurement foundation завершены локально на Windows; следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005` остаются открыты |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -93,6 +93,10 @@ Roadmap намеренно не содержит календарных обещ
   [ADR-035](architecture/adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md);
 - Windows SDL3/ash B0 path с canonical keyboard/lifecycle events, fullscreen,
   swapchain recreation, bounded device-loss recovery и package smoke;
+- versioned `xtask performance` foundation с exact THOTH fingerprint,
+  release-only gate preflight, nearest-rank/baseline schemas и полным
+  streaming/agent/render/live smoke report; representative R2–R5 workloads
+  честно возвращают `NOT_RUN`;
 - локальная v1 closure matrix.
 
 Это сильный bootstrap, но ещё не пользовательская alpha. Текущий сценарий
@@ -118,7 +122,7 @@ skeleton/animation/audio.
 | Navigation/audio | Spec-only | Нет runtime service, cooker или baseline adapters. |
 | Player experience | Частично: общий keyboard/mouse ActionMap/InputContext resolver, persisted targeting intent/query и live third-person camera path | Нет semantic UI, controller profile, localization и accessibility implementation. |
 | Presentation/render | Частично: exact revision-bound snapshot с typed camera, offline SPIR-V, CPU visible list/indexed-indirect B0 path, camera view-projection/depth, fallback material и проверенные локально Windows swapchain/device recovery/package paths | Нет skeleton/VFX consumption state, paired same-commit target proof и representative Linux hardware-GPU evidence. |
-| Tooling | Частично: repository `xtask` checks | Нет creator-facing `next` CLI, inspectors, scenario/minimizer и stable external SDK workflow. |
+| Tooling | Частично: repository `xtask` checks и versioned performance report/gate foundation | Нет creator-facing `next` CLI, inspectors, scenario/minimizer, ten-run THOTH baseline и stable external SDK workflow. |
 | Autonomous narrative | Contract fragments only | SPEC-31 runtime, graph admission, director fallback и divine batch transaction отсутствуют. |
 
 ## Продуктовая граница v1
@@ -658,7 +662,7 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 | B-09 | Нет external creator CLI/SDK workflow | R6, R7 | Второй project/package создаётся cleanly только public tools/contracts. |
 | B-10 | Content scope может расти быстрее playable loop | Все этапы | Для каждого этапа назначен один representative scenario и явно записан non-goal list. |
 | B-11 | Недостаточная content/documentation capacity | R2, R6, R7 | Назначены owners и budget для art/audio/text/examples/docs/provenance. |
-| B-12 | Target performance profile не измерен на representative world | R4, R5, R7 | Recorded CPU/GPU/memory/I/O profile проходит declared thresholds или включает bounded fallback. |
+| B-12 | `OPEN / FOUNDATION_DONE`: ADR-036, THOTH fingerprint/preflight, versioned report, nearest-rank, strict ten-run baseline publisher, Windows I/O delta, bounded Vulkan timestamps и conservative device-allocation residency ceiling реализованы; exact host allocator counter, calibration evidence и representative R2–R5 workloads отсутствуют | R4, R5, R7 | Hard `PASS` на полном `ref-win-thoth-v1`, Linux `REPORT_ONLY` profile и mandatory native correctness на обеих shipping targets; smoke/fallback-only/`NOT_RUN` blocker не закрывают. |
 
 ## Решения, которые нужно принять вовремя
 
@@ -718,6 +722,20 @@ registration отклоняет stale adapter events;
 authoritative restart создаёт fresh presentation epoch/sequence `0` и camera
 cuts по ADR-035. `LNX-005` выполняется позднее асинхронно; R1/B-01 и весь R2
 этим не закрываются.
+
+Performance measurement foundation (`DONE_LOCAL_WINDOWS`) добавляет
+`PerformanceRunV1`/`PerformanceMetricV1`/`PerformanceBaselineV1`, полный
+THOTH fingerprint и idle/RAM/thermal preflight, profile `profiling`, raw
+nearest-rank smoke metrics и explicit `NOT_RUN` для ещё отсутствующих
+representative R2–R5 workloads. Следующий instrumentation increment добавляет
+strict `performance-baseline` publisher, Windows process I/O deltas, bounded
+CPU/Vulkan frame timing и conservative engine-owned device-allocation ceiling;
+release smoke на THOTH получил timestamp samples без dropped queries.
+Exact global host allocator counter и ten-run calibration evidence ещё
+отсутствуют. Это не меняет product queue: calibration начинается после
+стабилизации последнего required counter/noise, а hard
+timing gate включается только вместе с реальным stage workload. B-12 остаётся
+открыт.
 
 1. **Semantic UI (`NEXT`):** HUD, inventory/equipment, dialogue, quest
    journal, pause/save/load and pseudo-locale.

@@ -78,3 +78,7 @@ unimplemented = "deny"
 
 [workspace.metadata.nextengine.ffi]
 allowed_crates = ["next_desktop_sdl_ash", "next_physics_physx_ffi"]
+
+[profile.profiling]
+inherits = "release"
+debug = "line-tables-only"

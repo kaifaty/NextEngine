@@ -284,8 +284,25 @@ pub(crate) fn build_native_gate_package_result(
         platform_state_root: platform.details.state_root.clone(),
         platform_ledger_hash: platform.details.ledger_hash.clone(),
         presentation_snapshot_hash: platform.details.presentation_snapshot_hash.clone(),
-        streaming_performance_hash: performance.details.streaming.final_world_state_hash.clone(),
-        agent_performance_hash: performance.details.agent_planning.final_plan_hash.clone(),
+        streaming_performance_hash: performance
+            .details
+            .streaming
+            .as_ref()
+            .ok_or_else(|| {
+                "NATIVE_GATE_REPORT_INVALID: performance streaming smoke result is missing"
+                    .to_owned()
+            })?
+            .final_world_state_hash
+            .clone(),
+        agent_performance_hash: performance
+            .details
+            .agent_planning
+            .as_ref()
+            .ok_or_else(|| {
+                "NATIVE_GATE_REPORT_INVALID: performance agent smoke result is missing".to_owned()
+            })?
+            .final_plan_hash
+            .clone(),
         packaged_game_state_root: package.game.state_root.clone(),
         packaged_game_ledger_hash: package.game.ledger_hash.clone(),
         packaged_headless_state_root: package.headless.state_root.clone(),

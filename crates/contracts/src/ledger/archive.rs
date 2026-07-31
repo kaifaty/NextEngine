@@ -13,6 +13,7 @@ pub struct CommandBodyArchiveManifestV1 {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CommandBodyArchiveV1 {
     pub(super) entries: Arc<BTreeMap<CommandBodyHash, Arc<[u8]>>>,
+    leaf_hashes: Arc<Vec<(CommandBodyHash, [u8; 32])>>,
 }
 
 impl CommandBodyArchiveV1 {
@@ -44,7 +45,17 @@ impl CommandBodyArchiveV1 {
             }
             Some(_) => Err(CommandLedgerError::CommandBodyHashCollision),
             None => {
+                let leaf_hash = command_body_archive_leaf_hash(body_hash, &body_bytes)?;
+                let insertion_index = match self
+                    .leaf_hashes
+                    .binary_search_by_key(&body_hash, |(hash, _)| *hash)
+                {
+                    Ok(_) => return Err(CommandLedgerError::CommandBodyArchiveCorrupt),
+                    Err(insertion_index) => insertion_index,
+                };
                 Arc::make_mut(&mut self.entries).insert(body_hash, Arc::from(body_bytes));
+                Arc::make_mut(&mut self.leaf_hashes)
+                    .insert(insertion_index, (body_hash, leaf_hash));
                 Ok(ArchiveInsertResult::Inserted(body_hash))
             }
         }
@@ -60,14 +71,21 @@ impl CommandBodyArchiveV1 {
     pub fn manifest(&self) -> Result<CommandBodyArchiveManifestV1, CommandLedgerError> {
         let entry_count =
             u64::try_from(self.entries.len()).map_err(|_| CommandLedgerError::CountOverflow)?;
+        if self.entries.len() != self.leaf_hashes.len() {
+            return Err(CommandLedgerError::CommandBodyArchiveCorrupt);
+        }
         Ok(CommandBodyArchiveManifestV1 {
             schema_version: COMMAND_BODY_ARCHIVE_SCHEMA_VERSION,
             entry_count,
-            archive_root: command_body_archive_root(&self.entries)?,
+            archive_root: command_body_archive_root_from_leaves(
+                self.leaf_hashes.iter().map(|(_, leaf_hash)| *leaf_hash),
+                entry_count,
+            )?,
         })
     }
 
     pub fn validate(&self) -> Result<(), CommandLedgerError> {
+        let mut expected_leaf_hashes = Vec::with_capacity(self.entries.len());
         for (declared_hash, body_bytes) in self.entries.iter() {
             let command = WorldCommand::from_canonical_bytes(
                 body_bytes.as_ref(),
@@ -80,6 +98,13 @@ impl CommandBodyArchiveV1 {
             if declared_hash != &computed_hash {
                 return Err(CommandLedgerError::CommandBodyArchiveCorrupt);
             }
+            expected_leaf_hashes.push((
+                *declared_hash,
+                command_body_archive_leaf_hash(*declared_hash, body_bytes.as_ref())?,
+            ));
+        }
+        if expected_leaf_hashes.as_slice() != self.leaf_hashes.as_slice() {
+            return Err(CommandLedgerError::CommandBodyArchiveCorrupt);
         }
         let _ = self.manifest()?;
         Ok(())
@@ -134,7 +159,7 @@ impl CommandBodyArchiveV1 {
         let count = cursor.read_count(limits.max_sequence_items, |actual, limit| {
             CanonicalDecodeError::TooManyFields { actual, limit }
         })?;
-        let mut entries = BTreeMap::new();
+        let mut entries: BTreeMap<CommandBodyHash, Arc<[u8]>> = BTreeMap::new();
         let mut previous = None;
         for _ in 0..count {
             let body_hash = CommandBodyHash::from_bytes(read_array(&mut cursor)?);
@@ -148,8 +173,16 @@ impl CommandBodyArchiveV1 {
             previous = Some(body_hash);
         }
         cursor.finish()?;
+        let leaf_hashes = entries
+            .iter()
+            .map(|(body_hash, body_bytes)| {
+                command_body_archive_leaf_hash(*body_hash, body_bytes.as_ref())
+                    .map(|leaf_hash| (*body_hash, leaf_hash))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let archive = Self {
             entries: Arc::new(entries),
+            leaf_hashes: Arc::new(leaf_hashes),
         };
         archive.validate()?;
         if archive.canonical_bytes()? != bytes {
