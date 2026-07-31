@@ -1,16 +1,15 @@
 use next_contracts::canonical::sha256;
 use next_contracts::command::{CommandPhase, IssuerPrincipal, WorldCommand};
-use next_contracts::ids::{CommandId, ContentHash, content_hash_from_bytes};
+use next_contracts::ids::{CommandBodyHash, CommandId, ContentHash, content_hash_from_bytes};
 use next_contracts::ledger::{
-    COMMAND_RECEIPT_SCHEMA_VERSION, CommandBodyArchiveV1, CommandCollisionCandidateV1,
-    CommandCollisionIncidentV1, CommandFinalResultV1, CommandIdentityOccurrenceV1,
-    CommandLedgerError, CommandLedgerV2, CommandReceiptSubjectV1, CommandReceiptV1,
+    COMMAND_RECEIPT_SCHEMA_VERSION, CommandCollisionCandidateV1, CommandCollisionIncidentV1,
+    CommandFinalResultV1, CommandLedgerError, CommandReceiptSubjectV1, CommandReceiptV1,
     CommandStreamLedgerV2, CommandStreamStateV1, IdentityInsertResult,
 };
 
 use super::{PhaseContext, StagedAuthoritativeState, ValidatedCommand};
 use crate::engine::error::RuntimeFatalError;
-use crate::engine::result::{CommandOrderKey, OrderedResult, RejectionCode};
+use crate::engine::result::{OrderedResult, RejectionCode};
 
 pub(super) fn handle_collision(
     context: PhaseContext<'_>,
@@ -66,15 +65,16 @@ pub(super) fn handle_collision(
     let mut members = retained_collision_candidates(stream, sequence);
     for candidate in &candidates {
         insert_archive_identity(
-            &mut staged.ledger,
-            &mut staged.archive,
+            staged,
             &candidate.command,
             candidate.command_id,
+            candidate.body_hash,
+            &candidate.canonical_bytes,
         )?;
         members.push(CommandCollisionCandidateV1 {
             command_id: candidate.command_id,
-            body_hash: candidate.command.body_hash()?,
-            canonical_body_ref: candidate.command.body_hash()?,
+            body_hash: candidate.body_hash,
+            canonical_body_ref: candidate.body_hash,
         });
     }
     members.sort();
@@ -119,13 +119,12 @@ pub(super) fn handle_collision(
 pub(super) fn command_receipt(
     context: PhaseContext<'_>,
     stream: &CommandStreamLedgerV2,
-    command: &WorldCommand,
-    command_id: CommandId,
+    candidate: &ValidatedCommand,
     result: CommandFinalResultV1,
     event_ids: Vec<next_contracts::ids::EventId>,
     transaction_result_root: ContentHash,
 ) -> Result<CommandReceiptV1, RuntimeFatalError> {
-    let body_hash = command.body_hash()?;
+    let command = &candidate.command;
     Ok(CommandReceiptV1 {
         schema_version: COMMAND_RECEIPT_SCHEMA_VERSION,
         finalization_ordinal: stream.finalized_receipt_count,
@@ -133,14 +132,14 @@ pub(super) fn command_receipt(
             stream_id: command.stream_id,
             issuer: command.issuer.clone(),
             sequence: command.sequence,
-            command_id,
-            body_hash,
-            canonical_body_ref: body_hash,
+            command_id: candidate.command_id,
+            body_hash: candidate.body_hash,
+            canonical_body_ref: candidate.body_hash,
         },
         phase: command.phase,
         target_tick: command.target_tick,
         finalized_at_tick: context.tick,
-        priority_class: CommandOrderKey::from_command(command, context.registry).priority_class,
+        priority_class: candidate.order_key.priority_class,
         command_kind_registry_hash: context.registry.canonical_hash(),
         result,
         diagnostic_digest: None,
@@ -185,22 +184,20 @@ pub(super) fn collision_receipt(
 }
 
 pub(super) fn insert_archive_identity(
-    ledger: &mut CommandLedgerV2,
-    archive: &mut CommandBodyArchiveV1,
+    staged: &mut StagedAuthoritativeState,
     command: &WorldCommand,
     command_id: CommandId,
+    body_hash: CommandBodyHash,
+    canonical_bytes: &[u8],
 ) -> Result<IdentityInsertResult, RuntimeFatalError> {
-    let body_hash = command.body_hash()?;
-    archive.insert_command(command)?;
-    let result = ledger.identity_index.insert_occurrence_incremental(
+    staged.ledger_delta.stage_command_identity(
+        &staged.ledger,
+        &staged.archive,
+        command,
         command_id,
-        CommandIdentityOccurrenceV1 {
-            body_hash,
-            first_stream_id: command.stream_id,
-            first_sequence: command.sequence,
-        },
-    )?;
-    Ok(result)
+        body_hash,
+        canonical_bytes,
+    )
 }
 
 pub(super) fn sequence_is_retained(stream: &CommandStreamLedgerV2, sequence: u64) -> bool {

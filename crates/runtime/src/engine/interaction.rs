@@ -138,6 +138,7 @@ pub(super) fn build_interaction_outcomes(
         rpg_definitions,
         ledger,
         archive,
+        archive_additions,
         gameplay_tick,
         physical_contact_facts,
         authoritative_revision,
@@ -199,6 +200,7 @@ pub(super) fn build_interaction_outcomes(
             let prior_commit_tick = latest_ability_commit_tick(
                 ledger,
                 archive,
+                archive_additions,
                 intent.controlled_body_id,
                 compiled.ability_definition_hash,
                 gameplay_tick,
@@ -456,6 +458,7 @@ pub(super) struct InteractionBuildContext<'a> {
     pub(super) rpg_definitions: &'a RpgDefinitionRegistryV1,
     pub(super) ledger: &'a CommandLedgerV2,
     pub(super) archive: &'a CommandBodyArchiveV1,
+    pub(super) archive_additions: &'a BTreeMap<CommandBodyHash, std::sync::Arc<[u8]>>,
     pub(super) gameplay_tick: u64,
     pub(super) physical_contact_facts: &'a [RpgPhysicalContactFactV1],
     pub(super) authoritative_revision: u64,
@@ -464,6 +467,7 @@ pub(super) struct InteractionBuildContext<'a> {
 fn latest_ability_commit_tick(
     ledger: &CommandLedgerV2,
     archive: &CommandBodyArchiveV1,
+    archive_additions: &BTreeMap<CommandBodyHash, std::sync::Arc<[u8]>>,
     source_character_id: PersistentId,
     ability_definition_hash: ContentHash,
     gameplay_tick: u64,
@@ -485,7 +489,7 @@ fn latest_ability_commit_tick(
     }
     let cooldown_horizon = gameplay_tick.saturating_sub(u64::from(cooldown_duration_ticks));
     let mut latest = None;
-    for (body_hash, bytes) in archive.entries() {
+    for (body_hash, bytes) in archive.entries().iter().chain(archive_additions) {
         let command = WorldCommand::from_canonical_bytes(bytes, CanonicalDecodeLimits::default())
             .map_err(CommandLedgerError::from)?;
         let CommandPayload::Rpg(rpg_command) = &command.payload else {

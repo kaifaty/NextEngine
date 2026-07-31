@@ -63,6 +63,60 @@ fn prepared_tick_is_non_mutating_and_commits_the_exact_preview() {
 }
 
 #[test]
+fn reportless_commit_matches_the_public_tick_report_path() {
+    let mut fast_fixture = physical_fixture();
+    let mut ordinary_fixture = physical_fixture();
+    let sample = movement_sample(
+        &fast_fixture,
+        0,
+        PlayerActionPhaseV1::Performed,
+        [0, 32_767],
+        None,
+    );
+
+    let mut preparation = fast_fixture.runtime.tick_preparation();
+    preparation
+        .enqueue_input_sample(&fast_fixture.principal, sample.clone())
+        .expect("stage fast input");
+    let prepared = preparation.prepare([]).expect("prepare fast tick");
+    let validated = fast_fixture
+        .runtime
+        .validate_prepared_tick(prepared)
+        .expect("validate fast tick");
+    fast_fixture
+        .runtime
+        .commit_validated_tick_without_report(validated);
+
+    ordinary_fixture
+        .runtime
+        .enqueue_input_sample(&ordinary_fixture.principal, sample)
+        .expect("stage ordinary input");
+    ordinary_fixture
+        .runtime
+        .run_tick([])
+        .expect("ordinary tick");
+
+    assert_eq!(
+        fast_fixture.runtime.snapshot(),
+        ordinary_fixture.runtime.snapshot()
+    );
+    assert_eq!(
+        fast_fixture.runtime.physics_checkpoint(),
+        ordinary_fixture.runtime.physics_checkpoint()
+    );
+    assert_eq!(
+        fast_fixture
+            .runtime
+            .world_checkpoint()
+            .expect("fast checkpoint"),
+        ordinary_fixture
+            .runtime
+            .world_checkpoint()
+            .expect("ordinary checkpoint")
+    );
+}
+
+#[test]
 fn prepared_tick_rejects_a_stale_runtime_generation() {
     let mut fixture = physical_fixture();
     let prepared = fixture

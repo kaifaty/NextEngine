@@ -34,7 +34,10 @@ mod stream;
 mod wire;
 
 pub use aggregate::CommandLedgerV2;
-pub use archive::{ArchiveInsertResult, CommandBodyArchiveManifestV1, CommandBodyArchiveV1};
+pub use archive::{
+    ArchiveInsertResult, CommandBodyArchiveManifestV1, CommandBodyArchiveV1,
+    PreparedCommandBodyArchiveUpdate,
+};
 pub use causal::{CausalIdentityKey, CausalIdentityKind, CausalIdentityRegistryV1};
 pub use collision::{CommandCollisionCandidateV1, CommandCollisionIncidentV1};
 pub use error::CommandLedgerError;
@@ -46,6 +49,7 @@ pub use hashes::{
 pub use identity_index::{
     CommandIdentityBindingState, CommandIdentityBindingV1, CommandIdentityIndexBodyV1,
     CommandIdentityIndexV1, CommandIdentityOccurrenceV1, IdentityInsertResult,
+    PreparedCommandIdentityIndexUpdate,
 };
 pub use receipt::{CommandFinalResultV1, CommandReceiptSubjectV1, CommandReceiptV1};
 pub use stream::{CommandReservationV1, CommandStreamLedgerV2, CommandStreamStateV1};

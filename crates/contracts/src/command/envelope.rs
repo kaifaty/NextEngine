@@ -186,15 +186,17 @@ impl WorldCommandEnvelopeV2 {
 }
 
 pub fn compute_command_id_from_body_bytes(body_bytes: &[u8]) -> Result<CommandId, CanonicalError> {
-    let mut preimage = Vec::new();
-    preimage.extend_from_slice(b"nextengine.command-id.v2\0");
-    preimage.extend_from_slice(
-        &u64::try_from(body_bytes.len())
+    use sha2::{Digest as _, Sha256};
+
+    let mut hasher = Sha256::new();
+    hasher.update(b"nextengine.command-id.v2\0");
+    hasher.update(
+        u64::try_from(body_bytes.len())
             .map_err(|_| CanonicalError::LengthOverflow)?
             .to_le_bytes(),
     );
-    preimage.extend_from_slice(body_bytes);
-    let digest = sha256(&preimage);
+    hasher.update(body_bytes);
+    let digest: [u8; 32] = hasher.finalize().into();
     let mut truncated = [0; 16];
     truncated.copy_from_slice(&digest[..16]);
     Ok(CommandId::from_bytes(truncated))

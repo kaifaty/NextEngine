@@ -1,5 +1,6 @@
 use super::hashes::*;
 use super::*;
+use sha2::{Digest, Sha256};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
@@ -553,6 +554,44 @@ pub struct CommandIdentityIndexV1 {
     pub index_root: ContentHash,
 }
 
+/// Opaque, fully checked replacement set for the mutable identity index.
+/// Only bindings touched by the prepared transaction are retained here.
+#[derive(Clone, Debug)]
+pub struct PreparedCommandIdentityIndexUpdate {
+    schema_version: u16,
+    base_bindings: Arc<BTreeMap<CommandId, CommandIdentityBindingV1>>,
+    replacements: BTreeMap<CommandId, CommandIdentityBindingV1>,
+    command_id_count: u64,
+    occurrence_count: u64,
+    index_root: std::sync::OnceLock<ContentHash>,
+}
+
+impl PreparedCommandIdentityIndexUpdate {
+    #[must_use]
+    pub fn index_root(&self) -> ContentHash {
+        *self.index_root.get_or_init(|| {
+            command_identity_index_root_with_replacements(
+                self.schema_version,
+                &self.base_bindings,
+                &self.replacements,
+                self.command_id_count,
+                self.occurrence_count,
+            )
+            .expect("validated identity-index update has a representable root")
+        })
+    }
+
+    #[must_use]
+    pub const fn command_id_count(&self) -> u64 {
+        self.command_id_count
+    }
+
+    #[must_use]
+    pub const fn occurrence_count(&self) -> u64 {
+        self.occurrence_count
+    }
+}
+
 impl CommandIdentityIndexV1 {
     pub fn empty() -> Result<Self, CanonicalError> {
         Self::from_bindings(BTreeMap::new())
@@ -661,6 +700,93 @@ impl CommandIdentityIndexV1 {
         Ok(result)
     }
 
+    /// Validates the complete touched-binding set without cloning the
+    /// retained historical map. The exact public root remains lazy until a
+    /// snapshot or durable checkpoint needs it.
+    pub fn prepare_replacements(
+        &self,
+        replacements: BTreeMap<CommandId, CommandIdentityBindingV1>,
+    ) -> Result<PreparedCommandIdentityIndexUpdate, CommandLedgerError> {
+        if self.schema_version != COMMAND_IDENTITY_INDEX_SCHEMA_VERSION
+            || self.body.schema_version != COMMAND_IDENTITY_INDEX_SCHEMA_VERSION
+        {
+            return Err(CommandLedgerError::UnsupportedIdentityIndexVersion(
+                self.schema_version,
+            ));
+        }
+        let mut command_id_count = self.body.command_id_count;
+        let mut occurrence_count = self.body.occurrence_count;
+        for (command_id, replacement) in &replacements {
+            validate_identity_binding(command_id, replacement)?;
+            match self.body.bindings.get(command_id) {
+                Some(previous) => {
+                    occurrence_count = occurrence_count
+                        .checked_sub(
+                            u64::try_from(previous.occurrences.len())
+                                .map_err(|_| CommandLedgerError::CountOverflow)?,
+                        )
+                        .and_then(|count| {
+                            count.checked_add(u64::try_from(replacement.occurrences.len()).ok()?)
+                        })
+                        .ok_or(CommandLedgerError::CountOverflow)?;
+                }
+                None => {
+                    command_id_count = command_id_count
+                        .checked_add(1)
+                        .ok_or(CommandLedgerError::CountOverflow)?;
+                    occurrence_count = occurrence_count
+                        .checked_add(
+                            u64::try_from(replacement.occurrences.len())
+                                .map_err(|_| CommandLedgerError::CountOverflow)?,
+                        )
+                        .ok_or(CommandLedgerError::CountOverflow)?;
+                }
+            }
+        }
+        Ok(PreparedCommandIdentityIndexUpdate {
+            schema_version: self.body.schema_version,
+            base_bindings: self.body.bindings.clone(),
+            replacements,
+            command_id_count,
+            occurrence_count,
+            index_root: std::sync::OnceLock::new(),
+        })
+    }
+
+    /// Applies an update after its enclosing runtime generation was validated.
+    pub fn commit_prepared_replacements(&mut self, update: PreparedCommandIdentityIndexUpdate) {
+        let index_root = update.index_root();
+        self.commit_prepared_replacements_deferred(update);
+        self.index_root = index_root;
+    }
+
+    /// Applies only the authoritative body of a validated update. Callers
+    /// must keep the derived public root private until they materialize it.
+    pub fn commit_prepared_replacements_deferred(
+        &mut self,
+        update: PreparedCommandIdentityIndexUpdate,
+    ) {
+        let PreparedCommandIdentityIndexUpdate {
+            schema_version: _,
+            base_bindings,
+            replacements,
+            command_id_count,
+            occurrence_count,
+            index_root: _,
+        } = update;
+        assert!(
+            Arc::ptr_eq(&self.body.bindings, &base_bindings),
+            "prepared identity-index update belongs to a different base generation"
+        );
+        drop(base_bindings);
+        let bindings = Arc::make_mut(&mut self.body.bindings);
+        for (command_id, binding) in replacements {
+            bindings.insert(command_id, binding);
+        }
+        self.body.command_id_count = command_id_count;
+        self.body.occurrence_count = occurrence_count;
+    }
+
     pub fn validate(&self) -> Result<(), CommandLedgerError> {
         if self.schema_version != COMMAND_IDENTITY_INDEX_SCHEMA_VERSION {
             return Err(CommandLedgerError::UnsupportedIdentityIndexVersion(
@@ -672,6 +798,182 @@ impl CommandIdentityIndexV1 {
             return Err(CommandLedgerError::IdentityIndexRootMismatch);
         }
         Ok(())
+    }
+}
+
+fn validate_identity_binding(
+    command_id: &CommandId,
+    binding: &CommandIdentityBindingV1,
+) -> Result<(), CommandLedgerError> {
+    if command_id != &binding.command_id {
+        return Err(CommandLedgerError::IdentityIndexKeyMismatch);
+    }
+    if binding.occurrences.is_empty()
+        || binding
+            .occurrences
+            .windows(2)
+            .any(|pair| pair[0].body_hash >= pair[1].body_hash)
+    {
+        return Err(CommandLedgerError::IdentityOccurrencesInvalid);
+    }
+    let expected_state = if binding.occurrences.len() == 1 {
+        CommandIdentityBindingState::Unique
+    } else {
+        CommandIdentityBindingState::Collision
+    };
+    if binding.state != expected_state {
+        return Err(CommandLedgerError::IdentityBindingStateMismatch);
+    }
+    Ok(())
+}
+
+fn command_identity_index_root_with_replacements(
+    schema_version: u16,
+    base: &BTreeMap<CommandId, CommandIdentityBindingV1>,
+    replacements: &BTreeMap<CommandId, CommandIdentityBindingV1>,
+    command_id_count: u64,
+    occurrence_count: u64,
+) -> Result<ContentHash, CanonicalError> {
+    let bindings_bytes = merged_identity_bindings_byte_len(base, replacements)?;
+    let total_bytes = crate::canonical::CANONICAL_BINARY_V1_MAGIC
+        .len()
+        .checked_add(std::mem::size_of::<u16>())
+        .and_then(|length| {
+            length.checked_add(
+                std::mem::size_of::<u32>() + COMMAND_IDENTITY_INDEX_BODY_OWNER_ID.len(),
+            )
+        })
+        .and_then(|length| {
+            length.checked_add(
+                std::mem::size_of::<u32>() + COMMAND_IDENTITY_INDEX_BODY_SCHEMA_ID.len(),
+            )
+        })
+        .and_then(|length| {
+            length.checked_add(
+                std::mem::size_of::<u32>() + COMMAND_IDENTITY_INDEX_BODY_SEGMENT_ID.len(),
+            )
+        })
+        .and_then(|length| length.checked_add(std::mem::size_of::<u32>()))
+        .and_then(|length| {
+            length.checked_add(canonical_field_bytes(std::mem::size_of::<u16>()).ok()?)
+        })
+        .and_then(|length| length.checked_add(canonical_field_bytes(bindings_bytes).ok()?))
+        .and_then(|length| {
+            length.checked_add(canonical_field_bytes(std::mem::size_of::<u64>()).ok()?)
+        })
+        .and_then(|length| {
+            length.checked_add(canonical_field_bytes(std::mem::size_of::<u64>()).ok()?)
+        })
+        .ok_or(CanonicalError::LengthOverflow)?;
+    let mut hasher = Sha256::new();
+    hasher.update(b"nextengine.command-identity-index.v1\0");
+    hasher.update(
+        u64::try_from(total_bytes)
+            .map_err(|_| CanonicalError::LengthOverflow)?
+            .to_le_bytes(),
+    );
+    let mut write = |chunk: &[u8]| hasher.update(chunk);
+    write(&crate::canonical::CANONICAL_BINARY_V1_MAGIC);
+    write(&crate::canonical::CANONICAL_BINARY_V1_VERSION.to_le_bytes());
+    visit_u32_length_prefixed(&mut write, COMMAND_IDENTITY_INDEX_BODY_OWNER_ID.as_bytes())?;
+    visit_u32_length_prefixed(&mut write, COMMAND_IDENTITY_INDEX_BODY_SCHEMA_ID.as_bytes())?;
+    visit_u32_length_prefixed(
+        &mut write,
+        COMMAND_IDENTITY_INDEX_BODY_SEGMENT_ID.as_bytes(),
+    )?;
+    write(&4_u32.to_le_bytes());
+    visit_field(
+        &mut write,
+        1,
+        CANONICAL_TYPE_U16,
+        &schema_version.to_le_bytes(),
+    )?;
+    visit_field_header(&mut write, 2, CANONICAL_TYPE_MAP, bindings_bytes)?;
+    write(
+        &u32::try_from(command_id_count)
+            .map_err(|_| CanonicalError::LengthOverflow)?
+            .to_le_bytes(),
+    );
+    for_each_merged_identity_binding(base, replacements, |command_id, binding| {
+        visit_nested_value(&mut write, CANONICAL_TYPE_ID128, command_id.as_bytes())?;
+        visit_identity_binding(&mut write, binding)
+    })?;
+    visit_field(
+        &mut write,
+        3,
+        CANONICAL_TYPE_U64,
+        &command_id_count.to_le_bytes(),
+    )?;
+    visit_field(
+        &mut write,
+        4,
+        CANONICAL_TYPE_U64,
+        &occurrence_count.to_le_bytes(),
+    )?;
+    Ok(content_hash_from_bytes(hasher.finalize().into()))
+}
+
+fn merged_identity_bindings_byte_len(
+    base: &BTreeMap<CommandId, CommandIdentityBindingV1>,
+    replacements: &BTreeMap<CommandId, CommandIdentityBindingV1>,
+) -> Result<usize, CanonicalError> {
+    let count = base
+        .len()
+        .checked_add(
+            replacements
+                .keys()
+                .filter(|command_id| !base.contains_key(command_id))
+                .count(),
+        )
+        .ok_or(CanonicalError::LengthOverflow)?;
+    u32::try_from(count).map_err(|_| CanonicalError::LengthOverflow)?;
+    let mut length = std::mem::size_of::<u32>();
+    for_each_merged_identity_binding(base, replacements, |_, binding| {
+        length = length
+            .checked_add(CANONICAL_NESTED_HEADER_BYTES + std::mem::size_of::<u128>())
+            .and_then(|length| length.checked_add(identity_binding_byte_len(binding).ok()?))
+            .ok_or(CanonicalError::LengthOverflow)?;
+        Ok(())
+    })?;
+    Ok(length)
+}
+
+fn for_each_merged_identity_binding(
+    base: &BTreeMap<CommandId, CommandIdentityBindingV1>,
+    replacements: &BTreeMap<CommandId, CommandIdentityBindingV1>,
+    mut visit: impl FnMut(&CommandId, &CommandIdentityBindingV1) -> Result<(), CanonicalError>,
+) -> Result<(), CanonicalError> {
+    let mut base = base.iter().peekable();
+    let mut replacements = replacements.iter().peekable();
+    loop {
+        match (base.peek(), replacements.peek()) {
+            (Some((base_id, base_binding)), Some((replacement_id, replacement_binding))) => {
+                match base_id.cmp(replacement_id) {
+                    std::cmp::Ordering::Less => {
+                        visit(base_id, base_binding)?;
+                        base.next();
+                    }
+                    std::cmp::Ordering::Equal => {
+                        visit(replacement_id, replacement_binding)?;
+                        base.next();
+                        replacements.next();
+                    }
+                    std::cmp::Ordering::Greater => {
+                        visit(replacement_id, replacement_binding)?;
+                        replacements.next();
+                    }
+                }
+            }
+            (Some((command_id, binding)), None) => {
+                visit(command_id, binding)?;
+                base.next();
+            }
+            (None, Some((command_id, binding))) => {
+                visit(command_id, binding)?;
+                replacements.next();
+            }
+            (None, None) => return Ok(()),
+        }
     }
 }
 

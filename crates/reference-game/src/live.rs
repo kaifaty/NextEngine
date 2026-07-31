@@ -457,11 +457,10 @@ impl ReferenceGameDriverV1 {
             }
         }
         let prepared_runtime = runtime_preparation.prepare([])?;
-        let report = prepared_runtime.report();
         let events = self
             .events
             .checked_add(
-                u64::try_from(report.events.len())
+                u64::try_from(prepared_runtime.events().len())
                     .map_err(|_| ReferenceGameError::CountOverflow)?,
             )
             .ok_or(ReferenceGameError::CountOverflow)?;
@@ -469,8 +468,8 @@ impl ReferenceGameDriverV1 {
             .rpg_events
             .checked_add(
                 u64::try_from(
-                    report
-                        .events
+                    prepared_runtime
+                        .events()
                         .iter()
                         .filter(|event| matches!(&event.payload, EventPayload::Rpg(_)))
                         .count(),
@@ -537,7 +536,8 @@ impl ReferenceGameDriverV1 {
         &mut self,
         validated: ValidatedReferenceGameAdvance,
     ) -> &PresentationSnapshotV2 {
-        let _ = self.runtime.commit_validated_tick(validated.runtime);
+        self.runtime
+            .commit_validated_tick_without_report(validated.runtime);
         self.input = validated.state.input;
         self.presentation_extractor = validated.state.presentation_extractor;
         self.next_logical_frame_sequence = validated.state.next_logical_frame_sequence;

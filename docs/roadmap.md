@@ -762,6 +762,27 @@ release soak из-за многократной checkpoint-latency regression. �
 storage/performance hardening по ADR-037 в одном Windows-local `REPORT_ONLY`
 soak улучшило checkpoint windows примерно на `13.8% / 15.3% / 8.0%` против
 preceding implementation и не меняет product queue.
+Следующий bounded transaction-delta package перестал копировать и полностью
+перехешировать retained command history на каждом ordinary live tick. Runtime
+теперь staged-изменяет только archive additions, touched identity bindings и
+causal additions; точные derived ledger/archive roots лениво материализуются
+при public snapshot/checkpoint и кэшируются на runtime generation. Полная
+проверка canonical command-body bytes остаётся на каждом untrusted
+decode/insert boundary, а уже типизированный `CommandBodyArchiveV1` больше не
+декодирует всю закрытую append-only историю повторно при каждом checkpoint.
+Три before и три after release `long-session-soak.v3` run на THOTH сохранили
+authoritative root
+`5e45825e1a627113902640184c00bf448964bb2b8daf10d6e0947d40fd5a6e17` и exact
+driver/application ledger/archive parity. Median run p95 изменился так:
+ordinary application tick `4 317 → 3 072 µs` (`-28.8%`), checkpoint application
+tick `182 545 → 97 792 µs` (`-46.4%`), checkpoint materialization
+`131 873 → 44 794 µs` (`-66.0%`), driver prepare `3 979 → 2 451 µs`
+(`-38.4%`), driver 1 200-tick window `9.331 → 4.614 s` (`-50.6%`) и
+application window `10.852 → 6.662 s` (`-38.6%`). Все run остались
+`REPORT_ONLY`; CPU/GPU preflight был шумным, поэтому это принимает bounded
+локальную оптимизацию, но не заменяет ten-run hard calibration и не закрывает
+B-12. Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
+изменились.
 Exact global host allocator counter и ten-run calibration evidence ещё
 отсутствуют. Это не меняет product queue: calibration начинается после
 стабилизации последнего required counter/noise, а hard

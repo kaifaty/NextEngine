@@ -1,9 +1,7 @@
 use std::collections::BTreeMap;
 
 use next_contracts::command::DomainEvent;
-use next_contracts::ledger::{
-    CausalIdentityKind, CommandFinalResultV1, CommandLedgerError, IdentityInsertResult,
-};
+use next_contracts::ledger::{CommandFinalResultV1, CommandLedgerError, IdentityInsertResult};
 use next_contracts::physics::{
     PHYSICS_STEP_INPUT_SCHEMA_VERSION, PhysicalEventV1, PhysicsStepInputV2,
 };
@@ -98,15 +96,9 @@ pub(super) fn finish_physical_step(
             .as_ref()
             .map_or_else(Vec::new, |event| vec![event.event_id]);
         if let Some(event) = &event {
-            let provenance = event.canonical_bytes()?;
             let insert = staged
-                .ledger
-                .causal_identity_registry
-                .compare_or_insert_provenance(
-                    CausalIdentityKind::DomainEvent,
-                    *event.event_id.as_bytes(),
-                    &provenance,
-                )?;
+                .ledger_delta
+                .stage_event_identity(&staged.ledger, event)?;
             if insert == IdentityInsertResult::Collision {
                 return Err(RuntimeFatalError::InternalIdentityCollision);
             }
@@ -127,8 +119,7 @@ pub(super) fn finish_physical_step(
             staged.ledger.streams.get(&command.stream_id).ok_or(
                 RuntimeFatalError::LedgerCorrupt(CommandLedgerError::StreamKeyMismatch),
             )?,
-            command,
-            pending.candidate.command_id,
+            &pending.candidate,
             CommandFinalResultV1::Committed,
             event_ids,
             transaction_root,

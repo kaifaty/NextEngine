@@ -105,17 +105,92 @@ fn body_archive_is_order_independent_and_rejects_corrupt_keys() {
     );
     forward.validate().expect("archive closure validates");
 
-    let body_bytes = first.canonical_bytes().expect("canonical body");
-    Arc::make_mut(&mut forward.entries)
-        .insert(command_body_hash_from_bytes([9; 32]), Arc::from(body_bytes));
-    assert_eq!(
-        forward.validate(),
+    let first_hash = first.body_hash().expect("first body hash");
+    let mut corrupt_bytes = forward.canonical_bytes().expect("archive bytes");
+    let hash_offset = corrupt_bytes
+        .windows(first_hash.as_bytes().len())
+        .position(|window| window == first_hash.as_bytes())
+        .expect("archive contains the declared command-body hash");
+    corrupt_bytes[hash_offset] ^= 0xff;
+    assert!(matches!(
+        CommandBodyArchiveV1::from_canonical_bytes(
+            &corrupt_bytes,
+            CanonicalDecodeLimits::default()
+        ),
         Err(CommandLedgerError::CommandBodyArchiveCorrupt)
-    );
+    ));
     assert!(matches!(
         CommandBodyArchiveV1::default().insert_body_bytes(vec![1, 2, 3]),
         Err(CommandLedgerError::Command(_))
     ));
+}
+
+#[test]
+fn prepared_archive_and_identity_updates_match_eager_mutation() {
+    let first = command(1, 1);
+    let second = command(2, 2);
+
+    let mut base_archive = CommandBodyArchiveV1::default();
+    base_archive
+        .insert_command(&first)
+        .expect("base body inserts");
+    let archive_before = base_archive.clone();
+    let second_body_hash = second.body_hash().expect("second body hash");
+    let archive_update = base_archive
+        .prepare_additions(BTreeMap::from([(
+            second_body_hash,
+            Arc::from(second.canonical_bytes().expect("second body bytes")),
+        )]))
+        .expect("archive update prepares");
+    assert_eq!(base_archive, archive_before);
+
+    let mut expected_archive = base_archive.clone();
+    expected_archive
+        .insert_command(&second)
+        .expect("eager body inserts");
+    base_archive.commit_prepared_additions(archive_update);
+    assert_eq!(base_archive, expected_archive);
+    assert_eq!(
+        base_archive.manifest().expect("prepared manifest"),
+        expected_archive.manifest().expect("eager manifest")
+    );
+
+    let first_id = first.compute_command_id().expect("first command ID");
+    let second_id = second.compute_command_id().expect("second command ID");
+    let first_occurrence = CommandIdentityOccurrenceV1 {
+        body_hash: first.body_hash().expect("first body hash"),
+        first_stream_id: first.stream_id,
+        first_sequence: first.sequence,
+    };
+    let second_occurrence = CommandIdentityOccurrenceV1 {
+        body_hash: second_body_hash,
+        first_stream_id: second.stream_id,
+        first_sequence: second.sequence,
+    };
+    let mut base_index = CommandIdentityIndexV1::empty().expect("empty index");
+    base_index
+        .insert_occurrence(first_id, first_occurrence)
+        .expect("base occurrence inserts");
+    let index_before = base_index.clone();
+    let index_update = base_index
+        .prepare_replacements(BTreeMap::from([(
+            second_id,
+            CommandIdentityBindingV1 {
+                command_id: second_id,
+                occurrences: vec![second_occurrence.clone()],
+                state: CommandIdentityBindingState::Unique,
+            },
+        )]))
+        .expect("identity update prepares");
+    assert_eq!(base_index, index_before);
+
+    let mut expected_index = base_index.clone();
+    expected_index
+        .insert_occurrence(second_id, second_occurrence)
+        .expect("eager occurrence inserts");
+    base_index.commit_prepared_replacements(index_update);
+    assert_eq!(base_index, expected_index);
+    base_index.validate().expect("prepared index validates");
 }
 
 #[test]
@@ -490,7 +565,7 @@ fn archive_root_is_stable_across_deterministic_insert_permutations() {
 }
 
 #[test]
-fn archive_synchronization_is_atomic_on_corrupt_input() {
+fn archive_synchronization_is_atomic_on_inconsistent_input() {
     let world_namespace = WorldNamespaceId::from_bytes([8; 16]);
     let (mut ledger, _) = CommandLedgerV2::empty(
         world_namespace,
@@ -499,13 +574,12 @@ fn archive_synchronization_is_atomic_on_corrupt_input() {
     )
     .expect("empty ledger");
     let before = ledger.clone();
-    let mut corrupt = CommandBodyArchiveV1::default();
-    Arc::make_mut(&mut corrupt.entries).insert(
-        command_body_hash_from_bytes([9; 32]),
-        Arc::from(vec![1, 2, 3]),
-    );
+    let mut inconsistent = CommandBodyArchiveV1::default();
+    inconsistent
+        .insert_command(&command(1, 1))
+        .expect("valid unmatched archive entry");
 
-    assert!(ledger.synchronize_archive(&corrupt).is_err());
+    assert!(ledger.synchronize_archive(&inconsistent).is_err());
     assert_eq!(ledger, before);
 }
 

@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use next_contracts::canonical::CanonicalError;
 use next_contracts::command::{CommandPayload, DomainEvent, IssuerPrincipal};
 use next_contracts::ledger::{
-    CausalIdentityKind, CommandCollisionCandidateV1, CommandCollisionIncidentV1,
+    COMMAND_RESERVATION_SCHEMA_VERSION, CommandCollisionCandidateV1, CommandCollisionIncidentV1,
     CommandFinalResultV1, CommandLedgerError, CommandReceiptSubjectV1, CommandReservationV1,
     CommandStreamLedgerV2, CommandStreamStateV1, IdentityInsertResult,
 };
@@ -55,7 +55,7 @@ pub(super) fn execute_candidate(
     }
     if let Some(reservation) = stream.pending.get(&command.sequence) {
         if reservation.command_id == candidate.command_id
-            && reservation.body_hash == command.body_hash()?
+            && reservation.body_hash == candidate.body_hash
         {
             if !candidate.due {
                 return Ok(CandidateExecution::Result(
@@ -143,10 +143,11 @@ pub(super) fn execute_candidate(
 
     if !candidate.due {
         let identity_result = insert_archive_identity(
-            &mut staged.ledger,
-            &mut staged.archive,
+            staged,
             command,
             candidate.command_id,
+            candidate.body_hash,
+            &candidate.canonical_bytes,
         )?;
         if identity_result == IdentityInsertResult::Collision {
             return collision_from_identity_index(context, candidate, staged);
@@ -202,12 +203,20 @@ pub(super) fn execute_candidate(
                 RejectionCode::CommandFutureLimit,
             );
         }
-        let reservation = CommandReservationV1::from_command(
-            command,
-            context.tick,
-            candidate.order_key.priority_class,
-            context.registry.canonical_hash(),
-        )?;
+        let reservation = CommandReservationV1 {
+            schema_version: COMMAND_RESERVATION_SCHEMA_VERSION,
+            stream_id: command.stream_id,
+            issuer: command.issuer.clone(),
+            sequence: command.sequence,
+            command_id: candidate.command_id,
+            body_hash: candidate.body_hash,
+            canonical_body_ref: candidate.body_hash,
+            reserved_at_tick: context.tick,
+            target_tick: command.target_tick,
+            phase: command.phase,
+            priority_class: candidate.order_key.priority_class,
+            command_kind_registry_hash: context.registry.canonical_hash(),
+        };
         let reserve = staged
             .ledger
             .streams
@@ -341,7 +350,7 @@ pub(super) fn execute_candidate(
             let planning_context = RpgPlanningContextV1 {
                 gameplay_tick: context.tick,
                 causal_command_id: candidate.command_id,
-                canonical_command_body_hash: command.body_hash()?,
+                canonical_command_body_hash: candidate.body_hash,
                 project_composition_lock_hash: context.rpg_bindings.project_composition_lock_hash,
                 schema_registry_hash: context.rpg_bindings.schema_registry_hash,
                 budget_policy_hash: context.rpg_bindings.budget_policy_hash,
@@ -402,16 +411,10 @@ pub(super) fn execute_candidate(
             unreachable!("physical commands return a pending step before domain execution")
         }
     };
-    let mut next_ledger = staged.ledger.clone();
     for event in &events {
-        let provenance = event.canonical_bytes()?;
-        let insert = next_ledger
-            .causal_identity_registry
-            .compare_or_insert_provenance(
-                CausalIdentityKind::DomainEvent,
-                *event.event_id.as_bytes(),
-                &provenance,
-            )?;
+        let insert = staged
+            .ledger_delta
+            .stage_event_identity(&staged.ledger, event)?;
         if insert == IdentityInsertResult::Collision {
             return Err(RuntimeFatalError::InternalIdentityCollision);
         }
@@ -426,21 +429,19 @@ pub(super) fn execute_candidate(
         &delta,
         &event_ids,
     );
-    let receipt = command_receipt(
-        context,
-        next_ledger
-            .streams
-            .get(&command.stream_id)
-            .ok_or(RuntimeFatalError::LedgerCorrupt(
-                CommandLedgerError::StreamKeyMismatch,
-            ))?,
-        command,
-        candidate.command_id,
-        CommandFinalResultV1::Committed,
-        event_ids,
-        transaction_root,
-    )?;
-    next_ledger
+    let receipt =
+        command_receipt(
+            context,
+            staged.ledger.streams.get(&command.stream_id).ok_or(
+                RuntimeFatalError::LedgerCorrupt(CommandLedgerError::StreamKeyMismatch),
+            )?,
+            &candidate,
+            CommandFinalResultV1::Committed,
+            event_ids,
+            transaction_root,
+        )?;
+    staged
+        .ledger
         .streams
         .get_mut(&command.stream_id)
         .ok_or(RuntimeFatalError::LedgerCorrupt(
@@ -457,7 +458,6 @@ pub(super) fn execute_candidate(
         .revision
         .checked_add(1)
         .ok_or(RuntimeFatalError::RevisionExhausted)?;
-    staged.ledger = next_ledger;
     staged.event_count = next_event_count;
     staged.revision = next_revision;
     staged.rpg = after_rpg;
@@ -473,7 +473,7 @@ fn retained_result(
     candidate: &ValidatedCommand,
 ) -> Result<Option<OrderedResult>, RuntimeFatalError> {
     let command = &candidate.command;
-    let body_hash = command.body_hash()?;
+    let body_hash = candidate.body_hash;
     let Some(receipt) = stream
         .receipt_window
         .iter()
@@ -542,11 +542,8 @@ fn collision_from_identity_index(
         return Err(RuntimeFatalError::InternalIdentityCollision);
     }
     let binding = staged
-        .ledger
-        .identity_index
-        .body
-        .bindings
-        .get(&candidate.command_id)
+        .ledger_delta
+        .identity_binding(&staged.ledger.identity_index, &candidate.command_id)
         .ok_or(RuntimeFatalError::LedgerCorrupt(
             CommandLedgerError::IdentityReferenceMissing,
         ))?;
@@ -605,8 +602,7 @@ fn finalize_rejection(
             staged.ledger.streams.get(&command.stream_id).ok_or(
                 RuntimeFatalError::LedgerCorrupt(CommandLedgerError::StreamKeyMismatch),
             )?,
-            command,
-            candidate.command_id,
+            &candidate,
             CommandFinalResultV1::Rejected {
                 code: next_contracts::ids::SchemaId::new(code.as_str())
                     .expect("stable rejection code is a valid identifier"),

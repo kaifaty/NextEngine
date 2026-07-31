@@ -11,7 +11,9 @@ use next_contracts::input::{
     InputMappingReceiptV1, InputMappingReceiptV2, InputSampleV1, PlayerControllerRegistryV1,
     RuntimeAdmissionLimitsV1, TickRateProfileV1,
 };
-use next_contracts::ledger::{CommandBodyArchiveV1, CommandLedgerV2, CommandStreamLedgerV2};
+use next_contracts::ledger::{
+    CommandBodyArchiveV1, CommandLedgerV2, CommandStreamLedgerV2, command_identity_index_root,
+};
 use next_contracts::mechanics::RpgDefinitionRegistryV1;
 use next_contracts::physics::{
     AuthoritativeNumericProfileV1, PhysicsCanonicalSnapshotV2, PhysicsQuantizationProfileV1,
@@ -24,6 +26,7 @@ use next_contracts::snapshot::{
 };
 use next_physics_api::{PhysicsBackendKind, PhysicsWorldHost};
 use next_rpg::RpgState;
+use std::sync::OnceLock;
 
 use crate::authority::AuthorityRegistry;
 use crate::registry::CommandKindRegistry;
@@ -60,6 +63,10 @@ pub struct RuntimeState {
     pub(super) last_command_batches: Vec<ClosedCommandAdmissionBatchV2>,
     pub(super) command_ledger: CommandLedgerV2,
     pub(super) body_archive: CommandBodyArchiveV1,
+    /// Exact roots are derived caches. Ordinary live ticks keep them private
+    /// and stale until a public snapshot or durable checkpoint is requested.
+    pub(super) ledger_roots_dirty: bool,
+    pub(super) ledger_snapshot_cache: OnceLock<CommandLedgerV2>,
     pub(super) rpg: RpgState,
     pub(super) rpg_bindings: RpgRuntimeBindingsV1,
     pub(super) rpg_definitions: RpgDefinitionRegistryV1,
@@ -178,6 +185,8 @@ impl RuntimeState {
             last_command_batches: Vec::new(),
             command_ledger,
             body_archive,
+            ledger_roots_dirty: false,
+            ledger_snapshot_cache: OnceLock::new(),
             rpg,
             rpg_bindings: bootstrap.rpg_bindings,
             rpg_definitions: bootstrap.rpg_definitions,
@@ -309,6 +318,8 @@ impl RuntimeState {
             last_command_batches: Vec::new(),
             command_ledger: snapshot.command_ledger,
             body_archive: snapshot.body_archive,
+            ledger_roots_dirty: false,
+            ledger_snapshot_cache: OnceLock::new(),
             rpg,
             rpg_bindings: bootstrap.rpg_bindings,
             rpg_definitions: bootstrap.rpg_definitions,
@@ -365,7 +376,12 @@ impl RuntimeState {
 
     #[must_use]
     pub fn command_ledger(&self) -> &CommandLedgerV2 {
-        &self.command_ledger
+        if self.ledger_roots_dirty {
+            self.ledger_snapshot_cache
+                .get_or_init(|| self.materialize_command_ledger())
+        } else {
+            &self.command_ledger
+        }
     }
 
     #[must_use]
@@ -391,9 +407,23 @@ impl RuntimeState {
             player_controller_registry: self.player_controller_registry.clone(),
             ingress_checkpoint: self.ingress_checkpoint.clone(),
             rpg_runtime_bindings: self.rpg_bindings.clone(),
-            command_ledger: self.command_ledger.clone(),
+            command_ledger: self.command_ledger().clone(),
             body_archive: self.body_archive.clone(),
         }
+    }
+
+    fn materialize_command_ledger(&self) -> CommandLedgerV2 {
+        let mut ledger = self.command_ledger.clone();
+        if self.ledger_roots_dirty {
+            ledger.identity_index.index_root =
+                command_identity_index_root(&ledger.identity_index.body)
+                    .expect("committed runtime identity index has a representable root");
+            ledger.body_archive = self
+                .body_archive
+                .manifest()
+                .expect("committed runtime archive has a representable manifest");
+        }
+        ledger
     }
 
     #[must_use]

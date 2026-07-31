@@ -1,14 +1,16 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 
-use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::canonical::{CanonicalDecodeLimits, sha256};
 use next_contracts::command::{
     COMMAND_ENVELOPE_SCHEMA_VERSION, CommandPhase, DomainEvent, IssuerPrincipal, WorldCommand,
 };
 use next_contracts::identity::{
     CommandStreamRegistryV1, PrincipalRegistryV1, RuntimeDeterminismProfileV1,
 };
-use next_contracts::ids::{CommandId, CommandStreamId};
+use next_contracts::ids::{
+    CommandBodyHash, CommandId, CommandStreamId, command_body_hash_from_bytes,
+};
 use next_contracts::input::{IngressCheckpointV1, PlayerControllerRegistryV1};
 use next_contracts::ledger::{CommandBodyArchiveV1, CommandLedgerError, CommandLedgerV2};
 use next_contracts::physics::{
@@ -30,10 +32,13 @@ use super::result::{
 mod execution;
 mod ledger;
 mod physics_step;
+mod transaction_delta;
 
 use execution::execute_candidate;
 use ledger::handle_collision;
 use physics_step::finish_physical_step;
+use transaction_delta::CommandLedgerTransactionDelta;
+pub(crate) use transaction_delta::PreparedCommandLedgerTransaction;
 
 type CollisionKey = (CommandStreamId, IssuerPrincipal, u64);
 
@@ -41,6 +46,7 @@ type CollisionKey = (CommandStreamId, IssuerPrincipal, u64);
 struct ValidatedCommand {
     command: WorldCommand,
     command_id: CommandId,
+    body_hash: CommandBodyHash,
     canonical_bytes: Vec<u8>,
     order_key: CommandOrderKey,
     due: bool,
@@ -87,6 +93,7 @@ pub(super) struct PhaseContext<'a> {
 pub(super) struct StagedAuthoritativeState {
     pub(super) ledger: CommandLedgerV2,
     pub(super) archive: CommandBodyArchiveV1,
+    pub(super) ledger_delta: CommandLedgerTransactionDelta,
     pub(super) event_count: u64,
     pub(super) revision: u64,
     pub(super) rpg: RpgState,
@@ -295,9 +302,8 @@ fn due_commands(
             }
             if reservation.target_tick == context.tick && reservation.phase == context.phase {
                 let bytes = staged
-                    .archive
-                    .entries()
-                    .get(&reservation.canonical_body_ref)
+                    .ledger_delta
+                    .archive_bytes(&staged.archive, &reservation.canonical_body_ref)
                     .ok_or(RuntimeFatalError::LedgerCorrupt(
                         CommandLedgerError::BodyReferenceMissing,
                     ))?;
@@ -331,6 +337,7 @@ fn validate_command(
     let command_id = command
         .compute_command_id()
         .map_err(|_| RejectionCode::CanonicalCommandInvalid)?;
+    let body_hash = command_body_hash_from_bytes(sha256(&canonical_bytes));
     if command
         .claimed_command_id
         .is_some_and(|claimed| claimed != command_id)
@@ -380,6 +387,7 @@ fn validate_command(
         order_key: CommandOrderKey::new(&command, descriptor.priority_class()),
         command,
         command_id,
+        body_hash,
         canonical_bytes,
         due: queued.due,
     })
