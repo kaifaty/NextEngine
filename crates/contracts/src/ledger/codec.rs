@@ -133,7 +133,7 @@ fn decode_stream(
         admission_high_watermark,
         greatest_reserved_target_tick,
         pending: Arc::new(pending),
-        receipt_window: Arc::new(receipt_window),
+        receipt_window: CommandReceiptWindowV1::from_receipts(receipt_window)?,
         finalized_receipt_count,
         receipt_chain_root,
         collision_incident,

@@ -399,11 +399,11 @@ fn run_interactive_simulation_session_worker(
                 if pending_failure.is_none() =>
             {
                 match fixed_step
-                    .advance_reference_game_presentation(&mut application, elapsed, &events)
+                    .advance_reference_game_presentation_shared(&mut application, elapsed, &events)
                     .map_err(AppFailure::application)
                 {
                     Ok(Some(next_snapshot)) => match latest_snapshot.write() {
-                        Ok(mut latest) => *latest = Some(Arc::new(next_snapshot)),
+                        Ok(mut latest) => *latest = Some(next_snapshot),
                         Err(_) => record_interactive_worker_failure(
                             &mut pending_failure,
                             &failure_sender,

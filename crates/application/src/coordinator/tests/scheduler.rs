@@ -16,10 +16,14 @@ fn interactive_presentation_path_defers_full_checkpoint_until_tick_thirty() {
 
     for expected_tick in 1_u64..30 {
         let presentation = scheduler
-            .advance_reference_game_presentation(&mut game, Duration::from_millis(34), &[])
+            .advance_reference_game_presentation_shared(&mut game, Duration::from_millis(34), &[])
             .expect("interactive presentation step")
             .expect("one fixed step is due");
         assert_eq!(presentation.simulation_tick, expected_tick);
+        assert!(
+            std::sync::Arc::strong_count(&presentation) >= 2,
+            "shared projection must remain owned by the committed live driver"
+        );
         assert_eq!(
             game.prepared_run
                 .as_ref()

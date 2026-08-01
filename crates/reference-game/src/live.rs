@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use next_contracts::command::EventPayload;
 use next_contracts::ids::{ContentHash, PersistentId};
 use next_contracts::input::{
@@ -214,6 +216,15 @@ impl PreparedReferenceGameAdvance {
             .accepted_snapshot()
             .ok_or(ReferenceGameError::PresentationSnapshotMissing)
     }
+
+    pub fn presentation_snapshot_shared(
+        &self,
+    ) -> Result<Arc<PresentationSnapshotV2>, ReferenceGameError> {
+        self.state
+            .presentation_extractor
+            .accepted_snapshot_shared()
+            .ok_or(ReferenceGameError::PresentationSnapshotMissing)
+    }
 }
 
 /// A prepared reference-game generation bound to the current runtime and
@@ -233,6 +244,15 @@ impl ValidatedReferenceGameAdvance {
         self.state
             .presentation_extractor
             .accepted_snapshot()
+            .ok_or(ReferenceGameError::PresentationSnapshotMissing)
+    }
+
+    pub fn presentation_snapshot_shared(
+        &self,
+    ) -> Result<Arc<PresentationSnapshotV2>, ReferenceGameError> {
+        self.state
+            .presentation_extractor
+            .accepted_snapshot_shared()
             .ok_or(ReferenceGameError::PresentationSnapshotMissing)
     }
 }

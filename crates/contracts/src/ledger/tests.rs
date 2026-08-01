@@ -472,6 +472,66 @@ fn receipt_window_is_the_exact_4096_suffix() {
         COMMAND_RECEIPT_WINDOW_CAPACITY as u64
     );
     stream.validate().expect("window suffix validates");
+
+    let retained = stream.receipt_window.iter().cloned().collect();
+    let repacked = CommandReceiptWindowV1::from_receipts(retained)
+        .expect("the retained suffix fits the public window bound");
+    assert_eq!(
+        repacked, stream.receipt_window,
+        "physical chunk boundaries must not affect logical equality"
+    );
+
+    let retained_before_append = stream.receipt_window.clone();
+    let next_ordinal = COMMAND_RECEIPT_WINDOW_CAPACITY as u64 + 1;
+    stream
+        .append_receipt(receipt(
+            next_ordinal,
+            next_ordinal,
+            CommandFinalResultV1::Committed,
+        ))
+        .expect("a cloned window remains isolated from the next append");
+    assert_eq!(
+        retained_before_append
+            .first()
+            .expect("cloned suffix remains populated")
+            .finalization_ordinal,
+        1
+    );
+    assert_eq!(
+        stream
+            .receipt_window
+            .first()
+            .expect("advanced suffix remains populated")
+            .finalization_ordinal,
+        2
+    );
+
+    for ordinal in (next_ordinal + 1)..=(COMMAND_RECEIPT_WINDOW_CAPACITY as u64 + 128) {
+        stream
+            .append_receipt(receipt(ordinal, ordinal, CommandFinalResultV1::Committed))
+            .expect("receipt appends across multiple chunk rotations");
+    }
+    assert_eq!(stream.receipt_window.len(), COMMAND_RECEIPT_WINDOW_CAPACITY);
+    assert_eq!(
+        stream
+            .receipt_window
+            .first()
+            .expect("rotated suffix remains populated")
+            .finalization_ordinal,
+        129
+    );
+    stream.validate().expect("rotated window suffix validates");
+
+    let streams = BTreeMap::from([(stream.stream_id, stream.clone())]);
+    let canonical = super::codec::encode_streams(&streams).expect("streams encode");
+    let decoded = super::codec::decode_streams(&canonical, CanonicalDecodeLimits::default())
+        .expect("streams decode");
+    assert_eq!(decoded, streams);
+    assert_eq!(
+        super::codec::encode_streams(&decoded).expect("decoded streams re-encode"),
+        canonical,
+        "physical chunk packing must not affect canonical bytes"
+    );
 }
 
 #[test]

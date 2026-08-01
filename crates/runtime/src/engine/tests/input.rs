@@ -19,7 +19,9 @@ fn prepared_tick_is_non_mutating_and_commits_the_exact_preview() {
         .enqueue_input_sample(&prepared_fixture.principal, sample.clone())
         .expect("stage input");
     let prepared = preparation.prepare([]).expect("prepare tick");
+    assert!(!prepared.report_is_materialized());
     let preview = prepared.report().clone();
+    assert!(prepared.report_is_materialized());
     let preview_checkpoint = prepared
         .world_checkpoint_with_canonical_components()
         .expect("prepared checkpoint")
@@ -79,6 +81,10 @@ fn reportless_commit_matches_the_public_tick_report_path() {
         .enqueue_input_sample(&fast_fixture.principal, sample.clone())
         .expect("stage fast input");
     let prepared = preparation.prepare([]).expect("prepare fast tick");
+    assert_eq!(prepared.next_tick(), 1);
+    let _events = prepared.events();
+    let _ = prepared.physics_snapshot();
+    assert!(!prepared.report_is_materialized());
     let validated = fast_fixture
         .runtime
         .validate_prepared_tick(prepared)
@@ -104,16 +110,16 @@ fn reportless_commit_matches_the_public_tick_report_path() {
         fast_fixture.runtime.physics_checkpoint(),
         ordinary_fixture.runtime.physics_checkpoint()
     );
-    assert_eq!(
-        fast_fixture
-            .runtime
-            .world_checkpoint()
-            .expect("fast checkpoint"),
-        ordinary_fixture
-            .runtime
-            .world_checkpoint()
-            .expect("ordinary checkpoint")
-    );
+    let fast_checkpoint = fast_fixture
+        .runtime
+        .world_checkpoint_with_canonical_components()
+        .expect("fast checkpoint");
+    let ordinary_checkpoint = ordinary_fixture
+        .runtime
+        .world_checkpoint_with_canonical_components()
+        .expect("ordinary checkpoint");
+    assert_eq!(fast_checkpoint.0, ordinary_checkpoint.0);
+    assert_eq!(fast_checkpoint.1, ordinary_checkpoint.1);
 }
 
 #[test]

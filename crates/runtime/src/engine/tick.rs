@@ -118,6 +118,7 @@ impl RuntimeTickPreparation<'_> {
 /// A completely staged and checked next tick. The live runtime is unchanged.
 pub struct PreparedRuntimeTick {
     base_generation: RuntimeGenerationV1,
+    next_tick: u64,
     staged: StagedAuthoritativeState,
     ledger_update: PreparedCommandLedgerTransaction,
     report: OnceLock<TickReport>,
@@ -133,9 +134,7 @@ struct PreparedTickReportParts {
     results: Vec<super::result::CommandResult>,
     events: Vec<next_contracts::command::DomainEvent>,
     stage_trace: Vec<StageTraceEntry>,
-    snapshot: RuntimeSnapshotV3,
-    rpg_snapshot: next_contracts::rpg::RpgSnapshotV2,
-    physics_snapshot: next_contracts::physics::PhysicsCanonicalSnapshotV2,
+    snapshot_fields: PreparedRuntimeSnapshotFields,
     physics_step_input: next_contracts::physics::PhysicsStepInputV2,
     contact_batch: next_contracts::physics::ClosedPhysicsContactBatchV1,
     physics_checkpoint_hash: next_contracts::ids::ContentHash,
@@ -143,23 +142,116 @@ struct PreparedTickReportParts {
     authoritative_targeting_queries: Vec<AuthoritativeTargetingQueryV1>,
     physics_query_batch: PhysicsQueryBatchV1,
     physics_query_results: Vec<next_contracts::physics::PhysicsQueryResultV1>,
-    closed_ingress_batch: ClosedIngressBatchV1,
-    mapping_receipts: Vec<InputMappingReceiptV1>,
-    mapping_receipts_v2: Vec<InputMappingReceiptV2>,
-    command_batches: Vec<ClosedCommandAdmissionBatchV2>,
     rpg_plan_traces: Vec<super::result::CommittedRpgPlanTraceV1>,
 }
 
+/// Immutable snapshot fields copied from the prepared runtime generation.
+///
+/// Dynamic authoritative state stays in `StagedAuthoritativeState`; in
+/// particular, the staged command ledger and body archive are not cloned a
+/// second time into a public snapshot until a caller asks for the tick report.
+struct PreparedRuntimeSnapshotFields {
+    world_identity: next_contracts::identity::WorldIdentityManifestV1,
+    principal_registry: next_contracts::identity::PrincipalRegistryV1,
+    stream_registry: next_contracts::identity::CommandStreamRegistryV1,
+    runtime_profile: next_contracts::identity::RuntimeDeterminismProfileV1,
+    admission_limits: next_contracts::input::RuntimeAdmissionLimitsV1,
+    tick_rate_profile: next_contracts::input::TickRateProfileV1,
+    ingress_assignment_profile: next_contracts::input::IngressAssignmentProfileV1,
+    authoritative_numeric_profile: next_contracts::physics::AuthoritativeNumericProfileV1,
+    physics_quantization_profile: next_contracts::physics::PhysicsQuantizationProfileV1,
+    player_controller_registry: next_contracts::input::PlayerControllerRegistryV1,
+    rpg_runtime_bindings: next_contracts::rpg::RpgRuntimeBindingsV1,
+}
+
+#[derive(Clone, Copy)]
+struct PreparedTickReportSources<'a> {
+    next_tick: u64,
+    staged: &'a StagedAuthoritativeState,
+    closed_ingress_batch: &'a ClosedIngressBatchV1,
+    mapping_receipts: &'a [InputMappingReceiptV1],
+    mapping_receipts_v2: &'a [InputMappingReceiptV2],
+    command_batches: &'a [ClosedCommandAdmissionBatchV2],
+}
+
+impl PreparedRuntimeSnapshotFields {
+    fn snapshot(
+        &self,
+        next_tick: u64,
+        staged: &StagedAuthoritativeState,
+        command_ledger: next_contracts::ledger::CommandLedgerV2,
+        body_archive: next_contracts::ledger::CommandBodyArchiveV1,
+    ) -> RuntimeSnapshotV3 {
+        RuntimeSnapshotV3 {
+            next_tick,
+            committed_event_count: staged.event_count,
+            authoritative_revision: staged.revision,
+            world_identity: self.world_identity.clone(),
+            principal_registry: self.principal_registry.clone(),
+            stream_registry: self.stream_registry.clone(),
+            runtime_profile: self.runtime_profile,
+            admission_limits: self.admission_limits,
+            tick_rate_profile: self.tick_rate_profile,
+            ingress_assignment_profile: self.ingress_assignment_profile,
+            authoritative_numeric_profile: self.authoritative_numeric_profile.clone(),
+            physics_quantization_profile: self.physics_quantization_profile.clone(),
+            player_controller_registry: self.player_controller_registry.clone(),
+            ingress_checkpoint: staged.ingress.clone(),
+            rpg_runtime_bindings: self.rpg_runtime_bindings.clone(),
+            command_ledger,
+            body_archive,
+        }
+    }
+
+    fn into_snapshot(
+        self,
+        next_tick: u64,
+        staged: &StagedAuthoritativeState,
+        command_ledger: next_contracts::ledger::CommandLedgerV2,
+        body_archive: next_contracts::ledger::CommandBodyArchiveV1,
+    ) -> RuntimeSnapshotV3 {
+        RuntimeSnapshotV3 {
+            next_tick,
+            committed_event_count: staged.event_count,
+            authoritative_revision: staged.revision,
+            world_identity: self.world_identity,
+            principal_registry: self.principal_registry,
+            stream_registry: self.stream_registry,
+            runtime_profile: self.runtime_profile,
+            admission_limits: self.admission_limits,
+            tick_rate_profile: self.tick_rate_profile,
+            ingress_assignment_profile: self.ingress_assignment_profile,
+            authoritative_numeric_profile: self.authoritative_numeric_profile,
+            physics_quantization_profile: self.physics_quantization_profile,
+            player_controller_registry: self.player_controller_registry,
+            ingress_checkpoint: staged.ingress.clone(),
+            rpg_runtime_bindings: self.rpg_runtime_bindings,
+            command_ledger,
+            body_archive,
+        }
+    }
+}
+
 impl PreparedTickReportParts {
-    fn report_with_snapshot(&self, snapshot: RuntimeSnapshotV3) -> TickReport {
+    fn report(
+        &self,
+        sources: PreparedTickReportSources<'_>,
+        command_ledger: next_contracts::ledger::CommandLedgerV2,
+        body_archive: next_contracts::ledger::CommandBodyArchiveV1,
+    ) -> TickReport {
         TickReport {
             tick: self.tick,
             results: self.results.clone(),
             events: self.events.clone(),
             stage_trace: self.stage_trace.clone(),
-            snapshot,
-            rpg_snapshot: self.rpg_snapshot.clone(),
-            physics_snapshot: self.physics_snapshot.clone(),
+            snapshot: self.snapshot_fields.snapshot(
+                sources.next_tick,
+                sources.staged,
+                command_ledger,
+                body_archive,
+            ),
+            rpg_snapshot: sources.staged.rpg.snapshot(),
+            physics_snapshot: sources.staged.physics.snapshot().clone(),
             physics_step_input: self.physics_step_input.clone(),
             contact_batch: self.contact_batch.clone(),
             physics_checkpoint_hash: self.physics_checkpoint_hash,
@@ -167,23 +259,33 @@ impl PreparedTickReportParts {
             authoritative_targeting_queries: self.authoritative_targeting_queries.clone(),
             physics_query_batch: self.physics_query_batch.clone(),
             physics_query_results: self.physics_query_results.clone(),
-            closed_ingress_batch: self.closed_ingress_batch.clone(),
-            mapping_receipts: self.mapping_receipts.clone(),
-            mapping_receipts_v2: self.mapping_receipts_v2.clone(),
-            command_batches: self.command_batches.clone(),
+            closed_ingress_batch: sources.closed_ingress_batch.clone(),
+            mapping_receipts: sources.mapping_receipts.to_vec(),
+            mapping_receipts_v2: sources.mapping_receipts_v2.to_vec(),
+            command_batches: sources.command_batches.to_vec(),
             rpg_plan_traces: self.rpg_plan_traces.clone(),
         }
     }
 
-    fn into_report_with_snapshot(self, snapshot: RuntimeSnapshotV3) -> TickReport {
+    fn into_report(
+        self,
+        sources: PreparedTickReportSources<'_>,
+        command_ledger: next_contracts::ledger::CommandLedgerV2,
+        body_archive: next_contracts::ledger::CommandBodyArchiveV1,
+    ) -> TickReport {
         TickReport {
             tick: self.tick,
             results: self.results,
             events: self.events,
             stage_trace: self.stage_trace,
-            snapshot,
-            rpg_snapshot: self.rpg_snapshot,
-            physics_snapshot: self.physics_snapshot,
+            snapshot: self.snapshot_fields.into_snapshot(
+                sources.next_tick,
+                sources.staged,
+                command_ledger,
+                body_archive,
+            ),
+            rpg_snapshot: sources.staged.rpg.snapshot(),
+            physics_snapshot: sources.staged.physics.snapshot().clone(),
             physics_step_input: self.physics_step_input,
             contact_batch: self.contact_batch,
             physics_checkpoint_hash: self.physics_checkpoint_hash,
@@ -191,32 +293,45 @@ impl PreparedTickReportParts {
             authoritative_targeting_queries: self.authoritative_targeting_queries,
             physics_query_batch: self.physics_query_batch,
             physics_query_results: self.physics_query_results,
-            closed_ingress_batch: self.closed_ingress_batch,
-            mapping_receipts: self.mapping_receipts,
-            mapping_receipts_v2: self.mapping_receipts_v2,
-            command_batches: self.command_batches,
+            closed_ingress_batch: sources.closed_ingress_batch.clone(),
+            mapping_receipts: sources.mapping_receipts.to_vec(),
+            mapping_receipts_v2: sources.mapping_receipts_v2.to_vec(),
+            command_batches: sources.command_batches.to_vec(),
             rpg_plan_traces: self.rpg_plan_traces,
         }
     }
 }
 
 impl PreparedRuntimeTick {
+    #[cfg(test)]
+    pub(super) fn report_is_materialized(&self) -> bool {
+        self.report.get().is_some()
+    }
+
     #[must_use]
     pub fn report(&self) -> &TickReport {
         self.report.get_or_init(|| {
             let (ledger, archive) = self
                 .ledger_update
                 .materialize(&self.staged.ledger, &self.staged.archive);
-            let mut snapshot = self.report_parts.snapshot.clone();
-            snapshot.command_ledger = ledger;
-            snapshot.body_archive = archive;
-            self.report_parts.report_with_snapshot(snapshot)
+            self.report_parts.report(
+                PreparedTickReportSources {
+                    next_tick: self.next_tick,
+                    staged: &self.staged,
+                    closed_ingress_batch: &self.last_closed_ingress_batch,
+                    mapping_receipts: &self.last_mapping_receipts,
+                    mapping_receipts_v2: &self.last_mapping_receipts_v2,
+                    command_batches: &self.last_command_batches,
+                },
+                ledger,
+                archive,
+            )
         })
     }
 
     #[must_use]
     pub const fn next_tick(&self) -> u64 {
-        self.report_parts.snapshot.next_tick
+        self.next_tick
     }
 
     #[must_use]
@@ -233,9 +348,10 @@ impl PreparedRuntimeTick {
         &self,
     ) -> Result<(WorldCheckpointV4, WorldCheckpointCanonicalComponentsV1), WorldCheckpointError>
     {
+        let report = self.report();
         WorldCheckpointV4::new_with_incrementally_validated_canonical_components(
-            self.report().snapshot.clone(),
-            self.report_parts.rpg_snapshot.clone(),
+            report.snapshot.clone(),
+            report.rpg_snapshot.clone(),
             self.staged.physics.checkpoint().clone(),
         )
     }
@@ -317,6 +433,7 @@ impl RuntimeState {
         let ValidatedRuntimeTick(prepared) = validated;
         debug_assert!(prepared.base_generation.matches(self));
         let PreparedRuntimeTick {
+            next_tick,
             staged,
             ledger_update,
             report,
@@ -329,10 +446,18 @@ impl RuntimeState {
         } = prepared;
         let report = report.into_inner().unwrap_or_else(|| {
             let (ledger, archive) = ledger_update.materialize(&staged.ledger, &staged.archive);
-            let mut snapshot = report_parts.snapshot.clone();
-            snapshot.command_ledger = ledger;
-            snapshot.body_archive = archive;
-            report_parts.into_report_with_snapshot(snapshot)
+            report_parts.into_report(
+                PreparedTickReportSources {
+                    next_tick,
+                    staged: &staged,
+                    closed_ingress_batch: &last_closed_ingress_batch,
+                    mapping_receipts: &last_mapping_receipts,
+                    mapping_receipts_v2: &last_mapping_receipts_v2,
+                    command_batches: &last_command_batches,
+                },
+                ledger,
+                archive,
+            )
         });
         self.next_tick = report.snapshot.next_tick;
         self.committed_event_count = staged.event_count;
@@ -358,6 +483,7 @@ impl RuntimeState {
         let ValidatedRuntimeTick(prepared) = validated;
         debug_assert!(prepared.base_generation.matches(self));
         let PreparedRuntimeTick {
+            next_tick,
             staged,
             ledger_update,
             report,
@@ -368,7 +494,6 @@ impl RuntimeState {
             last_command_batches,
             ..
         } = prepared;
-        let next_tick = report_parts.snapshot.next_tick;
         if let Some(report) = report.into_inner() {
             self.command_ledger = report.snapshot.command_ledger;
             self.body_archive = report.snapshot.body_archive;
@@ -742,10 +867,7 @@ impl RuntimeState {
         let mut rpg_plan_traces = ingress.rpg_plan_traces;
         rpg_plan_traces.extend(outcome.rpg_plan_traces);
 
-        let snapshot = RuntimeSnapshotV3 {
-            next_tick: following_tick,
-            committed_event_count: staged.event_count,
-            authoritative_revision: staged.revision,
+        let snapshot_fields = PreparedRuntimeSnapshotFields {
             world_identity: self.world_identity.clone(),
             principal_registry: self.principal_registry.clone(),
             stream_registry: self.stream_registry.clone(),
@@ -756,10 +878,7 @@ impl RuntimeState {
             authoritative_numeric_profile: self.authoritative_numeric_profile.clone(),
             physics_quantization_profile: self.physics_quantization_profile.clone(),
             player_controller_registry: self.player_controller_registry.clone(),
-            ingress_checkpoint: staged.ingress.clone(),
             rpg_runtime_bindings: self.rpg_bindings.clone(),
-            command_ledger: staged.ledger.clone(),
-            body_archive: staged.archive.clone(),
         };
         // Incremental mutation APIs validate the exact affected archive,
         // identity, stream and receipt boundaries. Durable serialization and
@@ -829,9 +948,7 @@ impl RuntimeState {
             results,
             events,
             stage_trace,
-            snapshot,
-            rpg_snapshot: staged.rpg.snapshot(),
-            physics_snapshot: staged.physics.snapshot().clone(),
+            snapshot_fields,
             physics_step_input,
             contact_batch,
             physics_checkpoint_hash: staged.physics.checkpoint_hash()?,
@@ -839,15 +956,12 @@ impl RuntimeState {
             authoritative_targeting_queries,
             physics_query_batch,
             physics_query_results,
-            closed_ingress_batch: closed_ingress.batch.clone(),
-            mapping_receipts: closed_ingress.mapping_receipts.clone(),
-            mapping_receipts_v2: closed_ingress.mapping_receipts_v2.clone(),
-            command_batches: last_command_batches.clone(),
             rpg_plan_traces,
         };
 
         Ok(PreparedRuntimeTick {
             base_generation,
+            next_tick: following_tick,
             staged,
             ledger_update,
             report: OnceLock::new(),

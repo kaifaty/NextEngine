@@ -40,49 +40,56 @@ pub(super) fn execute_candidate(
             .ok_or(RuntimeFatalError::LedgerCorrupt(
                 CommandLedgerError::StreamKeyMismatch,
             ))?;
-    if let Some(result) = retained_result(stream, &candidate)? {
-        return Ok(CandidateExecution::Result(
-            result,
-            ExecutionTrace::Deduplicated,
-        ));
-    }
+    // A sequence above the persisted high-watermark cannot already exist in
+    // either the retained receipt suffix or the pending reservation map. The
+    // ordinary monotonic stream path therefore avoids two linear history
+    // scans; retry, collision and finalized-gap semantics keep the exact
+    // retained-history checks below.
     if stream
-        .receipt_window
-        .iter()
-        .any(|receipt| receipt.subject.sequence() == command.sequence)
-    {
-        return collision_with_retained(context, candidate, staged);
-    }
-    if let Some(reservation) = stream.pending.get(&command.sequence) {
-        if reservation.command_id == candidate.command_id
-            && reservation.body_hash == candidate.body_hash
-        {
-            if !candidate.due {
-                return Ok(CandidateExecution::Result(
-                    OrderedResult::reserved(
-                        candidate.order_key,
-                        candidate.command_id,
-                        command.sequence,
-                    ),
-                    ExecutionTrace::Deduplicated,
-                ));
-            }
-        } else {
-            return collision_with_retained(context, candidate, staged);
-        }
-    } else if stream
         .admission_high_watermark
         .is_some_and(|high| command.sequence <= high)
     {
-        return Ok(CandidateExecution::Result(
-            OrderedResult::rejected(
-                candidate.order_key,
-                candidate.command_id,
-                command.sequence,
-                RejectionCode::CommandSequenceFinalized,
-            ),
-            ExecutionTrace::Rejected,
-        ));
+        if let Some(result) = retained_result(stream, &candidate)? {
+            return Ok(CandidateExecution::Result(
+                result,
+                ExecutionTrace::Deduplicated,
+            ));
+        }
+        if stream
+            .receipt_window
+            .iter()
+            .any(|receipt| receipt.subject.sequence() == command.sequence)
+        {
+            return collision_with_retained(context, candidate, staged);
+        }
+        if let Some(reservation) = stream.pending.get(&command.sequence) {
+            if reservation.command_id == candidate.command_id
+                && reservation.body_hash == candidate.body_hash
+            {
+                if !candidate.due {
+                    return Ok(CandidateExecution::Result(
+                        OrderedResult::reserved(
+                            candidate.order_key,
+                            candidate.command_id,
+                            command.sequence,
+                        ),
+                        ExecutionTrace::Deduplicated,
+                    ));
+                }
+            } else {
+                return collision_with_retained(context, candidate, staged);
+            }
+        } else {
+            return Ok(CandidateExecution::Result(
+                OrderedResult::rejected(
+                    candidate.order_key,
+                    candidate.command_id,
+                    command.sequence,
+                    RejectionCode::CommandSequenceFinalized,
+                ),
+                ExecutionTrace::Rejected,
+            ));
+        }
     }
     match stream.state {
         CommandStreamStateV1::CollisionLocked => {

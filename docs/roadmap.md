@@ -813,6 +813,28 @@ ten-run comparison и PGO merge остаются `NOT_RUN`, поэтому codeg
 promoted. Workflow требует exact executable/build sidecars для baseline и
 candidate, отклоняет чужие rustflags/profile overrides и строит общий CI прямым
 scenario-cluster bootstrap. B-12 остаётся открытым.
+
+Следующий live-runtime performance package сделал полный public `TickReport`
+ленивым для ordinary reportless commit, сохранил accepted presentation snapshot
+в shared `Arc` до production worker и заменил физическое receipt window на
+engine-owned chunked COW packing по `64` receipts. Логический ordered suffix из
+`4 096` receipts, canonical bytes, schema и receipt-chain root не изменились;
+новые monotonic sequences также обходят два линейных retry/collision scan по
+retained history. Отдельный `0/4 095/4 096/4 097` diagnostic проверяет точную
+эвикцию, clone isolation, decode/re-encode и repeated-driver root parity. Три
+before и три after release `long-session-soak.v3` run на той же ревизии
+сохранили authoritative root
+`5e45825e1a627113902640184c00bf448964bb2b8daf10d6e0947d40fd5a6e17` и exact
+driver/application ledger/archive parity. Median run p95 изменился так: driver
+window `4.349 → 3.427 s` (`-21.2%`), driver prepare `2 429 → 1 960 µs`
+(`-19.3%`), driver commit `480 → 330 µs` (`-31.2%`), checkpoint
+materialization `48 446 → 41 445 µs` (`-14.5%`), ordinary application tick
+`2 758 → 2 278 µs` (`-17.4%`) и application window `5.926 → 5.117 s`
+(`-13.6%`). Identity-root probe и checkpoint tails остаются noise-sensitive.
+Все run имеют `REPORT_ONLY`: preflight не достиг одновременно idle CPU и
+20-GiB free-RAM условий, поэтому результат не заменяет ten-run hard calibration
+и не закрывает B-12.
+
 Exact global host allocator counter и ten-run calibration evidence ещё
 отсутствуют. Это не меняет product queue: calibration начинается после
 стабилизации последнего required counter/noise, а hard

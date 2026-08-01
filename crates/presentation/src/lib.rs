@@ -2,6 +2,7 @@
 
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 use next_contracts::ids::{ContentHash, PersistentId};
 use next_contracts::physics::{PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2};
@@ -86,7 +87,7 @@ pub struct PresentationExtractorV1 {
     presentation_profile_hash: ContentHash,
     max_scene_records_per_batch: usize,
     max_camera_records_per_batch: usize,
-    accepted_snapshot: Option<PresentationSnapshotV2>,
+    accepted_snapshot: Option<Arc<PresentationSnapshotV2>>,
 }
 
 impl PresentationExtractorV1 {
@@ -162,7 +163,7 @@ impl PresentationExtractorV1 {
             presentation_profile_hash: snapshot.presentation_profile_hash,
             max_scene_records_per_batch,
             max_camera_records_per_batch,
-            accepted_snapshot: Some(snapshot),
+            accepted_snapshot: Some(Arc::new(snapshot)),
         })
     }
 
@@ -368,15 +369,24 @@ impl PresentationExtractorV1 {
             .next_snapshot_sequence
             .checked_add(1)
             .ok_or(PresentationExtractionError::SequenceOverflow)?;
-        self.accepted_snapshot = Some(candidate);
+        self.accepted_snapshot = Some(Arc::new(candidate));
         self.accepted_snapshot
-            .as_ref()
+            .as_deref()
             .ok_or(PresentationExtractionError::PublicationFailed)
     }
 
     #[must_use]
     pub fn accepted_snapshot(&self) -> Option<&PresentationSnapshotV2> {
-        self.accepted_snapshot.as_ref()
+        self.accepted_snapshot.as_deref()
+    }
+
+    /// Returns shared ownership of the last accepted immutable publication.
+    ///
+    /// Callers that retain a snapshot across a staged commit can use this
+    /// projection without cloning its scene and camera records.
+    #[must_use]
+    pub fn accepted_snapshot_shared(&self) -> Option<Arc<PresentationSnapshotV2>> {
+        self.accepted_snapshot.clone()
     }
 }
 
@@ -440,6 +450,42 @@ mod tests {
         PhysicsQuantizationProfileV1, PhysicsSolverSemanticsProfileV1,
         PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
     };
+
+    #[test]
+    fn staged_extractor_clone_shares_only_the_immutable_prior_snapshot() {
+        let lock = domain_hash("test.staged-clone.lock", b"lock");
+        let content = domain_hash("test.staged-clone.content", b"content");
+        let mut live =
+            PresentationExtractorV1::new(lock, domain_hash("test.profile", b"profile"), 2)
+                .expect("extractor");
+        let physics = empty_physics();
+        live.extract(0, lock, content, &physics, &[binding(1)])
+            .expect("initial snapshot");
+
+        let live_snapshot = live.accepted_snapshot_shared().expect("live snapshot");
+        let mut staged = live.clone();
+        let staged_snapshot = staged.accepted_snapshot_shared().expect("staged snapshot");
+        assert!(Arc::ptr_eq(&live_snapshot, &staged_snapshot));
+        staged
+            .extract(1, lock, content, &physics, &[binding(1)])
+            .expect("staged snapshot");
+
+        let staged_snapshot = staged.accepted_snapshot_shared().expect("staged snapshot");
+        assert!(!Arc::ptr_eq(&live_snapshot, &staged_snapshot));
+        assert_eq!(
+            live.accepted_snapshot()
+                .expect("live snapshot")
+                .simulation_tick,
+            0
+        );
+        assert_eq!(
+            staged
+                .accepted_snapshot()
+                .expect("staged snapshot")
+                .simulation_tick,
+            1,
+        );
+    }
 
     #[test]
     fn binding_order_does_not_change_snapshot_and_failed_candidate_is_not_published() {

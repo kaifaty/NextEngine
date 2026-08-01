@@ -2,6 +2,7 @@
 
 mod agent_performance;
 mod content_package;
+mod live_runtime_history_scaling;
 mod live_runtime_performance;
 mod persistence_replay;
 mod physics_parity;
@@ -22,6 +23,11 @@ pub use agent_performance::{
 pub use content_package::{
     ContentPackageCheckError, ContentPackageCheckReport, run_content_package_check,
     run_content_package_check_in,
+};
+pub use live_runtime_history_scaling::{
+    LIVE_RUNTIME_HISTORY_SCALING_BOUNDARIES, LiveRuntimeHistoryScalingReport,
+    LiveRuntimeHistoryScalingSample, run_live_runtime_history_scaling_diagnostic,
+    run_live_runtime_history_scaling_diagnostic_in,
 };
 pub use live_runtime_performance::{
     LiveRuntimePerformanceError, LiveRuntimePerformanceReport,

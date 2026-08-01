@@ -147,10 +147,10 @@ impl ApplicationCoordinator {
     /// immutable presentation projection on ordinary ticks. Complete
     /// authoritative checkpoints remain forced at the declared cadence and
     /// lifecycle boundaries.
-    pub(crate) fn advance_reference_game_live_presentation_admitted(
+    pub(crate) fn advance_reference_game_live_presentation_shared_admitted(
         &mut self,
         platform_events: &[PlatformEventV1],
-    ) -> Result<next_contracts::presentation::PresentationSnapshotV2, ApplicationError> {
+    ) -> Result<Arc<next_contracts::presentation::PresentationSnapshotV2>, ApplicationError> {
         if self.machine.state().state != ApplicationSessionStatusV1::Active {
             return Err(ApplicationError::CloseStateInvalid);
         }
@@ -159,6 +159,7 @@ impl ApplicationCoordinator {
             let prepared = driver.stage_advance(platform_events)?;
             driver.validate_prepared_advance(prepared)?
         };
+        let presentation = validated.presentation_snapshot_shared()?;
         let suspend = platform_events
             .iter()
             .find(|event| event.kind == PlatformEventKindV1::SuspendRequested);
@@ -178,10 +179,10 @@ impl ApplicationCoordinator {
                 state,
                 self.launch.presentation_target,
             )?;
-            let presentation = prepared
+            prepared
                 .summary
                 .presentation_snapshot
-                .clone()
+                .as_ref()
                 .ok_or(ApplicationError::NoRunOutcome)?;
             if let Some(suspend) = suspend {
                 self.suspend_from_admitted_platform_event_with_prepared_run(suspend, &prepared)?;
@@ -197,7 +198,6 @@ impl ApplicationCoordinator {
             return Ok(presentation);
         }
 
-        let presentation = validated.presentation_snapshot()?.clone();
         let driver = self
             .live_run
             .as_mut()

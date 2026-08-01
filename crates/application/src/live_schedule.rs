@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use next_contracts::ids::ContentHash;
@@ -85,6 +86,36 @@ impl FixedStepLiveSchedulerV1 {
         elapsed: Duration,
         events: &[PlatformEventV1],
     ) -> Result<Option<PresentationSnapshotV2>, ApplicationError> {
+        self.advance_reference_game_presentation_shared(application, elapsed, events)
+            .map(|presentation| presentation.map(Arc::unwrap_or_clone))
+    }
+
+    /// Interactive hot path that shares the immutable presentation projection
+    /// with the committed live driver instead of cloning its record storage.
+    pub fn advance_reference_game_presentation_shared(
+        &mut self,
+        application: &mut ApplicationCoordinator,
+        elapsed: Duration,
+        events: &[PlatformEventV1],
+    ) -> Result<Option<Arc<PresentationSnapshotV2>>, ApplicationError> {
+        self.advance_reference_game_presentation_with(
+            application,
+            elapsed,
+            events,
+            ApplicationCoordinator::advance_reference_game_live_presentation_shared_admitted,
+        )
+    }
+
+    fn advance_reference_game_presentation_with<T>(
+        &mut self,
+        application: &mut ApplicationCoordinator,
+        elapsed: Duration,
+        events: &[PlatformEventV1],
+        advance_step: impl FnMut(
+            &mut ApplicationCoordinator,
+            &[PlatformEventV1],
+        ) -> Result<T, ApplicationError>,
+    ) -> Result<Option<T>, ApplicationError> {
         let crossed_suspend_boundary = self.retry_consumed_lifecycle_events(application)?;
         if crossed_suspend_boundary {
             self.accumulated_scaled_nanoseconds = 0;
@@ -98,7 +129,7 @@ impl FixedStepLiveSchedulerV1 {
                 application,
                 elapsed,
                 events,
-                ApplicationCoordinator::advance_reference_game_live_presentation_admitted,
+                advance_step,
             )
         })
     }

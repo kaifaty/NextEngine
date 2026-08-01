@@ -92,7 +92,7 @@ pub struct LiveRuntimePerformanceError {
 }
 
 impl LiveRuntimePerformanceError {
-    fn new(context: &'static str, detail: impl Into<String>) -> Self {
+    pub(super) fn new(context: &'static str, detail: impl Into<String>) -> Self {
         Self {
             context,
             detail: detail.into(),
@@ -499,7 +499,7 @@ fn run_live_application_long_session_in(
             movement_started_event_for_host(host_instance_id, capabilities.canonical_hash)?;
         let mut scheduler = FixedStepLiveSchedulerV1::reference_game_v1();
         let staged = scheduler
-            .advance_reference_game_presentation(
+            .advance_reference_game_presentation_shared(
                 &mut application,
                 Duration::ZERO,
                 std::slice::from_ref(&movement),
@@ -556,7 +556,7 @@ fn run_live_application_long_session_in(
             }
             let call_started = Instant::now();
             let presentation = scheduler
-                .advance_reference_game_presentation(
+                .advance_reference_game_presentation_shared(
                     &mut application,
                     APPLICATION_ONE_TICK_ELAPSED,
                     &events,
@@ -769,7 +769,7 @@ fn control_event_for_host(
     .map_err(|error| LiveRuntimePerformanceError::new("host control event", error.to_string()))
 }
 
-fn movement_started_event() -> Result<PlatformEventV1, LiveRuntimePerformanceError> {
+pub(super) fn movement_started_event() -> Result<PlatformEventV1, LiveRuntimePerformanceError> {
     let control = NormalizedControlEventV1::new(
         SchemaId::new(KEYBOARD_DEVICE_CLASS_ID)
             .map_err(|error| LiveRuntimePerformanceError::new("device class", error.to_string()))?,

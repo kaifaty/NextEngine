@@ -1,6 +1,8 @@
 use super::hashes::*;
 use super::*;
 
+const COMMAND_RECEIPT_WINDOW_CHUNK_CAPACITY: usize = 64;
+
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
 pub enum CommandStreamStateV1 {
@@ -8,6 +10,156 @@ pub enum CommandStreamStateV1 {
     CollisionLocked = 1,
     Exhausted = 2,
     Closed = 3,
+}
+
+/// The ordered retained suffix of finalized command receipts.
+///
+/// Its logical value is exactly the canonical receipt sequence. Physical
+/// chunks are a reconstructible copy-on-write packing detail, allowing a
+/// staged ledger generation to append without cloning all 4,096 receipts.
+#[derive(Clone)]
+pub struct CommandReceiptWindowV1 {
+    chunks: Arc<Vec<Arc<Vec<CommandReceiptV1>>>>,
+    head: usize,
+    len: usize,
+}
+
+impl CommandReceiptWindowV1 {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            chunks: Arc::new(Vec::new()),
+            head: 0,
+            len: 0,
+        }
+    }
+
+    pub(super) fn from_receipts(
+        receipts: Vec<CommandReceiptV1>,
+    ) -> Result<Self, CommandLedgerError> {
+        if receipts.len() > COMMAND_RECEIPT_WINDOW_CAPACITY {
+            return Err(CommandLedgerError::ReceiptWindowLengthMismatch);
+        }
+        let mut chunks = Vec::with_capacity(
+            receipts
+                .len()
+                .div_ceil(COMMAND_RECEIPT_WINDOW_CHUNK_CAPACITY),
+        );
+        let mut chunk = Vec::with_capacity(COMMAND_RECEIPT_WINDOW_CHUNK_CAPACITY);
+        for receipt in receipts {
+            chunk.push(receipt);
+            if chunk.len() == COMMAND_RECEIPT_WINDOW_CHUNK_CAPACITY {
+                chunks.push(Arc::new(chunk));
+                chunk = Vec::with_capacity(COMMAND_RECEIPT_WINDOW_CHUNK_CAPACITY);
+            }
+        }
+        if !chunk.is_empty() {
+            chunks.push(Arc::new(chunk));
+        }
+        let len = chunks.iter().map(|chunk| chunk.len()).sum();
+        Ok(Self {
+            chunks: Arc::new(chunks),
+            head: 0,
+            len,
+        })
+    }
+
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.len
+    }
+
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &CommandReceiptV1> {
+        self.chunks
+            .iter()
+            .flat_map(|chunk| chunk.iter())
+            .skip(self.head)
+            .take(self.len)
+    }
+
+    #[must_use]
+    pub fn first(&self) -> Option<&CommandReceiptV1> {
+        self.get(0)
+    }
+
+    #[must_use]
+    pub fn last(&self) -> Option<&CommandReceiptV1> {
+        self.len.checked_sub(1).and_then(|index| self.get(index))
+    }
+
+    #[must_use]
+    pub fn get(&self, index: usize) -> Option<&CommandReceiptV1> {
+        if index >= self.len {
+            return None;
+        }
+        let physical_index = self.head.checked_add(index)?;
+        self.chunks
+            .get(physical_index / COMMAND_RECEIPT_WINDOW_CHUNK_CAPACITY)?
+            .get(physical_index % COMMAND_RECEIPT_WINDOW_CHUNK_CAPACITY)
+    }
+
+    fn push(&mut self, receipt: CommandReceiptV1) {
+        let chunks = Arc::make_mut(&mut self.chunks);
+        match chunks.last_mut() {
+            Some(chunk) if chunk.len() < COMMAND_RECEIPT_WINDOW_CHUNK_CAPACITY => {
+                if let Some(unique) = Arc::get_mut(chunk) {
+                    unique.push(receipt);
+                } else {
+                    let mut next = Vec::with_capacity(COMMAND_RECEIPT_WINDOW_CHUNK_CAPACITY);
+                    next.extend(chunk.iter().cloned());
+                    next.push(receipt);
+                    *chunk = Arc::new(next);
+                }
+            }
+            _ => {
+                let mut chunk = Vec::with_capacity(COMMAND_RECEIPT_WINDOW_CHUNK_CAPACITY);
+                chunk.push(receipt);
+                chunks.push(Arc::new(chunk));
+            }
+        }
+        self.len += 1;
+        if self.len > COMMAND_RECEIPT_WINDOW_CAPACITY {
+            self.head += 1;
+            self.len -= 1;
+            if self.head == chunks[0].len() {
+                chunks.remove(0);
+                self.head = 0;
+            }
+        }
+    }
+}
+
+impl Default for CommandReceiptWindowV1 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl std::fmt::Debug for CommandReceiptWindowV1 {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter.debug_list().entries(self.iter()).finish()
+    }
+}
+
+impl PartialEq for CommandReceiptWindowV1 {
+    fn eq(&self, other: &Self) -> bool {
+        self.len == other.len && self.iter().eq(other.iter())
+    }
+}
+
+impl Eq for CommandReceiptWindowV1 {}
+
+impl std::ops::Index<usize> for CommandReceiptWindowV1 {
+    type Output = CommandReceiptV1;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.get(index).expect("receipt window index out of bounds")
+    }
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -62,7 +214,7 @@ pub struct CommandStreamLedgerV2 {
     pub admission_high_watermark: Option<u64>,
     pub greatest_reserved_target_tick: Option<u64>,
     pub pending: Arc<BTreeMap<u64, CommandReservationV1>>,
-    pub receipt_window: Arc<Vec<CommandReceiptV1>>,
+    pub receipt_window: CommandReceiptWindowV1,
     pub finalized_receipt_count: u64,
     pub receipt_chain_root: ContentHash,
     pub collision_incident: Option<CommandCollisionIncidentV1>,
@@ -86,7 +238,7 @@ impl CommandStreamLedgerV2 {
             admission_high_watermark: None,
             greatest_reserved_target_tick: None,
             pending: Arc::new(BTreeMap::new()),
-            receipt_window: Arc::new(Vec::new()),
+            receipt_window: CommandReceiptWindowV1::new(),
             finalized_receipt_count: 0,
             receipt_chain_root: command_receipt_chain_genesis(),
             collision_incident: None,
@@ -285,10 +437,7 @@ impl CommandStreamLedgerV2 {
         self.admission_high_watermark = next_high_watermark;
         Arc::make_mut(&mut self.pending).remove(&sequence);
         self.receipt_chain_root = next_chain_root;
-        Arc::make_mut(&mut self.receipt_window).push(receipt);
-        if self.receipt_window.len() > COMMAND_RECEIPT_WINDOW_CAPACITY {
-            Arc::make_mut(&mut self.receipt_window).remove(0);
-        }
+        self.receipt_window.push(receipt);
         self.finalized_receipt_count = next_count;
         if self.state == CommandStreamStateV1::Open
             && (sequence == u64::MAX || self.finalized_receipt_count == u64::MAX)

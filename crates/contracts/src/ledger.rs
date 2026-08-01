@@ -52,7 +52,9 @@ pub use identity_index::{
     PreparedCommandIdentityIndexUpdate,
 };
 pub use receipt::{CommandFinalResultV1, CommandReceiptSubjectV1, CommandReceiptV1};
-pub use stream::{CommandReservationV1, CommandStreamLedgerV2, CommandStreamStateV1};
+pub use stream::{
+    CommandReceiptWindowV1, CommandReservationV1, CommandStreamLedgerV2, CommandStreamStateV1,
+};
 
 pub const COMMAND_RESERVATION_SCHEMA_VERSION: u16 = 1;
 pub const COMMAND_RECEIPT_SCHEMA_VERSION: u16 = 1;
