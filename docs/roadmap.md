@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-01 |
-| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows; ADR-041 owner fast path снизил retained allocator overhead с `+15.64%` до `+5.88%`, сохранив roots, но всё ещё не прошёл `3%`. Metric остаётся disabled до реализации принятого ADR-042 direct dealloc pass-through и нового candidate. Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
+| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows; ADR-042 direct dealloc pass-through реализован, но immutable candidate-6 сохранил roots и дал enabled `+4.81%` `FAIL`. ADR-043 принят для codegen-proven non-reentrant count-bearing callbacks; metric остаётся disabled до implementation и единственного candidate-7 `PASS`. Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -664,7 +664,7 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 | B-09 | Нет external creator CLI/SDK workflow | R6, R7 | Второй project/package создаётся cleanly только public tools/contracts. |
 | B-10 | Content scope может расти быстрее playable loop | Все этапы | Для каждого этапа назначен один representative scenario и явно записан non-goal list. |
 | B-11 | Недостаточная content/documentation capacity | R2, R6, R7 | Назначены owners и budget для art/audio/text/examples/docs/provenance. |
-| B-12 | `OPEN / FOUNDATION_DONE`: ADR-036/ADR-038 tooling, ADR-039 allocation boundary, ADR-040 foreign counted admission, ADR-041 owner counted fast path и ADR-042 unobserved dealloc pass-through приняты; THOTH fingerprint/preflight, versioned report, nearest-rank, strict ten-run baseline publisher, Windows I/O delta, bounded Vulkan timestamps, conservative device-allocation residency ceiling и report-only production-worker handoff diagnostic реализованы. ADR-041 implementation сохранила roots и прошла inactive/resource/codegen gates, снизив retained enabled overhead с `+15.64%` до `+5.88%`, но не прошла `3%`; allocator metric остаётся disabled до ADR-042 implementation/candidate. Linux validation, calibration и representative R2–R5 workloads ещё отсутствуют | R4, R5, R7 | Hard `PASS` на полном `ref-win-thoth-v1`, Linux `REPORT_ONLY` profile и mandatory native correctness на обеих shipping targets; Accepted ADR, smoke/fallback-only/`NOT_RUN` blocker не закрывают. |
+| B-12 | `OPEN / FOUNDATION_DONE`: ADR-036/ADR-038 tooling и ADR-039–ADR-043 allocator boundary/protocol приняты; THOTH fingerprint/preflight, versioned report, nearest-rank, strict ten-run baseline publisher, Windows I/O delta, bounded Vulkan timestamps, conservative device-allocation residency ceiling и report-only production-worker handoff diagnostic реализованы. ADR-042 implementation прошла source/codegen/parity/inactive/resource checks, но immutable candidate-6 дала enabled `+4.81%` `FAIL`; allocator metric остаётся disabled до ADR-043 implementation и единственного candidate-7 `PASS`. Linux admission (`LNX-006` и отдельный target-extension), calibration и representative R2–R5 workloads отсутствуют | R4, R5, R7 | Hard `PASS` на полном `ref-win-thoth-v1`, Linux `REPORT_ONLY` profile и mandatory native correctness на обеих shipping targets; Accepted ADR, smoke/fallback-only/`NOT_RUN` blocker не закрывают. |
 
 ## Решения, которые нужно принять вовремя
 
@@ -854,10 +854,29 @@ path сохранил exact roots, прошёл inactive (`+0.04%`), resource (`
 dispatch на `dealloc`, хотя он не входит ни в один published gross counter.
 ADR-042 поэтому оставляет exact ADR-040/041 protocol трём count-bearing
 operations, а `dealloc` делает unconditional exactly-once `System`
-pass-through без measurement state. До реализации и единственного нового
-candidate PASS metric остаётся disabled. Calibration начинается только после
-этого, а hard timing gate — только вместе с реальным stage workload. B-12
-остаётся открыт.
+pass-through без measurement state. Эта implementation прошла source,
+boundary, exactness, parity, resource и pinned Windows codegen checks.
+Protocol-valid isolated std-only probe audit занял `1.63 s`; более ранний
+full-xtask external timeout после `10 min` является invalid/`NOT_RUN`, не
+codegen `FAIL`.
+
+Immutable candidate-6
+`allocator-counter-check-candidate-6-20260801/allocator-counter-check-v1.json`
+(SHA-256
+`004DBE9238413E538C7EC84E6AF718123E5EE30EDB59935C84694AFF43A188BE`)
+дал System `1 653 928 600 ns`, inactive `1 623 126 700 ns` (`-1.86%`,
+`PASS`), enabled `1 733 485 600 ns` (`+4.81%`, `FAIL`) и state `786 472 B`
+`PASS`; roots не изменились. Diagnostic run наблюдал `15 253 608`
+count-bearing callbacks и aggregate premium примерно `5.216 ns/callback` при
+budget примерно `3.253 ns/callback`; это не изолирует стоимость recursion flag.
+
+ADR-043 принимает только Windows-local source+IR+ASM/backend-proven
+non-reentrant hypothesis: удалить per-call `in_callback`, сохранив exact
+owner/foreign admission и остальные faults. После implementation выполняется
+ровно один candidate-7; до его `PASS` metric disabled и calibration не
+начинается. Linux остаётся `NOT_RUN` до `LNX-006` и отдельного Accepted
+target-extension. Hard timing gate всё равно требует реальный stage workload,
+поэтому B-12 остаётся открыт.
 
 1. **Semantic UI (`NEXT`):** HUD, inventory/equipment, dialogue, quest
    journal, pause/save/load and pseudo-locale.

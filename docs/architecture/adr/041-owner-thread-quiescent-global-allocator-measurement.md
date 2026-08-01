@@ -4,19 +4,20 @@
 |---|---|
 | ID | ADR-041 |
 | Статус | Accepted |
-| Версия | 1.1 |
+| Версия | 1.2 |
 | Дата решения | 2026-08-01 |
 | Последняя проверка | 2026-08-01 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-039](039-tooling-only-process-wide-system-global-allocator-measurement.md), [ADR-040](040-fixed-tls-sharded-global-allocator-measurement.md) |
 | Заменяет | Узко заменяет только owner-thread часть active callback и close protocol [ADR-040](040-fixed-tls-sharded-global-allocator-measurement.md): поток, открывший окно и владеющий непередаваемым token, использует exact const-TLS window cookie и owner-only counters без per-call slot admission RMW. Для всех foreign threads fixed-slot registration, один `SeqCst` admission RMW, exact identity postcheck и close handshake ADR-040 остаются обязательными. Crate/unsafe/`System`/count/report boundary ADR-039, process-wide scope, `3%`/`64 MiB` limits и fail-closed fallback не меняются. |
-| Заменён | [ADR-042](042-unobserved-deallocation-system-pass-through.md) узко исключает unobserved `dealloc` из owner/foreign state, TLS, slot, fault и close paths после retained implementation overhead `+5.88%`. Owner fast path этого ADR остаётся Accepted без изменений для `alloc`, `alloc_zeroed` и `realloc`. |
+| Заменён | [ADR-042](042-unobserved-deallocation-system-pass-through.md) узко исключает unobserved `dealloc` из owner/foreign state, TLS, slot, fault и close paths после retained implementation overhead `+5.88%`. [ADR-043](043-codegen-proven-non-reentrant-count-bearing-allocator-callbacks.md) после candidate-6 `+4.81%` узко исключает per-call recursion flag/rejection из owner counted path только на admitted pinned target/build. Exact owner cookie, checked counters, foreign selection и same-thread close order этого ADR остаются Accepted. |
 
 ## Контекст и retained evidence
 
-> Актуальный `dealloc` pass-through определяется ADR-042. Все упоминания
-> deallocation callback ниже сохраняются как historical/evidence context;
-> текущие owner/foreign admission и close clauses этого ADR применяются только
-> к count-bearing `alloc`, `alloc_zeroed` и `realloc`.
+> Актуальный `dealloc` pass-through определяется ADR-042, а recursion policy
+> count-bearing callbacks на admitted target/build — ADR-043. Все упоминания
+> deallocation callback и per-call recursion flag ниже сохраняются как
+> historical/evidence context; остальные owner/foreign admission и close
+> clauses этого ADR применяются к `alloc`, `alloc_zeroed` и `realloc`.
 
 ADR-040 устранил четыре contended global RMW и сохранил один cache-line-local
 slot RMW на каждый active allocator callback. Реализация прошла exact-count,

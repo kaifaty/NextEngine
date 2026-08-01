@@ -4,14 +4,19 @@
 |---|---|
 | ID | ADR-042 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.1 |
 | Дата решения | 2026-08-01 |
 | Последняя проверка | 2026-08-01 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-039](039-tooling-only-process-wide-system-global-allocator-measurement.md), [ADR-040](040-fixed-tls-sharded-global-allocator-measurement.md), [ADR-041](041-owner-thread-quiescent-global-allocator-measurement.md) |
 | Заменяет | Узко заменяет deallocation callback/admission/close/fault/codegen clauses ADR-039, ADR-040 и ADR-041. `dealloc` остаётся exactly-once matching `System::dealloc`, но как явно не наблюдаемая операция `delegated-not-subtracted` больше не читает measurement state, не входит в TLS/slot admission и не задерживает close. Exact process-wide successful `alloc`/`alloc_zeroed`/`realloc` semantics, owner ADR-041 path, foreign ADR-040 path, tooling-only unsafe boundary, report scope, `3%`/`64 MiB` limits и fail-closed fallback не меняются. |
-| Заменён | не заменён |
+| Заменён | [ADR-043](043-codegen-proven-non-reentrant-count-bearing-allocator-callbacks.md) после immutable candidate-6 enabled `+4.81%` `FAIL` узко заменяет только требование per-call recursion flag/fault для count-bearing callbacks и рассмотренное ниже отклонение варианта «Удалить только recursion flag» на admitted pinned target/build с source+IR+ASM/backend non-reentrancy proof. Direct `dealloc` pass-through, observed domain, target-local proof, exactness, `3%`/`64 MiB` limits и fallback этого ADR остаются Accepted. |
 
 ## Контекст и retained evidence
+
+> Актуальная recursion policy для count-bearing callbacks на admitted pinned
+> target/build определяется ADR-043. Упоминания dynamic recursion fault и
+> отклонение удаления только flag ниже сохраняются как pre-candidate-6
+> historical context. Direct `dealloc` semantics этого ADR не изменены.
 
 ADR-039 определил публикуемые allocator values как gross successful requested
 traffic трёх операций:
@@ -179,9 +184,9 @@ reentrant interposition, он не admitted вместо возврата deallo
 | Check | Scenario | Expected | Fallback |
 |---|---|---|---|
 | `fast` | known-count owner+foreign operations; valid dealloc во всех control phases; fresh unclaimed dealloc-only thread; synthetic logical capacity cursor; model-only coordinated overlap begin/close/следующего window без production pause hook; hook pre-touch; valid pointer/layout/data parity | Deallocation не делает direct counter/participant/slot/hook/poison update, не задерживает close и делегируется ровно один раз; later counted call проходит normal claim; три counted operations exact | Counter unavailable |
-| `fast` fault matrix | recursion/TLS/slot/overflow injection вокруг counted callbacks и direct dealloc | Existing counted faults fail closed; dealloc при активных test hooks не меняет marker/counters/faults и не создаёт/скрывает counter fault | Counter unavailable |
-| Boundary/codegen audit | pinned release Windows/Linux | Dealloc direct System, zero STATE/TLS/RMW/helper/fault/EH; остальные три operations сохраняют ADR-040/041 shape | Target `NOT_RUN` |
-| `allocator-counter-check` | неизменный rotated 2+15 release kernel, единственный candidate-6 | inactive/enabled независимо `<=3%`, state `<=64 MiB`, exact roots, valid dealloc pointer/data parity и counted-call null semantics | Metric disabled; failed candidate не повторяется |
+| `fast` fault matrix | TLS/slot/overflow injection вокруг counted callbacks и direct dealloc; recursion scenario читается через ADR-043 | Existing counted faults other than superseded dynamic recursion fail closed; reentrant/unproved backend rejected до Active по ADR-043; dealloc при активных test hooks не меняет marker/counters/faults | Counter unavailable |
+| Boundary/codegen audit | pinned release Windows; Linux отдельно в `LNX-006` | Dealloc direct System, zero STATE/TLS/RMW/helper/fault/EH; остальные три operations сохраняют ADR-040/041 shape за вычетом recursion clauses, superseded ADR-043 | Target `NOT_RUN` |
+| `allocator-counter-check` | неизменный rotated 2+15 release kernel, immutable candidate-6 | Фактически: inactive `-1.86%` `PASS`, enabled `+4.81%` `FAIL`, state `786 472 B` `PASS`, exact roots/parity unchanged | Metric disabled; candidate-6 не повторяется; следующий candidate только по ADR-043 |
 | `performance` smoke/worker/long | prepared in-process scenario window | Nonzero exact count-bearing process/PID/window evidence; deallocation semantics explicit | Stable unavailable diagnostic |
 | `play` / `persistence-replay` | counter/profiler off/on | Exact command/event/save/replay/state/ledger roots | Reject divergent run |
 
@@ -200,19 +205,23 @@ reentrant interposition, он не admitted вместо возврата deallo
 - **Заменить `LocalKey::try_with` на `with`.** Отклонено как измерительная
   гипотеза: pinned release уже свёл normal path к одному direct native TLS
   access без `try_with` runtime call или error branch.
-- **Удалить только recursion flag.** Отклонено: codegen убирает лишь четыре hot
-  instructions, но ослабляет fail-closed policy всех count-bearing callbacks и
-  сохраняет остальную не наблюдаемую dealloc state machine.
+- **Удалить только recursion flag.** Отклонено на pre-candidate-6 evidence:
+  codegen убирал лишь четыре hot instructions, но ослаблял fail-closed policy
+  count-bearing callbacks и сохранял остальную ненаблюдаемую dealloc state
+  machine. После direct pass-through и immutable candidate-6 это отклонение
+  узко заменено ADR-043 только вместе с target/build non-reentrancy proof.
 - **Ослабить exactness, поднять budget или заменить shipping allocator.**
   Отклонено ADR-036/ADR-039 и retained evidence policy.
 
 ## Последствия
 
-- Следующая code subphase удаляет только dealloc dispatch/helpers и обновляет
-  exact source/codegen/tests; count-bearing protocol не переписывается.
-- Первый полный candidate после implementation сохраняется независимо от
-  verdict и не повторяется как retry-to-green.
-- До exactness, codegen, profiler parity и overhead `PASS` allocator fields
-  остаются unavailable, B-12 — `OPEN`, hard timing calibration не начинается.
+- Реализация удалила только dealloc dispatch/helpers и сохранила
+  count-bearing protocol; source/boundary/codegen/parity проверки прошли.
+- Immutable candidate-6 сохранён, не повторяется и дал enabled `+4.81%`
+  `FAIL`; следующая implementation hypothesis и единственный candidate-7
+  определяются ADR-043.
+- До ADR-043 exactness/codegen/parity и candidate-7 overhead `PASS` allocator
+  fields остаются unavailable, B-12 — `OPEN`, hard timing calibration не
+  начинается.
 - ADR-042 не является shipping allocator optimization и не меняет gameplay,
   persistence, replay, scheduling либо public contracts.

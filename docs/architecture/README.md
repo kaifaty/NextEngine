@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.14 |
+| Версия | 2.15 |
 | Последняя проверка | 2026-08-01 |
-| Заменяет | INDEX-001 version 2.13 |
+| Заменяет | INDEX-001 version 2.14 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -208,13 +208,14 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Accepted; PhysX backend остаётся Proposed; workspace-unique unsafe wording узко заменена ADR-039 без изменения PhysX boundary |
 | ADR-034 | [Player targeting replay V5 и exact mapping provenance](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) | Accepted |
 | ADR-035 | [Bounded live recovery, platform-host binding и presentation cut](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) | Accepted; partially supersedes ADR-028 |
-| ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; заменяет reference 8-core qualifier ADR-016/SPEC-05 без изменения budgets; diagnostic и allocator-measurement gaps узко заменены ADR-038/ADR-039, measured admission protocol уточнён ADR-040/ADR-041/ADR-042 |
+| ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; заменяет reference 8-core qualifier ADR-016/SPEC-05 без изменения budgets; diagnostic и allocator-measurement gaps узко заменены ADR-038/ADR-039, measured admission protocol уточнён ADR-040/ADR-041/ADR-042/ADR-043 |
 | ADR-037 | [Packed session object storage](adr/037-packed-session-object-storage.md) | Accepted; узко заменяет physical raw-generation representation ADR-035 без изменения logical roots/cadence |
 | ADR-038 | [Versioned production-worker handoff diagnostic](adr/038-versioned-production-worker-handoff-diagnostic.md) | Accepted; узко заменяет diagnostic-scenario часть ADR-036 без изменения THOTH hard timing authority или B-12 closure |
-| ADR-039 | [Tooling-only process-wide System GlobalAlloc measurement boundary](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md) | Accepted crate/unsafe/System/count/report boundary; runtime protocol узко заменён ADR-040 для foreign counted operations, ADR-041 для owner counted operations и ADR-042 для unobserved dealloc |
-| ADR-040 | [Fixed TLS-sharded GlobalAlloc measurement protocol](adr/040-fixed-tls-sharded-global-allocator-measurement.md) | Accepted для foreign count-bearing operations; owner-thread per-call RMW узко заменён ADR-041, а dealloc admission — ADR-042 после retained failures |
-| ADR-041 | [Owner-thread quiescent GlobalAlloc measurement fast path](adr/041-owner-thread-quiescent-global-allocator-measurement.md) | Accepted для owner `alloc`/`alloc_zeroed`/`realloc`; unobserved dealloc path узко заменён ADR-042 после retained enabled `+5.88%` failure |
-| ADR-042 | [Unobserved deallocation System pass-through](adr/042-unobserved-deallocation-system-pass-through.md) | Accepted; `dealloc` безусловно делегируется ровно одному `System::dealloc` без measurement state/TLS/slot/fault/close; metric unavailable до implementation/parity/overhead PASS |
+| ADR-039 | [Tooling-only process-wide System GlobalAlloc measurement boundary](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md) | Accepted crate/unsafe/System/count/report boundary; runtime protocol узко заменён ADR-040 для foreign counted operations, ADR-041 для owner counted operations, ADR-042 для unobserved dealloc и ADR-043 для admitted count-bearing recursion policy |
+| ADR-040 | [Fixed TLS-sharded GlobalAlloc measurement protocol](adr/040-fixed-tls-sharded-global-allocator-measurement.md) | Accepted для foreign count-bearing operations; owner-thread per-call RMW узко заменён ADR-041, dealloc admission — ADR-042, а per-call recursion flag на доказанном target/build — ADR-043 после retained failures |
+| ADR-041 | [Owner-thread quiescent GlobalAlloc measurement fast path](adr/041-owner-thread-quiescent-global-allocator-measurement.md) | Accepted для owner `alloc`/`alloc_zeroed`/`realloc`; unobserved dealloc path узко заменён ADR-042, а per-call recursion flag на доказанном target/build — ADR-043 после candidate-6 `+4.81%` failure |
+| ADR-042 | [Unobserved deallocation System pass-through](adr/042-unobserved-deallocation-system-pass-through.md) | Accepted direct `dealloc`; candidate-6 сохранил roots, но дал enabled `+4.81%` `FAIL`; rejection удаления только recursion flag узко заменён ADR-043 при отдельном non-reentrancy proof |
+| ADR-043 | [Codegen-proven non-reentrant count-bearing allocator callbacks](adr/043-codegen-proven-non-reentrant-count-bearing-allocator-callbacks.md) | Accepted только для pinned Windows target/build; удаляет per-call recursion flag при source+IR+ASM/backend proof и требует единственный candidate-7; Linux остаётся `NOT_RUN` до `LNX-006` и отдельного Accepted target-extension |
 
 ## Proposed tracks
 

@@ -4,20 +4,21 @@
 |---|---|
 | ID | ADR-039 |
 | Статус | Accepted |
-| Версия | 1.3 |
+| Версия | 1.4 |
 | Дата решения | 2026-08-01 |
 | Последняя проверка | 2026-08-01 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-002](002-rust-first-ffi-and-ecs-facade.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-033](033-physx-grounded-capsule-parity-ffi-boundary.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-038](038-versioned-production-worker-handoff-diagnostic.md) |
 | Заменяет | Узко заменяет allocator-instrumentation prohibition/measurement gap [ADR-036](036-thoth-reference-performance-profile.md): exact process-wide host allocation counter разрешён только в tooling boundary ниже. Также узко заменяет формулировки [ADR-002](002-rust-first-ffi-and-ecs-facade.md) и [ADR-033](033-physx-grounded-capsule-parity-ffi-boundary.md), по которым любое workspace `unsafe`-исключение обязано быть FFI и `next_physics_physx_ffi` является единственным таким местом. PhysX FFI boundary, запрет недоказанной shipping allocator replacement, THOTH hard gate, budgets, baseline и representative R2–R5 requirements не меняются. |
-| Заменён | Runtime in-flight protocol в строках `begin`/callback/`finish` и запрет const destructor-free TLS selector узко заменены [ADR-040](040-fixed-tls-sharded-global-allocator-measurement.md), а same-thread owner path после второго measured enabled failure узко заменён [ADR-041](041-owner-thread-quiescent-global-allocator-measurement.md). [ADR-042](042-unobserved-deallocation-system-pass-through.md) исключает unobserved `dealloc` из measurement state/admission/close/fault domain, сохраняя exactly-once direct `System::dealloc` и `delegated-not-subtracted`. ADR-040/ADR-041 остаются authority для foreign/owner count-bearing callbacks. Crate/dependency, unsafe/System delegation, exact gross counting, report/scope, bounds и fail-closed semantics этого ADR остаются Accepted. |
+| Заменён | Runtime in-flight protocol в строках `begin`/callback/`finish` и запрет const destructor-free TLS selector узко заменены [ADR-040](040-fixed-tls-sharded-global-allocator-measurement.md), а same-thread owner path после второго measured enabled failure узко заменён [ADR-041](041-owner-thread-quiescent-global-allocator-measurement.md). [ADR-042](042-unobserved-deallocation-system-pass-through.md) исключает unobserved `dealloc` из measurement state/admission/close/fault domain. [ADR-043](043-codegen-proven-non-reentrant-count-bearing-allocator-callbacks.md) исключает per-call recursion flag из owner/foreign count-bearing callbacks только на admitted pinned target/build с отдельным non-reentrancy proof. ADR-040/ADR-041 остаются authority для foreign/owner admission, counters и close. Crate/dependency, unsafe/System delegation, exact gross counting, report/scope, bounds и остальные fail-closed semantics этого ADR остаются Accepted. |
 
 ## Контекст
 
 > Актуальный admission/close protocol определяется ADR-041 для same-thread
 > measurement owner и ADR-040 для foreign count-bearing callbacks; direct
-> `dealloc` pass-through определяется ADR-042. Описанный ниже checked-CAS
-> global in-flight protocol сохраняется как исходное решение и evidence
-> context, но не является текущим implementation contract.
+> `dealloc` pass-through определяется ADR-042, а recursion policy admitted
+> count-bearing callbacks — ADR-043. Описанный ниже checked-CAS global
+> in-flight protocol сохраняется как исходное решение и evidence context, но
+> не является текущим implementation contract.
 
 ADR-036 требует exact `allocator_allocated_bytes` и
 `allocator_allocation_count`, но текущий performance report честно оставляет

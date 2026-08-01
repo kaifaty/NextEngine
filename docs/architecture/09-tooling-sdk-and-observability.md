@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 2.6 |
+| Версия | 2.7 |
 | Последняя проверка | 2026-08-01 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-039](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md), [ADR-040](adr/040-fixed-tls-sharded-global-allocator-measurement.md), [ADR-041](adr/041-owner-thread-quiescent-global-allocator-measurement.md), [ADR-042](adr/042-unobserved-deallocation-system-pass-through.md) |
-| Заменяет | SPEC-09 2.5 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-039](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md), [ADR-040](adr/040-fixed-tls-sharded-global-allocator-measurement.md), [ADR-041](adr/041-owner-thread-quiescent-global-allocator-measurement.md), [ADR-042](adr/042-unobserved-deallocation-system-pass-through.md), [ADR-043](adr/043-codegen-proven-non-reentrant-count-bearing-allocator-callbacks.md) |
+| Заменяет | SPEC-09 2.6 |
 
 ## Technical authority boundary
 
@@ -207,29 +207,36 @@ Overflow or an uncollected query increments a dropped-sample counter. Device
 residency reporting uses the conservative sum of engine-owned bound Vulkan
 allocations and explicitly excludes driver-owned swapchain storage. Это
 presentation/telemetry data и не входит в gameplay authority. Глобальные host
-ADR-039/ADR-040/ADR-041/ADR-042 разрешают будущий exact host allocator counter только как отдельный
-internal `tools/process-allocation-counter` с единственным reverse dependency
-`xtask`, process-wide runtime-enabled scenario window и тем же
-`std::alloc::System`. `game`, `headless` и shipping graph его не линкуют.
+ADR-039/ADR-040/ADR-041/ADR-042/ADR-043 разрешают exact host allocator counter
+только как отдельный internal `tools/process-allocation-counter` с единственным
+reverse dependency `xtask`, process-wide runtime-enabled scenario window и тем
+же `std::alloc::System`. `game`, `headless` и shipping graph его не линкуют.
 Успешные `alloc`, `alloc_zeroed` и `realloc` calls хранят отдельные exact
 bytes/counts; aggregate является checked gross sum. Unobserved `dealloc`
 безусловно делегируется ровно одному matching `System::dealloc`, ничего не
 вычитает и не участвует в measurement state/TLS/slot/fault/close protocol.
-Scope, PID и window identity входят в versioned report. Это не live
-heap и не peak RSS. До реализации ADR-042 и полного parity/codegen/overhead
-PASS allocator fields остаются unavailable; approximate
-process-private memory их не подменяет, а required hard scenario возвращает
-`NOT_RUN`. Первый global per-call in-flight implementation сохранил exact roots
-и прошёл inactive overhead, но enabled median `+15.95%` нарушил `3%`; поэтому
-ADR-040 заменил hot admission protocol фиксированными const-TLS per-thread
-slots, одним owned-slot SeqCst RMW на call и close-side coherence handshake.
-Эта exact implementation прошла inactive budget, но retained enabled run
-`+15.64%` снова нарушил `3%`. ADR-041 оставил ADR-040 для foreign counted calls,
-а same-thread measurement owner перевёл на exact const-TLS window
-cookie/counters без per-call RMW. Реализация снизила enabled overhead до
-`+5.88%`, но всё ещё не прошла `3%`; ADR-042 поэтому исключает не входящий ни в
-один published counter `dealloc` из measurement state machine. До реализации
-этого protocol и нового exact overhead PASS metric остаётся unavailable.
+Scope, PID и window identity входят в versioned report. Это не live heap и не
+peak RSS; approximate process-private memory их не подменяет.
+
+Первый global per-call in-flight implementation сохранил exact roots, но
+enabled median `+15.95%` нарушил `3%`. ADR-040 заменил его fixed const-TLS
+per-thread slots и одним owned-slot RMW; retained enabled result остался
+`+15.64%`. ADR-041 убрал owner RMW и получил `+5.88%`. ADR-042 сделал direct
+pass-through для unobserved `dealloc`, однако immutable candidate-6 снова
+сохранил roots/resource/inactive checks и дал enabled `+4.81%` `FAIL` при
+`15 253 608` count-bearing callbacks в diagnostic run.
+
+ADR-043 поэтому разрешает убрать per-call `in_callback` get/set/reject только
+на exact pinned target/build, где source, release LLVM IR и assembly доказывают
+allocation-free instrumentation, а backend — direct non-interposed System
+delegation без обратного входа в Rust global allocator. Owner cookie/counters,
+foreign slot admission/postcheck/close handshake, checked overflow и
+TLS/slot/window/PID faults сохраняются. Недоказанный либо reentrant target не
+открывает measurement window и возвращает `NOT_RUN`. Native Linux требует
+отдельного `LNX-006`; Windows proof его не подменяет. До реализации ADR-043,
+полного exactness/codegen/parity и единственного candidate-7 overhead `PASS`
+allocator fields остаются unavailable, а required hard scenario возвращает
+`NOT_RUN`.
 `long-session-soak` дополняет быстрый smoke report-only диагностикой
 history-dependent degradation: одинаковые held-movement/periodic-camera inputs
 проходят через live driver и interactive application scheduler на `3 600`

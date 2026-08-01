@@ -23,6 +23,63 @@ verdict и не закрывает B-12. Единственный fallback пр�
 останавливается. Smoke и `long-session-soak` полезны для диагностики, но не
 подменяют representative comparison.
 
+## Allocator-counter codegen admission
+
+Allocator-counter gate из ADR-039–ADR-043 является отдельным one-shot
+measurement workflow. Он не использует `CodegenCandidateV1`, не сравнивает Thin
+LTO/PGO и не меняет shipping profile.
+
+Текущий Windows proof ограничен exact `x86_64-pc-windows-msvc`, pinned Rust
+`1.93.0` и fixed locked release command. Вложенный Cargo build выполняется с
+одним job, удаляет унаследованные `CARGO_MAKEFLAGS`, `MAKEFLAGS` и `MFLAGS`, а
+implementation ADR-043 обязана также fail closed при non-empty compiler/
+wrapper/profile/linker overrides вместо молчаливого расширения доказанного
+build identity.
+
+Gate отдельно собирает release IR/assembly для std-only
+`next_process_allocation_counter` library и minimal
+`allocator_counter_codegen_probe` из того же package. Probe и production
+`xtask` устанавливают один и тот же `ProcessAllocationCounter::system()` type;
+production hook при этом доказывается отдельным source-boundary gate, поэтому
+полный `xtask` dependency graph не входит в backend-shape build.
+
+До candidate-7 source+IR+ASM audit обязан доказать одновременно:
+
+- allocation/log/lock/panic/unwind-free instrumentation call graph;
+- отсутствие `in_callback` TLS access, recursion branch и recursion-fault
+  publication в трёх count-bearing callbacks;
+- неизменный ADR-041 owner cookie/counter path и ADR-040 foreign
+  slot/admission/postcheck/close protocol;
+- direct non-interposed Windows `HeapAlloc`/`HeapReAlloc` System backend без
+  обратного ребра в Rust global allocator;
+- неизменный ADR-042 direct `dealloc`, pointer/null/data parity и bounded
+  artifacts/stack/state.
+
+После изоляции probe protocol actual Windows audit текущей pre-change ADR-042
+реализации завершился `PASS` за `1.63 s`. Этот run валидирует bounded build и
+существующие owner/foreign/dealloc checks, но ещё не доказывает будущий
+recursion-free ADR-043 shape. Более ранний full-`xtask` build был остановлен
+внешним timeout через `10 min`; это invalid/`NOT_RUN`, не codegen `FAIL`.
+Сохранённый scratch остаётся diagnostic и не подменяет protocol-valid audit.
+
+Immutable candidate-6 находится в
+`target/allocator-counter-check-candidate-6-20260801/allocator-counter-check-v1.json`
+с SHA-256
+`004DBE9238413E538C7EC84E6AF718123E5EE30EDB59935C84694AFF43A188BE`:
+inactive `-1.86%` `PASS`, enabled `+4.81%` `FAIL`, state `786 472 B` `PASS`,
+roots unchanged. Его нельзя повторять.
+
+После implementation ADR-043 и всех focused/source/codegen/parity checks
+запускается ровно один candidate-7 на неизменном rotated `2+15` kernel и в
+новом output root. Оба medians должны независимо быть `<=3%`, state —
+`<=64 MiB`, counts/roots/pointer semantics — exact. Любой failure сохраняет
+artifact и оставляет metric disabled; automatic retry или выбор другого run
+запрещён.
+
+ADR-043 не admits Linux. `LNX-006` собирает native libc/linker/interposition,
+IR/assembly и overhead evidence только для отдельного Accepted target-extension
+ADR; до него Linux allocator fields остаются `NOT_RUN`.
+
 ## Профили
 
 `release-thin-lto` и `release-pgo` наследуют обычный `release`, включают Thin
@@ -44,7 +101,10 @@ path также становится `rerun-if-changed` input. `stamp` и `colle
 хэшируют файл и требуют равенство build-time hash, поэтому замена profdata после
 сборки отклоняется до публикации provenance.
 
-Все результаты хранятся только под `target/performance-codegen/`.
+Все результаты Thin LTO/PGO workflow хранятся только под
+`target/performance-codegen/`. Allocator one-shot artifacts используют свои
+уникальные roots под `target/allocator-counter-check-*` и не являются входами
+этого comparator.
 
 ## Калибровочный layout
 
