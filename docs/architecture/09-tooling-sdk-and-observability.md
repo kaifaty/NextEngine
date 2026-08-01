@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 2.3 |
+| Версия | 2.4 |
 | Последняя проверка | 2026-08-01 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-039](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md) |
-| Заменяет | SPEC-09 2.2 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-039](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md), [ADR-040](adr/040-fixed-tls-sharded-global-allocator-measurement.md) |
+| Заменяет | SPEC-09 2.3 |
 
 ## Technical authority boundary
 
@@ -204,7 +204,7 @@ Overflow or an uncollected query increments a dropped-sample counter. Device
 residency reporting uses the conservative sum of engine-owned bound Vulkan
 allocations and explicitly excludes driver-owned swapchain storage. Это
 presentation/telemetry data и не входит в gameplay authority. Глобальные host
-ADR-039 разрешает будущий exact host allocator counter только как отдельный
+ADR-039/ADR-040 разрешают будущий exact host allocator counter только как отдельный
 internal `tools/process-allocation-counter` с единственным reverse dependency
 `xtask`, process-wide runtime-enabled scenario window и тем же
 `std::alloc::System`. `game`, `headless` и shipping graph его не линкуют.
@@ -214,7 +214,11 @@ bytes/counts; aggregate является checked gross sum, а `dealloc` нич�
 heap и не peak RSS. До реализации boundary, parity/overhead checks и versioned
 report update allocator fields остаются unavailable; approximate
 process-private memory их не подменяет, а required hard scenario возвращает
-`NOT_RUN`.
+`NOT_RUN`. Первый global per-call in-flight implementation сохранил exact roots
+и прошёл inactive overhead, но enabled median `+15.95%` нарушил `3%`; поэтому
+ADR-040 заменяет только hot admission protocol фиксированными const-TLS
+per-thread slots, одним owned-slot SeqCst RMW на call и close-side coherence
+handshake. Failure новой реализации снова оставляет metric unavailable.
 `long-session-soak` дополняет быстрый smoke report-only диагностикой
 history-dependent degradation: одинаковые held-movement/periodic-camera inputs
 проходят через live driver и interactive application scheduler на `3 600`
