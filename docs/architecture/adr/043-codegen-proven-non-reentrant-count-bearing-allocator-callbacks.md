@@ -247,3 +247,27 @@ shipping allocator. При доказанном Windows backend оно убир�
   admits, а Windows result его не подменяет.
 - Shipping dependency graph, allocator policy, unsafe boundary и
   `ProcessAllocationCounterV1` не меняются.
+
+## Implementation record 2026-08-01
+
+Code subphase завершена: per-call `in_callback` get/test/set/clear/reject
+удалён из трёх count-bearing callbacks, recursion TLS field и
+recursion-specific validators/tests убраны, owner cookie/counters, foreign
+admission/postcheck/close handshake, direct `dealloc` и stable diagnostics не
+изменились. Source/boundary gate отклоняет recursion machinery; codegen
+admission fail closed при non-empty inherited compiler/wrapper/profile/linker
+overrides. Focused exactness/fault/race/capacity tests, boundary-scan,
+host-check и actual pinned Windows release IR/ASM/backend audit (`PASS`,
+`1.41 s`) проходят.
+
+Единственный candidate-7 сохранён как
+`allocator-counter-check-candidate-7-20260801/allocator-counter-check-v1.json`
+с SHA-256
+`658D834BFEF9707655115759EE50576B62FF88FBE10B6D6790B61474A5A14ABC`:
+System median `1 359 449 600 ns`, inactive `1 352 539 300 ns` (`-50 bp`,
+`PASS`), enabled `1 417 907 600 ns` (`+430 bp`, `FAIL`), reserved state
+`786 472 B` (`PASS`), authoritative roots unchanged во всех `51` run.
+Вердикт `FAIL` по неизменному `3%` budget: allocator metric остаётся
+disabled, hard scenarios `NOT_RUN`, B-12 `OPEN`. Candidate immutable и не
+повторяется; новый timing candidate требует новой material implementation
+hypothesis, а semantic изменение — нового Accepted ADR.

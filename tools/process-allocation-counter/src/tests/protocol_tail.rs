@@ -329,34 +329,6 @@ pub(super) fn preadmission_fault_and_close_linearize_exactly() {
     assert_eq!(STATE.faults.load(Ordering::Acquire), 0);
 }
 
-pub(super) fn recursion_before_odd_cannot_publish_a_false_snapshot() {
-    reset_state(true);
-    TEST_PAUSE_PREADMISSION_FAULT.store(true, Ordering::Release);
-    let measurement = begin().expect("recursion-close race window opens");
-    let worker = thread::spawn(|| {
-        THREAD_STATE.with(|thread| thread.in_callback.set(true));
-        let layout = Layout::new::<u64>();
-        // SAFETY: the valid pointer is released after the simulated recursion.
-        let pointer = unsafe { TEST_ALLOCATOR.alloc(layout) };
-        THREAD_STATE.with(|thread| thread.in_callback.set(false));
-        assert!(!pointer.is_null());
-        // SAFETY: pointer came from the same allocator and remains live.
-        unsafe { TEST_ALLOCATOR.dealloc(pointer, layout) };
-    });
-    while !TEST_PREADMISSION_FAULT_READY.load(Ordering::Acquire) {
-        thread::yield_now();
-    }
-    let snapshot = measurement
-        .finish()
-        .expect("close wins against non-admitted recursion");
-    assert_eq!(snapshot.allocator_allocation_count, 0);
-    assert_eq!(snapshot.allocator_allocated_bytes, 0);
-    TEST_RELEASE_PREADMISSION_FAULT.store(true, Ordering::Release);
-    worker.join().expect("late recursive callback exits");
-    assert_eq!(phase(STATE.control.load(Ordering::SeqCst)), PHASE_IDLE);
-    assert_eq!(STATE.faults.load(Ordering::Acquire), 0);
-}
-
 pub(super) fn stale_callback_cannot_enter_a_sequential_window() {
     reset_state(true);
     TEST_PAUSE_BEFORE_ADMISSION.store(true, Ordering::Release);
@@ -565,46 +537,6 @@ pub(super) fn counter_sequence_slot_tls_and_timeout_faults_fail_closed() {
     );
 
     reset_state(true);
-    let recursion = begin().expect("recursion window opens");
-    THREAD_STATE.with(|thread| thread.in_callback.set(true));
-    // SAFETY: the valid pointer is released after the simulated recursion.
-    let pointer = unsafe { TEST_ALLOCATOR.alloc(layout) };
-    THREAD_STATE.with(|thread| thread.in_callback.set(false));
-    assert!(!pointer.is_null());
-    // SAFETY: pointer came from the same allocator and remains live.
-    unsafe { TEST_ALLOCATOR.dealloc(pointer, layout) };
-    assert_eq!(
-        recursion.finish().expect_err("recursion is rejected"),
-        MeasurementError::Recursion
-    );
-
-    reset_state(true);
-    let admitted_recursion = begin().expect("admitted-recursion window opens");
-    let slot = current_thread_slot();
-    let sequence = SLOTS[slot].sequence.load(Ordering::Relaxed);
-    assert_eq!(sequence & 1, 0);
-    THREAD_STATE.with(|thread| thread.in_callback.set(true));
-    assert_eq!(
-        SLOTS[slot].sequence.fetch_add(1, Ordering::SeqCst),
-        sequence
-    );
-    // SAFETY: the valid pointer is released while the simulated outer
-    // admission remains odd, then its explicit epilogue is published.
-    unsafe {
-        let pointer = TEST_ALLOCATOR.alloc(layout);
-        assert!(!pointer.is_null());
-        TEST_ALLOCATOR.dealloc(pointer, layout);
-    }
-    SLOTS[slot].sequence.store(sequence + 2, Ordering::Release);
-    THREAD_STATE.with(|thread| thread.in_callback.set(false));
-    assert_eq!(
-        admitted_recursion
-            .finish()
-            .expect_err("admitted recursion is rejected"),
-        MeasurementError::Recursion
-    );
-
-    reset_state(true);
     let tls = begin().expect("TLS-failure window opens");
     TEST_FORCE_TLS_FAILURE.store(true, Ordering::Release);
     // SAFETY: the valid pointer is released through the same allocator.
@@ -691,7 +623,6 @@ pub(super) fn seed_deallocation_probe_state(control: u64, next_slot: u64) {
 
     THREAD_STATE.with(|thread| {
         thread.slot_index.set(UNCLAIMED_SLOT);
-        thread.in_callback.set(true);
         thread.owner_window_id.set(49);
         thread.owner_alloc_count.set(50);
         thread.owner_alloc_bytes.set(51);
@@ -705,7 +636,6 @@ pub(super) fn seed_deallocation_probe_state(control: u64, next_slot: u64) {
 pub(super) fn measurement_state_probe() -> MeasurementStateProbe {
     let thread = THREAD_STATE.with(|thread| ThreadStateProbe {
         slot_index: thread.slot_index.get(),
-        in_callback: thread.in_callback.get(),
         owner_window_id: thread.owner_window_id.get(),
         owner_counters: [
             thread.owner_alloc_count.get(),
@@ -773,7 +703,6 @@ pub(super) fn reset_state(callback_seen: bool) {
     THREAD_STATE
         .try_with(|thread| {
             thread.slot_index.set(UNCLAIMED_SLOT);
-            thread.in_callback.set(false);
             thread.owner_window_id.set(0);
             thread.reset_owner_counters();
         })

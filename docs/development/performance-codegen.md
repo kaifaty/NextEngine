@@ -32,7 +32,7 @@ LTO/PGO и не меняет shipping profile.
 Текущий Windows proof ограничен exact `x86_64-pc-windows-msvc`, pinned Rust
 `1.93.0` и fixed locked release command. Вложенный Cargo build выполняется с
 одним job, удаляет унаследованные `CARGO_MAKEFLAGS`, `MAKEFLAGS` и `MFLAGS`, а
-implementation ADR-043 обязана также fail closed при non-empty compiler/
+ADR-043 implementation дополнительно fail closed при non-empty compiler/
 wrapper/profile/linker overrides вместо молчаливого расширения доказанного
 build identity.
 
@@ -43,7 +43,8 @@ Gate отдельно собирает release IR/assembly для std-only
 production hook при этом доказывается отдельным source-boundary gate, поэтому
 полный `xtask` dependency graph не входит в backend-shape build.
 
-До candidate-7 source+IR+ASM audit обязан доказать одновременно:
+Перед включением allocator metric source+IR+ASM audit обязан доказать
+одновременно:
 
 - allocation/log/lock/panic/unwind-free instrumentation call graph;
 - отсутствие `in_callback` TLS access, recursion branch и recursion-fault
@@ -56,11 +57,22 @@ production hook при этом доказывается отдельным sour
   artifacts/stack/state.
 
 После изоляции probe protocol actual Windows audit текущей pre-change ADR-042
-реализации завершился `PASS` за `1.63 s`. Этот run валидирует bounded build и
-существующие owner/foreign/dealloc checks, но ещё не доказывает будущий
-recursion-free ADR-043 shape. Более ранний full-`xtask` build был остановлен
-внешним timeout через `10 min`; это invalid/`NOT_RUN`, не codegen `FAIL`.
+реализации завершился `PASS` за `1.63 s`. Этот run валидировал bounded build и
+существующие owner/foreign/dealloc checks, но ещё не доказывал будущий
+recursion-free ADR-043 shape. Более ранняя попытка
+строить full-`xtask` была внешне остановлена после `10 min`; это
+invalid/`NOT_RUN`, не codegen `FAIL`.
 Сохранённый scratch остаётся diagnostic и не подменяет protocol-valid audit.
+
+ADR-043 implementation удалена per-call `in_callback` machinery из трёх
+count-bearing callbacks, recursion-specific validators/tests и recursion TLS
+field; owner cookie/counters, foreign admission/postcheck/close handshake,
+direct `dealloc` и stable diagnostics не изменились. Gate дополнительно
+fail closed при non-empty inherited compiler/wrapper/profile/linker overrides
+и отклоняет recursion machinery в source и во всех четырёх release artifacts.
+Actual pinned Windows IR/ASM audit post-change реализации завершился `PASS`
+за `1.41 s` и подтвердил recursion-free owner/foreign shapes, обновлённый
+64-byte const-TLS layout и direct non-interposed `HeapAlloc`/`HeapReAlloc`.
 
 Immutable candidate-6 находится в
 `target/allocator-counter-check-candidate-6-20260801/allocator-counter-check-v1.json`
@@ -69,12 +81,15 @@ Immutable candidate-6 находится в
 inactive `-1.86%` `PASS`, enabled `+4.81%` `FAIL`, state `786 472 B` `PASS`,
 roots unchanged. Его нельзя повторять.
 
-После implementation ADR-043 и всех focused/source/codegen/parity checks
-запускается ровно один candidate-7 на неизменном rotated `2+15` kernel и в
-новом output root. Оба medians должны независимо быть `<=3%`, state —
-`<=64 MiB`, counts/roots/pointer semantics — exact. Любой failure сохраняет
-artifact и оставляет metric disabled; automatic retry или выбор другого run
-запрещён.
+Единственный candidate-7 находится в
+`target/allocator-counter-check-candidate-7-20260801/allocator-counter-check-v1.json`
+с SHA-256
+`658D834BFEF9707655115759EE50576B62FF88FBE10B6D6790B61474A5A14ABC`:
+inactive `-0.50%` `PASS`, enabled `+4.30%` `FAIL`, state `786 472 B` `PASS`,
+roots unchanged во всех `51` run. Он immutable, не повторяется и не
+отбрасывается как noise; allocator metric остаётся disabled, hard scenarios
+`NOT_RUN`. Новый timing candidate требует новой material implementation
+hypothesis, а semantic изменение — нового Accepted ADR.
 
 ADR-043 не admits Linux. `LNX-006` собирает native libc/linker/interposition,
 IR/assembly и overhead evidence только для отдельного Accepted target-extension

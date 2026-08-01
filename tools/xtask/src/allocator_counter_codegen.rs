@@ -1,21 +1,25 @@
 //! Pinned release-codegen validation for the tooling-only allocation counter.
 //!
-//! ADR-041 and ADR-042 make the Windows x86_64 Rust 1.93 machine-code shape part
-//! of the counter's availability contract. This module builds isolated release
-//! IR and assembly artifacts and separately proves the inactive, owner-thread,
-//! foreign-thread, and unconditional deallocation paths. It rejects TLS runtime
-//! work, allocator recursion, unexpected locked atomics, or unwind-cleanup
-//! machinery.
+//! ADR-041, ADR-042 and ADR-043 make the Windows x86_64 Rust 1.93 machine-code
+//! shape part of the counter's availability contract. This module builds
+//! isolated release IR and assembly artifacts and separately proves the
+//! inactive, owner-thread, foreign-thread, recursion-free, and unconditional
+//! deallocation paths. It rejects TLS runtime work, allocator recursion
+//! machinery, unexpected locked atomics, unwind-cleanup machinery, or inherited
+//! compiler/wrapper/profile/linker environment overrides.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
 
+use self::scratch::CodegenScratch;
 use self::symbols::semantic_symbol_match;
 use self::tls::validate_const_tls_definition;
 
 mod dealloc;
+mod environment;
+mod recursion;
+mod scratch;
 mod symbols;
 mod tls;
 
@@ -50,8 +54,6 @@ const ACTIVE_HELPERS: [(&str, &str, &str); 3] = [
     ),
 ];
 
-static NEXT_SCRATCH_ID: AtomicU64 = AtomicU64::new(0);
-
 /// Stable failure returned to `allocator-counter-check`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AllocatorCounterCodegenError {
@@ -83,6 +85,7 @@ impl AllocatorCounterCodegenError {
 /// Validates the actual pinned Windows release shape before timing starts.
 pub fn validate_pinned_windows_release(root: &Path) -> Result<(), AllocatorCounterCodegenError> {
     validate_host_toolchain()?;
+    environment::validate_build_environment()?;
     let scratch = CodegenScratch::create(root)?;
     let validation = build_and_validate(root, scratch.path());
     match validation {
@@ -309,6 +312,7 @@ fn validate_artifacts(
     helper_ir: &str,
     helper_asm: &str,
 ) -> Result<(), AllocatorCounterCodegenError> {
+    recursion::validate_recursion_free_paths(counter_ir, counter_asm, helper_ir, helper_asm)?;
     validate_static_storage(counter_ir, counter_asm)?;
     validate_tls_shape(counter_ir, counter_asm)?;
     validate_outer_shims(helper_ir, helper_asm)?;
@@ -568,6 +572,9 @@ fn validate_owner_active_helpers(
                 "system_alloc_zeroed_once",
                 "system_realloc_once",
                 "system_dealloc_once",
+                "in_callback",
+                "reject_recursion",
+                "FAULT_RECURSION",
             ]
             .iter()
             .any(|needle| function.contains(needle))
@@ -658,6 +665,9 @@ fn validate_foreign_active_helpers(
                 "system_alloc_zeroed_once",
                 "system_realloc_once",
                 "system_dealloc_once",
+                "in_callback",
+                "reject_recursion",
+                "FAULT_RECURSION",
             ]
             .iter()
             .any(|needle| function.contains(needle))
@@ -935,60 +945,6 @@ fn count_occurrences(body: &str, needle: &str) -> usize {
 fn bounded_lossy(bytes: &[u8]) -> String {
     let end = bytes.len().min(MAX_COMMAND_OUTPUT_BYTES);
     String::from_utf8_lossy(&bytes[..end]).trim().to_owned()
-}
-
-struct CodegenScratch {
-    path: PathBuf,
-    root_target: PathBuf,
-}
-
-impl CodegenScratch {
-    fn create(root: &Path) -> Result<Self, AllocatorCounterCodegenError> {
-        let root_target = root.join("target");
-        fs::create_dir_all(&root_target).map_err(|error| {
-            AllocatorCounterCodegenError::new(
-                "ALLOCATOR_COUNTER_CODEGEN_SCRATCH_FAILED",
-                error.to_string(),
-            )
-        })?;
-        let sequence = NEXT_SCRATCH_ID.fetch_add(1, Ordering::Relaxed);
-        let path = root_target.join(format!(
-            "allocator-counter-codegen-{}-{sequence}",
-            std::process::id()
-        ));
-        fs::create_dir(&path).map_err(|error| {
-            AllocatorCounterCodegenError::new(
-                "ALLOCATOR_COUNTER_CODEGEN_SCRATCH_FAILED",
-                format!("{}: {error}", path.display()),
-            )
-        })?;
-        Ok(Self { path, root_target })
-    }
-
-    fn path(&self) -> &Path {
-        &self.path
-    }
-
-    fn finish(self) -> Result<(), AllocatorCounterCodegenError> {
-        if self.path.parent() != Some(self.root_target.as_path())
-            || !self
-                .path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.starts_with("allocator-counter-codegen-"))
-        {
-            return Err(AllocatorCounterCodegenError::new(
-                "ALLOCATOR_COUNTER_CODEGEN_SCRATCH_INVALID",
-                self.path.display().to_string(),
-            ));
-        }
-        fs::remove_dir_all(&self.path).map_err(|error| {
-            AllocatorCounterCodegenError::new(
-                "ALLOCATOR_COUNTER_CODEGEN_CLEANUP_FAILED",
-                format!("{}: {error}", self.path.display()),
-            )
-        })
-    }
 }
 
 #[cfg(test)]

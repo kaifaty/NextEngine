@@ -233,10 +233,12 @@ delegation без обратного входа в Rust global allocator. Owner 
 foreign slot admission/postcheck/close handshake, checked overflow и
 TLS/slot/window/PID faults сохраняются. Недоказанный либо reentrant target не
 открывает measurement window и возвращает `NOT_RUN`. Native Linux требует
-отдельного `LNX-006`; Windows proof его не подменяет. До реализации ADR-043,
-полного exactness/codegen/parity и единственного candidate-7 overhead `PASS`
-allocator fields остаются unavailable, а required hard scenario возвращает
-`NOT_RUN`.
+отдельного `LNX-006`; Windows proof его не подменяет. ADR-043 реализован и
+прошёл focused/source/boundary/codegen/parity admission, однако единственный
+immutable candidate-7 дал enabled `+4.30%` `FAIL` при inactive `-0.50%`
+`PASS`: allocator fields остаются unavailable, required hard scenario
+возвращает `NOT_RUN`, а следующий timing candidate требует новой material
+implementation hypothesis или Accepted ADR.
 `long-session-soak` дополняет быстрый smoke report-only диагностикой
 history-dependent degradation: одинаковые held-movement/periodic-camera inputs
 проходят через live driver и interactive application scheduler на `3 600`

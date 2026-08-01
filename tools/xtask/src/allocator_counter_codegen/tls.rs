@@ -35,9 +35,9 @@ pub(super) fn validate_const_tls_definition(definition: &str) -> Result<(), Stri
         && ff_offsets.windows(2).all(|pair| pair[1] == pair[0] + 1)
         && ff_offsets[0] % std::mem::align_of::<u32>() == 0;
     if bytes.len() != 64
-        || initialized != 61
-        || undefined != 3
-        || zeroes != 57
+        || initialized != 60
+        || undefined != 4
+        || zeroes != 56
         || unexpected != 0
         || !max_u32_is_exact
     {

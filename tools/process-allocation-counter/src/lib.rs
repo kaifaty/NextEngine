@@ -108,7 +108,6 @@ impl AllocationSlot {
 
 struct AllocationThreadState {
     slot_index: Cell<u32>,
-    in_callback: Cell<bool>,
     owner_window_id: Cell<u64>,
     owner_alloc_count: Cell<u64>,
     owner_alloc_bytes: Cell<u64>,
@@ -122,7 +121,6 @@ impl AllocationThreadState {
     const fn new() -> Self {
         Self {
             slot_index: Cell::new(UNCLAIMED_SLOT),
-            in_callback: Cell::new(false),
             owner_window_id: Cell::new(0),
             owner_alloc_count: Cell::new(0),
             owner_alloc_bytes: Cell::new(0),
@@ -430,9 +428,6 @@ pub const fn reserved_bytes() -> usize {
 fn prepare_owner_thread(window_id: u64) -> Result<(), MeasurementError> {
     THREAD_STATE
         .try_with(|thread| {
-            if thread.in_callback.get() {
-                return Err(MeasurementError::Recursion);
-            }
             if thread.owner_window_id.get() != 0 {
                 return Err(MeasurementError::StaleWindow);
             }
@@ -444,7 +439,7 @@ fn prepare_owner_thread(window_id: u64) -> Result<(), MeasurementError> {
                 usize::try_from(thread.slot_index.get()).map_err(|_| MeasurementError::Poisoned)?;
             let slot = SLOTS.get(slot_index).ok_or(MeasurementError::Poisoned)?;
             if slot.sequence.load(Ordering::Relaxed) & 1 != 0 {
-                return Err(MeasurementError::Recursion);
+                return Err(MeasurementError::Poisoned);
             }
             thread.owner_window_id.set(window_id);
             thread.reset_owner_counters();
@@ -461,9 +456,6 @@ fn validate_owner_thread(window_id: u64) -> Result<(), MeasurementError> {
             {
                 return Err(MeasurementError::StaleWindow);
             }
-            if thread.in_callback.get() {
-                return Err(MeasurementError::Recursion);
-            }
             Ok(())
         })
         .map_err(|_| MeasurementError::TlsUnavailable)?
@@ -476,9 +468,6 @@ fn take_owner_snapshot(window_id: u64) -> Result<CounterSnapshot, MeasurementErr
                 || thread.slot_index.get() == UNCLAIMED_SLOT
             {
                 return Err(MeasurementError::StaleWindow);
-            }
-            if thread.in_callback.get() {
-                return Err(MeasurementError::Recursion);
             }
             let snapshot = thread.owner_snapshot();
             thread.owner_window_id.set(0);

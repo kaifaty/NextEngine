@@ -296,6 +296,8 @@ fn validate_adr_041_structure(source: &str) -> Result<(), String> {
         "catch_unwind(",
         "panic!(",
         "unreachable!(",
+        "in_callback",
+        "reject_recursion",
     ];
     if let Some(token) = forbidden.iter().find(|token| compact.contains(**token)) {
         return Err(format!(
@@ -737,7 +739,7 @@ mod tests {
             "#[repr(align(128))]\n",
             "struct AllocationSlot;\n",
             "struct AllocationThreadState {\n",
-            "slot_index: Cell<u32>, in_callback: Cell<bool>, owner_window_id: Cell<u64>,\n",
+            "slot_index: Cell<u32>, owner_window_id: Cell<u64>,\n",
             "owner_alloc_count: Cell<u64>, owner_alloc_bytes: Cell<u64>,\n",
             "owner_alloc_zeroed_count: Cell<u64>, owner_alloc_zeroed_bytes: Cell<u64>,\n",
             "owner_realloc_count: Cell<u64>, owner_realloc_bytes: Cell<u64>,\n",
@@ -804,6 +806,15 @@ mod tests {
         assert_eq!(
             validate_library_source(&allocating, &allocating),
             Err("UNSAFE_ALLOCATOR_COUNTER_ADR041_FORBIDDEN_SOURCE: Vec<".to_owned())
+        );
+
+        let recursion_guard = source.replace(
+            "slot_index: Cell<u32>, owner_window_id: Cell<u64>,",
+            "slot_index: Cell<u32>, in_callback: Cell<bool>, owner_window_id: Cell<u64>,",
+        );
+        assert_eq!(
+            validate_library_source(&recursion_guard, &recursion_guard),
+            Err("UNSAFE_ALLOCATOR_COUNTER_ADR041_FORBIDDEN_SOURCE: in_callback".to_owned())
         );
 
         let owner_slot_access = source.replace(

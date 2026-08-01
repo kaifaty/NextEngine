@@ -10,7 +10,6 @@ static TEST_ALLOCATOR: ProcessAllocationCounter = ProcessAllocationCounter::syst
 #[derive(Debug, Eq, PartialEq)]
 struct ThreadStateProbe {
     slot_index: u32,
-    in_callback: bool,
     owner_window_id: u64,
     owner_counters: [u64; 6],
 }
@@ -185,7 +184,6 @@ fn allocator_counter_protocol_contract_suite() {
     close_between_odd_and_postcheck_is_untracked();
     callback_observed_before_odd_is_not_missed_or_counted();
     preadmission_fault_and_close_linearize_exactly();
-    recursion_before_odd_cannot_publish_a_false_snapshot();
     stale_callback_cannot_enter_a_sequential_window();
     owner_slot_stays_dormant_across_many_windows();
     nested_abandoned_pid_and_stale_tokens_fail_closed();
@@ -426,7 +424,6 @@ fn dealloc_only_unclaimed_participant_preserves_capacity_and_wrap_boundaries() {
         NEXT_SLOT.store(case.initial_cursor, Ordering::SeqCst);
         THREAD_STATE.with(|thread| {
             thread.slot_index.set(UNCLAIMED_SLOT);
-            thread.in_callback.set(false);
             thread.owner_window_id.set(0);
             thread.reset_owner_counters();
         });

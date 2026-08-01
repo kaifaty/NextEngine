@@ -62,14 +62,13 @@ fn admit_nonrecursive(thread: &AllocationThreadState, observed: u64) -> Option<A
 }
 
 #[inline(always)]
-fn complete_admission(thread: &AllocationThreadState, admission: Admission) {
+fn complete_admission(admission: Admission) {
     if let Some(slot) = SLOTS.get(admission.slot_index) {
         slot.sequence
             .store(admission.next_even_sequence, Ordering::Release);
     } else {
         record_admitted_fault(FAULT_PROTOCOL);
     }
-    thread.in_callback.set(false);
 }
 
 #[inline(always)]
@@ -152,21 +151,6 @@ fn validate_owner_non_zero(size: usize, observed: u64) {
     }
 }
 
-#[cold]
-#[inline(never)]
-fn reject_recursion(thread: &AllocationThreadState, observed: u64) {
-    let slot_index = thread.slot_index.get();
-    let admitted = usize::try_from(slot_index)
-        .ok()
-        .and_then(|index| SLOTS.get(index))
-        .is_some_and(|slot| slot.sequence.load(Ordering::Relaxed) & 1 != 0);
-    if admitted {
-        record_admitted_fault(FAULT_RECURSION);
-    } else {
-        let _ = record_preadmission_fault(observed, FAULT_RECURSION);
-    }
-}
-
 #[allow(
     unsafe_code,
     reason = "ADR-041 permits the owner and foreign active GlobalAlloc helpers"
@@ -180,12 +164,6 @@ impl ProcessAllocationCounter {
             return unsafe { self.system.alloc(layout) };
         }
         let result = THREAD_STATE.try_with(|thread| {
-            if thread.in_callback.get() {
-                reject_recursion(thread, observed);
-                // SAFETY: the same caller-owned contract is forwarded once.
-                return unsafe { self.system.alloc(layout) };
-            }
-            thread.in_callback.set(true);
             if thread.owner_window_id.get() != control_window(observed) {
                 // SAFETY: the foreign helper preserves this allocation contract.
                 return unsafe { self.alloc_foreign_active(thread, layout, observed) };
@@ -194,7 +172,6 @@ impl ProcessAllocationCounter {
             // SAFETY: the caller supplied the matching valid allocation contract.
             let result = unsafe { self.system.alloc(layout) };
             observe_owner_success(thread, Operation::Alloc, layout.size(), result, observed);
-            thread.in_callback.set(false);
             result
         });
         match result {
@@ -215,7 +192,6 @@ impl ProcessAllocationCounter {
         observed: u64,
     ) -> *mut u8 {
         let Some(admission) = admit_nonrecursive(thread, observed) else {
-            thread.in_callback.set(false);
             // SAFETY: the same caller-owned contract is forwarded once.
             return unsafe { self.system.alloc(layout) };
         };
@@ -229,7 +205,7 @@ impl ProcessAllocationCounter {
         } else {
             record_admitted_fault(FAULT_PROTOCOL);
         }
-        complete_admission(thread, admission);
+        complete_admission(admission);
         result
     }
 
@@ -245,12 +221,6 @@ impl ProcessAllocationCounter {
             return unsafe { self.system.alloc_zeroed(layout) };
         }
         let result = THREAD_STATE.try_with(|thread| {
-            if thread.in_callback.get() {
-                reject_recursion(thread, observed);
-                // SAFETY: the same caller-owned contract is forwarded once.
-                return unsafe { self.system.alloc_zeroed(layout) };
-            }
-            thread.in_callback.set(true);
             if thread.owner_window_id.get() != control_window(observed) {
                 // SAFETY: the foreign helper preserves this allocation contract.
                 return unsafe { self.alloc_zeroed_foreign_active(thread, layout, observed) };
@@ -265,7 +235,6 @@ impl ProcessAllocationCounter {
                 result,
                 observed,
             );
-            thread.in_callback.set(false);
             result
         });
         match result {
@@ -286,7 +255,6 @@ impl ProcessAllocationCounter {
         observed: u64,
     ) -> *mut u8 {
         let Some(admission) = admit_nonrecursive(thread, observed) else {
-            thread.in_callback.set(false);
             // SAFETY: the same caller-owned contract is forwarded once.
             return unsafe { self.system.alloc_zeroed(layout) };
         };
@@ -298,7 +266,7 @@ impl ProcessAllocationCounter {
         } else {
             record_admitted_fault(FAULT_PROTOCOL);
         }
-        complete_admission(thread, admission);
+        complete_admission(admission);
         result
     }
 
@@ -316,12 +284,6 @@ impl ProcessAllocationCounter {
             return unsafe { self.system.realloc(ptr, layout, new_size) };
         }
         let result = THREAD_STATE.try_with(|thread| {
-            if thread.in_callback.get() {
-                reject_recursion(thread, observed);
-                // SAFETY: the same caller-owned contract is forwarded once.
-                return unsafe { self.system.realloc(ptr, layout, new_size) };
-            }
-            thread.in_callback.set(true);
             if thread.owner_window_id.get() != control_window(observed) {
                 // SAFETY: the foreign helper preserves this reallocation contract.
                 return unsafe {
@@ -333,7 +295,6 @@ impl ProcessAllocationCounter {
             // SAFETY: the caller-owned pointer/layout/new-size contract is forwarded.
             let result = unsafe { self.system.realloc(ptr, layout, new_size) };
             observe_owner_success(thread, Operation::Realloc, new_size, result, observed);
-            thread.in_callback.set(false);
             result
         });
         match result {
@@ -356,7 +317,6 @@ impl ProcessAllocationCounter {
         observed: u64,
     ) -> *mut u8 {
         let Some(admission) = admit_nonrecursive(thread, observed) else {
-            thread.in_callback.set(false);
             // SAFETY: the same caller-owned contract is forwarded once.
             return unsafe { self.system.realloc(ptr, layout, new_size) };
         };
@@ -369,7 +329,7 @@ impl ProcessAllocationCounter {
         } else {
             record_admitted_fault(FAULT_PROTOCOL);
         }
-        complete_admission(thread, admission);
+        complete_admission(admission);
         result
     }
 }

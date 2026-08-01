@@ -19,6 +19,99 @@ fn leaf_asm_function(name: &str, body: &str) -> String {
 }
 
 #[test]
+fn build_environment_rejects_inherited_codegen_overrides() {
+    let clean = [
+        (
+            std::ffi::OsString::from("PATH"),
+            std::ffi::OsString::from("bin"),
+        ),
+        (
+            std::ffi::OsString::from("RUSTFLAGS"),
+            std::ffi::OsString::new(),
+        ),
+        (
+            std::ffi::OsString::from("CARGO_PROFILE_RELEASE_LTO"),
+            std::ffi::OsString::new(),
+        ),
+    ];
+    environment::validate_build_environment_vars(clean)
+        .expect("empty or absent overrides are admitted");
+
+    for (name, value) in [
+        ("RUSTFLAGS", "-Ctarget-cpu=native"),
+        ("CARGO_ENCODED_RUSTFLAGS", "-Copt-level=3"),
+        ("RUSTC_WRAPPER", "sccache"),
+        ("RUSTC_WORKSPACE_WRAPPER", "sccache"),
+        ("CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER", "link.exe"),
+        ("CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS", "-Clto=fat"),
+        ("CARGO_PROFILE_RELEASE_OPT_LEVEL", "0"),
+        ("CARGO_PROFILE_MIN_SIZE", "true"),
+    ] {
+        let variables = [(
+            std::ffi::OsString::from(name),
+            std::ffi::OsString::from(value),
+        )];
+        let error = environment::validate_build_environment_vars(variables)
+            .expect_err("a non-empty inherited override must fail closed");
+        assert_eq!(
+            error.code(),
+            "ALLOCATOR_COUNTER_CODEGEN_ENVIRONMENT_FORBIDDEN"
+        );
+        assert_eq!(error.detail(), name);
+    }
+}
+
+#[test]
+fn recursion_guard_parser_rejects_guard_machinery_in_every_artifact() {
+    let (ir, assembly) = active_path_fixtures();
+    recursion::validate_recursion_free_paths(&ir, &assembly, "", "").unwrap();
+    for forbidden in ["in_callback", "reject_recursion"] {
+        for (counter_ir, counter_asm, helper_ir, helper_asm) in [
+            (forbidden, "", "", ""),
+            ("", forbidden, "", ""),
+            ("", "", forbidden, ""),
+            ("", "", "", forbidden),
+        ] {
+            let error = recursion::validate_recursion_free_paths(
+                counter_ir,
+                counter_asm,
+                helper_ir,
+                helper_asm,
+            )
+            .expect_err("recursion guard machinery must fail the gate");
+            assert_eq!(
+                error.code(),
+                "ALLOCATOR_COUNTER_CODEGEN_RECURSION_GUARD_PRESENT"
+            );
+        }
+    }
+
+    let guarded_owner = ir.replacen(
+        "  %tls = tail call ptr @llvm.threadlocal.address.p0(ptr @THREAD_STATE)",
+        "  %tls = tail call ptr @llvm.threadlocal.address.p0(ptr @THREAD_STATE)\n  %guard = load i8, ptr %in_callback",
+        1,
+    );
+    assert_eq!(
+        validate_owner_active_helpers(&guarded_owner, &assembly)
+            .unwrap_err()
+            .code(),
+        "ALLOCATOR_COUNTER_CODEGEN_OWNER_PATH_MISMATCH"
+    );
+
+    let guarded_foreign = ir.replacen(
+        "  %odd = atomicrmw add ptr %slot, i64 1 seq_cst",
+        "  %odd = atomicrmw add ptr %slot, i64 1 seq_cst\n  call void @reject_recursion()",
+        1,
+    );
+    assert_eq!(
+        validate_foreign_active_helpers(&guarded_foreign, &assembly)
+            .unwrap_err()
+            .code(),
+        "ALLOCATOR_COUNTER_CODEGEN_FOREIGN_PATH_MISMATCH"
+    );
+}
+
+#[test]
 fn release_artifact_build_is_locked_serial_and_exact() {
     let root = Path::new("repo");
     let target_dir = Path::new("scratch");
@@ -679,9 +772,9 @@ fn storage_parser_requires_exact_static_aligned_slot_array() {
 
 #[test]
 fn tls_parser_requires_direct_const_no_destructor_windows_tls() {
-    let selector_first = "@THREAD_STATE = internal thread_local unnamed_addr global <{ [5 x i8], [3 x i8], [7 x i64] }> <{ [5 x i8] c\"\\FF\\FF\\FF\\FF\\00\", [3 x i8] undef, [7 x i64] zeroinitializer }>, align 8\n";
+    let selector_first = "@THREAD_STATE = internal thread_local unnamed_addr global <{ [4 x i8], [4 x i8], [7 x i64] }> <{ [4 x i8] c\"\\FF\\FF\\FF\\FF\", [4 x i8] undef, [7 x i64] zeroinitializer }>, align 8\n";
     let reordered = format!(
-        "@THREAD_STATE = internal thread_local global <{{ [61 x i8], [3 x i8] }}> <{{ [61 x i8] c\"{}\\FF\\FF\\FF\\FF\\00\", [3 x i8] undef }}>, align 8\n",
+        "@THREAD_STATE = internal thread_local global <{{ [60 x i8], [4 x i8] }}> <{{ [60 x i8] c\"{}\\FF\\FF\\FF\\FF\", [4 x i8] undef }}>, align 8\n",
         r"\00".repeat(56)
     );
     let assembly = concat!(
@@ -717,7 +810,7 @@ fn tls_parser_requires_direct_const_no_destructor_windows_tls() {
 
 #[cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"))]
 #[test]
-#[ignore = "emits the complete pinned ADR-041/ADR-042 release artifacts in an isolated target directory"]
+#[ignore = "emits the complete pinned ADR-041/ADR-042/ADR-043 release artifacts in an isolated target directory"]
 fn pinned_windows_release_artifacts_pass_the_gate() {
     let root =
         std::fs::canonicalize(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.."))
