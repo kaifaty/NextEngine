@@ -23,7 +23,9 @@ pub use interactive_worker::{
     InteractiveWorkerFixedStepSampleV1, InteractiveWorkerMessageAgeSampleV1,
     InteractiveWorkerPublicationSampleV1, InteractiveWorkerReadyV1,
     InteractiveWorkerSnapshotReadSampleV1, InteractiveWorkerTimingSampleV1,
-    PRODUCTION_WORKER_DIAGNOSTIC_MINIMUM_CALLBACKS, run_production_worker_diagnostic,
+    PRODUCTION_WORKER_DIAGNOSTIC_MINIMUM_CALLBACKS, PreparedProductionWorkerDiagnosticV1,
+    ProductionWorkerDiagnosticMeasurementV1, prepare_production_worker_diagnostic,
+    run_production_worker_diagnostic,
 };
 pub use launch::{LaunchRequestV1, ProjectSelectionV1};
 pub use live_schedule::FixedStepLiveSchedulerV1;

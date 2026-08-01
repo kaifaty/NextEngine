@@ -4,6 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod allocator_counter;
 mod source_layout;
 
 use source_layout::{collect_strict_source_files, validate_source_layout};
@@ -15,7 +16,7 @@ pub fn boundary_scan(root: &Path) -> Result<(), String> {
     validate_mechanics_package_boundary(root)?;
     validate_production_verification_boundary(root)?;
     validate_importer_boundary(root)?;
-    validate_ffi_policy(root)?;
+    validate_unsafe_policy(root)?;
     Ok(())
 }
 
@@ -194,12 +195,22 @@ fn validate_importer_boundary(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_ffi_policy(root: &Path) -> Result<(), String> {
+fn validate_unsafe_policy(root: &Path) -> Result<(), String> {
     let workspace_manifest = read(&root.join("Cargo.toml"))?;
     if !workspace_manifest.contains("[workspace.lints.rust]\nunsafe_code = \"forbid\"") {
-        return Err("FFI_WORKSPACE_UNSAFE_FORBID_MISSING".to_owned());
+        return Err("UNSAFE_WORKSPACE_FORBID_MISSING".to_owned());
     }
-    let allowlist = parse_ffi_allowlist(&workspace_manifest)?;
+    let ffi_allowlist = parse_allowlist_section(
+        &workspace_manifest,
+        "[workspace.metadata.nextengine.ffi]",
+        "FFI",
+    )?;
+    let tooling_allowlist = parse_allowlist_section(
+        &workspace_manifest,
+        "[workspace.metadata.nextengine.unsafe]",
+        "UNSAFE",
+    )?;
+    let allowlist = combine_unsafe_allowlists(&ffi_allowlist, &tooling_allowlist)?;
 
     let mut manifests = Vec::new();
     collect_named_files(root, "Cargo.toml", &mut manifests)?;
@@ -213,20 +224,27 @@ fn validate_ffi_policy(root: &Path) -> Result<(), String> {
             continue;
         };
         if packages.insert(name.clone(), manifest.clone()).is_some() {
-            return Err(format!("FFI_DUPLICATE_PACKAGE_NAME: {name}"));
+            return Err(format!("UNSAFE_DUPLICATE_PACKAGE_NAME: {name}"));
         }
-        if allowlist.contains(&name) {
-            validate_allowlisted_manifest(&name, &manifest, &body)?;
+        if ffi_allowlist.contains(&name) {
+            validate_allowlisted_manifest(&name, &manifest, &body, "ffi_adr", "FFI")?;
+        } else if tooling_allowlist.contains(&name) {
+            validate_allowlisted_manifest(&name, &manifest, &body, "unsafe_adr", "UNSAFE")?;
         } else if !body.contains("[lints]\nworkspace = true") {
             return Err(format!(
-                "FFI_LINT_INHERITANCE_BYPASS: {name} in {}",
+                "UNSAFE_LINT_INHERITANCE_BYPASS: {name} in {}",
                 manifest.display()
             ));
         }
     }
-    for allowed in &allowlist {
+    for allowed in &ffi_allowlist {
         if !packages.contains_key(allowed) {
             return Err(format!("FFI_ALLOWLIST_UNKNOWN_CRATE: {allowed}"));
+        }
+    }
+    for allowed in &tooling_allowlist {
+        if !packages.contains_key(allowed) {
+            return Err(format!("UNSAFE_ALLOWLIST_UNKNOWN_CRATE: {allowed}"));
         }
     }
 
@@ -238,30 +256,45 @@ fn validate_ffi_policy(root: &Path) -> Result<(), String> {
             continue;
         }
         let package = owning_package(root, &file, &packages)
-            .ok_or_else(|| format!("FFI_UNOWNED_UNSAFE_SOURCE: {}", file.display()))?;
+            .ok_or_else(|| format!("UNSAFE_UNOWNED_SOURCE: {}", file.display()))?;
         if !allowlist.contains(&package) {
             return Err(format!(
-                "FFI_UNSAFE_OUTSIDE_ALLOWLIST: {package} in {}",
+                "UNSAFE_SOURCE_OUTSIDE_ALLOWLIST: {package} in {}",
                 file.display()
             ));
         }
     }
+    allocator_counter::validate(root)?;
     Ok(())
 }
 
-fn parse_ffi_allowlist(manifest: &str) -> Result<BTreeSet<String>, String> {
+fn combine_unsafe_allowlists(
+    ffi_allowlist: &BTreeSet<String>,
+    tooling_allowlist: &BTreeSet<String>,
+) -> Result<BTreeSet<String>, String> {
+    if let Some(overlap) = ffi_allowlist.intersection(tooling_allowlist).next() {
+        return Err(format!("UNSAFE_ALLOWLIST_OVERLAP: {overlap}"));
+    }
+    Ok(ffi_allowlist.union(tooling_allowlist).cloned().collect())
+}
+
+fn parse_allowlist_section(
+    manifest: &str,
+    section: &str,
+    diagnostic_prefix: &str,
+) -> Result<BTreeSet<String>, String> {
     let mut in_section = false;
     for line in manifest.lines() {
         let trimmed = line.trim();
         if trimmed.starts_with('[') {
-            in_section = trimmed == "[workspace.metadata.nextengine.ffi]";
+            in_section = trimmed == section;
             continue;
         }
         if in_section && let Some(value) = trimmed.strip_prefix("allowed_crates = ") {
             let inner = value
                 .strip_prefix('[')
                 .and_then(|value| value.strip_suffix(']'))
-                .ok_or_else(|| "FFI_ALLOWLIST_INVALID_ARRAY".to_owned())?;
+                .ok_or_else(|| format!("{diagnostic_prefix}_ALLOWLIST_INVALID_ARRAY"))?;
             let mut crates = BTreeSet::new();
             for item in inner
                 .split(',')
@@ -271,32 +304,44 @@ fn parse_ffi_allowlist(manifest: &str) -> Result<BTreeSet<String>, String> {
                 let name = item
                     .strip_prefix('"')
                     .and_then(|item| item.strip_suffix('"'))
-                    .ok_or_else(|| "FFI_ALLOWLIST_INVALID_ENTRY".to_owned())?;
+                    .ok_or_else(|| format!("{diagnostic_prefix}_ALLOWLIST_INVALID_ENTRY"))?;
                 if !crates.insert(name.to_owned()) {
-                    return Err(format!("FFI_ALLOWLIST_DUPLICATE: {name}"));
+                    return Err(format!("{diagnostic_prefix}_ALLOWLIST_DUPLICATE: {name}"));
                 }
             }
             return Ok(crates);
         }
     }
-    Err("FFI_ALLOWLIST_MISSING".to_owned())
+    Err(format!("{diagnostic_prefix}_ALLOWLIST_MISSING"))
 }
 
-fn validate_allowlisted_manifest(name: &str, path: &Path, body: &str) -> Result<(), String> {
+fn validate_allowlisted_manifest(
+    name: &str,
+    path: &Path,
+    body: &str,
+    adr_key: &str,
+    diagnostic_prefix: &str,
+) -> Result<(), String> {
     if body.contains("[lints]\nworkspace = true") {
-        return Err(format!("FFI_ALLOWLISTED_CRATE_INHERITS_FORBID: {name}"));
+        return Err(format!(
+            "{diagnostic_prefix}_ALLOWLISTED_CRATE_INHERITS_FORBID: {name}"
+        ));
     }
     if !body.contains("[lints.rust]")
         || !body.contains("unsafe_code = \"warn\"")
         || !body.contains("unsafe_op_in_unsafe_fn = \"deny\"")
+        || !body.contains("[lints.clippy]")
+        || !body.contains("undocumented_unsafe_blocks = \"deny\"")
     {
         return Err(format!(
-            "FFI_ALLOWLISTED_CRATE_POLICY_MISSING: {name} in {}",
+            "{diagnostic_prefix}_ALLOWLISTED_CRATE_POLICY_MISSING: {name} in {}",
             path.display()
         ));
     }
-    if !body.contains("ffi_adr = \"ADR-") {
-        return Err(format!("FFI_ALLOWLISTED_CRATE_ADR_MISSING: {name}"));
+    if !body.contains(&format!("{adr_key} = \"ADR-")) {
+        return Err(format!(
+            "{diagnostic_prefix}_ALLOWLISTED_CRATE_ADR_MISSING: {name}"
+        ));
     }
     Ok(())
 }
@@ -455,6 +500,7 @@ fn should_skip(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
     use std::fs;
     #[cfg(unix)]
     use std::os::unix::fs::symlink;
@@ -462,8 +508,9 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        contains_forbidden_public_token, contains_unsafe_code, find_source_file_containing,
-        normalize_line_endings, package_publish_is_false,
+        combine_unsafe_allowlists, contains_forbidden_public_token, contains_unsafe_code,
+        find_source_file_containing, normalize_line_endings, package_publish_is_false,
+        parse_allowlist_section, validate_allowlisted_manifest,
     };
 
     fn temporary_source_root(label: &str) -> PathBuf {
@@ -493,6 +540,75 @@ mod tests {
         assert!(!contains_unsafe_code(
             "const NOTE: &str = \"unsafe extern C\";"
         ));
+    }
+
+    #[test]
+    fn ffi_and_tooling_unsafe_allowlists_are_distinct_and_exact() {
+        let manifest = concat!(
+            "[workspace.metadata.nextengine.ffi]\n",
+            "allowed_crates = [\"ffi_a\", \"ffi_b\"]\n\n",
+            "[workspace.metadata.nextengine.unsafe]\n",
+            "allowed_crates = [\"tooling_allocator\"]\n",
+        );
+        let ffi = parse_allowlist_section(manifest, "[workspace.metadata.nextengine.ffi]", "FFI")
+            .expect("the FFI allowlist must parse");
+        let tooling =
+            parse_allowlist_section(manifest, "[workspace.metadata.nextengine.unsafe]", "UNSAFE")
+                .expect("the tooling unsafe allowlist must parse");
+
+        assert_eq!(
+            ffi,
+            BTreeSet::from(["ffi_a".to_owned(), "ffi_b".to_owned()])
+        );
+        assert_eq!(tooling, BTreeSet::from(["tooling_allocator".to_owned()]));
+        assert_eq!(
+            combine_unsafe_allowlists(&ffi, &tooling)
+                .expect("lists are disjoint")
+                .len(),
+            3
+        );
+    }
+
+    #[test]
+    fn unsafe_allowlist_overlap_is_rejected() {
+        let ffi = BTreeSet::from(["shared".to_owned()]);
+        let tooling = BTreeSet::from(["shared".to_owned()]);
+
+        assert_eq!(
+            combine_unsafe_allowlists(&ffi, &tooling),
+            Err("UNSAFE_ALLOWLIST_OVERLAP: shared".to_owned())
+        );
+    }
+
+    #[test]
+    fn tooling_unsafe_manifest_requires_reviewed_policy_and_adr() {
+        let valid = concat!(
+            "[package]\nname = \"counter\"\npublish = false\n\n",
+            "[package.metadata.nextengine]\nunsafe_adr = \"ADR-039\"\n\n",
+            "[lints.rust]\nunsafe_code = \"warn\"\n",
+            "unsafe_op_in_unsafe_fn = \"deny\"\n\n",
+            "[lints.clippy]\nundocumented_unsafe_blocks = \"deny\"\n",
+        );
+        validate_allowlisted_manifest(
+            "counter",
+            std::path::Path::new("counter/Cargo.toml"),
+            valid,
+            "unsafe_adr",
+            "UNSAFE",
+        )
+        .expect("the reviewed tooling unsafe manifest must pass");
+
+        let missing_adr = valid.replace("unsafe_adr = \"ADR-039\"\n", "");
+        assert_eq!(
+            validate_allowlisted_manifest(
+                "counter",
+                std::path::Path::new("counter/Cargo.toml"),
+                &missing_adr,
+                "unsafe_adr",
+                "UNSAFE",
+            ),
+            Err("UNSAFE_ALLOWLISTED_CRATE_ADR_MISSING: counter".to_owned())
+        );
     }
 
     #[test]

@@ -13,31 +13,113 @@ static PRODUCTION_WORKER_SCRATCH_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 pub(super) fn run_production_worker_scenario(
     state_root: Option<&Path>,
 ) -> Result<next_application::InteractiveWorkerDiagnosticReportV1, String> {
-    let scratch_root = create_production_worker_scratch_root(state_root)?;
-    let callback_elapsed = Duration::from_nanos(
-        1_000_000_000_u64.div_ceil(u64::from(PRODUCTION_WORKER_SOAK_CADENCE_HZ)),
-    );
-    let result = next_application::run_production_worker_diagnostic(
-        next_application::InteractiveWorkerDiagnosticOptionsV1 {
-            launch: next_application::LaunchRequestV1::reference(
-                scratch_root.clone(),
-                next_contracts::session::CompositionRootV1::Game,
-                next_contracts::session::PresentationTargetKindV1::Interactive,
-            ),
-            callback_count: u64::from(PRODUCTION_WORKER_SOAK_FRAMES),
-            callback_elapsed,
-        },
-    )
-    .map_err(|error| format!("{}: {}", error.code, error));
-    let cleanup = fs::remove_dir_all(&scratch_root).map_err(|error| {
+    let mut scenario = PreparedProductionWorkerScenario::new(state_root)?;
+    let measurement = scenario.run_measurement();
+    let result = scenario.finish_measurement(measurement);
+    let cleanup = scenario.cleanup();
+    combine_production_worker_result(result, cleanup)
+}
+
+pub(super) struct PreparedProductionWorkerScenario {
+    scratch_root: PathBuf,
+    diagnostic: Option<next_application::PreparedProductionWorkerDiagnosticV1>,
+}
+
+impl PreparedProductionWorkerScenario {
+    pub(super) fn new(state_root: Option<&Path>) -> Result<Self, String> {
+        let scratch_root = create_production_worker_scratch_root(state_root)?;
+        let options = production_worker_options(scratch_root.clone());
+        let diagnostic = match next_application::prepare_production_worker_diagnostic(options) {
+            Ok(diagnostic) => diagnostic,
+            Err(error) => {
+                let failure = format_worker_failure(error);
+                return match remove_production_worker_scratch_root(&scratch_root) {
+                    Ok(()) => Err(failure),
+                    Err(cleanup) => Err(format!("{failure}; cleanup: {cleanup}")),
+                };
+            }
+        };
+        Ok(Self {
+            scratch_root,
+            diagnostic: Some(diagnostic),
+        })
+    }
+
+    pub(super) fn run_measurement(
+        &mut self,
+    ) -> Result<
+        next_application::ProductionWorkerDiagnosticMeasurementV1,
+        next_application::InteractiveWorkerFailureV1,
+    > {
+        let diagnostic = self.diagnostic.as_mut().ok_or_else(|| {
+            next_application::InteractiveWorkerFailureV1::runtime(
+                "PERFORMANCE_MEASUREMENT_INVALID",
+                "production worker diagnostic was already consumed",
+            )
+        })?;
+        diagnostic.run_measured()
+    }
+
+    pub(super) fn finish_measurement(
+        &mut self,
+        measurement: Result<
+            next_application::ProductionWorkerDiagnosticMeasurementV1,
+            next_application::InteractiveWorkerFailureV1,
+        >,
+    ) -> Result<next_application::InteractiveWorkerDiagnosticReportV1, String> {
+        let diagnostic = self
+            .diagnostic
+            .take()
+            .ok_or_else(|| "production worker diagnostic already executed".to_owned())?;
+        diagnostic
+            .finish(measurement)
+            .map_err(format_worker_failure)
+    }
+
+    pub(super) fn cleanup(mut self) -> Result<(), String> {
+        drop(self.diagnostic.take());
+        remove_production_worker_scratch_root(&self.scratch_root)
+    }
+}
+
+fn format_worker_failure(error: next_application::InteractiveWorkerFailureV1) -> String {
+    format!("{}: {}", error.code, error)
+}
+
+fn remove_production_worker_scratch_root(scratch_root: &Path) -> Result<(), String> {
+    fs::remove_dir_all(scratch_root).map_err(|error| {
         format!(
             "failed to remove production worker scratch root {}: {error}",
             scratch_root.display()
         )
-    });
+    })
+}
+
+fn production_worker_options(
+    scratch_root: PathBuf,
+) -> next_application::InteractiveWorkerDiagnosticOptionsV1 {
+    let callback_elapsed = Duration::from_nanos(
+        1_000_000_000_u64.div_ceil(u64::from(PRODUCTION_WORKER_SOAK_CADENCE_HZ)),
+    );
+    next_application::InteractiveWorkerDiagnosticOptionsV1 {
+        launch: next_application::LaunchRequestV1::reference(
+            scratch_root,
+            next_contracts::session::CompositionRootV1::Game,
+            next_contracts::session::PresentationTargetKindV1::Interactive,
+        ),
+        callback_count: u64::from(PRODUCTION_WORKER_SOAK_FRAMES),
+        callback_elapsed,
+    }
+}
+
+pub(super) fn combine_production_worker_result(
+    result: Result<next_application::InteractiveWorkerDiagnosticReportV1, String>,
+    cleanup: Result<(), String>,
+) -> Result<next_application::InteractiveWorkerDiagnosticReportV1, String> {
     match (result, cleanup) {
         (Ok(report), Ok(())) => Ok(report),
-        (Err(error), _) => Err(error),
+        (Err(error), Ok(())) => Err(error),
+        (Err(error), Err(cleanup)) => Err(format!("{error}; cleanup: {cleanup}")),
         (Ok(_), Err(error)) => Err(error),
     }
 }
@@ -438,4 +520,20 @@ pub(super) fn record_worker_owned_spans(
         }
     }
     started.elapsed().as_nanos()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::combine_production_worker_result;
+
+    #[test]
+    fn workload_and_cleanup_failures_are_both_reported() {
+        let workload: Result<next_application::InteractiveWorkerDiagnosticReportV1, String> =
+            Err("workload failed".to_owned());
+
+        assert_eq!(
+            combine_production_worker_result(workload, Err("cleanup failed".to_owned())),
+            Err("workload failed; cleanup: cleanup failed".to_owned())
+        );
+    }
 }

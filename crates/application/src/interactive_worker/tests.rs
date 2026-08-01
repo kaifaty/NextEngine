@@ -9,8 +9,8 @@ use super::{
     InteractiveWorkerDiagnosticOptionsV1, InteractiveWorkerFailureV1,
     InteractiveWorkerFinalizationV1, InteractiveWorkerFixedStepClassV1,
     PRODUCTION_WORKER_DIAGNOSTIC_MINIMUM_CALLBACKS, QueueTelemetryV1, finalize_diagnostic_worker,
-    finalize_diagnostic_worker_with_attempt_limit, resolve_interactive_shutdown_attempt,
-    run_production_worker_diagnostic,
+    finalize_diagnostic_worker_with_attempt_limit, prepare_production_worker_diagnostic,
+    resolve_interactive_shutdown_attempt, run_production_worker_diagnostic,
 };
 use crate::{
     ApplicationCoordinator, CloseExecutionOptionsV1, FixedStepLiveSchedulerV1, LaunchRequestV1,
@@ -106,6 +106,129 @@ fn production_worker_preserves_fifo_and_matches_serial_authoritative_roots() {
 
     std::fs::remove_dir_all(serial_root).expect("remove serial root");
     std::fs::remove_dir_all(worker_root).expect("remove worker root");
+}
+
+#[test]
+fn prepared_production_worker_is_ready_and_matches_the_legacy_entry_point() {
+    let callback_count = PRODUCTION_WORKER_DIAGNOSTIC_MINIMUM_CALLBACKS;
+    let callback_elapsed = Duration::from_nanos(16_666_667);
+    let legacy_root = unique_test_directory("worker-legacy-entry-point");
+    let prepared_root = unique_test_directory("worker-prepared-entry-point");
+    let legacy = run_production_worker_diagnostic(InteractiveWorkerDiagnosticOptionsV1 {
+        launch: LaunchRequestV1::reference(
+            legacy_root.clone(),
+            CompositionRootV1::Game,
+            PresentationTargetKindV1::Interactive,
+        ),
+        callback_count,
+        callback_elapsed,
+    })
+    .expect("legacy diagnostic entry point");
+    let mut prepared = prepare_production_worker_diagnostic(InteractiveWorkerDiagnosticOptionsV1 {
+        launch: LaunchRequestV1::reference(
+            prepared_root.clone(),
+            CompositionRootV1::Game,
+            PresentationTargetKindV1::Interactive,
+        ),
+        callback_count,
+        callback_elapsed,
+    })
+    .expect("prepare production worker diagnostic");
+    let ready_snapshot = prepared
+        .worker
+        .as_ref()
+        .expect("prepared worker is live")
+        .read_latest_snapshot()
+        .expect("initial snapshot is published before measured execution");
+    assert_eq!(ready_snapshot.snapshot.simulation_tick, 0);
+    assert_eq!(ready_snapshot.processed_callbacks, 0);
+
+    let measurement = prepared.run_measured();
+    let measured = prepared
+        .finish(measurement)
+        .expect("finish prepared diagnostic");
+    assert_eq!(measured.callback_count, legacy.callback_count);
+    assert_eq!(measured.callback_elapsed, legacy.callback_elapsed);
+    assert_eq!(measured.run_report.ticks, legacy.run_report.ticks);
+    assert_eq!(
+        measured.run_report.authoritative_state_root,
+        legacy.run_report.authoritative_state_root
+    );
+    assert_eq!(
+        measured.run_report.command_archive_root,
+        legacy.run_report.command_archive_root
+    );
+    assert_eq!(
+        measured.run_report.command_identity_index_root,
+        legacy.run_report.command_identity_index_root
+    );
+    assert_eq!(
+        measured.run_report.command_ledger_hash,
+        legacy.run_report.command_ledger_hash
+    );
+    assert_eq!(
+        (
+            measured.metrics.submitted_callbacks,
+            measured.metrics.processed_callbacks,
+            measured.metrics.fixed_steps,
+            measured.metrics.ordinary_fixed_steps,
+            measured.metrics.checkpoint_fixed_steps,
+            measured.metrics.snapshot_publications,
+            measured.metrics.dropped_callbacks,
+            measured.metrics.reordered_callbacks,
+        ),
+        (
+            legacy.metrics.submitted_callbacks,
+            legacy.metrics.processed_callbacks,
+            legacy.metrics.fixed_steps,
+            legacy.metrics.ordinary_fixed_steps,
+            legacy.metrics.checkpoint_fixed_steps,
+            legacy.metrics.snapshot_publications,
+            legacy.metrics.dropped_callbacks,
+            legacy.metrics.reordered_callbacks,
+        )
+    );
+    let callback_capacity = usize::try_from(callback_count).expect("callback count fits usize");
+    assert!(measured.metrics.send_wait_samples.capacity() >= callback_capacity);
+    assert!(measured.metrics.snapshot_read_samples.capacity() >= callback_capacity);
+
+    std::fs::remove_dir_all(legacy_root).expect("remove legacy root");
+    std::fs::remove_dir_all(prepared_root).expect("remove prepared root");
+}
+
+#[test]
+fn prepared_production_worker_error_joins_before_return() {
+    let state_root = unique_test_directory("worker-prepared-error-cleanup");
+    let mut prepared = prepare_production_worker_diagnostic(InteractiveWorkerDiagnosticOptionsV1 {
+        launch: LaunchRequestV1::reference(
+            state_root.clone(),
+            CompositionRootV1::Game,
+            PresentationTargetKindV1::Interactive,
+        ),
+        callback_count: PRODUCTION_WORKER_DIAGNOSTIC_MINIMUM_CALLBACKS,
+        callback_elapsed: Duration::from_nanos(16_666_667),
+    })
+    .expect("prepare production worker diagnostic");
+    let snapshot = Arc::clone(
+        &prepared
+            .worker
+            .as_ref()
+            .expect("prepared worker exists")
+            .latest_snapshot,
+    );
+    let poison = std::thread::spawn(move || {
+        let _guard = snapshot.write().expect("snapshot lock");
+        panic!("poison prepared diagnostic snapshot lock");
+    });
+    assert!(poison.join().is_err());
+
+    let measurement = prepared.run_to_completion();
+    assert!(prepared.worker.is_none());
+    let failure = prepared
+        .finish(measurement)
+        .expect_err("poisoned snapshot must fail the diagnostic");
+    assert_eq!(failure.code, "PLATFORM_PRESENTATION_STATE_POISONED");
+    std::fs::remove_dir_all(state_root).expect("remove prepared error root");
 }
 
 #[test]

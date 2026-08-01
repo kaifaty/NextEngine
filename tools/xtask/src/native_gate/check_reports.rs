@@ -141,7 +141,13 @@ pub(super) fn validate_check_reports(
                 record.check.as_str()
             )));
         }
-        reports.push(parse_check_report(record.check, &bytes)?);
+        reports.push(parse_check_report(
+            record.check,
+            &bytes,
+            &target.git_commit_sha,
+            &target.target_triple,
+            &target.rustc_release,
+        )?);
     }
 
     if target.status == NativeGateRunStatusV1::Pass {
@@ -153,6 +159,9 @@ pub(super) fn validate_check_reports(
 fn parse_check_report(
     check: NativeGateCheckNameV1,
     bytes: &[u8],
+    expected_commit: &str,
+    expected_target: &str,
+    expected_rustc_release: &str,
 ) -> Result<ValidatedCheckReportV1, NativeGateComparisonError> {
     match check {
         NativeGateCheckNameV1::HostCheck => {
@@ -236,6 +245,70 @@ fn parse_check_report(
         NativeGateCheckNameV1::Performance => {
             let report =
                 parse_command_report::<PerformanceDetailsV1>(check, bytes, "performance", "PASS")?;
+            let run = report
+                .details
+                .run
+                .as_ref()
+                .ok_or_else(|| report_invalid("performance V2 run is missing"))?;
+            run.validate_wire_version().map_err(|diagnostics| {
+                report_invalid(format!(
+                    "performance run wire version is incompatible: {}",
+                    diagnostics.join(", ")
+                ))
+            })?;
+            run.validate_build_provenance().map_err(|diagnostics| {
+                report_invalid(format!(
+                    "performance build provenance is invalid: {}",
+                    diagnostics.join(", ")
+                ))
+            })?;
+            run.validate_command_report_status(&report.status)
+                .map_err(report_invalid)?;
+            bind("performance commit", &run.commit, expected_commit)?;
+            bind(
+                "performance target triple",
+                &run.target_triple,
+                expected_target,
+            )?;
+            if expected_rustc_release != crate::performance::PERFORMANCE_PINNED_RUSTC_RELEASE {
+                return Err(report_invalid(
+                    "performance rustc release does not match the pinned build release",
+                ));
+            }
+            if expected_target != crate::performance::PERFORMANCE_WINDOWS_TARGET_TRIPLE
+                && (run.resource_counters.allocator_counter.is_some()
+                    || run.resource_counters.allocator_allocated_bytes.is_some()
+                    || run.resource_counters.allocator_allocation_count.is_some())
+            {
+                return Err(report_invalid(
+                    "performance allocator counter is present on a non-admitted target",
+                ));
+            }
+            run.validate_allocator_counter().map_err(|diagnostics| {
+                report_invalid(format!(
+                    "performance allocator counter is invalid: {}",
+                    diagnostics.join(", ")
+                ))
+            })?;
+            run.instrumentation.validate().map_err(|diagnostic| {
+                report_invalid(format!(
+                    "performance instrumentation is invalid: {diagnostic}"
+                ))
+            })?;
+            validate_native_performance_environment(run, expected_target)?;
+            if run.scenario != crate::performance::PerformanceScenarioV1::Smoke
+                || run.scenario_hash
+                    != crate::performance::performance_scenario_hash(
+                        crate::performance::PerformanceScenarioV1::Smoke,
+                    )
+                || run.mode != crate::performance::PerformanceModeV1::Report
+                || run.verdict != crate::performance::PerformanceVerdict::ReportOnly
+                || !run.worktree_clean
+            {
+                return Err(report_invalid(
+                    "performance run must be a clean Smoke/Report/REPORT_ONLY artifact",
+                ));
+            }
             let streaming =
                 report.details.streaming.as_ref().ok_or_else(|| {
                     report_invalid("performance streaming smoke result is missing")
@@ -245,11 +318,56 @@ fn parse_check_report(
                 .agent_planning
                 .as_ref()
                 .ok_or_else(|| report_invalid("performance agent smoke result is missing"))?;
+            let render_planning = report
+                .details
+                .render_planning
+                .as_ref()
+                .ok_or_else(|| report_invalid("performance render smoke result is missing"))?;
+            let live_runtime = report.details.live_runtime.as_ref().ok_or_else(|| {
+                report_invalid("performance live-runtime smoke result is missing")
+            })?;
+            if run.authoritative_hashes.len() != 4 {
+                return Err(report_invalid(
+                    "performance Smoke run requires exactly four authoritative roots",
+                ));
+            }
+            for (field, name, detail_root) in [
+                (
+                    "performance streaming run/details root",
+                    "streaming_world",
+                    streaming.final_world_state_hash.as_str(),
+                ),
+                (
+                    "performance agent run/details root",
+                    "agent_plan",
+                    agent_planning.final_plan_hash.as_str(),
+                ),
+                (
+                    "performance render run/details root",
+                    "render_frame_plan",
+                    render_planning.frame_plan_hash.as_str(),
+                ),
+                (
+                    "performance live-runtime run/details root",
+                    "live_runtime_state",
+                    live_runtime.final_state_root.as_str(),
+                ),
+            ] {
+                let run_root = run.authoritative_hashes.get(name).ok_or_else(|| {
+                    report_invalid(format!("performance {name} run root is missing"))
+                })?;
+                bind(field, run_root, detail_root)?;
+            }
             validate_hash(
                 "streaming final_world_state_hash",
                 &streaming.final_world_state_hash,
             )?;
             validate_hash("agent final_plan_hash", &agent_planning.final_plan_hash)?;
+            validate_hash("render frame_plan_hash", &render_planning.frame_plan_hash)?;
+            validate_hash(
+                "live runtime final_state_root",
+                &live_runtime.final_state_root,
+            )?;
             Ok(ValidatedCheckReportV1::Performance(Box::new(report)))
         }
         NativeGateCheckNameV1::V1Closure => {
@@ -295,6 +413,76 @@ fn parse_check_report(
             Ok(ValidatedCheckReportV1::V1Package(Box::new(report)))
         }
     }
+}
+
+fn validate_native_performance_environment(
+    run: &crate::performance::PerformanceRunV2,
+    expected_target: &str,
+) -> Result<(), NativeGateComparisonError> {
+    if !run.diagnostics.is_empty() {
+        return Err(report_invalid(format!(
+            "performance run diagnostics must be empty: {}",
+            run.diagnostics.join(", ")
+        )));
+    }
+    if !matches!(run.build_profile.as_str(), "debug" | "release") {
+        return Err(report_invalid(
+            "performance build profile must be compile-time debug or release provenance",
+        ));
+    }
+    let fingerprint = run
+        .target_fingerprint
+        .as_ref()
+        .ok_or_else(|| report_invalid("performance target fingerprint is missing"))?;
+    let preflight = run
+        .preflight
+        .as_ref()
+        .ok_or_else(|| report_invalid("performance preflight is missing"))?;
+    preflight.validate_ready_evidence().map_err(|diagnostics| {
+        report_invalid(format!(
+            "performance preflight is invalid: {}",
+            diagnostics.join(", ")
+        ))
+    })?;
+    for (field, value) in [
+        ("target_id", fingerprint.target_id.as_str()),
+        ("hostname", fingerprint.hostname.as_str()),
+        ("cpu_model", fingerprint.cpu_model.as_str()),
+        ("gpu_model", fingerprint.gpu_model.as_str()),
+        ("storage_model", fingerprint.storage_model.as_str()),
+        ("os_name", fingerprint.os_name.as_str()),
+        ("os_build", fingerprint.os_build.as_str()),
+        ("bios_version", fingerprint.bios_version.as_str()),
+        ("gpu_driver", fingerprint.gpu_driver.as_str()),
+        ("power_plan", fingerprint.power_plan.as_str()),
+    ] {
+        if value.trim().is_empty() {
+            return Err(report_invalid(format!(
+                "performance target fingerprint field {field} is empty"
+            )));
+        }
+    }
+    if fingerprint.physical_cores == 0
+        || fingerprint.logical_threads < fingerprint.physical_cores
+        || fingerprint.ram_bytes == 0
+        || fingerprint.storage_bytes == 0
+    {
+        return Err(report_invalid(
+            "performance target fingerprint numeric fields are invalid",
+        ));
+    }
+    let os_name = fingerprint.os_name.to_ascii_lowercase();
+    let os_matches_target = match expected_target {
+        crate::performance::PERFORMANCE_WINDOWS_TARGET_TRIPLE => os_name.contains("windows"),
+        crate::performance::PERFORMANCE_LINUX_TARGET_TRIPLE => os_name.contains("linux"),
+        _ => false,
+    };
+    if !os_matches_target {
+        return Err(report_invalid(
+            "performance target fingerprint OS does not match the build target",
+        ));
+    }
+    Ok(())
 }
 
 fn parse_command_report<T>(

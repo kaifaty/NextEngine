@@ -1,16 +1,18 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use next_assets::ContentStore;
 use next_contracts::ids::{ContentHash, SchemaId};
 use next_world::WorldStreamerV1;
 
-use crate::scratch::ScratchContext;
+use crate::scratch::{ScratchContext, ScratchDirectory};
 
 const STREAMING_PERFORMANCE_CYCLES: u64 = 1_000;
 const STREAMING_PERFORMANCE_LIMIT: Duration = Duration::from_secs(30);
+static NEXT_STREAMING_PREPARATION_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StreamingPerformanceReport {
@@ -19,6 +21,25 @@ pub struct StreamingPerformanceReport {
     pub elapsed_microseconds: u128,
     pub final_generation: u64,
     pub final_world_state_hash: ContentHash,
+}
+
+/// A streaming workload whose project, content store, initial world, and
+/// cleanup scope have already been prepared.
+pub struct PreparedStreamingPerformanceCheck {
+    preparation_id: u64,
+    directory: ScratchDirectory,
+    world: WorldStreamerV1,
+    chunks: [SchemaId; 2],
+    run_started: bool,
+}
+
+/// Opaque measured outcome consumed by
+/// [`PreparedStreamingPerformanceCheck::finish`] after the caller closes its
+/// external measurement window.
+pub struct StreamingPerformanceMeasurement {
+    preparation_id: u64,
+    staged_asset_references: u64,
+    elapsed: Duration,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -52,14 +73,35 @@ pub fn run_streaming_performance_check()
 pub fn run_streaming_performance_check_in(
     scratch_root: &Path,
 ) -> Result<StreamingPerformanceReport, StreamingPerformanceError> {
-    let scratch = ScratchContext::new(scratch_root)
-        .map_err(|error| StreamingPerformanceError::new("scratch root", error.to_string()))?;
-    run_streaming_performance_check_with_scratch(&scratch)
+    let mut prepared = prepare_streaming_performance_check_in(scratch_root)?;
+    let measurement = prepared.run_measured();
+    prepared.finish(measurement)
 }
 
 pub(crate) fn run_streaming_performance_check_with_scratch(
     scratch: &ScratchContext,
 ) -> Result<StreamingPerformanceReport, StreamingPerformanceError> {
+    let mut prepared = prepare_streaming_performance_check_with_scratch(scratch)?;
+    let measurement = prepared.run_measured();
+    prepared.finish(measurement)
+}
+
+pub fn prepare_streaming_performance_check()
+-> Result<PreparedStreamingPerformanceCheck, StreamingPerformanceError> {
+    prepare_streaming_performance_check_in(&std::env::temp_dir())
+}
+
+pub fn prepare_streaming_performance_check_in(
+    scratch_root: &Path,
+) -> Result<PreparedStreamingPerformanceCheck, StreamingPerformanceError> {
+    let scratch = ScratchContext::new(scratch_root)
+        .map_err(|error| StreamingPerformanceError::new("scratch root", error.to_string()))?;
+    prepare_streaming_performance_check_with_scratch(&scratch)
+}
+
+fn prepare_streaming_performance_check_with_scratch(
+    scratch: &ScratchContext,
+) -> Result<PreparedStreamingPerformanceCheck, StreamingPerformanceError> {
     let source = next_reference_game::project_source_v2()
         .map_err(|error| StreamingPerformanceError::new("fixture source", error.to_string()))?;
     let cooked = next_project::cook_project_v1(source)
@@ -70,7 +112,7 @@ pub(crate) fn run_streaming_performance_check_with_scratch(
             StreamingPerformanceError::new("create performance fixture", error.to_string())
         })?;
     let store = ContentStore::new(directory.path());
-    let result = (|| {
+    let prepared = (|| {
         store
             .publish(&cooked.publication().map_err(|error| {
                 StreamingPerformanceError::new("build publication", error.to_string())
@@ -94,19 +136,57 @@ pub(crate) fn run_streaming_performance_check_with_scratch(
                 "exactly two chunks are required",
             ));
         }
-        let mut world = WorldStreamerV1::activate(project, chunks[0].clone())
+        let chunks: [SchemaId; 2] = chunks.try_into().map_err(|_| {
+            StreamingPerformanceError::new("fixture topology", "exactly two chunks are required")
+        })?;
+        let world = WorldStreamerV1::activate(project, chunks[0].clone())
             .map_err(|error| StreamingPerformanceError::new("activate world", error.to_string()))?;
+        Ok((world, chunks))
+    })();
+    let (world, chunks) = match prepared {
+        Ok(prepared) => prepared,
+        Err(error) => return Err(finish_failed_preparation(directory, error)),
+    };
+    let preparation_id = match next_streaming_preparation_id() {
+        Ok(preparation_id) => preparation_id,
+        Err(error) => return Err(finish_failed_preparation(directory, error)),
+    };
+    Ok(PreparedStreamingPerformanceCheck {
+        preparation_id,
+        directory,
+        world,
+        chunks,
+        run_started: false,
+    })
+}
+
+impl PreparedStreamingPerformanceCheck {
+    /// Executes only the transition planning, staging, validation, and commit
+    /// loop from the legacy measured kernel.
+    pub fn run_measured(
+        &mut self,
+    ) -> Result<StreamingPerformanceMeasurement, StreamingPerformanceError> {
+        if self.run_started {
+            return Err(StreamingPerformanceError::new(
+                "prepared streaming workload",
+                "measured workload can run only once",
+            ));
+        }
+        self.run_started = true;
         let started = Instant::now();
         let mut staged_asset_references = 0_u64;
         for cycle in 0..STREAMING_PERFORMANCE_CYCLES {
             let target: SchemaId = if cycle % 2 == 0 {
-                chunks[1].clone()
+                self.chunks[1].clone()
             } else {
-                chunks[0].clone()
+                self.chunks[0].clone()
             };
-            let plan = world.begin_transition(target, cycle).map_err(|error| {
-                StreamingPerformanceError::new("plan transition", error.to_string())
-            })?;
+            let plan = self
+                .world
+                .begin_transition(target, cycle)
+                .map_err(|error| {
+                    StreamingPerformanceError::new("plan transition", error.to_string())
+                })?;
             staged_asset_references = staged_asset_references
                 .checked_add(
                     u64::try_from(plan.ordered_required_asset_ids.len()).map_err(|error| {
@@ -120,39 +200,184 @@ pub(crate) fn run_streaming_performance_check_with_scratch(
             if cycle % 3 != 0 {
                 worker_order.reverse();
             }
-            let staged = world.stage(&plan, &worker_order).map_err(|error| {
+            let staged = self.world.stage(&plan, &worker_order).map_err(|error| {
                 StreamingPerformanceError::new("stage transition", error.to_string())
             })?;
-            world.validate_staged(&staged).map_err(|error| {
+            self.world.validate_staged(&staged).map_err(|error| {
                 StreamingPerformanceError::new("validate transition", error.to_string())
             })?;
-            world.commit(&staged, false).map_err(|error| {
+            self.world.commit(&staged, false).map_err(|error| {
                 StreamingPerformanceError::new("commit transition", error.to_string())
             })?;
         }
-        let elapsed = started.elapsed();
-        if elapsed > STREAMING_PERFORMANCE_LIMIT
-            || world.snapshot().generation != STREAMING_PERFORMANCE_CYCLES
+        Ok(StreamingPerformanceMeasurement {
+            preparation_id: self.preparation_id,
+            staged_asset_references,
+            elapsed: started.elapsed(),
+        })
+    }
+
+    /// Validates and materializes the report after the external measurement
+    /// window, then removes the prepared fixture on every result path.
+    pub fn finish(
+        self,
+        measurement: Result<StreamingPerformanceMeasurement, StreamingPerformanceError>,
+    ) -> Result<StreamingPerformanceReport, StreamingPerformanceError> {
+        let result = measurement.and_then(|measurement| self.build_report(measurement));
+        drop(self.world);
+        self.directory.finish(result, |error| {
+            StreamingPerformanceError::new("remove performance fixture", error.to_string())
+        })
+    }
+
+    /// Cancels a prepared workload before measurement and reports cleanup
+    /// failures instead of relying on best-effort `Drop` cleanup.
+    pub fn cancel(self) -> Result<(), StreamingPerformanceError> {
+        drop(self.world);
+        self.directory.finish(Ok(()), |error| {
+            StreamingPerformanceError::new("remove performance fixture", error.to_string())
+        })
+    }
+
+    fn build_report(
+        &self,
+        measurement: StreamingPerformanceMeasurement,
+    ) -> Result<StreamingPerformanceReport, StreamingPerformanceError> {
+        if !self.run_started || measurement.preparation_id != self.preparation_id {
+            return Err(StreamingPerformanceError::new(
+                "prepared streaming workload",
+                "measurement does not belong to this completed preparation",
+            ));
+        }
+        let final_generation = self.world.snapshot().generation;
+        if measurement.elapsed > STREAMING_PERFORMANCE_LIMIT
+            || final_generation != STREAMING_PERFORMANCE_CYCLES
         {
             return Err(StreamingPerformanceError::new(
                 "streaming performance threshold",
                 format!(
-                    "elapsed={elapsed:?}, generation={}",
-                    world.snapshot().generation
+                    "elapsed={:?}, generation={final_generation}",
+                    measurement.elapsed
                 ),
             ));
         }
         Ok(StreamingPerformanceReport {
             cycles: STREAMING_PERFORMANCE_CYCLES,
-            staged_asset_references,
-            elapsed_microseconds: elapsed.as_micros(),
-            final_generation: world.snapshot().generation,
-            final_world_state_hash: world.snapshot().state_hash().map_err(|error| {
+            staged_asset_references: measurement.staged_asset_references,
+            elapsed_microseconds: measurement.elapsed.as_micros(),
+            final_generation,
+            final_world_state_hash: self.world.snapshot().state_hash().map_err(|error| {
                 StreamingPerformanceError::new("final world hash", error.to_string())
             })?,
         })
-    })();
-    directory.finish(result, |error| {
-        StreamingPerformanceError::new("remove performance fixture", error.to_string())
-    })
+    }
+}
+
+fn next_streaming_preparation_id() -> Result<u64, StreamingPerformanceError> {
+    NEXT_STREAMING_PREPARATION_ID
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
+            current.checked_add(1)
+        })
+        .map_err(|_| {
+            StreamingPerformanceError::new(
+                "prepared streaming workload",
+                "preparation identity overflow",
+            )
+        })
+}
+
+fn finish_failed_preparation(
+    directory: ScratchDirectory,
+    error: StreamingPerformanceError,
+) -> StreamingPerformanceError {
+    match directory.finish(Err::<(), _>(error), |cleanup_error| {
+        StreamingPerformanceError::new("remove performance fixture", cleanup_error.to_string())
+    }) {
+        Err(error) => error,
+        Ok(()) => unreachable!("an error result cannot become successful during cleanup"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        StreamingPerformanceError, prepare_streaming_performance_check_in,
+        run_streaming_performance_check_in,
+    };
+
+    #[test]
+    fn explicit_preparation_preserves_the_legacy_result() {
+        let scratch = std::env::temp_dir();
+        let legacy = run_streaming_performance_check_in(&scratch).expect("legacy workload");
+        let mut prepared =
+            prepare_streaming_performance_check_in(&scratch).expect("prepared workload");
+        let measurement = prepared.run_measured();
+        let explicit = prepared.finish(measurement).expect("finish workload");
+        assert_eq!(explicit.cycles, legacy.cycles);
+        assert_eq!(
+            explicit.staged_asset_references,
+            legacy.staged_asset_references
+        );
+        assert_eq!(explicit.final_generation, legacy.final_generation);
+        assert_eq!(
+            explicit.final_world_state_hash,
+            legacy.final_world_state_hash
+        );
+    }
+
+    #[test]
+    fn prepared_workload_is_single_use_and_cleans_up() {
+        let mut prepared = prepare_streaming_performance_check_in(&std::env::temp_dir())
+            .expect("prepared workload");
+        let path = prepared.directory.path().to_path_buf();
+        let measurement = prepared.run_measured();
+        let second = match prepared.run_measured() {
+            Err(error) => error,
+            Ok(_) => panic!("prepared workload must be single-use"),
+        };
+        assert!(second.to_string().contains("can run only once"));
+        prepared.finish(measurement).expect("finish first run");
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn finish_rejects_foreign_measurement_and_cleans_both_preparations() {
+        let mut source = prepare_streaming_performance_check_in(&std::env::temp_dir())
+            .expect("source preparation");
+        let source_path = source.directory.path().to_path_buf();
+        let measurement = source.run_measured().expect("source measurement");
+        let target = prepare_streaming_performance_check_in(&std::env::temp_dir())
+            .expect("target preparation");
+        let target_path = target.directory.path().to_path_buf();
+        let error = target
+            .finish(Ok(measurement))
+            .expect_err("foreign measurement must fail");
+        assert!(error.to_string().contains("does not belong"));
+        assert!(!target_path.exists());
+        let source_error = source
+            .finish(injected_failure())
+            .expect_err("injected failure");
+        assert!(source_error.to_string().contains("injected caller failure"));
+        assert!(!source_path.exists());
+    }
+
+    #[test]
+    fn finish_preserves_a_workload_error_and_cleans_prepared_scratch() {
+        let prepared = prepare_streaming_performance_check_in(&std::env::temp_dir())
+            .expect("prepared workload");
+        let path = prepared.directory.path().to_path_buf();
+        let error = prepared
+            .finish(injected_failure())
+            .expect_err("injected failure");
+        assert!(error.to_string().contains("injected caller failure"));
+        assert!(!path.exists());
+    }
+
+    fn injected_failure()
+    -> Result<super::StreamingPerformanceMeasurement, StreamingPerformanceError> {
+        Err(StreamingPerformanceError::new(
+            "measured workload",
+            "injected caller failure",
+        ))
+    }
 }

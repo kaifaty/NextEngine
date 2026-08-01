@@ -5,6 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+mod allocator_counter_check;
 mod native_gate_projection;
 mod native_gate_publish;
 mod native_gate_runner;
@@ -25,6 +26,10 @@ use xtask::native_gate::{
     NativeGateTargetExecutionStatusV1, NativeGateTargetReportV1, WINDOWS_TARGET_TRIPLE,
 };
 use xtask::report::*;
+
+#[global_allocator]
+static PROCESS_ALLOCATOR: next_process_allocation_counter::ProcessAllocationCounter =
+    next_process_allocation_counter::ProcessAllocationCounter::system();
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct NativeGateIdentity {
@@ -100,9 +105,13 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, platform, play, physics-collision, physics-backend-parity, persistence-replay, v1-closure or v1-package".to_owned()
+        "expected allocator-counter-check, boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, platform, play, physics-collision, physics-backend-parity, persistence-replay, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
+        "allocator-counter-check" => {
+            let request = allocator_counter_check::parse_arguments(arguments)?;
+            allocator_counter_check::allocator_counter_check(&root, &request)
+        }
         "boundary-scan" => {
             reject_extra_arguments(arguments)?;
             xtask::boundary_scan::boundary_scan(&root)?;
@@ -116,7 +125,7 @@ fn run() -> Result<(), String> {
                         "public_contracts".to_owned(),
                         "production_verification_boundary".to_owned(),
                         "importer_boundary".to_owned(),
-                        "ffi_policy".to_owned(),
+                        "unsafe_boundary_policy".to_owned(),
                     ],
                 },
             )
@@ -799,7 +808,11 @@ fn run_output_with_state(
 }
 
 fn diagnostic_code(error: &str) -> &'static str {
-    if error.starts_with("NATIVE_GATE_WORKTREE_DIRTY") {
+    if error.starts_with("ALLOCATOR_COUNTER_CHECK_FAILED") {
+        "ALLOCATOR_COUNTER_CHECK_FAILED"
+    } else if error.starts_with("ALLOCATOR_COUNTER_CHECK_NOT_RUN") {
+        "ALLOCATOR_COUNTER_CHECK_NOT_RUN"
+    } else if error.starts_with("NATIVE_GATE_WORKTREE_DIRTY") {
         "NATIVE_GATE_WORKTREE_DIRTY"
     } else if error.starts_with("NATIVE_GATE_HEAD_CHANGED") {
         "NATIVE_GATE_HEAD_CHANGED"

@@ -17,7 +17,9 @@ mod streaming_performance;
 mod v1_closure;
 
 pub use agent_performance::{
-    AgentPlanningPerformanceError, AgentPlanningPerformanceReport,
+    AgentPlanningPerformanceError, AgentPlanningPerformanceMeasurement,
+    AgentPlanningPerformanceReport, PreparedAgentPlanningPerformanceCheck,
+    prepare_agent_planning_performance_check, prepare_agent_planning_performance_check_in,
     run_agent_planning_performance_check, run_agent_planning_performance_check_in,
 };
 pub use content_package::{
@@ -30,8 +32,10 @@ pub use live_runtime_history_scaling::{
     run_live_runtime_history_scaling_diagnostic_in,
 };
 pub use live_runtime_performance::{
-    LiveRuntimePerformanceError, LiveRuntimePerformanceReport,
-    run_live_runtime_long_session_performance_check,
+    LiveRuntimePerformanceError, LiveRuntimePerformanceMeasurement, LiveRuntimePerformanceReport,
+    PreparedLiveRuntimePerformanceCheck, prepare_live_runtime_long_session_performance_check,
+    prepare_live_runtime_long_session_performance_check_in, prepare_live_runtime_performance_check,
+    prepare_live_runtime_performance_check_in, run_live_runtime_long_session_performance_check,
     run_live_runtime_long_session_performance_check_in, run_live_runtime_performance_check,
     run_live_runtime_performance_check_in,
 };
@@ -44,10 +48,11 @@ pub use physics_parity::{
     PhysicsBackendParityError, PhysicsBackendParityReport, run_physics_backend_parity_check,
 };
 pub use platform_check::{
-    DesktopFrameTimingSmokeReport, DesktopFrameTimingSmokeSample, PlatformCandidateStatus,
-    PlatformCheckError, PlatformCheckReport, run_desktop_frame_timing_smoke,
-    run_desktop_frame_timing_smoke_in, run_desktop_frame_timing_workload_in, run_platform_check,
-    run_platform_check_in,
+    DesktopFrameTimingMeasurement, DesktopFrameTimingSmokeReport, DesktopFrameTimingSmokeSample,
+    PlatformCandidateStatus, PlatformCheckError, PlatformCheckReport,
+    PreparedDesktopFrameTimingWorkload, prepare_desktop_frame_timing_workload_in,
+    run_desktop_frame_timing_smoke, run_desktop_frame_timing_smoke_in,
+    run_desktop_frame_timing_workload_in, run_platform_check, run_platform_check_in,
 };
 pub use player_fixture::{
     CanonicalFixtureError, GameCheckReport, NeutralPlayerFixture, PhysicsCollisionBackend,
@@ -61,7 +66,10 @@ pub use player_fixture::{
     run_play_check_with_activated_project,
 };
 pub use render_performance::{
-    RenderFramePlanningPerformanceError, RenderFramePlanningPerformanceReport,
+    PreparedRenderFramePlanningPerformanceCheck, RenderFramePlanningPerformanceError,
+    RenderFramePlanningPerformanceMeasurement, RenderFramePlanningPerformanceReport,
+    prepare_render_frame_planning_performance_check,
+    prepare_render_frame_planning_performance_check_in,
     run_render_frame_planning_performance_check, run_render_frame_planning_performance_check_in,
 };
 pub use replay::{
@@ -75,7 +83,9 @@ pub use runtime_fixture::{
 };
 pub use state_root::{StateRootError, StateSegment, compute_state_root};
 pub use streaming_performance::{
-    StreamingPerformanceError, StreamingPerformanceReport, run_streaming_performance_check,
+    PreparedStreamingPerformanceCheck, StreamingPerformanceError, StreamingPerformanceMeasurement,
+    StreamingPerformanceReport, prepare_streaming_performance_check,
+    prepare_streaming_performance_check_in, run_streaming_performance_check,
     run_streaming_performance_check_in,
 };
 pub use v1_closure::{

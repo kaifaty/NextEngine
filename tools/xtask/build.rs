@@ -13,6 +13,8 @@ fn main() {
 
     let profile = env::var("PROFILE").unwrap_or_else(|_| "unknown".to_owned());
     println!("cargo:rustc-env=NEXTENGINE_BUILD_PROFILE={profile}");
+    let target = env::var("TARGET").unwrap_or_else(|_| "unknown".to_owned());
+    println!("cargo:rustc-env=NEXTENGINE_BUILD_TARGET_TRIPLE={target}");
 
     println!("cargo:rerun-if-env-changed=CARGO_ENCODED_RUSTFLAGS");
     let encoded_rustflags = env::var("CARGO_ENCODED_RUSTFLAGS").unwrap_or_default();

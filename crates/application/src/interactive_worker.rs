@@ -25,6 +25,19 @@ const MAXIMUM_DIAGNOSTIC_CALLBACKS: u64 = 1_000_000;
 const MAXIMUM_SINGLE_STEP_CALLBACK_ELAPSED: Duration = Duration::from_nanos(33_333_334);
 const MAXIMUM_DIAGNOSTIC_FINALIZATION_ATTEMPTS: usize = 8;
 
+fn allocate_diagnostic_sample_buffer<T>(
+    capacity: usize,
+) -> Result<Vec<T>, InteractiveWorkerFailureV1> {
+    let mut samples = Vec::new();
+    samples.try_reserve_exact(capacity).map_err(|_| {
+        InteractiveWorkerFailureV1::runtime(
+            "PERFORMANCE_SCENARIO_INVALID",
+            "production worker diagnostic sample reservation failed",
+        )
+    })?;
+    Ok(samples)
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct InteractiveWorkerFailureV1 {
     pub code: &'static str,
@@ -255,7 +268,10 @@ enum InteractiveShutdownAttemptV1<T> {
 mod diagnostic;
 mod runtime;
 
-pub use diagnostic::run_production_worker_diagnostic;
+pub use diagnostic::{
+    PreparedProductionWorkerDiagnosticV1, ProductionWorkerDiagnosticMeasurementV1,
+    prepare_production_worker_diagnostic, run_production_worker_diagnostic,
+};
 
 #[cfg(test)]
 use diagnostic::{finalize_diagnostic_worker, finalize_diagnostic_worker_with_attempt_limit};

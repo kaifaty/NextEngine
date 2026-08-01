@@ -453,18 +453,30 @@ struct WorkerMetricBuffersV1 {
 }
 
 impl WorkerMetricBuffersV1 {
-    fn new(callback_capacity: usize) -> Self {
-        Self {
-            message_age_samples: Vec::with_capacity(callback_capacity),
-            fixed_step_samples: Vec::with_capacity(callback_capacity.saturating_mul(8)),
-            publication_samples: Vec::with_capacity(callback_capacity.saturating_add(1)),
+    fn try_new(callback_capacity: usize) -> Result<Self, InteractiveWorkerFailureV1> {
+        let fixed_step_capacity = callback_capacity.checked_mul(8).ok_or_else(|| {
+            InteractiveWorkerFailureV1::runtime(
+                "PERFORMANCE_SCENARIO_INVALID",
+                "production worker fixed-step sample capacity overflow",
+            )
+        })?;
+        let publication_capacity = callback_capacity.checked_add(1).ok_or_else(|| {
+            InteractiveWorkerFailureV1::runtime(
+                "PERFORMANCE_SCENARIO_INVALID",
+                "production worker publication sample capacity overflow",
+            )
+        })?;
+        Ok(Self {
+            message_age_samples: allocate_diagnostic_sample_buffer(callback_capacity)?,
+            fixed_step_samples: allocate_diagnostic_sample_buffer(fixed_step_capacity)?,
+            publication_samples: allocate_diagnostic_sample_buffer(publication_capacity)?,
             processed_callbacks: 0,
             ordinary_fixed_steps: 0,
             checkpoint_fixed_steps: 0,
             snapshot_publications: 0,
             reordered_callbacks: 0,
             expected_callback_sequence: 0,
-        }
+        })
     }
 
     fn finish(
@@ -507,7 +519,19 @@ fn run_interactive_simulation_session_worker(
     diagnostic_capacity: Option<usize>,
 ) -> InteractiveWorkerExitV1 {
     let _queue_lifecycle = QueueWorkerLifecycleV1(queue_telemetry.clone());
-    let mut metrics = diagnostic_capacity.map(WorkerMetricBuffersV1::new);
+    let mut metrics = match diagnostic_capacity
+        .map(WorkerMetricBuffersV1::try_new)
+        .transpose()
+    {
+        Ok(metrics) => metrics,
+        Err(failure) => {
+            let _ = ready_sender.send(Err(failure.clone()));
+            return InteractiveWorkerExitV1 {
+                result: Err(failure),
+                diagnostic_metrics: None,
+            };
+        }
+    };
     let prepared =
         prepare_interactive_worker(launch, &capabilities, &latest_snapshot, metrics.as_mut());
     let (mut application, ready) = match prepared {
@@ -520,6 +544,7 @@ fn run_interactive_simulation_session_worker(
             };
         }
     };
+    let mut fixed_step = FixedStepLiveSchedulerV1::reference_game_v1();
     if ready_sender.send(Ok(ready)).is_err() {
         let result = finish_interactive_worker(&mut application, None, 0).and(Err(
             InteractiveWorkerFailureV1::runtime(
@@ -529,8 +554,6 @@ fn run_interactive_simulation_session_worker(
         ));
         return worker_exit(result, metrics, queue_telemetry.as_deref());
     }
-
-    let mut fixed_step = FixedStepLiveSchedulerV1::reference_game_v1();
     let mut pending_failure = None;
     loop {
         let message = match receive_interactive_message(&work_receiver, queue_telemetry.as_deref())

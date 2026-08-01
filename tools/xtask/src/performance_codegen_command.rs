@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use xtask::performance::PerformanceRunV1;
+use xtask::performance::{PERFORMANCE_REPORT_FILE_NAME, PerformanceRunV2};
 use xtask::performance_codegen::{
     CODEGEN_BUILD_SCHEMA_VERSION, CODEGEN_RUN_PROVENANCE_SCHEMA_VERSION, CODEGEN_SCENARIOS,
     CodegenBuildProvenanceV1, CodegenCandidateV1, CodegenComparisonV1, CodegenComparisonVerdictV1,
@@ -18,7 +18,6 @@ use provenance::{
     verified_pgo_profile_sha256,
 };
 
-const PERFORMANCE_REPORT_FILE_NAME: &str = "performance-report-v1.json";
 const CODEGEN_BUILD_FILE_NAME: &str = "performance-codegen-build-v1.json";
 const CODEGEN_RUN_FILE_NAME: &str = "performance-codegen-run-v1.json";
 const CODEGEN_COMPARISON_FILE_NAME: &str = "performance-codegen-comparison-v1.json";
@@ -597,7 +596,7 @@ fn discover_report_paths(scenario_root: &Path) -> Result<Vec<PathBuf>, String> {
         .collect()
 }
 
-fn read_performance_run(path: &Path) -> Result<PerformanceRunV1, String> {
+fn read_performance_run(path: &Path) -> Result<PerformanceRunV2, String> {
     let metadata = fs::symlink_metadata(path)
         .map_err(|error| format!("failed to inspect {}: {error}", path.display()))?;
     if !metadata.file_type().is_file() || metadata.len() > MAX_PERFORMANCE_REPORT_BYTES {
@@ -616,10 +615,18 @@ fn read_performance_run(path: &Path) -> Result<PerformanceRunV1, String> {
             path.display()
         ));
     }
-    report
+    let run = report
         .details
         .run
-        .ok_or_else(|| format!("performance run is missing from {}", path.display()))
+        .ok_or_else(|| format!("performance run is missing from {}", path.display()))?;
+    run.validate_wire_version().map_err(|diagnostics| {
+        format!(
+            "performance run has an incompatible wire version at {}: {}",
+            path.display(),
+            diagnostics.join(", ")
+        )
+    })?;
+    Ok(run)
 }
 
 fn read_codegen_provenance(path: &Path) -> Result<CodegenBuildProvenanceV1, String> {

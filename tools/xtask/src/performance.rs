@@ -3,19 +3,36 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 mod host;
 pub use host::{
     finish_process_counters, inspect_current_host, inspect_process_counters,
     validate_thoth_fingerprint,
 };
+mod resource_counters;
+mod support;
+pub use resource_counters::{
+    PROCESS_ALLOCATION_COUNTER_ALLOCATOR, PROCESS_ALLOCATION_COUNTER_DEALLOCATION_SEMANTICS,
+    PROCESS_ALLOCATION_COUNTER_METHODOLOGY_VERSION, PROCESS_ALLOCATION_COUNTER_SCHEMA_VERSION,
+    PROCESS_ALLOCATION_COUNTER_SCOPE, PROCESS_ALLOCATION_COUNTER_SOURCE,
+    PerformanceResourceCountersV2, ProcessAllocationCounterInputV1, ProcessAllocationCounterV1,
+};
+use support::{bootstrap_change_interval, relative_change_basis_points, relative_verdict};
+pub use support::{methodology_for, sha256_hex};
 #[cfg(test)]
 mod tests;
 
-pub const PERFORMANCE_RUN_SCHEMA_VERSION: u32 = 1;
-pub const PERFORMANCE_BASELINE_SCHEMA_VERSION: u32 = 1;
-pub const PERFORMANCE_METHODOLOGY_VERSION: &str = "nextengine-performance-v1";
+pub const PERFORMANCE_RUN_SCHEMA_VERSION: u32 = 2;
+pub const PERFORMANCE_BASELINE_SCHEMA_VERSION: u32 = 2;
+pub const PERFORMANCE_METHODOLOGY_VERSION: &str = "nextengine-performance-v2";
+pub const PERFORMANCE_REPORT_FILE_NAME: &str = "performance-report-v2.json";
+pub const PERFORMANCE_BASELINE_FILE_NAME: &str = "performance-baseline-v2.json";
+pub const PERFORMANCE_REPORT_TEMP_FILE_NAME: &str = ".performance-report-v2.json.tmp";
+pub const PERFORMANCE_BASELINE_TEMP_FILE_NAME: &str = ".performance-baseline-v2.json.tmp";
+pub const PERFORMANCE_PINNED_RUSTC_RELEASE: &str = "1.93.0";
+pub const PERFORMANCE_PINNED_RUSTC_COMMIT_HASH: &str = "254b59607d4417e9dffbc307138ae5c86280fe4c";
+pub const PERFORMANCE_WINDOWS_TARGET_TRIPLE: &str = "x86_64-pc-windows-msvc";
+pub const PERFORMANCE_LINUX_TARGET_TRIPLE: &str = "x86_64-unknown-linux-gnu";
 pub const THOTH_TARGET_ID: &str = "ref-win-thoth-v1";
 pub const MINIMUM_FREE_RAM_BYTES: u64 = 20 * 1024 * 1024 * 1024;
 pub const MAX_PROFILER_BYTES: u64 = 64 * 1024 * 1024;
@@ -91,6 +108,25 @@ impl PerformanceScenarioV1 {
     }
 }
 
+pub fn performance_scenario_hash(scenario: PerformanceScenarioV1) -> String {
+    let preimage: &[u8] = match scenario {
+        PerformanceScenarioV1::Smoke => {
+            b"nextengine.performance.smoke.v3:two-chunk:five-object:one-agent:900-live-ticks:allocator-window=streaming+agent-planning+render-planning+live-runtime"
+        }
+        PerformanceScenarioV1::LongSessionSoak => {
+            b"nextengine.performance.long-session-soak.v4:3600-live-ticks:1200-tick-windows:held-movement:camera-every-15-ticks:driver-and-interactive-application:one-fixed-step-per-measured-pump:allocator-window=live-runtime-only"
+        }
+        PerformanceScenarioV1::InteractiveFrameSoak => {
+            b"nextengine.performance.interactive-frame-soak.v2:240-fifo-frames:1920x1080:reference-render-inputs:phase-timings:frame-plan-cache:allocator-window=desktop-frame-workload-only"
+        }
+        PerformanceScenarioV1::ProductionWorkerSoak => {
+            b"nextengine.performance.production-worker-soak.v2:240-fifo-main-callbacks:60hz:bounded-sync-queue:next-simulation-worker:fixed-step-application:shared-presentation-publication:main-snapshot-read:allocator-window=production-worker-diagnostic-only"
+        }
+        _ => return sha256_hex(scenario.as_str().as_bytes()),
+    };
+    sha256_hex(preimage)
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PerformanceModeV1 {
@@ -132,6 +168,15 @@ impl PerformanceVerdict {
             Self::NotRun => "NOT_RUN",
         }
     }
+
+    pub const fn command_report_status(self) -> &'static str {
+        match self {
+            Self::Pass | Self::ReportOnly => "PASS",
+            Self::Fail => "FAIL",
+            Self::Warning => "WARNING",
+            Self::NotRun => "NOT_RUN",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -164,6 +209,43 @@ pub struct PerformancePreflightV1 {
     pub gpu_thermal_slowdown_active: Option<bool>,
     pub ready: bool,
     pub diagnostics: Vec<String>,
+}
+
+impl PerformancePreflightV1 {
+    pub fn validate_ready_evidence(&self) -> Result<(), Vec<String>> {
+        let mut diagnostics = Vec::new();
+        if !self.ready || !self.diagnostics.is_empty() {
+            diagnostics.push("PERF_PREFLIGHT_NOT_READY".to_owned());
+        }
+        if self.cpu_load_percent.is_none_or(|percent| percent >= 5) {
+            diagnostics.push("PERF_CPU_NOT_IDLE_BELOW_FIVE_PERCENT".to_owned());
+        }
+        if self.gpu_load_percent.is_none_or(|percent| percent >= 5) {
+            diagnostics.push("PERF_GPU_NOT_IDLE_BELOW_FIVE_PERCENT".to_owned());
+        }
+        if self
+            .free_ram_bytes
+            .is_none_or(|bytes| bytes < MINIMUM_FREE_RAM_BYTES)
+        {
+            diagnostics.push("PERF_FREE_RAM_BELOW_TWENTY_GIB".to_owned());
+        }
+        if self
+            .cpu_clock_percent_of_maximum
+            .is_none_or(|percent| percent < 80)
+        {
+            diagnostics.push("PERF_CPU_THROTTLING_CHECK_FAILED".to_owned());
+        }
+        if self.gpu_thermal_slowdown_active != Some(false) {
+            diagnostics.push("PERF_GPU_THERMAL_SLOWDOWN_CHECK_FAILED".to_owned());
+        }
+        diagnostics.sort();
+        diagnostics.dedup();
+        if diagnostics.is_empty() {
+            Ok(())
+        } else {
+            Err(diagnostics)
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -216,11 +298,20 @@ impl PerformanceInstrumentationV1 {
         if self.unowned_spans != 0 {
             return Err("UNOWNED_GAMEPLAY_SPAN".to_owned());
         }
-        if self.authoritative_hash_parity == Some(false) {
-            return Err("PERF_PROFILER_AUTHORITY_DIVERGED".to_owned());
-        }
-        if self.overhead_basis_points.is_some_and(|value| value > 300) {
-            return Err("PERF_PROFILER_OVERHEAD_EXCEEDED".to_owned());
+        if self.enabled {
+            match self.authoritative_hash_parity {
+                Some(true) => {}
+                Some(false) => return Err("PERF_PROFILER_AUTHORITY_DIVERGED".to_owned()),
+                None => return Err("PERF_PROFILER_AUTHORITY_UNAVAILABLE".to_owned()),
+            }
+            match self.overhead_basis_points {
+                Some(0..=300) => {}
+                Some(value) if value > 300 => {
+                    return Err("PERF_PROFILER_OVERHEAD_EXCEEDED".to_owned());
+                }
+                Some(_) => return Err("PERF_PROFILER_OVERHEAD_INVALID".to_owned()),
+                None => return Err("PERF_PROFILER_OVERHEAD_UNAVAILABLE".to_owned()),
+            }
         }
         let mut spans_per_thread = BTreeMap::<u32, u32>::new();
         for span in &self.recorded_spans {
@@ -247,51 +338,6 @@ impl PerformanceInstrumentationV1 {
             }
         }
         Ok(())
-    }
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PerformanceResourceCountersV1 {
-    pub host_resident_bytes: Option<u64>,
-    pub device_resident_bytes: Option<u64>,
-    pub io_read_bytes: Option<u64>,
-    pub io_write_bytes: Option<u64>,
-    pub allocator_allocated_bytes: Option<u64>,
-    pub allocator_allocation_count: Option<u64>,
-    pub vulkan_timestamp_queries: u64,
-    pub unavailable: Vec<String>,
-}
-
-impl PerformanceResourceCountersV1 {
-    pub fn validate_for_hard_timing(&self) -> Result<(), Vec<String>> {
-        let mut diagnostics = Vec::new();
-        for (name, value) in [
-            ("host_resident_bytes", self.host_resident_bytes),
-            ("device_resident_bytes", self.device_resident_bytes),
-            ("io_read_bytes", self.io_read_bytes),
-            ("io_write_bytes", self.io_write_bytes),
-            ("allocator_allocated_bytes", self.allocator_allocated_bytes),
-            (
-                "allocator_allocation_count",
-                self.allocator_allocation_count,
-            ),
-        ] {
-            if value.is_none() {
-                diagnostics.push(format!("PERF_REQUIRED_COUNTER_MISSING: {name}"));
-            }
-        }
-        if self.vulkan_timestamp_queries == 0 {
-            diagnostics.push("PERF_REQUIRED_COUNTER_MISSING: vulkan_timestamp_queries".to_owned());
-        }
-        if !self.unavailable.is_empty() {
-            diagnostics.push("PERF_REQUIRED_COUNTER_UNAVAILABLE".to_owned());
-        }
-        if diagnostics.is_empty() {
-            Ok(())
-        } else {
-            Err(diagnostics)
-        }
     }
 }
 
@@ -374,11 +420,12 @@ pub struct PerformanceBaselineMetricV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PerformanceBaselineV1 {
+pub struct PerformanceBaselineV2 {
     pub schema_version: u32,
     pub methodology_version: String,
     pub source_commit: String,
     pub toolchain: String,
+    pub target_triple: String,
     pub scenario: PerformanceScenarioV1,
     pub scenario_hash: String,
     pub content_hash: String,
@@ -389,8 +436,8 @@ pub struct PerformanceBaselineV1 {
     pub authoritative_hashes: BTreeMap<String, String>,
 }
 
-impl PerformanceBaselineV1 {
-    pub fn from_runs(runs: &[PerformanceRunV1]) -> Result<Self, Vec<String>> {
+impl PerformanceBaselineV2 {
+    pub fn from_runs(runs: &[PerformanceRunV2]) -> Result<Self, Vec<String>> {
         if runs.len() != 10 {
             return Err(vec!["PERF_BASELINE_REQUIRES_TEN_RUNS".to_owned()]);
         }
@@ -410,6 +457,21 @@ impl PerformanceBaselineV1 {
             }
         }
         for (index, run) in runs.iter().enumerate() {
+            if let Err(errors) = run.validate_wire_version() {
+                for error in errors {
+                    diagnostics.push(format!("PERF_BASELINE_RUN_INVALID: {index}: {error}"));
+                }
+            }
+            if let Err(errors) = run.validate_build_provenance() {
+                for error in errors {
+                    diagnostics.push(format!("PERF_BASELINE_RUN_INVALID: {index}: {error}"));
+                }
+            }
+            if run.target_triple != PERFORMANCE_WINDOWS_TARGET_TRIPLE {
+                diagnostics.push(format!(
+                    "PERF_BASELINE_RUN_INVALID: {index}: PERF_BASELINE_TARGET_MISMATCH"
+                ));
+            }
             if !run.worktree_clean {
                 diagnostics.push(format!("PERF_BASELINE_RUN_DIRTY: {index}"));
             }
@@ -426,22 +488,34 @@ impl PerformanceBaselineV1 {
                 || run.commit == "UNKNOWN"
                 || run.commit != first.commit
                 || run.toolchain != first.toolchain
+                || run.target_triple != first.target_triple
                 || run.scenario != first.scenario
                 || run.scenario_hash != first.scenario_hash
                 || run.content_hash != first.content_hash
                 || run.target_fingerprint.as_ref() != Some(fingerprint)
                 || run.build_profile != "release"
                 || run.methodology != first.methodology
+                || run.methodology.methodology_version != PERFORMANCE_METHODOLOGY_VERSION
                 || run.authoritative_hashes != first.authoritative_hashes
             {
                 diagnostics.push(format!("PERF_BASELINE_RUN_INCOMPATIBLE: {index}"));
             }
-            if run
+            match run
                 .preflight
                 .as_ref()
-                .is_none_or(|preflight| !preflight.ready)
+                .map(PerformancePreflightV1::validate_ready_evidence)
             {
-                diagnostics.push(format!("PERF_BASELINE_PREFLIGHT_NOT_READY: {index}"));
+                Some(Ok(())) => {}
+                Some(Err(errors)) => {
+                    for error in errors {
+                        diagnostics.push(format!(
+                            "PERF_BASELINE_PREFLIGHT_NOT_READY: {index}: {error}"
+                        ));
+                    }
+                }
+                None => diagnostics.push(format!(
+                    "PERF_BASELINE_PREFLIGHT_NOT_READY: {index}: PERF_PREFLIGHT_UNAVAILABLE"
+                )),
             }
             let fingerprint_diagnostics = run
                 .target_fingerprint
@@ -459,7 +533,10 @@ impl PerformanceBaselineV1 {
                     "PERF_BASELINE_RUN_INVALID: {index}: PERF_PROFILER_DISABLED"
                 ));
             }
-            if let Err(errors) = run.resource_counters.validate_for_hard_timing() {
+            if let Err(errors) = run
+                .resource_counters
+                .validate_for_hard_timing_for_run(run.scenario, &run.scenario_hash)
+            {
                 for error in errors {
                     diagnostics.push(format!("PERF_BASELINE_RUN_INVALID: {index}: {error}"));
                 }
@@ -500,6 +577,7 @@ impl PerformanceBaselineV1 {
             methodology_version: PERFORMANCE_METHODOLOGY_VERSION.to_owned(),
             source_commit: first.commit.clone(),
             toolchain: first.toolchain.clone(),
+            target_triple: first.target_triple.clone(),
             scenario: first.scenario,
             scenario_hash: first.scenario_hash.clone(),
             content_hash: first.content_hash.clone(),
@@ -520,11 +598,27 @@ impl PerformanceBaselineV1 {
 
     pub fn validate_for(
         &self,
-        run: &PerformanceRunV1,
+        run: &PerformanceRunV2,
     ) -> Result<BTreeMap<&str, &PerformanceBaselineMetricV1>, Vec<String>> {
         let mut diagnostics = Vec::new();
         if self.schema_version != PERFORMANCE_BASELINE_SCHEMA_VERSION {
             diagnostics.push("PERF_BASELINE_SCHEMA_MISMATCH".to_owned());
+        }
+        if let Err(errors) = run.validate_wire_version() {
+            diagnostics.extend(errors);
+        }
+        if let Err(errors) = run.validate_build_provenance() {
+            diagnostics.extend(errors);
+        }
+        if let Err(errors) = validate_performance_build_provenance(
+            &self.source_commit,
+            &self.toolchain,
+            &self.target_triple,
+        ) {
+            diagnostics.extend(errors);
+        }
+        if self.target_triple != PERFORMANCE_WINDOWS_TARGET_TRIPLE {
+            diagnostics.push("PERF_BASELINE_TARGET_MISMATCH".to_owned());
         }
         if self.methodology_version != PERFORMANCE_METHODOLOGY_VERSION
             || self.methodology_version != run.methodology.methodology_version
@@ -545,6 +639,9 @@ impl PerformanceBaselineV1 {
         }
         if self.toolchain != run.toolchain {
             diagnostics.push("PERF_BASELINE_TOOLCHAIN_MISMATCH".to_owned());
+        }
+        if self.target_triple != run.target_triple {
+            diagnostics.push("PERF_BASELINE_TARGET_MISMATCH".to_owned());
         }
         diagnostics.extend(validate_thoth_fingerprint(&self.target_fingerprint));
         if run.target_fingerprint.as_ref() != Some(&self.target_fingerprint) {
@@ -584,11 +681,12 @@ pub struct PerformanceMethodologyV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PerformanceRunV1 {
+pub struct PerformanceRunV2 {
     pub schema_version: u32,
     pub commit: String,
     pub worktree_clean: bool,
     pub toolchain: String,
+    pub target_triple: String,
     pub scenario: PerformanceScenarioV1,
     pub scenario_hash: String,
     pub content_hash: String,
@@ -597,7 +695,7 @@ pub struct PerformanceRunV1 {
     pub build_profile: String,
     pub mode: PerformanceModeV1,
     pub instrumentation: PerformanceInstrumentationV1,
-    pub resource_counters: PerformanceResourceCountersV1,
+    pub resource_counters: PerformanceResourceCountersV2,
     pub methodology: PerformanceMethodologyV1,
     pub metrics: Vec<PerformanceMetricV1>,
     pub authoritative_hashes: BTreeMap<String, String>,
@@ -605,7 +703,7 @@ pub struct PerformanceRunV1 {
     pub diagnostics: Vec<String>,
 }
 
-impl PerformanceRunV1 {
+impl PerformanceRunV2 {
     pub fn empty(
         scenario: PerformanceScenarioV1,
         mode: PerformanceModeV1,
@@ -616,15 +714,16 @@ impl PerformanceRunV1 {
             commit: "UNKNOWN".to_owned(),
             worktree_clean: false,
             toolchain: "UNKNOWN".to_owned(),
+            target_triple: "UNKNOWN".to_owned(),
             scenario,
-            scenario_hash: sha256_hex(scenario.as_str().as_bytes()),
+            scenario_hash: performance_scenario_hash(scenario),
             content_hash: sha256_hex(b"nextengine.content.unavailable.v1"),
             target_fingerprint: None,
             preflight: None,
             build_profile: build_profile.into(),
             mode,
             instrumentation: PerformanceInstrumentationV1::disabled(),
-            resource_counters: PerformanceResourceCountersV1::default(),
+            resource_counters: PerformanceResourceCountersV2::default(),
             methodology: methodology_for(scenario),
             metrics: Vec::new(),
             authoritative_hashes: BTreeMap::new(),
@@ -632,6 +731,127 @@ impl PerformanceRunV1 {
             diagnostics: Vec::new(),
         }
     }
+
+    pub fn validate_allocator_counter(&self) -> Result<(), Vec<String>> {
+        self.resource_counters
+            .validate_allocator_for_run(self.scenario, &self.scenario_hash)
+    }
+
+    pub fn validate_wire_version(&self) -> Result<(), Vec<String>> {
+        let mut diagnostics = Vec::new();
+        if self.schema_version != PERFORMANCE_RUN_SCHEMA_VERSION {
+            diagnostics.push("PERF_RUN_SCHEMA_MISMATCH".to_owned());
+        }
+        if self.scenario_hash != performance_scenario_hash(self.scenario) {
+            diagnostics.push("PERF_RUN_SCENARIO_HASH_MISMATCH".to_owned());
+        }
+        if self.methodology != methodology_for(self.scenario) {
+            diagnostics.push("PERF_RUN_METHODOLOGY_MISMATCH".to_owned());
+        }
+        if diagnostics.is_empty() {
+            Ok(())
+        } else {
+            Err(diagnostics)
+        }
+    }
+
+    pub fn validate_build_provenance(&self) -> Result<(), Vec<String>> {
+        validate_performance_build_provenance(&self.commit, &self.toolchain, &self.target_triple)
+    }
+
+    pub fn validate_command_report_status(&self, status: &str) -> Result<(), String> {
+        let expected = self.verdict.command_report_status();
+        if status == expected {
+            Ok(())
+        } else {
+            Err(format!(
+                "PERF_COMMAND_STATUS_MISMATCH: expected {expected} for nested {}, found {status}",
+                self.verdict.as_str()
+            ))
+        }
+    }
+}
+
+pub fn validate_performance_build_provenance(
+    commit: &str,
+    toolchain: &str,
+    target_triple: &str,
+) -> Result<(), Vec<String>> {
+    let mut diagnostics = Vec::new();
+    if commit.len() != 40
+        || !commit
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        diagnostics.push("PERF_BUILD_COMMIT_INVALID".to_owned());
+    }
+    if !matches!(
+        target_triple,
+        PERFORMANCE_WINDOWS_TARGET_TRIPLE | PERFORMANCE_LINUX_TARGET_TRIPLE
+    ) {
+        diagnostics.push("PERF_BUILD_TARGET_UNSUPPORTED".to_owned());
+    }
+    let first_line = toolchain.lines().next().unwrap_or_default();
+    if first_line
+        != format!(
+            "rustc {PERFORMANCE_PINNED_RUSTC_RELEASE} ({} 2026-01-19)",
+            &PERFORMANCE_PINNED_RUSTC_COMMIT_HASH[..9]
+        )
+    {
+        diagnostics.push("PERF_BUILD_TOOLCHAIN_IDENTITY_INVALID".to_owned());
+    }
+    match unique_verbose_field(toolchain, "commit-hash") {
+        Some(commit_hash) if commit_hash == PERFORMANCE_PINNED_RUSTC_COMMIT_HASH => {}
+        Some(_) => diagnostics.push("PERF_BUILD_RUSTC_COMMIT_MISMATCH".to_owned()),
+        None => diagnostics.push("PERF_BUILD_RUSTC_COMMIT_MISSING".to_owned()),
+    }
+    match unique_verbose_field(toolchain, "release") {
+        Some(release) if release == PERFORMANCE_PINNED_RUSTC_RELEASE => {}
+        Some(_) => diagnostics.push("PERF_BUILD_RUSTC_RELEASE_MISMATCH".to_owned()),
+        None => diagnostics.push("PERF_BUILD_RUSTC_RELEASE_MISSING".to_owned()),
+    }
+    match unique_verbose_field(toolchain, "host") {
+        Some(host) if host == target_triple => {}
+        Some(_) => diagnostics.push("PERF_BUILD_TOOLCHAIN_HOST_MISMATCH".to_owned()),
+        None => diagnostics.push("PERF_BUILD_TOOLCHAIN_HOST_MISSING".to_owned()),
+    }
+    diagnostics.sort();
+    diagnostics.dedup();
+    if diagnostics.is_empty() {
+        Ok(())
+    } else {
+        Err(diagnostics)
+    }
+}
+
+pub fn decode_build_toolchain_hex(value: &str) -> Result<String, String> {
+    if !value.len().is_multiple_of(2) {
+        return Err("hex payload has an odd length".to_owned());
+    }
+    let mut bytes = Vec::with_capacity(value.len() / 2);
+    for pair in value.as_bytes().chunks_exact(2) {
+        let high = decode_hex_digit(pair[0])?;
+        let low = decode_hex_digit(pair[1])?;
+        bytes.push((high << 4) | low);
+    }
+    String::from_utf8(bytes).map_err(|error| format!("toolchain payload is not UTF-8: {error}"))
+}
+
+fn decode_hex_digit(value: u8) -> Result<u8, String> {
+    match value {
+        b'0'..=b'9' => Ok(value - b'0'),
+        b'a'..=b'f' => Ok(value - b'a' + 10),
+        _ => Err(format!("invalid lowercase hex digit: {value:#04x}")),
+    }
+}
+
+fn unique_verbose_field<'a>(toolchain: &'a str, field: &str) -> Option<&'a str> {
+    let prefix = format!("{field}: ");
+    let mut values = toolchain
+        .lines()
+        .filter_map(|line| line.strip_prefix(&prefix));
+    let value = values.next()?;
+    (!value.is_empty() && values.next().is_none()).then_some(value)
 }
 
 pub fn nearest_rank_percentile(samples: &[u64], percentile: u32) -> Result<u64, String> {
@@ -652,8 +872,8 @@ pub fn nearest_rank_percentile(samples: &[u64], percentile: u32) -> Result<u64, 
 }
 
 pub fn compare_metrics_to_baseline(
-    run: &mut PerformanceRunV1,
-    baseline: &PerformanceBaselineV1,
+    run: &mut PerformanceRunV2,
+    baseline: &PerformanceBaselineV2,
 ) -> Result<(), Vec<String>> {
     let baseline_metrics = baseline.validate_for(run)?;
     let mut diagnostics = Vec::new();
@@ -712,207 +932,5 @@ pub fn aggregate_metric_verdict(metrics: &[PerformanceMetricV1]) -> PerformanceV
         PerformanceVerdict::Pass
     } else {
         PerformanceVerdict::ReportOnly
-    }
-}
-
-pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodologyV1 {
-    let mut methodology = PerformanceMethodologyV1 {
-        methodology_version: PERFORMANCE_METHODOLOGY_VERSION.to_owned(),
-        warmup_samples: 0,
-        measured_samples: 0,
-        percentile_method: "nearest-rank".to_owned(),
-        outlier_policy: "retain-all-samples".to_owned(),
-        frame_critical_path: None,
-        notes: Vec::new(),
-    };
-    match scenario {
-        PerformanceScenarioV1::Smoke => {
-            methodology.measured_samples = 4;
-            methodology.notes = vec![
-                "two-chunk streaming, five-object render planning, one-agent planning and live movement are smoke fixtures only".to_owned(),
-                "aggregate smoke timings are report-only and cannot close B-12".to_owned(),
-            ];
-        }
-        PerformanceScenarioV1::LongSessionSoak => {
-            methodology.measured_samples = 3;
-            methodology.notes = vec![
-                "3,600 live ticks in three 1,200-tick windows with held movement and periodic camera input run through both the live driver and interactive application scheduler".to_owned(),
-                "identity-index and command-body archive roots are recomputed after each window outside the window timing".to_owned(),
-                "application checkpoint samples include the mandatory 30-tick durable publication path and reuse validated canonical component bytes".to_owned(),
-                "report-only granular samples separate driver prepare, infallible driver commit, checkpoint materialization, ordinary application ticks, and checkpoint application ticks".to_owned(),
-                "application input is staged before timing and each measured host pump advances exactly one 30 Hz fixed step".to_owned(),
-                "the soak is report-only and diagnoses history-dependent degradation; it cannot close B-12".to_owned(),
-            ];
-        }
-        PerformanceScenarioV1::InteractiveFrameSoak => {
-            methodology.measured_samples = 240;
-            methodology.frame_critical_path =
-                Some("max(cpu_extract_and_submit_us,gpu_timestamp_duration_us)".to_owned());
-            methodology.notes = vec![
-                "240 FIFO-presented frames use the production Vulkan frame path at requested 1920x1080 and immutable reference-game render inputs".to_owned(),
-                "phase timings separate event polling plus immutable frame-source update, frame-slot/acquire/image waits, frame-plan, command recording, submit, present and GPU execution".to_owned(),
-                "the static render-input fixture does not time the game composition root's main-to-simulation-worker handoff; production-worker-soak measures that boundary separately".to_owned(),
-                "the workload is report-only and diagnostic; it is not the representative R2 alpha project and cannot close B-12".to_owned(),
-            ];
-        }
-        PerformanceScenarioV1::ProductionWorkerSoak => {
-            methodology.measured_samples = 240;
-            methodology.notes = vec![
-                "production-worker-soak.v1 submits 240 FIFO main-callback batches at 60 Hz through the game composition root's bounded queue and next-simulation worker".to_owned(),
-                "the worker advances the production fixed-step application path, publishes shared immutable presentation snapshots, and the main-side callback reads the latest generation".to_owned(),
-                "bounded raw samples separate queue send wait, dequeue age, ordinary/checkpoint fixed steps, snapshot publication/read lock waits, and rendered sequence freshness".to_owned(),
-                "diagnostic send and dequeue observations are linearized around the same bounded sync channel, so queue high-water is exact channel occupancy rather than an outstanding-work estimate".to_owned(),
-                "wall time and diagnostic sequence counters are operational metadata only and never select simulation work, ordering, or authoritative outcomes".to_owned(),
-                "the workload is report-only and diagnostic; it is not a representative R2 workload and cannot close B-12".to_owned(),
-            ];
-        }
-        PerformanceScenarioV1::R2AlphaRender => {
-            methodology.warmup_samples = 600 * 3;
-            methodology.measured_samples = 3_600 * 3;
-            methodology.frame_critical_path =
-                Some("max(cpu_extract_and_submit_us,gpu_timestamp_duration_us)".to_owned());
-            methodology.notes = vec![
-                "three 60-second windows: exploration, combat and UI/dialogue".to_owned(),
-                "VSync wait excluded; missed deadlines counted separately".to_owned(),
-            ];
-        }
-        PerformanceScenarioV1::R3MultiregionStreaming => {
-            methodology.measured_samples = 1_000;
-            methodology.notes = vec![
-                "four regions, 64 chunks and approximately 150% of the residency budget".to_owned(),
-                "worker permutations 1/2/8/16 require identical authoritative roots".to_owned(),
-            ];
-        }
-        PerformanceScenarioV1::R4_100Npc => {
-            methodology.warmup_samples = 1_000;
-            methodology.measured_samples = 10_000;
-            methodology.notes = vec![
-                "ADR-016 integrated 100-NPC workload at 30 Hz".to_owned(),
-                "all stage rows are exclusive; unowned time invalidates the run".to_owned(),
-            ];
-        }
-        PerformanceScenarioV1::R5Physics16 => {
-            methodology.measured_samples = 10_000;
-            methodology.notes = vec![
-                "16 avatars, physics at 120 Hz and motor at 60 Hz".to_owned(),
-                "fixed reduction order and authoritative replay parity are required".to_owned(),
-            ];
-        }
-    }
-    methodology
-}
-
-pub fn sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let mut value = String::with_capacity(64);
-    for byte in digest {
-        use std::fmt::Write as _;
-        let _ = write!(value, "{byte:02x}");
-    }
-    value
-}
-
-fn relative_change_basis_points(current: u64, baseline: u64) -> i64 {
-    if baseline == 0 {
-        return if current == 0 { 0 } else { i64::MAX };
-    }
-    let current = i128::from(current);
-    let baseline = i128::from(baseline);
-    let value = (current - baseline)
-        .saturating_mul(10_000)
-        .checked_div(baseline)
-        .unwrap_or(i128::from(i64::MAX));
-    i64::try_from(value).unwrap_or_else(|_| {
-        if value.is_negative() {
-            i64::MIN
-        } else {
-            i64::MAX
-        }
-    })
-}
-
-fn relative_verdict(
-    absolute: PerformanceVerdict,
-    change_basis_points: i64,
-    confidence_interval: [i64; 2],
-) -> PerformanceVerdict {
-    if absolute == PerformanceVerdict::Fail
-        || (change_basis_points >= 500 && confidence_interval[0] >= 500)
-    {
-        PerformanceVerdict::Fail
-    } else if change_basis_points >= 200 {
-        PerformanceVerdict::Warning
-    } else if absolute == PerformanceVerdict::Pass {
-        PerformanceVerdict::Pass
-    } else {
-        PerformanceVerdict::ReportOnly
-    }
-}
-
-fn bootstrap_change_interval(
-    current: &[u64],
-    baseline: &[u64],
-    iterations: usize,
-) -> Result<[i64; 2], String> {
-    if current.is_empty() || baseline.is_empty() || iterations == 0 {
-        return Err("bootstrap requires non-empty samples and iterations".to_owned());
-    }
-    let mut rng = XorShift64::new(0x4e45_5854_5045_5246);
-    let mut current_resample = vec![0_u64; current.len()];
-    let mut baseline_resample = vec![0_u64; baseline.len()];
-    let mut changes = Vec::with_capacity(iterations);
-    for _ in 0..iterations {
-        for sample in &mut current_resample {
-            *sample = current[rng.index(current.len())];
-        }
-        for sample in &mut baseline_resample {
-            *sample = baseline[rng.index(baseline.len())];
-        }
-        let current_p95 = nearest_rank_percentile(&current_resample, 95)?;
-        let baseline_p95 = nearest_rank_percentile(&baseline_resample, 95)?;
-        changes.push(relative_change_basis_points(current_p95, baseline_p95));
-    }
-    changes.sort_unstable();
-    Ok([
-        nearest_rank_fraction_i64(&changes, 25, 1_000)?,
-        nearest_rank_fraction_i64(&changes, 975, 1_000)?,
-    ])
-}
-
-fn nearest_rank_fraction_i64(
-    samples: &[i64],
-    numerator: usize,
-    denominator: usize,
-) -> Result<i64, String> {
-    if samples.is_empty() || numerator == 0 || numerator > denominator {
-        return Err("invalid signed nearest-rank fraction input".to_owned());
-    }
-    let rank_numerator = numerator
-        .checked_mul(samples.len())
-        .ok_or_else(|| "signed nearest-rank index overflow".to_owned())?;
-    let rank = rank_numerator.div_ceil(denominator);
-    Ok(samples[rank.saturating_sub(1)])
-}
-
-struct XorShift64 {
-    state: u64,
-}
-
-impl XorShift64 {
-    const fn new(seed: u64) -> Self {
-        Self { state: seed }
-    }
-
-    fn next(&mut self) -> u64 {
-        let mut value = self.state;
-        value ^= value << 13;
-        value ^= value >> 7;
-        value ^= value << 17;
-        self.state = value;
-        value
-    }
-
-    fn index(&mut self, length: usize) -> usize {
-        usize::try_from(self.next() % u64::try_from(length).unwrap_or(u64::MAX)).unwrap_or(0)
     }
 }

@@ -1,11 +1,12 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use xtask::performance::{PerformanceBaselineV1, PerformanceRunV1};
+use xtask::performance::{
+    PERFORMANCE_BASELINE_FILE_NAME, PERFORMANCE_BASELINE_TEMP_FILE_NAME,
+    PERFORMANCE_REPORT_FILE_NAME, PerformanceBaselineV2, PerformanceRunV2,
+};
 use xtask::report::{CommandReportV1, PerformanceDetailsV1};
 
-const PERFORMANCE_REPORT_FILE_NAME: &str = "performance-report-v1.json";
-const PERFORMANCE_BASELINE_FILE_NAME: &str = "performance-baseline-v1.json";
 const MAX_PERFORMANCE_REPORT_BYTES: u64 = 64 * 1024 * 1024;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -48,14 +49,14 @@ pub(crate) fn performance_baseline(
         .iter()
         .map(|path| read_performance_run(path))
         .collect::<Result<Vec<_>, _>>()?;
-    let baseline = PerformanceBaselineV1::from_runs(&runs).map_err(|diagnostics| {
+    let baseline = PerformanceBaselineV2::from_runs(&runs).map_err(|diagnostics| {
         format!(
             "performance calibration set is invalid: {}",
             diagnostics.join("; ")
         )
     })?;
     let bytes = serde_json::to_vec(&baseline)
-        .map_err(|error| format!("failed to serialize PerformanceBaselineV1: {error}"))?;
+        .map_err(|error| format!("failed to serialize PerformanceBaselineV2: {error}"))?;
     write_baseline(&output_directory, &bytes)?;
     println!(
         "{}",
@@ -143,7 +144,7 @@ fn discover_report_paths(runs_directory: &Path) -> Result<Vec<PathBuf>, String> 
         .collect()
 }
 
-fn read_performance_run(path: &Path) -> Result<PerformanceRunV1, String> {
+fn read_performance_run(path: &Path) -> Result<PerformanceRunV2, String> {
     let metadata = fs::symlink_metadata(path)
         .map_err(|error| format!("failed to inspect report {}: {error}", path.display()))?;
     if !metadata.file_type().is_file() || metadata.len() > MAX_PERFORMANCE_REPORT_BYTES {
@@ -162,10 +163,13 @@ fn read_performance_run(path: &Path) -> Result<PerformanceRunV1, String> {
             path.display()
         ));
     }
-    report
+    let run = report
         .details
         .run
-        .ok_or_else(|| format!("performance run is missing from report {}", path.display()))
+        .ok_or_else(|| format!("performance run is missing from report {}", path.display()))?;
+    run.validate_command_report_status(&report.status)
+        .map_err(|diagnostic| format!("{diagnostic} at {}", path.display()))?;
+    Ok(run)
 }
 
 fn write_baseline(output_directory: &Path, bytes: &[u8]) -> Result<(), String> {
@@ -176,7 +180,7 @@ fn write_baseline(output_directory: &Path, bytes: &[u8]) -> Result<(), String> {
         )
     })?;
     let final_path = output_directory.join(PERFORMANCE_BASELINE_FILE_NAME);
-    let temporary_path = output_directory.join(".performance-baseline-v1.json.tmp");
+    let temporary_path = output_directory.join(PERFORMANCE_BASELINE_TEMP_FILE_NAME);
     if final_path.exists() || temporary_path.exists() {
         return Err(format!(
             "performance baseline output already exists: {}",
@@ -200,6 +204,9 @@ fn write_baseline(output_directory: &Path, bytes: &[u8]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT_TEMP_REPORT: AtomicU64 = AtomicU64::new(0);
 
     #[test]
     fn baseline_cli_requires_each_path_once() {
@@ -220,5 +227,43 @@ mod tests {
             .is_err()
         );
         assert!(parse_arguments(std::iter::empty()).is_err());
+    }
+
+    #[test]
+    fn baseline_reader_rejects_outer_status_nested_verdict_mismatch() {
+        let sequence = NEXT_TEMP_REPORT.fetch_add(1, Ordering::Relaxed);
+        let directory = std::env::temp_dir().join(format!(
+            "nextengine-baseline-status-{}-{sequence}",
+            std::process::id()
+        ));
+        fs::create_dir(&directory).expect("create test directory");
+        let path = directory.join(PERFORMANCE_REPORT_FILE_NAME);
+        let mut run = PerformanceRunV2::empty(
+            xtask::performance::PerformanceScenarioV1::Smoke,
+            xtask::performance::PerformanceModeV1::Report,
+            "debug",
+        );
+        run.verdict = xtask::performance::PerformanceVerdict::ReportOnly;
+        let report = CommandReportV1::new(
+            "performance",
+            "NOT_RUN",
+            PerformanceDetailsV1 {
+                run: Some(run),
+                streaming: None,
+                agent_planning: None,
+                render_planning: None,
+                live_runtime: None,
+                production_worker: None,
+            },
+        );
+        fs::write(
+            &path,
+            serde_json::to_vec(&report).expect("serialize mismatched report"),
+        )
+        .expect("write report");
+
+        let error = read_performance_run(&path).expect_err("status mismatch must fail closed");
+        assert!(error.contains("PERF_COMMAND_STATUS_MISMATCH"));
+        fs::remove_dir_all(directory).expect("remove test directory");
     }
 }

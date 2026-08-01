@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use next_contracts::ids::{PersistentId, SchemaId};
 use next_contracts::platform::{
@@ -10,10 +11,11 @@ use next_contracts::platform::{
 use next_platform::{PlatformHost, PlatformHostError, ReferencePlatformHost};
 
 use crate::player_fixture::{prepare_game_frame_with_scratch, run_play_check_with_scratch};
-use crate::scratch::ScratchContext;
+use crate::scratch::{ScratchContext, ScratchDirectory};
 use crate::{GameCheckReport, PlayCheckError};
 
 const MAX_DESKTOP_FRAME_TIMING_SAMPLES: u32 = 65_536;
+static NEXT_DESKTOP_FRAME_TIMING_PREPARATION_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlatformCheckReport {
@@ -56,6 +58,27 @@ pub struct DesktopFrameTimingSmokeReport {
     pub device_allocation_count: u64,
 }
 
+pub struct PreparedDesktopFrameTimingWorkload {
+    preparation_id: u64,
+    timing_directory: crate::scratch::ScratchDirectory,
+    measured_frames: u32,
+    run_started: bool,
+    #[cfg(feature = "desktop-sdl-ash")]
+    adapter: Option<next_desktop_sdl_ash::PreparedDesktopRun>,
+}
+
+pub struct DesktopFrameTimingMeasurement {
+    preparation_id: u64,
+    #[cfg(feature = "desktop-sdl-ash")]
+    adapter_measurement: Option<
+        Result<
+            next_desktop_sdl_ash::DesktopRunMeasurement,
+            next_desktop_sdl_ash::DesktopAdapterError,
+        >,
+    >,
+    _private: (),
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PlatformCandidateStatus {
     Pass,
@@ -90,6 +113,17 @@ pub fn run_desktop_frame_timing_workload_in(
     measured_frames: u32,
     initial_extent: [u32; 2],
 ) -> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
+    let mut prepared =
+        prepare_desktop_frame_timing_workload_in(scratch_root, measured_frames, initial_extent)?;
+    let measurement = prepared.run_measured();
+    prepared.finish(measurement)
+}
+
+pub fn prepare_desktop_frame_timing_workload_in(
+    scratch_root: &Path,
+    measured_frames: u32,
+    initial_extent: [u32; 2],
+) -> Result<PreparedDesktopFrameTimingWorkload, PlatformCheckError> {
     if measured_frames == 0
         || measured_frames > MAX_DESKTOP_FRAME_TIMING_SAMPLES
         || initial_extent.contains(&0)
@@ -100,10 +134,77 @@ pub fn run_desktop_frame_timing_workload_in(
     let timing_directory = scratch
         .create_directory("desktop-frame-timing")
         .map_err(platform_scratch_error)?;
-    let timing_scratch = timing_directory.context();
-    let result =
-        run_desktop_frame_timing_smoke_scoped(&timing_scratch, measured_frames, initial_extent);
-    timing_directory.finish(result, platform_scratch_error)
+    #[cfg(feature = "desktop-sdl-ash")]
+    let adapter = match prepare_desktop_frame_timing_smoke_scoped(
+        &timing_directory.context(),
+        measured_frames,
+        initial_extent,
+    ) {
+        Ok(adapter) => adapter,
+        Err(error) => {
+            return Err(finish_failed_desktop_preparation(timing_directory, error));
+        }
+    };
+    let preparation_id = match NEXT_DESKTOP_FRAME_TIMING_PREPARATION_ID.fetch_update(
+        Ordering::Relaxed,
+        Ordering::Relaxed,
+        |value| value.checked_add(1),
+    ) {
+        Ok(preparation_id) => preparation_id,
+        Err(_) => {
+            #[cfg(feature = "desktop-sdl-ash")]
+            drop(adapter);
+            return Err(finish_failed_desktop_preparation(
+                timing_directory,
+                PlatformCheckError::DesktopSmokeMismatch,
+            ));
+        }
+    };
+    Ok(PreparedDesktopFrameTimingWorkload {
+        preparation_id,
+        timing_directory,
+        measured_frames,
+        run_started: false,
+        #[cfg(feature = "desktop-sdl-ash")]
+        adapter,
+    })
+}
+
+impl PreparedDesktopFrameTimingWorkload {
+    #[must_use]
+    pub fn measured_frames(&self) -> u32 {
+        self.measured_frames
+    }
+
+    pub fn run_measured(&mut self) -> Result<DesktopFrameTimingMeasurement, PlatformCheckError> {
+        if self.run_started {
+            return Err(PlatformCheckError::DesktopSmokeMismatch);
+        }
+        self.run_started = true;
+        run_prepared_desktop_frame_timing(self)
+    }
+
+    pub fn finish(
+        self,
+        measurement: Result<DesktopFrameTimingMeasurement, PlatformCheckError>,
+    ) -> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
+        #[cfg(feature = "desktop-sdl-ash")]
+        let adapter = self.adapter;
+        let result = measurement.and_then(|measurement| {
+            if !self.run_started || measurement.preparation_id != self.preparation_id {
+                return Err(PlatformCheckError::DesktopSmokeMismatch);
+            }
+            #[cfg(feature = "desktop-sdl-ash")]
+            return finish_desktop_frame_timing_measurement(
+                adapter,
+                measurement,
+                self.measured_frames,
+            );
+            #[cfg(not(feature = "desktop-sdl-ash"))]
+            finish_desktop_frame_timing_measurement(measurement, self.measured_frames)
+        });
+        self.timing_directory.finish(result, platform_scratch_error)
+    }
 }
 
 pub(crate) fn run_platform_check_with_scratch(
@@ -239,34 +340,96 @@ fn platform_scratch_error(error: std::io::Error) -> PlatformCheckError {
     ))
 }
 
+fn finish_failed_desktop_preparation(
+    directory: ScratchDirectory,
+    error: PlatformCheckError,
+) -> PlatformCheckError {
+    let primary = error.to_string();
+    match directory.finish(Err::<(), _>(error), |cleanup_error| {
+        platform_scratch_error(std::io::Error::new(
+            cleanup_error.kind(),
+            format!("{primary}; cleanup: {cleanup_error}"),
+        ))
+    }) {
+        Err(error) => error,
+        Ok(()) => unreachable!("an error result cannot become successful during cleanup"),
+    }
+}
+
 #[cfg(feature = "desktop-sdl-ash")]
-fn run_desktop_frame_timing_smoke_scoped(
+fn prepare_desktop_frame_timing_smoke_scoped(
     scratch: &ScratchContext,
     measured_frames: u32,
     initial_extent: [u32; 2],
-) -> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
+) -> Result<Option<next_desktop_sdl_ash::PreparedDesktopRun>, PlatformCheckError> {
+    let measured_frames_u64 = u64::from(measured_frames);
+    let maximum_event_loop_iterations = measured_frames_u64
+        .checked_mul(300)
+        .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
+    let options = next_desktop_sdl_ash::DesktopRunOptions {
+        initial_extent,
+        maximum_frames: Some(measured_frames_u64),
+        maximum_event_loop_iterations: Some(maximum_event_loop_iterations),
+        frame_profiling_sample_capacity: measured_frames,
+        ..next_desktop_sdl_ash::DesktopRunOptions::default()
+    };
     if !cfg!(all(
         target_arch = "x86_64",
         any(target_os = "windows", target_os = "linux")
     )) {
         return Ok(None);
     }
-    let measured_frames_u64 = u64::from(measured_frames);
-    let maximum_event_loop_iterations = measured_frames_u64
-        .checked_mul(300)
-        .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
-    let prepared = prepare_game_frame_with_scratch(scratch)?;
-    let report = next_desktop_sdl_ash::run_interactive(
-        &prepared.snapshot,
-        &prepared.render_content_catalog,
-        &next_desktop_sdl_ash::DesktopRunOptions {
-            initial_extent,
-            maximum_frames: Some(measured_frames_u64),
-            maximum_event_loop_iterations: Some(maximum_event_loop_iterations),
-            frame_profiling_sample_capacity: measured_frames,
-            ..next_desktop_sdl_ash::DesktopRunOptions::default()
-        },
+    let frame = prepare_game_frame_with_scratch(scratch)?;
+    let adapter = next_desktop_sdl_ash::prepare_interactive(
+        &frame.snapshot,
+        &frame.render_content_catalog,
+        &options,
     )?;
+    Ok(Some(adapter))
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+fn run_prepared_desktop_frame_timing(
+    prepared: &mut PreparedDesktopFrameTimingWorkload,
+) -> Result<DesktopFrameTimingMeasurement, PlatformCheckError> {
+    let Some(adapter) = prepared.adapter.as_mut() else {
+        return Ok(DesktopFrameTimingMeasurement {
+            preparation_id: prepared.preparation_id,
+            adapter_measurement: None,
+            _private: (),
+        });
+    };
+    Ok(DesktopFrameTimingMeasurement {
+        preparation_id: prepared.preparation_id,
+        adapter_measurement: Some(adapter.run_measured()),
+        _private: (),
+    })
+}
+
+#[cfg(not(feature = "desktop-sdl-ash"))]
+fn run_prepared_desktop_frame_timing(
+    prepared: &PreparedDesktopFrameTimingWorkload,
+) -> Result<DesktopFrameTimingMeasurement, PlatformCheckError> {
+    Ok(DesktopFrameTimingMeasurement {
+        preparation_id: prepared.preparation_id,
+        _private: (),
+    })
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+fn finish_desktop_frame_timing_measurement(
+    adapter: Option<next_desktop_sdl_ash::PreparedDesktopRun>,
+    measurement: DesktopFrameTimingMeasurement,
+    measured_frames: u32,
+) -> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
+    let report = match (adapter, measurement.adapter_measurement) {
+        (None, None) => return Ok(None),
+        (Some(adapter), Some(measurement)) => adapter.finish(measurement)?,
+        (None, Some(_)) | (Some(_), None) => {
+            return Err(PlatformCheckError::DesktopSmokeMismatch);
+        }
+    };
+    let measured_frames_u64 = u64::from(measured_frames);
     if report.rendered_frames != measured_frames_u64
         || report.frame_timings.len()
             != usize::try_from(measured_frames)
@@ -323,10 +486,9 @@ fn run_desktop_frame_timing_smoke_scoped(
 }
 
 #[cfg(not(feature = "desktop-sdl-ash"))]
-fn run_desktop_frame_timing_smoke_scoped(
-    _scratch: &ScratchContext,
+fn finish_desktop_frame_timing_measurement(
+    _measurement: DesktopFrameTimingMeasurement,
     _measured_frames: u32,
-    _initial_extent: [u32; 2],
 ) -> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
     Ok(None)
 }
@@ -342,17 +504,17 @@ fn run_desktop_candidate(
     )) {
         return Ok(PlatformCandidateStatus::NotRunOnDeveloperHost);
     }
-    let report = next_desktop_sdl_ash::run_interactive(
-        snapshot,
-        render_content_catalog,
-        &next_desktop_sdl_ash::DesktopRunOptions {
-            maximum_frames: Some(1),
-            maximum_event_loop_iterations: Some(600),
-            inject_device_loss_after_frames: Some(0),
-            inject_startup_lifecycle_probe: true,
-            ..next_desktop_sdl_ash::DesktopRunOptions::default()
-        },
-    )?;
+    let options = next_desktop_sdl_ash::DesktopRunOptions {
+        maximum_frames: Some(1),
+        maximum_event_loop_iterations: Some(600),
+        inject_device_loss_after_frames: Some(0),
+        inject_startup_lifecycle_probe: true,
+        ..next_desktop_sdl_ash::DesktopRunOptions::default()
+    };
+    let mut prepared =
+        next_desktop_sdl_ash::prepare_interactive(snapshot, render_content_catalog, &options)?;
+    let measurement = prepared.run_measured();
+    let report = prepared.finish(measurement)?;
     let drawable_extent = report
         .last_drawable_extent
         .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
@@ -490,8 +652,11 @@ impl From<next_desktop_sdl_ash::DesktopAdapterError> for PlatformCheckError {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "desktop-sdl-ash"))]
+    use super::{DesktopFrameTimingMeasurement, prepare_desktop_frame_timing_workload_in};
     use super::{
-        MAX_DESKTOP_FRAME_TIMING_SAMPLES, PlatformCheckError, run_desktop_frame_timing_workload_in,
+        MAX_DESKTOP_FRAME_TIMING_SAMPLES, PlatformCheckError, ScratchContext,
+        finish_failed_desktop_preparation, run_desktop_frame_timing_workload_in,
         run_platform_check,
     };
 
@@ -516,6 +681,81 @@ mod tests {
         }
         assert!(matches!(
             run_desktop_frame_timing_workload_in(&std::env::temp_dir(), 1, [0, 540]),
+            Err(PlatformCheckError::DesktopSmokeMismatch)
+        ));
+    }
+
+    #[test]
+    fn failed_desktop_preparation_preserves_primary_and_cleanup_diagnostics() {
+        let scratch = ScratchContext::new(&std::env::temp_dir()).expect("scratch context");
+        let directory = scratch
+            .create_directory("desktop-failed-preparation")
+            .expect("scratch directory");
+        let path = directory.path().to_path_buf();
+        std::fs::remove_dir(&path).expect("replace scratch directory");
+        std::fs::write(&path, b"not a directory").expect("replacement file");
+
+        let error =
+            finish_failed_desktop_preparation(directory, PlatformCheckError::DesktopSmokeMismatch);
+        let diagnostic = error.to_string();
+        std::fs::remove_file(path).expect("remove replacement file");
+
+        assert!(diagnostic.contains("desktop adapter did not render"));
+        assert!(diagnostic.contains("changed file type"));
+    }
+
+    #[cfg(not(feature = "desktop-sdl-ash"))]
+    #[test]
+    fn prepared_desktop_timing_workload_cleans_scratch_after_measurement_error() {
+        let prepared =
+            prepare_desktop_frame_timing_workload_in(&std::env::temp_dir(), 1, [960, 540])
+                .expect("prepared desktop timing workload");
+        assert_eq!(prepared.measured_frames(), 1);
+        let scratch_path = prepared.timing_directory.path().to_path_buf();
+        assert!(scratch_path.exists());
+        let result = prepared.finish(Err(PlatformCheckError::DesktopSmokeMismatch));
+        assert!(matches!(
+            result,
+            Err(PlatformCheckError::DesktopSmokeMismatch)
+        ));
+        assert!(!scratch_path.exists());
+    }
+
+    #[cfg(not(feature = "desktop-sdl-ash"))]
+    #[test]
+    fn prepared_desktop_timing_workload_runs_only_once() {
+        let mut prepared =
+            prepare_desktop_frame_timing_workload_in(&std::env::temp_dir(), 1, [960, 540])
+                .expect("prepared desktop timing workload");
+        let measurement = prepared.run_measured().expect("first measured run");
+        assert!(matches!(
+            prepared.run_measured(),
+            Err(PlatformCheckError::DesktopSmokeMismatch)
+        ));
+        prepared
+            .finish(Ok(measurement))
+            .expect("finish first measured run");
+    }
+
+    #[cfg(not(feature = "desktop-sdl-ash"))]
+    #[test]
+    fn desktop_timing_measurement_cannot_cross_preparations() {
+        let mut first =
+            prepare_desktop_frame_timing_workload_in(&std::env::temp_dir(), 1, [960, 540])
+                .expect("first prepared desktop timing workload");
+        let mut second =
+            prepare_desktop_frame_timing_workload_in(&std::env::temp_dir(), 1, [960, 540])
+                .expect("second prepared desktop timing workload");
+        first.run_started = true;
+        second.run_started = true;
+        let measurement = DesktopFrameTimingMeasurement {
+            preparation_id: first.preparation_id,
+            #[cfg(feature = "desktop-sdl-ash")]
+            adapter_measurement: None,
+            _private: (),
+        };
+        assert!(matches!(
+            second.finish(Ok(measurement)),
             Err(PlatformCheckError::DesktopSmokeMismatch)
         ));
     }

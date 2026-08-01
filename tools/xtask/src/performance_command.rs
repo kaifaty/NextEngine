@@ -1,11 +1,10 @@
 #![forbid(unsafe_code)]
 
-use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::Instant;
 
+use xtask::performance::performance_scenario_hash;
 use xtask::report::*;
 
 use crate::run_tool_session;
@@ -15,9 +14,12 @@ mod support;
 use support::*;
 
 const INTERACTIVE_FRAME_SOAK_FRAMES: u32 = 240;
+mod allocation_counter;
 mod production_worker;
+mod workloads;
 
 use production_worker::*;
+use workloads::*;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PerformanceArguments {
@@ -38,25 +40,6 @@ impl Default for PerformanceArguments {
             output: None,
         }
     }
-}
-
-fn performance_scenario_hash(scenario: xtask::performance::PerformanceScenarioV1) -> String {
-    let preimage: &[u8] = match scenario {
-        xtask::performance::PerformanceScenarioV1::Smoke => {
-            b"nextengine.performance.smoke.v2:two-chunk:five-object:one-agent:900-live-ticks"
-        }
-        xtask::performance::PerformanceScenarioV1::LongSessionSoak => {
-            b"nextengine.performance.long-session-soak.v3:3600-live-ticks:1200-tick-windows:held-movement:camera-every-15-ticks:driver-and-interactive-application:one-fixed-step-per-measured-pump"
-        }
-        xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak => {
-            b"nextengine.performance.interactive-frame-soak.v1:240-fifo-frames:1920x1080:reference-render-inputs:phase-timings:frame-plan-cache"
-        }
-        xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak => {
-            b"nextengine.performance.production-worker-soak.v1:240-fifo-main-callbacks:60hz:bounded-sync-queue:next-simulation-worker:fixed-step-application:shared-presentation-publication:main-snapshot-read"
-        }
-        _ => return xtask::performance::sha256_hex(scenario.as_str().as_bytes()),
-    };
-    xtask::performance::sha256_hex(preimage)
 }
 
 fn preserve_report_only_scenario_verdict(
@@ -170,7 +153,7 @@ fn performance_report_for(
     request: &PerformanceArguments,
     state_root: Option<&Path>,
 ) -> Result<CommandReportV1<PerformanceDetailsV1>, String> {
-    let mut run = xtask::performance::PerformanceRunV1::empty(
+    let mut run = xtask::performance::PerformanceRunV2::empty(
         request.scenario,
         request.mode,
         env!("NEXTENGINE_BUILD_PROFILE"),
@@ -203,7 +186,6 @@ fn performance_report_for(
             run, None, None, None, None, None,
         ));
     }
-    let resource_counters_before = xtask::performance::inspect_process_counters();
     let (tool_run, _) = run_tool_session("tools-performance", state_root)?;
     let profiling_enabled = match env::var("NEXTENGINE_PERFORMANCE_PROFILER") {
         Ok(value) if value.eq_ignore_ascii_case("on") || value == "1" => true,
@@ -229,108 +211,73 @@ fn performance_report_for(
     let profiler_control = profiling_enabled
         .then(|| run_profiler_control(request.scenario, state_root))
         .transpose()?;
+    let desktop_frame_timing_requested = profiling_enabled
+        || request.scenario == xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak;
+    let ScenarioWorkloads {
+        streaming,
+        agent,
+        render_planning,
+        live_runtime,
+        production_worker,
+        desktop_frame_timing,
+        resource_counters,
+    } = run_scenario_workloads(
+        request.scenario,
+        &run.scenario_hash,
+        state_root,
+        desktop_frame_timing_requested,
+        INTERACTIVE_FRAME_SOAK_FRAMES,
+    )?;
 
-    let started = Instant::now();
-    let streaming = match state_root {
-        Some(root) => next_verification::run_streaming_performance_check_in(root),
-        None => next_verification::run_streaming_performance_check(),
-    }
-    .map_err(|error| error.to_string())?;
     instrumentation_overhead_nanoseconds =
         instrumentation_overhead_nanoseconds.saturating_add(record_performance_span(
             profiling_enabled,
             &mut recorded_spans,
             &mut dropped_spans,
             "streaming-io",
-            started.elapsed(),
+            streaming.elapsed,
         ));
-
-    let started = Instant::now();
-    let agent = match state_root {
-        Some(root) => next_verification::run_agent_planning_performance_check_in(root),
-        None => next_verification::run_agent_planning_performance_check(),
-    }
-    .map_err(|error| error.to_string())?;
     instrumentation_overhead_nanoseconds =
         instrumentation_overhead_nanoseconds.saturating_add(record_performance_span(
             profiling_enabled,
             &mut recorded_spans,
             &mut dropped_spans,
             "agent-planning",
-            started.elapsed(),
+            agent.elapsed,
         ));
-
-    let started = Instant::now();
-    let render_planning = match state_root {
-        Some(root) => next_verification::run_render_frame_planning_performance_check_in(root),
-        None => next_verification::run_render_frame_planning_performance_check(),
-    }
-    .map_err(|error| error.to_string())?;
     instrumentation_overhead_nanoseconds =
         instrumentation_overhead_nanoseconds.saturating_add(record_performance_span(
             profiling_enabled,
             &mut recorded_spans,
             &mut dropped_spans,
             "render-extraction",
-            started.elapsed(),
+            render_planning.elapsed,
         ));
-
-    let started = Instant::now();
-    let live_runtime = run_live_runtime_scenario(request.scenario, state_root)
-        .map_err(|error| error.to_string())?;
     instrumentation_overhead_nanoseconds =
         instrumentation_overhead_nanoseconds.saturating_add(record_performance_span(
             profiling_enabled,
             &mut recorded_spans,
             &mut dropped_spans,
             "runtime-stages",
-            started.elapsed(),
+            live_runtime.elapsed,
         ));
+    if profiling_enabled && let Some(frame_timing) = &desktop_frame_timing {
+        instrumentation_overhead_nanoseconds =
+            instrumentation_overhead_nanoseconds.saturating_add(record_performance_span(
+                profiling_enabled,
+                &mut recorded_spans,
+                &mut dropped_spans,
+                "render-extraction",
+                frame_timing.elapsed,
+            ));
+    }
 
-    let production_worker =
-        if request.scenario == xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak {
-            Some(run_production_worker_scenario(state_root)?)
-        } else {
-            None
-        };
-
-    let desktop_frame_timing_requested = profiling_enabled
-        || request.scenario == xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak;
-    let desktop_frame_timing = if desktop_frame_timing_requested {
-        let started = Instant::now();
-        let report = match (request.scenario, state_root) {
-            (xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak, Some(root)) => {
-                next_verification::run_desktop_frame_timing_workload_in(
-                    root,
-                    INTERACTIVE_FRAME_SOAK_FRAMES,
-                    [1_920, 1_080],
-                )
-            }
-            (xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak, None) => {
-                next_verification::run_desktop_frame_timing_workload_in(
-                    &std::env::temp_dir(),
-                    INTERACTIVE_FRAME_SOAK_FRAMES,
-                    [1_920, 1_080],
-                )
-            }
-            (_, Some(root)) => next_verification::run_desktop_frame_timing_smoke_in(root),
-            (_, None) => next_verification::run_desktop_frame_timing_smoke(),
-        }
-        .map_err(|error| error.to_string())?;
-        if profiling_enabled {
-            instrumentation_overhead_nanoseconds = instrumentation_overhead_nanoseconds
-                .saturating_add(record_performance_span(
-                    profiling_enabled,
-                    &mut recorded_spans,
-                    &mut dropped_spans,
-                    "render-extraction",
-                    started.elapsed(),
-                ));
-        }
-        report
-    } else {
-        None
-    };
+    let streaming = streaming.report;
+    let agent = agent.report;
+    let render_planning = render_planning.report;
+    let live_runtime = live_runtime.report;
+    let production_worker = production_worker.map(|workload| workload.report);
+    let desktop_frame_timing = desktop_frame_timing.and_then(|workload| workload.report);
 
     let authoritative_hashes = scenario_authoritative_hashes(
         &streaming,
@@ -375,6 +322,8 @@ fn performance_report_for(
         .map_or((None, None), |(overhead, parity)| {
             (Some(overhead), Some(parity))
         });
+    let allocator_reserved_bytes = u64::try_from(next_process_allocation_counter::reserved_bytes())
+        .map_err(|error| error.to_string())?;
     run.instrumentation = xtask::performance::PerformanceInstrumentationV1 {
         enabled: profiling_enabled,
         max_threads: if production_worker.is_some() { 2 } else { 1 },
@@ -385,6 +334,7 @@ fn performance_report_for(
         )
         .map_err(|error| error.to_string())?
         .checked_add(worker_reserved_bytes)
+        .and_then(|bytes| bytes.checked_add(allocator_reserved_bytes))
         .ok_or_else(|| "performance instrumentation reservation overflow".to_owned())?,
         recorded_spans,
         dropped_spans,
@@ -392,7 +342,7 @@ fn performance_report_for(
         overhead_basis_points,
         authoritative_hash_parity,
     };
-    run.resource_counters = xtask::performance::finish_process_counters(&resource_counters_before);
+    run.resource_counters = resource_counters;
     if let Some(frame_timing) = &desktop_frame_timing {
         run.resource_counters.vulkan_timestamp_queries = frame_timing.timestamp_query_count;
         run.resource_counters.device_resident_bytes = Some(frame_timing.device_allocation_bytes);
@@ -740,6 +690,19 @@ fn performance_report_for(
         run.diagnostics.push(error);
         run.verdict = xtask::performance::PerformanceVerdict::NotRun;
     }
+    let counter_validation = if request.mode == xtask::performance::PerformanceModeV1::Gate {
+        run.resource_counters
+            .validate_for_hard_timing_for_run(run.scenario, &run.scenario_hash)
+    } else {
+        run.validate_allocator_counter()
+    };
+    if let Err(diagnostics) = counter_validation {
+        run.diagnostics.extend(diagnostics);
+        run.verdict = xtask::performance::PerformanceVerdict::NotRun;
+    }
+    if !run.diagnostics.is_empty() {
+        run.verdict = xtask::performance::PerformanceVerdict::NotRun;
+    }
 
     if run.verdict != xtask::performance::PerformanceVerdict::NotRun
         && let Some(path) = &request.baseline
@@ -801,78 +764,6 @@ fn performance_report_for(
     ))
 }
 
-struct ProfilerControl {
-    authoritative_hashes: BTreeMap<String, String>,
-}
-
-fn run_profiler_control(
-    scenario: xtask::performance::PerformanceScenarioV1,
-    state_root: Option<&Path>,
-) -> Result<ProfilerControl, String> {
-    let streaming = match state_root {
-        Some(root) => next_verification::run_streaming_performance_check_in(root),
-        None => next_verification::run_streaming_performance_check(),
-    }
-    .map_err(|error| error.to_string())?;
-    let agent = match state_root {
-        Some(root) => next_verification::run_agent_planning_performance_check_in(root),
-        None => next_verification::run_agent_planning_performance_check(),
-    }
-    .map_err(|error| error.to_string())?;
-    let render = match state_root {
-        Some(root) => next_verification::run_render_frame_planning_performance_check_in(root),
-        None => next_verification::run_render_frame_planning_performance_check(),
-    }
-    .map_err(|error| error.to_string())?;
-    let live =
-        run_live_runtime_scenario(scenario, state_root).map_err(|error| error.to_string())?;
-    let production_worker =
-        if scenario == xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak {
-            Some(run_production_worker_scenario(state_root)?)
-        } else {
-            None
-        };
-    Ok(ProfilerControl {
-        authoritative_hashes: scenario_authoritative_hashes(
-            &streaming,
-            &agent,
-            &render,
-            &live,
-            production_worker.as_ref(),
-        ),
-    })
-}
-
-fn run_live_runtime_scenario(
-    scenario: xtask::performance::PerformanceScenarioV1,
-    state_root: Option<&Path>,
-) -> Result<
-    next_verification::LiveRuntimePerformanceReport,
-    next_verification::LiveRuntimePerformanceError,
-> {
-    match (scenario, state_root) {
-        (
-            xtask::performance::PerformanceScenarioV1::Smoke
-            | xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak
-            | xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak,
-            Some(root),
-        ) => next_verification::run_live_runtime_performance_check_in(root),
-        (
-            xtask::performance::PerformanceScenarioV1::Smoke
-            | xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak
-            | xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak,
-            None,
-        ) => next_verification::run_live_runtime_performance_check(),
-        (xtask::performance::PerformanceScenarioV1::LongSessionSoak, Some(root)) => {
-            next_verification::run_live_runtime_long_session_performance_check_in(root)
-        }
-        (xtask::performance::PerformanceScenarioV1::LongSessionSoak, None) => {
-            next_verification::run_live_runtime_long_session_performance_check()
-        }
-        _ => unreachable!("unavailable representative scenarios return before execution"),
-    }
-}
-
 fn overhead_basis_points(overhead_nanoseconds: u128, workload_microseconds: u64) -> i64 {
     if workload_microseconds == 0 {
         return if overhead_nanoseconds == 0 {
@@ -888,22 +779,50 @@ fn overhead_basis_points(overhead_nanoseconds: u128, workload_microseconds: u64)
     i64::try_from(value).unwrap_or(i64::MAX)
 }
 
-fn populate_performance_identity(root: &Path, run: &mut xtask::performance::PerformanceRunV1) {
+fn populate_performance_identity(root: &Path, run: &mut xtask::performance::PerformanceRunV2) {
+    run.commit = env!("NEXTENGINE_BUILD_COMMIT").to_owned();
+    run.worktree_clean = match env!("NEXTENGINE_BUILD_WORKTREE_CLEAN") {
+        "true" => true,
+        "false" => false,
+        value => {
+            run.diagnostics.push(format!(
+                "PERF_BUILD_WORKTREE_STATE_INVALID: compile-time value {value:?}"
+            ));
+            false
+        }
+    };
+    run.target_triple = env!("NEXTENGINE_BUILD_TARGET_TRIPLE").to_owned();
+    match xtask::performance::decode_build_toolchain_hex(env!("NEXTENGINE_BUILD_TOOLCHAIN_HEX")) {
+        Ok(toolchain) => run.toolchain = toolchain,
+        Err(error) => run
+            .diagnostics
+            .push(format!("PERF_BUILD_TOOLCHAIN_INVALID: {error}")),
+    }
+    if let Err(diagnostics) = run.validate_build_provenance() {
+        run.diagnostics.extend(diagnostics);
+    }
+
     match Command::new("git")
         .args(["rev-parse", "HEAD"])
         .current_dir(root)
         .output()
     {
         Ok(output) if output.status.success() => {
-            run.commit = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+            let runtime_commit = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+            if runtime_commit != run.commit {
+                run.diagnostics.push(format!(
+                    "PERF_RUNTIME_COMMIT_MISMATCH: build={} runtime={runtime_commit}",
+                    run.commit
+                ));
+            }
         }
         Ok(output) => run.diagnostics.push(format!(
-            "PERF_COMMIT_UNAVAILABLE: {}",
+            "PERF_RUNTIME_COMMIT_UNAVAILABLE: {}",
             String::from_utf8_lossy(&output.stderr).trim()
         )),
         Err(error) => run
             .diagnostics
-            .push(format!("PERF_COMMIT_UNAVAILABLE: {error}")),
+            .push(format!("PERF_RUNTIME_COMMIT_UNAVAILABLE: {error}")),
     }
     match Command::new("git")
         .args(["status", "--porcelain"])
@@ -911,33 +830,43 @@ fn populate_performance_identity(root: &Path, run: &mut xtask::performance::Perf
         .output()
     {
         Ok(output) if output.status.success() => {
-            run.worktree_clean = output.stdout.is_empty();
+            let runtime_worktree_clean = output.stdout.is_empty();
+            if runtime_worktree_clean != run.worktree_clean {
+                run.diagnostics.push(format!(
+                    "PERF_RUNTIME_WORKTREE_STATE_MISMATCH: build={} runtime={runtime_worktree_clean}",
+                    run.worktree_clean
+                ));
+            }
         }
         Ok(output) => run.diagnostics.push(format!(
-            "PERF_WORKTREE_STATE_UNAVAILABLE: {}",
+            "PERF_RUNTIME_WORKTREE_STATE_UNAVAILABLE: {}",
             String::from_utf8_lossy(&output.stderr).trim()
         )),
         Err(error) => run
             .diagnostics
-            .push(format!("PERF_WORKTREE_STATE_UNAVAILABLE: {error}")),
+            .push(format!("PERF_RUNTIME_WORKTREE_STATE_UNAVAILABLE: {error}")),
     }
     match Command::new("rustc").arg("-vV").output() {
         Ok(output) if output.status.success() => {
-            run.toolchain = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+            let runtime_toolchain = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+            if runtime_toolchain != run.toolchain {
+                run.diagnostics
+                    .push("PERF_RUNTIME_TOOLCHAIN_MISMATCH".to_owned());
+            }
         }
         Ok(output) => run.diagnostics.push(format!(
-            "PERF_TOOLCHAIN_UNAVAILABLE: {}",
+            "PERF_RUNTIME_TOOLCHAIN_UNAVAILABLE: {}",
             String::from_utf8_lossy(&output.stderr).trim()
         )),
         Err(error) => run
             .diagnostics
-            .push(format!("PERF_TOOLCHAIN_UNAVAILABLE: {error}")),
+            .push(format!("PERF_RUNTIME_TOOLCHAIN_UNAVAILABLE: {error}")),
     }
 }
 
 fn populate_performance_host(
     request: &PerformanceArguments,
-    run: &mut xtask::performance::PerformanceRunV1,
+    run: &mut xtask::performance::PerformanceRunV2,
 ) {
     let target_id = request.target.as_deref().unwrap_or("observed-host-v1");
     match xtask::performance::inspect_current_host(target_id) {
@@ -951,7 +880,7 @@ fn populate_performance_host(
 
 fn validate_gate_prerequisites(
     request: &PerformanceArguments,
-    run: &mut xtask::performance::PerformanceRunV1,
+    run: &mut xtask::performance::PerformanceRunV2,
 ) {
     if run.build_profile != "release" {
         run.diagnostics
@@ -974,8 +903,11 @@ fn validate_gate_prerequisites(
             .push("PERF_TARGET_FINGERPRINT_UNAVAILABLE".to_owned()),
     }
     match &run.preflight {
-        Some(preflight) if preflight.ready => {}
-        Some(preflight) => run.diagnostics.extend(preflight.diagnostics.clone()),
+        Some(preflight) => {
+            if let Err(diagnostics) = preflight.validate_ready_evidence() {
+                run.diagnostics.extend(diagnostics);
+            }
+        }
         None => run
             .diagnostics
             .push("PERF_PREFLIGHT_UNAVAILABLE".to_owned()),

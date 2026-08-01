@@ -23,6 +23,7 @@ members = [
     "crates/script-luau",
     "crates/verification",
     "crates/world",
+    "tools/process-allocation-counter",
     "tools/xtask",
 ]
 resolver = "3"
@@ -44,6 +45,7 @@ next_mechanics = { path = "crates/mechanics" }
 next_player = { path = "crates/player" }
 next_platform = { path = "crates/platform" }
 next_plugin_host = { path = "crates/plugin-host" }
+next_process_allocation_counter = { path = "tools/process-allocation-counter" }
 next_presentation = { path = "crates/presentation" }
 next_physics_api = { path = "crates/physics-api" }
 next_physics_physx = { path = "crates/physics-physx" }
@@ -78,6 +80,9 @@ unimplemented = "deny"
 
 [workspace.metadata.nextengine.ffi]
 allowed_crates = ["next_desktop_sdl_ash", "next_physics_physx_ffi"]
+
+[workspace.metadata.nextengine.unsafe]
+allowed_crates = ["next_process_allocation_counter"]
 
 [profile.profiling]
 inherits = "release"

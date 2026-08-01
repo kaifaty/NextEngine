@@ -318,6 +318,9 @@ package-qualified features `xtask/desktop-sdl-ash`,
 Opt-in Thin LTO/PGO не включены в default `release`. Воспроизводимый
 report-only workflow, обязательные R2–R5 prerequisites и fallback описаны в
 [docs/development/performance-codegen.md](docs/development/performance-codegen.md).
+Там же отдельно описан one-shot allocator-counter admission: pinned Windows
+source/IR/ASM/backend proof и candidate-7 не являются Thin LTO/PGO promotion;
+неполный proof или failed overhead оставляет metric `NOT_RUN`.
 
 На native Windows/Linux target после зелёной matrix собирается атомарный
 distribution directory с `game`, `headless`, exact cooked project,

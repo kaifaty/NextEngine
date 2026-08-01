@@ -82,7 +82,7 @@ fn performance_cli_accepts_the_report_only_production_worker_soak() {
     assert_eq!(
         performance_scenario_hash(request.scenario),
         xtask::performance::sha256_hex(
-            b"nextengine.performance.production-worker-soak.v1:240-fifo-main-callbacks:60hz:bounded-sync-queue:next-simulation-worker:fixed-step-application:shared-presentation-publication:main-snapshot-read"
+            b"nextengine.performance.production-worker-soak.v2:240-fifo-main-callbacks:60hz:bounded-sync-queue:next-simulation-worker:fixed-step-application:shared-presentation-publication:main-snapshot-read:allocator-window=production-worker-diagnostic-only"
         )
     );
 }
@@ -113,7 +113,7 @@ fn production_worker_details_are_versioned_and_round_trip_strictly() {
         command_identity_index_root: "c".repeat(64),
         command_ledger_hash: "d".repeat(64),
     };
-    let run = xtask::performance::PerformanceRunV1::empty(
+    let run = xtask::performance::PerformanceRunV2::empty(
         xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak,
         xtask::performance::PerformanceModeV1::Report,
         "release",
@@ -171,5 +171,42 @@ fn diagnostic_baseline_comparison_cannot_promote_report_only_to_a_gate() {
         Some(
             "PERF_PRODUCTION_WORKER_SOAK_REPORT_ONLY: the production worker soak is diagnostic and cannot gate",
         ),
+    );
+}
+
+#[test]
+fn scenario_dispatch_keeps_large_workload_branches_out_of_line() {
+    const SOURCE: &str = include_str!("workloads.rs");
+    const HELPERS: [&str; 4] = [
+        "run_smoke_scenario_workloads",
+        "run_long_session_scenario_workloads",
+        "run_production_worker_scenario_workloads",
+        "run_interactive_frame_scenario_workloads",
+    ];
+
+    let dispatcher = SOURCE
+        .split_once("pub(super) fn run_scenario_workloads(")
+        .and_then(|(_, remainder)| remainder.split_once("#[inline(never)]"))
+        .map(|(dispatcher, _)| dispatcher)
+        .expect("thin scenario dispatcher source");
+
+    for helper in HELPERS {
+        assert!(
+            dispatcher.contains(helper),
+            "dispatcher must delegate to {helper}"
+        );
+        let declaration = format!("fn {helper}");
+        let helper_prefix = SOURCE
+            .split_once(&declaration)
+            .map(|(prefix, _)| prefix)
+            .expect("scenario helper declaration");
+        assert!(
+            helper_prefix.trim_end().ends_with("#[inline(never)]"),
+            "{helper} must remain an out-of-line stack boundary"
+        );
+    }
+    assert!(
+        !dispatcher.contains("ScenarioResourceWindow::begin"),
+        "measurement owners must not return to the shared dispatcher frame"
     );
 }

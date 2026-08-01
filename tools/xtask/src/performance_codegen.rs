@@ -5,8 +5,9 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::performance::{
-    PERFORMANCE_RUN_SCHEMA_VERSION, PerformanceModeV1, PerformanceRunV1, PerformanceScenarioV1,
-    PerformanceVerdict, nearest_rank_percentile, validate_thoth_fingerprint,
+    PERFORMANCE_METHODOLOGY_VERSION, PERFORMANCE_RUN_SCHEMA_VERSION, PerformanceModeV1,
+    PerformanceRunV2, PerformanceScenarioV1, PerformanceVerdict, nearest_rank_percentile,
+    validate_thoth_fingerprint,
 };
 
 mod statistics;
@@ -205,7 +206,7 @@ impl CodegenRunProvenanceV1 {
 #[derive(Clone, Debug)]
 pub struct CodegenScenarioRunSetV1 {
     pub scenario: PerformanceScenarioV1,
-    pub runs: Vec<PerformanceRunV1>,
+    pub runs: Vec<PerformanceRunV2>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -405,7 +406,7 @@ pub fn compare_codegen_run_sets(
     })
 }
 
-fn first_run(sets: &[CodegenScenarioRunSetV1]) -> Option<&PerformanceRunV1> {
+fn first_run(sets: &[CodegenScenarioRunSetV1]) -> Option<&PerformanceRunV2> {
     sets.iter().find_map(|set| set.runs.first())
 }
 
@@ -450,7 +451,7 @@ fn validate_run_group(
     set: &CodegenScenarioRunSetV1,
     expected_profile: &str,
     side: &str,
-    global_anchor: Option<&PerformanceRunV1>,
+    global_anchor: Option<&PerformanceRunV2>,
     diagnostics: &mut Vec<String>,
 ) {
     let prefix = format!("{side}:{}", set.scenario.as_str());
@@ -505,7 +506,10 @@ fn validate_run_group(
         if let Err(error) = run.instrumentation.validate() {
             diagnostics.push(format!("CODEGEN_PROFILER_INVALID: {run_prefix}: {error}"));
         }
-        if let Err(errors) = run.resource_counters.validate_for_hard_timing() {
+        if let Err(errors) = run
+            .resource_counters
+            .validate_for_hard_timing_for_run(run.scenario, &run.scenario_hash)
+        {
             diagnostics.extend(
                 errors
                     .into_iter()
@@ -518,6 +522,7 @@ fn validate_run_group(
             || run.content_hash != group_anchor.content_hash
             || run.target_fingerprint != group_anchor.target_fingerprint
             || run.methodology != group_anchor.methodology
+            || run.methodology.methodology_version != PERFORMANCE_METHODOLOGY_VERSION
             || run.authoritative_hashes != group_anchor.authoritative_hashes
         {
             diagnostics.push(format!("CODEGEN_RUN_SET_INCOMPATIBLE: {run_prefix}"));
@@ -647,7 +652,7 @@ fn combined_bootstrap_scenario(
 }
 
 fn metric_run_p95s(
-    runs: &[PerformanceRunV1],
+    runs: &[PerformanceRunV2],
 ) -> Result<BTreeMap<String, (String, Vec<u64>)>, String> {
     let mut metrics = BTreeMap::<String, (String, Vec<u64>)>::new();
     for run in runs {
@@ -960,5 +965,23 @@ LLVM version: 21.1.8"
         );
         sidecar.performance_report_sha256 = "not-a-hash".to_owned();
         assert!(sidecar.validate_for(&build).is_err());
+    }
+
+    #[test]
+    fn codegen_run_validation_requires_allocator_evidence_bound_to_the_run() {
+        let set = CodegenScenarioRunSetV1 {
+            scenario: PerformanceScenarioV1::R2AlphaRender,
+            runs: vec![PerformanceRunV2::empty(
+                PerformanceScenarioV1::R2AlphaRender,
+                PerformanceModeV1::Report,
+                "release",
+            )],
+        };
+        let mut diagnostics = Vec::new();
+        validate_run_group(&set, "release", "baseline", None, &mut diagnostics);
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.contains("CODEGEN_COUNTER_INVALID")
+                && diagnostic.contains("PERF_ALLOCATOR_COUNTER_UNAVAILABLE")
+        }));
     }
 }

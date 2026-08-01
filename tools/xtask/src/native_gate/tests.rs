@@ -5,6 +5,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use super::*;
 
 mod comparison_roots;
+mod package_validation;
+mod performance_fixture;
+
+use performance_fixture::performance_run_value;
 
 static NEXT_TEMP_BUNDLE: AtomicU64 = AtomicU64::new(0);
 
@@ -208,6 +212,25 @@ pub(super) fn materialize_check_reports(
     }
 }
 
+fn replace_performance_check_report(
+    bundle: &TempBundle,
+    report: &mut NativeGateTargetReportV1,
+    value: &serde_json::Value,
+) {
+    let index = report
+        .checks
+        .iter()
+        .position(|record| record.check == NativeGateCheckNameV1::Performance)
+        .expect("performance record");
+    let bytes = serde_json::to_vec(value).expect("serialize performance report");
+    let path = report.checks[index]
+        .report_path
+        .as_ref()
+        .expect("performance report path");
+    fs::write(bundle.root.join(path), &bytes).expect("replace performance report");
+    report.checks[index].report_sha256 = Some(sha256_hex(&bytes));
+}
+
 fn check_report_value(
     check: NativeGateCheckNameV1,
     report: &NativeGateTargetReportV1,
@@ -317,6 +340,14 @@ fn check_report_value(
             "status": "PASS",
             "command": "performance",
             "details": {
+                "run": performance_run_value(
+                    &report.git_commit_sha,
+                    &report.target_triple,
+                    &roots.streaming_performance_hash,
+                    &roots.agent_performance_hash,
+                    &hash('f'),
+                    &hash('0'),
+                ),
                 "streaming": {
                     "cycles": 1,
                     "staged_asset_references": 1,
@@ -328,6 +359,22 @@ fn check_report_value(
                     "cycles": 1,
                     "elapsed_microseconds": 1,
                     "final_plan_hash": roots.agent_performance_hash,
+                },
+                "render_planning": {
+                    "cycles": 1,
+                    "elapsed_microseconds": 1,
+                    "visible_object_count": 1,
+                    "indexed_draw_count": 1,
+                    "fallback_material_draw_count": 0,
+                    "frame_plan_hash": hash('f'),
+                },
+                "live_runtime": {
+                    "ticks": 1,
+                    "command_body_count": 1,
+                    "elapsed_microseconds": 1,
+                    "window_microseconds": [1, 1, 1],
+                    "checkpoint_microseconds": [1, 1, 1],
+                    "final_state_root": hash('0'),
                 }
             }
         }),
@@ -844,43 +891,102 @@ fn bundle_validation_rejects_missing_or_tampered_check_reports() {
 }
 
 #[test]
-fn bundle_validation_rejects_tampered_package_before_accepting_pass_report() {
+fn bundle_validation_rejects_performance_report_without_v2_run() {
     let bundle = TempBundle::new();
-    let mut report = report(WINDOWS_TARGET_TRIPLE);
+    let mut report = controlled_fail_report(WINDOWS_TARGET_TRIPLE);
     materialize_check_reports(&bundle, &mut report);
-    let package_root = bundle.root.join("package");
-    fs::create_dir(&package_root).expect("package directory");
-    fs::write(
-        package_root.join(crate::package::PACKAGE_MANIFEST_FILE),
-        b"{\"schema_version\":2,\"tampered\":true}",
-    )
-    .expect("tampered package manifest");
+    let index = report
+        .checks
+        .iter()
+        .position(|record| record.check == NativeGateCheckNameV1::Performance)
+        .expect("performance record");
+    let mut value = check_report_value(NativeGateCheckNameV1::Performance, &report);
+    value["details"]
+        .as_object_mut()
+        .expect("performance details")
+        .remove("run");
+    let bytes = serde_json::to_vec(&value).expect("serialize legacy performance report");
+    let relative_path = report.checks[index]
+        .report_path
+        .as_ref()
+        .expect("performance report path");
+    fs::write(bundle.root.join(relative_path), &bytes).expect("write legacy performance report");
+    report.checks[index].report_sha256 = Some(sha256_hex(&bytes));
     write_target_report(&bundle, &report);
 
-    let error =
-        validate_native_gate_target_bundle(&bundle.report_path()).expect_err("tampered package");
-    assert_eq!(error.code(), NATIVE_GATE_PACKAGE_INVALID);
+    let error = validate_native_gate_target_bundle(&bundle.report_path())
+        .expect_err("missing V2 performance run");
+    assert_eq!(error.code(), NATIVE_GATE_REPORT_INVALID);
+    assert!(error.detail().contains("performance V2 run is missing"));
 }
 
 #[test]
-fn package_manifest_and_target_summary_must_match_exactly() {
-    let report = report(WINDOWS_TARGET_TRIPLE);
-    let summary = report.package.as_ref().expect("summary");
-    let manifest = package_manifest_from_summary(&report);
-    validate_package_manifest_summary(&report, summary, &manifest)
-        .expect("matching manifest and summary");
+fn bundle_validation_rejects_wrong_performance_run_mode() {
+    let bundle = TempBundle::new();
+    let mut report = controlled_fail_report(WINDOWS_TARGET_TRIPLE);
+    materialize_check_reports(&bundle, &mut report);
+    let index = 5;
+    let mut value = check_report_value(NativeGateCheckNameV1::Performance, &report);
+    value["details"]["run"]["mode"] = serde_json::Value::String("gate".to_owned());
+    let bytes = serde_json::to_vec(&value).expect("serialize wrong-mode performance report");
+    let path = report.checks[index]
+        .report_path
+        .as_ref()
+        .expect("performance report path");
+    fs::write(bundle.root.join(path), &bytes).expect("write wrong-mode performance report");
+    report.checks[index].report_sha256 = Some(sha256_hex(&bytes));
 
-    let mut tampered_manifest = manifest.clone();
-    tampered_manifest.binaries.game.binary_sha256 = hash('f');
-    let error = validate_package_manifest_summary(&report, summary, &tampered_manifest)
-        .expect_err("tampered binary summary");
-    assert_eq!(error.code(), NATIVE_GATE_PACKAGE_INVALID);
-    assert!(error.detail().contains("game.binary_sha256"));
+    let error = check_reports::validate_check_reports(&bundle.root, &report)
+        .expect_err("wrong performance mode");
+    assert!(error.detail().contains("clean Smoke/Report/REPORT_ONLY"));
+}
 
-    let mut tampered_summary = summary.clone();
-    tampered_summary.schema_registry_sha256 = hash('f');
-    let error = validate_package_manifest_summary(&report, &tampered_summary, &manifest)
-        .expect_err("tampered roots summary");
-    assert_eq!(error.code(), NATIVE_GATE_PACKAGE_INVALID);
-    assert!(error.detail().contains("schema_registry_sha256"));
+#[test]
+fn bundle_validation_binds_performance_build_target_and_toolchain() {
+    let bundle = TempBundle::new();
+    let mut report = controlled_fail_report(WINDOWS_TARGET_TRIPLE);
+    materialize_check_reports(&bundle, &mut report);
+    let mut value = check_report_value(NativeGateCheckNameV1::Performance, &report);
+    value["details"]["run"]["target_triple"] =
+        serde_json::Value::String(LINUX_TARGET_TRIPLE.to_owned());
+    let toolchain = value["details"]["run"]["toolchain"]
+        .as_str()
+        .expect("toolchain")
+        .replace(WINDOWS_TARGET_TRIPLE, LINUX_TARGET_TRIPLE);
+    value["details"]["run"]["toolchain"] = serde_json::Value::String(toolchain);
+    replace_performance_check_report(&bundle, &mut report, &value);
+
+    let error = check_reports::validate_check_reports(&bundle.root, &report)
+        .expect_err("run target must bind to the native bundle");
+    assert!(error.detail().contains("performance target triple"));
+}
+
+#[test]
+fn bundle_validation_rejects_missing_performance_environment_evidence() {
+    for field in ["target_fingerprint", "preflight"] {
+        let bundle = TempBundle::new();
+        let mut report = controlled_fail_report(WINDOWS_TARGET_TRIPLE);
+        materialize_check_reports(&bundle, &mut report);
+        let mut value = check_report_value(NativeGateCheckNameV1::Performance, &report);
+        value["details"]["run"][field] = serde_json::Value::Null;
+        replace_performance_check_report(&bundle, &mut report, &value);
+
+        let error = check_reports::validate_check_reports(&bundle.root, &report)
+            .expect_err("environment evidence is mandatory");
+        assert!(error.detail().contains("is missing"));
+    }
+}
+
+#[test]
+fn bundle_validation_rejects_performance_diagnostics() {
+    let bundle = TempBundle::new();
+    let mut report = controlled_fail_report(WINDOWS_TARGET_TRIPLE);
+    materialize_check_reports(&bundle, &mut report);
+    let mut value = check_report_value(NativeGateCheckNameV1::Performance, &report);
+    value["details"]["run"]["diagnostics"] = serde_json::json!(["PERF_RUNTIME_TOOLCHAIN_MISMATCH"]);
+    replace_performance_check_report(&bundle, &mut report, &value);
+
+    let error = check_reports::validate_check_reports(&bundle.root, &report)
+        .expect_err("native evidence cannot carry diagnostics");
+    assert!(error.detail().contains("diagnostics must be empty"));
 }

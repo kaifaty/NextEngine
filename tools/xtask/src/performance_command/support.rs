@@ -46,7 +46,7 @@ pub(super) fn microseconds_u64(value: u128) -> Result<u64, String> {
 
 pub(super) fn read_performance_baseline(
     path: &Path,
-) -> Result<xtask::performance::PerformanceBaselineV1, String> {
+) -> Result<xtask::performance::PerformanceBaselineV2, String> {
     const MAX_BASELINE_BYTES: u64 = 64 * 1024 * 1024;
     let metadata = fs::metadata(path)
         .map_err(|error| format!("failed to inspect baseline {}: {error}", path.display()))?;
@@ -58,24 +58,18 @@ pub(super) fn read_performance_baseline(
     let bytes = fs::read(path)
         .map_err(|error| format!("failed to read baseline {}: {error}", path.display()))?;
     serde_json::from_slice(&bytes)
-        .map_err(|error| format!("invalid PerformanceBaselineV1: {error}"))
+        .map_err(|error| format!("invalid PerformanceBaselineV2: {error}"))
 }
 
 pub(super) fn performance_command_report(
-    run: xtask::performance::PerformanceRunV1,
+    run: xtask::performance::PerformanceRunV2,
     streaming: Option<StreamingPerformanceDetailsV1>,
     agent_planning: Option<AgentPerformanceDetailsV1>,
     render_planning: Option<RenderPlanningPerformanceDetailsV1>,
     live_runtime: Option<LiveRuntimePerformanceDetailsV1>,
     production_worker: Option<ProductionWorkerPerformanceDetailsV1>,
 ) -> CommandReportV1<PerformanceDetailsV1> {
-    let status = match run.verdict {
-        xtask::performance::PerformanceVerdict::Pass => "PASS",
-        xtask::performance::PerformanceVerdict::Fail => "FAIL",
-        xtask::performance::PerformanceVerdict::Warning => "WARNING",
-        xtask::performance::PerformanceVerdict::ReportOnly => "PASS",
-        xtask::performance::PerformanceVerdict::NotRun => "NOT_RUN",
-    };
+    let status = run.verdict.command_report_status();
     CommandReportV1::new(
         "performance",
         status,
@@ -97,8 +91,8 @@ pub(super) fn write_performance_report(output: &Path, bytes: &[u8]) -> Result<()
             output.display()
         )
     })?;
-    let final_path = output.join("performance-report-v1.json");
-    let temporary_path = output.join(".performance-report-v1.json.tmp");
+    let final_path = output.join(xtask::performance::PERFORMANCE_REPORT_FILE_NAME);
+    let temporary_path = output.join(xtask::performance::PERFORMANCE_REPORT_TEMP_FILE_NAME);
     if final_path.exists() || temporary_path.exists() {
         return Err(format!(
             "performance output already exists: {}",
