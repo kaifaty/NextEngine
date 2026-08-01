@@ -4,14 +4,18 @@
 |---|---|
 | ID | ADR-040 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.1 |
 | Дата решения | 2026-08-01 |
 | Последняя проверка | 2026-08-01 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-039](039-tooling-only-process-wide-system-global-allocator-measurement.md) |
 | Заменяет | Узко заменяет в [ADR-039](039-tooling-only-process-wide-system-global-allocator-measurement.md) обязательный per-call checked-CAS/in-flight protocol и запрет любого TLS state в callback. Crate/dependency boundary, `System` delegation, exact gross counting semantics, report schema/scope, shipping prohibition, unsafe scope, 3%/64 MiB limits и fail-closed fallback ADR-039 остаются Accepted. |
-| Заменён | не заменён |
+| Заменён | Owner-thread active callback/admission и close clauses узко заменены [ADR-041](041-owner-thread-quiescent-global-allocator-measurement.md) после retained enabled overhead `+15.64%`. Для всех foreign threads fixed-slot registration, один `SeqCst` admission RMW, identity postcheck и close handshake этого ADR остаются Accepted. |
 
 ## Контекст и измеренное опровержение
+
+> Актуальный owner-thread fast path определяется ADR-041. Описанный ниже
+> per-call slot protocol остаётся обязательным для foreign threads и evidence
+> context исходного owner implementation.
 
 Первая реализация ADR-039 сохранила один inactive state load и для каждого
 active allocation делала checked-CAS admission, повторную exact-window
@@ -33,6 +37,17 @@ root-parity и 64 MiB checks, но не прошла обязательный ov
 RMW на миллионы allocator calls являются причиной, а увеличение `3%` budget,
 уменьшение kernel или выбор удачного run запрещены. До новой реализации и её
 единственного честного candidate check allocator metric остаётся unavailable.
+
+Реализация этого ADR сохранила exact counts/roots, прошла resource и pinned
+Windows codegen gates, но retained candidate-3 снова нарушил overhead limit:
+`System 1 517 036 100 ns`, inactive `1 534 132 200 ns` (`+1.12%`, `PASS`),
+enabled `1 754 392 600 ns` (`+15.64%`, `FAIL`), reserved state `557 096 B`.
+Focused diagnostic насчитал `15 253 608` successful counted calls, а release
+codegen доказал один locked slot RMW на каждый active call, включая `dealloc`.
+Aggregate enabled delta не изолирует стоимость RMW от TLS/branches/`System` и
+counter stores. ADR-041 проверяет сформулированную из этих двух evidence
+гипотезу, исключая RMW только для same-thread measurement owner; foreign proof
+ниже не меняется.
 
 ## Решение
 
