@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 2.5 |
+| Версия | 2.6 |
 | Последняя проверка | 2026-08-01 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-039](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md), [ADR-040](adr/040-fixed-tls-sharded-global-allocator-measurement.md), [ADR-041](adr/041-owner-thread-quiescent-global-allocator-measurement.md) |
-| Заменяет | SPEC-09 2.4 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-039](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md), [ADR-040](adr/040-fixed-tls-sharded-global-allocator-measurement.md), [ADR-041](adr/041-owner-thread-quiescent-global-allocator-measurement.md), [ADR-042](adr/042-unobserved-deallocation-system-pass-through.md) |
+| Заменяет | SPEC-09 2.5 |
 
 ## Technical authority boundary
 
@@ -84,7 +84,7 @@ product correctness:
 | `next capture render --input <manifest> --out <dir>` | Run the displayless `capture-worker` for screenshots, video or audio from explicit replay/presentation inputs. |
 | `next profile run <command> --out <dir>` | Enable bounded CPU/GPU/platform profiling and write a local report. |
 | `cargo run --release -p xtask -- performance --scenario <id> --mode report\|gate [--target ref-win-thoth-v1] [--baseline <file>] [--output <dir>]` | Run repository-owned versioned performance report; incompatible host/baseline/workload returns `NOT_RUN`. |
-| `cargo run --release -p xtask -- performance-baseline --runs <ten-run-dir> --output <dir>` | Strictly validate ten clean compatible THOTH reports and atomically publish one `PerformanceBaselineV1`; never overwrite an existing baseline. |
+| `cargo run --release -p xtask -- performance-baseline --runs <ten-run-dir> --output <dir>` | Strictly validate ten clean compatible THOTH reports and atomically publish one `PerformanceBaselineV2`; never overwrite an existing baseline. |
 | `next inspect run <run-root>` | Open an optional developer run record and its referenced logs/traces/media. |
 
 Capture, screenshots and profiling are opt-in. Missing GPU, encoder or external
@@ -179,9 +179,12 @@ Profiling off/on MUST produce identical accepted command and authoritative
 state hashes. External profilers connect only through private platform
 adapters.
 
-Performance tooling serializes `PerformanceRunV1`, `PerformanceMetricV1`,
-`PerformanceBaselineV1` and `PerformanceVerdict` under ADR-036. Эти schemas
-принадлежат tooling и не добавляются в `crates/contracts`. Raw samples
+Performance tooling serializes `PerformanceRunV2`,
+`PerformanceResourceCountersV2`, `PerformanceMetricV1`,
+`PerformanceBaselineV2` and `PerformanceVerdict` under ADR-036. Эти schemas
+принадлежат tooling и не добавляются в `crates/contracts`.
+`PerformanceMethodologyV1` сохраняет прежний field shape, но V2 run требует
+значение `nextengine-performance-v2`. Raw samples
 сохраняются вместе с nearest-rank p50/p95/p99; outliers не удаляются.
 Relative comparison хранится fixed-point basis points и deterministic
 bootstrap 95% interval.
@@ -204,25 +207,29 @@ Overflow or an uncollected query increments a dropped-sample counter. Device
 residency reporting uses the conservative sum of engine-owned bound Vulkan
 allocations and explicitly excludes driver-owned swapchain storage. Это
 presentation/telemetry data и не входит в gameplay authority. Глобальные host
-ADR-039/ADR-040/ADR-041 разрешают будущий exact host allocator counter только как отдельный
+ADR-039/ADR-040/ADR-041/ADR-042 разрешают будущий exact host allocator counter только как отдельный
 internal `tools/process-allocation-counter` с единственным reverse dependency
 `xtask`, process-wide runtime-enabled scenario window и тем же
 `std::alloc::System`. `game`, `headless` и shipping graph его не линкуют.
 Успешные `alloc`, `alloc_zeroed` и `realloc` calls хранят отдельные exact
-bytes/counts; aggregate является checked gross sum, а `dealloc` ничего не
-вычитает. Scope, PID и window identity входят в versioned report. Это не live
-heap и не peak RSS. До реализации boundary, parity/overhead checks и versioned
-report update allocator fields остаются unavailable; approximate
+bytes/counts; aggregate является checked gross sum. Unobserved `dealloc`
+безусловно делегируется ровно одному matching `System::dealloc`, ничего не
+вычитает и не участвует в measurement state/TLS/slot/fault/close protocol.
+Scope, PID и window identity входят в versioned report. Это не live
+heap и не peak RSS. До реализации ADR-042 и полного parity/codegen/overhead
+PASS allocator fields остаются unavailable; approximate
 process-private memory их не подменяет, а required hard scenario возвращает
 `NOT_RUN`. Первый global per-call in-flight implementation сохранил exact roots
 и прошёл inactive overhead, но enabled median `+15.95%` нарушил `3%`; поэтому
 ADR-040 заменил hot admission protocol фиксированными const-TLS per-thread
 slots, одним owned-slot SeqCst RMW на call и close-side coherence handshake.
 Эта exact implementation прошла inactive budget, но retained enabled run
-`+15.64%` снова нарушил `3%`. ADR-041 поэтому оставляет ADR-040 неизменным для
-foreign threads, а same-thread measurement owner использует exact const-TLS
-window cookie/counters без per-call RMW. До implementation и нового exact
-overhead PASS metric остаётся unavailable.
+`+15.64%` снова нарушил `3%`. ADR-041 оставил ADR-040 для foreign counted calls,
+а same-thread measurement owner перевёл на exact const-TLS window
+cookie/counters без per-call RMW. Реализация снизила enabled overhead до
+`+5.88%`, но всё ещё не прошла `3%`; ADR-042 поэтому исключает не входящий ни в
+один published counter `dealloc` из measurement state machine. До реализации
+этого protocol и нового exact overhead PASS metric остаётся unavailable.
 `long-session-soak` дополняет быстрый smoke report-only диагностикой
 history-dependent degradation: одинаковые held-movement/periodic-camera inputs
 проходят через live driver и interactive application scheduler на `3 600`

@@ -52,13 +52,13 @@ Baseline и candidate используют одинаковую структур
 
 ```text
 <set>/
-  r2-alpha-render/run-01/performance-report-v1.json
+  r2-alpha-render/run-01/performance-report-v2.json
   ...
-  r2-alpha-render/run-10/performance-report-v1.json
-  r3-multiregion-streaming/run-01/performance-report-v1.json
+  r2-alpha-render/run-10/performance-report-v2.json
+  r3-multiregion-streaming/run-01/performance-report-v2.json
   ...
-  r4-100npc/run-10/performance-report-v1.json
-  r5-physics-16/run-10/performance-report-v1.json
+  r4-100npc/run-10/performance-report-v2.json
+  r5-physics-16/run-10/performance-report-v2.json
 ```
 
 Каждый root — baseline и candidate — дополнительно содержит
@@ -90,7 +90,7 @@ foreach ($scenario in $scenarios) {
 }
 ```
 
-Raw baseline `performance-report-v1.json` без build stamp и hash-bound sidecar
+Raw baseline `performance-report-v2.json` без build stamp и hash-bound sidecar
 не является допустимым входом comparator. Baseline обязан иметь профиль
 `release`, plain codegen mode, отсутствие PGO profile и запрещённых flags.
 

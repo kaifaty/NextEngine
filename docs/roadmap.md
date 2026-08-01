@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-01 |
-| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows; exact ADR-040 allocator implementation сохранила roots, но retained enabled `+15.64%` overhead оставляет metric disabled и требует ADR-041 owner-thread fast path. Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
+| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows; ADR-041 owner fast path снизил retained allocator overhead с `+15.64%` до `+5.88%`, сохранив roots, но всё ещё не прошёл `3%`. Metric остаётся disabled до реализации принятого ADR-042 direct dealloc pass-through и нового candidate. Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -664,7 +664,7 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 | B-09 | Нет external creator CLI/SDK workflow | R6, R7 | Второй project/package создаётся cleanly только public tools/contracts. |
 | B-10 | Content scope может расти быстрее playable loop | Все этапы | Для каждого этапа назначен один representative scenario и явно записан non-goal list. |
 | B-11 | Недостаточная content/documentation capacity | R2, R6, R7 | Назначены owners и budget для art/audio/text/examples/docs/provenance. |
-| B-12 | `OPEN / FOUNDATION_DONE`: ADR-036/ADR-038 tooling, ADR-039 allocation boundary, ADR-040 foreign TLS-sharded admission и ADR-041 owner-thread fast-path protocol приняты; THOTH fingerprint/preflight, versioned report, nearest-rank, strict ten-run baseline publisher, Windows I/O delta, bounded Vulkan timestamps, conservative device-allocation residency ceiling и report-only production-worker handoff diagnostic реализованы. Exact ADR-040 implementation сохранила roots и прошла inactive/resource/codegen gates, но retained enabled `+15.64%` не прошёл `3%`, поэтому allocator metric остаётся disabled; ADR-041 implementation, Linux validation, calibration и representative R2–R5 workloads ещё отсутствуют | R4, R5, R7 | Hard `PASS` на полном `ref-win-thoth-v1`, Linux `REPORT_ONLY` profile и mandatory native correctness на обеих shipping targets; Accepted ADR, smoke/fallback-only/`NOT_RUN` blocker не закрывают. |
+| B-12 | `OPEN / FOUNDATION_DONE`: ADR-036/ADR-038 tooling, ADR-039 allocation boundary, ADR-040 foreign counted admission, ADR-041 owner counted fast path и ADR-042 unobserved dealloc pass-through приняты; THOTH fingerprint/preflight, versioned report, nearest-rank, strict ten-run baseline publisher, Windows I/O delta, bounded Vulkan timestamps, conservative device-allocation residency ceiling и report-only production-worker handoff diagnostic реализованы. ADR-041 implementation сохранила roots и прошла inactive/resource/codegen gates, снизив retained enabled overhead с `+15.64%` до `+5.88%`, но не прошла `3%`; allocator metric остаётся disabled до ADR-042 implementation/candidate. Linux validation, calibration и representative R2–R5 workloads ещё отсутствуют | R4, R5, R7 | Hard `PASS` на полном `ref-win-thoth-v1`, Linux `REPORT_ONLY` profile и mandatory native correctness на обеих shipping targets; Accepted ADR, smoke/fallback-only/`NOT_RUN` blocker не закрывают. |
 
 ## Решения, которые нужно принять вовремя
 
@@ -727,7 +727,7 @@ cuts по ADR-035. `LNX-005` выполняется позднее асинхр�
 этим не закрываются.
 
 Performance measurement foundation (`DONE_LOCAL_WINDOWS`) добавляет
-`PerformanceRunV1`/`PerformanceMetricV1`/`PerformanceBaselineV1`, полный
+`PerformanceRunV2`/`PerformanceMetricV1`/`PerformanceBaselineV2`, полный
 THOTH fingerprint и idle/RAM/thermal preflight, profile `profiling`, raw
 nearest-rank smoke metrics и explicit `NOT_RUN` для ещё отсутствующих
 representative R2–R5 workloads. Report-only `long-session-soak` теперь
@@ -847,15 +847,17 @@ exact roots и занял `80 B`; inactive median прошёл (`-2.58%`), но 
 median `+15.95%` нарушил `3%`. ADR-040 implementation заменила его fixed
 const-TLS per-thread slots с одним owned-slot RMW, сохранила exact roots,
 прошла inactive (`+1.12%`), resource (`557 096 B`) и Windows codegen gates,
-но retained enabled median `+15.64%` снова нарушил `3%`. Focused diagnostic
-насчитал `15 253 608` successful counted calls, а release codegen независимо
-показал один locked slot RMW на каждый active call. Aggregate delta не
-изолирует цену RMW от остального enabled path; ADR-041 проверяет эту гипотезу,
-убирая RMW только у same-thread measurement owner через exact const-TLS
-cookie/counters. Все foreign threads сохраняют ADR-040 handshake и
-process-wide coverage. До реализации и честного candidate PASS metric остаётся
-disabled. Calibration начинается только после этого, а hard timing gate —
-только вместе с реальным stage workload. B-12 остаётся открыт.
+но retained enabled median `+15.64%` снова нарушил `3%`. ADR-041 owner fast
+path сохранил exact roots, прошёл inactive (`+0.04%`), resource (`786 472 B`)
+и Windows codegen gates и снизил retained enabled median до `+5.88%`, но всё
+ещё не прошёл `3%`. Release codegen показывает оставшийся TLS/recursion/cookie
+dispatch на `dealloc`, хотя он не входит ни в один published gross counter.
+ADR-042 поэтому оставляет exact ADR-040/041 protocol трём count-bearing
+operations, а `dealloc` делает unconditional exactly-once `System`
+pass-through без measurement state. До реализации и единственного нового
+candidate PASS metric остаётся disabled. Calibration начинается только после
+этого, а hard timing gate — только вместе с реальным stage workload. B-12
+остаётся открыт.
 
 1. **Semantic UI (`NEXT`):** HUD, inventory/equipment, dialogue, quest
    journal, pause/save/load and pseudo-locale.

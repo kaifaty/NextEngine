@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-036 |
 | Статус | Accepted |
-| Версия | 1.2 |
+| Версия | 1.3 |
 | Дата решения | 2026-07-30 |
 | Последняя проверка | 2026-08-01 |
 | Нормативные зависимости | [SPEC-04](../04-rendering-and-platform.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | частично [ADR-016](016-compositional-gameplay-budgets.md) и SPEC-05 `PHYS-P4`: qualifier `reference 8-core CPU` заменяется полным host `ref-win-thoth-v1`; числовые gameplay/physics budgets не меняются |
-| Заменён | Diagnostic-scenario часть tooling contract узко заменена [ADR-038](038-versioned-production-worker-handoff-diagnostic.md): main-to-simulation-worker handoff получает отдельный versioned `REPORT_ONLY` scenario. Allocator-instrumentation prohibition/measurement gap узко заменён [ADR-039](039-tooling-only-process-wide-system-global-allocator-measurement.md); measured admission protocol задаёт [ADR-040](040-fixed-tls-sharded-global-allocator-measurement.md) для foreign threads и [ADR-041](041-owner-thread-quiescent-global-allocator-measurement.md) для same-thread owner. Разрешён только tooling-only process-wide `System` wrapper; shipping allocator prohibition, THOTH profile, hard timing authority, budgets, baseline и representative R2–R5 requirements остаются Accepted без изменений |
+| Заменён | Diagnostic-scenario часть tooling contract узко заменена [ADR-038](038-versioned-production-worker-handoff-diagnostic.md): main-to-simulation-worker handoff получает отдельный versioned `REPORT_ONLY` scenario. Allocator-instrumentation prohibition/measurement gap узко заменён [ADR-039](039-tooling-only-process-wide-system-global-allocator-measurement.md); measured admission protocol задаёт [ADR-040](040-fixed-tls-sharded-global-allocator-measurement.md) для foreign counted operations и [ADR-041](041-owner-thread-quiescent-global-allocator-measurement.md) для same-thread owner, а [ADR-042](042-unobserved-deallocation-system-pass-through.md) исключает unobserved `dealloc` из measurement state machine. Разрешён только tooling-only process-wide `System` wrapper; shipping allocator prohibition, THOTH profile, hard timing authority, budgets, baseline и representative R2–R5 requirements остаются Accepted без изменений |
 
 ## Контекст
 
@@ -99,17 +99,20 @@ live ticks через driver и interactive application scheduler, сохран�
 окна по `1 200` ticks, обязательные 30-tick checkpoint samples и isolated
 identity-index/archive-root probes. Как и `smoke`, он не имеет hard budget и
 не может закрыть B-12.
-`PerformanceRunV1`, `PerformanceMetricV1`, `PerformanceBaselineV1` и
+`PerformanceRunV2`, `PerformanceMetricV1`, `PerformanceBaselineV2` и
 `PerformanceVerdict` являются versioned tooling JSON, не public gameplay
 contracts. Run сохраняет commit/cleanliness, toolchain, build profile,
 scenario/content hashes, full target fingerprint, preflight, raw samples,
 nearest-rank p50/p95/p99, resource/instrumentation summary, authoritative
-hashes и methodology.
+hashes и methodology. V2 использует `PerformanceResourceCountersV2` и strict
+nested `ProcessAllocationCounterV1`. Shapes `PerformanceMetricV1` и
+`PerformanceMethodologyV1` не меняются, но значение `methodology_version` в
+run обязано быть `nextengine-performance-v2`.
 
 `performance-baseline` читает ровно десять direct-child
-`performance-report-v1.json`, сортирует их по имени каталога, отклоняет
+`performance-report-v2.json`, сортирует их по имени каталога, отклоняет
 symlink/reparse и несовместимые/dirty/`NOT_RUN` runs и публикует один
-`performance-baseline-v1.json` через create-then-rename. Existing output не
+`performance-baseline-v2.json` через create-then-rename. Existing output не
 перезаписывается. Baseline не создаётся, пока profiler parity, preflight и все
 required hard counters не валидны.
 
@@ -172,7 +175,7 @@ oracle. Gameplay/replay semantics и public contracts не меняются.
 |---|---|---|---|
 | `performance --scenario smoke --mode report` | Текущие two-chunk/one-agent/five-object/live fixtures | Versioned report содержит все четыре результата, build/methodology/fingerprint и exact roots; timings имеют `REPORT_ONLY` | Исправить tooling; не делать product timing claim |
 | `performance --scenario long-session-soak --mode report` | `3 600` live ticks с held movement, periodic camera input и тем же workload через interactive application scheduler | Три 1 200-tick окна, 30-tick durable checkpoint samples, isolated identity/archive root probes и exact driver/application ledger-root parity имеют `REPORT_ONLY` | Диагностировать history-dependent growth; не подменять representative R2–R5 gate |
-| `performance-baseline --runs <dir> --output <dir>` | Ровно десять clean compatible THOTH reports одного commit | Один strict `PerformanceBaselineV1`; malformed, incomplete, missing-counter или mixed набор отклоняется | Исправить calibration environment; baseline не синтезируется из частичных runs |
+| `performance-baseline --runs <dir> --output <dir>` | Ровно десять clean compatible THOTH reports одного commit | Один strict `PerformanceBaselineV2`; malformed, incomplete, missing-counter или mixed набор отклоняется | Исправить calibration environment; baseline не синтезируется из частичных runs |
 | `performance --scenario <R2–R5> --mode gate` | Release run на THOTH с compatible baseline | Exact fingerprint/preflight; absolute и relative verdict; correctness roots неизменны | `NOT_RUN` при несовместимой среде/workload; bounded presentation/LOD fallback не скрывает primary failure |
 | `performance` schema/fingerprint tests | Known percentile/bootstrap vectors, malformed JSON/baseline и wrong host | Nearest-rank exact; unknown fields reject; wrong host `NOT_RUN` | Reject baseline/run до timing verdict |
 | `play` / `persistence-replay` | Profiler on/off, renderer primary/fallback/headless и worker permutations | Commands, events, replay result и authoritative roots exact | Disable optional profiling/presentation path; timing success не компенсирует divergence |
