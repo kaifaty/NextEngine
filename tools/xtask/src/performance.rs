@@ -29,6 +29,8 @@ pub enum PerformanceScenarioV1 {
     LongSessionSoak,
     #[serde(rename = "interactive-frame-soak")]
     InteractiveFrameSoak,
+    #[serde(rename = "production-worker-soak")]
+    ProductionWorkerSoak,
     #[serde(rename = "r2-alpha-render")]
     R2AlphaRender,
     #[serde(rename = "r3-multiregion-streaming")]
@@ -45,6 +47,7 @@ impl PerformanceScenarioV1 {
             Self::Smoke => "smoke",
             Self::LongSessionSoak => "long-session-soak",
             Self::InteractiveFrameSoak => "interactive-frame-soak",
+            Self::ProductionWorkerSoak => "production-worker-soak",
             Self::R2AlphaRender => "r2-alpha-render",
             Self::R3MultiregionStreaming => "r3-multiregion-streaming",
             Self::R4_100Npc => "r4-100npc",
@@ -57,6 +60,7 @@ impl PerformanceScenarioV1 {
             "smoke" => Ok(Self::Smoke),
             "long-session-soak" => Ok(Self::LongSessionSoak),
             "interactive-frame-soak" => Ok(Self::InteractiveFrameSoak),
+            "production-worker-soak" => Ok(Self::ProductionWorkerSoak),
             "r2-alpha-render" => Ok(Self::R2AlphaRender),
             "r3-multiregion-streaming" => Ok(Self::R3MultiregionStreaming),
             "r4-100npc" => Ok(Self::R4_100Npc),
@@ -67,7 +71,10 @@ impl PerformanceScenarioV1 {
 
     pub const fn unavailable_reason(self) -> Option<&'static str> {
         match self {
-            Self::Smoke | Self::LongSessionSoak | Self::InteractiveFrameSoak => None,
+            Self::Smoke
+            | Self::LongSessionSoak
+            | Self::InteractiveFrameSoak
+            | Self::ProductionWorkerSoak => None,
             Self::R2AlphaRender => Some(
                 "R2_ALPHA_PROJECT_UNAVAILABLE: the representative alpha project and 60-second semantic action windows are not implemented",
             ),
@@ -744,8 +751,19 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
             methodology.notes = vec![
                 "240 FIFO-presented frames use the production Vulkan frame path at requested 1920x1080 and immutable reference-game render inputs".to_owned(),
                 "phase timings separate event polling plus immutable frame-source update, frame-slot/acquire/image waits, frame-plan, command recording, submit, present and GPU execution".to_owned(),
-                "the static render-input fixture does not time the game composition root's main-to-simulation-worker handoff; that remains a separate production-worker diagnostic gap".to_owned(),
+                "the static render-input fixture does not time the game composition root's main-to-simulation-worker handoff; production-worker-soak measures that boundary separately".to_owned(),
                 "the workload is report-only and diagnostic; it is not the representative R2 alpha project and cannot close B-12".to_owned(),
+            ];
+        }
+        PerformanceScenarioV1::ProductionWorkerSoak => {
+            methodology.measured_samples = 240;
+            methodology.notes = vec![
+                "production-worker-soak.v1 submits 240 FIFO main-callback batches at 60 Hz through the game composition root's bounded queue and next-simulation worker".to_owned(),
+                "the worker advances the production fixed-step application path, publishes shared immutable presentation snapshots, and the main-side callback reads the latest generation".to_owned(),
+                "bounded raw samples separate queue send wait, dequeue age, ordinary/checkpoint fixed steps, snapshot publication/read lock waits, and rendered sequence freshness".to_owned(),
+                "diagnostic send and dequeue observations are linearized around the same bounded sync channel, so queue high-water is exact channel occupancy rather than an outstanding-work estimate".to_owned(),
+                "wall time and diagnostic sequence counters are operational metadata only and never select simulation work, ordering, or authoritative outcomes".to_owned(),
+                "the workload is report-only and diagnostic; it is not a representative R2 workload and cannot close B-12".to_owned(),
             ];
         }
         PerformanceScenarioV1::R2AlphaRender => {

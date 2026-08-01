@@ -67,6 +67,7 @@ pub(super) fn performance_command_report(
     agent_planning: Option<AgentPerformanceDetailsV1>,
     render_planning: Option<RenderPlanningPerformanceDetailsV1>,
     live_runtime: Option<LiveRuntimePerformanceDetailsV1>,
+    production_worker: Option<ProductionWorkerPerformanceDetailsV1>,
 ) -> CommandReportV1<PerformanceDetailsV1> {
     let status = match run.verdict {
         xtask::performance::PerformanceVerdict::Pass => "PASS",
@@ -84,6 +85,7 @@ pub(super) fn performance_command_report(
             agent_planning,
             render_planning,
             live_runtime,
+            production_worker,
         },
     )
 }

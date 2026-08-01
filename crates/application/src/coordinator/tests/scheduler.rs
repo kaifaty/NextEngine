@@ -229,6 +229,50 @@ fn fixed_step_live_scheduler_suspends_at_a_tick_boundary_without_resume_catch_up
 }
 
 #[test]
+fn observed_presentation_scheduler_classifies_forced_suspend_as_checkpoint_work() {
+    let root = test_root("observed-fixed-step-suspend");
+    let mut game = ApplicationCoordinator::launch(LaunchRequestV1::reference(
+        &root,
+        CompositionRootV1::Game,
+        PresentationTargetKindV1::Interactive,
+    ))
+    .expect("game launch");
+    game.begin_reference_game_live(true)
+        .expect("begin live reference game");
+    let suspend = platform_reason_event(
+        &mut game,
+        PlatformEventKindV1::SuspendRequested,
+        40,
+        "nextengine.platform.reason.backgrounded",
+    );
+    let mut scheduler = FixedStepLiveSchedulerV1::reference_game_v1();
+    let mut observed = Vec::new();
+
+    scheduler
+        .advance_reference_game_presentation_shared_observed(
+            &mut game,
+            Duration::from_millis(34),
+            std::slice::from_ref(&suspend),
+            |tick, checkpoint, _| observed.push((tick, checkpoint)),
+        )
+        .expect("elapsed tick precedes suspend observation");
+    scheduler
+        .advance_reference_game_presentation_shared_observed(
+            &mut game,
+            Duration::from_millis(34),
+            &[],
+            |tick, checkpoint, _| observed.push((tick, checkpoint)),
+        )
+        .expect("suspend boundary");
+
+    assert_eq!(observed, vec![(1, false), (2, true)]);
+    assert_eq!(game.state().state, ApplicationSessionStatusV1::Suspended);
+    game.close(CloseExecutionOptionsV1::default())
+        .expect("close suspended game");
+    cleanup(root);
+}
+
+#[test]
 fn failed_atomic_tick_suspend_retries_one_generation_and_recovers_suspended() {
     let root = test_root("fixed-step-atomic-suspend-fault");
     let launch = LaunchRequestV1::reference(

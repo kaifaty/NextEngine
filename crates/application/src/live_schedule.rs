@@ -106,6 +106,33 @@ impl FixedStepLiveSchedulerV1 {
         )
     }
 
+    pub(crate) fn advance_reference_game_presentation_shared_observed(
+        &mut self,
+        application: &mut ApplicationCoordinator,
+        elapsed: Duration,
+        events: &[PlatformEventV1],
+        mut observe_fixed_step: impl FnMut(u64, bool, Duration),
+    ) -> Result<Option<Arc<PresentationSnapshotV2>>, ApplicationError> {
+        self.advance_reference_game_presentation_with(
+            application,
+            elapsed,
+            events,
+            |application, events| {
+                let started = std::time::Instant::now();
+                let result = ApplicationCoordinator::advance_reference_game_live_presentation_shared_observed_admitted(application, events);
+                let duration = started.elapsed();
+                if let Ok(advance) = &result {
+                    observe_fixed_step(
+                        advance.presentation.simulation_tick,
+                        advance.published_checkpoint,
+                        duration,
+                    );
+                }
+                result.map(|advance| advance.presentation)
+            },
+        )
+    }
+
     fn advance_reference_game_presentation_with<T>(
         &mut self,
         application: &mut ApplicationCoordinator,

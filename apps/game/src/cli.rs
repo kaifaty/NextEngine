@@ -135,6 +135,17 @@ impl AppFailure {
         }
     }
 
+    #[cfg(feature = "desktop-sdl-ash")]
+    pub(super) fn interactive_worker(
+        failure: next_application::InteractiveWorkerFailureV1,
+    ) -> Self {
+        Self {
+            code: failure.code,
+            message: failure.message,
+            exit_code: failure.exit_code,
+        }
+    }
+
     pub(super) fn help() -> Self {
         Self {
             code: "CLI_HELP_REQUESTED",

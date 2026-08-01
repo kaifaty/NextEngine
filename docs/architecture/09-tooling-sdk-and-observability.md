@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 2.1 |
-| Последняя проверка | 2026-07-30 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md) |
-| Заменяет | SPEC-09 2.0 |
+| Версия | 2.2 |
+| Последняя проверка | 2026-08-01 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md) |
+| Заменяет | SPEC-09 2.1 |
 
 ## Technical authority boundary
 
@@ -217,10 +217,20 @@ parity обязательна, но этот fixture не становится h
 requested `1920×1080` через production Vulkan path и сохраняет report-only CPU/GPU critical path,
 event-polling плюс immutable frame-source update, frame-slot/acquire/image waits,
 frame-plan, command-record, submit и present phases вместе с software-pacing и
-frame-plan-cache counters. Этот diagnostic fixture использует статические
-reference render inputs и поэтому не измеряет main-to-simulation-worker handoff
-composition root; этот handoff остаётся отдельным diagnostic gap. Fixture не подменяет
-representative R2 alpha project и не закрывает B-12.
+frame-plan-cache counters. Этот renderer-only fixture использует статические
+reference render inputs и не приписывает себе simulation-worker latency.
+`production-worker-soak` отдельно выполняет не менее `240` FIFO main callbacks
+через production-owned bounded queue, `next-simulation` worker, fixed-step
+application advance, shared immutable snapshot publication и main-side read.
+Он сохраняет bounded raw queue/send/dequeue, ordinary/checkpoint worker,
+publication/read-lock и sequence lag/freshness samples. Diagnostic send и
+dequeue observation линеаризованы вокруг того же bounded `sync_channel`,
+поэтому high-water означает exact channel occupancy, а не оценку outstanding
+work; message/step/publication counts exact и проходят zero-drop/reorder
+validation. Оба diagnostics имеют
+`REPORT_ONLY`, не подменяют representative R2 alpha project и не закрывают
+B-12; wall time и operational sequence metadata не влияют на scheduling или
+authoritative state.
 Тяжёлые captures, WPA/perf/samply profiles и generated reports остаются
 machine-local и не коммитятся.
 

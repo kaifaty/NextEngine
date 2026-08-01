@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.9 |
-| Последняя проверка | 2026-07-31 |
-| Заменяет | INDEX-001 version 2.8 |
+| Версия | 2.10 |
+| Последняя проверка | 2026-08-01 |
+| Заменяет | INDEX-001 version 2.9 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -208,8 +208,9 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Accepted; PhysX backend остаётся Proposed |
 | ADR-034 | [Player targeting replay V5 и exact mapping provenance](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) | Accepted |
 | ADR-035 | [Bounded live recovery, platform-host binding и presentation cut](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) | Accepted; partially supersedes ADR-028 |
-| ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; заменяет reference 8-core qualifier ADR-016/SPEC-05 без изменения budgets |
+| ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; заменяет reference 8-core qualifier ADR-016/SPEC-05 без изменения budgets; diagnostic-scenario часть узко заменена ADR-038 |
 | ADR-037 | [Packed session object storage](adr/037-packed-session-object-storage.md) | Accepted; узко заменяет physical raw-generation representation ADR-035 без изменения logical roots/cadence |
+| ADR-038 | [Versioned production-worker handoff diagnostic](adr/038-versioned-production-worker-handoff-diagnostic.md) | Accepted; узко заменяет diagnostic-scenario часть ADR-036 без изменения THOTH hard timing authority или B-12 closure |
 
 ## Proposed tracks
 

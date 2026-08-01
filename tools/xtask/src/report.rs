@@ -136,6 +136,33 @@ pub struct LiveRuntimePerformanceDetailsV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct ProductionWorkerPerformanceDetailsV1 {
+    pub diagnostic_schema_version: u32,
+    pub diagnostic_methodology_version: String,
+    pub callbacks: u64,
+    pub callback_cadence_hz: u32,
+    pub queue_capacity: u32,
+    pub queue_high_water: u64,
+    pub submitted_callbacks: u64,
+    pub processed_callbacks: u64,
+    pub fixed_steps: u64,
+    pub ordinary_fixed_steps: u64,
+    pub checkpoint_fixed_steps: u64,
+    pub snapshot_publications: u64,
+    pub snapshot_reads: u64,
+    pub fresh_snapshot_reads: u64,
+    pub dropped_callbacks: u64,
+    pub reordered_callbacks: u64,
+    pub final_snapshot_sequence: u64,
+    pub final_simulation_tick: u64,
+    pub authoritative_state_root: String,
+    pub command_archive_root: String,
+    pub command_identity_index_root: String,
+    pub command_ledger_hash: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PerformanceDetailsV1 {
     #[serde(default)]
     pub run: Option<PerformanceRunV1>,
@@ -147,6 +174,8 @@ pub struct PerformanceDetailsV1 {
     pub render_planning: Option<RenderPlanningPerformanceDetailsV1>,
     #[serde(default)]
     pub live_runtime: Option<LiveRuntimePerformanceDetailsV1>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub production_worker: Option<ProductionWorkerPerformanceDetailsV1>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -223,4 +252,37 @@ pub struct PersistenceReplayDetailsV1 {
     pub current_chunk: String,
     pub final_state_root: String,
     pub final_ledger_root: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PerformanceDetailsV1;
+
+    #[test]
+    fn performance_details_without_worker_preserve_legacy_json_shape() {
+        let details = PerformanceDetailsV1 {
+            run: None,
+            streaming: None,
+            agent_planning: None,
+            render_planning: None,
+            live_runtime: None,
+            production_worker: None,
+        };
+
+        let value = serde_json::to_value(&details).expect("serialize legacy performance details");
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "run": null,
+                "streaming": null,
+                "agent_planning": null,
+                "render_planning": null,
+                "live_runtime": null,
+            })
+        );
+
+        let decoded: PerformanceDetailsV1 =
+            serde_json::from_value(value).expect("decode legacy performance details");
+        assert_eq!(decoded, details);
+    }
 }

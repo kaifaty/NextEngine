@@ -60,6 +60,31 @@ fn schema_round_trip_rejects_unknown_fields() {
 }
 
 #[test]
+fn production_worker_scenario_has_distinct_versioned_methodology() {
+    let run = PerformanceRunV1::empty(
+        PerformanceScenarioV1::ProductionWorkerSoak,
+        PerformanceModeV1::Report,
+        "release",
+    );
+    let smoke = PerformanceRunV1::empty(
+        PerformanceScenarioV1::Smoke,
+        PerformanceModeV1::Report,
+        "release",
+    );
+    let methodology = methodology_for(PerformanceScenarioV1::ProductionWorkerSoak);
+
+    assert_ne!(run.scenario_hash, smoke.scenario_hash);
+    assert_eq!(run.scenario_hash, sha256_hex(b"production-worker-soak"));
+    assert_eq!(methodology.measured_samples, 240);
+    assert!(
+        methodology
+            .notes
+            .iter()
+            .any(|note| note.contains("production-worker-soak.v1"))
+    );
+}
+
+#[test]
 fn incompatible_host_is_not_a_conditional_pass() {
     let mut wrong = fingerprint();
     wrong.hostname = "OTHER".to_owned();

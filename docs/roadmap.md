@@ -664,7 +664,7 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 | B-09 | Нет external creator CLI/SDK workflow | R6, R7 | Второй project/package создаётся cleanly только public tools/contracts. |
 | B-10 | Content scope может расти быстрее playable loop | Все этапы | Для каждого этапа назначен один representative scenario и явно записан non-goal list. |
 | B-11 | Недостаточная content/documentation capacity | R2, R6, R7 | Назначены owners и budget для art/audio/text/examples/docs/provenance. |
-| B-12 | `OPEN / FOUNDATION_DONE`: ADR-036, THOTH fingerprint/preflight, versioned report, nearest-rank, strict ten-run baseline publisher, Windows I/O delta, bounded Vulkan timestamps и conservative device-allocation residency ceiling реализованы; exact host allocator counter, calibration evidence и representative R2–R5 workloads отсутствуют | R4, R5, R7 | Hard `PASS` на полном `ref-win-thoth-v1`, Linux `REPORT_ONLY` profile и mandatory native correctness на обеих shipping targets; smoke/fallback-only/`NOT_RUN` blocker не закрывают. |
+| B-12 | `OPEN / FOUNDATION_DONE`: ADR-036/ADR-038, THOTH fingerprint/preflight, versioned report, nearest-rank, strict ten-run baseline publisher, Windows I/O delta, bounded Vulkan timestamps, conservative device-allocation residency ceiling и report-only production-worker handoff diagnostic реализованы; exact host allocator counter, calibration evidence и representative R2–R5 workloads отсутствуют | R4, R5, R7 | Hard `PASS` на полном `ref-win-thoth-v1`, Linux `REPORT_ONLY` profile и mandatory native correctness на обеих shipping targets; smoke/fallback-only/`NOT_RUN` blocker не закрывают. |
 
 ## Решения, которые нужно принять вовремя
 
@@ -795,8 +795,14 @@ misses, `0` software-paced iterations, critical-path p95/p99 `125/215 µs`, GPU
 p95 `10 µs`, event/frame-source p95 `13 µs` и frame-slot-wait p95 `7 093 µs`.
 Fixture использует статический
 immutable render snapshot: он измеряет event/frame-source overhead и Vulkan
-path, но не main-to-simulation-worker handoff; отдельный production-worker
-timing остаётся diagnostic gap. Три before run commit `ad5e4da` и
+path, но не main-to-simulation-worker handoff. Отдельный report-only
+`production-worker-soak` по ADR-038 теперь проходит тот же bounded queue,
+`next-simulation`, fixed-step application и shared snapshot handoff, что и
+game composition root. Windows-local diagnostic run подтвердил `240/240`
+submitted/processed callbacks, queue high-water `8`, `0` drop/reorder,
+`120` fixed steps (`116` ordinary / `4` checkpoint) и `121` publication с
+unchanged authoritative roots; эти operational timings не откалиброваны и не
+закрывают B-12. Три before run commit `ad5e4da` и
 три after run окончательного engine candidate сохранили authoritative root
 `5e45825e1a627113902640184c00bf448964bb2b8daf10d6e0947d40fd5a6e17`, exact
 driver/application ledger/archive parity и дали median p95: application window

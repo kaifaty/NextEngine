@@ -36,6 +36,11 @@ pub(super) struct PreparedRunV1 {
     pub(super) driver_recovery: Option<ReferenceLiveDriverRecoveryV1>,
 }
 
+pub(crate) struct InteractivePresentationAdvanceV1 {
+    pub(crate) presentation: Arc<next_contracts::presentation::PresentationSnapshotV2>,
+    pub(crate) published_checkpoint: bool,
+}
+
 impl ApplicationCoordinator {
     pub fn run_reference_game(
         &mut self,
@@ -151,6 +156,14 @@ impl ApplicationCoordinator {
         &mut self,
         platform_events: &[PlatformEventV1],
     ) -> Result<Arc<next_contracts::presentation::PresentationSnapshotV2>, ApplicationError> {
+        self.advance_reference_game_live_presentation_shared_observed_admitted(platform_events)
+            .map(|advance| advance.presentation)
+    }
+
+    pub(crate) fn advance_reference_game_live_presentation_shared_observed_admitted(
+        &mut self,
+        platform_events: &[PlatformEventV1],
+    ) -> Result<InteractivePresentationAdvanceV1, ApplicationError> {
         if self.machine.state().state != ApplicationSessionStatusV1::Active {
             return Err(ApplicationError::CloseStateInvalid);
         }
@@ -195,7 +208,10 @@ impl ApplicationCoordinator {
                 .as_mut()
                 .expect("validated live advance retains its driver");
             let _ = driver.commit_validated_advance(validated);
-            return Ok(presentation);
+            return Ok(InteractivePresentationAdvanceV1 {
+                presentation,
+                published_checkpoint: true,
+            });
         }
 
         let driver = self
@@ -203,7 +219,10 @@ impl ApplicationCoordinator {
             .as_mut()
             .expect("validated live advance retains its driver");
         let _ = driver.commit_validated_advance(validated);
-        Ok(presentation)
+        Ok(InteractivePresentationAdvanceV1 {
+            presentation,
+            published_checkpoint: false,
+        })
     }
 
     pub fn current_live_run(&self) -> Result<ApplicationRunOutcomeV1, ApplicationError> {
