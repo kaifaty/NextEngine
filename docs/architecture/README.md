@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.10 |
+| Версия | 2.11 |
 | Последняя проверка | 2026-08-01 |
-| Заменяет | INDEX-001 version 2.9 |
+| Заменяет | INDEX-001 version 2.10 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -174,7 +174,7 @@ packets являются historical-only. Lightweight traceability — нави�
 |---|---|---|
 | ADR-000 | [ADR template](adr/000-template.md) | Draft |
 | ADR-001 | [Product, repositories, license и platforms](adr/001-product-repository-license-and-platforms.md) | Accepted; process clauses partially superseded by ADR-030 |
-| ADR-002 | [Rust-first core, FFI и ECS facade](adr/002-rust-first-ffi-and-ecs-facade.md) | Accepted |
+| ADR-002 | [Rust-first core, FFI и ECS facade](adr/002-rust-first-ffi-and-ecs-facade.md) | Accepted; empty/FFI-only unsafe allowlist clauses partially superseded by ADR-033/ADR-039 |
 | ADR-003 | [Vulkan renderer и shader toolchain](adr/003-vulkan-renderer-and-shader-toolchain.md) | Accepted |
 | ADR-004 | [Physics-avatar backend boundary](adr/004-physics-avatar-backend-boundary.md) | Superseded |
 | ADR-005 | [Offline-first AI process boundary](adr/005-offline-first-ai-process-boundary.md) | Accepted |
@@ -205,12 +205,13 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-030 | [Product-first development и lightweight validation](adr/030-product-first-development-and-lightweight-validation.md) | Accepted |
 | ADR-031 | [RPG-owned divine standing и atomic pantheon judgment](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md) | Accepted; partially supersedes ADR-020 aggregate enumeration |
 | ADR-032 | [Grounded capsule physics checkpoint version boundary](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md) | Accepted; designation of V4 as current generated replay partially superseded by ADR-034 |
-| ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Accepted; PhysX backend остаётся Proposed |
+| ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Accepted; PhysX backend остаётся Proposed; workspace-unique unsafe wording узко заменена ADR-039 без изменения PhysX boundary |
 | ADR-034 | [Player targeting replay V5 и exact mapping provenance](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) | Accepted |
 | ADR-035 | [Bounded live recovery, platform-host binding и presentation cut](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) | Accepted; partially supersedes ADR-028 |
-| ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; заменяет reference 8-core qualifier ADR-016/SPEC-05 без изменения budgets; diagnostic-scenario часть узко заменена ADR-038 |
+| ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; заменяет reference 8-core qualifier ADR-016/SPEC-05 без изменения budgets; diagnostic и allocator-measurement gaps узко заменены ADR-038/ADR-039 |
 | ADR-037 | [Packed session object storage](adr/037-packed-session-object-storage.md) | Accepted; узко заменяет physical raw-generation representation ADR-035 без изменения logical roots/cadence |
 | ADR-038 | [Versioned production-worker handoff diagnostic](adr/038-versioned-production-worker-handoff-diagnostic.md) | Accepted; узко заменяет diagnostic-scenario часть ADR-036 без изменения THOTH hard timing authority или B-12 closure |
+| ADR-039 | [Tooling-only process-wide System GlobalAlloc measurement boundary](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md) | Accepted architecture boundary; узко разрешает отдельный non-FFI unsafe tooling counter, но не заявляет implementation, shipping allocator change или B-12 closure |
 
 ## Proposed tracks
 

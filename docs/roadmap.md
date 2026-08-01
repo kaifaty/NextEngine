@@ -3,7 +3,7 @@
 | Поле | Значение |
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
-| Последнее обновление | 2026-07-30 |
+| Последнее обновление | 2026-08-01 |
 | Текущая точка | Player action and camera и performance measurement foundation завершены локально на Windows; следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005` остаются открыты |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
@@ -664,7 +664,7 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 | B-09 | Нет external creator CLI/SDK workflow | R6, R7 | Второй project/package создаётся cleanly только public tools/contracts. |
 | B-10 | Content scope может расти быстрее playable loop | Все этапы | Для каждого этапа назначен один representative scenario и явно записан non-goal list. |
 | B-11 | Недостаточная content/documentation capacity | R2, R6, R7 | Назначены owners и budget для art/audio/text/examples/docs/provenance. |
-| B-12 | `OPEN / FOUNDATION_DONE`: ADR-036/ADR-038, THOTH fingerprint/preflight, versioned report, nearest-rank, strict ten-run baseline publisher, Windows I/O delta, bounded Vulkan timestamps, conservative device-allocation residency ceiling и report-only production-worker handoff diagnostic реализованы; exact host allocator counter, calibration evidence и representative R2–R5 workloads отсутствуют | R4, R5, R7 | Hard `PASS` на полном `ref-win-thoth-v1`, Linux `REPORT_ONLY` profile и mandatory native correctness на обеих shipping targets; smoke/fallback-only/`NOT_RUN` blocker не закрывают. |
+| B-12 | `OPEN / FOUNDATION_DONE`: ADR-036/ADR-038 tooling и ADR-039 tooling-only allocation boundary приняты; THOTH fingerprint/preflight, versioned report, nearest-rank, strict ten-run baseline publisher, Windows I/O delta, bounded Vulkan timestamps, conservative device-allocation residency ceiling и report-only production-worker handoff diagnostic реализованы. `tools/process-allocation-counter`, exact process/PID/window-scoped host allocator evidence, calibration и representative R2–R5 workloads ещё отсутствуют | R4, R5, R7 | Hard `PASS` на полном `ref-win-thoth-v1`, Linux `REPORT_ONLY` profile и mandatory native correctness на обеих shipping targets; Accepted ADR, smoke/fallback-only/`NOT_RUN` blocker не закрывают. |
 
 ## Решения, которые нужно принять вовремя
 
@@ -841,11 +841,13 @@ materialization `48 446 → 41 445 µs` (`-14.5%`), ordinary application tick
 20-GiB free-RAM условий, поэтому результат не заменяет ten-run hard calibration
 и не закрывает B-12.
 
-Exact global host allocator counter и ten-run calibration evidence ещё
-отсутствуют. Это не меняет product queue: calibration начинается после
-стабилизации последнего required counter/noise, а hard
-timing gate включается только вместе с реальным stage workload. B-12 остаётся
-открыт.
+ADR-039 теперь фиксирует отдельную non-FFI unsafe boundary для будущего
+tooling-only process-wide `System` counter. Сам crate, versioned
+process/PID/window report, parity/overhead evidence и exact global host
+allocator counter ещё отсутствуют. Это не меняет product queue: calibration
+начинается после реализации и стабилизации последнего required counter/noise,
+а hard timing gate включается только вместе с реальным stage workload. B-12
+остаётся открыт.
 
 1. **Semantic UI (`NEXT`):** HUD, inventory/equipment, dialogue, quest
    journal, pause/save/load and pseudo-locale.

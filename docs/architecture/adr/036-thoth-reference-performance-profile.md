@@ -9,7 +9,7 @@
 | Последняя проверка | 2026-07-30 |
 | Нормативные зависимости | [SPEC-04](../04-rendering-and-platform.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | частично [ADR-016](016-compositional-gameplay-budgets.md) и SPEC-05 `PHYS-P4`: qualifier `reference 8-core CPU` заменяется полным host `ref-win-thoth-v1`; числовые gameplay/physics budgets не меняются |
-| Заменён | Diagnostic-scenario часть tooling contract узко заменена [ADR-038](038-versioned-production-worker-handoff-diagnostic.md): main-to-simulation-worker handoff получает отдельный versioned `REPORT_ONLY` scenario; THOTH profile, hard timing authority, budgets, baseline и representative R2–R5 requirements остаются Accepted без изменений |
+| Заменён | Diagnostic-scenario часть tooling contract узко заменена [ADR-038](038-versioned-production-worker-handoff-diagnostic.md): main-to-simulation-worker handoff получает отдельный versioned `REPORT_ONLY` scenario. Allocator-instrumentation prohibition/measurement gap узко заменён [ADR-039](039-tooling-only-process-wide-system-global-allocator-measurement.md): разрешён только tooling-only process-wide `System` wrapper; shipping allocator prohibition, THOTH profile, hard timing authority, budgets, baseline и representative R2–R5 requirements остаются Accepted без изменений |
 
 ## Контекст
 
