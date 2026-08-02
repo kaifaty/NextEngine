@@ -959,9 +959,14 @@ same-day) как system-state noise. Добавлен focused test
 assets `30` tests, `host-check` и `persistence-replay` проходят. Все run
 остаются `NOT_RUN` из-за недоступного NVML probe — bounded CPU-side
 cleanup, а не hard calibration; B-12 не закрывается. Оставшийся publication
-cost — mandated fsync/read I/O (ADR-037 §3), его ослабление требует
-отдельного ADR; encode-side incremental caching (streams/archive) и
-parallel encode остаются кандидатами. Durable schemas, cadence `0/30/60`,
+cost — mandated fsync/read I/O (ADR-037 §3); его ослабление
+проанализировано 2026-08-02 и отклонено без ADR: staged re-read
+load-bearing, session store и application recovery не имеют fallback с
+corrupt current на previous generation, поэтому снятие проверки превращает
+publish-time bounded failure в load-time unrecoverable (см. addendum в
+`docs/development/performance-research-2026-08-01.md`); encode-side
+incremental caching (streams/archive) и
+parallel encode/read остаются кандидатами. Durable schemas, cadence `0/30/60`,
 rollback/retry и replay roots не изменились.
 
 Третий пакет убрал избыточную работу из game save commit path. До этого

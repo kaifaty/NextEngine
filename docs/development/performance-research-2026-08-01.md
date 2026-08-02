@@ -184,6 +184,51 @@ codegen proof, как ADR-042/043.
 6. **GPU culling/bindless** — только когда R2+ контент сделает renderer
    измеримым bottleneck.
 
+## Приложение 2026-08-02: анализ ослабления staged re-read (ADR-037 §3 шаг 3)
+
+Вопрос: можно ли убрать или ослабить полное перечитывание staged session
+generation перед atomic rename (~`8.5 ms` p50 на checkpoint на этой системе,
+сами чтения с диска — hashing уже убран byte-exact compare'ом).
+
+Проверенные факты по коду:
+
+- `SessionStore::load_current` -> `load_generation_closure(current_id)` не
+  имеет fallback на previous generation: повреждённый current = fail closed
+  (`crates/assets/src/session.rs:294,386`).
+- Application resume/recovery (`coordinator/activation.rs:105-133`,
+  `coordinator/recovery.rs:66`) прокидывают ошибку `?` — fallback'а нет и там.
+  Previous generation валидируется только ПОСЛЕ успешного decode current.
+- Game `SaveStore` fallback имеет (`load_latest` перебирает поколения), но
+  session store — нет: его previous generation существует для rollback при
+  неудачной НОВОЙ публикации, а не для восстановления после порчи current.
+
+Вывод: staged re-read — load-bearing. Это единственная проверка, которая
+гарантирует, что после rename authoritative байты на диске равны
+проверенным в памяти. Её ослабление превращает publish-time bounded failure
+(rollback, prior current остаётся authoritative, стабильный
+`SESSION_STORAGE_UNAVAILABLE`) в load-time unrecoverable failure при
+следующем запуске — при живой previous generation на диске.
+
+Рассмотренные варианты ослабления и почему отклонены:
+
+- **Re-read после rename с rollback CURRENT при mismatch.** Открывает crash
+  window, в котором CURRENT указывает на непроверенные байты: crash в этом
+  окне = corrupt current при следующем запуске без fallback. Именно порядок
+  «проверить ДО rename» и есть смысл ADR-037 §3.
+- **Hash-only re-read.** Требует чтения тех же байтов — стоимость (сами
+  чтения) не меняется, гарантия та же, смысла нет.
+- **Re-read только index/manifest.** Не ловит порчу pack/object bytes —
+  теряется вся гарантия.
+- **Load-time fallback current->previous.** Семантическое изменение recovery:
+  молча откатывает session identity (sequence, live_session_id, closure
+  chain), может воскресить закрытую сессию как live. Это product-level
+  решение, требующее отдельного ADR и product checks; цена ошибки — silent
+  session rollback, недопустимая размен для ~`8.5 ms` p50.
+
+Решение: re-read НЕ ослаблять, ADR не писать. Стоимость легитимно атакуется
+параллельным чтением файлов staged generation (кандидат parallel I/O) без
+изменения semantics — порядок проверок и множество failure modes не меняются.
+
 ## Источники
 
 - DeltaBox: millisecond checkpoint/rollback через change-based DeltaState,
