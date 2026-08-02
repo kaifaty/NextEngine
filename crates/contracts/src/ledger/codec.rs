@@ -409,16 +409,11 @@ pub(super) fn decode_archive_manifest(
     Ok(manifest)
 }
 
-pub(super) fn encode_identity_index(
-    index: &CommandIdentityIndexV1,
+pub(super) fn encode_identity_bindings_flat(
+    bindings: &BTreeMap<CommandId, CommandIdentityBindingV1>,
 ) -> Result<Vec<u8>, CommandLedgerError> {
     let mut writer = LedgerWriter::default();
-    writer.u16(index.schema_version);
-    writer.u16(index.body.schema_version);
-    writer.u64(index.body.command_id_count);
-    writer.u64(index.body.occurrence_count);
-    writer.count(index.body.bindings.len())?;
-    for (command_id, binding) in index.body.bindings.iter() {
+    for (command_id, binding) in bindings.iter() {
         writer.bytes(command_id.as_bytes());
         writer.bytes(binding.command_id.as_bytes());
         writer.u8(binding.state as u8);
@@ -429,6 +424,21 @@ pub(super) fn encode_identity_index(
             writer.u64(occurrence.first_sequence);
         }
     }
+    Ok(writer.finish())
+}
+
+pub(super) fn encode_identity_index(
+    index: &CommandIdentityIndexV1,
+) -> Result<Vec<u8>, CommandLedgerError> {
+    // Header: two u16 schema versions, two u64 counts, one u32 map count.
+    let bindings = index.body.bindings_flat_concat()?;
+    let mut writer = LedgerWriter::with_capacity(24 + bindings.len() + 32);
+    writer.u16(index.schema_version);
+    writer.u16(index.body.schema_version);
+    writer.u64(index.body.command_id_count);
+    writer.u64(index.body.occurrence_count);
+    writer.count(index.body.bindings.len())?;
+    writer.bytes(bindings);
     writer.bytes(index.index_root.as_bytes());
     Ok(writer.finish())
 }
@@ -610,4 +620,135 @@ pub(super) fn fixed_field<const N: usize>(
             expected: N,
             actual: ledger_field(segment, id).map_or(0, |field| field.payload.len()),
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_command_id(byte: u8) -> CommandId {
+        CommandId::from_bytes([byte; 16])
+    }
+
+    fn test_body_hash(byte: u8) -> CommandBodyHash {
+        CommandBodyHash::from_bytes([byte; 32])
+    }
+
+    fn test_stream_id(byte: u8) -> CommandStreamId {
+        CommandStreamId::from_bytes([byte; 16])
+    }
+
+    fn test_occurrence(byte: u8, sequence: u64) -> CommandIdentityOccurrenceV1 {
+        CommandIdentityOccurrenceV1 {
+            body_hash: test_body_hash(byte),
+            first_stream_id: test_stream_id(byte.wrapping_add(1)),
+            first_sequence: sequence,
+        }
+    }
+
+    fn test_binding(
+        command_id: CommandId,
+        hashes: &[u8],
+        state: CommandIdentityBindingState,
+    ) -> CommandIdentityBindingV1 {
+        CommandIdentityBindingV1 {
+            command_id,
+            occurrences: hashes
+                .iter()
+                .enumerate()
+                .map(|(index, byte)| test_occurrence(*byte, index as u64 + 1))
+                .collect(),
+            state,
+        }
+    }
+
+    /// Byte-exact reimplementation of the original per-binding ledger-wire
+    /// loop; the cached derived encoding must match it exactly.
+    fn reference_flat_encode(index: &CommandIdentityIndexV1) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&index.schema_version.to_le_bytes());
+        bytes.extend_from_slice(&index.body.schema_version.to_le_bytes());
+        bytes.extend_from_slice(&index.body.command_id_count.to_le_bytes());
+        bytes.extend_from_slice(&index.body.occurrence_count.to_le_bytes());
+        bytes.extend_from_slice(&(index.body.bindings.len() as u32).to_le_bytes());
+        for (command_id, binding) in index.body.bindings.iter() {
+            bytes.extend_from_slice(command_id.as_bytes());
+            bytes.extend_from_slice(binding.command_id.as_bytes());
+            bytes.push(binding.state as u8);
+            bytes.extend_from_slice(&(binding.occurrences.len() as u32).to_le_bytes());
+            for occurrence in &binding.occurrences {
+                bytes.extend_from_slice(occurrence.body_hash.as_bytes());
+                bytes.extend_from_slice(occurrence.first_stream_id.as_bytes());
+                bytes.extend_from_slice(&occurrence.first_sequence.to_le_bytes());
+            }
+        }
+        bytes.extend_from_slice(index.index_root.as_bytes());
+        bytes
+    }
+
+    #[test]
+    fn derived_flat_cache_matches_fresh_encode_across_mutations() {
+        let mut index = CommandIdentityIndexV1::from_bindings(BTreeMap::from([
+            (
+                test_command_id(1),
+                test_binding(
+                    test_command_id(1),
+                    &[11],
+                    CommandIdentityBindingState::Unique,
+                ),
+            ),
+            (
+                test_command_id(2),
+                test_binding(
+                    test_command_id(2),
+                    &[21, 22],
+                    CommandIdentityBindingState::Collision,
+                ),
+            ),
+        ]))
+        .expect("build index");
+        for step in 0..3 {
+            let cold = encode_identity_index(&index).expect("encode cold");
+            let warm = encode_identity_index(&index).expect("encode warm");
+            assert_eq!(cold, warm, "cached encode must be deterministic");
+            assert_eq!(
+                cold,
+                reference_flat_encode(&index),
+                "derived flat cache must match the fresh per-binding encode"
+            );
+            let decoded = decode_identity_index(&cold, CanonicalDecodeLimits::default())
+                .expect("decode cached encode");
+            assert_eq!(
+                encode_identity_index(&decoded).expect("re-encode decoded"),
+                cold,
+                "decoded index must re-encode byte-exact from a cold cache"
+            );
+            match step {
+                0 => {
+                    index
+                        .insert_occurrence_incremental(test_command_id(3), test_occurrence(31, 1))
+                        .expect("insert new binding");
+                }
+                1 => {
+                    let result = index
+                        .insert_occurrence_incremental(test_command_id(1), test_occurrence(12, 2))
+                        .expect("insert colliding occurrence");
+                    assert_eq!(result, IdentityInsertResult::Collision);
+                }
+                _ => {
+                    let update = index
+                        .prepare_replacements(BTreeMap::from([(
+                            test_command_id(2),
+                            test_binding(
+                                test_command_id(2),
+                                &[23],
+                                CommandIdentityBindingState::Unique,
+                            ),
+                        )]))
+                        .expect("prepare replacements");
+                    index.commit_prepared_replacements(update);
+                }
+            }
+        }
+    }
 }

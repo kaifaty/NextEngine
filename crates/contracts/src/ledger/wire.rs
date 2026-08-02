@@ -6,6 +6,12 @@ pub(super) struct LedgerWriter {
 }
 
 impl LedgerWriter {
+    pub(super) fn with_capacity(capacity: usize) -> Self {
+        Self {
+            bytes: Vec::with_capacity(capacity),
+        }
+    }
+
     pub(super) fn finish(self) -> Vec<u8> {
         self.bytes
     }

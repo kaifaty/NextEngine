@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-02 |
-| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows. ADR-043 codegen-proven non-reentrant count-bearing callbacks реализован: per-call `in_callback` machinery удалена, source/boundary gate и pinned Windows IR/ASM/backend admission проходят, exactness/parity/resource checks зелёные. Единственный immutable candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL` при неизменных roots; allocator metric остаётся disabled, а новый timing candidate требует новой material implementation hypothesis. Bounded incremental checkpoint validation реализован: live checkpoint materialization больше не ревалидирует retained command history целиком (median p95 materialization `41 546 → 11 142 µs`, `-73%`, exact root parity в 3+3 soak runs), complete validator сохранён на decode/restore/migration. Checkpoint encode/publication CPU cleanup реализован: byte-exact staged verification вместо decode+rehash round-trip, no per-publish session object re-hash, exact-capacity borrowed-payload canonical encoder (realloc bytes `-30%`, materialization p95 `11 142 → 10 419 µs`, roots byte-exact). Save commit path очищен от повторной full validation: generation probing больше не пересобирает checkpoint и state root, light probe сохраняет прежние accept/reject verdicts, load path не тронут. Identity-index bindings encode закэширован derived `OnceLock` кэшем: root hashing и stream write делят один encode (soak root probe p95 `676 → 372 µs`, `-47%`, byte-exact roots, paired same-hour A/B без регрессий). Reportless tick commit очищен от O(history) deep-clone identity/causal maps: staged поля явно сбрасываются до copy-on-write commits (driver-commit p95 `385 → 27 µs`, `-93%`, flat вместо линейного роста, byte-exact roots). Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
+| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows. ADR-043 codegen-proven non-reentrant count-bearing callbacks реализован: per-call `in_callback` machinery удалена, source/boundary gate и pinned Windows IR/ASM/backend admission проходят, exactness/parity/resource checks зелёные. Единственный immutable candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL` при неизменных roots; allocator metric остаётся disabled, а новый timing candidate требует новой material implementation hypothesis. Bounded incremental checkpoint validation реализован: live checkpoint materialization больше не ревалидирует retained command history целиком (median p95 materialization `41 546 → 11 142 µs`, `-73%`, exact root parity в 3+3 soak runs), complete validator сохранён на decode/restore/migration. Checkpoint encode/publication CPU cleanup реализован: byte-exact staged verification вместо decode+rehash round-trip, no per-publish session object re-hash, exact-capacity borrowed-payload canonical encoder (realloc bytes `-30%`, materialization p95 `11 142 → 10 419 µs`, roots byte-exact). Save commit path очищен от повторной full validation: generation probing больше не пересобирает checkpoint и state root, light probe сохраняет прежние accept/reject verdicts, load path не тронут. Identity-index bindings encode закэширован derived `OnceLock` кэшем: root hashing и stream write делят один encode (soak root probe p95 `676 → 372 µs`, `-47%`, byte-exact roots, paired same-hour A/B без регрессий). Reportless tick commit очищен от O(history) deep-clone identity/causal maps: staged поля явно сбрасываются до copy-on-write commits (driver-commit p95 `385 → 27 µs`, `-93%`, flat вместо линейного роста, byte-exact roots). Flat ledger wire encode переведён на второй derived кэш bindings (probe @12k `~1 480 → ~210 µs`, `-86%`, byte-exact, wire формат неизменён; ускоряет также decode-side re-encode на load/replay). Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -1025,10 +1025,10 @@ candidate runs — cross-batch сравнения на нагруженной re
 runs оказалась фоновой нагрузкой (глобальный сдвиг всех метрик в одном
 run, транзиентный burst в другом, парный третий run чистый). Contracts
 `130` + assets `32` tests, `host-check` и `persistence-replay` PASS с
-неизменными roots. Открытые follow-up кандидаты: flat ledger wire encode
-остаётся O(history) (~550 µs @12k bindings), merged replacements root
-path всё ещё стримит per-binding visits; подозрение на `Arc::make_mut`
-deep-clone подтверждено и устранено пятым пакетом ниже.
+неизменными roots. Открытые follow-up кандидаты: merged replacements root
+path всё ещё стримит per-binding visits; flat ledger wire encode
+переведён на derived кэш шестым пакетом ниже, подозрение на
+`Arc::make_mut` deep-clone подтверждено и устранено пятым пакетом ниже.
 Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 изменились.
 
@@ -1061,6 +1061,34 @@ prepare/commit. Runtime `44` + contracts `130` + assets `32` +
 verification tests, `host-check` и `persistence-replay` PASS с
 неизменными roots. Durable schemas, cadence `0/30/60`, rollback/retry и
 replay roots не изменились.
+
+Шестой пакет перевёл flat ledger wire encode на derived кэш bindings.
+`encode_identity_index` — durable ledger segment на путях
+checkpoint/save/replay, плюс mandated byte-exactness re-encode на каждом
+decode (`canonical_bytes_validated`) — сериализовал каждый binding
+заново при каждом encode. Формат — 24-байтовый header, concat
+self-contained per-binding segments в порядке BTreeMap, trailing root —
+поэтому concat кэшируется без изменения wire формата: второй derived
+буфер `bindings_flat: OnceLock<Arc<[u8]>>` рядом с `bindings_concat`,
+общая инвалидация на мутациях, cold-cache invariant на decode через
+`from_parts`, encode сводится к exact-capacity header + одному memcpy +
+root. Сопутствующая механическая подготовка: canonical-visit helpers и
+merged-root machinery перенесены из `identity_index.rs` в `hashes.rs`
+(видимость `pub(super)`, байды не изменились) — лимит 1000 строк/файл.
+Synthetic probe @12k bindings: flat encode `~1 480 → ~210 µs` (`-86%`),
+1 116 056 байт byte-exact против fresh per-binding loop; на soak scale
+(3 600 bindings, ~65 µs экономии на checkpoint) эффект ниже шума —
+парный A/B (1 baseline + 2 candidate runs) показывает
+materialization/checkpoint-tick/driver метрики в пределах run-to-run
+spread (checkpoint-tick p95 swings `61–138 ms` — fsync I/O noise на
+нагруженной reference-системе), roots byte-exact (`5e45825e…`). Тот же
+кэш ускоряет decode-side byte-exactness re-encode на load/restore/replay
+путях. Contracts `131` + runtime `44` + assets `32` tests, `host-check`
+и `persistence-replay` PASS с неизменными roots. Открытый follow-up:
+merged replacements root path
+(`command_identity_index_root_with_replacements`) всё ещё стримит
+per-binding visits на checkpoint. Durable schemas, cadence `0/30/60`,
+rollback/retry и replay roots не изменились.
 
 1. **Semantic UI (`NEXT`):** HUD, inventory/equipment, dialogue, quest
    journal, pause/save/load and pseudo-locale.

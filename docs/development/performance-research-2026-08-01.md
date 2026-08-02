@@ -371,6 +371,43 @@ copy-on-write оптимизация только пока refcount доказу
 путь; если станет production-hot, реструктурировать в
 check-then-mutate-in-place с pre-committed rollback или persistent map.
 
+## Приложение 2026-08-02 (5): flat ledger wire encode через derived кэш — ПРИНЯТО
+
+Follow-up кандидат 2. В К4 кэш canonical concat был применён только к
+nested canonical путям (root/hash/stream); плоский ledger wire encode
+(`encode_identity_index`, durable segment в `CommandLedgerV2` field 7 →
+checkpoint/save/replay + mandated byte-exactness re-encode на каждом
+decode) остался per-binding loop. Ключевое наблюдение: flat формат —
+header + concat self-contained per-binding segments (BTreeMap порядок) +
+trailing root, поэтому concat кэшируется БЕЗ изменения wire формата
+(ранняя заметка «нельзя кэшировать без изменения формата» относилась к
+попытке переиспользовать canonical nested concat для flat пути).
+
+Реализация зеркалит К4: второй derived буфер
+`bindings_flat: OnceLock<Arc<[u8]>>` в body, общая инвалидация, cold
+cache на decode (`from_parts`), `encode_identity_index` =
+exact-capacity writer + один `extend_from_slice` из кэша + root.
+Byte-exactness зафиксирована reference-тестом (cached encode == fresh
+per-binding loop после всех типов мутаций; decode → re-encode parity).
+Сопутствующая механика: canonical-visit helpers и merged-root machinery
+перенесены `identity_index.rs → hashes.rs` (`pub(super)`) — лимит 1000
+строк/файл; перенос не меняет ни байта поведения.
+
+Замеры: synthetic probe @12k bindings — flat encode `~1 480 → ~210 µs`
+(`-86%`), 1 116 056 байт byte-exact. На soak scale (3 600 bindings)
+экономия ~65 µs/encode ниже шума materialization — парный A/B
+подтверждает parity (checkpoint-tick p95 swings `61–138 ms` между
+runs — fsync I/O noise; решение по mechanism + probe, не по soak tail).
+Память: второй derived буфер ~+1,1 MB @12k на тёплый индекс — принято
+как осознанный trade-off (буфер освобождается инвалидацией на мутации).
+
+Открытый follow-up 3: `command_identity_index_root_with_replacements`
+(merged view на checkpoint через `PreparedCommandIdentityIndexUpdate::
+index_root`) всё ещё кодирует всю merged map streaming'ом. Кандидатный
+дизайн: segment-offset индекс поверх canonical concat (splice k
+заменённых segments вместо полного re-encode) — стоимость приблизится к
+cached root (~250 µs soak scale против ~460 µs свежего encode).
+
 ## Источники
 
 - DeltaBox: millisecond checkpoint/rollback через change-based DeltaState,
