@@ -518,6 +518,34 @@ ledger encode-commit, replay loop, checkpoint materialization; порог
 Заметка: `docs/development/instruction-count-benchmarks-assessment-2026-08-02.md`.
 Wall time остаётся authority по ADR-036.
 
+## Приложение 2026-08-02 (9): атрибуция плоского prepare — LEAD (C5-кандидаты)
+
+Follow-up к открытому вопросу приложения 7 (prepare ~1.6–1.8 ms плоский
+на пустом тике). Временный env-gated Instant-probe по секциям
+`prepare_tick_internal` на history-scaling диагностике (single run,
+discovery-only, код удалён без коммита):
+
+| Секция prepare | tick 0 | tick 2048–3072 | Доля |
+|---|---|---|---|
+| `process_phase` Ingress (admission+validate+commit) | 361 µs | 665–681 µs | **60–68%** |
+| ingress close | 94 µs | 144–152 µs | ~15% |
+| batch assembly | 27 µs | 42–44 µs | ~4% |
+| outcome tail (canon+phase) | 30 µs | 58–59 µs | ~6% |
+| ledger prepare | 42 µs | 40–43 µs | ~4% |
+| `StagedAuthoritativeState` (ledger/rpg clone + `physics.fork_for_staging`) | 7 µs | 11–13 µs | **~1% — НЕ hotspot** |
+| contact facts / interaction outcomes | 1–3 µs | 2–4 µs | <1% |
+
+Выводы: (1) подозрение на `fork_for_staging`/клоны в prepare —
+опровергнуто, staging-конструкция ~1%; (2) доминирует per-command
+валидация внутри `process_phase` на ingress-фазе, растущая с историей;
+(3) ingress close растёт с историей. Кандидаты следующего раунда
+(по одному hotspot-слоту, attribution внутри `process_phase` до выбора):
+**C5** — `due_commands` сканирует `staged.ledger.streams.values()` и все
+`pending` reservation'ы на КАЖДЫЙ тик и фазу (pipeline/mod.rs) —
+O(история pending) на тик независимо от due; **C6** — ingress close
+(accept/close + receipts) с ростом от истории. Оба — production-path
+кандидаты под decision protocol, exact roots обязательны.
+
 ## Источники
 
 - DeltaBox: millisecond checkpoint/rollback через change-based DeltaState,
