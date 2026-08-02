@@ -441,6 +441,51 @@ materialized-ledger snapshot cache (легитимный ~1 clone/interval),
 path-A materialize deep-clone (семантически требуемый при BTreeMap;
 persistent map — отдельное архитектурное решение, не локальный fix).
 
+## Приложение 2026-08-02 (7): copy-on-write refcount в commit path — ОПРОВЕРГНУТО; replay без fork per tick — ПРИНЯТО
+
+Два кандидата из плана 2026-08-02 (C1 и C4), один hotspot-слот каждый.
+
+**C1 (Arc::make_mut deep-clone в commit) — опровергнут измерением.**
+Roadmap-серия 2026-08-02 подозревала `Arc::make_mut` в identity-index,
+archive и causal registry как источник роста commit с историей. Временная
+env-gated инструментация `Arc::strong_count` в трёх точках commit
+(`commit_prepared_replacements_deferred`, `commit_prepared_additions`,
+causal registry) на history-scaling диагностике (8194 commit) показала:
+identity bindings и causal registry держат strong=1 в 8190/8194 commits
+(4 аномалии strong=2, 0.05%), archive.entries — всегда strong=1.
+Системного deep-clone нет: коммит 8cc84f8 («drop staged ledger fields
+before copy-on-write commits») уже устранил его; production-путь
+`insert_occurrence_incremental` вообще не вызывается вне тестов
+contracts. Fast-path по strong_count НЕ добавлен: 0.05% случаев не
+оправдывает код. Инструментация удалена без коммита. Подозрение на
+driver-prepare ~1.3 ms/tick как на make_mut — stale.
+
+Побочное наблюдение (новый открытый вопрос): `next_tick_prepare`
+~1600–1793 µs ПЛОСКИЙ на пустой тик (не растёт с историей), commit
+334→1025–1110 µs, checkpoint materialization 13.8–15 ms @4096.
+Плоские ~1.6–1.8 ms prepare на пустом тике не атрибутированы;
+кандидаты: `physics.fork_for_staging`, `rpg.clone`, presentation
+extraction в reference-game stage_advance. Требует отдельного
+attribution probe перед любым hotspot-слотом.
+
+**C4 (replay fork per tick) — принят.** `RuntimeReplayDriver` стейджил
+каждый replay-тик через `fork_from_checkpoint`: полный snapshot clone +
+restore-time валидация + реактивация physics backend на тик. Production
+split prepare/validate/commit уже даёт ту же mismatch-безопасность без
+копии: `prepare_replay_ingress_tick` стейджит против live-поколения,
+все recorded expectations сравниваются на validated report, при mismatch
+незакоммиченный тик дропается — live runtime нетронут. Публичные
+сигнатуры `replay_tick`/`replay_tick_v5` не изменены, canonical
+форматы не тронуты.
+
+Probe (синтетический 2048-тиковый replay, noop-команды, release,
+медиана 3 прогонов): `727.7 µs/tick (1374 ticks/s) → 583.8 µs/tick
+(1713 ticks/s)`, `−19.8%` латентности / `+24.7%` throughput, шум
+прогонов ≤2.5%. Parity: persistence-replay PASS (final_state_root
+`b9168071…`, ledger `5745d14b…` — exact roots). Коммит `4304e5b`.
+Оставшийся резерв replay-пути: per-tick `world_checkpoint()` +
+compare-point hashing в application-слое (вне этого слота).
+
 ## Источники
 
 - DeltaBox: millisecond checkpoint/rollback через change-based DeltaState,
