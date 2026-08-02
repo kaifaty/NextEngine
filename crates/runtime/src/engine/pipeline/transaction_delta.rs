@@ -179,7 +179,21 @@ impl PreparedCommandLedgerTransaction {
         live_archive: &mut CommandBodyArchiveV1,
         staged_ledger: CommandLedgerV2,
     ) {
-        let CommandLedgerV2 { streams, .. } = staged_ledger;
+        // Only the staged streams carry tick mutations; the staged identity
+        // index and causal registry still share the live generation's maps.
+        // Fields left behind `..` are not released at the `let` — under the
+        // pinned toolchain they stay alive until the end of the enclosing
+        // scope — and that lingering shared ownership forces every
+        // `Arc::make_mut` below to deep-clone the retained history on every
+        // tick. Bind and drop them before the copy-on-write commits.
+        let CommandLedgerV2 {
+            streams,
+            identity_index,
+            causal_identity_registry,
+            ..
+        } = staged_ledger;
+        drop(identity_index);
+        drop(causal_identity_registry);
         let archive_entry_count = self.archive.entry_count();
         live_archive.commit_prepared_additions(self.archive);
         live_ledger

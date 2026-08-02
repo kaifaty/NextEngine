@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-02 |
-| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows. ADR-043 codegen-proven non-reentrant count-bearing callbacks реализован: per-call `in_callback` machinery удалена, source/boundary gate и pinned Windows IR/ASM/backend admission проходят, exactness/parity/resource checks зелёные. Единственный immutable candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL` при неизменных roots; allocator metric остаётся disabled, а новый timing candidate требует новой material implementation hypothesis. Bounded incremental checkpoint validation реализован: live checkpoint materialization больше не ревалидирует retained command history целиком (median p95 materialization `41 546 → 11 142 µs`, `-73%`, exact root parity в 3+3 soak runs), complete validator сохранён на decode/restore/migration. Checkpoint encode/publication CPU cleanup реализован: byte-exact staged verification вместо decode+rehash round-trip, no per-publish session object re-hash, exact-capacity borrowed-payload canonical encoder (realloc bytes `-30%`, materialization p95 `11 142 → 10 419 µs`, roots byte-exact). Save commit path очищен от повторной full validation: generation probing больше не пересобирает checkpoint и state root, light probe сохраняет прежние accept/reject verdicts, load path не тронут. Identity-index bindings encode закэширован derived `OnceLock` кэшем: root hashing и stream write делят один encode (soak root probe p95 `676 → 372 µs`, `-47%`, byte-exact roots, paired same-hour A/B без регрессий). Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
+| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows. ADR-043 codegen-proven non-reentrant count-bearing callbacks реализован: per-call `in_callback` machinery удалена, source/boundary gate и pinned Windows IR/ASM/backend admission проходят, exactness/parity/resource checks зелёные. Единственный immutable candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL` при неизменных roots; allocator metric остаётся disabled, а новый timing candidate требует новой material implementation hypothesis. Bounded incremental checkpoint validation реализован: live checkpoint materialization больше не ревалидирует retained command history целиком (median p95 materialization `41 546 → 11 142 µs`, `-73%`, exact root parity в 3+3 soak runs), complete validator сохранён на decode/restore/migration. Checkpoint encode/publication CPU cleanup реализован: byte-exact staged verification вместо decode+rehash round-trip, no per-publish session object re-hash, exact-capacity borrowed-payload canonical encoder (realloc bytes `-30%`, materialization p95 `11 142 → 10 419 µs`, roots byte-exact). Save commit path очищен от повторной full validation: generation probing больше не пересобирает checkpoint и state root, light probe сохраняет прежние accept/reject verdicts, load path не тронут. Identity-index bindings encode закэширован derived `OnceLock` кэшем: root hashing и stream write делят один encode (soak root probe p95 `676 → 372 µs`, `-47%`, byte-exact roots, paired same-hour A/B без регрессий). Reportless tick commit очищен от O(history) deep-clone identity/causal maps: staged поля явно сбрасываются до copy-on-write commits (driver-commit p95 `385 → 27 µs`, `-93%`, flat вместо линейного роста, byte-exact roots). Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -1026,12 +1026,41 @@ runs оказалась фоновой нагрузкой (глобальный 
 run, транзиентный burst в другом, парный третий run чистый). Contracts
 `130` + assets `32` tests, `host-check` и `persistence-replay` PASS с
 неизменными roots. Открытые follow-up кандидаты: flat ledger wire encode
-остаётся O(history) (~550 µs @12k bindings), `Arc::make_mut` в
-incremental/deferred paths потенциально deep-клонирует bindings map при
-shared Arc (подозрение на driver-prepare ~1,3 ms/tick, не исследовано),
-merged replacements root path всё ещё стримит per-binding visits.
+остаётся O(history) (~550 µs @12k bindings), merged replacements root
+path всё ещё стримит per-binding visits; подозрение на `Arc::make_mut`
+deep-clone подтверждено и устранено пятым пакетом ниже.
 Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 изменились.
+
+Пятый пакет устранил O(history) deep-clone identity/causal maps на
+каждый reportless tick. Симптом: driver-commit в soak рос линейно
+`27 → 323 µs` за 3600 тиков при плоском driver-prepare. Инструментированная
+диагностика (strong_count + sub-step timings на 900-тиковом verification
+прогоне) показала: `commit_deferred_roots` деструктурировал staged
+ledger как `let CommandLedgerV2 { streams, .. } = staged_ledger;`, а
+поля за `..` не освобождаются в точке `let` — под pinned toolchain они
+доживают до конца enclosing scope. Staged identity index и causal
+registry удерживали shared Arc владение картами live-поколения через
+copy-on-write commits, поэтому `Arc::make_mut` deep-клонировал всю
+bindings map на каждом тике (strong_count 4 в точке commit: live +
+update.base + staged + snapshot-cache). Archive commit при этом уникален
+и дёшев. Fix: staged `identity_index`/`causal_identity_registry` явно
+связываются и сбрасываются до commits — семантика неизменна (tick
+мутации несут только streams), regression test фиксирует pointer
+stability карт через reportless commits (негативный контроль: падает
+без fix). Парный same-hour A/B: driver-commit p95 `385 → 27 µs`
+(`-93%`), p50 `178 → 18 µs`, децильный рост `33 → 370` сплющен в
+`15 → 41`; ordinary tick в пределах spread (направленно лучше),
+checkpoint-tick/materialization/root-probe неизменны, roots byte-exact
+(`5e45825e…`). Остаток: ~1 тик на checkpoint interval всё ещё клонирует,
+когда materialized-ledger snapshot cache легитимно разделяет карту
+(copy-on-write корректность). Известный неисправленный паттерн:
+`insert_occurrence_incremental` (contracts) клонирует по построению
+(`self.clone()` перед `make_mut`) — test-only путь, production идёт через
+prepare/commit. Runtime `44` + contracts `130` + assets `32` +
+verification tests, `host-check` и `persistence-replay` PASS с
+неизменными roots. Durable schemas, cadence `0/30/60`, rollback/retry и
+replay roots не изменились.
 
 1. **Semantic UI (`NEXT`):** HUD, inventory/equipment, dialogue, quest
    journal, pause/save/load and pseudo-locale.

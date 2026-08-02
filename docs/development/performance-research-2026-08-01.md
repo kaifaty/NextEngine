@@ -320,6 +320,57 @@ paired same-hour A/B с несколькими runs на сторону; оди�
    (`command_identity_index_root_with_replacements`) всё ещё стримит
    per-binding visits — кандидат на тот же concat-кэш, если путь горячий.
 
+## Приложение 2026-08-02 (4): per-tick deep-clone identity/causal maps — ПРИНЯТО
+
+Follow-up кандидат 1 (подозрение на `Arc::make_mut` deep-clone). До
+инструментирования гипотеза указывала на driver-prepare (~1,3 ms/tick);
+пер-децильный анализ raw samples soak показал, что prepare плоский
+(~1 264–1 293 µs), а линейно растёт driver-commit: `27 → 323 µs` за
+3600 тиков. Урок: сначала пер-децильный тренд, потом гипотеза.
+
+Диагностика временной инструментацией (strong_count + sub-step timings в
+`commit_deferred_roots` и archive commit, прогон 900-тикового
+verification теста): archive commit уникален (entries sc=1 после drop
+base, leaf insert дёшев), а identity bindings Arc достигает
+strong_count 4 в точке commit: live + update.base + staged ledger +
+snapshot-cache. Источник staged-ссылки — Rust partial-move drop семантика:
+`let CommandLedgerV2 { streams, .. } = staged_ledger;` НЕ освобождает
+поля за `..` в точке `let` (под pinned toolchain 1.93 они доживают до
+конца enclosing scope), поэтому staged identity index и causal registry
+удерживали shared владение картами live-поколения через весь commit, и
+каждый `Arc::make_mut` deep-клонировал полную bindings map (подтверждено:
+900/900 тиков, avg identity commit растёт `14 → 26 → 38 µs` на
+n=300/600/900). Четвёртый держатель — materialized-ledger snapshot cache
+(`ledger_snapshot_cache`, `state.rs`), пополняемый только при
+`snapshot()`/`command_ledger()` на dirty roots: ~30 тиков из 900 (тик
+после каждого checkpoint), там clone легитимен по copy-on-write
+семантике.
+
+Fix: явное связывание `identity_index`/`causal_identity_registry` из
+staged ledger и `drop` до copy-on-write commits (15 строк, семантика
+неизменна — tick мутации несут только streams). Regression test:
+`Arc::as_ptr` identity/causal карт стабилен через reportless commits
+(in-place mutation), негативный контроль подтверждён (без fix тест
+падает). Первый вариант теста на post-commit strong_count==1 был слеп:
+lingerers дропаются при выходе из функции и финальный count всегда 1 —
+guard должен наблюдать поведение В ТОЧКЕ commit, а не после неё.
+
+Парный same-hour A/B (release soak, roots byte-exact `5e45825e…`):
+driver-commit p95 `385 → 27 µs` (`-93%`), p50 `178 → 18 µs`, децильный
+тренд сплющен `33 → 370` в `15 → 41` (остаточный рост — ~1 легитимный
+clone на checkpoint interval из-за snapshot cache). Остальные метрики в
+пределах run-to-run spread, root-probe неизменен (К4 кэш не тронут).
+
+Методический вывод: `Arc::make_mut` на shared структурах — это
+copy-on-write оптимизация только пока refcount доказуемо равен 1 в точке
+мутации; destructure с `..` молча продлевает жизнь неиспользуемых полей.
+Для hot commit paths явный `drop` staged поколения дешевле, чем
+полагаться на end-of-scope. Известный остаточный паттерн:
+`insert_occurrence_incremental` клонирует по построению
+(`self.clone()` → refcount 2 → гарантированный deep-clone) — test-only
+путь; если станет production-hot, реструктурировать в
+check-then-mutate-in-place с pre-committed rollback или persistent map.
+
 ## Источники
 
 - DeltaBox: millisecond checkpoint/rollback через change-based DeltaState,

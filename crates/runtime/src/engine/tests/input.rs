@@ -123,6 +123,62 @@ fn reportless_commit_matches_the_public_tick_report_path() {
 }
 
 #[test]
+fn reportless_commit_releases_staged_ledger_ownership() {
+    let mut fixture = physical_fixture();
+    for sequence in 0..4 {
+        // Performance regression guard, not a public contract: a staged
+        // generation field that outlives the commit keeps the shared map
+        // alive and forces copy-on-write to deep-clone the retained history
+        // into a fresh allocation. In-place commits keep the map pointer
+        // stable.
+        let identity_before =
+            std::sync::Arc::as_ptr(&fixture.runtime.command_ledger.identity_index.body.bindings);
+        let causal_before = std::sync::Arc::as_ptr(
+            &fixture
+                .runtime
+                .command_ledger
+                .causal_identity_registry
+                .bindings,
+        );
+        let sample = movement_sample(
+            &fixture,
+            sequence,
+            PlayerActionPhaseV1::Performed,
+            [0, 32_767],
+            None,
+        );
+        let mut preparation = fixture.runtime.tick_preparation();
+        preparation
+            .enqueue_input_sample(&fixture.principal, sample)
+            .expect("stage input");
+        let prepared = preparation.prepare([]).expect("prepare tick");
+        let validated = fixture
+            .runtime
+            .validate_prepared_tick(prepared)
+            .expect("validate tick");
+        fixture
+            .runtime
+            .commit_validated_tick_without_report(validated);
+        assert_eq!(
+            identity_before,
+            std::sync::Arc::as_ptr(&fixture.runtime.command_ledger.identity_index.body.bindings),
+            "reportless commit must mutate the live identity map in place"
+        );
+        assert_eq!(
+            causal_before,
+            std::sync::Arc::as_ptr(
+                &fixture
+                    .runtime
+                    .command_ledger
+                    .causal_identity_registry
+                    .bindings
+            ),
+            "reportless commit must mutate the causal registry in place"
+        );
+    }
+}
+
+#[test]
 fn prepared_tick_rejects_a_stale_runtime_generation() {
     let mut fixture = physical_fixture();
     let prepared = fixture
