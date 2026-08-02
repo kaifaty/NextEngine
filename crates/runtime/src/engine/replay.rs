@@ -15,6 +15,7 @@ use crate::authority::AuthorityRegistry;
 
 use super::error::{RuntimeFatalError, SnapshotRestoreError};
 use super::result::TickReport;
+use super::tick::ValidatedRuntimeTick;
 use super::{PhysicsLaunchOptions, RuntimeState};
 
 #[derive(Debug)]
@@ -81,7 +82,7 @@ impl RuntimeReplayDriver {
         expected_contact_batch: &ClosedPhysicsContactBatchV1,
         expected_outcome_batch: &ClosedCommandAdmissionBatchV2,
     ) -> Result<TickReport, RuntimeReplayError> {
-        let (staged_runtime, report) = self.stage_replay_tick(
+        let validated = self.prepare_replay_tick(
             closed_ingress_batch,
             direct_commands,
             expected_ingress_batch,
@@ -89,8 +90,7 @@ impl RuntimeReplayDriver {
             expected_contact_batch,
             expected_outcome_batch,
         )?;
-        self.runtime = staged_runtime;
-        Ok(report)
+        Ok(self.runtime.commit_validated_tick(validated))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -107,7 +107,7 @@ impl RuntimeReplayDriver {
         expected_physics_query_results: &[PhysicsQueryResultV1],
         expected_outcome_batch: &ClosedCommandAdmissionBatchV2,
     ) -> Result<TickReport, RuntimeReplayError> {
-        let (staged_runtime, report) = self.stage_replay_tick(
+        let validated = self.prepare_replay_tick(
             closed_ingress_batch,
             direct_commands,
             expected_ingress_batch,
@@ -115,6 +115,7 @@ impl RuntimeReplayDriver {
             expected_contact_batch,
             expected_outcome_batch,
         )?;
+        let report = validated.report();
         if report.targeting_intents != expected_targeting_intents {
             return Err(RuntimeReplayError::TargetingIntentMismatch { tick: report.tick });
         }
@@ -127,11 +128,13 @@ impl RuntimeReplayDriver {
         if report.physics_query_results != expected_physics_query_results {
             return Err(RuntimeReplayError::PhysicsQueryResultMismatch { tick: report.tick });
         }
-        self.runtime = staged_runtime;
-        Ok(report)
+        Ok(self.runtime.commit_validated_tick(validated))
     }
 
-    fn stage_replay_tick(
+    /// Prepares one recorded tick against the live runtime generation without
+    /// committing it. The live runtime stays untouched until every recorded
+    /// expectation matched; no per-tick runtime fork is required.
+    fn prepare_replay_tick(
         &self,
         closed_ingress_batch: ClosedIngressBatchV1,
         direct_commands: Vec<WorldCommand>,
@@ -139,7 +142,7 @@ impl RuntimeReplayDriver {
         expected_physics_step_input: &PhysicsStepInputV2,
         expected_contact_batch: &ClosedPhysicsContactBatchV1,
         expected_outcome_batch: &ClosedCommandAdmissionBatchV2,
-    ) -> Result<(RuntimeState, TickReport), RuntimeReplayError> {
+    ) -> Result<ValidatedRuntimeTick, RuntimeReplayError> {
         let ingress_batch = self
             .runtime
             .preview_replay_ingress_batch(closed_ingress_batch.clone(), &direct_commands)?;
@@ -154,9 +157,10 @@ impl RuntimeReplayDriver {
             .map_err(ReferencePhysicsError::from)
             .map_err(PhysicsBackendError::from)
             .map_err(RuntimeFatalError::from)?;
-        let mut staged_runtime = self.runtime.fork_from_checkpoint()?;
-        let report =
-            staged_runtime.replay_closed_ingress_tick(closed_ingress_batch, direct_commands)?;
+        let validated = self
+            .runtime
+            .prepare_replay_ingress_tick(closed_ingress_batch, direct_commands)?;
+        let report = validated.report();
         if &report.physics_step_input != expected_physics_step_input {
             return Err(RuntimeReplayError::PhysicsStepInputMismatch { tick: report.tick });
         }
@@ -169,7 +173,7 @@ impl RuntimeReplayDriver {
                 phase: CommandPhase::Outcome,
             });
         }
-        Ok((staged_runtime, report))
+        Ok(validated)
     }
 
     pub fn world_checkpoint(&self) -> Result<WorldCheckpointV4, WorldCheckpointError> {

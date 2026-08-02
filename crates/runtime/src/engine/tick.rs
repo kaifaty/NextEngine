@@ -543,18 +543,17 @@ impl RuntimeState {
         self.last_command_batches = last_command_batches;
     }
 
-    pub(super) fn replay_closed_ingress_tick(
-        &mut self,
+    pub(super) fn prepare_replay_ingress_tick(
+        &self,
         closed_ingress_batch: ClosedIngressBatchV1,
         direct_commands: impl IntoIterator<Item = WorldCommand>,
-    ) -> Result<TickReport, RuntimeFatalError> {
+    ) -> Result<ValidatedRuntimeTick, RuntimeFatalError> {
         let prepared = self.tick_preparation().prepare_internal(
             direct_commands,
             &mut NoOutcomes,
             Some(closed_ingress_batch),
         )?;
-        let validated = self.validate_prepared_tick(prepared)?;
-        Ok(self.commit_validated_tick(validated))
+        self.validate_prepared_tick(prepared)
     }
 
     pub(super) fn preview_replay_ingress_batch(
