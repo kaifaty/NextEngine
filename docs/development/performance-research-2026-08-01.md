@@ -486,6 +486,38 @@ Probe (синтетический 2048-тиковый replay, noop-команд�
 Оставшийся резерв replay-пути: per-tick `world_checkpoint()` +
 compare-point hashing в application-слое (вне этого слота).
 
+## Приложение 2026-08-02 (8): Tracy stage-zones — ПРИНЯТО; instruction-count benches — ОТЛОЖЕНО
+
+Tooling-пункты плана 2026-08-02 (T1 и T2), не hotspot-слоты.
+
+**T1 (Tracy/puffin-зоны по стадиям) — принят, реализован как Tracy.**
+Opt-in feature `profile-tracy` (enable+ondemand) в next_runtime с
+pass-through через next_application в next_headless; `stage_zone!`
+расширяется в no-op при выключенном feature и tracy-client не линкуется
+— default build поведенчески идентичен. Зоны над нормативными стадиями:
+IngressClose, IngressAdmission, IngressCommit, PhysicalStep,
+OutcomeCollection, OutcomeCommit, SnapshotPublication + RuntimeCommit и
+TickReportMaterialize; PhysicsContactPublication и OutcomeAdmission
+покрыты объемлющими зонами (гейт 1000 строк на исходник). Profiler
+on/off parity: `next_headless --live-ticks 64` — byte-identical report
+roots (authoritative `6ed6f142…`, ledger `fa805eed…`). Коммит `e7f95ac`.
+Puffin не добавлен: второй profiler backend без текущего потребителя —
+лишняя зависимость; Tracy закрывает frame/zone use case. Следующий шаг
+(не сделан, отдельная работа): zone-атрибуция плоских ~1.6–1.8 ms
+prepare на пустом тике из приложения 7.
+
+**T2 (iai-callgrind/gungraun) — оценено, отложено.** Instruction counts
+детерминированы и шумоустойчивы — закрывают noise band paired A/B
+(allocator FAILs на +4.3–4.8% того же порядка, что и системный шум).
+Но callgrind=valgrind=Linux-only: на THOTH (Windows shipping target)
+не запускается, WSL2 ≠ shipping target; метрика слепа к cache/syscall/
+I/O стоимости (а наши hotspot'ы — encode+I/O+allocations). Решение:
+REPORT_ONLY dev-signal на Linux runner после LNX-006, первые harness —
+ledger encode-commit, replay loop, checkpoint materialization; порог
+«instruction regression >1% → wall-time A/B на THOTH», не наоборот.
+Заметка: `docs/development/instruction-count-benchmarks-assessment-2026-08-02.md`.
+Wall time остаётся authority по ADR-036.
+
 ## Источники
 
 - DeltaBox: millisecond checkpoint/rollback через change-based DeltaState,
