@@ -162,9 +162,13 @@ impl CommandLedgerV2 {
     /// archive and identity-index APIs.
     ///
     /// Unlike [`Self::validate`], this does not re-hash every retained command
-    /// body or rebuild the global archive/index membership sets. Decode,
-    /// restore, migration and any other untrusted-data boundary must continue
-    /// to call the complete validator.
+    /// body or rebuild the global archive/index membership sets, and it does
+    /// not re-validate or re-hash every retained receipt and identity binding:
+    /// those facts are proved by the private checked mutation APIs at each
+    /// transaction boundary. The receipt-reference closure and the identity
+    /// command-link closure remain fully checked here. Decode, restore,
+    /// migration and any other untrusted-data boundary must continue to call
+    /// the complete validator.
     pub(crate) fn validate_incremental_checkpoint(
         &self,
         archive: &CommandBodyArchiveV1,
@@ -182,7 +186,7 @@ impl CommandLedgerV2 {
         if archive.manifest()? != self.body_archive {
             return Err(CommandLedgerError::CommandBodyArchiveCorrupt);
         }
-        self.identity_index.validate()?;
+        self.identity_index.validate_incremental_checkpoint()?;
         let mut occurrence_count = 0_u64;
         for (command_id, binding) in self.identity_index.body.bindings.iter() {
             for occurrence in &binding.occurrences {
@@ -201,7 +205,7 @@ impl CommandLedgerV2 {
             if stream_id != &stream.stream_id {
                 return Err(CommandLedgerError::StreamKeyMismatch);
             }
-            stream.validate()?;
+            stream.validate_incremental_checkpoint()?;
             for reservation in stream.pending.values() {
                 validate_body_reference_incremental(
                     archive,
@@ -402,4 +406,35 @@ fn validate_body_reference_incremental(
         return Err(CommandLedgerError::IdentityReferenceMissing);
     }
     Ok(())
+}
+
+// This impl lives next to its only caller so `identity_index.rs` stays within
+// the enforced source-size limit.
+impl CommandIdentityIndexV1 {
+    /// Bounded live-checkpoint validation for an index assembled only through
+    /// the checked insert/prepare/commit mutation APIs. Bindings are private:
+    /// every mutation path validates each touched binding, maintains the
+    /// declared counts and publishes the exact public index root at the
+    /// transaction boundary, so only the bounded current closure is
+    /// re-checked here. The complete validator remains mandatory on decode,
+    /// restore, migration and any other untrusted-data boundary.
+    pub(crate) fn validate_incremental_checkpoint(&self) -> Result<(), CommandLedgerError> {
+        if self.schema_version != COMMAND_IDENTITY_INDEX_SCHEMA_VERSION {
+            return Err(CommandLedgerError::UnsupportedIdentityIndexVersion(
+                self.schema_version,
+            ));
+        }
+        if self.body.schema_version != COMMAND_IDENTITY_INDEX_SCHEMA_VERSION {
+            return Err(CommandLedgerError::UnsupportedIdentityIndexVersion(
+                self.body.schema_version,
+            ));
+        }
+        if self.body.command_id_count
+            != u64::try_from(self.body.bindings.len())
+                .map_err(|_| CommandLedgerError::CountOverflow)?
+        {
+            return Err(CommandLedgerError::IdentityIndexCountMismatch);
+        }
+        Ok(())
+    }
 }

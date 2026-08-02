@@ -554,6 +554,110 @@ impl CommandStreamLedgerV2 {
         Ok(())
     }
 
+    /// Bounded live-checkpoint validation for a stream assembled only through
+    /// the checked reserve/append/collision mutation APIs.
+    ///
+    /// Every retained receipt was fully validated at its own append boundary,
+    /// ordinals form a proven contiguous run, the receipt window is privately
+    /// owned copy-on-write storage, and the receipt-chain root is advanced
+    /// exactly once per append. Re-validating and re-hashing every retained
+    /// receipt at each checkpoint would duplicate those proofs, so this
+    /// variant checks only the bounded current closure. The complete
+    /// validator remains mandatory on decode, restore, migration and any
+    /// other untrusted-data boundary.
+    pub(crate) fn validate_incremental_checkpoint(&self) -> Result<(), CommandLedgerError> {
+        if self.schema_version != COMMAND_STREAM_LEDGER_SCHEMA_VERSION {
+            return Err(CommandLedgerError::UnsupportedStreamLedgerVersion(
+                self.schema_version,
+            ));
+        }
+        if self.pending.len() > COMMAND_PENDING_CAPACITY {
+            return Err(CommandLedgerError::PendingLimit);
+        }
+        for (sequence, reservation) in self.pending.iter() {
+            if sequence != &reservation.sequence
+                || reservation.stream_id != self.stream_id
+                || reservation.issuer != self.issuer
+                || reservation.schema_version != COMMAND_RESERVATION_SCHEMA_VERSION
+                || reservation.body_hash != reservation.canonical_body_ref
+                || self
+                    .admission_high_watermark
+                    .is_none_or(|high_watermark| *sequence > high_watermark)
+            {
+                return Err(CommandLedgerError::ReservationMismatch);
+            }
+            if self
+                .greatest_reserved_target_tick
+                .is_none_or(|greatest| reservation.target_tick > greatest)
+            {
+                return Err(CommandLedgerError::TargetTickRegression);
+            }
+        }
+        let expected_window_len = usize::try_from(
+            self.finalized_receipt_count
+                .min(COMMAND_RECEIPT_WINDOW_CAPACITY as u64),
+        )
+        .map_err(|_| CommandLedgerError::CountOverflow)?;
+        if self.receipt_window.len() != expected_window_len {
+            return Err(CommandLedgerError::ReceiptWindowLengthMismatch);
+        }
+        if self.finalized_receipt_count == 0 {
+            if self.receipt_chain_root != command_receipt_chain_genesis() {
+                return Err(CommandLedgerError::ReceiptChainRootMismatch);
+            }
+        } else {
+            let first_ordinal = self
+                .finalized_receipt_count
+                .checked_sub(
+                    u64::try_from(self.receipt_window.len())
+                        .map_err(|_| CommandLedgerError::CountOverflow)?,
+                )
+                .ok_or(CommandLedgerError::CountOverflow)?;
+            let first = self
+                .receipt_window
+                .first()
+                .ok_or(CommandLedgerError::ReceiptWindowInvalid)?;
+            let last = self
+                .receipt_window
+                .last()
+                .ok_or(CommandLedgerError::ReceiptWindowInvalid)?;
+            if first.finalization_ordinal != first_ordinal
+                || last.finalization_ordinal.checked_add(1) != Some(self.finalized_receipt_count)
+                || first.subject.stream_id() != self.stream_id
+                || last.subject.stream_id() != self.stream_id
+                || first.subject.issuer() != &self.issuer
+                || last.subject.issuer() != &self.issuer
+            {
+                return Err(CommandLedgerError::ReceiptWindowInvalid);
+            }
+        }
+        match (&self.state, &self.collision_incident) {
+            (CommandStreamStateV1::CollisionLocked, Some(incident)) => {
+                incident.validate()?;
+                if incident.stream_id != self.stream_id || incident.issuer != self.issuer {
+                    return Err(CommandLedgerError::CollisionIncidentMismatch);
+                }
+            }
+            (CommandStreamStateV1::CollisionLocked, None) => {
+                return Err(CommandLedgerError::CollisionIncidentMismatch);
+            }
+            (_, Some(_)) => return Err(CommandLedgerError::CollisionIncidentMismatch),
+            _ => {}
+        }
+        if self.state == CommandStreamStateV1::Open
+            && (self.admission_high_watermark == Some(u64::MAX)
+                || self.finalized_receipt_count == u64::MAX)
+        {
+            return Err(CommandLedgerError::OpenStreamExhausted);
+        }
+        if self.admission_high_watermark.is_none()
+            && (!self.pending.is_empty() || !self.receipt_window.is_empty())
+        {
+            return Err(CommandLedgerError::HighWatermarkMissing);
+        }
+        Ok(())
+    }
+
     fn validate_append_boundary(&self) -> Result<(), CommandLedgerError> {
         if self.schema_version != COMMAND_STREAM_LEDGER_SCHEMA_VERSION {
             return Err(CommandLedgerError::UnsupportedStreamLedgerVersion(

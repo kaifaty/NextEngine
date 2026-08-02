@@ -3,8 +3,8 @@
 | Поле | Значение |
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
-| Последнее обновление | 2026-08-01 |
-| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows. ADR-043 codegen-proven non-reentrant count-bearing callbacks реализован: per-call `in_callback` machinery удалена, source/boundary gate и pinned Windows IR/ASM/backend admission проходят, exactness/parity/resource checks зелёные. Единственный immutable candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL` при неизменных roots; allocator metric остаётся disabled, а новый timing candidate требует новой material implementation hypothesis. Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
+| Последнее обновление | 2026-08-02 |
+| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows. ADR-043 codegen-proven non-reentrant count-bearing callbacks реализован: per-call `in_callback` machinery удалена, source/boundary gate и pinned Windows IR/ASM/backend admission проходят, exactness/parity/resource checks зелёные. Единственный immutable candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL` при неизменных roots; allocator metric остаётся disabled, а новый timing candidate требует новой material implementation hypothesis. Bounded incremental checkpoint validation реализован: live checkpoint materialization больше не ревалидирует retained command history целиком (median p95 materialization `41 546 → 11 142 µs`, `-73%`, exact root parity в 3+3 soak runs), complete validator сохранён на decode/restore/migration. Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -895,6 +895,40 @@ disabled, hard timing scenarios `NOT_RUN` и calibration не начинаетс
 остаётся `NOT_RUN` до `LNX-006` и отдельного Accepted target-extension. Hard
 timing gate всё равно требует реальный stage workload, поэтому B-12 остаётся
 открыт.
+
+Отдельно от allocator line реализован bounded incremental checkpoint
+validation package. Fresh instrumentation показала, что при live checkpoint
+materialization около `60%` времени составляла не encode/hashing, а повторная
+полная ревалидация retained command history: per-receipt validation, пересчёт
+receipt chain root и recompute identity index root.
+`CommandStreamLedgerV2`/`CommandIdentityIndexV1` получили bounded
+live-checkpoint валидацию на доказательствах приватных checked mutation APIs:
+каждый receipt валидирован в момент append, chain root продвигается только на
+append, identity bindings/root — на transaction boundary; live checkpoint
+проверяет только window length/hash binding, reservation и count consistency.
+Anti-forgery receipt-reference closure и identity command-link closure walks
+сохранены (regression test на re-rooted identity forgery падает, если walk
+убрать), а complete validator остаётся обязательным на
+decode/restore/migration paths. Добавлены два focused test: accept за
+пределами window capacity `4096` и bounded faults
+(`ReceiptWindowLengthMismatch`/`ReceiptWindowInvalid`/`ReservationMismatch`/
+`IdentityIndexCountMismatch`/`CommandBodyArchiveCorrupt`). Contracts `129`
+tests, verification suite, `host-check` и `persistence-replay` проходят;
+history-scaling diagnostic показывает materialization на history `4096`
+`63 165 → 13 994 µs` при byte-exact parity всех четырёх roots. Три before
+(`target/checkpoint-bytes-before-01..03`) и три after
+(`target/checkpoint-bytes-after-01..03`) soak run на THOTH дали exact root
+parity во всех шести run и median p95 deltas: materialization
+`41 546 → 11 142 µs` (`-73.2%`), application checkpoint-tick
+`82 775 → 46 860 µs` (`-43.4%`), application checkpoint window
+`3 064 055 → 1 751 103 µs` (`-42.9%`), application window `-29.1%`,
+live-runtime window `-34.5%`, driver commit `-34.9%`; ordinary tick/driver
+prepare в пределах tail noise. Замеры сделаны на менее нагруженной системе,
+baseline ниже прежних `REPORT_ONLY` чисел, все run остаются `NOT_RUN` из-за
+недоступного NVML probe (`PERF_HOST_PROBE_FAILED`), поэтому это bounded
+локальная оптимизация, а не ten-run hard calibration; B-12 не закрывается.
+Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
+изменились.
 
 1. **Semantic UI (`NEXT`):** HUD, inventory/equipment, dialogue, quest
    journal, pause/save/load and pseudo-locale.

@@ -733,3 +733,146 @@ fn receipt_canonical_bytes_and_chain_are_result_sensitive() {
         command_receipt_chain_next(command_receipt_chain_genesis(), &rejected).expect("chain root")
     );
 }
+
+#[test]
+fn incremental_checkpoint_accepts_a_stream_beyond_the_retained_window_capacity() {
+    // At capacity + 1 the complete validator can no longer recompute the
+    // receipt chain from genesis either, so both validators rely on the
+    // append-time chain maintenance. The bounded incremental validator must
+    // accept this exact state.
+    let world_namespace = WorldNamespaceId::from_bytes([8; 16]);
+    let (mut ledger, mut archive) = CommandLedgerV2::empty(
+        world_namespace,
+        content_hash_from_bytes([3; 32]),
+        content_hash_from_bytes([5; 32]),
+    )
+    .expect("empty ledger");
+    let mut bindings = BTreeMap::new();
+    let mut stream = None;
+    for sequence in 0..=COMMAND_RECEIPT_WINDOW_CAPACITY as u64 {
+        let command = command(sequence, sequence);
+        let command_id = command.compute_command_id().expect("command ID");
+        let body_hash = command.body_hash().expect("body hash");
+        archive.insert_command(&command).expect("archive command");
+        bindings.insert(
+            command_id,
+            CommandIdentityBindingV1 {
+                command_id,
+                occurrences: vec![CommandIdentityOccurrenceV1 {
+                    body_hash,
+                    first_stream_id: command.stream_id,
+                    first_sequence: command.sequence,
+                }],
+                state: CommandIdentityBindingState::Unique,
+            },
+        );
+        let stream = stream.get_or_insert_with(|| {
+            CommandStreamLedgerV2::genesis(command.stream_id, command.issuer.clone(), 0, 0)
+        });
+        stream
+            .append_receipt(receipt(sequence, sequence, CommandFinalResultV1::Committed))
+            .expect("receipt");
+    }
+    let stream = stream.expect("stream assembled");
+    assert_eq!(stream.receipt_window.len(), COMMAND_RECEIPT_WINDOW_CAPACITY);
+    assert_eq!(
+        stream.finalized_receipt_count,
+        COMMAND_RECEIPT_WINDOW_CAPACITY as u64 + 1
+    );
+    ledger.identity_index =
+        CommandIdentityIndexV1::from_bindings(bindings).expect("identity index");
+    ledger.streams.insert(stream.stream_id, stream);
+    ledger
+        .synchronize_archive(&archive)
+        .expect("archive closure");
+
+    ledger.validate(&archive).expect("complete validation");
+    ledger
+        .validate_incremental_checkpoint(&archive)
+        .expect("bounded incremental checkpoint validation");
+}
+
+#[test]
+fn incremental_checkpoint_rejects_bounded_stream_and_index_faults() {
+    let world_namespace = WorldNamespaceId::from_bytes([8; 16]);
+    let (mut ledger, mut archive) = CommandLedgerV2::empty(
+        world_namespace,
+        content_hash_from_bytes([3; 32]),
+        content_hash_from_bytes([5; 32]),
+    )
+    .expect("empty ledger");
+    let command = command(0, 0);
+    let command_id = command.compute_command_id().expect("command ID");
+    let body_hash = command.body_hash().expect("body hash");
+    archive.insert_command(&command).expect("archive command");
+    ledger
+        .identity_index
+        .insert_occurrence_incremental(
+            command_id,
+            CommandIdentityOccurrenceV1 {
+                body_hash,
+                first_stream_id: command.stream_id,
+                first_sequence: command.sequence,
+            },
+        )
+        .expect("identity occurrence");
+    let mut stream =
+        CommandStreamLedgerV2::genesis(command.stream_id, command.issuer.clone(), 0, 0);
+    stream
+        .append_receipt(receipt(0, 0, CommandFinalResultV1::Committed))
+        .expect("receipt");
+    ledger.streams.insert(command.stream_id, stream);
+    ledger
+        .synchronize_archive(&archive)
+        .expect("archive closure");
+    ledger
+        .validate_incremental_checkpoint(&archive)
+        .expect("base state passes the bounded validator");
+
+    let mut corrupt = ledger.clone();
+    corrupt
+        .streams
+        .get_mut(&command.stream_id)
+        .expect("stream")
+        .finalized_receipt_count = 2;
+    assert_eq!(
+        corrupt.validate_incremental_checkpoint(&archive),
+        Err(CommandLedgerError::ReceiptWindowLengthMismatch)
+    );
+
+    let mut corrupt = ledger.clone();
+    let stream = corrupt.streams.get_mut(&command.stream_id).expect("stream");
+    stream.receipt_window =
+        CommandReceiptWindowV1::from_receipts(vec![receipt(9, 0, CommandFinalResultV1::Committed)])
+            .expect("single-receipt window");
+    assert_eq!(
+        corrupt.validate_incremental_checkpoint(&archive),
+        Err(CommandLedgerError::ReceiptWindowInvalid)
+    );
+
+    let mut corrupt = ledger.clone();
+    let stream = corrupt.streams.get_mut(&command.stream_id).expect("stream");
+    let mut forged_reservation =
+        CommandReservationV1::from_command(&command, 7, 0, content_hash_from_bytes([3; 32]))
+            .expect("reservation from command");
+    forged_reservation.canonical_body_ref = command_body_hash_from_bytes([9; 32]);
+    Arc::make_mut(&mut stream.pending).insert(7, forged_reservation);
+    assert_eq!(
+        corrupt.validate_incremental_checkpoint(&archive),
+        Err(CommandLedgerError::ReservationMismatch)
+    );
+
+    let mut corrupt = ledger.clone();
+    corrupt.identity_index.body.command_id_count += 1;
+    assert_eq!(
+        corrupt.validate_incremental_checkpoint(&archive),
+        Err(CommandLedgerError::IdentityIndexCountMismatch)
+    );
+
+    let mut corrupt = ledger.clone();
+    corrupt.body_archive.entry_count += 1;
+    assert_eq!(
+        corrupt.validate_incremental_checkpoint(&archive),
+        Err(CommandLedgerError::CommandBodyArchiveCorrupt)
+    );
+}
