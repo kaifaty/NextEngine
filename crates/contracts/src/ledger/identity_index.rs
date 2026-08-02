@@ -23,17 +23,82 @@ pub struct CommandIdentityBindingV1 {
     pub state: CommandIdentityBindingState,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone)]
 pub struct CommandIdentityIndexBodyV1 {
     pub schema_version: u16,
     pub bindings: Arc<BTreeMap<CommandId, CommandIdentityBindingV1>>,
     pub command_id_count: u64,
     pub occurrence_count: u64,
+    /// Derived count-prefixed canonical encoding of the bindings map,
+    /// rebuilt lazily after every mutation. Identity-index roots and ledger
+    /// encodes stream from this buffer instead of re-walking every binding;
+    /// it never changes the logical value, so it is excluded from
+    /// `PartialEq`/`Debug`.
+    bindings_concat: std::sync::OnceLock<Arc<[u8]>>,
+}
+
+impl PartialEq for CommandIdentityIndexBodyV1 {
+    fn eq(&self, other: &Self) -> bool {
+        self.schema_version == other.schema_version
+            && self.bindings == other.bindings
+            && self.command_id_count == other.command_id_count
+            && self.occurrence_count == other.occurrence_count
+    }
+}
+
+impl Eq for CommandIdentityIndexBodyV1 {}
+
+impl std::fmt::Debug for CommandIdentityIndexBodyV1 {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("CommandIdentityIndexBodyV1")
+            .field("schema_version", &self.schema_version)
+            .field("bindings", &self.bindings)
+            .field("command_id_count", &self.command_id_count)
+            .field("occurrence_count", &self.occurrence_count)
+            .finish_non_exhaustive()
+    }
 }
 
 impl CommandIdentityIndexBodyV1 {
+    /// Canonical count-prefixed bindings encoding shared by the index root,
+    /// the body segment and the ledger encode. The buffer is built once per
+    /// generation and reused; concurrent builders produce identical bytes.
+    pub(crate) fn bindings_concat(&self) -> Result<&[u8], CanonicalError> {
+        if let Some(bytes) = self.bindings_concat.get() {
+            return Ok(bytes);
+        }
+        let bytes: Arc<[u8]> = encode_identity_bindings(&self.bindings)?.into();
+        let _ = self.bindings_concat.set(bytes);
+        Ok(self
+            .bindings_concat
+            .get()
+            .expect("bindings concat initialized"))
+    }
+
+    /// Resets the derived encoding after a bindings mutation. Callers must
+    /// invoke this on the mutated value, never on the pre-mutation clone.
+    fn invalidate_bindings_concat(&mut self) {
+        self.bindings_concat = std::sync::OnceLock::new();
+    }
+
+    pub(crate) fn from_parts(
+        schema_version: u16,
+        bindings: BTreeMap<CommandId, CommandIdentityBindingV1>,
+        command_id_count: u64,
+        occurrence_count: u64,
+    ) -> Self {
+        Self {
+            schema_version,
+            bindings: Arc::new(bindings),
+            command_id_count,
+            occurrence_count,
+            bindings_concat: std::sync::OnceLock::new(),
+        }
+    }
+
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, CanonicalError> {
-        let bindings = encode_identity_bindings(&self.bindings)?;
+        let bindings = self.bindings_concat()?.to_vec();
         encode_canonical_segment(
             COMMAND_IDENTITY_INDEX_BODY_OWNER_ID,
             COMMAND_IDENTITY_INDEX_BODY_SCHEMA_ID,
@@ -62,7 +127,7 @@ impl CommandIdentityIndexBodyV1 {
     pub(super) fn canonical_layout(
         &self,
     ) -> Result<CommandIdentityIndexCanonicalLayout, CanonicalError> {
-        let bindings_bytes = identity_bindings_byte_len(&self.bindings)?;
+        let bindings_bytes = self.bindings_concat()?.len();
         let total_bytes = crate::canonical::CANONICAL_BINARY_V1_MAGIC
             .len()
             .checked_add(std::mem::size_of::<u16>())
@@ -117,7 +182,7 @@ impl CommandIdentityIndexBodyV1 {
             &self.schema_version.to_le_bytes(),
         )?;
         visit_field_header(write, 2, CANONICAL_TYPE_MAP, layout.bindings_bytes)?;
-        visit_identity_bindings(write, &self.bindings)?;
+        write(self.bindings_concat()?);
         visit_field(
             write,
             3,
@@ -133,7 +198,7 @@ impl CommandIdentityIndexBodyV1 {
     }
 
     #[cfg(test)]
-    fn canonical_bytes_reference(&self) -> Result<Vec<u8>, CanonicalError> {
+    pub(crate) fn canonical_bytes_reference(&self) -> Result<Vec<u8>, CanonicalError> {
         let bindings = encode_map(
             self.bindings
                 .iter()
@@ -483,70 +548,6 @@ impl CommandIdentityOccurrenceV1 {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn optimized_identity_encoding_is_byte_exact_for_unique_and_collision_bindings() {
-        let mut index = CommandIdentityIndexV1::empty().expect("empty index");
-        let empty_expected = index.body.canonical_bytes().expect("empty canonical bytes");
-        let empty_layout = index.body.canonical_layout().expect("empty layout");
-        let mut empty_streamed = Vec::with_capacity(empty_layout.total_bytes);
-        index
-            .body
-            .visit_canonical_bytes(empty_layout, &mut |chunk| {
-                empty_streamed.extend_from_slice(chunk);
-            })
-            .expect("empty streamed encoding");
-        assert_eq!(empty_streamed, empty_expected);
-
-        let collision_id = CommandId::from_bytes([7; 16]);
-        for (body, stream, sequence) in [([1; 32], [2; 16], 3), ([4; 32], [5; 16], 6)] {
-            index
-                .insert_occurrence(
-                    collision_id,
-                    CommandIdentityOccurrenceV1 {
-                        body_hash: command_body_hash_from_bytes(body),
-                        first_stream_id: CommandStreamId::from_bytes(stream),
-                        first_sequence: sequence,
-                    },
-                )
-                .expect("collision occurrence");
-        }
-        index
-            .insert_occurrence(
-                CommandId::from_bytes([8; 16]),
-                CommandIdentityOccurrenceV1 {
-                    body_hash: command_body_hash_from_bytes([9; 32]),
-                    first_stream_id: CommandStreamId::from_bytes([10; 16]),
-                    first_sequence: 11,
-                },
-            )
-            .expect("unique occurrence");
-
-        assert_eq!(
-            index.body.canonical_bytes().expect("optimized encoding"),
-            index
-                .body
-                .canonical_bytes_reference()
-                .expect("reference encoding")
-        );
-
-        let expected = index.body.canonical_bytes().expect("canonical bytes");
-        let layout = index.body.canonical_layout().expect("canonical layout");
-        let mut streamed = Vec::with_capacity(layout.total_bytes);
-        index
-            .body
-            .visit_canonical_bytes(layout, &mut |chunk| {
-                streamed.extend_from_slice(chunk);
-            })
-            .expect("streamed encoding");
-        assert_eq!(layout.total_bytes, expected.len());
-        assert_eq!(streamed, expected);
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandIdentityIndexV1 {
     pub schema_version: u16,
@@ -610,12 +611,12 @@ impl CommandIdentityIndexV1 {
                 )
                 .ok_or(CanonicalError::LengthOverflow)
         })?;
-        let body = CommandIdentityIndexBodyV1 {
-            schema_version: COMMAND_IDENTITY_INDEX_SCHEMA_VERSION,
-            bindings: Arc::new(bindings),
+        let body = CommandIdentityIndexBodyV1::from_parts(
+            COMMAND_IDENTITY_INDEX_SCHEMA_VERSION,
+            bindings,
             command_id_count,
             occurrence_count,
-        };
+        );
         let index_root = command_identity_index_root(&body)?;
         Ok(Self {
             schema_version: COMMAND_IDENTITY_INDEX_SCHEMA_VERSION,
@@ -695,6 +696,9 @@ impl CommandIdentityIndexV1 {
                 IdentityInsertResult::Collision
             }
         };
+        // The clone may carry the pre-mutation derived encoding; only the
+        // mutated value may rebuild it.
+        next.body.invalidate_bindings_concat();
         next.index_root = command_identity_index_root(&next.body)?;
         *self = next;
         Ok(result)
@@ -785,6 +789,7 @@ impl CommandIdentityIndexV1 {
         }
         self.body.command_id_count = command_id_count;
         self.body.occurrence_count = occurrence_count;
+        self.body.invalidate_bindings_concat();
     }
 
     pub fn validate(&self) -> Result<(), CommandLedgerError> {

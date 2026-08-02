@@ -876,3 +876,122 @@ fn incremental_checkpoint_rejects_bounded_stream_and_index_faults() {
         Err(CommandLedgerError::CommandBodyArchiveCorrupt)
     );
 }
+
+#[test]
+fn derived_bindings_cache_matches_fresh_rebuild_after_mutations() {
+    let mut index = CommandIdentityIndexV1::empty().expect("empty index");
+    for ordinal in 0..50_u64 {
+        let mut id_bytes = [0_u8; 16];
+        id_bytes[..8].copy_from_slice(&ordinal.to_le_bytes());
+        index
+            .insert_occurrence_incremental(
+                crate::ids::CommandId::from_bytes(id_bytes),
+                CommandIdentityOccurrenceV1 {
+                    body_hash: crate::ids::command_body_hash_from_bytes([ordinal as u8; 32]),
+                    first_stream_id: CommandStreamId::from_bytes([1; 16]),
+                    first_sequence: ordinal,
+                },
+            )
+            .expect("occurrence inserted");
+        // Force the derived buffer to materialize between mutations so a
+        // stale buffer would be observable.
+        let _ = index.body.canonical_bytes().expect("canonical bytes");
+    }
+
+    let mut id_bytes = [0_u8; 16];
+    id_bytes[..8].copy_from_slice(&7_u64.to_le_bytes());
+    let command_id = crate::ids::CommandId::from_bytes(id_bytes);
+    let mut replacement = index
+        .body
+        .bindings
+        .get(&command_id)
+        .expect("binding exists")
+        .clone();
+    replacement.occurrences.push(CommandIdentityOccurrenceV1 {
+        body_hash: crate::ids::command_body_hash_from_bytes([250; 32]),
+        first_stream_id: CommandStreamId::from_bytes([2; 16]),
+        first_sequence: 1000,
+    });
+    replacement
+        .occurrences
+        .sort_by_key(|occurrence| occurrence.body_hash);
+    replacement.state = CommandIdentityBindingState::Collision;
+    let mut replacements = std::collections::BTreeMap::new();
+    replacements.insert(command_id, replacement);
+    let update = index.prepare_replacements(replacements).expect("prepared");
+    index.commit_prepared_replacements(update);
+
+    let fresh = CommandIdentityIndexV1::from_bindings(index.body.bindings.as_ref().clone())
+        .expect("fresh rebuild");
+    assert_eq!(index, fresh);
+    assert_eq!(
+        index
+            .body
+            .canonical_bytes()
+            .expect("cached canonical bytes"),
+        fresh.body.canonical_bytes().expect("fresh canonical bytes")
+    );
+    assert_eq!(
+        command_identity_index_root(&index.body).expect("cached root"),
+        command_identity_index_root(&fresh.body).expect("fresh root")
+    );
+}
+
+#[test]
+fn optimized_identity_encoding_is_byte_exact_for_unique_and_collision_bindings() {
+    let mut index = CommandIdentityIndexV1::empty().expect("empty index");
+    let empty_expected = index.body.canonical_bytes().expect("empty canonical bytes");
+    let empty_layout = index.body.canonical_layout().expect("empty layout");
+    let mut empty_streamed = Vec::with_capacity(empty_layout.total_bytes);
+    index
+        .body
+        .visit_canonical_bytes(empty_layout, &mut |chunk| {
+            empty_streamed.extend_from_slice(chunk);
+        })
+        .expect("empty streamed encoding");
+    assert_eq!(empty_streamed, empty_expected);
+
+    let collision_id = crate::ids::CommandId::from_bytes([7; 16]);
+    for (body, stream, sequence) in [([1; 32], [2; 16], 3), ([4; 32], [5; 16], 6)] {
+        index
+            .insert_occurrence(
+                collision_id,
+                CommandIdentityOccurrenceV1 {
+                    body_hash: crate::ids::command_body_hash_from_bytes(body),
+                    first_stream_id: CommandStreamId::from_bytes(stream),
+                    first_sequence: sequence,
+                },
+            )
+            .expect("collision occurrence");
+    }
+    index
+        .insert_occurrence(
+            crate::ids::CommandId::from_bytes([8; 16]),
+            CommandIdentityOccurrenceV1 {
+                body_hash: crate::ids::command_body_hash_from_bytes([9; 32]),
+                first_stream_id: CommandStreamId::from_bytes([10; 16]),
+                first_sequence: 11,
+            },
+        )
+        .expect("unique occurrence");
+
+    assert_eq!(
+        index.body.canonical_bytes().expect("optimized encoding"),
+        index
+            .body
+            .canonical_bytes_reference()
+            .expect("reference encoding")
+    );
+
+    let expected = index.body.canonical_bytes().expect("canonical bytes");
+    let layout = index.body.canonical_layout().expect("canonical layout");
+    let mut streamed = Vec::with_capacity(layout.total_bytes);
+    index
+        .body
+        .visit_canonical_bytes(layout, &mut |chunk| {
+            streamed.extend_from_slice(chunk);
+        })
+        .expect("streamed encoding");
+    assert_eq!(layout.total_bytes, expected.len());
+    assert_eq!(streamed, expected);
+}

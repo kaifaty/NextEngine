@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-02 |
-| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows. ADR-043 codegen-proven non-reentrant count-bearing callbacks реализован: per-call `in_callback` machinery удалена, source/boundary gate и pinned Windows IR/ASM/backend admission проходят, exactness/parity/resource checks зелёные. Единственный immutable candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL` при неизменных roots; allocator metric остаётся disabled, а новый timing candidate требует новой material implementation hypothesis. Bounded incremental checkpoint validation реализован: live checkpoint materialization больше не ревалидирует retained command history целиком (median p95 materialization `41 546 → 11 142 µs`, `-73%`, exact root parity в 3+3 soak runs), complete validator сохранён на decode/restore/migration. Checkpoint encode/publication CPU cleanup реализован: byte-exact staged verification вместо decode+rehash round-trip, no per-publish session object re-hash, exact-capacity borrowed-payload canonical encoder (realloc bytes `-30%`, materialization p95 `11 142 → 10 419 µs`, roots byte-exact). Save commit path очищен от повторной full validation: generation probing больше не пересобирает checkpoint и state root, light probe сохраняет прежние accept/reject verdicts, load path не тронут. Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
+| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows. ADR-043 codegen-proven non-reentrant count-bearing callbacks реализован: per-call `in_callback` machinery удалена, source/boundary gate и pinned Windows IR/ASM/backend admission проходят, exactness/parity/resource checks зелёные. Единственный immutable candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL` при неизменных roots; allocator metric остаётся disabled, а новый timing candidate требует новой material implementation hypothesis. Bounded incremental checkpoint validation реализован: live checkpoint materialization больше не ревалидирует retained command history целиком (median p95 materialization `41 546 → 11 142 µs`, `-73%`, exact root parity в 3+3 soak runs), complete validator сохранён на decode/restore/migration. Checkpoint encode/publication CPU cleanup реализован: byte-exact staged verification вместо decode+rehash round-trip, no per-publish session object re-hash, exact-capacity borrowed-payload canonical encoder (realloc bytes `-30%`, materialization p95 `11 142 → 10 419 µs`, roots byte-exact). Save commit path очищен от повторной full validation: generation probing больше не пересобирает checkpoint и state root, light probe сохраняет прежние accept/reject verdicts, load path не тронут. Identity-index bindings encode закэширован derived `OnceLock` кэшем: root hashing и stream write делят один encode (soak root probe p95 `676 → 372 µs`, `-47%`, byte-exact roots, paired same-hour A/B без регрессий). Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -965,7 +965,7 @@ load-bearing, session store и application recovery не имеют fallback с
 corrupt current на previous generation, поэтому снятие проверки превращает
 publish-time bounded failure в load-time unrecoverable (см. addendum в
 `docs/development/performance-research-2026-08-01.md`); encode-side
-incremental caching (streams/archive) остаётся кандидатом, а parallel
+incremental caching реализован четвёртым пакетом ниже, а parallel
 encode/write на scoped threads реализован, измерен paired same-hour A/B и
 отклонён: baseline materialization p95 `10 514 µs` (старый baseline
 `10 419 µs`, система не деградировала) против candidate `13 674 µs`
@@ -1000,6 +1000,38 @@ Sanity soak run — exact root parity (`5e45825e…`), метрики в пре�
 run-to-run spread (затронут game save commit, а не soak checkpoint
 cadence). Durable schemas, cadence `0/30/60`, rollback/retry и replay
 roots не изменились.
+
+Четвёртый пакет устранил двойной encode bindings map в checkpoint
+materialization: `command_identity_index_root` и canonical stream write
+независимо пересобирали canonical nested encoding всей bindings map
+(O(history)) на каждый checkpoint. `CommandIdentityIndexBodyV1` получил
+derived кэш `bindings_concat: OnceLock<Arc<[u8]>>` — count-prefixed
+canonical encoding bindings map, лениво собираемый через
+`encode_identity_bindings` и инвалидируемый в
+`insert_occurrence_incremental` и `commit_prepared_replacements_deferred`;
+ручные `PartialEq`/`Eq`/`Debug` исключают кэш из сравнений, `from_parts`
+фиксирует cold-cache invariant на decode. `canonical_bytes`,
+`canonical_layout` и `visit_canonical_bytes` читают кэш, поэтому root
+hashing и stream write делят один encode. Плоский ledger wire формат
+(`encode_identity_index`) намеренно не тронут — первая попытка применить
+кэш там ломала nested/flat контракт (`Decode(UnexpectedEnd)`).
+Identity-index-root-probe в soak: p50 `458 → 243 µs`, p95 `676 → 372 µs`
+(`-47%`, стабильно в 3 candidate runs), synthetic root probe @12k
+bindings `2 000 → 1 210 µs`; roots byte-exact во всех soak runs
+(`5e45825e…`) и в probe. Парный same-hour A/B (2 baseline runs против 3
+candidate runs — cross-batch сравнения на нагруженной reference-системе
+шумные): ordinary tick, driver-prepare, checkpoint-tick, materialization
+и windows в пределах run-to-run spread; elevation в ранних candidate
+runs оказалась фоновой нагрузкой (глобальный сдвиг всех метрик в одном
+run, транзиентный burst в другом, парный третий run чистый). Contracts
+`130` + assets `32` tests, `host-check` и `persistence-replay` PASS с
+неизменными roots. Открытые follow-up кандидаты: flat ledger wire encode
+остаётся O(history) (~550 µs @12k bindings), `Arc::make_mut` в
+incremental/deferred paths потенциально deep-клонирует bindings map при
+shared Arc (подозрение на driver-prepare ~1,3 ms/tick, не исследовано),
+merged replacements root path всё ещё стримит per-binding visits.
+Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
+изменились.
 
 1. **Semantic UI (`NEXT`):** HUD, inventory/equipment, dialogue, quest
    journal, pause/save/load and pseudo-locale.

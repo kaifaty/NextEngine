@@ -262,6 +262,64 @@ fsync на одном volume). Кандидат полностью откаче�
 job substrate (persistent bounded worker pool по ADR-026, без CreateThread
 на checkpoint) и повторным paired A/B. До B-04 — не возвращаться.
 
+## Приложение 2026-08-02 (3): derived-кэш identity-index bindings encode — ПРИНЯТО
+
+Кандидат 4 из очереди (encode-side incremental caching). Анализ показал,
+что checkpoint materialization выполняет canonical nested encode всей
+bindings map identity index дважды за checkpoint: один раз внутри
+`command_identity_index_root` (hash) и второй раз при canonical stream
+write. Оба пути идут через `canonical_bytes`/`visit_canonical_bytes`
+`CommandIdentityIndexBodyV1`, поэтому достаточно одного derived кэша в
+body, без изменения call sites и wire форматов.
+
+Реализация: приватное поле `bindings_concat: OnceLock<Arc<[u8]>>` в
+`CommandIdentityIndexBodyV1` хранит count-prefixed canonical encoding
+bindings map; собирается лениво через `encode_identity_bindings`,
+инвалидируется в `insert_occurrence_incremental` и
+`commit_prepared_replacements_deferred`. Ручные `PartialEq`/`Eq`/`Debug`
+по четырём публичным полям исключают кэш из сравнений; decode идёт через
+`from_parts`, поэтому загруженный индекс всегда cold-cache. Flat ledger
+wire encode (`encode_identity_index`) — другой формат (raw поля без
+nested headers); попытка переиспользовать кэш там дала
+`Decode(UnexpectedEnd)` в round-trip тесте и была откачена, wire path
+остался per-binding loop.
+
+Замеры: identity-index-root-probe в soak p50 `458 → 243 µs`, p95
+`676 → 372 µs` (`-47%`, стабильно в 3 candidate runs); synthetic probe
+@12k bindings: root `2 000 → 1 210 µs`, значение root байт-в-байт прежнее.
+Все soak runs дают byte-exact roots (`5e45825e…`).
+
+Парный same-hour A/B против сомнения «шум или регрессия»: первый candidate
+run показал elevation всех метрик (materialization p95 `12 817` против
+baseline `10 514 µs`, ordinary tick `+38%`) — но elevation была
+равномерной, включая незатронутые пути, как и в отклонённом parallel
+кандидате. Контрольный эксперимент: 2 baseline runs против 3 candidate
+runs в тот же час. Парный третий candidate run: ordinary tick p50/p95
+`1446/1780` против baseline `1443/1828`, driver-prepare, checkpoint-tick,
+materialization и windows — в пределах run-to-run spread. Вердикт:
+elevation в ранних runs — фоновая нагрузка (глобальный сдвиг в одном run,
+транзиентный burst в другом), регрессии нет. Кандидат принят.
+
+Методический вывод, подтверждённый второй раз: на нагруженной
+reference-системе решения по tick-path кандидатам принимаются только по
+paired same-hour A/B с несколькими runs на сторону; одиночный run с
+равномерным сдвигом всех метрик (включая незатронутые пути) — признак
+фона, а не кода.
+
+Открытые follow-up кандидаты (по убыванию ожидаемого эффекта):
+
+1. `Arc::make_mut` в `insert_occurrence_incremental` и
+   `commit_prepared_replacements_deferred` потенциально deep-клонирует
+   всю bindings map при shared Arc — подозрение на driver-prepare
+   ~1,3 ms/tick, не исследовано. Стоит инструментировать refcount и
+   фактические clone counts прежде чем менять.
+2. Flat ledger wire encode (`encode_identity_index`) остаётся O(history)
+   (~550 µs @12k bindings); кэшировать нельзя без изменения wire формата,
+   но можно рассмотреть incremental append, если формат позволяет.
+3. Merged replacements root path
+   (`command_identity_index_root_with_replacements`) всё ещё стримит
+   per-binding visits — кандидат на тот же concat-кэш, если путь горячий.
+
 ## Источники
 
 - DeltaBox: millisecond checkpoint/rollback через change-based DeltaState,

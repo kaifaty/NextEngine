@@ -477,12 +477,12 @@ pub(super) fn decode_identity_index(
     }
     let index = CommandIdentityIndexV1 {
         schema_version,
-        body: CommandIdentityIndexBodyV1 {
-            schema_version: body_schema_version,
-            bindings: Arc::new(bindings),
+        body: CommandIdentityIndexBodyV1::from_parts(
+            body_schema_version,
+            bindings,
             command_id_count,
             occurrence_count,
-        },
+        ),
         index_root: ContentHash::from_bytes(reader.array()?),
     };
     reader.finish()?;
