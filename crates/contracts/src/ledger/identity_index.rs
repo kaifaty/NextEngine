@@ -561,9 +561,14 @@ impl CommandIdentityIndexV1 {
 
     /// Applies an update after its enclosing runtime generation was validated.
     pub fn commit_prepared_replacements(&mut self, update: PreparedCommandIdentityIndexUpdate) {
-        let index_root = update.index_root();
         self.commit_prepared_replacements_deferred(update);
-        self.index_root = index_root;
+        // Deriving the root from the committed body keeps its derived
+        // canonical encoding warm for the snapshot encode that follows on
+        // checkpoint paths; streaming the merged view separately would
+        // duplicate that full-map encode. The committed map is the merged
+        // view by construction, so the root is identical.
+        self.index_root = command_identity_index_root(&self.body)
+            .expect("validated identity-index update has a representable root");
     }
 
     /// Applies only the authoritative body of a validated update. Callers

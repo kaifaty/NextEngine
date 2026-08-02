@@ -751,4 +751,71 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn committed_root_matches_the_streaming_merged_root() {
+        let base_bindings = BTreeMap::from([
+            (
+                test_command_id(1),
+                test_binding(
+                    test_command_id(1),
+                    &[11],
+                    CommandIdentityBindingState::Unique,
+                ),
+            ),
+            (
+                test_command_id(2),
+                test_binding(
+                    test_command_id(2),
+                    &[21, 22],
+                    CommandIdentityBindingState::Collision,
+                ),
+            ),
+            (
+                test_command_id(3),
+                test_binding(
+                    test_command_id(3),
+                    &[31],
+                    CommandIdentityBindingState::Unique,
+                ),
+            ),
+        ]);
+        let mut index =
+            CommandIdentityIndexV1::from_bindings(base_bindings.clone()).expect("build index");
+        let replacements = BTreeMap::from([
+            (
+                test_command_id(2),
+                test_binding(
+                    test_command_id(2),
+                    &[23],
+                    CommandIdentityBindingState::Unique,
+                ),
+            ),
+            (
+                test_command_id(4),
+                test_binding(
+                    test_command_id(4),
+                    &[41, 42],
+                    CommandIdentityBindingState::Collision,
+                ),
+            ),
+        ]);
+        let update = index
+            .prepare_replacements(replacements.clone())
+            .expect("prepare replacements");
+        let streaming_root = update.index_root();
+        index.commit_prepared_replacements(update);
+        assert_eq!(
+            index.index_root, streaming_root,
+            "root derived from the committed body must equal the streaming merged root"
+        );
+        // Independently merged map must produce the identical body and root.
+        let mut expected = base_bindings;
+        for (command_id, binding) in replacements {
+            expected.insert(command_id, binding);
+        }
+        let merged = CommandIdentityIndexV1::from_bindings(expected).expect("merged index");
+        assert_eq!(index.body, merged.body);
+        assert_eq!(index.index_root, merged.index_root);
+    }
 }

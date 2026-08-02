@@ -408,6 +408,39 @@ index_root`) всё ещё кодирует всю merged map streaming'ом. К
 заменённых segments вместо полного re-encode) — стоимость приблизится к
 cached root (~250 µs soak scale против ~460 µs свежего encode).
 
+## Приложение 2026-08-02 (6): merged root из committed body — ПРИНЯТО
+
+Follow-up кандидат 3. Анализ показал, что segment-offset splice
+(изначальный дизайн из приложения 5) избыточен: на checkpoint
+`commit_prepared_replacements` вычислял root streaming'ом merged map, а
+snapshot encode следом пересобирал canonical concat той же логической
+карты второй раз. Вместо splice по stale кэшу (который к моменту
+checkpoint всё равно холодный — ordinary ticks инвалидируют его каждый
+тик) root теперь выводится из committed body: committed map ≡ merged
+view по построению, cached `command_identity_index_root` выполняет один
+encode и оставляет кэш тёплым для snapshot encode. Public
+`PreparedCommandIdentityIndexUpdate::index_root()` не тронут.
+
+Parity зафиксирован тестом: committed root == streaming merged root ==
+root независимо слитой карты (base + replacements), bodies равны.
+Probe @12k (полный checkpoint-цикл): `~5 000 → ~4 000 µs` (`-20%`),
+byte-exact. Soak A/B: parity в сопоставимых окнах, один нагруженный run
+отброшен по uniform shift незатронутых метрик (driver-prepare `+35%`).
+
+Методический вывод серии: derived-кэш окупается только если он ТЁПЛЫЙ в
+точке потребления — трассировать жизненный цикл кэша (кто строит, кто
+инвалидирует, кто читает) обязательно до выбора дизайна; «замерить
+полный цикл потребителя», а не изолированную операцию.
+
+Итог серии follow-up (К4–Ф3): identity-index bindings на checkpoint
+пути encoded ровно один раз на формат (nested canonical + flat wire),
+roots из кэша, per-tick commit без deep-clone, driver-commit flat.
+Оставшиеся известные резервы: B-04 job substrate для parallel
+encode/write (возврат отклонённого К3 на persistent workers),
+materialized-ledger snapshot cache (легитимный ~1 clone/interval),
+path-A materialize deep-clone (семантически требуемый при BTreeMap;
+persistent map — отдельное архитектурное решение, не локальный fix).
+
 ## Источники
 
 - DeltaBox: millisecond checkpoint/rollback через change-based DeltaState,
