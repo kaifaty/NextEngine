@@ -99,6 +99,63 @@ pub(super) fn read_generation_directory(
     })
 }
 
+/// Probes a generation directory for validity without materializing the
+/// decoded world. Accept/reject behavior and preserved-file capture are
+/// identical to `read_generation_directory`; only the payload differs, so
+/// callers that need just validity and the image avoid checkpoint
+/// reconstruction and state-root recomputation.
+pub(super) fn probe_generation_directory(
+    path: &Path,
+    slot: u8,
+) -> Result<SaveImage, RejectedGeneration> {
+    let original_files = preserve_generation_files(path);
+    let reject = |stable_code| RejectedGeneration {
+        slot,
+        stable_code,
+        original_files: original_files.clone(),
+    };
+    let files = original_files
+        .iter()
+        .map(|file| (file.relative_path.as_str(), file.bytes.as_slice()))
+        .collect::<BTreeMap<_, _>>();
+    if !generation_layout_is_regular(path) {
+        return Err(reject("SAVE_FILE_SET_MISMATCH"));
+    }
+    let manifest_bytes = files
+        .get(MANIFEST_FILE)
+        .copied()
+        .ok_or_else(|| reject("SAVE_MANIFEST_MISSING"))?;
+    let manifest =
+        match SaveManifestV2::from_jcs_bytes(manifest_bytes, CanonicalDecodeLimits::default()) {
+            Ok(manifest) => manifest,
+            Err(ManifestCodecError::Validation(
+                ManifestValidationError::UnsupportedSaveVersion(_),
+            )) => return Err(reject("UNSUPPORTED_SAVE_MANIFEST_VERSION")),
+            Err(_) => return Err(reject("SAVE_MANIFEST_INVALID")),
+        };
+    if manifest.generation % SLOT_COUNT != u64::from(slot) {
+        return Err(reject("SAVE_GENERATION_SLOT_MISMATCH"));
+    }
+    let expected_file_count = manifest.segments.len().saturating_add(1);
+    if files.len() != expected_file_count {
+        return Err(reject("SAVE_FILE_SET_MISMATCH"));
+    }
+    let mut segments = Vec::with_capacity(manifest.segments.len());
+    for index in 0..manifest.segments.len() {
+        let name = format!("{SEGMENTS_DIRECTORY}/{}", segment_file_name(index));
+        let bytes = files
+            .get(name.as_str())
+            .copied()
+            .ok_or_else(|| reject("SAVE_SEGMENT_MISSING"))?;
+        segments.push(bytes.to_vec());
+    }
+    let image = SaveImage { manifest, segments };
+    image
+        .validate_world_light()
+        .map_err(|_| reject("SAVE_IMAGE_INVALID"))?;
+    Ok(image)
+}
+
 fn preserve_generation_files(path: &Path) -> Vec<PreservedFile> {
     let mut files = Vec::new();
     if let Some(bytes) = read_regular_file(&path.join(MANIFEST_FILE)) {

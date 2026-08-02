@@ -21,9 +21,9 @@ use next_contracts::world::WorldStreamingSnapshotV1;
 
 use super::error::{RejectedGeneration, SaveLoadError, SaveStoreError};
 use super::generation::{
-    LoadedSave, MANIFEST_FILE, SEGMENTS_DIRECTORY, SLOT_COUNT, read_generation_directory,
-    remove_directory_if_present, remove_file_if_present, segment_file_name, sync_directory,
-    write_new_synced,
+    LoadedSave, MANIFEST_FILE, SEGMENTS_DIRECTORY, SLOT_COUNT, probe_generation_directory,
+    read_generation_directory, remove_directory_if_present, remove_file_if_present,
+    segment_file_name, sync_directory, write_new_synced,
 };
 use super::image::SaveImage;
 
@@ -206,10 +206,12 @@ impl SaveStore {
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
         fs::create_dir_all(&self.root)
             .map_err(|source| SaveStoreError::io("create save root", &self.root, source))?;
-        let (candidates, _) = self.load_candidates(None);
+        // Generation numbering only needs the highest valid generation, not
+        // the decoded world; probe instead of full validation.
+        let candidates = self.probe_candidates();
         let next_generation = candidates
             .iter()
-            .map(|candidate| candidate.image.manifest.generation)
+            .map(|candidate| candidate.manifest.generation)
             .max()
             .map_or(Ok(0), |generation| {
                 generation
@@ -247,9 +249,9 @@ impl SaveStore {
         sync_directory(&staging)?;
         maybe_inject(fault, CommitBoundary::ManifestSynced)?;
 
-        let staged = read_generation_directory(&staging, slot, None)
+        let staged_image = probe_generation_directory(&staging, slot)
             .map_err(|rejected| SaveStoreError::InvalidStaging(rejected.stable_code))?;
-        if staged.image != image {
+        if staged_image != image {
             return Err(SaveStoreError::InvalidImage(
                 "SAVE_STAGING_ROUND_TRIP_MISMATCH",
             ));
@@ -319,6 +321,25 @@ impl SaveStore {
             }
         }
         (candidates, rejected)
+    }
+
+    /// Returns the valid on-disk generation images without decoding their
+    /// worlds. Rejected generations are ignored exactly as the commit path
+    /// always ignored them when computing the next generation number.
+    fn probe_candidates(&self) -> Vec<SaveImage> {
+        let mut candidates = Vec::new();
+        for slot in 0..2_u8 {
+            let path = self.slot_path(slot);
+            match fs::symlink_metadata(&path) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Ok(metadata) if metadata.file_type().is_dir() => {}
+                _ => continue,
+            }
+            if let Ok(image) = probe_generation_directory(&path, slot) {
+                candidates.push(image);
+            }
+        }
+        candidates
     }
 
     pub(super) fn slot_path(&self, slot: u8) -> PathBuf {

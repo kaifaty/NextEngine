@@ -198,54 +198,73 @@ impl WorldCheckpointV4 {
         }
         let rpg_bytes = self.rpg_snapshot.canonical_bytes()?;
         self.physics_checkpoint.validate()?;
-        self.physics_checkpoint.snapshot.validate_profile_closure(
-            &self.physics_checkpoint.catalog,
-            &self.runtime_snapshot.tick_rate_profile,
-            &self.runtime_snapshot.authoritative_numeric_profile,
-            &self.runtime_snapshot.physics_quantization_profile,
-        )?;
-        super::validate_core_dialogue_quest_world_closure_v2(
+        validate_world_checkpoint_component_closures(
+            &self.runtime_snapshot,
             &self.rpg_snapshot,
-            &self.runtime_snapshot.player_controller_registry,
-            &self.runtime_snapshot.principal_registry,
-            &self.runtime_snapshot.stream_registry,
             &self.physics_checkpoint,
         )?;
-        let expected_physics_tick = self
-            .runtime_snapshot
-            .next_tick
-            .checked_mul(u64::from(
-                self.runtime_snapshot
-                    .tick_rate_profile
-                    .physics_substeps_per_gameplay_tick,
-            ))
-            .ok_or(WorldCheckpointError::ClosureMismatch)?;
-        let bindings_close = self
-            .runtime_snapshot
-            .player_controller_registry
-            .bindings
-            .values()
-            .all(|binding| {
-                self.physics_checkpoint
-                    .catalog
-                    .avatar_bindings
-                    .get(&binding.controlled_body_id)
-                    .is_some_and(|body_id| {
-                        self.physics_checkpoint
-                            .snapshot
-                            .sorted_body_states
-                            .contains_key(body_id)
-                    })
-            });
-        if self.physics_checkpoint.snapshot.checkpoint_revision
-            != self.runtime_snapshot.authoritative_revision
-            || self.physics_checkpoint.snapshot.physics_tick != expected_physics_tick
-            || !bindings_close
-        {
-            return Err(WorldCheckpointError::ClosureMismatch);
-        }
         Ok(rpg_bytes)
     }
+}
+
+/// Validates the cross-component closures of a world checkpoint whose
+/// individual component values have already been validated.
+///
+/// This performs the same closure checks as checkpoint construction but
+/// without re-validating the components, re-encoding them or recomputing
+/// the state root. It exists for callers holding fully decoded (and
+/// therefore fully validated) components — such as save generation probing —
+/// where only the cross-component closure still determines validity and the
+/// state root is not stored anywhere it could be compared against.
+pub fn validate_world_checkpoint_component_closures(
+    runtime_snapshot: &RuntimeSnapshotV3,
+    rpg_snapshot: &RpgSnapshotV2,
+    physics_checkpoint: &PhysicsWorldCheckpointV1,
+) -> Result<(), WorldCheckpointError> {
+    physics_checkpoint.snapshot.validate_profile_closure(
+        &physics_checkpoint.catalog,
+        &runtime_snapshot.tick_rate_profile,
+        &runtime_snapshot.authoritative_numeric_profile,
+        &runtime_snapshot.physics_quantization_profile,
+    )?;
+    validate_core_dialogue_quest_world_closure_v2(
+        rpg_snapshot,
+        &runtime_snapshot.player_controller_registry,
+        &runtime_snapshot.principal_registry,
+        &runtime_snapshot.stream_registry,
+        physics_checkpoint,
+    )?;
+    let expected_physics_tick = runtime_snapshot
+        .next_tick
+        .checked_mul(u64::from(
+            runtime_snapshot
+                .tick_rate_profile
+                .physics_substeps_per_gameplay_tick,
+        ))
+        .ok_or(WorldCheckpointError::ClosureMismatch)?;
+    let bindings_close = runtime_snapshot
+        .player_controller_registry
+        .bindings
+        .values()
+        .all(|binding| {
+            physics_checkpoint
+                .catalog
+                .avatar_bindings
+                .get(&binding.controlled_body_id)
+                .is_some_and(|body_id| {
+                    physics_checkpoint
+                        .snapshot
+                        .sorted_body_states
+                        .contains_key(body_id)
+                })
+        });
+    if physics_checkpoint.snapshot.checkpoint_revision != runtime_snapshot.authoritative_revision
+        || physics_checkpoint.snapshot.physics_tick != expected_physics_tick
+        || !bindings_close
+    {
+        return Err(WorldCheckpointError::ClosureMismatch);
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy)]

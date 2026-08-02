@@ -275,3 +275,79 @@ fn v1_save_is_rejected_before_snapshot_activation_and_source_is_preserved() {
         v1_text.as_bytes()
     );
 }
+
+#[test]
+fn validate_world_light_matches_validate_world_on_images() {
+    let compatibility = compatibility(1);
+    let checkpoint =
+        synthetic_empty_checkpoint(snapshot(1), RpgSnapshotV2::default()).expect("checkpoint");
+    let image =
+        super::image::SaveImage::from_world_checkpoint(2, compatibility.clone(), &checkpoint)
+            .expect("image builds");
+    image.validate_world().expect("full validation accepts");
+    image.validate_world_light().expect("light probe accepts");
+
+    let world = world_streaming_snapshot();
+    let streaming_image = super::image::SaveImage::from_world_checkpoint_with_streaming(
+        3,
+        compatibility,
+        &checkpoint,
+        &world,
+    )
+    .expect("streaming image builds");
+    streaming_image
+        .validate_world()
+        .expect("full validation accepts");
+    streaming_image
+        .validate_world_light()
+        .expect("light probe accepts");
+
+    // Corrupt a payload byte deep inside a segment: descriptor hashes no
+    // longer match, and both paths must reject with the same stable code.
+    let mut corrupt = streaming_image.clone();
+    let last = corrupt.segments.last_mut().expect("segments exist");
+    let byte = last.last_mut().expect("segment is non-empty");
+    *byte ^= 0x80;
+    let full_code = corrupt
+        .validate_world()
+        .expect_err("full validation rejects")
+        .stable_code();
+    let light_code = corrupt
+        .validate_world_light()
+        .expect_err("light probe rejects")
+        .stable_code();
+    assert_eq!(full_code, light_code);
+}
+
+#[test]
+fn probe_generation_directory_matches_read_verdicts() {
+    let directory = TestDirectory::new();
+    let store = SaveStore::new(&directory.path);
+    let compatibility = compatibility(1);
+    let checkpoint =
+        synthetic_empty_checkpoint(snapshot(1), RpgSnapshotV2::default()).expect("checkpoint");
+    store
+        .commit_world_checkpoint(compatibility, &checkpoint)
+        .expect("generation commits");
+    let slot_path = store.slot_path(0);
+
+    let probed = super::generation::probe_generation_directory(&slot_path, 0)
+        .expect("light probe accepts a valid generation");
+    let loaded = super::generation::read_generation_directory(&slot_path, 0, None)
+        .expect("full validation accepts a valid generation");
+    assert_eq!(probed, loaded.image);
+
+    let corrupt_path = slot_path
+        .join(SEGMENTS_DIRECTORY)
+        .join(segment_file_name(0));
+    let mut corrupt_bytes = std::fs::read(&corrupt_path).expect("segment exists");
+    corrupt_bytes[0] ^= 1;
+    std::fs::write(&corrupt_path, &corrupt_bytes).expect("test corrupts segment");
+    let probe_code = super::generation::probe_generation_directory(&slot_path, 0)
+        .expect_err("light probe rejects corruption")
+        .stable_code;
+    let read_code = super::generation::read_generation_directory(&slot_path, 0, None)
+        .expect_err("full validation rejects corruption")
+        .stable_code;
+    assert_eq!(probe_code, read_code);
+}

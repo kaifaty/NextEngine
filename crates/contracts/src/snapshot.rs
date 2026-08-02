@@ -1,10 +1,10 @@
 mod checkpoint;
 mod runtime;
 
-pub(crate) use checkpoint::validate_core_dialogue_quest_world_closure_v2;
 pub use checkpoint::{
     WorldCheckpointCanonicalComponentsV1, WorldCheckpointError, WorldCheckpointV4,
-    world_checkpoint_v4_state_root, world_checkpoint_with_streaming_v1_state_root,
+    validate_world_checkpoint_component_closures, world_checkpoint_v4_state_root,
+    world_checkpoint_with_streaming_v1_state_root,
     world_checkpoint_with_streaming_v1_state_root_from_canonical_components,
 };
 pub use runtime::{

@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-02 |
-| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows. ADR-043 codegen-proven non-reentrant count-bearing callbacks реализован: per-call `in_callback` machinery удалена, source/boundary gate и pinned Windows IR/ASM/backend admission проходят, exactness/parity/resource checks зелёные. Единственный immutable candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL` при неизменных roots; allocator metric остаётся disabled, а новый timing candidate требует новой material implementation hypothesis. Bounded incremental checkpoint validation реализован: live checkpoint materialization больше не ревалидирует retained command history целиком (median p95 materialization `41 546 → 11 142 µs`, `-73%`, exact root parity в 3+3 soak runs), complete validator сохранён на decode/restore/migration. Checkpoint encode/publication CPU cleanup реализован: byte-exact staged verification вместо decode+rehash round-trip, no per-publish session object re-hash, exact-capacity borrowed-payload canonical encoder (realloc bytes `-30%`, materialization p95 `11 142 → 10 419 µs`, roots byte-exact). Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
+| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows. ADR-043 codegen-proven non-reentrant count-bearing callbacks реализован: per-call `in_callback` machinery удалена, source/boundary gate и pinned Windows IR/ASM/backend admission проходят, exactness/parity/resource checks зелёные. Единственный immutable candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL` при неизменных roots; allocator metric остаётся disabled, а новый timing candidate требует новой material implementation hypothesis. Bounded incremental checkpoint validation реализован: live checkpoint materialization больше не ревалидирует retained command history целиком (median p95 materialization `41 546 → 11 142 µs`, `-73%`, exact root parity в 3+3 soak runs), complete validator сохранён на decode/restore/migration. Checkpoint encode/publication CPU cleanup реализован: byte-exact staged verification вместо decode+rehash round-trip, no per-publish session object re-hash, exact-capacity borrowed-payload canonical encoder (realloc bytes `-30%`, materialization p95 `11 142 → 10 419 µs`, roots byte-exact). Save commit path очищен от повторной full validation: generation probing больше не пересобирает checkpoint и state root, light probe сохраняет прежние accept/reject verdicts, load path не тронут. Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -963,6 +963,31 @@ cost — mandated fsync/read I/O (ADR-037 §3), его ослабление тр
 отдельного ADR; encode-side incremental caching (streams/archive) и
 parallel encode остаются кандидатами. Durable schemas, cadence `0/30/60`,
 rollback/retry и replay roots не изменились.
+
+Третий пакет убрал избыточную работу из game save commit path. До этого
+`SaveImage::from_world_checkpoint` повторно валидировал уже построенный
+`WorldCheckpointV4` (сама ссылка на него — доказательство валидности: его
+constructor выполняет full component validation, closure checks и encode),
+затем ещё раз валидировал собранный image, а generation numbering и staged
+round-trip probe декодировали и пересобирали весь мир через
+`validate_world` только ради verdict'а. Добавлены
+`validate_world_checkpoint_component_closures` (contracts) и
+`SaveImage::validate_world_light` + `probe_generation_directory` (assets):
+те же accept/reject проверки — manifest, descriptor hashes, полные
+canonical decodes всех компонентов, ledger/revision/tick closures и
+cross-component closures — но без reconstruction checkpoint'а, повторного
+encode и пересчёта state root, который в image не хранится и потому не мог
+изменить verdict. Commit path (numbering и staging round-trip) переведён
+на probe с прежним byte-exact сравнением image; load path
+(`read_generation_directory`/`validate_world`) не тронут, SPEC-03 numbering
+semantics и обработка rejected generations сохранены. Focused tests
+фиксируют parity verdicts light/full на валидных и повреждённых образах
+(одинаковые stable codes) и probe/read parity на диске: assets `32` tests,
+contracts `129` tests, `host-check` и `persistence-replay` проходят.
+Sanity soak run — exact root parity (`5e45825e…`), метрики в пределах
+run-to-run spread (затронут game save commit, а не soak checkpoint
+cadence). Durable schemas, cadence `0/30/60`, rollback/retry и replay
+roots не изменились.
 
 1. **Semantic UI (`NEXT`):** HUD, inventory/equipment, dialogue, quest
    journal, pause/save/load and pseudo-locale.
