@@ -227,19 +227,49 @@ pub fn encode_canonical_segment(
     segment_id: &str,
     fields: impl IntoIterator<Item = CanonicalField>,
 ) -> Result<Vec<u8>, CanonicalError> {
+    let fields: Vec<_> = fields.into_iter().collect();
+    let mut references: Vec<_> = fields
+        .iter()
+        .map(|field| (field.field_id, field.type_tag, field.payload.as_slice()))
+        .collect();
+    encode_canonical_segment_references(owner_id, schema_id, segment_id, &mut references)
+}
+
+/// Shared canonical segment encoder over borrowed field payloads.
+///
+/// Produces byte-identical output to [`encode_canonical_segment`]; callers
+/// that already hold an owned payload elsewhere avoid a redundant payload
+/// copy. `fields` is sorted in place.
+pub(crate) fn encode_canonical_segment_references(
+    owner_id: &str,
+    schema_id: &str,
+    segment_id: &str,
+    fields: &mut [(u32, u8, &[u8])],
+) -> Result<Vec<u8>, CanonicalError> {
     validate_identifier(owner_id)?;
     validate_identifier(schema_id)?;
     validate_identifier(segment_id)?;
 
-    let mut fields: Vec<_> = fields.into_iter().collect();
-    fields.sort_by_key(|field| field.field_id);
+    fields.sort_by_key(|field| field.0);
     for pair in fields.windows(2) {
-        if pair[0].field_id == pair[1].field_id {
-            return Err(CanonicalError::DuplicateField(pair[0].field_id));
+        if pair[0].0 == pair[1].0 {
+            return Err(CanonicalError::DuplicateField(pair[0].0));
         }
     }
 
-    let mut bytes = Vec::new();
+    let mut capacity = CANONICAL_BINARY_V1_MAGIC
+        .len()
+        .saturating_add(2)
+        .saturating_add(3 * 4)
+        .saturating_add(owner_id.len())
+        .saturating_add(schema_id.len())
+        .saturating_add(segment_id.len())
+        .saturating_add(4)
+        .saturating_add(fields.len().saturating_mul(13));
+    for (_, _, payload) in fields.iter() {
+        capacity = capacity.saturating_add(payload.len());
+    }
+    let mut bytes = Vec::with_capacity(capacity);
     bytes.extend_from_slice(&CANONICAL_BINARY_V1_MAGIC);
     bytes.extend_from_slice(&CANONICAL_BINARY_V1_VERSION.to_le_bytes());
     extend_u32_length_prefixed(&mut bytes, owner_id.as_bytes())?;
@@ -250,15 +280,15 @@ pub fn encode_canonical_segment(
             .map_err(|_| CanonicalError::LengthOverflow)?
             .to_le_bytes(),
     );
-    for field in fields {
-        bytes.extend_from_slice(&field.field_id.to_le_bytes());
-        bytes.push(field.type_tag);
+    for (field_id, type_tag, payload) in fields.iter() {
+        bytes.extend_from_slice(&field_id.to_le_bytes());
+        bytes.push(*type_tag);
         bytes.extend_from_slice(
-            &u64::try_from(field.payload.len())
+            &u64::try_from(payload.len())
                 .map_err(|_| CanonicalError::LengthOverflow)?
                 .to_le_bytes(),
         );
-        bytes.extend_from_slice(&field.payload);
+        bytes.extend_from_slice(payload);
     }
     Ok(bytes)
 }

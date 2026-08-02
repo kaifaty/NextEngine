@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-02 |
-| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows. ADR-043 codegen-proven non-reentrant count-bearing callbacks реализован: per-call `in_callback` machinery удалена, source/boundary gate и pinned Windows IR/ASM/backend admission проходят, exactness/parity/resource checks зелёные. Единственный immutable candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL` при неизменных roots; allocator metric остаётся disabled, а новый timing candidate требует новой material implementation hypothesis. Bounded incremental checkpoint validation реализован: live checkpoint materialization больше не ревалидирует retained command history целиком (median p95 materialization `41 546 → 11 142 µs`, `-73%`, exact root parity в 3+3 soak runs), complete validator сохранён на decode/restore/migration. Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
+| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows. ADR-043 codegen-proven non-reentrant count-bearing callbacks реализован: per-call `in_callback` machinery удалена, source/boundary gate и pinned Windows IR/ASM/backend admission проходят, exactness/parity/resource checks зелёные. Единственный immutable candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL` при неизменных roots; allocator metric остаётся disabled, а новый timing candidate требует новой material implementation hypothesis. Bounded incremental checkpoint validation реализован: live checkpoint materialization больше не ревалидирует retained command history целиком (median p95 materialization `41 546 → 11 142 µs`, `-73%`, exact root parity в 3+3 soak runs), complete validator сохранён на decode/restore/migration. Checkpoint encode/publication CPU cleanup реализован: byte-exact staged verification вместо decode+rehash round-trip, no per-publish session object re-hash, exact-capacity borrowed-payload canonical encoder (realloc bytes `-30%`, materialization p95 `11 142 → 10 419 µs`, roots byte-exact). Следующий product work package — Semantic UI (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -929,6 +929,40 @@ baseline ниже прежних `REPORT_ONLY` чисел, все run остаю
 локальная оптимизация, а не ten-run hard calibration; B-12 не закрывается.
 Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 изменились.
+
+Второй пакет убрал избыточные CPU-проходы в checkpoint encode/publication
+path. Fresh phase instrumentation показала, что после bounded validation
+остаток materialization — encode/hashing, а publication доминируется
+mandated I/O: staging round-trip `reload_match` стоил `9 347 µs` p50, из
+которых hashing/parse составляли только ~`0.8 ms`, а остальное — сами
+чтения с диска на этой системе. `ContentStore::publish_inner` больше не
+клонирует все file bytes для defensive revalidation (borrowed fast path с
+прежним fallback на canonicalizing constructor для unsorted input), а
+staged generation verification заменена с generic decode+rehash на
+byte-exact compare против canonical in-memory bytes: это строго сильнее
+hash-consistency и соответствует ADR-037 §3 «полностью перечитать staged
+generation» с прежними failure modes; load path не тронут.
+`SessionObjectV1::from_shared_parts` убирает повторный SHA-256 всех session
+objects на каждый publish (object collect `751 → 3 µs`). Canonical segment
+encoder получил exact capacity reservation и shared borrowed-payload core,
+runtime snapshot envelope больше не клонирует ledger bytes. Exact counters:
+realloc bytes `11 282 408 143 → 7 891 931 959` (`-30.0%`), allocator
+allocated bytes `-11.7%`, I/O read/write байт-в-байт прежние. Три after run
+(`target/checkpoint-pub-after-01..03`) дали exact root parity со всеми
+прежними runs (`5e45825e…`): median p95 materialization
+`11 142 → 10 419 µs` (`-6.5%`), application checkpoint-tick
+`46 860 → 46 702 µs` (в пределах шума), windows/ordinary tick в пределах
+run-to-run spread нагруженной системы; driver commit `+48%` p95 в одном
+batch-сравнении опровергнут paired instrumented runs (`336 → 303 µs`
+same-day) как system-state noise. Добавлен focused test
+`staged_byte_verification_detects_corruption`; contracts `129` tests,
+assets `30` tests, `host-check` и `persistence-replay` проходят. Все run
+остаются `NOT_RUN` из-за недоступного NVML probe — bounded CPU-side
+cleanup, а не hard calibration; B-12 не закрывается. Оставшийся publication
+cost — mandated fsync/read I/O (ADR-037 §3), его ослабление требует
+отдельного ADR; encode-side incremental caching (streams/archive) и
+parallel encode остаются кандидатами. Durable schemas, cadence `0/30/60`,
+rollback/retry и replay roots не изменились.
 
 1. **Semantic UI (`NEXT`):** HUD, inventory/equipment, dialogue, quest
    journal, pause/save/load and pseudo-locale.

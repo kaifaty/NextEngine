@@ -203,8 +203,36 @@ impl ContentStore {
         publication: &ContentPublicationV1,
         fault: ContentPublishFault,
     ) -> Result<(), ContentStoreError> {
-        let canonical =
-            ContentPublicationV1::new(publication.generation_id, publication.files.clone())?;
+        // Publications assembled by `ContentPublicationV1::new` are already
+        // count-bounded, sorted and duplicate-free, so the common path
+        // validates and publishes the borrowed files without a defensive
+        // clone of every payload. Unsorted input falls back to the
+        // canonicalizing constructor, preserving its exact behavior.
+        let canonical_owned;
+        let canonical: &ContentPublicationV1 = if publication
+            .files
+            .windows(2)
+            .any(|pair| pair[0].relative_path > pair[1].relative_path)
+        {
+            canonical_owned =
+                ContentPublicationV1::new(publication.generation_id, publication.files.clone())?;
+            &canonical_owned
+        } else {
+            if publication.files.len() > CONTENT_MAX_FILES {
+                return Err(ContentStoreError::LimitExceeded {
+                    actual: publication.files.len(),
+                    limit: CONTENT_MAX_FILES,
+                });
+            }
+            if publication
+                .files
+                .windows(2)
+                .any(|pair| pair[0].relative_path == pair[1].relative_path)
+            {
+                return Err(ContentStoreError::DuplicatePath);
+            }
+            publication
+        };
         fs::create_dir_all(self.root.join(CONTENT_GENERATIONS_DIRECTORY))?;
         let generation_hex = canonical.generation_id.to_hex();
         let generation_path = self
@@ -213,7 +241,7 @@ impl ContentStore {
             .join(&generation_hex);
         if generation_path.exists() {
             let loaded = load_generation(&generation_path, canonical.generation_id)?;
-            ensure_matches(&loaded, &canonical)?;
+            ensure_matches(&loaded, canonical)?;
         } else {
             let staging_path = self
                 .root
@@ -233,10 +261,9 @@ impl ContentStore {
                 }
                 write_synced(
                     &staging_path.join(CONTENT_INDEX_FILE),
-                    &index_bytes(&canonical),
+                    &index_bytes(canonical),
                 )?;
-                let loaded = load_generation(&staging_path, canonical.generation_id)?;
-                ensure_matches(&loaded, &canonical)?;
+                verify_staged_generation_bytes(&staging_path, canonical)?;
                 if fault == ContentPublishFault::BeforeGenerationCommit {
                     return Err(ContentStoreError::InjectedFault);
                 }
@@ -545,6 +572,49 @@ fn ensure_matches(
     Ok(())
 }
 
+/// Byte-exact verification of a freshly staged generation against the
+/// canonical in-memory publication.
+///
+/// This replaces a decode-and-rehash round trip on the write path: staged
+/// bytes are compared directly with the bytes intended to be written, which
+/// is strictly stronger than hash-consistency checking and detects on-disk
+/// corruption with the same failure modes at a fraction of the cost.
+fn verify_staged_generation_bytes(
+    staging_path: &Path,
+    publication: &ContentPublicationV1,
+) -> Result<(), ContentStoreError> {
+    let staged_index = read_bounded(&staging_path.join(CONTENT_INDEX_FILE), 4 * 1024 * 1024)?;
+    if staged_index != index_bytes(publication) {
+        return Err(ContentStoreError::HashMismatch);
+    }
+    let mut actual_paths = BTreeSet::new();
+    collect_files(staging_path, staging_path, &mut actual_paths)?;
+    actual_paths.remove(CONTENT_INDEX_FILE);
+    let expected_paths: BTreeSet<_> = publication
+        .files
+        .iter()
+        .map(|file| file.relative_path.as_str())
+        .collect();
+    for path in &actual_paths {
+        if !expected_paths.contains(path.as_str()) {
+            return Err(ContentStoreError::UnexpectedFile(path.clone()));
+        }
+    }
+    for file in &publication.files {
+        if !actual_paths.contains(file.relative_path.as_str()) {
+            return Err(ContentStoreError::MissingFile(file.relative_path.clone()));
+        }
+        let staged = read_bounded(
+            &staging_path.join(&file.relative_path),
+            CONTENT_MAX_FILE_BYTES,
+        )?;
+        if staged != file.bytes {
+            return Err(ContentStoreError::HashMismatch);
+        }
+    }
+    Ok(())
+}
+
 fn write_synced(path: &Path, bytes: &[u8]) -> Result<(), ContentStoreError> {
     let mut file = File::create(path)?;
     file.write_all(bytes)?;
@@ -700,6 +770,58 @@ mod tests {
             .collect::<Result<Vec<_>, _>>()
             .expect("generation entries");
         assert_eq!(generations.len(), 3);
+        std::fs::remove_dir_all(root).expect("remove test store");
+    }
+
+    #[test]
+    fn staged_byte_verification_detects_corruption() {
+        let root = test_root("staged-verify");
+        let publication = publication(9, b"staged");
+        let staging = root.join("staging");
+        std::fs::create_dir_all(staging.join("manifests")).expect("create staging");
+        std::fs::write(staging.join("manifests/value.bin"), b"staged").expect("write file");
+        std::fs::write(
+            staging.join(super::CONTENT_INDEX_FILE),
+            super::index_bytes(&publication),
+        )
+        .expect("write index");
+        super::verify_staged_generation_bytes(&staging, &publication)
+            .expect("byte-identical staging verifies");
+
+        let value_path = staging.join("manifests/value.bin");
+        let mut corrupted = std::fs::read(&value_path).expect("read staged file");
+        corrupted[0] ^= 0xff;
+        std::fs::write(&value_path, corrupted).expect("corrupt staged file");
+        assert!(matches!(
+            super::verify_staged_generation_bytes(&staging, &publication),
+            Err(ContentStoreError::HashMismatch)
+        ));
+
+        std::fs::write(&value_path, b"staged").expect("restore staged file");
+        std::fs::write(staging.join(super::CONTENT_INDEX_FILE), b"tampered-index")
+            .expect("corrupt staged index");
+        assert!(matches!(
+            super::verify_staged_generation_bytes(&staging, &publication),
+            Err(ContentStoreError::HashMismatch)
+        ));
+
+        std::fs::write(
+            staging.join(super::CONTENT_INDEX_FILE),
+            super::index_bytes(&publication),
+        )
+        .expect("restore staged index");
+        std::fs::write(staging.join("unexpected.bin"), b"extra").expect("add unexpected file");
+        assert!(matches!(
+            super::verify_staged_generation_bytes(&staging, &publication),
+            Err(ContentStoreError::UnexpectedFile(_))
+        ));
+
+        std::fs::remove_file(staging.join("unexpected.bin")).expect("remove unexpected file");
+        std::fs::remove_file(&value_path).expect("remove staged file");
+        assert!(matches!(
+            super::verify_staged_generation_bytes(&staging, &publication),
+            Err(ContentStoreError::MissingFile(_))
+        ));
         std::fs::remove_dir_all(root).expect("remove test store");
     }
 

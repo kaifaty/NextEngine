@@ -441,9 +441,8 @@ impl ApplicationCoordinator {
             published_object_bytes.insert(*content_hash, bytes.clone());
         }
         let objects = published_object_bytes
-            .values()
-            .cloned()
-            .map(SessionObjectV1::new)
+            .into_iter()
+            .map(|(content_hash, bytes)| SessionObjectV1::from_shared_parts(content_hash, bytes))
             .collect();
         let publication = SessionPublicationV1::new(
             self.durable.store_sequence,

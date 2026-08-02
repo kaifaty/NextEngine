@@ -44,6 +44,21 @@ impl SessionObjectV1 {
         }
     }
 
+    /// Reconstructs an object from a previously computed content hash.
+    ///
+    /// The caller must guarantee that `content_hash` equals the SHA-256 of
+    /// `bytes` (for example a map key produced by [`Self::new`]). This
+    /// avoids re-hashing every object on each publication; the invariant is
+    /// still checked in debug builds.
+    #[must_use]
+    pub fn from_shared_parts(content_hash: ContentHash, bytes: Arc<[u8]>) -> Self {
+        debug_assert_eq!(content_hash, content_hash_from_bytes(sha256(&bytes)));
+        Self {
+            content_hash,
+            bytes,
+        }
+    }
+
     #[must_use]
     pub const fn content_hash(&self) -> ContentHash {
         self.content_hash

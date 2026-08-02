@@ -4,7 +4,7 @@ use std::fmt::{Display, Formatter};
 use crate::canonical::{
     CANONICAL_TYPE_BYTES, CANONICAL_TYPE_U16, CANONICAL_TYPE_U32, CANONICAL_TYPE_U64,
     CanonicalDecodeError, CanonicalDecodeLimits, CanonicalError, CanonicalField,
-    decode_canonical_segment, encode_canonical_segment,
+    decode_canonical_segment,
 };
 use crate::command::IssuerPrincipal;
 use crate::identity::{
@@ -219,97 +219,102 @@ impl RuntimeSnapshotV3 {
                 CommandLedgerError::Canonical(error) => error,
                 _ => CanonicalError::DuplicateSequenceValue,
             })?;
-        let snapshot_bytes = encode_canonical_segment(
+        let owned_fields = [
+            CanonicalField::new(
+                1,
+                CANONICAL_TYPE_U16,
+                u16::try_from(RUNTIME_SNAPSHOT_SCHEMA_VERSION)
+                    .map_err(|_| CanonicalError::LengthOverflow)?
+                    .to_le_bytes()
+                    .to_vec(),
+            ),
+            CanonicalField::new(2, CANONICAL_TYPE_U64, self.next_tick.to_le_bytes().to_vec()),
+            CanonicalField::new(
+                3,
+                CANONICAL_TYPE_U64,
+                self.committed_event_count.to_le_bytes().to_vec(),
+            ),
+            CanonicalField::new(
+                4,
+                CANONICAL_TYPE_U64,
+                self.authoritative_revision.to_le_bytes().to_vec(),
+            ),
+            CanonicalField::new(
+                5,
+                CANONICAL_TYPE_BYTES,
+                self.world_identity.canonical_bytes()?,
+            ),
+            CanonicalField::new(
+                6,
+                CANONICAL_TYPE_BYTES,
+                self.principal_registry.canonical_bytes()?,
+            ),
+            CanonicalField::new(
+                7,
+                CANONICAL_TYPE_BYTES,
+                self.stream_registry.canonical_bytes()?,
+            ),
+            CanonicalField::new(
+                8,
+                CANONICAL_TYPE_BYTES,
+                self.runtime_profile.canonical_bytes()?,
+            ),
+            CanonicalField::new(
+                9,
+                CANONICAL_TYPE_BYTES,
+                self.admission_limits.canonical_bytes()?,
+            ),
+            CanonicalField::new(
+                10,
+                CANONICAL_TYPE_BYTES,
+                self.tick_rate_profile.canonical_bytes()?,
+            ),
+            CanonicalField::new(
+                11,
+                CANONICAL_TYPE_BYTES,
+                self.ingress_assignment_profile.canonical_bytes()?,
+            ),
+            CanonicalField::new(
+                12,
+                CANONICAL_TYPE_BYTES,
+                self.authoritative_numeric_profile.canonical_bytes()?,
+            ),
+            CanonicalField::new(
+                13,
+                CANONICAL_TYPE_BYTES,
+                self.physics_quantization_profile.canonical_bytes()?,
+            ),
+            CanonicalField::new(
+                14,
+                CANONICAL_TYPE_BYTES,
+                self.player_controller_registry.canonical_bytes()?,
+            ),
+            CanonicalField::new(
+                15,
+                CANONICAL_TYPE_BYTES,
+                self.ingress_checkpoint.canonical_bytes()?,
+            ),
+            CanonicalField::new(
+                17,
+                CANONICAL_TYPE_BYTES,
+                self.body_archive.canonical_bytes()?,
+            ),
+            CanonicalField::new(
+                18,
+                CANONICAL_TYPE_BYTES,
+                self.rpg_runtime_bindings.canonical_bytes()?,
+            ),
+        ];
+        let mut references: Vec<(u32, u8, &[u8])> = owned_fields
+            .iter()
+            .map(|field| (field.field_id, field.type_tag, field.payload.as_slice()))
+            .collect();
+        references.push((16, CANONICAL_TYPE_BYTES, ledger_bytes.as_slice()));
+        let snapshot_bytes = crate::canonical::encode_canonical_segment_references(
             RUNTIME_SNAPSHOT_OWNER_ID,
             RUNTIME_SNAPSHOT_SCHEMA_ID,
             RUNTIME_SNAPSHOT_SEGMENT_ID,
-            [
-                CanonicalField::new(
-                    1,
-                    CANONICAL_TYPE_U16,
-                    u16::try_from(RUNTIME_SNAPSHOT_SCHEMA_VERSION)
-                        .map_err(|_| CanonicalError::LengthOverflow)?
-                        .to_le_bytes()
-                        .to_vec(),
-                ),
-                CanonicalField::new(2, CANONICAL_TYPE_U64, self.next_tick.to_le_bytes().to_vec()),
-                CanonicalField::new(
-                    3,
-                    CANONICAL_TYPE_U64,
-                    self.committed_event_count.to_le_bytes().to_vec(),
-                ),
-                CanonicalField::new(
-                    4,
-                    CANONICAL_TYPE_U64,
-                    self.authoritative_revision.to_le_bytes().to_vec(),
-                ),
-                CanonicalField::new(
-                    5,
-                    CANONICAL_TYPE_BYTES,
-                    self.world_identity.canonical_bytes()?,
-                ),
-                CanonicalField::new(
-                    6,
-                    CANONICAL_TYPE_BYTES,
-                    self.principal_registry.canonical_bytes()?,
-                ),
-                CanonicalField::new(
-                    7,
-                    CANONICAL_TYPE_BYTES,
-                    self.stream_registry.canonical_bytes()?,
-                ),
-                CanonicalField::new(
-                    8,
-                    CANONICAL_TYPE_BYTES,
-                    self.runtime_profile.canonical_bytes()?,
-                ),
-                CanonicalField::new(
-                    9,
-                    CANONICAL_TYPE_BYTES,
-                    self.admission_limits.canonical_bytes()?,
-                ),
-                CanonicalField::new(
-                    10,
-                    CANONICAL_TYPE_BYTES,
-                    self.tick_rate_profile.canonical_bytes()?,
-                ),
-                CanonicalField::new(
-                    11,
-                    CANONICAL_TYPE_BYTES,
-                    self.ingress_assignment_profile.canonical_bytes()?,
-                ),
-                CanonicalField::new(
-                    12,
-                    CANONICAL_TYPE_BYTES,
-                    self.authoritative_numeric_profile.canonical_bytes()?,
-                ),
-                CanonicalField::new(
-                    13,
-                    CANONICAL_TYPE_BYTES,
-                    self.physics_quantization_profile.canonical_bytes()?,
-                ),
-                CanonicalField::new(
-                    14,
-                    CANONICAL_TYPE_BYTES,
-                    self.player_controller_registry.canonical_bytes()?,
-                ),
-                CanonicalField::new(
-                    15,
-                    CANONICAL_TYPE_BYTES,
-                    self.ingress_checkpoint.canonical_bytes()?,
-                ),
-                CanonicalField::new(16, CANONICAL_TYPE_BYTES, ledger_bytes.clone()),
-                CanonicalField::new(
-                    17,
-                    CANONICAL_TYPE_BYTES,
-                    self.body_archive.canonical_bytes()?,
-                ),
-                CanonicalField::new(
-                    18,
-                    CANONICAL_TYPE_BYTES,
-                    self.rpg_runtime_bindings.canonical_bytes()?,
-                ),
-            ],
+            &mut references,
         )?;
         Ok((snapshot_bytes, ledger_bytes))
     }
