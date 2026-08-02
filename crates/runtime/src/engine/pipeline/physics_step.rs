@@ -10,12 +10,14 @@ use super::ledger::{command_receipt, transaction_result_root};
 use super::{PhaseContext, PhysicalPending, PhysicalStepExecution, StagedAuthoritativeState};
 use crate::engine::error::RuntimeFatalError;
 use crate::engine::result::OrderedResult;
+use crate::stage_zone::stage_zone;
 
 pub(super) fn finish_physical_step(
     context: PhaseContext<'_>,
     pending: Vec<PhysicalPending>,
     staged: &mut StagedAuthoritativeState,
 ) -> Result<PhysicalStepExecution, RuntimeFatalError> {
+    stage_zone!("PhysicalStep");
     let before_snapshot = staged.physics.snapshot().clone();
     let mut intents = pending
         .iter()

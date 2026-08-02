@@ -15,6 +15,7 @@ use next_physics_api::PhysicsSceneQueryError;
 use std::sync::OnceLock;
 
 use crate::outcome::{NoOutcomes, OutcomeContext, OutcomeProvider, OutcomeSink};
+use crate::stage_zone::stage_zone;
 
 use super::error::{InputAdmissionError, RuntimeFatalError};
 use super::ingress::{accept_closed_ingress, close_ingress, finalize_mapping_receipt_v2};
@@ -311,6 +312,7 @@ impl PreparedRuntimeTick {
     #[must_use]
     pub fn report(&self) -> &TickReport {
         self.report.get_or_init(|| {
+            stage_zone!("TickReportMaterialize");
             let (ledger, archive) = self
                 .ledger_update
                 .materialize(&self.staged.ledger, &self.staged.archive);
@@ -430,6 +432,7 @@ impl RuntimeState {
 
     #[must_use]
     pub fn commit_validated_tick(&mut self, validated: ValidatedRuntimeTick) -> TickReport {
+        stage_zone!("RuntimeCommit");
         let ValidatedRuntimeTick(prepared) = validated;
         debug_assert!(prepared.base_generation.matches(self));
         let PreparedRuntimeTick {
@@ -480,6 +483,7 @@ impl RuntimeState {
     /// report. Interactive presentation uses this path between durable
     /// checkpoint boundaries.
     pub fn commit_validated_tick_without_report(&mut self, validated: ValidatedRuntimeTick) {
+        stage_zone!("RuntimeCommit");
         let ValidatedRuntimeTick(prepared) = validated;
         debug_assert!(prepared.base_generation.matches(self));
         let PreparedRuntimeTick {
@@ -625,57 +629,67 @@ impl RuntimeState {
             ingress: ingress_checkpoint,
         };
 
-        let mut closed_ingress = match replay_ingress {
-            Some(batch) => accept_closed_ingress(
-                tick,
-                following_tick,
-                &self.admission_limits,
-                &self.player_controller_registry,
-                interaction_route.is_some(),
-                &mut staged.ingress,
-                batch,
-            )?,
-            None => close_ingress(
-                tick,
-                following_tick,
-                &self.admission_limits,
-                &self.player_controller_registry,
-                interaction_route.is_some(),
-                &mut staged.ingress,
-            )?,
+        let mut closed_ingress = {
+            stage_zone!("IngressClose");
+            match replay_ingress {
+                Some(batch) => accept_closed_ingress(
+                    tick,
+                    following_tick,
+                    &self.admission_limits,
+                    &self.player_controller_registry,
+                    interaction_route.is_some(),
+                    &mut staged.ingress,
+                    batch,
+                )?,
+                None => close_ingress(
+                    tick,
+                    following_tick,
+                    &self.admission_limits,
+                    &self.player_controller_registry,
+                    interaction_route.is_some(),
+                    &mut staged.ingress,
+                )?,
+            }
         };
-        let mut ingress_commands = closed_ingress.derived_commands.clone();
-        ingress_commands.extend(commands);
-        sort_command_batch(&mut ingress_commands)?;
-        let ingress_batch =
-            ClosedCommandAdmissionBatchV2::from_body(ClosedCommandAdmissionBatchBodyV2 {
-                schema_version: CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION,
-                simulation_tick: tick,
-                phase: CommandPhase::Ingress,
-                batch_ordinal: 0,
-                envelopes: ingress_commands.clone(),
-            })?;
-        ingress_batch.validate(&self.admission_limits)?;
+        let (ingress_commands, ingress_batch) = {
+            stage_zone!("IngressAdmission");
+            let mut ingress_commands = closed_ingress.derived_commands.clone();
+            ingress_commands.extend(commands);
+            sort_command_batch(&mut ingress_commands)?;
+            let ingress_batch =
+                ClosedCommandAdmissionBatchV2::from_body(ClosedCommandAdmissionBatchBodyV2 {
+                    schema_version: CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION,
+                    simulation_tick: tick,
+                    phase: CommandPhase::Ingress,
+                    batch_ordinal: 0,
+                    envelopes: ingress_commands.clone(),
+                })?;
+            ingress_batch.validate(&self.admission_limits)?;
+            (ingress_commands, ingress_batch)
+        };
 
         let ingress_revision = staged.revision;
-        let ingress = process_phase(
-            PhaseContext {
-                registry: &self.registry,
-                authority: &self.authority,
-                principals: &self.principal_registry,
-                streams: &self.stream_registry,
-                profile: &self.runtime_profile,
-                rpg_bindings: &self.rpg_bindings,
-                controllers: &self.player_controller_registry,
-                physical_contact_facts: &[],
-                source: ValidationSource::ExternalIngress,
-                tick,
-                phase: CommandPhase::Ingress,
-                phase_revision: ingress_revision,
-            },
-            ingress_commands,
-            &mut staged,
-        )?;
+        let ingress = {
+            stage_zone!("IngressCommit");
+            process_phase(
+                PhaseContext {
+                    registry: &self.registry,
+                    authority: &self.authority,
+                    principals: &self.principal_registry,
+                    streams: &self.stream_registry,
+                    profile: &self.runtime_profile,
+                    rpg_bindings: &self.rpg_bindings,
+                    controllers: &self.player_controller_registry,
+                    physical_contact_facts: &[],
+                    source: ValidationSource::ExternalIngress,
+                    tick,
+                    phase: CommandPhase::Ingress,
+                    phase_revision: ingress_revision,
+                },
+                ingress_commands,
+                &mut staged,
+            )?
+        };
         let physics_step_input = ingress
             .physics_step_input
             .clone()
@@ -689,21 +703,24 @@ impl RuntimeState {
             staged.physics.snapshot().checkpoint_revision,
         )?;
 
-        let mut built_in_resolution = build_interaction_outcomes(
-            &closed_ingress.pending_interactions,
-            InteractionBuildContext {
-                route: interaction_route.as_ref(),
-                physics: &staged.physics,
-                rpg: &staged.rpg,
-                rpg_definitions: &self.rpg_definitions,
-                ledger: &staged.ledger,
-                archive: &staged.archive,
-                archive_additions: staged.ledger_delta.archive_additions(),
-                gameplay_tick: tick,
-                physical_contact_facts: &physical_contact_facts,
-                authoritative_revision: staged.revision,
-            },
-        )?;
+        let mut built_in_resolution = {
+            stage_zone!("OutcomeCollection");
+            build_interaction_outcomes(
+                &closed_ingress.pending_interactions,
+                InteractionBuildContext {
+                    route: interaction_route.as_ref(),
+                    physics: &staged.physics,
+                    rpg: &staged.rpg,
+                    rpg_definitions: &self.rpg_definitions,
+                    ledger: &staged.ledger,
+                    archive: &staged.archive,
+                    archive_additions: staged.ledger_delta.archive_additions(),
+                    gameplay_tick: tick,
+                    physical_contact_facts: &physical_contact_facts,
+                    authoritative_revision: staged.revision,
+                },
+            )?
+        };
         built_in_resolution
             .targeting
             .sort_by_key(|targeting| targeting.query.physics_query.query_id);
@@ -832,25 +849,29 @@ impl RuntimeState {
         outcome_batch.validate(&self.admission_limits)?;
 
         let outcome_revision = staged.revision;
-        let outcome = process_phase(
-            PhaseContext {
-                registry: &self.registry,
-                authority: &self.authority,
-                principals: &self.principal_registry,
-                streams: &self.stream_registry,
-                profile: &self.runtime_profile,
-                rpg_bindings: &self.rpg_bindings,
-                controllers: &self.player_controller_registry,
-                physical_contact_facts: &physical_contact_facts,
-                source: ValidationSource::InternalOutcome,
-                tick,
-                phase: CommandPhase::Outcome,
-                phase_revision: outcome_revision,
-            },
-            outcome_commands,
-            &mut staged,
-        )?;
+        let outcome = {
+            stage_zone!("OutcomeCommit");
+            process_phase(
+                PhaseContext {
+                    registry: &self.registry,
+                    authority: &self.authority,
+                    principals: &self.principal_registry,
+                    streams: &self.stream_registry,
+                    profile: &self.runtime_profile,
+                    rpg_bindings: &self.rpg_bindings,
+                    controllers: &self.player_controller_registry,
+                    physical_contact_facts: &physical_contact_facts,
+                    source: ValidationSource::InternalOutcome,
+                    tick,
+                    phase: CommandPhase::Outcome,
+                    phase_revision: outcome_revision,
+                },
+                outcome_commands,
+                &mut staged,
+            )?
+        };
 
+        stage_zone!("SnapshotPublication");
         let ledger_update =
             std::mem::take(&mut staged.ledger_delta).prepare(&staged.ledger, &staged.archive)?;
         staged.physics.set_checkpoint_revision(staged.revision);

@@ -6,9 +6,16 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+[features]
+default = []
+# Opt-in Tracy profiling: links the Tracy client, starts it on process entry
+# and enables runtime stage zones. Developer telemetry only.
+profile-tracy = ["dep:tracy-client", "next_application/profile-tracy"]
+
 [dependencies]
 next_application.workspace = true
 next_contracts.workspace = true
+tracy-client = { workspace = true, optional = true }
 
 [dev-dependencies]
 next_assets.workspace = true

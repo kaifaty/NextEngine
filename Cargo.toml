@@ -69,6 +69,7 @@ serde_json = "=1.0.151"
 # goblin's high-level ELF64 parser currently references its ELF32 layout module.
 # Keep every unrelated format disabled while enabling that compile-time companion.
 goblin = { version = "=0.10.7", default-features = false, features = ["std", "elf32", "elf64", "pe64"] }
+tracy-client = { version = "=0.18.4", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

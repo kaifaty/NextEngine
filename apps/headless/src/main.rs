@@ -10,6 +10,10 @@ use next_contracts::ids::ContentHash;
 use next_contracts::session::{CompositionRootV1, PresentationTargetKindV1};
 
 fn main() {
+    // Developer profiling only: with `profile-tracy` enabled the Tracy client
+    // starts in on-demand mode and activates when a Tracy profiler connects.
+    #[cfg(feature = "profile-tracy")]
+    let _tracy_client = tracy_client::Client::start();
     match run(std::env::args().skip(1)) {
         Ok(report) => println!("{}", report.to_json().expect("run report serializes")),
         Err(error) => {

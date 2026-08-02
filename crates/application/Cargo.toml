@@ -6,6 +6,11 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+[features]
+default = []
+# Pass-through for next_runtime Tracy stage zones (developer profiling only).
+profile-tracy = ["next_runtime/profile-tracy"]
+
 [dependencies]
 next_assets.workspace = true
 next_contracts.workspace = true

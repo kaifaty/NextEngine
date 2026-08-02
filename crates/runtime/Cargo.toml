@@ -10,6 +10,10 @@ publish = false
 default = []
 physx = ["dep:next_physics_physx", "next_physics_physx/physx-sdk"]
 physx-mock = ["dep:next_physics_physx", "next_physics_physx/mock-abi"]
+# Opt-in Tracy stage zones for developer profiling. Telemetry only: zones
+# never influence authoritative results, and with the feature off the Tracy
+# client is not linked and `stage_zone!` expands to nothing.
+profile-tracy = ["dep:tracy-client", "tracy-client/enable", "tracy-client/ondemand"]
 
 [dependencies]
 next_contracts.workspace = true
@@ -17,6 +21,7 @@ next_mechanics.workspace = true
 next_physics_api.workspace = true
 next_physics_physx = { workspace = true, optional = true }
 next_rpg.workspace = true
+tracy-client = { workspace = true, optional = true }
 
 [lints]
 workspace = true

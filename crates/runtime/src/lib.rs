@@ -5,6 +5,7 @@ mod engine;
 mod outcome;
 mod registry;
 mod session;
+mod stage_zone;
 
 pub use authority::{AuthorityRegistry, AuthorityRegistryError};
 pub use engine::{
