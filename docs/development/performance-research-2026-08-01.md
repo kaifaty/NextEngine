@@ -229,6 +229,39 @@ generation перед atomic rename (~`8.5 ms` p50 на checkpoint на этой
 параллельным чтением файлов staged generation (кандидат parallel I/O) без
 изменения semantics — порядок проверок и множество failure modes не меняются.
 
+## Приложение 2026-08-02 (2): parallel encode/write в checkpoint path — ОТКЛОНЕНО release soak
+
+Кандидат: scoped-thread fan-out (`std::thread::scope`, bounded, deterministic
+error order, byte-exact assembly) в трёх местах:
+
+1. `WorldCheckpointV4::new_with_canonical_components_internal` — runtime
+   validate+encode+ledger hash ∥ rpg encode ∥ physics validate+encode.
+2. `state_root_from_segments` — per-segment SHA-256 параллельно.
+3. `ContentStore` publish — parallel write+fsync staged files и parallel
+   reads в `verify_staged_generation_bytes` (re-read ADR-037 §3 не ослаблен,
+   только распараллелен).
+
+Реализация была завершена, contracts `129` + assets `34` tests зелёные,
+`host-check` и `persistence-replay` PASS, roots parity в soak runs. Парный
+same-hour A/B на эталонной нагруженной системе (1 baseline run против 3
+candidate runs, paired потому что cross-batch сравнения на этой системе
+шумные): baseline materialization p95 `10 514 µs` совпал со старым
+baseline `10 419 µs` (система не деградировала), а кандидат дал
+materialization p95 `13 674 µs` (`+30%`), application checkpoint-tick
+`+22%`, ordinary tick `+65%` (путь, который кандидат вообще не трогает),
+application/live-runtime windows `+27%/+43%`, driver commit `+82%`.
+Равномерная регрессия всех метрик, включая незатронутые пути, указывает на
+системный механизм: создание 2-4 OS threads на каждый checkpoint на
+нагруженной машине стоит дороже, чем экономит параллелизм (scheduler
+contention/migrations, per-thread CreateThread overhead под AV, конкуренция
+fsync на одном volume). Кандидат полностью откачен; код не сохранён.
+
+Вывод по методике: per-checkpoint thread spawning в authoritative tick path
+на reference-системе — анти-паттерн независимо от чистоты реализации.
+Параллелизм в этом пути имеет смысл пересматривать только вместе с B-04
+job substrate (persistent bounded worker pool по ADR-026, без CreateThread
+на checkpoint) и повторным paired A/B. До B-04 — не возвращаться.
+
 ## Источники
 
 - DeltaBox: millisecond checkpoint/rollback через change-based DeltaState,

@@ -965,8 +965,15 @@ load-bearing, session store и application recovery не имеют fallback с
 corrupt current на previous generation, поэтому снятие проверки превращает
 publish-time bounded failure в load-time unrecoverable (см. addendum в
 `docs/development/performance-research-2026-08-01.md`); encode-side
-incremental caching (streams/archive) и
-parallel encode/read остаются кандидатами. Durable schemas, cadence `0/30/60`,
+incremental caching (streams/archive) остаётся кандидатом, а parallel
+encode/write на scoped threads реализован, измерен paired same-hour A/B и
+отклонён: baseline materialization p95 `10 514 µs` (старый baseline
+`10 419 µs`, система не деградировала) против candidate `13 674 µs`
+(`+30%`), checkpoint-tick `+22%`, ordinary tick `+65%`, windows
+`+27%/+43%` — per-checkpoint thread spawning в authoritative tick path на
+нагруженной reference-системе дороже сэкономленного параллелизма; код
+полностью откачен, повторная попытка имеет смысл только с B-04 job
+substrate (persistent bounded workers по ADR-026). Durable schemas, cadence `0/30/60`,
 rollback/retry и replay roots не изменились.
 
 Третий пакет убрал избыточную работу из game save commit path. До этого
