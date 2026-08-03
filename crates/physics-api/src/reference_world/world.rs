@@ -1,5 +1,6 @@
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
+use next_contracts::canonical::CanonicalError;
 use next_contracts::ids::ContentHash;
 use next_contracts::input::TickRateProfileV1;
 use next_contracts::physics::{
@@ -15,7 +16,7 @@ use super::query::{
     validate_reference_shape,
 };
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct GroundedCapsuleWorld<Q> {
     pub(super) checkpoint: PhysicsWorldCheckpointV1,
     pub(super) tick_rate_profile: TickRateProfileV1,
@@ -31,7 +32,32 @@ pub struct GroundedCapsuleWorld<Q> {
     pub(super) locomotion_per_substep: i64,
     pub(super) gravity_velocity_delta: i64,
     pub(super) query: Q,
+    memoized_snapshot_hash: OnceLock<Result<ContentHash, CanonicalError>>,
+    memoized_catalog_hash: OnceLock<Result<ContentHash, CanonicalError>>,
 }
+
+// The memoized hashes are derived caches of exact canonical bytes, never
+// parallel authority: equality compares authoritative fields only.
+impl<Q: PartialEq> PartialEq for GroundedCapsuleWorld<Q> {
+    fn eq(&self, other: &Self) -> bool {
+        self.checkpoint == other.checkpoint
+            && self.tick_rate_profile == other.tick_rate_profile
+            && self.numeric_profile == other.numeric_profile
+            && self.quantization_profile == other.quantization_profile
+            && self.capsule_body_id == other.capsule_body_id
+            && self.capsule_shape_id == other.capsule_shape_id
+            && self.capsule_radius == other.capsule_radius
+            && self.capsule_half_segment == other.capsule_half_segment
+            && self.capsule_collision_layer == other.capsule_collision_layer
+            && self.capsule_collision_mask == other.capsule_collision_mask
+            && self.static_boxes == other.static_boxes
+            && self.locomotion_per_substep == other.locomotion_per_substep
+            && self.gravity_velocity_delta == other.gravity_velocity_delta
+            && self.query == other.query
+    }
+}
+
+impl<Q: Eq> Eq for GroundedCapsuleWorld<Q> {}
 
 pub type ReferencePhysicsWorld = GroundedCapsuleWorld<ReferenceGroundedCapsuleQuery>;
 
@@ -207,6 +233,8 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             locomotion_per_substep: CAPSULE_LOCOMOTION_SPEED_MICROMETRES_PER_SECOND / physics_hz,
             gravity_velocity_delta: gravity / physics_hz,
             query,
+            memoized_snapshot_hash: OnceLock::new(),
+            memoized_catalog_hash: OnceLock::new(),
         };
         world.validate_activation_snapshot()?;
         Ok(world)
@@ -254,6 +282,8 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             locomotion_per_substep: self.locomotion_per_substep,
             gravity_velocity_delta: self.gravity_velocity_delta,
             query,
+            memoized_snapshot_hash: self.memoized_snapshot_hash.clone(),
+            memoized_catalog_hash: self.memoized_catalog_hash.clone(),
         }))
     }
 
@@ -282,8 +312,20 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         &self.quantization_profile
     }
 
-    pub fn snapshot_hash(&self) -> Result<ContentHash, next_contracts::canonical::CanonicalError> {
-        self.checkpoint.snapshot.snapshot_hash()
+    pub fn snapshot_hash(&self) -> Result<ContentHash, CanonicalError> {
+        *self
+            .memoized_snapshot_hash
+            .get_or_init(|| self.checkpoint.snapshot.snapshot_hash())
+    }
+
+    pub fn catalog_hash(&self) -> Result<ContentHash, CanonicalError> {
+        *self
+            .memoized_catalog_hash
+            .get_or_init(|| self.checkpoint.catalog.catalog_hash())
+    }
+
+    pub(super) fn reseed_snapshot_hash_memo(&mut self, hash: ContentHash) {
+        self.memoized_snapshot_hash = OnceLock::from(Ok(hash));
     }
 
     pub fn checkpoint_hash(
@@ -294,6 +336,9 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
 
     pub fn set_checkpoint_revision(&mut self, revision: u64) {
         self.checkpoint.snapshot.checkpoint_revision = revision;
+        // checkpoint_revision is canonical snapshot field 4: the mutation
+        // invalidates the derived snapshot-hash memo.
+        let _ = self.memoized_snapshot_hash.take();
     }
 }
 

@@ -1,6 +1,8 @@
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 
+use next_contracts::canonical::CanonicalError;
+use next_contracts::ids::ContentHash;
 use next_contracts::input::TickRateProfileV1;
 use next_contracts::physics::{
     AuthoritativeNumericProfileV1, PhysicsCanonicalSnapshotV2, PhysicsQuantizationProfileV1,
@@ -39,6 +41,18 @@ pub trait PhysicsWorldBackend: Debug {
     fn backend_kind(&self) -> PhysicsBackendKind;
     fn checkpoint(&self) -> &PhysicsWorldCheckpointV1;
     fn snapshot(&self) -> &PhysicsCanonicalSnapshotV2;
+    /// Exact hash of the current canonical snapshot. Backends MAY serve it
+    /// from a derived private cache; the value always equals
+    /// `self.snapshot().snapshot_hash()`.
+    fn snapshot_hash(&self) -> Result<ContentHash, CanonicalError> {
+        self.snapshot().snapshot_hash()
+    }
+    /// Exact hash of the immutable session catalog. Backends MAY serve it
+    /// from a derived private cache; the value always equals
+    /// `self.checkpoint().catalog.catalog_hash()`.
+    fn catalog_hash(&self) -> Result<ContentHash, CanonicalError> {
+        self.checkpoint().catalog.catalog_hash()
+    }
     fn tick_rate_profile(&self) -> &TickRateProfileV1;
     fn numeric_profile(&self) -> &AuthoritativeNumericProfileV1;
     fn quantization_profile(&self) -> &PhysicsQuantizationProfileV1;
@@ -76,6 +90,14 @@ where
 
     fn snapshot(&self) -> &PhysicsCanonicalSnapshotV2 {
         GroundedCapsuleWorld::snapshot(self)
+    }
+
+    fn snapshot_hash(&self) -> Result<ContentHash, CanonicalError> {
+        GroundedCapsuleWorld::snapshot_hash(self)
+    }
+
+    fn catalog_hash(&self) -> Result<ContentHash, CanonicalError> {
+        GroundedCapsuleWorld::catalog_hash(self)
     }
 
     fn tick_rate_profile(&self) -> &TickRateProfileV1 {
@@ -216,6 +238,18 @@ impl PhysicsWorldHost {
     #[must_use]
     pub fn snapshot(&self) -> &PhysicsCanonicalSnapshotV2 {
         self.world.snapshot()
+    }
+
+    /// Exact hash of the current canonical snapshot, served from the
+    /// backend's derived cache when available.
+    pub fn snapshot_hash(&self) -> Result<ContentHash, CanonicalError> {
+        self.world.snapshot_hash()
+    }
+
+    /// Exact hash of the immutable session catalog, served from the
+    /// backend's derived cache when available.
+    pub fn catalog_hash(&self) -> Result<ContentHash, CanonicalError> {
+        self.world.catalog_hash()
     }
 
     #[must_use]

@@ -31,8 +31,8 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         input.validate()?;
         if input.world_id != self.checkpoint.snapshot.world_id
             || input.expected_world_revision != self.checkpoint.snapshot.world_revision
-            || input.expected_snapshot_hash != self.checkpoint.snapshot.snapshot_hash()?
-            || input.expected_catalog_hash != self.checkpoint.catalog.catalog_hash()?
+            || input.expected_snapshot_hash != self.snapshot_hash()?
+            || input.expected_catalog_hash != self.catalog_hash()?
             || self.checkpoint.snapshot.physics_tick.checked_add(1)
                 != Some(input.first_physics_tick)
             || input.physics_substeps != self.tick_rate_profile.physics_substeps_per_gameplay_tick
@@ -55,7 +55,8 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             return self.step_empty(input);
         };
 
-        let before_snapshot_hash = self.checkpoint.snapshot.snapshot_hash()?;
+        // Memo hit: the checkpoint snapshot is unchanged since validation.
+        let before_snapshot_hash = self.snapshot_hash()?;
         let before_states = input
             .accepted_intents
             .iter()
@@ -72,6 +73,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
 
         let mut staged = self.checkpoint.snapshot.clone();
         let mut all_events = Vec::new();
+        let mut last_staged_hash = None;
         for substep in 0..input.physics_substeps {
             let physics_tick = staged
                 .physics_tick
@@ -181,6 +183,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 .checked_add(1)
                 .ok_or(ReferencePhysicsError::NumericOverflow)?;
             let substep_snapshot_hash = staged.snapshot_hash()?;
+            last_staged_hash = Some(substep_snapshot_hash);
             for state in current.values() {
                 let phase = if previous.contains_key(&state.contact_id) {
                     ContactPhaseV1::Persist
@@ -217,7 +220,12 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             }
         }
         all_events.sort();
-        let after_snapshot_hash = staged.snapshot_hash()?;
+        // The loop's final substep hash already covers the unchanged staged
+        // snapshot; only a zero-substep input needs a fresh computation.
+        let after_snapshot_hash = match last_staged_hash {
+            Some(hash) => hash,
+            None => staged.snapshot_hash()?,
+        };
         let contact_batch = ClosedPhysicsContactBatchV1::new(
             input.gameplay_tick,
             input.first_physics_tick,
@@ -263,6 +271,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             })
             .collect::<Result<Vec<_>, ReferencePhysicsError>>()?;
         self.checkpoint.snapshot = staged;
+        self.reseed_snapshot_hash_memo(after_snapshot_hash);
         Ok(PhysicsStepResultV1 {
             step_input_hash: input.input_hash()?,
             before_snapshot_hash,
@@ -276,7 +285,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         &mut self,
         input: &PhysicsStepInputV2,
     ) -> Result<PhysicsStepResultV1, ReferencePhysicsError> {
-        let before_snapshot_hash = self.checkpoint.snapshot.snapshot_hash()?;
+        let before_snapshot_hash = self.snapshot_hash()?;
         let mut staged = self.checkpoint.snapshot.clone();
         for _ in 0..input.physics_substeps {
             staged.physics_tick = staged
@@ -297,6 +306,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             after_snapshot_hash,
         )?;
         self.checkpoint.snapshot = staged;
+        self.reseed_snapshot_hash_memo(after_snapshot_hash);
         Ok(PhysicsStepResultV1 {
             step_input_hash: input.input_hash()?,
             before_snapshot_hash,

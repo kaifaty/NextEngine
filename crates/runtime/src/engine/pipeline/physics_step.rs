@@ -28,8 +28,8 @@ pub(super) fn finish_physical_step(
         schema_version: PHYSICS_STEP_INPUT_SCHEMA_VERSION,
         world_id: before_snapshot.world_id,
         expected_world_revision: before_snapshot.world_revision,
-        expected_snapshot_hash: before_snapshot.snapshot_hash()?,
-        expected_catalog_hash: staged.physics.checkpoint().catalog.catalog_hash()?,
+        expected_snapshot_hash: staged.physics.snapshot_hash()?,
+        expected_catalog_hash: staged.physics.catalog_hash()?,
         gameplay_tick: context.tick,
         first_physics_tick: before_snapshot
             .physics_tick

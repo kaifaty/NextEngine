@@ -727,8 +727,6 @@ impl RuntimeState {
         let query_snapshot_selector =
             staged
                 .physics
-                .checkpoint()
-                .snapshot
                 .snapshot_hash()
                 .map(|physics_snapshot_hash| {
                     next_contracts::physics::PhysicsSnapshotSelectorV1 {
