@@ -529,3 +529,63 @@ SPEC-24 (v1.0), SPEC-12 (v2.4), а также секции SPEC-17 о `Configura
     (pause-menu settings) — за пределами minimal scope; locale selection UX.
   - Checks: workspace tests PASS (61 suite); `host-check` PASS; `play` PASS;
     `platform` PASS (`sdl_ash_candidate: PASS`, `--features desktop-sdl-ash`).
+
+## 12. Экраны (inventory/equipment, dialogue, quest journal): design findings 2026-08-03
+
+Инвентаризация перед реализацией экранов (решение 1A). Зафиксировано до
+ответов owner на Q1–Q5, чтобы решения принимались по фактам кода.
+
+### Источники данных (готово)
+
+- `RpgSnapshotV2.aggregates` итерируем и канонически отсортирован по
+  (kind, id) — достаточно для enumeration экранов без новых query APIs.
+- Inventory: `CharacterPayloadV1.inventory_id/equipment_id` →
+  `InventoryPayloadV1 { owner_id, capacity, item_ids, reservations }` +
+  item aggregates `ItemPayloadV1 { quantity, durability, custom_state }`.
+- Equipment: `EquipmentPayloadV1 { character_id, slot_policy, assignments
+  (slot_id, item_id) }`.
+- Quest: `QuestPayloadV1 { state_id }` (journal = все Quest aggregates).
+- Dialogue: `DialoguePayloadV1 { speaker_id, listener_id, node_id }`;
+  definitions (`NeutralRecordKindV1::DialogueDefinition`) несут только
+  `entry-node`/`accepted-node` — multi-choice модель в reference content
+  отсутствует (linear offer → accepted через InteractionDefinition).
+
+### Gaps, влияющие на дизайн
+
+1. **Display names отсутствуют в content**: ItemDefinition /
+   InventoryDefinition / EquipmentDefinition / DialogueDefinition не имеют
+   properties (`_ => &[]` в `definition_properties`). Item/quest/dialogue
+   экранам нужен display text; это мини-решение по content (см. Q6 ниже).
+   `content_package` проверяет число catalogs (== 2), но не entry counts —
+   добавление entries в en/qps-ploc catalogs не ломает golden checks.
+2. **Open actions отсутствуют**: есть `ui-nav`/`ui-confirm`/`ui-back` +
+   contexts `gameplay`/`ui-menu`/`ui-dialogue`; действий «открыть
+   inventory/journal» нет (Q1).
+3. **Selection/arbitration не построено**: pause-menu запекает
+   `selected: true` статически; nav-selection между publications требует
+   детерминированного UI state, разделяемого game/headless (Q2). Вариант 2B
+   (confirm = первый choice) этого state избегает.
+4. **UI-derived commands**: новые command candidates (dialogue choose,
+   inventory equip) требуют mapper slots и replay provenance
+   (`InputMappingReceiptV2` уже умеет composite frames) — 3A/4A (read-only)
+   не добавляют новых command paths вовсе.
+
+### Маппинг вопросов на реализацию
+
+| Q | A-вариант затрагивает | B-вариант затрагивает |
+|---|---|---|
+| Q1 open actions | contracts input constants + ActionMapManifest (reference) + context stack + mapper (toggle → presentation-only state) | pause-menu records + navigation state |
+| Q2 arbitration | deterministic nav-selection state в driver/UI loop + confirm → choice command candidate через production mapper | confirm → first-choice candidate (без state) |
+| Q3 inventory | read-only projection (records only) | + equip/use command candidate, validation, replay |
+| Q4 journal | read-only projection (records only) | + track/untrack RPG commands |
+| Q5 simulation | без изменений (только pause-menu → Suspended) | pause policy расширяется на экраны (пересмотр sub 3) |
+
+### Дополнительный вопрос (вынесен owner вместе с Q1–Q5)
+
+**Q6. Display names для item/quest/dialogue в v1:**
+- **A (рекомендация):** добавить display-text properties в affected
+  definitions (новые `NeutralPropertyV1` pairs) + entries в en/qps-ploc
+  catalogs; projections используют stable text IDs (SPEC-18: durable
+  references — text IDs, не rendered text).
+- B: v1 рендерит semantic ids через generic placeholder templates (быстрее,
+  но экраны читают machine ids; переделка при A позже).
