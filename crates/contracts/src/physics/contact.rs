@@ -278,11 +278,21 @@ impl ClosedPhysicsContactBatchV1 {
             batch_hash: ContentHash::default(),
         };
         value.batch_hash = value.compute_batch_hash()?;
-        value.validate()?;
+        // A fresh constructor result always satisfies the hash self-check
+        // inside `validate()`; the structural checks still run here.
+        value.validate_structure()?;
         Ok(value)
     }
 
     pub fn validate(&self) -> Result<(), PhysicsContractError> {
+        self.validate_structure()?;
+        if self.compute_batch_hash()? != self.batch_hash {
+            return Err(PhysicsContractError::NonCanonicalOrder);
+        }
+        Ok(())
+    }
+
+    fn validate_structure(&self) -> Result<(), PhysicsContractError> {
         if self.schema_version != CLOSED_PHYSICS_CONTACT_BATCH_SCHEMA_VERSION
             || self.substep_count == 0
             || self.events.windows(2).any(|pair| pair[0] >= pair[1])
@@ -295,7 +305,6 @@ impl ClosedPhysicsContactBatchV1 {
                         != Some(event.physics_tick)
                     || event.validate_identity().is_err()
             })
-            || self.compute_batch_hash()? != self.batch_hash
         {
             return Err(PhysicsContractError::NonCanonicalOrder);
         }
@@ -307,6 +316,18 @@ impl ClosedPhysicsContactBatchV1 {
         catalog: &PhysicsWorldCatalogV1,
     ) -> Result<(), PhysicsContractError> {
         self.validate()?;
+        self.validate_events_against_catalog(catalog)
+    }
+
+    /// Validates only the catalog-relative invariants (event count limit and
+    /// per-event catalog membership). The caller must guarantee the batch
+    /// already satisfies [`Self::validate`], for example because it is a
+    /// fresh constructor result; decoded or otherwise untrusted batches must
+    /// use [`Self::validate_against_catalog`].
+    pub fn validate_events_against_catalog(
+        &self,
+        catalog: &PhysicsWorldCatalogV1,
+    ) -> Result<(), PhysicsContractError> {
         if self.events.len()
             > usize::try_from(catalog.limits_profile.maximum_contacts_per_substep)
                 .map_err(|_| PhysicsContractError::LimitExceeded)?

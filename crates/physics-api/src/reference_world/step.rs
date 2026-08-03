@@ -233,7 +233,10 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             all_events,
             after_snapshot_hash,
         )?;
-        contact_batch.validate_against_catalog(&self.checkpoint.catalog)?;
+        // The batch is a fresh constructor result (already validated); only
+        // the catalog-relative invariants need checking on this path.
+        contact_batch.validate_events_against_catalog(&self.checkpoint.catalog)?;
+        debug_assert!(contact_batch.validate().is_ok());
         let mut related_ids = contact_batch
             .events
             .iter()
