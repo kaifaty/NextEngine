@@ -589,3 +589,38 @@ SPEC-24 (v1.0), SPEC-12 (v2.4), а также секции SPEC-17 о `Configura
   references — text IDs, не rendered text).
 - B: v1 рендерит semantic ids через generic placeholder templates (быстрее,
   но экраны читают machine ids; переделка при A позже).
+
+### Принятые решения по экранам (2026-08-03, owner)
+
+Подтверждены варианты A по всем открытым вопросам §12:
+
+| # | Решение | Выбор |
+|---|---|---|
+| Q1 | Открытие экранов | **A**: новые action IDs `ui-inventory` / `ui-journal` (toggle; `ui-back` закрывает). |
+| Q2 | Dialogue arbitration | **A**: `ui-nav` selection + `ui-confirm` → choice command candidate через production mapper. |
+| Q3 | Inventory v1 | **A**: read-only (equip остаётся world action `equip-use`). |
+| Q4 | Quest journal v1 | **A**: read-only. |
+| Q5 | Simulation | **A**: продолжается; `Suspended` запрашивает только pause-menu. |
+| Q6 | Display names | **A**: display-text properties в definitions + catalog entries (stable text IDs). |
+
+### Экраны S1 (display text content, Q6A) — DONE (2026-08-03)
+
+- Catalogs (`reference-game/src/source.rs`): en 8 → 21 entries, qps-ploc
+  7 → 20 (fallback на en по-прежнему только для `pause-menu.load`).
+  Новые text IDs: inventory (`inventory.title/item-row/empty`),
+  equipment (`equipment.title/slot-row` + `equipment-slot.main-hand`),
+  journal (`journal.title/entry` + quest name
+  `reference.quest.a-helping-hand`), dialogue (`dialogue.title`,
+  `choice-accept`/`choice-leave`, node texts как text IDs == node ids
+  `reference.dialogue.offer/accepted`), item name
+  `reference.item.training-sword`. Pseudo-locale использует только
+  supported composed glyphs font8x8 набора.
+- Definition display properties: `ItemDefinition`,
+  `QuestDefinition`, `DialogueDefinition` получили
+  `("nextengine.display-name.text-id", <text id>)` pairs (opaque
+  `NeutralPropertyV1`, schema не менялась). Projections пока читают
+  fixture-convention text ids (как HUD); definition-property → projection
+  query path — future work, когда появится definition query boundary.
+- Manifest: asset entries 22 (без изменений); content hashes изменились
+  ожидаемо (новый content), parity checks сравнивают внутренне.
+- Checks: reference-game tests 12/12 PASS, `content-package` PASS.

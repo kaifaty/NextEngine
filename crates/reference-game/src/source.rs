@@ -169,6 +169,21 @@ fn reference_text_catalogs() -> Result<Vec<TextCatalogV1>, ProjectCookError> {
         ("nextengine.ui.text.pause-menu.load", "Load game"),
         ("nextengine.reference.quest.available", "Available"),
         ("nextengine.reference.quest.active", "Active"),
+        ("nextengine.reference.item.training-sword", "Worn training sword"),
+        ("nextengine.reference.quest.a-helping-hand", "A Helping Hand"),
+        ("nextengine.reference.dialogue.offer", "Will you help me?"),
+        ("nextengine.reference.dialogue.accepted", "Thank you!"),
+        ("nextengine.ui.text.inventory.title", "Inventory"),
+        ("nextengine.ui.text.inventory.item-row", "{0} x{1}"),
+        ("nextengine.ui.text.inventory.empty", "(empty)"),
+        ("nextengine.ui.text.equipment.title", "Equipment"),
+        ("nextengine.ui.text.equipment.slot-row", "{0}: {1}"),
+        ("nextengine.reference.equipment-slot.main-hand", "Main hand"),
+        ("nextengine.ui.text.journal.title", "Quests"),
+        ("nextengine.ui.text.journal.entry", "{0} - {1}"),
+        ("nextengine.ui.text.dialogue.title", "Dialogue"),
+        ("nextengine.ui.text.dialogue.choice-accept", "Accept"),
+        ("nextengine.ui.text.dialogue.choice-leave", "Leave"),
     ];
     let pseudo_entries: &[(&str, &str)] = &[
         ("nextengine.ui.text.hud.health", "⟦Ħēåłŧħ⟧ {0}/{1}"),
@@ -178,6 +193,21 @@ fn reference_text_catalogs() -> Result<Vec<TextCatalogV1>, ProjectCookError> {
         ("nextengine.ui.text.pause-menu.save", "⟦Șåvē ĝåmē⟧"),
         ("nextengine.reference.quest.available", "⟦Åvēåíłåbłē⟧"),
         ("nextengine.reference.quest.active", "⟦Åćŧívē⟧"),
+        ("nextengine.reference.item.training-sword", "⟦Wårn ŧråíníng șwårḑ⟧"),
+        ("nextengine.reference.quest.a-helping-hand", "⟦Å Ħēłpíng Ħånḑ⟧"),
+        ("nextengine.reference.dialogue.offer", "⟦Wíłł you ħēłp mē?⟧"),
+        ("nextengine.reference.dialogue.accepted", "⟦ŧhank you!⟧"),
+        ("nextengine.ui.text.inventory.title", "⟦Ínvēnŧåry⟧"),
+        ("nextengine.ui.text.inventory.item-row", "⟦{0} x{1}⟧"),
+        ("nextengine.ui.text.inventory.empty", "⟦(ēmpŧå)⟧"),
+        ("nextengine.ui.text.equipment.title", "⟦Ēqųípmēnŧ⟧"),
+        ("nextengine.ui.text.equipment.slot-row", "⟦{0}: {1}⟧"),
+        ("nextengine.reference.equipment-slot.main-hand", "⟦Måín ħånḑ⟧"),
+        ("nextengine.ui.text.journal.title", "⟦Qųēșŧș⟧"),
+        ("nextengine.ui.text.journal.entry", "⟦{0} - {1}⟧"),
+        ("nextengine.ui.text.dialogue.title", "⟦ḑíåłåĝųē⟧"),
+        ("nextengine.ui.text.dialogue.choice-accept", "⟦Åććēpŧ⟧"),
+        ("nextengine.ui.text.dialogue.choice-leave", "⟦Łēåvē⟧"),
     ];
     Ok(vec![
         reference_text_catalog(REFERENCE_TEXT_CATALOG_EN_ASSET_ID, "en", None, en_entries)?,
@@ -424,7 +454,15 @@ fn definition_properties(
                 "nextengine.dialogue.accepted-node",
                 "nextengine.reference.dialogue.accepted",
             ),
+            (
+                "nextengine.display-name.text-id",
+                "nextengine.ui.text.dialogue.title",
+            ),
         ],
+        NeutralRecordKindV1::ItemDefinition => &[(
+            "nextengine.display-name.text-id",
+            "nextengine.reference.item.training-sword",
+        )],
         NeutralRecordKindV1::QuestDefinition => &[
             (
                 "nextengine.quest.entry-state",
@@ -433,6 +471,10 @@ fn definition_properties(
             (
                 "nextengine.quest.active-state",
                 "nextengine.reference.quest.active",
+            ),
+            (
+                "nextengine.display-name.text-id",
+                "nextengine.reference.quest.a-helping-hand",
             ),
         ],
         NeutralRecordKindV1::RelationshipDefinition => &[(
