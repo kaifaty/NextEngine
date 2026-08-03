@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use next_contracts::ids::{CommandLedgerHash, ContentHash, SchemaId, StateRoot};
+use next_contracts::localization::TextCatalogV1;
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::physics::PhysicsPoseV1;
 use next_contracts::project::{ActivatedProjectV2, domain_hash};
@@ -54,6 +55,7 @@ pub struct PreparedGameFrameV1 {
     pub check: GameCheckReport,
     pub snapshot: next_contracts::presentation::PresentationSnapshotV2,
     pub render_content_catalog: next_contracts::render_content::RenderContentCatalogV1,
+    pub text_catalogs: Vec<TextCatalogV1>,
 }
 
 pub fn run_play_check() -> Result<PlayCheckReport, PlayCheckError> {
@@ -94,30 +96,31 @@ pub fn prepare_game_frame_in(scratch_root: &Path) -> Result<PreparedGameFrameV1,
 pub(crate) fn prepare_game_frame_with_scratch(
     scratch: &ScratchContext,
 ) -> Result<PreparedGameFrameV1, PlayCheckError> {
-    let scenario = run_reference_game(
-        activate_fixture_project_with_scratch(
-            scratch,
-            next_reference_game::REFERENCE_GAME_PROJECT_ID,
-        )?,
-        true,
+    let activated = activate_fixture_project_with_scratch(
+        scratch,
+        next_reference_game::REFERENCE_GAME_PROJECT_ID,
     )?;
-    prepare_game_frame_from_scenario(scenario)
+    let text_catalogs = activated.text_catalogs.clone();
+    let scenario = run_reference_game(activated, true)?;
+    prepare_game_frame_from_scenario(scenario, text_catalogs)
 }
 
 pub fn prepare_game_frame_with_activated_project(
     activated_project: ActivatedProjectV2,
 ) -> Result<PreparedGameFrameV1, PlayCheckError> {
+    let text_catalogs = activated_project.text_catalogs.clone();
     let scenario = run_reference_game_with_backend(
         true,
         false,
         PhysicsLaunchOptions::default(),
         activated_project,
     )?;
-    prepare_game_frame_from_scenario(scenario)
+    prepare_game_frame_from_scenario(scenario, text_catalogs)
 }
 
 fn prepare_game_frame_from_scenario(
     scenario: ReferenceRunOutcomeV1,
+    text_catalogs: Vec<TextCatalogV1>,
 ) -> Result<PreparedGameFrameV1, PlayCheckError> {
     let mut extractor = PresentationExtractorV1::new(
         scenario.project_composition_lock_hash,
@@ -127,13 +130,21 @@ fn prepare_game_frame_from_scenario(
         ),
         8,
     )?;
+    let ui_records = next_reference_game::hud_semantic_ui_records_for_ids(
+        extractor.snapshot_epoch(),
+        scenario.player_character_id,
+        scenario.quest_id,
+        &scenario.runtime.rpg_snapshot(),
+    )?;
     let snapshot = extractor
-        .extract(
+        .extract_with_cameras_and_semantic_ui(
             scenario.ticks,
             scenario.project_composition_lock_hash,
             scenario.content_manifest_hash,
             scenario.runtime.physics_snapshot(),
             &scenario.presentation_bindings,
+            &[],
+            ui_records,
         )?
         .clone();
     let render_content_catalog = scenario.render_content_catalog.clone();
@@ -158,6 +169,7 @@ fn prepare_game_frame_from_scenario(
         check,
         snapshot,
         render_content_catalog,
+        text_catalogs,
     })
 }
 
