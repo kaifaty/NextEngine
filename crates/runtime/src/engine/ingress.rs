@@ -486,8 +486,11 @@ fn map_player_action_sample<'a>(
     {
         return Err(InputMappingCodeV1::ContextStackStale);
     }
+    // The runtime registry only ever holds validated bindings (bootstrap,
+    // restore and activate_input_configuration all run binding.validate()),
+    // so the immutable action-map/context-stack pair check is guaranteed.
     frame
-        .validate_against(&binding.action_map, &binding.context_stack)
+        .validate_against_validated_binding(binding)
         .map_err(|_| InputMappingCodeV1::FrameInvalid)?;
     if frame.actions.is_empty() {
         return Err(InputMappingCodeV1::ActionUnmapped);

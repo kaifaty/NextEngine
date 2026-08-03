@@ -4,7 +4,9 @@ use crate::ids::*;
 use super::codec::*;
 use super::constants::*;
 use super::profiles::RuntimeAdmissionLimitsV1;
-use super::{ActionMapManifestV1, InputContextStackV1, PlayerActionValueKindV1};
+use super::{
+    ActionMapManifestV1, InputContextStackV1, PlayerActionValueKindV1, PlayerControllerBindingV1,
+};
 
 #[must_use]
 pub fn core_player_action_map_v1_hash() -> ContentHash {
@@ -211,6 +213,29 @@ impl PlayerActionFrameV1 {
     ) -> Result<(), InputContractError> {
         self.validate()?;
         context_stack.validate_against_action_map(action_map)?;
+        self.validate_binding_consistency(action_map, context_stack)
+    }
+
+    /// Validates the frame against a binding whose
+    /// [`PlayerControllerBindingV1::validate`] already succeeded. The binding
+    /// guarantees `context_stack.validate_against_action_map(&action_map)`, so
+    /// this skips re-validating the immutable binding pair while keeping every
+    /// frame-dependent check of [`Self::validate_against`]. Callers holding an
+    /// unvalidated action map/context stack pair must use
+    /// [`Self::validate_against`] instead.
+    pub fn validate_against_validated_binding(
+        &self,
+        binding: &PlayerControllerBindingV1,
+    ) -> Result<(), InputContractError> {
+        self.validate()?;
+        self.validate_binding_consistency(&binding.action_map, &binding.context_stack)
+    }
+
+    fn validate_binding_consistency(
+        &self,
+        action_map: &ActionMapManifestV1,
+        context_stack: &InputContextStackV1,
+    ) -> Result<(), InputContractError> {
         if self.action_map_hash != action_map.content_hash
             || self.context_stack_hash != context_stack.content_hash
         {
