@@ -737,10 +737,11 @@ impl ReferenceGameDriverV1 {
 
     fn publish_presentation(&mut self) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
         let camera = self.camera_binding()?;
-        let ui_records = crate::ui::hud_semantic_ui_records(
+        let ui_records = crate::ui::live_semantic_ui_records(
             self.presentation_extractor.snapshot_epoch(),
             &self.fixture,
             &self.runtime.rpg_snapshot(),
+            None,
         )?;
         self.presentation_extractor
             .extract_with_cameras_and_semantic_ui(

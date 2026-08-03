@@ -130,10 +130,11 @@ fn prepare_game_frame_from_scenario(
         ),
         8,
     )?;
-    let ui_records = next_reference_game::hud_semantic_ui_records_for_ids(
+    let ui_records = next_reference_game::read_only_screen_semantic_ui_records_for_ids(
         extractor.snapshot_epoch(),
         scenario.player_character_id,
         scenario.quest_id,
+        &[scenario.pickup_item_id, scenario.npc_weapon_item_id],
         &scenario.runtime.rpg_snapshot(),
     )?;
     let snapshot = extractor

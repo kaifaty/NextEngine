@@ -30,6 +30,8 @@ pub struct ReferenceRunOutcomeV1 {
     pub player_character_id: PersistentId,
     pub dialogue_id: PersistentId,
     pub quest_id: PersistentId,
+    pub pickup_item_id: PersistentId,
+    pub npc_weapon_item_id: PersistentId,
     pub relationship_id: PersistentId,
     pub relationship_dimension_id: SchemaId,
     pub project_composition_lock_hash: ContentHash,
@@ -293,6 +295,8 @@ pub fn run_reference_game_with_backend(
         player_character_id: fixture.body_id,
         dialogue_id: fixture.dialogue_id,
         quest_id: fixture.quest_id,
+        pickup_item_id: fixture.pickup_item_id,
+        npc_weapon_item_id: fixture.npc_weapon_item_id,
         relationship_id: fixture.relationship_id,
         relationship_dimension_id,
         project_composition_lock_hash: fixture

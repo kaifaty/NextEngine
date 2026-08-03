@@ -593,7 +593,81 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
         .presentation_snapshot
         .semantic_ui_records()
         .collect::<Vec<_>>();
-    assert_eq!(ui_records.len(), 2);
+    assert_eq!(ui_records.len(), 8);
+    // The read-only inventory/equipment and quest journal screens publish
+    // unconditionally with the initial (empty) RPG state.
+    let inventory_title = ui_records
+        .iter()
+        .find(|record| {
+            record.element.element_id.as_str() == "nextengine.ui.element.inventory.title"
+        })
+        .expect("inventory title element");
+    assert_eq!(
+        inventory_title.surface_id.as_str(),
+        "nextengine.ui.surface.inventory"
+    );
+    assert_eq!(
+        inventory_title.semantic_path_id.as_str(),
+        "nextengine.ui.panel.inventory.root"
+    );
+    assert_eq!(
+        inventory_title.element.accessibility_role,
+        next_contracts::presentation::UiAccessibilityRoleV1::Heading
+    );
+    let inventory_empty = ui_records
+        .iter()
+        .find(|record| {
+            record.element.element_id.as_str() == "nextengine.ui.element.inventory.empty"
+        })
+        .expect("inventory empty element");
+    assert_eq!(
+        inventory_empty.element.role,
+        next_contracts::presentation::UiElementRoleV1::ListItem
+    );
+    let equipment_empty = ui_records
+        .iter()
+        .find(|record| {
+            record.element.element_id.as_str() == "nextengine.ui.element.equipment.empty"
+        })
+        .expect("equipment empty element");
+    assert_eq!(
+        equipment_empty.semantic_path_id.as_str(),
+        "nextengine.ui.panel.equipment.root"
+    );
+    let journal_entry = ui_records
+        .iter()
+        .find(|record| {
+            record.element.element_id.as_str() == "nextengine.ui.element.quest-journal.entry.0"
+        })
+        .expect("journal entry element");
+    assert_eq!(
+        journal_entry.surface_id.as_str(),
+        "nextengine.ui.surface.quest-journal"
+    );
+    assert_eq!(
+        journal_entry
+            .element
+            .text_or_none
+            .as_ref()
+            .expect("journal entry text")
+            .arguments,
+        vec![
+            next_contracts::presentation::UiTextArgumentV1::TextId(
+                next_contracts::ids::SchemaId::new("nextengine.reference.quest.a-helping-hand")
+                    .expect("quest name text id")
+            ),
+            next_contracts::presentation::UiTextArgumentV1::TextId(
+                next_contracts::ids::SchemaId::new("nextengine.reference.quest.available")
+                    .expect("quest state text id")
+            ),
+        ]
+    );
+    assert!(
+        ui_records
+            .iter()
+            .all(|record| record.element.affordances.is_empty()),
+        "the always-on screens stay read-only without action affordances"
+    );
     let health = ui_records
         .iter()
         .find(|record| record.element.element_id.as_str() == "nextengine.ui.element.hud.health")
@@ -672,6 +746,15 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
         en_resolver.resolve(quest.element.text_or_none.as_ref().expect("quest text"));
     assert_eq!(quest_resolution.text, "Quest: Available");
     assert_eq!(quest_resolution.diagnostic_or_none, None);
+    let journal_resolution = en_resolver.resolve(
+        journal_entry
+            .element
+            .text_or_none
+            .as_ref()
+            .expect("journal entry text"),
+    );
+    assert_eq!(journal_resolution.text, "A Helping Hand - Available");
+    assert_eq!(journal_resolution.diagnostic_or_none, None);
 
     let pseudo_resolver =
         next_presentation::TextCatalogResolverV1::new(activated.text_catalogs.clone(), "qps-ploc")
@@ -705,7 +788,7 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
         .presentation_snapshot
         .semantic_ui_records()
         .collect::<Vec<_>>();
-    assert_eq!(recovered_ui.len(), 2);
+    assert_eq!(recovered_ui.len(), 8);
     assert!(
         recovered_ui
             .iter()
