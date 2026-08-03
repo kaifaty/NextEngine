@@ -10,7 +10,12 @@ use next_application::{
     LaunchRequestV1, ProjectSelectionV1, RunReportV1, default_user_state_root,
 };
 #[cfg(feature = "desktop-sdl-ash")]
-use next_application::{InteractiveSimulationWorkerV1, InteractiveWorkerFinalizationV1};
+use next_application::{
+    InteractiveSimulationWorkerV1, InteractiveWorkerFinalizationV1, PlayerPreferenceLoadOutcomeV1,
+    PlayerPreferenceStoreV1, preference_ui_options,
+};
+#[cfg(feature = "desktop-sdl-ash")]
+use next_contracts::preferences::PlayerPreferenceProfileV1;
 use next_contracts::session::{CompositionRootV1, PresentationTargetKindV1};
 
 mod cli;
@@ -136,6 +141,25 @@ fn run_interactive_session(
         ready.initial_snapshot.snapshot_sequence,
     );
 
+    // Local PresentationOnly preference profile: a missing file yields bounded
+    // defaults, an unreadable one was quarantined by the store and also yields
+    // defaults; a storage error can never block the game (SPEC-18).
+    let (ui_locale, ui_text_scale_milli) = match PlayerPreferenceStoreV1::new(&state_root).load() {
+        Ok(load) => {
+            if let PlayerPreferenceLoadOutcomeV1::Quarantined { diagnostic_code } = load.outcome {
+                eprintln!("next_game: {diagnostic_code}: preference profile quarantined");
+            }
+            preference_ui_options(&load.profile)
+        }
+        Err(error) => {
+            eprintln!(
+                "next_game: {}: preference store unavailable, using defaults",
+                error.diagnostic_code()
+            );
+            preference_ui_options(&PlayerPreferenceProfileV1::bounded_defaults())
+        }
+    };
+
     let adapter = next_desktop_sdl_ash::run_interactive_with_shared_timed_frame_source_and_finalize(
         Arc::clone(&ready.initial_snapshot),
         &ready.render_content_catalog,
@@ -144,7 +168,8 @@ fn run_interactive_session(
             host_instance_id: ready.host_instance_id,
             resume_suspended_application: ready.resume_suspended_application,
             ui_text_catalogs: ready.text_catalogs.clone(),
-            ui_locale: "en".to_owned(),
+            ui_locale: ui_locale.clone(),
+            ui_text_scale_milli,
             ..next_desktop_sdl_ash::DesktopRunOptions::default()
         },
         |events, elapsed| {

@@ -54,6 +54,9 @@ pub struct DesktopRunOptions {
     pub ui_text_catalogs: Vec<TextCatalogV1>,
     /// Requested text locale for the overlay; ignored when catalogs are empty.
     pub ui_locale: String,
+    /// Local `PresentationOnly` text scale in milli (bounded 500..=2000 by the
+    /// preference contract); the overlay rasterizer clamps defensively.
+    pub ui_text_scale_milli: u32,
     /// Zero disables CPU/GPU frame timing. A non-zero value enables a bounded
     /// Vulkan timestamp buffer in the same release binary.
     pub frame_profiling_sample_capacity: u32,
@@ -73,6 +76,8 @@ impl Default for DesktopRunOptions {
             resume_suspended_application: false,
             ui_text_catalogs: Vec::new(),
             ui_locale: "en".to_owned(),
+            ui_text_scale_milli:
+                next_contracts::preferences::PLAYER_PREFERENCE_TEXT_SCALE_MILLI_DEFAULT,
             frame_profiling_sample_capacity: 0,
         }
     }

@@ -18,15 +18,32 @@ use crate::text::TextCatalogResolverV1;
 use crate::ui_font::{UI_OVERLAY_GLYPH_HEIGHT, UI_OVERLAY_GLYPH_WIDTH, ui_overlay_glyph_rows};
 
 pub const UI_OVERLAY_TEXT_SCALE: u32 = 2;
+pub const UI_OVERLAY_TEXT_SCALE_MIN: u32 = 1;
+pub const UI_OVERLAY_TEXT_SCALE_MAX: u32 = 4;
 
-const CELL: u32 = UI_OVERLAY_GLYPH_WIDTH * UI_OVERLAY_TEXT_SCALE;
 const MARGIN: u32 = 8;
 const PANEL_PADDING: u32 = 4;
-const PANEL_SPACING: u32 = CELL;
-const SURFACE_SPACING: u32 = CELL;
 const METER_BAR_CELLS: u32 = 16;
-const METER_BAR_HEIGHT: u32 = 8;
 const LIST_ITEM_INDENT_CELLS: u32 = 1;
+
+/// Layout metrics derived from the requested integer text scale. The scale is
+/// clamped defensively so an out-of-contract caller cannot produce a zero or
+/// runaway cell size.
+#[derive(Clone, Copy)]
+struct OverlayLayout {
+    cell: u32,
+    meter_bar_height: u32,
+}
+
+impl OverlayLayout {
+    fn new(text_scale: u32) -> Self {
+        let scale = text_scale.clamp(UI_OVERLAY_TEXT_SCALE_MIN, UI_OVERLAY_TEXT_SCALE_MAX);
+        Self {
+            cell: UI_OVERLAY_GLYPH_WIDTH.saturating_mul(scale),
+            meter_bar_height: UI_OVERLAY_GLYPH_HEIGHT.saturating_mul(scale) / 2,
+        }
+    }
+}
 
 const PANEL_BACKGROUND: [u8; 4] = [12, 14, 20, 160];
 const SELECTED_BACKGROUND: [u8; 4] = [54, 84, 130, 190];
@@ -58,17 +75,22 @@ impl UiOverlayImageV1 {
 /// Records are re-sorted into canonical (surface, panel, element) order so
 /// the projection is self-sufficient. Invisible elements are skipped,
 /// disabled elements render dimmed, and a selected row carries a highlight.
-/// Returns `None` when there is nothing to composite.
+/// `text_scale` is the integer glyph scale from the local preference profile
+/// (clamped to `UI_OVERLAY_TEXT_SCALE_MIN..=MAX`); it changes only pixels,
+/// never gameplay or replay data. Returns `None` when there is nothing to
+/// composite.
 #[must_use]
 pub fn rasterize_semantic_ui(
     records: &[SemanticUiPresentationRecordV1],
     resolver: &TextCatalogResolverV1,
     width: u32,
     height: u32,
+    text_scale: u32,
 ) -> Option<UiOverlayImageV1> {
     if records.is_empty() || width == 0 || height == 0 {
         return None;
     }
+    let layout = OverlayLayout::new(text_scale);
     let mut ordered: Vec<&SemanticUiPresentationRecordV1> = records.iter().collect();
     ordered.sort_by(|left, right| {
         (
@@ -107,13 +129,14 @@ pub fn rasterize_semantic_ui(
             panel_end += 1;
         }
         if previous_surface.is_some_and(|previous| previous != surface_id) {
-            cursor_y = cursor_y.saturating_add(SURFACE_SPACING);
+            cursor_y = cursor_y.saturating_add(layout.cell);
         }
         previous_surface = Some(surface_id);
         any_drawn |= rasterize_panel(
             &mut image,
             &ordered[panel_start..panel_end],
             resolver,
+            &layout,
             MARGIN,
             &mut cursor_y,
         );
@@ -126,6 +149,7 @@ fn rasterize_panel(
     image: &mut UiOverlayImageV1,
     panel: &[&SemanticUiPresentationRecordV1],
     resolver: &TextCatalogResolverV1,
+    layout: &OverlayLayout,
     origin_x: u32,
     cursor_y: &mut u32,
 ) -> bool {
@@ -136,8 +160,12 @@ fn rasterize_panel(
     if rows.is_empty() {
         return false;
     }
-    let content_width = rows.iter().map(OverlayRow::width).max().unwrap_or_default();
-    let content_height: u32 = rows.iter().map(OverlayRow::height).sum();
+    let content_width = rows
+        .iter()
+        .map(|row| row.width(layout))
+        .max()
+        .unwrap_or_default();
+    let content_height: u32 = rows.iter().map(|row| row.height(layout)).sum();
     fill_rect(
         image,
         origin_x.saturating_sub(PANEL_PADDING),
@@ -148,10 +176,10 @@ fn rasterize_panel(
     );
     let mut row_y = *cursor_y;
     for row in &rows {
-        row.rasterize(image, origin_x, row_y, content_width);
-        row_y = row_y.saturating_add(row.height());
+        row.rasterize(image, layout, origin_x, row_y, content_width);
+        row_y = row_y.saturating_add(row.height(layout));
     }
-    *cursor_y = row_y.saturating_add(PANEL_SPACING);
+    *cursor_y = row_y.saturating_add(layout.cell);
     true
 }
 
@@ -170,25 +198,32 @@ enum OverlayRow {
 }
 
 impl OverlayRow {
-    fn width(&self) -> u32 {
+    fn width(&self, layout: &OverlayLayout) -> u32 {
         match self {
             Self::Text {
                 text, indent_cells, ..
             } => indent_cells
                 .saturating_add(u32::try_from(text.chars().count()).unwrap_or(u32::MAX))
-                .saturating_mul(CELL),
-            Self::MeterBar { .. } => METER_BAR_CELLS.saturating_mul(CELL),
+                .saturating_mul(layout.cell),
+            Self::MeterBar { .. } => METER_BAR_CELLS.saturating_mul(layout.cell),
         }
     }
 
-    const fn height(&self) -> u32 {
+    const fn height(&self, layout: &OverlayLayout) -> u32 {
         match self {
-            Self::Text { .. } => CELL,
-            Self::MeterBar { .. } => METER_BAR_HEIGHT,
+            Self::Text { .. } => layout.cell,
+            Self::MeterBar { .. } => layout.meter_bar_height,
         }
     }
 
-    fn rasterize(&self, image: &mut UiOverlayImageV1, origin_x: u32, row_y: u32, width: u32) {
+    fn rasterize(
+        &self,
+        image: &mut UiOverlayImageV1,
+        layout: &OverlayLayout,
+        origin_x: u32,
+        row_y: u32,
+        width: u32,
+    ) {
         match self {
             Self::Text {
                 text,
@@ -197,11 +232,19 @@ impl OverlayRow {
                 indent_cells,
             } => {
                 if *selected {
-                    fill_rect(image, origin_x, row_y, width, CELL, SELECTED_BACKGROUND);
+                    fill_rect(
+                        image,
+                        origin_x,
+                        row_y,
+                        width,
+                        layout.cell,
+                        SELECTED_BACKGROUND,
+                    );
                 }
                 draw_text(
                     image,
-                    origin_x.saturating_add(indent_cells.saturating_mul(CELL)),
+                    layout,
+                    origin_x.saturating_add(indent_cells.saturating_mul(layout.cell)),
                     row_y,
                     text,
                     *color,
@@ -212,13 +255,13 @@ impl OverlayRow {
                 maximum,
                 color,
             } => {
-                let bar_width = METER_BAR_CELLS.saturating_mul(CELL);
+                let bar_width = METER_BAR_CELLS.saturating_mul(layout.cell);
                 fill_rect(
                     image,
                     origin_x,
                     row_y,
                     bar_width,
-                    METER_BAR_HEIGHT,
+                    layout.meter_bar_height,
                     METER_TRACK,
                 );
                 let fill_width = if *maximum > 0 && *current > 0 {
@@ -233,7 +276,14 @@ impl OverlayRow {
                 } else {
                     0
                 };
-                fill_rect(image, origin_x, row_y, fill_width, METER_BAR_HEIGHT, *color);
+                fill_rect(
+                    image,
+                    origin_x,
+                    row_y,
+                    fill_width,
+                    layout.meter_bar_height,
+                    *color,
+                );
             }
         }
     }
@@ -303,6 +353,7 @@ fn dim_color(color: [u8; 4]) -> [u8; 4] {
 
 fn draw_text(
     image: &mut UiOverlayImageV1,
+    layout: &OverlayLayout,
     origin_x: u32,
     origin_y: u32,
     text: &str,
@@ -312,10 +363,11 @@ fn draw_text(
         let glyph_x = origin_x.saturating_add(
             u32::try_from(index)
                 .unwrap_or(u32::MAX)
-                .saturating_mul(CELL),
+                .saturating_mul(layout.cell),
         );
         draw_glyph(
             image,
+            layout,
             glyph_x,
             origin_y,
             ui_overlay_glyph_rows(glyph),
@@ -326,24 +378,26 @@ fn draw_text(
 
 fn draw_glyph(
     image: &mut UiOverlayImageV1,
+    layout: &OverlayLayout,
     origin_x: u32,
     origin_y: u32,
     rows: [u8; 8],
     color: [u8; 4],
 ) {
+    let scale = layout.cell / UI_OVERLAY_GLYPH_WIDTH;
     for (row_index, row) in rows.iter().enumerate() {
         for column in 0..UI_OVERLAY_GLYPH_WIDTH {
             if row & (1_u8 << column) != 0 {
                 fill_rect(
                     image,
-                    origin_x.saturating_add(column.saturating_mul(UI_OVERLAY_TEXT_SCALE)),
+                    origin_x.saturating_add(column.saturating_mul(scale)),
                     origin_y.saturating_add(
                         u32::try_from(row_index)
                             .unwrap_or(UI_OVERLAY_GLYPH_HEIGHT)
-                            .saturating_mul(UI_OVERLAY_TEXT_SCALE),
+                            .saturating_mul(scale),
                     ),
-                    UI_OVERLAY_TEXT_SCALE,
-                    UI_OVERLAY_TEXT_SCALE,
+                    scale,
+                    scale,
                     color,
                 );
             }
@@ -555,15 +609,27 @@ mod tests {
     fn empty_records_or_empty_extent_yield_no_overlay() {
         let resolver = resolver();
         assert_eq!(
-            rasterize_semantic_ui(&[], &resolver, EXTENT.0, EXTENT.1),
+            rasterize_semantic_ui(&[], &resolver, EXTENT.0, EXTENT.1, UI_OVERLAY_TEXT_SCALE),
             None
         );
         assert_eq!(
-            rasterize_semantic_ui(&hud_records(37), &resolver, 0, EXTENT.1),
+            rasterize_semantic_ui(
+                &hud_records(37),
+                &resolver,
+                0,
+                EXTENT.1,
+                UI_OVERLAY_TEXT_SCALE
+            ),
             None
         );
         assert_eq!(
-            rasterize_semantic_ui(&hud_records(37), &resolver, EXTENT.0, 0),
+            rasterize_semantic_ui(
+                &hud_records(37),
+                &resolver,
+                EXTENT.0,
+                0,
+                UI_OVERLAY_TEXT_SCALE
+            ),
             None
         );
     }
@@ -572,8 +638,22 @@ mod tests {
     fn hud_overlay_is_pixel_deterministic() {
         let resolver = resolver();
         let records = hud_records(37);
-        let first = rasterize_semantic_ui(&records, &resolver, EXTENT.0, EXTENT.1).expect("image");
-        let second = rasterize_semantic_ui(&records, &resolver, EXTENT.0, EXTENT.1).expect("image");
+        let first = rasterize_semantic_ui(
+            &records,
+            &resolver,
+            EXTENT.0,
+            EXTENT.1,
+            UI_OVERLAY_TEXT_SCALE,
+        )
+        .expect("image");
+        let second = rasterize_semantic_ui(
+            &records,
+            &resolver,
+            EXTENT.0,
+            EXTENT.1,
+            UI_OVERLAY_TEXT_SCALE,
+        )
+        .expect("image");
         assert_eq!(first, second);
         assert_eq!(
             first.content_hash().to_hex(),
@@ -589,7 +669,13 @@ mod tests {
             value.element.visible = false;
         }
         assert_eq!(
-            rasterize_semantic_ui(&records, &resolver, EXTENT.0, EXTENT.1),
+            rasterize_semantic_ui(
+                &records,
+                &resolver,
+                EXTENT.0,
+                EXTENT.1,
+                UI_OVERLAY_TEXT_SCALE
+            ),
             None
         );
     }
@@ -597,13 +683,21 @@ mod tests {
     #[test]
     fn meter_fill_width_tracks_the_scalar_value() {
         let resolver = resolver();
-        let image =
-            rasterize_semantic_ui(&hud_records(37), &resolver, EXTENT.0, EXTENT.1).expect("image");
+        let image = rasterize_semantic_ui(
+            &hud_records(37),
+            &resolver,
+            EXTENT.0,
+            EXTENT.1,
+            UI_OVERLAY_TEXT_SCALE,
+        )
+        .expect("image");
         // The bar band sits directly below the first text row; only the
         // opaque fill reaches alpha 255 over the translucent panel.
-        let band_y = MARGIN + CELL;
+        let cell = UI_OVERLAY_GLYPH_WIDTH * UI_OVERLAY_TEXT_SCALE;
+        let meter_bar_height = UI_OVERLAY_GLYPH_HEIGHT * UI_OVERLAY_TEXT_SCALE / 2;
+        let band_y = MARGIN + cell;
         let mut opaque = 0_u32;
-        for y in band_y..band_y + METER_BAR_HEIGHT {
+        for y in band_y..band_y + meter_bar_height {
             for x in 0..image.width {
                 let pixel = ((y * image.width + x) * 4) as usize;
                 if image.rgba[pixel + 3] == 255 {
@@ -611,30 +705,54 @@ mod tests {
                 }
             }
         }
-        let expected_fill = METER_BAR_CELLS * CELL * 37 / 100;
-        assert_eq!(opaque, expected_fill * METER_BAR_HEIGHT);
+        let expected_fill = METER_BAR_CELLS * cell * 37 / 100;
+        assert_eq!(opaque, expected_fill * meter_bar_height);
 
-        let fuller =
-            rasterize_semantic_ui(&hud_records(74), &resolver, EXTENT.0, EXTENT.1).expect("image");
+        let fuller = rasterize_semantic_ui(
+            &hud_records(74),
+            &resolver,
+            EXTENT.0,
+            EXTENT.1,
+            UI_OVERLAY_TEXT_SCALE,
+        )
+        .expect("image");
         assert_ne!(image.rgba, fuller.rgba);
     }
 
     #[test]
     fn disabled_and_selected_states_change_pixels() {
         let resolver = resolver();
-        let enabled = rasterize_semantic_ui(&hud_records(37)[..1], &resolver, EXTENT.0, EXTENT.1)
-            .expect("image");
+        let enabled = rasterize_semantic_ui(
+            &hud_records(37)[..1],
+            &resolver,
+            EXTENT.0,
+            EXTENT.1,
+            UI_OVERLAY_TEXT_SCALE,
+        )
+        .expect("image");
         let mut disabled_record = hud_records(37).remove(0);
         disabled_record.element.enabled = false;
-        let disabled = rasterize_semantic_ui(&[disabled_record], &resolver, EXTENT.0, EXTENT.1)
-            .expect("image");
+        let disabled = rasterize_semantic_ui(
+            &[disabled_record],
+            &resolver,
+            EXTENT.0,
+            EXTENT.1,
+            UI_OVERLAY_TEXT_SCALE,
+        )
+        .expect("image");
         assert_ne!(disabled.rgba, enabled.rgba);
         assert!(luma(&disabled) < luma(&enabled));
 
         let mut selected_record = hud_records(37).remove(0);
         selected_record.element.selected = true;
-        let selected = rasterize_semantic_ui(&[selected_record], &resolver, EXTENT.0, EXTENT.1)
-            .expect("image");
+        let selected = rasterize_semantic_ui(
+            &[selected_record],
+            &resolver,
+            EXTENT.0,
+            EXTENT.1,
+            UI_OVERLAY_TEXT_SCALE,
+        )
+        .expect("image");
         assert_ne!(selected.rgba, enabled.rgba);
         assert!(luma(&selected) > luma(&enabled));
     }
@@ -654,7 +772,14 @@ mod tests {
             Some(text_ref("unknown", Vec::new())),
             UiElementValueV1::None,
         )];
-        let image = rasterize_semantic_ui(&records, &resolver, EXTENT.0, EXTENT.1).expect("image");
+        let image = rasterize_semantic_ui(
+            &records,
+            &resolver,
+            EXTENT.0,
+            EXTENT.1,
+            UI_OVERLAY_TEXT_SCALE,
+        )
+        .expect("image");
         assert!(image.rgba.iter().any(|value| *value != 0));
     }
 
@@ -662,17 +787,66 @@ mod tests {
     fn pseudo_locale_text_rasterizes_authored_glyphs() {
         let pseudo = TextCatalogResolverV1::new(catalogs(), "qps-ploc").expect("resolver");
         let records = hud_records(37);
-        let image = rasterize_semantic_ui(&records, &pseudo, EXTENT.0, EXTENT.1).expect("image");
-        let english =
-            rasterize_semantic_ui(&records, &resolver(), EXTENT.0, EXTENT.1).expect("image");
+        let image =
+            rasterize_semantic_ui(&records, &pseudo, EXTENT.0, EXTENT.1, UI_OVERLAY_TEXT_SCALE)
+                .expect("image");
+        let english = rasterize_semantic_ui(
+            &records,
+            &resolver(),
+            EXTENT.0,
+            EXTENT.1,
+            UI_OVERLAY_TEXT_SCALE,
+        )
+        .expect("image");
         assert_ne!(image.rgba, english.rgba);
     }
 
     #[test]
     fn tiny_extent_clips_without_panicking() {
         let resolver = resolver();
-        let image = rasterize_semantic_ui(&hud_records(37), &resolver, 8, 8).expect("image");
+        let image = rasterize_semantic_ui(&hud_records(37), &resolver, 8, 8, UI_OVERLAY_TEXT_SCALE)
+            .expect("image");
         assert_eq!(image.rgba.len(), 8 * 8 * 4);
+    }
+
+    #[test]
+    fn text_scale_changes_only_pixels() {
+        let resolver = resolver();
+        let records = hud_records(37);
+        let baseline = rasterize_semantic_ui(
+            &records,
+            &resolver,
+            EXTENT.0,
+            EXTENT.1,
+            UI_OVERLAY_TEXT_SCALE,
+        )
+        .expect("baseline");
+        let scaled_down =
+            rasterize_semantic_ui(&records, &resolver, EXTENT.0, EXTENT.1, 1).expect("scaled down");
+        let scaled_up =
+            rasterize_semantic_ui(&records, &resolver, EXTENT.0, EXTENT.1, 4).expect("scaled up");
+        assert_ne!(baseline.rgba, scaled_down.rgba);
+        assert_ne!(baseline.rgba, scaled_up.rgba);
+        assert_ne!(scaled_down.rgba, scaled_up.rgba);
+        // Deterministic per scale and clamped defensively outside 1..=4.
+        assert_eq!(
+            scaled_down.content_hash(),
+            rasterize_semantic_ui(&records, &resolver, EXTENT.0, EXTENT.1, 1)
+                .expect("scaled down again")
+                .content_hash()
+        );
+        assert_eq!(
+            scaled_down.content_hash(),
+            rasterize_semantic_ui(&records, &resolver, EXTENT.0, EXTENT.1, 0)
+                .expect("clamped zero scale")
+                .content_hash()
+        );
+        assert_eq!(
+            scaled_up.content_hash(),
+            rasterize_semantic_ui(&records, &resolver, EXTENT.0, EXTENT.1, u32::MAX)
+                .expect("clamped max scale")
+                .content_hash()
+        );
     }
 
     #[test]
@@ -703,7 +877,14 @@ mod tests {
             Some(text_ref("resume", Vec::new())),
             UiElementValueV1::None,
         ));
-        let image = rasterize_semantic_ui(&records, &resolver, EXTENT.0, EXTENT.1).expect("image");
+        let image = rasterize_semantic_ui(
+            &records,
+            &resolver,
+            EXTENT.0,
+            EXTENT.1,
+            UI_OVERLAY_TEXT_SCALE,
+        )
+        .expect("image");
         assert_eq!(
             image.content_hash().to_hex(),
             "169bf329638d3619ad29d16d86b6d27a261e794a83220da6e4e00ce294da3d12"

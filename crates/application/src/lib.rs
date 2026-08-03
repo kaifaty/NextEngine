@@ -8,6 +8,7 @@ mod error;
 mod interactive_worker;
 mod launch;
 mod live_schedule;
+mod preferences;
 pub mod replay;
 mod report;
 
@@ -29,6 +30,12 @@ pub use interactive_worker::{
 };
 pub use launch::{LaunchRequestV1, ProjectSelectionV1};
 pub use live_schedule::FixedStepLiveSchedulerV1;
+pub use next_contracts::preferences::text_scale_from_milli;
+pub use preferences::{
+    PLAYER_PREFERENCE_FILE_NAME, PLAYER_PREFERENCE_QUARANTINE_SUFFIX,
+    PlayerPreferenceLoadOutcomeV1, PlayerPreferenceLoadV1, PlayerPreferenceStoreV1,
+    preference_ui_options, quarantine_path,
+};
 pub use report::{
     DiagnosticContextV1, DiagnosticReportV1, OPERATIONAL_REPORT_SCHEMA_VERSION,
     PresentationReportV1, RunReportV1,

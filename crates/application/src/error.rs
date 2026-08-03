@@ -18,6 +18,7 @@ pub enum ApplicationError {
     WorldStreaming(next_contracts::world::WorldStreamingContractError),
     Presentation(next_presentation::PresentationExtractionError),
     Manifest(next_contracts::persistence::ManifestCodecError),
+    PlayerPreference(next_contracts::preferences::PlayerPreferenceErrorV1),
     Canonical(next_contracts::canonical::CanonicalError),
     CanonicalDecode(next_contracts::canonical::CanonicalDecodeError),
     Io(std::io::Error),
@@ -67,6 +68,7 @@ impl ApplicationError {
             Self::TerminalReceiptMissing => "SESSION_TERMINAL_RECEIPT_MISSING",
             Self::StateRootUnavailable => "SESSION_STORAGE_UNAVAILABLE",
             Self::Platform(error) => error.diagnostic_code(),
+            Self::PlayerPreference(error) => error.diagnostic_code(),
             Self::SessionMachine(error) => error.diagnostic_code(),
             Self::SessionStore(error) => error.diagnostic_code(),
             Self::SessionContract(error) => error.diagnostic_code(),
@@ -108,6 +110,7 @@ impl Display for ApplicationError {
             Self::WorldStreaming(error) => write!(formatter, "{error}"),
             Self::Presentation(error) => write!(formatter, "{error}"),
             Self::Manifest(error) => write!(formatter, "{error}"),
+            Self::PlayerPreference(error) => write!(formatter, "{error}"),
             Self::Canonical(error) => write!(formatter, "{error}"),
             Self::CanonicalDecode(error) => write!(formatter, "{error}"),
             Self::Io(error) => write!(formatter, "{error}"),
@@ -192,3 +195,7 @@ from_error!(
     CanonicalDecode
 );
 from_error!(std::io::Error, Io);
+from_error!(
+    next_contracts::preferences::PlayerPreferenceErrorV1,
+    PlayerPreference
+);

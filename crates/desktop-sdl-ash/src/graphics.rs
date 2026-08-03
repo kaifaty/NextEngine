@@ -309,6 +309,7 @@ impl GraphicsContext {
                 UiOverlayState::new(
                     &[],
                     &options.ui_locale,
+                    options.ui_text_scale_milli,
                     &instance,
                     physical_device,
                     &device,
@@ -322,6 +323,7 @@ impl GraphicsContext {
                 UiOverlayState::new(
                     &options.ui_text_catalogs,
                     &options.ui_locale,
+                    options.ui_text_scale_milli,
                     &instance,
                     physical_device,
                     &device,

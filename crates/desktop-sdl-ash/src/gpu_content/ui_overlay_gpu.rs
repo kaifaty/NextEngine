@@ -57,6 +57,7 @@ pub(crate) struct UiOverlayState {
     gpu: Option<UiOverlayGpu>,
     overlay_key: Option<ContentHash>,
     draw_ready: bool,
+    text_scale: u32,
     frames: u64,
     updates: u64,
     failures: u64,
@@ -70,6 +71,7 @@ impl UiOverlayState {
     pub(crate) fn new(
         text_catalogs: &[TextCatalogV1],
         locale: &str,
+        text_scale_milli: u32,
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
         device: &ash::Device,
@@ -83,6 +85,7 @@ impl UiOverlayState {
             gpu: None,
             overlay_key: None,
             draw_ready: false,
+            text_scale: next_contracts::preferences::text_scale_from_milli(text_scale_milli),
             frames: 0,
             updates: 0,
             failures: 0,
@@ -196,8 +199,13 @@ impl UiOverlayState {
             return;
         }
         let records = snapshot.semantic_ui_records().cloned().collect::<Vec<_>>();
-        let Some(image) = rasterize_semantic_ui(&records, resolver, extent.width, extent.height)
-        else {
+        let Some(image) = rasterize_semantic_ui(
+            &records,
+            resolver,
+            extent.width,
+            extent.height,
+            self.text_scale,
+        ) else {
             return;
         };
         let Some(gpu) = self.gpu.as_mut() else {

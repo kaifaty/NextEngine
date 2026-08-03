@@ -15,6 +15,7 @@ pub mod mechanics;
 pub mod persistence;
 pub mod physics;
 pub mod platform;
+pub mod preferences;
 pub mod presentation;
 pub mod project;
 pub mod render_content;
