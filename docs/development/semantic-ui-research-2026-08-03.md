@@ -624,3 +624,33 @@ SPEC-24 (v1.0), SPEC-12 (v2.4), а также секции SPEC-17 о `Configura
 - Manifest: asset entries 22 (без изменений); content hashes изменились
   ожидаемо (новый content), parity checks сравнивают внутренне.
 - Checks: reference-game tests 12/12 PASS, `content-package` PASS.
+
+### Экраны S2 (read-only projections, Q3A/Q4A) — DONE (2026-08-03)
+
+- `reference-game/src/ui.rs`: новые projections поверх `RpgSnapshotV2`:
+  - `inventory_semantic_ui_records_for_ids` — один surface
+    (`nextengine.ui.surface.inventory`), две панели (inventory/equipment):
+    title + rows; пустой payload -> muted `(empty)` placeholder; rows без
+    item aggregate/display name детерминированно пропускаются; element ids
+    несут zero-based payload index (`...item.0`, `...slot.0`); equipment
+    rows ссылаются на authoritative slot id как TextId argument.
+  - `quest_journal_semantic_ui_records_for_ids` — title + row на каждый
+    named quest aggregate в canonical snapshot order (kind, persistent id);
+    snapshot без named quests -> нет records вовсе.
+  - Все элементы read-only: enabled/visible, unselected, affordances пустые.
+- Live wiring: `live_semantic_ui_records` и `publish_presentation` делят
+  один always-on read-only set (HUD + inventory/equipment + journal);
+  pause-menu остаётся suspend-gated. Открытие/закрытие экранов — S3.
+- Catalog fix: slot entry перепривязан к authoritative id
+  `nextengine.rpg.equipment-slot.main-hand` (был
+  `nextengine.reference.equipment-slot.main-hand`).
+- `ReferenceRunOutcomeV1` получил `pickup_item_id`/`npc_weapon_item_id`;
+  verification play fixture собирает тот же read-only set через
+  `read_only_screen_semantic_ui_records_for_ids`.
+- Tests: 7 новых unit tests в ui.rs (empty state, payload order, skip
+  rules, canonical journal order, read-only flags); live smoke обновлён:
+  initial и recovered states несут 8 records, journal entry resolve
+  "A Helping Hand - Available" (en).
+- Checks: `cargo test -p next_reference_game -p next_verification` PASS,
+  `host-check` PASS, `play` PASS, `platform` (desktop-sdl-ash) PASS.
+  Code commit `2e35514`.
