@@ -430,3 +430,64 @@ SPEC-24 (v1.0), SPEC-12 (v2.4), а также секции SPEC-17 о `Configura
     `play`, `persistence-replay`, `platform`, `performance` — NOT_RUN
     (gameplay/persistence flows не затронуты; content-package включает
     prepared play frame).
+
+- **Sub-increment 5 (Minimal widget adapter) — DONE (2026-08-03).**
+  - Форма (решение 6A): engine-owned immediate-mode overlay внутри
+    `desktop-sdl-ash`, contracts widget-free. Semantic UI records → CPU
+    rasterizer → одна fullscreen texture → textured quad draw поверх b0
+    swapchain image. Никаких vendor UI toolkit зависимостей.
+  - Presentation (`crates/presentation/src/ui_font.rs`,
+    `ui_overlay.rs`): engine-owned 8x8 bitmap font (ASCII 0x20–0x7E из
+    font8x8_basic, public domain, provenance в header; 16 composed glyphs
+    псевдо-локали + placeholder box), `rasterize_semantic_ui(records,
+    resolver, width, height) -> Option<UiOverlayImageV1>` с
+    `content_hash()` (`nextengine.ui-overlay-image.v1`). Layout:
+    canonical sort по (surface, panel, element), стек панелей от (8,8),
+    cell 16px, text scale 2, Meter = text row + bar, selected →
+    highlight, !enabled → dim, !visible → skip, source-over blend integer
+    math. Golden hashes на HUD/pause fixtures; tests 26/26.
+  - GPU (`desktop-sdl-ash/src/gpu_content/ui_overlay_gpu.rs`,
+    `pipeline.rs`): `RasterFixedStateV1` (blend/depth/cull) + отдельный
+    `UI_OVERLAY_RASTER_FIXED_STATE` (src-alpha blend, no depth, cull
+    none); self-contained `UiOverlayGpu` (shared b0 shaders, identity
+    frame uniform, NDC quad 6 verts, NEAREST sampler) и `UiOverlayState`
+    (resolver + gpu + counters frames/updates/failures). Overlay key =
+    domain_hash над extent + canonical record hashes; key match → skip
+    re-raster; key принимается один раз даже при failure (bounded
+    fallback, failures += 1, кадр не падает). Texture swap через
+    device-idle recreate + upload с тем же leak-правилом, что и b0.
+  - Wire-in: `DesktopRunOptions.ui_text_catalogs` / `ui_locale` (пустой
+    список = overlay off), `DesktopRunReport.ui_overlay_frames /
+    updates / failures`; `InteractiveWorkerReadyV1.text_catalogs`;
+    `apps/game` передаёт activated catalogs (locale "en"); swapchain
+    format change → `ui_overlay.recreate`; teardown перед destroy_device;
+    allocation stats включают overlay.
+  - Verification fixture: `hud_semantic_ui_records_for_ids` (pub из
+    reference-game без session handle); play-check fixture извлекает
+    snapshot через `extract_with_cameras_and_semantic_ui` с HUD records и
+    несёт `PreparedGameFrameV1.text_catalogs`. Platform candidate и
+    frame-timing smoke передают catalogs в options и требуют
+    `ui_overlay_failures == 0`, `ui_overlay_frames == rendered frames`,
+    `ui_overlay_updates >= 1` — реальный draw path (raster → upload →
+    draw) покрыт обязательным check.
+  - Инфраструктурный fix в том же change: debug soak harness
+    (`performance --scenario interactive-frame-soak`) начал падать со
+    stack overflow на main thread после роста inline state в Semantic UI
+    серии (UiOverlayState ≈ 9 КБ в GraphicsContext ≈ 22 КБ; Windows MSVC
+    default reserve 1 MiB). Бисect: 93e3519 (до серии) — проходит,
+    7ac7cb5 — падает; промежуточные per-crate коммиты workspace не
+    собирают. xtask `build.rs` теперь резервирует 8 MiB main stack
+    (`/STACK:8388608`, только windows-msvc tooling binary; Linux
+    неизменён). После fix soak проходит 240/240 frames с
+    `vulkan_timestamp_queries = 480` и новыми overlay assertions.
+  - Deferred (честный scope): centering/anchors и выбор text scale;
+    mouse hit-testing; inventory/dialogue surfaces (records уже
+    рендерятся generic path); locale selection и
+    `PlayerPreferenceProfile` (sub 6); dialogue-choice arbitration и
+    pause policy declaration (sub 6).
+  - Checks: workspace tests PASS (desktop-sdl-ash 55, presentation 26);
+    `host-check` PASS; `play` PASS; `platform` PASS
+    (`sdl_ash_candidate: PASS` с `--features desktop-sdl-ash`, overlay
+    counters asserted); `performance --scenario interactive-frame-soak`
+    — workload завершается (240 frames, overlay assertions PASS),
+    hard verdict честно NOT_RUN (debug, некалиброванный host).

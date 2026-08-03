@@ -1112,10 +1112,13 @@ materialized-ledger snapshot cache (~1 clone на checkpoint interval).
 Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 изменились.
 
-1. **Semantic UI (`IN PROGRESS`):** HUD, pause/save/load flow, ui-back lifecycle
-   и pseudo-locale localization (text catalogs + fallback resolver, ADR-044)
-   реализованы; остаются widget consumption/rasterizer, preferences
-   (locale/text scale), inventory/equipment, dialogue и quest journal.
+1. **Semantic UI (`IN PROGRESS`):** HUD, pause/save/load flow, ui-back lifecycle,
+   pseudo-locale localization (text catalogs + fallback resolver, ADR-044) и
+   minimal widget adapter (engine-owned immediate-mode overlay в desktop-sdl-ash:
+   CPU rasterizer semantic batches + bitmap font, fullscreen textured quad поверх
+   b0, overlay counters asserted в `platform` candidate и frame-timing smoke)
+   реализованы; остаются preferences (locale/text scale), inventory/equipment,
+   dialogue и quest journal.
 2. **Baseline audio (`PLANNED`):** clips, emitters/listener, priority/voice limits,
    attenuation/panning and subtitle fallback.
 3. **Playable alpha project (`PLANNED`):** заменить technical fixture на один complete
