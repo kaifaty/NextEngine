@@ -1113,11 +1113,13 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 изменились.
 
 1. **Semantic UI (`IN PROGRESS`):** HUD, pause/save/load flow, ui-back lifecycle,
-   pseudo-locale localization (text catalogs + fallback resolver, ADR-044) и
+   pseudo-locale localization (text catalogs + fallback resolver, ADR-044),
    minimal widget adapter (engine-owned immediate-mode overlay в desktop-sdl-ash:
    CPU rasterizer semantic batches + bitmap font, fullscreen textured quad поверх
-   b0, overlay counters asserted в `platform` candidate и frame-timing smoke)
-   реализованы; остаются preferences (locale/text scale), inventory/equipment,
+   b0, overlay counters asserted в `platform` candidate и frame-timing smoke) и
+   minimal preferences (versioned local `PlayerPreferenceProfileV1` —
+   PresentationOnly text scale + UI locale, quarantine + bounded defaults,
+   overlay text scale wiring) реализованы; остаются inventory/equipment,
    dialogue и quest journal.
 2. **Baseline audio (`PLANNED`):** clips, emitters/listener, priority/voice limits,
    attenuation/panning and subtitle fallback.

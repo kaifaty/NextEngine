@@ -491,3 +491,41 @@ SPEC-24 (v1.0), SPEC-12 (v2.4), а также секции SPEC-17 о `Configura
     counters asserted); `performance --scenario interactive-frame-soak`
     — workload завершается (240 frames, overlay assertions PASS),
     hard verdict честно NOT_RUN (debug, некалиброванный host).
+
+- **Sub-increment 6 (Preferences minimal) — DONE (2026-08-03).**
+  - Contracts `crates/contracts/src/preferences.rs`: `PlayerPreferenceProfileV1`
+    — versioned local `PresentationOnly` профиль (SPEC-18 §Accessibility,
+    SPEC-17; решение 5A). Поля минимального scope: `text_scale_milli`
+    (bounded 500..=2000, default 1000) и `ui_locale_or_none`
+    (`Option<TextLocaleTagV1>`). Canonical codec (5 полей:
+    version/revision/scale/locale/hash), content hash, fail-closed decode
+    (tamper/wrong version/out-of-range/bad locale rejected), стабильный
+    `PLAYER_PREFERENCE_INVALID` code на всех вариантах ошибки;
+    `bounded_defaults()`; `text_scale_from_milli` (defensive clamp 1..=4).
+    Tests 7/7.
+  - Store `crates/application/src/preferences.rs`: `PlayerPreferenceStoreV1`
+    в user state root (`player-preferences.v1.bin`). Absent → bounded
+    defaults; decode/validation failure → quarantine (`*.quarantine`,
+    bounded: хранится только последний invalid файл) + defaults — save/
+    gameplay untouched; save через same-directory tmp + rename;
+    `preference_ui_options` маппит профиль в (locale, scale).
+    `ApplicationError::PlayerPreference` с delegated diagnostic code.
+    Tests 6/6.
+  - Overlay wiring: `DesktopRunOptions.ui_text_scale_milli` (default 1000);
+    `rasterize_semantic_ui` принимает runtime `text_scale` (clamped
+    1..=4; layout — cell, meter bar, spacing — derive из scale; scale-2
+    output byte-identical: golden hashes sub 5 не изменились);
+    `UiOverlayState` хранит scale и передаёт в rasterizer. Новый тест
+    `text_scale_changes_only_pixels` (разные пиксели по scale,
+    детерминированность, clamp 0/u32::MAX).
+  - `apps/game`: загрузка профиля из user state root при старте; quarantine
+    → eprintln со стабильным code, launch не блокируется; storage error →
+    defaults + diagnostic (PresentationOnly не может падать фатально).
+  - Gameplay independence: `platform` PASS с неизменными
+    `state_root`/`ledger_hash` относительно sub 5 (profile — вне runtime);
+    records несут text IDs, resolution только в adapter raster path.
+  - Deferred (честный scope): bindings/sensitivity/reduced motion/subtitles
+    поля — будущие schema versions; UI для редактирования профиля в игре
+    (pause-menu settings) — за пределами minimal scope; locale selection UX.
+  - Checks: workspace tests PASS (61 suite); `host-check` PASS; `play` PASS;
+    `platform` PASS (`sdl_ash_candidate: PASS`, `--features desktop-sdl-ash`).
