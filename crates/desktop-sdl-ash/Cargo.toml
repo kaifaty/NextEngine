@@ -12,6 +12,7 @@ ffi_adr = "ADR-003"
 [dependencies]
 ash.workspace = true
 next_contracts.workspace = true
+next_presentation.workspace = true
 next_render.workspace = true
 sdl3.workspace = true
 

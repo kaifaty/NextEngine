@@ -694,6 +694,7 @@ version = "0.1.0"
 dependencies = [
  "ash",
  "next_contracts",
+ "next_presentation",
  "next_render",
  "sdl3",
 ]

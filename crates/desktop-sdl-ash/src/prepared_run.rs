@@ -217,7 +217,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
         graphics = Some(GraphicsContext::new(
             &window,
             &render_content_catalog,
-            options.frame_profiling_sample_capacity,
+            &options,
         )?);
         let mut normalizer = lifecycle::DesktopEventNormalizer::new(options.host_instance_id)?;
         let mut event_stats = DesktopEventStats::default();
@@ -507,7 +507,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                                 graphics,
                                 window,
                                 render_content_catalog,
-                                options.frame_profiling_sample_capacity,
+                                options,
                                 &mut normalizer,
                                 &mut event_sink,
                                 &mut event_stats,
@@ -529,7 +529,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                         graphics,
                         window,
                         render_content_catalog,
-                        options.frame_profiling_sample_capacity,
+                        options,
                         &mut normalizer,
                         &mut event_sink,
                         &mut event_stats,
@@ -565,7 +565,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                             graphics,
                             window,
                             render_content_catalog,
-                            options.frame_profiling_sample_capacity,
+                            options,
                             &mut normalizer,
                             &mut event_sink,
                             &mut event_stats,
@@ -635,7 +635,13 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             .completion
             .take()
             .ok_or_else(|| invalid_prepared_run("completed desktop state is missing"))?;
-        let (frame_profiling, device_allocation_bytes, device_allocation_count, frame_plan_metrics) = {
+        let (
+            frame_profiling,
+            device_allocation_bytes,
+            device_allocation_count,
+            frame_plan_metrics,
+            ui_overlay_counters,
+        ) = {
             let graphics = self
                 .graphics
                 .as_mut()
@@ -647,6 +653,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                 bytes,
                 allocations,
                 graphics.frame_plan_metrics(),
+                graphics.ui_overlay_counters(),
             )
         };
         let report = DesktopRunReport {
@@ -682,6 +689,9 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             frame_plan_explicit_invalidations: frame_plan_metrics.explicit_invalidations,
             device_allocation_bytes,
             device_allocation_count,
+            ui_overlay_frames: ui_overlay_counters.0,
+            ui_overlay_updates: ui_overlay_counters.1,
+            ui_overlay_failures: ui_overlay_counters.2,
         };
         self.finalizer.finish();
         Ok(report)

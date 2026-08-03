@@ -49,6 +49,11 @@ pub struct DesktopRunOptions {
     pub inject_startup_lifecycle_probe: bool,
     pub host_instance_id: PersistentId,
     pub resume_suspended_application: bool,
+    /// Cooked text catalogs for the optional semantic UI overlay. The default
+    /// empty set disables the overlay entirely (no GPU objects, no draws).
+    pub ui_text_catalogs: Vec<TextCatalogV1>,
+    /// Requested text locale for the overlay; ignored when catalogs are empty.
+    pub ui_locale: String,
     /// Zero disables CPU/GPU frame timing. A non-zero value enables a bounded
     /// Vulkan timestamp buffer in the same release binary.
     pub frame_profiling_sample_capacity: u32,
@@ -66,6 +71,8 @@ impl Default for DesktopRunOptions {
             inject_startup_lifecycle_probe: false,
             host_instance_id: PersistentId::from_bytes([0x64; 16]),
             resume_suspended_application: false,
+            ui_text_catalogs: Vec::new(),
+            ui_locale: "en".to_owned(),
             frame_profiling_sample_capacity: 0,
         }
     }
@@ -126,6 +133,12 @@ pub struct DesktopRunReport {
     /// residency ceiling and excludes presentation-engine swapchain storage.
     pub device_allocation_bytes: u64,
     pub device_allocation_count: u64,
+    /// Frames in which the optional semantic UI overlay was composited.
+    pub ui_overlay_frames: u64,
+    /// Successful overlay texture uploads (one per accepted content change).
+    pub ui_overlay_updates: u64,
+    /// Bounded overlay failures absorbed without failing the frame (SPEC-18).
+    pub ui_overlay_failures: u64,
 }
 
 #[derive(Debug, Default)]

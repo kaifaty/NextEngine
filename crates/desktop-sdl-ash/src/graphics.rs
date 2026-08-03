@@ -1,8 +1,9 @@
 use super::*;
-use crate::gpu_content::{B0GpuContent, DepthAttachment};
+use crate::gpu_content::{B0GpuContent, DepthAttachment, UiOverlayState};
 use next_render::{B0FramePlannerMetricsV1, B0FramePlannerV1, RenderTargetV1};
 
 mod capabilities;
+mod overlay;
 mod profiling;
 mod setup;
 
@@ -26,6 +27,7 @@ pub(super) struct GraphicsContext {
     render_content_catalog: RenderContentCatalogV1,
     frame_planner: B0FramePlannerV1,
     b0_content: Option<B0GpuContent>,
+    ui_overlay: UiOverlayState,
     command_pool: vk::CommandPool,
     frame_slots: Vec<FrameSlot>,
     next_frame_slot: usize,
@@ -153,7 +155,7 @@ impl GraphicsContext {
     pub(super) fn new(
         window: &Window,
         render_content_catalog: &RenderContentCatalogV1,
-        frame_profiling_sample_capacity: u32,
+        options: &DesktopRunOptions,
     ) -> Result<Self, DesktopAdapterError> {
         // SAFETY: loading the process graphics loader creates an owned entry;
         // all child objects are destroyed in reverse ownership order below.
@@ -302,11 +304,39 @@ impl GraphicsContext {
                 )
             })
             .transpose()?;
-        let frame_profiler = (frame_profiling_sample_capacity > 0)
+        let ui_overlay = initialization.swapchain.as_ref().map_or_else(
+            || {
+                UiOverlayState::new(
+                    &[],
+                    &options.ui_locale,
+                    &instance,
+                    physical_device,
+                    &device,
+                    queue,
+                    queue_family_index,
+                    vk::Format::UNDEFINED,
+                    vk::Format::UNDEFINED,
+                )
+            },
+            |swapchain| {
+                UiOverlayState::new(
+                    &options.ui_text_catalogs,
+                    &options.ui_locale,
+                    &instance,
+                    physical_device,
+                    &device,
+                    queue,
+                    queue_family_index,
+                    swapchain.format,
+                    swapchain.depth_format,
+                )
+            },
+        );
+        let frame_profiler = (options.frame_profiling_sample_capacity > 0)
             .then(|| {
                 VulkanFrameProfiler::new(
                     &device,
-                    frame_profiling_sample_capacity,
+                    options.frame_profiling_sample_capacity,
                     physical_device_properties.limits.timestamp_period,
                     timestamp_valid_bits,
                     frame_slots.len(),
@@ -328,6 +358,7 @@ impl GraphicsContext {
             render_content_catalog: render_content_catalog.clone(),
             frame_planner: B0FramePlannerV1::new(),
             b0_content,
+            ui_overlay,
             command_pool,
             frame_slots,
             next_frame_slot: 0,
@@ -372,6 +403,10 @@ impl GraphicsContext {
                 .images_in_flight,
             frame_slot.fence,
         );
+        // The slot fence proves this slot's prior overlay sample completed;
+        // the optional overlay re-rasterizes and re-uploads only on a content
+        // or extent change and never fails the frame on its own.
+        self.update_ui_overlay(snapshot);
         let mut cpu_phases = CpuFramePhaseTimings {
             event_and_frame_source_update_microseconds,
             frame_slot_wait_microseconds: elapsed_microseconds(frame_slot_wait_started)?,
@@ -569,6 +604,8 @@ impl GraphicsContext {
                 swapchain.extent,
                 frame_slot_index,
             )?;
+        self.ui_overlay
+            .record(frame_slot.command_buffer, swapchain.extent);
         // SAFETY: a dynamic rendering instance is active on this command
         // buffer and is ended exactly once.
         unsafe {
@@ -735,6 +772,22 @@ impl GraphicsContext {
             }
             self.b0_content = replacement_content?;
         }
+        // The overlay pipeline commits to the swapchain color/depth formats;
+        // a format change recreates it (the device was idled above) and the
+        // next frame re-rasterizes into fresh resources.
+        if replacement_formats != current_formats && self.ui_overlay.enabled() {
+            if let Some((color_format, depth_format)) = replacement_formats {
+                self.ui_overlay.recreate(
+                    &self.instance,
+                    self.physical_device,
+                    &self.device,
+                    self.queue,
+                    self.queue_family_index,
+                    color_format,
+                    depth_format,
+                );
+            }
+        }
         self.swapchain = replacement;
         Ok(())
     }
@@ -762,6 +815,13 @@ impl GraphicsContext {
             .map(B0GpuContent::device_allocation_stats)
             .transpose()?
             .unwrap_or((0, 0));
+        let (overlay_bytes, overlay_allocations) = self.ui_overlay.allocation_stats();
+        bytes = bytes
+            .checked_add(overlay_bytes)
+            .ok_or(DesktopAdapterError::CounterOverflow)?;
+        allocations = allocations
+            .checked_add(overlay_allocations)
+            .ok_or(DesktopAdapterError::CounterOverflow)?;
         if let Some(swapchain) = &self.swapchain {
             for attachment in &swapchain.depth_attachments {
                 bytes = bytes
@@ -787,6 +847,7 @@ impl Drop for GraphicsContext {
         unsafe {
             let _ = self.device.device_wait_idle();
             drop(self.frame_profiler.take());
+            self.ui_overlay.teardown();
             drop(self.b0_content.take());
             for frame_slot in &self.frame_slots {
                 self.device.destroy_fence(frame_slot.fence, None);

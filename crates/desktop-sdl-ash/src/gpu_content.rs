@@ -1,5 +1,6 @@
 mod pipeline;
 mod resources;
+mod ui_overlay_gpu;
 
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -20,6 +21,7 @@ use self::pipeline::{
 };
 pub(crate) use self::resources::DepthAttachment;
 use self::resources::{BufferAllocation, DescriptorState, TextureResource, upload_content};
+pub(crate) use self::ui_overlay_gpu::UiOverlayState;
 
 const VERTEX_STRIDE: u32 = 20;
 const INDIRECT_COMMAND_STRIDE: u32 = 20;

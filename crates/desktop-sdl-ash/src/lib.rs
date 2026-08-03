@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 
 use ash::vk;
 use next_contracts::ids::{ContentHash, PersistentId};
+use next_contracts::localization::TextCatalogV1;
 use next_contracts::platform::{
     NormalizedControlPhaseV1, PlatformCapabilitySetV1, PlatformEventKindV1, PlatformEventV1,
 };
@@ -323,7 +324,7 @@ fn recover_graphics(
     graphics: &mut Option<GraphicsContext>,
     window: &Window,
     render_content_catalog: &RenderContentCatalogV1,
-    frame_profiling_sample_capacity: u32,
+    options: &DesktopRunOptions,
     normalizer: &mut lifecycle::DesktopEventNormalizer,
     event_sink: &mut impl FnMut(&[PlatformEventV1]) -> Result<(), DesktopAdapterError>,
     event_stats: &mut DesktopEventStats,
@@ -356,7 +357,7 @@ fn recover_graphics(
     *graphics = Some(GraphicsContext::new(
         window,
         render_content_catalog,
-        frame_profiling_sample_capacity,
+        options,
     )?);
     *recovery_count = recovery_count
         .checked_add(1)

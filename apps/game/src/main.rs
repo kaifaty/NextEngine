@@ -143,6 +143,8 @@ fn run_interactive_session(
             maximum_frames,
             host_instance_id: ready.host_instance_id,
             resume_suspended_application: ready.resume_suspended_application,
+            ui_text_catalogs: ready.text_catalogs.clone(),
+            ui_locale: "en".to_owned(),
             ..next_desktop_sdl_ash::DesktopRunOptions::default()
         },
         |events, elapsed| {

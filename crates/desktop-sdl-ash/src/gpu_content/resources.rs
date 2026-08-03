@@ -263,6 +263,14 @@ impl TextureResource {
     pub(super) const fn allocation_size(&self) -> vk::DeviceSize {
         self.image.allocation_size()
     }
+
+    pub(super) const fn view(&self) -> vk::ImageView {
+        self.view
+    }
+
+    pub(super) const fn image(&self) -> vk::Image {
+        self.image.image
+    }
 }
 
 /// One device-local depth target. Swapchain ownership keeps one allocation per

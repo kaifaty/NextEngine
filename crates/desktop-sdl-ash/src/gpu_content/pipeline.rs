@@ -12,19 +12,51 @@ const B0_DEPTH_COMPARE_OP: vk::CompareOp = vk::CompareOp::LESS_OR_EQUAL;
 const UNORM16_MAX: u64 = u16::MAX as u64;
 const MICROMETRES_PER_METRE: f64 = 1_000_000.0;
 
+/// Fixed raster state for one pipeline built on the shared B0 shader
+/// interface. The overlay variant reuses the checked-in SPIR-V modules and
+/// only reconfigures blend, depth and culling (ADR-003 owns this boundary).
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(super) struct RasterFixedStateV1 {
+    pub(super) blend_enable: bool,
+    pub(super) depth_test_enable: bool,
+    pub(super) depth_write_enable: bool,
+    pub(super) cull_mode: vk::CullModeFlags,
+}
+
+const B0_RASTER_FIXED_STATE: RasterFixedStateV1 = RasterFixedStateV1 {
+    blend_enable: false,
+    depth_test_enable: true,
+    depth_write_enable: true,
+    cull_mode: vk::CullModeFlags::BACK,
+};
+
+/// Straight-alpha source-over compositing without depth or culling for the
+/// semantic UI overlay quad.
+pub(super) const UI_OVERLAY_RASTER_FIXED_STATE: RasterFixedStateV1 = RasterFixedStateV1 {
+    blend_enable: true,
+    depth_test_enable: false,
+    depth_write_enable: false,
+    cull_mode: vk::CullModeFlags::NONE,
+};
+
 pub(super) struct FrameRasterState {
     pub(super) view_projection_bytes: [u8; FRAME_UNIFORM_SIZE as usize],
     pub(super) viewport: vk::Viewport,
     pub(super) scissor: vk::Rect2D,
 }
 
-fn b0_depth_stencil_state() -> vk::PipelineDepthStencilStateCreateInfo<'static> {
+fn raster_depth_state(fixed: RasterFixedStateV1) -> vk::PipelineDepthStencilStateCreateInfo<'static> {
     vk::PipelineDepthStencilStateCreateInfo::default()
-        .depth_test_enable(true)
-        .depth_write_enable(true)
+        .depth_test_enable(fixed.depth_test_enable)
+        .depth_write_enable(fixed.depth_write_enable)
         .depth_compare_op(B0_DEPTH_COMPARE_OP)
         .depth_bounds_test_enable(false)
         .stencil_test_enable(false)
+}
+
+#[cfg(test)]
+fn b0_depth_stencil_state() -> vk::PipelineDepthStencilStateCreateInfo<'static> {
+    raster_depth_state(B0_RASTER_FIXED_STATE)
 }
 
 pub(super) struct PipelineState {
@@ -41,19 +73,45 @@ impl PipelineState {
         frame_layout: vk::DescriptorSetLayout,
         texture_layout: vk::DescriptorSetLayout,
     ) -> Result<Self, B0GpuContentError> {
-        let set_layouts = [frame_layout, texture_layout];
-        let push_constant_ranges = [vk::PushConstantRange {
-            stage_flags: vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
-            offset: 0,
-            size: DRAW_PUSH_CONSTANT_SIZE,
-        }];
-        let layout_info = vk::PipelineLayoutCreateInfo::default()
-            .set_layouts(&set_layouts)
-            .push_constant_ranges(&push_constant_ranges);
-        // SAFETY: descriptor layouts are live and the closed push range fits
-        // Vulkan's minimum guaranteed 128-byte capacity.
-        let layout = unsafe { device.create_pipeline_layout(&layout_info, None) }?;
-        let result = create_graphics_pipeline(device, color_format, depth_format, layout);
+        Self::new_with_fixed_state(
+            device,
+            color_format,
+            depth_format,
+            frame_layout,
+            texture_layout,
+            B0_RASTER_FIXED_STATE,
+        )
+    }
+
+    /// Builds the semantic UI overlay variant: same shader interface and push
+    /// constants, straight-alpha blending, no depth testing, no culling.
+    pub(super) fn new_ui_overlay(
+        device: &ash::Device,
+        color_format: vk::Format,
+        depth_format: vk::Format,
+        frame_layout: vk::DescriptorSetLayout,
+        texture_layout: vk::DescriptorSetLayout,
+    ) -> Result<Self, B0GpuContentError> {
+        Self::new_with_fixed_state(
+            device,
+            color_format,
+            depth_format,
+            frame_layout,
+            texture_layout,
+            UI_OVERLAY_RASTER_FIXED_STATE,
+        )
+    }
+
+    fn new_with_fixed_state(
+        device: &ash::Device,
+        color_format: vk::Format,
+        depth_format: vk::Format,
+        frame_layout: vk::DescriptorSetLayout,
+        texture_layout: vk::DescriptorSetLayout,
+        fixed: RasterFixedStateV1,
+    ) -> Result<Self, B0GpuContentError> {
+        let layout = create_pipeline_layout(device, frame_layout, texture_layout)?;
+        let result = create_graphics_pipeline(device, color_format, depth_format, layout, fixed);
         match result {
             Ok(pipeline) => Ok(Self {
                 device: device.clone(),
@@ -68,6 +126,25 @@ impl PipelineState {
             }
         }
     }
+}
+
+fn create_pipeline_layout(
+    device: &ash::Device,
+    frame_layout: vk::DescriptorSetLayout,
+    texture_layout: vk::DescriptorSetLayout,
+) -> Result<vk::PipelineLayout, B0GpuContentError> {
+    let set_layouts = [frame_layout, texture_layout];
+    let push_constant_ranges = [vk::PushConstantRange {
+        stage_flags: vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
+        offset: 0,
+        size: DRAW_PUSH_CONSTANT_SIZE,
+    }];
+    let layout_info = vk::PipelineLayoutCreateInfo::default()
+        .set_layouts(&set_layouts)
+        .push_constant_ranges(&push_constant_ranges);
+    // SAFETY: descriptor layouts are live and the closed push range fits
+    // Vulkan's minimum guaranteed 128-byte capacity.
+    Ok(unsafe { device.create_pipeline_layout(&layout_info, None) }?)
 }
 
 impl Drop for PipelineState {
@@ -86,6 +163,7 @@ fn create_graphics_pipeline(
     color_format: vk::Format,
     depth_format: vk::Format,
     layout: vk::PipelineLayout,
+    fixed: RasterFixedStateV1,
 ) -> Result<vk::Pipeline, B0GpuContentError> {
     let modules =
         crate::shader_assets::b0_shader_modules().map_err(B0GpuContentError::ShaderAsset)?;
@@ -148,16 +226,22 @@ fn create_graphics_pipeline(
             .depth_clamp_enable(false)
             .rasterizer_discard_enable(false)
             .polygon_mode(vk::PolygonMode::FILL)
-            .cull_mode(vk::CullModeFlags::BACK)
+            .cull_mode(fixed.cull_mode)
             // A positive-height Vulkan viewport reverses authored CCW NDC
             // winding in framebuffer coordinates.
             .front_face(B0_FRONT_FACE)
             .line_width(1.0);
         let multisample = vk::PipelineMultisampleStateCreateInfo::default()
             .rasterization_samples(vk::SampleCountFlags::TYPE_1);
-        let depth_stencil = b0_depth_stencil_state();
+        let depth_stencil = raster_depth_state(fixed);
         let blend_attachments = [vk::PipelineColorBlendAttachmentState::default()
-            .blend_enable(false)
+            .blend_enable(fixed.blend_enable)
+            .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+            .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+            .color_blend_op(vk::BlendOp::ADD)
+            .src_alpha_blend_factor(vk::BlendFactor::ONE)
+            .dst_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+            .alpha_blend_op(vk::BlendOp::ADD)
             .color_write_mask(vk::ColorComponentFlags::RGBA)];
         let color_blend =
             vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend_attachments);
