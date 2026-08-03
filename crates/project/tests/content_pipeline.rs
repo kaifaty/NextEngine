@@ -46,13 +46,31 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         activated.composition_lock.composition_lock_sha256,
         first.composition_lock.composition_lock_sha256
     );
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 20);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 22);
     assert_eq!(activated.world_partition.body.chunk_bindings.len(), 2);
     assert_eq!(activated.rpg_definitions.abilities.len(), 1);
     assert_eq!(activated.rpg_definitions.packages.len(), 2);
     assert_eq!(activated.render_content_catalog.meshes().len(), 2);
     assert_eq!(activated.render_content_catalog.materials().len(), 2);
     assert_eq!(activated.render_content_catalog.textures().len(), 2);
+    assert_eq!(activated.text_catalogs.len(), 2);
+    assert_eq!(activated.text_catalogs[0].locale.as_str(), "en");
+    assert_eq!(activated.text_catalogs[1].locale.as_str(), "qps-ploc");
+    assert!(
+        activated
+            .content_manifest
+            .body
+            .asset_entries
+            .iter()
+            .filter(|entry| {
+                entry.schema_ref.schema_id.as_str()
+                    == next_contracts::localization::TEXT_CATALOG_SCHEMA_ID
+            })
+            .all(|entry| {
+                entry.semantic_class
+                    == next_contracts::project::ContentSemanticClassV1::PresentationOnly
+            })
+    );
     assert!(
         activated
             .render_content_catalog
@@ -367,6 +385,94 @@ fn project_resolver_rejects_dependency_cycle() {
         resolve_project_records_v1(&project, &catalog),
         Err(ProjectResolutionError::DependencyCycle)
     );
+}
+
+#[test]
+fn localization_closure_violations_are_rejected_before_publication() {
+    use next_contracts::localization::{TextCatalogV1, TextLocaleTagV1};
+
+    fn rebuild(
+        catalog: &TextCatalogV1,
+        asset_id: AssetId,
+        locale: &str,
+        fallback: Option<&str>,
+    ) -> TextCatalogV1 {
+        TextCatalogV1::new(
+            asset_id,
+            catalog.revision,
+            TextLocaleTagV1::new(locale).expect("locale"),
+            fallback.map(|value| TextLocaleTagV1::new(value).expect("fallback")),
+            catalog.entries.clone(),
+        )
+        .expect("rebuilt catalog")
+    }
+
+    let mut duplicate_locale = next_reference_game::project_source_v2().expect("fixture");
+    duplicate_locale.text_catalogs[1] = rebuild(
+        &duplicate_locale.text_catalogs[1].clone(),
+        AssetId::from_bytes([0x92; 16]),
+        "en",
+        None,
+    );
+    assert!(matches!(
+        cook_project_v1(duplicate_locale),
+        Err(ProjectCookError::DuplicateIdentity)
+    ));
+
+    let mut two_roots = next_reference_game::project_source_v2().expect("fixture");
+    two_roots.text_catalogs[1] = rebuild(
+        &two_roots.text_catalogs[1].clone(),
+        AssetId::from_bytes([0x92; 16]),
+        "de",
+        None,
+    );
+    assert!(matches!(
+        cook_project_v1(two_roots),
+        Err(ProjectCookError::LocalizationClosureInvalid)
+    ));
+
+    let mut missing_fallback = next_reference_game::project_source_v2().expect("fixture");
+    missing_fallback.text_catalogs[1] = rebuild(
+        &missing_fallback.text_catalogs[1].clone(),
+        AssetId::from_bytes([0x92; 16]),
+        "qps-ploc",
+        Some("de"),
+    );
+    assert!(matches!(
+        cook_project_v1(missing_fallback),
+        Err(ProjectCookError::MissingReference)
+    ));
+
+    let mut cyclic = next_reference_game::project_source_v2().expect("fixture");
+    cyclic.text_catalogs[1] = rebuild(
+        &cyclic.text_catalogs[1].clone(),
+        AssetId::from_bytes([0x92; 16]),
+        "qps-ploc",
+        Some("de"),
+    );
+    let cyclic_de = rebuild(
+        &cyclic.text_catalogs[1].clone(),
+        AssetId::from_bytes([0x93; 16]),
+        "de",
+        Some("qps-ploc"),
+    );
+    cyclic.text_catalogs.push(cyclic_de);
+    assert!(matches!(
+        cook_project_v1(cyclic),
+        Err(ProjectCookError::LocalizationClosureInvalid)
+    ));
+
+    let mut shared_asset_id = next_reference_game::project_source_v2().expect("fixture");
+    shared_asset_id.text_catalogs[1] = rebuild(
+        &shared_asset_id.text_catalogs[1].clone(),
+        shared_asset_id.records[0].asset_id,
+        "qps-ploc",
+        Some("en"),
+    );
+    assert!(matches!(
+        cook_project_v1(shared_asset_id),
+        Err(ProjectCookError::DuplicateIdentity)
+    ));
 }
 
 fn requirement(identity: &str) -> ProjectRequirementV1 {

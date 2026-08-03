@@ -64,7 +64,8 @@ pub(crate) fn run_content_package_check_with_scratch(
             run_reference_wasm_plugin(activated.clone())?;
         let catalog = &activated.render_content_catalog;
         let fallback_plan = fallback_material_plan(&prepared)?;
-        if activated.content_manifest.body.asset_entries.len() != 20
+        if activated.content_manifest.body.asset_entries.len() != 22
+            || activated.text_catalogs.len() != 2
             || activated.world_partition.body.chunk_bindings.len() != 2
             || activated.rpg_definitions.packages.len() != 2
             || activated.rpg_definitions.abilities.len() != 1
@@ -457,7 +458,7 @@ mod tests {
     #[test]
     fn content_package_uses_cooker_publisher_and_production_loader() {
         let report = run_content_package_check().expect("content-package passes");
-        assert_eq!(report.records, 20);
+        assert_eq!(report.records, 22);
         assert_eq!(report.chunks, 2);
         assert_eq!(report.mechanic_packages, 2);
         assert_eq!(report.wasm_plugins, 1);

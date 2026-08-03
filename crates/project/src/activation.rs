@@ -6,10 +6,12 @@ use next_assets::{ContentStore, ContentStoreError};
 use next_contracts::canonical::CanonicalDecodeLimits;
 use next_contracts::content::{NeutralRecordError, NeutralRecordV1};
 use next_contracts::ids::AssetId;
+use next_contracts::localization::{TEXT_CATALOG_SCHEMA_ID, TextCatalogErrorV1, TextCatalogV1};
 use next_contracts::project::{
-    ActivatedProjectV2, ContentManifestV1, ProjectCatalogSnapshotV1, ProjectCompositionLockV2,
-    ProjectContractError, ProjectDependencyKindV1, ProjectManifestV1, SchemaRefV1,
-    SchemaRegistryManifestV1, WorldPartitionManifestV1,
+    ActivatedProjectV2, ContentManifestV1, ContentSemanticClassV1, ProjectCatalogSnapshotV1,
+    ProjectCompositionLockV2, ProjectContractError, ProjectDependencyKindV1, ProjectManifestV1,
+    SchemaEncodingV1, SchemaRefV1, SchemaRegistryManifestV1, SchemaRoleV1,
+    WorldPartitionManifestV1, domain_hash,
 };
 use next_contracts::render_content::{
     B0CookedMeshV1, NeutralRenderRecordV1, RenderContentCatalogV1, RenderContentContractError,
@@ -98,6 +100,7 @@ pub fn activate_project(
     let mut record_dependencies = BTreeMap::<AssetId, BTreeSet<AssetId>>::new();
     let mut neutral_records = Vec::new();
     let mut render_records = Vec::new();
+    let mut text_catalogs = Vec::new();
     for entry in &content_manifest.body.asset_entries {
         require_schema(&current_schemas, &entry.schema_ref)?;
         let blob_path = format!(
@@ -106,7 +109,28 @@ pub fn activate_project(
         );
         expected_files.insert(blob_path.clone());
         let blob = required_file(&generation.files, &blob_path)?;
-        if NeutralRenderRecordV1::supports_schema_id(&entry.schema_ref.schema_id) {
+        if entry.schema_ref.schema_id.as_str() == TEXT_CATALOG_SCHEMA_ID {
+            let catalog = TextCatalogV1::from_canonical_bytes(blob, limits)?;
+            let expected_schema_ref = SchemaRefV1 {
+                schema_id: entry.schema_ref.schema_id.clone(),
+                schema_version: catalog.schema_version,
+                descriptor_sha256: domain_hash(
+                    "nextengine.schema-descriptor.v1",
+                    TEXT_CATALOG_SCHEMA_ID.as_bytes(),
+                ),
+                role: SchemaRoleV1::NeutralContent,
+                encoding: SchemaEncodingV1::CanonicalBinaryV1,
+            };
+            if catalog.catalog_asset_id != entry.asset_revision.asset_id
+                || expected_schema_ref != entry.schema_ref
+                || catalog.record_sha256()? != entry.asset_revision.record_sha256
+                || entry.semantic_class != ContentSemanticClassV1::PresentationOnly
+            {
+                return Err(ProjectActivationError::HashMismatch);
+            }
+            record_dependencies.insert(catalog.catalog_asset_id, BTreeSet::new());
+            text_catalogs.push(catalog);
+        } else if NeutralRenderRecordV1::supports_schema_id(&entry.schema_ref.schema_id) {
             let record = NeutralRenderRecordV1::from_canonical_bytes(blob, limits)?;
             if record.asset_id() != entry.asset_revision.asset_id
                 || record.schema_ref() != &entry.schema_ref
@@ -173,6 +197,7 @@ pub fn activate_project(
 
     neutral_records.sort_by_key(|record| record.asset_id);
     render_records.sort_by_key(NeutralRenderRecordV1::asset_id);
+    text_catalogs.sort_by_key(|catalog| catalog.catalog_asset_id);
     let render_content_catalog = compile_render_content_catalog_v1(&render_records)?;
     let published_catalog = RenderContentCatalogV1::from_canonical_bytes(
         required_file(&generation.files, RENDER_CONTENT_CATALOG_PATH)?,
@@ -202,6 +227,7 @@ pub fn activate_project(
         content_manifest,
         world_partition,
         neutral_records: neutral_records.clone(),
+        text_catalogs,
         rpg_definitions: compile_rpg_definitions_v1(&neutral_records)
             .map_err(ProjectActivationError::Cook)?,
         render_content_catalog,
@@ -238,6 +264,7 @@ pub enum ProjectActivationError {
     Contract(ProjectContractError),
     Neutral(NeutralRecordError),
     Render(RenderContentContractError),
+    Localization(TextCatalogErrorV1),
     Resolution(ProjectResolutionError),
     Cook(crate::ProjectCookError),
     MissingArtifact(String),
@@ -254,7 +281,9 @@ impl ProjectActivationError {
     pub const fn diagnostic_code(&self) -> &'static str {
         match self {
             Self::Store(_) | Self::MissingArtifact(_) => "PROJECT_ARTIFACT_MISSING",
-            Self::Contract(_) | Self::Neutral(_) => "PROJECT_SCHEMA_INVALID",
+            Self::Contract(_) | Self::Neutral(_) | Self::Localization(_) => {
+                "PROJECT_SCHEMA_INVALID"
+            }
             Self::Render(error) => error.diagnostic_code(),
             Self::Resolution(_) | Self::ResolutionMismatch => "PROJECT_LOCK_INVALID",
             Self::Cook(_) => "PROJECT_DEFINITION_INVALID",
@@ -274,6 +303,7 @@ impl Display for ProjectActivationError {
             Self::Contract(error) => write!(formatter, "project contract invalid: {error}"),
             Self::Neutral(error) => write!(formatter, "project record invalid: {error}"),
             Self::Render(error) => write!(formatter, "project render content invalid: {error}"),
+            Self::Localization(error) => write!(formatter, "project text catalog invalid: {error}"),
             Self::Resolution(error) => write!(formatter, "project resolution invalid: {error}"),
             Self::Cook(error) => write!(formatter, "project definition compile failed: {error}"),
             Self::MissingArtifact(path) => write!(formatter, "project artifact missing: {path}"),
@@ -312,6 +342,12 @@ impl From<NeutralRecordError> for ProjectActivationError {
 impl From<RenderContentContractError> for ProjectActivationError {
     fn from(error: RenderContentContractError) -> Self {
         Self::Render(error)
+    }
+}
+
+impl From<TextCatalogErrorV1> for ProjectActivationError {
+    fn from(error: TextCatalogErrorV1) -> Self {
+        Self::Localization(error)
     }
 }
 
