@@ -227,8 +227,20 @@ impl PlayerActionFrameV1 {
         &self,
         binding: &PlayerControllerBindingV1,
     ) -> Result<(), InputContractError> {
+        self.validate_against_validated_pair(&binding.action_map, &binding.context_stack)
+    }
+
+    /// Like [`Self::validate_against_validated_binding`] but takes the
+    /// action map/context stack pair directly. The caller must guarantee the
+    /// pair satisfies `context_stack.validate_against_action_map(action_map)`;
+    /// unvalidated pairs must use [`Self::validate_against`].
+    pub fn validate_against_validated_pair(
+        &self,
+        action_map: &ActionMapManifestV1,
+        context_stack: &InputContextStackV1,
+    ) -> Result<(), InputContractError> {
         self.validate()?;
-        self.validate_binding_consistency(&binding.action_map, &binding.context_stack)
+        self.validate_binding_consistency(action_map, context_stack)
     }
 
     fn validate_binding_consistency(

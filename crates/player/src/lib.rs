@@ -407,7 +407,9 @@ impl PlayerInputSessionV1 {
                 context_stack_revision: self.context_stack.revision,
                 actions,
             };
-            frame.validate_against(&self.action_map, &self.context_stack)?;
+            // new()/queue_*() revalidate the action-map/context-stack pair on
+            // every mutation, so the per-frame pair check is guaranteed here.
+            frame.validate_against_validated_pair(&self.action_map, &self.context_stack)?;
             let payload = frame.canonical_bytes()?;
             let sample = InputSampleV1 {
                 schema_version: INPUT_SAMPLE_SCHEMA_VERSION,
