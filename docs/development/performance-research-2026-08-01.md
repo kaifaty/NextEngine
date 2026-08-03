@@ -678,6 +678,30 @@ crate tests PASS, host-check PASS, play PASS, persistence-replay PASS.
 только через мемоизацию per-event проверок (свежие events каждый тик,
 малый резерв).
 
+## Приложение 2026-08-03 (13): input_hash как hotspot — ОПРОВЕРГНУТО (C7b)
+
+Lead C7b (~60–85 µs на `input.input_hash()` за step) происходил из
+разности окон двух probes C5-раунда: host-окно `staged.physics.step()`
+минус внутренний total step(). Прямой замер (временный probe вокруг
+`canonical_bytes` и `input_hash`, history-scaling release, удалён без
+коммита): encode 473 байт = 3.6–3.7 µs, `input_hash()` = 3.6 µs.
+Разобрана и первопричина артефакта: на сэмплируемых тиках
+(tick % 1024 == 0) `eprintln!` самого probe попадал МЕЖДУ двумя
+таймерами (захват внутреннего total до печати, host-окно — после),
+и запись в stderr через harness — десятки µs — была отнесена на
+«невидимую» работу. Урок для следующих probes: печать только после
+захвата ВСЕХ таймеров окна, агрегированные (не per-sample) сэмплы.
+
+Следствия: (1) программный sha256 без asm-NI НЕ является hotspot на
+текущих объёмах (≤ нескольких KB на хэш: 473 B ≈ 2–3 µs, snapshot
+≈ 30–40 µs при ~4 KB — приемлемо после устранения дубликатов);
+(2) replay/compare пути пересчитывают `input_hash` до 3× за тик
+(replay.rs ×2, persistence.rs ×1) — ≤ ~11 µs суммарно, ниже порога
+5% от finish_physical_step (~112 µs), отдельный слот не оправдан;
+(3) серия дубликат-хэшей закрыта: C5/C6/C7a убрали все повторы выше
+порога. Остаётся C7d (crates/player binding-паттерн, capture-сторона)
+и точка решения — повторная атрибуция плоского тика после C4–C7a.
+
 ## Источники
 
 - DeltaBox: millisecond checkpoint/rollback через change-based DeltaState,
