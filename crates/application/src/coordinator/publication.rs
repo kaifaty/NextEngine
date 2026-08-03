@@ -103,6 +103,49 @@ impl ApplicationCoordinator {
         )
     }
 
+    /// Suspends on the declared UI pause path: the committed `ui-back`
+    /// player action is the replayable causal input, so the lifecycle
+    /// request references the canonical action frame instead of a platform
+    /// event. Same transition machine and forced-checkpoint publication.
+    pub(super) fn suspend_from_committed_ui_action_with_prepared_run(
+        &mut self,
+        causal_hash: ContentHash,
+        prepared: &PreparedRunV1,
+    ) -> Result<ApplicationLifecycleEventV1, ApplicationError> {
+        let (session_id, expected_revision, expected_state) = {
+            let state = self.machine.state();
+            (state.session_id, state.revision, state.state)
+        };
+        let target = ApplicationSessionStatusV1::Suspended;
+        let request = ApplicationLifecycleRequestV1::new(
+            derive_request_id(session_id, expected_revision, target, causal_hash),
+            session_id,
+            expected_revision,
+            expected_state,
+            target,
+            LifecycleReasonV1 {
+                kind: LifecycleReasonKindV1::SuspendRequested,
+                reason_code: SchemaId::new("nextengine.session.ui-pause-requested")?,
+            },
+            self.activated_project
+                .composition_lock
+                .recovery_policy_sha256,
+            CausalInputReferenceV1 {
+                source_kind: CausalInputSourceKindV1::PlayerAction,
+                canonical_hash: causal_hash,
+            },
+        )?;
+        self.publish_transition_optional_prepared(
+            request,
+            SessionTransitionReferencesV1 {
+                active_runtime_revision: Some(prepared.summary.authoritative_revision),
+                ..SessionTransitionReferencesV1::default()
+            },
+            self.durable.close.clone(),
+            Some(prepared),
+        )
+    }
+
     fn transition_from_platform_event(
         &mut self,
         event: &PlatformEventV1,

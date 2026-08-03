@@ -124,8 +124,14 @@ impl ApplicationCoordinator {
         let suspend = platform_events.iter().find(|event| {
             event.kind == next_contracts::platform::PlatformEventKindV1::SuspendRequested
         });
+        let ui_suspend = validated.ui_suspend_causal_hash();
         let summary = if let Some(suspend) = suspend {
             self.suspend_from_admitted_platform_event_with_prepared_run(suspend, &prepared)?;
+            let summary = prepared.summary.clone();
+            self.prepared_run = Some(prepared);
+            summary
+        } else if let Some(causal_hash) = ui_suspend {
+            self.suspend_from_committed_ui_action_with_prepared_run(causal_hash, &prepared)?;
             let summary = prepared.summary.clone();
             self.prepared_run = Some(prepared);
             summary
@@ -176,10 +182,12 @@ impl ApplicationCoordinator {
         let suspend = platform_events
             .iter()
             .find(|event| event.kind == PlatformEventKindV1::SuspendRequested);
+        let ui_suspend = validated.ui_suspend_causal_hash();
         let checkpoint_due = validated
             .next_tick()
             .is_multiple_of(LIVE_CHECKPOINT_INTERVAL_TICKS)
-            || suspend.is_some();
+            || suspend.is_some()
+            || ui_suspend.is_some();
 
         if checkpoint_due {
             let state = self
@@ -199,6 +207,9 @@ impl ApplicationCoordinator {
                 .ok_or(ApplicationError::NoRunOutcome)?;
             if let Some(suspend) = suspend {
                 self.suspend_from_admitted_platform_event_with_prepared_run(suspend, &prepared)?;
+                self.prepared_run = Some(prepared);
+            } else if let Some(causal_hash) = ui_suspend {
+                self.suspend_from_committed_ui_action_with_prepared_run(causal_hash, &prepared)?;
                 self.prepared_run = Some(prepared);
             } else {
                 self.publish_prepared_run(prepared)?;

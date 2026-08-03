@@ -543,3 +543,92 @@ fn failed_forced_close_checkpoint_keeps_tick_twenty_nine_in_memory_for_retry() {
     assert!(matches!(closed, ApplicationCloseOutcomeV1::Closed { .. }));
     cleanup(root);
 }
+
+#[test]
+fn ui_back_player_action_suspends_through_the_declared_lifecycle_path() {
+    let root = test_root("ui-back-pause");
+    let mut game = ApplicationCoordinator::launch(interactive_launch(&root)).expect("game launch");
+    game.begin_reference_game_live(true)
+        .expect("begin live reference game");
+    let host = test_platform_host(&mut game);
+    let escape = keyboard_escape_event(&host, 0);
+
+    let sequence_before_pause = game.durable.store_sequence;
+    let paused = game
+        .advance_reference_game_live(std::slice::from_ref(&escape))
+        .expect("committed ui-back suspends the session");
+    assert_eq!(game.state().state, ApplicationSessionStatusV1::Suspended);
+    assert_eq!(paused.ticks, 1);
+    assert_eq!(
+        game.durable.store_sequence,
+        sequence_before_pause + 1,
+        "ui pause forces exactly one durable checkpoint generation"
+    );
+
+    // The pause request references the committed player action frame as its
+    // replayable causal input instead of a platform event.
+    let archived_requests = game.machine.archived_requests();
+    let archived = archived_requests
+        .iter()
+        .find(|entry| entry.event.to_state == ApplicationSessionStatusV1::Suspended)
+        .expect("archived suspend request");
+    let request = ApplicationLifecycleRequestV1::from_jcs_bytes(
+        &archived.canonical_request_bytes,
+        next_contracts::canonical::CanonicalDecodeLimits::default(),
+    )
+    .expect("decode suspend request");
+    assert_eq!(
+        request.causal_input_reference.source_kind,
+        CausalInputSourceKindV1::PlayerAction
+    );
+    assert_eq!(request.reason.kind, LifecycleReasonKindV1::SuspendRequested);
+    assert_eq!(
+        request.reason.reason_code.as_str(),
+        "nextengine.session.ui-pause-requested"
+    );
+
+    // The suspending publication carries the declared pause-menu surface
+    // whose save/load affordances bind the universal UI action ids.
+    let snapshot = paused.presentation_snapshot.expect("pause snapshot");
+    assert_eq!(
+        snapshot
+            .semantic_ui_records()
+            .filter(|record| record.surface_id.as_str() == "nextengine.ui.surface.pause-menu")
+            .count(),
+        4
+    );
+    let save = snapshot
+        .semantic_ui_records()
+        .find(|record| {
+            record.element.element_id.as_str() == "nextengine.ui.element.pause-menu.save"
+        })
+        .expect("save affordance element");
+    assert!(
+        save.element
+            .affordances
+            .iter()
+            .any(
+                |affordance| affordance.action_id.as_str() == "nextengine.action.ui-confirm"
+                    && affordance.enabled
+            )
+    );
+
+    // Resume follows the existing platform lifecycle path; gameplay then
+    // advances normally.
+    let resume = platform_reason_event(
+        &mut game,
+        PlatformEventKindV1::ResumeRequested,
+        1,
+        "nextengine.platform.reason.foregrounded",
+    );
+    game.resume_from_platform_event(&resume)
+        .expect("resume from pause");
+    assert_eq!(game.state().state, ApplicationSessionStatusV1::Active);
+    let resumed = game
+        .advance_reference_game_live(&[])
+        .expect("post-resume advance");
+    assert_eq!(resumed.ticks, 2);
+    game.close(CloseExecutionOptionsV1::default())
+        .expect("live game close");
+    cleanup(root);
+}

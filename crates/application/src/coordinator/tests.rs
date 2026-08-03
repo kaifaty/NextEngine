@@ -3,7 +3,9 @@ use std::time::Duration;
 
 use next_assets::{ContentStore, SessionObjectV1, SessionPublicationV1, SessionStore};
 use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
-use next_contracts::input::{KEYBOARD_DEVICE_CLASS_ID, KEYBOARD_W_CONTROL_PATH_ID};
+use next_contracts::input::{
+    KEYBOARD_DEVICE_CLASS_ID, KEYBOARD_ESCAPE_CONTROL_PATH_ID, KEYBOARD_W_CONTROL_PATH_ID,
+};
 use next_contracts::platform::{
     NormalizedControlEventV1, NormalizedControlPhaseV1, PlatformEventKindV1,
     PlatformEventPayloadV1, PlatformEventV1,

@@ -720,10 +720,9 @@ fn prepare_interactive_worker(
             "interactive target produced no presentation snapshot",
         )
     })?);
-    let render_content_catalog = application
-        .activated_project()
-        .render_content_catalog
-        .clone();
+    let activated_project = application.activated_project();
+    let render_content_catalog = activated_project.render_content_catalog.clone();
+    let text_catalogs = activated_project.text_catalogs.clone();
     let host_instance_id = application
         .register_platform_host(capabilities)
         .map_err(InteractiveWorkerFailureV1::application)?;
@@ -755,6 +754,7 @@ fn prepare_interactive_worker(
         InteractiveWorkerReadyV1 {
             initial_snapshot,
             render_content_catalog,
+            text_catalogs,
             host_instance_id,
             resume_suspended_application,
         },

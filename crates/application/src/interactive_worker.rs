@@ -166,6 +166,7 @@ pub struct InteractiveWorkerDiagnosticReportV1 {
 pub struct InteractiveWorkerReadyV1 {
     pub initial_snapshot: Arc<PresentationSnapshotV2>,
     pub render_content_catalog: RenderContentCatalogV1,
+    pub text_catalogs: Vec<next_contracts::localization::TextCatalogV1>,
     pub host_instance_id: PersistentId,
     pub resume_suspended_application: bool,
 }

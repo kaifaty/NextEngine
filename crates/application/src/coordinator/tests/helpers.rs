@@ -111,10 +111,39 @@ pub(super) fn keyboard_movement_event_at(
     value: i16,
 ) -> PlatformEventV1 {
     let binding = test_platform_host(application);
+    keyboard_control_event(
+        &binding,
+        source_sequence,
+        KEYBOARD_W_CONTROL_PATH_ID,
+        phase,
+        value,
+    )
+}
+
+pub(super) fn keyboard_escape_event(
+    binding: &super::super::platform_host::RegisteredPlatformHostV1,
+    source_sequence: u64,
+) -> PlatformEventV1 {
+    keyboard_control_event(
+        binding,
+        source_sequence,
+        KEYBOARD_ESCAPE_CONTROL_PATH_ID,
+        NormalizedControlPhaseV1::Started,
+        i16::MAX,
+    )
+}
+
+fn keyboard_control_event(
+    binding: &super::super::platform_host::RegisteredPlatformHostV1,
+    source_sequence: u64,
+    control_path: &str,
+    phase: NormalizedControlPhaseV1,
+    value: i16,
+) -> PlatformEventV1 {
     let control = NormalizedControlEventV1::new(
         SchemaId::new(KEYBOARD_DEVICE_CLASS_ID).expect("device class"),
         PersistentId::from_bytes([0x74; 16]),
-        SchemaId::new(KEYBOARD_W_CONTROL_PATH_ID).expect("control path"),
+        SchemaId::new(control_path).expect("control path"),
         phase,
         vec![value],
         Vec::new(),
