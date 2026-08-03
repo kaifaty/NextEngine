@@ -651,6 +651,33 @@ per-substep `snapshot_hash` лениво только при reportable contacts
 (выигрыш в бесконтактных сценариях); **C7d** — тот же binding-паттерн в
 crates/player (lib.rs:410) после проверки provenance его пары.
 
+## Приложение 2026-08-03 (12): contact batch triple-hash — ПРИНЯТО (C7a)
+
+Атрибуция C7a (временный env-gated probe на hash+batch секцию reference
+physics step, history-scaling диагностика release, удалён без коммита):
+секция after-hash + batch стоила 66.5–74.1 µs на тик (~47% step()).
+`batch_hash` считался ТРИЖДЫ: в конструкторе, повторно внутри
+`validate()` как self-consistency check (всегда true на свежем значении)
+и третий раз внутри `validate_against_catalog` на том же свежем batch.
+
+Решение: `validate()` разделён на `validate_structure` (schema/substep/
+ordering/identity) + hash self-check; конструктор вызывает только
+структурную часть после вычисления хэша. Additive
+`validate_events_against_catalog` оставляет только catalog-relative
+инварианты (лимит числа events, per-event membership) для вызывающих с
+уже валидным batch; physics step использует его + `debug_assert` gate.
+Decode/untrusted путь (replay) сохраняет полный
+`validate_against_catalog`. Коммит `dfb035f`.
+
+Замер (та же методика, 3 прогона): hash+batch 66.5–74.1 → 25–39.4 µs
+(−47–63%); step() total медиана ~145 → ~112 µs (−20–25%). Roots
+байт-в-байт (play f22d54a0…, persistence-replay b9168071…). Checks:
+crate tests PASS, host-check PASS, play PASS, persistence-replay PASS.
+Остаток секции (~25–39 µs) — один семантически необходимый batch_hash
+(wire-поле) + per-event catalog lookups; дальнейшее сокращение —
+только через мемоизацию per-event проверок (свежие events каждый тик,
+малый резерв).
+
 ## Источники
 
 - DeltaBox: millisecond checkpoint/rollback через change-based DeltaState,
