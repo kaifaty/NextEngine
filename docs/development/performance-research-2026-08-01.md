@@ -702,6 +702,54 @@ Lead C7b (~60–85 µs на `input.input_hash()` за step) происходил
 порога. Остаётся C7d (crates/player binding-паттерн, capture-сторона)
 и точка решения — повторная атрибуция плоского тика после C4–C7a.
 
+## Приложение 2026-08-03 (14): capture-side pair — ПРИНЯТО (C7d); ре-атрибуция тика — серия насыщена
+
+C7d: тот же binding-паттерн на capture-стороне.
+`PlayerInputSessionV1` перевалидирует пару action-map/context-stack на
+каждой мутации (new/queue_*/recovery через
+`validate_context_compatibility` ≡ `validate_against_action_map`),
+поэтому per-frame `validate_against` повторял иммутабельный инвариант.
+Добавлен additive `validate_against_validated_pair` (binding-вариант C6
+теперь делегирует в него); capture-путь сохраняет все frame-dependent
+проверки. Capture-путь вне измеряемого цикла — эффект по структурной
+аналогии с C6 (~36–64 µs на непустой фрейм). Коммит `93e3519`. Checks:
+crate tests PASS, host-check PASS, play PASS.
+
+Контрольная ре-атрибуция плоского тика (та же history-scaling
+диагностика, release, 3 прогона, агрегированная печать ПОСЛЕ захвата
+всех таймеров — урок приложения 13), медианы tick 3072 против
+базовой линии приложения 9 (pre-C4):
+
+| Секция | База (прил. 9) | После C4–C7a | Δ |
+|---|---|---|---|
+| process_phase Ingress total | 665–681 µs | 226–246 µs | **−64%** |
+| ├ admit | 25–37 µs | 27–29 µs | ~0 |
+| ├ commit | 4–13 µs | 4–5 µs | ~0 |
+| └ phys (finish_physical_step) | 429–575 µs | 193–213 µs | **−55–60%** |
+| finish_physical_step total | 388–535 µs | 152–170 µs | **−60–68%** |
+| ├ build | 82–112 µs | 33–34 µs | −60–70% |
+| ├ step (host) | 260–400 µs | 103–120 µs | −60% |
+| └ results | 19–61 µs | 16–17 µs | − |
+| close_ingress total | 129–216 µs | 55–58 µs | **−57–74%** |
+| └ map | 103–170 µs | 32–33 µs | **−70–80%** |
+| wall (диагностика целиком) | ~10 s | 6.7–6.8 s | **−32%** |
+
+Остаток phys (~200 µs) — ирредуцибельная на этом сценарии работа:
+per-substep точные хэши ×4 (~40–60 µs, семантика ContactEventV1
+identity при floor persist; формат — ADR), 1 вычисление snapshot-хэша
+на тик (~30 µs, memo инвалидируется set_checkpoint_revision), batch
+hash ×1 (wire-поле), sweeps ~2 µs, clone+receipts ~15–30 µs. Дубликатов
+выше порога 5% не осталось. Новых атомарных кандидатов production-path
+не выявлено: дальнейший прогресс — только через (а) representative
+R2+ контент и его профиль (dirty tracking, приложение 10), (б) смену
+форматов через ADR (вне scope этой серии), (в) roadmap-очередь.
+
+Итог серии (2026-08-01 → 2026-08-03, decision protocol, exact roots
+во всех принятых коммитах): C1 опровергнут, C2/C3 закрыты ранними
+appendix, C4 +24.7% replay без fork, C5 physics derived-хэши,
+C6/C7d binding pair, C7a batch hash, C7b опровергнут, R2-этап extract
+−27%; T1 Tracy zones приняты, T2 instruction-count отложен.
+
 ## Источники
 
 - DeltaBox: millisecond checkpoint/rollback через change-based DeltaState,
