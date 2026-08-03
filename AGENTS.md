@@ -4,17 +4,16 @@
 
 - Use `docs/architecture/` as design context for architecture-sensitive work. Do not infer product contracts from scaffolding or experiments.
 - Read `docs/architecture/README.md`, `00-product-contract.md`, `01-system-architecture.md`, `glossary.md`, the relevant subsystem SPEC and relevant ADRs before cross-cutting work.
+- Use `docs/architecture/agent-routing.md` as the deterministic task-to-document routing table: find the matching row(s), read the listed SPEC/ADRs in full and run the mapped product checks.
 - Resolve conflicts in this order: a newer Accepted superseding ADR, the relevant subsystem SPEC, SPEC-00, then the glossary.
-- Architecture documents follow the normal repository workflow. A semantic change to an Accepted decision needs a short ADR that names what it supersedes; update affected SPECs and the lightweight traceability map in the same change.
+- Architecture documents follow the normal repository workflow. A semantic change to an Accepted decision needs a short ADR that names what it supersedes; update affected SPECs and the lightweight traceability map in the same change. Adding a new SPEC/ADR or changing a document status (including supersession) must update the routing table in `docs/architecture/agent-routing.md` in the same change.
 - `Proposed` technology is an experiment, not a default. State its fallback and do not present it as shipped before the affected product check passes.
 
 ## Documentation retrieval
 
-- For architecture-sensitive, roadmap-sensitive or cross-cutting work, invoke the `qmd` skill and search the `nextengine-docs` collection before broad documentation scans to discover the relevant subsystem SPECs, ADRs, plans and reviews.
-- Prefer a structured QMD query with an explicit `intent` plus agent-authored `lex` and `vec` searches; add `hyde` only when a hypothetical source passage materially improves recall.
-- Retrieve and read the complete candidate documents with QMD `get` or `multi_get` before making claims or edits. Search snippets and ranking scores are discovery aids, not authority, and do not replace the mandatory direct reads or precedence rules above.
-- Prefer `rg` and direct file reads for exact source-code symbols, known paths and verification after retrieval.
-- If QMD is unavailable, incomplete or stale, fall back to `rg` plus direct reads and report the fallback. Index mutation is local maintenance: use `node tools/qmd/setup.mjs` only for setup or an explicitly requested refresh.
+- For architecture-sensitive, roadmap-sensitive or cross-cutting work, start from the deterministic routing table in `docs/architecture/agent-routing.md`: find the matching row(s) and read the listed SPEC/ADRs in full before making claims or edits.
+- Read complete documents, not search snippets. Snippets and matches are discovery aids, not authority, and do not replace the mandatory direct reads or the precedence rules above.
+- Use `rg` and direct file reads for exact source-code symbols, known paths and verification, and for fuzzy lookup across `docs/plans/`, `docs/reviews/` and `docs/development/` — those are working materials, not normative architecture.
 
 ## Roadmap context
 
