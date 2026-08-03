@@ -346,6 +346,13 @@ impl PreparedRuntimeTick {
         self.staged.physics.snapshot()
     }
 
+    /// Staged immutable RPG projection of the prepared tick for read-only
+    /// presentation probes at the same publication boundary.
+    #[must_use]
+    pub fn rpg_snapshot(&self) -> next_contracts::rpg::RpgSnapshotV2 {
+        self.staged.rpg.snapshot()
+    }
+
     pub fn world_checkpoint_with_canonical_components(
         &self,
     ) -> Result<(WorldCheckpointV4, WorldCheckpointCanonicalComponentsV1), WorldCheckpointError>

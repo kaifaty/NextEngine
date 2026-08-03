@@ -847,3 +847,131 @@ fn input_arrival_permutations_close_to_identical_batches_and_state() {
             .all(|receipt| receipt.frame_code == InputMappingCodeV1::FrameInvalid)
     );
 }
+
+#[test]
+fn ui_actions_are_admitted_as_replayable_evidence_without_world_commands() {
+    let mut fixture = physical_fixture();
+    let pause_press = exact_player_sample(
+        &fixture,
+        0,
+        vec![PlayerActionV1 {
+            action_id: SchemaId::new(CORE_UI_BACK_ACTION_ID).expect("ui back action"),
+            phase: PlayerActionPhaseV1::Started,
+            value: PlayerActionValueV1::Digital(true),
+            semantic_occurrence_ordinal: 0,
+        }],
+    );
+    fixture
+        .runtime
+        .enqueue_input_sample(&fixture.principal, pause_press)
+        .expect("enqueue ui back press");
+    let report = fixture.runtime.run_tick([]).expect("ui back tick");
+    assert_eq!(
+        report.mapping_receipts[0].code,
+        InputMappingCodeV1::Accepted
+    );
+    assert!(report.command_batches[0].body.envelopes.is_empty());
+    assert!(report.events.is_empty());
+
+    let invalid_press = exact_player_sample(
+        &fixture,
+        1,
+        vec![PlayerActionV1 {
+            action_id: SchemaId::new(CORE_UI_BACK_ACTION_ID).expect("ui back action"),
+            phase: PlayerActionPhaseV1::Started,
+            value: PlayerActionValueV1::Digital(false),
+            semantic_occurrence_ordinal: 0,
+        }],
+    );
+    fixture
+        .runtime
+        .enqueue_input_sample(&fixture.principal, invalid_press)
+        .expect("enqueue invalid ui back press");
+    assert_eq!(
+        fixture
+            .runtime
+            .run_tick([])
+            .expect("invalid ui back tick")
+            .mapping_receipts[0]
+            .code,
+        InputMappingCodeV1::ValueOutOfProfile
+    );
+
+    // Modal transitions are revisioned reconfigurations of the bound stack
+    // identity: the ui-menu layer activates as revision 2 of the gameplay
+    // stack at an empty ingress boundary.
+    let menu_stack = InputContextStackV1::new(
+        SchemaId::new(CORE_GAMEPLAY_CONTEXT_STACK_ID).expect("gameplay stack id"),
+        2,
+        vec![
+            InputContextV1::new(
+                SchemaId::new(CORE_UI_MENU_CONTEXT_ID).expect("ui menu context id"),
+                1,
+                200,
+                InputContextCapturePolicyV1::CaptureAll,
+                [
+                    CORE_UI_BACK_ACTION_ID,
+                    CORE_UI_CONFIRM_ACTION_ID,
+                    CORE_UI_NAVIGATE_ACTION_ID,
+                ]
+                .into_iter()
+                .map(SchemaId::new)
+                .collect::<Result<Vec<_>, _>>()
+                .expect("ui action ids"),
+            )
+            .expect("ui menu context"),
+        ],
+    )
+    .expect("ui menu stack revision");
+    fixture
+        .runtime
+        .activate_player_input_configuration(
+            fixture.source_id,
+            ActionMapManifestV1::core_keyboard_mouse_v1().expect("core action map"),
+            menu_stack,
+        )
+        .expect("ui menu configuration activates at an empty ingress boundary");
+
+    let menu_frame = exact_player_sample(
+        &fixture,
+        2,
+        vec![
+            PlayerActionV1 {
+                action_id: SchemaId::new(CORE_UI_CONFIRM_ACTION_ID).expect("ui confirm action"),
+                phase: PlayerActionPhaseV1::Started,
+                value: PlayerActionValueV1::Digital(true),
+                semantic_occurrence_ordinal: 0,
+            },
+            PlayerActionV1 {
+                action_id: SchemaId::new(CORE_UI_NAVIGATE_ACTION_ID).expect("ui nav action"),
+                phase: PlayerActionPhaseV1::Performed,
+                value: PlayerActionValueV1::Vector2Q15([0, 32_767]),
+                semantic_occurrence_ordinal: 1,
+            },
+        ],
+    );
+    fixture
+        .runtime
+        .enqueue_input_sample(&fixture.principal, menu_frame)
+        .expect("enqueue menu frame");
+    let menu_report = fixture.runtime.run_tick([]).expect("menu tick");
+    assert_eq!(
+        menu_report.mapping_receipts[0].code,
+        InputMappingCodeV1::Accepted
+    );
+    assert_eq!(
+        menu_report.mapping_receipts_v2[0]
+            .action_results
+            .iter()
+            .map(|action| action.mapping_code)
+            .collect::<Vec<_>>(),
+        vec![InputMappingCodeV1::Accepted, InputMappingCodeV1::Accepted]
+    );
+    assert!(
+        menu_report.mapping_receipts_v2[0]
+            .derived_commands
+            .is_empty()
+    );
+    assert!(menu_report.command_batches[0].body.envelopes.is_empty());
+    assert!(menu_report.events.is_empty());
+}

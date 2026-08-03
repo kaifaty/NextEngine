@@ -18,8 +18,10 @@ use next_contracts::ids::{
 };
 use next_contracts::input::{
     ActionBindingTransformV1, ActionMapManifestV1, CORE_CAMERA_ORBIT_ACTION_ID,
-    CORE_INTERACT_ACTION_ID, CORE_MOVE_ACTION_ID, InputContextStackV1, InputContractError,
-    InputMappingCodeV1, InputSampleV1, PLAYER_ACTION_FRAME_SCHEMA_ID,
+    CORE_GAMEPLAY_CONTEXT_STACK_ID, CORE_INTERACT_ACTION_ID, CORE_MOVE_ACTION_ID,
+    CORE_UI_BACK_ACTION_ID, CORE_UI_CONFIRM_ACTION_ID, CORE_UI_MENU_CONTEXT_ID,
+    CORE_UI_NAVIGATE_ACTION_ID, InputContextCapturePolicyV1, InputContextStackV1, InputContextV1,
+    InputContractError, InputMappingCodeV1, InputSampleV1, PLAYER_ACTION_FRAME_SCHEMA_ID,
     PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PlayerActionFrameV1,
     PlayerActionPhaseV1, PlayerActionV1, PlayerActionValueV1, PlayerControllerBindingV1,
     TickRateProfileV1,

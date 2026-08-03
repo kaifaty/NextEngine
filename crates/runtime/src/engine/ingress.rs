@@ -6,6 +6,7 @@ use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
 use next_contracts::input::{
     CLOSED_INGRESS_BATCH_SCHEMA_VERSION, CORE_CAMERA_ORBIT_ACTION_ID, CORE_EQUIP_USE_ACTION_ID,
     CORE_INTERACT_ACTION_ID, CORE_MELEE_ACTION_ID, CORE_MOVE_ACTION_ID, CORE_PICKUP_ACTION_ID,
+    CORE_UI_BACK_ACTION_ID, CORE_UI_CONFIRM_ACTION_ID, CORE_UI_NAVIGATE_ACTION_ID,
     ClosedIngressBatchBodyV1, ClosedIngressBatchV1, INPUT_MAPPING_RECEIPT_SCHEMA_VERSION,
     IngressAssignmentV1, IngressCheckpointV1, IngressEquivalenceReceiptV1,
     InputActionMappingResultV2, InputDerivedCommandRefV2, InputMappingCodeV1,
@@ -510,6 +511,16 @@ fn map_player_action_sample<'a>(
             CORE_CAMERA_ORBIT_ACTION_ID => {
                 let _ = validate_vector_action(action.phase, action.value)?;
             }
+            // Universal UI actions are validated and receipted here so the
+            // canonical frame stays replayable evidence; their effects
+            // (pause lifecycle request, menu/dialogue choice) are declared at
+            // the host/session boundary and never become world commands.
+            CORE_UI_NAVIGATE_ACTION_ID => {
+                let _ = validate_vector_action(action.phase, action.value)?;
+            }
+            CORE_UI_CONFIRM_ACTION_ID | CORE_UI_BACK_ACTION_ID => {
+                validate_ui_digital_action(action.phase, action.value)?;
+            }
             CORE_INTERACT_ACTION_ID
             | CORE_PICKUP_ACTION_ID
             | CORE_EQUIP_USE_ACTION_ID
@@ -626,4 +637,18 @@ fn validate_vector_action(
     valid
         .then_some(value)
         .ok_or(InputMappingCodeV1::ValueOutOfProfile)
+}
+
+fn validate_ui_digital_action(
+    phase: PlayerActionPhaseV1,
+    value: PlayerActionValueV1,
+) -> Result<(), InputMappingCodeV1> {
+    match (phase, value) {
+        (PlayerActionPhaseV1::Started, PlayerActionValueV1::Digital(true))
+        | (
+            PlayerActionPhaseV1::Completed | PlayerActionPhaseV1::Cancelled,
+            PlayerActionValueV1::Digital(false),
+        ) => Ok(()),
+        _ => Err(InputMappingCodeV1::ValueOutOfProfile),
+    }
 }
