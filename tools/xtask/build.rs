@@ -16,6 +16,15 @@ fn main() {
     let target = env::var("TARGET").unwrap_or_else(|_| "unknown".to_owned());
     println!("cargo:rustc-env=NEXTENGINE_BUILD_TARGET_TRIPLE={target}");
 
+    // Representative measurement scenarios run deep debug call chains on the
+    // main thread (runtime scenario, presentation extraction, Vulkan adapter
+    // preparation). The 1 MiB Windows default main-thread reserve overflowed
+    // once Semantic UI inline state grew those frames; reserve 8 MiB for this
+    // tooling binary. Linux keeps the platform default (8 MiB).
+    if target.ends_with("windows-msvc") {
+        println!("cargo:rustc-link-arg-bins=/STACK:8388608");
+    }
+
     println!("cargo:rerun-if-env-changed=CARGO_ENCODED_RUSTFLAGS");
     let encoded_rustflags = env::var("CARGO_ENCODED_RUSTFLAGS").unwrap_or_default();
     println!(

@@ -213,7 +213,14 @@ impl OverlayRow {
                 color,
             } => {
                 let bar_width = METER_BAR_CELLS.saturating_mul(CELL);
-                fill_rect(image, origin_x, row_y, bar_width, METER_BAR_HEIGHT, METER_TRACK);
+                fill_rect(
+                    image,
+                    origin_x,
+                    row_y,
+                    bar_width,
+                    METER_BAR_HEIGHT,
+                    METER_TRACK,
+                );
                 let fill_width = if *maximum > 0 && *current > 0 {
                     u32::try_from(
                         u64::from(bar_width)
@@ -302,9 +309,18 @@ fn draw_text(
     color: [u8; 4],
 ) {
     for (index, glyph) in text.chars().enumerate() {
-        let glyph_x = origin_x
-            .saturating_add(u32::try_from(index).unwrap_or(u32::MAX).saturating_mul(CELL));
-        draw_glyph(image, glyph_x, origin_y, ui_overlay_glyph_rows(glyph), color);
+        let glyph_x = origin_x.saturating_add(
+            u32::try_from(index)
+                .unwrap_or(u32::MAX)
+                .saturating_mul(CELL),
+        );
+        draw_glyph(
+            image,
+            glyph_x,
+            origin_y,
+            ui_overlay_glyph_rows(glyph),
+            color,
+        );
     }
 }
 
@@ -371,8 +387,7 @@ fn blend_source_over(destination: &mut [u8], source: [u8; 4]) {
             + 127)
             / 255) as u8;
     }
-    destination[3] =
-        (source_alpha + (u32::from(destination[3]) * inverse_alpha + 127) / 255) as u8;
+    destination[3] = (source_alpha + (u32::from(destination[3]) * inverse_alpha + 127) / 255) as u8;
 }
 
 #[cfg(test)]
@@ -394,8 +409,11 @@ mod tests {
     }
 
     fn text_ref(name: &str, arguments: Vec<UiTextArgumentV1>) -> UiTextRefV1 {
-        UiTextRefV1::new(schema_id(&format!("nextengine.test.text.{name}")), arguments)
-            .expect("text ref")
+        UiTextRefV1::new(
+            schema_id(&format!("nextengine.test.text.{name}")),
+            arguments,
+        )
+        .expect("text ref")
     }
 
     #[allow(
@@ -469,7 +487,12 @@ mod tests {
                     ("resume", "Resume"),
                 ],
             ),
-            catalog(0x92, "qps-ploc", Some("en"), &[("health", "⟦Ħēåłŧħ⟧ {0}/{1}")]),
+            catalog(
+                0x92,
+                "qps-ploc",
+                Some("en"),
+                &[("health", "⟦Ħēåłŧħ⟧ {0}/{1}")],
+            ),
         ]
     }
 
@@ -524,9 +547,7 @@ mod tests {
         image
             .rgba
             .chunks_exact(4)
-            .map(|pixel| {
-                u64::from(pixel[0]) + u64::from(pixel[1]) + u64::from(pixel[2])
-            })
+            .map(|pixel| u64::from(pixel[0]) + u64::from(pixel[1]) + u64::from(pixel[2]))
             .sum()
     }
 
@@ -576,8 +597,8 @@ mod tests {
     #[test]
     fn meter_fill_width_tracks_the_scalar_value() {
         let resolver = resolver();
-        let image = rasterize_semantic_ui(&hud_records(37), &resolver, EXTENT.0, EXTENT.1)
-            .expect("image");
+        let image =
+            rasterize_semantic_ui(&hud_records(37), &resolver, EXTENT.0, EXTENT.1).expect("image");
         // The bar band sits directly below the first text row; only the
         // opaque fill reaches alpha 255 over the translucent panel.
         let band_y = MARGIN + CELL;
@@ -593,8 +614,8 @@ mod tests {
         let expected_fill = METER_BAR_CELLS * CELL * 37 / 100;
         assert_eq!(opaque, expected_fill * METER_BAR_HEIGHT);
 
-        let fuller = rasterize_semantic_ui(&hud_records(74), &resolver, EXTENT.0, EXTENT.1)
-            .expect("image");
+        let fuller =
+            rasterize_semantic_ui(&hud_records(74), &resolver, EXTENT.0, EXTENT.1).expect("image");
         assert_ne!(image.rgba, fuller.rgba);
     }
 

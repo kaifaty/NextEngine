@@ -235,8 +235,11 @@ fn run_platform_check_scoped(
     let prepared = frame_directory.finish(frame_result, platform_scratch_error)?;
     let game = prepared.check;
     verify_authoritative_parity(&headless, &game)?;
-    let candidate_status =
-        run_desktop_candidate(&prepared.snapshot, &prepared.render_content_catalog)?;
+    let candidate_status = run_desktop_candidate(
+        &prepared.snapshot,
+        &prepared.render_content_catalog,
+        &prepared.text_catalogs,
+    )?;
 
     let mut host = ReferencePlatformHost::interactive()?;
     if host.presentation_target_kind() != PresentationTargetKindV1::Interactive
@@ -366,7 +369,7 @@ fn prepare_desktop_frame_timing_smoke_scoped(
     let maximum_event_loop_iterations = measured_frames_u64
         .checked_mul(300)
         .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
-    let options = next_desktop_sdl_ash::DesktopRunOptions {
+    let mut options = next_desktop_sdl_ash::DesktopRunOptions {
         initial_extent,
         maximum_frames: Some(measured_frames_u64),
         maximum_event_loop_iterations: Some(maximum_event_loop_iterations),
@@ -380,6 +383,8 @@ fn prepare_desktop_frame_timing_smoke_scoped(
         return Ok(None);
     }
     let frame = prepare_game_frame_with_scratch(scratch)?;
+    options.ui_text_catalogs = frame.text_catalogs.clone();
+    options.ui_locale = "en".to_owned();
     let adapter = next_desktop_sdl_ash::prepare_interactive(
         &frame.snapshot,
         &frame.render_content_catalog,
@@ -442,6 +447,9 @@ fn finish_desktop_frame_timing_measurement(
         || report.frame_plan_explicit_invalidations != 0
         || report.device_allocation_bytes == 0
         || report.device_allocation_count == 0
+        || report.ui_overlay_failures != 0
+        || report.ui_overlay_frames != measured_frames_u64
+        || report.ui_overlay_updates == 0
     {
         return Err(PlatformCheckError::DesktopSmokeMismatch);
     }
@@ -497,6 +505,7 @@ fn finish_desktop_frame_timing_measurement(
 fn run_desktop_candidate(
     snapshot: &next_contracts::presentation::PresentationSnapshotV2,
     render_content_catalog: &next_contracts::render_content::RenderContentCatalogV1,
+    text_catalogs: &[next_contracts::localization::TextCatalogV1],
 ) -> Result<PlatformCandidateStatus, PlatformCheckError> {
     if !cfg!(all(
         target_arch = "x86_64",
@@ -509,6 +518,8 @@ fn run_desktop_candidate(
         maximum_event_loop_iterations: Some(600),
         inject_device_loss_after_frames: Some(0),
         inject_startup_lifecycle_probe: true,
+        ui_text_catalogs: text_catalogs.to_vec(),
+        ui_locale: "en".to_owned(),
         ..next_desktop_sdl_ash::DesktopRunOptions::default()
     };
     let mut prepared =
@@ -542,6 +553,9 @@ fn run_desktop_candidate(
         || report.device_loss_events != 1
         || report.device_recoveries != 1
         || !report.b0_capabilities_verified
+        || report.ui_overlay_failures != 0
+        || report.ui_overlay_frames != 1
+        || report.ui_overlay_updates == 0
     {
         return Err(PlatformCheckError::DesktopSmokeMismatch);
     }
@@ -552,6 +566,7 @@ fn run_desktop_candidate(
 fn run_desktop_candidate(
     _snapshot: &next_contracts::presentation::PresentationSnapshotV2,
     _render_content_catalog: &next_contracts::render_content::RenderContentCatalogV1,
+    _text_catalogs: &[next_contracts::localization::TextCatalogV1],
 ) -> Result<PlatformCandidateStatus, PlatformCheckError> {
     if cfg!(all(
         target_arch = "x86_64",

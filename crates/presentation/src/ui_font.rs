@@ -218,7 +218,10 @@ mod tests {
 
     #[test]
     fn glyph_lookup_is_deterministic() {
-        for glyph in PSEUDO_LOCALE_GLYPHS.iter().chain("Health 37/100".chars().collect::<Vec<_>>().iter()) {
+        for glyph in PSEUDO_LOCALE_GLYPHS
+            .iter()
+            .chain("Health 37/100".chars().collect::<Vec<_>>().iter())
+        {
             assert_eq!(ui_overlay_glyph_rows(*glyph), ui_overlay_glyph_rows(*glyph));
         }
     }

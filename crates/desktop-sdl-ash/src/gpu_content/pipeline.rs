@@ -45,7 +45,9 @@ pub(super) struct FrameRasterState {
     pub(super) scissor: vk::Rect2D,
 }
 
-fn raster_depth_state(fixed: RasterFixedStateV1) -> vk::PipelineDepthStencilStateCreateInfo<'static> {
+fn raster_depth_state(
+    fixed: RasterFixedStateV1,
+) -> vk::PipelineDepthStencilStateCreateInfo<'static> {
     vk::PipelineDepthStencilStateCreateInfo::default()
         .depth_test_enable(fixed.depth_test_enable)
         .depth_write_enable(fixed.depth_write_enable)

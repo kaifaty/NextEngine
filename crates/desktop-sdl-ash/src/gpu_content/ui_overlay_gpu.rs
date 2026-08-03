@@ -17,9 +17,9 @@ use next_contracts::presentation::{PresentationSnapshotV2, QuantizedPresentation
 use next_contracts::project::domain_hash;
 use next_presentation::{TextCatalogResolverV1, UiOverlayImageV1, rasterize_semantic_ui};
 
+use super::B0GpuContentError;
 use super::pipeline::{PipelineState, draw_push_constant_bytes, identity_matrix_bytes};
 use super::resources::{BufferAllocation, TextureResource};
-use super::B0GpuContentError;
 
 const UI_OVERLAY_VERTEX_COUNT: u32 = 6;
 const UI_OVERLAY_VERTEX_BUFFER_BYTES: usize = 120;
@@ -195,10 +195,7 @@ impl UiOverlayState {
         if record_count == 0 {
             return;
         }
-        let records = snapshot
-            .semantic_ui_records()
-            .cloned()
-            .collect::<Vec<_>>();
+        let records = snapshot.semantic_ui_records().cloned().collect::<Vec<_>>();
         let Some(image) = rasterize_semantic_ui(&records, resolver, extent.width, extent.height)
         else {
             return;
@@ -206,13 +203,7 @@ impl UiOverlayState {
         let Some(gpu) = self.gpu.as_mut() else {
             return;
         };
-        match gpu.update(
-            instance,
-            physical_device,
-            queue,
-            queue_family_index,
-            &image,
-        ) {
+        match gpu.update(instance, physical_device, queue, queue_family_index, &image) {
             Ok(()) => {
                 self.updates = self.updates.saturating_add(1);
                 self.draw_ready = true;
@@ -311,7 +302,8 @@ impl UiOverlayGpu {
         let texture_layout_info =
             vk::DescriptorSetLayoutCreateInfo::default().bindings(&texture_bindings);
         // SAFETY: bindings are closed overlay values and no pointer is retained.
-        guard.frame_layout = unsafe { device.create_descriptor_set_layout(&frame_layout_info, None) }?;
+        guard.frame_layout =
+            unsafe { device.create_descriptor_set_layout(&frame_layout_info, None) }?;
         // SAFETY: same ownership conditions as the frame layout.
         guard.texture_layout =
             unsafe { device.create_descriptor_set_layout(&texture_layout_info, None) }?;

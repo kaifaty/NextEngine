@@ -775,18 +775,19 @@ impl GraphicsContext {
         // The overlay pipeline commits to the swapchain color/depth formats;
         // a format change recreates it (the device was idled above) and the
         // next frame re-rasterizes into fresh resources.
-        if replacement_formats != current_formats && self.ui_overlay.enabled() {
-            if let Some((color_format, depth_format)) = replacement_formats {
-                self.ui_overlay.recreate(
-                    &self.instance,
-                    self.physical_device,
-                    &self.device,
-                    self.queue,
-                    self.queue_family_index,
-                    color_format,
-                    depth_format,
-                );
-            }
+        if replacement_formats != current_formats
+            && self.ui_overlay.enabled()
+            && let Some((color_format, depth_format)) = replacement_formats
+        {
+            self.ui_overlay.recreate(
+                &self.instance,
+                self.physical_device,
+                &self.device,
+                self.queue,
+                self.queue_family_index,
+                color_format,
+                depth_format,
+            );
         }
         self.swapchain = replacement;
         Ok(())
