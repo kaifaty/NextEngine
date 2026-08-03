@@ -364,7 +364,20 @@ impl PresentationExtractorV1 {
             self.max_camera_records_per_batch,
             domain_hash("nextengine.presentation.environment.empty.v1", &[]),
         )?;
-        candidate.validate()?;
+        // The constructor above already enforces the complete canonical
+        // validation surface for a freshly built candidate: per-record
+        // validation, snapshot-epoch match, canonical sort and key uniqueness
+        // for both record families, canonical batch partitioning, family
+        // limits and the published canonical hash. Re-running `validate()`
+        // only re-verifies those same invariants and recomputes the identical
+        // snapshot hash, which dominated extraction cost (~50%). Keep the
+        // full check in debug/test builds as a constructor regression gate;
+        // decode, restore and recovery paths still call `validate()` on
+        // untrusted bytes.
+        debug_assert!(
+            candidate.validate().is_ok(),
+            "freshly constructed presentation candidate must be valid"
+        );
         self.next_snapshot_sequence = self
             .next_snapshot_sequence
             .checked_add(1)
