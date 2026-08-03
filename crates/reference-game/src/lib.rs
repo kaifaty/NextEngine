@@ -8,6 +8,7 @@ mod runtime_bootstrap;
 mod scenario;
 mod session;
 mod source;
+mod ui;
 
 pub use error::{ReferenceGameError, ReferenceInputError};
 pub use input::{
@@ -27,3 +28,4 @@ pub use session::{
     ReferenceGameSession, build_reference_game_session, build_reference_game_session_with_profile,
 };
 pub use source::{REFERENCE_GAME_PROJECT_ID, project_source_v2, project_source_v2_with_id};
+pub use ui::hud_semantic_ui_records_for_ids;

@@ -1,12 +1,12 @@
 use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
 use next_contracts::input::{
     CORE_EQUIP_USE_ACTION_ID, CORE_INTERACT_ACTION_ID, CORE_MELEE_ACTION_ID, CORE_MOVE_ACTION_ID,
-    CORE_PICKUP_ACTION_ID, InputSampleV1, KEYBOARD_A_CONTROL_PATH_ID, KEYBOARD_D_CONTROL_PATH_ID,
-    KEYBOARD_DEVICE_CLASS_ID, KEYBOARD_E_CONTROL_PATH_ID, KEYBOARD_F_CONTROL_PATH_ID,
-    KEYBOARD_Q_CONTROL_PATH_ID, KEYBOARD_R_CONTROL_PATH_ID, KEYBOARD_S_CONTROL_PATH_ID,
-    KEYBOARD_W_CONTROL_PATH_ID, PLAYER_ACTION_FRAME_SCHEMA_ID, PLAYER_ACTION_FRAME_SCHEMA_VERSION,
-    PLAYER_ACTION_SOURCE_CLASS, PlayerActionFrameV1, PlayerActionPhaseV1, PlayerActionV1,
-    PlayerActionValueV1,
+    CORE_PICKUP_ACTION_ID, CORE_UI_BACK_ACTION_ID, InputSampleV1, KEYBOARD_A_CONTROL_PATH_ID,
+    KEYBOARD_D_CONTROL_PATH_ID, KEYBOARD_DEVICE_CLASS_ID, KEYBOARD_E_CONTROL_PATH_ID,
+    KEYBOARD_F_CONTROL_PATH_ID, KEYBOARD_Q_CONTROL_PATH_ID, KEYBOARD_R_CONTROL_PATH_ID,
+    KEYBOARD_S_CONTROL_PATH_ID, KEYBOARD_W_CONTROL_PATH_ID, PLAYER_ACTION_FRAME_SCHEMA_ID,
+    PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PlayerActionFrameV1,
+    PlayerActionPhaseV1, PlayerActionV1, PlayerActionValueV1,
 };
 use next_contracts::platform::{
     NormalizedControlEventV1, NormalizedControlPhaseV1, PlatformEventKindV1,
@@ -295,4 +295,23 @@ impl NormalizedReferenceInputV1 {
             )),
         )?)
     }
+}
+
+/// Returns the canonical-frame hash when the committed frame carries a
+/// `ui-back` press — the replayable causal evidence for the declared pause
+/// lifecycle request at the session boundary.
+pub(crate) fn ui_suspend_causal_hash(
+    frame: &PlayerActionFrameV1,
+) -> Result<Option<ContentHash>, ReferenceGameError> {
+    let requested = frame.actions.iter().any(|action| {
+        action.action_id.as_str() == CORE_UI_BACK_ACTION_ID
+            && action.phase == PlayerActionPhaseV1::Started
+            && action.value == PlayerActionValueV1::Digital(true)
+    });
+    if !requested {
+        return Ok(None);
+    }
+    Ok(Some(ContentHash::from_bytes(
+        next_contracts::canonical::sha256(&frame.canonical_bytes()?),
+    )))
 }

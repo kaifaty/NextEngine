@@ -1,5 +1,6 @@
 use next_contracts::content::{NeutralPropertyV1, NeutralRecordKindV1, NeutralRecordV1};
 use next_contracts::ids::{AssetId, PersistentId, ProjectId, SchemaId};
+use next_contracts::localization::{TextCatalogEntryV1, TextCatalogV1, TextLocaleTagV1};
 use next_contracts::platform::PresentationTargetKindV1;
 use next_contracts::project::{
     ContentProvenanceV1, SchemaEncodingV1, SchemaRefV1, SchemaRoleV1, domain_hash,
@@ -27,6 +28,8 @@ pub const REFERENCE_FALLBACK_TEXTURE_ASSET_ID: AssetId = AssetId::from_bytes([0x
 pub const REFERENCE_BASE_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0x85; 16]);
 pub const REFERENCE_FALLBACK_MATERIAL_ASSET_ID: AssetId = AssetId::from_bytes([0x86; 16]);
 pub const REFERENCE_RENDER_PROFILE_ASSET_ID: AssetId = AssetId::from_bytes([0x87; 16]);
+pub const REFERENCE_TEXT_CATALOG_EN_ASSET_ID: AssetId = AssetId::from_bytes([0x91; 16]);
+pub const REFERENCE_TEXT_CATALOG_PSEUDO_ASSET_ID: AssetId = AssetId::from_bytes([0x92; 16]);
 
 pub fn project_source_v2() -> Result<NeutralProjectSourceV1, ProjectCookError> {
     project_source_v2_with_id(REFERENCE_GAME_PROJECT_ID)
@@ -114,6 +117,7 @@ pub fn project_source_v2_with_id(
         resolver_profile_version: 1,
         records,
         render_records,
+        text_catalogs: reference_text_catalogs()?,
         root_asset_ids,
         provenance: ContentProvenanceV1::new(
             SchemaId::new("nextengine.reference.provenance.cc0")?,
@@ -148,6 +152,66 @@ pub fn project_source_v2_with_id(
             PresentationTargetKindV1::DisplaylessOffscreen,
         ],
     })
+}
+
+/// Reference text catalogs: the `en` source locale covers every text ID the
+/// semantic UI projection emits plus the quest-state TextId argument targets;
+/// the `qps-ploc` pseudo-locale intentionally omits
+/// `nextengine.ui.text.pause-menu.load` so resolution exercises the declared
+/// `qps-ploc -> en` fallback chain deterministically.
+fn reference_text_catalogs() -> Result<Vec<TextCatalogV1>, ProjectCookError> {
+    let en_entries: &[(&str, &str)] = &[
+        ("nextengine.ui.text.hud.health", "Health {0}/{1}"),
+        ("nextengine.ui.text.hud.quest-state", "Quest: {0}"),
+        ("nextengine.ui.text.pause-menu.title", "Paused"),
+        ("nextengine.ui.text.pause-menu.resume", "Resume"),
+        ("nextengine.ui.text.pause-menu.save", "Save game"),
+        ("nextengine.ui.text.pause-menu.load", "Load game"),
+        ("nextengine.reference.quest.available", "Available"),
+        ("nextengine.reference.quest.active", "Active"),
+    ];
+    let pseudo_entries: &[(&str, &str)] = &[
+        ("nextengine.ui.text.hud.health", "⟦Ħēåłŧħ⟧ {0}/{1}"),
+        ("nextengine.ui.text.hud.quest-state", "⟦Qųēșŧ⟧: {0}"),
+        ("nextengine.ui.text.pause-menu.title", "⟦Påųșēḑ⟧"),
+        ("nextengine.ui.text.pause-menu.resume", "⟦Rēșųmē⟧"),
+        ("nextengine.ui.text.pause-menu.save", "⟦Șåvē ĝåmē⟧"),
+        ("nextengine.reference.quest.available", "⟦Åvēåíłåbłē⟧"),
+        ("nextengine.reference.quest.active", "⟦Åćŧívē⟧"),
+    ];
+    Ok(vec![
+        reference_text_catalog(REFERENCE_TEXT_CATALOG_EN_ASSET_ID, "en", None, en_entries)?,
+        reference_text_catalog(
+            REFERENCE_TEXT_CATALOG_PSEUDO_ASSET_ID,
+            "qps-ploc",
+            Some("en"),
+            pseudo_entries,
+        )?,
+    ])
+}
+
+fn reference_text_catalog(
+    asset_id: AssetId,
+    locale: &str,
+    fallback: Option<&str>,
+    entries: &[(&str, &str)],
+) -> Result<TextCatalogV1, ProjectCookError> {
+    let entries = entries
+        .iter()
+        .map(|(text_id, template)| {
+            Ok(TextCatalogEntryV1::new(
+                SchemaId::new(*text_id)?,
+                (*template).to_owned(),
+            )?)
+        })
+        .collect::<Result<Vec<_>, ProjectCookError>>()?;
+    Ok(TextCatalogV1::new(
+        asset_id,
+        1,
+        TextLocaleTagV1::new(locale)?,
+        fallback.map(TextLocaleTagV1::new).transpose()?,
+        entries,
+    )?)
 }
 
 fn reference_render_records() -> Result<Vec<NeutralRenderRecordV1>, ProjectCookError> {

@@ -573,6 +573,171 @@ fn live_recovery_republishes_sequence_zero_camera_cut_under_a_new_epoch() {
     std::fs::remove_dir_all(root).expect("cleanup");
 }
 
+#[test]
+fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
+    let root = test_root("live-semantic-ui-hud");
+    let store = ContentStore::new(&root);
+    let cooked = next_project::cook_project_v1(
+        next_reference_game::project_source_v2().expect("reference source"),
+    )
+    .expect("cook");
+    store
+        .publish(&cooked.publication().expect("publication"))
+        .expect("publish");
+    let activated = next_project::activate_project(&store).expect("activate");
+
+    let mut driver = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+        .expect("live driver");
+    let initial = driver.state().expect("initial state");
+    let ui_records = initial
+        .presentation_snapshot
+        .semantic_ui_records()
+        .collect::<Vec<_>>();
+    assert_eq!(ui_records.len(), 2);
+    let health = ui_records
+        .iter()
+        .find(|record| record.element.element_id.as_str() == "nextengine.ui.element.hud.health")
+        .expect("health element");
+    assert_eq!(health.surface_id.as_str(), "nextengine.ui.surface.hud");
+    assert_eq!(
+        health.semantic_path_id.as_str(),
+        "nextengine.ui.panel.hud.status"
+    );
+    assert_eq!(
+        health.element.role,
+        next_contracts::presentation::UiElementRoleV1::Meter
+    );
+    assert_eq!(
+        health.element.accessibility_role,
+        next_contracts::presentation::UiAccessibilityRoleV1::Status
+    );
+    assert_eq!(
+        health.element.value,
+        next_contracts::presentation::UiElementValueV1::Scalar {
+            current: 100,
+            maximum: 100,
+        }
+    );
+    let health_text = health.element.text_or_none.as_ref().expect("health text");
+    assert_eq!(
+        health_text.text_id.as_str(),
+        "nextengine.ui.text.hud.health"
+    );
+    assert_eq!(
+        health_text.arguments,
+        vec![
+            next_contracts::presentation::UiTextArgumentV1::SignedInteger(100),
+            next_contracts::presentation::UiTextArgumentV1::SignedInteger(100),
+        ]
+    );
+    let quest = ui_records
+        .iter()
+        .find(|record| record.element.element_id.as_str() == "nextengine.ui.element.hud.quest")
+        .expect("quest element");
+    assert_eq!(
+        quest.element.role,
+        next_contracts::presentation::UiElementRoleV1::Label
+    );
+    assert!(
+        matches!(
+            quest
+                .element
+                .text_or_none
+                .as_ref()
+                .expect("quest text")
+                .arguments
+                .as_slice(),
+            [next_contracts::presentation::UiTextArgumentV1::TextId(_)]
+        ),
+        "quest label carries its state id as a text argument"
+    );
+    assert!(
+        ui_records
+            .iter()
+            .all(|record| record.snapshot_epoch == initial.presentation_snapshot.snapshot_epoch)
+    );
+
+    // The cooked text catalogs resolve every emitted HUD reference
+    // deterministically: the source locale directly, the pseudo-locale
+    // through its declared `qps-ploc -> en` fallback chain, and quest state
+    // TextId arguments recursively.
+    let en_resolver =
+        next_presentation::TextCatalogResolverV1::new(activated.text_catalogs.clone(), "en")
+            .expect("en resolver");
+    let health_ref = health.element.text_or_none.as_ref().expect("health text");
+    let health_resolution = en_resolver.resolve(health_ref);
+    assert_eq!(health_resolution.text, "Health 100/100");
+    assert_eq!(health_resolution.diagnostic_or_none, None);
+    let quest_resolution =
+        en_resolver.resolve(quest.element.text_or_none.as_ref().expect("quest text"));
+    assert_eq!(quest_resolution.text, "Quest: Available");
+    assert_eq!(quest_resolution.diagnostic_or_none, None);
+
+    let pseudo_resolver =
+        next_presentation::TextCatalogResolverV1::new(activated.text_catalogs.clone(), "qps-ploc")
+            .expect("pseudo resolver");
+    assert!(!pseudo_resolver.requested_locale_missing());
+    assert_eq!(pseudo_resolver.resolve(health_ref).text, "⟦Ħēåłŧħ⟧ 100/100");
+    // The pseudo catalog omits pause-menu.load on purpose: it falls back.
+    let load_ref = next_contracts::presentation::UiTextRefV1::new(
+        next_contracts::ids::SchemaId::new("nextengine.ui.text.pause-menu.load").expect("text id"),
+        Vec::new(),
+    )
+    .expect("text ref");
+    let load_resolution = pseudo_resolver.resolve(&load_ref);
+    assert_eq!(load_resolution.text, "Load game");
+    assert_eq!(load_resolution.diagnostic_or_none, None);
+
+    // Recovery evidence round-trips the typed semantic UI batches: the
+    // recovered driver rebuilds the same HUD under the recovery cut epoch.
+    driver.advance(&[]).expect("non-cut live frame");
+    let persisted = driver.state().expect("persisted state");
+    let recovered = next_reference_game::ReferenceGameDriverV1::restore(
+        activated.clone(),
+        persisted.checkpoint.clone(),
+        persisted.world_streaming_snapshot.clone(),
+        persisted.driver_recovery.clone(),
+    )
+    .expect("recovered driver")
+    .state()
+    .expect("recovered state");
+    let recovered_ui = recovered
+        .presentation_snapshot
+        .semantic_ui_records()
+        .collect::<Vec<_>>();
+    assert_eq!(recovered_ui.len(), 2);
+    assert!(
+        recovered_ui
+            .iter()
+            .all(|record| record.snapshot_epoch == recovered.presentation_snapshot.snapshot_epoch)
+    );
+    assert_ne!(
+        recovered.presentation_snapshot.snapshot_epoch,
+        persisted.presentation_snapshot.snapshot_epoch
+    );
+
+    // A non-interactive scenario has no RPG sources and publishes no
+    // semantic UI batches.
+    let non_interactive = next_reference_game::ReferenceGameDriverV1::new(activated, false)
+        .expect("non-interactive driver")
+        .state()
+        .expect("non-interactive state");
+    assert_eq!(
+        non_interactive
+            .presentation_snapshot
+            .semantic_ui_records()
+            .count(),
+        0
+    );
+    assert!(
+        non_interactive
+            .presentation_snapshot
+            .semantic_ui_batches
+            .is_empty()
+    );
+    std::fs::remove_dir_all(root).expect("cleanup");
+}
+
 fn assert_live_state_eq(
     left: &next_reference_game::ReferenceLiveStateV1,
     right: &next_reference_game::ReferenceLiveStateV1,

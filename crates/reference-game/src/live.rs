@@ -32,6 +32,7 @@ const CAMERA_SHOULDER_MICROMETRES: i64 = 350_000;
 const CAMERA_MOUSE_MILLIDEGREES_PER_UNIT: i32 = 120;
 const CAMERA_TRIG_FRACTIONAL_BITS: u32 = 52;
 const CAMERA_TRIG_ONE_Q52: i64 = 1_i64 << CAMERA_TRIG_FRACTIONAL_BITS;
+const SEMANTIC_UI_RECORDS_PER_BATCH: usize = 64;
 const CAMERA_CORDIC_GAIN_INVERSE_Q52: i64 = 2_734_824_091_825_638;
 // Pinned deterministic CORDIC profile: atan(2^-i) uses Q62 turns while the
 // rotated sine/cosine vector uses Q52. These integers are canonical inputs.
@@ -194,6 +195,7 @@ struct PreparedReferenceGameState {
     camera_yaw_millidegrees: i32,
     camera_pitch_millidegrees: i32,
     camera_cut: bool,
+    ui_suspend_causal_hash: Option<ContentHash>,
 }
 
 /// An isolated next reference-game generation with a read-only presentation
@@ -238,6 +240,13 @@ impl ValidatedReferenceGameAdvance {
     #[must_use]
     pub const fn next_tick(&self) -> u64 {
         self.runtime.next_tick()
+    }
+
+    /// Causal evidence hash of the committed `ui-back` press that requests
+    /// the declared suspend transition on this advance, if any.
+    #[must_use]
+    pub const fn ui_suspend_causal_hash(&self) -> Option<ContentHash> {
+        self.state.ui_suspend_causal_hash
     }
 
     pub fn presentation_snapshot(&self) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
@@ -308,11 +317,12 @@ impl ReferenceGameDriverV1 {
         )?;
         let presentation_bindings = fixture_presentation_bindings(&fixture)?;
         let presentation_extractor =
-            PresentationExtractorV1::new_with_snapshot_epoch_and_batch_limits(
+            PresentationExtractorV1::new_with_snapshot_epoch_and_ui_batch_limits(
                 snapshot_epoch,
                 reference_b0_presentation_profile_hash(),
                 8,
                 1,
+                SEMANTIC_UI_RECORDS_PER_BATCH,
             )?;
         let mut driver = Self {
             fixture,
@@ -462,12 +472,14 @@ impl ReferenceGameDriverV1 {
             .checked_add(1)
             .ok_or(ReferenceGameError::CountOverflow)?;
         let mut runtime_preparation = self.runtime.tick_preparation();
+        let mut ui_suspend_causal_hash = None;
         if let Some(resolved) = input.resolved {
             update_camera_state(
                 &resolved.frame,
                 &mut camera_yaw_millidegrees,
                 &mut camera_pitch_millidegrees,
             );
+            ui_suspend_causal_hash = crate::input::ui_suspend_causal_hash(&resolved.frame)?;
             if let Some(sample) = runtime_sample_without_camera_actions(
                 &resolved.frame,
                 &resolved.sample,
@@ -503,7 +515,13 @@ impl ReferenceGameDriverV1 {
             camera_pitch_millidegrees,
             self.camera_cut,
         )?;
-        presentation_extractor.extract_with_cameras(
+        let ui_records = crate::ui::live_semantic_ui_records(
+            presentation_extractor.snapshot_epoch(),
+            &self.fixture,
+            &prepared_runtime.rpg_snapshot(),
+            ui_suspend_causal_hash,
+        )?;
+        presentation_extractor.extract_with_cameras_and_semantic_ui(
             prepared_runtime.next_tick(),
             self.fixture
                 .activated_project
@@ -516,6 +534,7 @@ impl ReferenceGameDriverV1 {
             prepared_runtime.physics_snapshot(),
             &self.presentation_bindings,
             &[camera],
+            ui_records,
         )?;
         if presentation_extractor.accepted_snapshot().is_none() {
             return Err(ReferenceGameError::PresentationSnapshotMissing);
@@ -533,6 +552,7 @@ impl ReferenceGameDriverV1 {
                 camera_yaw_millidegrees,
                 camera_pitch_millidegrees,
                 camera_cut: false,
+                ui_suspend_causal_hash,
             },
         })
     }
@@ -717,20 +737,27 @@ impl ReferenceGameDriverV1 {
 
     fn publish_presentation(&mut self) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
         let camera = self.camera_binding()?;
-        self.presentation_extractor.extract_with_cameras(
-            self.runtime.next_tick(),
-            self.fixture
-                .activated_project
-                .composition_lock
-                .composition_lock_sha256,
-            self.fixture
-                .activated_project
-                .content_manifest
-                .content_manifest_sha256,
-            self.runtime.physics_snapshot(),
-            &self.presentation_bindings,
-            &[camera],
+        let ui_records = crate::ui::hud_semantic_ui_records(
+            self.presentation_extractor.snapshot_epoch(),
+            &self.fixture,
+            &self.runtime.rpg_snapshot(),
         )?;
+        self.presentation_extractor
+            .extract_with_cameras_and_semantic_ui(
+                self.runtime.next_tick(),
+                self.fixture
+                    .activated_project
+                    .composition_lock
+                    .composition_lock_sha256,
+                self.fixture
+                    .activated_project
+                    .content_manifest
+                    .content_manifest_sha256,
+                self.runtime.physics_snapshot(),
+                &self.presentation_bindings,
+                &[camera],
+                ui_records,
+            )?;
         self.camera_cut = false;
         self.presentation_extractor
             .accepted_snapshot()
