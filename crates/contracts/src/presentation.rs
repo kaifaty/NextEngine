@@ -8,6 +8,7 @@ use crate::project::{AssetRevisionRefV1, domain_hash};
 use crate::render_content::AabbI64V1;
 
 mod camera;
+mod ui;
 
 pub use camera::{
     CAMERA_PRESENTATION_RECORD_SCHEMA_VERSION, CameraInterpolationPolicyV1,
@@ -15,8 +16,19 @@ pub use camera::{
     CameraResultSampleV1, CameraRoleV1, CameraViewportV1, PRESENTATION_MAX_CAMERA_RECORDS,
     ThirdPersonCameraIntentSampleV1,
 };
+pub use ui::{
+    PRESENTATION_DEFAULT_SEMANTIC_UI_RECORDS_PER_BATCH, PRESENTATION_MAX_SEMANTIC_UI_RECORDS,
+    SEMANTIC_UI_PRESENTATION_RECORD_SCHEMA_VERSION, SemanticUiPresentationBatchV1,
+    SemanticUiPresentationRecordV1, UI_MAX_AFFORDANCES_PER_ELEMENT, UI_MAX_ELEMENTS_PER_PANEL,
+    UI_MAX_FOCUS_ORDER, UI_MAX_PANELS_PER_SURFACE, UI_MAX_TEXT_ARGUMENTS,
+    UI_SEMANTIC_SNAPSHOT_SCHEMA_VERSION, UiAccessibilityRoleV1, UiActionAffordanceV1,
+    UiElementFocusKeyV1, UiElementRoleV1, UiElementValueV1, UiSemanticElementV1, UiSemanticPanelV1,
+    UiSemanticSnapshotV1, UiStyleRoleV1, UiTextArgumentV1, UiTextRefV1, build_semantic_ui_batches,
+    validate_semantic_ui_batches,
+};
 
 use camera::{build_camera_batches, camera_batches_value, validate_camera_batches};
+use ui::semantic_ui_batches_value;
 
 pub const PRESENTATION_SNAPSHOT_SCHEMA_VERSION: u32 = 2;
 pub const PRESENTATION_SCENE_RECORD_SCHEMA_VERSION: u32 = 2;
@@ -267,7 +279,7 @@ pub struct PresentationSnapshotV2 {
     pub presentation_profile_hash: ContentHash,
     pub scene_batches: Vec<ScenePresentationBatchV1>,
     pub camera_batches: Vec<CameraPresentationBatchV1>,
-    pub semantic_ui_batches: Vec<ContentHash>,
+    pub semantic_ui_batches: Vec<SemanticUiPresentationBatchV1>,
     pub cue_batches: Vec<ContentHash>,
     pub environment_batch: ContentHash,
     pub canonical_hash: ContentHash,
@@ -315,13 +327,52 @@ impl PresentationSnapshotV2 {
         project_composition_lock_hash: ContentHash,
         content_manifest_hash: ContentHash,
         presentation_profile_hash: ContentHash,
-        mut scene_records: Vec<ScenePresentationRecordV2>,
+        scene_records: Vec<ScenePresentationRecordV2>,
         camera_records: Vec<CameraPresentationRecordV2>,
         max_scene_records_per_batch: usize,
         max_camera_records_per_batch: usize,
         environment_batch: ContentHash,
     ) -> Result<Self, PresentationContractError> {
-        if max_scene_records_per_batch == 0 || max_camera_records_per_batch == 0 {
+        Self::new_with_camera_and_semantic_ui_records(
+            snapshot_epoch,
+            snapshot_sequence,
+            simulation_tick,
+            project_composition_lock_hash,
+            content_manifest_hash,
+            presentation_profile_hash,
+            scene_records,
+            camera_records,
+            Vec::new(),
+            max_scene_records_per_batch,
+            max_camera_records_per_batch,
+            PRESENTATION_DEFAULT_SEMANTIC_UI_RECORDS_PER_BATCH,
+            environment_batch,
+        )
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "scene, camera and semantic UI family limits are explicit at the atomic publication boundary"
+    )]
+    pub fn new_with_camera_and_semantic_ui_records(
+        snapshot_epoch: ContentHash,
+        snapshot_sequence: u64,
+        simulation_tick: u64,
+        project_composition_lock_hash: ContentHash,
+        content_manifest_hash: ContentHash,
+        presentation_profile_hash: ContentHash,
+        mut scene_records: Vec<ScenePresentationRecordV2>,
+        camera_records: Vec<CameraPresentationRecordV2>,
+        semantic_ui_records: Vec<SemanticUiPresentationRecordV1>,
+        max_scene_records_per_batch: usize,
+        max_camera_records_per_batch: usize,
+        max_semantic_ui_records_per_batch: usize,
+        environment_batch: ContentHash,
+    ) -> Result<Self, PresentationContractError> {
+        if max_scene_records_per_batch == 0
+            || max_camera_records_per_batch == 0
+            || max_semantic_ui_records_per_batch == 0
+        {
             return Err(PresentationContractError::InvalidBatchProfile);
         }
         if scene_records.len() > PRESENTATION_MAX_SCENE_RECORDS {
@@ -353,6 +404,11 @@ impl PresentationSnapshotV2 {
             .collect::<Result<Vec<_>, _>>()?;
         let camera_batches =
             build_camera_batches(snapshot_epoch, camera_records, max_camera_records_per_batch)?;
+        let semantic_ui_batches = build_semantic_ui_batches(
+            snapshot_epoch,
+            semantic_ui_records,
+            max_semantic_ui_records_per_batch,
+        )?;
         let mut value = Self {
             schema_version: PRESENTATION_SNAPSHOT_SCHEMA_VERSION,
             snapshot_epoch,
@@ -363,7 +419,7 @@ impl PresentationSnapshotV2 {
             presentation_profile_hash,
             scene_batches,
             camera_batches,
-            semantic_ui_batches: Vec::new(),
+            semantic_ui_batches,
             cue_batches: Vec::new(),
             environment_batch,
             canonical_hash: ContentHash::default(),
@@ -413,6 +469,7 @@ impl PresentationSnapshotV2 {
         }
         ensure_record_refs_unique(&records)?;
         validate_camera_batches(self.snapshot_epoch, &self.camera_batches)?;
+        validate_semantic_ui_batches(self.snapshot_epoch, &self.semantic_ui_batches)?;
         if self.computed_hash() != self.canonical_hash {
             return Err(PresentationContractError::HashMismatch);
         }
@@ -427,6 +484,12 @@ impl PresentationSnapshotV2 {
 
     pub fn camera_records(&self) -> impl Iterator<Item = &CameraPresentationRecordV2> {
         self.camera_batches
+            .iter()
+            .flat_map(|batch| batch.records.iter())
+    }
+
+    pub fn semantic_ui_records(&self) -> impl Iterator<Item = &SemanticUiPresentationRecordV1> {
+        self.semantic_ui_batches
             .iter()
             .flat_map(|batch| batch.records.iter())
     }
@@ -468,7 +531,7 @@ impl PresentationSnapshotV2 {
                 ("schema_version", number(self.schema_version)),
                 (
                     "semantic_ui_batches",
-                    hash_array_value(&self.semantic_ui_batches),
+                    semantic_ui_batches_value(&self.semantic_ui_batches),
                 ),
                 ("simulation_tick", JcsValue::Number(self.simulation_tick)),
                 ("snapshot_epoch", string(self.snapshot_epoch.to_hex())),
@@ -502,6 +565,14 @@ pub enum PresentationContractError {
     InvalidCameraIntent,
     InvalidCameraResult,
     InvalidCameraPolicy,
+    InvalidUiIdentifier,
+    InvalidUiText,
+    InvalidUiValue,
+    InvalidUiAffordance,
+    DuplicateUiElementKey,
+    DuplicateUiPanelId,
+    InvalidUiFocusGraph,
+    UiSchemaIncompatible,
 }
 
 impl Display for PresentationContractError {
@@ -525,6 +596,14 @@ impl Display for PresentationContractError {
             Self::InvalidCameraIntent => "presentation camera intent is invalid",
             Self::InvalidCameraResult => "presentation camera result is invalid",
             Self::InvalidCameraPolicy => "presentation camera cut/interpolation policy is invalid",
+            Self::InvalidUiIdentifier => "semantic UI identifier or snapshot reference is invalid",
+            Self::InvalidUiText => "semantic UI text reference is invalid",
+            Self::InvalidUiValue => "semantic UI element value is invalid",
+            Self::InvalidUiAffordance => "semantic UI action affordance is invalid",
+            Self::DuplicateUiElementKey => "semantic UI element key is duplicated",
+            Self::DuplicateUiPanelId => "semantic UI panel identifier is duplicated",
+            Self::InvalidUiFocusGraph => "semantic UI focus graph is invalid",
+            Self::UiSchemaIncompatible => "semantic UI schema is incompatible",
         })
     }
 }
@@ -680,175 +759,4 @@ fn hex_bytes(bytes: &[u8]) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ids::AssetId;
-
-    #[test]
-    fn extraction_order_and_batch_profile_produce_canonical_records() {
-        let epoch = domain_hash("test.presentation.epoch", b"epoch");
-        let mut records = vec![
-            record(epoch, 2, PresentationRoleV1::Item),
-            record(epoch, 1, PresentationRoleV1::PlayerAvatar),
-        ];
-        let forward = PresentationSnapshotV2::new(
-            epoch,
-            0,
-            3,
-            domain_hash("test.lock", b"lock"),
-            domain_hash("test.content", b"content"),
-            domain_hash("test.profile", b"profile"),
-            records.clone(),
-            1,
-            domain_hash("test.environment", b"environment"),
-        )
-        .expect("snapshot");
-        records.reverse();
-        let reverse = PresentationSnapshotV2::new(
-            epoch,
-            0,
-            3,
-            domain_hash("test.lock", b"lock"),
-            domain_hash("test.content", b"content"),
-            domain_hash("test.profile", b"profile"),
-            records,
-            1,
-            domain_hash("test.environment", b"environment"),
-        )
-        .expect("snapshot");
-        assert_eq!(forward, reverse);
-        forward.validate().expect("valid");
-    }
-
-    #[test]
-    fn duplicate_object_key_rejects_whole_snapshot() {
-        let epoch = domain_hash("test.presentation.epoch", b"epoch");
-        let duplicate = record(epoch, 1, PresentationRoleV1::Item);
-        assert_eq!(
-            PresentationSnapshotV2::new(
-                epoch,
-                0,
-                0,
-                domain_hash("test.lock", b"lock"),
-                domain_hash("test.content", b"content"),
-                domain_hash("test.profile", b"profile"),
-                vec![duplicate.clone(), duplicate],
-                8,
-                domain_hash("test.environment", b"environment"),
-            ),
-            Err(PresentationContractError::DuplicateObjectKey)
-        );
-    }
-
-    #[test]
-    fn duplicate_object_key_with_different_asset_is_rejected() {
-        let epoch = domain_hash("test.presentation.epoch", b"epoch");
-        let first = record(epoch, 1, PresentationRoleV1::Item);
-        let second = ScenePresentationRecordV2::new(
-            first.presentation_layer,
-            first.object_key,
-            asset_revision(9, "test.mesh.second"),
-            first.material_revision,
-            1,
-            first.local_bounds,
-            first.feature_flags,
-            first.previous_transform,
-            first.current_transform,
-            first.visible,
-        );
-        assert_eq!(
-            PresentationSnapshotV2::new(
-                epoch,
-                0,
-                0,
-                domain_hash("test.lock", b"lock"),
-                domain_hash("test.content", b"content"),
-                domain_hash("test.profile", b"profile"),
-                vec![first, second],
-                8,
-                domain_hash("test.environment", b"environment"),
-            ),
-            Err(PresentationContractError::DuplicateObjectKey)
-        );
-    }
-
-    #[test]
-    fn scene_record_rejects_zero_exact_revision_hashes() {
-        let epoch = domain_hash("test.presentation.epoch", b"epoch");
-        let zero_mesh = ScenePresentationRecordV2::new(
-            0,
-            PresentationObjectKeyV1 {
-                snapshot_epoch: epoch,
-                persistent_id: PersistentId::from_bytes([1; 16]),
-                presentation_role: PresentationRoleV1::Item,
-                incarnation: 0,
-            },
-            AssetRevisionRefV1 {
-                asset_id: AssetId::from_bytes([2; 16]),
-                record_sha256: ContentHash::default(),
-            },
-            asset_revision(3, "test.material"),
-            0,
-            AabbI64V1::new([-1; 3], [1; 3]).expect("bounds"),
-            ScenePresentationFlagsV1::NONE,
-            QuantizedPresentationTransformV1::default(),
-            QuantizedPresentationTransformV1::default(),
-            true,
-        );
-        assert_eq!(
-            zero_mesh.validate(),
-            Err(PresentationContractError::InvalidAssetRevision)
-        );
-    }
-
-    #[test]
-    fn snapshot_rejects_record_from_another_epoch() {
-        let snapshot_epoch = domain_hash("test.presentation.epoch", b"snapshot");
-        let record_epoch = domain_hash("test.presentation.epoch", b"record");
-        assert_eq!(
-            PresentationSnapshotV2::new(
-                snapshot_epoch,
-                0,
-                0,
-                domain_hash("test.lock", b"lock"),
-                domain_hash("test.content", b"content"),
-                domain_hash("test.profile", b"profile"),
-                vec![record(record_epoch, 1, PresentationRoleV1::PlayerAvatar)],
-                8,
-                domain_hash("test.environment", b"environment"),
-            ),
-            Err(PresentationContractError::SnapshotEpochMismatch)
-        );
-    }
-
-    fn record(
-        epoch: ContentHash,
-        persistent: u8,
-        role: PresentationRoleV1,
-    ) -> ScenePresentationRecordV2 {
-        ScenePresentationRecordV2::new(
-            role as u16,
-            PresentationObjectKeyV1 {
-                snapshot_epoch: epoch,
-                persistent_id: PersistentId::from_bytes([persistent; 16]),
-                presentation_role: role,
-                incarnation: 0,
-            },
-            asset_revision(persistent, "test.mesh"),
-            asset_revision(persistent.saturating_add(32), "test.material"),
-            0,
-            AabbI64V1::new([-1_000_000; 3], [1_000_001; 3]).expect("bounds"),
-            ScenePresentationFlagsV1::NONE,
-            QuantizedPresentationTransformV1::default(),
-            QuantizedPresentationTransformV1::default(),
-            true,
-        )
-    }
-
-    fn asset_revision(id: u8, domain: &str) -> AssetRevisionRefV1 {
-        AssetRevisionRefV1 {
-            asset_id: AssetId::from_bytes([id; 16]),
-            record_sha256: domain_hash(domain, &[id]),
-        }
-    }
-}
+mod tests;

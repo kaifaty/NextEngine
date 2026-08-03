@@ -13,6 +13,7 @@ pub struct ActivatedProjectV2 {
     pub content_manifest: ContentManifestV1,
     pub world_partition: WorldPartitionManifestV1,
     pub neutral_records: Vec<crate::content::NeutralRecordV1>,
+    pub text_catalogs: Vec<crate::localization::TextCatalogV1>,
     pub rpg_definitions: crate::mechanics::RpgDefinitionRegistryV1,
     pub render_content_catalog: RenderContentCatalogV1,
 }
@@ -45,6 +46,58 @@ impl ActivatedProjectV2 {
                 })
             {
                 return Err(ProjectContractError::HashMismatch);
+            }
+        }
+        if self
+            .text_catalogs
+            .windows(2)
+            .any(|pair| pair[0].catalog_asset_id >= pair[1].catalog_asset_id)
+        {
+            return Err(ProjectContractError::DuplicateIdentity);
+        }
+        let mut locales = std::collections::BTreeSet::new();
+        let mut root_count = 0_usize;
+        for catalog in &self.text_catalogs {
+            let record_hash = catalog
+                .record_sha256()
+                .map_err(|_| ProjectContractError::HashMismatch)?;
+            if !self
+                .content_manifest
+                .body
+                .asset_entries
+                .iter()
+                .any(|entry| {
+                    entry.asset_revision.asset_id == catalog.catalog_asset_id
+                        && entry.asset_revision.record_sha256 == record_hash
+                })
+            {
+                return Err(ProjectContractError::HashMismatch);
+            }
+            if !locales.insert(catalog.locale.as_str()) {
+                return Err(ProjectContractError::DuplicateIdentity);
+            }
+            if catalog.fallback_locale_or_none.is_none() {
+                root_count += 1;
+            }
+        }
+        if !self.text_catalogs.is_empty() && root_count != 1 {
+            return Err(ProjectContractError::MissingReference);
+        }
+        for catalog in &self.text_catalogs {
+            let mut visited = std::collections::BTreeSet::new();
+            let mut current = catalog;
+            loop {
+                if !visited.insert(current.locale.as_str()) {
+                    return Err(ProjectContractError::DependencyCycle);
+                }
+                let Some(fallback) = &current.fallback_locale_or_none else {
+                    break;
+                };
+                current = self
+                    .text_catalogs
+                    .iter()
+                    .find(|candidate| candidate.locale.as_str() == fallback.as_str())
+                    .ok_or(ProjectContractError::MissingReference)?;
             }
         }
         let catalog_bytes = self

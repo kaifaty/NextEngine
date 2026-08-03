@@ -168,6 +168,7 @@ impl InputContextStackV1 {
             CORE_MELEE_ACTION_ID,
             CORE_MOVE_ACTION_ID,
             CORE_PICKUP_ACTION_ID,
+            CORE_UI_BACK_ACTION_ID,
         ]
         .into_iter()
         .map(SchemaId::new)
@@ -179,6 +180,43 @@ impl InputContextStackV1 {
                 SchemaId::new(CORE_GAMEPLAY_CONTEXT_ID)?,
                 1,
                 100,
+                InputContextCapturePolicyV1::CaptureAll,
+                allowed_action_ids,
+            )?],
+        )
+    }
+
+    /// Modal menu layer: only the universal UI actions stay live while the
+    /// menu context sits above gameplay with capture-all semantics.
+    pub fn ui_menu_v1() -> Result<Self, InputContractError> {
+        Self::ui_modal_v1(CORE_UI_MENU_CONTEXT_STACK_ID, CORE_UI_MENU_CONTEXT_ID)
+    }
+
+    /// Modal dialogue layer: same universal UI actions while a dialogue
+    /// surface owns the player attention.
+    pub fn ui_dialogue_v1() -> Result<Self, InputContractError> {
+        Self::ui_modal_v1(
+            CORE_UI_DIALOGUE_CONTEXT_STACK_ID,
+            CORE_UI_DIALOGUE_CONTEXT_ID,
+        )
+    }
+
+    fn ui_modal_v1(stack_id: &str, context_id: &str) -> Result<Self, InputContractError> {
+        let allowed_action_ids = [
+            CORE_UI_BACK_ACTION_ID,
+            CORE_UI_CONFIRM_ACTION_ID,
+            CORE_UI_NAVIGATE_ACTION_ID,
+        ]
+        .into_iter()
+        .map(SchemaId::new)
+        .collect::<Result<Vec<_>, _>>()?;
+        Self::new(
+            SchemaId::new(stack_id)?,
+            1,
+            vec![InputContextV1::new(
+                SchemaId::new(context_id)?,
+                1,
+                200,
                 InputContextCapturePolicyV1::CaptureAll,
                 allowed_action_ids,
             )?],

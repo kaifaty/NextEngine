@@ -615,3 +615,78 @@ fn action_frame_order_is_validated_against_effective_context_priority() {
         Err(InputContractError::NonCanonicalOrder)
     );
 }
+
+#[test]
+fn core_action_map_declares_universal_ui_actions_for_modal_contexts() {
+    let action_map = ActionMapManifestV1::core_keyboard_mouse_v1().expect("core action map");
+    assert_eq!(action_map.actions.len(), 9);
+
+    let ui_menu = SchemaId::new(CORE_UI_MENU_CONTEXT_ID).expect("ui menu context id");
+    let ui_dialogue = SchemaId::new(CORE_UI_DIALOGUE_CONTEXT_ID).expect("ui dialogue context id");
+    let gameplay = SchemaId::new(CORE_GAMEPLAY_CONTEXT_ID).expect("gameplay context id");
+
+    let navigate = action_map
+        .action(&SchemaId::new(CORE_UI_NAVIGATE_ACTION_ID).expect("ui nav id"))
+        .expect("ui navigate action declared");
+    assert_eq!(navigate.value_kind, PlayerActionValueKindV1::Vector2Q15);
+    assert_eq!(navigate.binding_slots.len(), 4);
+    assert_eq!(
+        navigate.allowed_context_ids,
+        vec![ui_dialogue.clone(), ui_menu.clone()]
+    );
+
+    for (action_id, control_path) in [
+        (CORE_UI_CONFIRM_ACTION_ID, KEYBOARD_RETURN_CONTROL_PATH_ID),
+        (CORE_UI_BACK_ACTION_ID, KEYBOARD_ESCAPE_CONTROL_PATH_ID),
+    ] {
+        let action = action_map
+            .action(&SchemaId::new(action_id).expect("ui action id"))
+            .expect("ui action declared");
+        assert_eq!(action.value_kind, PlayerActionValueKindV1::Digital);
+        assert_eq!(action.binding_slots.len(), 1);
+        assert_eq!(
+            action.binding_slots[0].control_path_id,
+            SchemaId::new(control_path).expect("control path id")
+        );
+    }
+    let back = action_map
+        .action(&SchemaId::new(CORE_UI_BACK_ACTION_ID).expect("ui back id"))
+        .expect("ui back action declared");
+    assert_eq!(
+        back.allowed_context_ids,
+        vec![gameplay, ui_dialogue, ui_menu]
+    );
+}
+
+#[test]
+fn ui_modal_context_stacks_validate_against_core_action_map() {
+    let action_map = ActionMapManifestV1::core_keyboard_mouse_v1().expect("core action map");
+    let gameplay = InputContextStackV1::gameplay_v1().expect("gameplay stack");
+    gameplay
+        .validate_against_action_map(&action_map)
+        .expect("gameplay stack validates");
+    assert!(gameplay.allows_action(&SchemaId::new(CORE_UI_BACK_ACTION_ID).expect("ui back id")));
+    assert!(
+        !gameplay.allows_action(&SchemaId::new(CORE_UI_CONFIRM_ACTION_ID).expect("ui confirm id"))
+    );
+
+    for stack in [
+        InputContextStackV1::ui_menu_v1().expect("ui menu stack"),
+        InputContextStackV1::ui_dialogue_v1().expect("ui dialogue stack"),
+    ] {
+        stack
+            .validate_against_action_map(&action_map)
+            .expect("ui modal stack validates against core map");
+        for action_id in [
+            CORE_UI_BACK_ACTION_ID,
+            CORE_UI_CONFIRM_ACTION_ID,
+            CORE_UI_NAVIGATE_ACTION_ID,
+        ] {
+            assert!(stack.allows_action(&SchemaId::new(action_id).expect("ui action id")));
+        }
+        assert!(
+            !stack.allows_action(&SchemaId::new(CORE_MOVE_ACTION_ID).expect("move id")),
+            "modal capture-all layer blocks gameplay actions"
+        );
+    }
+}

@@ -9,6 +9,7 @@ pub mod identity;
 pub mod ids;
 pub mod input;
 pub mod ledger;
+pub mod localization;
 mod manifest_jcs;
 pub mod mechanics;
 pub mod persistence;

@@ -496,13 +496,16 @@ impl ActionMapManifestV1 {
 
     pub fn core_keyboard_mouse_v1() -> Result<Self, InputContractError> {
         let gameplay = SchemaId::new(CORE_GAMEPLAY_CONTEXT_ID)?;
+        let ui_menu = SchemaId::new(CORE_UI_MENU_CONTEXT_ID)?;
+        let ui_dialogue = SchemaId::new(CORE_UI_DIALOGUE_CONTEXT_ID)?;
         let keyboard = SchemaId::new(KEYBOARD_DEVICE_CLASS_ID)?;
         let mouse = SchemaId::new(MOUSE_DEVICE_CLASS_ID)?;
 
         let digital_action = |action_id: &str,
                               role_id: &str,
                               slot_id: &str,
-                              control_path: &str|
+                              control_path: &str,
+                              contexts: Vec<SchemaId>|
          -> Result<ActionDefinitionV1, InputContractError> {
             ActionDefinitionV1::new(
                 SchemaId::new(action_id)?,
@@ -521,7 +524,7 @@ impl ActionMapManifestV1 {
                         pressed_threshold_q15: 1,
                     },
                 )?],
-                vec![gameplay.clone()],
+                contexts,
                 ActionConflictPolicyV1::PreferCanonicalBinding,
                 ActionAccessibilityV1 {
                     semantic_role_id: SchemaId::new(role_id)?,
@@ -550,6 +553,42 @@ impl ActionMapManifestV1 {
             (
                 "nextengine.binding.move.w",
                 KEYBOARD_W_CONTROL_PATH_ID,
+                [0, i16::MAX],
+            ),
+        ]
+        .into_iter()
+        .map(|(slot, path, contribution)| {
+            ActionBindingV1::new(
+                SchemaId::new(slot)?,
+                keyboard.clone(),
+                SchemaId::new(path)?,
+                Vec::new(),
+                ActionBindingTransformV1::Vector2ContributionQ15 {
+                    contribution_q15: contribution,
+                },
+            )
+        })
+        .collect::<Result<Vec<_>, InputContractError>>()?;
+
+        let ui_navigation_bindings = [
+            (
+                "nextengine.binding.ui-nav.left",
+                KEYBOARD_LEFT_CONTROL_PATH_ID,
+                [-i16::MAX, 0],
+            ),
+            (
+                "nextengine.binding.ui-nav.right",
+                KEYBOARD_RIGHT_CONTROL_PATH_ID,
+                [i16::MAX, 0],
+            ),
+            (
+                "nextengine.binding.ui-nav.down",
+                KEYBOARD_DOWN_CONTROL_PATH_ID,
+                [0, -i16::MAX],
+            ),
+            (
+                "nextengine.binding.ui-nav.up",
+                KEYBOARD_UP_CONTROL_PATH_ID,
                 [0, i16::MAX],
             ),
         ]
@@ -597,24 +636,28 @@ impl ActionMapManifestV1 {
                     "nextengine.accessibility-role.primary-interaction",
                     "nextengine.binding.interact.e",
                     KEYBOARD_E_CONTROL_PATH_ID,
+                    vec![gameplay.clone()],
                 )?,
                 digital_action(
                     CORE_PICKUP_ACTION_ID,
                     "nextengine.accessibility-role.pickup",
                     "nextengine.binding.pickup.q",
                     KEYBOARD_Q_CONTROL_PATH_ID,
+                    vec![gameplay.clone()],
                 )?,
                 digital_action(
                     CORE_EQUIP_USE_ACTION_ID,
                     "nextengine.accessibility-role.equip-use",
                     "nextengine.binding.equip-use.r",
                     KEYBOARD_R_CONTROL_PATH_ID,
+                    vec![gameplay.clone()],
                 )?,
                 digital_action(
                     CORE_MELEE_ACTION_ID,
                     "nextengine.accessibility-role.melee",
                     "nextengine.binding.melee.f",
                     KEYBOARD_F_CONTROL_PATH_ID,
+                    vec![gameplay.clone()],
                 )?,
                 ActionDefinitionV1::new(
                     SchemaId::new(CORE_CAMERA_ORBIT_ACTION_ID)?,
@@ -632,7 +675,7 @@ impl ActionMapManifestV1 {
                             scale_q15: i16::MAX,
                         },
                     )?],
-                    vec![gameplay],
+                    vec![gameplay.clone()],
                     ActionConflictPolicyV1::CombineVectorQ15,
                     ActionAccessibilityV1 {
                         semantic_role_id: SchemaId::new(
@@ -641,6 +684,40 @@ impl ActionMapManifestV1 {
                         supports_hold: false,
                         supports_toggle: false,
                     },
+                )?,
+                ActionDefinitionV1::new(
+                    SchemaId::new(CORE_UI_NAVIGATE_ACTION_ID)?,
+                    PlayerActionValueKindV1::Vector2Q15,
+                    vec![
+                        PlayerActionPhaseV1::Started,
+                        PlayerActionPhaseV1::Performed,
+                        PlayerActionPhaseV1::Completed,
+                        PlayerActionPhaseV1::Cancelled,
+                    ],
+                    ui_navigation_bindings,
+                    vec![ui_menu.clone(), ui_dialogue.clone()],
+                    ActionConflictPolicyV1::PreferCanonicalBinding,
+                    ActionAccessibilityV1 {
+                        semantic_role_id: SchemaId::new(
+                            "nextengine.accessibility-role.ui-navigation",
+                        )?,
+                        supports_hold: true,
+                        supports_toggle: false,
+                    },
+                )?,
+                digital_action(
+                    CORE_UI_CONFIRM_ACTION_ID,
+                    "nextengine.accessibility-role.ui-confirm",
+                    "nextengine.binding.ui-confirm.return",
+                    KEYBOARD_RETURN_CONTROL_PATH_ID,
+                    vec![ui_menu.clone(), ui_dialogue.clone()],
+                )?,
+                digital_action(
+                    CORE_UI_BACK_ACTION_ID,
+                    "nextengine.accessibility-role.ui-back",
+                    "nextengine.binding.ui-back.escape",
+                    KEYBOARD_ESCAPE_CONTROL_PATH_ID,
+                    vec![gameplay, ui_menu, ui_dialogue],
                 )?,
             ],
         )
