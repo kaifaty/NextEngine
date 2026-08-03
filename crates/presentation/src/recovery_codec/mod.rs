@@ -4,34 +4,42 @@ use next_contracts::canonical::{
     CANONICAL_TYPE_U32, CANONICAL_TYPE_U64, CanonicalDecodeLimits, CanonicalField,
     DecodedCanonicalSegment, decode_canonical_segment, encode_canonical_segment,
 };
-use next_contracts::ids::{AssetId, ContentHash, PersistentId};
+use next_contracts::ids::{AssetId, ContentHash, PersistentId, SchemaId};
 use next_contracts::presentation::{
     CAMERA_PRESENTATION_RECORD_SCHEMA_VERSION, CameraInterpolationPolicyV1,
     CameraPresentationRecordV2, CameraProjectionProfileV1, CameraResultSampleV1, CameraRoleV1,
     CameraViewportV1, PRESENTATION_MAX_CAMERA_RECORDS, PRESENTATION_MAX_SCENE_RECORDS,
-    PRESENTATION_SCENE_RECORD_SCHEMA_VERSION, PresentationObjectKeyV1, PresentationRoleV1,
-    PresentationSnapshotV2, QuantizedPresentationTransformV1, ScenePresentationFlagsV1,
-    ScenePresentationRecordV2, ThirdPersonCameraIntentSampleV1,
+    PRESENTATION_MAX_SEMANTIC_UI_RECORDS, PRESENTATION_SCENE_RECORD_SCHEMA_VERSION,
+    PresentationObjectKeyV1, PresentationRoleV1, PresentationSnapshotV2,
+    QuantizedPresentationTransformV1, SEMANTIC_UI_PRESENTATION_RECORD_SCHEMA_VERSION,
+    ScenePresentationFlagsV1, ScenePresentationRecordV2, SemanticUiPresentationRecordV1,
+    ThirdPersonCameraIntentSampleV1, UI_MAX_AFFORDANCES_PER_ELEMENT, UI_MAX_TEXT_ARGUMENTS,
+    UiAccessibilityRoleV1, UiActionAffordanceV1, UiElementRoleV1, UiElementValueV1,
+    UiSemanticElementV1, UiStyleRoleV1, UiTextArgumentV1, UiTextRefV1,
 };
 use next_contracts::project::AssetRevisionRefV1;
 use next_contracts::render_content::AabbI64V1;
 
-const RECOVERY_CODEC_SCHEMA_VERSION: u32 = 1;
+const RECOVERY_CODEC_SCHEMA_VERSION: u32 = 2;
 const RECOVERY_OWNER: &str = "nextengine.presentation";
-const RECOVERY_SCHEMA: &str = "nextengine.presentation-snapshot-recovery.v1";
+const RECOVERY_SCHEMA: &str = "nextengine.presentation-snapshot-recovery.v2";
 const SCENE_RECORD_SCHEMA: &str = "nextengine.scene-presentation-recovery-record.v1";
 const CAMERA_RECORD_SCHEMA: &str = "nextengine.camera-presentation-recovery-record.v1";
+const SEMANTIC_UI_RECORD_SCHEMA: &str = "nextengine.semantic-ui-presentation-recovery-record.v1";
+const UI_TEXT_REF_SCHEMA: &str = "nextengine.ui-text-ref-recovery.v1";
 
 pub(super) fn encode_snapshot(
     snapshot: &PresentationSnapshotV2,
     max_scene_records_per_batch: usize,
     max_camera_records_per_batch: usize,
+    max_semantic_ui_records_per_batch: usize,
 ) -> Result<Vec<u8>, ()> {
     snapshot.validate().map_err(|_| ())?;
     validate_batch_profile(
         snapshot,
         max_scene_records_per_batch,
         max_camera_records_per_batch,
+        max_semantic_ui_records_per_batch,
     )?;
     let scene_records = snapshot
         .scene_records()
@@ -42,6 +50,11 @@ pub(super) fn encode_snapshot(
         .camera_records()
         .enumerate()
         .map(|(index, record)| encode_camera_record(index, record))
+        .collect::<Result<Vec<_>, _>>()?;
+    let semantic_ui_records = snapshot
+        .semantic_ui_records()
+        .enumerate()
+        .map(|(index, record)| encode_semantic_ui_record(index, record))
         .collect::<Result<Vec<_>, _>>()?;
     encode_canonical_segment(
         RECOVERY_OWNER,
@@ -92,7 +105,7 @@ pub(super) fn encode_snapshot(
             CanonicalField::new(
                 12,
                 CANONICAL_TYPE_SEQUENCE,
-                encode_hash_sequence(&snapshot.semantic_ui_batches)?,
+                encode_sequence(semantic_ui_records)?,
             ),
             CanonicalField::new(
                 13,
@@ -101,6 +114,14 @@ pub(super) fn encode_snapshot(
             ),
             hash_field(14, snapshot.environment_batch),
             hash_field(15, snapshot.canonical_hash),
+            CanonicalField::new(
+                16,
+                CANONICAL_TYPE_U32,
+                u32::try_from(max_semantic_ui_records_per_batch)
+                    .map_err(|_| ())?
+                    .to_le_bytes()
+                    .to_vec(),
+            ),
         ],
     )
     .map_err(|_| ())
@@ -109,9 +130,9 @@ pub(super) fn encode_snapshot(
 pub(super) fn decode_snapshot(
     bytes: &[u8],
     limits: CanonicalDecodeLimits,
-) -> Result<(PresentationSnapshotV2, usize, usize), ()> {
+) -> Result<(PresentationSnapshotV2, usize, usize, usize), ()> {
     let segment = decode_canonical_segment(bytes, limits).map_err(|_| ())?;
-    ensure_segment(&segment, RECOVERY_OWNER, RECOVERY_SCHEMA, "snapshot", 15)?;
+    ensure_segment(&segment, RECOVERY_OWNER, RECOVERY_SCHEMA, "snapshot", 16)?;
     if decode_u32(field(&segment, 1, CANONICAL_TYPE_U32)?)? != RECOVERY_CODEC_SCHEMA_VERSION {
         return Err(());
     }
@@ -125,10 +146,14 @@ pub(super) fn decode_snapshot(
         usize::try_from(decode_u32(field(&segment, 8, CANONICAL_TYPE_U32)?)?).map_err(|_| ())?;
     let max_camera_records_per_batch =
         usize::try_from(decode_u32(field(&segment, 9, CANONICAL_TYPE_U32)?)?).map_err(|_| ())?;
+    let max_semantic_ui_records_per_batch =
+        usize::try_from(decode_u32(field(&segment, 16, CANONICAL_TYPE_U32)?)?).map_err(|_| ())?;
     if max_scene_records_per_batch == 0
         || max_scene_records_per_batch > PRESENTATION_MAX_SCENE_RECORDS
         || max_camera_records_per_batch == 0
         || max_camera_records_per_batch > PRESENTATION_MAX_CAMERA_RECORDS
+        || max_semantic_ui_records_per_batch == 0
+        || max_semantic_ui_records_per_batch > PRESENTATION_MAX_SEMANTIC_UI_RECORDS
     {
         return Err(());
     }
@@ -150,11 +175,15 @@ pub(super) fn decode_snapshot(
     .enumerate()
     .map(|(index, bytes)| decode_camera_record(index, bytes, limits))
     .collect::<Result<Vec<_>, _>>()?;
-    let semantic_ui_batches = decode_hash_sequence(
+    let semantic_ui_records = decode_sequence(
         field(&segment, 12, CANONICAL_TYPE_SEQUENCE)?,
-        limits.max_sequence_items,
+        PRESENTATION_MAX_SEMANTIC_UI_RECORDS,
         limits.max_field_payload_bytes,
-    )?;
+    )?
+    .into_iter()
+    .enumerate()
+    .map(|(index, bytes)| decode_semantic_ui_record(index, bytes, limits))
+    .collect::<Result<Vec<_>, _>>()?;
     let cue_batches = decode_hash_sequence(
         field(&segment, 13, CANONICAL_TYPE_SEQUENCE)?,
         limits.max_sequence_items,
@@ -162,7 +191,7 @@ pub(super) fn decode_snapshot(
     )?;
     let environment_batch = decode_hash(field(&segment, 14, CANONICAL_TYPE_HASH256)?)?;
     let canonical_hash = decode_hash(field(&segment, 15, CANONICAL_TYPE_HASH256)?)?;
-    let mut snapshot = PresentationSnapshotV2::new_with_camera_records(
+    let mut snapshot = PresentationSnapshotV2::new_with_camera_and_semantic_ui_records(
         snapshot_epoch,
         snapshot_sequence,
         simulation_tick,
@@ -171,12 +200,13 @@ pub(super) fn decode_snapshot(
         presentation_profile_hash,
         scene_records,
         camera_records,
+        semantic_ui_records,
         max_scene_records_per_batch,
         max_camera_records_per_batch,
+        max_semantic_ui_records_per_batch,
         environment_batch,
     )
     .map_err(|_| ())?;
-    snapshot.semantic_ui_batches = semantic_ui_batches;
     snapshot.cue_batches = cue_batches;
     snapshot.canonical_hash = canonical_hash;
     snapshot.validate().map_err(|_| ())?;
@@ -184,6 +214,7 @@ pub(super) fn decode_snapshot(
         &snapshot,
         max_scene_records_per_batch,
         max_camera_records_per_batch,
+        max_semantic_ui_records_per_batch,
     )? != bytes
     {
         return Err(());
@@ -192,6 +223,7 @@ pub(super) fn decode_snapshot(
         snapshot,
         max_scene_records_per_batch,
         max_camera_records_per_batch,
+        max_semantic_ui_records_per_batch,
     ))
 }
 
@@ -199,15 +231,18 @@ fn validate_batch_profile(
     snapshot: &PresentationSnapshotV2,
     max_scene_records_per_batch: usize,
     max_camera_records_per_batch: usize,
+    max_semantic_ui_records_per_batch: usize,
 ) -> Result<(), ()> {
     if max_scene_records_per_batch == 0
         || max_scene_records_per_batch > PRESENTATION_MAX_SCENE_RECORDS
         || max_camera_records_per_batch == 0
         || max_camera_records_per_batch > PRESENTATION_MAX_CAMERA_RECORDS
+        || max_semantic_ui_records_per_batch == 0
+        || max_semantic_ui_records_per_batch > PRESENTATION_MAX_SEMANTIC_UI_RECORDS
     {
         return Err(());
     }
-    let mut rebuilt = PresentationSnapshotV2::new_with_camera_records(
+    let mut rebuilt = PresentationSnapshotV2::new_with_camera_and_semantic_ui_records(
         snapshot.snapshot_epoch,
         snapshot.snapshot_sequence,
         snapshot.simulation_tick,
@@ -216,12 +251,13 @@ fn validate_batch_profile(
         snapshot.presentation_profile_hash,
         snapshot.scene_records().cloned().collect(),
         snapshot.camera_records().cloned().collect(),
+        snapshot.semantic_ui_records().cloned().collect(),
         max_scene_records_per_batch,
         max_camera_records_per_batch,
+        max_semantic_ui_records_per_batch,
         snapshot.environment_batch,
     )
     .map_err(|_| ())?;
-    rebuilt.semantic_ui_batches = snapshot.semantic_ui_batches.clone();
     rebuilt.cue_batches = snapshot.cue_batches.clone();
     rebuilt.canonical_hash = snapshot.canonical_hash;
     rebuilt.validate().map_err(|_| ())?;
@@ -515,6 +551,9 @@ fn decode_camera_record(
     }
     Ok(record)
 }
+
+mod semantic_ui;
+use semantic_ui::{decode_semantic_ui_record, encode_semantic_ui_record};
 
 fn encode_sequence(items: Vec<Vec<u8>>) -> Result<Vec<u8>, ()> {
     let mut bytes = Vec::new();
