@@ -546,6 +546,38 @@ O(история pending) на тик независимо от due; **C6** — 
 (accept/close + receipts) с ростом от истории. Оба — production-path
 кандидаты под decision protocol, exact roots обязательны.
 
+## Приложение 2026-08-02 (10): presentation extract double-validate — ПРИНЯТО (R2-этап)
+
+Первый hotspot R2-этапа плана (dirty tracking на presentation
+extraction). Атрибуция `stage_advance` на production live loop
+(reference-game, 30 Hz boundaries, history-scaling диагностика,
+временные Instant-probes, удалены без коммита): runtime prepare 57%,
+**presentation extract 34%** (~420 µs при всего 3 bindings), input 6–9%,
+camera ~0%. Издержки внутри extract: `new_with_camera_records` ~140 µs,
+`validate()` ~140 µs — snapshot canonical-encode + SHA-256 считался
+ДВАЖДЫ на boundary. Конструктор уже покрывает полную canonical
+валидацию (per-record validate, epoch, sort, key uniqueness обоих
+семейств, canonical batch partition, limits, published hash);
+`ensure_record_keys_unique` ≡ `ensure_record_refs_unique`,
+build ≡ validate для camera batches — повторный `validate()` на
+свежем candidate проверял только что гарантированное конструктором.
+
+Решение: release-путь полагается на конструктор; полный `validate()`
+сохранён в debug/test builds как `debug_assert` regression gate и на
+decode/restore/recovery путях (untrusted bytes). Норма SPEC-30
+«staged and validated before publication» сохранена — валидация
+происходит при конструировании; snapshot bytes неизменны.
+
+Замер (та же методика, 3 прогона): extract 420 → 306 µs (−27%),
+stage_advance total −11% при ВОЗРОСШЕЙ нагрузке машины (незатронутые
+секции +15–20% — улучшение занижено). Коммит `6c3eb1a`. Полноценный
+dirty tracking (инкрементальный snapshot вместо полного rebuild)
+отложен до representative R2 контента: при B=3 остаток extract
+(~300 µs) — это hash+encode малого snapshot, O(dirty) даст мало;
+структурный резерв отмечен: per-binding `.find()` по previous records
+O(B·R) и per-extract `domain_hash` константы environment — при росте
+числа bindings.
+
 ## Источники
 
 - DeltaBox: millisecond checkpoint/rollback через change-based DeltaState,
