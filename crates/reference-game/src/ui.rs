@@ -19,6 +19,7 @@ use next_contracts::project::domain_hash;
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2};
 
 use crate::ReferenceGameError;
+use crate::input::ReferenceUiScreenV1;
 use crate::rpg::aggregate_payload;
 use crate::session::ReferenceGameSession;
 
@@ -121,26 +122,36 @@ fn schema_id(value: &str) -> Result<SchemaId, ReferenceGameError> {
     Ok(SchemaId::new(value)?)
 }
 
-/// Builds the full per-tick semantic UI set: the always-on read-only
-/// projections (HUD, inventory/equipment, quest journal) plus the pause menu
-/// when the committed frame carried a `ui-back` suspend request.
+/// Builds the full per-tick semantic UI set: the always-on HUD plus the
+/// currently open read-only screen (inventory/equipment or quest journal)
+/// plus the pause menu when the committed frame carried a `ui-back` suspend
+/// request.
 ///
-/// The inventory/journal screens publish unconditionally until the
-/// open/close action sub-increment (S3) lands; they stay read-only views and
-/// never carry action affordances.
+/// Screen surfaces publish only while their `ReferenceUiScreenV1` state is
+/// open (S3: the driver derives that state from committed
+/// `ui-inventory`/`ui-journal`/`ui-back` actions); they stay read-only views
+/// and never carry action affordances.
 pub fn live_semantic_ui_records(
     snapshot_epoch: ContentHash,
     fixture: &ReferenceGameSession,
     rpg: &RpgSnapshotV2,
+    ui_screen: ReferenceUiScreenV1,
     ui_suspend_causal_hash: Option<ContentHash>,
 ) -> Result<Vec<SemanticUiPresentationRecordV1>, ReferenceGameError> {
     let mut records = hud_semantic_ui_records(snapshot_epoch, fixture, rpg)?;
-    records.extend(inventory_semantic_ui_records(snapshot_epoch, fixture, rpg)?);
-    records.extend(quest_journal_semantic_ui_records(
-        snapshot_epoch,
-        fixture,
-        rpg,
-    )?);
+    match ui_screen {
+        ReferenceUiScreenV1::None => {}
+        ReferenceUiScreenV1::Inventory => {
+            records.extend(inventory_semantic_ui_records(snapshot_epoch, fixture, rpg)?);
+        }
+        ReferenceUiScreenV1::Journal => {
+            records.extend(quest_journal_semantic_ui_records(
+                snapshot_epoch,
+                fixture,
+                rpg,
+            )?);
+        }
+    }
     if let Some(causal_hash) = ui_suspend_causal_hash {
         records.extend(pause_menu_semantic_ui_records(
             snapshot_epoch,

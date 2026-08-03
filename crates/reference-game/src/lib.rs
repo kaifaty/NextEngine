@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod camera;
 mod error;
 mod input;
 mod live;
@@ -12,8 +13,8 @@ mod ui;
 
 pub use error::{ReferenceGameError, ReferenceInputError};
 pub use input::{
-    player_action_sample, player_equip_use_sample, player_interact_sample, player_melee_sample,
-    player_pickup_sample,
+    ReferenceUiScreenV1, player_action_sample, player_equip_use_sample, player_interact_sample,
+    player_melee_sample, player_pickup_sample,
 };
 pub use live::{
     PreparedReferenceGameAdvance, ReferenceGameDriverV1, ReferenceLiveDriverRecoveryV1,

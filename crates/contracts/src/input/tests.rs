@@ -619,7 +619,7 @@ fn action_frame_order_is_validated_against_effective_context_priority() {
 #[test]
 fn core_action_map_declares_universal_ui_actions_for_modal_contexts() {
     let action_map = ActionMapManifestV1::core_keyboard_mouse_v1().expect("core action map");
-    assert_eq!(action_map.actions.len(), 9);
+    assert_eq!(action_map.actions.len(), 11);
 
     let ui_menu = SchemaId::new(CORE_UI_MENU_CONTEXT_ID).expect("ui menu context id");
     let ui_dialogue = SchemaId::new(CORE_UI_DIALOGUE_CONTEXT_ID).expect("ui dialogue context id");
@@ -638,6 +638,8 @@ fn core_action_map_declares_universal_ui_actions_for_modal_contexts() {
     for (action_id, control_path) in [
         (CORE_UI_CONFIRM_ACTION_ID, KEYBOARD_RETURN_CONTROL_PATH_ID),
         (CORE_UI_BACK_ACTION_ID, KEYBOARD_ESCAPE_CONTROL_PATH_ID),
+        (CORE_UI_INVENTORY_ACTION_ID, KEYBOARD_I_CONTROL_PATH_ID),
+        (CORE_UI_JOURNAL_ACTION_ID, KEYBOARD_J_CONTROL_PATH_ID),
     ] {
         let action = action_map
             .action(&SchemaId::new(action_id).expect("ui action id"))
@@ -666,6 +668,12 @@ fn ui_modal_context_stacks_validate_against_core_action_map() {
         .validate_against_action_map(&action_map)
         .expect("gameplay stack validates");
     assert!(gameplay.allows_action(&SchemaId::new(CORE_UI_BACK_ACTION_ID).expect("ui back id")));
+    for action_id in [CORE_UI_INVENTORY_ACTION_ID, CORE_UI_JOURNAL_ACTION_ID] {
+        assert!(
+            gameplay.allows_action(&SchemaId::new(action_id).expect("ui screen action id")),
+            "gameplay context keeps the read-only screen toggles live"
+        );
+    }
     assert!(
         !gameplay.allows_action(&SchemaId::new(CORE_UI_CONFIRM_ACTION_ID).expect("ui confirm id"))
     );

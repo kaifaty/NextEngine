@@ -169,6 +169,8 @@ impl InputContextStackV1 {
             CORE_MOVE_ACTION_ID,
             CORE_PICKUP_ACTION_ID,
             CORE_UI_BACK_ACTION_ID,
+            CORE_UI_INVENTORY_ACTION_ID,
+            CORE_UI_JOURNAL_ACTION_ID,
         ]
         .into_iter()
         .map(SchemaId::new)

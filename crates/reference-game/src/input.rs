@@ -1,7 +1,8 @@
 use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
 use next_contracts::input::{
     CORE_EQUIP_USE_ACTION_ID, CORE_INTERACT_ACTION_ID, CORE_MELEE_ACTION_ID, CORE_MOVE_ACTION_ID,
-    CORE_PICKUP_ACTION_ID, CORE_UI_BACK_ACTION_ID, InputSampleV1, KEYBOARD_A_CONTROL_PATH_ID,
+    CORE_PICKUP_ACTION_ID, CORE_UI_BACK_ACTION_ID, CORE_UI_INVENTORY_ACTION_ID,
+    CORE_UI_JOURNAL_ACTION_ID, InputSampleV1, KEYBOARD_A_CONTROL_PATH_ID,
     KEYBOARD_D_CONTROL_PATH_ID, KEYBOARD_DEVICE_CLASS_ID, KEYBOARD_E_CONTROL_PATH_ID,
     KEYBOARD_F_CONTROL_PATH_ID, KEYBOARD_Q_CONTROL_PATH_ID, KEYBOARD_R_CONTROL_PATH_ID,
     KEYBOARD_S_CONTROL_PATH_ID, KEYBOARD_W_CONTROL_PATH_ID, PLAYER_ACTION_FRAME_SCHEMA_ID,
@@ -314,4 +315,71 @@ pub(crate) fn ui_suspend_causal_hash(
     Ok(Some(ContentHash::from_bytes(
         next_contracts::canonical::sha256(&frame.canonical_bytes()?),
     )))
+}
+
+/// Which read-only screen surface the live publication currently shows.
+///
+/// The state is presentation-only: it derives deterministically from the
+/// committed `ui-inventory`/`ui-journal`/`ui-back` action stream (Q1A),
+/// never mutates domain state and never suspends the simulation (Q5A).
+/// Screens are exclusive — opening one replaces the other — so `ui-back`
+/// always unambiguously closes the open screen; a `ui-back` press with no
+/// open screen falls through to the declared pause suspend request.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum ReferenceUiScreenV1 {
+    #[default]
+    None,
+    Inventory,
+    Journal,
+}
+
+/// Outcome of applying one committed frame to the screen state.
+pub(crate) struct UiScreenFrameOutcomeV1 {
+    pub screen: ReferenceUiScreenV1,
+    /// True when a committed `ui-back` press closed an open screen and is
+    /// therefore consumed (the pause suspend request is suppressed).
+    pub back_consumed_by_screen: bool,
+}
+
+/// Applies the committed `Started` digital UI screen actions in canonical
+/// frame order. `ui-inventory`/`ui-journal` toggle their screen (opening one
+/// closes the other); `ui-back` closes any open screen and is consumed.
+pub(crate) fn apply_ui_screen_actions(
+    frame: &PlayerActionFrameV1,
+    initial: ReferenceUiScreenV1,
+) -> UiScreenFrameOutcomeV1 {
+    let mut screen = initial;
+    let mut back_consumed_by_screen = false;
+    for action in &frame.actions {
+        if action.phase != PlayerActionPhaseV1::Started
+            || action.value != PlayerActionValueV1::Digital(true)
+        {
+            continue;
+        }
+        match action.action_id.as_str() {
+            CORE_UI_INVENTORY_ACTION_ID => {
+                screen = match screen {
+                    ReferenceUiScreenV1::Inventory => ReferenceUiScreenV1::None,
+                    _ => ReferenceUiScreenV1::Inventory,
+                };
+            }
+            CORE_UI_JOURNAL_ACTION_ID => {
+                screen = match screen {
+                    ReferenceUiScreenV1::Journal => ReferenceUiScreenV1::None,
+                    _ => ReferenceUiScreenV1::Journal,
+                };
+            }
+            CORE_UI_BACK_ACTION_ID => {
+                if screen != ReferenceUiScreenV1::None {
+                    screen = ReferenceUiScreenV1::None;
+                    back_consumed_by_screen = true;
+                }
+            }
+            _ => {}
+        }
+    }
+    UiScreenFrameOutcomeV1 {
+        screen,
+        back_consumed_by_screen,
+    }
 }

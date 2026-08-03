@@ -713,6 +713,20 @@ impl ActionMapManifestV1 {
                     vec![ui_menu.clone(), ui_dialogue.clone()],
                 )?,
                 digital_action(
+                    CORE_UI_INVENTORY_ACTION_ID,
+                    "nextengine.accessibility-role.ui-inventory",
+                    "nextengine.binding.ui-inventory.i",
+                    KEYBOARD_I_CONTROL_PATH_ID,
+                    vec![gameplay.clone()],
+                )?,
+                digital_action(
+                    CORE_UI_JOURNAL_ACTION_ID,
+                    "nextengine.accessibility-role.ui-journal",
+                    "nextengine.binding.ui-journal.j",
+                    KEYBOARD_J_CONTROL_PATH_ID,
+                    vec![gameplay.clone()],
+                )?,
+                digital_action(
                     CORE_UI_BACK_ACTION_ID,
                     "nextengine.accessibility-role.ui-back",
                     "nextengine.binding.ui-back.escape",
