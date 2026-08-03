@@ -1119,9 +1119,10 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    b0, overlay counters asserted в `platform` candidate и frame-timing smoke) и
    minimal preferences (versioned local `PlayerPreferenceProfileV1` —
    PresentationOnly text scale + UI locale, quarantine + bounded defaults,
-   overlay text scale wiring) и read-only inventory/equipment + quest journal
-   surfaces (always-on publication, без action affordances) реализованы; остаются
-   open/close actions, dialogue arbitration и interactive screens.
+   overlay text scale wiring), read-only inventory/equipment + quest journal
+   surfaces и их deterministic open/close state из committed ui-inventory/
+   ui-journal/ui-back actions (ui-back закрывает экран до pause) реализованы;
+   остаются dialogue arbitration и interactive screens.
 2. **Baseline audio (`PLANNED`):** clips, emitters/listener, priority/voice limits,
    attenuation/panning and subtitle fallback.
 3. **Playable alpha project (`PLANNED`):** заменить technical fixture на один complete

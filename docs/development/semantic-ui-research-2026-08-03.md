@@ -654,3 +654,39 @@ SPEC-24 (v1.0), SPEC-12 (v2.4), а также секции SPEC-17 о `Configura
 - Checks: `cargo test -p next_reference_game -p next_verification` PASS,
   `host-check` PASS, `play` PASS, `platform` (desktop-sdl-ash) PASS.
   Code commit `2e35514`.
+
+### Экраны S3 (open actions + deterministic screen state, Q1A/Q5A) — DONE (2026-08-03)
+
+- Contracts: universal `nextengine.action.ui-inventory` (keyboard I) и
+  `nextengine.action.ui-journal` (keyboard J) в core keyboard/mouse action
+  map (gameplay context, рядом с `ui-back`). Desktop adapter уже эмитит оба
+  control path с hardware (`keyboard.i`/`keyboard.j`) — adapter не трогали.
+- `ReferenceUiScreenV1` (`None`/`Inventory`/`Journal`) — deterministic
+  presentation-only state, выводится из committed Started digital actions в
+  canonical frame order (`input::apply_ui_screen_actions`):
+  - toggle: `ui-inventory`/`ui-journal` переключают свой экран; экраны
+    exclusive — открытие одного закрывает другой (нет неоднозначности для
+    `ui-back`);
+  - `ui-back` с открытым экраном закрывает его и consumed — pause suspend
+    подавляется; без открытого экрана `ui-back` сохраняет declared pause
+    lifecycle request (sub 3 поведение не изменилось);
+  - экраны read-only views: simulation и input routing не затронуты (Q5A),
+    context stack не переключается (v1 scope, зафиксировано).
+- Live driver: screen state проходит через staged/validated advance,
+  `ReferenceGameGenerationV1` parity и driver recovery evidence;
+  `live_semantic_ui_records` гейтит inventory/journal surfaces по state.
+- Application: persisted live-run recovery manifest получил field 25
+  (`ui_screen` u32 tag), schema version 1 -> 2; старые manifests падают с
+  bounded `RecoveryIncompatible` (payload hash bindings и раньше
+  инвалидировали старые saves после любого content change).
+- Refactor без смены семантики: camera math (CORDIC/golden vectors)
+  вынесен из `live.rs` в `camera.rs` — source-size budget (live.rs 817,
+  camera.rs 214).
+- Tests: contracts action map 9 -> 11 actions + context coverage; новый
+  integration test `live_ui_screen_toggles_are_deterministic_and_back_closes_
+  before_pause` (toggle/release/switch/close/pause против canonical record
+  order — publication сортирует records по element id); smoke test вернулся
+  к HUD-only initial/recovered.
+- Checks: cargo test (contracts, reference-game, application, verification)
+  PASS, `host-check` PASS, `play` PASS, `persistence-replay` PASS,
+  `platform` (desktop-sdl-ash) PASS. Code commit `79dca6e`.
