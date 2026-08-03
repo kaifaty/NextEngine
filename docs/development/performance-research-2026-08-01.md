@@ -578,6 +578,79 @@ dirty tracking (инкрементальный snapshot вместо полно�
 O(B·R) и per-extract `domain_hash` константы environment — при росте
 числа bindings.
 
+## Приложение 2026-08-03 (11): physics step hash-bound — ПРИНЯТО (C5); per-sample binding pair revalidation — ПРИНЯТО (C6)
+
+Атрибуция C5 (временные env-gated Instant-probes, history-scaling
+диагностика release, удалены без коммита). Гипотеза приложения 9 про
+`due_commands` **опровергнута**: 200–1000 нс на фазу. Доминирует
+`finish_physical_step` (330–450 µs = 87–90% process_phase Ingress);
+внутри reference physics step (~260–400 µs) собственно sweep-алгоритм —
+1.3–2 µs, остальное — точные канонические хэши:
+
+| Секция step() | До | Природа |
+|---|---|---|
+| validate (`snapshot_hash`+`catalog_hash` повтор) | 70–88 µs | дубликат: те же байты уже хэшированы в build |
+| before (`snapshot_hash` ещё раз) | 18–33 µs | дубликат |
+| substeps ×4 (`snapshot_hash` для contact events) | ~64 µs | семантически нужен (event identity) |
+| sweeps (3 оси × 4 substeps) | 1.3–2 µs | «настоящая» физика — почти бесплатна |
+| finalize (after_hash + batch new/validate) | 55–127 µs | after_hash ≡ хэш последнего substep |
+
+Плюс runtime build 82–112 µs (clone + expected snapshot/catalog хэши) и
+selector targeting'а — итого один и тот же снапшот хэшировался 4–5 раз
+за тик, иммутабельный каталог — 2 раза.
+
+Решение C5: derived `OnceLock`-мемо точных хэшей в
+`GroundedCapsuleWorld` (приватный reconstructible cache по ADR-027;
+инвалидация при `checkpoint.snapshot =` — с reseed уже вычисленным
+after-хэшем — и при `set_checkpoint_revision`, т.к. `checkpoint_revision`
+— canonical field 4 снапшота; equality игнорирует кэш); default-методы
+`snapshot_hash`/`catalog_hash` в трейте `PhysicsWorldBackend` (PhysX
+сохраняет прежнее поведение); reuse хэша последнего substep как
+after_hash (staged не мутирует после него); runtime build и selector
+переведены на memoized аксессоры. Коммит `8e9b697`.
+
+Замер C5 (та же методика, 3 прогона, steady-state): finish_physical_step
+388–535 → 250–312 µs; validate 70–88 µs → ~0.2 µs; before → ~0.7–1 µs;
+build 82–112 → ~32 µs; Ingress-фаза 463–613 → 322–408 µs.
+
+Атрибуция C6: `map_player_actions` 103–170 µs, 75% —
+`map_player_action_sample`; внутри сэмпла decode фрейма 7–14 µs, а
+`frame.validate_against` 36–64 µs — доминировала повторная валидация
+иммутабельной пары action-map/context-stack
+(`action_map.validate()` + `validate_against_action_map`) на КАЖДЫЙ
+сэмпл ввода. Пара уже покрыта `PlayerControllerBindingV1::validate()`,
+а registry в runtime существует только в validated-состоянии
+(bootstrap-финалка, canonical restore, `activate_input_configuration`).
+
+Решение C6: `validate_against` разделён на binding-pair check
+(публичное поведение неизменно) и additive
+`validate_against_validated_binding`, сохраняющий все frame-dependent
+проверки (self.validate, hash/revision consistency, per-action
+membership/phase/priority/ordering); ingress переведён на binding-
+вариант. Коммит `cdf177b`.
+
+Замер C6 (та же методика, 3 прогона): validate_against 36–64 µs →
+0.3–1.2 µs на сэмпл; map_player_action_sample 41–62 → 7–12 µs;
+close_ingress map 103–170 → 67–133 µs; close_ingress total
+129–216 → 92–172 µs.
+
+Паритет: roots байт-в-байт совпадают до и после обоих коммитов
+(play `authoritative_state_root` f22d54a0…, persistence-replay
+`final_state_root` b9168071…). Checks: crate tests PASS, host-check
+PASS, play PASS, persistence-replay PASS для обоих; physics-backend-
+parity NOT_RUN (требует physx/physx-mock feature). Environment note:
+host-check потребовал TEMP на D: — системный диск C: заполнен на 100%
+(309 MB), xtask package-тест аллоцирует sparse-файл 512 MiB.
+
+Остаточные leads (по одному hotspot-слоту, production-path):
+**C7a** — `ClosedPhysicsContactBatchV1`: batch_hash считается 3× за тик
+(new → validate → validate_against_catalog) + per-event повторы
+(остаток finalize ~55–127 µs); **C7b** — `input.input_hash()` на каждый
+step (~60–85 µs внутри step-окна finish_physical_step); **C7c** —
+per-substep `snapshot_hash` лениво только при reportable contacts
+(выигрыш в бесконтактных сценариях); **C7d** — тот же binding-паттерн в
+crates/player (lib.rs:410) после проверки provenance его пары.
+
 ## Источники
 
 - DeltaBox: millisecond checkpoint/rollback через change-based DeltaState,
