@@ -36,7 +36,7 @@
 | Детерминизм, replay, command identity, ledger, save/load, persistence | [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md) | ADR-022 | persistence-replay |
 | Schema registry, миграции, совместимость версий данных | [SPEC-22](22-schema-registry-compatibility-and-migration.md) | ADR-025 | persistence-replay |
 | ECS, runtime data model, fixed stages, scheduling | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | ADR-022 | persistence-replay |
-| Assets, streaming, persistence, content catalog, bundles, neutral asset schemas | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | ADR-026, ADR-014 | content-package |
+| Assets, streaming, persistence, content catalog, bundles, neutral asset schemas | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | ADR-026, ADR-014, ADR-044 | content-package |
 | Rendering, Vulkan, shaders, presentation extraction, render content | [SPEC-04](04-rendering-and-platform.md), [SPEC-30](30-presentation-extraction-and-render-content.md) | ADR-003, ADR-028 (+ ADR-035) | play (+ platform при host/packaging) |
 | Physics world, collision, constraints, queries, canonical snapshots | [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-05](05-physics-animation-and-motor-control.md) | ADR-027, ADR-032 | play, persistence-replay |
 | PhysX backend (Proposed track) | [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | ADR-033 (fallback — reference backend) | play, platform |
@@ -47,7 +47,7 @@
 | RPG domain, quests, divine standing, narrative director | [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) | ADR-020, ADR-029, ADR-031 | play |
 | World simulation, population lifecycle, time advance | [SPEC-20](20-world-simulation-and-population-lifecycle.md) | ADR-021 | persistence-replay |
 | Luau/Wasm scripting, plugins, mod packages, gameplay mechanics authoring | [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | ADR-008, ADR-014 | content-package |
-| Player interaction, UI, camera, localization, accessibility | [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md) | ADR-019 | play |
+| Player interaction, UI, camera, localization, accessibility | [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md) | ADR-019, ADR-044 | play |
 | Project composition, configuration, application lifecycle | [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md) | ADR-018 | fast |
 | Platform host, application session, presentation authority, live recovery | [SPEC-29](29-platform-host-and-application-session.md) | ADR-028, ADR-035, ADR-037 | play, platform |
 | Jobs, memory, resource residency, I/O backpressure, allocator measurement, performance budgets | [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md) | ADR-016, ADR-036, ADR-038–043 | performance |

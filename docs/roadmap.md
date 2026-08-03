@@ -121,7 +121,7 @@ skeleton/animation/audio.
 | Animation/motor | Только procedural projection/contract fragments | Нет skeleton graph, retargeting, IK, root-motion intent или deterministic inference supervisor. |
 | Agent AI | Частично: один canonical affordance planner | Нет perception, hierarchy, schedules, memory и 100-NPC workload. |
 | Navigation/audio | Spec-only | Нет runtime service, cooker или baseline adapters. |
-| Player experience | Частично: общий keyboard/mouse ActionMap/InputContext resolver, persisted targeting intent/query и live third-person camera path | Нет semantic UI, controller profile, localization и accessibility implementation. |
+| Player experience | Частично: общий keyboard/mouse ActionMap/InputContext resolver, persisted targeting intent/query, live third-person camera path, semantic UI contracts + HUD/pause-menu extraction, ui-back pause lifecycle и localization text catalogs с deterministic fallback resolver | Нет widget consumption/rasterizer, preferences (locale/text scale), accessibility, controller profile и inventory/dialogue/quest-journal surfaces. |
 | Presentation/render | Частично: exact revision-bound snapshot с typed camera, offline SPIR-V, CPU visible list/indexed-indirect B0 path, camera view-projection/depth, fallback material и проверенные локально Windows swapchain/device recovery/package paths | Нет skeleton/VFX consumption state, paired same-commit target proof и representative Linux hardware-GPU evidence. |
 | Tooling | Частично: repository `xtask` checks и versioned performance report/gate foundation | Нет creator-facing `next` CLI, inspectors, scenario/minimizer, ten-run THOTH baseline и stable external SDK workflow. |
 | Autonomous narrative | Contract fragments only | SPEC-31 runtime, graph admission, director fallback и divine batch transaction отсутствуют. |
@@ -1112,8 +1112,10 @@ materialized-ledger snapshot cache (~1 clone на checkpoint interval).
 Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 изменились.
 
-1. **Semantic UI (`NEXT`):** HUD, inventory/equipment, dialogue, quest
-   journal, pause/save/load and pseudo-locale.
+1. **Semantic UI (`IN PROGRESS`):** HUD, pause/save/load flow, ui-back lifecycle
+   и pseudo-locale localization (text catalogs + fallback resolver, ADR-044)
+   реализованы; остаются widget consumption/rasterizer, preferences
+   (locale/text scale), inventory/equipment, dialogue и quest journal.
 2. **Baseline audio (`PLANNED`):** clips, emitters/listener, priority/voice limits,
    attenuation/panning and subtitle fallback.
 3. **Playable alpha project (`PLANNED`):** заменить technical fixture на один complete

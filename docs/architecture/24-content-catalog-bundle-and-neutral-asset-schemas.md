@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-24 |
 | Статус | Accepted |
-| Версия | 1.0 |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md) |
+| Версия | 1.1 |
+| Последняя проверка | 2026-08-03 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md) |
 | Заменяет | отсутствует |
 
 ## Назначение и invariants
@@ -920,7 +920,7 @@ encoding, cooker option or stored byte creates a different blob/root.
 The following registered `SchemaKeyV1` names and V1 meanings are mandatory.
 Each exact `SchemaRefV1` also binds its positive monotonic `u32` version and
 descriptor hash. Unknown fields are rejected rather than preserved into
-runtime. All ten entries have `schema_role = NeutralContent` and
+runtime. All eleven entries have `schema_role = NeutralContent` and
 `encoding = CanonicalBinaryV1`.
 
 ### `nextengine.content.scene`
@@ -1080,6 +1080,35 @@ manifest domain closure rejects the complete publication.
 This record defines immutable content only. Downstream world partition,
 interest, residency, activation ordering and durable placement ownership are
 separate consumers and MUST NOT be encoded as mutable fields here.
+
+### `nextengine.content.text-catalog`
+
+`TextCatalogV1` (ADR-044) is the only neutral schema that carries localized
+string payload. It contains `catalog_asset_id` with positive monotonic
+`revision`, a bounded BCP-47 subset `locale` tag (ASCII lowercase,
+hyphen-separated alphanumeric subtags, first subtag alpha 2–8, at most 35
+characters), an optional declared `fallback_locale_or_none` and bounded
+`(text_id, template)` entries sorted by stable `SchemaId` text ID without
+duplicates. Templates are NFC strings whose only formatting tokens are
+positional placeholders `{0}`..`{15}`, matching the typed arguments of the
+UI text references that resolve against the catalog.
+
+Locale fallback is project-declared content, not host state: every catalog
+points at its fallback locale, exactly one catalog declares no fallback and
+is the source/default locale, every declared fallback exists in the same
+project content set, and all pointer chains are acyclic and terminate at the
+source locale. Cook rejects a missing, duplicate, cyclic or unterminated
+chain fail-closed before publication. Catalogs publish with semantic class
+`PresentationOnly`: localized text never enters the domain closure, cannot
+change gameplay hashes or replay outcomes, and a pseudo-locale is an
+ordinary additional catalog, not special code. Missing resources resolve to
+the declared chain and then to a readable placeholder with the stable
+`LOCALIZATION_RESOURCE_MISSING` diagnostic (SPEC-18); rendered text never
+becomes durable identity.
+
+Maximums: 4,096 entries per catalog, 1,024 bytes per template. Date/unit
+format rules and plural/gender forms are absent in V1 and arrive only as a
+new schema version.
 
 ## Import and runtime boundary
 
