@@ -179,6 +179,12 @@ struct PlatformSourceCursor {
     last_event_id: next_contracts::ids::ContentHash,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SourceContinuityV1 {
+    AlreadyAdmitted,
+    Admit,
+}
+
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 struct ControlIdentity {
     device_class: SchemaId,
@@ -220,6 +226,7 @@ pub struct PlayerInputSessionV1 {
     pending_context_stack: Option<InputContextStackV1>,
     source_cursors: BTreeMap<PlatformSourceKey, PlatformSourceCursor>,
     pending_platform_events: Vec<PlatformEventV1>,
+    pending_host_consumed_events: Vec<PlatformEventV1>,
     last_logical_frame_sequence: Option<u64>,
     held_controls: BTreeMap<ControlIdentity, Vec<i16>>,
     started_controls: BTreeSet<ControlIdentity>,
@@ -248,6 +255,7 @@ impl PlayerInputSessionV1 {
             pending_context_stack: None,
             source_cursors: BTreeMap::new(),
             pending_platform_events: Vec::new(),
+            pending_host_consumed_events: Vec::new(),
             last_logical_frame_sequence: None,
             held_controls: BTreeMap::new(),
             started_controls: BTreeSet::new(),
@@ -320,6 +328,36 @@ impl PlayerInputSessionV1 {
         let action_map = self.pending_action_map.as_ref().unwrap_or(&self.action_map);
         validate_context_compatibility(action_map, &context_stack)?;
         self.pending_context_stack = Some(context_stack);
+        Ok(())
+    }
+
+    /// Queues platform events the engine-owned host consumed outside the
+    /// game input stream (interactive pause-menu keys while the session was
+    /// suspended). They join the next closed frame in canonical order as
+    /// cursor-only admissions: validated and continuity-checked like real
+    /// events, but without control, diagnostic or action effects. This
+    /// keeps per-source sequence continuity exact across input the game can
+    /// never observe. The queue is transient and never recoverable, like
+    /// the regular pending-event queue.
+    pub fn queue_host_consumed_platform_events(
+        &mut self,
+        events: &[PlatformEventV1],
+    ) -> Result<(), PlayerInputError> {
+        let candidate_event_count = self
+            .pending_host_consumed_events
+            .len()
+            .checked_add(events.len())
+            .ok_or(PlayerInputError::CounterOverflow)?;
+        if candidate_event_count > MAX_PLATFORM_EVENTS_PER_INPUT_FRAME {
+            return Err(PlayerInputError::EventLimitExceeded {
+                actual: candidate_event_count,
+                limit: MAX_PLATFORM_EVENTS_PER_INPUT_FRAME,
+            });
+        }
+        for event in events {
+            event.validate()?;
+        }
+        self.pending_host_consumed_events.extend_from_slice(events);
         Ok(())
     }
 
@@ -452,24 +490,44 @@ impl PlayerInputSessionV1 {
     }
 
     fn apply_pending_platform_events(&mut self) -> Result<(), PlayerInputError> {
-        let mut ordered = std::mem::take(&mut self.pending_platform_events);
+        let real_events = std::mem::take(&mut self.pending_platform_events);
+        let host_consumed_events = std::mem::take(&mut self.pending_host_consumed_events);
+        let merged_event_count = real_events
+            .len()
+            .checked_add(host_consumed_events.len())
+            .ok_or(PlayerInputError::CounterOverflow)?;
+        if merged_event_count > MAX_PLATFORM_EVENTS_PER_INPUT_FRAME {
+            return Err(PlayerInputError::EventLimitExceeded {
+                actual: merged_event_count,
+                limit: MAX_PLATFORM_EVENTS_PER_INPUT_FRAME,
+            });
+        }
+        let mut ordered: Vec<(bool, PlatformEventV1)> = real_events
+            .into_iter()
+            .map(|event| (false, event))
+            .chain(host_consumed_events.into_iter().map(|event| (true, event)))
+            .collect();
         ordered.sort_by(|left, right| {
             (
-                left.host_instance_id,
-                &left.source_class,
-                left.source_sequence,
-                left.platform_event_id,
+                left.1.host_instance_id,
+                &left.1.source_class,
+                left.1.source_sequence,
+                left.1.platform_event_id,
             )
                 .cmp(&(
-                    right.host_instance_id,
-                    &right.source_class,
-                    right.source_sequence,
-                    right.platform_event_id,
+                    right.1.host_instance_id,
+                    &right.1.source_class,
+                    right.1.source_sequence,
+                    right.1.platform_event_id,
                 ))
         });
         let mut disconnected_devices = BTreeSet::new();
-        for event in ordered {
-            self.process_platform_event(&event, &mut disconnected_devices)?;
+        for (host_consumed, event) in ordered {
+            if host_consumed {
+                self.process_host_consumed_platform_event(&event)?;
+            } else {
+                self.process_platform_event(&event, &mut disconnected_devices)?;
+            }
         }
         if self.held_controls.len() > MAX_HELD_CONTROLS {
             return Err(PlayerInputError::HeldControlLimitExceeded {
@@ -497,34 +555,34 @@ impl PlayerInputSessionV1 {
         Ok(())
     }
 
+    /// Cursor-only admission for a host-consumed event: full identity and
+    /// continuity validation without control, diagnostic or action effects.
+    fn process_host_consumed_platform_event(
+        &mut self,
+        event: &PlatformEventV1,
+    ) -> Result<(), PlayerInputError> {
+        event.validate()?;
+        if matches!(
+            self.check_source_continuity(event)?,
+            SourceContinuityV1::AlreadyAdmitted
+        ) {
+            return Ok(());
+        }
+        self.admit_source_cursor(event);
+        Ok(())
+    }
+
     fn process_platform_event(
         &mut self,
         event: &PlatformEventV1,
         disconnected_devices: &mut BTreeSet<(SchemaId, PersistentId)>,
     ) -> Result<(), PlayerInputError> {
         event.validate()?;
-        let source_key = PlatformSourceKey {
-            host_instance_id: event.host_instance_id,
-            source_class: event.source_class.clone(),
-        };
-        if let Some(previous) = self.source_cursors.get(&source_key) {
-            match event.source_sequence.cmp(&previous.source_sequence) {
-                std::cmp::Ordering::Equal if event.platform_event_id == previous.last_event_id => {
-                    return Ok(());
-                }
-                std::cmp::Ordering::Equal => {
-                    return Err(PlayerInputError::PlatformEventIdentityCollision);
-                }
-                std::cmp::Ordering::Less => {
-                    return Err(PlayerInputError::SourceSequenceNonMonotonic);
-                }
-                std::cmp::Ordering::Greater
-                    if previous.source_sequence.checked_add(1) != Some(event.source_sequence) =>
-                {
-                    return Err(PlayerInputError::SourceSequenceGap);
-                }
-                std::cmp::Ordering::Greater => {}
-            }
+        if matches!(
+            self.check_source_continuity(event)?,
+            SourceContinuityV1::AlreadyAdmitted
+        ) {
+            return Ok(());
         }
 
         match (&event.kind, &event.payload) {
@@ -570,14 +628,47 @@ impl PlayerInputSessionV1 {
             }
             _ => Ok(()),
         }?;
+        self.admit_source_cursor(event);
+        Ok(())
+    }
+
+    fn check_source_continuity(
+        &self,
+        event: &PlatformEventV1,
+    ) -> Result<SourceContinuityV1, PlayerInputError> {
+        let source_key = PlatformSourceKey {
+            host_instance_id: event.host_instance_id,
+            source_class: event.source_class.clone(),
+        };
+        let Some(previous) = self.source_cursors.get(&source_key) else {
+            return Ok(SourceContinuityV1::Admit);
+        };
+        match event.source_sequence.cmp(&previous.source_sequence) {
+            std::cmp::Ordering::Equal if event.platform_event_id == previous.last_event_id => {
+                Ok(SourceContinuityV1::AlreadyAdmitted)
+            }
+            std::cmp::Ordering::Equal => Err(PlayerInputError::PlatformEventIdentityCollision),
+            std::cmp::Ordering::Less => Err(PlayerInputError::SourceSequenceNonMonotonic),
+            std::cmp::Ordering::Greater
+                if previous.source_sequence.checked_add(1) != Some(event.source_sequence) =>
+            {
+                Err(PlayerInputError::SourceSequenceGap)
+            }
+            std::cmp::Ordering::Greater => Ok(SourceContinuityV1::Admit),
+        }
+    }
+
+    fn admit_source_cursor(&mut self, event: &PlatformEventV1) {
         self.source_cursors.insert(
-            source_key,
+            PlatformSourceKey {
+                host_instance_id: event.host_instance_id,
+                source_class: event.source_class.clone(),
+            },
             PlatformSourceCursor {
                 source_sequence: event.source_sequence,
                 last_event_id: event.platform_event_id,
             },
         );
-        Ok(())
     }
 
     fn process_control(

@@ -32,4 +32,8 @@ pub use session::{
     ReferenceGameSession, build_reference_game_session, build_reference_game_session_with_profile,
 };
 pub use source::{REFERENCE_GAME_PROJECT_ID, project_source_v2, project_source_v2_with_id};
-pub use ui::{hud_semantic_ui_records_for_ids, read_only_screen_semantic_ui_records_for_ids};
+pub use ui::{
+    PAUSE_MENU_LOAD_ELEMENT_ID, PAUSE_MENU_RESUME_ELEMENT_ID, PAUSE_MENU_SAVE_ELEMENT_ID,
+    PAUSE_MENU_SURFACE_ID, hud_semantic_ui_records_for_ids, pause_menu_semantic_ui_records,
+    read_only_screen_semantic_ui_records_for_ids,
+};

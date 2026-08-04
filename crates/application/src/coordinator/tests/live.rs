@@ -632,3 +632,64 @@ fn ui_back_player_action_suspends_through_the_declared_lifecycle_path() {
         .expect("live game close");
     cleanup(root);
 }
+
+#[test]
+fn pause_menu_save_persists_prepared_run_and_menu_resume_event_is_admitted() {
+    let root = test_root("pause-menu-save-resume");
+    let mut game = ApplicationCoordinator::launch(interactive_launch(&root)).expect("game launch");
+    game.begin_reference_game_live(true)
+        .expect("begin live reference game");
+    let host = test_platform_host(&mut game);
+    let escape = keyboard_escape_event(&host, 0);
+    game.advance_reference_game_live(std::slice::from_ref(&escape))
+        .expect("committed ui-back suspends the session");
+    assert_eq!(game.state().state, ApplicationSessionStatusV1::Suspended);
+
+    // The pause-menu save activates the same production save-store write the
+    // final save uses; an unchanged checkpoint reuses the existing image.
+    let save_generation_hash = game
+        .save_current_prepared_run()
+        .expect("pause-menu save persists the suspended prepared run");
+    let repeated = game
+        .save_current_prepared_run()
+        .expect("idempotent pause-menu save");
+    assert_eq!(repeated, save_generation_hash);
+
+    // A menu-fabricated resume (dedicated source class, own admission
+    // cursor) follows the same admitted lifecycle path as a platform resume.
+    let menu_resume = PlatformEventV1::new(
+        host.host_instance_id,
+        SchemaId::new("nextengine.platform.source.pause-menu").expect("menu source class"),
+        0,
+        0,
+        PlatformEventKindV1::ResumeRequested,
+        PlatformEventPayloadV1::Reason {
+            reason: SchemaId::new("nextengine.platform.reason.pause-menu-resume")
+                .expect("menu resume reason"),
+        },
+        host.capability_set_hash,
+    )
+    .expect("menu resume event");
+    game.resume_from_platform_event(&menu_resume)
+        .expect("menu-fabricated resume is admitted");
+    assert_eq!(game.state().state, ApplicationSessionStatusV1::Active);
+    let resumed = game
+        .advance_reference_game_live(&[])
+        .expect("post-resume advance");
+    assert_eq!(resumed.ticks, 2);
+    game.close(CloseExecutionOptionsV1::default())
+        .expect("live game close");
+    cleanup(root);
+}
+
+#[test]
+fn queue_host_consumed_live_input_requires_a_live_run() {
+    let root = test_root("queue-host-consumed-no-run");
+    let mut game = ApplicationCoordinator::launch(interactive_launch(&root)).expect("game launch");
+    let error = game
+        .queue_host_consumed_live_input(&[])
+        .expect_err("host-consumed queue without a live run is rejected");
+    assert!(matches!(error, ApplicationError::NoLiveRun));
+    drop(game);
+    cleanup(root);
+}

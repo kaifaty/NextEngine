@@ -236,6 +236,20 @@ impl ApplicationCoordinator {
         })
     }
 
+    /// Interactive pause menu (S5): while the declared pause suspend was
+    /// active, the host consumed admitted menu-key events outside the game
+    /// input stream. Queues them into the live input session for cursor-only
+    /// admission at the next closed frame, so per-source sequence
+    /// continuity stays exact across input the game can never observe.
+    pub fn queue_host_consumed_live_input(
+        &mut self,
+        events: &[PlatformEventV1],
+    ) -> Result<(), ApplicationError> {
+        let driver = self.live_run.as_mut().ok_or(ApplicationError::NoLiveRun)?;
+        driver.queue_host_consumed_platform_events(events)?;
+        Ok(())
+    }
+
     pub fn current_live_run(&self) -> Result<ApplicationRunOutcomeV1, ApplicationError> {
         let driver = self.live_run.as_ref().ok_or(ApplicationError::NoLiveRun)?;
         if let Some(prepared) = self

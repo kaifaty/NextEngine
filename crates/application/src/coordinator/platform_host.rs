@@ -63,6 +63,35 @@ impl ApplicationCoordinator {
         Ok(host_instance_id)
     }
 
+    /// Same-session in-process live-run reload (S5 pause-menu load): the
+    /// adapter lifetime outlives the coordinator, so its event stream keeps
+    /// the already-issued host identity instead of a fresh registration.
+    /// Same capability binding; admission cursors start empty and the
+    /// continuing stream re-establishes them. Stale adapters from earlier
+    /// process lifetimes are still rejected because their identity never
+    /// matches the current registration.
+    pub fn register_platform_host_continuing(
+        &mut self,
+        host_instance_id: PersistentId,
+        capabilities: &PlatformCapabilitySetV1,
+    ) -> Result<PersistentId, ApplicationError> {
+        capabilities.validate()?;
+        if self.launch.presentation_target == PresentationTargetKindV1::None {
+            return Err(ApplicationError::ProjectTargetForbidden);
+        }
+        if self.durable.manifest.body.platform_capability_set_hash
+            != Some(capabilities.canonical_hash)
+        {
+            return Err(ApplicationError::PlatformCapabilityRequired);
+        }
+        self.platform_host = Some(RegisteredPlatformHostV1 {
+            host_instance_id,
+            capability_set_hash: capabilities.canonical_hash,
+            source_cursors: BTreeMap::new(),
+        });
+        Ok(host_instance_id)
+    }
+
     pub(crate) fn with_platform_event_admission<T>(
         &mut self,
         events: &[PlatformEventV1],

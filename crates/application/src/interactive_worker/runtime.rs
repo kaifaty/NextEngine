@@ -532,8 +532,12 @@ fn run_interactive_simulation_session_worker(
             };
         }
     };
-    let prepared =
-        prepare_interactive_worker(launch, &capabilities, &latest_snapshot, metrics.as_mut());
+    let prepared = prepare_interactive_worker(
+        launch.clone(),
+        &capabilities,
+        &latest_snapshot,
+        metrics.as_mut(),
+    );
     let (mut application, ready) = match prepared {
         Ok(prepared) => prepared,
         Err(failure) => {
@@ -545,6 +549,12 @@ fn run_interactive_simulation_session_worker(
         }
     };
     let mut fixed_step = FixedStepLiveSchedulerV1::reference_game_v1();
+    let mut host_instance_id = ready.host_instance_id;
+    let mut last_publication = (
+        ready.initial_snapshot.snapshot_epoch,
+        ready.initial_snapshot.snapshot_sequence,
+    );
+    let mut pause_menu = pause_menu::PauseMenuControllerV1::new();
     if ready_sender.send(Ok(ready)).is_err() {
         let result = finish_interactive_worker(&mut application, None, 0).and(Err(
             InteractiveWorkerFailureV1::runtime(
@@ -587,12 +597,45 @@ fn run_interactive_simulation_session_worker(
                     metrics.expected_callback_sequence = callback_sequence.saturating_add(1);
                 }
                 if pending_failure.is_none() {
+                    // S5: while the declared pause suspend is active, route
+                    // the batch through the host-side pause-menu controller
+                    // before the fixed-step advance. The full batch still
+                    // scopes admission so per-source cursors stay gapless
+                    // while swallowed menu keys never reach the simulation.
+                    let mut events = events;
+                    let mut menu_admitted = None;
+                    if application.state().state == ApplicationSessionStatusV1::Suspended
+                        && latest_snapshot
+                            .read()
+                            .ok()
+                            .and_then(|latest| {
+                                latest.as_ref().map(|published| {
+                                    pause_menu::snapshot_has_pause_menu(&published.snapshot)
+                                })
+                            })
+                            .unwrap_or(false)
+                    {
+                        menu_admitted = Some(events.clone());
+                        events = pause_menu::handle_suspended_pause_menu_frame(
+                            &mut pause_menu::PauseMenuFrameContextV1 {
+                                launch: &launch,
+                                capabilities: &capabilities,
+                                application: &mut application,
+                                fixed_step: &mut fixed_step,
+                                host_instance_id: &mut host_instance_id,
+                                latest_snapshot: &latest_snapshot,
+                                last_publication: &mut last_publication,
+                                pending_failure: &mut pending_failure,
+                                failure_sender: &failure_sender,
+                                callback_sequence,
+                            },
+                            &mut pause_menu,
+                            events,
+                        );
+                    }
                     let result = if let Some(metrics) = metrics.as_mut() {
-                        fixed_step.advance_reference_game_presentation_shared_observed(
-                            &mut application,
-                            elapsed,
-                            &events,
-                            |simulation_tick, published_checkpoint, duration| {
+                        let mut observe =
+                            |simulation_tick, published_checkpoint, duration: Duration| {
                                 let class = if published_checkpoint {
                                     metrics.checkpoint_fixed_steps =
                                         metrics.checkpoint_fixed_steps.saturating_add(1);
@@ -610,18 +653,72 @@ fn run_interactive_simulation_session_worker(
                                         nanoseconds: duration.as_nanos(),
                                     },
                                 );
-                            },
-                        )
+                            };
+                        match &menu_admitted {
+                            Some(full_batch) => fixed_step
+                                .advance_reference_game_presentation_shared_observed_admitting(
+                                    &mut application,
+                                    elapsed,
+                                    full_batch,
+                                    &events,
+                                    &mut observe,
+                                ),
+                            None => fixed_step.advance_reference_game_presentation_shared_observed(
+                                &mut application,
+                                elapsed,
+                                &events,
+                                observe,
+                            ),
+                        }
                     } else {
-                        fixed_step.advance_reference_game_presentation_shared(
-                            &mut application,
-                            elapsed,
-                            &events,
-                        )
+                        match &menu_admitted {
+                            Some(full_batch) => fixed_step
+                                .advance_reference_game_presentation_shared_observed_admitting(
+                                    &mut application,
+                                    elapsed,
+                                    full_batch,
+                                    &events,
+                                    |_, _, _| {},
+                                ),
+                            None => fixed_step.advance_reference_game_presentation_shared(
+                                &mut application,
+                                elapsed,
+                                &events,
+                            ),
+                        }
                     }
                     .map_err(InteractiveWorkerFailureV1::application);
                     match result {
                         Ok(Some(next_snapshot)) => {
+                            // S5: menu republications may have advanced the
+                            // published sequence past the extractor counter;
+                            // keep the adapter-visible order strictly
+                            // increasing within the epoch.
+                            let next_snapshot = if next_snapshot.snapshot_epoch
+                                == last_publication.0
+                                && next_snapshot.snapshot_sequence <= last_publication.1
+                            {
+                                match pause_menu::resequenced_snapshot(
+                                    &next_snapshot,
+                                    last_publication.1.saturating_add(1),
+                                ) {
+                                    Ok(rebuilt) => Arc::new(rebuilt),
+                                    Err(failure) => {
+                                        record_interactive_worker_failure(
+                                            &mut pending_failure,
+                                            &failure_sender,
+                                            failure,
+                                        );
+                                        next_snapshot
+                                    }
+                                }
+                            } else {
+                                next_snapshot
+                            };
+                            last_publication = (
+                                next_snapshot.snapshot_epoch,
+                                next_snapshot.snapshot_sequence,
+                            );
                             let publication_started = metrics.as_ref().map(|_| Instant::now());
                             match latest_snapshot.write() {
                                 Ok(mut latest) => {
@@ -761,7 +858,7 @@ fn prepare_interactive_worker(
     ))
 }
 
-fn begin_or_resume_reference_game_live(
+pub(super) fn begin_or_resume_reference_game_live(
     application: &mut ApplicationCoordinator,
 ) -> Result<crate::ApplicationRunOutcomeV1, InteractiveWorkerFailureV1> {
     match application.current_live_run() {
@@ -773,7 +870,7 @@ fn begin_or_resume_reference_game_live(
     }
 }
 
-fn record_interactive_worker_failure(
+pub(super) fn record_interactive_worker_failure(
     pending_failure: &mut Option<InteractiveWorkerFailureV1>,
     failure_sender: &SyncSender<InteractiveWorkerFailureV1>,
     failure: InteractiveWorkerFailureV1,

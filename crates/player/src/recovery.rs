@@ -224,6 +224,7 @@ impl PlayerInputSessionV1 {
             pending_context_stack: None,
             source_cursors,
             pending_platform_events: Vec::new(),
+            pending_host_consumed_events: Vec::new(),
             last_logical_frame_sequence,
             held_controls,
             started_controls: BTreeSet::new(),
@@ -257,6 +258,7 @@ impl PlayerInputSessionV1 {
         if self.pending_action_map.is_some()
             || self.pending_context_stack.is_some()
             || !self.pending_platform_events.is_empty()
+            || !self.pending_host_consumed_events.is_empty()
             || !self.started_controls.is_empty()
             || !self.pending_deltas.is_empty()
             || !self.diagnostics.is_empty()

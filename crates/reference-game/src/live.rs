@@ -763,6 +763,18 @@ impl ReferenceGameDriverV1 {
         Ok(())
     }
 
+    /// Interactive pause menu (S5): queues host-consumed platform events
+    /// (menu keys swallowed while the session was suspended) for cursor-only
+    /// admission at the next closed input frame, keeping per-source sequence
+    /// continuity exact. No control or action effects.
+    pub fn queue_host_consumed_platform_events(
+        &mut self,
+        events: &[PlatformEventV1],
+    ) -> Result<(), ReferenceGameError> {
+        self.input.queue_host_consumed_platform_events(events)?;
+        Ok(())
+    }
+
     fn validate_recovered_camera(
         &self,
         persisted_snapshot: &PresentationSnapshotV2,

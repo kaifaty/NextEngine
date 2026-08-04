@@ -111,11 +111,34 @@ impl FixedStepLiveSchedulerV1 {
         application: &mut ApplicationCoordinator,
         elapsed: Duration,
         events: &[PlatformEventV1],
-        mut observe_fixed_step: impl FnMut(u64, bool, Duration),
+        observe_fixed_step: impl FnMut(u64, bool, Duration),
     ) -> Result<Option<Arc<PresentationSnapshotV2>>, ApplicationError> {
-        self.advance_reference_game_presentation_with(
+        self.advance_reference_game_presentation_shared_observed_admitting(
             application,
             elapsed,
+            events,
+            events,
+            observe_fixed_step,
+        )
+    }
+
+    /// Same admitted advance, but validates one wider admission batch while
+    /// feeding only `events` to the game: input the host consumed first
+    /// (pause-menu keys while the declared pause suspend is active) is still
+    /// admitted, so per-source cursors stay gapless, without reaching the
+    /// simulation.
+    pub(crate) fn advance_reference_game_presentation_shared_observed_admitting(
+        &mut self,
+        application: &mut ApplicationCoordinator,
+        elapsed: Duration,
+        admitted_events: &[PlatformEventV1],
+        events: &[PlatformEventV1],
+        mut observe_fixed_step: impl FnMut(u64, bool, Duration),
+    ) -> Result<Option<Arc<PresentationSnapshotV2>>, ApplicationError> {
+        self.advance_reference_game_presentation_with_admission(
+            application,
+            elapsed,
+            admitted_events,
             events,
             |application, events| {
                 let started = std::time::Instant::now();
@@ -143,6 +166,26 @@ impl FixedStepLiveSchedulerV1 {
             &[PlatformEventV1],
         ) -> Result<T, ApplicationError>,
     ) -> Result<Option<T>, ApplicationError> {
+        self.advance_reference_game_presentation_with_admission(
+            application,
+            elapsed,
+            events,
+            events,
+            advance_step,
+        )
+    }
+
+    fn advance_reference_game_presentation_with_admission<T>(
+        &mut self,
+        application: &mut ApplicationCoordinator,
+        elapsed: Duration,
+        admitted_events: &[PlatformEventV1],
+        events: &[PlatformEventV1],
+        advance_step: impl FnMut(
+            &mut ApplicationCoordinator,
+            &[PlatformEventV1],
+        ) -> Result<T, ApplicationError>,
+    ) -> Result<Option<T>, ApplicationError> {
         let crossed_suspend_boundary = self.retry_consumed_lifecycle_events(application)?;
         if crossed_suspend_boundary {
             self.accumulated_scaled_nanoseconds = 0;
@@ -151,7 +194,7 @@ impl FixedStepLiveSchedulerV1 {
         lifecycle_plan.extend_from_slice(&self.deferred_events);
         lifecycle_plan.extend_from_slice(events);
         canonicalize_platform_events(&mut lifecycle_plan);
-        application.with_platform_event_admission(events, &lifecycle_plan, |application| {
+        application.with_platform_event_admission(admitted_events, &lifecycle_plan, |application| {
             self.advance_reference_game_with_admitted_events(
                 application,
                 elapsed,
@@ -220,12 +263,17 @@ impl FixedStepLiveSchedulerV1 {
                 .ok_or(ApplicationError::LiveTickBacklogExceeded)?;
             latest = Some(run);
             if crossed_suspend_boundary {
-                let applied_suspend = consumed_events
+                // A suspend may also originate from a committed player action
+                // (the declared ui-back pause path) instead of a platform
+                // SuspendRequested event; only platform-event suspends carry
+                // an event id that needs preprocessed tracking.
+                if let Some(applied_suspend) = consumed_events
                     .iter()
                     .find(|event| event.kind == PlatformEventKindV1::SuspendRequested)
-                    .ok_or(ApplicationError::DurableSnapshotInvalid)?;
-                self.preprocessed_lifecycle_event_ids
-                    .push(applied_suspend.platform_event_id);
+                {
+                    self.preprocessed_lifecycle_event_ids
+                        .push(applied_suspend.platform_event_id);
+                }
             }
             self.stage_consumed_lifecycle_events(consumed_events);
             let retried_suspend_boundary = self.retry_consumed_lifecycle_events(application)?;

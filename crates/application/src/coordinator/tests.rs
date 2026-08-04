@@ -21,8 +21,8 @@ use next_reference_game::project_source_v2;
 use next_runtime::SessionTransitionReferencesV1;
 
 use crate::{
-    ApplicationCloseOutcomeV1, CloseExecutionOptionsV1, FinalSaveAttemptFailureV1,
-    FixedStepLiveSchedulerV1, LaunchRequestV1, ProjectSelectionV1,
+    ApplicationCloseOutcomeV1, ApplicationError, CloseExecutionOptionsV1,
+    FinalSaveAttemptFailureV1, FixedStepLiveSchedulerV1, LaunchRequestV1, ProjectSelectionV1,
 };
 
 use super::ApplicationCoordinator;

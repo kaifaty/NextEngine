@@ -16,6 +16,7 @@ use crate::close::{ApplicationCloseOutcomeV1, CloseExecutionOptionsV1, FinalSave
 use crate::durable::DurableCloseOperationV1;
 
 use super::ApplicationCoordinator;
+use super::PreparedRunV1;
 use super::identity::{derive_close_request_id, derive_request_id, domain_hash};
 use super::recovery::{
     durable_ledger, progress, rebuild_journal, rebuild_retryable_ledger, reservation,
@@ -473,16 +474,14 @@ impl ApplicationCoordinator {
         }
     }
 
-    pub(super) fn commit_final_save(
-        &mut self,
-        close_request: &CloseSessionRequestV1,
-    ) -> Result<(), ApplicationError> {
-        self.ensure_prepared_run()?;
-        let prepared = self
-            .prepared_run
-            .as_ref()
-            .ok_or(ApplicationError::NoRunOutcome)?
-            .clone();
+    /// Production save write shared by the final save at close and the
+    /// pause-menu save (S5): commits the current prepared run into the save
+    /// store and returns its `(generation hash, manifest hash)` identity.
+    /// Idempotent for an unchanged checkpoint — the existing image is reused.
+    fn write_prepared_save_image(
+        &self,
+        prepared: &PreparedRunV1,
+    ) -> Result<(ContentHash, ContentHash), ApplicationError> {
         let compatibility = save_compatibility(&self.activated_project, &prepared.checkpoint)?;
         let loaded = match self.save_store.load_latest(&compatibility) {
             Ok(existing)
@@ -500,11 +499,40 @@ impl ApplicationCoordinator {
                 self.save_store.load_latest(&compatibility)?
             }
         };
+        save_identity(&loaded.image.manifest)
+    }
+
+    /// Pause-menu save path (S5): persists the current prepared run through
+    /// the same production save-store write the final save uses, without
+    /// close receipt or journal — no new lifecycle edges. Returns the save
+    /// generation hash for diagnostics.
+    pub fn save_current_prepared_run(&mut self) -> Result<ContentHash, ApplicationError> {
+        self.ensure_prepared_run()?;
+        let prepared = self
+            .prepared_run
+            .as_ref()
+            .ok_or(ApplicationError::NoRunOutcome)?
+            .clone();
+        let (save_generation_hash, _) = self.write_prepared_save_image(&prepared)?;
+        Ok(save_generation_hash)
+    }
+
+    pub(super) fn commit_final_save(
+        &mut self,
+        close_request: &CloseSessionRequestV1,
+    ) -> Result<(), ApplicationError> {
+        self.ensure_prepared_run()?;
+        let prepared = self
+            .prepared_run
+            .as_ref()
+            .ok_or(ApplicationError::NoRunOutcome)?
+            .clone();
+        let (save_generation_hash, save_manifest_hash) =
+            self.write_prepared_save_image(&prepared)?;
         #[cfg(test)]
         if self.pause_after_save_commit {
             return Err(ApplicationError::FinalSaveFailed);
         }
-        let (save_generation_hash, save_manifest_hash) = save_identity(&loaded.image.manifest)?;
         let mut close = self
             .durable
             .close

@@ -267,6 +267,7 @@ enum InteractiveShutdownAttemptV1<T> {
 }
 
 mod diagnostic;
+mod pause_menu;
 mod runtime;
 
 pub use diagnostic::{

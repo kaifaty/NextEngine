@@ -488,3 +488,338 @@ fn unique_test_directory(label: &str) -> std::path::PathBuf {
         SEQUENCE.fetch_add(1, Ordering::Relaxed)
     ))
 }
+
+#[derive(Clone, Copy)]
+struct WorkerMenuKeysV1 {
+    host_instance_id: next_contracts::ids::PersistentId,
+    capability_set_hash: next_contracts::ids::ContentHash,
+}
+
+impl WorkerMenuKeysV1 {
+    fn control(
+        &self,
+        control_path: &str,
+        phase: next_contracts::platform::NormalizedControlPhaseV1,
+        source_sequence: u64,
+    ) -> next_contracts::platform::PlatformEventV1 {
+        use next_contracts::ids::SchemaId;
+        use next_contracts::platform::{
+            NormalizedControlEventV1, PlatformEventKindV1, PlatformEventPayloadV1, PlatformEventV1,
+        };
+        let control = NormalizedControlEventV1::new(
+            SchemaId::new(next_contracts::input::KEYBOARD_DEVICE_CLASS_ID).expect("device class"),
+            next_contracts::ids::PersistentId::from_bytes([0x74; 16]),
+            SchemaId::new(control_path).expect("control path"),
+            phase,
+            vec![
+                if phase == next_contracts::platform::NormalizedControlPhaseV1::Started {
+                    i16::MAX
+                } else {
+                    0
+                },
+            ],
+            Vec::new(),
+            source_sequence,
+            source_sequence,
+        )
+        .expect("control event");
+        PlatformEventV1::new(
+            self.host_instance_id,
+            SchemaId::new("nextengine.platform.source.worker-menu-test").expect("source class"),
+            source_sequence,
+            source_sequence,
+            PlatformEventKindV1::Control,
+            PlatformEventPayloadV1::Control(control),
+            self.capability_set_hash,
+        )
+        .expect("platform event")
+    }
+}
+
+fn wait_processed_callbacks(worker: &InteractiveSimulationWorkerV1, expected: u64) {
+    loop {
+        let read = worker.read_latest_snapshot().expect("read latest snapshot");
+        if read.processed_callbacks >= expected {
+            break;
+        }
+        std::thread::yield_now();
+    }
+}
+
+fn selected_pause_menu_element(
+    snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+) -> Option<String> {
+    snapshot.semantic_ui_records().find_map(|record| {
+        (record.element.selected
+            && record.surface_id.as_str() == next_reference_game::PAUSE_MENU_SURFACE_ID)
+            .then(|| record.element.element_id.as_str().to_owned())
+    })
+}
+
+fn pause_menu_visible(snapshot: &next_contracts::presentation::PresentationSnapshotV2) -> bool {
+    snapshot
+        .semantic_ui_records()
+        .any(|record| record.surface_id.as_str() == next_reference_game::PAUSE_MENU_SURFACE_ID)
+}
+
+#[test]
+fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
+    use next_contracts::input::{
+        KEYBOARD_DOWN_CONTROL_PATH_ID, KEYBOARD_ESCAPE_CONTROL_PATH_ID,
+        KEYBOARD_RETURN_CONTROL_PATH_ID, KEYBOARD_UP_CONTROL_PATH_ID,
+    };
+    use next_contracts::platform::NormalizedControlPhaseV1;
+
+    let state_root = unique_test_directory("worker-pause-menu");
+    let launch = LaunchRequestV1::reference(
+        state_root.clone(),
+        CompositionRootV1::Game,
+        PresentationTargetKindV1::Interactive,
+    );
+    let capability_set_hash = launch
+        .platform_capability_set
+        .as_ref()
+        .expect("interactive launch capabilities")
+        .canonical_hash;
+    let (mut worker, ready) =
+        InteractiveSimulationWorkerV1::spawn_with_diagnostic_capacity(launch, Some(64))
+            .expect("spawn menu worker");
+    let keys = WorkerMenuKeysV1 {
+        host_instance_id: ready.host_instance_id,
+        capability_set_hash,
+    };
+    let initial_epoch = ready.initial_snapshot.snapshot_epoch;
+    // The reference game ticks at 30 Hz: one full-tick elapsed per submit.
+    let tick = Duration::from_nanos(33_333_334);
+    let mut submitted = 0_u64;
+    let mut source_sequence = 0_u64;
+    let mut submit = |worker: &mut InteractiveSimulationWorkerV1,
+                      events: Vec<next_contracts::platform::PlatformEventV1>| {
+        worker.submit_advance(tick, events).expect("submit advance");
+        submitted += 1;
+        wait_processed_callbacks(worker, submitted);
+        let failure = worker.try_take_failure();
+        assert!(failure.is_none(), "submit {submitted} failed: {failure:?}");
+    };
+    let mut key = |path: &str, phase| {
+        source_sequence += 1;
+        keys.control(path, phase, source_sequence)
+    };
+
+    // The fixed-step scheduler consumes the pending queue, so a submitted
+    // batch takes effect on the NEXT pump: the escape press commits ui-back
+    // (and suspends with the pause menu published) one submit later.
+    submit(
+        &mut worker,
+        vec![key(
+            KEYBOARD_ESCAPE_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Started,
+        )],
+    );
+    let ticking = worker
+        .read_latest_snapshot()
+        .expect("ticking snapshot")
+        .snapshot;
+    assert!(!pause_menu_visible(&ticking));
+    assert_eq!(ticking.simulation_tick, 1);
+    submit(
+        &mut worker,
+        vec![key(
+            KEYBOARD_ESCAPE_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Completed,
+        )],
+    );
+    let suspended = worker
+        .read_latest_snapshot()
+        .expect("suspended snapshot")
+        .snapshot;
+    assert!(pause_menu_visible(&suspended));
+    assert_eq!(suspended.simulation_tick, 2);
+    assert_eq!(
+        selected_pause_menu_element(&suspended),
+        Some(next_reference_game::PAUSE_MENU_RESUME_ELEMENT_ID.to_owned())
+    );
+    let suspended_sequence = suspended.snapshot_sequence;
+
+    // ui-nav republishes a presentation-only selection clone under a bumped
+    // sequence; the adapter requires strictly increasing per-epoch order.
+    submit(
+        &mut worker,
+        vec![
+            key(
+                KEYBOARD_DOWN_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Started,
+            ),
+            key(
+                KEYBOARD_DOWN_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Completed,
+            ),
+        ],
+    );
+    let navigated = worker
+        .read_latest_snapshot()
+        .expect("navigated snapshot")
+        .snapshot;
+    assert_eq!(
+        selected_pause_menu_element(&navigated),
+        Some(next_reference_game::PAUSE_MENU_SAVE_ELEMENT_ID.to_owned())
+    );
+    assert_eq!(navigated.snapshot_sequence, suspended_sequence + 1);
+
+    // ui-confirm on Save persists through the production save path; the menu
+    // stays open and suspended and no new publication is emitted.
+    submit(
+        &mut worker,
+        vec![
+            key(
+                KEYBOARD_RETURN_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Started,
+            ),
+            key(
+                KEYBOARD_RETURN_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Completed,
+            ),
+        ],
+    );
+    let after_save = worker
+        .read_latest_snapshot()
+        .expect("post-save snapshot")
+        .snapshot;
+    assert!(pause_menu_visible(&after_save));
+    assert_eq!(after_save.simulation_tick, 2);
+    assert_eq!(after_save.snapshot_sequence, navigated.snapshot_sequence);
+
+    // Back out to Resume and activate it: the menu-fabricated resume is
+    // admitted, the same pump already ticks the resumed game and the real
+    // publication is resequenced past the menu clones.
+    submit(
+        &mut worker,
+        vec![
+            key(
+                KEYBOARD_UP_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Started,
+            ),
+            key(
+                KEYBOARD_UP_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Completed,
+            ),
+        ],
+    );
+    let backed_out = worker
+        .read_latest_snapshot()
+        .expect("backed-out snapshot")
+        .snapshot;
+    assert_eq!(
+        selected_pause_menu_element(&backed_out),
+        Some(next_reference_game::PAUSE_MENU_RESUME_ELEMENT_ID.to_owned())
+    );
+    assert_eq!(
+        backed_out.snapshot_sequence,
+        navigated.snapshot_sequence + 1
+    );
+    submit(
+        &mut worker,
+        vec![
+            key(
+                KEYBOARD_RETURN_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Started,
+            ),
+            key(
+                KEYBOARD_RETURN_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Completed,
+            ),
+        ],
+    );
+    let resumed = worker
+        .read_latest_snapshot()
+        .expect("resumed snapshot")
+        .snapshot;
+    assert!(!pause_menu_visible(&resumed));
+    assert_eq!(resumed.snapshot_epoch, initial_epoch);
+    assert_eq!(resumed.simulation_tick, 3);
+    assert_eq!(resumed.snapshot_sequence, backed_out.snapshot_sequence + 1);
+
+    // Suspend again (press commits ui-back on the next pump) and activate
+    // Load: the worker reloads the coordinator from the forced suspend
+    // checkpoint (recovery epoch, sequence zero, camera cut) and resumes
+    // play from it within the same pump.
+    submit(
+        &mut worker,
+        vec![key(
+            KEYBOARD_ESCAPE_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Started,
+        )],
+    );
+    submit(
+        &mut worker,
+        vec![key(
+            KEYBOARD_ESCAPE_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Completed,
+        )],
+    );
+    let suspended_again = worker
+        .read_latest_snapshot()
+        .expect("second suspended snapshot")
+        .snapshot;
+    assert!(pause_menu_visible(&suspended_again));
+    assert_eq!(suspended_again.simulation_tick, 5);
+    let suspended_tick = suspended_again.simulation_tick;
+    submit(
+        &mut worker,
+        vec![
+            key(
+                KEYBOARD_UP_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Started,
+            ),
+            key(
+                KEYBOARD_UP_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Completed,
+            ),
+        ],
+    );
+    let loading = worker
+        .read_latest_snapshot()
+        .expect("load selection snapshot")
+        .snapshot;
+    assert_eq!(
+        selected_pause_menu_element(&loading),
+        Some(next_reference_game::PAUSE_MENU_LOAD_ELEMENT_ID.to_owned())
+    );
+    submit(
+        &mut worker,
+        vec![
+            key(
+                KEYBOARD_RETURN_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Started,
+            ),
+            key(
+                KEYBOARD_RETURN_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Completed,
+            ),
+        ],
+    );
+    let loaded = worker
+        .read_latest_snapshot()
+        .expect("loaded snapshot")
+        .snapshot;
+    assert!(!pause_menu_visible(&loaded));
+    assert_eq!(loaded.simulation_tick, suspended_tick + 1);
+    assert_ne!(loaded.snapshot_epoch, initial_epoch);
+    submit(&mut worker, Vec::new());
+    let continued = worker
+        .read_latest_snapshot()
+        .expect("post-load advance snapshot")
+        .snapshot;
+    assert_eq!(continued.simulation_tick, suspended_tick + 2);
+
+    loop {
+        if let InteractiveWorkerFinalizationV1::Closed { result, .. } =
+            worker.shutdown_attempt(None, 0)
+        {
+            let report = (*result).expect("terminal worker report");
+            assert_eq!(report.close_result, "Saved");
+            break;
+        }
+    }
+    std::fs::remove_dir_all(state_root).expect("remove pause-menu worker root");
+}

@@ -4,8 +4,9 @@ use next_contracts::input::{
     ActionDefinitionV1, CORE_CAMERA_ORBIT_ACTION_ID, CORE_GAMEPLAY_CONTEXT_STACK_ID,
     CORE_INTERACT_ACTION_ID, CORE_MOVE_ACTION_ID, INPUT_CONTEXT_SCHEMA_VERSION,
     InputContextCapturePolicyV1, InputContextV1, KEYBOARD_D_CONTROL_PATH_ID,
-    KEYBOARD_DEVICE_CLASS_ID, KEYBOARD_E_CONTROL_PATH_ID, KEYBOARD_W_CONTROL_PATH_ID,
-    MOUSE_DELTA_CONTROL_PATH_ID, MOUSE_DEVICE_CLASS_ID, PlayerActionValueKindV1,
+    KEYBOARD_DEVICE_CLASS_ID, KEYBOARD_E_CONTROL_PATH_ID, KEYBOARD_RETURN_CONTROL_PATH_ID,
+    KEYBOARD_W_CONTROL_PATH_ID, MOUSE_DELTA_CONTROL_PATH_ID, MOUSE_DEVICE_CLASS_ID,
+    PlayerActionValueKindV1,
 };
 
 use super::*;
@@ -121,6 +122,10 @@ fn assert_event_state_unchanged(actual: &PlayerInputSessionV1, expected: &Player
     assert_eq!(
         actual.pending_platform_events,
         expected.pending_platform_events
+    );
+    assert_eq!(
+        actual.pending_host_consumed_events,
+        expected.pending_host_consumed_events
     );
     assert_eq!(
         actual.last_logical_frame_sequence,
@@ -923,4 +928,5 @@ fn malformed_known_control_is_rejected_without_partial_state() {
     assert_event_state_unchanged(&input, &before_close);
 }
 
+mod host_consumed;
 mod transitions;
