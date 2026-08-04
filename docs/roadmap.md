@@ -121,7 +121,7 @@ skeleton/animation/audio.
 | Animation/motor | Только procedural projection/contract fragments | Нет skeleton graph, retargeting, IK, root-motion intent или deterministic inference supervisor. |
 | Agent AI | Частично: один canonical affordance planner | Нет perception, hierarchy, schedules, memory и 100-NPC workload. |
 | Navigation/audio | Spec-only | Нет runtime service, cooker или baseline adapters. |
-| Player experience | Частично: общий keyboard/mouse ActionMap/InputContext resolver, persisted targeting intent/query, live third-person camera path, semantic UI contracts + HUD/pause-menu extraction, ui-back pause lifecycle и localization text catalogs с deterministic fallback resolver | Нет widget consumption/rasterizer, preferences (locale/text scale), accessibility, controller profile и inventory/dialogue/quest-journal surfaces. |
+| Player experience | Частично: общий keyboard/mouse ActionMap/InputContext resolver, persisted targeting intent/query, live third-person camera path, semantic UI contracts + HUD/pause-menu extraction, ui-back pause lifecycle, localization text catalogs с deterministic fallback resolver и pseudo-locale, immediate-mode widget rasterizer в desktop adapter, minimal PresentationOnly preferences (text scale/locale), read-only inventory/equipment + quest journal surfaces, dialogue arbitration и host-side interactive pause-menu (resume/save/load) | Нет accessibility profiles, controller profile и capability-scoped extension panels (SPEC-18 `ui.panel.register`). |
 | Presentation/render | Частично: exact revision-bound snapshot с typed camera, offline SPIR-V, CPU visible list/indexed-indirect B0 path, camera view-projection/depth, fallback material и проверенные локально Windows swapchain/device recovery/package paths | Нет skeleton/VFX consumption state, paired same-commit target proof и representative Linux hardware-GPU evidence. |
 | Tooling | Частично: repository `xtask` checks и versioned performance report/gate foundation | Нет creator-facing `next` CLI, inspectors, scenario/minimizer, ten-run THOTH baseline и stable external SDK workflow. |
 | Autonomous narrative | Contract fragments only | SPEC-31 runtime, graph admission, director fallback и divine batch transaction отсутствуют. |
@@ -1112,7 +1112,7 @@ materialized-ledger snapshot cache (~1 clone на checkpoint interval).
 Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 изменились.
 
-1. **Semantic UI (`IN PROGRESS`):** HUD, pause/save/load flow, ui-back lifecycle,
+1. **Semantic UI (`DONE_LOCAL_WINDOWS`):** HUD, pause/save/load flow, ui-back lifecycle,
    pseudo-locale localization (text catalogs + fallback resolver, ADR-044),
    minimal widget adapter (engine-owned immediate-mode overlay в desktop-sdl-ash:
    CPU rasterizer semantic batches + bitmap font, fullscreen textured quad поверх
@@ -1125,7 +1125,15 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    dialogue arbitration реализована: modal dialogue surface с ui-nav selection,
    ui-confirm accept через production interaction path (synthetic interact в
    AdvanceDialogueQuest), ui-back close, context swap через queued input
-   context revisions и mid-dialogue recovery; остаются interactive screens.
+   context revisions и mid-dialogue recovery; interactive pause-menu
+   реализовано: host-side presentation-only selection против опубликованных
+   records, resume через admitted menu-fabricated `ResumeRequested` (без новых
+   lifecycle edges), save через тот же production save-store write, что final
+   save, load через same-session restore с continuing host registration;
+   swallowed menu keys проходят cursor-only admission в input session
+   (per-source continuity exact, второго gameplay input path нет).
+   `host-check`, `play`, `persistence-replay` и `platform` (desktop-sdl-ash)
+   PASS локально на Windows.
 2. **Baseline audio (`PLANNED`):** clips, emitters/listener, priority/voice limits,
    attenuation/panning and subtitle fallback.
 3. **Playable alpha project (`PLANNED`):** заменить technical fixture на один complete

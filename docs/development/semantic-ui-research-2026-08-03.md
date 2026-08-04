@@ -830,3 +830,60 @@ Decision-нейтральная инвентаризация перед interact
 - **Scope guard (S5-Q3A)**: mouse hit-testing, centering/anchors не
   входят. ui-back в меню = resume (back semantics; побочно закрывает
   утечку queued Escape).
+
+### Экраны S5 (interactive pause-menu, S5-Q1A/Q2A/Q3A) — DONE (2026-08-04)
+
+- `PauseMenuControllerV1` (`crates/application/src/interactive_worker/
+  pause_menu.rs`) wired в Advance handler worker'а; активен только в
+  `Suspended` с опубликованным pause-menu surface. ui-nav (up/down +
+  left/right зеркально) двигает deterministic selection (Resume default,
+  циклически в canonical element-id order load/resume/save); изменение
+  selection републикует presentation-only clone snapshot с `selected`/
+  accent только на кнопках меню под следующим sequence; реальные
+  публикации extractor'а resequence'ятся поверх menu clones (адаптер
+  требует strictly increasing per-epoch order). Clones не входят в
+  recovery evidence, cue batches refused fail-closed.
+- **resume** (ui-confirm на Resume или ui-back): fabricated
+  `ResumeRequested` с dedicated source class
+  `nextengine.platform.source.pause-menu` (own admission cursor) проходит
+  production `resume_from_platform_event` — та же transition/dedup/archive,
+  что window-restored resume; новых lifecycle edges нет (8A).
+- **save** (ui-confirm на Save): `save_current_prepared_run()` — общий с
+  `commit_final_save` production save-store write
+  (`write_prepared_save_image`), idempotent для неизменного checkpoint,
+  без close receipt/journal.
+- **load** (ui-confirm на Load): same-session reload через
+  `launch_or_resume` + `restore_live_run` (forced suspend checkpoint,
+  session сохранён), fixed-step scheduler и selection сбрасываются,
+  recovered snapshot публикуется, затем admitted resume. Adapter lifetime
+  переживает coordinator: новый `register_platform_host_continuing`
+  ре-биндит прежний host identity (fresh registration сломала бы поток
+  адаптера — `PlatformEventIdentityCollision`); stale adapters из прошлых
+  process lifetimes по-прежнему отклоняются.
+- **Cursor-only host-consumed admission**: swallowed menu keys никогда не
+  доходят до simulation, но coordinator admission видит полный batch
+  (`advance_..._observed_admitting` — wider admission batch, gapless
+  per-source cursors), а `PlayerInputSessionV1::
+  queue_host_consumed_platform_events` вводит их в следующий closed frame
+  как cursor-only admissions (полная identity/continuity validation, без
+  control/diagnostic/action effects). Это закрывает `INPUT_SEQUENCE_GAP`
+  на resume: deferred pre-suspend events, consumed menu keys и
+  post-resume events мержатся в canonical order в одном frame. Queue
+  transient и fail-closed на recovery boundary, bounded тем же
+  per-frame limit 4 096.
+- Fixed-step: suspend из committed ui-back больше не требует platform
+  SuspendRequested в consumed events (preprocessed tracking только для
+  platform-event suspends).
+- Tests: 5 unit (`pause_menu`: navigation/activation order, pass-through
+  после activation, selection/resequenced clones, fabricated resume
+  cursor), 2 unit (`player/tests/host_consumed`: cursor-only admission
+  без actions/controls, atomicity gap violations), coordinator
+  (`pause_menu_save_persists_prepared_run_and_menu_resume_event_is_admitted`,
+  `queue_host_consumed_live_input_requires_a_live_run`), end-to-end worker
+  (`pause_menu_navigation_save_load_and_resume_run_through_the_worker`:
+  suspend → nav republish → save → resume → re-suspend → load →
+  recovered epoch продолжает тикать).
+- Checks: cargo test (application 82, player, reference-game, contracts,
+  verification) PASS, `host-check` PASS, `play` PASS,
+  `persistence-replay` PASS, `platform` (desktop-sdl-ash) PASS.
+  Code commit `88dd91c`.
