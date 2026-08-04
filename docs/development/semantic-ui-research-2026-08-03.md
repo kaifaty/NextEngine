@@ -690,3 +690,54 @@ SPEC-24 (v1.0), SPEC-12 (v2.4), а также секции SPEC-17 о `Configura
 - Checks: cargo test (contracts, reference-game, application, verification)
   PASS, `host-check` PASS, `play` PASS, `persistence-replay` PASS,
   `platform` (desktop-sdl-ash) PASS. Code commit `79dca6e`.
+
+### Экраны S4 (dialogue arbitration, Q2A) — DONE (2026-08-03)
+
+- Desktop adapter fix: keyboard control paths приведены к контрактным —
+  `arrow-up`/`arrow-down`/`arrow-left`/`arrow-right` → `up`/`down`/`left`/
+  `right`, `enter` → `return` (без этого ui-nav/ui-confirm не резолвились на
+  desktop; contracts input ids не изменились).
+- `ReferenceDialogueUiV1` (`Closed`/`Open{selection}`/`AcceptPending`) —
+  deterministic presentation-only state machine (`dialogue.rs`), выводится из
+  committed resolved frame actions:
+  - interact Started рядом с NPC (dialogue offer node + строго ближайший
+    affordance, зеркалит runtime geometry check) открывает surface с выбором
+    Accept; сам interact кадр stripped — доменная команда не исполняется;
+  - `ui-nav` (up/left → Accept, down/right → Leave) двигает selection;
+  - `ui-confirm` на Accept → `AcceptPending` (surface закрывается); на Leave
+    → `Closed` без команды; `ui-back` → `Closed` + consumed (pause
+    подавляется, паттерн S3);
+  - симуляция не останавливается (Q5A): диалог — presentation overlay,
+    ticks продолжаются.
+- Context swap без новых contracts: `PlayerInputSessionV1::queue_context_stack`
+  (revision+1 того же stack_id) вызывается в начале следующего staged frame;
+  pending revision применяется в конце того же close, `configuration_changed`
+  коммитится через `RuntimeState::activate_player_input_configuration` на
+  commit-границе (ingress queues пусты). Open → модальный `ui-dialogue`
+  entry (priority 200, CaptureAll, [ui-back, ui-confirm, ui-nav]) поверх
+  gameplay entries; иначе — только gameplay entries. Recovery bytes
+  сериализуют context stack без pending → каноничный restore.
+- Accept через production interaction path (Q2A): когда tagging stack
+  теряет dialogue layer, driver инъектирует synthetic interact Started
+  (Digital(true)) в следующий committed frame; runtime mapper превращает его
+  в тот же `AdvanceDialogueQuest` intent, что и физический interact —
+  единственный accept path, replay/headless поведение не изменилось.
+- `ui_dialogue.rs`: semantic projection surface
+  `nextengine.ui.surface.dialogue` (panel + title/node-text Label и
+  choice-accept/choice-leave Button, `selected` flag, affordances
+  [ui-back, ui-confirm, ui-nav]); source hash включает selection byte.
+- Live driver wiring: dialogue state в staged/validated advance,
+  `ReferenceGameGenerationV1` parity и recovery evidence;
+  `commit_validated_advance` теперь возвращает `Result` (commit-граничная
+  активация input configuration может упасть bounded ошибкой).
+- Application: persisted live-run recovery manifest schema 2 -> 3, field 26
+  (`dialogue` u32 tag); restore принимает session на dialogue revision того
+  же stack family (stack_id check вместо full-stack equality).
+- Tests: 3 unit (`ui_dialogue`) + новый integration файл `live_dialogue.rs`
+  (reference_game.rs разбит под source-size budget): accept flow
+  (open/nav/confirm/injection → quest active, trust 7, completed dialogue не
+  reopen) и leave/back/restore flow (Leave без команды, ui-back consumed без
+  pause, mid-dialogue restore републикует surface и accept'ит тем же path).
+- Checks: cargo test (reference-game 13 lib + 12 integration) PASS,
+  `host-check` PASS, `play` PASS, `persistence-replay` PASS,
+  `platform` (desktop-sdl-ash) PASS. Code commit `6c056ce`.

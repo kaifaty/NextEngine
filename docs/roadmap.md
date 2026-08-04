@@ -1122,7 +1122,10 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    overlay text scale wiring), read-only inventory/equipment + quest journal
    surfaces и их deterministic open/close state из committed ui-inventory/
    ui-journal/ui-back actions (ui-back закрывает экран до pause) реализованы;
-   остаются dialogue arbitration и interactive screens.
+   dialogue arbitration реализована: modal dialogue surface с ui-nav selection,
+   ui-confirm accept через production interaction path (synthetic interact в
+   AdvanceDialogueQuest), ui-back close, context swap через queued input
+   context revisions и mid-dialogue recovery; остаются interactive screens.
 2. **Baseline audio (`PLANNED`):** clips, emitters/listener, priority/voice limits,
    attenuation/panning and subtitle fallback.
 3. **Playable alpha project (`PLANNED`):** заменить technical fixture на один complete
