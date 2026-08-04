@@ -741,3 +741,39 @@ SPEC-24 (v1.0), SPEC-12 (v2.4), а также секции SPEC-17 о `Configura
 - Checks: cargo test (reference-game 13 lib + 12 integration) PASS,
   `host-check` PASS, `play` PASS, `persistence-replay` PASS,
   `platform` (desktop-sdl-ash) PASS. Code commit `6c056ce`.
+
+### S5 prep (2026-08-04): фактическая карта pause/suspend/resume/load paths
+
+Decision-нейтральная инвентаризация перед interactive pause-menu; дизайн —
+после ответов owner на Q1–Q4 (чат 2026-08-03/04).
+
+- Suspend (решение 3B): committed ui-back без открытого экрана/dialogue →
+  `ui_suspend_causal_hash` в driver → coordinator
+  `suspend_from_committed_ui_action_with_prepared_run`
+  (`coordinator/publication.rs:110`) → `ApplicationSessionStatusV1::Suspended`
+  + forced durable checkpoint; pause-menu records публикуются в snapshot
+  приостанавливающего тика. Save при suspend уже происходит автоматически.
+- Resume: единственный production path — platform event
+  `PlatformEventKindV1::ResumeRequested` →
+  `resume_from_admitted_platform_event` (`coordinator/publication.rs:77`);
+  transition matrix (`coordinator/platform_host.rs:134-141`): (Suspended,
+  ResumeRequested) → Active, прочие пары → `CloseStateInvalid`. Desktop
+  источник ResumeRequested сегодня — только window-observation
+  (`window-restored`, `desktop-sdl-ash/src/lifecycle.rs`); keyboard/menu
+  trigger отсутствует.
+- В Suspended тиков нет: `live_schedule.rs:174` маршрутизирует advance в
+  `advance_suspended`; обрабатываются только lifecycle events через
+  `retry_consumed_lifecycle_events` (suspend/resume из admitted platform
+  events), gameplay events деферятся.
+- Load/restart: `ApplicationCoordinator::launch_or_resume` поверх того же
+  state root восстанавливает live run из durable checkpoint (тот же
+  session_id; smoke `restart existing live run` в `apps/game/src/main.rs`);
+  отдельного "load from menu" API нет — host перезапускает run.
+- Desktop loop: adapter per-frame `worker.submit_advance(elapsed, events)`
+  (`apps/game/src/main.rs:163+`); latest snapshot читается независимо от
+  состояния — рендер pause-menu records в Suspended продолжается без
+  изменений адаптера.
+- Вывод для S5: keyboard-навигация pause-menu требует нового host-side
+  компонента между adapter input и coordinator — selection state против
+  опубликованных records плюс генерация ResumeRequested / restart run для
+  resume/load (оба path существуют); save уже покрыт suspend checkpoint.
