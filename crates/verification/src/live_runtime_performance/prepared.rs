@@ -419,7 +419,11 @@ impl PreparedDriverWorkload {
             self.driver_prepare_microseconds
                 .push(prepare_started.elapsed().as_micros());
             let commit_started = Instant::now();
-            let _ = self.driver.commit_validated_advance(validated);
+            self.driver
+                .commit_validated_advance(validated)
+                .map_err(|error| {
+                    LiveRuntimePerformanceError::new("commit live movement", error.to_string())
+                })?;
             self.driver_commit_microseconds
                 .push(commit_started.elapsed().as_micros());
 

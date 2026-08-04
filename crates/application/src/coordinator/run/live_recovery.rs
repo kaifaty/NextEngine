@@ -18,17 +18,18 @@ use next_contracts::snapshot::{RuntimeSnapshotV3, WorldCheckpointV4};
 use next_contracts::world::WorldStreamingSnapshotV1;
 use next_player::PlayerInputSessionV1;
 use next_reference_game::{
-    ReferenceGameDriverV1, ReferenceLiveDriverRecoveryV1, ReferenceLiveStateV1, ReferenceUiScreenV1,
+    ReferenceDialogueChoiceV1, ReferenceDialogueUiV1, ReferenceGameDriverV1,
+    ReferenceLiveDriverRecoveryV1, ReferenceLiveStateV1, ReferenceUiScreenV1,
 };
 
 use crate::ApplicationError;
 
 use super::{PreparedRunV1, prepare_live_state};
 
-const LIVE_RECOVERY_SCHEMA_VERSION: u32 = 2;
+const LIVE_RECOVERY_SCHEMA_VERSION: u32 = 3;
 const LIVE_RECOVERY_OWNER_ID: &str = "nextengine.application";
 const LIVE_RECOVERY_SCHEMA_ID: &str = "nextengine.application-live-run-recovery.v1";
-const LIVE_RECOVERY_FIELD_COUNT: usize = 25;
+const LIVE_RECOVERY_FIELD_COUNT: usize = 26;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct LiveRunPayloadHashesV1 {
@@ -73,6 +74,7 @@ struct LiveRunRecoveryManifestV1 {
     camera_pitch_millidegrees: i32,
     camera_cut: bool,
     ui_screen: ReferenceUiScreenV1,
+    dialogue: ReferenceDialogueUiV1,
     presentation_input_count: u64,
     authoritative_state_root: ContentHash,
     command_archive_root: ContentHash,
@@ -149,6 +151,11 @@ impl LiveRunRecoveryManifestV1 {
                     CANONICAL_TYPE_U32,
                     ui_screen_tag(self.ui_screen).to_le_bytes().to_vec(),
                 ),
+                CanonicalField::new(
+                    26,
+                    CANONICAL_TYPE_U32,
+                    dialogue_tag(self.dialogue).to_le_bytes().to_vec(),
+                ),
             ],
         )?)
     }
@@ -191,6 +198,7 @@ impl LiveRunRecoveryManifestV1 {
             ticks: decode_u64(field(&decoded, 22, CANONICAL_TYPE_U64)?)?,
             content_manifest_hash: decode_hash(field(&decoded, 23, CANONICAL_TYPE_HASH256)?)?,
             ui_screen: ui_screen_from_tag(decode_u32(field(&decoded, 25, CANONICAL_TYPE_U32)?)?)?,
+            dialogue: dialogue_from_tag(decode_u32(field(&decoded, 26, CANONICAL_TYPE_U32)?)?)?,
         };
         if decoded.segment_id != value.session_id.to_hex() {
             return Err(ApplicationError::RecoveryIncompatible);
@@ -216,6 +224,33 @@ fn ui_screen_from_tag(tag: u32) -> Result<ReferenceUiScreenV1, ApplicationError>
         0 => Ok(ReferenceUiScreenV1::None),
         1 => Ok(ReferenceUiScreenV1::Inventory),
         2 => Ok(ReferenceUiScreenV1::Journal),
+        _ => Err(ApplicationError::RecoveryIncompatible),
+    }
+}
+
+fn dialogue_tag(dialogue: ReferenceDialogueUiV1) -> u32 {
+    match dialogue {
+        ReferenceDialogueUiV1::Closed => 0,
+        ReferenceDialogueUiV1::Open {
+            selection: ReferenceDialogueChoiceV1::Accept,
+        } => 1,
+        ReferenceDialogueUiV1::Open {
+            selection: ReferenceDialogueChoiceV1::Leave,
+        } => 2,
+        ReferenceDialogueUiV1::AcceptPending => 3,
+    }
+}
+
+fn dialogue_from_tag(tag: u32) -> Result<ReferenceDialogueUiV1, ApplicationError> {
+    match tag {
+        0 => Ok(ReferenceDialogueUiV1::Closed),
+        1 => Ok(ReferenceDialogueUiV1::Open {
+            selection: ReferenceDialogueChoiceV1::Accept,
+        }),
+        2 => Ok(ReferenceDialogueUiV1::Open {
+            selection: ReferenceDialogueChoiceV1::Leave,
+        }),
+        3 => Ok(ReferenceDialogueUiV1::AcceptPending),
         _ => Err(ApplicationError::RecoveryIncompatible),
     }
 }
@@ -364,6 +399,7 @@ pub(super) fn live_run_object_closure(
         camera_pitch_millidegrees: recovery.camera_pitch_millidegrees,
         camera_cut: recovery.camera_cut,
         ui_screen: recovery.ui_screen,
+        dialogue: recovery.dialogue,
         presentation_input_count: prepared.summary.presentation_input_count,
         authoritative_state_root: prepared.summary.authoritative_state_root,
         command_archive_root: prepared.summary.command_archive_root,
@@ -479,6 +515,7 @@ fn validate_persisted_live_run_closure(
         camera_pitch_millidegrees: manifest.camera_pitch_millidegrees,
         camera_cut: manifest.camera_cut,
         ui_screen: manifest.ui_screen,
+        dialogue: manifest.dialogue,
         input_session_bytes: input_bytes.to_vec(),
         presentation_snapshot_bytes: presentation_bytes.to_vec(),
     };

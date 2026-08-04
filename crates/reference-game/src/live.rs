@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
 use next_contracts::command::EventPayload;
-use next_contracts::ids::{ContentHash, PersistentId};
-use next_contracts::input::{CORE_CAMERA_ORBIT_ACTION_ID, PlayerActionFrameV1};
+use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
+use next_contracts::input::{
+    ActionMapManifestV1, CORE_INTERACT_ACTION_ID, InputContextStackV1, PlayerActionPhaseV1,
+    PlayerActionValueV1,
+};
 use next_contracts::physics::PhysicsCanonicalSnapshotV2;
 use next_contracts::platform::PlatformEventV1;
 use next_contracts::presentation::{
@@ -23,6 +26,7 @@ use crate::camera::{
     CAMERA_DISTANCE_MICROMETRES, CAMERA_SHOULDER_MICROMETRES, camera_orbit_offset_micrometres,
     update_camera_state,
 };
+use crate::dialogue::{ReferenceDialogueChoiceV1, ReferenceDialogueUiV1};
 use crate::input::ReferenceUiScreenV1;
 use crate::rpg::cooked_project_rpg_snapshot;
 use crate::scenario::fixture_presentation_bindings;
@@ -63,6 +67,7 @@ pub struct ReferenceLiveDriverRecoveryV1 {
     pub camera_pitch_millidegrees: i32,
     pub camera_cut: bool,
     pub ui_screen: ReferenceUiScreenV1,
+    pub dialogue: ReferenceDialogueUiV1,
     pub input_session_bytes: Vec<u8>,
     pub presentation_snapshot_bytes: Vec<u8>,
 }
@@ -81,6 +86,8 @@ pub struct ReferenceGameDriverV1 {
     camera_pitch_millidegrees: i32,
     camera_cut: bool,
     ui_screen: ReferenceUiScreenV1,
+    dialogue: ReferenceDialogueUiV1,
+    dialogue_entry_node_id: SchemaId,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -95,6 +102,7 @@ struct ReferenceGameGenerationV1 {
     presentation_snapshot_sequence: u64,
     presentation_simulation_tick: u64,
     ui_screen: ReferenceUiScreenV1,
+    dialogue: ReferenceDialogueUiV1,
 }
 
 impl ReferenceGameGenerationV1 {
@@ -111,6 +119,7 @@ impl ReferenceGameGenerationV1 {
             presentation_snapshot_sequence: presentation.snapshot_sequence,
             presentation_simulation_tick: presentation.simulation_tick,
             ui_screen: driver.ui_screen,
+            dialogue: driver.dialogue,
         })
     }
 
@@ -128,6 +137,7 @@ impl ReferenceGameGenerationV1 {
             && self.presentation_snapshot_sequence == presentation.snapshot_sequence
             && self.presentation_simulation_tick == presentation.simulation_tick
             && self.ui_screen == driver.ui_screen
+            && self.dialogue == driver.dialogue
     }
 }
 
@@ -142,6 +152,10 @@ struct PreparedReferenceGameState {
     camera_cut: bool,
     ui_suspend_causal_hash: Option<ContentHash>,
     ui_screen: ReferenceUiScreenV1,
+    dialogue: ReferenceDialogueUiV1,
+    /// Input configuration revision applied by this advance's `close_frame`;
+    /// activated on the runtime controller registry at the commit boundary.
+    pending_input_configuration: Option<(ActionMapManifestV1, InputContextStackV1)>,
 }
 
 /// An isolated next reference-game generation with a read-only presentation
@@ -271,6 +285,7 @@ impl ReferenceGameDriverV1 {
                 SEMANTIC_UI_RECORDS_PER_BATCH,
             )?;
         let mut driver = Self {
+            dialogue_entry_node_id: crate::dialogue::reference_dialogue_entry_node_id(&fixture)?,
             fixture,
             runtime,
             world_streamer,
@@ -284,6 +299,7 @@ impl ReferenceGameDriverV1 {
             camera_pitch_millidegrees: -15_000,
             camera_cut: true,
             ui_screen: ReferenceUiScreenV1::None,
+            dialogue: ReferenceDialogueUiV1::Closed,
         };
         driver.publish_presentation()?;
         Ok(driver)
@@ -318,7 +334,10 @@ impl ReferenceGameDriverV1 {
         if input.controller_id() != fixture.controller_id
             || input.source_id() != fixture.source_id
             || input.action_map() != &fixture.action_map
-            || input.context_stack() != &fixture.context_stack
+            // The persisted session may rest on a modal dialogue revision of
+            // the same stack family (S4); the gameplay fixture stack is only
+            // the genesis revision.
+            || input.context_stack().stack_id != fixture.context_stack.stack_id
             || input.last_logical_frame_sequence() != expected_last_logical_frame_sequence
         {
             return Err(ReferenceGameError::RecoveryInvalid);
@@ -344,6 +363,7 @@ impl ReferenceGameDriverV1 {
             return Err(ReferenceGameError::RecoveryInvalid);
         }
         let mut driver = Self {
+            dialogue_entry_node_id: crate::dialogue::reference_dialogue_entry_node_id(&fixture)?,
             fixture,
             runtime,
             world_streamer,
@@ -357,6 +377,7 @@ impl ReferenceGameDriverV1 {
             camera_pitch_millidegrees: recovery.camera_pitch_millidegrees,
             camera_cut: true,
             ui_screen: recovery.ui_screen,
+            dialogue: recovery.dialogue,
         };
         driver.validate_recovered_camera(&persisted_snapshot)?;
         if driver.input.recovery_bytes()? != recovery.input_session_bytes {
@@ -386,7 +407,7 @@ impl ReferenceGameDriverV1 {
     ) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
         let prepared = self.stage_advance(platform_events)?;
         let validated = self.validate_prepared_advance(prepared)?;
-        Ok(self.commit_validated_advance(validated))
+        self.commit_validated_advance(validated)
     }
 
     #[must_use]
@@ -413,16 +434,33 @@ impl ReferenceGameDriverV1 {
         let mut camera_yaw_millidegrees = self.camera_yaw_millidegrees;
         let mut camera_pitch_millidegrees = self.camera_pitch_millidegrees;
         let mut ui_screen = self.ui_screen;
+        let mut dialogue = self.dialogue;
+
+        // S4: keep the session context stack on the layer the dialogue state
+        // requires. The queued revision applies at this advance's close_frame,
+        // so at rest the session never carries a pending configuration and
+        // recovery bytes stay canonical.
+        crate::dialogue::sync_context_stack(&mut input_session, dialogue)?;
 
         input_session.submit_platform_events(platform_events)?;
         let input = input_session.close_frame(self.next_logical_frame_sequence)?;
+        let pending_input_configuration = if input.configuration_changed {
+            Some((
+                input_session.action_map().clone(),
+                input_session.context_stack().clone(),
+            ))
+        } else {
+            None
+        };
         let next_logical_frame_sequence = self
             .next_logical_frame_sequence
             .checked_add(1)
             .ok_or(ReferenceGameError::CountOverflow)?;
         let mut runtime_preparation = self.runtime.tick_preparation();
         let mut ui_suspend_causal_hash = None;
-        if let Some(resolved) = input.resolved {
+        let mut strip_interaction_movement = false;
+        let mut inject_interact = false;
+        if let Some(resolved) = &input.resolved {
             update_camera_state(
                 &resolved.frame,
                 &mut camera_yaw_millidegrees,
@@ -430,18 +468,57 @@ impl ReferenceGameDriverV1 {
             );
             let screen_outcome = crate::input::apply_ui_screen_actions(&resolved.frame, ui_screen);
             ui_screen = screen_outcome.screen;
-            // A committed `ui-back` that closes an open screen is consumed by
-            // the screen state and never reaches the pause suspend request.
-            if !screen_outcome.back_consumed_by_screen {
+            let dialogue_outcome =
+                crate::dialogue::apply_dialogue_frame_actions(&resolved.frame, dialogue);
+            dialogue = dialogue_outcome.state;
+            // A committed `interact` press that targets the reference NPC opens
+            // the dialogue instead of reaching the runtime: the press and the
+            // frame's movement are consumed by the modal (S4, Q2A).
+            if dialogue == ReferenceDialogueUiV1::Closed
+                && resolved.frame.actions.iter().any(|action| {
+                    action.action_id.as_str() == CORE_INTERACT_ACTION_ID
+                        && action.phase == PlayerActionPhaseV1::Started
+                        && action.value == PlayerActionValueV1::Digital(true)
+                })
+                && crate::dialogue::dialogue_open_available(
+                    &self.runtime.rpg_snapshot(),
+                    self.runtime.physics_snapshot(),
+                    &self.fixture,
+                    &self.dialogue_entry_node_id,
+                )?
+            {
+                dialogue = ReferenceDialogueUiV1::Open {
+                    selection: ReferenceDialogueChoiceV1::Accept,
+                };
+                ui_screen = crate::dialogue::screen_for_dialogue(ui_screen, true);
+                strip_interaction_movement = true;
+            }
+            // A committed `ui-back` that closes an open screen or the dialogue
+            // is consumed by the presentation state and never reaches the
+            // pause suspend request.
+            if !screen_outcome.back_consumed_by_screen
+                && !dialogue_outcome.back_consumed_by_dialogue
+            {
                 ui_suspend_causal_hash = crate::input::ui_suspend_causal_hash(&resolved.frame)?;
             }
-            if let Some(sample) = runtime_sample_without_camera_actions(
-                &resolved.frame,
-                &resolved.sample,
-                &input_session,
-            )? {
-                runtime_preparation.enqueue_input_sample(&self.fixture.principal, sample)?;
-            }
+        }
+        // The accepted choice delivers through the production interaction path
+        // on the first frame resolved again under the gameplay stack, whether
+        // or not that frame carried physical input (S4, Q2A).
+        if dialogue == ReferenceDialogueUiV1::AcceptPending
+            && !crate::dialogue::stack_has_dialogue_layer(self.input.context_stack())
+        {
+            dialogue = ReferenceDialogueUiV1::Closed;
+            inject_interact = true;
+        }
+        if let Some(sample) = crate::dialogue::dialogue_runtime_sample(
+            input.resolved.as_ref(),
+            &self.input,
+            self.next_logical_frame_sequence,
+            strip_interaction_movement,
+            inject_interact,
+        )? {
+            runtime_preparation.enqueue_input_sample(&self.fixture.principal, sample)?;
         }
         let prepared_runtime = runtime_preparation.prepare([])?;
         let events = self
@@ -475,6 +552,7 @@ impl ReferenceGameDriverV1 {
             &self.fixture,
             &prepared_runtime.rpg_snapshot(),
             ui_screen,
+            dialogue,
             ui_suspend_causal_hash,
         )?;
         presentation_extractor.extract_with_cameras_and_semantic_ui(
@@ -510,6 +588,8 @@ impl ReferenceGameDriverV1 {
                 camera_cut: false,
                 ui_suspend_causal_hash,
                 ui_screen,
+                dialogue,
+                pending_input_configuration,
             },
         })
     }
@@ -528,13 +608,24 @@ impl ReferenceGameDriverV1 {
         })
     }
 
-    #[must_use]
+    /// Commits one validated advance. The input configuration revision the
+    /// committed `close_frame` applied is activated on the runtime controller
+    /// registry at this boundary: both ingress queues are empty here, so no
+    /// staged sample can be interpreted against the new revision, and the next
+    /// staged sample is mapped against the revision its frame is tagged with.
     pub fn commit_validated_advance(
         &mut self,
         validated: ValidatedReferenceGameAdvance,
-    ) -> &PresentationSnapshotV2 {
+    ) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
         self.runtime
             .commit_validated_tick_without_report(validated.runtime);
+        if let Some((action_map, context_stack)) = validated.state.pending_input_configuration {
+            self.runtime.activate_player_input_configuration(
+                self.fixture.source_id,
+                action_map,
+                context_stack,
+            )?;
+        }
         self.input = validated.state.input;
         self.presentation_extractor = validated.state.presentation_extractor;
         self.next_logical_frame_sequence = validated.state.next_logical_frame_sequence;
@@ -544,9 +635,11 @@ impl ReferenceGameDriverV1 {
         self.camera_pitch_millidegrees = validated.state.camera_pitch_millidegrees;
         self.camera_cut = validated.state.camera_cut;
         self.ui_screen = validated.state.ui_screen;
-        self.presentation_extractor
+        self.dialogue = validated.state.dialogue;
+        Ok(self
+            .presentation_extractor
             .accepted_snapshot()
-            .expect("validated reference advance contains a presentation snapshot")
+            .expect("validated reference advance contains a presentation snapshot"))
     }
 
     pub fn state(&self) -> Result<ReferenceLiveStateV1, ReferenceGameError> {
@@ -587,6 +680,7 @@ impl ReferenceGameDriverV1 {
                 camera_pitch_millidegrees: self.camera_pitch_millidegrees,
                 camera_cut: self.camera_cut,
                 ui_screen: self.ui_screen,
+                dialogue: self.dialogue,
                 input_session_bytes: self.input.recovery_bytes()?,
                 presentation_snapshot_bytes: self.presentation_extractor.recovery_bytes()?,
             },
@@ -657,6 +751,7 @@ impl ReferenceGameDriverV1 {
                 camera_pitch_millidegrees: state.camera_pitch_millidegrees,
                 camera_cut: state.camera_cut,
                 ui_screen: state.ui_screen,
+                dialogue: state.dialogue,
                 input_session_bytes: state.input.recovery_bytes()?,
                 presentation_snapshot_bytes: state.presentation_extractor.recovery_bytes()?,
             },
@@ -702,6 +797,7 @@ impl ReferenceGameDriverV1 {
             &self.fixture,
             &self.runtime.rpg_snapshot(),
             self.ui_screen,
+            self.dialogue,
             None,
         )?;
         self.presentation_extractor
@@ -790,26 +886,4 @@ impl ReferenceGameDriverV1 {
             camera_cut,
         ))
     }
-}
-
-fn runtime_sample_without_camera_actions(
-    frame: &PlayerActionFrameV1,
-    sample: &next_contracts::input::InputSampleV1,
-    input: &PlayerInputSessionV1,
-) -> Result<Option<next_contracts::input::InputSampleV1>, ReferenceGameError> {
-    let mut runtime_frame = frame.clone();
-    runtime_frame
-        .actions
-        .retain(|action| action.action_id.as_str() != CORE_CAMERA_ORBIT_ACTION_ID);
-    if runtime_frame.actions.is_empty() {
-        return Ok(None);
-    }
-    for (ordinal, action) in runtime_frame.actions.iter_mut().enumerate() {
-        action.semantic_occurrence_ordinal =
-            u32::try_from(ordinal).map_err(|_| ReferenceGameError::CountOverflow)?;
-    }
-    runtime_frame.validate_against(input.action_map(), input.context_stack())?;
-    let mut runtime_sample = sample.clone();
-    runtime_sample.payload = runtime_frame.canonical_bytes()?;
-    Ok(Some(runtime_sample))
 }

@@ -19,6 +19,7 @@ use next_contracts::project::domain_hash;
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2};
 
 use crate::ReferenceGameError;
+use crate::dialogue::ReferenceDialogueUiV1;
 use crate::input::ReferenceUiScreenV1;
 use crate::rpg::aggregate_payload;
 use crate::session::ReferenceGameSession;
@@ -124,18 +125,22 @@ fn schema_id(value: &str) -> Result<SchemaId, ReferenceGameError> {
 
 /// Builds the full per-tick semantic UI set: the always-on HUD plus the
 /// currently open read-only screen (inventory/equipment or quest journal)
+/// plus the modal dialogue surface while the driver dialogue state is open
 /// plus the pause menu when the committed frame carried a `ui-back` suspend
 /// request.
 ///
 /// Screen surfaces publish only while their `ReferenceUiScreenV1` state is
 /// open (S3: the driver derives that state from committed
 /// `ui-inventory`/`ui-journal`/`ui-back` actions); they stay read-only views
-/// and never carry action affordances.
+/// and never carry action affordances. The dialogue surface publishes only
+/// while the `ReferenceDialogueUiV1` state is open (S4) and carries the
+/// authored choices with their selection and affordances.
 pub fn live_semantic_ui_records(
     snapshot_epoch: ContentHash,
     fixture: &ReferenceGameSession,
     rpg: &RpgSnapshotV2,
     ui_screen: ReferenceUiScreenV1,
+    dialogue: ReferenceDialogueUiV1,
     ui_suspend_causal_hash: Option<ContentHash>,
 ) -> Result<Vec<SemanticUiPresentationRecordV1>, ReferenceGameError> {
     let mut records = hud_semantic_ui_records(snapshot_epoch, fixture, rpg)?;
@@ -151,6 +156,14 @@ pub fn live_semantic_ui_records(
                 rpg,
             )?);
         }
+    }
+    if let ReferenceDialogueUiV1::Open { selection } = dialogue {
+        records.extend(crate::ui_dialogue::dialogue_semantic_ui_records(
+            snapshot_epoch,
+            fixture,
+            rpg,
+            selection,
+        )?);
     }
     if let Some(causal_hash) = ui_suspend_causal_hash {
         records.extend(pause_menu_semantic_ui_records(

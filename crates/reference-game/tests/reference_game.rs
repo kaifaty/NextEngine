@@ -185,7 +185,9 @@ fn prepared_live_advance_preserves_driver_and_commits_its_exact_preview() {
         .validated_state(&validated)
         .expect("validated preview");
     assert_live_state_eq(&validated_preview, &preview);
-    let _ = prepared_driver.commit_validated_advance(validated);
+    prepared_driver
+        .commit_validated_advance(validated)
+        .expect("commit validated advance");
     ordinary_driver
         .advance(&[event])
         .expect("ordinary compatible advance");

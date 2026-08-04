@@ -199,6 +199,32 @@ fn keyboard_controls_use_engine_owned_paths_and_modifiers() {
         keyboard_control_path(Scancode::W),
         Some("nextengine.input.keyboard.w")
     );
+    // The core action map binds ui-nav to these exact contract paths; the
+    // adapter must emit them or dialogue/menu navigation never resolves.
+    assert_eq!(
+        keyboard_control_path(Scancode::Up),
+        Some("nextengine.input.keyboard.up")
+    );
+    assert_eq!(
+        keyboard_control_path(Scancode::Down),
+        Some("nextengine.input.keyboard.down")
+    );
+    assert_eq!(
+        keyboard_control_path(Scancode::Left),
+        Some("nextengine.input.keyboard.left")
+    );
+    assert_eq!(
+        keyboard_control_path(Scancode::Right),
+        Some("nextengine.input.keyboard.right")
+    );
+    assert_eq!(
+        keyboard_control_path(Scancode::Return),
+        Some("nextengine.input.keyboard.return")
+    );
+    assert_eq!(
+        keyboard_control_path(Scancode::Escape),
+        Some("nextengine.input.keyboard.escape")
+    );
     assert_eq!(keyboard_control_path(Scancode::F1), None);
     assert_eq!(
         normalized_modifiers(Mod::LSHIFTMOD | Mod::RCTRLMOD),

@@ -136,7 +136,14 @@ pub fn run_live_runtime_history_scaling_diagnostic_in(
             }
 
             let commit_started = sample.as_ref().map(|_| Instant::now());
-            let _ = measured.commit_validated_advance(validated);
+            measured
+                .commit_validated_advance(validated)
+                .map_err(|error| {
+                    LiveRuntimePerformanceError::new(
+                        "commit measured history-scaling tick",
+                        error.to_string(),
+                    )
+                })?;
             if let (Some(sample), Some(started)) = (&mut sample, commit_started) {
                 sample.next_tick_commit_microseconds = started.elapsed().as_micros();
             }

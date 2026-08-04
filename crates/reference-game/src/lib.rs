@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod camera;
+mod dialogue;
 mod error;
 mod input;
 mod live;
@@ -10,7 +11,9 @@ mod scenario;
 mod session;
 mod source;
 mod ui;
+mod ui_dialogue;
 
+pub use dialogue::{ReferenceDialogueChoiceV1, ReferenceDialogueUiV1};
 pub use error::{ReferenceGameError, ReferenceInputError};
 pub use input::{
     ReferenceUiScreenV1, player_action_sample, player_equip_use_sample, player_interact_sample,

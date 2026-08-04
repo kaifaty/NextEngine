@@ -150,7 +150,7 @@ impl ApplicationCoordinator {
             .live_run
             .as_mut()
             .expect("validated live advance retains its driver");
-        let _ = driver.commit_validated_advance(validated);
+        driver.commit_validated_advance(validated)?;
         Ok(summary)
     }
 
@@ -218,7 +218,7 @@ impl ApplicationCoordinator {
                 .live_run
                 .as_mut()
                 .expect("validated live advance retains its driver");
-            let _ = driver.commit_validated_advance(validated);
+            driver.commit_validated_advance(validated)?;
             return Ok(InteractivePresentationAdvanceV1 {
                 presentation,
                 published_checkpoint: true,
@@ -229,7 +229,7 @@ impl ApplicationCoordinator {
             .live_run
             .as_mut()
             .expect("validated live advance retains its driver");
-        let _ = driver.commit_validated_advance(validated);
+        driver.commit_validated_advance(validated)?;
         Ok(InteractivePresentationAdvanceV1 {
             presentation,
             published_checkpoint: false,
