@@ -603,6 +603,15 @@ SPEC-24 (v1.0), SPEC-12 (v2.4), а также секции SPEC-17 о `Configura
 | Q5 | Simulation | **A**: продолжается; `Suspended` запрашивает только pause-menu. |
 | Q6 | Display names | **A**: display-text properties в definitions + catalog entries (stable text IDs). |
 
+### Принятые решения по S5 (2026-08-04, owner)
+
+| # | Решение | Выбор |
+|---|---|---|
+| S5-Q1 | Навигация pause-menu | **A**: host-side presentation-only selection против опубликованных records; `ui-confirm` → resume (ResumeRequested), save (forced checkpoint), load (restart run). Решение 3B (Suspended) не пересматривается, новых lifecycle edges нет. |
+| S5-Q2 | Scope пунктов | **A**: resume + save + load. |
+| S5-Q3 | Mouse hit-testing | **A**: не входит; keyboard-only activation. |
+| S5-Q4 | После S5 | **A**: Semantic UI → DONE, далее research Baseline audio. |
+
 ### Экраны S1 (display text content, Q6A) — DONE (2026-08-03)
 
 - Catalogs (`reference-game/src/source.rs`): en 8 → 21 entries, qps-ploc
@@ -777,3 +786,47 @@ Decision-нейтральная инвентаризация перед interact
   компонента между adapter input и coordinator — selection state против
   опубликованных records плюс генерация ResumeRequested / restart run для
   resume/load (оба path существуют); save уже покрыт suspend checkpoint.
+
+### S5 design (2026-08-04): host-side interactive pause-menu (решения S5-Q1A/Q2A/Q3A)
+
+- **Placement**: `PauseMenuControllerV1` — новый модуль
+  `crates/application/src/interactive_worker/pause_menu.rs`, wired в Advance
+  handler worker'а (`interactive_worker/runtime.rs`). Активен только пока
+  application `Suspended` и live run существует; game-frame machinery не
+  участвует (в Suspended тиков нет — `live_schedule::advance_suspended`).
+- **Input**: controller потребляет keyboard control events ui-nav
+  (up/down), ui-confirm (return), ui-back (escape) из submit batch до
+  fixed-step advance. Потребление предотвращает рост deferred backlog и
+  утечку queued ui-back в resumed game (иначе первый Escape после паузы
+  мгновенно re-suspend'ит). Прочие events идут в `advance_suspended`
+  без изменений. Это host-side presentation path (S5-Q1A), не второй
+  gameplay input path: simulation authority не затрагивается, ingress
+  mapper в Suspended не работает.
+- **Selection**: deterministic state (Resume default; up/down циклически по
+  кнопкам в canonical element-id order load/resume/save). Изменение
+  selection → presentation-only републикация latest snapshot: пересборка
+  semantic UI records с обновлённым `selected` флагом на pause-menu
+  buttons (остальные records byte-identical). Snapshot republication
+  локальна для worker'а и не персистится: recovery bytes производит
+  extractor на commit-границах, host copy authority не становится.
+- **resume** (ui-confirm на Resume или ui-back): worker фабрикует
+  `PlatformEventV1` kind `ResumeRequested` с registered host identity
+  (host_instance_id + capabilities hash из prepare) и пропускает через
+  production `resume_from_platform_event` — admission/dedup/archive как у
+  window-restored resume. Новых lifecycle edges нет (8A).
+- **save** (ui-confirm на Save): новый coordinator method
+  `save_current_prepared_run()` — тот же production write, что
+  `commit_final_save` (`save_compatibility` +
+  `save_store.commit_world_checkpoint_with_streaming`), без close
+  receipt/journal. Возвращает save generation hash для диагностики.
+- **load** (ui-confirm на Load): production same-session restart —
+  worker пересоздаёт coordinator через
+  `ApplicationCoordinator::resume(launch)` (`restore_live_run`
+  восстанавливает suspend checkpoint, session_id сохраняется), сбрасывает
+  fixed-step scheduler и публикует recovered snapshot. Требует retain
+  `launch` в worker state.
+- **Desktop adapter**: без изменений — продолжает рендерить latest
+  snapshot; keyboard paths уже контрактные (S4 fix).
+- **Scope guard (S5-Q3A)**: mouse hit-testing, centering/anchors не
+  входят. ui-back в меню = resume (back semantics; побочно закрывает
+  утечку queued Escape).
