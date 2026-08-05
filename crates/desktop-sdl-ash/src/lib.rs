@@ -25,6 +25,9 @@ mod error;
 mod prepared_run;
 mod run_state;
 
+pub mod audio_output;
+
+pub use audio_output::DesktopAudioOutputV1;
 pub use error::DesktopAdapterError;
 pub use prepared_run::{DesktopRunMeasurement, PreparedDesktopRun, prepare_interactive};
 use run_state::{AdapterFinalizer, InteractivePacingClock, apply_software_pacing};
@@ -165,6 +168,29 @@ pub fn run_interactive_with_shared_timed_frame_source_and_finalize(
     )
 }
 
+/// Audio-aware shared-snapshot variant: the frame source additionally
+/// receives the adapter-owned bounded audio sink on every pump and may queue
+/// canonical PCM windows produced by the simulation worker (A4, AUDIO-P1).
+pub fn run_interactive_with_shared_timed_frame_source_audio_and_finalize(
+    snapshot: Arc<PresentationSnapshotV2>,
+    render_content_catalog: &RenderContentCatalogV1,
+    options: &DesktopRunOptions,
+    frame_source: impl FnMut(
+        &[PlatformEventV1],
+        Duration,
+        &mut DesktopAudioOutputV1,
+    ) -> Result<Option<Arc<PresentationSnapshotV2>>, DesktopAdapterError>,
+    finalize_application: impl FnMut() -> DesktopApplicationFinalization,
+) -> Result<DesktopRunReport, DesktopAdapterError> {
+    prepared_run::run_interactive_with_shared_timed_frame_source_audio_and_finalize(
+        snapshot,
+        render_content_catalog,
+        options,
+        frame_source,
+        finalize_application,
+    )
+}
+
 fn validate_snapshot_transition(
     current: &PresentationSnapshotV2,
     next: &PresentationSnapshotV2,
@@ -192,12 +218,14 @@ fn apply_frame_source_result(
     frame_source: &mut impl FnMut(
         &[PlatformEventV1],
         Duration,
+        &mut DesktopAudioOutputV1,
     )
         -> Result<Option<Arc<PresentationSnapshotV2>>, DesktopAdapterError>,
     events: &[PlatformEventV1],
     elapsed: Duration,
+    audio: &mut DesktopAudioOutputV1,
 ) -> Result<(), DesktopAdapterError> {
-    if let Some(next_snapshot) = frame_source(events, elapsed)? {
+    if let Some(next_snapshot) = frame_source(events, elapsed, audio)? {
         validate_snapshot_transition(current_snapshot.borrow().as_ref(), next_snapshot.as_ref())?;
         *current_snapshot.borrow_mut() = next_snapshot;
     }

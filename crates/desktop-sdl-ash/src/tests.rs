@@ -341,12 +341,20 @@ fn shared_frame_source_transfers_the_exact_immutable_projection() {
     let next = Arc::new(test_snapshot(1, 5, 8, 10));
     let current_slot = RefCell::new(current);
     let published = Arc::clone(&next);
-    let mut frame_source = move |_: &[PlatformEventV1], _: Duration| {
-        Ok::<_, DesktopAdapterError>(Some(Arc::clone(&published)))
-    };
+    let mut frame_source =
+        move |_: &[PlatformEventV1], _: Duration, _: &mut crate::DesktopAudioOutputV1| {
+            Ok::<_, DesktopAdapterError>(Some(Arc::clone(&published)))
+        };
 
-    apply_frame_source_result(&current_slot, &mut frame_source, &[], Duration::ZERO)
-        .expect("shared projection transition");
+    let mut audio = crate::DesktopAudioOutputV1::disabled();
+    apply_frame_source_result(
+        &current_slot,
+        &mut frame_source,
+        &[],
+        Duration::ZERO,
+        &mut audio,
+    )
+    .expect("shared projection transition");
 
     assert!(Arc::ptr_eq(&current_slot.borrow(), &next));
 }

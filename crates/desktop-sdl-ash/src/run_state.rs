@@ -60,6 +60,9 @@ pub struct DesktopRunOptions {
     /// Zero disables CPU/GPU frame timing. A non-zero value enables a bounded
     /// Vulkan timestamp buffer in the same release binary.
     pub frame_profiling_sample_capacity: u32,
+    /// Baseline audio device output (A4): opens the SDL playback stream with
+    /// bounded unavailable/silent fallback. Disable for audio-free runs.
+    pub audio_output_enabled: bool,
 }
 
 impl Default for DesktopRunOptions {
@@ -79,6 +82,7 @@ impl Default for DesktopRunOptions {
             ui_text_scale_milli:
                 next_contracts::preferences::PLAYER_PREFERENCE_TEXT_SCALE_MILLI_DEFAULT,
             frame_profiling_sample_capacity: 0,
+            audio_output_enabled: true,
         }
     }
 }
@@ -144,6 +148,18 @@ pub struct DesktopRunReport {
     pub ui_overlay_updates: u64,
     /// Bounded overlay failures absorbed without failing the frame (SPEC-18).
     pub ui_overlay_failures: u64,
+    /// Canonical PCM samples accepted by the audio sink (A4).
+    pub audio_queued_samples: u64,
+    /// Oldest samples dropped past the bounded audio ring.
+    pub audio_dropped_samples: u64,
+    /// Callback windows that ran out of queued audio (silence emitted).
+    pub audio_callback_underruns: u64,
+    /// Audio device loss/open-failure facts (typed, presentation-only).
+    pub audio_device_faults: u64,
+    /// Successful audio stream (re)opens.
+    pub audio_device_reopens: u64,
+    /// Whether a live audio stream existed at report time.
+    pub audio_output_active: bool,
 }
 
 #[derive(Debug, Default)]

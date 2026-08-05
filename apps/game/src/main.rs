@@ -140,6 +140,7 @@ fn run_interactive_session(
         ready.initial_snapshot.snapshot_epoch,
         ready.initial_snapshot.snapshot_sequence,
     );
+    let mut last_audio_sequence = 0_u64;
 
     // Local PresentationOnly preference profile: a missing file yields bounded
     // defaults, an unreadable one was quarantined by the store and also yields
@@ -160,80 +161,94 @@ fn run_interactive_session(
         }
     };
 
-    let adapter = next_desktop_sdl_ash::run_interactive_with_shared_timed_frame_source_and_finalize(
-        Arc::clone(&ready.initial_snapshot),
-        &ready.render_content_catalog,
-        &next_desktop_sdl_ash::DesktopRunOptions {
-            maximum_frames,
-            host_instance_id: ready.host_instance_id,
-            resume_suspended_application: ready.resume_suspended_application,
-            ui_text_catalogs: ready.text_catalogs.clone(),
-            ui_locale: ui_locale.clone(),
-            ui_text_scale_milli,
-            ..next_desktop_sdl_ash::DesktopRunOptions::default()
-        },
-        |events, elapsed| {
-            let mut worker = worker.borrow_mut();
-            if let Some(failure) = worker.try_take_failure() {
-                return Err(next_desktop_sdl_ash::DesktopAdapterError::client(
-                    failure.code,
-                    failure.message,
-                ));
-            }
-            let scheduler_events = platform_events_before_close_boundary(
-                events,
-                &mut platform_close_event.borrow_mut(),
-            );
-            worker
-                .submit_advance(elapsed, scheduler_events)
-                .map_err(|failure| {
+    let adapter =
+        next_desktop_sdl_ash::run_interactive_with_shared_timed_frame_source_audio_and_finalize(
+            Arc::clone(&ready.initial_snapshot),
+            &ready.render_content_catalog,
+            &next_desktop_sdl_ash::DesktopRunOptions {
+                maximum_frames,
+                host_instance_id: ready.host_instance_id,
+                resume_suspended_application: ready.resume_suspended_application,
+                ui_text_catalogs: ready.text_catalogs.clone(),
+                ui_locale: ui_locale.clone(),
+                ui_text_scale_milli,
+                ..next_desktop_sdl_ash::DesktopRunOptions::default()
+            },
+            |events, elapsed, audio| {
+                let mut worker = worker.borrow_mut();
+                if let Some(failure) = worker.try_take_failure() {
+                    return Err(next_desktop_sdl_ash::DesktopAdapterError::client(
+                        failure.code,
+                        failure.message,
+                    ));
+                }
+                let scheduler_events = platform_events_before_close_boundary(
+                    events,
+                    &mut platform_close_event.borrow_mut(),
+                );
+                worker
+                    .submit_advance(elapsed, scheduler_events)
+                    .map_err(|failure| {
+                        next_desktop_sdl_ash::DesktopAdapterError::client(
+                            failure.code,
+                            failure.message,
+                        )
+                    })?;
+                if let Some(failure) = worker.try_take_failure() {
+                    return Err(next_desktop_sdl_ash::DesktopAdapterError::client(
+                        failure.code,
+                        failure.message,
+                    ));
+                }
+
+                // Baseline audio (A4): queue exactly the canonical PCM windows the
+                // worker published since the previous pump; output failure degrades
+                // to silence inside the adapter and never fails the frame.
+                if let Ok(Some(frame)) = worker.read_latest_audio()
+                    && frame.audio_sequence != last_audio_sequence
+                {
+                    last_audio_sequence = frame.audio_sequence;
+                    audio.queue_pcm(&frame.pcm);
+                }
+
+                let latest = worker.read_latest_snapshot().map_err(|failure| {
                     next_desktop_sdl_ash::DesktopAdapterError::client(failure.code, failure.message)
                 })?;
-            if let Some(failure) = worker.try_take_failure() {
-                return Err(next_desktop_sdl_ash::DesktopAdapterError::client(
-                    failure.code,
-                    failure.message,
-                ));
-            }
+                let latest = latest.snapshot;
+                let generation = (latest.snapshot_epoch, latest.snapshot_sequence);
+                if generation == last_rendered_generation {
+                    Ok(None)
+                } else {
+                    last_rendered_generation = generation;
+                    Ok(Some(latest))
+                }
+            },
+            || {
+                let finalization = worker
+                    .borrow_mut()
+                    .shutdown_attempt(platform_close_event.borrow().clone(), 0);
+                if let InteractiveWorkerFinalizationV1::Closed { result, .. } = finalization {
+                    *worker_result.borrow_mut() =
+                        Some((*result).map_err(AppFailure::interactive_worker));
+                    return next_desktop_sdl_ash::DesktopApplicationFinalization::Complete;
+                }
 
-            let latest = worker.read_latest_snapshot().map_err(|failure| {
-                next_desktop_sdl_ash::DesktopAdapterError::client(failure.code, failure.message)
-            })?;
-            let latest = latest.snapshot;
-            let generation = (latest.snapshot_epoch, latest.snapshot_sequence);
-            if generation == last_rendered_generation {
-                Ok(None)
-            } else {
-                last_rendered_generation = generation;
-                Ok(Some(latest))
-            }
-        },
-        || {
-            let finalization = worker
-                .borrow_mut()
-                .shutdown_attempt(platform_close_event.borrow().clone(), 0);
-            if let InteractiveWorkerFinalizationV1::Closed { result, .. } = finalization {
-                *worker_result.borrow_mut() =
-                    Some((*result).map_err(AppFailure::interactive_worker));
-                return next_desktop_sdl_ash::DesktopApplicationFinalization::Complete;
-            }
-
-            finalization_retries = finalization_retries.saturating_add(1);
-            if finalization_retries.is_power_of_two() {
-                let message = match &finalization {
-                    InteractiveWorkerFinalizationV1::Retry(failure) => failure.message.as_str(),
-                    InteractiveWorkerFinalizationV1::Closed { .. } => {
-                        "simulation worker did not confirm durable Closed"
-                    }
-                };
-                eprintln!(
-                    "next_game: keeping desktop adapter alive for exact close retry {}: {}",
-                    finalization_retries, message
-                );
-            }
-            next_desktop_sdl_ash::DesktopApplicationFinalization::Retry
-        },
-    );
+                finalization_retries = finalization_retries.saturating_add(1);
+                if finalization_retries.is_power_of_two() {
+                    let message = match &finalization {
+                        InteractiveWorkerFinalizationV1::Retry(failure) => failure.message.as_str(),
+                        InteractiveWorkerFinalizationV1::Closed { .. } => {
+                            "simulation worker did not confirm durable Closed"
+                        }
+                    };
+                    eprintln!(
+                        "next_game: keeping desktop adapter alive for exact close retry {}: {}",
+                        finalization_retries, message
+                    );
+                }
+                next_desktop_sdl_ash::DesktopApplicationFinalization::Retry
+            },
+        );
 
     let mut worker_report = worker_result.into_inner().ok_or_else(|| {
         AppFailure::cli(
@@ -246,7 +261,7 @@ fn run_interactive_session(
     worker_report.interactive_host_object_count = adapter.rendered_objects;
 
     eprintln!(
-        "next_game: desktop session closed: frames={}, platform_events={}, controls={}, resizes={}, focus_events={}, fullscreen={}, recoveries={}",
+        "next_game: desktop session closed: frames={}, platform_events={}, controls={}, resizes={}, focus_events={}, fullscreen={}, recoveries={}, audio_queued={}, audio_dropped={}, audio_underruns={}, audio_faults={}, audio_reopens={}, audio_active={}",
         adapter.rendered_frames,
         adapter.normalized_events,
         adapter.control_events,
@@ -254,6 +269,12 @@ fn run_interactive_session(
         adapter.focus_events,
         adapter.fullscreen_events,
         adapter.device_recoveries,
+        adapter.audio_queued_samples,
+        adapter.audio_dropped_samples,
+        adapter.audio_callback_underruns,
+        adapter.audio_device_faults,
+        adapter.audio_device_reopens,
+        adapter.audio_output_active,
     );
     Ok(worker_report)
 }

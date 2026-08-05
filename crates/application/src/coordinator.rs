@@ -19,6 +19,7 @@ mod recovery;
 mod run;
 
 use platform_host::RegisteredPlatformHostV1;
+pub use run::ApplicationAudioFrameV1;
 use run::PreparedRunV1;
 
 const PROJECT_DIRECTORY: &str = "project";

@@ -30,6 +30,7 @@ impl InteractiveSimulationWorkerV1 {
             ));
         }
         let latest_snapshot = Arc::new(RwLock::new(None));
+        let latest_audio = Arc::new(RwLock::new(None));
         let processed_callbacks = diagnostic_capacity.map(|_| Arc::new(AtomicU64::new(0)));
         let queue_telemetry = diagnostic_capacity.map(|_| Arc::new(QueueTelemetryV1::default()));
         let (work_sender, work_receiver) =
@@ -37,6 +38,7 @@ impl InteractiveSimulationWorkerV1 {
         let (failure_sender, failure_receiver) = mpsc::sync_channel(1);
         let (ready_sender, ready_receiver) = mpsc::sync_channel(1);
         let worker_snapshot = Arc::clone(&latest_snapshot);
+        let worker_audio = Arc::clone(&latest_audio);
         let worker_processed_callbacks = processed_callbacks.clone();
         let worker_queue_telemetry = queue_telemetry.clone();
         let worker = std::thread::Builder::new()
@@ -47,6 +49,7 @@ impl InteractiveSimulationWorkerV1 {
                     capabilities,
                     work_receiver,
                     worker_snapshot,
+                    worker_audio,
                     ready_sender,
                     failure_sender,
                     worker_processed_callbacks,
@@ -74,6 +77,7 @@ impl InteractiveSimulationWorkerV1 {
                 work_sender,
                 failure_receiver,
                 latest_snapshot,
+                latest_audio,
                 processed_callbacks,
                 queue_telemetry,
                 next_callback_sequence: 0,
@@ -512,6 +516,7 @@ fn run_interactive_simulation_session_worker(
     capabilities: PlatformCapabilitySetV1,
     work_receiver: Receiver<InteractiveSimulationMessageV1>,
     latest_snapshot: Arc<RwLock<Option<InteractivePublishedSnapshotV1>>>,
+    latest_audio: Arc<RwLock<Option<crate::ApplicationAudioFrameV1>>>,
     ready_sender: SyncSender<Result<InteractiveWorkerReadyV1, InteractiveWorkerFailureV1>>,
     failure_sender: SyncSender<InteractiveWorkerFailureV1>,
     processed_callbacks: Option<Arc<AtomicU64>>,
@@ -748,6 +753,14 @@ fn run_interactive_simulation_session_worker(
                                         "latest presentation snapshot lock was poisoned",
                                     ),
                                 ),
+                            }
+                            // Baseline audio (A4): hand the canonical PCM
+                            // window to the device adapter; failures degrade
+                            // to silence, never to a worker failure.
+                            if let Ok(mut latest) = latest_audio.write()
+                                && let Ok(frame) = application.reference_game_live_audio()
+                            {
+                                *latest = Some(frame);
                             }
                         }
                         Ok(None) => {}

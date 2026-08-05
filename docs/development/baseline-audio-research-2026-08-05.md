@@ -225,7 +225,33 @@ roadmap status change (пакет остаётся в работе до A6).
 | A1 NeutralAudioV1 + plumbing | `DONE_LOCAL_WINDOWS` (2026-08-05): contracts `142`+`10` audio tests, project integration test, `host-check`/`play`/`persistence-replay`/`content-package` PASS, authoritative roots byte-exact (fixture не тронут) |
 | A2 Audio scene contracts + extraction | `DONE_LOCAL_WINDOWS` (2026-08-05): `AudioSceneSnapshotV1` contracts + deterministic extractor, 13 focused tests, `host-check`/`play`/`persistence-replay` PASS, roots byte-exact; production wiring в live loop приходит с A3 вместе с fixture clips и mixer |
 | A3 Baseline mixer + canonical PCM sink + live wiring | `DONE_LOCAL_WINDOWS` (2026-08-05): `AudioMixerV1` (priority admission/preemption, distance/pan/zone в integer math, resampling, loop), canonical WAV sink, 4 engine-owned fixture clips + event/listener bindings, wiring в `ReferenceGameDriverV1`, AUDIO-02-style `audio-scene` check (20 ticks, 5 cues/5 facts, byte-exact PCM в paired runs); одноразовый root change от fixture clips: state roots `88977d5d→34a9bcd6` (play), `d3f6eced→c98bf08e` (persistence-replay), ledger/archive/identity roots byte-exact |
-| A4–A6 | Не начаты |
+| A4 Desktop device adapter | `DONE_LOCAL_WINDOWS` (2026-08-05): SDL playback stream + bounded ring в desktop-sdl-ash, worker→adapter→game PCM plumbing, device loss/reopen counters, `audio_*` report fields; roots не изменились; real device path `NOT_RUN` headlessly (unit coverage sink'а + full-chain compile) |
+| A5–A6 | Не начаты |
+
+### A4 implementation record (2026-08-05)
+
+- `crates/desktop-sdl-ash/src/audio_output.rs`: `DesktopAudioOutputV1` —
+  SDL3 playback stream (48 kHz stereo S16LE callback stream) + bounded ring
+  (96 000 samples, drop-oldest); states `Disabled | Unavailable | Active`;
+  open failure → `Unavailable` silent sink с typed counters (AUDIO-P1
+  bounded fallback); `AudioDeviceRemoved/Added` SDL events →
+  `note_device_removed/added` с bounded reopen (max 8 attempts);
+  `queue_pcm` exact ordering; `callback_underruns`. 4 unit tests.
+- Plumbing: `ReferenceGameDriverV1::audio_pcm_shared` →
+  `ApplicationCoordinator::reference_game_live_audio`
+  (`ApplicationAudioFrameV1`) → worker `latest_audio` RwLock publication
+  после каждого fixed-step publication (failures → silence, never worker
+  failure) → `read_latest_audio` → apps/game closure queue по
+  `audio_sequence` в adapter sink. Adapter: `audio_output_enabled` option
+  (default true), новый pub entry
+  `run_interactive_with_shared_timed_frame_source_audio_and_finalize`
+  (legacy entry сохранён и делегирует), `audio_*` поля в
+  `DesktopRunReport` + итоговый eprintln в game.
+- Checks: `host-check`, `play`, `persistence-replay`, `content-package`,
+  `platform`, `audio-scene` — все PASS, roots byte-exact (fixture не
+  тронут). Real audio device path не гонялся headlessly
+  (`NOT_RUN_ADAPTER_DISABLED` в platform candidate): sink logic покрыт
+  unit tests, full chain компилируется и проходит adapter test suite.
 
 ### A3 implementation record (2026-08-05)
 

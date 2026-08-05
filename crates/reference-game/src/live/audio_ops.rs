@@ -27,6 +27,13 @@ impl ReferenceGameDriverV1 {
         &self.audio_pcm
     }
 
+    /// Shared ownership of the latest canonical PCM window for handoff to a
+    /// presentation-only device adapter.
+    #[must_use]
+    pub fn audio_pcm_shared(&self) -> Arc<[i16]> {
+        Arc::clone(&self.audio_pcm)
+    }
+
     /// Presentation-only mixer diagnostics (voice counts, drops, clipping).
     #[must_use]
     pub const fn audio_mixer(&self) -> &AudioMixerV1 {

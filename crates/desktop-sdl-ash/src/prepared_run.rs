@@ -36,7 +36,7 @@ pub fn prepare_interactive(
         render_content_catalog.clone(),
         options.clone(),
         complete_application_finalization as fn() -> DesktopApplicationFinalization,
-        &mut |_, _| Ok(None),
+        &mut |_, _, _| Ok(None),
     )?;
     Ok(PreparedDesktopRun {
         preparation_id,
@@ -47,7 +47,10 @@ pub fn prepare_interactive(
 impl PreparedDesktopRun {
     /// Runs the prepared event/render loop exactly once.
     pub fn run_measured(&mut self) -> Result<DesktopRunMeasurement, DesktopAdapterError> {
-        let mut frame_source = |_: &[PlatformEventV1], _: Duration| Ok(None);
+        let mut frame_source =
+            |_: &[PlatformEventV1], _: Duration, _: &mut audio_output::DesktopAudioOutputV1| {
+                Ok(None)
+            };
         self.core.run_loop(&mut frame_source)?;
         Ok(DesktopRunMeasurement {
             preparation_id: self.preparation_id,
@@ -81,6 +84,33 @@ pub(super) fn run_interactive_with_shared_timed_frame_source_and_finalize(
     mut frame_source: impl FnMut(
         &[PlatformEventV1],
         Duration,
+    )
+        -> Result<Option<Arc<PresentationSnapshotV2>>, DesktopAdapterError>,
+    finalize_application: impl FnMut() -> DesktopApplicationFinalization,
+) -> Result<DesktopRunReport, DesktopAdapterError> {
+    run_interactive_with_shared_timed_frame_source_audio_and_finalize(
+        snapshot,
+        render_content_catalog,
+        options,
+        |events, elapsed, _audio| frame_source(events, elapsed),
+        finalize_application,
+    )
+}
+
+/// Audio-aware variant: the frame source also receives the bounded audio
+/// sink owned by this adapter on every pump (SPEC-08 AUDIO-P1).
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the audio-aware entry point keeps the shared snapshot and sink boundary explicit"
+)]
+pub(super) fn run_interactive_with_shared_timed_frame_source_audio_and_finalize(
+    snapshot: Arc<PresentationSnapshotV2>,
+    render_content_catalog: &RenderContentCatalogV1,
+    options: &DesktopRunOptions,
+    mut frame_source: impl FnMut(
+        &[PlatformEventV1],
+        Duration,
+        &mut audio_output::DesktopAudioOutputV1,
     )
         -> Result<Option<Arc<PresentationSnapshotV2>>, DesktopAdapterError>,
     finalize_application: impl FnMut() -> DesktopApplicationFinalization,
@@ -138,6 +168,7 @@ struct InteractiveRunCore<F: FnMut() -> DesktopApplicationFinalization> {
     // GraphicsContext and every SDL owner are released.
     finalizer: AdapterFinalizer<F>,
     graphics: Option<GraphicsContext>,
+    audio: RefCell<audio_output::DesktopAudioOutputV1>,
     events: sdl3::EventPump,
     window: Window,
     _video: sdl3::VideoSubsystem,
@@ -169,6 +200,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
         frame_source: &mut impl FnMut(
             &[PlatformEventV1],
             Duration,
+            &mut audio_output::DesktopAudioOutputV1,
         ) -> Result<
             Option<Arc<PresentationSnapshotV2>>,
             DesktopAdapterError,
@@ -219,11 +251,19 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             &render_content_catalog,
             &options,
         )?);
+        let mut audio_output =
+            audio_output::DesktopAudioOutputV1::open(&sdl, options.audio_output_enabled);
         let mut normalizer = lifecycle::DesktopEventNormalizer::new(options.host_instance_id)?;
         let mut event_stats = DesktopEventStats::default();
         {
             let mut resume_sink = |events: &[PlatformEventV1], elapsed: Duration| {
-                apply_frame_source_result(&current_snapshot, frame_source, events, elapsed)
+                apply_frame_source_result(
+                    &current_snapshot,
+                    frame_source,
+                    events,
+                    elapsed,
+                    &mut audio_output,
+                )
             };
             publish_fresh_host_resume_if_requested(
                 options.resume_suspended_application,
@@ -244,6 +284,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             run_started: false,
             finalizer,
             graphics,
+            audio: RefCell::new(audio_output),
             events,
             window,
             _video: video,
@@ -256,6 +297,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
         frame_source: &mut impl FnMut(
             &[PlatformEventV1],
             Duration,
+            &mut audio_output::DesktopAudioOutputV1,
         ) -> Result<
             Option<Arc<PresentationSnapshotV2>>,
             DesktopAdapterError,
@@ -284,9 +326,16 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             let graphics = &mut self.graphics;
             let events = &mut self.events;
             let window = &mut self.window;
+            let audio = &self.audio;
             let mut event_sink = |events: &[PlatformEventV1]| {
                 let elapsed = pacing_clock.borrow_mut().elapsed_for_pump(Instant::now());
-                apply_frame_source_result(current_snapshot, frame_source, events, elapsed)
+                apply_frame_source_result(
+                    current_snapshot,
+                    frame_source,
+                    events,
+                    elapsed,
+                    &mut audio.borrow_mut(),
+                )
             };
             let mut rendered_frames = 0_u64;
             let mut rendered_objects = 0_u64;
@@ -321,6 +370,12 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                         Event::Quit { .. } | Event::AppTerminating { .. } => {
                             close_requested = true;
                             observations.push(close_observation(platform_sample_tick));
+                        }
+                        Event::AudioDeviceRemoved { .. } => {
+                            audio.borrow_mut().note_device_removed();
+                        }
+                        Event::AudioDeviceAdded { .. } => {
+                            audio.borrow_mut().note_device_added();
                         }
                         Event::Window {
                             win_event: WindowEvent::CloseRequested,
@@ -692,6 +747,12 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             ui_overlay_frames: ui_overlay_counters.0,
             ui_overlay_updates: ui_overlay_counters.1,
             ui_overlay_failures: ui_overlay_counters.2,
+            audio_queued_samples: self.audio.borrow().queued_samples(),
+            audio_dropped_samples: self.audio.borrow().dropped_samples(),
+            audio_callback_underruns: self.audio.borrow().callback_underruns(),
+            audio_device_faults: self.audio.borrow().device_faults(),
+            audio_device_reopens: self.audio.borrow().reopens(),
+            audio_output_active: self.audio.borrow().output_active(),
         };
         self.finalizer.finish();
         Ok(report)

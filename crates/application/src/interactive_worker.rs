@@ -204,6 +204,7 @@ pub struct InteractiveSimulationWorkerV1 {
     work_sender: SyncSender<InteractiveSimulationMessageV1>,
     failure_receiver: Receiver<InteractiveWorkerFailureV1>,
     latest_snapshot: Arc<RwLock<Option<InteractivePublishedSnapshotV1>>>,
+    latest_audio: Arc<RwLock<Option<crate::ApplicationAudioFrameV1>>>,
     processed_callbacks: Option<Arc<AtomicU64>>,
     queue_telemetry: Option<Arc<QueueTelemetryV1>>,
     next_callback_sequence: u64,
@@ -269,6 +270,8 @@ enum InteractiveShutdownAttemptV1<T> {
 mod diagnostic;
 mod pause_menu;
 mod runtime;
+
+mod audio;
 
 pub use diagnostic::{
     PreparedProductionWorkerDiagnosticV1, ProductionWorkerDiagnosticMeasurementV1,

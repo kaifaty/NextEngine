@@ -41,7 +41,27 @@ pub(crate) struct InteractivePresentationAdvanceV1 {
     pub(crate) published_checkpoint: bool,
 }
 
+/// One published baseline-audio frame of the interactive live driver. The PCM
+/// is the exact canonical stereo window the live driver mixed for
+/// `simulation_tick`; it is presentation-only and never gameplay evidence.
+#[derive(Clone)]
+pub struct ApplicationAudioFrameV1 {
+    pub audio_sequence: u64,
+    pub simulation_tick: u64,
+    pub pcm: Arc<[i16]>,
+}
+
 impl ApplicationCoordinator {
+    /// Latest published baseline-audio frame for the interactive live driver.
+    pub fn reference_game_live_audio(&self) -> Result<ApplicationAudioFrameV1, ApplicationError> {
+        let driver = self.live_run.as_ref().ok_or(ApplicationError::NoLiveRun)?;
+        Ok(ApplicationAudioFrameV1 {
+            audio_sequence: driver.audio_scene().snapshot_sequence,
+            simulation_tick: driver.audio_scene().simulation_tick,
+            pcm: driver.audio_pcm_shared(),
+        })
+    }
+
     pub fn run_reference_game(
         &mut self,
         include_interaction: bool,
