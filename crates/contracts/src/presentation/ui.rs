@@ -27,6 +27,9 @@ pub enum UiElementRoleV1 {
     ListItem = 5,
     Panel = 6,
     Hint = 7,
+    /// Voice-absent subtitle fallback line (SPEC-08); visibility is a local
+    /// `PresentationOnly` preference and never gameplay state.
+    Subtitle = 8,
 }
 
 impl UiElementRoleV1 {
@@ -40,6 +43,7 @@ impl UiElementRoleV1 {
             Self::ListItem => "ListItem",
             Self::Panel => "Panel",
             Self::Hint => "Hint",
+            Self::Subtitle => "Subtitle",
         }
     }
 }

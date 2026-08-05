@@ -23,6 +23,8 @@ const HUD_IDS: [&str; 2] = [
     "nextengine.ui.element.hud.health",
     "nextengine.ui.element.hud.quest",
 ];
+// A5: the dialogue-accept speech cue leaves its subtitle line on the HUD.
+const SUBTITLE_IDS: [&str; 1] = ["nextengine.ui.element.hud.subtitle"];
 // `semantic_ui_records` yields the canonical element-id order.
 const DIALOGUE_SURFACE_IDS: [&str; 4] = [
     "nextengine.ui.element.dialogue.choice-accept",
@@ -107,15 +109,19 @@ fn record_ids(snapshot: &PresentationSnapshotV2) -> Vec<String> {
 }
 
 fn expected_records(dialogue_open: bool) -> Vec<String> {
+    expected_records_with_subtitle(dialogue_open, false)
+}
+
+fn expected_records_with_subtitle(dialogue_open: bool, subtitle: bool) -> Vec<String> {
+    let mut records: Vec<String> = Vec::new();
     if dialogue_open {
-        DIALOGUE_SURFACE_IDS
-            .iter()
-            .chain(HUD_IDS.iter())
-            .map(|id| (*id).to_owned())
-            .collect()
-    } else {
-        HUD_IDS.iter().map(|id| (*id).to_owned()).collect()
+        records.extend(DIALOGUE_SURFACE_IDS.iter().map(|id| (*id).to_owned()));
     }
+    records.extend(HUD_IDS.iter().map(|id| (*id).to_owned()));
+    if subtitle {
+        records.extend(SUBTITLE_IDS.iter().map(|id| (*id).to_owned()));
+    }
+    records
 }
 
 fn dialogue_selected_choice(snapshot: &PresentationSnapshotV2) -> Option<String> {
@@ -299,7 +305,10 @@ fn live_dialogue_arbitration_accepts_through_production_interaction_path() {
     let snapshot = driver
         .advance(&[press])
         .expect("post-accept interact frame");
-    assert_eq!(record_ids(snapshot), expected_records(false));
+    assert_eq!(
+        record_ids(snapshot),
+        expected_records_with_subtitle(false, true)
+    );
     assert_eq!(dialogue_node_id(&driver), DIALOGUE_ACCEPTED_NODE_ID);
 
     std::fs::remove_dir_all(root).expect("cleanup");

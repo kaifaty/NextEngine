@@ -128,10 +128,11 @@ pub fn quarantine_path(profile_path: &Path) -> PathBuf {
 }
 
 /// Maps a profile to the desktop adapter UI options: the requested locale (or
-/// the project default when unset) and the rasterizer text scale derived from
-/// the bounded milli value (`500..=2000` → `1..=4`).
+/// the project default when unset), the rasterizer text scale derived from
+/// the bounded milli value (`500..=2000` → `1..=4`) and the subtitle
+/// visibility flag (SPEC-08 voice-absent subtitle fallback).
 #[must_use]
-pub fn preference_ui_options(profile: &PlayerPreferenceProfileV1) -> (String, u32) {
+pub fn preference_ui_options(profile: &PlayerPreferenceProfileV1) -> (String, u32, bool) {
     let locale = profile
         .ui_locale_or_none
         .as_ref()
@@ -139,6 +140,7 @@ pub fn preference_ui_options(profile: &PlayerPreferenceProfileV1) -> (String, u3
     (
         locale,
         next_contracts::preferences::text_scale_from_milli(profile.text_scale_milli),
+        profile.subtitles_enabled,
     )
 }
 
@@ -169,6 +171,7 @@ mod tests {
             2,
             1_500,
             Some(TextLocaleTagV1::new("qps-ploc").expect("locale")),
+            false,
         )
         .expect("profile")
     }
@@ -246,12 +249,15 @@ mod tests {
 
     #[test]
     fn ui_options_map_locale_and_scale() {
-        let (locale, scale) = preference_ui_options(&sample_profile());
+        let (locale, scale, subtitles) = preference_ui_options(&sample_profile());
         assert_eq!(locale, "qps-ploc");
         assert_eq!(scale, 3);
-        let (locale, scale) = preference_ui_options(&PlayerPreferenceProfileV1::bounded_defaults());
+        assert!(!subtitles);
+        let (locale, scale, subtitles) =
+            preference_ui_options(&PlayerPreferenceProfileV1::bounded_defaults());
         assert_eq!(locale, "en");
         assert_eq!(scale, 2);
+        assert!(subtitles);
         assert_eq!(text_scale_from_milli(0), 1);
         assert_eq!(text_scale_from_milli(499), 1); // defensive, contract rejects below 500
         assert_eq!(text_scale_from_milli(500), 1);

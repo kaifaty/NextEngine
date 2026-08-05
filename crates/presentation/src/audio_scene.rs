@@ -33,6 +33,9 @@ pub enum AudioCueEmitterSubjectV1 {
 
 /// Engine-owned binding from one committed event schema to the exact clip,
 /// loudness/priority class and occlusion zone its one-shot cue activates.
+/// `subtitle_text_id_or_none` marks speech-like cues: the localized text
+/// renders as a subtitle while the cue is active (SPEC-08 voice-absent
+/// subtitle fallback); effect clips carry none.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AudioEventCueBindingV1 {
     pub event_schema_id: SchemaId,
@@ -41,6 +44,7 @@ pub struct AudioEventCueBindingV1 {
     pub priority_class: AudioPriorityClassV1,
     pub occlusion_zone_or_none: Option<SchemaId>,
     pub emitter_subject: AudioCueEmitterSubjectV1,
+    pub subtitle_text_id_or_none: Option<SchemaId>,
 }
 
 /// Engine-owned binding for one continuous scene emitter.
@@ -139,6 +143,7 @@ pub fn extract_audio_scene(
         };
         let cue = AudioCueV1::new(
             event.event_id,
+            event.schema_id.clone(),
             0,
             event.tick,
             emitter_key,
@@ -362,6 +367,7 @@ mod tests {
             priority_class: AudioPriorityClassV1::High,
             occlusion_zone_or_none: None,
             emitter_subject: AudioCueEmitterSubjectV1::EventPrincipal,
+            subtitle_text_id_or_none: None,
         }
     }
 

@@ -58,6 +58,7 @@ pub(crate) struct UiOverlayState {
     overlay_key: Option<ContentHash>,
     draw_ready: bool,
     text_scale: u32,
+    subtitles_enabled: bool,
     frames: u64,
     updates: u64,
     failures: u64,
@@ -72,6 +73,7 @@ impl UiOverlayState {
         text_catalogs: &[TextCatalogV1],
         locale: &str,
         text_scale_milli: u32,
+        subtitles_enabled: bool,
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
         device: &ash::Device,
@@ -86,6 +88,7 @@ impl UiOverlayState {
             overlay_key: None,
             draw_ready: false,
             text_scale: next_contracts::preferences::text_scale_from_milli(text_scale_milli),
+            subtitles_enabled,
             frames: 0,
             updates: 0,
             failures: 0,
@@ -199,6 +202,19 @@ impl UiOverlayState {
             return;
         }
         let records = snapshot.semantic_ui_records().cloned().collect::<Vec<_>>();
+        // Local PresentationOnly subtitle preference (A5): subtitle elements
+        // are dropped from the raster when disabled; the semantic snapshot
+        // itself stays deterministic and unchanged.
+        let records = if self.subtitles_enabled {
+            records
+        } else {
+            records
+                .into_iter()
+                .filter(|record| {
+                    record.element.role != next_contracts::presentation::UiElementRoleV1::Subtitle
+                })
+                .collect()
+        };
         let Some(image) = rasterize_semantic_ui(
             &records,
             resolver,

@@ -100,6 +100,19 @@ pub(crate) fn run_audio_scene_check_with_scratch(
                  clips={clip_ids:?}"
             )));
         }
+        // Voice-absent subtitle fallback (A5): the dialogue-accept speech cue
+        // leaves its exact text ID on the HUD subtitle channel for the
+        // declared window after the scripted session ends.
+        let expected_subtitle =
+            next_reference_game::audio::REFERENCE_DIALOGUE_SUBTITLE_TEXT_ID.to_owned();
+        if first.subtitle_after_session.as_deref() != Some(expected_subtitle.as_str())
+            || first.subtitle_after_session != second.subtitle_after_session
+        {
+            return Err(PlayCheckError::AcceptanceMismatch(format!(
+                "audio subtitle acceptance failed: {:?}",
+                first.subtitle_after_session
+            )));
+        }
         let frames_per_window = 1_600_u64 * 2;
         let windows: Vec<&[i16]> = first
             .pcm_samples
@@ -139,6 +152,7 @@ struct ScriptedAudioOutcomeV1 {
     pcm_samples: Vec<i16>,
     pcm_bytes: Vec<u8>,
     final_state_root: StateRoot,
+    subtitle_after_session: Option<String>,
 }
 
 fn run_scripted_audio_session(
@@ -167,11 +181,15 @@ fn run_scripted_audio_session(
         &state.checkpoint.physics_checkpoint,
         &state.world_streaming_snapshot,
     )?;
+    let subtitle_after_session = driver
+        .current_audio_subtitle(driver.next_tick())
+        .map(|text_id| text_id.as_str().to_owned());
     Ok(ScriptedAudioOutcomeV1 {
         scenes,
         pcm_samples,
         pcm_bytes,
         final_state_root,
+        subtitle_after_session,
     })
 }
 

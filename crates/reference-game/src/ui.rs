@@ -28,6 +28,7 @@ pub const HUD_SURFACE_ID: &str = "nextengine.ui.surface.hud";
 pub const HUD_STATUS_PANEL_ID: &str = "nextengine.ui.panel.hud.status";
 pub const HUD_HEALTH_ELEMENT_ID: &str = "nextengine.ui.element.hud.health";
 pub const HUD_QUEST_ELEMENT_ID: &str = "nextengine.ui.element.hud.quest";
+pub const HUD_SUBTITLE_ELEMENT_ID: &str = "nextengine.ui.element.hud.subtitle";
 pub const HUD_HEALTH_TEXT_ID: &str = "nextengine.ui.text.hud.health";
 pub const HUD_QUEST_TEXT_ID: &str = "nextengine.ui.text.hud.quest-state";
 
@@ -142,8 +143,35 @@ pub fn live_semantic_ui_records(
     ui_screen: ReferenceUiScreenV1,
     dialogue: ReferenceDialogueUiV1,
     ui_suspend_causal_hash: Option<ContentHash>,
+    active_subtitle: Option<SchemaId>,
 ) -> Result<Vec<SemanticUiPresentationRecordV1>, ReferenceGameError> {
     let mut records = hud_semantic_ui_records(snapshot_epoch, fixture, rpg)?;
+    // Voice-absent subtitle fallback (A5): the active speech cue's localized
+    // text rides the HUD as a `Subtitle`-role element. It is presentation
+    // projection only; the element never feeds actions or gameplay state.
+    if let Some(text_id) = active_subtitle {
+        records.push(SemanticUiPresentationRecordV1::new(
+            snapshot_epoch,
+            schema_id(HUD_SURFACE_ID)?,
+            schema_id(HUD_STATUS_PANEL_ID)?,
+            domain_hash(
+                "nextengine.ui-source.rpg-snapshot.v1",
+                &rpg.canonical_bytes()?,
+            ),
+            UiSemanticElementV1::new(
+                schema_id(HUD_SUBTITLE_ELEMENT_ID)?,
+                UiElementRoleV1::Subtitle,
+                UiStyleRoleV1::Muted,
+                UiAccessibilityRoleV1::Standard,
+                true,
+                true,
+                false,
+                Some(UiTextRefV1::new(text_id, Vec::new())?),
+                UiElementValueV1::None,
+                Vec::new(),
+            )?,
+        )?);
+    }
     match ui_screen {
         ReferenceUiScreenV1::None => {}
         ReferenceUiScreenV1::Inventory => {

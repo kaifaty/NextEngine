@@ -41,6 +41,9 @@ const CAMERA_FOCUS_HEIGHT_MICROMETRES: i64 = 700_000;
 const SEMANTIC_UI_RECORDS_PER_BATCH: usize = 64;
 
 mod audio_ops;
+mod state;
+
+pub use state::{ReferenceLiveDriverRecoveryV1, ReferenceLiveStateV1};
 
 #[must_use]
 pub fn reference_b0_presentation_profile_hash() -> ContentHash {
@@ -48,34 +51,6 @@ pub fn reference_b0_presentation_profile_hash() -> ContentHash {
         "nextengine.presentation-profile.b0.v1",
         b"sdr-reference-no-optional-features",
     )
-}
-
-pub struct ReferenceLiveStateV1 {
-    pub checkpoint: WorldCheckpointV4,
-    pub checkpoint_canonical_components: WorldCheckpointCanonicalComponentsV1,
-    pub world_streaming_snapshot: WorldStreamingSnapshotV1,
-    pub ticks: u64,
-    pub events: u64,
-    pub rpg_events: u64,
-    pub project_composition_lock_hash: ContentHash,
-    pub content_manifest_hash: ContentHash,
-    pub presentation_input_count: u64,
-    pub presentation_snapshot: PresentationSnapshotV2,
-    pub driver_recovery: ReferenceLiveDriverRecoveryV1,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReferenceLiveDriverRecoveryV1 {
-    pub next_logical_frame_sequence: u64,
-    pub events: u64,
-    pub rpg_events: u64,
-    pub camera_yaw_millidegrees: i32,
-    pub camera_pitch_millidegrees: i32,
-    pub camera_cut: bool,
-    pub ui_screen: ReferenceUiScreenV1,
-    pub dialogue: ReferenceDialogueUiV1,
-    pub input_session_bytes: Vec<u8>,
-    pub presentation_snapshot_bytes: Vec<u8>,
 }
 
 pub struct ReferenceGameDriverV1 {
@@ -92,6 +67,7 @@ pub struct ReferenceGameDriverV1 {
     audio_scene: next_contracts::presentation::audio_scene::AudioSceneSnapshotV1,
     audio_pcm: Arc<[i16]>,
     next_audio_sequence: u64,
+    audio_subtitle_or_none: Option<(SchemaId, u64)>,
     next_logical_frame_sequence: u64,
     events: u64,
     rpg_events: u64,
@@ -161,6 +137,7 @@ struct PreparedReferenceGameState {
     audio_scene: next_contracts::presentation::audio_scene::AudioSceneSnapshotV1,
     audio_pcm: Arc<[i16]>,
     next_audio_sequence: u64,
+    audio_subtitle_or_none: Option<(SchemaId, u64)>,
     next_logical_frame_sequence: u64,
     events: u64,
     rpg_events: u64,
@@ -334,6 +311,7 @@ impl ReferenceGameDriverV1 {
             audio_scene,
             audio_pcm: Arc::from(Vec::new()),
             next_audio_sequence: 0,
+            audio_subtitle_or_none: None,
             next_logical_frame_sequence: 0,
             events: 0,
             rpg_events: 0,
@@ -440,6 +418,7 @@ impl ReferenceGameDriverV1 {
             audio_scene,
             audio_pcm: Arc::from(Vec::new()),
             next_audio_sequence: 0,
+            audio_subtitle_or_none: None,
             next_logical_frame_sequence: recovery.next_logical_frame_sequence,
             events: recovery.events,
             rpg_events: recovery.rpg_events,
@@ -625,6 +604,7 @@ impl ReferenceGameDriverV1 {
             ui_screen,
             dialogue,
             ui_suspend_causal_hash,
+            self.current_audio_subtitle(prepared_runtime.next_tick()),
         )?;
         presentation_extractor.extract_with_cameras_and_semantic_ui(
             prepared_runtime.next_tick(),
@@ -657,6 +637,18 @@ impl ReferenceGameDriverV1 {
             .next_audio_sequence
             .checked_add(1)
             .ok_or(ReferenceGameError::CountOverflow)?;
+        let audio_subtitle_or_none = crate::audio::active_subtitle_text_id(
+            &audio_scene,
+            &self.audio_cue_bindings,
+        )
+        .map_or(self.audio_subtitle_or_none.clone(), |text_id| {
+            Some((
+                text_id,
+                prepared_runtime
+                    .next_tick()
+                    .saturating_add(crate::audio::REFERENCE_SUBTITLE_WINDOW_TICKS),
+            ))
+        });
         if presentation_extractor.accepted_snapshot().is_none() {
             return Err(ReferenceGameError::PresentationSnapshotMissing);
         }
@@ -671,6 +663,7 @@ impl ReferenceGameDriverV1 {
                 audio_scene,
                 audio_pcm,
                 next_audio_sequence,
+                audio_subtitle_or_none,
                 next_logical_frame_sequence,
                 events,
                 rpg_events,
@@ -723,6 +716,7 @@ impl ReferenceGameDriverV1 {
         self.audio_scene = validated.state.audio_scene;
         self.audio_pcm = validated.state.audio_pcm;
         self.next_audio_sequence = validated.state.next_audio_sequence;
+        self.audio_subtitle_or_none = validated.state.audio_subtitle_or_none;
         self.next_logical_frame_sequence = validated.state.next_logical_frame_sequence;
         self.events = validated.state.events;
         self.rpg_events = validated.state.rpg_events;
@@ -906,6 +900,7 @@ impl ReferenceGameDriverV1 {
             self.ui_screen,
             self.dialogue,
             None,
+            self.current_audio_subtitle(self.runtime.next_tick()),
         )?;
         self.presentation_extractor
             .extract_with_cameras_and_semantic_ui(

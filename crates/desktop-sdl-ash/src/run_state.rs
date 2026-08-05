@@ -63,6 +63,10 @@ pub struct DesktopRunOptions {
     /// Baseline audio device output (A4): opens the SDL playback stream with
     /// bounded unavailable/silent fallback. Disable for audio-free runs.
     pub audio_output_enabled: bool,
+    /// Local `PresentationOnly` subtitle visibility (A5): when false, the
+    /// overlay drops `Subtitle`-role semantic elements. Voice-absent subtitle
+    /// fallback stays enabled by default (SPEC-08/SPEC-18).
+    pub ui_subtitles_enabled: bool,
 }
 
 impl Default for DesktopRunOptions {
@@ -83,6 +87,7 @@ impl Default for DesktopRunOptions {
                 next_contracts::preferences::PLAYER_PREFERENCE_TEXT_SCALE_MILLI_DEFAULT,
             frame_profiling_sample_capacity: 0,
             audio_output_enabled: true,
+            ui_subtitles_enabled: true,
         }
     }
 }

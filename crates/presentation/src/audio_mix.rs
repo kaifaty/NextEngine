@@ -672,6 +672,7 @@ mod tests {
     fn cue(seed: u8, clip: &NeutralAudioV1, priority: AudioPriorityClassV1) -> AudioCueV1 {
         AudioCueV1::new(
             EventId::from_bytes([seed; 16]),
+            next_contracts::ids::SchemaId::new("nextengine.test.event.schema").expect("schema"),
             0,
             0,
             AudioEmitterKeyV1 {

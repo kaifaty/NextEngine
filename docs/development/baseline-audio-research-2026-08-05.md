@@ -226,7 +226,37 @@ roadmap status change (пакет остаётся в работе до A6).
 | A2 Audio scene contracts + extraction | `DONE_LOCAL_WINDOWS` (2026-08-05): `AudioSceneSnapshotV1` contracts + deterministic extractor, 13 focused tests, `host-check`/`play`/`persistence-replay` PASS, roots byte-exact; production wiring в live loop приходит с A3 вместе с fixture clips и mixer |
 | A3 Baseline mixer + canonical PCM sink + live wiring | `DONE_LOCAL_WINDOWS` (2026-08-05): `AudioMixerV1` (priority admission/preemption, distance/pan/zone в integer math, resampling, loop), canonical WAV sink, 4 engine-owned fixture clips + event/listener bindings, wiring в `ReferenceGameDriverV1`, AUDIO-02-style `audio-scene` check (20 ticks, 5 cues/5 facts, byte-exact PCM в paired runs); одноразовый root change от fixture clips: state roots `88977d5d→34a9bcd6` (play), `d3f6eced→c98bf08e` (persistence-replay), ledger/archive/identity roots byte-exact |
 | A4 Desktop device adapter | `DONE_LOCAL_WINDOWS` (2026-08-05): SDL playback stream + bounded ring в desktop-sdl-ash, worker→adapter→game PCM plumbing, device loss/reopen counters, `audio_*` report fields; roots не изменились; real device path `NOT_RUN` headlessly (unit coverage sink'а + full-chain compile) |
-| A5–A6 | Не начаты |
+| A5 Subtitle fallback | `DONE_LOCAL_WINDOWS` (2026-08-05): `subtitles_enabled` в PlayerPreferenceProfileV1 (PresentationOnly, default true, quarantine старых bytes по design), subtitle metadata на cue bindings, HUD `Subtitle`-role element через production UI records, overlay filter по preference; одноразовый root change от catalog text (ledger roots byte-exact, PCM digest неизменен) |
+| A6 | Не начат |
+
+### A5 implementation record (2026-08-05)
+
+- Preferences: `PlayerPreferenceProfileV1.subtitles_enabled` (field 5
+  U32 0/1, hash → field 6; старые stored bytes → EnvelopeMismatch →
+  quarantine → defaults, designed local-pref semantics); default `true`
+  (voice-absent subtitle fallback per SPEC-08);
+  `preference_ui_options` → `(locale, scale, subtitles)`; game main →
+  `DesktopRunOptions.ui_subtitles_enabled` (default true) →
+  `UiOverlayState` фильтрует `Subtitle`-role records из raster при
+  disabled (semantic snapshot детерминирован и неизменен).
+- Bindings: `AudioEventCueBindingV1.subtitle_text_id_or_none`
+  (speech-like cues only); `AudioCueV1.source_event_schema_id` для
+  cue→binding resolution. Dialogue accept binding несёт
+  `nextengine.ui.text.subtitle.dialogue-accept`; en + pseudo catalogs
+  пополнены (ADR-044 fallback chain).
+- Driver: `audio_subtitle_or_none` (text id + until tick, window 30
+  ticks) threaded через stage→validate→commit; `current_audio_subtitle`
+  accessor; `live_semantic_ui_records(active_subtitle)` добавляет HUD
+  `Subtitle`-role element (UiElementRoleV1::Subtitle = 8). Проверено
+  production dialogue path: live_dialogue тест фиксирует subtitle
+  element после accept.
+- audio-scene check: subtitle acceptance — dialogue-accept speech cue
+  оставляет exact text ID в HUD channel после сессии; два прогона
+  совпадают.
+- Roots: одноразовый change от catalog text — play `34a9bcd6→0e41ee1f`,
+  persistence-replay `c98bf08e→2c163b7a`, manifest `092d4586→6839fd5e`,
+  lock `25bbe313→a95a26da`; ledger/archive/identity byte-exact; PCM
+  digest `93e06d66…` неизменен (gameplay sound тот же).
 
 ### A4 implementation record (2026-08-05)
 

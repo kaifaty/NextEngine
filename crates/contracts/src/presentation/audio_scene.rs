@@ -180,6 +180,7 @@ impl AudioEmitterRecordV1 {
 pub struct AudioCueV1 {
     pub cue_id: ContentHash,
     pub source_event_id: EventId,
+    pub source_event_schema_id: SchemaId,
     pub source_cue_slot: u32,
     pub activation_simulation_tick: u64,
     pub emitter_key: AudioEmitterKeyV1,
@@ -197,6 +198,7 @@ impl AudioCueV1 {
     )]
     pub fn new(
         source_event_id: EventId,
+        source_event_schema_id: SchemaId,
         source_cue_slot: u32,
         activation_simulation_tick: u64,
         emitter_key: AudioEmitterKeyV1,
@@ -212,6 +214,7 @@ impl AudioCueV1 {
         let mut value = Self {
             cue_id,
             source_event_id,
+            source_event_schema_id,
             source_cue_slot,
             activation_simulation_tick,
             emitter_key,
@@ -269,6 +272,10 @@ impl AudioCueV1 {
                 (
                     "source_event_id",
                     string(hex_bytes(self.source_event_id.as_bytes())),
+                ),
+                (
+                    "source_event_schema_id",
+                    string(self.source_event_schema_id.as_str()),
                 ),
             ])),
         )
@@ -576,6 +583,7 @@ mod tests {
     fn cue(seed: u8, tick: u64) -> AudioCueV1 {
         AudioCueV1::new(
             EventId::from_bytes([seed; 16]),
+            SchemaId::new("nextengine.test.event.schema").expect("schema"),
             0,
             tick,
             emitter_key(seed),
@@ -676,6 +684,7 @@ mod tests {
         let first = cue(9, 12);
         let second = AudioCueV1::new(
             EventId::from_bytes([9; 16]),
+            SchemaId::new("nextengine.test.event.schema").expect("schema"),
             0,
             12,
             emitter_key(9),
@@ -689,6 +698,7 @@ mod tests {
         assert_eq!(first, second);
         let different_slot = AudioCueV1::new(
             EventId::from_bytes([9; 16]),
+            SchemaId::new("nextengine.test.event.schema").expect("schema"),
             1,
             12,
             emitter_key(9),

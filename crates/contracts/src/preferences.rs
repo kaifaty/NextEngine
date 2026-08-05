@@ -46,7 +46,7 @@ pub const fn text_scale_from_milli(text_scale_milli: u32) -> u32 {
 }
 
 /// Versioned local `PresentationOnly` preference profile (minimal scope:
-/// text scale + requested UI locale).
+/// text scale + requested UI locale + subtitle visibility).
 ///
 /// The same values must always encode to the same canonical bytes; two
 /// profiles with equal fields carry equal content hashes. The profile never
@@ -58,6 +58,7 @@ pub struct PlayerPreferenceProfileV1 {
     pub revision: u32,
     pub text_scale_milli: u32,
     pub ui_locale_or_none: Option<TextLocaleTagV1>,
+    pub subtitles_enabled: bool,
     pub content_hash: ContentHash,
 }
 
@@ -66,6 +67,7 @@ impl PlayerPreferenceProfileV1 {
         revision: u32,
         text_scale_milli: u32,
         ui_locale_or_none: Option<TextLocaleTagV1>,
+        subtitles_enabled: bool,
     ) -> Result<Self, PlayerPreferenceErrorV1> {
         if revision == 0 {
             return Err(PlayerPreferenceErrorV1::InvalidRevision);
@@ -84,6 +86,7 @@ impl PlayerPreferenceProfileV1 {
             revision,
             text_scale_milli,
             ui_locale_or_none,
+            subtitles_enabled,
             content_hash: ContentHash::from_bytes([0; 32]),
         };
         profile.content_hash = profile.compute_content_hash()?;
@@ -92,17 +95,18 @@ impl PlayerPreferenceProfileV1 {
 
     /// Bounded defaults used after `PLAYER_PREFERENCE_INVALID` quarantine and
     /// when no local profile exists: reference text scale, project-default
-    /// locale. Construction cannot fail; the constant fields are in range.
+    /// locale, subtitles enabled (voice-absent subtitle fallback per SPEC-08).
+    /// Construction cannot fail; the constant fields are in range.
     #[must_use]
     pub fn bounded_defaults() -> Self {
-        Self::new(1, PLAYER_PREFERENCE_TEXT_SCALE_MILLI_DEFAULT, None)
+        Self::new(1, PLAYER_PREFERENCE_TEXT_SCALE_MILLI_DEFAULT, None, true)
             .expect("bounded preference defaults are in range")
     }
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, PlayerPreferenceErrorV1> {
         let mut fields = self.body_fields()?;
         fields.push(CanonicalField::new(
-            5,
+            6,
             CANONICAL_TYPE_HASH256,
             self.content_hash.as_bytes().to_vec(),
         ));
@@ -122,7 +126,7 @@ impl PlayerPreferenceProfileV1 {
         if segment.owner_id != PLAYER_PREFERENCE_OWNER_ID
             || segment.schema_id != PLAYER_PREFERENCE_SCHEMA_ID
             || segment.segment_id != PLAYER_PREFERENCE_SEGMENT_ID
-            || segment.fields.len() != 5
+            || segment.fields.len() != 6
         {
             return Err(PlayerPreferenceErrorV1::EnvelopeMismatch);
         }
@@ -134,9 +138,19 @@ impl PlayerPreferenceProfileV1 {
         let text_scale_milli = read_u32(field(&segment, 3, CANONICAL_TYPE_U32)?)?;
         let ui_locale_or_none =
             decode_optional_locale(field(&segment, 4, CANONICAL_TYPE_OPTIONAL)?)?;
+        let subtitles_enabled = match read_u32(field(&segment, 5, CANONICAL_TYPE_U32)?)? {
+            0 => false,
+            1 => true,
+            _ => return Err(PlayerPreferenceErrorV1::InvalidPayload),
+        };
         let content_hash =
-            ContentHash::from_bytes(read_fixed(field(&segment, 5, CANONICAL_TYPE_HASH256)?)?);
-        let profile = Self::new(revision, text_scale_milli, ui_locale_or_none)?;
+            ContentHash::from_bytes(read_fixed(field(&segment, 6, CANONICAL_TYPE_HASH256)?)?);
+        let profile = Self::new(
+            revision,
+            text_scale_milli,
+            ui_locale_or_none,
+            subtitles_enabled,
+        )?;
         if profile.content_hash != content_hash {
             return Err(PlayerPreferenceErrorV1::HashMismatch);
         }
@@ -163,6 +177,11 @@ impl PlayerPreferenceProfileV1 {
                 4,
                 CANONICAL_TYPE_OPTIONAL,
                 encode_optional_locale(&self.ui_locale_or_none),
+            ),
+            CanonicalField::new(
+                5,
+                CANONICAL_TYPE_U32,
+                u32::from(self.subtitles_enabled).to_le_bytes().to_vec(),
             ),
         ])
     }
@@ -337,6 +356,7 @@ mod tests {
             3,
             1_250,
             Some(TextLocaleTagV1::new("qps-ploc").expect("locale")),
+            false,
         )
         .expect("profile")
     }
@@ -359,6 +379,7 @@ mod tests {
             PLAYER_PREFERENCE_TEXT_SCALE_MILLI_DEFAULT
         );
         assert_eq!(defaults.ui_locale_or_none, None);
+        assert!(defaults.subtitles_enabled);
         assert_eq!(
             defaults.content_hash,
             PlayerPreferenceProfileV1::bounded_defaults().content_hash
@@ -373,7 +394,7 @@ mod tests {
             PLAYER_PREFERENCE_TEXT_SCALE_MILLI_MAX,
         ] {
             assert!(
-                PlayerPreferenceProfileV1::new(1, valid, None).is_ok(),
+                PlayerPreferenceProfileV1::new(1, valid, None, true).is_ok(),
                 "valid scale rejected: {valid}"
             );
         }
@@ -385,7 +406,7 @@ mod tests {
         ] {
             assert!(
                 matches!(
-                    PlayerPreferenceProfileV1::new(1, invalid, None),
+                    PlayerPreferenceProfileV1::new(1, invalid, None, true),
                     Err(PlayerPreferenceErrorV1::TextScaleOutOfRange { .. })
                 ),
                 "invalid scale accepted: {invalid}"
@@ -408,7 +429,7 @@ mod tests {
 
     #[test]
     fn profile_without_locale_round_trips() {
-        let profile = PlayerPreferenceProfileV1::new(7, 800, None).expect("profile");
+        let profile = PlayerPreferenceProfileV1::new(7, 800, None, false).expect("profile");
         let bytes = profile.canonical_bytes().expect("encode");
         assert_eq!(
             PlayerPreferenceProfileV1::from_canonical_bytes(
@@ -421,6 +442,43 @@ mod tests {
     }
 
     #[test]
+    fn subtitle_flag_round_trips_and_rejects_invalid_value() {
+        for enabled in [false, true] {
+            let profile = PlayerPreferenceProfileV1::new(2, 1_000, None, enabled).expect("profile");
+            assert_eq!(profile.subtitles_enabled, enabled);
+            let bytes = profile.canonical_bytes().expect("encode");
+            assert_eq!(
+                PlayerPreferenceProfileV1::from_canonical_bytes(
+                    &bytes,
+                    CanonicalDecodeLimits::default()
+                )
+                .expect("decode"),
+                profile
+            );
+        }
+        let profile = sample_profile();
+        let bytes = profile.canonical_bytes().expect("encode");
+        let segment =
+            decode_canonical_segment(&bytes, CanonicalDecodeLimits::default()).expect("segment");
+        let mut bad_flag = segment.fields.clone();
+        bad_flag[4] = CanonicalField::new(5, CANONICAL_TYPE_U32, 2_u32.to_le_bytes().to_vec());
+        let bad_flag_bytes = encode_canonical_segment(
+            &segment.owner_id,
+            &segment.schema_id,
+            &segment.segment_id,
+            bad_flag,
+        )
+        .expect("re-encode");
+        assert_eq!(
+            PlayerPreferenceProfileV1::from_canonical_bytes(
+                &bad_flag_bytes,
+                CanonicalDecodeLimits::default()
+            ),
+            Err(PlayerPreferenceErrorV1::InvalidPayload)
+        );
+    }
+
+    #[test]
     fn decoder_rejects_tampered_hash_and_unsupported_version() {
         let profile = sample_profile();
         let bytes = profile.canonical_bytes().expect("encode");
@@ -428,7 +486,7 @@ mod tests {
             decode_canonical_segment(&bytes, CanonicalDecodeLimits::default()).expect("segment");
 
         let mut tampered_hash = segment.fields.clone();
-        tampered_hash[4].payload[0] ^= 0xff;
+        tampered_hash[5].payload[0] ^= 0xff;
         let tampered_hash_bytes = encode_canonical_segment(
             &segment.owner_id,
             &segment.schema_id,

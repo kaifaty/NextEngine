@@ -11,7 +11,9 @@ use std::collections::BTreeMap;
 
 use next_contracts::audio::{AudioLoudnessMetadataV1, AudioPcmEncodingV1, NeutralAudioV1};
 use next_contracts::ids::{AssetId, SchemaId};
-use next_contracts::presentation::audio_scene::{AudioLoudnessClassV1, AudioPriorityClassV1};
+use next_contracts::presentation::audio_scene::{
+    AudioLoudnessClassV1, AudioPriorityClassV1, AudioSceneSnapshotV1,
+};
 use next_contracts::project::{ActivatedProjectV2, AssetRevisionRefV1};
 use next_contracts::rpg::{
     RPG_EVENT_CHARACTER_RESOURCE_ADJUSTED_SCHEMA_ID, RPG_EVENT_DIALOGUE_ADVANCED_SCHEMA_ID,
@@ -29,6 +31,9 @@ pub const REFERENCE_SWITCH_CLIP_ASSET_ID: AssetId = AssetId::from_bytes([0xa1; 1
 pub const REFERENCE_PICKUP_CLIP_ASSET_ID: AssetId = AssetId::from_bytes([0xa2; 16]);
 pub const REFERENCE_MELEE_CLIP_ASSET_ID: AssetId = AssetId::from_bytes([0xa3; 16]);
 pub const REFERENCE_DIALOGUE_CLIP_ASSET_ID: AssetId = AssetId::from_bytes([0xa4; 16]);
+
+/// Text ID of the dialogue-accept subtitle (SPEC-08 voice-absent fallback).
+pub const REFERENCE_DIALOGUE_SUBTITLE_TEXT_ID: &str = "nextengine.ui.text.subtitle.dialogue-accept";
 
 const CLIP_SAMPLE_RATE: u32 = 48_000;
 const CLIP_REVISION: u64 = 1;
@@ -87,7 +92,8 @@ pub fn reference_audio_cue_bindings(
                    clip_revision: AssetRevisionRefV1,
                    loudness: AudioLoudnessClassV1,
                    priority: AudioPriorityClassV1,
-                   subject: AudioCueEmitterSubjectV1|
+                   subject: AudioCueEmitterSubjectV1,
+                   subtitle_text_id_or_none: Option<&str>|
      -> Result<AudioEventCueBindingV1, ReferenceGameError> {
         Ok(AudioEventCueBindingV1 {
             event_schema_id: SchemaId::new(schema_id)?,
@@ -96,6 +102,7 @@ pub fn reference_audio_cue_bindings(
             priority_class: priority,
             occlusion_zone_or_none: None,
             emitter_subject: subject,
+            subtitle_text_id_or_none: subtitle_text_id_or_none.map(SchemaId::new).transpose()?,
         })
     };
     Ok(vec![
@@ -105,6 +112,7 @@ pub fn reference_audio_cue_bindings(
             AudioLoudnessClassV1::Normal,
             AudioPriorityClassV1::Normal,
             AudioCueEmitterSubjectV1::EventPrincipal,
+            None,
         )?,
         binding(
             RPG_EVENT_ITEM_TRANSFERRED_V1_SCHEMA_ID,
@@ -112,6 +120,7 @@ pub fn reference_audio_cue_bindings(
             AudioLoudnessClassV1::Normal,
             AudioPriorityClassV1::High,
             AudioCueEmitterSubjectV1::EventPrincipal,
+            None,
         )?,
         binding(
             RPG_EVENT_CHARACTER_RESOURCE_ADJUSTED_SCHEMA_ID,
@@ -119,6 +128,7 @@ pub fn reference_audio_cue_bindings(
             AudioLoudnessClassV1::Loud,
             AudioPriorityClassV1::High,
             AudioCueEmitterSubjectV1::EventPrincipal,
+            None,
         )?,
         binding(
             RPG_EVENT_DIALOGUE_ADVANCED_SCHEMA_ID,
@@ -126,6 +136,7 @@ pub fn reference_audio_cue_bindings(
             AudioLoudnessClassV1::Quiet,
             AudioPriorityClassV1::Normal,
             AudioCueEmitterSubjectV1::Listener,
+            Some(REFERENCE_DIALOGUE_SUBTITLE_TEXT_ID),
         )?,
     ])
 }
@@ -145,6 +156,26 @@ pub fn reference_audio_listener_binding(fixture: &ReferenceGameSession) -> Audio
 /// tick window).
 pub fn reference_audio_mix_profile() -> Result<AudioMixProfileV1, ReferenceGameError> {
     Ok(AudioMixProfileV1::stereo_baseline_v1()?)
+}
+
+/// How many simulation ticks a speech cue's subtitle stays on the HUD.
+pub const REFERENCE_SUBTITLE_WINDOW_TICKS: u64 = 30;
+
+/// Resolves the active subtitle for one published audio scene: the most
+/// recent (canonical last) cue whose binding declares speech text. Returns
+/// the exact text ID to resolve through the locale fallback chain; never a
+/// rendered string (ADR-044/SPEC-18).
+#[must_use]
+pub fn active_subtitle_text_id(
+    scene: &AudioSceneSnapshotV1,
+    cue_bindings: &[AudioEventCueBindingV1],
+) -> Option<SchemaId> {
+    scene.cues.iter().rev().find_map(|cue| {
+        cue_bindings
+            .iter()
+            .find(|binding| binding.event_schema_id == cue.source_event_schema_id)
+            .and_then(|binding| binding.subtitle_text_id_or_none.clone())
+    })
 }
 
 fn build_clip(asset_id: AssetId, samples: &[i16]) -> NeutralAudioV1 {

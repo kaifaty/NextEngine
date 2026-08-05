@@ -191,6 +191,10 @@ fn reference_text_catalogs() -> Result<Vec<TextCatalogV1>, ProjectCookError> {
         ("nextengine.ui.text.dialogue.title", "Dialogue"),
         ("nextengine.ui.text.dialogue.choice-accept", "Accept"),
         ("nextengine.ui.text.dialogue.choice-leave", "Leave"),
+        (
+            "nextengine.ui.text.subtitle.dialogue-accept",
+            "[Thank you!]",
+        ),
     ];
     let pseudo_entries: &[(&str, &str)] = &[
         ("nextengine.ui.text.hud.health", "⟦Ħēåłŧħ⟧ {0}/{1}"),
@@ -221,6 +225,10 @@ fn reference_text_catalogs() -> Result<Vec<TextCatalogV1>, ProjectCookError> {
         ("nextengine.ui.text.dialogue.title", "⟦ḑíåłåĝųē⟧"),
         ("nextengine.ui.text.dialogue.choice-accept", "⟦Åććēpŧ⟧"),
         ("nextengine.ui.text.dialogue.choice-leave", "⟦Łēåvē⟧"),
+        (
+            "nextengine.ui.text.subtitle.dialogue-accept",
+            "⟦[ŧhank you!]⟧",
+        ),
     ];
     Ok(vec![
         reference_text_catalog(REFERENCE_TEXT_CATALOG_EN_ASSET_ID, "en", None, en_entries)?,

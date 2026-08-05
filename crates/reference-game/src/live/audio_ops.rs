@@ -5,6 +5,7 @@
 use std::sync::Arc;
 
 use next_contracts::command::DomainEventEnvelopeV2;
+use next_contracts::ids::SchemaId;
 use next_contracts::presentation::audio_scene::AudioSceneSnapshotV1;
 use next_presentation::audio_mix::AudioMixerV1;
 use next_presentation::audio_scene::extract_audio_scene;
@@ -40,6 +41,15 @@ impl ReferenceGameDriverV1 {
         &self.audio_mixer
     }
 
+    /// Subtitle text ID active at `tick`, if a recent speech cue published
+    /// one within the subtitle window (A5 voice-absent fallback).
+    #[must_use]
+    pub fn current_audio_subtitle(&self, tick: u64) -> Option<SchemaId> {
+        self.audio_subtitle_or_none
+            .as_ref()
+            .and_then(|(text_id, until)| (tick <= *until).then(|| text_id.clone()))
+    }
+
     /// Publishes one immutable audio scene for the current tick and mixes the
     /// exact tick window. Mixer state is presentation-only and never enters
     /// gameplay hashes.
@@ -59,6 +69,14 @@ impl ReferenceGameDriverV1 {
             self.runtime.physics_snapshot(),
         )?;
         let pcm = self.audio_mixer.mix_tick(&scene, &self.audio_clips);
+        if let Some(text_id) =
+            crate::audio::active_subtitle_text_id(&scene, &self.audio_cue_bindings)
+        {
+            self.audio_subtitle_or_none = Some((
+                text_id,
+                simulation_tick.saturating_add(crate::audio::REFERENCE_SUBTITLE_WINDOW_TICKS),
+            ));
+        }
         self.audio_scene = scene;
         self.audio_pcm = Arc::from(pcm);
         self.next_audio_sequence = self

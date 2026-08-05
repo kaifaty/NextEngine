@@ -145,21 +145,23 @@ fn run_interactive_session(
     // Local PresentationOnly preference profile: a missing file yields bounded
     // defaults, an unreadable one was quarantined by the store and also yields
     // defaults; a storage error can never block the game (SPEC-18).
-    let (ui_locale, ui_text_scale_milli) = match PlayerPreferenceStoreV1::new(&state_root).load() {
-        Ok(load) => {
-            if let PlayerPreferenceLoadOutcomeV1::Quarantined { diagnostic_code } = load.outcome {
-                eprintln!("next_game: {diagnostic_code}: preference profile quarantined");
+    let (ui_locale, ui_text_scale_milli, ui_subtitles_enabled) =
+        match PlayerPreferenceStoreV1::new(&state_root).load() {
+            Ok(load) => {
+                if let PlayerPreferenceLoadOutcomeV1::Quarantined { diagnostic_code } = load.outcome
+                {
+                    eprintln!("next_game: {diagnostic_code}: preference profile quarantined");
+                }
+                preference_ui_options(&load.profile)
             }
-            preference_ui_options(&load.profile)
-        }
-        Err(error) => {
-            eprintln!(
-                "next_game: {}: preference store unavailable, using defaults",
-                error.diagnostic_code()
-            );
-            preference_ui_options(&PlayerPreferenceProfileV1::bounded_defaults())
-        }
-    };
+            Err(error) => {
+                eprintln!(
+                    "next_game: {}: preference store unavailable, using defaults",
+                    error.diagnostic_code()
+                );
+                preference_ui_options(&PlayerPreferenceProfileV1::bounded_defaults())
+            }
+        };
 
     let adapter =
         next_desktop_sdl_ash::run_interactive_with_shared_timed_frame_source_audio_and_finalize(
@@ -172,6 +174,7 @@ fn run_interactive_session(
                 ui_text_catalogs: ready.text_catalogs.clone(),
                 ui_locale: ui_locale.clone(),
                 ui_text_scale_milli,
+                ui_subtitles_enabled,
                 ..next_desktop_sdl_ash::DesktopRunOptions::default()
             },
             |events, elapsed, audio| {
