@@ -227,7 +227,49 @@ roadmap status change (пакет остаётся в работе до A6).
 | A3 Baseline mixer + canonical PCM sink + live wiring | `DONE_LOCAL_WINDOWS` (2026-08-05): `AudioMixerV1` (priority admission/preemption, distance/pan/zone в integer math, resampling, loop), canonical WAV sink, 4 engine-owned fixture clips + event/listener bindings, wiring в `ReferenceGameDriverV1`, AUDIO-02-style `audio-scene` check (20 ticks, 5 cues/5 facts, byte-exact PCM в paired runs); одноразовый root change от fixture clips: state roots `88977d5d→34a9bcd6` (play), `d3f6eced→c98bf08e` (persistence-replay), ledger/archive/identity roots byte-exact |
 | A4 Desktop device adapter | `DONE_LOCAL_WINDOWS` (2026-08-05): SDL playback stream + bounded ring в desktop-sdl-ash, worker→adapter→game PCM plumbing, device loss/reopen counters, `audio_*` report fields; roots не изменились; real device path `NOT_RUN` headlessly (unit coverage sink'а + full-chain compile) |
 | A5 Subtitle fallback | `DONE_LOCAL_WINDOWS` (2026-08-05): `subtitles_enabled` в PlayerPreferenceProfileV1 (PresentationOnly, default true, quarantine старых bytes по design), subtitle metadata на cue bindings, HUD `Subtitle`-role element через production UI records, overlay filter по preference; одноразовый root change от catalog text (ledger roots byte-exact, PCM digest неизменен) |
-| A6 | Не начат |
+| A6 Checks closure | `DONE_LOCAL_WINDOWS` (2026-08-05): `audio_scene` добавлен в v1-closure (scratch section, pcm digest в closure hash + xtask details + native-gate hash validation); package scope закрыт с documented gaps |
+
+## 10. Package closure (2026-08-05)
+
+Roadmap queue promise — «clips, emitters/listener, priority/voice limits,
+attenuation/panning and subtitle fallback» — закрыто полностью (A1–A5).
+
+SPEC-08 engine-native baseline MUST list:
+
+| Requirement | Статус |
+|---|---|
+| sample playback | Реализовано (A3 mixer + A4 device path) |
+| streaming | **Gap:** clips играются из cooked blobs целиком в памяти; chunked long-clip streaming payload не реализован (D1: отдельный streaming payload role — будущий streaming package, SPEC-23) |
+| spatial attenuation/panning | Реализовано (integer distance/pan, A3) |
+| priority/voice limiting | Реализовано (bounded admission + preemption, A3) |
+| zone reverb fallback | **Gap:** zone occlusion gain реализован (A3); собственно reverb и его declared fallback не реализованы — deferred |
+| subtitle fallback | Реализовано (A5) |
+| deterministic acoustic facts | Реализовано (A2 `AcousticFactV1`) |
+| device loss recovery | Реализовано (A4 typed counters + bounded reopen) |
+| displayless canonical PCM check | Реализовано (A3 `audio-scene`, AUDIO-02-style) |
+
+Эти два gap записаны в roadmap subsystem row как открытая работа, по
+прецеденту Semantic UI (закрытие пакета с documented gaps). Они не
+блокируют R2 alpha slice (short SFX clips + baseline attenuation/panning).
+
+### A6 implementation record (2026-08-05)
+
+- verification `v1_closure`: audio-scene scratch section через
+  `run_audio_scene_check_with_scratch`; `audio_scene_pcm_digest` в
+  `V1ClosureCheckReport` и в `closure_hash` preimage.
+- xtask: `audio_scene` в v1-closure checks list;
+  `audio_scene_pcm_digest` в `V1ClosureDetailsV1` (native-gate
+  `validate_closure_hashes` валидирует поле).
+- native gate: `audio_scene_pcm_digest` добавлен в
+  `NativeGateComparableRootsV1`, `comparable_root_fields` (27 полей),
+  native `closure_hash` preimage и package projection; fixture/ordered
+  тесты обновлены; oracle test
+  `derived_descriptor_and_closure_hashes_match_the_verification_oracle`
+  PASS. Отдельный typed check report для audio в native-gate bundle не
+  добавлялся — audio evidence идёт через v1-closure report; выделенный
+  gate check — вместе с R1/B-01 native работами.
+- `v1-closure`: `LOCAL_PASS_SHIPPING_TARGETS_NOT_RUN` (честный статус,
+  как прежде) с `audio_scene_pcm_digest=93e06d66…`.
 
 ### A5 implementation record (2026-08-05)
 

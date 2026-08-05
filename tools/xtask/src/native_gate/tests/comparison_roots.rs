@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn every_comparable_root_is_checked_in_declared_order() {
     type Mutator = fn(&mut NativeGateComparableRootsV1);
-    let cases: [(&str, Mutator); 26] = [
+    let cases: [(&str, Mutator); 27] = [
         ("project_composition_lock_hash", |r| {
             r.project_composition_lock_hash = hash('f');
         }),
@@ -42,6 +42,9 @@ fn every_comparable_root_is_checked_in_declared_order() {
         }),
         ("agent_performance_hash", |r| {
             r.agent_performance_hash = hash('f');
+        }),
+        ("audio_scene_pcm_digest", |r| {
+            r.audio_scene_pcm_digest = hash('f');
         }),
         ("packaged_game_state_root", |r| {
             r.packaged_game_state_root = hash('f');

@@ -204,7 +204,7 @@ pub(super) fn compare_roots(
 
 pub(super) fn comparable_root_fields(
     roots: &NativeGateComparableRootsV1,
-) -> [(&'static str, &str); 26] {
+) -> [(&'static str, &str); 27] {
     [
         (
             "project_composition_lock_hash",
@@ -237,6 +237,7 @@ pub(super) fn comparable_root_fields(
             &roots.streaming_performance_hash,
         ),
         ("agent_performance_hash", &roots.agent_performance_hash),
+        ("audio_scene_pcm_digest", &roots.audio_scene_pcm_digest),
         ("packaged_game_state_root", &roots.packaged_game_state_root),
         (
             "packaged_game_ledger_hash",
@@ -441,6 +442,7 @@ pub(super) fn closure_hash(roots: &NativeGateComparableRootsV1) -> String {
         &roots.replay_ledger_hash,
         &roots.streaming_performance_hash,
         &roots.agent_performance_hash,
+        &roots.audio_scene_pcm_digest,
         &roots.extension_compatibility_hash,
         &roots.windows_package_descriptor_hash,
         &roots.linux_package_descriptor_hash,

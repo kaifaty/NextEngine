@@ -59,6 +59,7 @@ pub struct V1ClosureCheckReport {
     pub replay_ledger_hash: next_contracts::ids::CommandLedgerHash,
     pub streaming_performance_hash: ContentHash,
     pub agent_performance_hash: ContentHash,
+    pub audio_scene_pcm_digest: ContentHash,
     pub headless_game_parity: bool,
     pub no_ai_host_fallback: bool,
     pub no_luau_fallback: bool,
@@ -112,6 +113,17 @@ fn run_v1_closure_check_scoped(
         .map_err(|error| V1ClosureCheckError::new("play", error.to_string()));
     let play = play_directory.finish(play_result, |error| {
         V1ClosureCheckError::new("remove play scratch", error.to_string())
+    })?;
+
+    let audio_directory = scratch
+        .create_directory("audio-scene")
+        .map_err(|error| V1ClosureCheckError::new("audio scratch", error.to_string()))?;
+    let audio_result = crate::player_fixture::audio_check::run_audio_scene_check_with_scratch(
+        &audio_directory.context(),
+    )
+    .map_err(|error| V1ClosureCheckError::new("audio-scene", error.to_string()));
+    let audio = audio_directory.finish(audio_result, |error| {
+        V1ClosureCheckError::new("remove audio scratch", error.to_string())
     })?;
 
     let replay_directory = scratch
@@ -241,6 +253,7 @@ fn run_v1_closure_check_scoped(
         &replay,
         streaming.final_world_state_hash,
         agent.final_plan_hash,
+        audio.pcm_digest,
         extension_compatibility_hash,
         windows.package_descriptor_hash,
         linux.package_descriptor_hash,
@@ -262,6 +275,7 @@ fn run_v1_closure_check_scoped(
         replay_ledger_hash: replay.final_command_ledger_hash,
         streaming_performance_hash: streaming.final_world_state_hash,
         agent_performance_hash: agent.final_plan_hash,
+        audio_scene_pcm_digest: audio.pcm_digest,
         headless_game_parity: true,
         no_ai_host_fallback: true,
         no_luau_fallback: true,
@@ -369,6 +383,7 @@ fn closure_hash(
     replay: &crate::PersistenceReplayCheckReport,
     streaming_hash: ContentHash,
     agent_hash: ContentHash,
+    audio_pcm_digest: ContentHash,
     extension_compatibility_hash: ContentHash,
     windows_package_hash: ContentHash,
     linux_package_hash: ContentHash,
@@ -385,6 +400,7 @@ fn closure_hash(
     bytes.extend_from_slice(replay.final_command_ledger_hash.as_bytes());
     bytes.extend_from_slice(streaming_hash.as_bytes());
     bytes.extend_from_slice(agent_hash.as_bytes());
+    bytes.extend_from_slice(audio_pcm_digest.as_bytes());
     bytes.extend_from_slice(extension_compatibility_hash.as_bytes());
     bytes.extend_from_slice(windows_package_hash.as_bytes());
     bytes.extend_from_slice(linux_package_hash.as_bytes());

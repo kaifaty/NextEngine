@@ -196,6 +196,7 @@ pub struct NativeGateComparableRootsV1 {
     pub presentation_snapshot_hash: String,
     pub streaming_performance_hash: String,
     pub agent_performance_hash: String,
+    pub audio_scene_pcm_digest: String,
     pub packaged_game_state_root: String,
     pub packaged_game_ledger_hash: String,
     pub packaged_headless_state_root: String,

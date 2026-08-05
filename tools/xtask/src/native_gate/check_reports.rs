@@ -629,6 +629,7 @@ fn validate_closure_hashes(details: &V1ClosureDetailsV1) -> Result<(), NativeGat
         ("play_ledger_hash", &details.play_ledger_hash),
         ("replay_state_root", &details.replay_state_root),
         ("replay_ledger_hash", &details.replay_ledger_hash),
+        ("audio_scene_pcm_digest", &details.audio_scene_pcm_digest),
         (
             "windows_package_descriptor_hash",
             &details.windows.package_descriptor_hash,

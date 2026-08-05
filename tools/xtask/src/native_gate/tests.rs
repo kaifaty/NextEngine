@@ -69,6 +69,7 @@ fn roots() -> NativeGateComparableRootsV1 {
         presentation_snapshot_hash: hash('c'),
         streaming_performance_hash: hash('d'),
         agent_performance_hash: hash('e'),
+        audio_scene_pcm_digest: hash('0'),
         packaged_game_state_root: hash('1'),
         packaged_game_ledger_hash: hash('2'),
         packaged_headless_state_root: hash('1'),
@@ -399,6 +400,7 @@ fn check_report_value(
                 "play_ledger_hash": roots.play_ledger_hash,
                 "replay_state_root": roots.replay_state_root,
                 "replay_ledger_hash": roots.replay_ledger_hash,
+                "audio_scene_pcm_digest": roots.audio_scene_pcm_digest,
                 "windows": {
                     "target": targets.windows.target_triple,
                     "package_descriptor_hash": targets.windows.package_descriptor_hash,
@@ -564,6 +566,7 @@ fn derived_descriptor_and_closure_hashes_match_the_verification_oracle() {
     roots.replay_ledger_hash = oracle.replay_ledger_hash.to_hex();
     roots.streaming_performance_hash = oracle.streaming_performance_hash.to_hex();
     roots.agent_performance_hash = oracle.agent_performance_hash.to_hex();
+    roots.audio_scene_pcm_digest = oracle.audio_scene_pcm_digest.to_hex();
     roots.extension_compatibility_hash = oracle.extension_compatibility_hash.to_hex();
     roots.windows_package_descriptor_hash = oracle.windows.package_descriptor_hash.to_hex();
     roots.linux_package_descriptor_hash = oracle.linux.package_descriptor_hash.to_hex();

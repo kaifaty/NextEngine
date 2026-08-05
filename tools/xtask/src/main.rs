@@ -327,6 +327,7 @@ fn v1_closure_report(
                 "content_package".to_owned(),
                 "play".to_owned(),
                 "persistence_replay".to_owned(),
+                "audio_scene".to_owned(),
                 "platform_contract".to_owned(),
                 "performance".to_owned(),
                 "headless_game_parity".to_owned(),
@@ -346,6 +347,7 @@ fn v1_closure_report(
             play_ledger_hash: report.play_ledger_hash.to_hex(),
             replay_state_root: report.replay_state_root.to_hex(),
             replay_ledger_hash: report.replay_ledger_hash.to_hex(),
+            audio_scene_pcm_digest: report.audio_scene_pcm_digest.to_hex(),
             windows: TargetGateDetailsV1 {
                 target: report.windows.target_triple.to_owned(),
                 package_descriptor_hash: report.windows.package_descriptor_hash.to_hex(),

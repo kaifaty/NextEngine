@@ -303,6 +303,7 @@ pub(crate) fn build_native_gate_package_result(
             })?
             .final_plan_hash
             .clone(),
+        audio_scene_pcm_digest: closure.report.details.audio_scene_pcm_digest.clone(),
         packaged_game_state_root: package.game.state_root.clone(),
         packaged_game_ledger_hash: package.game.ledger_hash.clone(),
         packaged_headless_state_root: package.headless.state_root.clone(),

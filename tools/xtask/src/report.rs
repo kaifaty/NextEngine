@@ -89,6 +89,7 @@ pub struct V1ClosureDetailsV1 {
     pub play_ledger_hash: String,
     pub replay_state_root: String,
     pub replay_ledger_hash: String,
+    pub audio_scene_pcm_digest: String,
     pub windows: TargetGateDetailsV1,
     pub linux: TargetGateDetailsV1,
     pub closure_hash: String,
