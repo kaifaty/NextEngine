@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use next_contracts::command::EventPayload;
-use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
+use next_contracts::ids::{AssetId, ContentHash, PersistentId, SchemaId};
 use next_contracts::input::{
     ActionMapManifestV1, CORE_INTERACT_ACTION_ID, InputContextStackV1, PlayerActionPhaseV1,
     PlayerActionValueV1,
@@ -15,6 +15,10 @@ use next_contracts::presentation::{
 use next_contracts::snapshot::{WorldCheckpointCanonicalComponentsV1, WorldCheckpointV4};
 use next_contracts::world::WorldStreamingSnapshotV1;
 use next_player::PlayerInputSessionV1;
+use next_presentation::audio_mix::AudioMixerV1;
+use next_presentation::audio_scene::{
+    AudioEventCueBindingV1, AudioListenerBindingV1, extract_audio_scene,
+};
 use next_presentation::{
     CameraPresentationBindingV1, PresentationBindingV1, PresentationExtractorV1,
 };
@@ -35,6 +39,8 @@ use crate::session::{ReferenceGameSession, build_reference_game_session};
 const CAMERA_ID_BYTES: [u8; 16] = [0xc0; 16];
 const CAMERA_FOCUS_HEIGHT_MICROMETRES: i64 = 700_000;
 const SEMANTIC_UI_RECORDS_PER_BATCH: usize = 64;
+
+mod audio_ops;
 
 #[must_use]
 pub fn reference_b0_presentation_profile_hash() -> ContentHash {
@@ -79,6 +85,13 @@ pub struct ReferenceGameDriverV1 {
     input: PlayerInputSessionV1,
     presentation_bindings: Vec<PresentationBindingV1>,
     presentation_extractor: PresentationExtractorV1,
+    audio_clips: Arc<std::collections::BTreeMap<AssetId, next_contracts::audio::NeutralAudioV1>>,
+    audio_cue_bindings: Arc<Vec<AudioEventCueBindingV1>>,
+    audio_listener_binding: AudioListenerBindingV1,
+    audio_mixer: AudioMixerV1,
+    audio_scene: next_contracts::presentation::audio_scene::AudioSceneSnapshotV1,
+    audio_pcm: Arc<[i16]>,
+    next_audio_sequence: u64,
     next_logical_frame_sequence: u64,
     events: u64,
     rpg_events: u64,
@@ -144,6 +157,10 @@ impl ReferenceGameGenerationV1 {
 struct PreparedReferenceGameState {
     input: PlayerInputSessionV1,
     presentation_extractor: PresentationExtractorV1,
+    audio_mixer: AudioMixerV1,
+    audio_scene: next_contracts::presentation::audio_scene::AudioSceneSnapshotV1,
+    audio_pcm: Arc<[i16]>,
+    next_audio_sequence: u64,
     next_logical_frame_sequence: u64,
     events: u64,
     rpg_events: u64,
@@ -284,6 +301,24 @@ impl ReferenceGameDriverV1 {
                 1,
                 SEMANTIC_UI_RECORDS_PER_BATCH,
             )?;
+        let audio_clips = Arc::new(crate::audio::reference_audio_clip_map(
+            &fixture.activated_project,
+        ));
+        let audio_cue_bindings = Arc::new(crate::audio::reference_audio_cue_bindings(
+            &fixture.activated_project,
+        )?);
+        let audio_listener_binding = crate::audio::reference_audio_listener_binding(&fixture);
+        let audio_mixer = AudioMixerV1::new(crate::audio::reference_audio_mix_profile()?);
+        let audio_scene = extract_audio_scene(
+            snapshot_epoch,
+            0,
+            runtime.next_tick(),
+            &audio_listener_binding,
+            &[],
+            &audio_cue_bindings,
+            &[],
+            runtime.physics_snapshot(),
+        )?;
         let mut driver = Self {
             dialogue_entry_node_id: crate::dialogue::reference_dialogue_entry_node_id(&fixture)?,
             fixture,
@@ -292,6 +327,13 @@ impl ReferenceGameDriverV1 {
             input,
             presentation_bindings,
             presentation_extractor,
+            audio_clips,
+            audio_cue_bindings,
+            audio_listener_binding,
+            audio_mixer,
+            audio_scene,
+            audio_pcm: Arc::from(Vec::new()),
+            next_audio_sequence: 0,
             next_logical_frame_sequence: 0,
             events: 0,
             rpg_events: 0,
@@ -362,6 +404,27 @@ impl ReferenceGameDriverV1 {
         {
             return Err(ReferenceGameError::RecoveryInvalid);
         }
+        let audio_clips = Arc::new(crate::audio::reference_audio_clip_map(
+            &fixture.activated_project,
+        ));
+        let audio_cue_bindings = Arc::new(crate::audio::reference_audio_cue_bindings(
+            &fixture.activated_project,
+        )?);
+        let audio_listener_binding = crate::audio::reference_audio_listener_binding(&fixture);
+        // Authoritative recovery resets the presentation-only mixer: in-flight
+        // one-shots may be omitted after a restart but never replayed
+        // (SPEC-30 consumption recovery semantics).
+        let audio_mixer = AudioMixerV1::new(crate::audio::reference_audio_mix_profile()?);
+        let audio_scene = extract_audio_scene(
+            presentation_extractor.snapshot_epoch(),
+            0,
+            runtime.next_tick(),
+            &audio_listener_binding,
+            &[],
+            &audio_cue_bindings,
+            &[],
+            runtime.physics_snapshot(),
+        )?;
         let mut driver = Self {
             dialogue_entry_node_id: crate::dialogue::reference_dialogue_entry_node_id(&fixture)?,
             fixture,
@@ -370,6 +433,13 @@ impl ReferenceGameDriverV1 {
             input,
             presentation_bindings,
             presentation_extractor,
+            audio_clips,
+            audio_cue_bindings,
+            audio_listener_binding,
+            audio_mixer,
+            audio_scene,
+            audio_pcm: Arc::from(Vec::new()),
+            next_audio_sequence: 0,
             next_logical_frame_sequence: recovery.next_logical_frame_sequence,
             events: recovery.events,
             rpg_events: recovery.rpg_events,
@@ -431,6 +501,7 @@ impl ReferenceGameDriverV1 {
         let base_generation = ReferenceGameGenerationV1::capture(self)?;
         let mut input_session = self.input.clone();
         let mut presentation_extractor = self.presentation_extractor.clone();
+        let mut audio_mixer = self.audio_mixer.clone();
         let mut camera_yaw_millidegrees = self.camera_yaw_millidegrees;
         let mut camera_pitch_millidegrees = self.camera_pitch_millidegrees;
         let mut ui_screen = self.ui_screen;
@@ -570,6 +641,22 @@ impl ReferenceGameDriverV1 {
             &[camera],
             ui_records,
         )?;
+        let audio_scene = extract_audio_scene(
+            presentation_extractor.snapshot_epoch(),
+            self.next_audio_sequence,
+            prepared_runtime.next_tick(),
+            &self.audio_listener_binding,
+            &[],
+            &self.audio_cue_bindings,
+            prepared_runtime.events(),
+            prepared_runtime.physics_snapshot(),
+        )?;
+        let audio_pcm: Arc<[i16]> =
+            Arc::from(audio_mixer.mix_tick(&audio_scene, &self.audio_clips));
+        let next_audio_sequence = self
+            .next_audio_sequence
+            .checked_add(1)
+            .ok_or(ReferenceGameError::CountOverflow)?;
         if presentation_extractor.accepted_snapshot().is_none() {
             return Err(ReferenceGameError::PresentationSnapshotMissing);
         }
@@ -580,6 +667,10 @@ impl ReferenceGameDriverV1 {
             state: PreparedReferenceGameState {
                 input: input_session,
                 presentation_extractor,
+                audio_mixer,
+                audio_scene,
+                audio_pcm,
+                next_audio_sequence,
                 next_logical_frame_sequence,
                 events,
                 rpg_events,
@@ -628,6 +719,10 @@ impl ReferenceGameDriverV1 {
         }
         self.input = validated.state.input;
         self.presentation_extractor = validated.state.presentation_extractor;
+        self.audio_mixer = validated.state.audio_mixer;
+        self.audio_scene = validated.state.audio_scene;
+        self.audio_pcm = validated.state.audio_pcm;
+        self.next_audio_sequence = validated.state.next_audio_sequence;
         self.next_logical_frame_sequence = validated.state.next_logical_frame_sequence;
         self.events = validated.state.events;
         self.rpg_events = validated.state.rpg_events;
@@ -828,6 +923,7 @@ impl ReferenceGameDriverV1 {
                 &[camera],
                 ui_records,
             )?;
+        self.publish_audio(&[], self.runtime.next_tick())?;
         self.camera_cut = false;
         self.presentation_extractor
             .accepted_snapshot()

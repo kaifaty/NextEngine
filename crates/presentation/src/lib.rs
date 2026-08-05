@@ -22,6 +22,7 @@ mod text;
 mod ui_font;
 mod ui_overlay;
 
+pub mod audio_mix;
 pub mod audio_scene;
 
 pub use text::{

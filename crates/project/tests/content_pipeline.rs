@@ -46,7 +46,7 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         activated.composition_lock.composition_lock_sha256,
         first.composition_lock.composition_lock_sha256
     );
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 22);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 26);
     assert_eq!(activated.world_partition.body.chunk_bindings.len(), 2);
     assert_eq!(activated.rpg_definitions.abilities.len(), 1);
     assert_eq!(activated.rpg_definitions.packages.len(), 2);
@@ -482,7 +482,7 @@ fn audio_clips_cook_publish_and_activate_through_production_loader() {
     };
 
     let clip = NeutralAudioV1::new(
-        AssetId::from_bytes([0xa1; 16]),
+        AssetId::from_bytes([0xb1; 16]),
         1,
         48_000,
         2,
@@ -505,13 +505,18 @@ fn audio_clips_cook_publish_and_activate_through_production_loader() {
         .iter()
         .filter(|entry| entry.schema_ref.schema_id.as_str() == NEUTRAL_AUDIO_SCHEMA_ID)
         .collect();
-    assert_eq!(audio_entries.len(), 1);
+    // Four engine-owned reference clips plus the test clip.
+    assert_eq!(audio_entries.len(), 5);
+    let test_entry = audio_entries
+        .iter()
+        .find(|entry| entry.asset_revision.asset_id == clip.asset_id)
+        .expect("test clip entry");
     assert_eq!(
-        audio_entries[0].semantic_class,
+        test_entry.semantic_class,
         next_contracts::project::ContentSemanticClassV1::PresentationOnly
     );
     assert_eq!(
-        audio_entries[0].asset_revision.record_sha256,
+        test_entry.asset_revision.record_sha256,
         clip.record_sha256().expect("hash")
     );
 
@@ -521,7 +526,8 @@ fn audio_clips_cook_publish_and_activate_through_production_loader() {
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
     let activated = activate_project(&store).expect("activate with audio");
-    assert_eq!(activated.audio_clips, vec![clip.clone()]);
+    assert_eq!(activated.audio_clips.len(), 5);
+    assert!(activated.audio_clips.contains(&clip));
     std::fs::remove_dir_all(root).expect("remove audio store");
 
     let mut duplicate = next_reference_game::project_source_v2().expect("fixture");

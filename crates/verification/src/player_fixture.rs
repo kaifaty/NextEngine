@@ -1,6 +1,8 @@
 mod checks;
 mod error;
 
+pub mod audio_check;
+
 #[cfg(test)]
 mod tests;
 

@@ -54,6 +54,9 @@ pub use platform_check::{
     run_desktop_frame_timing_smoke, run_desktop_frame_timing_smoke_in,
     run_desktop_frame_timing_workload_in, run_platform_check, run_platform_check_in,
 };
+pub use player_fixture::audio_check::{
+    AudioSceneCheckReportV1, run_audio_scene_check, run_audio_scene_check_in,
+};
 pub use player_fixture::{
     CanonicalFixtureError, GameCheckReport, NeutralPlayerFixture, PhysicsCollisionBackend,
     PhysicsCollisionCheckReport, PlayCheckError, PlayCheckReport, PreparedGameFrameV1,

@@ -167,6 +167,10 @@ fn run() -> Result<(), String> {
             reject_extra_arguments(arguments)?;
             platform()
         }
+        "audio-scene" => {
+            reject_extra_arguments(arguments)?;
+            audio_scene()
+        }
         "play" => {
             reject_extra_arguments(arguments)?;
             play()
@@ -529,9 +533,49 @@ fn parse_physics_backend(
 }
 
 fn play() -> Result<(), String> {
+    // AUDIO-02 displayless audio gate runs as part of the audio routing
+    // row's `play` product check: scene/PCM/acoustic-fact determinism and
+    // cue acceptance must hold before the play report is emitted.
+    let audio = next_verification::run_audio_scene_check().map_err(|error| error.to_string())?;
+    if !audio.repeated_run_identical {
+        return Err("AUDIO_SCENE_DETERMINISM_MISMATCH".to_owned());
+    }
     let report = play_report(None)?;
     println!("{}", report.to_json().map_err(|error| error.to_string())?);
     Ok(())
+}
+
+#[derive(serde::Serialize)]
+struct AudioSceneDetailsV1 {
+    ticks: u64,
+    cue_count: u64,
+    acoustic_fact_count: u64,
+    non_silent_windows: u64,
+    pcm_frames: u64,
+    pcm_digest: String,
+    canonical_wav_digest: String,
+    final_state_root: String,
+    repeated_run_identical: bool,
+}
+
+fn audio_scene() -> Result<(), String> {
+    let report = next_verification::run_audio_scene_check().map_err(|error| error.to_string())?;
+    CommandReportV1::new(
+        "audio-scene",
+        "PASS",
+        AudioSceneDetailsV1 {
+            ticks: report.ticks,
+            cue_count: report.cue_count,
+            acoustic_fact_count: report.acoustic_fact_count,
+            non_silent_windows: report.non_silent_windows,
+            pcm_frames: report.pcm_frames,
+            pcm_digest: report.pcm_digest.to_hex(),
+            canonical_wav_digest: report.canonical_wav_digest.to_hex(),
+            final_state_root: report.final_state_root.to_hex(),
+            repeated_run_identical: report.repeated_run_identical,
+        },
+    )
+    .emit_report()
 }
 
 fn play_report(state_root: Option<&Path>) -> Result<next_application::RunReportV1, String> {

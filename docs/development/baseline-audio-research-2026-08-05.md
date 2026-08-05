@@ -224,7 +224,41 @@ roadmap status change (пакет остаётся в работе до A6).
 |---|---|
 | A1 NeutralAudioV1 + plumbing | `DONE_LOCAL_WINDOWS` (2026-08-05): contracts `142`+`10` audio tests, project integration test, `host-check`/`play`/`persistence-replay`/`content-package` PASS, authoritative roots byte-exact (fixture не тронут) |
 | A2 Audio scene contracts + extraction | `DONE_LOCAL_WINDOWS` (2026-08-05): `AudioSceneSnapshotV1` contracts + deterministic extractor, 13 focused tests, `host-check`/`play`/`persistence-replay` PASS, roots byte-exact; production wiring в live loop приходит с A3 вместе с fixture clips и mixer |
-| A3–A6 | Не начаты |
+| A3 Baseline mixer + canonical PCM sink + live wiring | `DONE_LOCAL_WINDOWS` (2026-08-05): `AudioMixerV1` (priority admission/preemption, distance/pan/zone в integer math, resampling, loop), canonical WAV sink, 4 engine-owned fixture clips + event/listener bindings, wiring в `ReferenceGameDriverV1`, AUDIO-02-style `audio-scene` check (20 ticks, 5 cues/5 facts, byte-exact PCM в paired runs); одноразовый root change от fixture clips: state roots `88977d5d→34a9bcd6` (play), `d3f6eced→c98bf08e` (persistence-replay), ledger/archive/identity roots byte-exact |
+| A4–A6 | Не начаты |
+
+### A3 implementation record (2026-08-05)
+
+- `crates/presentation/src/audio_mix.rs`: `AudioMixerV1` +
+  `AudioMixProfileV1` (48 kHz stereo baseline, 1 600 frames/30 Hz tick,
+  16 voices, min/max distance 1/20 m, pan range 5 m, occlusion 0.5).
+  Voice admission: priority desc → active-first → admission ordinal →
+  canonical key; deterministic preemption/drops counters. Integer-only
+  math: isqrt distance attenuation, Q1.30 quaternion inverse pan rotation,
+  linear pan law, fixed-point resampling, S16/S24/F32 downmix, loop
+  regions, saturating clamp counter. `encode_canonical_wav` — 44-byte
+  RIFF PCM S16LE sink. 8 focused tests: profile fail-closed, non-spatial
+  completion, priority preemption, distance/pan determinism, loop wrap +
+  retire, WAV header, zone occlusion, half-rate resample.
+- `crates/reference-game/src/audio.rs`: 4 synthesized clips (48 kHz mono
+  S16, integer LFSR noise / two-tone / thud, decay envelopes) с
+  fixed-point loudness metadata; cue bindings (switch/pickup/melee →
+  EventPrincipal, dialogue → Listener); listener = player capsule body.
+- Live wiring (`live.rs` + `live/audio_ops.rs`): driver публикует audio
+  scene и canonical PCM window на каждом advance через stage→validate→
+  commit; restore сбрасывает mixer (omit-never-replay semantics); roots
+  gameplay не затрагиваются.
+- Verification `player_fixture/audio_check.rs`: scripted interactive
+  session (W/Q/R/E/D/F/Return через production control events) гонится
+  дважды через `ReferenceGameDriverV1`; byte-exact scenes/PCM/facts/
+  final state root; acceptance: ≥4 cues, все 4 clip assets, facts ==
+  cues, ≥3 non-silent windows, canonical WAV digest. Команда
+  `xtask audio-scene` печатает evidence; `xtask play` теперь включает
+  этот gate (routing row audio → `play`).
+- Fixture: 26 asset entries (4 audio clips); обновлены
+  `content_package` и `content_pipeline` counts. Checks: `host-check`,
+  `play`, `persistence-replay`, `content-package`, `platform`,
+  `audio-scene` — все PASS.
 
 ### A2 implementation record (2026-08-05)
 

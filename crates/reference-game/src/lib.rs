@@ -13,6 +13,8 @@ mod source;
 mod ui;
 mod ui_dialogue;
 
+pub mod audio;
+
 pub use dialogue::{ReferenceDialogueChoiceV1, ReferenceDialogueUiV1};
 pub use error::{ReferenceGameError, ReferenceInputError};
 pub use input::{

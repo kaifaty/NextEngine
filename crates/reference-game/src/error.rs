@@ -47,6 +47,9 @@ pub enum ReferenceGameError {
     Checkpoint(next_contracts::snapshot::WorldCheckpointError),
     PresentationContract(next_contracts::presentation::PresentationContractError),
     Presentation(next_presentation::PresentationExtractionError),
+    AudioSceneContract(next_contracts::presentation::audio_scene::AudioSceneContractErrorV1),
+    AudioExtraction(next_presentation::audio_scene::AudioSceneExtractionErrorV1),
+    AudioMix(next_presentation::audio_mix::AudioMixErrorV1),
     WorldStreaming(next_world::WorldStreamingError),
     WorldStreamingContract(next_contracts::world::WorldStreamingContractError),
     Agent(next_agent::AgentPlannerError),
@@ -61,6 +64,7 @@ pub enum ReferenceGameError {
     InputFrameMissing,
     PresentationAssetMissing,
     PresentationSnapshotMissing,
+    AudioAssetMissing,
     RecoveryInvalid,
 }
 
@@ -82,6 +86,9 @@ impl Display for ReferenceGameError {
             Self::Checkpoint(error) => write!(formatter, "{error}"),
             Self::PresentationContract(error) => write!(formatter, "{error}"),
             Self::Presentation(error) => write!(formatter, "{error}"),
+            Self::AudioSceneContract(error) => write!(formatter, "{error}"),
+            Self::AudioExtraction(error) => write!(formatter, "{error}"),
+            Self::AudioMix(error) => write!(formatter, "{error}"),
             Self::WorldStreaming(error) => write!(formatter, "{error}"),
             Self::WorldStreamingContract(error) => write!(formatter, "{error}"),
             Self::Agent(error) => write!(formatter, "{error}"),
@@ -108,6 +115,7 @@ impl Display for ReferenceGameError {
             Self::PresentationSnapshotMissing => {
                 formatter.write_str("reference presentation snapshot is missing")
             }
+            Self::AudioAssetMissing => formatter.write_str("reference audio clip asset is missing"),
             Self::RecoveryInvalid => {
                 formatter.write_str("reference live recovery state is invalid")
             }
@@ -145,6 +153,15 @@ from_error!(
     PresentationContract
 );
 from_error!(next_presentation::PresentationExtractionError, Presentation);
+from_error!(
+    next_contracts::presentation::audio_scene::AudioSceneContractErrorV1,
+    AudioSceneContract
+);
+from_error!(
+    next_presentation::audio_scene::AudioSceneExtractionErrorV1,
+    AudioExtraction
+);
+from_error!(next_presentation::audio_mix::AudioMixErrorV1, AudioMix);
 from_error!(next_world::WorldStreamingError, WorldStreaming);
 from_error!(
     next_contracts::world::WorldStreamingContractError,
