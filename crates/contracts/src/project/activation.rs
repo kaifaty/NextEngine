@@ -14,6 +14,7 @@ pub struct ActivatedProjectV2 {
     pub world_partition: WorldPartitionManifestV1,
     pub neutral_records: Vec<crate::content::NeutralRecordV1>,
     pub text_catalogs: Vec<crate::localization::TextCatalogV1>,
+    pub audio_clips: Vec<crate::audio::NeutralAudioV1>,
     pub rpg_definitions: crate::mechanics::RpgDefinitionRegistryV1,
     pub render_content_catalog: RenderContentCatalogV1,
 }
@@ -98,6 +99,30 @@ impl ActivatedProjectV2 {
                     .iter()
                     .find(|candidate| candidate.locale.as_str() == fallback.as_str())
                     .ok_or(ProjectContractError::MissingReference)?;
+            }
+        }
+        if self
+            .audio_clips
+            .windows(2)
+            .any(|pair| pair[0].asset_id >= pair[1].asset_id)
+        {
+            return Err(ProjectContractError::DuplicateIdentity);
+        }
+        for clip in &self.audio_clips {
+            let record_hash = clip
+                .record_sha256()
+                .map_err(|_| ProjectContractError::HashMismatch)?;
+            if !self
+                .content_manifest
+                .body
+                .asset_entries
+                .iter()
+                .any(|entry| {
+                    entry.asset_revision.asset_id == clip.asset_id
+                        && entry.asset_revision.record_sha256 == record_hash
+                })
+            {
+                return Err(ProjectContractError::HashMismatch);
             }
         }
         let catalog_bytes = self

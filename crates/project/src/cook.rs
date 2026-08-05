@@ -3,6 +3,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_assets::{ContentPublicationV1, PublicationFileV1};
+use next_contracts::audio::{NEUTRAL_AUDIO_SCHEMA_ID, NeutralAudioErrorV1, NeutralAudioV1};
 use next_contracts::content::{NeutralRecordError, NeutralRecordKindV1, NeutralRecordV1};
 use next_contracts::ids::{
     AssetId, CapabilityId, ContentHash, MechanicPackageId, ProjectId, SchemaId,
@@ -22,9 +23,9 @@ use next_contracts::project::{
     ContentManifestV1, ContentProvenanceV1, ContentSemanticClassV1, ProjectCatalogRecordV1,
     ProjectCatalogSnapshotV1, ProjectCompositionLockV2, ProjectContractError,
     ProjectDependencyKindV1, ProjectManifestV1, ProjectRequirementV1, SchemaDescriptorV1,
-    SchemaEncodingV1, SchemaRefV1, SchemaRegistryManifestBodyV1, SchemaRegistryManifestV1,
-    SchemaRoleV1, SemanticVersionV1, WorldChunkBindingV1, WorldPartitionManifestBodyV1,
-    WorldPartitionManifestV1, canonical_empty_manifest_hash, domain_hash,
+    SchemaEncodingV1, SchemaRegistryManifestBodyV1, SchemaRegistryManifestV1, SchemaRoleV1,
+    SemanticVersionV1, WorldChunkBindingV1, WorldPartitionManifestBodyV1, WorldPartitionManifestV1,
+    canonical_empty_manifest_hash, domain_hash,
 };
 use next_contracts::render_content::{
     NeutralRenderRecordV1, RenderContentCatalogV1, RenderContentContractError,
@@ -32,6 +33,7 @@ use next_contracts::render_content::{
 use next_contracts::rpg::RPG_COMMAND_CAPABILITY_ID;
 use next_contracts::session::{RecoveryPolicyV1, ShutdownPolicyV1};
 
+use crate::cook_support::{ensure_unique, schema_ref, validate_text_catalog_closure};
 use crate::{ProjectResolutionError, resolve_project_records_v1};
 
 pub const PROJECT_MANIFEST_PATH: &str = "manifests/project.json";
@@ -64,6 +66,7 @@ pub struct NeutralProjectSourceV1 {
     pub records: Vec<NeutralRecordV1>,
     pub render_records: Vec<NeutralRenderRecordV1>,
     pub text_catalogs: Vec<TextCatalogV1>,
+    pub audio_records: Vec<NeutralAudioV1>,
     pub root_asset_ids: Vec<AssetId>,
     pub provenance: ContentProvenanceV1,
     pub license_manifest_sha256: ContentHash,
@@ -148,6 +151,7 @@ pub fn cook_project_v1(
     source
         .text_catalogs
         .sort_by_key(|catalog| catalog.catalog_asset_id);
+    source.audio_records.sort_by_key(|record| record.asset_id);
     source.root_asset_ids.sort();
     source
         .chunks
@@ -181,6 +185,14 @@ pub fn cook_project_v1(
     )?;
     if !source.text_catalogs.is_empty() {
         schema_refs.insert(text_catalog_schema_ref.clone());
+    }
+    let audio_schema_ref = schema_ref(
+        NEUTRAL_AUDIO_SCHEMA_ID,
+        SchemaRoleV1::NeutralContent,
+        SchemaEncodingV1::CanonicalBinaryV1,
+    )?;
+    if !source.audio_records.is_empty() {
+        schema_refs.insert(audio_schema_ref.clone());
     }
     let content_schema_ref = schema_ref(
         "nextengine.content.manifest",
@@ -298,6 +310,30 @@ pub fn cook_project_v1(
         entries.push(ContentAssetEntryV1 {
             asset_revision: revision,
             schema_ref: text_catalog_schema_ref.clone(),
+            neutral_record_blob_sha256: record_hash,
+            semantic_class: ContentSemanticClassV1::PresentationOnly,
+            provenance_sha256: source.provenance.provenance_sha256,
+            license_manifest_sha256: source.license_manifest_sha256,
+            owning_bundle_id: SchemaId::new("nextengine.fixture.bundle.v1")
+                .expect("engine-owned identifier is valid"),
+        });
+    }
+    for record in &source.audio_records {
+        let bytes = record.canonical_bytes()?;
+        let record_hash = record.record_sha256()?;
+        if blobs.insert(record_hash, bytes).is_some() {
+            return Err(ProjectCookError::HashCollision);
+        }
+        let revision = AssetRevisionRefV1 {
+            asset_id: record.asset_id,
+            record_sha256: record_hash,
+        };
+        if revisions.insert(record.asset_id, revision).is_some() {
+            return Err(ProjectCookError::DuplicateIdentity);
+        }
+        entries.push(ContentAssetEntryV1 {
+            asset_revision: revision,
+            schema_ref: audio_schema_ref.clone(),
             neutral_record_blob_sha256: record_hash,
             semantic_class: ContentSemanticClassV1::PresentationOnly,
             provenance_sha256: source.provenance.provenance_sha256,
@@ -727,7 +763,8 @@ fn validate_source(source: &NeutralProjectSourceV1) -> Result<(), ProjectCookErr
                     .text_catalogs
                     .iter()
                     .map(|catalog| catalog.catalog_asset_id),
-            ),
+            )
+            .chain(source.audio_records.iter().map(|record| record.asset_id)),
     )?;
     ensure_unique(source.records.iter().map(|record| record.record_id))?;
     ensure_unique(source.root_asset_ids.iter().copied())?;
@@ -797,6 +834,12 @@ fn validate_source(source: &NeutralProjectSourceV1) -> Result<(), ProjectCookErr
         )?;
     }
     validate_text_catalog_closure(&source.text_catalogs)?;
+    for record in &source.audio_records {
+        NeutralAudioV1::from_canonical_bytes(
+            &record.canonical_bytes()?,
+            next_contracts::canonical::CanonicalDecodeLimits::default(),
+        )?;
+    }
     if source
         .root_asset_ids
         .iter()
@@ -817,66 +860,6 @@ fn validate_source(source: &NeutralProjectSourceV1) -> Result<(), ProjectCookErr
     Ok(())
 }
 
-fn validate_text_catalog_closure(catalogs: &[TextCatalogV1]) -> Result<(), ProjectCookError> {
-    if catalogs.is_empty() {
-        return Ok(());
-    }
-    let mut locales = BTreeSet::new();
-    let mut root_count = 0_usize;
-    for catalog in catalogs {
-        if !locales.insert(catalog.locale.as_str()) {
-            return Err(ProjectCookError::DuplicateIdentity);
-        }
-        if catalog.fallback_locale_or_none.is_none() {
-            root_count += 1;
-        }
-    }
-    if root_count != 1 {
-        return Err(ProjectCookError::LocalizationClosureInvalid);
-    }
-    for catalog in catalogs {
-        let mut visited = BTreeSet::new();
-        let mut current = catalog;
-        loop {
-            if !visited.insert(current.locale.as_str()) {
-                return Err(ProjectCookError::LocalizationClosureInvalid);
-            }
-            let Some(fallback) = &current.fallback_locale_or_none else {
-                break;
-            };
-            current = catalogs
-                .iter()
-                .find(|candidate| candidate.locale.as_str() == fallback.as_str())
-                .ok_or(ProjectCookError::MissingReference)?;
-        }
-    }
-    Ok(())
-}
-
-fn schema_ref(
-    schema_id: &str,
-    role: SchemaRoleV1,
-    encoding: SchemaEncodingV1,
-) -> Result<SchemaRefV1, ProjectCookError> {
-    Ok(SchemaRefV1 {
-        schema_id: SchemaId::new(schema_id)?,
-        schema_version: 1,
-        descriptor_sha256: domain_hash("nextengine.schema-descriptor.v1", schema_id.as_bytes()),
-        role,
-        encoding,
-    })
-}
-
-fn ensure_unique<T: Ord>(values: impl IntoIterator<Item = T>) -> Result<(), ProjectCookError> {
-    let mut values: Vec<_> = values.into_iter().collect();
-    values.sort();
-    if values.windows(2).any(|pair| pair[0] == pair[1]) {
-        Err(ProjectCookError::DuplicateIdentity)
-    } else {
-        Ok(())
-    }
-}
-
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ProjectCookError {
@@ -884,6 +867,7 @@ pub enum ProjectCookError {
     Neutral(NeutralRecordError),
     Render(RenderContentContractError),
     Localization(TextCatalogErrorV1),
+    Audio(NeutralAudioErrorV1),
     Resolution(ProjectResolutionError),
     Store(next_assets::ContentStoreError),
     Identifier(next_contracts::ids::IdentifierError),
@@ -903,6 +887,7 @@ impl ProjectCookError {
             Self::Contract(_) | Self::Neutral(_) => "CONTENT_SCHEMA_INVALID",
             Self::Render(error) => error.diagnostic_code(),
             Self::Localization(_) => "CONTENT_SCHEMA_INVALID",
+            Self::Audio(_) => "CONTENT_SCHEMA_INVALID",
             Self::Resolution(_) => "PROJECT_RESOLUTION_FAILED",
             Self::Store(_) => "CONTENT_PUBLICATION_FAILED",
             Self::Identifier(_) => "CONTENT_IDENTIFIER_INVALID",
@@ -924,6 +909,7 @@ impl Display for ProjectCookError {
             Self::Neutral(error) => write!(formatter, "neutral record invalid: {error}"),
             Self::Render(error) => write!(formatter, "render content invalid: {error}"),
             Self::Localization(error) => write!(formatter, "text catalog invalid: {error}"),
+            Self::Audio(error) => write!(formatter, "neutral audio clip invalid: {error}"),
             Self::Resolution(error) => write!(formatter, "project resolution failed: {error}"),
             Self::Store(error) => write!(formatter, "content publication failed: {error}"),
             Self::Identifier(error) => write!(formatter, "content identifier invalid: {error}"),
@@ -963,6 +949,12 @@ impl From<RenderContentContractError> for ProjectCookError {
 impl From<TextCatalogErrorV1> for ProjectCookError {
     fn from(error: TextCatalogErrorV1) -> Self {
         Self::Localization(error)
+    }
+}
+
+impl From<NeutralAudioErrorV1> for ProjectCookError {
+    fn from(error: NeutralAudioErrorV1) -> Self {
+        Self::Audio(error)
     }
 }
 

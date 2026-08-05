@@ -118,6 +118,7 @@ pub fn project_source_v2_with_id(
         records,
         render_records,
         text_catalogs: reference_text_catalogs()?,
+        audio_records: Vec::new(),
         root_asset_ids,
         provenance: ContentProvenanceV1::new(
             SchemaId::new("nextengine.reference.provenance.cc0")?,

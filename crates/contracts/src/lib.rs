@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod agent;
+pub mod audio;
 pub mod canonical;
 pub mod command;
 pub mod content;

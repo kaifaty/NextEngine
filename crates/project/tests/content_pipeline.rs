@@ -475,6 +475,86 @@ fn localization_closure_violations_are_rejected_before_publication() {
     ));
 }
 
+#[test]
+fn audio_clips_cook_publish_and_activate_through_production_loader() {
+    use next_contracts::audio::{
+        AudioLoudnessMetadataV1, AudioPcmEncodingV1, NEUTRAL_AUDIO_SCHEMA_ID, NeutralAudioV1,
+    };
+
+    let clip = NeutralAudioV1::new(
+        AssetId::from_bytes([0xa1; 16]),
+        1,
+        48_000,
+        2,
+        AudioPcmEncodingV1::PcmS16Le,
+        4,
+        None,
+        vec![0, 2],
+        AudioLoudnessMetadataV1::new(-1_015_806, 45_875).expect("loudness"),
+        vec![0_u8; 16],
+    )
+    .expect("clip");
+
+    let mut source = next_reference_game::project_source_v2().expect("fixture");
+    source.audio_records.push(clip.clone());
+    let cooked = cook_project_v1(source).expect("cook with audio");
+    let audio_entries: Vec<_> = cooked
+        .content_manifest
+        .body
+        .asset_entries
+        .iter()
+        .filter(|entry| entry.schema_ref.schema_id.as_str() == NEUTRAL_AUDIO_SCHEMA_ID)
+        .collect();
+    assert_eq!(audio_entries.len(), 1);
+    assert_eq!(
+        audio_entries[0].semantic_class,
+        next_contracts::project::ContentSemanticClassV1::PresentationOnly
+    );
+    assert_eq!(
+        audio_entries[0].asset_revision.record_sha256,
+        clip.record_sha256().expect("hash")
+    );
+
+    let root = test_root("audio");
+    let store = ContentStore::new(&root);
+    store
+        .publish(&cooked.publication().expect("publication"))
+        .expect("publish");
+    let activated = activate_project(&store).expect("activate with audio");
+    assert_eq!(activated.audio_clips, vec![clip.clone()]);
+    std::fs::remove_dir_all(root).expect("remove audio store");
+
+    let mut duplicate = next_reference_game::project_source_v2().expect("fixture");
+    duplicate.audio_records.push(
+        NeutralAudioV1::new(
+            duplicate.records[0].asset_id,
+            1,
+            48_000,
+            2,
+            AudioPcmEncodingV1::PcmS16Le,
+            4,
+            None,
+            Vec::new(),
+            AudioLoudnessMetadataV1::new(0, 0).expect("loudness"),
+            vec![0_u8; 16],
+        )
+        .expect("clip"),
+    );
+    assert!(matches!(
+        cook_project_v1(duplicate),
+        Err(ProjectCookError::DuplicateIdentity)
+    ));
+
+    let mut invalid = next_reference_game::project_source_v2().expect("fixture");
+    let mut invalid_clip = clip;
+    invalid_clip.sample_rate_hz = 7_999;
+    invalid.audio_records.push(invalid_clip);
+    assert!(matches!(
+        cook_project_v1(invalid),
+        Err(ProjectCookError::Audio(_))
+    ));
+}
+
 fn requirement(identity: &str) -> ProjectRequirementV1 {
     ProjectRequirementV1 {
         kind: ProjectDependencyKindV1::Content,

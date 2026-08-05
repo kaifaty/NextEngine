@@ -2,6 +2,7 @@
 
 mod activation;
 mod cook;
+mod cook_support;
 mod resolver;
 
 pub use activation::{ProjectActivationError, activate_project};
