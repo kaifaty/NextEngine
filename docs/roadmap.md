@@ -1134,13 +1134,18 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    (per-source continuity exact, второго gameplay input path нет).
    `host-check`, `play`, `persistence-replay` и `platform` (desktop-sdl-ash)
    PASS локально на Windows.
-2. **Baseline audio (`NEXT`, A1 `DONE_LOCAL_WINDOWS`):** clips, emitters/listener, priority/voice limits,
+2. **Baseline audio (`NEXT`, A1–A2 `DONE_LOCAL_WINDOWS`):** clips, emitters/listener, priority/voice limits,
    attenuation/panning and subtitle fallback. Sub-increment A1 добавил
    `NeutralAudioV1` content contract (SPEC-24 `nextengine.content.audio`) с
    cook/activation plumbing и focused positive/failure coverage без изменения
-   authoritative roots; A2 (audio scene contracts), A3 (baseline mixer +
-   canonical PCM sink), A4 (desktop device adapter), A5 (subtitle fallback) и
-   A6 (fixture + checks) остаются `PLANNED` — см. декомпозицию в
+   authoritative roots; A2 добавил audio scene contracts
+   (`AudioSceneSnapshotV1`: listener/emitter/cue/acoustic-fact records с
+   engine-owned derived cue identity) и deterministic `extract_audio_scene`
+   из committed `DomainEvent` + exact physics poses с binding profiles;
+   production wiring в live loop приходит с A3. A3 (baseline mixer +
+   canonical PCM sink + live wiring + fixture clips), A4 (desktop device
+   adapter), A5 (subtitle fallback) и
+   A6 (fixture + checks closure) остаются `PLANNED` — см. декомпозицию в
    [baseline-audio-research](development/baseline-audio-research-2026-08-05.md).
 3. **Playable alpha project (`PLANNED`):** заменить technical fixture на один complete
    CC0/engine-owned 20–30 minute slice.

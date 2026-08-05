@@ -10,6 +10,8 @@ use crate::render_content::AabbI64V1;
 mod camera;
 mod ui;
 
+pub mod audio_scene;
+
 pub use camera::{
     CAMERA_PRESENTATION_RECORD_SCHEMA_VERSION, CameraInterpolationPolicyV1,
     CameraPresentationBatchV1, CameraPresentationRecordV2, CameraProjectionProfileV1,

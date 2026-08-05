@@ -22,6 +22,8 @@ mod text;
 mod ui_font;
 mod ui_overlay;
 
+pub mod audio_scene;
+
 pub use text::{
     LocalizationDiagnosticV1, TEXT_RESOLUTION_MAX_DEPTH, TextCatalogResolverV1, TextResolutionV1,
     TextResolverErrorV1,

@@ -223,7 +223,41 @@ roadmap status change (пакет остаётся в работе до A6).
 | Sub-increment | Статус |
 |---|---|
 | A1 NeutralAudioV1 + plumbing | `DONE_LOCAL_WINDOWS` (2026-08-05): contracts `142`+`10` audio tests, project integration test, `host-check`/`play`/`persistence-replay`/`content-package` PASS, authoritative roots byte-exact (fixture не тронут) |
-| A2–A6 | Не начаты |
+| A2 Audio scene contracts + extraction | `DONE_LOCAL_WINDOWS` (2026-08-05): `AudioSceneSnapshotV1` contracts + deterministic extractor, 13 focused tests, `host-check`/`play`/`persistence-replay` PASS, roots byte-exact; production wiring в live loop приходит с A3 вместе с fixture clips и mixer |
+| A3–A6 | Не начаты |
+
+### A2 implementation record (2026-08-05)
+
+- `crates/contracts/src/presentation/audio_scene.rs`:
+  `AudioSceneSnapshotV1` (epoch/sequence/tick-bound, canonical sort
+  emitters by key, cues by `(activation_tick, cue_id)`, facts by
+  `(tick, source, listener)`; limits 1 024/1 024/1 024),
+  `AudioListenerRecordV1`, `AudioEmitterRecordV1`, `AudioCueV1` с
+  derived engine-owned `cue_id` (domain hash от source event identity +
+  cue slot + clip/emitter binding; re-extraction/replay дают то же
+  значение), `AcousticFactV1` (source/listener/loudness class/occlusion
+  zone/tick по SPEC-08 world services), closed `AudioLoudnessClassV1` и
+  `AudioPriorityClassV1`. JCS + domain hash, как у остальных presentation
+  records. 6 focused tests: canonical order independence, duplicate
+  emitter/cue reject, cue identity stability/tamper, zero-hash clip и
+  invalid orientation reject, epoch/sequence/tick binding, limits.
+- `crates/presentation/src/audio_scene.rs`: `extract_audio_scene` —
+  committed `DomainEvent` records + exact physics poses + binding profiles
+  → immutable snapshot. `AudioEventCueBindingV1` (event schema → clip,
+  loudness/priority, zone, `EventPrincipal | Listener` subject),
+  `AudioEmitterBindingV1` (continuous sources с physics pose/fallback),
+  principal subject resolution по всем `RpgEventV1`/`PhysicalEventV1`
+  вариантам; principal без physics pose → cue без emitter record
+  (non-spatial на mixer уровне); binding для event schema без principal
+  subject — configuration error. 7 focused tests: order stability при
+  permuted events, unbound schemas, listener anchoring, principal-missing
+  reject, duplicate binding reject, fallback transform, cue identity
+  binding.
+- Production wiring (reference-game live loop, binding profile из
+  fixture content) намеренно отложена в A3: cue bindings требуют
+  реальных clip asset revisions, которые появятся с fixture clips и
+  mixer vertical. Roots не изменились: persistence-replay
+  `d3f6eced…`/`a8d12b0b…`, play state/ledger roots прежние.
 
 ### A1 implementation record (2026-08-05)
 
