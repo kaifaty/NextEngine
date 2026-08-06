@@ -130,6 +130,7 @@ fn run_interactive_session(
     launch: LaunchRequestV1,
     maximum_frames: Option<u64>,
 ) -> Result<RunReportV1, AppFailure> {
+    let state_root = launch.state_root.clone();
     let (worker, ready) =
         InteractiveSimulationWorkerV1::spawn(launch).map_err(AppFailure::interactive_worker)?;
     let platform_close_event = std::cell::RefCell::new(None);
