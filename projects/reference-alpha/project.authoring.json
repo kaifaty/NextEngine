@@ -2,7 +2,7 @@
   "format": "nextengine.project-authoring.v2",
   "project": {
     "project_id": "org.nextengine.reference-alpha",
-    "project_revision": 6
+    "project_revision": 7
   },
   "provenance": {
     "provenance_id": "nextengine.reference-alpha.provenance.cc0",
@@ -58,6 +58,440 @@
           "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
           "0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e"
         ],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-01",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f0000000000000000000000000000001",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-02",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f0000000000000000000000000000002",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-03",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f0000000000000000000000000000003",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-04",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f0000000000000000000000000000004",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-05",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f0000000000000000000000000000005",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-06",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f0000000000000000000000000000006",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-07",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f0000000000000000000000000000007",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-08",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f0000000000000000000000000000008",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-09",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f0000000000000000000000000000009",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-10",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f000000000000000000000000000000a",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-11",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f000000000000000000000000000000b",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-12",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f000000000000000000000000000000c",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-13",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f000000000000000000000000000000d",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-14",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f000000000000000000000000000000e",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.relay-station-15",
+        "region_id": "nextengine.reference-alpha.region.relay-station",
+        "chunk_asset_id": "f000000000000000000000000000000f",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-01",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f0000000000000000000000000000010",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-02",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f0000000000000000000000000000011",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-03",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f0000000000000000000000000000012",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-04",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f0000000000000000000000000000013",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-05",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f0000000000000000000000000000014",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-06",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f0000000000000000000000000000015",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-07",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f0000000000000000000000000000016",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-08",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f0000000000000000000000000000017",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-09",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f0000000000000000000000000000018",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-10",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f0000000000000000000000000000019",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-11",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f000000000000000000000000000001a",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-12",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f000000000000000000000000000001b",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-13",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f000000000000000000000000000001c",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-14",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f000000000000000000000000000001d",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.frontier-15",
+        "region_id": "nextengine.reference-alpha.region.frontier",
+        "chunk_asset_id": "f000000000000000000000000000001e",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-00",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f000000000000000000000000000001f",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-01",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f0000000000000000000000000000020",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-02",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f0000000000000000000000000000021",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-03",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f0000000000000000000000000000022",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-04",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f0000000000000000000000000000023",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-05",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f0000000000000000000000000000024",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-06",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f0000000000000000000000000000025",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-07",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f0000000000000000000000000000026",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-08",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f0000000000000000000000000000027",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-09",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f0000000000000000000000000000028",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-10",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f0000000000000000000000000000029",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-11",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f000000000000000000000000000002a",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-12",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f000000000000000000000000000002b",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-13",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f000000000000000000000000000002c",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-14",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f000000000000000000000000000002d",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.high-pass-15",
+        "region_id": "nextengine.reference-alpha.region.high-pass",
+        "chunk_asset_id": "f000000000000000000000000000002e",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-00",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f000000000000000000000000000002f",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-01",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f0000000000000000000000000000030",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-02",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f0000000000000000000000000000031",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-03",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f0000000000000000000000000000032",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-04",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f0000000000000000000000000000033",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-05",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f0000000000000000000000000000034",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-06",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f0000000000000000000000000000035",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-07",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f0000000000000000000000000000036",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-08",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f0000000000000000000000000000037",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-09",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f0000000000000000000000000000038",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-10",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f0000000000000000000000000000039",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-11",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f000000000000000000000000000003a",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-12",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f000000000000000000000000000003b",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-13",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f000000000000000000000000000003c",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-14",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f000000000000000000000000000003d",
+        "required_asset_ids": ["02020202020202020202020202020202"],
+        "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+      },
+      {
+        "chunk_id": "nextengine.reference-alpha.chunk.river-basin-15",
+        "region_id": "nextengine.reference-alpha.region.river-basin",
+        "chunk_asset_id": "f000000000000000000000000000003e",
+        "required_asset_ids": ["02020202020202020202020202020202"],
         "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
       }
     ]
@@ -238,6 +672,502 @@
         { "property_id": "nextengine.interaction.relationship-source", "value_id": "nextengine.value.i32.7" },
         { "property_id": "nextengine.interaction.relationship-delta", "value_id": "nextengine.value.i32.3" }
       ],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000001",
+      "record_id": "e0000000000000000000000000000001",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000002",
+      "record_id": "e0000000000000000000000000000002",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000003",
+      "record_id": "e0000000000000000000000000000003",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000004",
+      "record_id": "e0000000000000000000000000000004",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000005",
+      "record_id": "e0000000000000000000000000000005",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000006",
+      "record_id": "e0000000000000000000000000000006",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000007",
+      "record_id": "e0000000000000000000000000000007",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000008",
+      "record_id": "e0000000000000000000000000000008",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000009",
+      "record_id": "e0000000000000000000000000000009",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000000a",
+      "record_id": "e000000000000000000000000000000a",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000000b",
+      "record_id": "e000000000000000000000000000000b",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000000c",
+      "record_id": "e000000000000000000000000000000c",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000000d",
+      "record_id": "e000000000000000000000000000000d",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000000e",
+      "record_id": "e000000000000000000000000000000e",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000000f",
+      "record_id": "e000000000000000000000000000000f",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000010",
+      "record_id": "e0000000000000000000000000000010",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000011",
+      "record_id": "e0000000000000000000000000000011",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000012",
+      "record_id": "e0000000000000000000000000000012",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000013",
+      "record_id": "e0000000000000000000000000000013",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000014",
+      "record_id": "e0000000000000000000000000000014",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000015",
+      "record_id": "e0000000000000000000000000000015",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000016",
+      "record_id": "e0000000000000000000000000000016",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000017",
+      "record_id": "e0000000000000000000000000000017",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000018",
+      "record_id": "e0000000000000000000000000000018",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000019",
+      "record_id": "e0000000000000000000000000000019",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000001a",
+      "record_id": "e000000000000000000000000000001a",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000001b",
+      "record_id": "e000000000000000000000000000001b",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000001c",
+      "record_id": "e000000000000000000000000000001c",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000001d",
+      "record_id": "e000000000000000000000000000001d",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000001e",
+      "record_id": "e000000000000000000000000000001e",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000001f",
+      "record_id": "e000000000000000000000000000001f",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000020",
+      "record_id": "e0000000000000000000000000000020",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000021",
+      "record_id": "e0000000000000000000000000000021",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000022",
+      "record_id": "e0000000000000000000000000000022",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000023",
+      "record_id": "e0000000000000000000000000000023",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000024",
+      "record_id": "e0000000000000000000000000000024",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000025",
+      "record_id": "e0000000000000000000000000000025",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000026",
+      "record_id": "e0000000000000000000000000000026",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000027",
+      "record_id": "e0000000000000000000000000000027",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000028",
+      "record_id": "e0000000000000000000000000000028",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000029",
+      "record_id": "e0000000000000000000000000000029",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000002a",
+      "record_id": "e000000000000000000000000000002a",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000002b",
+      "record_id": "e000000000000000000000000000002b",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000002c",
+      "record_id": "e000000000000000000000000000002c",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000002d",
+      "record_id": "e000000000000000000000000000002d",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000002e",
+      "record_id": "e000000000000000000000000000002e",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000002f",
+      "record_id": "e000000000000000000000000000002f",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000030",
+      "record_id": "e0000000000000000000000000000030",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000031",
+      "record_id": "e0000000000000000000000000000031",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000032",
+      "record_id": "e0000000000000000000000000000032",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000033",
+      "record_id": "e0000000000000000000000000000033",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000034",
+      "record_id": "e0000000000000000000000000000034",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000035",
+      "record_id": "e0000000000000000000000000000035",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000036",
+      "record_id": "e0000000000000000000000000000036",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000037",
+      "record_id": "e0000000000000000000000000000037",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000038",
+      "record_id": "e0000000000000000000000000000038",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f0000000000000000000000000000039",
+      "record_id": "e0000000000000000000000000000039",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000003a",
+      "record_id": "e000000000000000000000000000003a",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000003b",
+      "record_id": "e000000000000000000000000000003b",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000003c",
+      "record_id": "e000000000000000000000000000003c",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000003d",
+      "record_id": "e000000000000000000000000000003d",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "asset_id": "f000000000000000000000000000003e",
+      "record_id": "e000000000000000000000000000003e",
+      "kind": "world-chunk",
+      "persistent_references": ["20202020202020202020202020202020"],
+      "asset_dependencies": ["02020202020202020202020202020202"],
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
     }
   ],

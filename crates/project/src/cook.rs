@@ -10,7 +10,7 @@ use next_contracts::animation_content::{
     NeutralAnimationV1, NeutralSkeletonV1,
 };
 use next_contracts::audio::{NEUTRAL_AUDIO_SCHEMA_ID, NeutralAudioErrorV1, NeutralAudioV1};
-use next_contracts::content::{NeutralRecordError, NeutralRecordV1};
+use next_contracts::content::{NeutralRecordError, NeutralRecordKindV1, NeutralRecordV1};
 use next_contracts::ids::{AssetId, ContentHash, ProjectId, SchemaId};
 use next_contracts::localization::{TEXT_CATALOG_SCHEMA_ID, TextCatalogErrorV1, TextCatalogV1};
 use next_contracts::mechanics::{MechanicsContractError, RpgDefinitionRegistryV1};
@@ -589,6 +589,7 @@ fn validate_source(source: &NeutralProjectSourceV2) -> Result<(), ProjectCookErr
     }
     ensure_unique(source.root_asset_ids.iter().copied())?;
     ensure_unique(source.chunks.iter().map(|chunk| chunk.chunk_id.as_str()))?;
+    ensure_unique(source.chunks.iter().map(|chunk| chunk.chunk_asset_id))?;
     let assets: BTreeSet<_> = source
         .records
         .iter()
@@ -695,6 +696,7 @@ fn validate_source(source: &NeutralProjectSourceV2) -> Result<(), ProjectCookErr
         return Err(ProjectCookError::MissingReference);
     }
     for chunk in &source.chunks {
+        ensure_unique(chunk.required_asset_ids.iter().copied())?;
         if !assets.contains(&chunk.chunk_asset_id)
             || chunk
                 .required_asset_ids
@@ -702,6 +704,19 @@ fn validate_source(source: &NeutralProjectSourceV2) -> Result<(), ProjectCookErr
                 .any(|asset_id| !assets.contains(asset_id))
         {
             return Err(ProjectCookError::MissingReference);
+        }
+        let chunk_record = source
+            .records
+            .iter()
+            .find(|record| record.asset_id == chunk.chunk_asset_id)
+            .ok_or(ProjectCookError::InvalidValue)?;
+        if chunk_record.kind != NeutralRecordKindV1::WorldChunk
+            || chunk_record
+                .asset_dependencies
+                .iter()
+                .any(|dependency| !chunk.required_asset_ids.contains(dependency))
+        {
+            return Err(ProjectCookError::InvalidValue);
         }
     }
     Ok(())

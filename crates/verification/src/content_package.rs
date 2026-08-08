@@ -67,12 +67,13 @@ pub(crate) fn run_content_package_check_with_scratch(
             run_reference_wasm_plugin(activated.clone())?;
         let catalog = &activated.render_content_catalog;
         let fallback_plan = fallback_material_plan(&prepared)?;
-        if activated.content_manifest.body.asset_entries.len() != 51
+        if activated.content_manifest.body.asset_entries.len() != 113
             || activated.text_catalogs.len() != 2
             || activated.audio_clips.len() != 4
             || activated.neutral_skeletons.len() != 1
             || activated.neutral_animations.len() != 1
-            || activated.world_partition.body.chunk_bindings.is_empty()
+            || activated.world_partition.body.root_region_ids.len() != 4
+            || activated.world_partition.body.chunk_bindings.len() != 64
             || activated.rpg_definitions.packages.len() != 2
             || activated.rpg_definitions.abilities.len() != 1
             || catalog.meshes().len() != 10
@@ -468,8 +469,8 @@ mod tests {
     #[test]
     fn content_package_uses_cooker_publisher_and_production_loader() {
         let report = run_content_package_check().expect("content-package passes");
-        assert!(report.records >= 51);
-        assert!(report.chunks >= 2);
+        assert_eq!(report.records, 113);
+        assert_eq!(report.chunks, 64);
         assert_eq!(report.mechanic_packages, 2);
         assert_eq!(report.wasm_plugins, 1);
         assert_eq!(report.combat_npc_health, 0);

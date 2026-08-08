@@ -56,8 +56,22 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         activated.project_lock.project_lock_sha256,
         first.project_lock.project_lock_sha256
     );
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 51);
-    assert_eq!(activated.world_partition.body.chunk_bindings.len(), 2);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 113);
+    assert_eq!(activated.neutral_records.len(), 76);
+    assert_eq!(activated.world_partition.body.root_region_ids.len(), 4);
+    assert_eq!(activated.world_partition.body.chunk_bindings.len(), 64);
+    for region_id in &activated.world_partition.body.root_region_ids {
+        assert_eq!(
+            activated
+                .world_partition
+                .body
+                .chunk_bindings
+                .iter()
+                .filter(|binding| &binding.region_id == region_id)
+                .count(),
+            16
+        );
+    }
     assert_eq!(activated.rpg_definitions.abilities.len(), 1);
     assert_eq!(activated.rpg_definitions.packages.len(), 2);
     assert_eq!(activated.render_content_catalog.meshes().len(), 10);
@@ -110,6 +124,44 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
             .all(|mesh| !mesh.meshlets().is_empty())
     );
     std::fs::remove_dir_all(root).expect("remove test content");
+}
+
+#[test]
+fn chunk_binding_identity_class_and_dependency_faults_fail_before_publication() {
+    let mut duplicate_chunk = next_reference_game::project_source_v2().expect("fixture");
+    duplicate_chunk.chunks[1].chunk_id = duplicate_chunk.chunks[0].chunk_id.clone();
+    assert!(matches!(
+        cook_project_v2(duplicate_chunk),
+        Err(ProjectCookError::DuplicateIdentity)
+    ));
+
+    let mut duplicate_asset = next_reference_game::project_source_v2().expect("fixture");
+    duplicate_asset.chunks[1].chunk_asset_id = duplicate_asset.chunks[0].chunk_asset_id;
+    assert!(matches!(
+        cook_project_v2(duplicate_asset),
+        Err(ProjectCookError::DuplicateIdentity)
+    ));
+
+    let mut missing_asset = next_reference_game::project_source_v2().expect("fixture");
+    missing_asset.chunks[2].required_asset_ids[0] = AssetId::from_bytes([0xfe; 16]);
+    assert!(matches!(
+        cook_project_v2(missing_asset),
+        Err(ProjectCookError::MissingReference)
+    ));
+
+    let mut wrong_class = next_reference_game::project_source_v2().expect("fixture");
+    wrong_class.chunks[2].chunk_asset_id = AssetId::from_bytes([0x02; 16]);
+    assert!(matches!(
+        cook_project_v2(wrong_class),
+        Err(ProjectCookError::InvalidValue)
+    ));
+
+    let mut dependency_mismatch = next_reference_game::project_source_v2().expect("fixture");
+    dependency_mismatch.chunks[2].required_asset_ids.clear();
+    assert!(matches!(
+        cook_project_v2(dependency_mismatch),
+        Err(ProjectCookError::InvalidValue)
+    ));
 }
 
 #[test]
