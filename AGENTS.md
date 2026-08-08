@@ -33,6 +33,12 @@
 - Required roots are `game`, deterministic `headless` and `tools`. `ai-host` and displayless capture are optional.
 - Keep the game correct and playable offline. Network, LLM, renderer frame rate and optional plugins must not determine simulation correctness.
 
+## Simplicity and execution
+
+- Prefer the simplest effective solution that satisfies the current product, architecture, safety and verification requirements and delivers a usable result quickly.
+- Avoid overengineering, speculative abstractions, unnecessary layers, ceremonies and coordination constructs such as role matrices unless the current task has a concrete demonstrated need for them.
+- In plans, recommendations and option comparisons, default to the smallest practical path with the best result-to-effort ratio. Add complexity only when it resolves a demonstrated constraint or risk, not a hypothetical future need.
+
 ## Architecture boundaries
 
 - Keep engine-owned public contracts in `crates/contracts`: stable IDs, commands/events, immutable queries/snapshots, manifests and process/plugin protocols.
