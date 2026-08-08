@@ -307,6 +307,18 @@ fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport,
             &scenario.world_streaming_snapshot,
         )?,
     };
+    let command_archive_root = checkpoint
+        .runtime_snapshot
+        .command_ledger
+        .body_archive
+        .archive_root
+        .to_hex();
+    let command_identity_index_root = checkpoint
+        .runtime_snapshot
+        .command_ledger
+        .identity_index
+        .index_root
+        .to_hex();
     if report.ticks != 32
         || report.final_pose.translation_micrometres != [0, 900_000, -200_000]
         || report.events != 27
@@ -319,12 +331,19 @@ fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport,
         || report.npc_health != 0
         || report.player_health != 50
         || report.world_streaming_generation != 2
+        || command_archive_root
+            != "a639e601e6dcae3714af4262d70c05102d1cc54d0e4dc4bfdccb45f2aafd6c23"
+        || command_identity_index_root
+            != "6846ff19f3b5cdd844748c18fd827b55424973fc8c6aaf1f76e1a2a329de88f4"
+        || report.final_command_ledger_hash.to_hex()
+            != "bc40d4ed0c4bff60f7edd9959726986e451aa2ed6c4457d468fe6bcbd867283c"
         || stage_checkpoint_count != 3
         || !stage_checkpoints_match_acceptance
     {
         return Err(PlayCheckError::AcceptanceMismatch(format!(
             "ticks={} pose={:?} events={} rpg_events={} object={} dialogue={} quest={} \
-             trust={} npc_health={} player_health={} world_generation={} stage_checkpoints={} \
+             trust={} npc_health={} player_health={} world_generation={} archive_root={} \
+             identity_index_root={} ledger_root={} stage_checkpoints={} \
              stage_checkpoint_facts={:?}",
             report.ticks,
             report.final_pose.translation_micrometres,
@@ -337,6 +356,9 @@ fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport,
             report.npc_health,
             report.player_health,
             report.world_streaming_generation,
+            command_archive_root,
+            command_identity_index_root,
+            report.final_command_ledger_hash.to_hex(),
             stage_checkpoint_count,
             scenario.stage_checkpoints,
         )));

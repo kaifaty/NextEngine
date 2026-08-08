@@ -717,6 +717,8 @@ mod tests {
 
     use super::*;
 
+    mod partition;
+
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     #[test]
@@ -767,27 +769,6 @@ mod tests {
                 .count(),
             1
         );
-    }
-
-    #[test]
-    fn save_restore_refetches_requested_transition() {
-        let (project, generation, _root) = fixture_project("restore");
-        let (start, frontier) = first_two_chunk_ids(&project);
-        let mut streamer = WorldStreamerV1::activate(project.clone(), generation.clone(), start)
-            .expect("activate");
-        publish_begin(&mut streamer, frontier.clone(), 31);
-        let saved = streamer.snapshot().clone();
-        let bytes = saved.canonical_bytes().expect("snapshot bytes");
-        let decoded = WorldStreamingSnapshotV1::from_canonical_bytes(
-            &bytes,
-            CanonicalDecodeLimits::default(),
-        )
-        .expect("decode");
-        let mut restored = WorldStreamerV1::restore(project, generation, decoded).expect("restore");
-        let loaded = restored.load_pending(2).expect("refetch");
-        publish_completion(&mut restored, loaded, 32);
-        assert_eq!(restored.snapshot().current_chunk_id, frontier);
-        assert_eq!(restored.snapshot().generation, 1);
     }
 
     #[test]
@@ -929,6 +910,29 @@ mod tests {
         publish_completion(streamer, loaded, tick + 1);
     }
 
+    fn run_route(
+        project: &ActivatedProjectV3,
+        generation: &PinnedContentGeneration,
+        route: &[SchemaId],
+        workers: usize,
+    ) -> (Vec<ContentHash>, ContentHash, WorldStreamingSnapshotV1) {
+        let mut streamer =
+            WorldStreamerV1::activate(project.clone(), generation.clone(), route[0].clone())
+                .expect("activate route");
+        let mut result_hashes = Vec::with_capacity(route.len() - 1);
+        let mut tick = 1_u64;
+        for target in &route[1..] {
+            publish_begin(&mut streamer, target.clone(), tick);
+            let loaded = streamer.load_pending(workers).expect("route load");
+            result_hashes.push(loaded.result_hash());
+            publish_completion(&mut streamer, loaded, tick + 1);
+            tick += 2;
+        }
+        let snapshot = streamer.snapshot().clone();
+        let root = snapshot.state_hash().expect("route root");
+        (result_hashes, root, snapshot)
+    }
+
     fn publish_begin(streamer: &mut WorldStreamerV1, target: SchemaId, tick: u64) {
         let prepared = streamer
             .prepare_begin_transition(target, tick)
@@ -979,19 +983,12 @@ mod tests {
     }
 
     fn first_two_chunk_ids(project: &ActivatedProjectV3) -> (SchemaId, SchemaId) {
-        let chunks = &project.world_partition.body.chunk_bindings;
-        let relay = chunks
-            .iter()
-            .find(|binding| binding.chunk_id.as_str().ends_with("relay-station"))
-            .expect("relay chunk")
-            .chunk_id
-            .clone();
-        let frontier = chunks
-            .iter()
-            .find(|binding| binding.chunk_id.as_str().ends_with("frontier"))
-            .expect("frontier chunk")
-            .chunk_id
-            .clone();
-        (relay, frontier)
+        let topology =
+            next_reference_game::ReferenceWorldTopologyV1::from_activated_project(project)
+                .expect("reference topology");
+        (
+            topology.initial_chunk_id().clone(),
+            topology.gameplay_target_chunk_id().clone(),
+        )
     }
 }

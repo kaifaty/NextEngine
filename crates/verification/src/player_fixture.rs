@@ -34,6 +34,10 @@ pub(crate) struct PreparedFixtureProjectPackage {
 }
 
 impl PreparedFixtureProjectPackage {
+    pub(crate) fn path(&self) -> &std::path::Path {
+        self.directory.path()
+    }
+
     pub(crate) fn finish<T, E>(
         self,
         result: Result<T, E>,

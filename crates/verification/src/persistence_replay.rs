@@ -1,5 +1,6 @@
 mod extensions;
 mod fault_injection;
+mod multiregion;
 mod replay_support;
 mod rpg_fixture;
 mod runner;
@@ -121,12 +122,16 @@ pub(crate) fn run_persistence_replay_check_with_backend_and_scratch(
     let scoped = directory.context();
     match backend {
         PersistenceReplayBackend::Reference => {
-            let result = runner::run_persistence_replay_check_for_project_with_scratch(
-                &scoped,
-                backend,
-                "nextengine.persistence-replay",
-                false,
-            );
+            let result = (|| {
+                let report = runner::run_persistence_replay_check_for_project_with_scratch(
+                    &scoped,
+                    backend,
+                    "nextengine.persistence-replay",
+                    false,
+                )?;
+                multiregion::verify(&scoped)?;
+                Ok(report)
+            })();
             directory.finish(result, |error| {
                 PersistenceReplayCheckError::new("remove persistence scratch", error.to_string())
             })
