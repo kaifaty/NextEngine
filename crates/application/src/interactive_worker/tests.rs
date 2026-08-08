@@ -168,7 +168,7 @@ fn prepared_production_worker_is_ready_and_matches_the_legacy_entry_point() {
             measured.metrics.processed_callbacks,
             measured.metrics.fixed_steps,
             measured.metrics.ordinary_fixed_steps,
-            measured.metrics.checkpoint_fixed_steps,
+            measured.metrics.lifecycle_boundary_fixed_steps,
             measured.metrics.snapshot_publications,
             measured.metrics.dropped_callbacks,
             measured.metrics.reordered_callbacks,
@@ -178,7 +178,7 @@ fn prepared_production_worker_is_ready_and_matches_the_legacy_entry_point() {
             legacy.metrics.processed_callbacks,
             legacy.metrics.fixed_steps,
             legacy.metrics.ordinary_fixed_steps,
-            legacy.metrics.checkpoint_fixed_steps,
+            legacy.metrics.lifecycle_boundary_fixed_steps,
             legacy.metrics.snapshot_publications,
             legacy.metrics.dropped_callbacks,
             legacy.metrics.reordered_callbacks,
@@ -279,12 +279,12 @@ fn production_worker_has_no_periodic_session_checkpoint_work() {
         .fixed_step_samples
         .iter()
         .filter_map(|sample| {
-            (sample.class == InteractiveWorkerFixedStepClassV1::Checkpoint)
+            (sample.class == InteractiveWorkerFixedStepClassV1::LifecycleBoundary)
                 .then_some(sample.simulation_tick)
         })
         .collect::<Vec<_>>();
     assert!(checkpoint_ticks.is_empty());
-    assert_eq!(report.metrics.checkpoint_fixed_steps, 0);
+    assert_eq!(report.metrics.lifecycle_boundary_fixed_steps, 0);
     assert_eq!(report.metrics.ordinary_fixed_steps, 240);
     std::fs::remove_dir_all(state_root).expect("remove checkpoint root");
 }

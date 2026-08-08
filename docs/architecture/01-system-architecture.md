@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-01 |
 | Статус | Accepted |
-| Версия | 2.3 |
-| Последнее изменение | 2026-07-29 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
+| Версия | 2.4 |
+| Последнее изменение | 2026-08-08 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
 
 ## Архитектурная форма
 
@@ -47,17 +47,17 @@ outcome — нет.
 
 | Состояние | Authoritative representation | Изменение |
 |---|---|---|
-| Project composition | immutable `ProjectCompositionLock` | validated atomic activation before world start |
+| Project composition | immutable `ProjectLockV3` | validated atomic activation before world start |
 | Gameplay/RPG | revisioned RPG aggregates | validated `WorldCommand` transaction |
-| World calendar/population | World Services state | validated command/world-advance transaction |
+| Future world calendar/population | no current authority | Proposed intent in SPEC-20; add only with a production consumer |
 | Runtime residency | Core Runtime mapping | deterministic spawn/despawn/streaming commit |
 | Physical world | engine-owned physics state and canonical snapshot | fixed step plus validated motor/topology operation |
 | Motor route/state | engine-owned policy supervisor state | deterministic route/action commit or procedural fallback |
 | Animation state | engine-owned graph/root-motion/IK state | fixed animation stages; root motion is only an intent |
 | Agent working state | in-process deterministic agent state | planner commit/proposal path |
 | Mechanics packages | exact package lock and Mechanics Runtime state | validated mechanic delta inside command transaction |
-| Assets/content | immutable content manifest and bundles | cooker atomic publish |
-| Schemas/migrations | immutable schema registry and migration graph | validated registry/copy-on-write publication |
+| Assets/content | immutable content manifest and blobs | cooker atomic publish |
+| Schemas/formats | immutable current schema registry | exact validation; incompatible alpha versions reject typed |
 | Save | last complete manifest and segments | atomic persistence transaction |
 | Application session | runtime session state and close journal | validated lifecycle transition |
 | Presentation | immutable presentation snapshot and reconstructible caches | extraction/consumption only; never simulation write |
@@ -162,17 +162,9 @@ claiming the affected feature works.
 
 ## Autonomous narrative and divine architecture
 
-[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) and
-[ADR-029](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md)
-define the Accepted autonomous-quest and optional narrative-director boundary.
-Runtime implementation remains product work and is not implied by architecture
-acceptance.
-
-[ADR-031](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md)
-extends that track with RPG-owned divine standing and a directed
-pantheon conflict resolver. Several independent god-role LLM requests may run
-as optional async work, but they read one immutable pre-decision snapshot and
-publish only at one fixed world decision boundary through the Runtime-owned
-`CrossContextTransactionPlanV1`. RPG, Mechanics and quest-graph owner subplans
-commit together or not at all; external completion order cannot move the
-boundary or become merge order.
+Autonomous quest generation, narrative director and divine agency are Proposed
+intent in [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md).
+ADR-029/ADR-031 current obligations are superseded by ADR-046. No narrative
+graph, pantheon or generic cross-context transaction contract is part of the
+current system architecture; a future player-visible production consumer must
+promote the smallest required boundary through a new ADR and ProductCheck.

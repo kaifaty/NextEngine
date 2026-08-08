@@ -16,9 +16,9 @@ use next_reference_game::{ReferenceGameDriverV1, ReferenceLiveStateV1};
 use crate::scratch::{ScratchContext, ScratchDirectory};
 
 use super::{
-    APPLICATION_ONE_TICK_ELAPSED, CHECKPOINT_INTERVAL_TICKS, LONG_SESSION_CAMERA_INTERVAL_TICKS,
-    LONG_SESSION_TICKS, LONG_SESSION_WINDOW_TICKS, LONG_SESSION_WORKLOAD,
-    LiveRuntimePerformanceError, LiveRuntimePerformanceReport, LiveRuntimeWorkload, SMOKE_WORKLOAD,
+    APPLICATION_ONE_TICK_ELAPSED, LONG_SESSION_CAMERA_INTERVAL_TICKS, LONG_SESSION_TICKS,
+    LONG_SESSION_WINDOW_TICKS, LONG_SESSION_WORKLOAD, LiveRuntimePerformanceError,
+    LiveRuntimePerformanceReport, LiveRuntimeWorkload, SMOKE_WORKLOAD, STATE_SAMPLE_INTERVAL_TICKS,
     camera_changed_event, camera_changed_event_for_host, movement_started_event,
     movement_started_event_for_host,
 };
@@ -91,25 +91,25 @@ struct PreparedApplicationWorkload {
     scheduler: FixedStepLiveSchedulerV1,
     callback_events: Vec<Option<PlatformEventV1>>,
     window_microseconds: [u128; 3],
-    checkpoint_microseconds: [u128; 3],
-    ordinary_tick_microseconds: Vec<u128>,
-    checkpoint_tick_microseconds: Vec<u128>,
+    sample_interval_microseconds: [u128; 3],
+    non_sample_tick_microseconds: Vec<u128>,
+    sample_tick_microseconds: Vec<u128>,
 }
 
 struct ApplicationMeasurement {
     last_tick: u64,
     window_microseconds: [u128; 3],
-    checkpoint_microseconds: [u128; 3],
-    ordinary_tick_microseconds: Vec<u128>,
-    checkpoint_tick_microseconds: Vec<u128>,
+    sample_interval_microseconds: [u128; 3],
+    non_sample_tick_microseconds: Vec<u128>,
+    sample_tick_microseconds: Vec<u128>,
 }
 
 struct ApplicationLongSessionReport {
     ticks: u64,
     window_microseconds: [u128; 3],
-    checkpoint_microseconds: [u128; 3],
-    ordinary_tick_microseconds: Vec<u128>,
-    checkpoint_tick_microseconds: Vec<u128>,
+    sample_interval_microseconds: [u128; 3],
+    non_sample_tick_microseconds: Vec<u128>,
+    sample_tick_microseconds: Vec<u128>,
     authoritative_state_root: ContentHash,
     command_archive_root: ContentHash,
     command_identity_index_root: ContentHash,
@@ -285,11 +285,11 @@ impl PreparedLiveRuntimePerformanceCheck {
                     ));
                 }
                 report.application_window_microseconds = application.window_microseconds;
-                report.application_checkpoint_microseconds = application.checkpoint_microseconds;
-                report.application_ordinary_tick_microseconds =
-                    application.ordinary_tick_microseconds;
-                report.application_checkpoint_tick_microseconds =
-                    application.checkpoint_tick_microseconds;
+                report.application_sample_interval_microseconds =
+                    application.sample_interval_microseconds;
+                report.application_non_sample_tick_microseconds =
+                    application.non_sample_tick_microseconds;
+                report.application_sample_tick_microseconds = application.sample_tick_microseconds;
                 report.application_final_state_root = Some(application.authoritative_state_root);
             }
             (None, None, WorkloadKind::Smoke) => {}
@@ -365,10 +365,10 @@ impl PreparedDriverWorkload {
             let tick_capacity = usize::try_from(workload.ticks).map_err(|error| {
                 LiveRuntimePerformanceError::new("driver samples", error.to_string())
             })?;
-            let checkpoint_capacity = usize::try_from(workload.ticks / CHECKPOINT_INTERVAL_TICKS)
+            let checkpoint_capacity = usize::try_from(workload.ticks / STATE_SAMPLE_INTERVAL_TICKS)
                 .map_err(|error| {
-                LiveRuntimePerformanceError::new("driver checkpoint samples", error.to_string())
-            })?;
+                    LiveRuntimePerformanceError::new("driver checkpoint samples", error.to_string())
+                })?;
             Ok(Self {
                 driver,
                 tick_events,
@@ -428,7 +428,7 @@ impl PreparedDriverWorkload {
                 .push(commit_started.elapsed().as_micros());
 
             let mut checkpoint_state = None;
-            if tick.is_multiple_of(CHECKPOINT_INTERVAL_TICKS) {
+            if tick.is_multiple_of(STATE_SAMPLE_INTERVAL_TICKS) {
                 let checkpoint_started = Instant::now();
                 let state = self.driver.state().map_err(|error| {
                     LiveRuntimePerformanceError::new("build live checkpoint", error.to_string())
@@ -571,28 +571,26 @@ impl PreparedApplicationWorkload {
             let callback_events =
                 prepare_application_inputs(host_instance_id, capabilities.canonical_hash)?;
             let ordinary_capacity = usize::try_from(
-                LONG_SESSION_TICKS - LONG_SESSION_TICKS / CHECKPOINT_INTERVAL_TICKS,
+                LONG_SESSION_TICKS - LONG_SESSION_TICKS / STATE_SAMPLE_INTERVAL_TICKS,
             )
             .map_err(|error| {
-                LiveRuntimePerformanceError::new("application ordinary samples", error.to_string())
+                LiveRuntimePerformanceError::new("application non-sample ticks", error.to_string())
             })?;
-            let checkpoint_capacity = usize::try_from(
-                LONG_SESSION_TICKS / CHECKPOINT_INTERVAL_TICKS,
-            )
-            .map_err(|error| {
-                LiveRuntimePerformanceError::new(
-                    "application checkpoint samples",
-                    error.to_string(),
-                )
-            })?;
+            let sample_capacity = usize::try_from(LONG_SESSION_TICKS / STATE_SAMPLE_INTERVAL_TICKS)
+                .map_err(|error| {
+                    LiveRuntimePerformanceError::new(
+                        "application interval samples",
+                        error.to_string(),
+                    )
+                })?;
             Ok(Self {
                 application,
                 scheduler,
                 callback_events,
                 window_microseconds: [0; 3],
-                checkpoint_microseconds: [0; 3],
-                ordinary_tick_microseconds: Vec::with_capacity(ordinary_capacity),
-                checkpoint_tick_microseconds: Vec::with_capacity(checkpoint_capacity),
+                sample_interval_microseconds: [0; 3],
+                non_sample_tick_microseconds: Vec::with_capacity(ordinary_capacity),
+                sample_tick_microseconds: Vec::with_capacity(sample_capacity),
             })
         })();
         match prepared {
@@ -634,19 +632,19 @@ impl PreparedApplicationWorkload {
                 LONG_SESSION_WINDOW_TICKS,
                 "application measurement",
             )?;
-            if last_tick.is_multiple_of(CHECKPOINT_INTERVAL_TICKS) {
-                self.checkpoint_tick_microseconds.push(call_microseconds);
-                self.checkpoint_microseconds[window_index] = self.checkpoint_microseconds
+            if last_tick.is_multiple_of(STATE_SAMPLE_INTERVAL_TICKS) {
+                self.sample_tick_microseconds.push(call_microseconds);
+                self.sample_interval_microseconds[window_index] = self.sample_interval_microseconds
                     [window_index]
                     .checked_add(call_microseconds)
                     .ok_or_else(|| {
                         LiveRuntimePerformanceError::new(
-                            "application checkpoint measurement",
+                            "application interval-sample measurement",
                             "elapsed microseconds overflow",
                         )
                     })?;
             } else {
-                self.ordinary_tick_microseconds.push(call_microseconds);
+                self.non_sample_tick_microseconds.push(call_microseconds);
             }
             if last_tick.is_multiple_of(LONG_SESSION_WINDOW_TICKS) {
                 self.window_microseconds[window_index] = window_started.elapsed().as_micros();
@@ -656,9 +654,9 @@ impl PreparedApplicationWorkload {
         Ok(ApplicationMeasurement {
             last_tick,
             window_microseconds: self.window_microseconds,
-            checkpoint_microseconds: self.checkpoint_microseconds,
-            ordinary_tick_microseconds: mem::take(&mut self.ordinary_tick_microseconds),
-            checkpoint_tick_microseconds: mem::take(&mut self.checkpoint_tick_microseconds),
+            sample_interval_microseconds: self.sample_interval_microseconds,
+            non_sample_tick_microseconds: mem::take(&mut self.non_sample_tick_microseconds),
+            sample_tick_microseconds: mem::take(&mut self.sample_tick_microseconds),
         })
     }
 }
@@ -843,9 +841,9 @@ fn finalize_driver_measurement(
         archive_root_probe_microseconds: measurement.archive_root_probe_microseconds,
         camera_event_count: measurement.camera_event_count,
         application_window_microseconds: [0; 3],
-        application_checkpoint_microseconds: [0; 3],
-        application_ordinary_tick_microseconds: Vec::new(),
-        application_checkpoint_tick_microseconds: Vec::new(),
+        application_sample_interval_microseconds: [0; 3],
+        application_non_sample_tick_microseconds: Vec::new(),
+        application_sample_tick_microseconds: Vec::new(),
         application_final_state_root: None,
         final_command_archive_root: measurement
             .state
@@ -883,38 +881,35 @@ fn finalize_application_measurement(
         ));
     }
     let expected_ordinary =
-        usize::try_from(LONG_SESSION_TICKS - LONG_SESSION_TICKS / CHECKPOINT_INTERVAL_TICKS)
+        usize::try_from(LONG_SESSION_TICKS - LONG_SESSION_TICKS / STATE_SAMPLE_INTERVAL_TICKS)
             .map_err(|error| {
                 LiveRuntimePerformanceError::new(
-                    "application ordinary sample count",
+                    "application non-sample tick count",
                     error.to_string(),
                 )
             })?;
-    let expected_checkpoints = usize::try_from(LONG_SESSION_TICKS / CHECKPOINT_INTERVAL_TICKS)
+    let expected_samples = usize::try_from(LONG_SESSION_TICKS / STATE_SAMPLE_INTERVAL_TICKS)
         .map_err(|error| {
-            LiveRuntimePerformanceError::new(
-                "application checkpoint sample count",
-                error.to_string(),
-            )
+            LiveRuntimePerformanceError::new("application interval sample count", error.to_string())
         })?;
-    if measurement.ordinary_tick_microseconds.len() != expected_ordinary
-        || measurement.checkpoint_tick_microseconds.len() != expected_checkpoints
+    if measurement.non_sample_tick_microseconds.len() != expected_ordinary
+        || measurement.sample_tick_microseconds.len() != expected_samples
     {
         return Err(LiveRuntimePerformanceError::new(
             "application per-tick measurement",
             format!(
-                "ordinary_samples={}, checkpoint_samples={}",
-                measurement.ordinary_tick_microseconds.len(),
-                measurement.checkpoint_tick_microseconds.len()
+                "non_sample_ticks={}, interval_samples={}",
+                measurement.non_sample_tick_microseconds.len(),
+                measurement.sample_tick_microseconds.len()
             ),
         ));
     }
     Ok(ApplicationLongSessionReport {
         ticks: run.ticks,
         window_microseconds: measurement.window_microseconds,
-        checkpoint_microseconds: measurement.checkpoint_microseconds,
-        ordinary_tick_microseconds: measurement.ordinary_tick_microseconds,
-        checkpoint_tick_microseconds: measurement.checkpoint_tick_microseconds,
+        sample_interval_microseconds: measurement.sample_interval_microseconds,
+        non_sample_tick_microseconds: measurement.non_sample_tick_microseconds,
+        sample_tick_microseconds: measurement.sample_tick_microseconds,
         authoritative_state_root: run.authoritative_state_root,
         command_archive_root: run.command_archive_root,
         command_identity_index_root: run.command_identity_index_root,

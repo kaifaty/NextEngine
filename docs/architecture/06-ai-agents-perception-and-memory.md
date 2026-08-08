@@ -4,18 +4,34 @@
 |---|---|
 | ID | SPEC-06 |
 | Статус | Accepted |
-| Версия | 1.10 |
-| Последняя проверка | 2026-07-26 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md) |
-| Заменяет | отсутствует |
+| Версия | 1.11 |
+| Последняя проверка | 2026-08-08 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
+| Заменяет | SPEC-06 1.10 current population/narrative-director integration clauses |
 
 ## Source of truth и ownership
 
-RPG aggregate и World Services calendar/population state остаются authoritative вне AI. Agent Runtime владеет working plan, attention, активными habits и deterministic decision state, но не PopulationRecord, schedule cursor или WorldResidencyTier. Immutable `AgentArchetypeDefinition` принадлежит cooked content registry; Agent Runtime интерпретирует его, но не изменяет. Memory Service владеет durable episodic/semantic records и relationship/narrative recollections/indexes как versioned save segment; текущие relationship dimensions, quest/dialogue states, commitments и `SkillProficiency` принадлежат RPG Framework. `ActivePolicyRoute`, motor transition и joint actions принадлежат Motor Runtime. `ai-host` caches, prompts и vendor sessions не являются source of truth и могут быть удалены/rebuilt.
+RPG aggregates остаются authoritative вне AI. Agent Runtime владеет working
+plan, attention, habits и deterministic decision state. Future
+calendar/population state не имеет current AI contract и остаётся Proposed в
+SPEC-20. Immutable `AgentArchetypeDefinition` принадлежит cooked content;
+Agent Runtime интерпретирует его, но не изменяет. Memory Service владеет durable
+episodic/semantic records и relationship recollections/indexes как versioned
+save segment; текущие relationship dimensions, quest/dialogue states,
+commitments и `SkillProficiency` принадлежат RPG Framework. `ActivePolicyRoute`,
+motor transition и joint actions принадлежат Motor Runtime. `ai-host` caches,
+prompts и vendor sessions не являются source of truth и могут быть
+удалены/rebuilt.
 
 ## Public boundary и data flow
 
-Public AI boundary ограничен `AgentArchetypeDefinition`, `PerceptionFrame`, immutable population/schedule capability view, `MotorCapabilityView`, `AgentIntent`, memory proposal/query values, `ai-host` handshake/messages и command rejection codes. Vendor request/session/tokenizer/vector-index types запрещены. Нормативный поток: `immutable archetype + gameplay/world-service facts + motor capabilities → perception/memory view → optional ai-host proposal → AgentIntent → deterministic validation/planning → WorldCommand или rejection`; schedule/activity proposal следует тому же boundary и не меняет population/RPG state напрямую.
+Public AI boundary ограничен `AgentArchetypeDefinition`, `PerceptionFrame`,
+`MotorCapabilityView`, `AgentIntent`, memory proposal/query values, `ai-host`
+handshake/messages и command rejection codes. Vendor
+request/session/tokenizer/vector-index types запрещены. Нормативный поток:
+`immutable archetype + gameplay facts + motor capabilities → perception/memory
+view → optional ai-host proposal → AgentIntent → deterministic
+validation/planning → WorldCommand или rejection`.
 
 ## Иерархия принятия решений
 
@@ -64,7 +80,8 @@ Validation pipeline:
 6. each mutation becomes canonical WorldCommand for future tick;
 7. rejected intent gets stable reason and fallback plan.
 
-Health, inventory, quest, faction, relationship, population tier/schedule cursor, calendar и world state MUST NOT изменяться через memory/intent payload напрямую.
+Health, inventory, quest, faction, relationship и world state MUST NOT
+изменяться через memory/intent payload напрямую.
 
 ## Mechanic affordances
 
@@ -72,7 +89,11 @@ Agent planner MUST получать granted planner-visible `MechanicAffordance`
 
 ## Offline-first behavior
 
-Для каждого AI role project MUST предоставить deterministic fallback: utility/HTN planning, authored dialogue line/template, rule-based memory retrieval и tactical controller. При отсутствии `ai-host` agent продолжает schedules, combat/traversal, interactions и quest dialogue. Допустима только разница качества/разнообразия текста, голоса и high-level proposal.
+Для каждого AI role project MUST предоставить deterministic fallback:
+utility/HTN planning, authored dialogue line/template, rule-based memory
+retrieval и tactical controller. При отсутствии `ai-host` agent продолжает
+authored routines, combat/traversal, interactions и quest dialogue. Допустима
+только разница качества/разнообразия текста, голоса и high-level proposal.
 
 `ai-host` IPC использует version handshake, request/deadline, cancellation, content/model hash, idempotency key и response provenance. Default deadline: dialogue proposal 2 s, background intent 5 s; project MAY уменьшить, но не блокировать tick. Late response discarded. После restart runtime resends только uncommitted idempotent requests; committed intent IDs хранятся в rolling dedupe ledger.
 
@@ -114,41 +135,9 @@ Process получает минимальный serialized context, не filesys
 | AI-06 | Package affordance discovery | Every granted planner-visible ability is discoverable, new fixture abilities need no AI code change, and invalid/stale affordances are rejected; otherwise mark the ability manual-only. |
 | AI-07 | Agent archetype habits and motor capability boundary | Habits emit only `AgentIntent`/`InvokeAbility`; every capability state selects its deterministic authored planner fallback without direct motor or gameplay mutation. |
 
-## SPEC-31 narrative-director role
+## Future narrative role
 
-[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) defines
-отдельную Agent Intelligence role `narrative-director`. Она получает bounded
-immutable projection facts/quests/hooks/extension slots и возвращает только
-`NarrativeDirectorCandidateV1`; raw tools, code, arbitrary `WorldCommand` и
-mutable storage ей недоступны. RPG Framework выполняет deterministic validation
-и единственный atomic commit path.
-
-Existing `AgentIntent` остаётся Agent Intelligence-owned untrusted proposal, а не Quest.
-Agent Intelligence MAY превратить допустимое для делегирования намерение в
-`QuestCandidateV1`, но не создаёт Quest ID, не раскрывает его игроку, не назначает
-финальный challenge/XP и не фиксирует outcome. Direct contact и ответ на
-семантический вопрос игрока используют immutable projection уже допущенных
-RPG-owned возможностей.
-
-Timeout, crash, protocol mismatch, late/conflicting result или отсутствие
-`ai-host` не блокирует simulation tick: deterministic
-`TemplateNarrativeDirector` использует тот же request, validators и command
-path at the fixed `NarrativeDecisionBoundaryV1`.
-
-[ADR-031](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md)
-uses authored god instances of the same `narrative-director` role. Each god
-receives a separate `DivineDecisionRequestV1` constrained by its own
-`DivineEpistemicPolicyV1`; one provider session, shared prompt or model call
-cannot merge several gods into an authoritative council. Every request for one
-root event cites the same immutable `DivineJudgmentBatchBaseV1`, and no god sees
-another god's uncommitted result from that batch.
-
-AI/model output selects only a categorical judgment and one eligible authored
-intervention. RPG/Mechanics validators compute exact standing deltas,
-sanction/boon effects, offer/covenant transitions and authorized pantheon
-spillover. Every epistemically eligible god receives its own request regardless
-of attention. Invalid or missing completion replaces that god's complete
-candidate with one deterministic template candidate; valid completions of other
-gods remain independent. Agent memory MAY recollect committed divine events,
-but `DivineStandingV1`, offers, covenants, warnings and interventions belong to
-RPG Framework.
+Narrative-director and divine-agent roles remain Proposed intent in SPEC-31.
+They define no current AI message, schedule, fallback, save/replay or ProductCheck
+obligation. Any future model output remains an untrusted proposal through the
+same validated command boundary.

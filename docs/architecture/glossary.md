@@ -4,10 +4,10 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 2.3 |
-| Последняя проверка | 2026-07-29 |
-| Нормативные зависимости | INDEX-001, [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
-| Заменяет | GLOSSARY-001 2.0 |
+| Версия | 3.0 |
+| Последняя проверка | 2026-08-08 |
+| Нормативные зависимости | INDEX-001, [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
+| Заменяет | GLOSSARY-001 2.3; retired resolver/session-recovery/future-feature terms removed |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -23,18 +23,12 @@
 | **PersistentId** | Стабильный 128-bit opaque ID сущности или логического объекта между save/load, chunks и replay. Не кодирует ECS layout или vendor handle. |
 | **AssetId** | Стабильная ссылка на логический asset; конкретная cooked revision определяется manifest и content hash. |
 | **ContentHash** | SHA-256 канонических cooked bytes и параметров cooker, используемый для immutable bundle addressing. |
-| **ProjectManifest** | Versioned authored project intent с typed dependency ranges, roots, profiles, policies и provenance; не является runtime lock и не активируется до deterministic resolution. |
-| **ProjectCatalogSnapshot** | Immutable JCS-canonical, externally hash-bound resolver input с полными dependency records, hashes, compatibility/capability/license/provenance/budget metadata и `yanked` state; registry/network/cache state не входит в него. |
-| **ProjectCompositionLockV2** | Current immutable content-addressed exact closure project, catalog, engine/schema/content/package/capability/budget/config/model/migration plus runtime/launch/recovery/shutdown/platform/presentation-profile hashes, общая для `game`, `headless` и `capture-worker`; V1 unsupported, runtime не разрешает floating ranges. |
+| **ProjectAuthoringV2** | Current editable `nextengine.project-authoring.v2` intent consumed only by the cooker; it is not runtime authority. |
+| **ProjectLockV3** | Current immutable exact project closure over authoring, schema/content/world/mechanics and runtime/launch/platform profile hashes plus allowed presentation targets; it contains no resolver, recovery or storage policy. |
+| **ActivatedProjectV3** | Complete validated current project closure atomically published from one exact `ProjectLockV3` and all referenced manifests/records. |
 | **SchemaDescriptorV1** | Immutable engine-owned schema declaration со stable schema/field IDs, wire shape, encoding, role, compatibility policy and canonical hash; storage/backend layout не является schema. |
-| **SchemaRegistryManifestV1** | Exact content-addressed set accepted schema descriptors, compatibility entries and migration authority, bound by `ProjectCompositionLock`; partial registry publication forbidden. |
-| **ContentManifestV1** | Immutable catalog root exact neutral asset revisions, typed dependency closure, provenance, bundle/blob hashes and target-variant policy; runtime resolves no floating content revision. |
-| **ContentBundleV1** | Logical immutable bundle descriptor plus exact bounded blob set with canonical root and atomic publication; archive/container layout is private. |
-| **VariantFallbackPlanV1** | Lock-bound canonical trace from one requested target profile through its declared same-target capability fallback pointers to the first supported effective profile; runtime never re-scores or re-traverses it after activation. |
-| **MemoryBudgetProfileV1** | Hash-bound finite owner/pool/charge/reserve limits for runtime/tool memory admission; measured allocator/RSS/device state cannot choose authoritative outcome. |
-| **ComputeResourceKeyV1** | Qualified nominal identity of a reconstructible compute/content resource generation; not an unqualified resource ID, pointer, task or backend handle. |
-| **ComputeResourcePinV1** | Bounded owner/reason/lifetime record preventing eviction of an exact qualified resource generation; unrelated to `WorldResidencyTier`. |
-| **ProjectResolutionConflictReport** | Canonically ordered deterministic resolver failure over exact manifest/catalog/profile hashes; partial lock или registry при его создании не публикуется. |
+| **SchemaRegistryManifestV2** | Exact current set of bounded schema descriptors/current refs bound by `ProjectLockV3`; it contains no historical window or migration DAG. |
+| **ContentManifestV1** | Immutable catalog root of exact neutral asset revisions, provenance, current dependency closure and domain root; runtime resolves no floating content revision. |
 | **LaunchProfile** | Versioned composition-root/target/capability/tick/profile descriptor, чьи authoritative values входят в exact project lock, а operational output paths не становятся domain state. |
 | **ConfigurationClass** | Exactly-one classification каждого project key как `Authoritative`, `PresentationOnly` или `DeveloperOnly`, определяющая owner, override и save/replay/hash semantics. |
 | **CommandStreamId** | Стабильный opaque ID логического потока команд одного principal в exact world identity namespace; вместе с `sequence` участвует в ledger admission и arrival-independent order, но не является runtime task/thread handle. |
@@ -50,20 +44,18 @@
 | **RngStreamStateV1** | Persisted state declared ChaCha12 authoritative RNG stream, выводимого из world seed и canonical descriptor; counter/index входит в save/replay, а cross-platform vectors exact. |
 | **ScheduleManifestV1** | Immutable system DAG с stable `SystemId`, declared reads/writes/stage, logical shard plans, reducer bindings и canonical topological tie-break; worker completion order не является execution/commit order. |
 | **DomainEvent** | Неизменяемый факт об уже принятом изменении domain state. Не является альтернативным mutable API. |
-| **PresentationSnapshotV2** | Atomically published immutable scene/camera/semantic-UI/cue projection with snapshot epoch, sequence and stable object keys. Renderer/audio/UI/VFX consume it read-only; it never writes back or enters gameplay hashes. |
-| **PresentationConsumptionStateV1** | Bounded Rendering-owned CPU presentation-session recovery state over cue prefix, one-shot acknowledgment root, pending-one-shot map and active continuous-instance map; it survives cache invalidation but never enters gameplay saves/hashes or writes to simulation. |
+| **PresentationSnapshotV2** | Atomically published immutable scene/camera/semantic-UI plus bounded cue/environment-hash projection with snapshot epoch, sequence and stable object keys. Renderer/UI consume it read-only; it never writes back or enters gameplay hashes. |
 | **PlatformCapabilitySetV1** | Canonical normalized engine-owned host capability/limit set selected before runtime staging; it contains no native device, extension or backend type. |
 | **PlatformTimebaseV1** | Checked monotonic native-sample normalization profile for platform diagnostics/order; it cannot compute simulation/world tick. |
 | **PlatformEventV1** | Bounded typed normalized platform fact with stable host/source sequence and identity; callback order is not authority. |
 | **NormalizedControlEventV1** | Bounded engine-owned semantic control value from a private device adapter; native object, wall time and target tick are excluded. |
-| **ApplicationSessionManifestV1** | Immutable composition-root session closure over exact project/launch/platform/runtime/schema/content/recovery/shutdown/presentation-target hashes. |
-| **ApplicationSessionStateV1** | Runtime-owned revisioned state in the closed `Created → CompositionStaged → RuntimeStaged → Active ↔ Suspended → Quiescing → Finalizing → Closed` lifecycle. |
-| **ApplicationCoordinator** | Production application service в `next_application`, который связывает exact project activation, Runtime-owned session plans, Assets-owned atomic durable publication, reference-game execution, presentation extraction, close/recovery и replay; сам не становится source of truth этих состояний. |
-| **SessionStore** | Assets-owned content-addressed durable store one complete session generation plus atomic generation pointer and single live-session registry; orphan staged objects не являются committed state. |
+| **ApplicationSessionManifestV2** | Immutable composition-root session closure over exact project/launch/platform/runtime/schema/content and presentation-target hashes, without recovery/storage/shutdown policy. |
+| **ApplicationSessionStateV2** | Runtime-owned revisioned state in the closed `Created → CompositionStaged → RuntimeStaged → Active ↔ Suspended → Quiescing → Finalizing → Closed` lifecycle. |
+| **ApplicationCoordinator** | Production application service в `next_application`, связывающий exact project activation, Runtime-owned session plans, Assets-owned atomic durable publication, reference-game execution, presentation extraction, close, Save/Load and replay; сам не становится source of truth. |
+| **SessionStore** | Assets-owned two-slot store with atomic `CURRENT` and one canonical `session.snapshot.v4.bin` per selected slot; snapshot keeps current state, last lifecycle record and one close journal/receipt. |
 | **ReferenceGame** | First-party product owner в `next_reference_game`: authored reference source, stable IDs, Runtime bootstrap, scripted vertical slice and presentation bindings, без test assertions или temporary fault fixtures. |
-| **CloseSessionOperationJournalV1** | Durable full-request-bound progress journal that lets an exact close retry execute only its next missing edge/save step without revalidating the historical starting revision. |
-| **CloseSessionResultV1** | Closed terminal session result `Saved \| ClosedUsingLastSafeGeneration`; only `Closed` publishes its receipt, while retry-pending or required-save failure remains typed non-Closed progress in `Finalizing`. |
-| **RecoverySessionLinkV1** | Durable link from an immutable failed `Finalizing` session to one new live session, binding the exact prior state/manifest, same project lock and verified last-safe save; it is not a lifecycle edge or new project revision. |
+| **CloseSessionJournalV2** | Durable two-stage `Prepared \| SavePublished` close journal; Prepared binds one immutable save image and SavePublished prevents a second generation on retry. |
+| **CloseSessionReceiptV2** | Terminal receipt binding one close request/session to the single published final-save generation. |
 | **ActionMapManifest** | Immutable map stable device-independent action IDs to bounded semantic controls, contexts, conflict policy and accessibility metadata. |
 | **PlayerActionFrame** | Canonical immutable ordered device-independent action input for one ingress sample; it contains no physical-device identity, wall time, target tick, camera transform or backend object. |
 | **TargetingIntent** | Non-authoritative assigned player proposal containing quantized aim and gameplay query/profile identifiers; authoritative targeting is reconstructed from the assigned-tick snapshot, never rendered camera/depth data. |
@@ -79,7 +71,7 @@
 | **PolicyStateRecordV1** | Canonical bounded recurrent motor state with exact subject/policy/bundle/schema/route identity and explicit reset/migration/save rules. |
 | **PhysicsBackend** | Engine-owned interface для worlds, bodies, articulations, queries, contacts и state snapshots. |
 | **ContactEvent** | Нормализованное backend-independent begin/persist/end событие с continuity `contact_id`, PersistentId участников, body slots, material tags, point/normal, relative velocity, impulse/effective mass и physics tick. |
-| **PhysicsCanonicalSnapshotV1** | Portable engine-owned canonical physical checkpoint over descriptors, bodies, joints, continuation and contact continuity; native backend snapshot bytes are not authoritative. |
+| **PhysicsCanonicalSnapshotV2** | Current portable engine-owned canonical grounded-capsule checkpoint; native backend snapshot bytes are not authoritative. |
 | **PhysicsCoordinateProfileV1** | Exact right-handed metres/kilograms/seconds/radians and quantization profile used at the public physics boundary. |
 | **RootMotionIntentV1** | Revision-bound animation-produced locomotion proposal accepted only through the normal motor/command validation path; never a pose teleport. |
 | **PhysicalIkConstraintV1** | Bounded authoritative physical IK constraint resolved inside declared physics/motor order. |
@@ -108,14 +100,6 @@
 | **NeutralImportModel** | Строго ограниченный переносимый результат внешнего importer, являющийся подмножеством NeutralAuthoringModel с provenance. |
 | **WorldChunk** | Версионированная единица streaming с bounds, dependencies, PersistentId namespace и content hashes. |
 | **WorldPartitionManifestV1** | Immutable exact topology of regions, cells, anchors, chunk bindings and schema/content/resource-policy hashes used by cooker, persistence and streamer. |
-| **SpatialPlacementStateRootV1** | Domain-separated canonical root of one mutable durable `WorldPlacementStateV1` generation, distinct from the immutable initial-placement catalog hash and validated across command/save/replay/migration transitions. |
-| **PersistentSpatialObjectV1** | World Services-owned durable placement/tombstone record retaining one `PersistentId`; it contains no runtime entity, RPG, Agent, physical-pose or presentation state. |
-| **StreamingAdmissionPlanV1** | Immutable revision-bound canonical expansion/rank/admission/eviction/defer plan for whole dependency groups, published only at a deterministic commit point. |
-| **TierExecutionProfile** | Project-locked allowed activity/cadence/capability contract for one `WorldResidencyTier`; it does not own job scheduling or physical LOD. |
-| **WorldCalendarStateV1** | World Services-owned integer/revision-bound mapping from `world_tick` to simulation calendar units; host locale, timezone and wall clock are never authority. |
-| **PopulationRecord** | World Services-owned durable subject record retaining one `PersistentId`, logical region/schedule, declared abstract capabilities and `WorldResidencyTier`, but no RPG, Agent, physical-pose or runtime-entity state. |
-| **WorldResidencyTier** | World Services lifecycle level `Dormant`, `Abstract`, `Simulated` or `Active`; it controls durable population execution/residency and is explicitly orthogonal to physical LOD. |
-| **WorldAdvancePlanV1** | Immutable bounded revision-checked ordered World Services work for a world-tick interval; stepped and bulk execution must produce the same plan boundaries and committed results. |
 | **SaveManifest** | Корень сохранения: schema versions, build compatibility, world revision, loaded chunks, content hashes и ordered state segments. |
 | **ReplayManifest** | Корень replay: initial checkpoint, world/runtime/content hashes, named RNG state, `CommandLedgerV2` snapshot/root и ordered `ClosedIngressBatchV1`/`ClosedCommandAdmissionBatchV2` boundaries со всеми bounded authenticated/decodable command envelopes, включая duplicates, conflicts и deterministic rejections. |
 | **RunManifest** | Локальный машиночитаемый результат одного run: scenario, build/config hashes, metrics, diagnostics и optional debug artifacts; не является глобальным product status. |
@@ -126,31 +110,13 @@
 | **OffscreenPresentationTarget** | Engine render target в GPU images/readback без PlatformHost window/surface/swapchain/display server. |
 | **CapturePlan** | Optional scenario-owned camera/audio/view/overlay/timeline/output specification для reproducible local debug media. |
 | **CaptureJobManifest** | Portable immutable displayless worker job с exact content/replay/profile/CapturePlan hashes и bounded local output requirements. |
-| **MaterialDefinitionV1** | Neutral immutable material parameter/texture/render-state/shader-interface schema with exact fallback and no compiled pipeline/device object. |
-| **MaterialInstanceV1** | Canonical values and texture bindings conforming to one exact material definition; it cannot alter interface or add backend bindings. |
-| **ShaderInterfaceManifestV1** | Neutral stage/input/resource/output semantic layout contract validated against target artifacts; compiler/backend objects are excluded. |
-| **PresentationPipelineKeyV1** | Domain-separated hash of exact shader artifact/interface, render state, layout, target, specialization and capability-path fields; cache/insertion/device identity is excluded. |
-| **SdrColorProfileV1** | Mandatory exact sRGB-D65, linear-compositing, straight-boundary/premultiplied-working alpha and rounding/output-transform contract; pinned capture fixes exact pixels. |
-| **VfxCueV1** | Event-derived stable presentation-only VFX lifecycle record with canonical dedupe/cancel/fallback semantics and no simulation write authority. |
-| **PresentationCacheManifestV1** | Reconstructible GPU/UI/VFX cache generation over exact content/profile/snapshot inputs; corruption/device loss preserves authoritative state. |
 | **Capability** | Явно выданное право script/plugin/process на именованную операцию или data view. Default — deny. |
 | **MechanicPackageId** | Стабильный namespaced ID gameplay/mod package; версия и publisher identity являются отдельными полями. |
-| **MechanicPackageManifest** | Author-declared metadata, dependencies, capabilities, exports, state schemas/migrations, provenance, licenses и tests package. |
+| **MechanicPackageManifestV1** | Current canonical package identity/version/content hash plus declared capabilities and exact ability/effect definitions. |
 | **MechanicsLock** | Generated exact package closure: versions, hashes, dependency/patch order, granted capabilities и schemas, используемые save/replay/runtime. |
 | **AbilityDefinition** | Immutable cooked описание активной/пассивной способности: requirements, targeting, costs, cooldown, phases, effects и cues. |
-| **AbilityInstance** | Runtime state machine конкретного выполнения AbilityDefinition с causal command, phase, targets и interruption state. |
 | **MechanicAffordance** | Machine-readable описание способности для planner/authoring tools: preconditions, target, cost/time/risk, expected outcome range и failures. |
 | **EffectRequest** | Валидируемое предложение применить semantic effect от source к target в заданном context. |
-| **MechanicsDeltaPlanV1** | Immutable Mechanics Runtime-owned delta/read/write/event plan bound to one causal command and exact registry/state revisions. |
-| **EffectTransaction** | Каноническая atomic composition одного validated `RpgTransactionPlan` и `MechanicsDeltaPlanV1`; либо committed полностью, либо не applied. |
-| **CrossContextTransactionPlanV1** | Runtime-owned bounded wrapper used only by quest-graph/divine admission to atomically compose immutable RPG, Mechanics and quest-graph owner subplans without transferring semantic ownership. |
-| **StatusInstance** | Versioned runtime instance временного/постоянного gameplay status со stacking, immunity, duration и source provenance. |
-| **MechanicReducer** | Bounded deterministic Luau/Wasm function, преобразующая immutable context, command и own state в MechanicDeltaProposal. |
-| **MechanicDeltaProposal** | Неавторитетное предложение namespaced state patch, EffectRequests, future commands, event payloads и presentation cues; authoritative DomainEvent создаётся engine только после commit. |
-| **PackagePatch** | Явное изменение чужого definition с target ID/path, expected revision hash и conflict policy; не implicit file override. |
-| **AuthoringContextBundle** | Замкнутый machine-readable SDK/context snapshot для человека или coding agent, привязанный к exact engine/project/package hashes. |
-| **AgentChangeSet** | Inspectable набор bounded edits/operations с base hashes, provenance, tests, risk flags, dry-run и atomic apply semantics. |
-| **AgentPolicy** | Project-owned правила разрешённых authoring roots/tools/budgets и preconditions для atomic AgentChangeSet apply. |
 | **PresentationCue** | Semantic non-authoritative запрос gameplay package на VFX/audio/UI/camera feedback. |
 | **ai-host** | Отдельный процесс для LLM, embeddings, ASR и TTS. Не участвует в deterministic simulation tick. |
 | **Headless runtime** | Тот же core/RPG runtime без renderer и интерактивного platform shell, предназначенный для validation, replay и tests. |
@@ -158,50 +124,5 @@
 | **ProductCheck** | Небольшая воспроизводимая инженерная проверка наблюдаемого product behavior. Canonical kinds: `fast`, `play`, `persistence-replay`, `content-package`, conditional `platform` и conditional `performance`; выбор определяется затронутой областью, а результат описывает только exact run. |
 | **GameplayBudgetMatrix** | Единая integer-microsecond матрица per-tick subsystem ceilings, integrated limits, cadence и measurement profile; отдельный subsystem benchmark не может переопределить её суммарный budget. |
 | **Vertical slice** | Минимальная играбельная цепочка, используемая `play` ProductCheck для проверки ключевого RPG loop и fallback paths. |
-
-## SPEC-31/ADR-031 terms
-
-Следующие термины принадлежат Accepted
-[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md). Architecture
-acceptance defines the contract but does not claim that runtime implementation
-or its product checks already exist.
-
-| Термин | Definition |
-|---|---|
-| **WorldNeedViewV1** | Immutable revision-bound projection of committed world/RPG facts that may justify an opportunity without creating a second fact owner. |
-| **QuestCandidateV1** | Bounded untrusted proposal that binds source facts, participants, verifiable outcomes, disclosure/autonomy/prior-fact policies and reward/difficulty envelopes; it becomes a Quest only after RPG admission. |
-| **QuestEngagementStateV1** | RPG-owned lifecycle state `Latent`, `Offered`, `Accepted` или `Resolved`; принятие игроком не создаёт QuestInstance. |
-| **QuestDisclosurePolicyV1** | Closed policy for `Direct`, `Solicited`, `Contextual` and `Public` disclosure of an already admitted latent opportunity. |
-| **QuestOfferDispositionV1** | RPG-owned disclosure-attempt and decline-cooldown record; decline is not a terminal Quest outcome. |
-| **QuestPriorFactPolicyV1** | Closed rule `ProspectiveOnly`, `SinceAdmission` or `CitedCommittedFacts` defining which already committed facts may satisfy Quest predicates. |
-| **DifficultyEnvelopeV1** | Candidate bounds and evidence requirements for typed challenge factors; it is not a final XP decision. |
-| **ChallengeAssessmentV1** | RPG-validated, policy-hash-bound integer challenge vector/band frozen when the player accepts the Quest. |
-| **QuestRewardContractV1** | Revisioned separation of promised world reward, system progression reward, world consequences, term variants and outcome modifiers. |
-| **QuestAutonomyPolicyV1** | Явная per-quest policy `PlayerProtected`, `WorldReactive` или `DeadlineBound`; default — `PlayerProtected`. |
-| **QuestOutcomeV1** | Closed committed outcome `Success`, `Failure`, `Expired`, `Cancelled` или `Superseded`. |
-| **NarrativeHookV1** | Bounded causal continuation opportunity, сохраняющая source quest, outcome и event identity. |
-| **NarrativeDecisionBoundaryV1** | Immutable world-time decision boundary whose closing SPEC-21 ingress batch determines eligible staged completions; it never compares `world_tick` with `SimulationTick` or commits early. |
-| **NarrativeAnchorV1** | Authored immutable mandatory сюжетная опора/critical fact, которую generated patch не может изменить или сделать недостижимой. |
-| **NarrativeExtensionSlotV1** | Authored bounded capability point, внутри которого candidate MAY добавлять generated nodes/edges через зарегистрированные primitives. |
-| **QuestGraphRevisionV1** | Content-addressed world/save-local immutable quest graph revision с definitions, anchors, slots, lineage и exact parent hash. |
-| **QuestGraphPatchV1** | Atomic bounded proposal новой graph revision; partial publication запрещена. |
-| **QuestGraphRegistryPlanV1** | Immutable RPG Framework-owned graph-registry read/write/event plan bound to one causal command and exact graph/slot revisions. |
-| **NarrativeDirectorRequestV1** | Bounded immutable, revision-bound snapshot facts, live quest projections, hooks, slots, policies и exact `NarrativeDecisionBoundaryV1`. |
-| **NarrativeDirectorCandidateV1** | Untrusted canonical graph/text proposal с cited revisions/facts, provenance и proposal hash; не команда и не mutable state. |
-| **TemplateNarrativeDirector** | Deterministic in-process fallback, создающий упрощённые quest chains через тот же request, validators и validated command path. |
-| **DivinePatronDefinitionV1** | Immutable authored god role with domains, values/taboos, epistemic ceiling, intervention catalog, budgets/cooldowns, quest slots and deterministic fallback; it is not mutable LLM memory. |
-| **DivineEpistemicPolicyV1** | Closed allowlist of committed event/fact classes and bounded causal/participant/region scope one god may know and cite; objective existence never implies access to all hidden state. |
-| **DivineStandingV1** | RPG-owned aggregate for one subject/god pair containing independent checked favor, deterministic-policy attention, bounded offers, covenant/vow/warning state, intervention cooldowns and causal judgment history; it is not ordinary Relationship or global karma. |
-| **DivineStandingProjectionV1** | Player-facing immutable qualitative favor/attention bands, visible offers, covenant/vow summary and bounded recent committed reasons; raw standing numbers, thresholds and hidden taboos are excluded. |
-| **DivineOfferV1** | Bounded RPG-owned child record for an offered boon or covenant with exact terms, expiry and closed `Offered → Accepted | Declined | Expired | Superseded` lifecycle. |
-| **DivineCovenantStateV1** | Closed RPG-owned covenant lifecycle `None`, `Offered`, `Active`, `RenunciationPending` or `Broken`; incompatible activation requires explicit player transition and never silently replaces another covenant. |
-| **PantheonRelationGraphV1** | Authored content-addressed directed graph of `Allied`, `Tolerant`, `Rival`, `Hostile` and `Indifferent` god relations plus covenant, boon, spillover and bounded counterquest rules. |
-| **DivineJudgmentHookV1** | Bounded causal opportunity for one epistemically eligible god to judge an authored semantic root event; ordinary standing-change bookkeeping does not open it. |
-| **DivineJudgmentBatchBaseV1** | Immutable shared pre-decision snapshot for every eligible god judging one root event; no per-god request observes another uncommitted result. |
-| **DivineDecisionRequestV1** | Per-god bounded Narrative Director request containing only that god's authorized facts, standing/covenant projection, relevant pantheon edges, eligible interventions and exact decision boundary. |
-| **DivineDecisionCandidateV1** | Recorded untrusted per-god choice of one categorical judgment and optional eligible intervention/quest proposal; any invalid part rejects the complete candidate to one canonical template candidate. |
-| **PantheonConflictResolverV1** | Deterministic canonical reducer over one batch base, selected per-god candidates/fallbacks and authored directed relations whose targets are also epistemically eligible; it produces one atomic multi-standing/effect/quest resolution independent of completion order. |
-| **DivineJudgmentResolutionV1** | Canonical complete per-patron before/after standing, selected candidate/fallback, effect/quest proposal and resolution hash set produced by `PantheonConflictResolverV1` before one atomic command commit. |
-| **QuestSponsorV1** | Closed `Npc | Faction | WorldNeed | DivinePatron` source attribution for an admitted opportunity; sponsorship does not add a disclosure channel or auto-acceptance path. |
 
 `Entity`, `object handle`, `GUID` и `resource ID` не должны использоваться в публичном контракте без уточнения одного из нормативных ID выше.

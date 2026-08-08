@@ -4,11 +4,11 @@
 |---|---|
 | ID | ADR-046 |
 | Status | Accepted |
-| Version | 1.0 |
+| Version | 1.2 |
 | Decision date | 2026-08-08 |
 | Last verified | 2026-08-08 |
-| Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](../22-schema-registry-compatibility-and-migration.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](025-schema-content-and-migration-authority.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-034](034-player-targeting-replay-v5-and-mapping-provenance.md) |
-| Supersedes | Partially supersedes ADR-025's generic N-2 support requirement and ADR-034's legacy Replay V4/InputMappingReceipt V1 retention. Fully supersedes current implementation obligations introduced by ADR-029 and ADR-031; their product ideas become future Proposed intent. |
+| Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](../22-schema-registry-compatibility-and-migration.md), [ADR-021](021-deterministic-population-residency-and-time-advance.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](025-schema-content-and-migration-authority.md), [ADR-026](026-deterministic-work-resource-and-streaming-admission.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-034](034-player-targeting-replay-v5-and-mapping-provenance.md) |
+| Supersedes | Partially supersedes ADR-008's unconsumed agent-authoring/CLI/MCP contract, ADR-021's unconsumed population/calendar schemas and migration, ADR-025's generic N-2 support requirement, ADR-026's unconsumed generic jobs/resource-management subsystem, and ADR-034's legacy Replay V4/InputMappingReceipt V1 retention. Fully supersedes current implementation obligations introduced by ADR-029 and ADR-031; their product ideas become future Proposed intent. |
 | Superseded by | none |
 
 ## Context
@@ -41,6 +41,25 @@ are removed. `SaveManifestV2`, `WorldCheckpointV4`, `ReplayManifestV5`,
 `CommandLedgerV2` and the physics contracts retain their existing wire
 semantics.
 
+ADR-008 no longer makes `AuthoringContextBundle`, `AgentChangeSet`, a public
+creator CLI or MCP parity a current engine contract. Ordinary repository tools
+and structured diagnostics remain; future creator automation must arrive with
+a real consumer and cannot gain a privileged gameplay mutation path.
+
+ADR-021 no longer makes `WorldCalendarStateV1`, population tiers, bulk time
+advance or legacy calendar migration current contracts. Its durable-identity,
+single-owner, no-wall-clock-authority and no-fabricated-outcome invariants
+remain. Future population/calendar work is Proposed in SPEC-20.
+
+ADR-026 no longer requires current `JobCoordinatorState`, a generic job class
+system, cancellation tree, logical memory admission, pins/leases, global
+eviction, archive credits or persisted generic work state. Its implemented
+cross-cutting invariants remain: async work receives immutable bounded input,
+never retains mutable world access across an async boundary, returns a
+revision-bound immutable result, and becomes authoritative only at a canonical
+validated commit point. R3a adds no wider framework before its first chunk
+consumer proves a need.
+
 ADR-029 and ADR-031 no longer create current implementation obligations for a
 narrative director, generated quest graph or divine-standing feature set.
 Their ideas may return as small Proposed documents when a concrete playable
@@ -52,6 +71,8 @@ vertical requires them.
 - Old alpha bytes remain untouched and fail before nested decode or mutation.
 - Permanent schema identity and atomic publication invariants from ADR-025 stay
   Accepted; its speculative support window does not apply before public v1.
+- Population/calendar and generic resource-management APIs return to Proposed;
+  immutable staging and deterministic commit remain current invariants.
 - Luau and Wasm extension paths, ledger semantics and physics backends are
   unchanged.
 
@@ -62,4 +83,3 @@ vertical requires them.
 | `persistence-replay` | Replay V5 round-trips and replays exact current receipts, query facts and authoritative roots. |
 | `fast` | A recognizable V4 replay header returns `UNSUPPORTED_REPLAY_MANIFEST_VERSION` before nested decode; no V4/V1 source symbol remains. |
 | `content-package` | Current Luau and Wasm packages continue to use the same validated SDK paths. |
-

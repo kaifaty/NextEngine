@@ -431,7 +431,7 @@ struct WorkerMetricBuffersV1 {
     publication_samples: Vec<InteractiveWorkerPublicationSampleV1>,
     processed_callbacks: u64,
     ordinary_fixed_steps: u64,
-    checkpoint_fixed_steps: u64,
+    lifecycle_boundary_fixed_steps: u64,
     snapshot_publications: u64,
     reordered_callbacks: u64,
     expected_callback_sequence: u64,
@@ -457,7 +457,7 @@ impl WorkerMetricBuffersV1 {
             publication_samples: allocate_diagnostic_sample_buffer(publication_capacity)?,
             processed_callbacks: 0,
             ordinary_fixed_steps: 0,
-            checkpoint_fixed_steps: 0,
+            lifecycle_boundary_fixed_steps: 0,
             snapshot_publications: 0,
             reordered_callbacks: 0,
             expected_callback_sequence: 0,
@@ -471,13 +471,13 @@ impl WorkerMetricBuffersV1 {
     ) -> InteractiveWorkerDiagnosticMetricsV1 {
         let fixed_steps = self
             .ordinary_fixed_steps
-            .saturating_add(self.checkpoint_fixed_steps);
+            .saturating_add(self.lifecycle_boundary_fixed_steps);
         InteractiveWorkerDiagnosticMetricsV1 {
             submitted_callbacks,
             processed_callbacks: self.processed_callbacks,
             fixed_steps,
             ordinary_fixed_steps: self.ordinary_fixed_steps,
-            checkpoint_fixed_steps: self.checkpoint_fixed_steps,
+            lifecycle_boundary_fixed_steps: self.lifecycle_boundary_fixed_steps,
             snapshot_publications: self.snapshot_publications,
             dropped_callbacks: submitted_callbacks.saturating_sub(self.processed_callbacks),
             reordered_callbacks: self.reordered_callbacks,
@@ -620,11 +620,13 @@ fn run_interactive_simulation_session_worker(
                     }
                     let result = if let Some(metrics) = metrics.as_mut() {
                         let mut observe =
-                            |simulation_tick, published_checkpoint, duration: Duration| {
-                                let class = if published_checkpoint {
-                                    metrics.checkpoint_fixed_steps =
-                                        metrics.checkpoint_fixed_steps.saturating_add(1);
-                                    InteractiveWorkerFixedStepClassV1::Checkpoint
+                            |simulation_tick,
+                             materialized_lifecycle_boundary,
+                             duration: Duration| {
+                                let class = if materialized_lifecycle_boundary {
+                                    metrics.lifecycle_boundary_fixed_steps =
+                                        metrics.lifecycle_boundary_fixed_steps.saturating_add(1);
+                                    InteractiveWorkerFixedStepClassV1::LifecycleBoundary
                                 } else {
                                     metrics.ordinary_fixed_steps =
                                         metrics.ordinary_fixed_steps.saturating_add(1);

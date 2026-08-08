@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-14 |
 | Статус | Accepted |
-| Версия | 1.9 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 2.0 |
+| Последняя проверка | 2026-08-08 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md) |
-| Заменяет | отсутствует |
+| Заменяет | SPEC-14 1.9 speculative agent-authoring/CLI ceremony |
 
 ## Назначение и invariants
 
@@ -249,18 +249,13 @@ Declared optional fallback MAY использоваться при load толь
 
 Optional learned tactical policy остаётся за SPEC-06 AgentIntent boundary, имеет deterministic planner fallback и не входит в MotorPolicyBundleManifest. Motor layer не читает biography, quest state, free-form memory или LLM output.
 
-## Authoring, training и agent workflow
+## Authoring and training intent
 
-Normative CLI/JSON contracts:
-
-| Команда | Результат |
-|---|---|
-| `next physical new\|describe\|validate\|pack <archetype>` | scaffold, resolved body/LOD/capability graph, validation и deterministic bundle |
-| `next policy inspect\|verify <policy>` | manifest/schema/provenance/runtime support и golden parity report |
-| `next policy route-test <archetype> --matrix <fixture>` | exhaustive resolver/capability matrix |
-| `next policy transition-test <archetype> --suite <id>` | safe/blocked/fault transition runs + diagnostic capture manifest |
-| `next policy support-check <archetype> --run <id>` | deterministic product status for the exact bundle revision |
-| `lab generate-env\|train\|evaluate\|compare\|export-onnx\|support-check` | backend-neutral research application service и structured RunManifest |
+There is no current public physical-policy CLI or agent-authoring protocol.
+Future R5/R6 tooling may expose validate, train, export and route-test
+operations, but it must call the same engine-owned validators and cannot create
+a status/mutation bypass. MCP, agent context bundles, change-set schemas and
+approval ceremonies are not motor architecture.
 
 Training flow:
 
@@ -274,8 +269,6 @@ body validation → procedural baseline → generated environment
 Training algorithm является backend detail. PPO, SAC, imitation, motion priors или distillation MAY использоваться, если создают одинаковые normative artifacts и проходят product checks. Isaac Lab — `Proposed`; fallback — engine-owned headless physics lab.
 
 На `DeveloperHostTier/macOS-aarch64` workflow ограничен schema/body validation, procedural baseline, generated deterministic 2-DoF smoke, tiny optimization, ONNX export и parity через `TRAIN-MAC-P0`; MPS failure использует declared CPU fallback. Полное foundation/creature/weapon training MAY требовать отдельный accelerator host, но runtime support определяется только exact exported artifact, correspondence и product checks на supported targets. Device/toolchain записываются в RunManifest и не выводятся из наличия model file.
-
-AuthoringContextBundle MUST включать body/skill/policy/TestScenario/CapturePlan schemas, compatibility/output-category matrix, resolved references, training/evaluation configs, diagnostic fix-its, budgets и minimal neutral examples. Agent может предлагать descriptors/config/reward/scenario changes и запускать bounded experiments. `next policy support-check` вычисляет status только по exact bundle revision и не может обойти failed deterministic, safety, parity или fallback check.
 
 Distributed weights являются licensed package content. Raw datasets, unrestricted checkpoints, protected assets и local training caches не коммитятся в engine repository.
 
@@ -307,6 +300,5 @@ Distributed weights являются licensed package content. Raw datasets, unr
 | BEHAVIOR-01 | habits/tactics with ai-host/adapter present and absent | 0 direct MotorAction/gameplay mutation from habits; all actions pass AgentIntent/WorldCommand; scenario outcomes exact offline | deterministic authored utility/HTN profile |
 | TRAIN-P1 | pinned training backend export/deployment | ADR-009 thresholds; license/SBOM complete; export reproducible from pinned config except declared stochastic metrics | engine-owned headless physics lab |
 | TRAIN-MAC-P0 | generated deterministic 2-DoF development smoke | 4 fixed seeds; 8 envs ×256 steps; 1 000 observations; PyTorch/ONNX max abs error ≤`1e-5`; 0 NaN/Inf; ≤10 minutes on MPS or declared CPU fallback | CPU smoke; stop this training lane on export/parity failure |
-| AUTHOR-P1 | cold physical authoring workflow | public CLI creates quadruped, adds axe route, validates/evaluates and runs support checks; 100% internal references resolve; no hidden API or status bypass | retain `Prototype` and return actionable diagnostics |
 
 These checks define runtime and authoring behavior; they are not organizational approval.

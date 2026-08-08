@@ -83,7 +83,7 @@ impl From<ApplicationError> for InteractiveWorkerFailureV1 {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InteractiveWorkerFixedStepClassV1 {
     Ordinary,
-    Checkpoint,
+    LifecycleBoundary,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -131,7 +131,7 @@ pub struct InteractiveWorkerDiagnosticMetricsV1 {
     pub processed_callbacks: u64,
     pub fixed_steps: u64,
     pub ordinary_fixed_steps: u64,
-    pub checkpoint_fixed_steps: u64,
+    pub lifecycle_boundary_fixed_steps: u64,
     pub snapshot_publications: u64,
     pub dropped_callbacks: u64,
     pub reordered_callbacks: u64,

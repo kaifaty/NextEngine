@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 2.5 |
-| Последняя проверка | 2026-08-06 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md) |
-| Заменяет | SPEC-12 2.4 |
+| Версия | 2.6 |
+| Последняя проверка | 2026-08-08 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md) |
+| Заменяет | SPEC-12 2.5 pre-v1 N-1/Performance V3/future narrative clauses |
 
 ## Назначение
 
@@ -141,12 +141,12 @@ Check использует малый CC0/engine-owned neutral fixture и public
 Текущий M3/M10 implementation gate покрывает пункты 1–6 для data-only, Luau и
 Wasm, storage/schema failure matrix и atomic two-chunk admission тем же
 production loader. Wasm component выполняется через pinned private Wasmtime
-adapter, engine-owned WIT N/N−1, empty ambient linker и общий mechanics/RPG
+adapter, exact current engine-owned WIT, empty ambient linker и общий mechanics/RPG
 proposal path; shipping status всё ещё определяется отдельными platform gates.
 
 1. validate authored manifest/schema/references/bounds;
 2. cook immutable content;
-3. resolve exact package/content dependencies;
+3. validate exact package/content dependencies and direct project lock;
 4. load через production registry;
 5. выполнить одну first-party mechanic/package action;
 6. проверить malformed graph, missing blob/hash, path escape и
@@ -185,16 +185,15 @@ authoritative outcome, считается failure независимо от ск
 variance MAY привести к повторному измерению по той же declared методике, но
 не к retry-to-green функциональных или deterministic failures.
 
-Hard timing verdict следует ADR-036/ADR-045: только `release`, compatible baseline и
+Hard timing verdict следует ADR-036/ADR-045/ADR-049: только `release`, compatible baseline и
 полный `ref-win-thoth-v1` могут дать timing `PASS`/`FAIL`. Linux timings всегда
 `REPORT_ONLY`, но Linux native build/platform/replay/hash correctness остаются
 обязательными. Несовместимый host, driver/BIOS/power plan/toolchain/content/
 methodology, недостаточный idle/free-memory/thermal preflight или
-неimplemented representative workload возвращает `NOT_RUN`. V3 hard evidence
+неimplemented representative workload возвращает `NOT_RUN`. V4 hard evidence
 дополнительно требует canonical logical resource charges, peak working set,
 process I/O, device-allocation ceiling, profiler integrity и exact authoritative
-roots. Exact allocator counter является optional diagnostic: отсутствие допустимо,
-но приложенные partial или invalid allocator fields возвращают `NOT_RUN`.
+roots. Allocator-counter fields/readers отсутствуют.
 
 Two-chunk, one-agent, статические render fixtures и live-movement checks
 являются только `smoke/report`. Отдельный representative `r2-alpha-render`
@@ -226,24 +225,5 @@ renderer result всегда сообщается отдельно и не пе�
 собрать результаты релевантных checks для удобства, но не меняет их технический
 смысл.
 
-## SPEC-31 check composition
-
-When the Accepted autonomous quest/divine contracts are implemented,
-`QUEST-*`, `NARRATIVE-*`, `DIVINE-*` and `PANTHEON-*` scenarios are focused
-instances of existing ProductCheck kinds, not new global gates:
-
-- `play` covers intent-to-quest, disclosure/activation, autonomous outcomes,
-  opposite per-god judgments, qualitative standing UI, offer/covenant choices
-  and deterministic template fallbacks offline;
-- `persistence-replay` covers recorded external candidates, per-god
-  completion/fallback assignment, fixed decision-boundary closure,
-  cross-context graph/standing/effect batches and save/restart without
-  model/network calls;
-- `content-package` covers patron epistemic policies, pantheon relation graphs,
-  intervention catalogs, covenant compatibility, anchors/extension slots and
-  template definitions;
-- `performance` is conditional only when request construction, validation or
-  conflict resolution materially changes a declared runtime budget.
-
-No fresh LLM response, screenshot or prose comparison can substitute for
-authoritative command/event/graph/standing/state-root assertions.
+Future Proposed features receive a check mapping only when a production
+consumer and promoting ADR exist. SPEC-20/23/31 do not add current global gates.

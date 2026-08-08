@@ -23,7 +23,7 @@ pub(super) struct PreparedRunV1 {
 
 pub(crate) struct InteractivePresentationAdvanceV1 {
     pub(crate) presentation: Arc<next_contracts::presentation::PresentationSnapshotV2>,
-    pub(crate) published_checkpoint: bool,
+    pub(crate) materialized_lifecycle_boundary: bool,
 }
 
 /// One published baseline-audio frame of the interactive live driver. The PCM
@@ -215,9 +215,9 @@ impl ApplicationCoordinator {
     }
 
     /// Advances the interactive live driver while publishing only the
-    /// immutable presentation projection on ordinary ticks. Complete
-    /// authoritative checkpoints remain forced at the declared cadence and
-    /// lifecycle boundaries.
+    /// immutable presentation projection on ordinary ticks. A complete
+    /// authoritative state is materialized only when a suspend boundary needs
+    /// an in-memory continuation point; suspend does not publish a save.
     pub(crate) fn advance_reference_game_live_presentation_shared_admitted(
         &mut self,
         platform_events: &[PlatformEventV1],
@@ -277,7 +277,7 @@ impl ApplicationCoordinator {
             driver.commit_validated_advance(validated)?;
             return Ok(InteractivePresentationAdvanceV1 {
                 presentation,
-                published_checkpoint: true,
+                materialized_lifecycle_boundary: true,
             });
         }
 
@@ -288,7 +288,7 @@ impl ApplicationCoordinator {
         driver.commit_validated_advance(validated)?;
         Ok(InteractivePresentationAdvanceV1 {
             presentation,
-            published_checkpoint: false,
+            materialized_lifecycle_boundary: false,
         })
     }
 

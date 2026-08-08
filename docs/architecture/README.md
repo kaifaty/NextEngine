@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.16 |
+| Версия | 2.18 |
 | Последняя проверка | 2026-08-08 |
-| Заменяет | INDEX-001 version 2.15 |
+| Заменяет | INDEX-001 version 2.16 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -135,35 +135,35 @@ traceability — навигационная карта, не admission authority
 | SPEC-00 | [Product contract](00-product-contract.md) | Accepted |
 | SPEC-01 | [System architecture](01-system-architecture.md) | Accepted |
 | SPEC-02 | [Runtime, ECS и data model](02-runtime-ecs-and-data.md) | Accepted |
-| SPEC-03 | [Assets, streaming и persistence](03-assets-world-streaming-and-persistence.md) | Accepted |
+| SPEC-03 | [Assets, current world streaming и persistence](03-assets-world-streaming-and-persistence.md) | Accepted |
 | SPEC-04 | [Rendering и platform](04-rendering-and-platform.md) | Accepted |
 | SPEC-05 | [Physics, animation и motor control](05-physics-animation-and-motor-control.md) | Accepted |
 | SPEC-06 | [AI agents, perception и memory](06-ai-agents-perception-and-memory.md) | Accepted |
 | SPEC-07 | [RPG, scripting и plugins](07-rpg-scripting-and-plugins.md) | Accepted |
 | SPEC-08 | [Audio, navigation и world services](08-audio-navigation-and-world-services.md) | Accepted |
-| SPEC-09 | [Tooling, SDK и observability](09-tooling-sdk-and-observability.md) | Accepted |
+| SPEC-09 | [Current tooling и observability](09-tooling-sdk-and-observability.md) | Accepted |
 | SPEC-10 | [Gothic importer boundary](10-gothic-importer-boundary.md) | Accepted |
 | SPEC-11 | [Runtime safety и license hygiene](11-security-licensing-and-governance.md) | Accepted |
 | SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted |
-| SPEC-13 | [Gameplay mechanics, mod packages и agent authoring](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | Accepted |
+| SPEC-13 | [Gameplay mechanics и mod packages](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | Accepted |
 | SPEC-14 | [Physical archetypes, motor skills и policy lifecycle](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) | Accepted |
 | SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted |
 | SPEC-16 | [Text-canonical multimodal dialogue и model packs](16-text-canonical-multimodal-dialogue-and-model-packs.md) | Proposed |
-| SPEC-17 | [Project composition, configuration и application lifecycle](17-project-composition-configuration-and-application-lifecycle.md) | Accepted |
+| SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted |
 | SPEC-18 | [Player interaction, UI, camera, localization и accessibility](18-player-interaction-ui-camera-localization-and-accessibility.md) | Accepted |
-| SPEC-19 | [RPG domain и narrative state](19-rpg-domain-and-narrative-state.md) | Accepted |
-| SPEC-20 | [World simulation и population lifecycle](20-world-simulation-and-population-lifecycle.md) | Accepted |
+| SPEC-19 | [Current RPG domain state](19-rpg-domain-and-narrative-state.md) | Accepted |
+| SPEC-20 | [Future world simulation и population intent](20-world-simulation-and-population-lifecycle.md) | Proposed |
 | SPEC-21 | [Deterministic runtime primitives, command ledger и causal identity](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | Accepted |
-| SPEC-22 | [Schema registry, compatibility и migration](22-schema-registry-compatibility-and-migration.md) | Accepted |
-| SPEC-23 | [Jobs, memory, compute residency и I/O backpressure](23-jobs-memory-resource-residency-and-io-backpressure.md) | Accepted |
-| SPEC-24 | [Content catalog, bundle и neutral asset schemas](24-content-catalog-bundle-and-neutral-asset-schemas.md) | Accepted |
-| SPEC-25 | [World partition, streaming admission и persistent spatial objects](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | Accepted |
+| SPEC-22 | [Current schema registry и format compatibility](22-schema-registry-compatibility-and-migration.md) | Accepted |
+| SPEC-23 | [Future R3a streaming work intent](23-jobs-memory-resource-residency-and-io-backpressure.md) | Proposed |
+| SPEC-24 | [Current neutral content и package closure](24-content-catalog-bundle-and-neutral-asset-schemas.md) | Accepted |
+| SPEC-25 | [Current world partition manifest и R3a boundary](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | Accepted |
 | SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted |
 | SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted |
 | SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted |
-| SPEC-29 | [Platform host и application session](29-platform-host-and-application-session.md) | Accepted |
-| SPEC-30 | [Presentation extraction и render content](30-presentation-extraction-and-render-content.md) | Accepted |
-| SPEC-31 | [Autonomous quest lifecycle, divine agency и narrative director](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed intent; current obligations removed by ADR-046 |
+| SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted |
+| SPEC-30 | [Presentation snapshot, camera, UI и render content](30-presentation-extraction-and-render-content.md) | Accepted |
+| SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -180,7 +180,7 @@ traceability — навигационная карта, не admission authority
 | ADR-005 | [Offline-first AI process boundary](adr/005-offline-first-ai-process-boundary.md) | Accepted |
 | ADR-006 | [Scripting и plugin model](adr/006-scripting-and-plugin-model.md) | Superseded |
 | ADR-007 | [Identities, persistence и replay](adr/007-identities-persistence-and-replay.md) | Superseded |
-| ADR-008 | [Mechanics/mod package и agent authoring](adr/008-mechanics-mod-package-and-agent-authoring-model.md) | Accepted |
+| ADR-008 | [Mechanics/mod package и agent authoring](adr/008-mechanics-mod-package-and-agent-authoring-model.md) | Accepted package/no-private-path invariants; unconsumed agent-authoring/CLI/MCP obligations superseded by ADR-046 |
 | ADR-009 | [Foundation policies и progressive motor skills](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md) | Accepted; certification clauses partially superseded by ADR-030 |
 | ADR-010 | [Artifact-first validation и human review](adr/010-artifact-first-headless-validation-and-review.md) | Superseded by ADR-030 |
 | ADR-011 | [macOS developer host и staged training](adr/011-macos-developer-host-local-verification-and-staged-training.md) | Accepted; certification clauses partially superseded by ADR-030 |
@@ -193,21 +193,21 @@ traceability — навигационная карта, не admission authority
 | ADR-018 | [Project composition и configuration](adr/018-authoritative-project-composition-and-configuration.md) | Accepted configuration/activation invariants; resolver/catalog clauses superseded by ADR-048 |
 | ADR-019 | [Player actions и presentation authority](adr/019-canonical-player-actions-and-presentation-authority.md) | Accepted |
 | ADR-020 | [RPG domain authority](adr/020-rpg-domain-authority-and-extension-boundary.md) | Accepted |
-| ADR-021 | [Population residency и time advance](adr/021-deterministic-population-residency-and-time-advance.md) | Accepted |
+| ADR-021 | [Population residency и time advance](adr/021-deterministic-population-residency-and-time-advance.md) | Accepted core invariants; unconsumed population/calendar schemas and migration superseded by ADR-046 |
 | ADR-022 | [Command identity V2, ledger и causal identity](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) | Accepted |
 | ADR-023 | [HumanReviewDecisionV2 и offline attestation](adr/023-human-review-decision-v2-and-offline-attestation.md) | Superseded by ADR-030 |
 | ADR-024 | [Requirement/gate/evidence/profile closure](adr/024-requirement-gate-evidence-and-profile-closure.md) | Superseded by ADR-030 |
 | ADR-025 | [Schema, content и migration authority](adr/025-schema-content-and-migration-authority.md) | Accepted; generic pre-v1 N-2 support window partially superseded by ADR-046 |
-| ADR-026 | [Deterministic work, resources и streaming admission](adr/026-deterministic-work-resource-and-streaming-admission.md) | Accepted |
+| ADR-026 | [Deterministic work, resources и streaming admission](adr/026-deterministic-work-resource-and-streaming-admission.md) | Accepted immutable-staging/commit invariants; generic jobs/resource subsystem superseded by ADR-046 |
 | ADR-027 | [Physics, motor и animation layering](adr/027-physics-motor-and-animation-layering.md) | Accepted |
-| ADR-028 | [Platform session и presentation authority](adr/028-platform-session-and-presentation-authority.md) | Accepted; active-run cadence, bounded recovery evidence, host binding и presentation-cut clauses partially superseded by ADR-035 |
+| ADR-028 | [Platform session и presentation authority](adr/028-platform-session-and-presentation-authority.md) | Accepted platform normalization/authority; recovery/storage/close clauses superseded by ADR-047 |
 | ADR-029 | [RPG-owned quest graph и narrative director](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md) | Superseded by ADR-046; future intent Proposed |
 | ADR-030 | [Product-first development и lightweight validation](adr/030-product-first-development-and-lightweight-validation.md) | Accepted |
 | ADR-031 | [RPG-owned divine standing и atomic pantheon judgment](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md) | Superseded by ADR-046; future intent Proposed |
 | ADR-032 | [Grounded capsule physics checkpoint version boundary](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md) | Accepted; designation of V4 as current generated replay partially superseded by ADR-034 |
 | ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Accepted; PhysX backend остаётся Proposed; current reviewed unsafe allowlist is FFI-only after ADR-049 |
 | ADR-034 | [Player targeting replay V5 и exact mapping provenance](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) | Accepted; legacy V4/V1 retention superseded by ADR-046 |
-| ADR-035 | [Bounded live recovery, platform-host binding и presentation cut](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) | Accepted; partially supersedes ADR-028 |
+| ADR-035 | [Bounded live recovery, platform-host binding и presentation cut](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) | Accepted host binding and presentation cut; checkpoint/archive recovery clauses superseded by ADR-047 |
 | ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; THOTH target, budgets, baseline and no-retry authority remain; allocator clauses are superseded by ADR-049 |
 | ADR-037 | [Packed session object storage](adr/037-packed-session-object-storage.md) | Superseded by ADR-047 |
 | ADR-038 | [Versioned production-worker handoff diagnostic](adr/038-versioned-production-worker-handoff-diagnostic.md) | Accepted; узко заменяет diagnostic-scenario часть ADR-036 без изменения THOTH hard timing authority или B-12 closure |
@@ -226,9 +226,12 @@ traceability — навигационная карта, не admission authority
 ## Proposed tracks
 
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
+- SPEC-20 — future population/calendar vertical; no current schema or check.
+- SPEC-23 — consumer-driven R3a chunk fetch/decode/validate/commit intent; no
+  generic scheduler/resource framework is accepted.
 - ADR-033 — optional PhysX 5.9.0 grounded-capsule backend до полной parity на
   Windows/Linux; reference остаётся default.
-- Narrative director, generated quest graph and divine-standing feature set
+- SPEC-31 narrative director, generated quest graph and divine-standing intent
   formerly described by ADR-029/ADR-031; they have no current implementation
   obligation and return only with a concrete production consumer.
 

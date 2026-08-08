@@ -16,7 +16,6 @@ pub(super) fn append_authoritative_hashes(
 
 pub(super) fn attach_resource_evidence(
     counters: &mut xtask::performance::PerformanceResourceCountersV4,
-    methodology_notes: &mut Vec<String>,
     report: &next_verification::R2AlphaRenderPerformanceReportV1,
 ) -> Result<(), String> {
     let timestamp_queries = report.vulkan_timestamp_queries();
@@ -42,20 +41,6 @@ pub(super) fn attach_resource_evidence(
         !diagnostic.starts_with("Vulkan timestamps require")
             && !diagnostic.starts_with("device residency requires")
     });
-    methodology_notes.push(format!(
-        "six sequential production Vulkan windows emitted {timestamp_queries} timestamp queries; device residency is the maximum {}-allocation engine-owned ceiling, not a sum across profiles",
-        device_count,
-    ));
-    methodology_notes.push(format!(
-        "logical resource accounting profile {} charges {} authoritative, {} staging, {} reconstructible host-cache, {} device-cache, {} presentation-transient and {} tooling-transient bytes",
-        report.accounting_profile_hash.to_hex(),
-        report.authoritative_state_bytes,
-        report.required_staging_bytes,
-        report.reconstructible_host_cache_bytes,
-        device_bytes,
-        report.presentation_transient_bytes,
-        report.tooling_transient_bytes,
-    ));
     Ok(())
 }
 

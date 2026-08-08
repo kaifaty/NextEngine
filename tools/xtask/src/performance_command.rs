@@ -362,23 +362,9 @@ fn performance_report_for(
             !diagnostic.starts_with("Vulkan timestamps require")
                 && !diagnostic.starts_with("device residency requires")
         });
-        run.methodology.notes.push(format!(
-            "{}-frame Vulkan timing workload uses production render inputs at {}x{} drawable extent and remains report-only",
-            frame_timing.samples.len(),
-            frame_timing.drawable_extent[0],
-            frame_timing.drawable_extent[1],
-        ));
-        run.methodology.notes.push(format!(
-            "device residency uses a conservative ceiling of {} engine-owned bound Vulkan allocations; swapchain storage is driver-owned",
-            frame_timing.device_allocation_count
-        ));
     }
     if let Some(report) = &r2_alpha_render {
-        r2_alpha_render::attach_resource_evidence(
-            &mut run.resource_counters,
-            &mut run.methodology.notes,
-            report,
-        )?;
+        r2_alpha_render::attach_resource_evidence(&mut run.resource_counters, report)?;
     }
     run.content_hash = tool_run.project_composition_lock_hash.to_hex();
     run.scenario_hash = performance_scenario_hash(request.scenario);
@@ -486,10 +472,10 @@ fn performance_report_for(
             )?);
         run.metrics
             .push(xtask::performance::PerformanceMetricV1::from_samples(
-                "long-session-soak.application.checkpoint",
+                "long-session-soak.application.sample-interval",
                 "microseconds",
                 live_runtime
-                    .application_checkpoint_microseconds
+                    .application_sample_interval_microseconds
                     .into_iter()
                     .map(microseconds_u64)
                     .collect::<Result<Vec<_>, _>>()?,
@@ -497,10 +483,10 @@ fn performance_report_for(
             )?);
         run.metrics
             .push(xtask::performance::PerformanceMetricV1::from_samples(
-                "long-session-soak.application.ordinary-tick",
+                "long-session-soak.application.non-sample-tick",
                 "microseconds",
                 live_runtime
-                    .application_ordinary_tick_microseconds
+                    .application_non_sample_tick_microseconds
                     .iter()
                     .copied()
                     .map(microseconds_u64)
@@ -509,10 +495,10 @@ fn performance_report_for(
             )?);
         run.metrics
             .push(xtask::performance::PerformanceMetricV1::from_samples(
-                "long-session-soak.application.checkpoint-tick",
+                "long-session-soak.application.sample-tick",
                 "microseconds",
                 live_runtime
-                    .application_checkpoint_tick_microseconds
+                    .application_sample_tick_microseconds
                     .iter()
                     .copied()
                     .map(microseconds_u64)
@@ -522,14 +508,6 @@ fn performance_report_for(
     }
     if let Some(worker) = &production_worker {
         append_production_worker_metrics(&mut run.metrics, worker)?;
-        run.methodology.notes.push(format!(
-            "observed {} fixed steps ({} ordinary, {} durable-checkpoint), {} shared snapshot publications including the initial generation, and queue high-water {}",
-            worker.metrics.fixed_steps,
-            worker.metrics.ordinary_fixed_steps,
-            worker.metrics.checkpoint_fixed_steps,
-            worker.metrics.snapshot_publications,
-            worker.metrics.queue_high_water,
-        ));
     }
     if let Some(frame_timing) = &desktop_frame_timing {
         let frame_prefix = if request.scenario

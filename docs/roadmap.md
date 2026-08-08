@@ -62,7 +62,8 @@ Roadmap намеренно не содержит календарных обещ
 
 - canonical commands, command ledger, fixed-stage runtime и atomic RPG
   transactions;
-- exact project resolution/cook/activation и content-addressed publication;
+- direct authoring v2 → exact `ProjectLockV3` cook/activation и
+  content-addressed publication без resolver/catalog;
 - общий production coordinator для `game`, `headless` и runtime-bearing tools;
 - atomic save generations, replay, application-session close/recovery;
 - движение grounded capsule, статические Box colliders и contact lifecycle;
@@ -82,30 +83,25 @@ Roadmap намеренно не содержит календарных обещ
   integer/fixed-point third-person camera в `PresentationSnapshotV2`/B0 plan;
   renderer повторяет последний snapshot при любой cadence, а приватный Vulkan
   backend преобразует camera state в float view-projection и depth;
-- bounded active-run durability: same-session checkpoint на tick `0`, каждые
-  `30` ticks и forced atomically на suspend/close; crash rollback ограничен
-  `29` ticks, resume не делает wall-time catch-up, lifecycle retry/publication
-  rollback сохраняют prior generation, full lifecycle archive bounded,
-  session store удерживает current+previous complete logical generations и
-  упаковывает logical objects в bounded object packs по ADR-037, а required-save
-  lineage переносится bounded цепочкой до `64` entries с exact prior durable
-  snapshots и полными referenced object closures;
+- simple session durability: два чередующихся snapshot slots и `CURRENT`,
+  только last lifecycle request/event и двухстадийный close journal
+  `Prepared → SavePublished`; durable world публикуется manual Save и
+  save-on-close, Suspend не сохраняет, crash откатывается к последнему Save;
 - session-bound desktop host/capability registration отклоняет stale adapter
   lifetime, а same-session authoritative restart начинает fresh presentation
   epoch с sequence `0` и camera cuts по
   [ADR-035](architecture/adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md);
 - Windows SDL3/ash B0 path с canonical keyboard/lifecycle events, fullscreen,
   swapchain recreation, bounded device-loss recovery и package smoke;
-- versioned `xtask performance` foundation с exact THOTH fingerprint,
+- current-only Performance V4 foundation с exact THOTH fingerprint,
   release-only gate preflight, nearest-rank/baseline schemas и полным
   streaming/agent/render/live smoke report; representative `r2-alpha-render`
   реализован, а R3–R5 workloads честно возвращают `NOT_RUN`;
 - локальная v1 closure matrix.
 
-Data-first reference alpha теперь реализована, но ещё не принята как
-пользовательская alpha: automated production flow и package smoke проходят,
-а первый ручной run выявил исправленные atomic activation и subtitle recovery defects на принятии quest;
-полный свежий 20–30-minute acceptance rerun ещё не выполнен. Текущий
+Data-first reference alpha реализована и принята на Windows: automated
+production flow/package smoke и свежий 20–30-minute manual acceptance от
+2026-08-08 проходят. Текущий
 R2 scope намеренно ограничен двумя chunks, одной combat ability, одним quest
 loop и одним neutral humanoid skeleton/clip catalog; general partition, runtime
 animation и reusable systemic quest conditions относятся к R3–R5.
@@ -115,21 +111,21 @@ animation и reusable systemic quest conditions относятся к R3–R5.
 | Область | Состояние в коде | Главный gap |
 |---|---|---|
 | Contracts/runtime/ledger | Реализован фундамент | Расширять только вместе с реальным gameplay use case; не строить второй runtime framework. |
-| Project/application/session | Production path реализован; same-session active restart, platform-causal lifecycle rollback, full bounded retry archive, current-host binding и tick-0/30 checkpoint model прошли Windows-local checkpoint | Нужны native cross-target platform/package closure и дальнейшие real-project lifecycle cases. |
-| Persistence/replay | Реализован текущий owner set | Нет реального schema migration graph и будущих owner segments. |
+| Project/application/session | Production path реализован: authoring v2 → exact `ProjectLockV3` → atomic `ActivatedProjectV3`; session использует два snapshot slots, last lifecycle record и `Prepared → SavePublished` close journal | Нужны native cross-target platform/package closure и дальнейшие real-project lifecycle cases. |
+| Persistence/replay | Реализован current-only owner set; retired alpha formats fail typed unsupported | Migration вводится только после первого публично поддерживаемого v1 format и реального successor. |
 | RPG | Частично: основные aggregates и восемь операций | Нет полного faction/membership, status/effect, quest-graph, reward и divine command lifecycle. |
 | Mechanics/packages | Частично: contact melee + Luau/Wasm examples | Нет общего ability phase/cost/cooldown/status lifecycle и creator-facing SDK workflow. |
-| Content/cooker | Data-first `projects/reference-alpha` проходит file-backed authoring/resolve/cook/activate; package содержит 43 canonical entries, шесть production low-poly meshes, десять role/environment materials, четыре textures, synthesized audio и CC0 skeleton/clip provenance/NOTICE; прежний marker mesh удалён из production catalog | Нет navigation catalog, реальных migrations, general resource policy и runtime animation consumption. |
+| Content/cooker | Data-first `projects/reference-alpha` проходит file-backed authoring/cook/direct-lock activation; package содержит 43 canonical entries, шесть production low-poly meshes, десять role/environment materials, четыре textures, synthesized audio и CC0 skeleton/clip provenance/NOTICE; прежний marker mesh удалён из production catalog | Нет navigation catalog, general multi-region streaming и runtime animation consumption. |
 | World/streaming | Частично: deterministic two-chunk transition | Нет general partition interest, resource residency, calendar, population, schedules и region transfers. |
-| Jobs/resources | Spec-only | Нет общего bounded job, memory, I/O credit, pin/lease и backpressure substrate. |
+| Jobs/resources | Generic subsystem снят с Accepted baseline; current fixture использует private bounded staging | R3a должен доказать только production chunk fetch → decode → validate → canonical commit. |
 | Physics | Частично: upright capsule, static Box и exact B0 `ClosestPoint` scene query | Нет полного shape/body/constraint/query profile и production physical-character stack. |
 | Animation/motor | Только procedural projection/contract fragments | Нет skeleton graph, retargeting, IK, root-motion intent или deterministic inference supervisor. |
 | Agent AI | Частично: один canonical affordance planner | Нет perception, hierarchy, schedules, memory и 100-NPC workload. |
 | Navigation/audio | Частично: полный baseline audio vertical (A1–A6 `DONE_LOCAL_WINDOWS`) — neutral clip contract, audio scene extraction, software mixer + canonical PCM sink, SDL device adapter, subtitle fallback, `audio_scene` в v1-closure | Gaps: chunked long-clip streaming payload, zone reverb fallback (zone occlusion gain есть), navigation cooker и baseline nav adapters. |
-| Player experience | Keyboard/mouse и generic controller используют одинаковые action IDs с keyboard fallback; persisted targeting, third-person camera, semantic HUD/inventory/journal/dialogue/pause flow, localization, subtitles и preferences проходят automated Windows checks. HUD получил цветовой health meter, objective и отдельный presentation-only next-action panel, который выводится из immutable RPG snapshot для accept/pickup/equip/combat/relay/return/complete; Save показывает `Saved`, а Load оставляет восстановленный world на паузе с `Loaded - press Resume`. | Worker-to-desktop regression покрывает quest accept, durable checkpoint, Save confirmation, визуально различимое изменение, sequence-zero recovery cut, Load confirmation, продолжение новой epoch после явного Resume и реальное authoritative WASD movement с exact загруженной input-context revision. Свежий 20–30-minute run зафиксирован как `PASS`. Accessibility profiles и capability-scoped extension panels остаются вне R2 gate. |
+| Player experience | Keyboard/mouse и generic controller используют одинаковые action IDs с keyboard fallback; persisted targeting, third-person camera, semantic HUD/inventory/journal/dialogue/pause flow, localization, subtitles и preferences проходят automated Windows checks. HUD получил цветовой health meter, objective и отдельный presentation-only next-action panel, который выводится из immutable RPG snapshot для accept/pickup/equip/combat/relay/return/complete; Save показывает `Saved`, а Load оставляет восстановленный world на паузе с `Loaded - press Resume`. | Worker-to-desktop regression покрывает quest accept, explicit Save, визуально различимое изменение, sequence-zero Load cut, Load confirmation, продолжение новой epoch после явного Resume и реальное authoritative WASD movement с exact загруженной input-context revision. Свежий 20–30-minute run зафиксирован как `PASS`. Accessibility profiles и capability-scoped extension panels остаются вне R2 gate. |
 | Presentation/render | Exact revision-bound snapshot, typed camera, offline SPIR-V, seven-binding B0 scene и Windows recovery/package path реализованы; humanoid/blade/relay имеют разные материалы, collected pickup скрывается, defeated NPC остаётся видимым с тёмным material, relay меняет inactive/active material. Engine-owned relay-approach kit (tiled path, platform, two ruined pillars, four-rock field) добавляет читаемый маршрут и landmarks одним batched draw; отдельный reusable rock source mesh остаётся в content catalog. Relay collider точно следует видимым pillars/top beam/central switch без невидимых продолжений. Contract-preserving B0+ shader выводит flat geometry normal из world-position varying и применяет fixed sun/ambient + depth fog без смены locked position/UV ABI. Private UI adapter рисует контрастные bordered panels: HUD/action слева, inventory/journal справа, dialogue/pause по центру. | Нет authored smooth normals, runtime skeleton/VFX consumption, production art/animation polish, clean ten-run THOTH hard evidence, paired same-commit target proof и Linux hardware-GPU evidence. |
-| Tooling | Repository `xtask`, Performance V3, representative R2 report workload и Windows package smoke реализованы | Нет creator-facing `next` CLI, inspectors, scenario/minimizer, R3–R5 workloads, ten-run THOTH baselines и stable external SDK workflow. |
-| Autonomous narrative | Contract fragments only | SPEC-31 runtime, graph admission, director fallback и divine batch transaction отсутствуют. |
+| Tooling | Repository `xtask`, Performance V4, пять report scenarios, representative R2 workload и Windows package smoke реализованы | Нет creator-facing `next` CLI, inspectors, scenario/minimizer, clean ten-run THOTH baselines и stable external SDK workflow. |
+| Autonomous narrative | Proposed intent only | Вернуться только с конкретным player-visible production consumer после R3. |
 
 ## Продуктовая граница v1
 
@@ -304,18 +300,13 @@ ADR-028, ADR-030.
 resolver для live `game` и headless scenario, persisted ingress assignment,
 authoritative B0 `ClosestPoint` targeting из exact physics snapshot,
 `ReplayManifestV5` query provenance и typed integer/fixed-point third-person
-camera. Live loop создаёт complete in-memory snapshot на каждой 30 Hz boundary;
-durable same-session checkpoint публикуется на tick `0`, каждые `30` ticks и
-forced atomically на suspend/close. Crash может откатить до `29` последних
-in-memory ticks, resume не догоняет wall time, exact lifecycle retry и
-publication rollback сохраняют prior state, full request/event archive bounded,
-а session store удерживает current+previous complete logical generations,
-физически объединяет objects в bounded generation packs по ADR-037 и переносит до
-`64` required-save recovery entries с exact prior snapshot/object closures.
-Fresh session-bound desktop host
-registration отклоняет stale lifecycle/control events; authoritative restart
-публикует new presentation epoch, sequence `0` и camera cuts. Exact semantics
-зафиксированы [ADR-035](architecture/adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md).
+camera. Live loop создаёт complete in-memory snapshot на каждой 30 Hz boundary.
+Session store хранит два чередующихся current-state slots; durable world
+публикуется только manual Save и save-on-close. Suspend не сохраняет, crash
+теряет прогресс после последнего Save, а explicit Load из `Suspended` создаёт
+fresh presentation epoch/sequence `0` и ждёт Resume. Fresh session-bound desktop
+host registration отклоняет stale lifecycle/control events. Exact semantics
+зафиксированы [ADR-047](architecture/adr/047-simple-application-session-and-save-on-close.md).
 Локальный Windows checkpoint подтверждён `host-check`, `play`,
 `persistence-replay`, `content-package`, real SDL3/Vulkan `platform` и
 fresh-output `v1-package`. Generic controller использует те же action IDs, что
@@ -434,49 +425,63 @@ SPEC-30, ADR-019, ADR-034, ADR-035.
 
 ## R3 — Scalable content, jobs and streaming
 
-**Цель:** заменить fixture-specific load/cook behavior на bounded substrate,
-пригодный для реального multi-region project.
+**Цель:** убрать fixture-specific streaming assumptions через один
+consumer-driven production vertical, затем расширить partition ровно настолько,
+насколько требует representative multi-region project.
 
-**Основной scope:**
+### R3a — one streaming vertical
 
-- закрытый job classification, immutable requests/results, canonical merge,
-  cancellation tree и finite queues;
-- logical memory/resource budgets, pins, leases, deterministic eviction,
-  decompression and I/O credits;
-- production `ContentManifest`/bundle container и neutral schemas для scene,
-  mesh, material, texture, collision, skeleton, animation, audio, navigation и
-  world chunk в реально используемом минимальном профиле;
-- schema compatibility registry и первый настоящий copy-on-write migration;
-- general world partition interests, dependency groups, placement/tombstones,
-  load/unload admission и restart reconstruction;
-- cooker cache и atomic publication для multi-region project;
-- убрать assumptions, требующие ровно два chunks или reference-only IDs.
+Единственный scope R3a:
+
+```text
+chunk fetch → decode → validate → canonical commit
+```
+
+Один реальный packaged chunk проходит production Assets/World/Runtime path.
+Request/result immutable и revision-bound; staging private; schema/hash/bounds/
+revision проверяются до одного canonical fixed-stage commit. Completion order,
+worker count, I/O timing и cache warmth не меняют committed root. Fault
+сохраняет previous active generation.
+
+Generic scheduler, cancellation tree, pins/leases, global eviction framework,
+universal resource protocol и публичная task taxonomy заранее не проектируются.
+Reusable primitive появляется только если его требует этот consumer; public
+contract — только после второго production consumer.
+
+### R3b — bounded general partition
+
+После R3a reference project расширяется ровно до 4 regions/64 chunks. Cooker,
+placement, dependency validation, load/unload и Save/Load/restart освобождаются
+от two-chunk/reference-only assumptions. Добавляются только neutral content
+classes, реально используемые этим project.
+
+Alpha format migrations в R3 не входят. До объявления первого публично
+поддерживаемого v1 format старые authoring/packages/saves/replays остаются
+typed unsupported. Первый migration project появляется только при реальном
+successor публичного v1 contract.
 
 **Критерии успеха:**
 
-- representative project с несколькими regions и существенно более чем двумя
-  chunks cooks, loads, streams, unloads, saves и restarts через production path;
-- worker completion, queue pressure, cancellation и I/O fault permutations
-  дают одинаковый committed world root;
-- mandatory work не теряется и optional overload использует declared rejection
-  или degradation;
-- corrupt/oversized/cyclic content и migration inputs fail closed до
-  publication;
-- первая N−1→N migration сохраняет source generation и публикует только
-  complete target generation;
+- R3a chunk проходит fetch/decode/validate/commit через production path, а
+  corrupt/stale/oversized и completion-order permutations сохраняют или дают
+  один declared committed world root;
+- R3b project с 4 regions/64 chunks cooks, loads, streams, unloads, saves и
+  restarts без hard-coded two-chunk IDs;
+- mandatory chunk work не теряется, optional overload использует только
+  declared rejection/degradation;
 - `content-package`, `persistence-replay`, focused streaming tests и
-  `performance` проходят в declared memory/I/O profile.
+  affected `performance` scenario проходят в declared resource profile;
+- R2 gameplay result и command-ledger roots сохраняются.
 
 **Hard blockers:**
 
-- финальный минимальный набор content classes для v1;
-- ownership map между Runtime, Assets и World Services без второго mutable
-  source;
-- измеримый logical resource profile для Windows/Linux;
-- migration fixture, представляющий реальную эволюцию schema, а не empty DAG.
+- один exact packaged chunk fixture и его owner/commit boundary;
+- bounded decode/hash/schema limits для этого chunk;
+- измеримый logical resource profile выбранного vertical;
+- 4-region/64-chunk content fixture для R3b.
 
-**Основные источники:** SPEC-03, SPEC-17, SPEC-21, SPEC-22, SPEC-23, SPEC-24,
-SPEC-25, ADR-025, ADR-026.
+**Основные источники:** SPEC-03, SPEC-17, SPEC-21, SPEC-22, SPEC-24, SPEC-25,
+ADR-026. SPEC-23 — Proposed intent для R3a, не готовый scheduler contract.
 
 ## R4 — Systemic living world
 
@@ -517,9 +522,9 @@ SPEC-25, ADR-025, ADR-026.
 
 **Hard blockers:**
 
-- R3 job/resource/partition substrate;
+- R3 chunk streaming/partition vertical;
 - navigation content and query baseline;
-- календарный owner segment и migration из любого legacy representation;
+- календарный owner segment для нового current format;
 - полный owner-safe RPG operation set для выбранного systemic scenario;
 - authored NPC schedules, regions and fallback activities.
 
@@ -588,7 +593,7 @@ ADR-013, ADR-027, ADR-032, ADR-033.
 
 **Основной scope:**
 
-- stable non-interactive `next` CLI: project resolve/validate/diff, cook,
+- stable non-interactive `next` CLI: project validate/diff, cook,
   content/package/save/plugin validation, replay and package;
 - read-only inspectors для RPG, world, mechanics, input/player, AI and physical
   projections;
@@ -596,7 +601,8 @@ ADR-013, ADR-027, ADR-032, ADR-033.
 - public package templates, versioned data/Luau/Wasm APIs and examples;
 - ability, item, NPC, dialogue, quest, world-chunk and physical-archetype
   authoring workflows;
-- N/N−1 plugin/package/schema compatibility and migration examples;
+- explicit compatibility/export examples only for formats that have an actual
+  prior publicly supported version; alpha legacy migration is not a blocker;
 - deterministic cooker cache, actionable source spans and basic license/SBOM
   output;
 - второй small project или expansion package, созданный только через public
@@ -679,7 +685,7 @@ ADR-001, ADR-030.
 
 | Track | Architecture status | Entry condition |
 |---|---|---|
-| Autonomous quest lifecycle, Narrative Director and divine agency | SPEC-31/ADR-029/ADR-031 Accepted, runtime отсутствует | R4 world/RPG boundaries и R6 scenario/tooling готовы; template fallback реализуется первым. |
+| Autonomous quest lifecycle, Narrative Director and divine agency | SPEC-31 `Proposed`; ADR-029/ADR-031 superseded ADR-046 | Вернуться только при наличии конкретного player-visible production consumer; deterministic template fallback реализуется первым. |
 | Text-canonical multimodal dialogue/model packs | SPEC-16/ADR-017 `Proposed` | Явное решение о promotion, privacy/budget policy и text-only fallback. |
 | External `ai-host` | Optional | Stable bounded process protocol, recorded-input replay and complete in-process fallback. |
 | Learned/full-articulation motor | Optional technology | R5 reference/procedural baseline, exact observation/action checks and runtime/training parity. |
@@ -743,9 +749,9 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 | B-01 | `DEFERRED_LINUX`: Linux validation и same-commit cross-target compare исключены из текущего Windows-only плана. Имеющееся evidence остаётся historical и не закрывает R1/R7. | R1, R7 | Вне текущего плана: на одном exact clean commit собраны Windows/Linux target `PASS` reports/packages с matching roots и `native-gate-compare` сообщает `native_gate_ready = true`. |
 | B-02 | `WINDOWS_COMPLETE / DEFERRED_LINUX`: Windows SDL3/ash B0 проходит real Vulkan frame, resize/focus/suspend-resume/fullscreen, injected device/swapchain recovery, normalized keyboard/mouse, generic controller action profile, real audio open/reopen и packaged `game`/`headless` launch. Linux не выполняется. | R1, R2 | Windows-часть завершена; полное R1 closure и paired cross-target evidence остаются вне Windows-only плана. |
 | B-03 | `CLOSED / WINDOWS_ACCEPTED`: lawful 51-record `projects/reference-alpha`, scripted flow, persistence recovery, package smoke и manual acceptance проходят. Полный representative run без debug commands зафиксирован 2026-08-08 для `r2-reference-alpha-visual-v5` с immutable package/game/project-lock hashes; Save → world change → Load → Resume, rollback/WASD, collisions, UI, resize/fullscreen подтверждены. | — | Закрыт. Повторять acceptance после material package/runtime changes; Linux/R1 и B-12 остаются отдельными открытыми gates. |
-| B-04 | Нет общего job/resource/backpressure substrate | R3–R5 | Finite queues, canonical merge, logical budgets, pin/lease/eviction and fault checks реализованы production owners. |
-| B-05 | Schema migration DAG фактически пуст | R3, R7 | Реальная N−1→N copy-on-write migration проходит valid/corrupt/fault matrix. |
-| B-06 | World ограничен двумя chunks | R3, R4 | General partition interest/admission and multi-region save/restart scenario проходят. |
+| B-04 | Нет production chunk fetch/decode/validate/commit vertical | R3 | Один реальный packaged chunk проходит bounded immutable staging и canonical commit; fault/completion permutations сохраняют declared roots. Generic scheduler, pins/leases и eviction framework не требуются для снятия blocker. |
+| B-05 | `DEFERRED / NOT_CURRENT_BLOCKER`: публично поддерживаемого persisted v1 predecessor ещё нет | — | После объявления первого public v1 и появления реального successor определить минимальный compatibility/export/migration path и copy-on-write fault check. Alpha legacy не мигрируется. |
+| B-06 | World ограничен двумя chunks | R3, R4 | После узкого R3a vertical сценарий с четырьмя regions/64 chunks проходит save/restart; generic scheduler и eviction framework не являются предварительным условием. |
 | B-07 | Нет calendar/population/navigation services | R4 | World owner segment, schedules/tiers and graph navigation baseline проходят systemic scenario. |
 | B-08 | Physics ограничена capsule + static Box; animation/motor отсутствуют | R5 | V1 physical profile and procedural animation/motor fallback проходят physical product checks. |
 | B-09 | Нет external creator CLI/SDK workflow | R6, R7 | Второй project/package создаётся cleanly только public tools/contracts. |
@@ -801,29 +807,23 @@ assignment и exact physics-snapshot `ClosestPoint` query определяют
 authoritative target; `ReplayManifestV5` связывает V2 mapping receipts и exact
 targeting/query facts. Typed integer/fixed-point camera, complete in-memory
 30 Hz snapshots и private Vulkan float view-projection/depth остаются
-presentation-only. Durable same-session checkpoint использует cadence tick
-`0`/каждые `30` ticks и forced atomic suspend/close publication; crash rollback
-ограничен `29` ticks, resume не делает catch-up, exact lifecycle retry,
-publication rollback, full bounded request/event archive, current+previous
-logical retention с bounded object packing по ADR-037 и carry-forward chain
-до `64` recovery evidence entries с prior
-snapshot/object closures сохраняют bounded recovery. Current host/capability
-registration отклоняет stale adapter events;
-authoritative restart создаёт fresh presentation epoch/sequence `0` и camera
-cuts по ADR-035. `LNX-005` выполняется позднее асинхронно; R1/B-01 и весь R2
-этим не закрываются.
+presentation-only. Current application session хранит два чередующихся
+`session.snapshot.v4.bin` и `CURRENT`. Durable world публикуется только manual
+Save и save-on-close; Suspend ничего не сохраняет, а crash откатывает к
+последнему Save. `Prepared` close journal содержит immutable save image,
+`SavePublished` завершает close без второй generation. Current
+host/capability registration отклоняет stale adapter events; Load разрешён
+только из `Suspended`, создаёт fresh presentation epoch/sequence `0` и ждёт
+явного Resume. `LNX-005` выполняется позднее асинхронно.
 
 Performance measurement foundation (`DONE_LOCAL_WINDOWS`) использует
 `PerformanceRunV4`/`PerformanceResourceCountersV4`/`PerformanceMetricV1`/
 `PerformanceBaselineV4`; V2/V3 readers удалены. Полный
 THOTH fingerprint и idle/RAM/thermal preflight, profile `profiling`, raw
 nearest-rank smoke metrics и explicit `NOT_RUN` для ещё отсутствующих
-representative R2–R5 workloads. Report-only `long-session-soak` теперь
-воспроизводит `3 600` live ticks через driver и interactive application path,
-показывает 30-tick durable checkpoint growth и проверяет exact ledger-root
-parity. Checkpoint publication переиспользует один набор уже проверенных
-canonical component bytes, а identity-index root больше не требует полного
-временного serialization buffer. Strict `performance-baseline` publisher,
+representative R2–R5 workloads. Report-only `long-session-soak` воспроизводит
+`3 600` live ticks через driver и interactive application path и проверяет exact
+ledger-root parity без allocator window. Strict `performance-baseline` publisher,
 Windows process I/O deltas, bounded CPU/Vulkan frame timing и conservative
 engine-owned device-allocation ceiling реализованы; release smoke на THOTH
 получил timestamp samples без dropped queries.
@@ -831,29 +831,10 @@ ADR-049 (`DONE_LOCAL_WINDOWS`) делает canonical logical charges, Windows p
 working set/process I/O, device-allocation ceiling, Vulkan timestamps, profiler
 integrity и authoritative roots обязательным hard evidence. Allocator
 instrumentation, отдельная unsafe boundary, probes и diagnostic command удалены.
-Private session storage дополнительно объединяет logical objects в один или
-несколько bounded generation packs, сокращая Windows durable file barriers,
-сохраняет legacy raw load и final logical hash validation; packing не меняет
-generation/state/ledger roots. Prepared-tick package дополнительно убирает
-полный `ReferenceGameDriverV1`/Runtime checkpoint fork из каждого live tick,
-сохраняя его для replay/recovery. Runtime и reference-game tick теперь проходят
-`prepare → generation validation → infallible commit`; checkpoint, suspend и
-close publication по-прежнему выполняется между validation и commit. Три
-instrumented-before run commit `37f3cc2` и три after run на одном THOTH
-`long-session-soak.v3` сохранили authoritative root
-`5e45825e1a627113902640184c00bf448964bb2b8daf10d6e0947d40fd5a6e17` и exact
-driver/application ledger/archive parity. Median run p95 изменился так:
-ordinary application tick `5 231 → 4 268 µs` (`-18.4%`), checkpoint application
-tick `209 588 → 178 017 µs` (`-15.1%`), application 1 200-tick window
-`12.787 → 10.731 s` (`-16.1%`), driver window `9.970 → 9.002 s` (`-9.7%`) и
-checkpoint materialization `129 150 → 128 122 µs` (`-0.8%`). Все шесть run
-остались `REPORT_ONLY`; host preflight был шумным, поэтому числа принимают эту
-ограниченную оптимизацию, но не являются ten-run hard calibration и не закрывают
-B-12. Отдельные 4-KiB chunk files были отвергнуты после
-release soak из-за многократной checkpoint-latency regression. Итоговое
-storage/performance hardening по ADR-037 в одном Windows-local `REPORT_ONLY`
-soak улучшило checkpoint windows примерно на `13.8% / 15.3% / 8.0%` против
-preceding implementation и не меняет product queue.
+Исторические session-pack/checkpoint измерения остаются доступны в git history,
+но больше не описывают current storage contract и не входят в performance
+evidence. B-12 остаётся открытым до clean ten-run baselines на текущем V4
+формате.
 Следующий bounded transaction-delta package перестал копировать и полностью
 перехешировать retained command history на каждом ordinary live tick. Runtime
 теперь staged-изменяет только archive additions, touched identity bindings и
@@ -1199,8 +1180,8 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    bindings, HUD `Subtitle`-role element, overlay filter (одноразовый root
    change от catalog text, PCM digest неизменен); A6 — `audio_scene` в
    v1-closure с pcm digest в closure hash. Открытые gaps (documented, не
-   блокируют R2 alpha slice): chunked long-clip streaming payload (SPEC-23
-   streaming package) и zone reverb fallback (zone occlusion gain
+   блокируют R2 alpha slice): chunked long-clip streaming payload и zone
+   reverb fallback (zone occlusion gain
    реализован, reverb deferred).
 3. **Playable alpha project (`COMPLETE / WINDOWS_ACCEPTED`):**
    data-first Frontier Relay, lawful content package, scripted full-flow equivalent,
@@ -1218,17 +1199,18 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    diagnostic проходят. Ручной acceptance `r2-reference-alpha-visual-v5` с
    `Saved`, `Loaded - press Resume`, rollback/WASD, collisions, UI,
    resize/fullscreen зафиксирован как `PASS` 2026-08-08.
-4. **Architecture cleanup (`IN_PROGRESS`, packages 1–5/6):** R2 gate закрыт;
+4. **Architecture cleanup (`IMPLEMENTED / FINAL_RECHECK_PENDING`, packages 1–6/6):** R2 gate закрыт;
    retired replay/input contracts, session recovery archives/object packs и
    project resolver/catalog удалены. Current project path теперь authoring v2 →
    exact `ProjectLockV3` → atomic `ActivatedProjectV3`. Allocator-counter удалён,
-   performance evidence переведено на current-only V4. Следующий package —
-   нормативное сжатие и полный R2 recheck.
+   performance evidence переведено на current-only V4. Accepted baseline сжат
+   до текущих invariants/contracts; остаются полный automated R2 recheck и
+   manual acceptance нового package.
 5. **R3a jobs/resources vertical (`PLANNED / AFTER_ARCHITECTURE_CLEANUP`):** первым
    production consumer является chunk fetch/decode/validate; shared bounded
    admission primitives не проектируются отдельно от этого workload.
-6. **R3b general partition and migration (`PLANNED`):** ровно 4 regions/64 chunks,
-   generalized placement/streaming и первая real copy-on-write save migration.
+6. **R3b bounded general partition (`PLANNED`):** ровно 4 regions/64 chunks и
+   generalized placement/streaming без alpha migration obligation.
 7. **R4 living-world vertical (`PLANNED`):** calendar, exact 100-NPC population,
    schedules/tiers, engine-owned graph/tile navigation и representative mechanics.
 8. **R5 physical character and animation (`PLANNED`):** минимальный v1 physics

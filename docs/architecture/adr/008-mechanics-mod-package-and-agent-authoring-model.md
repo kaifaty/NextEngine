@@ -9,7 +9,7 @@
 | Последняя проверка | 2026-07-25 |
 | Нормативные зависимости | [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-014](014-deterministic-extensions-and-package-trust.md), [SPEC-11](../11-security-licensing-and-governance.md) |
 | Заменяет | отсутствует |
-| Заменён | не заменён |
+| Заменён | agent-authoring/CLI/MCP obligations partially superseded by [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md); package and no-privileged-mutation invariants remain |
 
 ## ADR-030 scope
 

@@ -67,7 +67,7 @@ Diagnostic сохраняет bounded raw samples и exact counts для:
 
 - main-side queue send wait;
 - message age в worker dequeue;
-- ordinary и durable-checkpoint fixed steps;
+- ordinary и lifecycle-boundary fixed steps; периодической durable publication нет;
 - shared snapshot publication-lock и main read-lock wait;
 - publication callback sequence, snapshot generation lag и freshness;
 - queue high-water, submitted/processed callbacks, publications, drops и
@@ -112,7 +112,7 @@ interactive-frame reports сохраняют свои роли.
 
 | Check | Scenario | Expected | Fallback |
 |---|---|---|---|
-| `fast` | FIFO worker/serial parity, 30/60/144 Hz cadence, bounded-queue saturation, checkpoint/lifecycle attribution, snapshot sidecar consistency и disabled diagnostic fast path | Exact roots/counts, high-water достигает declared capacity без drop/reorder, ordinary/checkpoint samples классифицированы, disabled path не создаёт clocks/atomics | Исправить production worker boundary; не публиковать diagnostic claim |
+| `fast` | FIFO worker/serial parity, 30/60/144 Hz cadence, bounded-queue saturation, lifecycle-boundary attribution, snapshot sidecar consistency и disabled diagnostic fast path | Exact roots/counts, high-water достигает declared capacity без drop/reorder, ordinary/lifecycle-boundary samples классифицированы, disabled path не создаёт clocks/atomics | Исправить production worker boundary; не публиковать diagnostic claim |
 | `performance --scenario production-worker-soak --mode report` | Не менее `240` FIFO callbacks через bounded game queue и shared snapshot handoff | Versioned raw samples/details, exact callback/step/publication counts, zero drop/reorder, unchanged authoritative roots, verdict `REPORT_ONLY` | Вернуть stable measurement/tool error; не синтезировать частичный report |
 | `performance --scenario production-worker-soak --mode gate` | Попытка использовать diagnostic как hard gate | Stable `NOT_RUN`; B-12 остаётся open | Использовать будущий representative R2–R5 workload на compatible THOTH baseline |
 | `play` / `persistence-replay` | Game/headless и profiler off/on permutations | Accepted commands, final state и ledger roots exact; renderer cadence и diagnostics не меняют authority | Отключить optional diagnostic и сохранить production application path |

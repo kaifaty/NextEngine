@@ -9,7 +9,7 @@
 | Последняя проверка | 2026-07-24 |
 | Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-014](014-deterministic-extensions-and-package-trust.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
-| Заменён | не заменён |
+| Заменён | частично [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md): unconsumed calendar/population/tier/bulk-time schemas, legacy migration and ProductChecks are no longer current; durable identity, single ownership, no wall-clock authority and no fabricated outcomes remain Accepted |
 
 ## Контекст
 

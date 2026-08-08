@@ -100,7 +100,7 @@ fn production_worker_details_are_versioned_and_round_trip_strictly() {
         processed_callbacks: 240,
         fixed_steps: 120,
         ordinary_fixed_steps: 116,
-        checkpoint_fixed_steps: 4,
+        lifecycle_boundary_fixed_steps: 4,
         snapshot_publications: 121,
         snapshot_reads: 240,
         fresh_snapshot_reads: 120,

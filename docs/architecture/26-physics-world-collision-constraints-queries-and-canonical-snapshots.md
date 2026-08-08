@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 1.3 |
-| Последняя проверка | 2026-07-27 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-033](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) |
-| Заменяет | отсутствует |
+| Версия | 1.4 |
+| Последняя проверка | 2026-08-08 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-033](adr/033-physx-grounded-capsule-parity-ffi-boundary.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
+| Заменяет | SPEC-26 1.3 obsolete project-lock name and Proposed jobs dependency only; physics contracts unchanged |
 
 ## История принятия
 
@@ -61,7 +61,7 @@ replaceable physics implementation.
 | Registered physics schemas and migrations | Asset & Persistence subsystem through SPEC-22/ADR-025 | Exact schema refs, compatibility and copy-on-write migration |
 | Immutable collision assets and their feature mapping | Asset & Persistence subsystem through SPEC-24 | Exact `AssetId`, revision, record hash and canonical feature table |
 | Active world/body/joint/contact/numeric state | Physical Embodiment subsystem | Validated descriptors, physical step batches and canonical snapshots |
-| Stage/tick assignment and deterministic task merge | Runtime subsystem | SPEC-21 schedule/clock plus SPEC-23/ADR-026 staged immutable results |
+| Stage/tick assignment and deterministic result merge | Runtime subsystem | SPEC-21 schedule/clock and staged immutable results |
 | Motor route/action proposal | Motor Runtime | Read-only observation; accepted action enters one bounded step batch |
 | RPG/mechanics result | Owning domain through common command transaction | Immutable physical outcome proposal |
 | Animation and render pose | Animation/Presentation according to ADR-027 | Read-only committed physical projection |
@@ -141,7 +141,7 @@ survives validation.
 
 ### `PhysicsLimitsProfileV1`
 
-The exact limits profile and hash are part of `ProjectCompositionLock`,
+The exact limits profile and hash are part of `ProjectLockV3`,
 `PhysicsWorldDescriptorV1`, save/replay compatibility and every canonical
 snapshot. A project MAY lower a V1 ceiling but MUST NOT raise it without a new
 Accepted architecture decision.
@@ -180,8 +180,8 @@ Vector magnitude is checked from exact components with checked integer
 arithmetic; checking components alone is insufficient. Count, decoded length,
 offset, product, squared magnitude or accumulation overflow rejects the entire
 staged descriptor/operation/query/snapshot before allocation or publication.
-SPEC-23 resource budgets MAY impose a lower capacity result and never raise
-these hard bounds.
+Runtime-private resource budgets MAY impose a lower capacity result and never
+raise these hard bounds.
 
 ## Canonical descriptor envelope and identities
 
@@ -856,7 +856,7 @@ Schema changes follow SPEC-22/ADR-025:
 - source save/snapshot remains immutable;
 - unknown field/variant/profile/content hash fails before world mutation.
 
-`ProjectCompositionLock` and launch profile bind the exact coordinate,
+`ProjectLockV3` and launch profile bind the exact coordinate,
 numeric, limits, solver-semantics, descriptor and content closure. Runtime
 does not resolve a floating backend or physics profile from ambient machine
 state.

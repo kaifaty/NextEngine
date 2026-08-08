@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 2.2 |
-| Последняя проверка | 2026-07-26 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
-| Заменяет | SPEC-15 2.0 |
+| Версия | 2.3 |
+| Последняя проверка | 2026-08-08 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
+| Заменяет | SPEC-15 2.2 speculative public `next` CLI and narrative scenario protocol |
 
 ## Назначение
 
@@ -149,18 +149,11 @@ loss, encoder absence или quota overflow оставляет replay/diagnostic
 доступными и удаляет incomplete media file. Media MAY иметь SHA-256 для
 удобного сравнения, но остаётся disposable local debug output.
 
-## Local command surface
+## Current command surface
 
-```text
-next scenario validate <scenario>
-next scenario run <scenario> --output <dir>
-next scenario minimize <replay-or-run> --output <dir>
-next test explain <run> --format json
-next capture replay <replay> --plan <capture-plan> --output <dir>
-```
-
-Названия являются engine-owned CLI/JSON contract; GUI, MCP adapter и CI MAY
-вызывать те же application services. Tool output хранится только в явном local
+Current supported entry points are `cargo run -p xtask -- <ProductCheck>` and
+focused crate tests. A public `next` scenario/capture CLI, GUI projection or MCP
+protocol is not a current contract. Tool output хранится только в явном local
 output directory, ignored by source control by default. Удаление локальных
 debug artifacts не меняет source, package или product status.
 
@@ -205,22 +198,8 @@ Coding agent MAY создавать или запускать scenario, чита
 | Output quota exceeded | stop writer and remove incomplete local file |
 | Protected data detected | stop run and quarantine temporary output |
 
-## Narrative and divine scenarios
+## Future scenarios
 
-Scenarios for
-[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) use the same
-actions, immutable probes, save/replay and diagnostics. A live external model
-response is recorded only as an untrusted candidate; deterministic replay uses
-the exact recorded candidate and never repeats the model call as an oracle.
-Absent model/network follows the same deterministic template fallback.
-
-Divine scenarios vary per-god completion order, timeout, crash, duplicate,
-collision and restart while probing one immutable batch base, fixed
-`NarrativeDecisionBoundaryV1` and final cross-context standing/effect/quest
-roots. They MUST include early/at/after-boundary assignments, whole-candidate
-fallback, opposite judgments of one act, authorized versus hidden-target
-spillover, every offer/covenant transition, warning/major-sanction causality,
-reaction-depth exhaustion, patron-set mismatch and save/restart after every
-partial completion. UI probes read qualitative bands/reasons/offers only. No
-scenario may mutate standing directly or treat a fresh LLM call as replay
-evidence.
+SPEC-31 narrative/divine work is Proposed and has no current scenario schema or
+ProductCheck. A production consumer must first define the smallest observable
+vertical through ordinary actions, immutable probes and replay.

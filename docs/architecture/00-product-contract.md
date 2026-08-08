@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-00 |
 | Статус | Accepted |
-| Версия | 2.1 |
-| Последнее изменение | 2026-07-29 |
-| Нормативные зависимости | [INDEX-001](README.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
+| Версия | 2.2 |
+| Последнее изменение | 2026-08-08 |
+| Нормативные зависимости | [INDEX-001](README.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
 
 ## Назначение
 
@@ -39,11 +39,12 @@ V1 MUST:
 9. cook, validate и inspect neutral assets и bounded importer output;
 10. реализовывать first-party mechanics тем же public package API, который
     доступен community packages;
-11. разрешать authored project в immutable exact `ProjectCompositionLock`;
+11. разрешать authored project в immutable exact `ProjectLockV3`;
 12. использовать device-independent player actions и не позволять UI,
     camera или renderer менять gameplay state;
-13. хранить durable state в versioned engine-owned schemas с atomic
-    copy-on-write migration;
+13. хранить durable state в versioned engine-owned schemas; несовместимый
+    alpha input отклоняется typed до mutation, а migration появляется только
+    после первого публично поддерживаемого predecessor;
 14. выполнять async jobs, streaming и I/O через bounded staging без partial
     authoritative publication;
 15. предоставлять короткие локальные product checks для gameplay,

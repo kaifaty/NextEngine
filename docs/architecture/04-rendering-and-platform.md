@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 2.3 |
-| Последняя проверка | 2026-08-06 |
+| Версия | 2.4 |
+| Последняя проверка | 2026-08-08 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md) |
-| Заменяет | SPEC-04 2.2 |
+| Заменяет | SPEC-04 2.3; VFX consumption recovery references removed with SPEC-30 3.0 |
 
 ## Technical authority boundary
 
@@ -15,15 +15,15 @@ Authoritative visual inputs — immutable `PresentationSnapshotV2` и cooked
 render assets по
 [SPEC-30](30-presentation-extraction-and-render-content.md). Presentation
 extraction publishes the canonical snapshot at the Runtime-declared boundary.
-The renderer keeps bounded CPU `PresentationConsumptionStateV1`, private
-platform/window/input adapters, graphics-device state, render graph, GPU/UI/VFX
-caches, frame interpolation and capability selection. `ActionMapManifest`,
+The renderer keeps private platform/window/input adapters, graphics-device
+state, render graph, GPU/UI caches, frame interpolation and capability
+selection. `ActionMapManifest`,
 `InputContext`, `PlayerActionFrame` and semantic
 UI/camera/localization/accessibility state follow
 [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md).
 GPU resources, widget tree, camera output и current frame не являются gameplay
 source of truth; после device loss они MUST быть восстанавливаемы из exact
-content/profile/snapshot plus validated consumption-state inputs.
+content/profile/snapshot inputs.
 
 ## PlatformHost boundary
 
@@ -33,7 +33,7 @@ Input adapter нормализует physical device controls, но gameplay bin
 
 Optional capture worker не создаёт interactive `PlatformHost`:
 input/window/monitor/clipboard/surface lifecycle отсутствуют. Его
-`ApplicationSessionManifestV1` допускает только `DisplaylessOffscreen`;
+`ApplicationSessionManifestV2` допускает только `DisplaylessOffscreen`;
 `OffscreenPresentationTarget` принадлежит render API и получает explicit
 extent/format/color metadata из developer-selected capture request. `headless`
 допускает только presentation target `None`.
@@ -101,12 +101,8 @@ completion order do not determine output order.
 
 При out-of-date interactive target пересоздаётся только presentation chain. При
 device loss renderer прекращает submissions, сохраняет typed diagnostic,
-invalidates the complete `PresentationCacheManifestV1` generation и atomically
-rebuilds only from exact
-content/interface/profile/`PresentationSnapshotV2` inputs plus the validated
-bounded CPU `PresentationConsumptionStateV1`. Consumption state remains outside
-cache invalidation, prevents acknowledged one-shot replay and preserves the
-exact pending-one-shot and active continuous-instance maps.
+invalidates affected private cache generations и atomically rebuilds only from
+exact content/interface/profile/`PresentationSnapshotV2` inputs.
 Simulation/session/snapshot roots
 остаются неизменны; policy MAY request typed `Suspended`, но device timing не
 выбирает gameplay outcome. CPU headless не загружает renderer. Capture-worker
@@ -116,10 +112,11 @@ Shader/interface/material/color mismatch является pre-use content failur
 
 ## Platform packaging
 
-Shipping package использует `PackageManifestV3`. Его `runtime_profile` MUST
+Shipping package использует `PackageManifestV4`. Его `runtime_profile` MUST
 объявлять target ABI, canonical direct-library list каждого binary, maximum
-required GLIBC и все внешние runtime prerequisites. V2 package artifacts
-являются rebuild-only и MUST NOT неявно мигрироваться либо приниматься как V3.
+required GLIBC и все внешние runtime prerequisites; manifest также связывает
+exact `project_lock_sha256`. Earlier package artifacts current runtime rejects
+typed unsupported and never migrates in place.
 
 Windows x86_64 MSVC profile использует dynamic system VC++ x64 runtime и
 системный Vulkan loader `vulkan-1.dll`; выбранная loader ABI strategy требует
@@ -192,6 +189,6 @@ workload.
 | `SHADER-SLANG-P1` | Exercise the shader matrix through the proposed Slang adapter. | The behavior matches `SHADER-P1` and source mapping exists for every compiled entry. | Keep the verified GLSL/HLSL-to-SPIR-V compiler adapter. |
 | `PLATFORM-P1` | Repeated create/resize/fullscreen/focus/input/surface lifecycle on supported desktop hosts. | No crash or leak; normalized event ordering is stable and native handles remain private. | Use the thin native adapter behind the same platform contract. |
 | `RENDER-02` | Force `no RT`, `no mesh shader` and bounded descriptors. | The representative scene remains complete and playable with no missing required material or geometry. Optional screenshots or image diffs may help diagnose regressions but are not the correctness oracle. | Disable the unsupported enhanced path and use the cooked B0 path. |
-| `RENDER-03` | Inject swapchain and device loss at representative frame boundaries. | Interactive target recreation or clean suspension/exit completes without authoritative-state corruption; acknowledged presentation cues are not replayed. | Stop recovery attempts, preserve the last complete save/session state and exit cleanly. |
-| `PACKAGE-01` | Install and run a clean Win/Linux package. | `PackageManifestV3` matches PE/ELF imports and the declared ABI baseline; isolated copied `game`/`headless` launches pass and missing runtime prerequisites have stable diagnostics. | Do not distribute the broken target package; repair its loader/dependency declaration. |
+| `RENDER-03` | Inject swapchain and device loss at representative frame boundaries. | Interactive target recreation or clean suspension/exit completes without authoritative-state corruption; incomplete private cache state is never exposed. | Stop recovery attempts, preserve the last complete save/session state and exit cleanly. |
+| `PACKAGE-01` | Install and run a clean Win/Linux package. | `PackageManifestV4` matches exact project lock, PE/ELF imports and the declared ABI baseline; isolated copied `game`/`headless` launches pass and missing runtime prerequisites have stable diagnostics. | Do not distribute the broken target package; repair its loader/dependency declaration. |
 | `RENDER-04` | Optionally run a developer capture through the displayless offscreen target. | No window/display/surface/swapchain dependency is created; replay gameplay hash remains unchanged and repeated normalized frame output is stable for the selected profile. | Disable capture tooling and fix the target abstraction; normal game/headless operation remains available. |

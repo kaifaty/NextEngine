@@ -9,7 +9,7 @@
 | Последняя проверка | 2026-07-24 |
 | Нормативные зависимости | [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-021](021-deterministic-population-residency-and-time-advance.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
-| Заменён | не заменён |
+| Заменён | частично [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md): unconsumed generic coordinator, job classes, cancellation tree, memory admission, pins/leases, global eviction, archive credits and persisted-work schemas are no longer current; immutable bounded inputs, no mutable access across async and revision-bound canonical commit remain Accepted |
 
 ## Контекст
 

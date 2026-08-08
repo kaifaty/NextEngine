@@ -26,8 +26,8 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
             methodology.notes = vec![
                 "3,600 live ticks in three 1,200-tick windows with held movement and periodic camera input run through both the live driver and interactive application scheduler".to_owned(),
                 "identity-index and command-body archive roots are recomputed at each window boundary after that window timer is sampled; the probes remain inside the declared measured window".to_owned(),
-                "application checkpoint samples include the mandatory 30-tick durable publication path and reuse validated canonical component bytes".to_owned(),
-                "report-only granular samples separate driver prepare, infallible driver commit, checkpoint materialization, ordinary application ticks, and checkpoint application ticks".to_owned(),
+                "every 30 ticks the driver materializes an in-memory WorldCheckpoint for state-root and serialization-cost observation; this never publishes the ApplicationSession store or a save".to_owned(),
+                "paired application samples split every 30th fixed step from the remaining fixed steps without adding persistence work; granular samples also separate driver prepare and infallible driver commit".to_owned(),
                 "application input is staged before timing and each measured host pump advances exactly one 30 Hz fixed step".to_owned(),
                 "project cook/publish/activation, driver/application launch, input and sample-buffer preparation, validation/report assembly and scratch cleanup are outside the measured resource-observation window".to_owned(),
                 "the soak is report-only and diagnoses history-dependent degradation; it cannot close B-12".to_owned(),
@@ -42,6 +42,7 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
                 "phase timings separate event polling plus immutable frame-source update, frame-slot/acquire/image waits, frame-plan, command recording, submit, present and GPU execution".to_owned(),
                 "the measured resource-observation window contains only the prepared desktop adapter run; project/scratch preparation, validation/report conversion and cleanup are outside it".to_owned(),
                 "the static render-input fixture does not time the game composition root's main-to-simulation-worker handoff; production-worker-soak measures that boundary separately".to_owned(),
+                "Vulkan timestamp count and the engine-owned device allocation ceiling are typed resource-counter evidence; swapchain storage remains driver-owned".to_owned(),
                 "the workload is report-only and diagnostic; it is not the representative R2 alpha project and cannot close B-12".to_owned(),
             ];
         }
@@ -50,9 +51,9 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
             methodology.notes = vec![
                 "the inner production-worker-soak.v1 diagnostic contract submits 240 FIFO main-callback batches at 60 Hz through the game composition root's bounded queue and next-simulation worker; its containing performance scenario is hash-bound as production-worker-soak.v3".to_owned(),
                 "the worker advances the production fixed-step application path, publishes shared immutable presentation snapshots, and the main-side callback reads the latest generation".to_owned(),
-                "bounded raw samples separate queue send wait, dequeue age, ordinary/checkpoint fixed steps, snapshot publication/read lock waits, and rendered sequence freshness".to_owned(),
+                "bounded raw samples separate queue send wait, dequeue age, ordinary fixed steps, lifecycle-boundary fixed steps when present, snapshot publication/read lock waits, and rendered sequence freshness".to_owned(),
                 "diagnostic send and dequeue observations are linearized around the same bounded sync channel, so queue high-water is exact channel occupancy rather than an outstanding-work estimate".to_owned(),
-                "scratch creation, sample-buffer reservation, application launch, initial publication and worker readiness precede the measured resource-observation window; 240 callbacks and bounded durable close/join are measured".to_owned(),
+                "scratch creation, sample-buffer reservation, application launch, initial publication and worker readiness precede the measured resource-observation window; 240 callbacks and bounded save-on-close/join are measured".to_owned(),
                 "wall time and diagnostic sequence counters are operational metadata only and never select simulation work, ordering, or authoritative outcomes".to_owned(),
                 "the workload is report-only and diagnostic; it is not a representative R2 workload and cannot close B-12".to_owned(),
             ];

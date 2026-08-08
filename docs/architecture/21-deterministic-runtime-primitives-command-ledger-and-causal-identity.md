@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-21 |
 | Статус | Accepted |
-| Версия | 1.3 |
-| Последняя проверка | 2026-07-26 |
-| Нормативные зависимости | [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
-| Заменяет | отсутствует |
+| Версия | 1.4 |
+| Последняя проверка | 2026-08-08 |
+| Нормативные зависимости | [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
+| Заменяет | SPEC-21 1.3 speculative narrative cross-context and pre-public compatibility clauses |
 
 ## Назначение, authority и граница
 
@@ -1509,53 +1509,21 @@ Corrupt/incompatible ledger, invalid RNG state, unknown schedule/numeric profile
 | RNG-P1 | `next check rng --draws 10000 --targets windows-x86_64,linux-x86_64` | Standard blocks, helpers, rollback, continuation and exhaustion produce exact bytes/state; invalid calls mutate no state. | Reject the incompatible RNG implementation. |
 | SCHEDULE-P1 | `next check schedule --permutations 1000 --workers 1,2,8,16` | Schedule, shard, delta, event and state roots remain exact; access ambiguity and cycles reject. | Serialize execution behind the same manifest. |
 | NUMERIC-P1 | `next check numerics --targets windows-x86_64,linux-x86_64` | Checked integer/fixed-point/IEEE conversion and physics thresholds produce exact results; every invalid value aborts atomically. | Reject the numeric/backend adapter. |
-| COMMAND-V1-COMPAT | `next check command-v1-compat --artifacts all` | Legacy artifacts are either absent or every known hash has one explicit versioned migration; unknown legacy input rejects. | Use a compatible older reader or explicit migration/export. |
 
 Windows and Linux must both satisfy cross-target checks; a result from another target does not substitute for a missing target run.
 
-## Legacy compatibility and technology neutrality
+## Current-only formats and technology neutrality
 
-V1 command, replay or durable-identity artifacts MUST NOT load implicitly. Every recognized legacy hash requires one explicit versioned migration; unknown legacy bytes fail closed and preserve the source generation.
+Pre-public alpha command, replay and durable-identity artifacts have no
+compatibility reader or migration obligation. A non-current version rejects
+with a stable typed `UNSUPPORTED_*` diagnostic before mutation and preserves
+the source bytes. A future migration requires a real publicly supported
+predecessor and a separate Accepted decision.
 
 Выбор ECS scheduler, ChaCha implementation crate, task runtime, fixed-point helper или physics backend не является public technology decision. Replaceable implementation допускается только за exact schemas and algorithms этого документа.
 
-## Narrative completion, decision boundary and replay binding
+## Future narrative work
 
-[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) использует
-существующий `CompletionSignalV1` и current/next ingress без нового async
-authority. Director response считается external input: request identity,
-exact candidate bytes/hash, `CompletionAssignmentV1` и
-accept/reject/fallback decision входят в replay/save closure.
-
-`NarrativeDecisionBoundaryV1.decision_world_tick` and
-`CompletionAssignmentV1.assigned_tick` are distinct nominal clock domains and
-MUST NOT be numerically compared. When World Services reaches the boundary,
-Runtime first closes stage-1 ingress and records the queue generation plus
-closing `SimulationTick`. Only results already assigned in that closed batch are
-eligible; a later assignment is `NARRATIVE_BOUNDARY_CLOSED`. Every result may be
-staged early, but none can move the commit boundary.
-
-Replay не выполняет внешний effect повторно и не перегенерирует candidate.
-Runtime-created graph/node/quest `PersistentId` выводятся из committed causal
-identity, а не из model-provided strings. Replay restores the exact ingress
-assignments and boundary closure before rerunning production validation.
-
-Divine requests use one independent `(owner_id, request_id,
-input_hash)` per patron and one shared `DivineJudgmentBatchBaseV1.base_hash`.
-`CompletionSignalV1` assignment remains per request. Runtime never treats first
-completion, last completion or provider order as a council result.
-
-At the exact divine decision boundary, selected per-patron
-candidate/fallback hashes sort by patron `AssetId` bytes and request ID, then
-`PantheonConflictResolverV1` computes one resolution from the immutable base.
-The resulting `AdmitDivineJudgmentBatch` uses ordinary command identity,
-operation/event slots and atomic receipt semantics. Replay supplies the exact
-recorded per-god completion bytes and fallback selection and never reissues the
-requests.
-
-For `AdmitQuestGraphRevision` and `AdmitDivineJudgmentBatch` only, Runtime owns
-`CrossContextTransactionPlanV1`. It validates common command/body identity and
-immutable owner-built RPG, Mechanics and quest-graph subplans, merges their
-event drafts by the SPEC-31 owner-context tuple, stages one buffer and publishes
-the complete state/event/receipt set or nothing. Runtime does not construct or
-reinterpret an owner subplan.
+Future narrative/divine work remains Proposed under SPEC-31/ADR-046. The
+current Runtime defines no narrative decision-boundary API, generated graph
+admission, divine judgment batch or generic cross-context transaction wrapper.

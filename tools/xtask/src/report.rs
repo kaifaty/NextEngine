@@ -148,7 +148,7 @@ pub struct ProductionWorkerPerformanceDetailsV1 {
     pub processed_callbacks: u64,
     pub fixed_steps: u64,
     pub ordinary_fixed_steps: u64,
-    pub checkpoint_fixed_steps: u64,
+    pub lifecycle_boundary_fixed_steps: u64,
     pub snapshot_publications: u64,
     pub snapshot_reads: u64,
     pub fresh_snapshot_reads: u64,

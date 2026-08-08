@@ -28,7 +28,7 @@ const MEASUREMENT_WINDOW_TICKS: u64 = 300;
 const LONG_SESSION_TICKS: u64 = 3_600;
 const LONG_SESSION_WINDOW_TICKS: u64 = 1_200;
 const LONG_SESSION_CAMERA_INTERVAL_TICKS: u64 = 15;
-const CHECKPOINT_INTERVAL_TICKS: u64 = 30;
+const STATE_SAMPLE_INTERVAL_TICKS: u64 = 30;
 const APPLICATION_ONE_TICK_ELAPSED: Duration = Duration::from_nanos(33_333_334);
 #[cfg(not(debug_assertions))]
 const LIVE_MOVEMENT_LIMIT: Duration = Duration::from_secs(30);
@@ -78,9 +78,9 @@ pub struct LiveRuntimePerformanceReport {
     pub archive_root_probe_microseconds: [u128; 3],
     pub camera_event_count: u64,
     pub application_window_microseconds: [u128; 3],
-    pub application_checkpoint_microseconds: [u128; 3],
-    pub application_ordinary_tick_microseconds: Vec<u128>,
-    pub application_checkpoint_tick_microseconds: Vec<u128>,
+    pub application_sample_interval_microseconds: [u128; 3],
+    pub application_non_sample_tick_microseconds: Vec<u128>,
+    pub application_sample_tick_microseconds: Vec<u128>,
     pub application_final_state_root: Option<ContentHash>,
     pub final_command_archive_root: ContentHash,
     pub final_command_identity_index_root: ContentHash,

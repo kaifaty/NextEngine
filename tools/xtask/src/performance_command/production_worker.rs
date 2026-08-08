@@ -251,18 +251,20 @@ pub(super) fn append_production_worker_metrics(
             .map(|sample| nanoseconds(sample.nanoseconds))
             .collect::<Result<Vec<_>, _>>()?,
     )?);
-    metrics.push(timing_metric(
-        "worker.fixed-step-checkpoint",
+    append_optional_production_worker_timing_metric(
+        metrics,
+        "worker.fixed-step-lifecycle-boundary",
         worker
             .metrics
             .fixed_step_samples
             .iter()
             .filter(|sample| {
-                sample.class == next_application::InteractiveWorkerFixedStepClassV1::Checkpoint
+                sample.class
+                    == next_application::InteractiveWorkerFixedStepClassV1::LifecycleBoundary
             })
             .map(|sample| nanoseconds(sample.nanoseconds))
             .collect::<Result<Vec<_>, _>>()?,
-    )?);
+    )?;
     metrics.push(timing_metric(
         "worker.snapshot-publication-lock-wait",
         worker
@@ -325,8 +327,8 @@ pub(super) fn append_production_worker_metrics(
         ("fixed-steps", worker.metrics.fixed_steps),
         ("ordinary-fixed-steps", worker.metrics.ordinary_fixed_steps),
         (
-            "checkpoint-fixed-steps",
-            worker.metrics.checkpoint_fixed_steps,
+            "lifecycle-boundary-fixed-steps",
+            worker.metrics.lifecycle_boundary_fixed_steps,
         ),
         (
             "snapshot-publications",
@@ -344,6 +346,23 @@ pub(super) fn append_production_worker_metrics(
             None,
         )?);
     }
+    Ok(())
+}
+
+fn append_optional_production_worker_timing_metric(
+    metrics: &mut Vec<xtask::performance::PerformanceMetricV1>,
+    name: &str,
+    samples: Vec<u64>,
+) -> Result<(), String> {
+    if samples.is_empty() {
+        return Ok(());
+    }
+    metrics.push(xtask::performance::PerformanceMetricV1::from_samples(
+        format!("production-worker-soak.{name}"),
+        "nanoseconds",
+        samples,
+        None,
+    )?);
     Ok(())
 }
 
@@ -374,7 +393,7 @@ pub(super) fn production_worker_details(
         processed_callbacks: worker.metrics.processed_callbacks,
         fixed_steps: worker.metrics.fixed_steps,
         ordinary_fixed_steps: worker.metrics.ordinary_fixed_steps,
-        checkpoint_fixed_steps: worker.metrics.checkpoint_fixed_steps,
+        lifecycle_boundary_fixed_steps: worker.metrics.lifecycle_boundary_fixed_steps,
         snapshot_publications: worker.metrics.snapshot_publications,
         snapshot_reads,
         fresh_snapshot_reads,
@@ -413,7 +432,7 @@ pub(super) fn observed_worker_unowned_spans(
         metrics.fixed_steps.abs_diff(
             metrics
                 .ordinary_fixed_steps
-                .saturating_add(metrics.checkpoint_fixed_steps),
+                .saturating_add(metrics.lifecycle_boundary_fixed_steps),
         ),
         metrics
             .snapshot_publications
@@ -479,11 +498,11 @@ pub(super) fn record_worker_owned_spans(
         })
         .map(|sample| sample.nanoseconds)
         .fold(0_u128, u128::saturating_add);
-    let checkpoint = metrics
+    let lifecycle_boundary = metrics
         .fixed_step_samples
         .iter()
         .filter(|sample| {
-            sample.class == next_application::InteractiveWorkerFixedStepClassV1::Checkpoint
+            sample.class == next_application::InteractiveWorkerFixedStepClassV1::LifecycleBoundary
         })
         .map(|sample| sample.nanoseconds)
         .fold(0_u128, u128::saturating_add);
@@ -506,7 +525,7 @@ pub(super) fn record_worker_owned_spans(
         ("runtime-stages", 0_u32, main_send),
         ("render-extraction", 0_u32, main_read),
         ("runtime-stages", 1_u32, ordinary),
-        ("runtime-stages", 1_u32, checkpoint),
+        ("runtime-stages", 1_u32, lifecycle_boundary),
         ("render-extraction", 1_u32, publication),
     ] {
         if spans.len() < usize::try_from(xtask::performance::MAX_SPANS_PER_THREAD).unwrap_or(0) {
@@ -524,7 +543,30 @@ pub(super) fn record_worker_owned_spans(
 
 #[cfg(test)]
 mod tests {
-    use super::combine_production_worker_result;
+    use super::{
+        append_optional_production_worker_timing_metric, combine_production_worker_result,
+    };
+
+    #[test]
+    fn absent_lifecycle_boundary_does_not_fabricate_a_timing_sample() {
+        let mut metrics = Vec::new();
+        append_optional_production_worker_timing_metric(
+            &mut metrics,
+            "worker.fixed-step-lifecycle-boundary",
+            Vec::new(),
+        )
+        .expect("empty optional metric");
+        assert!(metrics.is_empty());
+
+        append_optional_production_worker_timing_metric(
+            &mut metrics,
+            "worker.fixed-step-lifecycle-boundary",
+            vec![7],
+        )
+        .expect("present optional metric");
+        assert_eq!(metrics.len(), 1);
+        assert_eq!(metrics[0].raw_samples, vec![7]);
+    }
 
     #[test]
     fn workload_and_cleanup_failures_are_both_reported() {

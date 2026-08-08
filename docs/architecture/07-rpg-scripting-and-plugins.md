@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-07 |
 | Статус | Accepted |
-| Версия | 1.7 |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md) |
-| Заменяет | отсутствует |
+| Версия | 1.8 |
+| Последняя проверка | 2026-08-08 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
+| Заменяет | SPEC-07 1.7 pre-v1 N-1 compatibility obligations |
 
 ## Source of truth и ownership
 
@@ -49,7 +49,7 @@ Durable package-specific gameplay state не хранится в VM globals. О�
 
 ## Luau scripting
 
-Luau — Accepted gameplay/content scripting technology. Exact VM version pinned в implementation manifest и MUST повторять SCRIPT product checks при upgrade; это не замораживает весь host API до PoC. Каждый package имеет manifest с package ID/version/content hash, requested capabilities, deterministic flag, entry points и compatible engine API range.
+Luau — Accepted gameplay/content scripting technology. Exact VM version pinned в implementation manifest и MUST повторять SCRIPT product checks при upgrade; это не замораживает весь host API до PoC. Каждый package имеет manifest с package ID/version/content hash, requested capabilities, deterministic flag, entry points и exact current engine API identity.
 
 Default sandbox:
 
@@ -66,7 +66,7 @@ Instruction/fuel/allocation/host-call/command counters используют exac
 
 Plugin manifest содержит plugin ID/version/content hash, source/provenance metadata, WIT world ID, supported interface range, requested capabilities, max memory/tables/instances, fuel per call/gameplay tick, deterministic flag и dependencies. Default untrusted caps: 64 MiB linear memory, 1 table, 1 instance, 10 million fuel/call, 20 million fuel/gameplay tick; host MAY выдать меньше.
 
-WIT contracts используют value/resource handles, PersistentId/AssetId и typed `result`; RuntimeEntityId/raw pointer/vendor handle запрещены. Host поддерживает current major N и предыдущий N-1 compatibility adapter в пределах опубликованной matrix. Major mismatch → plugin не загружается, игра продолжает без optional plugin либо отказывает до world load, если project manifest честно объявил plugin required.
+WIT contracts используют value/resource handles, PersistentId/AssetId и typed `result`; RuntimeEntityId/raw pointer/vendor handle запрещены. До первого публично поддерживаемого v1 host принимает только exact current WIT/API identity. Retired alpha interface возвращает typed unsupported result; optional plugin отключается, required plugin останавливает activation до world mutation.
 
 Wasmtime — Proposed backend. Component Model feature set pinned; preview/unstable proposals disabled, если они явно не разрешены manifest.
 
@@ -85,7 +85,8 @@ Capabilities granular и namespaced, например `rpg.character.read`, `rpg
 - Luau error/authoritative quota overrun → callback abort на exact counter, uncommitted candidates discarded, package strike; critical package после threshold вызывает clean project error, optional отключается. Wall watchdog → `Fail(EXTENSION_WALL_WATCHDOG)` для exact run, никогда не authoritative violation/strike, gameplay event/outcome или `Pass`.
 - Wasm trap/fuel/memory violation → instance terminated, resources reclaimed, structured diagnostic; host/game не падает.
 - Capability denial → no side effect; script/plugin MAY выбрать documented fallback.
-- Incompatible required package/state migration → fail before world mutation.
+- Incompatible required package/state format → fail before world mutation; no
+  pre-v1 automatic migration or defaulting.
 - Invalid skill ID/proficiency delta → progression command rejected; active motor route и model bytes не меняются.
 - Nondeterministic API request из deterministic package → denial.
 - Default circuit breaker отключает package/plugin principal после третьего authoritative violation в inclusive sliding window `1_800` gameplay ticks. Violation — только deterministic quota exhaustion, trap, invalid command/capability attempt или schema violation из versioned `ExtensionBudgetPolicyV1`; wall watchdog violation не добавляет.
@@ -99,11 +100,11 @@ Capabilities granular и namespaced, например `rpg.character.read`, `rpg
 | SCRIPT-P1 | Sandbox-escape and adversarial API corpus | Filesystem, network, native and debug escapes are denied; remove the exposed API or pin the prior Luau runtime. |
 | SCRIPT-P2 | Instruction, allocation, host-call and command quotas at limit-1/limit/limit+1 | Accept/reject tick and diagnostic are exact, no partial command is committed, and save/reload preserves the ledger; disable the offending package on violation. |
 | SCRIPT-P3 | Determinism replay over 100 seeds | Accepted commands and state hashes match exactly; reject a nondeterministic package. |
-| SCRIPT-P4 | Save migration N-1→N | Valid fixtures migrate exactly and invalid state fails closed; use the prior package/export path if migration is unavailable. |
+| SCRIPT-P4 | Current package-state round trip plus retired-version corpus | Current state round-trips exactly; retired/corrupt state fails typed unsupported before world mutation with source bytes unchanged. |
 | SCRIPT-P5 | Same corpus under CPU, load, worker and watchdog permutations | Deterministic counters and authoritative ledger remain exact; a wall watchdog trip stops the affected run/package and never silently changes gameplay. |
 | PLUGIN-P1 | Capability, trap, fuel, memory, table and instance corpus | Denials and overruns are isolated with no partial proposal, host crash or persistent leak; pin Wasmtime or disable the plugin. |
-| PLUGIN-P2 | WIT N/N-1 negotiation | The declared matrix is accepted and N-2/major mismatch is rejected before world mutation; use a compatibility adapter or prior runtime. |
-| PLUGIN-P3 | Public WIT/value boundary scan | No `RuntimeEntityId`, raw pointer or vendor handle crosses the boundary; current and N-1 worlds return the same typed results. |
+| PLUGIN-P2 | Exact current WIT/API negotiation plus retired-version corpus | Exact current identity is accepted; every retired/unknown alpha interface rejects before world mutation. |
+| PLUGIN-P3 | Public WIT/value boundary scan | No `RuntimeEntityId`, raw pointer or vendor handle crosses the boundary; current world returns the expected typed results. |
 | PLUGIN-P4 | Malicious component fuzzing | No sandbox escape, host panic or undefined behavior; disable plugin loading until fixed. |
 | PLUGIN-P5 | Required/optional plugin startup failure | Optional failure leaves the project playable; required failure stops before world mutation with a stable code. |
 

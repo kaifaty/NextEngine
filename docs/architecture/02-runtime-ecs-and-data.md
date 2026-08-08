@@ -4,21 +4,29 @@
 |---|---|
 | ID | SPEC-02 |
 | Статус | Accepted |
-| Версия | 1.7 |
-| Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
-| Заменяет | отсутствует |
+| Версия | 1.8 |
+| Последняя проверка | 2026-08-08 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
+| Заменяет | SPEC-02 1.7 resolver-lock and current population-stage wording |
 
 ## Source of truth и ownership
 
-Core runtime владеет fixed tick clocks, entity residency, RuntimeEntityId mapping, system schedule, command transaction log, DomainEvent order и snapshot publication. Exact active project configuration приходит только из immutable `ProjectCompositionLock`; World Services владеет calendar/population state, RPG Framework — aggregate state/transaction semantics, Player Experience — action/UI/camera presentation state. Domain component values принадлежат профильному context, а ECS storage — только механизм размещения. ECS implementation не определяет публичную semantics.
+Core runtime владеет fixed tick clocks, entity residency, RuntimeEntityId
+mapping, system schedule, command transaction log, DomainEvent order и snapshot
+publication. Exact active project configuration приходит только из immutable
+`ProjectLockV3`; RPG Framework владеет aggregate state/transaction semantics,
+Player Experience — action/UI/camera presentation state. Future
+calendar/population authority остаётся Proposed в SPEC-20 и не добавляет
+current Runtime stage. Domain component values принадлежат профильному context,
+а ECS storage — только механизм размещения. ECS implementation не определяет
+публичную semantics.
 
 ## Идентификаторы
 
 | Тип | Representation contract | Lifetime | Разрешённые границы |
 |---|---|---|---|
 | `RuntimeEntityId` | opaque, generational, process-local | spawn→despawn одного runtime | только Rust runtime facade |
-| `PersistentId` | opaque 128-bit, canonical 16 bytes / lowercase hex text | между runs и content revisions согласно migration | saves, chunks, replay, Luau/WIT/AI views |
+| `PersistentId` | opaque 128-bit, canonical 16 bytes / lowercase hex text | между runs внутри поддерживаемого format/project closure | saves, chunks, replay, Luau/WIT/AI views |
 | `AssetId` | opaque 128-bit logical identifier | между recook; revision через manifest | authoring/cooked/runtime public contracts |
 
 Неявные conversions запрещены. Resolver MUST обнаруживать absent, unloaded, tombstoned и duplicate PersistentId как разные outcomes. Imported IDs используют namespace derived из importer schema ID + source logical identity, а не путь пользователя.
@@ -51,7 +59,7 @@ Tick rates и divisors MUST входить в project/save/replay manifests. Run
 3. validate schema, target, preconditions и RPG rules; multi-aggregate operation строит immutable revision-bound `RpgTransactionPlan`;
 4. пересчитать V2 body hash/command ID, выполнить ADR-022 `CommandLedgerV2` admission/deduplication через соответствующий `CommandStreamLedgerV2` и sort `Ingress` commands по `(target_tick, phase, priority_class, issuer_tag, issuer_payload_bytes, sequence, command_id)`;
 5. атомарно apply `Ingress` transaction и emit ordered DomainEvent; RPG plan либо полностью коммитит stable mutation/event order, либо не меняет state;
-6. deterministic World Services calendar/population/schedule update через revision-bound `WorldAdvancePlan`;
+6. применить current deterministic world/streaming commitments; calendar/population work здесь отсутствует до отдельного production consumer;
 7. deterministic agent planning и PhysicalAvatarIntent generation;
 8. physics/motor substeps, contact normalization и physical outcomes;
 9. сформировать один закрытый `Outcome` batch внутренних commands, пропустить его через тот же validator/order/transaction и запретить same-tick re-entry;

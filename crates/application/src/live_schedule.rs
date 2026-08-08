@@ -77,9 +77,9 @@ impl FixedStepLiveSchedulerV1 {
         })
     }
 
-    /// Interactive hot path: advances the same fixed authoritative boundaries
-    /// while returning only the immutable presentation projection between
-    /// durable checkpoint boundaries.
+    /// Interactive hot path: advances fixed authoritative boundaries while
+    /// returning only the immutable presentation projection. Durable world
+    /// publication remains exclusive to explicit Save and save-on-close.
     pub fn advance_reference_game_presentation(
         &mut self,
         application: &mut ApplicationCoordinator,
@@ -147,7 +147,7 @@ impl FixedStepLiveSchedulerV1 {
                 if let Ok(advance) = &result {
                     observe_fixed_step(
                         advance.presentation.simulation_tick,
-                        advance.published_checkpoint,
+                        advance.materialized_lifecycle_boundary,
                         duration,
                     );
                 }

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-27 |
 | Статус | Accepted |
-| Версия | 1.1 |
-| Последняя проверка | 2026-07-25 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md) |
-| Заменяет | отсутствует |
+| Версия | 1.2 |
+| Последняя проверка | 2026-08-08 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
+| Заменяет | SPEC-27 1.1 obsolete project-lock name only; motor contracts unchanged |
 
 ## История принятия
 
@@ -38,7 +38,7 @@ motor policy evaluation, safety layer и physics actuation.
   Partial action, partial state или per-channel смешивание learned/fallback
   output запрещены.
 - Policy/model/schema/safety/fallback inputs immutable, content-addressed и
-  входят в exact `ProjectCompositionLock`.
+  входят в exact `ProjectLockV3`.
 - Runtime inference не использует RNG. Stochastic op, ambient seed, filesystem,
   network, environment variable или hidden mutable evaluator state в
   authoritative path являются contract violation.
@@ -348,7 +348,7 @@ MotorInferenceProfileV1 {
 
 Capabilities are closed engine-owned operation/numeric limits, never provider,
 device or library names. Every referenced byte sequence and schema is immutable
-and content-addressed in the exact `ProjectCompositionLock`. Runtime never
+and content-addressed in the exact `ProjectLockV3`. Runtime never
 discovers a model, schema, normalization table or fallback controller by path,
 environment, “latest” tag or mutable registry. Any hash/compatibility/tick-rate
 mismatch makes the learned route unavailable before observation batching.
