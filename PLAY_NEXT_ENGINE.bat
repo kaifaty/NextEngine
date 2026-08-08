@@ -13,7 +13,7 @@ if errorlevel 1 (
 )
 
 echo Starting Next Engine...
-set "NEXT_ENGINE_PLAY_STATE=%~dp0.local\play-state-v2"
+set "NEXT_ENGINE_PLAY_STATE=%~dp0.local\play-state-v3"
 cargo run --release -p next_game --features desktop-sdl-ash -- --interactive --state-root "%NEXT_ENGINE_PLAY_STATE%" %*
 set "NEXT_ENGINE_EXIT_CODE=%ERRORLEVEL%"
 

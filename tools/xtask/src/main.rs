@@ -300,7 +300,7 @@ fn v1_closure() -> Result<(), String> {
 fn v1_closure_report(
     state_root: Option<&Path>,
 ) -> Result<CommandReportV1<V1ClosureDetailsV1>, String> {
-    let _ = run_tool_session("tools-v1-closure", state_root)?;
+    let _ = run_tool_session("tools-v1-closure-v2", state_root)?;
     let report = match state_root {
         Some(root) => next_verification::run_v1_closure_check_in(root),
         None => next_verification::run_v1_closure_check(),
@@ -374,7 +374,7 @@ fn platform() -> Result<(), String> {
 fn platform_report(
     state_root: Option<&Path>,
 ) -> Result<CommandReportV1<PlatformDetailsV1>, String> {
-    let _ = run_tool_session("tools-platform", state_root)?;
+    let _ = run_tool_session("tools-platform-v2", state_root)?;
     let report = match state_root {
         Some(root) => next_verification::run_platform_check_in(root),
         None => next_verification::run_platform_check(),
@@ -441,7 +441,7 @@ fn content_package_report(
 }
 
 fn physics_backend_parity(substeps: u64, permutations: u64) -> Result<(), String> {
-    let _ = run_tool_session("tools-physics-backend-parity", None)?;
+    let _ = run_tool_session("tools-physics-backend-parity-v2", None)?;
     let report = next_verification::run_physics_backend_parity_check(substeps, permutations)
         .map_err(|error| error.to_string())?;
     CommandReportV1::emit(
@@ -489,7 +489,7 @@ fn parse_parity_counts(mut arguments: impl Iterator<Item = String>) -> Result<(u
 }
 
 fn physics_collision(backend: next_verification::PhysicsCollisionBackend) -> Result<(), String> {
-    let _ = run_tool_session("tools-physics-collision", None)?;
+    let _ = run_tool_session("tools-physics-collision-v2", None)?;
     let report = next_verification::run_physics_collision_check_with_backend(backend)
         .map_err(|error| error.to_string())?;
     let translation = report.final_pose.translation_micrometres;
@@ -579,7 +579,7 @@ fn play_report(state_root: Option<&Path>) -> Result<next_application::RunReportV
         None => next_verification::run_play_check(),
     }
     .map_err(|error| error.to_string())?;
-    let (run, close) = run_tool_session("tools-play", state_root)?;
+    let (run, close) = run_tool_session("tools-play-v2", state_root)?;
     if run.ticks != expected.ticks
         || run.events != expected.events
         || run.rpg_events != expected.rpg_events
@@ -606,7 +606,7 @@ fn persistence_replay_report(
     backend: next_verification::PersistenceReplayBackend,
     state_root: Option<&Path>,
 ) -> Result<CommandReportV1<PersistenceReplayDetailsV1>, String> {
-    let _ = run_tool_session("tools-persistence-replay", state_root)?;
+    let _ = run_tool_session("tools-persistence-replay-v2", state_root)?;
     let report = match state_root {
         Some(root) => {
             next_verification::run_persistence_replay_check_with_backend_in(backend, root)

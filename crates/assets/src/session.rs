@@ -141,14 +141,18 @@ impl SessionStore {
             SessionStoreError::io("read session pointer", self.current_path(), source)
         })?;
         let mut fields = pointer.split_whitespace();
-        let sequence = fields
-            .next()
-            .ok_or(SessionStoreError::PointerInvalid)?
+        let sequence_field = fields.next().ok_or(SessionStoreError::PointerInvalid)?;
+        let slot_field = match fields.next() {
+            Some(value) => value,
+            None if is_canonical_hash(sequence_field) => {
+                return Err(SessionStoreError::UnsupportedVersion);
+            }
+            None => return Err(SessionStoreError::PointerInvalid),
+        };
+        let sequence = sequence_field
             .parse::<u64>()
             .map_err(|_| SessionStoreError::PointerInvalid)?;
-        let slot = fields
-            .next()
-            .ok_or(SessionStoreError::PointerInvalid)?
+        let slot = slot_field
             .parse::<u8>()
             .map_err(|_| SessionStoreError::PointerInvalid)?;
         let expected_hash = parse_hash(fields.next().ok_or(SessionStoreError::PointerInvalid)?)?;
@@ -195,11 +199,7 @@ fn validate_snapshot(snapshot: &[u8]) -> Result<(), SessionStoreError> {
 }
 
 fn parse_hash(value: &str) -> Result<ContentHash, SessionStoreError> {
-    if value.len() != 64
-        || !value
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-    {
+    if !is_canonical_hash(value) {
         return Err(SessionStoreError::PointerInvalid);
     }
     let mut bytes = [0_u8; 32];
@@ -207,6 +207,13 @@ fn parse_hash(value: &str) -> Result<ContentHash, SessionStoreError> {
         bytes[index] = (nibble(pair[0]) << 4) | nibble(pair[1]);
     }
     Ok(ContentHash::from_bytes(bytes))
+}
+
+fn is_canonical_hash(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn nibble(value: u8) -> u8 {
@@ -269,6 +276,7 @@ pub enum SessionStoreError {
         source: std::io::Error,
     },
     NoCurrent,
+    UnsupportedVersion,
     PointerInvalid,
     SnapshotInvalid,
     PriorGenerationMismatch,
@@ -289,6 +297,7 @@ impl SessionStoreError {
         match self {
             Self::Io { .. } => "SESSION_STORE_IO",
             Self::NoCurrent => "SESSION_STORE_EMPTY",
+            Self::UnsupportedVersion => "UNSUPPORTED_SESSION_STORE_VERSION",
             Self::PointerInvalid | Self::SnapshotInvalid => "SESSION_SNAPSHOT_INVALID",
             Self::PriorGenerationMismatch | Self::SequenceStale => "SESSION_PUBLICATION_STALE",
         }
@@ -302,6 +311,7 @@ impl Display for SessionStoreError {
                 operation, path, ..
             } => write!(formatter, "{operation}: {}", path.display()),
             Self::NoCurrent => formatter.write_str("no current session snapshot exists"),
+            Self::UnsupportedVersion => formatter.write_str("unsupported session store version"),
             Self::PointerInvalid => formatter.write_str("session CURRENT pointer is invalid"),
             Self::SnapshotInvalid => formatter.write_str("session snapshot is invalid"),
             Self::PriorGenerationMismatch => {
@@ -356,6 +366,29 @@ mod tests {
             store.publish(&stale),
             Err(SessionStoreError::PriorGenerationMismatch)
         ));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn rejects_retired_single_hash_pointer_without_modifying_it() {
+        let root = std::env::temp_dir().join(format!(
+            "next-session-store-retired-pointer-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("create root");
+        let retired_pointer = "757f7afcfb92766c93bc4201031b041fa58c223cc97212ef685e82f503abaa5a\n";
+        fs::write(root.join(CURRENT_FILE), retired_pointer).expect("write retired pointer");
+        let store = SessionStore::new(&root);
+
+        let error = store.load_current().expect_err("retired store must reject");
+
+        assert!(matches!(error, SessionStoreError::UnsupportedVersion));
+        assert_eq!(error.diagnostic_code(), "UNSUPPORTED_SESSION_STORE_VERSION");
+        assert_eq!(
+            fs::read_to_string(root.join(CURRENT_FILE)).expect("read pointer"),
+            retired_pointer
+        );
         let _ = fs::remove_dir_all(root);
     }
 }

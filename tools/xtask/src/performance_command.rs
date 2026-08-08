@@ -187,7 +187,7 @@ fn performance_report_for(
             run, None, None, None, None, None,
         ));
     }
-    let (tool_run, _) = run_tool_session("tools-performance", state_root)?;
+    let (tool_run, _) = run_tool_session("tools-performance-v2", state_root)?;
     let profiling_enabled = match env::var("NEXTENGINE_PERFORMANCE_PROFILER") {
         Ok(value) if value.eq_ignore_ascii_case("on") || value == "1" => true,
         Ok(value) if value.eq_ignore_ascii_case("off") || value == "0" => false,
