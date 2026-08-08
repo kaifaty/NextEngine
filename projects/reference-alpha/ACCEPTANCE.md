@@ -1,5 +1,27 @@
 # Frontier Relay manual acceptance
 
+## Accepted package — 2026-08-08
+
+**Result:** `PASS`
+
+The complete 20–30 minute Windows acceptance run passed for
+`r2-reference-alpha-visual-v5` without debug commands. The accepted immutable
+inputs are:
+
+- source baseline: `fe87ae3`;
+- package manifest SHA-256:
+  `fe903b4ae8dd225d1636e4483e11e3767ef516dc04661b3b995f3e63b4e0a138`;
+- packaged `game` binary SHA-256:
+  `50e4fb7f2fbc9b38c75acc623c0cf2fe3e8b0a3f902088a5c59e2bf5e810534a`;
+- project lock SHA-256:
+  `84742a69c5b32e10fb5093d40c89f7e06f4e3aa6ccbf35feeca78cbb5a20a828`.
+
+The run verified Save confirmation, an observable world change, Load rollback,
+explicit Resume and authoritative WASD movement; visible collider boundaries,
+all four rock collisions, combat/relay state, UI, resize and fullscreen also
+passed. This record closes the Windows R2 manual gate. It does not claim Linux
+or R1 cross-target closure and does not close performance blocker B-12.
+
 Target duration: 20–30 minutes on the Windows `game` root. The short automated
 flow exercises the same stable action IDs and committed RPG/world outcomes;
 this run adds human pacing, exploration, UI and recovery observation.
