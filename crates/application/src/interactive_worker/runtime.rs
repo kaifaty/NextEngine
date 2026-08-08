@@ -176,24 +176,6 @@ impl InteractiveSimulationWorkerV1 {
         }
     }
 
-    #[cfg(test)]
-    pub(super) fn inject_fail_next_close_publication(
-        &self,
-    ) -> Result<(), InteractiveWorkerFailureV1> {
-        let (acknowledged_sender, acknowledged_receiver) = mpsc::sync_channel(1);
-        self.send_message(
-            InteractiveSimulationMessageV1::InjectClosePublicationFailure {
-                acknowledged_sender,
-            },
-        )?;
-        acknowledged_receiver.recv().map_err(|_| {
-            InteractiveWorkerFailureV1::runtime(
-                "SESSION_RUNTIME_FAILED",
-                "simulation worker stopped before acknowledging close fault injection",
-            )
-        })
-    }
-
     fn join_closed_worker(&mut self) -> InteractiveWorkerFinalizationV1 {
         let Some(worker) = self.worker.take() else {
             return InteractiveWorkerFinalizationV1::Closed {
@@ -277,8 +259,6 @@ impl InteractiveSimulationMessageV1 {
                 callback_sequence, ..
             } => Some(*callback_sequence),
             Self::Shutdown { .. } => None,
-            #[cfg(test)]
-            Self::InjectClosePublicationFailure { .. } => None,
         }
     }
 
@@ -798,13 +778,6 @@ fn run_interactive_simulation_session_worker(
                     }
                 }
             }
-            #[cfg(test)]
-            InteractiveSimulationMessageV1::InjectClosePublicationFailure {
-                acknowledged_sender,
-            } => {
-                application.inject_fail_next_state_publication();
-                let _ = acknowledged_sender.send(());
-            }
         }
     }
 }
@@ -902,14 +875,13 @@ fn finish_interactive_worker(
     let run = application
         .current_live_run()
         .map_err(InteractiveWorkerFailureV1::application)?;
-    let close_options = CloseExecutionOptionsV1::default();
     let close = if let Some(event) = platform_close_event {
-        application.close_from_platform_event(event, close_options)
+        application.close_from_platform_event(event)
     } else {
-        application.close(close_options)
+        application.close()
     }
     .map_err(InteractiveWorkerFailureV1::application)?;
-    if !matches!(close, ApplicationCloseOutcomeV1::Closed { .. }) {
+    if !matches!(close, ApplicationCloseOutcomeV2::Closed { .. }) {
         return Err(InteractiveWorkerFailureV1::runtime(
             "SESSION_FINAL_SAVE_FAILED",
             "application close did not reach a terminal receipt",

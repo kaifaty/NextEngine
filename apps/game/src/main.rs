@@ -6,7 +6,7 @@ use std::sync::Arc;
 #[cfg(test)]
 use next_application::ApplicationError;
 use next_application::{
-    ApplicationCloseOutcomeV1, ApplicationCoordinator, DiagnosticContextV1, DiagnosticReportV1,
+    ApplicationCloseOutcomeV2, ApplicationCoordinator, DiagnosticContextV1, DiagnosticReportV1,
     LaunchRequestV1, ProjectSelectionV1, RunReportV1, default_user_state_root,
 };
 #[cfg(feature = "desktop-sdl-ash")]
@@ -94,11 +94,8 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
     let run = application
         .run_reference_game(true)
         .map_err(AppFailure::application)?;
-    let close_options = next_application::CloseExecutionOptionsV1::default();
-    let close = application
-        .close(close_options)
-        .map_err(AppFailure::application)?;
-    if !matches!(close, ApplicationCloseOutcomeV1::Closed { .. }) {
+    let close = application.close().map_err(AppFailure::application)?;
+    if !matches!(close, ApplicationCloseOutcomeV2::Closed { .. }) {
         return Err(AppFailure::cli(
             "SESSION_FINAL_SAVE_FAILED",
             "application close did not reach a terminal receipt",
@@ -354,8 +351,8 @@ mod tests {
         GameOptions, begin_or_resume_reference_game_live, platform_events_before_close_boundary,
     };
     use next_application::{
-        ApplicationCloseOutcomeV1, ApplicationCoordinator, CloseExecutionOptionsV1,
-        FixedStepLiveSchedulerV1, LaunchRequestV1,
+        ApplicationCloseOutcomeV2, ApplicationCoordinator, FixedStepLiveSchedulerV1,
+        LaunchRequestV1,
     };
     use next_contracts::ids::SchemaId;
     use next_contracts::platform::{PlatformEventKindV1, PlatformEventPayloadV1, PlatformEventV1};
@@ -428,8 +425,8 @@ mod tests {
             .expect("initial presentation snapshot");
         let resumed_presentation = resumed
             .presentation_snapshot
-            .expect("recovery-cut presentation snapshot");
-        assert_ne!(
+            .expect("resumed presentation snapshot");
+        assert_eq!(
             resumed_presentation.snapshot_epoch,
             initial_presentation.snapshot_epoch
         );
@@ -506,9 +503,9 @@ mod tests {
             .advance_reference_game(&mut application, Duration::ZERO, &scheduler_events)
             .expect("admit only the pre-close source prefix");
         let closed = application
-            .close_from_platform_event(&close, CloseExecutionOptionsV1::default())
+            .close_from_platform_event(&close)
             .expect("close remains the exact next source event");
-        assert!(matches!(closed, ApplicationCloseOutcomeV1::Closed { .. }));
+        assert!(matches!(closed, ApplicationCloseOutcomeV2::Closed { .. }));
         std::fs::remove_dir_all(state_root).expect("remove test state");
     }
 

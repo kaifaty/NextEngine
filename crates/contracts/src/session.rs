@@ -7,21 +7,17 @@ use crate::persistence::ManifestCodecError;
 
 mod close;
 mod codec;
-mod final_save;
 mod lifecycle;
-mod recovery;
 mod types;
 
 pub use crate::platform::PresentationTargetKindV1;
 pub use close::*;
-pub use final_save::*;
 pub use lifecycle::*;
-pub use recovery::*;
 pub use types::*;
 
-pub const APPLICATION_SESSION_SCHEMA_VERSION: u32 = 1;
-pub const APPLICATION_SESSION_MANIFEST_FORMAT_V1: &str =
-    "nextengine.application-session-manifest.v1";
+pub const APPLICATION_SESSION_SCHEMA_VERSION: u32 = 2;
+pub const APPLICATION_SESSION_MANIFEST_FORMAT_V2: &str =
+    "nextengine.application-session-manifest.v2";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]

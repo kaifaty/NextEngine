@@ -9,7 +9,7 @@
 | Последняя проверка | 2026-07-30 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-04](../04-rendering-and-platform.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](../18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](018-authoritative-project-composition-and-configuration.md), [ADR-019](019-canonical-player-actions-and-presentation-authority.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
-| Заменён | Частично [ADR-035](035-bounded-live-recovery-platform-host-and-presentation-cut.md): exact active-run checkpoint cadence, bounded raw-generation/recovery-evidence retention, session-bound platform-host registration и authoritative presentation recovery cut; остальные authority/lifecycle/close/presentation clauses остаются Accepted |
+| Заменён | Частично ADR-035 и [ADR-047](047-simple-application-session-and-save-on-close.md): ADR-047 заменяет recovery/storage/final-save-policy clauses; authority split, platform-host admission, восемь lifecycle-состояний и presentation immutability остаются Accepted |
 
 > Supersession note: ADR-035 заменяет подразумеваемое неограниченное хранение
 > raw prior-session generation directories на current+previous generations и

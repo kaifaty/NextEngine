@@ -1,5 +1,6 @@
+use next_contracts::canonical::sha256;
 use next_contracts::canonical::{CanonicalDecodeLimits, CanonicalError};
-use next_contracts::ids::SchemaId;
+use next_contracts::ids::{ContentHash, SchemaId, content_hash_from_bytes};
 use next_contracts::persistence::{
     CommandLedgerDescriptorV2, SaveCompatibility, SaveManifestV2, SaveSegmentDescriptor,
 };
@@ -31,6 +32,21 @@ pub struct SaveImage {
 }
 
 impl SaveImage {
+    pub fn content_hash(&self) -> Result<ContentHash, SaveStoreError> {
+        let manifest = self.manifest.to_jcs_bytes()?;
+        let mut preimage = b"nextengine.save-image.v1\0".to_vec();
+        preimage.extend_from_slice(&manifest);
+        for segment in &self.segments {
+            preimage.extend_from_slice(
+                &u64::try_from(segment.len())
+                    .map_err(|_| SaveStoreError::InvalidImage("SAVE_SEGMENT_TOO_LARGE"))?
+                    .to_le_bytes(),
+            );
+            preimage.extend_from_slice(segment);
+        }
+        Ok(content_hash_from_bytes(sha256(&preimage)))
+    }
+
     /// Builds a save image from an already-constructed checkpoint.
     ///
     /// `WorldCheckpointV4::new` performs full component validation, encoding

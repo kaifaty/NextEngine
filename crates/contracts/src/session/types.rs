@@ -111,8 +111,7 @@ pub enum CausalInputSourceKindV1 {
     PlatformEvent = 1,
     PlayerAction = 2,
     ToolRequest = 3,
-    RecoveryLink = 4,
-    SystemPolicy = 5,
+    System = 4,
 }
 
 impl CausalInputSourceKindV1 {
@@ -121,8 +120,7 @@ impl CausalInputSourceKindV1 {
             Self::PlatformEvent => "PlatformEvent",
             Self::PlayerAction => "PlayerAction",
             Self::ToolRequest => "ToolRequest",
-            Self::RecoveryLink => "RecoveryLink",
-            Self::SystemPolicy => "SystemPolicy",
+            Self::System => "System",
         }
     }
 }
@@ -171,6 +169,8 @@ pub struct LifecycleReasonV1 {
     pub reason_code: SchemaId,
 }
 
+// Project authoring v1 still carries these fields until the exact-lock cut in
+// ADR-048. They are not consumed by the V2 application-session protocol.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
 pub enum FailureDispositionV1 {
@@ -191,37 +191,6 @@ impl FailureDispositionV1 {
             "RequireFinalSave" => Ok(Self::RequireFinalSave),
             "AllowLastSafeGeneration" => Ok(Self::AllowLastSafeGeneration),
             _ => Err(SessionContractError::UnknownClosedValue),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-#[repr(u8)]
-pub enum FinalSavePolicyV1 {
-    Always = 1,
-}
-
-impl FinalSavePolicyV1 {
-    pub(crate) const fn token(self) -> &'static str {
-        "Always"
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-#[repr(u8)]
-pub enum BoundedDeadlineClassV1 {
-    Immediate = 1,
-    Short = 2,
-    Standard = 3,
-}
-
-impl BoundedDeadlineClassV1 {
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Immediate => "Immediate",
-            Self::Short => "Short",
-            Self::Standard => "Standard",
         }
     }
 }
@@ -269,14 +238,10 @@ impl ShutdownPolicyV1 {
 
     #[must_use]
     pub fn reference_game_default() -> Self {
-        Self::new(3, FailureDispositionV1::RequireFinalSave)
-            .expect("reference shutdown policy is valid")
+        Self::new(3, FailureDispositionV1::RequireFinalSave).expect("reference shutdown policy")
     }
 
     pub fn validate(&self) -> Result<(), SessionContractError> {
-        if self.schema_version != APPLICATION_SESSION_SCHEMA_VERSION {
-            return Err(SessionContractError::UnsupportedVersion);
-        }
         if Self::new(self.maximum_attempts, self.failure_disposition)?.canonical_hash
             != self.canonical_hash
         {
@@ -315,9 +280,6 @@ impl RecoveryPolicyV1 {
     }
 
     pub fn validate(&self) -> Result<(), SessionContractError> {
-        if self.schema_version != APPLICATION_SESSION_SCHEMA_VERSION {
-            return Err(SessionContractError::UnsupportedVersion);
-        }
         if Self::new(
             self.permit_required_save_recovery,
             self.preserve_prior_history,

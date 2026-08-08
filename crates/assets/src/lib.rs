@@ -14,6 +14,5 @@ pub use save::{
     SaveStore, SaveStoreError, ValidatedSaveImage,
 };
 pub use session::{
-    PublishedSessionGenerationV1, SessionObjectV1, SessionPublicationV1, SessionStore,
-    SessionStoreError,
+    PublishedSessionGenerationV2, SessionPublicationV2, SessionStore, SessionStoreError,
 };

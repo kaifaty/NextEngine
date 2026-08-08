@@ -1,4 +1,3 @@
-use next_assets::SessionObjectV1;
 use next_contracts::ids::{ApplicationSessionId, ContentHash};
 use next_contracts::platform::{PlatformEventKindV1, PlatformEventV1};
 use next_contracts::project::ActivatedProjectV2;
@@ -6,35 +5,20 @@ use next_contracts::session::{ApplicationSessionStatusV1, PresentationTargetKind
 use next_contracts::snapshot::WorldCheckpointV4;
 use next_contracts::world::WorldStreamingSnapshotV1;
 use next_reference_game::{
-    ReferenceGameDriverV1, ReferenceLiveDriverRecoveryV1, ReferenceLiveStateV1,
-    ReferenceRunOutcomeV1, run_reference_game,
+    ReferenceGameDriverV1, ReferenceLiveStateV1, ReferenceRunOutcomeV1, run_reference_game,
 };
 use std::sync::Arc;
 
 use crate::ApplicationError;
 
-use super::recovery::{save_compatibility, save_identity};
 use super::{ApplicationCoordinator, ApplicationRunOutcomeV1};
-
-mod live_recovery;
-
-use live_recovery::live_run_object_closure;
-#[cfg(test)]
-pub(super) use live_recovery::{
-    live_run_evidence_payload_hashes, replace_live_run_evidence_payload,
-};
-pub(super) use live_recovery::{restore_live_run, validate_live_run_evidence_closure};
-
-const LIVE_CHECKPOINT_INTERVAL_TICKS: u64 = 30;
+use super::{save_compatibility, save_identity};
 
 #[derive(Clone)]
 pub(super) struct PreparedRunV1 {
     pub(super) checkpoint: WorldCheckpointV4,
-    pub(super) checkpoint_canonical_components:
-        next_contracts::snapshot::WorldCheckpointCanonicalComponentsV1,
     pub(super) streaming: WorldStreamingSnapshotV1,
     pub(super) summary: ApplicationRunOutcomeV1,
-    pub(super) driver_recovery: Option<ReferenceLiveDriverRecoveryV1>,
 }
 
 pub(crate) struct InteractivePresentationAdvanceV1 {
@@ -53,6 +37,71 @@ pub struct ApplicationAudioFrameV1 {
 }
 
 impl ApplicationCoordinator {
+    pub(super) fn restore_after_crash(&mut self) -> Result<(), ApplicationError> {
+        if self.durable.close_journal.is_some() {
+            return Ok(());
+        }
+        if self.machine.state().state == ApplicationSessionStatusV1::Active {
+            let request = self.lifecycle_request(
+                ApplicationSessionStatusV1::Suspended,
+                next_contracts::session::LifecycleReasonKindV1::SuspendRequested,
+                "nextengine.session.crash-suspended",
+            )?;
+            self.publish_transition(
+                request,
+                next_runtime::SessionTransitionReferencesV1::default(),
+            )?;
+        }
+        if self.machine.state().state != ApplicationSessionStatusV1::Suspended {
+            return Err(ApplicationError::RecoveryIncompatible);
+        }
+        let base = ReferenceGameDriverV1::new_with_presentation_epoch(
+            self.activated_project.clone(),
+            true,
+            presentation_snapshot_epoch(
+                self.machine.state().session_id,
+                self.activated_project
+                    .composition_lock
+                    .composition_lock_sha256,
+            ),
+        )?;
+        let base_prepared = prepare_live_state(
+            self.machine.state().session_id,
+            base.state()?,
+            self.launch.presentation_target,
+        )?;
+        let compatibility = save_compatibility(&self.activated_project, &base_prepared.checkpoint)?;
+        match self.save_store.load_latest(&compatibility) {
+            Ok(loaded) => {
+                let streaming = loaded
+                    .world_streaming_snapshot
+                    .ok_or(ApplicationError::RecoveryIncompatible)?;
+                let generation_hash = save_identity(&loaded.image.manifest)?.0;
+                let candidate = base.load_saved_world_candidate(loaded.checkpoint, streaming)?;
+                let prepared = prepare_live_state(
+                    self.machine.state().session_id,
+                    candidate.state()?,
+                    self.launch.presentation_target,
+                )?;
+                let plan = self.machine.plan_save_load_publication(
+                    prepared.summary.authoritative_revision,
+                    generation_hash,
+                )?;
+                self.publish_state_plan(plan)?;
+                self.prepared_run = Some(prepared);
+                self.live_run = Some(candidate);
+            }
+            Err(next_assets::SaveLoadError::NoValidGeneration { rejected })
+                if rejected.is_empty() =>
+            {
+                self.prepared_run = Some(base_prepared);
+                self.live_run = Some(base);
+            }
+            Err(error) => return Err(error.into()),
+        }
+        Ok(())
+    }
+
     /// Latest published baseline-audio frame for the interactive live driver.
     pub fn reference_game_live_audio(&self) -> Result<ApplicationAudioFrameV1, ApplicationError> {
         let driver = self.live_run.as_ref().ok_or(ApplicationError::NoLiveRun)?;
@@ -156,12 +205,6 @@ impl ApplicationCoordinator {
             let summary = prepared.summary.clone();
             self.prepared_run = Some(prepared);
             summary
-        } else if prepared
-            .summary
-            .ticks
-            .is_multiple_of(LIVE_CHECKPOINT_INTERVAL_TICKS)
-        {
-            self.publish_prepared_run(prepared)?
         } else {
             let summary = prepared.summary.clone();
             self.prepared_run = Some(prepared);
@@ -204,11 +247,7 @@ impl ApplicationCoordinator {
             .iter()
             .find(|event| event.kind == PlatformEventKindV1::SuspendRequested);
         let ui_suspend = validated.ui_suspend_causal_hash();
-        let checkpoint_due = validated
-            .next_tick()
-            .is_multiple_of(LIVE_CHECKPOINT_INTERVAL_TICKS)
-            || suspend.is_some()
-            || ui_suspend.is_some();
+        let checkpoint_due = suspend.is_some() || ui_suspend.is_some();
 
         if checkpoint_due {
             let state = self
@@ -327,62 +366,10 @@ impl ApplicationCoordinator {
         Ok(summary)
     }
 
-    pub(super) fn record_prepared_run(
-        &mut self,
-        prepared: &PreparedRunV1,
-    ) -> Result<(), ApplicationError> {
-        if prepared.driver_recovery.is_some() {
-            let closure = live_run_object_closure(self.machine.state().session_id, prepared)?;
-            self.prepared_run_objects = closure.objects;
-            self.durable.live_run_recovery_manifest_hash = Some(closure.manifest_hash);
-            return Ok(());
-        }
-        let object_bytes = [
-            prepared
-                .checkpoint_canonical_components
-                .runtime_snapshot_shared_bytes(),
-            prepared
-                .checkpoint_canonical_components
-                .rpg_snapshot_shared_bytes(),
-            prepared
-                .checkpoint_canonical_components
-                .physics_checkpoint_shared_bytes(),
-            Arc::from(prepared.streaming.canonical_bytes()?),
-        ];
-        self.replace_prepared_run_object_bytes(object_bytes);
-        self.durable.live_run_recovery_manifest_hash = None;
-        Ok(())
-    }
-
-    pub(super) fn replace_prepared_run_object_bytes<B>(&mut self, object_bytes: [B; 4])
-    where
-        B: Into<Arc<[u8]>>,
-    {
-        self.prepared_run_objects = object_bytes
-            .into_iter()
-            .map(SessionObjectV1::new)
-            .map(|object| (object.content_hash(), object.into_shared_bytes()))
-            .collect();
-    }
-
     fn publish_prepared_run(
         &mut self,
         prepared: PreparedRunV1,
     ) -> Result<ApplicationRunOutcomeV1, ApplicationError> {
-        let prior_prepared_run_objects = self.prepared_run_objects.clone();
-        let prior_recovery_manifest_hash = self.durable.live_run_recovery_manifest_hash;
-        self.record_prepared_run(&prepared)?;
-        let publication = (|| {
-            let plan = self
-                .machine
-                .plan_state_publication(Some(prepared.summary.authoritative_revision), None)?;
-            self.publish_state_plan(plan)
-        })();
-        if let Err(error) = publication {
-            self.prepared_run_objects = prior_prepared_run_objects;
-            self.durable.live_run_recovery_manifest_hash = prior_recovery_manifest_hash;
-            return Err(error);
-        }
         let summary = prepared.summary.clone();
         self.prepared_run = Some(prepared);
         Ok(summary)
@@ -393,21 +380,11 @@ impl ApplicationCoordinator {
         prepared: PreparedRunV1,
         save_generation_hash: ContentHash,
     ) -> Result<ApplicationRunOutcomeV1, ApplicationError> {
-        let prior_prepared_run_objects = self.prepared_run_objects.clone();
-        let prior_recovery_manifest_hash = self.durable.live_run_recovery_manifest_hash;
-        self.record_prepared_run(&prepared)?;
-        let publication = (|| {
-            let plan = self.machine.plan_save_load_publication(
-                prepared.summary.authoritative_revision,
-                save_generation_hash,
-            )?;
-            self.publish_state_plan(plan)
-        })();
-        if let Err(error) = publication {
-            self.prepared_run_objects = prior_prepared_run_objects;
-            self.durable.live_run_recovery_manifest_hash = prior_recovery_manifest_hash;
-            return Err(error);
-        }
+        let plan = self.machine.plan_save_load_publication(
+            prepared.summary.authoritative_revision,
+            save_generation_hash,
+        )?;
+        self.publish_state_plan(plan)?;
         let summary = prepared.summary.clone();
         self.prepared_run = Some(prepared);
         Ok(summary)
@@ -428,19 +405,9 @@ impl ApplicationCoordinator {
                 driver.state()?,
                 self.launch.presentation_target,
             )?;
-            self.publish_prepared_run(prepared)?;
+            self.prepared_run = Some(prepared);
             return Ok(());
         }
-        let prepared = self
-            .prepared_run
-            .as_ref()
-            .expect("matching prepared tick exists");
-        if self.machine.state().active_runtime_revision
-            == Some(prepared.summary.authoritative_revision)
-        {
-            return Ok(());
-        }
-        self.publish_prepared_run(prepared.clone())?;
         Ok(())
     }
 
@@ -462,7 +429,6 @@ impl ApplicationCoordinator {
         {
             return Err(ApplicationError::RecoveryIncompatible);
         }
-        self.record_prepared_run(&prepared)?;
         self.prepared_run = Some(prepared);
         Ok(())
     }
@@ -502,7 +468,7 @@ fn prepare_live_state(
         content_manifest_hash: _,
         presentation_input_count,
         presentation_snapshot,
-        driver_recovery,
+        driver_recovery: _,
     } = state;
     let authoritative_state_root =
         next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root_from_canonical_components(
@@ -534,10 +500,8 @@ fn prepare_live_state(
     };
     Ok(PreparedRunV1 {
         checkpoint,
-        checkpoint_canonical_components,
         streaming: world_streaming_snapshot,
         summary,
-        driver_recovery: Some(driver_recovery),
     })
 }
 
@@ -606,10 +570,8 @@ fn prepare_reference_run(
     };
     Ok(PreparedRunV1 {
         checkpoint,
-        checkpoint_canonical_components,
         streaming: run.world_streaming_snapshot,
         summary,
-        driver_recovery: None,
     })
 }
 

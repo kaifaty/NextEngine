@@ -61,10 +61,6 @@ pub(crate) fn nested_object(
     require_object(value, field)
 }
 
-pub(crate) fn array(value: Vec<JcsValue>) -> JcsValue {
-    JcsValue::Array(value)
-}
-
 pub(crate) fn string(value: impl Into<String>) -> JcsValue {
     JcsValue::String(value.into())
 }
@@ -192,6 +188,20 @@ pub(crate) fn transition_id(
         &text(value, field)?,
         field,
     )?))
+}
+
+pub(crate) fn optional_transition_id(
+    value: JcsValue,
+    field: &'static str,
+) -> Result<Option<SessionTransitionId>, SessionContractError> {
+    let value = text(value, field)?;
+    if value == "none" {
+        Ok(None)
+    } else {
+        Ok(Some(SessionTransitionId::from_bytes(hex::<16>(
+            &value, field,
+        )?)))
+    }
 }
 
 fn hex<const N: usize>(value: &str, field: &'static str) -> Result<[u8; N], SessionContractError> {

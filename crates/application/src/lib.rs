@@ -12,7 +12,7 @@ mod preferences;
 pub mod replay;
 mod report;
 
-pub use close::{ApplicationCloseOutcomeV1, CloseExecutionOptionsV1, FinalSaveAttemptFailureV1};
+pub use close::ApplicationCloseOutcomeV2;
 pub use coordinator::{ApplicationAudioFrameV1, ApplicationCoordinator, ApplicationRunOutcomeV1};
 pub use environment::default_user_state_root;
 pub use error::ApplicationError;

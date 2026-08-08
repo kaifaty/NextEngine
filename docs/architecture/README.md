@@ -209,7 +209,7 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-034 | [Player targeting replay V5 и exact mapping provenance](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) | Accepted; legacy V4/V1 retention superseded by ADR-046 |
 | ADR-035 | [Bounded live recovery, platform-host binding и presentation cut](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) | Accepted; partially supersedes ADR-028 |
 | ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; заменяет reference 8-core qualifier ADR-016/SPEC-05 без изменения budgets; diagnostic и allocator-measurement gaps узко заменены ADR-038/ADR-039, measured admission protocol уточнён ADR-040/ADR-041/ADR-042/ADR-043, mandatory exact allocator evidence узко заменён ADR-045 |
-| ADR-037 | [Packed session object storage](adr/037-packed-session-object-storage.md) | Accepted; узко заменяет physical raw-generation representation ADR-035 без изменения logical roots/cadence |
+| ADR-037 | [Packed session object storage](adr/037-packed-session-object-storage.md) | Superseded by ADR-047 |
 | ADR-038 | [Versioned production-worker handoff diagnostic](adr/038-versioned-production-worker-handoff-diagnostic.md) | Accepted; узко заменяет diagnostic-scenario часть ADR-036 без изменения THOTH hard timing authority или B-12 closure |
 | ADR-039 | [Tooling-only process-wide System GlobalAlloc measurement boundary](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md) | Accepted crate/unsafe/System/count/report boundary; runtime protocol узко заменён ADR-040 для foreign counted operations, ADR-041 для owner counted operations, ADR-042 для unobserved dealloc и ADR-043 для admitted count-bearing recursion policy |
 | ADR-040 | [Fixed TLS-sharded GlobalAlloc measurement protocol](adr/040-fixed-tls-sharded-global-allocator-measurement.md) | Accepted для foreign count-bearing operations; owner-thread per-call RMW узко заменён ADR-041, dealloc admission — ADR-042, а per-call recursion flag на доказанном target/build — ADR-043 после retained failures |
@@ -219,6 +219,7 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-044 | [Neutral text-catalog schema и deterministic locale fallback](adr/044-neutral-text-catalog-and-locale-fallback.md) | Accepted; versioned neutral catalogs, deterministic fallback closure и PresentationOnly localization semantics |
 | ADR-045 | [Low-overhead hard performance evidence](adr/045-low-overhead-hard-performance-evidence.md) | Accepted; вводит current Performance V3 evidence, оставляет V2 historical-readable и делает exact allocator counter необязательной диагностикой, не меняя THOTH budgets и retained evidence |
 | ADR-046 | [Consumer-driven contracts and current-only alpha formats](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) | Accepted; current-only pre-v1 formats, production-consumer admission and removal of unconsumed future obligations |
+| ADR-047 | [Simple application session and save-on-close](adr/047-simple-application-session-and-save-on-close.md) | Accepted; two-slot current-state snapshot and two-stage close journal replace session recovery archives/object packs |
 
 ## Proposed tracks
 

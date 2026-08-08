@@ -16,8 +16,8 @@ use next_contracts::session::{
 };
 
 use crate::{
-    ApplicationCloseOutcomeV1, ApplicationCoordinator, ApplicationError, CloseExecutionOptionsV1,
-    FixedStepLiveSchedulerV1, LaunchRequestV1, RunReportV1,
+    ApplicationCloseOutcomeV2, ApplicationCoordinator, ApplicationError, FixedStepLiveSchedulerV1,
+    LaunchRequestV1, RunReportV1,
 };
 
 pub const INTERACTIVE_SIMULATION_QUEUE_CAPACITY: usize = 8;
@@ -279,8 +279,6 @@ enum InteractiveSimulationMessageV1 {
         rendered_objects: u64,
         completion_sender: SyncSender<InteractiveShutdownReplyV1>,
     },
-    #[cfg(test)]
-    InjectClosePublicationFailure { acknowledged_sender: SyncSender<()> },
 }
 
 enum InteractiveShutdownReplyV1 {
@@ -335,7 +333,7 @@ pub use diagnostic::{
 };
 
 #[cfg(test)]
-use diagnostic::{finalize_diagnostic_worker, finalize_diagnostic_worker_with_attempt_limit};
+use diagnostic::finalize_diagnostic_worker;
 #[cfg(test)]
 use runtime::resolve_interactive_shutdown_attempt;
 #[cfg(test)]

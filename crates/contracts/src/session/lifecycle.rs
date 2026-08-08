@@ -4,18 +4,18 @@ use crate::manifest_jcs::JcsValue;
 
 use super::codec::{
     decoded_object, encoded, hash, nested_object, number, object, optional_hash,
-    optional_hash_value, reject_unknown, request_id, session_hash, session_id, string, take, text,
-    transition_id, u32_value, u64_value,
+    optional_hash_value, optional_transition_id, reject_unknown, request_id, session_hash,
+    session_id, string, take, text, transition_id, u32_value, u64_value,
 };
 use super::{
-    APPLICATION_SESSION_MANIFEST_FORMAT_V1, APPLICATION_SESSION_SCHEMA_VERSION,
+    APPLICATION_SESSION_MANIFEST_FORMAT_V2, APPLICATION_SESSION_SCHEMA_VERSION,
     ApplicationSessionStatusV1, CausalInputReferenceV1, CausalInputSourceKindV1, CompositionRootV1,
     LifecycleReasonKindV1, LifecycleReasonV1, PresentationTargetKindV1, SessionContractError,
     validate_root_target,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ApplicationSessionManifestBodyV1 {
+pub struct ApplicationSessionManifestBodyV2 {
     pub session_id: ApplicationSessionId,
     pub composition_root: CompositionRootV1,
     pub project_composition_lock_hash: ContentHash,
@@ -24,21 +24,18 @@ pub struct ApplicationSessionManifestBodyV1 {
     pub runtime_determinism_profile_hash: ContentHash,
     pub schema_registry_hash: ContentHash,
     pub content_manifest_hash: ContentHash,
-    pub recovery_policy_hash: ContentHash,
-    pub shutdown_policy_hash: ContentHash,
-    pub recovery_session_link_hash: Option<ContentHash>,
     pub presentation_target_kind: PresentationTargetKindV1,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ApplicationSessionManifestV1 {
+pub struct ApplicationSessionManifestV2 {
     pub schema_version: u32,
-    pub body: ApplicationSessionManifestBodyV1,
+    pub body: ApplicationSessionManifestBodyV2,
     pub canonical_hash: ContentHash,
 }
 
-impl ApplicationSessionManifestV1 {
-    pub fn new(body: ApplicationSessionManifestBodyV1) -> Result<Self, SessionContractError> {
+impl ApplicationSessionManifestV2 {
+    pub fn new(body: ApplicationSessionManifestBodyV2) -> Result<Self, SessionContractError> {
         validate_root_target(body.composition_root, body.presentation_target_kind)?;
         if body.composition_root == CompositionRootV1::Game
             && body.presentation_target_kind == PresentationTargetKindV1::Interactive
@@ -52,7 +49,7 @@ impl ApplicationSessionManifestV1 {
             canonical_hash: ContentHash::default(),
         };
         value.canonical_hash =
-            session_hash(APPLICATION_SESSION_MANIFEST_FORMAT_V1, &value.body_value());
+            session_hash(APPLICATION_SESSION_MANIFEST_FORMAT_V2, &value.body_value());
         Ok(value)
     }
 
@@ -77,14 +74,14 @@ impl ApplicationSessionManifestV1 {
     ) -> Result<Self, SessionContractError> {
         let mut value = decoded_object(bytes, limits, "application_session_manifest")?;
         let format = text(take(&mut value, "manifest_format")?, "manifest_format")?;
-        if format != APPLICATION_SESSION_MANIFEST_FORMAT_V1 {
+        if format != APPLICATION_SESSION_MANIFEST_FORMAT_V2 {
             return Err(SessionContractError::UnsupportedVersion);
         }
         let schema_version = u32_value(take(&mut value, "schema_version")?, "schema_version")?;
         if schema_version != APPLICATION_SESSION_SCHEMA_VERSION {
             return Err(SessionContractError::UnsupportedVersion);
         }
-        let body = ApplicationSessionManifestBodyV1 {
+        let body = ApplicationSessionManifestBodyV2 {
             session_id: session_id(take(&mut value, "session_id")?, "session_id")?,
             composition_root: CompositionRootV1::parse(&text(
                 take(&mut value, "composition_root")?,
@@ -113,18 +110,6 @@ impl ApplicationSessionManifestV1 {
             content_manifest_hash: hash(
                 take(&mut value, "content_manifest_hash")?,
                 "content_manifest_hash",
-            )?,
-            recovery_policy_hash: hash(
-                take(&mut value, "recovery_policy_hash")?,
-                "recovery_policy_hash",
-            )?,
-            shutdown_policy_hash: hash(
-                take(&mut value, "shutdown_policy_hash")?,
-                "shutdown_policy_hash",
-            )?,
-            recovery_session_link_hash: optional_hash_value(
-                take(&mut value, "recovery_session_link_hash_or_none")?,
-                "recovery_session_link_hash_or_none",
             )?,
             presentation_target_kind: PresentationTargetKindV1::parse(&text(
                 take(&mut value, "presentation_target_kind")?,
@@ -156,7 +141,7 @@ impl ApplicationSessionManifestV1 {
             ),
             (
                 "manifest_format",
-                string(APPLICATION_SESSION_MANIFEST_FORMAT_V1),
+                string(APPLICATION_SESSION_MANIFEST_FORMAT_V2),
             ),
             (
                 "platform_capability_set_hash_or_none",
@@ -171,14 +156,6 @@ impl ApplicationSessionManifestV1 {
                 string(self.body.project_composition_lock_hash.to_hex()),
             ),
             (
-                "recovery_policy_hash",
-                string(self.body.recovery_policy_hash.to_hex()),
-            ),
-            (
-                "recovery_session_link_hash_or_none",
-                optional_hash(self.body.recovery_session_link_hash),
-            ),
-            (
                 "runtime_determinism_profile_hash",
                 string(self.body.runtime_determinism_profile_hash.to_hex()),
             ),
@@ -188,16 +165,12 @@ impl ApplicationSessionManifestV1 {
             ),
             ("schema_version", number(APPLICATION_SESSION_SCHEMA_VERSION)),
             ("session_id", string(self.body.session_id.to_hex())),
-            (
-                "shutdown_policy_hash",
-                string(self.body.shutdown_policy_hash.to_hex()),
-            ),
         ])
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ApplicationSessionStateV1 {
+pub struct ApplicationSessionStateV2 {
     pub schema_version: u32,
     pub session_id: ApplicationSessionId,
     pub state: ApplicationSessionStatusV1,
@@ -211,9 +184,9 @@ pub struct ApplicationSessionStateV1 {
     pub canonical_hash: ContentHash,
 }
 
-impl ApplicationSessionStateV1 {
+impl ApplicationSessionStateV2 {
     #[must_use]
-    pub fn created(manifest: &ApplicationSessionManifestV1) -> Self {
+    pub fn created(manifest: &ApplicationSessionManifestV2) -> Self {
         Self::new_unchecked(
             manifest.body.session_id,
             ApplicationSessionStatusV1::Created,
@@ -252,6 +225,66 @@ impl ApplicationSessionStateV1 {
             return Err(SessionContractError::HashMismatch);
         }
         Ok(())
+    }
+
+    #[must_use]
+    pub fn to_jcs_bytes(&self) -> Vec<u8> {
+        encoded(&self.body_value())
+    }
+
+    pub fn from_jcs_bytes(
+        bytes: &[u8],
+        limits: CanonicalDecodeLimits,
+    ) -> Result<Self, SessionContractError> {
+        let mut value = decoded_object(bytes, limits, "application_session_state")?;
+        let schema_version = u32_value(take(&mut value, "schema_version")?, "schema_version")?;
+        if schema_version != APPLICATION_SESSION_SCHEMA_VERSION {
+            return Err(SessionContractError::UnsupportedVersion);
+        }
+        let active_revision = text(
+            take(&mut value, "active_runtime_revision_or_none")?,
+            "active_runtime_revision_or_none",
+        )?;
+        let state = Self::new_unchecked(
+            session_id(take(&mut value, "session_id")?, "session_id")?,
+            parse_session_status(&text(take(&mut value, "state")?, "state")?)?,
+            u64_value(take(&mut value, "revision")?, "revision")?,
+            hash(
+                take(&mut value, "application_session_manifest_hash")?,
+                "application_session_manifest_hash",
+            )?,
+            hash(
+                take(&mut value, "project_composition_lock_hash")?,
+                "project_composition_lock_hash",
+            )?,
+            if active_revision == "none" {
+                None
+            } else {
+                Some(
+                    active_revision
+                        .parse::<u64>()
+                        .map_err(|_| SessionContractError::InvalidStateFields)?,
+                )
+            },
+            optional_hash_value(
+                take(&mut value, "active_save_generation_hash_or_none")?,
+                "active_save_generation_hash_or_none",
+            )?,
+            optional_transition_id(
+                take(&mut value, "last_transition_id_or_none")?,
+                "last_transition_id_or_none",
+            )?,
+            optional_hash_value(
+                take(&mut value, "terminal_receipt_hash_or_none")?,
+                "terminal_receipt_hash_or_none",
+            )?,
+        );
+        reject_unknown(value)?;
+        state.validate()?;
+        if state.to_jcs_bytes() != bytes {
+            return Err(SessionContractError::HashMismatch);
+        }
+        Ok(state)
     }
 
     #[must_use]
@@ -313,7 +346,7 @@ impl ApplicationSessionStateV1 {
             canonical_hash: ContentHash::default(),
         };
         value.canonical_hash = session_hash(
-            "nextengine.application-session-state.v1",
+            "nextengine.application-session-state.v2",
             &value.body_value(),
         );
         value
@@ -356,7 +389,7 @@ impl ApplicationSessionStateV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ApplicationLifecycleRequestV1 {
+pub struct ApplicationLifecycleRequestV2 {
     pub schema_version: u32,
     pub request_id: SessionRequestId,
     pub session_id: ApplicationSessionId,
@@ -364,12 +397,11 @@ pub struct ApplicationLifecycleRequestV1 {
     pub expected_state: ApplicationSessionStatusV1,
     pub requested_state: ApplicationSessionStatusV1,
     pub reason: LifecycleReasonV1,
-    pub policy_hash: ContentHash,
     pub causal_input_reference: CausalInputReferenceV1,
     pub canonical_hash: ContentHash,
 }
 
-impl ApplicationLifecycleRequestV1 {
+impl ApplicationLifecycleRequestV2 {
     #[allow(
         clippy::too_many_arguments,
         reason = "the durable lifecycle request identity includes every transition precondition"
@@ -381,7 +413,6 @@ impl ApplicationLifecycleRequestV1 {
         expected_state: ApplicationSessionStatusV1,
         requested_state: ApplicationSessionStatusV1,
         reason: LifecycleReasonV1,
-        policy_hash: ContentHash,
         causal_input_reference: CausalInputReferenceV1,
     ) -> Result<Self, SessionContractError> {
         if !expected_state.can_transition_to(requested_state) {
@@ -395,12 +426,11 @@ impl ApplicationLifecycleRequestV1 {
             expected_state,
             requested_state,
             reason,
-            policy_hash,
             causal_input_reference,
             canonical_hash: ContentHash::default(),
         };
         value.canonical_hash = session_hash(
-            "nextengine.application-lifecycle-request.v1",
+            "nextengine.application-lifecycle-request.v2",
             &value.body_value(),
         );
         Ok(value)
@@ -446,7 +476,6 @@ impl ApplicationLifecycleRequestV1 {
                     "reason_code",
                 )?)?,
             },
-            hash(take(&mut value, "policy_hash")?, "policy_hash")?,
             CausalInputReferenceV1 {
                 source_kind: parse_causal_source_kind(&text(
                     take(&mut causal, "source_kind")?,
@@ -474,7 +503,6 @@ impl ApplicationLifecycleRequestV1 {
             self.expected_state,
             self.requested_state,
             self.reason.clone(),
-            self.policy_hash,
             self.causal_input_reference.clone(),
         )?
         .canonical_hash
@@ -502,7 +530,6 @@ impl ApplicationLifecycleRequestV1 {
             ),
             ("expected_revision", number(self.expected_revision)),
             ("expected_state", string(self.expected_state.token())),
-            ("policy_hash", string(self.policy_hash.to_hex())),
             ("reason_code", string(self.reason.reason_code.as_str())),
             ("reason_kind", string(self.reason.kind.token())),
             ("request_id", string(self.request_id.to_hex())),
@@ -525,7 +552,7 @@ impl LifecycleTransitionOutcomeV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ApplicationLifecycleEventV1 {
+pub struct ApplicationLifecycleEventV2 {
     pub schema_version: u32,
     pub transition_id: SessionTransitionId,
     pub request_id: SessionRequestId,
@@ -541,14 +568,14 @@ pub struct ApplicationLifecycleEventV1 {
     pub canonical_hash: ContentHash,
 }
 
-impl ApplicationLifecycleEventV1 {
+impl ApplicationLifecycleEventV2 {
     #[allow(
         clippy::too_many_arguments,
         reason = "the immutable event records all exact transition references"
     )]
     pub fn committed(
         transition_id: SessionTransitionId,
-        request: &ApplicationLifecycleRequestV1,
+        request: &ApplicationLifecycleRequestV2,
         activation_receipt_hash: Option<ContentHash>,
         save_receipt_hash: Option<ContentHash>,
         diagnostic_hash: Option<ContentHash>,
@@ -574,7 +601,7 @@ impl ApplicationLifecycleEventV1 {
             canonical_hash: ContentHash::default(),
         };
         value.canonical_hash = session_hash(
-            "nextengine.application-lifecycle-event.v1",
+            "nextengine.application-lifecycle-event.v2",
             &value.body_value(),
         );
         Ok(value)
@@ -587,7 +614,7 @@ impl ApplicationLifecycleEventV1 {
 
     pub fn from_jcs_bytes(
         bytes: &[u8],
-        request: &ApplicationLifecycleRequestV1,
+        request: &ApplicationLifecycleRequestV2,
         limits: CanonicalDecodeLimits,
     ) -> Result<Self, SessionContractError> {
         let mut value = decoded_object(bytes, limits, "application_lifecycle_event")?;
@@ -646,9 +673,9 @@ impl ApplicationLifecycleEventV1 {
 
     pub fn next_state(
         &self,
-        current: &ApplicationSessionStateV1,
+        current: &ApplicationSessionStateV2,
         terminal_receipt_hash: Option<ContentHash>,
-    ) -> Result<ApplicationSessionStateV1, SessionContractError> {
+    ) -> Result<ApplicationSessionStateV2, SessionContractError> {
         if current.session_id != self.session_id
             || current.state != self.from_state
             || current.revision != self.before_revision
@@ -665,7 +692,7 @@ impl ApplicationLifecycleEventV1 {
             }
             ContentHash::default()
         };
-        Ok(ApplicationSessionStateV1::new_unchecked(
+        Ok(ApplicationSessionStateV2::new_unchecked(
             current.session_id,
             self.to_state,
             self.after_revision,
@@ -740,8 +767,7 @@ fn parse_causal_source_kind(value: &str) -> Result<CausalInputSourceKindV1, Sess
         "PlatformEvent" => Ok(CausalInputSourceKindV1::PlatformEvent),
         "PlayerAction" => Ok(CausalInputSourceKindV1::PlayerAction),
         "ToolRequest" => Ok(CausalInputSourceKindV1::ToolRequest),
-        "RecoveryLink" => Ok(CausalInputSourceKindV1::RecoveryLink),
-        "SystemPolicy" => Ok(CausalInputSourceKindV1::SystemPolicy),
+        "System" => Ok(CausalInputSourceKindV1::System),
         _ => Err(SessionContractError::UnknownClosedValue),
     }
 }

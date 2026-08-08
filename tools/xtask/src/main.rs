@@ -657,7 +657,7 @@ fn run_tool_session(
 ) -> Result<
     (
         next_application::ApplicationRunOutcomeV1,
-        next_application::ApplicationCloseOutcomeV1,
+        next_application::ApplicationCloseOutcomeV2,
     ),
     String,
 > {
@@ -677,7 +677,7 @@ fn run_tool_session(
         .run_reference_game(true)
         .map_err(|error| format!("{}: {error}", error.diagnostic_code()))?;
     let close = application
-        .close(next_application::CloseExecutionOptionsV1::default())
+        .close()
         .map_err(|error| format!("{}: {error}", error.diagnostic_code()))?;
     Ok((run, close))
 }

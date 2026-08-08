@@ -386,25 +386,6 @@ impl FixedStepLiveSchedulerV1 {
         canonicalize_platform_events(&mut events);
         events
     }
-
-    #[cfg(test)]
-    pub(crate) fn pending_event_count(&self) -> usize {
-        self.pending_events.len() + self.deferred_events.len()
-    }
-
-    #[cfg(test)]
-    pub(crate) fn pending_events(&self) -> Vec<PlatformEventV1> {
-        self.pending_events
-            .iter()
-            .chain(&self.deferred_events)
-            .cloned()
-            .collect()
-    }
-
-    #[cfg(test)]
-    pub(crate) const fn accumulated_scaled_nanoseconds(&self) -> u128 {
-        self.accumulated_scaled_nanoseconds
-    }
 }
 
 fn canonicalize_platform_events(events: &mut [PlatformEventV1]) {

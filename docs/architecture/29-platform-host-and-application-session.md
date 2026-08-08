@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-29 |
 | Статус | Accepted |
-| Версия | 2.4 |
-| Последняя проверка | 2026-07-31 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-037](adr/037-packed-session-object-storage.md) |
+| Версия | 2.5 |
+| Последняя проверка | 2026-08-08 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md) |
 | Заменяет | отсутствует |
 
 ## История принятия
@@ -22,6 +22,11 @@ platform-host identity и presentation recovery cut с ADR-035; новые publi
 contracts или technology decisions не вводятся. Версия 2.4 специализирует
 private physical representation current+previous logical generations по
 ADR-037 без изменения cadence, generation identity или recovery semantics.
+Версия 2.5 применяет ADR-047: нормативными являются current-state snapshot,
+last lifecycle record, two-stage close journal и Save/save-on-close; прежние
+разделы про 30-tick recovery, full archive, evidence closure и object packs
+считаются заменёнными ADR-047 до редакционного сжатия SPEC в завершающем
+cleanup-пакете.
 
 ## Назначение и invariants
 

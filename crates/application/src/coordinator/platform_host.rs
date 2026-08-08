@@ -9,8 +9,7 @@ use next_contracts::platform::{
     PresentationTargetKindV1,
 };
 use next_contracts::session::{
-    ApplicationLifecycleRequestV1, ApplicationSessionStatusV1, CausalInputSourceKindV1,
-    CloseSessionRequestV1,
+    ApplicationLifecycleRequestV2, ApplicationSessionStatusV1, CausalInputSourceKindV1,
 };
 
 use crate::ApplicationError;
@@ -235,8 +234,8 @@ impl ApplicationCoordinator {
         &self,
         event: &PlatformEventV1,
     ) -> Result<bool, ApplicationError> {
-        for archived in self.machine.archived_requests() {
-            let request = ApplicationLifecycleRequestV1::from_jcs_bytes(
+        if let Some(archived) = self.machine.last_transition() {
+            let request = ApplicationLifecycleRequestV2::from_jcs_bytes(
                 &archived.canonical_request_bytes,
                 CanonicalDecodeLimits::default(),
             )?;
@@ -247,13 +246,9 @@ impl ApplicationCoordinator {
                 return Ok(true);
             }
         }
-        let Some(close) = self.durable.close.as_ref() else {
+        let Some(request) = self.durable.close_request.as_ref() else {
             return Ok(false);
         };
-        let request = CloseSessionRequestV1::from_canonical_bytes(
-            &close.canonical_close_request_bytes,
-            CanonicalDecodeLimits::default(),
-        )?;
         Ok(
             request.causal_input_reference.source_kind == CausalInputSourceKindV1::PlatformEvent
                 && request.causal_input_reference.canonical_hash == event.platform_event_id
@@ -263,7 +258,7 @@ impl ApplicationCoordinator {
 }
 
 fn lifecycle_kind_matches(
-    request: &ApplicationLifecycleRequestV1,
+    request: &ApplicationLifecycleRequestV2,
     event_kind: PlatformEventKindV1,
 ) -> bool {
     matches!(

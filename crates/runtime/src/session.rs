@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
@@ -6,16 +5,16 @@ use next_contracts::canonical::CanonicalDecodeLimits;
 use next_contracts::canonical::sha256;
 use next_contracts::ids::{ContentHash, SessionRequestId, SessionTransitionId};
 use next_contracts::session::{
-    ApplicationLifecycleEventV1, ApplicationLifecycleRequestV1, ApplicationSessionManifestV1,
-    ApplicationSessionStateV1, ApplicationSessionStatusV1, SessionContractError,
+    ApplicationLifecycleEventV2, ApplicationLifecycleRequestV2, ApplicationSessionManifestV2,
+    ApplicationSessionStateV2, ApplicationSessionStatusV1, SessionContractError,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ArchivedLifecycleRequestV1 {
+pub struct LastLifecycleRecordV2 {
     pub request_id: SessionRequestId,
     pub canonical_request_hash: ContentHash,
     pub canonical_request_bytes: Vec<u8>,
-    pub event: ApplicationLifecycleEventV1,
+    pub event: ApplicationLifecycleEventV2,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -32,44 +31,44 @@ pub struct SessionTransitionReferencesV1 {
 pub enum SessionTransitionPlanV1 {
     Publish {
         prior_state_hash: ContentHash,
-        request: ApplicationLifecycleRequestV1,
-        event: ApplicationLifecycleEventV1,
-        next_state: Box<ApplicationSessionStateV1>,
+        request: ApplicationLifecycleRequestV2,
+        event: ApplicationLifecycleEventV2,
+        next_state: Box<ApplicationSessionStateV2>,
     },
     ExactRetry {
-        event: ApplicationLifecycleEventV1,
-        current_state: ApplicationSessionStateV1,
+        event: ApplicationLifecycleEventV2,
+        current_state: ApplicationSessionStateV2,
     },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SessionStatePublicationPlanV1 {
     pub prior_state_hash: ContentHash,
-    pub next_state: ApplicationSessionStateV1,
+    pub next_state: ApplicationSessionStateV2,
 }
 
 #[derive(Clone, Debug)]
 pub struct ApplicationSessionMachine {
-    manifest: ApplicationSessionManifestV1,
-    state: ApplicationSessionStateV1,
-    requests: BTreeMap<SessionRequestId, ArchivedLifecycleRequestV1>,
+    manifest: ApplicationSessionManifestV2,
+    state: ApplicationSessionStateV2,
+    last_transition: Option<LastLifecycleRecordV2>,
 }
 
 impl ApplicationSessionMachine {
-    pub fn new(manifest: ApplicationSessionManifestV1) -> Result<Self, SessionMachineError> {
+    pub fn new(manifest: ApplicationSessionManifestV2) -> Result<Self, SessionMachineError> {
         manifest.validate()?;
-        let state = ApplicationSessionStateV1::created(&manifest);
+        let state = ApplicationSessionStateV2::created(&manifest);
         Ok(Self {
             manifest,
             state,
-            requests: BTreeMap::new(),
+            last_transition: None,
         })
     }
 
     pub fn restore(
-        manifest: ApplicationSessionManifestV1,
-        state: ApplicationSessionStateV1,
-        archived_requests: Vec<ArchivedLifecycleRequestV1>,
+        manifest: ApplicationSessionManifestV2,
+        state: ApplicationSessionStateV2,
+        last_transition: Option<LastLifecycleRecordV2>,
     ) -> Result<Self, SessionMachineError> {
         manifest.validate()?;
         state.validate()?;
@@ -79,14 +78,12 @@ impl ApplicationSessionMachine {
         {
             return Err(SessionMachineError::ManifestStateMismatch);
         }
-        let mut requests = BTreeMap::new();
-        let mut history = Vec::new();
-        for archived in archived_requests {
-            let request = ApplicationLifecycleRequestV1::from_jcs_bytes(
+        if let Some(archived) = last_transition.as_ref() {
+            let request = ApplicationLifecycleRequestV2::from_jcs_bytes(
                 &archived.canonical_request_bytes,
                 CanonicalDecodeLimits::default(),
             )?;
-            let event = ApplicationLifecycleEventV1::from_jcs_bytes(
+            let event = ApplicationLifecycleEventV2::from_jcs_bytes(
                 &archived.event.canonical_bytes(),
                 &request,
                 CanonicalDecodeLimits::default(),
@@ -98,84 +95,51 @@ impl ApplicationSessionMachine {
                 || request.session_id != state.session_id
                 || event != archived.event
                 || event.transition_id != derive_transition_id(&request)
-                || event.after_revision > state.revision
-                || requests.insert(archived.request_id, archived).is_some()
+                || event.after_revision != state.revision
+                || event.to_state != state.state
+                || state.last_transition_id != Some(event.transition_id)
             {
                 return Err(SessionMachineError::ArchiveInvalid);
             }
-            history.push(event);
-        }
-        history.sort_by_key(|event| event.before_revision);
-        let expected_history_len =
-            usize::try_from(state.revision).map_err(|_| SessionMachineError::ArchiveInvalid)?;
-        if history.len() != expected_history_len {
+        } else if state.state != ApplicationSessionStatusV1::Created
+            || state.revision != 0
+            || state.last_transition_id.is_some()
+        {
             return Err(SessionMachineError::ArchiveInvalid);
-        }
-        if history.is_empty() {
-            if state.state != ApplicationSessionStatusV1::Created
-                || state.revision != 0
-                || state.last_transition_id.is_some()
-            {
-                return Err(SessionMachineError::ArchiveInvalid);
-            }
-        } else {
-            for (revision, event) in history.iter().enumerate() {
-                let before_revision =
-                    u64::try_from(revision).map_err(|_| SessionMachineError::ArchiveInvalid)?;
-                let after_revision = before_revision
-                    .checked_add(1)
-                    .ok_or(SessionMachineError::ArchiveInvalid)?;
-                if event.before_revision != before_revision
-                    || event.after_revision != after_revision
-                    || (before_revision == 0
-                        && event.from_state != ApplicationSessionStatusV1::Created)
-                {
-                    return Err(SessionMachineError::ArchiveInvalid);
-                }
-            }
-            if history.windows(2).any(|pair| {
-                pair[0].after_revision != pair[1].before_revision
-                    || pair[0].to_state != pair[1].from_state
-            }) {
-                return Err(SessionMachineError::ArchiveInvalid);
-            }
-            let last = history.last().expect("non-empty history was checked above");
-            if last.after_revision != state.revision
-                || last.to_state != state.state
-                || state.last_transition_id != Some(last.transition_id)
-            {
-                return Err(SessionMachineError::ArchiveInvalid);
-            }
         }
         Ok(Self {
             manifest,
             state,
-            requests,
+            last_transition,
         })
     }
 
     #[must_use]
-    pub const fn manifest(&self) -> &ApplicationSessionManifestV1 {
+    pub const fn manifest(&self) -> &ApplicationSessionManifestV2 {
         &self.manifest
     }
 
     #[must_use]
-    pub const fn state(&self) -> &ApplicationSessionStateV1 {
+    pub const fn state(&self) -> &ApplicationSessionStateV2 {
         &self.state
     }
 
     #[must_use]
-    pub fn archived_requests(&self) -> Vec<ArchivedLifecycleRequestV1> {
-        self.requests.values().cloned().collect()
+    pub const fn last_transition(&self) -> Option<&LastLifecycleRecordV2> {
+        self.last_transition.as_ref()
     }
 
     pub fn plan_transition(
         &self,
-        request: ApplicationLifecycleRequestV1,
+        request: ApplicationLifecycleRequestV2,
         references: SessionTransitionReferencesV1,
     ) -> Result<SessionTransitionPlanV1, SessionMachineError> {
         let canonical_bytes = request.canonical_bytes();
-        if let Some(archived) = self.requests.get(&request.request_id) {
+        if let Some(archived) = self
+            .last_transition
+            .as_ref()
+            .filter(|archived| archived.request_id == request.request_id)
+        {
             if archived.canonical_request_hash != request.canonical_hash
                 || archived.canonical_request_bytes != canonical_bytes
             {
@@ -204,7 +168,7 @@ impl ApplicationSessionMachine {
             });
         }
         let transition_id = derive_transition_id(&request);
-        let event = ApplicationLifecycleEventV1::committed(
+        let event = ApplicationLifecycleEventV2::committed(
             transition_id,
             &request,
             references.activation_receipt_hash,
@@ -287,7 +251,7 @@ impl ApplicationSessionMachine {
         self.state = plan.next_state;
     }
 
-    pub fn commit(&mut self, plan: SessionTransitionPlanV1) -> ApplicationLifecycleEventV1 {
+    pub fn commit(&mut self, plan: SessionTransitionPlanV1) -> ApplicationLifecycleEventV2 {
         let SessionTransitionPlanV1::Publish {
             prior_state_hash,
             request,
@@ -306,22 +270,19 @@ impl ApplicationSessionMachine {
             self.state.revision + 1,
             "session commit advances exactly one revision"
         );
-        let archived = ArchivedLifecycleRequestV1 {
+        let archived = LastLifecycleRecordV2 {
             request_id: request.request_id,
             canonical_request_hash: request.canonical_hash,
             canonical_request_bytes: request.canonical_bytes(),
             event: event.clone(),
         };
-        assert!(
-            self.requests.insert(request.request_id, archived).is_none(),
-            "a new transition plan cannot replace an archived request"
-        );
+        self.last_transition = Some(archived);
         self.state = *next_state;
         event
     }
 }
 
-fn derive_transition_id(request: &ApplicationLifecycleRequestV1) -> SessionTransitionId {
+fn derive_transition_id(request: &ApplicationLifecycleRequestV2) -> SessionTransitionId {
     let mut preimage = b"nextengine.session-transition-id.v1\0".to_vec();
     preimage.extend_from_slice(request.session_id.as_bytes());
     preimage.extend_from_slice(request.request_id.as_bytes());

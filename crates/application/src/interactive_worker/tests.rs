@@ -9,12 +9,10 @@ use super::{
     InteractiveWorkerDiagnosticOptionsV1, InteractiveWorkerFailureV1,
     InteractiveWorkerFinalizationV1, InteractiveWorkerFixedStepClassV1,
     PRODUCTION_WORKER_DIAGNOSTIC_MINIMUM_CALLBACKS, QueueTelemetryV1, finalize_diagnostic_worker,
-    finalize_diagnostic_worker_with_attempt_limit, prepare_production_worker_diagnostic,
-    resolve_interactive_shutdown_attempt, run_production_worker_diagnostic,
+    prepare_production_worker_diagnostic, resolve_interactive_shutdown_attempt,
+    run_production_worker_diagnostic,
 };
-use crate::{
-    ApplicationCoordinator, CloseExecutionOptionsV1, FixedStepLiveSchedulerV1, LaunchRequestV1,
-};
+use crate::{ApplicationCoordinator, FixedStepLiveSchedulerV1, LaunchRequestV1};
 
 #[test]
 fn production_worker_preserves_fifo_and_matches_serial_authoritative_roots() {
@@ -39,9 +37,7 @@ fn production_worker_preserves_fifo_and_matches_serial_authoritative_roots() {
             .expect("serial fixed-step callback");
     }
     let serial_run = serial.current_live_run().expect("serial final live run");
-    serial
-        .close(CloseExecutionOptionsV1::default())
-        .expect("serial close");
+    serial.close().expect("serial close");
 
     let report = run_production_worker_diagnostic(InteractiveWorkerDiagnosticOptionsV1 {
         launch: LaunchRequestV1::reference(
@@ -266,7 +262,7 @@ fn production_worker_reports_exact_fixed_steps_at_30_60_and_144_hz() {
 }
 
 #[test]
-fn production_worker_classifies_every_thirtieth_tick_as_checkpoint_work() {
+fn production_worker_has_no_periodic_session_checkpoint_work() {
     let state_root = unique_test_directory("worker-checkpoint-class");
     let report = run_production_worker_diagnostic(InteractiveWorkerDiagnosticOptionsV1 {
         launch: LaunchRequestV1::reference(
@@ -287,9 +283,9 @@ fn production_worker_classifies_every_thirtieth_tick_as_checkpoint_work() {
                 .then_some(sample.simulation_tick)
         })
         .collect::<Vec<_>>();
-    assert_eq!(checkpoint_ticks, vec![30, 60, 90, 120, 150, 180, 210, 240]);
-    assert_eq!(report.metrics.checkpoint_fixed_steps, 8);
-    assert_eq!(report.metrics.ordinary_fixed_steps, 232);
+    assert!(checkpoint_ticks.is_empty());
+    assert_eq!(report.metrics.checkpoint_fixed_steps, 0);
+    assert_eq!(report.metrics.ordinary_fixed_steps, 240);
     std::fs::remove_dir_all(state_root).expect("remove checkpoint root");
 }
 
@@ -358,60 +354,6 @@ fn close_failure_retries_before_closed_and_preserves_pending_runtime_failure() {
         resolve_interactive_shutdown_attempt(Ok(9_u8), Some(&runtime_failure)),
         InteractiveShutdownAttemptV1::Closed(Err(_))
     ));
-}
-
-#[test]
-fn production_worker_retries_one_failed_close_publication_before_terminal_receipt() {
-    let state_root = unique_test_directory("worker-close-retry");
-    let (mut worker, _) = InteractiveSimulationWorkerV1::spawn(LaunchRequestV1::reference(
-        state_root.clone(),
-        CompositionRootV1::Game,
-        PresentationTargetKindV1::Interactive,
-    ))
-    .expect("spawn production worker");
-    worker
-        .inject_fail_next_close_publication()
-        .expect("inject one close publication failure");
-
-    assert!(matches!(
-        worker.shutdown_attempt(None, 0),
-        InteractiveWorkerFinalizationV1::Retry(_)
-    ));
-    let InteractiveWorkerFinalizationV1::Closed { result, .. } = worker.shutdown_attempt(None, 0)
-    else {
-        panic!("second close attempt must publish terminal Closed");
-    };
-    let report = (*result).expect("terminal worker report");
-    assert_eq!(report.close_result, "Saved");
-    assert_ne!(report.close_receipt_hash, "0".repeat(64));
-    std::fs::remove_dir_all(state_root).expect("remove close retry root");
-}
-
-#[test]
-fn diagnostic_finalization_exhaustion_disconnects_and_joins_worker() {
-    let state_root = unique_test_directory("worker-close-budget");
-    let (mut worker, _) = InteractiveSimulationWorkerV1::spawn_with_diagnostic_capacity(
-        LaunchRequestV1::reference(
-            state_root.clone(),
-            CompositionRootV1::Game,
-            PresentationTargetKindV1::Interactive,
-        ),
-        Some(
-            usize::try_from(PRODUCTION_WORKER_DIAGNOSTIC_MINIMUM_CALLBACKS)
-                .expect("diagnostic callback count fits usize"),
-        ),
-    )
-    .expect("spawn measured worker");
-    worker
-        .inject_fail_next_close_publication()
-        .expect("inject close publication failure");
-
-    let failure = finalize_diagnostic_worker_with_attempt_limit(&mut worker, 1)
-        .expect_err("one failed close exhausts the explicit attempt budget");
-    assert_eq!(failure.code, "SESSION_STORAGE_UNAVAILABLE");
-    assert!(failure.message.contains("exhausted 1 close attempts"));
-    assert!(worker.worker.is_none());
-    std::fs::remove_dir_all(state_root).expect("remove close budget root");
 }
 
 #[test]

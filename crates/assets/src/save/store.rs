@@ -164,6 +164,41 @@ impl SaveStore {
         )
     }
 
+    pub fn prepare_world_checkpoint_with_streaming(
+        &self,
+        compatibility: SaveCompatibility,
+        checkpoint: &WorldCheckpointV4,
+        world_streaming_snapshot: &WorldStreamingSnapshotV1,
+    ) -> Result<SaveImage, SaveStoreError> {
+        let next_generation = self
+            .probe_candidates()
+            .iter()
+            .map(|candidate| candidate.manifest.generation)
+            .max()
+            .map_or(Ok(0), |generation| {
+                generation
+                    .checked_add(1)
+                    .ok_or(SaveStoreError::GenerationExhausted)
+            })?;
+        SaveImage::from_world_checkpoint_with_streaming(
+            next_generation,
+            compatibility,
+            checkpoint,
+            world_streaming_snapshot,
+        )
+    }
+
+    /// Publishes an immutable image prepared by the close journal. Repeating
+    /// the call after a crash is idempotent when the exact generation already
+    /// occupies its canonical slot.
+    pub fn commit_prepared_image(
+        &self,
+        image: &SaveImage,
+    ) -> Result<SaveCommitReceipt, SaveStoreError> {
+        image.validate_world_light()?;
+        self.commit_image_inner(image, None)
+    }
+
     pub fn load_latest(
         &self,
         expected_compatibility: &SaveCompatibility,
@@ -227,8 +262,39 @@ impl SaveStore {
             )?,
             None => SaveImage::from_world_checkpoint(next_generation, compatibility, checkpoint)?,
         };
+        self.commit_image_inner(&image, fault)
+    }
+
+    fn commit_image_inner(
+        &self,
+        image: &SaveImage,
+        fault: Option<CommitBoundary>,
+    ) -> Result<SaveCommitReceipt, SaveStoreError> {
+        fs::create_dir_all(&self.root)
+            .map_err(|source| SaveStoreError::io("create save root", &self.root, source))?;
+        image.validate_world_light()?;
+        let next_generation = image.manifest.generation;
         let slot = u8::try_from(next_generation % SLOT_COUNT)
             .map_err(|_| SaveStoreError::GenerationExhausted)?;
+        let slot_path = self.slot_path(slot);
+        if slot_path.exists()
+            && probe_generation_directory(&slot_path, slot).is_ok_and(|existing| existing == *image)
+        {
+            self.publish_pointer(next_generation, slot, fault)?;
+            return Ok(SaveCommitReceipt {
+                generation: next_generation,
+                slot,
+            });
+        }
+        let highest = self
+            .probe_candidates()
+            .into_iter()
+            .map(|candidate| candidate.manifest.generation)
+            .max();
+        let expected = highest.map_or(0, |generation| generation.saturating_add(1));
+        if next_generation != expected {
+            return Err(SaveStoreError::InvalidImage("SAVE_GENERATION_NOT_NEXT"));
+        }
         let staging = self.staging_path(slot);
         remove_directory_if_present(&staging)?;
         fs::create_dir_all(staging.join(SEGMENTS_DIRECTORY))
@@ -251,14 +317,13 @@ impl SaveStore {
 
         let staged_image = probe_generation_directory(&staging, slot)
             .map_err(|rejected| SaveStoreError::InvalidStaging(rejected.stable_code))?;
-        if staged_image != image {
+        if staged_image != *image {
             return Err(SaveStoreError::InvalidImage(
                 "SAVE_STAGING_ROUND_TRIP_MISMATCH",
             ));
         }
         maybe_inject(fault, CommitBoundary::StagingValidated)?;
 
-        let slot_path = self.slot_path(slot);
         remove_directory_if_present(&slot_path)?;
         maybe_inject(fault, CommitBoundary::InactiveSlotRemoved)?;
         fs::rename(&staging, &slot_path)
@@ -266,11 +331,25 @@ impl SaveStore {
         sync_directory(&self.root)?;
         maybe_inject(fault, CommitBoundary::GenerationPublished)?;
 
+        self.publish_pointer(next_generation, slot, fault)?;
+
+        Ok(SaveCommitReceipt {
+            generation: next_generation,
+            slot,
+        })
+    }
+
+    fn publish_pointer(
+        &self,
+        generation: u64,
+        slot: u8,
+        fault: Option<CommitBoundary>,
+    ) -> Result<(), SaveStoreError> {
         let pointer_staging = self.root.join(CURRENT_STAGING_FILE);
         remove_file_if_present(&pointer_staging)?;
         write_new_synced(
             &pointer_staging,
-            format!("{next_generation} {slot}\n").as_bytes(),
+            format!("{generation} {slot}\n").as_bytes(),
         )?;
         maybe_inject(fault, CommitBoundary::PointerStaged)?;
         remove_file_if_present(&self.root.join(CURRENT_FILE))?;
@@ -280,11 +359,7 @@ impl SaveStore {
         })?;
         sync_directory(&self.root)?;
         maybe_inject(fault, CommitBoundary::PointerPublished)?;
-
-        Ok(SaveCommitReceipt {
-            generation: next_generation,
-            slot,
-        })
+        Ok(())
     }
 
     fn load_candidates(

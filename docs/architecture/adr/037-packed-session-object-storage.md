@@ -3,13 +3,13 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-037 |
-| Статус | Accepted |
+| Статус | Superseded by ADR-047 |
 | Версия | 1.0 |
 | Дата решения | 2026-07-31 |
 | Последняя проверка | 2026-07-31 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](../22-canonical-schema-registry-and-migration.md), [SPEC-29](../29-platform-host-and-application-session.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](025-schema-content-and-migration-authority.md), [ADR-035](035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-036](036-thoth-reference-performance-profile.md) |
 | Заменяет | Узко заменяет physical-storage implication [ADR-035](035-bounded-live-recovery-platform-host-and-presentation-cut.md): current и previous остаются двумя complete logical session generations, но их logical objects MAY находиться в private canonical-indexed pack files вместо отдельного файла на каждый object. Cadence, rollback, recovery evidence и public wire semantics ADR-035 не меняются. |
-| Заменён | не заменён |
+| Заменён | Полностью [ADR-047](047-simple-application-session-and-save-on-close.md) |
 
 ## Контекст
 

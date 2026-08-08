@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use next_application::{
-    ApplicationCloseOutcomeV1, ApplicationCoordinator, ApplicationError, DiagnosticContextV1,
+    ApplicationCloseOutcomeV2, ApplicationCoordinator, ApplicationError, DiagnosticContextV1,
     DiagnosticReportV1, LaunchRequestV1, ProjectSelectionV1, RunReportV1, default_user_state_root,
 };
 use next_contracts::ids::ContentHash;
@@ -73,10 +73,8 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
             .run_reference_game(true)
             .map_err(AppFailure::application)?
     };
-    let close = application
-        .close(next_application::CloseExecutionOptionsV1::default())
-        .map_err(AppFailure::application)?;
-    if !matches!(close, ApplicationCloseOutcomeV1::Closed { .. }) {
+    let close = application.close().map_err(AppFailure::application)?;
+    if !matches!(close, ApplicationCloseOutcomeV2::Closed { .. }) {
         return Err(AppFailure::cli(
             "SESSION_FINAL_SAVE_FAILED",
             "application close did not reach a terminal receipt",

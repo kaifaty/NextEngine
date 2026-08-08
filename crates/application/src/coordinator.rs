@@ -1,22 +1,20 @@
-use std::collections::BTreeMap;
-use std::sync::Arc;
-
 use next_assets::{SaveStore, SessionStore};
 use next_contracts::ids::{ApplicationSessionId, CommandLedgerHash, ContentHash};
 use next_contracts::project::ActivatedProjectV2;
-use next_contracts::session::ApplicationSessionManifestV1;
+use next_contracts::session::ApplicationSessionManifestV2;
 use next_runtime::ApplicationSessionMachine;
 
 use crate::LaunchRequestV1;
-use crate::durable::DurableApplicationSnapshotV1;
+use crate::durable::DurableApplicationSnapshotV4;
 
 mod activation;
 mod close_flow;
 mod identity;
 mod platform_host;
 mod publication;
-mod recovery;
 mod run;
+
+pub(super) use close_flow::{save_compatibility, save_identity};
 
 use platform_host::RegisteredPlatformHostV1;
 pub use run::ApplicationAudioFrameV1;
@@ -48,27 +46,21 @@ pub struct ApplicationCoordinator {
     session_store: SessionStore,
     save_store: SaveStore,
     machine: ApplicationSessionMachine,
-    durable: DurableApplicationSnapshotV1,
+    durable: DurableApplicationSnapshotV4,
     current_generation: ContentHash,
-    objects: BTreeMap<ContentHash, Arc<[u8]>>,
-    prepared_run_objects: BTreeMap<ContentHash, Arc<[u8]>>,
     prepared_run: Option<PreparedRunV1>,
     live_run: Option<next_reference_game::ReferenceGameDriverV1>,
     platform_host: Option<RegisteredPlatformHostV1>,
-    #[cfg(test)]
-    pause_after_save_commit: bool,
-    #[cfg(test)]
-    fail_next_state_publication: bool,
 }
 
 impl ApplicationCoordinator {
     #[must_use]
-    pub fn state(&self) -> &next_contracts::session::ApplicationSessionStateV1 {
+    pub fn state(&self) -> &next_contracts::session::ApplicationSessionStateV2 {
         self.machine.state()
     }
 
     #[must_use]
-    pub fn manifest(&self) -> &ApplicationSessionManifestV1 {
+    pub fn manifest(&self) -> &ApplicationSessionManifestV2 {
         self.machine.manifest()
     }
 

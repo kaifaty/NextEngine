@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use next_contracts::ids::ContentHash;
-use next_contracts::session::{CloseSessionResultV1, CompositionRootV1};
+use next_contracts::session::CompositionRootV1;
 
-use crate::{ApplicationCloseOutcomeV1, ApplicationRunOutcomeV1};
+use crate::{ApplicationCloseOutcomeV2, ApplicationRunOutcomeV1};
 
 pub const OPERATIONAL_REPORT_SCHEMA_VERSION: u32 = 1;
 
@@ -40,17 +40,13 @@ impl RunReportV1 {
     pub fn new(
         root: CompositionRootV1,
         run: &ApplicationRunOutcomeV1,
-        close: &ApplicationCloseOutcomeV1,
+        close: &ApplicationCloseOutcomeV2,
         interactive_host_object_count: u64,
     ) -> Option<Self> {
-        let ApplicationCloseOutcomeV1::Closed {
+        let ApplicationCloseOutcomeV2::Closed {
             receipt_hash,
-            result,
             save_generation_hash,
-        } = close
-        else {
-            return None;
-        };
+        } = close;
         let presentation =
             run.presentation_snapshot
                 .as_ref()
@@ -66,8 +62,8 @@ impl RunReportV1 {
             composition_root: composition_root_token(root).to_owned(),
             session_id: run.session_id.to_hex(),
             close_receipt_hash: receipt_hash.to_hex(),
-            close_result: close_result_token(*result).to_owned(),
-            final_save_generation_hash: save_generation_hash.map(ContentHash::to_hex),
+            close_result: "Saved".to_owned(),
+            final_save_generation_hash: Some(save_generation_hash.to_hex()),
             project_composition_lock_hash: run.project_composition_lock_hash.to_hex(),
             ticks: run.ticks,
             events: run.events,
@@ -160,13 +156,6 @@ const fn composition_root_token(root: CompositionRootV1) -> &'static str {
         CompositionRootV1::Headless => "Headless",
         CompositionRootV1::Tools => "Tools",
         CompositionRootV1::CaptureWorker => "CaptureWorker",
-    }
-}
-
-const fn close_result_token(result: CloseSessionResultV1) -> &'static str {
-    match result {
-        CloseSessionResultV1::Saved => "Saved",
-        CloseSessionResultV1::ClosedUsingLastSafeGeneration => "ClosedUsingLastSafeGeneration",
     }
 }
 
