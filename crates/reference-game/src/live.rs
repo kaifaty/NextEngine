@@ -250,7 +250,7 @@ impl ReferenceGameDriverV1 {
             rpg_snapshot,
             PhysicsLaunchOptions::default(),
         )?;
-        let initial_chunk_id = load::relay_station_chunk_id(&fixture)?;
+        let initial_chunk_id = load::initial_chunk_id(&fixture);
         let world_streamer = WorldStreamerV1::activate(
             fixture.activated_project.clone(),
             content_generation.clone(),

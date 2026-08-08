@@ -57,6 +57,10 @@ pub enum ReferenceGameError {
     CountOverflow,
     BodyMissing,
     WorldPartitionEmpty,
+    WorldChunkRecordMissing,
+    WorldChunkRecordKindMismatch,
+    WorldChunkRoleMissing(&'static str),
+    WorldChunkRoleDuplicate(&'static str),
     WorldStreamingResumeMismatch,
     WorldStreamingMutatedRpg,
     AgentActionMissing,
@@ -95,7 +99,19 @@ impl Display for ReferenceGameError {
             Self::DuplicatePrincipal => formatter.write_str("reference principal is duplicated"),
             Self::CountOverflow => formatter.write_str("reference run count overflow"),
             Self::BodyMissing => formatter.write_str("reference player body is missing"),
-            Self::WorldPartitionEmpty => formatter.write_str("reference world requires two chunks"),
+            Self::WorldPartitionEmpty => formatter.write_str("reference world partition is empty"),
+            Self::WorldChunkRecordMissing => {
+                formatter.write_str("reference world chunk record is missing")
+            }
+            Self::WorldChunkRecordKindMismatch => {
+                formatter.write_str("reference world chunk binding has the wrong semantic class")
+            }
+            Self::WorldChunkRoleMissing(role) => {
+                write!(formatter, "reference world {role} chunk role is missing")
+            }
+            Self::WorldChunkRoleDuplicate(role) => {
+                write!(formatter, "reference world {role} chunk role is duplicated")
+            }
             Self::WorldStreamingResumeMismatch => {
                 formatter.write_str("restaged world group changed after restore")
             }

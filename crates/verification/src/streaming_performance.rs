@@ -128,37 +128,14 @@ fn prepare_streaming_performance_check_with_scratch(
         let package = next_project::activate_project_package(&store).map_err(|error| {
             StreamingPerformanceError::new("activate fixture", error.to_string())
         })?;
-        let chunks = package
-            .project
-            .world_partition
-            .body
-            .chunk_bindings
-            .iter()
-            .map(|binding| binding.chunk_id.clone())
-            .collect::<Vec<_>>();
-        if chunks.len() != 2 {
-            return Err(StreamingPerformanceError::new(
-                "fixture topology",
-                "exactly two chunks are required",
-            ));
-        }
-        let relay = chunks
-            .iter()
-            .find(|chunk| chunk.as_str().ends_with("relay-station"))
-            .cloned()
-            .ok_or_else(|| StreamingPerformanceError::new("fixture topology", "relay missing"))?;
-        let frontier = chunks
-            .iter()
-            .find(|chunk| chunk.as_str().ends_with("frontier"))
-            .cloned()
-            .ok_or_else(|| {
-                StreamingPerformanceError::new("fixture topology", "frontier missing")
-            })?;
-        let chunks = [relay, frontier];
         let fixture = next_reference_game::build_reference_game_session(package.project.clone())
             .map_err(|error| {
                 StreamingPerformanceError::new("runtime fixture", error.to_string())
             })?;
+        let chunks = [
+            fixture.world_topology().initial_chunk_id().clone(),
+            fixture.world_topology().gameplay_target_chunk_id().clone(),
+        ];
         let runtime = RuntimeState::new(fixture.bootstrap, fixture.authority).map_err(|error| {
             StreamingPerformanceError::new("activate runtime", error.to_string())
         })?;

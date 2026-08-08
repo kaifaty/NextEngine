@@ -106,9 +106,7 @@ impl Display for PlayCheckError {
             Self::PresentationAssetMissing => {
                 formatter.write_str("cooked presentation asset is missing")
             }
-            Self::WorldPartitionEmpty => {
-                formatter.write_str("cooked world partition requires two chunks")
-            }
+            Self::WorldPartitionEmpty => formatter.write_str("cooked world partition is empty"),
             Self::WorldStreaming(error) => write!(formatter, "{error}"),
             Self::WorldStreamingContract(error) => write!(formatter, "{error}"),
             Self::WorldStreamingResumeMismatch => {

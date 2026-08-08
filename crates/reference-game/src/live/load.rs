@@ -2,18 +2,8 @@
 
 use super::*;
 
-pub(super) fn relay_station_chunk_id(
-    fixture: &ReferenceGameSession,
-) -> Result<SchemaId, ReferenceGameError> {
-    fixture
-        .activated_project
-        .world_partition
-        .body
-        .chunk_bindings
-        .iter()
-        .find(|binding| binding.chunk_id.as_str().ends_with("relay-station"))
-        .map(|binding| binding.chunk_id.clone())
-        .ok_or(ReferenceGameError::WorldPartitionEmpty)
+pub(super) fn initial_chunk_id(fixture: &ReferenceGameSession) -> SchemaId {
+    fixture.world_topology().initial_chunk_id().clone()
 }
 
 impl ReferenceGameDriverV1 {

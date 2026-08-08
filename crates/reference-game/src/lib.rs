@@ -10,6 +10,7 @@ mod runtime_bootstrap;
 mod scenario;
 mod session;
 mod source;
+mod topology;
 mod ui;
 mod ui_dialogue;
 
@@ -41,6 +42,7 @@ pub use source::{
     REFERENCE_GAME_PROJECT_ID, project_source_v2, project_source_v2_with_id,
     reference_alpha_project_directory,
 };
+pub use topology::{ReferenceChunkRouteEntryV1, ReferenceWorldTopologyV1};
 pub use ui::{
     HUD_ACTION_ACCEPT_TEXT_ID, HUD_ACTION_COMBAT_TEXT_ID, HUD_ACTION_COMPLETE_TEXT_ID,
     HUD_ACTION_ELEMENT_ID, HUD_ACTION_EQUIP_TEXT_ID, HUD_ACTION_PICKUP_TEXT_ID,

@@ -43,26 +43,8 @@ pub(super) fn initialize(
     let luau_package_state_hash = verify_luau_state_round_trip()?;
     let wasm_plugin_state_hash = verify_wasm_state_round_trip()?;
     let initial_rpg = initial_rpg_snapshot(&fixture)?;
-    let initial_chunk_id = fixture
-        .activated_project
-        .world_partition
-        .body
-        .chunk_bindings
-        .iter()
-        .find(|binding| binding.chunk_id.as_str().ends_with("relay-station"))
-        .ok_or_else(|| PersistenceReplayCheckError::condition("initial world chunk exists"))?
-        .chunk_id
-        .clone();
-    let transition_chunk_id = fixture
-        .activated_project
-        .world_partition
-        .body
-        .chunk_bindings
-        .iter()
-        .find(|binding| binding.chunk_id.as_str().ends_with("frontier"))
-        .ok_or_else(|| PersistenceReplayCheckError::condition("second world chunk exists"))?
-        .chunk_id
-        .clone();
+    let initial_chunk_id = fixture.world_topology().initial_chunk_id().clone();
+    let transition_chunk_id = fixture.world_topology().gameplay_target_chunk_id().clone();
     let content_generation = project_package.package.content_generation.clone();
     let world = WorldStreamerV1::activate(
         fixture.activated_project.clone(),

@@ -43,6 +43,22 @@ fn reference_source_recooks_byte_identically_and_runs_through_production_paths()
         .publish(&first.publication().expect("publication"))
         .expect("publish");
     let activated = next_project::activate_project_package(&store).expect("activate");
+    let topology =
+        next_reference_game::ReferenceWorldTopologyV1::from_activated_project(&activated.project)
+            .expect("manifest-driven topology");
+    assert_eq!(
+        topology.ordered_multiregion_route().len(),
+        activated.project.world_partition.body.chunk_bindings.len()
+    );
+    assert_eq!(
+        topology.ordered_multiregion_route()[0].chunk_id,
+        *topology.initial_chunk_id()
+    );
+    assert_ne!(
+        topology.initial_chunk_id(),
+        topology.gameplay_target_chunk_id()
+    );
+    assert_reference_topology_faults_are_typed(&activated.project, &topology);
     let outcome = next_reference_game::run_reference_game(activated, true).expect("reference run");
     let checkpoint = outcome.runtime.world_checkpoint().expect("checkpoint");
     assert_eq!(outcome.ticks, 32);
@@ -146,6 +162,72 @@ fn reference_source_recooks_byte_identically_and_runs_through_production_paths()
         Ok(next_contracts::ids::CommandLedgerHash::default())
     );
     std::fs::remove_dir_all(root).expect("cleanup");
+}
+
+fn assert_reference_topology_faults_are_typed(
+    project: &next_contracts::project::ActivatedProjectV3,
+    topology: &next_reference_game::ReferenceWorldTopologyV1,
+) {
+    let record_index = |project: &next_contracts::project::ActivatedProjectV3,
+                        chunk_id: &SchemaId| {
+        let asset_id = project
+            .world_partition
+            .body
+            .chunk_bindings
+            .iter()
+            .find(|binding| &binding.chunk_id == chunk_id)
+            .expect("topology chunk binding")
+            .chunk_asset
+            .asset_id;
+        project
+            .neutral_records
+            .iter()
+            .position(|record| record.asset_id == asset_id)
+            .expect("topology chunk record")
+    };
+
+    let initial_index = record_index(project, topology.initial_chunk_id());
+    let target_index = record_index(project, topology.gameplay_target_chunk_id());
+    let role_index = |project: &next_contracts::project::ActivatedProjectV3, index: usize| {
+        project.neutral_records[index]
+            .properties
+            .iter()
+            .position(|property| property.property_id.as_str() == "nextengine.reference.role")
+            .expect("reference role property")
+    };
+
+    let mut missing_role = project.clone();
+    let initial_role_index = role_index(&missing_role, initial_index);
+    missing_role.neutral_records[initial_index].properties[initial_role_index].value_id =
+        SchemaId::new("nextengine.reference-alpha.world-chunk.unassigned").expect("role id");
+    assert!(matches!(
+        next_reference_game::ReferenceWorldTopologyV1::from_activated_project(&missing_role),
+        Err(next_reference_game::ReferenceGameError::WorldChunkRoleMissing("initial"))
+    ));
+
+    let mut duplicate_role = project.clone();
+    let target_role_index = role_index(&duplicate_role, target_index);
+    duplicate_role.neutral_records[target_index].properties[target_role_index].value_id =
+        SchemaId::new("nextengine.reference-alpha.world-chunk.relay-station").expect("role id");
+    assert!(matches!(
+        next_reference_game::ReferenceWorldTopologyV1::from_activated_project(&duplicate_role),
+        Err(next_reference_game::ReferenceGameError::WorldChunkRoleDuplicate("initial"))
+    ));
+
+    let mut wrong_class = project.clone();
+    wrong_class.neutral_records[initial_index].kind =
+        next_contracts::content::NeutralRecordKindV1::Collider;
+    assert!(matches!(
+        next_reference_game::ReferenceWorldTopologyV1::from_activated_project(&wrong_class),
+        Err(next_reference_game::ReferenceGameError::WorldChunkRecordKindMismatch)
+    ));
+
+    let mut missing_record = project.clone();
+    missing_record.neutral_records.remove(initial_index);
+    assert!(matches!(
+        next_reference_game::ReferenceWorldTopologyV1::from_activated_project(&missing_record),
+        Err(next_reference_game::ReferenceGameError::WorldChunkRecordMissing)
+    ));
 }
 
 #[test]

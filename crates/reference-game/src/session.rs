@@ -20,7 +20,7 @@ use next_contracts::physics::{
 use next_contracts::project::ActivatedProjectV3;
 use next_contracts::rpg::RPG_COMMAND_CAPABILITY_ID;
 
-use crate::{ReferenceGameError, build_reference_runtime_bootstrap};
+use crate::{ReferenceGameError, ReferenceWorldTopologyV1, build_reference_runtime_bootstrap};
 
 const WORLD_COLLISION_LAYER: u8 = 0;
 const WORLD_COLLISION_MASK: u64 = 1 << WORLD_COLLISION_LAYER;
@@ -57,6 +57,14 @@ pub struct ReferenceGameSession {
     pub context_stack: InputContextStackV1,
     pub context_stack_hash: ContentHash,
     pub activated_project: ActivatedProjectV3,
+    world_topology: ReferenceWorldTopologyV1,
+}
+
+impl ReferenceGameSession {
+    #[must_use]
+    pub fn world_topology(&self) -> &ReferenceWorldTopologyV1 {
+        &self.world_topology
+    }
 }
 
 pub fn build_reference_game_session(
@@ -69,6 +77,7 @@ pub fn build_reference_game_session_with_profile(
     activated_project: ActivatedProjectV3,
     physx_compatible: bool,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
+    let world_topology = ReferenceWorldTopologyV1::from_activated_project(&activated_project)?;
     let project_id = activated_project
         .project_lock
         .project_id
@@ -238,6 +247,7 @@ pub fn build_reference_game_session_with_profile(
         context_stack,
         context_stack_hash,
         activated_project,
+        world_topology,
     })
 }
 

@@ -127,26 +127,8 @@ pub fn run_reference_game_with_backend(
         physics_options,
     )?;
     let mut input_producer = NormalizedReferenceInputV1::new(&fixture)?;
-    let initial_chunk_id = fixture
-        .activated_project
-        .world_partition
-        .body
-        .chunk_bindings
-        .iter()
-        .find(|binding| binding.chunk_id.as_str().ends_with("relay-station"))
-        .ok_or(ReferenceGameError::WorldPartitionEmpty)?
-        .chunk_id
-        .clone();
-    let transition_chunk_id = fixture
-        .activated_project
-        .world_partition
-        .body
-        .chunk_bindings
-        .iter()
-        .find(|binding| binding.chunk_id.as_str().ends_with("frontier"))
-        .ok_or(ReferenceGameError::WorldPartitionEmpty)?
-        .chunk_id
-        .clone();
+    let initial_chunk_id = fixture.world_topology().initial_chunk_id().clone();
+    let transition_chunk_id = fixture.world_topology().gameplay_target_chunk_id().clone();
     let mut world_streamer = WorldStreamerV1::activate(
         fixture.activated_project.clone(),
         content_generation.clone(),
