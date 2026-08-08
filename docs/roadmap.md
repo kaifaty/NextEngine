@@ -4,8 +4,8 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-08 |
-| Текущая точка | R2 Data-first Playable Alpha `COMPLETE` для Windows. Полный 20–30-minute Frontier Relay acceptance для `r2-reference-alpha-visual-v5` прошёл 2026-08-08 на baseline `fe87ae3`; package manifest `fe903b4a…a138`, game binary `50e4fb7f…534a` и project lock `84742a69…a828` записаны в `projects/reference-alpha/ACCEPTANCE.md`. Ручной run подтвердил Save → изменение world → Load → Resume, rollback/WASD, collisions, UI, resize/fullscreen. Automated `play`, `persistence-replay`, `content-package`, SDL3/Vulkan `platform`, workspace/`host-check`, package smoke и authoritative roots также проходят. B-03 закрыт. Следующий work package — bounded architecture cleanup перед R3a. Linux полностью `DEFERRED_LINUX`; R1/R7, B-12 и v1 shipping не заявляются. |
-| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02 и `COMPLETE` для Windows R2. Это не закрывает R1: Linux исключён, paired cross-target evidence отсутствует. Архитектурный cleanup выполняется следующим самостоятельным increment; R3a после него. |
+| Текущая точка | R2 Data-first Playable Alpha и Architecture Cleanup `COMPLETE / WINDOWS_ACCEPTED`. Полный automated R2 recheck (`host-check`, `play`, `persistence-replay`, `content-package`, SDL3/Vulkan `platform`, `v1-closure`, package smoke и six-frame `visual-smoke`) прошёл 2026-08-08 на clean baseline `3825ab9`. Новый packaged Frontier Relay run подтвердил Save/Load/Resume, authoritative WASD, pickup/equip, combat, relay, final completion, все четыре rock colliders, UI, resize/fullscreen; package manifest `71599dbb…822e`, game binary `3333c1b9…0844` и project lock `73a52631…2c2a` записаны в `projects/reference-alpha/ACCEPTANCE.md`. Performance остаётся `REPORT_ONLY`: native-gate publication не заявляется, потому что host preflight не был ready. Следующий WIP=1 — R3a chunk fetch/decode/validate. Linux полностью `DEFERRED_LINUX`; R1/R7, B-12 и v1 shipping не заявляются. |
+| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. Это не закрывает R1: Linux исключён, paired cross-target evidence отсутствует. Следующий самостоятельный increment — R3a. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
@@ -417,8 +417,8 @@ closure и Linux остаются вне текущего Windows-only план�
 ten-run performance evidence.
 
 Automated production path, lawful content/provenance, отсутствие hidden
-UI/camera mutation и ручной representative loop подтверждены. Следующий WIP=1 —
-архитектурный cleanup; R3a начинается только после него.
+UI/camera mutation и ручной representative loop подтверждены. Архитектурный
+cleanup завершён; следующий WIP=1 — R3a.
 
 **Scope guard:** editor, advanced renderer, photoreal assets и procedural world
 generation не входят в этот этап.
@@ -1232,14 +1232,16 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    diagnostic проходят. Ручной acceptance `r2-reference-alpha-visual-v5` с
    `Saved`, `Loaded - press Resume`, rollback/WASD, collisions, UI,
    resize/fullscreen зафиксирован как `PASS` 2026-08-08.
-4. **Architecture cleanup (`IMPLEMENTED / FINAL_RECHECK_PENDING`, packages 1–6/6):** R2 gate закрыт;
+4. **Architecture cleanup (`COMPLETE / WINDOWS_ACCEPTED`, packages 1–6/6):** R2 gate закрыт;
    retired replay/input contracts, session recovery archives/object packs и
    project resolver/catalog удалены. Current project path теперь authoring v2 →
    exact `ProjectLockV3` → atomic `ActivatedProjectV3`. Allocator-counter удалён,
    performance evidence переведено на current-only V4. Accepted baseline сжат
-   до текущих invariants/contracts; остаются полный automated R2 recheck и
-   manual acceptance нового package.
-5. **R3a jobs/resources vertical (`PLANNED / AFTER_ARCHITECTURE_CLEANUP`):** первым
+   до текущих invariants/contracts. На clean baseline `3825ab9` прошли полный
+   automated R2 recheck и manual acceptance нового immutable Windows package;
+   точные hashes записаны в `projects/reference-alpha/ACCEPTANCE.md`. Performance
+   остаётся `REPORT_ONLY`, B-12 открыт, Linux/R1 не заявляются.
+5. **R3a jobs/resources vertical (`PLANNED / NEXT`):** первым
    production consumer является chunk fetch/decode/validate; shared bounded
    admission primitives не проектируются отдельно от этого workload.
 6. **R3b bounded general partition (`PLANNED`):** ровно 4 regions/64 chunks и
@@ -1259,7 +1261,7 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    остаётся `DEFERRED_LINUX`, v1 shipping не заявляется.
 
 Каждый package должен быть отдельным product increment с focused checks. WIP=1:
-сначала architecture cleanup, затем R3a. R3a не следует начинать как
+следующим выполняется R3a. Его не следует начинать как
 универсальный scheduler design без concrete chunk streaming workload.
 
 ## Обновление roadmap

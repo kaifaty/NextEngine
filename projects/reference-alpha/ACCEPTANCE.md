@@ -1,6 +1,37 @@
 # Frontier Relay manual acceptance
 
-## Accepted package — 2026-08-08
+## Architecture-cleanup accepted package — 2026-08-08
+
+**Result:** `PASS`
+
+The fresh Windows package produced after Architecture Cleanup passed the full
+Frontier Relay manual flow without debug commands. The accepted immutable
+inputs are:
+
+- source baseline:
+  `3825ab919f5d67756ea2a7001ebfdd1c7f89ddd1`;
+- package manifest SHA-256:
+  `71599dbb989116f34d650b9d7f8c6deec4886130459d71eee5cb798d7a15822e`;
+- packaged `game` binary SHA-256:
+  `3333c1b98fb8ed11c5b46219ba5cec30061888a8729af891cd0e76535e270844`;
+- project composition lock SHA-256:
+  `73a52631264237bd01c5d5ce5f0a6bce65d546ad081818cf107835aae4b32c2a`.
+
+The run verified quest acceptance and `Active` journal recovery; pickup and
+equipment through the production movement/contact path; Raider health
+`100 → 50 → defeated`; separate combat and activated-relay Save/Load cuts;
+explicit Resume and authoritative WASD after Load; final `Completed` journal,
+active cyan relay and `Frontier Relay restored` action panel. All four visible
+rock colliders stopped continued movement at their inset silhouettes, and the
+window passed real resize plus fullscreen enter/exit. The packaged process
+closed normally with `status = PASS` and `close_result = Saved`.
+
+This record closes the manual acceptance item for Architecture Cleanup on
+Windows. It does not claim the unpublished native-gate bundle whose performance
+preflight was not ready, Linux/R1 cross-target closure, performance blocker
+B-12 or v1 shipping.
+
+## Prior accepted R2 package — 2026-08-08
 
 **Result:** `PASS`
 
