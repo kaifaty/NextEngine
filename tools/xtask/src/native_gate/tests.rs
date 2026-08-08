@@ -143,7 +143,7 @@ fn package(target: &str, roots: &NativeGateComparableRootsV1) -> NativeGatePacka
         target_triple: target.to_owned(),
         relative_path: "package".to_owned(),
         package_manifest_sha256: hash('6'),
-        composition_lock_sha256: roots.project_composition_lock_hash.clone(),
+        project_lock_sha256: roots.project_composition_lock_hash.clone(),
         schema_registry_sha256: roots.schema_registry_hash.clone(),
         content_manifest_sha256: roots.content_manifest_hash.clone(),
         mechanics_lock_sha256: roots.mechanics_lock_hash.clone(),
@@ -424,7 +424,7 @@ fn check_report_value(
                 "target": package.target_triple,
                 "output": "package",
                 "package_manifest_hash": package.package_manifest_sha256,
-                "composition_lock_hash": package.composition_lock_sha256,
+                "composition_lock_hash": package.project_lock_sha256,
                 "game_binary_hash": package.game_binary_sha256,
                 "headless_binary_hash": package.headless_binary_sha256,
                 "game_launch": "PASS",
@@ -448,12 +448,12 @@ pub(super) fn write_target_report(bundle: &TempBundle, report: &NativeGateTarget
 
 fn package_manifest_from_summary(
     report: &NativeGateTargetReportV1,
-) -> crate::package::PackageManifestV3 {
+) -> crate::package::PackageManifestV4 {
     let summary = report.package.as_ref().expect("package summary");
-    let roots = crate::package::PackageTargetNeutralRootsV2 {
+    let roots = crate::package::PackageTargetNeutralRootsV3 {
         content_manifest_sha256: summary.content_manifest_sha256.clone(),
         mechanics_lock_sha256: summary.mechanics_lock_sha256.clone(),
-        project_composition_lock_sha256: summary.composition_lock_sha256.clone(),
+        project_lock_sha256: summary.project_lock_sha256.clone(),
         schema_registry_sha256: summary.schema_registry_sha256.clone(),
         world_partition_sha256: summary.world_partition_sha256.clone(),
     };
@@ -468,10 +468,10 @@ fn package_manifest_from_summary(
             command_ledger_hash: launch.ledger_hash.clone(),
             composition_root: composition_root.to_owned(),
             launch_status: "PASS".to_owned(),
-            project_composition_lock_hash: summary.composition_lock_sha256.clone(),
+            project_composition_lock_hash: summary.project_lock_sha256.clone(),
         }
     };
-    crate::package::PackageManifestV3 {
+    crate::package::PackageManifestV4 {
         binaries: crate::package::PackageBinariesV2 {
             game: packaged_run(
                 "Game",

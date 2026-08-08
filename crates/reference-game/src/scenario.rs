@@ -3,7 +3,7 @@ use next_contracts::ids::{ContentHash, PersistentId, SchemaId, StateRoot};
 use next_contracts::input::{CORE_MELEE_ACTION_ID, PlayerActionPhaseV1};
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::physics::{ContactPhaseV1, PhysicsBodyIdV1, PhysicsPoseV1};
-use next_contracts::project::ActivatedProjectV2;
+use next_contracts::project::ActivatedProjectV3;
 use next_contracts::rpg::{
     RpgAggregateKindV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1, RpgSnapshotV2,
 };
@@ -77,7 +77,7 @@ enum ScenarioAction {
 }
 
 pub fn run_reference_game(
-    activated_project: ActivatedProjectV2,
+    activated_project: ActivatedProjectV3,
     include_interaction: bool,
 ) -> Result<ReferenceRunOutcomeV1, ReferenceGameError> {
     run_reference_game_with_backend(
@@ -92,7 +92,7 @@ pub fn run_reference_game_with_backend(
     include_interaction: bool,
     physx_compatible: bool,
     physics_options: PhysicsLaunchOptions,
-    activated_project: ActivatedProjectV2,
+    activated_project: ActivatedProjectV3,
 ) -> Result<ReferenceRunOutcomeV1, ReferenceGameError> {
     let fixture = if physx_compatible {
         build_reference_game_session_with_profile(activated_project, true)?
@@ -372,10 +372,7 @@ pub fn run_reference_game_with_backend(
         quest_display_text_id,
         relationship_id: fixture.relationship_id,
         relationship_dimension_id,
-        project_composition_lock_hash: fixture
-            .activated_project
-            .composition_lock
-            .composition_lock_sha256,
+        project_composition_lock_hash: fixture.activated_project.project_lock.project_lock_sha256,
         content_manifest_hash: fixture
             .activated_project
             .content_manifest

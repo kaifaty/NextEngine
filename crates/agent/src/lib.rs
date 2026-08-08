@@ -426,7 +426,7 @@ mod tests {
     }
 
     fn registry() -> next_contracts::mechanics::RpgDefinitionRegistryV1 {
-        next_project::cook_project_v1(next_reference_game::project_source_v2().expect("source"))
+        next_project::cook_project_v2(next_reference_game::project_source_v2().expect("source"))
             .expect("cook")
             .rpg_definitions
     }

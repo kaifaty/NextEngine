@@ -8,7 +8,7 @@ use next_contracts::ids::{AssetId, ContentHash, PhysicsContactId};
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::physics::ContactPhaseV1;
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1};
-use next_project::{ProjectActivationError, ProjectCookError, activate_project, cook_project_v1};
+use next_project::{ProjectActivationError, ProjectCookError, activate_project, cook_project_v2};
 use next_render::{RenderTargetV1, build_b0_frame_plan};
 
 use crate::scratch::ScratchContext;
@@ -48,7 +48,7 @@ pub(crate) fn run_content_package_check_with_scratch(
     scratch: &ScratchContext,
 ) -> Result<ContentPackageCheckReport, ContentPackageCheckError> {
     let source = next_reference_game::project_source_v2()?;
-    let cooked = cook_project_v1(source)?;
+    let cooked = cook_project_v2(source)?;
     let directory = scratch
         .create_directory("content-package")
         .map_err(ContentPackageCheckError::Cleanup)?;
@@ -113,7 +113,7 @@ pub(crate) fn run_content_package_check_with_scratch(
                 .mechanics_lock
                 .mechanics_lock_sha256,
             world_partition_hash: activated.world_partition.world_partition_manifest_sha256,
-            composition_lock_hash: activated.composition_lock.composition_lock_sha256,
+            composition_lock_hash: activated.project_lock.project_lock_sha256,
         })
     })();
     directory.finish(result, ContentPackageCheckError::Cleanup)
@@ -176,7 +176,7 @@ fn fallback_material_plan(
 }
 
 fn run_reference_wasm_plugin(
-    activated: next_contracts::project::ActivatedProjectV2,
+    activated: next_contracts::project::ActivatedProjectV3,
 ) -> Result<(i32, ContentHash, u16), ContentPackageCheckError> {
     let fixture = crate::build_neutral_player_fixture_from_activated_project(activated)?;
     let snapshot = crate::cooked_project_rpg_snapshot(&fixture);
@@ -261,7 +261,7 @@ fn run_reference_wasm_plugin(
 }
 
 fn run_reference_luau_package(
-    activated: next_contracts::project::ActivatedProjectV2,
+    activated: next_contracts::project::ActivatedProjectV3,
 ) -> Result<(i32, ContentHash), ContentPackageCheckError> {
     let fixture = crate::build_neutral_player_fixture_from_activated_project(activated)?;
     let snapshot = crate::cooked_project_rpg_snapshot(&fixture);

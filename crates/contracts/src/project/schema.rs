@@ -5,10 +5,10 @@ use crate::ids::{ContentHash, SchemaId};
 use crate::manifest_jcs::{JcsValue, decode_canonical_jcs, encode_canonical_jcs};
 
 use super::codec::{
-    ProjectContractError, array, domain_hash, enforce_limit, ensure_unique, expect_format, hash,
-    object, plain_jcs_hash, reject_unknown, string, take, text, u32_number, u64_text,
+    ProjectContractError, array, enforce_limit, ensure_unique, expect_format, hash, object,
+    plain_jcs_hash, reject_unknown, string, take, text, u32_number, u64_text,
 };
-use super::{PROJECT_MAX_RECORDS_V1, SCHEMA_REGISTRY_MANIFEST_FORMAT_V1};
+use super::{PROJECT_MAX_RECORDS_V1, SCHEMA_REGISTRY_MANIFEST_FORMAT_V2};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
@@ -87,24 +87,22 @@ pub struct SchemaDescriptorV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SchemaRegistryManifestBodyV1 {
+pub struct SchemaRegistryManifestBodyV2 {
     pub registry_revision: u64,
     pub canonicalization_profile_sha256: ContentHash,
     pub ownership_registry_sha256: ContentHash,
     pub descriptors: Vec<SchemaDescriptorV1>,
     pub current_schema_refs: Vec<SchemaRefV1>,
-    pub migration_dag_sha256: ContentHash,
-    pub registry_limits_sha256: ContentHash,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SchemaRegistryManifestV1 {
-    pub body: SchemaRegistryManifestBodyV1,
+pub struct SchemaRegistryManifestV2 {
+    pub body: SchemaRegistryManifestBodyV2,
     pub schema_registry_manifest_sha256: ContentHash,
 }
 
-impl SchemaRegistryManifestV1 {
-    pub fn new(mut body: SchemaRegistryManifestBodyV1) -> Result<Self, ProjectContractError> {
+impl SchemaRegistryManifestV2 {
+    pub fn new(mut body: SchemaRegistryManifestBodyV2) -> Result<Self, ProjectContractError> {
         body.descriptors.sort();
         body.current_schema_refs.sort();
         validate_schema_registry(&body)?;
@@ -119,16 +117,13 @@ impl SchemaRegistryManifestV1 {
     pub fn empty(
         canonicalization_profile_sha256: ContentHash,
         ownership_registry_sha256: ContentHash,
-        registry_limits_sha256: ContentHash,
     ) -> Result<Self, ProjectContractError> {
-        Self::new(SchemaRegistryManifestBodyV1 {
+        Self::new(SchemaRegistryManifestBodyV2 {
             registry_revision: 1,
             canonicalization_profile_sha256,
             ownership_registry_sha256,
             descriptors: Vec::new(),
             current_schema_refs: Vec::new(),
-            migration_dag_sha256: domain_hash("nextengine.schema-migration-dag.v1", &[]),
-            registry_limits_sha256,
         })
     }
 
@@ -155,7 +150,7 @@ impl SchemaRegistryManifestV1 {
 }
 
 fn validate_schema_registry(
-    body: &SchemaRegistryManifestBodyV1,
+    body: &SchemaRegistryManifestBodyV2,
 ) -> Result<(), ProjectContractError> {
     if body.registry_revision == 0 {
         return Err(ProjectContractError::ZeroRevision);
@@ -186,7 +181,7 @@ fn validate_schema_registry(
 }
 
 fn schema_registry_body_value(
-    body: &SchemaRegistryManifestBodyV1,
+    body: &SchemaRegistryManifestBodyV2,
 ) -> Result<Vec<u8>, ProjectContractError> {
     validate_schema_registry(body)?;
     let mut value = BTreeMap::new();
@@ -214,19 +209,11 @@ fn schema_registry_body_value(
     );
     value.insert(
         "manifest_schema".to_owned(),
-        string(SCHEMA_REGISTRY_MANIFEST_FORMAT_V1),
-    );
-    value.insert(
-        "migration_dag_sha256".to_owned(),
-        string(body.migration_dag_sha256.to_hex()),
+        string(SCHEMA_REGISTRY_MANIFEST_FORMAT_V2),
     );
     value.insert(
         "ownership_registry_sha256".to_owned(),
         string(body.ownership_registry_sha256.to_hex()),
-    );
-    value.insert(
-        "registry_limits_sha256".to_owned(),
-        string(body.registry_limits_sha256.to_hex()),
     );
     value.insert(
         "registry_revision".to_owned(),
@@ -237,10 +224,10 @@ fn schema_registry_body_value(
 
 fn decode_schema_registry_body(
     value: JcsValue,
-) -> Result<SchemaRegistryManifestBodyV1, ProjectContractError> {
+) -> Result<SchemaRegistryManifestBodyV2, ProjectContractError> {
     let mut object = object(value, "schema_registry")?;
-    expect_format(&mut object, SCHEMA_REGISTRY_MANIFEST_FORMAT_V1)?;
-    let body = SchemaRegistryManifestBodyV1 {
+    expect_format(&mut object, SCHEMA_REGISTRY_MANIFEST_FORMAT_V2)?;
+    let body = SchemaRegistryManifestBodyV2 {
         registry_revision: u64_text(take(&mut object, "registry_revision")?, "registry_revision")?,
         canonicalization_profile_sha256: hash(
             take(&mut object, "canonicalization_profile_sha256")?,
@@ -261,14 +248,6 @@ fn decode_schema_registry_body(
         .into_iter()
         .map(decode_schema_ref)
         .collect::<Result<_, _>>()?,
-        migration_dag_sha256: hash(
-            take(&mut object, "migration_dag_sha256")?,
-            "migration_dag_sha256",
-        )?,
-        registry_limits_sha256: hash(
-            take(&mut object, "registry_limits_sha256")?,
-            "registry_limits_sha256",
-        )?,
     };
     reject_unknown(object)?;
     Ok(body)

@@ -163,7 +163,7 @@ pub struct NativeGatePackageSummaryV1 {
     pub target_triple: String,
     pub relative_path: String,
     pub package_manifest_sha256: String,
-    pub composition_lock_sha256: String,
+    pub project_lock_sha256: String,
     pub schema_registry_sha256: String,
     pub content_manifest_sha256: String,
     pub mechanics_lock_sha256: String,
@@ -778,10 +778,7 @@ fn validate_package(
             "package_manifest_sha256",
             package.package_manifest_sha256.as_str(),
         ),
-        (
-            "composition_lock_sha256",
-            package.composition_lock_sha256.as_str(),
-        ),
+        ("project_lock_sha256", package.project_lock_sha256.as_str()),
         (
             "schema_registry_sha256",
             package.schema_registry_sha256.as_str(),
@@ -810,8 +807,8 @@ fn validate_package(
     validate_packaged_launch("headless", &package.headless)?;
 
     compare_package_root(
-        "composition_lock_sha256",
-        &package.composition_lock_sha256,
+        "project_lock_sha256",
+        &package.project_lock_sha256,
         &roots.project_composition_lock_hash,
     )?;
     compare_package_root(

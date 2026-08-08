@@ -190,7 +190,7 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-015 | [Evidence trust и attestation V1](adr/015-evidence-trust-fixture-separation-and-attestation.md) | Superseded by ADR-030 |
 | ADR-016 | [Compositional gameplay budgets](adr/016-compositional-gameplay-budgets.md) | Accepted |
 | ADR-017 | [Multimodal dialogue и model packs](adr/017-text-canonical-multimodal-dialogue-and-replaceable-model-packs.md) | Proposed |
-| ADR-018 | [Project composition и configuration](adr/018-authoritative-project-composition-and-configuration.md) | Accepted |
+| ADR-018 | [Project composition и configuration](adr/018-authoritative-project-composition-and-configuration.md) | Accepted configuration/activation invariants; resolver/catalog clauses superseded by ADR-048 |
 | ADR-019 | [Player actions и presentation authority](adr/019-canonical-player-actions-and-presentation-authority.md) | Accepted |
 | ADR-020 | [RPG domain authority](adr/020-rpg-domain-authority-and-extension-boundary.md) | Accepted |
 | ADR-021 | [Population residency и time advance](adr/021-deterministic-population-residency-and-time-advance.md) | Accepted |
@@ -220,6 +220,7 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-045 | [Low-overhead hard performance evidence](adr/045-low-overhead-hard-performance-evidence.md) | Accepted; вводит current Performance V3 evidence, оставляет V2 historical-readable и делает exact allocator counter необязательной диагностикой, не меняя THOTH budgets и retained evidence |
 | ADR-046 | [Consumer-driven contracts and current-only alpha formats](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) | Accepted; current-only pre-v1 formats, production-consumer admission and removal of unconsumed future obligations |
 | ADR-047 | [Simple application session and save-on-close](adr/047-simple-application-session-and-save-on-close.md) | Accepted; two-slot current-state snapshot and two-stage close journal replace session recovery archives/object packs |
+| ADR-048 | [Direct exact project lock](adr/048-direct-exact-project-lock.md) | Accepted; current-only authoring/registry/package formats and `ProjectLockV3` replace project resolver/catalog/policy closure |
 
 ## Proposed tracks
 

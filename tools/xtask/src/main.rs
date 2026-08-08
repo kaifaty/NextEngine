@@ -293,10 +293,7 @@ fn package_command_report(
             target: manifest.target_triple.clone(),
             output,
             package_manifest_hash: package.package_manifest_sha256.clone(),
-            composition_lock_hash: manifest
-                .target_neutral_roots
-                .project_composition_lock_sha256
-                .clone(),
+            composition_lock_hash: manifest.target_neutral_roots.project_lock_sha256.clone(),
             game_binary_hash: manifest.binaries.game.binary_sha256.clone(),
             headless_binary_hash: manifest.binaries.headless.binary_sha256.clone(),
             game_launch: manifest.binaries.game.launch_status.clone(),

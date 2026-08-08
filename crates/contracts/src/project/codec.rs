@@ -7,10 +7,7 @@ use crate::ids::{AssetId, ContentHash, content_hash_from_bytes};
 use crate::manifest_jcs::JcsValue;
 use crate::persistence::ManifestCodecError;
 
-use super::{
-    PROJECT_CATALOG_FORMAT_V1, PROJECT_COMPOSITION_LOCK_FORMAT_V2,
-    SCHEMA_REGISTRY_MANIFEST_FORMAT_V1,
-};
+use super::{PROJECT_LOCK_FORMAT_V3, SCHEMA_REGISTRY_MANIFEST_FORMAT_V2};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -19,15 +16,21 @@ pub enum ProjectContractError {
     Identifier(crate::ids::IdentifierError),
     ZeroRevision,
     DuplicateIdentity,
-    LimitExceeded { actual: usize, limit: usize },
+    LimitExceeded {
+        actual: usize,
+        limit: usize,
+    },
     HashMismatch,
     NonCanonical,
     UnknownClosedValue,
-    InvalidSemanticVersion,
     MissingSchema,
     MissingReference,
     DependencyCycle,
     InvalidText,
+    UnsupportedFormat {
+        expected: &'static str,
+        actual: String,
+    },
 }
 
 impl Display for ProjectContractError {
@@ -43,11 +46,16 @@ impl Display for ProjectContractError {
             Self::HashMismatch => formatter.write_str("project artifact hash mismatch"),
             Self::NonCanonical => formatter.write_str("project artifact is not canonical"),
             Self::UnknownClosedValue => formatter.write_str("unknown closed project value"),
-            Self::InvalidSemanticVersion => formatter.write_str("invalid semantic version"),
             Self::MissingSchema => formatter.write_str("schema reference is absent from registry"),
             Self::MissingReference => formatter.write_str("content reference is absent"),
             Self::DependencyCycle => formatter.write_str("required content dependency cycle"),
             Self::InvalidText => formatter.write_str("content text is not bounded NFC text"),
+            Self::UnsupportedFormat { expected, actual } => {
+                write!(
+                    formatter,
+                    "unsupported project format {actual}; expected {expected}"
+                )
+            }
         }
     }
 }
@@ -155,17 +163,16 @@ pub(super) fn expect_format(
     object: &mut BTreeMap<String, JcsValue>,
     expected: &'static str,
 ) -> Result<(), ProjectContractError> {
-    let field = if expected == PROJECT_CATALOG_FORMAT_V1 {
-        "catalog_format"
-    } else if expected == PROJECT_COMPOSITION_LOCK_FORMAT_V2 {
+    let field = if expected == PROJECT_LOCK_FORMAT_V3 {
         "lock_format"
-    } else if expected == SCHEMA_REGISTRY_MANIFEST_FORMAT_V1 {
+    } else if expected == SCHEMA_REGISTRY_MANIFEST_FORMAT_V2 {
         "manifest_schema"
     } else {
         "manifest_format"
     };
-    if text(take(object, field)?, field)? != expected {
-        return Err(ProjectContractError::UnknownClosedValue);
+    let actual = text(take(object, field)?, field)?;
+    if actual != expected {
+        return Err(ProjectContractError::UnsupportedFormat { expected, actual });
     }
     Ok(())
 }

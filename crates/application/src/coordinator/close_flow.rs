@@ -1,7 +1,7 @@
 use next_contracts::canonical::sha256;
 use next_contracts::ids::{ContentHash, SchemaId, content_hash_from_bytes};
 use next_contracts::persistence::{SaveCompatibility, TickSettings};
-use next_contracts::project::ActivatedProjectV2;
+use next_contracts::project::ActivatedProjectV3;
 use next_contracts::session::{
     ApplicationSessionStatusV1, CausalInputReferenceV1, CausalInputSourceKindV1,
     CloseSessionJournalStageV2, CloseSessionJournalV2, CloseSessionReceiptV2,
@@ -218,17 +218,17 @@ impl ApplicationCoordinator {
 }
 
 pub(crate) fn save_compatibility(
-    project: &ActivatedProjectV2,
+    project: &ActivatedProjectV3,
     checkpoint: &WorldCheckpointV4,
 ) -> Result<SaveCompatibility, ApplicationError> {
     let profile = checkpoint.runtime_snapshot.tick_rate_profile;
     Ok(SaveCompatibility {
-        engine_build_hash: project.composition_lock.runtime_determinism_profile_sha256,
-        game_build_hash: project.composition_lock.project_manifest_sha256,
-        project_id: SchemaId::new(project.composition_lock.project_id.as_str())?,
-        schema_registry_hash: project.composition_lock.schema_registry_manifest_sha256,
-        content_manifest_hash: project.composition_lock.content_manifest_sha256,
-        mechanics_lock_hash: project.composition_lock.mechanics_lock_sha256,
+        engine_build_hash: project.project_lock.runtime_determinism_profile_sha256,
+        game_build_hash: project.project_lock.authoring_sha256,
+        project_id: SchemaId::new(project.project_lock.project_id.as_str())?,
+        schema_registry_hash: project.project_lock.schema_registry_manifest_sha256,
+        content_manifest_hash: project.project_lock.content_manifest_sha256,
+        mechanics_lock_hash: project.project_lock.mechanics_lock_sha256,
         tick_settings: TickSettings {
             gameplay_hz: profile.gameplay_hz,
             physics_hz: profile.physics_hz(),

@@ -6,30 +6,40 @@ use next_assets::{
 use next_contracts::content::NeutralRecordKindV1;
 use next_contracts::ids::PersistentId;
 use next_contracts::ids::{AssetId, ContentHash, SchemaId, content_hash_from_bytes};
-use next_contracts::project::{
-    ProjectCatalogRecordV1, ProjectCatalogSnapshotV1, ProjectDependencyKindV1, ProjectManifestV1,
-    ProjectRequirementV1, SemanticVersionV1,
-};
 use next_contracts::render_content::{
     B0RenderContentProfileV1, NeutralRenderRecordV1, RenderContentContractError,
 };
-use next_project::{
-    ProjectActivationError, ProjectCookError, ProjectResolutionError, activate_project,
-    cook_project_v1, resolve_project_records_v1,
-};
+use next_project::{ProjectActivationError, ProjectCookError, activate_project, cook_project_v2};
 
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[test]
+fn retired_authoring_format_is_rejected_before_v2_schema_decode() {
+    let root = test_root("authoring-v1");
+    std::fs::create_dir_all(&root).expect("create test project");
+    std::fs::write(
+        root.join(next_project::PROJECT_AUTHORING_MANIFEST_FILE),
+        br#"{"format":"nextengine.project-authoring.v1","legacy":true}"#,
+    )
+    .expect("write retired authoring manifest");
+    let error = next_project::load_project_authoring_v2(&root).expect_err("v1 must reject");
+    assert_eq!(
+        error.diagnostic_code(),
+        "UNSUPPORTED_PROJECT_AUTHORING_FORMAT"
+    );
+    std::fs::remove_dir_all(root).expect("remove test project");
+}
+
+#[test]
 fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() {
-    let first = cook_project_v1(next_reference_game::project_source_v2().expect("fixture"))
+    let first = cook_project_v2(next_reference_game::project_source_v2().expect("fixture"))
         .expect("first cook");
     let mut reordered = next_reference_game::project_source_v2().expect("fixture");
     reordered.records.reverse();
     reordered.render_records.reverse();
     reordered.root_asset_ids.reverse();
     reordered.chunks.reverse();
-    let second = cook_project_v1(reordered).expect("second cook");
+    let second = cook_project_v2(reordered).expect("second cook");
     assert_eq!(first, second);
     assert_eq!(
         first.publication().expect("publication"),
@@ -43,8 +53,8 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         .expect("atomic publication");
     let activated = activate_project(&store).expect("production activation");
     assert_eq!(
-        activated.composition_lock.composition_lock_sha256,
-        first.composition_lock.composition_lock_sha256
+        activated.project_lock.project_lock_sha256,
+        first.project_lock.project_lock_sha256
     );
     assert_eq!(activated.content_manifest.body.asset_entries.len(), 51);
     assert_eq!(activated.world_partition.body.chunk_bindings.len(), 2);
@@ -115,7 +125,7 @@ fn multiple_presentation_records_do_not_change_rpg_singleton_selection() {
     second_scene.record_id = PersistentId::from_bytes([0xe2; 16]);
     source.records.push(second_scene);
 
-    let cooked = cook_project_v1(source).expect("multiple presentation records");
+    let cooked = cook_project_v2(source).expect("multiple presentation records");
 
     assert_eq!(cooked.rpg_definitions.abilities.len(), 1);
     assert_eq!(cooked.rpg_definitions.interactions.len(), 2);
@@ -124,7 +134,7 @@ fn multiple_presentation_records_do_not_change_rpg_singleton_selection() {
 #[test]
 fn missing_blob_and_blob_hash_mismatch_fail_before_activation() {
     let cooked =
-        cook_project_v1(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
+        cook_project_v2(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
     let root = test_root("missing");
     let store = ContentStore::new(&root);
     store
@@ -137,7 +147,7 @@ fn missing_blob_and_blob_hash_mismatch_fail_before_activation() {
         .first()
         .expect("asset")
         .neutral_record_blob_sha256;
-    let blob_path = generation_path(&root, cooked.composition_lock.composition_lock_sha256)
+    let blob_path = generation_path(&root, cooked.project_lock.project_lock_sha256)
         .join(format!("blobs/{}.bin", blob_hash.to_hex()));
     std::fs::remove_file(&blob_path).expect("remove test blob");
     assert!(matches!(
@@ -151,7 +161,7 @@ fn missing_blob_and_blob_hash_mismatch_fail_before_activation() {
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
-    let blob_path = generation_path(&root, cooked.composition_lock.composition_lock_sha256)
+    let blob_path = generation_path(&root, cooked.project_lock.project_lock_sha256)
         .join(format!("blobs/{}.bin", blob_hash.to_hex()));
     std::fs::write(blob_path, b"corrupt").expect("corrupt test blob");
     assert!(matches!(
@@ -164,7 +174,7 @@ fn missing_blob_and_blob_hash_mismatch_fail_before_activation() {
 #[test]
 fn missing_cooked_mesh_payload_fails_before_activation() {
     let cooked =
-        cook_project_v1(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
+        cook_project_v2(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
     let root = test_root("missing-cooked-mesh");
     let store = ContentStore::new(&root);
     store
@@ -176,11 +186,9 @@ fn missing_cooked_mesh_payload_fails_before_activation() {
         .first()
         .expect("cooked mesh")
         .payload_sha256();
-    let payload_path = generation_path(&root, cooked.composition_lock.composition_lock_sha256)
-        .join(format!(
-            "render-content/meshes/{}.bin",
-            payload_hash.to_hex()
-        ));
+    let payload_path = generation_path(&root, cooked.project_lock.project_lock_sha256).join(
+        format!("render-content/meshes/{}.bin", payload_hash.to_hex()),
+    );
     std::fs::remove_file(payload_path).expect("remove cooked mesh payload");
 
     assert!(matches!(
@@ -193,7 +201,7 @@ fn missing_cooked_mesh_payload_fails_before_activation() {
 #[test]
 fn storage_valid_but_corrupt_render_catalog_fails_activation() {
     let cooked =
-        cook_project_v1(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
+        cook_project_v2(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
     let original = cooked.publication().expect("publication");
     let files = original
         .files
@@ -227,7 +235,7 @@ fn storage_valid_but_corrupt_render_catalog_fails_activation() {
 #[test]
 fn invalid_activation_never_replaces_the_callers_active_project() {
     let cooked =
-        cook_project_v1(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
+        cook_project_v2(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
     let root = test_root("activation-fault");
     let store = ContentStore::new(&root);
     store
@@ -243,9 +251,9 @@ fn invalid_activation_never_replaces_the_callers_active_project() {
         .map(|file| {
             if file.relative_path() == "manifests/content.json" {
                 PublicationFileV1::new(file.relative_path(), b"{\"invalid\":\"schema\"}".to_vec())
-            } else if file.relative_path() == "manifests/composition-lock.json" {
+            } else if file.relative_path() == "manifests/project-lock.json" {
                 let mut bytes = file.bytes().to_vec();
-                let old = cooked.composition_lock.composition_lock_sha256.to_hex();
+                let old = cooked.project_lock.project_lock_sha256.to_hex();
                 let new = invalid_generation.to_hex();
                 let text = String::from_utf8(bytes).expect("lock is UTF-8");
                 bytes = text.replace(&old, &new).into_bytes();
@@ -265,8 +273,8 @@ fn invalid_activation_never_replaces_the_callers_active_project() {
     assert!(activate_project(&store).is_err());
     assert!(active.validate().is_ok());
     assert_eq!(
-        active.composition_lock.composition_lock_sha256,
-        cooked.composition_lock.composition_lock_sha256
+        active.project_lock.project_lock_sha256,
+        cooked.project_lock.project_lock_sha256
     );
     std::fs::remove_dir_all(root).expect("remove activation store");
 }
@@ -277,7 +285,7 @@ fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
     malformed.records[0].schema_ref.schema_id =
         SchemaId::new("nextengine.content.wrong.v1").expect("valid ID");
     assert!(matches!(
-        cook_project_v1(malformed),
+        cook_project_v2(malformed),
         Err(ProjectCookError::Neutral(_))
     ));
 
@@ -286,21 +294,21 @@ fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
         .asset_dependencies
         .push(AssetId::from_bytes([0xfe; 16]));
     assert!(matches!(
-        cook_project_v1(missing),
+        cook_project_v2(missing),
         Err(ProjectCookError::MissingReference)
     ));
 
     let mut duplicate = next_reference_game::project_source_v2().expect("fixture");
     duplicate.records[1].asset_id = duplicate.records[0].asset_id;
     assert!(matches!(
-        cook_project_v1(duplicate),
+        cook_project_v2(duplicate),
         Err(ProjectCookError::DuplicateIdentity)
     ));
 
     let mut cross_kind_duplicate = next_reference_game::project_source_v2().expect("fixture");
     cross_kind_duplicate.records[0].asset_id = cross_kind_duplicate.render_records[0].asset_id();
     assert!(matches!(
-        cook_project_v1(cross_kind_duplicate),
+        cook_project_v2(cross_kind_duplicate),
         Err(ProjectCookError::DuplicateIdentity)
     ));
 
@@ -317,7 +325,7 @@ fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
         .render_records
         .retain(|record| record.asset_id() != fallback_texture);
     assert!(matches!(
-        cook_project_v1(missing_fallback),
+        cook_project_v2(missing_fallback),
         Err(ProjectCookError::MissingReference)
     ));
 
@@ -326,7 +334,7 @@ fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
         .render_records
         .retain(|record| !matches!(record, NeutralRenderRecordV1::Profile(_)));
     assert!(matches!(
-        cook_project_v1(missing_profile),
+        cook_project_v2(missing_profile),
         Err(ProjectCookError::Render(
             RenderContentContractError::MissingReference
         ))
@@ -352,7 +360,7 @@ fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
     .expect("second profile");
     duplicate_profile.render_records.push(second_profile.into());
     assert!(matches!(
-        cook_project_v1(duplicate_profile),
+        cook_project_v2(duplicate_profile),
         Err(ProjectCookError::Render(
             RenderContentContractError::DuplicateIdentity
         ))
@@ -362,50 +370,11 @@ fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
     let scene = cycle.records[0].asset_id;
     cycle.records[1].asset_dependencies.push(scene);
     assert!(matches!(
-        cook_project_v1(cycle),
+        cook_project_v2(cycle),
         Err(ProjectCookError::Contract(
             next_contracts::project::ProjectContractError::DependencyCycle
         ))
     ));
-}
-
-#[test]
-fn project_resolver_rejects_dependency_cycle() {
-    let project = ProjectManifestV1::new(
-        next_contracts::ids::ProjectId::new("org.nextengine.resolver-test").expect("project"),
-        1,
-        vec![requirement("a")],
-    )
-    .expect("manifest");
-    let record_a = ProjectCatalogRecordV1::new(
-        ProjectDependencyKindV1::Content,
-        SchemaId::new("a").expect("ID"),
-        SemanticVersionV1::new(1, 0, 0),
-        content_hash_from_bytes([1; 32]),
-        vec![requirement("b")],
-        false,
-    )
-    .expect("record a");
-    let record_b = ProjectCatalogRecordV1::new(
-        ProjectDependencyKindV1::Content,
-        SchemaId::new("b").expect("ID"),
-        SemanticVersionV1::new(1, 0, 0),
-        content_hash_from_bytes([2; 32]),
-        vec![requirement("a")],
-        false,
-    )
-    .expect("record b");
-    let catalog = ProjectCatalogSnapshotV1::new(
-        SchemaId::new("nextengine.resolver.test").expect("profile"),
-        1,
-        content_hash_from_bytes([3; 32]),
-        vec![record_a, record_b],
-    )
-    .expect("catalog");
-    assert_eq!(
-        resolve_project_records_v1(&project, &catalog),
-        Err(ProjectResolutionError::DependencyCycle)
-    );
 }
 
 #[test]
@@ -436,7 +405,7 @@ fn localization_closure_violations_are_rejected_before_publication() {
         None,
     );
     assert!(matches!(
-        cook_project_v1(duplicate_locale),
+        cook_project_v2(duplicate_locale),
         Err(ProjectCookError::DuplicateIdentity)
     ));
 
@@ -448,7 +417,7 @@ fn localization_closure_violations_are_rejected_before_publication() {
         None,
     );
     assert!(matches!(
-        cook_project_v1(two_roots),
+        cook_project_v2(two_roots),
         Err(ProjectCookError::LocalizationClosureInvalid)
     ));
 
@@ -460,7 +429,7 @@ fn localization_closure_violations_are_rejected_before_publication() {
         Some("de"),
     );
     assert!(matches!(
-        cook_project_v1(missing_fallback),
+        cook_project_v2(missing_fallback),
         Err(ProjectCookError::MissingReference)
     ));
 
@@ -479,7 +448,7 @@ fn localization_closure_violations_are_rejected_before_publication() {
     );
     cyclic.text_catalogs.push(cyclic_de);
     assert!(matches!(
-        cook_project_v1(cyclic),
+        cook_project_v2(cyclic),
         Err(ProjectCookError::LocalizationClosureInvalid)
     ));
 
@@ -491,7 +460,7 @@ fn localization_closure_violations_are_rejected_before_publication() {
         Some("en"),
     );
     assert!(matches!(
-        cook_project_v1(shared_asset_id),
+        cook_project_v2(shared_asset_id),
         Err(ProjectCookError::DuplicateIdentity)
     ));
 }
@@ -518,7 +487,7 @@ fn audio_clips_cook_publish_and_activate_through_production_loader() {
 
     let mut source = next_reference_game::project_source_v2().expect("fixture");
     source.audio_records.push(clip.clone());
-    let cooked = cook_project_v1(source).expect("cook with audio");
+    let cooked = cook_project_v2(source).expect("cook with audio");
     let audio_entries: Vec<_> = cooked
         .content_manifest
         .body
@@ -568,7 +537,7 @@ fn audio_clips_cook_publish_and_activate_through_production_loader() {
         .expect("clip"),
     );
     assert!(matches!(
-        cook_project_v1(duplicate),
+        cook_project_v2(duplicate),
         Err(ProjectCookError::DuplicateIdentity)
     ));
 
@@ -577,18 +546,9 @@ fn audio_clips_cook_publish_and_activate_through_production_loader() {
     invalid_clip.sample_rate_hz = 7_999;
     invalid.audio_records.push(invalid_clip);
     assert!(matches!(
-        cook_project_v1(invalid),
+        cook_project_v2(invalid),
         Err(ProjectCookError::Audio(_))
     ));
-}
-
-fn requirement(identity: &str) -> ProjectRequirementV1 {
-    ProjectRequirementV1 {
-        kind: ProjectDependencyKindV1::Content,
-        identity: SchemaId::new(identity).expect("dependency ID"),
-        minimum_version: SemanticVersionV1::new(1, 0, 0),
-        optional: false,
-    }
 }
 
 fn generation_path(root: &std::path::Path, hash: ContentHash) -> std::path::PathBuf {

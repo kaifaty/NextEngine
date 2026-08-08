@@ -7,7 +7,7 @@ use std::fmt::{Display, Formatter};
 use next_contracts::canonical::sha256;
 use next_contracts::content::NeutralRecordV1;
 use next_contracts::ids::{AssetId, ContentHash, PersistentId, SchemaId, content_hash_from_bytes};
-use next_contracts::project::{ActivatedProjectV2, AssetRevisionRefV1};
+use next_contracts::project::{ActivatedProjectV3, AssetRevisionRefV1};
 use next_contracts::world::{
     WorldChunkLifecycleV1, WorldChunkResidencyRecordV1, WorldChunkTransitionV1,
     WorldStreamingContractError, WorldStreamingPlanV1, WorldStreamingSnapshotV1,
@@ -77,13 +77,13 @@ pub struct WorldTransitionCommitV1 {
 
 #[derive(Clone, Debug)]
 pub struct WorldStreamerV1 {
-    project: ActivatedProjectV2,
+    project: ActivatedProjectV3,
     snapshot: WorldStreamingSnapshotV1,
 }
 
 impl WorldStreamerV1 {
     pub fn activate(
-        project: ActivatedProjectV2,
+        project: ActivatedProjectV3,
         initial_chunk_id: SchemaId,
     ) -> Result<Self, WorldStreamingError> {
         project.validate()?;
@@ -130,7 +130,7 @@ impl WorldStreamerV1 {
     }
 
     pub fn restore(
-        project: ActivatedProjectV2,
+        project: ActivatedProjectV3,
         snapshot: WorldStreamingSnapshotV1,
     ) -> Result<Self, WorldStreamingError> {
         project.validate()?;
@@ -582,7 +582,7 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use next_assets::ContentStore;
-    use next_project::{activate_project, cook_project_v1};
+    use next_project::{activate_project, cook_project_v2};
 
     use super::*;
 
@@ -714,9 +714,9 @@ mod tests {
         streamer.commit(&staged, false).expect("commit");
     }
 
-    fn fixture_project(label: &str) -> ActivatedProjectV2 {
+    fn fixture_project(label: &str) -> ActivatedProjectV3 {
         let cooked =
-            cook_project_v1(next_reference_game::project_source_v2().expect("fixture source"))
+            cook_project_v2(next_reference_game::project_source_v2().expect("fixture source"))
                 .expect("cook fixture");
         let root = std::env::temp_dir().join(format!(
             "nextengine-world-{label}-{}-{}",
@@ -732,7 +732,7 @@ mod tests {
         project
     }
 
-    fn first_two_chunk_ids(project: &ActivatedProjectV2) -> (SchemaId, SchemaId) {
+    fn first_two_chunk_ids(project: &ActivatedProjectV3) -> (SchemaId, SchemaId) {
         let chunks = &project.world_partition.body.chunk_bindings;
         (
             chunks.first().expect("initial chunk").chunk_id.clone(),

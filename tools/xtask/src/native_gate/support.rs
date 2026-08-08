@@ -13,7 +13,7 @@ use super::{
 pub(super) fn validate_package_manifest_summary(
     report: &NativeGateTargetReportV1,
     summary: &NativeGatePackageSummaryV1,
-    manifest: &crate::package::PackageManifestV3,
+    manifest: &crate::package::PackageManifestV4,
 ) -> Result<(), NativeGateComparisonError> {
     if manifest.target_triple != report.target_triple
         || manifest.target_triple != summary.target_triple
@@ -26,9 +26,9 @@ pub(super) fn validate_package_manifest_summary(
     let manifest_roots = &manifest.target_neutral_roots;
     for (field, manifest_value, summary_value) in [
         (
-            "project_composition_lock_sha256",
-            manifest_roots.project_composition_lock_sha256.as_str(),
-            summary.composition_lock_sha256.as_str(),
+            "project_lock_sha256",
+            manifest_roots.project_lock_sha256.as_str(),
+            summary.project_lock_sha256.as_str(),
         ),
         (
             "schema_registry_sha256",

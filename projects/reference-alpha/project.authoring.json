@@ -1,11 +1,8 @@
 {
-  "format": "nextengine.project-authoring.v1",
+  "format": "nextengine.project-authoring.v2",
   "project": {
     "project_id": "org.nextengine.reference-alpha",
-    "project_revision": 6,
-    "content_identity": "org.nextengine.reference-alpha.content",
-    "resolver_profile_id": "nextengine.resolver.exact-minimum.v1",
-    "resolver_profile_version": 1
+    "project_revision": 6
   },
   "provenance": {
     "provenance_id": "nextengine.reference-alpha.provenance.cc0",
@@ -720,13 +717,5 @@
     "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
     "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
   ],
-  "recovery_policy": {
-    "permit_required_save_recovery": true,
-    "preserve_prior_history": true
-  },
-  "shutdown_policy": {
-    "maximum_attempts": 3,
-    "failure_disposition": "require-final-save"
-  },
   "allowed_presentation_targets": ["none", "interactive", "displayless-offscreen"]
 }

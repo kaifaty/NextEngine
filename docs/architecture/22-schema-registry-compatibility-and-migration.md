@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-22 |
 | Статус | Accepted |
-| Версия | 1.6 |
+| Версия | 1.7 |
 | Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
 | Заменяет | отсутствует |
 
 ## Назначение и invariants
@@ -19,8 +19,8 @@ physics segment через его exact descriptor. Current RPG aggregate snapsh
 class `Exact`. Replay V4 и все другие retired alpha replay versions имеют class
 `Unsupported` и возвращают `UNSUPPORTED_REPLAY_MANIFEST_VERSION` до nested
 decode или activation; decoder и migration route для них отсутствуют.
-Current project composition uses `ProjectCompositionLockV2` and
-`ActivatedProjectV2`; V1 project lock has class `Unsupported` with
+Current project composition uses `ProjectLockV3`, `SchemaRegistryManifestV2`
+and `ActivatedProjectV3`; earlier project locks and registry V1 have class `Unsupported` with
 `PROJECT_LOCK_INVALID` before nested closure decode or activation.
 No compatibility decoder, alias or in-place rewrite exists for either removed
 family.
@@ -31,7 +31,8 @@ family.
 | Runtime snapshot | `RuntimeSnapshotV3` | unversioned `RuntimeSnapshot` | unsupported header/schema |
 | World checkpoint | `WorldCheckpointV4` | `WorldCheckpointV3` | `RPG_SCHEMA_UNSUPPORTED` when its RPG family is probed |
 | Replay | `ReplayManifestV5` | `ReplayManifestV4` и все другие alpha versions | `UNSUPPORTED_REPLAY_MANIFEST_VERSION` |
-| Project activation | `ProjectCompositionLockV2` / `ActivatedProjectV2` | V1 project lock | `PROJECT_LOCK_INVALID` |
+| Project activation | `ProjectLockV3` / `ActivatedProjectV3` | composition lock V2 and earlier project locks | `UNSUPPORTED_PROJECT_FORMAT` |
+| Schema registry | `SchemaRegistryManifestV2` | registry V1 | `UNSUPPORTED_PROJECT_FORMAT` |
 
 For these families the bounded outer format/version probe runs before nested
 JCS/CanonicalBinary decode, hash traversal, store publication or Runtime

@@ -2,12 +2,12 @@ use std::fs;
 
 use next_assets::{ContentStore, SaveStore, SessionStore};
 use next_contracts::ids::{ApplicationSessionId, ContentHash};
-use next_contracts::project::ActivatedProjectV2;
+use next_contracts::project::ActivatedProjectV3;
 use next_contracts::session::{
     ApplicationSessionManifestBodyV2, ApplicationSessionManifestV2, ApplicationSessionStatusV1,
     PresentationTargetKindV1,
 };
-use next_project::{activate_project, cook_project_v1};
+use next_project::{activate_project, cook_project_v2};
 use next_reference_game::project_source_v2;
 use next_runtime::ApplicationSessionMachine;
 
@@ -50,7 +50,7 @@ impl ApplicationCoordinator {
         let prior_sequence = current.as_ref().map(|value| value.sequence);
         let session_sequence = prior_sequence.map_or(0, |value| value.saturating_add(1));
         let session_id = derive_session_id(
-            activated_project.composition_lock.composition_lock_sha256,
+            activated_project.project_lock.project_lock_sha256,
             launch.composition_root,
             session_sequence,
         );
@@ -92,7 +92,7 @@ impl ApplicationCoordinator {
         let durable = DurableApplicationSnapshotV4::from_canonical_bytes(&published.snapshot)?;
         if durable.store_sequence != published.sequence
             || durable.manifest.body.project_composition_lock_hash
-                != activated_project.composition_lock.composition_lock_sha256
+                != activated_project.project_lock.project_lock_sha256
             || durable.manifest.body.composition_root != launch.composition_root
             || durable.manifest.body.presentation_target_kind != launch.presentation_target
             || durable.manifest.body.platform_capability_set_hash
@@ -128,15 +128,15 @@ impl ApplicationCoordinator {
 
 pub(super) fn session_manifest(
     launch: &LaunchRequestV1,
-    project: &ActivatedProjectV2,
+    project: &ActivatedProjectV3,
     session_id: ApplicationSessionId,
 ) -> Result<ApplicationSessionManifestV2, ApplicationError> {
-    let lock = &project.composition_lock;
+    let lock = &project.project_lock;
     Ok(ApplicationSessionManifestV2::new(
         ApplicationSessionManifestBodyV2 {
             session_id,
             composition_root: launch.composition_root,
-            project_composition_lock_hash: lock.composition_lock_sha256,
+            project_composition_lock_hash: lock.project_lock_sha256,
             launch_profile_hash: lock.launch_profiles_sha256,
             platform_capability_set_hash: launch
                 .platform_capability_set
@@ -152,14 +152,14 @@ pub(super) fn session_manifest(
 
 fn activate_selected_project(
     launch: &LaunchRequestV1,
-) -> Result<ActivatedProjectV2, ApplicationError> {
+) -> Result<ActivatedProjectV3, ApplicationError> {
     let project_root = match &launch.project {
         ProjectSelectionV1::Reference => launch.state_root.join(PROJECT_DIRECTORY),
         ProjectSelectionV1::PublishedStateRoot(root) => root.clone(),
     };
     let store = ContentStore::new(&project_root);
     if matches!(launch.project, ProjectSelectionV1::Reference) {
-        let cooked = cook_project_v1(project_source_v2()?)?;
+        let cooked = cook_project_v2(project_source_v2()?)?;
         store.publish(&cooked.publication()?)?;
     }
     Ok(activate_project(&store)?)
@@ -167,19 +167,19 @@ fn activate_selected_project(
 
 fn validate_launch(
     launch: &LaunchRequestV1,
-    project: &ActivatedProjectV2,
+    project: &ActivatedProjectV3,
 ) -> Result<(), ApplicationError> {
     project
         .validate()
         .map_err(next_project::ProjectActivationError::from)?;
     if launch
         .expected_project_lock
-        .is_some_and(|expected| expected != project.composition_lock.composition_lock_sha256)
+        .is_some_and(|expected| expected != project.project_lock.project_lock_sha256)
     {
         return Err(ApplicationError::ProjectLockMismatch);
     }
     if !project
-        .composition_lock
+        .project_lock
         .allowed_presentation_targets
         .contains(&launch.presentation_target)
     {

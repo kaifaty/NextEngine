@@ -11,6 +11,11 @@
 | Заменяет | отсутствует |
 | Заменён | частично [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 
+> **Supersession note (2026-08-08):** [ADR-048](048-direct-exact-project-lock.md)
+> заменяет resolver/catalog semantics, ProjectManifest→catalog→composition-lock
+> pipeline и recovery/shutdown policy closure этого ADR. Сохраняются
+> configuration classes, immutable exact activation и parity composition roots.
+
 ## Process baseline ADR-030
 
 [ADR-030](030-product-first-development-and-lightweight-validation.md)

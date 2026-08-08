@@ -1,6 +1,6 @@
 use next_assets::{SaveStore, SessionStore};
 use next_contracts::ids::{ApplicationSessionId, CommandLedgerHash, ContentHash};
-use next_contracts::project::ActivatedProjectV2;
+use next_contracts::project::ActivatedProjectV3;
 use next_contracts::session::ApplicationSessionManifestV2;
 use next_runtime::ApplicationSessionMachine;
 
@@ -42,7 +42,7 @@ pub struct ApplicationRunOutcomeV1 {
 
 pub struct ApplicationCoordinator {
     launch: LaunchRequestV1,
-    activated_project: ActivatedProjectV2,
+    activated_project: ActivatedProjectV3,
     session_store: SessionStore,
     save_store: SaveStore,
     machine: ApplicationSessionMachine,
@@ -65,7 +65,7 @@ impl ApplicationCoordinator {
     }
 
     #[must_use]
-    pub fn activated_project(&self) -> &ActivatedProjectV2 {
+    pub fn activated_project(&self) -> &ActivatedProjectV3 {
         &self.activated_project
     }
 

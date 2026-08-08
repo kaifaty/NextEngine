@@ -813,7 +813,7 @@ fn validate_pass_bindings(
         (
             "package composition root",
             package_report.details.composition_lock_hash.as_str(),
-            package.composition_lock_sha256.as_str(),
+            package.project_lock_sha256.as_str(),
         ),
         (
             "package game binary",

@@ -218,21 +218,21 @@ impl ValidatedReferenceGameAdvance {
 
 impl ReferenceGameDriverV1 {
     pub fn new(
-        activated_project: next_contracts::project::ActivatedProjectV2,
+        activated_project: next_contracts::project::ActivatedProjectV3,
         include_interaction: bool,
     ) -> Result<Self, ReferenceGameError> {
         let snapshot_epoch = next_contracts::project::domain_hash(
             "nextengine.presentation-snapshot-epoch.v1",
             activated_project
-                .composition_lock
-                .composition_lock_sha256
+                .project_lock
+                .project_lock_sha256
                 .as_bytes(),
         );
         Self::new_with_presentation_epoch(activated_project, include_interaction, snapshot_epoch)
     }
 
     pub fn new_with_presentation_epoch(
-        activated_project: next_contracts::project::ActivatedProjectV2,
+        activated_project: next_contracts::project::ActivatedProjectV3,
         include_interaction: bool,
         snapshot_epoch: ContentHash,
     ) -> Result<Self, ReferenceGameError> {
@@ -323,7 +323,7 @@ impl ReferenceGameDriverV1 {
     }
 
     pub fn restore(
-        activated_project: next_contracts::project::ActivatedProjectV2,
+        activated_project: next_contracts::project::ActivatedProjectV3,
         checkpoint: WorldCheckpointV4,
         world_streaming_snapshot: WorldStreamingSnapshotV1,
         recovery: ReferenceLiveDriverRecoveryV1,
@@ -368,10 +368,7 @@ impl ReferenceGameDriverV1 {
             )?;
         if persisted_snapshot.simulation_tick != runtime.next_tick()
             || persisted_snapshot.project_composition_lock_hash
-                != fixture
-                    .activated_project
-                    .composition_lock
-                    .composition_lock_sha256
+                != fixture.activated_project.project_lock.project_lock_sha256
             || persisted_snapshot.content_manifest_hash
                 != fixture
                     .activated_project
@@ -618,8 +615,8 @@ impl ReferenceGameDriverV1 {
             prepared_runtime.next_tick(),
             self.fixture
                 .activated_project
-                .composition_lock
-                .composition_lock_sha256,
+                .project_lock
+                .project_lock_sha256,
             self.fixture
                 .activated_project
                 .content_manifest
@@ -749,8 +746,8 @@ impl ReferenceGameDriverV1 {
             project_composition_lock_hash: self
                 .fixture
                 .activated_project
-                .composition_lock
-                .composition_lock_sha256,
+                .project_lock
+                .project_lock_sha256,
             content_manifest_hash: self
                 .fixture
                 .activated_project
@@ -820,8 +817,8 @@ impl ReferenceGameDriverV1 {
             project_composition_lock_hash: self
                 .fixture
                 .activated_project
-                .composition_lock
-                .composition_lock_sha256,
+                .project_lock
+                .project_lock_sha256,
             content_manifest_hash: self
                 .fixture
                 .activated_project
@@ -908,8 +905,8 @@ impl ReferenceGameDriverV1 {
                 self.runtime.next_tick(),
                 self.fixture
                     .activated_project
-                    .composition_lock
-                    .composition_lock_sha256,
+                    .project_lock
+                    .project_lock_sha256,
                 self.fixture
                     .activated_project
                     .content_manifest

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use next_contracts::ids::AssetId;
-use next_project::{NeutralProjectSourceV1, ProjectCookError};
+use next_project::{NeutralProjectSourceV2, ProjectCookError};
 
 /// Stable project ID retained behind the historical constant name so the
 /// reference-game crate remains a harness while production content lives in
@@ -37,16 +37,16 @@ pub fn reference_alpha_project_directory() -> PathBuf {
         .join("reference-alpha")
 }
 
-pub fn project_source_v2() -> Result<NeutralProjectSourceV1, ProjectCookError> {
-    Ok(next_project::load_project_authoring_v1(
+pub fn project_source_v2() -> Result<NeutralProjectSourceV2, ProjectCookError> {
+    Ok(next_project::load_project_authoring_v2(
         reference_alpha_project_directory(),
     )?)
 }
 
 pub fn project_source_v2_with_id(
     project_id: &str,
-) -> Result<NeutralProjectSourceV1, ProjectCookError> {
-    Ok(next_project::load_project_authoring_v1_with_project_id(
+) -> Result<NeutralProjectSourceV2, ProjectCookError> {
+    Ok(next_project::load_project_authoring_v2_with_project_id(
         reference_alpha_project_directory(),
         project_id,
     )?)

@@ -1,12 +1,12 @@
 use serde::Deserialize;
 
-pub(super) const AUTHORING_FORMAT_V1: &str = "nextengine.project-authoring.v1";
+pub(super) const AUTHORING_FORMAT_V2: &str = "nextengine.project-authoring.v2";
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct ProjectAuthoringManifestV1 {
+pub(super) struct ProjectAuthoringManifestV2 {
     pub format: String,
-    pub project: AuthoringProjectV1,
+    pub project: AuthoringProjectV2,
     pub provenance: AuthoringProvenanceV1,
     pub partition: AuthoringPartitionV1,
     pub records: Vec<AuthoringNeutralRecordV1>,
@@ -16,8 +16,6 @@ pub(super) struct ProjectAuthoringManifestV1 {
     #[serde(default)]
     pub neutral_animation_catalogs: Vec<AuthoringAnimationCatalogReferenceV1>,
     pub root_asset_ids: Vec<String>,
-    pub recovery_policy: AuthoringRecoveryPolicyV1,
-    pub shutdown_policy: AuthoringShutdownPolicyV1,
     pub allowed_presentation_targets: Vec<AuthoringPresentationTargetV1>,
 }
 
@@ -89,12 +87,9 @@ pub(super) struct AuthoringAnimationKeyV1 {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct AuthoringProjectV1 {
+pub(super) struct AuthoringProjectV2 {
     pub project_id: String,
     pub project_revision: u64,
-    pub content_identity: String,
-    pub resolver_profile_id: String,
-    pub resolver_profile_version: u32,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -307,27 +302,6 @@ impl AuthoringAudioRecordV1 {
             | Self::Thud { source_span, .. } => source_span,
         }
     }
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct AuthoringRecoveryPolicyV1 {
-    pub permit_required_save_recovery: bool,
-    pub preserve_prior_history: bool,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct AuthoringShutdownPolicyV1 {
-    pub maximum_attempts: u16,
-    pub failure_disposition: AuthoringFailureDispositionV1,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(super) enum AuthoringFailureDispositionV1 {
-    RequireFinalSave,
-    AllowLastSafeGeneration,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]

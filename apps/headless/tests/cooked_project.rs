@@ -82,17 +82,14 @@ fn cooked_store(test_name: &str) -> (std::path::PathBuf, String) {
         std::process::id()
     ));
     let cooked =
-        next_project::cook_project_v1(next_reference_game::project_source_v2().expect("source"))
+        next_project::cook_project_v2(next_reference_game::project_source_v2().expect("source"))
             .expect("cook");
     let store = ContentStore::new(&output);
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
     let activated = next_project::activate_project(&store).expect("activate");
-    (
-        output,
-        activated.composition_lock.composition_lock_sha256.to_hex(),
-    )
+    (output, activated.project_lock.project_lock_sha256.to_hex())
 }
 
 fn cleanup(output: &std::path::Path) {

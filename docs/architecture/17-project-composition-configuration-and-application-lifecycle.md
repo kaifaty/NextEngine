@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-17 |
 | Статус | Accepted |
-| Версия | 1.5 |
+| Версия | 1.6 |
 | Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md) |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
 | Заменяет | отсутствует |
 
 ## Назначение и invariants
@@ -17,6 +17,12 @@ ADR-047 заменяет session recovery/storage часть этого SPEC: cu
 хранит только current state, last lifecycle record и two-stage close journal;
 durable world меняется только manual Save и save-on-close. Детальное
 редакционное сжатие project/session разделов выполняется в завершающем cleanup.
+
+ADR-048 заменяет описанные ниже `ProjectManifest`/catalog/resolver и
+`ProjectCompositionLockV2` clauses. Current alpha path — authoring v2 → exact
+`ProjectLockV3` → atomic `ActivatedProjectV3`; runtime version selection API
+отсутствует. Полное редакционное удаление superseded listings выполняется в
+завершающем cleanup.
 
 - Active project composition MUST быть content-addressed и immutable на протяжении authoritative session.
 - Required content, schemas, mechanics, scripts, plugins и physical/model references MUST пройти validation до world mutation.

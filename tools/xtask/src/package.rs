@@ -26,7 +26,7 @@ use smoke::{
 };
 
 pub const PACKAGE_MANIFEST_FILE: &str = "package.manifest.jcs";
-pub const PACKAGE_MANIFEST_SCHEMA_VERSION: u32 = 3;
+pub const PACKAGE_MANIFEST_SCHEMA_VERSION: u32 = 4;
 
 const MAX_MANIFEST_BYTES: usize = 8 * 1024 * 1024;
 const REQUIRED_NOTICE_PATHS: [&str; 4] = [
@@ -42,13 +42,13 @@ const REFERENCE_PROJECT_DOCUMENT_PATHS: [(&str, &str); 2] = [
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PackageManifestV3 {
+pub struct PackageManifestV4 {
     pub binaries: PackageBinariesV2,
     pub file_inventory: Vec<PackageFileV2>,
     pub required_notices: Vec<String>,
     pub runtime_profile: PackageRuntimeProfileV3,
     pub schema_version: u32,
-    pub target_neutral_roots: PackageTargetNeutralRootsV2,
+    pub target_neutral_roots: PackageTargetNeutralRootsV3,
     pub target_triple: String,
 }
 
@@ -119,19 +119,24 @@ pub struct PackageFileV2 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PackageTargetNeutralRootsV2 {
+pub struct PackageTargetNeutralRootsV3 {
     pub content_manifest_sha256: String,
     pub mechanics_lock_sha256: String,
-    pub project_composition_lock_sha256: String,
+    pub project_lock_sha256: String,
     pub schema_registry_sha256: String,
     pub world_partition_sha256: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PackageBuildResult {
-    pub manifest: PackageManifestV3,
+    pub manifest: PackageManifestV4,
     pub output: PathBuf,
     pub package_manifest_sha256: String,
+}
+
+#[derive(Deserialize)]
+struct PackageManifestVersionProbe {
+    schema_version: u32,
 }
 
 pub fn build_v1_package(
@@ -235,7 +240,7 @@ where
     })
 }
 
-pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV3, String> {
+pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV4, String> {
     validate_package_root(package_root)?;
     let manifest_path = package_root.join(PACKAGE_MANIFEST_FILE);
     let manifest_metadata = checked_metadata(&manifest_path)?;
@@ -250,7 +255,15 @@ pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV3, Str
         ));
     }
     let manifest_bytes = read_bounded(&manifest_path, MAX_MANIFEST_BYTES as u64)?;
-    let manifest: PackageManifestV3 = serde_json::from_slice(&manifest_bytes)
+    let version: PackageManifestVersionProbe = serde_json::from_slice(&manifest_bytes)
+        .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: invalid manifest JSON: {error}"))?;
+    if version.schema_version != PACKAGE_MANIFEST_SCHEMA_VERSION {
+        return Err(format!(
+            "UNSUPPORTED_PACKAGE_FORMAT: package schema version {} is unsupported; expected {}",
+            version.schema_version, PACKAGE_MANIFEST_SCHEMA_VERSION
+        ));
+    }
+    let manifest: PackageManifestV4 = serde_json::from_slice(&manifest_bytes)
         .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: invalid manifest JSON: {error}"))?;
     let canonical = canonical_json_bytes(&manifest)?;
     if manifest_bytes != canonical {
@@ -283,7 +296,7 @@ fn build_staged_package(
     smoke_root: &Path,
     target_triple: &str,
     binary_sources: &PackageBinarySources,
-) -> Result<(PackageManifestV3, Vec<u8>), String> {
+) -> Result<(PackageManifestV4, Vec<u8>), String> {
     let bin_directory = staging.join("bin");
     fs::create_dir(&bin_directory).map_err(|error| {
         format!("NATIVE_GATE_PACKAGE_INVALID: failed to create package bin: {error}")
@@ -291,7 +304,7 @@ fn build_staged_package(
     let project_directory = staging.join("project");
     let source = next_reference_game::project_source_v2()
         .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?;
-    let cooked = next_project::cook_project_v1(source)
+    let cooked = next_project::cook_project_v2(source)
         .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?;
     let project_store = next_assets::ContentStore::new(&project_directory);
     let publication = cooked
@@ -302,9 +315,7 @@ fn build_staged_package(
         .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?;
     let activated = next_project::activate_project(&project_store)
         .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?;
-    if activated.composition_lock.composition_lock_sha256
-        != cooked.composition_lock.composition_lock_sha256
-    {
+    if activated.project_lock.project_lock_sha256 != cooked.project_lock.project_lock_sha256 {
         return package_error("packaged project activation lock mismatch");
     }
 
@@ -337,7 +348,7 @@ fn build_staged_package(
             smoke_root.display()
         )
     })?;
-    let project_lock = cooked.composition_lock.composition_lock_sha256.to_hex();
+    let project_lock = cooked.project_lock.project_lock_sha256.to_hex();
     let headless_report = run_packaged_binary(
         &headless_destination,
         &[
@@ -377,14 +388,14 @@ fn build_staged_package(
     let inventory_after_smoke = collect_inventory(staging)?;
     ensure_inventory_unchanged(&inventory_before_smoke, &inventory_after_smoke)?;
 
-    let roots = PackageTargetNeutralRootsV2 {
+    let roots = PackageTargetNeutralRootsV3 {
         content_manifest_sha256: cooked.content_manifest.content_manifest_sha256.to_hex(),
         mechanics_lock_sha256: cooked
             .rpg_definitions
             .mechanics_lock
             .mechanics_lock_sha256
             .to_hex(),
-        project_composition_lock_sha256: project_lock,
+        project_lock_sha256: project_lock,
         schema_registry_sha256: cooked
             .schema_registry
             .schema_registry_manifest_sha256
@@ -401,7 +412,7 @@ fn build_staged_package(
         &headless_destination,
         headless_report,
     )?;
-    let manifest = PackageManifestV3 {
+    let manifest = PackageManifestV4 {
         binaries: PackageBinariesV2 { game, headless },
         file_inventory: inventory_after_smoke,
         required_notices: required_notice_paths(),
@@ -475,11 +486,11 @@ fn packaged_run(
     })
 }
 
-fn validate_manifest_fields(manifest: &PackageManifestV3) -> Result<(), String> {
+fn validate_manifest_fields(manifest: &PackageManifestV4) -> Result<(), String> {
     if manifest.schema_version != PACKAGE_MANIFEST_SCHEMA_VERSION {
-        return package_error(format!(
-            "unsupported package schema version {}",
-            manifest.schema_version
+        return Err(format!(
+            "UNSUPPORTED_PACKAGE_FORMAT: package schema version {} is unsupported; expected {}",
+            manifest.schema_version, PACKAGE_MANIFEST_SCHEMA_VERSION
         ));
     }
     if !matches!(
@@ -501,7 +512,7 @@ fn validate_manifest_fields(manifest: &PackageManifestV3) -> Result<(), String> 
         ("mechanics lock", roots.mechanics_lock_sha256.as_str()),
         (
             "project composition lock",
-            roots.project_composition_lock_sha256.as_str(),
+            roots.project_lock_sha256.as_str(),
         ),
         ("schema registry", roots.schema_registry_sha256.as_str()),
         ("world partition", roots.world_partition_sha256.as_str()),
@@ -509,15 +520,11 @@ fn validate_manifest_fields(manifest: &PackageManifestV3) -> Result<(), String> 
         validate_hash(name, hash)?;
     }
 
-    validate_packaged_run(
-        &manifest.binaries.game,
-        "Game",
-        &roots.project_composition_lock_sha256,
-    )?;
+    validate_packaged_run(&manifest.binaries.game, "Game", &roots.project_lock_sha256)?;
     validate_packaged_run(
         &manifest.binaries.headless,
         "Headless",
-        &roots.project_composition_lock_sha256,
+        &roots.project_lock_sha256,
     )?;
     if manifest.binaries.game.binary_path == manifest.binaries.headless.binary_path {
         return package_error("game and headless binary paths must differ");
@@ -579,7 +586,7 @@ fn validate_packaged_run(
     Ok(())
 }
 
-fn validate_binary_inventory(manifest: &PackageManifestV3) -> Result<(), String> {
+fn validate_binary_inventory(manifest: &PackageManifestV4) -> Result<(), String> {
     for run in [&manifest.binaries.game, &manifest.binaries.headless] {
         let entry = manifest
             .file_inventory
@@ -613,22 +620,19 @@ fn ensure_inventory_unchanged(
 
 fn validate_activated_project(
     package_root: &Path,
-    roots: &PackageTargetNeutralRootsV2,
+    roots: &PackageTargetNeutralRootsV3,
 ) -> Result<(), String> {
     let store = next_assets::ContentStore::new(package_root.join("project"));
     let activated = next_project::activate_project(&store)
         .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?;
-    let actual = PackageTargetNeutralRootsV2 {
+    let actual = PackageTargetNeutralRootsV3 {
         content_manifest_sha256: activated.content_manifest.content_manifest_sha256.to_hex(),
         mechanics_lock_sha256: activated
             .rpg_definitions
             .mechanics_lock
             .mechanics_lock_sha256
             .to_hex(),
-        project_composition_lock_sha256: activated
-            .composition_lock
-            .composition_lock_sha256
-            .to_hex(),
+        project_lock_sha256: activated.project_lock.project_lock_sha256.to_hex(),
         schema_registry_sha256: activated
             .schema_registry
             .schema_registry_manifest_sha256

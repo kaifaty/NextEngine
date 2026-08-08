@@ -69,10 +69,6 @@ pub(crate) fn number(value: impl Into<u64>) -> JcsValue {
     JcsValue::Number(value.into())
 }
 
-pub(crate) fn boolean(value: bool) -> JcsValue {
-    string(if value { "true" } else { "false" })
-}
-
 pub(crate) fn optional_hash(value: Option<ContentHash>) -> JcsValue {
     value.map_or_else(|| string("none"), |value| string(value.to_hex()))
 }

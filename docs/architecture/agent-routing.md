@@ -34,7 +34,7 @@
 | Workflow, checks, handoff, процесс разработки | [README](README.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md) | ADR-030 | fast |
 | Public contracts, stable IDs, commands/events, snapshots, manifests (`crates/contracts`) | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md) + SPEC затронутой подсистемы | ADR-002 | fast + checks затронутой области |
 | Детерминизм, replay, command identity, ledger, save/load, persistence | [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md) | ADR-022, ADR-046 | persistence-replay |
-| Schema registry, миграции, совместимость версий данных | [SPEC-22](22-schema-registry-compatibility-and-migration.md) | ADR-025, ADR-046 | persistence-replay |
+| Schema registry, миграции, совместимость версий данных | [SPEC-22](22-schema-registry-compatibility-and-migration.md) | ADR-025, ADR-046, ADR-048 | persistence-replay |
 | ECS, runtime data model, fixed stages, scheduling | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | ADR-022 | persistence-replay |
 | Assets, streaming, persistence, content catalog, bundles, neutral asset schemas | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | ADR-026, ADR-014, ADR-044 | content-package |
 | Rendering, Vulkan, shaders, presentation extraction, render content | [SPEC-04](04-rendering-and-platform.md), [SPEC-30](30-presentation-extraction-and-render-content.md) | ADR-003, ADR-028 (+ ADR-035) | play (+ platform при host/packaging) |
@@ -49,7 +49,7 @@
 | World simulation, population lifecycle, time advance | [SPEC-20](20-world-simulation-and-population-lifecycle.md) | ADR-021 | persistence-replay |
 | Luau/Wasm scripting, plugins, mod packages, gameplay mechanics authoring | [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | ADR-008, ADR-014 | content-package |
 | Player interaction, UI, camera, localization, accessibility | [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md) | ADR-019, ADR-044 | play |
-| Project composition, configuration, application lifecycle | [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md) | ADR-018 | fast |
+| Project composition, configuration, application lifecycle | [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md) | ADR-018, ADR-048 | fast, content-package |
 | Platform host, application session, presentation authority, Save/Load/close | [SPEC-29](29-platform-host-and-application-session.md) | ADR-028, ADR-035, ADR-047 | play, persistence-replay, platform |
 | Jobs, memory, resource residency, I/O backpressure, allocator measurement, performance budgets | [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md) | ADR-016, ADR-036, ADR-038–043, ADR-045 | performance |
 | Tooling, SDK, observability | [SPEC-09](09-tooling-sdk-and-observability.md) | — | fast |

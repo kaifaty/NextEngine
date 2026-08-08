@@ -7,7 +7,7 @@ pub mod audio_check;
 mod tests;
 
 use next_assets::ContentStore;
-use next_contracts::project::ActivatedProjectV2;
+use next_contracts::project::ActivatedProjectV3;
 
 pub use checks::{
     GameCheckReport, PhysicsCollisionBackend, PhysicsCollisionCheckReport, PlayCheckReport,
@@ -63,7 +63,7 @@ pub(crate) fn build_physx_player_fixture_with_scratch(
 }
 
 pub fn build_neutral_player_fixture_from_activated_project(
-    activated_project: ActivatedProjectV2,
+    activated_project: ActivatedProjectV3,
 ) -> Result<NeutralPlayerFixture, NeutralFixtureError> {
     Ok(next_reference_game::build_reference_game_session(
         activated_project,
@@ -72,7 +72,7 @@ pub fn build_neutral_player_fixture_from_activated_project(
 
 pub(crate) fn activate_fixture_project(
     project_id: &str,
-) -> Result<ActivatedProjectV2, NeutralFixtureError> {
+) -> Result<ActivatedProjectV3, NeutralFixtureError> {
     let scratch =
         ScratchContext::new(&std::env::temp_dir()).map_err(NeutralFixtureError::Cleanup)?;
     activate_fixture_project_with_scratch(&scratch, project_id)
@@ -81,9 +81,9 @@ pub(crate) fn activate_fixture_project(
 pub(crate) fn activate_fixture_project_with_scratch(
     scratch: &ScratchContext,
     project_id: &str,
-) -> Result<ActivatedProjectV2, NeutralFixtureError> {
+) -> Result<ActivatedProjectV3, NeutralFixtureError> {
     let source = next_reference_game::project_source_v2_with_id(project_id)?;
-    let cooked = next_project::cook_project_v1(source)?;
+    let cooked = next_project::cook_project_v2(source)?;
     let directory = scratch
         .create_directory("play-project")
         .map_err(NeutralFixtureError::Cleanup)?;

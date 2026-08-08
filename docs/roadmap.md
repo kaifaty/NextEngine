@@ -1267,9 +1267,11 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    diagnostic проходят. Ручной acceptance `r2-reference-alpha-visual-v5` с
    `Saved`, `Loaded - press Resume`, rollback/WASD, collisions, UI,
    resize/fullscreen зафиксирован как `PASS` 2026-08-08.
-4. **Architecture cleanup (`NEXT`):** удалить неподдерживаемые alpha-era contracts,
-   resolver/recovery/allocator complexity и синхронизировать нормативные документы,
-   сохранив R2 gameplay result.
+4. **Architecture cleanup (`IN_PROGRESS`, packages 1–4/6):** R2 gate закрыт;
+   retired replay/input contracts, session recovery archives/object packs и
+   project resolver/catalog удалены. Current project path теперь authoring v2 →
+   exact `ProjectLockV3` → atomic `ActivatedProjectV3`. Следующий package удаляет
+   allocator-counter, затем выполняется нормативное сжатие и полный R2 recheck.
 5. **R3a jobs/resources vertical (`PLANNED / AFTER_ARCHITECTURE_CLEANUP`):** первым
    production consumer является chunk fetch/decode/validate; shared bounded
    admission primitives не проектируются отдельно от этого workload.

@@ -12,6 +12,14 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::path::{Component, Path};
 
+use self::schema::{
+    AUTHORING_FORMAT_V2, AuthoringAnimationPropertyV1, AuthoringAudioRecordV1,
+    AuthoringHumanoidCatalogV1, AuthoringNeutralRecordKindV1, AuthoringPresentationTargetV1,
+    AuthoringRenderRecordV1, AuthoringSourceReferenceV1, AuthoringSourceSpanV1,
+    AuthoringTextureAlphaV1, AuthoringTextureColorSpaceV1, ProjectAuthoringManifestV2,
+};
+use crate::cook::{NeutralProjectSourceV2, SourceChunkBindingV1};
+use crate::cook_support::schema_ref;
 use next_contracts::animation_content::{
     AnimationInterpolationV1, AnimationPropertyV1, AnimationWrapModeV1, NeutralAnimationChannelV1,
     NeutralAnimationContentErrorV1, NeutralAnimationKeyV1, NeutralAnimationV1,
@@ -44,43 +52,39 @@ use next_contracts::render_content::{
     NeutralTextureV1, RenderContentContractError, UvTransformV1,
     b0_shader_interface_manifest_sha256,
 };
-use next_contracts::session::{
-    FailureDispositionV1, RecoveryPolicyV1, SessionContractError, ShutdownPolicyV1,
-};
-
-use self::schema::{
-    AUTHORING_FORMAT_V1, AuthoringAnimationPropertyV1, AuthoringAudioRecordV1,
-    AuthoringFailureDispositionV1, AuthoringHumanoidCatalogV1, AuthoringNeutralRecordKindV1,
-    AuthoringPresentationTargetV1, AuthoringRenderRecordV1, AuthoringSourceReferenceV1,
-    AuthoringSourceSpanV1, AuthoringTextureAlphaV1, AuthoringTextureColorSpaceV1,
-    ProjectAuthoringManifestV1,
-};
-use crate::cook::{NeutralProjectSourceV1, SourceChunkBindingV1};
-use crate::cook_support::schema_ref;
 
 pub const PROJECT_AUTHORING_MANIFEST_FILE: &str = "project.authoring.json";
 
-pub fn load_project_authoring_v1(
+#[derive(serde::Deserialize)]
+struct ProjectAuthoringFormatProbe {
+    format: String,
+}
+
+pub fn load_project_authoring_v2(
     project_directory: impl AsRef<Path>,
-) -> Result<NeutralProjectSourceV1, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV2, ProjectAuthoringError> {
     load_project_authoring_with_override(project_directory.as_ref(), None)
 }
 
-pub fn load_project_authoring_v1_with_project_id(
+pub fn load_project_authoring_v2_with_project_id(
     project_directory: impl AsRef<Path>,
     project_id: &str,
-) -> Result<NeutralProjectSourceV1, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV2, ProjectAuthoringError> {
     load_project_authoring_with_override(project_directory.as_ref(), Some(project_id))
 }
 
 fn load_project_authoring_with_override(
     project_directory: &Path,
     project_id_override: Option<&str>,
-) -> Result<NeutralProjectSourceV1, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV2, ProjectAuthoringError> {
     let manifest_path = project_directory.join(PROJECT_AUTHORING_MANIFEST_FILE);
     let bytes = read_file(&manifest_path)?;
-    let manifest: ProjectAuthoringManifestV1 = serde_json::from_slice(&bytes)?;
-    if manifest.format != AUTHORING_FORMAT_V1 {
+    let format: ProjectAuthoringFormatProbe = serde_json::from_slice(&bytes)?;
+    if format.format != AUTHORING_FORMAT_V2 {
+        return Err(ProjectAuthoringError::UnsupportedFormat(format.format));
+    }
+    let manifest: ProjectAuthoringManifestV2 = serde_json::from_slice(&bytes)?;
+    if manifest.format != AUTHORING_FORMAT_V2 {
         return Err(ProjectAuthoringError::UnsupportedFormat(manifest.format));
     }
     validate_span(project_directory, &manifest.provenance.source_span)?;
@@ -157,20 +161,12 @@ fn load_project_authoring_with_override(
             }
         })
         .collect();
-    let failure_disposition = match manifest.shutdown_policy.failure_disposition {
-        AuthoringFailureDispositionV1::RequireFinalSave => FailureDispositionV1::RequireFinalSave,
-        AuthoringFailureDispositionV1::AllowLastSafeGeneration => {
-            FailureDispositionV1::AllowLastSafeGeneration
-        }
-    };
-    Ok(NeutralProjectSourceV1 {
+    Ok(NeutralProjectSourceV2 {
         project_id: ProjectId::new(
             project_id_override.unwrap_or(manifest.project.project_id.as_str()),
         )?,
         project_revision: manifest.project.project_revision,
-        content_identity: SchemaId::new(&manifest.project.content_identity)?,
-        resolver_profile_id: SchemaId::new(&manifest.project.resolver_profile_id)?,
-        resolver_profile_version: manifest.project.resolver_profile_version,
+        authoring_sha256: domain_hash(AUTHORING_FORMAT_V2, &bytes),
         records,
         render_records,
         text_catalogs,
@@ -191,14 +187,6 @@ fn load_project_authoring_with_override(
         partition_id: SchemaId::new(&manifest.partition.partition_id)?,
         coordinate_profile_id: SchemaId::new(&manifest.partition.coordinate_profile_id)?,
         chunks,
-        recovery_policy: RecoveryPolicyV1::new(
-            manifest.recovery_policy.permit_required_save_recovery,
-            manifest.recovery_policy.preserve_prior_history,
-        ),
-        shutdown_policy: ShutdownPolicyV1::new(
-            manifest.shutdown_policy.maximum_attempts,
-            failure_disposition,
-        )?,
         allowed_presentation_targets,
     })
 }
@@ -460,7 +448,7 @@ fn build_audio_records(
 
 fn build_animation_catalogs(
     project_directory: &Path,
-    manifest: &ProjectAuthoringManifestV1,
+    manifest: &ProjectAuthoringManifestV2,
 ) -> Result<(Vec<NeutralSkeletonV1>, Vec<NeutralAnimationV1>), ProjectAuthoringError> {
     let mut skeletons = Vec::new();
     let mut animations = Vec::new();
@@ -572,7 +560,7 @@ fn build_animation_catalogs(
 
 fn validate_provenance(
     project_directory: &Path,
-    manifest: &ProjectAuthoringManifestV1,
+    manifest: &ProjectAuthoringManifestV2,
 ) -> Result<ContentHash, ProjectAuthoringError> {
     if manifest.provenance.source_identity.is_empty()
         || manifest.provenance.referenced_sources.is_empty()
@@ -887,7 +875,6 @@ pub enum ProjectAuthoringError {
     Localization(TextCatalogErrorV1),
     Audio(NeutralAudioErrorV1),
     Animation(NeutralAnimationContentErrorV1),
-    Session(SessionContractError),
     UnsupportedFormat(String),
     UnsafePath(String),
     InvalidHex,
@@ -904,7 +891,8 @@ impl ProjectAuthoringError {
     pub const fn diagnostic_code(&self) -> &'static str {
         match self {
             Self::Io { .. } => "PROJECT_AUTHORING_IO",
-            Self::Json(_) | Self::UnsupportedFormat(_) => "PROJECT_MANIFEST_INVALID",
+            Self::Json(_) => "PROJECT_MANIFEST_INVALID",
+            Self::UnsupportedFormat(_) => "UNSUPPORTED_PROJECT_AUTHORING_FORMAT",
             Self::Identifier(_) | Self::InvalidHex | Self::InvalidValue => "CONTENT_VALUE_INVALID",
             Self::Contract(_) => "CONTENT_SCHEMA_INVALID",
             Self::Neutral(_)
@@ -912,7 +900,6 @@ impl ProjectAuthoringError {
             | Self::Localization(_)
             | Self::Audio(_)
             | Self::Animation(_) => "CONTENT_SCHEMA_INVALID",
-            Self::Session(_) => "PROJECT_POLICY_INVALID",
             Self::UnsafePath(_) => "CONTENT_SOURCE_PATH_INVALID",
             Self::InvalidSourceSpan => "CONTENT_SOURCE_SPAN_INVALID",
             Self::InvalidProvenance | Self::HashMismatch(_) => "CONTENT_PROVENANCE_INVALID",
@@ -945,9 +932,6 @@ impl Display for ProjectAuthoringError {
             Self::Audio(error) => write!(formatter, "audio authoring record is invalid: {error}"),
             Self::Animation(error) => {
                 write!(formatter, "animation authoring record is invalid: {error}")
-            }
-            Self::Session(error) => {
-                write!(formatter, "authoring session policy is invalid: {error}")
             }
             Self::UnsupportedFormat(format) => {
                 write!(formatter, "unsupported authoring format {format}")
@@ -990,4 +974,3 @@ from_error!(RenderContentContractError, Render);
 from_error!(TextCatalogErrorV1, Localization);
 from_error!(NeutralAudioErrorV1, Audio);
 from_error!(NeutralAnimationContentErrorV1, Animation);
-from_error!(SessionContractError, Session);

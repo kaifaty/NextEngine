@@ -1,15 +1,15 @@
 use super::codec::ProjectContractError;
 use super::content::ContentManifestV1;
-use super::resolution::ProjectCompositionLockV2;
-use super::schema::SchemaRegistryManifestV1;
+use super::lock::ProjectLockV3;
+use super::schema::SchemaRegistryManifestV2;
 use super::world_partition::WorldPartitionManifestV1;
 use crate::canonical::CanonicalDecodeLimits;
 use crate::render_content::{NeutralRenderRecordV1, RenderContentCatalogV1};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ActivatedProjectV2 {
-    pub composition_lock: ProjectCompositionLockV2,
-    pub schema_registry: SchemaRegistryManifestV1,
+pub struct ActivatedProjectV3 {
+    pub project_lock: ProjectLockV3,
+    pub schema_registry: SchemaRegistryManifestV2,
     pub content_manifest: ContentManifestV1,
     pub world_partition: WorldPartitionManifestV1,
     pub neutral_records: Vec<crate::content::NeutralRecordV1>,
@@ -21,9 +21,9 @@ pub struct ActivatedProjectV2 {
     pub render_content_catalog: RenderContentCatalogV1,
 }
 
-impl ActivatedProjectV2 {
+impl ActivatedProjectV3 {
     pub fn validate(&self) -> Result<(), ProjectContractError> {
-        self.composition_lock.validate()?;
+        self.project_lock.validate()?;
         self.rpg_definitions
             .validate()
             .map_err(|_| ProjectContractError::HashMismatch)?;
@@ -238,12 +238,14 @@ impl ActivatedProjectV2 {
         if catalog_revisions != manifest_render_revisions {
             return Err(ProjectContractError::HashMismatch);
         }
-        if self.composition_lock.project_id != self.content_manifest.body.project_id
-            || self.composition_lock.schema_registry_manifest_sha256
+        if self.project_lock.project_id != self.content_manifest.body.project_id
+            || self.project_lock.project_revision != self.content_manifest.body.content_revision
+            || self.project_lock.project_revision != self.world_partition.body.topology_revision
+            || self.project_lock.schema_registry_manifest_sha256
                 != self.schema_registry.schema_registry_manifest_sha256
-            || self.composition_lock.content_manifest_sha256
+            || self.project_lock.content_manifest_sha256
                 != self.content_manifest.content_manifest_sha256
-            || self.composition_lock.world_partition_manifest_sha256
+            || self.project_lock.world_partition_manifest_sha256
                 != self.world_partition.world_partition_manifest_sha256
             || self.content_manifest.body.schema_registry_manifest_sha256
                 != self.schema_registry.schema_registry_manifest_sha256
@@ -251,7 +253,7 @@ impl ActivatedProjectV2 {
                 != self.schema_registry.schema_registry_manifest_sha256
             || self.world_partition.body.content_manifest_sha256
                 != self.content_manifest.content_manifest_sha256
-            || self.composition_lock.mechanics_lock_sha256
+            || self.project_lock.mechanics_lock_sha256
                 != self.rpg_definitions.mechanics_lock.mechanics_lock_sha256
         {
             return Err(ProjectContractError::HashMismatch);

@@ -191,7 +191,7 @@ pub(crate) fn build_native_gate_package_result(
     for (field, packaged, expected) in [
         (
             "project_composition_lock_hash",
-            neutral.project_composition_lock_sha256.as_str(),
+            neutral.project_lock_sha256.as_str(),
             closure
                 .report
                 .details
@@ -235,12 +235,12 @@ pub(crate) fn build_native_gate_package_result(
     ensure_gate_root(
         "package/content composition",
         &content.details.composition_lock_hash,
-        &neutral.project_composition_lock_sha256,
+        &neutral.project_lock_sha256,
     )?;
     ensure_gate_root(
         "package/play composition",
         &play.project_composition_lock_hash,
-        &neutral.project_composition_lock_sha256,
+        &neutral.project_lock_sha256,
     )?;
 
     let package = NativeGatePackageSummaryV1 {
@@ -248,7 +248,7 @@ pub(crate) fn build_native_gate_package_result(
         target_triple: manifest.target_triple.clone(),
         relative_path: "package".to_owned(),
         package_manifest_sha256: build.package_manifest_sha256.clone(),
-        composition_lock_sha256: neutral.project_composition_lock_sha256.clone(),
+        project_lock_sha256: neutral.project_lock_sha256.clone(),
         schema_registry_sha256: neutral.schema_registry_sha256.clone(),
         content_manifest_sha256: neutral.content_manifest_sha256.clone(),
         mechanics_lock_sha256: neutral.mechanics_lock_sha256.clone(),

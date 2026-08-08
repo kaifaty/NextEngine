@@ -69,7 +69,7 @@ pub fn run_live_runtime_history_scaling_diagnostic_in(
         let source = next_reference_game::project_source_v2().map_err(|error| {
             LiveRuntimePerformanceError::new("history-scaling fixture source", error.to_string())
         })?;
-        let cooked = next_project::cook_project_v1(source).map_err(|error| {
+        let cooked = next_project::cook_project_v2(source).map_err(|error| {
             LiveRuntimePerformanceError::new("cook history-scaling fixture", error.to_string())
         })?;
         store

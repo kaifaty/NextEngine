@@ -898,7 +898,7 @@ mod tests {
     }
 
     fn catalog() -> RenderContentCatalogV1 {
-        next_project::cook_project_v1(next_reference_game::project_source_v2().expect("source"))
+        next_project::cook_project_v2(next_reference_game::project_source_v2().expect("source"))
             .expect("cook")
             .render_content_catalog
     }

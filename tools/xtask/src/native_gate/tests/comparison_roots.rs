@@ -74,11 +74,8 @@ fn every_comparable_root_is_checked_in_declared_order() {
         mutate(roots);
         match field {
             "project_composition_lock_hash" => {
-                linux
-                    .package
-                    .as_mut()
-                    .expect("package")
-                    .composition_lock_sha256 = roots.project_composition_lock_hash.clone();
+                linux.package.as_mut().expect("package").project_lock_sha256 =
+                    roots.project_composition_lock_hash.clone();
             }
             "schema_registry_hash" => {
                 linux

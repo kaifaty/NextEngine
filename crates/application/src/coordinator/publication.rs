@@ -151,11 +151,8 @@ impl ApplicationCoordinator {
             };
             let request = self.lifecycle_request(target, reason, code)?;
             let references = SessionTransitionReferencesV1 {
-                activation_receipt_hash: (target == ApplicationSessionStatusV1::Active).then_some(
-                    self.activated_project
-                        .composition_lock
-                        .composition_lock_sha256,
-                ),
+                activation_receipt_hash: (target == ApplicationSessionStatusV1::Active)
+                    .then_some(self.activated_project.project_lock.project_lock_sha256),
                 active_runtime_revision: (target == ApplicationSessionStatusV1::Active)
                     .then_some(0),
                 ..SessionTransitionReferencesV1::default()

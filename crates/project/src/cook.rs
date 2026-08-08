@@ -2,6 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
+use crate::cook_rpg::compile_rpg_definitions_v1;
+use crate::cook_support::{ensure_unique, schema_ref, validate_text_catalog_closure};
 use next_assets::{ContentPublicationV1, PublicationFileV1};
 use next_contracts::animation_content::{
     NEUTRAL_ANIMATION_SCHEMA_ID, NEUTRAL_SKELETON_SCHEMA_ID, NeutralAnimationContentErrorV1,
@@ -15,25 +17,15 @@ use next_contracts::mechanics::{MechanicsContractError, RpgDefinitionRegistryV1}
 use next_contracts::platform::PresentationTargetKindV1;
 use next_contracts::project::{
     AssetRevisionRefV1, ContentAssetEntryV1, ContentDependencyEdgeV1, ContentManifestBodyV1,
-    ContentManifestV1, ContentProvenanceV1, ContentSemanticClassV1, ProjectCatalogRecordV1,
-    ProjectCatalogSnapshotV1, ProjectCompositionLockV2, ProjectContractError,
-    ProjectDependencyKindV1, ProjectManifestV1, ProjectRequirementV1, SchemaDescriptorV1,
-    SchemaEncodingV1, SchemaRegistryManifestBodyV1, SchemaRegistryManifestV1, SchemaRoleV1,
-    SemanticVersionV1, WorldChunkBindingV1, WorldPartitionManifestBodyV1, WorldPartitionManifestV1,
-    canonical_empty_manifest_hash, domain_hash,
+    ContentManifestV1, ContentProvenanceV1, ContentSemanticClassV1, ProjectContractError,
+    ProjectLockV3, SchemaDescriptorV1, SchemaEncodingV1, SchemaRegistryManifestBodyV2,
+    SchemaRegistryManifestV2, SchemaRoleV1, WorldChunkBindingV1, WorldPartitionManifestBodyV1,
+    WorldPartitionManifestV1, canonical_empty_manifest_hash, domain_hash,
 };
 use next_contracts::render_content::{
     NeutralRenderRecordV1, RenderContentCatalogV1, RenderContentContractError,
 };
-use next_contracts::session::{RecoveryPolicyV1, ShutdownPolicyV1};
-
-use crate::cook_rpg::compile_rpg_definitions_v1;
-use crate::cook_support::{ensure_unique, schema_ref, validate_text_catalog_closure};
-use crate::{ProjectResolutionError, resolve_project_records_v1};
-
-pub const PROJECT_MANIFEST_PATH: &str = "manifests/project.json";
-pub const PROJECT_CATALOG_PATH: &str = "manifests/catalog.json";
-pub const PROJECT_COMPOSITION_LOCK_PATH: &str = "manifests/composition-lock.json";
+pub const PROJECT_LOCK_PATH: &str = "manifests/project-lock.json";
 pub const SCHEMA_REGISTRY_PATH: &str = "manifests/schema-registry.json";
 pub const CONTENT_MANIFEST_PATH: &str = "manifests/content.json";
 pub const WORLD_PARTITION_PATH: &str = "manifests/world-partition.json";
@@ -42,6 +34,34 @@ pub const RENDER_CONTENT_CATALOG_PATH: &str = "render-content/catalog.bin";
 pub const RENDER_CONTENT_MESH_DIRECTORY: &str = "render-content/meshes";
 pub const CORE_INTERACTION_PACKAGE_ID: &str = "org.nextengine.core.interaction";
 pub const CORE_COMBAT_PACKAGE_ID: &str = "org.nextengine.core.combat";
+
+pub(crate) fn runtime_determinism_profile_sha256() -> ContentHash {
+    domain_hash(
+        "nextengine.runtime-determinism-profile.v1",
+        b"fixed-stage-order+adr-022-ingress",
+    )
+}
+
+pub(crate) fn launch_profiles_sha256() -> ContentHash {
+    domain_hash(
+        "nextengine.launch-profiles.v1",
+        b"game:interactive|none;headless:none;tools:none|interactive;capture-worker:displayless-offscreen",
+    )
+}
+
+pub(crate) fn platform_capability_profile_sha256() -> ContentHash {
+    domain_hash(
+        "nextengine.platform-capability-profile.v1",
+        b"normalized-engine-owned-capabilities",
+    )
+}
+
+pub(crate) fn platform_timebase_profile_sha256() -> ContentHash {
+    domain_hash(
+        "nextengine.platform-timebase-profile.v1",
+        b"diagnostic-only-monotonic-v1",
+    )
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SourceChunkBindingV1 {
@@ -52,12 +72,10 @@ pub struct SourceChunkBindingV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct NeutralProjectSourceV1 {
+pub struct NeutralProjectSourceV2 {
     pub project_id: ProjectId,
     pub project_revision: u64,
-    pub content_identity: SchemaId,
-    pub resolver_profile_id: SchemaId,
-    pub resolver_profile_version: u32,
+    pub authoring_sha256: ContentHash,
     pub records: Vec<NeutralRecordV1>,
     pub render_records: Vec<NeutralRenderRecordV1>,
     pub text_catalogs: Vec<TextCatalogV1>,
@@ -70,17 +88,13 @@ pub struct NeutralProjectSourceV1 {
     pub partition_id: SchemaId,
     pub coordinate_profile_id: SchemaId,
     pub chunks: Vec<SourceChunkBindingV1>,
-    pub recovery_policy: RecoveryPolicyV1,
-    pub shutdown_policy: ShutdownPolicyV1,
     pub allowed_presentation_targets: Vec<PresentationTargetKindV1>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CookedProjectV1 {
-    pub project_manifest: ProjectManifestV1,
-    pub catalog_snapshot: ProjectCatalogSnapshotV1,
-    pub composition_lock: ProjectCompositionLockV2,
-    pub schema_registry: SchemaRegistryManifestV1,
+pub struct CookedProjectV2 {
+    pub project_lock: ProjectLockV3,
+    pub schema_registry: SchemaRegistryManifestV2,
     pub content_manifest: ContentManifestV1,
     pub world_partition: WorldPartitionManifestV1,
     pub rpg_definitions: RpgDefinitionRegistryV1,
@@ -88,15 +102,10 @@ pub struct CookedProjectV1 {
     pub blobs: BTreeMap<ContentHash, Vec<u8>>,
 }
 
-impl CookedProjectV1 {
+impl CookedProjectV2 {
     pub fn publication(&self) -> Result<ContentPublicationV1, ProjectCookError> {
         let mut files = vec![
-            PublicationFileV1::new(PROJECT_MANIFEST_PATH, self.project_manifest.to_jcs_bytes())?,
-            PublicationFileV1::new(PROJECT_CATALOG_PATH, self.catalog_snapshot.to_jcs_bytes())?,
-            PublicationFileV1::new(
-                PROJECT_COMPOSITION_LOCK_PATH,
-                self.composition_lock.to_jcs_bytes(),
-            )?,
+            PublicationFileV1::new(PROJECT_LOCK_PATH, self.project_lock.to_jcs_bytes())?,
             PublicationFileV1::new(SCHEMA_REGISTRY_PATH, self.schema_registry.to_jcs_bytes()?)?,
             PublicationFileV1::new(CONTENT_MANIFEST_PATH, self.content_manifest.to_jcs_bytes()?)?,
             PublicationFileV1::new(WORLD_PARTITION_PATH, self.world_partition.to_jcs_bytes()?)?,
@@ -132,15 +141,15 @@ impl CookedProjectV1 {
                 .collect::<Result<Vec<_>, _>>()?,
         );
         Ok(ContentPublicationV1::new(
-            self.composition_lock.composition_lock_sha256,
+            self.project_lock.project_lock_sha256,
             files,
         )?)
     }
 }
 
-pub fn cook_project_v1(
-    mut source: NeutralProjectSourceV1,
-) -> Result<CookedProjectV1, ProjectCookError> {
+pub fn cook_project_v2(
+    mut source: NeutralProjectSourceV2,
+) -> Result<CookedProjectV2, ProjectCookError> {
     source.records.sort_by_key(|record| record.asset_id);
     source
         .render_records
@@ -165,7 +174,6 @@ pub fn cook_project_v1(
         "nextengine.schema-ownership-registry.v1",
         b"nextengine.assets",
     );
-    let registry_limits_sha256 = domain_hash("nextengine.schema-registry-limits.v1", b"bounded-v1");
     let mut schema_refs: BTreeSet<_> = source
         .records
         .iter()
@@ -228,14 +236,12 @@ pub fn cook_project_v1(
             schema_ref,
         })
         .collect();
-    let schema_registry = SchemaRegistryManifestV1::new(SchemaRegistryManifestBodyV1 {
+    let schema_registry = SchemaRegistryManifestV2::new(SchemaRegistryManifestBodyV2 {
         registry_revision: 1,
         canonicalization_profile_sha256,
         ownership_registry_sha256,
         descriptors,
         current_schema_refs: schema_refs.into_iter().collect(),
-        migration_dag_sha256: canonical_empty_manifest_hash("nextengine.schema-migration-dag.v1"),
-        registry_limits_sha256,
     })?;
 
     let mut blobs = BTreeMap::new();
@@ -430,7 +436,7 @@ pub fn cook_project_v1(
         ),
         cooker_contract_sha256: domain_hash(
             "nextengine.cooker-contract.v1",
-            b"next_project::cook_project_v1",
+            b"next_project::cook_project_v2",
         ),
         cooker_options_sha256: canonical_empty_manifest_hash("nextengine.cooker-options.v1"),
         root_assets,
@@ -477,75 +483,23 @@ pub fn cook_project_v1(
         content_manifest_sha256: content_manifest.content_manifest_sha256,
     })?;
 
-    let project_manifest = ProjectManifestV1::new(
-        source.project_id.clone(),
-        source.project_revision,
-        vec![ProjectRequirementV1 {
-            kind: ProjectDependencyKindV1::Content,
-            identity: source.content_identity.clone(),
-            minimum_version: SemanticVersionV1::new(1, 0, 0),
-            optional: false,
-        }],
-    )?;
-    let catalog_snapshot = ProjectCatalogSnapshotV1::new(
-        source.resolver_profile_id.clone(),
-        source.resolver_profile_version,
-        source.provenance.provenance_sha256,
-        vec![ProjectCatalogRecordV1::new(
-            ProjectDependencyKindV1::Content,
-            source.content_identity,
-            SemanticVersionV1::new(1, 0, 0),
-            content_manifest.content_manifest_sha256,
-            Vec::new(),
-            false,
-        )?],
-    )?;
-    let selected_records = resolve_project_records_v1(&project_manifest, &catalog_snapshot)?;
-    let mut resolver_bytes = Vec::new();
-    resolver_bytes.extend_from_slice(source.resolver_profile_id.as_str().as_bytes());
-    resolver_bytes.extend_from_slice(&source.resolver_profile_version.to_le_bytes());
-    let composition_lock = ProjectCompositionLockV2::new(ProjectCompositionLockV2 {
+    let project_lock = ProjectLockV3::new(ProjectLockV3 {
         project_id: source.project_id,
-        project_manifest_sha256: project_manifest.manifest_sha256,
-        catalog_snapshot_sha256: catalog_snapshot.catalog_snapshot_sha256,
-        resolver_profile_sha256: domain_hash(
-            "nextengine.project-resolver-profile.v1",
-            &resolver_bytes,
-        ),
+        project_revision: source.project_revision,
+        authoring_sha256: source.authoring_sha256,
         schema_registry_manifest_sha256: schema_registry.schema_registry_manifest_sha256,
         content_manifest_sha256: content_manifest.content_manifest_sha256,
         world_partition_manifest_sha256: world_partition.world_partition_manifest_sha256,
         mechanics_lock_sha256: rpg_definitions.mechanics_lock.mechanics_lock_sha256,
-        runtime_determinism_profile_sha256: domain_hash(
-            "nextengine.runtime-determinism-profile.v1",
-            b"fixed-stage-order+adr-022-ingress",
-        ),
-        launch_profiles_sha256: domain_hash(
-            "nextengine.launch-profiles.v1",
-            b"game:interactive|none;headless:none;tools:none|interactive;capture-worker:displayless-offscreen",
-        ),
-        recovery_policy_sha256: source.recovery_policy.canonical_hash,
-        shutdown_policy_sha256: source.shutdown_policy.canonical_hash,
-        recovery_permit_required_save: source.recovery_policy.permit_required_save_recovery,
-        recovery_preserve_prior_history: source.recovery_policy.preserve_prior_history,
-        shutdown_maximum_attempts: source.shutdown_policy.maximum_attempts,
-        shutdown_failure_disposition: source.shutdown_policy.failure_disposition,
-        platform_capability_profile_sha256: domain_hash(
-            "nextengine.platform-capability-profile.v1",
-            b"normalized-engine-owned-capabilities",
-        ),
-        platform_timebase_profile_sha256: domain_hash(
-            "nextengine.platform-timebase-profile.v1",
-            b"diagnostic-only-monotonic-v1",
-        ),
+        runtime_determinism_profile_sha256: runtime_determinism_profile_sha256(),
+        launch_profiles_sha256: launch_profiles_sha256(),
+        platform_capability_profile_sha256: platform_capability_profile_sha256(),
+        platform_timebase_profile_sha256: platform_timebase_profile_sha256(),
         allowed_presentation_targets: source.allowed_presentation_targets,
-        selected_records,
-        composition_lock_sha256: ContentHash::default(),
+        project_lock_sha256: ContentHash::default(),
     })?;
-    Ok(CookedProjectV1 {
-        project_manifest,
-        catalog_snapshot,
-        composition_lock,
+    Ok(CookedProjectV2 {
+        project_lock,
         schema_registry,
         content_manifest,
         world_partition,
@@ -587,18 +541,10 @@ pub(crate) fn asset_revision(
     })
 }
 
-fn validate_source(source: &NeutralProjectSourceV1) -> Result<(), ProjectCookError> {
-    if source.project_revision == 0 || source.resolver_profile_version == 0 {
+fn validate_source(source: &NeutralProjectSourceV2) -> Result<(), ProjectCookError> {
+    if source.project_revision == 0 {
         return Err(ProjectCookError::InvalidRevision);
     }
-    source
-        .recovery_policy
-        .validate()
-        .map_err(|_| ProjectCookError::InvalidValue)?;
-    source
-        .shutdown_policy
-        .validate()
-        .map_err(|_| ProjectCookError::InvalidValue)?;
     if source.allowed_presentation_targets.is_empty() {
         return Err(ProjectCookError::InvalidValue);
     }
@@ -771,7 +717,6 @@ pub enum ProjectCookError {
     Localization(TextCatalogErrorV1),
     Audio(NeutralAudioErrorV1),
     Animation(NeutralAnimationContentErrorV1),
-    Resolution(ProjectResolutionError),
     Store(next_assets::ContentStoreError),
     Identifier(next_contracts::ids::IdentifierError),
     MissingReference,
@@ -793,7 +738,6 @@ impl ProjectCookError {
             Self::Localization(_) => "CONTENT_SCHEMA_INVALID",
             Self::Audio(_) => "CONTENT_SCHEMA_INVALID",
             Self::Animation(_) => "CONTENT_SCHEMA_INVALID",
-            Self::Resolution(_) => "PROJECT_RESOLUTION_FAILED",
             Self::Store(_) => "CONTENT_PUBLICATION_FAILED",
             Self::Identifier(_) => "CONTENT_IDENTIFIER_INVALID",
             Self::MissingReference => "CONTENT_REFERENCE_MISSING",
@@ -819,7 +763,6 @@ impl Display for ProjectCookError {
             Self::Animation(error) => {
                 write!(formatter, "neutral animation content invalid: {error}")
             }
-            Self::Resolution(error) => write!(formatter, "project resolution failed: {error}"),
             Self::Store(error) => write!(formatter, "content publication failed: {error}"),
             Self::Identifier(error) => write!(formatter, "content identifier invalid: {error}"),
             Self::MissingReference => formatter.write_str("content reference is missing"),
@@ -876,12 +819,6 @@ impl From<NeutralAudioErrorV1> for ProjectCookError {
 impl From<NeutralAnimationContentErrorV1> for ProjectCookError {
     fn from(error: NeutralAnimationContentErrorV1) -> Self {
         Self::Animation(error)
-    }
-}
-
-impl From<ProjectResolutionError> for ProjectCookError {
-    fn from(error: ProjectResolutionError) -> Self {
-        Self::Resolution(error)
     }
 }
 

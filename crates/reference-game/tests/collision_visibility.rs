@@ -249,7 +249,7 @@ fn activated_reference_project(
     label: &str,
 ) -> (
     std::path::PathBuf,
-    next_contracts::project::ActivatedProjectV2,
+    next_contracts::project::ActivatedProjectV3,
 ) {
     let root = std::env::temp_dir().join(format!(
         "nextengine-reference-collision-{label}-{}-{}",
@@ -257,7 +257,7 @@ fn activated_reference_project(
         TEST_COUNTER.fetch_add(1, Ordering::Relaxed)
     ));
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v1(
+    let cooked = next_project::cook_project_v2(
         next_reference_game::project_source_v2().expect("reference source"),
     )
     .expect("cook");

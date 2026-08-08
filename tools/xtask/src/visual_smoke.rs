@@ -78,7 +78,7 @@ pub(super) fn run(root: &Path, request: &VisualSmokeRequest) -> Result<(), Strin
         fs::remove_dir_all(&scratch).map_err(|error| error.to_string())?;
     }
     let store = ContentStore::new(&scratch);
-    let cooked = next_project::cook_project_v1(
+    let cooked = next_project::cook_project_v2(
         next_reference_game::project_source_v2().map_err(|error| error.to_string())?,
     )
     .map_err(|error| error.to_string())?;
@@ -126,7 +126,7 @@ pub(super) fn run(root: &Path, request: &VisualSmokeRequest) -> Result<(), Strin
     }
     let manifest = VisualSmokeManifestV1 {
         schema_version: 1,
-        project_lock: activated.composition_lock.composition_lock_sha256.to_hex(),
+        project_lock: activated.project_lock.project_lock_sha256.to_hex(),
         capture_extent: [CAPTURE_WIDTH, CAPTURE_HEIGHT],
         shader_hashes: shader_hashes(root)?,
         frames,
@@ -150,7 +150,7 @@ pub(super) fn run(root: &Path, request: &VisualSmokeRequest) -> Result<(), Strin
 }
 
 fn fixed_snapshots(
-    activated: &next_contracts::project::ActivatedProjectV2,
+    activated: &next_contracts::project::ActivatedProjectV3,
 ) -> Result<Vec<(&'static str, PresentationSnapshotV2)>, String> {
     let spawn_driver = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
         .map_err(|error| error.to_string())?;

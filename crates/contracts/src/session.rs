@@ -33,8 +33,6 @@ pub enum SessionContractError {
     InvalidRootTarget,
     InvalidStateFields,
     InvalidCloseState,
-    InvalidAttemptCount,
-    InvalidLedgerEntry,
     DuplicateIdentity,
     NonCanonicalOrder,
     UnknownClosedValue,
@@ -45,11 +43,9 @@ impl SessionContractError {
     pub const fn diagnostic_code(&self) -> &'static str {
         match self {
             Self::InvalidRootTarget => "PLATFORM_FORBIDDEN_PRESENTATION_TARGET",
-            Self::InvalidTransition
-            | Self::InvalidStateFields
-            | Self::InvalidCloseState
-            | Self::InvalidAttemptCount
-            | Self::InvalidLedgerEntry => "SESSION_TRANSITION_INVALID",
+            Self::InvalidTransition | Self::InvalidStateFields | Self::InvalidCloseState => {
+                "SESSION_TRANSITION_INVALID"
+            }
             Self::IdentityMismatch => "SESSION_REQUEST_IDENTITY_COLLISION",
             Self::HashMismatch
             | Self::Manifest(_)
@@ -78,8 +74,6 @@ impl Display for SessionContractError {
             Self::InvalidRootTarget => "presentation target is forbidden for composition root",
             Self::InvalidStateFields => "session state fields are inconsistent",
             Self::InvalidCloseState => "close request state is invalid",
-            Self::InvalidAttemptCount => "final-save attempt count is invalid",
-            Self::InvalidLedgerEntry => "final-save ledger entry is inconsistent",
             Self::DuplicateIdentity => "session identity is duplicated",
             Self::NonCanonicalOrder => "session collection is not in canonical order",
             Self::UnknownClosedValue => "unknown closed session value",

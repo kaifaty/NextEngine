@@ -184,7 +184,7 @@ fn quest_state_and_trust(driver: &ReferenceGameDriverV1) -> (String, i32) {
 fn live_dialogue_arbitration_accepts_through_production_interaction_path() {
     let root = test_root("live-dialogue-accept");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v1(
+    let cooked = next_project::cook_project_v2(
         next_reference_game::project_source_v2().expect("reference source"),
     )
     .expect("cook");
@@ -310,7 +310,7 @@ fn live_dialogue_arbitration_accepts_through_production_interaction_path() {
 fn live_dialogue_leave_and_back_close_without_command_and_recover() {
     let root = test_root("live-dialogue-leave-back");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v1(
+    let cooked = next_project::cook_project_v2(
         next_reference_game::project_source_v2().expect("reference source"),
     )
     .expect("cook");

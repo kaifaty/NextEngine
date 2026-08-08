@@ -4,7 +4,7 @@ use next_contracts::ids::{CommandLedgerHash, ContentHash, SchemaId, StateRoot};
 use next_contracts::localization::TextCatalogV1;
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::physics::PhysicsPoseV1;
-use next_contracts::project::{ActivatedProjectV2, domain_hash};
+use next_contracts::project::{ActivatedProjectV3, domain_hash};
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1};
 use next_physics_api::PhysicsBackendPolicy;
 use next_presentation::PresentationExtractorV1;
@@ -106,7 +106,7 @@ pub(crate) fn prepare_game_frame_with_scratch(
 }
 
 pub fn prepare_game_frame_with_activated_project(
-    activated_project: ActivatedProjectV2,
+    activated_project: ActivatedProjectV3,
 ) -> Result<PreparedGameFrameV1, PlayCheckError> {
     let text_catalogs = activated_project.text_catalogs.clone();
     let scenario = run_reference_game_with_backend(
@@ -177,7 +177,7 @@ fn prepare_game_frame_from_scenario(
 }
 
 pub fn run_play_check_with_activated_project(
-    activated_project: ActivatedProjectV2,
+    activated_project: ActivatedProjectV3,
 ) -> Result<PlayCheckReport, PlayCheckError> {
     let scenario = run_reference_game_with_backend(
         true,

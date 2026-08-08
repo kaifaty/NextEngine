@@ -17,7 +17,7 @@ use next_contracts::physics::{
     PhysicsSolverSemanticsProfileV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
     PhysicsWorldCheckpointV1,
 };
-use next_contracts::project::ActivatedProjectV2;
+use next_contracts::project::ActivatedProjectV3;
 use next_contracts::rpg::RPG_COMMAND_CAPABILITY_ID;
 
 use crate::{ReferenceGameError, build_reference_runtime_bootstrap};
@@ -56,21 +56,21 @@ pub struct ReferenceGameSession {
     pub action_map_hash: ContentHash,
     pub context_stack: InputContextStackV1,
     pub context_stack_hash: ContentHash,
-    pub activated_project: ActivatedProjectV2,
+    pub activated_project: ActivatedProjectV3,
 }
 
 pub fn build_reference_game_session(
-    activated_project: ActivatedProjectV2,
+    activated_project: ActivatedProjectV3,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
     build_reference_game_session_with_profile(activated_project, false)
 }
 
 pub fn build_reference_game_session_with_profile(
-    activated_project: ActivatedProjectV2,
+    activated_project: ActivatedProjectV3,
     physx_compatible: bool,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
     let project_id = activated_project
-        .composition_lock
+        .project_lock
         .project_id
         .as_str()
         .to_owned();
@@ -125,7 +125,7 @@ pub fn build_reference_game_session_with_profile(
     }
     bootstrap.rpg_definitions = activated_project.rpg_definitions.clone();
     bootstrap.rpg_bindings.project_composition_lock_hash =
-        activated_project.composition_lock.composition_lock_sha256;
+        activated_project.project_lock.project_lock_sha256;
     bootstrap.rpg_bindings.schema_registry_hash = activated_project
         .schema_registry
         .schema_registry_manifest_sha256;

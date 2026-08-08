@@ -183,20 +183,20 @@ fn main() {
 fn manifest_encoding_is_canonical_and_round_trips() {
     let manifest = fixture_manifest();
     let bytes = canonical_json_bytes(&manifest).expect("canonical JSON");
-    let decoded: PackageManifestV3 = serde_json::from_slice(&bytes).expect("manifest decodes");
+    let decoded: PackageManifestV4 = serde_json::from_slice(&bytes).expect("manifest decodes");
     assert_eq!(decoded, manifest);
     assert!(bytes.starts_with(br#"{"binaries":"#));
 }
 
 #[test]
-fn manifest_v2_and_unknown_fields_are_rejected_without_migration() {
+fn retired_manifest_and_unknown_fields_are_rejected_without_migration() {
     let manifest = fixture_manifest();
     let mut value = serde_json::to_value(&manifest).expect("manifest value");
     let object = value.as_object_mut().expect("manifest object");
     object.remove("runtime_profile");
     object.insert("schema_version".to_owned(), serde_json::json!(2));
     let bytes = serde_json::to_vec(&value).expect("legacy manifest");
-    assert!(serde_json::from_slice::<PackageManifestV3>(&bytes).is_err());
+    assert!(serde_json::from_slice::<PackageManifestV4>(&bytes).is_err());
 
     let mut value = serde_json::to_value(&manifest).expect("manifest value");
     value
@@ -204,12 +204,12 @@ fn manifest_v2_and_unknown_fields_are_rejected_without_migration() {
         .expect("manifest object")
         .insert("unexpected".to_owned(), serde_json::json!(true));
     let bytes = serde_json::to_vec(&value).expect("unknown-field manifest");
-    assert!(serde_json::from_slice::<PackageManifestV3>(&bytes).is_err());
+    assert!(serde_json::from_slice::<PackageManifestV4>(&bytes).is_err());
 
     let mut value = serde_json::to_value(&manifest).expect("manifest value");
     value["runtime_profile"]["abi"]["unexpected"] = serde_json::json!(true);
     let bytes = serde_json::to_vec(&value).expect("unknown nested field manifest");
-    assert!(serde_json::from_slice::<PackageManifestV3>(&bytes).is_err());
+    assert!(serde_json::from_slice::<PackageManifestV4>(&bytes).is_err());
 
     let mut value = serde_json::to_value(&manifest).expect("manifest value");
     value["runtime_profile"]["binaries"][0]
@@ -217,11 +217,15 @@ fn manifest_v2_and_unknown_fields_are_rejected_without_migration() {
         .expect("runtime binary")
         .remove("direct_libraries");
     let bytes = serde_json::to_vec(&value).expect("missing nested field manifest");
-    assert!(serde_json::from_slice::<PackageManifestV3>(&bytes).is_err());
+    assert!(serde_json::from_slice::<PackageManifestV4>(&bytes).is_err());
 
     let mut wrong_version = manifest;
-    wrong_version.schema_version = 2;
-    assert!(validate_manifest_fields(&wrong_version).is_err());
+    wrong_version.schema_version = PACKAGE_MANIFEST_SCHEMA_VERSION - 1;
+    assert!(
+        validate_manifest_fields(&wrong_version)
+            .expect_err("retired package format")
+            .starts_with("UNSUPPORTED_PACKAGE_FORMAT:")
+    );
 }
 
 #[test]
@@ -886,13 +890,13 @@ fn compile_rust_fixture(directory: &Path, name: &str, source_text: &str) -> Path
     executable
 }
 
-fn fixture_manifest() -> PackageManifestV3 {
+fn fixture_manifest() -> PackageManifestV4 {
     let project_lock = "1".repeat(64);
     let state = "2".repeat(64);
     let ledger = "3".repeat(64);
     let game_hash = "4".repeat(64);
     let headless_hash = "5".repeat(64);
-    PackageManifestV3 {
+    PackageManifestV4 {
         binaries: PackageBinariesV2 {
             game: PackagedRunV2 {
                 authoritative_state_root: state.clone(),
@@ -945,10 +949,10 @@ fn fixture_manifest() -> PackageManifestV3 {
             external_prerequisites: Vec::new(),
         },
         schema_version: PACKAGE_MANIFEST_SCHEMA_VERSION,
-        target_neutral_roots: PackageTargetNeutralRootsV2 {
+        target_neutral_roots: PackageTargetNeutralRootsV3 {
             content_manifest_sha256: "6".repeat(64),
             mechanics_lock_sha256: "7".repeat(64),
-            project_composition_lock_sha256: project_lock,
+            project_lock_sha256: project_lock,
             schema_registry_sha256: "8".repeat(64),
             world_partition_sha256: "9".repeat(64),
         },

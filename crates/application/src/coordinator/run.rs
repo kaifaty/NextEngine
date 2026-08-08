@@ -1,6 +1,6 @@
 use next_contracts::ids::{ApplicationSessionId, ContentHash};
 use next_contracts::platform::{PlatformEventKindV1, PlatformEventV1};
-use next_contracts::project::ActivatedProjectV2;
+use next_contracts::project::ActivatedProjectV3;
 use next_contracts::session::{ApplicationSessionStatusV1, PresentationTargetKindV1};
 use next_contracts::snapshot::WorldCheckpointV4;
 use next_contracts::world::WorldStreamingSnapshotV1;
@@ -60,9 +60,7 @@ impl ApplicationCoordinator {
             true,
             presentation_snapshot_epoch(
                 self.machine.state().session_id,
-                self.activated_project
-                    .composition_lock
-                    .composition_lock_sha256,
+                self.activated_project.project_lock.project_lock_sha256,
             ),
         )?;
         let base_prepared = prepare_live_state(
@@ -146,9 +144,7 @@ impl ApplicationCoordinator {
             include_interaction,
             presentation_snapshot_epoch(
                 self.machine.state().session_id,
-                self.activated_project
-                    .composition_lock
-                    .composition_lock_sha256,
+                self.activated_project.project_lock.project_lock_sha256,
             ),
         )?;
         let state = driver.state()?;
@@ -507,7 +503,7 @@ fn prepare_live_state(
 
 fn prepare_reference_run(
     session_id: ApplicationSessionId,
-    project: ActivatedProjectV2,
+    project: ActivatedProjectV3,
     include_interaction: bool,
     presentation_target: PresentationTargetKindV1,
 ) -> Result<PreparedRunV1, ApplicationError> {

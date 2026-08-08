@@ -14,7 +14,7 @@ use next_contracts::ids::{AssetId, SchemaId};
 use next_contracts::presentation::audio_scene::{
     AudioLoudnessClassV1, AudioPriorityClassV1, AudioSceneSnapshotV1,
 };
-use next_contracts::project::{ActivatedProjectV2, AssetRevisionRefV1};
+use next_contracts::project::{ActivatedProjectV3, AssetRevisionRefV1};
 use next_contracts::rpg::{
     RPG_EVENT_CHARACTER_RESOURCE_ADJUSTED_SCHEMA_ID, RPG_EVENT_DIALOGUE_ADVANCED_SCHEMA_ID,
     RPG_EVENT_INTERACTIVE_OBJECT_TRANSITIONED_SCHEMA_ID, RPG_EVENT_ITEM_TRANSFERRED_V1_SCHEMA_ID,
@@ -63,7 +63,7 @@ pub fn reference_audio_records() -> Vec<NeutralAudioV1> {
 
 /// Maps cooked audio clips by asset ID for the mixer resolution boundary.
 pub fn reference_audio_clip_map(
-    activated_project: &ActivatedProjectV2,
+    activated_project: &ActivatedProjectV3,
 ) -> BTreeMap<AssetId, NeutralAudioV1> {
     activated_project
         .audio_clips
@@ -76,7 +76,7 @@ pub fn reference_audio_clip_map(
 /// resolves its exact clip revision from the activated content manifest;
 /// a missing clip fails closed before any live tick.
 pub fn reference_audio_cue_bindings(
-    activated_project: &ActivatedProjectV2,
+    activated_project: &ActivatedProjectV3,
 ) -> Result<Vec<AudioEventCueBindingV1>, ReferenceGameError> {
     let revision = |asset_id: AssetId| {
         activated_project
