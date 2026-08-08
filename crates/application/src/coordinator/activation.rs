@@ -7,7 +7,7 @@ use next_contracts::session::{
     ApplicationSessionManifestBodyV2, ApplicationSessionManifestV2, ApplicationSessionStatusV1,
     PresentationTargetKindV1,
 };
-use next_project::{activate_project, cook_project_v2};
+use next_project::{ActivatedProjectPackage, activate_project_package, cook_project_v2};
 use next_reference_game::project_source_v2;
 use next_runtime::ApplicationSessionMachine;
 
@@ -37,7 +37,9 @@ impl ApplicationCoordinator {
 
     pub fn launch(launch: LaunchRequestV1) -> Result<Self, ApplicationError> {
         fs::create_dir_all(&launch.state_root)?;
-        let activated_project = activate_selected_project(&launch)?;
+        let package = activate_selected_project(&launch)?;
+        let activated_project = package.project;
+        let content_generation = package.content_generation;
         validate_launch(&launch, &activated_project)?;
         let session_store = SessionStore::new(launch.state_root.join(SESSION_DIRECTORY));
         let current = load_session_generation_if_present(&session_store)?;
@@ -70,6 +72,7 @@ impl ApplicationCoordinator {
             save_store: SaveStore::new(launch.state_root.join(SAVE_DIRECTORY)),
             launch,
             activated_project,
+            content_generation,
             session_store,
             machine,
             durable,
@@ -85,7 +88,9 @@ impl ApplicationCoordinator {
 
     pub fn resume(launch: LaunchRequestV1) -> Result<Self, ApplicationError> {
         fs::create_dir_all(&launch.state_root)?;
-        let activated_project = activate_selected_project(&launch)?;
+        let package = activate_selected_project(&launch)?;
+        let activated_project = package.project;
+        let content_generation = package.content_generation;
         validate_launch(&launch, &activated_project)?;
         let session_store = SessionStore::new(launch.state_root.join(SESSION_DIRECTORY));
         let published = session_store.load_current()?;
@@ -113,6 +118,7 @@ impl ApplicationCoordinator {
             save_store: SaveStore::new(launch.state_root.join(SAVE_DIRECTORY)),
             launch,
             activated_project,
+            content_generation,
             session_store,
             machine,
             durable,
@@ -152,7 +158,7 @@ pub(super) fn session_manifest(
 
 fn activate_selected_project(
     launch: &LaunchRequestV1,
-) -> Result<ActivatedProjectV3, ApplicationError> {
+) -> Result<ActivatedProjectPackage, ApplicationError> {
     let project_root = match &launch.project {
         ProjectSelectionV1::Reference => launch.state_root.join(PROJECT_DIRECTORY),
         ProjectSelectionV1::PublishedStateRoot(root) => root.clone(),
@@ -162,7 +168,7 @@ fn activate_selected_project(
         let cooked = cook_project_v2(project_source_v2()?)?;
         store.publish(&cooked.publication()?)?;
     }
-    Ok(activate_project(&store)?)
+    Ok(activate_project_package(&store)?)
 }
 
 fn validate_launch(

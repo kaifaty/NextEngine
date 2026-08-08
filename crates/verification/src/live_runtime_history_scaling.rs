@@ -85,7 +85,7 @@ pub fn run_live_runtime_history_scaling_diagnostic_in(
                     error.to_string(),
                 )
             })?;
-        let project = next_project::activate_project(&store).map_err(|error| {
+        let project = next_project::activate_project_package(&store).map_err(|error| {
             LiveRuntimePerformanceError::new("activate history-scaling fixture", error.to_string())
         })?;
         let mut measured = ReferenceGameDriverV1::new(project.clone(), true).map_err(|error| {

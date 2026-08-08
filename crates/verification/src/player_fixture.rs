@@ -26,7 +26,23 @@ pub use next_reference_game::{
 };
 
 use crate::NeutralFixtureError;
-use crate::scratch::ScratchContext;
+use crate::scratch::{ScratchContext, ScratchDirectory};
+
+pub(crate) struct PreparedFixtureProjectPackage {
+    pub(crate) package: next_project::ActivatedProjectPackage,
+    directory: ScratchDirectory,
+}
+
+impl PreparedFixtureProjectPackage {
+    pub(crate) fn finish<T, E>(
+        self,
+        result: Result<T, E>,
+        cleanup_error: impl FnOnce(std::io::Error) -> E,
+    ) -> Result<T, E> {
+        drop(self.package);
+        self.directory.finish(result, cleanup_error)
+    }
+}
 
 pub fn build_neutral_player_fixture(
     project_id: &str,
@@ -52,14 +68,6 @@ pub(crate) fn build_neutral_player_fixture_with_scratch(
     Ok(next_reference_game::build_reference_game_session(
         activated,
     )?)
-}
-
-pub(crate) fn build_physx_player_fixture_with_scratch(
-    scratch: &ScratchContext,
-    project_id: &str,
-) -> Result<NeutralPlayerFixture, NeutralFixtureError> {
-    let activated = activate_fixture_project_with_scratch(scratch, project_id)?;
-    Ok(next_reference_game::build_reference_game_session_with_profile(activated, true)?)
 }
 
 pub fn build_neutral_player_fixture_from_activated_project(
@@ -93,4 +101,24 @@ pub(crate) fn activate_fixture_project_with_scratch(
         Ok(next_project::activate_project(&store)?)
     })();
     directory.finish(result, NeutralFixtureError::Cleanup)
+}
+
+pub(crate) fn prepare_fixture_project_package_with_scratch(
+    scratch: &ScratchContext,
+    project_id: &str,
+) -> Result<PreparedFixtureProjectPackage, NeutralFixtureError> {
+    let source = next_reference_game::project_source_v2_with_id(project_id)?;
+    let cooked = next_project::cook_project_v2(source)?;
+    let directory = scratch
+        .create_directory("play-project-package")
+        .map_err(NeutralFixtureError::Cleanup)?;
+    let store = ContentStore::new(directory.path());
+    let package = (|| {
+        store.publish(&cooked.publication()?)?;
+        Ok(next_project::activate_project_package(&store)?)
+    })();
+    match package {
+        Ok(package) => Ok(PreparedFixtureProjectPackage { package, directory }),
+        Err(error) => directory.finish(Err(error), NeutralFixtureError::Cleanup),
+    }
 }

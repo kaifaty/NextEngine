@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-25 |
 | Статус | Accepted |
-| Версия | 2.0 |
+| Версия | 2.1 |
 | Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md) |
 | Заменяет | SPEC-25 1.0 generic admission planner, pins/leases/eviction, population tiers and unimplemented spatial-object schemas |
 
 ## Назначение
@@ -16,8 +16,8 @@ Current contract фиксирует только cooked partition closure, ко�
 streaming scheduler, mutable population state или persistent-object database.
 
 Reference alpha содержит два authored chunk bindings: relay station и
-frontier. Оба входят в immutable project closure до запуска мира. R3a не
-реализуется этим документом.
+frontier. Оба входят в immutable project closure до запуска мира. Текущий R3a
+consumer использует этот manifest без изменения wire shape.
 
 ## Authority and invariants
 
@@ -93,8 +93,9 @@ the partition with current limits and publishes one `ActivatedProjectV3` only
 after all project artifacts agree. It does not resolve versions from a
 catalog, scan ambient files or repair a partial closure.
 
-Current R2 gameplay may instantiate both alpha chunks eagerly. That is a
-supported simple implementation, not a failed streaming requirement.
+Activation по-прежнему eager и проверяет оба alpha chunks целиком. World затем
+использует pinned generation, чтобы повторно fetch/decode target chunk через
+production R3a path; eager activation не превращается в lazy project loader.
 
 ## Persistence and replay
 
@@ -106,17 +107,18 @@ Load accepts only the current compatible project closure. Missing or changed
 partition/content bytes reject before world mutation and preserve the source
 save. There is no alpha placement migration or implicit reseed path.
 
-## Proposed R3a vertical
+## Current R3a vertical
 
-R3a will prove exactly one path:
+R3a доказывает ровно один path:
 
 ```text
 chunk fetch → bounded decode → hash/reference validation → canonical commit
 ```
 
-The first production consumer should reuse the current manifest binding and
-the immutable result-staging invariant from SPEC-21. Until that vertical exists,
-there is no public contract for:
+Production consumer связывает запрос с exact manifest binding, project/content/
+schema hashes, topology revision, world generation и упорядоченной asset
+closure. Bounded packaged load и paired Runtime/World commit следуют SPEC-03 и
+ADR-051. При этом по-прежнему нет public contract для:
 
 - generic jobs or scheduler topology;
 - cancellation trees;
@@ -136,7 +138,7 @@ they are not prerequisites for R3a.
 | Hash or project-closure mismatch | discard staging and retain the prior active project |
 | Duplicate/missing region, chunk or asset reference | reject the complete partition |
 | Decode bound exceeded or noncanonical JCS | reject before unbounded allocation or world creation |
-| Optional future fetch unavailable | current eager R2 path remains the fallback until an Accepted R3a contract exists |
+| Packaged fetch/decode/validation fault | retain the declared `Requested` root, prior active generation and decoded cache; allow retry/restart |
 
 ## Product checks
 
@@ -144,7 +146,8 @@ they are not prerequisites for R3a.
 |---|---|
 | focused project/contracts tests | canonical roundtrip, ordering, bounds, unknown-field and hash/reference failures |
 | `content-package` | cooker/package/activation agree on the exact partition and full blob closure |
-| `persistence-replay` | save/load/replay retain exact activated project and ledger roots |
+| `persistence-replay` | save after `Requested`, process restart and re-fetch converge to the same final root and retain exact ledger roots |
+| `performance --scenario smoke --mode report` | 1,000 transitions perform real packaged I/O and record existing V4 logical staging charges; 30 seconds remains report-only |
 | `host-check` | current workspace contract and structural checks pass |
 
 No separate world-admission, population-tier or migration check exists in the

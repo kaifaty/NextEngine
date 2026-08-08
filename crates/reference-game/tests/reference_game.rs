@@ -13,6 +13,8 @@ use next_contracts::platform::{
     PlatformEventPayloadV1, PlatformEventV1,
 };
 
+mod reference_game_support;
+
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[test]
@@ -40,13 +42,14 @@ fn reference_source_recooks_byte_identically_and_runs_through_production_paths()
     store
         .publish(&first.publication().expect("publication"))
         .expect("publish");
-    let activated = next_project::activate_project(&store).expect("activate");
+    let activated = next_project::activate_project_package(&store).expect("activate");
     let outcome = next_reference_game::run_reference_game(activated, true).expect("reference run");
     let checkpoint = outcome.runtime.world_checkpoint().expect("checkpoint");
     assert_eq!(outcome.ticks, 32);
     assert_eq!(outcome.events, 27);
     assert_eq!(outcome.rpg_events, 13);
     assert_eq!(outcome.world_streaming_snapshot.generation, 2);
+    reference_game_support::assert_world_streaming_stage_order(&outcome.tick_reports);
     let query_reports = outcome
         .tick_reports
         .iter()
@@ -156,7 +159,7 @@ fn prepared_live_advance_preserves_driver_and_commits_its_exact_preview() {
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
-    let activated = next_project::activate_project(&store).expect("activate");
+    let activated = next_project::activate_project_package(&store).expect("activate");
     let mut prepared_driver =
         next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
             .expect("prepared driver");
@@ -214,7 +217,7 @@ fn prepared_live_advance_rejects_a_stale_driver_generation() {
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
-    let activated = next_project::activate_project(&store).expect("activate");
+    let activated = next_project::activate_project_package(&store).expect("activate");
     let mut driver =
         next_reference_game::ReferenceGameDriverV1::new(activated, true).expect("live driver");
     let prepared = driver.stage_advance(&[]).expect("prepare advance");
@@ -244,7 +247,7 @@ fn failed_live_staging_preserves_input_camera_ledger_and_physics() {
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
-    let activated = next_project::activate_project(&store).expect("activate");
+    let activated = next_project::activate_project_package(&store).expect("activate");
     let driver =
         next_reference_game::ReferenceGameDriverV1::new(activated, true).expect("live driver");
     let before = driver.state().expect("before state");
@@ -284,7 +287,7 @@ fn live_normalized_controls_move_the_player_while_camera_input_stays_nonauthorit
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
-    let activated = next_project::activate_project(&store).expect("activate");
+    let activated = next_project::activate_project_package(&store).expect("activate");
 
     let mut movement = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
         .expect("movement driver");
@@ -378,7 +381,7 @@ fn live_driver_continues_after_quantized_corner_contact() {
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
-    let activated = next_project::activate_project(&store).expect("activate");
+    let activated = next_project::activate_project_package(&store).expect("activate");
     let mut driver =
         next_reference_game::ReferenceGameDriverV1::new(activated, true).expect("live driver");
 
@@ -479,7 +482,7 @@ fn live_composite_camera_and_gameplay_frame_preserves_gameplay_root() {
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
-    let activated = next_project::activate_project(&store).expect("activate");
+    let activated = next_project::activate_project_package(&store).expect("activate");
 
     let mut composite = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
         .expect("composite driver");
@@ -525,7 +528,7 @@ fn live_recovery_republishes_sequence_zero_camera_cut_under_a_new_epoch() {
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
-    let activated = next_project::activate_project(&store).expect("activate");
+    let activated = next_project::activate_project_package(&store).expect("activate");
 
     let mut original = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
         .expect("original driver");
@@ -587,7 +590,7 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
-    let activated = next_project::activate_project(&store).expect("activate");
+    let activated = next_project::activate_project_package(&store).expect("activate");
 
     let mut driver = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
         .expect("live driver");
@@ -672,9 +675,7 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
     // deterministically: the source locale directly, the pseudo-locale
     // through its declared `qps-ploc -> en` fallback chain, and quest state
     // TextId arguments recursively.
-    let en_resolver =
-        next_presentation::TextCatalogResolverV1::new(activated.text_catalogs.clone(), "en")
-            .expect("en resolver");
+    let en_resolver = reference_game_support::text_resolver(&activated, "en");
     let health_ref = health.element.text_or_none.as_ref().expect("health text");
     let health_resolution = en_resolver.resolve(health_ref);
     assert_eq!(health_resolution.text, "Health 100/100");
@@ -686,9 +687,7 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
         "Objective - Frontier Relay: Available"
     );
     assert_eq!(quest_resolution.diagnostic_or_none, None);
-    let pseudo_resolver =
-        next_presentation::TextCatalogResolverV1::new(activated.text_catalogs.clone(), "qps-ploc")
-            .expect("pseudo resolver");
+    let pseudo_resolver = reference_game_support::text_resolver(&activated, "qps-ploc");
     assert!(!pseudo_resolver.requested_locale_missing());
     assert_eq!(pseudo_resolver.resolve(health_ref).text, "⟦Ħēåłŧħ⟧ 100/100");
     // The pseudo catalog omits pause-menu.load on purpose: it falls back.
@@ -762,13 +761,11 @@ fn live_ui_screen_toggles_are_deterministic_and_back_closes_before_pause() {
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
-    let activated = next_project::activate_project(&store).expect("activate");
+    let activated = next_project::activate_project_package(&store).expect("activate");
 
     let mut driver = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
         .expect("live driver");
-    let en_resolver =
-        next_presentation::TextCatalogResolverV1::new(activated.text_catalogs.clone(), "en")
-            .expect("en resolver");
+    let en_resolver = reference_game_support::text_resolver(&activated, "en");
 
     let mut sequence = 0_u64;
     let mut key_event = |control_path: &'static str, phase: NormalizedControlPhaseV1| {

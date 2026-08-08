@@ -191,7 +191,7 @@ fn live_dialogue_arbitration_accepts_through_production_interaction_path() {
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
-    let activated = next_project::activate_project(&store).expect("activate");
+    let activated = next_project::activate_project_package(&store).expect("activate");
     let mut driver = ReferenceGameDriverV1::new(activated, true).expect("live driver");
     let mut sequence = 0_u64;
 
@@ -317,7 +317,7 @@ fn live_dialogue_leave_and_back_close_without_command_and_recover() {
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
-    let activated = next_project::activate_project(&store).expect("activate");
+    let activated = next_project::activate_project_package(&store).expect("activate");
     let mut driver = ReferenceGameDriverV1::new(activated.clone(), true).expect("live driver");
     let mut sequence = 0_u64;
 

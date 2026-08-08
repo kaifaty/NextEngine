@@ -68,6 +68,7 @@ pub enum RuntimeFatalError {
     CoreInteractionClosure(CoreDialogueQuestClosureError),
     Mechanics(MechanicsHostError),
     Snapshot(SnapshotDecodeError),
+    WorldStreaming(next_world::WorldStreamingError),
 }
 
 impl RuntimeFatalError {
@@ -93,6 +94,7 @@ impl RuntimeFatalError {
             Self::CoreInteractionClosure(error) => error.stable_code(),
             Self::Mechanics(_) => "MECHANICS_HOST_INVARIANT_FAILED",
             Self::Snapshot(_) => "RUNTIME_SNAPSHOT_CLOSURE_CORRUPT",
+            Self::WorldStreaming(_) => "WORLD_STREAMING_STAGE_FAILED",
         }
     }
 }
@@ -132,6 +134,12 @@ impl From<PhysicsBackendError> for RuntimeFatalError {
 impl From<PhysicsSceneQueryError> for RuntimeFatalError {
     fn from(error: PhysicsSceneQueryError) -> Self {
         Self::PhysicsQuery(error)
+    }
+}
+
+impl From<next_world::WorldStreamingError> for RuntimeFatalError {
+    fn from(error: next_world::WorldStreamingError) -> Self {
+        Self::WorldStreaming(error)
     }
 }
 

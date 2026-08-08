@@ -114,6 +114,60 @@ pub struct ContentStore {
     root: PathBuf,
 }
 
+/// An immutable view of one exact published content generation.
+///
+/// The filesystem root and relative paths stay private. Consumers can either
+/// perform the existing complete verified load used by project activation or
+/// fetch one content-addressed blob under a caller-provided bound.
+#[derive(Clone, Debug)]
+pub struct PinnedContentGeneration {
+    generation_id: ContentHash,
+    generation_path: PathBuf,
+    descriptors: BTreeMap<String, ContentHash>,
+}
+
+impl PinnedContentGeneration {
+    #[must_use]
+    pub const fn generation_id(&self) -> ContentHash {
+        self.generation_id
+    }
+
+    pub fn load_all_verified(&self) -> Result<PublishedContentGenerationV1, ContentStoreError> {
+        load_generation_files(&self.generation_path, self.generation_id, &self.descriptors)
+    }
+
+    pub fn content_blob_len(
+        &self,
+        blob_sha256: ContentHash,
+        limit: usize,
+    ) -> Result<usize, ContentStoreError> {
+        let relative_path = content_blob_path(blob_sha256);
+        self.blob_descriptor(&relative_path)?;
+        verified_file_len(&self.generation_path.join(relative_path), limit)
+    }
+
+    pub fn read_content_blob(
+        &self,
+        blob_sha256: ContentHash,
+        limit: usize,
+    ) -> Result<Vec<u8>, ContentStoreError> {
+        let relative_path = content_blob_path(blob_sha256);
+        let expected_file_hash = self.blob_descriptor(&relative_path)?;
+        let bytes = read_bounded(&self.generation_path.join(relative_path), limit)?;
+        if content_hash_from_bytes(sha256(&bytes)) != expected_file_hash {
+            return Err(ContentStoreError::HashMismatch);
+        }
+        Ok(bytes)
+    }
+
+    fn blob_descriptor(&self, relative_path: &str) -> Result<ContentHash, ContentStoreError> {
+        self.descriptors
+            .get(relative_path)
+            .copied()
+            .ok_or_else(|| ContentStoreError::MissingFile(relative_path.to_owned()))
+    }
+}
+
 impl ContentStore {
     #[must_use]
     pub fn new(root: impl Into<PathBuf>) -> Self {
@@ -125,8 +179,12 @@ impl ContentStore {
     }
 
     pub fn load_current(&self) -> Result<PublishedContentGenerationV1, ContentStoreError> {
+        self.pin_current_generation()?.load_all_verified()
+    }
+
+    pub fn pin_current_generation(&self) -> Result<PinnedContentGeneration, ContentStoreError> {
         let generation_id = self.current_generation_id()?;
-        self.load_generation_by_id(generation_id)
+        self.pin_generation(generation_id)
     }
 
     pub(crate) fn current_generation_id(&self) -> Result<ContentHash, ContentStoreError> {
@@ -136,15 +194,21 @@ impl ContentStore {
         parse_hash(current.trim_end_matches('\n'))
     }
 
-    pub(crate) fn load_generation_by_id(
+    fn pin_generation(
         &self,
         generation_id: ContentHash,
-    ) -> Result<PublishedContentGenerationV1, ContentStoreError> {
+    ) -> Result<PinnedContentGeneration, ContentStoreError> {
         let generation_path = self
             .root
             .join(CONTENT_GENERATIONS_DIRECTORY)
             .join(generation_id.to_hex());
-        load_generation(&generation_path, generation_id)
+        let descriptors = load_generation_descriptors(&generation_path, generation_id)?;
+        validate_generation_inventory(&generation_path, &descriptors)?;
+        Ok(PinnedContentGeneration {
+            generation_id,
+            generation_path,
+            descriptors,
+        })
     }
 
     fn publish_inner(
@@ -331,6 +395,15 @@ fn load_generation(
     generation_path: &Path,
     expected_generation: ContentHash,
 ) -> Result<PublishedContentGenerationV1, ContentStoreError> {
+    let descriptors = load_generation_descriptors(generation_path, expected_generation)?;
+    validate_generation_inventory(generation_path, &descriptors)?;
+    load_generation_files(generation_path, expected_generation, &descriptors)
+}
+
+fn load_generation_descriptors(
+    generation_path: &Path,
+    expected_generation: ContentHash,
+) -> Result<BTreeMap<String, ContentHash>, ContentStoreError> {
     let index = read_bounded(&generation_path.join(CONTENT_INDEX_FILE), 4 * 1024 * 1024)?;
     let index = std::str::from_utf8(&index).map_err(|_| ContentStoreError::InvalidIndex)?;
     let mut lines = index.lines();
@@ -340,7 +413,7 @@ fn load_generation(
     if parse_hash(lines.next().ok_or(ContentStoreError::InvalidIndex)?)? != expected_generation {
         return Err(ContentStoreError::HashMismatch);
     }
-    let mut descriptors = Vec::new();
+    let mut descriptors = BTreeMap::new();
     let mut previous_path: Option<String> = None;
     for line in lines {
         let Some((hash, path)) = line.split_once(' ') else {
@@ -354,7 +427,7 @@ fn load_generation(
             return Err(ContentStoreError::InvalidIndex);
         }
         previous_path = Some(path.to_owned());
-        descriptors.push((path.to_owned(), parse_hash(hash)?));
+        descriptors.insert(path.to_owned(), parse_hash(hash)?);
     }
     if descriptors.len() > CONTENT_MAX_FILES {
         return Err(ContentStoreError::LimitExceeded {
@@ -363,7 +436,14 @@ fn load_generation(
         });
     }
 
-    let expected_paths: BTreeSet<_> = descriptors.iter().map(|(path, _)| path.as_str()).collect();
+    Ok(descriptors)
+}
+
+fn validate_generation_inventory(
+    generation_path: &Path,
+    descriptors: &BTreeMap<String, ContentHash>,
+) -> Result<(), ContentStoreError> {
+    let expected_paths: BTreeSet<_> = descriptors.keys().map(String::as_str).collect();
     let mut actual_paths = BTreeSet::new();
     collect_files(generation_path, generation_path, &mut actual_paths)?;
     actual_paths.remove(CONTENT_INDEX_FILE);
@@ -372,25 +452,73 @@ fn load_generation(
             return Err(ContentStoreError::UnexpectedFile(path.clone()));
         }
     }
+    for path in descriptors.keys() {
+        if !actual_paths.contains(path) {
+            return Err(ContentStoreError::MissingFile(path.clone()));
+        }
+    }
+    Ok(())
+}
 
+fn load_generation_files(
+    generation_path: &Path,
+    expected_generation: ContentHash,
+    descriptors: &BTreeMap<String, ContentHash>,
+) -> Result<PublishedContentGenerationV1, ContentStoreError> {
     let mut files = BTreeMap::new();
     for (relative_path, expected_hash) in descriptors {
-        if !actual_paths.contains(&relative_path) {
-            return Err(ContentStoreError::MissingFile(relative_path));
-        }
-        let bytes = read_bounded(
-            &generation_path.join(&relative_path),
-            CONTENT_MAX_FILE_BYTES,
-        )?;
-        if content_hash_from_bytes(sha256(&bytes)) != expected_hash {
+        let bytes = read_bounded(&generation_path.join(relative_path), CONTENT_MAX_FILE_BYTES)?;
+        if content_hash_from_bytes(sha256(&bytes)) != *expected_hash {
             return Err(ContentStoreError::HashMismatch);
         }
-        files.insert(relative_path, bytes);
+        files.insert(relative_path.clone(), bytes);
     }
     Ok(PublishedContentGenerationV1 {
         generation_id: expected_generation,
         files,
     })
+}
+
+fn content_blob_path(blob_sha256: ContentHash) -> String {
+    format!("blobs/{}.bin", blob_sha256.to_hex())
+}
+
+fn verified_file_len(path: &Path, limit: usize) -> Result<usize, ContentStoreError> {
+    let metadata = fs::symlink_metadata(path).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            ContentStoreError::MissingFile(path.display().to_string())
+        } else {
+            ContentStoreError::Io(error)
+        }
+    })?;
+    if metadata_is_link_or_reparse(&metadata) || !metadata.is_file() {
+        return Err(ContentStoreError::InvalidPath);
+    }
+    let length = usize::try_from(metadata.len()).map_err(|_| ContentStoreError::LimitExceeded {
+        actual: usize::MAX,
+        limit,
+    })?;
+    if length > limit {
+        return Err(ContentStoreError::LimitExceeded {
+            actual: length,
+            limit,
+        });
+    }
+    Ok(length)
+}
+
+#[cfg(windows)]
+fn metadata_is_link_or_reparse(metadata: &fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt;
+
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0400;
+    metadata.file_type().is_symlink()
+        || metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+}
+
+#[cfg(not(windows))]
+fn metadata_is_link_or_reparse(metadata: &fs::Metadata) -> bool {
+    metadata.file_type().is_symlink()
 }
 
 fn collect_files(
@@ -492,6 +620,7 @@ fn write_synced(path: &Path, bytes: &[u8]) -> Result<(), ContentStoreError> {
 }
 
 fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, ContentStoreError> {
+    let _ = verified_file_len(path, limit)?;
     let mut file = File::open(path).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
             ContentStoreError::MissingFile(path.display().to_string())
@@ -499,17 +628,7 @@ fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, ContentStoreError>
             ContentStoreError::Io(error)
         }
     })?;
-    let length =
-        usize::try_from(file.metadata()?.len()).map_err(|_| ContentStoreError::LimitExceeded {
-            actual: usize::MAX,
-            limit,
-        })?;
-    if length > limit {
-        return Err(ContentStoreError::LimitExceeded {
-            actual: length,
-            limit,
-        });
-    }
+    let length = verified_file_len(path, limit)?;
     let mut bytes = Vec::with_capacity(length);
     file.read_to_end(&mut bytes)?;
     if bytes.len() > limit {
@@ -549,13 +668,15 @@ fn hex_nibble(value: u8) -> u8 {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use super::{
         CONTENT_GENERATIONS_DIRECTORY, ContentPublicationV1, ContentPublishFault, ContentStore,
-        ContentStoreError, PublicationFileV1,
+        ContentStoreError, PinnedContentGeneration, PublicationFileV1, content_blob_path,
     };
-    use next_contracts::ids::content_hash_from_bytes;
+    use next_contracts::canonical::sha256;
+    use next_contracts::ids::{ContentHash, content_hash_from_bytes};
 
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -628,6 +749,129 @@ mod tests {
     }
 
     #[test]
+    fn pinned_generation_does_not_follow_current_switch() {
+        let root = test_root("pinned-current");
+        let store = ContentStore::new(&root);
+        let first = blob_publication(11, b"first-blob");
+        store.publish(&first).expect("first publication");
+        let pinned = store
+            .pin_current_generation()
+            .expect("pin first generation");
+        let first_blob = next_contracts::ids::content_hash_from_bytes(
+            next_contracts::canonical::sha256(b"first-blob"),
+        );
+
+        let second = blob_publication(12, b"second-blob");
+        store.publish(&second).expect("second publication");
+
+        assert_eq!(pinned.generation_id(), first.generation_id);
+        assert_eq!(
+            pinned
+                .read_content_blob(first_blob, 64)
+                .expect("read pinned blob"),
+            b"first-blob"
+        );
+        assert_eq!(
+            store
+                .pin_current_generation()
+                .expect("pin current generation")
+                .generation_id(),
+            second.generation_id
+        );
+        std::fs::remove_dir_all(root).expect("remove test store");
+    }
+
+    #[test]
+    fn pinned_blob_read_enforces_bound_and_hash() {
+        let root = test_root("pinned-bound");
+        let store = ContentStore::new(&root);
+        let publication = blob_publication(13, b"bounded-blob");
+        let blob_hash = next_contracts::ids::content_hash_from_bytes(
+            next_contracts::canonical::sha256(b"bounded-blob"),
+        );
+        store.publish(&publication).expect("publish blob");
+        let pinned = store.pin_current_generation().expect("pin generation");
+        assert!(matches!(
+            pinned.read_content_blob(blob_hash, 4),
+            Err(ContentStoreError::LimitExceeded { .. })
+        ));
+
+        let path = root
+            .join(CONTENT_GENERATIONS_DIRECTORY)
+            .join(publication.generation_id.to_hex())
+            .join(super::content_blob_path(blob_hash));
+        std::fs::write(path, b"tampered-blob").expect("tamper blob");
+        assert!(matches!(
+            pinned.read_content_blob(blob_hash, 64),
+            Err(ContentStoreError::HashMismatch)
+        ));
+        std::fs::remove_dir_all(root).expect("remove test store");
+    }
+
+    #[test]
+    fn pinned_blob_read_rejects_missing_non_file_and_links() {
+        let root = test_root("pinned-file-shape");
+        let store = ContentStore::new(&root);
+        let bytes = b"shape-checked-blob";
+        let publication = blob_publication(14, bytes);
+        store.publish(&publication).expect("publish");
+        let pinned = store.pin_current_generation().expect("pin generation");
+        let blob_hash = content_hash_from_bytes(sha256(bytes));
+        let blob_path = pinned.generation_path.join(content_blob_path(blob_hash));
+
+        std::fs::remove_file(&blob_path).expect("remove blob");
+        assert!(matches!(
+            pinned.read_content_blob(blob_hash, 64),
+            Err(ContentStoreError::MissingFile(_))
+        ));
+
+        std::fs::create_dir(&blob_path).expect("replace blob with directory");
+        assert!(matches!(
+            pinned.read_content_blob(blob_hash, 64),
+            Err(ContentStoreError::InvalidPath)
+        ));
+        std::fs::remove_dir(&blob_path).expect("remove replacement directory");
+
+        let link_target = pinned.generation_path.join("link-target.bin");
+        std::fs::write(&link_target, bytes).expect("write link target");
+        assert_link_rejected(&pinned, blob_hash, &blob_path, &link_target);
+        std::fs::remove_dir_all(root).expect("remove test store");
+    }
+
+    #[cfg(unix)]
+    fn assert_link_rejected(
+        pinned: &PinnedContentGeneration,
+        blob_hash: ContentHash,
+        blob_path: &Path,
+        link_target: &Path,
+    ) {
+        std::os::unix::fs::symlink(link_target, blob_path).expect("create blob symlink");
+        assert!(matches!(
+            pinned.read_content_blob(blob_hash, 64),
+            Err(ContentStoreError::InvalidPath)
+        ));
+    }
+
+    #[cfg(windows)]
+    fn assert_link_rejected(
+        pinned: &PinnedContentGeneration,
+        blob_hash: ContentHash,
+        blob_path: &Path,
+        link_target: &Path,
+    ) {
+        match std::os::windows::fs::symlink_file(link_target, blob_path) {
+            Ok(()) => assert!(matches!(
+                pinned.read_content_blob(blob_hash, 64),
+                Err(ContentStoreError::InvalidPath)
+            )),
+            Err(error)
+                if error.kind() == std::io::ErrorKind::PermissionDenied
+                    || error.raw_os_error() == Some(1314) => {}
+            Err(error) => panic!("create blob symlink: {error}"),
+        }
+    }
+
+    #[test]
     fn staged_byte_verification_detects_corruption() {
         let root = test_root("staged-verify");
         let publication = publication(9, b"staged");
@@ -687,6 +931,19 @@ mod tests {
             ],
         )
         .expect("valid publication")
+    }
+
+    fn blob_publication(byte: u8, bytes: &[u8]) -> ContentPublicationV1 {
+        let blob_hash =
+            next_contracts::ids::content_hash_from_bytes(next_contracts::canonical::sha256(bytes));
+        ContentPublicationV1::new(
+            content_hash_from_bytes([byte; 32]),
+            vec![
+                PublicationFileV1::new(super::content_blob_path(blob_hash), bytes.to_vec())
+                    .expect("valid blob file"),
+            ],
+        )
+        .expect("valid blob publication")
     }
 
     fn test_root(label: &str) -> std::path::PathBuf {

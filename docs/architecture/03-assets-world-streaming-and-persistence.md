@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 2.0 |
+| Версия | 2.1 |
 | Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md) |
 | Заменяет | SPEC-03 version 1.16 resolver/migration/session-object/future narrative clauses |
 
 ## Sources of truth
@@ -45,24 +45,48 @@ Platform-neutral artifacts are byte-identical across supported targets for
 equal inputs. Target-specific GPU/audio payloads have distinct target keys and
 hashes. Cooker caches are reconstructible and never authority.
 
-## Current world streaming
+## Current packaged world streaming
 
 `WorldPartitionManifestV1` binds neutral chunks to regions/cells and exact
 dependencies. A chunk carries immutable definitions/content; durable placement
 and tombstones stay in world owner state. `PersistentId` crosses chunk
 boundaries; direct pointers and `RuntimeEntityId` do not.
 
-The current R2 implementation proves a canonical two-chunk transition. Fetch/
-decode staging is private. A staged group becomes active only after exact
-schema/content/partition/revision, required dependencies, bounds and duplicate
-durable IDs validate, then commits at the declared simulation boundary in
-canonical order. Fault, stale result or corrupt dependency preserves the
-previous active world generation. Unload must retain durable state before
-despawn and cannot resurrect collected/changed RPG state on reload.
+The current R3a implementation proves one production vertical for the
+two-chunk `relay-station → frontier` transition. Assets pins the exact activated
+content generation, verifies `INDEX.v1` and performs filesystem-path-opaque,
+bounded blob reads. Project activation remains eager and returns the decoded
+project together with this pinned source.
 
-Generic scheduler, cancellation tree, pins/leases and eviction contracts are
-not part of this Accepted SPEC. The future R3a vertical is Proposed in SPEC-23
-and may add only primitives demonstrated by a real chunk consumer.
+World derives an immutable request from exact project/content/schema/partition
+hashes, topology revision, world generation, target binding and ordered asset
+revisions. Private workers fetch and decode `NeutralRecordV1`; merge and error
+selection depend only on `AssetId`, not completion order. The R3a profile is
+bounded to 64 assets, 1 MiB per blob, 16 MiB encoded total, at most four workers
+(default two), channel capacity 64 and 1 MiB canonical decoded bytes.
+
+A group becomes publishable only after file/index/blob hashes, canonical
+encoding, schema and semantic class, asset/record identities, exact dependency
+closure, external project-global dependencies and unique durable IDs validate.
+Its opaque result hash binds the request, ordered revisions, record IDs and
+logical resource counters.
+
+Runtime evaluates the paired prepared Runtime/World generation at
+`WorldStreamingCommit`, between `IngressCommit` and `PhysicalStep`. Final
+publication is infallible. The first existing gameplay tick publishes
+`Requested`; simulation advancement pauses for mandatory I/O; the next existing
+tick publishes `Active`/`Unloaded`. Live snapshots never publish reconstructible
+`Staged`/`Validated` bytes. Restore of pending work rebuilds and re-fetches the
+request.
+
+Fault, stale result, capacity denial, worker panic or corrupt dependency leaves
+the declared `Requested` root, previous active chunks/generation and decoded
+cache unchanged, so retry/restart is explicit. Unload retains durable state
+before despawn and cannot resurrect collected/changed RPG state on reload.
+
+Generic scheduler, cancellation tree, pins/leases, residency policy and
+eviction contracts are not part of this Accepted SPEC. SPEC-23 remains Proposed
+future intent; ADR-051 accepts only this consumer-driven R3a boundary.
 
 ## Save
 
@@ -127,10 +151,11 @@ Missing optional content uses only an exact declared fallback.
 
 - `content-package`: deterministic cook, complete direct-lock/package closure,
   malformed/cyclic/missing content and Luau/Wasm packages.
-- `play`: R2 two-chunk transition/unload-return behavior through production
-  input and world paths.
+- `play`: two-tick packaged two-chunk transition/unload-return behavior through
+  the paired production Assets/World/Runtime path.
 - `persistence-replay`: Save → change → Load/Resume rollback, power-fault
   generation safety, direct Replay V5 comparison and typed retired-format
   rejection.
-- `performance`: conditional for a changed streaming/I/O hot path; current
-  evidence uses Performance V4 resource counters.
+- `performance --scenario smoke --mode report`: 1,000 real packaged transitions
+  record Performance V4 `required_staging_bytes`; the 30-second limit remains
+  report-only.

@@ -35,20 +35,30 @@ pub(super) fn transition_world(
     gameplay_tick: u64,
     context: &'static str,
 ) -> Result<(), PersistenceReplayCheckError> {
-    let plan = world
-        .begin_transition(target_chunk_id, gameplay_tick)
+    let publication = world
+        .prepare_begin_transition(target_chunk_id, gameplay_tick)
         .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
-    let mut worker_order = plan.ordered_required_asset_ids.clone();
-    worker_order.reverse();
-    let staged = world
-        .stage(&plan, &worker_order)
+    let validated = world
+        .validate_prepared_publication(publication, gameplay_tick)
         .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
-    world
-        .validate_staged(&staged)
+    if world.commit_validated_publication(validated).is_some() {
+        return Err(PersistenceReplayCheckError::condition(context));
+    }
+    let loaded = world
+        .load_pending(next_world::WORLD_CHUNK_DEFAULT_WORKERS)
         .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
-    world
-        .commit(&staged, false)
+    let completion_tick = gameplay_tick
+        .checked_add(1)
+        .ok_or_else(|| PersistenceReplayCheckError::new(context, "gameplay tick overflow"))?;
+    let publication = world
+        .prepare_loaded_commit(loaded, completion_tick)
         .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
+    let validated = world
+        .validate_prepared_publication(publication, completion_tick)
+        .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
+    if world.commit_validated_publication(validated).is_none() {
+        return Err(PersistenceReplayCheckError::condition(context));
+    }
     Ok(())
 }
 

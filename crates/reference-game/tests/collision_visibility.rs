@@ -13,7 +13,7 @@ static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 #[test]
 fn relay_collision_matches_visible_parts_and_hidden_pickup_stays_contained() {
     let (root, activated) = activated_reference_project("collider-parity");
-    let session = next_reference_game::build_reference_game_session(activated.clone())
+    let session = next_reference_game::build_reference_game_session(activated.project.clone())
         .expect("reference session");
     let catalog = &session.bootstrap.physics_checkpoint.catalog;
     let relay_body_id = PhysicsBodyIdV1 {
@@ -147,7 +147,7 @@ fn live_player_can_walk_beyond_the_former_twenty_metre_wall() {
 #[test]
 fn each_large_rock_has_an_inset_solid_proxy_and_keeps_the_central_route_open() {
     let (root, activated) = activated_reference_project("rock-collider-parity");
-    let session = next_reference_game::build_reference_game_session(activated.clone())
+    let session = next_reference_game::build_reference_game_session(activated.project.clone())
         .expect("reference session");
     let expected = [
         (0x71, [-2_800_000, 520_000, -1_800_000]),
@@ -247,10 +247,7 @@ fn each_large_rock_has_an_inset_solid_proxy_and_keeps_the_central_route_open() {
 
 fn activated_reference_project(
     label: &str,
-) -> (
-    std::path::PathBuf,
-    next_contracts::project::ActivatedProjectV3,
-) {
+) -> (std::path::PathBuf, next_project::ActivatedProjectPackage) {
     let root = std::env::temp_dir().join(format!(
         "nextengine-reference-collision-{label}-{}-{}",
         std::process::id(),
@@ -264,7 +261,7 @@ fn activated_reference_project(
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
-    let activated = next_project::activate_project(&store).expect("activate");
+    let activated = next_project::activate_project_package(&store).expect("activate");
     (root, activated)
 }
 

@@ -355,7 +355,7 @@ impl PreparedDriverWorkload {
                 .map_err(|error| {
                     LiveRuntimePerformanceError::new("publish fixture", error.to_string())
                 })?;
-            let project = next_project::activate_project(&store).map_err(|error| {
+            let project = next_project::activate_project_package(&store).map_err(|error| {
                 LiveRuntimePerformanceError::new("activate fixture", error.to_string())
             })?;
             let driver = ReferenceGameDriverV1::new(project, true).map_err(|error| {

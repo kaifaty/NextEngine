@@ -14,7 +14,7 @@ use next_reference_game::{ReferenceDialogueChoiceV1, ReferenceRunOutcomeV1};
 use crate::platform_check::{
     DesktopFrameTimingSmokeReport, prepare_desktop_frame_timing_workload_for_inputs_in,
 };
-use crate::player_fixture::activate_fixture_project_with_scratch;
+use crate::player_fixture::prepare_fixture_project_package_with_scratch;
 use crate::scratch::ScratchContext;
 
 pub const R2_ALPHA_RENDER_WARMUP_FRAMES_PER_WINDOW: u32 = 600;
@@ -180,17 +180,28 @@ pub fn prepare_r2_alpha_render_performance_check_in(
 ) -> Result<PreparedR2AlphaRenderPerformanceCheckV1, R2AlphaRenderPerformanceErrorV1> {
     let scratch =
         ScratchContext::new(scratch_root).map_err(|error| workload_error("scratch-root", error))?;
-    let activated = activate_fixture_project_with_scratch(
+    let prepared_package = prepare_fixture_project_package_with_scratch(
         &scratch,
         next_reference_game::REFERENCE_GAME_PROJECT_ID,
     )
     .map_err(|error| workload_error("project-activation", error))?;
-    let render_content_catalog = activated.render_content_catalog.clone();
-    let text_catalogs = activated.text_catalogs.clone();
-    let exploration = next_reference_game::run_reference_game(activated.clone(), false)
-        .map_err(|error| workload_error("exploration-scenario", error))?;
-    let combat = next_reference_game::run_reference_game(activated, true)
-        .map_err(|error| workload_error("combat-scenario", error))?;
+    let render_content_catalog = prepared_package
+        .package
+        .project
+        .render_content_catalog
+        .clone();
+    let text_catalogs = prepared_package.package.project.text_catalogs.clone();
+    let scenarios = (|| {
+        let exploration =
+            next_reference_game::run_reference_game(prepared_package.package.clone(), false)
+                .map_err(|error| workload_error("exploration-scenario", error))?;
+        let combat =
+            next_reference_game::run_reference_game(prepared_package.package.clone(), true)
+                .map_err(|error| workload_error("combat-scenario", error))?;
+        Ok((exploration, combat))
+    })();
+    let (exploration, combat) =
+        prepared_package.finish(scenarios, |error| workload_error("project-cleanup", error))?;
 
     let (checkpoint, components) = combat
         .runtime

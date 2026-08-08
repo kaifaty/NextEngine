@@ -4,8 +4,8 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-08 |
-| Текущая точка | R2 Data-first Playable Alpha и Architecture Cleanup `COMPLETE / WINDOWS_ACCEPTED`. Полный automated R2 recheck (`host-check`, `play`, `persistence-replay`, `content-package`, SDL3/Vulkan `platform`, `v1-closure`, package smoke и six-frame `visual-smoke`) прошёл 2026-08-08 на clean baseline `3825ab9`. Новый packaged Frontier Relay run подтвердил Save/Load/Resume, authoritative WASD, pickup/equip, combat, relay, final completion, все четыре rock colliders, UI, resize/fullscreen; package manifest `71599dbb…822e`, game binary `3333c1b9…0844` и project lock `73a52631…2c2a` записаны в `projects/reference-alpha/ACCEPTANCE.md`. Performance остаётся `REPORT_ONLY`: native-gate publication не заявляется, потому что host preflight не был ready. Следующий WIP=1 — R3a chunk fetch/decode/validate. Linux полностью `DEFERRED_LINUX`; R1/R7, B-12 и v1 shipping не заявляются. |
-| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. Это не закрывает R1: Linux исключён, paired cross-target evidence отсутствует. Следующий самостоятельный increment — R3a. |
+| Текущая точка | R3a packaged chunk streaming vertical `COMPLETE`: `relay-station → frontier` выполняет pinned `fetch → decode → validate → WorldStreamingCommit` через production Assets/World/Runtime за два существующих ticks. `host-check`, `play`, `persistence-replay`, `content-package` и release Performance V4 smoke прошли 2026-08-08; smoke выполнил 1 000 real-I/O transitions, записал `required_staging_bytes=6818` и остался `REPORT_ONLY`. R2 Data-first Playable Alpha и Architecture Cleanup сохраняют `COMPLETE / WINDOWS_ACCEPTED`; B-04 закрыт. Следующий WIP=1 — R3b bounded 4-region/64-chunk partition. R3, B-06, B-12, Linux, R1/R7 и v1 shipping не закрыты. |
+| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 `COMPLETE`; это не закрывает R3 или R1: B-06, Linux и paired cross-target evidence остаются открыты. Следующий самостоятельный increment — R3b. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
@@ -116,8 +116,8 @@ animation и reusable systemic quest conditions относятся к R3–R5.
 | RPG | Частично: основные aggregates и восемь операций | Нет полного faction/membership, status/effect, quest-graph, reward и divine command lifecycle. |
 | Mechanics/packages | Частично: contact melee + Luau/Wasm examples | Нет общего ability phase/cost/cooldown/status lifecycle и creator-facing SDK workflow. |
 | Content/cooker | Data-first `projects/reference-alpha` проходит file-backed authoring/cook/direct-lock activation; package содержит 43 canonical entries, шесть production low-poly meshes, десять role/environment materials, четыре textures, synthesized audio и CC0 skeleton/clip provenance/NOTICE; прежний marker mesh удалён из production catalog | Нет navigation catalog, general multi-region streaming и runtime animation consumption. |
-| World/streaming | Частично: deterministic two-chunk transition | Нет general partition interest, resource residency, calendar, population, schedules и region transfers. |
-| Jobs/resources | Generic subsystem снят с Accepted baseline; current fixture использует private bounded staging | R3a должен доказать только production chunk fetch → decode → validate → canonical commit. |
+| World/streaming | R3a production vertical реализован: exact pinned generation, bounded packaged two-chunk fetch/decode/validate и paired Runtime/World commit | Нет generalized 4-region/64-chunk partition, partition interest, resource residency, calendar, population, schedules и region transfers. |
+| Jobs/resources | R3a использует private bounded workers (default 2, max 4), immutable revision-bound request/result и channel 64; generic subsystem не принят | R3b должен сначала переиспользовать этот private path; shared scheduler/resource contract появляется только при доказанной второй потребности. |
 | Physics | Частично: upright capsule, static Box и exact B0 `ClosestPoint` scene query | Нет полного shape/body/constraint/query profile и production physical-character stack. |
 | Animation/motor | Только procedural projection/contract fragments | Нет skeleton graph, retargeting, IK, root-motion intent или deterministic inference supervisor. |
 | Agent AI | Частично: один canonical affordance planner | Нет perception, hierarchy, schedules, memory, strategic/tactical learned behavior pair, trained bundles и 100-NPC workload. SPEC-32/33/ADR-050 остаются Proposed до production R4 consumer. |
@@ -189,7 +189,7 @@ flowchart LR
 | R0. Walking skeleton | `DONE_LOCAL` | — | Узкий deterministic slice доказал end-to-end architecture. |
 | R1. Native developer preview | `IN_PROGRESS` | S–M | Один exact package действительно запускается на обеих shipping targets. |
 | R2. Playable alpha | `COMPLETE / WINDOWS_ACCEPTED` | L | Data-first slice, Windows package, automated checks и зафиксированный 20–30-minute acceptance проходят. Linux/R1 cross-target closure не заявляется. |
-| R3. Scalable content and streaming | `PLANNED` | XL | Движок перестаёт зависеть от hard-coded two-chunk fixture. |
+| R3. Scalable content and streaming | `IN_PROGRESS` | XL | R3a packaged vertical завершён; R3b должен убрать hard-coded two-chunk fixture через bounded 4-region/64-chunk project. |
 | R4. Systemic living world | `PLANNED` | XL | NPC, schedules, navigation, two learned behavior policies and RPG consequences образуют живой offline world с complete deterministic planner fallback. |
 | R5. Physical character integration | `PARALLEL` → `PLANNED` | XL | Physical, animation и motor layers становятся production gameplay path. |
 | R6. Creator beta | `PLANNED` | L–XL | Второй проект/пакет создаётся без правки engine internals. |
@@ -418,7 +418,7 @@ ten-run performance evidence.
 
 Automated production path, lawful content/provenance, отсутствие hidden
 UI/camera mutation и ручной representative loop подтверждены. Архитектурный
-cleanup завершён; следующий WIP=1 — R3a.
+cleanup и R3a завершены; следующий WIP=1 — R3b.
 
 **Scope guard:** editor, advanced renderer, photoreal assets и procedural world
 generation не входят в этот этап.
@@ -433,6 +433,11 @@ consumer-driven production vertical, затем расширить partition р�
 насколько требует representative multi-region project.
 
 ### R3a — one streaming vertical
+
+**Статус:** `COMPLETE` (2026-08-08). B-04 закрыт после focused fault/order
+matrix и `host-check`, `play`, `persistence-replay`, `content-package`, release
+smoke. `r3-multiregion-streaming` остаётся `NOT_RUN`; R3 и B-06 открыты до
+R3b.
 
 Единственный scope R3a:
 
@@ -484,7 +489,8 @@ successor публичного v1 contract.
 - 4-region/64-chunk content fixture для R3b.
 
 **Основные источники:** SPEC-03, SPEC-17, SPEC-21, SPEC-22, SPEC-24, SPEC-25,
-ADR-026. SPEC-23 — Proposed intent для R3a, не готовый scheduler contract.
+ADR-026, ADR-051. SPEC-23 остаётся Proposed future generic scheduler/resource
+intent и не является принятым R3a contract.
 
 ## R4 — Systemic living world
 
@@ -780,7 +786,7 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 | B-01 | `DEFERRED_LINUX`: Linux validation и same-commit cross-target compare исключены из текущего Windows-only плана. Имеющееся evidence остаётся historical и не закрывает R1/R7. | R1, R7 | Вне текущего плана: на одном exact clean commit собраны Windows/Linux target `PASS` reports/packages с matching roots и `native-gate-compare` сообщает `native_gate_ready = true`. |
 | B-02 | `WINDOWS_COMPLETE / DEFERRED_LINUX`: Windows SDL3/ash B0 проходит real Vulkan frame, resize/focus/suspend-resume/fullscreen, injected device/swapchain recovery, normalized keyboard/mouse, generic controller action profile, real audio open/reopen и packaged `game`/`headless` launch. Linux не выполняется. | R1, R2 | Windows-часть завершена; полное R1 closure и paired cross-target evidence остаются вне Windows-only плана. |
 | B-03 | `CLOSED / WINDOWS_ACCEPTED`: lawful 51-record `projects/reference-alpha`, scripted flow, persistence recovery, package smoke и manual acceptance проходят. Полный representative run без debug commands зафиксирован 2026-08-08 для `r2-reference-alpha-visual-v5` с immutable package/game/project-lock hashes; Save → world change → Load → Resume, rollback/WASD, collisions, UI, resize/fullscreen подтверждены. | — | Закрыт. Повторять acceptance после material package/runtime changes; Linux/R1 и B-12 остаются отдельными открытыми gates. |
-| B-04 | Нет production chunk fetch/decode/validate/commit vertical | R3 | Один реальный packaged chunk проходит bounded immutable staging и canonical commit; fault/completion permutations сохраняют declared roots. Generic scheduler, pins/leases и eviction framework не требуются для снятия blocker. |
+| B-04 | `CLOSED`: production `relay-station → frontier` проходит pinned bounded packaged fetch/decode/validate и paired fixed-stage commit; worker/fault/restore permutations сохраняют declared roots. | — | Закрыт 2026-08-08 по ADR-051 и ProductCheck. Generic scheduler, pins/leases и eviction framework не приняты и не требовались. |
 | B-05 | `DEFERRED / NOT_CURRENT_BLOCKER`: публично поддерживаемого persisted v1 predecessor ещё нет | — | После объявления первого public v1 и появления реального successor определить минимальный compatibility/export/migration path и copy-on-write fault check. Alpha legacy не мигрируется. |
 | B-06 | World ограничен двумя chunks | R3, R4 | После узкого R3a vertical сценарий с четырьмя regions/64 chunks проходит save/restart; generic scheduler и eviction framework не являются предварительным условием. |
 | B-07 | Нет calendar/population/navigation services | R4 | World owner segment, schedules/tiers and graph navigation baseline проходят systemic scenario. |
@@ -1241,10 +1247,10 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    automated R2 recheck и manual acceptance нового immutable Windows package;
    точные hashes записаны в `projects/reference-alpha/ACCEPTANCE.md`. Performance
    остаётся `REPORT_ONLY`, B-12 открыт, Linux/R1 не заявляются.
-5. **R3a jobs/resources vertical (`PLANNED / NEXT`):** первым
-   production consumer является chunk fetch/decode/validate; shared bounded
-   admission primitives не проектируются отдельно от этого workload.
-6. **R3b bounded general partition (`PLANNED`):** ровно 4 regions/64 chunks и
+5. **R3a jobs/resources vertical (`COMPLETE`):** packaged chunk
+   fetch/decode/validate проходит private bounded workers и paired Runtime/World
+   commit; B-04 закрыт без generic scheduler/resource framework.
+6. **R3b bounded general partition (`PLANNED / NEXT`):** ровно 4 regions/64 chunks и
    generalized placement/streaming без alpha migration obligation.
 7. **R4 living-world + learned behavior vertical (`PLANNED`):** calendar,
    exact 100-NPC population, schedules/tiers, engine-owned graph/tile
@@ -1261,8 +1267,8 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    остаётся `DEFERRED_LINUX`, v1 shipping не заявляется.
 
 Каждый package должен быть отдельным product increment с focused checks. WIP=1:
-следующим выполняется R3a. Его не следует начинать как
-универсальный scheduler design без concrete chunk streaming workload.
+следующим выполняется R3b. Он переиспользует private R3a path и не начинает
+универсальный scheduler design без второго concrete production workload.
 
 ## Обновление roadmap
 

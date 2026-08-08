@@ -4,7 +4,7 @@ use next_contracts::ids::{CommandLedgerHash, ContentHash, SchemaId, StateRoot};
 use next_contracts::localization::TextCatalogV1;
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::physics::PhysicsPoseV1;
-use next_contracts::project::{ActivatedProjectV3, domain_hash};
+use next_contracts::project::domain_hash;
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1};
 use next_physics_api::PhysicsBackendPolicy;
 use next_presentation::PresentationExtractorV1;
@@ -15,7 +15,7 @@ use crate::compute_world_checkpoint_root;
 use crate::scratch::ScratchContext;
 
 use super::error::PlayCheckError;
-use super::{activate_fixture_project, activate_fixture_project_with_scratch};
+use super::prepare_fixture_project_package_with_scratch;
 use next_reference_game::{
     ReferenceRunOutcomeV1, aggregate_payload, run_reference_game, run_reference_game_with_backend,
 };
@@ -70,14 +70,14 @@ pub fn run_play_check_in(scratch_root: &Path) -> Result<PlayCheckReport, PlayChe
 pub(crate) fn run_play_check_with_scratch(
     scratch: &ScratchContext,
 ) -> Result<PlayCheckReport, PlayCheckError> {
-    let scenario = run_reference_game(
-        activate_fixture_project_with_scratch(
-            scratch,
-            next_reference_game::REFERENCE_GAME_PROJECT_ID,
-        )?,
-        true,
+    let prepared = prepare_fixture_project_package_with_scratch(
+        scratch,
+        next_reference_game::REFERENCE_GAME_PROJECT_ID,
     )?;
-    play_check_report(scenario)
+    let result = run_reference_game(prepared.package.clone(), true)
+        .map_err(PlayCheckError::from)
+        .and_then(play_check_report);
+    prepared.finish(result, scratch_error)
 }
 
 pub fn run_game_check() -> Result<GameCheckReport, PlayCheckError> {
@@ -96,25 +96,23 @@ pub fn prepare_game_frame_in(scratch_root: &Path) -> Result<PreparedGameFrameV1,
 pub(crate) fn prepare_game_frame_with_scratch(
     scratch: &ScratchContext,
 ) -> Result<PreparedGameFrameV1, PlayCheckError> {
-    let activated = activate_fixture_project_with_scratch(
+    let prepared = prepare_fixture_project_package_with_scratch(
         scratch,
         next_reference_game::REFERENCE_GAME_PROJECT_ID,
     )?;
-    let text_catalogs = activated.text_catalogs.clone();
-    let scenario = run_reference_game(activated, true)?;
-    prepare_game_frame_from_scenario(scenario, text_catalogs)
+    let text_catalogs = prepared.package.project.text_catalogs.clone();
+    let result = run_reference_game(prepared.package.clone(), true)
+        .map_err(PlayCheckError::from)
+        .and_then(|scenario| prepare_game_frame_from_scenario(scenario, text_catalogs));
+    prepared.finish(result, scratch_error)
 }
 
 pub fn prepare_game_frame_with_activated_project(
-    activated_project: ActivatedProjectV3,
+    package: next_project::ActivatedProjectPackage,
 ) -> Result<PreparedGameFrameV1, PlayCheckError> {
-    let text_catalogs = activated_project.text_catalogs.clone();
-    let scenario = run_reference_game_with_backend(
-        true,
-        false,
-        PhysicsLaunchOptions::default(),
-        activated_project,
-    )?;
+    let text_catalogs = package.project.text_catalogs.clone();
+    let scenario =
+        run_reference_game_with_backend(true, false, PhysicsLaunchOptions::default(), package)?;
     prepare_game_frame_from_scenario(scenario, text_catalogs)
 }
 
@@ -177,14 +175,10 @@ fn prepare_game_frame_from_scenario(
 }
 
 pub fn run_play_check_with_activated_project(
-    activated_project: ActivatedProjectV3,
+    package: next_project::ActivatedProjectPackage,
 ) -> Result<PlayCheckReport, PlayCheckError> {
-    let scenario = run_reference_game_with_backend(
-        true,
-        false,
-        PhysicsLaunchOptions::default(),
-        activated_project,
-    )?;
+    let scenario =
+        run_reference_game_with_backend(true, false, PhysicsLaunchOptions::default(), package)?;
     play_check_report(scenario)
 }
 
@@ -382,28 +376,30 @@ pub fn run_physics_collision_check_with_backend(
     backend: PhysicsCollisionBackend,
 ) -> Result<PhysicsCollisionCheckReport, PlayCheckError> {
     let scenario = match backend {
-        PhysicsCollisionBackend::Reference => run_reference_game(
-            activate_fixture_project("nextengine.physics-collision.reference")?,
+        PhysicsCollisionBackend::Reference => run_packaged_reference_fixture(
+            "nextengine.physics-collision.reference",
             false,
+            false,
+            PhysicsLaunchOptions::default(),
         )?,
-        PhysicsCollisionBackend::PhysX => run_reference_game_with_backend(
+        PhysicsCollisionBackend::PhysX => run_packaged_reference_fixture(
+            "nextengine.physics-collision.physx",
             false,
             true,
             PhysicsLaunchOptions::new(PhysicsBackendPolicy::RequirePhysX),
-            activate_fixture_project("nextengine.physics-collision.physx")?,
         )?,
         PhysicsCollisionBackend::Compare => {
-            let reference = run_reference_game_with_backend(
+            let reference = run_packaged_reference_fixture(
+                "nextengine.physics-collision.compare",
                 false,
                 true,
                 PhysicsLaunchOptions::new(PhysicsBackendPolicy::ReferenceOnly),
-                activate_fixture_project("nextengine.physics-collision.compare")?,
             )?;
-            let physx = run_reference_game_with_backend(
+            let physx = run_packaged_reference_fixture(
+                "nextengine.physics-collision.compare",
                 false,
                 true,
                 PhysicsLaunchOptions::new(PhysicsBackendPolicy::RequirePhysX),
-                activate_fixture_project("nextengine.physics-collision.compare")?,
             )?;
             if reference.tick_reports != physx.tick_reports {
                 return Err(PlayCheckError::BackendParityMismatch);
@@ -443,4 +439,22 @@ pub fn run_physics_collision_check_with_backend(
         contact_batches_hash: scenario.contact_batches_hash,
         physics_checkpoint_hash: scenario.runtime.physics_checkpoint().checkpoint_hash()?,
     })
+}
+
+fn run_packaged_reference_fixture(
+    project_id: &str,
+    include_interaction: bool,
+    physx_compatible: bool,
+    physics_options: PhysicsLaunchOptions,
+) -> Result<ReferenceRunOutcomeV1, PlayCheckError> {
+    let scratch = ScratchContext::new(&std::env::temp_dir()).map_err(scratch_error)?;
+    let prepared = prepare_fixture_project_package_with_scratch(&scratch, project_id)?;
+    let result = run_reference_game_with_backend(
+        include_interaction,
+        physx_compatible,
+        physics_options,
+        prepared.package.clone(),
+    )
+    .map_err(PlayCheckError::from);
+    prepared.finish(result, scratch_error)
 }

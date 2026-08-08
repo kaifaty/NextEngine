@@ -1,6 +1,5 @@
 use next_contracts::ids::{ApplicationSessionId, ContentHash};
 use next_contracts::platform::{PlatformEventKindV1, PlatformEventV1};
-use next_contracts::project::ActivatedProjectV3;
 use next_contracts::session::{ApplicationSessionStatusV1, PresentationTargetKindV1};
 use next_contracts::snapshot::WorldCheckpointV4;
 use next_contracts::world::WorldStreamingSnapshotV1;
@@ -56,7 +55,7 @@ impl ApplicationCoordinator {
             return Err(ApplicationError::RecoveryIncompatible);
         }
         let base = ReferenceGameDriverV1::new_with_presentation_epoch(
-            self.activated_project.clone(),
+            self.activated_package(),
             true,
             presentation_snapshot_epoch(
                 self.machine.state().session_id,
@@ -122,7 +121,7 @@ impl ApplicationCoordinator {
         }
         let prepared = prepare_reference_run(
             self.machine.state().session_id,
-            self.activated_project.clone(),
+            self.activated_package(),
             include_interaction,
             self.launch.presentation_target,
         )?;
@@ -140,7 +139,7 @@ impl ApplicationCoordinator {
             return Err(ApplicationError::LiveRunAlreadyActive);
         }
         let driver = ReferenceGameDriverV1::new_with_presentation_epoch(
-            self.activated_project.clone(),
+            self.activated_package(),
             include_interaction,
             presentation_snapshot_epoch(
                 self.machine.state().session_id,
@@ -413,7 +412,7 @@ impl ApplicationCoordinator {
         }
         let prepared = prepare_reference_run(
             self.machine.state().session_id,
-            self.activated_project.clone(),
+            self.activated_package(),
             true,
             self.launch.presentation_target,
         )?;
@@ -503,11 +502,11 @@ fn prepare_live_state(
 
 fn prepare_reference_run(
     session_id: ApplicationSessionId,
-    project: ActivatedProjectV3,
+    package: next_project::ActivatedProjectPackage,
     include_interaction: bool,
     presentation_target: PresentationTargetKindV1,
 ) -> Result<PreparedRunV1, ApplicationError> {
-    let run: ReferenceRunOutcomeV1 = run_reference_game(project, include_interaction)?;
+    let run: ReferenceRunOutcomeV1 = run_reference_game(package, include_interaction)?;
     let (checkpoint, checkpoint_canonical_components) =
         run.runtime.world_checkpoint_with_canonical_components()?;
     let presentation_snapshot = if presentation_target == PresentationTargetKindV1::None {

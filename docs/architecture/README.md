@@ -155,7 +155,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-20 | [Future world simulation и population intent](20-world-simulation-and-population-lifecycle.md) | Proposed |
 | SPEC-21 | [Deterministic runtime primitives, command ledger и causal identity](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | Accepted |
 | SPEC-22 | [Current schema registry и format compatibility](22-schema-registry-compatibility-and-migration.md) | Accepted |
-| SPEC-23 | [Future R3a streaming work intent](23-jobs-memory-resource-residency-and-io-backpressure.md) | Proposed |
+| SPEC-23 | [Future generic jobs and resource work](23-jobs-memory-resource-residency-and-io-backpressure.md) | Proposed |
 | SPEC-24 | [Current neutral content и package closure](24-content-catalog-bundle-and-neutral-asset-schemas.md) | Accepted |
 | SPEC-25 | [Current world partition manifest и R3a boundary](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | Accepted |
 | SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted |
@@ -225,13 +225,14 @@ traceability — навигационная карта, не admission authority
 | ADR-048 | [Direct exact project lock](adr/048-direct-exact-project-lock.md) | Accepted; current-only authoring/registry/package formats and `ProjectLockV3` replace project resolver/catalog/policy closure |
 | ADR-049 | [Performance evidence without allocator instrumentation](adr/049-performance-evidence-without-allocator-instrumentation.md) | Accepted; Performance V4 and low-overhead resource evidence replace allocator instrumentation and V2/V3 readers |
 | ADR-050 | [Hierarchical NPC cognition and learned behavior-policy boundary](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md) | Proposed; two independent learned roles with exact per-seed decisions and deterministic planner fallback |
+| ADR-051 | [R3a packaged chunk streaming commit boundary](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md) | Accepted; one pinned packaged fetch/decode/validate/two-tick commit vertical, without generic scheduler/resource promotion |
 
 ## Proposed tracks
 
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
 - SPEC-20 — future population/calendar vertical; no current schema or check.
-- SPEC-23 — consumer-driven R3a chunk fetch/decode/validate/commit intent; no
-  generic scheduler/resource framework is accepted.
+- SPEC-23 — future generic scheduler/resource work after the Accepted private
+  R3a vertical; no generic scheduler/resource framework is accepted.
 - ADR-033 — optional PhysX 5.9.0 grounded-capsule backend до полной parity на
   Windows/Linux; reference остаётся default.
 - SPEC-31 narrative director, generated quest graph and divine-standing intent

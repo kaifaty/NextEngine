@@ -35,8 +35,8 @@
 | Public contracts, stable IDs, commands/events, snapshots, manifests (`crates/contracts`) | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md) + SPEC затронутой подсистемы | ADR-002 | fast + checks затронутой области |
 | Детерминизм, replay, command identity, ledger, save/load, persistence | [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md) | ADR-022, ADR-046 | persistence-replay |
 | Schema registry, миграции, совместимость версий данных | [SPEC-22](22-schema-registry-compatibility-and-migration.md) | ADR-025, ADR-046, ADR-048 | persistence-replay |
-| ECS, runtime data model, fixed stages, scheduling | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | ADR-022 | persistence-replay |
-| Assets, persistence, neutral content and current partition manifest | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | ADR-026, ADR-014, ADR-044, ADR-048 | content-package |
+| ECS, runtime data model, fixed stages, scheduling | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | ADR-022, ADR-051 when world streaming stage is affected | persistence-replay |
+| Assets, persistence, neutral content and current partition manifest | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | ADR-026, ADR-014, ADR-044, ADR-048, ADR-051 | content-package |
 | Rendering, Vulkan, shaders, presentation extraction, render content | [SPEC-04](04-rendering-and-platform.md), [SPEC-30](30-presentation-extraction-and-render-content.md) | ADR-003, ADR-028 (+ ADR-035) | play (+ platform при host/packaging) |
 | Physics world, collision, constraints, queries, canonical snapshots | [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-05](05-physics-animation-and-motor-control.md) | ADR-027, ADR-032 | play, persistence-replay |
 | PhysX backend (Proposed track) | [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | ADR-033 (fallback — reference backend) | play, platform |
@@ -46,7 +46,7 @@
 | Future learned NPC strategic/tactical behavior policy, intention state and training (Proposed track) | [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-06](06-ai-agents-perception-and-memory.md) | ADR-050, ADR-005, ADR-046 | none until a production consumer exists |
 | Dialogue, model packs (Proposed track) | [SPEC-16](16-text-canonical-multimodal-dialogue-and-model-packs.md) | ADR-017 | play |
 | Current RPG domain and quests | [SPEC-19](19-rpg-domain-and-narrative-state.md) | ADR-020 | play |
-| Current partition manifest and R2 two-chunk transition | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | ADR-026, ADR-048 | play, content-package, persistence-replay |
+| Current packaged two-chunk transition, pinned generation and paired fixed-stage commit | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | ADR-026, ADR-048, ADR-051 | play, content-package, persistence-replay, performance smoke |
 | Future population/calendar vertical (Proposed track) | [SPEC-20](20-world-simulation-and-population-lifecycle.md) | ADR-021 (historical design context), ADR-046 | none until a production consumer exists |
 | Future narrative director or divine-standing proposal | [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) | ADR-029/ADR-031 (Superseded; historical context), ADR-046 | none until a production consumer exists |
 | Luau/Wasm scripting, plugins, mod packages, gameplay mechanics authoring | [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | ADR-008, ADR-014 | content-package |
@@ -54,7 +54,7 @@
 | Project composition, exact lock and atomic activation | [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md) | ADR-018, ADR-048 | fast, content-package |
 | Platform host, application session, presentation authority, Save/Load/close | [SPEC-29](29-platform-host-and-application-session.md) | ADR-028, ADR-035, ADR-047 | play, persistence-replay, platform |
 | Current performance budgets and evidence | [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-12](12-vertical-slice-conformance.md) | ADR-016, ADR-036, ADR-038, ADR-045, ADR-049 | performance |
-| Future R3a chunk fetch/decode/validate/commit vertical (Proposed track) | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md) | ADR-026, ADR-046 | content-package, persistence-replay, performance |
+| Future generic scheduler/resource framework after R3a (Proposed track) | [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md) | ADR-046, ADR-051 (scope exclusion) | none until a second production consumer exists |
 | Tooling, SDK, observability | [SPEC-09](09-tooling-sdk-and-observability.md) | — | fast |
 | Gothic importer boundary, neutral artifacts | [SPEC-10](10-gothic-importer-boundary.md) | ADR-001 | content-package |
 | Security, licensing, governance, secrets, provenance | [SPEC-11](11-security-licensing-and-governance.md) | ADR-001 | fast |
@@ -72,7 +72,7 @@ packets 1.0–1.9 (`docs/reviews/`) — historical snapshots. Их MAY чита�
 ## Proposed — не shipped
 
 SPEC-16/ADR-017 (dialogue model packs), SPEC-20 (future population), SPEC-23
-(future R3a streaming work), SPEC-31 (narrative/divine intent formerly in
+(future generic jobs/resource work after R3a), SPEC-31 (narrative/divine intent formerly in
 ADR-029/ADR-031), SPEC-32/SPEC-33/ADR-050 (future learned strategic/tactical
 NPC behavior), и PhysX backend из ADR-033 — Proposed.
 Не представлять как реализованное; при работе рядом указывать fallback и

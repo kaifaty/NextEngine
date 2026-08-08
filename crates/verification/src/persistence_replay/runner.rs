@@ -23,6 +23,8 @@ use super::{
 
 struct DirectScenario {
     fixture: NeutralPlayerFixture,
+    content_generation: next_assets::PinnedContentGeneration,
+    _project_package: crate::player_fixture::PreparedFixtureProjectPackage,
     physics_options: PhysicsLaunchOptions,
     luau_package_state_hash: ContentHash,
     wasm_plugin_state_hash: ContentHash,

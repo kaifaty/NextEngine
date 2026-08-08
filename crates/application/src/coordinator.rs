@@ -1,4 +1,4 @@
-use next_assets::{SaveStore, SessionStore};
+use next_assets::{PinnedContentGeneration, SaveStore, SessionStore};
 use next_contracts::ids::{ApplicationSessionId, CommandLedgerHash, ContentHash};
 use next_contracts::project::ActivatedProjectV3;
 use next_contracts::session::ApplicationSessionManifestV2;
@@ -43,6 +43,7 @@ pub struct ApplicationRunOutcomeV1 {
 pub struct ApplicationCoordinator {
     launch: LaunchRequestV1,
     activated_project: ActivatedProjectV3,
+    content_generation: PinnedContentGeneration,
     session_store: SessionStore,
     save_store: SaveStore,
     machine: ApplicationSessionMachine,
@@ -67,6 +68,13 @@ impl ApplicationCoordinator {
     #[must_use]
     pub fn activated_project(&self) -> &ActivatedProjectV3 {
         &self.activated_project
+    }
+
+    pub(super) fn activated_package(&self) -> next_project::ActivatedProjectPackage {
+        next_project::ActivatedProjectPackage {
+            project: self.activated_project.clone(),
+            content_generation: self.content_generation.clone(),
+        }
     }
 
     #[must_use]

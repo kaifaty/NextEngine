@@ -85,9 +85,10 @@ pub(super) fn run(root: &Path, request: &VisualSmokeRequest) -> Result<(), Strin
     store
         .publish(&cooked.publication().map_err(|error| error.to_string())?)
         .map_err(|error| error.to_string())?;
-    let activated = next_project::activate_project(&store).map_err(|error| error.to_string())?;
+    let activated =
+        next_project::activate_project_package(&store).map_err(|error| error.to_string())?;
     let snapshots = fixed_snapshots(&activated)?;
-    let resolver = TextCatalogResolverV1::new(activated.text_catalogs.clone(), "en")
+    let resolver = TextCatalogResolverV1::new(activated.project.text_catalogs.clone(), "en")
         .map_err(|error| error.to_string())?;
     let mut frames = Vec::with_capacity(snapshots.len());
     for (index, (name, snapshot)) in snapshots.into_iter().enumerate() {
@@ -95,11 +96,12 @@ pub(super) fn run(root: &Path, request: &VisualSmokeRequest) -> Result<(), Strin
             extent: [CAPTURE_WIDTH, CAPTURE_HEIGHT],
             target_revision: u64::try_from(index + 1).map_err(|_| "capture index overflow")?,
         };
-        let plan = build_b0_frame_plan(&snapshot, &activated.render_content_catalog, target)
-            .map_err(|error| error.to_string())?;
+        let plan =
+            build_b0_frame_plan(&snapshot, &activated.project.render_content_catalog, target)
+                .map_err(|error| error.to_string())?;
         let mut canvas = Canvas::new(CAPTURE_WIDTH, CAPTURE_HEIGHT);
         canvas.draw_background();
-        canvas.draw_scene(&snapshot, &activated.render_content_catalog);
+        canvas.draw_scene(&snapshot, &activated.project.render_content_catalog);
         let ui_records = snapshot.semantic_ui_records().cloned().collect::<Vec<_>>();
         if let Some(overlay) = rasterize_semantic_ui(
             &ui_records,
@@ -126,7 +128,7 @@ pub(super) fn run(root: &Path, request: &VisualSmokeRequest) -> Result<(), Strin
     }
     let manifest = VisualSmokeManifestV1 {
         schema_version: 1,
-        project_lock: activated.project_lock.project_lock_sha256.to_hex(),
+        project_lock: activated.project.project_lock.project_lock_sha256.to_hex(),
         capture_extent: [CAPTURE_WIDTH, CAPTURE_HEIGHT],
         shader_hashes: shader_hashes(root)?,
         frames,
@@ -150,7 +152,7 @@ pub(super) fn run(root: &Path, request: &VisualSmokeRequest) -> Result<(), Strin
 }
 
 fn fixed_snapshots(
-    activated: &next_contracts::project::ActivatedProjectV3,
+    activated: &next_project::ActivatedProjectPackage,
 ) -> Result<Vec<(&'static str, PresentationSnapshotV2)>, String> {
     let spawn_driver = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
         .map_err(|error| error.to_string())?;

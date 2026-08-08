@@ -90,6 +90,12 @@ pub(super) struct PhaseContext<'a> {
     pub(super) phase_revision: u64,
 }
 
+#[derive(Clone, Copy)]
+pub(super) struct WorldStreamingStageContext<'a> {
+    pub(super) world: &'a next_world::WorldStreamerV1,
+    pub(super) publication: &'a next_world::PreparedWorldStreamingPublicationV1,
+}
+
 pub(super) struct StagedAuthoritativeState {
     pub(super) ledger: CommandLedgerV2,
     pub(super) archive: CommandBodyArchiveV1,
@@ -133,6 +139,7 @@ pub(super) fn process_phase(
     context: PhaseContext<'_>,
     commands: Vec<WorldCommand>,
     staged: &mut StagedAuthoritativeState,
+    world_streaming: Option<WorldStreamingStageContext<'_>>,
 ) -> Result<PhaseExecution, RuntimeFatalError> {
     let mut queued = due_commands(context, staged)?;
     queued.extend(commands.into_iter().map(|command| QueuedCommand {
@@ -235,6 +242,11 @@ pub(super) fn process_phase(
         }
     }
     if context.source == ValidationSource::ExternalIngress {
+        if let Some(world_streaming) = world_streaming {
+            world_streaming
+                .world
+                .validate_prepared_stage(world_streaming.publication, context.tick)?;
+        }
         let physical_execution = finish_physical_step(context, physical_pending, staged)?;
         for (result, event) in physical_execution.command_results {
             committed = checked_inc(committed)?;
@@ -258,33 +270,44 @@ pub(super) fn process_phase(
         ValidationSource::ExternalIngress => TransactionStage::IngressCommit,
         ValidationSource::InternalOutcome => TransactionStage::OutcomeCommit,
     };
+    let mut stage_trace = vec![
+        StageTraceEntry {
+            stage: admission_stage,
+            received,
+            accepted: admitted,
+            rejected: admission_rejected,
+            committed: 0,
+            deduplicated,
+        },
+        StageTraceEntry {
+            stage: commit_stage,
+            received: admitted,
+            accepted: admitted
+                .checked_sub(commit_rejected)
+                .and_then(|value| value.checked_sub(commit_deduplicated))
+                .ok_or(RuntimeFatalError::TraceCountExhausted)?,
+            rejected: commit_rejected,
+            committed,
+            deduplicated: commit_deduplicated,
+        },
+    ];
+    if world_streaming.is_some() {
+        stage_trace.push(StageTraceEntry {
+            stage: TransactionStage::WorldStreamingCommit,
+            received: 1,
+            accepted: 1,
+            rejected: 0,
+            committed: 1,
+            deduplicated: 0,
+        });
+    }
     Ok(PhaseExecution {
         results,
         events,
         physics_step_input,
         contact_batch,
         rpg_plan_traces,
-        stage_trace: vec![
-            StageTraceEntry {
-                stage: admission_stage,
-                received,
-                accepted: admitted,
-                rejected: admission_rejected,
-                committed: 0,
-                deduplicated,
-            },
-            StageTraceEntry {
-                stage: commit_stage,
-                received: admitted,
-                accepted: admitted
-                    .checked_sub(commit_rejected)
-                    .and_then(|value| value.checked_sub(commit_deduplicated))
-                    .ok_or(RuntimeFatalError::TraceCountExhausted)?,
-                rejected: commit_rejected,
-                committed,
-                deduplicated: commit_deduplicated,
-            },
-        ],
+        stage_trace,
     })
 }
 

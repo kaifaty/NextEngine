@@ -105,7 +105,7 @@ impl PerformanceScenarioV1 {
 pub fn performance_scenario_hash(scenario: PerformanceScenarioV1) -> String {
     let preimage: &[u8] = match scenario {
         PerformanceScenarioV1::Smoke => {
-            b"nextengine.performance.smoke.v4:two-chunk:five-object:one-agent:900-live-ticks:resource-observation=streaming+agent-planning+render-planning+live-runtime"
+            b"nextengine.performance.smoke.v5:r3a-packaged-io:two-fixed-ticks-per-transition:bounded-workers=2:cycles=1000:five-object:one-agent:900-live-ticks:logical-staging-charge:resource-observation=streaming+agent-planning+render-planning+live-runtime"
         }
         PerformanceScenarioV1::LongSessionSoak => {
             b"nextengine.performance.long-session-soak.v5:3600-live-ticks:1200-tick-windows:held-movement:camera-every-15-ticks:driver-and-interactive-application:one-fixed-step-per-measured-pump:resource-observation=live-runtime-only"

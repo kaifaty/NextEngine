@@ -8,7 +8,9 @@ use next_contracts::ids::{AssetId, ContentHash, PhysicsContactId};
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::physics::ContactPhaseV1;
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1};
-use next_project::{ProjectActivationError, ProjectCookError, activate_project, cook_project_v2};
+use next_project::{
+    ProjectActivationError, ProjectCookError, activate_project_package, cook_project_v2,
+};
 use next_render::{RenderTargetV1, build_b0_frame_plan};
 
 use crate::scratch::ScratchContext;
@@ -55,8 +57,9 @@ pub(crate) fn run_content_package_check_with_scratch(
     let result = (|| {
         let store = ContentStore::new(directory.path());
         store.publish(&cooked.publication()?)?;
-        let activated = activate_project(&store)?;
-        let prepared = crate::prepare_game_frame_with_activated_project(activated.clone())?;
+        let package = activate_project_package(&store)?;
+        let activated = package.project.clone();
+        let prepared = crate::prepare_game_frame_with_activated_project(package)?;
         let gameplay = &prepared.check.play;
         let (scripted_player_health, luau_package_state_hash) =
             run_reference_luau_package(activated.clone())?;

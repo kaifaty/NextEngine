@@ -1,26 +1,30 @@
-# SPEC-23: Future R3a streaming work intent
+# SPEC-23: Future generic jobs and resource work
 
 | Поле | Значение |
 |---|---|
 | ID | SPEC-23 |
 | Статус | Proposed |
-| Версия | 2.0 |
+| Версия | 2.1 |
 | Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md) |
 | Заменяет | SPEC-23 version 1.9 generic scheduler/resource architecture; deferred by ADR-046 |
 
-## R3a intent
+## Current status after R3a
 
-The next consumer-driven vertical is exactly:
+ADR-051 accepts exactly one consumer-driven vertical:
 
 ```text
 chunk fetch → decode → validate → canonical commit
 ```
 
-R3a must make one real chunk travel through production Assets/World/Runtime
-boundaries and preserve the current gameplay result. This document does not
-predefine a general job system, cancellation tree, pin/lease model, eviction
-framework or public resource-scheduler API.
+One real packaged chunk now travels through production Assets/World/Runtime
+boundaries while preserving the gameplay result. Its pinned content generation,
+bounded private workers, immutable opaque result and paired fixed-stage commit
+are implementation-local R3a evidence governed by SPEC-03/SPEC-25/ADR-051.
+
+This SPEC remains `Proposed`. It does not promote those private primitives into
+a general job system, cancellation tree, pin/lease model, eviction framework or
+public resource-scheduler API, and it is not routing authority for R3a.
 
 ## Guardrails inherited from Accepted architecture
 
@@ -44,14 +48,14 @@ framework or public resource-scheduler API.
   rate and presentation availability cannot select authoritative streaming
   state.
 
-## What R3a may introduce
+## What a future consumer may justify
 
-Only primitives demonstrated by the vertical may be made reusable: for
-example, a bounded immutable chunk request/result, a private staging queue and
-one canonical commit batch. Their visibility should remain private until a
-second production consumer demonstrates a stable public contract.
+Only primitives demonstrated by more than this single vertical may be made
+reusable. The R3a bounded immutable chunk request/result, private staging queue
+and canonical commit batch remain private until another production consumer
+demonstrates a stable public contract.
 
-R3a explicitly does not require:
+R3a did not introduce and future work must not assume:
 
 - a universal scheduler or task taxonomy;
 - hierarchical cancellation propagation;
@@ -61,14 +65,12 @@ R3a explicitly does not require:
 - a migration framework or legacy format reader;
 - speculative R4/R5 workloads.
 
-## Acceptance of a future implementation
+## Promotion condition
 
-The vertical is complete when a real packaged chunk is fetched, decoded,
-validated and committed through production paths; corrupt/stale/oversized and
-completion-order permutations fail or converge as declared; Save/Load/Replay
-and R2 gameplay/ledger roots remain correct; and focused `content-package`,
-`persistence-replay` plus the affected performance scenario pass.
+This SPEC may become Accepted only when a second production consumer requires a
+shared scheduler/resource contract and its concrete semantics, fallback,
+budgets and ProductCheck are known. R3b by itself must still prefer the existing
+private R3a path unless it demonstrates that need.
 
-Until that implementation exists, this SPEC is not routing authority for
-current performance, runtime or content work and has no independent
-ProductCheck.
+Until promotion, this SPEC is not routing authority for current performance,
+runtime or content work and has no independent ProductCheck.

@@ -26,14 +26,16 @@ use super::interaction::{
 use super::order::sort_command_batch;
 use super::pipeline::{
     PhaseContext, PreparedCommandLedgerTransaction, StagedAuthoritativeState, ValidationSource,
-    count, process_phase,
+    WorldStreamingStageContext, count, process_phase,
 };
 use super::result::{StageTraceEntry, TickReport, TransactionStage};
 use super::state::{IngressQueueV1, RuntimeState, enqueue_input_sample_in_checkpoint};
 
 mod preparation;
+mod world_streaming;
 
 use preparation::RuntimeGenerationV1;
+pub use world_streaming::{PreparedRuntimeWorldTick, ValidatedRuntimeWorldTick};
 
 /// Opaque staging scope for one runtime tick.
 ///
@@ -90,6 +92,7 @@ impl RuntimeTickPreparation<'_> {
             commands,
             outcome_provider,
             replay_ingress,
+            None,
         )
     }
 }
@@ -598,6 +601,7 @@ impl RuntimeState {
         commands: impl IntoIterator<Item = WorldCommand>,
         outcome_provider: &mut impl OutcomeProvider,
         replay_ingress: Option<ClosedIngressBatchV1>,
+        world_streaming: Option<WorldStreamingStageContext<'_>>,
     ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
         let following_tick = self
             .next_tick
@@ -679,6 +683,7 @@ impl RuntimeState {
                 },
                 ingress_commands,
                 &mut staged,
+                world_streaming,
             )?
         };
         let physics_step_input = ingress
@@ -844,6 +849,7 @@ impl RuntimeState {
                 },
                 outcome_commands,
                 &mut staged,
+                None,
             )?
         };
 

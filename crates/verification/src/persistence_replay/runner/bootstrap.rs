@@ -3,9 +3,7 @@ use next_physics_api::PhysicsBackendPolicy;
 use next_runtime::{PhysicsLaunchOptions, RuntimeState};
 use next_world::WorldStreamerV1;
 
-use crate::player_fixture::{
-    build_neutral_player_fixture_with_scratch, build_physx_player_fixture_with_scratch,
-};
+use crate::player_fixture::prepare_fixture_project_package_with_scratch;
 use crate::scratch::ScratchContext;
 use crate::{
     player_action_sample, player_equip_use_sample, player_interact_sample, player_melee_sample,
@@ -29,10 +27,17 @@ pub(super) fn initialize(
             PhysicsLaunchOptions::new(PhysicsBackendPolicy::RequirePhysX)
         }
     };
+    let project_package = prepare_fixture_project_package_with_scratch(scratch, project_id)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("prepare packaged player fixture", error.to_string())
+        })?;
     let fixture = if physx_compatible_profile {
-        build_physx_player_fixture_with_scratch(scratch, project_id)
+        next_reference_game::build_reference_game_session_with_profile(
+            project_package.package.project.clone(),
+            true,
+        )
     } else {
-        build_neutral_player_fixture_with_scratch(scratch, project_id)
+        next_reference_game::build_reference_game_session(project_package.package.project.clone())
     }
     .map_err(|error| PersistenceReplayCheckError::new("build player fixture", error.to_string()))?;
     let luau_package_state_hash = verify_luau_state_round_trip()?;
@@ -43,7 +48,8 @@ pub(super) fn initialize(
         .world_partition
         .body
         .chunk_bindings
-        .first()
+        .iter()
+        .find(|binding| binding.chunk_id.as_str().ends_with("relay-station"))
         .ok_or_else(|| PersistenceReplayCheckError::condition("initial world chunk exists"))?
         .chunk_id
         .clone();
@@ -52,15 +58,20 @@ pub(super) fn initialize(
         .world_partition
         .body
         .chunk_bindings
-        .get(1)
+        .iter()
+        .find(|binding| binding.chunk_id.as_str().ends_with("frontier"))
         .ok_or_else(|| PersistenceReplayCheckError::condition("second world chunk exists"))?
         .chunk_id
         .clone();
-    let world =
-        WorldStreamerV1::activate(fixture.activated_project.clone(), initial_chunk_id.clone())
-            .map_err(|error| {
-                PersistenceReplayCheckError::new("activate world streaming", error.to_string())
-            })?;
+    let content_generation = project_package.package.content_generation.clone();
+    let world = WorldStreamerV1::activate(
+        fixture.activated_project.clone(),
+        content_generation.clone(),
+        initial_chunk_id.clone(),
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("activate world streaming", error.to_string())
+    })?;
     let runtime = RuntimeState::with_rpg_snapshot_and_physics_options(
         fixture.bootstrap.clone(),
         fixture.authority.clone(),
@@ -75,6 +86,8 @@ pub(super) fn initialize(
 
     Ok(DirectScenario {
         fixture,
+        content_generation,
+        _project_package: project_package,
         physics_options,
         luau_package_state_hash,
         wasm_plugin_state_hash,

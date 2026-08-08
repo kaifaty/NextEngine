@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_assets::{ContentStore, ContentStoreError};
+use next_assets::{ContentStore, ContentStoreError, PinnedContentGeneration};
 use next_contracts::animation_content::{
     NEUTRAL_ANIMATION_SCHEMA_ID, NEUTRAL_SKELETON_SCHEMA_ID, NeutralAnimationContentErrorV1,
     NeutralAnimationV1, NeutralSkeletonV1,
@@ -29,10 +29,33 @@ use crate::cook::{
 };
 use crate::cook_rpg::compile_rpg_definitions_v1;
 
+#[derive(Clone, Debug)]
+pub struct ActivatedProjectPackage {
+    pub project: ActivatedProjectV3,
+    pub content_generation: PinnedContentGeneration,
+}
+
 pub fn activate_project(
     store: &ContentStore,
 ) -> Result<ActivatedProjectV3, ProjectActivationError> {
-    let generation = store.load_current()?;
+    Ok(activate_project_package(store)?.project)
+}
+
+pub fn activate_project_package(
+    store: &ContentStore,
+) -> Result<ActivatedProjectPackage, ProjectActivationError> {
+    let content_generation = store.pin_current_generation()?;
+    let project = activate_pinned_project(&content_generation)?;
+    Ok(ActivatedProjectPackage {
+        project,
+        content_generation,
+    })
+}
+
+fn activate_pinned_project(
+    content_generation: &PinnedContentGeneration,
+) -> Result<ActivatedProjectV3, ProjectActivationError> {
+    let generation = content_generation.load_all_verified()?;
     let limits = CanonicalDecodeLimits::default();
     let project_lock = ProjectLockV3::from_jcs_bytes(
         required_file(&generation.files, PROJECT_LOCK_PATH)?,

@@ -3,13 +3,12 @@ use next_contracts::ids::{ContentHash, PersistentId, SchemaId, StateRoot};
 use next_contracts::input::{CORE_MELEE_ACTION_ID, PlayerActionPhaseV1};
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::physics::{ContactPhaseV1, PhysicsBodyIdV1, PhysicsPoseV1};
-use next_contracts::project::ActivatedProjectV3;
 use next_contracts::rpg::{
     RpgAggregateKindV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1, RpgSnapshotV2,
 };
 use next_presentation::PresentationBindingV1;
-use next_runtime::{PhysicsLaunchOptions, RuntimeState};
-use next_world::WorldStreamerV1;
+use next_runtime::{PhysicsLaunchOptions, RuntimeState, TickReport};
+use next_world::{PreparedWorldStreamingPublicationV1, WorldStreamerV1};
 
 use crate::ReferenceGameError;
 use crate::input::NormalizedReferenceInputV1;
@@ -76,15 +75,25 @@ enum ScenarioAction {
     Checkpoint,
 }
 
+enum PendingPackagedTransitionV1 {
+    Begin {
+        publication: PreparedWorldStreamingPublicationV1,
+        save_restore: bool,
+    },
+    Complete {
+        publication: PreparedWorldStreamingPublicationV1,
+    },
+}
+
 pub fn run_reference_game(
-    activated_project: ActivatedProjectV3,
+    package: next_project::ActivatedProjectPackage,
     include_interaction: bool,
 ) -> Result<ReferenceRunOutcomeV1, ReferenceGameError> {
     run_reference_game_with_backend(
         include_interaction,
         false,
         PhysicsLaunchOptions::default(),
-        activated_project,
+        package,
     )
 }
 
@@ -92,8 +101,12 @@ pub fn run_reference_game_with_backend(
     include_interaction: bool,
     physx_compatible: bool,
     physics_options: PhysicsLaunchOptions,
-    activated_project: ActivatedProjectV3,
+    package: next_project::ActivatedProjectPackage,
 ) -> Result<ReferenceRunOutcomeV1, ReferenceGameError> {
+    let next_project::ActivatedProjectPackage {
+        project: activated_project,
+        content_generation,
+    } = package;
     let fixture = if physx_compatible {
         build_reference_game_session_with_profile(activated_project, true)?
     } else {
@@ -119,7 +132,8 @@ pub fn run_reference_game_with_backend(
         .world_partition
         .body
         .chunk_bindings
-        .first()
+        .iter()
+        .find(|binding| binding.chunk_id.as_str().ends_with("relay-station"))
         .ok_or(ReferenceGameError::WorldPartitionEmpty)?
         .chunk_id
         .clone();
@@ -128,12 +142,16 @@ pub fn run_reference_game_with_backend(
         .world_partition
         .body
         .chunk_bindings
-        .get(1)
+        .iter()
+        .find(|binding| binding.chunk_id.as_str().ends_with("frontier"))
         .ok_or(ReferenceGameError::WorldPartitionEmpty)?
         .chunk_id
         .clone();
-    let mut world_streamer =
-        WorldStreamerV1::activate(fixture.activated_project.clone(), initial_chunk_id.clone())?;
+    let mut world_streamer = WorldStreamerV1::activate(
+        fixture.activated_project.clone(),
+        content_generation.clone(),
+        initial_chunk_id.clone(),
+    )?;
     let mut inputs = Vec::new();
     if include_interaction {
         inputs.extend([
@@ -197,6 +215,7 @@ pub fn run_reference_game_with_backend(
     let mut agent_projection_hash = None;
     let mut stage_checkpoint_roots = Vec::new();
     let mut stage_checkpoints = Vec::new();
+    let mut pending_packaged_transition = None;
     for action in inputs {
         if matches!(&action, ScenarioAction::Checkpoint) {
             let checkpoint = runtime.world_checkpoint()?;
@@ -221,31 +240,15 @@ pub fn run_reference_game_with_backend(
             continue;
         }
         if let ScenarioAction::ChunkTransition(target_chunk_id, save_restore) = action {
-            let rpg_before = runtime.rpg_snapshot();
-            let plan = world_streamer.begin_transition(target_chunk_id, sequence)?;
-            let mut worker_order = plan.ordered_required_asset_ids.clone();
-            worker_order.reverse();
-            let staged = world_streamer.stage(&plan, &worker_order)?;
-            if save_restore {
-                let saved = world_streamer.snapshot().canonical_bytes()?;
-                let decoded =
-                    next_contracts::world::WorldStreamingSnapshotV1::from_canonical_bytes(
-                        &saved,
-                        next_contracts::canonical::CanonicalDecodeLimits::default(),
-                    )?;
-                world_streamer =
-                    WorldStreamerV1::restore(fixture.activated_project.clone(), decoded)?;
-                let (_, rebuilt) = world_streamer.resume_pending()?;
-                if rebuilt != staged {
-                    return Err(ReferenceGameError::WorldStreamingResumeMismatch);
-                }
-            } else {
-                world_streamer.validate_staged(&staged)?;
+            if pending_packaged_transition.is_some() {
+                return Err(ReferenceGameError::WorldStreamingResumeMismatch);
             }
-            world_streamer.commit(&staged, false)?;
-            if runtime.rpg_snapshot() != rpg_before {
-                return Err(ReferenceGameError::WorldStreamingMutatedRpg);
-            }
+            let publication =
+                world_streamer.prepare_begin_transition(target_chunk_id, runtime.next_tick())?;
+            pending_packaged_transition = Some(PendingPackagedTransitionV1::Begin {
+                publication,
+                save_restore,
+            });
             continue;
         }
         if matches!(&action, ScenarioAction::AgentMelee) {
@@ -283,7 +286,14 @@ pub fn run_reference_game_with_backend(
                     target_tick: runtime.next_tick(),
                 },
             )?;
-            let report = runtime.run_tick([planned.world_command])?;
+            let report = run_scenario_tick(
+                &mut runtime,
+                &mut world_streamer,
+                &fixture.activated_project,
+                &content_generation,
+                [planned.world_command],
+                &mut pending_packaged_transition,
+            )?;
             if !report.results.iter().any(|result| {
                 matches!(
                     result.disposition,
@@ -324,7 +334,14 @@ pub fn run_reference_game_with_backend(
             ScenarioAction::Checkpoint => unreachable!("handled before input mapping"),
         };
         runtime.enqueue_input_sample(&fixture.principal, sample)?;
-        let report = runtime.run_tick([])?;
+        let report = run_scenario_tick(
+            &mut runtime,
+            &mut world_streamer,
+            &fixture.activated_project,
+            &content_generation,
+            [],
+            &mut pending_packaged_transition,
+        )?;
         accumulate_report(
             &report,
             &mut events,
@@ -338,6 +355,9 @@ pub fn run_reference_game_with_backend(
         sequence = sequence
             .checked_add(1)
             .ok_or(ReferenceGameError::CountOverflow)?;
+    }
+    if pending_packaged_transition.is_some() {
+        return Err(ReferenceGameError::WorldStreamingResumeMismatch);
     }
     let final_pose = runtime
         .physics_snapshot()
@@ -386,6 +406,63 @@ pub fn run_reference_game_with_backend(
         stage_checkpoint_roots,
         stage_checkpoints,
     })
+}
+
+fn run_scenario_tick(
+    runtime: &mut RuntimeState,
+    world: &mut WorldStreamerV1,
+    project: &next_contracts::project::ActivatedProjectV3,
+    content_generation: &next_assets::PinnedContentGeneration,
+    commands: impl IntoIterator<Item = next_contracts::command::WorldCommand>,
+    pending: &mut Option<PendingPackagedTransitionV1>,
+) -> Result<TickReport, ReferenceGameError> {
+    let Some(stage) = pending.take() else {
+        return Ok(runtime.run_tick(commands)?);
+    };
+    match stage {
+        PendingPackagedTransitionV1::Begin {
+            publication,
+            save_restore,
+        } => {
+            let prepared = runtime.tick_preparation().prepare_with_world_streaming(
+                commands,
+                world,
+                publication,
+            )?;
+            let validated = runtime.validate_prepared_world_tick(world, prepared)?;
+            let (report, receipt) = runtime.commit_validated_world_tick(world, validated);
+            debug_assert!(receipt.is_none());
+            if save_restore {
+                let saved = world.snapshot().canonical_bytes()?;
+                let decoded =
+                    next_contracts::world::WorldStreamingSnapshotV1::from_canonical_bytes(
+                        &saved,
+                        next_contracts::canonical::CanonicalDecodeLimits::default(),
+                    )?;
+                *world =
+                    WorldStreamerV1::restore(project.clone(), content_generation.clone(), decoded)?;
+            }
+            // Mandatory I/O runs while simulation advancement is paused. Its
+            // completion is bound to the already selected next gameplay tick.
+            let loaded = world.load_pending(next_world::WORLD_CHUNK_DEFAULT_WORKERS)?;
+            let publication = world.prepare_loaded_commit(loaded, runtime.next_tick())?;
+            *pending = Some(PendingPackagedTransitionV1::Complete { publication });
+            Ok(report)
+        }
+        PendingPackagedTransitionV1::Complete { publication } => {
+            let prepared = runtime.tick_preparation().prepare_with_world_streaming(
+                commands,
+                world,
+                publication,
+            )?;
+            let validated = runtime.validate_prepared_world_tick(world, prepared)?;
+            let (report, receipt) = runtime.commit_validated_world_tick(world, validated);
+            if receipt.is_none() {
+                return Err(ReferenceGameError::WorldStreamingResumeMismatch);
+            }
+            Ok(report)
+        }
+    }
 }
 
 fn reference_stage_checkpoint(

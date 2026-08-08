@@ -2,6 +2,20 @@
 
 use super::*;
 
+pub(super) fn relay_station_chunk_id(
+    fixture: &ReferenceGameSession,
+) -> Result<SchemaId, ReferenceGameError> {
+    fixture
+        .activated_project
+        .world_partition
+        .body
+        .chunk_bindings
+        .iter()
+        .find(|binding| binding.chunk_id.as_str().ends_with("relay-station"))
+        .map(|binding| binding.chunk_id.clone())
+        .ok_or(ReferenceGameError::WorldPartitionEmpty)
+}
+
 impl ReferenceGameDriverV1 {
     /// Builds a fully validated candidate driver from a published save world.
     /// The current driver is unchanged until the application coordinator has
@@ -46,8 +60,11 @@ impl ReferenceGameDriverV1 {
             fixture.authority.clone(),
             fixture.bootstrap.rpg_definitions.clone(),
         )?;
-        let world_streamer =
-            WorldStreamerV1::restore(fixture.activated_project.clone(), world_streaming_snapshot)?;
+        let world_streamer = WorldStreamerV1::restore(
+            fixture.activated_project.clone(),
+            self.content_generation.clone(),
+            world_streaming_snapshot,
+        )?;
         let presentation_bindings =
             fixture_presentation_bindings(&fixture, &runtime.rpg_snapshot())?;
 
@@ -92,6 +109,7 @@ impl ReferenceGameDriverV1 {
         )?;
         let mut driver = Self {
             fixture,
+            content_generation: self.content_generation.clone(),
             runtime,
             world_streamer,
             input,

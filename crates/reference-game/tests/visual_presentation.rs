@@ -25,7 +25,7 @@ fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
-    let activated = next_project::activate_project(&store).expect("activate");
+    let activated = next_project::activate_project_package(&store).expect("activate");
 
     let driver = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
         .expect("live driver");
@@ -103,7 +103,7 @@ fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
     );
     let initial_plan = build_b0_frame_plan(
         &initial.presentation_snapshot,
-        &activated.render_content_catalog,
+        &activated.project.render_content_catalog,
         RenderTargetV1 {
             extent: [1_920, 1_080],
             target_revision: 1,

@@ -355,6 +355,19 @@ fn performance_report_for(
         authoritative_hash_parity,
     };
     run.resource_counters = resource_counters;
+    if request.scenario == xtask::performance::PerformanceScenarioV1::Smoke {
+        run.resource_counters.logical_resource_charges = Some(
+            xtask::performance::PerformanceLogicalResourceChargesV1::new(
+                xtask::performance::sha256_hex(b"nextengine.performance.r3a-packaged-streaming.v1"),
+                0,
+                streaming.required_staging_bytes,
+                0,
+                0,
+                0,
+                0,
+            )?,
+        );
+    }
     if let Some(frame_timing) = &desktop_frame_timing {
         run.resource_counters.vulkan_timestamp_queries = frame_timing.timestamp_query_count;
         run.resource_counters.device_resident_bytes = Some(frame_timing.device_allocation_bytes);

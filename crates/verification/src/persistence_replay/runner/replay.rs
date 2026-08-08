@@ -59,6 +59,7 @@ pub(super) fn verify(
 
     let mut replay_world = WorldStreamerV1::activate(
         direct.fixture.activated_project.clone(),
+        direct.content_generation.clone(),
         direct.initial_chunk_id.clone(),
     )
     .map_err(|error| {

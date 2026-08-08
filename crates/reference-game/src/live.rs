@@ -53,6 +53,7 @@ pub fn reference_b0_presentation_profile_hash() -> ContentHash {
 
 pub struct ReferenceGameDriverV1 {
     fixture: ReferenceGameSession,
+    content_generation: next_assets::PinnedContentGeneration,
     runtime: RuntimeState,
     world_streamer: WorldStreamerV1,
     input: PlayerInputSessionV1,
@@ -218,24 +219,25 @@ impl ValidatedReferenceGameAdvance {
 
 impl ReferenceGameDriverV1 {
     pub fn new(
-        activated_project: next_contracts::project::ActivatedProjectV3,
+        package: next_project::ActivatedProjectPackage,
         include_interaction: bool,
     ) -> Result<Self, ReferenceGameError> {
         let snapshot_epoch = next_contracts::project::domain_hash(
             "nextengine.presentation-snapshot-epoch.v1",
-            activated_project
-                .project_lock
-                .project_lock_sha256
-                .as_bytes(),
+            package.project.project_lock.project_lock_sha256.as_bytes(),
         );
-        Self::new_with_presentation_epoch(activated_project, include_interaction, snapshot_epoch)
+        Self::new_with_presentation_epoch(package, include_interaction, snapshot_epoch)
     }
 
     pub fn new_with_presentation_epoch(
-        activated_project: next_contracts::project::ActivatedProjectV3,
+        package: next_project::ActivatedProjectPackage,
         include_interaction: bool,
         snapshot_epoch: ContentHash,
     ) -> Result<Self, ReferenceGameError> {
+        let next_project::ActivatedProjectPackage {
+            project: activated_project,
+            content_generation,
+        } = package;
         let fixture = build_reference_game_session(activated_project)?;
         let rpg_snapshot = if include_interaction {
             cooked_project_rpg_snapshot(&fixture)
@@ -248,17 +250,12 @@ impl ReferenceGameDriverV1 {
             rpg_snapshot,
             PhysicsLaunchOptions::default(),
         )?;
-        let initial_chunk_id = fixture
-            .activated_project
-            .world_partition
-            .body
-            .chunk_bindings
-            .first()
-            .ok_or(ReferenceGameError::WorldPartitionEmpty)?
-            .chunk_id
-            .clone();
-        let world_streamer =
-            WorldStreamerV1::activate(fixture.activated_project.clone(), initial_chunk_id)?;
+        let initial_chunk_id = load::relay_station_chunk_id(&fixture)?;
+        let world_streamer = WorldStreamerV1::activate(
+            fixture.activated_project.clone(),
+            content_generation.clone(),
+            initial_chunk_id,
+        )?;
         let input = PlayerInputSessionV1::new(
             fixture.controller_id,
             fixture.source_id,
@@ -296,6 +293,7 @@ impl ReferenceGameDriverV1 {
         let mut driver = Self {
             dialogue_entry_node_id: crate::dialogue::reference_dialogue_entry_node_id(&fixture)?,
             fixture,
+            content_generation,
             runtime,
             world_streamer,
             input,
@@ -323,12 +321,16 @@ impl ReferenceGameDriverV1 {
     }
 
     pub fn restore(
-        activated_project: next_contracts::project::ActivatedProjectV3,
+        package: next_project::ActivatedProjectPackage,
         checkpoint: WorldCheckpointV4,
         world_streaming_snapshot: WorldStreamingSnapshotV1,
         recovery: ReferenceLiveDriverRecoveryV1,
     ) -> Result<Self, ReferenceGameError> {
         checkpoint.validate()?;
+        let next_project::ActivatedProjectPackage {
+            project: activated_project,
+            content_generation,
+        } = package;
         let fixture = build_reference_game_session(activated_project)?;
         if recovery.next_logical_frame_sequence != checkpoint.runtime_snapshot.next_tick
             || recovery.events != checkpoint.runtime_snapshot.committed_event_count
@@ -342,8 +344,11 @@ impl ReferenceGameDriverV1 {
             fixture.authority.clone(),
             fixture.bootstrap.rpg_definitions.clone(),
         )?;
-        let world_streamer =
-            WorldStreamerV1::restore(fixture.activated_project.clone(), world_streaming_snapshot)?;
+        let world_streamer = WorldStreamerV1::restore(
+            fixture.activated_project.clone(),
+            content_generation.clone(),
+            world_streaming_snapshot,
+        )?;
         let input =
             PlayerInputSessionV1::restore_from_recovery_bytes(&recovery.input_session_bytes)?;
         let expected_last_logical_frame_sequence =
@@ -401,6 +406,7 @@ impl ReferenceGameDriverV1 {
         let mut driver = Self {
             dialogue_entry_node_id: crate::dialogue::reference_dialogue_entry_node_id(&fixture)?,
             fixture,
+            content_generation,
             runtime,
             world_streamer,
             input,

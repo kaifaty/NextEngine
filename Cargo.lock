@@ -838,6 +838,7 @@ dependencies = [
  "next_physics_api",
  "next_physics_physx",
  "next_rpg",
+ "next_world",
  "tracy-client",
 ]
 

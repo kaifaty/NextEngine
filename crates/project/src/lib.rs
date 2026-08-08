@@ -6,7 +6,9 @@ mod cook;
 mod cook_rpg;
 mod cook_support;
 
-pub use activation::{ProjectActivationError, activate_project};
+pub use activation::{
+    ActivatedProjectPackage, ProjectActivationError, activate_project, activate_project_package,
+};
 pub use authoring::{
     PROJECT_AUTHORING_MANIFEST_FILE, ProjectAuthoringError, load_project_authoring_v2,
     load_project_authoring_v2_with_project_id,

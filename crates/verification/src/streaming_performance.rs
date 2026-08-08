@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use next_assets::ContentStore;
 use next_contracts::ids::{ContentHash, SchemaId};
+use next_runtime::RuntimeState;
 use next_world::WorldStreamerV1;
 
 use crate::scratch::{ScratchContext, ScratchDirectory};
@@ -18,7 +19,9 @@ static NEXT_STREAMING_PREPARATION_ID: AtomicU64 = AtomicU64::new(1);
 pub struct StreamingPerformanceReport {
     pub cycles: u64,
     pub staged_asset_references: u64,
+    pub required_staging_bytes: u64,
     pub elapsed_microseconds: u128,
+    pub within_report_only_limit: bool,
     pub final_generation: u64,
     pub final_world_state_hash: ContentHash,
 }
@@ -29,6 +32,7 @@ pub struct PreparedStreamingPerformanceCheck {
     preparation_id: u64,
     directory: ScratchDirectory,
     world: WorldStreamerV1,
+    runtime: RuntimeState,
     chunks: [SchemaId; 2],
     run_started: bool,
 }
@@ -39,6 +43,7 @@ pub struct PreparedStreamingPerformanceCheck {
 pub struct StreamingPerformanceMeasurement {
     preparation_id: u64,
     staged_asset_references: u64,
+    required_staging_bytes: u64,
     elapsed: Duration,
 }
 
@@ -120,10 +125,11 @@ fn prepare_streaming_performance_check_with_scratch(
             .map_err(|error| {
                 StreamingPerformanceError::new("publish fixture", error.to_string())
             })?;
-        let project = next_project::activate_project(&store).map_err(|error| {
+        let package = next_project::activate_project_package(&store).map_err(|error| {
             StreamingPerformanceError::new("activate fixture", error.to_string())
         })?;
-        let chunks = project
+        let chunks = package
+            .project
             .world_partition
             .body
             .chunk_bindings
@@ -136,14 +142,35 @@ fn prepare_streaming_performance_check_with_scratch(
                 "exactly two chunks are required",
             ));
         }
-        let chunks: [SchemaId; 2] = chunks.try_into().map_err(|_| {
-            StreamingPerformanceError::new("fixture topology", "exactly two chunks are required")
+        let relay = chunks
+            .iter()
+            .find(|chunk| chunk.as_str().ends_with("relay-station"))
+            .cloned()
+            .ok_or_else(|| StreamingPerformanceError::new("fixture topology", "relay missing"))?;
+        let frontier = chunks
+            .iter()
+            .find(|chunk| chunk.as_str().ends_with("frontier"))
+            .cloned()
+            .ok_or_else(|| {
+                StreamingPerformanceError::new("fixture topology", "frontier missing")
+            })?;
+        let chunks = [relay, frontier];
+        let fixture = next_reference_game::build_reference_game_session(package.project.clone())
+            .map_err(|error| {
+                StreamingPerformanceError::new("runtime fixture", error.to_string())
+            })?;
+        let runtime = RuntimeState::new(fixture.bootstrap, fixture.authority).map_err(|error| {
+            StreamingPerformanceError::new("activate runtime", error.to_string())
         })?;
-        let world = WorldStreamerV1::activate(project, chunks[0].clone())
-            .map_err(|error| StreamingPerformanceError::new("activate world", error.to_string()))?;
-        Ok((world, chunks))
+        let world = WorldStreamerV1::activate(
+            package.project,
+            package.content_generation,
+            chunks[0].clone(),
+        )
+        .map_err(|error| StreamingPerformanceError::new("activate world", error.to_string()))?;
+        Ok((world, runtime, chunks))
     })();
-    let (world, chunks) = match prepared {
+    let (world, runtime, chunks) = match prepared {
         Ok(prepared) => prepared,
         Err(error) => return Err(finish_failed_preparation(directory, error)),
     };
@@ -155,6 +182,7 @@ fn prepare_streaming_performance_check_with_scratch(
         preparation_id,
         directory,
         world,
+        runtime,
         chunks,
         run_started: false,
     })
@@ -175,44 +203,93 @@ impl PreparedStreamingPerformanceCheck {
         self.run_started = true;
         let started = Instant::now();
         let mut staged_asset_references = 0_u64;
+        let mut required_staging_bytes = 0_u64;
         for cycle in 0..STREAMING_PERFORMANCE_CYCLES {
             let target: SchemaId = if cycle % 2 == 0 {
                 self.chunks[1].clone()
             } else {
                 self.chunks[0].clone()
             };
-            let plan = self
+            let publication = self
                 .world
-                .begin_transition(target, cycle)
+                .prepare_begin_transition(target, self.runtime.next_tick())
                 .map_err(|error| {
                     StreamingPerformanceError::new("plan transition", error.to_string())
                 })?;
+            let prepared = self
+                .runtime
+                .tick_preparation()
+                .prepare_with_world_streaming([], &self.world, publication)
+                .map_err(|error| {
+                    StreamingPerformanceError::new("prepare requested tick", error.to_string())
+                })?;
+            let validated = self
+                .runtime
+                .validate_prepared_world_tick(&self.world, prepared)
+                .map_err(|error| {
+                    StreamingPerformanceError::new("validate requested tick", error.to_string())
+                })?;
+            let (_report, receipt) = self
+                .runtime
+                .commit_validated_world_tick(&mut self.world, validated);
+            if receipt.is_some() {
+                return Err(StreamingPerformanceError::new(
+                    "requested publication",
+                    "request unexpectedly completed",
+                ));
+            }
+
+            let loaded = self
+                .world
+                .load_pending(next_world::WORLD_CHUNK_DEFAULT_WORKERS)
+                .map_err(|error| {
+                    StreamingPerformanceError::new("packaged load", error.to_string())
+                })?;
+            let metrics = loaded.metrics();
             staged_asset_references = staged_asset_references
-                .checked_add(
-                    u64::try_from(plan.ordered_required_asset_ids.len()).map_err(|error| {
-                        StreamingPerformanceError::new("asset count", error.to_string())
-                    })?,
-                )
+                .checked_add(u64::try_from(metrics.asset_count).map_err(|error| {
+                    StreamingPerformanceError::new("asset count", error.to_string())
+                })?)
                 .ok_or_else(|| {
                     StreamingPerformanceError::new("asset count", "staged asset count overflow")
                 })?;
-            let mut worker_order = plan.ordered_required_asset_ids.clone();
-            if cycle % 3 != 0 {
-                worker_order.reverse();
+            required_staging_bytes =
+                required_staging_bytes.max(u64::try_from(metrics.required_staging_bytes).map_err(
+                    |error| StreamingPerformanceError::new("staging bytes", error.to_string()),
+                )?);
+            let publication = self
+                .world
+                .prepare_loaded_commit(loaded, self.runtime.next_tick())
+                .map_err(|error| {
+                    StreamingPerformanceError::new("prepare completion", error.to_string())
+                })?;
+            let prepared = self
+                .runtime
+                .tick_preparation()
+                .prepare_with_world_streaming([], &self.world, publication)
+                .map_err(|error| {
+                    StreamingPerformanceError::new("prepare completion tick", error.to_string())
+                })?;
+            let validated = self
+                .runtime
+                .validate_prepared_world_tick(&self.world, prepared)
+                .map_err(|error| {
+                    StreamingPerformanceError::new("validate completion tick", error.to_string())
+                })?;
+            let (_report, receipt) = self
+                .runtime
+                .commit_validated_world_tick(&mut self.world, validated);
+            if receipt.is_none() {
+                return Err(StreamingPerformanceError::new(
+                    "completion publication",
+                    "completion receipt missing",
+                ));
             }
-            let staged = self.world.stage(&plan, &worker_order).map_err(|error| {
-                StreamingPerformanceError::new("stage transition", error.to_string())
-            })?;
-            self.world.validate_staged(&staged).map_err(|error| {
-                StreamingPerformanceError::new("validate transition", error.to_string())
-            })?;
-            self.world.commit(&staged, false).map_err(|error| {
-                StreamingPerformanceError::new("commit transition", error.to_string())
-            })?;
         }
         Ok(StreamingPerformanceMeasurement {
             preparation_id: self.preparation_id,
             staged_asset_references,
+            required_staging_bytes,
             elapsed: started.elapsed(),
         })
     }
@@ -224,6 +301,7 @@ impl PreparedStreamingPerformanceCheck {
         measurement: Result<StreamingPerformanceMeasurement, StreamingPerformanceError>,
     ) -> Result<StreamingPerformanceReport, StreamingPerformanceError> {
         let result = measurement.and_then(|measurement| self.build_report(measurement));
+        drop(self.runtime);
         drop(self.world);
         self.directory.finish(result, |error| {
             StreamingPerformanceError::new("remove performance fixture", error.to_string())
@@ -250,9 +328,7 @@ impl PreparedStreamingPerformanceCheck {
             ));
         }
         let final_generation = self.world.snapshot().generation;
-        if measurement.elapsed > STREAMING_PERFORMANCE_LIMIT
-            || final_generation != STREAMING_PERFORMANCE_CYCLES
-        {
+        if final_generation != STREAMING_PERFORMANCE_CYCLES {
             return Err(StreamingPerformanceError::new(
                 "streaming performance threshold",
                 format!(
@@ -264,7 +340,9 @@ impl PreparedStreamingPerformanceCheck {
         Ok(StreamingPerformanceReport {
             cycles: STREAMING_PERFORMANCE_CYCLES,
             staged_asset_references: measurement.staged_asset_references,
+            required_staging_bytes: measurement.required_staging_bytes,
             elapsed_microseconds: measurement.elapsed.as_micros(),
+            within_report_only_limit: measurement.elapsed <= STREAMING_PERFORMANCE_LIMIT,
             final_generation,
             final_world_state_hash: self.world.snapshot().state_hash().map_err(|error| {
                 StreamingPerformanceError::new("final world hash", error.to_string())

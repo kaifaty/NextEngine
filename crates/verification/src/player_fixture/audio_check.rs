@@ -23,7 +23,7 @@ use next_presentation::audio_mix::encode_canonical_wav;
 use next_reference_game::ReferenceGameDriverV1;
 
 use super::error::PlayCheckError;
-use crate::player_fixture::activate_fixture_project_with_scratch;
+use crate::player_fixture::prepare_fixture_project_package_with_scratch;
 use crate::scratch::ScratchContext;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -158,11 +158,18 @@ struct ScriptedAudioOutcomeV1 {
 fn run_scripted_audio_session(
     scratch: &ScratchContext,
 ) -> Result<ScriptedAudioOutcomeV1, PlayCheckError> {
-    let activated = activate_fixture_project_with_scratch(
+    let prepared = prepare_fixture_project_package_with_scratch(
         scratch,
         next_reference_game::REFERENCE_GAME_PROJECT_ID,
     )?;
-    let mut driver = ReferenceGameDriverV1::new(activated, true)?;
+    let result = run_scripted_audio_session_with_package(prepared.package.clone());
+    prepared.finish(result, scratch_error)
+}
+
+fn run_scripted_audio_session_with_package(
+    package: next_project::ActivatedProjectPackage,
+) -> Result<ScriptedAudioOutcomeV1, PlayCheckError> {
+    let mut driver = ReferenceGameDriverV1::new(package, true)?;
     let mut scenes = Vec::new();
     let mut pcm_samples = Vec::new();
     for frame_events in audio_script() {
