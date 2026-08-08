@@ -191,7 +191,10 @@ pub fn run_interactive_with_shared_timed_frame_source_audio_and_finalize(
     )
 }
 
-fn validate_snapshot_transition(
+/// Validates the immutable presentation hand-off consumed by the desktop
+/// adapter. Kept public so composition-level regression tests can exercise
+/// the exact worker-to-adapter boundary without starting a native window.
+pub fn validate_presentation_snapshot_transition(
     current: &PresentationSnapshotV2,
     next: &PresentationSnapshotV2,
 ) -> Result<(), DesktopAdapterError> {
@@ -199,12 +202,13 @@ fn validate_snapshot_transition(
     if next.project_composition_lock_hash != current.project_composition_lock_hash
         || next.content_manifest_hash != current.content_manifest_hash
         || next.presentation_profile_hash != current.presentation_profile_hash
-        || next.simulation_tick < current.simulation_tick
     {
         return Err(DesktopAdapterError::SnapshotTransitionInvalid);
     }
     if next.snapshot_epoch == current.snapshot_epoch {
-        if next.snapshot_sequence <= current.snapshot_sequence {
+        if next.snapshot_sequence <= current.snapshot_sequence
+            || next.simulation_tick < current.simulation_tick
+        {
             return Err(DesktopAdapterError::SnapshotTransitionInvalid);
         }
     } else if next.snapshot_sequence != 0 || next.camera_records().any(|camera| !camera.cut) {
@@ -226,7 +230,10 @@ fn apply_frame_source_result(
     audio: &mut DesktopAudioOutputV1,
 ) -> Result<(), DesktopAdapterError> {
     if let Some(next_snapshot) = frame_source(events, elapsed, audio)? {
-        validate_snapshot_transition(current_snapshot.borrow().as_ref(), next_snapshot.as_ref())?;
+        validate_presentation_snapshot_transition(
+            current_snapshot.borrow().as_ref(),
+            next_snapshot.as_ref(),
+        )?;
         *current_snapshot.borrow_mut() = next_snapshot;
     }
     Ok(())

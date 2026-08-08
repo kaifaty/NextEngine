@@ -1,8 +1,8 @@
 //! Device-owned resources and per-frame orchestration for the optional
 //! semantic UI overlay (ADR-044 minimal widget adapter).
 //!
-//! `UiOverlayGpu` is fully self-contained: its own pipeline variant on the
-//! shared checked-in B0 shader interface, its own descriptor layouts, pool,
+//! `UiOverlayGpu` is fully self-contained: its own checked-in position/UV
+//! shader suite and pipeline, its own descriptor layouts, pool,
 //! sampler, identity frame uniform and a fixed NDC fullscreen quad. The CPU
 //! raster produced by `next_presentation::rasterize_semantic_ui` is uploaded
 //! as one RGBA8 texture sampled with straight-alpha blending after the B0
@@ -23,10 +23,10 @@ use super::resources::{BufferAllocation, TextureResource};
 
 const UI_OVERLAY_VERTEX_COUNT: u32 = 6;
 const UI_OVERLAY_VERTEX_BUFFER_BYTES: usize = 120;
-const UI_OVERLAY_FRAME_UNIFORM_SIZE: vk::DeviceSize = 64;
+const UI_OVERLAY_FRAME_UNIFORM_SIZE: vk::DeviceSize = 208;
 
-/// NDC fullscreen triangle pair (position xyz + uv), bit-identical to the
-/// fixed B0 vertex interface. With a positive-height viewport NDC y=-1 is the
+/// NDC fullscreen triangle pair (position xyz + uv) for the private UI shader
+/// interface. With a positive-height viewport NDC y=-1 is the
 /// top framebuffer row, and texel row 0 of the CPU raster is the top row, so
 /// `(-1,-1) -> uv (0,0)` keeps panel margins visually at the top-left.
 const UI_OVERLAY_QUAD: [f32; 30] = [

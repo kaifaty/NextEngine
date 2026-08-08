@@ -11,10 +11,18 @@ const B0_FRONT_FACE: vk::FrontFace = vk::FrontFace::COUNTER_CLOCKWISE;
 const B0_DEPTH_COMPARE_OP: vk::CompareOp = vk::CompareOp::LESS_OR_EQUAL;
 const UNORM16_MAX: u64 = u16::MAX as u64;
 const MICROMETRES_PER_METRE: f64 = 1_000_000.0;
+const UI_VERTEX_STRIDE: u32 = 20;
 
-/// Fixed raster state for one pipeline built on the shared B0 shader
-/// interface. The overlay variant reuses the checked-in SPIR-V modules and
-/// only reconfigures blend, depth and culling (ADR-003 owns this boundary).
+#[derive(Clone, Copy)]
+enum ShaderSuite {
+    World,
+    WorldNoShadow,
+    Ui,
+    Sky,
+}
+
+/// Fixed raster state for one checked-in shader suite. World, sky and UI use
+/// separate modules while sharing only this private Vulkan construction code.
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub(super) struct RasterFixedStateV1 {
     pub(super) blend_enable: bool,
@@ -67,6 +75,12 @@ pub(super) struct PipelineState {
     pub(super) layout: vk::PipelineLayout,
 }
 
+#[derive(Clone, Copy)]
+struct PipelineFormats {
+    color: vk::Format,
+    depth: vk::Format,
+}
+
 impl PipelineState {
     pub(super) fn new(
         device: &ash::Device,
@@ -74,19 +88,29 @@ impl PipelineState {
         depth_format: vk::Format,
         frame_layout: vk::DescriptorSetLayout,
         texture_layout: vk::DescriptorSetLayout,
+        shadow_layout: vk::DescriptorSetLayout,
+        shadow_enabled: bool,
     ) -> Result<Self, B0GpuContentError> {
         Self::new_with_fixed_state(
             device,
-            color_format,
-            depth_format,
+            PipelineFormats {
+                color: color_format,
+                depth: depth_format,
+            },
             frame_layout,
             texture_layout,
+            Some(shadow_layout),
             B0_RASTER_FIXED_STATE,
+            if shadow_enabled {
+                ShaderSuite::World
+            } else {
+                ShaderSuite::WorldNoShadow
+            },
         )
     }
 
-    /// Builds the semantic UI overlay variant: same shader interface and push
-    /// constants, straight-alpha blending, no depth testing, no culling.
+    /// Builds the semantic UI overlay suite with straight-alpha blending, no
+    /// depth testing and no culling.
     pub(super) fn new_ui_overlay(
         device: &ash::Device,
         color_format: vk::Format,
@@ -96,24 +120,71 @@ impl PipelineState {
     ) -> Result<Self, B0GpuContentError> {
         Self::new_with_fixed_state(
             device,
-            color_format,
-            depth_format,
+            PipelineFormats {
+                color: color_format,
+                depth: depth_format,
+            },
             frame_layout,
             texture_layout,
+            None,
             UI_OVERLAY_RASTER_FIXED_STATE,
+            ShaderSuite::Ui,
         )
+    }
+
+    pub(super) fn new_sky(
+        device: &ash::Device,
+        color_format: vk::Format,
+        depth_format: vk::Format,
+    ) -> Result<Self, B0GpuContentError> {
+        let layout_info = vk::PipelineLayoutCreateInfo::default();
+        // SAFETY: the sky shaders have no descriptors or push constants.
+        let layout = unsafe { device.create_pipeline_layout(&layout_info, None) }?;
+        let fixed = RasterFixedStateV1 {
+            blend_enable: false,
+            depth_test_enable: false,
+            depth_write_enable: false,
+            cull_mode: vk::CullModeFlags::NONE,
+        };
+        match create_graphics_pipeline(
+            device,
+            color_format,
+            depth_format,
+            layout,
+            fixed,
+            ShaderSuite::Sky,
+        ) {
+            Ok(pipeline) => Ok(Self {
+                device: device.clone(),
+                pipeline,
+                layout,
+            }),
+            Err(error) => {
+                // SAFETY: failed creation leaves no pipeline depending on it.
+                unsafe { device.destroy_pipeline_layout(layout, None) };
+                Err(error)
+            }
+        }
     }
 
     fn new_with_fixed_state(
         device: &ash::Device,
-        color_format: vk::Format,
-        depth_format: vk::Format,
+        formats: PipelineFormats,
         frame_layout: vk::DescriptorSetLayout,
         texture_layout: vk::DescriptorSetLayout,
+        shadow_layout: Option<vk::DescriptorSetLayout>,
         fixed: RasterFixedStateV1,
+        shader_suite: ShaderSuite,
     ) -> Result<Self, B0GpuContentError> {
-        let layout = create_pipeline_layout(device, frame_layout, texture_layout)?;
-        let result = create_graphics_pipeline(device, color_format, depth_format, layout, fixed);
+        let layout = create_pipeline_layout(device, frame_layout, texture_layout, shadow_layout)?;
+        let result = create_graphics_pipeline(
+            device,
+            formats.color,
+            formats.depth,
+            layout,
+            fixed,
+            shader_suite,
+        );
         match result {
             Ok(pipeline) => Ok(Self {
                 device: device.clone(),
@@ -134,8 +205,12 @@ fn create_pipeline_layout(
     device: &ash::Device,
     frame_layout: vk::DescriptorSetLayout,
     texture_layout: vk::DescriptorSetLayout,
+    shadow_layout: Option<vk::DescriptorSetLayout>,
 ) -> Result<vk::PipelineLayout, B0GpuContentError> {
-    let set_layouts = [frame_layout, texture_layout];
+    let mut set_layouts = vec![frame_layout, texture_layout];
+    if let Some(shadow_layout) = shadow_layout {
+        set_layouts.push(shadow_layout);
+    }
     let push_constant_ranges = [vk::PushConstantRange {
         stage_flags: vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
         offset: 0,
@@ -166,9 +241,15 @@ fn create_graphics_pipeline(
     depth_format: vk::Format,
     layout: vk::PipelineLayout,
     fixed: RasterFixedStateV1,
+    shader_suite: ShaderSuite,
 ) -> Result<vk::Pipeline, B0GpuContentError> {
-    let modules =
-        crate::shader_assets::b0_shader_modules().map_err(B0GpuContentError::ShaderAsset)?;
+    let modules = match shader_suite {
+        ShaderSuite::World => crate::shader_assets::b0_shader_modules(),
+        ShaderSuite::WorldNoShadow => crate::shader_assets::b0_no_shadow_shader_modules(),
+        ShaderSuite::Ui => crate::shader_assets::ui_shader_modules(),
+        ShaderSuite::Sky => crate::shader_assets::sky_shader_modules(),
+    }
+    .map_err(B0GpuContentError::ShaderAsset)?;
     let vertex_info = vk::ShaderModuleCreateInfo::default().code(&modules.vertex);
     let fragment_info = vk::ShaderModuleCreateInfo::default().code(&modules.fragment);
     // SAFETY: decoded SPIR-V words remain live for the call and have validated
@@ -196,12 +277,23 @@ fn create_graphics_pipeline(
                 .module(fragment_module)
                 .name(entry_point),
         ];
-        let bindings = [vk::VertexInputBindingDescription {
+        let world_binding = [vk::VertexInputBindingDescription {
             binding: 0,
-            stride: VERTEX_STRIDE,
+            stride: match shader_suite {
+                ShaderSuite::World | ShaderSuite::WorldNoShadow => VERTEX_STRIDE,
+                ShaderSuite::Ui => UI_VERTEX_STRIDE,
+                ShaderSuite::Sky => 0,
+            },
             input_rate: vk::VertexInputRate::VERTEX,
         }];
-        let attributes = [
+        let empty_bindings: [vk::VertexInputBindingDescription; 0] = [];
+        let bindings = match shader_suite {
+            ShaderSuite::World | ShaderSuite::WorldNoShadow | ShaderSuite::Ui => {
+                world_binding.as_slice()
+            }
+            ShaderSuite::Sky => empty_bindings.as_slice(),
+        };
+        let world_attributes = [
             vk::VertexInputAttributeDescription {
                 location: 0,
                 binding: 0,
@@ -214,10 +306,23 @@ fn create_graphics_pipeline(
                 format: vk::Format::R32G32_SFLOAT,
                 offset: 12,
             },
+            vk::VertexInputAttributeDescription {
+                location: 2,
+                binding: 0,
+                format: vk::Format::R16G16B16A16_SNORM,
+                offset: 20,
+            },
         ];
+        let ui_attributes = [world_attributes[0], world_attributes[1]];
+        let empty_attributes: [vk::VertexInputAttributeDescription; 0] = [];
+        let attributes = match shader_suite {
+            ShaderSuite::World | ShaderSuite::WorldNoShadow => world_attributes.as_slice(),
+            ShaderSuite::Ui => ui_attributes.as_slice(),
+            ShaderSuite::Sky => empty_attributes.as_slice(),
+        };
         let vertex_input = vk::PipelineVertexInputStateCreateInfo::default()
-            .vertex_binding_descriptions(&bindings)
-            .vertex_attribute_descriptions(&attributes);
+            .vertex_binding_descriptions(bindings)
+            .vertex_attribute_descriptions(attributes);
         let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::default()
             .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
             .primitive_restart_enable(false);
@@ -294,9 +399,15 @@ fn create_graphics_pipeline(
 }
 
 pub(super) fn identity_matrix_bytes() -> [u8; FRAME_UNIFORM_SIZE as usize] {
-    matrix_bytes([
-        1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-    ])
+    frame_uniform_bytes(
+        [
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+        ],
+        [
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+        ],
+        [0.0, 0.0, 0.0],
+    )
 }
 
 pub(super) fn frame_raster_state(
@@ -312,8 +423,12 @@ pub(super) fn frame_raster_state(
             validate_camera_frame(camera)?;
             let (viewport, scissor) = camera_raster_region(camera.viewport, target_extent)?;
             let matrix = camera_view_projection_matrix(camera, viewport)?;
+            let camera_position = micrometres_to_metres_f32(
+                camera.current_result_sample.pose.translation_micrometres,
+            )?;
+            let shadow_matrix = shadow_view_projection_matrix(camera_position)?;
             Ok(FrameRasterState {
-                view_projection_bytes: matrix_bytes(matrix),
+                view_projection_bytes: frame_uniform_bytes(matrix, shadow_matrix, camera_position),
                 viewport,
                 scissor,
             })
@@ -357,7 +472,11 @@ fn fallback_raster_state(
         1.0,
     ])?;
     Ok(FrameRasterState {
-        view_projection_bytes: matrix_bytes(fallback),
+        view_projection_bytes: frame_uniform_bytes(
+            fallback,
+            shadow_view_projection_matrix([0.0, 0.0, 0.0])?,
+            [0.0, 0.0, 0.0],
+        ),
         viewport,
         scissor,
     })
@@ -628,12 +747,125 @@ const fn invalid_frame_plan(reason: &'static str) -> B0GpuContentError {
     B0GpuContentError::InvalidFramePlan(reason)
 }
 
-fn matrix_bytes(matrix: [f32; 16]) -> [u8; FRAME_UNIFORM_SIZE as usize] {
+fn frame_uniform_bytes(
+    matrix: [f32; 16],
+    shadow_matrix: [f32; 16],
+    camera_position: [f32; 3],
+) -> [u8; FRAME_UNIFORM_SIZE as usize] {
     let mut bytes = [0_u8; FRAME_UNIFORM_SIZE as usize];
-    for (destination, value) in bytes.chunks_exact_mut(4).zip(matrix) {
-        destination.copy_from_slice(&value.to_le_bytes());
-    }
+    write_f32_values(&mut bytes[..64], matrix);
+    write_f32_values(&mut bytes[64..128], shadow_matrix);
+    write_f32_values(
+        &mut bytes[128..144],
+        [
+            camera_position[0],
+            camera_position[1],
+            camera_position[2],
+            1.0,
+        ],
+    );
+    write_f32_values(&mut bytes[144..160], [-0.45, -0.82, -0.35, 0.95]);
+    write_f32_values(&mut bytes[160..176], [0.48, 0.62, 0.78, 0.0]);
+    write_f32_values(&mut bytes[176..192], [0.18, 0.20, 0.22, 0.0]);
+    write_f32_values(&mut bytes[192..208], [0.20, 0.29, 0.40, 0.035]);
     bytes
+}
+
+/// Fixed 32x32 metre orthographic light volume centred near the active
+/// camera. The projected centre is snapped to one 2048² texel so small camera
+/// motion does not shimmer the outdoor shadow footprint.
+fn shadow_view_projection_matrix(
+    camera_position: [f32; 3],
+) -> Result<[f32; 16], B0GpuContentError> {
+    const EXTENT_METRES: f64 = 32.0;
+    const SHADOW_RESOLUTION: f64 = 2_048.0;
+    const EYE_DISTANCE: f64 = 24.0;
+    const NEAR: f64 = 4.0;
+    const FAR: f64 = 48.0;
+
+    let centre = [
+        f64::from(camera_position[0]),
+        0.0,
+        f64::from(camera_position[2]),
+    ];
+    let forward = normalize3([-0.45, -0.82, -0.35])
+        .ok_or_else(|| invalid_frame_plan("shadow sun direction is invalid"))?;
+    let side = normalize3(cross3(forward, [0.0, 1.0, 0.0]))
+        .ok_or_else(|| invalid_frame_plan("shadow light basis is invalid"))?;
+    let up = cross3(side, forward);
+    let texel = EXTENT_METRES / SHADOW_RESOLUTION;
+    let projected_x = dot3(side, centre);
+    let projected_y = dot3(up, centre);
+    let snapped_x = (projected_x / texel).round() * texel;
+    let snapped_y = (projected_y / texel).round() * texel;
+    let snapped_centre = [
+        centre[0] + side[0] * (snapped_x - projected_x) + up[0] * (snapped_y - projected_y),
+        centre[1] + side[1] * (snapped_x - projected_x) + up[1] * (snapped_y - projected_y),
+        centre[2] + side[2] * (snapped_x - projected_x) + up[2] * (snapped_y - projected_y),
+    ];
+    let eye = [
+        snapped_centre[0] - forward[0] * EYE_DISTANCE,
+        snapped_centre[1] - forward[1] * EYE_DISTANCE,
+        snapped_centre[2] - forward[2] * EYE_DISTANCE,
+    ];
+    let view = [
+        side[0],
+        up[0],
+        -forward[0],
+        0.0,
+        side[1],
+        up[1],
+        -forward[1],
+        0.0,
+        side[2],
+        up[2],
+        -forward[2],
+        0.0,
+        -snapped_x,
+        -snapped_y,
+        dot3(forward, eye),
+        1.0,
+    ];
+    let inverse_half_extent = 2.0 / EXTENT_METRES;
+    let projection = [
+        inverse_half_extent,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -inverse_half_extent,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0 / (NEAR - FAR),
+        0.0,
+        0.0,
+        0.0,
+        NEAR / (NEAR - FAR),
+        1.0,
+    ];
+    f64_matrix_to_f32(multiply_column_major_4x4(projection, view))
+}
+
+fn write_f32_values<const N: usize>(destination: &mut [u8], values: [f32; N]) {
+    debug_assert_eq!(destination.len(), N * 4);
+    for (word, value) in destination.chunks_exact_mut(4).zip(values) {
+        word.copy_from_slice(&value.to_le_bytes());
+    }
+}
+
+fn micrometres_to_metres_f32(values: [i64; 3]) -> Result<[f32; 3], B0GpuContentError> {
+    let metres = micrometres_to_metres(values);
+    let mut converted = [0.0_f32; 3];
+    for (target, value) in converted.iter_mut().zip(metres) {
+        let value = value as f32;
+        if !value.is_finite() {
+            return Err(invalid_frame_plan("camera position is not finite"));
+        }
+        *target = value;
+    }
+    Ok(converted)
 }
 
 pub(super) fn draw_push_constant_bytes(
@@ -693,267 +925,4 @@ fn model_matrix(transform: QuantizedPresentationTransformV1) -> [f32; 16] {
 }
 
 #[cfg(test)]
-mod tests {
-    use next_contracts::ids::{AssetId, ContentHash, PersistentId};
-    use next_contracts::presentation::CameraInterpolationPolicyV1;
-    use next_contracts::project::AssetRevisionRefV1;
-
-    use super::*;
-
-    #[test]
-    fn default_quantized_transform_encodes_identity_model() {
-        assert_eq!(
-            model_matrix(QuantizedPresentationTransformV1::default()),
-            [
-                1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-            ]
-        );
-    }
-
-    #[test]
-    fn material_factor_uses_the_full_unorm16_range() {
-        let bytes = draw_push_constant_bytes(
-            QuantizedPresentationTransformV1::default(),
-            [0, u16::MAX, 0, u16::MAX],
-        );
-        assert_eq!(&bytes[64..68], &0.0_f32.to_le_bytes());
-        assert_eq!(&bytes[68..72], &1.0_f32.to_le_bytes());
-        assert_eq!(&bytes[72..76], &0.0_f32.to_le_bytes());
-        assert_eq!(&bytes[76..80], &1.0_f32.to_le_bytes());
-    }
-
-    #[test]
-    fn vulkan_y_projection_and_positive_viewport_preserve_ccw_front_faces() {
-        assert!(B0_FRONT_FACE == vk::FrontFace::COUNTER_CLOCKWISE);
-    }
-
-    #[test]
-    fn b0_depth_uses_conventional_zero_to_one_less_or_equal_testing() {
-        let state = b0_depth_stencil_state();
-        assert!(state.depth_test_enable == vk::TRUE);
-        assert!(state.depth_write_enable == vk::TRUE);
-        assert!(state.depth_compare_op == vk::CompareOp::LESS_OR_EQUAL);
-        assert!(state.depth_bounds_test_enable == vk::FALSE);
-        assert!(state.stencil_test_enable == vk::FALSE);
-    }
-
-    #[test]
-    fn typed_camera_builds_vulkan_rh_zo_view_projection() {
-        let camera = camera_frame(CameraViewportV1::full(0), [0, 0, 3_000_000], [0, 0, 0]);
-        let state = frame_raster_state(
-            Some(&camera),
-            vk::Extent2D {
-                width: 800,
-                height: 800,
-            },
-        )
-        .expect("camera raster state");
-        let matrix = matrix_from_bytes(state.view_projection_bytes);
-
-        let near = transform_homogeneous(matrix, [0.0, 0.0, 2.0, 1.0]);
-        let far = transform_homogeneous(matrix, [0.0, 0.0, -7.0, 1.0]);
-        let focus = transform_homogeneous(matrix, [0.0, 0.0, 0.0, 1.0]);
-        let above_focus = transform_homogeneous(matrix, [0.0, 1.0, 0.0, 1.0]);
-
-        assert_approx(near[2] / near[3], 0.0);
-        assert_approx(far[2] / far[3], 1.0);
-        assert_approx(focus[0] / focus[3], 0.0);
-        assert_approx(focus[1] / focus[3], 0.0);
-        assert!(
-            above_focus[1] / above_focus[3] < 0.0,
-            "projection Y must place world up toward Vulkan's top-left framebuffer origin"
-        );
-    }
-
-    #[test]
-    fn typed_viewport_controls_dynamic_viewport_and_scissor() {
-        let camera = camera_frame(
-            CameraViewportV1::new(7, [2_570, 1_275], [25_700, 12_750]).expect("typed viewport"),
-            [0, 0, 3_000_000],
-            [0, 0, 0],
-        );
-        let state = frame_raster_state(
-            Some(&camera),
-            vk::Extent2D {
-                width: 255,
-                height: 257,
-            },
-        )
-        .expect("camera raster state");
-
-        assert_approx(state.viewport.x, 10.0);
-        assert_approx(state.viewport.y, 5.0);
-        assert_approx(state.viewport.width, 100.0);
-        assert_approx(state.viewport.height, 50.0);
-        assert!(state.scissor.offset == vk::Offset2D { x: 10, y: 5 });
-        assert!(
-            state.scissor.extent
-                == vk::Extent2D {
-                    width: 100,
-                    height: 50
-                }
-        );
-    }
-
-    #[test]
-    fn absent_camera_uses_deterministic_full_target_fallback() {
-        let extent = vk::Extent2D {
-            width: 960,
-            height: 540,
-        };
-        let first = frame_raster_state(None, extent).expect("fallback");
-        let second = frame_raster_state(None, extent).expect("fallback");
-        let matrix = matrix_from_bytes(first.view_projection_bytes);
-
-        assert_eq!(first.view_projection_bytes, second.view_projection_bytes);
-        assert_approx(first.viewport.x, 0.0);
-        assert_approx(first.viewport.y, 0.0);
-        assert_approx(first.viewport.width, 960.0);
-        assert_approx(first.viewport.height, 540.0);
-        assert!(first.scissor.offset == vk::Offset2D { x: 0, y: 0 });
-        assert!(first.scissor.extent == extent);
-        assert!(matrix[5] < 0.0, "fallback must use the same Vulkan Y flip");
-    }
-
-    #[test]
-    fn coincident_camera_eye_and_focus_fail_closed() {
-        let camera = camera_frame(
-            CameraViewportV1::full(0),
-            [0, 1_000_000, 0],
-            [0, 1_000_000, 0],
-        );
-        assert!(matches!(
-            frame_raster_state(
-                Some(&camera),
-                vk::Extent2D {
-                    width: 800,
-                    height: 600
-                }
-            ),
-            Err(B0GpuContentError::InvalidFramePlan(
-                "camera eye and focus do not define a view direction"
-            ))
-        ));
-    }
-
-    #[test]
-    fn camera_parallel_to_world_up_fails_closed() {
-        let camera = camera_frame(CameraViewportV1::full(0), [0, 0, 0], [0, 1_000_000, 0]);
-        assert!(matches!(
-            frame_raster_state(
-                Some(&camera),
-                vk::Extent2D {
-                    width: 800,
-                    height: 600
-                }
-            ),
-            Err(B0GpuContentError::InvalidFramePlan(
-                "camera view direction is parallel to world up"
-            ))
-        ));
-    }
-
-    #[test]
-    fn malformed_typed_camera_fields_fail_before_gpu_use() {
-        let mut camera = camera_frame(CameraViewportV1::full(0), [0, 0, 3_000_000], [0, 0, 0]);
-        camera.projection_profile.vertical_fov_millidegrees = 0;
-        assert!(matches!(
-            frame_raster_state(
-                Some(&camera),
-                vk::Extent2D {
-                    width: 800,
-                    height: 600
-                }
-            ),
-            Err(B0GpuContentError::InvalidFramePlan(
-                "camera projection profile is invalid"
-            ))
-        ));
-
-        camera.projection_profile.vertical_fov_millidegrees = 90_000;
-        camera.viewport = CameraViewportV1 {
-            viewport_id: 0,
-            origin_unorm16: [u16::MAX, 0],
-            extent_unorm16: [1, u16::MAX],
-        };
-        assert!(matches!(
-            frame_raster_state(
-                Some(&camera),
-                vk::Extent2D {
-                    width: 800,
-                    height: 600
-                }
-            ),
-            Err(B0GpuContentError::InvalidFramePlan(
-                "camera viewport is invalid"
-            ))
-        ));
-    }
-
-    #[test]
-    fn non_finite_matrix_component_fails_closed() {
-        let mut matrix = [0.0; 16];
-        matrix[0] = f64::INFINITY;
-        assert!(matches!(
-            f64_matrix_to_f32(matrix),
-            Err(B0GpuContentError::InvalidFramePlan(
-                "camera matrix contains a non-finite component"
-            ))
-        ));
-    }
-
-    fn camera_frame(
-        viewport: CameraViewportV1,
-        eye_micrometres: [i64; 3],
-        focus_micrometres: [i64; 3],
-    ) -> B0CameraFrameV1 {
-        let result = CameraResultSampleV1 {
-            pose: QuantizedPresentationTransformV1 {
-                translation_micrometres: eye_micrometres,
-                ..QuantizedPresentationTransformV1::default()
-            },
-            focus_point_micrometres: focus_micrometres,
-        };
-        B0CameraFrameV1 {
-            camera_record_hash: ContentHash::from_bytes([1; 32]),
-            camera_id: PersistentId::from_bytes([2; 16]),
-            camera_role: CameraRoleV1::PrimaryThirdPerson,
-            viewport,
-            projection_profile: CameraProjectionProfileV1::new(90_000, 1_000_000, 10_000_000)
-                .expect("projection"),
-            exposure_profile_revision: AssetRevisionRefV1 {
-                asset_id: AssetId::from_bytes([3; 16]),
-                record_sha256: ContentHash::from_bytes([4; 32]),
-            },
-            previous_result_sample: result,
-            current_result_sample: result,
-            cut: false,
-            interpolation_policy: CameraInterpolationPolicyV1::LinearPose,
-        }
-    }
-
-    fn matrix_from_bytes(bytes: [u8; FRAME_UNIFORM_SIZE as usize]) -> [f32; 16] {
-        let mut matrix = [0.0; 16];
-        for (destination, source) in matrix.iter_mut().zip(bytes.chunks_exact(4)) {
-            *destination = f32::from_le_bytes(source.try_into().expect("one matrix component"));
-        }
-        matrix
-    }
-
-    fn transform_homogeneous(matrix: [f32; 16], value: [f32; 4]) -> [f32; 4] {
-        let mut transformed = [0.0; 4];
-        for row in 0..4 {
-            transformed[row] = (0..4)
-                .map(|column| matrix[column * 4 + row] * value[column])
-                .sum();
-        }
-        transformed
-    }
-
-    fn assert_approx(actual: f32, expected: f32) {
-        assert!(
-            (actual - expected).abs() <= 1.0e-5,
-            "expected {expected}, got {actual}"
-        );
-    }
-}
+mod tests;

@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use crate::ApplicationError;
 
+use super::recovery::{save_compatibility, save_identity};
 use super::{ApplicationCoordinator, ApplicationRunOutcomeV1};
 
 mod live_recovery;
@@ -287,6 +288,45 @@ impl ApplicationCoordinator {
         .summary)
     }
 
+    /// Loads the latest compatible published save into the suspended live
+    /// session. The complete candidate driver and recovery closure are
+    /// validated before one atomic session observation publication replaces
+    /// the active world; failures retain the pre-load world byte-for-byte.
+    pub fn load_latest_save_into_live_run(
+        &mut self,
+    ) -> Result<ApplicationRunOutcomeV1, ApplicationError> {
+        if self.machine.state().state != ApplicationSessionStatusV1::Suspended {
+            return Err(ApplicationError::CloseStateInvalid);
+        }
+        let current_checkpoint = &self
+            .prepared_run
+            .as_ref()
+            .ok_or(ApplicationError::NoRunOutcome)?
+            .checkpoint;
+        let compatibility = save_compatibility(&self.activated_project, current_checkpoint)?;
+        let loaded = self.save_store.load_latest(&compatibility)?;
+        let save_generation_hash = save_identity(&loaded.image.manifest)?.0;
+        let streaming = loaded
+            .world_streaming_snapshot
+            .ok_or(ApplicationError::RecoveryIncompatible)?;
+        let candidate = self
+            .live_run
+            .as_ref()
+            .ok_or(ApplicationError::NoLiveRun)?
+            .load_saved_world_candidate(loaded.checkpoint, streaming)?;
+        let prepared = prepare_live_state(
+            self.machine.state().session_id,
+            candidate.state()?,
+            self.launch.presentation_target,
+        )?;
+        if prepared.summary.authoritative_revision != loaded.image.manifest.world_revision {
+            return Err(ApplicationError::RecoveryIncompatible);
+        }
+        let summary = self.publish_loaded_save(prepared, save_generation_hash)?;
+        self.live_run = Some(candidate);
+        Ok(summary)
+    }
+
     pub(super) fn record_prepared_run(
         &mut self,
         prepared: &PreparedRunV1,
@@ -336,6 +376,31 @@ impl ApplicationCoordinator {
             let plan = self
                 .machine
                 .plan_state_publication(Some(prepared.summary.authoritative_revision), None)?;
+            self.publish_state_plan(plan)
+        })();
+        if let Err(error) = publication {
+            self.prepared_run_objects = prior_prepared_run_objects;
+            self.durable.live_run_recovery_manifest_hash = prior_recovery_manifest_hash;
+            return Err(error);
+        }
+        let summary = prepared.summary.clone();
+        self.prepared_run = Some(prepared);
+        Ok(summary)
+    }
+
+    fn publish_loaded_save(
+        &mut self,
+        prepared: PreparedRunV1,
+        save_generation_hash: ContentHash,
+    ) -> Result<ApplicationRunOutcomeV1, ApplicationError> {
+        let prior_prepared_run_objects = self.prepared_run_objects.clone();
+        let prior_recovery_manifest_hash = self.durable.live_run_recovery_manifest_hash;
+        self.record_prepared_run(&prepared)?;
+        let publication = (|| {
+            let plan = self.machine.plan_save_load_publication(
+                prepared.summary.authoritative_revision,
+                save_generation_hash,
+            )?;
             self.publish_state_plan(plan)
         })();
         if let Err(error) = publication {

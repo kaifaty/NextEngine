@@ -428,7 +428,7 @@ fn typed_schema_dispatch_and_legacy_record_encoding_remain_separate() {
 fn b0_shader_interface_hash_is_a_stable_neutral_golden_vector() {
     assert_eq!(
         b0_shader_interface_manifest_sha256().to_hex(),
-        "8091123413e9b20e6410d2f841d9db55113aa9069c4fe8cd491d36ecb2dd80c0"
+        "204ed27a6ed7535d094a8ad9d4dd6cc0ad8794f6664c6bf402154006f400c10c"
     );
 }
 

@@ -2,10 +2,7 @@ use std::sync::Arc;
 
 use next_contracts::command::EventPayload;
 use next_contracts::ids::{AssetId, ContentHash, PersistentId, SchemaId};
-use next_contracts::input::{
-    ActionMapManifestV1, CORE_INTERACT_ACTION_ID, InputContextStackV1, PlayerActionPhaseV1,
-    PlayerActionValueV1,
-};
+use next_contracts::input::{CORE_INTERACT_ACTION_ID, PlayerActionPhaseV1, PlayerActionValueV1};
 use next_contracts::physics::PhysicsCanonicalSnapshotV2;
 use next_contracts::platform::PlatformEventV1;
 use next_contracts::presentation::{
@@ -41,6 +38,7 @@ const CAMERA_FOCUS_HEIGHT_MICROMETRES: i64 = 700_000;
 const SEMANTIC_UI_RECORDS_PER_BATCH: usize = 64;
 
 mod audio_ops;
+mod load;
 mod state;
 
 pub use state::{ReferenceLiveDriverRecoveryV1, ReferenceLiveStateV1};
@@ -132,6 +130,7 @@ impl ReferenceGameGenerationV1 {
 
 struct PreparedReferenceGameState {
     input: PlayerInputSessionV1,
+    presentation_bindings: Vec<PresentationBindingV1>,
     presentation_extractor: PresentationExtractorV1,
     audio_mixer: AudioMixerV1,
     audio_scene: next_contracts::presentation::audio_scene::AudioSceneSnapshotV1,
@@ -147,9 +146,6 @@ struct PreparedReferenceGameState {
     ui_suspend_causal_hash: Option<ContentHash>,
     ui_screen: ReferenceUiScreenV1,
     dialogue: ReferenceDialogueUiV1,
-    /// Input configuration revision applied by this advance's `close_frame`;
-    /// activated on the runtime controller registry at the commit boundary.
-    pending_input_configuration: Option<(ActionMapManifestV1, InputContextStackV1)>,
 }
 
 /// An isolated next reference-game generation with a read-only presentation
@@ -269,7 +265,8 @@ impl ReferenceGameDriverV1 {
             fixture.action_map.clone(),
             fixture.context_stack.clone(),
         )?;
-        let presentation_bindings = fixture_presentation_bindings(&fixture)?;
+        let presentation_bindings =
+            fixture_presentation_bindings(&fixture, &runtime.rpg_snapshot())?;
         let presentation_extractor =
             PresentationExtractorV1::new_with_snapshot_epoch_and_ui_batch_limits(
                 snapshot_epoch,
@@ -362,7 +359,8 @@ impl ReferenceGameDriverV1 {
         {
             return Err(ReferenceGameError::RecoveryInvalid);
         }
-        let presentation_bindings = fixture_presentation_bindings(&fixture)?;
+        let presentation_bindings =
+            fixture_presentation_bindings(&fixture, &runtime.rpg_snapshot())?;
         let (presentation_extractor, persisted_snapshot) =
             PresentationExtractorV1::begin_authoritative_recovery_from_bytes(
                 &recovery.presentation_snapshot_bytes,
@@ -570,7 +568,15 @@ impl ReferenceGameDriverV1 {
         )? {
             runtime_preparation.enqueue_input_sample(&self.fixture.principal, sample)?;
         }
-        let prepared_runtime = runtime_preparation.prepare([])?;
+        let mut prepared_runtime = runtime_preparation.prepare([])?;
+        if let Some((action_map, context_stack)) = pending_input_configuration {
+            prepared_runtime = self.runtime.stage_player_input_configuration_activation(
+                prepared_runtime,
+                self.fixture.source_id,
+                action_map,
+                context_stack,
+            )?;
+        }
         let events = self
             .events
             .checked_add(
@@ -606,6 +612,8 @@ impl ReferenceGameDriverV1 {
             ui_suspend_causal_hash,
             self.current_audio_subtitle(prepared_runtime.next_tick()),
         )?;
+        let presentation_bindings =
+            fixture_presentation_bindings(&self.fixture, &prepared_runtime.rpg_snapshot())?;
         presentation_extractor.extract_with_cameras_and_semantic_ui(
             prepared_runtime.next_tick(),
             self.fixture
@@ -617,7 +625,7 @@ impl ReferenceGameDriverV1 {
                 .content_manifest
                 .content_manifest_sha256,
             prepared_runtime.physics_snapshot(),
-            &self.presentation_bindings,
+            &presentation_bindings,
             &[camera],
             ui_records,
         )?;
@@ -658,6 +666,7 @@ impl ReferenceGameDriverV1 {
             runtime: prepared_runtime,
             state: PreparedReferenceGameState {
                 input: input_session,
+                presentation_bindings,
                 presentation_extractor,
                 audio_mixer,
                 audio_scene,
@@ -673,7 +682,6 @@ impl ReferenceGameDriverV1 {
                 ui_suspend_causal_hash,
                 ui_screen,
                 dialogue,
-                pending_input_configuration,
             },
         })
     }
@@ -692,25 +700,18 @@ impl ReferenceGameDriverV1 {
         })
     }
 
-    /// Commits one validated advance. The input configuration revision the
-    /// committed `close_frame` applied is activated on the runtime controller
-    /// registry at this boundary: both ingress queues are empty here, so no
-    /// staged sample can be interpreted against the new revision, and the next
-    /// staged sample is mapped against the revision its frame is tagged with.
+    /// Commits one validated advance. Any input configuration revision applied
+    /// by `close_frame` is already part of the validated runtime generation, so
+    /// controller registry, authoritative tick and presentation state publish
+    /// together without a fallible operation after the first live mutation.
     pub fn commit_validated_advance(
         &mut self,
         validated: ValidatedReferenceGameAdvance,
     ) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
         self.runtime
             .commit_validated_tick_without_report(validated.runtime);
-        if let Some((action_map, context_stack)) = validated.state.pending_input_configuration {
-            self.runtime.activate_player_input_configuration(
-                self.fixture.source_id,
-                action_map,
-                context_stack,
-            )?;
-        }
         self.input = validated.state.input;
+        self.presentation_bindings = validated.state.presentation_bindings;
         self.presentation_extractor = validated.state.presentation_extractor;
         self.audio_mixer = validated.state.audio_mixer;
         self.audio_scene = validated.state.audio_scene;

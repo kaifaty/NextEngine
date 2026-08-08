@@ -29,8 +29,10 @@ pub(super) fn validate_package_root(package_root: &Path) -> Result<(), String> {
         match name.as_str() {
             "bin" | "project" if metadata.is_dir() => {}
             PACKAGE_MANIFEST_FILE
+            | "ACCEPTANCE.md"
             | "LICENSE"
             | "NOTICE"
+            | "REFERENCE_ALPHA_NOTICE"
             | "THIRD_PARTY_NOTICES.md"
             | "MIGRATION_PROVENANCE.md"
                 if metadata.is_file() => {}

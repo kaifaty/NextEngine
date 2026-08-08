@@ -15,6 +15,8 @@ pub struct ActivatedProjectV2 {
     pub neutral_records: Vec<crate::content::NeutralRecordV1>,
     pub text_catalogs: Vec<crate::localization::TextCatalogV1>,
     pub audio_clips: Vec<crate::audio::NeutralAudioV1>,
+    pub neutral_skeletons: Vec<crate::animation_content::NeutralSkeletonV1>,
+    pub neutral_animations: Vec<crate::animation_content::NeutralAnimationV1>,
     pub rpg_definitions: crate::mechanics::RpgDefinitionRegistryV1,
     pub render_content_catalog: RenderContentCatalogV1,
 }
@@ -120,6 +122,54 @@ impl ActivatedProjectV2 {
                 .any(|entry| {
                     entry.asset_revision.asset_id == clip.asset_id
                         && entry.asset_revision.record_sha256 == record_hash
+                })
+            {
+                return Err(ProjectContractError::HashMismatch);
+            }
+        }
+        if self
+            .neutral_skeletons
+            .windows(2)
+            .any(|pair| pair[0].asset_id >= pair[1].asset_id)
+            || self
+                .neutral_animations
+                .windows(2)
+                .any(|pair| pair[0].asset_id >= pair[1].asset_id)
+        {
+            return Err(ProjectContractError::DuplicateIdentity);
+        }
+        for skeleton in &self.neutral_skeletons {
+            let record_hash = skeleton
+                .record_sha256()
+                .map_err(|_| ProjectContractError::HashMismatch)?;
+            if !self
+                .content_manifest
+                .body
+                .asset_entries
+                .iter()
+                .any(|entry| {
+                    entry.asset_revision.asset_id == skeleton.asset_id
+                        && entry.asset_revision.record_sha256 == record_hash
+                })
+            {
+                return Err(ProjectContractError::HashMismatch);
+            }
+        }
+        for animation in &self.neutral_animations {
+            let record_hash = animation
+                .record_sha256()
+                .map_err(|_| ProjectContractError::HashMismatch)?;
+            if !self
+                .content_manifest
+                .body
+                .asset_entries
+                .iter()
+                .any(|entry| {
+                    entry.asset_revision.asset_id == animation.asset_id
+                        && entry.asset_revision.record_sha256 == record_hash
+                })
+                || !self.neutral_skeletons.iter().any(|skeleton| {
+                    skeleton.asset_revision().ok() == Some(animation.skeleton_revision)
                 })
             {
                 return Err(ProjectContractError::HashMismatch);

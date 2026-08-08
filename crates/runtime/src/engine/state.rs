@@ -1,10 +1,10 @@
-use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::canonical::{CanonicalDecodeLimits, sha256};
 use next_contracts::command::IssuerPrincipal;
 use next_contracts::identity::{
     CommandStreamRegistryV1, PrincipalRegistryV1, RuntimeDeterminismProfileV1,
     WorldIdentityManifestV1,
 };
-use next_contracts::ids::InputSourceId;
+use next_contracts::ids::{ContentHash, InputSourceId, content_hash_from_bytes};
 use next_contracts::input::{
     ActionMapManifestV1, ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1,
     IngressAssignmentProfileV1, IngressCheckpointV1, InputContextStackV1, InputContractError,
@@ -55,6 +55,7 @@ pub struct RuntimeState {
     pub(super) authoritative_numeric_profile: AuthoritativeNumericProfileV1,
     pub(super) physics_quantization_profile: PhysicsQuantizationProfileV1,
     pub(super) player_controller_registry: PlayerControllerRegistryV1,
+    pub(super) player_controller_registry_generation: ContentHash,
     pub(super) ingress_checkpoint: IngressCheckpointV1,
     pub(super) physics: PhysicsWorldHost,
     pub(super) last_closed_ingress_batch: Option<ClosedIngressBatchV1>,
@@ -142,6 +143,8 @@ impl RuntimeState {
             &bootstrap.principal_registry,
             &bootstrap.stream_registry,
         )?;
+        let player_controller_registry_generation =
+            player_controller_registry_generation_hash(&bootstrap.player_controller_registry)?;
         for (key, stream_id) in &bootstrap.stream_registry.entries {
             command_ledger.streams.insert(
                 *stream_id,
@@ -170,6 +173,7 @@ impl RuntimeState {
             authoritative_numeric_profile: bootstrap.authoritative_numeric_profile,
             physics_quantization_profile: bootstrap.physics_quantization_profile,
             player_controller_registry: bootstrap.player_controller_registry,
+            player_controller_registry_generation,
             ingress_checkpoint: IngressCheckpointV1 {
                 schema_version: 1,
                 current_tick: 0,
@@ -294,6 +298,8 @@ impl RuntimeState {
             snapshot.authoritative_numeric_profile.clone(),
             snapshot.physics_quantization_profile.clone(),
         )?;
+        let player_controller_registry_generation =
+            player_controller_registry_generation_hash(&snapshot.player_controller_registry)?;
         Ok(Self {
             registry,
             authority,
@@ -310,6 +316,7 @@ impl RuntimeState {
             authoritative_numeric_profile: snapshot.authoritative_numeric_profile,
             physics_quantization_profile: snapshot.physics_quantization_profile,
             player_controller_registry: snapshot.player_controller_registry,
+            player_controller_registry_generation,
             ingress_checkpoint: snapshot.ingress_checkpoint,
             physics,
             last_closed_ingress_batch: None,
@@ -485,7 +492,9 @@ impl RuntimeState {
         let mut candidate = self.player_controller_registry.clone();
         candidate.activate_input_configuration(source_id, action_map, context_stack)?;
         candidate.validate()?;
+        let candidate_generation = player_controller_registry_generation_hash(&candidate)?;
         self.player_controller_registry = candidate;
+        self.player_controller_registry_generation = candidate_generation;
         Ok(())
     }
 
@@ -525,6 +534,14 @@ impl RuntimeState {
             queue,
         )
     }
+}
+
+pub(super) fn player_controller_registry_generation_hash(
+    registry: &PlayerControllerRegistryV1,
+) -> Result<ContentHash, InputContractError> {
+    Ok(content_hash_from_bytes(sha256(
+        &registry.canonical_bytes()?,
+    )))
 }
 
 #[derive(Clone, Copy)]

@@ -376,6 +376,17 @@ impl FixedStepLiveSchedulerV1 {
         Ok(crossed_suspend_boundary)
     }
 
+    /// Drains input admitted by the platform coordinator but not yet applied
+    /// to a simulation frame when an explicit save load replaces the suspended
+    /// world. The replacement driver admits it cursor-only, keeping the
+    /// continuing physical source gapless without replaying old gameplay intent.
+    pub(crate) fn take_unapplied_events_for_save_load(&mut self) -> Vec<PlatformEventV1> {
+        let mut events = std::mem::take(&mut self.pending_events);
+        events.append(&mut self.deferred_events);
+        canonicalize_platform_events(&mut events);
+        events
+    }
+
     #[cfg(test)]
     pub(crate) fn pending_event_count(&self) -> usize {
         self.pending_events.len() + self.deferred_events.len()

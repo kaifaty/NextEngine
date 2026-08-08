@@ -5,8 +5,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use next_assets::ContentStore;
 use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
 use next_contracts::input::{
-    KEYBOARD_D_CONTROL_PATH_ID, KEYBOARD_DEVICE_CLASS_ID, KEYBOARD_DOWN_CONTROL_PATH_ID,
-    KEYBOARD_E_CONTROL_PATH_ID, KEYBOARD_ESCAPE_CONTROL_PATH_ID, KEYBOARD_RETURN_CONTROL_PATH_ID,
+    KEYBOARD_DEVICE_CLASS_ID, KEYBOARD_DOWN_CONTROL_PATH_ID, KEYBOARD_E_CONTROL_PATH_ID,
+    KEYBOARD_ESCAPE_CONTROL_PATH_ID, KEYBOARD_J_CONTROL_PATH_ID, KEYBOARD_RETURN_CONTROL_PATH_ID,
     KEYBOARD_UP_CONTROL_PATH_ID,
 };
 use next_contracts::platform::{
@@ -19,7 +19,8 @@ use next_reference_game::ReferenceGameDriverV1;
 
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-const HUD_IDS: [&str; 2] = [
+const HUD_IDS: [&str; 3] = [
+    "nextengine.ui.element.hud.action",
     "nextengine.ui.element.hud.health",
     "nextengine.ui.element.hud.quest",
 ];
@@ -32,8 +33,8 @@ const DIALOGUE_SURFACE_IDS: [&str; 4] = [
     "nextengine.ui.element.dialogue.node-text",
     "nextengine.ui.element.dialogue.title",
 ];
-const DIALOGUE_OFFER_NODE_ID: &str = "nextengine.reference.dialogue.offer";
-const DIALOGUE_ACCEPTED_NODE_ID: &str = "nextengine.reference.dialogue.accepted";
+const DIALOGUE_OFFER_NODE_ID: &str = "nextengine.reference-alpha.dialogue.offer";
+const DIALOGUE_ACCEPTED_NODE_ID: &str = "nextengine.reference-alpha.dialogue.accepted";
 
 fn control_event_with_sequence(
     device_class: &str,
@@ -163,7 +164,8 @@ fn quest_state_and_trust(driver: &ReferenceGameDriverV1) -> (String, i32) {
             }
             RpgAggregatePayloadV1::Relationship(payload) => {
                 for dimension in &payload.dimensions {
-                    if dimension.dimension_id.as_str() == "nextengine.reference.relationship.trust"
+                    if dimension.dimension_id.as_str()
+                        == "nextengine.reference-alpha.relationship.trust"
                     {
                         trust = Some(dimension.value);
                     }
@@ -176,26 +178,6 @@ fn quest_state_and_trust(driver: &ReferenceGameDriverV1) -> (String, i32) {
         quest_state.expect("quest aggregate"),
         trust.expect("trust dimension"),
     )
-}
-
-/// Walks from the spawn point to the NPC so the dialogue affordance is the
-/// nearest one (at spawn the wall switch is nearer, mirroring the runtime).
-fn move_to_npc(driver: &mut ReferenceGameDriverV1, sequence: &mut u64) {
-    let press = key_event(
-        sequence,
-        KEYBOARD_D_CONTROL_PATH_ID,
-        NormalizedControlPhaseV1::Started,
-    );
-    driver.advance(&[press]).expect("move start frame");
-    for _ in 0..11 {
-        driver.advance(&[]).expect("movement frame");
-    }
-    let release = key_event(
-        sequence,
-        KEYBOARD_D_CONTROL_PATH_ID,
-        NormalizedControlPhaseV1::Completed,
-    );
-    driver.advance(&[release]).expect("move stop frame");
 }
 
 #[test]
@@ -212,8 +194,6 @@ fn live_dialogue_arbitration_accepts_through_production_interaction_path() {
     let activated = next_project::activate_project(&store).expect("activate");
     let mut driver = ReferenceGameDriverV1::new(activated, true).expect("live driver");
     let mut sequence = 0_u64;
-
-    move_to_npc(&mut driver, &mut sequence);
 
     // Interact near the NPC opens the modal dialogue surface instead of
     // auto-accepting; the offer node is untouched until a real accept.
@@ -293,23 +273,35 @@ fn live_dialogue_arbitration_accepts_through_production_interaction_path() {
     assert_eq!(dialogue_node_id(&driver), DIALOGUE_ACCEPTED_NODE_ID);
     assert_eq!(
         quest_state_and_trust(&driver),
-        ("nextengine.reference.quest.active".to_owned(), 7)
+        ("nextengine.reference-alpha.quest.active".to_owned(), 7)
     );
 
-    // A completed dialogue does not reopen; the surface stays closed.
+    // The manual journal observation is tied to the same committed quest
+    // state rather than a fixture-only UI row.
     let press = key_event(
         &mut sequence,
-        KEYBOARD_E_CONTROL_PATH_ID,
+        KEYBOARD_J_CONTROL_PATH_ID,
         NormalizedControlPhaseV1::Started,
     );
-    let snapshot = driver
-        .advance(&[press])
-        .expect("post-accept interact frame");
+    let journal = driver.advance(&[press]).expect("active journal frame");
+    let entry = journal
+        .semantic_ui_records()
+        .find(|record| {
+            record.element.element_id.as_str() == "nextengine.ui.element.quest-journal.entry.0"
+        })
+        .expect("active quest journal entry");
     assert_eq!(
-        record_ids(snapshot),
-        expected_records_with_subtitle(false, true)
+        entry
+            .element
+            .text_or_none
+            .as_ref()
+            .expect("journal text")
+            .arguments
+            .get(1),
+        Some(&next_contracts::presentation::UiTextArgumentV1::TextId(
+            SchemaId::new("nextengine.reference-alpha.quest.active").expect("active quest state"),
+        ))
     );
-    assert_eq!(dialogue_node_id(&driver), DIALOGUE_ACCEPTED_NODE_ID);
 
     std::fs::remove_dir_all(root).expect("cleanup");
 }
@@ -329,7 +321,6 @@ fn live_dialogue_leave_and_back_close_without_command_and_recover() {
     let mut driver = ReferenceGameDriverV1::new(activated.clone(), true).expect("live driver");
     let mut sequence = 0_u64;
 
-    move_to_npc(&mut driver, &mut sequence);
     tap_key(&mut driver, &mut sequence, KEYBOARD_E_CONTROL_PATH_ID);
     driver.advance(&[]).expect("context swap frame");
 
@@ -395,7 +386,7 @@ fn live_dialogue_leave_and_back_close_without_command_and_recover() {
     assert_eq!(dialogue_node_id(&restored), DIALOGUE_ACCEPTED_NODE_ID);
     assert_eq!(
         quest_state_and_trust(&restored),
-        ("nextengine.reference.quest.active".to_owned(), 7)
+        ("nextengine.reference-alpha.quest.active".to_owned(), 7)
     );
 
     std::fs::remove_dir_all(root).expect("cleanup");

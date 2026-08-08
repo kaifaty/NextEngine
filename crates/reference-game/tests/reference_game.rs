@@ -43,16 +43,16 @@ fn reference_source_recooks_byte_identically_and_runs_through_production_paths()
     let activated = next_project::activate_project(&store).expect("activate");
     let outcome = next_reference_game::run_reference_game(activated, true).expect("reference run");
     let checkpoint = outcome.runtime.world_checkpoint().expect("checkpoint");
-    assert_eq!(outcome.ticks, 16);
-    assert_eq!(outcome.events, 17);
-    assert_eq!(outcome.rpg_events, 9);
+    assert_eq!(outcome.ticks, 32);
+    assert_eq!(outcome.events, 27);
+    assert_eq!(outcome.rpg_events, 13);
     assert_eq!(outcome.world_streaming_snapshot.generation, 2);
     let query_reports = outcome
         .tick_reports
         .iter()
         .filter(|report| !report.physics_query_batch.requests.is_empty())
         .collect::<Vec<_>>();
-    assert_eq!(query_reports.len(), 3);
+    assert_eq!(query_reports.len(), 4);
     for report in &outcome.tick_reports {
         report
             .physics_query_batch
@@ -596,7 +596,7 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
         .presentation_snapshot
         .semantic_ui_records()
         .collect::<Vec<_>>();
-    assert_eq!(ui_records.len(), 2);
+    assert_eq!(ui_records.len(), 3);
     // Screens publish only while their toggle state is open (S3): the
     // initial state shows the HUD alone.
     assert!(
@@ -681,9 +681,11 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
     assert_eq!(health_resolution.diagnostic_or_none, None);
     let quest_resolution =
         en_resolver.resolve(quest.element.text_or_none.as_ref().expect("quest text"));
-    assert_eq!(quest_resolution.text, "Quest: Available");
+    assert_eq!(
+        quest_resolution.text,
+        "Objective - Frontier Relay: Available"
+    );
     assert_eq!(quest_resolution.diagnostic_or_none, None);
-
     let pseudo_resolver =
         next_presentation::TextCatalogResolverV1::new(activated.text_catalogs.clone(), "qps-ploc")
             .expect("pseudo resolver");
@@ -716,7 +718,7 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
         .presentation_snapshot
         .semantic_ui_records()
         .collect::<Vec<_>>();
-    assert_eq!(recovered_ui.len(), 2);
+    assert_eq!(recovered_ui.len(), 3);
     assert!(
         recovered_ui
             .iter()
@@ -789,7 +791,8 @@ fn live_ui_screen_toggles_are_deterministic_and_back_closes_before_pause() {
             .map(|record| record.element.element_id.as_str().to_owned())
             .collect()
     }
-    const HUD_IDS: [&str; 2] = [
+    const HUD_IDS: [&str; 3] = [
+        "nextengine.ui.element.hud.action",
         "nextengine.ui.element.hud.health",
         "nextengine.ui.element.hud.quest",
     ];
@@ -879,7 +882,7 @@ fn live_ui_screen_toggles_are_deterministic_and_back_closes_before_pause() {
             .as_ref()
             .expect("journal entry text"),
     );
-    assert_eq!(journal_resolution.text, "A Helping Hand - Available");
+    assert_eq!(journal_resolution.text, "Frontier Relay - Available");
     assert_eq!(journal_resolution.diagnostic_or_none, None);
 
     // Screens are exclusive: opening inventory replaces the journal.

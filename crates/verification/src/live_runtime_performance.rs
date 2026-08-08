@@ -285,6 +285,7 @@ pub(super) fn movement_started_event() -> Result<PlatformEventV1, LiveRuntimePer
 mod tests {
     #[test]
     fn sustained_live_movement_remains_within_the_declared_runtime_budget() {
+        let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
         let report =
             super::run_live_runtime_performance_check().expect("live runtime performance gate");
         println!("{report:?}");

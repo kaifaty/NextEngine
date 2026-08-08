@@ -634,7 +634,7 @@ fn ui_back_player_action_suspends_through_the_declared_lifecycle_path() {
 }
 
 #[test]
-fn pause_menu_save_persists_prepared_run_and_menu_resume_event_is_admitted() {
+fn pause_menu_save_load_restores_exact_world_and_menu_resume_is_admitted() {
     let root = test_root("pause-menu-save-resume");
     let mut game = ApplicationCoordinator::launch(interactive_launch(&root)).expect("game launch");
     game.begin_reference_game_live(true)
@@ -644,6 +644,12 @@ fn pause_menu_save_persists_prepared_run_and_menu_resume_event_is_admitted() {
     game.advance_reference_game_live(std::slice::from_ref(&escape))
         .expect("committed ui-back suspends the session");
     assert_eq!(game.state().state, ApplicationSessionStatusV1::Suspended);
+    let saved = game.current_live_run().expect("saved suspended world");
+    let saved_epoch = saved
+        .presentation_snapshot
+        .as_ref()
+        .expect("saved presentation")
+        .snapshot_epoch;
 
     // The pause-menu save activates the same production save-store write the
     // final save uses; an unchanged checkpoint reuses the existing image.
@@ -677,6 +683,115 @@ fn pause_menu_save_persists_prepared_run_and_menu_resume_event_is_admitted() {
         .advance_reference_game_live(&[])
         .expect("post-resume advance");
     assert_eq!(resumed.ticks, 2);
+
+    let first_escape_release = keyboard_control_event(
+        &host,
+        1,
+        KEYBOARD_ESCAPE_CONTROL_PATH_ID,
+        NormalizedControlPhaseV1::Completed,
+        0,
+    );
+    game.advance_reference_game_live(std::slice::from_ref(&first_escape_release))
+        .expect("release first pause key");
+    let second_escape = keyboard_escape_event(&host, 2);
+    let later = game
+        .advance_reference_game_live(std::slice::from_ref(&second_escape))
+        .expect("later world suspends again");
+    assert_eq!(game.state().state, ApplicationSessionStatusV1::Suspended);
+    assert!(later.authoritative_revision > saved.authoritative_revision);
+    assert_ne!(
+        later.authoritative_state_root,
+        saved.authoritative_state_root
+    );
+
+    let loaded = game
+        .load_latest_save_into_live_run()
+        .expect("load exact published save");
+    assert_eq!(game.state().state, ApplicationSessionStatusV1::Suspended);
+    assert_eq!(loaded.authoritative_revision, saved.authoritative_revision);
+    assert_eq!(
+        loaded.authoritative_state_root,
+        saved.authoritative_state_root
+    );
+    assert_eq!(loaded.command_archive_root, saved.command_archive_root);
+    assert_eq!(
+        loaded.command_identity_index_root,
+        saved.command_identity_index_root
+    );
+    assert_eq!(loaded.command_ledger_hash, saved.command_ledger_hash);
+    assert_eq!(
+        game.state().active_runtime_revision,
+        Some(saved.authoritative_revision)
+    );
+    assert_eq!(
+        game.state().active_save_generation_hash,
+        Some(save_generation_hash)
+    );
+    let loaded_snapshot = loaded.presentation_snapshot.expect("loaded presentation");
+    assert_ne!(loaded_snapshot.snapshot_epoch, saved_epoch);
+    assert_eq!(loaded_snapshot.snapshot_sequence, 0);
+    assert_eq!(loaded_snapshot.simulation_tick, saved.ticks);
+    game.close(CloseExecutionOptionsV1::default())
+        .expect("live game close");
+    cleanup(root);
+}
+
+#[test]
+fn failed_save_load_publication_retains_the_later_live_world() {
+    let root = test_root("pause-menu-load-publication-fault");
+    let mut game = ApplicationCoordinator::launch(interactive_launch(&root)).expect("game launch");
+    game.begin_reference_game_live(true)
+        .expect("begin live reference game");
+    let host = test_platform_host(&mut game);
+    let first_escape = keyboard_escape_event(&host, 0);
+    game.advance_reference_game_live(std::slice::from_ref(&first_escape))
+        .expect("suspend saved world");
+    game.save_current_prepared_run().expect("publish save");
+    let menu_resume = PlatformEventV1::new(
+        host.host_instance_id,
+        SchemaId::new("nextengine.platform.source.pause-menu").expect("menu source class"),
+        0,
+        0,
+        PlatformEventKindV1::ResumeRequested,
+        PlatformEventPayloadV1::Reason {
+            reason: SchemaId::new("nextengine.platform.reason.pause-menu-resume")
+                .expect("menu resume reason"),
+        },
+        host.capability_set_hash,
+    )
+    .expect("menu resume event");
+    game.resume_from_platform_event(&menu_resume)
+        .expect("resume saved world");
+    game.advance_reference_game_live(&[])
+        .expect("advance later world");
+    let first_escape_release = keyboard_control_event(
+        &host,
+        1,
+        KEYBOARD_ESCAPE_CONTROL_PATH_ID,
+        NormalizedControlPhaseV1::Completed,
+        0,
+    );
+    game.advance_reference_game_live(std::slice::from_ref(&first_escape_release))
+        .expect("release first pause key");
+    let second_escape = keyboard_escape_event(&host, 2);
+    game.advance_reference_game_live(std::slice::from_ref(&second_escape))
+        .expect("suspend later world");
+    let later = game.current_live_run().expect("later world");
+    let state_before = game.state().clone();
+    let generation_before = game.current_generation;
+
+    game.inject_fail_next_publication();
+    let error = game
+        .load_latest_save_into_live_run()
+        .expect_err("load publication fault");
+    assert_eq!(error.diagnostic_code(), "SESSION_STORAGE_UNAVAILABLE");
+    assert_eq!(game.state(), &state_before);
+    assert_eq!(game.current_generation, generation_before);
+    assert_eq!(
+        game.current_live_run().expect("retained later world"),
+        later
+    );
+
     game.close(CloseExecutionOptionsV1::default())
         .expect("live game close");
     cleanup(root);

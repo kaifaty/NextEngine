@@ -254,6 +254,57 @@ impl PlayerInputSessionV1 {
         Ok(())
     }
 
+    /// Re-bases the live input session onto an explicitly loaded world while
+    /// preserving the continuing platform-host source cursors. Menu events
+    /// already consumed by the host are admitted cursor-only before the new
+    /// recovery boundary is published; gameplay controls and modal context do
+    /// not leak across the load cut.
+    pub fn rebase_for_loaded_world(
+        &mut self,
+        action_map: ActionMapManifestV1,
+        context_stack: InputContextStackV1,
+        next_logical_frame_sequence: u64,
+    ) -> Result<(), PlayerInputError> {
+        action_map.validate()?;
+        context_stack.validate()?;
+        validate_context_compatibility(&action_map, &context_stack)?;
+        if !self.pending_platform_events.is_empty() {
+            return Err(PlayerInputError::RecoveryInvalid);
+        }
+
+        let mut consumed = std::mem::take(&mut self.pending_host_consumed_events);
+        consumed.sort_by(|left, right| {
+            (
+                left.host_instance_id,
+                &left.source_class,
+                left.source_sequence,
+                left.platform_event_id,
+            )
+                .cmp(&(
+                    right.host_instance_id,
+                    &right.source_class,
+                    right.source_sequence,
+                    right.platform_event_id,
+                ))
+        });
+        for event in &consumed {
+            self.process_host_consumed_platform_event(event)?;
+        }
+
+        self.action_map = action_map;
+        self.context_stack = context_stack;
+        self.pending_action_map = None;
+        self.pending_context_stack = None;
+        self.last_logical_frame_sequence = next_logical_frame_sequence.checked_sub(1);
+        self.held_controls.clear();
+        self.started_controls.clear();
+        self.pending_deltas.clear();
+        self.active_actions.clear();
+        self.cancelled_action_ids.clear();
+        self.diagnostics.clear();
+        self.validate_recovery_boundary()
+    }
+
     fn validate_recovery_boundary(&self) -> Result<(), PlayerInputError> {
         if self.pending_action_map.is_some()
             || self.pending_context_stack.is_some()

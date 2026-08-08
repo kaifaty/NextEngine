@@ -55,7 +55,7 @@ pub(crate) fn schema_ref(
     schema_id: &str,
     role: SchemaRoleV1,
     encoding: SchemaEncodingV1,
-) -> Result<SchemaRefV1, ProjectCookError> {
+) -> Result<SchemaRefV1, next_contracts::ids::IdentifierError> {
     Ok(SchemaRefV1 {
         schema_id: SchemaId::new(schema_id)?,
         schema_version: 1,

@@ -277,6 +277,7 @@ fn decode_ui_element_role(value: u8) -> Result<UiElementRoleV1, ()> {
         5 => Ok(UiElementRoleV1::ListItem),
         6 => Ok(UiElementRoleV1::Panel),
         7 => Ok(UiElementRoleV1::Hint),
+        8 => Ok(UiElementRoleV1::Subtitle),
         _ => Err(()),
     }
 }

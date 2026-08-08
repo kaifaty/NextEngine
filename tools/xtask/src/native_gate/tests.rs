@@ -894,7 +894,7 @@ fn bundle_validation_rejects_missing_or_tampered_check_reports() {
 }
 
 #[test]
-fn bundle_validation_rejects_performance_report_without_v2_run() {
+fn bundle_validation_rejects_performance_report_without_v3_run() {
     let bundle = TempBundle::new();
     let mut report = controlled_fail_report(WINDOWS_TARGET_TRIPLE);
     materialize_check_reports(&bundle, &mut report);

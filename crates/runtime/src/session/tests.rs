@@ -119,6 +119,63 @@ fn runtime_observation_is_published_before_in_memory_commit_and_cannot_regress()
 }
 
 #[test]
+fn verified_save_load_can_replace_an_observation_only_while_suspended() {
+    let mut machine = ApplicationSessionMachine::new(manifest()).expect("machine");
+    for (id, from, to) in [
+        (
+            1,
+            ApplicationSessionStatusV1::Created,
+            ApplicationSessionStatusV1::CompositionStaged,
+        ),
+        (
+            2,
+            ApplicationSessionStatusV1::CompositionStaged,
+            ApplicationSessionStatusV1::RuntimeStaged,
+        ),
+        (
+            3,
+            ApplicationSessionStatusV1::RuntimeStaged,
+            ApplicationSessionStatusV1::Active,
+        ),
+    ] {
+        let revision = machine.state().revision;
+        advance(&mut machine, request(id, revision, from, to));
+    }
+    let observed = machine
+        .plan_state_publication(Some(12), None)
+        .expect("later observation");
+    machine.commit_state_publication(observed);
+    assert_eq!(
+        machine.plan_save_load_publication(3, hash(55)),
+        Err(SessionMachineError::ObservationRegression)
+    );
+
+    let revision = machine.state().revision;
+    advance(
+        &mut machine,
+        request(
+            4,
+            revision,
+            ApplicationSessionStatusV1::Active,
+            ApplicationSessionStatusV1::Suspended,
+        ),
+    );
+    let lifecycle_revision = machine.state().revision;
+    let loaded = machine
+        .plan_save_load_publication(3, hash(55))
+        .expect("verified suspended save load");
+    assert_eq!(loaded.next_state.active_runtime_revision, Some(3));
+    assert_eq!(
+        loaded.next_state.active_save_generation_hash,
+        Some(hash(55))
+    );
+    assert_eq!(loaded.next_state.revision, lifecycle_revision);
+    machine.commit_state_publication(loaded);
+    assert_eq!(machine.state().active_runtime_revision, Some(3));
+    assert_eq!(machine.state().active_save_generation_hash, Some(hash(55)));
+}
+
+#[test]
 fn restore_requires_empty_history_exactly_for_created_revision_zero() {
     let created = ApplicationSessionMachine::new(manifest()).expect("created machine");
     ApplicationSessionMachine::restore(

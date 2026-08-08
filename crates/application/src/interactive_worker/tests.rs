@@ -214,10 +214,10 @@ fn prepared_production_worker_error_joins_before_return() {
             .worker
             .as_ref()
             .expect("prepared worker exists")
-            .latest_snapshot,
+            .presentation_mailbox,
     );
     let poison = std::thread::spawn(move || {
-        let _guard = snapshot.write().expect("snapshot lock");
+        let _guard = snapshot.lock().expect("snapshot lock");
         panic!("poison prepared diagnostic snapshot lock");
     });
     assert!(poison.join().is_err());
@@ -460,9 +460,9 @@ fn diagnostic_read_failure_still_joins_worker_before_return() {
         ),
     )
     .expect("spawn measured worker");
-    let snapshot = Arc::clone(&worker.latest_snapshot);
+    let snapshot = Arc::clone(&worker.presentation_mailbox);
     let poison = std::thread::spawn(move || {
-        let _guard = snapshot.write().expect("snapshot lock");
+        let _guard = snapshot.lock().expect("snapshot lock");
         panic!("poison diagnostic snapshot lock");
     });
     assert!(poison.join().is_err());
@@ -537,9 +537,12 @@ impl WorkerMenuKeysV1 {
 }
 
 fn wait_processed_callbacks(worker: &InteractiveSimulationWorkerV1, expected: u64) {
+    let processed = worker
+        .processed_callbacks
+        .as_ref()
+        .expect("diagnostic worker exposes processed callback count");
     loop {
-        let read = worker.read_latest_snapshot().expect("read latest snapshot");
-        if read.processed_callbacks >= expected {
+        if processed.load(std::sync::atomic::Ordering::Acquire) >= expected {
             break;
         }
         std::thread::yield_now();
@@ -562,11 +565,63 @@ fn pause_menu_visible(snapshot: &next_contracts::presentation::PresentationSnaps
         .any(|record| record.surface_id.as_str() == next_reference_game::PAUSE_MENU_SURFACE_ID)
 }
 
+fn pause_menu_text_id(
+    snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    element_id: &str,
+) -> Option<String> {
+    snapshot.semantic_ui_records().find_map(|record| {
+        (record.element.element_id.as_str() == element_id)
+            .then(|| {
+                record
+                    .element
+                    .text_or_none
+                    .as_ref()
+                    .map(|text| text.text_id.as_str().to_owned())
+            })
+            .flatten()
+    })
+}
+
+fn player_translation(snapshot: &next_contracts::presentation::PresentationSnapshotV2) -> [i64; 3] {
+    let player_id = next_contracts::ids::PersistentId::from_bytes([0x54; 16]);
+    snapshot
+        .scene_records()
+        .find(|record| record.object_key.persistent_id == player_id)
+        .expect("player presentation record")
+        .current_transform
+        .translation_micrometres
+}
+
+fn ui_text_argument_id(
+    snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    element_id: &str,
+    argument_index: usize,
+) -> Option<String> {
+    snapshot.semantic_ui_records().find_map(|record| {
+        (record.element.element_id.as_str() == element_id)
+            .then(|| {
+                record
+                    .element
+                    .text_or_none
+                    .as_ref()?
+                    .arguments
+                    .get(argument_index)
+                    .and_then(|argument| match argument {
+                        next_contracts::presentation::UiTextArgumentV1::TextId(id) => {
+                            Some(id.as_str().to_owned())
+                        }
+                        _ => None,
+                    })
+            })
+            .flatten()
+    })
+}
+
 #[test]
 fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
     use next_contracts::input::{
-        KEYBOARD_DOWN_CONTROL_PATH_ID, KEYBOARD_ESCAPE_CONTROL_PATH_ID,
-        KEYBOARD_RETURN_CONTROL_PATH_ID, KEYBOARD_UP_CONTROL_PATH_ID,
+        KEYBOARD_DOWN_CONTROL_PATH_ID, KEYBOARD_E_CONTROL_PATH_ID, KEYBOARD_ESCAPE_CONTROL_PATH_ID,
+        KEYBOARD_RETURN_CONTROL_PATH_ID, KEYBOARD_UP_CONTROL_PATH_ID, KEYBOARD_W_CONTROL_PATH_ID,
     };
     use next_contracts::platform::NormalizedControlPhaseV1;
 
@@ -605,6 +660,70 @@ fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
         source_sequence += 1;
         keys.control(path, phase, source_sequence)
     };
+    macro_rules! press {
+        ($path:expr) => {
+            vec![
+                key($path, NormalizedControlPhaseV1::Started),
+                key($path, NormalizedControlPhaseV1::Completed),
+            ]
+        };
+    }
+
+    // Reproduce the exact seam that failed in the packaged run: open the
+    // real dialogue, confirm the quest, then cross a durable checkpoint on
+    // the simulation worker before touching the pause menu. Every callback
+    // is checked for terminal worker failure, including the injected accept
+    // frame and the checkpoint/recovery publication.
+    submit(
+        &mut worker,
+        vec![key(
+            KEYBOARD_E_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Started,
+        )],
+    );
+    submit(
+        &mut worker,
+        vec![key(
+            KEYBOARD_E_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Completed,
+        )],
+    );
+    submit(&mut worker, Vec::new());
+    submit(
+        &mut worker,
+        vec![key(
+            KEYBOARD_RETURN_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Started,
+        )],
+    );
+    submit(
+        &mut worker,
+        vec![key(
+            KEYBOARD_RETURN_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Completed,
+        )],
+    );
+    submit(&mut worker, Vec::new());
+    submit(&mut worker, Vec::new());
+    let mut accepted = worker
+        .read_latest_snapshot()
+        .expect("quest-accepted snapshot")
+        .snapshot;
+    while accepted.simulation_tick < 35 {
+        submit(&mut worker, Vec::new());
+        accepted = worker
+            .read_latest_snapshot()
+            .expect("post-accept checkpoint snapshot")
+            .snapshot;
+    }
+    assert_eq!(
+        ui_text_argument_id(&accepted, "nextengine.ui.element.hud.quest", 0,),
+        Some("nextengine.reference-alpha.quest.active".to_owned())
+    );
+    assert!(accepted.semantic_ui_records().any(|record| {
+        record.element.element_id.as_str() == "nextengine.ui.element.hud.subtitle"
+    }));
+    let accepted_tick = accepted.simulation_tick;
 
     // The fixed-step scheduler consumes the pending queue, so a submitted
     // batch takes effect on the NEXT pump: the escape press commits ui-back
@@ -621,7 +740,7 @@ fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
         .expect("ticking snapshot")
         .snapshot;
     assert!(!pause_menu_visible(&ticking));
-    assert_eq!(ticking.simulation_tick, 1);
+    assert_eq!(ticking.simulation_tick, accepted_tick + 1);
     submit(
         &mut worker,
         vec![key(
@@ -634,7 +753,7 @@ fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
         .expect("suspended snapshot")
         .snapshot;
     assert!(pause_menu_visible(&suspended));
-    assert_eq!(suspended.simulation_tick, 2);
+    assert_eq!(suspended.simulation_tick, accepted_tick + 2);
     assert_eq!(
         selected_pause_menu_element(&suspended),
         Some(next_reference_game::PAUSE_MENU_RESUME_ELEMENT_ID.to_owned())
@@ -643,19 +762,7 @@ fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
 
     // ui-nav republishes a presentation-only selection clone under a bumped
     // sequence; the adapter requires strictly increasing per-epoch order.
-    submit(
-        &mut worker,
-        vec![
-            key(
-                KEYBOARD_DOWN_CONTROL_PATH_ID,
-                NormalizedControlPhaseV1::Started,
-            ),
-            key(
-                KEYBOARD_DOWN_CONTROL_PATH_ID,
-                NormalizedControlPhaseV1::Completed,
-            ),
-        ],
-    );
+    submit(&mut worker, press!(KEYBOARD_DOWN_CONTROL_PATH_ID));
     let navigated = worker
         .read_latest_snapshot()
         .expect("navigated snapshot")
@@ -667,44 +774,29 @@ fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
     assert_eq!(navigated.snapshot_sequence, suspended_sequence + 1);
 
     // ui-confirm on Save persists through the production save path; the menu
-    // stays open and suspended and no new publication is emitted.
-    submit(
-        &mut worker,
-        vec![
-            key(
-                KEYBOARD_RETURN_CONTROL_PATH_ID,
-                NormalizedControlPhaseV1::Started,
-            ),
-            key(
-                KEYBOARD_RETURN_CONTROL_PATH_ID,
-                NormalizedControlPhaseV1::Completed,
-            ),
-        ],
-    );
+    // stays open and publishes an explicit presentation-only confirmation.
+    submit(&mut worker, press!(KEYBOARD_RETURN_CONTROL_PATH_ID));
     let after_save = worker
         .read_latest_snapshot()
         .expect("post-save snapshot")
         .snapshot;
     assert!(pause_menu_visible(&after_save));
-    assert_eq!(after_save.simulation_tick, 2);
-    assert_eq!(after_save.snapshot_sequence, navigated.snapshot_sequence);
+    assert_eq!(after_save.simulation_tick, suspended.simulation_tick);
+    assert_eq!(
+        after_save.snapshot_sequence,
+        navigated.snapshot_sequence + 1
+    );
+    assert_eq!(
+        pause_menu_text_id(&after_save, next_reference_game::PAUSE_MENU_SAVE_ELEMENT_ID),
+        Some(next_reference_game::PAUSE_MENU_SAVED_TEXT_ID.to_owned())
+    );
+    let saved_tick = after_save.simulation_tick;
+    let saved_player_translation = player_translation(&after_save);
 
     // Back out to Resume and activate it: the menu-fabricated resume is
     // admitted, the same pump already ticks the resumed game and the real
     // publication is resequenced past the menu clones.
-    submit(
-        &mut worker,
-        vec![
-            key(
-                KEYBOARD_UP_CONTROL_PATH_ID,
-                NormalizedControlPhaseV1::Started,
-            ),
-            key(
-                KEYBOARD_UP_CONTROL_PATH_ID,
-                NormalizedControlPhaseV1::Completed,
-            ),
-        ],
-    );
+    submit(&mut worker, press!(KEYBOARD_UP_CONTROL_PATH_ID));
     let backed_out = worker
         .read_latest_snapshot()
         .expect("backed-out snapshot")
@@ -715,34 +807,46 @@ fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
     );
     assert_eq!(
         backed_out.snapshot_sequence,
-        navigated.snapshot_sequence + 1
+        after_save.snapshot_sequence + 1
     );
-    submit(
-        &mut worker,
-        vec![
-            key(
-                KEYBOARD_RETURN_CONTROL_PATH_ID,
-                NormalizedControlPhaseV1::Started,
-            ),
-            key(
-                KEYBOARD_RETURN_CONTROL_PATH_ID,
-                NormalizedControlPhaseV1::Completed,
-            ),
-        ],
-    );
+    submit(&mut worker, press!(KEYBOARD_RETURN_CONTROL_PATH_ID));
     let resumed = worker
         .read_latest_snapshot()
         .expect("resumed snapshot")
         .snapshot;
     assert!(!pause_menu_visible(&resumed));
     assert_eq!(resumed.snapshot_epoch, initial_epoch);
-    assert_eq!(resumed.simulation_tick, 3);
+    assert_eq!(resumed.simulation_tick, saved_tick + 1);
     assert_eq!(resumed.snapshot_sequence, backed_out.snapshot_sequence + 1);
 
+    // Create a visually and authoritatively distinct world before loading.
+    // This guards the exact manual acceptance observation: Load must move the
+    // player back to the saved pose, not merely close the menu.
+    submit(
+        &mut worker,
+        vec![key(
+            KEYBOARD_W_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Started,
+        )],
+    );
+    submit(
+        &mut worker,
+        vec![key(
+            KEYBOARD_W_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Completed,
+        )],
+    );
+    let moved = worker
+        .read_latest_snapshot()
+        .expect("moved world snapshot")
+        .snapshot;
+    assert_ne!(player_translation(&moved), saved_player_translation);
+
     // Suspend again (press commits ui-back on the next pump) and activate
-    // Load: the worker reloads the coordinator from the forced suspend
-    // checkpoint (recovery epoch, sequence zero, camera cut) and resumes
-    // play from it within the same pump.
+    // Load: the worker atomically replaces the later suspended world with the
+    // published save (fresh epoch, sequence zero, camera cut). A save authored
+    // from this menu remains suspended and publishes an explicit confirmation
+    // before the player chooses Resume.
     submit(
         &mut worker,
         vec![key(
@@ -762,21 +866,9 @@ fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
         .expect("second suspended snapshot")
         .snapshot;
     assert!(pause_menu_visible(&suspended_again));
-    assert_eq!(suspended_again.simulation_tick, 5);
+    assert_eq!(suspended_again.simulation_tick, moved.simulation_tick + 2);
     let suspended_tick = suspended_again.simulation_tick;
-    submit(
-        &mut worker,
-        vec![
-            key(
-                KEYBOARD_UP_CONTROL_PATH_ID,
-                NormalizedControlPhaseV1::Started,
-            ),
-            key(
-                KEYBOARD_UP_CONTROL_PATH_ID,
-                NormalizedControlPhaseV1::Completed,
-            ),
-        ],
-    );
+    submit(&mut worker, press!(KEYBOARD_UP_CONTROL_PATH_ID));
     let loading = worker
         .read_latest_snapshot()
         .expect("load selection snapshot")
@@ -785,32 +877,110 @@ fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
         selected_pause_menu_element(&loading),
         Some(next_reference_game::PAUSE_MENU_LOAD_ELEMENT_ID.to_owned())
     );
-    submit(
-        &mut worker,
-        vec![
-            key(
-                KEYBOARD_RETURN_CONTROL_PATH_ID,
-                NormalizedControlPhaseV1::Started,
-            ),
-            key(
-                KEYBOARD_RETURN_CONTROL_PATH_ID,
-                NormalizedControlPhaseV1::Completed,
-            ),
-        ],
+    submit(&mut worker, press!(KEYBOARD_RETURN_CONTROL_PATH_ID));
+    let recovery_cut = worker
+        .read_latest_snapshot()
+        .expect("required load recovery cut")
+        .snapshot;
+    assert_eq!(recovery_cut.simulation_tick, saved_tick);
+    assert_eq!(recovery_cut.snapshot_sequence, 0);
+    assert_ne!(recovery_cut.snapshot_epoch, initial_epoch);
+    assert!(recovery_cut.camera_records().all(|camera| camera.cut));
+    assert_eq!(player_translation(&recovery_cut), saved_player_translation);
+    assert_eq!(
+        ui_text_argument_id(&recovery_cut, "nextengine.ui.element.hud.quest", 0,),
+        Some("nextengine.reference-alpha.quest.active".to_owned())
     );
+    next_desktop_sdl_ash::validate_presentation_snapshot_transition(&loading, &recovery_cut)
+        .expect("desktop adapter accepts the required cross-epoch rollback cut");
+
+    // The mailbox retains the mandatory sequence-zero cut and then exposes a
+    // presentation-only sequence-one menu clone with explicit Loaded status.
+    let loaded_confirmation = worker
+        .read_latest_snapshot()
+        .expect("loaded confirmation snapshot")
+        .snapshot;
+    assert!(pause_menu_visible(&loaded_confirmation));
+    assert_eq!(loaded_confirmation.simulation_tick, saved_tick);
+    assert!(loaded_confirmation.simulation_tick < suspended_tick);
+    assert_eq!(
+        loaded_confirmation.snapshot_epoch,
+        recovery_cut.snapshot_epoch
+    );
+    assert_eq!(loaded_confirmation.snapshot_sequence, 1);
+    assert_eq!(
+        selected_pause_menu_element(&loaded_confirmation),
+        Some(next_reference_game::PAUSE_MENU_LOAD_ELEMENT_ID.to_owned())
+    );
+    assert_eq!(
+        pause_menu_text_id(
+            &loaded_confirmation,
+            next_reference_game::PAUSE_MENU_LOAD_ELEMENT_ID,
+        ),
+        Some(next_reference_game::PAUSE_MENU_LOADED_TEXT_ID.to_owned())
+    );
+    next_desktop_sdl_ash::validate_presentation_snapshot_transition(
+        &recovery_cut,
+        &loaded_confirmation,
+    )
+    .expect("desktop adapter accepts the load confirmation after the recovery cut");
+
+    submit(&mut worker, press!(KEYBOARD_DOWN_CONTROL_PATH_ID));
+    let loaded_resume_selected = worker
+        .read_latest_snapshot()
+        .expect("loaded resume selection")
+        .snapshot;
+    assert!(pause_menu_visible(&loaded_resume_selected));
+    assert_eq!(
+        selected_pause_menu_element(&loaded_resume_selected),
+        Some(next_reference_game::PAUSE_MENU_RESUME_ELEMENT_ID.to_owned())
+    );
+    assert_eq!(loaded_resume_selected.snapshot_sequence, 2);
+    submit(&mut worker, press!(KEYBOARD_RETURN_CONTROL_PATH_ID));
     let loaded = worker
         .read_latest_snapshot()
-        .expect("loaded snapshot")
+        .expect("loaded resumed snapshot")
         .snapshot;
     assert!(!pause_menu_visible(&loaded));
-    assert_eq!(loaded.simulation_tick, suspended_tick + 1);
-    assert_ne!(loaded.snapshot_epoch, initial_epoch);
+    assert_eq!(loaded.simulation_tick, recovery_cut.simulation_tick + 1);
+    assert_eq!(loaded.snapshot_epoch, recovery_cut.snapshot_epoch);
+    assert_eq!(loaded.snapshot_sequence, 3);
+    next_desktop_sdl_ash::validate_presentation_snapshot_transition(
+        &loaded_resume_selected,
+        &loaded,
+    )
+    .expect("desktop adapter accepts resumed progress after load confirmation");
     submit(&mut worker, Vec::new());
     let continued = worker
         .read_latest_snapshot()
         .expect("post-load advance snapshot")
         .snapshot;
-    assert_eq!(continued.simulation_tick, suspended_tick + 2);
+    assert_eq!(continued.simulation_tick, loaded.simulation_tick + 1);
+
+    // The restored input session must continue the physical keyboard source,
+    // not only advance empty ticks. Reproduce the manual acceptance action
+    // directly after Load -> Resume and prove that a fresh WASD press changes
+    // the authoritative player pose through the production worker path.
+    let post_load_origin = player_translation(&continued);
+    submit(
+        &mut worker,
+        vec![key(
+            KEYBOARD_W_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Started,
+        )],
+    );
+    submit(
+        &mut worker,
+        vec![key(
+            KEYBOARD_W_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Completed,
+        )],
+    );
+    let moved_after_load = worker
+        .read_latest_snapshot()
+        .expect("post-load WASD snapshot")
+        .snapshot;
+    assert_ne!(player_translation(&moved_after_load), post_load_origin);
 
     loop {
         if let InteractiveWorkerFinalizationV1::Closed { result, .. } =

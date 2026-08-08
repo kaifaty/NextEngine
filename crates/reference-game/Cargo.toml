@@ -17,6 +17,7 @@ next_world.workspace = true
 
 [dev-dependencies]
 next_assets.workspace = true
+next_render.workspace = true
 
 [lints]
 workspace = true

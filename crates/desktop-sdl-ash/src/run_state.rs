@@ -46,6 +46,9 @@ pub struct DesktopRunOptions {
     pub maximum_event_loop_iterations: Option<u64>,
     pub maximum_device_recoveries: u16,
     pub inject_device_loss_after_frames: Option<u64>,
+    /// Test/acceptance probe: after the first real audio stream open, exercise
+    /// the same bounded unavailable/reopen path used by native device events.
+    pub inject_audio_device_loss_after_open: bool,
     pub inject_startup_lifecycle_probe: bool,
     pub host_instance_id: PersistentId,
     pub resume_suspended_application: bool,
@@ -78,6 +81,7 @@ impl Default for DesktopRunOptions {
             maximum_event_loop_iterations: None,
             maximum_device_recoveries: 2,
             inject_device_loss_after_frames: None,
+            inject_audio_device_loss_after_open: false,
             inject_startup_lifecycle_probe: false,
             host_instance_id: PersistentId::from_bytes([0x64; 16]),
             resume_suspended_application: false,

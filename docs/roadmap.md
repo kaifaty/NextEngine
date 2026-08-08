@@ -3,8 +3,10 @@
 | Поле | Значение |
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
-| Последнее обновление | 2026-08-05 |
-| Текущая точка | Player action/camera и production-worker measurement foundation завершены локально на Windows. ADR-043 codegen-proven non-reentrant count-bearing callbacks реализован: per-call `in_callback` machinery удалена, source/boundary gate и pinned Windows IR/ASM/backend admission проходят, exactness/parity/resource checks зелёные. Единственный immutable candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL` при неизменных roots; allocator metric остаётся disabled, а новый timing candidate требует новой material implementation hypothesis. Bounded incremental checkpoint validation реализован: live checkpoint materialization больше не ревалидирует retained command history целиком (median p95 materialization `41 546 → 11 142 µs`, `-73%`, exact root parity в 3+3 soak runs), complete validator сохранён на decode/restore/migration. Checkpoint encode/publication CPU cleanup реализован: byte-exact staged verification вместо decode+rehash round-trip, no per-publish session object re-hash, exact-capacity borrowed-payload canonical encoder (realloc bytes `-30%`, materialization p95 `11 142 → 10 419 µs`, roots byte-exact). Save commit path очищен от повторной full validation: generation probing больше не пересобирает checkpoint и state root, light probe сохраняет прежние accept/reject verdicts, load path не тронут. Identity-index bindings encode закэширован derived `OnceLock` кэшем: root hashing и stream write делят один encode (soak root probe p95 `676 → 372 µs`, `-47%`, byte-exact roots, paired same-hour A/B без регрессий). Reportless tick commit очищен от O(history) deep-clone identity/causal maps: staged поля явно сбрасываются до copy-on-write commits (driver-commit p95 `385 → 27 µs`, `-93%`, flat вместо линейного роста, byte-exact roots). Flat ledger wire encode переведён на второй derived кэш bindings (probe @12k `~1 480 → ~210 µs`, `-86%`, byte-exact, wire формат неизменён; ускоряет также decode-side re-encode на load/replay). Checkpoint merged root выводится из committed body через cached root вместо отдельного streaming encode (checkpoint-цикл probe @12k `~5 000 → ~4 000 µs`, `-20%`, parity-тесты, byte-exact roots). Semantic UI package завершён локально на Windows (`DONE_LOCAL_WINDOWS`, см. очередь ниже). Следующий product work package — Baseline audio (`NEXT`): первые sub-increments A1–A3 реализованы. A1: neutral `NeutralAudioV1` clip contract по SPEC-24 (`nextengine.content.audio`: sample rate 8 000–192 000 Hz, 1–8 channels, duration ceiling 21 600 s, loop/cue frames, fixed-point loudness metadata, PCM S16/S24/F32 с canonical negative-zero normalization), cook/activation plumbing публикует clips как `PresentationOnly` entries с exact manifest binding в `ActivatedProjectV2.audio_clips`. A2: audio scene contracts (`AudioSceneSnapshotV1` listener/emitter/cue/acoustic-fact records, engine-owned derived cue identity) и deterministic `extract_audio_scene` из committed `DomainEvent` + exact physics poses. A3: baseline software mixer (priority admission/preemption, integer-only distance/pan/zone math, fixed-point resampling, loop regions), canonical RIFF/WAV sink, 4 engine-owned synthesized fixture clips с event/listener bindings и production wiring в `ReferenceGameDriverV1`; AUDIO-02-style `audio-scene` check в составе `play` (scripted interactive session дважды через live driver: 20 ticks, 5 cues/5 acoustic facts, 13 non-silent windows, byte-exact scenes/PCM/facts/state root между runs). Одноразовый root change от fixture clips: play state root `88977d5d…` → `34a9bcd6…`, persistence-replay `d3f6eced…` → `c98bf08e…`; ledger/archive/identity roots byte-exact (`aace5f4e…`/`a8d12b0b…`). A4: SDL3 playback stream (48 kHz stereo S16LE) + bounded ring в desktop adapter, PCM plumbing driver→coordinator→simulation worker→game closure, device loss/reopen bounded counters, `audio_*` поля в `DesktopRunReport`; real device path headlessly не гонялся (unit coverage + full-chain compile). A5: subtitle fallback — `subtitles_enabled` preference (PresentationOnly, quarantine старых bytes по design), speech metadata на cue bindings, HUD `Subtitle`-role element через production UI records, overlay filter по preference; одноразовый root change от catalog text (play `34a9bcd6…` → `0e41ee1f…`, replay `c98bf08e…` → `2c163b7a…`), PCM digest `93e06d66…` и ledger roots byte-exact. A6: `audio_scene` вошёл в v1-closure (pcm digest в closure hash + xtask details + native-gate validation) — пакет Baseline audio завершён (`DONE_LOCAL_WINDOWS`) с documented gaps: chunked long-clip streaming payload и zone reverb fallback. Следующий product work package — Playable alpha project (`NEXT`), hard timing calibration/R2–R5 workloads и Linux-only `LNX-005`/`LNX-006` остаются открыты |
+| Последнее обновление | 2026-08-07 |
+| Текущая точка | R2 Data-first Playable Alpha реализован как `projects/reference-alpha`, загружаемый через file-backed authoring → resolve → cook → activate; `reference-game` остаётся harness. Scripted Frontier Relay проходит production actions: quest/dialogue acceptance, pickup/equip, переход зоны, combat, relay activation, return/completion и три save/restore checkpoints; `game`/`headless` сохраняют exact authoritative result. В package входят engine-owned geometry/materials/text/synthesized audio, generic controller profile с keyboard fallback и CC0 humanoid skeleton/clip catalog с hash/source/license/NOTICE; runtime animation остаётся R5. Актуальные Windows `play`, `persistence-replay`, `content-package`, SDL3/Vulkan `platform`, полный workspace/`host-check` и disposable `v1-package` проходят. Representative `r2-alpha-render` выполняет 6 окон (3 600 warm-up + 21 600 measured frames, 50 400 Vulkan queries) с outer `PASS`/nested `REPORT_ONLY`; dirty worktree и неготовый THOTH preflight не являются hard evidence. Ручные Windows runs выявили пять checkpoint/menu defects: runtime/input-context activation была неатомарной, presentation recovery decoder не принимал уже валидную роль `Subtitle`, pause-menu Save не показывал подтверждение и Load восстанавливал текущий session checkpoint вместо опубликованного save, desktop presentation path запрещал валидный cross-epoch tick rollback и мог потерять обязательный sequence-zero recovery cut в latest-wins slot, а save-load input rebase подставлял начальную context revision вместо exact controller binding из save и поэтому runtime отвергал post-load WASD как `ContextStackStale`. Все пять исправлены: Save явно показывает `Saved`, Load атомарно заменяет suspended world последним совместимым save-store generation, обязательный recovery boundary доставляется через bounded ordered mailbox, tick monotonicity применяется только внутри одной presentation epoch, а input rebase сохраняет exact загруженные action-map/context hash и revision. Реальные worker quest/checkpoint/Save/Load snapshots проходят тот же desktop transition validator; exact stage facts, roots, visual player rollback, quest `Active`, failure retention, input cursor continuity и authoritative WASD movement после `Load → Resume` покрыты permanent regressions. Relay collider теперь повторяет только видимые pillars/top beam/central switch, live traversal проходит вокруг gate за границу прежней невидимой 20-метровой стены, а defeated solid NPC остаётся видимым с тёмным material. Полный свежий 20–30-minute rerun остаётся обязательным, поэтому B-03 и R2 формально не закрыты. Linux полностью `DEFERRED_LINUX`; R1/R7 и v1 shipping не заявляются. |
+| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02: ADR-045 и V3 evidence policy приняты; Windows SDL3/ash проходит real Vulkan frame, resize/focus/suspend-resume/fullscreen, swapchain/device-loss recovery, keyboard/mouse, generic controller action profile, real audio open/reopen и packaged `game`/`headless` launch. Это не закрывает R1: Linux исключён, paired cross-target evidence отсутствует. R2 automated implementation/checks завершены; выявленные manual quest/checkpoint и pause-menu save/load defects исправлены на production persistence/recovery paths, но полный свежий 20–30-minute rerun ещё требуется. Следующий implementation package R3a не начинается до решения этого WIP=1 gate. |
+| R2 visual checkpoint | Три Windows visual packages реализованы. `B0ShaderInterfaceV2` использует position/UV/SNORM16 normals и 208-byte outdoor frame block; отдельные sky/world/UI suites, directional sun, hemisphere ambient, fog и renderer-owned 2048² stabilized shadow map с 3×3 PCF проходят real Vulkan `platform`, а sampled-depth/allocation failure имеет stable no-shadow fallback. `reference-alpha` содержит отдельные player/enemy/quest-giver silhouettes, path/stone/cloth/metal patterns, четыре inset rock colliders, focus/quest indicators без shadow/collision authority, target-health HUD и 12×16 alpha font с 720p/1080p goldens. `visual-smoke` публикует шесть BMP/manifest evidence кадров. Свежий исправленный package `r2-reference-alpha-visual-v5` и release `r2-alpha-render` для 1080p/720p проходят; performance остаётся `REPORT_ONLY`. B-03 ждёт только полного ручного rerun. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 
@@ -96,14 +98,17 @@ Roadmap намеренно не содержит календарных обещ
   swapchain recreation, bounded device-loss recovery и package smoke;
 - versioned `xtask performance` foundation с exact THOTH fingerprint,
   release-only gate preflight, nearest-rank/baseline schemas и полным
-  streaming/agent/render/live smoke report; representative R2–R5 workloads
-  честно возвращают `NOT_RUN`;
+  streaming/agent/render/live smoke report; representative `r2-alpha-render`
+  реализован, а R3–R5 workloads честно возвращают `NOT_RUN`;
 - локальная v1 closure matrix.
 
-Это сильный bootstrap, но ещё не пользовательская alpha. Текущий сценарий
-жёстко ограничен одним neutral fixture, двумя chunks, одной combat ability,
-одним NPC transition и небольшим B0 mesh/material/texture набором без
-skeleton/animation/audio.
+Data-first reference alpha теперь реализована, но ещё не принята как
+пользовательская alpha: automated production flow и package smoke проходят,
+а первый ручной run выявил исправленные atomic activation и subtitle recovery defects на принятии quest;
+полный свежий 20–30-minute acceptance rerun ещё не выполнен. Текущий
+R2 scope намеренно ограничен двумя chunks, одной combat ability, одним quest
+loop и одним neutral humanoid skeleton/clip catalog; general partition, runtime
+animation и reusable systemic quest conditions относятся к R3–R5.
 
 ### Реализация по подсистемам
 
@@ -114,16 +119,16 @@ skeleton/animation/audio.
 | Persistence/replay | Реализован текущий owner set | Нет реального schema migration graph и будущих owner segments. |
 | RPG | Частично: основные aggregates и восемь операций | Нет полного faction/membership, status/effect, quest-graph, reward и divine command lifecycle. |
 | Mechanics/packages | Частично: contact melee + Luau/Wasm examples | Нет общего ability phase/cost/cooldown/status lifecycle и creator-facing SDK workflow. |
-| Content/cooker | Частично: generic records плюс canonical mesh/material/texture/profile catalog, deterministic cook/activation и derived meshlet payloads | Нет skeleton/animation/audio/navigation catalog, реальных migrations и достаточного lawful representative content. |
+| Content/cooker | Data-first `projects/reference-alpha` проходит file-backed authoring/resolve/cook/activate; package содержит 43 canonical entries, шесть production low-poly meshes, десять role/environment materials, четыре textures, synthesized audio и CC0 skeleton/clip provenance/NOTICE; прежний marker mesh удалён из production catalog | Нет navigation catalog, реальных migrations, general resource policy и runtime animation consumption. |
 | World/streaming | Частично: deterministic two-chunk transition | Нет general partition interest, resource residency, calendar, population, schedules и region transfers. |
 | Jobs/resources | Spec-only | Нет общего bounded job, memory, I/O credit, pin/lease и backpressure substrate. |
 | Physics | Частично: upright capsule, static Box и exact B0 `ClosestPoint` scene query | Нет полного shape/body/constraint/query profile и production physical-character stack. |
 | Animation/motor | Только procedural projection/contract fragments | Нет skeleton graph, retargeting, IK, root-motion intent или deterministic inference supervisor. |
 | Agent AI | Частично: один canonical affordance planner | Нет perception, hierarchy, schedules, memory и 100-NPC workload. |
 | Navigation/audio | Частично: полный baseline audio vertical (A1–A6 `DONE_LOCAL_WINDOWS`) — neutral clip contract, audio scene extraction, software mixer + canonical PCM sink, SDL device adapter, subtitle fallback, `audio_scene` в v1-closure | Gaps: chunked long-clip streaming payload, zone reverb fallback (zone occlusion gain есть), navigation cooker и baseline nav adapters. |
-| Player experience | Частично: общий keyboard/mouse ActionMap/InputContext resolver, persisted targeting intent/query, live third-person camera path, semantic UI contracts + HUD/pause-menu extraction, ui-back pause lifecycle, localization text catalogs с deterministic fallback resolver и pseudo-locale, immediate-mode widget rasterizer в desktop adapter, minimal PresentationOnly preferences (text scale/locale), read-only inventory/equipment + quest journal surfaces, dialogue arbitration и host-side interactive pause-menu (resume/save/load) | Нет accessibility profiles, controller profile и capability-scoped extension panels (SPEC-18 `ui.panel.register`). |
-| Presentation/render | Частично: exact revision-bound snapshot с typed camera, offline SPIR-V, CPU visible list/indexed-indirect B0 path, camera view-projection/depth, fallback material и проверенные локально Windows swapchain/device recovery/package paths | Нет skeleton/VFX consumption state, paired same-commit target proof и representative Linux hardware-GPU evidence. |
-| Tooling | Частично: repository `xtask` checks и versioned performance report/gate foundation | Нет creator-facing `next` CLI, inspectors, scenario/minimizer, ten-run THOTH baseline и stable external SDK workflow. |
+| Player experience | Keyboard/mouse и generic controller используют одинаковые action IDs с keyboard fallback; persisted targeting, third-person camera, semantic HUD/inventory/journal/dialogue/pause flow, localization, subtitles и preferences проходят automated Windows checks. HUD получил цветовой health meter, objective и отдельный presentation-only next-action panel, который выводится из immutable RPG snapshot для accept/pickup/equip/combat/relay/return/complete; Save показывает `Saved`, а Load оставляет восстановленный world на паузе с `Loaded - press Resume`. | Worker-to-desktop regression покрывает quest accept, durable checkpoint, Save confirmation, визуально различимое изменение, sequence-zero recovery cut, Load confirmation, продолжение новой epoch после явного Resume и реальное authoritative WASD movement с exact загруженной input-context revision. Полный свежий 20–30-minute rerun требуется. Accessibility profiles и capability-scoped extension panels остаются вне R2 gate. |
+| Presentation/render | Exact revision-bound snapshot, typed camera, offline SPIR-V, seven-binding B0 scene и Windows recovery/package path реализованы; humanoid/blade/relay имеют разные материалы, collected pickup скрывается, defeated NPC остаётся видимым с тёмным material, relay меняет inactive/active material. Engine-owned relay-approach kit (tiled path, platform, two ruined pillars, four-rock field) добавляет читаемый маршрут и landmarks одним batched draw; отдельный reusable rock source mesh остаётся в content catalog. Relay collider точно следует видимым pillars/top beam/central switch без невидимых продолжений. Contract-preserving B0+ shader выводит flat geometry normal из world-position varying и применяет fixed sun/ambient + depth fog без смены locked position/UV ABI. Private UI adapter рисует контрастные bordered panels: HUD/action слева, inventory/journal справа, dialogue/pause по центру. | Нет authored smooth normals, runtime skeleton/VFX consumption, production art/animation polish, clean ten-run THOTH hard evidence, paired same-commit target proof и Linux hardware-GPU evidence. |
+| Tooling | Repository `xtask`, Performance V3, representative R2 report workload и Windows package smoke реализованы | Нет creator-facing `next` CLI, inspectors, scenario/minimizer, R3–R5 workloads, ten-run THOTH baselines и stable external SDK workflow. |
 | Autonomous narrative | Contract fragments only | SPEC-31 runtime, graph admission, director fallback и divine batch transaction отсутствуют. |
 
 ## Продуктовая граница v1
@@ -184,7 +189,7 @@ flowchart LR
 |---|---|---:|---|
 | R0. Walking skeleton | `DONE_LOCAL` | — | Узкий deterministic slice доказал end-to-end architecture. |
 | R1. Native developer preview | `IN_PROGRESS` | S–M | Один exact package действительно запускается на обеих shipping targets. |
-| R2. Playable alpha | `PLANNED` | L | В slice можно играть через нормальный camera/UI/presentation loop. |
+| R2. Playable alpha | `IN_PROGRESS / MANUAL_ACCEPTANCE_RERUN_REQUIRED` | L | Automated data-first slice и Windows package проходят; exact failed-state quest-accept recovery и pause-menu Save/Load defects исправлены, полный свежий 20–30-minute rerun ещё не выполнен. |
 | R3. Scalable content and streaming | `PLANNED` | XL | Движок перестаёт зависеть от hard-coded two-chunk fixture. |
 | R4. Systemic living world | `PLANNED` | XL | NPC, schedules, navigation и RPG consequences образуют живой offline world. |
 | R5. Physical character integration | `PARALLEL` → `PLANNED` | XL | Physical, animation и motor layers становятся production gameplay path. |
@@ -312,11 +317,94 @@ registration отклоняет stale lifecycle/control events; authoritative re
 публикует new presentation epoch, sequence `0` и camera cuts. Exact semantics
 зафиксированы [ADR-035](architecture/adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md).
 Локальный Windows checkpoint подтверждён `host-check`, `play`,
-`persistence-replay`, `content-package`, `platform`, `performance`,
-`v1-closure` и fresh-output `v1-package`. `v1-closure` сообщает Windows-local `PASS`
-и честный Linux `NOT_RUN`; это не закрывает R2, R1/B-01, B-02,
-`native_gate_ready`, shipping или Linux/native target criteria. `LNX-005`
-остаётся отдельной асинхронной проверкой.
+`persistence-replay`, `content-package`, real SDL3/Vulkan `platform` и
+fresh-output `v1-package`. Generic controller использует те же action IDs, что
+keyboard/mouse, а отсутствие устройства использует keyboard fallback. Поэтому
+Windows-часть B-02 имеет статус `WINDOWS_COMPLETE / DEFERRED_LINUX`; это не
+закрывает R1/B-01, `native_gate_ready`, shipping или Linux/native target criteria.
+
+Data-first package `projects/reference-alpha` содержит 51 canonical records и
+два chunks, versioned authoring manifest, source spans, engine-owned
+geometry/materials/text/synthesized audio и CC0 humanoid skeleton/clip catalog с
+source/hash/license/NOTICE. Production scripted equivalent выполняет Frontier
+Relay за `32` ticks и `27` events: принимает quest через dialogue, находит и
+экипирует предмет, переходит в следующую зону, завершает combat, активирует
+relay, возвращается и завершает quest; restore проверяется после acceptance,
+combat и relay activation. `game` и `headless` получают одинаковый authoritative
+result. Skeleton/clip catalog в R2 является content prerequisite; runtime
+animation остаётся R5.
+
+R2 visual usability pass удалил production marker mesh и добавил static
+low-poly humanoid, relay gate и blade с отдельными role materials. Presentation
+state детерминированно выводится из authoritative RPG snapshot на каждом
+publication и после Load: подобранный blade скрывается, побеждённый NPC остаётся
+видимым с тёмным material, relay переключает inactive/active material. Его
+collider состоит только из видимых pillars, top beam и central switch; live
+traversal regression проходит вокруг gate за границу прежней невидимой стены.
+Следующий инкремент ввёл exact `B0ShaderInterfaceV2`: position/UV дополняются
+optional SNORM16 normals с derivative flat-normal fallback, а 208-byte frame
+block содержит camera, sun, fog и stabilized shadow transform. Отдельные
+sky/world/UI suites, directional sun, hemispheric ambient, world-distance fog и
+renderer-owned 2048² depth shadow map с 32×32 м snapped volume, fixed bias и
+3×3 PCF проходят real Windows Vulkan path. Sampled-depth format/allocation
+failure выбирает stable no-shadow shader с диагностикой и не меняет gameplay.
+Private semantic-UI adapter теперь имеет bordered panels и стабильный
+layout: HUD слева, inventory/journal справа, dialogue/pause по центру; health и
+objective визуально различимы. Save/Load дают явные подтверждения, причём Load
+публикует обязательный recovery cut, затем `Loaded - press Resume` и не запускает
+simulation до Resume. Catalog, live bindings, final scripted state и полный
+worker save/load flow покрыты regressions; свежие `content-package`, `play`,
+`persistence-replay`, native Windows `platform` и package smoke проходят. Это
+не заменяет обязательный свежий 20–30-minute manual acceptance.
+
+Следующий bounded visual increment добавил engine-owned tiling ground/path/stone/cloth/metal
+textures и batched environment kit-piece: relay approach объединяет дорогу,
+подиум, две разрушенные колонны и четыре low-poly скалы; reusable rock mesh
+остаётся отдельной public content записью. Начальная scene содержит семь
+bindings; после полного flow остаются шесть visible draws,
+а legacy 10 000-cycle frame-planning gate проходит прежний absolute 30-second
+budget. Отдельный HUD action panel read-only выводит из immutable RPG snapshot
+следующий шаг для всех семи стадий acceptance; projection regression покрывает
+accept, pickup, equip, combat, relay activation, return и completion. Новый
+Четыре крупные скалы получили inset static Box proxies внутри видимых силуэтов;
+центральный маршрут и обход relay покрыты live traversal regressions. Player,
+enemy и quest giver используют три разных static low-poly silhouette meshes;
+skinning и animation path по-прежнему остаются R5. Focus ring и quest marker
+публикуются из immutable snapshots с reserved ordinals и не отбрасывают тень;
+combat target-health, pickup/relay/defeated states и keyboard/controller
+affordances остаются presentation-only. 12×16 alpha font и private overlay
+покрыты 720p/1080p HUD/inventory/dialogue/pause/save/load/pseudo-locale goldens.
+`visual-smoke` создаёт шесть displayless BMP и manifest с project/snapshot/frame
+plan/camera/shader hashes как human evidence, не correctness oracle. Gameplay
+contracts, authoritative state и R5 animation path не менялись.
+
+Representative `r2-alpha-render` реализует exploration, combat и UI/dialogue
+windows для 1080p и 720p fallback: `3 600` warm-up и `21 600` measured frames,
+`50 400` Vulkan queries, distinct snapshots, authoritative roots и V3 resource
+evidence. Текущий release report проходит absolute budgets, но сохраняет
+`REPORT_ONLY`: worktree не clean и THOTH preflight не готов. Это не hard evidence
+и не закрывает B-12.
+
+Первый фактический ручной acceptance дошёл до принятия quest и выявил два дефекта
+одного checkpoint path. Сначала runtime tick публиковался до fallible activation
+нового input context; activation теперь staged внутри `PreparedRuntimeTick` и
+публикуется атомарно с runtime generation. Повторный run на исправленном binary
+локализовал оставшийся failure: валидный semantic UI record `Subtitle = 8`
+кодировался, но presentation recovery decoder принимал только роли `0..7`.
+Decoder теперь покрывает `Subtitle`; отдельный byte-exact codec test, production
+quest-accept regression с полным следующим checkpoint и exact manual failed-state
+tail от tick 390 проходят. Следующие ручные попытки выявили, что pause-menu Save
+не подтверждал публикацию, Load выбирал текущий session checkpoint, а desktop
+ошибочно применял tick monotonicity между epoch и мог не увидеть обязательный
+sequence-zero recovery cut из-за latest-wins publication. Production worker test
+теперь принимает quest реальными клавишами, пересекает durable checkpoint, выполняет
+Save → movement → Load, передаёт exact recovery cut/следующий кадр в desktop
+transition validator и после явного Resume доказывает реальное WASD movement через exact controller binding из save; `play` проверяет факты всех трёх restored stages. Полный свежий 20–30-minute rerun ещё требуется, поэтому R2 и
+B-03 формально не закрываются. Текущий scripted flow проверяет требуемый порядок, но R2
+намеренно не вводит reusable quest conditions: ручной игрок может повторно
+взаимодействовать с quest giver до relay activation. Systemic condition
+enforcement относится к representative R4 mechanics scope и явно не
+выдаётся за выполненный R2 capability.
 
 **Критерии успеха:**
 
@@ -332,12 +420,13 @@ registration отклоняет stale lifecycle/control events; authoritative re
 
 **Hard blockers:**
 
-- R1 native package closure;
-- CC0/engine-owned art, UI text и audio fixture с подтверждённой provenance;
-- отсутствие hidden direct-mutation path из UI/camera.
+- отдельный ручной 20–30-minute Windows acceptance без debug commands;
+- R1 native cross-target package closure остаётся формальным product blocker,
+  но Linux и R1 exit полностью исключены из текущего Windows-only плана.
 
-Эти blockers ограничивают закрытие R2 и соответствующий alpha claim, но не
-начало или продолжение перечисленных Windows work packages.
+Automated production path, lawful content/provenance и отсутствие hidden
+UI/camera mutation подтверждены. До решения manual acceptance действует WIP=1:
+R3a не начинается без явного решения продолжать с незакрытым R2 gate.
 
 **Scope guard:** editor, advanced renderer, photoreal assets и procedural world
 generation не входят в этот этап.
@@ -653,18 +742,18 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 
 | ID | Blocker | Блокирует закрытие | Условие снятия |
 |---|---|---|---|
-| B-01 | `OPEN`: standalone Linux `PASS` записан; paired same-commit Windows report и cross-target compare отсутствуют. Coordination хранится в [Linux validation backlog](development/linux-validation-backlog.md). | R1, R7 | На одном exact clean commit собраны Windows/Linux target `PASS` reports и packages с matching roots, а `native-gate-compare` сообщает `native_gate_ready = true`. |
-| B-02 | SDL3/ash остаётся `Proposed` target candidate; Windows B0 lifecycle/render-content path проходит локально, software-Vulkan Linux evidence записан, а representative hardware-GPU action поставлен в [Linux validation backlog](development/linux-validation-backlog.md). | R1, R2 | B0 lifecycle/input/device-loss checks проходят на обеих targets либо выбран thin adapter за тем же contract. |
-| B-03 | `PARTIAL`: minimal mesh/material/texture profile и engine-owned fixture реализованы и проверены на Windows; skeleton/audio и достаточный lawful representative slice отсутствуют | R2, R5, R7 | Зафиксирован и проверен минимальный mesh/material/texture/skeleton/audio profile и lawful fixture/project. |
+| B-01 | `DEFERRED_LINUX`: Linux validation и same-commit cross-target compare исключены из текущего Windows-only плана. Имеющееся evidence остаётся historical и не закрывает R1/R7. | R1, R7 | Вне текущего плана: на одном exact clean commit собраны Windows/Linux target `PASS` reports/packages с matching roots и `native-gate-compare` сообщает `native_gate_ready = true`. |
+| B-02 | `WINDOWS_COMPLETE / DEFERRED_LINUX`: Windows SDL3/ash B0 проходит real Vulkan frame, resize/focus/suspend-resume/fullscreen, injected device/swapchain recovery, normalized keyboard/mouse, generic controller action profile, real audio open/reopen и packaged `game`/`headless` launch. Linux не выполняется. | R1, R2 | Windows-часть завершена; полное R1 closure и paired cross-target evidence остаются вне Windows-only плана. |
+| B-03 | `IMPLEMENTED / MANUAL_ACCEPTANCE_RERUN_REQUIRED`: lawful 51-record `projects/reference-alpha`, scripted full flow, checkpoint/Save/Load recovery и Windows package smoke проходят. Все найденные manual checkpoint/menu/presentation-transition, post-load input-context и invisible relay-collider defects покрыты production regressions. Три visual packages добавили exact normals/outdoor/shadow/UI pipelines, отдельные static player/enemy/quest-giver silhouettes, tiling environment materials, четыре visible/inset rock colliders, focus/quest/combat/state feedback, 12×16 alpha HUD и шесть `visual-smoke` evidence кадров. Fresh Windows `play`, `persistence-replay`, `content-package`, real Vulkan `platform`, `next_verification` и исправленный `r2-reference-alpha-visual-v5` package smoke проходят; 1080p/720p release diagnostic остаётся предыдущим совместимым `REPORT_ONLY` evidence. Полный свежий 20–30-minute run ещё не выполнен. | R2, R5, R7 | Выполнить и зафиксировать свежий ручной representative loop без debug commands: различимые роли/маршрут, focus/combat/relay feedback, collision всех четырёх rocks, Save → изменение world → Load confirmation → Resume rollback → WASD movement и resize/fullscreen. До этого blocker формально не закрыт. |
 | B-04 | Нет общего job/resource/backpressure substrate | R3–R5 | Finite queues, canonical merge, logical budgets, pin/lease/eviction and fault checks реализованы production owners. |
 | B-05 | Schema migration DAG фактически пуст | R3, R7 | Реальная N−1→N copy-on-write migration проходит valid/corrupt/fault matrix. |
 | B-06 | World ограничен двумя chunks | R3, R4 | General partition interest/admission and multi-region save/restart scenario проходят. |
 | B-07 | Нет calendar/population/navigation services | R4 | World owner segment, schedules/tiers and graph navigation baseline проходят systemic scenario. |
 | B-08 | Physics ограничена capsule + static Box; animation/motor отсутствуют | R5 | V1 physical profile and procedural animation/motor fallback проходят physical product checks. |
 | B-09 | Нет external creator CLI/SDK workflow | R6, R7 | Второй project/package создаётся cleanly только public tools/contracts. |
-| B-10 | Content scope может расти быстрее playable loop | Все этапы | Для каждого этапа назначен один representative scenario и явно записан non-goal list. |
-| B-11 | Недостаточная content/documentation capacity | R2, R6, R7 | Назначены owners и budget для art/audio/text/examples/docs/provenance. |
-| B-12 | `OPEN / FOUNDATION_DONE`: ADR-036/ADR-038 tooling и ADR-039–ADR-043 allocator boundary/protocol приняты; THOTH fingerprint/preflight, versioned report, nearest-rank, strict ten-run baseline publisher, Windows I/O delta, bounded Vulkan timestamps, conservative device-allocation residency ceiling и report-only production-worker handoff diagnostic реализованы. ADR-042 implementation прошла source/codegen/parity/inactive/resource checks, но immutable candidate-6 дала enabled `+4.81%` `FAIL`. ADR-043 implementation удалила per-call recursion guard и прошла focused/source/boundary/pinned IR/ASM/backend/parity/resource checks, но единственный immutable candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL`; allocator metric остаётся disabled, а следующий timing candidate требует новой material implementation hypothesis или Accepted ADR. Linux admission (`LNX-006` и отдельный target-extension), calibration и representative R2–R5 workloads отсутствуют | R4, R5, R7 | Hard `PASS` на полном `ref-win-thoth-v1`, Linux `REPORT_ONLY` profile и mandatory native correctness на обеих shipping targets; Accepted ADR, smoke/fallback-only/`NOT_RUN` blocker не закрывают. |
+| B-10 | `PERMANENT_SCOPE_GATE`: content scope может расти быстрее playable loop; blocker не закрывается одноразово. | Все этапы | На каждом package один representative scenario и явный non-goal list; новая подсистема допускается только по требованию scenario. |
+| B-11 | `CONTENT_COMPLETE / SOLO_OWNER`: единственный owner — solo maintainer; отдельная staffing/ownership matrix не создаётся. Alpha package содержит engine-owned assets/audio/text, acceptance docs, CC0 source/hash/license provenance и NOTICE и проходит `content-package`/package smoke. Будущие creator examples относятся к R6/B-09, а не к staffing gate. | R2, R6, R7 | Содержательно закрыт для alpha package; поддерживать provenance/NOTICE в том же public package по мере дальнейших content changes. |
+| B-12 | `OPEN / R2_REPORT_ONLY / DEFERRED_LINUX`: ADR-045 узко заменил mandatory exact allocator evidence; current V3 hard schema требует canonical logical charges, peak working set, process I/O, device-allocation ceiling, Vulkan timestamps, profiler integrity и authoritative roots. V2 читается только как historical evidence; allocator counter optional, но strict при наличии. Representative `r2-alpha-render` реализован и в release report выполняет 6 окон, 21 600 measured frames и 50 400 Vulkan queries; все absolute budgets проходят, но dirty worktree и неготовый THOTH preflight оставляют evidence `REPORT_ONLY`. R3–R5 workloads, clean release ten-run baselines и hard gates отсутствуют. Candidate-6/7 failures остаются immutable. Linux полностью deferred. | R4, R5, R7 | Для Windows-части — по 10 valid clean release runs каждого R2–R5 workload, compatible baseline и hard `PASS`; затем `WINDOWS_COMPLETE / DEFERRED_LINUX`. Report-only run, Accepted ADR и `NOT_RUN` не закрывают blocker. |
 
 ## Решения, которые нужно принять вовремя
 
@@ -727,7 +816,8 @@ cuts по ADR-035. `LNX-005` выполняется позднее асинхр�
 этим не закрываются.
 
 Performance measurement foundation (`DONE_LOCAL_WINDOWS`) добавляет
-`PerformanceRunV2`/`PerformanceMetricV1`/`PerformanceBaselineV2`, полный
+`PerformanceRunV3`/`PerformanceResourceCountersV3`/`PerformanceMetricV1`/
+`PerformanceBaselineV3`; V2 остаётся strict decode-only historical evidence. Полный
 THOTH fingerprint и idle/RAM/thermal preflight, profile `profiling`, raw
 nearest-rank smoke metrics и explicit `NOT_RUN` для ещё отсутствующих
 representative R2–R5 workloads. Report-only `long-session-soak` теперь
@@ -739,6 +829,11 @@ canonical component bytes, а identity-index root больше не требуе
 Windows process I/O deltas, bounded CPU/Vulkan frame timing и conservative
 engine-owned device-allocation ceiling реализованы; release smoke на THOTH
 получил timestamp samples без dropped queries.
+ADR-045 (`DONE_LOCAL_WINDOWS`) делает canonical logical charges, Windows peak
+working set/process I/O, device-allocation ceiling, Vulkan timestamps, profiler
+integrity и authoritative roots обязательным hard evidence. Normal timing window
+не активирует exact allocator counter; отдельный `allocator-counter-check`
+сохраняет diagnostic semantics, а partial/inconsistent optional payload fail closed.
 Private session storage дополнительно объединяет logical objects в один или
 несколько bounded generation packs, сокращая Windows durable file barriers,
 сохраняет legacy raw load и final logical hash validation; packing не меняет
@@ -1129,7 +1224,9 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    реализовано: host-side presentation-only selection против опубликованных
    records, resume через admitted menu-fabricated `ResumeRequested` (без новых
    lifecycle edges), save через тот же production save-store write, что final
-   save, load через same-session restore с continuing host registration;
+   save, с явным `Saved` confirmation; load читает latest compatible save-store
+   generation и атомарно заменяет suspended live world вместе с verified save
+   identity, fresh presentation epoch и continuing host registration;
    swallowed menu keys проходят cursor-only admission в input session
    (per-source continuity exact, второго gameplay input path нет).
    `host-check`, `play`, `persistence-replay` и `platform` (desktop-sdl-ash)
@@ -1156,18 +1253,41 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    блокируют R2 alpha slice): chunked long-clip streaming payload (SPEC-23
    streaming package) и zone reverb fallback (zone occlusion gain
    реализован, reverb deferred).
-3. **Playable alpha project (`PLANNED`):** заменить technical fixture на один complete
-   CC0/engine-owned 20–30 minute slice.
-4. **Jobs/resources vertical (`PLANNED`):** сначала content cook/stream use case, затем
-   shared bounded admission primitives.
-5. **General partition and migration (`PLANNED`):** multi-region streaming plus first real
-   save/content schema migration.
-6. **Living-world vertical (`PLANNED`):** calendar + small population + graph navigation,
-     затем масштабирование к integrated 100-NPC scenario.
+3. **Playable alpha project (`IMPLEMENTED / MANUAL_ACCEPTANCE_RERUN_REQUIRED`):**
+   data-first Frontier Relay, lawful content package, scripted full-flow equivalent,
+   controller fallback, three restore checkpoints и representative R2 performance
+   workload реализованы; пять manual checkpoint/menu defects, включая
+   worker-to-desktop cross-epoch Load transition и stale post-load input context, исправлены и покрыты regressions, требуется полный свежий
+   ручной 20–30-minute Windows rerun. Три visual packages завершены:
+   `B0ShaderInterfaceV2`, authored/fallback normals, separate sky/world/UI,
+   directional/hemisphere/fog, stabilized 2048² shadow map с 3×3 PCF и explicit
+   no-shadow fallback проходят real Vulkan path; content имеет разные static
+   player/enemy/quest-giver silhouettes, five tiling material patterns и четыре
+   inset rock colliders. Focus/quest markers, combat meter, state feedback,
+   12×16 alpha UI, keyboard/controller affordances и 720p/1080p goldens остаются
+   presentation-only. Six-frame `visual-smoke`, fresh package и release 1080p/720p
+   diagnostic проходят. Следующий WIP=1 внутри R2 — только свежий manual acceptance
+   на `r2-reference-alpha-visual-v5` с явными `Saved` и
+   `Loaded - press Resume` подтверждениями и проверкой WASD после Resume.
+4. **R3a jobs/resources vertical (`NEXT / WAITING_FOR_R2_MANUAL_GATE`):** первым
+   production consumer является chunk fetch/decode/validate; shared bounded
+   admission primitives не проектируются отдельно от этого workload.
+5. **R3b general partition and migration (`PLANNED`):** ровно 4 regions/64 chunks,
+   generalized placement/streaming и первая real copy-on-write save migration.
+6. **R4 living-world vertical (`PLANNED`):** calendar, exact 100-NPC population,
+   schedules/tiers, engine-owned graph/tile navigation и representative mechanics.
+7. **R5 physical character and animation (`PLANNED`):** минимальный v1 physics
+   profile, procedural capsule motor, skeleton/clip graph, retargeting и fixed IK.
+8. **R6 creator CLI and second project (`PLANNED`):** stable non-interactive JSON
+   CLI, inspectors, templates и clean-checkout second-project exercise.
+9. **Windows hard performance/release checkpoint (`PLANNED`):** clean-commit
+   ten-run R2–R5 baselines/hard gates и Windows v1 candidate package; Linux
+   остаётся `DEFERRED_LINUX`, v1 shipping не заявляется.
 
-Каждый package должен быть отдельным product increment с focused checks. Work
-package 4 не следует начинать как универсальный scheduler design без package 3
-и конкретного streaming workload.
+Каждый package должен быть отдельным product increment с focused checks. WIP=1:
+package 4 не начинается до полного свежего ручного R2 acceptance либо явного
+решения продолжать с незакрытым gate. R3a не следует начинать как универсальный
+scheduler design без concrete chunk streaming workload.
 
 ## Обновление roadmap
 

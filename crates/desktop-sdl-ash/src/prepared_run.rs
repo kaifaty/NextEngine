@@ -253,6 +253,10 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
         )?);
         let mut audio_output =
             audio_output::DesktopAudioOutputV1::open(&sdl, options.audio_output_enabled);
+        if options.inject_audio_device_loss_after_open {
+            audio_output.note_device_removed();
+            audio_output.note_device_added();
+        }
         let mut normalizer = lifecycle::DesktopEventNormalizer::new(options.host_instance_id)?;
         let mut event_stats = DesktopEventStats::default();
         {

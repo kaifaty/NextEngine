@@ -3,7 +3,7 @@ use std::process::Command;
 use serde::Deserialize;
 
 use super::{
-    MINIMUM_FREE_RAM_BYTES, PerformancePreflightV1, PerformanceResourceCountersV2,
+    MINIMUM_FREE_RAM_BYTES, PerformancePreflightV1, PerformanceResourceCountersV3,
     PerformanceTargetFingerprintV1, THOTH_TARGET_ID,
 };
 
@@ -154,15 +154,15 @@ pub fn validate_thoth_fingerprint(fingerprint: &PerformanceTargetFingerprintV1) 
     diagnostics
 }
 
-pub fn inspect_process_counters() -> PerformanceResourceCountersV2 {
+pub fn inspect_process_counters() -> PerformanceResourceCountersV3 {
     if !cfg!(target_os = "windows") {
-        return PerformanceResourceCountersV2 {
+        return PerformanceResourceCountersV3 {
             unavailable: vec![
                 "process residency counters are not implemented on this report-only host"
                     .to_owned(),
                 "Vulkan timestamps require a representative render workload".to_owned(),
             ],
-            ..PerformanceResourceCountersV2::default()
+            ..PerformanceResourceCountersV3::default()
         };
     }
     let pid = std::process::id();
@@ -195,7 +195,7 @@ if (-not [NextEngineProcessIo]::GetProcessIoCounters($process.Handle, [ref]$coun
   throw "GetProcessIoCounters failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
 }}
 [ordered]@{{
-  host_resident_bytes = [uint64]$process.WorkingSet64
+  process_peak_working_set_bytes = [uint64]$process.PeakWorkingSet64
   io_read_bytes = [uint64]$counters.ReadTransferCount
   io_write_bytes = [uint64]$counters.WriteTransferCount
 }} | ConvertTo-Json -Compress"#
@@ -206,37 +206,37 @@ if (-not [NextEngineProcessIo]::GetProcessIoCounters($process.Handle, [ref]$coun
     );
     #[derive(Deserialize)]
     struct Probe {
-        host_resident_bytes: Option<u64>,
+        process_peak_working_set_bytes: Option<u64>,
         io_read_bytes: Option<u64>,
         io_write_bytes: Option<u64>,
     }
     match output.and_then(|bytes| {
         serde_json::from_slice::<Probe>(&bytes).map_err(|error| error.to_string())
     }) {
-        Ok(probe) => PerformanceResourceCountersV2 {
-            host_resident_bytes: probe.host_resident_bytes,
+        Ok(probe) => PerformanceResourceCountersV3 {
+            process_peak_working_set_bytes: probe.process_peak_working_set_bytes,
             io_read_bytes: probe.io_read_bytes,
             io_write_bytes: probe.io_write_bytes,
             unavailable: vec![
                 "device residency requires a representative Vulkan workload".to_owned(),
                 "Vulkan timestamps require a representative render workload".to_owned(),
             ],
-            ..PerformanceResourceCountersV2::default()
+            ..PerformanceResourceCountersV3::default()
         },
-        Err(error) => PerformanceResourceCountersV2 {
+        Err(error) => PerformanceResourceCountersV3 {
             unavailable: vec![
                 format!("process counters unavailable: {error}"),
                 "device residency requires a representative Vulkan workload".to_owned(),
                 "Vulkan timestamps require a representative render workload".to_owned(),
             ],
-            ..PerformanceResourceCountersV2::default()
+            ..PerformanceResourceCountersV3::default()
         },
     }
 }
 
 pub fn finish_process_counters(
-    before: &PerformanceResourceCountersV2,
-) -> PerformanceResourceCountersV2 {
+    before: &PerformanceResourceCountersV3,
+) -> PerformanceResourceCountersV3 {
     let after = inspect_process_counters();
     let io_read_bytes = counter_delta(before.io_read_bytes, after.io_read_bytes);
     let io_write_bytes = counter_delta(before.io_write_bytes, after.io_write_bytes);
@@ -252,11 +252,12 @@ pub fn finish_process_counters(
                 .to_owned(),
         );
     }
-    PerformanceResourceCountersV2 {
-        host_resident_bytes: after.host_resident_bytes,
+    PerformanceResourceCountersV3 {
+        process_peak_working_set_bytes: after.process_peak_working_set_bytes,
         device_resident_bytes: after.device_resident_bytes,
         io_read_bytes,
         io_write_bytes,
+        logical_resource_charges: after.logical_resource_charges,
         allocator_allocated_bytes: after.allocator_allocated_bytes,
         allocator_allocation_count: after.allocator_allocation_count,
         allocator_counter: after.allocator_counter,

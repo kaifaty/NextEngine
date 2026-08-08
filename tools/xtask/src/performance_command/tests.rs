@@ -113,7 +113,7 @@ fn production_worker_details_are_versioned_and_round_trip_strictly() {
         command_identity_index_root: "c".repeat(64),
         command_ledger_hash: "d".repeat(64),
     };
-    let run = xtask::performance::PerformanceRunV2::empty(
+    let run = xtask::performance::PerformanceRunV3::empty(
         xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak,
         xtask::performance::PerformanceModeV1::Report,
         "release",
@@ -137,6 +137,7 @@ fn diagnostic_baseline_comparison_cannot_promote_report_only_to_a_gate() {
         xtask::performance::PerformanceScenarioV1::LongSessionSoak,
         xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak,
         xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak,
+        xtask::performance::PerformanceScenarioV1::R2AlphaRender,
     ] {
         assert_eq!(
             preserve_report_only_scenario_verdict(
@@ -177,11 +178,12 @@ fn diagnostic_baseline_comparison_cannot_promote_report_only_to_a_gate() {
 #[test]
 fn scenario_dispatch_keeps_large_workload_branches_out_of_line() {
     const SOURCE: &str = include_str!("workloads.rs");
-    const HELPERS: [&str; 4] = [
+    const HELPERS: [&str; 5] = [
         "run_smoke_scenario_workloads",
         "run_long_session_scenario_workloads",
         "run_production_worker_scenario_workloads",
         "run_interactive_frame_scenario_workloads",
+        "run_r2_alpha_render_scenario_workloads",
     ];
 
     let dispatcher = SOURCE

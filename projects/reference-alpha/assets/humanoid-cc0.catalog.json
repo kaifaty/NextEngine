@@ -1,0 +1,40 @@
+{
+  "format": "nextengine.neutral-humanoid-authoring.v1",
+  "asset_set_id": "nextengine.reference-alpha.humanoid.cc0.v1",
+  "creator": "Next Engine contributors",
+  "source": "urn:nextengine:reference-alpha:humanoid-cc0-v1",
+  "license_expression": "CC0-1.0",
+  "skeleton": {
+    "asset_id": "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
+    "record_revision": 1,
+    "joints": [
+      { "key": "root", "parent": null, "translation_micrometres": [0, 0, 0] },
+      { "key": "hips", "parent": "root", "translation_micrometres": [0, 900000, 0] },
+      { "key": "spine", "parent": "hips", "translation_micrometres": [0, 350000, 0] },
+      { "key": "head", "parent": "spine", "translation_micrometres": [0, 450000, 0] },
+      { "key": "hand-l", "parent": "spine", "translation_micrometres": [-350000, 250000, 0] },
+      { "key": "hand-r", "parent": "spine", "translation_micrometres": [350000, 250000, 0] },
+      { "key": "foot-l", "parent": "hips", "translation_micrometres": [-150000, -900000, 0] },
+      { "key": "foot-r", "parent": "hips", "translation_micrometres": [150000, -900000, 0] }
+    ]
+  },
+  "clips": [
+    {
+      "asset_id": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+      "record_revision": 1,
+      "clip_id": "nextengine.reference-alpha.animation.idle",
+      "duration_microseconds": 1000000,
+      "channels": [
+        {
+          "joint": "hips",
+          "property": "translation",
+          "keys": [
+            { "time_microseconds": 0, "value": [0, 900000, 0] },
+            { "time_microseconds": 500000, "value": [0, 905000, 0] },
+            { "time_microseconds": 1000000, "value": [0, 900000, 0] }
+          ]
+        }
+      ]
+    }
+  ]
+}

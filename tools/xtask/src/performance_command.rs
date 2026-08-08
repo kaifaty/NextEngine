@@ -16,6 +16,7 @@ use support::*;
 const INTERACTIVE_FRAME_SOAK_FRAMES: u32 = 240;
 mod allocation_counter;
 mod production_worker;
+mod r2_alpha_render;
 mod workloads;
 
 use production_worker::*;
@@ -53,6 +54,7 @@ fn preserve_report_only_scenario_verdict(
             | xtask::performance::PerformanceScenarioV1::LongSessionSoak
             | xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak
             | xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak
+            | xtask::performance::PerformanceScenarioV1::R2AlphaRender
     );
     if mode == xtask::performance::PerformanceModeV1::Report
         && report_only_scenario
@@ -153,7 +155,7 @@ fn performance_report_for(
     request: &PerformanceArguments,
     state_root: Option<&Path>,
 ) -> Result<CommandReportV1<PerformanceDetailsV1>, String> {
-    let mut run = xtask::performance::PerformanceRunV2::empty(
+    let mut run = xtask::performance::PerformanceRunV3::empty(
         request.scenario,
         request.mode,
         env!("NEXTENGINE_BUILD_PROFILE"),
@@ -220,6 +222,7 @@ fn performance_report_for(
         live_runtime,
         production_worker,
         desktop_frame_timing,
+        r2_alpha_render,
         resource_counters,
     } = run_scenario_workloads(
         request.scenario,
@@ -271,6 +274,16 @@ fn performance_report_for(
                 frame_timing.elapsed,
             ));
     }
+    if profiling_enabled && let Some(r2_alpha_render) = &r2_alpha_render {
+        instrumentation_overhead_nanoseconds =
+            instrumentation_overhead_nanoseconds.saturating_add(record_performance_span(
+                profiling_enabled,
+                &mut recorded_spans,
+                &mut dropped_spans,
+                "render-extraction",
+                r2_alpha_render.elapsed,
+            ));
+    }
 
     let streaming = streaming.report;
     let agent = agent.report;
@@ -278,14 +291,18 @@ fn performance_report_for(
     let live_runtime = live_runtime.report;
     let production_worker = production_worker.map(|workload| workload.report);
     let desktop_frame_timing = desktop_frame_timing.and_then(|workload| workload.report);
+    let r2_alpha_render = r2_alpha_render.map(|workload| workload.report);
 
-    let authoritative_hashes = scenario_authoritative_hashes(
+    let mut authoritative_hashes = scenario_authoritative_hashes(
         &streaming,
         &agent,
         &render_planning,
         &live_runtime,
         production_worker.as_ref(),
     );
+    if let Some(report) = &r2_alpha_render {
+        r2_alpha_render::append_authoritative_hashes(&mut authoritative_hashes, report);
+    }
     let worker_unowned_spans = production_worker
         .as_ref()
         .map(observed_worker_unowned_spans)
@@ -361,6 +378,13 @@ fn performance_report_for(
             frame_timing.device_allocation_count
         ));
     }
+    if let Some(report) = &r2_alpha_render {
+        r2_alpha_render::attach_resource_evidence(
+            &mut run.resource_counters,
+            &mut run.methodology.notes,
+            report,
+        )?;
+    }
     run.content_hash = tool_run.project_composition_lock_hash.to_hex();
     run.scenario_hash = performance_scenario_hash(request.scenario);
     let live_metric_prefix = match request.scenario {
@@ -373,6 +397,9 @@ fn performance_report_for(
         }
         xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak => {
             "production-worker-soak.live-runtime-control"
+        }
+        xtask::performance::PerformanceScenarioV1::R2AlphaRender => {
+            "r2-alpha-render.live-runtime-control"
         }
         _ => unreachable!("unavailable representative scenarios return before execution"),
     };
@@ -675,6 +702,9 @@ fn performance_report_for(
                 )?);
         }
     }
+    if let Some(report) = &r2_alpha_render {
+        r2_alpha_render::append_metrics(&mut run.metrics, report)?;
+    }
     run.authoritative_hashes = authoritative_hashes;
     run.verdict = xtask::performance::aggregate_metric_verdict(&run.metrics);
     if request.scenario == xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak
@@ -686,17 +716,25 @@ fn performance_report_for(
         );
         run.verdict = xtask::performance::PerformanceVerdict::NotRun;
     }
+    if request.scenario == xtask::performance::PerformanceScenarioV1::R2AlphaRender
+        && r2_alpha_render.is_none()
+    {
+        run.diagnostics.push(
+            "PERF_R2_ALPHA_RENDER_UNAVAILABLE: build xtask with --features desktop-sdl-ash on a supported Windows desktop host"
+                .to_owned(),
+        );
+        run.verdict = xtask::performance::PerformanceVerdict::NotRun;
+    }
     if let Err(error) = run.instrumentation.validate() {
         run.diagnostics.push(error);
         run.verdict = xtask::performance::PerformanceVerdict::NotRun;
     }
-    let counter_validation = if request.mode == xtask::performance::PerformanceModeV1::Gate {
-        run.resource_counters
-            .validate_for_hard_timing_for_run(run.scenario, &run.scenario_hash)
+    let evidence_validation = if request.mode == xtask::performance::PerformanceModeV1::Gate {
+        run.validate_hard_evidence()
     } else {
-        run.validate_allocator_counter()
+        run.validate_optional_allocator_counter()
     };
-    if let Err(diagnostics) = counter_validation {
+    if let Err(diagnostics) = evidence_validation {
         run.diagnostics.extend(diagnostics);
         run.verdict = xtask::performance::PerformanceVerdict::NotRun;
     }
@@ -779,7 +817,7 @@ fn overhead_basis_points(overhead_nanoseconds: u128, workload_microseconds: u64)
     i64::try_from(value).unwrap_or(i64::MAX)
 }
 
-fn populate_performance_identity(root: &Path, run: &mut xtask::performance::PerformanceRunV2) {
+fn populate_performance_identity(root: &Path, run: &mut xtask::performance::PerformanceRunV3) {
     run.commit = env!("NEXTENGINE_BUILD_COMMIT").to_owned();
     run.worktree_clean = match env!("NEXTENGINE_BUILD_WORKTREE_CLEAN") {
         "true" => true,
@@ -866,7 +904,7 @@ fn populate_performance_identity(root: &Path, run: &mut xtask::performance::Perf
 
 fn populate_performance_host(
     request: &PerformanceArguments,
-    run: &mut xtask::performance::PerformanceRunV2,
+    run: &mut xtask::performance::PerformanceRunV3,
 ) {
     let target_id = request.target.as_deref().unwrap_or("observed-host-v1");
     match xtask::performance::inspect_current_host(target_id) {
@@ -880,7 +918,7 @@ fn populate_performance_host(
 
 fn validate_gate_prerequisites(
     request: &PerformanceArguments,
-    run: &mut xtask::performance::PerformanceRunV2,
+    run: &mut xtask::performance::PerformanceRunV3,
 ) {
     if run.build_profile != "release" {
         run.diagnostics

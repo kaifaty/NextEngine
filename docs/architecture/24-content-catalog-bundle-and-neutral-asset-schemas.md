@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-24 |
 | Статус | Accepted |
-| Версия | 1.1 |
-| Последняя проверка | 2026-08-03 |
+| Версия | 1.2 |
+| Последняя проверка | 2026-08-06 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md) |
-| Заменяет | отсутствует |
+| Заменяет | SPEC-24 1.1 |
 
 ## Назначение и invariants
 
@@ -1015,6 +1015,14 @@ evaluator. Maximums:
 8,192 channels, 16,777,216 keys and 65,535 markers. Root motion is an authored
 intent curve; it MUST NOT directly write physics pose or authoritative
 transform.
+
+Текущий R2 implementation checkpoint реализует canonical codecs и validation
+для `NeutralSkeletonV1`/`NeutralAnimationV1`, exact clip→skeleton dependency,
+deterministic cook/activation и file-backed catalog в
+`projects/reference-alpha`. Catalog фиксирует source hash, CC0 provenance,
+license и NOTICE для одного humanoid skeleton/clip set. Это content-side
+закрытие neutral profile; graph evaluation, retargeting, IK и physical
+animation save/replay остаются R5 и не считаются реализованными этим catalog.
 
 ### `nextengine.content.audio`
 

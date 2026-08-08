@@ -1,4 +1,5 @@
 use next_contracts::command::{CommandPayload, CommandPhase, IssuerPrincipal, WorldCommand};
+use next_contracts::ids::ContentHash;
 use next_contracts::input::{
     CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION, ClosedCommandAdmissionBatchBodyV2,
     ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, IngressCheckpointV1,
@@ -31,31 +32,9 @@ use super::pipeline::{
 use super::result::{StageTraceEntry, TickReport, TransactionStage};
 use super::state::{IngressQueueV1, RuntimeState, enqueue_input_sample_in_checkpoint};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct RuntimeGenerationV1 {
-    next_tick: u64,
-    authoritative_revision: u64,
-    committed_event_count: u64,
-    ingress_checkpoint: IngressCheckpointV1,
-}
+mod preparation;
 
-impl RuntimeGenerationV1 {
-    fn capture(runtime: &RuntimeState) -> Self {
-        Self {
-            next_tick: runtime.next_tick,
-            authoritative_revision: runtime.authoritative_revision,
-            committed_event_count: runtime.committed_event_count,
-            ingress_checkpoint: runtime.ingress_checkpoint.clone(),
-        }
-    }
-
-    fn matches(&self, runtime: &RuntimeState) -> bool {
-        self.next_tick == runtime.next_tick
-            && self.authoritative_revision == runtime.authoritative_revision
-            && self.committed_event_count == runtime.committed_event_count
-            && self.ingress_checkpoint == runtime.ingress_checkpoint
-    }
-}
+use preparation::RuntimeGenerationV1;
 
 /// Opaque staging scope for one runtime tick.
 ///
@@ -120,6 +99,7 @@ impl RuntimeTickPreparation<'_> {
 pub struct PreparedRuntimeTick {
     base_generation: RuntimeGenerationV1,
     next_tick: u64,
+    player_controller_registry_generation: ContentHash,
     staged: StagedAuthoritativeState,
     ledger_update: PreparedCommandLedgerTransaction,
     report: OnceLock<TickReport>,
@@ -444,6 +424,7 @@ impl RuntimeState {
         debug_assert!(prepared.base_generation.matches(self));
         let PreparedRuntimeTick {
             next_tick,
+            player_controller_registry_generation,
             staged,
             ledger_update,
             report,
@@ -454,6 +435,10 @@ impl RuntimeState {
             last_command_batches,
             ..
         } = prepared;
+        let committed_player_controller_registry = report_parts
+            .snapshot_fields
+            .player_controller_registry
+            .clone();
         let report = report.into_inner().unwrap_or_else(|| {
             let (ledger, archive) = ledger_update.materialize(&staged.ledger, &staged.archive);
             report_parts.into_report(
@@ -472,6 +457,8 @@ impl RuntimeState {
         self.next_tick = report.snapshot.next_tick;
         self.committed_event_count = staged.event_count;
         self.authoritative_revision = staged.revision;
+        self.player_controller_registry = committed_player_controller_registry;
+        self.player_controller_registry_generation = player_controller_registry_generation;
         self.command_ledger = report.snapshot.command_ledger.clone();
         self.body_archive = report.snapshot.body_archive.clone();
         self.ledger_roots_dirty = false;
@@ -495,6 +482,7 @@ impl RuntimeState {
         debug_assert!(prepared.base_generation.matches(self));
         let PreparedRuntimeTick {
             next_tick,
+            player_controller_registry_generation,
             staged,
             ledger_update,
             report,
@@ -505,6 +493,10 @@ impl RuntimeState {
             last_command_batches,
             ..
         } = prepared;
+        let committed_player_controller_registry = report_parts
+            .snapshot_fields
+            .player_controller_registry
+            .clone();
         if let Some(report) = report.into_inner() {
             self.command_ledger = report.snapshot.command_ledger;
             self.body_archive = report.snapshot.body_archive;
@@ -533,6 +525,8 @@ impl RuntimeState {
             self.next_tick = next_tick;
             self.committed_event_count = event_count;
             self.authoritative_revision = revision;
+            self.player_controller_registry = committed_player_controller_registry;
+            self.player_controller_registry_generation = player_controller_registry_generation;
             self.rpg = rpg;
             self.physics = physics;
             self.ingress_checkpoint = ingress;
@@ -545,6 +539,8 @@ impl RuntimeState {
         self.next_tick = next_tick;
         self.committed_event_count = staged.event_count;
         self.authoritative_revision = staged.revision;
+        self.player_controller_registry = committed_player_controller_registry;
+        self.player_controller_registry_generation = player_controller_registry_generation;
         self.rpg = staged.rpg;
         self.physics = staged.physics;
         self.ingress_checkpoint = staged.ingress;
@@ -987,6 +983,7 @@ impl RuntimeState {
         Ok(PreparedRuntimeTick {
             base_generation,
             next_tick: following_tick,
+            player_controller_registry_generation: self.player_controller_registry_generation,
             staged,
             ledger_update,
             report: OnceLock::new(),

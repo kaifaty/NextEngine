@@ -316,23 +316,31 @@ fn application_callback_errors_preserve_their_stable_diagnostic() {
 fn dynamic_snapshot_replacement_rejects_regression_and_unmarked_epoch_reset() {
     let current = test_snapshot(1, 4, 7, 10);
     let next = test_snapshot(1, 5, 8, 10);
-    validate_snapshot_transition(&current, &next).expect("strict same-epoch progress");
+    validate_presentation_snapshot_transition(&current, &next).expect("strict same-epoch progress");
+
+    let same_epoch_tick_regression = test_snapshot(1, 5, 6, 10);
+    assert!(
+        validate_presentation_snapshot_transition(&current, &same_epoch_tick_regression).is_err()
+    );
 
     let stale = test_snapshot(1, 4, 8, 10);
     assert_eq!(
-        validate_snapshot_transition(&current, &stale)
+        validate_presentation_snapshot_transition(&current, &stale)
             .expect_err("same-epoch sequence regression")
             .diagnostic_code(),
         "PRESENTATION_SNAPSHOT_TRANSITION_INVALID"
     );
 
     let reset = test_snapshot(2, 0, 8, 10);
-    validate_snapshot_transition(&current, &reset).expect("explicit cut epoch reset");
+    validate_presentation_snapshot_transition(&current, &reset).expect("explicit cut epoch reset");
+    let rollback_reset = test_snapshot(2, 0, 3, 10);
+    validate_presentation_snapshot_transition(&current, &rollback_reset)
+        .expect("explicit recovery cut may roll simulation back");
     let unmarked_reset = test_snapshot(2, 1, 8, 10);
-    assert!(validate_snapshot_transition(&current, &unmarked_reset).is_err());
+    assert!(validate_presentation_snapshot_transition(&current, &unmarked_reset).is_err());
 
     let foreign_project = test_snapshot(1, 5, 8, 11);
-    assert!(validate_snapshot_transition(&current, &foreign_project).is_err());
+    assert!(validate_presentation_snapshot_transition(&current, &foreign_project).is_err());
 }
 
 #[test]

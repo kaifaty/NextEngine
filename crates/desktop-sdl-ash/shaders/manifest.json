@@ -2,7 +2,11 @@
   "schema": "nextengine.render.shader_asset_manifest",
   "schema_version": 1,
   "suite": "b0_textured",
-  "interface_contract_sha256": "8091123413e9b20e6410d2f841d9db55113aa9069c4fe8cd491d36ecb2dd80c0",
+  "fallback_suite": "b0_textured_no_shadow",
+  "shadow_suite": "shadow_depth",
+  "ui_suite": "ui_overlay",
+  "sky_suite": "sky_gradient",
+  "interface_contract_sha256": "204ed27a6ed7535d094a8ad9d4dd6cc0ad8794f6664c6bf402154006f400c10c",
   "source_language": {
     "name": "GLSL",
     "version": "450"
@@ -32,6 +36,11 @@
         "location": 1,
         "type": "vec2",
         "semantic": "uv0"
+      },
+      {
+        "location": 2,
+        "type": "snorm16x4",
+        "semantic": "normal"
       }
     ],
     "descriptors": [
@@ -40,14 +49,24 @@
         "binding": 0,
         "type": "uniform_buffer",
         "stages": [
-          "vertex"
+          "vertex",
+          "fragment"
         ],
-        "minimum_size_bytes": 64
+        "minimum_size_bytes": 208
       },
       {
         "set": 1,
         "binding": 0,
         "type": "combined_image_sampler",
+        "stages": [
+          "fragment"
+        ],
+        "count": 1
+      },
+      {
+        "set": 2,
+        "binding": 0,
+        "type": "combined_depth_compare_sampler",
         "stages": [
           "fragment"
         ],
@@ -75,16 +94,58 @@
     {
       "stage": "vertex",
       "source": "b0_textured.vert",
-      "source_sha256": "872d0a7cdcb986cdc300df5a9d26c1ea8eb06d819a6ae744e227fb05666b1a58",
+      "source_sha256": "05400b6427699f08887d31b5a16f0eb326dbd6bfbca68262c5f8f27157e8d5ca",
       "module": "b0_textured.vert.spv",
-      "module_sha256": "9957f29a421307bd2e93eee6594438291f06904457cb2098076ca7106daa345f"
+      "module_sha256": "6a08d7aa1c81e41a537a28cf703562d233114682a40d11c40b66ee30301dad7d"
     },
     {
       "stage": "fragment",
       "source": "b0_textured.frag",
-      "source_sha256": "de853cf922ce990bd5ad50c3cbb8f8cb8dda701d980edd03841d063c30923723",
+      "source_sha256": "1b324a7bc53e8e618a37154a552e62594aed8374c845b3f92d215b56f59b4067",
       "module": "b0_textured.frag.spv",
-      "module_sha256": "21ca7f029466a2c23f7d0dff4da99dfca01ece2a7512645c980e70ed8b6f84ee"
+      "module_sha256": "84765392e08061e1bed7fd1d81983c374aaa187622a1a20968672ff03f354d6a"
+    },
+    {
+      "stage": "fragment",
+      "source": "b0_textured_no_shadow.frag",
+      "source_sha256": "5a542daa3a3e3bc080a28255a8ece20ebcd33ffe8be767ac89d01cc0b223daec",
+      "module": "b0_textured_no_shadow.frag.spv",
+      "module_sha256": "2cbe4fbc0e049a2238064adca0be8143a7f5ec6ab45bd4006dddfdd56fc4a97a"
+    },
+    {
+      "stage": "vertex",
+      "source": "shadow_depth.vert",
+      "source_sha256": "a045b93e65cc38202a7e2ee71e3f56b0e74ca0e5ea3cd89f59361437456ba9dd",
+      "module": "shadow_depth.vert.spv",
+      "module_sha256": "1566638f72144e2931f5246a41b1f9fa927e84ce4f67f859227db042e78c3b65"
+    },
+    {
+      "stage": "vertex",
+      "source": "ui_overlay.vert",
+      "source_sha256": "f387987edd2823d999a02887058c15c346bb8e688631b3c4a384593237d1c5a9",
+      "module": "ui_overlay.vert.spv",
+      "module_sha256": "9d28209b9d413a8bf91ee5e09817330df8bd19df79c1075a68c94f2bf405e19a"
+    },
+    {
+      "stage": "fragment",
+      "source": "ui_overlay.frag",
+      "source_sha256": "e982f676f504afcb62501892440fb68250c24b79e34d0f0294ca57952b87ec19",
+      "module": "ui_overlay.frag.spv",
+      "module_sha256": "c03cd67fa05eeb1fea77246aa406ad68117583e3f207c9960687eb64d2531cda"
+    },
+    {
+      "stage": "vertex",
+      "source": "sky_gradient.vert",
+      "source_sha256": "c8c1c3d33b3ce968442aedee6021855c3a0f3e47f48f4ae5b5edfaa8a166d1e7",
+      "module": "sky_gradient.vert.spv",
+      "module_sha256": "5624b656b86d1ba74615dc79f9d477cb2a30cd83f1e108013e9cefc24897261d"
+    },
+    {
+      "stage": "fragment",
+      "source": "sky_gradient.frag",
+      "source_sha256": "01cc8ddff45da7226be9a433183811556e9b4f19670c0dd6c607db8bd8accc7f",
+      "module": "sky_gradient.frag.spv",
+      "module_sha256": "b0b6682b742f4486ce03b46802e71f34003ac2bd026f6fba55b27c6170f4dd00"
     }
   ]
 }

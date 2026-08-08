@@ -17,7 +17,7 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
             methodology.measured_samples = 4;
             methodology.notes = vec![
                 "two-chunk streaming, five-object render planning, one-agent planning and live movement are smoke fixtures only".to_owned(),
-                "the process allocator window covers the four declared smoke workload bodies; live project preparation, validation/report assembly and scratch cleanup remain outside it".to_owned(),
+                "the measured resource-observation window covers the four declared smoke workload bodies; live project preparation, validation/report assembly and scratch cleanup remain outside it; allocator instrumentation is not activated".to_owned(),
                 "aggregate smoke timings are report-only and cannot close B-12".to_owned(),
             ];
         }
@@ -25,11 +25,11 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
             methodology.measured_samples = 3;
             methodology.notes = vec![
                 "3,600 live ticks in three 1,200-tick windows with held movement and periodic camera input run through both the live driver and interactive application scheduler".to_owned(),
-                "identity-index and command-body archive roots are recomputed at each window boundary after that window timer is sampled; the probes remain inside the declared scenario allocator window".to_owned(),
+                "identity-index and command-body archive roots are recomputed at each window boundary after that window timer is sampled; the probes remain inside the declared measured window".to_owned(),
                 "application checkpoint samples include the mandatory 30-tick durable publication path and reuse validated canonical component bytes".to_owned(),
                 "report-only granular samples separate driver prepare, infallible driver commit, checkpoint materialization, ordinary application ticks, and checkpoint application ticks".to_owned(),
                 "application input is staged before timing and each measured host pump advances exactly one 30 Hz fixed step".to_owned(),
-                "project cook/publish/activation, driver/application launch, input and sample-buffer preparation, validation/report assembly and scratch cleanup are outside the process allocator window".to_owned(),
+                "project cook/publish/activation, driver/application launch, input and sample-buffer preparation, validation/report assembly and scratch cleanup are outside the measured resource-observation window".to_owned(),
                 "the soak is report-only and diagnoses history-dependent degradation; it cannot close B-12".to_owned(),
             ];
         }
@@ -40,7 +40,7 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
             methodology.notes = vec![
                 "240 FIFO-presented frames use the production Vulkan frame path at requested 1920x1080 and immutable reference-game render inputs".to_owned(),
                 "phase timings separate event polling plus immutable frame-source update, frame-slot/acquire/image waits, frame-plan, command recording, submit, present and GPU execution".to_owned(),
-                "the process allocator window contains only the prepared desktop adapter run; project/scratch preparation, validation/report conversion and cleanup are outside it".to_owned(),
+                "the measured resource-observation window contains only the prepared desktop adapter run; project/scratch preparation, validation/report conversion and cleanup are outside it".to_owned(),
                 "the static render-input fixture does not time the game composition root's main-to-simulation-worker handoff; production-worker-soak measures that boundary separately".to_owned(),
                 "the workload is report-only and diagnostic; it is not the representative R2 alpha project and cannot close B-12".to_owned(),
             ];
@@ -52,19 +52,22 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
                 "the worker advances the production fixed-step application path, publishes shared immutable presentation snapshots, and the main-side callback reads the latest generation".to_owned(),
                 "bounded raw samples separate queue send wait, dequeue age, ordinary/checkpoint fixed steps, snapshot publication/read lock waits, and rendered sequence freshness".to_owned(),
                 "diagnostic send and dequeue observations are linearized around the same bounded sync channel, so queue high-water is exact channel occupancy rather than an outstanding-work estimate".to_owned(),
-                "scratch creation, sample-buffer reservation, application launch, initial publication and worker readiness precede the process allocator window; 240 callbacks and bounded durable close/join are measured".to_owned(),
+                "scratch creation, sample-buffer reservation, application launch, initial publication and worker readiness precede the measured resource-observation window; 240 callbacks and bounded durable close/join are measured".to_owned(),
                 "wall time and diagnostic sequence counters are operational metadata only and never select simulation work, ordering, or authoritative outcomes".to_owned(),
                 "the workload is report-only and diagnostic; it is not a representative R2 workload and cannot close B-12".to_owned(),
             ];
         }
         PerformanceScenarioV1::R2AlphaRender => {
-            methodology.warmup_samples = 600 * 3;
-            methodology.measured_samples = 3_600 * 3;
+            methodology.warmup_samples = 600 * 3 * 2;
+            methodology.measured_samples = 3_600 * 3 * 2;
             methodology.frame_critical_path =
                 Some("max(cpu_extract_and_submit_us,gpu_timestamp_duration_us)".to_owned());
             methodology.notes = vec![
-                "three 60-second windows: exploration, combat and UI/dialogue".to_owned(),
-                "VSync wait excluded; missed deadlines counted separately".to_owned(),
+                "the data-first reference-alpha project supplies three semantically distinct 60-second windows: exploration, combat and UI/dialogue".to_owned(),
+                "primary 1920x1080 and b0-safe-720p30 1280x720 are separate launch profiles; each profile/window pair uses 600 warm-up and 3,600 measured frames".to_owned(),
+                "CPU/GPU frame samples exclude VSync wait, retain every outlier and count primary/fallback deadline misses separately".to_owned(),
+                "project activation and deterministic scenario/presentation extraction precede the observation window; six production Vulkan adapters are prepared, measured and released sequentially so device residency is a true per-run ceiling".to_owned(),
+                "logical charges use the hash-bound r2-alpha-render-v1 accounting profile; allocator evidence remains optional under ADR-045".to_owned(),
             ];
         }
         PerformanceScenarioV1::R3MultiregionStreaming => {

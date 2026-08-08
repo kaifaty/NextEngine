@@ -6,6 +6,7 @@ use super::{
 
 #[test]
 fn explicit_preparation_matches_the_convenience_path() {
+    let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
     let scratch = std::env::temp_dir();
     let convenience = super::super::run_live_runtime_performance_check_in(&scratch)
         .expect("convenience live runtime workload");
@@ -43,6 +44,7 @@ fn explicit_preparation_matches_the_convenience_path() {
 
 #[test]
 fn prepared_workload_rejects_a_second_run_and_cleans_up() {
+    let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
     let mut prepared = prepare_live_runtime_performance_check_in(&std::env::temp_dir())
         .expect("prepared workload");
     let path = prepared.driver_directory.path().to_path_buf();

@@ -26,7 +26,8 @@ pub(super) struct ScenarioWorkloads {
         Option<Timed<next_application::InteractiveWorkerDiagnosticReportV1>>,
     pub(super) desktop_frame_timing:
         Option<Timed<Option<next_verification::DesktopFrameTimingSmokeReport>>>,
-    pub(super) resource_counters: xtask::performance::PerformanceResourceCountersV2,
+    pub(super) r2_alpha_render: Option<Timed<next_verification::R2AlphaRenderPerformanceReportV1>>,
+    pub(super) resource_counters: xtask::performance::PerformanceResourceCountersV3,
 }
 
 pub(super) fn run_scenario_workloads(
@@ -65,6 +66,9 @@ pub(super) fn run_scenario_workloads(
                 state_root,
                 interactive_frame_soak_frames,
             )
+        }
+        xtask::performance::PerformanceScenarioV1::R2AlphaRender => {
+            run_r2_alpha_render_scenario_workloads(scenario_hash, state_root)
         }
         _ => unreachable!("unavailable representative scenarios return before execution"),
     }
@@ -142,6 +146,7 @@ fn run_smoke_scenario_workloads(
         live_runtime,
         production_worker: None,
         desktop_frame_timing,
+        r2_alpha_render: None,
         resource_counters,
     })
 }
@@ -179,6 +184,7 @@ fn run_long_session_scenario_workloads(
         live_runtime,
         production_worker: None,
         desktop_frame_timing,
+        r2_alpha_render: None,
         resource_counters,
     })
 }
@@ -217,6 +223,7 @@ fn run_production_worker_scenario_workloads(
         live_runtime,
         production_worker,
         desktop_frame_timing,
+        r2_alpha_render: None,
         resource_counters,
     })
 }
@@ -259,6 +266,41 @@ fn run_interactive_frame_scenario_workloads(
         live_runtime,
         production_worker: None,
         desktop_frame_timing,
+        r2_alpha_render: None,
+        resource_counters,
+    })
+}
+
+#[inline(never)]
+fn run_r2_alpha_render_scenario_workloads(
+    scenario_hash: &str,
+    state_root: Option<&Path>,
+) -> Result<ScenarioWorkloads, String> {
+    let scenario = xtask::performance::PerformanceScenarioV1::R2AlphaRender;
+    let streaming = run_streaming(state_root)?;
+    let agent = run_agent_planning(state_root)?;
+    let render_planning = run_render_planning(state_root)?;
+    let live_runtime = run_live_runtime(scenario, state_root)?;
+    let scratch_root = state_root
+        .map(Path::to_path_buf)
+        .unwrap_or_else(std::env::temp_dir);
+    let mut prepared =
+        next_verification::prepare_r2_alpha_render_performance_check_in(&scratch_root)
+            .map_err(|error| error.to_string())?;
+    let window = ScenarioResourceWindow::begin(scenario, scenario_hash);
+    let started = Instant::now();
+    let report = prepared.run_measured().map_err(|error| error.to_string())?;
+    let elapsed = started.elapsed();
+    let resource_counters = window.finish();
+    let r2_alpha_render = report.map(|report| Timed { report, elapsed });
+    Ok(ScenarioWorkloads {
+        streaming,
+        agent,
+        render_planning,
+        live_runtime,
+        production_worker: None,
+        desktop_frame_timing: None,
+        r2_alpha_render,
         resource_counters,
     })
 }
@@ -342,14 +384,31 @@ pub(super) fn run_profiler_control(
         } else {
             None
         };
+    let mut authoritative_hashes = super::scenario_authoritative_hashes(
+        &streaming,
+        &agent,
+        &render,
+        &live,
+        production_worker.as_ref(),
+    );
+    if scenario == xtask::performance::PerformanceScenarioV1::R2AlphaRender {
+        let scratch_root = state_root
+            .map(Path::to_path_buf)
+            .unwrap_or_else(std::env::temp_dir);
+        let prepared =
+            next_verification::prepare_r2_alpha_render_performance_check_in(&scratch_root)
+                .map_err(|error| error.to_string())?;
+        authoritative_hashes.insert(
+            "r2_alpha_state".to_owned(),
+            prepared.authoritative_state_root().to_hex(),
+        );
+        authoritative_hashes.insert(
+            "r2_alpha_ledger".to_owned(),
+            prepared.command_ledger_hash().to_hex(),
+        );
+    }
     Ok(ProfilerControl {
-        authoritative_hashes: super::scenario_authoritative_hashes(
-            &streaming,
-            &agent,
-            &render,
-            &live,
-            production_worker.as_ref(),
-        ),
+        authoritative_hashes,
     })
 }
 
@@ -450,13 +509,15 @@ fn run_live_runtime_scenario(
         (
             xtask::performance::PerformanceScenarioV1::Smoke
             | xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak
-            | xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak,
+            | xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak
+            | xtask::performance::PerformanceScenarioV1::R2AlphaRender,
             Some(root),
         ) => next_verification::run_live_runtime_performance_check_in(root),
         (
             xtask::performance::PerformanceScenarioV1::Smoke
             | xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak
-            | xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak,
+            | xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak
+            | xtask::performance::PerformanceScenarioV1::R2AlphaRender,
             None,
         ) => next_verification::run_live_runtime_performance_check(),
         (xtask::performance::PerformanceScenarioV1::LongSessionSoak, Some(root)) => {
@@ -477,13 +538,15 @@ fn prepare_live_runtime_scenario(
         (
             xtask::performance::PerformanceScenarioV1::Smoke
             | xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak
-            | xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak,
+            | xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak
+            | xtask::performance::PerformanceScenarioV1::R2AlphaRender,
             Some(root),
         ) => next_verification::prepare_live_runtime_performance_check_in(root),
         (
             xtask::performance::PerformanceScenarioV1::Smoke
             | xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak
-            | xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak,
+            | xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak
+            | xtask::performance::PerformanceScenarioV1::R2AlphaRender,
             None,
         ) => next_verification::prepare_live_runtime_performance_check(),
         (xtask::performance::PerformanceScenarioV1::LongSessionSoak, Some(root)) => {

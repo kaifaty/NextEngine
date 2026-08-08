@@ -64,27 +64,33 @@ pub(crate) fn run_content_package_check_with_scratch(
             run_reference_wasm_plugin(activated.clone())?;
         let catalog = &activated.render_content_catalog;
         let fallback_plan = fallback_material_plan(&prepared)?;
-        if activated.content_manifest.body.asset_entries.len() != 26
+        if activated.content_manifest.body.asset_entries.len() != 51
             || activated.text_catalogs.len() != 2
             || activated.audio_clips.len() != 4
+            || activated.neutral_skeletons.len() != 1
+            || activated.neutral_animations.len() != 1
             || activated.world_partition.body.chunk_bindings.len() != 2
             || activated.rpg_definitions.packages.len() != 2
             || activated.rpg_definitions.abilities.len() != 1
-            || catalog.meshes().len() != 2
-            || catalog.materials().len() != 2
-            || catalog.textures().len() != 2
-            || catalog.cooked_meshes().len() != 2
+            || catalog.meshes().len() != 10
+            || catalog.materials().len() != 11
+            || catalog.textures().len() != 7
+            || catalog.cooked_meshes().len() != 10
+            || catalog
+                .meshes()
+                .iter()
+                .any(|mesh| mesh.asset_id() == AssetId::from_bytes([0x82; 16]))
             || catalog
                 .cooked_meshes()
                 .iter()
                 .any(|mesh| mesh.meshlets().is_empty())
-            || prepared.check.rendered_object_count != 5
-            || prepared.check.indexed_draw_count != 5
+            || prepared.check.rendered_object_count != 6
+            || prepared.check.indexed_draw_count != 6
             || prepared.check.fallback_material_draw_count != 0
             || fallback_plan.fallback_material_draw_count != 1
-            || gameplay.npc_health != 75
-            || scripted_player_health != 75
-            || wasm_player_health != 75
+            || gameplay.npc_health != 0
+            || scripted_player_health != 50
+            || wasm_player_health != 50
         {
             return Err(ContentPackageCheckError::FixtureClosureMismatch);
         }
@@ -459,12 +465,12 @@ mod tests {
     #[test]
     fn content_package_uses_cooker_publisher_and_production_loader() {
         let report = run_content_package_check().expect("content-package passes");
-        assert_eq!(report.records, 26);
+        assert_eq!(report.records, 51);
         assert_eq!(report.chunks, 2);
         assert_eq!(report.mechanic_packages, 2);
         assert_eq!(report.wasm_plugins, 1);
-        assert_eq!(report.combat_npc_health, 75);
-        assert_eq!(report.scripted_player_health, 75);
-        assert_eq!(report.wasm_player_health, 75);
+        assert_eq!(report.combat_npc_health, 0);
+        assert_eq!(report.scripted_player_health, 50);
+        assert_eq!(report.wasm_player_health, 50);
     }
 }

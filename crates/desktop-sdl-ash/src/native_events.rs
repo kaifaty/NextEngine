@@ -1,5 +1,6 @@
 use sdl3::event::{Event, WindowEvent};
 use sdl3::keyboard::{Keycode, Mod, Scancode};
+use sdl3::mouse::MouseState;
 
 use crate::{DesktopAdapterError, sdl_error};
 
@@ -50,6 +51,16 @@ pub(super) fn inject_startup_lifecycle_probe(
             timestamp: 4,
             window_id,
             win_event: WindowEvent::Resized(width, height),
+        },
+        Event::MouseMotion {
+            timestamp: 4,
+            window_id,
+            which: 1,
+            mousestate: MouseState::from_sdl_state(0),
+            x: 0.0,
+            y: 0.0,
+            xrel: 4.0,
+            yrel: -2.0,
         },
         Event::KeyUp {
             timestamp: 3,

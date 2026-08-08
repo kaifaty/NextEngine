@@ -1,6 +1,101 @@
 use super::*;
 
 #[test]
+fn quest_acceptance_after_checkpoint_publishes_subtitle_recovery_at_next_checkpoint() {
+    let root = test_root("dialogue-accept-after-checkpoint");
+    let mut game = ApplicationCoordinator::launch(LaunchRequestV1::reference(
+        &root,
+        CompositionRootV1::Game,
+        PresentationTargetKindV1::Interactive,
+    ))
+    .expect("game launch");
+    game.begin_reference_game_live(true)
+        .expect("begin live reference game");
+    let binding = test_platform_host(&mut game);
+    let mut scheduler = FixedStepLiveSchedulerV1::reference_game_v1();
+    let mut source_sequence = 0_u64;
+    let mut key = |control_path: &str, phase: NormalizedControlPhaseV1| {
+        let event = keyboard_control_event(
+            &binding,
+            source_sequence,
+            control_path,
+            phase,
+            if phase == NormalizedControlPhaseV1::Started {
+                i16::MAX
+            } else {
+                0
+            },
+        );
+        source_sequence += 1;
+        event
+    };
+    let mut pump = |game: &mut ApplicationCoordinator, events: &[PlatformEventV1]| {
+        scheduler
+            .advance_reference_game_presentation_shared(
+                game,
+                Duration::from_nanos(33_333_334),
+                events,
+            )
+            .expect("interactive presentation step")
+            .expect("one fixed step is due")
+    };
+
+    for expected_tick in 1_u64..448 {
+        assert_eq!(pump(&mut game, &[]).simulation_tick, expected_tick);
+    }
+
+    let interact_press = key(
+        next_contracts::input::KEYBOARD_E_CONTROL_PATH_ID,
+        NormalizedControlPhaseV1::Started,
+    );
+    assert_eq!(
+        pump(&mut game, std::slice::from_ref(&interact_press)).simulation_tick,
+        448
+    );
+    let interact_release = key(
+        next_contracts::input::KEYBOARD_E_CONTROL_PATH_ID,
+        NormalizedControlPhaseV1::Completed,
+    );
+    let dialogue_open = pump(&mut game, std::slice::from_ref(&interact_release));
+    assert_eq!(dialogue_open.simulation_tick, 449);
+    assert!(dialogue_open.semantic_ui_records().any(|record| {
+        record.element.element_id.as_str() == "nextengine.ui.element.dialogue.choice-accept"
+    }));
+
+    assert_eq!(pump(&mut game, &[]).simulation_tick, 450);
+    let confirm_press = key(
+        next_contracts::input::KEYBOARD_RETURN_CONTROL_PATH_ID,
+        NormalizedControlPhaseV1::Started,
+    );
+    assert_eq!(
+        pump(&mut game, std::slice::from_ref(&confirm_press)).simulation_tick,
+        451
+    );
+    let confirm_release = key(
+        next_contracts::input::KEYBOARD_RETURN_CONTROL_PATH_ID,
+        NormalizedControlPhaseV1::Completed,
+    );
+    assert_eq!(
+        pump(&mut game, std::slice::from_ref(&confirm_release)).simulation_tick,
+        452
+    );
+    for expected_tick in 453_u64..=480 {
+        assert_eq!(pump(&mut game, &[]).simulation_tick, expected_tick);
+    }
+
+    let run = game.current_live_run().expect("accepted quest live state");
+    assert!(
+        run.rpg_events > 0,
+        "accept must commit through the RPG path"
+    );
+    let closed = game
+        .close(CloseExecutionOptionsV1::default())
+        .expect("accepted quest close");
+    assert!(matches!(closed, ApplicationCloseOutcomeV1::Closed { .. }));
+    cleanup(root);
+}
+
+#[test]
 fn interactive_presentation_path_defers_full_checkpoint_until_tick_thirty() {
     let root = test_root("interactive-presentation-checkpoint-cadence");
     let mut game = ApplicationCoordinator::launch(LaunchRequestV1::reference(

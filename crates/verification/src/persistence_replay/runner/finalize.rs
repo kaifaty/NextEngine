@@ -12,7 +12,7 @@ use next_contracts::rpg::{
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2};
 use next_contracts::snapshot::WorldCheckpointV4;
 
-use crate::cooked_interaction_outcome;
+use crate::cooked_initial_interaction_outcome;
 use crate::scratch::ScratchContext;
 
 use super::super::fault_injection::{corrupt_physics_segment, corrupt_rpg_segment};
@@ -238,7 +238,7 @@ fn read_final_outcome(
         expected_quest_state_id,
         relationship_dimension_id,
         expected_relationship_value,
-    ) = cooked_interaction_outcome(fixture);
+    ) = cooked_initial_interaction_outcome(fixture);
     let npc_player_trust = relationship_value(
         &checkpoint.rpg_snapshot,
         fixture,
@@ -259,8 +259,8 @@ fn read_final_outcome(
         || dialogue_node_id != expected_dialogue_node_id
         || quest_state_id != expected_quest_state_id
         || npc_player_trust != expected_relationship_value
-        || npc_health != 75
-        || player_health != 75
+        || npc_health != 50
+        || player_health != 50
         || rpg_events != 11
         || !pickup_is_collected
         || !pickup_is_owned
@@ -318,7 +318,7 @@ fn relationship_value(
         fixture.relationship_id,
     ) {
         Some(RpgAggregatePayloadV1::Relationship(relationship))
-            if relationship.source_id == fixture.npc_character_id
+            if relationship.source_id == fixture.quest_giver_character_id
                 && relationship.target_id == fixture.body_id =>
         {
             Ok(relationship

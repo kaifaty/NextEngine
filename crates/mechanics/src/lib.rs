@@ -374,7 +374,7 @@ mod tests {
         )
         .expect("public package request compiles");
         assert_eq!(compiled.effect_request.expected_resource_value, 100);
-        assert_eq!(compiled.effect_request.delta, -25);
+        assert_eq!(compiled.effect_request.delta, -50);
         assert_eq!(compiled.rpg_command.operations.len(), 1);
         assert_eq!(
             super::compile_contact_ability_v1(

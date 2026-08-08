@@ -53,8 +53,10 @@ fn main() {
     }
     for required in [
         "project",
+        "ACCEPTANCE.md",
         "LICENSE",
         "NOTICE",
+        "REFERENCE_ALPHA_NOTICE",
         "THIRD_PARTY_NOTICES.md",
         "MIGRATION_PROVENANCE.md",
     ] {
@@ -478,6 +480,20 @@ fn package_pipeline_copies_and_smokes_packaged_binaries_without_nested_cargo() {
         assert_eq!(
             fs::read(output.join(&notice)).expect("packaged notice"),
             fs::read(repository_root.join(&notice)).expect("source notice")
+        );
+    }
+    for (source_path, package_path) in REFERENCE_PROJECT_DOCUMENT_PATHS {
+        assert!(
+            result
+                .manifest
+                .file_inventory
+                .iter()
+                .any(|entry| entry.path == package_path),
+            "{package_path} must be inventoried"
+        );
+        assert_eq!(
+            fs::read(output.join(package_path)).expect("packaged reference project document"),
+            fs::read(repository_root.join(source_path)).expect("source reference project document")
         );
     }
     let smoke_root = temporary

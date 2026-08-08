@@ -281,6 +281,150 @@ pub(crate) struct DepthAttachment {
     image: ImageAllocation,
 }
 
+pub(super) const SHADOW_MAP_EXTENT: u32 = 2_048;
+
+/// One renderer-owned sampled depth target. It is deliberately independent
+/// from swapchain depth so resize does not change the fixed shadow texel
+/// footprint. Unsupported sampled-depth formats and bounded allocation
+/// failures use the explicit no-shadow pipeline instead.
+pub(super) struct ShadowMap {
+    device: ash::Device,
+    view: vk::ImageView,
+    sampler: vk::Sampler,
+    image: ImageAllocation,
+    format: vk::Format,
+}
+
+impl ShadowMap {
+    pub(super) fn try_new(
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        device: &ash::Device,
+    ) -> Result<Option<Self>, B0GpuContentError> {
+        for format in [vk::Format::D32_SFLOAT, vk::Format::D16_UNORM] {
+            // SAFETY: the physical device belongs to this instance and this is
+            // a read-only capability query.
+            let properties =
+                unsafe { instance.get_physical_device_format_properties(physical_device, format) };
+            let required = vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT
+                | vk::FormatFeatureFlags::SAMPLED_IMAGE;
+            if !properties.optimal_tiling_features.contains(required) {
+                continue;
+            }
+            match Self::new_with_format(instance, physical_device, device, format) {
+                Ok(shadow) => return Ok(Some(shadow)),
+                Err(B0GpuContentError::Graphics(error)) if shadow_fallback_error(error) => {
+                    continue;
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(None)
+    }
+
+    fn new_with_format(
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        device: &ash::Device,
+        format: vk::Format,
+    ) -> Result<Self, B0GpuContentError> {
+        let image = ImageAllocation::new(
+            instance,
+            physical_device,
+            device,
+            vk::Extent3D {
+                width: SHADOW_MAP_EXTENT,
+                height: SHADOW_MAP_EXTENT,
+                depth: 1,
+            },
+            format,
+            vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
+        )?;
+        let subresource = vk::ImageSubresourceRange::default()
+            .aspect_mask(vk::ImageAspectFlags::DEPTH)
+            .base_mip_level(0)
+            .level_count(1)
+            .base_array_layer(0)
+            .layer_count(1);
+        let view_info = vk::ImageViewCreateInfo::default()
+            .image(image.image)
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(format)
+            .subresource_range(subresource);
+        // SAFETY: image is live and uses the exact queried depth format.
+        let view = unsafe { device.create_image_view(&view_info, None) }?;
+        let sampler_info = vk::SamplerCreateInfo::default()
+            .mag_filter(vk::Filter::NEAREST)
+            .min_filter(vk::Filter::NEAREST)
+            .mipmap_mode(vk::SamplerMipmapMode::NEAREST)
+            .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_BORDER)
+            .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_BORDER)
+            .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_BORDER)
+            .compare_enable(true)
+            .compare_op(vk::CompareOp::LESS_OR_EQUAL)
+            .border_color(vk::BorderColor::FLOAT_OPAQUE_WHITE)
+            .min_lod(0.0)
+            .max_lod(0.0);
+        // SAFETY: the compare sampler uses core, non-anisotropic features.
+        let sampler = match unsafe { device.create_sampler(&sampler_info, None) } {
+            Ok(sampler) => sampler,
+            Err(error) => {
+                // SAFETY: the view has no descriptors or submissions yet.
+                unsafe { device.destroy_image_view(view, None) };
+                return Err(error.into());
+            }
+        };
+        Ok(Self {
+            device: device.clone(),
+            view,
+            sampler,
+            image,
+            format,
+        })
+    }
+
+    pub(super) const fn image(&self) -> vk::Image {
+        self.image.image
+    }
+
+    pub(super) const fn view(&self) -> vk::ImageView {
+        self.view
+    }
+
+    pub(super) const fn sampler(&self) -> vk::Sampler {
+        self.sampler
+    }
+
+    pub(super) const fn format(&self) -> vk::Format {
+        self.format
+    }
+
+    pub(super) const fn allocation_size(&self) -> vk::DeviceSize {
+        self.image.allocation_size()
+    }
+}
+
+impl Drop for ShadowMap {
+    fn drop(&mut self) {
+        // SAFETY: both child handles are idle before content teardown and are
+        // destroyed before the backing image allocation.
+        unsafe {
+            self.device.destroy_sampler(self.sampler, None);
+            self.device.destroy_image_view(self.view, None);
+        }
+    }
+}
+
+const fn shadow_fallback_error(error: vk::Result) -> bool {
+    matches!(
+        error,
+        vk::Result::ERROR_FORMAT_NOT_SUPPORTED
+            | vk::Result::ERROR_FEATURE_NOT_PRESENT
+            | vk::Result::ERROR_OUT_OF_DEVICE_MEMORY
+            | vk::Result::ERROR_OUT_OF_HOST_MEMORY
+    )
+}
+
 impl DepthAttachment {
     pub(crate) fn new(
         instance: &ash::Instance,
@@ -603,9 +747,11 @@ pub(super) struct DescriptorState {
     pool: vk::DescriptorPool,
     pub(super) frame_layout: vk::DescriptorSetLayout,
     pub(super) texture_layout: vk::DescriptorSetLayout,
+    pub(super) shadow_layout: vk::DescriptorSetLayout,
     sampler: vk::Sampler,
     pub(super) frame_sets: Vec<vk::DescriptorSet>,
     pub(super) texture_sets: BTreeMap<AssetRevisionRefV1, vk::DescriptorSet>,
+    pub(super) shadow_set: Option<vk::DescriptorSet>,
 }
 
 impl DescriptorState {
@@ -613,6 +759,7 @@ impl DescriptorState {
         device: &ash::Device,
         frame_uniforms: &[BufferAllocation],
         textures: &BTreeMap<AssetRevisionRefV1, TextureResource>,
+        shadow: Option<&ShadowMap>,
     ) -> Result<Self, B0GpuContentError> {
         let frame_count =
             u32::try_from(frame_uniforms.len()).map_err(|_| B0GpuContentError::CountOverflow)?;
@@ -625,7 +772,7 @@ impl DescriptorState {
             .binding(0)
             .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
             .descriptor_count(1)
-            .stage_flags(vk::ShaderStageFlags::VERTEX)];
+            .stage_flags(vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT)];
         let texture_bindings = [vk::DescriptorSetLayoutBinding::default()
             .binding(0)
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
@@ -634,6 +781,8 @@ impl DescriptorState {
         let frame_layout_info =
             vk::DescriptorSetLayoutCreateInfo::default().bindings(&frame_bindings);
         let texture_layout_info =
+            vk::DescriptorSetLayoutCreateInfo::default().bindings(&texture_bindings);
+        let shadow_layout_info =
             vk::DescriptorSetLayoutCreateInfo::default().bindings(&texture_bindings);
         // SAFETY: bindings are closed B0 values and no pointer is retained.
         let frame_layout =
@@ -646,6 +795,20 @@ impl DescriptorState {
                     // SAFETY: frame layout creation succeeded and it has no
                     // dependent pipeline or descriptor sets yet.
                     unsafe { device.destroy_descriptor_set_layout(frame_layout, None) };
+                    return Err(error.into());
+                }
+            };
+        // SAFETY: the sampled-depth binding has the same closed descriptor
+        // shape as the texture set and retains no host pointers.
+        let shadow_layout =
+            match unsafe { device.create_descriptor_set_layout(&shadow_layout_info, None) } {
+                Ok(layout) => layout,
+                Err(error) => {
+                    // SAFETY: neither prior layout has dependants yet.
+                    unsafe {
+                        device.destroy_descriptor_set_layout(texture_layout, None);
+                        device.destroy_descriptor_set_layout(frame_layout, None);
+                    }
                     return Err(error.into());
                 }
             };
@@ -664,6 +827,7 @@ impl DescriptorState {
             Err(error) => {
                 // SAFETY: layouts have no dependants after sampler failure.
                 unsafe {
+                    device.destroy_descriptor_set_layout(shadow_layout, None);
                     device.destroy_descriptor_set_layout(texture_layout, None);
                     device.destroy_descriptor_set_layout(frame_layout, None);
                 }
@@ -677,14 +841,18 @@ impl DescriptorState {
             ty: vk::DescriptorType::UNIFORM_BUFFER,
             descriptor_count: frame_count,
         }];
-        if texture_count != 0 {
+        let shadow_count = u32::from(shadow.is_some());
+        if texture_count != 0 || shadow_count != 0 {
             pool_sizes.push(vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                descriptor_count: texture_count,
+                descriptor_count: texture_count
+                    .checked_add(shadow_count)
+                    .ok_or(B0GpuContentError::CountOverflow)?,
             });
         }
         let max_sets = texture_count
             .checked_add(frame_count)
+            .and_then(|value| value.checked_add(shadow_count))
             .ok_or(B0GpuContentError::CountOverflow)?;
         let pool_info = vk::DescriptorPoolCreateInfo::default()
             .max_sets(max_sets)
@@ -696,6 +864,7 @@ impl DescriptorState {
                 // SAFETY: no sets or pipelines depend on these objects.
                 unsafe {
                     device.destroy_sampler(sampler, None);
+                    device.destroy_descriptor_set_layout(shadow_layout, None);
                     device.destroy_descriptor_set_layout(texture_layout, None);
                     device.destroy_descriptor_set_layout(frame_layout, None);
                 }
@@ -707,10 +876,14 @@ impl DescriptorState {
             textures
                 .len()
                 .checked_add(frame_uniforms.len())
+                .and_then(|value| value.checked_add(usize::from(shadow.is_some())))
                 .ok_or(B0GpuContentError::CountOverflow)?,
         );
         layouts.extend(std::iter::repeat_n(frame_layout, frame_uniforms.len()));
         layouts.extend(std::iter::repeat_n(texture_layout, textures.len()));
+        if shadow.is_some() {
+            layouts.push(shadow_layout);
+        }
         let allocation_info = vk::DescriptorSetAllocateInfo::default()
             .descriptor_pool(pool)
             .set_layouts(&layouts);
@@ -723,6 +896,7 @@ impl DescriptorState {
                 unsafe {
                     device.destroy_descriptor_pool(pool, None);
                     device.destroy_sampler(sampler, None);
+                    device.destroy_descriptor_set_layout(shadow_layout, None);
                     device.destroy_descriptor_set_layout(texture_layout, None);
                     device.destroy_descriptor_set_layout(frame_layout, None);
                 }
@@ -747,8 +921,9 @@ impl DescriptorState {
         }
 
         let mut texture_sets = BTreeMap::new();
-        for ((revision, texture), descriptor_set) in
-            textures.iter().zip(sets.into_iter().skip(frame_set_count))
+        for ((revision, texture), descriptor_set) in textures
+            .iter()
+            .zip(sets.iter().copied().skip(frame_set_count))
         {
             let image_info = [vk::DescriptorImageInfo::default()
                 .sampler(sampler)
@@ -765,14 +940,33 @@ impl DescriptorState {
             texture_sets.insert(*revision, descriptor_set);
         }
 
+        let shadow_set = shadow.map(|shadow| {
+            let descriptor_set = sets[frame_set_count + textures.len()];
+            let image_info = [vk::DescriptorImageInfo::default()
+                .sampler(shadow.sampler())
+                .image_view(shadow.view())
+                .image_layout(vk::ImageLayout::DEPTH_READ_ONLY_OPTIMAL)];
+            let writes = [vk::WriteDescriptorSet::default()
+                .dst_set(descriptor_set)
+                .dst_binding(0)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .image_info(&image_info)];
+            // SAFETY: the sampled depth image, compare sampler and set remain
+            // live for the complete descriptor-state lifetime.
+            unsafe { device.update_descriptor_sets(&writes, &[]) };
+            descriptor_set
+        });
+
         Ok(Self {
             device: device.clone(),
             pool,
             frame_layout,
             texture_layout,
+            shadow_layout,
             sampler,
             frame_sets,
             texture_sets,
+            shadow_set,
         })
     }
 }
@@ -784,6 +978,8 @@ impl Drop for DescriptorState {
         unsafe {
             self.device.destroy_descriptor_pool(self.pool, None);
             self.device.destroy_sampler(self.sampler, None);
+            self.device
+                .destroy_descriptor_set_layout(self.shadow_layout, None);
             self.device
                 .destroy_descriptor_set_layout(self.texture_layout, None);
             self.device

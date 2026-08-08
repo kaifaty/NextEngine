@@ -447,6 +447,44 @@ fn core_action_map_and_context_are_hash_bound_canonical_contracts() {
 }
 
 #[test]
+fn generic_controller_profile_reuses_every_keyboard_mouse_action_id() {
+    let fallback = ActionMapManifestV1::core_keyboard_mouse_v1().expect("fallback action map");
+    let combined = ActionMapManifestV1::core_keyboard_mouse_controller_v1()
+        .expect("generic controller action map");
+    combined.validate().expect("combined action map valid");
+    assert_eq!(
+        combined
+            .actions
+            .iter()
+            .map(|action| &action.action_id)
+            .collect::<Vec<_>>(),
+        fallback
+            .actions
+            .iter()
+            .map(|action| &action.action_id)
+            .collect::<Vec<_>>()
+    );
+    let controller = SchemaId::new(GENERIC_CONTROLLER_DEVICE_CLASS_ID).expect("controller class");
+    for action in &combined.actions {
+        assert!(
+            action
+                .binding_slots
+                .iter()
+                .any(|binding| binding.device_class == controller),
+            "generic controller is missing semantic action {}",
+            action.action_id.as_str()
+        );
+        let fallback_action = fallback.action(&action.action_id).expect("fallback action");
+        assert!(fallback_action.binding_slots.iter().all(|binding| {
+            action
+                .binding_slots
+                .iter()
+                .any(|candidate| candidate == binding)
+        }));
+    }
+}
+
+#[test]
 fn action_map_rejects_hash_corruption_and_ambiguous_control_bindings() {
     let mut corrupt = ActionMapManifestV1::core_keyboard_mouse_v1().expect("core action map");
     corrupt.content_hash = hash(99);

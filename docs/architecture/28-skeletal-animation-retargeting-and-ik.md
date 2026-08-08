@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-28 |
 | Статус | Accepted |
-| Версия | 1.1 |
-| Последняя проверка | 2026-07-25 |
+| Версия | 1.2 |
+| Последняя проверка | 2026-08-06 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md) |
-| Заменяет | отсутствует |
+| Заменяет | SPEC-28 1.1 |
 
 ## История принятия
 
@@ -524,6 +524,16 @@ chain ID and first differing canonical field.
 - When a renderer or encoder is unavailable, authoritative headless checks
   still run and the presentation capture is reported as unavailable; no
   gameplay result is inferred from missing media.
+
+## Текущий implementation checkpoint
+
+R2 реализует только content-side prerequisite: public neutral skeleton/clip
+schemas, canonical codecs, exact clip→skeleton binding, cook/activation и один
+CC0 catalog с hash/source/license/NOTICE в `projects/reference-alpha`.
+Animation graph evaluation, deterministic retargeting, physical и presentation
+IK, validated `RootMotionIntentV1`, runtime save/load/replay и соответствующие
+ProductCheck ниже ещё не реализованы и остаются gate R5. Наличие catalog не
+переводит ни один `ANIM-*` check в `PASS`.
 
 ## Product checks
 

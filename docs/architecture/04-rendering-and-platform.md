@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 2.2 |
-| Последняя проверка | 2026-07-30 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md) |
-| Заменяет | SPEC-04 2.1 |
+| Версия | 2.3 |
+| Последняя проверка | 2026-08-06 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md) |
+| Заменяет | SPEC-04 2.2 |
 
 ## Technical authority boundary
 
@@ -168,8 +168,19 @@ representative 60-second окна — exploration, combat и UI/dialogue — к�
 Fallback выбирается только при launch в v1. Его `PASS` не меняет primary
 `FAIL`. Render quality, timestamp query state, profiler state и chosen
 presentation profile не меняют commands/events/replay result или
-authoritative roots. Пока representative R2 alpha project отсутствует, этот
-gate возвращает `NOT_RUN`; текущий five-object plan остаётся smoke.
+authoritative roots.
+
+Production workload `r2-alpha-render` загружает `projects/reference-alpha`
+через authoring → cook → activate, использует production Vulkan adapter и
+выполняет шесть независимых profile/window runs: exploration, combat и
+UI/dialogue отдельно для primary и fallback. Каждый run сохраняет свои 600
+warm-up и 3 600 measured samples, exact Vulkan timestamp-query accounting,
+canonical logical resource charges, process/device counters и authoritative
+roots. Report mode может завершить внешний ProductCheck как `PASS` только с
+вложенным `REPORT_ONLY`; hard timing `PASS` по-прежнему требует clean commit,
+полного THOTH fingerprint, compatible ten-run baseline и всех preflight checks
+ADR-036/ADR-045. Статические render fixtures остаются smoke и не подменяют этот
+workload.
 
 ## Product checks
 

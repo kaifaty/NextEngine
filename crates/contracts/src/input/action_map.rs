@@ -7,6 +7,8 @@ use super::actions::PlayerActionPhaseV1;
 use super::codec::*;
 use super::constants::*;
 
+mod controller_profile;
+
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
 pub enum PlayerActionValueKindV1 {

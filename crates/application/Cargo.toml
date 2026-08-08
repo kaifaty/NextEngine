@@ -22,5 +22,8 @@ next_runtime.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
+[dev-dependencies]
+next_desktop_sdl_ash.workspace = true
+
 [lints]
 workspace = true

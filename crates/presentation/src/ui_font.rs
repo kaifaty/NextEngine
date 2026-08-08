@@ -1,4 +1,4 @@
-//! Engine-owned 8x8 bitmap font for the minimal semantic UI overlay.
+//! Engine-owned 12x16 alpha atlas for the minimal semantic UI overlay.
 //!
 //! The printable-ASCII table (U+0020..=U+007E) embeds Daniel Hepper's
 //! public-domain `font8x8_basic` glyphs (<https://github.com/dhepper/font8x8>),
@@ -11,8 +11,10 @@
 //! authored thick bracket glyphs. Unknown characters resolve to a stable
 //! placeholder box so overlay rasterization never fails on text content.
 
-pub const UI_OVERLAY_GLYPH_WIDTH: u32 = 8;
-pub const UI_OVERLAY_GLYPH_HEIGHT: u32 = 8;
+pub const UI_OVERLAY_GLYPH_WIDTH: u32 = 12;
+pub const UI_OVERLAY_GLYPH_HEIGHT: u32 = 16;
+pub const UI_OVERLAY_GLYPH_ALPHA_LEN: usize =
+    UI_OVERLAY_GLYPH_WIDTH as usize * UI_OVERLAY_GLYPH_HEIGHT as usize;
 
 const GLYPH_COUNT: usize = 95;
 
@@ -165,6 +167,30 @@ pub fn ui_overlay_glyph_rows(glyph: char) -> [u8; 8] {
     }
 }
 
+/// Returns one stable 12x16 alpha glyph. The engine-owned 8x8 source forms are
+/// expanded with exact integer sampling, leaving a two-pixel horizontal
+/// bearing and preserving hard pixel edges at every supported UI scale.
+#[must_use]
+pub fn ui_overlay_glyph_alpha(glyph: char) -> [u8; UI_OVERLAY_GLYPH_ALPHA_LEN] {
+    let rows = ui_overlay_glyph_rows(glyph);
+    let mut alpha = [0_u8; UI_OVERLAY_GLYPH_ALPHA_LEN];
+    for y in 0..UI_OVERLAY_GLYPH_HEIGHT {
+        let source_y = usize::try_from(y / 2).expect("glyph y fits usize");
+        for x in 0..UI_OVERLAY_GLYPH_WIDTH {
+            if x == 0 || x == UI_OVERLAY_GLYPH_WIDTH - 1 {
+                continue;
+            }
+            let source_x = ((x - 1) * 8 / 10).min(7);
+            if rows[source_y] & (1_u8 << source_x) != 0 {
+                let index = usize::try_from(y * UI_OVERLAY_GLYPH_WIDTH + x)
+                    .expect("glyph alpha index fits usize");
+                alpha[index] = u8::MAX;
+            }
+        }
+    }
+    alpha
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,5 +250,14 @@ mod tests {
         {
             assert_eq!(ui_overlay_glyph_rows(*glyph), ui_overlay_glyph_rows(*glyph));
         }
+    }
+
+    #[test]
+    fn alpha_atlas_has_exact_12_by_16_glyphs_and_integer_bearings() {
+        let glyph = ui_overlay_glyph_alpha('A');
+        assert_eq!(glyph.len(), 12 * 16);
+        assert!(glyph.contains(&u8::MAX));
+        assert!((0..16).all(|row| glyph[row * 12] == 0 && glyph[row * 12 + 11] == 0));
+        assert_eq!(glyph, ui_overlay_glyph_alpha('A'));
     }
 }

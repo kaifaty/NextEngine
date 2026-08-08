@@ -135,6 +135,8 @@ fn prepare_game_frame_from_scenario(
         scenario.player_character_id,
         scenario.quest_id,
         &[scenario.pickup_item_id, scenario.npc_weapon_item_id],
+        &scenario.item_display_text_id,
+        &scenario.quest_display_text_id,
         &scenario.runtime.rpg_snapshot(),
     )?;
     let snapshot = extractor
@@ -187,6 +189,42 @@ pub fn run_play_check_with_activated_project(
 }
 
 fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport, PlayCheckError> {
+    let stage_checkpoint_count = scenario.stage_checkpoint_roots.len();
+    let stage_checkpoints_match_acceptance = match scenario.stage_checkpoints.as_slice() {
+        [accepted, combat, relay] => {
+            accepted.state_root == scenario.stage_checkpoint_roots[0]
+                && combat.state_root == scenario.stage_checkpoint_roots[1]
+                && relay.state_root == scenario.stage_checkpoint_roots[2]
+                && accepted.quest_state_id.as_str() == "nextengine.reference-alpha.quest.active"
+                && accepted.dialogue_node_id.as_str()
+                    == "nextengine.reference-alpha.dialogue.accepted"
+                && !accepted.player_inventory_contains_pickup
+                && !accepted.player_equipment_contains_pickup
+                && accepted.npc_health == 100
+                && accepted.player_health == 100
+                && accepted.relay_state_id.as_str()
+                    == next_contracts::rpg::CORE_INTERACTIVE_OBJECT_READY_STATE_ID
+                && combat.quest_state_id == accepted.quest_state_id
+                && combat.dialogue_node_id == accepted.dialogue_node_id
+                && combat.player_inventory_contains_pickup
+                && combat.player_equipment_contains_pickup
+                && combat.npc_health == 0
+                && combat.player_health == 50
+                && combat.relay_state_id.as_str()
+                    == next_contracts::rpg::CORE_INTERACTIVE_OBJECT_READY_STATE_ID
+                && combat.current_chunk_id != accepted.current_chunk_id
+                && relay.quest_state_id == accepted.quest_state_id
+                && relay.dialogue_node_id == accepted.dialogue_node_id
+                && relay.player_inventory_contains_pickup
+                && relay.player_equipment_contains_pickup
+                && relay.npc_health == 0
+                && relay.player_health == 50
+                && relay.relay_state_id.as_str()
+                    == next_contracts::rpg::CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
+                && relay.current_chunk_id == combat.current_chunk_id
+        }
+        _ => false,
+    };
     let checkpoint = scenario.runtime.world_checkpoint()?;
     let rpg = scenario.runtime.rpg_snapshot();
     let interactive_object_state = match aggregate_payload(
@@ -213,7 +251,7 @@ fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport,
         scenario.relationship_id,
     ) {
         Some(RpgAggregatePayloadV1::Relationship(relationship))
-            if relationship.source_id == scenario.npc_character_id
+            if relationship.source_id == scenario.quest_giver_character_id
                 && relationship.target_id == scenario.player_character_id =>
         {
             relationship
@@ -275,22 +313,25 @@ fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport,
             &scenario.world_streaming_snapshot,
         )?,
     };
-    if report.ticks != 16
-        || report.final_pose.translation_micrometres != [200_000, 900_000, 200_000]
-        || report.events != 17
-        || report.rpg_events != 9
+    if report.ticks != 32
+        || report.final_pose.translation_micrometres != [0, 900_000, -200_000]
+        || report.events != 27
+        || report.rpg_events != 13
         || report.interactive_object_state.as_str()
             != next_contracts::rpg::CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
-        || report.dialogue_node_id.as_str() != "nextengine.reference.dialogue.accepted"
-        || report.quest_state_id.as_str() != "nextengine.reference.quest.active"
-        || report.npc_player_trust != 7
-        || report.npc_health != 75
-        || report.player_health != 75
+        || report.dialogue_node_id.as_str() != "nextengine.reference-alpha.dialogue.completed"
+        || report.quest_state_id.as_str() != "nextengine.reference-alpha.quest.completed"
+        || report.npc_player_trust != 10
+        || report.npc_health != 0
+        || report.player_health != 50
         || report.world_streaming_generation != 2
+        || stage_checkpoint_count != 3
+        || !stage_checkpoints_match_acceptance
     {
         return Err(PlayCheckError::AcceptanceMismatch(format!(
             "ticks={} pose={:?} events={} rpg_events={} object={} dialogue={} quest={} \
-             trust={} npc_health={} player_health={} world_generation={}",
+             trust={} npc_health={} player_health={} world_generation={} stage_checkpoints={} \
+             stage_checkpoint_facts={:?}",
             report.ticks,
             report.final_pose.translation_micrometres,
             report.events,
@@ -302,6 +343,8 @@ fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport,
             report.npc_health,
             report.player_health,
             report.world_streaming_generation,
+            stage_checkpoint_count,
+            scenario.stage_checkpoints,
         )));
     }
     Ok(report)

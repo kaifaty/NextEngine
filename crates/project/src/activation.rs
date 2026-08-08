@@ -3,6 +3,10 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_assets::{ContentStore, ContentStoreError};
+use next_contracts::animation_content::{
+    NEUTRAL_ANIMATION_SCHEMA_ID, NEUTRAL_SKELETON_SCHEMA_ID, NeutralAnimationContentErrorV1,
+    NeutralAnimationV1, NeutralSkeletonV1,
+};
 use next_contracts::audio::{NEUTRAL_AUDIO_SCHEMA_ID, NeutralAudioErrorV1, NeutralAudioV1};
 use next_contracts::canonical::CanonicalDecodeLimits;
 use next_contracts::content::{NeutralRecordError, NeutralRecordV1};
@@ -22,8 +26,9 @@ use crate::cook::{
     CONTENT_BLOB_DIRECTORY, CONTENT_MANIFEST_PATH, PROJECT_CATALOG_PATH,
     PROJECT_COMPOSITION_LOCK_PATH, PROJECT_MANIFEST_PATH, RENDER_CONTENT_CATALOG_PATH,
     RENDER_CONTENT_MESH_DIRECTORY, SCHEMA_REGISTRY_PATH, WORLD_PARTITION_PATH,
-    compile_render_content_catalog_v1, compile_rpg_definitions_v1,
+    compile_render_content_catalog_v1,
 };
+use crate::cook_rpg::compile_rpg_definitions_v1;
 use crate::{ProjectResolutionError, resolve_project_records_v1};
 
 pub fn activate_project(
@@ -103,6 +108,8 @@ pub fn activate_project(
     let mut render_records = Vec::new();
     let mut text_catalogs = Vec::new();
     let mut audio_clips = Vec::new();
+    let mut neutral_skeletons = Vec::new();
+    let mut neutral_animations = Vec::new();
     for entry in &content_manifest.body.asset_entries {
         require_schema(&current_schemas, &entry.schema_ref)?;
         let blob_path = format!(
@@ -153,6 +160,51 @@ pub fn activate_project(
             }
             record_dependencies.insert(clip.asset_id, BTreeSet::new());
             audio_clips.push(clip);
+        } else if entry.schema_ref.schema_id.as_str() == NEUTRAL_SKELETON_SCHEMA_ID {
+            let skeleton = NeutralSkeletonV1::from_canonical_bytes(blob, limits)?;
+            let expected_schema_ref = SchemaRefV1 {
+                schema_id: entry.schema_ref.schema_id.clone(),
+                schema_version: skeleton.schema_version,
+                descriptor_sha256: domain_hash(
+                    "nextengine.schema-descriptor.v1",
+                    NEUTRAL_SKELETON_SCHEMA_ID.as_bytes(),
+                ),
+                role: SchemaRoleV1::NeutralContent,
+                encoding: SchemaEncodingV1::CanonicalBinaryV1,
+            };
+            if skeleton.asset_id != entry.asset_revision.asset_id
+                || expected_schema_ref != entry.schema_ref
+                || skeleton.record_sha256()? != entry.asset_revision.record_sha256
+                || entry.semantic_class != ContentSemanticClassV1::DomainRelevant
+            {
+                return Err(ProjectActivationError::HashMismatch);
+            }
+            record_dependencies.insert(skeleton.asset_id, BTreeSet::new());
+            neutral_skeletons.push(skeleton);
+        } else if entry.schema_ref.schema_id.as_str() == NEUTRAL_ANIMATION_SCHEMA_ID {
+            let animation = NeutralAnimationV1::from_canonical_bytes(blob, limits)?;
+            let expected_schema_ref = SchemaRefV1 {
+                schema_id: entry.schema_ref.schema_id.clone(),
+                schema_version: animation.schema_version,
+                descriptor_sha256: domain_hash(
+                    "nextengine.schema-descriptor.v1",
+                    NEUTRAL_ANIMATION_SCHEMA_ID.as_bytes(),
+                ),
+                role: SchemaRoleV1::NeutralContent,
+                encoding: SchemaEncodingV1::CanonicalBinaryV1,
+            };
+            if animation.asset_id != entry.asset_revision.asset_id
+                || expected_schema_ref != entry.schema_ref
+                || animation.record_sha256()? != entry.asset_revision.record_sha256
+                || entry.semantic_class != ContentSemanticClassV1::DomainRelevant
+            {
+                return Err(ProjectActivationError::HashMismatch);
+            }
+            record_dependencies.insert(
+                animation.asset_id,
+                BTreeSet::from([animation.skeleton_revision.asset_id]),
+            );
+            neutral_animations.push(animation);
         } else if NeutralRenderRecordV1::supports_schema_id(&entry.schema_ref.schema_id) {
             let record = NeutralRenderRecordV1::from_canonical_bytes(blob, limits)?;
             if record.asset_id() != entry.asset_revision.asset_id
@@ -222,6 +274,8 @@ pub fn activate_project(
     render_records.sort_by_key(NeutralRenderRecordV1::asset_id);
     text_catalogs.sort_by_key(|catalog| catalog.catalog_asset_id);
     audio_clips.sort_by_key(|clip| clip.asset_id);
+    neutral_skeletons.sort_by_key(|record| record.asset_id);
+    neutral_animations.sort_by_key(|record| record.asset_id);
     let render_content_catalog = compile_render_content_catalog_v1(&render_records)?;
     let published_catalog = RenderContentCatalogV1::from_canonical_bytes(
         required_file(&generation.files, RENDER_CONTENT_CATALOG_PATH)?,
@@ -253,6 +307,8 @@ pub fn activate_project(
         neutral_records: neutral_records.clone(),
         text_catalogs,
         audio_clips,
+        neutral_skeletons,
+        neutral_animations,
         rpg_definitions: compile_rpg_definitions_v1(&neutral_records)
             .map_err(ProjectActivationError::Cook)?,
         render_content_catalog,
@@ -291,6 +347,7 @@ pub enum ProjectActivationError {
     Render(RenderContentContractError),
     Localization(TextCatalogErrorV1),
     Audio(NeutralAudioErrorV1),
+    Animation(NeutralAnimationContentErrorV1),
     Resolution(ProjectResolutionError),
     Cook(crate::ProjectCookError),
     MissingArtifact(String),
@@ -307,9 +364,11 @@ impl ProjectActivationError {
     pub const fn diagnostic_code(&self) -> &'static str {
         match self {
             Self::Store(_) | Self::MissingArtifact(_) => "PROJECT_ARTIFACT_MISSING",
-            Self::Contract(_) | Self::Neutral(_) | Self::Localization(_) | Self::Audio(_) => {
-                "PROJECT_SCHEMA_INVALID"
-            }
+            Self::Contract(_)
+            | Self::Neutral(_)
+            | Self::Localization(_)
+            | Self::Audio(_)
+            | Self::Animation(_) => "PROJECT_SCHEMA_INVALID",
             Self::Render(error) => error.diagnostic_code(),
             Self::Resolution(_) | Self::ResolutionMismatch => "PROJECT_LOCK_INVALID",
             Self::Cook(_) => "PROJECT_DEFINITION_INVALID",
@@ -331,6 +390,9 @@ impl Display for ProjectActivationError {
             Self::Render(error) => write!(formatter, "project render content invalid: {error}"),
             Self::Localization(error) => write!(formatter, "project text catalog invalid: {error}"),
             Self::Audio(error) => write!(formatter, "project audio clip invalid: {error}"),
+            Self::Animation(error) => {
+                write!(formatter, "project animation content invalid: {error}")
+            }
             Self::Resolution(error) => write!(formatter, "project resolution invalid: {error}"),
             Self::Cook(error) => write!(formatter, "project definition compile failed: {error}"),
             Self::MissingArtifact(path) => write!(formatter, "project artifact missing: {path}"),
@@ -381,6 +443,12 @@ impl From<TextCatalogErrorV1> for ProjectActivationError {
 impl From<NeutralAudioErrorV1> for ProjectActivationError {
     fn from(error: NeutralAudioErrorV1) -> Self {
         Self::Audio(error)
+    }
+}
+
+impl From<NeutralAnimationContentErrorV1> for ProjectActivationError {
+    fn from(error: NeutralAnimationContentErrorV1) -> Self {
+        Self::Animation(error)
     }
 }
 

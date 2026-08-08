@@ -10,7 +10,6 @@ use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
 use next_contracts::input::{
     CORE_UI_BACK_ACTION_ID, CORE_UI_CONFIRM_ACTION_ID, CORE_UI_NAVIGATE_ACTION_ID,
 };
-use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::presentation::{
     SemanticUiPresentationRecordV1, UiAccessibilityRoleV1, UiActionAffordanceV1, UiElementRoleV1,
     UiElementValueV1, UiSemanticElementV1, UiStyleRoleV1, UiTextArgumentV1, UiTextRefV1,
@@ -24,101 +23,15 @@ use crate::input::ReferenceUiScreenV1;
 use crate::rpg::aggregate_payload;
 use crate::session::ReferenceGameSession;
 
-pub const HUD_SURFACE_ID: &str = "nextengine.ui.surface.hud";
-pub const HUD_STATUS_PANEL_ID: &str = "nextengine.ui.panel.hud.status";
-pub const HUD_HEALTH_ELEMENT_ID: &str = "nextengine.ui.element.hud.health";
-pub const HUD_QUEST_ELEMENT_ID: &str = "nextengine.ui.element.hud.quest";
-pub const HUD_SUBTITLE_ELEMENT_ID: &str = "nextengine.ui.element.hud.subtitle";
-pub const HUD_HEALTH_TEXT_ID: &str = "nextengine.ui.text.hud.health";
-pub const HUD_QUEST_TEXT_ID: &str = "nextengine.ui.text.hud.quest-state";
+mod hud;
 
-/// Builds the canonical HUD records for one presentation publication.
-///
-/// Elements appear only when their authoritative source aggregate exists;
-/// an empty RPG snapshot (for example a non-interactive scenario) yields an
-/// empty record set and therefore no semantic UI batches.
-pub fn hud_semantic_ui_records(
-    snapshot_epoch: ContentHash,
-    fixture: &ReferenceGameSession,
-    rpg: &RpgSnapshotV2,
-) -> Result<Vec<SemanticUiPresentationRecordV1>, ReferenceGameError> {
-    hud_semantic_ui_records_for_ids(snapshot_epoch, fixture.body_id, fixture.quest_id, rpg)
-}
-
-/// Builds the canonical HUD records without a session handle, for callers
-/// (verification fixtures, tools) that hold the authoritative ids directly.
-pub fn hud_semantic_ui_records_for_ids(
-    snapshot_epoch: ContentHash,
-    player_character_id: PersistentId,
-    quest_id: PersistentId,
-    rpg: &RpgSnapshotV2,
-) -> Result<Vec<SemanticUiPresentationRecordV1>, ReferenceGameError> {
-    let source_snapshot_hash = domain_hash(
-        "nextengine.ui-source.rpg-snapshot.v1",
-        &rpg.canonical_bytes()?,
-    );
-    let mut records = Vec::new();
-    if let Some(RpgAggregatePayloadV1::Character(character)) =
-        aggregate_payload(rpg, RpgAggregateKindV1::Character, player_character_id)
-        && let Some(health) = character
-            .resources
-            .iter()
-            .find(|entry| entry.resource_id.as_str() == CORE_CHARACTER_HEALTH_RESOURCE_ID)
-    {
-        let current = i64::from(health.current_value);
-        let maximum = i64::from(health.maximum_value);
-        records.push(SemanticUiPresentationRecordV1::new(
-            snapshot_epoch,
-            schema_id(HUD_SURFACE_ID)?,
-            schema_id(HUD_STATUS_PANEL_ID)?,
-            source_snapshot_hash,
-            UiSemanticElementV1::new(
-                schema_id(HUD_HEALTH_ELEMENT_ID)?,
-                UiElementRoleV1::Meter,
-                UiStyleRoleV1::Default,
-                UiAccessibilityRoleV1::Status,
-                true,
-                true,
-                false,
-                Some(UiTextRefV1::new(
-                    schema_id(HUD_HEALTH_TEXT_ID)?,
-                    vec![
-                        UiTextArgumentV1::SignedInteger(current),
-                        UiTextArgumentV1::SignedInteger(maximum),
-                    ],
-                )?),
-                UiElementValueV1::Scalar { current, maximum },
-                Vec::new(),
-            )?,
-        )?);
-    }
-    if let Some(RpgAggregatePayloadV1::Quest(quest)) =
-        aggregate_payload(rpg, RpgAggregateKindV1::Quest, quest_id)
-    {
-        records.push(SemanticUiPresentationRecordV1::new(
-            snapshot_epoch,
-            schema_id(HUD_SURFACE_ID)?,
-            schema_id(HUD_STATUS_PANEL_ID)?,
-            source_snapshot_hash,
-            UiSemanticElementV1::new(
-                schema_id(HUD_QUEST_ELEMENT_ID)?,
-                UiElementRoleV1::Label,
-                UiStyleRoleV1::Muted,
-                UiAccessibilityRoleV1::Standard,
-                true,
-                true,
-                false,
-                Some(UiTextRefV1::new(
-                    schema_id(HUD_QUEST_TEXT_ID)?,
-                    vec![UiTextArgumentV1::TextId(quest.state_id.clone())],
-                )?),
-                UiElementValueV1::None,
-                Vec::new(),
-            )?,
-        )?);
-    }
-    Ok(records)
-}
+pub use hud::{
+    HUD_ACTION_ACCEPT_TEXT_ID, HUD_ACTION_COMBAT_TEXT_ID, HUD_ACTION_COMPLETE_TEXT_ID,
+    HUD_ACTION_ELEMENT_ID, HUD_ACTION_EQUIP_TEXT_ID, HUD_ACTION_PICKUP_TEXT_ID,
+    HUD_ACTION_RELAY_TEXT_ID, HUD_ACTION_RETURN_TEXT_ID, HUD_STATUS_PANEL_ID,
+    HUD_SUBTITLE_ELEMENT_ID, HUD_SURFACE_ID, hud_semantic_ui_records,
+    hud_semantic_ui_records_for_ids,
+};
 
 fn schema_id(value: &str) -> Result<SchemaId, ReferenceGameError> {
     Ok(SchemaId::new(value)?)
@@ -212,7 +125,9 @@ pub const PAUSE_MENU_LOAD_ELEMENT_ID: &str = "nextengine.ui.element.pause-menu.l
 pub const PAUSE_MENU_TITLE_TEXT_ID: &str = "nextengine.ui.text.pause-menu.title";
 pub const PAUSE_MENU_RESUME_TEXT_ID: &str = "nextengine.ui.text.pause-menu.resume";
 pub const PAUSE_MENU_SAVE_TEXT_ID: &str = "nextengine.ui.text.pause-menu.save";
+pub const PAUSE_MENU_SAVED_TEXT_ID: &str = "nextengine.ui.text.pause-menu.saved";
 pub const PAUSE_MENU_LOAD_TEXT_ID: &str = "nextengine.ui.text.pause-menu.load";
+pub const PAUSE_MENU_LOADED_TEXT_ID: &str = "nextengine.ui.text.pause-menu.loaded";
 
 /// Builds the canonical pause-menu records for the suspending publication.
 ///
@@ -329,12 +244,10 @@ pub const EQUIPMENT_TITLE_TEXT_ID: &str = "nextengine.ui.text.equipment.title";
 pub const EQUIPMENT_SLOT_ROW_TEXT_ID: &str = "nextengine.ui.text.equipment.slot-row";
 pub const JOURNAL_TITLE_TEXT_ID: &str = "nextengine.ui.text.journal.title";
 pub const JOURNAL_ENTRY_TEXT_ID: &str = "nextengine.ui.text.journal.entry";
-/// Display-name text id carried by the single reference item definition; the
-/// live path and verification fixtures map every known reference item
-/// aggregate to it.
-pub const REFERENCE_ITEM_DISPLAY_TEXT_ID: &str = "nextengine.reference.item.training-sword";
-/// Display-name text id carried by the single reference quest definition.
-pub const REFERENCE_QUEST_DISPLAY_TEXT_ID: &str = "nextengine.reference.quest.a-helping-hand";
+#[cfg(test)]
+const TEST_ITEM_DISPLAY_TEXT_ID: &str = "nextengine.test.item.display-name";
+#[cfg(test)]
+const TEST_QUEST_DISPLAY_TEXT_ID: &str = "nextengine.test.quest.display-name";
 
 /// Builds the canonical read-only inventory/equipment screen records.
 ///
@@ -569,10 +482,14 @@ pub fn inventory_semantic_ui_records(
     fixture: &ReferenceGameSession,
     rpg: &RpgSnapshotV2,
 ) -> Result<Vec<SemanticUiPresentationRecordV1>, ReferenceGameError> {
+    let display_text_id = reference_item_display_text_id(fixture)?;
     inventory_semantic_ui_records_for_ids(
         snapshot_epoch,
         fixture.body_id,
-        &reference_item_display_names([fixture.pickup_item_id, fixture.npc_weapon_item_id])?,
+        &reference_item_display_names(
+            [fixture.pickup_item_id, fixture.npc_weapon_item_id],
+            &display_text_id,
+        ),
         rpg,
     )
 }
@@ -583,12 +500,10 @@ pub fn quest_journal_semantic_ui_records(
     fixture: &ReferenceGameSession,
     rpg: &RpgSnapshotV2,
 ) -> Result<Vec<SemanticUiPresentationRecordV1>, ReferenceGameError> {
+    let display_text_id = reference_quest_display_text_id(fixture)?;
     quest_journal_semantic_ui_records_for_ids(
         snapshot_epoch,
-        &[(
-            fixture.quest_id,
-            schema_id(REFERENCE_QUEST_DISPLAY_TEXT_ID)?,
-        )],
+        &[(fixture.quest_id, display_text_id)],
         rpg,
     )
 }
@@ -602,6 +517,8 @@ pub fn read_only_screen_semantic_ui_records_for_ids(
     player_character_id: PersistentId,
     quest_id: PersistentId,
     reference_item_ids: &[PersistentId],
+    item_display_text_id: &SchemaId,
+    quest_display_text_id: &SchemaId,
     rpg: &RpgSnapshotV2,
 ) -> Result<Vec<SemanticUiPresentationRecordV1>, ReferenceGameError> {
     let mut records =
@@ -609,12 +526,12 @@ pub fn read_only_screen_semantic_ui_records_for_ids(
     records.extend(inventory_semantic_ui_records_for_ids(
         snapshot_epoch,
         player_character_id,
-        &reference_item_display_names(reference_item_ids.iter().copied())?,
+        &reference_item_display_names(reference_item_ids.iter().copied(), item_display_text_id),
         rpg,
     )?);
     records.extend(quest_journal_semantic_ui_records_for_ids(
         snapshot_epoch,
-        &[(quest_id, schema_id(REFERENCE_QUEST_DISPLAY_TEXT_ID)?)],
+        &[(quest_id, quest_display_text_id.clone())],
         rpg,
     )?);
     Ok(records)
@@ -622,11 +539,59 @@ pub fn read_only_screen_semantic_ui_records_for_ids(
 
 fn reference_item_display_names(
     item_ids: impl IntoIterator<Item = PersistentId>,
-) -> Result<Vec<(PersistentId, SchemaId)>, ReferenceGameError> {
+    display_text_id: &SchemaId,
+) -> Vec<(PersistentId, SchemaId)> {
     item_ids
         .into_iter()
-        .map(|item_id| Ok((item_id, schema_id(REFERENCE_ITEM_DISPLAY_TEXT_ID)?)))
+        .map(|item_id| (item_id, display_text_id.clone()))
         .collect()
+}
+
+pub(crate) fn reference_item_display_text_id(
+    fixture: &ReferenceGameSession,
+) -> Result<SchemaId, ReferenceGameError> {
+    let asset_id = fixture
+        .activated_project
+        .rpg_definitions
+        .abilities
+        .first()
+        .ok_or(ReferenceGameError::PresentationAssetMissing)?
+        .required_item_definition
+        .asset_id;
+    authored_display_text_id(fixture, asset_id)
+}
+
+pub(crate) fn reference_quest_display_text_id(
+    fixture: &ReferenceGameSession,
+) -> Result<SchemaId, ReferenceGameError> {
+    let asset_id = fixture
+        .activated_project
+        .rpg_definitions
+        .quests
+        .first()
+        .ok_or(ReferenceGameError::PresentationAssetMissing)?
+        .asset_revision
+        .asset_id;
+    authored_display_text_id(fixture, asset_id)
+}
+
+fn authored_display_text_id(
+    fixture: &ReferenceGameSession,
+    asset_id: next_contracts::ids::AssetId,
+) -> Result<SchemaId, ReferenceGameError> {
+    fixture
+        .activated_project
+        .neutral_records
+        .iter()
+        .find(|record| record.asset_id == asset_id)
+        .and_then(|record| {
+            record
+                .properties
+                .iter()
+                .find(|property| property.property_id.as_str() == "nextengine.display-name.text-id")
+        })
+        .map(|property| property.value_id.clone())
+        .ok_or(ReferenceGameError::PresentationAssetMissing)
 }
 
 #[allow(
@@ -835,8 +800,8 @@ mod tests {
             item(persistent(0x0b), 3),
         ]);
         let names = [
-            (persistent(0x0a), text_id(REFERENCE_ITEM_DISPLAY_TEXT_ID)),
-            (persistent(0x0b), text_id(REFERENCE_ITEM_DISPLAY_TEXT_ID)),
+            (persistent(0x0a), text_id(TEST_ITEM_DISPLAY_TEXT_ID)),
+            (persistent(0x0b), text_id(TEST_ITEM_DISPLAY_TEXT_ID)),
         ];
         let records =
             inventory_semantic_ui_records_for_ids(epoch(), persistent(0x01), &names, &rpg)
@@ -856,7 +821,7 @@ mod tests {
                 .expect("row text")
                 .arguments,
             vec![
-                UiTextArgumentV1::TextId(text_id(REFERENCE_ITEM_DISPLAY_TEXT_ID)),
+                UiTextArgumentV1::TextId(text_id(TEST_ITEM_DISPLAY_TEXT_ID)),
                 UiTextArgumentV1::SignedInteger(2),
             ]
         );
@@ -895,7 +860,7 @@ mod tests {
             ),
             item(persistent(0x0a), 1),
         ]);
-        let names = [(persistent(0x0a), text_id(REFERENCE_ITEM_DISPLAY_TEXT_ID))];
+        let names = [(persistent(0x0a), text_id(TEST_ITEM_DISPLAY_TEXT_ID))];
         let records =
             inventory_semantic_ui_records_for_ids(epoch(), persistent(0x01), &names, &rpg)
                 .expect("records");
@@ -914,7 +879,7 @@ mod tests {
                 .arguments,
             vec![
                 UiTextArgumentV1::TextId(text_id("nextengine.rpg.equipment-slot.main-hand")),
-                UiTextArgumentV1::TextId(text_id(REFERENCE_ITEM_DISPLAY_TEXT_ID)),
+                UiTextArgumentV1::TextId(text_id(TEST_ITEM_DISPLAY_TEXT_ID)),
             ]
         );
     }
@@ -926,8 +891,8 @@ mod tests {
             quest(persistent(0x0a), "nextengine.reference.quest.available"),
         ]);
         let names = [
-            (persistent(0x0a), text_id(REFERENCE_QUEST_DISPLAY_TEXT_ID)),
-            (persistent(0x0b), text_id(REFERENCE_QUEST_DISPLAY_TEXT_ID)),
+            (persistent(0x0a), text_id(TEST_QUEST_DISPLAY_TEXT_ID)),
+            (persistent(0x0b), text_id(TEST_QUEST_DISPLAY_TEXT_ID)),
         ];
         let records =
             quest_journal_semantic_ui_records_for_ids(epoch(), &names, &rpg).expect("records");
@@ -954,7 +919,7 @@ mod tests {
                 .expect("entry text")
                 .arguments,
             vec![
-                UiTextArgumentV1::TextId(text_id(REFERENCE_QUEST_DISPLAY_TEXT_ID)),
+                UiTextArgumentV1::TextId(text_id(TEST_QUEST_DISPLAY_TEXT_ID)),
                 UiTextArgumentV1::TextId(text_id("nextengine.reference.quest.available")),
             ]
         );

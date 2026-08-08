@@ -277,7 +277,7 @@ pub(super) fn resolve_dialogue_quest_binding_v2(
             }
         }
     }
-    let Some((interaction_index, dialogue_envelope, dialogue)) = candidates.first().copied() else {
+    if candidates.is_empty() {
         let has_authored_state = snapshot.aggregates.iter().any(|aggregate| {
             let Some(asset) = aggregate_definition_asset(aggregate) else {
                 return false;
@@ -293,104 +293,121 @@ pub(super) fn resolve_dialogue_quest_binding_v2(
         } else {
             Ok(None)
         };
-    };
-    if candidates.len() != 1
-        || rpg
-            .aggregate(RpgAggregateKindV1::Character, controlled_character_id)
-            .is_none()
-        || rpg
+    }
+    if rpg
+        .aggregate(RpgAggregateKindV1::Character, controlled_character_id)
+        .is_none()
+    {
+        return Err(CoreDialogueQuestClosureError);
+    }
+    let mut bindings = Vec::new();
+    for (interaction_index, dialogue_envelope, dialogue) in candidates {
+        if rpg
             .aggregate(RpgAggregateKindV1::Character, dialogue.speaker_id)
             .is_none()
-    {
-        return Err(CoreDialogueQuestClosureError);
-    }
+        {
+            return Err(CoreDialogueQuestClosureError);
+        }
+        let interaction = definitions
+            .interactions
+            .get(interaction_index)
+            .ok_or(CoreDialogueQuestClosureError)?;
+        let dialogue_definition = definitions
+            .dialogue(interaction.dialogue_definition)
+            .ok_or(CoreDialogueQuestClosureError)?;
+        let dialogue_transition = dialogue_definition
+            .transitions
+            .iter()
+            .find(|transition| transition.transition_id == interaction.dialogue_transition_id)
+            .ok_or(CoreDialogueQuestClosureError)?;
+        let quest_definition = definitions
+            .quest(interaction.quest_definition)
+            .ok_or(CoreDialogueQuestClosureError)?;
+        let quest_transition = quest_definition
+            .transitions
+            .iter()
+            .find(|transition| transition.transition_id == interaction.quest_transition_id)
+            .ok_or(CoreDialogueQuestClosureError)?;
+        let relationship_definition = definitions
+            .relationship(interaction.relationship_definition)
+            .ok_or(CoreDialogueQuestClosureError)?;
+        let mut quests = snapshot.aggregates.iter().filter_map(|aggregate| {
+            let RpgAggregatePayloadV1::Quest(payload) = &aggregate.payload else {
+                return None;
+            };
+            (aggregate_definition_asset(aggregate) == Some(interaction.quest_definition)
+                && (payload.state_id == quest_transition.source_state_id
+                    || payload.state_id == quest_transition.target_state_id))
+                .then_some((aggregate, payload))
+        });
+        let (quest_envelope, quest) = quests.next().ok_or(CoreDialogueQuestClosureError)?;
+        if quests.next().is_some() {
+            return Err(CoreDialogueQuestClosureError);
+        }
 
-    let interaction = definitions
-        .interactions
-        .get(interaction_index)
-        .ok_or(CoreDialogueQuestClosureError)?;
-    let dialogue_definition = definitions
-        .dialogue(interaction.dialogue_definition)
-        .ok_or(CoreDialogueQuestClosureError)?;
-    let dialogue_transition = dialogue_definition
-        .transitions
-        .iter()
-        .find(|transition| transition.transition_id == interaction.dialogue_transition_id)
-        .ok_or(CoreDialogueQuestClosureError)?;
-    let quest_definition = definitions
-        .quest(interaction.quest_definition)
-        .ok_or(CoreDialogueQuestClosureError)?;
-    let quest_transition = quest_definition
-        .transitions
-        .iter()
-        .find(|transition| transition.transition_id == interaction.quest_transition_id)
-        .ok_or(CoreDialogueQuestClosureError)?;
-    let relationship_definition = definitions
-        .relationship(interaction.relationship_definition)
-        .ok_or(CoreDialogueQuestClosureError)?;
-    let mut quests = snapshot.aggregates.iter().filter_map(|aggregate| {
-        let RpgAggregatePayloadV1::Quest(payload) = &aggregate.payload else {
-            return None;
+        let mut relationships = snapshot.aggregates.iter().filter_map(|aggregate| {
+            let RpgAggregatePayloadV1::Relationship(payload) = &aggregate.payload else {
+                return None;
+            };
+            (aggregate_definition_asset(aggregate) == Some(interaction.relationship_definition)
+                && payload.source_id == dialogue.speaker_id
+                && payload.target_id == controlled_character_id)
+                .then_some((aggregate, payload))
+        });
+        let (relationship_envelope, relationship) =
+            relationships.next().ok_or(CoreDialogueQuestClosureError)?;
+        if relationships.next().is_some() {
+            return Err(CoreDialogueQuestClosureError);
+        }
+        let trust = relationship
+            .dimensions
+            .iter()
+            .find(|dimension| dimension.dimension_id == relationship_definition.dimension_id)
+            .ok_or(CoreDialogueQuestClosureError)?
+            .value;
+        let completed_relationship_value = interaction
+            .relationship_source_value
+            .checked_add(interaction.relationship_delta)
+            .ok_or(CoreDialogueQuestClosureError)?;
+        let ready = if dialogue.node_id == dialogue_transition.source_state_id
+            && quest.state_id == quest_transition.source_state_id
+            && trust == interaction.relationship_source_value
+        {
+            true
+        } else if dialogue.node_id == dialogue_transition.target_state_id
+            && quest.state_id == quest_transition.target_state_id
+            && trust == completed_relationship_value
+        {
+            false
+        } else {
+            return Err(CoreDialogueQuestClosureError);
         };
-        (aggregate_definition_asset(aggregate) == Some(interaction.quest_definition)
-            && (payload.state_id == quest_transition.source_state_id
-                || payload.state_id == quest_transition.target_state_id))
-            .then_some((aggregate, payload))
-    });
-    let (quest_envelope, quest) = quests.next().ok_or(CoreDialogueQuestClosureError)?;
-    if quests.next().is_some() {
-        return Err(CoreDialogueQuestClosureError);
+        bindings.push(AuthoredDialogueQuestBindingV1 {
+            npc_id: dialogue.speaker_id,
+            player_id: controlled_character_id,
+            dialogue_id: dialogue_envelope.persistent_id,
+            dialogue_revision: dialogue_envelope.revision,
+            quest_id: quest_envelope.persistent_id,
+            quest_revision: quest_envelope.revision,
+            relationship_id: relationship_envelope.persistent_id,
+            relationship_revision: relationship_envelope.revision,
+            interaction_definition_index: interaction_index,
+            ready,
+        });
     }
-
-    let mut relationships = snapshot.aggregates.iter().filter_map(|aggregate| {
-        let RpgAggregatePayloadV1::Relationship(payload) = &aggregate.payload else {
-            return None;
+    let mut ready = bindings.iter().copied().filter(|binding| binding.ready);
+    if let Some(binding) = ready.next() {
+        return if ready.next().is_none() {
+            Ok(Some(binding))
+        } else {
+            Err(CoreDialogueQuestClosureError)
         };
-        (aggregate_definition_asset(aggregate) == Some(interaction.relationship_definition)
-            && payload.source_id == dialogue.speaker_id
-            && payload.target_id == controlled_character_id)
-            .then_some((aggregate, payload))
-    });
-    let (relationship_envelope, relationship) =
-        relationships.next().ok_or(CoreDialogueQuestClosureError)?;
-    if relationships.next().is_some() {
-        return Err(CoreDialogueQuestClosureError);
     }
-    let trust = relationship
-        .dimensions
-        .iter()
-        .find(|dimension| dimension.dimension_id == relationship_definition.dimension_id)
-        .ok_or(CoreDialogueQuestClosureError)?
-        .value;
-    let completed_relationship_value = interaction
-        .relationship_source_value
-        .checked_add(interaction.relationship_delta)
-        .ok_or(CoreDialogueQuestClosureError)?;
-    let ready = if dialogue.node_id == dialogue_transition.source_state_id
-        && quest.state_id == quest_transition.source_state_id
-        && trust == interaction.relationship_source_value
-    {
-        true
-    } else if dialogue.node_id == dialogue_transition.target_state_id
-        && quest.state_id == quest_transition.target_state_id
-        && trust == completed_relationship_value
-    {
-        false
+    if bindings.len() == 1 {
+        Ok(bindings.into_iter().next())
     } else {
-        return Err(CoreDialogueQuestClosureError);
-    };
-    Ok(Some(AuthoredDialogueQuestBindingV1 {
-        npc_id: dialogue.speaker_id,
-        player_id: controlled_character_id,
-        dialogue_id: dialogue_envelope.persistent_id,
-        dialogue_revision: dialogue_envelope.revision,
-        quest_id: quest_envelope.persistent_id,
-        quest_revision: quest_envelope.revision,
-        relationship_id: relationship_envelope.persistent_id,
-        relationship_revision: relationship_envelope.revision,
-        interaction_definition_index: interaction_index,
-        ready,
-    }))
+        Err(CoreDialogueQuestClosureError)
+    }
 }
 
 fn aggregate_definition_asset(

@@ -9,7 +9,7 @@ pub(super) fn performance_run_value(
     live_runtime_state: &str,
 ) -> serde_json::Value {
     let scenario = crate::performance::PerformanceScenarioV1::Smoke;
-    let mut run = crate::performance::PerformanceRunV2::empty(
+    let mut run = crate::performance::PerformanceRunV3::empty(
         scenario,
         crate::performance::PerformanceModeV1::Report,
         "debug",

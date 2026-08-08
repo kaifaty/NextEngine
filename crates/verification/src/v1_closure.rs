@@ -191,13 +191,13 @@ fn run_v1_closure_check_scoped(
             "extension state save/load parity",
         ));
     }
-    if play.npc_health != 75
-        || play.player_health != 75
-        || replay.npc_health != 75
-        || replay.player_health != 75
-        || content.combat_npc_health != 75
-        || content.scripted_player_health != 75
-        || content.wasm_player_health != 75
+    if play.npc_health != 0
+        || play.player_health != 50
+        || replay.npc_health != 50
+        || replay.player_health != 50
+        || content.combat_npc_health != 0
+        || content.scripted_player_health != 50
+        || content.wasm_player_health != 50
     {
         return Err(V1ClosureCheckError::condition(
             "data-only Luau Wasm gameplay closure",
@@ -499,6 +499,7 @@ mod tests {
 
     #[test]
     fn closure_binds_exact_roots_and_never_masks_unavailable_targets() {
+        let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
         let root = std::env::temp_dir().join(format!(
             "nextengine-v1-closure-scratch-test-{}-{}",
             std::process::id(),

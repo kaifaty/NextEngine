@@ -16,7 +16,7 @@ fn fingerprint() -> PerformanceTargetFingerprintV1 {
         os_build: "26200".to_owned(),
         bios_version: "test-bios".to_owned(),
         gpu_driver: "591.86".to_owned(),
-        power_plan: "AMD Ryzen™ High Performance".to_owned(),
+        power_plan: "AMD Ryzenв„ў High Performance".to_owned(),
     }
 }
 
@@ -45,6 +45,19 @@ fn pinned_toolchain(target_triple: &str) -> String {
     format!(
         "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: {PERFORMANCE_PINNED_RUSTC_COMMIT_HASH}\ncommit-date: 2026-01-19\nhost: {target_triple}\nrelease: 1.93.0\nLLVM version: 21.1.0",
     )
+}
+
+fn logical_resource_charges() -> PerformanceLogicalResourceChargesV1 {
+    PerformanceLogicalResourceChargesV1::new(
+        sha256_hex(b"nextengine.test.logical-resource-accounting-profile.v1"),
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+    )
+    .expect("valid logical resource charges")
 }
 
 #[test]
@@ -89,24 +102,24 @@ fn preflight_recomputes_readiness_from_typed_evidence() {
 
 #[test]
 fn schema_round_trip_rejects_unknown_fields() {
-    let mut run = PerformanceRunV2::empty(
+    let mut run = PerformanceRunV3::empty(
         PerformanceScenarioV1::Smoke,
         PerformanceModeV1::Report,
         "release",
     );
     run.target_fingerprint = Some(fingerprint());
-    assert_eq!(run.schema_version, 2);
+    assert_eq!(run.schema_version, 3);
     assert_eq!(
         run.methodology.methodology_version,
-        "nextengine-performance-v2"
+        "nextengine-performance-v3"
     );
-    assert_eq!(PERFORMANCE_REPORT_FILE_NAME, "performance-report-v2.json");
+    assert_eq!(PERFORMANCE_REPORT_FILE_NAME, "performance-report-v3.json");
     assert_eq!(
         PERFORMANCE_BASELINE_FILE_NAME,
-        "performance-baseline-v2.json"
+        "performance-baseline-v3.json"
     );
     let json = serde_json::to_vec(&run).expect("serialize run");
-    let decoded: PerformanceRunV2 = serde_json::from_slice(&json).expect("decode run");
+    let decoded: PerformanceRunV3 = serde_json::from_slice(&json).expect("decode run");
     assert_eq!(decoded, run);
 
     let mut wrong_hash = run.clone();
@@ -125,32 +138,29 @@ fn schema_round_trip_rejects_unknown_fields() {
         Err(vec!["PERF_RUN_METHODOLOGY_MISMATCH".to_owned()])
     );
 
-    let mut legacy: serde_json::Value =
-        serde_json::from_slice(&json).expect("decode legacy fixture");
-    legacy["schema_version"] = serde_json::Value::from(1);
-    legacy["methodology"]["methodology_version"] =
-        serde_json::Value::String("nextengine-performance-v1".to_owned());
-    legacy["resource_counters"]
+    let mut historical: serde_json::Value =
+        serde_json::from_slice(&json).expect("decode historical fixture");
+    historical["schema_version"] = serde_json::Value::from(2);
+    historical["methodology"]["methodology_version"] =
+        serde_json::Value::String("nextengine-performance-v2".to_owned());
+    let counters = historical["resource_counters"]
         .as_object_mut()
-        .expect("resource counters object")
-        .remove("allocator_counter");
-    let legacy: PerformanceRunV2 =
-        serde_json::from_value(legacy).expect("the legacy Option shape remains decodable");
-    assert_eq!(
-        legacy.validate_wire_version(),
-        Err(vec![
-            "PERF_RUN_SCHEMA_MISMATCH".to_owned(),
-            "PERF_RUN_METHODOLOGY_MISMATCH".to_owned(),
-        ]),
-        "V1 reports must be rejected by explicit wire-version validation"
-    );
+        .expect("resource counters object");
+    counters.remove("process_peak_working_set_bytes");
+    counters.remove("logical_resource_charges");
+    counters.insert("host_resident_bytes".to_owned(), serde_json::Value::Null);
+    let historical: PerformanceRunV2 =
+        serde_json::from_value(historical).expect("V2 remains readable as historical evidence");
+    historical
+        .validate_historical_wire()
+        .expect("the historical V2 identity remains valid");
 
     let mut value: serde_json::Value = serde_json::from_slice(&json).expect("decode JSON value");
     value
         .as_object_mut()
         .expect("run object")
         .insert("unknown".to_owned(), serde_json::Value::Bool(true));
-    assert!(serde_json::from_value::<PerformanceRunV2>(value).is_err());
+    assert!(serde_json::from_value::<PerformanceRunV3>(value).is_err());
 }
 
 #[test]
@@ -209,7 +219,7 @@ fn compiled_xtask_provenance_uses_the_pinned_native_toolchain() {
 
 #[test]
 fn command_report_status_is_derived_from_the_nested_verdict() {
-    let mut run = PerformanceRunV2::empty(
+    let mut run = PerformanceRunV3::empty(
         PerformanceScenarioV1::Smoke,
         PerformanceModeV1::Report,
         "debug",
@@ -238,17 +248,17 @@ fn allocator_payload_is_strict_and_top_level_totals_match() {
     assert_eq!(counter.allocator_allocation_count, 6);
     assert_eq!(counter.allocator_allocated_bytes, 24);
 
-    let mut counters = PerformanceResourceCountersV2::default();
+    let mut counters = PerformanceResourceCountersV3::default();
     counters
         .attach_allocator_counter(counter.clone())
         .expect("attach exact evidence");
     assert_eq!(counters.allocator_allocation_count, Some(6));
     assert_eq!(counters.allocator_allocated_bytes, Some(24));
     counters
-        .validate_allocator_for_run(PerformanceScenarioV1::Smoke, &scenario_hash)
+        .validate_optional_allocator_for_run(PerformanceScenarioV1::Smoke, &scenario_hash)
         .expect("run identity matches");
     assert_eq!(
-        counters.validate_allocator_for_run(
+        counters.validate_optional_allocator_for_run(
             PerformanceScenarioV1::Smoke,
             &sha256_hex(b"smoke.other-version"),
         ),
@@ -277,22 +287,72 @@ fn allocator_payload_is_strict_and_top_level_totals_match() {
 }
 
 #[test]
-fn allocator_validation_rejects_partial_mismatched_and_overflowing_evidence() {
-    let scenario_hash = sha256_hex(b"long-session-soak.v3");
-    let mut counters = PerformanceResourceCountersV2::default();
+fn v3_hard_counters_require_logical_charges_but_not_allocator_evidence() {
+    let scenario = PerformanceScenarioV1::R3MultiregionStreaming;
+    let scenario_hash = performance_scenario_hash(scenario);
+    let mut counters = PerformanceResourceCountersV3 {
+        process_peak_working_set_bytes: Some(1024),
+        device_resident_bytes: Some(512),
+        io_read_bytes: Some(128),
+        io_write_bytes: Some(64),
+        logical_resource_charges: Some(logical_resource_charges()),
+        vulkan_timestamp_queries: 2,
+        unavailable: vec!["PERF_ALLOCATOR_COUNTER_OPTIONAL_NOT_COLLECTED".to_owned()],
+        ..PerformanceResourceCountersV3::default()
+    };
+    counters
+        .validate_for_hard_timing_for_run(scenario, &scenario_hash)
+        .expect("V3 hard evidence does not require allocator instrumentation");
+
+    counters.logical_resource_charges = None;
     assert_eq!(
-        counters
-            .validate_allocator_for_run(PerformanceScenarioV1::LongSessionSoak, &scenario_hash,),
-        Err(vec!["PERF_ALLOCATOR_COUNTER_UNAVAILABLE".to_owned()])
+        counters.validate_for_hard_timing_for_run(scenario, &scenario_hash),
+        Err(vec![
+            "PERF_REQUIRED_COUNTER_MISSING: logical_resource_charges".to_owned()
+        ])
     );
+
+    counters.logical_resource_charges = Some(logical_resource_charges());
     counters.allocator_allocated_bytes = Some(1);
     assert_eq!(
-        counters
-            .validate_allocator_for_run(PerformanceScenarioV1::LongSessionSoak, &scenario_hash,),
+        counters.validate_for_hard_timing_for_run(scenario, &scenario_hash),
+        Err(vec![
+            "PERF_ALLOCATOR_COUNTER_INCOMPLETE".to_owned(),
+            "PERF_ALLOCATOR_COUNTER_OPTIONAL_NOT_COLLECTED".to_owned(),
+        ])
+    );
+}
+
+#[test]
+fn logical_resource_charge_root_rejects_tampered_totals() {
+    let mut charges = logical_resource_charges();
+    charges.total_host_charged_bytes += 1;
+    assert_eq!(
+        charges.validate(),
+        Err(vec![
+            "PERF_LOGICAL_RESOURCE_HOST_TOTAL_MISMATCH".to_owned(),
+            "PERF_LOGICAL_RESOURCE_ROOT_MISMATCH".to_owned(),
+        ])
+    );
+}
+
+#[test]
+fn allocator_validation_rejects_partial_mismatched_and_overflowing_evidence() {
+    let scenario_hash = sha256_hex(b"long-session-soak.v3");
+    let mut counters = PerformanceResourceCountersV3::default();
+    counters
+        .validate_optional_allocator_for_run(PerformanceScenarioV1::LongSessionSoak, &scenario_hash)
+        .expect("allocator evidence is optional in V3");
+    counters.allocator_allocated_bytes = Some(1);
+    assert_eq!(
+        counters.validate_optional_allocator_for_run(
+            PerformanceScenarioV1::LongSessionSoak,
+            &scenario_hash,
+        ),
         Err(vec!["PERF_ALLOCATOR_COUNTER_INCOMPLETE".to_owned()])
     );
 
-    let mut mismatched = PerformanceResourceCountersV2::default();
+    let mut mismatched = PerformanceResourceCountersV3::default();
     mismatched
         .attach_allocator_counter(allocation_counter(
             PerformanceScenarioV1::LongSessionSoak,
@@ -301,12 +361,14 @@ fn allocator_validation_rejects_partial_mismatched_and_overflowing_evidence() {
         .expect("attach counter");
     mismatched.allocator_allocation_count = Some(5);
     assert_eq!(
-        mismatched
-            .validate_allocator_for_run(PerformanceScenarioV1::LongSessionSoak, &scenario_hash,),
+        mismatched.validate_optional_allocator_for_run(
+            PerformanceScenarioV1::LongSessionSoak,
+            &scenario_hash,
+        ),
         Err(vec!["PERF_ALLOCATOR_COUNTER_TOP_LEVEL_MISMATCH".to_owned()])
     );
 
-    let mut contradictory = PerformanceResourceCountersV2::default();
+    let mut contradictory = PerformanceResourceCountersV3::default();
     contradictory
         .attach_allocator_counter(allocation_counter(
             PerformanceScenarioV1::LongSessionSoak,
@@ -317,15 +379,17 @@ fn allocator_validation_rejects_partial_mismatched_and_overflowing_evidence() {
         .unavailable
         .push("PERF_ALLOCATOR_COUNTER_OVERFLOW".to_owned());
     assert_eq!(
-        contradictory
-            .validate_allocator_for_run(PerformanceScenarioV1::LongSessionSoak, &scenario_hash,),
+        contradictory.validate_optional_allocator_for_run(
+            PerformanceScenarioV1::LongSessionSoak,
+            &scenario_hash,
+        ),
         Err(vec![
             "PERF_ALLOCATOR_COUNTER_CONTRADICTORY".to_owned(),
             "PERF_ALLOCATOR_COUNTER_OVERFLOW".to_owned(),
         ])
     );
 
-    let mut legacy_contradiction = PerformanceResourceCountersV2::default();
+    let mut legacy_contradiction = PerformanceResourceCountersV3::default();
     legacy_contradiction
         .attach_allocator_counter(allocation_counter(
             PerformanceScenarioV1::LongSessionSoak,
@@ -336,8 +400,10 @@ fn allocator_validation_rejects_partial_mismatched_and_overflowing_evidence() {
         .unavailable
         .push("allocator counters require the runtime allocator hook".to_owned());
     assert_eq!(
-        legacy_contradiction
-            .validate_allocator_for_run(PerformanceScenarioV1::LongSessionSoak, &scenario_hash,),
+        legacy_contradiction.validate_optional_allocator_for_run(
+            PerformanceScenarioV1::LongSessionSoak,
+            &scenario_hash,
+        ),
         Err(vec![
             "PERF_ALLOCATOR_COUNTER_CONTRADICTORY".to_owned(),
             "allocator counters require the runtime allocator hook".to_owned(),
@@ -411,12 +477,12 @@ fn allocator_run_validation_rejects_an_exact_but_empty_window() {
         .validate()
         .expect("offline structural validation does not invent workload policy");
 
-    let mut counters = PerformanceResourceCountersV2::default();
+    let mut counters = PerformanceResourceCountersV3::default();
     counters
         .attach_allocator_counter(counter)
         .expect("attach structurally exact evidence");
     assert_eq!(
-        counters.validate_allocator_for_run(PerformanceScenarioV1::Smoke, &scenario_hash),
+        counters.validate_optional_allocator_for_run(PerformanceScenarioV1::Smoke, &scenario_hash),
         Err(vec!["PERF_ALLOCATOR_COUNTER_EMPTY".to_owned()])
     );
 }
@@ -427,23 +493,26 @@ fn allocator_offline_validation_does_not_compare_reader_pid() {
     let mut counter =
         allocation_counter(PerformanceScenarioV1::ProductionWorkerSoak, &scenario_hash);
     counter.producer_pid = if std::process::id() == 1 { 2 } else { 1 };
-    let mut counters = PerformanceResourceCountersV2::default();
+    let mut counters = PerformanceResourceCountersV3::default();
     counters
         .attach_allocator_counter(counter)
         .expect("historical producer PID is provenance");
     counters
-        .validate_allocator_for_run(PerformanceScenarioV1::ProductionWorkerSoak, &scenario_hash)
+        .validate_optional_allocator_for_run(
+            PerformanceScenarioV1::ProductionWorkerSoak,
+            &scenario_hash,
+        )
         .expect("reader PID is intentionally ignored");
 }
 
 #[test]
 fn production_worker_scenario_has_distinct_versioned_methodology() {
-    let run = PerformanceRunV2::empty(
+    let run = PerformanceRunV3::empty(
         PerformanceScenarioV1::ProductionWorkerSoak,
         PerformanceModeV1::Report,
         "release",
     );
-    let smoke = PerformanceRunV2::empty(
+    let smoke = PerformanceRunV3::empty(
         PerformanceScenarioV1::Smoke,
         PerformanceModeV1::Report,
         "release",
@@ -461,6 +530,30 @@ fn production_worker_scenario_has_distinct_versioned_methodology() {
             .notes
             .iter()
             .any(|note| note.contains("production-worker-soak.v1"))
+    );
+}
+
+#[test]
+fn r2_alpha_render_is_an_available_six_window_workload() {
+    let scenario = PerformanceScenarioV1::R2AlphaRender;
+    assert_eq!(scenario.unavailable_reason(), None);
+    assert!(
+        PerformanceScenarioV1::R3MultiregionStreaming
+            .unavailable_reason()
+            .is_some()
+    );
+    assert_eq!(
+        performance_scenario_hash(scenario),
+        sha256_hex(
+            b"nextengine.performance.r2-alpha-render.v1:reference-alpha:frontier-relay:windows=exploration+combat+ui-dialogue:profiles=primary-1920x1080+fallback-b0-safe-1280x720p30:each=600-warmup+3600-measured:critical=max-cpu-extract-submit-gpu:retain-all:resource-window=sequential-six-window-production-vulkan:logical-accounting=r2-alpha-render-v1"
+        )
+    );
+    let methodology = methodology_for(scenario);
+    assert_eq!(methodology.warmup_samples, 3_600);
+    assert_eq!(methodology.measured_samples, 21_600);
+    assert_eq!(
+        methodology.frame_critical_path.as_deref(),
+        Some("max(cpu_extract_and_submit_us,gpu_timestamp_duration_us)")
     );
 }
 
@@ -554,7 +647,7 @@ fn enabled_instrumentation_requires_parity_and_bounded_overhead_evidence() {
 
 #[test]
 fn baseline_requires_ten_clean_compatible_runs() {
-    let mut run = PerformanceRunV2::empty(
+    let mut run = PerformanceRunV3::empty(
         PerformanceScenarioV1::R2AlphaRender,
         PerformanceModeV1::Report,
         "release",
@@ -576,32 +669,37 @@ fn baseline_requires_ten_clean_compatible_runs() {
     run.content_hash = "b".repeat(64);
     run.scenario_hash = performance_scenario_hash(run.scenario);
     run.metrics = vec![
-        PerformanceMetricV1::from_samples("frame", "microseconds", vec![10, 11, 12], None)
-            .expect("metric"),
+        PerformanceMetricV1::from_samples(
+            "frame",
+            "microseconds",
+            vec![10, 11, 12],
+            Some(PerformanceBudgetV1 {
+                p95_max: Some(20),
+                p99_max: Some(20),
+            }),
+        )
+        .expect("metric"),
     ];
     run.instrumentation.enabled = true;
     run.instrumentation.authoritative_hash_parity = Some(true);
     run.instrumentation.overhead_basis_points = Some(0);
-    run.resource_counters = PerformanceResourceCountersV2 {
-        host_resident_bytes: Some(1),
+    run.resource_counters = PerformanceResourceCountersV3 {
+        process_peak_working_set_bytes: Some(1),
         device_resident_bytes: Some(1),
         io_read_bytes: Some(0),
         io_write_bytes: Some(0),
+        logical_resource_charges: Some(logical_resource_charges()),
         allocator_allocated_bytes: None,
         allocator_allocation_count: None,
         allocator_counter: None,
         vulkan_timestamp_queries: 2,
         unavailable: Vec::new(),
     };
-    let counter = allocation_counter(run.scenario, &run.scenario_hash);
-    run.resource_counters
-        .attach_allocator_counter(counter)
-        .expect("attach allocation evidence");
     run.verdict = PerformanceVerdict::ReportOnly;
     run.authoritative_hashes
         .insert("state".to_owned(), "d".repeat(64));
     let runs = vec![run; 10];
-    let baseline = PerformanceBaselineV2::from_runs(&runs).expect("baseline");
+    let baseline = PerformanceBaselineV3::from_runs(&runs).expect("baseline");
     assert_eq!(baseline.calibration_runs, 10);
     assert_eq!(baseline.target_triple, PERFORMANCE_WINDOWS_TARGET_TRIPLE);
     assert_eq!(baseline.metrics[0].raw_samples.len(), 30);
@@ -609,7 +707,7 @@ fn baseline_requires_ten_clean_compatible_runs() {
 
 #[test]
 fn baseline_centrally_rejects_an_incompatible_run_wire_version() {
-    let mut run = PerformanceRunV2::empty(
+    let mut run = PerformanceRunV3::empty(
         PerformanceScenarioV1::R2AlphaRender,
         PerformanceModeV1::Report,
         "release",
@@ -621,7 +719,7 @@ fn baseline_centrally_rejects_an_incompatible_run_wire_version() {
     run.toolchain = pinned_toolchain(&run.target_triple);
     run.target_fingerprint = Some(fingerprint());
 
-    let diagnostics = PerformanceBaselineV2::from_runs(&vec![run; 10])
+    let diagnostics = PerformanceBaselineV3::from_runs(&vec![run; 10])
         .expect_err("from_runs owns wire admission");
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic == "PERF_BASELINE_RUN_INVALID: 0: PERF_RUN_SCHEMA_MISMATCH"

@@ -162,7 +162,25 @@ pub(super) fn build_interaction_outcomes(
         .expect("built-in equipment slot identifier is valid");
     let mut outcomes = Vec::new();
     let mut targeting_facts = Vec::new();
+    let interaction_stream =
+        ledger
+            .streams
+            .get(&route.stream_id)
+            .ok_or(RuntimeFatalError::LedgerCorrupt(
+                CommandLedgerError::StreamKeyMismatch,
+            ))?;
     for (intent_index, intent) in intents.iter().enumerate() {
+        // Input retries retain the original internal interaction sequence.
+        // Once that sequence is finalized, re-resolving against newer world
+        // state could select a different affordance and manufacture an
+        // internal identity collision. Treat the finalized occurrence as the
+        // accepted idempotent no-op that the ingress receipt describes.
+        if interaction_stream
+            .admission_high_watermark
+            .is_some_and(|high_watermark| intent.source_sequence <= high_watermark)
+        {
+            continue;
+        }
         let query_slot =
             u32::try_from(intent_index).map_err(|_| RuntimeFatalError::TraceCountExhausted)?;
         let payload = if intent.kind == InteractionIntentKind::Melee {

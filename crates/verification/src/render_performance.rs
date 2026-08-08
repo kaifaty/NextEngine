@@ -351,11 +351,12 @@ mod tests {
 
     #[test]
     fn frame_planner_is_stable_and_has_a_bounded_numeric_gate() {
+        let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
         let report =
             super::run_render_frame_planning_performance_check().expect("performance gate");
         assert_eq!(report.cycles, 10_000);
-        assert_eq!(report.visible_object_count, 5);
-        assert_eq!(report.indexed_draw_count, 5);
+        assert_eq!(report.visible_object_count, 6);
+        assert_eq!(report.indexed_draw_count, 6);
         assert_eq!(report.fallback_material_draw_count, 0);
         assert_ne!(
             report.frame_plan_hash,
@@ -365,6 +366,7 @@ mod tests {
 
     #[test]
     fn explicit_preparation_preserves_the_legacy_plan() {
+        let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
         let scratch = std::env::temp_dir();
         let legacy =
             run_render_frame_planning_performance_check_in(&scratch).expect("legacy workload");
@@ -384,6 +386,7 @@ mod tests {
 
     #[test]
     fn prepared_workload_is_single_use_and_cleans_up() {
+        let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
         let mut prepared =
             prepare_render_frame_planning_performance_check_in(&std::env::temp_dir())
                 .expect("prepared workload");
@@ -400,6 +403,7 @@ mod tests {
 
     #[test]
     fn finish_rejects_foreign_measurement_and_cleans_both_preparations() {
+        let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
         let mut source = prepare_render_frame_planning_performance_check_in(&std::env::temp_dir())
             .expect("source preparation");
         let source_path = source.directory.path().to_path_buf();

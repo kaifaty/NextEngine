@@ -302,6 +302,7 @@ mod tests {
 
     #[test]
     fn planner_hot_path_has_a_bounded_numeric_gate() {
+        let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
         let report = super::run_agent_planning_performance_check().expect("performance gate");
         assert_eq!(report.cycles, 1_000);
         assert_ne!(
@@ -312,6 +313,7 @@ mod tests {
 
     #[test]
     fn explicit_preparation_preserves_the_legacy_hash() {
+        let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
         let scratch = std::env::temp_dir();
         let legacy = run_agent_planning_performance_check_in(&scratch).expect("legacy workload");
         let mut prepared =
@@ -324,6 +326,7 @@ mod tests {
 
     #[test]
     fn prepared_workload_is_single_use_and_cleans_up() {
+        let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
         let mut prepared = prepare_agent_planning_performance_check_in(&std::env::temp_dir())
             .expect("prepared workload");
         let path = prepared.directory.path().to_path_buf();
@@ -339,6 +342,7 @@ mod tests {
 
     #[test]
     fn finish_rejects_foreign_measurement_and_cleans_both_preparations() {
+        let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
         let mut source = prepare_agent_planning_performance_check_in(&std::env::temp_dir())
             .expect("source preparation");
         let source_path = source.directory.path().to_path_buf();

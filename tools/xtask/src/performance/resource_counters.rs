@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::PerformanceScenarioV1;
+use super::{PerformanceScenarioV1, sha256_hex};
 
 pub const PROCESS_ALLOCATION_COUNTER_SCHEMA_VERSION: u32 = 1;
 pub const PROCESS_ALLOCATION_COUNTER_METHODOLOGY_VERSION: &str =
@@ -11,6 +11,9 @@ pub const PROCESS_ALLOCATION_COUNTER_SCOPE: &str = "xtask-process-scenario-windo
 pub const PROCESS_ALLOCATION_COUNTER_DEALLOCATION_SEMANTICS: &str = "delegated-not-subtracted";
 pub const LEGACY_ALLOCATOR_COUNTER_UNAVAILABLE_DIAGNOSTIC: &str =
     "allocator counters require the runtime allocator hook";
+pub const LOGICAL_RESOURCE_CHARGES_SCHEMA_VERSION: u32 = 1;
+pub const LOGICAL_RESOURCE_ACCOUNTING_PROFILE_ID: &str =
+    "nextengine.performance.logical-resource-charges.v1";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ProcessAllocationCounterInputV1 {
@@ -162,13 +165,125 @@ impl ProcessAllocationCounterV1 {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PerformanceLogicalResourceChargesV1 {
+    pub schema_version: u32,
+    pub accounting_profile_id: String,
+    pub accounting_profile_hash: String,
+    pub authoritative_state_bytes: u64,
+    pub required_staging_bytes: u64,
+    pub reconstructible_host_cache_bytes: u64,
+    pub reconstructible_device_cache_bytes: u64,
+    pub presentation_transient_bytes: u64,
+    pub tooling_transient_bytes: u64,
+    pub total_host_charged_bytes: u64,
+    pub total_device_charged_bytes: u64,
+    pub charge_root_sha256: String,
+}
+
+impl PerformanceLogicalResourceChargesV1 {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the constructor covers the complete closed logical charge class set"
+    )]
+    pub fn new(
+        accounting_profile_hash: impl Into<String>,
+        authoritative_state_bytes: u64,
+        required_staging_bytes: u64,
+        reconstructible_host_cache_bytes: u64,
+        reconstructible_device_cache_bytes: u64,
+        presentation_transient_bytes: u64,
+        tooling_transient_bytes: u64,
+    ) -> Result<Self, String> {
+        let total_host_charged_bytes = authoritative_state_bytes
+            .checked_add(required_staging_bytes)
+            .and_then(|total| total.checked_add(reconstructible_host_cache_bytes))
+            .and_then(|total| total.checked_add(presentation_transient_bytes))
+            .and_then(|total| total.checked_add(tooling_transient_bytes))
+            .ok_or_else(|| "PERF_LOGICAL_RESOURCE_CHARGE_OVERFLOW".to_owned())?;
+        let mut charges = Self {
+            schema_version: LOGICAL_RESOURCE_CHARGES_SCHEMA_VERSION,
+            accounting_profile_id: LOGICAL_RESOURCE_ACCOUNTING_PROFILE_ID.to_owned(),
+            accounting_profile_hash: accounting_profile_hash.into(),
+            authoritative_state_bytes,
+            required_staging_bytes,
+            reconstructible_host_cache_bytes,
+            reconstructible_device_cache_bytes,
+            presentation_transient_bytes,
+            tooling_transient_bytes,
+            total_host_charged_bytes,
+            total_device_charged_bytes: reconstructible_device_cache_bytes,
+            charge_root_sha256: String::new(),
+        };
+        charges.charge_root_sha256 = charges.canonical_root();
+        charges
+            .validate()
+            .map_err(|diagnostics| diagnostics.join("; "))?;
+        Ok(charges)
+    }
+
+    pub fn validate(&self) -> Result<(), Vec<String>> {
+        let mut diagnostics = Vec::new();
+        if self.schema_version != LOGICAL_RESOURCE_CHARGES_SCHEMA_VERSION {
+            diagnostics.push("PERF_LOGICAL_RESOURCE_SCHEMA_MISMATCH".to_owned());
+        }
+        if self.accounting_profile_id != LOGICAL_RESOURCE_ACCOUNTING_PROFILE_ID {
+            diagnostics.push("PERF_LOGICAL_RESOURCE_PROFILE_ID_MISMATCH".to_owned());
+        }
+        if !is_sha256(&self.accounting_profile_hash) {
+            diagnostics.push("PERF_LOGICAL_RESOURCE_PROFILE_HASH_INVALID".to_owned());
+        }
+        let host_total = self
+            .authoritative_state_bytes
+            .checked_add(self.required_staging_bytes)
+            .and_then(|total| total.checked_add(self.reconstructible_host_cache_bytes))
+            .and_then(|total| total.checked_add(self.presentation_transient_bytes))
+            .and_then(|total| total.checked_add(self.tooling_transient_bytes));
+        match host_total {
+            Some(total) if total != self.total_host_charged_bytes => {
+                diagnostics.push("PERF_LOGICAL_RESOURCE_HOST_TOTAL_MISMATCH".to_owned());
+            }
+            None => diagnostics.push("PERF_LOGICAL_RESOURCE_CHARGE_OVERFLOW".to_owned()),
+            Some(_) => {}
+        }
+        if self.total_device_charged_bytes != self.reconstructible_device_cache_bytes {
+            diagnostics.push("PERF_LOGICAL_RESOURCE_DEVICE_TOTAL_MISMATCH".to_owned());
+        }
+        if self.charge_root_sha256 != self.canonical_root() {
+            diagnostics.push("PERF_LOGICAL_RESOURCE_ROOT_MISMATCH".to_owned());
+        }
+        finish_validation(diagnostics)
+    }
+
+    fn canonical_root(&self) -> String {
+        let mut preimage = b"nextengine.performance.logical-resource-charges.v1\0".to_vec();
+        append_length_prefixed(&mut preimage, self.accounting_profile_id.as_bytes());
+        append_length_prefixed(&mut preimage, self.accounting_profile_hash.as_bytes());
+        for value in [
+            self.authoritative_state_bytes,
+            self.required_staging_bytes,
+            self.reconstructible_host_cache_bytes,
+            self.reconstructible_device_cache_bytes,
+            self.presentation_transient_bytes,
+            self.tooling_transient_bytes,
+            self.total_host_charged_bytes,
+            self.total_device_charged_bytes,
+        ] {
+            preimage.extend_from_slice(&value.to_le_bytes());
+        }
+        sha256_hex(&preimage)
+    }
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PerformanceResourceCountersV2 {
-    pub host_resident_bytes: Option<u64>,
+pub struct PerformanceResourceCountersV3 {
+    pub process_peak_working_set_bytes: Option<u64>,
     pub device_resident_bytes: Option<u64>,
     pub io_read_bytes: Option<u64>,
     pub io_write_bytes: Option<u64>,
+    pub logical_resource_charges: Option<PerformanceLogicalResourceChargesV1>,
     pub allocator_allocated_bytes: Option<u64>,
     pub allocator_allocation_count: Option<u64>,
     pub allocator_counter: Option<ProcessAllocationCounterV1>,
@@ -176,7 +291,7 @@ pub struct PerformanceResourceCountersV2 {
     pub unavailable: Vec<String>,
 }
 
-impl PerformanceResourceCountersV2 {
+impl PerformanceResourceCountersV3 {
     pub fn attach_allocator_counter(
         &mut self,
         counter: ProcessAllocationCounterV1,
@@ -198,11 +313,17 @@ impl PerformanceResourceCountersV2 {
         Ok(())
     }
 
-    pub fn validate_allocator_for_run(
+    pub fn validate_optional_allocator_for_run(
         &self,
         scenario: PerformanceScenarioV1,
         scenario_hash: &str,
     ) -> Result<(), Vec<String>> {
+        if self.allocator_counter.is_none()
+            && self.allocator_allocated_bytes.is_none()
+            && self.allocator_allocation_count.is_none()
+        {
+            return Ok(());
+        }
         self.validate_allocator(Some((scenario, scenario_hash)))
     }
 
@@ -224,7 +345,10 @@ impl PerformanceResourceCountersV2 {
     ) -> Result<(), Vec<String>> {
         let mut diagnostics = Vec::new();
         for (name, value) in [
-            ("host_resident_bytes", self.host_resident_bytes),
+            (
+                "process_peak_working_set_bytes",
+                self.process_peak_working_set_bytes,
+            ),
             ("device_resident_bytes", self.device_resident_bytes),
             ("io_read_bytes", self.io_read_bytes),
             ("io_write_bytes", self.io_write_bytes),
@@ -236,10 +360,27 @@ impl PerformanceResourceCountersV2 {
         if self.vulkan_timestamp_queries == 0 {
             diagnostics.push("PERF_REQUIRED_COUNTER_MISSING: vulkan_timestamp_queries".to_owned());
         }
-        if !self.unavailable.is_empty() {
+        let required_unavailable = self
+            .unavailable
+            .iter()
+            .filter(|diagnostic| !is_optional_allocator_diagnostic(diagnostic))
+            .cloned()
+            .collect::<Vec<_>>();
+        if !required_unavailable.is_empty() {
             diagnostics.push("PERF_REQUIRED_COUNTER_UNAVAILABLE".to_owned());
+            diagnostics.extend(required_unavailable);
         }
-        if let Err(errors) = self.validate_allocator(expected) {
+        let Some(logical_charges) = &self.logical_resource_charges else {
+            diagnostics.push("PERF_REQUIRED_COUNTER_MISSING: logical_resource_charges".to_owned());
+            return finish_validation(diagnostics);
+        };
+        if let Err(errors) = logical_charges.validate() {
+            diagnostics.extend(errors);
+        }
+        let has_allocator_evidence = self.allocator_counter.is_some()
+            || self.allocator_allocated_bytes.is_some()
+            || self.allocator_allocation_count.is_some();
+        if has_allocator_evidence && let Err(errors) = self.validate_allocator(expected) {
             diagnostics.extend(errors);
         }
         finish_validation(diagnostics)
@@ -292,6 +433,16 @@ impl PerformanceResourceCountersV2 {
         }
         finish_validation(diagnostics)
     }
+}
+
+fn is_optional_allocator_diagnostic(diagnostic: &str) -> bool {
+    diagnostic.starts_with("PERF_ALLOCATOR_")
+        || diagnostic == LEGACY_ALLOCATOR_COUNTER_UNAVAILABLE_DIAGNOSTIC
+}
+
+fn append_length_prefixed(output: &mut Vec<u8>, value: &[u8]) {
+    output.extend_from_slice(&(value.len() as u64).to_le_bytes());
+    output.extend_from_slice(value);
 }
 
 fn checked_breakdown_sum(first: u64, second: u64, third: u64) -> Result<u64, String> {

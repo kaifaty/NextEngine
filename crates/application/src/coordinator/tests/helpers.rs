@@ -133,7 +133,7 @@ pub(super) fn keyboard_escape_event(
     )
 }
 
-fn keyboard_control_event(
+pub(super) fn keyboard_control_event(
     binding: &super::super::platform_host::RegisteredPlatformHostV1,
     source_sequence: u64,
     control_path: &str,

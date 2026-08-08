@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -20,6 +21,7 @@ use crate::{
 };
 
 pub const INTERACTIVE_SIMULATION_QUEUE_CAPACITY: usize = 8;
+const INTERACTIVE_PRESENTATION_BOUNDARY_CAPACITY: usize = INTERACTIVE_SIMULATION_QUEUE_CAPACITY;
 pub const PRODUCTION_WORKER_DIAGNOSTIC_MINIMUM_CALLBACKS: u64 = 240;
 const MAXIMUM_DIAGNOSTIC_CALLBACKS: u64 = 1_000_000;
 const MAXIMUM_SINGLE_STEP_CALLBACK_ELAPSED: Duration = Duration::from_nanos(33_333_334);
@@ -200,10 +202,64 @@ struct InteractivePublishedSnapshotV1 {
     callback_sequence: Option<u64>,
 }
 
+/// One atomic handoff between the simulation worker and desktop consumer.
+/// Ordinary presentation generations are latest-wins, while recovery cuts
+/// are lossless and must be observed before any later generation from their
+/// epoch. Keeping both classes under one lock prevents a reader from racing
+/// between a boundary enqueue and a later latest-snapshot replacement.
+#[derive(Default)]
+struct InteractivePresentationMailboxV1 {
+    latest: Option<InteractivePublishedSnapshotV1>,
+    required_recovery_boundaries: VecDeque<InteractivePublishedSnapshotV1>,
+}
+
+impl InteractivePresentationMailboxV1 {
+    fn publish_latest(&mut self, published: InteractivePublishedSnapshotV1) {
+        self.latest = Some(published);
+    }
+
+    fn publish_required_recovery_boundary(
+        &mut self,
+        published: InteractivePublishedSnapshotV1,
+    ) -> Result<(), InteractiveWorkerFailureV1> {
+        if published.snapshot.snapshot_sequence != 0
+            || published
+                .snapshot
+                .camera_records()
+                .any(|camera| !camera.cut)
+        {
+            return Err(InteractiveWorkerFailureV1::runtime(
+                "PLATFORM_PRESENTATION_RECOVERY_BOUNDARY_INVALID",
+                "required presentation recovery boundary must be sequence zero with camera cuts",
+            ));
+        }
+        if self.required_recovery_boundaries.len() >= INTERACTIVE_PRESENTATION_BOUNDARY_CAPACITY {
+            return Err(InteractiveWorkerFailureV1::runtime(
+                "PLATFORM_PRESENTATION_RECOVERY_BOUNDARY_BUDGET_EXCEEDED",
+                "required presentation recovery boundary queue is full",
+            ));
+        }
+        self.required_recovery_boundaries
+            .push_back(published.clone());
+        self.latest = Some(published);
+        Ok(())
+    }
+
+    fn latest(&self) -> Option<InteractivePublishedSnapshotV1> {
+        self.latest.clone()
+    }
+
+    fn next_for_consumer(&mut self) -> Option<InteractivePublishedSnapshotV1> {
+        self.required_recovery_boundaries
+            .pop_front()
+            .or_else(|| self.latest.clone())
+    }
+}
+
 pub struct InteractiveSimulationWorkerV1 {
     work_sender: SyncSender<InteractiveSimulationMessageV1>,
     failure_receiver: Receiver<InteractiveWorkerFailureV1>,
-    latest_snapshot: Arc<RwLock<Option<InteractivePublishedSnapshotV1>>>,
+    presentation_mailbox: Arc<Mutex<InteractivePresentationMailboxV1>>,
     latest_audio: Arc<RwLock<Option<crate::ApplicationAudioFrameV1>>>,
     processed_callbacks: Option<Arc<AtomicU64>>,
     queue_telemetry: Option<Arc<QueueTelemetryV1>>,

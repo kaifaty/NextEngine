@@ -8,8 +8,8 @@ fn production_run_closes_once_and_restart_returns_the_same_receipt() {
     let run = application
         .run_reference_game(true)
         .expect("reference game");
-    assert_eq!(run.ticks, 16);
-    assert_eq!(run.events, 17);
+    assert_eq!(run.ticks, 32);
+    assert_eq!(run.events, 27);
     let closed = application
         .close(CloseExecutionOptionsV1::default())
         .expect("close");

@@ -46,16 +46,37 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         activated.composition_lock.composition_lock_sha256,
         first.composition_lock.composition_lock_sha256
     );
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 26);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 51);
     assert_eq!(activated.world_partition.body.chunk_bindings.len(), 2);
     assert_eq!(activated.rpg_definitions.abilities.len(), 1);
     assert_eq!(activated.rpg_definitions.packages.len(), 2);
-    assert_eq!(activated.render_content_catalog.meshes().len(), 2);
-    assert_eq!(activated.render_content_catalog.materials().len(), 2);
-    assert_eq!(activated.render_content_catalog.textures().len(), 2);
+    assert_eq!(activated.render_content_catalog.meshes().len(), 10);
+    assert_eq!(activated.render_content_catalog.materials().len(), 11);
+    assert_eq!(activated.render_content_catalog.textures().len(), 7);
+    let floor = activated
+        .render_content_catalog
+        .meshes()
+        .iter()
+        .find(|mesh| mesh.asset_id() == AssetId::from_bytes([0x81; 16]))
+        .expect("floor mesh");
+    assert_eq!(
+        floor.normals_snorm16(),
+        Some([[0, i16::MAX, 0]; 4].as_slice())
+    );
+    let humanoid = activated
+        .render_content_catalog
+        .meshes()
+        .iter()
+        .find(|mesh| mesh.asset_id() == AssetId::from_bytes([0xc1; 16]))
+        .expect("fallback-normal mesh");
+    assert_eq!(humanoid.normals_snorm16(), None);
     assert_eq!(activated.text_catalogs.len(), 2);
     assert_eq!(activated.text_catalogs[0].locale.as_str(), "en");
     assert_eq!(activated.text_catalogs[1].locale.as_str(), "qps-ploc");
+    assert_eq!(activated.neutral_skeletons.len(), 1);
+    assert_eq!(activated.neutral_skeletons[0].joints.len(), 8);
+    assert_eq!(activated.neutral_animations.len(), 1);
+    assert_eq!(activated.neutral_animations[0].channels.len(), 1);
     assert!(
         activated
             .content_manifest
@@ -97,7 +118,7 @@ fn multiple_presentation_records_do_not_change_rpg_singleton_selection() {
     let cooked = cook_project_v1(source).expect("multiple presentation records");
 
     assert_eq!(cooked.rpg_definitions.abilities.len(), 1);
-    assert_eq!(cooked.rpg_definitions.interactions.len(), 1);
+    assert_eq!(cooked.rpg_definitions.interactions.len(), 2);
 }
 
 #[test]
@@ -482,7 +503,7 @@ fn audio_clips_cook_publish_and_activate_through_production_loader() {
     };
 
     let clip = NeutralAudioV1::new(
-        AssetId::from_bytes([0xb1; 16]),
+        AssetId::from_bytes([0xb3; 16]),
         1,
         48_000,
         2,

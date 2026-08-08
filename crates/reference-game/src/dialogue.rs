@@ -153,7 +153,8 @@ pub(crate) fn dialogue_interact_targets_npc(
     snapshot: &PhysicsCanonicalSnapshotV2,
     fixture: &ReferenceGameSession,
 ) -> Result<bool, ReferenceGameError> {
-    let npc = squared_horizontal_distance(snapshot, fixture.body_id, fixture.npc_character_id)?;
+    let npc =
+        squared_horizontal_distance(snapshot, fixture.body_id, fixture.quest_giver_character_id)?;
     let switch =
         squared_horizontal_distance(snapshot, fixture.body_id, fixture.interactive_object_id)?;
     let distance = i128::from(INTERACTION_DISTANCE_MICROMETRES);

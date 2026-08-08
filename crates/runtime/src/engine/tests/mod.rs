@@ -1,5 +1,6 @@
 mod fixtures;
 mod input;
+mod input_configuration;
 mod ledger;
 
 use std::collections::BTreeMap;

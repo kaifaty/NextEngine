@@ -6,11 +6,11 @@
 //! pause-menu records and activates items through the existing production
 //! paths: resume via an admitted `ResumeRequested` platform event, save via
 //! the same save-store write the final save uses, and load via the
-//! same-session restart/recovery path. No new lifecycle edges are introduced
-//! and simulation authority is never touched.
+//! verified save-store generation and an atomic same-session world replacement.
+//! No new lifecycle edges are introduced.
 
 use std::sync::mpsc::SyncSender;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex};
 
 use next_contracts::ids::PersistentId;
 use next_contracts::ids::{ContentHash, SchemaId};
@@ -24,16 +24,19 @@ use next_contracts::platform::{
 };
 use next_contracts::presentation::{
     PresentationSnapshotV2, SemanticUiPresentationRecordV1, UiSemanticElementV1, UiStyleRoleV1,
+    UiTextRefV1,
 };
 use next_contracts::session::ApplicationSessionStatusV1;
 use next_reference_game::{
-    PAUSE_MENU_LOAD_ELEMENT_ID, PAUSE_MENU_RESUME_ELEMENT_ID, PAUSE_MENU_SAVE_ELEMENT_ID,
-    PAUSE_MENU_SURFACE_ID,
+    PAUSE_MENU_LOAD_ELEMENT_ID, PAUSE_MENU_LOADED_TEXT_ID, PAUSE_MENU_RESUME_ELEMENT_ID,
+    PAUSE_MENU_SAVE_ELEMENT_ID, PAUSE_MENU_SAVED_TEXT_ID, PAUSE_MENU_SURFACE_ID,
 };
 
-use super::runtime::{begin_or_resume_reference_game_live, record_interactive_worker_failure};
-use super::{InteractivePublishedSnapshotV1, InteractiveWorkerFailureV1};
-use crate::{ApplicationCoordinator, ApplicationError, FixedStepLiveSchedulerV1, LaunchRequestV1};
+use super::runtime::record_interactive_worker_failure;
+use super::{
+    InteractivePresentationMailboxV1, InteractivePublishedSnapshotV1, InteractiveWorkerFailureV1,
+};
+use crate::{ApplicationCoordinator, ApplicationError, FixedStepLiveSchedulerV1};
 
 /// Dedicated platform source class for menu-fabricated lifecycle events; it
 /// owns an independent admission cursor, so synthetic sequences never
@@ -41,8 +44,7 @@ use crate::{ApplicationCoordinator, ApplicationError, FixedStepLiveSchedulerV1, 
 pub(super) const PAUSE_MENU_SOURCE_CLASS: &str = "nextengine.platform.source.pause-menu";
 pub(super) const PAUSE_MENU_RESUME_REASON: &str = "nextengine.platform.reason.pause-menu-resume";
 
-/// Selectable pause-menu items in the canonical (publication sort) order,
-/// which is also the rasterizer display order.
+/// Selectable pause-menu items in the stable user-facing display order.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum PauseMenuItemV1 {
     Load,
@@ -51,7 +53,7 @@ pub(super) enum PauseMenuItemV1 {
 }
 
 impl PauseMenuItemV1 {
-    const ORDER: [Self; 3] = [Self::Load, Self::Resume, Self::Save];
+    const ORDER: [Self; 3] = [Self::Resume, Self::Save, Self::Load];
 
     fn index(self) -> usize {
         Self::ORDER
@@ -261,7 +263,41 @@ pub(super) fn pause_menu_snapshot_with_selection(
     selection: PauseMenuItemV1,
     next_sequence: u64,
 ) -> Result<PresentationSnapshotV2, InteractiveWorkerFailureV1> {
-    rebuild_snapshot(current, next_sequence, Some(selection))
+    rebuild_snapshot(current, next_sequence, Some(selection), None, None)
+}
+
+/// Rebuilds the selected pause-menu publication with an explicit successful
+/// save label. The clone is presentation-only and does not enter save state.
+pub(super) fn pause_menu_snapshot_with_save_confirmation(
+    current: &PresentationSnapshotV2,
+    selection: PauseMenuItemV1,
+    next_sequence: u64,
+) -> Result<PresentationSnapshotV2, InteractiveWorkerFailureV1> {
+    rebuild_snapshot(
+        current,
+        next_sequence,
+        Some(selection),
+        Some(PauseMenuItemV1::Save),
+        None,
+    )
+}
+
+/// Rebuilds the selected pause-menu publication with an explicit successful
+/// load label. Keeping the menu open lets the player acknowledge the restored
+/// state before resuming simulation.
+pub(super) fn pause_menu_snapshot_with_load_confirmation(
+    current: &PresentationSnapshotV2,
+    menu_template: &PresentationSnapshotV2,
+    selection: PauseMenuItemV1,
+    next_sequence: u64,
+) -> Result<PresentationSnapshotV2, InteractiveWorkerFailureV1> {
+    rebuild_snapshot(
+        current,
+        next_sequence,
+        Some(selection),
+        Some(PauseMenuItemV1::Load),
+        Some(menu_template),
+    )
 }
 
 /// Rebuilds a presentation-only clone of a real publication whose sequence
@@ -271,7 +307,7 @@ pub(super) fn resequenced_snapshot(
     current: &PresentationSnapshotV2,
     next_sequence: u64,
 ) -> Result<PresentationSnapshotV2, InteractiveWorkerFailureV1> {
-    rebuild_snapshot(current, next_sequence, None)
+    rebuild_snapshot(current, next_sequence, None, None, None)
 }
 
 /// The clone never enters recovery evidence: it exists only so the desktop
@@ -283,6 +319,8 @@ fn rebuild_snapshot(
     current: &PresentationSnapshotV2,
     next_sequence: u64,
     selection: Option<PauseMenuItemV1>,
+    confirmed_item: Option<PauseMenuItemV1>,
+    menu_template: Option<&PresentationSnapshotV2>,
 ) -> Result<PresentationSnapshotV2, InteractiveWorkerFailureV1> {
     fn rebuild_failure() -> InteractiveWorkerFailureV1 {
         InteractiveWorkerFailureV1::runtime(
@@ -293,40 +331,69 @@ fn rebuild_snapshot(
     if !current.cue_batches.is_empty() {
         return Err(rebuild_failure());
     }
-    let mut ui_records = Vec::new();
-    for record in current.semantic_ui_records() {
-        let selected_item = selection.and_then(|selection| {
-            PauseMenuItemV1::ORDER
-                .iter()
-                .copied()
-                .find(|item| item.element_id() == record.element.element_id.as_str())
-                .map(|item| (item, selection))
-        });
-        let Some((item, selection)) = selected_item else {
-            ui_records.push(record.clone());
-            continue;
-        };
-        let selected = item == selection;
+    let mut source_ui_records = current.semantic_ui_records().cloned().collect::<Vec<_>>();
+    if let Some(template) = menu_template {
+        source_ui_records.retain(|record| record.surface_id.as_str() != PAUSE_MENU_SURFACE_ID);
+        source_ui_records.extend(
+            template
+                .semantic_ui_records()
+                .filter(|record| record.surface_id.as_str() == PAUSE_MENU_SURFACE_ID)
+                .cloned(),
+        );
+    }
+    let mut ui_records = Vec::with_capacity(source_ui_records.len());
+    for record in source_ui_records {
+        let item = PauseMenuItemV1::ORDER
+            .iter()
+            .copied()
+            .find(|item| item.element_id() == record.element.element_id.as_str());
         let element = &record.element;
+        let (selected, style_role) = match (item, selection) {
+            (Some(item), Some(selection)) => (
+                item == selection,
+                if item == selection {
+                    UiStyleRoleV1::Accent
+                } else {
+                    UiStyleRoleV1::Default
+                },
+            ),
+            _ => (element.selected, element.style_role),
+        };
+        let confirmation_text_id = match (confirmed_item, item) {
+            (Some(PauseMenuItemV1::Save), Some(PauseMenuItemV1::Save)) => {
+                Some(PAUSE_MENU_SAVED_TEXT_ID)
+            }
+            (Some(PauseMenuItemV1::Load), Some(PauseMenuItemV1::Load)) => {
+                Some(PAUSE_MENU_LOADED_TEXT_ID)
+            }
+            _ => None,
+        };
+        let text_or_none = if let Some(text_id) = confirmation_text_id {
+            Some(
+                UiTextRefV1::new(
+                    SchemaId::new(text_id).map_err(|_| rebuild_failure())?,
+                    Vec::new(),
+                )
+                .map_err(|_| rebuild_failure())?,
+            )
+        } else {
+            element.text_or_none.clone()
+        };
         ui_records.push(
             SemanticUiPresentationRecordV1::new(
-                record.snapshot_epoch,
+                current.snapshot_epoch,
                 record.surface_id.clone(),
                 record.semantic_path_id.clone(),
                 record.source_snapshot_hash,
                 UiSemanticElementV1::new(
                     element.element_id.clone(),
                     element.role,
-                    if selected {
-                        UiStyleRoleV1::Accent
-                    } else {
-                        UiStyleRoleV1::Default
-                    },
+                    style_role,
                     element.accessibility_role,
                     element.enabled,
                     element.visible,
                     selected,
-                    element.text_or_none.clone(),
+                    text_or_none,
                     element.value,
                     element.affordances.clone(),
                 )
@@ -362,12 +429,11 @@ fn rebuild_snapshot(
 /// owned by the worker loop in `runtime.rs` and lent for the menu routing
 /// only.
 pub(super) struct PauseMenuFrameContextV1<'a> {
-    pub launch: &'a LaunchRequestV1,
     pub capabilities: &'a PlatformCapabilitySetV1,
     pub application: &'a mut ApplicationCoordinator,
     pub fixed_step: &'a mut FixedStepLiveSchedulerV1,
     pub host_instance_id: &'a mut PersistentId,
-    pub latest_snapshot: &'a RwLock<Option<InteractivePublishedSnapshotV1>>,
+    pub presentation_mailbox: &'a Mutex<InteractivePresentationMailboxV1>,
     pub last_publication: &'a mut (ContentHash, u64),
     pub pending_failure: &'a mut Option<InteractiveWorkerFailureV1>,
     pub failure_sender: &'a SyncSender<InteractiveWorkerFailureV1>,
@@ -385,29 +451,30 @@ pub(super) fn handle_suspended_pause_menu_frame(
     events: Vec<PlatformEventV1>,
 ) -> Vec<PlatformEventV1> {
     let PauseMenuFrameContextV1 {
-        launch,
         capabilities,
         application,
         fixed_step,
         host_instance_id,
-        latest_snapshot,
+        presentation_mailbox,
         last_publication,
         pending_failure,
         failure_sender,
         callback_sequence,
     } = context;
-    let launch = *launch;
     let capabilities = *capabilities;
     let application = &mut **application;
     let fixed_step = &mut **fixed_step;
     let host_instance_id = &mut **host_instance_id;
-    let latest_snapshot = *latest_snapshot;
+    let presentation_mailbox = *presentation_mailbox;
     let last_publication = &mut **last_publication;
     let pending_failure = &mut **pending_failure;
     let failure_sender = *failure_sender;
     let callback_sequence = *callback_sequence;
     let processing = controller.process_events(&events);
-    let remaining_events = processing.remaining_events;
+    let mut remaining_events = processing.remaining_events;
+    let mut save_confirmed = false;
+    let mut load_confirmed = false;
+    let mut load_menu_template = None;
     if !processing.consumed_events.is_empty() {
         // Menu keys were admitted at the coordinator boundary but must never
         // reach the simulation; queue them for cursor-only admission so the
@@ -422,7 +489,31 @@ pub(super) fn handle_suspended_pause_menu_frame(
             );
         }
     }
-    if let Some(action) = processing.action {
+    if matches!(
+        processing.action,
+        Some(PauseMenuActionV1::Save | PauseMenuActionV1::Load)
+    ) {
+        // Save keeps the menu open and Load resets the fixed-step queue. Menu
+        // key releases trailing their activation therefore remain host-owned;
+        // admit them cursor-only now so the continuing keyboard stream cannot
+        // acquire a gap at the save/load cut. Non-menu events still pass on.
+        let trailing_menu_events = remaining_events
+            .iter()
+            .filter(|event| menu_key(event).is_some())
+            .cloned()
+            .collect::<Vec<_>>();
+        remaining_events.retain(|event| menu_key(event).is_none());
+        if let Err(error) = application.queue_host_consumed_live_input(&trailing_menu_events) {
+            record_interactive_worker_failure(
+                pending_failure,
+                failure_sender,
+                InteractiveWorkerFailureV1::application(error),
+            );
+        }
+    }
+    if pending_failure.is_none()
+        && let Some(action) = processing.action
+    {
         match action {
             PauseMenuActionV1::Resume => {
                 let resumed = controller
@@ -436,82 +527,162 @@ pub(super) fn handle_suspended_pause_menu_frame(
                     );
                 }
             }
-            PauseMenuActionV1::Save => {
-                if let Err(error) = application.save_current_prepared_run() {
+            PauseMenuActionV1::Save => match application.save_current_prepared_run() {
+                Ok(_) => save_confirmed = true,
+                Err(error) => {
                     record_interactive_worker_failure(
                         pending_failure,
                         failure_sender,
                         InteractiveWorkerFailureV1::application(error),
                     );
                 }
-            }
+            },
             PauseMenuActionV1::Load => {
-                match reload_live_run_from_durable(launch, capabilities, *host_instance_id) {
-                    Ok((reloaded, reloaded_host, snapshot)) => {
-                        *application = reloaded;
+                let menu_template = presentation_mailbox.lock().ok().and_then(|mailbox| {
+                    mailbox
+                        .latest()
+                        .map(|published| Arc::clone(&published.snapshot))
+                        .filter(|snapshot| snapshot_has_pause_menu(snapshot))
+                });
+                let unapplied = fixed_step.take_unapplied_events_for_save_load();
+                if let Err(error) = application.queue_host_consumed_live_input(&unapplied) {
+                    record_interactive_worker_failure(
+                        pending_failure,
+                        failure_sender,
+                        InteractiveWorkerFailureV1::application(error),
+                    );
+                    return remaining_events;
+                }
+                match application.load_latest_save_into_live_run() {
+                    Ok(run) => {
+                        let snapshot = run.presentation_snapshot.map(Arc::new);
+                        let Some(snapshot) = snapshot else {
+                            record_interactive_worker_failure(
+                                pending_failure,
+                                failure_sender,
+                                InteractiveWorkerFailureV1::runtime(
+                                    "PLATFORM_PRESENTATION_SNAPSHOT_MISSING",
+                                    "loaded save produced no presentation snapshot",
+                                ),
+                            );
+                            return remaining_events;
+                        };
                         *fixed_step = FixedStepLiveSchedulerV1::reference_game_v1();
-                        *host_instance_id = reloaded_host;
-                        controller.reset_selection();
-                        match latest_snapshot.write() {
-                            Ok(mut latest) => {
+                        match presentation_mailbox.lock() {
+                            Ok(mut mailbox) => {
                                 *last_publication =
                                     (snapshot.snapshot_epoch, snapshot.snapshot_sequence);
-                                *latest = Some(InteractivePublishedSnapshotV1 {
-                                    snapshot,
-                                    callback_sequence: Some(callback_sequence),
-                                });
+                                if let Err(failure) = mailbox.publish_required_recovery_boundary(
+                                    InteractivePublishedSnapshotV1 {
+                                        snapshot,
+                                        callback_sequence: Some(callback_sequence),
+                                    },
+                                ) {
+                                    record_interactive_worker_failure(
+                                        pending_failure,
+                                        failure_sender,
+                                        failure,
+                                    );
+                                }
                             }
                             Err(_) => record_interactive_worker_failure(
                                 pending_failure,
                                 failure_sender,
                                 InteractiveWorkerFailureV1::runtime(
                                     "PLATFORM_PRESENTATION_STATE_POISONED",
-                                    "latest presentation snapshot lock was poisoned",
+                                    "presentation mailbox lock was poisoned",
                                 ),
                             ),
                         }
-                        // Load resumes play from the recovered checkpoint
-                        // through the same admitted resume path.
-                        let resumed = controller
-                            .fabricate_resume_event(*host_instance_id, capabilities.canonical_hash)
-                            .and_then(|event| {
-                                application.resume_from_platform_event(&event).map(|_| ())
-                            });
-                        if let Err(error) = resumed {
-                            record_interactive_worker_failure(
-                                pending_failure,
-                                failure_sender,
-                                InteractiveWorkerFailureV1::application(error),
-                            );
+                        if menu_template.is_some() {
+                            // Reattach the presentation-only menu to the
+                            // validated recovery cut under its fresh epoch.
+                            // The restored authoritative world stays paused
+                            // until the player explicitly chooses Resume.
+                            load_confirmed = true;
+                            load_menu_template = menu_template;
+                        } else {
+                            // Older/final saves need not carry the pause-menu
+                            // surface. Avoid a suspended session with no UI by
+                            // retaining the historical auto-resume fallback.
+                            controller.reset_selection();
+                            let resumed = controller
+                                .fabricate_resume_event(
+                                    *host_instance_id,
+                                    capabilities.canonical_hash,
+                                )
+                                .and_then(|event| {
+                                    application.resume_from_platform_event(&event).map(|_| ())
+                                });
+                            if let Err(error) = resumed {
+                                record_interactive_worker_failure(
+                                    pending_failure,
+                                    failure_sender,
+                                    InteractiveWorkerFailureV1::application(error),
+                                );
+                            }
                         }
                     }
-                    Err(failure) => {
-                        record_interactive_worker_failure(pending_failure, failure_sender, failure)
-                    }
+                    Err(error) => record_interactive_worker_failure(
+                        pending_failure,
+                        failure_sender,
+                        InteractiveWorkerFailureV1::application(error),
+                    ),
                 }
             }
         }
     }
-    if processing.selection_changed
+    if (processing.selection_changed || save_confirmed || load_confirmed)
         && pending_failure.is_none()
         && application.state().state == ApplicationSessionStatusV1::Suspended
     {
-        let current = latest_snapshot.read().ok().and_then(|latest| {
-            latest
-                .as_ref()
+        let current = presentation_mailbox.lock().ok().and_then(|mailbox| {
+            mailbox
+                .latest()
                 .map(|published| Arc::clone(&published.snapshot))
         });
-        if let Some(current) = current.filter(|snapshot| snapshot_has_pause_menu(snapshot)) {
-            match pause_menu_snapshot_with_selection(
-                &current,
-                controller.selection(),
-                last_publication.1.saturating_add(1),
-            ) {
+        if let Some(current) =
+            current.filter(|snapshot| load_confirmed || snapshot_has_pause_menu(snapshot))
+        {
+            if load_confirmed && load_menu_template.is_none() {
+                record_interactive_worker_failure(
+                    pending_failure,
+                    failure_sender,
+                    InteractiveWorkerFailureV1::runtime(
+                        "PLATFORM_PRESENTATION_SNAPSHOT_REBUILD_FAILED",
+                        "load confirmation lost its pause-menu template",
+                    ),
+                );
+                return remaining_events;
+            }
+            let rebuilt = if save_confirmed {
+                pause_menu_snapshot_with_save_confirmation(
+                    &current,
+                    controller.selection(),
+                    last_publication.1.saturating_add(1),
+                )
+            } else if load_confirmed {
+                pause_menu_snapshot_with_load_confirmation(
+                    &current,
+                    load_menu_template
+                        .as_deref()
+                        .expect("load confirmation template was checked above"),
+                    controller.selection(),
+                    last_publication.1.saturating_add(1),
+                )
+            } else {
+                pause_menu_snapshot_with_selection(
+                    &current,
+                    controller.selection(),
+                    last_publication.1.saturating_add(1),
+                )
+            };
+            match rebuilt {
                 Ok(clone) => {
                     *last_publication = (clone.snapshot_epoch, clone.snapshot_sequence);
-                    match latest_snapshot.write() {
-                        Ok(mut latest) => {
-                            *latest = Some(InteractivePublishedSnapshotV1 {
+                    match presentation_mailbox.lock() {
+                        Ok(mut mailbox) => {
+                            mailbox.publish_latest(InteractivePublishedSnapshotV1 {
                                 snapshot: Arc::new(clone),
                                 callback_sequence: Some(callback_sequence),
                             });
@@ -521,7 +692,7 @@ pub(super) fn handle_suspended_pause_menu_frame(
                             failure_sender,
                             InteractiveWorkerFailureV1::runtime(
                                 "PLATFORM_PRESENTATION_STATE_POISONED",
-                                "latest presentation snapshot lock was poisoned",
+                                "presentation mailbox lock was poisoned",
                             ),
                         ),
                     }
@@ -533,39 +704,6 @@ pub(super) fn handle_suspended_pause_menu_frame(
         }
     }
     remaining_events
-}
-
-/// Pause-menu load path (S5): rebuilds the coordinator from durable state
-/// through the same production recovery the process restart uses
-/// (`restore_live_run` over the forced suspend checkpoint, session
-/// preserved), then returns the recovered publication. The adapter lifetime
-/// outlives the coordinator, so the previous host identity is re-bound
-/// through continuing registration instead of a fresh one.
-fn reload_live_run_from_durable(
-    launch: &LaunchRequestV1,
-    capabilities: &PlatformCapabilitySetV1,
-    host_instance_id: PersistentId,
-) -> Result<
-    (
-        ApplicationCoordinator,
-        PersistentId,
-        Arc<PresentationSnapshotV2>,
-    ),
-    InteractiveWorkerFailureV1,
-> {
-    let mut application = ApplicationCoordinator::launch_or_resume(launch.clone())
-        .map_err(InteractiveWorkerFailureV1::application)?;
-    let run = begin_or_resume_reference_game_live(&mut application)?;
-    let snapshot = run.presentation_snapshot.ok_or_else(|| {
-        InteractiveWorkerFailureV1::runtime(
-            "PLATFORM_PRESENTATION_SNAPSHOT_MISSING",
-            "reloaded live run produced no presentation snapshot",
-        )
-    })?;
-    let host_instance_id = application
-        .register_platform_host_continuing(host_instance_id, capabilities)
-        .map_err(InteractiveWorkerFailureV1::application)?;
-    Ok((application, host_instance_id, Arc::new(snapshot)))
 }
 
 #[cfg(test)]
@@ -667,7 +805,7 @@ mod tests {
     }
 
     #[test]
-    fn navigation_cycles_in_canonical_order_and_confirm_maps_the_selection() {
+    fn navigation_cycles_in_display_order_and_confirm_maps_the_selection() {
         let mut controller = PauseMenuControllerV1::new();
         assert_eq!(controller.selection(), PauseMenuItemV1::Resume);
 

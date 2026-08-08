@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::performance::PerformanceRunV2;
+use crate::performance::PerformanceRunV3;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -166,7 +166,7 @@ pub struct ProductionWorkerPerformanceDetailsV1 {
 #[serde(deny_unknown_fields)]
 pub struct PerformanceDetailsV1 {
     #[serde(default)]
-    pub run: Option<PerformanceRunV2>,
+    pub run: Option<PerformanceRunV3>,
     #[serde(default)]
     pub streaming: Option<StreamingPerformanceDetailsV1>,
     #[serde(default)]

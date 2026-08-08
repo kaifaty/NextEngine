@@ -181,6 +181,10 @@ fn run_interactive_session(
             |events, elapsed, audio| {
                 let mut worker = worker.borrow_mut();
                 if let Some(failure) = worker.try_take_failure() {
+                    eprintln!(
+                        "next_game: simulation worker failed before desktop finalization: {}: {}",
+                        failure.code, failure.message
+                    );
                     return Err(next_desktop_sdl_ash::DesktopAdapterError::client(
                         failure.code,
                         failure.message,
@@ -199,6 +203,10 @@ fn run_interactive_session(
                         )
                     })?;
                 if let Some(failure) = worker.try_take_failure() {
+                    eprintln!(
+                        "next_game: simulation worker failed before desktop finalization: {}: {}",
+                        failure.code, failure.message
+                    );
                     return Err(next_desktop_sdl_ash::DesktopAdapterError::client(
                         failure.code,
                         failure.message,
@@ -240,9 +248,11 @@ fn run_interactive_session(
                 finalization_retries = finalization_retries.saturating_add(1);
                 if finalization_retries.is_power_of_two() {
                     let message = match &finalization {
-                        InteractiveWorkerFinalizationV1::Retry(failure) => failure.message.as_str(),
+                        InteractiveWorkerFinalizationV1::Retry(failure) => {
+                            format!("{}: {}", failure.code, failure.message)
+                        }
                         InteractiveWorkerFinalizationV1::Closed { .. } => {
-                            "simulation worker did not confirm durable Closed"
+                            "simulation worker did not confirm durable Closed".to_owned()
                         }
                     };
                     eprintln!(

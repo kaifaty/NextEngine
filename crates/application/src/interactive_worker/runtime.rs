@@ -29,7 +29,8 @@ impl InteractiveSimulationWorkerV1 {
                 "simulation worker requires the game composition root",
             ));
         }
-        let latest_snapshot = Arc::new(RwLock::new(None));
+        let presentation_mailbox =
+            Arc::new(Mutex::new(InteractivePresentationMailboxV1::default()));
         let latest_audio = Arc::new(RwLock::new(None));
         let processed_callbacks = diagnostic_capacity.map(|_| Arc::new(AtomicU64::new(0)));
         let queue_telemetry = diagnostic_capacity.map(|_| Arc::new(QueueTelemetryV1::default()));
@@ -37,7 +38,7 @@ impl InteractiveSimulationWorkerV1 {
             mpsc::sync_channel(INTERACTIVE_SIMULATION_QUEUE_CAPACITY);
         let (failure_sender, failure_receiver) = mpsc::sync_channel(1);
         let (ready_sender, ready_receiver) = mpsc::sync_channel(1);
-        let worker_snapshot = Arc::clone(&latest_snapshot);
+        let worker_snapshot = Arc::clone(&presentation_mailbox);
         let worker_audio = Arc::clone(&latest_audio);
         let worker_processed_callbacks = processed_callbacks.clone();
         let worker_queue_telemetry = queue_telemetry.clone();
@@ -76,7 +77,7 @@ impl InteractiveSimulationWorkerV1 {
             Self {
                 work_sender,
                 failure_receiver,
-                latest_snapshot,
+                presentation_mailbox,
                 latest_audio,
                 processed_callbacks,
                 queue_telemetry,
@@ -115,14 +116,14 @@ impl InteractiveSimulationWorkerV1 {
         &self,
     ) -> Result<InteractiveMainSnapshotReadV1, InteractiveWorkerFailureV1> {
         let read_started = self.queue_telemetry.as_ref().map(|_| Instant::now());
-        let latest = self.latest_snapshot.read().map_err(|_| {
+        let mut mailbox = self.presentation_mailbox.lock().map_err(|_| {
             InteractiveWorkerFailureV1::runtime(
                 "PLATFORM_PRESENTATION_STATE_POISONED",
-                "latest presentation snapshot lock was poisoned",
+                "presentation mailbox lock was poisoned",
             )
         })?;
         let lock_wait = read_started.map_or(Duration::ZERO, |started| started.elapsed());
-        let published = latest.as_ref().cloned().ok_or_else(|| {
+        let published = mailbox.next_for_consumer().ok_or_else(|| {
             InteractiveWorkerFailureV1::runtime(
                 "PLATFORM_PRESENTATION_SNAPSHOT_MISSING",
                 "simulation worker published no initial presentation snapshot",
@@ -515,7 +516,7 @@ fn run_interactive_simulation_session_worker(
     launch: LaunchRequestV1,
     capabilities: PlatformCapabilitySetV1,
     work_receiver: Receiver<InteractiveSimulationMessageV1>,
-    latest_snapshot: Arc<RwLock<Option<InteractivePublishedSnapshotV1>>>,
+    presentation_mailbox: Arc<Mutex<InteractivePresentationMailboxV1>>,
     latest_audio: Arc<RwLock<Option<crate::ApplicationAudioFrameV1>>>,
     ready_sender: SyncSender<Result<InteractiveWorkerReadyV1, InteractiveWorkerFailureV1>>,
     failure_sender: SyncSender<InteractiveWorkerFailureV1>,
@@ -540,7 +541,7 @@ fn run_interactive_simulation_session_worker(
     let prepared = prepare_interactive_worker(
         launch.clone(),
         &capabilities,
-        &latest_snapshot,
+        &presentation_mailbox,
         metrics.as_mut(),
     );
     let (mut application, ready) = match prepared {
@@ -610,11 +611,11 @@ fn run_interactive_simulation_session_worker(
                     let mut events = events;
                     let mut menu_admitted = None;
                     if application.state().state == ApplicationSessionStatusV1::Suspended
-                        && latest_snapshot
-                            .read()
+                        && presentation_mailbox
+                            .lock()
                             .ok()
-                            .and_then(|latest| {
-                                latest.as_ref().map(|published| {
+                            .and_then(|mailbox| {
+                                mailbox.latest().map(|published| {
                                     pause_menu::snapshot_has_pause_menu(&published.snapshot)
                                 })
                             })
@@ -623,12 +624,11 @@ fn run_interactive_simulation_session_worker(
                         menu_admitted = Some(events.clone());
                         events = pause_menu::handle_suspended_pause_menu_frame(
                             &mut pause_menu::PauseMenuFrameContextV1 {
-                                launch: &launch,
                                 capabilities: &capabilities,
                                 application: &mut application,
                                 fixed_step: &mut fixed_step,
                                 host_instance_id: &mut host_instance_id,
-                                latest_snapshot: &latest_snapshot,
+                                presentation_mailbox: &presentation_mailbox,
                                 last_publication: &mut last_publication,
                                 pending_failure: &mut pending_failure,
                                 failure_sender: &failure_sender,
@@ -725,8 +725,8 @@ fn run_interactive_simulation_session_worker(
                                 next_snapshot.snapshot_sequence,
                             );
                             let publication_started = metrics.as_ref().map(|_| Instant::now());
-                            match latest_snapshot.write() {
-                                Ok(mut latest) => {
+                            match presentation_mailbox.lock() {
+                                Ok(mut mailbox) => {
                                     let lock_wait = publication_started
                                         .map_or(Duration::ZERO, |started| started.elapsed());
                                     if let Some(metrics) = metrics.as_mut() {
@@ -740,7 +740,7 @@ fn run_interactive_simulation_session_worker(
                                             },
                                         );
                                     }
-                                    *latest = Some(InteractivePublishedSnapshotV1 {
+                                    mailbox.publish_latest(InteractivePublishedSnapshotV1 {
                                         snapshot: next_snapshot,
                                         callback_sequence: Some(callback_sequence),
                                     });
@@ -750,7 +750,7 @@ fn run_interactive_simulation_session_worker(
                                     &failure_sender,
                                     InteractiveWorkerFailureV1::runtime(
                                         "PLATFORM_PRESENTATION_STATE_POISONED",
-                                        "latest presentation snapshot lock was poisoned",
+                                        "presentation mailbox lock was poisoned",
                                     ),
                                 ),
                             }
@@ -812,7 +812,7 @@ fn run_interactive_simulation_session_worker(
 fn prepare_interactive_worker(
     launch: LaunchRequestV1,
     capabilities: &PlatformCapabilitySetV1,
-    latest_snapshot: &Arc<RwLock<Option<InteractivePublishedSnapshotV1>>>,
+    presentation_mailbox: &Arc<Mutex<InteractivePresentationMailboxV1>>,
     metrics: Option<&mut WorkerMetricBuffersV1>,
 ) -> Result<(ApplicationCoordinator, InteractiveWorkerReadyV1), InteractiveWorkerFailureV1> {
     let mut application = ApplicationCoordinator::launch_or_resume(launch)
@@ -837,18 +837,18 @@ fn prepare_interactive_worker(
         .register_platform_host(capabilities)
         .map_err(InteractiveWorkerFailureV1::application)?;
     let publication_started = metrics.as_ref().map(|_| Instant::now());
-    let mut latest = latest_snapshot.write().map_err(|_| {
+    let mut mailbox = presentation_mailbox.lock().map_err(|_| {
         InteractiveWorkerFailureV1::runtime(
             "PLATFORM_PRESENTATION_STATE_POISONED",
-            "latest presentation snapshot lock was poisoned",
+            "presentation mailbox lock was poisoned",
         )
     })?;
     let lock_wait = publication_started.map_or(Duration::ZERO, |started| started.elapsed());
-    *latest = Some(InteractivePublishedSnapshotV1 {
+    mailbox.publish_latest(InteractivePublishedSnapshotV1 {
         snapshot: Arc::clone(&initial_snapshot),
         callback_sequence: None,
     });
-    drop(latest);
+    drop(mailbox);
     if let Some(metrics) = metrics {
         metrics.snapshot_publications = metrics.snapshot_publications.saturating_add(1);
         metrics

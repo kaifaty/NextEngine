@@ -20,9 +20,9 @@ pub(crate) use checks::{prepare_game_frame_with_scratch, run_play_check_with_scr
 pub use error::PlayCheckError;
 pub use next_reference_game::{
     ReferenceGameSession as NeutralPlayerFixture, ReferenceInputError as CanonicalFixtureError,
-    cooked_interaction_outcome, cooked_project_rpg_snapshot, player_action_sample,
-    player_equip_use_sample, player_interact_sample, player_melee_sample, player_pickup_sample,
-    reference_aggregate as fixture_aggregate,
+    cooked_initial_interaction_outcome, cooked_interaction_outcome, cooked_project_rpg_snapshot,
+    player_action_sample, player_equip_use_sample, player_interact_sample, player_melee_sample,
+    player_pickup_sample, reference_aggregate as fixture_aggregate,
 };
 
 use crate::NeutralFixtureError;

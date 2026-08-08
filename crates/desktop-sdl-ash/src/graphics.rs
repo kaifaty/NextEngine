@@ -492,6 +492,16 @@ impl GraphicsContext {
                 .build_or_reuse(snapshot, &self.render_content_catalog, target)?;
         cpu_phases.frame_plan_microseconds = elapsed_microseconds(frame_plan_started)?;
         let command_record_started = profiling_enabled.then(Instant::now);
+        let b0_content = self
+            .b0_content
+            .as_ref()
+            .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
+        b0_content.record_shadow(
+            frame_slot.command_buffer,
+            frame_plan,
+            swapchain.extent,
+            frame_slot_index,
+        )?;
         let old_layout = if swapchain.initialized[image_usize] {
             vk::ImageLayout::PRESENT_SRC_KHR
         } else {
@@ -599,15 +609,13 @@ impl GraphicsContext {
             self.device
                 .cmd_begin_rendering(frame_slot.command_buffer, &rendering_info);
         }
-        self.b0_content
-            .as_ref()
-            .ok_or(DesktopAdapterError::GraphicsContextMissing)?
-            .record(
-                frame_slot.command_buffer,
-                frame_plan,
-                swapchain.extent,
-                frame_slot_index,
-            )?;
+        b0_content.record_sky(frame_slot.command_buffer, swapchain.extent)?;
+        b0_content.record(
+            frame_slot.command_buffer,
+            frame_plan,
+            swapchain.extent,
+            frame_slot_index,
+        )?;
         self.ui_overlay
             .record(frame_slot.command_buffer, swapchain.extent);
         // SAFETY: a dynamic rendering instance is active on this command
@@ -959,8 +967,7 @@ fn create_swapchain(
                     .base_array_layer(0)
                     .layer_count(1),
             );
-        // SAFETY: image belongs to the swapchain and view metadata matches its
-        // selected format.
+        // SAFETY: image belongs to the swapchain and view metadata matches its format.
         state
             .image_views
             .push(unsafe { device.create_image_view(&view_info, None) }?);

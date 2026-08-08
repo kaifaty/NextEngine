@@ -16,6 +16,7 @@ mod native_gate_tests;
 mod performance_baseline_command;
 mod performance_codegen_command;
 mod performance_command;
+mod visual_smoke;
 
 use serde::{Serialize, Serializer};
 use xtask::native_gate::{
@@ -105,7 +106,7 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected allocator-counter-check, boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, platform, play, physics-collision, physics-backend-parity, persistence-replay, v1-closure or v1-package".to_owned()
+        "expected allocator-counter-check, boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
         "allocator-counter-check" => {
@@ -174,6 +175,10 @@ fn run() -> Result<(), String> {
         "play" => {
             reject_extra_arguments(arguments)?;
             play()
+        }
+        "visual-smoke" => {
+            let request = visual_smoke::parse_arguments(arguments, &root)?;
+            visual_smoke::run(&root, &request)
         }
         "v1-closure" => {
             reject_extra_arguments(arguments)?;

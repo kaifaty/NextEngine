@@ -370,6 +370,78 @@ fn semantic_ui_extraction_publishes_typed_batches_and_recovers_byte_exact() {
     ));
 }
 
+#[test]
+fn subtitle_semantic_ui_role_recovers_byte_exact() {
+    let lock = domain_hash("test.subtitle-recovery.lock", b"lock");
+    let content = domain_hash("test.subtitle-recovery.content", b"content");
+    let epoch = domain_hash("test.subtitle-recovery.epoch", b"epoch");
+    let mut extractor = PresentationExtractorV1::new_with_snapshot_epoch_and_ui_batch_limits(
+        epoch,
+        domain_hash("test.subtitle-recovery.profile", b"profile"),
+        2,
+        1,
+        2,
+    )
+    .expect("extractor");
+    let subtitle = SemanticUiPresentationRecordV1::new(
+        epoch,
+        SchemaId::new("nextengine.test.ui.surface.subtitle").expect("surface id"),
+        SchemaId::new("nextengine.test.ui.panel.subtitle").expect("panel id"),
+        domain_hash("test.subtitle-recovery.source", b"subtitle"),
+        UiSemanticElementV1::new(
+            SchemaId::new("nextengine.test.ui.element.subtitle").expect("element id"),
+            UiElementRoleV1::Subtitle,
+            UiStyleRoleV1::Default,
+            UiAccessibilityRoleV1::Standard,
+            true,
+            true,
+            false,
+            Some(
+                UiTextRefV1::new(
+                    SchemaId::new("nextengine.test.ui.text.subtitle").expect("text id"),
+                    Vec::new(),
+                )
+                .expect("text ref"),
+            ),
+            UiElementValueV1::None,
+            Vec::new(),
+        )
+        .expect("subtitle element"),
+    )
+    .expect("subtitle record");
+    let snapshot = extractor
+        .extract_with_cameras_and_semantic_ui(
+            23,
+            lock,
+            content,
+            &empty_physics(),
+            &[],
+            &[],
+            vec![subtitle],
+        )
+        .expect("subtitle snapshot")
+        .clone();
+
+    let bytes = extractor.recovery_bytes().expect("subtitle recovery bytes");
+    let resumed =
+        PresentationExtractorV1::resume_from_recovery_bytes(&bytes).expect("resume subtitle");
+    let recovered = resumed.accepted_snapshot().expect("recovered snapshot");
+    assert_eq!(recovered, &snapshot);
+    assert_eq!(
+        recovered
+            .semantic_ui_records()
+            .next()
+            .expect("recovered subtitle")
+            .element
+            .role,
+        UiElementRoleV1::Subtitle
+    );
+    assert_eq!(
+        resumed.recovery_bytes().expect("canonical round trip"),
+        bytes
+    );
+}
+
 fn ui_record(
     epoch: ContentHash,
     surface: &str,

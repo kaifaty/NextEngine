@@ -35,6 +35,10 @@ const REQUIRED_NOTICE_PATHS: [&str; 4] = [
     "NOTICE",
     "THIRD_PARTY_NOTICES.md",
 ];
+const REFERENCE_PROJECT_DOCUMENT_PATHS: [(&str, &str); 2] = [
+    ("projects/reference-alpha/ACCEPTANCE.md", "ACCEPTANCE.md"),
+    ("projects/reference-alpha/NOTICE", "REFERENCE_ALPHA_NOTICE"),
+];
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -305,6 +309,7 @@ fn build_staged_package(
     }
 
     copy_required_notices(repository_root, staging)?;
+    copy_reference_project_documents(repository_root, staging)?;
 
     let executable_suffix = if target_triple == "x86_64-pc-windows-msvc" {
         ".exe"
@@ -694,6 +699,19 @@ fn copy_required_notices(repository_root: &Path, staging: &Path) -> Result<(), S
         fs::copy(&source, staging.join(notice)).map_err(|error| {
             format!(
                 "NATIVE_GATE_PACKAGE_INVALID: failed to package required notice {notice}: {error}"
+            )
+        })?;
+    }
+    Ok(())
+}
+
+fn copy_reference_project_documents(repository_root: &Path, staging: &Path) -> Result<(), String> {
+    for (source_path, package_path) in REFERENCE_PROJECT_DOCUMENT_PATHS {
+        let source = repository_root.join(source_path);
+        checked_metadata(&source)?;
+        fs::copy(&source, staging.join(package_path)).map_err(|error| {
+            format!(
+                "NATIVE_GATE_PACKAGE_INVALID: failed to package reference project document {source_path} as {package_path}: {error}"
             )
         })?;
     }

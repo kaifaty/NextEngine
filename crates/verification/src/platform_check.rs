@@ -61,7 +61,9 @@ pub struct DesktopFrameTimingSmokeReport {
 pub struct PreparedDesktopFrameTimingWorkload {
     preparation_id: u64,
     timing_directory: crate::scratch::ScratchDirectory,
+    warmup_frames: u32,
     measured_frames: u32,
+    expect_ui_overlay: bool,
     run_started: bool,
     #[cfg(feature = "desktop-sdl-ash")]
     adapter: Option<next_desktop_sdl_ash::PreparedDesktopRun>,
@@ -124,12 +126,7 @@ pub fn prepare_desktop_frame_timing_workload_in(
     measured_frames: u32,
     initial_extent: [u32; 2],
 ) -> Result<PreparedDesktopFrameTimingWorkload, PlatformCheckError> {
-    if measured_frames == 0
-        || measured_frames > MAX_DESKTOP_FRAME_TIMING_SAMPLES
-        || initial_extent.contains(&0)
-    {
-        return Err(PlatformCheckError::DesktopSmokeMismatch);
-    }
+    validate_desktop_frame_timing_request(0, measured_frames, initial_extent)?;
     let scratch = ScratchContext::new(scratch_root).map_err(platform_scratch_error)?;
     let timing_directory = scratch
         .create_directory("desktop-frame-timing")
@@ -163,11 +160,101 @@ pub fn prepare_desktop_frame_timing_workload_in(
     Ok(PreparedDesktopFrameTimingWorkload {
         preparation_id,
         timing_directory,
+        warmup_frames: 0,
         measured_frames,
+        expect_ui_overlay: true,
         run_started: false,
         #[cfg(feature = "desktop-sdl-ash")]
         adapter,
     })
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the performance input boundary keeps the exact snapshot, catalogs and timing profile explicit"
+)]
+pub(crate) fn prepare_desktop_frame_timing_workload_for_inputs_in(
+    scratch_root: &Path,
+    snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    render_content_catalog: &next_contracts::render_content::RenderContentCatalogV1,
+    text_catalogs: &[next_contracts::localization::TextCatalogV1],
+    warmup_frames: u32,
+    measured_frames: u32,
+    initial_extent: [u32; 2],
+    title: &str,
+) -> Result<PreparedDesktopFrameTimingWorkload, PlatformCheckError> {
+    validate_desktop_frame_timing_request(warmup_frames, measured_frames, initial_extent)?;
+    let total_frames = warmup_frames
+        .checked_add(measured_frames)
+        .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
+    #[cfg(not(feature = "desktop-sdl-ash"))]
+    let _ = (
+        snapshot,
+        render_content_catalog,
+        text_catalogs,
+        total_frames,
+        title,
+    );
+    let scratch = ScratchContext::new(scratch_root).map_err(platform_scratch_error)?;
+    let timing_directory = scratch
+        .create_directory("desktop-frame-timing")
+        .map_err(platform_scratch_error)?;
+    #[cfg(feature = "desktop-sdl-ash")]
+    let adapter = match prepare_desktop_frame_timing_inputs(
+        snapshot,
+        render_content_catalog,
+        text_catalogs,
+        total_frames,
+        initial_extent,
+        title,
+    ) {
+        Ok(adapter) => adapter,
+        Err(error) => {
+            return Err(finish_failed_desktop_preparation(timing_directory, error));
+        }
+    };
+    let preparation_id = match NEXT_DESKTOP_FRAME_TIMING_PREPARATION_ID.fetch_update(
+        Ordering::Relaxed,
+        Ordering::Relaxed,
+        |value| value.checked_add(1),
+    ) {
+        Ok(preparation_id) => preparation_id,
+        Err(_) => {
+            #[cfg(feature = "desktop-sdl-ash")]
+            drop(adapter);
+            return Err(finish_failed_desktop_preparation(
+                timing_directory,
+                PlatformCheckError::DesktopSmokeMismatch,
+            ));
+        }
+    };
+    Ok(PreparedDesktopFrameTimingWorkload {
+        preparation_id,
+        timing_directory,
+        warmup_frames,
+        measured_frames,
+        expect_ui_overlay: !snapshot.semantic_ui_batches.is_empty(),
+        run_started: false,
+        #[cfg(feature = "desktop-sdl-ash")]
+        adapter,
+    })
+}
+
+fn validate_desktop_frame_timing_request(
+    warmup_frames: u32,
+    measured_frames: u32,
+    initial_extent: [u32; 2],
+) -> Result<(), PlatformCheckError> {
+    let total_frames = warmup_frames
+        .checked_add(measured_frames)
+        .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
+    if measured_frames == 0
+        || total_frames > MAX_DESKTOP_FRAME_TIMING_SAMPLES
+        || initial_extent.contains(&0)
+    {
+        return Err(PlatformCheckError::DesktopSmokeMismatch);
+    }
+    Ok(())
 }
 
 impl PreparedDesktopFrameTimingWorkload {
@@ -198,10 +285,17 @@ impl PreparedDesktopFrameTimingWorkload {
             return finish_desktop_frame_timing_measurement(
                 adapter,
                 measurement,
+                self.warmup_frames,
                 self.measured_frames,
+                self.expect_ui_overlay,
             );
             #[cfg(not(feature = "desktop-sdl-ash"))]
-            finish_desktop_frame_timing_measurement(measurement, self.measured_frames)
+            finish_desktop_frame_timing_measurement(
+                measurement,
+                self.warmup_frames,
+                self.measured_frames,
+                self.expect_ui_overlay,
+            )
         });
         self.timing_directory.finish(result, platform_scratch_error)
     }
@@ -365,17 +459,6 @@ fn prepare_desktop_frame_timing_smoke_scoped(
     measured_frames: u32,
     initial_extent: [u32; 2],
 ) -> Result<Option<next_desktop_sdl_ash::PreparedDesktopRun>, PlatformCheckError> {
-    let measured_frames_u64 = u64::from(measured_frames);
-    let maximum_event_loop_iterations = measured_frames_u64
-        .checked_mul(300)
-        .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
-    let mut options = next_desktop_sdl_ash::DesktopRunOptions {
-        initial_extent,
-        maximum_frames: Some(measured_frames_u64),
-        maximum_event_loop_iterations: Some(maximum_event_loop_iterations),
-        frame_profiling_sample_capacity: measured_frames,
-        ..next_desktop_sdl_ash::DesktopRunOptions::default()
-    };
     if !cfg!(all(
         target_arch = "x86_64",
         any(target_os = "windows", target_os = "linux")
@@ -383,14 +466,50 @@ fn prepare_desktop_frame_timing_smoke_scoped(
         return Ok(None);
     }
     let frame = prepare_game_frame_with_scratch(scratch)?;
-    options.ui_text_catalogs = frame.text_catalogs.clone();
-    options.ui_locale = "en".to_owned();
-    let adapter = next_desktop_sdl_ash::prepare_interactive(
+    prepare_desktop_frame_timing_inputs(
         &frame.snapshot,
         &frame.render_content_catalog,
+        &frame.text_catalogs,
+        measured_frames,
+        initial_extent,
+        "Next Engine — Desktop frame timing",
+    )
+}
+
+#[cfg(feature = "desktop-sdl-ash")]
+fn prepare_desktop_frame_timing_inputs(
+    snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    render_content_catalog: &next_contracts::render_content::RenderContentCatalogV1,
+    text_catalogs: &[next_contracts::localization::TextCatalogV1],
+    total_frames: u32,
+    initial_extent: [u32; 2],
+    title: &str,
+) -> Result<Option<next_desktop_sdl_ash::PreparedDesktopRun>, PlatformCheckError> {
+    if !cfg!(all(
+        target_arch = "x86_64",
+        any(target_os = "windows", target_os = "linux")
+    )) {
+        return Ok(None);
+    }
+    let total_frames_u64 = u64::from(total_frames);
+    let maximum_event_loop_iterations = total_frames_u64
+        .checked_mul(300)
+        .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
+    let options = next_desktop_sdl_ash::DesktopRunOptions {
+        title: title.to_owned(),
+        initial_extent,
+        maximum_frames: Some(total_frames_u64),
+        maximum_event_loop_iterations: Some(maximum_event_loop_iterations),
+        ui_text_catalogs: text_catalogs.to_vec(),
+        ui_locale: "en".to_owned(),
+        frame_profiling_sample_capacity: total_frames,
+        ..next_desktop_sdl_ash::DesktopRunOptions::default()
+    };
+    Ok(Some(next_desktop_sdl_ash::prepare_interactive(
+        snapshot,
+        render_content_catalog,
         &options,
-    )?;
-    Ok(Some(adapter))
+    )?))
 }
 
 #[cfg(feature = "desktop-sdl-ash")]
@@ -425,7 +544,9 @@ fn run_prepared_desktop_frame_timing(
 fn finish_desktop_frame_timing_measurement(
     adapter: Option<next_desktop_sdl_ash::PreparedDesktopRun>,
     measurement: DesktopFrameTimingMeasurement,
+    warmup_frames: u32,
     measured_frames: u32,
+    expect_ui_overlay: bool,
 ) -> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
     let report = match (adapter, measurement.adapter_measurement) {
         (None, None) => return Ok(None),
@@ -434,22 +555,26 @@ fn finish_desktop_frame_timing_measurement(
             return Err(PlatformCheckError::DesktopSmokeMismatch);
         }
     };
-    let measured_frames_u64 = u64::from(measured_frames);
-    if report.rendered_frames != measured_frames_u64
+    let total_frames = warmup_frames
+        .checked_add(measured_frames)
+        .ok_or(PlatformCheckError::DesktopSmokeMismatch)?;
+    let total_frames_u64 = u64::from(total_frames);
+    if report.rendered_frames != total_frames_u64
         || report.frame_timings.len()
-            != usize::try_from(measured_frames)
+            != usize::try_from(total_frames)
                 .map_err(|_| PlatformCheckError::DesktopSmokeMismatch)?
-        || report.vulkan_timestamp_queries != measured_frames_u64 * 2
+        || report.vulkan_timestamp_queries != total_frames_u64 * 2
         || report.dropped_frame_timing_samples != 0
         || report.frame_plan_cache_misses != 1
-        || report.frame_plan_cache_hits != measured_frames_u64.saturating_sub(1)
+        || report.frame_plan_cache_hits != total_frames_u64.saturating_sub(1)
         || report.frame_plan_build_failures != 0
         || report.frame_plan_explicit_invalidations != 0
         || report.device_allocation_bytes == 0
         || report.device_allocation_count == 0
         || report.ui_overlay_failures != 0
-        || report.ui_overlay_frames != measured_frames_u64
-        || report.ui_overlay_updates == 0
+        || (expect_ui_overlay
+            && (report.ui_overlay_frames != total_frames_u64 || report.ui_overlay_updates == 0))
+        || (!expect_ui_overlay && (report.ui_overlay_frames != 0 || report.ui_overlay_updates != 0))
     {
         return Err(PlatformCheckError::DesktopSmokeMismatch);
     }
@@ -464,6 +589,10 @@ fn finish_desktop_frame_timing_measurement(
         samples: report
             .frame_timings
             .into_iter()
+            .skip(
+                usize::try_from(warmup_frames)
+                    .map_err(|_| PlatformCheckError::DesktopSmokeMismatch)?,
+            )
             .map(|sample| DesktopFrameTimingSmokeSample {
                 cpu_extract_and_submit_microseconds: sample.cpu_extract_and_submit_microseconds,
                 gpu_duration_microseconds: sample.gpu_duration_microseconds,
@@ -496,7 +625,9 @@ fn finish_desktop_frame_timing_measurement(
 #[cfg(not(feature = "desktop-sdl-ash"))]
 fn finish_desktop_frame_timing_measurement(
     _measurement: DesktopFrameTimingMeasurement,
+    _warmup_frames: u32,
     _measured_frames: u32,
+    _expect_ui_overlay: bool,
 ) -> Result<Option<DesktopFrameTimingSmokeReport>, PlatformCheckError> {
     Ok(None)
 }
@@ -517,6 +648,7 @@ fn run_desktop_candidate(
         maximum_frames: Some(1),
         maximum_event_loop_iterations: Some(600),
         inject_device_loss_after_frames: Some(0),
+        inject_audio_device_loss_after_open: true,
         inject_startup_lifecycle_probe: true,
         ui_text_catalogs: text_catalogs.to_vec(),
         ui_locale: "en".to_owned(),
@@ -546,12 +678,15 @@ fn run_desktop_candidate(
         || report.indexed_draws != u64::from(expected_plan.indexed_draw_count)
         || report.fallback_material_draws != u64::from(expected_plan.fallback_material_draw_count)
         || report.last_frame_plan_hash != Some(expected_plan.frame_plan_hash)
-        || report.control_events != 4
+        || report.control_events != 5
         || report.resize_events < 1
         || report.focus_events < 2
         || report.fullscreen_events != 1
         || report.device_loss_events != 1
         || report.device_recoveries != 1
+        || report.audio_device_faults != 1
+        || report.audio_device_reopens < 2
+        || !report.audio_output_active
         || !report.b0_capabilities_verified
         || report.ui_overlay_failures != 0
         || report.ui_overlay_frames != 1
@@ -679,7 +814,7 @@ mod tests {
     fn game_headless_platform_and_presentation_contracts_match() {
         let report = run_platform_check().expect("platform check");
         assert_eq!(report.normalized_events, 4);
-        assert_eq!(report.rendered_objects, 5);
+        assert_eq!(report.rendered_objects, 6);
     }
 
     #[test]

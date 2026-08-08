@@ -251,6 +251,30 @@ impl ApplicationSessionMachine {
         })
     }
 
+    /// Plans one atomic observation replacement for an explicit user save
+    /// load. Unlike ordinary runtime observations, a loaded save may carry an
+    /// older authoritative revision; the verified save-generation identity is
+    /// therefore required in the same publication, and loading is admitted
+    /// only while the application session is suspended.
+    pub fn plan_save_load_publication(
+        &self,
+        active_runtime_revision: u64,
+        active_save_generation_hash: ContentHash,
+    ) -> Result<SessionStatePublicationPlanV1, SessionMachineError> {
+        if self.state.state != ApplicationSessionStatusV1::Suspended {
+            return Err(SessionMachineError::ObservationRegression);
+        }
+        let next_state = self
+            .state
+            .with_active_runtime_revision(active_runtime_revision)
+            .with_active_save_generation(active_save_generation_hash);
+        next_state.validate()?;
+        Ok(SessionStatePublicationPlanV1 {
+            prior_state_hash: self.state.canonical_hash,
+            next_state,
+        })
+    }
+
     pub fn commit_state_publication(&mut self, plan: SessionStatePublicationPlanV1) {
         assert_eq!(
             plan.prior_state_hash, self.state.canonical_hash,

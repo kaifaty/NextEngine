@@ -27,6 +27,8 @@ pub const CORE_UI_BACK_ACTION_ID: &str = "nextengine.action.ui-back";
 pub const CORE_UI_INVENTORY_ACTION_ID: &str = "nextengine.action.ui-inventory";
 pub const CORE_UI_JOURNAL_ACTION_ID: &str = "nextengine.action.ui-journal";
 pub const CORE_KEYBOARD_MOUSE_ACTION_MAP_ID: &str = "nextengine.action-map.core-keyboard-mouse";
+pub const CORE_GENERIC_CONTROLLER_ACTION_MAP_ID: &str =
+    "nextengine.action-map.core-keyboard-mouse-controller";
 pub const CORE_GAMEPLAY_CONTEXT_ID: &str = "nextengine.input-context.gameplay";
 pub const CORE_GAMEPLAY_CONTEXT_STACK_ID: &str = "nextengine.input-context-stack.gameplay";
 pub const CORE_UI_MENU_CONTEXT_ID: &str = "nextengine.input-context.ui-menu";
@@ -35,6 +37,7 @@ pub const CORE_UI_DIALOGUE_CONTEXT_ID: &str = "nextengine.input-context.ui-dialo
 pub const CORE_UI_DIALOGUE_CONTEXT_STACK_ID: &str = "nextengine.input-context-stack.ui-dialogue";
 pub const KEYBOARD_DEVICE_CLASS_ID: &str = "nextengine.input.keyboard";
 pub const MOUSE_DEVICE_CLASS_ID: &str = "nextengine.input.mouse";
+pub const GENERIC_CONTROLLER_DEVICE_CLASS_ID: &str = "nextengine.input.controller.generic";
 pub const KEYBOARD_W_CONTROL_PATH_ID: &str = "nextengine.input.keyboard.w";
 pub const KEYBOARD_A_CONTROL_PATH_ID: &str = "nextengine.input.keyboard.a";
 pub const KEYBOARD_S_CONTROL_PATH_ID: &str = "nextengine.input.keyboard.s";
@@ -52,6 +55,27 @@ pub const KEYBOARD_RIGHT_CONTROL_PATH_ID: &str = "nextengine.input.keyboard.righ
 pub const KEYBOARD_RETURN_CONTROL_PATH_ID: &str = "nextengine.input.keyboard.return";
 pub const KEYBOARD_ESCAPE_CONTROL_PATH_ID: &str = "nextengine.input.keyboard.escape";
 pub const MOUSE_DELTA_CONTROL_PATH_ID: &str = "nextengine.input.mouse.delta";
+pub const CONTROLLER_LEFT_STICK_CONTROL_PATH_ID: &str =
+    "nextengine.input.controller.generic.left-stick";
+pub const CONTROLLER_RIGHT_STICK_CONTROL_PATH_ID: &str =
+    "nextengine.input.controller.generic.right-stick";
+pub const CONTROLLER_DPAD_CONTROL_PATH_ID: &str = "nextengine.input.controller.generic.dpad";
+pub const CONTROLLER_LEFT_STICK_CLICK_CONTROL_PATH_ID: &str =
+    "nextengine.input.controller.generic.left-stick-click";
+pub const CONTROLLER_RIGHT_STICK_CLICK_CONTROL_PATH_ID: &str =
+    "nextengine.input.controller.generic.right-stick-click";
+pub const CONTROLLER_BUTTON_SOUTH_CONTROL_PATH_ID: &str =
+    "nextengine.input.controller.generic.button-south";
+pub const CONTROLLER_BUTTON_EAST_CONTROL_PATH_ID: &str =
+    "nextengine.input.controller.generic.button-east";
+pub const CONTROLLER_BUTTON_WEST_CONTROL_PATH_ID: &str =
+    "nextengine.input.controller.generic.button-west";
+pub const CONTROLLER_BUTTON_NORTH_CONTROL_PATH_ID: &str =
+    "nextengine.input.controller.generic.button-north";
+pub const CONTROLLER_LEFT_SHOULDER_CONTROL_PATH_ID: &str =
+    "nextengine.input.controller.generic.left-shoulder";
+pub const CONTROLLER_RIGHT_SHOULDER_CONTROL_PATH_ID: &str =
+    "nextengine.input.controller.generic.right-shoulder";
 pub const PLAYER_INTERACTION_SYSTEM_ID: &str = "nextengine.system.player-interaction";
 pub const MAX_PLAYER_ACTIONS_PER_FRAME: usize = 64;
 pub const MAX_ACTION_MAP_ACTIONS: usize = 64;

@@ -14,15 +14,15 @@ fn product_check_covers_npc_transition_replay_and_structural_fallbacks() {
     );
     assert_eq!(
         report.dialogue_node_id.as_str(),
-        "nextengine.reference.dialogue.accepted"
+        "nextengine.reference-alpha.dialogue.accepted"
     );
     assert_eq!(
         report.quest_state_id.as_str(),
-        "nextengine.reference.quest.active"
+        "nextengine.reference-alpha.quest.active"
     );
     assert_eq!(report.npc_player_trust, 7);
-    assert_eq!(report.npc_health, 75);
-    assert_eq!(report.player_health, 75);
+    assert_eq!(report.npc_health, 50);
+    assert_eq!(report.player_health, 50);
     assert_eq!(
         report.final_pose.translation_micrometres,
         [200_000, 900_000, 200_000]

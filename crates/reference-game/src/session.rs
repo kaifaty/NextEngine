@@ -22,6 +22,9 @@ use next_contracts::rpg::RPG_COMMAND_CAPABILITY_ID;
 
 use crate::{ReferenceGameError, build_reference_runtime_bootstrap};
 
+const WORLD_COLLISION_LAYER: u8 = 0;
+const WORLD_COLLISION_MASK: u64 = 1 << WORLD_COLLISION_LAYER;
+
 #[derive(Clone, Debug)]
 pub struct ReferenceGameSession {
     pub bootstrap: next_runtime::RuntimeBootstrapV3,
@@ -36,6 +39,7 @@ pub struct ReferenceGameSession {
     pub physics_body_id: PhysicsBodyIdV1,
     pub interactive_object_id: PersistentId,
     pub npc_character_id: PersistentId,
+    pub quest_giver_character_id: PersistentId,
     pub dialogue_id: PersistentId,
     pub quest_id: PersistentId,
     pub relationship_id: PersistentId,
@@ -159,7 +163,7 @@ pub fn build_reference_game_session_with_profile(
     let source_id = InputSourceId::from_bytes([0x52; 16]);
     let controller_id = PersistentId::from_bytes([0x53; 16]);
     let body_id = PersistentId::from_bytes([0x54; 16]);
-    let action_map = ActionMapManifestV1::core_keyboard_mouse_v1()?;
+    let action_map = ActionMapManifestV1::core_keyboard_mouse_controller_v1()?;
     let action_map_hash = action_map.content_hash;
     let context_stack = InputContextStackV1::gameplay_v1()?;
     let context_stack_hash = context_stack.content_hash;
@@ -185,6 +189,7 @@ pub fn build_reference_game_session_with_profile(
     };
     let interactive_object_id = PersistentId::from_bytes([0x58; 16]);
     let npc_character_id = PersistentId::from_bytes([0x59; 16]);
+    let quest_giver_character_id = PersistentId::from_bytes([0x64; 16]);
     let dialogue_id = PersistentId::from_bytes([0x5a; 16]);
     let quest_id = PersistentId::from_bytes([0x5b; 16]);
     let relationship_id = PersistentId::from_bytes([0x5c; 16]);
@@ -215,6 +220,7 @@ pub fn build_reference_game_session_with_profile(
         physics_body_id,
         interactive_object_id,
         npc_character_id,
+        quest_giver_character_id,
         dialogue_id,
         quest_id,
         relationship_id,
@@ -297,22 +303,14 @@ fn grounded_capsule_checkpoint(
         &material_id,
         [0, -100_000, 0],
         [10_000_000, 100_000, 10_000_000],
+        WORLD_COLLISION_LAYER,
+        WORLD_COLLISION_MASK,
     );
-    let wall_body_id = PhysicsBodyIdV1 {
+    let relay_body_id = PhysicsBodyIdV1 {
         subject_id: PersistentId::from_bytes([0x58; 16]),
         body_slot: 0,
     };
-    let wall_shape_id = PhysicsShapeIdV1 {
-        body_id: wall_body_id,
-        shape_slot: 0,
-    };
-    let wall = static_box_descriptor(
-        wall_body_id,
-        wall_shape_id,
-        &material_id,
-        [0, 900_000, 700_000],
-        [10_000_000, 10_000_000, 100_000],
-    );
+    let relay = relay_gate_descriptor(relay_body_id, &material_id);
     let pickup_proxy_body_id = PhysicsBodyIdV1 {
         subject_id: PersistentId::from_bytes([0x60; 16]),
         body_slot: 0,
@@ -327,6 +325,8 @@ fn grounded_capsule_checkpoint(
         &material_id,
         [0, 900_000, 700_000],
         [100_000, 900_000, 100_000],
+        WORLD_COLLISION_LAYER,
+        WORLD_COLLISION_MASK,
     );
     let npc_body_id = PhysicsBodyIdV1 {
         subject_id: PersistentId::from_bytes([0x59; 16]),
@@ -342,7 +342,66 @@ fn grounded_capsule_checkpoint(
         &material_id,
         [700_000, 900_000, 200_000],
         [100_000, 900_000, 100_000],
+        WORLD_COLLISION_LAYER,
+        WORLD_COLLISION_MASK,
     );
+    let quest_giver_body_id = PhysicsBodyIdV1 {
+        subject_id: PersistentId::from_bytes([0x64; 16]),
+        body_slot: 0,
+    };
+    let quest_giver_shape_id = PhysicsShapeIdV1 {
+        body_id: quest_giver_body_id,
+        shape_slot: 0,
+    };
+    let quest_giver = static_box_descriptor(
+        quest_giver_body_id,
+        quest_giver_shape_id,
+        &material_id,
+        [-500_000, 900_000, 0],
+        [100_000, 900_000, 100_000],
+        WORLD_COLLISION_LAYER,
+        WORLD_COLLISION_MASK,
+    );
+    // Four inset proxies match the four large authored rocks in the batched
+    // environment mesh. Each box stays inside the visible silhouette so a
+    // player can never collide with an invisible continuation.
+    let rock_boxes = [
+        (0x71, [-2_800_000, 520_000, -1_800_000]),
+        (0x72, [2_800_000, 520_000, -1_400_000]),
+        (0x73, [-3_000_000, 520_000, 2_500_000]),
+        (0x74, [3_000_000, 520_000, 2_800_000]),
+    ]
+    .map(|(persistent_byte, translation)| {
+        let body_id = PhysicsBodyIdV1 {
+            subject_id: PersistentId::from_bytes([persistent_byte; 16]),
+            body_slot: 0,
+        };
+        let shape_id = PhysicsShapeIdV1 {
+            body_id,
+            shape_slot: 0,
+        };
+        (
+            body_id,
+            static_box_descriptor(
+                body_id,
+                shape_id,
+                &material_id,
+                translation,
+                [320_000, 500_000, 300_000],
+                WORLD_COLLISION_LAYER,
+                WORLD_COLLISION_MASK,
+            ),
+        )
+    });
+    let mut bodies = BTreeMap::from([
+        (capsule_body_id, capsule),
+        (floor_body_id, floor),
+        (relay_body_id, relay),
+        (pickup_proxy_body_id, pickup_proxy),
+        (npc_body_id, npc),
+        (quest_giver_body_id, quest_giver),
+    ]);
+    bodies.extend(rock_boxes);
     let catalog = PhysicsWorldCatalogV1::new(
         world_id,
         PhysicsWorldCatalogProfilesV1 {
@@ -354,13 +413,7 @@ fn grounded_capsule_checkpoint(
             quantization_hash: quantization.profile_hash()?,
         },
         BTreeMap::from([(material_id, material)]),
-        BTreeMap::from([
-            (capsule_body_id, capsule),
-            (floor_body_id, floor),
-            (wall_body_id, wall),
-            (pickup_proxy_body_id, pickup_proxy),
-            (npc_body_id, npc),
-        ]),
+        bodies,
         BTreeMap::from([(capsule_body_id.subject_id, capsule_body_id)]),
     )?;
     let snapshot = PhysicsCanonicalSnapshotV2::genesis(&catalog, tick_rate, numeric, quantization)?;
@@ -373,6 +426,8 @@ fn static_box_descriptor(
     material_id: &SchemaId,
     translation_micrometres: [i64; 3],
     half_extents_micrometres: [i64; 3],
+    collision_layer: u8,
+    collision_mask: u64,
 ) -> PhysicsBodyDescriptorV1 {
     PhysicsBodyDescriptorV1 {
         body_id,
@@ -387,19 +442,87 @@ fn static_box_descriptor(
         active: true,
         shapes: BTreeMap::from([(
             shape_id,
-            PhysicsShapeDescriptorV1 {
+            box_shape_descriptor(
                 shape_id,
-                descriptor_revision: 1,
-                local_pose: PhysicsPoseV1::default(),
-                geometry: PhysicsGeometryV1::Box {
-                    half_extents_micrometres,
-                },
-                material_id: material_id.clone(),
-                collision_layer: 0,
-                collision_mask: 1,
-                participation: PhysicsParticipationV1::Solid,
-                contact_reporting: PhysicsContactReportingV1::BeginPersistEnd,
-            },
+                material_id,
+                [0; 3],
+                half_extents_micrometres,
+                collision_layer,
+                collision_mask,
+            ),
         )]),
+    }
+}
+
+fn relay_gate_descriptor(
+    body_id: PhysicsBodyIdV1,
+    material_id: &SchemaId,
+) -> PhysicsBodyDescriptorV1 {
+    let shape = |shape_slot, local_translation, half_extents_micrometres| {
+        let shape_id = PhysicsShapeIdV1 {
+            body_id,
+            shape_slot,
+        };
+        (
+            shape_id,
+            box_shape_descriptor(
+                shape_id,
+                material_id,
+                local_translation,
+                half_extents_micrometres,
+                WORLD_COLLISION_LAYER,
+                WORLD_COLLISION_MASK,
+            ),
+        )
+    };
+    PhysicsBodyDescriptorV1 {
+        body_id,
+        descriptor_revision: 1,
+        motion_kind: PhysicsMotionKindV1::Static,
+        initial_pose: PhysicsPoseV1 {
+            translation_micrometres: [0, 900_000, 700_000],
+            ..PhysicsPoseV1::default()
+        },
+        initial_linear_velocity_micrometres_per_second: [0; 3],
+        initial_angular_velocity_q16: [0; 3],
+        active: true,
+        // These four boxes match the authored relay mesh: two pillars, the
+        // top beam and the central switch. The former single 20-metre-wide
+        // test wall extended far beyond every visible surface.
+        shapes: BTreeMap::from([
+            shape(0, [-1_425_000, 225_000, 0], [175_000, 1_125_000, 180_000]),
+            shape(1, [1_425_000, 225_000, 0], [175_000, 1_125_000, 180_000]),
+            shape(2, [0, 1_250_000, 0], [1_600_000, 200_000, 200_000]),
+            // Keep the switch collider well inside the visible 600-mm depth.
+            // Its front face matches the pickup proxy at z=600 mm, preserving
+            // the physical-contact proof required by the pickup transaction.
+            shape(3, [0, -300_000, 0], [320_000, 600_000, 100_000]),
+        ]),
+    }
+}
+
+fn box_shape_descriptor(
+    shape_id: PhysicsShapeIdV1,
+    material_id: &SchemaId,
+    local_translation: [i64; 3],
+    half_extents_micrometres: [i64; 3],
+    collision_layer: u8,
+    collision_mask: u64,
+) -> PhysicsShapeDescriptorV1 {
+    PhysicsShapeDescriptorV1 {
+        shape_id,
+        descriptor_revision: 1,
+        local_pose: PhysicsPoseV1 {
+            translation_micrometres: local_translation,
+            ..PhysicsPoseV1::default()
+        },
+        geometry: PhysicsGeometryV1::Box {
+            half_extents_micrometres,
+        },
+        material_id: material_id.clone(),
+        collision_layer,
+        collision_mask,
+        participation: PhysicsParticipationV1::Solid,
+        contact_reporting: PhysicsContactReportingV1::BeginPersistEnd,
     }
 }

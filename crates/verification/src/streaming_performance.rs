@@ -307,6 +307,7 @@ mod tests {
 
     #[test]
     fn explicit_preparation_preserves_the_legacy_result() {
+        let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
         let scratch = std::env::temp_dir();
         let legacy = run_streaming_performance_check_in(&scratch).expect("legacy workload");
         let mut prepared =
@@ -327,6 +328,7 @@ mod tests {
 
     #[test]
     fn prepared_workload_is_single_use_and_cleans_up() {
+        let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
         let mut prepared = prepare_streaming_performance_check_in(&std::env::temp_dir())
             .expect("prepared workload");
         let path = prepared.directory.path().to_path_buf();
@@ -342,6 +344,7 @@ mod tests {
 
     #[test]
     fn finish_rejects_foreign_measurement_and_cleans_both_preparations() {
+        let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
         let mut source = prepare_streaming_performance_check_in(&std::env::temp_dir())
             .expect("source preparation");
         let source_path = source.directory.path().to_path_buf();

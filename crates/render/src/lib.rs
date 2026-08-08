@@ -21,7 +21,8 @@ pub const B0_MAX_INDEXED_DRAWS_PER_FRAME: u32 = 65_536;
 const B0_FRAME_PLAN_HASH_DOMAIN: &str = "nextengine.render-frame-plan.b0.v1";
 const B0_FRAME_PLAN_HASH_BASE_HEADER_BYTES: usize = 89;
 const B0_FRAME_PLAN_HASH_CAMERA_BYTES: usize = 257;
-const B0_FRAME_PLAN_HASH_DRAW_BYTES: usize = 185;
+const B0_FRAME_PLAN_HASH_DRAW_BYTES: usize = 186;
+const B0_PRESENTATION_INDICATOR_LAYER_START: u16 = 240;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RenderTargetV1 {
@@ -54,6 +55,7 @@ pub struct B0IndexedDrawV1 {
     pub transform: QuantizedPresentationTransformV1,
     pub base_color_rgba_unorm16: [u16; 4],
     pub fallback_material: bool,
+    pub casts_shadow: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -213,14 +215,13 @@ fn build_b0_frame_plan_parts(
     let fallback_material = catalog
         .material(fallback_revision)
         .ok_or(RenderDeviceError::FallbackMaterialMissing)?;
-    let indexed_draw_count = preflight_b0_indexed_draw_count(snapshot, catalog)?;
-    let draw_capacity =
-        usize::try_from(indexed_draw_count).map_err(|_| RenderDeviceError::CountOverflow)?;
     draws.clear();
+    let scene_record_capacity = snapshot.scene_records().count();
     draws
-        .try_reserve_exact(draw_capacity)
+        .try_reserve_exact(scene_record_capacity)
         .map_err(|_| RenderDeviceError::FramePlanAllocationFailed)?;
     let mut visible_object_count = 0_u32;
+    let mut indexed_draw_count = 0_u32;
     let mut fallback_material_draw_count = 0_u32;
 
     for record in snapshot.scene_records().filter(|record| record.visible) {
@@ -233,6 +234,16 @@ fn build_b0_frame_plan_parts(
         if mesh.bounds() != record.local_bounds {
             return Err(RenderDeviceError::PresentationBoundsMismatch);
         }
+        let primitive_count =
+            u64::try_from(mesh.primitives().len()).map_err(|_| RenderDeviceError::CountOverflow)?;
+        indexed_draw_count = validate_b0_indexed_draw_budget(
+            u64::from(indexed_draw_count)
+                .checked_add(primitive_count)
+                .ok_or(RenderDeviceError::CountOverflow)?,
+        )?;
+        draws
+            .try_reserve(mesh.primitives().len())
+            .map_err(|_| RenderDeviceError::FramePlanAllocationFailed)?;
         let (material_revision, material, used_fallback) = catalog
             .material(record.material_revision)
             .map_or((fallback_revision, fallback_material, true), |material| {
@@ -275,11 +286,12 @@ fn build_b0_frame_plan_parts(
                 transform: record.current_transform,
                 base_color_rgba_unorm16: material.base_color_rgba_unorm16(),
                 fallback_material: used_fallback,
+                casts_shadow: record.presentation_layer < B0_PRESENTATION_INDICATOR_LAYER_START,
             });
         }
     }
 
-    debug_assert_eq!(draws.len(), draw_capacity);
+    debug_assert_eq!(u32::try_from(draws.len()).ok(), Some(indexed_draw_count));
     let frame_plan_hash = frame_plan_hash(
         B0FramePlanHashInputV1 {
             snapshot_hash: snapshot.canonical_hash,
@@ -330,27 +342,6 @@ fn select_b0_camera(
         cut: camera.cut,
         interpolation_policy: camera.interpolation_policy,
     }))
-}
-
-fn preflight_b0_indexed_draw_count(
-    snapshot: &PresentationSnapshotV2,
-    catalog: &RenderContentCatalogV1,
-) -> Result<u32, RenderDeviceError> {
-    let mut draw_count = 0_u64;
-    for record in snapshot.scene_records().filter(|record| record.visible) {
-        if record.feature_flags != ScenePresentationFlagsV1::NONE {
-            return Err(RenderDeviceError::UnsupportedSceneFeature);
-        }
-        let mesh = catalog
-            .mesh(record.mesh_revision)
-            .ok_or(RenderDeviceError::MeshRevisionMissing)?;
-        let primitive_count =
-            u64::try_from(mesh.primitives().len()).map_err(|_| RenderDeviceError::CountOverflow)?;
-        draw_count = draw_count
-            .checked_add(primitive_count)
-            .ok_or(RenderDeviceError::CountOverflow)?;
-    }
-    validate_b0_indexed_draw_budget(draw_count)
 }
 
 fn validate_b0_indexed_draw_budget(requested: u64) -> Result<u32, RenderDeviceError> {
@@ -438,6 +429,7 @@ fn frame_plan_hash(
         preimage.extend_from_slice(&draw.first_index.to_le_bytes());
         preimage.extend_from_slice(&draw.index_count.to_le_bytes());
         preimage.push(u8::from(draw.fallback_material));
+        preimage.push(u8::from(draw.casts_shadow));
     }
     debug_assert_eq!(preimage.len(), preimage_len);
     Ok(content_hash_from_bytes(sha256(preimage)))

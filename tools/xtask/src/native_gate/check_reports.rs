@@ -284,12 +284,13 @@ fn parse_check_report(
                     "performance allocator counter is present on a non-admitted target",
                 ));
             }
-            run.validate_allocator_counter().map_err(|diagnostics| {
-                report_invalid(format!(
-                    "performance allocator counter is invalid: {}",
-                    diagnostics.join(", ")
-                ))
-            })?;
+            run.validate_optional_allocator_counter()
+                .map_err(|diagnostics| {
+                    report_invalid(format!(
+                        "performance allocator counter is invalid: {}",
+                        diagnostics.join(", ")
+                    ))
+                })?;
             run.instrumentation.validate().map_err(|diagnostic| {
                 report_invalid(format!(
                     "performance instrumentation is invalid: {diagnostic}"
@@ -416,7 +417,7 @@ fn parse_check_report(
 }
 
 fn validate_native_performance_environment(
-    run: &crate::performance::PerformanceRunV2,
+    run: &crate::performance::PerformanceRunV3,
     expected_target: &str,
 ) -> Result<(), NativeGateComparisonError> {
     if !run.diagnostics.is_empty() {

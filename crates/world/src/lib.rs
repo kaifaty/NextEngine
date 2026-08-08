@@ -591,8 +591,7 @@ mod tests {
     #[test]
     fn worker_permutations_produce_the_same_atomic_transition() {
         let project = fixture_project("permutations");
-        let initial = SchemaId::new("nextengine.reference.chunk.start").expect("initial");
-        let target = SchemaId::new("nextengine.reference.chunk.frontier").expect("target");
+        let (initial, target) = first_two_chunk_ids(&project);
         let mut forward =
             WorldStreamerV1::activate(project.clone(), initial.clone()).expect("activate");
         let plan = forward
@@ -626,8 +625,7 @@ mod tests {
     #[test]
     fn transition_round_trip_preserves_generation_and_unloads_previous_chunk() {
         let project = fixture_project("round-trip");
-        let start = SchemaId::new("nextengine.reference.chunk.start").expect("start");
-        let frontier = SchemaId::new("nextengine.reference.chunk.frontier").expect("frontier");
+        let (start, frontier) = first_two_chunk_ids(&project);
         let mut streamer = WorldStreamerV1::activate(project, start.clone()).expect("activate");
         execute_transition(&mut streamer, frontier, 10);
         execute_transition(&mut streamer, start.clone(), 20);
@@ -648,8 +646,7 @@ mod tests {
     #[test]
     fn save_restore_reconstructs_pending_transition_without_worker_state() {
         let project = fixture_project("restore");
-        let start = SchemaId::new("nextengine.reference.chunk.start").expect("start");
-        let frontier = SchemaId::new("nextengine.reference.chunk.frontier").expect("frontier");
+        let (start, frontier) = first_two_chunk_ids(&project);
         let mut streamer = WorldStreamerV1::activate(project.clone(), start).expect("activate");
         let plan = streamer
             .begin_transition(frontier.clone(), 31)
@@ -673,8 +670,7 @@ mod tests {
     #[test]
     fn corrupt_collision_and_publication_fault_leave_previous_generation_intact() {
         let project = fixture_project("faults");
-        let start = SchemaId::new("nextengine.reference.chunk.start").expect("start");
-        let frontier = SchemaId::new("nextengine.reference.chunk.frontier").expect("frontier");
+        let (start, frontier) = first_two_chunk_ids(&project);
         let mut streamer = WorldStreamerV1::activate(project, start).expect("activate");
         let plan = streamer.begin_transition(frontier, 42).expect("begin");
         let order = plan.ordered_required_asset_ids.clone();
@@ -734,5 +730,13 @@ mod tests {
         let project = activate_project(&store).expect("activate project");
         std::fs::remove_dir_all(root).expect("remove fixture");
         project
+    }
+
+    fn first_two_chunk_ids(project: &ActivatedProjectV2) -> (SchemaId, SchemaId) {
+        let chunks = &project.world_partition.body.chunk_bindings;
+        (
+            chunks.first().expect("initial chunk").chunk_id.clone(),
+            chunks.get(1).expect("transition chunk").chunk_id.clone(),
+        )
     }
 }

@@ -10,12 +10,13 @@
 
 use next_contracts::ids::ContentHash;
 use next_contracts::presentation::{
-    SemanticUiPresentationRecordV1, UiElementRoleV1, UiElementValueV1, UiStyleRoleV1,
+    SemanticUiPresentationRecordV1, UiAccessibilityRoleV1, UiElementRoleV1, UiElementValueV1,
+    UiStyleRoleV1,
 };
 use next_contracts::project::domain_hash;
 
 use crate::text::TextCatalogResolverV1;
-use crate::ui_font::{UI_OVERLAY_GLYPH_HEIGHT, UI_OVERLAY_GLYPH_WIDTH, ui_overlay_glyph_rows};
+use crate::ui_font::{UI_OVERLAY_GLYPH_HEIGHT, UI_OVERLAY_GLYPH_WIDTH, ui_overlay_glyph_alpha};
 
 pub const UI_OVERLAY_TEXT_SCALE: u32 = 2;
 pub const UI_OVERLAY_TEXT_SCALE_MIN: u32 = 1;
@@ -25,13 +26,21 @@ const MARGIN: u32 = 8;
 const PANEL_PADDING: u32 = 4;
 const METER_BAR_CELLS: u32 = 16;
 const LIST_ITEM_INDENT_CELLS: u32 = 1;
+const PAUSE_MENU_SURFACE_ID: &str = "nextengine.ui.surface.pause-menu";
+const DIALOGUE_SURFACE_ID: &str = "nextengine.ui.surface.dialogue";
+const INVENTORY_SURFACE_ID: &str = "nextengine.ui.surface.inventory";
+const JOURNAL_SURFACE_ID: &str = "nextengine.ui.surface.quest-journal";
+const PAUSE_RESUME_ELEMENT_ID: &str = "nextengine.ui.element.pause-menu.resume";
+const PAUSE_SAVE_ELEMENT_ID: &str = "nextengine.ui.element.pause-menu.save";
+const PAUSE_LOAD_ELEMENT_ID: &str = "nextengine.ui.element.pause-menu.load";
+const DIALOGUE_NODE_ELEMENT_ID: &str = "nextengine.ui.element.dialogue.node-text";
+const DIALOGUE_ACCEPT_ELEMENT_ID: &str = "nextengine.ui.element.dialogue.choice-accept";
+const DIALOGUE_LEAVE_ELEMENT_ID: &str = "nextengine.ui.element.dialogue.choice-leave";
 
-/// Layout metrics derived from the requested integer text scale. The scale is
-/// clamped defensively so an out-of-contract caller cannot produce a zero or
-/// runaway cell size.
 #[derive(Clone, Copy)]
 struct OverlayLayout {
-    cell: u32,
+    glyph_width: u32,
+    line_height: u32,
     meter_bar_height: u32,
 }
 
@@ -39,15 +48,32 @@ impl OverlayLayout {
     fn new(text_scale: u32) -> Self {
         let scale = text_scale.clamp(UI_OVERLAY_TEXT_SCALE_MIN, UI_OVERLAY_TEXT_SCALE_MAX);
         Self {
-            cell: UI_OVERLAY_GLYPH_WIDTH.saturating_mul(scale),
+            glyph_width: UI_OVERLAY_GLYPH_WIDTH.saturating_mul(scale),
+            line_height: UI_OVERLAY_GLYPH_HEIGHT.saturating_mul(scale),
             meter_bar_height: UI_OVERLAY_GLYPH_HEIGHT.saturating_mul(scale) / 2,
         }
     }
 }
 
-const PANEL_BACKGROUND: [u8; 4] = [12, 14, 20, 160];
-const SELECTED_BACKGROUND: [u8; 4] = [54, 84, 130, 190];
-const METER_TRACK: [u8; 4] = [48, 52, 60, 220];
+const PANEL_BACKGROUND: [u8; 4] = [12, 16, 24, 218];
+const PANEL_BORDER: [u8; 4] = [76, 96, 124, 232];
+const SELECTED_BACKGROUND: [u8; 4] = [45, 76, 118, 232];
+const METER_TRACK: [u8; 4] = [38, 44, 56, 240];
+
+#[derive(Clone, Copy)]
+enum OverlayAnchor {
+    TopLeft,
+    TopRight,
+    Center,
+}
+
+fn surface_anchor(surface_id: &str) -> OverlayAnchor {
+    match surface_id {
+        PAUSE_MENU_SURFACE_ID | DIALOGUE_SURFACE_ID => OverlayAnchor::Center,
+        INVENTORY_SURFACE_ID | JOURNAL_SURFACE_ID => OverlayAnchor::TopRight,
+        _ => OverlayAnchor::TopLeft,
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UiOverlayImageV1 {
@@ -57,8 +83,7 @@ pub struct UiOverlayImageV1 {
 }
 
 impl UiOverlayImageV1 {
-    /// Stable content identity over dimensions and pixels. Adapters use it as
-    /// an upload-cache key; tests use it as deterministic golden evidence.
+    /// Stable content identity over dimensions and pixels.
     #[must_use]
     pub fn content_hash(&self) -> ContentHash {
         let mut preimage = Vec::with_capacity(8_usize.saturating_add(self.rgba.len()));
@@ -69,16 +94,8 @@ impl UiOverlayImageV1 {
     }
 }
 
-/// Rasterizes one publication's semantic UI records into a transparent RGBA
-/// overlay sized to the render target.
-///
-/// Records are re-sorted into canonical (surface, panel, element) order so
-/// the projection is self-sufficient. Invisible elements are skipped,
-/// disabled elements render dimmed, and a selected row carries a highlight.
-/// `text_scale` is the integer glyph scale from the local preference profile
-/// (clamped to `UI_OVERLAY_TEXT_SCALE_MIN..=MAX`); it changes only pixels,
-/// never gameplay or replay data. Returns `None` when there is nothing to
-/// composite.
+/// Rasterizes semantic UI into a transparent target-sized RGBA overlay.
+/// Invisible elements are skipped; local text scale changes only pixels.
 #[must_use]
 pub fn rasterize_semantic_ui(
     records: &[SemanticUiPresentationRecordV1],
@@ -114,8 +131,8 @@ pub fn rasterize_semantic_ui(
         height,
         rgba: vec![0_u8; pixel_count],
     };
-    let mut cursor_y = MARGIN;
-    let mut previous_surface: Option<&next_contracts::ids::SchemaId> = None;
+    let mut left_cursor_y = MARGIN;
+    let mut right_cursor_y = MARGIN;
     let mut panel_start = 0_usize;
     let mut any_drawn = false;
     while panel_start < ordered.len() {
@@ -128,17 +145,18 @@ pub fn rasterize_semantic_ui(
         {
             panel_end += 1;
         }
-        if previous_surface.is_some_and(|previous| previous != surface_id) {
-            cursor_y = cursor_y.saturating_add(layout.cell);
-        }
-        previous_surface = Some(surface_id);
+        let anchor = surface_anchor(surface_id.as_str());
+        let cursor_y = match anchor {
+            OverlayAnchor::TopLeft | OverlayAnchor::Center => &mut left_cursor_y,
+            OverlayAnchor::TopRight => &mut right_cursor_y,
+        };
         any_drawn |= rasterize_panel(
             &mut image,
             &ordered[panel_start..panel_end],
             resolver,
             &layout,
-            MARGIN,
-            &mut cursor_y,
+            anchor,
+            cursor_y,
         );
         panel_start = panel_end;
     }
@@ -150,10 +168,15 @@ fn rasterize_panel(
     panel: &[&SemanticUiPresentationRecordV1],
     resolver: &TextCatalogResolverV1,
     layout: &OverlayLayout,
-    origin_x: u32,
+    anchor: OverlayAnchor,
     cursor_y: &mut u32,
 ) -> bool {
-    let rows: Vec<OverlayRow> = panel
+    let mut display_records = panel.to_vec();
+    display_records.sort_by(|left, right| {
+        (overlay_record_rank(left), &left.element.element_id)
+            .cmp(&(overlay_record_rank(right), &right.element.element_id))
+    });
+    let rows: Vec<OverlayRow> = display_records
         .iter()
         .flat_map(|record| overlay_rows(record, resolver))
         .collect();
@@ -166,21 +189,68 @@ fn rasterize_panel(
         .max()
         .unwrap_or_default();
     let content_height: u32 = rows.iter().map(|row| row.height(layout)).sum();
+    let panel_width = content_width.saturating_add(PANEL_PADDING.saturating_mul(2));
+    let panel_height = content_height.saturating_add(PANEL_PADDING.saturating_mul(2));
+    let panel_x = match anchor {
+        OverlayAnchor::TopLeft => MARGIN.saturating_sub(PANEL_PADDING),
+        OverlayAnchor::TopRight => image
+            .width
+            .saturating_sub(MARGIN)
+            .saturating_sub(panel_width),
+        OverlayAnchor::Center => image.width.saturating_sub(panel_width) / 2,
+    };
+    let panel_y = match anchor {
+        OverlayAnchor::Center => image.height.saturating_sub(panel_height) / 2,
+        OverlayAnchor::TopLeft | OverlayAnchor::TopRight => cursor_y.saturating_sub(PANEL_PADDING),
+    };
+    let origin_x = panel_x.saturating_add(PANEL_PADDING);
+    let origin_y = panel_y.saturating_add(PANEL_PADDING);
     fill_rect(
         image,
-        origin_x.saturating_sub(PANEL_PADDING),
-        cursor_y.saturating_sub(PANEL_PADDING),
-        content_width.saturating_add(PANEL_PADDING.saturating_mul(2)),
-        content_height.saturating_add(PANEL_PADDING.saturating_mul(2)),
+        panel_x,
+        panel_y,
+        panel_width,
+        panel_height,
         PANEL_BACKGROUND,
     );
-    let mut row_y = *cursor_y;
+    stroke_rect(
+        image,
+        panel_x,
+        panel_y,
+        panel_width,
+        panel_height,
+        PANEL_BORDER,
+    );
+    let mut row_y = origin_y;
     for row in &rows {
         row.rasterize(image, layout, origin_x, row_y, content_width);
         row_y = row_y.saturating_add(row.height(layout));
     }
-    *cursor_y = row_y.saturating_add(layout.cell);
+    if !matches!(anchor, OverlayAnchor::Center) {
+        *cursor_y = panel_y
+            .saturating_add(panel_height)
+            .saturating_add(layout.line_height);
+    }
     true
+}
+
+fn overlay_record_rank(record: &SemanticUiPresentationRecordV1) -> u8 {
+    if record.element.accessibility_role == UiAccessibilityRoleV1::Heading {
+        return 0;
+    }
+    match record.element.element_id.as_str() {
+        PAUSE_RESUME_ELEMENT_ID => 10,
+        PAUSE_SAVE_ELEMENT_ID => 11,
+        PAUSE_LOAD_ELEMENT_ID => 12,
+        DIALOGUE_NODE_ELEMENT_ID => 10,
+        DIALOGUE_ACCEPT_ELEMENT_ID => 11,
+        DIALOGUE_LEAVE_ELEMENT_ID => 12,
+        _ => match record.element.role {
+            UiElementRoleV1::Meter => 10,
+            UiElementRoleV1::Subtitle => 250,
+            _ => 20,
+        },
+    }
 }
 
 enum OverlayRow {
@@ -204,14 +274,14 @@ impl OverlayRow {
                 text, indent_cells, ..
             } => indent_cells
                 .saturating_add(u32::try_from(text.chars().count()).unwrap_or(u32::MAX))
-                .saturating_mul(layout.cell),
-            Self::MeterBar { .. } => METER_BAR_CELLS.saturating_mul(layout.cell),
+                .saturating_mul(layout.glyph_width),
+            Self::MeterBar { .. } => METER_BAR_CELLS.saturating_mul(layout.glyph_width),
         }
     }
 
     const fn height(&self, layout: &OverlayLayout) -> u32 {
         match self {
-            Self::Text { .. } => layout.cell,
+            Self::Text { .. } => layout.line_height,
             Self::MeterBar { .. } => layout.meter_bar_height,
         }
     }
@@ -237,14 +307,22 @@ impl OverlayRow {
                         origin_x,
                         row_y,
                         width,
-                        layout.cell,
+                        layout.line_height,
                         SELECTED_BACKGROUND,
+                    );
+                    fill_rect(
+                        image,
+                        origin_x,
+                        row_y,
+                        (layout.glyph_width / 4).max(2),
+                        layout.line_height,
+                        *color,
                     );
                 }
                 draw_text(
                     image,
                     layout,
-                    origin_x.saturating_add(indent_cells.saturating_mul(layout.cell)),
+                    origin_x.saturating_add(indent_cells.saturating_mul(layout.glyph_width)),
                     row_y,
                     text,
                     *color,
@@ -255,7 +333,7 @@ impl OverlayRow {
                 maximum,
                 color,
             } => {
-                let bar_width = METER_BAR_CELLS.saturating_mul(layout.cell);
+                let bar_width = METER_BAR_CELLS.saturating_mul(layout.glyph_width);
                 fill_rect(
                     image,
                     origin_x,
@@ -363,14 +441,14 @@ fn draw_text(
         let glyph_x = origin_x.saturating_add(
             u32::try_from(index)
                 .unwrap_or(u32::MAX)
-                .saturating_mul(layout.cell),
+                .saturating_mul(layout.glyph_width),
         );
         draw_glyph(
             image,
             layout,
             glyph_x,
             origin_y,
-            ui_overlay_glyph_rows(glyph),
+            ui_overlay_glyph_alpha(glyph),
             color,
         );
     }
@@ -381,24 +459,26 @@ fn draw_glyph(
     layout: &OverlayLayout,
     origin_x: u32,
     origin_y: u32,
-    rows: [u8; 8],
+    alpha: [u8; (UI_OVERLAY_GLYPH_WIDTH * UI_OVERLAY_GLYPH_HEIGHT) as usize],
     color: [u8; 4],
 ) {
-    let scale = layout.cell / UI_OVERLAY_GLYPH_WIDTH;
-    for (row_index, row) in rows.iter().enumerate() {
+    let scale = layout.glyph_width / UI_OVERLAY_GLYPH_WIDTH;
+    for row in 0..UI_OVERLAY_GLYPH_HEIGHT {
         for column in 0..UI_OVERLAY_GLYPH_WIDTH {
-            if row & (1_u8 << column) != 0 {
+            let index = usize::try_from(row * UI_OVERLAY_GLYPH_WIDTH + column)
+                .expect("glyph alpha index fits usize");
+            let coverage = alpha[index];
+            if coverage != 0 {
+                let mut pixel_color = color;
+                pixel_color[3] =
+                    ((u16::from(pixel_color[3]) * u16::from(coverage) + 127) / 255) as u8;
                 fill_rect(
                     image,
                     origin_x.saturating_add(column.saturating_mul(scale)),
-                    origin_y.saturating_add(
-                        u32::try_from(row_index)
-                            .unwrap_or(UI_OVERLAY_GLYPH_HEIGHT)
-                            .saturating_mul(scale),
-                    ),
+                    origin_y.saturating_add(row.saturating_mul(scale)),
                     scale,
                     scale,
-                    color,
+                    pixel_color,
                 );
             }
         }
@@ -430,6 +510,37 @@ fn fill_rect(
             }
         }
     }
+}
+
+fn stroke_rect(
+    image: &mut UiOverlayImageV1,
+    origin_x: u32,
+    origin_y: u32,
+    width: u32,
+    height: u32,
+    color: [u8; 4],
+) {
+    if width == 0 || height == 0 {
+        return;
+    }
+    fill_rect(image, origin_x, origin_y, width, 1, color);
+    fill_rect(
+        image,
+        origin_x,
+        origin_y.saturating_add(height.saturating_sub(1)),
+        width,
+        1,
+        color,
+    );
+    fill_rect(image, origin_x, origin_y, 1, height, color);
+    fill_rect(
+        image,
+        origin_x.saturating_add(width.saturating_sub(1)),
+        origin_y,
+        1,
+        height,
+        color,
+    );
 }
 
 fn blend_source_over(destination: &mut [u8], source: [u8; 4]) {
@@ -539,6 +650,11 @@ mod tests {
                     ("state-active", "Active"),
                     ("title", "Paused"),
                     ("resume", "Resume"),
+                    ("save", "Save game"),
+                    ("load", "Load game"),
+                    ("inventory", "Inventory - Relay blade x1"),
+                    ("dialogue", "Relay keeper: Restore the relay?"),
+                    ("accept", "Accept"),
                 ],
             ),
             catalog(
@@ -657,7 +773,7 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(
             first.content_hash().to_hex(),
-            "d3e6d0008fa730a7ce6406397f3c74367af4f71a7e6cfc3abc68d5eb6422f03a"
+            "ba21bf59fe1c9406e91f8b2a01bb05b8a8bac6ac96d25b4ed2b9da11b05a2189"
         );
     }
 
@@ -693,9 +809,10 @@ mod tests {
         .expect("image");
         // The bar band sits directly below the first text row; only the
         // opaque fill reaches alpha 255 over the translucent panel.
-        let cell = UI_OVERLAY_GLYPH_WIDTH * UI_OVERLAY_TEXT_SCALE;
+        let glyph_width = UI_OVERLAY_GLYPH_WIDTH * UI_OVERLAY_TEXT_SCALE;
+        let line_height = UI_OVERLAY_GLYPH_HEIGHT * UI_OVERLAY_TEXT_SCALE;
         let meter_bar_height = UI_OVERLAY_GLYPH_HEIGHT * UI_OVERLAY_TEXT_SCALE / 2;
-        let band_y = MARGIN + cell;
+        let band_y = MARGIN + line_height;
         let mut opaque = 0_u32;
         for y in band_y..band_y + meter_bar_height {
             for x in 0..image.width {
@@ -705,7 +822,7 @@ mod tests {
                 }
             }
         }
-        let expected_fill = METER_BAR_CELLS * cell * 37 / 100;
+        let expected_fill = METER_BAR_CELLS * glyph_width * 37 / 100;
         assert_eq!(opaque, expected_fill * meter_bar_height);
 
         let fuller = rasterize_semantic_ui(
@@ -849,45 +966,5 @@ mod tests {
         );
     }
 
-    #[test]
-    fn pause_menu_scenario_is_golden() {
-        let resolver = resolver();
-        let mut records = hud_records(37);
-        records.push(record(
-            "nextengine.ui.surface.pause-menu",
-            "nextengine.ui.panel.pause-menu.root",
-            "nextengine.ui.element.pause-menu.title",
-            UiElementRoleV1::Label,
-            UiStyleRoleV1::Default,
-            true,
-            true,
-            false,
-            Some(text_ref("title", Vec::new())),
-            UiElementValueV1::None,
-        ));
-        records.push(record(
-            "nextengine.ui.surface.pause-menu",
-            "nextengine.ui.panel.pause-menu.root",
-            "nextengine.ui.element.pause-menu.resume",
-            UiElementRoleV1::Button,
-            UiStyleRoleV1::Accent,
-            true,
-            true,
-            true,
-            Some(text_ref("resume", Vec::new())),
-            UiElementValueV1::None,
-        ));
-        let image = rasterize_semantic_ui(
-            &records,
-            &resolver,
-            EXTENT.0,
-            EXTENT.1,
-            UI_OVERLAY_TEXT_SCALE,
-        )
-        .expect("image");
-        assert_eq!(
-            image.content_hash().to_hex(),
-            "169bf329638d3619ad29d16d86b6d27a261e794a83220da6e4e00ce294da3d12"
-        );
-    }
+    mod golden_tests;
 }

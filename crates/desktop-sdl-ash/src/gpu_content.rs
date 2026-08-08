@@ -1,5 +1,6 @@
 mod pipeline;
 mod resources;
+mod shadow;
 mod ui_overlay_gpu;
 
 use std::collections::BTreeMap;
@@ -20,12 +21,15 @@ use self::pipeline::{
     PipelineState, draw_push_constant_bytes, frame_raster_state, identity_matrix_bytes,
 };
 pub(crate) use self::resources::DepthAttachment;
-use self::resources::{BufferAllocation, DescriptorState, TextureResource, upload_content};
+use self::resources::{
+    BufferAllocation, DescriptorState, ShadowMap, TextureResource, upload_content,
+};
+use self::shadow::{ShadowPipelineState, initialize_shadow_map};
 pub(crate) use self::ui_overlay_gpu::UiOverlayState;
 
-const VERTEX_STRIDE: u32 = 20;
+const VERTEX_STRIDE: u32 = 28;
 const INDIRECT_COMMAND_STRIDE: u32 = 20;
-const FRAME_UNIFORM_SIZE: vk::DeviceSize = 64;
+const FRAME_UNIFORM_SIZE: vk::DeviceSize = 208;
 const DRAW_PUSH_CONSTANT_SIZE: u32 = 80;
 const MINIMUM_BUFFER_SIZE: vk::DeviceSize = 4;
 
@@ -87,9 +91,12 @@ impl From<RenderContentContractError> for B0GpuContentError {
 /// before descriptor layouts, descriptor sets before referenced images, and
 /// all children before the logical device that owns this value.
 pub(super) struct B0GpuContent {
+    sky_pipeline: PipelineState,
     pipeline: PipelineState,
+    shadow_pipeline: Option<ShadowPipelineState>,
     descriptors: DescriptorState,
     textures: BTreeMap<AssetRevisionRefV1, TextureResource>,
+    shadow_map: Option<ShadowMap>,
     indirect: BufferAllocation,
     frame_uniforms: Vec<BufferAllocation>,
     geometry: BufferAllocation,
@@ -195,19 +202,40 @@ impl B0GpuContent {
         }
         drop(staging);
 
-        let descriptors = DescriptorState::new(device, &frame_uniforms, &textures)?;
+        let shadow_map = ShadowMap::try_new(instance, physical_device, device)?;
+        if let Some(shadow) = shadow_map.as_ref() {
+            initialize_shadow_map(device, queue, queue_family_index, shadow)?;
+        } else {
+            eprintln!(
+                "next_game: SHADOW_MAP_FALLBACK: sampled depth format or 2048x2048 allocation unavailable"
+            );
+        }
+        let descriptors =
+            DescriptorState::new(device, &frame_uniforms, &textures, shadow_map.as_ref())?;
         let pipeline = PipelineState::new(
             device,
             color_format,
             depth_format,
             descriptors.frame_layout,
             descriptors.texture_layout,
+            descriptors.shadow_layout,
+            shadow_map.is_some(),
         )?;
+        let sky_pipeline = PipelineState::new_sky(device, color_format, depth_format)?;
+        let shadow_pipeline = shadow_map
+            .as_ref()
+            .map(|shadow| {
+                ShadowPipelineState::new(device, shadow.format(), descriptors.frame_layout)
+            })
+            .transpose()?;
 
         Ok(Self {
+            sky_pipeline,
             pipeline,
+            shadow_pipeline,
             descriptors,
             textures,
+            shadow_map,
             indirect,
             frame_uniforms,
             geometry,
@@ -305,6 +333,16 @@ impl B0GpuContent {
                 &frame_sets,
                 &[],
             );
+            if let Some(shadow_set) = self.descriptors.shadow_set {
+                self.geometry.device.cmd_bind_descriptor_sets(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.pipeline.layout,
+                    2,
+                    &[shadow_set],
+                    &[],
+                );
+            }
         }
 
         for draw in &plan.draws {
@@ -364,6 +402,49 @@ impl B0GpuContent {
         Ok(())
     }
 
+    /// Records a presentation-only fullscreen sky before opaque world draws.
+    pub(super) fn record_sky(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        extent: vk::Extent2D,
+    ) -> Result<(), B0GpuContentError> {
+        if extent.width == 0 || extent.height == 0 {
+            return Err(B0GpuContentError::InvalidFramePlan(
+                "sky extent must be non-zero",
+            ));
+        }
+        let viewports = [vk::Viewport {
+            x: 0.0,
+            y: 0.0,
+            width: extent.width as f32,
+            height: extent.height as f32,
+            min_depth: 0.0,
+            max_depth: 1.0,
+        }];
+        let scissors = [vk::Rect2D {
+            offset: vk::Offset2D { x: 0, y: 0 },
+            extent,
+        }];
+        // SAFETY: the pipeline belongs to the recording device, dynamic
+        // rendering is active, and the sky vertex shader synthesizes exactly
+        // three vertices from gl_VertexIndex without buffer access.
+        unsafe {
+            self.geometry.device.cmd_bind_pipeline(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.sky_pipeline.pipeline,
+            );
+            self.geometry
+                .device
+                .cmd_set_viewport(command_buffer, 0, &viewports);
+            self.geometry
+                .device
+                .cmd_set_scissor(command_buffer, 0, &scissors);
+            self.geometry.device.cmd_draw(command_buffer, 3, 1, 0, 0);
+        }
+        Ok(())
+    }
+
     pub(super) fn device_allocation_stats(&self) -> Result<(u64, u64), B0GpuContentError> {
         let mut bytes = self
             .geometry
@@ -380,6 +461,11 @@ impl B0GpuContent {
                 .checked_add(texture.allocation_size())
                 .ok_or(B0GpuContentError::CountOverflow)?;
         }
+        if let Some(shadow) = self.shadow_map.as_ref() {
+            bytes = bytes
+                .checked_add(shadow.allocation_size())
+                .ok_or(B0GpuContentError::CountOverflow)?;
+        }
         let texture_count =
             u64::try_from(self.textures.len()).map_err(|_| B0GpuContentError::CountOverflow)?;
         let frame_uniform_count = u64::try_from(self.frame_uniforms.len())
@@ -387,6 +473,7 @@ impl B0GpuContent {
         let allocation_count = 2_u64
             .checked_add(frame_uniform_count)
             .and_then(|value| value.checked_add(texture_count))
+            .and_then(|value| value.checked_add(u64::from(self.shadow_map.is_some())))
             .ok_or(B0GpuContentError::CountOverflow)?;
         Ok((bytes, allocation_count))
     }
@@ -440,13 +527,26 @@ impl PreparedContent {
                     "position and UV counts differ",
                 ));
             }
-            for (position, uv) in mesh.positions_micrometres().iter().zip(uv0) {
+            let normals = mesh.normals_snorm16();
+            if normals.is_some_and(|values| values.len() != mesh.positions_micrometres().len()) {
+                return Err(B0GpuContentError::InvalidCatalog(
+                    "position and normal counts differ",
+                ));
+            }
+            for (vertex_index, (position, uv)) in
+                mesh.positions_micrometres().iter().zip(uv0).enumerate()
+            {
                 for component in position {
                     push_f32(&mut vertex_bytes, *component as f32 / 1_000_000.0);
                 }
                 for component in uv {
                     push_f32(&mut vertex_bytes, *component as f32 / 65_536.0);
                 }
+                let normal = normals
+                    .and_then(|values| values.get(vertex_index))
+                    .copied()
+                    .unwrap_or([0, 0, 0]);
+                push_normal_snorm16(&mut vertex_bytes, normal);
             }
             for index in mesh.indices() {
                 index_bytes.extend_from_slice(&index.to_le_bytes());
@@ -563,6 +663,13 @@ fn push_f32(bytes: &mut Vec<u8>, value: f32) {
     bytes.extend_from_slice(&value.to_le_bytes());
 }
 
+fn push_normal_snorm16(bytes: &mut Vec<u8>, normal: [i16; 3]) {
+    for component in normal {
+        bytes.extend_from_slice(&component.to_le_bytes());
+    }
+    bytes.extend_from_slice(&0_i16.to_le_bytes());
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -579,5 +686,20 @@ mod tests {
             4
         );
         assert_eq!(bytes, vec![1, 2, 3, 0, 4, 5]);
+    }
+
+    #[test]
+    fn authored_and_fallback_normals_pack_into_exact_snorm16x4_vertices() {
+        let mut authored = Vec::new();
+        push_normal_snorm16(&mut authored, [i16::MIN + 1, i16::MAX, 17]);
+        assert_eq!(authored.len(), 8);
+        assert_eq!(&authored[0..2], &(i16::MIN + 1).to_le_bytes());
+        assert_eq!(&authored[2..4], &i16::MAX.to_le_bytes());
+        assert_eq!(&authored[4..6], &17_i16.to_le_bytes());
+        assert_eq!(&authored[6..8], &0_i16.to_le_bytes());
+
+        let mut fallback = Vec::new();
+        push_normal_snorm16(&mut fallback, [0; 3]);
+        assert_eq!(fallback, [0; 8]);
     }
 }

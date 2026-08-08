@@ -432,10 +432,21 @@ fn cooked_dialogue_uses_query_targeting_and_invalid_participant_closure_fails_ac
     );
     assert!(report.mapping_receipts[0].derived_command_id.is_some());
     assert!(!report.results.is_empty());
-    assert!(report.events.iter().any(|event| matches!(
-        event.payload,
-        EventPayload::Rpg(RpgEventV1::InteractiveObjectTransitioned { .. })
-    )));
+    assert_eq!(
+        report
+            .events
+            .iter()
+            .filter(|event| matches!(
+                event.payload,
+                EventPayload::Rpg(
+                    RpgEventV1::DialogueAdvanced { .. }
+                        | RpgEventV1::QuestTransitioned { .. }
+                        | RpgEventV1::RelationshipAdjusted { .. }
+                )
+            ))
+            .count(),
+        3
+    );
     assert_ne!(runtime.rpg_snapshot(), ready);
     assert_ne!(ledger_hash(&runtime), ledger_before);
 
@@ -468,83 +479,27 @@ fn cooked_dialogue_uses_query_targeting_and_invalid_participant_closure_fails_ac
 }
 
 #[test]
-fn nearest_query_switch_precedes_npc_then_dialogue_transition_is_one_shot() {
+fn nearest_query_selects_quest_giver_and_dialogue_transition_is_one_shot() {
     let fixture =
         build_neutral_player_fixture("nextengine.test.dialogue-tie-break").expect("fixture");
-    let entry_node = fixture
-        .activated_project
-        .rpg_definitions
-        .dialogues
-        .first()
-        .expect("dialogue definition")
-        .entry_node_id
-        .clone();
-    let mut rpg = cooked_project_rpg_snapshot(&fixture);
-    rpg.aggregates
-        .iter_mut()
-        .find(|aggregate| {
-            aggregate.aggregate_kind == RpgAggregateKindV1::InteractiveObject
-                && aggregate.persistent_id == fixture.interactive_object_id
-        })
-        .expect("fixture interactive object")
-        .persistent_id = fixture.npc_character_id;
-    let mut runtime =
-        RuntimeState::with_rpg_snapshot(fixture.bootstrap.clone(), fixture.authority.clone(), rpg)
-            .expect("runtime");
-    let movement = [
-        (PlayerActionPhaseV1::Started, [0, 32_767]),
-        (PlayerActionPhaseV1::Performed, [0, 32_767]),
-        (PlayerActionPhaseV1::Performed, [0, 32_767]),
-        (PlayerActionPhaseV1::Performed, [0, 32_767]),
-        (PlayerActionPhaseV1::Performed, [0, -32_767]),
-        (PlayerActionPhaseV1::Started, [32_767, 0]),
-        (PlayerActionPhaseV1::Performed, [32_767, 0]),
-        (PlayerActionPhaseV1::Performed, [32_767, 0]),
-    ];
-    for (sequence, (phase, direction)) in movement.into_iter().enumerate() {
-        let sequence = u64::try_from(sequence).expect("bounded test sequence");
-        runtime
-            .enqueue_input_sample(
-                &fixture.principal,
-                player_action_sample(&fixture, sequence, phase, direction, None)
-                    .expect("movement sample"),
-            )
-            .expect("enqueue movement");
-        let _ = runtime.run_tick([]).expect("movement tick");
-    }
+    let (accepted_node, _, _, _) = cooked_initial_interaction_outcome(&fixture);
+    let mut runtime = RuntimeState::with_rpg_snapshot(
+        fixture.bootstrap.clone(),
+        fixture.authority.clone(),
+        cooked_project_rpg_snapshot(&fixture),
+    )
+    .expect("runtime");
 
     runtime
         .enqueue_input_sample(
             &fixture.principal,
-            player_interact_sample(&fixture, 8, PlayerActionPhaseV1::Started, true, None)
+            player_interact_sample(&fixture, 0, PlayerActionPhaseV1::Started, true, None)
                 .expect("interaction sample"),
         )
         .expect("enqueue first interaction");
-    let switch = runtime
+    let dialogue = runtime
         .run_tick([])
-        .expect("nearest switch wins query order");
-    assert!(switch.events.iter().any(|event| matches!(
-        event.payload,
-        EventPayload::Rpg(RpgEventV1::InteractiveObjectTransitioned { .. })
-    )));
-    assert!(matches!(
-        aggregate_payload(
-            &runtime.rpg_snapshot(),
-            RpgAggregateKindV1::Dialogue,
-            fixture.dialogue_id,
-        ),
-        Some(RpgAggregatePayloadV1::Dialogue(dialogue))
-            if dialogue.node_id == entry_node
-    ));
-
-    runtime
-        .enqueue_input_sample(
-            &fixture.principal,
-            player_interact_sample(&fixture, 9, PlayerActionPhaseV1::Started, true, None)
-                .expect("interaction sample"),
-        )
-        .expect("enqueue dialogue interaction");
-    let dialogue = runtime.run_tick([]).expect("dialogue transition");
+        .expect("nearest quest giver wins query order");
     assert_eq!(
         dialogue
             .events
@@ -560,6 +515,15 @@ fn nearest_query_switch_precedes_npc_then_dialogue_transition_is_one_shot() {
             .count(),
         3
     );
+    assert!(matches!(
+        aggregate_payload(
+            &runtime.rpg_snapshot(),
+            RpgAggregateKindV1::Dialogue,
+            fixture.dialogue_id,
+        ),
+        Some(RpgAggregatePayloadV1::Dialogue(dialogue))
+            if dialogue.node_id == accepted_node
+    ));
 
     let checkpoint = runtime.world_checkpoint().expect("checkpoint");
     let mut restored = RuntimeState::restore_world_checkpoint_with_definitions(
@@ -573,7 +537,7 @@ fn nearest_query_switch_precedes_npc_then_dialogue_transition_is_one_shot() {
     restored
         .enqueue_input_sample(
             &fixture.principal,
-            player_interact_sample(&fixture, 9, PlayerActionPhaseV1::Started, true, Some(99))
+            player_interact_sample(&fixture, 0, PlayerActionPhaseV1::Started, true, Some(99))
                 .expect("retry interaction"),
         )
         .expect("enqueue retry");

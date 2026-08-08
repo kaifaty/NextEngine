@@ -663,6 +663,7 @@ version = "0.1.0"
 dependencies = [
  "next_assets",
  "next_contracts",
+ "next_desktop_sdl_ash",
  "next_player",
  "next_presentation",
  "next_project",
@@ -797,6 +798,8 @@ dependencies = [
  "next_assets",
  "next_contracts",
  "next_reference_game",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -809,6 +812,7 @@ dependencies = [
  "next_player",
  "next_presentation",
  "next_project",
+ "next_render",
  "next_runtime",
  "next_world",
 ]
@@ -1963,9 +1967,11 @@ dependencies = [
  "next_application",
  "next_assets",
  "next_contracts",
+ "next_presentation",
  "next_process_allocation_counter",
  "next_project",
  "next_reference_game",
+ "next_render",
  "next_verification",
  "serde",
  "serde_json",

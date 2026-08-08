@@ -9,26 +9,30 @@ pub use host::{
     finish_process_counters, inspect_current_host, inspect_process_counters,
     validate_thoth_fingerprint,
 };
+mod hard_evidence;
+mod legacy_v2;
 mod resource_counters;
 mod support;
+pub use legacy_v2::{PerformanceBaselineV2, PerformanceResourceCountersV2, PerformanceRunV2};
 pub use resource_counters::{
     PROCESS_ALLOCATION_COUNTER_ALLOCATOR, PROCESS_ALLOCATION_COUNTER_DEALLOCATION_SEMANTICS,
     PROCESS_ALLOCATION_COUNTER_METHODOLOGY_VERSION, PROCESS_ALLOCATION_COUNTER_SCHEMA_VERSION,
     PROCESS_ALLOCATION_COUNTER_SCOPE, PROCESS_ALLOCATION_COUNTER_SOURCE,
-    PerformanceResourceCountersV2, ProcessAllocationCounterInputV1, ProcessAllocationCounterV1,
+    PerformanceLogicalResourceChargesV1, PerformanceResourceCountersV3,
+    ProcessAllocationCounterInputV1, ProcessAllocationCounterV1,
 };
 use support::{bootstrap_change_interval, relative_change_basis_points, relative_verdict};
 pub use support::{methodology_for, sha256_hex};
 #[cfg(test)]
 mod tests;
 
-pub const PERFORMANCE_RUN_SCHEMA_VERSION: u32 = 2;
-pub const PERFORMANCE_BASELINE_SCHEMA_VERSION: u32 = 2;
-pub const PERFORMANCE_METHODOLOGY_VERSION: &str = "nextengine-performance-v2";
-pub const PERFORMANCE_REPORT_FILE_NAME: &str = "performance-report-v2.json";
-pub const PERFORMANCE_BASELINE_FILE_NAME: &str = "performance-baseline-v2.json";
-pub const PERFORMANCE_REPORT_TEMP_FILE_NAME: &str = ".performance-report-v2.json.tmp";
-pub const PERFORMANCE_BASELINE_TEMP_FILE_NAME: &str = ".performance-baseline-v2.json.tmp";
+pub const PERFORMANCE_RUN_SCHEMA_VERSION: u32 = 3;
+pub const PERFORMANCE_BASELINE_SCHEMA_VERSION: u32 = 3;
+pub const PERFORMANCE_METHODOLOGY_VERSION: &str = "nextengine-performance-v3";
+pub const PERFORMANCE_REPORT_FILE_NAME: &str = "performance-report-v3.json";
+pub const PERFORMANCE_BASELINE_FILE_NAME: &str = "performance-baseline-v3.json";
+pub const PERFORMANCE_REPORT_TEMP_FILE_NAME: &str = ".performance-report-v3.json.tmp";
+pub const PERFORMANCE_BASELINE_TEMP_FILE_NAME: &str = ".performance-baseline-v3.json.tmp";
 pub const PERFORMANCE_PINNED_RUSTC_RELEASE: &str = "1.93.0";
 pub const PERFORMANCE_PINNED_RUSTC_COMMIT_HASH: &str = "254b59607d4417e9dffbc307138ae5c86280fe4c";
 pub const PERFORMANCE_WINDOWS_TARGET_TRIPLE: &str = "x86_64-pc-windows-msvc";
@@ -91,10 +95,8 @@ impl PerformanceScenarioV1 {
             Self::Smoke
             | Self::LongSessionSoak
             | Self::InteractiveFrameSoak
-            | Self::ProductionWorkerSoak => None,
-            Self::R2AlphaRender => Some(
-                "R2_ALPHA_PROJECT_UNAVAILABLE: the representative alpha project and 60-second semantic action windows are not implemented",
-            ),
+            | Self::ProductionWorkerSoak
+            | Self::R2AlphaRender => None,
             Self::R3MultiregionStreaming => Some(
                 "R3_STREAMING_WORKLOAD_UNAVAILABLE: the production four-region/64-chunk job and residency substrate is not implemented",
             ),
@@ -121,6 +123,9 @@ pub fn performance_scenario_hash(scenario: PerformanceScenarioV1) -> String {
         }
         PerformanceScenarioV1::ProductionWorkerSoak => {
             b"nextengine.performance.production-worker-soak.v2:240-fifo-main-callbacks:60hz:bounded-sync-queue:next-simulation-worker:fixed-step-application:shared-presentation-publication:main-snapshot-read:allocator-window=production-worker-diagnostic-only"
+        }
+        PerformanceScenarioV1::R2AlphaRender => {
+            b"nextengine.performance.r2-alpha-render.v1:reference-alpha:frontier-relay:windows=exploration+combat+ui-dialogue:profiles=primary-1920x1080+fallback-b0-safe-1280x720p30:each=600-warmup+3600-measured:critical=max-cpu-extract-submit-gpu:retain-all:resource-window=sequential-six-window-production-vulkan:logical-accounting=r2-alpha-render-v1"
         }
         _ => return sha256_hex(scenario.as_str().as_bytes()),
     };
@@ -420,7 +425,7 @@ pub struct PerformanceBaselineMetricV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PerformanceBaselineV2 {
+pub struct PerformanceBaselineV3 {
     pub schema_version: u32,
     pub methodology_version: String,
     pub source_commit: String,
@@ -436,8 +441,8 @@ pub struct PerformanceBaselineV2 {
     pub authoritative_hashes: BTreeMap<String, String>,
 }
 
-impl PerformanceBaselineV2 {
-    pub fn from_runs(runs: &[PerformanceRunV2]) -> Result<Self, Vec<String>> {
+impl PerformanceBaselineV3 {
+    pub fn from_runs(runs: &[PerformanceRunV3]) -> Result<Self, Vec<String>> {
         if runs.len() != 10 {
             return Err(vec!["PERF_BASELINE_REQUIRES_TEN_RUNS".to_owned()]);
         }
@@ -457,11 +462,6 @@ impl PerformanceBaselineV2 {
             }
         }
         for (index, run) in runs.iter().enumerate() {
-            if let Err(errors) = run.validate_wire_version() {
-                for error in errors {
-                    diagnostics.push(format!("PERF_BASELINE_RUN_INVALID: {index}: {error}"));
-                }
-            }
             if let Err(errors) = run.validate_build_provenance() {
                 for error in errors {
                     diagnostics.push(format!("PERF_BASELINE_RUN_INVALID: {index}: {error}"));
@@ -525,18 +525,7 @@ impl PerformanceBaselineV2 {
             for diagnostic in fingerprint_diagnostics {
                 diagnostics.push(format!("PERF_BASELINE_RUN_INVALID: {index}: {diagnostic}"));
             }
-            if let Err(error) = run.instrumentation.validate() {
-                diagnostics.push(format!("PERF_BASELINE_RUN_INVALID: {index}: {error}"));
-            }
-            if !run.instrumentation.enabled {
-                diagnostics.push(format!(
-                    "PERF_BASELINE_RUN_INVALID: {index}: PERF_PROFILER_DISABLED"
-                ));
-            }
-            if let Err(errors) = run
-                .resource_counters
-                .validate_for_hard_timing_for_run(run.scenario, &run.scenario_hash)
-            {
+            if let Err(errors) = run.validate_hard_evidence() {
                 for error in errors {
                     diagnostics.push(format!("PERF_BASELINE_RUN_INVALID: {index}: {error}"));
                 }
@@ -598,7 +587,7 @@ impl PerformanceBaselineV2 {
 
     pub fn validate_for(
         &self,
-        run: &PerformanceRunV2,
+        run: &PerformanceRunV3,
     ) -> Result<BTreeMap<&str, &PerformanceBaselineMetricV1>, Vec<String>> {
         let mut diagnostics = Vec::new();
         if self.schema_version != PERFORMANCE_BASELINE_SCHEMA_VERSION {
@@ -681,7 +670,7 @@ pub struct PerformanceMethodologyV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PerformanceRunV2 {
+pub struct PerformanceRunV3 {
     pub schema_version: u32,
     pub commit: String,
     pub worktree_clean: bool,
@@ -695,7 +684,7 @@ pub struct PerformanceRunV2 {
     pub build_profile: String,
     pub mode: PerformanceModeV1,
     pub instrumentation: PerformanceInstrumentationV1,
-    pub resource_counters: PerformanceResourceCountersV2,
+    pub resource_counters: PerformanceResourceCountersV3,
     pub methodology: PerformanceMethodologyV1,
     pub metrics: Vec<PerformanceMetricV1>,
     pub authoritative_hashes: BTreeMap<String, String>,
@@ -703,7 +692,7 @@ pub struct PerformanceRunV2 {
     pub diagnostics: Vec<String>,
 }
 
-impl PerformanceRunV2 {
+impl PerformanceRunV3 {
     pub fn empty(
         scenario: PerformanceScenarioV1,
         mode: PerformanceModeV1,
@@ -723,7 +712,7 @@ impl PerformanceRunV2 {
             build_profile: build_profile.into(),
             mode,
             instrumentation: PerformanceInstrumentationV1::disabled(),
-            resource_counters: PerformanceResourceCountersV2::default(),
+            resource_counters: PerformanceResourceCountersV3::default(),
             methodology: methodology_for(scenario),
             metrics: Vec::new(),
             authoritative_hashes: BTreeMap::new(),
@@ -732,9 +721,9 @@ impl PerformanceRunV2 {
         }
     }
 
-    pub fn validate_allocator_counter(&self) -> Result<(), Vec<String>> {
+    pub fn validate_optional_allocator_counter(&self) -> Result<(), Vec<String>> {
         self.resource_counters
-            .validate_allocator_for_run(self.scenario, &self.scenario_hash)
+            .validate_optional_allocator_for_run(self.scenario, &self.scenario_hash)
     }
 
     pub fn validate_wire_version(&self) -> Result<(), Vec<String>> {
@@ -872,8 +861,8 @@ pub fn nearest_rank_percentile(samples: &[u64], percentile: u32) -> Result<u64, 
 }
 
 pub fn compare_metrics_to_baseline(
-    run: &mut PerformanceRunV2,
-    baseline: &PerformanceBaselineV2,
+    run: &mut PerformanceRunV3,
+    baseline: &PerformanceBaselineV3,
 ) -> Result<(), Vec<String>> {
     let baseline_metrics = baseline.validate_for(run)?;
     let mut diagnostics = Vec::new();

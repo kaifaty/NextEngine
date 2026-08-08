@@ -93,6 +93,16 @@ pub fn cooked_project_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapsho
                 skills: Vec::new(),
             }),
         ),
+        reference_aggregate(
+            fixture.quest_giver_character_id,
+            0x64,
+            RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                inventory_id: None,
+                equipment_id: None,
+                resources: vec![health_resource()],
+                skills: Vec::new(),
+            }),
+        ),
         fixture_aggregate_from_asset(
             fixture.npc_weapon_item_id,
             ability_definition.required_item_definition,
@@ -138,7 +148,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapsho
             fixture.dialogue_id,
             dialogue_definition.asset_revision,
             RpgAggregatePayloadV1::Dialogue(DialoguePayloadV1 {
-                speaker_id: fixture.npc_character_id,
+                speaker_id: fixture.quest_giver_character_id,
                 listener_id: fixture.body_id,
                 node_id: dialogue_definition.entry_node_id.clone(),
             }),
@@ -147,7 +157,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapsho
             fixture.relationship_id,
             relationship_definition.asset_revision,
             RpgAggregatePayloadV1::Relationship(RelationshipPayloadV1 {
-                source_id: fixture.npc_character_id,
+                source_id: fixture.quest_giver_character_id,
                 target_id: fixture.body_id,
                 dimensions: vec![RelationshipDimensionV1 {
                     dimension_id: relationship_definition.dimension_id.clone(),
@@ -185,8 +195,28 @@ pub fn cooked_interaction_outcome(
     let definitions = &fixture.activated_project.rpg_definitions;
     let interaction = definitions
         .interactions
+        .last()
+        .expect("cooked fixture has an interaction definition");
+    cooked_interaction_definition_outcome(fixture, interaction)
+}
+
+#[must_use]
+pub fn cooked_initial_interaction_outcome(
+    fixture: &ReferenceGameSession,
+) -> (SchemaId, SchemaId, SchemaId, i32) {
+    let definitions = &fixture.activated_project.rpg_definitions;
+    let interaction = definitions
+        .interactions
         .first()
-        .expect("cooked fixture has one interaction definition");
+        .expect("cooked fixture has an interaction definition");
+    cooked_interaction_definition_outcome(fixture, interaction)
+}
+
+fn cooked_interaction_definition_outcome(
+    fixture: &ReferenceGameSession,
+    interaction: &next_contracts::mechanics::InteractionDefinitionV1,
+) -> (SchemaId, SchemaId, SchemaId, i32) {
+    let definitions = &fixture.activated_project.rpg_definitions;
     let dialogue = definitions
         .dialogue(interaction.dialogue_definition)
         .expect("interaction dialogue definition is closed");
