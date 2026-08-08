@@ -46,7 +46,7 @@ pub(super) fn microseconds_u64(value: u128) -> Result<u64, String> {
 
 pub(super) fn read_performance_baseline(
     path: &Path,
-) -> Result<xtask::performance::PerformanceBaselineV3, String> {
+) -> Result<xtask::performance::PerformanceBaselineV4, String> {
     const MAX_BASELINE_BYTES: u64 = 64 * 1024 * 1024;
     let metadata = fs::metadata(path)
         .map_err(|error| format!("failed to inspect baseline {}: {error}", path.display()))?;
@@ -58,11 +58,11 @@ pub(super) fn read_performance_baseline(
     let bytes = fs::read(path)
         .map_err(|error| format!("failed to read baseline {}: {error}", path.display()))?;
     serde_json::from_slice(&bytes)
-        .map_err(|error| format!("invalid PerformanceBaselineV3: {error}"))
+        .map_err(|error| format!("invalid PerformanceBaselineV4: {error}"))
 }
 
 pub(super) fn performance_command_report(
-    run: xtask::performance::PerformanceRunV3,
+    run: xtask::performance::PerformanceRunV4,
     streaming: Option<StreamingPerformanceDetailsV1>,
     agent_planning: Option<AgentPerformanceDetailsV1>,
     render_planning: Option<RenderPlanningPerformanceDetailsV1>,

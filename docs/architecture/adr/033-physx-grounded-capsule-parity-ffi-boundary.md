@@ -9,7 +9,7 @@
 | Последняя проверка | 2026-07-27 |
 | Нормативные зависимости | [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-002](002-rust-first-ffi-and-ecs-facade.md), [ADR-013](013-self-contained-physical-avatar-boundary.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-032](032-grounded-capsule-physics-checkpoint-version-boundary.md) |
 | Частично заменяет | ADR-002: только исходное утверждение об empty FFI allowlist |
-| Заменён | Утверждение, что `crates/physics-physx-ffi` является единственным workspace местом с `unsafe`, узко заменено [ADR-039](039-tooling-only-process-wide-system-global-allocator-measurement.md): crate остаётся единственной PhysX FFI boundary, а новый tooling-only `GlobalAlloc` exception учитывается отдельной non-FFI category; остальная semantics этого ADR не меняется |
+| Заменён | Temporary tooling-only `GlobalAlloc` exception ADR-039 удалена [ADR-049](049-performance-evidence-without-allocator-instrumentation.md); `crates/physics-physx-ffi` остаётся единственной PhysX FFI boundary и current reviewed unsafe category снова FFI/backend-only |
 
 ## Контекст
 

@@ -788,10 +788,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "next_process_allocation_counter"
-version = "0.1.0"
-
-[[package]]
 name = "next_project"
 version = "0.1.0"
 dependencies = [
@@ -1968,7 +1964,6 @@ dependencies = [
  "next_assets",
  "next_contracts",
  "next_presentation",
- "next_process_allocation_counter",
  "next_project",
  "next_reference_game",
  "next_render",

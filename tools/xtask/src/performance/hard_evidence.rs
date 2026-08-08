@@ -1,4 +1,4 @@
-use super::{PerformanceMetricV1, PerformanceRunV3, nearest_rank_percentile};
+use super::{PerformanceMetricV1, PerformanceRunV4, nearest_rank_percentile};
 
 impl PerformanceMetricV1 {
     pub fn validate_samples_and_budget(&self) -> Result<(), Vec<String>> {
@@ -30,7 +30,7 @@ impl PerformanceMetricV1 {
     }
 }
 
-impl PerformanceRunV3 {
+impl PerformanceRunV4 {
     pub fn validate_hard_evidence(&self) -> Result<(), Vec<String>> {
         let mut diagnostics = self.validate_wire_version().err().unwrap_or_default();
         if !self.instrumentation.enabled {
@@ -39,10 +39,7 @@ impl PerformanceRunV3 {
         if let Err(error) = self.instrumentation.validate() {
             diagnostics.push(error);
         }
-        if let Err(errors) = self
-            .resource_counters
-            .validate_for_hard_timing_for_run(self.scenario, &self.scenario_hash)
-        {
+        if let Err(errors) = self.resource_counters.validate_for_hard_timing() {
             diagnostics.extend(errors);
         }
         if self.authoritative_hashes.is_empty() {

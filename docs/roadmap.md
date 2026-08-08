@@ -751,7 +751,7 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 | B-09 | Нет external creator CLI/SDK workflow | R6, R7 | Второй project/package создаётся cleanly только public tools/contracts. |
 | B-10 | `PERMANENT_SCOPE_GATE`: content scope может расти быстрее playable loop; blocker не закрывается одноразово. | Все этапы | На каждом package один representative scenario и явный non-goal list; новая подсистема допускается только по требованию scenario. |
 | B-11 | `CONTENT_COMPLETE / SOLO_OWNER`: единственный owner — solo maintainer; отдельная staffing/ownership matrix не создаётся. Alpha package содержит engine-owned assets/audio/text, acceptance docs, CC0 source/hash/license provenance и NOTICE и проходит `content-package`/package smoke. Будущие creator examples относятся к R6/B-09, а не к staffing gate. | R2, R6, R7 | Содержательно закрыт для alpha package; поддерживать provenance/NOTICE в том же public package по мере дальнейших content changes. |
-| B-12 | `OPEN / R2_REPORT_ONLY / DEFERRED_LINUX`: ADR-045 узко заменил mandatory exact allocator evidence; current V3 hard schema требует canonical logical charges, peak working set, process I/O, device-allocation ceiling, Vulkan timestamps, profiler integrity и authoritative roots. V2 читается только как historical evidence; allocator counter optional, но strict при наличии. Representative `r2-alpha-render` реализован и в release report выполняет 6 окон, 21 600 measured frames и 50 400 Vulkan queries; все absolute budgets проходят, но dirty worktree и неготовый THOTH preflight оставляют evidence `REPORT_ONLY`. R3–R5 workloads, clean release ten-run baselines и hard gates отсутствуют. Candidate-6/7 failures остаются immutable. Linux полностью deferred. | R4, R5, R7 | Для Windows-части — по 10 valid clean release runs каждого R2–R5 workload, compatible baseline и hard `PASS`; затем `WINDOWS_COMPLETE / DEFERRED_LINUX`. Report-only run, Accepted ADR и `NOT_RUN` не закрывают blocker. |
+| B-12 | `OPEN / R2_REPORT_ONLY / DEFERRED_LINUX`: ADR-049 удалил allocator instrumentation и перевёл current hard schema на V4: canonical logical charges, peak working set, process I/O, device-allocation ceiling, Vulkan timestamps, profiler integrity и authoritative roots. Representative `r2-alpha-render` реализован и в release report выполняет 6 окон, 21 600 measured frames и 50 400 Vulkan queries; все absolute budgets проходят, но dirty worktree и неготовый THOTH preflight оставляют evidence `REPORT_ONLY`. R3–R5 workloads, clean release ten-run baselines и hard gates отсутствуют. Linux полностью deferred. | R4, R5, R7 | Для Windows-части — по 10 valid clean release runs каждого R2–R5 workload, compatible baseline и hard `PASS`; затем `WINDOWS_COMPLETE / DEFERRED_LINUX`. Report-only run, Accepted ADR и `NOT_RUN` не закрывают blocker. |
 
 ## Решения, которые нужно принять вовремя
 
@@ -813,9 +813,9 @@ authoritative restart создаёт fresh presentation epoch/sequence `0` и ca
 cuts по ADR-035. `LNX-005` выполняется позднее асинхронно; R1/B-01 и весь R2
 этим не закрываются.
 
-Performance measurement foundation (`DONE_LOCAL_WINDOWS`) добавляет
-`PerformanceRunV3`/`PerformanceResourceCountersV3`/`PerformanceMetricV1`/
-`PerformanceBaselineV3`; V2 остаётся strict decode-only historical evidence. Полный
+Performance measurement foundation (`DONE_LOCAL_WINDOWS`) использует
+`PerformanceRunV4`/`PerformanceResourceCountersV4`/`PerformanceMetricV1`/
+`PerformanceBaselineV4`; V2/V3 readers удалены. Полный
 THOTH fingerprint и idle/RAM/thermal preflight, profile `profiling`, raw
 nearest-rank smoke metrics и explicit `NOT_RUN` для ещё отсутствующих
 representative R2–R5 workloads. Report-only `long-session-soak` теперь
@@ -827,11 +827,10 @@ canonical component bytes, а identity-index root больше не требуе
 Windows process I/O deltas, bounded CPU/Vulkan frame timing и conservative
 engine-owned device-allocation ceiling реализованы; release smoke на THOTH
 получил timestamp samples без dropped queries.
-ADR-045 (`DONE_LOCAL_WINDOWS`) делает canonical logical charges, Windows peak
+ADR-049 (`DONE_LOCAL_WINDOWS`) делает canonical logical charges, Windows peak
 working set/process I/O, device-allocation ceiling, Vulkan timestamps, profiler
-integrity и authoritative roots обязательным hard evidence. Normal timing window
-не активирует exact allocator counter; отдельный `allocator-counter-check`
-сохраняет diagnostic semantics, а partial/inconsistent optional payload fail closed.
+integrity и authoritative roots обязательным hard evidence. Allocator
+instrumentation, отдельная unsafe boundary, probes и diagnostic command удалены.
 Private session storage дополнительно объединяет logical objects в один или
 несколько bounded generation packs, сокращая Windows durable file barriers,
 сохраняет legacy raw load и final logical hash validation; packing не меняет
@@ -934,62 +933,14 @@ materialization `48 446 → 41 445 µs` (`-14.5%`), ordinary application tick
 20-GiB free-RAM условий, поэтому результат не заменяет ten-run hard calibration
 и не закрывает B-12.
 
-ADR-039 фиксирует отдельную non-FFI unsafe boundary для tooling-only
-process-wide `System` counter. Первый global in-flight implementation сохранил
-exact roots и занял `80 B`; inactive median прошёл (`-2.58%`), но enabled
-median `+15.95%` нарушил `3%`. ADR-040 implementation заменила его fixed
-const-TLS per-thread slots с одним owned-slot RMW, сохранила exact roots,
-прошла inactive (`+1.12%`), resource (`557 096 B`) и Windows codegen gates,
-но retained enabled median `+15.64%` снова нарушил `3%`. ADR-041 owner fast
-path сохранил exact roots, прошёл inactive (`+0.04%`), resource (`786 472 B`)
-и Windows codegen gates и снизил retained enabled median до `+5.88%`, но всё
-ещё не прошёл `3%`. Release codegen показывает оставшийся TLS/recursion/cookie
-dispatch на `dealloc`, хотя он не входит ни в один published gross counter.
-ADR-042 поэтому оставляет exact ADR-040/041 protocol трём count-bearing
-operations, а `dealloc` делает unconditional exactly-once `System`
-pass-through без measurement state. Эта implementation прошла source,
-boundary, exactness, parity, resource и pinned Windows codegen checks.
-Protocol-valid isolated std-only probe audit занял `1.63 s`; более ранний
-full-xtask external timeout после `10 min` является invalid/`NOT_RUN`, не
-codegen `FAIL`.
+ADR-049 удалил allocator-counter subsystem после того, как он уже перестал
+быть hard evidence. Retained failed candidates остаются историческим фактом в
+Git history; они не требуют live crate, unsafe hook или compatibility reader.
+Все пять реализованных performance scenarios сохраняют workload semantics и
+переходят на V4 methodology/hash. B-12 остаётся `OPEN` до clean ten-run THOTH
+baselines и остальных требований ADR-036.
 
-Immutable candidate-6
-`allocator-counter-check-candidate-6-20260801/allocator-counter-check-v1.json`
-(SHA-256
-`004DBE9238413E538C7EC84E6AF718123E5EE30EDB59935C84694AFF43A188BE`)
-дал System `1 653 928 600 ns`, inactive `1 623 126 700 ns` (`-1.86%`,
-`PASS`), enabled `1 733 485 600 ns` (`+4.81%`, `FAIL`) и state `786 472 B`
-`PASS`; roots не изменились. Diagnostic run наблюдал `15 253 608`
-count-bearing callbacks и aggregate premium примерно `5.216 ns/callback` при
-budget примерно `3.253 ns/callback`; это не изолирует стоимость recursion flag.
-
-ADR-043 принял только Windows-local source+IR+ASM/backend-proven
-non-reentrant hypothesis: удалить per-call `in_callback`, сохранив exact
-owner/foreign admission и остальные faults. Implementation удалена per-call
-`in_callback` get/test/set/clear/reject machinery из трёх count-bearing
-callbacks и recursion-specific validators/tests; recursion TLS field удалён,
-stable `PERF_ALLOCATOR_RECURSION` diagnostic, owner cookie/counters, foreign
-admission/postcheck/close handshake и direct `dealloc` не изменились.
-Source/boundary gate дополнительно отклоняет recursion machinery, а codegen
-admission fail closed при non-empty inherited compiler/wrapper/profile/linker
-overrides. Actual pinned Windows release IR/ASM audit подтвердил
-recursion-free owner/foreign shapes, обновлённый 64-byte const-TLS layout и
-direct non-interposed `HeapAlloc`/`HeapReAlloc` backend за `1.41 s`. Focused
-exactness/fault/race/capacity tests, boundary-scan и host-check проходят.
-Единственный candidate-7
-`allocator-counter-check-candidate-7-20260801/allocator-counter-check-v1.json`
-(SHA-256
-`658D834BFEF9707655115759EE50576B62FF88FBE10B6D6790B61474A5A14ABC`)
-дал System `1 359 449 600 ns`, inactive `1 352 539 300 ns` (`-50 bp`,
-`PASS`), enabled `1 417 907 600 ns` (`+430 bp`, `FAIL`) и state `786 472 B`
-`PASS`; authoritative roots не изменились во всех `51` run. Candidate-7
-immutable и не повторяется как retry-to-green: allocator metric остаётся
-disabled, hard timing scenarios `NOT_RUN` и calibration не начинается. Linux
-остаётся `NOT_RUN` до `LNX-006` и отдельного Accepted target-extension. Hard
-timing gate всё равно требует реальный stage workload, поэтому B-12 остаётся
-открыт.
-
-Отдельно от allocator line реализован bounded incremental checkpoint
+Отдельно реализован bounded incremental checkpoint
 validation package. Fresh instrumentation показала, что при live checkpoint
 materialization около `60%` времени составляла не encode/hashing, а повторная
 полная ревалидация retained command history: per-receipt validation, пересчёт
@@ -1267,11 +1218,12 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    diagnostic проходят. Ручной acceptance `r2-reference-alpha-visual-v5` с
    `Saved`, `Loaded - press Resume`, rollback/WASD, collisions, UI,
    resize/fullscreen зафиксирован как `PASS` 2026-08-08.
-4. **Architecture cleanup (`IN_PROGRESS`, packages 1–4/6):** R2 gate закрыт;
+4. **Architecture cleanup (`IN_PROGRESS`, packages 1–5/6):** R2 gate закрыт;
    retired replay/input contracts, session recovery archives/object packs и
    project resolver/catalog удалены. Current project path теперь authoring v2 →
-   exact `ProjectLockV3` → atomic `ActivatedProjectV3`. Следующий package удаляет
-   allocator-counter, затем выполняется нормативное сжатие и полный R2 recheck.
+   exact `ProjectLockV3` → atomic `ActivatedProjectV3`. Allocator-counter удалён,
+   performance evidence переведено на current-only V4. Следующий package —
+   нормативное сжатие и полный R2 recheck.
 5. **R3a jobs/resources vertical (`PLANNED / AFTER_ARCHITECTURE_CLEANUP`):** первым
    production consumer является chunk fetch/decode/validate; shared bounded
    admission primitives не проектируются отдельно от этого workload.

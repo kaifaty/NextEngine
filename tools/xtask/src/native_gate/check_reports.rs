@@ -249,7 +249,7 @@ fn parse_check_report(
                 .details
                 .run
                 .as_ref()
-                .ok_or_else(|| report_invalid("performance V2 run is missing"))?;
+                .ok_or_else(|| report_invalid("performance V4 run is missing"))?;
             run.validate_wire_version().map_err(|diagnostics| {
                 report_invalid(format!(
                     "performance run wire version is incompatible: {}",
@@ -275,22 +275,12 @@ fn parse_check_report(
                     "performance rustc release does not match the pinned build release",
                 ));
             }
-            if expected_target != crate::performance::PERFORMANCE_WINDOWS_TARGET_TRIPLE
-                && (run.resource_counters.allocator_counter.is_some()
-                    || run.resource_counters.allocator_allocated_bytes.is_some()
-                    || run.resource_counters.allocator_allocation_count.is_some())
-            {
-                return Err(report_invalid(
-                    "performance allocator counter is present on a non-admitted target",
-                ));
-            }
-            run.validate_optional_allocator_counter()
-                .map_err(|diagnostics| {
-                    report_invalid(format!(
-                        "performance allocator counter is invalid: {}",
-                        diagnostics.join(", ")
-                    ))
-                })?;
+            run.validate_report_evidence().map_err(|diagnostics| {
+                report_invalid(format!(
+                    "performance report evidence is invalid: {}",
+                    diagnostics.join(", ")
+                ))
+            })?;
             run.instrumentation.validate().map_err(|diagnostic| {
                 report_invalid(format!(
                     "performance instrumentation is invalid: {diagnostic}"
@@ -417,7 +407,7 @@ fn parse_check_report(
 }
 
 fn validate_native_performance_environment(
-    run: &crate::performance::PerformanceRunV3,
+    run: &crate::performance::PerformanceRunV4,
     expected_target: &str,
 ) -> Result<(), NativeGateComparisonError> {
     if !run.diagnostics.is_empty() {

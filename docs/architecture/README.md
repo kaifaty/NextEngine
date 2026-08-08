@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.15 |
-| Последняя проверка | 2026-08-01 |
-| Заменяет | INDEX-001 version 2.14 |
+| Версия | 2.16 |
+| Последняя проверка | 2026-08-08 |
+| Заменяет | INDEX-001 version 2.15 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -124,9 +124,9 @@ engine-owned API; для него SHOULD быть указан bounded evaluatio
    и
    [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md).
 
-ADR-010, ADR-015, ADR-023, ADR-024, retired evidence register и старые review
-packets являются historical-only. Lightweight traceability — навигационная
-карта, не admission authority.
+ADR-010, ADR-015, ADR-023, ADR-024 and allocator ADR-039–043, retired evidence
+register и старые review packets являются historical-only. Lightweight
+traceability — навигационная карта, не admission authority.
 
 ## Индекс документов
 
@@ -174,7 +174,7 @@ packets являются historical-only. Lightweight traceability — нави�
 |---|---|---|
 | ADR-000 | [ADR template](adr/000-template.md) | Draft |
 | ADR-001 | [Product, repositories, license и platforms](adr/001-product-repository-license-and-platforms.md) | Accepted; process clauses partially superseded by ADR-030 |
-| ADR-002 | [Rust-first core, FFI и ECS facade](adr/002-rust-first-ffi-and-ecs-facade.md) | Accepted; empty/FFI-only unsafe allowlist clauses partially superseded by ADR-033/ADR-039 |
+| ADR-002 | [Rust-first core, FFI и ECS facade](adr/002-rust-first-ffi-and-ecs-facade.md) | Accepted; reviewed unsafe remains confined to FFI/backend boundaries under ADR-033/ADR-049 |
 | ADR-003 | [Vulkan renderer и shader toolchain](adr/003-vulkan-renderer-and-shader-toolchain.md) | Accepted |
 | ADR-004 | [Physics-avatar backend boundary](adr/004-physics-avatar-backend-boundary.md) | Superseded |
 | ADR-005 | [Offline-first AI process boundary](adr/005-offline-first-ai-process-boundary.md) | Accepted |
@@ -205,22 +205,23 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-030 | [Product-first development и lightweight validation](adr/030-product-first-development-and-lightweight-validation.md) | Accepted |
 | ADR-031 | [RPG-owned divine standing и atomic pantheon judgment](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md) | Superseded by ADR-046; future intent Proposed |
 | ADR-032 | [Grounded capsule physics checkpoint version boundary](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md) | Accepted; designation of V4 as current generated replay partially superseded by ADR-034 |
-| ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Accepted; PhysX backend остаётся Proposed; workspace-unique unsafe wording узко заменена ADR-039 без изменения PhysX boundary |
+| ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Accepted; PhysX backend остаётся Proposed; current reviewed unsafe allowlist is FFI-only after ADR-049 |
 | ADR-034 | [Player targeting replay V5 и exact mapping provenance](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) | Accepted; legacy V4/V1 retention superseded by ADR-046 |
 | ADR-035 | [Bounded live recovery, platform-host binding и presentation cut](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) | Accepted; partially supersedes ADR-028 |
-| ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; заменяет reference 8-core qualifier ADR-016/SPEC-05 без изменения budgets; diagnostic и allocator-measurement gaps узко заменены ADR-038/ADR-039, measured admission protocol уточнён ADR-040/ADR-041/ADR-042/ADR-043, mandatory exact allocator evidence узко заменён ADR-045 |
+| ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; THOTH target, budgets, baseline and no-retry authority remain; allocator clauses are superseded by ADR-049 |
 | ADR-037 | [Packed session object storage](adr/037-packed-session-object-storage.md) | Superseded by ADR-047 |
 | ADR-038 | [Versioned production-worker handoff diagnostic](adr/038-versioned-production-worker-handoff-diagnostic.md) | Accepted; узко заменяет diagnostic-scenario часть ADR-036 без изменения THOTH hard timing authority или B-12 closure |
-| ADR-039 | [Tooling-only process-wide System GlobalAlloc measurement boundary](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md) | Accepted crate/unsafe/System/count/report boundary; runtime protocol узко заменён ADR-040 для foreign counted operations, ADR-041 для owner counted operations, ADR-042 для unobserved dealloc и ADR-043 для admitted count-bearing recursion policy |
-| ADR-040 | [Fixed TLS-sharded GlobalAlloc measurement protocol](adr/040-fixed-tls-sharded-global-allocator-measurement.md) | Accepted для foreign count-bearing operations; owner-thread per-call RMW узко заменён ADR-041, dealloc admission — ADR-042, а per-call recursion flag на доказанном target/build — ADR-043 после retained failures |
-| ADR-041 | [Owner-thread quiescent GlobalAlloc measurement fast path](adr/041-owner-thread-quiescent-global-allocator-measurement.md) | Accepted для owner `alloc`/`alloc_zeroed`/`realloc`; unobserved dealloc path узко заменён ADR-042, а per-call recursion flag на доказанном target/build — ADR-043 после candidate-6 `+4.81%` failure |
-| ADR-042 | [Unobserved deallocation System pass-through](adr/042-unobserved-deallocation-system-pass-through.md) | Accepted direct `dealloc`; candidate-6 сохранил roots, но дал enabled `+4.81%` `FAIL`; rejection удаления только recursion flag узко заменён ADR-043 при отдельном non-reentrancy proof |
-| ADR-043 | [Codegen-proven non-reentrant count-bearing allocator callbacks](adr/043-codegen-proven-non-reentrant-count-bearing-allocator-callbacks.md) | Accepted только для pinned Windows target/build; allocator protocol и retained candidate-7 `+4.30%` `FAIL` сохраняются, но mandatory hard-run counter requirement узко заменён ADR-045; Linux proof не заявлен |
+| ADR-039 | [Tooling-only process-wide System GlobalAlloc measurement boundary](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md) | Superseded by ADR-049 |
+| ADR-040 | [Fixed TLS-sharded GlobalAlloc measurement protocol](adr/040-fixed-tls-sharded-global-allocator-measurement.md) | Superseded by ADR-049 |
+| ADR-041 | [Owner-thread quiescent GlobalAlloc measurement fast path](adr/041-owner-thread-quiescent-global-allocator-measurement.md) | Superseded by ADR-049 |
+| ADR-042 | [Unobserved deallocation System pass-through](adr/042-unobserved-deallocation-system-pass-through.md) | Superseded by ADR-049 |
+| ADR-043 | [Codegen-proven non-reentrant count-bearing allocator callbacks](adr/043-codegen-proven-non-reentrant-count-bearing-allocator-callbacks.md) | Superseded by ADR-049 |
 | ADR-044 | [Neutral text-catalog schema и deterministic locale fallback](adr/044-neutral-text-catalog-and-locale-fallback.md) | Accepted; versioned neutral catalogs, deterministic fallback closure и PresentationOnly localization semantics |
-| ADR-045 | [Low-overhead hard performance evidence](adr/045-low-overhead-hard-performance-evidence.md) | Accepted; вводит current Performance V3 evidence, оставляет V2 historical-readable и делает exact allocator counter необязательной диагностикой, не меняя THOTH budgets и retained evidence |
+| ADR-045 | [Low-overhead hard performance evidence](adr/045-low-overhead-hard-performance-evidence.md) | Accepted low-overhead evidence and no-retry policy; allocator retention and V2/V3 tooling schemas superseded by ADR-049 |
 | ADR-046 | [Consumer-driven contracts and current-only alpha formats](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) | Accepted; current-only pre-v1 formats, production-consumer admission and removal of unconsumed future obligations |
 | ADR-047 | [Simple application session and save-on-close](adr/047-simple-application-session-and-save-on-close.md) | Accepted; two-slot current-state snapshot and two-stage close journal replace session recovery archives/object packs |
 | ADR-048 | [Direct exact project lock](adr/048-direct-exact-project-lock.md) | Accepted; current-only authoring/registry/package formats and `ProjectLockV3` replace project resolver/catalog/policy closure |
+| ADR-049 | [Performance evidence without allocator instrumentation](adr/049-performance-evidence-without-allocator-instrumentation.md) | Accepted; Performance V4 and low-overhead resource evidence replace allocator instrumentation and V2/V3 readers |
 
 ## Proposed tracks
 

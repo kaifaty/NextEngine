@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use super::allocation_counter::ScenarioResourceWindow;
 use super::production_worker::{
     PreparedProductionWorkerScenario, combine_production_worker_result,
     run_production_worker_scenario,
@@ -17,6 +16,22 @@ pub(super) struct ProfilerControl {
     pub(super) authoritative_hashes: BTreeMap<String, String>,
 }
 
+struct ScenarioResourceWindow {
+    process_counters_before: xtask::performance::PerformanceResourceCountersV4,
+}
+
+impl ScenarioResourceWindow {
+    fn begin() -> Self {
+        Self {
+            process_counters_before: xtask::performance::inspect_process_counters(),
+        }
+    }
+
+    fn finish(self) -> xtask::performance::PerformanceResourceCountersV4 {
+        xtask::performance::finish_process_counters(&self.process_counters_before)
+    }
+}
+
 pub(super) struct ScenarioWorkloads {
     pub(super) streaming: Timed<next_verification::StreamingPerformanceReport>,
     pub(super) agent: Timed<next_verification::AgentPlanningPerformanceReport>,
@@ -27,26 +42,23 @@ pub(super) struct ScenarioWorkloads {
     pub(super) desktop_frame_timing:
         Option<Timed<Option<next_verification::DesktopFrameTimingSmokeReport>>>,
     pub(super) r2_alpha_render: Option<Timed<next_verification::R2AlphaRenderPerformanceReportV1>>,
-    pub(super) resource_counters: xtask::performance::PerformanceResourceCountersV3,
+    pub(super) resource_counters: xtask::performance::PerformanceResourceCountersV4,
 }
 
 pub(super) fn run_scenario_workloads(
     scenario: xtask::performance::PerformanceScenarioV1,
-    scenario_hash: &str,
     state_root: Option<&Path>,
     desktop_frame_timing_requested: bool,
     interactive_frame_soak_frames: u32,
 ) -> Result<ScenarioWorkloads, String> {
     match scenario {
         xtask::performance::PerformanceScenarioV1::Smoke => run_smoke_scenario_workloads(
-            scenario_hash,
             state_root,
             desktop_frame_timing_requested,
             interactive_frame_soak_frames,
         ),
         xtask::performance::PerformanceScenarioV1::LongSessionSoak => {
             run_long_session_scenario_workloads(
-                scenario_hash,
                 state_root,
                 desktop_frame_timing_requested,
                 interactive_frame_soak_frames,
@@ -54,21 +66,16 @@ pub(super) fn run_scenario_workloads(
         }
         xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak => {
             run_production_worker_scenario_workloads(
-                scenario_hash,
                 state_root,
                 desktop_frame_timing_requested,
                 interactive_frame_soak_frames,
             )
         }
         xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak => {
-            run_interactive_frame_scenario_workloads(
-                scenario_hash,
-                state_root,
-                interactive_frame_soak_frames,
-            )
+            run_interactive_frame_scenario_workloads(state_root, interactive_frame_soak_frames)
         }
         xtask::performance::PerformanceScenarioV1::R2AlphaRender => {
-            run_r2_alpha_render_scenario_workloads(scenario_hash, state_root)
+            run_r2_alpha_render_scenario_workloads(state_root)
         }
         _ => unreachable!("unavailable representative scenarios return before execution"),
     }
@@ -76,7 +83,6 @@ pub(super) fn run_scenario_workloads(
 
 #[inline(never)]
 fn run_smoke_scenario_workloads(
-    scenario_hash: &str,
     state_root: Option<&Path>,
     desktop_frame_timing_requested: bool,
     interactive_frame_soak_frames: u32,
@@ -88,7 +94,7 @@ fn run_smoke_scenario_workloads(
         mut render_planning,
         mut live_runtime,
     } = PreparedSmokeScenario::new(state_root)?;
-    let window = ScenarioResourceWindow::begin(scenario, scenario_hash);
+    let window = ScenarioResourceWindow::begin();
     let (streaming_measurement, streaming_elapsed) = measure(|| streaming.run_measured());
     let (agent_measurement, agent_elapsed) = measure(|| agent.run_measured());
     let (render_measurement, render_elapsed) = measure(|| render_planning.run_measured());
@@ -153,7 +159,6 @@ fn run_smoke_scenario_workloads(
 
 #[inline(never)]
 fn run_long_session_scenario_workloads(
-    scenario_hash: &str,
     state_root: Option<&Path>,
     desktop_frame_timing_requested: bool,
     interactive_frame_soak_frames: u32,
@@ -163,7 +168,7 @@ fn run_long_session_scenario_workloads(
     let agent = run_agent_planning(state_root)?;
     let render_planning = run_render_planning(state_root)?;
     let mut prepared_live = prepare_live_runtime_scenario(scenario, state_root)?;
-    let window = ScenarioResourceWindow::begin(scenario, scenario_hash);
+    let window = ScenarioResourceWindow::begin();
     let live_started = Instant::now();
     let live_measurement = prepared_live.run_measured();
     let live_elapsed = live_started.elapsed();
@@ -191,7 +196,6 @@ fn run_long_session_scenario_workloads(
 
 #[inline(never)]
 fn run_production_worker_scenario_workloads(
-    scenario_hash: &str,
     state_root: Option<&Path>,
     desktop_frame_timing_requested: bool,
     interactive_frame_soak_frames: u32,
@@ -202,7 +206,7 @@ fn run_production_worker_scenario_workloads(
     let render_planning = run_render_planning(state_root)?;
     let live_runtime = run_live_runtime(scenario, state_root)?;
     let mut prepared_worker = PreparedProductionWorkerScenario::new(state_root)?;
-    let window = ScenarioResourceWindow::begin(scenario, scenario_hash);
+    let window = ScenarioResourceWindow::begin();
     let worker_started = Instant::now();
     let measurement = prepared_worker.run_measurement();
     let worker_elapsed = worker_started.elapsed();
@@ -230,7 +234,6 @@ fn run_production_worker_scenario_workloads(
 
 #[inline(never)]
 fn run_interactive_frame_scenario_workloads(
-    scenario_hash: &str,
     state_root: Option<&Path>,
     interactive_frame_soak_frames: u32,
 ) -> Result<ScenarioWorkloads, String> {
@@ -248,7 +251,7 @@ fn run_interactive_frame_scenario_workloads(
         [1_920, 1_080],
     )
     .map_err(|error| error.to_string())?;
-    let window = ScenarioResourceWindow::begin(scenario, scenario_hash);
+    let window = ScenarioResourceWindow::begin();
     let frame_started = Instant::now();
     let frame_measurement = prepared_frame.run_measured();
     let frame_elapsed = frame_started.elapsed();
@@ -273,7 +276,6 @@ fn run_interactive_frame_scenario_workloads(
 
 #[inline(never)]
 fn run_r2_alpha_render_scenario_workloads(
-    scenario_hash: &str,
     state_root: Option<&Path>,
 ) -> Result<ScenarioWorkloads, String> {
     let scenario = xtask::performance::PerformanceScenarioV1::R2AlphaRender;
@@ -287,7 +289,7 @@ fn run_r2_alpha_render_scenario_workloads(
     let mut prepared =
         next_verification::prepare_r2_alpha_render_performance_check_in(&scratch_root)
             .map_err(|error| error.to_string())?;
-    let window = ScenarioResourceWindow::begin(scenario, scenario_hash);
+    let window = ScenarioResourceWindow::begin();
     let started = Instant::now();
     let report = prepared.run_measured().map_err(|error| error.to_string())?;
     let elapsed = started.elapsed();

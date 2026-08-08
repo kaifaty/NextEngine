@@ -9,7 +9,7 @@
 | Последняя проверка | 2026-07-27 |
 | Нормативные зависимости | [ADR-001](001-product-repository-license-and-platforms.md), [SPEC-02](../02-runtime-ecs-and-data.md) |
 | Заменяет | отсутствует |
-| Заменён | initial empty-allowlist clause частично заменён [ADR-033](033-physx-grounded-capsule-parity-ffi-boundary.md); FFI-only/«единственный current unsafe allowlist entry» формулировки узко заменены [ADR-039](039-tooling-only-process-wide-system-global-allocator-measurement.md), который добавляет отдельную non-FFI tooling `GlobalAlloc` category без изменения PhysX boundary |
+| Заменён | initial empty-allowlist clause частично заменён [ADR-033](033-physx-grounded-capsule-parity-ffi-boundary.md); temporary non-FFI allocator exception ADR-039 удалена [ADR-049](049-performance-evidence-without-allocator-instrumentation.md), поэтому current reviewed unsafe allowlist снова FFI/backend-only |
 
 ## ADR-030 scope
 

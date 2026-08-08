@@ -14,7 +14,6 @@ mod support;
 use support::*;
 
 const INTERACTIVE_FRAME_SOAK_FRAMES: u32 = 240;
-mod allocation_counter;
 mod production_worker;
 mod r2_alpha_render;
 mod workloads;
@@ -155,7 +154,7 @@ fn performance_report_for(
     request: &PerformanceArguments,
     state_root: Option<&Path>,
 ) -> Result<CommandReportV1<PerformanceDetailsV1>, String> {
-    let mut run = xtask::performance::PerformanceRunV3::empty(
+    let mut run = xtask::performance::PerformanceRunV4::empty(
         request.scenario,
         request.mode,
         env!("NEXTENGINE_BUILD_PROFILE"),
@@ -226,7 +225,6 @@ fn performance_report_for(
         resource_counters,
     } = run_scenario_workloads(
         request.scenario,
-        &run.scenario_hash,
         state_root,
         desktop_frame_timing_requested,
         INTERACTIVE_FRAME_SOAK_FRAMES,
@@ -339,8 +337,6 @@ fn performance_report_for(
         .map_or((None, None), |(overhead, parity)| {
             (Some(overhead), Some(parity))
         });
-    let allocator_reserved_bytes = u64::try_from(next_process_allocation_counter::reserved_bytes())
-        .map_err(|error| error.to_string())?;
     run.instrumentation = xtask::performance::PerformanceInstrumentationV1 {
         enabled: profiling_enabled,
         max_threads: if production_worker.is_some() { 2 } else { 1 },
@@ -351,7 +347,6 @@ fn performance_report_for(
         )
         .map_err(|error| error.to_string())?
         .checked_add(worker_reserved_bytes)
-        .and_then(|bytes| bytes.checked_add(allocator_reserved_bytes))
         .ok_or_else(|| "performance instrumentation reservation overflow".to_owned())?,
         recorded_spans,
         dropped_spans,
@@ -732,7 +727,7 @@ fn performance_report_for(
     let evidence_validation = if request.mode == xtask::performance::PerformanceModeV1::Gate {
         run.validate_hard_evidence()
     } else {
-        run.validate_optional_allocator_counter()
+        run.validate_report_evidence()
     };
     if let Err(diagnostics) = evidence_validation {
         run.diagnostics.extend(diagnostics);
@@ -817,7 +812,7 @@ fn overhead_basis_points(overhead_nanoseconds: u128, workload_microseconds: u64)
     i64::try_from(value).unwrap_or(i64::MAX)
 }
 
-fn populate_performance_identity(root: &Path, run: &mut xtask::performance::PerformanceRunV3) {
+fn populate_performance_identity(root: &Path, run: &mut xtask::performance::PerformanceRunV4) {
     run.commit = env!("NEXTENGINE_BUILD_COMMIT").to_owned();
     run.worktree_clean = match env!("NEXTENGINE_BUILD_WORKTREE_CLEAN") {
         "true" => true,
@@ -904,7 +899,7 @@ fn populate_performance_identity(root: &Path, run: &mut xtask::performance::Perf
 
 fn populate_performance_host(
     request: &PerformanceArguments,
-    run: &mut xtask::performance::PerformanceRunV3,
+    run: &mut xtask::performance::PerformanceRunV4,
 ) {
     let target_id = request.target.as_deref().unwrap_or("observed-host-v1");
     match xtask::performance::inspect_current_host(target_id) {
@@ -918,7 +913,7 @@ fn populate_performance_host(
 
 fn validate_gate_prerequisites(
     request: &PerformanceArguments,
-    run: &mut xtask::performance::PerformanceRunV3,
+    run: &mut xtask::performance::PerformanceRunV4,
 ) {
     if run.build_profile != "release" {
         run.diagnostics

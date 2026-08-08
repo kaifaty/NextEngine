@@ -17,7 +17,7 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
             methodology.measured_samples = 4;
             methodology.notes = vec![
                 "two-chunk streaming, five-object render planning, one-agent planning and live movement are smoke fixtures only".to_owned(),
-                "the measured resource-observation window covers the four declared smoke workload bodies; live project preparation, validation/report assembly and scratch cleanup remain outside it; allocator instrumentation is not activated".to_owned(),
+                "the measured resource-observation window covers the four declared smoke workload bodies; live project preparation, validation/report assembly and scratch cleanup remain outside it".to_owned(),
                 "aggregate smoke timings are report-only and cannot close B-12".to_owned(),
             ];
         }
@@ -48,7 +48,7 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
         PerformanceScenarioV1::ProductionWorkerSoak => {
             methodology.measured_samples = 240;
             methodology.notes = vec![
-                "the inner production-worker-soak.v1 diagnostic contract submits 240 FIFO main-callback batches at 60 Hz through the game composition root's bounded queue and next-simulation worker; its containing performance scenario is hash-bound as production-worker-soak.v2".to_owned(),
+                "the inner production-worker-soak.v1 diagnostic contract submits 240 FIFO main-callback batches at 60 Hz through the game composition root's bounded queue and next-simulation worker; its containing performance scenario is hash-bound as production-worker-soak.v3".to_owned(),
                 "the worker advances the production fixed-step application path, publishes shared immutable presentation snapshots, and the main-side callback reads the latest generation".to_owned(),
                 "bounded raw samples separate queue send wait, dequeue age, ordinary/checkpoint fixed steps, snapshot publication/read lock waits, and rendered sequence freshness".to_owned(),
                 "diagnostic send and dequeue observations are linearized around the same bounded sync channel, so queue high-water is exact channel occupancy rather than an outstanding-work estimate".to_owned(),
@@ -67,7 +67,7 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
                 "primary 1920x1080 and b0-safe-720p30 1280x720 are separate launch profiles; each profile/window pair uses 600 warm-up and 3,600 measured frames".to_owned(),
                 "CPU/GPU frame samples exclude VSync wait, retain every outlier and count primary/fallback deadline misses separately".to_owned(),
                 "project activation and deterministic scenario/presentation extraction precede the observation window; six production Vulkan adapters are prepared, measured and released sequentially so device residency is a true per-run ceiling".to_owned(),
-                "logical charges use the hash-bound r2-alpha-render-v1 accounting profile; allocator evidence remains optional under ADR-045".to_owned(),
+                "logical charges use the hash-bound r2-alpha-render-v1 accounting profile; physical evidence consists of peak working set, process I/O, device allocation ceilings and Vulkan timestamps".to_owned(),
             ];
         }
         PerformanceScenarioV1::R3MultiregionStreaming => {

@@ -18,7 +18,6 @@ goblin.workspace = true
 next_assets.workspace = true
 next_application.workspace = true
 next_contracts.workspace = true
-next_process_allocation_counter.workspace = true
 next_project.workspace = true
 next_presentation.workspace = true
 next_reference_game.workspace = true

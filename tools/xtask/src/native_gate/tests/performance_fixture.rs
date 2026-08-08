@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn performance_run_value(
     commit: &str,
     target_triple: &str,
@@ -9,7 +7,7 @@ pub(super) fn performance_run_value(
     live_runtime_state: &str,
 ) -> serde_json::Value {
     let scenario = crate::performance::PerformanceScenarioV1::Smoke;
-    let mut run = crate::performance::PerformanceRunV3::empty(
+    let mut run = crate::performance::PerformanceRunV4::empty(
         scenario,
         crate::performance::PerformanceModeV1::Report,
         "debug",
@@ -59,34 +57,5 @@ pub(super) fn performance_run_value(
         run.authoritative_hashes
             .insert(name.to_owned(), value.to_owned());
     }
-    let counter = crate::performance::ProcessAllocationCounterV1::from_exact_parts(
-        scenario,
-        &run.scenario_hash,
-        crate::performance::ProcessAllocationCounterInputV1 {
-            producer_pid: 1,
-            window_id: 1,
-            alloc_count: 1,
-            alloc_bytes: 1,
-            alloc_zeroed_count: 0,
-            alloc_zeroed_bytes: 0,
-            realloc_count: 0,
-            realloc_bytes: 0,
-        },
-    )
-    .expect("valid native-gate allocation counter");
-    run.resource_counters
-        .attach_allocator_counter(counter)
-        .expect("attach native-gate allocation counter");
     serde_json::to_value(run).expect("serialize native-gate performance run")
-}
-
-#[test]
-fn bundle_validation_rejects_allocator_counter_on_linux() {
-    let bundle = TempBundle::new();
-    let mut report = controlled_fail_report(LINUX_TARGET_TRIPLE);
-    materialize_check_reports(&bundle, &mut report);
-
-    let error = check_reports::validate_check_reports(&bundle.root, &report)
-        .expect_err("allocator evidence is not admitted on Linux");
-    assert!(error.detail().contains("non-admitted target"));
 }

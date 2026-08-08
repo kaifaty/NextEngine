@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 2.8 |
-| Последняя проверка | 2026-08-06 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-039](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md), [ADR-040](adr/040-fixed-tls-sharded-global-allocator-measurement.md), [ADR-041](adr/041-owner-thread-quiescent-global-allocator-measurement.md), [ADR-042](adr/042-unobserved-deallocation-system-pass-through.md), [ADR-043](adr/043-codegen-proven-non-reentrant-count-bearing-allocator-callbacks.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md) |
-| Заменяет | SPEC-09 2.7 |
+| Версия | 2.9 |
+| Последняя проверка | 2026-08-08 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md) |
+| Заменяет | SPEC-09 2.8 |
 
 ## Technical authority boundary
 
@@ -84,7 +84,7 @@ product correctness:
 | `next capture render --input <manifest> --out <dir>` | Run the displayless `capture-worker` for screenshots, video or audio from explicit replay/presentation inputs. |
 | `next profile run <command> --out <dir>` | Enable bounded CPU/GPU/platform profiling and write a local report. |
 | `cargo run --release -p xtask -- performance --scenario <id> --mode report\|gate [--target ref-win-thoth-v1] [--baseline <file>] [--output <dir>]` | Run repository-owned versioned performance report; incompatible host/baseline/workload returns `NOT_RUN`. |
-| `cargo run --release -p xtask -- performance-baseline --runs <ten-run-dir> --output <dir>` | Strictly validate ten clean compatible THOTH reports and atomically publish one `PerformanceBaselineV3`; never overwrite an existing baseline. |
+| `cargo run --release -p xtask -- performance-baseline --runs <ten-run-dir> --output <dir>` | Strictly validate ten clean compatible THOTH reports and atomically publish one `PerformanceBaselineV4`; never overwrite an existing baseline. |
 | `next inspect run <run-root>` | Open an optional developer run record and its referenced logs/traces/media. |
 
 Capture, screenshots and profiling are opt-in. Missing GPU, encoder or external
@@ -172,20 +172,20 @@ running game process.
 
 ## Profiling hooks
 
-CPU spans, schedule stages, allocator counters, GPU timestamps,
+CPU spans, schedule stages, GPU timestamps,
 physics/motor timings, streaming I/O, script/plugin budgets and optional
 `ai-host` latency use stable category names when profiling is enabled.
 Profiling off/on MUST produce identical accepted command and authoritative
 state hashes. External profilers connect only through private platform
 adapters.
 
-Performance tooling serializes `PerformanceRunV3`,
-`PerformanceResourceCountersV3`, `PerformanceMetricV1`,
-`PerformanceBaselineV3` and `PerformanceVerdict` under ADR-036/ADR-045. Эти schemas
+Performance tooling serializes `PerformanceRunV4`,
+`PerformanceResourceCountersV4`, `PerformanceMetricV1`,
+`PerformanceBaselineV4` and `PerformanceVerdict` under ADR-036/ADR-049. Эти schemas
 принадлежат tooling и не добавляются в `crates/contracts`.
-`PerformanceMethodologyV1` сохраняет прежний field shape, но V3 run требует
-значение `nextengine-performance-v3`. V2 run/resource/baseline schemas остаются
-strict decode-only historical evidence и не допускаются в current baseline/gate. Raw samples
+`PerformanceMethodologyV1` сохраняет прежний field shape, но V4 run требует
+значение `nextengine-performance-v4`. V2/V3 readers удалены и не допускаются в
+current baseline/gate. Raw samples
 сохраняются вместе с nearest-rank p50/p95/p99; outliers не удаляются.
 Relative comparison хранится fixed-point basis points и deterministic
 bootstrap 95% interval.
@@ -199,7 +199,7 @@ Declared overhead bound — 3% и 64 MiB.
 
 Canonical logical resource charges, process peak working set, process/device
 residency ceilings, I/O counters и Vulkan timestamp queries помечают unavailable
-source явно. Отсутствующий required V3 counter в hard scenario даёт `NOT_RUN`,
+source явно. Отсутствующий required V4 counter в hard scenario даёт `NOT_RUN`,
 но smoke/report MAY сохранить unavailable diagnostic. Canonical charges содержат
 hash-bound accounting profile, checked host/device totals и charge root; они
 являются budget evidence, но не меняют authoritative scheduling outcome.
@@ -210,43 +210,12 @@ queries and pairs each completed GPU duration with CPU extract/submit time.
 Overflow or an uncollected query increments a dropped-sample counter. Device
 residency reporting uses the conservative sum of engine-owned bound Vulkan
 allocations and explicitly excludes driver-owned swapchain storage. Это
-presentation/telemetry data и не входит в gameplay authority. Глобальные host
-ADR-039/ADR-040/ADR-041/ADR-042/ADR-043 разрешают exact host allocator counter
-только как отдельный internal `tools/process-allocation-counter` с единственным
-reverse dependency `xtask`, process-wide runtime-enabled scenario window и тем
-же `std::alloc::System`. `game`, `headless` и shipping graph его не линкуют.
-Успешные `alloc`, `alloc_zeroed` и `realloc` calls хранят отдельные exact
-bytes/counts; aggregate является checked gross sum. Unobserved `dealloc`
-безусловно делегируется ровно одному matching `System::dealloc`, ничего не
-вычитает и не участвует в measurement state/TLS/slot/fault/close protocol.
-Scope, PID и window identity входят в versioned report. Это не live heap и не
-peak RSS; approximate process-private memory их не подменяет.
+presentation/telemetry data и не входит в gameplay authority. ADR-049 удаляет
+allocator instrumentation из workspace и из performance evidence. Hard V4
+требует canonical logical charges, peak working set, process I/O,
+device-allocation ceiling, Vulkan timestamps, profiler integrity и exact
+authoritative roots.
 
-Первый global per-call in-flight implementation сохранил exact roots, но
-enabled median `+15.95%` нарушил `3%`. ADR-040 заменил его fixed const-TLS
-per-thread slots и одним owned-slot RMW; retained enabled result остался
-`+15.64%`. ADR-041 убрал owner RMW и получил `+5.88%`. ADR-042 сделал direct
-pass-through для unobserved `dealloc`, однако immutable candidate-6 снова
-сохранил roots/resource/inactive checks и дал enabled `+4.81%` `FAIL` при
-`15 253 608` count-bearing callbacks в diagnostic run.
-
-ADR-043 поэтому разрешает убрать per-call `in_callback` get/set/reject только
-на exact pinned target/build, где source, release LLVM IR и assembly доказывают
-allocation-free instrumentation, а backend — direct non-interposed System
-delegation без обратного входа в Rust global allocator. Owner cookie/counters,
-foreign slot admission/postcheck/close handshake, checked overflow и
-TLS/slot/window/PID faults сохраняются. Недоказанный либо reentrant target не
-открывает measurement window и возвращает `NOT_RUN`. Native Linux требует
-отдельного `LNX-006`; Windows proof его не подменяет. ADR-043 реализован и
-прошёл focused/source/boundary/codegen/parity admission, однако единственный
-immutable candidate-7 дал enabled `+4.30%` `FAIL` при inactive `-0.50%`
-`PASS`. ADR-045 сохраняет этот failure immutable, но узко заменяет обязательность
-active exact allocator counter в hard run: normal V3 timing window не активирует
-его, отсутствие allocator evidence допустимо, а приложенный partial/invalid
-counter по-прежнему invalidates run. Hard V3 требует canonical logical charges,
-peak working set, process I/O, device-allocation ceiling, Vulkan timestamps,
-profiler integrity и exact authoritative roots. Отдельный
-`allocator-counter-check` остаётся diagnostic path.
 `long-session-soak` дополняет быстрый smoke report-only диагностикой
 history-dependent degradation: одинаковые held-movement/periodic-camera inputs
 проходят через live driver и interactive application scheduler на `3 600`
@@ -279,7 +248,7 @@ fallback `1280×720`. Каждая из шести независимых пар
 timestamp-query count, canonical logical charges, Windows process/device
 counters, profiler integrity и authoritative roots. Это больше не статический
 render smoke, но report mode остаётся `REPORT_ONLY`, а hard `PASS` разрешён
-только clean release ten-run THOTH evidence по ADR-036/ADR-045. Workloads R3–R5
+только clean release ten-run THOTH evidence по ADR-036/ADR-049. Workloads R3–R5
 до их реализации честно возвращают `NOT_RUN`.
 Тяжёлые captures, WPA/perf/samply profiles и generated reports остаются
 machine-local и не коммитятся.

@@ -3,13 +3,13 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-043 |
-| Статус | Accepted |
+| Статус | Superseded |
 | Версия | 1.0 |
 | Дата решения | 2026-08-01 |
 | Последняя проверка | 2026-08-01 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-039](039-tooling-only-process-wide-system-global-allocator-measurement.md), [ADR-040](040-fixed-tls-sharded-global-allocator-measurement.md), [ADR-041](041-owner-thread-quiescent-global-allocator-measurement.md), [ADR-042](042-unobserved-deallocation-system-pass-through.md) |
 | Заменяет | Узко заменяет обязательные per-call recursion-flag get/test/set/clear/reject clauses ADR-040 и ADR-041 только для count-bearing `alloc`/`alloc_zeroed`/`realloc` на target/build, прошедшем non-reentrancy admission ниже. Также явно заменяет отклонение варианта «Удалить только recursion flag» в ADR-042: после реализации direct `dealloc` pass-through новый immutable candidate-6 и exact callback-count evidence дают отдельную проверяемую гипотезу, а source+IR+ASM/backend proof устраняет ранее неограниченный recursion risk. Foreign admission/order ADR-040, owner cookie/counters ADR-041, direct `dealloc` ADR-042, tooling-only unsafe boundary ADR-039, exact report semantics, `3%`/`64 MiB` limits и fail-closed fallback не меняются. |
-| Заменён | не заменён |
+| Заменён | Полностью заменён [ADR-049](049-performance-evidence-without-allocator-instrumentation.md); allocator instrumentation удалена. |
 
 ## Контекст и immutable candidate-6
 

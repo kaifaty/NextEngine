@@ -3,13 +3,13 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-040 |
-| Статус | Accepted |
+| Статус | Superseded |
 | Версия | 1.3 |
 | Дата решения | 2026-08-01 |
 | Последняя проверка | 2026-08-01 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-039](039-tooling-only-process-wide-system-global-allocator-measurement.md) |
 | Заменяет | Узко заменяет в [ADR-039](039-tooling-only-process-wide-system-global-allocator-measurement.md) обязательный per-call checked-CAS/in-flight protocol и запрет любого TLS state в callback. Crate/dependency boundary, `System` delegation, exact gross counting semantics, report schema/scope, shipping prohibition, unsafe scope, 3%/64 MiB limits и fail-closed fallback ADR-039 остаются Accepted. |
-| Заменён | Owner-thread active callback/admission и close clauses узко заменены [ADR-041](041-owner-thread-quiescent-global-allocator-measurement.md) после retained enabled overhead `+15.64%`. [ADR-042](042-unobserved-deallocation-system-pass-through.md) исключает unobserved `dealloc` из TLS/slot admission и close после retained ADR-041 enabled overhead `+5.88%`. [ADR-043](043-codegen-proven-non-reentrant-count-bearing-allocator-callbacks.md) после candidate-6 `+4.81%` узко удаляет per-call recursion flag/rejection у foreign counted callbacks только на admitted pinned target/build. Fixed-slot registration, один `SeqCst` admission RMW, identity postcheck, counters/faults и close handshake этого ADR остаются Accepted. |
+| Заменён | Полностью заменён [ADR-049](049-performance-evidence-without-allocator-instrumentation.md); allocator instrumentation удалена. |
 
 ## Контекст и измеренное опровержение
 

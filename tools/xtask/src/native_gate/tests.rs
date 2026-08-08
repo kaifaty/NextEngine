@@ -894,7 +894,7 @@ fn bundle_validation_rejects_missing_or_tampered_check_reports() {
 }
 
 #[test]
-fn bundle_validation_rejects_performance_report_without_v3_run() {
+fn bundle_validation_rejects_performance_report_without_v4_run() {
     let bundle = TempBundle::new();
     let mut report = controlled_fail_report(WINDOWS_TARGET_TRIPLE);
     materialize_check_reports(&bundle, &mut report);
@@ -918,9 +918,9 @@ fn bundle_validation_rejects_performance_report_without_v3_run() {
     write_target_report(&bundle, &report);
 
     let error = validate_native_gate_target_bundle(&bundle.report_path())
-        .expect_err("missing V2 performance run");
+        .expect_err("missing V4 performance run");
     assert_eq!(error.code(), NATIVE_GATE_REPORT_INVALID);
-    assert!(error.detail().contains("performance V2 run is missing"));
+    assert!(error.detail().contains("performance V4 run is missing"));
 }
 
 #[test]

@@ -1,7 +1,5 @@
 #![forbid(unsafe_code)]
 
-pub mod allocator_counter_codegen;
-pub mod allocator_counter_kernel;
 pub mod boundary_scan;
 pub mod native_gate;
 pub mod package;

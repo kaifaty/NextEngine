@@ -82,7 +82,7 @@ fn performance_cli_accepts_the_report_only_production_worker_soak() {
     assert_eq!(
         performance_scenario_hash(request.scenario),
         xtask::performance::sha256_hex(
-            b"nextengine.performance.production-worker-soak.v2:240-fifo-main-callbacks:60hz:bounded-sync-queue:next-simulation-worker:fixed-step-application:shared-presentation-publication:main-snapshot-read:allocator-window=production-worker-diagnostic-only"
+            b"nextengine.performance.production-worker-soak.v3:240-fifo-main-callbacks:60hz:bounded-sync-queue:next-simulation-worker:fixed-step-application:shared-presentation-publication:main-snapshot-read:resource-observation=production-worker-diagnostic-only"
         )
     );
 }
@@ -113,7 +113,7 @@ fn production_worker_details_are_versioned_and_round_trip_strictly() {
         command_identity_index_root: "c".repeat(64),
         command_ledger_hash: "d".repeat(64),
     };
-    let run = xtask::performance::PerformanceRunV3::empty(
+    let run = xtask::performance::PerformanceRunV4::empty(
         xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak,
         xtask::performance::PerformanceModeV1::Report,
         "release",

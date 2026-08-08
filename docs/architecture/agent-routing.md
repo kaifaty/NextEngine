@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 1.2 |
+| Версия | 1.3 |
 | Последняя проверка | 2026-08-08 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -51,7 +51,7 @@
 | Player interaction, UI, camera, localization, accessibility | [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md) | ADR-019, ADR-044 | play |
 | Project composition, configuration, application lifecycle | [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md) | ADR-018, ADR-048 | fast, content-package |
 | Platform host, application session, presentation authority, Save/Load/close | [SPEC-29](29-platform-host-and-application-session.md) | ADR-028, ADR-035, ADR-047 | play, persistence-replay, platform |
-| Jobs, memory, resource residency, I/O backpressure, allocator measurement, performance budgets | [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md) | ADR-016, ADR-036, ADR-038–043, ADR-045 | performance |
+| Jobs, memory, resource residency, I/O backpressure, performance budgets | [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md) | ADR-016, ADR-036, ADR-038, ADR-045, ADR-049 | performance |
 | Tooling, SDK, observability | [SPEC-09](09-tooling-sdk-and-observability.md) | — | fast |
 | Gothic importer boundary, neutral artifacts | [SPEC-10](10-gothic-importer-boundary.md) | ADR-001 | content-package |
 | Security, licensing, governance, secrets, provenance | [SPEC-11](11-security-licensing-and-governance.md) | ADR-001 | fast |
@@ -61,7 +61,7 @@
 ## Historical-only — не authority
 
 ADR-004, ADR-006, ADR-007, ADR-010, ADR-012, ADR-015, ADR-023, ADR-024,
-ADR-029, ADR-031
+ADR-029, ADR-031, ADR-039, ADR-040, ADR-041, ADR-042, ADR-043
 полностью superseded; [evidence register](evidence-register.md) и review
 packets 1.0–1.9 (`docs/reviews/`) — historical snapshots. Их MAY читать как
 контекст, но они не разрешают и не блокируют изменения.

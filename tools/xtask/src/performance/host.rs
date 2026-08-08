@@ -3,7 +3,7 @@ use std::process::Command;
 use serde::Deserialize;
 
 use super::{
-    MINIMUM_FREE_RAM_BYTES, PerformancePreflightV1, PerformanceResourceCountersV3,
+    MINIMUM_FREE_RAM_BYTES, PerformancePreflightV1, PerformanceResourceCountersV4,
     PerformanceTargetFingerprintV1, THOTH_TARGET_ID,
 };
 
@@ -154,15 +154,15 @@ pub fn validate_thoth_fingerprint(fingerprint: &PerformanceTargetFingerprintV1) 
     diagnostics
 }
 
-pub fn inspect_process_counters() -> PerformanceResourceCountersV3 {
+pub fn inspect_process_counters() -> PerformanceResourceCountersV4 {
     if !cfg!(target_os = "windows") {
-        return PerformanceResourceCountersV3 {
+        return PerformanceResourceCountersV4 {
             unavailable: vec![
                 "process residency counters are not implemented on this report-only host"
                     .to_owned(),
                 "Vulkan timestamps require a representative render workload".to_owned(),
             ],
-            ..PerformanceResourceCountersV3::default()
+            ..PerformanceResourceCountersV4::default()
         };
     }
     let pid = std::process::id();
@@ -213,7 +213,7 @@ if (-not [NextEngineProcessIo]::GetProcessIoCounters($process.Handle, [ref]$coun
     match output.and_then(|bytes| {
         serde_json::from_slice::<Probe>(&bytes).map_err(|error| error.to_string())
     }) {
-        Ok(probe) => PerformanceResourceCountersV3 {
+        Ok(probe) => PerformanceResourceCountersV4 {
             process_peak_working_set_bytes: probe.process_peak_working_set_bytes,
             io_read_bytes: probe.io_read_bytes,
             io_write_bytes: probe.io_write_bytes,
@@ -221,22 +221,22 @@ if (-not [NextEngineProcessIo]::GetProcessIoCounters($process.Handle, [ref]$coun
                 "device residency requires a representative Vulkan workload".to_owned(),
                 "Vulkan timestamps require a representative render workload".to_owned(),
             ],
-            ..PerformanceResourceCountersV3::default()
+            ..PerformanceResourceCountersV4::default()
         },
-        Err(error) => PerformanceResourceCountersV3 {
+        Err(error) => PerformanceResourceCountersV4 {
             unavailable: vec![
                 format!("process counters unavailable: {error}"),
                 "device residency requires a representative Vulkan workload".to_owned(),
                 "Vulkan timestamps require a representative render workload".to_owned(),
             ],
-            ..PerformanceResourceCountersV3::default()
+            ..PerformanceResourceCountersV4::default()
         },
     }
 }
 
 pub fn finish_process_counters(
-    before: &PerformanceResourceCountersV3,
-) -> PerformanceResourceCountersV3 {
+    before: &PerformanceResourceCountersV4,
+) -> PerformanceResourceCountersV4 {
     let after = inspect_process_counters();
     let io_read_bytes = counter_delta(before.io_read_bytes, after.io_read_bytes);
     let io_write_bytes = counter_delta(before.io_write_bytes, after.io_write_bytes);
@@ -252,15 +252,12 @@ pub fn finish_process_counters(
                 .to_owned(),
         );
     }
-    PerformanceResourceCountersV3 {
+    PerformanceResourceCountersV4 {
         process_peak_working_set_bytes: after.process_peak_working_set_bytes,
         device_resident_bytes: after.device_resident_bytes,
         io_read_bytes,
         io_write_bytes,
         logical_resource_charges: after.logical_resource_charges,
-        allocator_allocated_bytes: after.allocator_allocated_bytes,
-        allocator_allocation_count: after.allocator_allocation_count,
-        allocator_counter: after.allocator_counter,
         vulkan_timestamp_queries: after.vulkan_timestamp_queries,
         unavailable,
     }

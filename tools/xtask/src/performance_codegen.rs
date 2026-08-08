@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::performance::{
     PERFORMANCE_METHODOLOGY_VERSION, PERFORMANCE_RUN_SCHEMA_VERSION, PerformanceModeV1,
-    PerformanceRunV3, PerformanceScenarioV1, PerformanceVerdict, nearest_rank_percentile,
+    PerformanceRunV4, PerformanceScenarioV1, PerformanceVerdict, nearest_rank_percentile,
     validate_thoth_fingerprint,
 };
 
@@ -206,7 +206,7 @@ impl CodegenRunProvenanceV1 {
 #[derive(Clone, Debug)]
 pub struct CodegenScenarioRunSetV1 {
     pub scenario: PerformanceScenarioV1,
-    pub runs: Vec<PerformanceRunV3>,
+    pub runs: Vec<PerformanceRunV4>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -406,7 +406,7 @@ pub fn compare_codegen_run_sets(
     })
 }
 
-fn first_run(sets: &[CodegenScenarioRunSetV1]) -> Option<&PerformanceRunV3> {
+fn first_run(sets: &[CodegenScenarioRunSetV1]) -> Option<&PerformanceRunV4> {
     sets.iter().find_map(|set| set.runs.first())
 }
 
@@ -451,7 +451,7 @@ fn validate_run_group(
     set: &CodegenScenarioRunSetV1,
     expected_profile: &str,
     side: &str,
-    global_anchor: Option<&PerformanceRunV3>,
+    global_anchor: Option<&PerformanceRunV4>,
     diagnostics: &mut Vec<String>,
 ) {
     let prefix = format!("{side}:{}", set.scenario.as_str());
@@ -643,7 +643,7 @@ fn combined_bootstrap_scenario(
 }
 
 fn metric_run_p95s(
-    runs: &[PerformanceRunV3],
+    runs: &[PerformanceRunV4],
 ) -> Result<BTreeMap<String, (String, Vec<u64>)>, String> {
     let mut metrics = BTreeMap::<String, (String, Vec<u64>)>::new();
     for run in runs {
@@ -959,10 +959,10 @@ LLVM version: 21.1.8"
     }
 
     #[test]
-    fn codegen_run_validation_requires_v3_low_overhead_resource_evidence() {
+    fn codegen_run_validation_requires_v4_resource_evidence() {
         let set = CodegenScenarioRunSetV1 {
             scenario: PerformanceScenarioV1::R2AlphaRender,
-            runs: vec![PerformanceRunV3::empty(
+            runs: vec![PerformanceRunV4::empty(
                 PerformanceScenarioV1::R2AlphaRender,
                 PerformanceModeV1::Report,
                 "release",
@@ -974,10 +974,5 @@ LLVM version: 21.1.8"
             diagnostic.contains("CODEGEN_HARD_EVIDENCE_INVALID")
                 && diagnostic.contains("logical_resource_charges")
         }));
-        assert!(
-            diagnostics
-                .iter()
-                .all(|diagnostic| !diagnostic.contains("PERF_ALLOCATOR_COUNTER_UNAVAILABLE"))
-        );
     }
 }

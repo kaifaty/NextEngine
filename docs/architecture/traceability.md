@@ -4,10 +4,10 @@
 |---|---|
 | ID | TRACE-001 |
 | Статус | Accepted |
-| Версия | 4.3 |
-| Последняя проверка | 2026-08-06 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-039](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md), [ADR-040](adr/040-fixed-tls-sharded-global-allocator-measurement.md), [ADR-041](adr/041-owner-thread-quiescent-global-allocator-measurement.md), [ADR-042](adr/042-unobserved-deallocation-system-pass-through.md), [ADR-043](adr/043-codegen-proven-non-reentrant-count-bearing-allocator-callbacks.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
-| Заменяет | TRACE-001 4.2 |
+| Версия | 4.4 |
+| Последняя проверка | 2026-08-08 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md) |
+| Заменяет | TRACE-001 4.3 |
 
 ## Назначение
 
@@ -39,7 +39,7 @@ Canonical check names и правила conditional запуска опреде�
 | Сохранять player-facing presentation | `play`; optional capture | exact revision-bound mesh/material references, bounds и typed integer/fixed-point third-person camera входят в complete in-memory 30 Hz fixed-step `PresentationSnapshotV2`/B0 plan; renderer при 30/60/144 Hz cadence повторяет последний snapshot с одинаковыми gameplay roots, а authoritative restart начинает fresh epoch/sequence `0` с previous=current camera cuts. Приватные Vulkan float view-projection/depth и UI/camera/animation/audio/render change не меняют authority | SPEC-04, SPEC-08, SPEC-18, SPEC-28, SPEC-29, SPEC-30, ADR-035 |
 | Поддерживать shipping platform, которую реально изменили | conditional `platform` | релевантный smoke запускается на affected Windows/Linux target; public API остаётся engine-owned | SPEC-04, SPEC-17, SPEC-29 |
 | Закрыть v1 без ложного platform success | `v1-closure` и `v1-package` внутри `native-gate-run` на каждом target; затем `native-gate-compare` | каждый clean same-commit Windows/Linux run сохраняет свой `PASS` и честный remote-target `NOT_RUN`; только пара native target reports с matching project/content/mechanics/WIT/extension/state/ledger roots даёт `native_gate_ready = true`, не подменяя остальные критерии R1/v1 | SPEC-04, SPEC-07, SPEC-12, SPEC-15, SPEC-17, SPEC-29, ADR-030 |
-| Не ухудшать затронутый hot path | conditional `performance` | versioned run сохраняет raw samples, nearest-rank p50/p95/p99, methodology, full fingerprint и exact authoritative roots. `long-session-soak` показывает 3 600-tick history growth и mandatory checkpoint cost при exact driver/application ledger-root parity; renderer-only `interactive-frame-soak` отделён от versioned `production-worker-soak`, который измеряет bounded game queue, `next-simulation`, fixed-step application и shared snapshot handoff с exact counts и zero drop/reorder. ADR-039 фиксирует отдельный tooling-only process/PID/window-scoped `System` allocation counter; ADR-040 сохраняет exact sharded admission для foreign counted calls, ADR-041 после retained enabled `+15.64%` failure задаёт RMW-free const-TLS owner path, а ADR-042 после retained `+5.88%` исключает unobserved `dealloc` из measurement state machine. Candidate-6 сохранил roots/resource/inactive checks, но enabled `+4.81%` снова нарушил `3%`; ADR-043 разрешил удалить per-call recursion flag только на admitted pinned Windows source+IR+ASM/backend proof, implementation это доказательство прошла, но единственный candidate-7 дал inactive `-0.50%` `PASS` и enabled `+4.30%` `FAIL`. Gross successful `alloc`/`alloc_zeroed`/`realloc` traffic не является live/peak RSS, shipping roots его не линкуют, а до новой material hypothesis и candidate `PASS` counter честно `NOT_RUN`. Linux остаётся `NOT_RUN` до `LNX-006` и отдельного Accepted target-extension ADR. Только compatible `release` baseline на полном `ref-win-thoth-v1` даёт hard timing verdict; diagnostics имеют `REPORT_ONLY`, wrong host/workload/preflight — `NOT_RUN`. Representative `r2-alpha-render` загружает `projects/reference-alpha` через production authoring/cook/activation и измеряет exploration, combat и UI/dialogue отдельно в primary/fallback: шесть окон по 600 warm-up + 3 600 measured frames с independent budgets, Vulkan timestamps, V3 logical/process/device evidence и authoritative roots. Его report mode остаётся `REPORT_ONLY`; R2 hard verdict требует clean ten-run THOTH baseline, а R3–R5 workloads до реализации возвращают `NOT_RUN`. Absolute overrun или >=5% regression с 95% interval — `FAIL`; smoke/soak/worker diagnostic и Accepted boundaries не закрывают B-12 | SPEC-04, SPEC-05, SPEC-06, SPEC-08, SPEC-09, SPEC-12, SPEC-16, SPEC-23, SPEC-26, SPEC-27, SPEC-30, ADR-016, ADR-036, ADR-038, ADR-039, ADR-040, ADR-041, ADR-042, ADR-043, ADR-045 |
+| Не ухудшать затронутый hot path | conditional `performance` | `PerformanceRunV4` сохраняет raw samples, nearest-rank p50/p95/p99, methodology, full fingerprint, canonical logical charges, peak working set, process I/O, device allocation ceilings, Vulkan timestamps, profiler integrity и exact authoritative roots. Все пять реализованных workload сохраняются: smoke, long-session, interactive-frame, production-worker и `r2-alpha-render`; diagnostics имеют `REPORT_ONLY`, wrong host/workload/preflight — `NOT_RUN`. Только compatible clean ten-run `release` baseline на полном `ref-win-thoth-v1` даёт hard timing verdict. Absolute overrun или >=5% regression с 95% interval — `FAIL`; report-only scenarios и Accepted boundaries не закрывают B-12 | SPEC-04, SPEC-05, SPEC-06, SPEC-08, SPEC-09, SPEC-12, SPEC-16, SPEC-23, SPEC-26, SPEC-27, SPEC-30, ADR-016, ADR-036, ADR-038, ADR-045, ADR-049 |
 | Сохранять deterministic fallback для AI/physical policy | `play`, `persistence-replay`; `performance` при изменении hot path | absent/bad optional service или model route приводит к declared local fallback без blocked tick и duplicate command | SPEC-05, SPEC-06, SPEC-14, SPEC-27 |
 | Проверять заменяемость grounded-capsule physics backend | `physics-collision --backend compare`, `persistence-replay --backend reference\|physx`, `physics-backend-parity`; conditional `platform`, `performance` | reference и PhysX дают exact canonical pose/contact phase/order/checkpoint/replay result; activation fallback не меняет tick, а runtime failure сохраняет previous checkpoint | SPEC-05, SPEC-21, SPEC-26, ADR-033 |
 | Не смешивать Gothic data с engine runtime | `content-package` только при изменении importer/neutral contract | isolated importer output проходит bounds/provenance validation; runtime/packages не содержат legacy/protected bytes | SPEC-10, SPEC-11, SPEC-24 |
@@ -59,16 +59,13 @@ Canonical check names и правила conditional запуска опреде�
 наблюдаемый product goal и малый check. Добавлять глобальную бюрократическую
 матрицу для этого не требуется.
 
-### Performance V3 evidence clarification
+### Performance V4 evidence clarification
 
-For the hot-path performance goal, ADR-045 replaces only the mandatory active
-allocator-counter clause. Current hard evidence is
-`PerformanceRunV3`/`PerformanceResourceCountersV3`: canonical logical charges,
-Windows peak working set and process I/O, conservative device-allocation
-ceiling, Vulkan timestamps, profiler integrity and exact authoritative roots.
-`ProcessAllocationCounterV1` is optional; absent evidence is valid, while a
-present partial or inconsistent payload is `NOT_RUN`. V2 remains readable only
-as historical evidence. Representative workloads, ten-run THOTH baselines and
+ADR-049 removes allocator instrumentation and the V2/V3 readers. Current hard
+evidence is `PerformanceRunV4`/`PerformanceResourceCountersV4`: canonical
+logical charges, Windows peak working set and process I/O, conservative
+device-allocation ceiling, Vulkan timestamps, profiler integrity and exact
+authoritative roots. Representative workloads, ten-run THOTH baselines and
 absolute budgets remain required; no Linux or B-12 closure follows from the
 schema change.
 

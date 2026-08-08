@@ -15,7 +15,7 @@ pub(super) fn append_authoritative_hashes(
 }
 
 pub(super) fn attach_resource_evidence(
-    counters: &mut xtask::performance::PerformanceResourceCountersV3,
+    counters: &mut xtask::performance::PerformanceResourceCountersV4,
     methodology_notes: &mut Vec<String>,
     report: &next_verification::R2AlphaRenderPerformanceReportV1,
 ) -> Result<(), String> {

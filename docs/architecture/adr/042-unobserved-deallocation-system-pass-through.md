@@ -3,13 +3,13 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-042 |
-| Статус | Accepted |
+| Статус | Superseded |
 | Версия | 1.1 |
 | Дата решения | 2026-08-01 |
 | Последняя проверка | 2026-08-01 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-039](039-tooling-only-process-wide-system-global-allocator-measurement.md), [ADR-040](040-fixed-tls-sharded-global-allocator-measurement.md), [ADR-041](041-owner-thread-quiescent-global-allocator-measurement.md) |
 | Заменяет | Узко заменяет deallocation callback/admission/close/fault/codegen clauses ADR-039, ADR-040 и ADR-041. `dealloc` остаётся exactly-once matching `System::dealloc`, но как явно не наблюдаемая операция `delegated-not-subtracted` больше не читает measurement state, не входит в TLS/slot admission и не задерживает close. Exact process-wide successful `alloc`/`alloc_zeroed`/`realloc` semantics, owner ADR-041 path, foreign ADR-040 path, tooling-only unsafe boundary, report scope, `3%`/`64 MiB` limits и fail-closed fallback не меняются. |
-| Заменён | [ADR-043](043-codegen-proven-non-reentrant-count-bearing-allocator-callbacks.md) после immutable candidate-6 enabled `+4.81%` `FAIL` узко заменяет только требование per-call recursion flag/fault для count-bearing callbacks и рассмотренное ниже отклонение варианта «Удалить только recursion flag» на admitted pinned target/build с source+IR+ASM/backend non-reentrancy proof. Direct `dealloc` pass-through, observed domain, target-local proof, exactness, `3%`/`64 MiB` limits и fallback этого ADR остаются Accepted. |
+| Заменён | Полностью заменён [ADR-049](049-performance-evidence-without-allocator-instrumentation.md); allocator instrumentation удалена. |
 
 ## Контекст и retained evidence
 
