@@ -16,6 +16,7 @@ use support::*;
 const INTERACTIVE_FRAME_SOAK_FRAMES: u32 = 240;
 mod production_worker;
 mod r2_alpha_render;
+mod r3_multiregion;
 mod workloads;
 
 use production_worker::*;
@@ -54,6 +55,7 @@ fn preserve_report_only_scenario_verdict(
             | xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak
             | xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak
             | xtask::performance::PerformanceScenarioV1::R2AlphaRender
+            | xtask::performance::PerformanceScenarioV1::R3MultiregionStreaming
     );
     if mode == xtask::performance::PerformanceModeV1::Report
         && report_only_scenario
@@ -80,6 +82,9 @@ fn report_only_gate_diagnostic(
         ),
         xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak => Some(
             "PERF_PRODUCTION_WORKER_SOAK_REPORT_ONLY: the production worker soak is diagnostic and cannot gate",
+        ),
+        xtask::performance::PerformanceScenarioV1::R3MultiregionStreaming => Some(
+            "PERF_R3_MULTIREGION_STREAMING_REPORT_ONLY: B-12 and the clean ten-run THOTH hard gate remain open",
         ),
         _ => None,
     }
@@ -199,6 +204,15 @@ fn performance_report_for(
         Err(env::VarError::NotPresent) => false,
         Err(error) => return Err(error.to_string()),
     };
+    if request.scenario == xtask::performance::PerformanceScenarioV1::R3MultiregionStreaming {
+        return r3_multiregion::performance_report(
+            request,
+            state_root,
+            run,
+            tool_run.project_composition_lock_hash.to_hex(),
+            profiling_enabled,
+        );
+    }
     let mut recorded_spans = if profiling_enabled {
         Vec::with_capacity(
             usize::try_from(xtask::performance::MAX_SPANS_PER_THREAD)

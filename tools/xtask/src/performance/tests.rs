@@ -282,10 +282,9 @@ fn production_worker_scenario_has_distinct_versioned_methodology() {
 fn r2_alpha_render_is_an_available_six_window_workload() {
     let scenario = PerformanceScenarioV1::R2AlphaRender;
     assert_eq!(scenario.unavailable_reason(), None);
-    assert!(
-        PerformanceScenarioV1::R3MultiregionStreaming
-            .unavailable_reason()
-            .is_some()
+    assert_eq!(
+        PerformanceScenarioV1::R3MultiregionStreaming.unavailable_reason(),
+        None
     );
     assert_eq!(
         performance_scenario_hash(scenario),

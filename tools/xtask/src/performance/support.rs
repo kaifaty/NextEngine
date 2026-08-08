@@ -74,8 +74,10 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
         PerformanceScenarioV1::R3MultiregionStreaming => {
             methodology.measured_samples = 1_000;
             methodology.notes = vec![
-                "four regions, 64 chunks and approximately 150% of the residency budget".to_owned(),
-                "worker permutations 1/2/8/16 require identical authoritative roots".to_owned(),
+                "1,000 transitions cycle over the canonical manifest-driven four-region/64-chunk route through production packaged I/O and the paired Runtime/World fixed-stage commit".to_owned(),
+                "the measured resource-observation window contains only the prepared streaming workload; project cook/publish/activation, validation/report assembly and scratch cleanup remain outside it".to_owned(),
+                "the production default is two bounded workers; focused streaming checks establish root parity for worker counts 1/2/4".to_owned(),
+                "the workload is report-only while B-12 and the clean ten-run THOTH hard gate remain open".to_owned(),
             ];
         }
         PerformanceScenarioV1::R4_100Npc => {

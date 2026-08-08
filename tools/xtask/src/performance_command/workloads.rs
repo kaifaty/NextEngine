@@ -45,6 +45,11 @@ pub(super) struct ScenarioWorkloads {
     pub(super) resource_counters: xtask::performance::PerformanceResourceCountersV4,
 }
 
+pub(super) struct StreamingOnlyWorkload {
+    pub(super) streaming: Timed<next_verification::StreamingPerformanceReport>,
+    pub(super) resource_counters: xtask::performance::PerformanceResourceCountersV4,
+}
+
 pub(super) fn run_scenario_workloads(
     scenario: xtask::performance::PerformanceScenarioV1,
     state_root: Option<&Path>,
@@ -313,6 +318,29 @@ pub(super) fn run_streaming(
     timed(|| match state_root {
         Some(root) => next_verification::run_streaming_performance_check_in(root),
         None => next_verification::run_streaming_performance_check(),
+    })
+}
+
+#[inline(never)]
+pub(super) fn run_multiregion_streaming(
+    state_root: Option<&Path>,
+) -> Result<StreamingOnlyWorkload, String> {
+    let scratch_root = state_root
+        .map(Path::to_path_buf)
+        .unwrap_or_else(std::env::temp_dir);
+    let mut prepared =
+        next_verification::prepare_multiregion_streaming_performance_check_in(&scratch_root)
+            .map_err(|error| error.to_string())?;
+    let window = ScenarioResourceWindow::begin();
+    let (measurement, elapsed) = measure(|| prepared.run_measured());
+    let resource_counters = window.finish();
+    let streaming = prepared
+        .finish(measurement)
+        .map(|report| Timed { report, elapsed })
+        .map_err(|error| error.to_string())?;
+    Ok(StreamingOnlyWorkload {
+        streaming,
+        resource_counters,
     })
 }
 

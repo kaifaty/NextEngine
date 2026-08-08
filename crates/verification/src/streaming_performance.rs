@@ -33,7 +33,7 @@ pub struct PreparedStreamingPerformanceCheck {
     directory: ScratchDirectory,
     world: WorldStreamerV1,
     runtime: RuntimeState,
-    chunks: [SchemaId; 2],
+    route: Vec<SchemaId>,
     run_started: bool,
 }
 
@@ -83,10 +83,27 @@ pub fn run_streaming_performance_check_in(
     prepared.finish(measurement)
 }
 
+pub fn run_multiregion_streaming_performance_check()
+-> Result<StreamingPerformanceReport, StreamingPerformanceError> {
+    run_multiregion_streaming_performance_check_in(&std::env::temp_dir())
+}
+
+pub fn run_multiregion_streaming_performance_check_in(
+    scratch_root: &Path,
+) -> Result<StreamingPerformanceReport, StreamingPerformanceError> {
+    let mut prepared = prepare_multiregion_streaming_performance_check_in(scratch_root)?;
+    let measurement = prepared.run_measured();
+    prepared.finish(measurement)
+}
+
 pub(crate) fn run_streaming_performance_check_with_scratch(
     scratch: &ScratchContext,
 ) -> Result<StreamingPerformanceReport, StreamingPerformanceError> {
-    let mut prepared = prepare_streaming_performance_check_with_scratch(scratch)?;
+    let mut prepared = prepare_streaming_performance_check_with_scratch(
+        scratch,
+        StreamingRouteKind::RolePair,
+        "streaming-performance",
+    )?;
     let measurement = prepared.run_measured();
     prepared.finish(measurement)
 }
@@ -101,21 +118,48 @@ pub fn prepare_streaming_performance_check_in(
 ) -> Result<PreparedStreamingPerformanceCheck, StreamingPerformanceError> {
     let scratch = ScratchContext::new(scratch_root)
         .map_err(|error| StreamingPerformanceError::new("scratch root", error.to_string()))?;
-    prepare_streaming_performance_check_with_scratch(&scratch)
+    prepare_streaming_performance_check_with_scratch(
+        &scratch,
+        StreamingRouteKind::RolePair,
+        "streaming-performance",
+    )
+}
+
+pub fn prepare_multiregion_streaming_performance_check()
+-> Result<PreparedStreamingPerformanceCheck, StreamingPerformanceError> {
+    prepare_multiregion_streaming_performance_check_in(&std::env::temp_dir())
+}
+
+pub fn prepare_multiregion_streaming_performance_check_in(
+    scratch_root: &Path,
+) -> Result<PreparedStreamingPerformanceCheck, StreamingPerformanceError> {
+    let scratch = ScratchContext::new(scratch_root)
+        .map_err(|error| StreamingPerformanceError::new("scratch root", error.to_string()))?;
+    prepare_streaming_performance_check_with_scratch(
+        &scratch,
+        StreamingRouteKind::Multiregion,
+        "multiregion-streaming-performance",
+    )
+}
+
+#[derive(Clone, Copy)]
+enum StreamingRouteKind {
+    RolePair,
+    Multiregion,
 }
 
 fn prepare_streaming_performance_check_with_scratch(
     scratch: &ScratchContext,
+    route_kind: StreamingRouteKind,
+    directory_label: &str,
 ) -> Result<PreparedStreamingPerformanceCheck, StreamingPerformanceError> {
     let source = next_reference_game::project_source_v2()
         .map_err(|error| StreamingPerformanceError::new("fixture source", error.to_string()))?;
     let cooked = next_project::cook_project_v2(source)
         .map_err(|error| StreamingPerformanceError::new("cook fixture", error.to_string()))?;
-    let directory = scratch
-        .create_directory("streaming-performance")
-        .map_err(|error| {
-            StreamingPerformanceError::new("create performance fixture", error.to_string())
-        })?;
+    let directory = scratch.create_directory(directory_label).map_err(|error| {
+        StreamingPerformanceError::new("create performance fixture", error.to_string())
+    })?;
     let store = ContentStore::new(directory.path());
     let prepared = (|| {
         store
@@ -132,22 +176,36 @@ fn prepare_streaming_performance_check_with_scratch(
             .map_err(|error| {
                 StreamingPerformanceError::new("runtime fixture", error.to_string())
             })?;
-        let chunks = [
-            fixture.world_topology().initial_chunk_id().clone(),
-            fixture.world_topology().gameplay_target_chunk_id().clone(),
-        ];
+        let route = match route_kind {
+            StreamingRouteKind::RolePair => vec![
+                fixture.world_topology().initial_chunk_id().clone(),
+                fixture.world_topology().gameplay_target_chunk_id().clone(),
+            ],
+            StreamingRouteKind::Multiregion => fixture
+                .world_topology()
+                .ordered_multiregion_route()
+                .iter()
+                .map(|entry| entry.chunk_id.clone())
+                .collect(),
+        };
+        if route.len() < 2 {
+            return Err(StreamingPerformanceError::new(
+                "streaming route",
+                "performance route requires at least two chunks",
+            ));
+        }
         let runtime = RuntimeState::new(fixture.bootstrap, fixture.authority).map_err(|error| {
             StreamingPerformanceError::new("activate runtime", error.to_string())
         })?;
         let world = WorldStreamerV1::activate(
             package.project,
             package.content_generation,
-            chunks[0].clone(),
+            route[0].clone(),
         )
         .map_err(|error| StreamingPerformanceError::new("activate world", error.to_string()))?;
-        Ok((world, runtime, chunks))
+        Ok((world, runtime, route))
     })();
-    let (world, runtime, chunks) = match prepared {
+    let (world, runtime, route) = match prepared {
         Ok(prepared) => prepared,
         Err(error) => return Err(finish_failed_preparation(directory, error)),
     };
@@ -160,7 +218,7 @@ fn prepare_streaming_performance_check_with_scratch(
         directory,
         world,
         runtime,
-        chunks,
+        route,
         run_started: false,
     })
 }
@@ -182,11 +240,14 @@ impl PreparedStreamingPerformanceCheck {
         let mut staged_asset_references = 0_u64;
         let mut required_staging_bytes = 0_u64;
         for cycle in 0..STREAMING_PERFORMANCE_CYCLES {
-            let target: SchemaId = if cycle % 2 == 0 {
-                self.chunks[1].clone()
-            } else {
-                self.chunks[0].clone()
-            };
+            let route_index = usize::try_from(cycle)
+                .map_err(|error| StreamingPerformanceError::new("route index", error.to_string()))?
+                .checked_add(1)
+                .ok_or_else(|| {
+                    StreamingPerformanceError::new("route index", "route index overflow")
+                })?
+                % self.route.len();
+            let target = self.route[route_index].clone();
             let publication = self
                 .world
                 .prepare_begin_transition(target, self.runtime.next_tick())

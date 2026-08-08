@@ -138,6 +138,7 @@ fn diagnostic_baseline_comparison_cannot_promote_report_only_to_a_gate() {
         xtask::performance::PerformanceScenarioV1::InteractiveFrameSoak,
         xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak,
         xtask::performance::PerformanceScenarioV1::R2AlphaRender,
+        xtask::performance::PerformanceScenarioV1::R3MultiregionStreaming,
     ] {
         assert_eq!(
             preserve_report_only_scenario_verdict(
@@ -171,6 +172,14 @@ fn diagnostic_baseline_comparison_cannot_promote_report_only_to_a_gate() {
         ),
         Some(
             "PERF_PRODUCTION_WORKER_SOAK_REPORT_ONLY: the production worker soak is diagnostic and cannot gate",
+        ),
+    );
+    assert_eq!(
+        report_only_gate_diagnostic(
+            xtask::performance::PerformanceScenarioV1::R3MultiregionStreaming,
+        ),
+        Some(
+            "PERF_R3_MULTIREGION_STREAMING_REPORT_ONLY: B-12 and the clean ten-run THOTH hard gate remain open",
         ),
     );
 }

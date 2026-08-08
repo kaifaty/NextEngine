@@ -98,8 +98,10 @@ pub use runtime_fixture::{
 pub use state_root::{StateRootError, StateSegment, compute_state_root};
 pub use streaming_performance::{
     PreparedStreamingPerformanceCheck, StreamingPerformanceError, StreamingPerformanceMeasurement,
-    StreamingPerformanceReport, prepare_streaming_performance_check,
-    prepare_streaming_performance_check_in, run_streaming_performance_check,
+    StreamingPerformanceReport, prepare_multiregion_streaming_performance_check,
+    prepare_multiregion_streaming_performance_check_in, prepare_streaming_performance_check,
+    prepare_streaming_performance_check_in, run_multiregion_streaming_performance_check,
+    run_multiregion_streaming_performance_check_in, run_streaming_performance_check,
     run_streaming_performance_check_in,
 };
 pub use v1_closure::{
