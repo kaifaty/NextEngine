@@ -3,13 +3,13 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-031 |
-| Статус | Accepted |
+| Статус | Superseded by ADR-046; future intent is Proposed |
 | Версия | 1.0 |
 | Дата решения | 2026-07-26 |
 | Последняя проверка | 2026-07-26 |
 | Нормативные зависимости | [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-18](../18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-20](../20-world-simulation-and-population-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-029](029-rpg-owned-quest-graph-and-optional-narrative-director.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | частично [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), только пункт 1 в части closed RPG aggregate set; RPG authority, typed operations and atomicity остаются без изменений |
-| Заменён | не заменён |
+| Заменён | fully superseded by [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
 
 ## История принятия
 

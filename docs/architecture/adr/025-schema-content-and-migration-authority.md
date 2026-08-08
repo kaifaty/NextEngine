@@ -9,7 +9,7 @@
 | Последняя проверка | 2026-07-24 |
 | Нормативные зависимости | [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-018](018-authoritative-project-composition-and-configuration.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | отсутствует |
-| Заменён | не заменён |
+| Заменён | generic N-2 support window partially superseded by [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md) until a first public v1 format is declared |
 
 ## Контекст
 

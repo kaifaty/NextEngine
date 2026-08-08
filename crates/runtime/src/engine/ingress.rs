@@ -10,7 +10,7 @@ use next_contracts::input::{
     ClosedIngressBatchBodyV1, ClosedIngressBatchV1, INPUT_MAPPING_RECEIPT_SCHEMA_VERSION,
     IngressAssignmentV1, IngressCheckpointV1, IngressEquivalenceReceiptV1,
     InputActionMappingResultV2, InputDerivedCommandRefV2, InputMappingCodeV1,
-    InputMappingReceiptV1, InputMappingReceiptV2, InputSampleV1, PLAYER_ACTION_FRAME_SCHEMA_ID,
+    InputMappingReceiptV2, InputSampleV1, PLAYER_ACTION_FRAME_SCHEMA_ID,
     PLAYER_ACTION_FRAME_SCHEMA_VERSION, PLAYER_ACTION_SOURCE_CLASS, PlayerActionFrameV1,
     PlayerActionPhaseV1, PlayerActionValueV1, PlayerControllerBindingV1,
     PlayerControllerRegistryV1, RuntimeAdmissionLimitsV1,
@@ -23,16 +23,14 @@ use super::pipeline::count;
 
 pub(super) struct ClosedIngressExecution {
     pub(super) batch: ClosedIngressBatchV1,
-    pub(super) mapping_receipts: Vec<InputMappingReceiptV1>,
-    pub(super) mapping_receipts_v2: Vec<InputMappingReceiptV2>,
+    pub(super) mapping_receipts: Vec<InputMappingReceiptV2>,
     pub(super) derived_commands: Vec<WorldCommand>,
     pub(super) pending_interactions: Vec<PendingInteractionIntent>,
     pub(super) deduplicated: u64,
 }
 
 struct PlayerActionMapping {
-    receipts: Vec<InputMappingReceiptV1>,
-    receipts_v2: Vec<InputMappingReceiptV2>,
+    receipts: Vec<InputMappingReceiptV2>,
     commands: Vec<WorldCommand>,
     pending_interactions: Vec<PendingInteractionIntent>,
 }
@@ -186,7 +184,6 @@ pub(super) fn close_ingress(
     Ok(ClosedIngressExecution {
         batch,
         mapping_receipts: mapping.receipts,
-        mapping_receipts_v2: mapping.receipts_v2,
         derived_commands: mapping.commands,
         pending_interactions: mapping.pending_interactions,
         deduplicated,
@@ -281,7 +278,6 @@ pub(super) fn accept_closed_ingress(
     Ok(ClosedIngressExecution {
         batch,
         mapping_receipts: mapping.receipts,
-        mapping_receipts_v2: mapping.receipts_v2,
         derived_commands: mapping.commands,
         pending_interactions: mapping.pending_interactions,
         deduplicated: 0,
@@ -307,7 +303,6 @@ fn map_player_actions(
     }
 
     let mut receipts = Vec::new();
-    let mut receipts_v2 = Vec::new();
     let mut mapped: BTreeMap<PersistentId, Vec<Candidate>> = BTreeMap::new();
     for sample in samples {
         let key = (
@@ -325,15 +320,7 @@ fn map_player_actions(
             Err(code) => (code, None),
         };
         let receipt_index = receipts.len();
-        receipts.push(InputMappingReceiptV1 {
-            assigned_tick: tick,
-            source_id: sample.source_id,
-            source_sequence: sample.source_sequence,
-            payload_hash,
-            code,
-            derived_command_id: None,
-        });
-        receipts_v2.push(InputMappingReceiptV2 {
+        receipts.push(InputMappingReceiptV2 {
             schema_version: INPUT_MAPPING_RECEIPT_SCHEMA_VERSION,
             assigned_tick: tick,
             source_id: sample.source_id,
@@ -376,8 +363,7 @@ fn map_player_actions(
     for candidates in mapped.into_values() {
         if candidates.len() != 1 {
             for candidate in candidates {
-                receipts[candidate.receipt_index].code = InputMappingCodeV1::FrameInvalid;
-                let receipt = &mut receipts_v2[candidate.receipt_index];
+                let receipt = &mut receipts[candidate.receipt_index];
                 receipt.frame_code = InputMappingCodeV1::FrameInvalid;
                 for action in &mut receipt.action_results {
                     action.mapping_code = InputMappingCodeV1::FrameInvalid;
@@ -399,8 +385,7 @@ fn map_player_actions(
                 PhysicalCommandV1::SetCapsuleLocomotionIntent { direction_q15 },
             )?;
             let command_id = command.compute_command_id()?;
-            receipts[candidate.receipt_index].derived_command_id = Some(command_id);
-            receipts_v2[candidate.receipt_index]
+            receipts[candidate.receipt_index]
                 .derived_commands
                 .push(InputDerivedCommandRefV2 {
                     command_ordinal: 0,
@@ -430,17 +415,8 @@ fn map_player_actions(
             receipt.payload_hash,
         )
     });
-    receipts_v2.sort_by_key(|receipt| {
-        (
-            receipt.assigned_tick,
-            receipt.source_id,
-            receipt.source_sequence,
-            receipt.payload_hash,
-        )
-    });
     Ok(PlayerActionMapping {
         receipts,
-        receipts_v2,
         commands,
         pending_interactions,
     })

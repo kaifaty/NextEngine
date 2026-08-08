@@ -145,24 +145,6 @@ fn closed_ingress_batch_requires_exact_assignment_and_dedup_closure() {
     );
 }
 
-#[test]
-fn mapping_receipt_round_trips_with_derived_command_identity() {
-    let receipt = InputMappingReceiptV1 {
-        assigned_tick: 9,
-        source_id: InputSourceId::from_bytes([7; 16]),
-        source_sequence: 4,
-        payload_hash: hash(6),
-        code: InputMappingCodeV1::Accepted,
-        derived_command_id: Some(CommandId::from_bytes([5; 16])),
-    };
-    let bytes = receipt.canonical_bytes().expect("receipt");
-    assert_eq!(
-        InputMappingReceiptV1::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
-            .expect("receipt decode"),
-        receipt
-    );
-}
-
 fn mapping_receipt_v2_fixture() -> InputMappingReceiptV2 {
     InputMappingReceiptV2 {
         schema_version: INPUT_MAPPING_RECEIPT_SCHEMA_VERSION,
@@ -207,7 +189,7 @@ fn mapping_receipt_v2_fixture() -> InputMappingReceiptV2 {
 }
 
 #[test]
-fn mapping_receipt_v2_round_trips_without_changing_the_v1_envelope() {
+fn mapping_receipt_v2_round_trips_as_the_current_format() {
     let receipt = mapping_receipt_v2_fixture();
     receipt.validate().expect("receipt valid");
     let bytes = receipt.canonical_bytes().expect("receipt encode");
@@ -216,26 +198,6 @@ fn mapping_receipt_v2_round_trips_without_changing_the_v1_envelope() {
             .expect("receipt decode"),
         receipt
     );
-    assert!(matches!(
-        InputMappingReceiptV1::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default()),
-        Err(InputContractError::WrongEnvelope)
-    ));
-
-    let legacy = InputMappingReceiptV1 {
-        assigned_tick: 9,
-        source_id: InputSourceId::from_bytes([7; 16]),
-        source_sequence: 4,
-        payload_hash: hash(6),
-        code: InputMappingCodeV1::Accepted,
-        derived_command_id: Some(CommandId::from_bytes([5; 16])),
-    };
-    assert!(matches!(
-        InputMappingReceiptV2::from_canonical_bytes(
-            &legacy.canonical_bytes().expect("legacy receipt"),
-            CanonicalDecodeLimits::default(),
-        ),
-        Err(InputContractError::WrongEnvelope)
-    ));
 }
 
 #[test]

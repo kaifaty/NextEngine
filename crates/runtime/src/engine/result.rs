@@ -3,8 +3,7 @@ use std::cmp::Ordering;
 use next_contracts::command::{CommandPhase, DomainEvent, WorldCommand};
 use next_contracts::ids::{CommandId, ContentHash};
 use next_contracts::input::{
-    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, InputMappingReceiptV1,
-    InputMappingReceiptV2,
+    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, InputMappingReceiptV2,
 };
 use next_contracts::physics::{
     ClosedPhysicsContactBatchV1, PhysicsCanonicalSnapshotV2, PhysicsQueryBatchV1,
@@ -238,8 +237,7 @@ pub struct TickReport {
     pub physics_query_batch: PhysicsQueryBatchV1,
     pub physics_query_results: Vec<PhysicsQueryResultV1>,
     pub closed_ingress_batch: ClosedIngressBatchV1,
-    pub mapping_receipts: Vec<InputMappingReceiptV1>,
-    pub mapping_receipts_v2: Vec<InputMappingReceiptV2>,
+    pub mapping_receipts: Vec<InputMappingReceiptV2>,
     pub command_batches: Vec<ClosedCommandAdmissionBatchV2>,
     pub rpg_plan_traces: Vec<CommittedRpgPlanTraceV1>,
 }

@@ -3,8 +3,7 @@ use next_contracts::ids::ContentHash;
 use next_contracts::input::{
     CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION, ClosedCommandAdmissionBatchBodyV2,
     ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, IngressCheckpointV1,
-    InputDerivedCommandRefV2, InputMappingCodeV1, InputMappingReceiptV1, InputMappingReceiptV2,
-    InputSampleV1,
+    InputDerivedCommandRefV2, InputMappingCodeV1, InputMappingReceiptV2, InputSampleV1,
 };
 use next_contracts::physics::PhysicsQueryBatchV1;
 use next_contracts::snapshot::{
@@ -105,8 +104,7 @@ pub struct PreparedRuntimeTick {
     report: OnceLock<TickReport>,
     report_parts: PreparedTickReportParts,
     last_closed_ingress_batch: ClosedIngressBatchV1,
-    last_mapping_receipts: Vec<InputMappingReceiptV1>,
-    last_mapping_receipts_v2: Vec<InputMappingReceiptV2>,
+    last_mapping_receipts: Vec<InputMappingReceiptV2>,
     last_command_batches: Vec<ClosedCommandAdmissionBatchV2>,
 }
 
@@ -150,8 +148,7 @@ struct PreparedTickReportSources<'a> {
     next_tick: u64,
     staged: &'a StagedAuthoritativeState,
     closed_ingress_batch: &'a ClosedIngressBatchV1,
-    mapping_receipts: &'a [InputMappingReceiptV1],
-    mapping_receipts_v2: &'a [InputMappingReceiptV2],
+    mapping_receipts: &'a [InputMappingReceiptV2],
     command_batches: &'a [ClosedCommandAdmissionBatchV2],
 }
 
@@ -242,7 +239,6 @@ impl PreparedTickReportParts {
             physics_query_results: self.physics_query_results.clone(),
             closed_ingress_batch: sources.closed_ingress_batch.clone(),
             mapping_receipts: sources.mapping_receipts.to_vec(),
-            mapping_receipts_v2: sources.mapping_receipts_v2.to_vec(),
             command_batches: sources.command_batches.to_vec(),
             rpg_plan_traces: self.rpg_plan_traces.clone(),
         }
@@ -276,7 +272,6 @@ impl PreparedTickReportParts {
             physics_query_results: self.physics_query_results,
             closed_ingress_batch: sources.closed_ingress_batch.clone(),
             mapping_receipts: sources.mapping_receipts.to_vec(),
-            mapping_receipts_v2: sources.mapping_receipts_v2.to_vec(),
             command_batches: sources.command_batches.to_vec(),
             rpg_plan_traces: self.rpg_plan_traces,
         }
@@ -302,7 +297,6 @@ impl PreparedRuntimeTick {
                     staged: &self.staged,
                     closed_ingress_batch: &self.last_closed_ingress_batch,
                     mapping_receipts: &self.last_mapping_receipts,
-                    mapping_receipts_v2: &self.last_mapping_receipts_v2,
                     command_batches: &self.last_command_batches,
                 },
                 ledger,
@@ -431,7 +425,6 @@ impl RuntimeState {
             report_parts,
             last_closed_ingress_batch,
             last_mapping_receipts,
-            last_mapping_receipts_v2,
             last_command_batches,
             ..
         } = prepared;
@@ -447,7 +440,6 @@ impl RuntimeState {
                     staged: &staged,
                     closed_ingress_batch: &last_closed_ingress_batch,
                     mapping_receipts: &last_mapping_receipts,
-                    mapping_receipts_v2: &last_mapping_receipts_v2,
                     command_batches: &last_command_batches,
                 },
                 ledger,
@@ -468,7 +460,6 @@ impl RuntimeState {
         self.ingress_checkpoint = staged.ingress;
         self.last_closed_ingress_batch = Some(last_closed_ingress_batch);
         self.last_mapping_receipts = last_mapping_receipts;
-        self.last_mapping_receipts_v2 = last_mapping_receipts_v2;
         self.last_command_batches = last_command_batches;
         report
     }
@@ -489,7 +480,6 @@ impl RuntimeState {
             report_parts,
             last_closed_ingress_batch,
             last_mapping_receipts,
-            last_mapping_receipts_v2,
             last_command_batches,
             ..
         } = prepared;
@@ -532,7 +522,6 @@ impl RuntimeState {
             self.ingress_checkpoint = ingress;
             self.last_closed_ingress_batch = Some(last_closed_ingress_batch);
             self.last_mapping_receipts = last_mapping_receipts;
-            self.last_mapping_receipts_v2 = last_mapping_receipts_v2;
             self.last_command_batches = last_command_batches;
             return;
         }
@@ -546,7 +535,6 @@ impl RuntimeState {
         self.ingress_checkpoint = staged.ingress;
         self.last_closed_ingress_batch = Some(last_closed_ingress_batch);
         self.last_mapping_receipts = last_mapping_receipts;
-        self.last_mapping_receipts_v2 = last_mapping_receipts_v2;
         self.last_command_batches = last_command_batches;
     }
 
@@ -801,23 +789,10 @@ impl RuntimeState {
                     receipt.source_id == built_in.source_id
                         && receipt.source_sequence == built_in.source_sequence
                         && receipt.payload_hash == built_in.payload_hash
-                        && receipt.code == InputMappingCodeV1::Accepted
-                })
-                .ok_or(RuntimeFatalError::IngressCheckpointCorrupt)?;
-            if receipt.derived_command_id.is_none() {
-                receipt.derived_command_id = Some(command_id);
-            }
-            let receipt_v2 = closed_ingress
-                .mapping_receipts_v2
-                .iter_mut()
-                .find(|receipt| {
-                    receipt.source_id == built_in.source_id
-                        && receipt.source_sequence == built_in.source_sequence
-                        && receipt.payload_hash == built_in.payload_hash
                         && receipt.frame_code == InputMappingCodeV1::Accepted
                 })
                 .ok_or(RuntimeFatalError::IngressCheckpointCorrupt)?;
-            receipt_v2.derived_commands.push(InputDerivedCommandRefV2 {
+            receipt.derived_commands.push(InputDerivedCommandRefV2 {
                 command_ordinal: 0,
                 source_action_ordinal: built_in.source_action_ordinal,
                 mapper_command_slot: 0,
@@ -825,7 +800,7 @@ impl RuntimeState {
             });
             outcome_commands.push(command);
         }
-        for receipt in &mut closed_ingress.mapping_receipts_v2 {
+        for receipt in &mut closed_ingress.mapping_receipts {
             finalize_mapping_receipt_v2(receipt)?;
         }
         outcome_commands.extend(
@@ -990,7 +965,6 @@ impl RuntimeState {
             report_parts,
             last_closed_ingress_batch: closed_ingress.batch,
             last_mapping_receipts: closed_ingress.mapping_receipts,
-            last_mapping_receipts_v2: closed_ingress.mapping_receipts_v2,
             last_command_batches,
         })
     }

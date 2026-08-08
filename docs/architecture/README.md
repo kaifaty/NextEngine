@@ -163,7 +163,7 @@ packets являются historical-only. Lightweight traceability — нави�
 | SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted |
 | SPEC-29 | [Platform host и application session](29-platform-host-and-application-session.md) | Accepted |
 | SPEC-30 | [Presentation extraction и render content](30-presentation-extraction-and-render-content.md) | Accepted |
-| SPEC-31 | [Autonomous quest lifecycle, divine agency и narrative director](31-autonomous-quest-lifecycle-and-narrative-director.md) | Accepted |
+| SPEC-31 | [Autonomous quest lifecycle, divine agency и narrative director](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed intent; current obligations removed by ADR-046 |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -197,16 +197,16 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-022 | [Command identity V2, ledger и causal identity](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) | Accepted |
 | ADR-023 | [HumanReviewDecisionV2 и offline attestation](adr/023-human-review-decision-v2-and-offline-attestation.md) | Superseded by ADR-030 |
 | ADR-024 | [Requirement/gate/evidence/profile closure](adr/024-requirement-gate-evidence-and-profile-closure.md) | Superseded by ADR-030 |
-| ADR-025 | [Schema, content и migration authority](adr/025-schema-content-and-migration-authority.md) | Accepted |
+| ADR-025 | [Schema, content и migration authority](adr/025-schema-content-and-migration-authority.md) | Accepted; generic pre-v1 N-2 support window partially superseded by ADR-046 |
 | ADR-026 | [Deterministic work, resources и streaming admission](adr/026-deterministic-work-resource-and-streaming-admission.md) | Accepted |
 | ADR-027 | [Physics, motor и animation layering](adr/027-physics-motor-and-animation-layering.md) | Accepted |
 | ADR-028 | [Platform session и presentation authority](adr/028-platform-session-and-presentation-authority.md) | Accepted; active-run cadence, bounded recovery evidence, host binding и presentation-cut clauses partially superseded by ADR-035 |
-| ADR-029 | [RPG-owned quest graph и narrative director](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md) | Accepted |
+| ADR-029 | [RPG-owned quest graph и narrative director](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md) | Superseded by ADR-046; future intent Proposed |
 | ADR-030 | [Product-first development и lightweight validation](adr/030-product-first-development-and-lightweight-validation.md) | Accepted |
-| ADR-031 | [RPG-owned divine standing и atomic pantheon judgment](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md) | Accepted; partially supersedes ADR-020 aggregate enumeration |
+| ADR-031 | [RPG-owned divine standing и atomic pantheon judgment](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md) | Superseded by ADR-046; future intent Proposed |
 | ADR-032 | [Grounded capsule physics checkpoint version boundary](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md) | Accepted; designation of V4 as current generated replay partially superseded by ADR-034 |
 | ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Accepted; PhysX backend остаётся Proposed; workspace-unique unsafe wording узко заменена ADR-039 без изменения PhysX boundary |
-| ADR-034 | [Player targeting replay V5 и exact mapping provenance](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) | Accepted |
+| ADR-034 | [Player targeting replay V5 и exact mapping provenance](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) | Accepted; legacy V4/V1 retention superseded by ADR-046 |
 | ADR-035 | [Bounded live recovery, platform-host binding и presentation cut](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) | Accepted; partially supersedes ADR-028 |
 | ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; заменяет reference 8-core qualifier ADR-016/SPEC-05 без изменения budgets; diagnostic и allocator-measurement gaps узко заменены ADR-038/ADR-039, measured admission protocol уточнён ADR-040/ADR-041/ADR-042/ADR-043, mandatory exact allocator evidence узко заменён ADR-045 |
 | ADR-037 | [Packed session object storage](adr/037-packed-session-object-storage.md) | Accepted; узко заменяет physical raw-generation representation ADR-035 без изменения logical roots/cadence |
@@ -218,23 +218,22 @@ packets являются historical-only. Lightweight traceability — нави�
 | ADR-043 | [Codegen-proven non-reentrant count-bearing allocator callbacks](adr/043-codegen-proven-non-reentrant-count-bearing-allocator-callbacks.md) | Accepted только для pinned Windows target/build; allocator protocol и retained candidate-7 `+4.30%` `FAIL` сохраняются, но mandatory hard-run counter requirement узко заменён ADR-045; Linux proof не заявлен |
 | ADR-044 | [Neutral text-catalog schema и deterministic locale fallback](adr/044-neutral-text-catalog-and-locale-fallback.md) | Accepted; versioned neutral catalogs, deterministic fallback closure и PresentationOnly localization semantics |
 | ADR-045 | [Low-overhead hard performance evidence](adr/045-low-overhead-hard-performance-evidence.md) | Accepted; вводит current Performance V3 evidence, оставляет V2 historical-readable и делает exact allocator counter необязательной диагностикой, не меняя THOTH budgets и retained evidence |
+| ADR-046 | [Consumer-driven contracts and current-only alpha formats](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) | Accepted; current-only pre-v1 formats, production-consumer admission and removal of unconsumed future obligations |
 
 ## Proposed tracks
 
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
 - ADR-033 — optional PhysX 5.9.0 grounded-capsule backend до полной parity на
   Windows/Linux; reference остаётся default.
+- Narrative director, generated quest graph and divine-standing feature set
+  formerly described by ADR-029/ADR-031; they have no current implementation
+  obligation and return only with a concrete production consumer.
 
 Этот deferred track сохраняет deterministic offline fallback, engine-owned
 contracts и untrusted proposal boundaries. Его принятие выполняется обычным
 repository workflow.
 
-Accepted SPEC-31/ADR-029/ADR-031 определяют intent/need admission into
-autonomous Quest opportunities, four deterministic disclosure channels,
-system-owned activation/rewards, optional narrative director, RPG-owned divine
-standing и atomic conflict resolution for independently judging gods. Этот
-architecture status не означает runtime implementation или `PASS` будущих
-gameplay checks.
+Deferred narrative ideas are not current contracts or roadmap gates.
 
 ## Historical note
 

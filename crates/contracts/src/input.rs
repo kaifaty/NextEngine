@@ -56,8 +56,7 @@ pub use constants::{
 pub use context::{InputContextCapturePolicyV1, InputContextStackV1, InputContextV1};
 pub use controller::{
     InputActionMappingResultV2, InputDerivedCommandRefV2, InputMappingCodeV1,
-    InputMappingReceiptV1, InputMappingReceiptV2, PlayerControllerBindingV1,
-    PlayerControllerRegistryV1,
+    InputMappingReceiptV2, PlayerControllerBindingV1, PlayerControllerRegistryV1,
 };
 pub use ingress::{
     IngressAssignmentV1, IngressCheckpointV1, IngressEquivalenceReceiptV1, IngressResultCodeV1,

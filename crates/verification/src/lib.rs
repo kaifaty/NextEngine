@@ -89,8 +89,8 @@ pub use render_performance::{
 pub use replay::{
     ReplayComparePointMismatch, ReplayError, ReplayInput, ReplayOutput, ReplayTickInput,
     ReplayTickRecord, RpgReplayInput, RpgReplayOutput, compare_replay_outputs,
-    compute_world_checkpoint_root, run_replay, run_replay_manifest, run_replay_manifest_v5,
-    run_rpg_replay, verify_replay,
+    compute_world_checkpoint_root, run_replay, run_replay_manifest_v5, run_rpg_replay,
+    verify_replay,
 };
 pub use runtime_fixture::{
     NeutralFixtureError, NeutralRuntimeFixture, build_neutral_runtime_fixture,

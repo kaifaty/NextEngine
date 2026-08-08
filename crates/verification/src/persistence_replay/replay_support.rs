@@ -154,7 +154,7 @@ pub(super) fn replay_manifest(
             expected_physics_query_batch: report.physics_query_batch.clone(),
             expected_physics_query_results: report.physics_query_results.clone(),
             expected_outcome_command_batch: report.command_batches[1].clone(),
-            expected_mapping_receipts: report.mapping_receipts_v2.clone(),
+            expected_mapping_receipts: report.mapping_receipts.clone(),
             expected_command_results: replay_command_results(&report.results),
             expected_events: report.events.clone(),
         });

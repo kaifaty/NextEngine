@@ -3,9 +3,9 @@
 | Поле | Значение |
 |---|---|
 | ID | SPEC-31 |
-| Статус | Accepted |
+| Статус | Proposed intent; current obligations removed by ADR-046 |
 | Версия | 1.0 |
-| Последняя проверка | 2026-07-26 |
+| Последняя проверка | 2026-08-08 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-029](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-031](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md) |
 | Заменяет | отсутствует |
 

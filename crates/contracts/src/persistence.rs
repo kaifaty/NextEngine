@@ -7,10 +7,7 @@ use crate::ids::{
     CapabilityId, CommandId, CommandLedgerHash, ContentHash, SchemaId, StateRoot, WorldNamespaceId,
     content_hash_from_bytes,
 };
-use crate::input::{
-    ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, InputMappingReceiptV1,
-    InputMappingReceiptV2,
-};
+use crate::input::{ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, InputMappingReceiptV2};
 use crate::physics::{
     ClosedPhysicsContactBatchV1, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID, PhysicsQueryBatchV1, PhysicsQueryResultV1,
@@ -30,7 +27,6 @@ use crate::targeting::{
 };
 
 pub const SAVE_MANIFEST_SCHEMA_VERSION: u32 = 2;
-pub const REPLAY_MANIFEST_V4_SCHEMA_VERSION: u32 = 4;
 pub const REPLAY_MANIFEST_V5_SCHEMA_VERSION: u32 = 5;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -292,46 +288,6 @@ pub struct ReplayOwnerSegmentV2 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReplayTickManifestV4 {
-    pub tick: u64,
-    pub closed_ingress_batch: ClosedIngressBatchV1,
-    pub direct_external_commands: Vec<ReplayCommandRecord>,
-    pub expected_ingress_command_batch: ClosedCommandAdmissionBatchV2,
-    pub expected_physics_step_input: PhysicsStepInputV2,
-    pub expected_contact_batch: ClosedPhysicsContactBatchV1,
-    pub expected_outcome_command_batch: ClosedCommandAdmissionBatchV2,
-    pub expected_mapping_receipts: Vec<InputMappingReceiptV1>,
-    pub expected_command_results: Vec<ReplayCommandResultV2>,
-    pub expected_events: Vec<DomainEvent>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct ReplayComparePointV4 {
-    pub tick: u64,
-    pub state_root: StateRoot,
-    pub command_ledger_hash: CommandLedgerHash,
-    pub runtime_segment_hash: ContentHash,
-    pub rpg_segment_hash: ContentHash,
-    pub physics_segment_hash: ContentHash,
-    pub closed_ingress_batch_hash: ContentHash,
-    pub ingress_command_batch_hash: ContentHash,
-    pub physics_step_input_hash: ContentHash,
-    pub contact_batch_hash: ContentHash,
-    pub outcome_command_batch_hash: ContentHash,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReplayManifestV4 {
-    pub schema_version: u32,
-    pub compatibility: SaveCompatibility,
-    pub initial_owner_segments: Vec<ReplayOwnerSegmentV2>,
-    pub initial_state_root: StateRoot,
-    pub authority: Vec<AuthorityGrant>,
-    pub ticks: Vec<ReplayTickManifestV4>,
-    pub compare_points: Vec<ReplayComparePointV4>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReplayTickManifestV5 {
     pub tick: u64,
     pub closed_ingress_batch: ClosedIngressBatchV1,
@@ -376,20 +332,6 @@ pub struct ReplayManifestV5 {
     pub authority: Vec<AuthorityGrant>,
     pub ticks: Vec<ReplayTickManifestV5>,
     pub compare_points: Vec<ReplayComparePointV5>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DecodedReplayTickV4 {
-    pub tick: u64,
-    pub closed_ingress_batch: ClosedIngressBatchV1,
-    pub direct_external_commands: Vec<WorldCommand>,
-    pub expected_ingress_command_batch: ClosedCommandAdmissionBatchV2,
-    pub expected_physics_step_input: PhysicsStepInputV2,
-    pub expected_contact_batch: ClosedPhysicsContactBatchV1,
-    pub expected_outcome_command_batch: ClosedCommandAdmissionBatchV2,
-    pub expected_mapping_receipts: Vec<InputMappingReceiptV1>,
-    pub expected_command_results: Vec<ReplayCommandResultV2>,
-    pub expected_events: Vec<DomainEvent>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -483,26 +425,23 @@ fn replay_framed_hash(
     Ok(content_hash_from_bytes(sha256(&preimage)))
 }
 
-impl ReplayManifestV4 {
+impl ReplayManifestV5 {
     pub fn to_jcs_bytes(&self) -> Result<Vec<u8>, ManifestCodecError> {
-        crate::manifest_jcs::encode_replay_manifest_v4(self)
+        crate::manifest_jcs::encode_replay_manifest_v5(self)
     }
 
     pub fn from_jcs_bytes(
         bytes: &[u8],
         limits: CanonicalDecodeLimits,
     ) -> Result<Self, ManifestCodecError> {
-        crate::manifest_jcs::decode_replay_manifest_v4(bytes, limits)
+        crate::manifest_jcs::decode_replay_manifest_v5(bytes, limits)
     }
 
     pub fn validate_and_decode(
         &self,
         limits: CanonicalDecodeLimits,
-    ) -> Result<(WorldCheckpointV4, Vec<DecodedReplayTickV4>), ManifestValidationError> {
-        if self.schema_version != REPLAY_MANIFEST_V4_SCHEMA_VERSION {
-            if self.schema_version == 3 {
-                return Err(ManifestValidationError::RpgSchemaUnsupported);
-            }
+    ) -> Result<(WorldCheckpointV4, Vec<DecodedReplayTickV5>), ManifestValidationError> {
+        if self.schema_version != REPLAY_MANIFEST_V5_SCHEMA_VERSION {
             return Err(ManifestValidationError::UnsupportedReplayVersion(
                 self.schema_version,
             ));
@@ -572,10 +511,11 @@ impl ReplayManifestV4 {
         if self.ticks.len() != self.compare_points.len() {
             return Err(ManifestValidationError::ComparePointCountMismatch);
         }
+
         let mut expected_tick = checkpoint.runtime_snapshot.next_tick;
-        let mut decoded_ticks = Vec::with_capacity(self.ticks.len());
-        for (tick, compare_point) in self.ticks.iter().zip(&self.compare_points) {
-            if tick.tick != expected_tick || compare_point.tick != expected_tick {
+        let mut decoded = Vec::with_capacity(self.ticks.len());
+        for (tick, point) in self.ticks.iter().zip(&self.compare_points) {
+            if tick.tick != expected_tick || point.tick != expected_tick {
                 return Err(ManifestValidationError::ReplayTickSequenceMismatch);
             }
             tick.closed_ingress_batch
@@ -586,6 +526,7 @@ impl ReplayManifestV4 {
             tick.expected_contact_batch.validate()?;
             tick.expected_outcome_command_batch
                 .validate(&checkpoint.runtime_snapshot.admission_limits)?;
+            validate_replay_query_facts(tick)?;
             if tick.closed_ingress_batch.body.assigned_tick != expected_tick
                 || tick.expected_ingress_command_batch.body.simulation_tick != expected_tick
                 || tick.expected_ingress_command_batch.body.phase
@@ -595,72 +536,16 @@ impl ReplayManifestV4 {
                 || tick.expected_outcome_command_batch.body.simulation_tick != expected_tick
                 || tick.expected_outcome_command_batch.body.phase
                     != crate::command::CommandPhase::Outcome
-                || compare_point.closed_ingress_batch_hash != tick.closed_ingress_batch.batch_hash
-                || compare_point.ingress_command_batch_hash
+                || point.closed_ingress_batch_hash != tick.closed_ingress_batch.batch_hash
+                || point.ingress_command_batch_hash
                     != tick.expected_ingress_command_batch.batch_hash
-                || compare_point.physics_step_input_hash
-                    != tick.expected_physics_step_input.input_hash()?
-                || compare_point.contact_batch_hash != tick.expected_contact_batch.batch_hash
-                || compare_point.outcome_command_batch_hash
+                || point.physics_step_input_hash != tick.expected_physics_step_input.input_hash()?
+                || point.contact_batch_hash != tick.expected_contact_batch.batch_hash
+                || point.outcome_command_batch_hash
                     != tick.expected_outcome_command_batch.batch_hash
             {
                 return Err(ManifestValidationError::ReplayBatchMismatch);
             }
-            let mut commands = Vec::with_capacity(tick.direct_external_commands.len());
-            for record in &tick.direct_external_commands {
-                commands.push(record.decode_command(limits)?);
-            }
-            decoded_ticks.push(DecodedReplayTickV4 {
-                tick: tick.tick,
-                closed_ingress_batch: tick.closed_ingress_batch.clone(),
-                direct_external_commands: commands,
-                expected_ingress_command_batch: tick.expected_ingress_command_batch.clone(),
-                expected_physics_step_input: tick.expected_physics_step_input.clone(),
-                expected_contact_batch: tick.expected_contact_batch.clone(),
-                expected_outcome_command_batch: tick.expected_outcome_command_batch.clone(),
-                expected_mapping_receipts: tick.expected_mapping_receipts.clone(),
-                expected_command_results: tick.expected_command_results.clone(),
-                expected_events: tick.expected_events.clone(),
-            });
-            expected_tick = expected_tick
-                .checked_add(1)
-                .ok_or(ManifestValidationError::ReplayTickExhausted)?;
-        }
-        Ok((checkpoint, decoded_ticks))
-    }
-}
-
-impl ReplayManifestV5 {
-    pub fn to_jcs_bytes(&self) -> Result<Vec<u8>, ManifestCodecError> {
-        crate::manifest_jcs::encode_replay_manifest_v5(self)
-    }
-
-    pub fn from_jcs_bytes(
-        bytes: &[u8],
-        limits: CanonicalDecodeLimits,
-    ) -> Result<Self, ManifestCodecError> {
-        crate::manifest_jcs::decode_replay_manifest_v5(bytes, limits)
-    }
-
-    pub fn validate_and_decode(
-        &self,
-        limits: CanonicalDecodeLimits,
-    ) -> Result<(WorldCheckpointV4, Vec<DecodedReplayTickV5>), ManifestValidationError> {
-        if self.schema_version != REPLAY_MANIFEST_V5_SCHEMA_VERSION {
-            return Err(ManifestValidationError::UnsupportedReplayVersion(
-                self.schema_version,
-            ));
-        }
-        let legacy = self.legacy_projection();
-        let (checkpoint, decoded_legacy) = legacy.validate_and_decode(limits)?;
-        let mut decoded = Vec::with_capacity(self.ticks.len());
-        for ((tick, point), legacy_tick) in self
-            .ticks
-            .iter()
-            .zip(&self.compare_points)
-            .zip(decoded_legacy)
-        {
-            validate_replay_query_facts(tick)?;
             if point.physics_query_batch_hash
                 != replay_physics_query_batch_hash(&tick.expected_physics_query_batch)?
                 || point.physics_query_results_hash
@@ -673,69 +558,33 @@ impl ReplayManifestV5 {
             {
                 return Err(ManifestValidationError::ReplayQueryFactsInvalid);
             }
+            let mut commands = Vec::with_capacity(tick.direct_external_commands.len());
+            for record in &tick.direct_external_commands {
+                commands.push(record.decode_command(limits)?);
+            }
             decoded.push(DecodedReplayTickV5 {
-                tick: legacy_tick.tick,
-                closed_ingress_batch: legacy_tick.closed_ingress_batch,
-                direct_external_commands: legacy_tick.direct_external_commands,
-                expected_ingress_command_batch: legacy_tick.expected_ingress_command_batch,
-                expected_physics_step_input: legacy_tick.expected_physics_step_input,
-                expected_contact_batch: legacy_tick.expected_contact_batch,
+                tick: tick.tick,
+                closed_ingress_batch: tick.closed_ingress_batch.clone(),
+                direct_external_commands: commands,
+                expected_ingress_command_batch: tick.expected_ingress_command_batch.clone(),
+                expected_physics_step_input: tick.expected_physics_step_input.clone(),
+                expected_contact_batch: tick.expected_contact_batch.clone(),
                 expected_targeting_intents: tick.expected_targeting_intents.clone(),
                 expected_authoritative_targeting_queries: tick
                     .expected_authoritative_targeting_queries
                     .clone(),
                 expected_physics_query_batch: tick.expected_physics_query_batch.clone(),
                 expected_physics_query_results: tick.expected_physics_query_results.clone(),
-                expected_outcome_command_batch: legacy_tick.expected_outcome_command_batch,
+                expected_outcome_command_batch: tick.expected_outcome_command_batch.clone(),
                 expected_mapping_receipts: tick.expected_mapping_receipts.clone(),
-                expected_command_results: legacy_tick.expected_command_results,
-                expected_events: legacy_tick.expected_events,
+                expected_command_results: tick.expected_command_results.clone(),
+                expected_events: tick.expected_events.clone(),
             });
+            expected_tick = expected_tick
+                .checked_add(1)
+                .ok_or(ManifestValidationError::ReplayTickExhausted)?;
         }
         Ok((checkpoint, decoded))
-    }
-
-    fn legacy_projection(&self) -> ReplayManifestV4 {
-        ReplayManifestV4 {
-            schema_version: REPLAY_MANIFEST_V4_SCHEMA_VERSION,
-            compatibility: self.compatibility.clone(),
-            initial_owner_segments: self.initial_owner_segments.clone(),
-            initial_state_root: self.initial_state_root,
-            authority: self.authority.clone(),
-            ticks: self
-                .ticks
-                .iter()
-                .map(|tick| ReplayTickManifestV4 {
-                    tick: tick.tick,
-                    closed_ingress_batch: tick.closed_ingress_batch.clone(),
-                    direct_external_commands: tick.direct_external_commands.clone(),
-                    expected_ingress_command_batch: tick.expected_ingress_command_batch.clone(),
-                    expected_physics_step_input: tick.expected_physics_step_input.clone(),
-                    expected_contact_batch: tick.expected_contact_batch.clone(),
-                    expected_outcome_command_batch: tick.expected_outcome_command_batch.clone(),
-                    expected_mapping_receipts: Vec::new(),
-                    expected_command_results: tick.expected_command_results.clone(),
-                    expected_events: tick.expected_events.clone(),
-                })
-                .collect(),
-            compare_points: self
-                .compare_points
-                .iter()
-                .map(|point| ReplayComparePointV4 {
-                    tick: point.tick,
-                    state_root: point.state_root,
-                    command_ledger_hash: point.command_ledger_hash,
-                    runtime_segment_hash: point.runtime_segment_hash,
-                    rpg_segment_hash: point.rpg_segment_hash,
-                    physics_segment_hash: point.physics_segment_hash,
-                    closed_ingress_batch_hash: point.closed_ingress_batch_hash,
-                    ingress_command_batch_hash: point.ingress_command_batch_hash,
-                    physics_step_input_hash: point.physics_step_input_hash,
-                    contact_batch_hash: point.contact_batch_hash,
-                    outcome_command_batch_hash: point.outcome_command_batch_hash,
-                })
-                .collect(),
-        }
     }
 }
 
@@ -795,7 +644,6 @@ pub enum ManifestValidationError {
     MissingRequiredSegment,
     UnsupportedSaveVersion(u32),
     UnsupportedReplayVersion(u32),
-    RpgSchemaUnsupported,
     ReplayCommandIdMismatch,
     ComparePointCountMismatch,
     ReplayTickSequenceMismatch,
@@ -842,7 +690,6 @@ impl Display for ManifestValidationError {
             Self::UnsupportedReplayVersion(version) => {
                 write!(formatter, "unsupported replay manifest version {version}")
             }
-            Self::RpgSchemaUnsupported => formatter.write_str("RPG_SCHEMA_UNSUPPORTED"),
             Self::ReplayCommandIdMismatch => {
                 formatter.write_str("replay command id does not match canonical command bytes")
             }

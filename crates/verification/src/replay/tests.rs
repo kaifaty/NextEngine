@@ -7,11 +7,10 @@ use next_contracts::input::{
     INPUT_MAPPING_RECEIPT_SCHEMA_VERSION, InputMappingCodeV1, InputMappingReceiptV2,
 };
 use next_contracts::persistence::{
-    AuthorityGrant, ManifestCodecError, ManifestValidationError, REPLAY_MANIFEST_V4_SCHEMA_VERSION,
-    REPLAY_MANIFEST_V5_SCHEMA_VERSION, ReplayCommandRecord, ReplayComparePointV4,
-    ReplayComparePointV5, ReplayManifestV4, ReplayManifestV5, ReplayOwnerSegmentV2,
-    ReplayTickManifestV4, ReplayTickManifestV5, SaveCompatibility, SaveSegmentDescriptor,
-    TickSettings, replay_physics_query_batch_hash, replay_physics_query_results_hash,
+    AuthorityGrant, ManifestCodecError, ManifestValidationError, REPLAY_MANIFEST_V5_SCHEMA_VERSION,
+    ReplayCommandRecord, ReplayComparePointV5, ReplayManifestV5, ReplayOwnerSegmentV2,
+    ReplayTickManifestV5, SaveCompatibility, SaveSegmentDescriptor, TickSettings,
+    replay_physics_query_batch_hash, replay_physics_query_results_hash,
     replay_targeting_query_trace_hash,
 };
 use next_contracts::physics::{
@@ -31,8 +30,8 @@ use next_runtime::{AuthorityRegistry, RuntimeReplayDriver, RuntimeReplayError, R
 
 use super::{
     ReplayError, ReplayInput, ReplayTickInput, checkpoint_segment_hashes, compare_replay_outputs,
-    compute_world_checkpoint_root, replay_command_results, run_replay, run_replay_manifest,
-    run_replay_manifest_v5, verify_replay,
+    compute_world_checkpoint_root, replay_command_results, run_replay, run_replay_manifest_v5,
+    verify_replay,
 };
 use crate::{StateSegment, build_neutral_runtime_fixture, compute_state_root};
 
@@ -98,86 +97,6 @@ fn compatibility() -> SaveCompatibility {
     }
 }
 
-fn replay_manifest() -> (ReplayManifestV4, super::ReplayOutput) {
-    let input = scenario();
-    let expected = run_replay(&input).expect("reference replay runs");
-    let mut runtime = RuntimeState::new(input.bootstrap.clone(), input.authority.clone())
-        .expect("initial runtime");
-    let initial_checkpoint = runtime.world_checkpoint().expect("initial checkpoint");
-    let authority = input
-        .authority
-        .entries()
-        .map(|(principal, capabilities)| AuthorityGrant {
-            principal: principal.clone(),
-            capabilities: capabilities.iter().cloned().collect(),
-        })
-        .collect();
-    let mut ticks = Vec::new();
-    let mut compare_points = Vec::new();
-    let physics_catalog = initial_checkpoint.physics_checkpoint.catalog.clone();
-    for input_tick in &input.ticks {
-        let report = runtime
-            .run_tick(input_tick.commands.clone())
-            .expect("recorded tick");
-        let checkpoint = WorldCheckpointV4::new(
-            report.snapshot.clone(),
-            report.rpg_snapshot.clone(),
-            PhysicsWorldCheckpointV1::new(physics_catalog.clone(), report.physics_snapshot.clone())
-                .expect("physics checkpoint"),
-        )
-        .expect("record checkpoint");
-        let (runtime_segment_hash, rpg_segment_hash, physics_segment_hash) =
-            checkpoint_segment_hashes(&checkpoint).expect("segment hashes");
-        ticks.push(ReplayTickManifestV4 {
-            tick: report.tick,
-            closed_ingress_batch: report.closed_ingress_batch.clone(),
-            direct_external_commands: input_tick
-                .commands
-                .iter()
-                .map(|command| {
-                    ReplayCommandRecord::from_command(command).expect("test command is canonical")
-                })
-                .collect(),
-            expected_ingress_command_batch: report.command_batches[0].clone(),
-            expected_physics_step_input: report.physics_step_input.clone(),
-            expected_contact_batch: report.contact_batch.clone(),
-            expected_outcome_command_batch: report.command_batches[1].clone(),
-            expected_mapping_receipts: report.mapping_receipts.clone(),
-            expected_command_results: replay_command_results(&report.results),
-            expected_events: report.events.clone(),
-        });
-        compare_points.push(ReplayComparePointV4 {
-            tick: report.tick,
-            state_root: compute_world_checkpoint_root(&checkpoint).expect("state root"),
-            command_ledger_hash: report.snapshot.command_ledger_hash().expect("ledger hash"),
-            runtime_segment_hash,
-            rpg_segment_hash,
-            physics_segment_hash,
-            closed_ingress_batch_hash: report.closed_ingress_batch.batch_hash,
-            ingress_command_batch_hash: report.command_batches[0].batch_hash,
-            physics_step_input_hash: report
-                .physics_step_input
-                .input_hash()
-                .expect("physics input hash"),
-            contact_batch_hash: report.contact_batch.batch_hash,
-            outcome_command_batch_hash: report.command_batches[1].batch_hash,
-        });
-    }
-    (
-        ReplayManifestV4 {
-            schema_version: REPLAY_MANIFEST_V4_SCHEMA_VERSION,
-            compatibility: compatibility(),
-            initial_owner_segments: replay_owner_segments(&initial_checkpoint),
-            initial_state_root: compute_world_checkpoint_root(&initial_checkpoint)
-                .expect("initial root computes"),
-            authority,
-            ticks,
-            compare_points,
-        },
-        expected,
-    )
-}
-
 fn replay_manifest_v5() -> (ReplayManifestV5, super::ReplayOutput) {
     let input = scenario();
     let expected = run_replay(&input).expect("reference replay runs");
@@ -228,7 +147,7 @@ fn replay_manifest_v5() -> (ReplayManifestV5, super::ReplayOutput) {
             expected_physics_query_batch: report.physics_query_batch.clone(),
             expected_physics_query_results: report.physics_query_results.clone(),
             expected_outcome_command_batch: report.command_batches[1].clone(),
-            expected_mapping_receipts: report.mapping_receipts_v2.clone(),
+            expected_mapping_receipts: report.mapping_receipts.clone(),
             expected_command_results: replay_command_results(&report.results),
             expected_events: report.events.clone(),
         });
@@ -421,19 +340,9 @@ fn replay_reports_first_divergent_tick() {
 
 #[test]
 fn versioned_manifest_restores_snapshot_and_checks_every_compare_point() {
-    let (manifest, expected) = replay_manifest();
-    let actual = run_replay_manifest(&manifest).expect("manifest replay is exact");
+    let (manifest, expected) = replay_manifest_v5();
+    let actual = run_replay_manifest_v5(&manifest).expect("manifest replay is exact");
     assert_eq!(actual, expected);
-}
-
-#[test]
-fn replay_manifest_v4_jcs_round_trip_is_byte_exact() {
-    let (manifest, _) = replay_manifest();
-    let bytes = manifest.to_jcs_bytes().expect("manifest encodes");
-    let decoded = ReplayManifestV4::from_jcs_bytes(&bytes, CanonicalDecodeLimits::default())
-        .expect("manifest decodes");
-    assert_eq!(decoded, manifest);
-    assert_eq!(decoded.to_jcs_bytes().expect("manifest re-encodes"), bytes);
 }
 
 #[test]
@@ -507,32 +416,21 @@ fn replay_manifest_v5_rejects_targeting_trace_root_mismatch() {
 }
 
 #[test]
-fn replay_manifest_v2_jcs_is_rejected_before_nested_decoding() {
-    let bytes = br#"{"schema_version":2}"#;
+fn replay_manifest_v4_jcs_is_rejected_before_nested_decoding() {
+    let bytes = br#"{"schema_version":4}"#;
     assert!(matches!(
-        ReplayManifestV4::from_jcs_bytes(bytes, CanonicalDecodeLimits::default()),
+        ReplayManifestV5::from_jcs_bytes(bytes, CanonicalDecodeLimits::default()),
         Err(ManifestCodecError::Validation(
-            ManifestValidationError::UnsupportedReplayVersion(2)
-        ))
-    ));
-}
-
-#[test]
-fn replay_manifest_v3_jcs_is_rejected_as_unsupported_rpg_schema() {
-    let bytes = br#"{"schema_version":3}"#;
-    assert!(matches!(
-        ReplayManifestV4::from_jcs_bytes(bytes, CanonicalDecodeLimits::default()),
-        Err(ManifestCodecError::Validation(
-            ManifestValidationError::RpgSchemaUnsupported
+            ManifestValidationError::UnsupportedReplayVersion(4)
         ))
     ));
 }
 
 #[test]
 fn manifest_reports_first_ledger_or_state_divergence() {
-    let (mut manifest, _) = replay_manifest();
+    let (mut manifest, _) = replay_manifest_v5();
     manifest.compare_points[0].state_root = StateRoot::from_bytes([9; 32]);
-    let error = run_replay_manifest(&manifest).expect_err("compare point must fail");
+    let error = run_replay_manifest_v5(&manifest).expect_err("compare point must fail");
     assert!(matches!(
         error,
         ReplayError::ComparePointMismatch(ref details)
@@ -543,18 +441,18 @@ fn manifest_reports_first_ledger_or_state_divergence() {
 
 #[test]
 fn manifest_decodes_entire_command_stream_before_runtime_restore() {
-    let (mut manifest, _) = replay_manifest();
+    let (mut manifest, _) = replay_manifest_v5();
     manifest.ticks[1].direct_external_commands[0]
         .canonical_command_bytes
         .push(0);
-    let error = run_replay_manifest(&manifest).expect_err("corrupt command must fail closed");
+    let error = run_replay_manifest_v5(&manifest).expect_err("corrupt command must fail closed");
     assert!(matches!(error, ReplayError::Manifest(_)));
     assert_eq!(error.stable_code(), "REPLAY_MANIFEST_INVALID");
 }
 
 #[test]
 fn replay_driver_rejects_command_batch_before_state_mutation() {
-    let (manifest, _) = replay_manifest();
+    let (manifest, _) = replay_manifest_v5();
     let (checkpoint, mut ticks) = manifest
         .validate_and_decode(CanonicalDecodeLimits::default())
         .expect("manifest decodes");
@@ -594,33 +492,20 @@ fn replay_driver_rejects_command_batch_before_state_mutation() {
 }
 
 #[test]
-fn v2_replay_is_rejected_before_nested_snapshot_decoding() {
-    let (mut manifest, _) = replay_manifest();
-    manifest.schema_version = 2;
+fn v4_replay_is_rejected_before_nested_snapshot_decoding() {
+    let (mut manifest, _) = replay_manifest_v5();
+    manifest.schema_version = 4;
     manifest.initial_owner_segments.clear();
-    let error = run_replay_manifest(&manifest).expect_err("V2 replay fails closed");
+    let error = run_replay_manifest_v5(&manifest).expect_err("V4 replay fails closed");
     assert!(matches!(
         error,
-        ReplayError::Manifest(ManifestValidationError::UnsupportedReplayVersion(2))
+        ReplayError::Manifest(ManifestValidationError::UnsupportedReplayVersion(4))
     ));
     assert_eq!(error.stable_code(), "UNSUPPORTED_REPLAY_MANIFEST_VERSION");
 }
 
 #[test]
-fn v3_replay_is_rejected_as_unsupported_rpg_schema_before_nested_decoding() {
-    let (mut manifest, _) = replay_manifest();
-    manifest.schema_version = 3;
-    manifest.initial_owner_segments.clear();
-    let error = run_replay_manifest(&manifest).expect_err("V3 replay fails closed");
-    assert!(matches!(
-        error,
-        ReplayError::Manifest(ManifestValidationError::RpgSchemaUnsupported)
-    ));
-    assert_eq!(error.stable_code(), "RPG_SCHEMA_UNSUPPORTED");
-}
-
-#[test]
-fn scenario_final_root_pins_v4_checkpoint_identity_ledger_archive_and_physics_closure() {
+fn scenario_final_root_pins_current_checkpoint_identity_ledger_archive_and_physics_closure() {
     assert_eq!(
         run_replay(&scenario())
             .expect("scenario runs")

@@ -47,10 +47,8 @@ fn run_queued_melee_and_plan_agent(
         .map_err(|error| PersistenceReplayCheckError::new("restored melee", error.to_string()))?;
     if direct_melee != restored_melee
         || direct_melee.mapping_receipts.len() != 1
-        || direct_melee.mapping_receipts[0].code != InputMappingCodeV1::Accepted
-        || direct_melee.mapping_receipts[0]
-            .derived_command_id
-            .is_none()
+        || direct_melee.mapping_receipts[0].frame_code != InputMappingCodeV1::Accepted
+        || direct_melee.mapping_receipts[0].derived_commands.is_empty()
         || direct_melee
             .contact_batch
             .events
@@ -188,10 +186,10 @@ fn run_cooldown_retry(
         })?;
     if direct_cooldown != restored_cooldown
         || direct_cooldown.mapping_receipts.len() != 1
-        || direct_cooldown.mapping_receipts[0].code != InputMappingCodeV1::Accepted
-        || direct_cooldown.mapping_receipts[0]
-            .derived_command_id
-            .is_some()
+        || direct_cooldown.mapping_receipts[0].frame_code != InputMappingCodeV1::Accepted
+        || !direct_cooldown.mapping_receipts[0]
+            .derived_commands
+            .is_empty()
         || direct_cooldown
             .events
             .iter()

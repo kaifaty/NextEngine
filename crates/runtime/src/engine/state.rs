@@ -8,8 +8,8 @@ use next_contracts::ids::{ContentHash, InputSourceId, content_hash_from_bytes};
 use next_contracts::input::{
     ActionMapManifestV1, ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1,
     IngressAssignmentProfileV1, IngressCheckpointV1, InputContextStackV1, InputContractError,
-    InputMappingReceiptV1, InputMappingReceiptV2, InputSampleV1, PlayerControllerRegistryV1,
-    RuntimeAdmissionLimitsV1, TickRateProfileV1,
+    InputMappingReceiptV2, InputSampleV1, PlayerControllerRegistryV1, RuntimeAdmissionLimitsV1,
+    TickRateProfileV1,
 };
 use next_contracts::ledger::{
     CommandBodyArchiveV1, CommandLedgerV2, CommandStreamLedgerV2, command_identity_index_root,
@@ -59,8 +59,7 @@ pub struct RuntimeState {
     pub(super) ingress_checkpoint: IngressCheckpointV1,
     pub(super) physics: PhysicsWorldHost,
     pub(super) last_closed_ingress_batch: Option<ClosedIngressBatchV1>,
-    pub(super) last_mapping_receipts: Vec<InputMappingReceiptV1>,
-    pub(super) last_mapping_receipts_v2: Vec<InputMappingReceiptV2>,
+    pub(super) last_mapping_receipts: Vec<InputMappingReceiptV2>,
     pub(super) last_command_batches: Vec<ClosedCommandAdmissionBatchV2>,
     pub(super) command_ledger: CommandLedgerV2,
     pub(super) body_archive: CommandBodyArchiveV1,
@@ -185,7 +184,6 @@ impl RuntimeState {
             physics,
             last_closed_ingress_batch: None,
             last_mapping_receipts: Vec::new(),
-            last_mapping_receipts_v2: Vec::new(),
             last_command_batches: Vec::new(),
             command_ledger,
             body_archive,
@@ -321,7 +319,6 @@ impl RuntimeState {
             physics,
             last_closed_ingress_batch: None,
             last_mapping_receipts: Vec::new(),
-            last_mapping_receipts_v2: Vec::new(),
             last_command_batches: Vec::new(),
             command_ledger: snapshot.command_ledger,
             body_archive: snapshot.body_archive,
@@ -459,13 +456,8 @@ impl RuntimeState {
     }
 
     #[must_use]
-    pub fn last_mapping_receipts(&self) -> &[InputMappingReceiptV1] {
+    pub fn last_mapping_receipts(&self) -> &[InputMappingReceiptV2] {
         &self.last_mapping_receipts
-    }
-
-    #[must_use]
-    pub fn last_mapping_receipts_v2(&self) -> &[InputMappingReceiptV2] {
-        &self.last_mapping_receipts_v2
     }
 
     #[must_use]

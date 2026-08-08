@@ -315,69 +315,6 @@ impl InputMappingCodeV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct InputMappingReceiptV1 {
-    pub assigned_tick: u64,
-    pub source_id: InputSourceId,
-    pub source_sequence: u64,
-    pub payload_hash: ContentHash,
-    pub code: InputMappingCodeV1,
-    pub derived_command_id: Option<CommandId>,
-}
-
-impl InputMappingReceiptV1 {
-    pub fn canonical_bytes(&self) -> Result<Vec<u8>, CanonicalError> {
-        encode_canonical_segment(
-            RUNTIME_OWNER_ID,
-            INPUT_MAPPING_RECEIPT_SCHEMA_ID,
-            SEGMENT_V1,
-            [
-                field_u64(1, self.assigned_tick),
-                field_id(2, self.source_id.as_bytes()),
-                field_u64(3, self.source_sequence),
-                field_hash(4, self.payload_hash),
-                field_u8(5, self.code as u8),
-                CanonicalField::new(
-                    6,
-                    CANONICAL_TYPE_OPTIONAL,
-                    encode_optional_id(self.derived_command_id.as_ref())?,
-                ),
-            ],
-        )
-    }
-
-    pub fn from_canonical_bytes(
-        bytes: &[u8],
-        limits: CanonicalDecodeLimits,
-    ) -> Result<Self, InputContractError> {
-        let segment = decode_contract(
-            bytes,
-            limits,
-            RUNTIME_OWNER_ID,
-            INPUT_MAPPING_RECEIPT_SCHEMA_ID,
-            SEGMENT_V1,
-            &[
-                (1, CANONICAL_TYPE_U64),
-                (2, CANONICAL_TYPE_ID128),
-                (3, CANONICAL_TYPE_U64),
-                (4, CANONICAL_TYPE_HASH256),
-                (5, CANONICAL_TYPE_U8),
-                (6, CANONICAL_TYPE_OPTIONAL),
-            ],
-        )?;
-        let value = Self {
-            assigned_tick: read_u64(&segment, 1)?,
-            source_id: InputSourceId::from_bytes(exact(field(&segment, 2)?)?),
-            source_sequence: read_u64(&segment, 3)?,
-            payload_hash: read_hash(&segment, 4)?,
-            code: InputMappingCodeV1::from_tag(read_u8(&segment, 5)?)?,
-            derived_command_id: decode_optional_id(field(&segment, 6)?, limits)?,
-        };
-        require_round_trip(bytes, value.canonical_bytes()?)?;
-        Ok(value)
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct InputActionMappingResultV2 {
     pub frame_action_ordinal: u32,
     pub semantic_occurrence_ordinal: u32,

@@ -4,8 +4,8 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 1.1 |
-| Последняя проверка | 2026-08-06 |
+| Версия | 1.2 |
+| Последняя проверка | 2026-08-08 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
 Назначение — не дать агенту (или человеку) начать изменение, не прочитав
@@ -33,8 +33,8 @@
 |---|---|---|---|
 | Workflow, checks, handoff, процесс разработки | [README](README.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md) | ADR-030 | fast |
 | Public contracts, stable IDs, commands/events, snapshots, manifests (`crates/contracts`) | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md) + SPEC затронутой подсистемы | ADR-002 | fast + checks затронутой области |
-| Детерминизм, replay, command identity, ledger, save/load, persistence | [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md) | ADR-022 | persistence-replay |
-| Schema registry, миграции, совместимость версий данных | [SPEC-22](22-schema-registry-compatibility-and-migration.md) | ADR-025 | persistence-replay |
+| Детерминизм, replay, command identity, ledger, save/load, persistence | [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md) | ADR-022, ADR-046 | persistence-replay |
+| Schema registry, миграции, совместимость версий данных | [SPEC-22](22-schema-registry-compatibility-and-migration.md) | ADR-025, ADR-046 | persistence-replay |
 | ECS, runtime data model, fixed stages, scheduling | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | ADR-022 | persistence-replay |
 | Assets, streaming, persistence, content catalog, bundles, neutral asset schemas | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | ADR-026, ADR-014, ADR-044 | content-package |
 | Rendering, Vulkan, shaders, presentation extraction, render content | [SPEC-04](04-rendering-and-platform.md), [SPEC-30](30-presentation-extraction-and-render-content.md) | ADR-003, ADR-028 (+ ADR-035) | play (+ platform при host/packaging) |
@@ -44,7 +44,8 @@
 | Motor control, policies, deterministic inference, training lifecycle | [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md) | ADR-009, ADR-013 | performance (model runtime) |
 | AI agents, perception, memory, LLM/process boundary | [SPEC-06](06-ai-agents-perception-and-memory.md) | ADR-005 | play |
 | Dialogue, model packs (Proposed track) | [SPEC-16](16-text-canonical-multimodal-dialogue-and-model-packs.md) | ADR-017 | play |
-| RPG domain, quests, divine standing, narrative director | [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) | ADR-020, ADR-029, ADR-031 | play |
+| Current RPG domain and quests | [SPEC-19](19-rpg-domain-and-narrative-state.md) | ADR-020 | play |
+| Future narrative director or divine-standing proposal | SPEC-31 (Proposed intent only) | ADR-029/ADR-031 (Superseded; no current obligation), ADR-046 | none until a production consumer exists |
 | World simulation, population lifecycle, time advance | [SPEC-20](20-world-simulation-and-population-lifecycle.md) | ADR-021 | persistence-replay |
 | Luau/Wasm scripting, plugins, mod packages, gameplay mechanics authoring | [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | ADR-008, ADR-014 | content-package |
 | Player interaction, UI, camera, localization, accessibility | [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md) | ADR-019, ADR-044 | play |
@@ -59,14 +60,16 @@
 
 ## Historical-only — не authority
 
-ADR-004, ADR-006, ADR-007, ADR-010, ADR-012, ADR-015, ADR-023, ADR-024
+ADR-004, ADR-006, ADR-007, ADR-010, ADR-012, ADR-015, ADR-023, ADR-024,
+ADR-029, ADR-031
 полностью superseded; [evidence register](evidence-register.md) и review
 packets 1.0–1.9 (`docs/reviews/`) — historical snapshots. Их MAY читать как
 контекст, но они не разрешают и не блокируют изменения.
 
 ## Proposed — не shipped
 
-SPEC-16/ADR-017 (dialogue model packs) и PhysX backend из ADR-033 — Proposed.
+SPEC-16/ADR-017 (dialogue model packs), narrative/divine intent formerly in
+ADR-029/ADR-031, и PhysX backend из ADR-033 — Proposed.
 Не представлять как реализованное; при работе рядом указывать fallback и
 bounded evaluation path. `docs/plans/` и `docs/development/` — рабочие
 материалы и research notes, не normative architecture.

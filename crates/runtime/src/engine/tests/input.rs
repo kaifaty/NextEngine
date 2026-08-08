@@ -283,7 +283,7 @@ fn action_frames_move_capsule_exactly_and_wall_time_is_nonauthoritative() {
         assert_eq!(report.results[0].disposition, CommandDisposition::Committed);
         assert_eq!(report.events.len(), 1);
         assert_eq!(
-            report.mapping_receipts[0].code,
+            report.mapping_receipts[0].frame_code,
             InputMappingCodeV1::Accepted
         );
     }
@@ -310,7 +310,7 @@ fn invalid_and_colliding_input_never_reaches_command_ledger() {
     assert!(invalid.results.is_empty());
     assert!(invalid.events.is_empty());
     assert_eq!(
-        invalid.mapping_receipts[0].code,
+        invalid.mapping_receipts[0].frame_code,
         InputMappingCodeV1::ValueOutOfProfile
     );
     assert_eq!(
@@ -400,7 +400,7 @@ fn ingress_rejects_noncanonical_action_order_against_the_exact_registry() {
     assert!(report.results.is_empty());
     assert!(report.events.is_empty());
     assert_eq!(
-        report.mapping_receipts[0].code,
+        report.mapping_receipts[0].frame_code,
         InputMappingCodeV1::FrameInvalid
     );
 }
@@ -427,7 +427,7 @@ fn ingress_rejects_a_phase_not_declared_by_the_exact_action_map() {
     assert!(report.results.is_empty());
     assert!(report.events.is_empty());
     assert_eq!(
-        report.mapping_receipts[0].code,
+        report.mapping_receipts[0].frame_code,
         InputMappingCodeV1::FrameInvalid
     );
 }
@@ -535,7 +535,7 @@ fn input_configuration_activation_is_atomic_revision_bound_and_queue_safe() {
             .run_tick([])
             .expect("old queued revision remains valid")
             .mapping_receipts[0]
-            .code,
+            .frame_code,
         InputMappingCodeV1::Accepted
     );
 
@@ -578,7 +578,7 @@ fn input_configuration_activation_is_atomic_revision_bound_and_queue_safe() {
             .run_tick([])
             .expect("new revision tick")
             .mapping_receipts[0]
-            .code,
+            .frame_code,
         InputMappingCodeV1::Accepted
     );
 }
@@ -752,7 +752,7 @@ fn presentation_only_camera_action_is_admitted_without_a_world_command() {
         .expect("enqueue camera frame");
     let report = fixture.runtime.run_tick([]).expect("camera-only tick");
     assert_eq!(
-        report.mapping_receipts[0].code,
+        report.mapping_receipts[0].frame_code,
         InputMappingCodeV1::Accepted
     );
     assert!(report.command_batches[0].body.envelopes.is_empty());
@@ -788,7 +788,7 @@ fn explicitly_late_input_is_persisted_for_the_following_tick() {
     let following = fixture.runtime.run_tick([]).expect("following tick");
     assert_eq!(following.closed_ingress_batch.body.input_samples.len(), 1);
     assert_eq!(
-        following.mapping_receipts[0].code,
+        following.mapping_receipts[0].frame_code,
         InputMappingCodeV1::Accepted
     );
     assert_eq!(
@@ -839,10 +839,10 @@ fn input_arrival_permutations_close_to_identical_batches_and_state() {
     assert!(
         left.mapping_receipts
             .iter()
-            .all(|receipt| receipt.code == InputMappingCodeV1::FrameInvalid)
+            .all(|receipt| receipt.frame_code == InputMappingCodeV1::FrameInvalid)
     );
     assert!(
-        left.mapping_receipts_v2
+        left.mapping_receipts
             .iter()
             .all(|receipt| receipt.frame_code == InputMappingCodeV1::FrameInvalid)
     );
@@ -867,7 +867,7 @@ fn ui_actions_are_admitted_as_replayable_evidence_without_world_commands() {
         .expect("enqueue ui back press");
     let report = fixture.runtime.run_tick([]).expect("ui back tick");
     assert_eq!(
-        report.mapping_receipts[0].code,
+        report.mapping_receipts[0].frame_code,
         InputMappingCodeV1::Accepted
     );
     assert!(report.command_batches[0].body.envelopes.is_empty());
@@ -893,7 +893,7 @@ fn ui_actions_are_admitted_as_replayable_evidence_without_world_commands() {
             .run_tick([])
             .expect("invalid ui back tick")
             .mapping_receipts[0]
-            .code,
+            .frame_code,
         InputMappingCodeV1::ValueOutOfProfile
     );
 
@@ -956,22 +956,18 @@ fn ui_actions_are_admitted_as_replayable_evidence_without_world_commands() {
         .expect("enqueue menu frame");
     let menu_report = fixture.runtime.run_tick([]).expect("menu tick");
     assert_eq!(
-        menu_report.mapping_receipts[0].code,
+        menu_report.mapping_receipts[0].frame_code,
         InputMappingCodeV1::Accepted
     );
     assert_eq!(
-        menu_report.mapping_receipts_v2[0]
+        menu_report.mapping_receipts[0]
             .action_results
             .iter()
             .map(|action| action.mapping_code)
             .collect::<Vec<_>>(),
         vec![InputMappingCodeV1::Accepted, InputMappingCodeV1::Accepted]
     );
-    assert!(
-        menu_report.mapping_receipts_v2[0]
-            .derived_commands
-            .is_empty()
-    );
+    assert!(menu_report.mapping_receipts[0].derived_commands.is_empty());
     assert!(menu_report.command_batches[0].body.envelopes.is_empty());
     assert!(menu_report.events.is_empty());
 }

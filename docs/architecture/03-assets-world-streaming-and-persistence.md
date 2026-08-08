@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 1.15 |
-| Последняя проверка | 2026-07-31 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-037](adr/037-packed-session-object-storage.md) |
+| Версия | 1.16 |
+| Последняя проверка | 2026-08-08 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-037](adr/037-packed-session-object-storage.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
 | Заменяет | отсутствует |
 
 ## Source of truth и ownership
@@ -20,8 +20,8 @@ activation или fallback candidate. Current composite activation исполь�
 `PhysicsWorldCheckpointV1` в `WorldCheckpointV4`; current
 `ReplayManifestV5` связывает те же owner segments и fixed-stage compare points,
 а также exact player-action mapping receipts и authoritative targeting/query
-facts. `ReplayManifestV4` остаётся legacy exact-only runner вне V5
-activation/migration path и не публикуется новым persistence path.
+facts. Это единственный pre-v1 alpha replay format; старые outer versions
+возвращают typed `UNSUPPORTED_REPLAY_MANIFEST_VERSION` до nested decode.
 
 До cooking source files и validated `ProjectManifest` являются authoring source of truth. После atomic publish `ProjectCompositionLock` + `SchemaRegistryManifestV1` + `ContentManifestV1` + `WorldPartitionManifestV1` + immutable content-addressed bundles являются единственным runtime project/schema/asset/world/model source. Save state владеет только mutable progression/deltas, durable placement/tombstones, selected model/route references и declared PolicyState; оно не копирует immutable model weights или asset payload. Asset & Persistence subsystem владеет schema/content publication, cooker, low-level streaming state machine, atomic lock publication, save transactions и migration execution; semantic schema compatibility задаёт SPEC-22/ADR-025, resource admission — SPEC-23/ADR-026, durable topology/placement — SPEC-25.
 
@@ -79,7 +79,11 @@ previous session generations считаются complete только при н�
 final logical object hash. Legacy raw representation остаётся читаемым, а pack
 split использует прежний per-file size budget без нового logical rejection.
 
-Migration uses the unique schema-registry DAG and pure ordered transforms over a complete copy. Runtime-supported direct load is `N`/`N-1`; validated copy-on-write migration reaches `N` from `N-2` only through the unique path defined by SPEC-22. Unknown required segment/field, checksum mismatch, missing content revision, ambiguous path or failed transform → fail-closed with original generation byte-identical. Legacy RPG-owned calendar fields переносятся в `WorldCalendarStateV1` одной atomic copy-on-write transaction: новый RPG segment без calendar fields и новый World Services segment публикуются только вместе после cross-segment validation. Любой duplicate/missing/conflicting calendar field, unsupported mapping, hash/revision mismatch или injected publication failure сохраняет original save bytes и не публикует ни один новый segment. User получает stable code, affected schema/segment и recovery choices.
+Pre-v1 alpha persistence принимает только current exact format. Unsupported
+outer versions fail closed with source bytes unchanged; runtime does not add
+defaults, rewrite, delete or auto-upgrade them. A migration DAG becomes a
+current product contract only after a first publicly supported v1 format and a
+real migration consumer exist, as required by ADR-046.
 
 ## Replay
 

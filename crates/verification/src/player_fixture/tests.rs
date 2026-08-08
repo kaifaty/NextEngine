@@ -110,10 +110,10 @@ fn interaction_query_reaches_an_eligible_target_without_contact() {
     let report = runtime.run_tick([]).expect("tick");
     assert_eq!(report.mapping_receipts.len(), 1);
     assert_eq!(
-        report.mapping_receipts[0].code,
+        report.mapping_receipts[0].frame_code,
         InputMappingCodeV1::Accepted
     );
-    assert!(report.mapping_receipts[0].derived_command_id.is_some());
+    assert!(!report.mapping_receipts[0].derived_commands.is_empty());
     assert!(!report.results.is_empty());
     assert!(report.events.iter().any(|event| matches!(
         event.payload,
@@ -152,7 +152,7 @@ fn invalid_composite_and_colliding_interaction_inputs_keep_their_exact_boundarie
         .expect("enqueue invalid interaction");
     let invalid = runtime.run_tick([]).expect("invalid tick is nonfatal");
     assert_eq!(
-        invalid.mapping_receipts[0].code,
+        invalid.mapping_receipts[0].frame_code,
         InputMappingCodeV1::ValueOutOfProfile
     );
 
@@ -179,14 +179,10 @@ fn invalid_composite_and_colliding_interaction_inputs_keep_their_exact_boundarie
         .expect("enqueue mixed frame");
     let mixed_report = runtime.run_tick([]).expect("mixed tick is nonfatal");
     assert_eq!(
-        mixed_report.mapping_receipts[0].code,
+        mixed_report.mapping_receipts[0].frame_code,
         InputMappingCodeV1::Accepted
     );
-    assert!(
-        mixed_report.mapping_receipts[0]
-            .derived_command_id
-            .is_some()
-    );
+    assert!(!mixed_report.mapping_receipts[0].derived_commands.is_empty());
     assert!(mixed_report.events.iter().any(|event| matches!(
         event.payload,
         EventPayload::Rpg(RpgEventV1::InteractiveObjectTransitioned { .. })
@@ -292,8 +288,11 @@ fn committed_interaction_retry_after_restore_is_an_accepted_noop() {
         )
         .expect("enqueue retry");
     let retry = restored.run_tick([]).expect("retry tick");
-    assert_eq!(retry.mapping_receipts[0].code, InputMappingCodeV1::Accepted);
-    assert_eq!(retry.mapping_receipts[0].derived_command_id, None);
+    assert_eq!(
+        retry.mapping_receipts[0].frame_code,
+        InputMappingCodeV1::Accepted
+    );
+    assert!(retry.mapping_receipts[0].derived_commands.is_empty());
     assert!(retry.results.is_empty());
     assert!(retry.events.is_empty());
     assert_eq!(restored.rpg_snapshot(), rpg_before);
@@ -395,8 +394,11 @@ fn pickup_and_equip_retry_after_restore_do_not_duplicate_state_or_events() {
             .expect("enqueue retry");
         let retry = restored.run_tick([]).expect("retry tick");
         assert_eq!(retry.mapping_receipts[0].source_sequence, sequence);
-        assert_eq!(retry.mapping_receipts[0].code, InputMappingCodeV1::Accepted);
-        assert_eq!(retry.mapping_receipts[0].derived_command_id, None);
+        assert_eq!(
+            retry.mapping_receipts[0].frame_code,
+            InputMappingCodeV1::Accepted
+        );
+        assert!(retry.mapping_receipts[0].derived_commands.is_empty());
         assert!(retry.events.is_empty());
         assert!(retry.results.is_empty());
     }
@@ -427,10 +429,10 @@ fn cooked_dialogue_uses_query_targeting_and_invalid_participant_closure_fails_ac
         .run_tick([])
         .expect("query-targeted interaction tick");
     assert_eq!(
-        report.mapping_receipts[0].code,
+        report.mapping_receipts[0].frame_code,
         InputMappingCodeV1::Accepted
     );
-    assert!(report.mapping_receipts[0].derived_command_id.is_some());
+    assert!(!report.mapping_receipts[0].derived_commands.is_empty());
     assert!(!report.results.is_empty());
     assert_eq!(
         report
@@ -542,8 +544,11 @@ fn nearest_query_selects_quest_giver_and_dialogue_transition_is_one_shot() {
         )
         .expect("enqueue retry");
     let retry = restored.run_tick([]).expect("completed interaction retry");
-    assert_eq!(retry.mapping_receipts[0].code, InputMappingCodeV1::Accepted);
-    assert_eq!(retry.mapping_receipts[0].derived_command_id, None);
+    assert_eq!(
+        retry.mapping_receipts[0].frame_code,
+        InputMappingCodeV1::Accepted
+    );
+    assert!(retry.mapping_receipts[0].derived_commands.is_empty());
     assert!(retry.results.is_empty());
     assert!(retry.events.is_empty());
     assert_eq!(restored.rpg_snapshot(), rpg_before);

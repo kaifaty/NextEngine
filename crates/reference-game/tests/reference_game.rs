@@ -86,7 +86,7 @@ fn reference_source_recooks_byte_identically_and_runs_through_production_paths()
         .iter()
         .find_map(|report| {
             report
-                .mapping_receipts_v2
+                .mapping_receipts
                 .iter()
                 .find(|receipt| {
                     receipt
