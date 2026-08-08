@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.19 |
-| Последняя проверка | 2026-08-08 |
-| Заменяет | INDEX-001 version 2.18 |
+| Версия | 2.20 |
+| Последняя проверка | 2026-08-09 |
+| Заменяет | INDEX-001 version 2.19 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -157,7 +157,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-22 | [Current schema registry и format compatibility](22-schema-registry-compatibility-and-migration.md) | Accepted |
 | SPEC-23 | [Future generic jobs and resource work](23-jobs-memory-resource-residency-and-io-backpressure.md) | Proposed |
 | SPEC-24 | [Current neutral content и package closure](24-content-catalog-bundle-and-neutral-asset-schemas.md) | Accepted |
-| SPEC-25 | [Current world partition manifest и R3a boundary](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | Accepted |
+| SPEC-25 | [Current bounded world partition и streaming boundary](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | Accepted |
 | SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted |
 | SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted |
 | SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted |
@@ -231,8 +231,8 @@ traceability — навигационная карта, не admission authority
 
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
 - SPEC-20 — future population/calendar vertical; no current schema or check.
-- SPEC-23 — future generic scheduler/resource work after the Accepted private
-  R3a vertical; no generic scheduler/resource framework is accepted.
+- SPEC-23 — future generic scheduler/resource work after the completed bounded
+  R3 partition; no generic scheduler/resource framework is accepted.
 - ADR-033 — optional PhysX 5.9.0 grounded-capsule backend до полной parity на
   Windows/Linux; reference остаётся default.
 - SPEC-31 narrative director, generated quest graph and divine-standing intent

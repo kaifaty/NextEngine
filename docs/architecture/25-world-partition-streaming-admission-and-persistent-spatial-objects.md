@@ -1,11 +1,11 @@
-# SPEC-25: Current world partition manifest and R3a boundary
+# SPEC-25: Current bounded world partition and streaming boundary
 
 | Поле | Значение |
 |---|---|
 | ID | SPEC-25 |
 | Статус | Accepted |
-| Версия | 2.1 |
-| Последняя проверка | 2026-08-08 |
+| Версия | 2.2 |
+| Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md) |
 | Заменяет | SPEC-25 1.0 generic admission planner, pins/leases/eviction, population tiers and unimplemented spatial-object schemas |
 
@@ -15,9 +15,11 @@ Current contract фиксирует только cooked partition closure, ко�
 производит cooker и валидирует project activation. Он не определяет generic
 streaming scheduler, mutable population state или persistent-object database.
 
-Reference alpha содержит два authored chunk bindings: relay station и
-frontier. Оба входят в immutable project closure до запуска мира. Текущий R3a
-consumer использует этот manifest без изменения wire shape.
+Reference alpha содержит четыре authored regions и 64 chunk bindings. Existing
+relay station/frontier identities сохраняются, а remaining bindings покрывают
+`relay-station`, `frontier`, `high-pass` и `river-basin` по 16 chunks. Все они
+входят в immutable project closure до запуска мира. Current R3 consumer
+использует manifest без изменения wire shape.
 
 ## Authority and invariants
 
@@ -93,9 +95,9 @@ the partition with current limits and publishes one `ActivatedProjectV3` only
 after all project artifacts agree. It does not resolve versions from a
 catalog, scan ambient files or repair a partial closure.
 
-Activation по-прежнему eager и проверяет оба alpha chunks целиком. World затем
+Activation по-прежнему eager и проверяет все 64 alpha chunks целиком. World затем
 использует pinned generation, чтобы повторно fetch/decode target chunk через
-production R3a path; eager activation не превращается в lazy project loader.
+production bounded path; eager activation не превращается в lazy project loader.
 
 ## Persistence and replay
 
@@ -107,9 +109,9 @@ Load accepts only the current compatible project closure. Missing or changed
 partition/content bytes reject before world mutation and preserve the source
 save. There is no alpha placement migration or implicit reseed path.
 
-## Current R3a vertical
+## Current bounded R3 partition
 
-R3a доказывает ровно один path:
+R3a установил ровно один path:
 
 ```text
 chunk fetch → bounded decode → hash/reference validation → canonical commit
@@ -127,8 +129,18 @@ ADR-051. При этом по-прежнему нет public contract для:
 - population tiers or abstract outcomes;
 - persistent spatial-object placement/migration schemas.
 
-Those concepts require a demonstrated consumer and their own ProductCheck;
-they are not prerequisites for R3a.
+R3b применяет этот же path к canonical route из 64 bindings. Initial и
+gameplay-target выбираются по exact Rust-only reference roles; initial идёт
+первым, остальные bindings сортируются по `(region_id, chunk_id)`. Каждый
+переход публикует `Requested`, затем `Active/Unloaded` на следующем existing
+tick; source становится `Unloaded`, target остаётся единственным `Active`, а
+generation увеличивается ровно один раз. Save в `Requested` не сохраняет
+staging bytes: restart заново строит request и повторяет packaged fetch.
+
+`initial_placement_catalog_sha256` остаётся hash пустого manifest. Region
+placement выводится из chunk bindings и не создаёт durable placement API.
+Those future concepts require a demonstrated consumer and their own
+ProductCheck; they are not part of the completed bounded R3 partition.
 
 ## Failure semantics
 
@@ -144,10 +156,11 @@ they are not prerequisites for R3a.
 
 | Check | Current evidence |
 |---|---|
-| focused project/contracts tests | canonical roundtrip, ordering, bounds, unknown-field and hash/reference failures |
-| `content-package` | cooker/package/activation agree on the exact partition and full blob closure |
-| `persistence-replay` | save after `Requested`, process restart and re-fetch converge to the same final root and retain exact ledger roots |
+| focused project/contracts tests | canonical four-region/64-chunk ordering, bounds, unknown-field, duplicate ID, wrong class and dependency mismatch failures |
+| `content-package` | cooker/package/activation agree on 4 regions, 64 chunks, 76 neutral records and 113 packaged entries |
+| `persistence-replay` | save after `Requested`, process restart, exact pinned reactivation and re-fetch complete the full route with the uninterrupted root |
 | `performance --scenario smoke --mode report` | 1,000 transitions perform real packaged I/O and record existing V4 logical staging charges; 30 seconds remains report-only |
+| `performance --scenario r3-multiregion-streaming --mode report` | 1,000 transitions cycle over the canonical 64-chunk route with production default two workers; only `streaming_world` is authoritative and the scenario remains report-only |
 | `host-check` | current workspace contract and structural checks pass |
 
 No separate world-admission, population-tier or migration check exists in the

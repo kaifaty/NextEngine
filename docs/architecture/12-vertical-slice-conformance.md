@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 2.6 |
-| Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md) |
+| Версия | 2.7 |
+| Последняя проверка | 2026-08-09 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md) |
 | Заменяет | SPEC-12 2.5 pre-v1 N-1/Performance V3/future narrative clauses |
 
 ## Назначение
@@ -138,8 +138,8 @@ authoritative oracle.
 
 Check использует малый CC0/engine-owned neutral fixture и public tooling:
 
-Текущий M3/M10 implementation gate покрывает пункты 1–6 для data-only, Luau и
-Wasm, storage/schema failure matrix и atomic two-chunk admission тем же
+Текущий M3/M10/R3 implementation gate покрывает пункты 1–6 для data-only, Luau и
+Wasm, storage/schema failure matrix и atomic four-region/64-chunk admission тем же
 production loader. Wasm component выполняется через pinned private Wasmtime
 adapter, exact current engine-owned WIT, empty ambient linker и общий mechanics/RPG
 proposal path; shipping status всё ещё определяется отдельными platform gates.
@@ -195,15 +195,18 @@ methodology, недостаточный idle/free-memory/thermal preflight ил�
 process I/O, device-allocation ceiling, profiler integrity и exact authoritative
 roots. Allocator-counter fields/readers отсутствуют.
 
-Two-chunk, one-agent, статические render fixtures и live-movement checks
+Two-role streaming, one-agent, статические render fixtures и live-movement checks
 являются только `smoke/report`. Отдельный representative `r2-alpha-render`
 production workload реализован для `projects/reference-alpha`: exploration,
 combat и UI/dialogue выполняются отдельно в primary и fallback profiles с
 600 warm-up и 3 600 measured frames на каждую из шести пар. Report mode может
 дать outer ProductCheck execution `PASS` с вложенным timing verdict
-`REPORT_ONLY`, но не закрывает absolute budget или B-12. R2 hard gate требует
-clean compatible ten-run THOTH evidence; R3–R5 workloads остаются `NOT_RUN` до
-своей реализации.
+`REPORT_ONLY`, но не закрывает absolute budget или B-12. Отдельный streaming-only
+`r3-multiregion-streaming` выполняет 1 000 production packaged transitions по
+canonical four-region/64-chunk route, публикует только `streaming_world` и
+заполняет logical `required_staging_bytes`; он также `REPORT_ONLY`. R2/R3 hard
+gates требуют clean compatible ten-run THOTH evidence; R4–R5 workloads остаются
+`NOT_RUN` до своей реализации.
 
 Baseline строится из десяти clean runs одного commit. Percentiles —
 nearest-rank без удаления outliers. Absolute THOTH budget overrun даёт

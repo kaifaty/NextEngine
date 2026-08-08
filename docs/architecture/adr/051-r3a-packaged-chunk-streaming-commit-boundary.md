@@ -4,9 +4,9 @@
 |---|---|
 | ID | ADR-051 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.1 |
 | Дата решения | 2026-08-08 |
-| Последняя проверка | 2026-08-08 |
+| Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](../22-schema-registry-compatibility-and-migration.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-026](026-deterministic-work-resource-and-streaming-admission.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](048-direct-exact-project-lock.md) |
 | Заменяет | Proposed R3a implementation intent in SPEC-23; не принимает generic scheduler/resource framework |
 
@@ -93,4 +93,6 @@ authority.
 - `cargo run --release -p xtask -- performance --scenario smoke --mode report`.
 
 `platform` не требуется: boundary не меняет platform host, renderer, target
-packaging или OS adapter. R3b `r3-multiregion-streaming` остаётся `NOT_RUN`.
+packaging или OS adapter. На момент принятия R3a follow-up workload
+`r3-multiregion-streaming` был `NOT_RUN`; последующее R3b evidence описано в
+SPEC-03/SPEC-25 и не меняет принятое здесь boundary decision.

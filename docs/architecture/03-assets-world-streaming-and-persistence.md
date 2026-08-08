@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 2.1 |
-| Последняя проверка | 2026-08-08 |
+| Версия | 2.2 |
+| Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md) |
 | Заменяет | SPEC-03 version 1.16 resolver/migration/session-object/future narrative clauses |
 
@@ -52,16 +52,20 @@ dependencies. A chunk carries immutable definitions/content; durable placement
 and tombstones stay in world owner state. `PersistentId` crosses chunk
 boundaries; direct pointers and `RuntimeEntityId` do not.
 
-The current R3a implementation proves one production vertical for the
-two-chunk `relay-station → frontier` transition. Assets pins the exact activated
-content generation, verifies `INDEX.v1` and performs filesystem-path-opaque,
-bounded blob reads. Project activation remains eager and returns the decoded
-project together with this pinned source.
+The current R3 implementation applies the R3a production vertical to the
+manifest-driven reference partition of four regions and 64 chunks. Exact
+Rust-only reference roles still select `relay-station → frontier` for gameplay,
+while the canonical multiregion route starts with the initial role and orders
+the remaining bindings by `(region_id, chunk_id)`. Assets pins the exact
+activated content generation, verifies `INDEX.v1` and performs
+filesystem-path-opaque, bounded blob reads. Project activation remains eager
+and returns the decoded project together with this pinned source.
 
 World derives an immutable request from exact project/content/schema/partition
 hashes, topology revision, world generation, target binding and ordered asset
 revisions. Private workers fetch and decode `NeutralRecordV1`; merge and error
-selection depend only on `AssetId`, not completion order. The R3a profile is
+selection depend only on `AssetId`, not completion order. The unchanged
+ADR-051 profile is
 bounded to 64 assets, 1 MiB per blob, 16 MiB encoded total, at most four workers
 (default two), channel capacity 64 and 1 MiB canonical decoded bytes.
 
@@ -84,9 +88,12 @@ the declared `Requested` root, previous active chunks/generation and decoded
 cache unchanged, so retry/restart is explicit. Unload retains durable state
 before despawn and cannot resurrect collected/changed RPG state on reload.
 
+R3b reuses this private path for all 64 bindings; a second transition while a
+mandatory request is `Requested` receives the same stable busy rejection. It
+does not add optional work, placement-catalog authority or residency/eviction.
 Generic scheduler, cancellation tree, pins/leases, residency policy and
 eviction contracts are not part of this Accepted SPEC. SPEC-23 remains Proposed
-future intent; ADR-051 accepts only this consumer-driven R3a boundary.
+future intent; ADR-051 continues to govern the consumer-driven bounded path.
 
 ## Save
 
@@ -149,13 +156,19 @@ Missing optional content uses only an exact declared fallback.
 
 ## Product checks
 
-- `content-package`: deterministic cook, complete direct-lock/package closure,
-  malformed/cyclic/missing content and Luau/Wasm packages.
-- `play`: two-tick packaged two-chunk transition/unload-return behavior through
-  the paired production Assets/World/Runtime path.
-- `persistence-replay`: Save → change → Load/Resume rollback, power-fault
-  generation safety, direct Replay V5 comparison and typed retired-format
-  rejection.
+- `content-package`: deterministic cook and activation of the complete
+  four-region/64-chunk, 113-entry closure plus malformed/cyclic/missing content
+  and Luau/Wasm packages.
+- `play`: exact initial-role → frontier-role → initial-role transition through
+  the paired production Assets/World/Runtime path without changing the R2
+  gameplay and ledger baseline.
+- `persistence-replay`: Save in `Requested`, process restart, exact pinned
+  reactivation and re-fetch converge with uninterrupted execution; ordinary
+  Save/Load/Resume, Replay V5 and retired-format rejection remain exact.
 - `performance --scenario smoke --mode report`: 1,000 real packaged transitions
   record Performance V4 `required_staging_bytes`; the 30-second limit remains
   report-only.
+- `performance --scenario r3-multiregion-streaming --mode report`: 1,000
+  transitions cycle over the canonical 64-chunk route with two workers and
+  publish only the authoritative `streaming_world` root; the result is
+  `REPORT_ONLY` while B-12 remains open.

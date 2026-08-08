@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-21 |
 | Статус | Accepted |
-| Версия | 1.4 |
-| Последняя проверка | 2026-08-08 |
+| Версия | 1.5 |
+| Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
 | Заменяет | SPEC-21 1.3 speculative narrative cross-context and pre-public compatibility clauses |
 
@@ -748,6 +748,17 @@ Exact retry означает:
 - retry после eviction возвращает только `COMMAND_SEQUENCE_FINALIZED`, а не реконструированный приблизительный result.
 
 ## Ingress cutoff, clocks и async completion
+
+Current packaged world streaming is the production async-completion consumer
+of this fixed-stage rule. A revision-bound result is validated together with a
+prepared Runtime tick and published infallibly at `WorldStreamingCommit`
+between `IngressCommit` and `PhysicalStep`. The four-region/64-chunk reference
+partition uses the same two existing ticks for every mandatory transition:
+one publishes `Requested`, the next eligible tick publishes completion. I/O
+duration pauses simulation advancement and never selects another simulation
+tick. A stale/faulted completion publishes neither the Runtime nor World staged
+generation. This consumer profile is governed by SPEC-03/SPEC-25/ADR-051 and
+does not create a generic task scheduler or public completion framework here.
 
 ### TickRateProfileV1
 
@@ -1509,6 +1520,7 @@ Corrupt/incompatible ledger, invalid RNG state, unknown schedule/numeric profile
 | RNG-P1 | `next check rng --draws 10000 --targets windows-x86_64,linux-x86_64` | Standard blocks, helpers, rollback, continuation and exhaustion produce exact bytes/state; invalid calls mutate no state. | Reject the incompatible RNG implementation. |
 | SCHEDULE-P1 | `next check schedule --permutations 1000 --workers 1,2,8,16` | Schedule, shard, delta, event and state roots remain exact; access ambiguity and cycles reject. | Serialize execution behind the same manifest. |
 | NUMERIC-P1 | `next check numerics --targets windows-x86_64,linux-x86_64` | Checked integer/fixed-point/IEEE conversion and physics thresholds produce exact results; every invalid value aborts atomically. | Reject the numeric/backend adapter. |
+| WORLD-STREAMING-P1 | `play`, `persistence-replay`; focused World/Runtime tests | The paired Runtime/World publication keeps `IngressCommit → WorldStreamingCommit → PhysicalStep`, rejects stale/faulted completion atomically and reproduces the exact root after restart from `Requested` across the canonical 64-chunk route. | Retain the declared `Requested` root and previous active generation; rebuild the immutable request. |
 
 Windows and Linux must both satisfy cross-target checks; a result from another target does not substitute for a missing target run.
 
