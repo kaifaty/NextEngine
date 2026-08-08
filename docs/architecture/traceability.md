@@ -4,10 +4,10 @@
 |---|---|
 | ID | TRACE-001 |
 | Статус | Accepted |
-| Версия | 4.6 |
+| Версия | 4.7 |
 | Последняя проверка | 2026-08-08 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md) |
-| Заменяет | TRACE-001 4.4 |
+| Заменяет | TRACE-001 4.6 |
 
 ## Назначение
 
@@ -41,6 +41,7 @@ Canonical check names и правила conditional запуска опреде�
 | Закрыть v1 без ложного platform success | `v1-closure` и `v1-package` внутри `native-gate-run` на каждом target; затем `native-gate-compare` | каждый clean same-commit Windows/Linux run сохраняет свой `PASS` и честный remote-target `NOT_RUN`; только пара native target reports с matching project/content/mechanics/WIT/extension/state/ledger roots даёт `native_gate_ready = true`, не подменяя остальные критерии R1/v1 | SPEC-04, SPEC-07, SPEC-12, SPEC-15, SPEC-17, SPEC-29, ADR-030 |
 | Не ухудшать затронутый hot path | conditional `performance` | `PerformanceRunV4` сохраняет raw samples, nearest-rank p50/p95/p99, methodology, full fingerprint, canonical logical charges, peak working set, process I/O, device allocation ceilings, Vulkan timestamps, profiler integrity и exact authoritative roots. Все пять реализованных workload сохраняются: smoke, long-session, interactive-frame, production-worker и `r2-alpha-render`; diagnostics имеют `REPORT_ONLY`, wrong host/workload/preflight — `NOT_RUN`. Только compatible clean ten-run `release` baseline на полном `ref-win-thoth-v1` даёт hard timing verdict. Absolute overrun или >=5% regression с 95% interval — `FAIL`; report-only scenarios и Accepted boundaries не закрывают B-12 | SPEC-04, SPEC-05, SPEC-06, SPEC-08, SPEC-09, SPEC-12, SPEC-26, SPEC-27, SPEC-30, ADR-016, ADR-036, ADR-038, ADR-045, ADR-049 |
 | Сохранять deterministic fallback для AI/physical policy | `play`, `persistence-replay`; `performance` при изменении hot path | absent/bad optional service или model route приводит к declared local fallback без blocked tick и duplicate command | SPEC-05, SPEC-06, SPEC-14, SPEC-27 |
+| Future R4 learned strategic/tactical NPC behavior (`Proposed`, без current gate) | none until a production consumer and promoting ADR exist; future `BEHAVIOR-SCHEMA/DETERMINISM/STATE/FALLBACK/R4/100NPC/COMMS/TRAIN-P1` | Planned signal: both learned policies are applied in one `routine → fatigue/sleep → threat → fight/flee/yield → dialogue → resume/replan` vertical with exact Windows/Linux applied decisions and complete utility/HTN fallback. This row creates no current requirement, check mapping or R4 completion claim. | SPEC-32, SPEC-33, ADR-050 |
 | Проверять заменяемость grounded-capsule physics backend | `physics-collision --backend compare`, `persistence-replay --backend reference\|physx`, `physics-backend-parity`; conditional `platform`, `performance` | reference и PhysX дают exact canonical pose/contact phase/order/checkpoint/replay result; activation fallback не меняет tick, а runtime failure сохраняет previous checkpoint | SPEC-05, SPEC-21, SPEC-26, ADR-033 |
 | Не смешивать Gothic data с engine runtime | `content-package` только при изменении importer/neutral contract | isolated importer output проходит bounds/provenance validation; runtime/packages не содержат legacy/protected bytes | SPEC-10, SPEC-11, SPEC-24 |
 

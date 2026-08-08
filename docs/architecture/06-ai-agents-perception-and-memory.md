@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-06 |
 | Статус | Accepted |
-| Версия | 1.11 |
+| Версия | 1.12 |
 | Последняя проверка | 2026-08-08 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-06 1.10 current population/narrative-director integration clauses |
+| Заменяет | SPEC-06 1.11; добавлен только Proposed specialization pointer без изменения current Agent semantics |
 
 ## Source of truth и ownership
 
@@ -61,6 +61,19 @@ Habit/routine/tactical layer создаёт только `AgentIntent` либо 
 - `Active` — intent может быть передан Motor Runtime при выполнении остальных preconditions.
 
 Optional learned tactical policy остаётся за границей `AgentIntent`, имеет versioned input/output schema и deterministic utility/HTN fallback. Отключение `ai-host` или learned behavior adapter MAY ухудшить разнообразие/оптимальность, но MUST NOT менять command validation, motor safety или authoritative gameplay correctness.
+
+### Proposed hierarchical behavior specialization
+
+[ADR-050](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md),
+[SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md)
+и
+[SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md)
+предлагают future R4 specialization: отдельные strategic/tactical learned
+policies, intention/recurrent-state lifecycle и offline training/deployment.
+Все три документа имеют статус `Proposed`, не добавляют current public schema
+или runtime obligation и не заменяют описанные выше perception, memory,
+`AgentIntent`, utility/HTN и authored tactical fallback. Их promotion возможна
+только вместе с production consumer и проходящими ProductCheck по ADR-046.
 
 ## Perception contract
 

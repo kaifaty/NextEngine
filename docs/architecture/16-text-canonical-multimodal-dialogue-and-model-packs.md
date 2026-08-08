@@ -5,9 +5,9 @@
 | ID | SPEC-16 |
 | Статус | Proposed |
 | Lifecycle | Deferred Proposed |
-| Версия | 0.5 |
-| Последняя проверка | 2026-07-26 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) |
+| Версия | 0.6 |
+| Последняя проверка | 2026-08-08 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-050](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md) |
 | Заменяет | отсутствует |
 
 ## Статус предложения: Deferred Proposed
@@ -95,6 +95,89 @@ Candidate validation order:
 
 Provider `function_call`/tool output MUST map to a declared `AgentIntent` variant or be rejected. It MUST NOT carry executable code, arbitrary command payload or direct mutable target.
 
+### Shared speech-act and behavior bridge (Proposed)
+
+Один `SpeechActCandidateV1` используется для player↔NPC и NPC↔NPC. Direction
+не создаёт отдельный protocol или privileged NPC-to-NPC mutation path.
+
+```text
+SpeechActCandidateV1 {
+  schema_version: 1,
+  act_id: Id128,
+  speaker: PersistentId,
+  addressees: CanonicalSet<PersistentId>,
+  act_kind: Greet | Ask | Answer | Inform | Warn | Threaten | Plead |
+            Offer | Accept | Refuse | RequestHelp | Yield | Farewell,
+  topic_id: Option<NamespacedId>,
+  target: Option<PersistentId>,
+  cited_fact_revisions: CanonicalSet<(FactId, u64)>,
+  dialogue_revision: Option<u64>,
+  expires_at_tick: SimulationTick,
+  canonical_text_ref: Option<DialogueTurnId>,
+  provenance: Authored | LocalModel | RemoteOptIn,
+}
+```
+
+Semantic act uses closed IDs and current facts; generated wording remains
+`CanonicalUtterance`/`DialogueTurnCandidate` content. Candidate is untrusted:
+participant, fact, dialogue/session, capability and RPG constraints validate
+before it may become `AgentIntent` or dialogue command. Speech by itself does
+not commit a promise, relationship change, surrender outcome or quest fact.
+
+`GoalSuggestionCandidateV1` is the only proposed LLM bridge into strategic
+behavior:
+
+```text
+GoalSuggestionCandidateV1 {
+  schema_version: 1,
+  suggestion_id: Id128,
+  subject: PersistentId,
+  goal_kind: closed SPEC-32 strategic goal kind,
+  target: Option<StableBehaviorTargetV1>,
+  cited_fact_revisions: CanonicalSet<(FactId, u64)>,
+  created_assignment_tick: SimulationTick,
+  expires_at_tick: SimulationTick,
+  source_turn: Option<DialogueTurnId>,
+  model_and_content_hashes: CanonicalSet<Hash256>,
+}
+```
+
+It cannot contain a `WorldCommand`, arbitrary priority, tool call, raw prompt
+or free-form goal kind. Agent Runtime may admit it only as one canonical
+candidate at the **next** declared strategic boundary from SPEC-32. Strategic
+policy/executive may reject it. Direct goal installation and reopening an
+already closed candidate set are forbidden. Late/invalid suggestion changes no
+behavior state and the authored candidate set remains complete.
+
+`ProsodyAnnotationCandidateV1` is bounded audio-understanding output:
+
+```text
+ProsodyAnnotationCandidateV1 {
+  schema_version: 1,
+  utterance_or_turn_id: Id128,
+  speaker: PersistentId,
+  emotion_class: Neutral | Calm | Joy | Sadness | Fear | Anger |
+                 Distress | Uncertain,
+  prosody_class: Neutral | Soft | Loud | Urgent | Hesitant,
+  intensity_raw: u16,
+  confidence_raw: u16,
+  model_and_pack_hashes: CanonicalSet<Hash256>,
+  expires_at_tick: SimulationTick,
+}
+```
+
+Bounds and fixed-point descriptors are profile-bound. Perception validator
+checks participant/turn identity, provenance, confidence and freshness, then
+either publishes an uncertainty-tagged revision-bound perception fact or
+rejects the candidate. Raw waveform, embedding, logits and provider emotion
+labels never enter behavior observation directly and never change a goal,
+relationship or tactical mode.
+
+This bridge remains `Proposed` with SPEC-32/ADR-050. It preserves text-canonical
+dialogue and mandatory `TextOnlyFallback`; absence of LLM/audio-understanding
+does not remove any behavior or dialogue candidate required by the authored
+offline loop.
+
 ### SpeechSegmentCandidate
 
 `SpeechSegmentCandidate` is presentation-only and contains turn ID, sentence index, monotonic segment sequence, `is_final`, locale, audio encoding/sample rate/channels, byte length, content hash, source text hash, TTS pack/provider provenance and cancellation key. One IPC segment is limited to 262,144 bytes; larger audio is split into ordered chunks.
@@ -170,6 +253,9 @@ microphone → partial ASR ┘          │
 - Eligibility prewarm during ASR MAY read only immutable capability/fact views. It cannot reserve, mutate or guarantee an action before finalized input and common validation.
 - Barge-in cancels current capture/playback and any uncommitted candidate. It cannot roll back committed commands or DomainEvents.
 - Dialogue state MUST NOT wait for TTS completion unless authored content explicitly uses a deterministic timing command independent of generated audio duration.
+- Speech-act, goal-suggestion and validated prosody results use the same
+  current/next external-result assignment and freshness rules. They cannot
+  reopen a closed behavior/dialogue boundary or block strategic/tactical work.
 
 ## Model-pack installation и future CLI
 
@@ -217,6 +303,8 @@ Base package manifest references no required generative pack. Project MAY requir
 | `AI_TURN_CANCELLED` | Discard uncommitted work; dedupe any late result |
 | `AI_VOICE_CONSENT_INVALID` | Disable cloning/reference voice; default licensed voice/subtitle |
 | `NONDETERMINISTIC_RESULT` | Replay or product check fails; no retry-to-green or model regeneration |
+| `AI_GOAL_SUGGESTION_INVALID` | Reject the suggestion before candidate-set construction; retain authored strategic candidates. |
+| `AI_PROSODY_ANNOTATION_INVALID` | Reject raw/invalid/stale annotation; publish no perception fact or behavior change. |
 
 Process absence/crash/protocol mismatch, missing pack, model OOM, malformed/partial stream, remote offline, consent revocation and late TTS all degrade to the next declared route. No failure may block tick, mutate state directly, partially commit a turn or repeat a committed command.
 
@@ -228,6 +316,7 @@ Wall timings are measurements on declared hardware, never simulation decisions.
 |---|---|---|
 | `DIALOGUE-P1` | `next check DIALOGUE-P1 --scenario dialogue-text-audio-parity --turns 1000` | Typed and final-ASR turns produce the same mandatory outcomes with no direct mutation, partial commit or duplicate command; invalid/stale candidates reject, otherwise use authored dialogue and subtitles. |
 | `DIALOGUE-P2` | `next check DIALOGUE-P2 --scenario dialogue-stream-faults --injections 1000` | Timeout, restart, cancellation, barge-in, reordering, duplicate and late results never crash or stall the game; select `TextOnlyFallback` within one gameplay tick after the deadline signal. |
+| `BEHAVIOR-COMMS-P1` | Future SPEC-32 production scenario for player↔NPC and NPC↔NPC speech acts, goal suggestions and prosody faults | One bounded speech-act protocol, next-boundary-only goal admission, validated uncertainty facts, authored fallback and zero direct mutation. `NOT_RUN` until the R4 consumer exists. |
 | `MODEL-ASR-P1` | `next ai benchmark dialogue --role asr --corpus russian-gameplay-v1 --profile $PROFILE` | Clean Russian WER ≤10%, noisy mix WER ≤20%, final result p95 ≤600 ms, and invalid audio is bounded/rejected; use the next ASR route or typed input. |
 | `MODEL-DIALOGUE-P1` | `next ai benchmark dialogue --role dialogue --corpus npc-dialogue-v1 --profile $PROFILE` | First valid sentence p95 ≤1,000 ms, complete candidate p95 ≤2,000 ms, schema validity ≥99%, and stale/forbidden mutations always reject; use the next route or authored dialogue. |
 | `MODEL-TTS-P1` | `next ai benchmark dialogue --role tts --corpus russian-voice-v1 --profile $PROFILE` | First PCM p95 ≤500 ms, real-time factor ≤0.5, continuation is bounded, and audio schema limits hold; use the next TTS route, authored voice or subtitles. |

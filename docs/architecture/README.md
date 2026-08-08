@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.18 |
+| Версия | 2.19 |
 | Последняя проверка | 2026-08-08 |
-| Заменяет | INDEX-001 version 2.16 |
+| Заменяет | INDEX-001 version 2.18 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -164,6 +164,8 @@ traceability — навигационная карта, не admission authority
 | SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted |
 | SPEC-30 | [Presentation snapshot, camera, UI и render content](30-presentation-extraction-and-render-content.md) | Accepted |
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
+| SPEC-32 | [NPC cognition, intention lifecycle and deterministic behavior inference](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Proposed |
+| SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -222,6 +224,7 @@ traceability — навигационная карта, не admission authority
 | ADR-047 | [Simple application session and save-on-close](adr/047-simple-application-session-and-save-on-close.md) | Accepted; two-slot current-state snapshot and two-stage close journal replace session recovery archives/object packs |
 | ADR-048 | [Direct exact project lock](adr/048-direct-exact-project-lock.md) | Accepted; current-only authoring/registry/package formats and `ProjectLockV3` replace project resolver/catalog/policy closure |
 | ADR-049 | [Performance evidence without allocator instrumentation](adr/049-performance-evidence-without-allocator-instrumentation.md) | Accepted; Performance V4 and low-overhead resource evidence replace allocator instrumentation and V2/V3 readers |
+| ADR-050 | [Hierarchical NPC cognition and learned behavior-policy boundary](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md) | Proposed; two independent learned roles with exact per-seed decisions and deterministic planner fallback |
 
 ## Proposed tracks
 
@@ -234,6 +237,11 @@ traceability — навигационная карта, не admission authority
 - SPEC-31 narrative director, generated quest graph and divine-standing intent
   formerly described by ADR-029/ADR-031; they have no current implementation
   obligation and return only with a concrete production consumer.
+- SPEC-32/SPEC-33/ADR-050 — future R4 hierarchical NPC cognition: separate
+  strategic/tactical learned policies, intention/recurrent-state lifecycle and
+  offline training/deployment. Both policies require one production consumer
+  and passing ProductCheck before promotion; utility/HTN remains the mandatory
+  deterministic fallback and LLM/audio remain optional.
 
 Этот deferred track сохраняет deterministic offline fallback, engine-owned
 contracts и untrusted proposal boundaries. Его принятие выполняется обычным

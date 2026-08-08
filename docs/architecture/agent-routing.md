@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 1.5 |
+| Версия | 1.6 |
 | Последняя проверка | 2026-08-08 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -43,6 +43,7 @@
 | Skeletal animation, retargeting, IK | [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-05](05-physics-animation-and-motor-control.md) | ADR-027 | play |
 | Motor control, policies, deterministic inference, training lifecycle | [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md) | ADR-009, ADR-013 | performance (model runtime) |
 | AI agents, perception, memory, LLM/process boundary | [SPEC-06](06-ai-agents-perception-and-memory.md) | ADR-005 | play |
+| Future learned NPC strategic/tactical behavior policy, intention state and training (Proposed track) | [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-06](06-ai-agents-perception-and-memory.md) | ADR-050, ADR-005, ADR-046 | none until a production consumer exists |
 | Dialogue, model packs (Proposed track) | [SPEC-16](16-text-canonical-multimodal-dialogue-and-model-packs.md) | ADR-017 | play |
 | Current RPG domain and quests | [SPEC-19](19-rpg-domain-and-narrative-state.md) | ADR-020 | play |
 | Current partition manifest and R2 two-chunk transition | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | ADR-026, ADR-048 | play, content-package, persistence-replay |
@@ -72,7 +73,8 @@ packets 1.0–1.9 (`docs/reviews/`) — historical snapshots. Их MAY чита�
 
 SPEC-16/ADR-017 (dialogue model packs), SPEC-20 (future population), SPEC-23
 (future R3a streaming work), SPEC-31 (narrative/divine intent formerly in
-ADR-029/ADR-031), и PhysX backend из ADR-033 — Proposed.
+ADR-029/ADR-031), SPEC-32/SPEC-33/ADR-050 (future learned strategic/tactical
+NPC behavior), и PhysX backend из ADR-033 — Proposed.
 Не представлять как реализованное; при работе рядом указывать fallback и
 bounded evaluation path. `docs/plans/` и `docs/development/` — рабочие
 материалы и research notes, не normative architecture.
