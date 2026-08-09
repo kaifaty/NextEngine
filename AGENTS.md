@@ -75,7 +75,8 @@
 3. Implement through production paths with focused positive and failure coverage.
 4. Update affected schemas, migrations, examples, architecture text and material roadmap facts together.
 5. Run focused checks and `cargo run -p xtask -- host-check`.
-6. Report each relevant check as passed, failed or not run, with the remaining product risk.
+6. When implementing an approved plan, create the commits specified by that plan as each commit boundary is completed. If the plan does not define commit boundaries, create coherent commit(s) for the completed in-scope work before handoff; do not wait for a separate commit reminder, and never include unrelated user changes.
+7. Report each relevant check as passed, failed or not run, with the remaining product risk.
 
 ## Repository hygiene
 
