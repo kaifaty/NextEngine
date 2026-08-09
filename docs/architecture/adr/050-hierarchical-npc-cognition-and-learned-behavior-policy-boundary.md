@@ -4,11 +4,11 @@
 |---|---|
 | ID | ADR-050 |
 | Статус | Proposed |
-| Версия | 0.1 |
+| Версия | 0.2 |
 | Дата предложения | 2026-08-08 |
-| Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-16](../16-text-canonical-multimodal-dialogue-and-model-packs.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [SPEC-20](../20-world-simulation-and-population-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-27](../27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](../32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](../33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | отсутствует |
+| Последняя проверка | 2026-08-09 |
+| Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-16](../16-text-canonical-multimodal-dialogue-and-model-packs.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [SPEC-20](../20-world-simulation-and-population-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-27](../27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](../32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](../33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-053](053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](054-bounded-strategic-adaptation-and-two-tier-sleep.md) |
+| Заменяет | ADR-050 0.1; corrects priority and makes the Tactical/Motion boundary explicit |
 | Заменён | не заменён |
 
 ## Статус предложения
@@ -93,8 +93,8 @@ hostile action executive закрывает или обновляет emergency 
 Behavior priority в executive/validator:
 
 1. hard safety, quest и authored non-negotiable constraints;
-2. personality и routine consistency;
-3. survival;
+2. survival и emergency response;
+3. personality и routine consistency;
 4. tactical efficiency.
 
 Policy score не может отменить constraint более высокого уровня.
@@ -172,6 +172,21 @@ candidate, но `RoutePlan` строит World Services; raw waypoint output
 Mechanics Runtime повторно проверяет actual ability. Physical model получает
 только `PhysicalAvatarIntent`; direct pose, joint action или physics mutation
 из behavior policy запрещены.
+
+Tactical Controller и Motion Controller являются разными owners и model
+lanes. Tactical Controller при своей cadence выбирает закрытый semantic
+composite candidate: affordance/item, stable target, target mode и bounded
+movement/facing preset. Он не производит continuous offset, joint target,
+torque, pose или recurrent state физической модели. Motion Controller работает
+на отдельной частоте, получает только validated `PhysicalAvatarIntent` и
+вместе с engine-owned safety layer формирует SPEC-27 `MotorActionV1`.
+
+Bounded strategic adaptation и offline consolidation уточняет
+[ADR-054](054-bounded-strategic-adaptation-and-two-tier-sleep.md); общий
+training/artifact boundary задают
+[ADR-053](053-engine-native-model-training-and-immutable-artifact-boundary.md)
+и [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md).
+Все три документа остаются `Proposed` и не меняют shipped baseline.
 
 ### Yielding
 

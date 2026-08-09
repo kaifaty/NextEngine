@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.21 |
+| Версия | 2.22 |
 | Последняя проверка | 2026-08-09 |
-| Заменяет | INDEX-001 version 2.20 |
+| Заменяет | INDEX-001 version 2.21 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -146,7 +146,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-11 | [Runtime safety и license hygiene](11-security-licensing-and-governance.md) | Accepted |
 | SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted |
 | SPEC-13 | [Gameplay mechanics и mod packages](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | Accepted |
-| SPEC-14 | [Physical archetypes, motor skills и policy lifecycle](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) | Accepted |
+| SPEC-14 | [Physical archetypes, motor skills и policy lifecycle](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) | Accepted baseline; Mamba-2 profile subsection is Proposed only |
 | SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted |
 | SPEC-16 | [Text-canonical multimodal dialogue и model packs](16-text-canonical-multimodal-dialogue-and-model-packs.md) | Proposed |
 | SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted |
@@ -159,13 +159,14 @@ traceability — навигационная карта, не admission authority
 | SPEC-24 | [Current neutral content и package closure](24-content-catalog-bundle-and-neutral-asset-schemas.md) | Accepted |
 | SPEC-25 | [Current bounded world partition и streaming boundary](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | Accepted |
 | SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted |
-| SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted |
+| SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted generic tensor/state/safety baseline; Mamba-2 mapping subsection is Proposed only |
 | SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted |
 | SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted |
 | SPEC-30 | [Presentation snapshot, camera, UI и render content](30-presentation-extraction-and-render-content.md) | Accepted |
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
 | SPEC-32 | [NPC cognition, intention lifecycle and deterministic behavior inference](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Proposed |
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed |
+| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed; first-party R&D data plane, not a current creator SDK or shipped trainer |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -227,6 +228,9 @@ traceability — навигационная карта, не admission authority
 | ADR-050 | [Hierarchical NPC cognition and learned behavior-policy boundary](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md) | Proposed; two independent learned roles with exact per-seed decisions and deterministic planner fallback |
 | ADR-051 | [R3a packaged chunk streaming commit boundary](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md) | Accepted; one pinned packaged fetch/decode/validate/two-tick commit vertical, without generic scheduler/resource promotion |
 | ADR-052 | [Derived world calendar and authored routine vertical](adr/052-derived-world-calendar-and-authored-routine-vertical.md) | Proposed; R4a candidate for one relay-keeper routine, exact derived calendar and separate World Services segment |
+| ADR-053 | [Engine-native model training and immutable artifact boundary](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md) | Proposed; canonical headless environment, accelerated mirrors and immutable candidate bundles |
+| ADR-054 | [Bounded strategic adaptation and two-tier sleep](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md) | Proposed; Hope-inspired explicit bounded state, deterministic runtime consolidation and offline child bundles |
+| ADR-055 | [Mamba-2 physical motion foundation profile](adr/055-mamba2-physical-motion-foundation-profile.md) | Proposed; optional learned foundation profile with explicit cache and procedural fallback |
 
 ## Proposed tracks
 
@@ -244,11 +248,16 @@ traceability — навигационная карта, не admission authority
 - SPEC-31 narrative director, generated quest graph and divine-standing intent
   formerly described by ADR-029/ADR-031; they have no current implementation
   obligation and return only with a concrete production consumer.
-- SPEC-32/SPEC-33/ADR-050 — future R4 hierarchical NPC cognition: separate
-  strategic/tactical learned policies, intention/recurrent-state lifecycle and
-  offline training/deployment. Both policies require one production consumer
-  and passing ProductCheck before promotion; utility/HTN remains the mandatory
+- SPEC-32/SPEC-33/SPEC-34 and ADR-050/ADR-053/ADR-054 — future R4 hierarchical
+  NPC cognition and first-party training platform: separate strategic/tactical
+  policies, Hope-inspired bounded state, immutable offline consolidation and
+  exact runtime data-plane/export boundaries. R4c requires production
+  consumers and passing ProductChecks; utility/HTN remains the mandatory
   deterministic fallback and LLM/audio remain optional.
+- ADR-055 with Proposed subsections in SPEC-14/SPEC-27 — optional Mamba-2
+  universal learned foundation, fixed-PD first route and portable explicit-
+  state export. The Accepted foundation/residual/exclusive composition and
+  procedural R5 path remain current and independently shippable.
 
 Этот deferred track сохраняет deterministic offline fallback, engine-owned
 contracts и untrusted proposal boundaries. Его принятие выполняется обычным

@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 1.8 |
+| Версия | 1.9 |
 | Последняя проверка | 2026-08-09 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -43,7 +43,9 @@
 | Skeletal animation, retargeting, IK | [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-05](05-physics-animation-and-motor-control.md) | ADR-027 | play |
 | Motor control, policies, deterministic inference, training lifecycle | [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md) | ADR-009, ADR-013 | performance (model runtime) |
 | AI agents, perception, memory, LLM/process boundary | [SPEC-06](06-ai-agents-perception-and-memory.md) | ADR-005 | play |
-| Future learned NPC strategic/tactical behavior policy, intention state and training (Proposed track) | [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-06](06-ai-agents-perception-and-memory.md) | ADR-050, ADR-005, ADR-046 | none until a production consumer exists |
+| First-party model-training environments, trajectories, datasets, runs, export, consolidation and accelerated mirrors (Proposed track) | [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), plus the lane SPEC | ADR-053, ADR-030, ADR-046, plus the lane ADR | none until a production consumer exists; future fast + lane checks + MODEL-DATAPLANE/EXPORT and applicable MIRROR/STATISTICS/CONSOLIDATION/DATA-GOVERNANCE-P1 |
+| Future learned NPC strategic/tactical behavior policy, Hope-inspired state and training (Proposed track) | [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-06](06-ai-agents-perception-and-memory.md) | ADR-050, ADR-053, ADR-054, ADR-005, ADR-046 | none until a production consumer exists; future BEHAVIOR-* plus applicable MODEL-* checks |
+| Future Mamba-2 universal motion foundation and portable explicit-state export (Proposed track) | [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | ADR-009 (Accepted composition), ADR-053, ADR-055 | none until a production consumer exists; future MOTOR/POLICY + applicable MODEL-EXPORT/MIRROR/STATISTICS-P1 and performance |
 | Dialogue, model packs (Proposed track) | [SPEC-16](16-text-canonical-multimodal-dialogue-and-model-packs.md) | ADR-017 | play |
 | Current RPG domain and quests | [SPEC-19](19-rpg-domain-and-narrative-state.md) | ADR-020, ADR-046 | play |
 | Current bounded four-region/64-chunk partition, pinned generation and paired fixed-stage commit | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | ADR-026, ADR-048, ADR-051 | play, content-package, persistence-replay, performance smoke + r3-multiregion-streaming |
@@ -76,8 +78,10 @@ packets 1.0–1.9 (`docs/reviews/`) — historical snapshots. Их MAY чита�
 SPEC-16/ADR-017 (dialogue model packs), SPEC-20/ADR-052 (R4a derived calendar
 and authored routine), the navigation candidate in SPEC-08, SPEC-23
 (future generic jobs/resource work after bounded R3), SPEC-31 (narrative/divine intent formerly in
-ADR-029/ADR-031), SPEC-32/SPEC-33/ADR-050 (future learned strategic/tactical
-NPC behavior), и PhysX backend из ADR-033 — Proposed.
+ADR-029/ADR-031), SPEC-32/SPEC-33/SPEC-34 and ADR-050/ADR-053/ADR-054
+(future learned strategic/tactical NPC behavior and training data plane),
+ADR-055 (optional Mamba-2 motion foundation), и PhysX backend из ADR-033 —
+Proposed.
 Не представлять как реализованное; при работе рядом указывать fallback и
 bounded evaluation path. `docs/plans/` и `docs/development/` — рабочие
 материалы и research notes, не normative architecture.

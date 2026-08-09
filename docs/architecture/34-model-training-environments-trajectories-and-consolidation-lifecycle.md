@@ -1,0 +1,409 @@
+# SPEC-34: Model-training environments, trajectories and consolidation lifecycle
+
+| Field | Value |
+|---|---|
+| ID | SPEC-34 |
+| Status | Proposed |
+| Lifecycle | Consumer-driven R4/R5 proposal |
+| Version | 1.0 |
+| Last verified | 2026-08-09 |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md), [ADR-055](adr/055-mamba2-physical-motion-foundation-profile.md) |
+| Supersedes | none |
+
+## Status and scope
+
+SPEC-34 defines the Proposed common reset/step/trajectory/reward/dataset/run/
+export data plane for Strategic, Tactical and Motor training lanes. It does not
+add current registry entries, a shipped trainer, creator SDK, UI, public CLI or
+model artifact in this documentation-only change.
+
+Production `headless` is canonical. Accelerated simulators, trainers,
+experiment trackers and inference runtimes are private replaceable adapters.
+PyTorch, PPO, MAPPO, Isaac Lab, MLflow, ONNX Runtime and Mamba types do not
+enter public gameplay contracts.
+
+## Invariants
+
+- Environment reset and step use production-shaped inputs and the same
+  observation/proposal/validator/commit paths as gameplay.
+- Rewards and labels read immutable facts, receipts and committed events; they
+  never mutate the world or define success by a private trainer flag.
+- Exact environment, schema, project/content and seed closure is validated
+  before the first mutable episode.
+- Every future-decision-affecting policy state is explicit both before and
+  after a step. Hidden evaluator or session state invalidates the record.
+- `terminated` means a domain terminal condition; `truncated` means an external
+  declared limit. The two are never collapsed into an ambiguous `done` bit.
+- Runtime weights are immutable. Offline training or consolidation produces a
+  new immutable candidate bundle and never edits active state.
+- Dataset/checkpoint/run/model-output bytes stay outside Git. Only bounded
+  schemas, manifests, generated/CC0 fixtures and golden vectors may enter it.
+- Player gameplay trajectories are not collected by default. Ingestion is
+  explicit opt-in with consent, redaction, purpose and retention metadata.
+
+## Determinism classes
+
+The manifest names the guarantee for each phase:
+
+1. `CanonicalEnvironmentReplay`: identical manifest, initial closure, episode
+   ID, recorded input and RNG states produce byte-exact canonical reset, step,
+   trajectory, reward-component and authoritative root records wherever the
+   governing runtime SPEC requires exactness.
+2. `EvaluatorCorrespondence`: trainer/export/runtime raw tensors may use a
+   declared numeric tolerance only as a diagnostic; canonical actions,
+   candidate choices, fixed-point recurrent state and applied roots remain
+   exact where required by SPEC-27/SPEC-32.
+3. `StatisticalTrainingOutcome`: stochastic optimization is accepted across a
+   pre-registered finite seed set and held-out suite. The manifest fixes sample
+   budgets, evaluation mode, episode count, confidence/effect-size method,
+   practical thresholds and complete baseline identities.
+
+No document or report may call class 3 training byte-exact. No class 2 raw
+tolerance may excuse a different canonical runtime decision or state root.
+
+## Common environment contract
+
+### `ModelLaneV1`
+
+The lane is exactly `Strategic`, `Tactical` or `Motor`. A lane-specific profile
+binds the engine-owned observation, proposal/action, recurrent-state and reward
+schemas. A record cannot change lane mid-episode.
+
+### `ModelTrainingEnvironmentManifestV1`
+
+```text
+ModelTrainingEnvironmentManifestV1 {
+  schema_version: 1,
+  environment_id: NamespacedId,
+  environment_revision: u32,
+  lane: Strategic | Tactical | Motor,
+  engine_build_hash: Hash256,
+  project_lock_hash: Hash256,
+  schema_registry_hash: Hash256,
+  content_manifest_hash: Hash256,
+  scenario_fixture_hash: Hash256,
+  observation_schema_hash: Hash256,
+  candidate_or_action_schema_hash: Hash256,
+  proposal_schema_hash: Hash256,
+  policy_state_schema_hash: Hash256,
+  reward_profile_hash: Hash256,
+  termination_profile_hash: Hash256,
+  rng_derivation_profile_hash: Hash256,
+  canonical_stream_descriptors: CanonicalSet<RngStreamDescriptorV1>,
+  correspondence_profile_hash: Hash256,
+  resource_limits: TrainingEnvironmentLimitsV1,
+  input_provenance_root: Hash256,
+  manifest_hash: Hash256,
+}
+```
+
+Every referenced byte sequence resolves from an immutable closure before reset.
+The manifest contains no filesystem path, credential, trainer object, GPU
+device, process handle or mutable database connection.
+
+### Seed and episode identity
+
+`TrainingSeedPlanV1` treats seeds as required inputs. It stores one run root
+seed, a versioned content-addressable derivation algorithm and the complete map
+of derived named streams. Streams are separated at least by lane, environment
+profile, episode, vector slot, policy sampling, opponent/curriculum and
+evaluation. Ambient RNG, process ID, current time and worker order are
+forbidden.
+
+```text
+EpisodeIdentityV1 {
+  run_id: Id128,
+  environment_manifest_hash: Hash256,
+  split: Train | Validation | HeldOut | Correspondence | Retention,
+  episode_ordinal: u64,
+  vector_slot: u32,
+  episode_seed_descriptor_hash: Hash256,
+}
+```
+
+Parallel execution closes a logical step in stable `(episode_ordinal,
+vector_slot)` order. Worker completion order is never record order or RNG
+identity.
+
+### Reset and step
+
+```text
+reset(environment_hash, EpisodeIdentityV1, InitialClosureRefV1)
+  → EpisodeResetRecordV1
+
+step(episode_id, step_index, ProposalEnvelopeV1)
+  → ModelTrainingStepRecordV1
+```
+
+`EpisodeResetRecordV1` binds exact source revisions, initial save/fixture root,
+initial observation and candidate/action hashes, initial policy-state record
+and hash, pre/post named RNG states, owner-segment roots and reset reason.
+
+`ModelTrainingStepRecordV1` contains at least:
+
+```text
+ModelTrainingStepRecordV1 {
+  schema_version: 1,
+  lane: ModelLaneV1,
+  episode: EpisodeIdentityV1,
+  step_index: u64,
+  simulation_tick_before: u64,
+  simulation_tick_after: u64,
+  source_revision_root: Hash256,
+  observation_hash: Hash256,
+  candidate_or_action_set_hash: Hash256,
+  pre_policy_state_hash: Hash256,
+  proposal_hash: Hash256,
+  proposal_disposition: Applied | Rejected | FallbackApplied,
+  applied_receipt_hash: Option<Hash256>,
+  committed_event_root: Hash256,
+  post_policy_state_hash: Hash256,
+  next_observation_hash: Hash256,
+  next_candidate_or_action_set_hash: Hash256,
+  reward_component_root: Hash256,
+  reward_total: FixedPointValueV1,
+  terminated: bool,
+  truncated: bool,
+  termination_reason: Option<NamespacedId>,
+  truncation_reason: Option<NamespacedId>,
+  failure: Option<StableTrainingFailureV1>,
+  pre_rng_state_root: Hash256,
+  post_rng_state_root: Hash256,
+  authoritative_root_before: Hash256,
+  authoritative_root_after: Hash256,
+  record_hash: Hash256,
+}
+```
+
+The record stores references to canonical bytes defined by the lane SPEC; it
+does not duplicate an ECS snapshot or vendor tensor. Invalid proposals are
+recorded as a typed disposition/failure and cannot be relabelled as successful.
+
+### Reward records
+
+`RewardComponentRecordV1` contains component ID/version, fixed-point value,
+weight, cited immutable fact/receipt/event revisions, profile hash and
+component hash. Components sort by ID, use checked fixed-point accumulation and
+form `reward_component_root`. A reward without cited production facts, with an
+unknown component, overflow or direct-mutator source rejects the step/run.
+
+Reward profiles are lane-specific and immutable. Changing shaping, clipping,
+normalization or terminal bootstrap semantics creates a new profile hash. The
+record preserves the distinction between domain termination and truncation so
+trainers can apply the declared bootstrap rule correctly.
+
+## Trajectory and dataset closure
+
+### `TrajectoryManifestV1`
+
+A trajectory contains reset record hash, ordered contiguous step-record hashes,
+terminal/truncation disposition, cumulative reward-component roots, final
+owner roots and trajectory root. Missing/duplicate/reordered steps, a broken
+pre→post policy-state/RNG/root chain or post-terminal step reject the complete
+trajectory.
+
+Trajectory sources are exactly:
+
+- `CanonicalHeadless`;
+- `AcceleratedMirror` with correspondence profile/result;
+- `AuthoredTeacher` or `ProceduralTeacher` through production inputs;
+- `OptInGameplay` with consent/redaction/retention closure;
+- `SyntheticGenerated` with generator/config/license provenance.
+
+### `DatasetManifestV1`
+
+```text
+DatasetManifestV1 {
+  schema_version: 1,
+  dataset_id: NamespacedId,
+  dataset_revision: u32,
+  lane_set: CanonicalSet<ModelLaneV1>,
+  trajectory_roots: CanonicalSet<Hash256>,
+  split_assignment_root: Hash256,
+  environment_manifest_roots: CanonicalSet<Hash256>,
+  teacher_and_procedural_source_root: Hash256,
+  lineage_parent_roots: CanonicalSet<Hash256>,
+  consent_policy_hash: Hash256,
+  redaction_policy_hash: Hash256,
+  retention_policy_hash: Hash256,
+  license_and_notice_root: Hash256,
+  content_hash: Hash256,
+}
+```
+
+Train/validation/held-out/retention split membership is fixed before evaluation
+and based on stable scenario/content/provenance identity, not worker or file
+order. Duplicate trajectory content across prohibited splits rejects the
+dataset. Unknown license, consent or redaction status excludes the affected
+data rather than weakening the fallback.
+
+Canonical first-party corpora originate from production `headless`. Gameplay
+capture is opt-in and purpose-bound; no default telemetry, microphone/dialogue
+collection or silent future-training consent exists.
+
+## Accelerated mirror correspondence
+
+`EnvironmentCorrespondenceManifestV1` binds canonical headless build/profile,
+mirror adapter/build/config, shared reset/action corpus, observation/action/
+event/state comparison rules and allowed diagnostic numeric tolerances.
+
+For every corpus episode, both environments receive the same logical inputs and
+seed descriptors. The suite compares reset facts, step termination/truncation,
+canonical observation/action projections, proposal dispositions, committed
+outcomes and declared state roots. Any mismatch outside the exact profile
+blocks use of the mirror-generated corpus for artifact promotion.
+
+Passing correspondence does not make the mirror authoritative. Every candidate
+bundle still receives final held-out and integrated evaluation in production
+`headless`.
+
+## Training run and evaluation manifests
+
+### `ModelTrainingRunManifestV1`
+
+The run manifest records:
+
+- run ID, lane, exact dataset/environment/config/tool/source hashes;
+- algorithm-family label and private-adapter identity without making it public
+  gameplay API;
+- root seed, complete derived seed map and named RNG profile;
+- vector slot count and stable episode assignment profile;
+- sample/step/episode/compute budgets and stop reason;
+- parent/checkpoint provenance, curriculum revisions and normalization state;
+- for multi-agent runs: opponent snapshot pool, matchmaking/curriculum rules,
+  self-play lineage and privileged-critic schema hash;
+- every produced checkpoint/result reference, including failed runs;
+- exact export and evaluation manifest references.
+
+Checkpoints, optimizer state and logs remain external content-addressed bytes.
+The repository manifest may refer to them only when redistribution and hygiene
+rules permit; a reference never grants access or license.
+
+### `StatisticalEvaluationManifestV1`
+
+Before an acceptance run, the manifest fixes:
+
+- complete candidate and baseline bundle identities;
+- exact train/validation/held-out/retention/correspondence suites;
+- seed set and derivation profile;
+- sample budgets and evaluation points;
+- deterministic or stochastic deployment-matching evaluation mode;
+- evaluation episode count or power-analysis rule;
+- primary/secondary metrics, worst-case safety assertions and candidate
+  coverage metrics;
+- confidence interval/significance method, effect-size method, alpha where
+  used and minimum practical improvement/non-inferiority thresholds;
+- failure, missing-seed and early-stop handling.
+
+Single-seed, best-checkpoint cherry-picking, training-return-only evaluation or
+same-fixture train/eval claims cannot promote a candidate. Offline estimates
+alone are insufficient; final production-headless rollouts are required.
+
+## Export and immutable candidate bundles
+
+`ModelExportManifestV1` binds source checkpoint, source run/config/tool hashes,
+input/output/state schema hashes, deterministic export transform, model-format
+profile, operator/capability closure, numeric profile, output bytes/hash and
+target parity corpus.
+
+The first proposed runtime format profile is fixed-shape standard-op ONNX with
+explicit recurrent state and no stochastic/custom Mamba operator. Framework or
+fused training kernels may differ; their output must lower to this portable
+one-step contract or the candidate is rejected.
+
+Publication follows:
+
+```text
+external checkpoint
+  → deterministic export
+  → reopen and validate exact bytes
+  → schema/operator/correspondence/runtime parity
+  → held-out/statistical/safety/retention evaluation
+  → immutable candidate bundle or rejection
+```
+
+An active session never changes bundle. A promoted candidate is selectable
+only through a new exact project lock and new session. Malformed schema/hash/
+provenance/license input is rejected before evaluator creation or artifact use.
+
+## Offline consolidation lifecycle
+
+`OfflineConsolidationManifestV1` binds parent bundle, immutable corpus/dataset,
+seed plan, consolidation algorithm/config/tool hashes, retention and new-task
+suites, joint Strategic/Tactical suite where applicable, and child export
+identity. It creates a new child bundle; it cannot update the parent or active
+project/save.
+
+Strategic Hope-inspired consolidation additionally records the parent
+multi-timescale state schema family and proves that no runtime optimizer or
+hidden session state is required. The child must pass retention and current
+task non-regression thresholds before publication. Parent/child lineage is
+acyclic and content-addressed.
+
+## Lane specializations
+
+### Strategic
+
+Uses the SPEC-32 strategic candidate/state contract and SPEC-33 curriculum.
+Teacher path is authored utility/HTN demonstration → behavior cloning →
+bounded RL. Hope-inspired state is compared against a GRU with the same public
+envelope and against the deterministic utility/HTN fallback.
+
+### Tactical
+
+Uses the SPEC-32 composite candidate/mask contract. Reference training profile
+is set/cross-attention encoders plus GRU and one masked score per canonical
+candidate: behavior cloning → recurrent PPO/IPPO → gated MAPPO/CTDE and
+opponent-pool self-play. A privileged critic is training-only; actor inputs and
+export graphs contain only engine-visible semantic facts. Leakage or latent
+learned communication is a hard failure.
+
+### Motor
+
+Uses SPEC-27 observations, action schemas, safety clamp and explicit policy
+state. Reference curriculum may use imitation/reference motion then recurrent
+PPO with perturbation/recovery. Proposed Mamba-2 foundation is compared against
+GRU and procedural baselines. Fixed-PD joint position/velocity is its first
+allowed route; adaptive gains or direct torque require separate gates.
+
+## Stable failure semantics
+
+| Failure | Required outcome |
+|---|---|
+| Manifest/schema/project/content/hash mismatch | Reject before first episode or evaluator use; preserve source bytes and fallback. |
+| Ambient/missing seed, duplicate episode identity or unstable vector merge | Invalidate run; no trajectory/dataset/artifact promotion. |
+| Broken step/state/RNG/root chain or post-terminal step | Reject the complete trajectory. |
+| Reward without immutable citations or direct success mutation | Invalidate step, run and derived artifact. |
+| Unknown consent/redaction/license/provenance | Exclude/reject affected data before training or distribution. |
+| Mirror correspondence mismatch | Block mirror-derived corpus and candidate promotion; evaluate/fallback in canonical headless. |
+| Missing declared seed/run, cherry-picked result or held-out overlap | Statistical gate fails; candidate remains unpromoted. |
+| Hidden recurrent cache, stochastic/custom unsupported export op | Reject candidate before runtime parity. |
+| Runtime/trainer canonical decision or state-root mismatch | `NONDETERMINISTIC_RESULT`; reject exact artifact/adapter pair. |
+| Retention or joint evaluation failure | Reject child bundle; parent/project lock remain unchanged. |
+| Runtime training or active-session hot swap request | Deny capability; active weights/state remain unchanged. |
+
+## Proposed ProductChecks
+
+All checks are `NOT_RUN(NO_PRODUCTION_CONSUMER)` in this docs-only changeset.
+
+| ID | Scenario | Required result / fallback |
+|---|---|---|
+| `MODEL-DATAPLANE-P1` | Recreate reset/step/trajectory/reward records twice from one exact manifest, including vector worker/completion permutations | Byte-exact canonical records and state/RNG/root chains; malformed hash/schema/provenance rejects before use. |
+| `MODEL-MIRROR-P1` | Run one correspondence corpus through production headless and the accelerated mirror | Every profile-required projection/result corresponds; any mismatch blocks mirror-derived artifact promotion. |
+| `MODEL-EXPORT-P1` | Export explicit-state candidate and compare trainer → portable graph → Windows/Linux runtime one-step/rollout corpus | Exact canonical decisions/actions and state roots, no hidden/custom/stochastic op; failure retains planner/procedural fallback. |
+| `MODEL-STATISTICS-P1` | Pre-registered multi-seed held-out comparisons for Hope vs GRU, Tactical PPO/MAPPO vs authored baseline, and Mamba-2 vs GRU/procedural comparator | Complete seed set, confidence/effect size and practical thresholds pass; single/best seed cannot promote. |
+| `MODEL-CONSOLIDATION-P1` | Parent + immutable corpus → offline child → retention/new-task/joint evaluation | A new content-addressed child is published only after every gate; parent, project, world and save bytes remain unchanged. |
+| `MODEL-DATA-GOVERNANCE-P1` | Opt-in gameplay, teacher, synthetic and malformed provenance/license/consent/redaction fixtures | Only declared data enters a dataset; unknown/incompatible input is rejected and no protected bytes enter Git/package. |
+
+Lane ProductChecks in SPEC-27, SPEC-32 and SPEC-33 remain required. A common
+data-plane pass cannot substitute for policy quality, gameplay integration,
+safety, persistence/replay or runtime performance checks.
+
+## Promotion boundary
+
+SPEC-34 may become `Accepted` only with at least one production lane consuming
+its manifests through canonical headless reset/step, immutable dataset/run/
+export closure and project-lock activation, with `MODEL-DATAPLANE-P1`,
+`MODEL-EXPORT-P1`, applicable correspondence/statistical/governance checks and
+the lane's own ProductChecks passing. Scaffolding, a local notebook, smoke
+trainer or model file is not a production consumer under ADR-046.

@@ -5,18 +5,19 @@
 | ID | SPEC-33 |
 | Статус | Proposed |
 | Lifecycle | Consumer-driven R4 proposal |
-| Версия | 0.1 |
-| Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-050](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md) |
-| Заменяет | отсутствует |
+| Версия | 0.2 |
+| Последняя проверка | 2026-08-09 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-050](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md) |
+| Заменяет | SPEC-33 0.1; first-party reference profiles, CTDE/self-play provenance and offline child-bundle retention |
 
 ## Статус и scope
 
-SPEC-33 описывает proposed algorithm-neutral lifecycle для offline training,
-evaluation, export, promotion и deployment двух behavior-policy bundles.
-Документ не выбирает PPO, imitation learning, self-play, model architecture,
-trainer, simulator или inference runtime и не добавляет code/contracts в этом
-changeset.
+SPEC-33 описывает proposed runtime-algorithm-neutral lifecycle для offline
+training, evaluation, export, promotion и deployment двух behavior-policy
+bundles. Документ фиксирует first-party reference training profiles and
+comparators, но они не становятся public model enums или gameplay contracts.
+Trainer, simulator и inference runtime остаются replaceable adapters; этот
+changeset не добавляет code/contracts.
 
 До production R4 consumer все checks здесь имеют
 `NOT_RUN(NO_PRODUCTION_CONSUMER)`, bundle schema не входит в current registry,
@@ -48,6 +49,13 @@ weights запрещены независимо от статуса докуме
 
 ### Strategic lane
 
+Reference training sequence is authored utility/HTN teacher demonstrations →
+behavior cloning → bounded recurrent RL. `HopeInspiredStrategicV1` is evaluated
+as a non-public reference profile with fully externalized multi-timescale
+state under ADR-054. A GRU using the same observation/candidate/state/resource
+envelope is the mandatory learned comparator; deterministic utility/HTN is the
+mandatory gameplay baseline/fallback.
+
 Minimum curriculum progresses through:
 
 1. authored routine following and bounded deviation;
@@ -65,6 +73,18 @@ WorldCommand or free-form dialogue text.
 
 ### Tactical lane
 
+The reference actor uses permutation-stable set encoders for entities/items,
+cross-attention between actor/context and canonical candidates, a bounded GRU
+state and one masked scalar score for every composite candidate. These are a
+first-party trainer/export profile, not public tensor or architecture types.
+
+Reference sequence is behavior cloning → recurrent PPO/IPPO → gated
+MAPPO/CTDE plus opponent-pool self-play. IPPO must establish the decentralized
+actor baseline before MAPPO is accepted. A centralized/privileged critic is
+training-only: actor inputs, actor recurrent state, normalization statistics
+and export graph contain only engine-visible SPEC-32 semantic facts. Critic
+fact leakage is a hard failure.
+
 Minimum curriculum progresses through:
 
 1. current perception/threat/support interpretation with uncertainty;
@@ -79,6 +99,11 @@ Minimum curriculum progresses through:
 Tactical environment never treats a selected affordance, route or surrender as
 successful until production Mechanics/World Services/Physics/RPG owners commit
 the corresponding outcome.
+
+There is no latent learned communication channel in v1. Multi-agent
+coordination uses only observable engine facts and closed help/yield/speech-act
+candidates. Opponent snapshots, pool selection, curriculum revision, seed map,
+match identity and self-play lineage are required run provenance.
 
 ### Joint curriculum and co-evaluation
 
@@ -102,6 +127,10 @@ other bundle stays frozen, but every promoted pair gets a new exact joint
 evaluation identity.
 
 ## Training environment contract
+
+SPEC-34 owns the common reset/step/trajectory/reward/dataset/run/export data
+plane. This section specializes that contract for behavior lanes; a private
+trainer-specific Gym/PyTorch record cannot replace the engine-owned manifest.
 
 `BehaviorTrainingEnvironmentManifestV1` proposal binds:
 
@@ -133,10 +162,16 @@ algorithm state, but every run records those inputs. Runtime artifact is valid
 only if exported inference has no stochastic op/RNG and passes exact applied
 decision parity.
 
+Vectorized environments use stable episode/slot ordering and per-slot named
+RNG streams. Completion order cannot choose trajectory order. Domain
+`terminated` and declared-limit `truncated` remain distinct in every record.
+
 ## Algorithm-neutral lane interface
 
-PPO, imitation, offline RL, self-play, curriculum learning, distillation and
-other algorithms MAY be used. Normative trainer boundary is:
+The reference profiles above use imitation/recurrent PPO and optionally gated
+MAPPO/self-play. PPO, offline RL, distillation and other algorithms MAY replace
+them when the same public boundary and evaluation gates pass. Normative trainer
+boundary is:
 
 ```text
 immutable environment manifest + production observations/candidate masks
@@ -181,6 +216,11 @@ and tactical manifests remain separate and may have different model formats,
 state widths, cadence and resource envelope. Per-NPC weights, mutable adapter
 files, hidden tokenizer/session, credentials, optimizer, checkpoint or dataset
 are forbidden.
+
+For MAPPO/self-play candidates, training provenance additionally binds actor
+semantic-input schema, privileged critic schema, an explicit no-leak audit
+result, opponent snapshot hashes, pool/matchmaking policy, curriculum revision,
+match seed identities and self-play lineage root.
 
 The manifest and every referenced immutable artifact must be bounded,
 canonical, content-addressed and resolve from exact project package closure.
@@ -243,12 +283,20 @@ Strategic measurements include:
 Tactical measurements include:
 
 - valid affordance/navigation candidate rate;
+- composite item/target/mode candidate coverage and pruning loss, including
+  mandatory `HoldSafe` and retained teacher-action coverage;
 - threat response and ally/support use;
 - fight/flee/yield/help-call scenario outcomes;
 - constraint/safety violation count (must remain zero at validator boundary);
 - yielding lifecycle including ignored surrender and renewed hostility;
 - emergency resolution and strategic handoff;
 - Active-only cadence and multi-agent stability.
+
+Every statistical quality claim uses a pre-registered SPEC-34 manifest with a
+complete multi-seed set, held-out scenarios, deployment-matching evaluation
+mode, episode/sample budget, confidence/effect-size method and practical
+threshold. A single/best seed, peak checkpoint or training return cannot
+promote a bundle.
 
 Quality metrics cannot replace exact schema, determinism, state, fallback or
 safety results. A high reward with direct mutation, hidden facts or invalid
@@ -316,6 +364,19 @@ stage exact model + manifest + notices
 
 Failure quarantines candidate and preserves previous artifact/fallback. A
 candidate revision never silently overwrites same ID/hash binding.
+
+### Offline consolidation and child bundles
+
+Offline Sleep/Dreaming consumes one immutable parent bundle and immutable
+trajectory/dataset closure and produces a new immutable child candidate. Its
+SPEC-34 consolidation manifest binds parent, corpus, seed/config/tool,
+retention/new-task suites and child export. It never mutates active world,
+project, save, parent weights or runtime policy state.
+
+The child must pass catastrophic-forgetting retention and the complete joint
+Strategic/Tactical suite before publication. Failure retains the parent and
+project lock exactly. V1 activates a successful child only through an explicit
+project-lock change and new session; no live bundle hot-swap exists.
 
 ### Project activation
 
@@ -387,24 +448,27 @@ All are `NOT_RUN(NO_PRODUCTION_CONSUMER)` for this docs-only proposal.
 
 | ID | Scenario | Required result / fallback |
 |---|---|---|
-| `BEHAVIOR-TRAIN-P1` | Recreate both lane environments from exact manifests, export candidate bundles, run candidate ordering/mask/quantization/state/applied-decision parity, held-out lane suites and joint co-evaluation | Exact runtime/training applied decisions and state roots on declared corpus; provenance/license closure complete; both roles pass held-out and integrated thresholds. Failed role rejects pair; planner fallback remains. |
+| `BEHAVIOR-TRAIN-P1` | Recreate both lane environments from exact SPEC-34 manifests; run Strategic utility/HTN→BC→RL Hope-vs-GRU and Tactical set/cross-attention+GRU BC→PPO/IPPO→gated MAPPO/self-play; export bundles and run candidate/state/applied-decision parity, held-out multi-seed lane suites and joint co-evaluation | Exact runtime/training canonical decisions and state roots on declared corpus; complete seed/opponent/curriculum/provenance closure; no critic leakage/latent channel; both roles pass pre-registered statistical and integrated thresholds. Failed role rejects pair; planner fallback remains. |
 | `BEHAVIOR-SCHEMA-P1` | SPEC-32 schema/parity corpus replayed through trainer and runtime adapters | Candidate ordering/masks/quantization/state conversions byte-exact; malformed inputs rejected identically. |
 | `BEHAVIOR-DETERMINISM-P1` | Exported pair on Windows/Linux GPU evaluators and worker/batch permutations | Exact applied strategic/tactical decisions, commits and roots; raw tolerance cannot hide changed canonical result. |
 | `BEHAVIOR-FALLBACK-P1` | No compatible accelerator/model plus declared logical faults | Complete utility/HTN R4 loop runs without model/trainer/network and without behavior tick stall. |
 | `BEHAVIOR-R4-P1` | Integrated learned pair and fallback pair over the same production vertical | Both learned bundles are actually applied together; fallback completes same mandatory loop; all state changes use production owners. |
 
 SPEC-32 owns `BEHAVIOR-STATE-P1`, `BEHAVIOR-100NPC-P1` and
-`BEHAVIOR-COMMS-P1`; all eight checks are joint promotion prerequisites.
+`BEHAVIOR-COMMS-P1`; SPEC-34 owns common data-plane, mirror, export,
+statistics, consolidation and data-governance checks. All applicable checks are
+joint promotion prerequisites.
 
 ## Promotion boundary
 
-SPEC-33, SPEC-32 and ADR-050 may become `Accepted` only together with:
+SPEC-33, SPEC-32, SPEC-34 and ADR-050 may become `Accepted` only together with:
 
 1. exact strategic and tactical `BehaviorPolicyBundleManifestV1` artifacts;
 2. one production R4 vertical that applies both learned roles;
 3. passing Windows/Linux learned GPU parity and complete planner fallback;
 4. passing schema, determinism, state, fallback, integrated, 100-NPC,
-   communications and training checks;
+   communications, training and applicable SPEC-34 data-plane/export/
+   statistical/consolidation/governance checks;
 5. synchronized minimal public schemas, content/project lock, save/replay and
    routing/roadmap updates required by that consumer.
 

@@ -121,7 +121,7 @@ animation и reusable systemic quest conditions относятся к R3–R5.
 | Jobs/resources | R3 использует private bounded workers (default 2, max 4), immutable revision-bound request/result и channel 64; generic subsystem не принят | Shared scheduler/resource contract появляется только при доказанной второй production потребности; SPEC-23 остаётся Proposed. |
 | Physics | Частично: upright capsule, static Box и exact B0 `ClosestPoint` scene query | Нет полного shape/body/constraint/query profile и production physical-character stack. |
 | Animation/motor | Только procedural projection/contract fragments | Нет skeleton graph, retargeting, IK, root-motion intent или deterministic inference supervisor. |
-| Agent AI | Частично: один canonical affordance planner | Нет perception, hierarchy, schedules, memory, strategic/tactical learned behavior pair, trained bundles и 100-NPC workload. SPEC-32/33/ADR-050 остаются Proposed до production R4 consumer. |
+| Agent AI | Частично: один canonical affordance planner | Нет perception, hierarchy, schedules, memory, strategic/tactical learned behavior pair, production training data plane, trained bundles и 100-NPC workload. SPEC-32/33/34 и ADR-050/053/054 остаются Proposed до production R4 consumer. |
 | Navigation/audio | Частично: полный baseline audio vertical (A1–A6 `DONE_LOCAL_WINDOWS`) — neutral clip contract, audio scene extraction, software mixer + canonical PCM sink, SDL device adapter, subtitle fallback, `audio_scene` в v1-closure | Gaps: chunked long-clip streaming payload, zone reverb fallback (zone occlusion gain есть), navigation cooker и baseline nav adapters. |
 | Player experience | Keyboard/mouse и generic controller используют одинаковые action IDs с keyboard fallback; persisted targeting, third-person camera, semantic HUD/inventory/journal/dialogue/pause flow, localization, subtitles и preferences проходят automated Windows checks. HUD получил цветовой health meter, objective и отдельный presentation-only next-action panel, который выводится из immutable RPG snapshot для accept/pickup/equip/combat/relay/return/complete; Save показывает `Saved`, а Load оставляет восстановленный world на паузе с `Loaded - press Resume`. | Worker-to-desktop regression покрывает quest accept, explicit Save, визуально различимое изменение, sequence-zero Load cut, Load confirmation, продолжение новой epoch после явного Resume и реальное authoritative WASD movement с exact загруженной input-context revision. Свежий 20–30-minute run зафиксирован как `PASS`. Accessibility profiles и capability-scoped extension panels остаются вне R2 gate. |
 | Presentation/render | Exact revision-bound snapshot, typed camera, offline SPIR-V, seven-binding B0 scene и Windows recovery/package path реализованы; humanoid/blade/relay имеют разные материалы, collected pickup скрывается, defeated NPC остаётся видимым с тёмным material, relay меняет inactive/active material. Engine-owned relay-approach kit (tiled path, platform, two ruined pillars, four-rock field) добавляет читаемый маршрут и landmarks одним batched draw; отдельный reusable rock source mesh остаётся в content catalog. Relay collider точно следует видимым pillars/top beam/central switch без невидимых продолжений. Contract-preserving B0+ shader выводит flat geometry normal из world-position varying и применяет fixed sun/ambient + depth fog без смены locked position/UV ABI. Private UI adapter рисует контрастные bordered panels: HUD/action слева, inventory/journal справа, dialogue/pause по центру. | Нет authored smooth normals, runtime skeleton/VFX consumption, production art/animation polish, clean ten-run THOTH hard evidence, paired same-commit target proof и Linux hardware-GPU evidence. |
@@ -550,8 +550,13 @@ intent и не является принятым R3 contract.
    population contract только вместе с exact multi-region workload,
    placement/transfer consumer и engine-owned graph/tile navigation baseline.
 3. **R4c — learned strategic/tactical pair (`PLANNED`):** продвигать
-   SPEC-32/SPEC-33/ADR-050 только вместе, после deterministic substrate,
-   utility/HTN fallback и требуемой Windows/Linux GPU parity.
+   SPEC-32/SPEC-33/SPEC-34 и ADR-050/ADR-053/ADR-054 только вместе, после
+   deterministic substrate и utility/HTN fallback. До обучения production
+   bundles реализовать SPEC-34 prerequisite: canonical headless reset/step/
+   trajectory/reward data plane, immutable dataset/run/export closure,
+   provenance rejection, mirror correspondence and multi-seed held-out gates.
+   Затем применить обе policies в одном vertical с требуемой Windows/Linux GPU
+   parity. Это не переставляет R4a/R4b и не вводит creator SDK/UI в R4.
 
 R4a не закрывает R4, B-07, B-12 или B-13; full-stage критерии ниже остаются
 неизменными.
@@ -591,6 +596,9 @@ R4a не закрывает R4, B-07, B-12 или B-13; full-stage критер�
 - authored NPC schedules, regions and fallback activities;
 - vendor-neutral behavior model runtime, две trained content-addressed bundles
   и exact runtime/training candidate/state/applied-decision parity;
+- production-consumed SPEC-34 data plane: canonical headless manifests,
+  trajectory/dataset/run/export provenance, accelerated-mirror correspondence
+  where used, multi-seed held-out gates and immutable new-session activation;
 - Windows/Linux GPU evaluator runs для learned pair и cross-target exact
   applied-decision comparison; это blocker learned R4 gate, не минимальное
   hardware requirement игры.
@@ -600,8 +608,9 @@ external `ai-host`. Они могут добавлять bounded speech acts, go
 и validated prosody facts, но authored/text fallback обязателен.
 
 **Основные источники:** SPEC-06, SPEC-08, SPEC-09, SPEC-12, SPEC-13, SPEC-19,
-SPEC-20, SPEC-23, SPEC-25, SPEC-32, SPEC-33, ADR-016, ADR-020, ADR-021,
-ADR-026, ADR-030, ADR-046, ADR-050, ADR-051, ADR-052.
+SPEC-20, SPEC-23, SPEC-25, SPEC-32, SPEC-33, SPEC-34, ADR-016, ADR-020,
+ADR-021, ADR-026, ADR-030, ADR-046, ADR-050, ADR-051, ADR-052, ADR-053,
+ADR-054.
 
 ## R5 — Physical character, animation and motor integration
 
@@ -626,6 +635,10 @@ ADR-026, ADR-030, ADR-046, ADR-050, ADR-051, ADR-052.
 **Optional integration scope:**
 
 - ONNX observation/action path и policy supervisor;
+- Mamba-2 universal learned foundation at declared 30–120 Hz: one
+  intent/reference-conditioned locomotion/balance/transition/hit-reaction/
+  recovery controller, explicit generic policy state and fixed-PD bounded
+  position/velocity first route;
 - full articulation;
 - PhysX 5.9.0 parity adapter.
 
@@ -652,11 +665,13 @@ ADR-026, ADR-030, ADR-046, ADR-050, ADR-051, ADR-052.
 - ясная граница authoritative physical state против presentation pose.
 
 **Не являются hard blocker:** достижение PhysX parity, training hardware,
-learned policy quality или full articulation. Если они не проходят вовремя,
-v1 остаётся на reference/procedural route.
+learned policy/Mamba-2 portability or quality, learned reference generator,
+adaptive gains, direct-torque research route или full articulation. Если они
+не проходят вовремя, v1 остаётся на reference/procedural route; procedural R5
+closure не зависит от ADR-055.
 
-**Основные источники:** SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, ADR-009,
-ADR-013, ADR-027, ADR-032, ADR-033.
+**Основные источники:** SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34,
+ADR-009, ADR-013, ADR-027, ADR-032, ADR-033, ADR-053, ADR-055.
 
 ## R6 — Creator beta and SDK
 
@@ -760,7 +775,7 @@ ADR-001, ADR-030.
 | Autonomous quest lifecycle, Narrative Director and divine agency | SPEC-31 `Proposed`; ADR-029/ADR-031 superseded ADR-046 | Вернуться только при наличии конкретного player-visible production consumer; deterministic template fallback реализуется первым. |
 | Text-canonical multimodal dialogue/model packs | SPEC-16/ADR-017 `Proposed` | Явное решение о promotion, privacy/budget policy и text-only fallback. |
 | External `ai-host` | Optional | Stable bounded process protocol, recorded-input replay and complete in-process fallback. |
-| Learned/full-articulation motor | Optional technology | R5 reference/procedural baseline, exact observation/action checks and runtime/training parity. |
+| Learned/Mamba-2/full-articulation motor | Optional technology | R5 reference/procedural baseline, exact observation/action checks and runtime/training parity; ADR-055 quality track cannot block procedural closure. |
 | PhysX production backend | ADR-033 technology remains `Proposed` | Полная parity на Windows/Linux; reference backend остаётся oracle/fallback. |
 | Advanced renderer/HDR/RT/VFX/capture | Optional | B0 v1 path стабилен; feature has bounded fallback and target-specific product check. |
 | Gothic importer | Optional separate repository/process | Neutral schemas стабильны, legal/provenance boundary проверен; parent repo остаётся независимым. |
@@ -830,7 +845,7 @@ default route до R5 integration gate. Неуспех vendor/model candidate н
 | B-10 | `PERMANENT_SCOPE_GATE`: content scope может расти быстрее playable loop; blocker не закрывается одноразово. | Все этапы | На каждом package один representative scenario и явный non-goal list; новая подсистема допускается только по требованию scenario. |
 | B-11 | `CONTENT_COMPLETE / SOLO_OWNER`: единственный owner — solo maintainer; отдельная staffing/ownership matrix не создаётся. Alpha package содержит engine-owned assets/audio/text, acceptance docs, CC0 source/hash/license provenance и NOTICE и проходит `content-package`/package smoke. Будущие creator examples относятся к R6/B-09, а не к staffing gate. | R2, R6, R7 | Содержательно закрыт для alpha package; поддерживать provenance/NOTICE в том же public package по мере дальнейших content changes. |
 | B-12 | `OPEN / R2+R3_REPORT_ONLY / DEFERRED_LINUX`: ADR-049 удалил allocator instrumentation и перевёл current hard schema на V4. Representative `r2-alpha-render` и streaming-only `r3-multiregion-streaming` реализованы; R3 выполняет 1 000 canonical 64-chunk transitions, публикует `streaming_world` и logical `required_staging_bytes=6818`, но остаётся `REPORT_ONLY`. R4–R5 workloads, compatible clean ten-run baselines и hard gates отсутствуют; THOTH preflight не готов. Linux полностью deferred. | R4, R5, R7 | Для Windows-части — по 10 valid clean release runs каждого R2–R5 workload, compatible baseline и hard `PASS`; затем `WINDOWS_COMPLETE / DEFERRED_LINUX`. Report-only run, Accepted ADR и `NOT_RUN` не закрывают blocker. |
-| B-13 | `PROPOSED / NOT_IMPLEMENTED`: нет vendor-neutral behavior evaluator, strategic/tactical trained bundles, exact candidate/state/applied-decision runtime-training parity и совместного GPU vertical. | R4 | ADR-050/SPEC-32/SPEC-33 promoted вместе с production consumer; обе bundles реально применяются в одном R4 vertical; `BEHAVIOR-SCHEMA-P1`, `BEHAVIOR-DETERMINISM-P1`, `BEHAVIOR-STATE-P1`, `BEHAVIOR-FALLBACK-P1`, `BEHAVIOR-R4-P1`, `BEHAVIOR-100NPC-P1`, `BEHAVIOR-COMMS-P1` и `BEHAVIOR-TRAIN-P1` проходят, включая Windows/Linux GPU applied-decision parity. Игра без совместимого GPU проходит полный utility/HTN fallback; LLM/audio не входят в blocker. |
+| B-13 | `PROPOSED / NOT_IMPLEMENTED`: нет canonical behavior-training data plane, vendor-neutral evaluator, strategic/tactical trained bundles, exact candidate/state/applied-decision runtime-training parity и совместного GPU vertical. | R4 | ADR-050/053/054 и SPEC-32/33/34 promoted вместе с production consumer; SPEC-34 headless environment/trajectory/dataset/run/export prerequisite и applicable `MODEL-*` checks проходят до bundle promotion; обе bundles реально применяются в одном R4 vertical; `BEHAVIOR-SCHEMA-P1`, `BEHAVIOR-DETERMINISM-P1`, `BEHAVIOR-STATE-P1`, `BEHAVIOR-FALLBACK-P1`, `BEHAVIOR-R4-P1`, `BEHAVIOR-100NPC-P1`, `BEHAVIOR-COMMS-P1` и `BEHAVIOR-TRAIN-P1` проходят, включая Windows/Linux GPU applied-decision parity. Игра без совместимого GPU проходит полный utility/HTN fallback; LLM/audio не входят в blocker. |
 
 ## Решения, которые нужно принять вовремя
 
@@ -1297,10 +1312,13 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    tier/placement/transfer and engine-owned graph/tile navigation substrate;
    activate the representative report-only workload without claiming B-12.
 9. **R4c learned strategic/tactical pair (`PLANNED`):** both policies in one
-   integrated flow with complete utility/HTN fallback and required
-   Windows/Linux GPU applied-decision parity for full R4 exit.
+   integrated flow after the SPEC-34 canonical headless data-plane/export
+   prerequisite, with complete utility/HTN fallback, multi-seed held-out gates
+   and required Windows/Linux GPU applied-decision parity for full R4 exit.
 10. **R5 physical character and animation (`PLANNED`):** минимальный v1 physics
-   profile, procedural capsule motor, skeleton/clip graph, retargeting и fixed IK.
+   profile, procedural capsule motor, skeleton/clip graph, retargeting и fixed
+   IK. Mamba-2 learned foundation remains an optional quality track and does
+   not block this package.
 11. **R6 creator CLI and second project (`PLANNED`):** stable non-interactive JSON
    CLI, inspectors, templates и clean-checkout second-project exercise.
 12. **Windows hard performance/release checkpoint (`PLANNED`):** clean-commit

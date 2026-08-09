@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-14 |
 | Статус | Accepted |
-| Версия | 2.1 |
+| Версия | 2.2 |
 | Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-14 2.0; marks the unimplemented population-tier input as future R4b rather than current API |
+| Заменяет | SPEC-14 2.1; adds a clearly non-Accepted Mamba-2 profile without changing the current foundation/expert/fallback contract |
 
 ## Назначение и invariants
 
@@ -152,6 +152,40 @@ Foundation policy каждой morphology family MUST обеспечивать d
 
 `PolicyCompatibilityKey` является canonical hash body revision, MorphologyFamilyId, topology mask, exact SPEC-27 observation/action/normalization/state schemas, actuator profile и runtime/training correspondence profile. Partial match запрещён. Inference batch order is exactly `(motor_tick, PersistentId, PolicyId)`; worker order, measured duration and cache/session identity are excluded.
 
+## Proposed Mamba-2 foundation profile (not Accepted baseline)
+
+This subsection is governed by Proposed
+[ADR-055](adr/055-mamba2-physical-motion-foundation-profile.md). It records an
+evaluation profile only; it does not promote Mamba-2, change current wire
+schemas or make learned motion an R5/v1 requirement.
+
+- Mamba-2 is required only for the proposed learned universal foundation. A
+  residual adapter, exclusive expert and procedural fallback may use another
+  architecture or no model.
+- One reference-conditioned foundation covers the declared locomotion,
+  balance, transitions, hit reaction and recovery subset at an exact
+  manifest-bound 30–120 Hz rate.
+- The first admitted action profile outputs bounded joint position and velocity
+  targets. Engine-owned fixed PD gains plus torque/power/velocity/rate limits
+  remain authoritative. Adaptive gains require a separate gate; direct torque
+  is research-only through a separately evaluated `ExclusiveExpert` route.
+- A learned reference generator is a later upstream module, not a dependency
+  of the first required training/export chain.
+- Mamba convolution/SSM cache is mapped entirely into fixed-width segments of
+  SPEC-27 `PolicyStateSchemaV1`/`PolicyStateRecordV1`; evaluator-hidden cache is
+  forbidden.
+- Fused training kernels are allowed, but export must lower to one portable
+  fixed-shape standard-op ONNX step with explicit state and no custom Mamba op.
+  Trainer↔export↔runtime parity, perturbation/recovery/transition safety,
+  Windows/Linux performance and multi-seed comparison against GRU/procedural
+  baselines are required before promotion.
+
+The current Accepted `MotorPolicyBundleManifest` ONNX-opset bullet remains the
+wire contract. ADR-055 proposes a future vendor-neutral
+`evaluator_format_profile_id`, with portable ONNX as its first value, only for
+a later consumer-backed promotion. No supersession occurs while ADR-055 is
+`Proposed`.
+
 ## Deterministic route resolution
 
 `PolicyResolver` является pure deterministic engine function:
@@ -273,6 +307,12 @@ body validation → procedural baseline → generated environment
 ```
 
 Training algorithm является backend detail. PPO, SAC, imitation, motion priors или distillation MAY использоваться, если создают одинаковые normative artifacts и проходят product checks. Isaac Lab — `Proposed`; fallback — engine-owned headless physics lab.
+
+[SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md)
+is the Proposed common reset/step/trajectory/dataset/run/export data plane.
+Production `headless` remains canonical; Isaac Lab or another GPU simulator is
+only an accelerated mirror with a correspondence suite and final headless
+evaluation. Its trainer/framework types do not enter the manifest above.
 
 На `DeveloperHostTier/macOS-aarch64` workflow ограничен schema/body validation, procedural baseline, generated deterministic 2-DoF smoke, tiny optimization, ONNX export и parity через `TRAIN-MAC-P0`; MPS failure использует declared CPU fallback. Полное foundation/creature/weapon training MAY требовать отдельный accelerator host, но runtime support определяется только exact exported artifact, correspondence и product checks на supported targets. Device/toolchain записываются в RunManifest и не выводятся из наличия model file.
 

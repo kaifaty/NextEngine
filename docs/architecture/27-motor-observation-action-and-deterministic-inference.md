@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-27 |
 | Статус | Accepted |
-| Версия | 1.2 |
-| Последняя проверка | 2026-08-08 |
+| Версия | 1.3 |
+| Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
-| Заменяет | SPEC-27 1.1 obsolete project-lock name only; motor contracts unchanged |
+| Заменяет | SPEC-27 1.2; adds a clearly Proposed Mamba-2 mapping without changing Accepted motor tensor/state/safety semantics |
 
 ## История принятия
 
@@ -289,6 +289,14 @@ Semantic/unit pairs are exact: angular/linear position use
 error. The actuator slot's SPEC-26 axis kind and `PhysicsActuatorBoundsV1`
 must admit the same semantic and unit.
 
+Under Proposed ADR-055, the first Mamba-2 foundation action schema contains
+joint position and velocity channels only. Engine-owned fixed stiffness/
+damping and existing torque, power, velocity and rate limits remain in the
+safety profile; the model cannot rewrite them. Learned stiffness/damping needs
+a separate quality/safety profile and gate. Direct torque remains possible in
+the Accepted generic schema, but is not the first Mamba-2 foundation route and
+may be evaluated only as an explicit research `ExclusiveExpert`.
+
 Only the following fixed-point record is authoritative:
 
 ```text
@@ -452,6 +460,37 @@ PolicyStateElementV1 {
   initial_value_raw: i32
 }
 ```
+
+### Proposed Mamba-2 cache mapping (not Accepted profile promotion)
+
+ADR-055 maps every convolution and state-space cache value into the existing
+generic schema above. A proposed Mamba profile declares a canonical fixed
+segment table:
+
+```text
+MambaStateSegmentV1 {
+  segment_id: NamespacedId,
+  kind: ConvolutionCache | StateSpaceCache,
+  offset: u32,
+  width: NonZeroU32,
+  element_schema_range_hash: Hash256,
+  reset_profile_hash: Hash256,
+}
+```
+
+Segments sort by ID, have contiguous non-overlapping ranges and cover exactly
+the profile-declared `S`. `MambaStateSegmentV1` is proposed profile metadata,
+not a new authoritative state store: actual values live only in
+`PolicyStateRecordV1.values_raw` and remain covered by its existing complete
+hash/reset/save/replay rules. Dynamic history, evaluator-session cache,
+provider-owned SSM state and implicit warm state are forbidden.
+
+The proposed portable evaluator is one fixed-shape step
+`(Observation[B,O], State[B,S]) → (Action[B,A], NextState[B,S])`. Fused
+training kernels must lower to standard ONNX operators without a custom Mamba
+op and pass trainer/export/Windows/Linux rollout parity. Until ADR-055 is
+promoted by a production consumer, this mapping adds no current registry entry
+or runtime requirement.
 
 Elements have the same contiguous ordering rules as observation features.
 Authoritative state is `[i32; S]`, not raw evaluator float. Input normalization
@@ -790,6 +829,12 @@ Runtime remains the `Proposed` candidate recorded by `TECH-010`; SPEC-27 does
 not accept, promote or require it. Any future evaluator remains a private
 adapter and must pass the same schemas, deterministic output validation,
 fallback and product checks before use.
+
+Proposed ADR-053/ADR-055 generalize a future outer artifact manifest to
+`evaluator_format_profile_id`, whose first candidate is fixed-shape standard-op
+ONNX with explicit state. This does not supersede current Accepted SPEC-14
+ONNX-specific wire wording or this technology-neutral evaluator boundary while
+those ADRs remain `Proposed`.
 
 The deterministic reference/fixed-point procedural path is the mandatory
 offline fallback. Passing these checks proves exact runtime behavior for the
