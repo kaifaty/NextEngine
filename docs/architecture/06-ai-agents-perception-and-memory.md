@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-06 |
 | Статус | Accepted |
-| Версия | 1.13 |
+| Версия | 1.14 |
 | Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-06 1.12; clarifies that the unimplemented 100-NPC recipe is deferred and creates no current ProductCheck |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) |
+| Заменяет | SPEC-06 1.13; adopts the deterministic Strategic Agent boundary without adding current schemas |
 
 ## Source of truth и ownership
 
@@ -39,7 +39,7 @@ validation/planning → WorldCommand или rejection`.
 biography + validated memories + current perception
                 ↓ optional ai-host interpretation/dialogue intent
               AgentIntent
-                ↓ deterministic policy + utility/HTN planner
+                ↓ deterministic drives + Utility + bounded GOAP planner
         strategic goal / executable plan
                 ↓ tactical AI
           PhysicalAvatarIntent / command candidates
@@ -60,7 +60,7 @@ Habit/routine/tactical layer создаёт только `AgentIntent` либо 
 - `PendingActivation` — planner может ждать, выбрать альтернативу или отменить intent, но не посылать joint action;
 - `Active` — intent может быть передан Motor Runtime при выполнении остальных preconditions.
 
-Optional learned tactical policy остаётся за границей `AgentIntent`, имеет versioned input/output schema и deterministic utility/HTN fallback. Отключение `ai-host` или learned behavior adapter MAY ухудшить разнообразие/оптимальность, но MUST NOT менять command validation, motor safety или authoritative gameplay correctness.
+Optional learned tactical policy остаётся за границей `AgentIntent`, имеет versioned input/output schema и deterministic Strategic Agent fallback по ADR-056. Отключение `ai-host` или learned behavior adapter MAY ухудшить разнообразие/оптимальность, но MUST NOT менять command validation, motor safety или authoritative gameplay correctness.
 
 ### Proposed hierarchical behavior specialization
 
@@ -68,12 +68,13 @@ Optional learned tactical policy остаётся за границей `AgentIn
 [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md)
 и
 [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md)
-предлагают future R4 specialization: отдельные strategic/tactical learned
+предлагают optional R8 specialization: отдельные strategic/tactical learned
 policies, intention/recurrent-state lifecycle и offline training/deployment.
 Все три документа имеют статус `Proposed`, не добавляют current public schema
 или runtime obligation и не заменяют описанные выше perception, memory,
-`AgentIntent`, utility/HTN и authored tactical fallback. Их promotion возможна
-только вместе с production consumer и проходящими ProductCheck по ADR-046.
+`AgentIntent`, Utility + bounded GOAP и authored tactical fallback. Их promotion
+возможна только с optional production consumer и проходящими ProductCheck по
+ADR-046; она не является условием R4 или v1.
 
 ## Perception contract
 
@@ -98,12 +99,12 @@ Health, inventory, quest, faction, relationship и world state MUST NOT
 
 ## Mechanic affordances
 
-Agent planner MUST получать granted planner-visible `MechanicAffordance` catalog из SPEC-13, а не hardcoded список combat/magic actions. Utility/HTN layer использует declared preconditions, target mode, cost/time/risk и bounded expected outcome; actual availability и effect всегда повторно проверяются WorldCommand/Mechanics Runtime. Новая package ability с valid affordance становится доступна NPC без private AI integration. `ai-host` может предложить affordance, но не подменяет deterministic validation или execution.
+Agent planner MUST получать granted planner-visible `MechanicAffordance` catalog из SPEC-13, а не hardcoded список combat/magic actions. Utility + bounded GOAP layer использует declared preconditions, target mode, cost/time/risk и bounded expected outcome; actual availability и effect всегда повторно проверяются WorldCommand/Mechanics Runtime. Новая package ability с valid affordance становится доступна NPC без private AI integration. `ai-host` может предложить affordance, но не подменяет deterministic validation или execution.
 
 ## Offline-first behavior
 
 Для каждого AI role project MUST предоставить deterministic fallback:
-utility/HTN planning, authored dialogue line/template, rule-based memory
+Utility + bounded GOAP planning, authored dialogue line/template, rule-based memory
 retrieval и tactical controller. При отсутствии `ai-host` agent продолжает
 authored routines, combat/traversal, interactions и quest dialogue. Допустима
 только разница качества/разнообразия текста, голоса и high-level proposal.
@@ -133,7 +134,7 @@ Process получает минимальный serialized context, не filesys
 - Invalid model/embedding file → quarantine, no load; canonical memory работает.
 - Memory storage transaction failure → gameplay command may commit, но corresponding memory DomainEvent остаётся в durable retry queue; relationship/narrative authoritative changes находятся в RPG save, не теряются.
 - Retrieval overload → bounded top-k/time budget and rule-based recent/relevant fallback.
-- Missing/incompatible AgentArchetype или learned behavior adapter → schema diagnostic и authored utility/HTN fallback; Agent Runtime не синтезирует motor actions.
+- Missing/incompatible AgentArchetype или learned behavior adapter → schema diagnostic и deterministic Utility + bounded GOAP fallback; Agent Runtime не синтезирует motor actions.
 
 ## Product checks
 
@@ -154,3 +155,13 @@ Narrative-director and divine-agent roles remain Proposed intent in SPEC-31.
 They define no current AI message, schedule, fallback, save/replay or ProductCheck
 obligation. Any future model output remains an untrusted proposal through the
 same validated command boundary.
+
+## Deterministic Strategic Agent boundary
+
+ADR-056 accepts the architecture-level epistemic boundary and Utility + bounded
+GOAP baseline. Detailed Epistemic View, Drive View, goal/plan/task lifecycle,
+structured NPC speech acts and Decision Trace remain Proposed in SPEC-32 until
+their R4c/R4d production consumers exist. Perception and Memory Service expose
+only immutable revision-bound facts/recollections; they do not expose hidden
+world truth or mutate RPG/World state. Learned strategic/tactical policies are
+optional R8 quality adapters and do not block R4 or v1.

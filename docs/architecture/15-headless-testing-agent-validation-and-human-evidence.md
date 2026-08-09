@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 2.3 |
-| Последняя проверка | 2026-08-08 |
+| Версия | 2.4 |
+| Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-15 2.2 speculative public `next` CLI and narrative scenario protocol |
+| Заменяет | SPEC-15 2.3; records future deterministic Strategic Agent scenario requirements |
 
 ## Назначение
 
@@ -203,3 +203,11 @@ Coding agent MAY создавать или запускать scenario, чита
 SPEC-31 narrative/divine work is Proposed and has no current scenario schema or
 ProductCheck. A production consumer must first define the smallest observable
 vertical through ordinary actions, immutable probes and replay.
+
+SPEC-32 deterministic Strategic Agent work is likewise Proposed until R4c/R4d
+consumers exist. Its future scenarios must use production perception, memory,
+`AgentIntent` and `WorldCommand` paths and immutable probes. Required coverage
+includes hidden-fact isolation, bounded GOAP failure, emergency resume/replan,
+NPC-to-NPC behavior without `ai-host`, owner-segment save/replay and tiered
+100-NPC no-fabrication behavior. Learned-policy training remains an optional R8
+lane and is not a prerequisite for these deterministic scenarios.

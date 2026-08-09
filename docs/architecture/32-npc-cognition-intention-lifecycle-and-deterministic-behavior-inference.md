@@ -1,690 +1,270 @@
-# SPEC-32: NPC cognition, intention lifecycle and deterministic behavior inference
+# SPEC-32: Deterministic Strategic Agent cognition and social behavior
 
 | Поле | Значение |
 |---|---|
 | ID | SPEC-32 |
 | Статус | Proposed |
-| Lifecycle | Consumer-driven R4 proposal |
-| Версия | 0.2 |
+| Lifecycle | Consumer-driven R4c/R4d target; no current wire schema |
+| Версия | 0.3 |
 | Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-16](16-text-canonical-multimodal-dialogue-and-model-packs.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-050](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md) |
-| Заменяет | SPEC-32 0.1; composite tactical candidates, corrected priority and bounded multi-timescale state |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-16](16-text-canonical-multimodal-dialogue-and-model-packs.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-021](adr/021-tiered-population-physical-lod-and-no-fabrication.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) |
+| Заменяет | SPEC-32 0.2 learned-policy-centered R4 proposal |
 
 ## Статус и scope
 
-Документ предлагает future public/runtime contract и не добавляет Rust types в
-этом changeset. Он не меняет Accepted semantics SPEC-06, SPEC-08, SPEC-13,
-SPEC-19, SPEC-20 или SPEC-21. Названия `*V1` ниже являются design target для
-первого production R4 consumer, а не текущей schema registry.
+SPEC-32 задаёт целевую архитектуру deterministic Strategic Agent для R4c/R4d.
+Документ не добавляет Rust types, registry entries, save segments или shipped
+capability в текущем documentation-only changeset. Названия интерфейсных
+семейств ниже концептуальны; exact shape и version появляются только с первым
+production consumer по ADR-046.
 
-До совместной promotion с ADR-050/SPEC-33:
+Current `crates/agent` реализует узкий canonical affordance planner. Это полезный
+production substrate, но не доказательство реализации needs, beliefs, memory,
+GOAP, social behavior или population LOD из этого SPEC.
 
-- current Agent Runtime использует authored utility/HTN и tactical fallback;
-- current save/replay не обязан содержать перечисленные behavior records;
-- proposed checks имеют результат `NOT_RUN(NO_PRODUCTION_CONSUMER)`;
-- model runtime, bundles и GPU route не являются shipped capability.
+## Цели и обязательные инварианты
 
-## Цель и invariants
+Strategic Agent отвечает за **что** и **почему** должен делать NPC. Mechanics,
+Navigation, Social/RPG, Motor и Physics выполняют **как** через свои authority.
 
-SPEC-32 задаёт границу между derived drives, strategic/tactical learned policy,
-Agent executive, intention state, existing subsystem owners и validated
-gameplay execution.
+- Planner использует beliefs, а не полный world truth.
+- Gameplay меняется только через validated `WorldCommand` transaction.
+- Utility выбирает цель; bounded GOAP строит основной semantic plan.
+- HTN является optional authored decomposition, а не correctness requirement.
+- Goal switching использует inertia, threshold и emergency priority bands.
+- Failure является typed observation/reason и ведёт к bounded replan.
+- NPC-to-NPC communication не требует LLM.
+- Individuality хранится в content и state, а не в neural weights.
+- Durable/public identity использует `PersistentId`/`AssetId`; runtime handles,
+  ECS rows, backend types и raw pointers не выходят в contract.
+- Scores, costs, confidence, time и cadence используют bounded integers или
+  fixed-point с canonical tie-break, не unconstrained `f32`.
 
-- Strategic и tactical roles имеют независимые profiles, observations,
-  candidates, recurrent state, cadence and fallback.
-- Model выбирает только из canonical engine-built candidates и возвращает
-  scores плюс bounded next recurrent state. Arbitrary goal, ID, waypoint,
-  command payload или tool call из model output запрещены.
-- Applied decision exact per seed: engine квантует scores и выполняет
-  canonical selection через named SPEC-21 RNG. Evaluator не использует RNG.
-- Every future-affecting active/suspended goal, emergency frame, tactical mode,
-  recurrent state, decision reference and RNG state is authoritative under its
-  owner and participates in save/replay after promotion.
-- Learned/fallback decision проходит один executive and validator path. Model
-  не получает hidden first-party mutation capability.
-- GPU/provider/evaluator types, ECS storage, task handles, raw pointers,
-  filesystem paths, model sessions and vendor tensor objects не входят в
-  public contract.
-- Wall time and completion order cannot select an authoritative decision.
-- LLM/audio output остаётся optional untrusted candidate and never blocks a
-  behavior boundary.
+## Ownership и state decomposition
 
-## Authority and derived views
-
-| State/fact | Owner/source of truth | Разрешённая behavior projection |
+| Семантика | Owner | Agent читает |
 |---|---|---|
-| Character resources, skills, faction, relationships, quest/dialogue | RPG Framework / Mechanics per SPEC-19/13 | immutable revision-bound facts only |
-| Perception, uncertainty, memory records and relationship recollections | Agent Perception / Memory Service per SPEC-06 | bounded filtered facts with stable IDs/revisions |
-| Calendar, schedules, population tier and logical location | Future World Services owner per SPEC-20 promotion | immutable schedule/tier/activity view; no duplicate values |
-| Navigation topology, query and `RoutePlan` | World Services per SPEC-08 | canonical navigation candidates/query profiles |
-| Planner-visible abilities | Mechanics Runtime per SPEC-13 | capability-filtered `MechanicAffordance` candidates |
-| Motor availability | Motor Runtime per SPEC-14/27 | immutable `MotorCapabilityView`; no joint/action state |
-| Goals, emergency frame, tactical mode and behavior recurrent state | Agent Runtime after promotion | `AgentIntentionStateV1` and `BehaviorPolicyStateRecordV1` |
-| Model bytes, schemas and immutable profiles | Assets / Project Composition | exact content hashes; no runtime mutable weights |
-| Gameplay mutation | owning domain after validated `WorldCommand` | `AgentIntent`/`InvokeAbility` proposal only |
+| Identity, personality, archetype, backstory, culture/profession/faction/family seed packages | Cooked content | immutable IDs, revisions and bounded traits |
+| Health, hunger/fatigue resources, inventory, currency, relationships, faction membership, commitments/debts | RPG Framework | revision-bound projections |
+| Beliefs, knowledge provenance, contradictions and episodic recollections | Memory Service | bounded contextual retrieval |
+| Calendar, authored routine/job, workplace, logical location, tier and route plan | World Services | derived calendar/location/activity views |
+| Abilities, work/gather/craft/trade effects and domain affordances | Mechanics Runtime | capability-filtered semantic affordances |
+| Goals, plan, private task lifecycle, interruption stack, hysteresis and decision RNG | Agent Runtime | authoritative local state |
+| Pose, traversal, contact and motor outcome | Navigation/Motor/Physics | immutable outcome facts |
+
+Agent Runtime не дублирует mutable owner fields. Derived pressure или candidate
+cache reconstructible и не становится вторым источником истины.
+
+## Strategic loop
+
+Canonical evaluation проходит в фиксированных stages и commit points:
+
+1. собрать revision-bound Epistemic View;
+2. получить bounded relevant beliefs/recollections;
+3. вывести Drive View из owner state и agent hysteresis;
+4. создать canonical candidate goals;
+5. оценить Utility, inertia и emergency override;
+6. сохранить текущую цель либо выбрать новую;
+7. построить/починить bounded GOAP plan из semantic affordances;
+8. private executive активирует ровно допустимый task step;
+9. task создаёт `AgentIntent`/owner proposal;
+10. owner валидирует authoritative truth и commit-ит либо возвращает typed
+    outcome без скрытого knowledge leak;
+11. perception/memory pipeline наблюдает committed result и решает, нужен ли
+    следующий replan.
+
+Async query, pathfinding или optional inference возвращают immutable
+revision-bound result через staging queue. Mutable ECS access не удерживается
+через `await`; late/stale result отбрасывается детерминированно.
+
+## Epistemic View, knowledge и memory
+
+Epistemic View содержит только сведения, которые NPC может обоснованно
+использовать:
+
+- текущий `PerceptionFrame` и stable observed facts;
+- semantic beliefs с subject/predicate/value, confidence, source, learned tick,
+  last verified revision и contradiction state;
+- bounded episodic recollections с participants, place, outcome, importance и
+  emotional weight;
+- разрешённые self projections: собственные resources, inventory, relations,
+  commitments, routine/job and logical location;
+- capability-filtered affordances и known location/route facts.
+
+Initial knowledge создаётся deterministic merge авторских seed packages в
+порядке `culture → home/location → profession → faction → family → backstory →
+character overrides`. Duplicate key разрешается более поздним слоем, а exact
+provenance сохраняется. Seed package не может раскрыть runtime fact, которого
+нет в cooked content.
+
+Semantic knowledge и episodic memory остаются разными. Retrieval bounded по
+count/bytes, сортируется stable relevance key и stable ID. Embeddings допустимы
+только как rebuildable search cache; authoritative retrieval всегда имеет
+deterministic fallback. Retention, importance, decay и consolidation используют
+manifest-bound integer rules. Generated conversation text по умолчанию не
+сохраняется как memory authority: сохраняются semantic acts, claims и committed
+outcomes.
+
+## Drives, aspirations и goal lifecycle
+
+Drive View является derived input, а не новой mutable needs database. Hunger,
+fatigue, health, money pressure, safety, social pressure и duty читаются из
+своих owners; Agent сохраняет только собственную adaptation/hysteresis state,
+когда её нельзя восстановить из owner history.
+
+Aspirations — долгосрочные authored tendencies. Они создают medium-horizon
+goal candidates, но никогда не исполняют action напрямую. Goal candidate имеет
+stable goal/activity kind, target, cited beliefs, preconditions, completion and
+failure conditions, priority band и bounded utility components. Content-specific
+goals используют stable IDs/definitions вместо растущего native enum.
+
+Utility вычисляется модульно из drive urgency, personality, relationships,
+commitments, risk, expected cost/time, aspiration fit и recency. Все components
+fixed-point и имеют declared bounds. Canonical candidate order и stable ID
+решают tie. Текущая цель сохраняется, пока новая не превышает switch threshold;
+emergency band обходит обычный threshold. Прерванная цель помещается в bounded
+suspended stack и затем явно `Resume`, `Replan`, `Complete`, `Fail`, `Impossible`
+или `Invalidate`, а не молча исчезает.
+
+## Bounded GOAP и semantic affordances
+
+Semantic Affordance — read-only объединение owner-specific возможностей. Оно
+ссылается на stable affordance/action ID, owner revision, target, known
+preconditions/effects, deterministic cost/time/risk, outcome range, failure
+classes и execution kind. Это не executable callback и не право на mutation.
+
+GOAP state строится из Epistemic View. Planner использует deterministic graph
+search с canonical action ordering и manifest-bound limits на depth, expanded
+nodes, candidate bytes и replans per boundary. Первым production consumer
+выбирается простой bounded A* либо Dijkstra по non-negative fixed-point costs;
+эвристика обязана быть deterministic и admissible, иначе используется Dijkstra.
+Worst-case time ограничен `O(E log V)` внутри declared node/edge cap, memory —
+`O(V)` внутри того же cap. Exhaustion даёт typed `PlanBudgetExhausted` и safe
+fallback, а не частичный plan.
+
+HTN может заранее раскрыть authored macro в semantic subgoals или ограничить
+candidate set. Оно не обходит GOAP validation и не становится отдельным
+mutation path.
 
-### `AgentDriveViewV1`
+Plan пересобирается при invalid goal, changed cited revision, missing/stale
+affordance, failed owner validation, unreachable route, task timeout expressed
+in simulation ticks, emergency entry/exit или explicit new knowledge. Wall time,
+renderer state и retry-to-green не выбирают новый plan.
 
-`AgentDriveViewV1` is a derived read-only Agent projection. It is not a second
-mutable needs database and MUST be reproducible from exact source revisions.
+## Private task executive и skills
 
-```text
-AgentDriveViewV1 {
-  schema_version: 1,
-  subject: PersistentId,
-  decision_tick: SimulationTick,
-  source_revisions: CanonicalMap<OwnerId, u64>,
-  fatigue: DriveValueV1,
-  morale: DriveValueV1,
-  threat: DriveValueV1,
-  social_contact: DriveValueV1,
-  derived_view_hash: Hash256,
-}
+Goal описывает desired state, Plan — ordered semantic steps, Task — private
+execution lifecycle одного шага, Skill — owner-specific способ исполнения.
+Public `AgentTask` trait с `&mut AgentContext` не вводится.
 
-DriveValueV1 {
-  drive_id: NamespacedId,
-  value_raw: i32,
-  fixed_point_descriptor_id: NamespacedId,
-  evidence_fact_ids: CanonicalSet<FactId>,
-  validity: Current | Unavailable,
-}
-```
+Task state имеет bounded lifecycle `Pending → Active → Succeeded/Failed/
+Cancelled/Suspended` и stable reason codes. Navigation task просит `RoutePlan`,
+social task создаёт Speech Act, mechanics task ссылается на affordance, motor
+task создаёт validated physical intent. Каждый owner повторно проверяет revision,
+target, resource cost и capability перед commit.
 
-Source mapping:
+## Deterministic social behavior
 
-- fatigue and morale derive from current RPG/Mechanics facts;
-- threat derives from current PerceptionFrame and bounded Memory facts;
-- social-contact derives from calendar/schedule, memory and relationship views.
+Speech Act является engine-owned semantic message, а не сгенерированной строкой.
+Core taxonomy покрывает `Inform`, `Ask`, `Request`, `Offer`, `CounterOffer`,
+`Accept`, `Reject`, `Promise`, `Warn`, `Threaten`, `Thank`, `Apologize`, `Insult`,
+`Praise` и `Gossip`. Act содержит stable participants, topic/claim, cited belief
+provenance, confidence, optional requested response and expiry.
 
-Missing source is `Unavailable` with an explicit candidate mask/fallback rule;
-it is never implicit zero. Project MAY add another drive only through a new
-versioned schema/profile naming its owner, exact derivation and bounds. Policy
-output cannot write a drive value.
+Listener обновляет belief только по deterministic trust/confidence rules. Он не
+получает hidden truth или `is_lie` flag. Deception — явное решение speaker
+передать claim, отличающийся от его belief; truth выясняется только обычным
+perception/evidence path. Gossip переносит claim и provenance, а не world truth.
 
-## Common behavior inference model
+Relationships, commitment, debt, currency, inventory и trade outcome принадлежат
+RPG Framework. `Promise`/`Accept` создают только proposal; обязательство возникает
+после RPG `WorldCommand` commit. Trade резервирует/передаёт реальные ресурсы и не
+может создавать скрытую валюту или предмет. Economy safety valve допустим только
+как authored observable mechanic.
 
-### Role, cadence and subject key
+LLM/ASR/TTS из SPEC-16 могут parse player utterance или render уже выбранный act.
+Model output untrusted, не добавляет fact/goal/commitment и не используется для
+NPC-to-NPC correctness. Authored text/subtitle остается обязательным fallback.
 
-`BehaviorPolicyRoleV1` is exactly `Strategic` or `Tactical`. Canonical row key:
+## Population tiers, location и cadence
 
-```text
-(decision_tick, subject PersistentId, policy_role, policy_id)
-```
+Strategic Agent использует accepted World Services tiers:
 
-For one subject/role/boundary exactly one active policy route exists.
-Duplicate/conflicting routes reject learned work; insertion or discovery order
-cannot select one.
-
-Strategic work is due only in `Simulated` and `Active` according to immutable
-integer cadence and deterministic phase. Tactical work is due only in `Active`
-and when the executive declares a tactical boundary. `Abstract`/`Dormant`
-generate no behavior-inference row.
-
-`BehaviorDecisionCadenceV1` declares integer period, deterministic subject
-phase derivation, maximum logical deferral, starvation limit and eligible tier
-set. Deferral is a recorded logical scheduler decision ordered by stable key;
-measured load does not decide it.
-
-### Candidate envelope
-
-Every candidate has a common engine-owned prefix:
-
-```text
-BehaviorCandidateV1 {
-  candidate_id: NamespacedId,
-  candidate_kind: closed role-specific enum,
-  source_owner: OwnerId,
-  source_revision: u64,
-  capability_hash: Hash256,
-  precondition_hash: Hash256,
-  payload_schema_hash: Hash256,
-  payload: ClosedBehaviorCandidatePayloadV1,
-}
-```
-
-`StableBehaviorTargetV1` may contain a `PersistentId`, `AssetId`, stable region,
-activity, affordance, navigation-query-profile or speech-act ID. It cannot
-contain `RuntimeEntityId`, raw nav poly/waypoint, ECS row, backend handle or
-free-form text identity.
-
-`ClosedBehaviorCandidatePayloadV1` is a role- and candidate-kind-tagged union
-of registered fixed schemas. Strategic payload owns its optional stable target
-and closed goal/activity parameters; tactical payload is defined below. There
-is no duplicate target field in the common prefix. It is not an arbitrary
-byte/property bag. Unknown tag, trailing field, schema mismatch or payload
-incompatible with `candidate_kind` rejects the complete candidate set before
-inference.
-
-Engine candidate builders:
-
-1. read one immutable revision-bound source closure;
-2. apply hard capabilities, tier, quest/safety and schema filters;
-3. construct only schema- and capability-compatible candidate combinations;
-4. reject duplicate canonical candidate IDs or conflicting bytes;
-5. sort by `(candidate_kind tag, candidate_id canonical bytes, payload target
-   canonical bytes, source_owner, source_revision, payload hash)`;
-6. reserve the declared minimum coverage per role-specific class; Tactical
-   always reserves the mandatory `HoldSafe` row, while Strategic reserves its
-   declared safe `Wait`/fallback candidate;
-7. prune overflow by one manifest-bound canonical priority tuple, then stable
-   row order, before hashing;
-8. create a fixed-width mask and exact candidate-set hash. Silent tail drop,
-   evaluator-specific padding row or trainer-injected candidate is forbidden.
-
-Candidate coverage and pruned counts by reason/class are mandatory evaluation
-metrics. A behavior-cloning teacher action must already be present after the
-same production builder and coverage/pruning rule; otherwise the example is
-invalid. Teacher identity cannot force or insert a runtime candidate.
-
-Model sees the exact sorted rows/mask and returns one score for every row.
-It cannot add, remove, reorder or rename a candidate.
-
-### Score quantization and sampling
-
-`BehaviorScoreQuantizationProfileV1` declares source dtype, exact finite
-IEEE-754 decode, rational scale/offset, signed integer descriptor, bounds,
-round-to-nearest-ties-to-even and invalid-value policy. V1 raw score proposal
-is binary32; negative zero canonicalizes to positive zero. NaN, infinity,
-overflow, wrong dtype/shape/length or score for a masked candidate rejects the
-entire subject result.
-
-For each valid row engine converts score once to canonical `i32 score_raw`.
-The sampling profile then performs exactly one declared method:
-
-- `ArgMaxStable`: maximum `score_raw`, tie by canonical candidate order; or
-- `WeightedQ0_32`: engine transforms declared bounded integer logits/weights
-  with a versioned integer-only lookup/profile and samples using
-  `uniform_below_u32`/`sample_q0_32` from one named SPEC-21 stream.
-
-No host `exp`, model-runtime sampler or floating distribution is authoritative.
-Candidate-set hash, quantized score vector, chosen candidate and pre/post RNG
-state are included in the decision commit. A project may choose different
-named profiles for strategic and tactical roles, but profile selection is
-locked before world creation.
-
-### `BehaviorInferenceProfileV1`
-
-```text
-BehaviorInferenceProfileV1 {
-  schema_version: 1,
-  profile_id: NamespacedId,
-  policy_role: Strategic | Tactical,
-  policy_id: NamespacedId,
-  policy_bundle_hash: Hash256,
-  model_hash: Hash256,
-  observation_schema_hash: Hash256,
-  output_schema_hash: Hash256,
-  policy_state_schema_hash: Hash256,
-  cadence: BehaviorDecisionCadenceV1,
-  maximum_candidate_count: NonZeroU16,
-  score_quantization_profile_hash: Hash256,
-  sampling_profile_hash: Hash256,
-  rng_stream_descriptor_hash: Hash256,
-  required_evaluator_capabilities: CanonicalSet<BehaviorEvaluatorCapabilityV1>,
-  resource_envelope: BehaviorResourceEnvelopeV1,
-  fallback_profile_id: NamespacedId,
-}
-```
-
-Capabilities are vendor-neutral closed operation/numeric/resource limits.
-Profile contains no provider, device name, CUDA/DirectML type, runtime session,
-path or environment variable. Every hash resolves in exact project/content
-closure before activation. Runtime does not discover `latest` model or mutate
-weights.
-
-## Strategic contracts
-
-### `StrategicBehaviorObservationV1`
-
-Observation binds:
-
-- subject identity, decision tick, tier, cadence phase and active profile;
-- immutable `AgentArchetypeDefinition` revision, personality traits and
-  relevant skill/motor-capability views;
-- `AgentDriveViewV1` and its source revisions;
-- current authored schedule/activity and bounded upcoming schedule facts;
-- bounded perception/memory/relationship facts ordered by stable relevance
-  key then fact ID;
-- active goal, bounded suspended goal stack and emergency summary;
-- canonical available strategic activities;
-- valid `GoalSuggestionCandidateV1` values admitted before this boundary;
-- all source/candidate/schema/profile/state hashes.
-
-The observation cannot contain free-form prompt history, vendor embedding,
-raw dialogue text as action identity, hidden quest state, presentation state or
-mutable RPG/world reference.
-
-### `StrategicGoalProposalV1`
-
-Applied proposal selects exactly one candidate and projects:
-
-```text
-StrategicGoalProposalV1 {
-  proposal_id: Id128,
-  subject: PersistentId,
-  decision_tick: SimulationTick,
-  candidate_set_hash: Hash256,
-  selected_candidate_id: NamespacedId,
-  goal_kind: RoutineActivity | Sleep | Rest | SocialContact |
-             StartConversation | SeekHelp | TravelToActivity |
-             Wait | ResumeSuspended | CancelCurrent,
-  target: Option<StableBehaviorTargetV1>,
-  source: Authored | Learned | LlmSuggestion | PlannerFallback,
-  priority_band: HardConstraint | SurvivalEmergency |
-                 RoutinePersonality | TacticalEfficiency,
-  expires_at_tick: SimulationTick,
-  interruption_policy: NonInterruptibleByBehavior |
-                       SuspendForEmergency | ReplaceAtStrategicBoundary,
-  cited_fact_revisions: CanonicalSet<(FactId, u64)>,
-}
-```
-
-Goal kind is closed. Content-specific activity lives behind stable activity ID
-and preconditions, not a new arbitrary model output kind. `LlmSuggestion`
-denotes provenance of an already validated engine candidate; it gives no
-authority advantage.
-
-Executive/validator order is exact:
-
-```text
-HardConstraint → SurvivalEmergency → RoutinePersonality → TacticalEfficiency
-```
-
-A score from a lower band cannot override an eligible constraint in a higher
-band. Emergency survival may suspend routine/personality intent, but it cannot
-override a hard authored/quest/safety constraint.
-
-Strategic fatigue may select `Sleep` outside authored schedule. Executive MUST
-revalidate current safety, available compatible sleep place/reservation,
-navigation capability, hard quest constraints and expiry. Failure rejects the
-proposal and applies declared `Rest`/`Wait`/schedule fallback; it does not
-teleport NPC or invent a bed.
-
-## Tactical contracts
-
-Tactical inference selects semantic intent only. It is separate from the
-SPEC-27 Motion Controller: different cadence, bundle, observation, state and
-fallback. Tactical output cannot contain pose, joint channel, torque, PD gain,
-motor cache or raw physics mutation.
-
-### `TacticalBehaviorObservationV1`
-
-Observation binds:
-
-- current bounded emergency frame and tactical mode;
-- capability-filtered perception facts and uncertainty;
-- canonical navigation candidates/query profiles from World Services;
-- planner-visible `MechanicAffordance` candidates from Mechanics Runtime;
-- current `MotorCapabilityView` values, without motor tensors/actions;
-- current support/allies, threats, yielding/help/speech facts;
-- bounded strategic context: goal kind/target/priority and suspension state;
-- hard safety/quest constraints and candidate masks;
-- candidate/profile/recurrent/source hashes.
-
-Hidden exact enemy state, renderer visibility, raw physics/contact backend,
-raw nav waypoints and arbitrary LLM text are forbidden.
-
-For MAPPO/CTDE training, the actor observation/export graph is exactly this
-engine-visible semantic schema. Privileged global state may feed a private
-training critic only and must be absent from actor records, actor normalization,
-recurrent state and exported graph. A hidden learned communication tensor or
-agent-to-agent latent channel is forbidden. Coordination uses observable
-engine-owned facts and closed `CallForHelp`, `Yield` or speech-act candidates.
-
-### `TacticalDecisionProposalV1`
-
-The selected candidate kind is exactly:
-
-```text
-UseAffordance
-RequestNavigation
-Fight
-Flee
-Yield
-CallForHelp
-RequestConversation
-ResolveEmergency
-HoldSafe
-```
-
-Every tactical row carries exactly one closed payload:
-
-```text
-TacticalCandidatePayloadV1 {
-  affordance_id: Option<NamespacedId>,
-  item: Option<StableBehaviorTargetV1>,
-  target: Option<StableBehaviorTargetV1>,
-  target_mode: TargetModeV1,
-  movement_preset_id: NamespacedId,
-  facing_preset_id: NamespacedId,
-}
-
-TargetModeV1 = Self | PerceivedTarget | PredictedIntercept |
-               GroundNearTarget | BetweenTargets
-```
-
-Candidate-kind schema declares which fields/modes are required or forbidden.
-The builder constructs only compatible affordance/item/target/mode/preset
-combinations and derives their stable candidate IDs from canonical content.
-V1 has no arbitrary payload, separate learned target head, continuous target
-offset or learned waypoint. `PredictedIntercept`, `GroundNearTarget` and
-`BetweenTargets` resolve through engine-owned bounded presets/facts; the model
-does not emit coordinates.
-
-`UseAffordance` references one canonical planner-visible affordance.
-`RequestNavigation` references a stable goal plus `NavigationQueryProfileId`;
-World Services constructs `RoutePlan`. `Fight`/`Flee` are bounded modes that
-still decompose to navigation/affordance candidates. `Yield` changes only
-Agent state. `RequestConversation` creates a speech-act/dialogue request, not a
-committed RPG dialogue transition. `ResolveEmergency` references the current
-emergency frame and a declared resolution code.
-
-Proposal includes decision/candidate/profile IDs, target, cited fact revisions,
-the selected canonical payload hash, expiry and no arbitrary payload. It
-becomes executable only after executive
-and common capability/domain validation.
-
-## Intention and emergency lifecycle
-
-### `AgentIntentionStateV1`
-
-```text
-AgentIntentionStateV1 {
-  schema_version: 1,
-  subject: PersistentId,
-  revision: u64,
-  active_strategic_goal: Option<CommittedStrategicGoalV1>,
-  suspended_goals: Vec<CommittedStrategicGoalV1>,
-  emergency_frame: Option<EmergencyFrameV1>,
-  tactical_mode: Idle | Navigating | Fighting | Fleeing | Yielding |
-                 CallingForHelp | Conversing | Recovering,
-  last_strategic_decision_ref: Option<BehaviorDecisionRefV1>,
-  last_tactical_decision_ref: Option<BehaviorDecisionRefV1>,
-  causal_command_refs: CanonicalSet<CommandId>,
-  authoritative_state_hash: Hash256,
-}
-```
-
-Suspended stack maximum is profile-bound and at least one; v1 proposal default
-is four. Push, pop, replace and cancellation are checked integer operations and
-publish one new revision atomically. Goal cycles, duplicate active/suspended
-identity, overflow, stale fact revision or invalid causal reference reject the
-whole intention transition.
-
-### `EmergencyFrameV1`
-
-Frame contains stable frame ID, trigger fact IDs/revisions, threat/support
-summary, opening tick, expiry/max duration, suspended goal reference, allowed
-tactical modes, resolution condition set and revision. It cannot store a copy
-of health, relationship, navigation route or quest state.
-
-Lifecycle:
-
-```text
-None
-  → Open(trigger validated, strategic goal suspended at most once)
-  → Active(tactical decisions update mode/frame revision)
-  → Resolved | Expired | SupersededByHostileAction
-  → RevalidateSuspendedGoal
-  → Resume | CancelAndReplan | SafeFallback
-```
-
-Nested trigger updates the current frame or replaces it by a canonical stronger
-frame according to profile; it does not push the strategic goal again.
-Emergency expiration without a safe resolution invokes tactical fallback and
-revalidation; it does not silently restore a stale goal.
-
-### Yielding semantics
-
-Entering `Yielding` requires one valid tactical decision commit. Perception
-publishes a revision-bound `YieldingFactV1` with subject, start/expiry, cited
-decision and confidence/source. It is observable to other actors according to
-normal perception, not globally broadcast hidden state.
-
-`Yielding`:
-
-- provides no invulnerability, damage filter, Mechanics status or RPG field;
-- does not force another actor to stop attacking;
-- may lead content to propose Dialogue/Relationship operations separately;
-- ends on committed negotiation/dialogue resolution, no remaining relevant
-  threat, expiry/fallback, or a new hostile action by the yielding subject.
-
-After exit, executive revalidates the suspended strategic goal as for any
-emergency resolution.
-
-## Recurrent state and atomic decision publication
-
-### `BehaviorPolicyStateRecordV1`
-
-Strategic and tactical state records are separate even if model architecture
-or width coincides.
-
-```text
-BehaviorPolicyStateRecordV1 {
-  schema_version: 1,
-  subject: PersistentId,
-  policy_role: Strategic | Tactical,
-  policy_id: NamespacedId,
-  bundle_hash: Hash256,
-  observation_schema_hash: Hash256,
-  output_schema_hash: Hash256,
-  state_schema_hash: Hash256,
-  route_generation: u64,
-  state_generation: u64,
-  state_tick: SimulationTick,
-  segments: CanonicalArray<BehaviorPolicyStateSegmentV1, SEGMENT_COUNT>,
-  consolidation_revision: u64,
-  last_consolidation_tick: Option<SimulationTick>,
-  last_candidate_set_hash: Hash256,
-  last_quantized_score_root: Hash256,
-  last_applied_decision_hash: Hash256,
-  consecutive_learned_unavailable: u16,
-  fallback_phase: Learned | PlannerFallback,
-  authoritative_state_hash: Hash256,
-}
-```
-
-```text
-BehaviorPolicyStateSegmentV1 {
-  segment_id: NamespacedId,
-  timescale: FastAdaptation | WorkingContext | SlowContext |
-             ConsolidationAccumulator,
-  fixed_width: NonZeroU16,
-  fixed_point_descriptor_id: FixedPointDescriptorId,
-  values_raw: FixedArray<i32>,
-  reset_profile_hash: Hash256,
-}
-```
-
-Segments sort by `segment_id`; IDs, timescale, widths and total state width are
-fixed and bounded by `state_schema_hash`. `values_raw.len` must equal the
-declared width. A profile may omit any timescale, but cannot add a segment at
-runtime or use a hidden equivalent. `consolidation_revision` increments only
-through the engine-owned deterministic runtime consolidation transform from
-[ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md). Authored
-NPC sleep is one logical trigger, not the state owner.
-
-State schema declares exact width, fixed-point descriptors, initial values,
-input normalization and output conversion. `S = 0` still has a record. Raw
-evaluator floats, sessions and caches are not authoritative. Non-finite,
-out-of-range, missing or partial next state rejects the complete decision/state
-pair. Strategic state cannot be copied into tactical state or vice versa.
-Gradients, optimizer state, mutable model weights, unbounded history and shared
-mutable state across NPCs are forbidden. Every segment and consolidation field
-is covered by `authoritative_state_hash`.
-
-`authoritative_state_hash` covers every preceding future-decision-affecting
-field except itself via registered `CanonicalBinaryV1` and domain-separated
-SHA-256. Consumer recomputes and exact-compares it before inference, save/load,
-replay restore or field use.
-
-### `BehaviorDecisionCommitV1`
-
-```text
-BehaviorDecisionCommitV1 {
-  key: (decision_tick, PersistentId, BehaviorPolicyRoleV1, policy_id),
-  observation_hash: Hash256,
-  candidate_set_hash: Hash256,
-  quantized_score_root: Hash256,
-  selected_candidate_id: NamespacedId,
-  applied_decision_hash: Hash256,
-  prior_policy_state_hash: Hash256,
-  next_policy_state_hash: Hash256,
-  prior_intention_state_hash: Hash256,
-  next_intention_state_hash: Hash256,
-  rng_stream_id: RngStreamId,
-  prior_rng_state_hash: Hash256,
-  next_rng_state_hash: Hash256,
-  source: Learned | PlannerFallback,
-}
-```
-
-Applied decision, next role-specific policy state, complete next intention state
-and consumed RNG state become visible atomically, or none does. Fallback uses
-the same commit form and validators. A decision without corresponding state/
-RNG/intention link, or a partially published recurrent state, is invalid.
-
-Strategic and tactical decisions never share one atomic commit because they
-have separate due boundaries. Tactical commit may open/update/resolve emergency
-state; the following strategic boundary sees only the committed result.
-
-## Inference requests, results and failure semantics
-
-Runtime closes due work by canonical row key, partitions by exact profile hash
-and fixed maximum batch size, and binds every request to:
-
-- observation/candidate-set/profile hashes;
-- route/state generations and prior full state hash;
-- current intention-state hash;
-- named RNG stream identity/state hash;
-- all cited owner revisions.
-
-Result echoes exact batch hash, row keys, profile and state bindings, one finite
-score per candidate and exact next-state shape. Before any row commits, whole
-envelope, key set and shapes validate. Duplicate, extra, missing, stale,
-reordered, partially decoded or incompatible result is rejected for the
-complete affected subject; no neighboring row or previous score is substituted.
-
-Logical failure routes:
-
-| Failure | Required result |
+| Tier | Strategic behavior |
 |---|---|
-| Preflight evaluator/model/profile unavailable | Select declared deterministic utility/HTN profile before affected boundary; record fallback commit. |
-| Canonical evaluator failure result | Reject learned result and apply declared fallback for that exact boundary. |
-| Non-finite/overflow/wrong shape/candidate order/state mismatch | Reject whole subject learned pair; apply declared fallback. |
-| Stale/late result before a current boundary | Reject by revision/hash; current boundary uses its declared fallback. |
-| Late result after commit | Discard; changes no state/RNG/decision. |
-| Fallback input/validator unavailable | Preserve prior authoritative state, emit stable diagnostic and stop the affected conformant commit; never fabricate a decision. |
-| Wall deadline/watchdog miss | Mark exact run nonconforming/`Fail`; wall time does not select fallback or another candidate. Watchdog may stop uncommitted work. |
+| `Active` | Full perception, strategic evaluation, social/executive and physical tasks |
+| `Simulated` | Reduced deterministic cadence, logical navigation/activity and bounded social/economy decisions |
+| `Abstract` | Declared aggregate activities/events only; uncertain physical outcome upgrades, defers or blocks |
+| `Dormant` | No ordinary cognition; deterministic wake triggers and macro owner updates only |
 
-Fallback cannot bypass constraints, affordance/navigation validation or
-`AgentIntent → WorldCommand` path. When GPU is absent at activation, planner
-route is the declared operational profile, not a wall-time failure.
+Tier selection принадлежит simulation и использует region, canonical distance,
+importance, capabilities and profile. Renderer camera/frustum/FPS не участвуют.
+Physical LOD остаётся отдельной state machine.
 
-## Navigation, mechanics and physical execution
+Logical LocationNode/region и RoutePlan принадлежат World Services; active pose
+принадлежит physical owners. Upgrade/transfer использует validated placement and
+traversal handoff, не teleport. Cadence задаётся integer period/phase в immutable
+profile. Events лишь ставят evaluation/replan на следующую разрешённую boundary;
+same-tick subscriber re-entry запрещён.
 
-- Strategic/tactical candidates may choose navigation goal and query profile;
-  only World Services creates and owns `RoutePlan`.
-- Route progress, invalidation and stuck resolution return revision-bound facts;
-  policy cannot claim traversal success.
-- Tactical affordance selection references one candidate from the current
-  `MechanicAffordance` catalog. Mechanics Runtime revalidates target, cost,
-  cooldown, phase, resources and actual outcome.
-- Motor capability masks candidate feasibility. `PendingActivation` cannot
-  produce joint action; executive waits, replans or chooses fallback.
-- Physical layer receives only validated `PhysicalAvatarIntent`; contact and
-  hit success are proven by physics and committed through normal outcome
-  commands.
+## Persistence, replay и explainability
 
-## LLM, speech-act and prosody integration
+После promotion authoritative snapshot сохраняет по owner segments:
 
-One engine-owned `SpeechActCandidateV1` supports player↔NPC and NPC↔NPC. It
-contains speaker/addressee IDs, closed act kind, optional stable topic/target,
-cited facts, expiry, dialogue/session preconditions and text provenance. The
-semantic act is validated independently of generated wording.
+- Agent: active/suspended goals, plan cursor, private task state, hysteresis,
+  future-affecting pending decisions and named RNG state;
+- Memory: semantic beliefs, contradictions, episodic records and consolidation
+  state;
+- RPG: resources, relationships, inventory/currency, commitments/debts;
+- World Services: tier, logical location, routine/job/activity and transfers.
 
-`GoalSuggestionCandidateV1` is admitted to strategic candidate construction
-only on the next declared strategic boundary after ai-host result assignment.
-It contains a closed goal kind/target, cited fact revisions, expiry and
-provenance; it cannot carry an arbitrary WorldCommand or priority above hard
-constraints. Late, invalid or unsupported suggestion is discarded and an
-authored strategic set remains complete.
+Planner cache, retrieval index, embedding vectors, optional inference buffers и
+Decision Trace не сохраняются как authority. Load проверяет schema/profile/hash
+до partial publication. Replay не повторно вызывает LLM/model и сравнивает
+canonical goals, plans, proposals, commands/events and owner roots.
 
-`ProsodyAnnotationCandidateV1` contains only closed emotion/prosody class,
-bounded intensity/confidence, source utterance/turn identity, pack/model hash
-and expiry. Perception validator checks provenance, bounds, participant and
-turn freshness and either publishes an uncertainty-tagged perception fact or
-rejects it. Behavior observation consumes only that fact; raw waveform,
-embedding or model tensor is forbidden.
+Decision Trace — bounded immutable diagnostic projection: candidate goals and
+score components, switch reason, cited beliefs/revisions, selected plan,
+affordances, task outcome and replan reason. Он не является gameplay input,
+mutable inspector API или обязательным generic UI. Для одинакового
+state/profile trace воспроизводим.
 
-Speech generation, ASR and TTS may complete late without delaying strategic or
-tactical work. Authored line/template/subtitle and `TextOnlyFallback` remain
-complete.
+## R4 delivery
 
-## Persistence and replay after promotion
+SPEC-32 продвигается consumer-driven increments:
 
-The Agent owner segment MUST atomically persist:
+1. **R4c cognition core:** Drive View, beliefs/retrieval, candidate goals,
+   Utility/inertia/emergency, bounded GOAP, private executive and save/replay.
+2. **R4d systemic vertical:** NPC без еды и денег получает сведения, принимает
+   реальную работу, добирается до неё, получает committed currency, покупает и
+   ест food; social act, relationship/commitment effect, threat interruption,
+   resume/replan и failure path проходят production owners.
 
-- complete `AgentIntentionStateV1` for every relevant NPC;
-- separate strategic/tactical `BehaviorPolicyStateRecordV1` records;
-- every bounded multi-timescale segment, consolidation revision and last
-  consolidation tick in those records;
-- route/state generations and exact profile/bundle/schema hashes;
-- pending admitted LLM goal/speech candidates only if they can affect a future
-  declared boundary;
-- scheduler cadence/deferral state and named behavior RNG states;
-- last atomic `BehaviorDecisionCommitV1` chain needed to prove continuity.
+R4a calendar/routine и R4b tiers/navigation/100-NPC являются prerequisites.
+Расширенные taxes, crime, politics, coalitions и macro-economy — future breadth.
+Learned strategic/tactical policies из SPEC-33/34 — optional R8 optimization.
 
-Save/load/save recomputes all full-record hashes and preserves exact bytes.
-Unknown/missing model or schema, identity mismatch, corrupt intention stack,
-broken prior→next chain or incompatible project closure rejects load before
-world mutation and preserves source save. Silent model downgrade is forbidden;
-an explicitly project-allowed planner fallback load path requires its own
-recorded route transition and replay incompatibility result.
+## Proposed ProductChecks
 
-Replay does not resample an unrecorded model route. It re-executes the exact
-closed observations/candidates/model or declared logical fault, consumes the
-same named RNG state, and compares quantized scores, selected candidate,
-intention/recurrent/RNG commits, resulting commands/events and state roots.
-First mismatch is `NONDETERMINISTIC_RESULT`; retry cannot regenerate a passing
-decision.
+| Check | Сценарий и обязательный результат |
+|---|---|
+| `STRATEGIC-EPISTEMIC-P1` | Hidden authoritative fact отсутствует в beliefs и не меняет candidate/plan; stale owner rejection не раскрывает его, а normal perception update меняет следующий boundary. |
+| `STRATEGIC-GOAP-P1` | Fixed-point utility выбирает canonical goal; bounded GOAP строит stable plan. Missing affordance, expansion cap и unreachable route дают typed fallback/replan без mutation. |
+| `STRATEGIC-STATE-P1` | Emergency прерывает ordinary goal; после выхода происходит exact resume/replan. Save/restart/replay сохраняет owner segments, named RNG, command/event and state roots. |
+| `STRATEGIC-SOCIAL-P1` | NPC-to-NPC `Ask/Inform/Offer/Accept` работает без `ai-host`; lie/gossip не раскрывает truth; commitment/trade возникает только после RPG commit. |
+| `STRATEGIC-R4-P1` | R4d `work → currency → trade → food` vertical проходит `game` и deterministic `headless`, включая no-job/no-route/no-money/stale-revision branches. |
+| `STRATEGIC-100NPC-P1` | 100 NPC используют declared tiers/cadences/budgets; abstract tiers не фабрикуют traversal/trade/combat outcomes; same inputs give exact applied decisions on Windows/Linux. |
 
-## Budget and 100-NPC behavior
-
-Strategic/tactical work is charged to the single ADR-016 `agent-planning` row,
-not a per-NPC allowance. Candidate construction, inference staging, result
-validation, fallback, queue handling and decision commit all count.
-
-R4 workload declares exact NPC membership/tier, strategic/tactical periods,
-phase, eligible emergency boundaries, maximum deferral and starvation age.
-Only `Simulated`/`Active` receive strategic work and only `Active` receives
-tactical work. Deterministic cadence reduction may defer eligible work within
-its manifest bound; it cannot drop mandatory emergency resolution or choose a
-different applied decision from measured runtime load.
-
-## Proposed ProductCheck
-
-All checks below are `NOT_RUN(NO_PRODUCTION_CONSUMER)` in this docs-only
-changeset and do not change current global ProductCheck mapping.
-
-| ID | Scenario | Required result / fallback |
-|---|---|---|
-| `BEHAVIOR-SCHEMA-P1` | Strategic/tactical schema corpora with every composite item/target/mode/preset combination, invalid combinations, coverage/pruning boundary, mandatory `HoldSafe`, ordering/mask/quantization boundary and malformed/stale/reordered/missing/extra/non-finite result | Only compatible combinations exist; candidate coverage is recorded, pruning is exact, a valid teacher example retains its production-built target candidate, and every invalid input rejects the whole affected decision/state pair before publication; declared planner fallback only. |
-| `BEHAVIOR-DETERMINISM-P1` | Same seeds, inputs and exact bundles on Windows/Linux with worker, request and completion permutations | Exact strategic/tactical applied decisions, intention/recurrent/RNG commits, command/event/state roots; wall miss is nonconforming and never selects a different decision. |
-| `BEHAVIOR-STATE-P1` | Strategic tick → deterministic runtime sleep consolidation → emergency suspend → save/load/replay → resolve → resume/cancel for stateless and bounded multi-timescale policies | Exact scores, selected goals, consolidation revision/segment roots, bounded stack, emergency/tactical mode, both recurrent states, RNG continuation and commit chains; hidden/oversized/incompatible state and every tamper fail before field use. |
-| `BEHAVIOR-FALLBACK-P1` | GPU/model absent at preflight plus injected logical evaluator/model/schema faults | Utility/HTN path executes the same mandatory routine/combat/dialogue loop without tick stall or direct mutation; invalid fallback input stops instead of fabricating. |
-| `BEHAVIOR-R4-P1` | One production `routine → fatigue/sleep → threat → fight/flee/yield → dialogue → resume/replan` vertical | Both learned policies are observably applied in one run, all effects pass AgentIntent/affordance/WorldCommand owners, and deterministic fallback completes the same mandatory loop. |
-| `BEHAVIOR-100NPC-P1` | Exact 100-NPC R4 workload across tiers/cadence/deferrals | Strategic only for Simulated/Active, tactical only Active; queue/cadence exact, maximum deferral bounded, no starvation/drop/unowned span, ADR-016 row met or stage remains open. |
-| `BEHAVIOR-COMMS-P1` | Player↔NPC and NPC↔NPC speech acts; CTDE actor export audit; late/invalid LLM, ASR/TTS/prosody and ai-host absence | One protocol, authored fallback, validated uncertainty facts, no critic-fact leakage, learned latent channel, direct goal/mutation or behavior tick wait. |
-
-`BEHAVIOR-TRAIN-P1` belongs to SPEC-33; SPEC-34 `MODEL-DATAPLANE-P1`,
-`MODEL-EXPORT-P1` and applicable statistical/consolidation checks are joint
-promotion prerequisites.
+До production consumers эти checks имеют
+`NOT_RUN(NO_PRODUCTION_CONSUMER)` и не создают current check mapping. Promotion
+каждого increment обновляет affected schemas, SPEC/ADR, routing, traceability,
+roadmap и реальные `fast`/`play`/`persistence-replay`/`content-package` checks в
+одном changeset.
 
 ## Promotion boundary
 
-SPEC-32 may become `Accepted` only together with ADR-050/SPEC-33/SPEC-34 and the
-minimal public Rust schemas actually consumed by one production R4 vertical.
-That promotion updates reciprocal Accepted owners, save/replay schema and
-mapped checks. A test-only model call, type scaffold or isolated benchmark is
-not a consumer under ADR-046.
+SPEC-32 может стать Accepted только с production R4c/R4d consumer, current-only
+schemas и passing mapped checks по ADR-046. Promotion deterministic cognition
+не зависит от SPEC-33, SPEC-34, trained bundles или GPU route. Optional learned
+track может быть promoted позднее и обязан сохранять полную deterministic
+совместимость и fallback из ADR-056.

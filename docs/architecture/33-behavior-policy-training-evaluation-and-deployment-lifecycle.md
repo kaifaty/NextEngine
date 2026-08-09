@@ -4,8 +4,8 @@
 |---|---|
 | ID | SPEC-33 |
 | Статус | Proposed |
-| Lifecycle | Consumer-driven R4 proposal |
-| Версия | 0.2 |
+| Lifecycle | Optional consumer-driven R8 quality track |
+| Версия | 0.3 |
 | Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-050](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md) |
 | Заменяет | SPEC-33 0.1; first-party reference profiles, CTDE/self-play provenance and offline child-bundle retention |
@@ -19,7 +19,7 @@ comparators, но они не становятся public model enums или gam
 Trainer, simulator и inference runtime остаются replaceable adapters; этот
 changeset не добавляет code/contracts.
 
-До production R4 consumer все checks здесь имеют
+До optional R8 production consumer все checks здесь имеют
 `NOT_RUN(NO_PRODUCTION_CONSUMER)`, bundle schema не входит в current registry,
 а model artifacts не являются shipped content. Runtime learning и изменение
 weights запрещены независимо от статуса документа.
@@ -40,20 +40,21 @@ weights запрещены независимо от статуса докуме
 - Shipped weights are immutable package artifacts. Datasets, checkpoints,
   optimizer state, replay buffers, training runs, captures and generated model
   outputs do not enter Git or normal engine distribution.
-- Model output remains untrusted at runtime and always has a deterministic
-  utility/HTN fallback.
-- A single good bundle cannot promote the track: both roles must be integrated
-  and co-evaluated in one production R4 vertical.
+- Model output remains untrusted at runtime and always has the deterministic
+  Utility + bounded GOAP/tactical fallback from ADR-056 and SPEC-32.
+- Strategic and Tactical bundles may be promoted independently when their
+  consumers and checks are independent. Joint co-evaluation is required only
+  for a shipped profile that activates both roles together.
 
 ## Two training lanes
 
 ### Strategic lane
 
-Reference training sequence is authored utility/HTN teacher demonstrations →
+Reference training sequence is authored Utility + bounded GOAP teacher demonstrations →
 behavior cloning → bounded recurrent RL. `HopeInspiredStrategicV1` is evaluated
 as a non-public reference profile with fully externalized multi-timescale
 state under ADR-054. A GRU using the same observation/candidate/state/resource
-envelope is the mandatory learned comparator; deterministic utility/HTN is the
+envelope is the mandatory learned comparator; deterministic Utility + bounded GOAP is the
 mandatory gameplay baseline/fallback.
 
 Minimum curriculum progresses through:
@@ -209,7 +210,7 @@ Each role has one immutable manifest:
 | Training provenance | environment/build/project/config/tool/parent-model hashes, algorithm family label, seed/run references and source/license classification |
 | Evaluation | immutable lane suite, held-out suite, fault/parity/joint suite IDs and exact result hashes |
 | Deployment | required runtime adapter protocol, package/content dependencies, compatibility key and previous compatible revision policy |
-| Fallback | exact deterministic utility/HTN fallback profile ID/hash; model cannot choose or rewrite it |
+| Fallback | exact deterministic Utility + bounded GOAP/tactical fallback profile ID/hash; model cannot choose or rewrite it |
 
 Shared foundation ancestry is recorded as provenance/compatibility. Strategic
 and tactical manifests remain separate and may have different model formats,
@@ -258,7 +259,7 @@ authoritative root. A raw difference that survives canonical conversion is
 `NONDETERMINISTIC_RESULT`.
 
 Runtime/training parity runs on Windows x86_64 and Linux x86_64 with declared
-GPU evaluator capability for learned R4 gate, plus CPU/planner fallback. Worker
+GPU evaluator capability for the optional learned route, plus CPU/planner fallback. Worker
 counts, batch splits and completion permutations must preserve applied result.
 
 ## Evaluation suites
@@ -318,12 +319,12 @@ Both roles cover:
   different authoritative result;
 - save/load/restart and worker/completion permutations.
 
-### Integrated R4 suite
+### Optional integrated R8 suite
 
-`BEHAVIOR-R4-P1` exact scenario pair must run:
+`BEHAVIOR-R8-P1` exact scenario pair must run when a profile activates both roles:
 
 1. both learned roles using exact promoted bundles and compatible GPU evaluator;
-2. both deterministic utility/HTN fallbacks with learned route unavailable at
+2. deterministic Utility + bounded GOAP/tactical fallbacks with learned route unavailable at
    preflight.
 
 The player-visible mandatory loop, owner/mutation boundaries and authored
@@ -398,12 +399,13 @@ Bundle status is an artifact property for an exact revision, not organizational
 approval or certification. Suggested lifecycle:
 
 ```text
-TrainingCandidate → EvaluatedCandidate → R4Integrated → ShippedRevision
+TrainingCandidate → EvaluatedCandidate → OptionalIntegrated → ShippedRevision
                                      ↘ Rejected
 ```
 
-Promotion to `R4Integrated` requires all proposed checks and exact joint pair
-identity. `ShippedRevision` additionally requires normal package/license and
+Promotion to `OptionalIntegrated` requires applicable proposed checks and exact
+joint pair identity only when both roles activate together. `ShippedRevision`
+additionally requires normal package/license and
 affected target checks. A newer candidate never inherits results from previous
 bytes.
 
@@ -438,8 +440,8 @@ fallback rules; wall time remains non-authoritative.
 | Export contains stochastic/unsupported op or hidden state | Reject candidate before runtime parity. |
 | Runtime/training quantized score/state/applied-decision mismatch | `NONDETERMINISTIC_RESULT`; reject exact bundle/backend pair. |
 | Held-out or integrated threshold failure | Keep candidate unpromoted; previous bundle/fallback unchanged. |
-| One role missing or not actually applied in R4 vertical | Track remains Proposed; no partial promotion. |
-| Required Windows/Linux GPU lane not run | `NOT_RUN`; learned R4 gate remains open, game remains playable through fallback. |
+| Declared role missing or not actually applied in its optional consumer | That role remains unpromoted; other independently evaluated role and deterministic fallback are unchanged. |
+| Required Windows/Linux GPU lane not run | `NOT_RUN`; optional learned route remains unpromoted and R4/v1 are unaffected. |
 | Runtime training request | Deny capability; weights and optimizer remain immutable/absent. |
 
 ## Proposed ProductCheck
@@ -448,29 +450,31 @@ All are `NOT_RUN(NO_PRODUCTION_CONSUMER)` for this docs-only proposal.
 
 | ID | Scenario | Required result / fallback |
 |---|---|---|
-| `BEHAVIOR-TRAIN-P1` | Recreate both lane environments from exact SPEC-34 manifests; run Strategic utility/HTN→BC→RL Hope-vs-GRU and Tactical set/cross-attention+GRU BC→PPO/IPPO→gated MAPPO/self-play; export bundles and run candidate/state/applied-decision parity, held-out multi-seed lane suites and joint co-evaluation | Exact runtime/training canonical decisions and state roots on declared corpus; complete seed/opponent/curriculum/provenance closure; no critic leakage/latent channel; both roles pass pre-registered statistical and integrated thresholds. Failed role rejects pair; planner fallback remains. |
+| `BEHAVIOR-TRAIN-P1` | Recreate the affected lane environment from exact SPEC-34 manifests; run Strategic Utility+GOAP→BC→RL Hope-vs-GRU or Tactical set/cross-attention+GRU BC→PPO/IPPO→gated MAPPO/self-play; export bundle and run candidate/state/applied-decision parity plus held-out multi-seed lane suite | Exact runtime/training canonical decisions and state roots on declared corpus; complete seed/opponent/curriculum/provenance closure; no critic leakage/latent channel. Failed role remains unpromoted; deterministic fallback remains. |
 | `BEHAVIOR-SCHEMA-P1` | SPEC-32 schema/parity corpus replayed through trainer and runtime adapters | Candidate ordering/masks/quantization/state conversions byte-exact; malformed inputs rejected identically. |
 | `BEHAVIOR-DETERMINISM-P1` | Exported pair on Windows/Linux GPU evaluators and worker/batch permutations | Exact applied strategic/tactical decisions, commits and roots; raw tolerance cannot hide changed canonical result. |
-| `BEHAVIOR-FALLBACK-P1` | No compatible accelerator/model plus declared logical faults | Complete utility/HTN R4 loop runs without model/trainer/network and without behavior tick stall. |
-| `BEHAVIOR-R4-P1` | Integrated learned pair and fallback pair over the same production vertical | Both learned bundles are actually applied together; fallback completes same mandatory loop; all state changes use production owners. |
+| `BEHAVIOR-FALLBACK-P1` | No compatible accelerator/model plus declared logical faults | Complete deterministic Strategic Agent loop runs without model/trainer/network and without behavior tick stall. |
+| `BEHAVIOR-R8-P1` | Optional integrated learned pair and fallback over the same production scenario | When a profile declares both roles, both bundles are actually applied together; fallback completes the same gameplay outcomes through production owners. |
 
-SPEC-32 owns `BEHAVIOR-STATE-P1`, `BEHAVIOR-100NPC-P1` and
-`BEHAVIOR-COMMS-P1`; SPEC-34 owns common data-plane, mirror, export,
-statistics, consolidation and data-governance checks. All applicable checks are
-joint promotion prerequisites.
+SPEC-32 owns deterministic `STRATEGIC-*` R4 checks; SPEC-34 owns common
+data-plane, mirror, export, statistics, consolidation and data-governance
+checks. Only checks applicable to the exact optional role/profile are promotion
+prerequisites.
 
 ## Promotion boundary
 
-SPEC-33, SPEC-32, SPEC-34 and ADR-050 may become `Accepted` only together with:
+SPEC-33 may become `Accepted` with an optional R8 production consumer when:
 
-1. exact strategic and tactical `BehaviorPolicyBundleManifestV1` artifacts;
-2. one production R4 vertical that applies both learned roles;
-3. passing Windows/Linux learned GPU parity and complete planner fallback;
-4. passing schema, determinism, state, fallback, integrated, 100-NPC,
-   communications, training and applicable SPEC-34 data-plane/export/
-   statistical/consolidation/governance checks;
-5. synchronized minimal public schemas, content/project lock, save/replay and
-   routing/roadmap updates required by that consumer.
+1. every activated role has an exact immutable behavior-policy bundle;
+2. Windows/Linux evaluator parity and deterministic fallback pass for that role;
+3. applicable schema, state, fault, training and SPEC-34 data-plane/export/
+   statistical/governance checks pass;
+4. joint co-evaluation passes when the shipped profile activates both roles;
+5. minimal public schemas, project lock, save/replay, routing and roadmap are
+   updated with that consumer under ADR-046.
+
+SPEC-32 and ADR-056 remain independent Accepted/Proposed authorities for the
+deterministic R4 path and never wait for this promotion.
 
 An isolated trainer, benchmark, exported model, shadow inference or one passing
 policy is not sufficient under ADR-046.

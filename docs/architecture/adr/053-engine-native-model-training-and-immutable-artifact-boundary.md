@@ -4,7 +4,7 @@
 |---|---|
 | ID | ADR-053 |
 | Status | Proposed |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-08-09 |
 | Last verified | 2026-08-09 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](../27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](../32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](../33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](048-direct-exact-project-lock.md) |
@@ -12,6 +12,10 @@
 | Superseded by | none |
 
 ## Context
+
+For Strategic and Tactical roles this is an optional R8 quality track under
+ADR-056, not a dependency of deterministic R4 or v1. Motor use remains an
+independent optional profile behind the procedural R5 baseline.
 
 Next Engine needs one reproducible path from production-shaped simulation to
 trained Strategic, Tactical and Motor artifacts. The current repository has a
@@ -146,8 +150,9 @@ corpora and validation fixtures.
   Accepted foundation/expert composition or procedural fallback.
 - Training infrastructure can change without changing runtime gameplay
   contracts, provided exported artifacts pass the same closures and checks.
-- R4c depends on this data plane; R4a/R4b order is unchanged. A learned Motor
-  profile remains optional quality work and does not block procedural R5.
+- Strategic/Tactical use of this data plane is optional R8 quality work and
+  does not block deterministic R4 or v1. A learned Motor profile remains
+  optional quality work and does not block procedural R5.
 
 ## Promotion boundary
 

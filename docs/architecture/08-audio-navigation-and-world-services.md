@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-08 |
 | Статус | Accepted |
-| Версия | 2.0 |
+| Версия | 2.1 |
 | Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-08 1.9; aligns the unconsumed navigation API/check recipes with ADR-046 and the graph-first R4 roadmap |
+| Заменяет | SPEC-08 2.0; adds the proposed Strategic Agent logical-location/tier boundary without current schemas |
 
 ## Source of truth и ownership
 
@@ -137,3 +137,13 @@ gate while their production consumer and promoting ADR do not exist.
 | AUDIO-L1 | Steam Audio version and distribution matrix | The selected version is compatible with target platforms and may be redistributed under the project policy; otherwise do not ship the adapter. |
 | WORLD-02 | **Deferred R4b recipe; no current gate.** Navigation/world-service/physical ownership and traversal corpus | World Services owns route/reservation state, the physical controller alone owns traversal outcome, stale plans reject, and replay is stable; deterministically replan or idle. |
 | AUDIO-02 | Displayless canonical PCM and event synchronization | PCM is deterministic on the pinned sink, event alignment is within one sample, acoustic facts are exact, and gameplay hashes do not depend on audio output; retain gameplay and use the baseline audio path on failure. |
+
+## Strategic Agent reciprocal boundary
+
+Future R4b World Services owns logical location, population tier, authored
+routine/job assignment and `RoutePlan`. SPEC-32 may read only immutable
+revision-bound projections and may request navigation/placement work; it cannot
+own route topology, fabricate traversal success or teleport an actor. Tier
+selection uses simulation-owned region/distance/importance/profile facts and
+never renderer camera, frustum, FPS or wall time. These semantics do not create
+a current navigation schema before the R4b production consumer.

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-20 |
 | Status | Proposed |
-| Version | 3.0 |
+| Version | 3.1 |
 | Last verified | 2026-08-09 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-29](29-platform-host-and-application-session.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
-| Replaces | SPEC-20 version 2.0 future-only intent; no current production obligation is created while this version remains `Proposed` |
+| Replaces | SPEC-20 3.0; separates deterministic R4c/R4d work from optional learned R8 policies while preserving R4a scope |
 
 ## Status and admission
 
@@ -918,7 +918,16 @@ not a promotion gate for this first consumer.
 
 R4b may promote residency tiers, graph navigation, region transfer and the
 representative 100-NPC profile only with their own production consumers and
-checks. R4c may promote SPEC-32/SPEC-33/ADR-050 only with both learned policy
-roles and the complete deterministic fallback. A future bulk-time consumer
+checks. R4c may promote deterministic SPEC-32 cognition after that substrate;
+R4d may add the systemic work/currency/trade/food vertical. Learned policy
+documents SPEC-33/34 and ADR-050/053/054 are optional R8 work and do not block
+R4 or v1. A future bulk-time consumer
 must stop at the same observable command boundaries as stepped execution and
 cannot restore the removed ADR-021 migration or generic scheduler by default.
+
+Future Strategic Agent cadence uses integer period/phase bound through the
+project profile and may run only in declared fixed stages. Events enqueue work
+for the next permitted boundary; they do not cause same-tick subscriber
+re-entry. `Active`, `Simulated`, `Abstract` and `Dormant` map the requested
+precision, while physical LOD remains separate. Abstract activity upgrades,
+defers or blocks any traversal/combat/trade/quest outcome it cannot prove.

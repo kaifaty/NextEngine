@@ -4,7 +4,7 @@
 |---|---|
 | ID | ADR-054 |
 | Status | Proposed |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-08-09 |
 | Last verified | 2026-08-09 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-20](../20-world-simulation-and-population-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](../32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](../33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-050](050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md), [ADR-053](053-engine-native-model-training-and-immutable-artifact-boundary.md) |
@@ -12,6 +12,10 @@
 | Superseded by | none |
 
 ## Context
+
+This proposal belongs to the optional R8 learned Strategic track under
+ADR-056. Deterministic beliefs, memory, goal persistence and ordinary sleep
+behavior in SPEC-32 do not require this learned adaptation profile.
 
 Strategic NPC behavior benefits from memory on multiple timescales, while the
 engine requires every value that can affect a future decision to be bounded,
@@ -44,7 +48,8 @@ the pure role evaluator:
 A GRU with the same input/output/state envelope is the mandatory comparator.
 Hope-inspired quality is not claimed until the exact multi-seed held-out,
 retention, save/replay and resource gates in SPEC-33/SPEC-34 beat or justify
-their trade-off against that comparator and the utility/HTN baseline.
+their trade-off against that comparator and the deterministic Utility + bounded
+GOAP baseline from ADR-056.
 
 ### Externalized adaptation state
 

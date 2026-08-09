@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-19 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-08-08 |
+| Версия | 2.1 |
+| Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-19 version 1.4 speculative migration/narrative/divine feature clauses |
+| Заменяет | SPEC-19 2.0; records future Strategic Agent reciprocal ownership without changing current operations |
 
 ## Authority
 
@@ -139,3 +139,14 @@ cases.
 
 Future autonomous quest/narrative/divine behavior is Proposed in SPEC-31 and
 is not a prerequisite, current check or accepted feature contract here.
+
+## Future Strategic Agent reciprocal ownership
+
+ADR-056 assigns future character resources, inventory/currency, relationships,
+faction membership, commitments and debts to RPG Framework. SPEC-32 may read
+immutable revision-bound projections and propose social/trade/work outcomes,
+but only RPG validation and atomic `WorldCommand` commit can create the
+authoritative effect. The current closed aggregate/operation sets above do not
+gain money, debt, commitment or job variants in this documentation change;
+each extension requires its production consumer and current-only schema under
+ADR-046.

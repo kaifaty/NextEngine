@@ -5,10 +5,10 @@
 | ID | SPEC-16 |
 | Статус | Proposed |
 | Lifecycle | Deferred Proposed |
-| Версия | 0.6 |
-| Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-050](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md) |
-| Заменяет | отсутствует |
+| Версия | 0.7 |
+| Последняя проверка | 2026-08-09 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) |
+| Заменяет | SPEC-16 0.6; removes premature behavior wire shapes and defers to deterministic SPEC-32 semantics |
 
 ## Статус предложения: Deferred Proposed
 
@@ -95,88 +95,31 @@ Candidate validation order:
 
 Provider `function_call`/tool output MUST map to a declared `AgentIntent` variant or be rejected. It MUST NOT carry executable code, arbitrary command payload or direct mutable target.
 
-### Shared speech-act and behavior bridge (Proposed)
+### Strategic Agent semantic bridge (Proposed)
 
-Один `SpeechActCandidateV1` используется для player↔NPC и NPC↔NPC. Direction
-не создаёт отдельный protocol или privileged NPC-to-NPC mutation path.
+ADR-056 and SPEC-32 own deterministic NPC-to-NPC speech semantics. This
+Deferred Proposed model stack neither defines nor is required by that core
+protocol. A future production consumer may bind model adapters to the same
+conceptual Speech Act, Goal Suggestion and Prosody Annotation families, but
+their exact versions and wire shapes are deferred under ADR-046.
 
-```text
-SpeechActCandidateV1 {
-  schema_version: 1,
-  act_id: Id128,
-  speaker: PersistentId,
-  addressees: CanonicalSet<PersistentId>,
-  act_kind: Greet | Ask | Answer | Inform | Warn | Threaten | Plead |
-            Offer | Accept | Refuse | RequestHelp | Yield | Farewell,
-  topic_id: Option<NamespacedId>,
-  target: Option<PersistentId>,
-  cited_fact_revisions: CanonicalSet<(FactId, u64)>,
-  dialogue_revision: Option<u64>,
-  expires_at_tick: SimulationTick,
-  canonical_text_ref: Option<DialogueTurnId>,
-  provenance: Authored | LocalModel | RemoteOptIn,
-}
-```
+Generated wording remains `CanonicalUtterance`/`DialogueTurnCandidate` content.
+A semantic candidate is untrusted: participant, cited belief/fact revision,
+dialogue/session, capability and RPG constraints validate before it may become
+`AgentIntent` or dialogue command. Speech alone does not commit a promise,
+relationship change, surrender, trade or quest fact.
 
-Semantic act uses closed IDs and current facts; generated wording remains
-`CanonicalUtterance`/`DialogueTurnCandidate` content. Candidate is untrusted:
-participant, fact, dialogue/session, capability and RPG constraints validate
-before it may become `AgentIntent` or dialogue command. Speech by itself does
-not commit a promise, relationship change, surrender outcome or quest fact.
+An optional goal suggestion may enter only as one bounded candidate at the
+next declared Strategic Agent boundary. It cannot carry arbitrary priority,
+free-form executable goal, tool call or `WorldCommand`, and it cannot replace
+the complete authored candidate set. Optional prosody analysis may publish only
+a bounded uncertainty-tagged perception fact after identity, provenance,
+confidence and freshness validation. Raw waveform, embedding, logits and
+provider labels never become cognition input directly.
 
-`GoalSuggestionCandidateV1` is the only proposed LLM bridge into strategic
-behavior:
-
-```text
-GoalSuggestionCandidateV1 {
-  schema_version: 1,
-  suggestion_id: Id128,
-  subject: PersistentId,
-  goal_kind: closed SPEC-32 strategic goal kind,
-  target: Option<StableBehaviorTargetV1>,
-  cited_fact_revisions: CanonicalSet<(FactId, u64)>,
-  created_assignment_tick: SimulationTick,
-  expires_at_tick: SimulationTick,
-  source_turn: Option<DialogueTurnId>,
-  model_and_content_hashes: CanonicalSet<Hash256>,
-}
-```
-
-It cannot contain a `WorldCommand`, arbitrary priority, tool call, raw prompt
-or free-form goal kind. Agent Runtime may admit it only as one canonical
-candidate at the **next** declared strategic boundary from SPEC-32. Strategic
-policy/executive may reject it. Direct goal installation and reopening an
-already closed candidate set are forbidden. Late/invalid suggestion changes no
-behavior state and the authored candidate set remains complete.
-
-`ProsodyAnnotationCandidateV1` is bounded audio-understanding output:
-
-```text
-ProsodyAnnotationCandidateV1 {
-  schema_version: 1,
-  utterance_or_turn_id: Id128,
-  speaker: PersistentId,
-  emotion_class: Neutral | Calm | Joy | Sadness | Fear | Anger |
-                 Distress | Uncertain,
-  prosody_class: Neutral | Soft | Loud | Urgent | Hesitant,
-  intensity_raw: u16,
-  confidence_raw: u16,
-  model_and_pack_hashes: CanonicalSet<Hash256>,
-  expires_at_tick: SimulationTick,
-}
-```
-
-Bounds and fixed-point descriptors are profile-bound. Perception validator
-checks participant/turn identity, provenance, confidence and freshness, then
-either publishes an uncertainty-tagged revision-bound perception fact or
-rejects the candidate. Raw waveform, embedding, logits and provider emotion
-labels never enter behavior observation directly and never change a goal,
-relationship or tactical mode.
-
-This bridge remains `Proposed` with SPEC-32/ADR-050. It preserves text-canonical
-dialogue and mandatory `TextOnlyFallback`; absence of LLM/audio-understanding
-does not remove any behavior or dialogue candidate required by the authored
-offline loop.
+Absence, timeout or rejection of every model/audio candidate leaves the same
+deterministic speech acts, goals and gameplay outcomes available through
+authored text and `TextOnlyFallback`.
 
 ### SpeechSegmentCandidate
 
@@ -364,3 +307,10 @@ cannot return an authoritative multi-god council verdict or bypass atomic
 pantheon resolution.
 
 Lifecycle остаётся `Deferred Proposed`; эти contracts не выбирают shipping model и не меняют Accepted runtime.
+
+## Deterministic NPC communication authority
+
+NPC-to-NPC correctness always uses the structured semantic protocol from
+SPEC-32 without `ai-host`. LLM/ASR may parse player input and LLM/TTS may render
+an already admissible act, but generated text cannot create facts, goals,
+promises, trade, relationship changes or commands.

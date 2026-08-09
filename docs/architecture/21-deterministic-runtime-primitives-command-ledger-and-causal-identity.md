@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-21 |
 | Статус | Accepted |
-| Версия | 1.5 |
+| Версия | 1.6 |
 | Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-21 1.3 speculative narrative cross-context and pre-public compatibility clauses |
+| Заменяет | SPEC-21 1.5; records future Strategic Agent use of existing deterministic primitives |
 
 ## Назначение, authority и граница
 
@@ -1539,3 +1539,14 @@ predecessor and a separate Accepted decision.
 Future narrative/divine work remains Proposed under SPEC-31/ADR-046. The
 current Runtime defines no narrative decision-boundary API, generated graph
 admission, divine judgment batch or generic cross-context transaction wrapper.
+
+## Future Strategic Agent deterministic primitives
+
+SPEC-32 cognition inherits the existing fixed-stage, command-ledger, named-RNG
+and replay rules. Goal utility, GOAP cost, confidence and cadence use bounded
+integer/fixed-point values with canonical ordering. Event-driven perception or
+failure may only enqueue a future evaluation boundary; same-tick re-entry and
+wall-time-selected fallback are forbidden. Agent, Memory, RPG and World
+Services persist separate owner segments, while planner/retrieval caches,
+embeddings indexes, optional inference buffers and Decision Trace remain
+reconstructible non-authoritative data.

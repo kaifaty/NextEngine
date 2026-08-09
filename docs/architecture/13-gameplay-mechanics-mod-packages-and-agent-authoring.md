@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-13 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-08-08 |
+| Версия | 2.1 |
+| Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
-| Заменяет | SPEC-13 version 1.8; agent-authoring/MCP ceremonies removed under ADR-046 |
+| Заменяет | SPEC-13 2.0; records the future semantic affordance projection without changing current operations |
 
 ## Назначение
 
@@ -105,3 +105,13 @@ capability, affordance, effect-request and command path, including malformed
 input, sandbox escape, trap and every declared budget fallback. Gameplay
 changes additionally run `play`; authoritative-state changes additionally run
 `persistence-replay`.
+
+## Future semantic affordance projection
+
+SPEC-32 broadens planning beyond ability-only discovery through a conceptual
+Semantic Affordance projection. Mechanics Runtime remains owner of ability,
+work, gather, craft and trade effects and publishes only capability-filtered,
+revision-bound preconditions/effects/cost/time/risk/failure metadata. An
+affordance is data, not executable code or mutation authority; execution always
+revalidates through the existing effect-request and `WorldCommand` path. Exact
+types and registry entries wait for an R4 production consumer under ADR-046.

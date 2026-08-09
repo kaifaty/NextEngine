@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-14 |
 | Статус | Accepted |
-| Версия | 2.2 |
+| Версия | 2.3 |
 | Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-14 2.1; adds a clearly non-Accepted Mamba-2 profile without changing the current foundation/expert/fallback contract |
+| Заменяет | SPEC-14 2.2; aligns Agent fallback wording with ADR-056 without changing motor policy semantics |
 
 ## Назначение и invariants
 
@@ -285,7 +285,7 @@ Declared optional fallback MAY использоваться при load толь
 
 ## Agent archetype и habits boundary
 
-`AgentArchetypeDefinition` содержит behavior traits, routine templates, sensory profile, tactical preferences, memory/relationship priors и initial skill loadout. Stalking, circling, territory guard, wounded retreat и preferred attack изменяют utility/HTN choice и создают AgentIntent/InvokeAbility, но не MotorAction.
+`AgentArchetypeDefinition` содержит behavior traits, routine templates, sensory profile, tactical preferences, memory/relationship priors и initial skill loadout. Stalking, circling, territory guard, wounded retreat и preferred attack изменяют deterministic Utility + bounded GOAP/tactical choice и создают AgentIntent/InvokeAbility, но не MotorAction.
 
 Optional learned tactical policy остаётся за SPEC-06 AgentIntent boundary, имеет deterministic planner fallback и не входит в MotorPolicyBundleManifest. Motor layer не читает biography, quest state, free-form memory или LLM output.
 
@@ -343,7 +343,7 @@ Distributed weights являются licensed package content. Raw datasets, unr
 | POLICY-02 | 1 000 valid/blocked/faulted transitions | 100% unsafe points deferred; 0 teleport/actuator/safety violation; valid candidate commits within 30 motor ticks after first eligible safe point; route/state exact under completion permutations | pin previous route and circuit-break candidate |
 | SKILL-01 | one-handed axe, 1 000 held-out episodes per proficiency band | route result exact for all boundary vectors; novice valid-contact success 20–60%; trained ≥80%; trained median contact time ≥20% lower; 0 safety violations; damage changes only through `EffectRequest` | reject skill revision and retain novice route |
 | CREATURE-01 | neutral quadruped `Prototype` → `Supported` | stand/locomotion/recovery aggregate ≥90%; bite/lunge valid contact ≥75%; 0 hidden/native gameplay dependency; procedural fallback remains loadable | retain capsule/procedural `Prototype` |
-| BEHAVIOR-01 | habits/tactics with ai-host/adapter present and absent | 0 direct MotorAction/gameplay mutation from habits; all actions pass AgentIntent/WorldCommand; scenario outcomes exact offline | deterministic authored utility/HTN profile |
+| BEHAVIOR-01 | habits/tactics with ai-host/adapter present and absent | 0 direct MotorAction/gameplay mutation from habits; all actions pass AgentIntent/WorldCommand; scenario outcomes exact offline | deterministic Utility + bounded GOAP/tactical profile |
 | TRAIN-P1 | pinned training backend export/deployment | ADR-009 thresholds; license/SBOM complete; export reproducible from pinned config except declared stochastic metrics | engine-owned headless physics lab |
 | TRAIN-MAC-P0 | generated deterministic 2-DoF development smoke | 4 fixed seeds; 8 envs ×256 steps; 1 000 observations; PyTorch/ONNX max abs error ≤`1e-5`; 0 NaN/Inf; ≤10 minutes on MPS or declared CPU fallback | CPU smoke; stop this training lane on export/parity failure |
 
