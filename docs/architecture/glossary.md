@@ -4,10 +4,10 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 3.0 |
-| Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | INDEX-001, [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
-| Заменяет | GLOSSARY-001 2.3; retired resolver/session-recovery/future-feature terms removed |
+| Версия | 3.1 |
+| Последняя проверка | 2026-08-09 |
+| Нормативные зависимости | INDEX-001, [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) |
+| Заменяет | GLOSSARY-001 3.0; adds deterministic Strategic Agent terminology |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -62,6 +62,14 @@
 | **UiSemanticSnapshot** | Immutable stable screen/control-role/action-affordance projection for UI; widget trees, localized strings as identity and mutable domain references are excluded. |
 | **PlayerPreferenceProfile** | Local versioned `PresentationOnly` bindings/accessibility/localization/presentation settings whose resulting canonical action frame may enter production input but whose stored values are not gameplay authority. |
 | **AgentIntent** | Высокоуровневое намерение AI, ещё не имеющее права изменять мир. Проходит policy/rules validation и преобразуется в WorldCommand либо rejection. |
+| **Strategic Agent** | Детерминированный Agent Runtime слой, выбирающий `что` и `почему` делать NPC из bounded epistemic state; execution выполняют domain owners через proposals и `WorldCommand`. |
+| **Epistemic View** | Immutable revision-bound совокупность perception, beliefs, memory и разрешённых self/owner projections, доступная конкретному NPC; hidden authoritative world state в неё не входит. |
+| **Belief** | Semantic утверждение NPC с subject/predicate/value, confidence, provenance, learned/verified revision и contradiction state; не является world truth. |
+| **Drive View** | Derived fixed-point pressure для goal selection, вычисленное из authoritative owner resources и agent-owned hysteresis; не отдельная mutable needs authority. |
+| **Aspiration** | Long-horizon authored tendency, создающая medium-horizon goal candidates, но не исполняющая action напрямую. |
+| **Semantic Affordance** | Концептуальная revision-bound planning projection owner-specific возможности с preconditions/effects/cost/time/risk/failures; не executable callback и не mutation right. |
+| **Speech Act** | Bounded semantic NPC/player communication proposal с participants, topic/claim, provenance, confidence и expiry; generated wording не является gameplay authority. |
+| **Decision Trace** | Bounded immutable non-authoritative diagnostic goal scores, cited beliefs, selected plan, task outcome и replan reason для одного Strategic Agent boundary. |
 | **PhysicalAvatarIntent** | Ограниченный по времени запрос locomotion/posture/manipulation к motor controller; не задаёт physics pose напрямую. |
 | **MotorObservation** | Versioned numeric observation, вычисленная из physics state и разрешённого gameplay context. |
 | **MotorAction** | Ограниченный versioned набор joint targets/torques или controller parameters, прошедший safety clamp. |

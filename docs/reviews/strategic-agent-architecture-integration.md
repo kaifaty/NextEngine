@@ -13,8 +13,8 @@
 
 Отчёт фиксирует полный перенос исходного ТЗ в normative architecture Next
 Engine. Сам отчёт не задаёт product contract и не имеет приоритета над
-Accepted SPEC/ADR. Исходный файл был untracked working material и удаляется
-после проверки этой матрицы; его raw text не является второй authority.
+Accepted SPEC/ADR. Исходный файл был untracked working material и удалён после
+проверки этой матрицы; его raw text не является второй authority.
 
 Disposition означает:
 
@@ -112,5 +112,5 @@ Disposition означает:
 anchor. `deferred` элементы сохранены в optional/future документах, а единственный
 `rejected` пункт отвергает только преждевременную форму crate split, не исходную
 цель модульности. После синхронизации supporting SPEC/ADR, roadmap, routing,
-README, glossary и traceability raw source может быть удалён без потери
-архитектурного решения.
+README, glossary и traceability raw source удалён без потери архитектурного
+решения.

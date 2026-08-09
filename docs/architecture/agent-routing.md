@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 1.9 |
+| Версия | 2.0 |
 | Последняя проверка | 2026-08-09 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -42,9 +42,10 @@
 | PhysX backend (Proposed track) | [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | ADR-033 (fallback — reference backend) | play, platform |
 | Skeletal animation, retargeting, IK | [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-05](05-physics-animation-and-motor-control.md) | ADR-027 | play |
 | Motor control, policies, deterministic inference, training lifecycle | [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md) | ADR-009, ADR-013 | performance (model runtime) |
-| AI agents, perception, memory, LLM/process boundary | [SPEC-06](06-ai-agents-perception-and-memory.md) | ADR-005 | play |
+| AI agents, perception, memory, deterministic Strategic Agent and LLM/process boundary | [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | ADR-005, ADR-056, ADR-046 | play; persistence-replay for state, content-package for authored seeds/affordances, conditional performance for 100-NPC work |
 | First-party model-training environments, trajectories, datasets, runs, export, consolidation and accelerated mirrors (Proposed track) | [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), plus the lane SPEC | ADR-053, ADR-030, ADR-046, plus the lane ADR | none until a production consumer exists; future fast + lane checks + MODEL-DATAPLANE/EXPORT and applicable MIRROR/STATISTICS/CONSOLIDATION/DATA-GOVERNANCE-P1 |
-| Future learned NPC strategic/tactical behavior policy, Hope-inspired state and training (Proposed track) | [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-06](06-ai-agents-perception-and-memory.md) | ADR-050, ADR-053, ADR-054, ADR-005, ADR-046 | none until a production consumer exists; future BEHAVIOR-* plus applicable MODEL-* checks |
+| Future R4c/R4d deterministic NPC cognition, beliefs, goals, GOAP, social behavior and systemic economy vertical (Proposed promotion track) | [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | ADR-056, ADR-020, ADR-021, ADR-022, ADR-046 | none until production consumers exist; future fast, play, persistence-replay, content-package, STRATEGIC-* and conditional performance |
+| Future learned NPC strategic/tactical behavior policy, Hope-inspired state and training (optional R8 Proposed track) | [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-06](06-ai-agents-perception-and-memory.md) | ADR-050, ADR-053, ADR-054, ADR-056, ADR-046 | none until an optional R8 production consumer exists; future per-role BEHAVIOR-* plus applicable MODEL-* checks |
 | Future Mamba-2 universal motion foundation and portable explicit-state export (Proposed track) | [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | ADR-009 (Accepted composition), ADR-053, ADR-055 | none until a production consumer exists; future MOTOR/POLICY + applicable MODEL-EXPORT/MIRROR/STATISTICS-P1 and performance |
 | Dialogue, model packs (Proposed track) | [SPEC-16](16-text-canonical-multimodal-dialogue-and-model-packs.md) | ADR-017 | play |
 | Current RPG domain and quests | [SPEC-19](19-rpg-domain-and-narrative-state.md) | ADR-020, ADR-046 | play |
@@ -78,8 +79,9 @@ packets 1.0–1.9 (`docs/reviews/`) — historical snapshots. Их MAY чита�
 SPEC-16/ADR-017 (dialogue model packs), SPEC-20/ADR-052 (R4a derived calendar
 and authored routine), the navigation candidate in SPEC-08, SPEC-23
 (future generic jobs/resource work after bounded R3), SPEC-31 (narrative/divine intent formerly in
-ADR-029/ADR-031), SPEC-32/SPEC-33/SPEC-34 and ADR-050/ADR-053/ADR-054
-(future learned strategic/tactical NPC behavior and training data plane),
+ADR-029/ADR-031), SPEC-32 (future deterministic R4c/R4d consumer schemas),
+SPEC-33/SPEC-34 and ADR-050/ADR-053/ADR-054 (optional R8 learned
+strategic/tactical NPC behavior and training data plane),
 ADR-055 (optional Mamba-2 motion foundation), и PhysX backend из ADR-033 —
 Proposed.
 Не представлять как реализованное; при работе рядом указывать fallback и

@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.22 |
+| Версия | 2.23 |
 | Последняя проверка | 2026-08-09 |
-| Заменяет | INDEX-001 version 2.21 |
+| Заменяет | INDEX-001 2.22; adopts ADR-056 and separates deterministic R4 cognition from optional learned R8 work |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -164,9 +164,9 @@ traceability — навигационная карта, не admission authority
 | SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted |
 | SPEC-30 | [Presentation snapshot, camera, UI и render content](30-presentation-extraction-and-render-content.md) | Accepted |
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
-| SPEC-32 | [NPC cognition, intention lifecycle and deterministic behavior inference](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Proposed |
-| SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed |
-| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed; first-party R&D data plane, not a current creator SDK or shipped trainer |
+| SPEC-32 | [Deterministic Strategic Agent cognition and social behavior](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Proposed R4c/R4d target; ADR-056 invariants are Accepted, exact schemas wait for consumers |
+| SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
+| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed optional R&D data plane, not a current creator SDK or shipped trainer |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -180,7 +180,7 @@ traceability — навигационная карта, не admission authority
 | ADR-002 | [Rust-first core, FFI и ECS facade](adr/002-rust-first-ffi-and-ecs-facade.md) | Accepted; reviewed unsafe remains confined to FFI/backend boundaries under ADR-033/ADR-049 |
 | ADR-003 | [Vulkan renderer и shader toolchain](adr/003-vulkan-renderer-and-shader-toolchain.md) | Accepted |
 | ADR-004 | [Physics-avatar backend boundary](adr/004-physics-avatar-backend-boundary.md) | Superseded |
-| ADR-005 | [Offline-first AI process boundary](adr/005-offline-first-ai-process-boundary.md) | Accepted |
+| ADR-005 | [Offline-first AI process boundary](adr/005-offline-first-ai-process-boundary.md) | Accepted; planner wording partially superseded by ADR-056, process/offline boundaries preserved |
 | ADR-006 | [Scripting и plugin model](adr/006-scripting-and-plugin-model.md) | Superseded |
 | ADR-007 | [Identities, persistence и replay](adr/007-identities-persistence-and-replay.md) | Superseded |
 | ADR-008 | [Mechanics/mod package и agent authoring](adr/008-mechanics-mod-package-and-agent-authoring-model.md) | Accepted package/no-private-path invariants; unconsumed agent-authoring/CLI/MCP obligations superseded by ADR-046 |
@@ -225,12 +225,13 @@ traceability — навигационная карта, не admission authority
 | ADR-047 | [Simple application session and save-on-close](adr/047-simple-application-session-and-save-on-close.md) | Accepted; two-slot current-state snapshot and two-stage close journal replace session recovery archives/object packs |
 | ADR-048 | [Direct exact project lock](adr/048-direct-exact-project-lock.md) | Accepted; current-only authoring/registry/package formats and `ProjectLockV3` replace project resolver/catalog/policy closure |
 | ADR-049 | [Performance evidence without allocator instrumentation](adr/049-performance-evidence-without-allocator-instrumentation.md) | Accepted; Performance V4 and low-overhead resource evidence replace allocator instrumentation and V2/V3 readers |
-| ADR-050 | [Hierarchical NPC cognition and learned behavior-policy boundary](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md) | Proposed; two independent learned roles with exact per-seed decisions and deterministic planner fallback |
+| ADR-050 | [Optional learned strategic and tactical behavior-policy boundary](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md) | Proposed optional R8 role policies with exact applied-decision parity and ADR-056 fallback |
 | ADR-051 | [R3a packaged chunk streaming commit boundary](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md) | Accepted; one pinned packaged fetch/decode/validate/two-tick commit vertical, without generic scheduler/resource promotion |
 | ADR-052 | [Derived world calendar and authored routine vertical](adr/052-derived-world-calendar-and-authored-routine-vertical.md) | Proposed; R4a candidate for one relay-keeper routine, exact derived calendar and separate World Services segment |
 | ADR-053 | [Engine-native model training and immutable artifact boundary](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md) | Proposed; canonical headless environment, accelerated mirrors and immutable candidate bundles |
 | ADR-054 | [Bounded strategic adaptation and two-tier sleep](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md) | Proposed; Hope-inspired explicit bounded state, deterministic runtime consolidation and offline child bundles |
 | ADR-055 | [Mamba-2 physical motion foundation profile](adr/055-mamba2-physical-motion-foundation-profile.md) | Proposed; optional learned foundation profile with explicit cache and procedural fallback |
+| ADR-056 | [Deterministic Strategic Agent and belief-driven GOAP](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) | Accepted; belief-driven Utility + bounded GOAP closes R4/v1 without learned models |
 
 ## Proposed tracks
 
@@ -248,12 +249,15 @@ traceability — навигационная карта, не admission authority
 - SPEC-31 narrative director, generated quest graph and divine-standing intent
   formerly described by ADR-029/ADR-031; they have no current implementation
   obligation and return only with a concrete production consumer.
-- SPEC-32/SPEC-33/SPEC-34 and ADR-050/ADR-053/ADR-054 — future R4 hierarchical
-  NPC cognition and first-party training platform: separate strategic/tactical
-  policies, Hope-inspired bounded state, immutable offline consolidation and
-  exact runtime data-plane/export boundaries. R4c requires production
-  consumers and passing ProductChecks; utility/HTN remains the mandatory
-  deterministic fallback and LLM/audio remain optional.
+- SPEC-32 — deterministic R4c/R4d Strategic Agent target: epistemic beliefs,
+  derived drives, goals, fixed-point Utility, bounded GOAP, private task
+  executive, structured NPC communication, tiered cadence and one
+  work/currency/trade/food vertical. Exact schemas/check mappings wait for
+  production consumers under ADR-046; LLM/audio remain optional.
+- SPEC-33/SPEC-34 and ADR-050/ADR-053/ADR-054 — optional R8 learned
+  strategic/tactical and training data-plane track. Per-role promotion requires
+  immutable artifacts, multi-seed evidence, target parity and complete ADR-056
+  fallback; joint promotion is required only by profiles activating both roles.
 - ADR-055 with Proposed subsections in SPEC-14/SPEC-27 — optional Mamba-2
   universal learned foundation, fixed-PD first route and portable explicit-
   state export. The Accepted foundation/residual/exclusive composition and

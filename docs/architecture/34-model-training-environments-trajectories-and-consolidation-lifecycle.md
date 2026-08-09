@@ -399,9 +399,10 @@ All checks are `NOT_RUN(NO_PRODUCTION_CONSUMER)` in this docs-only changeset.
 | `MODEL-CONSOLIDATION-P1` | Parent + immutable corpus → offline child → retention/new-task/joint evaluation | A new content-addressed child is published only after every gate; parent, project, world and save bytes remain unchanged. |
 | `MODEL-DATA-GOVERNANCE-P1` | Opt-in gameplay, teacher, synthetic and malformed provenance/license/consent/redaction fixtures | Only declared data enters a dataset; unknown/incompatible input is rejected and no protected bytes enter Git/package. |
 
-Lane ProductChecks in SPEC-27, SPEC-32 and SPEC-33 remain required. A common
-data-plane pass cannot substitute for policy quality, gameplay integration,
-safety, persistence/replay or runtime performance checks.
+Applicable learned-lane ProductChecks in SPEC-27 or SPEC-33 remain required.
+SPEC-32 deterministic R4 checks are independent and never wait for this data
+plane. A common data-plane pass cannot substitute for policy quality, gameplay
+integration, safety, persistence/replay or runtime performance checks.
 
 ## Promotion boundary
 
