@@ -4,8 +4,8 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-09 |
-| Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; оба performance workloads записали `required_staging_bytes=6818` и остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. Следующий WIP=1 — R4 Systemic living world. B-12, Linux, R1/R7 и v1 shipping не закрыты. |
-| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Следующий самостоятельный increment — R4. |
+| Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; оба performance workloads записали `required_staging_bytes=6818` и остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. Следующий WIP=1 — R4a derived calendar + authored relay-keeper routine. SPEC-20/ADR-052 фиксируют Proposed promotion package; implementation и ProductChecks ещё не начаты. B-12, Linux, R1/R7 и v1 shipping не закрыты. |
+| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Следующий самостоятельный increment — R4a. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
@@ -496,14 +496,15 @@ intent и не является принятым R3 contract.
 
 ## R4 — Systemic living world
 
-**Статус:** `NEXT`, WIP=1 после завершённого R3.
+**Статус:** `NEXT`, WIP=1 после завершённого R3; первым выполняется R4a.
 
 **Цель:** перейти от scripted encounter к offline world, где NPC и world state
 продолжают согласованно жить вне непосредственного контакта с игроком.
 
 **Основной scope:**
 
-- `WorldCalendarState`, stepped/bounded bulk time и World Services save owner;
+- exact derived World Services calendar/routine owner, затем отдельный
+  stepped/bounded bulk-time consumer;
 - population records, `Dormant/Abstract/Simulated/Active` tiers, schedules,
   wake/defer rules и region transfers;
 - deterministic graph navigation baseline, tiled cook/streaming, route validity
@@ -525,6 +526,35 @@ intent и не является принятым R3 contract.
 - integrated 100-NPC budget with deterministic cadence/deferral and no
   starvation;
 - deterministic acoustic gameplay facts; hardware audio remains presentation.
+
+**Последовательность product increments (WIP=1):**
+
+1. **R4a — derived calendar + authored relay-keeper routine (`NEXT`):** один
+   существующий NPC в active relay-station chunk проходит одну authored
+   `Duty → Rest` boundary. Exact integer-rational projection от
+   `SimulationTick` создаёт internal World Services command/event; committed
+   activity разрешает или блокирует exact
+   `nextengine.reference-alpha.interaction.accept-frontier-relay` path и
+   сохраняется/replay-ится в отдельном routine segment; успешная Duty-ветка
+   видна как `Frontier Relay - Active` в journal. Единственный новый catalog
+   asset меняет reference authoring roots `27 → 28` и content entries
+   `113 → 114`. Promotion также материализует
+   канонические SPEC-21 registry/schedule bytes и проводит их через один exact
+   runtime profile в неизменённый `ProjectLockV3`, без отдельного opaque hash
+   constant. SPEC-20/ADR-052 остаются
+   Proposed до одновременного появления production consumer, passing `fast`,
+   `play`, `persistence-replay`, `content-package` и conditional smoke/report
+   checks. Navigation, tiers, bulk time, transfer, learned behavior и
+   `r4-100npc` не входят в R4a; smoke остаётся `REPORT_ONLY`, B-12 открыт.
+2. **R4b — tiers + graph navigation + 100 NPC (`PLANNED`):** расширить
+   population contract только вместе с exact multi-region workload,
+   placement/transfer consumer и engine-owned graph/tile navigation baseline.
+3. **R4c — learned strategic/tactical pair (`PLANNED`):** продвигать
+   SPEC-32/SPEC-33/ADR-050 только вместе, после deterministic substrate,
+   utility/HTN fallback и требуемой Windows/Linux GPU parity.
+
+R4a не закрывает R4, B-07, B-12 или B-13; full-stage критерии ниже остаются
+неизменными.
 
 **Критерии успеха:**
 
@@ -569,8 +599,9 @@ intent и не является принятым R3 contract.
 external `ai-host`. Они могут добавлять bounded speech acts, goal suggestions
 и validated prosody facts, но authored/text fallback обязателен.
 
-**Основные источники:** SPEC-06, SPEC-08, SPEC-13, SPEC-19, SPEC-20, SPEC-23,
-SPEC-25, SPEC-32, SPEC-33, ADR-016, ADR-020, ADR-021, ADR-026, ADR-050.
+**Основные источники:** SPEC-06, SPEC-08, SPEC-09, SPEC-12, SPEC-13, SPEC-19,
+SPEC-20, SPEC-23, SPEC-25, SPEC-32, SPEC-33, ADR-016, ADR-020, ADR-021,
+ADR-026, ADR-030, ADR-046, ADR-050, ADR-051, ADR-052.
 
 ## R5 — Physical character, animation and motor integration
 
@@ -1257,22 +1288,27 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 6. **R3b bounded general partition (`COMPLETE`):** ровно 4 regions/64 chunks,
    canonical packaged route и restart из `Requested`; B-06 закрыт без generic
    scheduler, placement catalog или alpha migration obligation.
-7. **R4 living-world + learned behavior vertical (`PLANNED / NEXT`):** calendar,
-   exact 100-NPC population, schedules/tiers, engine-owned graph/tile
-   navigation, representative mechanics and separate strategic/tactical
-   learned policies in one integrated flow. Windows/Linux GPU learned gate is
-   required for R4 exit; complete utility/HTN fallback remains the gameplay
-   path on unsupported hardware, while LLM/audio stay optional.
-8. **R5 physical character and animation (`PLANNED`):** минимальный v1 physics
+7. **R4a derived calendar + relay-keeper routine (`PLANNED / NEXT`):** promote
+   SPEC-20/ADR-052 only with the one-NPC production consumer, typed authoring,
+   separate World Services routine segment, current-only replay successor and
+   passing fast/play/persistence-replay/content-package plus conditional
+   performance smoke/report-only checks.
+8. **R4b tiers + graph navigation + 100 NPC (`PLANNED`):** exact population,
+   tier/placement/transfer and engine-owned graph/tile navigation substrate;
+   activate the representative report-only workload without claiming B-12.
+9. **R4c learned strategic/tactical pair (`PLANNED`):** both policies in one
+   integrated flow with complete utility/HTN fallback and required
+   Windows/Linux GPU applied-decision parity for full R4 exit.
+10. **R5 physical character and animation (`PLANNED`):** минимальный v1 physics
    profile, procedural capsule motor, skeleton/clip graph, retargeting и fixed IK.
-9. **R6 creator CLI and second project (`PLANNED`):** stable non-interactive JSON
+11. **R6 creator CLI and second project (`PLANNED`):** stable non-interactive JSON
    CLI, inspectors, templates и clean-checkout second-project exercise.
-10. **Windows hard performance/release checkpoint (`PLANNED`):** clean-commit
+12. **Windows hard performance/release checkpoint (`PLANNED`):** clean-commit
    ten-run R2–R5 baselines/hard gates и Windows v1 candidate package; Linux
    остаётся `DEFERRED_LINUX`, v1 shipping не заявляется.
 
 Каждый package должен быть отдельным product increment с focused checks. WIP=1:
-следующим выполняется R4. SPEC-23 остаётся Proposed: завершённый R3 не начинает
+следующим выполняется R4a. SPEC-23 остаётся Proposed: завершённый R3 не начинает
 универсальный scheduler design без второго concrete production workload.
 
 ## Обновление roadmap

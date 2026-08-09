@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-06 |
 | Статус | Accepted |
-| Версия | 1.12 |
-| Последняя проверка | 2026-08-08 |
+| Версия | 1.13 |
+| Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-06 1.11; добавлен только Proposed specialization pointer без изменения current Agent semantics |
+| Заменяет | SPEC-06 1.12; clarifies that the unimplemented 100-NPC recipe is deferred and creates no current ProductCheck |
 
 ## Source of truth и ownership
 
@@ -142,7 +142,7 @@ Process получает минимальный serialized context, не filesys
 | AI-01 | Same 100 scenarios with `ai-host` disabled | Gameplay and quest outcomes remain correct without blocking a tick; use the built-in planner/dialogue fallback. |
 | AI-02 | 1,000 kill/restart/timeout/malformed-result injections | No host crash or duplicate committed command; fallback is selected no later than one gameplay tick after the deadline signal. |
 | AI-03 | Adversarial intents and stale facts | Every forbidden or stale mutation is rejected and no direct state write is possible. |
-| AI-04 | ADR-016 deterministic 100-NPC workload | Due planning stays within p95 ≤1,250 us / p99 ≤1,500 us with deterministic deferral and no starvation, dropped work, LLM wait or unowned span; reduce planning cadence/LOD if needed. |
+| AI-04 | **Deferred R4b recipe; no current gate.** ADR-016 deterministic 100-NPC workload after its production population consumer exists | Due planning stays within p95 ≤1,250 us / p99 ≤1,500 us with deterministic deferral and no starvation, dropped work, LLM wait or unowned span; reduce planning cadence/LOD if needed. Until then the workload remains typed `NOT_RUN`/unavailable and this row creates no completion claim. |
 | MEMORY-P1 | SQLite candidate crash, compaction and migration corpus | Every committed record is recovered, canonical queries match, and corruption fails closed; fall back to the append-only log with compacted indexes. |
 | AI-05 | Restart/save/load with and without embeddings | Authoritative memory, relationship and narrative state is identical; embeddings may be rebuilt or disabled. |
 | AI-06 | Package affordance discovery | Every granted planner-visible ability is discoverable, new fixture abilities need no AI code change, and invalid/stale affordances are rejected; otherwise mark the ability manual-only. |

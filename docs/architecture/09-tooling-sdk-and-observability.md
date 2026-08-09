@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 3.0 |
-| Последняя проверка | 2026-08-08 |
+| Версия | 3.1 |
+| Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md) |
-| Заменяет | SPEC-09 version 2.9 speculative `next` CLI, inspectors, MCP and agent change-set contracts |
+| Заменяет | SPEC-09 version 3.0; synchronizes the current performance scenario list with the implemented R3 workload |
 
 ## Scope and authority
 
@@ -100,18 +100,24 @@ cannot become a hard PASS. Only clean release ten-run evidence on the complete
 THOTH fingerprint with a compatible baseline may produce hard timing PASS.
 B-12 remains open.
 
-The five current scenario families are preserved:
+The six current scenario families are preserved:
 
 1. smoke;
 2. long-session;
 3. interactive-frame;
 4. production-worker;
-5. `r2-alpha-render`.
+5. `r2-alpha-render`;
+6. `r3-multiregion-streaming`.
 
 Each uses its current V4 methodology hash and existing workload semantics.
 `r2-alpha-render` runs exploration, combat and UI/dialogue for primary 1080p
 and fallback 720p profiles through the production project/Vulkan path. Report
 mode remains `REPORT_ONLY` without clean THOTH preflight/baseline.
+
+`r3-multiregion-streaming` runs 1,000 canonical transitions across the current
+four-region/64-chunk route, reports the `streaming_world` span and logical
+staging charge, and remains `REPORT_ONLY`. It does not imply a generic
+scheduler/resource framework or close B-12.
 
 ## Failure semantics and checks
 
@@ -123,6 +129,6 @@ without affecting gameplay. A deterministic retry mismatch is
 
 Focused tooling tests cover command parsing, exact report schemas, atomic
 output, current-only rejection and boundary scan. `host-check` covers the
-workspace. The `performance` command covers V4 reports/baselines and all five
+workspace. The `performance` command covers V4 reports/baselines and all six
 scenario routes; platform/GPU availability may legitimately yield typed
 `NOT_RUN` without claiming success for that scenario.

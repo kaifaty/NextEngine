@@ -4,14 +4,14 @@
 |---|---|
 | ID | SPEC-05 |
 | Статус | Accepted |
-| Версия | 2.1 |
-| Последняя проверка | 2026-07-30 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-033](adr/033-physx-grounded-capsule-parity-ffi-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md) |
-| Заменяет | SPEC-05 2.0 |
+| Версия | 2.2 |
+| Последняя проверка | 2026-08-09 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-033](adr/033-physx-grounded-capsule-parity-ffi-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
+| Заменяет | SPEC-05 2.1; marks the unimplemented residency-tier input as future R4b while retaining physical LOD ownership |
 
 ## Source of truth и ownership
 
-Для physical LOD `FullArticulation` и `SimplifiedActiveRagdoll` Physical Embodiment physics world владеет engine-owned body pose, velocities, contacts, constraints и canonical snapshot; replaceable PhysicsBackend является private compute adapter, а не source of truth. Для `CapsuleAnimation` validated controller владеет collision transform, animation graph — visual local pose. Physical `Abstract` не является `WorldResidencyTier`: World Services отдельно владеет durable population tier/logical region/activity, а RPG Framework — aggregate outcomes. Renderer всегда читает immutable presentation projection. Ни backend, World Services, animation, AI, gameplay script, importer, renderer, UI/camera, ни LLM не могут напрямую записать active physics authority.
+Для physical LOD `FullArticulation` и `SimplifiedActiveRagdoll` Physical Embodiment physics world владеет engine-owned body pose, velocities, contacts, constraints и canonical snapshot; replaceable PhysicsBackend является private compute adapter, а не source of truth. Для `CapsuleAnimation` validated controller владеет collision transform, animation graph — visual local pose. Physical `Abstract` не является будущим `WorldResidencyTier`: после отдельного R4b promotion World Services будет владеть durable population tier/logical region/activity, а RPG Framework — aggregate outcomes. Сейчас ADR-046 не допускает current population-tier API. Renderer всегда читает immutable presentation projection. Ни backend, World Services, animation, AI, gameplay script, importer, renderer, UI/camera, ни LLM не могут напрямую записать active physics authority.
 
 Physical Embodiment владеет backend-neutral descriptors, physics stepping, motor observation/action, policy safety/resolution/supervision, topology transactions, animation bridge, LOD coordinator и physical support checks. RPG skill proficiency и Agent habits остаются за пределами этого ownership.
 
@@ -91,7 +91,7 @@ Animation assets задают reference motions, intent features и presentation
 | `CapsuleAnimation` | capsule collision/navigation + animation pose | distant visible NPC без physical interaction |
 | `Abstract` | logical region/time/task state | unloaded/non-visible NPC |
 
-Physical LOD request выводится только из canonical simulation facts: quantized simulation distance, gameplay importance, interaction/contact state, committed WorldResidencyTier view, simulation-owned visibility fact, PersistentId и versioned integer budget tokens из manifest. Renderer camera/frustum/occlusion, presentation visibility, measured CPU time, wall clock, worker load и completion order MUST NOT влиять на tier. World Services может предложить residency/physical capability change, но LOD coordinator отдельно валидирует physical transition; unsupported abstract precise outcome детерминированно требует upgrade/defer и не телепортирует pose. Safety constraints имеют приоритет. Downgrade запрещён при external contact impulse, fall/recovery, grab, topology transaction, quest-critical physical interaction или unstable support.
+Physical LOD request выводится только из current canonical simulation facts: quantized simulation distance, gameplay importance, interaction/contact state, simulation-owned visibility fact, PersistentId и versioned integer budget tokens из manifest. После отдельного R4b promotion этот набор MAY также включать committed `WorldResidencyTier` view; до promotion такого входа нет. Renderer camera/frustum/occlusion, presentation visibility, measured CPU time, wall clock, worker load и completion order MUST NOT влиять на LOD. После promotion World Services может предложить residency/physical capability change, но LOD coordinator отдельно валидирует physical transition; unsupported abstract precise outcome детерминированно требует upgrade/defer и не телепортирует pose. Safety constraints имеют приоритет. Downgrade запрещён при external contact impulse, fall/recovery, grab, topology transaction, quest-critical physical interaction или unstable support.
 
 Transition MUST быть explicit state machine `Prepare → Validate → Commit → Stabilize`:
 

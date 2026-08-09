@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.20 |
+| Версия | 2.21 |
 | Последняя проверка | 2026-08-09 |
-| Заменяет | INDEX-001 version 2.19 |
+| Заменяет | INDEX-001 version 2.20 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -140,7 +140,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-05 | [Physics, animation и motor control](05-physics-animation-and-motor-control.md) | Accepted |
 | SPEC-06 | [AI agents, perception и memory](06-ai-agents-perception-and-memory.md) | Accepted |
 | SPEC-07 | [RPG, scripting и plugins](07-rpg-scripting-and-plugins.md) | Accepted |
-| SPEC-08 | [Audio, navigation и world services](08-audio-navigation-and-world-services.md) | Accepted |
+| SPEC-08 | [Audio, navigation и world services](08-audio-navigation-and-world-services.md) | Accepted current audio/partition ownership; navigation sections are a Proposed R4b candidate |
 | SPEC-09 | [Current tooling и observability](09-tooling-sdk-and-observability.md) | Accepted |
 | SPEC-10 | [Gothic importer boundary](10-gothic-importer-boundary.md) | Accepted |
 | SPEC-11 | [Runtime safety и license hygiene](11-security-licensing-and-governance.md) | Accepted |
@@ -152,7 +152,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted |
 | SPEC-18 | [Player interaction, UI, camera, localization и accessibility](18-player-interaction-ui-camera-localization-and-accessibility.md) | Accepted |
 | SPEC-19 | [Current RPG domain state](19-rpg-domain-and-narrative-state.md) | Accepted |
-| SPEC-20 | [Future world simulation и population intent](20-world-simulation-and-population-lifecycle.md) | Proposed |
+| SPEC-20 | [Derived world calendar and authored NPC routines](20-world-simulation-and-population-lifecycle.md) | Proposed; implementation-ready R4a candidate, not current until its production consumer and checks exist |
 | SPEC-21 | [Deterministic runtime primitives, command ledger и causal identity](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | Accepted |
 | SPEC-22 | [Current schema registry и format compatibility](22-schema-registry-compatibility-and-migration.md) | Accepted |
 | SPEC-23 | [Future generic jobs and resource work](23-jobs-memory-resource-residency-and-io-backpressure.md) | Proposed |
@@ -194,7 +194,7 @@ traceability — навигационная карта, не admission authority
 | ADR-017 | [Multimodal dialogue и model packs](adr/017-text-canonical-multimodal-dialogue-and-replaceable-model-packs.md) | Proposed |
 | ADR-018 | [Project composition и configuration](adr/018-authoritative-project-composition-and-configuration.md) | Accepted configuration/activation invariants; resolver/catalog clauses superseded by ADR-048 |
 | ADR-019 | [Player actions и presentation authority](adr/019-canonical-player-actions-and-presentation-authority.md) | Accepted |
-| ADR-020 | [RPG domain authority](adr/020-rpg-domain-authority-and-extension-boundary.md) | Accepted |
+| ADR-020 | [RPG domain authority](adr/020-rpg-domain-authority-and-extension-boundary.md) | Accepted ownership/transaction invariants; pre-v1 N-2 migration clause superseded by ADR-046 |
 | ADR-021 | [Population residency и time advance](adr/021-deterministic-population-residency-and-time-advance.md) | Accepted core invariants; unconsumed population/calendar schemas and migration superseded by ADR-046 |
 | ADR-022 | [Command identity V2, ledger и causal identity](adr/022-deterministic-command-identity-ledger-and-causal-identity.md) | Accepted |
 | ADR-023 | [HumanReviewDecisionV2 и offline attestation](adr/023-human-review-decision-v2-and-offline-attestation.md) | Superseded by ADR-030 |
@@ -226,11 +226,17 @@ traceability — навигационная карта, не admission authority
 | ADR-049 | [Performance evidence without allocator instrumentation](adr/049-performance-evidence-without-allocator-instrumentation.md) | Accepted; Performance V4 and low-overhead resource evidence replace allocator instrumentation and V2/V3 readers |
 | ADR-050 | [Hierarchical NPC cognition and learned behavior-policy boundary](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md) | Proposed; two independent learned roles with exact per-seed decisions and deterministic planner fallback |
 | ADR-051 | [R3a packaged chunk streaming commit boundary](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md) | Accepted; one pinned packaged fetch/decode/validate/two-tick commit vertical, without generic scheduler/resource promotion |
+| ADR-052 | [Derived world calendar and authored routine vertical](adr/052-derived-world-calendar-and-authored-routine-vertical.md) | Proposed; R4a candidate for one relay-keeper routine, exact derived calendar and separate World Services segment |
 
 ## Proposed tracks
 
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
-- SPEC-20 — future population/calendar vertical; no current schema or check.
+- SPEC-20/ADR-052 — implementation-ready R4a candidate: exact derived
+  calendar plus one authored relay-keeper `Duty/Rest` routine. It remains
+  Proposed and creates no current schema/check until the production consumer,
+  save/replay path and mapped ProductChecks land in the promotion changeset.
+- Navigation sections of SPEC-08 — bounded R4b graph/tile candidate; no current
+  navigation API or gate until a production consumer is admitted.
 - SPEC-23 — future generic scheduler/resource work after the completed bounded
   R3 partition; no generic scheduler/resource framework is accepted.
 - ADR-033 — optional PhysX 5.9.0 grounded-capsule backend до полной parity на

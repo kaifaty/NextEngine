@@ -1,11 +1,20 @@
 # План применения оптимизаций из ресерча 2026-08-02
 
-Дата: 2026-08-02. Статус: planning document, не ADR и не roadmap commitment.
+Дата: 2026-08-02. Статус: **superseded planning snapshot**, не ADR и не
+roadmap commitment.
 Источники: [optimization-approaches-research-2026-08-02](../development/optimization-approaches-research-2026-08-02.md)
 (toolbox техник и алгоритмов), [performance-research-2026-08-01](../development/performance-research-2026-08-01.md)
 (измеренные hotspot'ы), [2026-08-01-remaining-engine-performance-goal-prompt](2026-08-01-remaining-engine-performance-goal-prompt.md)
 (decision protocol и фазы 1–7), `docs/roadmap.md` (этапы R0–R8, блокеры
 B-04/B-06/B-07/B-12, отложенные workloads D1–D6).
+
+> **Historical notice (2026-08-09).** R3 завершён через bounded consumer из
+> ADR-051 без promotion SPEC-23 или generic scheduler/resource framework.
+> Текущий R4 порядок задают `docs/roadmap.md`, SPEC-20 и ADR-052. Упоминания
+> обязательной реализации SPEC-23 в R3, authoritative priority queue, JPS,
+> flow fields или других алгоритмов ниже являются только исследовательским
+> toolbox и не разрешают implementation до конкретного production consumer и
+> измеренного ограничения.
 
 ## Принцип плана
 

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-18 |
 | Статус | Accepted |
-| Версия | 2.3 |
-| Последняя проверка | 2026-07-30 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) |
-| Заменяет | отсутствует |
+| Версия | 2.4 |
+| Последняя проверка | 2026-08-09 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
+| Заменяет | SPEC-18 version 2.3; removes superseded SPEC-31/divine current claims and binds the journal to implemented SPEC-19 state |
 
 ## История принятия
 
@@ -180,41 +180,28 @@ Accessibility alternative MUST invoke the same action ID and validation path as 
 | `FAIL-033` | Invalid, non-monotonic, stale, conflicting, oversized or cutoff-corrupt control/action/targeting input | Reject the affected event, frame or candidate before partial/duplicate gameplay command; preserve exact assignment/diagnostic and never reorder by arrival or retry to green. |
 | `FAIL-034` | Missing/lost optional device, failed optional UI panel, missing locale/glyph or invalid preference profile | Use only the declared bounded accessible semantic-action/source-locale/default-profile fallback; required schema failure remains pre-world; save/domain state and committed commands remain untouched. |
 
-## SPEC-31 quest disclosure, journal and divine projection
+## Current quest journal and future narrative intent
 
-Quest UI reads the immutable RPG projection defined by
-[SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md). A `Latent` opportunity is
-not shown merely because it exists. `Direct`, `Solicited`, `Contextual` and
-`Public` surfaces all submit the same semantic disclosure/action path and render
-the same Quest ID, term revision and availability state after commit.
+The current quest UI reads only immutable SPEC-19 `Quest` aggregate
+projections. A journal row binds the quest `PersistentId`, exact committed
+revision/state ID and a stable text-catalog display-name ID. Localized text,
+widget order and whether the originating NPC is loaded never become quest
+identity or authority.
 
-An NPC line, translated text, notification, journal entry, board widget or
-question such as «есть работа?» cannot create a Quest or assign difficulty,
-reward or outcome. The question performs a bounded query over admitted eligible
-opportunities; `DiscloseQuestOpportunity`, `AcceptQuest` and
-`DeclineQuestOffer` remain validated RPG commands. Decline cooldown controls
-repeat presentation but is durable RPG state, not a widget timer.
+Reference-alpha renders its current states as `Frontier Relay - Available`,
+`Frontier Relay - Active` and `Frontier Relay - Completed`. Those labels are
+derived from the committed `available/active/completed` state ID after the
+ordinary `TransitionQuest`; the journal cannot create, accept, complete or
+hide a quest through presentation state. This is the player-visible projection
+used by the Proposed SPEC-20/ADR-052 R4a ProductCheck when that consumer lands.
 
-The journal MAY present `Offered`, `Accepted` and `Resolved` instances with
-source/channel, deadline warnings, frozen terms and committed outcome. It MUST
-NOT reveal hidden latent facts, use localized title/text as identity or hide an
-authoritative deadline/outcome because the originating NPC or panel is unloaded.
-
-Divine UI reads only `DivineStandingProjectionV1`: stable qualitative
-favor/attention band IDs, player-visible open `DivineOfferV1` terms/expiry,
-active covenant/vow summaries and bounded recent committed reason references.
-Exact `favor_raw`, `attention_raw`, thresholds, hidden taboos, epistemic rules,
-prompts and uncommitted candidates MUST NOT be shown as authoritative values.
-
-One committed player act MAY produce several simultaneous patron messages, for
-example approval from one god and condemnation from its rival. UI sorts them by
-the committed batch event order, presents each patron and causal reason
-separately and MUST NOT collapse them into one karma score or imply that the
-player can satisfy every god. Offer acceptance/decline, covenant renunciation/
-restoration and divine quest acceptance remain explicit semantic player actions
-through production command paths. UI submits the exact offer ID/revision and
-renders only the committed `DivineOfferTransitioned`/
-`DivineCovenantChanged` result; it cannot expire an offer with a widget timer.
+Autonomous opportunities, disclosure channels, offers/declines, deadlines,
+divine offers, covenants, judgments and their commands/events remain Proposed
+intent in SPEC-31 after ADR-046. `DiscloseQuestOpportunity`, `AcceptQuest`,
+`DeclineQuestOffer`, `DivineOfferV1`, `DivineStandingProjectionV1`,
+`DivineOfferTransitioned` and `DivineCovenantChanged` are not current APIs or
+ProductCheck obligations. The inert serialized `DivineStandingPayloadV1`
+listed by SPEC-19 does not create those presentation features.
 
 ## Consequences
 

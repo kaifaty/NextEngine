@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 1.7 |
+| Версия | 1.8 |
 | Последняя проверка | 2026-08-09 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -45,9 +45,10 @@
 | AI agents, perception, memory, LLM/process boundary | [SPEC-06](06-ai-agents-perception-and-memory.md) | ADR-005 | play |
 | Future learned NPC strategic/tactical behavior policy, intention state and training (Proposed track) | [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-06](06-ai-agents-perception-and-memory.md) | ADR-050, ADR-005, ADR-046 | none until a production consumer exists |
 | Dialogue, model packs (Proposed track) | [SPEC-16](16-text-canonical-multimodal-dialogue-and-model-packs.md) | ADR-017 | play |
-| Current RPG domain and quests | [SPEC-19](19-rpg-domain-and-narrative-state.md) | ADR-020 | play |
+| Current RPG domain and quests | [SPEC-19](19-rpg-domain-and-narrative-state.md) | ADR-020, ADR-046 | play |
 | Current bounded four-region/64-chunk partition, pinned generation and paired fixed-stage commit | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | ADR-026, ADR-048, ADR-051 | play, content-package, persistence-replay, performance smoke + r3-multiregion-streaming |
-| Future population/calendar vertical (Proposed track) | [SPEC-20](20-world-simulation-and-population-lifecycle.md) | ADR-021 (historical design context), ADR-046 | none until a production consumer exists |
+| R4a derived calendar and authored relay-keeper routine (Proposed promotion track) | [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-29](29-platform-host-and-application-session.md) | ADR-008, ADR-016, ADR-019, ADR-021 (Accepted ownership/determinism invariants; retired schemas are historical), ADR-022, ADR-025, ADR-030, ADR-034, ADR-046, ADR-047, ADR-048, ADR-051, ADR-052 | none until the production consumer exists; promotion runs fast, play, persistence-replay, content-package and conditional performance smoke/report-only |
+| Future R4b population tiers, placement/transfer and 100-NPC workload (Proposed track) | [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | ADR-016, ADR-021 (Accepted invariants only), ADR-046 | none until exact production population/navigation consumers exist |
 | Future narrative director or divine-standing proposal | [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) | ADR-029/ADR-031 (Superseded; historical context), ADR-046 | none until a production consumer exists |
 | Luau/Wasm scripting, plugins, mod packages, gameplay mechanics authoring | [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | ADR-008, ADR-014 | content-package |
 | Player interaction, UI, camera, localization, accessibility | [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md) | ADR-019, ADR-044 | play |
@@ -58,7 +59,8 @@
 | Tooling, SDK, observability | [SPEC-09](09-tooling-sdk-and-observability.md) | — | fast |
 | Gothic importer boundary, neutral artifacts | [SPEC-10](10-gothic-importer-boundary.md) | ADR-001 | content-package |
 | Security, licensing, governance, secrets, provenance | [SPEC-11](11-security-licensing-and-governance.md) | ADR-001 | fast |
-| Audio, navigation, world services | [SPEC-08](08-audio-navigation-and-world-services.md) | — | play |
+| Audio and current bounded world services | [SPEC-08](08-audio-navigation-and-world-services.md) | — | play |
+| Future navigation query/cook/100-NPC path (Proposed track) | [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | ADR-016, ADR-046 | none until a production navigation consumer exists |
 | Roadmap: scope, stage, blocker, exit criterion, очередь работ | [roadmap](../roadmap.md) + SPEC затронутой подсистемы | по строке подсистемы | по строке подсистемы |
 
 ## Historical-only — не authority
@@ -71,7 +73,8 @@ packets 1.0–1.9 (`docs/reviews/`) — historical snapshots. Их MAY чита�
 
 ## Proposed — не shipped
 
-SPEC-16/ADR-017 (dialogue model packs), SPEC-20 (future population), SPEC-23
+SPEC-16/ADR-017 (dialogue model packs), SPEC-20/ADR-052 (R4a derived calendar
+and authored routine), the navigation candidate in SPEC-08, SPEC-23
 (future generic jobs/resource work after bounded R3), SPEC-31 (narrative/divine intent formerly in
 ADR-029/ADR-031), SPEC-32/SPEC-33/ADR-050 (future learned strategic/tactical
 NPC behavior), и PhysX backend из ADR-033 — Proposed.

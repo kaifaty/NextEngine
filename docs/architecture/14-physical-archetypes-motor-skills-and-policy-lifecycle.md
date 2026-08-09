@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-14 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md) |
-| Заменяет | SPEC-14 1.9 speculative agent-authoring/CLI ceremony |
+| Версия | 2.1 |
+| Последняя проверка | 2026-08-09 |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
+| Заменяет | SPEC-14 2.0; marks the unimplemented population-tier input as future R4b rather than current API |
 
 ## Назначение и invariants
 
@@ -33,7 +33,7 @@ animation graph или inference route.
 | Active policy route, transition и complete `PolicyStateRecordV1` | Motor Runtime `PolicySupervisor` | deterministic resolver + accepted transition/state commit |
 | Habits, working plan и tactical preferences | Agent Runtime | `AgentArchetypeDefinition`, perception, memory, planner |
 | Damage, stamina, cooldown, inventory и quest effects | RPG/Mechanics Runtime | EffectRequest/WorldCommand transaction |
-| Durable population identity, schedule и `WorldResidencyTier` | World Services по SPEC-20 | committed world-service view; не physical-policy output |
+| Future durable population identity, schedule и `WorldResidencyTier` | Proposed World Services R4b track in SPEC-20/ADR-046 | no current view/API; after promotion it remains a committed world-service view, never physical-policy output |
 | Physical simulation LOD и pose fidelity | Physical Embodiment LOD coordinator | deterministic selection constrained by committed residency view and physical profile |
 | Physical support status | Immutable bundle revision and deterministic product-check results | `Prototype` or `Supported` |
 
@@ -48,7 +48,7 @@ authoring sources + model artifacts + provenance
   → validate body/policies/skills/behavior references
   → deterministic cook + immutable content hashes
   → CreatureArchetypeManifest
-  → World Services publishes committed WorldResidencyTier
+  → future R4b World Services may publish committed WorldResidencyTier
   → spawn/materialize generic Character + independently selected physical LOD
   → planner requests ability/PhysicalAvatarIntent
   → PolicyResolver(body, equipment, proficiency, topology, intent)
@@ -59,7 +59,13 @@ authoring sources + model artifacts + provenance
 
 Package code не получает mutable articulation, raw ECS ID, model session pointer, direct joint buffer, filesystem/network access или gameplay-state write path.
 
-`WorldResidencyTier` and physical LOD are separate enums, owners and state machines. Residency decides whether durable population is materialized and which world-service work is due; it never selects a pose, actuator route or model. Physical Embodiment may deterministically constrain physical LOD from the committed residency view, but cannot write tier/schedule/population state. A tier transition and a physical LOD transition therefore have separate commands/events, persistence fields and replay assertions.
+After its own R4b promotion, `WorldResidencyTier` and physical LOD remain
+separate enums, owners and state machines. Residency may then decide whether
+durable population is materialized and which World Services work is due; it
+never selects a pose, actuator route or model. Physical Embodiment may consume
+that committed view but cannot write tier/schedule/population state. Until
+that promotion there is no tier input, transition command, persistence field
+or replay assertion in the current physical contract.
 
 ## Creature и physical archetype contracts
 

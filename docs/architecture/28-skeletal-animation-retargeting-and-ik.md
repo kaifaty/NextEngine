@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-28 |
 | Статус | Accepted |
-| Версия | 1.3 |
-| Последняя проверка | 2026-08-06 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
-| Заменяет | SPEC-28 1.2 obsolete project-lock name only; animation contracts unchanged |
+| Версия | 1.4 |
+| Последняя проверка | 2026-08-09 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
+| Заменяет | SPEC-28 1.3; clarifies that residency-tier coupling remains future R4b intent |
 
 ## История принятия
 
@@ -64,11 +64,12 @@ runtime, motor/physics bridge, renderer, headless runner и capture-worker мо�
 | Render interpolation, skinning palette, presentation IK delta and GPU cache | Rendering subsystem | reconstructible presentation only; excluded from gameplay roots |
 | Save/replay generation and owner-segment encoding | Asset & Persistence subsystem | staged copy; no semantic ownership of decoded animation/physical state |
 
-`WorldResidencyTier`, physical LOD and animation LOD remain three distinct
-state machines. A committed residency view may constrain whether an embodied
-subject is present; physical LOD selects its simulation representation;
-animation LOD selects only declared evaluation/presentation work. None may
-silently write another owner’s state.
+After a separate R4b promotion, `WorldResidencyTier`, physical LOD and
+animation LOD remain three distinct state machines. A future committed
+residency view may constrain whether an embodied subject is present; physical
+LOD selects its simulation representation; animation LOD selects only declared
+evaluation/presentation work. Current animation has no residency-tier input,
+and none of these contexts may silently write another owner's state.
 
 ## Public contract boundary
 
@@ -444,8 +445,9 @@ animation marker.
 - `CulledPresentation`: publish no pose while all due intent work still
   evaluates.
 
-Animation LOD never changes physical LOD or `WorldResidencyTier`, and never
-skips due `PhysicalIntentGraph` work. Canonical simulation-owned facts may
+Animation LOD never changes physical LOD or a future admitted
+`WorldResidencyTier`, and never skips due `PhysicalIntentGraph` work.
+Canonical simulation-owned facts may
 select a project-declared animation LOD/cadence. Camera/frustum/occlusion and
 measured render cost MAY choose only a presentation level and are excluded
 from command/gameplay roots. Product captures use one exact pinned LOD/profile

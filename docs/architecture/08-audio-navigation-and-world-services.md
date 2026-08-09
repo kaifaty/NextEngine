@@ -4,18 +4,22 @@
 |---|---|
 | ID | SPEC-08 |
 | Статус | Accepted |
-| Версия | 1.9 |
-| Последняя проверка | 2026-08-08 |
+| Версия | 2.0 |
+| Последняя проверка | 2026-08-09 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-08 1.8 speculative population/calendar and generic jobs clauses |
+| Заменяет | SPEC-08 1.9; aligns the unconsumed navigation API/check recipes with ADR-046 and the graph-first R4 roadmap |
 
 ## Source of truth и ownership
 
-World Services владеет navigation representation/query service, route
-reservations, `WorldPartitionManifestV1` logical topology, durable spatial
-placement/tombstones, spatial indices и audio scene descriptions. Future
-calendar/weather/population authority остаётся Proposed в SPEC-20 и не является
-current contract. Asset & Persistence владеет immutable schema/content
+World Services currently owns `WorldPartitionManifestV1` logical topology,
+`WorldStreamingSnapshotV1` lifecycle state, reconstructible streaming caches
+and audio scene descriptions. The manifest's current placement/residency
+profile hashes are opaque empty-profile bindings; there is no current durable
+placement, tombstone, cross-chunk object or spatial-index public API.
+Navigation, placement and route reservations are Proposed ownership targets
+described below; no current API or ProductCheck follows from those sections.
+Future calendar/weather/population work remains Proposed in SPEC-20/ADR-052
+until its production consumer is admitted. Asset & Persistence владеет immutable schema/content
 publication, а Core Runtime — fixed `SimulationTick`, ephemeral residency
 mapping и transaction boundaries; ни один из них не становится вторым owner
 world topology/placement. Navigation plan не владеет фактическим character
@@ -25,14 +29,22 @@ deterministic acoustic facts, а не звуковую карту устройс
 
 ## Public boundary
 
-Public contracts ограничены `NavigationQuery`, `RoutePlan`, traversal link
-values, deterministic acoustic facts, `WorldPartitionManifestV1`, durable
-placement/tombstone/cross-chunk values и typed errors. Recast/Detour/Steam
+Current public contracts are limited to deterministic acoustic facts,
+`WorldPartitionManifestV1`, `WorldStreamingSnapshotV1` and typed errors used by
+their production consumers. Durable placement/tombstone/cross-chunk values,
+`NavigationQuery`, `RoutePlan` and traversal-link values are candidate
+contracts in the Proposed track below.
+Recast/Detour/Steam
 Audio/device handles, raw nav poly references, runtime entity/task handles и
 mixer buffers являются adapter internals. WorldCommand остаётся единственным
 mutable RPG/world входом.
 
-## Navigation intent и physical traversal
+## Proposed navigation intent и physical traversal
+
+This complete navigation section is a bounded R4b design recipe, not a current
+API, format or check. Promotion requires an engine-owned graph/tile production
+consumer, typed content/query schemas and mapped `play`, `content-package`,
+`persistence-replay` and conditional `performance` evidence under ADR-046.
 
 Navigation разделена на три contracts:
 
@@ -42,9 +54,15 @@ Navigation разделена на три contracts:
 
 RoutePlan является советом, не teleports и не source of truth. Stuck, push, closed door, moving obstacle или failed jump инвалидируют/перепланируют corridor. Off-mesh link хранит generic action tag и geometric constraints; actual interaction проходит WorldCommand/physical validation boundary.
 
-Recast/Detour — `Proposed` adapter. Engine владеет `NavSurface`, tiled nav data, query/filter, RoutePlan и diagnostics. `dt*` types и raw poly refs запрещены в saves, AI, scripting и bundles; stable nav polygon identity состоит из cooked tile AssetId + local engine index + revision.
+The first production baseline is an engine-owned deterministic graph/tile
+representation and query. Recast/Detour remains a `Proposed` optional adapter
+that may be evaluated only against exact engine-owned results. Future engine
+contracts own `NavSurface`, tiled nav data, query/filter, RoutePlan and
+diagnostics. `dt*` types and raw poly refs remain forbidden in saves, AI,
+scripting and bundles; candidate stable polygon identity is cooked tile
+`AssetId` + local engine index + revision.
 
-## Navigation cooking/streaming
+## Proposed navigation cooking/streaming
 
 Navmesh строится детерминированно из validated neutral collision geometry and
 traversal profiles SPEC-24. Build parameters и tool/schema hashes входят в
@@ -57,13 +75,18 @@ required revisions не validated and atomically active. Dynamic obstacle overla
 
 ## World services
 
-| Service | Authoritative state | Contract/failure |
-|---|---|---|
-| Spatial query | runtime index rebuilt from owned transforms/chunks | stale revision rejected; не заменяет physics exact query |
-| Reservation | PersistentId resource/agent, interval, priority, expiry | accepted только WorldCommand; deterministic conflict order |
-| Trigger/region | cooked volumes + overlap state | physical/capsule pose generates candidate; RPG validates outcome |
-| Acoustics facts | source, listener, loudness class, occlusion zone, tick | deterministic gameplay perception; independent from output device |
-| Partition/placement | `WorldPartitionManifestV1`, durable object placement/tombstones, cross-chunk references and canonical residency interests | immutable content definitions come from Asset & Persistence; Runtime mapping is ephemeral; invalid group never partially activates |
+Only rows marked Current are callable/serializable today. Proposed rows are
+ownership constraints for R4b and require their own schemas, consumers and
+promotion checks.
+
+| Status | Service | Authoritative state | Contract/failure |
+|---|---|---|---|
+| Current | Partition/streaming | `WorldPartitionManifestV1` topology plus `WorldStreamingSnapshotV1` lifecycle | immutable content definitions come from Asset & Persistence; Runtime mapping/cache is reconstructible; invalid group never partially activates |
+| Current | Acoustics facts | source, listener, loudness class, occlusion zone, tick | deterministic gameplay perception; independent from output device |
+| Proposed R4b | Durable placement | persistent object/chunk binding, tombstone and cross-chunk reference | no current schema/API; future invalid groups fail before publication |
+| Proposed R4b | Spatial query | index rebuilt from future owned transforms/chunks | stale revision rejected; never replaces an exact physics query |
+| Proposed R4b | Reservation | PersistentId resource/agent, interval, priority, expiry | future mutation only through `WorldCommand`; deterministic conflict order |
+| Proposed R4b | Trigger/region | cooked volumes plus overlap state | future physical/capsule fact proposes an outcome; RPG validates it |
 
 ## Audio architecture
 
@@ -77,14 +100,19 @@ Displayless audio check использует тот же deterministic `AudioSce
 
 ## Data flow
 
-`cooked collision → nav build → tiled bundles → runtime query → RoutePlan → tactical PhysicalAvatarIntent → physics outcome → route progress/replan`.
+Future navigation flow: `cooked collision → graph/tile build → tiled bundles →
+runtime query → RoutePlan → tactical PhysicalAvatarIntent → physics outcome →
+route progress/replan`.
 
 `DomainEvent/world state → deterministic acoustic fact → AI perception`; параллельно `PresentationSnapshot + clip/voice stream → AudioScene → optional propagation → mixer/device`.
 
 ## Failure semantics
 
 - Missing/corrupt nav tile → area unavailable с diagnostic; agent выбирает alternate/idle fallback, не проходит сквозь geometry.
-- Invalid/stale partition, placement, cross-chunk reference or stream-admission plan → reject the complete group, retain prior topology/placement/active generation and deterministically replan/defer.
+- Invalid/stale current partition or stream-admission plan → reject the
+  complete group and retain prior topology/active generation.
+- Future invalid placement/tombstone/cross-chunk input → reject before
+  publication; this rule creates no current placement API.
 - Resource/backpressure fault → required World Services work remains queued/deferred with exact age/reason or blocks before its mandatory boundary; it is never silently dropped.
 - Stale RoutePlan revision → reject before movement command, request replan.
 - Nav query budget exceeded → bounded partial/no-path result и retry policy, simulation tick не блокируется.
@@ -96,12 +124,16 @@ Displayless audio check использует тот же deterministic `AudioSce
 
 ## Product checks
 
+`AUDIO-*` rows are current checks selected by an affected audio change. The
+navigation/world-traversal rows are deferred R4b recipes and create no current
+gate while their production consumer and promoting ADR do not exist.
+
 | Check ID | Scenario / command | Expected behavior / fallback |
 |---|---|---|
-| NAV-P1 | Recast deterministic tiled cook on Windows and Linux | Neutral nav tiles and 1,000 start/goal query results are byte-identical; use the engine-owned graph navigation fallback if the adapter differs. |
-| NAV-P2 | Door, off-mesh, push, stuck and streaming fixtures | Stale paths are rejected, bounded fixtures either reach the goal or return no-path, and no path teleports an actor; replan or use the graph adapter. |
-| NAV-P3 | ADR-016 deterministic 100-NPC workload | Due navigation stays within p95 ≤1,250 us / p99 ≤1,500 us with bounded deferral and no starvation, drop or unowned span; lower deterministic cadence/LOD if needed. |
+| NAV-P1 | **Deferred R4b recipe; no current gate.** Engine-owned deterministic graph/tile cook and query baseline | Neutral graph/tile artifacts and 1,000 start/goal query results are byte-identical across required targets. Optional Recast must match the engine contract or remain disabled. |
+| NAV-P2 | **Deferred R4b recipe; no current gate.** Door, off-mesh, push, stuck and streaming fixtures | Stale paths are rejected, bounded fixtures either reach the goal or return no-path, and no path teleports an actor; deterministically replan or idle. |
+| NAV-P3 | **Deferred R4b recipe; no current gate.** ADR-016 deterministic 100-NPC workload after the population/navigation consumer exists | Due navigation stays within p95 ≤1,250 us / p99 ≤1,500 us with bounded deferral and no starvation, drop or unowned span; until then the workload remains typed `NOT_RUN`/unavailable. |
 | AUDIO-P1 | Engine baseline and optional Steam Audio candidate | Baseline playback always works, device loss recovers without gameplay differences, and optional propagation stays within scenario tolerance; fall back to baseline attenuation/panning/zones. |
 | AUDIO-L1 | Steam Audio version and distribution matrix | The selected version is compatible with target platforms and may be redistributed under the project policy; otherwise do not ship the adapter. |
-| WORLD-02 | Navigation/world-service/physical ownership and traversal corpus | World Services owns route/reservation state, the physical controller alone owns traversal outcome, stale plans reject, and replay is stable; deterministically replan or idle. |
+| WORLD-02 | **Deferred R4b recipe; no current gate.** Navigation/world-service/physical ownership and traversal corpus | World Services owns route/reservation state, the physical controller alone owns traversal outcome, stale plans reject, and replay is stable; deterministically replan or idle. |
 | AUDIO-02 | Displayless canonical PCM and event synchronization | PCM is deterministic on the pinned sink, event alignment is within one sample, acoustic facts are exact, and gameplay hashes do not depend on audio output; retain gameplay and use the baseline audio path on failure. |
