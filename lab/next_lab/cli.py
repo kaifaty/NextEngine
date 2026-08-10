@@ -5,11 +5,17 @@ import json
 import platform
 import subprocess
 import sys
+import os
+from pathlib import Path
 from typing import Any
 
 import torch
 
 from next_lab.smoke import SmokeConfig, run_smoke
+from next_lab.correspondence import evaluate_files
+from next_lab.isaac_profile import IsaacProfile, doctor_report
+from next_lab.motor_mirror import load_json, validate_descriptor, validate_golden
+from next_lab.usd_translation import translate_to_store
 
 
 def _mps_probe() -> tuple[bool, str | None]:
@@ -126,7 +132,48 @@ def parser() -> argparse.ArgumentParser:
     smoke_parser = commands.add_parser("smoke")
     smoke_parser.add_argument("--device", choices=["auto", "mps", "cpu"], default="auto")
     smoke_parser.add_argument("--iterations", type=int, default=256)
+
+    repository_root = Path(__file__).resolve().parents[2]
+    mirror_parser = commands.add_parser("motor-mirror-check")
+    mirror_parser.add_argument(
+        "--golden",
+        type=Path,
+        default=repository_root / "lab/tests/fixtures/stage0_motor_mirror_v1.json",
+    )
+    mirror_parser.add_argument("--descriptor", type=Path)
+
+    translate_parser = commands.add_parser("translate-body")
+    translate_parser.add_argument("--descriptor", type=Path, required=True)
+    translate_parser.add_argument("--store", type=Path)
+    translate_parser.add_argument(
+        "--golden",
+        type=Path,
+        default=repository_root / "lab/tests/fixtures/stage0_motor_mirror_v1.json",
+    )
+
+    isaac_parser = commands.add_parser("isaac-doctor")
+    isaac_parser.add_argument(
+        "--profile-file",
+        type=Path,
+        default=repository_root / "lab/profiles/isaac-lab-physx-stage0.v1.json",
+    )
+
+    correspondence_parser = commands.add_parser("correspondence")
+    correspondence_parser.add_argument("--cpu", type=Path, required=True)
+    correspondence_parser.add_argument("--gpu", type=Path, required=True)
+    correspondence_parser.add_argument("--store", type=Path)
     return root
+
+
+def _configured_store(value: Path | None) -> Path:
+    candidate = value or (Path(path) if (path := os.environ.get("NEXTENGINE_TRAINING_STORE")) else None)
+    if candidate is None:
+        raise ValueError("--store or NEXTENGINE_TRAINING_STORE is required")
+    repository_root = Path(__file__).resolve().parents[2]
+    resolved = candidate.resolve()
+    if resolved == repository_root or repository_root in resolved.parents:
+        raise ValueError("training artifacts require an external configured store")
+    return resolved
 
 
 def main() -> int:
@@ -136,6 +183,39 @@ def main() -> int:
     if arguments.command == "smoke":
         config = SmokeConfig(device=arguments.device, iterations=arguments.iterations)
         return run_smoke(config)
+    if arguments.command == "motor-mirror-check":
+        golden = load_json(arguments.golden)
+        descriptor_bytes = arguments.descriptor.read_bytes() if arguments.descriptor else None
+        validate_golden(golden, descriptor_bytes)
+        if descriptor_bytes is not None:
+            descriptor = json.loads(descriptor_bytes)
+            validate_descriptor(descriptor)
+        print(json.dumps({"check": "MODEL-MIRROR-GOLDEN", "status": "passed"}, indent=2))
+        return 0
+    if arguments.command == "translate-body":
+        descriptor_bytes = arguments.descriptor.read_bytes()
+        descriptor = json.loads(descriptor_bytes)
+        validate_golden(load_json(arguments.golden), descriptor_bytes)
+        manifest = translate_to_store(
+            descriptor,
+            _configured_store(arguments.store),
+            Path(__file__).resolve().parents[2],
+        )
+        print(json.dumps(manifest, indent=2, sort_keys=True))
+        return 0
+    if arguments.command == "isaac-doctor":
+        report, available = doctor_report(IsaacProfile.load(arguments.profile_file))
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return 0 if available else 3
+    if arguments.command == "correspondence":
+        report, path = evaluate_files(
+            arguments.cpu,
+            arguments.gpu,
+            _configured_store(arguments.store),
+        )
+        summary = {"check": report["check"], "status": report["status"], "report": str(path)}
+        print(json.dumps(summary, indent=2, sort_keys=True))
+        return 0 if report["status"] == "passed" else 4
     raise AssertionError(f"unhandled command: {arguments.command}")
 
 

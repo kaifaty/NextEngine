@@ -1,0 +1,12 @@
+{
+  "backend": "physx",
+  "engine_physx_version": "5.9.0",
+  "environments": 4096,
+  "isaac_lab_release_url": "https://github.com/isaac-sim/IsaacLab/releases/tag/v2.3.2",
+  "isaac_lab_version": "2.3.2",
+  "isaac_sim_version": "5.1.0",
+  "profile_id": "nextengine.isaac-lab-physx-stage0.v1",
+  "python_version": "3.11",
+  "schema_version": 1,
+  "status": "Proposed"
+}

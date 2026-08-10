@@ -15,6 +15,7 @@ physx-sdk = ["next_physics_physx/physx-sdk", "next_physics_physx_ffi/physx-sdk"]
 next_contracts.workspace = true
 next_physics_physx.workspace = true
 next_physics_physx_ffi.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

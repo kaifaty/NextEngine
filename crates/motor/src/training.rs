@@ -21,6 +21,17 @@ const RANDOMIZATION_PURPOSES: [&str; 4] = [
     "randomization.terrain",
 ];
 
+pub const STANDING_REWARD_COMPONENT_IDS: [&str; 8] = [
+    "reward.upright",
+    "reward.root-height-tracking",
+    "reward.standing-pose-tracking",
+    "reward.velocity-penalty",
+    "reward.effort-penalty",
+    "reward.action-rate-penalty",
+    "reward.foot-slip-penalty",
+    "reward.fall-terminal",
+];
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VectorStepInput {
     pub vector_slot: u32,
@@ -49,6 +60,7 @@ pub struct VectorStepOutput {
 struct VectorSlot {
     episode_ordinal: u64,
     runtime: DeterministicHumanoidMotor,
+    previous_action_microradians: Vec<i64>,
 }
 
 #[derive(Debug)]
@@ -75,6 +87,7 @@ impl MotorVectorRunner {
             slots.push(VectorSlot {
                 episode_ordinal: 0,
                 runtime: DeterministicHumanoidMotor::create(compiled)?,
+                previous_action_microradians: vec![0; crate::REFERENCE_HUMANOID_DOF],
             });
         }
         Ok(Self {
@@ -96,6 +109,7 @@ impl MotorVectorRunner {
         let mut output = Vec::with_capacity(self.slots.len());
         for (slot_index, slot) in self.slots.iter_mut().enumerate() {
             slot.episode_ordinal = episode_ordinal;
+            slot.previous_action_microradians.fill(0);
             let vector_slot = slot_index as u32;
             output.push(VectorResetOutput {
                 episode_ordinal,
@@ -128,11 +142,14 @@ impl MotorVectorRunner {
             let input = by_slot
                 .remove(&vector_slot)
                 .ok_or(TrainingEnvironmentError::IncompleteBatch)?;
+            let previous_action = slot.previous_action_microradians.clone();
             let frame = slot
                 .runtime
                 .step_motor_frame(&input.action_microradians, input.command_raw)?;
             let terminal_reason_id = terminal_reason(&frame, self.maximum_episode_steps);
-            let reward_components_raw = standing_reward_components(&frame, input.command_raw);
+            let reward_components_raw =
+                standing_reward_components(&frame, &input.action_microradians, &previous_action);
+            slot.previous_action_microradians = input.action_microradians;
             output.push(VectorStepOutput {
                 episode_ordinal: slot.episode_ordinal,
                 vector_slot,
@@ -202,29 +219,84 @@ fn subject_id(run_root: ContentHash, vector_slot: u32) -> PersistentId {
 
 fn standing_reward_components(
     frame: &MotorFrameResult,
-    command_raw: [i64; 3],
+    action_microradians: &[i64],
+    previous_action_microradians: &[i64],
 ) -> Vec<(SchemaId, i64)> {
     let root = frame.snapshot.links.first();
-    let alive = i64::from(root.is_some_and(|root| root.position_micrometres[1] > 250_000));
-    let command_tracking = root.map_or(-20_000_000, |root| {
-        -((root.linear_velocity_micrometres_per_second[0] - command_raw[0])
-            .unsigned_abs()
-            .min(i64::MAX as u64) as i64)
+    let upright = root.map_or(0, |root| root.rotation_q1_30[3].unsigned_abs() as i64);
+    let root_height_tracking = root.map_or(-1_050_000, |root| {
+        -unsigned_sum([root.position_micrometres[1].saturating_sub(1_050_000)])
     });
-    let energy = -(frame
+    let standing_pose_tracking = -unsigned_sum(
+        frame
+            .snapshot
+            .joints
+            .iter()
+            .map(|joint| joint.position_microradians),
+    );
+    let velocity_penalty = root.map_or(-1, |root| {
+        -unsigned_sum(
+            root.linear_velocity_micrometres_per_second
+                .into_iter()
+                .chain(root.angular_velocity_microradians_per_second),
+        )
+    });
+    let effort_penalty = -(frame
         .substep_efforts
         .iter()
         .flatten()
         .map(|effort| effort.effort_micronewton_metres.unsigned_abs() / 1_000_000)
         .sum::<u64>()
         .min(i64::MAX as u64) as i64);
-    let upright = root.map_or(0, |root| root.rotation_q1_30[3].unsigned_abs() as i64);
-    vec![
-        (schema_id("reward.alive"), alive),
-        (schema_id("reward.command-tracking"), command_tracking),
-        (schema_id("reward.energy"), energy),
-        (schema_id("reward.upright"), upright),
+    let action_rate_penalty = -unsigned_sum(
+        action_microradians
+            .iter()
+            .zip(previous_action_microradians)
+            .map(|(current, previous)| current.saturating_sub(*previous)),
+    );
+    let contacting_tokens = frame
+        .snapshot
+        .contacts
+        .iter()
+        .flat_map(|contact| [contact.actor_a_token, contact.actor_b_token])
+        .filter(|token| *token != 1)
+        .collect::<BTreeSet<_>>();
+    let foot_slip_penalty = -unsigned_sum(
+        frame
+            .snapshot
+            .links
+            .iter()
+            .filter(|link| contacting_tokens.contains(&link.user_token))
+            .flat_map(|link| {
+                [
+                    link.linear_velocity_micrometres_per_second[0],
+                    link.linear_velocity_micrometres_per_second[2],
+                ]
+            }),
+    );
+    let fall_terminal = -i64::from(root.is_none_or(|root| root.position_micrometres[1] <= 250_000));
+    [
+        upright,
+        root_height_tracking,
+        standing_pose_tracking,
+        velocity_penalty,
+        effort_penalty,
+        action_rate_penalty,
+        foot_slip_penalty,
+        fall_terminal,
     ]
+    .into_iter()
+    .zip(STANDING_REWARD_COMPONENT_IDS.map(schema_id))
+    .map(|(value, id)| (id, value))
+    .collect()
+}
+
+fn unsigned_sum(values: impl IntoIterator<Item = i64>) -> i64 {
+    values
+        .into_iter()
+        .map(i64::unsigned_abs)
+        .fold(0_u64, u64::saturating_add)
+        .min(i64::MAX as u64) as i64
 }
 
 fn terminal_reason(frame: &MotorFrameResult, maximum_steps: u64) -> Option<SchemaId> {

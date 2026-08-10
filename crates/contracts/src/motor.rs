@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
@@ -302,7 +303,7 @@ pub struct MotorTrainingEnvironmentManifestV1 {
     pub physics_catalog_hash: ContentHash,
     pub observation_layout_hash: ContentHash,
     pub action_layout_hash: ContentHash,
-    pub physx_build_profile_hash: ContentHash,
+    pub physics_build_profile_hash: ContentHash,
     pub scene_profile_hash: ContentHash,
     pub bridge_abi_hash: ContentHash,
     pub quantization_profile_hash: ContentHash,
@@ -325,8 +326,11 @@ impl MotorTrainingEnvironmentManifestV1 {
             || self.reward_components.len() > MAX_REWARD_COMPONENTS
             || self
                 .reward_components
-                .windows(2)
-                .any(|pair| pair[0].component_id >= pair[1].component_id)
+                .iter()
+                .map(|component| &component.component_id)
+                .collect::<BTreeSet<_>>()
+                .len()
+                != self.reward_components.len()
             || self
                 .reward_components
                 .iter()
@@ -350,7 +354,7 @@ impl MotorTrainingEnvironmentManifestV1 {
             self.physics_catalog_hash,
             self.observation_layout_hash,
             self.action_layout_hash,
-            self.physx_build_profile_hash,
+            self.physics_build_profile_hash,
             self.scene_profile_hash,
             self.bridge_abi_hash,
             self.quantization_profile_hash,
@@ -669,7 +673,7 @@ mod tests {
             physics_catalog_hash: content_hash_from_bytes([3; 32]),
             observation_layout_hash: content_hash_from_bytes([4; 32]),
             action_layout_hash: content_hash_from_bytes([5; 32]),
-            physx_build_profile_hash: content_hash_from_bytes([6; 32]),
+            physics_build_profile_hash: content_hash_from_bytes([6; 32]),
             scene_profile_hash: content_hash_from_bytes([7; 32]),
             bridge_abi_hash: content_hash_from_bytes([8; 32]),
             quantization_profile_hash: content_hash_from_bytes([9; 32]),
@@ -687,6 +691,42 @@ mod tests {
         };
         assert!(manifest.validate().is_ok());
         manifest.physics_hz = 120;
+        assert_eq!(
+            manifest.validate(),
+            Err(MotorContractError::InvalidManifest)
+        );
+    }
+
+    #[test]
+    fn reward_component_order_is_semantic_but_duplicate_ids_are_rejected() {
+        let mut manifest = MotorTrainingEnvironmentManifestV1 {
+            schema_version: MOTOR_TRAINING_ENVIRONMENT_MANIFEST_V1_SCHEMA_VERSION,
+            environment_id: id("nextengine.motor.env.reward-order"),
+            body_schema_hash: content_hash_from_bytes([1; 32]),
+            body_instance_projection_hash: content_hash_from_bytes([2; 32]),
+            physics_catalog_hash: content_hash_from_bytes([3; 32]),
+            observation_layout_hash: content_hash_from_bytes([4; 32]),
+            action_layout_hash: content_hash_from_bytes([5; 32]),
+            physics_build_profile_hash: content_hash_from_bytes([6; 32]),
+            scene_profile_hash: content_hash_from_bytes([7; 32]),
+            bridge_abi_hash: content_hash_from_bytes([8; 32]),
+            quantization_profile_hash: content_hash_from_bytes([9; 32]),
+            translator_version_hash: content_hash_from_bytes([10; 32]),
+            physics_hz: STAGE0_PHYSICS_HZ,
+            motor_hz: STAGE0_MOTOR_HZ,
+            maximum_vector_slots: 4_096,
+            maximum_episode_steps: 3_600,
+            reward_components: ["reward.upright", "reward.action-rate-penalty"]
+                .map(|component_id| MotorRewardComponentV1 {
+                    component_id: id(component_id),
+                    coefficient_q16: 65_536,
+                    minimum_raw: i64::MIN,
+                    maximum_raw: i64::MAX,
+                })
+                .into(),
+        };
+        assert!(manifest.validate().is_ok());
+        manifest.reward_components[1].component_id = id("reward.upright");
         assert_eq!(
             manifest.validate(),
             Err(MotorContractError::InvalidManifest)

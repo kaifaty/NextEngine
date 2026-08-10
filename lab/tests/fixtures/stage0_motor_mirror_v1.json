@@ -1,0 +1,73 @@
+{
+  "body_schema_hash": "13f01daf349cddd84f6c3a068cf9da9ff1307a727949ffa9232ec2e02cbc9bd5",
+  "descriptor_sha256": "2a870466f2b18063ef1f8a19e4e97d24157e8de0121d5a10cdbe7ae79adf60dc",
+  "ordered_actuator_ids": [
+    "actuator.left-ankle-pitch",
+    "actuator.left-ankle-roll",
+    "actuator.left-elbow",
+    "actuator.left-hip-pitch",
+    "actuator.left-hip-roll",
+    "actuator.left-hip-yaw",
+    "actuator.left-knee",
+    "actuator.left-shoulder-pitch",
+    "actuator.left-shoulder-roll",
+    "actuator.left-shoulder-yaw",
+    "actuator.right-ankle-pitch",
+    "actuator.right-ankle-roll",
+    "actuator.right-elbow",
+    "actuator.right-hip-pitch",
+    "actuator.right-hip-roll",
+    "actuator.right-hip-yaw",
+    "actuator.right-knee",
+    "actuator.right-shoulder-pitch",
+    "actuator.right-shoulder-roll",
+    "actuator.right-shoulder-yaw",
+    "actuator.torso-pitch",
+    "actuator.torso-roll",
+    "actuator.torso-yaw"
+  ],
+  "pd_channel_count": 23,
+  "pd_first_effort": 25000000,
+  "pd_first_flags": 4,
+  "pd_input": {
+    "position_microradians": 0,
+    "residual_target_microradians": 1000000,
+    "velocity_microradians_per_second": 0
+  },
+  "pd_second_effort": 50000000,
+  "pd_second_flags": 4,
+  "purpose_seeds": [
+    {
+      "purpose_id": "randomization.action-noise",
+      "seed": "70c81f05ff94235a07f5ee9a4f24076f0b8e2feeec1a3ec8f702943dbd350e92"
+    },
+    {
+      "purpose_id": "randomization.friction",
+      "seed": "f6f6888217ffbd57a37dafc1d92b8c298c571eb96079f63cf26375f236c17060"
+    },
+    {
+      "purpose_id": "randomization.initial-pose",
+      "seed": "71574e127f13680a754b8df60042f510ed607082996dfeaec1a06a32302c36cf"
+    },
+    {
+      "purpose_id": "randomization.terrain",
+      "seed": "8b57f06ac5ed01227acf3ec83220aceec45cc0ef9eeb6ddb7f680e1a3e25cf08"
+    }
+  ],
+  "reward_component_ids": [
+    "reward.upright",
+    "reward.root-height-tracking",
+    "reward.standing-pose-tracking",
+    "reward.velocity-penalty",
+    "reward.effort-penalty",
+    "reward.action-rate-penalty",
+    "reward.foot-slip-penalty",
+    "reward.fall-terminal"
+  ],
+  "schema_version": 1,
+  "seed_input": {
+    "episode_ordinal": 17,
+    "run_root": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "vector_slot": 3
+  }
+}

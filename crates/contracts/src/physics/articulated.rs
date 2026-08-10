@@ -117,7 +117,7 @@ pub struct PhysicsWorldCatalogV2 {
     pub base: PhysicsWorldCatalogV1,
     pub body_schema_hash: ContentHash,
     pub body_instance_projection_hash: ContentHash,
-    pub physx_build_profile_hash: ContentHash,
+    pub physics_build_profile_hash: ContentHash,
     pub scene_profile_hash: ContentHash,
     pub bridge_abi_hash: ContentHash,
     pub bodies: BTreeMap<PhysicsBodyIdV1, PhysicsBodyDescriptorV2>,
@@ -183,7 +183,7 @@ impl PhysicsWorldCatalogV2 {
         for hash in [
             self.body_schema_hash,
             self.body_instance_projection_hash,
-            self.physx_build_profile_hash,
+            self.physics_build_profile_hash,
             self.scene_profile_hash,
             self.bridge_abi_hash,
         ] {
@@ -297,7 +297,7 @@ pub struct PhysicsCanonicalSnapshotV3 {
     pub schema_version: u16,
     pub base: PhysicsCanonicalSnapshotV2,
     pub catalog_v2_hash: ContentHash,
-    pub physx_build_profile_hash: ContentHash,
+    pub physics_build_profile_hash: ContentHash,
     pub scene_profile_hash: ContentHash,
     pub bridge_abi_hash: ContentHash,
     pub sorted_joint_states: Vec<PhysicsArticulationJointStateV1>,
@@ -323,7 +323,7 @@ impl PhysicsCanonicalSnapshotV3 {
         bytes.extend_from_slice(self.base.snapshot_hash()?.as_bytes());
         for hash in [
             self.catalog_v2_hash,
-            self.physx_build_profile_hash,
+            self.physics_build_profile_hash,
             self.scene_profile_hash,
             self.bridge_abi_hash,
         ] {
@@ -376,7 +376,7 @@ impl PhysicsWorldCheckpointV2 {
         self.catalog.validate()?;
         self.snapshot.validate()?;
         if self.catalog.catalog_hash_v2()? != self.snapshot.catalog_v2_hash
-            || self.catalog.physx_build_profile_hash != self.snapshot.physx_build_profile_hash
+            || self.catalog.physics_build_profile_hash != self.snapshot.physics_build_profile_hash
             || self.catalog.scene_profile_hash != self.snapshot.scene_profile_hash
             || self.catalog.bridge_abi_hash != self.snapshot.bridge_abi_hash
         {

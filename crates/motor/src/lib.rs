@@ -3,6 +3,7 @@
 mod compiler;
 mod control;
 mod humanoid;
+mod mirror;
 mod observation;
 mod replay;
 mod runtime;
@@ -14,12 +15,13 @@ pub use control::{
     JointControlStateV1, MotorControlError,
 };
 pub use humanoid::{REFERENCE_HUMANOID_DOF, reference_humanoid_body_schema_v1};
+pub use mirror::{stage0_isaac_mirror_descriptor_json_v1, stage0_isaac_mirror_golden_json_v1};
 pub use observation::{MotorObservationBuilder, MotorObservationError};
 pub use replay::{MOTOR_RUNTIME_CHECKPOINT_SCHEMA_VERSION, MotorReplayCodecError};
 pub use runtime::{
     DeterministicHumanoidMotor, HumanoidMotorCheckpoint, MotorFrameResult, MotorRuntimeError,
 };
 pub use training::{
-    MotorVectorRunner, TrainingEnvironmentError, VectorResetOutput, VectorStepInput,
-    VectorStepOutput, derive_episode_seed_set,
+    MotorVectorRunner, STANDING_REWARD_COMPONENT_IDS, TrainingEnvironmentError, VectorResetOutput,
+    VectorStepInput, VectorStepOutput, derive_episode_seed_set,
 };
