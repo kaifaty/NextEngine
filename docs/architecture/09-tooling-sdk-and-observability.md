@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 3.3 |
+| Версия | 3.4 |
 | Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md) |
-| Заменяет | SPEC-09 3.2; adopts the ADR-060 THOTH preflight thresholds and methodology identity |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md) |
+| Заменяет | SPEC-09 3.3; adopts the ADR-061 THOTH load threshold and methodology identity |
 
 ## Scope and authority
 
@@ -82,7 +82,7 @@ evidence, not correctness or release authority.
 Current tooling serializes `PerformanceRunV4`,
 `PerformanceResourceCountersV4`, `PerformanceMetricV1`,
 `PerformanceBaselineV4` and the closed verdict. The methodology ID is
-`nextengine-performance-v5`; V2/V3 readers and allocator instrumentation are
+`nextengine-performance-v6`; V2/V3 readers and allocator instrumentation are
 removed.
 
 V4 retains:
@@ -100,10 +100,10 @@ cannot become a hard PASS. Only clean release ten-run evidence on the complete
 THOTH fingerprint with a compatible baseline may produce hard timing PASS.
 B-12 remains open.
 
-THOTH preflight admits CPU and GPU load strictly below 15% and at least 10 GiB
+THOTH preflight admits CPU and GPU load strictly below 40% and at least 10 GiB
 free physical RAM. CPU clock and GPU thermal checks remain unchanged. Missing
-evidence, 15% load or less than 10 GiB free RAM invalidates hard evidence under
-ADR-060.
+evidence, 40% load or less than 10 GiB free RAM invalidates hard evidence under
+ADR-061.
 
 The six current scenario families are preserved:
 

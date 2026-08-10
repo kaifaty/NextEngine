@@ -85,14 +85,14 @@ fn preflight_recomputes_readiness_from_typed_evidence() {
     preflight.cpu_load_percent = Some(PREFLIGHT_LOAD_PERCENT_EXCLUSIVE);
     assert_eq!(
         preflight.validate_ready_evidence(),
-        Err(vec!["PERF_CPU_LOAD_AT_OR_ABOVE_FIFTEEN_PERCENT".to_owned()])
+        Err(vec!["PERF_CPU_LOAD_AT_OR_ABOVE_FORTY_PERCENT".to_owned()])
     );
 
     preflight.cpu_load_percent = Some(PREFLIGHT_LOAD_PERCENT_EXCLUSIVE - 1);
     preflight.gpu_load_percent = Some(PREFLIGHT_LOAD_PERCENT_EXCLUSIVE);
     assert_eq!(
         preflight.validate_ready_evidence(),
-        Err(vec!["PERF_GPU_LOAD_AT_OR_ABOVE_FIFTEEN_PERCENT".to_owned()])
+        Err(vec!["PERF_GPU_LOAD_AT_OR_ABOVE_FORTY_PERCENT".to_owned()])
     );
 }
 
@@ -107,7 +107,7 @@ fn schema_round_trip_rejects_unknown_fields() {
     assert_eq!(run.schema_version, 4);
     assert_eq!(
         run.methodology.methodology_version,
-        "nextengine-performance-v5"
+        "nextengine-performance-v6"
     );
     assert_eq!(PERFORMANCE_REPORT_FILE_NAME, "performance-report-v4.json");
     assert_eq!(
@@ -149,16 +149,18 @@ fn schema_round_trip_rejects_unknown_fields() {
         assert!(diagnostics.contains(&"PERF_RUN_METHODOLOGY_MISMATCH".to_owned()));
     }
 
-    let mut prior_methodology: PerformanceRunV4 =
-        serde_json::from_slice(&json).expect("decode current fixture");
-    prior_methodology.methodology.methodology_version = "nextengine-performance-v4".to_owned();
-    let diagnostics = prior_methodology
-        .validate_wire_version()
-        .expect_err("prior methodology is incompatible with current admission");
-    assert_eq!(
-        diagnostics,
-        vec!["PERF_RUN_METHODOLOGY_MISMATCH".to_owned()]
-    );
+    for prior in ["nextengine-performance-v4", "nextengine-performance-v5"] {
+        let mut prior_methodology: PerformanceRunV4 =
+            serde_json::from_slice(&json).expect("decode current fixture");
+        prior_methodology.methodology.methodology_version = prior.to_owned();
+        let diagnostics = prior_methodology
+            .validate_wire_version()
+            .expect_err("prior methodology is incompatible with current admission");
+        assert_eq!(
+            diagnostics,
+            vec!["PERF_RUN_METHODOLOGY_MISMATCH".to_owned()]
+        );
+    }
 
     let mut value: serde_json::Value = serde_json::from_slice(&json).expect("decode JSON value");
     value

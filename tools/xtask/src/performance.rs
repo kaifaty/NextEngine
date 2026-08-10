@@ -20,7 +20,7 @@ mod tests;
 
 pub const PERFORMANCE_RUN_SCHEMA_VERSION: u32 = 4;
 pub const PERFORMANCE_BASELINE_SCHEMA_VERSION: u32 = 4;
-pub const PERFORMANCE_METHODOLOGY_VERSION: &str = "nextengine-performance-v5";
+pub const PERFORMANCE_METHODOLOGY_VERSION: &str = "nextengine-performance-v6";
 pub const PERFORMANCE_REPORT_FILE_NAME: &str = "performance-report-v4.json";
 pub const PERFORMANCE_BASELINE_FILE_NAME: &str = "performance-baseline-v4.json";
 pub const PERFORMANCE_REPORT_TEMP_FILE_NAME: &str = ".performance-report-v4.json.tmp";
@@ -30,7 +30,7 @@ pub const PERFORMANCE_PINNED_RUSTC_COMMIT_HASH: &str = "254b59607d4417e9dffbc307
 pub const PERFORMANCE_WINDOWS_TARGET_TRIPLE: &str = "x86_64-pc-windows-msvc";
 pub const PERFORMANCE_LINUX_TARGET_TRIPLE: &str = "x86_64-unknown-linux-gnu";
 pub const THOTH_TARGET_ID: &str = "ref-win-thoth-v1";
-pub const PREFLIGHT_LOAD_PERCENT_EXCLUSIVE: u32 = 15;
+pub const PREFLIGHT_LOAD_PERCENT_EXCLUSIVE: u32 = 40;
 pub const MINIMUM_FREE_RAM_BYTES: u64 = 10 * 1024 * 1024 * 1024;
 pub const MAX_PROFILER_BYTES: u64 = 64 * 1024 * 1024;
 pub const MAX_SPANS_PER_THREAD: u32 = 65_536;
@@ -217,13 +217,13 @@ impl PerformancePreflightV1 {
             .cpu_load_percent
             .is_none_or(|percent| percent >= PREFLIGHT_LOAD_PERCENT_EXCLUSIVE)
         {
-            diagnostics.push("PERF_CPU_LOAD_AT_OR_ABOVE_FIFTEEN_PERCENT".to_owned());
+            diagnostics.push("PERF_CPU_LOAD_AT_OR_ABOVE_FORTY_PERCENT".to_owned());
         }
         if self
             .gpu_load_percent
             .is_none_or(|percent| percent >= PREFLIGHT_LOAD_PERCENT_EXCLUSIVE)
         {
-            diagnostics.push("PERF_GPU_LOAD_AT_OR_ABOVE_FIFTEEN_PERCENT".to_owned());
+            diagnostics.push("PERF_GPU_LOAD_AT_OR_ABOVE_FORTY_PERCENT".to_owned());
         }
         if self
             .free_ram_bytes

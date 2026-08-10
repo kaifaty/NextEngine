@@ -94,7 +94,7 @@ Roadmap намеренно не содержит календарных обещ
 - Windows SDL3/ash B0 path с canonical keyboard/lifecycle events, fullscreen,
   swapchain recreation, bounded device-loss recovery и package smoke;
 - current-only Performance V4 foundation с exact THOTH fingerprint,
-  release-only methodology-v5 gate preflight (`CPU/GPU <15%`, free RAM
+  release-only methodology-v6 gate preflight (`CPU/GPU <40%`, free RAM
   `>=10 GiB`), nearest-rank/baseline schemas и полным
   streaming/agent/render/live smoke report; representative `r2-alpha-render`
   и streaming-only `r3-multiregion-streaming` реализованы как `REPORT_ONLY`,

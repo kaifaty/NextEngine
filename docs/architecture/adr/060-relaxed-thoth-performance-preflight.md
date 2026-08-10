@@ -9,7 +9,11 @@
 | Last verified | 2026-08-10 |
 | Normative dependencies | [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-049](049-performance-evidence-without-allocator-instrumentation.md) |
 | Supersedes | Narrowly supersedes the ADR-036 THOTH hard-run preflight thresholds of CPU/GPU load below 5% and at least 20 GiB free RAM. It also supersedes the ADR-049 current methodology identity while preserving the Performance V4 wire shape. |
-| Superseded by | none |
+| Superseded by | The below-15% CPU/GPU threshold and methodology-v5 identity are superseded by [ADR-061](061-forty-percent-thoth-load-preflight.md). The 10 GiB free-RAM threshold remains Accepted. |
+
+> Current load admission is below 40% with methodology v6 under ADR-061. The
+> below-15% load values below are retained as decision history; the 10 GiB RAM
+> threshold remains current.
 
 ## Context
 
