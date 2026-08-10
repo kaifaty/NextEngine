@@ -36,7 +36,7 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
     let options = HeadlessOptions::parse(arguments)?;
     if options.help {
         eprintln!(
-            "usage: next_headless [--live-ticks <nonnegative-integer>] [--project <cooked-store>] [--lock <sha256>] [--state-root <directory>]\n       next_headless motor-lab --slots <count> --run-root <sha256>"
+            "usage: next_headless [--live-ticks <nonnegative-integer>] [--project <cooked-store>] [--lock <sha256>] [--state-root <directory>]\n       next_headless motor-lab"
         );
         return Err(AppFailure::help());
     }

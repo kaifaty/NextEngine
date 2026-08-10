@@ -1,8 +1,31 @@
 # Next Engine model lab
 
 `lab/` is a non-authoritative training and correspondence lane. The canonical
-Stage 0 execution plane remains `headless motor-lab` on CPU PhysX; Isaac Lab is
-an optional GPU mirror and never supplies replay facts.
+Stage 0 execution plane remains `headless motor-lab` protocol v2 on CPU PhysX;
+Isaac Lab is an optional GPU mirror and never supplies replay facts. Protocol
+v2 starts without CLI profile options: the Python client sends one engine-known
+profile ID, slot count and run root through `Create`, then uses partial
+`Reset`, action-only `Step`, `Checkpoint`, `Restore`, `Ping` and `Close` with
+monotonic request IDs.
+
+## Canonical CPU trajectories
+
+Build `next_headless` with the prepared PhysX feature, then record the canonical
+flat-command profile into an external training store:
+
+```text
+python -m next_lab record-trajectories \
+  --headless <next_headless executable> \
+  --run-root <lowercase sha256> \
+  --slots 16 --episodes-per-slot 4 \
+  --store <external store>
+```
+
+The NPZ v2 recorder stores commands, post-clamp actions, observations, ordered
+Q16 reward components/total, root/joint/contact facts, exact roots and separate
+termination/truncation. `MotorLabClient.step` accepts raw integer arrays only;
+`step_normalized` is an explicit finite/clamped ties-to-even adapter. Neither
+client nor recorder writes inside the repository.
 
 ## Stage 0 mirror workflow
 

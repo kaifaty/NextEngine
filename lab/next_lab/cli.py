@@ -16,6 +16,8 @@ from next_lab.correspondence import evaluate_files
 from next_lab.isaac_profile import IsaacProfile, doctor_report
 from next_lab.motor_mirror import load_json, validate_descriptor, validate_golden
 from next_lab.usd_translation import translate_to_store
+from next_lab.motor_lab_client import FLAT_LOCOMOTION_PROFILE_ID, STANDING_PROFILE_ID
+from next_lab.trajectory_recorder import record_canonical_cpu_trajectories
 
 
 def _mps_probe() -> tuple[bool, str | None]:
@@ -162,6 +164,19 @@ def parser() -> argparse.ArgumentParser:
     correspondence_parser.add_argument("--cpu", type=Path, required=True)
     correspondence_parser.add_argument("--gpu", type=Path, required=True)
     correspondence_parser.add_argument("--store", type=Path)
+
+    recorder_parser = commands.add_parser("record-trajectories")
+    recorder_parser.add_argument("--headless", type=Path, required=True)
+    recorder_parser.add_argument(
+        "--profile",
+        choices=[FLAT_LOCOMOTION_PROFILE_ID, STANDING_PROFILE_ID],
+        default=FLAT_LOCOMOTION_PROFILE_ID,
+    )
+    recorder_parser.add_argument("--slots", type=int, default=1)
+    recorder_parser.add_argument("--episodes-per-slot", type=int, default=1)
+    recorder_parser.add_argument("--run-root", required=True)
+    recorder_parser.add_argument("--store", type=Path)
+    recorder_parser.add_argument("--output-name")
     return root
 
 
@@ -216,6 +231,28 @@ def main() -> int:
         summary = {"check": report["check"], "status": report["status"], "report": str(path)}
         print(json.dumps(summary, indent=2, sort_keys=True))
         return 0 if report["status"] == "passed" else 4
+    if arguments.command == "record-trajectories":
+        output = record_canonical_cpu_trajectories(
+            headless_executable=arguments.headless,
+            training_store=_configured_store(arguments.store),
+            run_root=arguments.run_root,
+            slots=arguments.slots,
+            episodes_per_slot=arguments.episodes_per_slot,
+            profile_id=arguments.profile,
+            output_name=arguments.output_name,
+        )
+        print(
+            json.dumps(
+                {
+                    "check": "MODEL-DATAPLANE-CPU-TRAJECTORY-V2",
+                    "status": "passed",
+                    "artifact": str(output),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
     raise AssertionError(f"unhandled command: {arguments.command}")
 
 
