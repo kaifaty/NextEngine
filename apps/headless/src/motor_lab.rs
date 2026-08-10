@@ -557,6 +557,7 @@ impl From<MotorContractError> for ProtocolFailure {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(any(feature = "mock-abi", feature = "physx-sdk"))]
     use next_motor::FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID;
 
     #[test]
