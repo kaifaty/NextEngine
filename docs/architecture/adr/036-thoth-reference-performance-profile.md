@@ -4,17 +4,18 @@
 |---|---|
 | ID | ADR-036 |
 | Статус | Accepted |
-| Версия | 1.4 |
+| Версия | 1.5 |
 | Дата решения | 2026-07-30 |
 | Последняя проверка | 2026-08-01 |
 | Нормативные зависимости | [SPEC-04](../04-rendering-and-platform.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | частично [ADR-016](016-compositional-gameplay-budgets.md) и SPEC-05 `PHYS-P4`: qualifier `reference 8-core CPU` заменяется полным host `ref-win-thoth-v1`; числовые gameplay/physics budgets не меняются |
-| Заменён | Diagnostic-scenario часть узко заменена [ADR-038](038-versioned-production-worker-handoff-diagnostic.md). Allocator instrumentation и V2/V3 tooling schemas заменены [ADR-049](049-performance-evidence-without-allocator-instrumentation.md). CPU/GPU idle and free-RAM preflight thresholds are superseded by [ADR-060](060-relaxed-thoth-performance-preflight.md), with the load ceiling subsequently superseded by [ADR-061](061-forty-percent-thoth-load-preflight.md). THOTH profile, hard timing authority, budgets, baseline and representative workload requirements remain Accepted. |
+| Заменён | Diagnostic-scenario часть узко заменена [ADR-038](038-versioned-production-worker-handoff-diagnostic.md). Allocator instrumentation и V2/V3 tooling schemas заменены [ADR-049](049-performance-evidence-without-allocator-instrumentation.md). CPU/GPU idle and free-RAM preflight thresholds are superseded by [ADR-060](060-relaxed-thoth-performance-preflight.md), with the load ceiling subsequently superseded by [ADR-061](061-forty-percent-thoth-load-preflight.md). NVIDIA driver fingerprint and R5/PHYS-P4 workload details are superseded by [ADR-062](062-r5-physx-humanoid-performance-authority.md). Other THOTH profile, hard timing authority, baseline and representative workload requirements remain Accepted. |
 
 > Current report/baseline schemas are Performance V4 under ADR-049. Older
 > schema and allocator passages below are historical context only.
 > The 5%/20 GiB preflight values below are also historical; ADR-060 and
-> ADR-061 set the current below-40%/10 GiB thresholds and methodology identity.
+> ADR-061 sets the current below-40%/10 GiB thresholds; ADR-062 sets the
+> current methodology identity and R5 workload.
 
 ## Контекст
 
@@ -42,7 +43,7 @@ fingerprint. Cross-machine Windows/Linux timings остаются полезно
 | RAM | 32 GiB installed |
 | Storage | `WDS100T1X0E-00AFY0`, NVMe 1 TB |
 | OS | Windows 11 Pro, build `10.0.26200` |
-| NVIDIA driver | `591.86` |
+| NVIDIA driver | `610.88` (superseded value fixed by ADR-062) |
 | Power plan | `AMD Ryzen High Performance` |
 
 Hard run использует всю машину. Искусственное ограничение affinity или CPU

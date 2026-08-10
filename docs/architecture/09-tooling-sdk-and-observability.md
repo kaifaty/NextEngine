@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 3.4 |
+| Версия | 3.5 |
 | Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md) |
-| Заменяет | SPEC-09 3.3; adopts the ADR-061 THOTH load threshold and methodology identity |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md) |
+| Заменяет | SPEC-09 3.4; adopts the production R5 PhysX workload, budgets and methodology v7 |
 
 ## Scope and authority
 
@@ -82,7 +82,7 @@ evidence, not correctness or release authority.
 Current tooling serializes `PerformanceRunV4`,
 `PerformanceResourceCountersV4`, `PerformanceMetricV1`,
 `PerformanceBaselineV4` and the closed verdict. The methodology ID is
-`nextengine-performance-v6`; V2/V3 readers and allocator instrumentation are
+`nextengine-performance-v7`; V2/V3 readers and allocator instrumentation are
 removed.
 
 V4 retains:
@@ -105,14 +105,15 @@ free physical RAM. CPU clock and GPU thermal checks remain unchanged. Missing
 evidence, 40% load or less than 10 GiB free RAM invalidates hard evidence under
 ADR-061.
 
-The six current scenario families are preserved:
+The seven current scenario families are:
 
 1. smoke;
 2. long-session;
 3. interactive-frame;
 4. production-worker;
 5. `r2-alpha-render`;
-6. `r3-multiregion-streaming`.
+6. `r3-multiregion-streaming`;
+7. `r5-physics-16`.
 
 Each uses its current V4 methodology hash and existing workload semantics.
 `r2-alpha-render` runs exploration, combat and UI/dialogue for primary 1080p
@@ -124,6 +125,16 @@ four-region/64-chunk route, reports the `streaming_world` span and logical
 staging charge, and remains `REPORT_ONLY`. It does not imply a generic
 scheduler/resource framework or close B-12.
 
+`r5-physics-16.v1` executes sixteen independent production PhysX 5.9.0
+23-DoF humanoids at 240 Hz physics / 60 Hz motor with fixed standing control.
+It reports direct substeps/s and motor-frames/s plus lower-is-better reciprocal
+cost metrics, lockstep frame p95/p99, 1/4/8-worker scaling, checkpoint/restore,
+replay-prefix overhead, process peak memory, logical bytes/slot and exact
+worker/profiler root parity. CPU PhysX reports zero engine-owned device
+residency and does not fabricate Vulkan queries. Exact workload and budgets are
+ADR-062 authority. Until ten compatible clean runs and a hard gate exist, its
+clean calibration remains `REPORT_ONLY` and does not close B-12.
+
 ## Failure semantics and checks
 
 Unknown command/input format, corrupt report, incompatible baseline, atomic
@@ -134,7 +145,7 @@ without affecting gameplay. A deterministic retry mismatch is
 
 Focused tooling tests cover command parsing, exact report schemas, atomic
 output, current-only rejection and boundary scan. `host-check` covers the
-workspace. The `performance` command covers V4 reports/baselines and all six
+workspace. The `performance` command covers V4 reports/baselines and all seven
 scenario routes; platform/GPU availability may legitimately yield typed
 `NOT_RUN` without claiming success for that scenario.
 

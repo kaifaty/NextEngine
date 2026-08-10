@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-05 |
 | Статус | Accepted |
-| Версия | 2.4 |
+| Версия | 2.5 |
 | Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md) |
-| Заменяет | SPEC-05 2.3; accepts PhysX-only 240/60 Hz humanoid Stage 0 without changing procedural R5 completion |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md) |
+| Заменяет | SPEC-05 2.4; accepts the production 240/60 Hz PHYS-P4 workload and budgets without changing procedural R5 completion |
 
 ## Source of truth и ownership
 
@@ -65,9 +65,11 @@ Units/right-handed axes соответствуют SPEC-03. Vendor enumerations 
 9. Outcome resolver использует contact continuity для suppress repeated-hit/resting-contact exploits и предлагает `Outcome` WorldCommand для общего stage-9 validator [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md); контакт сам не меняет health/quest, а backend callback не коммитит gameplay.
 10. Pose bridge публикует RenderPose, telemetry и replay hash.
 
-LLM, `ai-host`, network и filesystem запрещены на шагах 3–9. Current
-procedural reference profile remains 120 Hz physics and 60 Hz motor. The first
-Proposed learned humanoid profile uses 240 Hz physics/actuator and 60 Hz MLP
+LLM, `ai-host`, network и filesystem запрещены на шагах 3–9. The current
+articulated standing fallback and the first Proposed learned humanoid profile
+use 240 Hz physics/actuator and 60 Hz motor/policy cadence. A separate capsule
+locomotion profile MAY retain its declared 120/60 Hz cadence; it cannot stand
+in for PHYS-P4. The first Proposed learned humanoid profile uses 60 Hz MLP
 inference with residual joint-position targets and fixed engine PD; it is not
 a v1 requirement. The PD/safety layer applies the last accepted action on
 intermediate substeps. Portable standard-op ONNX with a private ONNX Runtime
@@ -177,7 +179,7 @@ Checks используют fixed scenarios/seeds и [RunManifest из SPEC-09](
 | PHYS-P1 | descriptor parity corpus | 100% bodies/axes/limits; mass/inertia ≤0.1%; torque conversion ≤1% | попробовать следующий backend через тот же contract |
 | PHYS-P2 | contact/query/topology suite | 100% required contacts в canonical total order; query/contact output exact under callback, manifold, worker and registration permutations; все key-field vectors проходят `NUMERIC-P1`; 1 000 topology cycles без invalid handle/leak | отвергнуть backend и сохранить последнюю canonical world state |
 | PHYS-P3 | same-target replay и cross-target quantized projection | full authoritative `state_root`, applied canonical actions, contact/outcome sequences exact over 100 repeats; Windows/Linux `physics_projection_root`, canonical contact/query order и gameplay outcomes byte-identical | исправить deterministic boundary или выбрать другой backend |
-| PHYS-P4 | 16 full avatars на полном `ref-win-thoth-v1` без CPU affinity restriction | physics 120 Hz, motor 60 Hz; physics+motor p95 ≤4 ms, p99 ≤6 ms; no missed critical steps; inference p99 ≤0.5 ms/avatar или ≤2 ms для batch 16 | offline tuning следующего manifest integer LOD budget; safe-tier pin |
+| PHYS-P4 | `r5-physics-16.v1`: 16 independent 23-DoF PhysX humanoids на полном `ref-win-thoth-v1` без CPU affinity restriction | physics 240 Hz, motor 60 Hz, 8 workers; lockstep physics+motor frame p95 ≤4 ms, p99 ≤6 ms; 1/4/8 worker throughput/scaling, restore and resource budgets exactly follow ADR-062; roots exact across worker/profiler permutations; no missed critical steps; learned inference budget applies only after evaluator promotion | offline tuning следующего manifest integer LOD budget; safe-tier pin |
 | MOTOR-P1 | 10 000 golden observations | ONNX vs training max abs raw action error ≤1e-5; applied safety-clamped/quantized `MotorAction` exact; 0 schema mismatch accepted | reference CPU evaluator или heuristic controller |
 | PHYS-P5 | runtime/training golden trajectories | normalized RMSE ≤0.05; contact F1 ≥0.98; outcome pass-rate delta ≤2 percentage points | retrain, mapping fix или backend fallback |
 | PHYS-P6 | push, slope, stair, trip, carry, fall/recovery | per-scenario thresholds; aggregate ≥95%; 0 safety violation | recovery controller; unsupported learned route остаётся отключён |

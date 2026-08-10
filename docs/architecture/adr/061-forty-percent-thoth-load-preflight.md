@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-061 |
 | Status | Accepted |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-08-10 |
 | Last verified | 2026-08-10 |
 | Normative dependencies | [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-049](049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](060-relaxed-thoth-performance-preflight.md) |
 | Supersedes | Narrowly supersedes the ADR-060 CPU/GPU load threshold of below 15% and its methodology-v5 identity. The ADR-060 minimum of 10 GiB free RAM remains Accepted. |
-| Superseded by | none |
+| Superseded by | [ADR-062](062-r5-physx-humanoid-performance-authority.md) supersedes only the methodology-v6 identity with v7; the below-40% load and 10 GiB free-RAM admission remain Accepted. |
 
 ## Context
 

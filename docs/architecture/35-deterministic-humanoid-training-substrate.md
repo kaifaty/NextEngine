@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 1.1 |
+| Версия | 1.2 |
 | Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md) |
-| Заменяет | SPEC-35 1.0; replaces direct hidden-solver-state import with bounded event-sourced continuation reconstruction |
+| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md) |
+| Заменяет | SPEC-35 1.1; accepts the representative R5 performance workload and budgets |
 
 ## Назначение и ownership
 
@@ -192,6 +192,15 @@ a typed configuration failure. During a live session any native failure aborts
 the uncommitted step/session and retains only the last committed checkpoint.
 
 ## Product checks and completion
+
+`r5-physics-16.v1` is the current performance consumer for this substrate. It
+runs 16 independent reference humanoids, 240 warm-up plus 10,000 measured
+physics substeps per slot and the same standing action stream under 1/4/8
+workers. Exact canonical root parity across those modes and the profiler
+control is mandatory. It reports direct physics/motor throughput, reciprocal
+cost, lockstep p95/p99, scaling, checkpoint size, fresh-scene restore,
+replay-prefix overhead and host/logical memory. ADR-062 owns the exact THOTH
+budgets and separates restore latency from the live 4/6 ms PHYS-P4 deadline.
 
 Stage 0 runs `fast`, `host-check`, `play`, `persistence-replay`,
 `content-package`, `platform`, `performance`, `BODY-SCHEMA-P1`,

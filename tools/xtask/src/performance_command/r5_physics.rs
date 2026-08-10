@@ -5,6 +5,49 @@ use super::*;
 
 const R5_LOGICAL_ACCOUNTING_PROFILE: &[u8] =
     b"nextengine.performance.r5-physics-16-logical-accounting.v1";
+const R5_CHECKPOINT_BYTES_PER_SLOT_MAX: u64 = 4 * 1024 * 1024;
+const R5_LOGICAL_HOST_BYTES_PER_SLOT_MAX: u64 = 4 * 1024 * 1024;
+const R5_PROCESS_PEAK_WORKING_SET_BYTES_MAX: u64 = 320 * 1024 * 1024;
+const R5_REPLAY_PREFIX_OVERHEAD_BASIS_POINTS_MAX: u64 = 12_000;
+const R5_RESTORE_P95_MICROSECONDS_MAX: u64 = 3_600_000;
+const R5_RESTORE_P99_MICROSECONDS_MAX: u64 = 4_000_000;
+
+#[derive(Clone, Copy)]
+struct WorkerBudget {
+    worker_count: u32,
+    frame_p95_microseconds: u64,
+    frame_p99_microseconds: u64,
+    nanoseconds_per_physics_substep_max: u64,
+    nanoseconds_per_motor_frame_max: u64,
+    scaling_inefficiency_basis_points_max: Option<u64>,
+}
+
+const R5_WORKER_BUDGETS: [WorkerBudget; 3] = [
+    WorkerBudget {
+        worker_count: 1,
+        frame_p95_microseconds: 20_000,
+        frame_p99_microseconds: 25_000,
+        nanoseconds_per_physics_substep_max: 250_000,
+        nanoseconds_per_motor_frame_max: 1_000_000,
+        scaling_inefficiency_basis_points_max: None,
+    },
+    WorkerBudget {
+        worker_count: 4,
+        frame_p95_microseconds: 6_000,
+        frame_p99_microseconds: 8_000,
+        nanoseconds_per_physics_substep_max: 83_334,
+        nanoseconds_per_motor_frame_max: 333_334,
+        scaling_inefficiency_basis_points_max: Some(3_500),
+    },
+    WorkerBudget {
+        worker_count: 8,
+        frame_p95_microseconds: 4_000,
+        frame_p99_microseconds: 6_000,
+        nanoseconds_per_physics_substep_max: 50_000,
+        nanoseconds_per_motor_frame_max: 200_000,
+        scaling_inefficiency_basis_points_max: Some(4_500),
+    },
+];
 
 pub(super) fn performance_report(
     request: &PerformanceArguments,
@@ -139,11 +182,7 @@ pub(super) fn performance_report(
         })?;
     run.resource_counters = resource_counters;
 
-    let eight_worker = report
-        .worker_runs
-        .iter()
-        .find(|worker| worker.worker_count == 8)
-        .ok_or_else(|| "MOTOR_PERF_EIGHT_WORKER_EVIDENCE_MISSING".to_owned())?;
+    let eight_worker = worker_run(&report, 8)?;
     let live_prefix_microseconds = u128::from(eight_worker.elapsed_microseconds)
         .saturating_mul(u128::from(report.replay_prefix_substeps_per_slot))
         .checked_div(u128::from(report.measured_substeps_per_slot))
@@ -165,38 +204,54 @@ pub(super) fn performance_report(
         .as_bytes(),
     );
     run.scenario_hash = performance_scenario_hash(request.scenario);
-    run.metrics = vec![
-        metric(
-            "r5-physics-16.worker-8.physics-motor-frame",
-            "microseconds",
-            eight_worker.lockstep_motor_frame_microseconds.clone(),
-        )?,
+    run.metrics = worker_metrics(&report)?;
+    run.metrics.extend([
         metric(
             "r5-physics-16.restore-fresh-scene",
             "microseconds",
             report.restore_microseconds_per_slot.clone(),
+            Some(budget(
+                R5_RESTORE_P95_MICROSECONDS_MAX,
+                R5_RESTORE_P99_MICROSECONDS_MAX,
+            )),
         )?,
         metric(
             "r5-physics-16.checkpoint-bytes-per-slot",
             "bytes",
             report.checkpoint_bytes_per_slot.clone(),
+            Some(budget(
+                R5_CHECKPOINT_BYTES_PER_SLOT_MAX,
+                R5_CHECKPOINT_BYTES_PER_SLOT_MAX,
+            )),
         )?,
         metric(
             "r5-physics-16.replay-prefix-overhead",
             "basis-points",
             vec![replay_prefix_overhead_basis_points],
+            Some(budget(
+                R5_REPLAY_PREFIX_OVERHEAD_BASIS_POINTS_MAX,
+                R5_REPLAY_PREFIX_OVERHEAD_BASIS_POINTS_MAX,
+            )),
         )?,
         metric(
             "r5-physics-16.process-peak-working-set",
             "bytes",
             vec![process_peak_working_set_bytes],
+            Some(budget(
+                R5_PROCESS_PEAK_WORKING_SET_BYTES_MAX,
+                R5_PROCESS_PEAK_WORKING_SET_BYTES_MAX,
+            )),
         )?,
         metric(
             "r5-physics-16.logical-host-bytes-per-slot",
             "bytes",
             vec![logical_host_bytes_per_slot],
+            Some(budget(
+                R5_LOGICAL_HOST_BYTES_PER_SLOT_MAX,
+                R5_LOGICAL_HOST_BYTES_PER_SLOT_MAX,
+            )),
         )?,
-    ];
+    ]);
     run.authoritative_hashes =
         BTreeMap::from([("r5_physics".to_owned(), report.authoritative_root.to_hex())]);
     run.verdict = xtask::performance::aggregate_metric_verdict(&run.metrics);
@@ -240,6 +295,12 @@ pub(super) fn performance_report(
                 run.verdict = xtask::performance::PerformanceVerdict::NotRun;
             }
         }
+    }
+    if request.mode == xtask::performance::PerformanceModeV1::Report
+        && request.baseline.is_none()
+        && run.verdict == xtask::performance::PerformanceVerdict::Pass
+    {
+        run.verdict = xtask::performance::PerformanceVerdict::ReportOnly;
     }
 
     let worker_runs = report
@@ -308,6 +369,115 @@ fn metric(
     name: &str,
     unit: &str,
     samples: Vec<u64>,
+    absolute_budget: Option<xtask::performance::PerformanceBudgetV1>,
 ) -> Result<xtask::performance::PerformanceMetricV1, String> {
-    xtask::performance::PerformanceMetricV1::from_samples(name, unit, samples, None)
+    xtask::performance::PerformanceMetricV1::from_samples(name, unit, samples, absolute_budget)
+}
+
+fn worker_run(
+    report: &next_motor::HumanoidPerformanceReportV1,
+    worker_count: u32,
+) -> Result<&next_motor::HumanoidWorkerPerformanceV1, String> {
+    report
+        .worker_runs
+        .iter()
+        .find(|worker| worker.worker_count == worker_count)
+        .ok_or_else(|| format!("MOTOR_PERF_WORKER_EVIDENCE_MISSING: {worker_count}"))
+}
+
+fn worker_metrics(
+    report: &next_motor::HumanoidPerformanceReportV1,
+) -> Result<Vec<xtask::performance::PerformanceMetricV1>, String> {
+    let aggregate_substeps = u64::from(report.slot_count)
+        .checked_mul(report.measured_substeps_per_slot)
+        .ok_or_else(|| "R5 aggregate substep count overflow".to_owned())?;
+    let aggregate_motor_frames = u64::from(report.slot_count)
+        .checked_mul(report.measured_motor_frames_per_slot)
+        .ok_or_else(|| "R5 aggregate motor-frame count overflow".to_owned())?;
+    let mut metrics = Vec::with_capacity(11);
+    for worker_budget in R5_WORKER_BUDGETS {
+        let worker = worker_run(report, worker_budget.worker_count)?;
+        let prefix = format!("r5-physics-16.worker-{}", worker_budget.worker_count);
+        metrics.push(metric(
+            &format!("{prefix}.physics-motor-frame"),
+            "microseconds",
+            worker.lockstep_motor_frame_microseconds.clone(),
+            Some(budget(
+                worker_budget.frame_p95_microseconds,
+                worker_budget.frame_p99_microseconds,
+            )),
+        )?);
+        metrics.push(metric(
+            &format!("{prefix}.physics-substep-cost"),
+            "nanoseconds-per-physics-substep",
+            vec![average_nanoseconds(
+                worker.elapsed_microseconds,
+                aggregate_substeps,
+            )?],
+            Some(budget(
+                worker_budget.nanoseconds_per_physics_substep_max,
+                worker_budget.nanoseconds_per_physics_substep_max,
+            )),
+        )?);
+        metrics.push(metric(
+            &format!("{prefix}.motor-frame-cost"),
+            "nanoseconds-per-motor-frame",
+            vec![average_nanoseconds(
+                worker.elapsed_microseconds,
+                aggregate_motor_frames,
+            )?],
+            Some(budget(
+                worker_budget.nanoseconds_per_motor_frame_max,
+                worker_budget.nanoseconds_per_motor_frame_max,
+            )),
+        )?);
+        if let Some(maximum) = worker_budget.scaling_inefficiency_basis_points_max {
+            metrics.push(metric(
+                &format!("{prefix}.scaling-inefficiency"),
+                "basis-points",
+                vec![10_000_u64.saturating_sub(worker.scaling_efficiency_basis_points)],
+                Some(budget(maximum, maximum)),
+            )?);
+        }
+    }
+    Ok(metrics)
+}
+
+fn average_nanoseconds(elapsed_microseconds: u64, completed: u64) -> Result<u64, String> {
+    elapsed_microseconds
+        .checked_mul(1_000)
+        .and_then(|nanoseconds| nanoseconds.checked_div(completed))
+        .ok_or_else(|| "R5 average duration overflow or zero completion count".to_owned())
+}
+
+const fn budget(p95_max: u64, p99_max: u64) -> xtask::performance::PerformanceBudgetV1 {
+    xtask::performance::PerformanceBudgetV1 {
+        p95_max: Some(p95_max),
+        p99_max: Some(p99_max),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepted_worker_budgets_cover_one_four_and_eight_workers() {
+        assert_eq!(R5_WORKER_BUDGETS.map(|entry| entry.worker_count), [1, 4, 8]);
+        assert_eq!(R5_WORKER_BUDGETS[2].frame_p95_microseconds, 4_000);
+        assert_eq!(R5_WORKER_BUDGETS[2].frame_p99_microseconds, 6_000);
+        assert_eq!(
+            R5_WORKER_BUDGETS[2].scaling_inefficiency_basis_points_max,
+            Some(4_500)
+        );
+    }
+
+    #[test]
+    fn reciprocal_throughput_cost_is_lower_when_work_finishes_faster() {
+        let slower = average_nanoseconds(1_000, 10).expect("slower cost");
+        let faster = average_nanoseconds(500, 10).expect("faster cost");
+        assert_eq!(slower, 100_000);
+        assert_eq!(faster, 50_000);
+        assert!(faster < slower);
+    }
 }

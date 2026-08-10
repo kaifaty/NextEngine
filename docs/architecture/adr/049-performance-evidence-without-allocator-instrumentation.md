@@ -4,15 +4,15 @@
 |---|---|
 | ID | ADR-049 |
 | Status | Accepted |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-08-08 |
 | Last verified | 2026-08-08 |
 | Normative dependencies | [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-038](038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](045-low-overhead-hard-performance-evidence.md) |
 | Supersedes | Fully supersedes ADR-039 through ADR-043. Supersedes ADR-045 clauses that retain allocator instrumentation, allocator report fields or `allocator-counter-check`. Performance budgets, low-overhead evidence, retained historical results and no-retry policy remain. |
-| Superseded by | The methodology identity is superseded first by [ADR-060](060-relaxed-thoth-performance-preflight.md) and currently by [ADR-061](061-forty-percent-thoth-load-preflight.md); Performance V4 wire schemas and the allocator-removal decision remain Accepted. |
+| Superseded by | The methodology identity is superseded by [ADR-060](060-relaxed-thoth-performance-preflight.md), [ADR-061](061-forty-percent-thoth-load-preflight.md) and currently [ADR-062](062-r5-physx-humanoid-performance-authority.md); Performance V4 wire schemas and the allocator-removal decision remain Accepted. |
 
 > Current reports retain the Performance V4 wire shape but carry
-> `nextengine-performance-v6` under ADR-061. Earlier methodology strings below are
+> `nextengine-performance-v7` under ADR-062. Earlier methodology strings below are
 > retained as decision history.
 
 ## Context

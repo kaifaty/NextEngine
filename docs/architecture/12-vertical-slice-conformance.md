@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 2.9 |
+| Версия | 3.0 |
 | Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md) |
-| Заменяет | SPEC-12 2.8; adopts ADR-061 performance preflight admission |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md) |
+| Заменяет | SPEC-12 2.9; admits the representative R5 PhysX workload and hard budgets |
 
 ## Назначение
 
@@ -209,8 +209,12 @@ combat и UI/dialogue выполняются отдельно в primary и fall
 `r3-multiregion-streaming` выполняет 1 000 production packaged transitions по
 canonical four-region/64-chunk route, публикует только `streaming_world` и
 заполняет logical `required_staging_bytes`; он также `REPORT_ONLY`. R2/R3 hard
-gates требуют clean compatible ten-run THOTH evidence; R4–R5 workloads остаются
-`NOT_RUN` до своей реализации.
+gates требуют clean compatible ten-run THOTH evidence. R4 остаётся `NOT_RUN`.
+`r5-physics-16.v1` реализован по ADR-062: один run выполняет одинаковые
+sixteen-slot PhysX 23-DoF trajectories при 1/4/8 workers, требует exact
+canonical root parity и отдельно измеряет live cadence, checkpoint/restore and
+resources. Clean calibration без compatible ten-run baseline остаётся
+`REPORT_ONLY`.
 
 Baseline строится из десяти clean runs одного commit. Percentiles —
 nearest-rank без удаления outliers. Absolute THOTH budget overrun даёт

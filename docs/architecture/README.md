@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.28 |
+| Версия | 2.29 |
 | Последняя проверка | 2026-08-10 |
-| Заменяет | INDEX-001 2.27; adopts ADR-061 forty-percent THOTH load preflight |
+| Заменяет | INDEX-001 2.28; adopts ADR-062 R5 PhysX performance authority and methodology v7 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -212,7 +212,7 @@ traceability — навигационная карта, не admission authority
 | ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Superseded by ADR-058 |
 | ADR-034 | [Player targeting replay V5 и exact mapping provenance](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) | Accepted; legacy V4/V1 retention superseded by ADR-046 |
 | ADR-035 | [Bounded live recovery, platform-host binding и presentation cut](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) | Accepted host binding and presentation cut; checkpoint/archive recovery clauses superseded by ADR-047 |
-| ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; THOTH target, budgets, baseline and no-retry authority remain; allocator clauses are superseded by ADR-049 and preflight thresholds by ADR-060/ADR-061 |
+| ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; THOTH target, baseline and no-retry authority remain; allocator clauses are superseded by ADR-049, preflight thresholds by ADR-060/ADR-061 and driver/R5 workload details by ADR-062 |
 | ADR-037 | [Packed session object storage](adr/037-packed-session-object-storage.md) | Superseded by ADR-047 |
 | ADR-038 | [Versioned production-worker handoff diagnostic](adr/038-versioned-production-worker-handoff-diagnostic.md) | Accepted; узко заменяет diagnostic-scenario часть ADR-036 без изменения THOTH hard timing authority или B-12 closure |
 | ADR-039 | [Tooling-only process-wide System GlobalAlloc measurement boundary](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md) | Superseded by ADR-049 |
@@ -237,7 +237,8 @@ traceability — навигационная карта, не admission authority
 | ADR-058 | [PhysX-only deterministic humanoid training substrate](adr/058-physx-only-deterministic-humanoid-training-substrate.md) | Accepted sole production backend and fixed-humanoid Stage 0; cutover/completion require Windows/Linux and replay/performance gates |
 | ADR-059 | [Event-sourced PhysX continuation reconstruction](adr/059-event-sourced-physx-continuation-reconstruction.md) | Accepted bounded reset + post-safety effort prefix; partially supersedes ADR-058 direct continuation-import assumption |
 | ADR-060 | [Relaxed THOTH performance preflight](adr/060-relaxed-thoth-performance-preflight.md) | Accepted 10 GiB free-RAM threshold; below-15% load and methodology v5 are superseded by ADR-061 |
-| ADR-061 | [Forty-percent THOTH load preflight](adr/061-forty-percent-thoth-load-preflight.md) | Accepted CPU/GPU load below 40% and methodology v6; all other hard-evidence gates remain |
+| ADR-061 | [Forty-percent THOTH load preflight](adr/061-forty-percent-thoth-load-preflight.md) | Accepted CPU/GPU load below 40%; methodology v6 is superseded by ADR-062 |
+| ADR-062 | [R5 PhysX humanoid performance authority](adr/062-r5-physx-humanoid-performance-authority.md) | Accepted 16-slot 23-DoF PhysX workload, 1/4/8-worker budgets, driver 610.88 and methodology v7; ten-run baseline/hard gate remain required evidence |
 
 ## Proposed tracks
 
