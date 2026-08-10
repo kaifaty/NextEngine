@@ -34,7 +34,7 @@ Stage 0 completion or R5 closure.
 | `MODEL-DATAPLANE-P1` | `PASS` | Native PhysX subprocess client and checkpoint continuation passed; external NPZ v2 recorder produced a 57-step terminal trajectory with widths 84/23/10/3. |
 | `MODEL-MIRROR-P1` CPU golden | `PASS` | Rust descriptor bytes, profile hashes, command schedule, root-local transform and fixed PD matched Python/Torch. |
 | `MODEL-MIRROR-P1` GPU corpus | `NOT_RUN` | Isaac Lab and Isaac Sim are not installed; host is Windows rather than the pinned Linux NVIDIA profile. |
-| Linux/native cross-target | `NOT_RUN` | No native Linux host was available. |
+| Linux/native cross-target | `OUT_OF_SCOPE` | Explicitly excluded from this Windows-local locomotion-environment package; it remains a separate Stage 0/shipping concern and no Linux claim is made here. |
 
 ## Conditional performance
 
@@ -50,13 +50,20 @@ run rather than a fixed three-run gate, no compatible fresh ten-run V5 baseline
 exists, and postflight observed GPU load at `40%`. This evidence cannot close
 B-12 or Stage 0.
 
-## Remaining gates
+## Current package scope boundary
+
+Linux execution, platform/replay parity and same-commit cross-target evidence
+are explicitly out of scope for this locomotion-environment delivery. They do
+not block canonical Windows CPU trajectory collection or local training
+experiments. The broader ADR-058/SPEC-35 Stage 0, R1/R7 and shipping claims
+retain their independent Linux requirements.
+
+## Remaining work (Linux excluded)
 
 - Train and evaluate a policy separately; PPO, imitation, export and runtime
   learned evaluation were outside this package.
 - Run the 256 x 600-tick Isaac GPU correspondence corpus and satisfy byte-exact
   command/profile/component gates plus reward and physics thresholds.
-- Complete Linux platform/replay and same-commit cross-target evidence.
 - Produce a clean ten-run V5 baseline and one fixed three-run hard performance
   `PASS`.
 - Add terrain/friction/pose randomization, pushes, stumble/recovery,

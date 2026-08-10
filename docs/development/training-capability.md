@@ -49,10 +49,12 @@ root/joint/contact facts and separate termination/truncation. This environment
 is suitable for local CPU data collection and algorithm experiments; it is not
 a trained policy or a runtime learned evaluator.
 
-The Isaac mirror is non-authoritative until `MODEL-MIRROR-P1` passes on the
-pinned Linux NVIDIA profile. A Windows-only golden test proves descriptor,
+The Isaac mirror is non-authoritative until `MODEL-MIRROR-P1` passes on its
+pinned accelerator profile. A Windows-only golden test proves descriptor,
 schedule, PD and frame-transform equivalence but does not replace GPU
-correspondence.
+correspondence. Linux execution and cross-target validation are explicitly out
+of scope for the current locomotion-environment package, so its native Linux
+GPU corpus is deferred with the broader Stage 0 and shipping obligations.
 
 An optional CUDA workstation probe remains available:
 
