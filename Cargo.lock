@@ -738,6 +738,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "next_motor"
+version = "0.1.0"
+dependencies = [
+ "next_contracts",
+ "next_physics_physx",
+ "next_physics_physx_ffi",
+]
+
+[[package]]
 name = "next_physics_api"
 version = "0.1.0"
 dependencies = [

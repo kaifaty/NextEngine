@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <mutex>
 #include <new>
 #include <type_traits>
 
@@ -221,8 +222,6 @@ physx::PxFilterFlags contact_filter_shader(
 }
 
 struct World {
-    physx::PxDefaultAllocator allocator;
-    physx::PxDefaultErrorCallback error_callback;
     physx::PxFoundation* foundation = nullptr;
     physx::PxPhysics* physics = nullptr;
     physx::PxDefaultCpuDispatcher* dispatcher = nullptr;
@@ -243,6 +242,59 @@ struct World {
     float timestep = 0.0F;
     ContactSink contact_sink;
 };
+
+struct SdkRuntime {
+    physx::PxDefaultAllocator allocator;
+    physx::PxDefaultErrorCallback error_callback;
+    physx::PxFoundation* foundation = nullptr;
+    physx::PxPhysics* physics = nullptr;
+    std::uint32_t reference_count = 0;
+    std::mutex mutex;
+};
+
+SdkRuntime& sdk_runtime() {
+    static SdkRuntime runtime;
+    return runtime;
+}
+
+bool acquire_sdk(World& world) {
+    SdkRuntime& runtime = sdk_runtime();
+    std::lock_guard<std::mutex> lock(runtime.mutex);
+    if (runtime.reference_count == 0) {
+        runtime.foundation =
+            PxCreateFoundation(PX_PHYSICS_VERSION, runtime.allocator, runtime.error_callback);
+        if (runtime.foundation == nullptr) {
+            return false;
+        }
+        const physx::PxTolerancesScale scale;
+        runtime.physics =
+            PxCreatePhysics(PX_PHYSICS_VERSION, *runtime.foundation, scale, true, nullptr);
+        if (runtime.physics == nullptr) {
+            runtime.foundation->release();
+            runtime.foundation = nullptr;
+            return false;
+        }
+    }
+    ++runtime.reference_count;
+    world.foundation = runtime.foundation;
+    world.physics = runtime.physics;
+    return true;
+}
+
+void release_sdk() {
+    SdkRuntime& runtime = sdk_runtime();
+    std::lock_guard<std::mutex> lock(runtime.mutex);
+    if (runtime.reference_count == 0) {
+        return;
+    }
+    --runtime.reference_count;
+    if (runtime.reference_count == 0) {
+        runtime.physics->release();
+        runtime.foundation->release();
+        runtime.physics = nullptr;
+        runtime.foundation = nullptr;
+    }
+}
 
 physx::PxTransform read_transform(const std::uint32_t* position, const std::uint32_t* rotation) {
     return physx::PxTransform(
@@ -314,18 +366,16 @@ void destroy_world(World* world) {
     if (world->material != nullptr) {
         world->material->release();
     }
-    if (world->physics != nullptr) {
-        world->physics->release();
-    }
-    if (world->foundation != nullptr) {
-        world->foundation->release();
-    }
+    const bool has_sdk = world->physics != nullptr;
     delete[] world->links;
     delete[] world->link_tokens;
     delete[] world->actors;
     delete[] world->boxes;
     delete[] world->contact_sink.contacts;
     delete world;
+    if (has_sdk) {
+        release_sdk();
+    }
 }
 
 }  // namespace
@@ -348,15 +398,8 @@ std::int32_t ne_physx_world_create(void** output) noexcept {
     if (world == nullptr) {
         return kOutOfMemory;
     }
-    world->foundation = PxCreateFoundation(PX_PHYSICS_VERSION, world->allocator, world->error_callback);
-    if (world->foundation == nullptr) {
-        destroy_world(world);
-        return kInternalFailure;
-    }
-    const physx::PxTolerancesScale scale;
-    world->physics = PxCreatePhysics(PX_PHYSICS_VERSION, *world->foundation, scale, true, nullptr);
-    if (world->physics == nullptr) {
-        destroy_world(world);
+    if (!acquire_sdk(*world)) {
+        delete world;
         return kInternalFailure;
     }
     world->material = world->physics->createMaterial(0.8F, 0.7F, 0.0F);

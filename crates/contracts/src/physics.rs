@@ -92,8 +92,10 @@ const SEGMENT_V1: &str = "v1";
 #[cfg(test)]
 mod tests;
 pub use articulated::{
-    AppliedActuatorEffortV1, PhysicsActuatorDescriptorV1, PhysicsArticulationJointStateV1,
-    PhysicsBodyDescriptorV2, PhysicsCanonicalSnapshotV3, PhysicsJointDescriptorV1,
-    PhysicsJointKindV1, PhysicsStepInputV3, PhysicsStepResultV2, PhysicsSubstepActuationV1,
-    PhysicsWorldCatalogV2, PhysicsWorldCheckpointV2,
+    AppliedActuatorEffortV1, PHYSICS_ACTUATOR_DESCRIPTOR_V1_SCHEMA_VERSION,
+    PHYSICS_BODY_DESCRIPTOR_V2_SCHEMA_VERSION, PHYSICS_JOINT_DESCRIPTOR_V1_SCHEMA_VERSION,
+    PhysicsActuatorDescriptorV1, PhysicsArticulationJointStateV1, PhysicsBodyDescriptorV2,
+    PhysicsCanonicalSnapshotV3, PhysicsJointDescriptorV1, PhysicsJointKindV1, PhysicsStepInputV3,
+    PhysicsStepResultV2, PhysicsSubstepActuationV1, PhysicsWorldCatalogV2,
+    PhysicsWorldCheckpointV2,
 };

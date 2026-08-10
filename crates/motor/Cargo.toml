@@ -1,0 +1,20 @@
+[package]
+name = "next_motor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[features]
+default = []
+mock-abi = ["next_physics_physx/mock-abi", "next_physics_physx_ffi/mock-abi"]
+physx-sdk = ["next_physics_physx/physx-sdk", "next_physics_physx_ffi/physx-sdk"]
+
+[dependencies]
+next_contracts.workspace = true
+next_physics_physx.workspace = true
+next_physics_physx_ffi.workspace = true
+
+[lints]
+workspace = true

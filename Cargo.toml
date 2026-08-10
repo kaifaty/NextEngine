@@ -8,6 +8,7 @@ members = [
     "crates/contracts",
     "crates/desktop-sdl-ash",
     "crates/mechanics",
+    "crates/motor",
     "crates/player",
     "crates/platform",
     "crates/plugin-host",
@@ -41,6 +42,7 @@ next_application = { path = "crates/application" }
 next_assets = { path = "crates/assets" }
 next_desktop_sdl_ash = { path = "crates/desktop-sdl-ash" }
 next_mechanics = { path = "crates/mechanics" }
+next_motor = { path = "crates/motor" }
 next_player = { path = "crates/player" }
 next_platform = { path = "crates/platform" }
 next_plugin_host = { path = "crates/plugin-host" }
