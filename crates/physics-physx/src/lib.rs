@@ -17,9 +17,224 @@ use next_physics_api::{
     PhysicsBackendKind, PhysicsQuantizationError, PhysicsQuantizer, PhysicsWorldBackend,
     ReferencePhysicsError, grounded_capsule_collision_filter, reference_grounded_capsule_sweep,
 };
-use next_physics_physx_ffi::{CapsuleAxisSweepInput, NativeWorld, PhysXFfiError, StaticBoxInput};
+use next_physics_physx_ffi::{
+    ArticulationJointInput, ArticulationLinkInput, CapsuleAxisSweepInput, ContactOutput,
+    JointState, LinkState, NativeWorld, PhysXFfiError, SceneProfileInput, StaticBoxInput,
+};
 
 pub type PhysXPhysicsWorld = GroundedCapsuleWorld<PhysXGroundedCapsuleQuery>;
+
+pub const PHYSX_CPU_TIMESTEP_HZ: u32 = 240;
+pub const PHYSX_CPU_POSITION_ITERATIONS: u32 = 8;
+pub const PHYSX_CPU_VELOCITY_ITERATIONS: u32 = 2;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PhysXSceneProfile {
+    pub gravity_bits: [u32; 3],
+    pub timestep_bits: u32,
+    pub position_iterations: u32,
+    pub velocity_iterations: u32,
+    pub max_contacts: u32,
+    pub max_actors: u32,
+    pub max_joints: u32,
+}
+
+impl PhysXSceneProfile {
+    #[must_use]
+    pub fn deterministic_humanoid(max_contacts: u32, max_actors: u32, max_joints: u32) -> Self {
+        Self {
+            gravity_bits: [0.0_f32.to_bits(), (-9.81_f32).to_bits(), 0.0_f32.to_bits()],
+            timestep_bits: (1.0_f32 / PHYSX_CPU_TIMESTEP_HZ as f32).to_bits(),
+            position_iterations: PHYSX_CPU_POSITION_ITERATIONS,
+            velocity_iterations: PHYSX_CPU_VELOCITY_ITERATIONS,
+            max_contacts,
+            max_actors,
+            max_joints,
+        }
+    }
+
+    fn ffi(self) -> SceneProfileInput {
+        SceneProfileInput {
+            gravity_bits: self.gravity_bits,
+            timestep_bits: self.timestep_bits,
+            position_iterations: self.position_iterations,
+            velocity_iterations: self.velocity_iterations,
+            max_contacts: self.max_contacts,
+            max_actors: self.max_actors,
+            max_joints: self.max_joints,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PhysXArticulationCatalog {
+    pub static_boxes: Vec<StaticBoxInput>,
+    pub links: Vec<ArticulationLinkInput>,
+    pub joints: Vec<ArticulationJointInput>,
+}
+
+impl PhysXArticulationCatalog {
+    fn validate(&self, profile: PhysXSceneProfile) -> Result<(), PhysXAdapterError> {
+        if self.links.is_empty()
+            || self.joints.len().checked_add(1) != Some(self.links.len())
+            || self.links.len() + self.static_boxes.len() > profile.max_actors as usize
+            || self.joints.len() > profile.max_joints as usize
+            || self.static_boxes.len() > u32::MAX as usize
+        {
+            return Err(PhysXAdapterError::CapacityExceeded);
+        }
+        if self
+            .static_boxes
+            .windows(2)
+            .any(|pair| pair[0].user_token >= pair[1].user_token)
+            || self.links.iter().enumerate().any(|(index, link)| {
+                (index == 0 && link.parent_link_index != u32::MAX)
+                    || (index != 0 && link.parent_link_index as usize >= index)
+            })
+            || self.links.iter().enumerate().any(|(index, link)| {
+                self.links[..index]
+                    .iter()
+                    .any(|other| other.user_token == link.user_token)
+            })
+            || self.joints.iter().enumerate().any(|(index, joint)| {
+                joint.child_link_index as usize != index + 1 || joint.reserved != 0
+            })
+        {
+            return Err(PhysXAdapterError::NonCanonicalConstructionOrder);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PhysXRawArticulationSnapshot {
+    pub links: Vec<LinkState>,
+    pub joints: Vec<JointState>,
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct CanonicalPhysXLinkState {
+    pub user_token: u64,
+    pub position_micrometres: [i64; 3],
+    pub rotation_q1_30: [i64; 4],
+    pub linear_velocity_micrometres_per_second: [i64; 3],
+    pub angular_velocity_microradians_per_second: [i64; 3],
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct CanonicalPhysXJointState {
+    pub ordinal: u32,
+    pub position_microradians: i64,
+    pub velocity_microradians_per_second: i64,
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct CanonicalPhysXContact {
+    pub actor_a_token: u64,
+    pub actor_b_token: u64,
+    pub position_micrometres: [i64; 3],
+    pub normal_q1_30: [i64; 3],
+    pub impulse_micronewton_seconds: [i64; 3],
+    pub separation_micrometres: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CanonicalPhysXSnapshot {
+    pub links: Vec<CanonicalPhysXLinkState>,
+    pub joints: Vec<CanonicalPhysXJointState>,
+    pub contacts: Vec<CanonicalPhysXContact>,
+}
+
+pub struct PhysXArticulationWorld {
+    native: NativeWorld,
+    root_token: u64,
+    last_raw_snapshot: PhysXRawArticulationSnapshot,
+}
+
+impl PhysXArticulationWorld {
+    pub fn create(
+        profile: PhysXSceneProfile,
+        catalog: &PhysXArticulationCatalog,
+    ) -> Result<Self, PhysXAdapterError> {
+        catalog.validate(profile)?;
+        let mut native = NativeWorld::create()?;
+        native.configure_scene(profile.ffi())?;
+        native.reserve_static_boxes(
+            u32::try_from(catalog.static_boxes.len())
+                .map_err(|_| PhysXAdapterError::CapacityExceeded)?,
+        )?;
+        for descriptor in &catalog.static_boxes {
+            native.add_static_box(*descriptor)?;
+        }
+        native.add_articulation(
+            &catalog.links,
+            &catalog.joints,
+            profile.position_iterations,
+            profile.velocity_iterations,
+        )?;
+        let (links, joints) = native.export_articulation_state()?;
+        Ok(Self {
+            native,
+            root_token: catalog.links[0].user_token,
+            last_raw_snapshot: PhysXRawArticulationSnapshot { links, joints },
+        })
+    }
+
+    pub fn apply_efforts_and_step(
+        &mut self,
+        efforts_micronewton_metres: &[i64],
+    ) -> Result<CanonicalPhysXSnapshot, PhysXAdapterError> {
+        let efforts = efforts_micronewton_metres
+            .iter()
+            .map(|effort| scaled_f32_bits(*effort, 1_000_000.0))
+            .collect::<Result<Vec<_>, _>>()?;
+        self.native.apply_articulation_efforts(&efforts)?;
+        self.native.step()?;
+        self.capture()
+    }
+
+    pub fn capture(&mut self) -> Result<CanonicalPhysXSnapshot, PhysXAdapterError> {
+        let (links, joints) = self.native.export_articulation_state()?;
+        let contacts = self.native.export_contacts()?;
+        self.last_raw_snapshot = PhysXRawArticulationSnapshot {
+            links: links.clone(),
+            joints: joints.clone(),
+        };
+        canonicalize_native_output(&links, &joints, &contacts)
+    }
+
+    #[must_use]
+    pub fn raw_checkpoint(&self) -> PhysXRawArticulationSnapshot {
+        self.last_raw_snapshot.clone()
+    }
+
+    pub fn restore(
+        &mut self,
+        checkpoint: &PhysXRawArticulationSnapshot,
+    ) -> Result<CanonicalPhysXSnapshot, PhysXAdapterError> {
+        let Some(root) = checkpoint.links.first().copied() else {
+            return Err(PhysXAdapterError::InvalidOutput);
+        };
+        if root.user_token != self.root_token {
+            return Err(PhysXAdapterError::ProfileMismatch);
+        }
+        self.native
+            .import_articulation_state(root, &checkpoint.joints)?;
+        self.capture()
+    }
+}
+
+impl Debug for PhysXArticulationWorld {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PhysXArticulationWorld")
+            .field("native", &self.native)
+            .field("root_token", &self.root_token)
+            .field("link_count", &self.last_raw_snapshot.links.len())
+            .field("joint_count", &self.last_raw_snapshot.joints.len())
+            .finish()
+    }
+}
 
 pub struct PhysXGroundedCapsuleQuery {
     native: NativeWorld,
@@ -244,6 +459,122 @@ impl GroundedCapsuleQuery for PhysXGroundedCapsuleQuery {
     }
 }
 
+fn canonicalize_native_output(
+    links: &[LinkState],
+    joints: &[JointState],
+    contacts: &[ContactOutput],
+) -> Result<CanonicalPhysXSnapshot, PhysXAdapterError> {
+    let mut canonical_links = links
+        .iter()
+        .map(|link| {
+            Ok(CanonicalPhysXLinkState {
+                user_token: link.user_token,
+                position_micrometres: quantize_vector(link.position_bits, 1_000_000.0)?,
+                rotation_q1_30: [
+                    quantize_bits(link.rotation_bits[0], (1_u64 << 30) as f64)?,
+                    quantize_bits(link.rotation_bits[1], (1_u64 << 30) as f64)?,
+                    quantize_bits(link.rotation_bits[2], (1_u64 << 30) as f64)?,
+                    quantize_bits(link.rotation_bits[3], (1_u64 << 30) as f64)?,
+                ],
+                linear_velocity_micrometres_per_second: quantize_vector(
+                    link.linear_velocity_bits,
+                    1_000_000.0,
+                )?,
+                angular_velocity_microradians_per_second: quantize_vector(
+                    link.angular_velocity_bits,
+                    1_000_000.0,
+                )?,
+            })
+        })
+        .collect::<Result<Vec<_>, PhysXAdapterError>>()?;
+    canonical_links.sort_unstable_by_key(|link| link.user_token);
+    if canonical_links
+        .windows(2)
+        .any(|pair| pair[0].user_token == pair[1].user_token)
+    {
+        return Err(PhysXAdapterError::InvalidOutput);
+    }
+
+    let canonical_joints = joints
+        .iter()
+        .enumerate()
+        .map(|(ordinal, joint)| {
+            Ok(CanonicalPhysXJointState {
+                ordinal: u32::try_from(ordinal).map_err(|_| PhysXAdapterError::CapacityExceeded)?,
+                position_microradians: quantize_bits(joint.position_bits, 1_000_000.0)?,
+                velocity_microradians_per_second: quantize_bits(joint.velocity_bits, 1_000_000.0)?,
+            })
+        })
+        .collect::<Result<Vec<_>, PhysXAdapterError>>()?;
+
+    let mut canonical_contacts = contacts
+        .iter()
+        .map(|contact| {
+            let swapped = contact.actor_a_token > contact.actor_b_token;
+            let (actor_a_token, actor_b_token) = if swapped {
+                (contact.actor_b_token, contact.actor_a_token)
+            } else {
+                (contact.actor_a_token, contact.actor_b_token)
+            };
+            let mut normal = quantize_vector(contact.normal_bits, (1_u64 << 30) as f64)?;
+            let mut impulse = quantize_vector(contact.impulse_bits, 1_000_000.0)?;
+            if swapped {
+                for value in &mut normal {
+                    *value = value
+                        .checked_neg()
+                        .ok_or(PhysXAdapterError::NumericOverflow)?;
+                }
+                for value in &mut impulse {
+                    *value = value
+                        .checked_neg()
+                        .ok_or(PhysXAdapterError::NumericOverflow)?;
+                }
+            }
+            Ok(CanonicalPhysXContact {
+                actor_a_token,
+                actor_b_token,
+                position_micrometres: quantize_vector(contact.position_bits, 1_000_000.0)?,
+                normal_q1_30: normal,
+                impulse_micronewton_seconds: impulse,
+                separation_micrometres: quantize_bits(contact.separation_bits, 1_000_000.0)?,
+            })
+        })
+        .collect::<Result<Vec<_>, PhysXAdapterError>>()?;
+    canonical_contacts.sort_unstable();
+    Ok(CanonicalPhysXSnapshot {
+        links: canonical_links,
+        joints: canonical_joints,
+        contacts: canonical_contacts,
+    })
+}
+
+fn quantize_vector(bits: [u32; 3], scale: f64) -> Result<[i64; 3], PhysXAdapterError> {
+    Ok([
+        quantize_bits(bits[0], scale)?,
+        quantize_bits(bits[1], scale)?,
+        quantize_bits(bits[2], scale)?,
+    ])
+}
+
+fn quantize_bits(bits: u32, scale: f64) -> Result<i64, PhysXAdapterError> {
+    let value = f64::from(f32::from_bits(bits));
+    let scaled = value * scale;
+    if !scaled.is_finite() || scaled < i64::MIN as f64 || scaled > i64::MAX as f64 {
+        return Err(PhysXAdapterError::NumericOverflow);
+    }
+    Ok(scaled.round_ties_even() as i64)
+}
+
+fn scaled_f32_bits(value: i64, scale: f64) -> Result<u32, PhysXAdapterError> {
+    let value = value as f64 / scale;
+    let value = value as f32;
+    if value.is_finite() {
+        Ok(value.to_bits())
+    } else {
+        Err(PhysXAdapterError::NumericOverflow)
+    }
+}
+
 fn permutation_key(seed: u64, token: u64) -> u64 {
     let mut value = seed ^ token.wrapping_mul(0x9e37_79b9_7f4a_7c15);
     value ^= value >> 30;
@@ -335,6 +666,8 @@ pub enum PhysXAdapterError {
     NumericOverflow,
     InvalidOutput,
     SceneChangedAfterActivation,
+    NonCanonicalConstructionOrder,
+    ProfileMismatch,
 }
 
 impl PhysXAdapterError {
@@ -348,6 +681,8 @@ impl PhysXAdapterError {
             Self::NumericOverflow => "PHYSICS_NUMERIC_OVERFLOW",
             Self::InvalidOutput => "PHYSX_INVALID_OUTPUT",
             Self::SceneChangedAfterActivation => "PHYSX_SCENE_CHANGED_AFTER_ACTIVATION",
+            Self::NonCanonicalConstructionOrder => "PHYSX_NON_CANONICAL_CONSTRUCTION_ORDER",
+            Self::ProfileMismatch => "PHYSX_PROFILE_MISMATCH",
         }
     }
 }
@@ -387,7 +722,9 @@ impl From<PhysXAdapterError> for ReferencePhysicsError {
             PhysXAdapterError::Ffi(_)
             | PhysXAdapterError::Quantization(_)
             | PhysXAdapterError::InvalidOutput
-            | PhysXAdapterError::SceneChangedAfterActivation => Self::BackendFailure,
+            | PhysXAdapterError::SceneChangedAfterActivation
+            | PhysXAdapterError::NonCanonicalConstructionOrder
+            | PhysXAdapterError::ProfileMismatch => Self::BackendFailure,
         }
     }
 }
@@ -395,6 +732,56 @@ impl From<PhysXAdapterError> for ReferencePhysicsError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(any(feature = "physx-sdk", feature = "mock-abi"))]
+    fn two_link_catalog() -> PhysXArticulationCatalog {
+        let zero = 0.0_f32.to_bits();
+        let identity = [zero, zero, zero, 1.0_f32.to_bits()];
+        PhysXArticulationCatalog {
+            static_boxes: vec![StaticBoxInput {
+                centre_bits: [zero, (-0.5_f32).to_bits(), zero],
+                half_extents_bits: [5.0_f32.to_bits(), 0.5_f32.to_bits(), 5.0_f32.to_bits()],
+                user_token: 1,
+            }],
+            links: vec![
+                ArticulationLinkInput {
+                    user_token: 10,
+                    parent_link_index: next_physics_physx_ffi::NO_PARENT_LINK,
+                    shape_kind: next_physics_physx_ffi::SHAPE_CAPSULE,
+                    position_bits: [zero, 2.0_f32.to_bits(), zero],
+                    rotation_bits: identity,
+                    shape_dimensions_bits: [0.2_f32.to_bits(), 0.25_f32.to_bits(), zero],
+                    mass_bits: 5.0_f32.to_bits(),
+                    inertia_bits: [0.2_f32.to_bits(); 3],
+                    linear_damping_bits: 0.05_f32.to_bits(),
+                    angular_damping_bits: 0.05_f32.to_bits(),
+                },
+                ArticulationLinkInput {
+                    user_token: 11,
+                    parent_link_index: 0,
+                    shape_kind: next_physics_physx_ffi::SHAPE_CAPSULE,
+                    position_bits: [zero, 1.5_f32.to_bits(), zero],
+                    rotation_bits: identity,
+                    shape_dimensions_bits: [0.15_f32.to_bits(), 0.2_f32.to_bits(), zero],
+                    mass_bits: 2.0_f32.to_bits(),
+                    inertia_bits: [0.1_f32.to_bits(); 3],
+                    linear_damping_bits: 0.05_f32.to_bits(),
+                    angular_damping_bits: 0.05_f32.to_bits(),
+                },
+            ],
+            joints: vec![ArticulationJointInput {
+                child_link_index: 1,
+                reserved: 0,
+                parent_position_bits: [zero, (-0.25_f32).to_bits(), zero],
+                parent_rotation_bits: identity,
+                child_position_bits: [zero, 0.2_f32.to_bits(), zero],
+                child_rotation_bits: identity,
+                lower_limit_bits: (-1.0_f32).to_bits(),
+                upper_limit_bits: 1.0_f32.to_bits(),
+                max_velocity_bits: 20.0_f32.to_bits(),
+            }],
+        }
+    }
 
     #[test]
     #[cfg(not(any(feature = "physx-sdk", feature = "mock-abi")))]
@@ -436,5 +823,35 @@ mod tests {
         let error = PhysXGroundedCapsuleQuery::new(numeric, quantization)
             .expect_err("altered built-in recipe");
         assert_eq!(error.stable_code(), "PHYSX_PROFILE_UNSUPPORTED");
+    }
+
+    #[test]
+    #[cfg(any(feature = "physx-sdk", feature = "mock-abi"))]
+    fn articulation_adapter_steps_canonicalizes_and_restores() {
+        let profile = PhysXSceneProfile::deterministic_humanoid(128, 8, 4);
+        let catalog = two_link_catalog();
+        let mut world = PhysXArticulationWorld::create(profile, &catalog).expect("world");
+        let checkpoint = world.raw_checkpoint();
+        let stepped = world.apply_efforts_and_step(&[10_000_000]).expect("step");
+        assert_eq!(stepped.links.len(), 2);
+        assert_eq!(stepped.joints.len(), 1);
+        assert_ne!(stepped.joints[0].velocity_microradians_per_second, 0);
+        let restored = world.restore(&checkpoint).expect("restore");
+        assert_eq!(restored.joints[0].position_microradians, 0);
+        assert_eq!(restored.joints[0].velocity_microradians_per_second, 0);
+    }
+
+    #[test]
+    #[cfg(any(feature = "physx-sdk", feature = "mock-abi"))]
+    fn articulation_adapter_rejects_ambiguous_construction_order() {
+        let profile = PhysXSceneProfile::deterministic_humanoid(128, 8, 4);
+        let mut catalog = two_link_catalog();
+        catalog.links[1].user_token = catalog.links[0].user_token;
+        let error = PhysXArticulationWorld::create(profile, &catalog)
+            .expect_err("duplicate semantic token");
+        assert_eq!(
+            error.stable_code(),
+            "PHYSX_NON_CANONICAL_CONSTRUCTION_ORDER"
+        );
     }
 }

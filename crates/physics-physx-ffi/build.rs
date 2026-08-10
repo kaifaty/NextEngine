@@ -46,8 +46,10 @@ fn main() {
     println!("cargo:rustc-link-search=native={}", library.display());
     println!("cargo:rustc-link-lib=static=nextengine_physx_bridge");
     for library in [
+        "PhysXExtensions_static_64",
         "PhysX_static_64",
         "PhysXCommon_static_64",
+        "PhysXPvdSDK_static_64",
         "PhysXFoundation_static_64",
     ] {
         println!("cargo:rustc-link-lib=static={library}");
@@ -161,7 +163,7 @@ fn compile_msvc(include: &Path, output: &Path) {
     let script = output.join("build-nextengine-physx-bridge.bat");
     let compiler = env::var("CXX").unwrap_or_else(|_| "cl".to_owned());
     let body = format!(
-        "@echo off\r\ncall \"{}\" -no_logo -arch=x64 -host_arch=x64\r\nif errorlevel 1 exit /b %errorlevel%\r\n{} /nologo /c /std:c++17 /EHsc /O2 /DNDEBUG /DPX_PHYSX_STATIC_LIB /I\"{}\" native\\nextengine_physx_bridge.cpp /Fo\"{}\"\r\nif errorlevel 1 exit /b %errorlevel%\r\nlib /nologo /OUT:\"{}\" \"{}\"\r\nexit /b %errorlevel%\r\n",
+        "@echo off\r\ncall \"{}\" -no_logo -arch=x64 -host_arch=x64\r\nif errorlevel 1 exit /b %errorlevel%\r\n{} /nologo /c /std:c++17 /EHsc /MD /O2 /DNDEBUG /DPX_PHYSX_STATIC_LIB /I\"{}\" native\\nextengine_physx_bridge.cpp /Fo\"{}\"\r\nif errorlevel 1 exit /b %errorlevel%\r\nlib /nologo /OUT:\"{}\" \"{}\"\r\nexit /b %errorlevel%\r\n",
         vsdevcmd.display(),
         compiler,
         include.display(),
