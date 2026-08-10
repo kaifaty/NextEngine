@@ -32,6 +32,28 @@ not a product or release status. It does not replace `fast`, `play`,
 `persistence-replay` or `content-package`; `platform` and `performance` remain
 conditional.
 
+## Canonical humanoid environment
+
+The engine also exposes two engine-owned motor-lab protocol v2 profiles:
+`nextengine.motor.env.humanoid-standing.v1` and
+`nextengine.motor.env.humanoid-flat-command.v1`. The latter is the canonical
+CPU PhysX authority for fixed 23-DoF flat locomotion trajectories. Its command
+schedule, observation/action layouts, reward/termination profiles, RNG
+derivation and correspondence profile are manifest-hash bound; callers cannot
+override reward or physics settings.
+
+Use `python -m next_lab record-trajectories` as documented in `lab/README.md`.
+The configured store must be outside the repository. The recorder writes NPZ
+v2 with exact commands, applied actions, Q16 rewards, observations,
+root/joint/contact facts and separate termination/truncation. This environment
+is suitable for local CPU data collection and algorithm experiments; it is not
+a trained policy or a runtime learned evaluator.
+
+The Isaac mirror is non-authoritative until `MODEL-MIRROR-P1` passes on the
+pinned Linux NVIDIA profile. A Windows-only golden test proves descriptor,
+schedule, PD and frame-transform equivalence but does not replace GPU
+correspondence.
+
 An optional CUDA workstation probe remains available:
 
 ```text
