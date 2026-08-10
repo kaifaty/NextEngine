@@ -19,7 +19,8 @@ pub use mirror::{stage0_isaac_mirror_descriptor_json_v1, stage0_isaac_mirror_gol
 pub use observation::{MotorObservationBuilder, MotorObservationError};
 pub use replay::{MOTOR_RUNTIME_CHECKPOINT_SCHEMA_VERSION, MotorReplayCodecError};
 pub use runtime::{
-    DeterministicHumanoidMotor, HumanoidMotorCheckpoint, MotorFrameResult, MotorRuntimeError,
+    DeterministicHumanoidMotor, HumanoidMotorCheckpoint, MAX_REPLAY_MOTOR_TICKS, MotorFrameResult,
+    MotorReplayFrame, MotorRuntimeError,
 };
 pub use training::{
     MotorVectorRunner, STANDING_REWARD_COMPONENT_IDS, TrainingEnvironmentError, VectorResetOutput,

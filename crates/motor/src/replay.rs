@@ -6,11 +6,11 @@ use next_contracts::ids::{ContentHash, content_hash_from_bytes};
 use next_physics_physx::PhysXRawArticulationSnapshot;
 use next_physics_physx_ffi::{JointState, LinkState};
 
-use crate::{HumanoidMotorCheckpoint, MotorFrameResult};
+use crate::{HumanoidMotorCheckpoint, MAX_REPLAY_MOTOR_TICKS, MotorFrameResult, MotorReplayFrame};
 
 const CHECKPOINT_MAGIC: &[u8; 8] = b"NEMOTCP\0";
-pub const MOTOR_RUNTIME_CHECKPOINT_SCHEMA_VERSION: u16 = 1;
-const MAX_CHECKPOINT_BYTES: usize = 1_048_576;
+pub const MOTOR_RUNTIME_CHECKPOINT_SCHEMA_VERSION: u16 = 2;
+const MAX_CHECKPOINT_BYTES: usize = 4 * 1_048_576;
 const MAX_LINKS: usize = 128;
 const MAX_JOINTS: usize = 256;
 const MAX_CHANNELS: usize = 4_096;
@@ -27,14 +27,14 @@ impl HumanoidMotorCheckpoint {
             bytes.extend_from_slice(&value.to_le_bytes());
         }
         push_i64_values(&mut bytes, &self.previous_efforts_micronewton_metres)?;
-        push_physics_snapshot(&mut bytes, &self.physics)?;
-        if let Some(witness) = &self.restore_witness_physics {
-            bytes.push(1);
-            push_i64_values(&mut bytes, &self.restore_witness_efforts_micronewton_metres)?;
-            push_physics_snapshot(&mut bytes, witness)?;
-        } else {
-            bytes.push(0);
+        push_physics_snapshot(&mut bytes, &self.replay_origin_physics)?;
+        push_len(&mut bytes, self.replay_frames.len())?;
+        for frame in &self.replay_frames {
+            bytes.extend_from_slice(&frame.motor_tick.to_le_bytes());
+            push_i64_values(&mut bytes, &frame.post_safety_efforts_micronewton_metres)?;
+            bytes.extend_from_slice(frame.physics_witness_hash.as_bytes());
         }
+        push_physics_snapshot(&mut bytes, &self.physics)?;
         if bytes.len() + 32 > MAX_CHECKPOINT_BYTES {
             return Err(MotorReplayCodecError::CapacityExceeded);
         }
@@ -69,16 +69,18 @@ impl HumanoidMotorCheckpoint {
         let applied_action_microradians = reader.read_i64_values(MAX_CHANNELS)?;
         let command_raw = [reader.read_i64()?, reader.read_i64()?, reader.read_i64()?];
         let previous_efforts_micronewton_metres = reader.read_i64_values(MAX_CHANNELS)?;
+        let replay_origin_physics = reader.read_physics_snapshot()?;
+        let replay_frame_count = reader.read_len(MAX_REPLAY_MOTOR_TICKS)?;
+        let mut replay_frames = Vec::with_capacity(replay_frame_count);
+        for _ in 0..replay_frame_count {
+            replay_frames.push(MotorReplayFrame {
+                motor_tick: reader.read_u64()?,
+                post_safety_efforts_micronewton_metres: reader
+                    .read_i64_values(MAX_CHANNELS * next_contracts::motor::STAGE0_SUBSTEPS)?,
+                physics_witness_hash: ContentHash::from_bytes(reader.read_u8_array()?),
+            });
+        }
         let physics = reader.read_physics_snapshot()?;
-        let (restore_witness_physics, restore_witness_efforts_micronewton_metres) =
-            match reader.read_u8()? {
-                0 => (None, Vec::new()),
-                1 => {
-                    let efforts = reader.read_i64_values(MAX_CHANNELS)?;
-                    (Some(reader.read_physics_snapshot()?), efforts)
-                }
-                _ => return Err(MotorReplayCodecError::NonCanonical),
-            };
         if !reader.is_empty() {
             return Err(MotorReplayCodecError::TrailingBytes);
         }
@@ -88,8 +90,8 @@ impl HumanoidMotorCheckpoint {
             command_raw,
             previous_efforts_micronewton_metres,
             physics,
-            restore_witness_physics,
-            restore_witness_efforts_micronewton_metres,
+            replay_origin_physics,
+            replay_frames,
         };
         validate_checkpoint(&value)?;
         if value.canonical_bytes()? != bytes {
@@ -151,29 +153,120 @@ fn validate_checkpoint(value: &HumanoidMotorCheckpoint) -> Result<(), MotorRepla
         || value.applied_action_microradians.len() > MAX_CHANNELS
         || value.previous_efforts_micronewton_metres.len()
             != value.applied_action_microradians.len()
-        || value.physics.links.is_empty()
-        || value.physics.links.len() > MAX_LINKS
-        || value.physics.joints.is_empty()
-        || value.physics.joints.len() > MAX_JOINTS
-        || value.physics.joints.len() != value.applied_action_microradians.len()
-        || value
-            .physics
-            .links
-            .windows(2)
-            .any(|pair| pair[0].user_token >= pair[1].user_token)
+        || value.replay_frames.len() > MAX_REPLAY_MOTOR_TICKS
+        || value.motor_tick != value.replay_frames.len() as u64
     {
         return Err(MotorReplayCodecError::InvalidBounds);
     }
-    match &value.restore_witness_physics {
-        Some(witness)
-            if value.restore_witness_efforts_micronewton_metres.len()
-                == value.applied_action_microradians.len()
-                && witness.links.len() == value.physics.links.len()
-                && witness.joints.len() == value.physics.joints.len() => {}
-        None if value.restore_witness_efforts_micronewton_metres.is_empty() => {}
-        _ => return Err(MotorReplayCodecError::InvalidBounds),
+    validate_physics_snapshot(&value.physics, value.applied_action_microradians.len())?;
+    validate_physics_snapshot(
+        &value.replay_origin_physics,
+        value.applied_action_microradians.len(),
+    )?;
+    if value.physics.links.len() != value.replay_origin_physics.links.len() {
+        return Err(MotorReplayCodecError::InvalidBounds);
+    }
+    let effort_count = value
+        .applied_action_microradians
+        .len()
+        .checked_mul(next_contracts::motor::STAGE0_SUBSTEPS)
+        .ok_or(MotorReplayCodecError::CapacityExceeded)?;
+    for (index, frame) in value.replay_frames.iter().enumerate() {
+        if frame.motor_tick != index as u64 + 1
+            || frame.post_safety_efforts_micronewton_metres.len() != effort_count
+        {
+            return Err(MotorReplayCodecError::InvalidBounds);
+        }
+    }
+    if value.replay_frames.is_empty() && value.physics != value.replay_origin_physics {
+        return Err(MotorReplayCodecError::NonCanonical);
+    }
+    if encoded_checkpoint_size(value)? > MAX_CHECKPOINT_BYTES {
+        return Err(MotorReplayCodecError::CapacityExceeded);
     }
     Ok(())
+}
+
+fn validate_physics_snapshot(
+    value: &PhysXRawArticulationSnapshot,
+    expected_joint_count: usize,
+) -> Result<(), MotorReplayCodecError> {
+    if value.links.is_empty()
+        || value.links.len() > MAX_LINKS
+        || value.joints.is_empty()
+        || value.joints.len() > MAX_JOINTS
+        || value.joints.len() != expected_joint_count
+        || value
+            .links
+            .windows(2)
+            .any(|pair| pair[0].user_token >= pair[1].user_token)
+        || value.links.iter().any(|link| {
+            link.position_bits
+                .iter()
+                .chain(&link.rotation_bits)
+                .chain(&link.linear_velocity_bits)
+                .chain(&link.angular_velocity_bits)
+                .any(|bits| !f32::from_bits(*bits).is_finite())
+        })
+        || value.joints.iter().any(|joint| {
+            !f32::from_bits(joint.position_bits).is_finite()
+                || !f32::from_bits(joint.velocity_bits).is_finite()
+        })
+    {
+        return Err(MotorReplayCodecError::InvalidBounds);
+    }
+    Ok(())
+}
+
+fn encoded_checkpoint_size(
+    value: &HumanoidMotorCheckpoint,
+) -> Result<usize, MotorReplayCodecError> {
+    let mut size = CHECKPOINT_MAGIC.len() + 2 + 8 + 24 + 32;
+    size = checked_add_i64_vector_size(size, value.applied_action_microradians.len())?;
+    size = checked_add_i64_vector_size(size, value.previous_efforts_micronewton_metres.len())?;
+    size = checked_add_physics_snapshot_size(size, &value.replay_origin_physics)?;
+    size = size
+        .checked_add(4)
+        .ok_or(MotorReplayCodecError::CapacityExceeded)?;
+    for frame in &value.replay_frames {
+        size = size
+            .checked_add(8 + 32)
+            .ok_or(MotorReplayCodecError::CapacityExceeded)?;
+        size =
+            checked_add_i64_vector_size(size, frame.post_safety_efforts_micronewton_metres.len())?;
+    }
+    checked_add_physics_snapshot_size(size, &value.physics)
+}
+
+fn checked_add_i64_vector_size(size: usize, length: usize) -> Result<usize, MotorReplayCodecError> {
+    size.checked_add(4)
+        .and_then(|size| {
+            length
+                .checked_mul(8)
+                .and_then(|bytes| size.checked_add(bytes))
+        })
+        .ok_or(MotorReplayCodecError::CapacityExceeded)
+}
+
+fn checked_add_physics_snapshot_size(
+    size: usize,
+    value: &PhysXRawArticulationSnapshot,
+) -> Result<usize, MotorReplayCodecError> {
+    let link_bytes = value
+        .links
+        .len()
+        .checked_mul(8 + (3 + 4 + 3 + 3) * 4)
+        .ok_or(MotorReplayCodecError::CapacityExceeded)?;
+    let joint_bytes = value
+        .joints
+        .len()
+        .checked_mul(8)
+        .ok_or(MotorReplayCodecError::CapacityExceeded)?;
+    size.checked_add(4)
+        .and_then(|size| size.checked_add(link_bytes))
+        .and_then(|size| size.checked_add(4))
+        .and_then(|size| size.checked_add(joint_bytes))
+        .ok_or(MotorReplayCodecError::CapacityExceeded)
 }
 
 fn push_physics_snapshot(
@@ -255,10 +348,6 @@ impl<'a> Reader<'a> {
         ))
     }
 
-    fn read_u8(&mut self) -> Result<u8, MotorReplayCodecError> {
-        Ok(self.take(1)?[0])
-    }
-
     fn read_u64(&mut self) -> Result<u64, MotorReplayCodecError> {
         Ok(u64::from_le_bytes(
             self.take(8)?
@@ -295,6 +384,12 @@ impl<'a> Reader<'a> {
             *value = self.read_u32()?;
         }
         Ok(output)
+    }
+
+    fn read_u8_array<const N: usize>(&mut self) -> Result<[u8; N], MotorReplayCodecError> {
+        self.take(N)?
+            .try_into()
+            .map_err(|_| MotorReplayCodecError::Truncated)
     }
 
     fn read_physics_snapshot(
@@ -414,7 +509,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "physx-sdk")]
-    fn native_restore_fails_closed_when_solver_continuation_is_not_representable() {
+    fn native_restore_reconstructs_solver_continuation_for_ten_thousand_substeps() {
         let mut source = runtime();
         for ordinal in 0..5 {
             source
@@ -425,17 +520,112 @@ mod tests {
         let bytes = checkpoint.canonical_bytes().expect("encode");
         let decoded = HumanoidMotorCheckpoint::from_canonical_bytes(&bytes).expect("decode");
         let mut restored = runtime();
-        let error = restored
-            .restore_fresh(&decoded)
-            .expect_err("unrepresented native solver continuation must not be tolerated");
+        restored.restore_fresh(&decoded).expect("replay restore");
+        for ordinal in 0..2_500 {
+            let action_value = i64::from(ordinal % 21) * 1_000 - 10_000;
+            let action = [action_value; 23];
+            let left = source
+                .step_motor_frame(&action, [0, 0, 25_000])
+                .expect("source continuation");
+            let right = restored
+                .step_motor_frame(&action, [0, 0, 25_000])
+                .expect("restored continuation");
+            assert_eq!(left, right, "first differing motor frame {ordinal}");
+        }
+    }
+
+    #[test]
+    fn tampered_effort_prefix_fails_at_a_witness_before_publication() {
+        let mut source = runtime();
+        for ordinal in 0..5 {
+            source
+                .step_motor_frame(&[ordinal * 10_000; 23], [100_000, 0, 0])
+                .expect("warmup");
+        }
+        let mut checkpoint = source.checkpoint();
+        checkpoint.replay_frames[2].post_safety_efforts_micronewton_metres[0] += 1_000_000;
+        let before = runtime().checkpoint();
+        let mut target = runtime();
+        let error = target
+            .restore_fresh(&checkpoint)
+            .expect_err("tampered effort must diverge");
         assert_eq!(error.stable_code(), "MOTOR_RUNTIME_RESTORE_DIVERGENCE");
+        assert_eq!(target.checkpoint(), before);
+    }
+
+    #[test]
+    fn non_contiguous_or_oversized_prefix_is_rejected_before_replay() {
+        let mut source = runtime();
+        source.step_motor_frame(&[0; 23], [0; 3]).expect("frame");
+        let mut checkpoint = source.checkpoint();
+        checkpoint.replay_frames[0].motor_tick = 2;
+        let mut target = runtime();
+        let error = target
+            .restore_fresh(&checkpoint)
+            .expect_err("non-contiguous prefix");
+        assert_eq!(error.stable_code(), "MOTOR_RUNTIME_REPLAY_BOUNDS_INVALID");
+
+        let mut checkpoint = source.checkpoint();
+        let frame = checkpoint.replay_frames[0].clone();
+        checkpoint.replay_frames = vec![frame; MAX_REPLAY_MOTOR_TICKS + 1];
+        checkpoint.motor_tick = (MAX_REPLAY_MOTOR_TICKS + 1) as u64;
+        let error = checkpoint.canonical_bytes().expect_err("oversized prefix");
+        assert_eq!(error.stable_code(), "MOTOR_CHECKPOINT_BOUNDS_INVALID");
+    }
+
+    #[test]
+    fn maximum_stage0_prefix_fits_the_declared_four_mebibyte_envelope() {
+        let mut source = runtime();
+        source.step_motor_frame(&[0; 23], [0; 3]).expect("frame");
+        let mut checkpoint = source.checkpoint();
+        let template = checkpoint.replay_frames[0].clone();
+        checkpoint.replay_frames = (1..=MAX_REPLAY_MOTOR_TICKS)
+            .map(|tick| MotorReplayFrame {
+                motor_tick: tick as u64,
+                ..template.clone()
+            })
+            .collect();
+        checkpoint.motor_tick = MAX_REPLAY_MOTOR_TICKS as u64;
+        let bytes = checkpoint.canonical_bytes().expect("maximum prefix");
+        assert!(bytes.len() <= MAX_CHECKPOINT_BYTES);
+        assert_eq!(
+            HumanoidMotorCheckpoint::from_canonical_bytes(&bytes).expect("maximum decode"),
+            checkpoint
+        );
+    }
+
+    #[test]
+    fn restoring_the_same_checkpoint_twice_is_idempotent() {
+        let mut source = runtime();
+        for ordinal in 0..8 {
+            source
+                .step_motor_frame(&[ordinal * 2_000; 23], [0, 25_000, 0])
+                .expect("warmup");
+        }
+        let checkpoint = source.checkpoint();
+        let mut left = runtime();
+        let mut right = runtime();
+        assert_eq!(
+            left.restore_fresh(&checkpoint).expect("left restore"),
+            right.restore_fresh(&checkpoint).expect("right restore")
+        );
+        for ordinal in 0..32 {
+            let action = [ordinal * 500 - 8_000; 23];
+            assert_eq!(
+                left.step_motor_frame(&action, [0, 0, 10_000])
+                    .expect("left"),
+                right
+                    .step_motor_frame(&action, [0, 0, 10_000])
+                    .expect("right")
+            );
+        }
     }
 
     #[test]
     fn unsupported_version_is_rejected_before_nested_decode_or_checksum() {
         let checkpoint = runtime().checkpoint();
         let mut bytes = checkpoint.canonical_bytes().expect("encode");
-        bytes[8..10].copy_from_slice(&0_u16.to_le_bytes());
+        bytes[8..10].copy_from_slice(&1_u16.to_le_bytes());
         bytes.truncate(10);
         let error = HumanoidMotorCheckpoint::from_canonical_bytes(&bytes)
             .expect_err("unsupported old alpha version");
