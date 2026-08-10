@@ -6,6 +6,16 @@ use next_physics_physx::CanonicalPhysXSnapshot;
 
 use crate::CompiledBodySchemaV1;
 
+const Q1_30_ONE: i64 = 1_i64 << 30;
+const FLAT_LOCOMOTION_OBSERVATION_LAYOUT_ID: &str =
+    "motor-observation-layout.humanoid-flat-command.v1";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MotorVelocityFrameV1 {
+    World,
+    RootLocal,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MotorObservationBuilder {
     layout: MotorObservationLayoutV1,
@@ -13,6 +23,7 @@ pub struct MotorObservationBuilder {
     joint_ordinals: Vec<u32>,
     effector_tokens: Vec<u64>,
     action_count: usize,
+    velocity_frame: MotorVelocityFrameV1,
 }
 
 impl MotorObservationBuilder {
@@ -38,6 +49,13 @@ impl MotorObservationBuilder {
             })
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
+            velocity_frame: if compiled.observation_layout.layout_id.as_str()
+                == FLAT_LOCOMOTION_OBSERVATION_LAYOUT_ID
+            {
+                MotorVelocityFrameV1::RootLocal
+            } else {
+                MotorVelocityFrameV1::World
+            },
             layout: compiled.observation_layout.clone(),
             root_token,
             joint_ordinals,
@@ -62,8 +80,22 @@ impl MotorObservationBuilder {
             .ok_or(MotorObservationError::MissingRoot)?;
         let mut values = Vec::with_capacity(self.layout.channels.len());
         values.extend(root.rotation_q1_30);
-        values.extend(root.linear_velocity_micrometres_per_second);
-        values.extend(root.angular_velocity_microradians_per_second);
+        match self.velocity_frame {
+            MotorVelocityFrameV1::World => {
+                values.extend(root.linear_velocity_micrometres_per_second);
+                values.extend(root.angular_velocity_microradians_per_second);
+            }
+            MotorVelocityFrameV1::RootLocal => {
+                values.extend(rotate_world_to_root_local_q1_30(
+                    root.rotation_q1_30,
+                    root.linear_velocity_micrometres_per_second,
+                )?);
+                values.extend(rotate_world_to_root_local_q1_30(
+                    root.rotation_q1_30,
+                    root.angular_velocity_microradians_per_second,
+                )?);
+            }
+        }
         for ordinal in &self.joint_ordinals {
             values.push(
                 snapshot
@@ -110,6 +142,7 @@ pub enum MotorObservationError {
     ChannelCount,
     MissingRoot,
     MissingJoint,
+    ArithmeticOverflow,
 }
 
 impl MotorObservationError {
@@ -120,6 +153,7 @@ impl MotorObservationError {
             Self::ChannelCount => "MOTOR_OBSERVATION_CHANNEL_COUNT",
             Self::MissingRoot => "MOTOR_OBSERVATION_ROOT_MISSING",
             Self::MissingJoint => "MOTOR_OBSERVATION_JOINT_MISSING",
+            Self::ArithmeticOverflow => "MOTOR_OBSERVATION_ARITHMETIC_OVERFLOW",
         }
     }
 }
@@ -131,6 +165,91 @@ impl Display for MotorObservationError {
 }
 
 impl Error for MotorObservationError {}
+
+pub fn rotate_world_to_root_local_q1_30(
+    quaternion_xyzw_q1_30: [i64; 4],
+    world_vector: [i64; 3],
+) -> Result<[i64; 3], MotorObservationError> {
+    if quaternion_xyzw_q1_30
+        .iter()
+        .any(|value| !(-Q1_30_ONE..=Q1_30_ONE).contains(value))
+    {
+        return Err(MotorObservationError::ArithmeticOverflow);
+    }
+    let [x, y, z, w] = quaternion_xyzw_q1_30.map(i128::from);
+    let two = |value: i128| {
+        value
+            .checked_mul(2)
+            .ok_or(MotorObservationError::ArithmeticOverflow)
+    };
+    let product = |left: i128, right: i128| {
+        left.checked_mul(right)
+            .ok_or(MotorObservationError::ArithmeticOverflow)
+    };
+    let sum = |left: i128, right: i128| {
+        left.checked_add(right)
+            .ok_or(MotorObservationError::ArithmeticOverflow)
+    };
+    let difference = |left: i128, right: i128| {
+        left.checked_sub(right)
+            .ok_or(MotorObservationError::ArithmeticOverflow)
+    };
+    let coefficient = |value_q2_60: i128| round_shift_ties_even(value_q2_60, 30);
+    let diagonal = |left: i128, right: i128| {
+        let square_sum = sum(product(left, left)?, product(right, right)?)?;
+        let reduction = coefficient(two(square_sum)?)?;
+        Q1_30_ONE
+            .checked_sub(reduction)
+            .ok_or(MotorObservationError::ArithmeticOverflow)
+    };
+
+    let r00 = diagonal(y, z)?;
+    let r01 = coefficient(two(difference(product(x, y)?, product(z, w)?)?)?)?;
+    let r02 = coefficient(two(sum(product(x, z)?, product(y, w)?)?)?)?;
+    let r10 = coefficient(two(sum(product(x, y)?, product(z, w)?)?)?)?;
+    let r11 = diagonal(x, z)?;
+    let r12 = coefficient(two(difference(product(y, z)?, product(x, w)?)?)?)?;
+    let r20 = coefficient(two(difference(product(x, z)?, product(y, w)?)?)?)?;
+    let r21 = coefficient(two(sum(product(y, z)?, product(x, w)?)?)?)?;
+    let r22 = diagonal(x, y)?;
+
+    let dot = |coefficients: [i64; 3]| -> Result<i64, MotorObservationError> {
+        let mut value = 0_i128;
+        for (coefficient, component) in coefficients.into_iter().zip(world_vector) {
+            value = value
+                .checked_add(
+                    i128::from(coefficient)
+                        .checked_mul(i128::from(component))
+                        .ok_or(MotorObservationError::ArithmeticOverflow)?,
+                )
+                .ok_or(MotorObservationError::ArithmeticOverflow)?;
+        }
+        round_shift_ties_even(value, 30)
+    };
+    Ok([
+        dot([r00, r10, r20])?,
+        dot([r01, r11, r21])?,
+        dot([r02, r12, r22])?,
+    ])
+}
+
+fn round_shift_ties_even(value: i128, shift: u32) -> Result<i64, MotorObservationError> {
+    let denominator = 1_i128
+        .checked_shl(shift)
+        .ok_or(MotorObservationError::ArithmeticOverflow)?;
+    let quotient = value / denominator;
+    let remainder = (value % denominator).unsigned_abs();
+    let half = (denominator / 2) as u128;
+    let adjust = remainder > half || (remainder == half && quotient.unsigned_abs() % 2 == 1);
+    let rounded = if adjust {
+        quotient
+            .checked_add(if value.is_negative() { -1 } else { 1 })
+            .ok_or(MotorObservationError::ArithmeticOverflow)?
+    } else {
+        quotient
+    };
+    i64::try_from(rounded).map_err(|_| MotorObservationError::ArithmeticOverflow)
+}
 
 #[cfg(test)]
 mod tests {
@@ -175,5 +294,25 @@ mod tests {
         assert_eq!(values[4], 20_000_000);
         assert_eq!(&values[values.len() - 5..values.len() - 2], &[1, 2, 3]);
         assert_eq!(&values[values.len() - 2..], &[0, 0]);
+    }
+
+    #[test]
+    fn root_local_transform_uses_xyzw_and_ties_to_even_integer_math() {
+        let identity = rotate_world_to_root_local_q1_30(
+            [0, 0, 0, 1 << 30],
+            [1_000_000, -2_000_000, 3_000_000],
+        )
+        .expect("identity");
+        assert_eq!(identity, [1_000_000, -2_000_000, 3_000_000]);
+
+        let half_sqrt_q30 = 759_250_125;
+        let local = rotate_world_to_root_local_q1_30(
+            [0, half_sqrt_q30, 0, half_sqrt_q30],
+            [1_000_000, 0, 0],
+        )
+        .expect("yaw");
+        assert!(local[0].unsigned_abs() <= 1);
+        assert_eq!(local[1], 0);
+        assert!((local[2] - 1_000_000).unsigned_abs() <= 1);
     }
 }

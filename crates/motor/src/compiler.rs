@@ -25,6 +25,8 @@ use next_physics_physx_ffi::{
 
 const ARTICULATION_ID: &str = "articulation.humanoid-stage0";
 const HUMANOID_TOKEN_BASE: u64 = 1_000;
+const FLAT_LOCOMOTION_OBSERVATION_LAYOUT_ID: &str =
+    "motor-observation-layout.humanoid-flat-command.v1";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompiledPhysicsDescriptorsV1 {
@@ -320,6 +322,44 @@ impl CompiledBodySchemaV1 {
             actuator.validate()?;
         }
         Ok(result)
+    }
+
+    pub fn apply_flat_locomotion_profile(&mut self) -> Result<(), MotorCompileError> {
+        let ground = self
+            .physx_catalog
+            .static_boxes
+            .first_mut()
+            .ok_or(MotorCompileError::UnsupportedBodyProfile)?;
+        ground.half_extents_bits = [100.0_f32.to_bits(), 0.5_f32.to_bits(), 100.0_f32.to_bits()];
+        self.observation_layout.layout_id = schema_id(FLAT_LOCOMOTION_OBSERVATION_LAYOUT_ID);
+        let mut commands = self
+            .observation_layout
+            .channels
+            .iter_mut()
+            .filter(|channel| channel.semantic == MotorObservationSemanticV1::Command);
+        let right = commands
+            .next()
+            .ok_or(MotorCompileError::UnsupportedBodyProfile)?;
+        right.source_id = schema_id("command.local-right-velocity");
+        right.minimum_raw = -2_000_000;
+        right.maximum_raw = 2_000_000;
+        let forward = commands
+            .next()
+            .ok_or(MotorCompileError::UnsupportedBodyProfile)?;
+        forward.source_id = schema_id("command.local-forward-velocity");
+        forward.minimum_raw = -1_500_000;
+        forward.maximum_raw = 3_000_000;
+        let yaw = commands
+            .next()
+            .ok_or(MotorCompileError::UnsupportedBodyProfile)?;
+        yaw.source_id = schema_id("command.yaw-rate");
+        yaw.minimum_raw = -1_500_000;
+        yaw.maximum_raw = 1_500_000;
+        if commands.next().is_some() {
+            return Err(MotorCompileError::UnsupportedBodyProfile);
+        }
+        self.observation_layout.validate()?;
+        Ok(())
     }
 }
 

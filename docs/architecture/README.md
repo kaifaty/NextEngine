@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.30 |
+| Версия | 2.31 |
 | Последняя проверка | 2026-08-10 |
-| Заменяет | INDEX-001 2.29; adopts ADR-063 run-level performance evidence, Performance V5 and methodology v8 |
+| Заменяет | INDEX-001 2.30; adopts ADR-064 canonical flat-command locomotion environment without a learned-policy or R5 claim |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -166,8 +166,8 @@ traceability — навигационная карта, не admission authority
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
 | SPEC-32 | [Deterministic Strategic Agent cognition and social behavior](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Proposed R4c/R4d target; ADR-056 invariants are Accepted, exact schemas wait for consumers |
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
-| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed optional R&D data plane including the family-based Motor curriculum, not a current creator SDK or shipped trainer |
-| SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF Stage 0 substrate; does not prove a learned policy or R5 completion |
+| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command V2 records, recorder and mirror consumer are current through SPEC-35/ADR-064 |
+| SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing and canonical flat-command environments; does not prove a learned policy or R5 completion |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -240,6 +240,7 @@ traceability — навигационная карта, не admission authority
 | ADR-061 | [Forty-percent THOTH load preflight](adr/061-forty-percent-thoth-load-preflight.md) | Accepted CPU/GPU start-load below 40%; methodology identity is superseded by ADR-063 |
 | ADR-062 | [R5 PhysX humanoid performance authority](adr/062-r5-physx-humanoid-performance-authority.md) | Accepted 16-slot 23-DoF PhysX workload, 1/4/8-worker budgets and driver 610.88; single-run relative gate/methodology v7 are superseded by ADR-063 |
 | ADR-063 | [Run-level performance evidence and fixed gate batches](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md) | Accepted Performance V5/methodology v8, ten independent baseline runs, fixed three-run gate batches and run-level relative bootstrap |
+| ADR-064 | [Canonical flat-command locomotion environment](adr/064-canonical-flat-command-locomotion-environment.md) | Accepted engine-owned 23-DoF flat locomotion commands, root-local observation, Q16 reward, partial reset/checkpoint lifecycle, protocol/mirror v2 boundary; no learned-policy claim |
 
 ## Proposed tracks
 

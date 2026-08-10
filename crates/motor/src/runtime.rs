@@ -190,6 +190,11 @@ impl DeterministicHumanoidMotor {
         }
     }
 
+    #[must_use]
+    pub(crate) fn current_snapshot(&self) -> &CanonicalPhysXSnapshot {
+        &self.current_snapshot
+    }
+
     pub fn restore_fresh(
         &mut self,
         checkpoint: &HumanoidMotorCheckpoint,

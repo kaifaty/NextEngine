@@ -5,19 +5,22 @@
 | ID | SPEC-34 |
 | Status | Proposed |
 | Lifecycle | Optional R8 behavior and optional R5/R8 motor R&D proposal |
-| Version | 1.3 |
+| Version | 1.4 |
 | Last verified | 2026-08-10 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md) |
-| Supersedes | none |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md) |
+| Supersedes | SPEC-34 1.3 only for the bounded current fixed-humanoid V2 data-plane consumers accepted by ADR-064; the common lifecycle remains Proposed |
 
 ## Status and scope
 
 SPEC-34 defines the Proposed common reset/step/trajectory/reward/dataset/run/
 export data plane for Strategic, Tactical and future Motor training lanes.
-ADR-058/SPEC-35 accept only the bounded first-humanoid environment manifest,
-seed/reset/step/trajectory records, standing reward vector and Isaac
-correspondence mirror. Dataset consolidation, PPO, learned artifacts, general
-creator SDK/UI and all other lanes remain Proposed.
+ADR-058/SPEC-35 and ADR-064 accept only the bounded first-humanoid
+`MotorTrainingEnvironmentManifestV2`, seed/reset/step/trajectory records,
+standing and flat-command reward vectors, protocol-v2 client/recorder boundary
+and Isaac correspondence mirror. V2 binds command schedule, reward,
+termination, RNG derivation and correspondence hashes. Dataset consolidation,
+PPO, learned artifacts, general creator SDK/UI and all other lanes remain
+Proposed.
 
 ADR-056 makes Strategic/Tactical training optional R8 quality work; this data
 plane is not a prerequisite for deterministic R4 or v1. Motor training remains

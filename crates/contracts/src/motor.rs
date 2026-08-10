@@ -17,9 +17,16 @@ pub const MOTOR_EPISODE_SEED_SET_V1_SCHEMA_VERSION: u16 = 1;
 pub const MOTOR_RESET_RECORD_V1_SCHEMA_VERSION: u16 = 1;
 pub const MOTOR_STEP_RECORD_V1_SCHEMA_VERSION: u16 = 1;
 pub const MOTOR_TRAJECTORY_MANIFEST_V1_SCHEMA_VERSION: u16 = 1;
+pub const MOTOR_TRAINING_ENVIRONMENT_MANIFEST_V2_SCHEMA_VERSION: u16 = 2;
+pub const MOTOR_LOCOMOTION_COMMAND_PROFILE_V1_SCHEMA_VERSION: u16 = 1;
+pub const MOTOR_RESET_RECORD_V2_SCHEMA_VERSION: u16 = 2;
+pub const MOTOR_STEP_RECORD_V2_SCHEMA_VERSION: u16 = 2;
+pub const MOTOR_TRAJECTORY_MANIFEST_V2_SCHEMA_VERSION: u16 = 2;
+pub const MOTOR_ENVIRONMENT_CHECKPOINT_ENVELOPE_V1_SCHEMA_VERSION: u16 = 1;
 pub const MAX_MOTOR_CHANNELS: usize = 4_096;
 pub const MAX_POLICY_STATE_VALUES: usize = 16_384;
 pub const MAX_REWARD_COMPONENTS: usize = 128;
+pub const MAX_MOTOR_ENVIRONMENT_CHECKPOINT_BYTES: usize = 4 * 1024 * 1024;
 pub const STAGE0_PHYSICS_HZ: u32 = 240;
 pub const STAGE0_MOTOR_HZ: u32 = 60;
 pub const STAGE0_SUBSTEPS: usize = 4;
@@ -375,6 +382,200 @@ impl MotorTrainingEnvironmentManifestV1 {
         }
         Ok(content_hash_from_bytes(sha256(&bytes)))
     }
+
+    pub fn validate_for_protocol_v2(&self) -> Result<(), MotorContractError> {
+        Err(MotorContractError::UnsupportedEnvironmentManifestVersion(
+            self.schema_version,
+        ))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[repr(u8)]
+pub enum MotorLocomotionCommandModeV1 {
+    Stop = 0,
+    Translation = 1,
+    Turn = 2,
+    Combined = 3,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MotorLocomotionCommandProfileV1 {
+    pub schema_version: u16,
+    pub profile_id: SchemaId,
+    pub randomization_stream_id: SchemaId,
+    pub warmup_ticks: u32,
+    pub segment_ticks: u32,
+    pub episode_ticks: u32,
+    pub mode_weights_basis_points: [u16; 4],
+    pub right_velocity_min_micrometres_per_second: i64,
+    pub right_velocity_max_micrometres_per_second: i64,
+    pub forward_velocity_min_micrometres_per_second: i64,
+    pub forward_velocity_max_micrometres_per_second: i64,
+    pub yaw_rate_min_microradians_per_second: i64,
+    pub yaw_rate_max_microradians_per_second: i64,
+    pub linear_rate_limit_micrometres_per_second_squared: u64,
+    pub yaw_rate_limit_microradians_per_second_squared: u64,
+}
+
+impl MotorLocomotionCommandProfileV1 {
+    pub fn validate(&self) -> Result<(), MotorContractError> {
+        let total_weight = self
+            .mode_weights_basis_points
+            .iter()
+            .try_fold(0_u32, |total, weight| total.checked_add(u32::from(*weight)))
+            .ok_or(MotorContractError::InvalidBounds)?;
+        if self.schema_version != MOTOR_LOCOMOTION_COMMAND_PROFILE_V1_SCHEMA_VERSION
+            || self.warmup_ticks == 0
+            || self.segment_ticks == 0
+            || self.episode_ticks <= self.warmup_ticks
+            || total_weight != 10_000
+            || self.right_velocity_min_micrometres_per_second
+                > self.right_velocity_max_micrometres_per_second
+            || self.forward_velocity_min_micrometres_per_second
+                > self.forward_velocity_max_micrometres_per_second
+            || self.yaw_rate_min_microradians_per_second > self.yaw_rate_max_microradians_per_second
+            || self.linear_rate_limit_micrometres_per_second_squared == 0
+            || self.yaw_rate_limit_microradians_per_second_squared == 0
+        {
+            return Err(MotorContractError::InvalidManifest);
+        }
+        Ok(())
+    }
+
+    pub fn profile_hash(&self) -> Result<ContentHash, MotorContractError> {
+        self.validate()?;
+        let mut bytes = header(
+            "nextengine.motor-locomotion-command-profile.v1",
+            self.schema_version,
+        )?;
+        push_id(&mut bytes, &self.profile_id)?;
+        push_id(&mut bytes, &self.randomization_stream_id)?;
+        bytes.extend_from_slice(&self.warmup_ticks.to_le_bytes());
+        bytes.extend_from_slice(&self.segment_ticks.to_le_bytes());
+        bytes.extend_from_slice(&self.episode_ticks.to_le_bytes());
+        for weight in self.mode_weights_basis_points {
+            bytes.extend_from_slice(&weight.to_le_bytes());
+        }
+        for value in [
+            self.right_velocity_min_micrometres_per_second,
+            self.right_velocity_max_micrometres_per_second,
+            self.forward_velocity_min_micrometres_per_second,
+            self.forward_velocity_max_micrometres_per_second,
+            self.yaw_rate_min_microradians_per_second,
+            self.yaw_rate_max_microradians_per_second,
+        ] {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        bytes.extend_from_slice(
+            &self
+                .linear_rate_limit_micrometres_per_second_squared
+                .to_le_bytes(),
+        );
+        bytes.extend_from_slice(
+            &self
+                .yaw_rate_limit_microradians_per_second_squared
+                .to_le_bytes(),
+        );
+        Ok(content_hash_from_bytes(sha256(&bytes)))
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MotorTrainingEnvironmentManifestV2 {
+    pub schema_version: u16,
+    pub environment_id: SchemaId,
+    pub body_schema_hash: ContentHash,
+    pub body_instance_projection_hash: ContentHash,
+    pub physics_catalog_hash: ContentHash,
+    pub observation_layout_hash: ContentHash,
+    pub action_layout_hash: ContentHash,
+    pub physics_build_profile_hash: ContentHash,
+    pub scene_profile_hash: ContentHash,
+    pub bridge_abi_hash: ContentHash,
+    pub quantization_profile_hash: ContentHash,
+    pub translator_version_hash: ContentHash,
+    pub command_schedule_profile_hash: ContentHash,
+    pub reward_profile_hash: ContentHash,
+    pub termination_profile_hash: ContentHash,
+    pub rng_derivation_profile_hash: ContentHash,
+    pub correspondence_profile_hash: ContentHash,
+    pub physics_hz: u32,
+    pub motor_hz: u32,
+    pub maximum_vector_slots: u32,
+    pub maximum_episode_steps: u64,
+    pub reward_components: Vec<MotorRewardComponentV1>,
+}
+
+impl MotorTrainingEnvironmentManifestV2 {
+    pub fn validate(&self) -> Result<(), MotorContractError> {
+        if self.schema_version != MOTOR_TRAINING_ENVIRONMENT_MANIFEST_V2_SCHEMA_VERSION
+            || self.physics_hz != STAGE0_PHYSICS_HZ
+            || self.motor_hz != STAGE0_MOTOR_HZ
+            || self.maximum_vector_slots == 0
+            || self.maximum_episode_steps == 0
+            || self.reward_components.is_empty()
+            || self.reward_components.len() > MAX_REWARD_COMPONENTS
+            || self
+                .reward_components
+                .iter()
+                .map(|component| &component.component_id)
+                .collect::<BTreeSet<_>>()
+                .len()
+                != self.reward_components.len()
+            || self
+                .reward_components
+                .iter()
+                .any(|component| component.minimum_raw > component.maximum_raw)
+        {
+            return Err(MotorContractError::InvalidManifest);
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_protocol_v2(&self) -> Result<(), MotorContractError> {
+        self.validate()
+    }
+
+    pub fn manifest_hash(&self) -> Result<ContentHash, MotorContractError> {
+        self.validate()?;
+        let mut bytes = header(
+            "nextengine.motor-training-environment.v2",
+            self.schema_version,
+        )?;
+        push_id(&mut bytes, &self.environment_id)?;
+        for hash in [
+            self.body_schema_hash,
+            self.body_instance_projection_hash,
+            self.physics_catalog_hash,
+            self.observation_layout_hash,
+            self.action_layout_hash,
+            self.physics_build_profile_hash,
+            self.scene_profile_hash,
+            self.bridge_abi_hash,
+            self.quantization_profile_hash,
+            self.translator_version_hash,
+            self.command_schedule_profile_hash,
+            self.reward_profile_hash,
+            self.termination_profile_hash,
+            self.rng_derivation_profile_hash,
+            self.correspondence_profile_hash,
+        ] {
+            bytes.extend_from_slice(hash.as_bytes());
+        }
+        bytes.extend_from_slice(&self.physics_hz.to_le_bytes());
+        bytes.extend_from_slice(&self.motor_hz.to_le_bytes());
+        bytes.extend_from_slice(&self.maximum_vector_slots.to_le_bytes());
+        bytes.extend_from_slice(&self.maximum_episode_steps.to_le_bytes());
+        push_len(&mut bytes, self.reward_components.len())?;
+        for component in &self.reward_components {
+            push_id(&mut bytes, &component.component_id)?;
+            bytes.extend_from_slice(&component.coefficient_q16.to_le_bytes());
+            bytes.extend_from_slice(&component.minimum_raw.to_le_bytes());
+            bytes.extend_from_slice(&component.maximum_raw.to_le_bytes());
+        }
+        Ok(content_hash_from_bytes(sha256(&bytes)))
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -491,13 +692,292 @@ impl MotorTrajectoryManifestV1 {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[repr(u8)]
+pub enum MotorTerminalDispositionV1 {
+    Running = 0,
+    Terminated = 1,
+    Truncated = 2,
+}
+
+impl MotorTerminalDispositionV1 {
+    fn from_u8(value: u8) -> Result<Self, MotorContractError> {
+        match value {
+            0 => Ok(Self::Running),
+            1 => Ok(Self::Terminated),
+            2 => Ok(Self::Truncated),
+            _ => Err(MotorContractError::InvalidBounds),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MotorResetRecordV2 {
+    pub schema_version: u16,
+    pub environment_manifest_hash: ContentHash,
+    pub environment_profile_id: SchemaId,
+    pub run_root: ContentHash,
+    pub episode_ordinal: u64,
+    pub vector_slot: u32,
+    pub seed_set_hash: ContentHash,
+    pub initial_observation_root: ContentHash,
+    pub physics_root: ContentHash,
+    pub motor_root: ContentHash,
+    pub reset_root: StateRoot,
+}
+
+impl MotorResetRecordV2 {
+    pub fn validate(&self) -> Result<(), MotorContractError> {
+        if self.schema_version != MOTOR_RESET_RECORD_V2_SCHEMA_VERSION {
+            return Err(MotorContractError::UnsupportedVersion(self.schema_version));
+        }
+        if self.reset_root != self.computed_reset_root()? {
+            return Err(MotorContractError::RootMismatch);
+        }
+        Ok(())
+    }
+
+    pub fn computed_reset_root(&self) -> Result<StateRoot, MotorContractError> {
+        let mut bytes = header("nextengine.motor-reset-record.v2", self.schema_version)?;
+        bytes.extend_from_slice(self.environment_manifest_hash.as_bytes());
+        push_id(&mut bytes, &self.environment_profile_id)?;
+        bytes.extend_from_slice(self.run_root.as_bytes());
+        bytes.extend_from_slice(&self.episode_ordinal.to_le_bytes());
+        bytes.extend_from_slice(&self.vector_slot.to_le_bytes());
+        bytes.extend_from_slice(self.seed_set_hash.as_bytes());
+        bytes.extend_from_slice(self.initial_observation_root.as_bytes());
+        bytes.extend_from_slice(self.physics_root.as_bytes());
+        bytes.extend_from_slice(self.motor_root.as_bytes());
+        Ok(StateRoot::from_bytes(sha256(&bytes)))
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MotorStepRecordV2 {
+    pub schema_version: u16,
+    pub episode_ordinal: u64,
+    pub vector_slot: u32,
+    pub motor_tick: u64,
+    pub prior_observation_root: ContentHash,
+    pub next_observation_root: ContentHash,
+    pub applied_command_raw: [i64; 3],
+    pub next_command_raw: [i64; 3],
+    pub applied_action_raw: Vec<i64>,
+    pub reward_components_q16: Vec<i64>,
+    pub reward_total_q16: i64,
+    pub terminated: bool,
+    pub truncated: bool,
+    pub terminal_reason_id: Option<SchemaId>,
+    pub physics_root: ContentHash,
+    pub motor_root: ContentHash,
+    pub prior_step_root: StateRoot,
+    pub step_root: StateRoot,
+}
+
+impl MotorStepRecordV2 {
+    pub fn validate(&self) -> Result<(), MotorContractError> {
+        if self.schema_version != MOTOR_STEP_RECORD_V2_SCHEMA_VERSION {
+            return Err(MotorContractError::UnsupportedVersion(self.schema_version));
+        }
+        if self.applied_action_raw.len() > MAX_MOTOR_CHANNELS
+            || self.reward_components_q16.is_empty()
+            || self.reward_components_q16.len() > MAX_REWARD_COMPONENTS
+            || self
+                .reward_components_q16
+                .iter()
+                .any(|value| !(0..=65_536).contains(value))
+            || (self.terminated && self.truncated)
+            || ((self.terminated || self.truncated) != self.terminal_reason_id.is_some())
+            || self.step_root != self.computed_step_root()?
+        {
+            return Err(MotorContractError::InvalidBounds);
+        }
+        Ok(())
+    }
+
+    pub fn computed_step_root(&self) -> Result<StateRoot, MotorContractError> {
+        let mut bytes = header("nextengine.motor-step-record.v2", self.schema_version)?;
+        bytes.extend_from_slice(&self.episode_ordinal.to_le_bytes());
+        bytes.extend_from_slice(&self.vector_slot.to_le_bytes());
+        bytes.extend_from_slice(&self.motor_tick.to_le_bytes());
+        bytes.extend_from_slice(self.prior_observation_root.as_bytes());
+        bytes.extend_from_slice(self.next_observation_root.as_bytes());
+        for value in self.applied_command_raw {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        for value in self.next_command_raw {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        encode_i64_values(&mut bytes, &self.applied_action_raw)?;
+        encode_i64_values(&mut bytes, &self.reward_components_q16)?;
+        bytes.extend_from_slice(&self.reward_total_q16.to_le_bytes());
+        bytes.push(u8::from(self.terminated));
+        bytes.push(u8::from(self.truncated));
+        match &self.terminal_reason_id {
+            Some(reason) => {
+                bytes.push(1);
+                push_id(&mut bytes, reason)?;
+            }
+            None => bytes.push(0),
+        }
+        bytes.extend_from_slice(self.physics_root.as_bytes());
+        bytes.extend_from_slice(self.motor_root.as_bytes());
+        bytes.extend_from_slice(self.prior_step_root.as_bytes());
+        Ok(StateRoot::from_bytes(sha256(&bytes)))
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MotorTrajectoryManifestV2 {
+    pub schema_version: u16,
+    pub environment_manifest_hash: ContentHash,
+    pub reset_root: StateRoot,
+    pub episode_ordinal: u64,
+    pub vector_slot: u32,
+    pub step_count: u64,
+    pub final_step_root: StateRoot,
+    pub final_observation_root: ContentHash,
+    pub final_physics_root: ContentHash,
+    pub final_motor_root: ContentHash,
+    pub terminal_disposition: MotorTerminalDispositionV1,
+    pub terminal_reason_id: SchemaId,
+}
+
+impl MotorTrajectoryManifestV2 {
+    pub fn validate(&self) -> Result<(), MotorContractError> {
+        if self.schema_version != MOTOR_TRAJECTORY_MANIFEST_V2_SCHEMA_VERSION
+            || self.step_count == 0
+            || self.terminal_disposition == MotorTerminalDispositionV1::Running
+        {
+            return Err(MotorContractError::InvalidManifest);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MotorEnvironmentCheckpointEnvelopeV1 {
+    pub schema_version: u16,
+    pub environment_profile_id: SchemaId,
+    pub environment_manifest_hash: ContentHash,
+    pub run_root: ContentHash,
+    pub episode_ordinal: u64,
+    pub vector_slot: u32,
+    pub motor_tick: u64,
+    pub terminal_disposition: MotorTerminalDispositionV1,
+    pub terminal_reason_id: Option<SchemaId>,
+    pub current_observation_root: ContentHash,
+    pub last_step_root: StateRoot,
+    pub motor_runtime_checkpoint_bytes: Vec<u8>,
+    pub motor_runtime_checkpoint_hash: ContentHash,
+}
+
+impl MotorEnvironmentCheckpointEnvelopeV1 {
+    pub fn validate(&self) -> Result<(), MotorContractError> {
+        if self.schema_version != MOTOR_ENVIRONMENT_CHECKPOINT_ENVELOPE_V1_SCHEMA_VERSION {
+            return Err(MotorContractError::UnsupportedVersion(self.schema_version));
+        }
+        if self.motor_runtime_checkpoint_bytes.is_empty()
+            || self.motor_runtime_checkpoint_bytes.len() > MAX_MOTOR_ENVIRONMENT_CHECKPOINT_BYTES
+            || content_hash_from_bytes(sha256(&self.motor_runtime_checkpoint_bytes))
+                != self.motor_runtime_checkpoint_hash
+            || ((self.terminal_disposition == MotorTerminalDispositionV1::Running)
+                != self.terminal_reason_id.is_none())
+        {
+            return Err(MotorContractError::InvalidBounds);
+        }
+        Ok(())
+    }
+
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, MotorContractError> {
+        self.validate()?;
+        let mut bytes = header(
+            "nextengine.motor-environment-checkpoint-envelope.v1",
+            self.schema_version,
+        )?;
+        push_id(&mut bytes, &self.environment_profile_id)?;
+        bytes.extend_from_slice(self.environment_manifest_hash.as_bytes());
+        bytes.extend_from_slice(self.run_root.as_bytes());
+        bytes.extend_from_slice(&self.episode_ordinal.to_le_bytes());
+        bytes.extend_from_slice(&self.vector_slot.to_le_bytes());
+        bytes.extend_from_slice(&self.motor_tick.to_le_bytes());
+        bytes.push(self.terminal_disposition as u8);
+        match &self.terminal_reason_id {
+            Some(reason) => {
+                bytes.push(1);
+                push_id(&mut bytes, reason)?;
+            }
+            None => bytes.push(0),
+        }
+        bytes.extend_from_slice(self.current_observation_root.as_bytes());
+        bytes.extend_from_slice(self.last_step_root.as_bytes());
+        push_len(&mut bytes, self.motor_runtime_checkpoint_bytes.len())?;
+        bytes.extend_from_slice(&self.motor_runtime_checkpoint_bytes);
+        bytes.extend_from_slice(self.motor_runtime_checkpoint_hash.as_bytes());
+        Ok(bytes)
+    }
+
+    pub fn from_canonical_bytes(bytes: &[u8]) -> Result<Self, MotorContractError> {
+        let mut cursor = MotorByteCursor::new(bytes);
+        cursor.expect_header(
+            "nextengine.motor-environment-checkpoint-envelope.v1",
+            MOTOR_ENVIRONMENT_CHECKPOINT_ENVELOPE_V1_SCHEMA_VERSION,
+        )?;
+        let environment_profile_id = cursor.schema_id()?;
+        let environment_manifest_hash = ContentHash::from_bytes(cursor.array()?);
+        let run_root = ContentHash::from_bytes(cursor.array()?);
+        let episode_ordinal = cursor.u64()?;
+        let vector_slot = cursor.u32()?;
+        let motor_tick = cursor.u64()?;
+        let terminal_disposition = MotorTerminalDispositionV1::from_u8(cursor.u8()?)?;
+        let terminal_reason_id = match cursor.u8()? {
+            0 => None,
+            1 => Some(cursor.schema_id()?),
+            _ => return Err(MotorContractError::InvalidBounds),
+        };
+        let current_observation_root = ContentHash::from_bytes(cursor.array()?);
+        let last_step_root = StateRoot::from_bytes(cursor.array()?);
+        let checkpoint_length = cursor.u32()? as usize;
+        if checkpoint_length > MAX_MOTOR_ENVIRONMENT_CHECKPOINT_BYTES {
+            return Err(MotorContractError::InvalidBounds);
+        }
+        let motor_runtime_checkpoint_bytes = cursor.bytes(checkpoint_length)?.to_vec();
+        let motor_runtime_checkpoint_hash = ContentHash::from_bytes(cursor.array()?);
+        if !cursor.is_empty() {
+            return Err(MotorContractError::InvalidBounds);
+        }
+        let value = Self {
+            schema_version: MOTOR_ENVIRONMENT_CHECKPOINT_ENVELOPE_V1_SCHEMA_VERSION,
+            environment_profile_id,
+            environment_manifest_hash,
+            run_root,
+            episode_ordinal,
+            vector_slot,
+            motor_tick,
+            terminal_disposition,
+            terminal_reason_id,
+            current_observation_root,
+            last_step_root,
+            motor_runtime_checkpoint_bytes,
+            motor_runtime_checkpoint_hash,
+        };
+        value.validate()?;
+        if value.canonical_bytes()? != bytes {
+            return Err(MotorContractError::NonCanonicalOrder);
+        }
+        Ok(value)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MotorContractError {
     UnsupportedVersion(u16),
+    UnsupportedEnvironmentManifestVersion(u16),
     InvalidBounds,
     InvalidManifest,
     NonCanonicalOrder,
     LengthOverflow,
+    RootMismatch,
     Physics(crate::physics::PhysicsContractError),
 }
 
@@ -506,10 +986,14 @@ impl MotorContractError {
     pub const fn stable_code(&self) -> &'static str {
         match self {
             Self::UnsupportedVersion(_) => "UNSUPPORTED_MOTOR_SCHEMA_VERSION",
+            Self::UnsupportedEnvironmentManifestVersion(_) => {
+                "UNSUPPORTED_MOTOR_ENVIRONMENT_MANIFEST_VERSION"
+            }
             Self::InvalidBounds => "MOTOR_BOUNDS_INVALID",
             Self::InvalidManifest => "MOTOR_ENVIRONMENT_MANIFEST_INVALID",
             Self::NonCanonicalOrder => "MOTOR_ORDER_INVALID",
             Self::LengthOverflow => "MOTOR_LENGTH_OVERFLOW",
+            Self::RootMismatch => "MOTOR_ROOT_MISMATCH",
             Self::Physics(_) => "MOTOR_PHYSICS_CLOSURE_INVALID",
         }
     }
@@ -617,6 +1101,79 @@ fn encode_i64_values(bytes: &mut Vec<u8>, values: &[i64]) -> Result<(), MotorCon
         bytes.extend_from_slice(&value.to_le_bytes());
     }
     Ok(())
+}
+
+struct MotorByteCursor<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> MotorByteCursor<'a> {
+    const fn new(bytes: &'a [u8]) -> Self {
+        Self { bytes, offset: 0 }
+    }
+
+    fn expect_header(&mut self, domain: &str, version: u16) -> Result<(), MotorContractError> {
+        let encoded_domain = self.length_prefixed_bytes()?;
+        if encoded_domain != domain.as_bytes() {
+            return Err(MotorContractError::InvalidBounds);
+        }
+        let encoded_version = self.u16()?;
+        if encoded_version != version {
+            return Err(MotorContractError::UnsupportedVersion(encoded_version));
+        }
+        Ok(())
+    }
+
+    fn schema_id(&mut self) -> Result<SchemaId, MotorContractError> {
+        let value = std::str::from_utf8(self.length_prefixed_bytes()?)
+            .map_err(|_| MotorContractError::InvalidBounds)?;
+        SchemaId::new(value).map_err(|_| MotorContractError::InvalidBounds)
+    }
+
+    fn length_prefixed_bytes(&mut self) -> Result<&'a [u8], MotorContractError> {
+        let length = self.u32()? as usize;
+        self.bytes(length)
+    }
+
+    fn bytes(&mut self, length: usize) -> Result<&'a [u8], MotorContractError> {
+        let end = self
+            .offset
+            .checked_add(length)
+            .ok_or(MotorContractError::LengthOverflow)?;
+        let value = self
+            .bytes
+            .get(self.offset..end)
+            .ok_or(MotorContractError::InvalidBounds)?;
+        self.offset = end;
+        Ok(value)
+    }
+
+    fn array<const N: usize>(&mut self) -> Result<[u8; N], MotorContractError> {
+        self.bytes(N)?
+            .try_into()
+            .map_err(|_| MotorContractError::InvalidBounds)
+    }
+
+    fn u8(&mut self) -> Result<u8, MotorContractError> {
+        Ok(self.array::<1>()?[0])
+    }
+
+    fn u16(&mut self) -> Result<u16, MotorContractError> {
+        Ok(u16::from_le_bytes(self.array()?))
+    }
+
+    fn u32(&mut self) -> Result<u32, MotorContractError> {
+        Ok(u32::from_le_bytes(self.array()?))
+    }
+
+    fn u64(&mut self) -> Result<u64, MotorContractError> {
+        Ok(u64::from_le_bytes(self.array()?))
+    }
+
+    fn is_empty(&self) -> bool {
+        self.offset == self.bytes.len()
+    }
 }
 
 #[cfg(test)]
@@ -731,5 +1288,69 @@ mod tests {
             manifest.validate(),
             Err(MotorContractError::InvalidManifest)
         );
+    }
+
+    #[test]
+    fn protocol_v2_rejects_v1_manifest_with_typed_version_error() {
+        let manifest = MotorTrainingEnvironmentManifestV1 {
+            schema_version: MOTOR_TRAINING_ENVIRONMENT_MANIFEST_V1_SCHEMA_VERSION,
+            environment_id: id("nextengine.motor.env.legacy"),
+            body_schema_hash: content_hash_from_bytes([1; 32]),
+            body_instance_projection_hash: content_hash_from_bytes([2; 32]),
+            physics_catalog_hash: content_hash_from_bytes([3; 32]),
+            observation_layout_hash: content_hash_from_bytes([4; 32]),
+            action_layout_hash: content_hash_from_bytes([5; 32]),
+            physics_build_profile_hash: content_hash_from_bytes([6; 32]),
+            scene_profile_hash: content_hash_from_bytes([7; 32]),
+            bridge_abi_hash: content_hash_from_bytes([8; 32]),
+            quantization_profile_hash: content_hash_from_bytes([9; 32]),
+            translator_version_hash: content_hash_from_bytes([10; 32]),
+            physics_hz: STAGE0_PHYSICS_HZ,
+            motor_hz: STAGE0_MOTOR_HZ,
+            maximum_vector_slots: 1,
+            maximum_episode_steps: 1,
+            reward_components: vec![MotorRewardComponentV1 {
+                component_id: id("reward.test"),
+                coefficient_q16: 65_536,
+                minimum_raw: 0,
+                maximum_raw: 65_536,
+            }],
+        };
+        let error = manifest
+            .validate_for_protocol_v2()
+            .expect_err("v1 is not a protocol-v2 manifest");
+        assert_eq!(
+            error.stable_code(),
+            "UNSUPPORTED_MOTOR_ENVIRONMENT_MANIFEST_VERSION"
+        );
+    }
+
+    #[test]
+    fn checkpoint_envelope_round_trips_and_rejects_payload_tamper() {
+        let payload = vec![1, 2, 3, 4];
+        let envelope = MotorEnvironmentCheckpointEnvelopeV1 {
+            schema_version: MOTOR_ENVIRONMENT_CHECKPOINT_ENVELOPE_V1_SCHEMA_VERSION,
+            environment_profile_id: id("nextengine.motor.env.test"),
+            environment_manifest_hash: content_hash_from_bytes([1; 32]),
+            run_root: content_hash_from_bytes([2; 32]),
+            episode_ordinal: 7,
+            vector_slot: 3,
+            motor_tick: 11,
+            terminal_disposition: MotorTerminalDispositionV1::Running,
+            terminal_reason_id: None,
+            current_observation_root: content_hash_from_bytes([3; 32]),
+            last_step_root: StateRoot::from_bytes([4; 32]),
+            motor_runtime_checkpoint_hash: content_hash_from_bytes(sha256(&payload)),
+            motor_runtime_checkpoint_bytes: payload,
+        };
+        let bytes = envelope.canonical_bytes().expect("encode");
+        assert_eq!(
+            MotorEnvironmentCheckpointEnvelopeV1::from_canonical_bytes(&bytes).expect("decode"),
+            envelope
+        );
+
+        let mut tampered = envelope;
+        tampered.motor_runtime_checkpoint_bytes[0] ^= 1;
+        assert_eq!(tampered.validate(), Err(MotorContractError::InvalidBounds));
     }
 }

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-27 |
 | Статус | Accepted |
-| Версия | 1.6 |
+| Версия | 1.7 |
 | Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md) |
-| Заменяет | SPEC-27 1.5; makes the bounded recorded post-safety effort prefix the authoritative PhysX continuation input |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md) |
+| Заменяет | SPEC-27 1.6; accepts the exact root-local flat-command observation consumer while preserving standing world-frame semantics |
 
 ## История принятия
 
@@ -311,6 +311,17 @@ quality/safety profiles and gates; they are not the default route.
 The current records are `MotorObservationLayoutV1`, `MotorActionLayoutV1`,
 `MotorWorldCheckpointV1` and `PolicyStateRecordV1`; Stage 0 populates empty but
 explicit adaptation/generator/router state and never hides evaluator history.
+
+ADR-064 adds one exact training-only observation layout without changing the
+standing layout. `nextengine.motor.env.humanoid-flat-command.v1` has width 84
+and order `root quaternion xyzw`, root-local linear velocity, root-local angular
+velocity, 23 joint positions, 23 joint velocities, 23 previous **applied**
+actions, local-right/local-forward/yaw-rate command and two declared-foot
+contact flags. World-to-root-local conversion uses checked `i128` Q1.30 matrix
+math and round-to-nearest, ties-to-even; mirrors use the same golden algorithm.
+`O_t` binds engine command `C_t`, action/reward consume `C_t`, and the committed
+result carries `O_(t+1)` with `C_(t+1)`. The standing layout remains
+world-frame and is not silently reinterpreted.
 
 Only the following fixed-point record is authoritative:
 

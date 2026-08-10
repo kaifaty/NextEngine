@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 1.3 |
+| Версия | 1.4 |
 | Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md) |
-| Заменяет | SPEC-35 1.2; adopts the fixed three-run R5 gate and run-level evidence |
+| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md) |
+| Заменяет | SPEC-35 1.3; accepts the bounded canonical flat-command environment without promoting learned Motor or R5 |
 
 ## Назначение и ownership
 
@@ -38,9 +38,10 @@ Current-only alpha contracts в `crates/contracts`:
   `PhysicsCanonicalSnapshotV3`, `PhysicsWorldCheckpointV2`;
 - `MotorObservationLayoutV1`, `MotorActionLayoutV1`,
   `MotorWorldCheckpointV1`, `PolicyStateRecordV1`;
-- `MotorTrainingEnvironmentManifestV1`, `MotorEpisodeSeedSetV1`,
-  `MotorResetRecordV1`, `MotorStepRecordV1`,
-  `MotorTrajectoryManifestV1`;
+- `MotorTrainingEnvironmentManifestV2`, `MotorEpisodeSeedSetV1`,
+  `MotorLocomotionCommandProfileV1`, `MotorResetRecordV2`,
+  `MotorStepRecordV2`, `MotorTrajectoryManifestV2` and bounded
+  `MotorEnvironmentCheckpointEnvelopeV1`;
 - aggregate `WorldCheckpointV5`, `SaveManifestV3`, `ReplayManifestV6`.
 
 Старые alpha versions не мигрируются. Readers проверяют outer discriminator,
@@ -50,7 +51,9 @@ vendor enum, raw pointer or raw-float authority.
 
 Every project/save/replay/training closure binds exact body schema, instance
 projection, observation/action layout, PhysX build/scene profile, bridge ABI,
-quantization and reward-coefficient hashes.
+quantization, command schedule, reward, termination, RNG derivation and
+correspondence hashes. Protocol v2 rejects a V1 environment manifest with a
+typed `UNSUPPORTED_*` result before creating mutable environment state.
 
 ## Reference humanoid
 
@@ -101,14 +104,27 @@ stable semantic values; adding a randomization source cannot consume another
 source's stream.
 
 Reset destroys the previous scene and constructs a fresh scene from exact
-catalog plus `MotorResetRecordV1`. Step is transactional: on invalid action,
+catalog plus `MotorResetRecordV2`. Step is transactional: on invalid action,
 NaN, mismatch or capacity overflow it publishes no partial state and emits a
 typed terminal reason.
 
-Each CPU vector slot owns one scene and RNG set. Slots advance lockstep at the
+Each CPU vector slot owns one scene, independently increasing episode ordinal
+and RNG set. Partial reset replaces only selected slots; a terminal slot cannot
+step until reset. The canonical locomotion Step input is exactly
+`(vector_slot, episode_ordinal, action)` and the engine derives its command.
+Duplicate/missing slots, stale episode and incomplete batches reject before
+mutation. Slots advance lockstep at the
 same logical substep. Parallel workers return immutable staged results; the
 runner publishes them sorted by `(episode_ordinal, vector_slot)`. Worker count,
 completion order and slot storage order do not enter seeds or output bytes.
+Slot-indexed input vectors are preallocated; no per-step ordered map is built.
+
+`nextengine.motor.env.humanoid-flat-command.v1` adds the ADR-064 pure
+SHA-256-counter command schedule, 60-tick warm-up, 120-tick target segments and
+1,200-tick timeout. Its flat static box has 100 metre X/Z half-extents and its
+84-channel observation uses root-local linear/angular velocities and
+`[local-right, local-forward, yaw-rate]` command order. Standing keeps its
+existing world-frame layout and behavior.
 
 ## Checkpoint and replay
 
@@ -155,7 +171,7 @@ stdin/stdout protocol:
 The CPU runner is canonical replay/correspondence authority. External clients
 cannot submit raw PhysX descriptors or mutate a live body directly.
 
-## Isaac Lab mirror and standing smoke reward
+## Isaac Lab mirror and canonical rewards
 
 `lab/` MAY provide a pinned Isaac Lab DirectRLEnv. The translator consumes
 canonical schema/catalog and writes derived USD outside repository authority.
@@ -178,6 +194,13 @@ Coefficient order/value/units are hash-bound in the environment manifest.
 Rewards and done facts are training observations, never gameplay authority.
 GPU execution is evaluated by correspondence and statistics, not byte-exact
 replay.
+
+The flat-command profile instead uses the ten bounded Q16 components and
+coefficients accepted by ADR-064: planar/yaw tracking, yaw-invariant upright,
+height, vertical/roll-pitch velocity costs, normalized applied effort,
+post-clamp action rate, declared-foot slip and fall. It contains no
+standing-pose reward. Pelvis height `<=0.45 m` or X/Z bounds `>=90 m` terminate;
+tick 1,200 truncates. `terminated` and `truncated` remain distinct facts.
 
 ## Failure semantics
 
@@ -208,7 +231,8 @@ whole run-p95 observations against ten calibration runs.
 Stage 0 runs `fast`, `host-check`, `play`, `persistence-replay`,
 `content-package`, `platform`, `performance`, `BODY-SCHEMA-P1`,
 `PHYS-JOINT-P1`, `PHYS-SNAPSHOT-P1`, `MOTOR-SCHEDULE`, `MOTOR-SAFETY`,
-`MOTOR-STATE`, `MOTOR-ENV-P1`, `MODEL-DATAPLANE` and `MODEL-MIRROR`.
+`MOTOR-STATE`, `MOTOR-ENV-P1`, `MOTOR-LOCOMOTION-ENV-P1`, `MODEL-DATAPLANE`
+and `MODEL-MIRROR`.
 
 Exact/stability/correspondence thresholds are normative in ADR-058. Stage 0
 is complete only after PhysX-only cutover and Windows/Linux gates. Missing GPU
