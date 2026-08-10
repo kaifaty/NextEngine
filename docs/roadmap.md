@@ -3,7 +3,7 @@
 | Поле | Значение |
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
-| Последнее обновление | 2026-08-09 |
+| Последнее обновление | 2026-08-10 |
 | Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; оба performance workloads записали `required_staging_bytes=6818` и остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. Следующий WIP=1 — R4a derived calendar + authored relay-keeper routine. SPEC-20/ADR-052 фиксируют Proposed promotion package; implementation и ProductChecks ещё не начаты. B-12, Linux, R1/R7 и v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Следующий самостоятельный increment — R4a. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
@@ -631,6 +631,9 @@ sources: SPEC-33, SPEC-34, ADR-050, ADR-053, ADR-054.
 - устойчивый capsule locomotion profile: slopes, stairs, push, fall/recovery;
 - neutral skeleton/clip/graph schemas, retargeting и basic IK;
 - root motion остаётся intent и проходит physical validation;
+- consumer-backed `BodySchema`/`BodyInstanceProjection` deterministically
+  компилируются в physics descriptors, tensor layouts и actuator/safety limits
+  без второго mutable owner;
 - deterministic procedural motor/safety/recovery route;
 - physical and animation state save/load/replay;
 - один humanoid physical archetype, используемый player и NPC через public
@@ -638,11 +641,14 @@ sources: SPEC-33, SPEC-34, ADR-050, ADR-053, ADR-054.
 
 **Optional integration scope:**
 
-- ONNX observation/action path и policy supervisor;
-- Mamba-2 universal learned foundation at declared 30–120 Hz: one
-  intent/reference-conditioned locomotion/balance/transition/hit-reaction/
-  recovery controller, explicit generic policy state and fixed-PD bounded
-  position/velocity first route;
+- evaluator-neutral learned observation/action path и policy supervisor;
+- first-humanoid learned MVP: one fixed `20..30` DoF skeleton, approximately
+  `1..3M` parameter MLP, residual joint-position targets, fixed engine PD,
+  exact `60 Hz` policy / `240 Hz` physics cadence, explicit known physical
+  parameters plus bounded TCN/GRU adaptation and authored/motion-matching
+  reference where useful;
+- learned MVP fallback remains the shipping animation/procedural/ragdoll/get-up
+  path, and replay records canonical action/full policy state/snapshot chain;
 - full articulation;
 - PhysX 5.9.0 parity adapter.
 
@@ -657,6 +663,8 @@ sources: SPEC-33, SPEC-34, ADR-050, ADR-053, ADR-054.
 - 16 representative avatars укладываются в SPEC-05 budget на declared
   reference CPU profile либо используют deterministic physical LOD;
 - save/load/replay сохраняет physical/animation owner state;
+- `BodySchema` compiler, instance overlays and any topology remap preserve exact
+  stable-ID-derived physics/tensor/safety roots or publish nothing;
 - learned/vendor path при отсутствии или failure возвращается к тому же
   shipping-capable procedural path.
 
@@ -669,13 +677,13 @@ sources: SPEC-33, SPEC-34, ADR-050, ADR-053, ADR-054.
 - ясная граница authoritative physical state против presentation pose.
 
 **Не являются hard blocker:** достижение PhysX parity, training hardware,
-learned policy/Mamba-2 portability or quality, learned reference generator,
-adaptive gains, direct-torque research route или full articulation. Если они
-не проходят вовремя, v1 остаётся на reference/procedural route; procedural R5
-closure не зависит от ADR-055.
+learned humanoid portability or quality, learned reference generator,
+adaptation, adaptive gains, direct-torque research route или full articulation.
+Если они не проходят вовремя, v1 остаётся на reference/procedural route;
+procedural R5 closure не зависит от learned profile или proposed toolchain.
 
 **Основные источники:** SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34,
-ADR-009, ADR-013, ADR-027, ADR-032, ADR-033, ADR-053, ADR-055.
+ADR-013, ADR-027, ADR-032, ADR-033, ADR-053, ADR-057.
 
 ## R6 — Creator beta and SDK
 
@@ -780,7 +788,7 @@ ADR-001, ADR-030.
 | Autonomous quest lifecycle, Narrative Director and divine agency | SPEC-31 `Proposed`; ADR-029/ADR-031 superseded ADR-046 | Вернуться только при наличии конкретного player-visible production consumer; deterministic template fallback реализуется первым. |
 | Text-canonical multimodal dialogue/model packs | SPEC-16/ADR-017 `Proposed` | Явное решение о promotion, privacy/budget policy и text-only fallback. |
 | External `ai-host` | Optional | Stable bounded process protocol, recorded-input replay and complete in-process fallback. |
-| Learned/Mamba-2/full-articulation motor | Optional technology | R5 reference/procedural baseline, exact observation/action checks and runtime/training parity; ADR-055 quality track cannot block procedural closure. |
+| Learned Motor System policy families and full articulation | ADR-057 system shape `Accepted`; exact learned profiles, training stack and unconsumed wire schemas remain `Proposed` | R5 reference/procedural baseline and consumer-backed BodySchema exist. Promote each family/profile independently only with exact observation/action/state replay, runtime/training correspondence, multi-seed quality, retention, target parity and declared animation/procedural fallback. |
 | PhysX production backend | ADR-033 technology remains `Proposed` | Полная parity на Windows/Linux; reference backend остаётся oracle/fallback. |
 | Advanced renderer/HDR/RT/VFX/capture | Optional | B0 v1 path стабилен; feature has bounded fallback and target-specific product check. |
 | Gothic importer | Optional separate repository/process | Neutral schemas стабильны, legal/provenance boundary проверен; parent repo остаётся независимым. |
@@ -789,6 +797,22 @@ ADR-001, ADR-030.
 Принятие SPEC-31 не означает, что он должен задерживать v1. Его реализация
 зависит почти от всех systemic boundaries R3–R6 и поэтому раньше будет создавать
 parallel authority или fixture-only code.
+
+Learned Motor program развивается отдельными independently promotable phases:
+
+1. first-humanoid MVP;
+2. humanoid morphology variations;
+3. equipment, carried loads and fatigue;
+4. injuries, damage adaptation and recovery;
+5. manipulation and weapon classes;
+6. contact-planned parkour;
+7. general-legged policy family;
+8. bounded serpentine/aquatic/aerial/modular/musculoskeletal research.
+
+Каждая phase сохраняет старые skills/transition corpus и fallback. Поздняя
+phase не создаёт current schema/check и не повышает status более ранней только
+по факту training/export. Mamba допускается лишь как equal-budget comparator
+для long-history adaptation, motion generation или temporal planning.
 
 ## Сквозные workstreams
 
@@ -1325,8 +1349,8 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    exact tiered/headless behavior. This closes R4 without learned models.
 11. **R5 physical character and animation (`PLANNED`):** минимальный v1 physics
    profile, procedural capsule motor, skeleton/clip graph, retargeting и fixed
-   IK. Mamba-2 learned foundation remains an optional quality track and does
-   not block this package.
+   IK. First-humanoid learned MVP and all later policy-family phases remain
+   optional quality tracks and do not block this package.
 12. **R6 creator CLI and second project (`PLANNED`):** stable non-interactive JSON
    CLI, inspectors, templates и clean-checkout second-project exercise.
 13. **Windows hard performance/release checkpoint (`PLANNED`):** clean-commit
