@@ -63,6 +63,7 @@
 ## Product checks
 
 - Verification is lightweight, local and proportional to executable risk.
+- A Git commit is a checkpoint, not a validation gate. Never run checks solely because a commit is about to be created, and never require passing checks as a precondition for committing. An unverified commit is allowed; run and report the relevant checks before final handoff, readiness/completion claims, or when the user/plan explicitly requests them.
 - A documentation-only change qualifies for the cheap path when every changed file is human-readable documentation or agent guidance and the change touches no Rust/Python/C++, build/configuration, schema, generated fixture, package manifest or runtime-consumed data. Run `git diff --check` and directly validate changed links, paths and identifiers. Do not run Cargo or `host-check` for this path unless the user explicitly asks.
 - For a localized code change, run formatting/static analysis and focused tests for the affected package or boundary. `cargo run -p xtask -- host-check` is the broad workspace `fast` command; use it for cross-cutting changes, public contracts, workspace/build configuration, changes whose affected package set is uncertain, or when a plan/user explicitly requires it. It is not a default for simple edits.
 - For gameplay changes run `play`; for state changes run `persistence-replay`; for content/tool changes run `content-package`.
@@ -76,8 +77,8 @@
 2. Keep the change small and product-driven. Add an ADR only for a real semantic or cross-context decision.
 3. Implement through production paths with focused positive and failure coverage.
 4. Update affected schemas, migrations, examples, architecture text and material roadmap facts together.
-5. Run the minimum risk-scoped checks above. Documentation-only work uses the cheap path; localized code uses focused package checks; broad `host-check` is conditional, not automatic.
-6. When implementing an approved plan, create the commits specified by that plan as each commit boundary is completed. If the plan does not define commit boundaries, create coherent commit(s) for the completed in-scope work before handoff; do not wait for a separate commit reminder, and never include unrelated user changes.
+5. When implementing an approved plan, create the commits specified by that plan as each commit boundary is completed. If the plan does not define commit boundaries, create coherent commit(s) for the completed in-scope work before handoff; do not wait for checks or a separate commit reminder, and never include unrelated user changes.
+6. Before final handoff or a readiness/completion claim, run the minimum risk-scoped checks above. Documentation-only work uses the cheap path; localized code uses focused package checks; broad `host-check` is conditional, not automatic. Commit creation itself never triggers checks.
 7. Report each relevant check as passed, failed or not run, with the remaining product risk.
 
 ## Repository hygiene

@@ -30,10 +30,13 @@ location.
 6. Implement through production paths only: gameplay state changes via
    validated `WorldCommand` transactions, `DomainEvent` from committed changes,
    no test-only mutation backdoors, no retry-to-green.
-7. Run the product checks mapped by the routing row (`fast` always; `play`,
-   `persistence-replay`, `content-package`, `platform`, `performance` per row).
-   In the handoff report each relevant check as passed / failed / not run with
-   the remaining product risk.
+7. A Git commit is a checkpoint, not a validation gate: never run checks merely
+   because a commit is about to be created. Before final handoff/readiness
+   claims, run the risk-scoped product checks mapped by the routing row;
+   documentation-only work uses the SPEC-12 cheap path, while executable work
+   uses applicable `fast`, `play`, `persistence-replay`, `content-package`,
+   `platform` and `performance` checks. Report each as passed / failed / not run
+   with the remaining product risk.
 8. Roadmap-sensitive work (scope, stage, blocker, exit criterion, subsystem
    status): also read `docs/roadmap.md` first and update it in the same change
    when the completed work materially changes its facts.

@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.32 |
+| Версия | 2.33 |
 | Последняя проверка | 2026-08-10 |
-| Заменяет | INDEX-001 2.31; aligns handoff validation with ADR-030 risk-scoped checks and the documentation-only cheap path |
+| Заменяет | INDEX-001 2.32; clarifies that commits are checkpoints rather than validation gates |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -93,6 +93,9 @@ machine или shipping host не блокирует unrelated work. В handoff
 format/lint/focused tests затронутого package и boundary scan. Полный
 workspace `host-check` нужен только для cross-cutting/public-contract/workspace
 изменения, неясной области влияния либо явного требования пользователя/плана.
+Создание Git commit само по себе не запускает и не требует ProductCheck:
+проверки относятся к final handoff/readiness claim или explicit request, а не
+к сохранению промежуточного checkpoint.
 
 Flaky retry-to-green, wall-clock gameplay assertions, silent fallback после
 authoritative corruption и mutable test backdoors запрещены. Ни один check не
@@ -152,7 +155,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-09 | [Current tooling и observability](09-tooling-sdk-and-observability.md) | Accepted |
 | SPEC-10 | [Gothic importer boundary](10-gothic-importer-boundary.md) | Accepted |
 | SPEC-11 | [Runtime safety и license hygiene](11-security-licensing-and-governance.md) | Accepted |
-| SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted; risk-scoped code checks and documentation-only cheap path |
+| SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted; commit-independent risk-scoped validation and documentation-only cheap path |
 | SPEC-13 | [Gameplay mechanics и mod packages](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | Accepted |
 | SPEC-14 | [Physical archetypes, BodySchema, motor skills и policy lifecycle](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) | Accepted hierarchy/ownership; fixed-humanoid BodySchema V1 is current through SPEC-35, advanced skill/adaptation/family profiles remain Proposed |
 | SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted |

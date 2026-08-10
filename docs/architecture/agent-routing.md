@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.9 |
+| Версия | 2.10 |
 | Последняя проверка | 2026-08-10 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -37,6 +37,8 @@ package manifests или runtime-consumed data, запускать Cargo/`host-c
 нужно. Выполняются `git diff --check` и direct link/path/ID validation;
 executable checks получают `NotRun(NoExecutableChange)`. Documentation,
 сопровождающая implementation, наследует обычные checks затронутой строки.
+Check column применяется перед final handoff/readiness claim, но не перед
+`git commit`: commit boundary никогда сам по себе не запускает checks.
 
 ## Routing-таблица
 
