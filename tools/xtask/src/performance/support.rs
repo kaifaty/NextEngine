@@ -7,7 +7,7 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
         methodology_version: PERFORMANCE_METHODOLOGY_VERSION.to_owned(),
         warmup_samples: 0,
         measured_samples: 0,
-        percentile_method: "nearest-rank".to_owned(),
+        percentile_method: "nearest-rank-per-run-with-run-level-bootstrap".to_owned(),
         outlier_policy: "retain-all-samples".to_owned(),
         frame_critical_path: None,
         notes: Vec::new(),
@@ -98,6 +98,8 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
                 "the eight-worker run records per-slot canonical checkpoint size and fresh-scene replay-prefix restore latency; restore replays post-safety efforts without PD re-evaluation".to_owned(),
                 "throughput and scaling efficiency are descriptive higher-is-better details; hard metrics remain lower-is-better latency, memory and restore costs".to_owned(),
                 "wall-clock samples never select action, simulation work, ordering, reset or outcome; exact authoritative root parity is required across all worker counts and profiler control".to_owned(),
+                "a hard gate is one immutable batch of three independent workload runs; relative evidence compares per-run p95 values against ten independent calibration-run p95 values".to_owned(),
+                "full load readiness is sampled before every independent run; postflight records memory, clock and thermal integrity without treating the benchmark's own CPU/GPU utilization as external load".to_owned(),
             ];
         }
     }
@@ -151,7 +153,7 @@ pub(super) fn relative_verdict(
     }
 }
 
-pub(super) fn bootstrap_change_interval(
+pub(super) fn bootstrap_median_change_interval(
     current: &[u64],
     baseline: &[u64],
     iterations: usize,
@@ -159,7 +161,7 @@ pub(super) fn bootstrap_change_interval(
     if current.is_empty() || baseline.is_empty() || iterations == 0 {
         return Err("bootstrap requires non-empty samples and iterations".to_owned());
     }
-    let mut rng = XorShift64::new(0x4e45_5854_5045_5246);
+    let mut rng = XorShift64::new(0x5255_4e4c_4556_454c);
     let mut current_resample = vec![0_u64; current.len()];
     let mut baseline_resample = vec![0_u64; baseline.len()];
     let mut changes = Vec::with_capacity(iterations);
@@ -170,9 +172,12 @@ pub(super) fn bootstrap_change_interval(
         for sample in &mut baseline_resample {
             *sample = baseline[rng.index(baseline.len())];
         }
-        let current_p95 = nearest_rank_percentile(&current_resample, 95)?;
-        let baseline_p95 = nearest_rank_percentile(&baseline_resample, 95)?;
-        changes.push(relative_change_basis_points(current_p95, baseline_p95));
+        let current_median = nearest_rank_percentile(&current_resample, 50)?;
+        let baseline_median = nearest_rank_percentile(&baseline_resample, 50)?;
+        changes.push(relative_change_basis_points(
+            current_median,
+            baseline_median,
+        ));
     }
     changes.sort_unstable();
     Ok([

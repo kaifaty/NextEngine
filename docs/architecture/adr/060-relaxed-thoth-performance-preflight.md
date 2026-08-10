@@ -45,7 +45,8 @@ The stable diagnostics are
 `PERF_GPU_LOAD_AT_OR_ABOVE_FIFTEEN_PERCENT` and
 `PERF_FREE_RAM_BELOW_TEN_GIB`.
 
-`PerformanceRunV4` and `PerformanceBaselineV4` keep their current-only wire
+This decision kept `PerformanceRunV4` and `PerformanceBaselineV4` current-only
+wire
 shape and file names. The methodology identity advances to
 `nextengine-performance-v5`; artifacts carrying the previous methodology are
 incompatible with new baselines and hard verdicts. Scenario hashes do not

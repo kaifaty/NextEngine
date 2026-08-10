@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use xtask::performance::{PERFORMANCE_REPORT_FILE_NAME, PerformanceRunV4};
+use xtask::performance::{PERFORMANCE_REPORT_FILE_NAME, PerformanceRunV5};
 use xtask::performance_codegen::{
     CODEGEN_BUILD_SCHEMA_VERSION, CODEGEN_RUN_PROVENANCE_SCHEMA_VERSION, CODEGEN_SCENARIOS,
     CodegenBuildProvenanceV1, CodegenCandidateV1, CodegenComparisonV1, CodegenComparisonVerdictV1,
@@ -596,7 +596,7 @@ fn discover_report_paths(scenario_root: &Path) -> Result<Vec<PathBuf>, String> {
         .collect()
 }
 
-fn read_performance_run(path: &Path) -> Result<PerformanceRunV4, String> {
+fn read_performance_run(path: &Path) -> Result<PerformanceRunV5, String> {
     let metadata = fs::symlink_metadata(path)
         .map_err(|error| format!("failed to inspect {}: {error}", path.display()))?;
     if !metadata.file_type().is_file() || metadata.len() > MAX_PERFORMANCE_REPORT_BYTES {

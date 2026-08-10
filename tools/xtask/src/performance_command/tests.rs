@@ -138,7 +138,7 @@ fn production_worker_details_are_versioned_and_round_trip_strictly() {
         command_identity_index_root: "c".repeat(64),
         command_ledger_hash: "d".repeat(64),
     };
-    let run = xtask::performance::PerformanceRunV4::empty(
+    let run = xtask::performance::PerformanceRunV5::empty(
         xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak,
         xtask::performance::PerformanceModeV1::Report,
         "release",
@@ -207,6 +207,128 @@ fn diagnostic_baseline_comparison_cannot_promote_report_only_to_a_gate() {
             "PERF_R3_MULTIREGION_STREAMING_REPORT_ONLY: B-12 and the clean ten-run THOTH hard gate remain open",
         ),
     );
+}
+
+#[test]
+fn gate_batch_aggregation_keeps_runs_independent() {
+    let mut runs = Vec::new();
+    for index in 0_u64..3 {
+        let mut run = xtask::performance::PerformanceRunV5::empty(
+            xtask::performance::PerformanceScenarioV1::R5Physics16,
+            xtask::performance::PerformanceModeV1::Gate,
+            "release",
+        );
+        run.instrumentation = xtask::performance::PerformanceInstrumentationV1 {
+            enabled: true,
+            max_threads: 1,
+            max_spans_per_thread: 8,
+            reserved_bytes: 128,
+            recorded_spans: vec![xtask::performance::PerformanceSpanV1 {
+                category: "physics-motor".to_owned(),
+                thread_index: 0,
+                duration_microseconds: 10 + index,
+            }],
+            dropped_spans: 0,
+            unowned_spans: 0,
+            overhead_basis_points: Some(i64::try_from(index).expect("overhead")),
+            authoritative_hash_parity: Some(true),
+        };
+        run.resource_counters = xtask::performance::PerformanceResourceCountersV4 {
+            process_peak_working_set_bytes: Some(100 + index),
+            device_resident_bytes: Some(10 + index),
+            io_read_bytes: Some(2),
+            io_write_bytes: Some(3),
+            logical_resource_charges: None,
+            vulkan_timestamp_queries: 0,
+            unavailable: Vec::new(),
+        };
+        runs.push(run);
+    }
+    let references = runs.iter().collect::<Vec<_>>();
+
+    let instrumentation = aggregate_instrumentation(&references).expect("instrumentation");
+    assert_eq!(instrumentation.max_threads, 3);
+    assert_eq!(
+        instrumentation
+            .recorded_spans
+            .iter()
+            .map(|span| span.thread_index)
+            .collect::<Vec<_>>(),
+        vec![0, 1, 2]
+    );
+    assert_eq!(instrumentation.overhead_basis_points, Some(2));
+
+    let counters = aggregate_resource_counters(&references).expect("resource counters");
+    assert_eq!(counters.process_peak_working_set_bytes, Some(102));
+    assert_eq!(counters.device_resident_bytes, Some(12));
+    assert_eq!(counters.io_read_bytes, Some(6));
+    assert_eq!(counters.io_write_bytes, Some(9));
+}
+
+#[test]
+fn r5_gate_details_report_medians_and_worst_tails_across_the_fixed_batch() {
+    let reports = [0_u64, 10, 20]
+        .into_iter()
+        .map(|offset| {
+            let workers = [1_u32, 4, 8]
+                .into_iter()
+                .map(|worker_count| R5PhysicsWorkerPerformanceDetailsV1 {
+                    worker_count,
+                    elapsed_microseconds: 100 + offset,
+                    aggregate_physics_substeps_per_second: 1_000 - offset,
+                    aggregate_motor_frames_per_second: 250 - offset,
+                    scaling_efficiency_basis_points: 9_000 - offset,
+                    motor_frame_p95_microseconds: 10 + offset,
+                    motor_frame_p99_microseconds: 20 + offset,
+                    authoritative_root: "a".repeat(64),
+                })
+                .collect();
+            CommandReportV1::new(
+                "performance",
+                "PASS",
+                PerformanceDetailsV1 {
+                    run: None,
+                    streaming: None,
+                    agent_planning: None,
+                    render_planning: None,
+                    live_runtime: None,
+                    production_worker: None,
+                    r5_physics: Some(R5PhysicsPerformanceDetailsV1 {
+                        evidence_run_count: 1,
+                        slot_count: 16,
+                        degrees_of_freedom_per_slot: 23,
+                        physics_hz: 240,
+                        motor_hz: 60,
+                        warmup_substeps_per_slot: 240,
+                        measured_substeps_per_slot: 10_000,
+                        measured_motor_frames_per_slot: 2_500,
+                        worker_runs: workers,
+                        checkpoint_bytes_per_slot: vec![100 + offset],
+                        restore_microseconds_per_slot: vec![200 + offset],
+                        restore_p95_microseconds: 200 + offset,
+                        restore_p99_microseconds: 210 + offset,
+                        restore_wall_microseconds: 220 + offset,
+                        replay_prefix_substeps_per_slot: 240,
+                        replay_prefix_overhead_basis_points: 1_000 + offset,
+                        process_peak_working_set_bytes: 10_000 + offset,
+                        logical_host_bytes_per_slot: 2_000,
+                        authoritative_root: "b".repeat(64),
+                        worker_root_parity: true,
+                    }),
+                },
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let aggregate = aggregate_r5_details(&reports)
+        .expect("aggregate details")
+        .expect("R5 details");
+    assert_eq!(aggregate.evidence_run_count, 3);
+    assert_eq!(aggregate.worker_runs[0].elapsed_microseconds, 110);
+    assert_eq!(aggregate.worker_runs[0].motor_frame_p95_microseconds, 30);
+    assert_eq!(aggregate.restore_p95_microseconds, 220);
+    assert_eq!(aggregate.restore_wall_microseconds, 230);
+    assert_eq!(aggregate.checkpoint_bytes_per_slot.len(), 3);
 }
 
 #[test]

@@ -93,17 +93,19 @@ Roadmap намеренно не содержит календарных обещ
   [ADR-035](architecture/adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md);
 - Windows SDL3/ash B0 path с canonical keyboard/lifecycle events, fullscreen,
   swapchain recreation, bounded device-loss recovery и package smoke;
-- current-only Performance V4 foundation с exact THOTH fingerprint,
-  release-only methodology-v7 gate preflight (`CPU/GPU <40%`, free RAM
-  `>=10 GiB`), nearest-rank/baseline schemas и полным
+- current-only Performance V5 foundation с exact THOTH fingerprint,
+  release-only methodology-v8 per-run preflight (`CPU/GPU <40%`, free RAM
+  `>=10 GiB`), postflight integrity, explicit run boundaries и полным
   streaming/agent/render/live smoke report; representative `r2-alpha-render`
   и streaming-only `r3-multiregion-streaming` реализованы как `REPORT_ONLY`;
   representative `r5-physics-16.v1` выполняет 16 production PhysX 23-DoF
   humanoids при 240/60 Hz и 1/4/8 workers с exact root parity, accepted
-  absolute budgets, clean ten-run baseline and exact roots; первый non-retried
-  hard gate прошёл absolute budgets, но дал relative `FAIL` на том же commit
+  absolute budgets and exact roots. Historical V4/v7 calibration содержит 10
+  runs; первый non-retried v7 hard gate прошёл absolute budgets, но дал
+  relative `FAIL` на том же commit
   (8-worker frame p95 `+10.0%`, peak RAM `+8.53%`). R4 workload честно
-  возвращает `NOT_RUN`, R5 hard `PASS` отсутствует;
+  возвращает `NOT_RUN`; fresh V5 ten-run baseline и fixed three-run hard gate
+  ещё не запускались, R5 hard `PASS` отсутствует;
 - локальная v1 closure matrix.
 
 Data-first reference alpha реализована и принята на Windows: automated
@@ -131,7 +133,7 @@ animation и reusable systemic quest conditions относятся к R3–R5.
 | Navigation/audio | Частично: полный baseline audio vertical (A1–A6 `DONE_LOCAL_WINDOWS`) — neutral clip contract, audio scene extraction, software mixer + canonical PCM sink, SDL device adapter, subtitle fallback, `audio_scene` в v1-closure | Gaps: chunked long-clip streaming payload, zone reverb fallback (zone occlusion gain есть), navigation cooker и baseline nav adapters. |
 | Player experience | Keyboard/mouse и generic controller используют одинаковые action IDs с keyboard fallback; persisted targeting, third-person camera, semantic HUD/inventory/journal/dialogue/pause flow, localization, subtitles и preferences проходят automated Windows checks. HUD получил цветовой health meter, objective и отдельный presentation-only next-action panel, который выводится из immutable RPG snapshot для accept/pickup/equip/combat/relay/return/complete; Save показывает `Saved`, а Load оставляет восстановленный world на паузе с `Loaded - press Resume`. | Worker-to-desktop regression покрывает quest accept, explicit Save, визуально различимое изменение, sequence-zero Load cut, Load confirmation, продолжение новой epoch после явного Resume и реальное authoritative WASD movement с exact загруженной input-context revision. Свежий 20–30-minute run зафиксирован как `PASS`. Accessibility profiles и capability-scoped extension panels остаются вне R2 gate. |
 | Presentation/render | Exact revision-bound snapshot, typed camera, offline SPIR-V, seven-binding B0 scene и Windows recovery/package path реализованы; humanoid/blade/relay имеют разные материалы, collected pickup скрывается, defeated NPC остаётся видимым с тёмным material, relay меняет inactive/active material. Engine-owned relay-approach kit (tiled path, platform, two ruined pillars, four-rock field) добавляет читаемый маршрут и landmarks одним batched draw; отдельный reusable rock source mesh остаётся в content catalog. Relay collider точно следует видимым pillars/top beam/central switch без невидимых продолжений. Contract-preserving B0+ shader выводит flat geometry normal из world-position varying и применяет fixed sun/ambient + depth fog без смены locked position/UV ABI. Private UI adapter рисует контрастные bordered panels: HUD/action слева, inventory/journal справа, dialogue/pause по центру. | Нет authored smooth normals, runtime skeleton/VFX consumption, production art/animation polish, clean ten-run THOTH hard evidence, paired same-commit target proof и Linux hardware-GPU evidence. |
-| Tooling | Repository `xtask`, Performance V4, семь report scenarios, representative R2/R3/R5 workloads и Windows package smoke реализованы | Нет creator-facing `next` CLI, inspectors, scenario/minimizer, clean ten-run THOTH baselines и stable external SDK workflow. |
+| Tooling | Repository `xtask`, Performance V5/run-level gate batches, семь report scenarios, representative R2/R3/R5 workloads и Windows package smoke реализованы | Нет creator-facing `next` CLI, inspectors, scenario/minimizer, fresh clean ten-run V5 THOTH baselines и stable external SDK workflow. |
 | Autonomous narrative | Proposed intent only | Вернуться только с конкретным player-visible production consumer после R3. |
 
 ## Продуктовая граница v1
@@ -651,11 +653,16 @@ sources: SPEC-33, SPEC-34, ADR-050, ADR-053, ADR-054.
 PD/safety, 240/60 schedule, bounded restore and `r5-physics-16.v1` уже
 реализованы. На clean commit
 `f3226580432103666550dea952cdb67803c3d96e` ровно десять valid release runs
-опубликовали compatible V4 baseline и один exact root. Первый и единственный
-hard-gate run прошёл все ADR-062 absolute budgets, но relative policy дала
+опубликовали historical compatible V4/v7 baseline и один exact root. Первый и
+единственный v7 hard-gate run прошёл все ADR-062 absolute budgets, но relative
+policy дала
 `FAIL`: 8-worker frame p95 `2.328 → 2.561 ms` (`+10.0%`), 1-worker p95
 `13.712 → 15.721 ms` (`+14.65%`) и peak working set
-`214,884,352 → 233,234,432 bytes` (`+8.53%`). Повторного run не было.
+`214,884,352 → 233,234,432 bytes` (`+8.53%`). Повторного run не было. Анализ
+выявил, что v7 bootstrap ошибочно считал correlated frames independent.
+ADR-063 и Performance V5/v8 исправляют evidence unit: baseline хранит 10
+independent runs, hard gate является fixed three-run batch, relative bootstrap
+работает по whole-run p95. Fresh v8 calibration/gate ещё не запускались.
 Hard `PASS`, Linux/platform/replay matrix и Isaac correspondence остаются
 открытыми. Это не закрывает R5 или Stage 0.
 
@@ -703,7 +710,7 @@ procedural R5 closure не зависит от learned profile или proposed t
 
 **Основные источники:** SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34,
 SPEC-35, ADR-013, ADR-027, ADR-032, ADR-053, ADR-057, ADR-058, ADR-059,
-ADR-062.
+ADR-062, ADR-063.
 
 ## R6 — Creator beta and SDK
 
@@ -809,7 +816,7 @@ ADR-001, ADR-030.
 | Text-canonical multimodal dialogue/model packs | SPEC-16/ADR-017 `Proposed` | Явное решение о promotion, privacy/budget policy и text-only fallback. |
 | External `ai-host` | Optional | Stable bounded process protocol, recorded-input replay and complete in-process fallback. |
 | Learned Motor System policy families and full articulation | ADR-057 system shape `Accepted`; exact learned profiles, training stack and unconsumed wire schemas remain `Proposed` | R5 reference/procedural baseline and consumer-backed BodySchema exist. Promote each family/profile independently only with exact observation/action/state replay, runtime/training correspondence, multi-seed quality, retention, target parity and declared animation/procedural fallback. |
-| PhysX deterministic humanoid substrate | ADR-058/059/062 `Accepted`; Stage 0 evidence incomplete | Complete the PhysX-only Windows/Linux platform/replay gates, ten-run R5 hard performance evidence and Isaac correspondence; no reference backend fallback exists. |
+| PhysX deterministic humanoid substrate | ADR-058/059/062/063 `Accepted`; Stage 0 evidence incomplete | Complete the PhysX-only Windows/Linux platform/replay gates, fresh ten-run V5 R5 baseline, one fixed three-run hard performance PASS and Isaac correspondence; no reference backend fallback exists. |
 | Advanced renderer/HDR/RT/VFX/capture | Optional | B0 v1 path стабилен; feature has bounded fallback and target-specific product check. |
 | Gothic importer | Optional separate repository/process | Neutral schemas стабильны, legal/provenance boundary проверен; parent repo остаётся независимым. |
 | Full editor | Outside v1 | Creator beta CLI/JSON workflows показали реальные high-friction authoring operations. |
@@ -894,7 +901,7 @@ deterministic procedural motor через тот же PhysX path.
 | B-09 | Нет external creator CLI/SDK workflow | R6, R7 | Второй project/package создаётся cleanly только public tools/contracts. |
 | B-10 | `PERMANENT_SCOPE_GATE`: content scope может расти быстрее playable loop; blocker не закрывается одноразово. | Все этапы | На каждом package один representative scenario и явный non-goal list; новая подсистема допускается только по требованию scenario. |
 | B-11 | `CONTENT_COMPLETE / SOLO_OWNER`: единственный owner — solo maintainer; отдельная staffing/ownership matrix не создаётся. Alpha package содержит engine-owned assets/audio/text, acceptance docs, CC0 source/hash/license provenance и NOTICE и проходит `content-package`/package smoke. Будущие creator examples относятся к R6/B-09, а не к staffing gate. | R2, R6, R7 | Содержательно закрыт для alpha package; поддерживать provenance/NOTICE в том же public package по мере дальнейших content changes. |
-| B-12 | `OPEN / R2+R3_REPORT_ONLY / R5_BASELINED_GATE_FAIL / DEFERRED_LINUX`: Performance V4 methodology v7 and THOTH `610.88` fingerprint are current; preflight is operationally ready at CPU/GPU `<40%` and free RAM `>=10 GiB`. Representative R2, R3 and `r5-physics-16.v1` workloads exist. R5 has accepted budgets and a compatible exact-commit ten-run baseline. Its first non-retried hard gate passed every absolute budget/root check but failed the relative >=5% policy (8-worker p95 `+10.0%`, peak RAM `+8.53%`). R4 workload is absent; R2/R3 ten-run baselines/hard gates and Linux evidence are also absent. | R4, R5, R7 | Для Windows-части — по 10 valid clean release runs каждого R2–R5 workload, compatible baseline и hard `PASS`; затем `WINDOWS_COMPLETE / DEFERRED_LINUX`. R5 needs an explained/fixed same-commit variance and a new explicitly authorized calibration/gate sequence; the failed gate cannot be retried to green. |
+| B-12 | `OPEN / R2+R3_REPORT_ONLY / R5_V7_GATE_FAIL_HISTORICAL / V8_EVIDENCE_NOT_RUN / DEFERRED_LINUX`: Performance V5 methodology v8 and THOTH `610.88` fingerprint are current; start preflight requires CPU/GPU `<40%` and free RAM `>=10 GiB`, with per-run postflight integrity. Representative R2, R3 and `r5-physics-16.v1` workloads exist. The historical exact-commit R5 V4/v7 baseline and first non-retried gate remain recorded; that gate passed absolute/root checks but failed the old pooled-frame relative policy. ADR-063 corrected the evidence unit and fixed a hard gate at three independent runs. No fresh V5 ten-run R5 baseline or v8 hard gate exists. R4 workload, R2/R3 V5 baselines/gates and Linux evidence are also absent. | R4, R5, R7 | Для Windows-части — по 10 valid clean release V5 runs каждого R2–R5 workload, compatible baseline и one fixed three-run hard `PASS`; затем `WINDOWS_COMPLETE / DEFERRED_LINUX`. The historical v7 failure cannot be retried to green and cannot satisfy v8. |
 | B-13 | `OPTIONAL R8 GAP / NOT V1 BLOCKER`: нет canonical behavior-training data plane, vendor-neutral evaluator, trained strategic/tactical bundles и runtime-training parity. | — | Возвращается только для optional R8 production profile. Каждая activated role проходит applicable SPEC-33/34 and ADR-050/053/054 data/provenance/export/multi-seed/parity/fallback checks; joint suite нужна только профилю с обеими roles. Отсутствие этого трека не блокирует R4/v1 и сохраняет deterministic ADR-056 path. |
 
 ## Решения, которые нужно принять вовремя
@@ -956,10 +963,15 @@ host/capability registration отклоняет stale adapter events; Load ра�
 явного Resume. `LNX-005` выполняется позднее асинхронно.
 
 Performance measurement foundation (`DONE_LOCAL_WINDOWS`) использует
-`PerformanceRunV4`/`PerformanceResourceCountersV4`/`PerformanceMetricV1`/
-`PerformanceBaselineV4`; V2/V3 readers удалены. Полный
+`PerformanceRunV5`/`PerformanceResourceCountersV4`/`PerformanceMetricV1`/
+`PerformanceBaselineV5`; V2/V3/V4 readers удалены. Полный
 THOTH fingerprint and ready load/RAM/thermal preflight, profile `profiling`,
-raw nearest-rank metrics и explicit `NOT_RUN` for absent workloads. R2/R3/R5
+raw nearest-rank metrics с explicit independent-run boundaries и explicit
+`NOT_RUN` for absent workloads. Baseline требует 10 single-run reports, hard
+gate выполняет fixed batch из 3 runs, absolute tails берутся по worst run, а
+relative bootstrap resamples whole-run p95. Start/postflight environment
+samples фиксируются вокруг каждого run без observer polling внутри timed
+window. R2/R3/R5
 representative workloads are implemented; R4 remains absent. Report-only
 `long-session-soak` воспроизводит
 `3 600` live ticks через driver и interactive application path и проверяет exact
@@ -973,8 +985,8 @@ integrity и authoritative roots обязательным hard evidence. Allocat
 instrumentation, отдельная unsafe boundary, probes и diagnostic command удалены.
 Исторические session-pack/checkpoint измерения остаются доступны в git history,
 но больше не описывают current storage contract и не входят в performance
-evidence. B-12 остаётся открытым до clean ten-run baselines на текущем V4
-формате.
+evidence. B-12 остаётся открытым до clean ten-run baselines и fixed three-run
+hard gates на текущем V5/v8 формате.
 Следующий bounded transaction-delta package перестал копировать и полностью
 перехешировать retained command history на каждом ordinary live tick. Runtime
 теперь staged-изменяет только archive additions, touched identity bindings и

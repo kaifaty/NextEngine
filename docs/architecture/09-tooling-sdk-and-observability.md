@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 3.5 |
+| Версия | 3.6 |
 | Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md) |
-| Заменяет | SPEC-09 3.4; adopts the production R5 PhysX workload, budgets and methodology v7 |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md) |
+| Заменяет | SPEC-09 3.5; adopts Performance V5, explicit run boundaries and fixed hard-gate batches |
 
 ## Scope and authority
 
@@ -77,17 +77,18 @@ required samples or an unowned gameplay span invalidates the affected evidence
 rather than hiding loss. Screenshots/video/audio are optional human debugging
 evidence, not correctness or release authority.
 
-## Performance V4
+## Performance V5
 
-Current tooling serializes `PerformanceRunV4`,
+Current tooling serializes `PerformanceRunV5`,
 `PerformanceResourceCountersV4`, `PerformanceMetricV1`,
-`PerformanceBaselineV4` and the closed verdict. The methodology ID is
-`nextengine-performance-v7`; V2/V3 readers and allocator instrumentation are
-removed.
+`PerformanceBaselineV5` and the closed verdict. The methodology ID is
+`nextengine-performance-v8`; V2/V3/V4 readers and allocator instrumentation
+are removed.
 
-V4 retains:
+V5 retains:
 
-- all raw samples and nearest-rank p50/p95/p99;
+- all raw samples, explicit independent-run lengths and nearest-rank
+  per-run p50/p95/p99;
 - compatible methodology/workload/fingerprint hashes;
 - canonical logical charges;
 - process peak working set and process I/O;
@@ -96,14 +97,19 @@ V4 retains:
 - profiler integrity and exact authoritative roots.
 
 Unavailable required counters are explicit `NOT_RUN`; report-only evidence
-cannot become a hard PASS. Only clean release ten-run evidence on the complete
-THOTH fingerprint with a compatible baseline may produce hard timing PASS.
-B-12 remains open.
+cannot become a hard PASS. A baseline consists of exactly ten clean release
+reports with one independent run each. One hard-gate command executes a fixed
+three-run batch and publishes one aggregate V5 report. Relative statistics use
+per-run p95 observations; raw frames are never treated as independent runs.
+Only complete THOTH evidence with a compatible V5 baseline may produce hard
+timing PASS. B-12 remains open.
 
 THOTH preflight admits CPU and GPU load strictly below 40% and at least 10 GiB
-free physical RAM. CPU clock and GPU thermal checks remain unchanged. Missing
-evidence, 40% load or less than 10 GiB free RAM invalidates hard evidence under
-ADR-061.
+free physical RAM before every independent run. CPU clock and GPU thermal
+checks remain unchanged. Postflight checks free RAM, clock and thermal state,
+while retaining but not idle-gating utilization caused by the workload itself.
+Missing boundary evidence, 40% start load or less than 10 GiB free RAM
+invalidates hard evidence under ADR-061/063.
 
 The seven current scenario families are:
 
@@ -115,7 +121,7 @@ The seven current scenario families are:
 6. `r3-multiregion-streaming`;
 7. `r5-physics-16`.
 
-Each uses its current V4 methodology hash and existing workload semantics.
+Each uses its current V5 methodology hash and existing workload semantics.
 `r2-alpha-render` runs exploration, combat and UI/dialogue for primary 1080p
 and fallback 720p profiles through the production project/Vulkan path. Report
 mode remains `REPORT_ONLY` without clean THOTH preflight/baseline.

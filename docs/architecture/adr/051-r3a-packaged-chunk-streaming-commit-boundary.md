@@ -78,7 +78,7 @@ authority.
 - `game` и `headless` используют один Assets/World/Runtime commit path.
 - Reference Save после `Requested` и process restart повторяют fetch и приходят
   к тому же root без доверия к transient staging.
-- Performance V4 заполняет существующий
+- Performance V5 заполняет существующий
   `logical_resource_charges.required_staging_bytes`; allocator и новый wire
   format не требуются.
 - Только smoke scenario hash меняется из-за packaged I/O и Runtime stage.

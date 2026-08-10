@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 3.0 |
+| Версия | 3.1 |
 | Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md) |
-| Заменяет | SPEC-12 2.9; admits the representative R5 PhysX workload and hard budgets |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md) |
+| Заменяет | SPEC-12 3.0; adopts run-level Performance V5 hard-gate evidence |
 
 ## Назначение
 
@@ -190,7 +190,7 @@ Hard timing verdict следует ADR-036/ADR-045/ADR-049: только `releas
 `REPORT_ONLY`, но Linux native build/platform/replay/hash correctness остаются
 обязательными. Несовместимый host, driver/BIOS/power plan/toolchain/content/
 methodology, недостаточный idle/free-memory/thermal preflight или
-неimplemented representative workload возвращает `NOT_RUN`. V4 hard evidence
+неimplemented representative workload возвращает `NOT_RUN`. V5 hard evidence
 дополнительно требует canonical logical resource charges, peak working set,
 process I/O, device-allocation ceiling, profiler integrity и exact authoritative
 roots. Allocator-counter fields/readers отсутствуют.
@@ -216,11 +216,16 @@ canonical root parity и отдельно измеряет live cadence, checkpo
 resources. Clean calibration без compatible ten-run baseline остаётся
 `REPORT_ONLY`.
 
-Baseline строится из десяти clean runs одного commit. Percentiles —
-nearest-rank без удаления outliers. Absolute THOTH budget overrun даёт
-немедленный `FAIL`; compatible relative regression `<2%` считается noise,
-`2–5%` — `WARNING`, `>=5%` при 95% confidence interval — `FAIL`. Fallback
-renderer result всегда сообщается отдельно и не переписывает primary failure.
+Baseline строится из десяти independent clean runs одного commit, каждый с
+полным start/postflight environment pair. Hard gate является одним fixed batch
+из трёх independent runs и не разрешает отбрасывать либо выборочно повторять
+его members. Raw samples сохраняются с explicit run boundaries. Absolute
+budgets применяются к worst per-run p95/p99; relative point estimate сравнивает
+median candidate-run p95 с median baseline-run p95, а deterministic 95%
+bootstrap resamples whole runs. Compatible relative regression `<2%` считается
+noise, `2–5%` — `WARNING`, `>=5%` при нижней границе interval `>=5%` — `FAIL`.
+Fallback renderer result всегда сообщается отдельно и не переписывает primary
+failure.
 
 ## Product result
 

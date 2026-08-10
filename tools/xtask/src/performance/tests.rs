@@ -98,24 +98,24 @@ fn preflight_recomputes_readiness_from_typed_evidence() {
 
 #[test]
 fn schema_round_trip_rejects_unknown_fields() {
-    let mut run = PerformanceRunV4::empty(
+    let mut run = PerformanceRunV5::empty(
         PerformanceScenarioV1::Smoke,
         PerformanceModeV1::Report,
         "release",
     );
     run.target_fingerprint = Some(fingerprint());
-    assert_eq!(run.schema_version, 4);
+    assert_eq!(run.schema_version, 5);
     assert_eq!(
         run.methodology.methodology_version,
-        "nextengine-performance-v7"
+        "nextengine-performance-v8"
     );
-    assert_eq!(PERFORMANCE_REPORT_FILE_NAME, "performance-report-v4.json");
+    assert_eq!(PERFORMANCE_REPORT_FILE_NAME, "performance-report-v5.json");
     assert_eq!(
         PERFORMANCE_BASELINE_FILE_NAME,
-        "performance-baseline-v4.json"
+        "performance-baseline-v5.json"
     );
     let json = serde_json::to_vec(&run).expect("serialize run");
-    let decoded: PerformanceRunV4 = serde_json::from_slice(&json).expect("decode run");
+    let decoded: PerformanceRunV5 = serde_json::from_slice(&json).expect("decode run");
     assert_eq!(decoded, run);
 
     let mut wrong_hash = run.clone();
@@ -138,7 +138,7 @@ fn schema_round_trip_rejects_unknown_fields() {
         (2, "nextengine-performance-v2"),
         (3, "nextengine-performance-v3"),
     ] {
-        let mut historical: PerformanceRunV4 =
+        let mut historical: PerformanceRunV5 =
             serde_json::from_slice(&json).expect("decode current fixture");
         historical.schema_version = schema_version;
         historical.methodology.methodology_version = methodology_version.to_owned();
@@ -153,8 +153,9 @@ fn schema_round_trip_rejects_unknown_fields() {
         "nextengine-performance-v4",
         "nextengine-performance-v5",
         "nextengine-performance-v6",
+        "nextengine-performance-v7",
     ] {
-        let mut prior_methodology: PerformanceRunV4 =
+        let mut prior_methodology: PerformanceRunV5 =
             serde_json::from_slice(&json).expect("decode current fixture");
         prior_methodology.methodology.methodology_version = prior.to_owned();
         let diagnostics = prior_methodology
@@ -171,7 +172,7 @@ fn schema_round_trip_rejects_unknown_fields() {
         .as_object_mut()
         .expect("run object")
         .insert("unknown".to_owned(), serde_json::Value::Bool(true));
-    assert!(serde_json::from_value::<PerformanceRunV4>(value).is_err());
+    assert!(serde_json::from_value::<PerformanceRunV5>(value).is_err());
 }
 
 #[test]
@@ -230,7 +231,7 @@ fn compiled_xtask_provenance_uses_the_pinned_native_toolchain() {
 
 #[test]
 fn command_report_status_is_derived_from_the_nested_verdict() {
-    let mut run = PerformanceRunV4::empty(
+    let mut run = PerformanceRunV5::empty(
         PerformanceScenarioV1::Smoke,
         PerformanceModeV1::Report,
         "debug",
@@ -312,12 +313,12 @@ fn logical_resource_charge_root_rejects_tampered_totals() {
 
 #[test]
 fn production_worker_scenario_has_distinct_versioned_methodology() {
-    let run = PerformanceRunV4::empty(
+    let run = PerformanceRunV5::empty(
         PerformanceScenarioV1::ProductionWorkerSoak,
         PerformanceModeV1::Report,
         "release",
     );
-    let smoke = PerformanceRunV4::empty(
+    let smoke = PerformanceRunV5::empty(
         PerformanceScenarioV1::Smoke,
         PerformanceModeV1::Report,
         "release",
@@ -390,11 +391,11 @@ fn relative_policy_distinguishes_noise_warning_and_failure() {
 #[test]
 fn deterministic_bootstrap_matches_known_constant_samples() {
     assert_eq!(
-        bootstrap_change_interval(&[100; 16], &[100; 16], 200),
+        bootstrap_median_change_interval(&[100; 16], &[100; 16], 200),
         Ok([0, 0])
     );
     assert_eq!(
-        bootstrap_change_interval(&[106; 16], &[100; 16], 200),
+        bootstrap_median_change_interval(&[106; 16], &[100; 16], 200),
         Ok([600, 600])
     );
 }
@@ -451,7 +452,7 @@ fn enabled_instrumentation_requires_parity_and_bounded_overhead_evidence() {
 
 #[test]
 fn baseline_requires_ten_clean_compatible_runs() {
-    let mut run = PerformanceRunV4::empty(
+    let mut run = PerformanceRunV5::empty(
         PerformanceScenarioV1::R2AlphaRender,
         PerformanceModeV1::Report,
         "release",
@@ -461,7 +462,7 @@ fn baseline_requires_ten_clean_compatible_runs() {
     run.target_triple = PERFORMANCE_WINDOWS_TARGET_TRIPLE.to_owned();
     run.toolchain = pinned_toolchain(&run.target_triple);
     run.target_fingerprint = Some(fingerprint());
-    run.preflight = Some(PerformancePreflightV1 {
+    let ready_environment = PerformancePreflightV1 {
         cpu_load_percent: Some(0),
         gpu_load_percent: Some(0),
         free_ram_bytes: Some(MINIMUM_FREE_RAM_BYTES),
@@ -469,7 +470,9 @@ fn baseline_requires_ten_clean_compatible_runs() {
         gpu_thermal_slowdown_active: Some(false),
         ready: true,
         diagnostics: Vec::new(),
-    });
+    };
+    run.preflight = Some(ready_environment.clone());
+    run.environment_samples = vec![ready_environment.clone(), ready_environment];
     run.content_hash = "b".repeat(64);
     run.scenario_hash = performance_scenario_hash(run.scenario);
     run.metrics = vec![
@@ -500,15 +503,87 @@ fn baseline_requires_ten_clean_compatible_runs() {
     run.authoritative_hashes
         .insert("state".to_owned(), "d".repeat(64));
     let runs = vec![run; 10];
-    let baseline = PerformanceBaselineV4::from_runs(&runs).expect("baseline");
+    let baseline = PerformanceBaselineV5::from_runs(&runs).expect("baseline");
     assert_eq!(baseline.calibration_runs, 10);
     assert_eq!(baseline.target_triple, PERFORMANCE_WINDOWS_TARGET_TRIPLE);
     assert_eq!(baseline.metrics[0].raw_samples.len(), 30);
+    assert_eq!(baseline.metrics[0].sample_run_lengths, vec![3; 10]);
+
+    let mut candidate = runs[0].clone();
+    candidate.mode = PerformanceModeV1::Gate;
+    candidate.evidence_runs = HARD_GATE_EVIDENCE_RUNS;
+    candidate.environment_samples = vec![
+        candidate.preflight.clone().expect("ready environment");
+        usize::try_from(HARD_GATE_EVIDENCE_RUNS * 2)
+            .expect("environment sample count")
+    ];
+    candidate.metrics = vec![
+        PerformanceMetricV1::from_sample_runs(
+            "frame",
+            "microseconds",
+            vec![vec![11, 12], vec![11, 12], vec![19, 20]],
+            Some(PerformanceBudgetV1 {
+                p95_max: Some(20),
+                p99_max: Some(20),
+            }),
+        )
+        .expect("candidate metric"),
+    ];
+    compare_metrics_to_baseline(&mut candidate, &baseline).expect("run-level comparison");
+    let relative = candidate.metrics[0]
+        .relative
+        .as_ref()
+        .expect("relative evidence");
+    assert_eq!(candidate.metrics[0].p95, 20);
+    assert_eq!(relative.change_basis_points, 0);
+    assert_eq!(candidate.metrics[0].verdict, PerformanceVerdict::Pass);
+}
+
+#[test]
+fn aggregated_metrics_preserve_run_boundaries_and_fail_closed_on_absolute_tails() {
+    let metric = PerformanceMetricV1::from_sample_runs(
+        "frame",
+        "microseconds",
+        vec![vec![10, 11, 12], vec![9, 10, 30], vec![10, 10, 11]],
+        Some(PerformanceBudgetV1 {
+            p95_max: Some(20),
+            p99_max: Some(20),
+        }),
+    )
+    .expect("aggregate metric");
+
+    assert_eq!(metric.sample_run_lengths, vec![3, 3, 3]);
+    assert_eq!(metric.p50, 10);
+    assert_eq!(metric.p95, 30);
+    assert_eq!(metric.p99, 30);
+    assert_eq!(metric.verdict, PerformanceVerdict::Fail);
+}
+
+#[test]
+fn malformed_metric_run_boundaries_are_rejected() {
+    let mut metric = PerformanceMetricV1::from_samples(
+        "frame",
+        "microseconds",
+        vec![10, 11, 12],
+        Some(PerformanceBudgetV1 {
+            p95_max: Some(20),
+            p99_max: Some(20),
+        }),
+    )
+    .expect("metric");
+    metric.sample_run_lengths = vec![2];
+
+    assert_eq!(
+        metric.validate_samples_and_budget(),
+        Err(vec![
+            "PERF_METRIC_RUN_BOUNDARY_LENGTH_MISMATCH: frame".to_owned()
+        ])
+    );
 }
 
 #[test]
 fn baseline_centrally_rejects_an_incompatible_run_wire_version() {
-    let mut run = PerformanceRunV4::empty(
+    let mut run = PerformanceRunV5::empty(
         PerformanceScenarioV1::R2AlphaRender,
         PerformanceModeV1::Report,
         "release",
@@ -520,7 +595,7 @@ fn baseline_centrally_rejects_an_incompatible_run_wire_version() {
     run.toolchain = pinned_toolchain(&run.target_triple);
     run.target_fingerprint = Some(fingerprint());
 
-    let diagnostics = PerformanceBaselineV4::from_runs(&vec![run; 10])
+    let diagnostics = PerformanceBaselineV5::from_runs(&vec![run; 10])
         .expect_err("from_runs owns wire admission");
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic == "PERF_BASELINE_RUN_INVALID: 0: PERF_RUN_SCHEMA_MISMATCH"

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::performance::{
     PERFORMANCE_METHODOLOGY_VERSION, PERFORMANCE_RUN_SCHEMA_VERSION, PerformanceModeV1,
-    PerformanceRunV4, PerformanceScenarioV1, PerformanceVerdict, nearest_rank_percentile,
+    PerformanceRunV5, PerformanceScenarioV1, PerformanceVerdict, nearest_rank_percentile,
     validate_thoth_fingerprint,
 };
 
@@ -206,7 +206,7 @@ impl CodegenRunProvenanceV1 {
 #[derive(Clone, Debug)]
 pub struct CodegenScenarioRunSetV1 {
     pub scenario: PerformanceScenarioV1,
-    pub runs: Vec<PerformanceRunV4>,
+    pub runs: Vec<PerformanceRunV5>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -406,7 +406,7 @@ pub fn compare_codegen_run_sets(
     })
 }
 
-fn first_run(sets: &[CodegenScenarioRunSetV1]) -> Option<&PerformanceRunV4> {
+fn first_run(sets: &[CodegenScenarioRunSetV1]) -> Option<&PerformanceRunV5> {
     sets.iter().find_map(|set| set.runs.first())
 }
 
@@ -451,7 +451,7 @@ fn validate_run_group(
     set: &CodegenScenarioRunSetV1,
     expected_profile: &str,
     side: &str,
-    global_anchor: Option<&PerformanceRunV4>,
+    global_anchor: Option<&PerformanceRunV5>,
     diagnostics: &mut Vec<String>,
 ) {
     let prefix = format!("{side}:{}", set.scenario.as_str());
@@ -643,7 +643,7 @@ fn combined_bootstrap_scenario(
 }
 
 fn metric_run_p95s(
-    runs: &[PerformanceRunV4],
+    runs: &[PerformanceRunV5],
 ) -> Result<BTreeMap<String, (String, Vec<u64>)>, String> {
     let mut metrics = BTreeMap::<String, (String, Vec<u64>)>::new();
     for run in runs {
@@ -962,7 +962,7 @@ LLVM version: 21.1.8"
     fn codegen_run_validation_requires_v4_resource_evidence() {
         let set = CodegenScenarioRunSetV1 {
             scenario: PerformanceScenarioV1::R2AlphaRender,
-            runs: vec![PerformanceRunV4::empty(
+            runs: vec![PerformanceRunV5::empty(
                 PerformanceScenarioV1::R2AlphaRender,
                 PerformanceModeV1::Report,
                 "release",

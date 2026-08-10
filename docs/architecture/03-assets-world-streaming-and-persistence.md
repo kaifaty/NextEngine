@@ -166,7 +166,7 @@ Missing optional content uses only an exact declared fallback.
   reactivation and re-fetch converge with uninterrupted execution; ordinary
   Save/Load/Resume, Replay V5 and retired-format rejection remain exact.
 - `performance --scenario smoke --mode report`: 1,000 real packaged transitions
-  record Performance V4 `required_staging_bytes`; the 30-second limit remains
+  record Performance V5 `required_staging_bytes`; the 30-second limit remains
   report-only.
 - `performance --scenario r3-multiregion-streaming --mode report`: 1,000
   transitions cycle over the canonical 64-chunk route with two workers and

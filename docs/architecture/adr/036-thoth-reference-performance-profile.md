@@ -11,11 +11,13 @@
 | Заменяет | частично [ADR-016](016-compositional-gameplay-budgets.md) и SPEC-05 `PHYS-P4`: qualifier `reference 8-core CPU` заменяется полным host `ref-win-thoth-v1`; числовые gameplay/physics budgets не меняются |
 | Заменён | Diagnostic-scenario часть узко заменена [ADR-038](038-versioned-production-worker-handoff-diagnostic.md). Allocator instrumentation и V2/V3 tooling schemas заменены [ADR-049](049-performance-evidence-without-allocator-instrumentation.md). CPU/GPU idle and free-RAM preflight thresholds are superseded by [ADR-060](060-relaxed-thoth-performance-preflight.md), with the load ceiling subsequently superseded by [ADR-061](061-forty-percent-thoth-load-preflight.md). NVIDIA driver fingerprint and R5/PHYS-P4 workload details are superseded by [ADR-062](062-r5-physx-humanoid-performance-authority.md). Other THOTH profile, hard timing authority, baseline and representative workload requirements remain Accepted. |
 
-> Current report/baseline schemas are Performance V4 under ADR-049. Older
+> ADR-063 supersedes raw-frame relative bootstrap and single-run candidate
+> evidence with Performance V5 run boundaries and fixed three-run gate batches.
+> Current report/baseline schemas are Performance V5 under ADR-063. Older
 > schema and allocator passages below are historical context only.
 > The 5%/20 GiB preflight values below are also historical; ADR-060 and
 > ADR-061 sets the current below-40%/10 GiB thresholds; ADR-062 sets the
-> current methodology identity and R5 workload.
+> R5 workload; ADR-063 sets the current methodology identity and run-level gate.
 
 ## Контекст
 

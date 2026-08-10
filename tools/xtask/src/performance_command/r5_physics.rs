@@ -51,9 +51,10 @@ const R5_WORKER_BUDGETS: [WorkerBudget; 3] = [
 
 pub(super) fn performance_report(
     request: &PerformanceArguments,
-    mut run: xtask::performance::PerformanceRunV4,
+    mut run: xtask::performance::PerformanceRunV5,
     project_composition_lock_hash: String,
     profiling_enabled: bool,
+    compare_baseline: bool,
 ) -> Result<CommandReportV1<PerformanceDetailsV1>, String> {
     let profiler_control = profiling_enabled
         .then(next_motor::run_reference_humanoid_performance_v1)
@@ -277,7 +278,8 @@ pub(super) fn performance_report(
         run.verdict = xtask::performance::PerformanceVerdict::NotRun;
     }
 
-    if run.verdict != xtask::performance::PerformanceVerdict::NotRun
+    if compare_baseline
+        && run.verdict != xtask::performance::PerformanceVerdict::NotRun
         && let Some(path) = &request.baseline
     {
         match read_performance_baseline(path) {
@@ -341,6 +343,7 @@ pub(super) fn performance_report(
             live_runtime: None,
             production_worker: None,
             r5_physics: Some(R5PhysicsPerformanceDetailsV1 {
+                evidence_run_count: 1,
                 slot_count: report.slot_count,
                 degrees_of_freedom_per_slot: next_motor::REFERENCE_HUMANOID_DOF as u32,
                 physics_hz: report.physics_hz,

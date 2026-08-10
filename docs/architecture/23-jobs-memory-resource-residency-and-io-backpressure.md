@@ -43,7 +43,7 @@ public resource-scheduler API, and it is not routing authority for current R3.
 - Mandatory work must produce an explicit accepted result or typed failure;
   optional work may use only a bounded declared fallback.
 - Logical charges, peak working set, process I/O, device ceilings and relevant
-  timings are observed through current Performance V4 evidence. Allocation
+  timings are observed through current Performance V5 evidence. Allocation
   counters are not reintroduced.
 - `game` and `headless` share validation and commit semantics. Renderer frame
   rate and presentation availability cannot select authoritative streaming

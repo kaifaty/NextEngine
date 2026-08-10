@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 1.2 |
+| Версия | 1.3 |
 | Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md) |
-| Заменяет | SPEC-35 1.1; accepts the representative R5 performance workload and budgets |
+| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md) |
+| Заменяет | SPEC-35 1.2; adopts the fixed three-run R5 gate and run-level evidence |
 
 ## Назначение и ownership
 
@@ -201,6 +201,9 @@ control is mandatory. It reports direct physics/motor throughput, reciprocal
 cost, lockstep p95/p99, scaling, checkpoint size, fresh-scene restore,
 replay-prefix overhead and host/logical memory. ADR-062 owns the exact THOTH
 budgets and separates restore latency from the live 4/6 ms PHYS-P4 deadline.
+ADR-063 makes one hard gate a fixed batch of three complete R5 workload runs;
+absolute budgets use the worst per-run tail and relative evidence bootstraps
+whole run-p95 observations against ten calibration runs.
 
 Stage 0 runs `fast`, `host-check`, `play`, `persistence-replay`,
 `content-package`, `platform`, `performance`, `BODY-SCHEMA-P1`,

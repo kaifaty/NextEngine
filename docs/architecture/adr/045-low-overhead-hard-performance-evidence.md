@@ -11,7 +11,7 @@
 | Supersedes | Narrowly supersedes the ADR-036 and ADR-039–ADR-043 clauses that make an exact active `ProcessAllocationCounterV1` mandatory for a hard run, baseline publication or B-12. Their allocator boundary, exact counter semantics, retained failed candidates and no-retry evidence policy remain Accepted. |
 | Superseded by | Allocator-retention clauses and Performance V2/V3 tooling schemas are superseded by [ADR-049](049-performance-evidence-without-allocator-instrumentation.md). Low-overhead evidence, THOTH budgets and no-retry policy remain Accepted. |
 
-> Current tooling uses Performance V4 without allocator fields. The V2/V3 and
+> Current tooling uses Performance V5 without allocator fields under ADR-063. The V2/V3/V4 and
 > allocator sections below are retained only as decision history; ADR-049 is
 > the current contract.
 

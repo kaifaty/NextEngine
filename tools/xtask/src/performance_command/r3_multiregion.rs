@@ -6,9 +6,10 @@ use super::*;
 pub(super) fn performance_report(
     request: &PerformanceArguments,
     state_root: Option<&Path>,
-    mut run: xtask::performance::PerformanceRunV4,
+    mut run: xtask::performance::PerformanceRunV5,
     content_hash: String,
     profiling_enabled: bool,
+    compare_baseline: bool,
 ) -> Result<CommandReportV1<PerformanceDetailsV1>, String> {
     let profiler_control = profiling_enabled
         .then(|| run_multiregion_streaming(state_root))
@@ -110,7 +111,8 @@ pub(super) fn performance_report(
         run.verdict = xtask::performance::PerformanceVerdict::NotRun;
     }
 
-    if run.verdict != xtask::performance::PerformanceVerdict::NotRun
+    if compare_baseline
+        && run.verdict != xtask::performance::PerformanceVerdict::NotRun
         && let Some(path) = &request.baseline
     {
         match read_performance_baseline(path) {

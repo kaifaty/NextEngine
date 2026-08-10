@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use xtask::performance::{
     PERFORMANCE_BASELINE_FILE_NAME, PERFORMANCE_BASELINE_TEMP_FILE_NAME,
-    PERFORMANCE_REPORT_FILE_NAME, PerformanceBaselineV4, PerformanceRunV4,
+    PERFORMANCE_REPORT_FILE_NAME, PerformanceBaselineV5, PerformanceRunV5,
 };
 use xtask::report::{CommandReportV1, PerformanceDetailsV1};
 
@@ -49,14 +49,14 @@ pub(crate) fn performance_baseline(
         .iter()
         .map(|path| read_performance_run(path))
         .collect::<Result<Vec<_>, _>>()?;
-    let baseline = PerformanceBaselineV4::from_runs(&runs).map_err(|diagnostics| {
+    let baseline = PerformanceBaselineV5::from_runs(&runs).map_err(|diagnostics| {
         format!(
             "performance calibration set is invalid: {}",
             diagnostics.join("; ")
         )
     })?;
     let bytes = serde_json::to_vec(&baseline)
-        .map_err(|error| format!("failed to serialize PerformanceBaselineV4: {error}"))?;
+        .map_err(|error| format!("failed to serialize PerformanceBaselineV5: {error}"))?;
     write_baseline(&output_directory, &bytes)?;
     println!(
         "{}",
@@ -144,7 +144,7 @@ fn discover_report_paths(runs_directory: &Path) -> Result<Vec<PathBuf>, String> 
         .collect()
 }
 
-fn read_performance_run(path: &Path) -> Result<PerformanceRunV4, String> {
+fn read_performance_run(path: &Path) -> Result<PerformanceRunV5, String> {
     let metadata = fs::symlink_metadata(path)
         .map_err(|error| format!("failed to inspect report {}: {error}", path.display()))?;
     if !metadata.file_type().is_file() || metadata.len() > MAX_PERFORMANCE_REPORT_BYTES {
@@ -238,7 +238,7 @@ mod tests {
         ));
         fs::create_dir(&directory).expect("create test directory");
         let path = directory.join(PERFORMANCE_REPORT_FILE_NAME);
-        let mut run = PerformanceRunV4::empty(
+        let mut run = PerformanceRunV5::empty(
             xtask::performance::PerformanceScenarioV1::Smoke,
             xtask::performance::PerformanceModeV1::Report,
             "debug",

@@ -9,7 +9,7 @@
 | Last verified | 2026-08-10 |
 | Normative dependencies | [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-049](049-performance-evidence-without-allocator-instrumentation.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](059-event-sourced-physx-continuation-reconstruction.md), [ADR-061](061-forty-percent-thoth-load-preflight.md) |
 | Supersedes | Narrowly supersedes the ADR-036 THOTH NVIDIA driver value `591.86` with installed driver `610.88`; replaces the R5 placeholder and 120 Hz PHYS-P4 workload wording with the method below; advances the ADR-061 methodology identity from v6 to v7. Other ADR-036/049/061 evidence, baseline and preflight rules remain Accepted. |
-| Superseded by | none |
+| Superseded by | [ADR-063](063-run-level-performance-evidence-and-fixed-gate-batches.md) supersedes the methodology-v7 identity and single-candidate-run relative gate. The workload, budgets, driver fingerprint and exact-root requirements remain Accepted. |
 
 ## Context
 

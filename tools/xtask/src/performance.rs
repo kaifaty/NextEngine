@@ -13,18 +13,18 @@ mod hard_evidence;
 mod resource_counters;
 mod support;
 pub use resource_counters::{PerformanceLogicalResourceChargesV1, PerformanceResourceCountersV4};
-use support::{bootstrap_change_interval, relative_change_basis_points, relative_verdict};
+use support::{bootstrap_median_change_interval, relative_change_basis_points, relative_verdict};
 pub use support::{methodology_for, sha256_hex};
 #[cfg(test)]
 mod tests;
 
-pub const PERFORMANCE_RUN_SCHEMA_VERSION: u32 = 4;
-pub const PERFORMANCE_BASELINE_SCHEMA_VERSION: u32 = 4;
-pub const PERFORMANCE_METHODOLOGY_VERSION: &str = "nextengine-performance-v7";
-pub const PERFORMANCE_REPORT_FILE_NAME: &str = "performance-report-v4.json";
-pub const PERFORMANCE_BASELINE_FILE_NAME: &str = "performance-baseline-v4.json";
-pub const PERFORMANCE_REPORT_TEMP_FILE_NAME: &str = ".performance-report-v4.json.tmp";
-pub const PERFORMANCE_BASELINE_TEMP_FILE_NAME: &str = ".performance-baseline-v4.json.tmp";
+pub const PERFORMANCE_RUN_SCHEMA_VERSION: u32 = 5;
+pub const PERFORMANCE_BASELINE_SCHEMA_VERSION: u32 = 5;
+pub const PERFORMANCE_METHODOLOGY_VERSION: &str = "nextengine-performance-v8";
+pub const PERFORMANCE_REPORT_FILE_NAME: &str = "performance-report-v5.json";
+pub const PERFORMANCE_BASELINE_FILE_NAME: &str = "performance-baseline-v5.json";
+pub const PERFORMANCE_REPORT_TEMP_FILE_NAME: &str = ".performance-report-v5.json.tmp";
+pub const PERFORMANCE_BASELINE_TEMP_FILE_NAME: &str = ".performance-baseline-v5.json.tmp";
 pub const PERFORMANCE_PINNED_RUSTC_RELEASE: &str = "1.93.0";
 pub const PERFORMANCE_PINNED_RUSTC_COMMIT_HASH: &str = "254b59607d4417e9dffbc307138ae5c86280fe4c";
 pub const PERFORMANCE_WINDOWS_TARGET_TRIPLE: &str = "x86_64-pc-windows-msvc";
@@ -34,6 +34,7 @@ pub const PREFLIGHT_LOAD_PERCENT_EXCLUSIVE: u32 = 40;
 pub const MINIMUM_FREE_RAM_BYTES: u64 = 10 * 1024 * 1024 * 1024;
 pub const MAX_PROFILER_BYTES: u64 = 64 * 1024 * 1024;
 pub const MAX_SPANS_PER_THREAD: u32 = 65_536;
+pub const HARD_GATE_EVIDENCE_RUNS: u32 = 3;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum PerformanceScenarioV1 {
@@ -265,6 +266,32 @@ impl PerformancePreflightV1 {
             Err(diagnostics)
         }
     }
+
+    pub fn validate_postflight_evidence(&self) -> Result<(), Vec<String>> {
+        let mut diagnostics = Vec::new();
+        if self
+            .free_ram_bytes
+            .is_none_or(|bytes| bytes < MINIMUM_FREE_RAM_BYTES)
+        {
+            diagnostics.push("PERF_FREE_RAM_BELOW_TEN_GIB".to_owned());
+        }
+        if self
+            .cpu_clock_percent_of_maximum
+            .is_none_or(|percent| percent < 80)
+        {
+            diagnostics.push("PERF_CPU_THROTTLING_CHECK_FAILED".to_owned());
+        }
+        if self.gpu_thermal_slowdown_active != Some(false) {
+            diagnostics.push("PERF_GPU_THERMAL_SLOWDOWN_CHECK_FAILED".to_owned());
+        }
+        diagnostics.sort();
+        diagnostics.dedup();
+        if diagnostics.is_empty() {
+            Ok(())
+        } else {
+            Err(diagnostics)
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -372,9 +399,11 @@ pub struct PerformanceBudgetV1 {
 pub struct PerformanceRelativeComparisonV1 {
     /// 100 basis points equal 1%.
     pub change_basis_points: i64,
-    /// Deterministic percentile-bootstrap 95% interval, in basis points.
+    /// Deterministic run-level median-bootstrap 95% interval, in basis points.
     pub confidence_interval_95_basis_points: [i64; 2],
+    /// Median of the ten independent baseline-run p95 values.
     pub baseline_p95: u64,
+    /// Median of the ten independent baseline-run p99 values.
     pub baseline_p99: u64,
 }
 
@@ -384,6 +413,8 @@ pub struct PerformanceMetricV1 {
     pub name: String,
     pub unit: String,
     pub raw_samples: Vec<u64>,
+    /// Number of consecutive `raw_samples` contributed by each independent run.
+    pub sample_run_lengths: Vec<u32>,
     pub p50: u64,
     pub p95: u64,
     pub p99: u64,
@@ -399,12 +430,49 @@ impl PerformanceMetricV1 {
         raw_samples: Vec<u64>,
         absolute_budget: Option<PerformanceBudgetV1>,
     ) -> Result<Self, String> {
-        if raw_samples.is_empty() {
-            return Err("performance metric requires at least one raw sample".to_owned());
+        Self::from_sample_runs(name, unit, vec![raw_samples], absolute_budget)
+    }
+
+    pub fn from_sample_runs(
+        name: impl Into<String>,
+        unit: impl Into<String>,
+        sample_runs: Vec<Vec<u64>>,
+        absolute_budget: Option<PerformanceBudgetV1>,
+    ) -> Result<Self, String> {
+        if sample_runs.is_empty() || sample_runs.iter().any(Vec::is_empty) {
+            return Err("performance metric requires at least one sample in every run".to_owned());
         }
-        let p50 = nearest_rank_percentile(&raw_samples, 50)?;
-        let p95 = nearest_rank_percentile(&raw_samples, 95)?;
-        let p99 = nearest_rank_percentile(&raw_samples, 99)?;
+        let sample_run_lengths = sample_runs
+            .iter()
+            .map(|samples| {
+                u32::try_from(samples.len())
+                    .map_err(|_| "performance metric run sample count exceeds u32".to_owned())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut raw_samples = Vec::with_capacity(
+            sample_runs
+                .iter()
+                .try_fold(0_usize, |total, samples| total.checked_add(samples.len()))
+                .ok_or_else(|| "performance metric sample count overflow".to_owned())?,
+        );
+        let mut run_p50 = Vec::with_capacity(sample_runs.len());
+        let mut run_p95 = Vec::with_capacity(sample_runs.len());
+        let mut run_p99 = Vec::with_capacity(sample_runs.len());
+        for samples in sample_runs {
+            run_p50.push(nearest_rank_percentile(&samples, 50)?);
+            run_p95.push(nearest_rank_percentile(&samples, 95)?);
+            run_p99.push(nearest_rank_percentile(&samples, 99)?);
+            raw_samples.extend(samples);
+        }
+        let p50 = nearest_rank_percentile(&run_p50, 50)?;
+        let p95 = run_p95
+            .into_iter()
+            .max()
+            .ok_or_else(|| "performance metric requires at least one independent run".to_owned())?;
+        let p99 = run_p99
+            .into_iter()
+            .max()
+            .ok_or_else(|| "performance metric requires at least one independent run".to_owned())?;
         let verdict = match &absolute_budget {
             Some(budget)
                 if budget.p95_max.is_some_and(|maximum| p95 > maximum)
@@ -419,6 +487,7 @@ impl PerformanceMetricV1 {
             name: name.into(),
             unit: unit.into(),
             raw_samples,
+            sample_run_lengths,
             p50,
             p95,
             p99,
@@ -435,11 +504,12 @@ pub struct PerformanceBaselineMetricV1 {
     pub name: String,
     pub unit: String,
     pub raw_samples: Vec<u64>,
+    pub sample_run_lengths: Vec<u32>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PerformanceBaselineV4 {
+pub struct PerformanceBaselineV5 {
     pub schema_version: u32,
     pub methodology_version: String,
     pub source_commit: String,
@@ -455,8 +525,8 @@ pub struct PerformanceBaselineV4 {
     pub authoritative_hashes: BTreeMap<String, String>,
 }
 
-impl PerformanceBaselineV4 {
-    pub fn from_runs(runs: &[PerformanceRunV4]) -> Result<Self, Vec<String>> {
+impl PerformanceBaselineV5 {
+    pub fn from_runs(runs: &[PerformanceRunV5]) -> Result<Self, Vec<String>> {
         if runs.len() != 10 {
             return Err(vec!["PERF_BASELINE_REQUIRES_TEN_RUNS".to_owned()]);
         }
@@ -465,7 +535,7 @@ impl PerformanceBaselineV4 {
             return Err(vec!["PERF_BASELINE_FINGERPRINT_MISSING".to_owned()]);
         };
         let mut diagnostics = Vec::new();
-        let mut metrics: BTreeMap<String, (String, Vec<u64>)> = BTreeMap::new();
+        let mut metrics: BTreeMap<String, (String, Vec<u64>, Vec<u32>)> = BTreeMap::new();
         let mut expected_metrics = BTreeMap::new();
         for metric in &first.metrics {
             if expected_metrics
@@ -484,6 +554,16 @@ impl PerformanceBaselineV4 {
             if run.target_triple != PERFORMANCE_WINDOWS_TARGET_TRIPLE {
                 diagnostics.push(format!(
                     "PERF_BASELINE_RUN_INVALID: {index}: PERF_BASELINE_TARGET_MISMATCH"
+                ));
+            }
+            if run.evidence_runs != 1 {
+                diagnostics.push(format!(
+                    "PERF_BASELINE_RUN_INVALID: {index}: PERF_BASELINE_REQUIRES_SINGLE_RUN_REPORT"
+                ));
+            }
+            if run.environment_samples.len() != 2 {
+                diagnostics.push(format!(
+                    "PERF_BASELINE_RUN_INVALID: {index}: PERF_ENVIRONMENT_SAMPLE_COUNT_MISMATCH"
                 ));
             }
             if !run.worktree_clean {
@@ -554,8 +634,9 @@ impl PerformanceBaselineV4 {
                     continue;
                 }
                 match metrics.get_mut(&metric.name) {
-                    Some((unit, samples)) if *unit == metric.unit => {
+                    Some((unit, samples, run_lengths)) if *unit == metric.unit => {
                         samples.extend_from_slice(&metric.raw_samples);
+                        run_lengths.extend_from_slice(&metric.sample_run_lengths);
                     }
                     Some(_) => {
                         diagnostics.push(format!("PERF_BASELINE_UNIT_MISMATCH: {}", metric.name))
@@ -563,7 +644,11 @@ impl PerformanceBaselineV4 {
                     None => {
                         metrics.insert(
                             metric.name.clone(),
-                            (metric.unit.clone(), metric.raw_samples.clone()),
+                            (
+                                metric.unit.clone(),
+                                metric.raw_samples.clone(),
+                                metric.sample_run_lengths.clone(),
+                            ),
                         );
                     }
                 }
@@ -573,6 +658,8 @@ impl PerformanceBaselineV4 {
             }
         }
         if !diagnostics.is_empty() {
+            diagnostics.sort();
+            diagnostics.dedup();
             return Err(diagnostics);
         }
         Ok(Self {
@@ -589,10 +676,13 @@ impl PerformanceBaselineV4 {
             calibration_runs: 10,
             metrics: metrics
                 .into_iter()
-                .map(|(name, (unit, raw_samples))| PerformanceBaselineMetricV1 {
-                    name,
-                    unit,
-                    raw_samples,
+                .map(|(name, (unit, raw_samples, sample_run_lengths))| {
+                    PerformanceBaselineMetricV1 {
+                        name,
+                        unit,
+                        raw_samples,
+                        sample_run_lengths,
+                    }
                 })
                 .collect(),
             authoritative_hashes: first.authoritative_hashes.clone(),
@@ -601,7 +691,7 @@ impl PerformanceBaselineV4 {
 
     pub fn validate_for(
         &self,
-        run: &PerformanceRunV4,
+        run: &PerformanceRunV5,
     ) -> Result<BTreeMap<&str, &PerformanceBaselineMetricV1>, Vec<String>> {
         let mut diagnostics = Vec::new();
         if self.schema_version != PERFORMANCE_BASELINE_SCHEMA_VERSION {
@@ -661,6 +751,16 @@ impl PerformanceBaselineV4 {
             if metrics.insert(metric.name.as_str(), metric).is_some() {
                 diagnostics.push(format!("PERF_BASELINE_DUPLICATE_METRIC: {}", metric.name));
             }
+            if let Err(error) = validate_sample_run_lengths(
+                &metric.raw_samples,
+                &metric.sample_run_lengths,
+                usize::try_from(self.calibration_runs).unwrap_or(usize::MAX),
+            ) {
+                diagnostics.push(format!(
+                    "PERF_BASELINE_RUN_BOUNDARIES_INVALID: {}: {error}",
+                    metric.name
+                ));
+            }
         }
         if diagnostics.is_empty() {
             Ok(metrics)
@@ -684,7 +784,7 @@ pub struct PerformanceMethodologyV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PerformanceRunV4 {
+pub struct PerformanceRunV5 {
     pub schema_version: u32,
     pub commit: String,
     pub worktree_clean: bool,
@@ -695,6 +795,8 @@ pub struct PerformanceRunV4 {
     pub content_hash: String,
     pub target_fingerprint: Option<PerformanceTargetFingerprintV1>,
     pub preflight: Option<PerformancePreflightV1>,
+    pub environment_samples: Vec<PerformancePreflightV1>,
+    pub evidence_runs: u32,
     pub build_profile: String,
     pub mode: PerformanceModeV1,
     pub instrumentation: PerformanceInstrumentationV1,
@@ -706,7 +808,7 @@ pub struct PerformanceRunV4 {
     pub diagnostics: Vec<String>,
 }
 
-impl PerformanceRunV4 {
+impl PerformanceRunV5 {
     pub fn empty(
         scenario: PerformanceScenarioV1,
         mode: PerformanceModeV1,
@@ -723,6 +825,8 @@ impl PerformanceRunV4 {
             content_hash: sha256_hex(b"nextengine.content.unavailable.v1"),
             target_fingerprint: None,
             preflight: None,
+            environment_samples: Vec::new(),
+            evidence_runs: 1,
             build_profile: build_profile.into(),
             mode,
             instrumentation: PerformanceInstrumentationV1::disabled(),
@@ -883,10 +987,74 @@ pub fn nearest_rank_percentile(samples: &[u64], percentile: u32) -> Result<u64, 
     Ok(ordered[rank.saturating_sub(1)])
 }
 
+fn validate_sample_run_lengths(
+    raw_samples: &[u64],
+    sample_run_lengths: &[u32],
+    expected_runs: usize,
+) -> Result<(), String> {
+    if sample_run_lengths.len() != expected_runs || sample_run_lengths.contains(&0) {
+        return Err("PERF_METRIC_RUN_BOUNDARY_COUNT_MISMATCH".to_owned());
+    }
+    let sample_count = sample_run_lengths
+        .iter()
+        .try_fold(0_usize, |total, length| {
+            total.checked_add(usize::try_from(*length).unwrap_or(usize::MAX))
+        });
+    if sample_count != Some(raw_samples.len()) {
+        return Err("PERF_METRIC_RUN_BOUNDARY_LENGTH_MISMATCH".to_owned());
+    }
+    Ok(())
+}
+
+fn run_percentiles(
+    raw_samples: &[u64],
+    sample_run_lengths: &[u32],
+    percentile: u32,
+) -> Result<Vec<u64>, String> {
+    validate_sample_run_lengths(raw_samples, sample_run_lengths, sample_run_lengths.len())?;
+    let mut offset = 0_usize;
+    let mut percentiles = Vec::with_capacity(sample_run_lengths.len());
+    for length in sample_run_lengths {
+        let length = usize::try_from(*length).map_err(|error| error.to_string())?;
+        let end = offset
+            .checked_add(length)
+            .ok_or_else(|| "PERF_METRIC_RUN_BOUNDARY_LENGTH_OVERFLOW".to_owned())?;
+        percentiles.push(nearest_rank_percentile(
+            &raw_samples[offset..end],
+            percentile,
+        )?);
+        offset = end;
+    }
+    Ok(percentiles)
+}
+
+fn metric_run_percentiles(
+    metric: &PerformanceMetricV1,
+    percentile: u32,
+) -> Result<Vec<u64>, String> {
+    run_percentiles(&metric.raw_samples, &metric.sample_run_lengths, percentile)
+}
+
+fn baseline_metric_run_percentiles(
+    metric: &PerformanceBaselineMetricV1,
+    percentile: u32,
+) -> Result<Vec<u64>, String> {
+    run_percentiles(&metric.raw_samples, &metric.sample_run_lengths, percentile)
+}
+
 pub fn compare_metrics_to_baseline(
-    run: &mut PerformanceRunV4,
-    baseline: &PerformanceBaselineV4,
+    run: &mut PerformanceRunV5,
+    baseline: &PerformanceBaselineV5,
 ) -> Result<(), Vec<String>> {
+    if run.mode == PerformanceModeV1::Gate && run.evidence_runs != HARD_GATE_EVIDENCE_RUNS {
+        return Err(vec!["PERF_GATE_REQUIRES_THREE_EVIDENCE_RUNS".to_owned()]);
+    }
+    if run.mode == PerformanceModeV1::Gate
+        && run.environment_samples.len()
+            != usize::try_from(HARD_GATE_EVIDENCE_RUNS * 2).unwrap_or(usize::MAX)
+    {
+        return Err(vec!["PERF_ENVIRONMENT_SAMPLE_COUNT_MISMATCH".to_owned()]);
+    }
     let baseline_metrics = baseline.validate_for(run)?;
     let mut diagnostics = Vec::new();
     for metric in &mut run.metrics {
@@ -898,13 +1066,20 @@ pub fn compare_metrics_to_baseline(
             diagnostics.push(format!("PERF_BASELINE_UNIT_MISMATCH: {}", metric.name));
             continue;
         }
+        let candidate_run_p95 = metric_run_percentiles(metric, 95).map_err(|error| vec![error])?;
+        let baseline_run_p95 =
+            baseline_metric_run_percentiles(reference, 95).map_err(|error| vec![error])?;
+        let baseline_run_p99 =
+            baseline_metric_run_percentiles(reference, 99).map_err(|error| vec![error])?;
+        let candidate_p95 =
+            nearest_rank_percentile(&candidate_run_p95, 50).map_err(|error| vec![error])?;
         let baseline_p95 =
-            nearest_rank_percentile(&reference.raw_samples, 95).map_err(|error| vec![error])?;
+            nearest_rank_percentile(&baseline_run_p95, 50).map_err(|error| vec![error])?;
         let baseline_p99 =
-            nearest_rank_percentile(&reference.raw_samples, 99).map_err(|error| vec![error])?;
-        let change_basis_points = relative_change_basis_points(metric.p95, baseline_p95);
+            nearest_rank_percentile(&baseline_run_p99, 50).map_err(|error| vec![error])?;
+        let change_basis_points = relative_change_basis_points(candidate_p95, baseline_p95);
         let confidence_interval_95_basis_points =
-            bootstrap_change_interval(&metric.raw_samples, &reference.raw_samples, 2_000)
+            bootstrap_median_change_interval(&candidate_run_p95, &baseline_run_p95, 2_000)
                 .map_err(|error| vec![error])?;
         metric.relative = Some(PerformanceRelativeComparisonV1 {
             change_basis_points,

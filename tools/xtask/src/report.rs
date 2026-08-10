@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::performance::PerformanceRunV4;
+use crate::performance::PerformanceRunV5;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -178,6 +178,7 @@ pub struct R5PhysicsWorkerPerformanceDetailsV1 {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct R5PhysicsPerformanceDetailsV1 {
+    pub evidence_run_count: u32,
     pub slot_count: u32,
     pub degrees_of_freedom_per_slot: u32,
     pub physics_hz: u32,
@@ -203,7 +204,7 @@ pub struct R5PhysicsPerformanceDetailsV1 {
 #[serde(deny_unknown_fields)]
 pub struct PerformanceDetailsV1 {
     #[serde(default)]
-    pub run: Option<PerformanceRunV4>,
+    pub run: Option<PerformanceRunV5>,
     #[serde(default)]
     pub streaming: Option<StreamingPerformanceDetailsV1>,
     #[serde(default)]

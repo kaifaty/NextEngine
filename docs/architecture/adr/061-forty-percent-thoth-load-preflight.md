@@ -9,7 +9,7 @@
 | Last verified | 2026-08-10 |
 | Normative dependencies | [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-049](049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](060-relaxed-thoth-performance-preflight.md) |
 | Supersedes | Narrowly supersedes the ADR-060 CPU/GPU load threshold of below 15% and its methodology-v5 identity. The ADR-060 minimum of 10 GiB free RAM remains Accepted. |
-| Superseded by | [ADR-062](062-r5-physx-humanoid-performance-authority.md) supersedes only the methodology-v6 identity with v7; the below-40% load and 10 GiB free-RAM admission remain Accepted. |
+| Superseded by | [ADR-063](063-run-level-performance-evidence-and-fixed-gate-batches.md) supersedes the methodology identity and adds per-run environment boundaries after ADR-062; the below-40% start-load and 10 GiB free-RAM admission remain Accepted. |
 
 ## Context
 
@@ -36,7 +36,8 @@ rejected. The load diagnostics become
 `PERF_GPU_LOAD_AT_OR_ABOVE_FORTY_PERCENT`. The existing
 `PERF_FREE_RAM_BELOW_TEN_GIB` diagnostic remains current.
 
-`PerformanceRunV4` and `PerformanceBaselineV4` retain their current-only wire
+This decision retained the current-only `PerformanceRunV4` and
+`PerformanceBaselineV4` wire
 shape and file names. The methodology identity advances to
 `nextengine-performance-v6`; methodology-v5 and older artifacts are
 incompatible with new baselines and hard verdicts. Scenario hashes remain
