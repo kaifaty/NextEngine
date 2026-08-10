@@ -531,7 +531,7 @@ mod tests {
     fn ffi_manifest_requires_reviewed_policy_and_adr() {
         let valid = concat!(
             "[package]\nname = \"ffi_backend\"\npublish = false\n\n",
-            "[package.metadata.nextengine]\nffi_adr = \"ADR-033\"\n\n",
+            "[package.metadata.nextengine]\nffi_adr = \"ADR-058\"\n\n",
             "[lints.rust]\nunsafe_code = \"warn\"\n",
             "unsafe_op_in_unsafe_fn = \"deny\"\n\n",
             "[lints.clippy]\nundocumented_unsafe_blocks = \"deny\"\n",
@@ -545,7 +545,7 @@ mod tests {
         )
         .expect("the reviewed FFI manifest must pass");
 
-        let missing_adr = valid.replace("ffi_adr = \"ADR-033\"\n", "");
+        let missing_adr = valid.replace("ffi_adr = \"ADR-058\"\n", "");
         assert_eq!(
             validate_allowlisted_manifest(
                 "ffi_backend",

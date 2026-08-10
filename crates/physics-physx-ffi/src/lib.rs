@@ -1,6 +1,6 @@
 #![allow(
     unsafe_code,
-    reason = "ADR-033 confines all PhysX ABI calls and pointer ownership to this crate"
+    reason = "ADR-058 confines all PhysX ABI calls and pointer ownership to this crate"
 )]
 
 use std::error::Error;

@@ -9,6 +9,10 @@ const EXPECTED_PATCH: &str = "0";
 
 fn main() {
     println!("cargo:rerun-if-env-changed=NEXTENGINE_PHYSX_SDK_DIR");
+    println!("cargo:rerun-if-env-changed=NEXTENGINE_PHYSX_CACHE_DIR");
+    println!("cargo:rerun-if-env-changed=LOCALAPPDATA");
+    println!("cargo:rerun-if-env-changed=XDG_CACHE_HOME");
+    println!("cargo:rerun-if-env-changed=HOME");
     println!("cargo:rerun-if-env-changed=CXX");
     println!("cargo:rerun-if-env-changed=AR");
     println!("cargo:rerun-if-changed=native/nextengine_physx_bridge.cpp");
@@ -23,16 +27,14 @@ fn main() {
     if !target.contains("x86_64-unknown-linux-gnu") && !target.contains("x86_64-pc-windows-msvc") {
         panic!("PhysX v1 supports only x86_64 Linux GNU and x86_64 Windows MSVC");
     }
-    let sdk = PathBuf::from(
-        env::var_os("NEXTENGINE_PHYSX_SDK_DIR")
-            .expect("NEXTENGINE_PHYSX_SDK_DIR must point to a PhysX 5.9.0 install prefix"),
-    );
+    let sdk = resolve_sdk(&target);
     let include = sdk.join("include");
     let library = sdk.join("lib");
     if !include.join("PxPhysicsAPI.h").is_file() || !library.is_dir() {
-        panic!("NEXTENGINE_PHYSX_SDK_DIR must contain include/PxPhysicsAPI.h and lib/");
+        panic!("prepared PhysX SDK must contain include/PxPhysicsAPI.h and lib/");
     }
     verify_version(&include);
+    verify_manifest(&sdk, &target);
     let output = PathBuf::from(env::var_os("OUT_DIR").expect("cargo provides OUT_DIR"));
     if target.contains("windows-msvc") {
         compile_msvc(&include, &output);
@@ -60,8 +62,55 @@ fn main() {
     }
 }
 
+fn resolve_sdk(target: &str) -> PathBuf {
+    if let Some(path) = env::var_os("NEXTENGINE_PHYSX_SDK_DIR") {
+        return PathBuf::from(path);
+    }
+    let cache = if let Some(path) = env::var_os("NEXTENGINE_PHYSX_CACHE_DIR") {
+        PathBuf::from(path).join("physx")
+    } else if target.contains("windows-msvc") {
+        PathBuf::from(
+            env::var_os("LOCALAPPDATA")
+                .expect("LOCALAPPDATA is required to locate the prepared PhysX SDK"),
+        )
+        .join("NextEngine")
+        .join("cache")
+        .join("physx")
+    } else if let Some(path) = env::var_os("XDG_CACHE_HOME") {
+        PathBuf::from(path).join("nextengine").join("physx")
+    } else {
+        PathBuf::from(env::var_os("HOME").expect("HOME is required to locate the PhysX cache"))
+            .join(".cache")
+            .join("nextengine")
+            .join("physx")
+    };
+    let locator = cache.join("active").join(format!("{target}.txt"));
+    println!("cargo:rerun-if-changed={}", locator.display());
+    let value = fs::read_to_string(&locator).unwrap_or_else(|_| {
+        panic!("PhysX SDK is not prepared for {target}; run `cargo run -p xtask -- physx setup`")
+    });
+    PathBuf::from(value.trim())
+}
+
+fn verify_manifest(sdk: &Path, target: &str) {
+    let path = sdk.join("nextengine-physx-sdk-v1.json");
+    let body =
+        fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+    for expected in [
+        "\"schema\": \"nextengine.physx-sdk-manifest.v1\"".to_owned(),
+        "\"physx_version\": \"5.9.0\"".to_owned(),
+        format!("\"target_triple\": \"{target}\""),
+        "\"build_profile\": \"nextengine-physx-5.9.0-static-cpu-release-v1\"".to_owned(),
+        "\"bridge_abi\": 2".to_owned(),
+    ] {
+        if !body.contains(&expected) {
+            panic!("PhysX SDK manifest mismatch: {expected}");
+        }
+    }
+}
+
 fn verify_version(include: &Path) {
-    let version_header = include.join("foundation/PxVersionNumber.h");
+    let version_header = include.join("foundation/PxPhysicsVersion.h");
     let body = fs::read_to_string(&version_header)
         .unwrap_or_else(|error| panic!("{}: {error}", version_header.display()));
     let major = format!("#define PX_PHYSICS_VERSION_MAJOR {EXPECTED_MAJOR}");
@@ -106,34 +155,52 @@ fn compile_unix(include: &Path, output: &Path) {
 }
 
 fn compile_msvc(include: &Path, output: &Path) {
-    let compiler = env::var_os("CXX").unwrap_or_else(|| "cl".into());
     let object = output.join("nextengine_physx_bridge.obj");
-    run(
-        Command::new(compiler)
-            .args([
-                "/nologo",
-                "/c",
-                "/std:c++17",
-                "/EHsc",
-                "/O2",
-                "/DNDEBUG",
-                "/DPX_PHYSX_STATIC_LIB",
-            ])
-            .arg(format!("/I{}", include.display()))
-            .arg("native/nextengine_physx_bridge.cpp")
-            .arg(format!("/Fo{}", object.display())),
-        "compile PhysX bridge",
+    let library = output.join("nextengine_physx_bridge.lib");
+    let vsdevcmd = find_vsdevcmd();
+    let script = output.join("build-nextengine-physx-bridge.bat");
+    let compiler = env::var("CXX").unwrap_or_else(|_| "cl".to_owned());
+    let body = format!(
+        "@echo off\r\ncall \"{}\" -no_logo -arch=x64 -host_arch=x64\r\nif errorlevel 1 exit /b %errorlevel%\r\n{} /nologo /c /std:c++17 /EHsc /O2 /DNDEBUG /DPX_PHYSX_STATIC_LIB /I\"{}\" native\\nextengine_physx_bridge.cpp /Fo\"{}\"\r\nif errorlevel 1 exit /b %errorlevel%\r\nlib /nologo /OUT:\"{}\" \"{}\"\r\nexit /b %errorlevel%\r\n",
+        vsdevcmd.display(),
+        compiler,
+        include.display(),
+        object.display(),
+        library.display(),
+        object.display()
     );
+    fs::write(&script, body).unwrap_or_else(|error| panic!("{}: {error}", script.display()));
     run(
-        Command::new("lib")
-            .args(["/nologo"])
-            .arg(format!(
-                "/OUT:{}",
-                output.join("nextengine_physx_bridge.lib").display()
-            ))
-            .arg(object),
-        "archive PhysX bridge",
+        Command::new("cmd").args(["/d", "/c"]).arg(&script),
+        "compile and archive PhysX bridge",
     );
+    let _ = fs::remove_file(script);
+}
+
+fn find_vsdevcmd() -> PathBuf {
+    for variable in ["ProgramFiles", "ProgramFiles(x86)"] {
+        let Some(program_files) = env::var_os(variable) else {
+            continue;
+        };
+        let visual_studio = PathBuf::from(program_files).join("Microsoft Visual Studio");
+        let Ok(versions) = fs::read_dir(&visual_studio) else {
+            continue;
+        };
+        let mut versions = versions.filter_map(Result::ok).collect::<Vec<_>>();
+        versions.sort_by_key(|entry| std::cmp::Reverse(entry.file_name()));
+        for version in versions {
+            let Ok(editions) = fs::read_dir(version.path()) else {
+                continue;
+            };
+            for edition in editions.filter_map(Result::ok) {
+                let candidate = edition.path().join("Common7/Tools/VsDevCmd.bat");
+                if candidate.is_file() {
+                    return candidate;
+                }
+            }
+        }
+    }
+    panic!("Visual Studio C++ environment not found; PhysX requires VsDevCmd.bat")
 }
 
 fn run(command: &mut Command, action: &str) {

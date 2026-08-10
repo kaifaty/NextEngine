@@ -205,8 +205,7 @@ std::int32_t ne_physx_world_sweep_capsule_axis(
             geometry,
             pose,
             hit,
-            physx::PxHitFlag::ePOSITION | physx::PxHitFlag::eNORMAL
-                | physx::PxHitFlag::eDISTANCE,
+            physx::PxHitFlag::ePOSITION | physx::PxHitFlag::eNORMAL,
             0.0F);
         // Canonical zero-distance blocking contacts are resolved by the safe
         // engine layer before this call. Ignoring native initial-overlap hits

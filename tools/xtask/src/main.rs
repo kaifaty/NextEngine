@@ -15,6 +15,7 @@ mod native_gate_tests;
 mod performance_baseline_command;
 mod performance_codegen_command;
 mod performance_command;
+mod physx;
 mod visual_smoke;
 
 use serde::{Serialize, Serializer};
@@ -101,7 +102,7 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
+        "expected boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
         "boundary-scan" => {
@@ -155,6 +156,7 @@ fn run() -> Result<(), String> {
             let request = performance_codegen_command::parse_arguments(arguments)?;
             performance_codegen_command::performance_codegen(&root, &request)
         }
+        "physx" => physx::run(physx::parse_command(arguments)?),
         "platform" => {
             reject_extra_arguments(arguments)?;
             platform()
@@ -847,7 +849,16 @@ fn run_output_with_state(
 }
 
 fn diagnostic_code(error: &str) -> &'static str {
-    if error.starts_with("NATIVE_GATE_WORKTREE_DIRTY") {
+    if error.starts_with("PHYSX_SDK_INCOMPLETE") {
+        "PHYSX_SDK_NOT_PREPARED"
+    } else if error.starts_with("PHYSX_MANIFEST_MISMATCH")
+        || error.starts_with("PHYSX_VERSION_MISMATCH")
+        || error.starts_with("PHYSX_ARCHIVE_HASH_MISMATCH")
+    {
+        "PHYSX_PROFILE_MISMATCH"
+    } else if error.starts_with("PHYSX_") {
+        "PHYSX_SETUP_FAILED"
+    } else if error.starts_with("NATIVE_GATE_WORKTREE_DIRTY") {
         "NATIVE_GATE_WORKTREE_DIRTY"
     } else if error.starts_with("NATIVE_GATE_HEAD_CHANGED") {
         "NATIVE_GATE_HEAD_CHANGED"
