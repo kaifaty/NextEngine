@@ -1,18 +1,30 @@
 use next_contracts::canonical::sha256;
 use next_contracts::ids::{ContentHash, PersistentId};
+use next_contracts::motor::MotorTrainingEnvironmentManifestV2;
 use next_contracts::physics::PhysicsGeometryV1;
 use serde_json::{Value, json};
 
 use crate::{
-    CompiledBodySchemaV1, FixedPdController, JointControlStateV1, MotorCompileError,
-    STANDING_REWARD_COMPONENT_IDS, derive_episode_seed_set, reference_humanoid_body_schema_v1,
+    CompiledBodySchemaV1, FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID, FixedPdController,
+    JointControlStateV1, STANDING_ENVIRONMENT_PROFILE_ID, TrainingEnvironmentError,
+    canonical_environment_manifest_v2, derive_locomotion_episode_seed_set,
+    flat_locomotion_command_profile_v1, flat_locomotion_command_schedule,
+    reference_humanoid_body_schema_v1, rotate_world_to_root_local_q1_30,
 };
 
-pub const ISAAC_TRANSLATOR_VERSION: &str = "nextengine.isaac-usda-translator.v1";
+pub const ISAAC_TRANSLATOR_VERSION: &str = "nextengine.isaac-usda-translator.v2";
 
-pub fn stage0_isaac_mirror_descriptor_json_v1() -> Result<String, MotorCompileError> {
+pub fn stage0_isaac_mirror_descriptor_json_v2() -> Result<String, TrainingEnvironmentError> {
     let schema = reference_humanoid_body_schema_v1();
-    let compiled = CompiledBodySchemaV1::compile(&schema, PersistentId::from_bytes([0; 16]))?;
+    let compiled = CompiledBodySchemaV1::compile(&schema, PersistentId::from_bytes([0; 16]))
+        .map_err(|_| TrainingEnvironmentError::Compile)?;
+    let mut locomotion_compiled = compiled.clone();
+    locomotion_compiled
+        .apply_flat_locomotion_profile()
+        .map_err(|_| TrainingEnvironmentError::Compile)?;
+    let standing_manifest = canonical_environment_manifest_v2(STANDING_ENVIRONMENT_PROFILE_ID)?;
+    let locomotion_manifest =
+        canonical_environment_manifest_v2(FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID)?;
 
     let bodies = schema
         .bodies
@@ -71,13 +83,21 @@ pub fn stage0_isaac_mirror_descriptor_json_v1() -> Result<String, MotorCompileEr
         })
         .collect::<Vec<_>>();
     let descriptor = json!({
-        "schema_version": 1,
+        "schema_version": 2,
         "translator_version": ISAAC_TRANSLATOR_VERSION,
+        "coordinate_mapping": {
+            "engine_axes": "+X right, +Y up, +Z forward",
+            "isaac_from_engine_vector": ["x", "-z", "y"],
+            "isaac_quaternion_order": "wxyz",
+            "engine_quaternion_order": "xyzw",
+        },
         "body_schema_id": schema.schema_id.as_str(),
         "body_schema_revision": schema.schema_revision,
         "body_schema_hash": compiled.body_schema_hash.to_hex(),
         "physics_hz": 240,
         "motor_hz": 60,
+        "observation_width": 84,
+        "action_width": 23,
         "ordered_body_ids": compiled.construction_order.iter().map(|id| id.as_str()).collect::<Vec<_>>(),
         "ordered_actuator_ids": compiled.actuator_definitions.iter().map(|value| value.actuator_id.as_str()).collect::<Vec<_>>(),
         "bodies": bodies,
@@ -88,7 +108,18 @@ pub fn stage0_isaac_mirror_descriptor_json_v1() -> Result<String, MotorCompileEr
             "body_id": effector.body_id.as_str(),
             "semantic_role_id": effector.semantic_role_id.as_str(),
         })).collect::<Vec<_>>(),
-        "reward_component_ids": STANDING_REWARD_COMPONENT_IDS,
+        "environment_profiles": [
+            profile_json(&standing_manifest, &compiled, "world", 50, json!({
+                "kind": "zero",
+            })),
+            profile_json(
+                &locomotion_manifest,
+                &locomotion_compiled,
+                "root-local",
+                100,
+                command_profile_json(),
+            ),
+        ],
     });
     let mut output = serde_json::to_string_pretty(&descriptor)
         .expect("serde_json::Value serialization cannot fail");
@@ -96,11 +127,12 @@ pub fn stage0_isaac_mirror_descriptor_json_v1() -> Result<String, MotorCompileEr
     Ok(output)
 }
 
-pub fn stage0_isaac_mirror_golden_json_v1() -> Result<String, MotorCompileError> {
+pub fn stage0_isaac_mirror_golden_json_v2() -> Result<String, TrainingEnvironmentError> {
     let schema = reference_humanoid_body_schema_v1();
-    let compiled = CompiledBodySchemaV1::compile(&schema, PersistentId::from_bytes([0; 16]))?;
+    let compiled = CompiledBodySchemaV1::compile(&schema, PersistentId::from_bytes([0; 16]))
+        .map_err(|_| TrainingEnvironmentError::Compile)?;
     let mut controller =
-        FixedPdController::new(&compiled).map_err(|_| MotorCompileError::InvalidReference)?;
+        FixedPdController::new(&compiled).map_err(|_| TrainingEnvironmentError::Compile)?;
     let states = vec![
         JointControlStateV1 {
             position_microradians: 0,
@@ -111,20 +143,48 @@ pub fn stage0_isaac_mirror_golden_json_v1() -> Result<String, MotorCompileError>
     let targets = vec![1_000_000; controller.channel_count()];
     let first = controller
         .step_substep(&targets, &states)
-        .map_err(|_| MotorCompileError::NumericOverflow)?;
+        .map_err(|_| TrainingEnvironmentError::ArithmeticOverflow)?;
     let second = controller
         .step_substep(&targets, &states)
-        .map_err(|_| MotorCompileError::NumericOverflow)?;
+        .map_err(|_| TrainingEnvironmentError::ArithmeticOverflow)?;
     let run_root = ContentHash::from_bytes(std::array::from_fn(|index| index as u8));
-    let seeds =
-        derive_episode_seed_set(run_root, 17, 3).map_err(|_| MotorCompileError::NumericOverflow)?;
-    let descriptor = stage0_isaac_mirror_descriptor_json_v1()?;
+    let seeds = derive_locomotion_episode_seed_set(run_root, 17, 3)?;
+    let command_seed = seeds
+        .purpose_seeds
+        .iter()
+        .find_map(|(purpose, seed)| (purpose.as_str() == "randomization.command").then_some(*seed))
+        .ok_or(TrainingEnvironmentError::SeedProfile)?;
+    let schedule = flat_locomotion_command_schedule(command_seed)?;
+    let descriptor = stage0_isaac_mirror_descriptor_json_v2()?;
+    let standing_manifest = canonical_environment_manifest_v2(STANDING_ENVIRONMENT_PROFILE_ID)?;
+    let locomotion_manifest =
+        canonical_environment_manifest_v2(FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID)?;
+    let quaternion_input = [0, 759_250_125, 0, 759_250_125];
+    let vector_input = [1_000_000, 0, 0];
+    let quaternion_output = rotate_world_to_root_local_q1_30(quaternion_input, vector_input)
+        .map_err(|_| TrainingEnvironmentError::ArithmeticOverflow)?;
+    let schedule_samples = [0_usize, 59, 60, 299, 300, 301, 360, 420, 540, 1_200]
+        .into_iter()
+        .map(|tick| {
+            json!({
+                "tick": tick,
+                "command_raw": schedule[tick],
+            })
+        })
+        .collect::<Vec<_>>();
     let golden = json!({
-        "schema_version": 1,
+        "schema_version": 2,
         "descriptor_sha256": hex(&sha256(descriptor.as_bytes())),
         "body_schema_hash": compiled.body_schema_hash.to_hex(),
         "ordered_actuator_ids": compiled.actuator_definitions.iter().map(|value| value.actuator_id.as_str()).collect::<Vec<_>>(),
-        "reward_component_ids": STANDING_REWARD_COMPONENT_IDS,
+        "profile_manifest_hashes": {
+            STANDING_ENVIRONMENT_PROFILE_ID: standing_manifest.manifest_hash()?.to_hex(),
+            FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID: locomotion_manifest.manifest_hash()?.to_hex(),
+        },
+        "reward_component_ids": {
+            STANDING_ENVIRONMENT_PROFILE_ID: standing_manifest.reward_components.iter().map(|value| value.component_id.as_str()).collect::<Vec<_>>(),
+            FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID: locomotion_manifest.reward_components.iter().map(|value| value.component_id.as_str()).collect::<Vec<_>>(),
+        },
         "seed_input": {
             "run_root": run_root.to_hex(),
             "episode_ordinal": 17,
@@ -134,6 +194,15 @@ pub fn stage0_isaac_mirror_golden_json_v1() -> Result<String, MotorCompileError>
             "purpose_id": purpose.as_str(),
             "seed": hex(seed),
         })).collect::<Vec<_>>(),
+        "command_schedule": {
+            "sha256": command_schedule_hash(&schedule),
+            "samples": schedule_samples,
+        },
+        "root_local_transform": {
+            "quaternion_xyzw_q1_30": quaternion_input,
+            "world_vector_raw": vector_input,
+            "root_local_vector_raw": quaternion_output,
+        },
         "pd_input": {
             "residual_target_microradians": 1_000_000,
             "position_microradians": 0,
@@ -149,6 +218,78 @@ pub fn stage0_isaac_mirror_golden_json_v1() -> Result<String, MotorCompileError>
         serde_json::to_string_pretty(&golden).expect("serde_json::Value serialization cannot fail");
     output.push('\n');
     Ok(output)
+}
+
+fn profile_json(
+    manifest: &MotorTrainingEnvironmentManifestV2,
+    compiled: &CompiledBodySchemaV1,
+    velocity_frame: &str,
+    ground_half_extent_metres: u32,
+    command_profile: Value,
+) -> Value {
+    json!({
+        "profile_id": manifest.environment_id.as_str(),
+        "manifest_hash": manifest.manifest_hash().expect("engine manifest is valid").to_hex(),
+        "observation_layout_hash": compiled.observation_layout.layout_hash().expect("layout is valid").to_hex(),
+        "action_layout_hash": compiled.action_layout.layout_hash().expect("layout is valid").to_hex(),
+        "command_schedule_profile_hash": manifest.command_schedule_profile_hash.to_hex(),
+        "reward_profile_hash": manifest.reward_profile_hash.to_hex(),
+        "termination_profile_hash": manifest.termination_profile_hash.to_hex(),
+        "rng_derivation_profile_hash": manifest.rng_derivation_profile_hash.to_hex(),
+        "correspondence_profile_hash": manifest.correspondence_profile_hash.to_hex(),
+        "maximum_episode_steps": manifest.maximum_episode_steps,
+        "velocity_frame": velocity_frame,
+        "ground_half_extent_metres": ground_half_extent_metres,
+        "command_profile": command_profile,
+        "observation_source_ids": compiled.observation_layout.channels.iter().map(|value| value.source_id.as_str()).collect::<Vec<_>>(),
+        "reward_components": manifest.reward_components.iter().map(|value| json!({
+            "component_id": value.component_id.as_str(),
+            "coefficient_q16": value.coefficient_q16,
+            "minimum_raw": value.minimum_raw,
+            "maximum_raw": value.maximum_raw,
+        })).collect::<Vec<_>>(),
+        "termination": match manifest.environment_id.as_str() {
+            FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID => json!({
+                "pelvis_height_micrometres_inclusive": 450_000,
+                "world_bound_micrometres_inclusive": 90_000_000,
+                "timeout_ticks": 1_200,
+            }),
+            _ => json!({
+                "pelvis_height_micrometres_inclusive": 250_000,
+                "timeout_ticks": 3_600,
+            }),
+        },
+    })
+}
+
+fn command_profile_json() -> Value {
+    let profile = flat_locomotion_command_profile_v1();
+    json!({
+        "kind": "sha256-counter-flat-command-v1",
+        "profile_hash": profile.profile_hash().expect("command profile is valid").to_hex(),
+        "randomization_stream_id": profile.randomization_stream_id.as_str(),
+        "warmup_ticks": profile.warmup_ticks,
+        "segment_ticks": profile.segment_ticks,
+        "episode_ticks": profile.episode_ticks,
+        "mode_weights_basis_points": profile.mode_weights_basis_points,
+        "right_velocity_range_raw": [profile.right_velocity_min_micrometres_per_second, profile.right_velocity_max_micrometres_per_second],
+        "forward_velocity_range_raw": [profile.forward_velocity_min_micrometres_per_second, profile.forward_velocity_max_micrometres_per_second],
+        "yaw_rate_range_raw": [profile.yaw_rate_min_microradians_per_second, profile.yaw_rate_max_microradians_per_second],
+        "linear_rate_limit_raw_per_second_squared": profile.linear_rate_limit_micrometres_per_second_squared,
+        "yaw_rate_limit_raw_per_second_squared": profile.yaw_rate_limit_microradians_per_second_squared,
+    })
+}
+
+fn command_schedule_hash(schedule: &[[i64; 3]]) -> String {
+    let mut preimage = Vec::new();
+    preimage.extend_from_slice(b"nextengine.motor-command-schedule.v1\0");
+    preimage.extend_from_slice(&(schedule.len() as u64).to_le_bytes());
+    for command in schedule {
+        for value in command {
+            preimage.extend_from_slice(&value.to_le_bytes());
+        }
+    }
+    hex(&sha256(&preimage))
 }
 
 fn geometry_json(geometry: &PhysicsGeometryV1) -> Value {
@@ -192,8 +333,8 @@ mod tests {
     #[test]
     fn tracked_python_fixture_is_generated_by_rust_authority() {
         assert_eq!(
-            stage0_isaac_mirror_golden_json_v1().expect("golden"),
-            include_str!("../../../lab/tests/fixtures/stage0_motor_mirror_v1.json")
+            stage0_isaac_mirror_golden_json_v2().expect("golden"),
+            include_str!("../../../lab/tests/fixtures/stage0_motor_mirror_v2.json")
         );
     }
 }

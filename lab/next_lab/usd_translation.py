@@ -9,7 +9,7 @@ from typing import Any
 
 from next_lab.motor_mirror import validate_descriptor
 
-TRANSLATOR_VERSION = "nextengine.isaac-usda-translator.v1"
+TRANSLATOR_VERSION = "nextengine.isaac-usda-translator.v2"
 
 
 def render_usda(descriptor: dict[str, Any]) -> str:
@@ -93,7 +93,7 @@ def translate_to_store(
     usd_path = run_root / "humanoid.usda"
     _atomic_write(usd_path, payload)
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "translator_version": TRANSLATOR_VERSION,
         "body_schema_hash": descriptor["body_schema_hash"],
         "usd_sha256": usd_hash,

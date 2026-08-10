@@ -10,8 +10,10 @@ from next_lab.usd_translation import render_usda, translate_to_store
 def descriptor() -> dict:
     actuator_ids = [f"actuator.{index:02}" for index in range(23)]
     return {
-        "schema_version": 1,
-        "translator_version": "nextengine.isaac-usda-translator.v1",
+        "schema_version": 2,
+        "translator_version": "nextengine.isaac-usda-translator.v2",
+        "observation_width": 84,
+        "action_width": 23,
         "body_schema_hash": "12" * 32,
         "physics_hz": 240,
         "motor_hz": 60,
@@ -53,7 +55,64 @@ def descriptor() -> dict:
             }
         ],
         "actuators": [{"actuator_id": value} for value in actuator_ids],
+        "environment_profiles": [
+            _profile("nextengine.motor.env.humanoid-standing.v1", "world", 3_600, 8),
+            _profile("nextengine.motor.env.humanoid-flat-command.v1", "root-local", 1_200, 10),
+        ],
     }
+
+
+def _profile(profile_id: str, velocity_frame: str, maximum_steps: int, reward_count: int) -> dict:
+    standing = [
+        "reward.upright",
+        "reward.root-height-tracking",
+        "reward.standing-pose-tracking",
+        "reward.velocity-penalty",
+        "reward.effort-penalty",
+        "reward.action-rate-penalty",
+        "reward.foot-slip-penalty",
+        "reward.fall-terminal",
+    ]
+    locomotion = [
+        "reward.planar-command-tracking",
+        "reward.yaw-rate-tracking",
+        "reward.upright-yaw-invariant",
+        "reward.root-height-tracking",
+        "reward.vertical-velocity-cost",
+        "reward.roll-pitch-rate-cost",
+        "reward.normalized-applied-effort-cost",
+        "reward.applied-action-rate-cost",
+        "reward.contacting-foot-tangential-slip-cost",
+        "reward.fall-component",
+    ]
+    profile = {
+        "profile_id": profile_id,
+        "velocity_frame": velocity_frame,
+        "maximum_episode_steps": maximum_steps,
+        "observation_source_ids": [f"observation.{index}" for index in range(84)],
+        "reward_components": [
+            {"component_id": value} for value in (standing if reward_count == 8 else locomotion)
+        ],
+    }
+    for field in (
+        "manifest_hash",
+        "observation_layout_hash",
+        "action_layout_hash",
+        "command_schedule_profile_hash",
+        "reward_profile_hash",
+        "termination_profile_hash",
+        "rng_derivation_profile_hash",
+        "correspondence_profile_hash",
+    ):
+        profile[field] = "12" * 32
+    if reward_count == 10:
+        profile["command_profile"] = {
+            "warmup_ticks": 60,
+            "segment_ticks": 120,
+            "episode_ticks": 1_200,
+            "mode_weights_basis_points": [2_500, 3_500, 2_000, 2_000],
+        }
+    return profile
 
 
 class UsdTranslationTests(unittest.TestCase):

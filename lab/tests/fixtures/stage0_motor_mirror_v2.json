@@ -1,0 +1,198 @@
+{
+  "body_schema_hash": "13f01daf349cddd84f6c3a068cf9da9ff1307a727949ffa9232ec2e02cbc9bd5",
+  "command_schedule": {
+    "samples": [
+      {
+        "command_raw": [
+          0,
+          0,
+          0
+        ],
+        "tick": 0
+      },
+      {
+        "command_raw": [
+          0,
+          0,
+          0
+        ],
+        "tick": 59
+      },
+      {
+        "command_raw": [
+          0,
+          0,
+          0
+        ],
+        "tick": 60
+      },
+      {
+        "command_raw": [
+          0,
+          0,
+          0
+        ],
+        "tick": 299
+      },
+      {
+        "command_raw": [
+          50000,
+          50000,
+          0
+        ],
+        "tick": 300
+      },
+      {
+        "command_raw": [
+          100000,
+          100000,
+          0
+        ],
+        "tick": 301
+      },
+      {
+        "command_raw": [
+          139943,
+          2020277,
+          0
+        ],
+        "tick": 360
+      },
+      {
+        "command_raw": [
+          89943,
+          1970277,
+          -25000
+        ],
+        "tick": 420
+      },
+      {
+        "command_raw": [
+          -327114,
+          1331331,
+          -643411
+        ],
+        "tick": 540
+      },
+      {
+        "command_raw": [
+          0,
+          0,
+          0
+        ],
+        "tick": 1200
+      }
+    ],
+    "sha256": "67de3f4f022b6f7e518b18b6bde815fdfd4a6ec5b8139c15d5c2fb04c1c8bd90"
+  },
+  "descriptor_sha256": "367111e84c4381b26ab6d0e19490c5ef60fa25f4add257a71e86d7a1c6c00473",
+  "ordered_actuator_ids": [
+    "actuator.left-ankle-pitch",
+    "actuator.left-ankle-roll",
+    "actuator.left-elbow",
+    "actuator.left-hip-pitch",
+    "actuator.left-hip-roll",
+    "actuator.left-hip-yaw",
+    "actuator.left-knee",
+    "actuator.left-shoulder-pitch",
+    "actuator.left-shoulder-roll",
+    "actuator.left-shoulder-yaw",
+    "actuator.right-ankle-pitch",
+    "actuator.right-ankle-roll",
+    "actuator.right-elbow",
+    "actuator.right-hip-pitch",
+    "actuator.right-hip-roll",
+    "actuator.right-hip-yaw",
+    "actuator.right-knee",
+    "actuator.right-shoulder-pitch",
+    "actuator.right-shoulder-roll",
+    "actuator.right-shoulder-yaw",
+    "actuator.torso-pitch",
+    "actuator.torso-roll",
+    "actuator.torso-yaw"
+  ],
+  "pd_channel_count": 23,
+  "pd_first_effort": 25000000,
+  "pd_first_flags": 4,
+  "pd_input": {
+    "position_microradians": 0,
+    "residual_target_microradians": 1000000,
+    "velocity_microradians_per_second": 0
+  },
+  "pd_second_effort": 50000000,
+  "pd_second_flags": 4,
+  "profile_manifest_hashes": {
+    "nextengine.motor.env.humanoid-flat-command.v1": "dd5e392d482c43f94fadb1eb1e7b484c9bd73410d092fd3586b35ff0feb074d8",
+    "nextengine.motor.env.humanoid-standing.v1": "dc64488393a57a07e993fdf062f663c8024fc1475267dbf6e8c35f5458f45396"
+  },
+  "purpose_seeds": [
+    {
+      "purpose_id": "randomization.action-noise",
+      "seed": "70c81f05ff94235a07f5ee9a4f24076f0b8e2feeec1a3ec8f702943dbd350e92"
+    },
+    {
+      "purpose_id": "randomization.command",
+      "seed": "1889e3a8004cfefb587ab072ccec60b72b7379d3bf710398e468945a425655a1"
+    },
+    {
+      "purpose_id": "randomization.friction",
+      "seed": "f6f6888217ffbd57a37dafc1d92b8c298c571eb96079f63cf26375f236c17060"
+    },
+    {
+      "purpose_id": "randomization.initial-pose",
+      "seed": "71574e127f13680a754b8df60042f510ed607082996dfeaec1a06a32302c36cf"
+    },
+    {
+      "purpose_id": "randomization.terrain",
+      "seed": "8b57f06ac5ed01227acf3ec83220aceec45cc0ef9eeb6ddb7f680e1a3e25cf08"
+    }
+  ],
+  "reward_component_ids": {
+    "nextengine.motor.env.humanoid-flat-command.v1": [
+      "reward.planar-command-tracking",
+      "reward.yaw-rate-tracking",
+      "reward.upright-yaw-invariant",
+      "reward.root-height-tracking",
+      "reward.vertical-velocity-cost",
+      "reward.roll-pitch-rate-cost",
+      "reward.normalized-applied-effort-cost",
+      "reward.applied-action-rate-cost",
+      "reward.contacting-foot-tangential-slip-cost",
+      "reward.fall-component"
+    ],
+    "nextengine.motor.env.humanoid-standing.v1": [
+      "reward.upright",
+      "reward.root-height-tracking",
+      "reward.standing-pose-tracking",
+      "reward.velocity-penalty",
+      "reward.effort-penalty",
+      "reward.action-rate-penalty",
+      "reward.foot-slip-penalty",
+      "reward.fall-terminal"
+    ]
+  },
+  "root_local_transform": {
+    "quaternion_xyzw_q1_30": [
+      0,
+      759250125,
+      0,
+      759250125
+    ],
+    "root_local_vector_raw": [
+      0,
+      0,
+      1000000
+    ],
+    "world_vector_raw": [
+      1000000,
+      0,
+      0
+    ]
+  },
+  "schema_version": 2,
+  "seed_input": {
+    "episode_ordinal": 17,
+    "run_root": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "vector_slot": 3
+  }
+}

@@ -140,7 +140,7 @@ def parser() -> argparse.ArgumentParser:
     mirror_parser.add_argument(
         "--golden",
         type=Path,
-        default=repository_root / "lab/tests/fixtures/stage0_motor_mirror_v1.json",
+        default=repository_root / "lab/tests/fixtures/stage0_motor_mirror_v2.json",
     )
     mirror_parser.add_argument("--descriptor", type=Path)
 
@@ -150,7 +150,7 @@ def parser() -> argparse.ArgumentParser:
     translate_parser.add_argument(
         "--golden",
         type=Path,
-        default=repository_root / "lab/tests/fixtures/stage0_motor_mirror_v1.json",
+        default=repository_root / "lab/tests/fixtures/stage0_motor_mirror_v2.json",
     )
 
     isaac_parser = commands.add_parser("isaac-doctor")

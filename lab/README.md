@@ -1,12 +1,12 @@
 # Next Engine model lab
 
 `lab/` is a non-authoritative training and correspondence lane. The canonical
-Stage 0 execution plane remains `headless motor-lab` protocol v2 on CPU PhysX;
-Isaac Lab is an optional GPU mirror and never supplies replay facts. Protocol
-v2 starts without CLI profile options: the Python client sends one engine-known
-profile ID, slot count and run root through `Create`, then uses partial
-`Reset`, action-only `Step`, `Checkpoint`, `Restore`, `Ping` and `Close` with
-monotonic request IDs.
+execution plane remains `headless motor-lab` protocol v2 on CPU PhysX; Isaac Lab
+is an optional GPU mirror and never supplies replay facts. Protocol v2 starts
+without arbitrary CLI environment settings: the Python client sends one
+engine-known profile ID, slot count and run root through `Create`, then uses
+partial `Reset`, action-only `Step`, `Checkpoint`, `Restore`, `Ping` and `Close`
+with monotonic request IDs.
 
 ## Canonical CPU trajectories
 
@@ -29,15 +29,15 @@ client nor recorder writes inside the repository.
 
 ## Stage 0 mirror workflow
 
-1. Export the engine-owned descriptor to an external training store:
+1. Export the engine-owned v2 descriptor to an external training store:
 
    ```text
    cargo run -p next_motor --example export_isaac_mirror --features physx-sdk
    ```
 
    The command writes JSON to stdout so the caller can place it in its
-   configured store. The tracked golden fixture is emitted with `-- --golden`
-   and is guarded by a Rust unit test.
+   configured store. The tracked v2 golden fixture is emitted with
+   `-- --golden` and is guarded by a Rust unit test.
 
 2. Validate the descriptor against the Rust golden and translate it to derived
    USDA:
@@ -58,7 +58,7 @@ client nor recorder writes inside the repository.
    GPU PhysX remains a mirror of engine PhysX 5.9.0, not an identical build.
 
 4. Record CPU and GPU `.npz` trajectories with the required canonical keys and
-   evaluate the normative 256 × 10-second sample floor:
+   evaluate the normative sample floor of 256 episodes x 600 motor ticks:
 
    ```text
    python -m next_lab correspondence --cpu <cpu.npz> --gpu <gpu.npz> --store <external store>
@@ -68,8 +68,15 @@ client nor recorder writes inside the repository.
 store inside the repository. Generated USD, trajectories, reports, runs,
 datasets and checkpoints are never source artifacts.
 
-The DirectRLEnv implementation lives in `next_lab.isaac_env`. It shares the
-23-channel ordering, four-substep cadence, integer ties-to-even PD/safety and
-eight ordered reward component IDs with the Rust golden. Passing its
-correspondence gate does not make GPU execution byte-exact or production
-authoritative.
+The DirectRLEnv implementation lives in `next_lab.isaac_env` and selects either
+the standing or flat-command profile from the v2 engine descriptor. For flat
+locomotion it derives each partial-reset command schedule on CPU, transfers the
+1,201 exact integer commands to the GPU, emits the 84-value root-local layout,
+and evaluates the ten ordered Q16 reward components. Quaternion ordering and
+the engine/Isaac frame transform are explicit golden-tested operations.
+
+`MODEL-MIRROR-P1` requires byte-exact commands, profile hashes and reward
+component order, reward-total MAE at most `0.05`, joint RMSE at most `0.02 rad`,
+root position at most `0.03 m`, velocity at most `0.05 m/s`, contact agreement
+at least `98%`, and done-tick agreement at least `95%`. Passing correspondence
+does not make GPU execution replay-authoritative or declare a trained policy.

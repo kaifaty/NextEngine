@@ -16,7 +16,7 @@ pub use control::{
     JointControlStateV1, MotorControlError,
 };
 pub use humanoid::{REFERENCE_HUMANOID_DOF, reference_humanoid_body_schema_v1};
-pub use mirror::{stage0_isaac_mirror_descriptor_json_v1, stage0_isaac_mirror_golden_json_v1};
+pub use mirror::{stage0_isaac_mirror_descriptor_json_v2, stage0_isaac_mirror_golden_json_v2};
 pub use observation::{
     MotorObservationBuilder, MotorObservationError, MotorVelocityFrameV1,
     rotate_world_to_root_local_q1_30,
@@ -35,5 +35,6 @@ pub use training::{
     LOCOMOTION_REWARD_COMPONENT_IDS, MotorEnvironmentProfile, MotorVectorRunner,
     STANDING_ENVIRONMENT_PROFILE_ID, STANDING_REWARD_COMPONENT_IDS, TrainingEnvironmentError,
     VectorPolicyStepInput, VectorResetOutput, VectorStepInput, VectorStepOutput,
-    derive_episode_seed_set, flat_locomotion_command_profile_v1, flat_locomotion_command_schedule,
+    canonical_environment_manifest_v2, derive_episode_seed_set, derive_locomotion_episode_seed_set,
+    flat_locomotion_command_profile_v1, flat_locomotion_command_schedule,
 };

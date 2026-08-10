@@ -774,6 +774,27 @@ pub fn derive_episode_seed_set(
     )
 }
 
+pub fn derive_locomotion_episode_seed_set(
+    run_root: ContentHash,
+    episode_ordinal: u64,
+    vector_slot: u32,
+) -> Result<MotorEpisodeSeedSetV1, TrainingEnvironmentError> {
+    derive_episode_seed_set_for_profile(
+        MotorEnvironmentProfile::HumanoidFlatCommandV1,
+        run_root,
+        episode_ordinal,
+        vector_slot,
+    )
+}
+
+pub fn canonical_environment_manifest_v2(
+    profile_id: &str,
+) -> Result<MotorTrainingEnvironmentManifestV2, TrainingEnvironmentError> {
+    let profile = MotorEnvironmentProfile::parse_exact(profile_id)?;
+    let compiled = compile_for_slot(profile, ContentHash::default(), 0)?;
+    environment_manifest(profile, &compiled)
+}
+
 fn derive_episode_seed_set_for_profile(
     profile: MotorEnvironmentProfile,
     run_root: ContentHash,

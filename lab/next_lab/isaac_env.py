@@ -3,11 +3,20 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import torch
 
-from next_lab.motor_mirror import RATE_CLAMPED, validate_descriptor
+from next_lab.motor_mirror import (
+    FLAT_LOCOMOTION_PROFILE_ID,
+    Q1_30_ONE,
+    RATE_CLAMPED,
+    STANDING_PROFILE_ID,
+    derive_purpose_seed,
+    flat_locomotion_command_schedule,
+    select_environment_profile,
+    validate_descriptor,
+)
 
 try:
     import isaaclab.sim as sim_utils
@@ -21,6 +30,19 @@ try:
 except ImportError:
     ISAAC_LAB_AVAILABLE = False
 
+LOCOMOTION_REWARD_COEFFICIENTS_Q16 = (
+    98_304,
+    32_768,
+    32_768,
+    16_384,
+    -3_277,
+    -3_277,
+    -1_311,
+    -3_277,
+    -6_554,
+    -131_072,
+)
+
 
 def round_div_ties_even_tensor(numerator: torch.Tensor, denominator: int) -> torch.Tensor:
     if denominator <= 0 or numerator.dtype != torch.int64:
@@ -33,6 +55,12 @@ def round_div_ties_even_tensor(numerator: torch.Tensor, denominator: int) -> tor
     )
     rounded = quotient + increment.to(torch.int64)
     return torch.where(numerator < 0, -rounded, rounded)
+
+
+def ratio_q16_tensor(value: torch.Tensor, maximum: int) -> torch.Tensor:
+    if value.dtype != torch.int64 or maximum <= 0 or torch.any(value < 0):
+        raise ValueError("Q16 ratio requires non-negative int64 values and a positive maximum")
+    return round_div_ties_even_tensor(torch.clamp(value, max=maximum) * 65_536, maximum)
 
 
 def fixed_pd_tensor(
@@ -61,15 +89,163 @@ def fixed_pd_tensor(
     return effort, flags
 
 
+def engine_vector_from_isaac_tensor(vector: torch.Tensor) -> torch.Tensor:
+    """Map Isaac (+X,+Y,+Z) to engine (+right,+up,+forward)."""
+    if vector.shape[-1] != 3:
+        raise ValueError("vector must end in three components")
+    return torch.stack((vector[..., 0], vector[..., 2], -vector[..., 1]), dim=-1)
+
+
+def engine_quaternion_xyzw_from_isaac_wxyz_tensor(quaternion: torch.Tensor) -> torch.Tensor:
+    if quaternion.shape[-1] != 4:
+        raise ValueError("quaternion must end in four components")
+    w, x, y, z = quaternion.unbind(dim=-1)
+    return torch.stack((x, z, -y, w), dim=-1)
+
+
+def rotate_world_to_root_local_q1_30_tensor(
+    quaternion_xyzw_q1_30: torch.Tensor, world_vector: torch.Tensor
+) -> torch.Tensor:
+    if (
+        quaternion_xyzw_q1_30.dtype != torch.int64
+        or world_vector.dtype != torch.int64
+        or quaternion_xyzw_q1_30.shape[:-1] != world_vector.shape[:-1]
+        or quaternion_xyzw_q1_30.shape[-1] != 4
+        or world_vector.shape[-1] != 3
+    ):
+        raise ValueError("root-local transform requires matching int64 [...,4] and [...,3]")
+    if torch.any(torch.abs(quaternion_xyzw_q1_30) > Q1_30_ONE):
+        raise OverflowError("quaternion is outside Q1.30")
+    x, y, z, w = quaternion_xyzw_q1_30.unbind(dim=-1)
+
+    def coefficient(value: torch.Tensor) -> torch.Tensor:
+        return round_div_ties_even_tensor(value, Q1_30_ONE)
+
+    def diagonal(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+        return Q1_30_ONE - coefficient(2 * (left * left + right * right))
+
+    rows = (
+        (
+            diagonal(y, z),
+            coefficient(2 * (x * y - z * w)),
+            coefficient(2 * (x * z + y * w)),
+        ),
+        (
+            coefficient(2 * (x * y + z * w)),
+            diagonal(x, z),
+            coefficient(2 * (y * z - x * w)),
+        ),
+        (
+            coefficient(2 * (x * z - y * w)),
+            coefficient(2 * (y * z + x * w)),
+            diagonal(x, y),
+        ),
+    )
+    output = []
+    for column in range(3):
+        dot = sum(rows[row][column] * world_vector[..., row] for row in range(3))
+        output.append(round_div_ties_even_tensor(dot, Q1_30_ONE))
+    return torch.stack(output, dim=-1)
+
+
+def precompute_flat_command_schedules(
+    run_root: bytes,
+    episode_ordinals: Iterable[int],
+    vector_slots: Iterable[int],
+) -> torch.Tensor:
+    ordinals = list(episode_ordinals)
+    slots = list(vector_slots)
+    if len(ordinals) != len(slots):
+        raise ValueError("episode ordinals and vector slots must have equal length")
+    schedules = [
+        flat_locomotion_command_schedule(
+            derive_purpose_seed(run_root, ordinal, slot, "randomization.command")
+        )
+        for ordinal, slot in zip(ordinals, slots, strict=True)
+    ]
+    return torch.tensor(schedules, dtype=torch.int64, device="cpu")
+
+
+def locomotion_reward_q16_tensor(
+    *,
+    quaternion_xyzw_q1_30: torch.Tensor,
+    root_height_micrometres: torch.Tensor,
+    local_linear_velocity_raw: torch.Tensor,
+    local_angular_velocity_raw: torch.Tensor,
+    vertical_velocity_raw: torch.Tensor,
+    command_raw: torch.Tensor,
+    effort_sum_raw: torch.Tensor,
+    applied_action_raw: torch.Tensor,
+    previous_applied_action_raw: torch.Tensor,
+    contacting_foot_slip_sum_raw: torch.Tensor,
+    contacting_foot_count: torch.Tensor,
+    fell: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Evaluate the ten canonical locomotion components and weighted Q16 total."""
+    planar_error = torch.abs(local_linear_velocity_raw[:, 0] - command_raw[:, 0]) + torch.abs(
+        local_linear_velocity_raw[:, 2] - command_raw[:, 1]
+    )
+    planar = 65_536 - ratio_q16_tensor(planar_error, 6_500_000)
+    yaw = 65_536 - ratio_q16_tensor(
+        torch.abs(local_angular_velocity_raw[:, 1] - command_raw[:, 2]), 3_000_000
+    )
+    x = quaternion_xyzw_q1_30[:, 0]
+    z = quaternion_xyzw_q1_30[:, 2]
+    tilt_reduction = round_div_ties_even_tensor(2 * (x * x + z * z), Q1_30_ONE)
+    upright_q30 = torch.clamp(Q1_30_ONE - tilt_reduction, 0, Q1_30_ONE)
+    upright = ratio_q16_tensor(upright_q30, Q1_30_ONE)
+    height = 65_536 - ratio_q16_tensor(
+        torch.abs(root_height_micrometres - 1_050_000), 600_000
+    )
+    vertical = ratio_q16_tensor(torch.abs(vertical_velocity_raw), 3_000_000)
+    roll_pitch = ratio_q16_tensor(
+        torch.abs(local_angular_velocity_raw[:, 0])
+        + torch.abs(local_angular_velocity_raw[:, 2]),
+        6_000_000,
+    )
+    effort = ratio_q16_tensor(effort_sum_raw, 23 * 4 * 150_000_000)
+    action_rate = ratio_q16_tensor(
+        torch.sum(torch.abs(applied_action_raw - previous_applied_action_raw), dim=-1),
+        23 * 2_000_000,
+    )
+    slip_denominator = contacting_foot_count * 4_000_000
+    slip = torch.zeros_like(contacting_foot_slip_sum_raw)
+    # The denominator is per environment; calculate the exact ratio without float math.
+    nonzero = slip_denominator > 0
+    if torch.any(nonzero):
+        bounded = torch.minimum(contacting_foot_slip_sum_raw[nonzero], slip_denominator[nonzero])
+        numerator = bounded * 65_536
+        quotient = torch.div(numerator, slip_denominator[nonzero], rounding_mode="floor")
+        remainder = torch.remainder(numerator, slip_denominator[nonzero])
+        increment = (remainder * 2 > slip_denominator[nonzero]) | (
+            (remainder * 2 == slip_denominator[nonzero]) & (quotient % 2 == 1)
+        )
+        slip[nonzero] = quotient + increment.to(torch.int64)
+    fall = fell.to(torch.int64) * 65_536
+    components = torch.stack(
+        (planar, yaw, upright, height, vertical, roll_pitch, effort, action_rate, slip, fall),
+        dim=-1,
+    )
+    coefficients = torch.tensor(
+        LOCOMOTION_REWARD_COEFFICIENTS_Q16,
+        dtype=torch.int64,
+        device=components.device,
+    )
+    total = torch.sum(round_div_ties_even_tensor(components * coefficients, 65_536), dim=-1)
+    return components, total
+
+
 if ISAAC_LAB_AVAILABLE:
 
     @configclass
     class NextEngineHumanoidDirectEnvCfg(DirectRLEnvCfg):
         decimation = 4
-        episode_length_s = 60.0
+        episode_length_s = 20.0
         action_space = 23
         observation_space = 84
         state_space = 0
+        environment_profile_id = FLAT_LOCOMOTION_PROFILE_ID
+        run_root_hex = "00" * 32
         sim = sim_utils.SimulationCfg(dt=1.0 / 240.0, render_interval=4)
         scene = InteractiveSceneCfg(num_envs=4_096, env_spacing=3.0, replicate_physics=True)
         asset = ArticulationCfg(
@@ -82,7 +258,7 @@ if ISAAC_LAB_AVAILABLE:
             history_length=1,
             track_air_time=True,
         )
-        reward_coefficients = (1.0, 1.0, 1.0, 1.0, 0.000001, 0.000001, 1.0, 1.0)
+        standing_reward_coefficients = (1.0,) * 8
 
 
     class NextEngineHumanoidDirectEnv(DirectRLEnv):
@@ -91,12 +267,33 @@ if ISAAC_LAB_AVAILABLE:
         def __init__(self, cfg: NextEngineHumanoidDirectEnvCfg, descriptor_path: str, **kwargs: Any):
             descriptor = json.loads(Path(descriptor_path).read_text(encoding="utf-8"))
             validate_descriptor(descriptor)
+            self.profile = select_environment_profile(descriptor, cfg.environment_profile_id)
             self.descriptor = descriptor
+            self.run_root = bytes.fromhex(cfg.run_root_hex)
+            if len(self.run_root) != 32:
+                raise ValueError("run_root_hex must encode 32 bytes")
+            cfg.episode_length_s = self.profile["maximum_episode_steps"] / 60.0
             self._action = torch.zeros((cfg.scene.num_envs, 23), dtype=torch.int64)
             self._previous_action = torch.zeros_like(self._action)
             self._previous_effort = torch.zeros_like(self._action)
-            self.reward_components = torch.zeros((cfg.scene.num_envs, 8))
+            self._effort_sum = torch.zeros(cfg.scene.num_envs, dtype=torch.int64)
+            self._episode_ordinals = torch.full((cfg.scene.num_envs,), -1, dtype=torch.int64)
+            self._command_schedule = torch.zeros((cfg.scene.num_envs, 1_201, 3), dtype=torch.int64)
+            component_count = len(self.profile["reward_components"])
+            self.reward_components_q16 = torch.zeros(
+                (cfg.scene.num_envs, component_count), dtype=torch.int64
+            )
             super().__init__(cfg, **kwargs)
+            for name in (
+                "_action",
+                "_previous_action",
+                "_previous_effort",
+                "_effort_sum",
+                "_episode_ordinals",
+                "_command_schedule",
+                "reward_components_q16",
+            ):
+                setattr(self, name, getattr(self, name).to(self.device))
 
         def _setup_scene(self) -> None:
             self.robot = Articulation(self.cfg.asset)
@@ -108,67 +305,143 @@ if ISAAC_LAB_AVAILABLE:
 
         def _pre_physics_step(self, actions: torch.Tensor) -> None:
             if actions.shape != (self.num_envs, 23) or not torch.isfinite(actions).all():
-                raise ValueError("invalid Stage 0 action batch")
+                raise ValueError("invalid canonical action batch")
             self._previous_action.copy_(self._action)
-            self._action.copy_(torch.round(torch.clamp(actions, -1.0, 1.0) * 1_000_000).to(torch.int64))
+            self._action.copy_(
+                torch.round(torch.clamp(actions, -1.0, 1.0) * 1_000_000).to(torch.int64)
+            )
+            self._effort_sum.zero_()
 
         def _apply_action(self) -> None:
             position = torch.round(self.robot.data.joint_pos * 1_000_000).to(torch.int64)
             velocity = torch.round(self.robot.data.joint_vel * 1_000_000).to(torch.int64)
             effort, _ = fixed_pd_tensor(self._action, position, velocity, self._previous_effort)
             self._previous_effort.copy_(effort)
+            self._effort_sum.add_(torch.sum(torch.abs(effort), dim=-1))
             self.robot.set_joint_effort_target(effort.to(torch.float32) / 1_000_000.0)
 
-        def _get_observations(self) -> dict[str, torch.Tensor]:
+        def _canonical_facts(self) -> tuple[torch.Tensor, ...]:
             data = self.robot.data
+            quaternion = engine_quaternion_xyzw_from_isaac_wxyz_tensor(data.root_quat_w)
+            quaternion_raw = torch.round(quaternion * Q1_30_ONE).to(torch.int64)
+            linear_world = engine_vector_from_isaac_tensor(data.root_lin_vel_w)
+            angular_world = engine_vector_from_isaac_tensor(data.root_ang_vel_w)
+            linear_raw = torch.round(linear_world * 1_000_000).to(torch.int64)
+            angular_raw = torch.round(angular_world * 1_000_000).to(torch.int64)
+            if self.profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID:
+                linear_raw = rotate_world_to_root_local_q1_30_tensor(quaternion_raw, linear_raw)
+                angular_raw = rotate_world_to_root_local_q1_30_tensor(quaternion_raw, angular_raw)
             contacts = torch.linalg.vector_norm(self.feet.data.net_forces_w, dim=-1) > 1.0e-6
-            command = torch.zeros((self.num_envs, 3), device=self.device)
+            if contacts.shape[-1] != 2:
+                raise RuntimeError("descriptor declares exactly two foot effectors")
+            return quaternion, quaternion_raw, linear_raw, angular_raw, contacts
+
+        def _current_command(self) -> torch.Tensor:
+            if self.profile["profile_id"] == STANDING_PROFILE_ID:
+                return torch.zeros((self.num_envs, 3), dtype=torch.int64, device=self.device)
+            ticks = torch.clamp(self.episode_length_buf, 0, 1_200).to(torch.int64)
+            envs = torch.arange(self.num_envs, device=self.device)
+            return self._command_schedule[envs, ticks]
+
+        def _get_observations(self) -> dict[str, torch.Tensor]:
+            quaternion, _, linear_raw, angular_raw, contacts = self._canonical_facts()
+            command = self._current_command()
             policy = torch.cat(
                 (
-                    data.root_quat_w,
-                    data.root_lin_vel_b,
-                    data.root_ang_vel_b,
-                    data.joint_pos,
-                    data.joint_vel,
+                    quaternion,
+                    linear_raw.to(torch.float32) / 1_000_000.0,
+                    angular_raw.to(torch.float32) / 1_000_000.0,
+                    self.robot.data.joint_pos,
+                    self.robot.data.joint_vel,
                     self._action.to(torch.float32) / 1_000_000.0,
-                    command,
+                    command.to(torch.float32) / 1_000_000.0,
                     contacts.to(torch.float32),
                 ),
                 dim=-1,
             )
+            if policy.shape[-1] != 84:
+                raise RuntimeError("canonical observation width mismatch")
             return {"policy": policy}
 
         def _get_rewards(self) -> torch.Tensor:
+            if self.profile["profile_id"] == STANDING_PROFILE_ID:
+                return self._standing_rewards()
+            _, quaternion_raw, linear_raw, angular_raw, contacts = self._canonical_facts()
+            root_height = torch.round(self.robot.data.root_pos_w[:, 2] * 1_000_000).to(torch.int64)
+            vertical_velocity = torch.round(
+                self.robot.data.root_lin_vel_w[:, 2] * 1_000_000
+            ).to(torch.int64)
+            fallen = root_height <= 450_000
+            foot_velocity = engine_vector_from_isaac_tensor(
+                self.robot.data.body_lin_vel_w[:, self.feet.body_ids, :]
+            )
+            slip_per_foot = torch.round(
+                (torch.abs(foot_velocity[..., 0]) + torch.abs(foot_velocity[..., 2])) * 1_000_000
+            ).to(torch.int64)
+            slip_sum = torch.sum(slip_per_foot * contacts.to(torch.int64), dim=-1)
+            components, total = locomotion_reward_q16_tensor(
+                quaternion_xyzw_q1_30=quaternion_raw,
+                root_height_micrometres=root_height,
+                local_linear_velocity_raw=linear_raw,
+                local_angular_velocity_raw=angular_raw,
+                vertical_velocity_raw=vertical_velocity,
+                command_raw=self._current_command(),
+                effort_sum_raw=self._effort_sum,
+                applied_action_raw=self._action,
+                previous_applied_action_raw=self._previous_action,
+                contacting_foot_slip_sum_raw=slip_sum,
+                contacting_foot_count=torch.sum(contacts.to(torch.int64), dim=-1),
+                fell=fallen,
+            )
+            self.reward_components_q16.copy_(components)
+            return total.to(torch.float32) / 65_536.0
+
+        def _standing_rewards(self) -> torch.Tensor:
             data = self.robot.data
             upright = torch.abs(data.root_quat_w[:, 0])
             root_height = -torch.abs(data.root_pos_w[:, 2] - 1.05)
             standing_pose = -torch.sum(torch.abs(data.joint_pos), dim=-1)
-            velocity = -torch.sum(torch.abs(data.root_lin_vel_b), dim=-1) - torch.sum(
-                torch.abs(data.root_ang_vel_b), dim=-1
+            velocity = -torch.sum(torch.abs(data.root_lin_vel_w), dim=-1) - torch.sum(
+                torch.abs(data.root_ang_vel_w), dim=-1
             )
             effort = -torch.sum(torch.abs(self._previous_effort), dim=-1).to(torch.float32)
-            action_rate = -torch.sum(torch.abs(self._action - self._previous_action), dim=-1).to(torch.float32)
+            action_rate = -torch.sum(torch.abs(self._action - self._previous_action), dim=-1).to(
+                torch.float32
+            )
             foot_slip = torch.zeros_like(upright)
             fall = -(data.root_pos_w[:, 2] <= 0.25).to(torch.float32)
-            self.reward_components = torch.stack(
+            components = torch.stack(
                 (upright, root_height, standing_pose, velocity, effort, action_rate, foot_slip, fall),
                 dim=-1,
             )
-            coefficients = torch.tensor(self.cfg.reward_coefficients, device=self.device)
-            return torch.sum(self.reward_components * coefficients, dim=-1)
+            coefficients = torch.tensor(
+                self.cfg.standing_reward_coefficients, device=self.device
+            )
+            return torch.sum(components * coefficients, dim=-1)
 
         def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
-            fallen = self.robot.data.root_pos_w[:, 2] <= 0.25
+            root = self.robot.data.root_pos_w
+            threshold = 0.45 if self.profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID else 0.25
+            terminated = root[:, 2] <= threshold
+            if self.profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID:
+                terminated |= (torch.abs(root[:, 0]) >= 90.0) | (torch.abs(root[:, 1]) >= 90.0)
             timed_out = self.episode_length_buf >= self.max_episode_length - 1
-            return fallen, timed_out
+            return terminated, timed_out
 
         def _reset_idx(self, env_ids: torch.Tensor | None) -> None:
-            super()._reset_idx(env_ids)
             if env_ids is None:
                 env_ids = self.robot._ALL_INDICES
+            super()._reset_idx(env_ids)
             self._action[env_ids] = 0
             self._previous_action[env_ids] = 0
             self._previous_effort[env_ids] = 0
+            self._effort_sum[env_ids] = 0
+            self._episode_ordinals[env_ids] += 1
+            if self.profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID:
+                ids = env_ids.detach().cpu().tolist()
+                ordinals = self._episode_ordinals[env_ids].detach().cpu().tolist()
+                schedules = precompute_flat_command_schedules(self.run_root, ordinals, ids)
+                self._command_schedule[env_ids] = schedules.to(self.device)
 
 else:
 
