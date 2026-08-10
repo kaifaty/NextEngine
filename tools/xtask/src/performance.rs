@@ -20,7 +20,7 @@ mod tests;
 
 pub const PERFORMANCE_RUN_SCHEMA_VERSION: u32 = 4;
 pub const PERFORMANCE_BASELINE_SCHEMA_VERSION: u32 = 4;
-pub const PERFORMANCE_METHODOLOGY_VERSION: &str = "nextengine-performance-v4";
+pub const PERFORMANCE_METHODOLOGY_VERSION: &str = "nextengine-performance-v5";
 pub const PERFORMANCE_REPORT_FILE_NAME: &str = "performance-report-v4.json";
 pub const PERFORMANCE_BASELINE_FILE_NAME: &str = "performance-baseline-v4.json";
 pub const PERFORMANCE_REPORT_TEMP_FILE_NAME: &str = ".performance-report-v4.json.tmp";
@@ -30,7 +30,8 @@ pub const PERFORMANCE_PINNED_RUSTC_COMMIT_HASH: &str = "254b59607d4417e9dffbc307
 pub const PERFORMANCE_WINDOWS_TARGET_TRIPLE: &str = "x86_64-pc-windows-msvc";
 pub const PERFORMANCE_LINUX_TARGET_TRIPLE: &str = "x86_64-unknown-linux-gnu";
 pub const THOTH_TARGET_ID: &str = "ref-win-thoth-v1";
-pub const MINIMUM_FREE_RAM_BYTES: u64 = 20 * 1024 * 1024 * 1024;
+pub const PREFLIGHT_LOAD_PERCENT_EXCLUSIVE: u32 = 15;
+pub const MINIMUM_FREE_RAM_BYTES: u64 = 10 * 1024 * 1024 * 1024;
 pub const MAX_PROFILER_BYTES: u64 = 64 * 1024 * 1024;
 pub const MAX_SPANS_PER_THREAD: u32 = 65_536;
 
@@ -210,22 +211,25 @@ pub struct PerformancePreflightV1 {
 }
 
 impl PerformancePreflightV1 {
-    pub fn validate_ready_evidence(&self) -> Result<(), Vec<String>> {
+    pub(super) fn threshold_diagnostics(&self) -> Vec<String> {
         let mut diagnostics = Vec::new();
-        if !self.ready || !self.diagnostics.is_empty() {
-            diagnostics.push("PERF_PREFLIGHT_NOT_READY".to_owned());
+        if self
+            .cpu_load_percent
+            .is_none_or(|percent| percent >= PREFLIGHT_LOAD_PERCENT_EXCLUSIVE)
+        {
+            diagnostics.push("PERF_CPU_LOAD_AT_OR_ABOVE_FIFTEEN_PERCENT".to_owned());
         }
-        if self.cpu_load_percent.is_none_or(|percent| percent >= 5) {
-            diagnostics.push("PERF_CPU_NOT_IDLE_BELOW_FIVE_PERCENT".to_owned());
-        }
-        if self.gpu_load_percent.is_none_or(|percent| percent >= 5) {
-            diagnostics.push("PERF_GPU_NOT_IDLE_BELOW_FIVE_PERCENT".to_owned());
+        if self
+            .gpu_load_percent
+            .is_none_or(|percent| percent >= PREFLIGHT_LOAD_PERCENT_EXCLUSIVE)
+        {
+            diagnostics.push("PERF_GPU_LOAD_AT_OR_ABOVE_FIFTEEN_PERCENT".to_owned());
         }
         if self
             .free_ram_bytes
             .is_none_or(|bytes| bytes < MINIMUM_FREE_RAM_BYTES)
         {
-            diagnostics.push("PERF_FREE_RAM_BELOW_TWENTY_GIB".to_owned());
+            diagnostics.push("PERF_FREE_RAM_BELOW_TEN_GIB".to_owned());
         }
         if self
             .cpu_clock_percent_of_maximum
@@ -235,6 +239,19 @@ impl PerformancePreflightV1 {
         }
         if self.gpu_thermal_slowdown_active != Some(false) {
             diagnostics.push("PERF_GPU_THERMAL_SLOWDOWN_CHECK_FAILED".to_owned());
+        }
+        diagnostics
+    }
+
+    pub(super) fn recompute_readiness(&mut self) {
+        self.diagnostics = self.threshold_diagnostics();
+        self.ready = self.diagnostics.is_empty();
+    }
+
+    pub fn validate_ready_evidence(&self) -> Result<(), Vec<String>> {
+        let mut diagnostics = self.threshold_diagnostics();
+        if !self.ready || !self.diagnostics.is_empty() {
+            diagnostics.push("PERF_PREFLIGHT_NOT_READY".to_owned());
         }
         diagnostics.sort();
         diagnostics.dedup();

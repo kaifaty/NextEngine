@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.26 |
+| Версия | 2.27 |
 | Последняя проверка | 2026-08-10 |
-| Заменяет | INDEX-001 2.25; adopts ADR-059 bounded event-sourced PhysX continuation reconstruction |
+| Заменяет | INDEX-001 2.26; adopts ADR-060 relaxed THOTH performance preflight |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -212,7 +212,7 @@ traceability — навигационная карта, не admission authority
 | ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Superseded by ADR-058 |
 | ADR-034 | [Player targeting replay V5 и exact mapping provenance](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) | Accepted; legacy V4/V1 retention superseded by ADR-046 |
 | ADR-035 | [Bounded live recovery, platform-host binding и presentation cut](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) | Accepted host binding and presentation cut; checkpoint/archive recovery clauses superseded by ADR-047 |
-| ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; THOTH target, budgets, baseline and no-retry authority remain; allocator clauses are superseded by ADR-049 |
+| ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; THOTH target, budgets, baseline and no-retry authority remain; allocator clauses are superseded by ADR-049 and preflight thresholds by ADR-060 |
 | ADR-037 | [Packed session object storage](adr/037-packed-session-object-storage.md) | Superseded by ADR-047 |
 | ADR-038 | [Versioned production-worker handoff diagnostic](adr/038-versioned-production-worker-handoff-diagnostic.md) | Accepted; узко заменяет diagnostic-scenario часть ADR-036 без изменения THOTH hard timing authority или B-12 closure |
 | ADR-039 | [Tooling-only process-wide System GlobalAlloc measurement boundary](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md) | Superseded by ADR-049 |
@@ -225,7 +225,7 @@ traceability — навигационная карта, не admission authority
 | ADR-046 | [Consumer-driven contracts and current-only alpha formats](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) | Accepted; current-only pre-v1 formats, production-consumer admission and removal of unconsumed future obligations |
 | ADR-047 | [Simple application session and save-on-close](adr/047-simple-application-session-and-save-on-close.md) | Accepted; two-slot current-state snapshot and two-stage close journal replace session recovery archives/object packs |
 | ADR-048 | [Direct exact project lock](adr/048-direct-exact-project-lock.md) | Accepted; current-only authoring/registry/package formats and `ProjectLockV3` replace project resolver/catalog/policy closure |
-| ADR-049 | [Performance evidence without allocator instrumentation](adr/049-performance-evidence-without-allocator-instrumentation.md) | Accepted; Performance V4 and low-overhead resource evidence replace allocator instrumentation and V2/V3 readers |
+| ADR-049 | [Performance evidence without allocator instrumentation](adr/049-performance-evidence-without-allocator-instrumentation.md) | Accepted; Performance V4 and low-overhead resource evidence replace allocator instrumentation and V2/V3 readers; methodology identity is superseded by ADR-060 |
 | ADR-050 | [Optional learned strategic and tactical behavior-policy boundary](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md) | Proposed optional R8 role policies with exact applied-decision parity and ADR-056 fallback |
 | ADR-051 | [R3a packaged chunk streaming commit boundary](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md) | Accepted; one pinned packaged fetch/decode/validate/two-tick commit vertical, without generic scheduler/resource promotion |
 | ADR-052 | [Derived world calendar and authored routine vertical](adr/052-derived-world-calendar-and-authored-routine-vertical.md) | Proposed; R4a candidate for one relay-keeper routine, exact derived calendar and separate World Services segment |
@@ -236,6 +236,7 @@ traceability — навигационная карта, не admission authority
 | ADR-057 | [Hierarchical learnable Motor System and policy-family architecture](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) | Accepted hierarchy, BodySchema, family/adaptation, exact-action replay and fallback semantics; concrete learned/toolchain profiles remain Proposed |
 | ADR-058 | [PhysX-only deterministic humanoid training substrate](adr/058-physx-only-deterministic-humanoid-training-substrate.md) | Accepted sole production backend and fixed-humanoid Stage 0; cutover/completion require Windows/Linux and replay/performance gates |
 | ADR-059 | [Event-sourced PhysX continuation reconstruction](adr/059-event-sourced-physx-continuation-reconstruction.md) | Accepted bounded reset + post-safety effort prefix; partially supersedes ADR-058 direct continuation-import assumption |
+| ADR-060 | [Relaxed THOTH performance preflight](adr/060-relaxed-thoth-performance-preflight.md) | Accepted CPU/GPU load below 15%, at least 10 GiB free RAM and methodology v5; all other hard-evidence gates remain |
 
 ## Proposed tracks
 

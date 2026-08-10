@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.3 |
+| Версия | 2.4 |
 | Последняя проверка | 2026-08-10 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -57,7 +57,7 @@
 | Player interaction, UI, camera, localization, accessibility | [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md) | ADR-019, ADR-044 | play |
 | Project composition, exact lock and atomic activation | [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md) | ADR-018, ADR-048 | fast, content-package |
 | Platform host, application session, presentation authority, Save/Load/close | [SPEC-29](29-platform-host-and-application-session.md) | ADR-028, ADR-035, ADR-047 | play, persistence-replay, platform |
-| Current performance budgets and evidence | [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-12](12-vertical-slice-conformance.md) | ADR-016, ADR-036, ADR-038, ADR-045, ADR-049 | performance |
+| Current performance budgets and evidence | [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-12](12-vertical-slice-conformance.md) | ADR-016, ADR-036, ADR-038, ADR-045, ADR-049, ADR-060 | performance |
 | Future generic scheduler/resource framework after bounded R3 (Proposed track) | [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md) | ADR-046, ADR-051 (scope exclusion) | none until a second production consumer exists |
 | Tooling, SDK, observability | [SPEC-09](09-tooling-sdk-and-observability.md) | — | fast |
 | Gothic importer boundary, neutral artifacts | [SPEC-10](10-gothic-importer-boundary.md) | ADR-001 | content-package |

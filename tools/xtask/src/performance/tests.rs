@@ -61,21 +61,38 @@ fn thoth_fingerprint_is_exact_on_invalidating_fields() {
 #[test]
 fn preflight_recomputes_readiness_from_typed_evidence() {
     let mut preflight = PerformancePreflightV1 {
-        cpu_load_percent: Some(0),
-        gpu_load_percent: Some(0),
+        cpu_load_percent: Some(PREFLIGHT_LOAD_PERCENT_EXCLUSIVE - 1),
+        gpu_load_percent: Some(PREFLIGHT_LOAD_PERCENT_EXCLUSIVE - 1),
         free_ram_bytes: Some(MINIMUM_FREE_RAM_BYTES),
         cpu_clock_percent_of_maximum: Some(100),
         gpu_thermal_slowdown_active: Some(false),
-        ready: true,
-        diagnostics: Vec::new(),
+        ready: false,
+        diagnostics: vec!["STALE_DIAGNOSTIC".to_owned()],
     };
+    preflight.recompute_readiness();
+    assert!(preflight.ready);
+    assert!(preflight.diagnostics.is_empty());
     preflight
         .validate_ready_evidence()
         .expect("complete typed preflight is ready");
     preflight.free_ram_bytes = Some(MINIMUM_FREE_RAM_BYTES - 1);
     assert_eq!(
         preflight.validate_ready_evidence(),
-        Err(vec!["PERF_FREE_RAM_BELOW_TWENTY_GIB".to_owned()])
+        Err(vec!["PERF_FREE_RAM_BELOW_TEN_GIB".to_owned()])
+    );
+
+    preflight.free_ram_bytes = Some(MINIMUM_FREE_RAM_BYTES);
+    preflight.cpu_load_percent = Some(PREFLIGHT_LOAD_PERCENT_EXCLUSIVE);
+    assert_eq!(
+        preflight.validate_ready_evidence(),
+        Err(vec!["PERF_CPU_LOAD_AT_OR_ABOVE_FIFTEEN_PERCENT".to_owned()])
+    );
+
+    preflight.cpu_load_percent = Some(PREFLIGHT_LOAD_PERCENT_EXCLUSIVE - 1);
+    preflight.gpu_load_percent = Some(PREFLIGHT_LOAD_PERCENT_EXCLUSIVE);
+    assert_eq!(
+        preflight.validate_ready_evidence(),
+        Err(vec!["PERF_GPU_LOAD_AT_OR_ABOVE_FIFTEEN_PERCENT".to_owned()])
     );
 }
 
@@ -90,7 +107,7 @@ fn schema_round_trip_rejects_unknown_fields() {
     assert_eq!(run.schema_version, 4);
     assert_eq!(
         run.methodology.methodology_version,
-        "nextengine-performance-v4"
+        "nextengine-performance-v5"
     );
     assert_eq!(PERFORMANCE_REPORT_FILE_NAME, "performance-report-v4.json");
     assert_eq!(
@@ -131,6 +148,17 @@ fn schema_round_trip_rejects_unknown_fields() {
         assert!(diagnostics.contains(&"PERF_RUN_SCHEMA_MISMATCH".to_owned()));
         assert!(diagnostics.contains(&"PERF_RUN_METHODOLOGY_MISMATCH".to_owned()));
     }
+
+    let mut prior_methodology: PerformanceRunV4 =
+        serde_json::from_slice(&json).expect("decode current fixture");
+    prior_methodology.methodology.methodology_version = "nextengine-performance-v4".to_owned();
+    let diagnostics = prior_methodology
+        .validate_wire_version()
+        .expect_err("prior methodology is incompatible with current admission");
+    assert_eq!(
+        diagnostics,
+        vec!["PERF_RUN_METHODOLOGY_MISMATCH".to_owned()]
+    );
 
     let mut value: serde_json::Value = serde_json::from_slice(&json).expect("decode JSON value");
     value

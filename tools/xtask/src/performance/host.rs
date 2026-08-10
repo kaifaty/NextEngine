@@ -3,8 +3,8 @@ use std::process::Command;
 use serde::Deserialize;
 
 use super::{
-    MINIMUM_FREE_RAM_BYTES, PerformancePreflightV1, PerformanceResourceCountersV4,
-    PerformanceTargetFingerprintV1, THOTH_TARGET_ID,
+    PerformancePreflightV1, PerformanceResourceCountersV4, PerformanceTargetFingerprintV1,
+    THOTH_TARGET_ID,
 };
 
 #[derive(Debug, Deserialize)]
@@ -110,7 +110,7 @@ $load = @(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercent
         ready: true,
         diagnostics: Vec::new(),
     };
-    validate_preflight(&mut preflight);
+    preflight.recompute_readiness();
     Ok((fingerprint, preflight))
 }
 
@@ -267,47 +267,6 @@ fn counter_delta(before: Option<u64>, after: Option<u64>) -> Option<u64> {
     after
         .zip(before)
         .and_then(|(after, before)| after.checked_sub(before))
-}
-
-fn validate_preflight(preflight: &mut PerformancePreflightV1) {
-    if preflight
-        .cpu_load_percent
-        .is_none_or(|percent| percent >= 5)
-    {
-        preflight
-            .diagnostics
-            .push("PERF_CPU_NOT_IDLE_BELOW_FIVE_PERCENT".to_owned());
-    }
-    if preflight
-        .gpu_load_percent
-        .is_none_or(|percent| percent >= 5)
-    {
-        preflight
-            .diagnostics
-            .push("PERF_GPU_NOT_IDLE_BELOW_FIVE_PERCENT".to_owned());
-    }
-    if preflight
-        .free_ram_bytes
-        .is_none_or(|bytes| bytes < MINIMUM_FREE_RAM_BYTES)
-    {
-        preflight
-            .diagnostics
-            .push("PERF_FREE_RAM_BELOW_TWENTY_GIB".to_owned());
-    }
-    if preflight
-        .cpu_clock_percent_of_maximum
-        .is_none_or(|percent| percent < 80)
-    {
-        preflight
-            .diagnostics
-            .push("PERF_CPU_THROTTLING_CHECK_FAILED".to_owned());
-    }
-    if preflight.gpu_thermal_slowdown_active != Some(false) {
-        preflight
-            .diagnostics
-            .push("PERF_GPU_THERMAL_SLOWDOWN_CHECK_FAILED".to_owned());
-    }
-    preflight.ready = preflight.diagnostics.is_empty();
 }
 
 fn inspect_nvidia() -> Result<NvidiaProbe, String> {

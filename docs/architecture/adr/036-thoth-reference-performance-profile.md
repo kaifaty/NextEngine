@@ -9,10 +9,12 @@
 | Последняя проверка | 2026-08-01 |
 | Нормативные зависимости | [SPEC-04](../04-rendering-and-platform.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 | Заменяет | частично [ADR-016](016-compositional-gameplay-budgets.md) и SPEC-05 `PHYS-P4`: qualifier `reference 8-core CPU` заменяется полным host `ref-win-thoth-v1`; числовые gameplay/physics budgets не меняются |
-| Заменён | Diagnostic-scenario часть узко заменена [ADR-038](038-versioned-production-worker-handoff-diagnostic.md). Allocator instrumentation и V2/V3 tooling schemas заменены [ADR-049](049-performance-evidence-without-allocator-instrumentation.md). THOTH profile, hard timing authority, budgets, baseline and representative workload requirements remain Accepted. |
+| Заменён | Diagnostic-scenario часть узко заменена [ADR-038](038-versioned-production-worker-handoff-diagnostic.md). Allocator instrumentation и V2/V3 tooling schemas заменены [ADR-049](049-performance-evidence-without-allocator-instrumentation.md). CPU/GPU idle and free-RAM preflight thresholds are superseded by [ADR-060](060-relaxed-thoth-performance-preflight.md). THOTH profile, hard timing authority, budgets, baseline and representative workload requirements remain Accepted. |
 
 > Current report/baseline schemas are Performance V4 under ADR-049. Older
 > schema and allocator passages below are historical context only.
+> The 5%/20 GiB preflight values below are also historical; ADR-060 sets the
+> current below-15%/10 GiB thresholds and methodology identity.
 
 ## Контекст
 
