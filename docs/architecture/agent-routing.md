@@ -4,7 +4,7 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.8 |
+| Версия | 2.9 |
 | Последняя проверка | 2026-08-10 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
@@ -21,17 +21,28 @@
 3. При конфликте семантики применять precedence из README (новый superseding
    Accepted ADR → ADR-030 для workflow → профильный technical ADR → subsystem
    SPEC → SPEC-00 → glossary).
-4. Запустить указанные product checks (`fast` нужен всегда, остальные — по
-   строке) и в handoff сообщить каждый check как passed / failed / not run.
+4. Запустить указанные product checks для executable scope (`fast` нужен для
+   code/build/schema/generated-data changes, остальные — по строке) и в handoff
+   сообщить каждый check как passed / failed / not run.
 5. Если задача не попадает ни в одну строку — читать полный индекс в
    [README](README.md) и [glossary](glossary.md). Для roadmap-чувствительных
    задач дополнительно читать [roadmap](../roadmap.md).
+
+## Validation scope
+
+ADR-030/SPEC-12 documentation-only cheap path имеет приоритет над check column
+ниже: если diff содержит только human-readable documentation/agent guidance и
+не меняет executable code, build/configuration, schemas, generated fixtures,
+package manifests или runtime-consumed data, запускать Cargo/`host-check` не
+нужно. Выполняются `git diff --check` и direct link/path/ID validation;
+executable checks получают `NotRun(NoExecutableChange)`. Documentation,
+сопровождающая implementation, наследует обычные checks затронутой строки.
 
 ## Routing-таблица
 
 | Зона задачи (триггеры) | Читать SPEC | Читать ADR | Product check |
 |---|---|---|---|
-| Workflow, checks, handoff, процесс разработки | [README](README.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md) | ADR-030 | fast |
+| Workflow, checks, handoff, процесс разработки | [README](README.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md) | ADR-030 | docs-only: `git diff --check` + direct reference validation; executable change: risk-scoped `fast` |
 | Public contracts, stable IDs, commands/events, snapshots, manifests (`crates/contracts`) | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md) + SPEC затронутой подсистемы | ADR-002 | fast + checks затронутой области |
 | Детерминизм, replay, command identity, ledger, save/load, persistence | [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md) | ADR-022, ADR-046; ADR-059 for PhysX continuation | persistence-replay |
 | Schema registry, миграции, совместимость версий данных | [SPEC-22](22-schema-registry-compatibility-and-migration.md) | ADR-025, ADR-046, ADR-048 | persistence-replay |

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 2.4 |
-| Последняя проверка | 2026-08-09 |
+| Версия | 2.5 |
+| Последняя проверка | 2026-08-10 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-15 2.3; records future deterministic Strategic Agent scenario requirements |
+| Заменяет | SPEC-15 2.4; records the ADR-030 documentation-only cheap validation path |
 
 ## Назначение
 
@@ -169,6 +169,12 @@ validation metadata; source/imported bytes не копируются в reposito
 помещает temporary output в quarantine.
 
 ## Связь с ProductCheck
+
+Documentation-only changes без executable/build/schema/generated-data diff не
+создают scenario run: они используют `git diff --check` и direct link/path/ID
+validation по SPEC-12. `host-check` для них `NotRun(NoExecutableChange)`, а не
+обязательный workspace test. Если изменён production behavior или test
+fixture, применяется обычная строка таблицы.
 
 | ProductCheck | Использование scenario tools |
 |---|---|

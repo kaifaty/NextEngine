@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 3.1 |
-| Последняя проверка | 2026-08-09 |
+| Версия | 3.2 |
+| Последняя проверка | 2026-08-10 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md) |
-| Заменяет | SPEC-12 3.0; adopts run-level Performance V5 hard-gate evidence |
+| Заменяет | SPEC-12 3.1; aligns the handoff check scope with ADR-030 and separates documentation-only validation from workspace tests |
 
 ## Назначение
 
@@ -25,7 +25,7 @@ workflow.
 
 | Check | Когда запускать | Что он доказывает |
 |---|---|---|
-| `fast` | для каждого изменения | workspace собирается; formatting/static analysis/focused tests и boundary scan не находят локальной ошибки |
+| `fast` | для каждого code/build/schema/generated-data изменения | затронутая область собирается; formatting/static analysis/focused tests и boundary scan не находят локальной ошибки |
 | `play` | при изменении runtime, gameplay, AI, input, physics, presentation или world behavior | малый neutral RPG scenario запускается offline и остаётся играбельным через production paths |
 | `persistence-replay` | при изменении authoritative state, commands/events, schema, save/load, RNG, scheduling или world lifecycle | save/load и replay воспроизводят ожидаемые state/event roots; corrupt input отклоняется без partial mutation |
 | `content-package` | при изменении assets, cooker, catalog, bundles, mechanics packages, Luau/Wasm, models, distribution или importer boundary | neutral content валидируется, готовится и загружается; malformed content и forbidden capabilities отклоняются безопасно |
@@ -83,17 +83,44 @@ hashes, package-manifest hashes и timings не являются cross-target or
 выставить `native_gate_ready = true`. Он не переписывает исходные check results
 и сам по себе не объявляет весь roadmap stage или v1 завершённым.
 
+## Documentation-only cheap path
+
+Изменение квалифицируется как documentation-only, только если все changed
+files являются human-readable documentation или agent guidance и diff не
+затрагивает Rust/Python/C++, build/configuration, schemas, generated fixtures,
+package manifests или runtime-consumed data.
+
+Для такого changeset достаточно:
+
+1. `git diff --check`;
+2. direct validation изменённых links, paths, IDs и command examples;
+3. честно отметить executable ProductChecks как `NotRun(NoExecutableChange)`.
+
+Cargo, package tests и `host-check` для этого пути по умолчанию не запускаются.
+Normative architecture edit всё равно следует ADR/SPEC workflow, но tests не
+симулируют executable evidence, которого в diff нет. Если documentation идёт
+в одном changeset с implementation/config/generated-data, применяется обычный
+code path ниже.
+
 ## `fast`
 
-Базовая локальная команда проекта:
+`fast` — risk-scoped logical check, а не требование всегда запускать весь
+workspace. Для локального code change используются format, lint/typecheck,
+focused unit/integration tests затронутого package и repository boundary scan.
+
+Широкая convenience-команда проекта:
 
 ```text
 cargo run -p xtask -- host-check
 ```
 
 Она проверяет formatting, clippy с warnings denied, workspace tests и
-repository boundaries. Пока workspace неполон, реализованные части команды
-MAY явно сообщать `NotRun(reason)` вместо ложного `Pass`.
+repository boundaries. `host-check` обязателен для cross-cutting changes,
+public contracts, workspace/build configuration, неизвестной области влияния
+или явного требования пользователя/плана. Для простой локальной code правки
+его MAY заменить эквивалентный focused набор; для documentation-only path он
+не применим. Пока workspace неполон, реализованные части команды MAY явно
+сообщать `NotRun(reason)` вместо ложного `Pass`.
 
 Subsystem unit/property tests SHOULD быть достаточно малы для частого запуска.
 Негативные tests для public decoders, command validation и capability denial
