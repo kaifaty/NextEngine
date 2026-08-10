@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.23 |
-| Последняя проверка | 2026-08-09 |
-| Заменяет | INDEX-001 2.22; adopts ADR-056 and separates deterministic R4 cognition from optional learned R8 work |
+| Версия | 2.24 |
+| Последняя проверка | 2026-08-10 |
+| Заменяет | INDEX-001 2.23; adopts ADR-057 hierarchical learnable Motor System and supersedes the Mamba foundation target |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -124,7 +124,7 @@ engine-owned API; для него SHOULD быть указан bounded evaluatio
    и
    [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md).
 
-ADR-010, ADR-015, ADR-023, ADR-024 and allocator ADR-039–043, retired evidence
+ADR-009, ADR-010, ADR-015, ADR-023, ADR-024, ADR-039–043 and ADR-055, retired evidence
 register и старые review packets являются historical-only. Lightweight
 traceability — навигационная карта, не admission authority.
 
@@ -146,7 +146,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-11 | [Runtime safety и license hygiene](11-security-licensing-and-governance.md) | Accepted |
 | SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted |
 | SPEC-13 | [Gameplay mechanics и mod packages](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | Accepted |
-| SPEC-14 | [Physical archetypes, motor skills и policy lifecycle](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) | Accepted baseline; Mamba-2 profile subsection is Proposed only |
+| SPEC-14 | [Physical archetypes, BodySchema, motor skills и policy lifecycle](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) | Accepted hierarchy/ownership baseline; exact unconsumed BodySchema/skill/adaptation profiles are Proposed |
 | SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted |
 | SPEC-16 | [Text-canonical multimodal dialogue и model packs](16-text-canonical-multimodal-dialogue-and-model-packs.md) | Proposed |
 | SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted |
@@ -159,14 +159,14 @@ traceability — навигационная карта, не admission authority
 | SPEC-24 | [Current neutral content и package closure](24-content-catalog-bundle-and-neutral-asset-schemas.md) | Accepted |
 | SPEC-25 | [Current bounded world partition и streaming boundary](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | Accepted |
 | SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted |
-| SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted generic tensor/state/safety baseline; Mamba-2 mapping subsection is Proposed only |
+| SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted generic tensor/state/safety/replay baseline; exact adaptation/reference profile evolution is Proposed |
 | SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted |
 | SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted |
 | SPEC-30 | [Presentation snapshot, camera, UI и render content](30-presentation-extraction-and-render-content.md) | Accepted |
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
 | SPEC-32 | [Deterministic Strategic Agent cognition and social behavior](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Proposed R4c/R4d target; ADR-056 invariants are Accepted, exact schemas wait for consumers |
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
-| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed optional R&D data plane, not a current creator SDK or shipped trainer |
+| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed optional R&D data plane including the family-based Motor curriculum, not a current creator SDK or shipped trainer |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -184,7 +184,7 @@ traceability — навигационная карта, не admission authority
 | ADR-006 | [Scripting и plugin model](adr/006-scripting-and-plugin-model.md) | Superseded |
 | ADR-007 | [Identities, persistence и replay](adr/007-identities-persistence-and-replay.md) | Superseded |
 | ADR-008 | [Mechanics/mod package и agent authoring](adr/008-mechanics-mod-package-and-agent-authoring-model.md) | Accepted package/no-private-path invariants; unconsumed agent-authoring/CLI/MCP obligations superseded by ADR-046 |
-| ADR-009 | [Foundation policies и progressive motor skills](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md) | Accepted; certification clauses partially superseded by ADR-030 |
+| ADR-009 | [Foundation policies и progressive motor skills](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md) | Superseded by ADR-057 |
 | ADR-010 | [Artifact-first validation и human review](adr/010-artifact-first-headless-validation-and-review.md) | Superseded by ADR-030 |
 | ADR-011 | [macOS developer host и staged training](adr/011-macos-developer-host-local-verification-and-staged-training.md) | Accepted; certification clauses partially superseded by ADR-030 |
 | ADR-012 | [Deterministic command identity и replay V1](adr/012-deterministic-command-identity-and-replay.md) | Superseded |
@@ -230,8 +230,9 @@ traceability — навигационная карта, не admission authority
 | ADR-052 | [Derived world calendar and authored routine vertical](adr/052-derived-world-calendar-and-authored-routine-vertical.md) | Proposed; R4a candidate for one relay-keeper routine, exact derived calendar and separate World Services segment |
 | ADR-053 | [Engine-native model training and immutable artifact boundary](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md) | Proposed; canonical headless environment, accelerated mirrors and immutable candidate bundles |
 | ADR-054 | [Bounded strategic adaptation and two-tier sleep](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md) | Proposed; Hope-inspired explicit bounded state, deterministic runtime consolidation and offline child bundles |
-| ADR-055 | [Mamba-2 physical motion foundation profile](adr/055-mamba2-physical-motion-foundation-profile.md) | Proposed; optional learned foundation profile with explicit cache and procedural fallback |
+| ADR-055 | [Mamba-2 physical motion foundation profile](adr/055-mamba2-physical-motion-foundation-profile.md) | Superseded by ADR-057 |
 | ADR-056 | [Deterministic Strategic Agent and belief-driven GOAP](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) | Accepted; belief-driven Utility + bounded GOAP closes R4/v1 without learned models |
+| ADR-057 | [Hierarchical learnable Motor System and policy-family architecture](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) | Accepted hierarchy, BodySchema, family/adaptation, exact-action replay and fallback semantics; concrete learned/toolchain profiles remain Proposed |
 
 ## Proposed tracks
 
@@ -258,10 +259,12 @@ traceability — навигационная карта, не admission authority
   strategic/tactical and training data-plane track. Per-role promotion requires
   immutable artifacts, multi-seed evidence, target parity and complete ADR-056
   fallback; joint promotion is required only by profiles activating both roles.
-- ADR-055 with Proposed subsections in SPEC-14/SPEC-27 — optional Mamba-2
-  universal learned foundation, fixed-PD first route and portable explicit-
-  state export. The Accepted foundation/residual/exclusive composition and
-  procedural R5 path remain current and independently shippable.
+- ADR-057 Accepted core with Proposed subsections in SPEC-14/SPEC-27/SPEC-28/
+  SPEC-34 — optional fixed-humanoid learned MVP followed by bounded equipment,
+  injury, weapon, parkour and additional-family profiles. MLP is the first
+  low-level comparator, TCN/GRU the first adaptation comparators; Mamba is only
+  an equal-budget experiment for longer-history/generator/planner roles. The
+  procedural/animation R5 path remains current and independently shippable.
 
 Этот deferred track сохраняет deterministic offline fallback, engine-owned
 contracts и untrusted proposal boundaries. Его принятие выполняется обычным

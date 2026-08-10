@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 1.4 |
-| Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-033](adr/033-physx-grounded-capsule-parity-ffi-boundary.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
-| Заменяет | SPEC-26 1.3 obsolete project-lock name and Proposed jobs dependency only; physics contracts unchanged |
+| Версия | 1.5 |
+| Последняя проверка | 2026-08-10 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-033](adr/033-physx-grounded-capsule-parity-ffi-boundary.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
+| Заменяет | SPEC-26 1.4; adds the ADR-057 BodySchema compiler and stable semantic-ID topology-remap boundary without changing physics authority |
 
 ## История принятия
 
@@ -223,6 +223,43 @@ callback ordinals and `RuntimeEntityId` never substitute for these IDs.
 Catalogs sort by full canonical encoded ID bytes. Descriptor revision is a
 positive monotonic `u32`; reuse of one `(ID, revision)` with different bytes is
 `PHYS_DESCRIPTOR_ID_COLLISION` and fails closed.
+
+## `BodySchema` compiler boundary
+
+ADR-057 `BodySchema` is the immutable semantic source for an articulated
+creature. SPEC-26 remains the sole owner of exact runtime physics descriptors;
+the relation is a deterministic one-way compiler, not shared mutable storage:
+
+```text
+BodySchema revision + BodyInstanceProjection revision
+  → ordered PhysicsBodyDescriptorV1[]
+  → ordered PhysicsJointDescriptorV1[]
+  → attachment/pair-exclusion/actuator profile
+  → descriptor catalog roots and topology revision
+```
+
+Each schema body/joint/actuator/effector/attachment identity maps through an
+explicit canonical table to exact SPEC-26 IDs/slots. Array position, authoring
+name, backend index and nearest-role matching are forbidden. The mapping hash,
+source schema hash and effective projection hash are part of the compiled
+catalog closure used by motor compatibility, snapshot, save and replay.
+
+Compiler input separates immutable static morphology from revision-bound
+equipment/stats/damage/fatigue/attachment overlays. Effective mass/inertia,
+CoM, ROM, damping/friction, torque-speed-power, target rate, latency and break/
+support limits validate before adapter construction. Backend-computed defaults
+or policy-inferred known parameters cannot replace declared values.
+
+On a validated topology transaction, surviving elements retain their stable
+BodySchema identities and receive an explicit old→new physics-slot map.
+Removed nodes/actuators are absent, new prosthesis/attachment elements require
+a declared schema/overlay identity, and every dangling/colliding/ambiguous map
+rejects the whole transaction. SPEC-27 then resets or remaps only as explicitly
+allowed; physics never interprets evaluator state.
+
+The semantic compiler boundary is Accepted. Exact unconsumed
+`BodySchemaV1`/`BodyInstanceProjectionV1` wire records remain Proposed under
+SPEC-14/ADR-046 until a production physical-character consumer exists.
 
 ## World, material, shape and body descriptors
 
@@ -451,8 +488,12 @@ Joint `kind` is a validation shorthand for an exact six-axis pattern:
 angular bounds are radians in the active fixed-point profile.
 
 `PhysicsActuatorBoundsV1` declares permitted axis mask, maximum target rate,
-force/torque, impulse and energy per substep. It authorizes no action by
-itself. A motor or gameplay proposal still passes the ADR-027 safety validator.
+force/torque, velocity, power, impulse and energy per substep, plus the exact
+engine-owned torque-speed/power limit profile where the compiled BodySchema
+actuator requires it. It authorizes no action by itself. A motor or gameplay
+proposal still passes the ADR-027/ADR-057 safety validator. Fixed PD/SPD gains
+are selected by the exact actuator profile; a learned action cannot rewrite
+them unless a separately accepted adaptive-gain profile exists.
 Target values and current accumulated impulses are state, not immutable joint
 descriptor fields.
 
@@ -893,7 +934,7 @@ or partial snapshot continuation is allowed.
 |---|---|---|---|
 | `PHYS-API-P1` | `physics-api-contract-v1` on Windows/Linux, 10 000 permutations and N−1/N/N+1 limits | canonical descriptor bytes/hashes/roots are exact; every invalid schema, ID, revision, unit, bound, reference or forbidden public type rejects before mutation | reject descriptor/backend and retain prior exact world/project lock |
 | `PHYS-COLLISION-P1` | `physics-collision-contact-v1`, 100 000 substeps and 10 000 order permutations | filter/material decisions, contact bytes/IDs/phases/order and roots are exact on both targets; every mapping, capacity and non-finite fault rejects atomically | abort uncommitted substep and retain last canonical checkpoint |
-| `PHYS-JOINT-P1` | all joint kinds, axis modes and 10 000 topology/snapshot cycles | descriptor/topology/joint/projection roots exact; stale endpoint, invalid frame/limit/mask/bound and unsafe action produce no partial graph | restore pre-transaction snapshot and retain prior topology/route |
+| `PHYS-JOINT-P1` | all joint kinds/axis modes, BodySchema compiler mappings and 10 000 topology/snapshot cycles | descriptor/topology/joint/projection roots exact; stale endpoint, invalid stable-ID map, frame/limit/mask/bound and unsafe action produce no partial graph | restore pre-transaction snapshot and retain prior topology/route |
 | `PHYS-QUERY-P1` | every query kind/cardinality, N−1/N/N+1 capacities and 10 000 order permutations | boolean/count/truncation/hit bytes/order/root exact on Windows/Linux; invalid or over-capacity query publishes no partial result | reject the complete query and use only a separately declared deterministic fallback |
 | `PHYS-SNAPSHOT-P1` | 1 000 checkpoint restores with 100-substep continuation across `game`, `headless`, `capture-worker`, worker counts and Windows/Linux | canonical snapshot/projection roots, joint state, query/contact order and outcomes byte-identical; faults expose only complete prior or restored world | retain prior valid checkpoint/save and reject incompatible backend/profile |
 

@@ -5,9 +5,9 @@
 | ID | SPEC-34 |
 | Status | Proposed |
 | Lifecycle | Optional R8 behavior and optional R5/R8 motor R&D proposal |
-| Version | 1.1 |
-| Last verified | 2026-08-09 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md), [ADR-055](adr/055-mamba2-physical-motion-foundation-profile.md) |
+| Version | 1.2 |
+| Last verified | 2026-08-10 |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
 | Supersedes | none |
 
 ## Status and scope
@@ -19,7 +19,10 @@ model artifact in this documentation-only change.
 
 ADR-056 makes Strategic/Tactical training optional R8 quality work; this data
 plane is not a prerequisite for deterministic R4 or v1. Motor training remains
-an independent optional track behind the procedural baseline.
+an independent optional track behind the procedural baseline. ADR-057 defines
+a family-based hierarchical target: first fixed humanoid, then bounded
+equipment/injury/weapon/parkour and additional-family profiles. It does not
+restore a universal Mamba foundation requirement.
 
 Production `headless` is canonical. Accelerated simulators, trainers,
 experiment trackers and inference runtimes are private replaceable adapters.
@@ -245,6 +248,14 @@ Canonical first-party corpora originate from production `headless`. Gameplay
 capture is opt-in and purpose-bound; no default telemetry, microphone/dialogue
 collection or silent future-training consent exists.
 
+Motion-corpus admission validates the intended training, commercial use,
+derivative/model-output and redistribution rights independently. A
+noncommercial, no-derivatives, unknown or otherwise incompatible license
+excludes the affected bytes from a commercial/distributable candidate; a
+popular research dataset is not an implicit grant. Own or commercially
+licensed capture is the default production source. Dataset bytes remain
+outside Git even when their manifest/provenance is admissible.
+
 ## Accelerated mirror correspondence
 
 `EnvironmentCorrespondenceManifestV1` binds canonical headless build/profile,
@@ -364,11 +375,81 @@ learned communication is a hard failure.
 
 ### Motor
 
-Uses SPEC-27 observations, action schemas, safety clamp and explicit policy
-state. Reference curriculum may use imitation/reference motion then recurrent
-PPO with perturbation/recovery. Proposed Mamba-2 foundation is compared against
-GRU and procedural baselines. Fixed-PD joint position/velocity is its first
-allowed route; adaptive gains or direct torque require separate gates.
+Uses SPEC-14 `BodySchema`/skill/family target and SPEC-27 observations, action
+schemas, safety clamp and explicit policy state. The Proposed curriculum is
+ordered; a later stage cannot claim support without retaining earlier-stage
+behavior:
+
+0. BodySchema compiler, articulation, fixed PD/SPD, deterministic observation,
+   replay and batched environment; authored standing is stable without neural
+   policy.
+1. Licensed motion ingestion, canonical skeleton, retarget, contact detection
+   and physical-feasibility validation.
+2. Reference tracking with randomized starts and perturbed states.
+3. Velocity/facing/start/stop/turn/crouch locomotion and interruption.
+4. Slopes, stairs, heightfields, narrow/moving and varied-friction terrain.
+5. Pushes, missed contacts, stumble, brace, safe fall, ragdoll and get-up.
+6. Motion prior/multi-skill, transition data, specialist teachers and
+   distillation.
+7. Explicit physical parameters plus bounded no-gradient dynamics adaptation.
+8. Equipment, carried load, global/local fatigue and pickup/drop.
+9. Damage, ROM/force/sensor changes, topology masks and recovery fallback.
+10. Manipulation, grips, carry, throw/catch and weapon classes.
+11. Authored/contact-planned parkour specialists and safe missed-contact
+    failure.
+12. Within-family morphology randomization, graph/token policy and held-out
+    topology evaluation.
+13. Exact in-engine rollout, sim-to-sim correspondence, residual/adaptation
+    fine-tuning, final distillation and portable export.
+
+The first learned target is the ADR-057 fixed humanoid MLP at 60 Hz with
+residual joint-position targets and fixed engine PD at 240 Hz. TCN and GRU are
+the first adaptation comparators. Mamba is only an equal-parameter/context/
+latency comparator for long-history adaptation, motion generation or temporal
+planning; export success alone cannot promote it. Adaptive gains, direct torque
+and muscles require separate profiles/gates.
+
+Motor reward profiles cite immutable production facts and separate task,
+pose/velocity/keypoint tracking, contact/object, style and recovery components
+from energy, smoothness, impact and joint-limit costs. Curriculum also varies
+command acceleration, transition density, delay, parameter/contact
+randomization, perturbations and mid-episode changes. Reward never replaces a
+hard actuator/safety limit.
+
+The first Proposed replaceable toolchain is Isaac Lab/PhysX + ProtoMotions +
+RSL-RL + PyTorch. Production `headless` remains canonical; each accelerated
+mirror passes body/joint/axis/actuator/contact correspondence and every
+candidate receives final headless evaluation. Export is fixed-shape standard-
+op ONNX with explicit state and a private ONNX Runtime adapter; MuJoCo/MJX or
+another stack may replace it behind the same records.
+
+The motor benchmark profile covers standing/balance, command locomotion,
+terrain, jumps/landing, recovery, manipulation/weapons, fatigue/damage,
+morphology, skill retention/transitions and runtime latency/memory/replay. It
+records task success/fall rate, velocity/facing error, contact precision/timing/
+slip, impact, energy, saturation/jerk, recovery time, adaptation half-life/
+regret, cross-sim gap, retention and p50/p95 inference latency.
+
+The Proposed toolchain profile is informed by
+[Isaac Lab](https://developer.nvidia.com/isaac/lab),
+[ProtoMotions](https://github.com/NVlabs/ProtoMotions),
+[RSL-RL](https://github.com/leggedrobotics/rsl_rl),
+[MuJoCo MJX](https://mujoco.readthedocs.io/en/stable/mjx.html),
+[MuJoCo Playground](https://github.com/google-deepmind/mujoco_playground),
+[MyoSuite](https://github.com/MyoHub/myosuite),
+[KINESIS](https://github.com/amathislab/Kinesis),
+[ONNX Runtime](https://github.com/microsoft/onnxruntime) and
+[PhysX articulations](https://nvidia-omniverse.github.io/PhysX/physx/5.6.1/docs/Articulations.html).
+These are replaceable implementation references, not public contract types.
+
+Candidate motion sources include
+[AMASS](https://amass.is.tue.mpg.de/),
+[LAFAN1](https://github.com/ubisoft/ubisoft-laforge-animation-dataset),
+[Motion-X](https://github.com/IDEA-Research/Motion-X) and
+[MoCapAct](https://arxiv.org/abs/2208.07363). Their presence here does not grant
+training or redistribution rights: the exact corpus license/provenance record
+must pass `MODEL-DATA-GOVERNANCE-P1`, and incompatible noncommercial,
+no-derivatives or unknown terms exclude that corpus from the candidate.
 
 ## Stable failure semantics
 
@@ -395,7 +476,7 @@ All checks are `NOT_RUN(NO_PRODUCTION_CONSUMER)` in this docs-only changeset.
 | `MODEL-DATAPLANE-P1` | Recreate reset/step/trajectory/reward records twice from one exact manifest, including vector worker/completion permutations | Byte-exact canonical records and state/RNG/root chains; malformed hash/schema/provenance rejects before use. |
 | `MODEL-MIRROR-P1` | Run one correspondence corpus through production headless and the accelerated mirror | Every profile-required projection/result corresponds; any mismatch blocks mirror-derived artifact promotion. |
 | `MODEL-EXPORT-P1` | Export explicit-state candidate and compare trainer → portable graph → Windows/Linux runtime one-step/rollout corpus | Exact canonical decisions/actions and state roots, no hidden/custom/stochastic op; failure retains planner/procedural fallback. |
-| `MODEL-STATISTICS-P1` | Pre-registered multi-seed held-out comparisons for Hope vs GRU, Tactical PPO/MAPPO vs authored baseline, and Mamba-2 vs GRU/procedural comparator | Complete seed set, confidence/effect size and practical thresholds pass; single/best seed cannot promote. |
+| `MODEL-STATISTICS-P1` | Pre-registered multi-seed held-out comparisons for Hope vs GRU, Tactical PPO/MAPPO vs authored baseline, fixed-humanoid MLP vs procedural reference, TCN vs GRU adaptation, and any optional Mamba experiment vs the matching simpler comparator | Complete seed set, confidence/effect size and practical thresholds pass; single/best seed, export availability or architecture label cannot promote. |
 | `MODEL-CONSOLIDATION-P1` | Parent + immutable corpus → offline child → retention/new-task/joint evaluation | A new content-addressed child is published only after every gate; parent, project, world and save bytes remain unchanged. |
 | `MODEL-DATA-GOVERNANCE-P1` | Opt-in gameplay, teacher, synthetic and malformed provenance/license/consent/redaction fixtures | Only declared data enters a dataset; unknown/incompatible input is rejected and no protected bytes enter Git/package. |
 

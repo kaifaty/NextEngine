@@ -4,16 +4,25 @@
 |---|---|
 | ID | SPEC-14 |
 | Статус | Accepted |
-| Версия | 2.3 |
-| Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-14 2.2; aligns Agent fallback wording with ADR-056 without changing motor policy semantics |
+| Версия | 2.4 |
+| Последняя проверка | 2026-08-10 |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
+| Заменяет | SPEC-14 2.3; adopts ADR-057 BodySchema, hierarchy, policy-family and adaptation target while retaining procedural R5 fallback |
 
 ## Назначение и invariants
 
-Subsystem позволяет first-party и community authors добавлять новый creature archetype вместе с data-driven body, fallback controllers, pretrained motor policies, gameplay skills, AI habits и product-check fixtures без native engine code. Foundation/expert policy model является общей public boundary; hidden first-party physical API запрещён.
+Subsystem позволяет first-party и community authors добавлять новый creature
+archetype вместе с data-driven body, fallback controllers, learned motor
+policies, gameplay skills, AI habits и product-check fixtures без native engine
+code. Общая public boundary — versioned `BodySchema`, semantic motor commands,
+policy-family metadata и deterministic actuator/safety path, а не одна
+universal network. Hidden first-party physical API запрещён.
 
-Runtime training отсутствует. Neural weights immutable и content-addressed. Игровое изучение skill меняет RPG proficiency и разрешённый policy route, но не веса. V1 policy switch сохраняет body topology; polymorph, mounts, possession и human↔monster replacement находятся вне scope.
+Runtime training отсутствует. Neural weights immutable и content-addressed.
+Игровое изучение skill меняет RPG proficiency и разрешённый policy route, но
+не веса. V1 policy switch сохраняет body topology; topology transaction,
+polymorph, mounts, possession и human↔monster replacement не являются policy
+switch и имеют отдельный physical/content lifecycle.
 
 [SPEC-27](27-motor-observation-action-and-deterministic-inference.md) является
 единственным owner exact observation/action dtype, shape, unit, normalization,
@@ -41,7 +50,15 @@ animation graph или inference route.
 
 ## Public boundary и normative data flow
 
-Public contracts: `CreatureArchetypeManifest`, `PhysicalArchetypeBundle`, `MotorPolicyBundleManifest`, `PolicyCompatibilityKey`, `MotorSkillDefinition`, `SkillProficiency`, `MotorPerformanceEnvelope`, `MotorCapabilityView`, `PolicyActivationPlan`, `ActivePolicyRoute`, SPEC-27 `PolicyStateRecordV1`, `PolicyStateCommitV1` и support-check/run manifests.
+Public contracts: `CreatureArchetypeManifest`, `PhysicalArchetypeBundle`,
+semantic `BodySchema`, `BodyInstanceProjection`, `MotorPolicyBundleManifest`,
+`PolicyCompatibilityKey`, `MotorSkillDefinition`, `SkillProficiency`,
+`MotorPerformanceEnvelope`, `MotorCapabilityView`, `PolicyActivationPlan`,
+`ActivePolicyRoute`, SPEC-27 `PolicyStateRecordV1`, `PolicyStateCommitV1` и
+support-check/run manifests. Exact unconsumed `BodySchemaV1`,
+`BodyInstanceProjectionV1`, `MotorSkillCommandV1`, `ContactPlanV1`,
+`MotionReferenceHorizonV1` and `MotorAdaptationProfileV1` below are Proposed
+target shapes, not current registry entries.
 
 ```text
 authoring sources + model artifacts + provenance
@@ -79,8 +96,9 @@ or replay assertion in the current physical contract.
 
 `PhysicalArchetypeBundle` MUST содержать:
 
-- `PhysicalArchetypeId`, `MorphologyFamilyId`, body schema/revision/hash;
-- complete PhysicalBodyDescriptor, canonical units/frames и actuator profile;
+- `PhysicalArchetypeId`, `MorphologyFamilyId`, `BodySchema` revision/hash;
+- deterministic compiled SPEC-26 descriptor closure, canonical units/frames и
+  actuator profile derived from that exact `BodySchema`;
 - render skeleton mapping, collision/material assets и damage-region mapping;
 - LOD projections FullArticulation → SimplifiedActiveRagdoll → CapsuleAnimation → Abstract;
 - limb, grip, equipment и topology-mask capabilities;
@@ -89,6 +107,63 @@ or replay assertion in the current physical contract.
 - `PhysicalSupportLevel` (`Prototype` или `Supported`) и exact checked bundle revision.
 
 Reference `neutral.quadruped.v1` использует generated primitive visuals, articulated torso/head и четыре двухсегментные конечности. Tail и jaw articulation отсутствуют; bite contact принадлежит head damage/contact region. Fixture не использует Gothic-derived data.
+
+## `BodySchema` and instance projection
+
+`BodySchema` is the immutable semantic source from which physics articulation,
+motor tensor layout, cached morphology input, actuator/safety limits and
+save/replay compatibility are derived together. It is not a neural model and
+does not contain mutable physics state.
+
+The Proposed exact target shape is:
+
+```text
+BodySchemaV1 {
+  schema_id, schema_revision, coordinate_profile_hash,
+  body_nodes[], joint_edges[], actuators[], effectors[],
+  colliders[], attachment_slots[], symmetry_groups[], capabilities[],
+  schema_hash
+}
+```
+
+Every node, joint, actuator, effector and attachment has a stable
+schema-scoped namespaced ID independent of array position or backend handle.
+The primary articulation graph is acyclic. Runtime grabs, carried objects,
+equipment and cooperative loads create a bounded validated attachment/
+constraint overlay; they do not edit immutable source bytes.
+
+Static schema facts include mass/inertia/CoM, dimensions, rest frame, collider
+summary, semantic role, joint type/axes/limits, passive stiffness/damping,
+torque-speed-power envelope, nominal PD profile, break threshold, material and
+support/contact capability. Current pose, velocity, contact, impulse, joint
+state, saturation, fatigue, damage and attached load are dynamic projections.
+
+```text
+BodyInstanceProjectionV1 =
+    exact BodySchemaV1
+  + MorphologyParameters
+  + EquipmentOverlay
+  + StatsOverlay
+  + DamageOverlay
+  + FatigueState
+  + RuntimeAttachmentGraph
+```
+
+Every overlay carries owner revision/hash. RPG/Mechanics remain owner of
+stats, equipment, damage and fatigue; Physics remains owner of pose, contacts
+and active topology. Physical Embodiment compiles only the immutable effective
+mass/inertia/ROM/actuator/sensor projection and its hash. Changing an overlay
+never creates a parallel mutable authority.
+
+SPEC-26 owns exact physics descriptor/topology compilation. SPEC-27 owns exact
+observation/action/state layout. A topology transaction maps surviving
+elements by stable BodySchema IDs, increments the physical/topology revision
+and resets incompatible adaptation/generator/router state; it never guesses by
+array index or joint name.
+
+These semantic boundaries are Accepted through ADR-057. The candidate `V1`
+wire records above remain Proposed until the first R5 production consumer
+lands with schemas and ProductChecks under ADR-046.
 
 ## Product support levels
 
@@ -126,9 +201,60 @@ Canonical normalization вычисляет `normalized_raw = round_ties_to_even(
 
 Запуск expert вне declared body/equipment/topology/proficiency/training envelope запрещён. «Плохо владеет оружием» MUST быть намеренно измеренным novice behavior, не случайным OOD failure.
 
+### Proposed hierarchical skill interfaces
+
+Future consumer-backed `MotorSkillDefinitionV1` extends the existing semantic
+definition with an exact command schema, phase graph, contact template, cancel
+windows, fallback skills, motion source, proficiency/style curve, energy model
+and evaluation profile. It never embeds executable planner callbacks.
+
+```text
+MotorSkillCommandV1 {
+  command_epoch, skill_id, phase_id, style_and_proficiency,
+  locomotion_posture_or_object_goal, urgency,
+  cancel_mode, minimum_commit_ticks, safe_cancel_phases[], fallback_skill_id,
+  source_intent_revision, command_hash
+}
+
+ContactPlanV1 {
+  source_snapshot_and_query_roots,
+  ordered_targets[effector, surface, local point/normal,
+                  activation window, desired force range, allow_sliding],
+  plan_hash
+}
+
+MotionReferenceHorizonV1 {
+  source_command_and_contact_plan_hashes,
+  exact start tick and bounded 0.3..2.0 s profile,
+  root/keypoint/pose/contact/object trajectories,
+  phase and interruption metadata, horizon_hash
+}
+```
+
+Simple standing/velocity locomotion MAY bind command features directly to the
+low-level policy. Parkour, climbing, two-hand weapons, throwing/catching and
+other contact-rich skills SHOULD use an authored, motion-matching or learned
+reference horizon. All three records are proposals/references: only committed
+physics proves a contact, grasp, hit, traversal or recovery outcome.
+
+Normal cancel generates a declared transition horizon. Emergency cancel uses
+the bounded `stabilize → brace → safe fall → ragdoll → get-up` fallback chain.
+The exact target interfaces remain Proposed until a production skill consumes
+them.
+
 ## Foundation, experts и composition
 
-Foundation policy каждой morphology family MUST обеспечивать declared subset balance, locomotion, posture, reach/grip и recovery либо делегировать отсутствующее действие deterministic procedural controller. Skill route может иметь один из видов:
+Одна route обслуживает только bounded morphology/dynamics family and training
+envelope. Target family set is humanoid/biped, general legged, serpentine,
+aquatic, aerial, bounded modular and musculoskeletal research. A creature that
+walks and flies uses separate ground/flight policies plus explicit takeoff/
+landing transition experts. One humanoid+snake+fish+bird policy, arbitrary
+actuator vocabulary and zero-shot arbitrary topology are unsupported.
+
+Foundation policy близкой family SHOULD обеспечивать declared subset balance,
+locomotion, posture, reach/grip и recovery либо делегировать отсутствующее
+действие deterministic procedural controller. Skill route может иметь один из
+видов:
 
 | Route kind | Contract |
 |---|---|
@@ -136,55 +262,77 @@ Foundation policy каждой morphology family MUST обеспечивать d
 | `ResidualSkillAdapter` | bounded residual поверх foundation action для explicit joint mask; overlap с другим residual запрещён в v1 |
 | `ExclusiveExpert` | один full-body expert заменяет foundation action producer после safe handoff; foundation/recovery остаётся fallback |
 
-Одновременно может быть активен максимум один `ExclusiveExpert`. Arbitrary averaging, learned runtime routing, implicit priority и composition незнакомых outputs запрещены.
+Одновременно может быть активен максимум один engine-level `ExclusiveExpert`.
+Arbitrary averaging and composition of outputs from unrelated bundles,
+implicit joint ownership and hidden priority are forbidden. One bundle MAY
+implement internal MoE/expert routing, hysteresis or soft blend as a single
+bounded action producer when all router state that can affect future action is
+explicit in SPEC-27 state. Internal routing cannot grant a skill, bypass
+`PolicyResolver` or become gameplay authority.
 
 `MotorPolicyBundleManifest` MUST содержать:
 
-- PolicyId/version/model SHA-256, ONNX opset и required runtime features;
+- PolicyId/version/model SHA-256 and closed required runtime capabilities
+  without provider/device/library types; its outer semantics are evaluator-
+  neutral, while the exact consumer-backed replacement for the legacy
+  ONNX-opset field remains a Proposed `evaluator_format_profile_id` evolution;
 - model kind/route kind, morphology/body/topology/actuator compatibility;
-- observation/action/normalization schema hashes и control/inference rates;
+- `BodySchema` hash, morphology family/topology bucket and exact
+  observation/action/normalization/adaptation schema hashes plus
+  control/inference rates;
 - exact raw/normalized proficiency and observation `FixedPointDescriptorV1`, `AuthoritativeNumericProfileV1` hash и `NUMERIC-P1` boundary-vector hash;
 - supported skill/proficiency/equipment envelope;
 - joint mask и residual/action bounds, если применимо;
-- exact SPEC-27 state schema width `S`, включая `S = 0`, и versioned reset/handoff rules;
+- exact SPEC-27 state schema width `S`, including explicit adaptation,
+  generator and expert-router segments where present, and versioned
+  reset/handoff rules;
 - training simulator/build/config/dataset provenance и license disclosure;
 - golden corpus, runtime/training evaluation manifests, runtime cost и declared fallback.
 
-`PolicyCompatibilityKey` является canonical hash body revision, MorphologyFamilyId, topology mask, exact SPEC-27 observation/action/normalization/state schemas, actuator profile и runtime/training correspondence profile. Partial match запрещён. Inference batch order is exactly `(motor_tick, PersistentId, PolicyId)`; worker order, measured duration and cache/session identity are excluded.
+`PolicyCompatibilityKey` является canonical hash `BodySchema`/compiled body
+revision, MorphologyFamilyId, topology bucket/mask, exact SPEC-27 observation/
+action/normalization/adaptation/state schemas, actuator profile и runtime/
+training correspondence profile. Partial match запрещён. Inference batch order
+is exactly `(motor_tick, PersistentId, PolicyId)`; worker order, measured
+duration and cache/session identity are excluded.
 
-## Proposed Mamba-2 foundation profile (not Accepted baseline)
+## Proposed first humanoid and advanced learned profiles
 
-This subsection is governed by Proposed
-[ADR-055](adr/055-mamba2-physical-motion-foundation-profile.md). It records an
-evaluation profile only; it does not promote Mamba-2, change current wire
-schemas or make learned motion an R5/v1 requirement.
+ADR-057 replaces the former Mamba-2 foundation target. The first Proposed
+learned profile is deliberately small and does not change the procedural R5/v1
+requirement:
 
-- Mamba-2 is required only for the proposed learned universal foundation. A
-  residual adapter, exclusive expert and procedural fallback may use another
-  architecture or no model.
-- One reference-conditioned foundation covers the declared locomotion,
-  balance, transitions, hit reaction and recovery subset at an exact
-  manifest-bound 30–120 Hz rate.
-- The first admitted action profile outputs bounded joint position and velocity
-  targets. Engine-owned fixed PD gains plus torque/power/velocity/rate limits
-  remain authoritative. Adaptive gains require a separate gate; direct torque
-  is research-only through a separately evaluated `ExclusiveExpert` route.
-- A learned reference generator is a later upstream module, not a dependency
-  of the first required training/export chain.
-- Mamba convolution/SSM cache is mapped entirely into fixed-width segments of
-  SPEC-27 `PolicyStateSchemaV1`/`PolicyStateRecordV1`; evaluator-hidden cache is
-  forbidden.
-- Fused training kernels are allowed, but export must lower to one portable
-  fixed-shape standard-op ONNX step with explicit state and no custom Mamba op.
-  Trainer↔export↔runtime parity, perturbation/recovery/transition safety,
-  Windows/Linux performance and multi-seed comparison against GRU/procedural
-  baselines are required before promotion.
+- one fixed humanoid skeleton with approximately `20..30` controlled DoF;
+- feed-forward MLP with an initial target of approximately `1..3M` parameters;
+- exact `60 Hz` policy and `240 Hz` physics/actuator profile;
+- bounded residual joint-position targets relative to neutral/authored
+  reference, optional velocity target, fixed engine-owned PD gains;
+- standing, walk/run/backward/strafe/turn/crouch/crawl, slopes/stairs,
+  push recovery, ragdoll and get-up;
+- authored or motion-matching reference when useful and an independently
+  shipping animation/procedural fallback.
 
-The current Accepted `MotorPolicyBundleManifest` ONNX-opset bullet remains the
-wire contract. ADR-055 proposes a future vendor-neutral
-`evaluator_format_profile_id`, with portable ONNX as its first value, only for
-a later consumer-backed promotion. No supersession occurs while ADR-055 is
-`Proposed`.
+Direct torque, adaptive gains and muscle activations require separate profile,
+safety and ProductChecks. A learned reference generator is a later upstream
+module, not a prerequisite for this route.
+
+Known equipment/stats/damage/fatigue/actuator values enter the observation
+explicitly. Proposed `MotorAdaptationProfileV1` binds the exact recent
+observation→action→response history schema, update cadence, latent/state
+segments and reset/remap rules. TCN is the first fixed-window comparator and
+GRU the first recurrent comparator. Runtime gradients and hidden history are
+forbidden.
+
+Mamba MAY be benchmarked under equal parameter count, context length and
+latency for long-history adaptation, terrain/perception token streams, motion
+generation or temporal planning. It is not the default low-level controller
+and portable export alone cannot promote it.
+
+The first Proposed evaluator-format value is
+`portable-onnx-standard-ops`; ONNX Runtime is a private reference adapter.
+Trainer↔export↔Windows/Linux parity, perturbation/recovery/transition safety,
+resource bounds and multi-seed comparison against MLP/TCN/GRU/procedural
+baselines are required before any learned profile promotion.
 
 ## Deterministic route resolution
 
@@ -238,15 +386,51 @@ Skill может быть committed, пока route `PendingActivation`; в эт
 
 Reference axe fixture использует `SkillProficiency=0` и declared safe novice route. `LearnSkill` устанавливает exact raw value `6000`, после чего trained route активируется на первом canonical safe point, разрешённом logical `PolicyActivationPlan`; load wall time не выбирает этот tick. Damage/stamina modifiers выполняются отдельными Mechanics Runtime definitions и EffectRequests.
 
+## Progression, style and physical overlays
+
+Per-character durable state contains body/RPG stats, skill proficiency,
+style/school/personality parameters, current damage/fatigue and exact
+SPEC-27 policy state. It does not contain a private full neural policy.
+
+Novice/master differences are authored and evaluated through repertoire,
+contact timing, safety margin, interruption/recovery choice, energy efficiency
+and anticipation. They do not receive magic torque, lower physics frequency or
+untrained expert output. Strength/power/flexibility/endurance and equipment
+change effective actuator, ROM, energy, mass/inertia and CoM projection through
+their owning domains.
+
+Fatigue target has global energy plus bounded local joint/limb fatigue. Damage
+may reduce torque/power/velocity/ROM, lock/free an actuator, change latency,
+noise/sensory confidence and support capability. Known values are immediate
+explicit inputs and hard safety bounds; history adaptation handles only
+unknown/effective residual dynamics.
+
+Offline improvement MAY train a small hero/class/school adapter from immutable
+trajectories. It always creates a new content-addressed child bundle, passes
+old-skill retention, transition, safety and target parity checks and activates
+only through a new `ProjectLockV3` and session. Active bundle/save/world bytes
+are never edited or hot-swapped.
+
+Target implementation order after the first humanoid is: humanoid variations,
+equipment, injuries, weapon/manipulation skills, parkour/contact planning,
+general-legged family, then bounded cross-family research. These phases remain
+Proposed and add no current schema or completion claim until a production
+consumer exists.
+
 ## Persistence и replay
 
 Save segment MUST фиксировать creature/physical revisions, SkillProficiency,
 ActivePolicyRoute hash, transition state, source/candidate policy hashes,
 complete canonical SPEC-27 `PolicyStateRecordV1`, его exact
 `authoritative_state_hash` и допустивший запись `PolicyStateCommitV1` для каждой
-active policy route. Replay manifest дополнительно фиксирует exact model
-catalog/content hashes; route change является derived DomainEvent и
-сравнивается как oracle.
+active policy route. Exact adaptation, motion-generator and internal expert-
+router segments are part of that same record, never evaluator-private cache.
+Replay manifest дополнительно фиксирует exact model catalog/content hashes,
+canonical applied actions/state chain and required periodic physics snapshot
+roots; route change является derived DomainEvent и сравнивается как oracle.
+Authoritative replay consumes and validates the recorded canonical action/state
+chain rather than relying only on evaluator re-execution. Separate evaluator
+parity MUST reproduce the same canonical action/state for a `Supported` route.
 
 `S = 0` означает отсутствие `PolicyStateInput`/`PolicyStateOutput` tensors и
 durable recurrent vector, а не отсутствие owner record. Для feed-forward и
@@ -300,13 +484,29 @@ approval ceremonies are not motor architecture.
 Training flow:
 
 ```text
-body validation → procedural baseline → generated environment
-→ foundation curriculum → novice/skill expert curriculum
-→ holdout evaluation → runtime-backend correspondence
-→ ONNX export/parity → transition suite → runtime product checks
+body/schema + authored standing baseline
+→ licensed motion ingestion/retarget
+→ reference tracking → command locomotion → terrain
+→ robustness/recovery → motion prior/multi-skill
+→ dynamics adaptation → equipment/fatigue → damage
+→ manipulation/weapons → parkour
+→ cross-morphology family work → in-engine transfer
+→ portable export/parity → transition/retention/runtime checks
 ```
 
 Training algorithm является backend detail. PPO, SAC, imitation, motion priors или distillation MAY использоваться, если создают одинаковые normative artifacts и проходят product checks. Isaac Lab — `Proposed`; fallback — engine-owned headless physics lab.
+
+The first Proposed reference toolchain is Isaac Lab/PhysX + ProtoMotions +
+RSL-RL + PyTorch, followed by fixed-shape standard-op ONNX export and a private
+ONNX Runtime adapter. It is replaceable and never outranks canonical
+production `headless`. Every accelerated mirror passes descriptor/axis/
+actuator/contact correspondence and every candidate receives final in-engine
+evaluation.
+
+Motion data requires explicit intended-use license/provenance. Noncommercial,
+no-derivatives, unknown or incompatible training/distribution terms exclude
+the affected corpus from a commercial/distributable candidate. Dataset bytes,
+checkpoints, optimizer state and generated model output remain outside Git.
 
 [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md)
 is the Proposed common reset/step/trajectory/dataset/run/export data plane.
@@ -322,6 +522,15 @@ Distributed weights являются licensed package content. Raw datasets, unr
 
 - Missing/corrupt/incompatible model → reject before actuation; previous or declared recovery/procedural route.
 - Unsupported skill/equipment/topology/proficiency → novice fallback only if explicitly evaluated; otherwise `Unavailable`.
+- Cross-family/physical-regime or undeclared topology request → exact
+  `MOTOR_POLICY_FAMILY_MISMATCH`; no nearest-family or silent approximation,
+  only declared procedural/animation/recovery route.
+- Invalid `BodySchema` compilation, overlay revision or stable-ID remap →
+  reject before physical/tensor/safety publication and retain prior complete
+  projection/topology.
+- Hidden adaptation/generator/router history or runtime optimizer state →
+  reject the artifact/session before activation; no state is reconstructed from
+  arrival order.
 - Manifest-declared logical load deadline либо canonical load-fault signal → remain previous route; retry/circuit-break cadence задаётся bounded integer motor ticks, no motor tick stall.
 - Load/inference wall-watchdog trip → cancel uncommitted work, retain previous/safe route и mark exact run `Fail`; elapsed wall time не создаёт deterministic fallback или activation decision.
 - ShadowWarmup/action/state violation → discard candidate session/state, previous route unchanged.
@@ -344,7 +553,14 @@ Distributed weights являются licensed package content. Raw datasets, unr
 | SKILL-01 | one-handed axe, 1 000 held-out episodes per proficiency band | route result exact for all boundary vectors; novice valid-contact success 20–60%; trained ≥80%; trained median contact time ≥20% lower; 0 safety violations; damage changes only through `EffectRequest` | reject skill revision and retain novice route |
 | CREATURE-01 | neutral quadruped `Prototype` → `Supported` | stand/locomotion/recovery aggregate ≥90%; bite/lunge valid contact ≥75%; 0 hidden/native gameplay dependency; procedural fallback remains loadable | retain capsule/procedural `Prototype` |
 | BEHAVIOR-01 | habits/tactics with ai-host/adapter present and absent | 0 direct MotorAction/gameplay mutation from habits; all actions pass AgentIntent/WorldCommand; scenario outcomes exact offline | deterministic Utility + bounded GOAP/tactical profile |
-| TRAIN-P1 | pinned training backend export/deployment | ADR-009 thresholds; license/SBOM complete; export reproducible from pinned config except declared stochastic metrics | engine-owned headless physics lab |
+| TRAIN-P1 | pinned training backend export/deployment | ADR-057 profile thresholds; license/SBOM complete; export reproducible from pinned config except declared stochastic metrics | engine-owned headless physics lab |
 | TRAIN-MAC-P0 | generated deterministic 2-DoF development smoke | 4 fixed seeds; 8 envs ×256 steps; 1 000 observations; PyTorch/ONNX max abs error ≤`1e-5`; 0 NaN/Inf; ≤10 minutes on MPS or declared CPU fallback | CPU smoke; stop this training lane on export/parity failure |
+| BODY-SCHEMA-P1 (future) | BodySchema compilation, overlays and topology remap | exact physics/tensor/safety roots; no duplicate owner; every invalid/remap fault publishes nothing | retain prior topology/projection and procedural tier |
+| MOTOR-HUMANOID-MVP-P1 (future) | one million steps plus flat/terrain/push/fall/get-up profile | 0 NaN/Inf; flat survival ≥99%; declared terrain success ≥95%; velocity RMSE ≤0.20 m/s; heading error ≤7°; bounded slip and command resume after get-up | procedural/animation/ragdoll route |
+| MOTOR-ADAPTATION-P1 (future) | abrupt equipment/damage/friction/latency changes | explicit inputs apply immediately; bounded TCN/GRU history state improves declared metric without weight updates | explicit-only controller and recovery route |
+| MOTOR-RETENTION-P1 (future) | new specialist plus old-skill/transition/interruption corpus | new skill passes without declared old-skill or transition regression | retain parent bundle or separate expert |
+| MOTOR-REPLAY-P1 (future) | action/state/snapshot save/load/replay plus worker and Windows/Linux permutations | canonical applied action/full state/snapshot chain exact; independent evaluator parity reproduces it | reject learned artifact/profile and use procedural route |
 
 These checks define runtime and authoring behavior; they are not organizational approval.
+The five rows marked `future` remain `NOT_RUN(NO_PRODUCTION_CONSUMER)` and do
+not create an R5/v1 completion claim in this documentation-only change.

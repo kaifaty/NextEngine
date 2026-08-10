@@ -7,7 +7,7 @@
 | Версия | 1.2 |
 | Дата решения | 2026-07-23 |
 | Последняя проверка | 2026-07-25 |
-| Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
+| Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-057](057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
 | Заменяет | [ADR-004](004-physics-avatar-backend-boundary.md) |
 | Заменён | частично [ADR-030](030-product-first-development-and-lightweight-validation.md) |
 

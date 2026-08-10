@@ -7,7 +7,7 @@
 | Версия | 1.0 |
 | Дата решения | 2026-07-24 |
 | Последняя проверка | 2026-07-24 |
-| Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-013](013-self-contained-physical-avatar-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
+| Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-013](013-self-contained-physical-avatar-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-057](057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 
@@ -233,7 +233,7 @@ change, a separate ADR.
 
 ## Supersession
 
-ADR-027 complements ADR-009, ADR-013 and ADR-022 and does not supersede them.
+ADR-027 complements ADR-013, ADR-022 and ADR-057 and does not supersede them.
 Changing physics numeric authority, allowing motor/animation/presentation to
 write active physical pose, or allowing raw tolerance to decide gameplay
 requires a new Accepted ADR with explicit supersession and synchronized

@@ -4,16 +4,22 @@
 |---|---|
 | ID | SPEC-05 |
 | Статус | Accepted |
-| Версия | 2.2 |
-| Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-009](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-033](adr/033-physx-grounded-capsule-parity-ffi-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-05 2.1; marks the unimplemented residency-tier input as future R4b while retaining physical LOD ownership |
+| Версия | 2.3 |
+| Последняя проверка | 2026-08-10 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-033](adr/033-physx-grounded-capsule-parity-ffi-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
+| Заменяет | SPEC-05 2.2; adopts ADR-057 hierarchy, BodySchema compiler boundary and first learned humanoid profile without changing procedural R5 scope |
 
 ## Source of truth и ownership
 
 Для physical LOD `FullArticulation` и `SimplifiedActiveRagdoll` Physical Embodiment physics world владеет engine-owned body pose, velocities, contacts, constraints и canonical snapshot; replaceable PhysicsBackend является private compute adapter, а не source of truth. Для `CapsuleAnimation` validated controller владеет collision transform, animation graph — visual local pose. Physical `Abstract` не является будущим `WorldResidencyTier`: после отдельного R4b promotion World Services будет владеть durable population tier/logical region/activity, а RPG Framework — aggregate outcomes. Сейчас ADR-046 не допускает current population-tier API. Renderer всегда читает immutable presentation projection. Ни backend, World Services, animation, AI, gameplay script, importer, renderer, UI/camera, ни LLM не могут напрямую записать active physics authority.
 
-Physical Embodiment владеет backend-neutral descriptors, physics stepping, motor observation/action, policy safety/resolution/supervision, topology transactions, animation bridge, LOD coordinator и physical support checks. RPG skill proficiency и Agent habits остаются за пределами этого ownership.
+Physical Embodiment владеет semantic `BodySchema` compilation,
+backend-neutral descriptors, physics stepping, motor observation/action,
+policy safety/resolution/supervision, topology transactions, animation bridge,
+LOD coordinator и physical support checks. RPG skill proficiency и Agent
+habits остаются за пределами этого ownership. Equipment/stats/damage/fatigue
+sources remain with their owning RPG/Mechanics domains; Physical Embodiment
+consumes only an immutable revision-bound effective projection.
 
 Boundary является self-contained по ADR-013: внешние research документы не задают requirements, phases, public types или support semantics. Frozen annex сохраняется только как ненормативная provenance; PhysX/Jolt/Bullet остаются отдельными `Proposed` technology hypotheses за одним contract.
 
@@ -25,7 +31,8 @@ Boundary является self-contained по ADR-013: внешние research �
 
 | Contract | Обязательные поля/semantics |
 |---|---|
-| `PhysicalBodyDescriptor` | PersistentId, parent relation, mass/inertia, collision geometry AssetId, material tags, canonical frame/axis, limits, actuator bounds |
+| `BodySchema` / `BodyInstanceProjection` | immutable semantic body graph plus exact revision-bound effective morphology/equipment/stats/damage/fatigue projection; exact unconsumed V1 wire shapes remain Proposed |
+| `PhysicalBodyDescriptor` | deterministic SPEC-26 projection of BodySchema: PersistentId, parent relation, mass/inertia, collision geometry AssetId, material tags, canonical frame/axis, limits, actuator bounds |
 | `PhysicalAvatarIntent` | intent ID, issuer, start/expiry tick, desired locomotion velocity/facing/posture/manipulation target, priority, safety constraints |
 | `MotorObservation` | schema/model version, normalized root/joint state, target features, contacts/support/terrain features, previous action, masks |
 | `MotorAction` | schema/model version, joint targets/torques/controller gains, confidence/validity flags |
@@ -39,16 +46,37 @@ Units/right-handed axes соответствуют SPEC-03. Vendor enumerations 
 
 ## Physics step и data flow
 
-1. Gameplay/tactical layer публикует bounded PhysicalAvatarIntent.
+1. Gameplay/tactical layer публикует bounded `PhysicalAvatarIntent`.
 2. LOD coordinator выбирает tier только на permitted transition point.
-3. PolicySupervisor предоставляет committed compatible route; Observation builder читает current physics state и immutable allowed context.
-4. Motor controller (heuristic, foundation/skill policy либо recovery fallback) создаёт MotorAction без blocking I/O.
-5. Safety layer проверяет finite values, schema/model hash, action age, joint/torque/rate/energy limits и contact guards; invalid action заменяется safe hold/recovery action.
-6. PhysicsBackend выполняет CPU substep и выдаёт raw contacts/state; adapter сначала строит `QuantizedPhysicsProjectionV1` по `PhysicsQuantizationProfileV1` [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), затем нормализует scene-query/contact records и сортирует contacts по определённому ниже полному canonical total key. Backend callback, worker completion, native handle, raw float bit pattern и manifold insertion order не участвуют в public ordering.
-7. Outcome resolver использует contact continuity для suppress repeated-hit/resting-contact exploits и предлагает `Outcome` WorldCommand для общего stage-9 validator [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md); контакт сам не меняет health/quest, а backend callback не коммитит gameplay.
-8. Pose bridge публикует RenderPose, telemetry и replay hash.
+3. Skill Orchestrator resolves skill phase/style/interruption; deterministic
+   Contact/Affordance Planner MAY publish a bounded contact plan.
+4. Simple locomotion feeds semantic command features directly. Contact-rich
+   skills MAY add an authored, motion-matching or learned pose/keypoint/contact/
+   object horizon; neither path writes physical state.
+5. PolicySupervisor предоставляет committed compatible family route;
+   Observation builder reads current physics, exact BodyInstance projection,
+   allowed context and compact explicit adaptation state.
+6. Low-level motor controller (procedural, learned policy or recovery fallback)
+   creates one complete actuator-target `MotorAction` without blocking I/O.
+7. Safety/actuator layer checks finite values, schema/model/body/topology/state
+   hashes, action age, joint/rate/torque-speed-power/energy/contact/grip limits
+   and applies deterministic fixed PD/SPD where selected.
+8. PhysicsBackend выполняет CPU substep и выдаёт raw contacts/state; adapter сначала строит `QuantizedPhysicsProjectionV1` по `PhysicsQuantizationProfileV1` [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), затем нормализует scene-query/contact records и сортирует contacts по определённому ниже полному canonical total key. Backend callback, worker completion, native handle, raw float bit pattern и manifold insertion order не участвуют в public ordering.
+9. Outcome resolver использует contact continuity для suppress repeated-hit/resting-contact exploits и предлагает `Outcome` WorldCommand для общего stage-9 validator [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md); контакт сам не меняет health/quest, а backend callback не коммитит gameplay.
+10. Pose bridge публикует RenderPose, telemetry и replay hash.
 
-LLM, `ai-host`, network и filesystem запрещены на шагах 3–7. Default profile использует 120 Hz physics и 60 Hz motor inference; PD/safety layer применяет последний принятый MotorAction на промежуточном physics substep. ONNX Runtime CPU provider — `Proposed` для small in-process policy. Reference performance oracle: p99 ≤0.5 ms/avatar/inference или ≤2 ms для batch из 16 vertical policies. Wall-clock duration, worker completion order и measured CPU load MUST NOT выбирать authoritative MotorAction. Только manifest-declared logical motor tick либо canonical injected fault signal может объявить action unavailable: тогда safety layer удерживает last-safe action не дольше двух motor intervals и на следующей declared boundary включает recovery controller. Wall watchdog MAY остановить зависший evaluator и защитно включить safe controller только после маркировки exact run как `Fail(MOTOR_WALL_DEADLINE_NONCONFORMING)`; такой trace не может пройти replay, PHYS или MOTOR check.
+LLM, `ai-host`, network и filesystem запрещены на шагах 3–9. Current
+procedural reference profile remains 120 Hz physics and 60 Hz motor. The first
+Proposed learned humanoid profile uses 240 Hz physics/actuator and 60 Hz MLP
+inference with residual joint-position targets and fixed engine PD; it is not
+a v1 requirement. The PD/safety layer applies the last accepted action on
+intermediate substeps. Portable standard-op ONNX with a private ONNX Runtime
+adapter is Proposed. Reference performance oracle remains p99 ≤0.5
+ms/avatar/inference or ≤2 ms for a batch of 16. Wall-clock duration, worker
+completion order and measured CPU load MUST NOT choose authoritative
+MotorAction. Only manifest-declared logical motor tick or canonical injected
+fault may declare action unavailable; bounded hold/recovery semantics remain
+SPEC-27 authority.
 
 ## Backend и runtime/training parity
 
@@ -62,7 +90,12 @@ ADR-033 добавляет более узкий реализованный expe
 до activation. После создания мира backend fatal/mismatch abort-ит staging и
 не разрешает mid-tick switch либо silent approximation.
 
-Export pipeline MUST записывать model SHA-256, ONNX opset, input/output schema hashes, normalization constants, training simulator/build/config и golden observation/action corpus. Runtime отказывается загружать mismatch/non-finite/unsupported model и включает deterministic controller fallback.
+Export pipeline MUST записывать model SHA-256, evaluator-format profile,
+closed capabilities/operators, input/output/state schema hashes, normalization,
+training simulator/build/config and golden observation/action/state corpus. The
+first Proposed profile is portable fixed-shape standard-op ONNX; ONNX Runtime
+is a private adapter. Runtime rejects mismatch/non-finite/unsupported model and
+uses the deterministic controller fallback.
 
 ## Deterministic numeric boundary
 
@@ -76,7 +109,28 @@ Adapter сначала упорядочивает участников contact �
 
 ## Policy lifecycle specialization
 
-Game-time learning не изменяет model bytes. PolicyResolver и PolicySupervisor SPEC-14 выбирают immutable foundation/skill route по body, equipment, proficiency, topology mask и intent. Switch выполняется только на motor-tick safe point, никогда не копирует physics pose и не совмещается с topology/LOD transaction. До atomic commit previous route остаётся единственным actuator source.
+Game-time learning не изменяет model bytes. PolicyResolver и PolicySupervisor
+SPEC-14 выбирают immutable family/skill route по exact `BodySchema`/effective
+projection, equipment, proficiency, topology mask and intent. Humanoid/biped,
+general-legged, serpentine, aquatic, aerial, modular and musculoskeletal
+profiles are separate families; cross-regime fallback is never inferred.
+Switch выполняется только на motor-tick safe point, никогда не копирует physics
+pose и не совмещается с topology/LOD transaction. До atomic commit previous
+route остаётся единственным actuator source.
+
+Known physical parameters enter observation explicitly. Optional fast
+adaptation reads only the declared recent action-response history and stores
+its complete bounded state in SPEC-27 records; runtime gradients, hidden
+evaluator history and optimizer state are forbidden. MLP is the first Proposed
+low-level humanoid comparator, TCN/GRU the first adaptation comparators. Mamba
+is an optional equal-budget experiment for longer history/generation/planning,
+not a default foundation.
+
+A Supported learned route produces identical canonical applied action and full
+policy state across shipping targets. Replay stores and validates that action/
+state chain plus required physics snapshots and does not rely only on evaluator
+re-execution. Re-evaluation is a separate parity ProductCheck and must reach
+the same canonical result.
 
 ## Animation bridge
 

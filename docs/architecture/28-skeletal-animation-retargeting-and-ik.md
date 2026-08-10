@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-28 |
 | Статус | Accepted |
-| Версия | 1.4 |
-| Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
-| Заменяет | SPEC-28 1.3; clarifies that residency-tier coupling remains future R4b intent |
+| Версия | 1.5 |
+| Последняя проверка | 2026-08-10 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
+| Заменяет | SPEC-28 1.4; adds the ADR-057 authored/motion-matching/learned reference-horizon and velocity-aware hybrid transition target |
 
 ## История принятия
 
@@ -279,6 +279,49 @@ subject/graph order. A wall-time miss fails the relevant ANIM/PERF check and
 cannot choose a different root intent, physical constraint or authoritative
 outcome in the measured run.
 
+### Motion reference horizon and hybrid physical tracking
+
+ADR-057 separates upstream motion/reference generation from low-level physical
+tracking. Standing, velocity locomotion, ordinary turns/crouch, simple terrain
+and bounded push recovery MAY feed semantic command features directly to the
+motor policy. Parkour, climbing, coordinated manipulation, weapon/object
+trajectories and other contact-rich skills SHOULD use a bounded reference
+horizon.
+
+The Proposed consumer-backed target is `MotionReferenceHorizonV1` owned by
+Physical Embodiment and produced by exactly one declared source:
+
+- authored clip/animation graph;
+- deterministic motion matching;
+- deterministic procedural generator;
+- optional learned generator behind an explicit state/artifact profile.
+
+It binds source command/contact-plan/body/skeleton revisions, exact start tick,
+bounded `0.3..2.0 s` profile, ordered root/keypoint/pose/contact/object
+trajectories, phase/style and interruption metadata. It is a motor reference,
+not pose/contact authority. Learned generator state lives in SPEC-27
+`PolicyStateRecordV1`; hidden cache and presentation feedback are forbidden.
+
+The preferred hybrid production pattern is:
+
+```text
+authored motion matching or optional generator
+  → MotionReferenceHorizon
+  → learned/procedural residual physical tracker
+  → fixed PD/SPD and hard actuator limits
+  → Physics
+```
+
+Animation→physics transition transfers the exact pose, body/joint velocities,
+root momentum, current contacts, motion phase and previous action/state needed
+by the locked profile. Physics→animation motion matching uses the committed
+physical pose and momentum. Snap, kinematic root teleport and reconstruction
+from renderer pose are forbidden. Invalid handoff retains the source mode and
+uses its declared transition/recovery fallback.
+
+The semantic split is Accepted; exact `MotionReferenceHorizonV1` wire shape and
+learned generator profile remain Proposed until a production consumer exists.
+
 ### `AnimationIntentStateV1` and presentation state
 
 `AnimationIntentStateV1` is the bounded Physical Embodiment-owned state needed
@@ -546,6 +589,10 @@ ProductCheck ниже ещё не реализованы и остаются gat
 | `ANIM-RETARGET-P1` | all declared skeleton pairs and 10 000 rule/order/worker permutations | exact mapping/local pose or exact rejection; all signature, cycle, duplicate-target, missing-required and bounds faults reject; presentation variation changes zero gameplay roots | use exact authored profile; otherwise optional bind pose or block required reference |
 | `ANIM-IK-P1` | 10 000 physical/presentation IK chain/order/target/LOD permutations | fixed iteration/order and exact constraint/presentation roots; presentation IK changes zero command/contact/outcome/gameplay roots; physical IK never bypasses safety | reject physical constraint set and use safe motor behavior; independently disable presentation IK |
 | `ANIM-LOD-P1` | 10 000 LOD/cadence/resource/fault transitions and optional pinned developer capture | one complete snapshot or none; due intent work never skipped; authoritative roots unchanged by camera/render/cache variation; captured roots are reproducible when requested | pin safe evaluation level; use held/bind/cull presentation fallback |
+| `ANIM-HYBRID-P1` (future) | authored/motion-matching horizon and 10 000 animation↔physics handoffs across velocity/contact/fault states | exact reference/action roots; bounded pose/momentum continuity; no snap, root teleport or presentation feedback | retain source mode and use declared transition/recovery fallback |
+
+`ANIM-HYBRID-P1` remains `NOT_RUN(NO_PRODUCTION_CONSUMER)` until the R5
+physical-tracking consumer exists.
 
 ## Requirements
 

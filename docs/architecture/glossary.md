@@ -4,10 +4,10 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 3.1 |
-| Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | INDEX-001, [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) |
-| Заменяет | GLOSSARY-001 3.0; adds deterministic Strategic Agent terminology |
+| Версия | 3.2 |
+| Последняя проверка | 2026-08-10 |
+| Нормативные зависимости | INDEX-001, [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
+| Заменяет | GLOSSARY-001 3.1; adds hierarchical learnable Motor System terminology |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -71,6 +71,12 @@
 | **Speech Act** | Bounded semantic NPC/player communication proposal с participants, topic/claim, provenance, confidence и expiry; generated wording не является gameplay authority. |
 | **Decision Trace** | Bounded immutable non-authoritative diagnostic goal scores, cited beliefs, selected plan, task outcome и replan reason для одного Strategic Agent boundary. |
 | **PhysicalAvatarIntent** | Ограниченный по времени запрос locomotion/posture/manipulation к motor controller; не задаёт physics pose напрямую. |
+| **BodySchema** | Immutable versioned semantic body graph со stable schema-scoped body/joint/actuator/effector/attachment identities; из одной exact revision выводятся physics descriptors, motor layouts, morphology input, safety limits и replay compatibility. Не содержит current pose или mutable overlays. |
+| **BodyInstanceProjection** | Immutable revision-bound effective projection exact BodySchema plus morphology/equipment/stats/damage/fatigue/attachment owners; Physical Embodiment компилирует mass/inertia/ROM/actuator/sensor facts, но не получает ownership исходных mutable fields. |
+| **MotorSkillCommand** | Bounded planner-facing skill/phase/style/cancel/fallback command между PhysicalAvatarIntent и low-level policy; не содержит raw joint actuation и не доказывает outcome. Exact unconsumed V1 shape remains Proposed. |
+| **ContactPlan** | Revision-bound ordered desired effectors, surfaces, target frames, activation windows and force/sliding envelopes; это reference/proposal, а committed Physics остаётся единственным доказательством контакта. Exact unconsumed V1 shape remains Proposed. |
+| **MotionReferenceHorizon** | Bounded root/keypoint/pose/contact/object reference horizon from authored motion, motion matching, procedural or optional learned generator; feeds motor tracking and never owns physical pose. Exact unconsumed V1 shape remains Proposed. |
+| **MotorAdaptationProfile** | Explicit bounded action-response history schema, cadence, state/latent segment and reset/remap rules for no-gradient dynamics adaptation; known engine parameters remain direct observation inputs. Exact unconsumed V1 shape remains Proposed. |
 | **MotorObservation** | Versioned numeric observation, вычисленная из physics state и разрешённого gameplay context. |
 | **MotorAction** | Ограниченный versioned набор joint targets/torques или controller parameters, прошедший safety clamp. |
 | **MotorObservationSchemaV1** | Exact engine-owned observation tensor dtype/rank/shape/feature order/unit/normalization contract bound to a policy route. |
@@ -88,14 +94,14 @@
 | **RenderPose** | Read-only presentation pose, построенная из authoritative physics pose либо animation pose согласно physics LOD. |
 | **Physics LOD** | Разрешённый уровень embodied simulation: full articulation, simplified active ragdoll, capsule/animation или abstract simulation. |
 | **CreatureArchetypeManifest** | Public immutable manifest, связывающий generic Character, physical archetype, AgentArchetypeDefinition, mechanic packages, provenance и validation metadata без package-specific runtime type. |
-| **PhysicalArchetypeBundle** | Cooked body/LOD/capability/policy package одной physical morphology revision с exact descriptors, fallbacks и validation references. |
+| **PhysicalArchetypeBundle** | Cooked BodySchema/compiled descriptor/LOD/capability/policy package одной physical morphology revision с exact fallbacks и validation references. |
 | **MorphologyFamilyId** | Stable namespaced ID семейства совместимых body/motor representations; не означает совместимость без exact PolicyCompatibilityKey. |
 | **MotorSkillId** | Stable namespaced ID физически исполняемого навыка, независимый от конкретной model revision. |
 | **SkillProficiency** | RPG-owned unsigned fixed-point `u16` 0…10 000, сериализуемый уровень владения skill; не neural weight. |
 | **MotorPerformanceEnvelope** | Измеримые distribution-level bounds physical skill по точности, контактам, времени, энергии, балансу, recovery и safety. |
 | **MotorCapabilityView** | Read-only planner/mechanics view состояния skill route: `Unavailable`, `NoviceFallback`, `PendingActivation` или `Active`. |
-| **MotorPolicyBundleManifest** | Immutable manifest model bytes, schemas, compatibility, skill envelope, state, runtime cost, provenance, evaluation и fallback. |
-| **PolicyCompatibilityKey** | Canonical hash body revision, morphology family, topology mask, observation/action/normalization schemas, actuator profile и runtime/training correspondence profile. |
+| **MotorPolicyBundleManifest** | Immutable evaluator-format-neutral manifest model bytes, schemas, family/topology envelope, explicit state, runtime cost, provenance, evaluation и fallback; provider/device/library types excluded. |
+| **PolicyCompatibilityKey** | Canonical hash BodySchema/compiled revision, morphology family, topology bucket/mask, observation/action/normalization/adaptation/state schemas, actuator profile и runtime/training correspondence profile. |
 | **PolicyActivationPlan** | Deterministic resolver result с candidate/previous/fallback routes и preconditions для PolicySupervisor; сам не активирует model. |
 | **ActivePolicyRoute** | Motor Runtime-owned committed route, являющийся единственным neural/procedural producer source для разрешённой composition. |
 | **PolicyState** | Versioned bounded recurrent state policy с canonical serialization и explicit reset/handoff semantics. |
