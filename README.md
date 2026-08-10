@@ -1,523 +1,130 @@
 # Next Engine
 
-**Открытый AI-first движок и набор инструментов для системных одиночных RPG.**
+**An open-source, AI-first engine and toolchain for systemic single-player RPGs.**
 
-Next Engine создаётся для игр, в которых движение, бой, диалоги, квесты,
-персонажи и изменения мира работают как части одной системы. Игровые решения
-должны оставлять устойчивые последствия, мир — корректно сохраняться и
-воспроизводиться, а AI — обогащать игру, не становясь условием её
-работоспособности.
+Next Engine is built for games where characters, quests, factions, combat,
+dialogue, and the world itself behave as parts of one persistent system.
+Player choices should leave durable consequences, autonomous characters should
+act for understandable reasons, and creators should be able to extend the game
+without modifying the engine.
 
-> **Статус:** ранний bootstrap. В репозитории уже работает детерминированный
-> headless-срез с вводом, командами, RPG-состоянием, эталонной физикой,
-> сохранением и replay, а neutral fixture проходит deterministic
-> validate/cook/publish/activation и снабжает gameplay root authored
-> dialogue/quest/relationship definitions. Portable `game` root извлекает
-> immutable presentation snapshot с exact mesh/material revisions и проходит
-> B0 reference renderer. Minimal render-content implementation уже включает
-> neutral mesh/material/texture/profile records, deterministic cook/activation,
-> checked-in offline SPIR-V, CPU visible list, Vulkan indexed-indirect draw и
-> declared fallback material. Локальный Windows increment player action/camera
-> завершён со статусом `DONE_LOCAL_WINDOWS`; реализация добавляет общий для
-> live `game` и headless scenario
-> `ActionMapManifestV1`/`InputContextStackV1` resolver, authoritative
-> `ClosestPoint` targeting по exact physics snapshot и `ReplayManifestV5`
-> provenance. Typed integer/fixed-point third-person camera использует
-> millidegree/micrometre state и deterministic integer CORDIC. Interactive loop
-> создаёт complete in-memory `PresentationSnapshotV2` на каждой 30 Hz
-> fixed-step boundary с bounded catch-up; renderer при любой cadence повторяет
-> последний complete snapshot. Durable same-session checkpoint создаётся на
-> tick `0`, затем каждые `30` ticks и forced atomically на suspend/close. Crash
-> может вернуть не более `29` последних in-memory ticks; resume не выполняет
-> wall-time catch-up. Lifecycle retry exact, publication fault откатывает
-> in-memory/durable state, а session store удерживает current+previous
-> generations. Приватный Vulkan B0 преобразует camera state в float
-> view-projection/depth, не делая его gameplay authority. SDL3/ash adapter
-> остаётся `Proposed`. Windows checkpoint подтверждён локальными
-> `host-check`, `play`, `persistence-replay`, `content-package`, `platform`,
-> `performance`, `v1-closure` и fresh-output `v1-package`; `v1-closure` честно
-> оставляет Linux target в `NOT_RUN`, поэтому это не R2, shipping или
-> cross-target completion. Следующий Windows package — Semantic UI (`NEXT`),
-> а накопленные Linux-действия выполняются позже асинхронно.
-> Первый data-only
-> combat package уже проходит общий capability/effect/RPG transaction path.
-> Двухчанковый
-> deterministic streaming с отдельным save owner segment и первый
-> deterministic NPC planner/procedural avatar fallback работают в cooked
-> slice; deterministic Luau package host уже проходит sandbox/budget/state
-> checks. Wasm Component host на pinned Wasmtime проходит N/N−1 negotiation,
-> fuel/memory/capability/state checks и сохраняет обязательный headless
-> fallback. Локальная v1 closure matrix связывает exact project/content/
-> mechanics/extension roots. Native gate harness уже сохраняет target reports
-> и сравнивает их roots, но same-commit Windows/Linux pair ещё не получена,
-> поэтому `native_gate_ready` пока не выставлен. Текущая разработка идёт
-> Windows-first; отложенные native Linux действия накапливаются в
-> [Linux validation backlog](docs/development/linux-validation-backlog.md).
-> Название Next Engine временное.
+AI-first does not mean online-only. The core game must remain deterministic,
+playable, and correct without a network connection, an LLM, or an external AI
+service. Models can enrich the experience when available; declared in-process
+fallbacks keep the game working when they are not.
 
-Next Engine — самостоятельный проект. Это не порт OpenGothic и не универсальный
-движок для любых жанров.
+> **Project status:** Next Engine is in active pre-1.0 development. A playable
+> Windows reference alpha and its deterministic headless counterpart work
+> locally. Native Linux closure, hard release performance evidence, the public
+> creator workflow, and the v1 release are not complete. See the
+> [roadmap](docs/roadmap.md) for the current stage and open blockers.
 
-## Для каких игр создаётся Next Engine
+Next Engine is an independent project. It is not an OpenGothic port and it is
+not intended to be a general-purpose engine for every genre. The name is
+provisional.
 
-Продукт сфокусирован на системных одиночных RPG: играх, где персонажи,
-предметы, фракции, диалоги, квесты, интерактивные объекты и население мира
-подчиняются согласованным правилам, а не существуют как набор изолированных
-скриптов.
+## The game we want to enable
 
-В основе продукта лежат пять идей:
+Next Engine focuses on systemic RPGs: worlds where rules are shared instead of
+being rebuilt as one-off scripts for every quest or character.
 
-- **Играбельность важнее инфраструктурной церемонии.** Короткий путь от
-  изменения к работающему игровому циклу — главный приоритет разработки.
-- **Мир помнит действия игрока.** Изменения состояния атомарны, сохранения
-  версионируются, а replay позволяет воспроизвести внешние команды и найти
-  первую причину расхождения.
-- **AI усиливает игру, но не владеет ею.** Агентный AI, модели движения, LLM,
-  ASR и TTS подключаются через ограниченные контракты. Без сети, модели или
-  отдельного `ai-host` обязательный игровой цикл продолжает работать через
-  детерминированный fallback.
-- **Модификации — часть продукта, а не надстройка.** Собственные механики
-  движка и пакеты сообщества должны использовать один публичный SDK, одни
-  проверки полномочий и один путь изменения мира.
-- **Физическое воплощение персонажа отделено от его RPG-роли.** Архитектура
-  связывает generic Character, физический архетип, навыки движения и AI, не
-  превращая конкретную модель, physics backend или ECS в публичный контракт.
+- **A world that remembers.** Actions are committed atomically, saved in
+  versioned state, and can be replayed to reproduce what happened.
+- **Characters with agency.** NPCs can perceive, remember, plan, and act through
+  the same world rules as the player, with deterministic behavior available
+  offline.
+- **AI with boundaries.** LLMs and learned policies may propose or improve
+  behavior, but they never become the sole authority over gameplay state.
+- **Extensions as a product feature.** First-party mechanics and community
+  packages follow the same public APIs, capability checks, and validation path.
+- **Physical characters without lock-in.** RPG identity, physical embodiment,
+  animation, and motor control remain separate so that one model or backend
+  does not define the game.
+- **Playable progress first.** Every major increment must make the reference
+  project richer, more reliable, or easier to create—not merely add
+  infrastructure.
 
-## Целевая планка v1
+## What is playable today
 
-V1 должна дать разработчику возможность:
+The current reference project, **Frontier Relay**, is a compact product slice.
+On the validated Windows path, a player can:
 
-1. запустить один подготовленный проект на Windows x86_64 и Linux x86_64;
-2. пройти связанный цикл движения, взаимодействия, боя, диалога и квеста;
-3. сохранять мир, продолжать игру после загрузки и воспроизводить записанный
-   поток команд;
-4. запускать тот же authoritative runtime интерактивно и без renderer через
-   deterministic `headless`;
-5. добавлять контент и механики пакетами на data-only, Luau и Wasm уровнях;
-6. использовать физических персонажей и опциональные learned motor policies с
-   процедурным fallback;
-7. разрабатывать, проверять и инспектировать neutral content локальными
-   инструментами;
-8. запускать обязательный игровой цикл offline — без LLM, сети и внешнего
-   AI-процесса.
+- explore a streamed multi-region world;
+- pick up and equip an item, fight an enemy, interact with an NPC, and complete
+  a dialogue-driven quest;
+- use the HUD, inventory, journal, pause, save, and load flows;
+- continue from saved state while the engine preserves authoritative world
+  history;
+- run the same gameplay path without a renderer for deterministic validation
+  and replay.
 
-Полноценный редактор, мультиплеер, консоли, мобильные платформы,
-runtime-обучение моделей и
-обязательная поставка Gothic importer не входят в v1.
+The slice also exercises data-driven content, Luau and WebAssembly extension
+paths, baseline audio and subtitles, controller fallback, and packaged world
+streaming. It is a development alpha, not a finished game or a public v1 SDK.
 
-## Что уже работает
+## Direction to v1
 
-Текущий bootstrap реализует фундамент, на котором можно наращивать игровой
-цикл:
+The v1 goal is a small but complete foundation for building and shipping a
+systemic RPG:
 
-- Rust workspace с закреплённым toolchain `1.93.0` и
-  `unsafe_code = "forbid"`;
-- engine-owned идентификаторы, канонические команды и события, command ledger,
-  immutable snapshots и versioned manifests;
-- production-путь от normalized keyboard/mouse controls через общий
-  `ActionMapManifestV1`/`InputContextStackV1` resolver и
-  device-independent `PlayerActionFrameV1` до persisted current/next ingress
-  assignment, проверенной команды и фиксированного simulation tick; live
-  `game` и headless scenario используют один resolver;
-- транзакционный RPG-срез для диалога и квеста, отношений, передачи предметов,
-  изучения навыков и состояния интерактивных объектов;
-- целочисленный reference-контроллер grounded capsule, статические Box
-  colliders и непрерывность контактов `Begin/Persist/End`;
-- optional экспериментальный PhysX 5.9.0 backend для того же
-  grounded-capsule сценария за safe engine-owned boundary; reference остаётся
-  default и oracle;
-- authoritative interaction targeting: assigned semantic action
-  реконструирует B0 `ClosestPoint` query из persisted ingress assignment,
-  профиля и exact authoritative physics snapshot, а выбранный affordance
-  меняет RPG-состояние только через Outcome `WorldCommand`; camera/render
-  данные не участвуют в выборе;
-- authoritative-query pickup и equipment: `pickup` выбирает предмет exact B0
-  query, после чего отдельные `Inventory` и `Equipment` aggregates атомарно
-  принимают его, переводят proxy в collected state и назначают main-hand slot;
-- bounded NPC interaction: тот же semantic `interact` выбирает authored
-  quest-giver через exact B0 query, атомарно переводит dialogue и quest и
-  обновляет отношение NPC→player через Outcome `WorldCommand`;
-- canonical project/schema/content/world manifests, deterministic exact
-  resolver и CC0 neutral fixture из scene, collider и RPG definition records;
-  cooker публикует content-addressed generation атомарно, а production loader
-  повторно проверяет lock, hashes, schema/reference closure и blobs;
-- content-authored dialogue, quest, relationship и interaction definitions,
-  собранные в обычный data-only package с exact mechanics lock и capability
-  grants; `headless --project <store> --lock <hash>` запускает тот же
-  authoritative сценарий из production activation path без `ai-host`;
-- content-authored melee ability в ordinary package
-  `org.nextengine.core.combat`: equipped training item публикует
-  planner-visible affordance, immutable contact-bound `EffectRequestV1`
-  компилируется в `AdjustCharacterResource`, а health commit проходит через
-  тот же `RpgCommandV1` и capability grants, что доступны community packages;
-- общий `game`/`headless` activation path с exact project lock и совпадающими
-  authoritative state/ledger roots; `game` публикует immutable
-  `PresentationSnapshotV2`, где floor, capsule, switch, item и NPC ссылаются на
-  exact mesh/material revisions и presentation bounds;
-- engine-owned neutral mesh/material/texture records и один B0 profile
-  собираются в canonical render-content catalog; cooker публикует проверяемые
-  catalog и derived meshlet payloads, а activation отклоняет missing, corrupt
-  или extra render artifacts до запуска;
-- engine-owned platform/input lifecycle contracts, детерминированное
-  presentation extraction и reference B0 frame plan с CPU visible list,
-  indexed-indirect draws, declared material fallback и изоляцией device loss;
-  typed integer/fixed-point third-person camera входит в
-  `PresentationSnapshotV2` и B0 frame plan; live application создаёт только
-  complete in-memory 30 Hz fixed-step snapshots, desktop renderer может
-  повторять последний snapshot при любой cadence, а приватный Vulkan path
-  преобразует camera state в float view-projection и depth attachment;
-  offline vertex/fragment SPIR-V, source и provenance хранятся вместе в
-  repository, а SDL3 `0.18.4` и ash `0.38.0` остаются только в приватном
-  experimental adapter crate и не протекают в публичные contracts;
-- bounded active-run durability: same-session checkpoint на tick `0`, каждые
-  `30` ticks и forced atomically на suspend/close; crash rollback ограничен
-  `29` ticks, resume не догоняет wall time, exact lifecycle retry и publication
-  rollback сохраняют prior generation, а session store удерживает только
-  current+previous session generations;
-- атомарные поколения сохранений, восстановление, replay и проверка совпадения
-  authoritative state roots;
-- deterministic two-chunk admission: immutable worker results сходятся к
-  canonical staging group, validated group публикуется атомарно, прежний chunk
-  проходит `Quiescing → Unloaded`, а pending transition сохраняется отдельным
-  `nextengine.world-services` owner segment и реконструируется после load;
-- deterministic NPC planner читает immutable revision/hash-bound RPG,
-  mechanics и contact projections, выбирает planner-visible affordance в
-  canonical order и предлагает обычный `WorldCommand`; при отсутствии
-  `ai-host`/model route публикуется procedural idle/locomotion/melee animation
-  projection, не имеющая обратной записи в simulation;
-- private Luau 728 adapter через pinned `mlua 0.12.0` выполняет package
-  callbacks в read-only sandbox: scripts получают только capability-scoped
-  immutable queries и typed proposals, а instruction/allocation/live-memory/
-  host-call/command budgets, atomic proposal discard, persisted package state
-  и three-strike circuit проверяются локальными product checks;
-- private Wasmtime `45.0.0` adapter исполняет engine-owned WIT v3/v2
-  Component worlds без ambient WASI: exact component hash, N/N−1
-  compatibility selection, fuel per call/tick, linear-memory/table/instance
-  limits, opaque resource handles, required/optional startup и canonical
-  plugin state проверяются до общего mechanics/RPG command path;
-- переносимый `headless` composition root и локальные product checks;
-- изолированный экспериментальный путь
-  `train → ONNX → inference` для проверки локального ML toolchain.
+1. a connected movement, interaction, combat, dialogue, and quest loop;
+2. reliable save, load, restart, and read-only replay;
+3. the same authoritative simulation in interactive and headless modes;
+4. deterministic offline NPC behavior with optional AI enhancement;
+5. content and mechanics through data, Luau, and WebAssembly packages;
+6. physical characters with a shipping-capable procedural fallback;
+7. practical local tools for cooking, validating, inspecting, and packaging a
+   project;
+8. native Windows x86_64 and Linux x86_64 releases.
 
-Это ещё не законченная игра: текущий `play` проверяет ограниченный neutral
-сценарий движения, столкновения, pickup/equip, melee damage, активации switch,
-один authored NPC dialogue/quest transition и переход во второй chunk с
-возвратом. Reference physics profile пока ограничен upright capsule,
-статическими Box colliders и exact B0 `ClosestPoint` query. Minimal B0
-mesh/material/texture path и Windows-local third-person camera increment
-реализованы, но оба пока обслуживают небольшой engine-owned fixture; Semantic
-UI (`NEXT`), controller profile,
-skeleton, animation, audio и достаточный lawful representative slice ещё
-отсутствуют. SDL3/ash остаётся `Proposed`; локальная Windows-готовность
-increments не закрывает paired same-commit compare или representative Linux
-hardware-GPU evidence.
+A full editor, multiplayer, consoles, mobile platforms, macOS shipping,
+runtime model training, and a bundled Gothic importer are outside the v1 scope.
 
-## Быстрый старт
+## Try the current alpha
 
-Нужен Rust `1.93.0`; версия закреплена в
-[rust-toolchain.toml](rust-toolchain.toml).
+The shortest supported local path is Windows x86_64 with a Vulkan-capable GPU,
+an up-to-date graphics driver, and the repository-pinned Rust toolchain.
 
-Запустить текущий headless-срез:
+From Explorer, run:
+
+```text
+PLAY_NEXT_ENGINE.bat
+```
+
+Or start it from a Rust-enabled shell:
+
+```bash
+cargo run --release -p next_game --features desktop-sdl-ash -- --interactive
+```
+
+Run the same reference project without a window or renderer:
 
 ```bash
 cargo run -p next_headless
-
-# Запустить production live-session path и закрыть его сразу после tick-0 checkpoint
-cargo run -p next_headless -- --live-ticks 0
-
-# Либо активировать exact ранее приготовленный content store
-cargo run -p next_headless -- --project <cooked-store> --lock <composition-lock-sha256>
 ```
 
-Запустить тот же cooked slice через `game` composition root и reference
-presentation path:
+This is a source build and may take a while on its first run. Linux is a v1
+shipping target, but the current same-commit Windows/Linux release gate remains
+open; do not treat an ad-hoc Linux build as a supported release.
 
-```bash
-cargo run -p next_game
-cargo run -p next_game -- --project <cooked-store> --lock <composition-lock-sha256>
+## Learn more
 
-# Experimental SDL3/ash Vulkan B0 window; shipped status требует Windows/Linux checks
-cargo run -p next_game --features desktop-sdl-ash -- --interactive
-```
+- [Product contract](docs/architecture/00-product-contract.md) — the product
+  boundary and v1 promises.
+- [Roadmap](docs/roadmap.md) — current progress, next milestones, and known
+  blockers.
+- [Architecture index](docs/architecture/README.md) — specifications and
+  accepted decisions.
+- [Contributing](CONTRIBUTING.md) — the local development workflow.
+- [Security policy](SECURITY.md) — how to report a vulnerability.
 
-Desktop B0 adapter нормализует keyboard и relative mouse controls в
-engine-owned `PlatformEventV1`. Общий ActionMap/context resolver преобразует
-их в те же semantic actions, которые использует headless scenario:
+## License
 
-| Control | Действие |
-|---|---|
-| `W` / `S` | движение по продольной оси |
-| `A` / `D` | движение по поперечной оси |
-| `Q` | pickup |
-| `R` | equip/use |
-| `E` | interact |
-| `F` | melee |
-| relative mouse | orbit third-person camera |
-| `F11` или `Alt+Enter` | fullscreen |
+Next Engine source code is licensed under [Apache License 2.0](LICENSE).
+Third-party notices and migrated-document provenance are recorded in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and
+[MIGRATION_PROVENANCE.md](MIGRATION_PROVENANCE.md).
 
-Текущий B0 movement profile принимает одну canonical WASD-ось на action frame;
-resolver квантует её детерминированно. Adapter также обрабатывает
-focus/minimize/restore/resize. Surface/device loss использует bounded
-recreation без записи в authoritative state. Отсутствующий SDL runtime, Vulkan
-loader, B0 GPU capability или исчерпанный recovery budget возвращают
-стабильный diagnostic code.
-
-Platform admission проверяет непрерывную `source_sequence` отдельно для каждого
-bounded source: exact duplicates схлопываются, identity collision отклоняется,
-а gap возвращает `PLATFORM_EVENT_SEQUENCE_GAP`. Весь lifecycle batch проходит
-preflight до изменения source cursors, simulation tick или session state;
-stale close request отклоняется до forced checkpoint и не публикует durable
-поколение.
-
-Для каждого frame adapter строит детерминированный CPU visible list из exact
-snapshot/catalog revisions, загружает neutral geometry и RGBA8 textures в
-private Vulkan resources и исполняет conventional indexed-indirect B0 draws.
-Pipeline создаётся из проверяемых checked-in SPIR-V modules; отсутствующий
-material revision выбирает exact fallback из активного B0 profile. Этот путь
-локально проходит Windows `content-package`, `platform`, `performance` и clean
-`v1-package`; Linux validation остаётся отдельной асинхронной задачей.
-
-Запустить основные локальные проверки:
-
-```bash
-# Ввод → pickup/equip → player/NPC melee → dialogue/quest → chunk round-trip
-cargo run -p xtask -- play
-
-# Гравитация, столкновения с полом/стеной и жизненный цикл контактов
-cargo run -p xtask -- physics-collision
-
-# Сохранение → восстановление → replay и fallback повреждённого поколения
-cargo run -p xtask -- persistence-replay
-
-# Neutral fixture + render catalog → deterministic cook → publish → activation
-cargo run -p xtask -- content-package
-
-# game/headless parity, SDL event/lifecycle probe и Vulkan device-loss recovery
-cargo run -p xtask --features desktop-sdl-ash -- platform
-
-# Deterministic frame-plan stability и bounded render-planning hot path
-cargo run -p xtask -- performance
-
-# Форматирование, clippy, тесты workspace и архитектурные границы
-cargo run -p xtask -- host-check
-
-# Та же проверка с desktop feature graph для xtask, verification и game
-cargo run -p xtask --features desktop-sdl-ash -- host-check
-
-# Полная локальная closure matrix с exact hashes и честными target NOT_RUN
-cargo run -p xtask -- v1-closure
-```
-
-Команды выводят компактный машиночитаемый результат. `host-check` — канонический
-широкий локальный `fast` check перед передачей изменения. Если сам `xtask`
-собран с `desktop-sdl-ash`, его дочерние clippy/test запускаются с явными
-package-qualified features `xtask/desktop-sdl-ash`,
-`next_verification/desktop-sdl-ash` и `next_game/desktop-sdl-ash`; несвязанные
-экспериментальные features через `--all-features` не включаются.
-
-Opt-in Thin LTO/PGO не включены в default `release`. Воспроизводимый
-report-only workflow, обязательные R2–R5 prerequisites и fallback описаны в
-[docs/development/performance-codegen.md](docs/development/performance-codegen.md).
-Там же отдельно описан one-shot allocator-counter admission: pinned Windows
-source/IR/ASM/backend proof и candidate-7 не являются Thin LTO/PGO promotion;
-неполный proof или failed overhead оставляет metric `NOT_RUN`.
-
-На native Windows/Linux target после зелёной matrix собирается атомарный
-distribution directory с `game`, `headless`, exact cooked project,
-`PackageManifestV3` в `package.manifest.jcs` и обязательными `LICENSE`,
-`NOTICE`, `THIRD_PARTY_NOTICES.md`, `MIGRATION_PROVENANCE.md`. Manifest хранит
-sorted полный inventory payload-файлов с SHA-256 (сам canonical manifest
-проверяется отдельно по hash из target report), target ABI, direct runtime
-libraries, maximum required GLIBC и внешние prerequisites.
-
-R1 runtime baseline фиксирован следующим образом:
-
-- Windows x86_64 MSVC использует dynamic system VC++ x64 runtime, системный
-  Vulkan loader `vulkan-1.dll` и установленный пользователем Vulkan ICD/GPU
-  driver;
-- Linux x86_64 GNU использует Ubuntu 22.04 / glibc 2.35 baseline, системный
-  loader `libvulkan.so.1`, установленный пользователем ICD/GPU driver и
-  активную X11 либо Wayland desktop session;
-- SDL3 входит статически; Vulkan loader и GPU driver в package не включаются.
-
-Перед публикацией команда запускает именно скопированные release binaries из
-`package/bin` с очищенным environment и изолированными state/home/temp
-directories: `headless --live-ticks 0` проходит production live-session
-tick-0/checkpoint/close path, затем `game` выполняет один bounded interactive
-Vulkan frame. Валидатор сверяет exact game/headless authoritative state и
-ledger roots, ожидаемый snapshot/host-object count и неизменность package
-inventory; disposable sibling smoke state удаляется до атомарной публикации.
-Каждый smoke ограничен 30 секундами. Ошибки runtime profile,
-отсутствующая dependency, неподдерживаемый ABI и timeout возвращают соответственно
-`NATIVE_GATE_PACKAGE_RUNTIME_PROFILE_INVALID`,
-`NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING`,
-`NATIVE_GATE_PACKAGE_RUNTIME_ABI_UNSUPPORTED` и
-`NATIVE_GATE_PACKAGE_SMOKE_TIMEOUT`:
-
-```bash
-cargo run --locked -p xtask -- v1-package --output dist/nextengine-v1
-```
-
-Старые локальные package directories не мигрируются и не перезаписываются:
-удалите или выберите новый output и пересоберите их как `PackageManifestV3`.
-
-На macOS команда fail-closed возвращает
-`TARGET_PACKAGE_REQUIRES_NATIVE_WINDOWS_OR_LINUX_X86_64`.
-
-Полный R1 native gate запускается вручную на двух native x86_64 hosts с
-Vulkan-capable driver. Оба checkout должны указывать на один и тот же clean
-commit, использовать закреплённый Rust `1.93.0` и неизменённый `Cargo.lock`.
-Cross-compilation, WSL-only run или перенос отчёта с dirty worktree не заменяют
-native target evidence.
-
-Основной developer host — Windows. Ожидание Linux-машины не блокирует
-несвязанные Windows work packages: требующие native Linux host проверки
-добавляются в [Linux validation backlog](docs/development/linux-validation-backlog.md)
-и выполняются позже пакетами на зафиксированных checkpoints. До фактического
-run соответствующий Linux result остаётся `NotRun(reason)`, а target/stage claim
-не объявляется.
-
-Полный target checkpoint запускается одной командой:
-
-```bash
-cargo run --locked -p xtask --features desktop-sdl-ash -- native-gate-run --output artifacts/native-gate/<commit>
-```
-
-Актуальная накопительная очередь, Linux preflight, полный состав переносимого
-bundle, failure policy и команда compare находятся только в
-[Linux validation backlog](docs/development/linux-validation-backlog.md).
-Успешный compare двух same-commit target reports выставляет
-`native_gate_ready = true`, но не закрывает автоматически весь R1.
-
-Экспериментальный PhysX backend не входит в default features и не нужен этим
-командам. На Windows x86_64 или Linux x86_64 локальный SDK 5.9.0 задаётся
-через `NEXTENGINE_PHYSX_SDK_DIR`; сборка ничего не скачивает:
-
-```bash
-cargo run -p xtask --features physx -- physics-collision --backend compare
-cargo run -p xtask --features physx -- persistence-replay --backend physx
-cargo run -p xtask --features physx -- physics-backend-parity
-```
-
-Для portable проверки safe wrapper без SDK используется
-`--features physx-mock`. PhysX остаётся `Proposed`, не поддерживается как
-product backend на macOS и не переключается автоматически после activation.
-
-Опциональный ML smoke требует Python 3.12 и `uv`:
-
-```bash
-uv run --project lab python -m next_lab doctor
-uv run --project lab python -m next_lab smoke --device auto
-```
-
-Он проверяет только локальную цепочку обучения, экспорта и inference. Это не
-проверка качества игровой policy и не замена продуктовым checks. Подробнее:
-[локальная проверка ML toolchain](docs/development/training-capability.md).
-
-## Как устроен продукт
-
-Любой источник действия — игрок, NPC, скрипт, плагин, инструмент или AI —
-предлагает команду, но не получает прямой доступ к изменяемому миру:
-
-```text
-input / AI / package
-  → command proposal
-  → schema + capability + precondition validation
-  → atomic WorldCommand transaction
-  → committed DomainEvent
-  → immutable gameplay and presentation projections
-```
-
-Такой путь нужен не ради абстракции как таковой. Он позволяет:
-
-- одинаково выполнять игру в `game` и `headless`;
-- не связывать корректность симуляции с FPS, wall clock, сетью или порядком
-  завершения фоновых задач;
-- сохранять только engine-owned authoritative state;
-- безопасно отклонять повреждённые saves, packages и model output до частичного
-  изменения мира;
-- заменять renderer, physics backend, AI provider и другие adapters без смены
-  продуктовых контрактов.
-
-Публичные контракты живут в `crates/contracts`. ECS storage, OS/window objects,
-vendor types, importer structures, database connections и model sessions
-остаются деталями реализации.
-
-## Структура репозитория
-
-| Путь | Роль сегодня |
-|---|---|
-| `crates/contracts` | Публичные ID, commands/events, input, manifests, snapshots, neutral render content, persistence и physics/RPG contracts |
-| `crates/runtime` | Admission, command ledger, fixed-stage execution и атомарные tick transactions |
-| `crates/application` | Production coordinator, 30 Hz live loop, bounded durable checkpoint/restart и exact lifecycle publication |
-| `crates/rpg` | Generic RPG state и валидируемые доменные переходы |
-| `crates/mechanics` | Public-package host: immutable affordances/effect requests → typed RPG commands |
-| `crates/script-luau` | Private deterministic Luau sandbox и package-state adapter |
-| `crates/plugin-host` | Engine-owned WIT v3/v2 и private bounded Wasmtime Component adapter |
-| `crates/agent` | Canonical NPC planner и procedural avatar fallback projection |
-| `crates/world` | Deterministic two-chunk staging/admission и world-service save segment |
-| `crates/physics-api` | Детерминированный reference physics world и grounded capsule |
-| `crates/physics-physx` | Safe optional PhysX adapter за engine-owned physics API |
-| `crates/physics-physx-ffi` | Единственная ADR-033 allowlisted native FFI-граница |
-| `crates/assets` | Copy-on-write save/content generations, atomic publication, bounded load и current+previous session-generation retention |
-| `crates/project` | Exact resolver, neutral cooker/catalog publication и production project activation |
-| `crates/platform` | Backend-free platform capabilities, lifecycle normalization и headless target |
-| `crates/player` | Device-independent ActionMap/InputContext resolution для live game и headless scenario |
-| `crates/presentation` | Immutable revision-bound extraction в `PresentationSnapshotV2` |
-| `crates/render` | Backend-neutral B0 boundary, exact catalog resolution и deterministic indexed frame plan |
-| `crates/desktop-sdl-ash` | Приватный `Proposed` SDL3/ash Vulkan adapter за ADR-003 boundary |
-| `crates/verification` | Neutral fixtures, state roots, headless replay и product scenarios |
-| `apps/headless` | Текущий переносимый composition root без окна и renderer |
-| `apps/game` | Portable game composition root; optional experimental desktop adapter |
-| `tools/xtask` | Локальные product checks и проверка архитектурных границ |
-| `lab` | Изолированные ML-эксперименты; не часть игрового runtime |
-
-Целевая архитектура также предусматривает обязательные roots `game`,
-`headless` и `tools`, а `ai-host` и displayless capture оставляет
-опциональными.
-
-## Платформы
-
-- **Windows x86_64 и Linux x86_64** — целевые shipping-платформы v1.
-- **Apple Silicon macOS** — поддерживаемый developer host для portable Rust,
-  tooling и ограниченных ML smoke tests, но не обещание поставки игры.
-
-Корректность обязательного gameplay не должна зависеть от конкретной
-shipping-платформы, GPU или доступности внешнего сервиса.
-
-## Архитектурные документы
-
-Архитектура — источник продуктовых контрактов, но статус `Accepted` у документа
-не означает, что соответствующая возможность уже реализована.
-
-Начать чтение стоит с:
-
-1. [продуктового контракта](docs/architecture/00-product-contract.md);
-2. [системной архитектуры](docs/architecture/01-system-architecture.md);
-3. [индекса архитектуры и статусов решений](docs/architecture/README.md);
-4. [глоссария](docs/architecture/glossary.md);
-5. [playable slice и product checks](docs/architecture/12-vertical-slice-conformance.md).
-
-Порядок дальнейшей реализации, этапы, exit criteria и текущие blockers
-собраны в [долгосрочном roadmap](docs/roadmap.md). Roadmap является planning
-document и не заменяет нормативные SPEC/ADR.
-
-Семантическое изменение принятого решения оформляется коротким ADR и обновляет
-затронутые спецификации. Процесс разработки остаётся product-first:
-см. [ADR-030](docs/architecture/adr/030-product-first-development-and-lightweight-validation.md).
-
-## Контент, importer и лицензирование
-
-Код нового движка распространяется по Apache-2.0. Происхождение перенесённых
-архитектурных документов и их MIT notice описаны в
-[истории переноса](MIGRATION_PROVENANCE.md) и
-[уведомлениях о сторонних материалах](THIRD_PARTY_NOTICES.md).
-
-Gothic importer может разрабатываться локально в игнорируемом
-`incubator/gothic-importer/`, но остаётся отдельным репозиторием и процессом.
-Он не является Cargo dependency и взаимодействует с движком только через
-versioned neutral artifacts.
-
-Игровые установки, импортированные или защищённые assets, datasets,
-checkpoints, сгенерированные модели, captures, caches и secrets не должны
-попадать в этот репозиторий.
+Game installations, protected or imported assets, datasets, checkpoints,
+generated model artifacts, captures, caches, and secrets do not belong in this
+repository.
