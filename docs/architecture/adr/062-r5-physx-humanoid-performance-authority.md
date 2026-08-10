@@ -116,7 +116,7 @@ budgets, not the required ten-run baseline or hard PASS.
 
 | Check | Expected |
 |---|---|
-| `performance --scenario r5-physics-16 --mode report` | Executes the 16-slot production PhysX workload, reports 1/4/8 throughput/latency/scaling, restore/resources and exact roots; without a baseline the timing verdict remains `REPORT_ONLY`. |
+| `performance --scenario r5-physics-16 --mode report --require-ready-preflight` | Fails fast with typed `NOT_RUN` when the exact internal preflight is not ready; otherwise executes the 16-slot production PhysX workload, reports 1/4/8 throughput/latency/scaling, restore/resources and exact roots. Without a baseline the timing verdict remains `REPORT_ONLY`. |
 | `performance-baseline --runs <ten-run-root> --output <dir>` | Accepts exactly ten clean compatible v7 THOTH reports with ready preflight, profiler integrity, complete budgets/resources and identical authoritative roots. |
 | `performance --scenario r5-physics-16 --mode gate --target ref-win-thoth-v1 --baseline <file>` | Produces hard `PASS` only when current absolute budgets, compatible baseline, exact fingerprint/root and all hard evidence pass. |
 | `fast`, `persistence-replay` | Budget/schema tests and worker/restore root parity stay exact; replay correctness is not inferred from timing success. |

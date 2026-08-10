@@ -134,6 +134,10 @@ worker/profiler root parity. CPU PhysX reports zero engine-owned device
 residency and does not fabricate Vulkan queries. Exact workload and budgets are
 ADR-062 authority. Until ten compatible clean runs and a hard gate exist, its
 clean calibration remains `REPORT_ONLY` and does not close B-12.
+Calibration automation uses `--require-ready-preflight`: if the exact internal
+host probe is not ready, the command publishes typed `NOT_RUN` before starting
+the representative workload. The flag does not wait, relax thresholds or
+retry a completed workload; it only prevents known-invalid busy-host samples.
 
 ## Failure semantics and checks
 

@@ -34,6 +34,31 @@ fn performance_gate_defaults_to_thoth_and_rejects_duplicate_flags() {
 }
 
 #[test]
+fn calibration_preflight_guard_is_explicit_and_unique() {
+    let request = parse_arguments(
+        [
+            "--scenario",
+            "r5-physics-16",
+            "--mode",
+            "report",
+            "--require-ready-preflight",
+        ]
+        .into_iter()
+        .map(str::to_owned),
+    )
+    .expect("guarded report arguments");
+    assert!(request.require_ready_preflight);
+    assert!(
+        parse_arguments(
+            ["--require-ready-preflight", "--require-ready-preflight",]
+                .into_iter()
+                .map(str::to_owned),
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn performance_cli_accepts_the_report_only_long_session_soak() {
     let request = parse_arguments(
         ["--scenario", "long-session-soak", "--mode", "report"]

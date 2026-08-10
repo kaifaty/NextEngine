@@ -30,6 +30,7 @@ pub(crate) struct PerformanceArguments {
     target: Option<String>,
     baseline: Option<PathBuf>,
     output: Option<PathBuf>,
+    require_ready_preflight: bool,
 }
 
 impl Default for PerformanceArguments {
@@ -40,6 +41,7 @@ impl Default for PerformanceArguments {
             target: None,
             baseline: None,
             output: None,
+            require_ready_preflight: false,
         }
     }
 }
@@ -98,6 +100,13 @@ pub(crate) fn parse_arguments(
     let mut scenario_seen = false;
     let mut mode_seen = false;
     while let Some(flag) = arguments.next() {
+        if flag == "--require-ready-preflight" {
+            if request.require_ready_preflight {
+                return Err(format!("duplicate argument: {flag}"));
+            }
+            request.require_ready_preflight = true;
+            continue;
+        }
         let value = arguments
             .next()
             .ok_or_else(|| format!("{flag} requires a value"))?;
@@ -168,6 +177,25 @@ fn performance_report_for(
     run.scenario_hash = performance_scenario_hash(request.scenario);
     populate_performance_identity(root, &mut run);
     populate_performance_host(request, &mut run);
+
+    if request.require_ready_preflight {
+        let mut preflight_diagnostics = match &run.preflight {
+            Some(preflight) => preflight
+                .validate_ready_evidence()
+                .err()
+                .unwrap_or_default(),
+            None => vec!["PERF_PREFLIGHT_UNAVAILABLE".to_owned()],
+        };
+        if !preflight_diagnostics.is_empty() || !run.diagnostics.is_empty() {
+            run.diagnostics.append(&mut preflight_diagnostics);
+            run.diagnostics.sort();
+            run.diagnostics.dedup();
+            run.verdict = xtask::performance::PerformanceVerdict::NotRun;
+            return Ok(performance_command_report(
+                run, None, None, None, None, None,
+            ));
+        }
+    }
 
     if request.mode == xtask::performance::PerformanceModeV1::Gate {
         if let Some(diagnostic) = report_only_gate_diagnostic(request.scenario) {
