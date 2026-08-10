@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 1.6 |
+| Версия | 1.7 |
 | Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md) |
-| Заменяет | SPEC-26 1.5; accepts V2 articulated descriptors and V3/V2 canonical snapshot/checkpoint for the PhysX Stage 0 consumer |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md) |
+| Заменяет | SPEC-26 1.6; reconstructs private PhysX TGS continuation from bounded canonical replay input instead of serialized accumulated-impulse caches |
 
 ## История принятия
 
@@ -816,12 +816,13 @@ joint ID/revision, quantized six-axis position/velocity, break state and
 accepted target state.
 
 `PhysicsContactContinuityStateV1` contains contact identity, participant/feature
-key, last-seen tick/substep and phase state.
-`PhysicsSolverContinuationStateV1` is a closed portable schema containing only
-canonical per-contact normal/tangent accumulated impulses and per-joint
-six-axis accumulated impulses required for exact continuation. Opaque
-solver/island/manifold bytes, native padding, pointer identity and
-backend-specific extension fields are forbidden.
+key, last-seen tick/substep and phase state. Under ADR-059, a PhysX TGS profile
+MUST NOT claim that hidden per-contact/per-joint accumulated solver impulses
+are directly portable when the vendor API cannot export and import them.
+`sorted_solver_continuation_states` is empty for that profile; exact hidden
+continuation is reconstructed from the Motor-owned bounded reset + post-safety
+effort prefix. Opaque solver/island/manifold bytes, native padding, pointer
+identity and backend-specific extension fields remain forbidden.
 
 Snapshot may be taken only after all state-mutating input/result batches for
 that boundary are closed. A mutable callback, half-applied topology
@@ -859,19 +860,21 @@ Restore performs:
 1. decode with exact length/depth/count limits and no trailing bytes;
 2. validate schema compatibility, world identity and every project/profile/
    content/descriptor/catalog hash;
-3. validate unique IDs, topology, ranges and continuity/solver references;
+3. validate unique IDs, topology, ranges, continuity references and the exact
+   bounded replay-prefix closure required by the active backend profile;
 4. reserve bounded resources before adapter construction;
 5. construct a private world in canonical material/body/shape/joint order;
-6. import canonical body/joint/contact/continuation state;
-7. export a fresh canonical snapshot without advancing time;
-8. require exact exported snapshot bytes/root;
+6. establish the canonical episode-origin reset state;
+7. replay each stored post-safety substep effort without PD/policy evaluation;
+8. require the exact declared witness at every motor compare point and the
+   complete final snapshot/root;
 9. atomically replace the target world at a declared commit boundary.
 
 Any failure destroys staging and retains the complete prior world/save
 generation. Restore never edits a live world in place. A backend unable to
-round-trip the closed canonical continuation state fails
-`PHYS_SNAPSHOT_RESTORE_FAILED`; the contract is not weakened to accept a
-native blob.
+reconstruct the exact continuation from its declared bounded replay closure
+fails `PHYS_SNAPSHOT_RESTORE_FAILED`; the contract is not weakened to accept a
+native blob or tolerance.
 
 After restore, the next declared continuation window MUST produce exact
 quantized projection, constraint state, contact/query order, physical outcome
@@ -880,8 +883,9 @@ under declared tolerances but cannot change this result.
 
 ## Persistence, replay and schema evolution
 
-Persistence stores the canonical snapshot/root and exact descriptor/catalog/
-profile/content hashes in the Physical Embodiment owner segment. Immutable
+Persistence stores the canonical snapshot/root, exact descriptor/catalog/
+profile/content hashes and, where ADR-059 applies, a content-addressed bounded
+reset/effort-prefix owner segment in one atomic save closure. Immutable
 collision assets remain in content storage; backend caches, query scratch,
 worker state and native snapshot bytes are not saved.
 

@@ -4,10 +4,10 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 3.3 |
+| Версия | 3.4 |
 | Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | INDEX-001, [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md) |
-| Заменяет | GLOSSARY-001 3.2; adds deterministic humanoid training-plane terminology |
+| Нормативные зависимости | INDEX-001, [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md) |
+| Заменяет | GLOSSARY-001 3.3; adds bounded PhysX continuation replay-prefix terminology |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -74,6 +74,7 @@
 | **BodySchema** | Immutable versioned semantic body graph со stable schema-scoped body/joint/actuator/effector/attachment identities; из одной exact revision выводятся physics descriptors, motor layouts, morphology input, safety limits и replay compatibility. Не содержит current pose или mutable overlays. |
 | **BodyInstanceProjection** | Immutable revision-bound effective projection exact BodySchema plus morphology/equipment/stats/damage/fatigue/attachment owners; Physical Embodiment компилирует mass/inertia/ROM/actuator/sensor facts, но не получает ownership исходных mutable fields. |
 | **CanonicalEnvironmentReplay** | Byte-exact engine-owned reset/step/action/observation/snapshot/root continuation для locked CPU PhysX build profile. Worker/slot completion order и vendor caches не входят в result. |
+| **MotorReplayPrefix** | Bounded ordered episode-origin reset plus every canonical post-safety 240 Hz effort and per-motor-tick physics witness used to reconstruct hidden PhysX continuation in a fresh scene; policy/PD re-execution is separate parity evidence. |
 | **EvaluatorCorrespondence** | Bounded comparison canonical CPU execution с accelerated GPU/trainer mirror. Это проверка близости trajectories/contact/done, а не разрешение GPU быть replay authority. |
 | **StatisticalTrainingOutcome** | Multi-seed quality/stability/throughput result. Он не доказывает exact replay, evaluator parity или безопасный runtime artifact. |
 | **MotorTrainingEnvironment** | Bounded long-lived reset/step environment, использующий production descriptors, actuation, PhysX stepping и immutable canonical records; reward/trainer не получает прямой mutation path. |

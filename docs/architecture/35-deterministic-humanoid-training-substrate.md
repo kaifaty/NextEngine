@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.1 |
 | Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md) |
-| Заменяет | отсутствует; принимает первый production consumer для bounded BodySchema/motor-training contracts |
+| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md) |
+| Заменяет | SPEC-35 1.0; replaces direct hidden-solver-state import with bounded event-sourced continuation reconstruction |
 
 ## Назначение и ownership
 
@@ -112,21 +112,32 @@ completion order and slot storage order do not enter seeds or output bytes.
 
 ## Checkpoint and replay
 
-`WorldCheckpointV5` atomically contains runtime/RPG state plus
-`PhysicsWorldCheckpointV2` and `MotorWorldCheckpointV1`. A motor checkpoint
-contains current command/action, all four substep efforts, complete explicit
-policy/motor state, cadence phase and every RNG stream state.
+`WorldCheckpointV5` atomically contains runtime/RPG state plus the final
+`PhysicsWorldCheckpointV2` and `MotorWorldCheckpointV1` witness. The same
+`SaveManifestV3` generation MUST also contain one Motor-owned replay-prefix
+segment: canonical reset origin, ordered post-safety effort frames, one exact
+physics witness hash per motor tick and the final full witness. Replay V6 binds
+the equivalent reset/step/trajectory record chain. Missing either part makes
+the closure non-restorable.
 
-Restore creates a fresh PhysX scene, imports bounded root/joint pose and
-velocities plus engine-owned contact-continuity state, and resumes only at a
-canonical tick boundary. Stored post-safety efforts drive authoritative
-replay. Re-evaluating PD/action is an independent parity assertion and cannot
-repair recorded history.
+The current prefix is bounded to 3,600 motor ticks (60 seconds), exactly four
+substeps per tick and the declared actuator count per substep. For the 23-DoF
+humanoid, fixed-width efforts consume about 2.65 MiB at the bound; the
+standalone motor checkpoint envelope is capped at 4 MiB. CPU vector memory and
+restore time are accounted per slot and reported by the performance gate.
 
-Snapshots and records are canonical encoded, capacity-bounded and hashed.
-Vendor serialization/caches are reconstructible and absent. Restore
-continuation divergence is terminal `RESTORE_DIVERGENCE`; tolerance must not
-turn it into success.
+Restore creates a fresh PhysX scene from the exact catalog, establishes the
+canonical reset origin and applies recorded post-safety efforts directly. It
+checks the engine-owned canonical physics witness after every motor frame and
+the complete final canonical snapshot before atomic publication. Only then
+does it restore explicit controller/motor/RNG state at a canonical tick
+boundary. It never evaluates PD or a policy to advance authoritative replay.
+
+Re-evaluating PD/action is an independent parity assertion and cannot repair
+recorded history. Vendor serialization/caches remain reconstructible and
+absent. Prefix bounds/order/substep/channel mismatch or any continuation
+divergence is terminal `RESTORE_DIVERGENCE`; tolerance cannot turn it into
+success.
 
 ## Headless motor lab
 

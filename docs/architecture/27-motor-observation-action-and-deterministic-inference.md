@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-27 |
 | Статус | Accepted |
-| Версия | 1.5 |
+| Версия | 1.6 |
 | Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md) |
-| Заменяет | SPEC-27 1.4; accepts the Stage 0 layouts, fixed-point PD/safety and complete motor checkpoint consumer |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md) |
+| Заменяет | SPEC-27 1.5; makes the bounded recorded post-safety effort prefix the authoritative PhysX continuation input |
 
 ## История принятия
 
@@ -793,6 +793,14 @@ advance the reproduced physical world. Replay rehydration recomputes each
 use and verifies that every `prior_authoritative_state_hash` equals the
 preceding `next_authoritative_state_hash`. Model bytes need not be duplicated
 when their content hash is resolvable from the locked project closure.
+
+For the current PhysX Stage 0 profile, the restorable owner-segment closure also
+contains the episode-origin reset and every post-safety effort for exactly four
+240 Hz substeps per recorded 60 Hz frame, bounded to 3,600 motor frames. These
+efforts, not an action-to-PD recomputation, advance fresh-scene rehydration.
+Each frame carries an exact physics witness hash so divergence stops at the
+first differing motor tick; the final full snapshot must also match. The
+current standalone encoded prefix is limited to 4 MiB.
 
 Evaluator re-execution is a separate parity/correspondence mode. For a
 `Supported` route it MUST decode/clamp to the same canonical action and full

@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.25 |
+| Версия | 2.26 |
 | Последняя проверка | 2026-08-10 |
-| Заменяет | INDEX-001 2.24; adopts ADR-058 and SPEC-35 PhysX-only deterministic humanoid Stage 0 |
+| Заменяет | INDEX-001 2.25; adopts ADR-059 bounded event-sourced PhysX continuation reconstruction |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -235,6 +235,7 @@ traceability — навигационная карта, не admission authority
 | ADR-056 | [Deterministic Strategic Agent and belief-driven GOAP](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) | Accepted; belief-driven Utility + bounded GOAP closes R4/v1 without learned models |
 | ADR-057 | [Hierarchical learnable Motor System and policy-family architecture](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) | Accepted hierarchy, BodySchema, family/adaptation, exact-action replay and fallback semantics; concrete learned/toolchain profiles remain Proposed |
 | ADR-058 | [PhysX-only deterministic humanoid training substrate](adr/058-physx-only-deterministic-humanoid-training-substrate.md) | Accepted sole production backend and fixed-humanoid Stage 0; cutover/completion require Windows/Linux and replay/performance gates |
+| ADR-059 | [Event-sourced PhysX continuation reconstruction](adr/059-event-sourced-physx-continuation-reconstruction.md) | Accepted bounded reset + post-safety effort prefix; partially supersedes ADR-058 direct continuation-import assumption |
 
 ## Proposed tracks
 
