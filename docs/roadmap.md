@@ -100,8 +100,10 @@ Roadmap намеренно не содержит календарных обещ
   и streaming-only `r3-multiregion-streaming` реализованы как `REPORT_ONLY`;
   representative `r5-physics-16.v1` выполняет 16 production PhysX 23-DoF
   humanoids при 240/60 Hz и 1/4/8 workers с exact root parity, accepted
-  absolute budgets и clean report-only calibration; R4 workload честно
-  возвращает `NOT_RUN`, а R5 ten-run baseline/hard gate ещё не выполнены;
+  absolute budgets, clean ten-run baseline and exact roots; первый non-retried
+  hard gate прошёл absolute budgets, но дал relative `FAIL` на том же commit
+  (8-worker frame p95 `+10.0%`, peak RAM `+8.53%`). R4 workload честно
+  возвращает `NOT_RUN`, R5 hard `PASS` отсутствует;
 - локальная v1 closure matrix.
 
 Data-first reference alpha реализована и принята на Windows: automated
@@ -647,9 +649,15 @@ sources: SPEC-33, SPEC-34, ADR-050, ADR-053, ADR-054.
 **Accepted parallel substrate, но ещё не Stage 0 completion:** PhysX 5.9.0 —
 единственный production backend по ADR-058. Fixed 23-DoF humanoid, fixed
 PD/safety, 240/60 schedule, bounded restore and `r5-physics-16.v1` уже
-реализованы. Clean calibration проходит принятые ADR-062 budgets и exact root
-parity; compatible ten-run baseline, hard gate, Linux/platform/replay matrix и
-Isaac correspondence остаются открытыми. Это не закрывает R5 или Stage 0.
+реализованы. На clean commit
+`f3226580432103666550dea952cdb67803c3d96e` ровно десять valid release runs
+опубликовали compatible V4 baseline и один exact root. Первый и единственный
+hard-gate run прошёл все ADR-062 absolute budgets, но relative policy дала
+`FAIL`: 8-worker frame p95 `2.328 → 2.561 ms` (`+10.0%`), 1-worker p95
+`13.712 → 15.721 ms` (`+14.65%`) и peak working set
+`214,884,352 → 233,234,432 bytes` (`+8.53%`). Повторного run не было.
+Hard `PASS`, Linux/platform/replay matrix и Isaac correspondence остаются
+открытыми. Это не закрывает R5 или Stage 0.
 
 **Optional learned integration scope:**
 
@@ -886,7 +894,7 @@ deterministic procedural motor через тот же PhysX path.
 | B-09 | Нет external creator CLI/SDK workflow | R6, R7 | Второй project/package создаётся cleanly только public tools/contracts. |
 | B-10 | `PERMANENT_SCOPE_GATE`: content scope может расти быстрее playable loop; blocker не закрывается одноразово. | Все этапы | На каждом package один representative scenario и явный non-goal list; новая подсистема допускается только по требованию scenario. |
 | B-11 | `CONTENT_COMPLETE / SOLO_OWNER`: единственный owner — solo maintainer; отдельная staffing/ownership matrix не создаётся. Alpha package содержит engine-owned assets/audio/text, acceptance docs, CC0 source/hash/license provenance и NOTICE и проходит `content-package`/package smoke. Будущие creator examples относятся к R6/B-09, а не к staffing gate. | R2, R6, R7 | Содержательно закрыт для alpha package; поддерживать provenance/NOTICE в том же public package по мере дальнейших content changes. |
-| B-12 | `OPEN / R2+R3+R5_REPORT_ONLY / DEFERRED_LINUX`: Performance V4 methodology v7 and THOTH `610.88` fingerprint are current; preflight is operationally ready at CPU/GPU `<40%` and free RAM `>=10 GiB`. Representative R2, R3 and `r5-physics-16.v1` workloads exist. R5 has accepted 1/4/8-worker latency/throughput/scaling/restore/resource budgets and a clean report-only calibration with exact roots, but no compatible ten-run baseline or hard gate. R4 workload is absent; R2/R3 ten-run baselines/hard gates and Linux evidence are also absent. | R4, R5, R7 | Для Windows-части — по 10 valid clean release runs каждого R2–R5 workload, compatible baseline и hard `PASS`; затем `WINDOWS_COMPLETE / DEFERRED_LINUX`. Ready preflight, one calibration, Accepted ADR, report-only run or `NOT_RUN` do not close the blocker. |
+| B-12 | `OPEN / R2+R3_REPORT_ONLY / R5_BASELINED_GATE_FAIL / DEFERRED_LINUX`: Performance V4 methodology v7 and THOTH `610.88` fingerprint are current; preflight is operationally ready at CPU/GPU `<40%` and free RAM `>=10 GiB`. Representative R2, R3 and `r5-physics-16.v1` workloads exist. R5 has accepted budgets and a compatible exact-commit ten-run baseline. Its first non-retried hard gate passed every absolute budget/root check but failed the relative >=5% policy (8-worker p95 `+10.0%`, peak RAM `+8.53%`). R4 workload is absent; R2/R3 ten-run baselines/hard gates and Linux evidence are also absent. | R4, R5, R7 | Для Windows-части — по 10 valid clean release runs каждого R2–R5 workload, compatible baseline и hard `PASS`; затем `WINDOWS_COMPLETE / DEFERRED_LINUX`. R5 needs an explained/fixed same-commit variance and a new explicitly authorized calibration/gate sequence; the failed gate cannot be retried to green. |
 | B-13 | `OPTIONAL R8 GAP / NOT V1 BLOCKER`: нет canonical behavior-training data plane, vendor-neutral evaluator, trained strategic/tactical bundles и runtime-training parity. | — | Возвращается только для optional R8 production profile. Каждая activated role проходит applicable SPEC-33/34 and ADR-050/053/054 data/provenance/export/multi-seed/parity/fallback checks; joint suite нужна только профилю с обеими roles. Отсутствие этого трека не блокирует R4/v1 и сохраняет deterministic ADR-056 path. |
 
 ## Решения, которые нужно принять вовремя
