@@ -164,6 +164,43 @@ pub struct ProductionWorkerPerformanceDetailsV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct R5PhysicsWorkerPerformanceDetailsV1 {
+    pub worker_count: u32,
+    pub elapsed_microseconds: u64,
+    pub aggregate_physics_substeps_per_second: u64,
+    pub aggregate_motor_frames_per_second: u64,
+    pub scaling_efficiency_basis_points: u64,
+    pub motor_frame_p95_microseconds: u64,
+    pub motor_frame_p99_microseconds: u64,
+    pub authoritative_root: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct R5PhysicsPerformanceDetailsV1 {
+    pub slot_count: u32,
+    pub degrees_of_freedom_per_slot: u32,
+    pub physics_hz: u32,
+    pub motor_hz: u32,
+    pub warmup_substeps_per_slot: u64,
+    pub measured_substeps_per_slot: u64,
+    pub measured_motor_frames_per_slot: u64,
+    pub worker_runs: Vec<R5PhysicsWorkerPerformanceDetailsV1>,
+    pub checkpoint_bytes_per_slot: Vec<u64>,
+    pub restore_microseconds_per_slot: Vec<u64>,
+    pub restore_p95_microseconds: u64,
+    pub restore_p99_microseconds: u64,
+    pub restore_wall_microseconds: u64,
+    pub replay_prefix_substeps_per_slot: u64,
+    pub replay_prefix_overhead_basis_points: u64,
+    pub process_peak_working_set_bytes: u64,
+    pub logical_host_bytes_per_slot: u64,
+    pub authoritative_root: String,
+    pub worker_root_parity: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PerformanceDetailsV1 {
     #[serde(default)]
     pub run: Option<PerformanceRunV4>,
@@ -177,6 +214,8 @@ pub struct PerformanceDetailsV1 {
     pub live_runtime: Option<LiveRuntimePerformanceDetailsV1>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub production_worker: Option<ProductionWorkerPerformanceDetailsV1>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub r5_physics: Option<R5PhysicsPerformanceDetailsV1>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -268,6 +307,7 @@ mod tests {
             render_planning: None,
             live_runtime: None,
             production_worker: None,
+            r5_physics: None,
         };
 
         let value = serde_json::to_value(&details).expect("serialize legacy performance details");

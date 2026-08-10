@@ -137,7 +137,10 @@ impl PerformanceResourceCountersV4 {
         }
     }
 
-    pub fn validate_for_hard_timing(&self) -> Result<(), Vec<String>> {
+    pub fn validate_for_hard_timing(
+        &self,
+        scenario: super::PerformanceScenarioV1,
+    ) -> Result<(), Vec<String>> {
         let mut diagnostics = Vec::new();
         for (name, value) in [
             (
@@ -152,7 +155,12 @@ impl PerformanceResourceCountersV4 {
                 diagnostics.push(format!("PERF_REQUIRED_COUNTER_MISSING: {name}"));
             }
         }
-        if self.vulkan_timestamp_queries == 0 {
+        if matches!(
+            scenario,
+            super::PerformanceScenarioV1::InteractiveFrameSoak
+                | super::PerformanceScenarioV1::R2AlphaRender
+        ) && self.vulkan_timestamp_queries == 0
+        {
             diagnostics.push("PERF_REQUIRED_COUNTER_MISSING: vulkan_timestamp_queries".to_owned());
         }
         if !self.unavailable.is_empty() {

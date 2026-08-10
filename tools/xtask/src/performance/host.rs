@@ -145,7 +145,7 @@ pub fn validate_thoth_fingerprint(fingerprint: &PerformanceTargetFingerprintV1) 
     if !normalized_os.contains("windows11pro") || fingerprint.os_build != "26200" {
         diagnostics.push("PERF_OS_MISMATCH".to_owned());
     }
-    if fingerprint.gpu_driver != "591.86" {
+    if fingerprint.gpu_driver != "610.88" {
         diagnostics.push("PERF_GPU_DRIVER_MISMATCH".to_owned());
     }
     if normalize(&fingerprint.power_plan) != "amdryzenhighperformance" {

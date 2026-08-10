@@ -80,6 +80,7 @@ pub(super) fn performance_command_report(
             render_planning,
             live_runtime,
             production_worker,
+            r5_physics: None,
         },
     )
 }

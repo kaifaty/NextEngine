@@ -20,7 +20,7 @@ mod tests;
 
 pub const PERFORMANCE_RUN_SCHEMA_VERSION: u32 = 4;
 pub const PERFORMANCE_BASELINE_SCHEMA_VERSION: u32 = 4;
-pub const PERFORMANCE_METHODOLOGY_VERSION: &str = "nextengine-performance-v6";
+pub const PERFORMANCE_METHODOLOGY_VERSION: &str = "nextengine-performance-v7";
 pub const PERFORMANCE_REPORT_FILE_NAME: &str = "performance-report-v4.json";
 pub const PERFORMANCE_BASELINE_FILE_NAME: &str = "performance-baseline-v4.json";
 pub const PERFORMANCE_REPORT_TEMP_FILE_NAME: &str = ".performance-report-v4.json.tmp";
@@ -94,8 +94,9 @@ impl PerformanceScenarioV1 {
             Self::R4_100Npc => Some(
                 "R4_100NPC_WORKLOAD_UNAVAILABLE: population, navigation and integrated ADR-016 workload owners are not implemented",
             ),
+            Self::R5Physics16 if cfg!(feature = "physx") => None,
             Self::R5Physics16 => Some(
-                "R5_PHYSICS_WORKLOAD_UNAVAILABLE: the 16-avatar production motor/animation workload is not implemented",
+                "R5_PHYSICS_WORKLOAD_UNAVAILABLE: build xtask with --features physx after the pinned SDK setup",
             ),
         }
     }
@@ -120,6 +121,9 @@ pub fn performance_scenario_hash(scenario: PerformanceScenarioV1) -> String {
         }
         PerformanceScenarioV1::R3MultiregionStreaming => {
             b"nextengine.performance.r3-multiregion-streaming.v1:reference-alpha:regions=4:chunks=64:cycles=1000:canonical-cyclic-route:two-fixed-ticks-per-transition:packaged-io:bounded-workers=2:logical-staging-charge:resource-observation=streaming-only"
+        }
+        PerformanceScenarioV1::R5Physics16 => {
+            b"nextengine.performance.r5-physics-16.v1:slots=16:dof=23:physics=240hz:motor=60hz:warmup-substeps-per-slot=240:measured-substeps-per-slot=10000:workers=1+4+8:fixed-standing-controller:fresh-scene-restore:exact-worker-root-parity:logical-accounting=r5-physics-16-v1"
         }
         _ => return sha256_hex(scenario.as_str().as_bytes()),
     };

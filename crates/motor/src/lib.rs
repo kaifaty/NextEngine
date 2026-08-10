@@ -5,6 +5,7 @@ mod control;
 mod humanoid;
 mod mirror;
 mod observation;
+mod performance;
 mod replay;
 mod runtime;
 mod training;
@@ -17,6 +18,10 @@ pub use control::{
 pub use humanoid::{REFERENCE_HUMANOID_DOF, reference_humanoid_body_schema_v1};
 pub use mirror::{stage0_isaac_mirror_descriptor_json_v1, stage0_isaac_mirror_golden_json_v1};
 pub use observation::{MotorObservationBuilder, MotorObservationError};
+pub use performance::{
+    HumanoidPerformanceError, HumanoidPerformanceReportV1, HumanoidWorkerPerformanceV1,
+    run_reference_humanoid_performance_v1,
+};
 pub use replay::{MOTOR_RUNTIME_CHECKPOINT_SCHEMA_VERSION, MotorReplayCodecError};
 pub use runtime::{
     DeterministicHumanoidMotor, HumanoidMotorCheckpoint, MAX_REPLAY_MOTOR_TICKS, MotorFrameResult,

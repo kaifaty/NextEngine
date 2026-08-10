@@ -15,7 +15,7 @@ fn fingerprint() -> PerformanceTargetFingerprintV1 {
         os_name: "Microsoft Windows 11 Pro".to_owned(),
         os_build: "26200".to_owned(),
         bios_version: "test-bios".to_owned(),
-        gpu_driver: "591.86".to_owned(),
+        gpu_driver: "610.88".to_owned(),
         power_plan: "AMD Ryzenв„ў High Performance".to_owned(),
     }
 }
@@ -107,7 +107,7 @@ fn schema_round_trip_rejects_unknown_fields() {
     assert_eq!(run.schema_version, 4);
     assert_eq!(
         run.methodology.methodology_version,
-        "nextengine-performance-v6"
+        "nextengine-performance-v7"
     );
     assert_eq!(PERFORMANCE_REPORT_FILE_NAME, "performance-report-v4.json");
     assert_eq!(
@@ -149,7 +149,11 @@ fn schema_round_trip_rejects_unknown_fields() {
         assert!(diagnostics.contains(&"PERF_RUN_METHODOLOGY_MISMATCH".to_owned()));
     }
 
-    for prior in ["nextengine-performance-v4", "nextengine-performance-v5"] {
+    for prior in [
+        "nextengine-performance-v4",
+        "nextengine-performance-v5",
+        "nextengine-performance-v6",
+    ] {
         let mut prior_methodology: PerformanceRunV4 =
             serde_json::from_slice(&json).expect("decode current fixture");
         prior_methodology.methodology.methodology_version = prior.to_owned();
@@ -255,15 +259,41 @@ fn v4_hard_counters_require_complete_low_overhead_evidence() {
         unavailable: Vec::new(),
     };
     counters
-        .validate_for_hard_timing()
+        .validate_for_hard_timing(PerformanceScenarioV1::R2AlphaRender)
         .expect("V4 hard evidence is complete");
 
+    counters.vulkan_timestamp_queries = 0;
+    counters
+        .validate_for_hard_timing(PerformanceScenarioV1::R5Physics16)
+        .expect("CPU PhysX hard evidence does not fabricate Vulkan timestamps");
+
+    counters.vulkan_timestamp_queries = 2;
     counters.logical_resource_charges = None;
     assert_eq!(
-        counters.validate_for_hard_timing(),
+        counters.validate_for_hard_timing(PerformanceScenarioV1::R2AlphaRender),
         Err(vec![
             "PERF_REQUIRED_COUNTER_MISSING: logical_resource_charges".to_owned()
         ])
+    );
+}
+
+#[test]
+fn r5_physics_methodology_binds_the_production_humanoid_workload() {
+    let scenario = PerformanceScenarioV1::R5Physics16;
+    let methodology = methodology_for(scenario);
+    assert_eq!(methodology.warmup_samples, 240);
+    assert_eq!(methodology.measured_samples, 10_000);
+    assert!(
+        methodology
+            .notes
+            .iter()
+            .any(|note| note.contains("240 Hz physics"))
+    );
+    assert_eq!(
+        performance_scenario_hash(scenario),
+        sha256_hex(
+            b"nextengine.performance.r5-physics-16.v1:slots=16:dof=23:physics=240hz:motor=60hz:warmup-substeps-per-slot=240:measured-substeps-per-slot=10000:workers=1+4+8:fixed-standing-controller:fresh-scene-restore:exact-worker-root-parity:logical-accounting=r5-physics-16-v1"
+        )
     );
 }
 

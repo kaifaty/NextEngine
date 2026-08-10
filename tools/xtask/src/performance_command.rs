@@ -17,6 +17,7 @@ const INTERACTIVE_FRAME_SOAK_FRAMES: u32 = 240;
 mod production_worker;
 mod r2_alpha_render;
 mod r3_multiregion;
+mod r5_physics;
 mod workloads;
 
 use production_worker::*;
@@ -208,6 +209,14 @@ fn performance_report_for(
         return r3_multiregion::performance_report(
             request,
             state_root,
+            run,
+            tool_run.project_composition_lock_hash.to_hex(),
+            profiling_enabled,
+        );
+    }
+    if request.scenario == xtask::performance::PerformanceScenarioV1::R5Physics16 {
+        return r5_physics::performance_report(
+            request,
             run,
             tool_run.project_composition_lock_hash.to_hex(),
             profiling_enabled,

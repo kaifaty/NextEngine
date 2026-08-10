@@ -39,7 +39,10 @@ impl PerformanceRunV4 {
         if let Err(error) = self.instrumentation.validate() {
             diagnostics.push(error);
         }
-        if let Err(errors) = self.resource_counters.validate_for_hard_timing() {
+        if let Err(errors) = self
+            .resource_counters
+            .validate_for_hard_timing(self.scenario)
+        {
             diagnostics.extend(errors);
         }
         if self.authoritative_hashes.is_empty() {
