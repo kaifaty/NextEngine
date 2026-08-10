@@ -13,8 +13,13 @@ mod hard_evidence;
 mod resource_counters;
 mod support;
 pub use resource_counters::{PerformanceLogicalResourceChargesV1, PerformanceResourceCountersV4};
-use support::{bootstrap_median_change_interval, relative_change_basis_points, relative_verdict};
-pub use support::{methodology_for, sha256_hex};
+pub use support::{
+    aggregate_metric_verdict, compare_metrics_to_baseline, methodology_for,
+    nearest_rank_percentile, sha256_hex,
+};
+#[cfg(test)]
+use support::{bootstrap_median_change_interval, relative_verdict};
+use support::{metric_run_percentiles, validate_sample_run_lengths};
 #[cfg(test)]
 mod tests;
 
@@ -968,156 +973,4 @@ fn unique_verbose_field<'a>(toolchain: &'a str, field: &str) -> Option<&'a str> 
         .filter_map(|line| line.strip_prefix(&prefix));
     let value = values.next()?;
     (!value.is_empty() && values.next().is_none()).then_some(value)
-}
-
-pub fn nearest_rank_percentile(samples: &[u64], percentile: u32) -> Result<u64, String> {
-    if samples.is_empty() {
-        return Err("nearest-rank percentile requires samples".to_owned());
-    }
-    if !(1..=100).contains(&percentile) {
-        return Err("nearest-rank percentile must be in 1..=100".to_owned());
-    }
-    let mut ordered = samples.to_vec();
-    ordered.sort_unstable();
-    let numerator = usize::try_from(percentile)
-        .map_err(|error| error.to_string())?
-        .checked_mul(ordered.len())
-        .ok_or_else(|| "nearest-rank index overflow".to_owned())?;
-    let rank = numerator.div_ceil(100);
-    Ok(ordered[rank.saturating_sub(1)])
-}
-
-fn validate_sample_run_lengths(
-    raw_samples: &[u64],
-    sample_run_lengths: &[u32],
-    expected_runs: usize,
-) -> Result<(), String> {
-    if sample_run_lengths.len() != expected_runs || sample_run_lengths.contains(&0) {
-        return Err("PERF_METRIC_RUN_BOUNDARY_COUNT_MISMATCH".to_owned());
-    }
-    let sample_count = sample_run_lengths
-        .iter()
-        .try_fold(0_usize, |total, length| {
-            total.checked_add(usize::try_from(*length).unwrap_or(usize::MAX))
-        });
-    if sample_count != Some(raw_samples.len()) {
-        return Err("PERF_METRIC_RUN_BOUNDARY_LENGTH_MISMATCH".to_owned());
-    }
-    Ok(())
-}
-
-fn run_percentiles(
-    raw_samples: &[u64],
-    sample_run_lengths: &[u32],
-    percentile: u32,
-) -> Result<Vec<u64>, String> {
-    validate_sample_run_lengths(raw_samples, sample_run_lengths, sample_run_lengths.len())?;
-    let mut offset = 0_usize;
-    let mut percentiles = Vec::with_capacity(sample_run_lengths.len());
-    for length in sample_run_lengths {
-        let length = usize::try_from(*length).map_err(|error| error.to_string())?;
-        let end = offset
-            .checked_add(length)
-            .ok_or_else(|| "PERF_METRIC_RUN_BOUNDARY_LENGTH_OVERFLOW".to_owned())?;
-        percentiles.push(nearest_rank_percentile(
-            &raw_samples[offset..end],
-            percentile,
-        )?);
-        offset = end;
-    }
-    Ok(percentiles)
-}
-
-fn metric_run_percentiles(
-    metric: &PerformanceMetricV1,
-    percentile: u32,
-) -> Result<Vec<u64>, String> {
-    run_percentiles(&metric.raw_samples, &metric.sample_run_lengths, percentile)
-}
-
-fn baseline_metric_run_percentiles(
-    metric: &PerformanceBaselineMetricV1,
-    percentile: u32,
-) -> Result<Vec<u64>, String> {
-    run_percentiles(&metric.raw_samples, &metric.sample_run_lengths, percentile)
-}
-
-pub fn compare_metrics_to_baseline(
-    run: &mut PerformanceRunV5,
-    baseline: &PerformanceBaselineV5,
-) -> Result<(), Vec<String>> {
-    if run.mode == PerformanceModeV1::Gate && run.evidence_runs != HARD_GATE_EVIDENCE_RUNS {
-        return Err(vec!["PERF_GATE_REQUIRES_THREE_EVIDENCE_RUNS".to_owned()]);
-    }
-    if run.mode == PerformanceModeV1::Gate
-        && run.environment_samples.len()
-            != usize::try_from(HARD_GATE_EVIDENCE_RUNS * 2).unwrap_or(usize::MAX)
-    {
-        return Err(vec!["PERF_ENVIRONMENT_SAMPLE_COUNT_MISMATCH".to_owned()]);
-    }
-    let baseline_metrics = baseline.validate_for(run)?;
-    let mut diagnostics = Vec::new();
-    for metric in &mut run.metrics {
-        let Some(reference) = baseline_metrics.get(metric.name.as_str()) else {
-            diagnostics.push(format!("PERF_BASELINE_METRIC_MISSING: {}", metric.name));
-            continue;
-        };
-        if reference.unit != metric.unit {
-            diagnostics.push(format!("PERF_BASELINE_UNIT_MISMATCH: {}", metric.name));
-            continue;
-        }
-        let candidate_run_p95 = metric_run_percentiles(metric, 95).map_err(|error| vec![error])?;
-        let baseline_run_p95 =
-            baseline_metric_run_percentiles(reference, 95).map_err(|error| vec![error])?;
-        let baseline_run_p99 =
-            baseline_metric_run_percentiles(reference, 99).map_err(|error| vec![error])?;
-        let candidate_p95 =
-            nearest_rank_percentile(&candidate_run_p95, 50).map_err(|error| vec![error])?;
-        let baseline_p95 =
-            nearest_rank_percentile(&baseline_run_p95, 50).map_err(|error| vec![error])?;
-        let baseline_p99 =
-            nearest_rank_percentile(&baseline_run_p99, 50).map_err(|error| vec![error])?;
-        let change_basis_points = relative_change_basis_points(candidate_p95, baseline_p95);
-        let confidence_interval_95_basis_points =
-            bootstrap_median_change_interval(&candidate_run_p95, &baseline_run_p95, 2_000)
-                .map_err(|error| vec![error])?;
-        metric.relative = Some(PerformanceRelativeComparisonV1 {
-            change_basis_points,
-            confidence_interval_95_basis_points,
-            baseline_p95,
-            baseline_p99,
-        });
-        metric.verdict = relative_verdict(
-            metric.verdict,
-            change_basis_points,
-            confidence_interval_95_basis_points,
-        );
-    }
-    if diagnostics.is_empty() {
-        run.verdict = aggregate_metric_verdict(&run.metrics);
-        Ok(())
-    } else {
-        Err(diagnostics)
-    }
-}
-
-pub fn aggregate_metric_verdict(metrics: &[PerformanceMetricV1]) -> PerformanceVerdict {
-    if metrics
-        .iter()
-        .any(|metric| metric.verdict == PerformanceVerdict::Fail)
-    {
-        PerformanceVerdict::Fail
-    } else if metrics
-        .iter()
-        .any(|metric| metric.verdict == PerformanceVerdict::Warning)
-    {
-        PerformanceVerdict::Warning
-    } else if metrics
-        .iter()
-        .any(|metric| metric.verdict == PerformanceVerdict::Pass)
-    {
-        PerformanceVerdict::Pass
-    } else {
-        PerformanceVerdict::ReportOnly
-    }
 }
