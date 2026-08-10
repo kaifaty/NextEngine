@@ -19,6 +19,8 @@ pub struct HumanoidMotorCheckpoint {
     pub command_raw: [i64; 3],
     pub previous_efforts_micronewton_metres: Vec<i64>,
     pub physics: PhysXRawArticulationSnapshot,
+    pub restore_witness_physics: Option<PhysXRawArticulationSnapshot>,
+    pub restore_witness_efforts_micronewton_metres: Vec<i64>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -40,6 +42,8 @@ pub struct DeterministicHumanoidMotor {
     applied_action: Vec<i64>,
     command_raw: [i64; 3],
     motor_tick: u64,
+    restore_witness_physics: Option<PhysXRawArticulationSnapshot>,
+    restore_witness_efforts: Vec<i64>,
 }
 
 impl DeterministicHumanoidMotor {
@@ -58,6 +62,8 @@ impl DeterministicHumanoidMotor {
             current_snapshot,
             command_raw: [0; 3],
             motor_tick: 0,
+            restore_witness_physics: None,
+            restore_witness_efforts: Vec::new(),
         })
     }
 
@@ -71,6 +77,8 @@ impl DeterministicHumanoidMotor {
         self.applied_action.fill(0);
         self.command_raw = [0; 3];
         self.motor_tick = 0;
+        self.restore_witness_physics = None;
+        self.restore_witness_efforts.clear();
         self.observation_builder
             .build(
                 &self.current_snapshot,
@@ -119,6 +127,8 @@ impl DeterministicHumanoidMotor {
                 .iter()
                 .map(|effort| effort.effort_micronewton_metres)
                 .collect::<Vec<_>>();
+            self.restore_witness_physics = Some(self.world.raw_checkpoint());
+            self.restore_witness_efforts.clone_from(&effort_values);
             self.current_snapshot = self.world.apply_efforts_and_step(&effort_values)?;
             substep_efforts.push(efforts);
         }
@@ -148,6 +158,8 @@ impl DeterministicHumanoidMotor {
             command_raw: self.command_raw,
             previous_efforts_micronewton_metres: self.controller.previous_efforts().to_vec(),
             physics: self.world.raw_checkpoint(),
+            restore_witness_physics: self.restore_witness_physics.clone(),
+            restore_witness_efforts_micronewton_metres: self.restore_witness_efforts.clone(),
         }
     }
 
@@ -159,7 +171,17 @@ impl DeterministicHumanoidMotor {
             self.compiled.physx_scene_profile,
             &self.compiled.physx_catalog,
         )?;
-        let snapshot = world.restore(&checkpoint.physics)?;
+        let snapshot = if let Some(witness) = &checkpoint.restore_witness_physics {
+            world.restore(witness)?;
+            let snapshot = world
+                .apply_efforts_and_step(&checkpoint.restore_witness_efforts_micronewton_metres)?;
+            if world.raw_checkpoint() != checkpoint.physics {
+                return Err(MotorRuntimeError::RestoreDivergence);
+            }
+            snapshot
+        } else {
+            world.restore(&checkpoint.physics)?
+        };
         self.controller
             .restore_efforts(&checkpoint.previous_efforts_micronewton_metres)?;
         if checkpoint.applied_action_microradians.len()
@@ -172,6 +194,10 @@ impl DeterministicHumanoidMotor {
         self.applied_action = checkpoint.applied_action_microradians.clone();
         self.command_raw = checkpoint.command_raw;
         self.motor_tick = checkpoint.motor_tick;
+        self.restore_witness_physics = checkpoint.restore_witness_physics.clone();
+        self.restore_witness_efforts = checkpoint
+            .restore_witness_efforts_micronewton_metres
+            .clone();
         self.observation_builder
             .build(
                 &self.current_snapshot,
@@ -190,6 +216,7 @@ pub enum MotorRuntimeError {
     ChannelCount,
     ProfileMismatch,
     TickOverflow,
+    RestoreDivergence,
 }
 
 impl MotorRuntimeError {
@@ -202,6 +229,7 @@ impl MotorRuntimeError {
             Self::ChannelCount => "MOTOR_RUNTIME_CHANNEL_COUNT",
             Self::ProfileMismatch => "MOTOR_RUNTIME_PROFILE_MISMATCH",
             Self::TickOverflow => "MOTOR_RUNTIME_TICK_OVERFLOW",
+            Self::RestoreDivergence => "MOTOR_RUNTIME_RESTORE_DIVERGENCE",
         }
     }
 }

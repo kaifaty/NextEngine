@@ -454,6 +454,8 @@ std::int32_t ne_physx_world_configure_scene(
     description.solverType = physx::PxSolverType::eTGS;
     description.broadPhaseType = physx::PxBroadPhaseType::ePABP;
     description.frictionType = physx::PxFrictionType::ePATCH;
+    description.flags.clear(physx::PxSceneFlag::eENABLE_PCM);
+    description.flags |= physx::PxSceneFlag::eDISABLE_CONTACT_CACHE;
     description.flags |= physx::PxSceneFlag::eENABLE_ENHANCED_DETERMINISM;
     description.flags |= physx::PxSceneFlag::eDISABLE_SLEEPING;
     description.limits.maxNbActors = input->max_actors;

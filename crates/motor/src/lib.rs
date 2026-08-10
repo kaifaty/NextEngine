@@ -4,6 +4,7 @@ mod compiler;
 mod control;
 mod humanoid;
 mod observation;
+mod replay;
 mod runtime;
 
 pub use compiler::{CompiledBodySchemaV1, CompiledPhysicsDescriptorsV1, MotorCompileError};
@@ -13,6 +14,7 @@ pub use control::{
 };
 pub use humanoid::{REFERENCE_HUMANOID_DOF, reference_humanoid_body_schema_v1};
 pub use observation::{MotorObservationBuilder, MotorObservationError};
+pub use replay::{MOTOR_RUNTIME_CHECKPOINT_SCHEMA_VERSION, MotorReplayCodecError};
 pub use runtime::{
     DeterministicHumanoidMotor, HumanoidMotorCheckpoint, MotorFrameResult, MotorRuntimeError,
 };
