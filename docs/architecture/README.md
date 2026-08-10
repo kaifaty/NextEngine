@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.24 |
+| Версия | 2.25 |
 | Последняя проверка | 2026-08-10 |
-| Заменяет | INDEX-001 2.23; adopts ADR-057 hierarchical learnable Motor System and supersedes the Mamba foundation target |
+| Заменяет | INDEX-001 2.24; adopts ADR-058 and SPEC-35 PhysX-only deterministic humanoid Stage 0 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -124,7 +124,7 @@ engine-owned API; для него SHOULD быть указан bounded evaluatio
    и
    [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md).
 
-ADR-009, ADR-010, ADR-015, ADR-023, ADR-024, ADR-039–043 and ADR-055, retired evidence
+ADR-009, ADR-010, ADR-015, ADR-023, ADR-024, ADR-033, ADR-039–043 and ADR-055, retired evidence
 register и старые review packets являются historical-only. Lightweight
 traceability — навигационная карта, не admission authority.
 
@@ -146,7 +146,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-11 | [Runtime safety и license hygiene](11-security-licensing-and-governance.md) | Accepted |
 | SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted |
 | SPEC-13 | [Gameplay mechanics и mod packages](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | Accepted |
-| SPEC-14 | [Physical archetypes, BodySchema, motor skills и policy lifecycle](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) | Accepted hierarchy/ownership baseline; exact unconsumed BodySchema/skill/adaptation profiles are Proposed |
+| SPEC-14 | [Physical archetypes, BodySchema, motor skills и policy lifecycle](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) | Accepted hierarchy/ownership; fixed-humanoid BodySchema V1 is current through SPEC-35, advanced skill/adaptation/family profiles remain Proposed |
 | SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted |
 | SPEC-16 | [Text-canonical multimodal dialogue и model packs](16-text-canonical-multimodal-dialogue-and-model-packs.md) | Proposed |
 | SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted |
@@ -167,6 +167,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-32 | [Deterministic Strategic Agent cognition and social behavior](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Proposed R4c/R4d target; ADR-056 invariants are Accepted, exact schemas wait for consumers |
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
 | SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed optional R&D data plane including the family-based Motor curriculum, not a current creator SDK or shipped trainer |
+| SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF Stage 0 substrate; does not prove a learned policy or R5 completion |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -177,7 +178,7 @@ traceability — навигационная карта, не admission authority
 |---|---|---|
 | ADR-000 | [ADR template](adr/000-template.md) | Draft |
 | ADR-001 | [Product, repositories, license и platforms](adr/001-product-repository-license-and-platforms.md) | Accepted; process clauses partially superseded by ADR-030 |
-| ADR-002 | [Rust-first core, FFI и ECS facade](adr/002-rust-first-ffi-and-ecs-facade.md) | Accepted; reviewed unsafe remains confined to FFI/backend boundaries under ADR-033/ADR-049 |
+| ADR-002 | [Rust-first core, FFI и ECS facade](adr/002-rust-first-ffi-and-ecs-facade.md) | Accepted; reviewed unsafe remains confined to FFI/backend boundaries under ADR-058/ADR-049 |
 | ADR-003 | [Vulkan renderer и shader toolchain](adr/003-vulkan-renderer-and-shader-toolchain.md) | Accepted |
 | ADR-004 | [Physics-avatar backend boundary](adr/004-physics-avatar-backend-boundary.md) | Superseded |
 | ADR-005 | [Offline-first AI process boundary](adr/005-offline-first-ai-process-boundary.md) | Accepted; planner wording partially superseded by ADR-056, process/offline boundaries preserved |
@@ -188,7 +189,7 @@ traceability — навигационная карта, не admission authority
 | ADR-010 | [Artifact-first validation и human review](adr/010-artifact-first-headless-validation-and-review.md) | Superseded by ADR-030 |
 | ADR-011 | [macOS developer host и staged training](adr/011-macos-developer-host-local-verification-and-staged-training.md) | Accepted; certification clauses partially superseded by ADR-030 |
 | ADR-012 | [Deterministic command identity и replay V1](adr/012-deterministic-command-identity-and-replay.md) | Superseded |
-| ADR-013 | [Physical-avatar authority boundary](adr/013-self-contained-physical-avatar-boundary.md) | Accepted; certification clauses partially superseded by ADR-030 |
+| ADR-013 | [Physical-avatar authority boundary](adr/013-self-contained-physical-avatar-boundary.md) | Accepted authority boundary; process clauses partially superseded by ADR-030 and backend fallback by ADR-058 |
 | ADR-014 | [Deterministic extensions и package integrity](adr/014-deterministic-extensions-and-package-trust.md) | Accepted; process clauses partially superseded by ADR-030 |
 | ADR-015 | [Evidence trust и attestation V1](adr/015-evidence-trust-fixture-separation-and-attestation.md) | Superseded by ADR-030 |
 | ADR-016 | [Compositional gameplay budgets](adr/016-compositional-gameplay-budgets.md) | Accepted |
@@ -202,13 +203,13 @@ traceability — навигационная карта, не admission authority
 | ADR-024 | [Requirement/gate/evidence/profile closure](adr/024-requirement-gate-evidence-and-profile-closure.md) | Superseded by ADR-030 |
 | ADR-025 | [Schema, content и migration authority](adr/025-schema-content-and-migration-authority.md) | Accepted; generic pre-v1 N-2 support window partially superseded by ADR-046 |
 | ADR-026 | [Deterministic work, resources и streaming admission](adr/026-deterministic-work-resource-and-streaming-admission.md) | Accepted immutable-staging/commit invariants; generic jobs/resource subsystem superseded by ADR-046 |
-| ADR-027 | [Physics, motor и animation layering](adr/027-physics-motor-and-animation-layering.md) | Accepted |
+| ADR-027 | [Physics, motor и animation layering](adr/027-physics-motor-and-animation-layering.md) | Accepted ownership/layering; backend-neutral candidate/fallback wording partially superseded by ADR-058 |
 | ADR-028 | [Platform session и presentation authority](adr/028-platform-session-and-presentation-authority.md) | Accepted platform normalization/authority; recovery/storage/close clauses superseded by ADR-047 |
 | ADR-029 | [RPG-owned quest graph и narrative director](adr/029-rpg-owned-quest-graph-and-optional-narrative-director.md) | Superseded by ADR-046; future intent Proposed |
 | ADR-030 | [Product-first development и lightweight validation](adr/030-product-first-development-and-lightweight-validation.md) | Accepted |
 | ADR-031 | [RPG-owned divine standing и atomic pantheon judgment](adr/031-rpg-owned-divine-standing-and-atomic-pantheon-judgment.md) | Superseded by ADR-046; future intent Proposed |
 | ADR-032 | [Grounded capsule physics checkpoint version boundary](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md) | Accepted; designation of V4 as current generated replay partially superseded by ADR-034 |
-| ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Accepted; PhysX backend остаётся Proposed; current reviewed unsafe allowlist is FFI-only after ADR-049 |
+| ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Superseded by ADR-058 |
 | ADR-034 | [Player targeting replay V5 и exact mapping provenance](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) | Accepted; legacy V4/V1 retention superseded by ADR-046 |
 | ADR-035 | [Bounded live recovery, platform-host binding и presentation cut](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) | Accepted host binding and presentation cut; checkpoint/archive recovery clauses superseded by ADR-047 |
 | ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted; THOTH target, budgets, baseline and no-retry authority remain; allocator clauses are superseded by ADR-049 |
@@ -233,6 +234,7 @@ traceability — навигационная карта, не admission authority
 | ADR-055 | [Mamba-2 physical motion foundation profile](adr/055-mamba2-physical-motion-foundation-profile.md) | Superseded by ADR-057 |
 | ADR-056 | [Deterministic Strategic Agent and belief-driven GOAP](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) | Accepted; belief-driven Utility + bounded GOAP closes R4/v1 without learned models |
 | ADR-057 | [Hierarchical learnable Motor System and policy-family architecture](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) | Accepted hierarchy, BodySchema, family/adaptation, exact-action replay and fallback semantics; concrete learned/toolchain profiles remain Proposed |
+| ADR-058 | [PhysX-only deterministic humanoid training substrate](adr/058-physx-only-deterministic-humanoid-training-substrate.md) | Accepted sole production backend and fixed-humanoid Stage 0; cutover/completion require Windows/Linux and replay/performance gates |
 
 ## Proposed tracks
 
@@ -245,8 +247,6 @@ traceability — навигационная карта, не admission authority
   navigation API or gate until a production consumer is admitted.
 - SPEC-23 — future generic scheduler/resource work after the completed bounded
   R3 partition; no generic scheduler/resource framework is accepted.
-- ADR-033 — optional PhysX 5.9.0 grounded-capsule backend до полной parity на
-  Windows/Linux; reference остаётся default.
 - SPEC-31 narrative director, generated quest graph and divine-standing intent
   formerly described by ADR-029/ADR-031; they have no current implementation
   obligation and return only with a concrete production consumer.
@@ -265,6 +265,11 @@ traceability — навигационная карта, не admission authority
   low-level comparator, TCN/GRU the first adaptation comparators; Mamba is only
   an equal-budget experiment for longer-history/generator/planner roles. The
   procedural/animation R5 path remains current and independently shippable.
+
+ADR-058/SPEC-35 are an Accepted parallel R&D implementation track. PhysX-only
+default and Stage 0 readiness are facts only after the documented atomic
+cutover and platform/replay/performance gates; the Accepted architecture alone
+does not mark them complete.
 
 Этот deferred track сохраняет deterministic offline fallback, engine-owned
 contracts и untrusted proposal boundaries. Его принятие выполняется обычным

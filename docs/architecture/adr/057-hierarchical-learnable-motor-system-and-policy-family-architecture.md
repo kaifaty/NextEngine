@@ -86,9 +86,10 @@ topology inputs. Каждый source field сохраняет своего RPG/M
 owner; projection не становится вторым mutable source. Physical Embodiment
 владеет только compiled effective mass/inertia/ROM/actuator/sensor projection.
 
-Accepted здесь semantics и derivation boundary. Exact unconsumed
-`BodySchemaV1`, `BodyInstanceProjectionV1` и related wire shapes остаются
-Proposed до первого R5 production consumer по ADR-046.
+Accepted здесь semantics и derivation boundary. ADR-058/SPEC-35 subsequently
+accept the exact `BodySchemaV1` and `BodyInstanceProjectionV1` subset consumed
+by the fixed 23-DoF Stage 0 humanoid. Advanced overlays/families remain
+Proposed until their own production consumers under ADR-046.
 
 ### Policy families, skills и composition
 

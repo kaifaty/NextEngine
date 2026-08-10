@@ -6,10 +6,10 @@
 | Статус | Accepted |
 | Версия | 1.0 |
 | Дата решения | 2026-07-24 |
-| Последняя проверка | 2026-07-24 |
+| Последняя проверка | 2026-08-10 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-013](013-self-contained-physical-avatar-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-057](057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
 | Заменяет | отсутствует |
-| Заменён | не заменён |
+| Заменён | backend-neutral candidate/reference-fallback wording partially superseded by ADR-058; ownership/layering remains Accepted |
 
 ## Контекст
 
@@ -177,10 +177,10 @@ and immutable snapshots. Public schemas MUST NOT expose:
 - animation middleware graph/node handles or renderer/GPU buffer objects;
 - importer/source-format types.
 
-PhysX, Jolt and Bullet remain `Proposed` physics candidates. ONNX Runtime
-remains a `Proposed` motor inference candidate.
-This ADR selects none of them. Each implementation maps privately to the same
-engine-owned contract and may be rejected without changing layer authority.
+ADR-058 subsequently selects PhysX 5.9.0 as the sole production physics
+backend and removes the reference/Jolt/Bullet runtime fallback. This does not
+change the engine-owned public boundary or any ownership rule in this ADR.
+ONNX Runtime remains a `Proposed` private motor inference candidate.
 
 ## Рассмотренные варианты
 
@@ -217,9 +217,8 @@ change, a separate ADR.
   gameplay authority.
 - Tests and tools use production descriptors, observations, actions and
   immutable snapshots; test-only transform mutation is forbidden.
-- A backend may need an adapter or deterministic reference fallback to meet the
-  canonical boundary. Inability to do so rejects that candidate; it does not
-  weaken the contract.
+- The PhysX adapter must meet the canonical boundary. Inability to do so aborts
+  activation/cutover; it does not select another solver or weaken the contract.
 - Observable physical/motor/animation changes exercise the affected playable
   loop and, when relevant, a targeted platform or performance check.
 
@@ -233,7 +232,8 @@ change, a separate ADR.
 
 ## Supersession
 
-ADR-027 complements ADR-013, ADR-022 and ADR-057 and does not supersede them.
+ADR-027 complements ADR-013, ADR-022 and ADR-057. ADR-058 partially supersedes
+only its backend-selection/reference-fallback wording.
 Changing physics numeric authority, allowing motor/animation/presentation to
 write active physical pose, or allowing raw tolerance to decide gameplay
 requires a new Accepted ADR with explicit supersession and synchronized

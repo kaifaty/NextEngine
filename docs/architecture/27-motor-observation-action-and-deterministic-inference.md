@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-27 |
 | Статус | Accepted |
-| Версия | 1.4 |
+| Версия | 1.5 |
 | Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
-| Заменяет | SPEC-27 1.3; replaces the Mamba-specific target with ADR-057 explicit adaptation, first-humanoid action profile and recorded-action replay semantics |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md) |
+| Заменяет | SPEC-27 1.4; accepts the Stage 0 layouts, fixed-point PD/safety and complete motor checkpoint consumer |
 
 ## История принятия
 
@@ -299,7 +299,7 @@ Semantic/unit pairs are exact: angular/linear position use
 error. The actuator slot's SPEC-26 axis kind and `PhysicsActuatorBoundsV1`
 must admit the same semantic and unit.
 
-Under ADR-057, the first Proposed learned humanoid action schema emits bounded
+Under ADR-058/SPEC-35, the current Stage 0 humanoid action schema emits bounded
 residual joint-position targets relative to the exact neutral/authored
 reference, with optional velocity channels. Engine-owned fixed stiffness/
 damping and torque-speed-power/velocity/rate limits remain in the safety
@@ -307,6 +307,10 @@ profile; the model cannot rewrite them. A separately bounded small residual
 torque MAY be evaluated only after the position-target baseline. Learned
 stiffness/damping, direct torque and muscle activation require separate
 quality/safety profiles and gates; they are not the default route.
+
+The current records are `MotorObservationLayoutV1`, `MotorActionLayoutV1`,
+`MotorWorldCheckpointV1` and `PolicyStateRecordV1`; Stage 0 populates empty but
+explicit adaptation/generator/router state and never hides evaluator history.
 
 Only the following fixed-point record is authoritative:
 

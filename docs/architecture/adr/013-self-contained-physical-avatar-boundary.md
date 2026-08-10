@@ -6,10 +6,10 @@
 | Статус | Accepted |
 | Версия | 1.2 |
 | Дата решения | 2026-07-23 |
-| Последняя проверка | 2026-07-25 |
-| Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-057](057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
+| Последняя проверка | 2026-08-10 |
+| Нормативные зависимости | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-057](057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md) |
 | Заменяет | [ADR-004](004-physics-avatar-backend-boundary.md) |
-| Заменён | частично [ADR-030](030-product-first-development-and-lightweight-validation.md) |
+| Заменён | process clauses partially by ADR-030; backend-selection/fallback clauses partially by ADR-058 |
 
 ## Частичное supersession ADR-030
 
@@ -95,17 +95,16 @@ diagnostic без partial topology mutation.
   input для safety supervisor; deterministic fallback policy обязательна.
 - Runtime/training observations, action units и compatibility hashes принадлежат
   engine schema. GPU training не становится runtime authority.
-- Отсутствующий backend или несовместимая policy выбирает declared safe
-  implementation либо procedural controller и выдаёт stable diagnostic.
+- Missing PhysX backend is a typed pre-activation configuration failure under
+  ADR-058. Incompatible optional policy still selects the declared procedural
+  controller, which executes through PhysX.
 
-### Backend technologies
+### Backend technology
 
-- PhysX reduced-coordinate articulations — `Proposed` primary hypothesis;
-- Jolt — `Proposed` first fallback;
-- Bullet — `Proposed` second fallback и comparator.
-
-Все варианты реализуют один engine-owned contract. Ошибка preferred backend
-выбирает следующий declared fallback и не ослабляет public contract.
+ADR-058 selects PhysX 5.9.0 reduced-coordinate articulations as the sole
+production backend. Jolt, Bullet and the old reference solver are not runtime
+fallbacks. PhysX remains behind the same engine-owned contract; missing or
+failed backend aborts activation/uncommitted work and never weakens it.
 
 ## Product checks
 
@@ -125,5 +124,5 @@ diagnostic без partial topology mutation.
 ## Последствия
 
 ADR-004 остаётся `Superseded`; SPEC-05 использует этот engine-owned boundary.
-PhysX, Jolt и Bullet сохраняют `Proposed` status и declared fallbacks до
-результатов релевантных product checks.
+PhysX-only cutover and Stage 0 completion remain gated by ADR-058 product
+checks; Accepted architecture alone is not an implementation-completion claim.

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-14 |
 | Статус | Accepted |
-| Версия | 2.4 |
+| Версия | 2.5 |
 | Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
-| Заменяет | SPEC-14 2.3; adopts ADR-057 BodySchema, hierarchy, policy-family and adaptation target while retaining procedural R5 fallback |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md) |
+| Заменяет | SPEC-14 2.4; accepts the fixed 23-DoF humanoid BodySchema consumer while later families/overlays remain Proposed |
 
 ## Назначение и invariants
 
@@ -55,10 +55,11 @@ semantic `BodySchema`, `BodyInstanceProjection`, `MotorPolicyBundleManifest`,
 `PolicyCompatibilityKey`, `MotorSkillDefinition`, `SkillProficiency`,
 `MotorPerformanceEnvelope`, `MotorCapabilityView`, `PolicyActivationPlan`,
 `ActivePolicyRoute`, SPEC-27 `PolicyStateRecordV1`, `PolicyStateCommitV1` и
-support-check/run manifests. Exact unconsumed `BodySchemaV1`,
-`BodyInstanceProjectionV1`, `MotorSkillCommandV1`, `ContactPlanV1`,
-`MotionReferenceHorizonV1` and `MotorAdaptationProfileV1` below are Proposed
-target shapes, not current registry entries.
+support-check/run manifests. SPEC-35 accepts `BodySchemaV1` and
+`BodyInstanceProjectionV1` for the fixed Stage 0 humanoid. Exact
+`MotorSkillCommandV1`, `ContactPlanV1`, `MotionReferenceHorizonV1`,
+`MotorAdaptationProfileV1` and advanced overlay/family shapes below remain
+Proposed targets, not current registry entries.
 
 ```text
 authoring sources + model artifacts + provenance
@@ -161,9 +162,11 @@ elements by stable BodySchema IDs, increments the physical/topology revision
 and resets incompatible adaptation/generator/router state; it never guesses by
 array index or joint name.
 
-These semantic boundaries are Accepted through ADR-057. The candidate `V1`
-wire records above remain Proposed until the first R5 production consumer
-lands with schemas and ProductChecks under ADR-046.
+These semantic boundaries are Accepted through ADR-057. ADR-058/SPEC-35 accept
+the `BodySchemaV1` and `BodyInstanceProjectionV1` wire records for the fixed
+23-DoF Stage 0 humanoid. Non-default equipment, damage, attachment/topology
+overlays and additional policy families remain Proposed until their own
+production consumers and ProductChecks exist under ADR-046.
 
 ## Product support levels
 

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 1.5 |
+| Версия | 1.6 |
 | Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-033](adr/033-physx-grounded-capsule-parity-ffi-boundary.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
-| Заменяет | SPEC-26 1.4; adds the ADR-057 BodySchema compiler and stable semantic-ID topology-remap boundary without changing physics authority |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md) |
+| Заменяет | SPEC-26 1.5; accepts V2 articulated descriptors and V3/V2 canonical snapshot/checkpoint for the PhysX Stage 0 consumer |
 
 ## История принятия
 
@@ -232,7 +232,7 @@ the relation is a deterministic one-way compiler, not shared mutable storage:
 
 ```text
 BodySchema revision + BodyInstanceProjection revision
-  → ordered PhysicsBodyDescriptorV1[]
+  → ordered PhysicsBodyDescriptorV2[]
   → ordered PhysicsJointDescriptorV1[]
   → attachment/pair-exclusion/actuator profile
   → descriptor catalog roots and topology revision
@@ -257,9 +257,13 @@ a declared schema/overlay identity, and every dangling/colliding/ambiguous map
 rejects the whole transaction. SPEC-27 then resets or remaps only as explicitly
 allowed; physics never interprets evaluator state.
 
-The semantic compiler boundary is Accepted. Exact unconsumed
-`BodySchemaV1`/`BodyInstanceProjectionV1` wire records remain Proposed under
-SPEC-14/ADR-046 until a production physical-character consumer exists.
+The semantic compiler boundary is Accepted. ADR-058/SPEC-35 are the first
+production physical-character consumer and accept `BodySchemaV1`,
+`BodyInstanceProjectionV1`, `PhysicsBodyDescriptorV2`,
+`PhysicsJointDescriptorV1`, `PhysicsActuatorDescriptorV1`,
+`PhysicsWorldCatalogV2`, `PhysicsStepInputV3`, `PhysicsStepResultV2`,
+`PhysicsCanonicalSnapshotV3` and `PhysicsWorldCheckpointV2`. Earlier alpha
+versions are unsupported inputs and are not migrated.
 
 ## World, material, shape and body descriptors
 
@@ -957,19 +961,15 @@ snapshot contracts consumed by `PHYS-P1`…`PHYS-P8` and `NUMERIC-P1`.
 | FAIL-052 | Unknown/stale/duplicate descriptor; invalid schema/reference/unit/axis/range/count/filter/feature/frame/limit; forbidden public backend type | Reject the complete descriptor/catalog/topology/query before adapter mutation, emit stable first-cause diagnostic and preserve prior world/root. | PHYS-API-P1, PHYS-COLLISION-P1, PHYS-JOINT-P1, PHYS-QUERY-P1 |
 | FAIL-053 | Non-finite backend value, missing mapping/contact, order divergence, exact mismatch, corrupt snapshot or continuation-root mismatch | Abort the uncommitted step/query/restore, preserve last valid checkpoint and report `NONDETERMINISTIC_RESULT`; retry, tolerance and native snapshots cannot waive it. | PHYS-COLLISION-P1, PHYS-JOINT-P1, PHYS-QUERY-P1, PHYS-SNAPSHOT-P1 |
 
-## Technology neutrality
+## Production technology profile
 
-PhysX (`TECH-007`), Jolt (`TECH-008`) and Bullet (`TECH-009`) remain
-replaceable `Proposed` candidates; this specification selects none. A private
-vendor adapter must implement the same engine-owned contracts and pass the
-same product checks without lowering descriptor, contact, query, snapshot or
-exactness requirements.
+ADR-058 selects static CPU PhysX 5.9.0 as the sole production implementation
+of these engine-owned contracts. Vendor types and native feature IDs remain
+private, and canonical state/contact/snapshot construction remains Rust-owned.
+Jolt, Bullet and the old reference solver are not production fallbacks.
 
-ADR-033 фиксирует bounded PhysX 5.9.0 implementation experiment, но не
-promote-ит `TECH-007`. Его safe adapter поддерживает только grounded capsule
-против static Box и принимает quantization profile
-`nextengine.physics.quantization.grounded-capsule-v2`; legacy profile остаётся
-reference-only. Native face/shape IDs не входят в public feature identity.
-`physics-collision --backend compare`, backend-specific
-`persistence-replay` и `physics-backend-parity` являются focused
-implementation paths для `PHYS-COLLISION-P1`/`PHYS-SNAPSHOT-P1`.
+The locked scene uses TGS, enhanced determinism, declared iterations,
+tolerances, broadphase/friction settings and one solver worker. Independent
+environment scenes MAY run in parallel. `PHYS-COLLISION-P1`, `PHYS-JOINT-P1`
+and `PHYS-SNAPSHOT-P1` exercise only the PhysX path; GPU PhysX belongs to the
+separate SPEC-35 correspondence mirror.

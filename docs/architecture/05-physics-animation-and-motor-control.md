@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-05 |
 | Статус | Accepted |
-| Версия | 2.3 |
+| Версия | 2.4 |
 | Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-033](adr/033-physx-grounded-capsule-parity-ffi-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
-| Заменяет | SPEC-05 2.2; adopts ADR-057 hierarchy, BodySchema compiler boundary and first learned humanoid profile without changing procedural R5 scope |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md) |
+| Заменяет | SPEC-05 2.3; accepts PhysX-only 240/60 Hz humanoid Stage 0 without changing procedural R5 completion |
 
 ## Source of truth и ownership
 
@@ -21,7 +21,7 @@ habits остаются за пределами этого ownership. Equipment/
 sources remain with their owning RPG/Mechanics domains; Physical Embodiment
 consumes only an immutable revision-bound effective projection.
 
-Boundary является self-contained по ADR-013: внешние research документы не задают requirements, phases, public types или support semantics. Frozen annex сохраняется только как ненормативная provenance; PhysX/Jolt/Bullet остаются отдельными `Proposed` technology hypotheses за одним contract.
+Boundary является self-contained по ADR-013: внешние research документы не задают requirements, phases, public types или support semantics. Frozen annex сохраняется только как ненормативная provenance. ADR-058 выбирает PhysX 5.9.0 как единственный production backend; Jolt/Bullet не являются runtime fallback.
 
 ## Public boundary
 
@@ -80,15 +80,13 @@ SPEC-27 authority.
 
 ## Backend и runtime/training parity
 
-PhysX reduced-coordinate articulations — primary `Proposed`; Jolt, затем Bullet — fallbacks. CPU path является runtime source. GPU/batched simulator MAY обучать policy, если golden mapping доказывает одинаковые body frames, joint axes/limits, actuator/torque units, contacts, observation normalization и action semantics.
-
-ADR-033 добавляет более узкий реализованный experiment: PhysX 5.9.0 только
-для upright grounded capsule против static Box. `PhysicsWorldBackend` и
-`PhysicsWorldCheckpointV1` остаются engine-owned, reference backend —
-обязательный default/oracle, а PhysX feature — optional и `Proposed`.
-`ReferenceOnly`, `PreferPhysXThenReference` и `RequirePhysX` выбираются только
-до activation. После создания мира backend fatal/mismatch abort-ит staging и
-не разрешает mid-tick switch либо silent approximation.
+ADR-058 принимает PhysX 5.9.0 reduced-coordinate articulations как
+единственный production backend. CPU scene является canonical execution plane;
+Isaac Lab GPU/batched simulator — correspondence mirror. Production roots не
+имеют reference/Jolt/Bullet fallback, `PhysicsBackendPolicy` или mid-session
+switch. Missing SDK/build/profile mismatch is a typed pre-activation failure.
+Every 60 Hz Stage 0 motor frame applies four 240 Hz fixed-point PD/safety
+substeps through the same PhysX path used by the procedural standing fallback.
 
 Export pipeline MUST записывать model SHA-256, evaluator-format profile,
 closed capabilities/operators, input/output/state schema hashes, normalization,

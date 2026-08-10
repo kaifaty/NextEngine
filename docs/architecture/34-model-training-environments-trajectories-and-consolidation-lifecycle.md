@@ -5,17 +5,19 @@
 | ID | SPEC-34 |
 | Status | Proposed |
 | Lifecycle | Optional R8 behavior and optional R5/R8 motor R&D proposal |
-| Version | 1.2 |
+| Version | 1.3 |
 | Last verified | 2026-08-10 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md) |
 | Supersedes | none |
 
 ## Status and scope
 
 SPEC-34 defines the Proposed common reset/step/trajectory/reward/dataset/run/
-export data plane for Strategic, Tactical and Motor training lanes. It does not
-add current registry entries, a shipped trainer, creator SDK, UI, public CLI or
-model artifact in this documentation-only change.
+export data plane for Strategic, Tactical and future Motor training lanes.
+ADR-058/SPEC-35 accept only the bounded first-humanoid environment manifest,
+seed/reset/step/trajectory records, standing reward vector and Isaac
+correspondence mirror. Dataset consolidation, PPO, learned artifacts, general
+creator SDK/UI and all other lanes remain Proposed.
 
 ADR-056 makes Strategic/Tactical training optional R8 quality work; this data
 plane is not a prerequisite for deterministic R4 or v1. Motor training remains
@@ -469,7 +471,9 @@ no-derivatives or unknown terms exclude that corpus from the candidate.
 
 ## Proposed ProductChecks
 
-All checks are `NOT_RUN(NO_PRODUCTION_CONSUMER)` in this docs-only changeset.
+For the SPEC-35 fixed-humanoid consumer, `MODEL-DATAPLANE-P1` and
+`MODEL-MIRROR-P1` become current Stage 0 gates. Other rows remain
+`NOT_RUN(NO_PRODUCTION_CONSUMER)` until their corresponding consumer exists.
 
 | ID | Scenario | Required result / fallback |
 |---|---|---|
