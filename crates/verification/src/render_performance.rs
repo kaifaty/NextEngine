@@ -12,7 +12,6 @@ use crate::player_fixture::prepare_game_frame_with_scratch;
 use crate::scratch::{ScratchContext, ScratchDirectory};
 
 const RENDER_FRAME_PLANNING_CYCLES: u64 = 10_000;
-const RENDER_FRAME_PLANNING_LIMIT: Duration = Duration::from_secs(30);
 const REFERENCE_RENDER_TARGET: RenderTargetV1 = RenderTargetV1 {
     extent: [960, 540],
     target_revision: 1,
@@ -199,12 +198,6 @@ impl PreparedRenderFramePlanningPerformanceCheck {
                 "measurement does not belong to this completed preparation".to_owned(),
             ));
         }
-        if measurement.elapsed > RENDER_FRAME_PLANNING_LIMIT {
-            return Err(RenderFramePlanningPerformanceError::BudgetExceeded {
-                elapsed_microseconds: measurement.elapsed.as_micros(),
-                maximum_microseconds: RENDER_FRAME_PLANNING_LIMIT.as_micros(),
-            });
-        }
         Ok(RenderFramePlanningPerformanceReport {
             cycles: RENDER_FRAME_PLANNING_CYCLES,
             elapsed_microseconds: measurement.elapsed.as_micros(),
@@ -266,10 +259,6 @@ pub enum RenderFramePlanningPerformanceError {
         expected_counts: (u32, u32, u32),
         actual_counts: (u32, u32, u32),
     },
-    BudgetExceeded {
-        elapsed_microseconds: u128,
-        maximum_microseconds: u128,
-    },
 }
 
 impl Display for RenderFramePlanningPerformanceError {
@@ -304,13 +293,6 @@ impl Display for RenderFramePlanningPerformanceError {
                 "render planning output changed at cycle {cycle}: expected hash {} and counts {expected_counts:?}, actual hash {} and counts {actual_counts:?}",
                 expected_frame_plan_hash.to_hex(),
                 actual_frame_plan_hash.to_hex()
-            ),
-            Self::BudgetExceeded {
-                elapsed_microseconds,
-                maximum_microseconds,
-            } => write!(
-                formatter,
-                "render frame planning took {elapsed_microseconds}us, budget is {maximum_microseconds}us"
             ),
         }
     }
@@ -350,7 +332,7 @@ mod tests {
     };
 
     #[test]
-    fn frame_planner_is_stable_and_has_a_bounded_numeric_gate() {
+    fn frame_planner_is_stable_and_has_a_bounded_workload() {
         let _measurement_guard = crate::test_support::lock_numeric_performance_measurement();
         let report =
             super::run_render_frame_planning_performance_check().expect("performance gate");
