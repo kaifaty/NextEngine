@@ -3,6 +3,7 @@
 pub mod agent;
 pub mod animation_content;
 pub mod audio;
+pub mod body;
 pub mod canonical;
 pub mod command;
 pub mod content;
@@ -14,6 +15,7 @@ pub mod ledger;
 pub mod localization;
 mod manifest_jcs;
 pub mod mechanics;
+pub mod motor;
 pub mod persistence;
 pub mod physics;
 pub mod platform;

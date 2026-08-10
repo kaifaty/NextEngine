@@ -1,3 +1,4 @@
+mod articulated;
 mod catalog;
 mod codec;
 mod contact;
@@ -90,3 +91,9 @@ const SEGMENT_V1: &str = "v1";
 
 #[cfg(test)]
 mod tests;
+pub use articulated::{
+    AppliedActuatorEffortV1, PhysicsActuatorDescriptorV1, PhysicsArticulationJointStateV1,
+    PhysicsBodyDescriptorV2, PhysicsCanonicalSnapshotV3, PhysicsJointDescriptorV1,
+    PhysicsJointKindV1, PhysicsStepInputV3, PhysicsStepResultV2, PhysicsSubstepActuationV1,
+    PhysicsWorldCatalogV2, PhysicsWorldCheckpointV2,
+};

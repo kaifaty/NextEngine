@@ -28,6 +28,8 @@ use crate::targeting::{
 
 pub const SAVE_MANIFEST_SCHEMA_VERSION: u32 = 2;
 pub const REPLAY_MANIFEST_V5_SCHEMA_VERSION: u32 = 5;
+pub const SAVE_MANIFEST_V3_SCHEMA_VERSION: u32 = 3;
+pub const REPLAY_MANIFEST_V6_SCHEMA_VERSION: u32 = 6;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TickSettings {
@@ -159,6 +161,106 @@ pub struct SaveManifestV2 {
     pub compatibility: SaveCompatibility,
     pub command_ledger: CommandLedgerDescriptorV2,
     pub segments: Vec<SaveSegmentDescriptor>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PhysicalTrainingCompatibilityV1 {
+    pub body_schema_hash: ContentHash,
+    pub body_instance_projection_hash: ContentHash,
+    pub physics_catalog_hash: ContentHash,
+    pub observation_layout_hash: ContentHash,
+    pub action_layout_hash: ContentHash,
+    pub physx_build_profile_hash: ContentHash,
+    pub scene_profile_hash: ContentHash,
+    pub bridge_abi_hash: ContentHash,
+    pub quantization_profile_hash: ContentHash,
+}
+
+impl PhysicalTrainingCompatibilityV1 {
+    pub fn validate(&self) -> Result<(), ManifestValidationError> {
+        if [
+            self.body_schema_hash,
+            self.body_instance_projection_hash,
+            self.physics_catalog_hash,
+            self.observation_layout_hash,
+            self.action_layout_hash,
+            self.physx_build_profile_hash,
+            self.scene_profile_hash,
+            self.bridge_abi_hash,
+            self.quantization_profile_hash,
+        ]
+        .contains(&ContentHash::default())
+        {
+            return Err(ManifestValidationError::CompatibilityMismatch);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SaveManifestV3 {
+    pub schema_version: u32,
+    pub generation: u64,
+    pub world_revision: u64,
+    pub compatibility: SaveCompatibility,
+    pub physical_training: PhysicalTrainingCompatibilityV1,
+    pub command_ledger: CommandLedgerDescriptorV2,
+    pub segments: Vec<SaveSegmentDescriptor>,
+    pub world_checkpoint_v5_hash: ContentHash,
+}
+
+impl SaveManifestV3 {
+    pub fn validate(&self) -> Result<(), ManifestValidationError> {
+        if self.schema_version != SAVE_MANIFEST_V3_SCHEMA_VERSION {
+            return Err(ManifestValidationError::UnsupportedSaveVersion(
+                self.schema_version,
+            ));
+        }
+        self.compatibility.validate()?;
+        self.physical_training.validate()?;
+        if self.segments.is_empty()
+            || self.world_checkpoint_v5_hash == ContentHash::default()
+            || self.segments.windows(2).any(|pair| {
+                (&pair[0].owner_id, &pair[0].schema_id, &pair[0].segment_id)
+                    >= (&pair[1].owner_id, &pair[1].schema_id, &pair[1].segment_id)
+            })
+        {
+            return Err(ManifestValidationError::SegmentsNotStrictlySorted);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReplayManifestV6 {
+    pub schema_version: u32,
+    pub replay_id: SchemaId,
+    pub physical_training: PhysicalTrainingCompatibilityV1,
+    pub initial_world_checkpoint_v5_hash: ContentHash,
+    pub motor_trajectory_manifest_hash: ContentHash,
+    pub canonical_applied_action_stream_hash: ContentHash,
+    pub tick_count: u64,
+    pub final_state_root: StateRoot,
+    pub final_ledger_root: CommandLedgerHash,
+}
+
+impl ReplayManifestV6 {
+    pub fn validate(&self) -> Result<(), ManifestValidationError> {
+        if self.schema_version != REPLAY_MANIFEST_V6_SCHEMA_VERSION {
+            return Err(ManifestValidationError::UnsupportedReplayVersion(
+                self.schema_version,
+            ));
+        }
+        self.physical_training.validate()?;
+        if self.tick_count == 0
+            || self.initial_world_checkpoint_v5_hash == ContentHash::default()
+            || self.motor_trajectory_manifest_hash == ContentHash::default()
+            || self.canonical_applied_action_stream_hash == ContentHash::default()
+        {
+            return Err(ManifestValidationError::CompatibilityMismatch);
+        }
+        Ok(())
+    }
 }
 
 impl SaveManifestV2 {
@@ -642,6 +744,7 @@ pub enum ManifestValidationError {
     CapabilitiesNotStrictlySorted,
     AuthorityNotStrictlySorted,
     MissingRequiredSegment,
+    CompatibilityMismatch,
     UnsupportedSaveVersion(u32),
     UnsupportedReplayVersion(u32),
     ReplayCommandIdMismatch,
@@ -684,6 +787,9 @@ impl Display for ManifestValidationError {
                 formatter.write_str("manifest authority grants are not strictly sorted")
             }
             Self::MissingRequiredSegment => formatter.write_str("manifest has no state segment"),
+            Self::CompatibilityMismatch => {
+                formatter.write_str("manifest physical/training compatibility does not match")
+            }
             Self::UnsupportedSaveVersion(version) => {
                 write!(formatter, "unsupported save manifest version {version}")
             }
