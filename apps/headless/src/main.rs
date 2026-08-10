@@ -9,12 +9,18 @@ use next_application::{
 use next_contracts::ids::ContentHash;
 use next_contracts::session::{CompositionRootV1, PresentationTargetKindV1};
 
+mod motor_lab;
+
 fn main() {
     // Developer profiling only: with `profile-tracy` enabled the Tracy client
     // starts in on-demand mode and activates when a Tracy profiler connects.
     #[cfg(feature = "profile-tracy")]
     let _tracy_client = tracy_client::Client::start();
-    match run(std::env::args().skip(1)) {
+    let arguments = std::env::args().skip(1).collect::<Vec<_>>();
+    if arguments.first().is_some_and(|value| value == "motor-lab") {
+        std::process::exit(motor_lab::run(&arguments[1..]));
+    }
+    match run(arguments.into_iter()) {
         Ok(report) => println!("{}", report.to_json().expect("run report serializes")),
         Err(error) => {
             eprintln!("next_headless: {}", error.message);
@@ -30,7 +36,7 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<RunReportV1, AppFailur
     let options = HeadlessOptions::parse(arguments)?;
     if options.help {
         eprintln!(
-            "usage: next_headless [--live-ticks <nonnegative-integer>] [--project <cooked-store>] [--lock <sha256>] [--state-root <directory>]"
+            "usage: next_headless [--live-ticks <nonnegative-integer>] [--project <cooked-store>] [--lock <sha256>] [--state-root <directory>]\n       next_headless motor-lab --slots <count> --run-root <sha256>"
         );
         return Err(AppFailure::help());
     }

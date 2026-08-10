@@ -6,6 +6,7 @@ mod humanoid;
 mod observation;
 mod replay;
 mod runtime;
+mod training;
 
 pub use compiler::{CompiledBodySchemaV1, CompiledPhysicsDescriptorsV1, MotorCompileError};
 pub use control::{
@@ -17,4 +18,8 @@ pub use observation::{MotorObservationBuilder, MotorObservationError};
 pub use replay::{MOTOR_RUNTIME_CHECKPOINT_SCHEMA_VERSION, MotorReplayCodecError};
 pub use runtime::{
     DeterministicHumanoidMotor, HumanoidMotorCheckpoint, MotorFrameResult, MotorRuntimeError,
+};
+pub use training::{
+    MotorVectorRunner, TrainingEnvironmentError, VectorResetOutput, VectorStepInput,
+    VectorStepOutput, derive_episode_seed_set,
 };
