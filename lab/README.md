@@ -107,6 +107,17 @@ This gate also requires the reset state to survive two zero-action motor ticks.
 The environment does not use the already contact-perturbed PhysX startup state
 as a reset template.
 
+Before a calibration run, stress one full episode across zero, full-range
+random and current-policy actions. The check fails on the first non-finite
+action, observation, reward or environment fact:
+
+```text
+/home/kaifaty/NextEngine-training/check-nextengine-stability.sh
+```
+
+The report includes the descriptor-derived PhysX effort/velocity limits,
+reset counts and maximum observed joint/root velocities for every action source.
+
 Use explicit overrides for a quick integration check:
 
 ```text

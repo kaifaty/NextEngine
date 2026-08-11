@@ -7,6 +7,7 @@ from next_lab.isaac_env import (
     engine_quaternion_xyzw_from_isaac_wxyz_tensor,
     engine_vector_from_isaac_tensor,
     fixed_pd_tensor,
+    isaac_actuator_limits_from_descriptor,
     isaac_prim_name,
     isaac_root_state_from_descriptor,
     locomotion_reward_q16_tensor,
@@ -29,6 +30,43 @@ FIXTURE = Path(__file__).parent / "fixtures/stage0_motor_mirror_v2.json"
 class MotorMirrorTests(unittest.TestCase):
     def test_semantic_joint_id_maps_to_usd_prim_name(self) -> None:
         self.assertEqual(isaac_prim_name("joint.left-ankle-roll"), "joint_left_ankle_roll")
+
+    def test_isaac_actuator_limits_are_descriptor_owned(self) -> None:
+        descriptor = {
+            "joints": [
+                {
+                    "joint_id": "joint.left-knee",
+                    "maximum_velocity_microradians_per_second": 20_000_000,
+                },
+                {
+                    "joint_id": "joint.right-knee",
+                    "maximum_velocity_microradians_per_second": 18_000_000,
+                },
+            ],
+            "actuators": [
+                {
+                    "joint_id": "joint.left-knee",
+                    "maximum_effort_micronewton_metres": 150_000_000,
+                },
+                {
+                    "joint_id": "joint.right-knee",
+                    "maximum_effort_micronewton_metres": 125_000_000,
+                },
+            ],
+        }
+        limits = isaac_actuator_limits_from_descriptor(descriptor)
+        self.assertEqual(
+            limits["velocity_limit_sim"],
+            {"joint_left_knee": 20.0, "joint_right_knee": 18.0},
+        )
+        self.assertEqual(
+            limits["effort_limit_sim"],
+            {"joint_left_knee": 150.0, "joint_right_knee": 125.0},
+        )
+
+        descriptor["actuators"].pop()
+        with self.assertRaisesRegex(ValueError, "same joint IDs"):
+            isaac_actuator_limits_from_descriptor(descriptor)
 
     def test_rust_golden_matches_python_seed_and_pd(self) -> None:
         validate_golden(load_json(FIXTURE))

@@ -55,6 +55,32 @@ def isaac_prim_name(identifier: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "_", identifier)
 
 
+def isaac_actuator_limits_from_descriptor(
+    descriptor: dict[str, Any],
+) -> dict[str, dict[str, float]]:
+    """Map engine-owned per-joint safety limits into Isaac actuator parameters."""
+    velocities: dict[str, float] = {}
+    for joint in descriptor["joints"]:
+        raw = joint["maximum_velocity_microradians_per_second"]
+        if not isinstance(raw, int) or isinstance(raw, bool) or raw <= 0:
+            raise ValueError("descriptor joint velocity limits must be positive integers")
+        velocities[isaac_prim_name(joint["joint_id"])] = raw / 1_000_000.0
+
+    efforts: dict[str, float] = {}
+    for actuator in descriptor["actuators"]:
+        raw = actuator["maximum_effort_micronewton_metres"]
+        if not isinstance(raw, int) or isinstance(raw, bool) or raw <= 0:
+            raise ValueError("descriptor actuator effort limits must be positive integers")
+        efforts[isaac_prim_name(actuator["joint_id"])] = raw / 1_000_000.0
+
+    if velocities.keys() != efforts.keys():
+        raise ValueError("descriptor joints and actuators must cover the same joint IDs")
+    return {
+        "effort_limit_sim": efforts,
+        "velocity_limit_sim": velocities,
+    }
+
+
 def round_div_ties_even_tensor(numerator: torch.Tensor, denominator: int) -> torch.Tensor:
     if denominator <= 0 or numerator.dtype != torch.int64:
         raise ValueError("integer ties-to-even requires int64 and a positive denominator")
@@ -295,8 +321,8 @@ if ISAAC_LAB_AVAILABLE:
                     joint_names_expr=[".*"],
                     stiffness=0.0,
                     damping=0.0,
-                    effort_limit_sim=150.0,
-                    velocity_limit_sim=100.0,
+                    effort_limit_sim=None,
+                    velocity_limit_sim=None,
                 )
             },
         )
@@ -317,6 +343,10 @@ if ISAAC_LAB_AVAILABLE:
             validate_descriptor(descriptor)
             self.profile = select_environment_profile(descriptor, cfg.environment_profile_id)
             self.descriptor = descriptor
+            self.isaac_actuator_limits = isaac_actuator_limits_from_descriptor(descriptor)
+            actuator_cfg = cfg.asset.actuators["engine_effort"]
+            actuator_cfg.effort_limit_sim = self.isaac_actuator_limits["effort_limit_sim"]
+            actuator_cfg.velocity_limit_sim = self.isaac_actuator_limits["velocity_limit_sim"]
             self.run_root = bytes.fromhex(cfg.run_root_hex)
             if len(self.run_root) != 32:
                 raise ValueError("run_root_hex must encode 32 bytes")
