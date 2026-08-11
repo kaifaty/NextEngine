@@ -58,6 +58,7 @@ fn main() {
         println!("cargo:rustc-link-lib=advapi32");
         println!("cargo:rustc-link-lib=user32");
     } else {
+        println!("cargo:rustc-link-lib=stdc++");
         println!("cargo:rustc-link-lib=dl");
         println!("cargo:rustc-link-lib=pthread");
         println!("cargo:rustc-link-lib=rt");

@@ -343,14 +343,14 @@ fn generate_and_build(source: &Path, identity: &HostIdentity) -> Result<PathBuf,
         result?;
     } else {
         run_checked(
-            Command::new("sh")
+            Command::new("bash")
                 .arg("generate_projects.sh")
                 .arg(&preset)
                 .current_dir(&physx),
             "PHYSX_GENERATE_FAILED",
         )?;
     }
-    let generated = physx.join("compiler").join(&preset);
+    let generated = generated_project_dir(&physx, &preset, &identity.target);
     if !identity.target.contains("windows-msvc") {
         run_checked(
             Command::new("cmake")
@@ -361,6 +361,15 @@ fn generate_and_build(source: &Path, identity: &HostIdentity) -> Result<PathBuf,
         )?;
     }
     Ok(source.join("physx/bin"))
+}
+
+fn generated_project_dir(physx: &Path, preset: &str, target: &str) -> PathBuf {
+    let directory = if target.contains("windows-msvc") {
+        preset.to_owned()
+    } else {
+        format!("{preset}-release")
+    };
+    physx.join("compiler").join(directory)
 }
 
 fn verify_install(
@@ -681,5 +690,19 @@ mod tests {
         let linux = profile_hash("x86_64-unknown-linux-gnu", "gcc-14-static-release");
         assert_ne!(windows, linux);
         assert_eq!(windows.len(), 64);
+    }
+
+    #[test]
+    fn generated_project_directory_matches_platform_generator_layout() {
+        let physx = Path::new("physx");
+        let preset = "nextengine-static-cpu";
+        assert_eq!(
+            generated_project_dir(physx, preset, "x86_64-pc-windows-msvc"),
+            physx.join("compiler/nextengine-static-cpu")
+        );
+        assert_eq!(
+            generated_project_dir(physx, preset, "x86_64-unknown-linux-gnu"),
+            physx.join("compiler/nextengine-static-cpu-release")
+        );
     }
 }
