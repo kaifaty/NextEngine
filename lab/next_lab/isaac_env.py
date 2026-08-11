@@ -46,6 +46,11 @@ LOCOMOTION_REWARD_COEFFICIENTS_Q16 = (
 )
 
 
+def require_finite_tensor(name: str, value: torch.Tensor) -> None:
+    if not torch.isfinite(value).all():
+        raise RuntimeError(f"non-finite Isaac tensor: {name}")
+
+
 def isaac_prim_name(identifier: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "_", identifier)
 
@@ -301,6 +306,12 @@ if ISAAC_LAB_AVAILABLE:
             self.reward_components_q16 = torch.zeros(
                 (cfg.scene.num_envs, component_count), dtype=torch.int64
             )
+            self._episode_reward_sum = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.float32
+            )
+            self._episode_component_sums = torch.zeros(
+                (cfg.scene.num_envs, component_count), dtype=torch.float32
+            )
             super().__init__(cfg, **kwargs)
             canonical_joint_names = [
                 isaac_prim_name(actuator["joint_id"])
@@ -324,6 +335,8 @@ if ISAAC_LAB_AVAILABLE:
                 "_episode_ordinals",
                 "_command_schedule",
                 "reward_components_q16",
+                "_episode_reward_sum",
+                "_episode_component_sums",
             ):
                 setattr(self, name, getattr(self, name).to(self.device))
 
@@ -336,6 +349,7 @@ if ISAAC_LAB_AVAILABLE:
             self.scene.clone_environments(copy_from_source=False)
 
         def _pre_physics_step(self, actions: torch.Tensor) -> None:
+            self.extras.pop("log", None)
             if actions.shape != (self.num_envs, 23) or not torch.isfinite(actions).all():
                 raise ValueError("invalid canonical action batch")
             self._previous_action.copy_(self._action)
@@ -345,12 +359,12 @@ if ISAAC_LAB_AVAILABLE:
             self._effort_sum.zero_()
 
         def _apply_action(self) -> None:
-            position = torch.round(
-                self.robot.data.joint_pos[:, self._canonical_joint_ids] * 1_000_000
-            ).to(torch.int64)
-            velocity = torch.round(
-                self.robot.data.joint_vel[:, self._canonical_joint_ids] * 1_000_000
-            ).to(torch.int64)
+            joint_position = self.robot.data.joint_pos[:, self._canonical_joint_ids]
+            joint_velocity = self.robot.data.joint_vel[:, self._canonical_joint_ids]
+            require_finite_tensor("joint_pos", joint_position)
+            require_finite_tensor("joint_vel", joint_velocity)
+            position = torch.round(joint_position * 1_000_000).to(torch.int64)
+            velocity = torch.round(joint_velocity * 1_000_000).to(torch.int64)
             effort, _ = fixed_pd_tensor(self._action, position, velocity, self._previous_effort)
             self._previous_effort.copy_(effort)
             self._effort_sum.add_(torch.sum(torch.abs(effort), dim=-1))
@@ -361,6 +375,10 @@ if ISAAC_LAB_AVAILABLE:
 
         def _canonical_facts(self) -> tuple[torch.Tensor, ...]:
             data = self.robot.data
+            require_finite_tensor("root_quat_w", data.root_quat_w)
+            require_finite_tensor("root_lin_vel_w", data.root_lin_vel_w)
+            require_finite_tensor("root_ang_vel_w", data.root_ang_vel_w)
+            require_finite_tensor("foot_net_forces_w", self.feet.data.net_forces_w)
             quaternion = engine_quaternion_xyzw_from_isaac_wxyz_tensor(data.root_quat_w)
             quaternion_raw = torch.round(quaternion * Q1_30_ONE).to(torch.int64)
             linear_world = engine_vector_from_isaac_tensor(data.root_lin_vel_w)
@@ -400,12 +418,15 @@ if ISAAC_LAB_AVAILABLE:
             )
             if policy.shape[-1] != 84:
                 raise RuntimeError("canonical observation width mismatch")
+            require_finite_tensor("policy_observation", policy)
             return {"policy": policy}
 
         def _get_rewards(self) -> torch.Tensor:
             if self.profile["profile_id"] == STANDING_PROFILE_ID:
                 return self._standing_rewards()
             _, quaternion_raw, linear_raw, angular_raw, contacts = self._canonical_facts()
+            require_finite_tensor("root_pos_w", self.robot.data.root_pos_w)
+            require_finite_tensor("body_lin_vel_w", self.robot.data.body_lin_vel_w)
             root_height = torch.round(self.robot.data.root_pos_w[:, 2] * 1_000_000).to(torch.int64)
             vertical_velocity = torch.round(
                 self.robot.data.root_lin_vel_w[:, 2] * 1_000_000
@@ -433,10 +454,18 @@ if ISAAC_LAB_AVAILABLE:
                 fell=fallen,
             )
             self.reward_components_q16.copy_(components)
-            return total.to(torch.float32) / 65_536.0
+            reward = total.to(torch.float32) / 65_536.0
+            component_values = components.to(torch.float32) / 65_536.0
+            self._accumulate_episode_metrics(reward, component_values)
+            return reward
 
         def _standing_rewards(self) -> torch.Tensor:
             data = self.robot.data
+            require_finite_tensor("standing_root_quat_w", data.root_quat_w)
+            require_finite_tensor("standing_root_pos_w", data.root_pos_w)
+            require_finite_tensor("standing_joint_pos", data.joint_pos)
+            require_finite_tensor("standing_root_lin_vel_w", data.root_lin_vel_w)
+            require_finite_tensor("standing_root_ang_vel_w", data.root_ang_vel_w)
             upright = torch.abs(data.root_quat_w[:, 0])
             root_height = -torch.abs(data.root_pos_w[:, 2] - 1.05)
             standing_pose = -torch.sum(torch.abs(data.joint_pos), dim=-1)
@@ -456,10 +485,22 @@ if ISAAC_LAB_AVAILABLE:
             coefficients = torch.tensor(
                 self.cfg.standing_reward_coefficients, device=self.device
             )
-            return torch.sum(components * coefficients, dim=-1)
+            reward = torch.sum(components * coefficients, dim=-1)
+            require_finite_tensor("standing_reward", reward)
+            self._accumulate_episode_metrics(reward, components)
+            return reward
+
+        def _accumulate_episode_metrics(
+            self, reward: torch.Tensor, components: torch.Tensor
+        ) -> None:
+            require_finite_tensor("reward", reward)
+            require_finite_tensor("reward_components", components)
+            self._episode_reward_sum.add_(reward)
+            self._episode_component_sums.add_(components)
 
         def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
             root = self.robot.data.root_pos_w
+            require_finite_tensor("done_root_pos_w", root)
             threshold = 0.45 if self.profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID else 0.25
             terminated = root[:, 2] <= threshold
             if self.profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID:
@@ -470,11 +511,33 @@ if ISAAC_LAB_AVAILABLE:
         def _reset_idx(self, env_ids: torch.Tensor | None) -> None:
             if env_ids is None:
                 env_ids = self.robot._ALL_INDICES
+            completed = self.episode_length_buf[env_ids] > 0
+            if torch.any(completed):
+                completed_ids = env_ids[completed]
+                lengths = self.episode_length_buf[completed_ids].to(torch.float32)
+                log: dict[str, torch.Tensor] = {
+                    "Episode/return": self._episode_reward_sum[completed_ids],
+                    "Episode/length": lengths,
+                    "Episode/terminated": self.reset_terminated[completed_ids].to(
+                        torch.float32
+                    ),
+                    "Episode/truncated": self.reset_time_outs[completed_ids].to(
+                        torch.float32
+                    ),
+                }
+                for index, component in enumerate(self.profile["reward_components"]):
+                    component_id = component["component_id"].removeprefix("reward.")
+                    log[f"Episode_Component/{component_id}"] = (
+                        self._episode_component_sums[completed_ids, index] / lengths
+                    )
+                self.extras["log"] = log
             super()._reset_idx(env_ids)
             self._action[env_ids] = 0
             self._previous_action[env_ids] = 0
             self._previous_effort[env_ids] = 0
             self._effort_sum[env_ids] = 0
+            self._episode_reward_sum[env_ids] = 0.0
+            self._episode_component_sums[env_ids] = 0.0
             self._episode_ordinals[env_ids] += 1
             if self.profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID:
                 ids = env_ids.detach().cpu().tolist()

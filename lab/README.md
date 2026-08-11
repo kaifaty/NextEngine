@@ -80,3 +80,52 @@ component order, reward-total MAE at most `0.05`, joint RMSE at most `0.02 rad`,
 root position at most `0.03 m`, velocity at most `0.05 m/s`, contact agreement
 at least `98%`, and done-tick agreement at least `95%`. Passing correspondence
 does not make GPU execution replay-authoritative or declare a trained policy.
+
+## Reproducible PPO proof-of-concept
+
+The tracked `profiles/isaac-rsl-rl-rtx3080-poc.v1.json` profile is the bounded
+RTX 3080 starting point: 128 environments, 32 transitions per environment,
+fixed seed 42, explicit CUDA device, and periodic checkpoints. It remains
+`Proposed`; RSL-RL and Isaac are private training tools, while CPU motor-lab
+remains the canonical execution and correspondence plane.
+
+On the prepared host, start a full profile run with:
+
+```text
+/home/kaifaty/NextEngine-training/train-nextengine-poc.sh
+```
+
+Use explicit overrides for a quick integration check:
+
+```text
+/home/kaifaty/NextEngine-training/train-nextengine-poc.sh \
+  --num-envs 64 --steps-per-env 8 --iterations 1 --save-interval 1
+```
+
+Every invocation writes an external `run-manifest.json`, append-only
+`metrics.jsonl`, TensorBoard events, and SHA-256-closed checkpoints. The
+manifest binds the profile, descriptor, generated USD, seed/run root, package
+versions, Git revision, GPU memory preflight, and optional parent checkpoint.
+Training aborts before saving a non-finite policy or loss. Resume is accepted
+only from a completed manifest with the exact same resolved training config:
+
+```text
+/home/kaifaty/NextEngine-training/train-nextengine-poc.sh \
+  --resume <external-run-directory/model_N.pt>
+```
+
+Evaluate checkpoints separately and without exploration noise. Run the three
+profile seeds independently so each result has its own closed evaluation
+manifest:
+
+```text
+for seed in 1001 1002 1003; do
+  /home/kaifaty/NextEngine-training/evaluate-nextengine-poc.sh \
+    --checkpoint <external-run-directory/model_N.pt> --seed "$seed"
+done
+```
+
+An evaluation records returns, episode lengths, termination versus truncation,
+and every ordered reward component. A completed training run proves that the
+pipeline works; only held-out multi-seed evaluation can support a policy-quality
+claim. Checkpoints, evaluation manifests, and logs remain outside Git.
