@@ -29,7 +29,6 @@ def render_usda(descriptor: dict[str, Any]) -> str:
         '        prepend apiSchemas = ["PhysicsArticulationRootAPI"]',
         ")",
         "{",
-        "    {",
         f'    custom string nextengine:bodySchemaHash = "{descriptor["body_schema_hash"]}"',
         f'    custom string nextengine:translatorVersion = "{TRANSLATOR_VERSION}"',
         '    def Scope "Bodies"',

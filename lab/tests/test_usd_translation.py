@@ -123,6 +123,8 @@ class UsdTranslationTests(unittest.TestCase):
         self.assertIn('upAxis = "Z"', first)
         self.assertIn("double3 xformOp:translate = (0, 0, 1.05)", first)
         self.assertIn("rel physics:body0 = </Humanoid/Bodies/body_root>", first)
+        self.assertEqual(first.count("{"), first.count("}"))
+        self.assertNotIn("\n{\n    {\n", first)
 
     def test_generated_usd_and_manifest_live_in_external_store(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

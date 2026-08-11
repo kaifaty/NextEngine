@@ -13,7 +13,9 @@ from typing import Any
 class IsaacProfile:
     profile_id: str
     isaac_lab_version: str
+    isaac_lab_distribution_version: str
     isaac_sim_version: str
+    isaac_sim_distribution_version: str
     python_version: str
     engine_physx_version: str
     backend: str
@@ -27,7 +29,9 @@ class IsaacProfile:
         profile = cls(
             profile_id=value["profile_id"],
             isaac_lab_version=value["isaac_lab_version"],
+            isaac_lab_distribution_version=value["isaac_lab_distribution_version"],
             isaac_sim_version=value["isaac_sim_version"],
+            isaac_sim_distribution_version=value["isaac_sim_distribution_version"],
             python_version=value["python_version"],
             engine_physx_version=value["engine_physx_version"],
             backend=value["backend"],
@@ -60,8 +64,12 @@ def doctor_report(profile: IsaacProfile) -> tuple[dict[str, Any], bool]:
     checks = {
         "linux_x86_64": platform.system() == "Linux" and platform.machine() == "x86_64",
         "python": platform.python_version().startswith(profile.python_version + "."),
-        "isaac_lab": installed["isaaclab"] == profile.isaac_lab_version,
-        "isaac_sim": installed["isaacsim"] == profile.isaac_sim_version,
+        "isaac_lab": (
+            installed["isaaclab"] == profile.isaac_lab_distribution_version
+        ),
+        "isaac_sim": (
+            installed["isaacsim"] == profile.isaac_sim_distribution_version
+        ),
         "nvidia_driver": driver is not None,
     }
     return (
