@@ -5,10 +5,10 @@
 | ID | SPEC-32 |
 | Статус | Proposed |
 | Lifecycle | Consumer-driven R4c/R4d target; no current wire schema |
-| Версия | 0.3 |
-| Последняя проверка | 2026-08-09 |
+| Версия | 0.4 |
+| Последняя проверка | 2026-08-12 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-16](16-text-canonical-multimodal-dialogue-and-model-packs.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) |
-| Заменяет | SPEC-32 0.2 learned-policy-centered R4 proposal |
+| Заменяет | SPEC-32 0.3; clarifies structured embodied task execution and physical progress without adding current schemas |
 
 ## Статус и scope
 
@@ -157,11 +157,31 @@ Goal описывает desired state, Plan — ordered semantic steps, Task —
 execution lifecycle одного шага, Skill — owner-specific способ исполнения.
 Public `AgentTask` trait с `&mut AgentContext` не вводится.
 
+Embodied reasoning is a responsibility of this private Task Executive together
+with the Tactical Controller and Physical Embodiment skill boundary, not a new
+mutable subsystem or public model-owned authority. For a physical plan step the
+executive decomposes the semantic goal into a bounded `PhysicalAvatarIntent`,
+observes the Proposed SPEC-14 `SkillProgressProjection` and performs only the
+declared complete, retry, fallback or replan transition. The skill/motor layers
+do not choose the strategic goal, and the executive does not choose joints,
+contacts or torques.
+
 Task state имеет bounded lifecycle `Pending → Active → Succeeded/Failed/
 Cancelled/Suspended` и stable reason codes. Navigation task просит `RoutePlan`,
 social task создаёт Speech Act, mechanics task ссылается на affordance, motor
 task создаёт validated physical intent. Каждый owner повторно проверяет revision,
 target, resource cost и capability перед commit.
+
+Every physical progress decision uses only capability-filtered structured
+engine projections admitted to the NPC's `Epistemic View`: semantic target
+relations, permitted owner state, physical support/contact/outcome facts and
+stable revisions. The engine selects this bounded feature set explicitly.
+Camera images, rendered frames, depth buffers, visual embeddings and
+presentation state are outside this target; the agent never reconstructs a
+transform or contact already known to an authoritative owner from pixels.
+Hidden world truth remains excluded even when the engine can technically read
+it. Missing or stale evidence leads to bounded wait/fallback/replan and cannot
+be replaced by a model guess.
 
 ## Deterministic social behavior
 

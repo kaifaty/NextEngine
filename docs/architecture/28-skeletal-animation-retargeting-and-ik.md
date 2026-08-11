@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-28 |
 | Статус | Accepted |
-| Версия | 1.5 |
-| Последняя проверка | 2026-08-10 |
+| Версия | 1.6 |
+| Последняя проверка | 2026-08-12 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
-| Заменяет | SPEC-28 1.4; adds the ADR-057 authored/motion-matching/learned reference-horizon and velocity-aware hybrid transition target |
+| Заменяет | SPEC-28 1.5; clarifies that a reference horizon is a closed-loop action-chunk analogue, not authoritative actuation |
 
 ## История принятия
 
@@ -301,6 +301,13 @@ bounded `0.3..2.0 s` profile, ordered root/keypoint/pose/contact/object
 trajectories, phase/style and interruption metadata. It is a motor reference,
 not pose/contact authority. Learned generator state lives in SPEC-27
 `PolicyStateRecordV1`; hidden cache and presentation feedback are forbidden.
+The horizon is the engine's action-chunk analogue only at the reference layer:
+it never stores a sequence of already accepted `MotorActionV1` records. The
+tracker rebuilds the structured SPEC-27 observation and emits one complete
+candidate each motor tick, while fixed PD/safety applies on every physics
+substep. Preparing a following horizon asynchronously cannot alter the current
+horizon or choose a handoff by completion time; publication occurs only at the
+declared deterministic boundary.
 
 The preferred hybrid production pattern is:
 

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-14 |
 | Статус | Accepted |
-| Версия | 2.5 |
-| Последняя проверка | 2026-08-10 |
+| Версия | 2.6 |
+| Последняя проверка | 2026-08-12 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md) |
-| Заменяет | SPEC-14 2.4; accepts the fixed 23-DoF humanoid BodySchema consumer while later families/overlays remain Proposed |
+| Заменяет | SPEC-14 2.5; clarifies the Proposed physical-result/progress boundary without adding a current wire schema |
 
 ## Назначение и invariants
 
@@ -211,6 +211,14 @@ definition with an exact command schema, phase graph, contact template, cancel
 windows, fallback skills, motion source, proficiency/style curve, energy model
 and evaluation profile. It never embeds executable planner callbacks.
 
+The concept sometimes called a `Skill Contract` is not a fifth overlapping
+record. It is the composition of the existing boundaries: a future
+consumer-backed `PhysicalAvatarIntent` specialization names the desired
+physical result and immutable constraint/completion/failure profiles;
+`MotorSkillCommandV1` selects the skill, phase, style and interruption policy;
+`ContactPlanV1` and `MotionReferenceHorizonV1` refine short-horizon execution.
+No layer in this chain owns the target RPG fact or proves its own success.
+
 ```text
 MotorSkillCommandV1 {
   command_epoch, skill_id, phase_id, style_and_proficiency,
@@ -234,11 +242,42 @@ MotionReferenceHorizonV1 {
 }
 ```
 
+A future consumer MAY expose one bounded read-only progress projection:
+
+```text
+SkillProgressProjection target semantics {
+  source intent/command/skill/phase identities and revisions,
+  bounded fixed-point progress,
+  satisfied and violated predicate IDs,
+  cited physics/contact/query/PhysicalOutcome roots,
+  Running | SucceededCandidate | FailedCandidate | Blocked | Cancelled,
+  stable reason
+}
+```
+
+The projection is derived only from engine-owned structured facts explicitly
+selected for the subject: transforms and velocities, support/contact and grasp
+state, balance, target-relative geometry, committed outcomes and permitted
+gameplay projections. It consumes no camera image, rendered frame, depth
+buffer, visual embedding or presentation state. `SucceededCandidate` and
+`FailedCandidate` are evidence-bound observations, not owner mutation: the
+private Task Executive and affected domain owners revalidate their revisions,
+predicates and capabilities before any task transition or `WorldCommand`.
+Missing, stale or contradictory evidence yields `Blocked`/a stable failure;
+it is never guessed from presentation.
+
 Simple standing/velocity locomotion MAY bind command features directly to the
 low-level policy. Parkour, climbing, two-hand weapons, throwing/catching and
 other contact-rich skills SHOULD use an authored, motion-matching or learned
 reference horizon. All three records are proposals/references: only committed
 physics proves a contact, grasp, hit, traversal or recovery outcome.
+
+`MotionReferenceHorizonV1` is the bounded action-chunk analogue at the
+reference level, not an open-loop actuator sequence. While one horizon is
+active, the low-level controller still rebuilds observation and produces a
+complete action every motor tick; fixed PD/safety revalidates every physics
+substep. The next horizon may be staged in parallel but becomes visible only
+at its declared deterministic boundary.
 
 Normal cancel generates a declared transition horizon. Emergency cancel uses
 the bounded `stabilize → brace → safe fall → ragdoll → get-up` fallback chain.

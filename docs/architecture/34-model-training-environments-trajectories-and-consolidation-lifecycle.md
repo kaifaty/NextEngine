@@ -5,10 +5,10 @@
 | ID | SPEC-34 |
 | Status | Proposed |
 | Lifecycle | Optional R8 behavior and optional R5/R8 motor R&D proposal |
-| Version | 1.4 |
-| Last verified | 2026-08-10 |
+| Version | 1.5 |
+| Last verified | 2026-08-12 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md) |
-| Supersedes | SPEC-34 1.3 only for the bounded current fixed-humanoid V2 data-plane consumers accepted by ADR-064; the common lifecycle remains Proposed |
+| Supersedes | SPEC-34 1.4 only to clarify Proposed structured progress supervision and morphology-transfer evaluation; current fixed-humanoid V2 consumers remain unchanged |
 
 ## Status and scope
 
@@ -203,6 +203,22 @@ Reward profiles are lane-specific and immutable. Changing shaping, clipping,
 normalization or terminal bootstrap semantics creates a new profile hash. The
 record preserves the distinction between domain termination and truncation so
 trainers can apply the declared bootstrap rule correctly.
+
+### Structured progress supervision
+
+A future physical-task consumer MAY add bounded phase/progress/success/failure
+labels to trajectory records. Every label cites immutable structured engine
+evidence: source task/intent/skill revisions, predicate IDs, committed
+physics/contact/query/`PhysicalOutcome` roots and the exact owner revision that
+validated a terminal result. Labels are sorted by stable ID, use bounded
+integer or fixed-point values and never become a private trainer success flag.
+
+Rendered frames, camera images, depth buffers and visual embeddings are not
+inputs to this proposed data plane. The engine already owns the relevant
+physical facts and explicitly selects the capability-filtered structured
+features exposed to the policy. A future perception-as-gameplay consumer would
+require its own architecture decision and `PerceptionFrame` contract; it is not
+silently introduced through training data.
 
 ## Trajectory and dataset closure
 
@@ -403,9 +419,28 @@ behavior:
 11. Authored/contact-planned parkour specialists and safe missed-contact
     failure.
 12. Within-family morphology randomization, graph/token policy and held-out
-    topology evaluation.
+    morphology/topology evaluation.
 13. Exact in-engine rollout, sim-to-sim correspondence, residual/adaptation
     fine-tuning, final distillation and portable export.
+
+The morphology-transfer hypothesis is evaluated by an explicit Proposed
+profile rather than inferred from aggregate reward. It binds the source and
+target `BodySchema`/instance revisions, morphology-family relation, training
+and held-out split, zero-shot or few-shot mode, demonstration/step budget,
+baseline and candidate identities, shared semantic skill/subgoal set and the
+complete metric suite. Arbitrary-topology and cross-regime support cannot be
+inferred from a within-family result.
+
+The minimum ablation ladder is fixed body → morphology randomization →
+graph-conditioned policy → multi-embodiment co-training → shared semantic
+physical subgoals → explicit transfer objective → actuator/topology faults.
+Each rung retains the same held-out tasks, source/target identities and compute
+budget where the comparison requires it. Transfer reporting includes task
+success, zero-shot success, few-shot sample efficiency, recovery after
+disturbance/actuator failure, contact stability, energy, safety violations,
+inference latency and the number of body-specific rules. Claims are labelled
+`WithinFamilyTransfer` or `CrossFamilyResearch`; neither label grants a runtime
+route or `Supported` status.
 
 The first learned target is the ADR-057 fixed humanoid MLP at 60 Hz with
 residual joint-position targets and fixed engine PD at 240 Hz. TCN and GRU are
@@ -433,7 +468,8 @@ terrain, jumps/landing, recovery, manipulation/weapons, fatigue/damage,
 morphology, skill retention/transitions and runtime latency/memory/replay. It
 records task success/fall rate, velocity/facing error, contact precision/timing/
 slip, impact, energy, saturation/jerk, recovery time, adaptation half-life/
-regret, cross-sim gap, retention and p50/p95 inference latency.
+regret, zero-shot transfer, few-shot adaptation budget, cross-sim gap,
+body-specific rule count, retention and p50/p95 inference latency.
 
 The Proposed toolchain profile is informed by
 [Isaac Lab](https://developer.nvidia.com/isaac/lab),
@@ -443,9 +479,17 @@ The Proposed toolchain profile is informed by
 [MuJoCo Playground](https://github.com/google-deepmind/mujoco_playground),
 [MyoSuite](https://github.com/MyoHub/myosuite),
 [KINESIS](https://github.com/amathislab/Kinesis),
-[ONNX Runtime](https://github.com/microsoft/onnxruntime) and
-[PhysX articulations](https://nvidia-omniverse.github.io/PhysX/physx/5.6.1/docs/Articulations.html).
+[ONNX Runtime](https://github.com/microsoft/onnxruntime),
+[PhysX articulations](https://nvidia-omniverse.github.io/PhysX/physx/5.6.1/docs/Articulations.html),
+[Gemini Robotics 1.5](https://arxiv.org/abs/2510.03342),
+[Gemini Robotics 2](https://deepmind.google/blog/gemini-robotics-2-brings-whole-body-intelligence-to-robots/) and
+[Gemini Robotics ER 2](https://deepmind.google/blog/gemini-robotics-er-2-powering-robotics-with-video-understanding-task-orchestration-and-multi-robot-collaboration/).
 These are replaceable implementation references, not public contract types.
+The Gemini sources motivate hierarchical task/action separation, bounded
+reference chunks, progress supervision and transfer evaluation only. Their
+vision inputs, closed model architecture, robot-specific low-level stack and
+reported embodiment breadth are neither runtime requirements nor evidence that
+Next Engine supports an arbitrary morphology.
 
 Candidate motion sources include
 [AMASS](https://amass.is.tue.mpg.de/),

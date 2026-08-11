@@ -3,7 +3,7 @@
 | Поле | Значение |
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
-| Последнее обновление | 2026-08-10 |
+| Последнее обновление | 2026-08-12 |
 | Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; оба performance workloads записали `required_staging_bytes=6818` и остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. Изолированный R5 R&D package 2026-08-10 добавил canonical CPU flat-command locomotion environment, motor-lab v2, внешний NPZ v2 recorder и Isaac mirror contract; это разрешает локальные CPU-эксперименты, но не является trained policy, Stage 0 completion или R5 closure. Linux execution/cross-target evidence явно исключены из scope этого locomotion package и остаются отдельной Stage 0/shipping обязанностью. Следующий WIP=1 — R4a derived calendar + authored relay-keeper routine. SPEC-20/ADR-052 фиксируют Proposed promotion package; implementation и ProductChecks ещё не начаты. B-12, GPU correspondence, R1/R7 и v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Следующий самостоятельный increment — R4a. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
@@ -848,18 +848,25 @@ parallel authority или fixture-only code.
 Learned Motor program развивается отдельными independently promotable phases:
 
 1. first-humanoid MVP;
-2. humanoid morphology variations;
+2. humanoid morphology variations and within-family transfer ablations;
 3. equipment, carried loads and fatigue;
 4. injuries, damage adaptation and recovery;
 5. manipulation and weapon classes;
 6. contact-planned parkour;
-7. general-legged policy family;
+7. general-legged policy family and shared-subgoal transfer evaluation;
 8. bounded serpentine/aquatic/aerial/modular/musculoskeletal research.
 
 Каждая phase сохраняет старые skills/transition corpus и fallback. Поздняя
 phase не создаёт current schema/check и не повышает status более ранней только
 по факту training/export. Mamba допускается лишь как equal-budget comparator
 для long-history adaptation, motion generation или temporal planning.
+Progress для physical tasks выводится только из capability-filtered structured
+engine facts и committed owner/physics evidence; camera/video/depth perception
+не входит в этот track. Transfer claims требуют fixed-body → morphology
+randomization → graph conditioning → multi-embodiment → shared-subgoal →
+explicit-transfer → topology-fault ablations и отдельно маркируются как
+within-family либо cross-family research. Ни один такой результат сам по себе
+не создаёт current route или поддержку arbitrary topology.
 
 ## Сквозные workstreams
 
