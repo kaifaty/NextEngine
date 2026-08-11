@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -20,6 +21,7 @@ from next_lab.motor_mirror import (
 
 try:
     import isaaclab.sim as sim_utils
+    from isaaclab.actuators import ImplicitActuatorCfg
     from isaaclab.assets import Articulation, ArticulationCfg
     from isaaclab.envs import DirectRLEnv, DirectRLEnvCfg
     from isaaclab.scene import InteractiveSceneCfg
@@ -42,6 +44,10 @@ LOCOMOTION_REWARD_COEFFICIENTS_Q16 = (
     -6_554,
     -131_072,
 )
+
+
+def isaac_prim_name(identifier: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_]", "_", identifier)
 
 
 def round_div_ties_even_tensor(numerator: torch.Tensor, denominator: int) -> torch.Tensor:
@@ -250,7 +256,19 @@ if ISAAC_LAB_AVAILABLE:
         scene = InteractiveSceneCfg(num_envs=4_096, env_spacing=3.0, replicate_physics=True)
         asset = ArticulationCfg(
             prim_path="/World/envs/env_.*/Humanoid",
-            spawn=sim_utils.UsdFileCfg(usd_path=os.environ.get("NEXTENGINE_HUMANOID_USD", "")),
+            spawn=sim_utils.UsdFileCfg(
+                usd_path=os.environ.get("NEXTENGINE_HUMANOID_USD", ""),
+                activate_contact_sensors=True,
+            ),
+            actuators={
+                "engine_effort": ImplicitActuatorCfg(
+                    joint_names_expr=[".*"],
+                    stiffness=0.0,
+                    damping=0.0,
+                    effort_limit_sim=150.0,
+                    velocity_limit_sim=100.0,
+                )
+            },
         )
         feet = ContactSensorCfg(
             prim_path="/World/envs/env_.*/Humanoid/Bodies/body_.*_ankle_roll",
@@ -284,6 +302,20 @@ if ISAAC_LAB_AVAILABLE:
                 (cfg.scene.num_envs, component_count), dtype=torch.int64
             )
             super().__init__(cfg, **kwargs)
+            canonical_joint_names = [
+                isaac_prim_name(actuator["joint_id"])
+                for actuator in self.descriptor["actuators"]
+            ]
+            self._canonical_joint_ids, resolved_joint_names = self.robot.find_joints(
+                canonical_joint_names, preserve_order=True
+            )
+            if resolved_joint_names != canonical_joint_names:
+                raise RuntimeError("Isaac articulation does not match canonical actuator order")
+            self._foot_body_ids, _ = self.robot.find_bodies(
+                self.feet.body_names, preserve_order=True
+            )
+            if len(self._foot_body_ids) != 2:
+                raise RuntimeError("descriptor declares exactly two foot effectors")
             for name in (
                 "_action",
                 "_previous_action",
@@ -313,12 +345,19 @@ if ISAAC_LAB_AVAILABLE:
             self._effort_sum.zero_()
 
         def _apply_action(self) -> None:
-            position = torch.round(self.robot.data.joint_pos * 1_000_000).to(torch.int64)
-            velocity = torch.round(self.robot.data.joint_vel * 1_000_000).to(torch.int64)
+            position = torch.round(
+                self.robot.data.joint_pos[:, self._canonical_joint_ids] * 1_000_000
+            ).to(torch.int64)
+            velocity = torch.round(
+                self.robot.data.joint_vel[:, self._canonical_joint_ids] * 1_000_000
+            ).to(torch.int64)
             effort, _ = fixed_pd_tensor(self._action, position, velocity, self._previous_effort)
             self._previous_effort.copy_(effort)
             self._effort_sum.add_(torch.sum(torch.abs(effort), dim=-1))
-            self.robot.set_joint_effort_target(effort.to(torch.float32) / 1_000_000.0)
+            self.robot.set_joint_effort_target(
+                effort.to(torch.float32) / 1_000_000.0,
+                joint_ids=self._canonical_joint_ids,
+            )
 
         def _canonical_facts(self) -> tuple[torch.Tensor, ...]:
             data = self.robot.data
@@ -351,8 +390,8 @@ if ISAAC_LAB_AVAILABLE:
                     quaternion,
                     linear_raw.to(torch.float32) / 1_000_000.0,
                     angular_raw.to(torch.float32) / 1_000_000.0,
-                    self.robot.data.joint_pos,
-                    self.robot.data.joint_vel,
+                    self.robot.data.joint_pos[:, self._canonical_joint_ids],
+                    self.robot.data.joint_vel[:, self._canonical_joint_ids],
                     self._action.to(torch.float32) / 1_000_000.0,
                     command.to(torch.float32) / 1_000_000.0,
                     contacts.to(torch.float32),
@@ -373,7 +412,7 @@ if ISAAC_LAB_AVAILABLE:
             ).to(torch.int64)
             fallen = root_height <= 450_000
             foot_velocity = engine_vector_from_isaac_tensor(
-                self.robot.data.body_lin_vel_w[:, self.feet.body_ids, :]
+                self.robot.data.body_lin_vel_w[:, self._foot_body_ids, :]
             )
             slip_per_foot = torch.round(
                 (torch.abs(foot_velocity[..., 0]) + torch.abs(foot_velocity[..., 2])) * 1_000_000

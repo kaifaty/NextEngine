@@ -17,6 +17,7 @@ def render_usda(descriptor: dict[str, Any]) -> str:
     if descriptor.get("translator_version") != TRANSLATOR_VERSION:
         raise ValueError("translator version mismatch")
     body_by_id = {record["body_id"]: record for record in descriptor["bodies"]}
+    world_bind_translations = _world_bind_translations(body_by_id)
     lines = [
         "#usda 1.0",
         "(",
@@ -37,7 +38,7 @@ def render_usda(descriptor: dict[str, Any]) -> str:
     for body_id in descriptor["ordered_body_ids"]:
         body = body_by_id[body_id]
         prim = _prim(body_id)
-        translation = _metres(body["local_bind_translation_micrometres"])
+        translation = _metres(world_bind_translations[body_id])
         mass = body["mass_microkilograms"] / 1_000_000.0
         lines.extend(
             [
@@ -61,12 +62,16 @@ def render_usda(descriptor: dict[str, Any]) -> str:
         child = _prim(joint["child_body_id"])
         lower = joint["limit_min_microradians"] * 180.0 / 1_000_000.0 / 3.141592653589793
         upper = joint["limit_max_microradians"] * 180.0 / 1_000_000.0 / 3.141592653589793
+        parent_position = _metres(joint["parent_translation_micrometres"])
+        child_position = _metres(joint["child_translation_micrometres"])
         lines.extend(
             [
                 f'        def PhysicsRevoluteJoint "{prim}"',
                 "        {",
                 f"            rel physics:body0 = </Humanoid/Bodies/{parent}>",
                 f"            rel physics:body1 = </Humanoid/Bodies/{child}>",
+                f"            point3f physics:localPos0 = ({_triplet(parent_position)})",
+                f"            point3f physics:localPos1 = ({_triplet(child_position)})",
                 '            uniform token physics:axis = "X"',
                 f"            float physics:lowerLimit = {lower:.9g}",
                 f"            float physics:upperLimit = {upper:.9g}",
@@ -141,7 +146,38 @@ def _prim(identifier: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "_", identifier)
 
 
-def _metres(values: list[int]) -> tuple[float, float, float]:
+def _world_bind_translations(
+    body_by_id: dict[str, dict[str, Any]],
+) -> dict[str, tuple[int, int, int]]:
+    resolved: dict[str, tuple[int, int, int]] = {}
+    visiting: set[str] = set()
+
+    def resolve(body_id: str) -> tuple[int, int, int]:
+        if body_id in resolved:
+            return resolved[body_id]
+        if body_id in visiting:
+            raise ValueError("body hierarchy contains a cycle")
+        body = body_by_id.get(body_id)
+        if body is None:
+            raise ValueError(f"body hierarchy references unknown body: {body_id}")
+        visiting.add(body_id)
+        local = tuple(body["local_bind_translation_micrometres"])
+        parent_id = body["parent_body_id"]
+        if parent_id is None:
+            world = local
+        else:
+            parent = resolve(parent_id)
+            world = tuple(parent[index] + local[index] for index in range(3))
+        visiting.remove(body_id)
+        resolved[body_id] = world
+        return world
+
+    for body_id in body_by_id:
+        resolve(body_id)
+    return resolved
+
+
+def _metres(values: tuple[int, int, int] | list[int]) -> tuple[float, float, float]:
     x, y, z = values
     return (x / 1_000_000.0, -z / 1_000_000.0, y / 1_000_000.0)
 

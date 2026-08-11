@@ -7,6 +7,7 @@ from next_lab.isaac_env import (
     engine_quaternion_xyzw_from_isaac_wxyz_tensor,
     engine_vector_from_isaac_tensor,
     fixed_pd_tensor,
+    isaac_prim_name,
     locomotion_reward_q16_tensor,
     precompute_flat_command_schedules,
     rotate_world_to_root_local_q1_30_tensor,
@@ -25,6 +26,9 @@ FIXTURE = Path(__file__).parent / "fixtures/stage0_motor_mirror_v2.json"
 
 
 class MotorMirrorTests(unittest.TestCase):
+    def test_semantic_joint_id_maps_to_usd_prim_name(self) -> None:
+        self.assertEqual(isaac_prim_name("joint.left-ankle-roll"), "joint_left_ankle_roll")
+
     def test_rust_golden_matches_python_seed_and_pd(self) -> None:
         validate_golden(load_json(FIXTURE))
 

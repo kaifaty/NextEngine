@@ -50,6 +50,8 @@ def descriptor() -> dict:
                 "joint_id": "joint.child",
                 "parent_body_id": "body.root",
                 "child_body_id": "body.child",
+                "parent_translation_micrometres": [100_000, 200_000, 300_000],
+                "child_translation_micrometres": [0, 0, 0],
                 "limit_min_microradians": -1_000_000,
                 "limit_max_microradians": 1_000_000,
             }
@@ -122,7 +124,10 @@ class UsdTranslationTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertIn('upAxis = "Z"', first)
         self.assertIn("double3 xformOp:translate = (0, 0, 1.05)", first)
+        self.assertIn("double3 xformOp:translate = (0.1, -0.3, 1.25)", first)
         self.assertIn("rel physics:body0 = </Humanoid/Bodies/body_root>", first)
+        self.assertIn("point3f physics:localPos0 = (0.1, -0.3, 0.2)", first)
+        self.assertIn("point3f physics:localPos1 = (0, 0, 0)", first)
         self.assertEqual(first.count("{"), first.count("}"))
         self.assertNotIn("\n{\n    {\n", first)
 
