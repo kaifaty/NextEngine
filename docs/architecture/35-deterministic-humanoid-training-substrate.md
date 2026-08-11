@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 1.4 |
-| Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md) |
-| Заменяет | SPEC-35 1.3; accepts the bounded canonical flat-command environment without promoting learned Motor or R5 |
+| Версия | 1.5 |
+| Последняя проверка | 2026-08-12 |
+| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md) |
+| Заменяет | SPEC-35 1.4; adds the V2 engine-owned flat-command curriculum without changing V1 or promoting learned Motor/R5 |
 
 ## Назначение и ownership
 
@@ -126,6 +126,12 @@ SHA-256-counter command schedule, 60-tick warm-up, 120-tick target segments and
 `[local-right, local-forward, yaw-rate]` command order. Standing keeps its
 existing world-frame layout and behavior.
 
+`nextengine.motor.env.humanoid-flat-command-curriculum.v2` reuses that exact
+body/layout/action/scene/termination closure but selects one of three
+engine-owned SHA-256-counter command stages from episode ordinal `0`, `32` or
+`96`. ADR-065 owns the narrower ranges, acceleration, reward shaping and
+command-conditioned support component. V1 remains byte-for-byte unchanged.
+
 ## Checkpoint and replay
 
 `WorldCheckpointV5` atomically contains runtime/RPG state plus the final
@@ -201,6 +207,12 @@ height, vertical/roll-pitch velocity costs, normalized applied effort,
 post-clamp action rate, declared-foot slip and fall. It contains no
 standing-pose reward. Pelvis height `<=0.45 m` or X/Z bounds `>=90 m` terminate;
 tick 1,200 truncates. `terminated` and `truncated` remain distinct facts.
+
+The curriculum V2 profile uses the eleven ADR-065 components: squared planar
+and yaw tracking, the same production posture/effort/action facts, stricter
+normalizations, command-conditioned biped support and a `-10` fall coefficient.
+All values remain Q16/hash-bound; the support component reads declared contact
+facts and cannot create or override contact.
 
 ## Failure semantics
 

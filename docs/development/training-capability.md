@@ -34,13 +34,15 @@ conditional.
 
 ## Canonical humanoid environment
 
-The engine also exposes two engine-owned motor-lab protocol v2 profiles:
-`nextengine.motor.env.humanoid-standing.v1` and
-`nextengine.motor.env.humanoid-flat-command.v1`. The latter is the canonical
-CPU PhysX authority for fixed 23-DoF flat locomotion trajectories. Its command
-schedule, observation/action layouts, reward/termination profiles, RNG
-derivation and correspondence profile are manifest-hash bound; callers cannot
-override reward or physics settings.
+The engine exposes three engine-owned motor-lab protocol v2 profiles:
+`nextengine.motor.env.humanoid-standing.v1`,
+`nextengine.motor.env.humanoid-flat-command.v1` and
+`nextengine.motor.env.humanoid-flat-command-curriculum.v2`. The locomotion
+profiles are the canonical CPU PhysX authority for fixed 23-DoF trajectories;
+V2 adds an episode-ordinal command curriculum and sharper reward shaping while
+preserving V1 bytes. Command schedules, observation/action layouts,
+reward/termination profiles, RNG derivation and correspondence profiles are
+manifest-hash bound; callers cannot override reward or physics settings.
 
 Use `python -m next_lab record-trajectories` as documented in `lab/README.md`.
 The configured store must be outside the repository. The recorder writes NPZ
@@ -50,11 +52,9 @@ is suitable for local CPU data collection and algorithm experiments; it is not
 a trained policy or a runtime learned evaluator.
 
 The Isaac mirror is non-authoritative until `MODEL-MIRROR-P1` passes on its
-pinned accelerator profile. A Windows-only golden test proves descriptor,
-schedule, PD and frame-transform equivalence but does not replace GPU
-correspondence. Linux execution and cross-target validation are explicitly out
-of scope for the current locomotion-environment package, so its native Linux
-GPU corpus is deferred with the broader Stage 0 and shipping obligations.
+pinned accelerator profile. The tracked Rust/Python golden proves descriptor,
+schedule, PD and frame-transform equivalence but does not replace a GPU
+correspondence corpus or cross-target validation.
 
 An optional CUDA workstation probe remains available:
 

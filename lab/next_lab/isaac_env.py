@@ -9,10 +9,12 @@ from typing import Any, Iterable
 import torch
 
 from next_lab.motor_mirror import (
+    CURRICULUM_LOCOMOTION_PROFILE_ID,
     FLAT_LOCOMOTION_PROFILE_ID,
     Q1_30_ONE,
     RATE_CLAMPED,
     STANDING_PROFILE_ID,
+    curriculum_locomotion_command_schedule,
     derive_purpose_seed,
     flat_locomotion_command_schedule,
     select_environment_profile,
@@ -44,6 +46,26 @@ LOCOMOTION_REWARD_COEFFICIENTS_Q16 = (
     -6_554,
     -131_072,
 )
+CURRICULUM_LOCOMOTION_REWARD_COEFFICIENTS_Q16 = (
+    131_072,
+    32_768,
+    65_536,
+    32_768,
+    -6_554,
+    -6_554,
+    -655,
+    -1_311,
+    -13_107,
+    16_384,
+    -655_360,
+)
+
+
+def is_locomotion_profile(profile_id: str) -> bool:
+    return profile_id in {
+        FLAT_LOCOMOTION_PROFILE_ID,
+        CURRICULUM_LOCOMOTION_PROFILE_ID,
+    }
 
 
 def require_finite_tensor(name: str, value: torch.Tensor) -> None:
@@ -283,6 +305,30 @@ def precompute_flat_command_schedules(
     return torch.tensor(schedules, dtype=torch.int64, device="cpu")
 
 
+def precompute_command_schedules(
+    run_root: bytes,
+    episode_ordinals: Iterable[int],
+    vector_slots: Iterable[int],
+    profile_id: str,
+) -> torch.Tensor:
+    ordinals = list(episode_ordinals)
+    slots = list(vector_slots)
+    if len(ordinals) != len(slots):
+        raise ValueError("episode ordinals and vector slots must have equal length")
+    if profile_id == FLAT_LOCOMOTION_PROFILE_ID:
+        return precompute_flat_command_schedules(run_root, ordinals, slots)
+    if profile_id != CURRICULUM_LOCOMOTION_PROFILE_ID:
+        raise ValueError(f"profile has no engine command schedule: {profile_id}")
+    schedules = [
+        curriculum_locomotion_command_schedule(
+            derive_purpose_seed(run_root, ordinal, slot, "randomization.command"),
+            ordinal,
+        )
+        for ordinal, slot in zip(ordinals, slots, strict=True)
+    ]
+    return torch.tensor(schedules, dtype=torch.int64, device="cpu")
+
+
 def locomotion_reward_q16_tensor(
     *,
     quaternion_xyzw_q1_30: torch.Tensor,
@@ -298,35 +344,48 @@ def locomotion_reward_q16_tensor(
     contacting_foot_slip_sum_raw: torch.Tensor,
     contacting_foot_count: torch.Tensor,
     fell: torch.Tensor,
+    profile_id: str = FLAT_LOCOMOTION_PROFILE_ID,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Evaluate the ten canonical locomotion components and weighted Q16 total."""
     planar_error = torch.abs(local_linear_velocity_raw[:, 0] - command_raw[:, 0]) + torch.abs(
         local_linear_velocity_raw[:, 2] - command_raw[:, 1]
     )
-    planar = 65_536 - ratio_q16_tensor(planar_error, 6_500_000)
-    yaw = 65_536 - ratio_q16_tensor(
-        torch.abs(local_angular_velocity_raw[:, 1] - command_raw[:, 2]), 3_000_000
+    curriculum = profile_id == CURRICULUM_LOCOMOTION_PROFILE_ID
+    if not is_locomotion_profile(profile_id):
+        raise ValueError(f"unsupported locomotion reward profile: {profile_id}")
+    planar = 65_536 - ratio_q16_tensor(
+        planar_error, 2_500_000 if curriculum else 6_500_000
     )
+    yaw = 65_536 - ratio_q16_tensor(
+        torch.abs(local_angular_velocity_raw[:, 1] - command_raw[:, 2]),
+        1_500_000 if curriculum else 3_000_000,
+    )
+    if curriculum:
+        planar = round_div_ties_even_tensor(planar * planar, 65_536)
+        yaw = round_div_ties_even_tensor(yaw * yaw, 65_536)
     x = quaternion_xyzw_q1_30[:, 0]
     z = quaternion_xyzw_q1_30[:, 2]
     tilt_reduction = round_div_ties_even_tensor(2 * (x * x + z * z), Q1_30_ONE)
     upright_q30 = torch.clamp(Q1_30_ONE - tilt_reduction, 0, Q1_30_ONE)
     upright = ratio_q16_tensor(upright_q30, Q1_30_ONE)
     height = 65_536 - ratio_q16_tensor(
-        torch.abs(root_height_micrometres - target_root_height_micrometres), 600_000
+        torch.abs(root_height_micrometres - target_root_height_micrometres),
+        400_000 if curriculum else 600_000,
     )
-    vertical = ratio_q16_tensor(torch.abs(vertical_velocity_raw), 3_000_000)
+    vertical = ratio_q16_tensor(
+        torch.abs(vertical_velocity_raw), 2_000_000 if curriculum else 3_000_000
+    )
     roll_pitch = ratio_q16_tensor(
         torch.abs(local_angular_velocity_raw[:, 0])
         + torch.abs(local_angular_velocity_raw[:, 2]),
-        6_000_000,
+        4_000_000 if curriculum else 6_000_000,
     )
     effort = ratio_q16_tensor(effort_sum_raw, 23 * 4 * 150_000_000)
     action_rate = ratio_q16_tensor(
         torch.sum(torch.abs(applied_action_raw - previous_applied_action_raw), dim=-1),
         23 * 2_000_000,
     )
-    slip_denominator = contacting_foot_count * 4_000_000
+    slip_denominator = contacting_foot_count * (2_000_000 if curriculum else 4_000_000)
     slip = torch.zeros_like(contacting_foot_slip_sum_raw)
     # The denominator is per environment; calculate the exact ratio without float math.
     nonzero = slip_denominator > 0
@@ -340,12 +399,22 @@ def locomotion_reward_q16_tensor(
         )
         slip[nonzero] = quotient + increment.to(torch.int64)
     fall = fell.to(torch.int64) * 65_536
-    components = torch.stack(
-        (planar, yaw, upright, height, vertical, roll_pitch, effort, action_rate, slip, fall),
-        dim=-1,
-    )
+    base_components = (planar, yaw, upright, height, vertical, roll_pitch, effort, action_rate, slip)
+    if curriculum:
+        moving = torch.sum(torch.abs(command_raw), dim=-1) >= 100_000
+        support = torch.where(
+            (moving & (contacting_foot_count == 1))
+            | (~moving & (contacting_foot_count == 2)),
+            65_536,
+            0,
+        ).to(torch.int64)
+        components = torch.stack((*base_components, support, fall), dim=-1)
+        coefficients_q16 = CURRICULUM_LOCOMOTION_REWARD_COEFFICIENTS_Q16
+    else:
+        components = torch.stack((*base_components, fall), dim=-1)
+        coefficients_q16 = LOCOMOTION_REWARD_COEFFICIENTS_Q16
     coefficients = torch.tensor(
-        LOCOMOTION_REWARD_COEFFICIENTS_Q16,
+        coefficients_q16,
         dtype=torch.int64,
         device=components.device,
     )
@@ -362,7 +431,8 @@ if ISAAC_LAB_AVAILABLE:
         action_space = 23
         observation_space = 84
         state_space = 0
-        environment_profile_id = FLAT_LOCOMOTION_PROFILE_ID
+        environment_profile_id = CURRICULUM_LOCOMOTION_PROFILE_ID
+        episode_ordinal_start = 0
         run_root_hex = "00" * 32
         sim = sim_utils.SimulationCfg(dt=1.0 / 240.0, render_interval=4)
         scene = InteractiveSceneCfg(num_envs=4_096, env_spacing=3.0, replicate_physics=True)
@@ -425,7 +495,13 @@ if ISAAC_LAB_AVAILABLE:
             self._previous_action = torch.zeros_like(self._action)
             self._previous_effort = torch.zeros_like(self._action)
             self._effort_sum = torch.zeros(cfg.scene.num_envs, dtype=torch.int64)
-            self._episode_ordinals = torch.full((cfg.scene.num_envs,), -1, dtype=torch.int64)
+            if not 0 <= cfg.episode_ordinal_start < 2**63:
+                raise ValueError("episode_ordinal_start must be a non-negative 63-bit integer")
+            self._episode_ordinals = torch.full(
+                (cfg.scene.num_envs,),
+                cfg.episode_ordinal_start - 1,
+                dtype=torch.int64,
+            )
             self._command_schedule = torch.zeros((cfg.scene.num_envs, 1_201, 3), dtype=torch.int64)
             component_count = len(self.profile["reward_components"])
             self.reward_components_q16 = torch.zeros(
@@ -554,7 +630,7 @@ if ISAAC_LAB_AVAILABLE:
             angular_world = engine_vector_from_isaac_tensor(data.root_ang_vel_w)
             linear_raw = torch.round(linear_world * 1_000_000).to(torch.int64)
             angular_raw = torch.round(angular_world * 1_000_000).to(torch.int64)
-            if self.profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID:
+            if is_locomotion_profile(self.profile["profile_id"]):
                 linear_raw = rotate_world_to_root_local_q1_30_tensor(quaternion_raw, linear_raw)
                 angular_raw = rotate_world_to_root_local_q1_30_tensor(quaternion_raw, angular_raw)
             contacts = torch.linalg.vector_norm(self.feet.data.net_forces_w, dim=-1) > 1.0e-6
@@ -622,6 +698,7 @@ if ISAAC_LAB_AVAILABLE:
                 contacting_foot_slip_sum_raw=slip_sum,
                 contacting_foot_count=torch.sum(contacts.to(torch.int64), dim=-1),
                 fell=fallen,
+                profile_id=self.profile["profile_id"],
             )
             self.reward_components_q16.copy_(components)
             reward = total.to(torch.float32) / 65_536.0
@@ -674,9 +751,9 @@ if ISAAC_LAB_AVAILABLE:
         def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
             root = self.robot.data.root_pos_w
             require_finite_tensor("done_root_pos_w", root)
-            threshold = 0.45 if self.profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID else 0.25
+            threshold = 0.45 if is_locomotion_profile(self.profile["profile_id"]) else 0.25
             terminated = root[:, 2] <= threshold
-            if self.profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID:
+            if is_locomotion_profile(self.profile["profile_id"]):
                 displacement = root[:, :2] - self.scene.env_origins[:, :2]
                 terminated |= (torch.abs(displacement[:, 0]) >= 90.0) | (
                     torch.abs(displacement[:, 1]) >= 90.0
@@ -726,10 +803,15 @@ if ISAAC_LAB_AVAILABLE:
             self._episode_reward_sum[env_ids] = 0.0
             self._episode_component_sums[env_ids] = 0.0
             self._episode_ordinals[env_ids] += 1
-            if self.profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID:
+            if is_locomotion_profile(self.profile["profile_id"]):
                 ids = env_ids.detach().cpu().tolist()
                 ordinals = self._episode_ordinals[env_ids].detach().cpu().tolist()
-                schedules = precompute_flat_command_schedules(self.run_root, ordinals, ids)
+                schedules = precompute_command_schedules(
+                    self.run_root,
+                    ordinals,
+                    ids,
+                    self.profile["profile_id"],
+                )
                 self._command_schedule[env_ids] = schedules.to(self.device)
 
 else:

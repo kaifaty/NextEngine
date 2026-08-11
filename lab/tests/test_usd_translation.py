@@ -64,6 +64,12 @@ def descriptor() -> dict:
         "environment_profiles": [
             _profile("nextengine.motor.env.humanoid-standing.v1", "world", 3_600, 8),
             _profile("nextengine.motor.env.humanoid-flat-command.v1", "root-local", 1_200, 10),
+            _profile(
+                "nextengine.motor.env.humanoid-flat-command-curriculum.v2",
+                "root-local",
+                1_200,
+                11,
+            ),
         ],
     }
 
@@ -91,13 +97,25 @@ def _profile(profile_id: str, velocity_frame: str, maximum_steps: int, reward_co
         "reward.contacting-foot-tangential-slip-cost",
         "reward.fall-component",
     ]
+    curriculum = [
+        *locomotion[:-1],
+        "reward.command-conditioned-support",
+        "reward.fall-component",
+    ]
     profile = {
         "profile_id": profile_id,
         "velocity_frame": velocity_frame,
         "maximum_episode_steps": maximum_steps,
         "observation_source_ids": [f"observation.{index}" for index in range(84)],
         "reward_components": [
-            {"component_id": value} for value in (standing if reward_count == 8 else locomotion)
+            {"component_id": value}
+            for value in (
+                standing
+                if reward_count == 8
+                else curriculum
+                if reward_count == 11
+                else locomotion
+            )
         ],
     }
     for field in (
@@ -117,6 +135,30 @@ def _profile(profile_id: str, velocity_frame: str, maximum_steps: int, reward_co
             "segment_ticks": 120,
             "episode_ticks": 1_200,
             "mode_weights_basis_points": [2_500, 3_500, 2_000, 2_000],
+        }
+    elif reward_count == 11:
+        profile["command_profile"] = {
+            "kind": "sha256-counter-episode-curriculum-v2",
+            "episode_ticks": 1_200,
+            "stages": [
+                {
+                    "first_episode_ordinal": first,
+                    "warmup_ticks": warmup,
+                    "segment_ticks": segment,
+                    "episode_ticks": 1_200,
+                    "mode_weights_basis_points": weights,
+                    "right_velocity_range_raw": right,
+                    "forward_velocity_range_raw": forward,
+                    "yaw_rate_range_raw": yaw,
+                    "linear_rate_limit_raw_per_second_squared": linear_rate,
+                    "yaw_rate_limit_raw_per_second_squared": yaw_rate,
+                }
+                for first, warmup, segment, weights, right, forward, yaw, linear_rate, yaw_rate in (
+                    (0, 120, 240, [4_000, 6_000, 0, 0], [0, 0], [0, 750_000], [0, 0], 1_000_000, 500_000),
+                    (32, 90, 180, [2_500, 5_500, 1_500, 500], [-350_000, 350_000], [0, 1_250_000], [-600_000, 600_000], 1_500_000, 750_000),
+                    (96, 60, 120, [1_500, 4_500, 1_500, 2_500], [-1_000_000, 1_000_000], [-500_000, 2_000_000], [-1_000_000, 1_000_000], 2_000_000, 1_000_000),
+                )
+            ],
         }
     return profile
 

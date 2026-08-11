@@ -10,6 +10,9 @@ COMMAND_COUNTER_DOMAIN = b"nextengine.motor-command-counter.v1\0"
 COMMAND_SCHEDULE_DOMAIN = b"nextengine.motor-command-schedule.v1\0"
 STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v1"
 FLAT_LOCOMOTION_PROFILE_ID = "nextengine.motor.env.humanoid-flat-command.v1"
+CURRICULUM_LOCOMOTION_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-flat-command-curriculum.v2"
+)
 PHYSICS_HZ = 240
 MOTOR_HZ = 60
 SUBSTEPS = 4
@@ -39,6 +42,62 @@ LOCOMOTION_REWARD_COMPONENT_IDS = (
     "reward.applied-action-rate-cost",
     "reward.contacting-foot-tangential-slip-cost",
     "reward.fall-component",
+)
+CURRICULUM_LOCOMOTION_REWARD_COMPONENT_IDS = (
+    *LOCOMOTION_REWARD_COMPONENT_IDS[:-1],
+    "reward.command-conditioned-support",
+    "reward.fall-component",
+)
+
+FLAT_COMMAND_PROFILE_V1 = {
+    "warmup_ticks": 60,
+    "segment_ticks": 120,
+    "episode_ticks": 1_200,
+    "mode_weights_basis_points": (2_500, 3_500, 2_000, 2_000),
+    "right_velocity_range_raw": (-2_000_000, 2_000_000),
+    "forward_velocity_range_raw": (-1_500_000, 3_000_000),
+    "yaw_rate_range_raw": (-1_500_000, 1_500_000),
+    "linear_rate_limit_raw_per_second_squared": 3_000_000,
+    "yaw_rate_limit_raw_per_second_squared": 1_500_000,
+}
+
+CURRICULUM_COMMAND_STAGES_V2 = (
+    {
+        "first_episode_ordinal": 0,
+        "warmup_ticks": 120,
+        "segment_ticks": 240,
+        "episode_ticks": 1_200,
+        "mode_weights_basis_points": (4_000, 6_000, 0, 0),
+        "right_velocity_range_raw": (0, 0),
+        "forward_velocity_range_raw": (0, 750_000),
+        "yaw_rate_range_raw": (0, 0),
+        "linear_rate_limit_raw_per_second_squared": 1_000_000,
+        "yaw_rate_limit_raw_per_second_squared": 500_000,
+    },
+    {
+        "first_episode_ordinal": 32,
+        "warmup_ticks": 90,
+        "segment_ticks": 180,
+        "episode_ticks": 1_200,
+        "mode_weights_basis_points": (2_500, 5_500, 1_500, 500),
+        "right_velocity_range_raw": (-350_000, 350_000),
+        "forward_velocity_range_raw": (0, 1_250_000),
+        "yaw_rate_range_raw": (-600_000, 600_000),
+        "linear_rate_limit_raw_per_second_squared": 1_500_000,
+        "yaw_rate_limit_raw_per_second_squared": 750_000,
+    },
+    {
+        "first_episode_ordinal": 96,
+        "warmup_ticks": 60,
+        "segment_ticks": 120,
+        "episode_ticks": 1_200,
+        "mode_weights_basis_points": (1_500, 4_500, 1_500, 2_500),
+        "right_velocity_range_raw": (-1_000_000, 1_000_000),
+        "forward_velocity_range_raw": (-500_000, 2_000_000),
+        "yaw_rate_range_raw": (-1_000_000, 1_000_000),
+        "linear_rate_limit_raw_per_second_squared": 2_000_000,
+        "yaw_rate_limit_raw_per_second_squared": 1_000_000,
+    },
 )
 
 
@@ -120,31 +179,62 @@ def _move_towards(current: int, target: int, maximum_delta: int) -> int:
 
 def flat_locomotion_command_schedule(command_seed: bytes) -> list[tuple[int, int, int]]:
     """Build the canonical 1,201-sample command schedule using engine integer rules."""
+    return _command_schedule(command_seed, FLAT_COMMAND_PROFILE_V1)
+
+
+def curriculum_locomotion_command_schedule(
+    command_seed: bytes, episode_ordinal: int
+) -> list[tuple[int, int, int]]:
+    if not 0 <= episode_ordinal <= (1 << 64) - 1:
+        raise ValueError("episode_ordinal is outside u64")
+    stage = next(
+        stage
+        for stage in reversed(CURRICULUM_COMMAND_STAGES_V2)
+        if episode_ordinal >= stage["first_episode_ordinal"]
+    )
+    return _command_schedule(command_seed, stage)
+
+
+def _command_schedule(
+    command_seed: bytes, profile: dict[str, Any]
+) -> list[tuple[int, int, int]]:
     schedule = [(0, 0, 0)]
     target = (0, 0, 0)
-    for tick in range(1, 1_201):
-        if tick < 60:
+    warmup_ticks = int(profile["warmup_ticks"])
+    segment_ticks = int(profile["segment_ticks"])
+    episode_ticks = int(profile["episode_ticks"])
+    weights = tuple(int(value) for value in profile["mode_weights_basis_points"])
+    ranges = (
+        tuple(int(value) for value in profile["right_velocity_range_raw"]),
+        tuple(int(value) for value in profile["forward_velocity_range_raw"]),
+        tuple(int(value) for value in profile["yaw_rate_range_raw"]),
+    )
+    linear_delta = int(profile["linear_rate_limit_raw_per_second_squared"]) // MOTOR_HZ
+    yaw_delta = int(profile["yaw_rate_limit_raw_per_second_squared"]) // MOTOR_HZ
+    thresholds = (weights[0], weights[0] + weights[1], sum(weights[:3]))
+    for tick in range(1, episode_ticks + 1):
+        if tick < warmup_ticks:
             target = (0, 0, 0)
-        elif tick == 60 or (tick - 60) % 120 == 0:
-            segment = (tick - 60) // 120
+        elif tick == warmup_ticks or (tick - warmup_ticks) % segment_ticks == 0:
+            segment = (tick - warmup_ticks) // segment_ticks
             selector = _command_counter(command_seed, segment, 0) % 10_000
-            right = _bounded_counter(command_seed, segment, 1, -2_000_000, 2_000_000)
-            forward = _bounded_counter(command_seed, segment, 2, -1_500_000, 3_000_000)
-            yaw = _bounded_counter(command_seed, segment, 3, -1_500_000, 1_500_000)
-            if selector < 2_500:
+            right = _bounded_counter(command_seed, segment, 1, *ranges[0])
+            forward = _bounded_counter(command_seed, segment, 2, *ranges[1])
+            yaw = _bounded_counter(command_seed, segment, 3, *ranges[2])
+            if selector < thresholds[0]:
                 target = (0, 0, 0)
-            elif selector < 6_000:
+            elif selector < thresholds[1]:
                 target = (right, forward, 0)
-            elif selector < 8_000:
+            elif selector < thresholds[2]:
                 target = (0, 0, yaw)
             else:
                 target = (right, forward, yaw)
         previous = schedule[-1]
         schedule.append(
             (
-                _move_towards(previous[0], target[0], 50_000),
-                _move_towards(previous[1], target[1], 50_000),
-                _move_towards(previous[2], target[2], 25_000),
+                _move_towards(previous[0], target[0], linear_delta),
+                _move_towards(previous[1], target[1], linear_delta),
+                _move_towards(previous[2], target[2], yaw_delta),
             )
         )
     return schedule
@@ -267,6 +357,7 @@ def validate_golden(golden: dict[str, Any], descriptor_bytes: bytes | None = Non
     expected_rewards = {
         STANDING_PROFILE_ID: STANDING_REWARD_COMPONENT_IDS,
         FLAT_LOCOMOTION_PROFILE_ID: LOCOMOTION_REWARD_COMPONENT_IDS,
+        CURRICULUM_LOCOMOTION_PROFILE_ID: CURRICULUM_LOCOMOTION_REWARD_COMPONENT_IDS,
     }
     for profile_id, expected in expected_rewards.items():
         actual = require_unique_strings(reward_profiles.get(profile_id), f"rewards:{profile_id}")
@@ -300,6 +391,17 @@ def validate_golden(golden: dict[str, Any], descriptor_bytes: bytes | None = Non
     for sample in command_golden["samples"]:
         if list(schedule[sample["tick"]]) != sample["command_raw"]:
             raise ValueError(f"command schedule sample mismatch at tick {sample['tick']}")
+    curriculum_golden = golden["curriculum_command_schedule"]
+    curriculum_schedule = curriculum_locomotion_command_schedule(
+        seeds["randomization.command"], curriculum_golden["episode_ordinal"]
+    )
+    if command_schedule_hash(curriculum_schedule) != curriculum_golden["sha256"]:
+        raise ValueError("curriculum command schedule hash mismatch")
+    for sample in curriculum_golden["samples"]:
+        if list(curriculum_schedule[sample["tick"]]) != sample["command_raw"]:
+            raise ValueError(
+                f"curriculum command schedule sample mismatch at tick {sample['tick']}"
+            )
 
     transform = golden["root_local_transform"]
     actual_local = rotate_world_to_root_local_q1_30(
@@ -347,7 +449,11 @@ def validate_descriptor(descriptor: dict[str, Any]) -> None:
     profiles = descriptor.get("environment_profiles")
     if not isinstance(profiles, list) or {
         profile.get("profile_id") for profile in profiles
-    } != {STANDING_PROFILE_ID, FLAT_LOCOMOTION_PROFILE_ID}:
+    } != {
+        STANDING_PROFILE_ID,
+        FLAT_LOCOMOTION_PROFILE_ID,
+        CURRICULUM_LOCOMOTION_PROFILE_ID,
+    }:
         raise ValueError("canonical environment profiles do not close")
     for profile in profiles:
         for field in (
@@ -366,6 +472,8 @@ def validate_descriptor(descriptor: dict[str, Any]) -> None:
         expected = (
             STANDING_REWARD_COMPONENT_IDS
             if profile["profile_id"] == STANDING_PROFILE_ID
+            else CURRICULUM_LOCOMOTION_REWARD_COMPONENT_IDS
+            if profile["profile_id"] == CURRICULUM_LOCOMOTION_PROFILE_ID
             else LOCOMOTION_REWARD_COMPONENT_IDS
         )
         actual = tuple(component.get("component_id") for component in profile.get("reward_components", []))
@@ -374,7 +482,7 @@ def validate_descriptor(descriptor: dict[str, Any]) -> None:
         if profile["profile_id"] == STANDING_PROFILE_ID:
             if profile.get("velocity_frame") != "world" or profile.get("maximum_episode_steps") != 3_600:
                 raise ValueError("standing profile semantics changed")
-        else:
+        elif profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID:
             if profile.get("velocity_frame") != "root-local" or profile.get("maximum_episode_steps") != 1_200:
                 raise ValueError("locomotion profile semantics mismatch")
             command = profile.get("command_profile", {})
@@ -385,6 +493,40 @@ def validate_descriptor(descriptor: dict[str, Any]) -> None:
                 or command.get("mode_weights_basis_points") != [2_500, 3_500, 2_000, 2_000]
             ):
                 raise ValueError("locomotion command profile mismatch")
+        else:
+            if profile.get("velocity_frame") != "root-local" or profile.get(
+                "maximum_episode_steps"
+            ) != 1_200:
+                raise ValueError("curriculum locomotion profile semantics mismatch")
+            command = profile.get("command_profile", {})
+            stages = command.get("stages")
+            if (
+                command.get("kind") != "sha256-counter-episode-curriculum-v2"
+                or command.get("episode_ticks") != 1_200
+                or not isinstance(stages, list)
+                or len(stages) != len(CURRICULUM_COMMAND_STAGES_V2)
+            ):
+                raise ValueError("curriculum command profile mismatch")
+            for actual, expected_stage in zip(
+                stages, CURRICULUM_COMMAND_STAGES_V2, strict=True
+            ):
+                for field in (
+                    "first_episode_ordinal",
+                    "warmup_ticks",
+                    "segment_ticks",
+                    "episode_ticks",
+                    "mode_weights_basis_points",
+                    "right_velocity_range_raw",
+                    "forward_velocity_range_raw",
+                    "yaw_rate_range_raw",
+                    "linear_rate_limit_raw_per_second_squared",
+                    "yaw_rate_limit_raw_per_second_squared",
+                ):
+                    expected_value = expected_stage[field]
+                    if isinstance(expected_value, tuple):
+                        expected_value = list(expected_value)
+                    if actual.get(field) != expected_value:
+                        raise ValueError(f"curriculum stage mismatch: {field}")
 
 
 def require_unique_strings(value: Any, label: str) -> list[str]:

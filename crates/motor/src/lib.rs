@@ -34,10 +34,15 @@ pub use runtime::{
     MotorReplayFrame, MotorRuntimeError,
 };
 pub use training::{
-    FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID, LOCOMOTION_REWARD_COEFFICIENTS_Q16,
-    LOCOMOTION_REWARD_COMPONENT_IDS, MotorEnvironmentProfile, MotorVectorRunner,
+    CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID, CURRICULUM_LOCOMOTION_REWARD_COEFFICIENTS_Q16,
+    CURRICULUM_LOCOMOTION_REWARD_COMPONENT_IDS, FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID,
+    LOCOMOTION_REWARD_COEFFICIENTS_Q16, LOCOMOTION_REWARD_COMPONENT_IDS,
+    LocomotionCurriculumStageV2, MotorEnvironmentProfile, MotorVectorRunner,
     STANDING_ENVIRONMENT_PROFILE_ID, STANDING_REWARD_COMPONENT_IDS, TrainingEnvironmentError,
     VectorPolicyStepInput, VectorResetOutput, VectorStepInput, VectorStepOutput,
-    canonical_environment_manifest_v2, derive_episode_seed_set, derive_locomotion_episode_seed_set,
-    flat_locomotion_command_profile_v1, flat_locomotion_command_schedule,
+    canonical_environment_manifest_v2, curriculum_locomotion_command_schedule,
+    curriculum_locomotion_profile_hash_v2, curriculum_locomotion_stages_v2,
+    derive_curriculum_locomotion_episode_seed_set, derive_episode_seed_set,
+    derive_locomotion_episode_seed_set, flat_locomotion_command_profile_v1,
+    flat_locomotion_command_schedule,
 };

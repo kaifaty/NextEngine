@@ -25,6 +25,8 @@ pub const FLAT_LOCOMOTION_MAX_EPISODE_MOTOR_STEPS: u64 = 1_200;
 pub const STANDING_ENVIRONMENT_PROFILE_ID: &str = "nextengine.motor.env.humanoid-standing.v1";
 pub const FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID: &str =
     "nextengine.motor.env.humanoid-flat-command.v1";
+pub const CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID: &str =
+    "nextengine.motor.env.humanoid-flat-command-curriculum.v2";
 
 const RANDOMIZATION_PURPOSES: [&str; 4] = [
     "randomization.action-noise",
@@ -68,10 +70,29 @@ pub const LOCOMOTION_REWARD_COEFFICIENTS_Q16: [i64; 10] = [
     98_304, 32_768, 32_768, 16_384, -3_277, -3_277, -1_311, -3_277, -6_554, -131_072,
 ];
 
+pub const CURRICULUM_LOCOMOTION_REWARD_COMPONENT_IDS: [&str; 11] = [
+    "reward.planar-command-tracking",
+    "reward.yaw-rate-tracking",
+    "reward.upright-yaw-invariant",
+    "reward.root-height-tracking",
+    "reward.vertical-velocity-cost",
+    "reward.roll-pitch-rate-cost",
+    "reward.normalized-applied-effort-cost",
+    "reward.applied-action-rate-cost",
+    "reward.contacting-foot-tangential-slip-cost",
+    "reward.command-conditioned-support",
+    "reward.fall-component",
+];
+
+pub const CURRICULUM_LOCOMOTION_REWARD_COEFFICIENTS_Q16: [i64; 11] = [
+    131_072, 32_768, 65_536, 32_768, -6_554, -6_554, -655, -1_311, -13_107, 16_384, -655_360,
+];
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MotorEnvironmentProfile {
     StandingV1,
     HumanoidFlatCommandV1,
+    HumanoidFlatCommandCurriculumV2,
 }
 
 impl MotorEnvironmentProfile {
@@ -79,6 +100,9 @@ impl MotorEnvironmentProfile {
         match profile_id {
             STANDING_ENVIRONMENT_PROFILE_ID => Ok(Self::StandingV1),
             FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID => Ok(Self::HumanoidFlatCommandV1),
+            CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID => {
+                Ok(Self::HumanoidFlatCommandCurriculumV2)
+            }
             _ => Err(TrainingEnvironmentError::UnsupportedProfile),
         }
     }
@@ -88,15 +112,32 @@ impl MotorEnvironmentProfile {
         match self {
             Self::StandingV1 => STANDING_ENVIRONMENT_PROFILE_ID,
             Self::HumanoidFlatCommandV1 => FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID,
+            Self::HumanoidFlatCommandCurriculumV2 => CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID,
         }
+    }
+
+    #[must_use]
+    const fn is_locomotion(self) -> bool {
+        matches!(
+            self,
+            Self::HumanoidFlatCommandV1 | Self::HumanoidFlatCommandCurriculumV2
+        )
     }
 
     const fn maximum_episode_steps(self) -> u64 {
         match self {
             Self::StandingV1 => DEFAULT_MAX_EPISODE_MOTOR_STEPS,
-            Self::HumanoidFlatCommandV1 => FLAT_LOCOMOTION_MAX_EPISODE_MOTOR_STEPS,
+            Self::HumanoidFlatCommandV1 | Self::HumanoidFlatCommandCurriculumV2 => {
+                FLAT_LOCOMOTION_MAX_EPISODE_MOTOR_STEPS
+            }
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct LocomotionCurriculumStageV2 {
+    pub first_episode_ordinal: u64,
+    pub command_profile: MotorLocomotionCommandProfileV1,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -161,10 +202,100 @@ pub fn flat_locomotion_command_profile_v1() -> MotorLocomotionCommandProfileV1 {
     }
 }
 
+#[must_use]
+pub fn curriculum_locomotion_stages_v2() -> Vec<LocomotionCurriculumStageV2> {
+    vec![
+        LocomotionCurriculumStageV2 {
+            first_episode_ordinal: 0,
+            command_profile: MotorLocomotionCommandProfileV1 {
+                schema_version: MOTOR_LOCOMOTION_COMMAND_PROFILE_V1_SCHEMA_VERSION,
+                profile_id: schema_id(
+                    "nextengine.motor.command.humanoid-flat-curriculum.foundation.v2",
+                ),
+                randomization_stream_id: schema_id("randomization.command"),
+                warmup_ticks: 120,
+                segment_ticks: 240,
+                episode_ticks: 1_200,
+                mode_weights_basis_points: [4_000, 6_000, 0, 0],
+                right_velocity_min_micrometres_per_second: 0,
+                right_velocity_max_micrometres_per_second: 0,
+                forward_velocity_min_micrometres_per_second: 0,
+                forward_velocity_max_micrometres_per_second: 750_000,
+                yaw_rate_min_microradians_per_second: 0,
+                yaw_rate_max_microradians_per_second: 0,
+                linear_rate_limit_micrometres_per_second_squared: 1_000_000,
+                yaw_rate_limit_microradians_per_second_squared: 500_000,
+            },
+        },
+        LocomotionCurriculumStageV2 {
+            first_episode_ordinal: 32,
+            command_profile: MotorLocomotionCommandProfileV1 {
+                schema_version: MOTOR_LOCOMOTION_COMMAND_PROFILE_V1_SCHEMA_VERSION,
+                profile_id: schema_id(
+                    "nextengine.motor.command.humanoid-flat-curriculum.steering.v2",
+                ),
+                randomization_stream_id: schema_id("randomization.command"),
+                warmup_ticks: 90,
+                segment_ticks: 180,
+                episode_ticks: 1_200,
+                mode_weights_basis_points: [2_500, 5_500, 1_500, 500],
+                right_velocity_min_micrometres_per_second: -350_000,
+                right_velocity_max_micrometres_per_second: 350_000,
+                forward_velocity_min_micrometres_per_second: 0,
+                forward_velocity_max_micrometres_per_second: 1_250_000,
+                yaw_rate_min_microradians_per_second: -600_000,
+                yaw_rate_max_microradians_per_second: 600_000,
+                linear_rate_limit_micrometres_per_second_squared: 1_500_000,
+                yaw_rate_limit_microradians_per_second_squared: 750_000,
+            },
+        },
+        LocomotionCurriculumStageV2 {
+            first_episode_ordinal: 96,
+            command_profile: MotorLocomotionCommandProfileV1 {
+                schema_version: MOTOR_LOCOMOTION_COMMAND_PROFILE_V1_SCHEMA_VERSION,
+                profile_id: schema_id("nextengine.motor.command.humanoid-flat-curriculum.full.v2"),
+                randomization_stream_id: schema_id("randomization.command"),
+                warmup_ticks: 60,
+                segment_ticks: 120,
+                episode_ticks: 1_200,
+                mode_weights_basis_points: [1_500, 4_500, 1_500, 2_500],
+                right_velocity_min_micrometres_per_second: -1_000_000,
+                right_velocity_max_micrometres_per_second: 1_000_000,
+                forward_velocity_min_micrometres_per_second: -500_000,
+                forward_velocity_max_micrometres_per_second: 2_000_000,
+                yaw_rate_min_microradians_per_second: -1_000_000,
+                yaw_rate_max_microradians_per_second: 1_000_000,
+                linear_rate_limit_micrometres_per_second_squared: 2_000_000,
+                yaw_rate_limit_microradians_per_second_squared: 1_000_000,
+            },
+        },
+    ]
+}
+
 pub fn flat_locomotion_command_schedule(
     command_seed: [u8; 32],
 ) -> Result<Vec<[i64; 3]>, TrainingEnvironmentError> {
     let profile = flat_locomotion_command_profile_v1();
+    command_schedule_from_profile(&profile, command_seed)
+}
+
+pub fn curriculum_locomotion_command_schedule(
+    command_seed: [u8; 32],
+    episode_ordinal: u64,
+) -> Result<Vec<[i64; 3]>, TrainingEnvironmentError> {
+    let stages = curriculum_locomotion_stages_v2();
+    let stage = stages
+        .iter()
+        .rev()
+        .find(|stage| episode_ordinal >= stage.first_episode_ordinal)
+        .ok_or(TrainingEnvironmentError::ScheduleBounds)?;
+    command_schedule_from_profile(&stage.command_profile, command_seed)
+}
+
+fn command_schedule_from_profile(
+    profile: &MotorLocomotionCommandProfileV1,
+    command_seed: [u8; 32],
+) -> Result<Vec<[i64; 3]>, TrainingEnvironmentError> {
     profile.validate()?;
     let mut schedule = Vec::with_capacity(profile.episode_ticks as usize + 1);
     schedule.push([0; 3]);
@@ -184,7 +315,7 @@ pub fn flat_locomotion_command_schedule(
             || (tick - profile.warmup_ticks).is_multiple_of(profile.segment_ticks)
         {
             let segment_index = u64::from((tick - profile.warmup_ticks) / profile.segment_ticks);
-            target = command_target(&profile, command_seed, segment_index)?;
+            target = command_target(profile, command_seed, segment_index)?;
         }
         let previous = *schedule
             .last()
@@ -224,6 +355,19 @@ pub fn derive_locomotion_episode_seed_set(
     )
 }
 
+pub fn derive_curriculum_locomotion_episode_seed_set(
+    run_root: ContentHash,
+    episode_ordinal: u64,
+    vector_slot: u32,
+) -> Result<MotorEpisodeSeedSetV1, TrainingEnvironmentError> {
+    derive_episode_seed_set_for_profile(
+        MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2,
+        run_root,
+        episode_ordinal,
+        vector_slot,
+    )
+}
+
 pub fn canonical_environment_manifest_v2(
     profile_id: &str,
 ) -> Result<MotorTrainingEnvironmentManifestV2, TrainingEnvironmentError> {
@@ -242,12 +386,15 @@ fn derive_episode_seed_set_for_profile(
         MotorEnvironmentProfile::StandingV1 => {
             derive_episode_seed_set(run_root, episode_ordinal, vector_slot)
         }
-        MotorEnvironmentProfile::HumanoidFlatCommandV1 => derive_seed_set_from_purposes(
-            run_root,
-            episode_ordinal,
-            vector_slot,
-            &LOCOMOTION_RANDOMIZATION_PURPOSES,
-        ),
+        MotorEnvironmentProfile::HumanoidFlatCommandV1
+        | MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
+            derive_seed_set_from_purposes(
+                run_root,
+                episode_ordinal,
+                vector_slot,
+                &LOCOMOTION_RANDOMIZATION_PURPOSES,
+            )
+        }
     }
 }
 
@@ -311,6 +458,15 @@ fn command_schedule_for_profile(
                 .find_map(|(purpose, seed)| (purpose == &command_id).then_some(*seed))
                 .ok_or(TrainingEnvironmentError::SeedProfile)?;
             flat_locomotion_command_schedule(command_seed)
+        }
+        MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
+            let command_id = schema_id("randomization.command");
+            let command_seed = seed_set
+                .purpose_seeds
+                .iter()
+                .find_map(|(purpose, seed)| (purpose == &command_id).then_some(*seed))
+                .ok_or(TrainingEnvironmentError::SeedProfile)?;
+            curriculum_locomotion_command_schedule(command_seed, seed_set.episode_ordinal)
         }
     }
 }
@@ -418,7 +574,7 @@ fn compile_for_slot(
     let schema = reference_humanoid_body_schema_v1();
     let mut compiled = CompiledBodySchemaV1::compile(&schema, subject_id(run_root, vector_slot))
         .map_err(|_| TrainingEnvironmentError::Compile)?;
-    if profile == MotorEnvironmentProfile::HumanoidFlatCommandV1 {
+    if profile.is_locomotion() {
         compiled
             .apply_flat_locomotion_profile()
             .map_err(|_| TrainingEnvironmentError::Compile)?;
@@ -450,6 +606,18 @@ fn environment_manifest(
                 maximum_raw: 65_536,
             })
             .collect(),
+        MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
+            CURRICULUM_LOCOMOTION_REWARD_COMPONENT_IDS
+                .into_iter()
+                .zip(CURRICULUM_LOCOMOTION_REWARD_COEFFICIENTS_Q16)
+                .map(|(component_id, coefficient_q16)| MotorRewardComponentV1 {
+                    component_id: schema_id(component_id),
+                    coefficient_q16,
+                    minimum_raw: 0,
+                    maximum_raw: 65_536,
+                })
+                .collect()
+        }
     };
     let command_schedule_profile_hash = match profile {
         MotorEnvironmentProfile::StandingV1 => profile_constant_hash(
@@ -458,6 +626,9 @@ fn environment_manifest(
         ),
         MotorEnvironmentProfile::HumanoidFlatCommandV1 => {
             flat_locomotion_command_profile_v1().profile_hash()?
+        }
+        MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
+            curriculum_locomotion_profile_hash_v2()?
         }
     };
     let value = MotorTrainingEnvironmentManifestV2 {
@@ -474,6 +645,9 @@ fn environment_manifest(
                     "nextengine.physics.catalog.humanoid-standing-50m.v1"
                 }
                 MotorEnvironmentProfile::HumanoidFlatCommandV1 => {
+                    "nextengine.physics.catalog.humanoid-flat-100m.v1"
+                }
+                MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
                     "nextengine.physics.catalog.humanoid-flat-100m.v1"
                 }
             },
@@ -509,6 +683,9 @@ fn environment_manifest(
                 MotorEnvironmentProfile::HumanoidFlatCommandV1 => {
                     "nextengine.motor.termination.flat-command.v1"
                 }
+                MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
+                    "nextengine.motor.termination.flat-command-curriculum.v2"
+                }
             },
             compiled.body_schema_hash,
         ),
@@ -538,6 +715,19 @@ fn profile_constant_hash(domain: &str, body_schema_hash: ContentHash) -> Content
     content_hash_from_bytes(sha256(&preimage))
 }
 
+pub fn curriculum_locomotion_profile_hash_v2() -> Result<ContentHash, TrainingEnvironmentError> {
+    let stages = curriculum_locomotion_stages_v2();
+    let mut preimage = Vec::new();
+    preimage.extend_from_slice(b"nextengine.motor-command-curriculum.v2\0");
+    preimage.extend_from_slice(&(stages.len() as u32).to_le_bytes());
+    for stage in stages {
+        stage.command_profile.validate()?;
+        preimage.extend_from_slice(&stage.first_episode_ordinal.to_le_bytes());
+        preimage.extend_from_slice(stage.command_profile.profile_hash()?.as_bytes());
+    }
+    Ok(content_hash_from_bytes(sha256(&preimage)))
+}
+
 fn reward_profile_hash(
     profile: MotorEnvironmentProfile,
     body_schema_hash: ContentHash,
@@ -546,25 +736,49 @@ fn reward_profile_hash(
     preimage.extend_from_slice(b"nextengine.motor.reward-profile.v2\0");
     preimage.extend_from_slice(profile.profile_id().as_bytes());
     preimage.extend_from_slice(body_schema_hash.as_bytes());
-    if profile == MotorEnvironmentProfile::HumanoidFlatCommandV1 {
-        for (component, coefficient) in LOCOMOTION_REWARD_COMPONENT_IDS
-            .into_iter()
-            .zip(LOCOMOTION_REWARD_COEFFICIENTS_Q16)
-        {
-            preimage.extend_from_slice(&(component.len() as u32).to_le_bytes());
-            preimage.extend_from_slice(component.as_bytes());
-            preimage.extend_from_slice(&coefficient.to_le_bytes());
+    let (components, normalizations) = match profile {
+        MotorEnvironmentProfile::StandingV1 => return content_hash_from_bytes(sha256(&preimage)),
+        MotorEnvironmentProfile::HumanoidFlatCommandV1 => (
+            LOCOMOTION_REWARD_COMPONENT_IDS
+                .into_iter()
+                .zip(LOCOMOTION_REWARD_COEFFICIENTS_Q16)
+                .collect::<Vec<_>>(),
+            [
+                6_500_000_i64,
+                3_000_000,
+                600_000,
+                3_000_000,
+                6_000_000,
+                4_000_000,
+            ],
+        ),
+        MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
+            let shaping_id = "squared-tracking-command-support-v2";
+            preimage.extend_from_slice(&(shaping_id.len() as u32).to_le_bytes());
+            preimage.extend_from_slice(shaping_id.as_bytes());
+            (
+                CURRICULUM_LOCOMOTION_REWARD_COMPONENT_IDS
+                    .into_iter()
+                    .zip(CURRICULUM_LOCOMOTION_REWARD_COEFFICIENTS_Q16)
+                    .collect::<Vec<_>>(),
+                [
+                    2_500_000_i64,
+                    1_500_000,
+                    400_000,
+                    2_000_000,
+                    4_000_000,
+                    2_000_000,
+                ],
+            )
         }
-        for normalization in [
-            6_500_000_i64,
-            3_000_000,
-            600_000,
-            3_000_000,
-            6_000_000,
-            4_000_000,
-        ] {
-            preimage.extend_from_slice(&normalization.to_le_bytes());
-        }
+    };
+    for (component, coefficient) in &components {
+        preimage.extend_from_slice(&(component.len() as u32).to_le_bytes());
+        preimage.extend_from_slice(component.as_bytes());
+        preimage.extend_from_slice(&coefficient.to_le_bytes());
+    }
+    for normalization in normalizations {
+        preimage.extend_from_slice(&normalization.to_le_bytes());
     }
     content_hash_from_bytes(sha256(&preimage))
 }
@@ -580,227 +794,8 @@ fn subject_id(run_root: ContentHash, vector_slot: u32) -> PersistentId {
     PersistentId::from_bytes(bytes)
 }
 
-fn locomotion_reward_components(
-    frame: &MotorFrameResult,
-    command_raw: [i64; 3],
-    previous_applied_action: &[i64],
-    foot_tokens: &[u64],
-    maximum_effort_per_frame: u128,
-    fell: bool,
-) -> Result<(Vec<(SchemaId, i64)>, i64), TrainingEnvironmentError> {
-    let root = frame
-        .snapshot
-        .links
-        .first()
-        .ok_or(TrainingEnvironmentError::RewardFacts)?;
-    if frame.observation_raw.len() != 84
-        || previous_applied_action.len() != frame.applied_action_microradians.len()
-    {
-        return Err(TrainingEnvironmentError::RewardFacts);
-    }
-    let local_right_velocity = frame.observation_raw[4];
-    let local_forward_velocity = frame.observation_raw[6];
-    let local_yaw_rate = frame.observation_raw[8];
-    let planar_error = abs_sum([
-        local_right_velocity.saturating_sub(command_raw[0]),
-        local_forward_velocity.saturating_sub(command_raw[1]),
-    ]);
-    let planar_tracking = one_minus_normalized_q16(planar_error, 6_500_000);
-    let yaw_tracking = one_minus_normalized_q16(
-        local_yaw_rate.saturating_sub(command_raw[2]).unsigned_abs() as u128,
-        3_000_000,
-    );
-    let upright = upright_reward_q16(root.rotation_q1_30)?;
-    let height_error = root.position_micrometres[1]
-        .saturating_sub(REFERENCE_HUMANOID_STANDING_ROOT_HEIGHT_MICROMETRES)
-        .unsigned_abs() as u128;
-    let height_tracking = one_minus_normalized_q16(height_error, 600_000);
-    let vertical_velocity_cost = ratio_q16(
-        root.linear_velocity_micrometres_per_second[1].unsigned_abs() as u128,
-        3_000_000,
-    )?;
-    let roll_pitch_rate_cost = ratio_q16(
-        abs_sum([frame.observation_raw[7], frame.observation_raw[9]]),
-        6_000_000,
-    )?;
-    let effort_sum = frame
-        .substep_efforts
-        .iter()
-        .flatten()
-        .map(|effort| u128::from(effort.effort_micronewton_metres.unsigned_abs()))
-        .sum::<u128>();
-    let effort_cost = ratio_q16(effort_sum, maximum_effort_per_frame)?;
-    let action_rate_sum = frame
-        .applied_action_microradians
-        .iter()
-        .zip(previous_applied_action)
-        .map(|(current, previous)| current.saturating_sub(*previous).unsigned_abs() as u128)
-        .sum::<u128>();
-    let action_rate_denominator = (frame.applied_action_microradians.len() as u128)
-        .checked_mul(2_000_000)
-        .ok_or(TrainingEnvironmentError::ArithmeticOverflow)?;
-    let action_rate_cost = ratio_q16(action_rate_sum, action_rate_denominator)?;
-    let contacting_foot_tokens =
-        foot_tokens
-            .iter()
-            .copied()
-            .filter(|token| {
-                frame.snapshot.contacts.iter().any(|contact| {
-                    contact.actor_a_token == *token || contact.actor_b_token == *token
-                })
-            })
-            .collect::<BTreeSet<_>>();
-    let slip_sum = frame
-        .snapshot
-        .links
-        .iter()
-        .filter(|link| contacting_foot_tokens.contains(&link.user_token))
-        .map(|link| {
-            abs_sum([
-                link.linear_velocity_micrometres_per_second[0],
-                link.linear_velocity_micrometres_per_second[2],
-            ])
-        })
-        .sum::<u128>();
-    let slip_denominator = (contacting_foot_tokens.len() as u128)
-        .checked_mul(4_000_000)
-        .unwrap_or(0);
-    let slip_cost = if slip_denominator == 0 {
-        0
-    } else {
-        ratio_q16(slip_sum, slip_denominator)?
-    };
-    let values = [
-        planar_tracking,
-        yaw_tracking,
-        upright,
-        height_tracking,
-        vertical_velocity_cost,
-        roll_pitch_rate_cost,
-        effort_cost,
-        action_rate_cost,
-        slip_cost,
-        i64::from(fell) * 65_536,
-    ];
-    let reward_total_q16 = values
-        .iter()
-        .zip(LOCOMOTION_REWARD_COEFFICIENTS_Q16)
-        .try_fold(0_i64, |total, (component, coefficient)| {
-            let weighted = round_shift_ties_even_i128(
-                i128::from(*component)
-                    .checked_mul(i128::from(coefficient))
-                    .ok_or(TrainingEnvironmentError::ArithmeticOverflow)?,
-                16,
-            )?;
-            total
-                .checked_add(weighted)
-                .ok_or(TrainingEnvironmentError::ArithmeticOverflow)
-        })?;
-    Ok((
-        LOCOMOTION_REWARD_COMPONENT_IDS
-            .into_iter()
-            .zip(values)
-            .map(|(component_id, value)| (schema_id(component_id), value))
-            .collect(),
-        reward_total_q16,
-    ))
-}
-
-fn upright_reward_q16(rotation_q1_30: [i64; 4]) -> Result<i64, TrainingEnvironmentError> {
-    let [x, _, z, _] = rotation_q1_30;
-    let tilt_reduction_q30 = i128::from(x)
-        .checked_mul(i128::from(x))
-        .and_then(|value| {
-            i128::from(z)
-                .checked_mul(i128::from(z))
-                .and_then(|other| value.checked_add(other))
-        })
-        .and_then(|value| value.checked_mul(2))
-        .ok_or(TrainingEnvironmentError::ArithmeticOverflow)?;
-    let tilt_reduction_q30 = round_shift_ties_even_i128(tilt_reduction_q30, 30)?;
-    let upright_q30 = (1_i64 << 30)
-        .saturating_sub(tilt_reduction_q30)
-        .clamp(0, 1_i64 << 30);
-    ratio_q16(upright_q30 as u128, 1_u128 << 30)
-}
-
-fn standing_reward_components(
-    frame: &MotorFrameResult,
-    action_microradians: &[i64],
-    previous_action_microradians: &[i64],
-) -> Vec<(SchemaId, i64)> {
-    let root = frame.snapshot.links.first();
-    let upright = root.map_or(0, |root| root.rotation_q1_30[3].unsigned_abs() as i64);
-    let root_height_tracking = root.map_or(
-        -REFERENCE_HUMANOID_STANDING_ROOT_HEIGHT_MICROMETRES,
-        |root| {
-            -unsigned_sum([root.position_micrometres[1]
-                .saturating_sub(REFERENCE_HUMANOID_STANDING_ROOT_HEIGHT_MICROMETRES)])
-        },
-    );
-    let standing_pose_tracking = -unsigned_sum(
-        frame
-            .snapshot
-            .joints
-            .iter()
-            .map(|joint| joint.position_microradians),
-    );
-    let velocity_penalty = root.map_or(-1, |root| {
-        -unsigned_sum(
-            root.linear_velocity_micrometres_per_second
-                .into_iter()
-                .chain(root.angular_velocity_microradians_per_second),
-        )
-    });
-    let effort_penalty = -(frame
-        .substep_efforts
-        .iter()
-        .flatten()
-        .map(|effort| effort.effort_micronewton_metres.unsigned_abs() / 1_000_000)
-        .sum::<u64>()
-        .min(i64::MAX as u64) as i64);
-    let action_rate_penalty = -unsigned_sum(
-        action_microradians
-            .iter()
-            .zip(previous_action_microradians)
-            .map(|(current, previous)| current.saturating_sub(*previous)),
-    );
-    let contacting_tokens = frame
-        .snapshot
-        .contacts
-        .iter()
-        .flat_map(|contact| [contact.actor_a_token, contact.actor_b_token])
-        .filter(|token| *token != 1)
-        .collect::<BTreeSet<_>>();
-    let foot_slip_penalty = -unsigned_sum(
-        frame
-            .snapshot
-            .links
-            .iter()
-            .filter(|link| contacting_tokens.contains(&link.user_token))
-            .flat_map(|link| {
-                [
-                    link.linear_velocity_micrometres_per_second[0],
-                    link.linear_velocity_micrometres_per_second[2],
-                ]
-            }),
-    );
-    let fall_terminal = -i64::from(root.is_none_or(|root| root.position_micrometres[1] <= 250_000));
-    [
-        upright,
-        root_height_tracking,
-        standing_pose_tracking,
-        velocity_penalty,
-        effort_penalty,
-        action_rate_penalty,
-        foot_slip_penalty,
-        fall_terminal,
-    ]
-    .into_iter()
-    .zip(STANDING_REWARD_COMPONENT_IDS.map(schema_id))
-    .map(|(value, id)| (id, value))
-    .collect()
-}
+mod reward;
+use reward::{locomotion_reward_components, standing_reward_components};
 
 #[derive(Clone, Debug)]
 struct TerminalFacts {
@@ -835,7 +830,8 @@ fn terminal_facts_from_snapshot(
         MotorEnvironmentProfile::StandingV1 => root
             .is_none_or(|root| root.position_micrometres[1] <= 250_000)
             .then(|| schema_id("terminal.fall")),
-        MotorEnvironmentProfile::HumanoidFlatCommandV1 => {
+        MotorEnvironmentProfile::HumanoidFlatCommandV1
+        | MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
             if root.is_none_or(|root| root.position_micrometres[1] <= 450_000) {
                 Some(schema_id("terminal.fall"))
             } else if root.is_some_and(|root| {

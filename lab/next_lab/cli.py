@@ -16,7 +16,11 @@ from next_lab.correspondence import evaluate_files
 from next_lab.isaac_profile import IsaacProfile, doctor_report
 from next_lab.motor_mirror import load_json, validate_descriptor, validate_golden
 from next_lab.usd_translation import translate_to_store
-from next_lab.motor_lab_client import FLAT_LOCOMOTION_PROFILE_ID, STANDING_PROFILE_ID
+from next_lab.motor_lab_client import (
+    CURRICULUM_LOCOMOTION_PROFILE_ID,
+    FLAT_LOCOMOTION_PROFILE_ID,
+    STANDING_PROFILE_ID,
+)
 from next_lab.trajectory_recorder import record_canonical_cpu_trajectories
 
 
@@ -169,8 +173,12 @@ def parser() -> argparse.ArgumentParser:
     recorder_parser.add_argument("--headless", type=Path, required=True)
     recorder_parser.add_argument(
         "--profile",
-        choices=[FLAT_LOCOMOTION_PROFILE_ID, STANDING_PROFILE_ID],
-        default=FLAT_LOCOMOTION_PROFILE_ID,
+        choices=[
+            CURRICULUM_LOCOMOTION_PROFILE_ID,
+            FLAT_LOCOMOTION_PROFILE_ID,
+            STANDING_PROFILE_ID,
+        ],
+        default=CURRICULUM_LOCOMOTION_PROFILE_ID,
     )
     recorder_parser.add_argument("--slots", type=int, default=1)
     recorder_parser.add_argument("--episodes-per-slot", type=int, default=1)

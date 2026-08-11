@@ -380,6 +380,10 @@ def _validate_algorithm(value: dict[str, Any]) -> None:
 def _validate_evaluation(value: dict[str, Any]) -> None:
     equal_episode_quota(value.get("episodes"), value.get("num_envs"))
     _positive_int(value.get("max_steps"), "evaluation.max_steps")
+    _nonnegative_int(
+        value.get("episode_ordinal_start", 0),
+        "evaluation.episode_ordinal_start",
+    )
     seeds = value.get("seeds")
     if not isinstance(seeds, list) or not seeds:
         raise ValueError("evaluation.seeds must be a non-empty array")
@@ -402,6 +406,16 @@ def _nonempty_string(value: Any, label: str) -> str:
 def _positive_int(value: Any, label: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         raise ValueError(f"{label} must be a positive integer")
+    return value
+
+
+def _nonnegative_int(value: Any, label: str) -> int:
+    if (
+        not isinstance(value, int)
+        or isinstance(value, bool)
+        or not 0 <= value < 2**63
+    ):
+        raise ValueError(f"{label} must be a non-negative 63-bit integer")
     return value
 
 

@@ -44,6 +44,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--episodes", type=int)
     parser.add_argument("--num-envs", type=int)
     parser.add_argument("--max-steps", type=int)
+    parser.add_argument("--episode-ordinal-start", type=int)
     parser.add_argument("--evaluation-device")
     AppLauncher.add_app_launcher_args(parser)
     return parser.parse_args()
@@ -57,8 +58,15 @@ def main() -> None:
     episodes = evaluation["episodes"] if args.episodes is None else args.episodes
     num_envs = evaluation["num_envs"] if args.num_envs is None else args.num_envs
     max_steps = evaluation["max_steps"] if args.max_steps is None else args.max_steps
+    episode_ordinal_start = (
+        evaluation.get("episode_ordinal_start", 0)
+        if args.episode_ordinal_start is None
+        else args.episode_ordinal_start
+    )
     if min(episodes, num_envs, max_steps) <= 0:
         raise ValueError("evaluation counts must be positive")
+    if not 0 <= episode_ordinal_start < 2**63:
+        raise ValueError("evaluation episode ordinal start is outside u63")
     episodes_per_slot = equal_episode_quota(episodes, num_envs)
     config = ResolvedTrainingConfig.from_profile(
         profile,
@@ -114,6 +122,7 @@ def main() -> None:
             "episodes_per_slot": episodes_per_slot,
         },
         "maximum_episode_steps": max_steps,
+        "episode_ordinal_start": episode_ordinal_start,
         "checkpoint": {
             "path": str(checkpoint),
             "sha256": sha256_file(checkpoint),
@@ -145,6 +154,7 @@ def main() -> None:
         env_cfg.seed = seed
         env_cfg.run_root_hex = config.run_root_hex
         env_cfg.environment_profile_id = profile.environment_profile_id
+        env_cfg.episode_ordinal_start = episode_ordinal_start
         env_cfg.sim.device = config.device
         environment = NextEngineHumanoidDirectEnv(
             env_cfg,

@@ -13,11 +13,14 @@ from next_lab.isaac_env import (
     isaac_prim_name,
     isaac_root_state_from_descriptor,
     locomotion_reward_q16_tensor,
+    precompute_command_schedules,
     precompute_flat_command_schedules,
     rotate_world_to_root_local_q1_30_tensor,
     round_div_ties_even_tensor,
 )
 from next_lab.motor_mirror import (
+    CURRICULUM_LOCOMOTION_PROFILE_ID,
+    curriculum_locomotion_command_schedule,
     derive_purpose_seed,
     flat_locomotion_command_schedule,
     load_json,
@@ -144,6 +147,48 @@ class MotorMirrorTests(unittest.TestCase):
         seed = derive_purpose_seed(run_root, 17, 3, "randomization.command")
         self.assertEqual(actual[0].tolist(), [list(row) for row in flat_locomotion_command_schedule(seed)])
         self.assertFalse(torch.equal(actual[0], actual[1]))
+
+        curriculum = precompute_command_schedules(
+            run_root, [0, 32, 96], [3, 3, 3], CURRICULUM_LOCOMOTION_PROFILE_ID
+        )
+        self.assertEqual(curriculum.shape, (3, 1_201, 3))
+        for index, ordinal in enumerate((0, 32, 96)):
+            curriculum_seed = derive_purpose_seed(
+                run_root, ordinal, 3, "randomization.command"
+            )
+            self.assertEqual(
+                curriculum[index].tolist(),
+                [
+                    list(row)
+                    for row in curriculum_locomotion_command_schedule(
+                        curriculum_seed, ordinal
+                    )
+                ],
+            )
+
+    def test_curriculum_reward_sharpens_tracking_and_binds_support(self) -> None:
+        quaternion = torch.tensor([[0, 0, 0, 1 << 30]], dtype=torch.int64)
+        zeros3 = torch.zeros((1, 3), dtype=torch.int64)
+        zeros23 = torch.zeros((1, 23), dtype=torch.int64)
+        components, total = locomotion_reward_q16_tensor(
+            quaternion_xyzw_q1_30=quaternion,
+            root_height_micrometres=torch.tensor([1_095_000], dtype=torch.int64),
+            target_root_height_micrometres=1_095_000,
+            local_linear_velocity_raw=zeros3,
+            local_angular_velocity_raw=zeros3,
+            vertical_velocity_raw=torch.zeros(1, dtype=torch.int64),
+            command_raw=torch.tensor([[0, 750_000, 0]], dtype=torch.int64),
+            effort_sum_raw=torch.zeros(1, dtype=torch.int64),
+            applied_action_raw=zeros23,
+            previous_applied_action_raw=zeros23,
+            contacting_foot_slip_sum_raw=torch.zeros(1, dtype=torch.int64),
+            contacting_foot_count=torch.ones(1, dtype=torch.int64),
+            fell=torch.ones(1, dtype=torch.bool),
+            profile_id=CURRICULUM_LOCOMOTION_PROFILE_ID,
+        )
+        self.assertEqual(components.shape, (1, 11))
+        self.assertEqual(components[0, 9].item(), 65_536)
+        self.assertLess(total.item(), 0)
 
     def test_isaac_coordinate_and_quaternion_ordering_are_explicit(self) -> None:
         vector = engine_vector_from_isaac_tensor(torch.tensor([[1.0, 2.0, 3.0]]))

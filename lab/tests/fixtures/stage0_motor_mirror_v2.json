@@ -85,7 +85,69 @@
     ],
     "sha256": "67de3f4f022b6f7e518b18b6bde815fdfd4a6ec5b8139c15d5c2fb04c1c8bd90"
   },
-  "descriptor_sha256": "e726ab28de5acdf79253b91d6ad10ba8bc6fff037c81953e9b75e751361a63ce",
+  "curriculum_command_schedule": {
+    "episode_ordinal": 17,
+    "samples": [
+      {
+        "command_raw": [
+          0,
+          0,
+          0
+        ],
+        "tick": 0
+      },
+      {
+        "command_raw": [
+          0,
+          0,
+          0
+        ],
+        "tick": 119
+      },
+      {
+        "command_raw": [
+          0,
+          0,
+          0
+        ],
+        "tick": 120
+      },
+      {
+        "command_raw": [
+          0,
+          0,
+          0
+        ],
+        "tick": 121
+      },
+      {
+        "command_raw": [
+          0,
+          0,
+          0
+        ],
+        "tick": 360
+      },
+      {
+        "command_raw": [
+          0,
+          0,
+          0
+        ],
+        "tick": 600
+      },
+      {
+        "command_raw": [
+          0,
+          172547,
+          0
+        ],
+        "tick": 1200
+      }
+    ],
+    "sha256": "4c61481bc5234ca4e2359ad246e4a3a8e216291cad3fb216434597dd795bb2bd"
+  },
+  "descriptor_sha256": "a0cd26e2edbf5cc0d5f9d4761021142e1bf94929754ccb90bcf8a459be8d9cf0",
   "ordered_actuator_ids": [
     "actuator.left-ankle-pitch",
     "actuator.left-ankle-roll",
@@ -122,6 +184,7 @@
   "pd_second_effort": 50000000,
   "pd_second_flags": 4,
   "profile_manifest_hashes": {
+    "nextengine.motor.env.humanoid-flat-command-curriculum.v2": "89c389be17af78e2b87a317d9e990724c3d939bee232a99c0279ee02bbd39b03",
     "nextengine.motor.env.humanoid-flat-command.v1": "c6aae6bfa4b2061b20afec5ccfb442a8bfcb3c9d1b35f08f6b5a2425d9861e47",
     "nextengine.motor.env.humanoid-standing.v1": "9f5d2545fe98c2ecc09ac7753e193713426ffc2b55ab41f5f1b3d62e2ef40cb7"
   },
@@ -148,6 +211,19 @@
     }
   ],
   "reward_component_ids": {
+    "nextengine.motor.env.humanoid-flat-command-curriculum.v2": [
+      "reward.planar-command-tracking",
+      "reward.yaw-rate-tracking",
+      "reward.upright-yaw-invariant",
+      "reward.root-height-tracking",
+      "reward.vertical-velocity-cost",
+      "reward.roll-pitch-rate-cost",
+      "reward.normalized-applied-effort-cost",
+      "reward.applied-action-rate-cost",
+      "reward.contacting-foot-tangential-slip-cost",
+      "reward.command-conditioned-support",
+      "reward.fall-component"
+    ],
     "nextengine.motor.env.humanoid-flat-command.v1": [
       "reward.planar-command-tracking",
       "reward.yaw-rate-tracking",

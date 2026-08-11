@@ -68,12 +68,13 @@ client nor recorder writes inside the repository.
 store inside the repository. Generated USD, trajectories, reports, runs,
 datasets and checkpoints are never source artifacts.
 
-The DirectRLEnv implementation lives in `next_lab.isaac_env` and selects either
-the standing or flat-command profile from the v2 engine descriptor. For flat
-locomotion it derives each partial-reset command schedule on CPU, transfers the
-1,201 exact integer commands to the GPU, emits the 84-value root-local layout,
-and evaluates the ten ordered Q16 reward components. Quaternion ordering and
-the engine/Isaac frame transform are explicit golden-tested operations.
+The DirectRLEnv implementation lives in `next_lab.isaac_env` and selects the
+standing, flat-command V1 or curriculum V2 profile from the engine descriptor.
+For locomotion it derives each partial-reset command schedule on CPU, transfers
+the 1,201 exact integer commands to the GPU and emits the unchanged 84-value
+root-local layout. V1 evaluates ten ordered Q16 components; curriculum V2
+evaluates eleven, including command-conditioned support. Quaternion ordering
+and the engine/Isaac frame transform are explicit golden-tested operations.
 
 `MODEL-MIRROR-P1` requires byte-exact commands, profile hashes and reward
 component order, reward-total MAE at most `0.05`, joint RMSE at most `0.02 rad`,
@@ -81,13 +82,16 @@ root position at most `0.03 m`, velocity at most `0.05 m/s`, contact agreement
 at least `98%`, and done-tick agreement at least `95%`. Passing correspondence
 does not make GPU execution replay-authoritative or declare a trained policy.
 
-## Reproducible PPO proof-of-concept
+## Reproducible PPO curriculum
 
-The tracked `profiles/isaac-rsl-rl-rtx3080-poc.v1.json` profile is the bounded
-RTX 3080 starting point: 128 environments, 32 transitions per environment,
-fixed seed 42, explicit CUDA device, and periodic checkpoints. It remains
-`Proposed`; RSL-RL and Isaac are private training tools, while CPU motor-lab
-remains the canonical execution and correspondence plane.
+The tracked
+`profiles/isaac-rsl-rl-rtx3080-locomotion-curriculum.v2.json` profile is the
+current RTX 3080 starting point: 512 environments, 24 transitions per
+environment, 3,000 iterations/36,864,000 samples, fixed seed 42, explicit CUDA
+device, entropy `0.005`, initial action noise `0.6` and periodic checkpoints.
+The engine advances commands from forward-only foundation through steering to
+the full stage at episode ordinals 0/32/96. It remains `Proposed`; RSL-RL and
+Isaac are private training tools, while CPU motor-lab remains canonical.
 
 On the prepared host, start a full profile run with:
 
@@ -138,12 +142,13 @@ only from a completed manifest with the exact same resolved training config:
   --resume <external-run-directory/model_N.pt>
 ```
 
-Evaluate checkpoints separately and without exploration noise. Run the three
-profile seeds independently so each result has its own closed evaluation
-manifest:
+Evaluate checkpoints separately and without exploration noise. The profile
+starts evaluation at episode ordinal 96 so every result uses the full command
+stage. Run all five held-out seeds independently so each result has its own
+closed evaluation manifest:
 
 ```text
-for seed in 1001 1002 1003; do
+for seed in 1001 1002 1003 1004 1005; do
   /home/kaifaty/NextEngine-training/evaluate-nextengine-poc.sh \
     --checkpoint <external-run-directory/model_N.pt> --seed "$seed"
 done

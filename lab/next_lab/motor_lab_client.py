@@ -22,6 +22,9 @@ OP_PING = 6
 OP_CLOSE = 255
 
 FLAT_LOCOMOTION_PROFILE_ID = "nextengine.motor.env.humanoid-flat-command.v1"
+CURRICULUM_LOCOMOTION_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-flat-command-curriculum.v2"
+)
 STANDING_PROFILE_ID = "nextengine.motor.env.humanoid-standing.v1"
 
 

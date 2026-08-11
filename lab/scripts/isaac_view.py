@@ -128,6 +128,7 @@ def main() -> None:
         env_cfg.seed = seed
         env_cfg.run_root_hex = config.run_root_hex
         env_cfg.environment_profile_id = profile.environment_profile_id
+        env_cfg.episode_ordinal_start = profile.evaluation.get("episode_ordinal_start", 0)
         env_cfg.sim.device = config.device
         env_cfg.viewer.eye = (3.5, 3.5, 2.25)
         env_cfg.viewer.lookat = (0.0, 0.0, 0.75)

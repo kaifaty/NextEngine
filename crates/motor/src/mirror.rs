@@ -5,9 +5,11 @@ use next_contracts::physics::PhysicsGeometryV1;
 use serde_json::{Value, json};
 
 use crate::{
-    CompiledBodySchemaV1, FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID, FixedPdController,
-    JointControlStateV1, STANDING_ENVIRONMENT_PROFILE_ID, TrainingEnvironmentError,
-    canonical_environment_manifest_v2, derive_locomotion_episode_seed_set,
+    CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID, CompiledBodySchemaV1,
+    FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID, FixedPdController, JointControlStateV1,
+    STANDING_ENVIRONMENT_PROFILE_ID, TrainingEnvironmentError, canonical_environment_manifest_v2,
+    curriculum_locomotion_command_schedule, curriculum_locomotion_profile_hash_v2,
+    curriculum_locomotion_stages_v2, derive_locomotion_episode_seed_set,
     flat_locomotion_command_profile_v1, flat_locomotion_command_schedule,
     reference_humanoid_body_schema_v1, rotate_world_to_root_local_q1_30,
 };
@@ -25,6 +27,8 @@ pub fn stage0_isaac_mirror_descriptor_json_v2() -> Result<String, TrainingEnviro
     let standing_manifest = canonical_environment_manifest_v2(STANDING_ENVIRONMENT_PROFILE_ID)?;
     let locomotion_manifest =
         canonical_environment_manifest_v2(FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID)?;
+    let curriculum_manifest =
+        canonical_environment_manifest_v2(CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID)?;
 
     let bodies = schema
         .bodies
@@ -119,6 +123,13 @@ pub fn stage0_isaac_mirror_descriptor_json_v2() -> Result<String, TrainingEnviro
                 100,
                 command_profile_json(),
             ),
+            profile_json(
+                &curriculum_manifest,
+                &locomotion_compiled,
+                "root-local",
+                100,
+                curriculum_command_profile_json(),
+            ),
         ],
     });
     let mut output = serde_json::to_string_pretty(&descriptor)
@@ -155,10 +166,13 @@ pub fn stage0_isaac_mirror_golden_json_v2() -> Result<String, TrainingEnvironmen
         .find_map(|(purpose, seed)| (purpose.as_str() == "randomization.command").then_some(*seed))
         .ok_or(TrainingEnvironmentError::SeedProfile)?;
     let schedule = flat_locomotion_command_schedule(command_seed)?;
+    let curriculum_schedule = curriculum_locomotion_command_schedule(command_seed, 17)?;
     let descriptor = stage0_isaac_mirror_descriptor_json_v2()?;
     let standing_manifest = canonical_environment_manifest_v2(STANDING_ENVIRONMENT_PROFILE_ID)?;
     let locomotion_manifest =
         canonical_environment_manifest_v2(FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID)?;
+    let curriculum_manifest =
+        canonical_environment_manifest_v2(CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID)?;
     let quaternion_input = [0, 759_250_125, 0, 759_250_125];
     let vector_input = [1_000_000, 0, 0];
     let quaternion_output = rotate_world_to_root_local_q1_30(quaternion_input, vector_input)
@@ -172,6 +186,15 @@ pub fn stage0_isaac_mirror_golden_json_v2() -> Result<String, TrainingEnvironmen
             })
         })
         .collect::<Vec<_>>();
+    let curriculum_schedule_samples = [0_usize, 119, 120, 121, 360, 600, 1_200]
+        .into_iter()
+        .map(|tick| {
+            json!({
+                "tick": tick,
+                "command_raw": curriculum_schedule[tick],
+            })
+        })
+        .collect::<Vec<_>>();
     let golden = json!({
         "schema_version": 2,
         "descriptor_sha256": hex(&sha256(descriptor.as_bytes())),
@@ -180,10 +203,12 @@ pub fn stage0_isaac_mirror_golden_json_v2() -> Result<String, TrainingEnvironmen
         "profile_manifest_hashes": {
             STANDING_ENVIRONMENT_PROFILE_ID: standing_manifest.manifest_hash()?.to_hex(),
             FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID: locomotion_manifest.manifest_hash()?.to_hex(),
+            CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID: curriculum_manifest.manifest_hash()?.to_hex(),
         },
         "reward_component_ids": {
             STANDING_ENVIRONMENT_PROFILE_ID: standing_manifest.reward_components.iter().map(|value| value.component_id.as_str()).collect::<Vec<_>>(),
             FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID: locomotion_manifest.reward_components.iter().map(|value| value.component_id.as_str()).collect::<Vec<_>>(),
+            CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID: curriculum_manifest.reward_components.iter().map(|value| value.component_id.as_str()).collect::<Vec<_>>(),
         },
         "seed_input": {
             "run_root": run_root.to_hex(),
@@ -197,6 +222,11 @@ pub fn stage0_isaac_mirror_golden_json_v2() -> Result<String, TrainingEnvironmen
         "command_schedule": {
             "sha256": command_schedule_hash(&schedule),
             "samples": schedule_samples,
+        },
+        "curriculum_command_schedule": {
+            "episode_ordinal": 17,
+            "sha256": command_schedule_hash(&curriculum_schedule),
+            "samples": curriculum_schedule_samples,
         },
         "root_local_transform": {
             "quaternion_xyzw_q1_30": quaternion_input,
@@ -249,7 +279,8 @@ fn profile_json(
             "maximum_raw": value.maximum_raw,
         })).collect::<Vec<_>>(),
         "termination": match manifest.environment_id.as_str() {
-            FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID => json!({
+            FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID
+            | CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID => json!({
                 "pelvis_height_micrometres_inclusive": 450_000,
                 "world_bound_micrometres_inclusive": 90_000_000,
                 "timeout_ticks": 1_200,
@@ -277,6 +308,33 @@ fn command_profile_json() -> Value {
         "yaw_rate_range_raw": [profile.yaw_rate_min_microradians_per_second, profile.yaw_rate_max_microradians_per_second],
         "linear_rate_limit_raw_per_second_squared": profile.linear_rate_limit_micrometres_per_second_squared,
         "yaw_rate_limit_raw_per_second_squared": profile.yaw_rate_limit_microradians_per_second_squared,
+    })
+}
+
+fn curriculum_command_profile_json() -> Value {
+    let stages = curriculum_locomotion_stages_v2();
+    json!({
+        "kind": "sha256-counter-episode-curriculum-v2",
+        "profile_hash": curriculum_locomotion_profile_hash_v2().expect("curriculum profile is valid").to_hex(),
+        "randomization_stream_id": "randomization.command",
+        "episode_ticks": 1_200,
+        "stages": stages.into_iter().map(|stage| {
+            let profile = stage.command_profile;
+            json!({
+                "first_episode_ordinal": stage.first_episode_ordinal,
+                "profile_id": profile.profile_id.as_str(),
+                "profile_hash": profile.profile_hash().expect("stage profile is valid").to_hex(),
+                "warmup_ticks": profile.warmup_ticks,
+                "segment_ticks": profile.segment_ticks,
+                "episode_ticks": profile.episode_ticks,
+                "mode_weights_basis_points": profile.mode_weights_basis_points,
+                "right_velocity_range_raw": [profile.right_velocity_min_micrometres_per_second, profile.right_velocity_max_micrometres_per_second],
+                "forward_velocity_range_raw": [profile.forward_velocity_min_micrometres_per_second, profile.forward_velocity_max_micrometres_per_second],
+                "yaw_rate_range_raw": [profile.yaw_rate_min_microradians_per_second, profile.yaw_rate_max_microradians_per_second],
+                "linear_rate_limit_raw_per_second_squared": profile.linear_rate_limit_micrometres_per_second_squared,
+                "yaw_rate_limit_raw_per_second_squared": profile.yaw_rate_limit_microradians_per_second_squared,
+            })
+        }).collect::<Vec<_>>(),
     })
 }
 

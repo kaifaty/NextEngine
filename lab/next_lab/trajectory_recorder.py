@@ -7,7 +7,7 @@ from typing import Sequence
 import numpy as np
 
 from next_lab.motor_lab_client import (
-    FLAT_LOCOMOTION_PROFILE_ID,
+    CURRICULUM_LOCOMOTION_PROFILE_ID,
     EnvironmentDescriptor,
     MotorLabClient,
     StepResult,
@@ -20,7 +20,7 @@ def record_canonical_cpu_trajectories(
     run_root: str,
     slots: int,
     episodes_per_slot: int,
-    profile_id: str = FLAT_LOCOMOTION_PROFILE_ID,
+    profile_id: str = CURRICULUM_LOCOMOTION_PROFILE_ID,
     output_name: str | None = None,
 ) -> Path:
     store = require_external_training_store(training_store)

@@ -25,6 +25,10 @@ from next_lab.isaac_training import (
 
 
 PROFILE = Path(__file__).parents[1] / "profiles/isaac-rsl-rl-rtx3080-poc.v1.json"
+CURRICULUM_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/isaac-rsl-rl-rtx3080-locomotion-curriculum.v2.json"
+)
 
 
 class IsaacTrainingTests(unittest.TestCase):
@@ -40,6 +44,21 @@ class IsaacTrainingTests(unittest.TestCase):
         )
         different = ResolvedTrainingConfig.from_profile(profile, seed=43)
         self.assertNotEqual(config.run_root_hex, different.run_root_hex)
+
+    def test_curriculum_profile_scales_samples_and_retains_held_out_seeds(self) -> None:
+        profile = IsaacTrainingProfile.load(CURRICULUM_PROFILE)
+        config = ResolvedTrainingConfig.from_profile(profile)
+        self.assertEqual(config.num_envs, 512)
+        self.assertEqual(config.steps_per_env, 24)
+        self.assertEqual(config.iterations, 3_000)
+        self.assertEqual(config.num_envs * config.steps_per_env * config.iterations, 36_864_000)
+        self.assertEqual(
+            profile.environment_profile_id,
+            "nextengine.motor.env.humanoid-flat-command-curriculum.v2",
+        )
+        self.assertEqual(profile.evaluation["seeds"], [1001, 1002, 1003, 1004, 1005])
+        self.assertEqual(profile.evaluation["episode_ordinal_start"], 96)
+        self.assertGreater(profile.algorithm["entropy_coef"], 0)
 
     def test_config_hash_binds_artifacts_and_overrides(self) -> None:
         profile = IsaacTrainingProfile.load(PROFILE)

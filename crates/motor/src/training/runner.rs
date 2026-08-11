@@ -367,18 +367,23 @@ impl MotorVectorRunner {
                     let total = bounded.iter().copied().fold(0_i64, i64::saturating_add);
                     (components, total)
                 }
-                MotorEnvironmentProfile::HumanoidFlatCommandV1 => locomotion_reward_components(
-                    &frame,
-                    command_raw,
-                    &previous_action,
-                    &slot.foot_tokens,
-                    slot.maximum_effort_per_frame,
-                    terminal.terminated,
-                )?,
+                MotorEnvironmentProfile::HumanoidFlatCommandV1
+                | MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
+                    locomotion_reward_components(
+                        self.profile,
+                        &frame,
+                        command_raw,
+                        &previous_action,
+                        &slot.foot_tokens,
+                        slot.maximum_effort_per_frame,
+                        terminal.terminated,
+                    )?
+                }
             };
             slot.previous_action_microradians = match self.profile {
                 MotorEnvironmentProfile::StandingV1 => self.staged_actions[slot_index].clone(),
-                MotorEnvironmentProfile::HumanoidFlatCommandV1 => {
+                MotorEnvironmentProfile::HumanoidFlatCommandV1
+                | MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
                     frame.applied_action_microradians.clone()
                 }
             };
@@ -393,7 +398,8 @@ impl MotorVectorRunner {
                     .iter()
                     .map(|(_, value)| (*value).clamp(0, 65_536))
                     .collect(),
-                MotorEnvironmentProfile::HumanoidFlatCommandV1 => reward_components_raw
+                MotorEnvironmentProfile::HumanoidFlatCommandV1
+                | MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => reward_components_raw
                     .iter()
                     .map(|(_, value)| *value)
                     .collect(),
@@ -507,7 +513,7 @@ impl MotorVectorRunner {
             vector_slot,
         )?;
         let command_schedule = command_schedule_for_profile(self.profile, &seed_set)?;
-        if self.profile == MotorEnvironmentProfile::HumanoidFlatCommandV1
+        if self.profile.is_locomotion()
             && checkpoint.command_raw
                 != *command_schedule
                     .get(checkpoint.motor_tick as usize)

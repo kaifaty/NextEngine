@@ -71,6 +71,95 @@ fn command_schedule_has_warmup_bounds_modes_and_rate_limits() {
 }
 
 #[test]
+fn curriculum_schedule_progresses_without_changing_v1() {
+    let seed = [9; 32];
+    let foundation = curriculum_locomotion_command_schedule(seed, 0).expect("foundation");
+    let steering = curriculum_locomotion_command_schedule(seed, 32).expect("steering");
+    let full = curriculum_locomotion_command_schedule(seed, 96).expect("full");
+    assert_eq!(foundation.len(), 1_201);
+    assert!(foundation[..120].iter().all(|command| *command == [0; 3]));
+    assert!(foundation.iter().all(|command| {
+        command[0] == 0 && command[2] == 0 && (0..=750_000).contains(&command[1])
+    }));
+    assert!(steering.iter().all(|command| {
+        (-350_000..=350_000).contains(&command[0])
+            && (0..=1_250_000).contains(&command[1])
+            && (-600_000..=600_000).contains(&command[2])
+    }));
+    assert!(full.iter().all(|command| {
+        (-1_000_000..=1_000_000).contains(&command[0])
+            && (-500_000..=2_000_000).contains(&command[1])
+            && (-1_000_000..=1_000_000).contains(&command[2])
+    }));
+    assert_ne!(foundation, steering);
+    assert_ne!(steering, full);
+    assert_eq!(
+        flat_locomotion_command_schedule(seed).expect("v1 repeat"),
+        flat_locomotion_command_schedule(seed).expect("v1 remains stable")
+    );
+}
+
+#[test]
+fn curriculum_profile_has_distinct_closed_reward_and_command_semantics() {
+    let legacy = canonical_environment_manifest_v2(FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID)
+        .expect("legacy manifest");
+    let curriculum =
+        canonical_environment_manifest_v2(CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID)
+            .expect("curriculum manifest");
+    assert_eq!(
+        legacy.manifest_hash().expect("legacy hash").to_hex(),
+        "c6aae6bfa4b2061b20afec5ccfb442a8bfcb3c9d1b35f08f6b5a2425d9861e47"
+    );
+    assert_ne!(
+        legacy.manifest_hash().expect("legacy hash"),
+        curriculum.manifest_hash().expect("curriculum hash")
+    );
+    assert_ne!(
+        legacy.command_schedule_profile_hash,
+        curriculum.command_schedule_profile_hash
+    );
+    assert_ne!(legacy.reward_profile_hash, curriculum.reward_profile_hash);
+    assert_eq!(curriculum.reward_components.len(), 11);
+    assert_eq!(
+        curriculum.reward_components[9].component_id.as_str(),
+        "reward.command-conditioned-support"
+    );
+    assert_eq!(curriculum.reward_components[10].coefficient_q16, -655_360);
+}
+
+#[test]
+fn curriculum_runner_records_eleven_components_and_restores_exactly() {
+    let run_root = ContentHash::from_bytes([21; 32]);
+    let mut source = MotorVectorRunner::create_profile(
+        CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID,
+        1,
+        run_root,
+    )
+    .expect("curriculum runner");
+    source.reset_slots(&[0]).expect("reset");
+    let step = source
+        .step_actions_lockstep(vec![locomotion_input(0, 1, 0)])
+        .expect("step");
+    assert_eq!(step[0].reward_components_raw.len(), 11);
+    assert_eq!(step[0].step_record.reward_components_q16.len(), 11);
+    let checkpoint = source.checkpoint_slot(0, 1).expect("checkpoint");
+    let expected = source
+        .step_actions_lockstep(vec![locomotion_input(0, 1, 100)])
+        .expect("continuation");
+    let mut restored = MotorVectorRunner::create_profile(
+        CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID,
+        1,
+        run_root,
+    )
+    .expect("restored runner");
+    restored.restore_slot(&checkpoint).expect("restore");
+    let actual = restored
+        .step_actions_lockstep(vec![locomotion_input(0, 1, 100)])
+        .expect("restored continuation");
+    assert_eq!(actual, expected);
+}
+
+#[test]
 fn one_million_aggregate_command_steps_remain_bounded() {
     let mut aggregate_steps = 0_u64;
     for ordinal in 0_u64..834 {
@@ -95,11 +184,12 @@ fn reward_tracking_is_monotonic_and_upright_ignores_yaw() {
     );
     let yaw_half_sqrt_q30 = 759_250_125;
     assert_eq!(
-        upright_reward_q16([0, 0, 0, 1 << 30]).expect("identity"),
-        upright_reward_q16([0, yaw_half_sqrt_q30, 0, yaw_half_sqrt_q30]).expect("yaw")
+        reward::upright_reward_q16([0, 0, 0, 1 << 30]).expect("identity"),
+        reward::upright_reward_q16([0, yaw_half_sqrt_q30, 0, yaw_half_sqrt_q30]).expect("yaw")
     );
     assert!(
-        upright_reward_q16([yaw_half_sqrt_q30, 0, 0, yaw_half_sqrt_q30]).expect("roll") < 65_536
+        reward::upright_reward_q16([yaw_half_sqrt_q30, 0, 0, yaw_half_sqrt_q30]).expect("roll")
+            < 65_536
     );
     assert!(!LOCOMOTION_REWARD_COMPONENT_IDS.contains(&"reward.standing-pose-tracking"));
     assert!(
