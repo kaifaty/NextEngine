@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,7 @@ from typing import Any
 PROFILE_SCHEMA_VERSION = 1
 RUN_MANIFEST_SCHEMA = "nextengine.isaac-training-run.v1"
 EVALUATION_MANIFEST_SCHEMA = "nextengine.isaac-policy-evaluation.v1"
+CHECKPOINT_FILE_PATTERN = re.compile(r"model_(\d+)\.pt")
 
 
 @dataclass(frozen=True)
@@ -216,6 +218,60 @@ def validate_closed_checkpoint(checkpoint: Path) -> dict[str, Any]:
     ):
         raise ValueError("checkpoint hash is not closed by its run manifest")
     return manifest
+
+
+def latest_closed_checkpoint(runs_root: Path) -> Path:
+    """Return the newest hash-closed checkpoint from completed external runs."""
+    candidates: list[tuple[str, int, Path]] = []
+    for manifest_path in runs_root.resolve().glob("*/run-manifest.json"):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if manifest.get("schema") != RUN_MANIFEST_SCHEMA or manifest.get("status") != "completed":
+            continue
+        records = manifest.get("checkpoints")
+        if not isinstance(records, list):
+            continue
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            name = record.get("file")
+            match = CHECKPOINT_FILE_PATTERN.fullmatch(name) if isinstance(name, str) else None
+            if match is None or Path(name).name != name:
+                continue
+            checkpoint = manifest_path.parent / name
+            try:
+                validate_closed_checkpoint(checkpoint)
+            except (FileNotFoundError, ValueError):
+                continue
+            candidates.append((manifest_path.parent.name, int(match.group(1)), checkpoint))
+    if not candidates:
+        raise FileNotFoundError(f"no closed checkpoint found below: {runs_root.resolve()}")
+    return max(candidates, key=lambda value: (value[0], value[1]))[2].resolve()
+
+
+def validate_checkpoint_artifacts(
+    parent: dict[str, Any],
+    profile: IsaacTrainingProfile,
+    descriptor: Path,
+    usd: Path,
+) -> None:
+    """Require a checkpoint to use the selected profile and exact mirror artifacts."""
+    training = parent.get("training_config")
+    artifacts = parent.get("artifacts")
+    if not isinstance(training, dict) or training.get("profile_hash") != profile.profile_hash:
+        raise ValueError("checkpoint training profile does not match selected profile")
+    if not isinstance(artifacts, dict):
+        raise ValueError("checkpoint manifest has no artifact closure")
+    expected = {
+        "descriptor": sha256_file(descriptor),
+        "usd": sha256_file(usd),
+    }
+    for name, digest in expected.items():
+        record = artifacts.get(name)
+        if not isinstance(record, dict) or record.get("sha256") != digest:
+            raise ValueError(f"checkpoint {name} does not match selected artifact")
 
 
 def checkpoint_records(run_dir: Path) -> list[dict[str, Any]]:

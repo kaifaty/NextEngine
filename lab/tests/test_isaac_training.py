@@ -12,10 +12,12 @@ from next_lab.isaac_training import (
     atomic_write_json,
     canonical_json_hash,
     equal_episode_quota,
+    latest_closed_checkpoint,
     parse_gpu_memory_csv,
     require_external_path,
     sha256_file,
     training_config_hash,
+    validate_checkpoint_artifacts,
     validate_closed_checkpoint,
     validate_resume_checkpoint,
 )
@@ -89,6 +91,59 @@ class IsaacTrainingTests(unittest.TestCase):
             checkpoint.write_bytes(b"changed")
             with self.assertRaisesRegex(ValueError, "hash"):
                 validate_resume_checkpoint(checkpoint, config_hash)
+
+    def test_latest_closed_checkpoint_ignores_running_and_corrupt_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            profile = IsaacTrainingProfile.load(PROFILE)
+
+            def write_run(name: str, iteration: int, status: str, payload: bytes) -> Path:
+                run = root / name
+                run.mkdir()
+                checkpoint = run / f"model_{iteration}.pt"
+                checkpoint.write_bytes(payload)
+                atomic_write_json(
+                    run / "run-manifest.json",
+                    {
+                        "schema": RUN_MANIFEST_SCHEMA,
+                        "status": status,
+                        "training_config": {"profile_hash": profile.profile_hash},
+                        "checkpoints": [
+                            {
+                                "file": checkpoint.name,
+                                "bytes": checkpoint.stat().st_size,
+                                "sha256": sha256_file(checkpoint),
+                            }
+                        ],
+                    },
+                )
+                return checkpoint
+
+            expected = write_run("20260811T100000Z-old", 10, "completed", b"old")
+            write_run("20260811T110000Z-running", 20, "running", b"running")
+            corrupt = write_run("20260811T120000Z-corrupt", 30, "completed", b"before")
+            corrupt.write_bytes(b"after")
+            self.assertEqual(latest_closed_checkpoint(root), expected.resolve())
+
+    def test_checkpoint_artifacts_bind_profile_descriptor_and_usd(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            descriptor = root / "descriptor.json"
+            usd = root / "humanoid.usda"
+            descriptor.write_bytes(b"descriptor")
+            usd.write_bytes(b"usd")
+            profile = IsaacTrainingProfile.load(PROFILE)
+            parent = {
+                "training_config": {"profile_hash": profile.profile_hash},
+                "artifacts": {
+                    "descriptor": {"sha256": sha256_file(descriptor)},
+                    "usd": {"sha256": sha256_file(usd)},
+                },
+            }
+            validate_checkpoint_artifacts(parent, profile, descriptor, usd)
+            usd.write_bytes(b"changed")
+            with self.assertRaisesRegex(ValueError, "usd"):
+                validate_checkpoint_artifacts(parent, profile, descriptor, usd)
 
     def test_zero_override_is_rejected(self) -> None:
         profile = IsaacTrainingProfile.load(PROFILE)

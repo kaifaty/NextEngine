@@ -25,6 +25,7 @@ from next_lab.isaac_training import (
     parse_gpu_memory_csv,
     require_external_path,
     sha256_file,
+    validate_checkpoint_artifacts,
     validate_closed_checkpoint,
 )
 
@@ -78,7 +79,7 @@ def main() -> None:
         args.output_root, REPOSITORY_ROOT, label="evaluation root", must_exist=False
     )
     parent = validate_closed_checkpoint(checkpoint)
-    validate_parent_artifacts(parent, profile, descriptor, usd)
+    validate_checkpoint_artifacts(parent, profile, descriptor, usd)
     gpu = query_gpu(config.device)
     if gpu["memory_free_mib"] < profile.min_free_gpu_memory_mib:
         raise RuntimeError(
@@ -278,28 +279,6 @@ def main() -> None:
             wrapped.close()
         if simulation_app is not None:
             simulation_app.close()
-
-
-def validate_parent_artifacts(
-    parent: dict[str, Any],
-    profile: IsaacTrainingProfile,
-    descriptor: Path,
-    usd: Path,
-) -> None:
-    training = parent.get("training_config")
-    artifacts = parent.get("artifacts")
-    if not isinstance(training, dict) or training.get("profile_hash") != profile.profile_hash:
-        raise ValueError("checkpoint training profile does not match evaluation profile")
-    if not isinstance(artifacts, dict):
-        raise ValueError("checkpoint manifest has no artifact closure")
-    expected = {
-        "descriptor": sha256_file(descriptor),
-        "usd": sha256_file(usd),
-    }
-    for name, digest in expected.items():
-        record = artifacts.get(name)
-        if not isinstance(record, dict) or record.get("sha256") != digest:
-            raise ValueError(f"checkpoint {name} does not match evaluation artifact")
 
 
 def require_finite(name: str, value: Any) -> None:

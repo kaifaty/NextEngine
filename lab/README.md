@@ -137,6 +137,23 @@ for seed in 1001 1002 1003; do
 done
 ```
 
+Inspect the newest hash-closed checkpoint as one continuously simulated humanoid
+in a local browser-based 3D viewport:
+
+```text
+/home/kaifaty/NextEngine-training/view-nextengine-training.sh
+```
+
+Isaac remains the headless physics/policy process; a localhost-only WebGL page
+renders its streamed body facts without depending on the native RTX GUI. The
+viewer follows the humanoid, paces playback at the 60 Hz motor rate and prints
+its current right/forward/yaw command, reward and root height. Pass
+`--checkpoint <external-run-directory/model_N.pt>` to inspect a specific closed
+checkpoint, `--no-open-browser` to print the local URL without opening it, or
+`--unthrottled` to disable real-time pacing. The viewer is a non-authoritative
+checkpoint inspection tool; it does not turn Isaac execution into replay facts
+and does not mutate training weights.
+
 An evaluation records returns, episode lengths, termination versus truncation,
 and every ordered reward component. Its episode count must be a positive
 multiple of `num_envs`: each environment slot contributes exactly the same
