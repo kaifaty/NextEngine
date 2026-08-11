@@ -369,11 +369,9 @@ pub(crate) fn apply_ui_screen_actions(
                     _ => ReferenceUiScreenV1::Journal,
                 };
             }
-            CORE_UI_BACK_ACTION_ID => {
-                if screen != ReferenceUiScreenV1::None {
-                    screen = ReferenceUiScreenV1::None;
-                    back_consumed_by_screen = true;
-                }
+            CORE_UI_BACK_ACTION_ID if screen != ReferenceUiScreenV1::None => {
+                screen = ReferenceUiScreenV1::None;
+                back_consumed_by_screen = true;
             }
             _ => {}
         }

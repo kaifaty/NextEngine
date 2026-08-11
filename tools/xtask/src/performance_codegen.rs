@@ -22,7 +22,7 @@ pub const CODEGEN_BUILD_SCHEMA_VERSION: u32 = 1;
 pub const CODEGEN_RUN_PROVENANCE_SCHEMA_VERSION: u32 = 1;
 pub const CODEGEN_CALIBRATION_RUNS: usize = 10;
 pub const CODEGEN_BOOTSTRAP_ITERATIONS: usize = 2_000;
-pub const PINNED_RUSTC_RELEASE: &str = "1.93.0";
+pub const PINNED_RUSTC_RELEASE: &str = "1.97.1";
 pub const CODEGEN_SCENARIOS: [PerformanceScenarioV1; 4] = [
     PerformanceScenarioV1::R2AlphaRender,
     PerformanceScenarioV1::R3MultiregionStreaming,
@@ -691,13 +691,13 @@ mod tests {
     use super::*;
 
     fn pinned_toolchain() -> String {
-        "rustc 1.93.0 (254b59607 2026-01-19)\n\
+        "rustc 1.97.1 (8bab26f4f 2026-07-14)\n\
 binary: rustc\n\
-commit-hash: 254b59607ebf3a833e1e4c39d3a4e55e2b53e0aa\n\
-commit-date: 2026-01-19\n\
+commit-hash: 8bab26f4f68e0e26f0bb7960be334d5b520ea452\n\
+commit-date: 2026-07-14\n\
 host: x86_64-pc-windows-msvc\n\
-release: 1.93.0\n\
-LLVM version: 21.1.8"
+release: 1.97.1\n\
+LLVM version: 22.1.6"
             .to_owned()
     }
 
@@ -769,12 +769,12 @@ LLVM version: 21.1.8"
     fn build_provenance_rejects_stable_rustc_after_pinned_release() {
         let mut provenance = valid_thin_lto_build();
         provenance.toolchain = provenance.toolchain.replace(
-            "rustc 1.93.0 (254b59607 2026-01-19)",
-            "rustc 1.94.0 (000000000 2026-03-01)",
+            "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+            "rustc 1.98.0 (000000000 2026-09-01)",
         );
         provenance.toolchain = provenance
             .toolchain
-            .replace("release: 1.93.0", "release: 1.94.0");
+            .replace("release: 1.97.1", "release: 1.98.0");
 
         let diagnostics = provenance.validate().expect_err("unpinned rustc");
         assert!(

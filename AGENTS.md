@@ -28,7 +28,7 @@
 
 - Next Engine is an independent, AI-first open-source engine and toolchain for systemic single-player RPGs. It is not an OpenGothic port and not a general-purpose engine.
 - Prioritize a playable game and fast iteration.
-- Rust is the portable core language. Use the repository-pinned Rust 1.93.0 toolchain and keep workspace `unsafe_code` forbidden unless an Accepted ADR creates one small reviewed FFI/backend boundary.
+- Rust is the portable core language. Use the repository-pinned Rust 1.97.1 toolchain and keep workspace `unsafe_code` forbidden unless an Accepted ADR creates one small reviewed FFI/backend boundary.
 - Windows x86_64 and Linux x86_64 are the v1 shipping targets. Apple Silicon macOS is a developer host, not a shipping promise.
 - Required roots are `game`, deterministic `headless` and `tools`. `ai-host` and displayless capture are optional.
 - Keep the game correct and playable offline. Network, LLM, renderer frame rate and optional plugins must not determine simulation correctness.

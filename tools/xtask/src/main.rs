@@ -706,8 +706,8 @@ fn host_check_report(
 ) -> Result<CommandReportV1<HostCheckDetailsV1>, String> {
     let version = run_output_with_state(root, "rustc", &["-vV"], state_root)?;
     let details = String::from_utf8(version.stdout).map_err(|error| error.to_string())?;
-    if !details.lines().any(|line| line == "release: 1.93.0") {
-        return Err("rustc release must be exactly 1.93.0".to_owned());
+    if !details.lines().any(|line| line == "release: 1.97.1") {
+        return Err("rustc release must be exactly 1.97.1".to_owned());
     }
     let host = details
         .lines()
@@ -746,7 +746,7 @@ fn host_check_report(
         "PASS",
         HostCheckDetailsV1 {
             host: host.to_owned(),
-            rustc_release: "1.93.0".to_owned(),
+            rustc_release: "1.97.1".to_owned(),
         },
     ))
 }

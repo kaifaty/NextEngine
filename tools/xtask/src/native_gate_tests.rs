@@ -133,7 +133,7 @@ fn slot_report(target: &str) -> NativeGateTargetReportV1 {
         status: NativeGateRunStatusV1::Fail,
         git_commit_sha: "1".repeat(40),
         cargo_lock_sha256: "2".repeat(64),
-        rustc_release: "1.93.0".to_owned(),
+        rustc_release: "1.97.1".to_owned(),
         target_triple: target.to_owned(),
         checks: Vec::new(),
         closure_targets: None,
@@ -543,7 +543,7 @@ fn test_identity() -> NativeGateIdentity {
         git_commit: "1".repeat(40),
         git_object_format: "sha1".to_owned(),
         cargo_lock_sha256: "2".repeat(64),
-        rustc_release: "1.93.0".to_owned(),
+        rustc_release: "1.97.1".to_owned(),
         rustc_host: WINDOWS_TARGET_TRIPLE.to_owned(),
         target_triple: WINDOWS_TARGET_TRIPLE.to_owned(),
     }

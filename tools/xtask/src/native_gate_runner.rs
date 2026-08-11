@@ -70,9 +70,9 @@ pub(crate) fn native_gate_repository_identity(
         .find_map(|line| line.strip_prefix("release: "))
         .ok_or_else(|| "NATIVE_GATE_REPORT_INVALID: rustc release missing".to_owned())?
         .to_owned();
-    if rustc_release != "1.93.0" {
+    if rustc_release != "1.97.1" {
         return Err(format!(
-            "NATIVE_GATE_REPORT_INVALID: rustc release must be exactly 1.93.0, got {rustc_release}"
+            "NATIVE_GATE_REPORT_INVALID: rustc release must be exactly 1.97.1, got {rustc_release}"
         ));
     }
     let rustc_host = rustc

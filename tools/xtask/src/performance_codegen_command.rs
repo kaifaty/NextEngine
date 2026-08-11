@@ -768,13 +768,13 @@ mod tests {
             commit: "a".repeat(40),
             worktree_clean: true,
             executable_sha256: "b".repeat(64),
-            toolchain: "rustc 1.93.0 (254b59607 2026-01-19)\n\
+            toolchain: "rustc 1.97.1 (8bab26f4f 2026-07-14)\n\
 binary: rustc\n\
-commit-hash: 254b59607ebf3a833e1e4c39d3a4e55e2b53e0aa\n\
-commit-date: 2026-01-19\n\
+commit-hash: 8bab26f4f68e0e26f0bb7960be334d5b520ea452\n\
+commit-date: 2026-07-14\n\
 host: x86_64-pc-windows-msvc\n\
-release: 1.93.0\n\
-LLVM version: 21.1.8"
+release: 1.97.1\n\
+LLVM version: 22.1.6"
                 .to_owned(),
             opt_level: "3".to_owned(),
             effective_rustflags: Vec::new(),

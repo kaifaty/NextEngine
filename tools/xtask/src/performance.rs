@@ -30,8 +30,8 @@ pub const PERFORMANCE_REPORT_FILE_NAME: &str = "performance-report-v5.json";
 pub const PERFORMANCE_BASELINE_FILE_NAME: &str = "performance-baseline-v5.json";
 pub const PERFORMANCE_REPORT_TEMP_FILE_NAME: &str = ".performance-report-v5.json.tmp";
 pub const PERFORMANCE_BASELINE_TEMP_FILE_NAME: &str = ".performance-baseline-v5.json.tmp";
-pub const PERFORMANCE_PINNED_RUSTC_RELEASE: &str = "1.93.0";
-pub const PERFORMANCE_PINNED_RUSTC_COMMIT_HASH: &str = "254b59607d4417e9dffbc307138ae5c86280fe4c";
+pub const PERFORMANCE_PINNED_RUSTC_RELEASE: &str = "1.97.1";
+pub const PERFORMANCE_PINNED_RUSTC_COMMIT_HASH: &str = "8bab26f4f68e0e26f0bb7960be334d5b520ea452";
 pub const PERFORMANCE_WINDOWS_TARGET_TRIPLE: &str = "x86_64-pc-windows-msvc";
 pub const PERFORMANCE_LINUX_TARGET_TRIPLE: &str = "x86_64-unknown-linux-gnu";
 pub const THOTH_TARGET_ID: &str = "ref-win-thoth-v1";
@@ -915,7 +915,7 @@ pub fn validate_performance_build_provenance(
     let first_line = toolchain.lines().next().unwrap_or_default();
     if first_line
         != format!(
-            "rustc {PERFORMANCE_PINNED_RUSTC_RELEASE} ({} 2026-01-19)",
+            "rustc {PERFORMANCE_PINNED_RUSTC_RELEASE} ({} 2026-07-14)",
             &PERFORMANCE_PINNED_RUSTC_COMMIT_HASH[..9]
         )
     {

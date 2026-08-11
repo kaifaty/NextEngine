@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use support::*;
 
 pub const NATIVE_GATE_SCHEMA_VERSION: u32 = 1;
-pub const NATIVE_GATE_RUSTC_RELEASE: &str = "1.93.0";
+pub const NATIVE_GATE_RUSTC_RELEASE: &str = "1.97.1";
 pub const WINDOWS_TARGET_TRIPLE: &str = "x86_64-pc-windows-msvc";
 pub const LINUX_TARGET_TRIPLE: &str = "x86_64-unknown-linux-gnu";
 

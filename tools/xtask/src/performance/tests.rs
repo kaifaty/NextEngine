@@ -22,7 +22,7 @@ fn fingerprint() -> PerformanceTargetFingerprintV1 {
 
 fn pinned_toolchain(target_triple: &str) -> String {
     format!(
-        "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: {PERFORMANCE_PINNED_RUSTC_COMMIT_HASH}\ncommit-date: 2026-01-19\nhost: {target_triple}\nrelease: 1.93.0\nLLVM version: 21.1.0",
+        "rustc 1.97.1 (8bab26f4f 2026-07-14)\nbinary: rustc\ncommit-hash: {PERFORMANCE_PINNED_RUSTC_COMMIT_HASH}\ncommit-date: 2026-07-14\nhost: {target_triple}\nrelease: 1.97.1\nLLVM version: 22.1.6",
     )
 }
 
@@ -190,7 +190,7 @@ fn strict_build_provenance_pins_commit_release_and_host() {
         ),
         Err(vec!["PERF_BUILD_COMMIT_INVALID".to_owned()])
     );
-    let wrong_release = toolchain.replace("release: 1.93.0", "release: 1.94.0");
+    let wrong_release = toolchain.replace("release: 1.97.1", "release: 1.96.1");
     assert_eq!(
         validate_performance_build_provenance(
             &commit,

@@ -17,7 +17,7 @@ pub(super) fn performance_run_value(
     run.worktree_clean = true;
     run.target_triple = target_triple.to_owned();
     run.toolchain = format!(
-        "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: {}\ncommit-date: 2026-01-19\nhost: {target_triple}\nrelease: 1.93.0\nLLVM version: 21.1.0",
+        "rustc 1.97.1 (8bab26f4f 2026-07-14)\nbinary: rustc\ncommit-hash: {}\ncommit-date: 2026-07-14\nhost: {target_triple}\nrelease: 1.97.1\nLLVM version: 22.1.6",
         crate::performance::PERFORMANCE_PINNED_RUSTC_COMMIT_HASH,
     );
     let windows = target_triple == crate::performance::PERFORMANCE_WINDOWS_TARGET_TRIPLE;

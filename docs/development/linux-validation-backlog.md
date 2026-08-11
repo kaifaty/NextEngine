@@ -77,7 +77,7 @@ confidence. Он не выставляет `native_gate_ready` без matching W
 
 - использовать native `x86_64-unknown-linux-gnu`, не WSL и не
   cross-compilation;
-- проверить clean worktree, полный 40-символьный commit SHA, Rust `1.93.0` и
+- проверить clean worktree, полный 40-символьный commit SHA, Rust `1.97.1` и
   неизменённый `Cargo.lock`;
 - для package/desktop smoke иметь Ubuntu 22.04 / glibc 2.35 compatible
   userspace, системный `libvulkan.so.1`, Vulkan 1.3 ICD/driver и активную X11

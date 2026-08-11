@@ -422,24 +422,24 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
                             }
                             WindowEvent::Hidden
                             | WindowEvent::Minimized
-                            | WindowEvent::Occluded => {
-                                if !rendering_suspended {
-                                    rendering_suspended = true;
-                                    observations.push(suspend_observation(
-                                        platform_sample_tick,
-                                        "nextengine.platform.reason.window-minimized",
-                                    ));
-                                }
+                            | WindowEvent::Occluded
+                                if !rendering_suspended =>
+                            {
+                                rendering_suspended = true;
+                                observations.push(suspend_observation(
+                                    platform_sample_tick,
+                                    "nextengine.platform.reason.window-minimized",
+                                ));
                             }
-                            WindowEvent::Exposed | WindowEvent::Restored | WindowEvent::Shown => {
-                                if rendering_suspended {
-                                    rendering_suspended = false;
-                                    swapchain_dirty = true;
-                                    observations.push(resume_observation(
-                                        platform_sample_tick,
-                                        "nextengine.platform.reason.window-restored",
-                                    ));
-                                }
+                            WindowEvent::Exposed | WindowEvent::Restored | WindowEvent::Shown
+                                if rendering_suspended =>
+                            {
+                                rendering_suspended = false;
+                                swapchain_dirty = true;
+                                observations.push(resume_observation(
+                                    platform_sample_tick,
+                                    "nextengine.platform.reason.window-restored",
+                                ));
                             }
                             _ => {}
                         },

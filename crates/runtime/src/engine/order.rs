@@ -16,7 +16,7 @@ pub(super) fn sort_command_batch(commands: &mut [WorldCommand]) -> Result<(), Ca
         .cloned()
         .zip(keys)
         .collect::<Vec<(WorldCommand, _)>>();
-    indexed.sort_by(|left, right| left.1.cmp(&right.1));
+    indexed.sort_by_key(|entry| entry.1);
     for (slot, (command, _)) in commands.iter_mut().zip(indexed) {
         *slot = command;
     }

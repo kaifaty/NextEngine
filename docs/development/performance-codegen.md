@@ -7,8 +7,8 @@ verdict и не закрывает B-12. Единственный fallback пр�
 
 Ограничения следуют ADR-036:
 
-- сравнение выполняется на одном clean commit и ровно pinned Rust 1.93.0 из
-  `rustc -vV`; stable 1.94.0 тоже отклоняется;
+- сравнение выполняется на одном clean commit и ровно pinned Rust 1.97.1 из
+  `rustc -vV`; любая другая stable-версия тоже отклоняется;
 - нужны все четыре representative workload: `r2-alpha-render`,
   `r3-multiregion-streaming`, `r4-100npc`, `r5-physics-16`;
 - для baseline и candidate собираются по десять clean THOTH run каждого
@@ -196,7 +196,7 @@ foreach ($scenario in $scenarios) {
 Установите matching LLVM tool из pinned toolchain:
 
 ```powershell
-rustup component add llvm-tools-preview --toolchain 1.93.0
+rustup component add llvm-tools-preview --toolchain 1.97.1
 ```
 
 Создайте instrumented build и прогоните все R2–R5 workload как training input.

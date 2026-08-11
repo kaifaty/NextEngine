@@ -218,14 +218,13 @@ pub(crate) fn apply_dialogue_frame_actions(
                     };
                 }
             }
-            CORE_UI_BACK_ACTION_ID => {
+            CORE_UI_BACK_ACTION_ID
                 if action.phase == PlayerActionPhaseV1::Started
                     && action.value == PlayerActionValueV1::Digital(true)
-                    && state != ReferenceDialogueUiV1::Closed
-                {
-                    state = ReferenceDialogueUiV1::Closed;
-                    back_consumed_by_dialogue = true;
-                }
+                    && state != ReferenceDialogueUiV1::Closed =>
+            {
+                state = ReferenceDialogueUiV1::Closed;
+                back_consumed_by_dialogue = true;
             }
             _ => {}
         }
