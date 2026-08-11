@@ -81,6 +81,61 @@ def isaac_actuator_limits_from_descriptor(
     }
 
 
+def authored_ground_clearance_metres(descriptor: dict[str, Any]) -> float:
+    """Return the lowest authored collider point above the flat ground plane."""
+    bodies = {body["body_id"]: body for body in descriptor["bodies"]}
+    world_heights: dict[str, int] = {}
+    while len(world_heights) < len(bodies):
+        before = len(world_heights)
+        for body_id, body in bodies.items():
+            if body_id in world_heights:
+                continue
+            parent_id = body["parent_body_id"]
+            if parent_id is None:
+                parent_height = 0
+            elif parent_id in world_heights:
+                parent_height = world_heights[parent_id]
+            else:
+                continue
+            world_heights[body_id] = (
+                parent_height + body["local_bind_translation_micrometres"][1]
+            )
+        if len(world_heights) == before:
+            raise ValueError("descriptor body hierarchy does not resolve")
+
+    minimum: int | None = None
+    for body_id, body in bodies.items():
+        for collider in body["colliders"]:
+            geometry = collider["geometry"]
+            if geometry["kind"] == "sphere":
+                vertical_extent = geometry["radius_micrometres"]
+            elif geometry["kind"] == "capsule":
+                vertical_extent = geometry["radius_micrometres"]
+            elif geometry["kind"] == "box":
+                vertical_extent = geometry["half_extents_micrometres"][1]
+            else:
+                raise ValueError("unsupported collider geometry for ground clearance")
+            bottom = (
+                world_heights[body_id]
+                + collider["local_translation_micrometres"][1]
+                - vertical_extent
+            )
+            minimum = bottom if minimum is None else min(minimum, bottom)
+    if minimum is None:
+        raise ValueError("descriptor contains no colliders")
+    return minimum / 1_000_000.0
+
+
+def authored_root_height_micrometres(descriptor: dict[str, Any]) -> int:
+    roots = [body for body in descriptor["bodies"] if body["parent_body_id"] is None]
+    if len(roots) != 1:
+        raise ValueError("descriptor must contain exactly one root body")
+    value = roots[0]["local_bind_translation_micrometres"][1]
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError("descriptor root height must be an integer")
+    return value
+
+
 def round_div_ties_even_tensor(numerator: torch.Tensor, denominator: int) -> torch.Tensor:
     if denominator <= 0 or numerator.dtype != torch.int64:
         raise ValueError("integer ties-to-even requires int64 and a positive denominator")
@@ -232,6 +287,7 @@ def locomotion_reward_q16_tensor(
     *,
     quaternion_xyzw_q1_30: torch.Tensor,
     root_height_micrometres: torch.Tensor,
+    target_root_height_micrometres: int,
     local_linear_velocity_raw: torch.Tensor,
     local_angular_velocity_raw: torch.Tensor,
     vertical_velocity_raw: torch.Tensor,
@@ -257,7 +313,7 @@ def locomotion_reward_q16_tensor(
     upright_q30 = torch.clamp(Q1_30_ONE - tilt_reduction, 0, Q1_30_ONE)
     upright = ratio_q16_tensor(upright_q30, Q1_30_ONE)
     height = 65_536 - ratio_q16_tensor(
-        torch.abs(root_height_micrometres - 1_050_000), 600_000
+        torch.abs(root_height_micrometres - target_root_height_micrometres), 600_000
     )
     vertical = ratio_q16_tensor(torch.abs(vertical_velocity_raw), 3_000_000)
     roll_pitch = ratio_q16_tensor(
@@ -315,6 +371,11 @@ if ISAAC_LAB_AVAILABLE:
             spawn=sim_utils.UsdFileCfg(
                 usd_path=os.environ.get("NEXTENGINE_HUMANOID_USD", ""),
                 activate_contact_sensors=True,
+                articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+                    enabled_self_collisions=False,
+                    solver_position_iteration_count=4,
+                    solver_velocity_iteration_count=1,
+                ),
             ),
             actuators={
                 "engine_effort": ImplicitActuatorCfg(
@@ -343,6 +404,15 @@ if ISAAC_LAB_AVAILABLE:
             validate_descriptor(descriptor)
             self.profile = select_environment_profile(descriptor, cfg.environment_profile_id)
             self.descriptor = descriptor
+            self.authored_ground_clearance_m = authored_ground_clearance_metres(descriptor)
+            if self.authored_ground_clearance_m < -1.0e-6:
+                raise ValueError(
+                    "descriptor authored pose penetrates the flat ground: "
+                    f"{self.authored_ground_clearance_m:.6f} m"
+                )
+            self.authored_root_height_micrometres = authored_root_height_micrometres(
+                descriptor
+            )
             self.isaac_actuator_limits = isaac_actuator_limits_from_descriptor(descriptor)
             actuator_cfg = cfg.asset.actuators["engine_effort"]
             actuator_cfg.effort_limit_sim = self.isaac_actuator_limits["effort_limit_sim"]
@@ -541,6 +611,7 @@ if ISAAC_LAB_AVAILABLE:
             components, total = locomotion_reward_q16_tensor(
                 quaternion_xyzw_q1_30=quaternion_raw,
                 root_height_micrometres=root_height,
+                target_root_height_micrometres=self.authored_root_height_micrometres,
                 local_linear_velocity_raw=linear_raw,
                 local_angular_velocity_raw=angular_raw,
                 vertical_velocity_raw=vertical_velocity,
@@ -566,7 +637,10 @@ if ISAAC_LAB_AVAILABLE:
             require_finite_tensor("standing_root_lin_vel_w", data.root_lin_vel_w)
             require_finite_tensor("standing_root_ang_vel_w", data.root_ang_vel_w)
             upright = torch.abs(data.root_quat_w[:, 0])
-            root_height = -torch.abs(data.root_pos_w[:, 2] - 1.05)
+            root_height = -torch.abs(
+                data.root_pos_w[:, 2]
+                - self.authored_root_height_micrometres / 1_000_000.0
+            )
             standing_pose = -torch.sum(torch.abs(data.joint_pos), dim=-1)
             velocity = -torch.sum(torch.abs(data.root_lin_vel_w), dim=-1) - torch.sum(
                 torch.abs(data.root_ang_vel_w), dim=-1

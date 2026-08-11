@@ -103,9 +103,10 @@ velocity, configured joint pose, and zero joint velocity:
 /home/kaifaty/NextEngine-training/check-nextengine-reset.sh
 ```
 
-This gate also requires the reset state to survive two zero-action motor ticks.
-The environment does not use the already contact-perturbed PhysX startup state
-as a reset template.
+This gate also requires the authored colliders to start at or above the ground
+and the reset state to survive ten zero-action motor ticks inside explicit root,
+joint and height-overshoot velocity bounds. The environment does not use the
+already contact-perturbed PhysX startup state as a reset template.
 
 Before a calibration run, stress one full episode across zero, full-range
 random and current-policy actions. The check fails on the first non-finite
@@ -164,6 +165,11 @@ checkpoint, `--no-open-browser` to print the local URL without opening it, or
 `--unthrottled` to disable real-time pacing. The viewer is a non-authoritative
 checkpoint inspection tool; it does not turn Isaac execution into replay facts
 and does not mutate training weights.
+
+The browser lists every hash-closed checkpoint from the selected run. Use the
+left/right buttons or the iteration selector to load another checkpoint and
+reset the live episode without restarting Isaac. This navigates model history;
+it is not random-access replay inside one simulated episode.
 
 An evaluation records returns, episode lengths, termination versus truncation,
 and every ordered reward component. Its episode count must be a positive

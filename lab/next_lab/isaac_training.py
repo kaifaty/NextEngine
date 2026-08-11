@@ -251,6 +251,32 @@ def latest_closed_checkpoint(runs_root: Path) -> Path:
     return max(candidates, key=lambda value: (value[0], value[1]))[2].resolve()
 
 
+def closed_checkpoint_history(checkpoint: Path) -> list[Path]:
+    """Return every hash-closed checkpoint in the selected checkpoint's run."""
+    selected = checkpoint.resolve()
+    manifest = validate_closed_checkpoint(selected)
+    records = manifest.get("checkpoints")
+    if not isinstance(records, list):
+        raise ValueError("checkpoint run manifest has no checkpoint records")
+    candidates: list[tuple[int, Path]] = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        name = record.get("file")
+        match = CHECKPOINT_FILE_PATTERN.fullmatch(name) if isinstance(name, str) else None
+        if match is None or Path(name).name != name:
+            continue
+        candidate = selected.parent / name
+        try:
+            validate_closed_checkpoint(candidate)
+        except (FileNotFoundError, ValueError):
+            continue
+        candidates.append((int(match.group(1)), candidate.resolve()))
+    if not any(candidate == selected for _, candidate in candidates):
+        raise ValueError("selected checkpoint is absent from its closed run history")
+    return [candidate for _, candidate in sorted(candidates)]
+
+
 def validate_checkpoint_artifacts(
     parent: dict[str, Any],
     profile: IsaacTrainingProfile,

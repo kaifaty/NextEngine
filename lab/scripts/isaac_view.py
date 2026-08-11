@@ -16,6 +16,7 @@ from isaaclab.app import AppLauncher
 from next_lab.isaac_training import (
     IsaacTrainingProfile,
     ResolvedTrainingConfig,
+    closed_checkpoint_history,
     latest_closed_checkpoint,
     require_external_path,
     validate_checkpoint_artifacts,
@@ -84,11 +85,14 @@ def main() -> None:
     checkpoint = resolve_checkpoint(args)
     parent = validate_closed_checkpoint(checkpoint)
     validate_checkpoint_artifacts(parent, profile, descriptor, usd)
+    checkpoint_history = closed_checkpoint_history(checkpoint)
+    checkpoint_by_name = {candidate.name: candidate for candidate in checkpoint_history}
 
     print(
         json.dumps(
             {
                 "checkpoint": str(checkpoint),
+                "checkpoint_count": len(checkpoint_history),
                 "mode": "3d-policy-viewer",
                 "seed": seed,
                 "status": "starting",
@@ -145,14 +149,22 @@ def main() -> None:
         runner.load(str(checkpoint), load_optimizer=False, map_location=config.device)
         policy = runner.get_inference_policy(device=config.device)
         observations, _ = wrapped.reset()
+        active_checkpoint = checkpoint
 
         if browser_assets is not None:
             browser_viewer = BrowserPolicyViewer(browser_assets)
             url = browser_viewer.start(
-                browser_configuration(environment, checkpoint, isaac_prim_name),
+                browser_configuration(
+                    environment,
+                    active_checkpoint,
+                    checkpoint_history,
+                    isaac_prim_name,
+                ),
                 open_browser=not args.no_open_browser,
             )
-            browser_viewer.publish(policy_state(environment, 0.0, 0, False))
+            browser_viewer.publish(
+                policy_state(environment, 0.0, 0, False, active_checkpoint.name)
+            )
             print(f"3D browser viewer is running at {url}", flush=True)
             print("Close this terminal or press Ctrl+C to stop.", flush=True)
         else:
@@ -161,8 +173,40 @@ def main() -> None:
                 flush=True,
             )
         step = 0
-        with torch.inference_mode():
+        with torch.no_grad():
             while simulation_app.is_running() and (args.max_steps == 0 or step < args.max_steps):
+                if browser_viewer is not None:
+                    requested = browser_viewer.take_checkpoint_request()
+                    if requested is not None and requested != active_checkpoint.name:
+                        active_checkpoint = checkpoint_by_name[requested]
+                        runner.load(
+                            str(active_checkpoint),
+                            load_optimizer=False,
+                            map_location=config.device,
+                        )
+                        policy = runner.get_inference_policy(device=config.device)
+                        observations, _ = wrapped.reset()
+                        step = 0
+                        browser_viewer.publish(
+                            policy_state(
+                                environment,
+                                0.0,
+                                step,
+                                False,
+                                active_checkpoint.name,
+                            )
+                        )
+                        print(
+                            json.dumps(
+                                {
+                                    "checkpoint": str(active_checkpoint),
+                                    "status": "switched",
+                                },
+                                sort_keys=True,
+                            ),
+                            flush=True,
+                        )
+                        continue
                 started = time.perf_counter()
                 actions = policy(observations)
                 require_finite("policy action", actions)
@@ -170,7 +214,13 @@ def main() -> None:
                 step += 1
 
                 done = bool(dones[0].item())
-                state = policy_state(environment, float(rewards[0].item()), step, done)
+                state = policy_state(
+                    environment,
+                    float(rewards[0].item()),
+                    step,
+                    done,
+                    active_checkpoint.name,
+                )
                 if browser_viewer is not None:
                     browser_viewer.publish(state)
                 if step == 1 or step % args.status_interval == 0 or done:
@@ -205,7 +255,10 @@ def resolve_checkpoint(args: argparse.Namespace) -> Path:
 
 
 def browser_configuration(
-    environment: Any, checkpoint: Path, isaac_prim_name: Any
+    environment: Any,
+    checkpoint: Path,
+    checkpoint_history: list[Path],
+    isaac_prim_name: Any,
 ) -> dict[str, Any]:
     descriptor_bodies = {
         isaac_prim_name(body["body_id"]): body for body in environment.descriptor["bodies"]
@@ -251,18 +304,30 @@ def browser_configuration(
     return {
         "bodies": bodies,
         "checkpoint": checkpoint.name,
+        "checkpoints": [
+            {
+                "iteration": int(candidate.stem.removeprefix("model_")),
+                "name": candidate.name,
+            }
+            for candidate in checkpoint_history
+        ],
         "root_index": root_indices[0],
     }
 
 
 def policy_state(
-    environment: Any, reward: float, step: int, done: bool
+    environment: Any,
+    reward: float,
+    step: int,
+    done: bool,
+    checkpoint_name: str,
 ) -> dict[str, Any]:
     command = environment._current_command()[0].detach().cpu().tolist()
     right, forward, yaw = (value / 1_000_000.0 for value in command)
     height = float(environment.robot.data.root_pos_w[0, 2].item())
     return {
         "body_positions_w": environment.robot.data.body_pos_w[0].detach().cpu().tolist(),
+        "checkpoint": checkpoint_name,
         "command": {
             "forward_mps": forward,
             "mode": command_mode(right, forward, yaw),

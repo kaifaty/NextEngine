@@ -9,7 +9,7 @@ from typing import Any
 
 from next_lab.motor_mirror import validate_descriptor
 
-TRANSLATOR_VERSION = "nextengine.isaac-usda-translator.v2"
+TRANSLATOR_VERSION = "nextengine.isaac-usda-translator.v3"
 
 
 def render_usda(descriptor: dict[str, Any]) -> str:
@@ -40,6 +40,13 @@ def render_usda(descriptor: dict[str, Any]) -> str:
         prim = _prim(body_id)
         translation = _metres(world_bind_translations[body_id])
         mass = body["mass_microkilograms"] / 1_000_000.0
+        center_of_mass = _metres(body["center_of_mass_micrometres"])
+        engine_inertia = body["inertia_microkilogram_metre_squared"]
+        diagonal_inertia = (
+            engine_inertia[0] / 1_000_000.0,
+            engine_inertia[2] / 1_000_000.0,
+            engine_inertia[1] / 1_000_000.0,
+        )
         lines.extend(
             [
                 f'        def Xform "{prim}" (',
@@ -49,6 +56,8 @@ def render_usda(descriptor: dict[str, Any]) -> str:
                 f"            double3 xformOp:translate = ({_triplet(translation)})",
                 '            uniform token[] xformOpOrder = ["xformOp:translate"]',
                 f"            float physics:mass = {mass:.9g}",
+                f"            point3f physics:centerOfMass = ({_triplet(center_of_mass)})",
+                f"            float3 physics:diagonalInertia = ({_triplet(diagonal_inertia)})",
                 f'            custom string nextengine:semanticId = "{body_id}"',
             ]
         )

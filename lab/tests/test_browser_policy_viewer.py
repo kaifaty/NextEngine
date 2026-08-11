@@ -5,7 +5,8 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from urllib.request import urlopen
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 from next_lab.browser_policy_viewer import BrowserPolicyViewer
 
@@ -31,7 +32,16 @@ class BrowserPolicyViewerTests(unittest.TestCase):
             )
             viewer = BrowserPolicyViewer(assets)
             try:
-                url = viewer.start({"checkpoint": "model_7.pt"}, open_browser=False)
+                url = viewer.start(
+                    {
+                        "checkpoint": "model_7.pt",
+                        "checkpoints": [
+                            {"iteration": 2, "name": "model_2.pt"},
+                            {"iteration": 7, "name": "model_7.pt"},
+                        ],
+                    },
+                    open_browser=False,
+                )
                 viewer.publish({"viewer_step": 12})
                 with urlopen(url + "config.json") as response:
                     self.assertEqual(json.load(response)["checkpoint"], "model_7.pt")
@@ -39,6 +49,24 @@ class BrowserPolicyViewerTests(unittest.TestCase):
                     self.assertEqual(json.load(response)["viewer_step"], 12)
                 with urlopen(url + "three.module.js") as response:
                     self.assertEqual(response.read(), b"export {};")
+                request = Request(
+                    url + "checkpoint",
+                    data=json.dumps({"checkpoint": "model_2.pt"}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request) as response:
+                    self.assertEqual(response.status, 202)
+                self.assertEqual(viewer.take_checkpoint_request(), "model_2.pt")
+                self.assertIsNone(viewer.take_checkpoint_request())
+                bad_request = Request(
+                    url + "checkpoint",
+                    data=json.dumps({"checkpoint": "model_99.pt"}).encode("utf-8"),
+                    method="POST",
+                )
+                with self.assertRaises(HTTPError) as context:
+                    urlopen(bad_request)
+                self.assertEqual(context.exception.code, 400)
             finally:
                 viewer.close()
 

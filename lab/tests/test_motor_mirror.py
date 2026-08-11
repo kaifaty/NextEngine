@@ -4,6 +4,8 @@ import unittest
 import torch
 
 from next_lab.isaac_env import (
+    authored_ground_clearance_metres,
+    authored_root_height_micrometres,
     engine_quaternion_xyzw_from_isaac_wxyz_tensor,
     engine_vector_from_isaac_tensor,
     fixed_pd_tensor,
@@ -67,6 +69,44 @@ class MotorMirrorTests(unittest.TestCase):
         descriptor["actuators"].pop()
         with self.assertRaisesRegex(ValueError, "same joint IDs"):
             isaac_actuator_limits_from_descriptor(descriptor)
+
+    def test_authored_ground_clearance_rejects_penetrating_pose(self) -> None:
+        descriptor = {
+            "bodies": [
+                {
+                    "body_id": "body.root",
+                    "parent_body_id": None,
+                    "local_bind_translation_micrometres": [0, 100_000, 0],
+                    "colliders": [
+                        {
+                            "local_translation_micrometres": [0, 0, 0],
+                            "geometry": {
+                                "kind": "sphere",
+                                "radius_micrometres": 75_000,
+                            },
+                        }
+                    ],
+                },
+                {
+                    "body_id": "body.foot",
+                    "parent_body_id": "body.root",
+                    "local_bind_translation_micrometres": [0, -50_000, 0],
+                    "colliders": [
+                        {
+                            "local_translation_micrometres": [0, 0, 0],
+                            "geometry": {
+                                "kind": "sphere",
+                                "radius_micrometres": 50_000,
+                            },
+                        }
+                    ],
+                },
+            ]
+        }
+        self.assertEqual(authored_root_height_micrometres(descriptor), 100_000)
+        self.assertEqual(authored_ground_clearance_metres(descriptor), 0.0)
+        descriptor["bodies"][0]["local_bind_translation_micrometres"][1] -= 10_000
+        self.assertEqual(authored_ground_clearance_metres(descriptor), -0.01)
 
     def test_rust_golden_matches_python_seed_and_pd(self) -> None:
         validate_golden(load_json(FIXTURE))
@@ -146,7 +186,8 @@ class MotorMirrorTests(unittest.TestCase):
         zeros23 = torch.zeros((2, 23), dtype=torch.int64)
         components, _ = locomotion_reward_q16_tensor(
             quaternion_xyzw_q1_30=quaternions,
-            root_height_micrometres=torch.full((2,), 1_050_000, dtype=torch.int64),
+            root_height_micrometres=torch.full((2,), 1_095_000, dtype=torch.int64),
+            target_root_height_micrometres=1_095_000,
             local_linear_velocity_raw=zeros3,
             local_angular_velocity_raw=zeros3,
             vertical_velocity_raw=torch.zeros(2, dtype=torch.int64),
@@ -165,7 +206,8 @@ class MotorMirrorTests(unittest.TestCase):
         applied[:, 0] = 1_000_000
         rate_components, _ = locomotion_reward_q16_tensor(
             quaternion_xyzw_q1_30=quaternions,
-            root_height_micrometres=torch.full((2,), 1_050_000, dtype=torch.int64),
+            root_height_micrometres=torch.full((2,), 1_095_000, dtype=torch.int64),
+            target_root_height_micrometres=1_095_000,
             local_linear_velocity_raw=zeros3,
             local_angular_velocity_raw=zeros3,
             vertical_velocity_raw=torch.zeros(2, dtype=torch.int64),

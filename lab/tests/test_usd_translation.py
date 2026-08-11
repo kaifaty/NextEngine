@@ -11,7 +11,7 @@ def descriptor() -> dict:
     actuator_ids = [f"actuator.{index:02}" for index in range(23)]
     return {
         "schema_version": 2,
-        "translator_version": "nextengine.isaac-usda-translator.v2",
+        "translator_version": "nextengine.isaac-usda-translator.v3",
         "observation_width": 84,
         "action_width": 23,
         "body_schema_hash": "12" * 32,
@@ -25,6 +25,8 @@ def descriptor() -> dict:
                 "parent_body_id": "body.root",
                 "local_bind_translation_micrometres": [100_000, 200_000, 300_000],
                 "mass_microkilograms": 1_000_000,
+                "center_of_mass_micrometres": [10_000, 20_000, 30_000],
+                "inertia_microkilogram_metre_squared": [100_000, 200_000, 300_000],
                 "colliders": [
                     {
                         "collider_id": "collider.child",
@@ -37,6 +39,8 @@ def descriptor() -> dict:
                 "parent_body_id": None,
                 "local_bind_translation_micrometres": [0, 1_050_000, 0],
                 "mass_microkilograms": 10_000_000,
+                "center_of_mass_micrometres": [0, 0, 0],
+                "inertia_microkilogram_metre_squared": [1_000_000] * 3,
                 "colliders": [
                     {
                         "collider_id": "collider.root",
@@ -125,6 +129,8 @@ class UsdTranslationTests(unittest.TestCase):
         self.assertIn('upAxis = "Z"', first)
         self.assertIn("double3 xformOp:translate = (0, 0, 1.05)", first)
         self.assertIn("double3 xformOp:translate = (0.1, -0.3, 1.25)", first)
+        self.assertIn("point3f physics:centerOfMass = (0.01, -0.03, 0.02)", first)
+        self.assertIn("float3 physics:diagonalInertia = (0.1, 0.3, 0.2)", first)
         self.assertIn("rel physics:body0 = </Humanoid/Bodies/body_root>", first)
         self.assertIn("point3f physics:localPos0 = (0.1, -0.3, 0.2)", first)
         self.assertIn("point3f physics:localPos1 = (0, 0, 0)", first)

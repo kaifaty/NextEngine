@@ -12,7 +12,7 @@ use crate::{
     reference_humanoid_body_schema_v1, rotate_world_to_root_local_q1_30,
 };
 
-pub const ISAAC_TRANSLATOR_VERSION: &str = "nextengine.isaac-usda-translator.v2";
+pub const ISAAC_TRANSLATOR_VERSION: &str = "nextengine.isaac-usda-translator.v3";
 
 pub fn stage0_isaac_mirror_descriptor_json_v2() -> Result<String, TrainingEnvironmentError> {
     let schema = reference_humanoid_body_schema_v1();

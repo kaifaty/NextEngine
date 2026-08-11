@@ -15,7 +15,10 @@ pub use control::{
     ACTUATOR_EFFORT_CLAMPED, ACTUATOR_RATE_CLAMPED, ACTUATOR_TARGET_CLAMPED, FixedPdController,
     JointControlStateV1, MotorControlError,
 };
-pub use humanoid::{REFERENCE_HUMANOID_DOF, reference_humanoid_body_schema_v1};
+pub use humanoid::{
+    REFERENCE_HUMANOID_DOF, REFERENCE_HUMANOID_STANDING_ROOT_HEIGHT_MICROMETRES,
+    reference_humanoid_body_schema_v1,
+};
 pub use mirror::{stage0_isaac_mirror_descriptor_json_v2, stage0_isaac_mirror_golden_json_v2};
 pub use observation::{
     MotorObservationBuilder, MotorObservationError, MotorVelocityFrameV1,

@@ -26,18 +26,68 @@ VIEWER_HTML = b"""<!doctype html>
     #panel { position: fixed; left: 16px; top: 16px; padding: 12px 14px; min-width: 300px;
       border: 1px solid #29415f; border-radius: 8px; background: rgba(5, 13, 25, .86);
       box-shadow: 0 8px 30px rgba(0,0,0,.35); white-space: pre; line-height: 1.45; }
+    #history { position: fixed; left: 16px; top: 190px; display: flex; gap: 7px; padding: 8px;
+      border: 1px solid #29415f; border-radius: 8px; background: rgba(5, 13, 25, .86); }
+    button, select { border: 1px solid #416487; border-radius: 5px; background: #111d2c;
+      color: #e5edf8; padding: 6px 9px; font: inherit; }
+    button { cursor: pointer; } button:disabled, select:disabled { opacity: .5; cursor: wait; }
     #hint { position: fixed; right: 16px; bottom: 14px; color: #9bb0ca; font-size: 12px; }
     .ok { color: #6ee7b7; } .wait { color: #fbbf24; }
   </style>
 </head>
 <body>
   <div id="panel"><span class="wait">waiting for Isaac...</span></div>
+  <div id="history">
+    <button id="previous" title="Previous checkpoint">&#9664;</button>
+    <select id="checkpoint" aria-label="Training checkpoint"></select>
+    <button id="next" title="Next checkpoint">&#9654;</button>
+  </div>
   <div id="hint">drag: orbit &nbsp; wheel: zoom</div>
   <script type="module">
     import * as THREE from '/three.module.js';
 
     const config = await fetch('/config.json').then(response => response.json());
     const panel = document.getElementById('panel');
+    const checkpointSelect = document.getElementById('checkpoint');
+    const previousButton = document.getElementById('previous');
+    const nextButton = document.getElementById('next');
+    const checkpoints = config.checkpoints || [{name: config.checkpoint, iteration: 0}];
+    checkpoints.forEach(checkpoint => {
+      const option = document.createElement('option');
+      option.value = checkpoint.name;
+      option.textContent = `iteration ${checkpoint.iteration} - ${checkpoint.name}`;
+      option.selected = checkpoint.name === config.checkpoint;
+      checkpointSelect.appendChild(option);
+    });
+    function setHistoryBusy(busy) {
+      checkpointSelect.disabled = busy;
+      previousButton.disabled = busy;
+      nextButton.disabled = busy;
+    }
+    async function requestCheckpoint(name) {
+      setHistoryBusy(true);
+      try {
+        const response = await fetch('/checkpoint', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({checkpoint: name}),
+        });
+        if (!response.ok) throw new Error(await response.text());
+      } catch (error) {
+        panel.textContent = `checkpoint switch failed: ${error}`;
+        setHistoryBusy(false);
+      }
+    }
+    function moveCheckpoint(delta) {
+      const index = Math.max(0, checkpointSelect.selectedIndex);
+      const target = Math.max(0, Math.min(checkpoints.length - 1, index + delta));
+      if (target === index) return;
+      checkpointSelect.selectedIndex = target;
+      requestCheckpoint(checkpointSelect.value);
+    }
+    checkpointSelect.addEventListener('change', () => requestCheckpoint(checkpointSelect.value));
+    previousButton.addEventListener('click', () => moveCheckpoint(-1));
+    nextButton.addEventListener('click', () => moveCheckpoint(1));
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x07111f);
     scene.fog = new THREE.Fog(0x07111f, 8, 24);
@@ -132,7 +182,11 @@ VIEWER_HTML = b"""<!doctype html>
         commandArrow.setDirection(new THREE.Vector3(right, 0, forward).normalize());
         commandArrow.setLength(Math.min(2.4, .35 + length * .55), .18, .09);
       }
-      panel.innerHTML = `<span class="ok">connected</span>  checkpoint ${config.checkpoint}\n` +
+      if (state.checkpoint && checkpointSelect.value !== state.checkpoint) {
+        checkpointSelect.value = state.checkpoint;
+      }
+      setHistoryBusy(false);
+      panel.innerHTML = `<span class="ok">connected</span>  checkpoint ${state.checkpoint || config.checkpoint}\n` +
         `mode       ${state.command.mode}\n` +
         `command    right ${right.toFixed(2)}  forward ${forward.toFixed(2)} m/s\n` +
         `           yaw ${state.command.yaw_rps.toFixed(2)} rad/s\n` +
@@ -202,6 +256,8 @@ class BrowserPolicyViewer:
         self._config = b"{}"
         self._state = b"{}"
         self._lock = threading.Lock()
+        self._checkpoint_names: set[str] = set()
+        self._requested_checkpoint: str | None = None
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
 
@@ -215,6 +271,18 @@ class BrowserPolicyViewer:
     def start(self, config: dict[str, Any], *, open_browser: bool) -> str:
         if self._server is not None:
             raise RuntimeError("browser viewer is already running")
+        checkpoint = config.get("checkpoint")
+        records = config.get("checkpoints", [{"name": checkpoint}])
+        if not isinstance(records, list) or not records:
+            raise ValueError("browser viewer checkpoint history is empty")
+        names = {
+            record.get("name")
+            for record in records
+            if isinstance(record, dict) and isinstance(record.get("name"), str)
+        }
+        if not isinstance(checkpoint, str) or checkpoint not in names or len(names) != len(records):
+            raise ValueError("invalid browser viewer checkpoint history")
+        self._checkpoint_names = names
         self._config = _json_bytes(config)
         self._server = ThreadingHTTPServer((self._host, self._port), _ViewerHandler)
         self._server.daemon_threads = True
@@ -238,6 +306,26 @@ class BrowserPolicyViewer:
         payload = _json_bytes(state)
         with self._lock:
             self._state = payload
+
+    def take_checkpoint_request(self) -> str | None:
+        with self._lock:
+            requested = self._requested_checkpoint
+            self._requested_checkpoint = None
+        return requested
+
+    def request_checkpoint(self, payload: bytes) -> tuple[int, bytes]:
+        if len(payload) > 4_096:
+            return 413, b"checkpoint request is too large\n"
+        try:
+            value = json.loads(payload)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return 400, b"invalid checkpoint request\n"
+        name = value.get("checkpoint") if isinstance(value, dict) else None
+        if not isinstance(name, str) or name not in self._checkpoint_names:
+            return 400, b"unknown checkpoint\n"
+        with self._lock:
+            self._requested_checkpoint = name
+        return 202, b'{"status":"accepted"}\n'
 
     def close(self) -> None:
         if self._server is None:
@@ -268,6 +356,25 @@ class _ViewerHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         viewer: BrowserPolicyViewer = self.server.viewer  # type: ignore[attr-defined]
         status, content_type, payload = viewer.response(self.path.split("?", 1)[0])
+        self._send(status, content_type, payload)
+
+    def do_POST(self) -> None:  # noqa: N802
+        viewer: BrowserPolicyViewer = self.server.viewer  # type: ignore[attr-defined]
+        if self.path.split("?", 1)[0] != "/checkpoint":
+            self._send(404, "text/plain; charset=utf-8", b"not found\n")
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            self._send(400, "text/plain; charset=utf-8", b"invalid content length\n")
+            return
+        if length < 0 or length > 4_096:
+            self._send(413, "text/plain; charset=utf-8", b"checkpoint request is too large\n")
+            return
+        status, payload = viewer.request_checkpoint(self.rfile.read(length))
+        self._send(status, "application/json" if status == 202 else "text/plain", payload)
+
+    def _send(self, status: int, content_type: str, payload: bytes) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(payload)))

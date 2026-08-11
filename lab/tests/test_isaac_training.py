@@ -11,6 +11,7 @@ from next_lab.isaac_training import (
     ResolvedTrainingConfig,
     atomic_write_json,
     canonical_json_hash,
+    closed_checkpoint_history,
     equal_episode_quota,
     latest_closed_checkpoint,
     parse_gpu_memory_csv,
@@ -124,6 +125,46 @@ class IsaacTrainingTests(unittest.TestCase):
             corrupt = write_run("20260811T120000Z-corrupt", 30, "completed", b"before")
             corrupt.write_bytes(b"after")
             self.assertEqual(latest_closed_checkpoint(root), expected.resolve())
+
+    def test_closed_checkpoint_history_is_numeric_and_hash_checked(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary)
+            checkpoints = []
+            for iteration in (10, 2, 7):
+                checkpoint = run / f"model_{iteration}.pt"
+                checkpoint.write_bytes(str(iteration).encode("ascii"))
+                checkpoints.append(checkpoint)
+            atomic_write_json(
+                run / "run-manifest.json",
+                {
+                    "schema": RUN_MANIFEST_SCHEMA,
+                    "status": "completed",
+                    "checkpoints": [
+                        {
+                            "file": checkpoint.name,
+                            "bytes": checkpoint.stat().st_size,
+                            "sha256": sha256_file(checkpoint),
+                        }
+                        for checkpoint in checkpoints
+                    ],
+                },
+            )
+            self.assertEqual(
+                closed_checkpoint_history(run / "model_7.pt"),
+                [
+                    (run / "model_2.pt").resolve(),
+                    (run / "model_7.pt").resolve(),
+                    (run / "model_10.pt").resolve(),
+                ],
+            )
+            (run / "model_10.pt").write_bytes(b"corrupt")
+            self.assertEqual(
+                closed_checkpoint_history(run / "model_7.pt"),
+                [
+                    (run / "model_2.pt").resolve(),
+                    (run / "model_7.pt").resolve(),
+                ],
+            )
 
     def test_checkpoint_artifacts_bind_profile_descriptor_and_usd(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

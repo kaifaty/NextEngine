@@ -16,7 +16,7 @@ use std::collections::BTreeSet;
 use crate::runtime::physics_witness_hash;
 use crate::{
     CompiledBodySchemaV1, DeterministicHumanoidMotor, HumanoidMotorCheckpoint, MotorFrameResult,
-    reference_humanoid_body_schema_v1,
+    REFERENCE_HUMANOID_STANDING_ROOT_HEIGHT_MICROMETRES, reference_humanoid_body_schema_v1,
 };
 
 pub const MAX_CPU_VECTOR_SLOTS: u32 = 256;
@@ -612,7 +612,7 @@ fn locomotion_reward_components(
     );
     let upright = upright_reward_q16(root.rotation_q1_30)?;
     let height_error = root.position_micrometres[1]
-        .saturating_sub(1_050_000)
+        .saturating_sub(REFERENCE_HUMANOID_STANDING_ROOT_HEIGHT_MICROMETRES)
         .unsigned_abs() as u128;
     let height_tracking = one_minus_normalized_q16(height_error, 600_000);
     let vertical_velocity_cost = ratio_q16(
@@ -731,9 +731,13 @@ fn standing_reward_components(
 ) -> Vec<(SchemaId, i64)> {
     let root = frame.snapshot.links.first();
     let upright = root.map_or(0, |root| root.rotation_q1_30[3].unsigned_abs() as i64);
-    let root_height_tracking = root.map_or(-1_050_000, |root| {
-        -unsigned_sum([root.position_micrometres[1].saturating_sub(1_050_000)])
-    });
+    let root_height_tracking = root.map_or(
+        -REFERENCE_HUMANOID_STANDING_ROOT_HEIGHT_MICROMETRES,
+        |root| {
+            -unsigned_sum([root.position_micrometres[1]
+                .saturating_sub(REFERENCE_HUMANOID_STANDING_ROOT_HEIGHT_MICROMETRES)])
+        },
+    );
     let standing_pose_tracking = -unsigned_sum(
         frame
             .snapshot

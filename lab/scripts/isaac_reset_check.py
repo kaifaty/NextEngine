@@ -29,7 +29,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--usd", type=Path, required=True)
     parser.add_argument("--num-envs", type=int, default=16)
     parser.add_argument("--seed", type=int, default=1001)
-    parser.add_argument("--survival-steps", type=int, default=2)
+    parser.add_argument("--survival-steps", type=int, default=10)
+    parser.add_argument("--max-root-linear-speed", type=float, default=1.0)
+    parser.add_argument("--max-root-angular-speed", type=float, default=2.0)
+    parser.add_argument("--max-joint-speed", type=float, default=5.0)
+    parser.add_argument("--max-root-height-overshoot", type=float, default=0.02)
     parser.add_argument("--check-device")
     AppLauncher.add_app_launcher_args(parser)
     return parser.parse_args()
@@ -39,6 +43,14 @@ def main() -> None:
     args = parse_args()
     if args.survival_steps <= 0:
         raise ValueError("survival-steps must be positive")
+    for name in (
+        "max_root_linear_speed",
+        "max_root_angular_speed",
+        "max_joint_speed",
+        "max_root_height_overshoot",
+    ):
+        if getattr(args, name) <= 0.0:
+            raise ValueError(f"{name.replace('_', '-')} must be positive")
     profile = IsaacTrainingProfile.load(args.profile.resolve())
     config = ResolvedTrainingConfig.from_profile(
         profile,
@@ -125,10 +137,49 @@ def main() -> None:
             expected_joint_velocity,
         )
         require_below_tolerance("automatic reset", automatic_reset_errors)
+        motion = {
+            "maximum_joint_speed_rps": 0.0,
+            "maximum_root_angular_speed_rps": 0.0,
+            "maximum_root_height_overshoot_m": 0.0,
+            "maximum_root_linear_speed_mps": 0.0,
+        }
         for _ in range(args.survival_steps):
             _, _, dones, _ = wrapped.step(zero_actions)
             if torch.any(dones > 0):
                 raise RuntimeError("zero-action state terminated immediately after reset")
+            motion["maximum_joint_speed_rps"] = max(
+                motion["maximum_joint_speed_rps"],
+                float(torch.max(torch.abs(environment.robot.data.joint_vel)).item()),
+            )
+            motion["maximum_root_angular_speed_rps"] = max(
+                motion["maximum_root_angular_speed_rps"],
+                float(
+                    torch.max(
+                        torch.linalg.vector_norm(
+                            environment.robot.data.root_ang_vel_w, dim=-1
+                        )
+                    ).item()
+                ),
+            )
+            motion["maximum_root_linear_speed_mps"] = max(
+                motion["maximum_root_linear_speed_mps"],
+                float(
+                    torch.max(
+                        torch.linalg.vector_norm(
+                            environment.robot.data.root_lin_vel_w, dim=-1
+                        )
+                    ).item()
+                ),
+            )
+            motion["maximum_root_height_overshoot_m"] = max(
+                motion["maximum_root_height_overshoot_m"],
+                float(
+                    torch.max(
+                        environment.robot.data.root_pos_w[:, 2] - expected_root[:, 2]
+                    ).item()
+                ),
+            )
+        require_motion_envelope(args, motion)
 
         print(
             json.dumps(
@@ -137,12 +188,14 @@ def main() -> None:
                     "num_envs": config.num_envs,
                     "seed": config.seed,
                     "reset_root_height_m": float(expected_root[0, 2].item()),
+                    "authored_ground_clearance_m": environment.authored_ground_clearance_m,
                     "descriptor_initial_deviation": (
                         environment.reset_template_initial_deviation
                     ),
                     "initial_errors": initial_errors,
                     "automatic_reset_errors": automatic_reset_errors,
                     "post_reset_zero_action_steps": args.survival_steps,
+                    "post_reset_motion": motion,
                     "episode_ordinals": environment._episode_ordinals.cpu().tolist(),
                 },
                 indent=2,
@@ -190,6 +243,22 @@ def require_below_tolerance(label: str, errors: dict[str, float]) -> None:
     failed = {name: value for name, value in errors.items() if value > tolerance}
     if failed:
         raise RuntimeError(f"{label} state mismatch: {failed}")
+
+
+def require_motion_envelope(args: argparse.Namespace, motion: dict[str, float]) -> None:
+    limits = {
+        "maximum_joint_speed_rps": args.max_joint_speed,
+        "maximum_root_angular_speed_rps": args.max_root_angular_speed,
+        "maximum_root_height_overshoot_m": args.max_root_height_overshoot,
+        "maximum_root_linear_speed_mps": args.max_root_linear_speed,
+    }
+    failed = {
+        name: {"actual": motion[name], "maximum": maximum}
+        for name, maximum in limits.items()
+        if motion[name] > maximum
+    }
+    if failed:
+        raise RuntimeError(f"post-reset motion envelope exceeded: {failed}")
 
 
 if __name__ == "__main__":
