@@ -8,6 +8,7 @@ from next_lab.isaac_env import (
     engine_vector_from_isaac_tensor,
     fixed_pd_tensor,
     isaac_prim_name,
+    isaac_root_state_from_descriptor,
     locomotion_reward_q16_tensor,
     precompute_flat_command_schedules,
     rotate_world_to_root_local_q1_30_tensor,
@@ -73,6 +74,29 @@ class MotorMirrorTests(unittest.TestCase):
             torch.tensor([[4.0, 1.0, 2.0, 3.0]])
         )
         torch.testing.assert_close(quaternion, torch.tensor([[1.0, 3.0, -2.0, 4.0]]))
+
+        root_state = isaac_root_state_from_descriptor(
+            {
+                "bodies": [
+                    {
+                        "parent_body_id": None,
+                        "local_bind_translation_micrometres": [
+                            1_000_000,
+                            2_000_000,
+                            3_000_000,
+                        ],
+                        "local_bind_rotation_q1_30": [
+                            1 << 29,
+                            1 << 28,
+                            -(1 << 27),
+                            1 << 30,
+                        ],
+                    }
+                ]
+            }
+        )
+        self.assertEqual(root_state[:7], (1.0, -3.0, 2.0, 1.0, 0.5, 0.125, 0.25))
+        self.assertEqual(root_state[7:], (0.0,) * 6)
 
     def test_locomotion_reward_uses_applied_action_and_is_yaw_invariant(self) -> None:
         half_sqrt_q30 = 759_250_125

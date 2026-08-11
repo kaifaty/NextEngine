@@ -114,6 +114,31 @@ def engine_quaternion_xyzw_from_isaac_wxyz_tensor(quaternion: torch.Tensor) -> t
     return torch.stack((x, z, -y, w), dim=-1)
 
 
+def isaac_root_state_from_descriptor(descriptor: dict[str, Any]) -> tuple[float, ...]:
+    roots = [body for body in descriptor["bodies"] if body["parent_body_id"] is None]
+    if len(roots) != 1:
+        raise ValueError("descriptor must declare exactly one root body")
+    root = roots[0]
+    x, up, forward = root["local_bind_translation_micrometres"]
+    qx, qy, qz, qw = root["local_bind_rotation_q1_30"]
+    scale = float(Q1_30_ONE)
+    return (
+        x / 1_000_000.0,
+        -forward / 1_000_000.0,
+        up / 1_000_000.0,
+        qw / scale,
+        qx / scale,
+        -qz / scale,
+        qy / scale,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+    )
+
+
 def rotate_world_to_root_local_q1_30_tensor(
     quaternion_xyzw_q1_30: torch.Tensor, world_vector: torch.Tensor
 ) -> torch.Tensor:
@@ -327,6 +352,7 @@ if ISAAC_LAB_AVAILABLE:
             )
             if len(self._foot_body_ids) != 2:
                 raise RuntimeError("descriptor declares exactly two foot effectors")
+            self._capture_reset_defaults()
             for name in (
                 "_action",
                 "_previous_action",
@@ -339,6 +365,49 @@ if ISAAC_LAB_AVAILABLE:
                 "_episode_component_sums",
             ):
                 setattr(self, name, getattr(self, name).to(self.device))
+
+        def _capture_reset_defaults(self) -> None:
+            """Close the engine-authored pose into deterministic reset templates."""
+            root_template = torch.tensor(
+                isaac_root_state_from_descriptor(self.descriptor),
+                dtype=torch.float32,
+                device=self.device,
+            ).unsqueeze(0)
+            initial_root_state = self.robot.data.root_state_w.clone()
+            initial_root_state[:, :3] -= self.scene.env_origins
+            root_pose_deviation = torch.max(
+                torch.abs(
+                    initial_root_state[:, :7]
+                    - root_template[:, :7].expand_as(initial_root_state[:, :7])
+                )
+            )
+            initial_root_velocity = torch.max(torch.abs(initial_root_state[:, 7:]))
+            if root_pose_deviation > 0.01:
+                raise RuntimeError(
+                    "initial PhysX root pose does not match the engine descriptor: "
+                    f"maximum deviation {float(root_pose_deviation.item())}"
+                )
+
+            joint_template = self.robot.data.default_joint_pos[0].unsqueeze(0)
+            joint_deviation = torch.max(
+                torch.abs(
+                    self.robot.data.joint_pos
+                    - joint_template.expand_as(self.robot.data.joint_pos)
+                )
+            )
+
+            self.reset_template_initial_deviation = {
+                "root_pose": float(root_pose_deviation.item()),
+                "root_velocity": float(initial_root_velocity.item()),
+                "joint_position": float(joint_deviation.item()),
+            }
+            self.robot.data.default_root_state.copy_(
+                root_template.expand_as(self.robot.data.default_root_state)
+            )
+            self.robot.data.default_joint_pos.copy_(
+                joint_template.expand_as(self.robot.data.default_joint_pos)
+            )
+            self.robot.data.default_joint_vel.zero_()
 
         def _setup_scene(self) -> None:
             self.robot = Articulation(self.cfg.asset)
@@ -504,7 +573,10 @@ if ISAAC_LAB_AVAILABLE:
             threshold = 0.45 if self.profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID else 0.25
             terminated = root[:, 2] <= threshold
             if self.profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID:
-                terminated |= (torch.abs(root[:, 0]) >= 90.0) | (torch.abs(root[:, 1]) >= 90.0)
+                displacement = root[:, :2] - self.scene.env_origins[:, :2]
+                terminated |= (torch.abs(displacement[:, 0]) >= 90.0) | (
+                    torch.abs(displacement[:, 1]) >= 90.0
+                )
             timed_out = self.episode_length_buf >= self.max_episode_length - 1
             return terminated, timed_out
 
@@ -532,6 +604,17 @@ if ISAAC_LAB_AVAILABLE:
                     )
                 self.extras["log"] = log
             super()._reset_idx(env_ids)
+            root_state = self.robot.data.default_root_state[env_ids].clone()
+            root_state[:, :3] += self.scene.env_origins[env_ids]
+            joint_position = self.robot.data.default_joint_pos[env_ids].clone()
+            joint_velocity = self.robot.data.default_joint_vel[env_ids].clone()
+            self.robot.write_root_state_to_sim(root_state, env_ids)
+            self.robot.write_joint_state_to_sim(
+                joint_position, joint_velocity, env_ids=env_ids
+            )
+            self.robot.set_joint_effort_target(
+                torch.zeros_like(joint_position), env_ids=env_ids
+            )
             self._action[env_ids] = 0
             self._previous_action[env_ids] = 0
             self._previous_effort[env_ids] = 0

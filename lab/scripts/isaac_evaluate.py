@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import copy
 import json
-import math
 import os
 import statistics
 import subprocess
@@ -22,6 +21,7 @@ from next_lab.isaac_training import (
     IsaacTrainingProfile,
     ResolvedTrainingConfig,
     atomic_write_json,
+    equal_episode_quota,
     parse_gpu_memory_csv,
     require_external_path,
     sha256_file,
@@ -58,6 +58,7 @@ def main() -> None:
     max_steps = evaluation["max_steps"] if args.max_steps is None else args.max_steps
     if min(episodes, num_envs, max_steps) <= 0:
         raise ValueError("evaluation counts must be positive")
+    episodes_per_slot = equal_episode_quota(episodes, num_envs)
     config = ResolvedTrainingConfig.from_profile(
         profile,
         num_envs=num_envs,
@@ -99,6 +100,7 @@ def main() -> None:
         "status": "running",
         "evaluation_id": evaluation_id,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "repository": repository_state(),
         "profile_id": profile.profile_id,
         "profile_hash": profile.profile_hash,
         "environment_profile_id": profile.environment_profile_id,
@@ -106,6 +108,10 @@ def main() -> None:
         "run_root_hex": config.run_root_hex,
         "num_envs": num_envs,
         "requested_episodes": episodes,
+        "sampling": {
+            "strategy": "equal-per-slot",
+            "episodes_per_slot": episodes_per_slot,
+        },
         "maximum_episode_steps": max_steps,
         "checkpoint": {
             "path": str(checkpoint),
@@ -168,9 +174,14 @@ def main() -> None:
         episode_returns: list[float] = []
         episode_lengths: list[int] = []
         episode_component_means: list[list[float]] = []
+        slot_returns: list[list[float]] = [[] for _ in range(num_envs)]
+        slot_lengths: list[list[int]] = [[] for _ in range(num_envs)]
+        completed_per_slot = torch.zeros(
+            num_envs, dtype=torch.int64, device=config.device
+        )
         terminated_count = 0
         truncated_count = 0
-        step_budget = max_steps * (math.ceil(episodes / num_envs) + 1)
+        step_budget = max_steps * episodes_per_slot
 
         with torch.inference_mode():
             for _ in range(step_budget):
@@ -191,25 +202,31 @@ def main() -> None:
                 if len(done_ids) == 0:
                     continue
                 for env_id in done_ids.tolist():
-                    if len(episode_returns) >= episodes:
-                        break
+                    if completed_per_slot[env_id] >= episodes_per_slot:
+                        continue
                     length = int(current_lengths[env_id].item())
-                    episode_returns.append(float(current_returns[env_id].item()))
+                    episode_return = float(current_returns[env_id].item())
+                    episode_returns.append(episode_return)
                     episode_lengths.append(length)
                     episode_component_means.append(
                         (current_components[env_id] / length).cpu().tolist()
                     )
+                    slot_returns[env_id].append(episode_return)
+                    slot_lengths[env_id].append(length)
+                    completed_per_slot[env_id] += 1
                     terminated_count += int(environment.reset_terminated[env_id].item())
                     truncated_count += int(environment.reset_time_outs[env_id].item())
                 current_returns[done_ids] = 0.0
                 current_lengths[done_ids] = 0
                 current_components[done_ids] = 0.0
-                if len(episode_returns) >= episodes:
+                if torch.all(completed_per_slot >= episodes_per_slot):
                     break
 
-        if len(episode_returns) != episodes:
+        completed_counts = completed_per_slot.cpu().tolist()
+        if completed_counts != [episodes_per_slot] * num_envs:
             raise RuntimeError(
-                f"evaluation step budget exhausted after {len(episode_returns)} episodes"
+                "evaluation step budget exhausted before equal per-slot quota: "
+                f"minimum={min(completed_counts)}, maximum={max(completed_counts)}"
             )
         component_metrics = {}
         for index, component in enumerate(environment.profile["reward_components"]):
@@ -225,6 +242,16 @@ def main() -> None:
                 "termination": {
                     "terminated": terminated_count,
                     "truncated": truncated_count,
+                },
+                "slot_balance": {
+                    "episode_counts": completed_counts,
+                    "episode_lengths": slot_lengths,
+                    "mean_returns": summary(
+                        [statistics.mean(values) for values in slot_returns]
+                    ),
+                    "mean_lengths": summary(
+                        [statistics.mean(values) for values in slot_lengths]
+                    ),
                 },
                 "reward_component_mean_per_step": component_metrics,
                 "gpu_postflight": query_gpu(config.device),
@@ -309,6 +336,24 @@ def query_gpu(device: str) -> dict[str, int | str]:
         if record["index"] == index:
             return record
     raise RuntimeError(f"CUDA device is not reported by nvidia-smi: {device}")
+
+
+def repository_state() -> dict[str, Any]:
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPOSITORY_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=REPOSITORY_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    return {"root": str(REPOSITORY_ROOT), "commit": commit, "dirty": bool(status)}
 
 
 if __name__ == "__main__":

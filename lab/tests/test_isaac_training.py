@@ -11,6 +11,7 @@ from next_lab.isaac_training import (
     ResolvedTrainingConfig,
     atomic_write_json,
     canonical_json_hash,
+    equal_episode_quota,
     parse_gpu_memory_csv,
     require_external_path,
     sha256_file,
@@ -93,6 +94,13 @@ class IsaacTrainingTests(unittest.TestCase):
         profile = IsaacTrainingProfile.load(PROFILE)
         with self.assertRaisesRegex(ValueError, "num_envs"):
             ResolvedTrainingConfig.from_profile(profile, num_envs=0)
+
+    def test_evaluation_quota_is_equal_per_slot(self) -> None:
+        self.assertEqual(equal_episode_quota(256, 64), 4)
+        with self.assertRaisesRegex(ValueError, "multiple of num_envs"):
+            equal_episode_quota(17, 16)
+        with self.assertRaisesRegex(ValueError, "multiple of num_envs"):
+            equal_episode_quota(8, 16)
 
     def test_atomic_json_and_gpu_memory_parser_are_bounded(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

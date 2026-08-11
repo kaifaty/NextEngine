@@ -246,6 +246,18 @@ def parse_gpu_memory_csv(value: str) -> dict[str, int | str]:
         raise ValueError("invalid nvidia-smi memory response") from error
 
 
+def equal_episode_quota(episodes: int, num_envs: int) -> int:
+    episodes = _positive_int(episodes, "evaluation.episodes")
+    num_envs = _positive_int(num_envs, "evaluation.num_envs")
+    quota, remainder = divmod(episodes, num_envs)
+    if quota == 0 or remainder != 0:
+        raise ValueError(
+            "evaluation episodes must be a positive multiple of num_envs "
+            "for unbiased per-slot sampling"
+        )
+    return quota
+
+
 def _validate_policy(value: dict[str, Any]) -> None:
     _positive_number(value.get("init_noise_std"), "policy.init_noise_std")
     for field in ("actor_hidden_dims", "critic_hidden_dims"):
@@ -284,8 +296,7 @@ def _validate_algorithm(value: dict[str, Any]) -> None:
 
 
 def _validate_evaluation(value: dict[str, Any]) -> None:
-    _positive_int(value.get("num_envs"), "evaluation.num_envs")
-    _positive_int(value.get("episodes"), "evaluation.episodes")
+    equal_episode_quota(value.get("episodes"), value.get("num_envs"))
     _positive_int(value.get("max_steps"), "evaluation.max_steps")
     seeds = value.get("seeds")
     if not isinstance(seeds, list) or not seeds:

@@ -95,6 +95,18 @@ On the prepared host, start a full profile run with:
 /home/kaifaty/NextEngine-training/train-nextengine-poc.sh
 ```
 
+Before a new training profile or translated body is used, force a fall and
+verify that every slot returns to the descriptor-authored root pose, zero root
+velocity, configured joint pose, and zero joint velocity:
+
+```text
+/home/kaifaty/NextEngine-training/check-nextengine-reset.sh
+```
+
+This gate also requires the reset state to survive two zero-action motor ticks.
+The environment does not use the already contact-perturbed PhysX startup state
+as a reset template.
+
 Use explicit overrides for a quick integration check:
 
 ```text
@@ -126,6 +138,10 @@ done
 ```
 
 An evaluation records returns, episode lengths, termination versus truncation,
-and every ordered reward component. A completed training run proves that the
-pipeline works; only held-out multi-seed evaluation can support a policy-quality
-claim. Checkpoints, evaluation manifests, and logs remain outside Git.
+and every ordered reward component. Its episode count must be a positive
+multiple of `num_envs`: each environment slot contributes exactly the same
+number of episodes, so fast-failing slots cannot bias the report. The manifest
+closes the evaluator Git revision and records every slot's episode count and
+lengths. A completed training run proves that the pipeline works; only held-out
+multi-seed evaluation can support a policy-quality claim. Checkpoints,
+evaluation manifests, and logs remain outside Git.
