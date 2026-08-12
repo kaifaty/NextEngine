@@ -275,6 +275,402 @@
     },
     {
       "maximum_episode_motor_ticks": 1200,
+      "name": "locomotion-knee-material",
+      "root": {
+        "actor_token": 1000,
+        "position_micrometres": [
+          0,
+          1095000,
+          0
+        ],
+        "rotation_q1_30": [
+          0,
+          0,
+          0,
+          1073741824
+        ]
+      },
+      "skill_profile": 1,
+      "ticks": [
+        {
+          "contact_substeps": [
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1004,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10002
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1004,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10002
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1004,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10002
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1004,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10002
+              }
+            ]
+          ],
+          "expected_decision": {
+            "decision_root": "4caea8c5aa3e08f240468d4c8d95f54f00ccbe9142f33f0d4f9ede3a5bf2d477",
+            "disposition": 1,
+            "reason": 5,
+            "reason_id": "terminal.forbidden-locomotion-contact"
+          },
+          "expected_frames": [
+            {
+              "classification_root": "38776c747130e739136a495b3fa11c9f61d275bff62333065c92747ed439c2f3",
+              "contacts": [
+                {
+                  "class": 3,
+                  "consecutive_active_substeps": 1,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1004,
+                    10002
+                  ],
+                  "primary_role": 6,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "1a65ff5ade00c14ec10ae592a84a94d0a76188217c757b6bc72399433b74cef2"
+            },
+            {
+              "classification_root": "4a00fb3c6c737cef18ceb95e8d527f5205ce623bc1be5a33e82ee6effd5a4bc3",
+              "contacts": [
+                {
+                  "class": 3,
+                  "consecutive_active_substeps": 2,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1004,
+                    10002
+                  ],
+                  "primary_role": 6,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "b34dd60540b01952754f85e1df9a744493f40f05b2b650b92b9dcb22ba0bc5fb"
+            },
+            {
+              "classification_root": "5fbb566a8cbead110f4c2f19802ad4263cac2abf09061a3c6229695c31fd2805",
+              "contacts": [
+                {
+                  "class": 3,
+                  "consecutive_active_substeps": 3,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1004,
+                    10002
+                  ],
+                  "primary_role": 6,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "5cf5e8dc5f62b33d03745b811665a625bab565d82075265c490db1193e1c62cd"
+            },
+            {
+              "classification_root": "ba1837693b7b68271d753967f279ee468841fb08c05ff814caf00b746bcf2ab1",
+              "contacts": [
+                {
+                  "class": 3,
+                  "consecutive_active_substeps": 4,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1004,
+                    10002
+                  ],
+                  "primary_role": 6,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "42f5adb86d189991d4b4b27a7baee06ef32ab010d7df1b0c5189e5a4530265d6"
+            }
+          ],
+          "motor_tick": 1
+        }
+      ]
+    },
+    {
+      "maximum_episode_motor_ticks": 1200,
+      "name": "locomotion-torso-material",
+      "root": {
+        "actor_token": 1000,
+        "position_micrometres": [
+          0,
+          1095000,
+          0
+        ],
+        "rotation_q1_30": [
+          0,
+          0,
+          0,
+          1073741824
+        ]
+      },
+      "skill_profile": 1,
+      "ticks": [
+        {
+          "contact_substeps": [
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1015,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10012
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1015,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10012
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1015,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10012
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1015,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10012
+              }
+            ]
+          ],
+          "expected_decision": {
+            "decision_root": "eaac7b28a1074052aa7b74fb3c479ae9591fe9301f624b9efa020ce054fbe5fa",
+            "disposition": 1,
+            "reason": 5,
+            "reason_id": "terminal.forbidden-locomotion-contact"
+          },
+          "expected_frames": [
+            {
+              "classification_root": "23ce4851300fa55ef0f66f2ee9e1aa39ae89315f43e2daba1128a8d9018794b5",
+              "contacts": [
+                {
+                  "class": 3,
+                  "consecutive_active_substeps": 1,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1015,
+                    10012
+                  ],
+                  "primary_role": 2,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "6f6c2a5ca353a0f9330588c32213f4253954f937a4bd518c7bd451f6db2d7548"
+            },
+            {
+              "classification_root": "9751dc1feb02414fa4be2bd4ccab296d9fa18465f6b50bb60e97905083d7fe07",
+              "contacts": [
+                {
+                  "class": 3,
+                  "consecutive_active_substeps": 2,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1015,
+                    10012
+                  ],
+                  "primary_role": 2,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "7bc85e98a2981f7660cd7cb6904929002f2f03998454aecb5101495f2685ed9a"
+            },
+            {
+              "classification_root": "bf73d0c1fdfdc44f7187925a0cd05eb61d9642ff15b38b85b27ae68d0eedba49",
+              "contacts": [
+                {
+                  "class": 3,
+                  "consecutive_active_substeps": 3,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1015,
+                    10012
+                  ],
+                  "primary_role": 2,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "8ba82d8e0ffdd32d61a8d81ff91095a88ad451cea00580591db450b202bdd9eb"
+            },
+            {
+              "classification_root": "c3bc9fad54f46cc1e58b087dff66fd9cb36eb2618940d0fb419f5227b46b7419",
+              "contacts": [
+                {
+                  "class": 3,
+                  "consecutive_active_substeps": 4,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1015,
+                    10012
+                  ],
+                  "primary_role": 2,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "b5cb3db2b43fec210614f9e8ba0e78d815138cceec238827d11c84f9d716d543"
+            }
+          ],
+          "motor_tick": 1
+        }
+      ]
+    },
+    {
+      "maximum_episode_motor_ticks": 1200,
       "name": "getup-knee-support",
       "root": {
         "actor_token": 1000,

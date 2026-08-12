@@ -243,6 +243,8 @@ def _validate_contact_terminal_scenarios(
 ) -> None:
     if [scenario["name"] for scenario in scenarios] != [
         "locomotion-hand-grace",
+        "locomotion-knee-material",
+        "locomotion-torso-material",
         "getup-knee-support",
         "locomotion-head-impact",
         "locomotion-self-collision",

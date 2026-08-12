@@ -1,121 +1,46 @@
-use next_contracts::ids::PersistentId;
-use next_contracts::motor::MotorTerminalDispositionV1;
-use next_physics_physx::{CanonicalPhysXSnapshotV2, PhysXArticulationWorldV2};
+use serde_json::Value;
 
 use crate::{
-    BiomechanicsContactClassifier, BiomechanicsProceduralStandingControllerV1,
-    BiomechanicsSafetyController, BiomechanicsSkillContactProfileV1, BiomechanicsTerminalEvaluator,
-    CompiledBodySchemaV2, JointControlStateV1, PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS,
-    biomechanics_humanoid_body_schema_v2,
+    BiomechanicsContactClassV1, BiomechanicsTerminalReasonV1,
+    PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS, biomechanics_native_safety_review_json_v1,
 };
 
 #[test]
 fn native_procedural_standing_reaches_exact_thirty_second_timeout() {
-    let compiled = CompiledBodySchemaV2::compile(
-        &biomechanics_humanoid_body_schema_v2(),
-        PersistentId::from_bytes([61; 16]),
-    )
-    .expect("compile biomechanics profile");
-    let mut world =
-        PhysXArticulationWorldV2::create(compiled.physx_scene_profile, &compiled.physx_catalog)
-            .expect("create PhysX articulation");
-    let mut safety = BiomechanicsSafetyController::new(&compiled).expect("safety controller");
-    let mut contacts = BiomechanicsContactClassifier::new(&compiled).expect("contact classifier");
-    let mut terminal = BiomechanicsTerminalEvaluator::new(
-        &compiled,
-        BiomechanicsSkillContactProfileV1::Locomotion,
-        PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS,
-    )
-    .expect("terminal evaluator");
-    let residual = vec![0; compiled.actuator_definitions.len()];
-    let envelopes = safety.default_skill_envelopes();
-    let mut snapshot = world.capture().expect("initial snapshot");
-    let standing = BiomechanicsProceduralStandingControllerV1::new(&compiled, &snapshot)
-        .expect("procedural standing controller");
-    let mut last_decision = None;
-    let mut last_joint_error = None;
-    let mut last_motor_tick = 0;
-    for motor_tick in 1..=PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS {
-        let reference = standing
-            .reference_targets(&snapshot)
-            .expect("procedural standing reference");
-        safety
-            .begin_motor_tick(&reference, &residual, &envelopes)
-            .expect("prepare neutral target");
-        let mut contact_frames = Vec::new();
-        let mut joint_error = None;
-        for _ in 0..4 {
-            let states = actuator_states(&compiled, &snapshot);
-            let efforts = match safety.step_substep(&states) {
-                Ok(efforts) => efforts,
-                Err(error) => {
-                    joint_error = Some(error);
-                    break;
-                }
-            };
-            let mut dof_efforts = vec![0; efforts.len()];
-            for (effort, dof) in efforts.iter().zip(&compiled.actuator_dof_ordinals) {
-                dof_efforts[*dof as usize] = effort.effort_micronewton_metres;
-            }
-            snapshot = world
-                .apply_efforts_and_step(&dof_efforts)
-                .expect("native safety substep");
-            contact_frames.push(
-                contacts
-                    .classify_substep(&snapshot, BiomechanicsSkillContactProfileV1::Locomotion)
-                    .unwrap_or_else(|error| {
-                        panic!(
-                            "classify native contacts: {error:?}; {:?}",
-                            snapshot.contacts
-                        )
-                    }),
+    let text = biomechanics_native_safety_review_json_v1().expect("native safety review");
+    let review: Value = serde_json::from_str(&text).expect("valid review JSON");
+    assert_eq!(review["status"], "PASS");
+    assert_eq!(
+        review["samples"]
+            .as_array()
+            .expect("samples")
+            .iter()
+            .map(|sample| sample["motor_tick"].as_u64().expect("motor tick"))
+            .collect::<Vec<_>>(),
+        [0, 600, 1_200, PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS]
+    );
+    let final_sample = review["samples"]
+        .as_array()
+        .expect("samples")
+        .last()
+        .expect("final sample");
+    assert_eq!(final_sample["terminal"]["disposition"], 2);
+    assert_eq!(
+        final_sample["terminal"]["reason"],
+        BiomechanicsTerminalReasonV1::Timeout as u8
+    );
+    assert_eq!(final_sample["joints"].as_array().map(Vec::len), Some(23));
+    for sample in review["samples"].as_array().expect("samples") {
+        for contact in sample["classified_contacts"]
+            .as_array()
+            .expect("classified contacts")
+        {
+            assert_eq!(contact["primary_role"], 8);
+            assert_eq!(
+                contact["class"],
+                BiomechanicsContactClassV1::SoleSupport as u8
             );
-        }
-        while contact_frames.len() < 4 {
-            contact_frames.push(
-                contacts
-                    .classify_substep(&snapshot, BiomechanicsSkillContactProfileV1::Locomotion)
-                    .expect("complete terminal contact frame"),
-            );
-        }
-        let decision = terminal
-            .evaluate_motor_tick(motor_tick, &snapshot, &contact_frames, false, joint_error)
-            .expect("evaluate native terminal state");
-        last_joint_error = joint_error;
-        last_motor_tick = motor_tick;
-        last_decision = Some(decision.clone());
-        if decision.disposition != MotorTerminalDispositionV1::Running {
-            break;
+            assert_eq!(contact["hard_impact_violation"], false);
         }
     }
-    let decision = last_decision.expect("at least one motor tick");
-    assert_eq!(
-        decision.disposition,
-        MotorTerminalDispositionV1::Truncated,
-        "neutral safety path terminated early at tick {last_motor_tick}: {:?}; joint={last_joint_error:?}; root={:?}; joints={:?}",
-        decision.reason,
-        snapshot.links.first(),
-        snapshot.joints,
-    );
-}
-
-fn actuator_states(
-    compiled: &CompiledBodySchemaV2,
-    snapshot: &CanonicalPhysXSnapshotV2,
-) -> Vec<JointControlStateV1> {
-    compiled
-        .actuator_dof_ordinals
-        .iter()
-        .map(|dof| {
-            let state = snapshot
-                .joints
-                .iter()
-                .find(|state| state.ordinal == *dof)
-                .expect("snapshot contains every actuator DoF");
-            JointControlStateV1 {
-                position_microradians: state.position_microradians,
-                velocity_microradians_per_second: state.velocity_microradians_per_second,
-            }
-        })
-        .collect()
 }

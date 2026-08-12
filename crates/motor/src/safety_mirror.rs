@@ -149,6 +149,20 @@ fn contact_terminal_scenarios(
         )?,
         run_terminal_scenario(
             compiled,
+            "locomotion-knee-material",
+            BiomechanicsSkillContactProfileV1::Locomotion,
+            1_200,
+            vec![vec![vec![ground_contact(knee, 300_000)]; 4]],
+        )?,
+        run_terminal_scenario(
+            compiled,
+            "locomotion-torso-material",
+            BiomechanicsSkillContactProfileV1::Locomotion,
+            1_200,
+            vec![vec![vec![ground_contact(torso, 300_000)]; 4]],
+        )?,
+        run_terminal_scenario(
+            compiled,
             "getup-knee-support",
             BiomechanicsSkillContactProfileV1::GetUp,
             1_200,
@@ -378,7 +392,7 @@ mod tests {
         assert_eq!(value["action_width"], 23);
         assert_eq!(
             value["contact_terminal_scenarios"].as_array().map(Vec::len),
-            Some(5)
+            Some(7)
         );
         assert_eq!(
             actual,

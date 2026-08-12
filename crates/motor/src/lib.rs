@@ -23,6 +23,8 @@ mod safety_control;
 #[cfg(test)]
 mod safety_control_tests;
 mod safety_mirror;
+#[cfg(feature = "physx-sdk")]
+mod safety_review;
 mod terminal_v2;
 #[cfg(test)]
 mod terminal_v2_tests;
@@ -77,6 +79,8 @@ pub use safety_control::{
     JointTargetEnvelopeV1, MotorSafetyError, NORMALIZED_RESIDUAL_ONE_Q1_30,
 };
 pub use safety_mirror::{SafetyMirrorError, biomechanics_safety_contact_mirror_golden_json_v1};
+#[cfg(feature = "physx-sdk")]
+pub use safety_review::{SafetyReviewError, biomechanics_native_safety_review_json_v1};
 pub use terminal_v2::{
     BIOMECHANICS_FALL_HEIGHT_MICROMETRES, BIOMECHANICS_ROOT_NORM_TOLERANCE_Q2_60,
     BIOMECHANICS_TERMINAL_SUBSTEPS, BIOMECHANICS_WORLD_BOUND_MICROMETRES,

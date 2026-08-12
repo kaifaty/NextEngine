@@ -10,7 +10,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 BIOMECHANICS = FIXTURES / "biomechanics_motor_mirror_v1.json"
 SAFETY_CONTACT = FIXTURES / "biomechanics_safety_contact_mirror_v1.json"
 SAFETY_CONTACT_SHA256 = (
-    "828fa08cd0017eba8bf49b36ea9979c2e212f64ecf11209e0020bb6392c9bbeb"
+    "df89584da333d30a92cb0ff54606e74d6f68781ca4f4acd9003ea6f50ac1d25d"
 )
 
 

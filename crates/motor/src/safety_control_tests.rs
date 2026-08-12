@@ -233,6 +233,28 @@ fn hard_rom_and_velocity_faults_publish_no_partial_effort() {
 }
 
 #[test]
+fn post_step_observation_validation_is_read_only() {
+    let controller = controller();
+    let mut states = neutral_states(&controller);
+    let before = controller.checkpoint_root();
+    assert_eq!(controller.validate_observed_joint_states(&states), Ok(()));
+    let last = states.len() - 1;
+    states[last].velocity_microradians_per_second = i64::try_from(
+        controller.channels[last]
+            .joint
+            .base
+            .maximum_velocity_microradians_per_second,
+    )
+    .expect("profile velocity fits i64")
+        + 1;
+    assert_eq!(
+        controller.validate_observed_joint_states(&states),
+        Err(MotorSafetyError::VelocityViolation)
+    );
+    assert_eq!(controller.checkpoint_root(), before);
+}
+
+#[test]
 fn reset_clears_targets_efforts_work_and_tick_state_exactly() {
     let mut controller = controller();
     let pristine = controller.checkpoint();

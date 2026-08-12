@@ -289,6 +289,16 @@ impl BiomechanicsSafetyController {
         Ok(output)
     }
 
+    pub fn validate_observed_joint_states(
+        &self,
+        joint_states: &[JointControlStateV1],
+    ) -> Result<(), MotorSafetyError> {
+        if joint_states.len() != self.channels.len() {
+            return Err(MotorSafetyError::ChannelCount);
+        }
+        validate_joint_states(&self.channels, joint_states)
+    }
+
     pub fn reset(&mut self) {
         for (target, channel) in self.applied_targets.iter_mut().zip(&self.channels) {
             *target = channel.joint.neutral_position_microradians;
