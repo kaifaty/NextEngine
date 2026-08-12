@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-27 |
 | Статус | Accepted |
-| Версия | 1.9 |
+| Версия | 2.0 |
 | Последняя проверка | 2026-08-12 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
-| Заменяет | SPEC-27 1.8; adds the no-text physical-action-chunk input and Proposed graph/shared-joint controller profile without changing current Stage 0 schemas |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
+| Заменяет | SPEC-27 1.9; makes the graph-policy static cache key independent from dynamic effective-instance revisions |
 
 ## История принятия
 
@@ -432,10 +432,14 @@ cached static node/edge morphology
 
 Node/edge/token order, local adjacency, attention mask, widths, operation set,
 normalization and fixed maximum counts are exact profile data. Static cache
-identity binds BodySchema, compiled descriptor, effective instance, topology
-and encoder hashes; it is reconstructible and invalidates only on their
-declared revision changes. Pose/contact/velocity/fatigue updates are dynamic
-inputs and do not rebuild the cache.
+identity is exactly `(static_morphology_hash, encoder_profile_hash)`, where
+`static_morphology_hash` is the canonical SPEC-14 projection over schema,
+compiled descriptors, topology and the profile-declared static instance
+subset. It never uses the full `BodyInstanceProjectionV1` revision/hash.
+Pose/contact/velocity/fatigue, transient health/power and sensor updates are
+dynamic inputs and do not rebuild the cache; committed structural/material
+changes rebuild it by changing the static projection. The cache remains
+reconstructible.
 
 The temporal core remains replaceable through the generic state schema. A
 frame-stacked MLP/TCN is the stateless/window comparator, GRU is the first

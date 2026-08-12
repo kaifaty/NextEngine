@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
 
+from next_lab.motor_mirror import CURRENT_TRANSLATOR_VERSION, LEGACY_TRANSLATOR_PROFILE_ID
 from next_lab.usd_translation import render_usda, translate_to_store
 
 
@@ -124,11 +126,20 @@ def _profile(profile_id: str, velocity_frame: str, maximum_steps: int, reward_co
         "action_layout_hash",
         "command_schedule_profile_hash",
         "reward_profile_hash",
+        "translator_version_hash",
         "termination_profile_hash",
         "rng_derivation_profile_hash",
         "correspondence_profile_hash",
     ):
         profile[field] = "12" * 32
+    translator_identity = (
+        CURRENT_TRANSLATOR_VERSION
+        if reward_count == 11
+        else LEGACY_TRANSLATOR_PROFILE_ID
+    )
+    profile["translator_version_hash"] = hashlib.sha256(
+        translator_identity.encode("utf-8") + b"\0" + bytes.fromhex("12" * 32)
+    ).hexdigest()
     if reward_count == 10:
         profile["command_profile"] = {
             "warmup_ticks": 60,

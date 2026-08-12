@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-14 |
 | Статус | Accepted |
-| Версия | 2.7 |
+| Версия | 2.8 |
 | Последняя проверка | 2026-08-12 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
-| Заменяет | SPEC-14 2.6; adopts the no-text contact-centric physical-skill contract and replaces the unconsumed motion-horizon proposal with `PhysicalActionChunk` |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
+| Заменяет | SPEC-14 2.7; separates static morphology cache identity from per-tick effective-instance state |
 
 ## Назначение и invariants
 
@@ -180,14 +180,36 @@ and resets incompatible adaptation/generator/router state; it never guesses by
 array index or joint name.
 
 Static morphology encoding is reconstructible and MAY be cached per node/edge.
-Its identity binds exact BodySchema, compiled descriptor, effective instance,
-topology and encoder/profile hashes. It invalidates only on creation or a
-declared schema/topology/effective-projection change, including material body/
-equipment change or actuator lock/restore; per-tick pose/contact/fatigue updates
-do not rebuild it. Cache warmth and completion order never choose an action.
+Before a profile can use that cache, it defines one canonical
+`StaticMorphologyProjection` containing the exact BodySchema and compiled-
+descriptor/catalog hashes, topology revision and only those effective-instance
+fields that feed the static encoder: morphology parameters, material mass/
+inertia/geometry equipment or attachment changes, and persistent actuator/
+joint configuration such as a committed lock/restore. Its canonical bytes use
+ordered `(owner_id, field_id, source_revision, value_hash)` entries and bind the
+profile's static/dynamic field-classification hash. They produce:
 
-These semantic boundaries are Accepted through ADR-066. ADR-058/SPEC-35 accept
-the `BodySchemaV1` and `BodyInstanceProjectionV1` wire records for the fixed
+```text
+static_morphology_hash = SHA256(
+  "nextengine.static-morphology-projection.v1\0"
+  || u64_le(static_projection_bytes.len)
+  || static_projection_bytes
+)
+```
+
+Pose, velocity, contact, transient health/available-power/sensor values and
+ordinary fatigue are excluded even though their owner revisions remain present
+in the wider `BodyInstanceProjectionV1`; they are per-tick dynamic inputs. A
+damage/equipment/attachment field is classified by the exact profile as either
+static or dynamic, never both: only a committed structural/material change
+creates a new static projection/hash. Cache identity binds
+`static_morphology_hash` plus the encoder/profile hash, not the hash/revision of
+the complete effective instance. It invalidates exactly when one of those key
+parts changes. Cache warmth and completion order never choose an action.
+
+These semantic boundaries are Accepted through ADR-066, with the static-cache
+identity narrowed by ADR-068. ADR-058/SPEC-35 accept the `BodySchemaV1` and
+`BodyInstanceProjectionV1` wire records for the fixed
 23-DoF Stage 0 humanoid. Non-default equipment, damage, attachment/topology
 overlays and additional policy families remain Proposed until their own
 production consumers and ProductChecks exist under ADR-046.

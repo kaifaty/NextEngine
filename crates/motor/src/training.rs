@@ -27,6 +27,21 @@ pub const FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID: &str =
     "nextengine.motor.env.humanoid-flat-command.v1";
 pub const CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID: &str =
     "nextengine.motor.env.humanoid-flat-command-curriculum.v2";
+pub const ISAAC_TRANSLATOR_VERSION: &str = "nextengine.isaac-usda-translator.v3";
+
+// Standing and flat-command V1 manifests are immutable compatibility records.
+// Their historical identity predates the exact executable translator version
+// string used by curriculum V2 and must remain byte-for-byte stable.
+const LEGACY_ISAAC_TRANSLATOR_PROFILE_ID: &str = "nextengine.isaac-translator.v2";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
+enum CurriculumSupportCommandModeV2 {
+    ExactZero = 1,
+}
+
+const CURRICULUM_SUPPORT_COMMAND_MODE_V2: CurriculumSupportCommandModeV2 =
+    CurriculumSupportCommandModeV2::ExactZero;
 
 const RANDOMIZATION_PURPOSES: [&str; 4] = [
     "randomization.action-noise",
@@ -672,7 +687,15 @@ fn environment_manifest(
             compiled.body_schema_hash,
         ),
         translator_version_hash: profile_constant_hash(
-            "nextengine.isaac-translator.v2",
+            match profile {
+                MotorEnvironmentProfile::StandingV1
+                | MotorEnvironmentProfile::HumanoidFlatCommandV1 => {
+                    LEGACY_ISAAC_TRANSLATOR_PROFILE_ID
+                }
+                MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
+                    ISAAC_TRANSLATOR_VERSION
+                }
+            },
             compiled.body_schema_hash,
         ),
         command_schedule_profile_hash,
@@ -753,9 +776,10 @@ fn reward_profile_hash(
             ],
         ),
         MotorEnvironmentProfile::HumanoidFlatCommandCurriculumV2 => {
-            let shaping_id = "squared-tracking-command-support-v2";
+            let shaping_id = "squared-tracking-command-support-exact-zero-v2";
             preimage.extend_from_slice(&(shaping_id.len() as u32).to_le_bytes());
             preimage.extend_from_slice(shaping_id.as_bytes());
+            preimage.push(CURRICULUM_SUPPORT_COMMAND_MODE_V2 as u8);
             (
                 CURRICULUM_LOCOMOTION_REWARD_COMPONENT_IDS
                     .into_iter()

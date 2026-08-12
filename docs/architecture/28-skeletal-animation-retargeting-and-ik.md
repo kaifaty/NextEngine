@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-28 |
 | Статус | Accepted |
-| Версия | 1.7 |
+| Версия | 1.8 |
 | Последняя проверка | 2026-08-12 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
-| Заменяет | SPEC-28 1.6; renames the unconsumed motion-horizon proposal to the single contact-centric `PhysicalActionChunk` reference |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
+| Заменяет | SPEC-28 1.7; aligns the unconsumed `PhysicalActionChunk` field set with ADR-066 and SPEC-14 |
 
 ## История принятия
 
@@ -298,8 +298,8 @@ Physical Embodiment and produced by exactly one declared source:
 
 It binds source intent/command/contact-plan/scene/body/skeleton revisions,
 exact start/end tick, project-bounded normally `250..1000 ms`, ordered root/
-center-of-mass, effector/keypoint/pose/contact/object trajectories, force/
-support transitions, phase/style and interruption metadata. It is a motor
+center-of-mass and effector/object trajectories, selected contact schedule,
+force/support transitions, phase/style and interruption metadata. It is a motor
 reference, not pose/contact authority. Learned generator state lives in
 SPEC-27 `PolicyStateRecordV1`; hidden cache and presentation feedback are
 forbidden. The chunk is the engine's only action-chunk concept at the reference

@@ -190,6 +190,28 @@ class MotorMirrorTests(unittest.TestCase):
         self.assertEqual(components[0, 9].item(), 65_536)
         self.assertLess(total.item(), 0)
 
+    def test_curriculum_support_uses_exact_zero_command_mode(self) -> None:
+        quaternion = torch.tensor([[0, 0, 0, 1 << 30]] * 2, dtype=torch.int64)
+        zeros3 = torch.zeros((2, 3), dtype=torch.int64)
+        zeros23 = torch.zeros((2, 23), dtype=torch.int64)
+        components, _ = locomotion_reward_q16_tensor(
+            quaternion_xyzw_q1_30=quaternion,
+            root_height_micrometres=torch.tensor([1_050_000, 1_050_000], dtype=torch.int64),
+            target_root_height_micrometres=1_050_000,
+            local_linear_velocity_raw=zeros3,
+            local_angular_velocity_raw=zeros3,
+            vertical_velocity_raw=torch.zeros(2, dtype=torch.int64),
+            command_raw=torch.tensor([[0, 0, 0], [0, 16_666, 0]], dtype=torch.int64),
+            effort_sum_raw=torch.zeros(2, dtype=torch.int64),
+            applied_action_raw=zeros23,
+            previous_applied_action_raw=zeros23,
+            contacting_foot_slip_sum_raw=torch.zeros(2, dtype=torch.int64),
+            contacting_foot_count=torch.tensor([2, 1], dtype=torch.int64),
+            fell=torch.zeros(2, dtype=torch.bool),
+            profile_id=CURRICULUM_LOCOMOTION_PROFILE_ID,
+        )
+        self.assertEqual(components[:, 9].tolist(), [65_536, 65_536])
+
     def test_isaac_coordinate_and_quaternion_ordering_are_explicit(self) -> None:
         vector = engine_vector_from_isaac_tensor(torch.tensor([[1.0, 2.0, 3.0]]))
         torch.testing.assert_close(vector, torch.tensor([[1.0, 3.0, -2.0]]))

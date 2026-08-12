@@ -6,15 +6,14 @@ use serde_json::{Value, json};
 
 use crate::{
     CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID, CompiledBodySchemaV1,
-    FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID, FixedPdController, JointControlStateV1,
-    STANDING_ENVIRONMENT_PROFILE_ID, TrainingEnvironmentError, canonical_environment_manifest_v2,
-    curriculum_locomotion_command_schedule, curriculum_locomotion_profile_hash_v2,
-    curriculum_locomotion_stages_v2, derive_locomotion_episode_seed_set,
-    flat_locomotion_command_profile_v1, flat_locomotion_command_schedule,
-    reference_humanoid_body_schema_v1, rotate_world_to_root_local_q1_30,
+    FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID, FixedPdController, ISAAC_TRANSLATOR_VERSION,
+    JointControlStateV1, STANDING_ENVIRONMENT_PROFILE_ID, TrainingEnvironmentError,
+    canonical_environment_manifest_v2, curriculum_locomotion_command_schedule,
+    curriculum_locomotion_profile_hash_v2, curriculum_locomotion_stages_v2,
+    derive_locomotion_episode_seed_set, flat_locomotion_command_profile_v1,
+    flat_locomotion_command_schedule, reference_humanoid_body_schema_v1,
+    rotate_world_to_root_local_q1_30,
 };
-
-pub const ISAAC_TRANSLATOR_VERSION: &str = "nextengine.isaac-usda-translator.v3";
 
 pub fn stage0_isaac_mirror_descriptor_json_v2() -> Result<String, TrainingEnvironmentError> {
     let schema = reference_humanoid_body_schema_v1();
@@ -264,6 +263,7 @@ fn profile_json(
         "action_layout_hash": compiled.action_layout.layout_hash().expect("layout is valid").to_hex(),
         "command_schedule_profile_hash": manifest.command_schedule_profile_hash.to_hex(),
         "reward_profile_hash": manifest.reward_profile_hash.to_hex(),
+        "translator_version_hash": manifest.translator_version_hash.to_hex(),
         "termination_profile_hash": manifest.termination_profile_hash.to_hex(),
         "rng_derivation_profile_hash": manifest.rng_derivation_profile_hash.to_hex(),
         "correspondence_profile_hash": manifest.correspondence_profile_hash.to_hex(),

@@ -101,14 +101,20 @@ fn curriculum_schedule_progresses_without_changing_v1() {
 
 #[test]
 fn curriculum_profile_has_distinct_closed_reward_and_command_semantics() {
+    let standing = canonical_environment_manifest_v2(STANDING_ENVIRONMENT_PROFILE_ID)
+        .expect("standing manifest");
     let legacy = canonical_environment_manifest_v2(FLAT_LOCOMOTION_ENVIRONMENT_PROFILE_ID)
         .expect("legacy manifest");
     let curriculum =
         canonical_environment_manifest_v2(CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID)
             .expect("curriculum manifest");
     assert_eq!(
+        standing.manifest_hash().expect("standing hash").to_hex(),
+        "dc64488393a57a07e993fdf062f663c8024fc1475267dbf6e8c35f5458f45396"
+    );
+    assert_eq!(
         legacy.manifest_hash().expect("legacy hash").to_hex(),
-        "c6aae6bfa4b2061b20afec5ccfb442a8bfcb3c9d1b35f08f6b5a2425d9861e47"
+        "dd5e392d482c43f94fadb1eb1e7b484c9bd73410d092fd3586b35ff0feb074d8"
     );
     assert_ne!(
         legacy.manifest_hash().expect("legacy hash"),
@@ -119,12 +125,31 @@ fn curriculum_profile_has_distinct_closed_reward_and_command_semantics() {
         curriculum.command_schedule_profile_hash
     );
     assert_ne!(legacy.reward_profile_hash, curriculum.reward_profile_hash);
+    assert_eq!(
+        standing.translator_version_hash,
+        legacy.translator_version_hash
+    );
+    assert_ne!(
+        legacy.translator_version_hash,
+        curriculum.translator_version_hash
+    );
+    assert_eq!(
+        curriculum.translator_version_hash,
+        profile_constant_hash(ISAAC_TRANSLATOR_VERSION, curriculum.body_schema_hash)
+    );
     assert_eq!(curriculum.reward_components.len(), 11);
     assert_eq!(
         curriculum.reward_components[9].component_id.as_str(),
         "reward.command-conditioned-support"
     );
     assert_eq!(curriculum.reward_components[10].coefficient_q16, -655_360);
+}
+
+#[test]
+fn curriculum_support_treats_every_nonzero_rate_limited_command_as_moving() {
+    assert!(!reward::curriculum_command_is_moving([0, 0, 0]));
+    assert!(reward::curriculum_command_is_moving([0, 16_666, 0]));
+    assert!(reward::curriculum_command_is_moving([0, 0, -1]));
 }
 
 #[test]

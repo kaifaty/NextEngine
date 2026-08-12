@@ -6,7 +6,7 @@ use next_contracts::ids::SchemaId;
 use next_contracts::physics::{PhysicsGeometryV1, PhysicsPoseV1};
 
 pub const REFERENCE_HUMANOID_DOF: usize = 23;
-pub const REFERENCE_HUMANOID_STANDING_ROOT_HEIGHT_MICROMETRES: i64 = 1_095_000;
+pub const REFERENCE_HUMANOID_STANDING_ROOT_HEIGHT_MICROMETRES: i64 = 1_050_000;
 
 #[derive(Clone, Copy)]
 struct LinkSpec {
@@ -229,7 +229,7 @@ pub fn reference_humanoid_body_schema_v1() -> BodySchemaV1 {
     let schema = BodySchemaV1 {
         schema_version: BODY_SCHEMA_VERSION_V1,
         schema_id: id("nextengine.body.humanoid-stage0.v1"),
-        schema_revision: 2,
+        schema_revision: 1,
         family_id: id("policy-family.humanoid"),
         bodies,
         joints,
@@ -324,7 +324,6 @@ fn id(value: &str) -> SchemaId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
 
     #[test]
     fn reference_humanoid_is_one_free_root_plus_twenty_three_actuators() {
@@ -343,50 +342,17 @@ mod tests {
     }
 
     #[test]
-    fn authored_standing_pose_is_tangent_to_the_ground() {
+    fn reference_v1_identity_keeps_its_original_revision_and_root_height() {
         let schema = reference_humanoid_body_schema_v1();
-        let bodies = schema
+        let root = schema
             .bodies
             .iter()
-            .map(|body| (body.body_id.clone(), body))
-            .collect::<BTreeMap<_, _>>();
-        let mut world_heights = BTreeMap::new();
-        while world_heights.len() < bodies.len() {
-            let before = world_heights.len();
-            for (body_id, body) in &bodies {
-                if world_heights.contains_key(body_id) {
-                    continue;
-                }
-                let parent_height = match &body.parent_body_id {
-                    Some(parent) => match world_heights.get(parent) {
-                        Some(height) => *height,
-                        None => continue,
-                    },
-                    None => 0,
-                };
-                world_heights.insert(
-                    body_id.clone(),
-                    parent_height + body.local_bind_pose.translation_micrometres[1],
-                );
-            }
-            assert!(world_heights.len() > before, "body hierarchy must resolve");
-        }
-
-        let minimum = schema
-            .bodies
-            .iter()
-            .flat_map(|body| {
-                let body_height = world_heights[&body.body_id];
-                body.colliders.iter().map(move |collider| {
-                    let extent = match collider.geometry {
-                        PhysicsGeometryV1::Sphere { radius_micrometres } => radius_micrometres,
-                        _ => panic!("reference humanoid colliders must remain spheres"),
-                    };
-                    body_height + collider.local_pose.translation_micrometres[1] - extent
-                })
-            })
-            .min()
-            .expect("reference humanoid has colliders");
-        assert_eq!(minimum, 0);
+            .find(|body| body.parent_body_id.is_none())
+            .expect("reference humanoid has one root");
+        assert_eq!(schema.schema_revision, 1);
+        assert_eq!(
+            root.local_bind_pose.translation_micrometres,
+            [0, 1_050_000, 0]
+        );
     }
 }

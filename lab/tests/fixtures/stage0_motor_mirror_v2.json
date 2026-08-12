@@ -1,5 +1,5 @@
 {
-  "body_schema_hash": "47f5bad114a004bdf02fe569eca5dc600a6e567e764417ebf007f110ce67b3d2",
+  "body_schema_hash": "13f01daf349cddd84f6c3a068cf9da9ff1307a727949ffa9232ec2e02cbc9bd5",
   "command_schedule": {
     "samples": [
       {
@@ -147,7 +147,7 @@
     ],
     "sha256": "4c61481bc5234ca4e2359ad246e4a3a8e216291cad3fb216434597dd795bb2bd"
   },
-  "descriptor_sha256": "a0cd26e2edbf5cc0d5f9d4761021142e1bf94929754ccb90bcf8a459be8d9cf0",
+  "descriptor_sha256": "50c55442af412e0ac72ae7aa4ad327b6ac515d40a8b5d62bdb9c7817dad2fc11",
   "ordered_actuator_ids": [
     "actuator.left-ankle-pitch",
     "actuator.left-ankle-roll",
@@ -184,9 +184,9 @@
   "pd_second_effort": 50000000,
   "pd_second_flags": 4,
   "profile_manifest_hashes": {
-    "nextengine.motor.env.humanoid-flat-command-curriculum.v2": "89c389be17af78e2b87a317d9e990724c3d939bee232a99c0279ee02bbd39b03",
-    "nextengine.motor.env.humanoid-flat-command.v1": "c6aae6bfa4b2061b20afec5ccfb442a8bfcb3c9d1b35f08f6b5a2425d9861e47",
-    "nextengine.motor.env.humanoid-standing.v1": "9f5d2545fe98c2ecc09ac7753e193713426ffc2b55ab41f5f1b3d62e2ef40cb7"
+    "nextengine.motor.env.humanoid-flat-command-curriculum.v2": "ba3b015812ceff2c6e8acd421adf826a475a46b710645258afd071fe3d34a937",
+    "nextengine.motor.env.humanoid-flat-command.v1": "dd5e392d482c43f94fadb1eb1e7b484c9bd73410d092fd3586b35ff0feb074d8",
+    "nextengine.motor.env.humanoid-standing.v1": "dc64488393a57a07e993fdf062f663c8024fc1475267dbf6e8c35f5458f45396"
   },
   "purpose_seeds": [
     {

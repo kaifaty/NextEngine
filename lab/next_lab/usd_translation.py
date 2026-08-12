@@ -7,9 +7,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-from next_lab.motor_mirror import validate_descriptor
+from next_lab.motor_mirror import CURRENT_TRANSLATOR_VERSION, validate_descriptor
 
-TRANSLATOR_VERSION = "nextengine.isaac-usda-translator.v3"
+TRANSLATOR_VERSION = CURRENT_TRANSLATOR_VERSION
 
 
 def render_usda(descriptor: dict[str, Any]) -> str:

@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.35 |
+| Версия | 2.36 |
 | Последняя проверка | 2026-08-12 |
-| Заменяет | INDEX-001 2.34; indexes ADR-066 contact-centric physical skills and morphology-conditioned motor architecture |
+| Заменяет | INDEX-001 2.35; indexes ADR-067 profile identity closure and ADR-068 static morphology/action-chunk closure |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -177,8 +177,8 @@ traceability — навигационная карта, не admission authority
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
 | SPEC-32 | [Deterministic Strategic Agent cognition and social behavior](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Proposed R4c/R4d target; ADR-056 invariants are Accepted, exact schemas wait for consumers |
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
-| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 records, recorder and mirror consumers are current through SPEC-35/ADR-064/ADR-065 |
-| SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, canonical flat-command V1 and curriculum V2 environments; does not prove a learned policy or R5 completion |
+| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 records, recorder and mirror consumers are current through SPEC-35/ADR-064/ADR-065/ADR-067 |
+| SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, canonical flat-command V1 and curriculum V2 environments with frozen V1 identity and profile-bound translator/reward hashes; does not prove a learned policy or R5 completion |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -254,6 +254,8 @@ traceability — навигационная карта, не admission authority
 | ADR-064 | [Canonical flat-command locomotion environment](adr/064-canonical-flat-command-locomotion-environment.md) | Accepted engine-owned 23-DoF flat locomotion commands, root-local observation, Q16 reward, partial reset/checkpoint lifecycle, protocol/mirror v2 boundary; no learned-policy claim |
 | ADR-065 | [Curriculum flat-command locomotion profile](adr/065-curriculum-flat-command-locomotion-profile.md) | Accepted engine-owned episode-ordinal curriculum, sharper Q16 reward/support shaping and full-stage held-out evaluation; V1 remains unchanged and learned quality remains unproven |
 | ADR-066 | [Contact-centric physical skills and morphology-conditioned motor architecture](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) | Accepted no-text physical-skill hierarchy, heterogeneous BodySchema, `PhysicalActionChunk`, family graph-controller and deterministic rollout boundaries; exact learned profiles remain Proposed |
+| ADR-067 | [Stage 0 profile identity and curriculum hash closure](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md) | Accepted frozen standing/flat-command V1 identity, per-profile translator hash and exact-zero curriculum support semantics |
+| ADR-068 | [Static morphology cache and action-chunk field closure](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) | Accepted dedicated static morphology cache identity and one Proposed `PhysicalActionChunk` field set; no learned route promoted |
 
 ## Proposed tracks
 
@@ -278,7 +280,7 @@ traceability — навигационная карта, не admission authority
   strategic/tactical and training data-plane track. Per-role promotion requires
   immutable artifacts, multi-seed evidence, target parity and complete ADR-056
   fallback; joint promotion is required only by profiles activating both roles.
-- ADR-066 Accepted core with Proposed subsections in SPEC-14/SPEC-26/SPEC-27/
+- ADR-066/ADR-068 Accepted core with Proposed subsections in SPEC-14/SPEC-26/SPEC-27/
   SPEC-28/SPEC-34 — natural language ends before Physical Embodiment; typed physical
   primitives and `PhysicalActionChunk` carry contact/root/CoM/effector meaning.
   The optional fixed-humanoid MLP remains first, then contact chunks, bounded

@@ -4,8 +4,8 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-12 |
-| Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; оба performance workloads записали `required_staging_bytes=6818` и остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. Изолированный R5 R&D package 2026-08-10 добавил canonical CPU flat-command locomotion environment, motor-lab v2, внешний NPZ v2 recorder и Isaac mirror contract; это разрешает локальные CPU-эксперименты, но не является trained policy, Stage 0 completion или R5 closure. Linux execution/cross-target evidence явно исключены из scope этого locomotion package и остаются отдельной Stage 0/shipping обязанностью. Следующий WIP=1 — R4a derived calendar + authored relay-keeper routine. SPEC-20/ADR-052 фиксируют Proposed promotion package; implementation и ProductChecks ещё не начаты. B-12, GPU correspondence, R1/R7 и v1 shipping не закрыты. |
-| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Следующий самостоятельный increment — R4a. |
+| Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; performance workloads остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. R5 R&D substrate содержит три current CPU profiles: immutable standing V1, immutable flat-command V1 и curriculum V2, плюс motor-lab v2, NPZ v2 recorder and Isaac mirror. Это разрешает bounded experiments, но не является trained policy, Stage 0 completion или R5 closure. Текущий WIP=1 сознательно перенесён на [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): сначала compatibility closure и TRAIN-0/1, затем biomechanics → motion tracking → command locomotion → recovery → export. R4a остаётся следующим подготовленным world-system increment, но пока не активен. B-12, GPU correspondence, Linux/cross-target evidence, R1/R7 и v1 shipping не закрыты. |
+| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-0/1; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
@@ -39,6 +39,7 @@ Roadmap намеренно не содержит календарных обещ
 | `NEXT` | Следующий этап критического пути. |
 | `PLANNED` | Нужен для v1, но зависит от более ранних этапов. |
 | `PARALLEL` | Может развиваться параллельно, но имеет указанную integration gate. |
+| `ACTIVE_R&D` | Единственный текущий experimental WIP; не означает production promotion, stage completion или v1 requirement. |
 | `DEFERRED` | Не блокирует v1. |
 | `PROPOSED` | Технология или contract ещё не входит в Accepted shipped baseline. |
 
@@ -128,7 +129,7 @@ animation и reusable systemic quest conditions относятся к R3–R5.
 | World/streaming | R3 bounded partition реализован: exact pinned generation, 4 regions/64 chunks, manifest-driven role/route selection, packaged fetch/decode/validate, paired Runtime/World commit и restart из `Requested` | Нет partition interest/residency/eviction, calendar, population, schedules и region transfers; это R4/future scope, не gap закрытого R3. |
 | Jobs/resources | R3 использует private bounded workers (default 2, max 4), immutable revision-bound request/result и channel 64; generic subsystem не принят | Shared scheduler/resource contract появляется только при доказанной второй production потребности; SPEC-23 остаётся Proposed. |
 | Physics | PhysX 5.9.0 является единственным production backend; upright capsule, static Box, exact B0 `ClosestPoint`, reduced articulation и fixed-humanoid scene/restore path реализованы | Не закрыты полный cutover/platform/replay matrix, general gameplay shape/query breadth и Windows/Linux Stage 0 evidence. |
-| Animation/motor | Procedural projection, deterministic 23-DoF standing motor и canonical `humanoid-flat-command.v1` CPU environment реализованы: engine command schedule, fixed PD/safety, 240/60 scheduling, partial reset, terminal lifecycle, checkpoint/replay, motor-lab v2 и внешний NPZ v2 recorder. Isaac mirror v2 имеет exact CPU golden и correspondence gates. Linux execution/cross-target evidence исключены из текущего locomotion package. | Нет skeleton graph, retargeting, IK, root-motion intent, trained/learned evaluator, выполненного Isaac GPU correspondence и полного Windows-local hard-performance gate set. Linux parity остаётся отдельным Stage 0/shipping gap, а не gate этой поставки. |
+| Animation/motor | Procedural projection, deterministic 23-DoF standing motor, immutable standing/flat-command V1 and current curriculum V2 CPU environments реализованы: engine command schedule, fixed PD/safety, 240/60 scheduling, partial reset, terminal lifecycle, checkpoint/replay, motor-lab v2 и внешний NPZ v2 recorder. Isaac mirror v2 имеет Rust golden and correspondence gates. Active WIP follows TRAIN-0…TRAIN-9 from a new biomechanics/motion generation while preserving V1 identities. | Нет admitted motion corpus, specialist reference tracker, trained command/recovery actor, portable runtime evaluator, skeleton graph, retargeting, IK, выполненного Isaac GPU correspondence и полного Windows/Linux performance/parity evidence. Stage 0, learned quality and R5 remain open. |
 | Agent AI | Частично: один canonical affordance planner; ADR-056 принял deterministic Strategic Agent direction | Нет perception, beliefs/memory, needs/goals, bounded GOAP, task executive, structured social behavior и 100-NPC workload. SPEC-32 остаётся Proposed до R4c/R4d consumers; SPEC-33/34 и ADR-050/053/054 — optional R8 research. |
 | Navigation/audio | Частично: полный baseline audio vertical (A1–A6 `DONE_LOCAL_WINDOWS`) — neutral clip contract, audio scene extraction, software mixer + canonical PCM sink, SDL device adapter, subtitle fallback, `audio_scene` в v1-closure | Gaps: chunked long-clip streaming payload, zone reverb fallback (zone occlusion gain есть), navigation cooker и baseline nav adapters. |
 | Player experience | Keyboard/mouse и generic controller используют одинаковые action IDs с keyboard fallback; persisted targeting, third-person camera, semantic HUD/inventory/journal/dialogue/pause flow, localization, subtitles и preferences проходят automated Windows checks. HUD получил цветовой health meter, objective и отдельный presentation-only next-action panel, который выводится из immutable RPG snapshot для accept/pickup/equip/combat/relay/return/complete; Save показывает `Saved`, а Load оставляет восстановленный world на паузе с `Loaded - press Resume`. | Worker-to-desktop regression покрывает quest accept, explicit Save, визуально различимое изменение, sequence-zero Load cut, Load confirmation, продолжение новой epoch после явного Resume и реальное authoritative WASD movement с exact загруженной input-context revision. Свежий 20–30-minute run зафиксирован как `PASS`. Accessibility profiles и capability-scoped extension panels остаются вне R2 gate. |
@@ -199,8 +200,8 @@ flowchart LR
 | R1. Native developer preview | `IN_PROGRESS` | S–M | Один exact package действительно запускается на обеих shipping targets. |
 | R2. Playable alpha | `COMPLETE / WINDOWS_ACCEPTED` | L | Data-first slice, Windows package, automated checks и зафиксированный 20–30-minute acceptance проходят. Linux/R1 cross-target closure не заявляется. |
 | R3. Scalable content and streaming | `COMPLETE` | XL | Private packaged vertical и bounded 4-region/64-chunk project проходят cook/load/unload/save/restart и report-only workload без hard-coded two-chunk assumptions. |
-| R4. Systemic living world | `NEXT` | XL | NPC schedules, population/navigation, deterministic beliefs/needs/goals, Utility + bounded GOAP, social/work/trade consequences и 100-NPC cadence образуют живой offline world без model/network requirement. |
-| R5. Physical character integration | `PARALLEL` → `PLANNED` | XL | Physical, animation и motor layers становятся production gameplay path. |
+| R4. Systemic living world | `PLANNED / QUEUED` | XL | NPC schedules, population/navigation, deterministic beliefs/needs/goals, Utility + bounded GOAP, social/work/trade consequences и 100-NPC cadence образуют живой offline world без model/network requirement. R4a остаётся следующим critical-path world increment после активной bounded R5 R&D lane. |
+| R5. Physical character integration | `PARALLEL / ACTIVE_R&D` | XL | Текущий WIP обучает fixed humanoid движениям; production integration, procedural fallback and stage closure остаются отдельными gates после R4 substrate. |
 | R6. Creator beta | `PLANNED` | L–XL | Второй проект/пакет создаётся без правки engine internals. |
 | R7. V1 release candidate | `PLANNED` | L | Полный v1 scope стабилизирован и упакован для Windows/Linux. |
 | R8. Post-v1 tracks | `DEFERRED` | отдельные программы | Optional AI/narrative/importer/advanced rendering не размывают v1. |
@@ -428,7 +429,8 @@ ten-run performance evidence.
 
 Automated production path, lawful content/provenance, отсутствие hidden
 UI/camera mutation и ручной representative loop подтверждены. Архитектурный
-cleanup и R3 завершены; следующий WIP=1 — R4.
+cleanup и R3 завершены; текущий WIP=1 — bounded R5 humanoid movement training,
+после него queued R4a.
 
 **Scope guard:** editor, advanced renderer, photoreal assets и procedural world
 generation не входят в этот этап.
@@ -505,7 +507,9 @@ intent и не является принятым R3 contract.
 
 ## R4 — Systemic living world
 
-**Статус:** `NEXT`, WIP=1 после завершённого R3; первым выполняется R4a.
+**Статус:** `PLANNED / QUEUED`. R4a остаётся первым increment этого этапа и
+следующим world-system package, но текущий WIP=1 отдан bounded R5 humanoid
+movement training lane. Одновременная реализация R4a не ведётся.
 
 **Цель:** перейти от scripted encounter к offline world, где NPC и world state
 продолжают согласованно жить вне непосредственного контакта с игроком.
@@ -534,9 +538,9 @@ intent и не является принятым R3 contract.
   starvation;
 - deterministic acoustic gameplay facts; hardware audio remains presentation.
 
-**Последовательность product increments (WIP=1):**
+**Последовательность R4 product increments (внутренний WIP limit = 1):**
 
-1. **R4a — derived calendar + authored relay-keeper routine (`NEXT`):** один
+1. **R4a — derived calendar + authored relay-keeper routine (`QUEUED`):** один
    существующий NPC в active relay-station chunk проходит одну authored
    `Duty → Rest` boundary. Exact integer-rational projection от
    `SimulationTick` создаёт internal World Services command/event; committed
@@ -627,8 +631,9 @@ sources: SPEC-33, SPEC-34, ADR-050, ADR-053, ADR-054.
 
 ## R5 — Physical character, animation and motor integration
 
-**Статус:** R&D может идти как `PARALLEL` с R2–R4, production integration
-закрывается после R4 substrate.
+**Статус:** `PARALLEL / ACTIVE_R&D`, текущий WIP=1. Production integration и
+закрытие R5 по-прежнему зависят от R4 substrate и собственных procedural,
+animation, parity, performance and fallback gates.
 
 **Цель:** сделать физическое воплощение персонажа частью production gameplay,
 не пропуская vendor types или model state через engine-owned authority.
@@ -685,6 +690,25 @@ claims не делаются. Подробная матрица evidence и rema
 [locomotion environment evidence](development/locomotion-environment-evidence-2026-08-10.md).
 PPO, policy quality, export/runtime evaluator, motion imitation, terrain,
 push/recovery и readiness claim остаются вне этого checkpoint.
+
+**Current humanoid movement training focus (2026-08-12):** работа следует
+[TRAIN-0…TRAIN-9 plan](plans/2026-08-12-humanoid-motor-training-rebuild.md).
+Ближайшая последовательность ограничена так:
+
+1. сохранить standing/flat-command V1 BodySchema and manifest identities,
+   закрыть curriculum reward/translator hashes and exact mirror goldens;
+2. TRAIN-0 изолирует старую pure-PPO artifact line во внешнем training store;
+3. TRAIN-1 задаёт новую engine-owned biomechanics specification and distinct
+   BodySchema/environment generation;
+4. TRAIN-2/3 доказывают articulation, contacts, safety and terminal semantics
+   без ML;
+5. только после этого допускаются corpus/retarget, reference tracking,
+   command locomotion, recovery and portable export.
+
+Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
+Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
+его exact report; destructive TRAIN-0 cleanup выполняется только по exact
+external manifests and resolved paths.
 
 **Optional learned integration scope:**
 
@@ -836,7 +860,7 @@ ADR-001, ADR-030.
 | Text-canonical multimodal dialogue/model packs | SPEC-16/ADR-017 `Proposed` | Явное решение о promotion, privacy/budget policy и text-only fallback. |
 | External `ai-host` | Optional | Stable bounded process protocol, recorded-input replay and complete in-process fallback. |
 | Learned Motor System policy families and full articulation | ADR-066 no-text contact-centric system shape `Accepted`; exact chunks, graph/adapter/expert, training/distillation/rollout profiles and unconsumed wire schemas remain `Proposed` | R5 reference/procedural baseline and consumer-backed BodySchema exist. Promote each family/profile independently only with exact observation/action/state/chunk replay, runtime/training correspondence, multi-seed quality, retention, target parity and declared animation/procedural fallback. |
-| PhysX deterministic humanoid substrate | ADR-058/059/062/063/064 `Accepted`; standing and canonical flat-command CPU environments exist, Stage 0 evidence remains incomplete | Complete the PhysX-only Windows/Linux platform/replay gates, fresh ten-run V5 R5 baseline, one fixed three-run hard performance PASS and Isaac GPU correspondence; no reference backend fallback exists. |
+| PhysX deterministic humanoid substrate | ADR-058/059/062/063/064/065/067 `Accepted`; immutable standing/flat-command V1 and curriculum V2 CPU environments exist, Stage 0 evidence remains incomplete | Complete the PhysX-only Windows/Linux platform/replay gates, fresh ten-run V5 R5 baseline, one fixed three-run hard performance PASS and Isaac GPU correspondence; no reference backend fallback exists. |
 | Advanced renderer/HDR/RT/VFX/capture | Optional | B0 v1 path стабилен; feature has bounded fallback and target-specific product check. |
 | Gothic importer | Optional separate repository/process | Neutral schemas стабильны, legal/provenance boundary проверен; parent repo остаётся независимым. |
 | Full editor | Outside v1 | Creator beta CLI/JSON workflows показали реальные high-friction authoring operations. |
@@ -936,7 +960,7 @@ deterministic procedural motor через тот же PhysX path.
 | B-05 | `DEFERRED / NOT_CURRENT_BLOCKER`: публично поддерживаемого persisted v1 predecessor ещё нет | — | После объявления первого public v1 и появления реального successor определить минимальный compatibility/export/migration path и copy-on-write fault check. Alpha legacy не мигрируется. |
 | B-06 | `CLOSED`: production project содержит 4 regions/64 chunks и проходит canonical packaged load/unload, save в `Requested`, process restart, exact pinned reactivation и completion с uninterrupted root. | — | Закрыт 2026-08-09 по focused Assets/Project/World/Runtime/Verification tests и ProductCheck. Generic scheduler, placement catalog, residency и eviction framework не вводились и не требовались. |
 | B-07 | Нет calendar/population/navigation services | R4 | World owner segment, schedules/tiers and graph navigation baseline проходят systemic scenario. |
-| B-08 | Physics ограничена capsule + static Box; animation/motor отсутствуют | R5 | V1 physical profile and procedural animation/motor fallback проходят physical product checks. |
+| B-08 | Full production physical-character path не закрыт: текущий fixed-humanoid substrate не имеет admitted motion/retarget corpus, trained command/recovery actor, runtime animation/IK integration или полностью проверенного procedural fallback | R5 | V1 physical profile and procedural animation/motor fallback проходят physical ProductChecks; learned route дополнительно проходит TRAIN-0…TRAIN-9, но не подменяет обязательный fallback. |
 | B-09 | Нет external creator CLI/SDK workflow | R6, R7 | Второй project/package создаётся cleanly только public tools/contracts. |
 | B-10 | `PERMANENT_SCOPE_GATE`: content scope может расти быстрее playable loop; blocker не закрывается одноразово. | Все этапы | На каждом package один representative scenario и явный non-goal list; новая подсистема допускается только по требованию scenario. |
 | B-11 | `CONTENT_COMPLETE / SOLO_OWNER`: единственный owner — solo maintainer; отдельная staffing/ownership matrix не создаётся. Alpha package содержит engine-owned assets/audio/text, acceptance docs, CC0 source/hash/license provenance и NOTICE и проходит `content-package`/package smoke. Будущие creator examples относятся к R6/B-09, а не к staffing gate. | R2, R6, R7 | Содержательно закрыт для alpha package; поддерживать provenance/NOTICE в том же public package по мере дальнейших content changes. |
@@ -1405,34 +1429,41 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 6. **R3b bounded general partition (`COMPLETE`):** ровно 4 regions/64 chunks,
    canonical packaged route и restart из `Requested`; B-06 закрыт без generic
    scheduler, placement catalog или alpha migration obligation.
-7. **R4a derived calendar + relay-keeper routine (`PLANNED / NEXT`):** promote
+7. **R5 humanoid movement TRAIN-0/1 (`ACTIVE_R&D / CURRENT WIP`):** preserve
+   exact V1 identities, close curriculum/mirror hashes, isolate the retired
+   pure-PPO artifact line by exact external manifests and publish the new
+   biomechanics specification plus distinct BodySchema/environment generation.
+   No training quality, Stage 0 or R5 completion is claimed at this boundary.
+8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote
    SPEC-20/ADR-052 only with the one-NPC production consumer, typed authoring,
    separate World Services routine segment, current-only replay successor and
    passing fast/play/persistence-replay/content-package plus conditional
    performance smoke/report-only checks.
-8. **R4b tiers + graph navigation + 100 NPC (`PLANNED`):** exact population,
+9. **R4b tiers + graph navigation + 100 NPC (`PLANNED`):** exact population,
    tier/placement/transfer and engine-owned graph/tile navigation substrate;
    activate the representative report-only workload without claiming B-12.
-9. **R4c deterministic cognition core (`PLANNED`):** production
+10. **R4c deterministic cognition core (`PLANNED`):** production
    Epistemic/Drive views, beliefs/memory retrieval, fixed-point goal Utility,
    bounded GOAP, private task executive, Decision Trace and save/replay.
-10. **R4d systemic Strategic Agent vertical (`PLANNED`):** structured
+11. **R4d systemic Strategic Agent vertical (`PLANNED`):** structured
    information/work agreement → navigation/activity → committed currency →
    trade → food, including threat interruption/replan, failure branches and
    exact tiered/headless behavior. This closes R4 without learned models.
-11. **R5 physical character and animation (`PLANNED`):** минимальный v1 physics
+12. **R5 physical character and animation production integration (`PLANNED`):** минимальный v1 physics
    profile, procedural capsule motor, skeleton/clip graph, retargeting и fixed
-   IK. First-humanoid learned MVP and all later policy-family phases remain
-   optional quality tracks and do not block this package.
-12. **R6 creator CLI and second project (`PLANNED`):** stable non-interactive JSON
+   IK. A TRAIN-9 actor may enter only after its own promotion/parity gates;
+   later policy-family phases remain optional and do not block this package.
+13. **R6 creator CLI and second project (`PLANNED`):** stable non-interactive JSON
    CLI, inspectors, templates и clean-checkout second-project exercise.
-13. **Windows hard performance/release checkpoint (`PLANNED`):** clean-commit
+14. **Windows hard performance/release checkpoint (`PLANNED`):** clean-commit
    ten-run R2–R5 baselines/hard gates и Windows v1 candidate package; Linux
    остаётся `DEFERRED_LINUX`, v1 shipping не заявляется.
 
 Каждый package должен быть отдельным product increment с focused checks. WIP=1:
-следующим выполняется R4a. SPEC-23 остаётся Proposed: завершённый R3 не начинает
-универсальный scheduler design без второго concrete production workload.
+сейчас выполняется bounded R5 TRAIN-0/1; R4a не идёт параллельно и остаётся
+следующим queued world increment. SPEC-23 остаётся Proposed: завершённый R3 не
+начинает универсальный scheduler design без второго concrete production
+workload.
 
 ## Обновление roadmap
 

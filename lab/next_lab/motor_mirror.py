@@ -13,6 +13,8 @@ FLAT_LOCOMOTION_PROFILE_ID = "nextengine.motor.env.humanoid-flat-command.v1"
 CURRICULUM_LOCOMOTION_PROFILE_ID = (
     "nextengine.motor.env.humanoid-flat-command-curriculum.v2"
 )
+CURRENT_TRANSLATOR_VERSION = "nextengine.isaac-usda-translator.v3"
+LEGACY_TRANSLATOR_PROFILE_ID = "nextengine.isaac-translator.v2"
 PHYSICS_HZ = 240
 MOTOR_HZ = 60
 SUBSTEPS = 4
@@ -455,6 +457,8 @@ def validate_descriptor(descriptor: dict[str, Any]) -> None:
         CURRICULUM_LOCOMOTION_PROFILE_ID,
     }:
         raise ValueError("canonical environment profiles do not close")
+    body_schema_hash = descriptor.get("body_schema_hash")
+    _require_hash(body_schema_hash, "body_schema_hash")
     for profile in profiles:
         for field in (
             "manifest_hash",
@@ -462,6 +466,7 @@ def validate_descriptor(descriptor: dict[str, Any]) -> None:
             "action_layout_hash",
             "command_schedule_profile_hash",
             "reward_profile_hash",
+            "translator_version_hash",
             "termination_profile_hash",
             "rng_derivation_profile_hash",
             "correspondence_profile_hash",
@@ -479,6 +484,18 @@ def validate_descriptor(descriptor: dict[str, Any]) -> None:
         actual = tuple(component.get("component_id") for component in profile.get("reward_components", []))
         if actual != expected:
             raise ValueError(f"reward component order mismatch for {profile['profile_id']}")
+        translator_identity = (
+            CURRENT_TRANSLATOR_VERSION
+            if profile["profile_id"] == CURRICULUM_LOCOMOTION_PROFILE_ID
+            else LEGACY_TRANSLATOR_PROFILE_ID
+        )
+        translator_hash = hashlib.sha256(
+            translator_identity.encode("utf-8")
+            + b"\0"
+            + bytes.fromhex(body_schema_hash)
+        ).hexdigest()
+        if profile["translator_version_hash"] != translator_hash:
+            raise ValueError("environment translator identity does not close")
         if profile["profile_id"] == STANDING_PROFILE_ID:
             if profile.get("velocity_frame") != "world" or profile.get("maximum_episode_steps") != 3_600:
                 raise ValueError("standing profile semantics changed")

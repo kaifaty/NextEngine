@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 1.8 |
+| Версия | 1.9 |
 | Последняя проверка | 2026-08-12 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
-| Заменяет | SPEC-26 1.7; accepts the heterogeneous BodySchema cache boundary and constrains future cloned-physics candidate evaluation without promoting branching replay |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
+| Заменяет | SPEC-26 1.8; closes morphology caches over a dedicated static projection instead of dynamic instance state |
 
 ## История принятия
 
@@ -258,12 +258,19 @@ rejects the whole transaction. SPEC-27 then resets or remaps only as explicitly
 allowed; physics never interprets evaluator state.
 
 A deterministic morphology cache MAY store derived per-node/per-edge encoder
-inputs or embeddings. Its cache key closes over source schema, compiled
-catalog, effective instance, topology and encoder/profile hashes. It is rebuilt
-on their declared revision changes, including material morphology/equipment or
-actuator lock/restore, but not on ordinary pose/contact/velocity/fatigue ticks.
-The cache is reconstructible; cache warmth, worker and completion order are not
-physics or motor authority.
+inputs or embeddings. The compiler emits the canonical SPEC-14
+`StaticMorphologyProjection` and `static_morphology_hash` from source schema,
+compiled catalog, topology and the profile-declared static subset of instance
+overlays. The cache key is `(static_morphology_hash, encoder_profile_hash)`; it
+does not bind the full effective-instance revision/hash.
+
+Material morphology/equipment/attachment or persistent actuator lock/restore
+rebuilds the cache only when it changes the static projection. Ordinary pose,
+contact, velocity, fatigue, available power, transient damage/health and sensor
+ticks remain dynamic and cannot change the key. Every profile classifies each
+input field as static or dynamic before compilation. The cache is
+reconstructible; cache warmth, worker and completion order are not physics or
+motor authority.
 
 The semantic compiler boundary is Accepted. ADR-058/SPEC-35 are the first
 production physical-character consumer and accept `BodySchemaV1`,

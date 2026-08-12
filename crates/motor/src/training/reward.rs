@@ -115,9 +115,9 @@ pub(super) fn locomotion_reward_components(
         action_rate_cost,
         slip_cost,
     ];
-    let command_magnitude = abs_sum(command_raw);
-    let support = if (command_magnitude >= 100_000 && contacting_foot_tokens.len() == 1)
-        || (command_magnitude < 100_000 && contacting_foot_tokens.len() == 2)
+    let moving = curriculum_command_is_moving(command_raw);
+    let support = if (moving && contacting_foot_tokens.len() == 1)
+        || (!moving && contacting_foot_tokens.len() == 2)
     {
         65_536
     } else {
@@ -168,6 +168,12 @@ pub(super) fn locomotion_reward_components(
             .collect(),
         reward_total_q16,
     ))
+}
+
+pub(super) fn curriculum_command_is_moving(command_raw: [i64; 3]) -> bool {
+    match CURRICULUM_SUPPORT_COMMAND_MODE_V2 {
+        CurriculumSupportCommandModeV2::ExactZero => command_raw != [0; 3],
+    }
 }
 
 fn q16_square(value: i64) -> Result<i64, TrainingEnvironmentError> {

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 1.6 |
+| Версия | 1.7 |
 | Последняя проверка | 2026-08-12 |
-| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
-| Заменяет | SPEC-35 1.5; records that ADR-066 advanced chunks/graph/transfer/rollout profiles do not change the current Stage 0 substrate |
+| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md) |
+| Заменяет | SPEC-35 1.6; restores exact V1 BodySchema identity and closes curriculum translator/reward semantics |
 
 ## Назначение и ownership
 
@@ -62,7 +62,12 @@ typed `UNSUPPORTED_*` result before creating mutable environment state.
 
 ## Reference humanoid
 
-`nextengine.body.humanoid-23dof-v1` is engine-owned and immutable:
+`nextengine.body.humanoid-stage0.v1`, schema revision `1`, is engine-owned and
+immutable. Its authored pelvis root remains exactly `1.050 m`; correcting that
+pose, anatomy or ground clearance requires a distinct BodySchema identity and
+environment/training generation rather than a revision/hash drift of V1.
+
+The fixed body has:
 
 - free six-axis root; primitive capsule/box/sphere colliders only;
 - 23 actuated revolute DoF with stable body/joint/actuator IDs;
@@ -186,8 +191,11 @@ cannot submit raw PhysX descriptors or mutate a live body directly.
 
 `lab/` MAY provide a pinned Isaac Lab DirectRLEnv. The translator consumes
 canonical schema/catalog and writes derived USD outside repository authority.
-Translator version and USD hash are recorded. Python/Torch code uses Rust
-golden vectors for joint ordering, seed derivation, fixed-point action/safety,
+Translator version and USD hash are recorded. Each environment manifest binds
+the exact translator semantics it admits: standing/flat-command V1 keep their
+historical translator-profile-v2 hash, while curriculum V2 binds
+`nextengine.isaac-usda-translator.v3`. Python/Torch code uses Rust golden
+vectors for joint ordering, seed derivation, fixed-point action/safety,
 termination facts and reward component IDs.
 
 Stage 0 reward is an ordered vector, not one implicit scalar:

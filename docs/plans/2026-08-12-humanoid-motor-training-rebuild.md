@@ -127,6 +127,12 @@ compatibility со старыми model artifacts.
 10. Failed run сохраняет bounded manifest, metrics и минимальный reproducer;
     тяжёлые checkpoint/log/capture payloads после triage удаляются.
 
+Текущий `nextengine.body.humanoid-stage0.v1` revision `1` с pelvis root
+`1.050 m` остаётся frozen identity для standing/flat-command V1 runs. Новый
+биомеханический профиль TRAIN-1/2 получает отдельные BodySchema ID/revision и
+environment/training generation; значение `1.095 m` или любая другая правка
+анатомии не может быть записана поверх V1.
+
 ## Артефактная политика новой линии
 
 Новый внешний корень:

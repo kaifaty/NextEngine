@@ -401,7 +401,7 @@ def locomotion_reward_q16_tensor(
     fall = fell.to(torch.int64) * 65_536
     base_components = (planar, yaw, upright, height, vertical, roll_pitch, effort, action_rate, slip)
     if curriculum:
-        moving = torch.sum(torch.abs(command_raw), dim=-1) >= 100_000
+        moving = torch.any(command_raw != 0, dim=-1)
         support = torch.where(
             (moving & (contacting_foot_count == 1))
             | (~moving & (contacting_foot_count == 2)),

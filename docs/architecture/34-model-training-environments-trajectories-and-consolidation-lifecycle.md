@@ -5,10 +5,10 @@
 | ID | SPEC-34 |
 | Status | Proposed |
 | Lifecycle | Optional R8 behavior and optional R5/R8 motor R&D proposal |
-| Version | 1.7 |
+| Version | 1.8 |
 | Last verified | 2026-08-12 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
-| Supersedes | SPEC-34 1.6; adds contact-centric chunk, specialist-distillation, morphology-conditioned critic, structured motion-inpainting and compiled-student evaluation lanes without promoting them |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
+| Supersedes | SPEC-34 1.7; clarifies that offline pose/keypoint inpainting compiles into the structured ADR-068 chunk field set |
 
 ## Status and scope
 
@@ -469,8 +469,11 @@ inpainting over masked poses/keypoints, contact schedules, object trajectories,
 styles and typed physical goals. Text captions are optional offline authoring/
 provenance labels only: dataset construction compiles them into the same stable
 IDs and numeric fields before a training batch, and runtime text conditioning
-is not a requirement. The prior proposes a `PhysicalActionChunk`; it never
-owns pose, contact or actuator authority.
+is not a requirement. Pose/keypoint values here are training conditions and
+loss targets; before runtime publication they compile into the ADR-068 chunk's
+root/center-of-mass, effector/object, contact, force and support fields. They do
+not add pose/keypoint wire fields to `PhysicalActionChunk`. The prior proposes
+a chunk; it never owns pose, contact or actuator authority.
 
 Damage/fault distribution explicitly varies disabled/locked/removed actuators
 or nodes, reduced torque/ROM, changed mass/load, sensor delay/loss and topology
