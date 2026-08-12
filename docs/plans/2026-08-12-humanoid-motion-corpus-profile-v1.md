@@ -51,11 +51,15 @@ humerus plus radius flexion. No target is selected by runtime name guessing.
 
 Every solved target is regularized toward the current source pose, quantized
 to microradians and clamped to the exact V2 soft ROM. The locomotion profile
-then applies and records a collision-clearance projection: bilateral hip yaw is
-neutral, hip roll cannot cross into adduction and shoulder roll stays at least
-`261799 urad` (`15 degrees`). These bounds were selected before re-admission
-from a full native PhysX reset-pose audit; they are explicit data loss, not
-hidden solver behavior. A causal cleanup projection then limits each channel to the target
+then applies and records a physical-feasibility projection: bilateral hip yaw
+is neutral, hip roll cannot cross into adduction, ankle pitch stays at least
+`-349066 urad` (`-20 degrees`), and shoulder roll stays at least `261799 urad`
+(`15 degrees`). The ankle bound leaves a `349066 urad` (`20 degrees`) reserve
+to the `-698132 urad` hard limit during the zero-effort-to-PD reset transient;
+the previous exact soft-bound target reached hard ROM after `51` native PhysX
+motor ticks. These bounds were selected before re-admission from native PhysX
+audits; they are explicit data loss, not hidden solver behavior. A causal
+cleanup projection then limits each channel to the target
 joint's published maximum velocity at 60 Hz; the per-sample projection is
 preserved in the artifact and summarized in validation rather than hidden.
 Root translation, root orientation/yaw, velocities, CoM, effectors, contacts

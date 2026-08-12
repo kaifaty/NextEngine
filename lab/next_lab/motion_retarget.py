@@ -441,12 +441,20 @@ def _solve_target_joints(
         for side in ("left", "right"):
             hip_yaw_ordinal = int(by_id[f"joint.{side}-hip-yaw"]["dof_ordinal"])
             hip_roll_ordinal = int(by_id[f"joint.{side}-hip-roll"]["dof_ordinal"])
+            ankle_pitch_ordinal = int(
+                by_id[f"joint.{side}-ankle-pitch"]["dof_ordinal"]
+            )
             shoulder_roll_ordinal = int(
                 by_id[f"joint.{side}-shoulder-roll"]["dof_ordinal"]
             )
             hip_yaw = int(locomotion_collision_projection["hip_yaw_microradians"])
             hip_roll_minimum = int(
                 locomotion_collision_projection["hip_roll_minimum_microradians"]
+            )
+            ankle_pitch_minimum = int(
+                locomotion_collision_projection[
+                    "ankle_pitch_minimum_microradians"
+                ]
             )
             shoulder_roll_minimum = int(
                 locomotion_collision_projection[
@@ -457,6 +465,9 @@ def _solve_target_joints(
             projected_hip_roll = max(
                 target[hip_roll_ordinal], hip_roll_minimum / 1_000_000.0
             )
+            projected_ankle_pitch = max(
+                target[ankle_pitch_ordinal], ankle_pitch_minimum / 1_000_000.0
+            )
             projected_shoulder_roll = max(
                 target[shoulder_roll_ordinal], shoulder_roll_minimum / 1_000_000.0
             )
@@ -466,11 +477,15 @@ def _solve_target_joints(
             collision_projection[hip_roll_ordinal] = abs(
                 target[hip_roll_ordinal] - projected_hip_roll
             )
+            collision_projection[ankle_pitch_ordinal] = abs(
+                target[ankle_pitch_ordinal] - projected_ankle_pitch
+            )
             collision_projection[shoulder_roll_ordinal] = abs(
                 target[shoulder_roll_ordinal] - projected_shoulder_roll
             )
             target[hip_yaw_ordinal] = projected_hip_yaw
             target[hip_roll_ordinal] = projected_hip_roll
+            target[ankle_pitch_ordinal] = projected_ankle_pitch
             target[shoulder_roll_ordinal] = projected_shoulder_roll
     return target, collision_projection
 

@@ -393,6 +393,9 @@ def validate_clip(
         for side in ("left", "right"):
             hip_yaw = int(joint_by_id[f"joint.{side}-hip-yaw"]["dof_ordinal"])
             hip_roll = int(joint_by_id[f"joint.{side}-hip-roll"]["dof_ordinal"])
+            ankle_pitch = int(
+                joint_by_id[f"joint.{side}-ankle-pitch"]["dof_ordinal"]
+            )
             shoulder_roll = int(
                 joint_by_id[f"joint.{side}-shoulder-roll"]["dof_ordinal"]
             )
@@ -406,6 +409,11 @@ def validate_clip(
                 < int(projection["hip_roll_minimum_microradians"])
             ):
                 errors.append("RETARGET_LOCOMOTION_HIP_CLEARANCE_MISMATCH")
+            if np.any(
+                clip.joint_position_urad[:, ankle_pitch]
+                < int(projection["ankle_pitch_minimum_microradians"])
+            ):
+                errors.append("RETARGET_LOCOMOTION_ANKLE_RESERVE_MISMATCH")
             if np.any(
                 clip.joint_position_urad[:, shoulder_roll]
                 < int(projection["shoulder_roll_minimum_microradians"])
