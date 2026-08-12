@@ -10,7 +10,11 @@ from pathlib import Path
 import numpy as np
 
 from next_lab.cmu_motion import parse_amc, parse_asf, source_forward_kinematics
-from next_lab.motion_corpus import deterministic_npz_bytes, validate_clip
+from next_lab.motion_corpus import (
+    deterministic_npz_bytes,
+    load_motion_corpus_profile,
+    validate_clip,
+)
 from next_lab.motion_retarget import (
     CONTACT_IDS,
     SOURCE_OVERLAY_BONES,
@@ -18,14 +22,54 @@ from next_lab.motion_retarget import (
     canonical_integer_arrays,
     mirror_clip,
     rotate_clip_quarter_yaw,
+    _project_joint_velocity,
 )
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
+PROFILES = Path(__file__).parents[1] / "profiles"
 CMU_SCALE_METRES = 127 / 2250
 
 
 class MotionCorpusTests(unittest.TestCase):
+    def test_safety_reserve_overlay_is_base_hash_bound(self) -> None:
+        profile, profile_bytes = load_motion_corpus_profile(
+            PROFILES / "humanoid-motion-corpus-cmu-safety-reserve.v2.json"
+        )
+        self.assertTrue(profile_bytes.startswith(b"{"))
+        self.assertEqual(
+            profile["profile_id"],
+            "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion-safety-reserve.v2",
+        )
+        self.assertEqual(
+            profile["retarget"]["joint_velocity_limit_basis_points"], 9500
+        )
+        projection = profile["retarget"]["locomotion_collision_projection"]
+        self.assertEqual(projection["knee_minimum_microradians"], 34906)
+        self.assertEqual(projection["elbow_minimum_microradians"], 34906)
+
+    def test_joint_velocity_projection_applies_declared_reserve(self) -> None:
+        descriptor = {
+            "joints": [
+                {
+                    "dof_ordinal": 0,
+                    "maximum_velocity_microradians_per_second": 8_000_000,
+                }
+            ]
+        }
+        values = np.asarray([[0], [500_000], [-500_000]], dtype=np.int64)
+        projected = _project_joint_velocity(
+            values,
+            descriptor,
+            60,
+            velocity_limit_basis_points=9500,
+        )
+        maximum_step = 8_000_000 * 9500 // 10_000 // 60
+        np.testing.assert_array_equal(
+            projected,
+            np.asarray([[0], [maximum_step], [0]], dtype=np.int64),
+        )
+
     def test_cmu_parser_applies_frozen_units_handedness_and_rate_boundary(self) -> None:
         asf = """
 :version 1.10

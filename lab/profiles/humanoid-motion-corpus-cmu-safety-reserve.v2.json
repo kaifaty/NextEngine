@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion-safety-reserve.v2",
+  "status": "Frozen",
+  "base_profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion.v1",
+  "base_profile_sha256": "f281f73773f32ddba506c01aa66301488dadc40d91efbd78e2c1fb79a70951fc",
+  "variant": {
+    "joint_velocity_limit_basis_points": 9500,
+    "unidirectional_joint_minimum_microradians": 34906,
+    "rationale": "Reserve five percent of every descriptor maximum joint velocity: the complete 169-phase native first-tick audit measured a maximum 315778 microradians-per-second transient, or 3.947225 percent of the affected 8000000 limit, leaving 1.052775 percentage points of measured reserve. Keep locomotion knees and elbows two degrees inside their coincident lower hard/soft bound because the exact TRAIN-3 power/work controller exposed an 11-microradian first-tick right-elbow crossing under the previous one-degree reserve. These are safety reserves, not learned-quality thresholds."
+  }
+}

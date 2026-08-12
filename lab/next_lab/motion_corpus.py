@@ -7,6 +7,7 @@ import os
 import subprocess
 import tempfile
 import zipfile
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,12 @@ from next_lab.motion_retarget import (
 
 SCHEMA_VERSION = 1
 CORPUS_MANIFEST_ID = "nextengine.private-motion-corpus-manifest.v1"
+BASE_MOTION_CORPUS_PROFILE_ID = (
+    "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion.v1"
+)
+BASE_MOTION_CORPUS_PROFILE_SHA256 = (
+    "f281f73773f32ddba506c01aa66301488dadc40d91efbd78e2c1fb79a70951fc"
+)
 
 
 def build_motion_corpus(
@@ -37,8 +44,7 @@ def build_motion_corpus(
     dataset_root: Path,
     output_store: Path,
 ) -> tuple[dict[str, Any], Path]:
-    profile_bytes = profile_path.read_bytes()
-    profile = json.loads(profile_bytes)
+    profile, profile_bytes = load_motion_corpus_profile(profile_path)
     descriptor_bytes = descriptor_path.read_bytes()
     descriptor = json.loads(descriptor_bytes)
     _validate_closure(profile, descriptor, descriptor_bytes, dataset_root)
@@ -194,13 +200,80 @@ def build_motion_corpus(
             if existing.is_file() and existing.read_bytes() == manifest_bytes:
                 _remove_tree(staging)
                 return manifest, destination
-            raise FileExistsError(f"refusing to overwrite a different corpus generation: {destination}")
+            raise FileExistsError(
+                f"refusing to overwrite a different corpus generation: {destination}"
+            )
         os.replace(staging, destination)
         return manifest, destination
     except Exception:
         if staging.exists():
             _remove_tree(staging)
         raise
+
+
+def load_motion_corpus_profile(profile_path: Path) -> tuple[dict[str, Any], bytes]:
+    profile_bytes = profile_path.read_bytes()
+    document = json.loads(profile_bytes)
+    if "base_profile_sha256" not in document:
+        return document, profile_bytes
+    if (
+        document.get("schema_version") != SCHEMA_VERSION
+        or document.get("base_profile_id") != BASE_MOTION_CORPUS_PROFILE_ID
+        or document.get("base_profile_sha256")
+        != BASE_MOTION_CORPUS_PROFILE_SHA256
+        or document.get("status") != "Frozen"
+        or set(document) != {
+            "schema_version",
+            "profile_id",
+            "status",
+            "base_profile_id",
+            "base_profile_sha256",
+            "variant",
+        }
+    ):
+        raise ValueError("motion corpus overlay identity mismatch")
+    base_path = profile_path.parent / "humanoid-motion-corpus-cmu.v1.json"
+    base_bytes = base_path.read_bytes()
+    if _sha256(base_bytes) != BASE_MOTION_CORPUS_PROFILE_SHA256:
+        raise ValueError("motion corpus overlay base hash mismatch")
+    base = json.loads(base_bytes)
+    if base.get("profile_id") != BASE_MOTION_CORPUS_PROFILE_ID:
+        raise ValueError("motion corpus overlay base profile mismatch")
+    variant = document.get("variant")
+    if not isinstance(variant, dict) or set(variant) != {
+        "joint_velocity_limit_basis_points",
+        "unidirectional_joint_minimum_microradians",
+        "rationale",
+    }:
+        raise ValueError("motion corpus overlay variant mismatch")
+    velocity_basis_points = int(variant["joint_velocity_limit_basis_points"])
+    unidirectional_minimum = int(
+        variant["unidirectional_joint_minimum_microradians"]
+    )
+    if (
+        not 0 < velocity_basis_points <= 10_000
+        or unidirectional_minimum <= 0
+        or not isinstance(variant["rationale"], str)
+        or not variant["rationale"]
+    ):
+        raise ValueError("motion corpus overlay reserve is invalid")
+    result = deepcopy(base)
+    result["profile_id"] = document["profile_id"]
+    result["retarget"]["joint_velocity_limit_basis_points"] = (
+        velocity_basis_points
+    )
+    result["retarget"]["velocity_policy"] = (
+        "causal projection to the declared basis-point fraction of each target "
+        "joint maximum velocity at 60 Hz after soft-ROM projection"
+    )
+    projection = result["retarget"]["locomotion_collision_projection"]
+    projection["knee_minimum_microradians"] = unidirectional_minimum
+    projection["elbow_minimum_microradians"] = unidirectional_minimum
+    projection[
+        "unidirectional_joint_minimum_hard_reserve_microradians"
+    ] = unidirectional_minimum
+    projection["rationale"] = variant["rationale"]
+    return result, profile_bytes
 
 
 def deterministic_npz_bytes(clip: RetargetedClip, metadata: dict[str, Any]) -> bytes:
@@ -355,8 +428,13 @@ def validate_clip(
     maximum_rom_violation = int(max(np.max(below), np.max(above)))
     if maximum_rom_violation:
         errors.append("RETARGET_SOFT_ROM_VIOLATION")
-    maximum_velocity_ratio = float(np.max(np.abs(clip.joint_velocity_urad_s) / velocity_maximum))
-    if maximum_velocity_ratio > 1.25:
+    maximum_velocity_ratio = float(
+        np.max(np.abs(clip.joint_velocity_urad_s) / velocity_maximum)
+    )
+    velocity_limit_basis_points = int(
+        profile["retarget"].get("joint_velocity_limit_basis_points", 10_000)
+    )
+    if maximum_velocity_ratio > velocity_limit_basis_points / 10_000.0 + 1.0e-6:
         errors.append("RETARGET_JOINT_VELOCITY_EXCESS")
     maximum_correction = int(np.max(np.abs(clip.ground_correction_um)))
     correction_field = (
@@ -648,6 +726,11 @@ def _validate_closure(
         if target[field] != actual:
             raise ValueError(f"motion corpus target {field} mismatch")
     projection = profile["retarget"]["locomotion_collision_projection"]
+    velocity_limit_basis_points = int(
+        profile["retarget"].get("joint_velocity_limit_basis_points", 10_000)
+    )
+    if not 0 < velocity_limit_basis_points <= 10_000:
+        raise ValueError("motion corpus joint velocity reserve is invalid")
     ankle_roll_minimum = int(projection["ankle_roll_minimum_microradians"])
     ankle_roll_maximum = int(projection["ankle_roll_maximum_microradians"])
     minimum_hard_reserve = int(

@@ -126,7 +126,15 @@ def retarget_clip(
     soft_minimum, soft_maximum = _soft_limits(descriptor)
     raw_urad = np.rint(raw_joint_positions * 1_000_000.0).astype(np.int64)
     soft_clamped_urad = np.maximum(soft_minimum, np.minimum(soft_maximum, raw_urad))
-    clamped_urad = _project_joint_velocity(soft_clamped_urad, descriptor, 60)
+    velocity_limit_basis_points = int(
+        profile["retarget"].get("joint_velocity_limit_basis_points", 10_000)
+    )
+    clamped_urad = _project_joint_velocity(
+        soft_clamped_urad,
+        descriptor,
+        60,
+        velocity_limit_basis_points=velocity_limit_basis_points,
+    )
     velocity_projection = np.abs(clamped_urad - soft_clamped_urad)
     raw_excess = np.maximum(soft_minimum - raw_urad, np.maximum(raw_urad - soft_maximum, 0))
     collision_projection_urad = np.rint(
@@ -761,12 +769,23 @@ def _soft_limits(descriptor: dict[str, Any]) -> tuple[NDArray[np.int64], NDArray
 
 
 def _project_joint_velocity(
-    values: NDArray[np.int64], descriptor: dict[str, Any], rate_hz: int
+    values: NDArray[np.int64],
+    descriptor: dict[str, Any],
+    rate_hz: int,
+    *,
+    velocity_limit_basis_points: int = 10_000,
 ) -> NDArray[np.int64]:
+    if not 0 < velocity_limit_basis_points <= 10_000:
+        raise ValueError("joint velocity reserve basis points are invalid")
     maximum_step = np.empty(len(descriptor["joints"]), dtype=np.int64)
     for joint in descriptor["joints"]:
         ordinal = int(joint["dof_ordinal"])
-        maximum_step[ordinal] = int(joint["maximum_velocity_microradians_per_second"]) // rate_hz
+        maximum_velocity = (
+            int(joint["maximum_velocity_microradians_per_second"])
+            * velocity_limit_basis_points
+            // 10_000
+        )
+        maximum_step[ordinal] = maximum_velocity // rate_hz
     result = values.copy()
     for frame_index in range(1, len(result)):
         delta = result[frame_index] - result[frame_index - 1]
