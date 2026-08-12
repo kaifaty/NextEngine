@@ -172,6 +172,7 @@ class TinyReferencePpoTrainer:
         environment: Any,
         profile: TinyReferencePpoProfile,
         metrics_path: Path,
+        performance_recorder: Any | None = None,
     ) -> None:
         self.environment = environment
         self.profile = profile
@@ -184,6 +185,7 @@ class TinyReferencePpoTrainer:
             eps=float(ppo["adam_epsilon"]),
         )
         self.metrics_path = metrics_path
+        self.performance_recorder = performance_recorder
         self.optimizer_steps = 0
         self.samples = 0
 
@@ -348,14 +350,23 @@ class TinyReferencePpoTrainer:
         observation = observation_map["policy"]
         records: list[dict[str, Any]] = []
         for iteration in range(int(execution["iterations"])):
+            iteration_number = iteration + 1
+            if self.performance_recorder is not None:
+                self.performance_recorder.begin(iteration_number, "rollout")
             rollout = self._collect_rollout(
                 observation, int(execution["rollout_steps_per_env"])
             )
+            if self.performance_recorder is not None:
+                self.performance_recorder.end(iteration_number, "rollout")
             observation = rollout.pop("next_observation")
+            if self.performance_recorder is not None:
+                self.performance_recorder.begin(iteration_number, "update")
             metrics = self._update(rollout)
+            if self.performance_recorder is not None:
+                self.performance_recorder.end(iteration_number, "update")
             metrics.update(
                 {
-                    "iteration": iteration + 1,
+                    "iteration": iteration_number,
                     "samples": self.samples,
                     "optimizer_steps": self.optimizer_steps,
                     "rollout_mean_reward": float(rollout["reward"].mean().item()),

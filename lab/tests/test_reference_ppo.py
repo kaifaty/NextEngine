@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import torch
 from torch.distributions import Normal
@@ -11,6 +12,12 @@ from next_lab.reference_ppo import (
     TanhActorCritic,
     TinyReferencePpoProfile,
     _transformed_log_probability,
+)
+from next_lab.reference_performance import (
+    PhaseTiming,
+    assert_no_competing_training_process,
+    build_throughput_report,
+    parse_gpu_telemetry_csv,
 )
 
 
@@ -68,6 +75,54 @@ class ReferencePpoTests(unittest.TestCase):
             profile.document["initialization"]["checkpoint_sha256"],
             "3431d1a83ed429eb8978f531cab59f34ad59c06f19dea7f1330f2accfe588acb",
         )
+
+    def test_report_only_throughput_summary_excludes_warmup(self) -> None:
+        report = build_throughput_report(
+            timings=[
+                PhaseTiming(4, "rollout", 12_000_000, 10.0),
+                PhaseTiming(4, "update", 3_000_000, 2.0),
+                PhaseTiming(5, "rollout", 10_000_000, 8.0),
+                PhaseTiming(5, "update", 2_000_000, 1.0),
+            ],
+            elapsed_nanoseconds=20_000_000,
+            num_envs=64,
+            rollout_steps_per_env=32,
+            warmup_iterations=3,
+            telemetry=[
+                {
+                    "gpu_utilization_percent": 40,
+                    "memory_utilization_percent": 2,
+                    "memory_used_mib": 3771,
+                    "power_watts": 130.0,
+                    "temperature_celsius": 67,
+                    "sm_clock_mhz": 1920,
+                }
+            ],
+        )
+        self.assertEqual(report["claim"], "PerformanceEvidenceOnly")
+        self.assertEqual(report["measured_iterations"], 2)
+        self.assertEqual(report["measured_samples"], 4096)
+        self.assertEqual(report["samples_per_second"], 204800.0)
+        self.assertEqual(report["phase_cuda_milliseconds"]["rollout"]["mean"], 9.0)
+
+    def test_gpu_telemetry_parser_and_exclusive_training_preflight(self) -> None:
+        self.assertEqual(
+            parse_gpu_telemetry_csv("39, 1, 3771, 130.25, 67, 1920, P2\n"),
+            {
+                "gpu_utilization_percent": 39,
+                "memory_utilization_percent": 1,
+                "memory_used_mib": 3771,
+                "power_watts": 130.25,
+                "temperature_celsius": 67,
+                "sm_clock_mhz": 1920,
+                "pstate": "P2",
+            },
+        )
+        result = mock.Mock(stdout="123, /usr/bin/python3\n456, /opt/google/chrome\n")
+        with self.assertRaisesRegex(RuntimeError, "123:/usr/bin/python3"):
+            assert_no_competing_training_process(
+                device_index=0, current_pid=999, runner=mock.Mock(return_value=result)
+            )
 
 
 if __name__ == "__main__":

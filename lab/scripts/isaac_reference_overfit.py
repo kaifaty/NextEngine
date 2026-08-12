@@ -32,6 +32,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--initial-checkpoint", type=Path)
     parser.add_argument("--iterations", type=int)
+    parser.add_argument("--performance-evidence", action="store_true")
+    parser.add_argument("--performance-warmup-iterations", type=int, default=3)
     AppLauncher.add_app_launcher_args(parser)
     return parser.parse_args()
 
@@ -72,6 +74,16 @@ def main() -> None:
         training_profile = TinyReferencePpoProfile(
             document=document,
             sha256=training_profile.sha256,
+        )
+    if args.performance_evidence:
+        if args.performance_warmup_iterations < 0:
+            raise ValueError("performance warmup iterations must be non-negative")
+        if execution["iterations"] <= args.performance_warmup_iterations:
+            raise ValueError("performance evidence requires a measured iteration")
+        from next_lab.reference_performance import assert_no_competing_training_process
+
+        assert_no_competing_training_process(
+            device_index=int(execution["device"].removeprefix("cuda:"))
         )
     input_hashes = {
         "training_profile": _sha256(args.training_profile.resolve()),
@@ -135,6 +147,10 @@ def main() -> None:
             NextEngineReferenceDirectEnv,
             NextEngineReferenceDirectEnvCfg,
         )
+        from next_lab.reference_performance import (
+            NvidiaSmiTelemetrySampler,
+            ReferenceThroughputRecorder,
+        )
         from next_lab.reference_ppo import TinyReferencePpoTrainer
 
         seed = int(execution["seed"])
@@ -163,10 +179,18 @@ def main() -> None:
             corpus_root=str(args.corpus_root.resolve()),
             gate_report_path=str(args.gate_report.resolve()),
         )
+        performance_recorder = (
+            ReferenceThroughputRecorder(
+                warmup_iterations=args.performance_warmup_iterations
+            )
+            if args.performance_evidence
+            else None
+        )
         trainer = TinyReferencePpoTrainer(
             environment,
             training_profile,
             run_dir / "metrics.jsonl",
+            performance_recorder=performance_recorder,
         )
         if args.initial_checkpoint is not None:
             checkpoint = torch.load(
@@ -188,7 +212,32 @@ def main() -> None:
             trainer.model.load_state_dict(checkpoint["model"], strict=True)
         evaluation_episodes = int(document["evaluation"]["episodes"])
         initial_evaluation = trainer.evaluate_deterministic(evaluation_episodes)
-        records = trainer.train()
+        telemetry_sampler = NvidiaSmiTelemetrySampler(
+            device_index=int(execution["device"].removeprefix("cuda:"))
+        )
+        if performance_recorder is None:
+            records = trainer.train()
+        else:
+            with telemetry_sampler:
+                records = trainer.train()
+        throughput_record = None
+        if performance_recorder is not None:
+            throughput_report = performance_recorder.finalize(
+                num_envs=int(execution["num_envs"]),
+                rollout_steps_per_env=int(execution["rollout_steps_per_env"]),
+                telemetry=telemetry_sampler.records,
+            )
+            if telemetry_sampler.error is not None:
+                throughput_report["gpu_telemetry"]["diagnostic"] = (
+                    telemetry_sampler.error
+                )
+            throughput_path = run_dir / "throughput-report.json"
+            _write_json(throughput_path, throughput_report)
+            throughput_record = {
+                "file": throughput_path.name,
+                "sha256": _sha256(throughput_path),
+                "schema_id": throughput_report["schema_id"],
+            }
         final_evaluation = trainer.evaluate_deterministic(evaluation_episodes)
         accepted = (
             final_evaluation["reference_complete_count"]
@@ -239,6 +288,8 @@ def main() -> None:
                 },
             }
         )
+        if throughput_record is not None:
+            manifest["throughput_report"] = throughput_record
         _write_json(manifest_path, manifest)
         print(json.dumps(manifest, indent=2, sort_keys=True), flush=True)
     except BaseException as error:
