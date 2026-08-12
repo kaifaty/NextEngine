@@ -180,6 +180,12 @@ class TinyReferencePpoTrainer:
         completed_lengths: list[int] = []
         reference_complete_count = 0
         failure_count = 0
+        failure_reason_counts = {
+            "reference_tracking_lost": 0,
+            "hard_rom": 0,
+            "forbidden_contact": 0,
+            "non_finite": 0,
+        }
         executed_motor_steps = 0
         maximum_motor_steps = max(episodes, self.environment.num_envs) * (
             int(self.environment.max_episode_length) + 1
@@ -207,6 +213,21 @@ class TinyReferencePpoTrainer:
                         self.environment.last_step_success[index].item()
                     )
                     failure_count += int(self.environment.last_step_failure[index].item())
+                    for reason, attribute in (
+                        (
+                            "reference_tracking_lost",
+                            "last_step_failure_tracking_lost",
+                        ),
+                        ("hard_rom", "last_step_failure_hard_rom"),
+                        (
+                            "forbidden_contact",
+                            "last_step_failure_forbidden_contact",
+                        ),
+                        ("non_finite", "last_step_failure_non_finite"),
+                    ):
+                        failure_reason_counts[reason] += int(
+                            getattr(self.environment, attribute)[index].item()
+                        )
                 returns[done] = 0.0
                 lengths[done] = 0
                 observation = observation_map["policy"]
@@ -214,6 +235,7 @@ class TinyReferencePpoTrainer:
             "episodes": episodes,
             "reference_complete_count": reference_complete_count,
             "failure_count": failure_count,
+            "failure_reason_counts": failure_reason_counts,
             "mean_return": sum(completed_returns) / len(completed_returns),
             "mean_episode_length": sum(completed_lengths) / len(completed_lengths),
             "minimum_episode_length": min(completed_lengths),

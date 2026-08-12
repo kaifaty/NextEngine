@@ -194,6 +194,18 @@ if ISAAC_LAB_AVAILABLE:
             self._success_terminal = torch.zeros(cfg.scene.num_envs, dtype=torch.bool)
             self.last_step_failure = torch.zeros(cfg.scene.num_envs, dtype=torch.bool)
             self.last_step_success = torch.zeros(cfg.scene.num_envs, dtype=torch.bool)
+            self.last_step_failure_tracking_lost = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.bool
+            )
+            self.last_step_failure_hard_rom = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.bool
+            )
+            self.last_step_failure_forbidden_contact = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.bool
+            )
+            self.last_step_failure_non_finite = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.bool
+            )
             self._episode_reward_sum = torch.zeros(cfg.scene.num_envs)
             self._episode_component_sums = torch.zeros((cfg.scene.num_envs, 13))
             self.reward_components = torch.zeros((cfg.scene.num_envs, 13))
@@ -217,6 +229,10 @@ if ISAAC_LAB_AVAILABLE:
                 "_success_terminal",
                 "last_step_failure",
                 "last_step_success",
+                "last_step_failure_tracking_lost",
+                "last_step_failure_hard_rom",
+                "last_step_failure_forbidden_contact",
+                "last_step_failure_non_finite",
                 "_episode_reward_sum",
                 "_episode_component_sums",
                 "reward_components",
@@ -664,14 +680,16 @@ if ISAAC_LAB_AVAILABLE:
                 self.robot.data.joint_pos
             ).all(dim=-1)
             self._success_terminal.copy_(self._cursor >= self._terminal_frame)
+            tracking_lost = self._tracking_loss_ticks >= 4
             self._failure_terminal.copy_(
-                (self._tracking_loss_ticks >= 4)
-                | hard_rom
-                | forbidden_contact
-                | non_finite
+                tracking_lost | hard_rom | forbidden_contact | non_finite
             )
             self.last_step_success.copy_(self._success_terminal)
             self.last_step_failure.copy_(self._failure_terminal)
+            self.last_step_failure_tracking_lost.copy_(tracking_lost)
+            self.last_step_failure_hard_rom.copy_(hard_rom)
+            self.last_step_failure_forbidden_contact.copy_(forbidden_contact)
+            self.last_step_failure_non_finite.copy_(non_finite)
             terminated = self._success_terminal | self._failure_terminal
             timed_out = self.episode_length_buf >= self.max_episode_length - 1
             return terminated, timed_out & ~terminated
