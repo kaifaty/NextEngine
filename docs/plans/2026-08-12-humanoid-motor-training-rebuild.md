@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-0..4` advanced; `TRAIN-5` 64-tick tiny overfit failed on tracking loss, bounded-horizon diagnostic retry next; no gate advance |
+| Статус | In execution: `TRAIN-0..4` advanced; `TRAIN-5` reproducible 11-tick tiny overfit passed, curriculum/multi-seed next; no gate advance |
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -342,8 +342,8 @@ count: confidence interval не превращает наблюдаемое на
   gate report SHA-256
   `876e43b245de85101a490af846b468aab5594b1bb20b79fa042dd0009799b251`;
 - `TRAIN-5`: input/reward audit and native PhysX baseline matrix complete;
-  decision `AdvanceToTinyDeterministicOverfitOnly`; three execution attempts
-  recorded, `optimizer steps = 1025`, latest 64-tick overfit `FAIL`;
+  decision `AdvanceToCurriculumAndMultiSeedOnly`; five execution attempts
+  recorded, `optimizer steps = 3125`, reproducible 11-tick tiny overfit `PASS`;
 - `TRAIN-6..9`: `NotRun`; разрешён только specialist tracker `TRAIN-5`.
 
 ## TRAIN-0 — retirement/isolation старого эксперимента и чистая generation
@@ -835,6 +835,14 @@ forbidden contact и non-finite. Следующий tiny retry использу�
 это выше untrained maximum `10`, ниже первого learned tracking-loss tick `12`
 и не ослабляет последующие curriculum/full-reference проверки. Success на
 границе horizon учитывается только при отсутствии одновременного failure.
+
+Bounded-horizon runs `tiny-cmu104-h11-seed120812-r1/r2` независимо прошли
+acceptance: deterministic completion `0/64 -> 64/64`, mean episode length
+`8.359375 -> 11.0`, final failure count `0`. Их metrics и checkpoints побитово
+совпали. Reproducibility report SHA-256
+`a6704af4736c2ae45da8cfb84e7adceb8187f3d65bf189789ece9a1a715b2c2e`
+разрешает только curriculum и multi-seed; это не `TRAIN-5 Advance`, не
+full-reference pass и не learned-policy/held-out quality claim.
 
 Initial optimization order:
 
