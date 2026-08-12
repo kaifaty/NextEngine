@@ -2,9 +2,11 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | Selected planning input for `TRAIN-1`; не готовая BodySchema и не passing gate |
+| Статус | Target selection retained; exact `TRAIN-1` table is frozen separately |
 | Дата | 2026-08-12 |
 | Planning ID | `humanoid-young-adult-male-gait-1700.v1` |
+| Frozen profile | [Fixed humanoid biomechanics profile V1](2026-08-12-humanoid-biomechanics-profile-v1.md) |
+| Frozen profile SHA-256 | `307a00f2bda8cd083066a383cb025b5333240513e00b2c764ca8fef52bddc1bf` |
 | Target | healthy young adult male gait model, intended stature `1.700 m` |
 | Exact source-model mass | `75.337 kg` over `22` source bodies |
 | Требования candidate | [Humanoid motor requirements baseline](2026-08-12-humanoid-motor-requirements.md) |
@@ -43,24 +45,28 @@ engineering subject:
 | Model and validation rationale | [Rajagopal et al., 2016, Full-Body Musculoskeletal Model for Muscle-Driven Simulation of Human Gait](https://doi.org/10.1109/TBME.2016.2586891) |
 | Open full text | [PubMed Central PMC5507211](https://pmc.ncbi.nlm.nih.gov/articles/PMC5507211/) |
 | Height/mass description and high-flexion limitations | [Lai, Arnold and Wakeling, 2017](https://pmc.ncbi.nlm.nih.gov/articles/PMC5989715/) |
-| Engine-readable reference | [`Rajagopal2016.osim` at exact source commit](https://github.com/opensim-org/opensim-models/blob/e0cee6cbcf56f74731e841668ef668556d140ce9/Models/Rajagopal/Rajagopal2016.osim) |
+| Engine-readable numeric authority | [`Rajagopal2015.osim` at the official repository's initial model commit](https://github.com/opensim-org/opensim-models/blob/a5c5f6ce9b904e618eeaf203e6efa48d457f9b41/Models/RajagopalModel/Rajagopal2015.osim) |
+| Numeric-authority source commit | `a5c5f6ce9b904e618eeaf203e6efa48d457f9b41`, 2017-09-25, `add model` |
+| Numeric-authority SHA-256 | `b8a31616557f73f798898c03a9beee723ba2987e646a688375d60c4327d90bff` |
+| License authority | [SimTK Full Body Model](https://simtk.org/projects/full_body), MIT Use Agreement, packages `1738`/`1739` |
+| License-text SHA-256 | `cb4e076bb74cecf35cf37f134c781e204745e8cd3c113ad1f7469b55ac7923b0` |
+| Later 4.5 cross-check | [`Rajagopal2016.osim` at exact source commit](https://github.com/opensim-org/opensim-models/blob/e0cee6cbcf56f74731e841668ef668556d140ce9/Models/Rajagopal/Rajagopal2016.osim) |
 | High-flexion cross-check | [`RajagopalLaiUhlrich2023.osim` at exact source commit](https://github.com/opensim-org/opensim-models/blob/e0cee6cbcf56f74731e841668ef668556d140ce9/Models/Rajagopal/RajagopalLaiUhlrich2023.osim) |
-| Source commit | `e0cee6cbcf56f74731e841668ef668556d140ce9`, 2024-12-06, `Fix Inertial Inequality` |
+| Later cross-check commit | `e0cee6cbcf56f74731e841668ef668556d140ce9`, 2024-12-06, `Fix Inertial Inequality` |
 | `Rajagopal2016.osim` SHA-256 | `3f5c5f23e486073f2ad2aa4a4967ffe2fcdd582b1e355512bc54f70c36376bf4` |
 | `RajagopalLaiUhlrich2023.osim` SHA-256 | `8f30d0b64750b87eb7f705907862590535212b4afd7e919faa3fd7d1683d22ec` |
 
-The exact current `Rajagopal2016.osim` contains `22` bodies whose authored
+The exact initial official-repository `Rajagopal2015.osim` contains `22` bodies whose authored
 masses sum to `75.337 kg`. Therefore `75 kg` is a human-readable source-model
 description; `75.337 kg` is the exact mass-conservation target for the first
 BodySchema derivation. Silent rounding back to `75.000 kg` is forbidden.
 
 Source `.osim`, meshes and muscle data remain external and are not committed to
-NextEngine. Public downloadability does not by itself prove redistribution or
-derivative-data rights. Before `TRAIN-1` can pass, its source manifest records
-the applicable license/permission and exact allowed use. If that closure is not
-available, the profile may retain the scientific papers as method references
-but must derive distributable numeric tables from a source with explicit
-compatible rights.
+NextEngine. The SimTK package page records an MIT Use Agreement that explicitly
+permits use, modification and distribution subject to retaining its notice.
+The frozen profile records the notice/hash and uses the official repository's
+initial model commit as its exact byte identity; later OpenSim modifications
+are cross-checks rather than silent numeric replacements.
 
 ### 2.2. Independent cross-checks
 
@@ -213,16 +219,12 @@ meshes are **not** NextEngine actuator or collider defaults.
 The profile makes no claim to muscle activation, metabolic fidelity or human
 injury thresholds.
 
-## 7. What remains before `TRAIN-1` can pass
+## 7. Frozen-profile disposition
 
-1. Close explicit license/permission for the numeric source derivation.
-2. Freeze the exact source-to-BodySchema body/frame mapping.
-3. Resolve virtual carrier representation without arbitrary mass/inertia.
-4. Produce exact per-body dimensions, mass, CoM, inertia and collider rows.
-5. Produce exact per-DoF axis/frame, hard/soft ROM, velocity and mirror rows.
-6. Produce exact actuator/PD/residual/slew/power/energy rows.
-7. Derive neutral pelvis root height and support geometry.
-8. Pass mass/CoM/inertia conservation, anatomy and passive physical reviews.
+The linked frozen profile closes the license, mapping, carrier, body, collider,
+joint, actuator and neutral-support specification items. It records analytical
+mass/anatomy reviews as Pass and correctly leaves passive PhysX behavior and
+recovery-clip fit `NotRun` for TRAIN-2 and TRAIN-4 respectively.
 
-Until all eight items pass, `REQ-HUM-BODY-001..007` and `TRAIN-1` remain
-`NotRun` or `Fail`; selection of Rajagopal target alone is not gate evidence.
+`TRAIN-1` may advance only with a gate report bound to the exact frozen-profile
+hash. This target-selection document alone remains non-evidence.

@@ -2,13 +2,15 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | Reviewed draft implementation plan; все TRAIN gates `NotRun` |
+| Статус | In execution: `TRAIN-0` and `TRAIN-1` advanced; `TRAIN-2..9` `NotRun` |
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
 | Архитектурная опора | SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34, SPEC-35, ADR-027, ADR-030, ADR-046, ADR-053, ADR-058, ADR-059, ADR-064..068 |
 | Требования candidate | [Humanoid motor requirements baseline](2026-08-12-humanoid-motor-requirements.md) |
 | Anthropometric target | [Young-adult male gait target](2026-08-12-humanoid-biomechanics-target.md) |
+| Frozen biomechanics profile | [Fixed humanoid biomechanics profile V1](2026-08-12-humanoid-biomechanics-profile-v1.md) |
+| Frozen profile SHA-256 | `307a00f2bda8cd083066a383cb025b5333240513e00b2c764ca8fef52bddc1bf` |
 
 Нормативные источники для реализации:
 
@@ -304,6 +306,13 @@ count: confidence interval не превращает наблюдаемое на
 | `TRAIN-7` | mandatory side-inclusive recovery route проходит required checks; quality matrix полностью reported | motion prior/multi-skill |
 | `TRAIN-8` | optional prior/distilled actor проходит required checks и завершает retention report либо stage заранее skipped | export; при skip используется TRAIN-7 candidate |
 | `TRAIN-9` | portable candidate совпадает с runtime, проходит required checks и завершает headless reports | candidate publication |
+
+Текущее выполнение:
+
+- `TRAIN-0`: `Advance`, implementation commit `9148b776db2c1be63d1393f62f1cbfa782eb11cc`;
+- `TRAIN-1`: `Advance`, frozen profile SHA-256
+  `307a00f2bda8cd083066a383cb025b5333240513e00b2c764ca8fef52bddc1bf`;
+- `TRAIN-2..9`: `NotRun`; ML по-прежнему не разрешён.
 
 ## TRAIN-0 — retirement/isolation старого эксперимента и чистая generation
 
