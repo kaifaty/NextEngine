@@ -270,6 +270,8 @@ if ISAAC_LAB_AVAILABLE:
                 cfg.fixed_start_frame + cfg.fixed_horizon_motor_ticks,
                 dtype=torch.int64,
             )
+            self._episode_start_frame = self._cursor.clone()
+            self._episode_clip_index = self._clip_index.clone()
             self._tracking_loss_ticks = torch.zeros(cfg.scene.num_envs, dtype=torch.int64)
             self._forbidden_contact_substeps = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.int64
@@ -294,6 +296,21 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_failure_non_finite = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.bool
             )
+            self.last_step_episode_start_frame = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.int64
+            )
+            self.last_step_episode_clip_index = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.int64
+            )
+            self.last_step_hard_rom_action_channel = torch.full(
+                (cfg.scene.num_envs,), -1, dtype=torch.int64
+            )
+            self.last_step_hard_rom_excess_microradians = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.int64
+            )
+            self.last_step_forbidden_contact_mask = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.int64
+            )
             self._episode_reward_sum = torch.zeros(cfg.scene.num_envs)
             self._episode_component_sums = torch.zeros((cfg.scene.num_envs, 13))
             self.reward_components = torch.zeros((cfg.scene.num_envs, 13))
@@ -314,6 +331,8 @@ if ISAAC_LAB_AVAILABLE:
                 "_cursor",
                 "_clip_index",
                 "_terminal_frame",
+                "_episode_start_frame",
+                "_episode_clip_index",
                 "_tracking_loss_ticks",
                 "_forbidden_contact_substeps",
                 "_failure_terminal",
@@ -324,6 +343,11 @@ if ISAAC_LAB_AVAILABLE:
                 "last_step_failure_hard_rom",
                 "last_step_failure_forbidden_contact",
                 "last_step_failure_non_finite",
+                "last_step_episode_start_frame",
+                "last_step_episode_clip_index",
+                "last_step_hard_rom_action_channel",
+                "last_step_hard_rom_excess_microradians",
+                "last_step_forbidden_contact_mask",
                 "_episode_reward_sum",
                 "_episode_component_sums",
                 "reward_components",
@@ -796,19 +820,27 @@ if ISAAC_LAB_AVAILABLE:
             self._tracking_loss_ticks.copy_(
                 torch.where(lost, self._tracking_loss_ticks + 1, 0)
             )
-            hard_rom = torch.any(
-                (
-                    current["joint_position_urad"][:, self._action_to_dof].to(torch.float64)
-                    < self._hard_minimum - 10.0
-                )
-                | (
-                    current["joint_position_urad"][:, self._action_to_dof].to(torch.float64)
-                    > self._hard_maximum + 10.0
-                ),
-                dim=-1,
+            action_position = current["joint_position_urad"][
+                :, self._action_to_dof
+            ].to(torch.float64)
+            hard_rom_excess = torch.maximum(
+                torch.maximum(self._hard_minimum - action_position, torch.zeros_like(action_position)),
+                torch.maximum(action_position - self._hard_maximum, torch.zeros_like(action_position)),
             )
+            maximum_hard_rom_excess, hard_rom_channel = torch.max(
+                hard_rom_excess, dim=-1
+            )
+            hard_rom = maximum_hard_rom_excess > 10.0
             forbidden_contact_raw = torch.any(
                 current["contacts"][:, 2:] != 0, dim=-1
+            )
+            contact_weights = torch.tensor(
+                [1, 2, 4, 8, 16], dtype=torch.int64, device=self.device
+            )
+            forbidden_contact_mask = torch.sum(
+                (current["contacts"][:, 2:] != 0).to(torch.int64)
+                * contact_weights[None],
+                dim=-1,
             )
             forbidden_contact_substeps, forbidden_contact = _advance_contact_grace(
                 self._forbidden_contact_substeps,
@@ -833,6 +865,19 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_failure_hard_rom.copy_(hard_rom)
             self.last_step_failure_forbidden_contact.copy_(forbidden_contact)
             self.last_step_failure_non_finite.copy_(non_finite)
+            self.last_step_episode_start_frame.copy_(self._episode_start_frame)
+            self.last_step_episode_clip_index.copy_(self._episode_clip_index)
+            self.last_step_hard_rom_action_channel.copy_(
+                torch.where(
+                    hard_rom,
+                    hard_rom_channel,
+                    torch.full_like(hard_rom_channel, -1),
+                )
+            )
+            self.last_step_hard_rom_excess_microradians.copy_(
+                torch.round(maximum_hard_rom_excess).to(torch.int64)
+            )
+            self.last_step_forbidden_contact_mask.copy_(forbidden_contact_mask)
             terminated = self._success_terminal | self._failure_terminal
             timed_out = self.episode_length_buf >= self.max_episode_length - 1
             return terminated, timed_out & ~terminated
@@ -1051,6 +1096,8 @@ if ISAAC_LAB_AVAILABLE:
             self._terminal_frame[env_ids] = torch.tensor(
                 terminal_values, dtype=torch.int64, device=self.device
             )
+            self._episode_start_frame[env_ids] = frame
+            self._episode_clip_index[env_ids] = self._clip_index[env_ids]
             root_position_engine = (
                 self._reference_at("root_position_um", frame, env_ids).to(torch.float32)
                 / 1_000_000.0

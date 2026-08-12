@@ -81,9 +81,15 @@ def main() -> None:
         cfg.scene.num_envs = int(execution["num_envs"])
         cfg.sim.device = execution["device"]
         cfg.seed = seed
-        cfg.fixed_clip_id = document["scope"]["clip_id"]
-        cfg.fixed_start_frame = int(document["scope"]["start_frame"])
-        cfg.fixed_horizon_motor_ticks = int(document["scope"]["horizon_motor_ticks"])
+        scope = document["scope"]
+        cfg.fixed_horizon_motor_ticks = int(scope["horizon_motor_ticks"])
+        if scope["phase_randomization"]:
+            cfg.eligible_clip_ids = tuple(scope["eligible_clip_ids"])
+            cfg.phase_randomization = True
+            cfg.rng_run_root_hex = scope["rng_run_root_hex"]
+        else:
+            cfg.fixed_clip_id = scope["clip_id"]
+            cfg.fixed_start_frame = int(scope["start_frame"])
         environment = NextEngineReferenceDirectEnv(
             cfg,
             descriptor_path=str(args.descriptor.resolve()),

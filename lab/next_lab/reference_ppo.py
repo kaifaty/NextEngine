@@ -211,6 +211,11 @@ class TinyReferencePpoTrainer:
             "forbidden_contact": 0,
             "non_finite": 0,
         }
+        selection_results: dict[str, dict[str, Any]] = {}
+        maximum_hard_rom_excess_microradians = 0
+        maximum_hard_rom_action_channel = -1
+        maximum_hard_rom_selection = ""
+        forbidden_contact_mask_counts: dict[str, int] = {}
         executed_motor_steps = 0
         maximum_motor_steps = max(episodes, self.environment.num_envs) * (
             int(self.environment.max_episode_length) + 1
@@ -238,6 +243,36 @@ class TinyReferencePpoTrainer:
                         self.environment.last_step_success[index].item()
                     )
                     failure_count += int(self.environment.last_step_failure[index].item())
+                    clip_index = int(
+                        self.environment.last_step_episode_clip_index[index].item()
+                    )
+                    start_frame = int(
+                        self.environment.last_step_episode_start_frame[index].item()
+                    )
+                    selection_id = (
+                        f"{self.environment.reference_clips[clip_index].clip_id}:{start_frame}"
+                    )
+                    selection = selection_results.setdefault(
+                        selection_id,
+                        {
+                            "episodes": 0,
+                            "reference_complete_count": 0,
+                            "failure_count": 0,
+                            "failure_reason_counts": {
+                                "reference_tracking_lost": 0,
+                                "hard_rom": 0,
+                                "forbidden_contact": 0,
+                                "non_finite": 0,
+                            },
+                        },
+                    )
+                    selection["episodes"] += 1
+                    selection["reference_complete_count"] += int(
+                        self.environment.last_step_success[index].item()
+                    )
+                    selection["failure_count"] += int(
+                        self.environment.last_step_failure[index].item()
+                    )
                     for reason, attribute in (
                         (
                             "reference_tracking_lost",
@@ -250,8 +285,39 @@ class TinyReferencePpoTrainer:
                         ),
                         ("non_finite", "last_step_failure_non_finite"),
                     ):
-                        failure_reason_counts[reason] += int(
+                        occurred = int(
                             getattr(self.environment, attribute)[index].item()
+                        )
+                        failure_reason_counts[reason] += occurred
+                        selection["failure_reason_counts"][reason] += occurred
+                    hard_rom_excess = int(
+                        self.environment.last_step_hard_rom_excess_microradians[
+                            index
+                        ].item()
+                    )
+                    if (
+                        self.environment.last_step_failure_hard_rom[index].item()
+                        and hard_rom_excess > maximum_hard_rom_excess_microradians
+                    ):
+                        maximum_hard_rom_excess_microradians = hard_rom_excess
+                        maximum_hard_rom_action_channel = int(
+                            self.environment.last_step_hard_rom_action_channel[
+                                index
+                            ].item()
+                        )
+                        maximum_hard_rom_selection = selection_id
+                    contact_mask = int(
+                        self.environment.last_step_forbidden_contact_mask[index].item()
+                    )
+                    if (
+                        self.environment.last_step_failure_forbidden_contact[
+                            index
+                        ].item()
+                        and contact_mask
+                    ):
+                        mask_key = str(contact_mask)
+                        forbidden_contact_mask_counts[mask_key] = (
+                            forbidden_contact_mask_counts.get(mask_key, 0) + 1
                         )
                 returns[done] = 0.0
                 lengths[done] = 0
@@ -261,6 +327,13 @@ class TinyReferencePpoTrainer:
             "reference_complete_count": reference_complete_count,
             "failure_count": failure_count,
             "failure_reason_counts": failure_reason_counts,
+            "selection_results": dict(sorted(selection_results.items())),
+            "maximum_hard_rom_excess_microradians": maximum_hard_rom_excess_microradians,
+            "maximum_hard_rom_action_channel": maximum_hard_rom_action_channel,
+            "maximum_hard_rom_selection": maximum_hard_rom_selection,
+            "forbidden_contact_mask_counts": dict(
+                sorted(forbidden_contact_mask_counts.items())
+            ),
             "mean_return": sum(completed_returns) / len(completed_returns),
             "mean_episode_length": sum(completed_lengths) / len(completed_lengths),
             "minimum_episode_length": min(completed_lengths),
