@@ -5,7 +5,7 @@ from typing import Any
 
 from next_lab.motor_mirror import round_div_ties_even
 
-PROFILE_SHA256 = "88c2ffefed4cb8f2c0dc35426ffaf964d09d4d8fbb14fb33bfd305fb4df625c9"
+PROFILE_SHA256 = "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c"
 PROFILE_BYTES = bytes.fromhex(PROFILE_SHA256)
 Q1_30_ONE = 1 << 30
 TARGET_CLAMPED = 1 << 0

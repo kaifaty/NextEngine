@@ -12,6 +12,7 @@ use next_contracts::physics::{
 use crate::{CompiledBodySchemaV2, JointControlStateV1};
 
 pub const NORMALIZED_RESIDUAL_ONE_Q1_30: i64 = 1 << 30;
+pub const OBSERVED_HARD_ROM_QUANTIZATION_TOLERANCE_MICRORADIANS: i64 = 10;
 pub const ACTUATOR_TARGET_SLEW_CLAMPED: u16 = 1 << 3;
 pub const ACTUATOR_POWER_CLAMPED: u16 = 1 << 4;
 pub const ACTUATOR_WORK_CLAMPED: u16 = 1 << 5;
@@ -309,6 +310,29 @@ impl BiomechanicsSafetyController {
         self.motor_tick_prepared = false;
     }
 
+    pub fn reset_to_reference(
+        &mut self,
+        reference_targets_microradians: &[i64],
+    ) -> Result<(), MotorSafetyError> {
+        if reference_targets_microradians.len() != self.channels.len() {
+            return Err(MotorSafetyError::ChannelCount);
+        }
+        for (target, channel) in reference_targets_microradians.iter().zip(&self.channels) {
+            if *target < channel.joint.soft_limit_min_microradians
+                || *target > channel.joint.soft_limit_max_microradians
+            {
+                return Err(MotorSafetyError::InvalidSkillEnvelope);
+            }
+        }
+        self.applied_targets
+            .copy_from_slice(reference_targets_microradians);
+        self.previous_efforts.fill(0);
+        self.positive_work.fill(0);
+        self.completed_substeps = 0;
+        self.motor_tick_prepared = false;
+        Ok(())
+    }
+
     #[must_use]
     pub fn checkpoint(&self) -> BiomechanicsSafetyCheckpointV1 {
         BiomechanicsSafetyCheckpointV1 {
@@ -382,8 +406,17 @@ fn validate_joint_states(
     states: &[JointControlStateV1],
 ) -> Result<(), MotorSafetyError> {
     for (channel, state) in channels.iter().zip(states) {
-        if !(channel.joint.base.limit_min_microradians..=channel.joint.base.limit_max_microradians)
-            .contains(&state.position_microradians)
+        let observed_minimum = channel
+            .joint
+            .base
+            .limit_min_microradians
+            .saturating_sub(OBSERVED_HARD_ROM_QUANTIZATION_TOLERANCE_MICRORADIANS);
+        let observed_maximum = channel
+            .joint
+            .base
+            .limit_max_microradians
+            .saturating_add(OBSERVED_HARD_ROM_QUANTIZATION_TOLERANCE_MICRORADIANS);
+        if !(observed_minimum..=observed_maximum).contains(&state.position_microradians)
         {
             return Err(MotorSafetyError::HardRangeViolation);
         }

@@ -82,14 +82,14 @@
             ]
           ],
           "expected_decision": {
-            "decision_root": "ecad8d79941e4347d0f69104be3fd3c1baad85ed9aec39c4ff5119b3ab5ff28c",
+            "decision_root": "1ac22fb0237da47696da6f6799d0e51e3b8d1e7bcff327136c8d5bd2642dec09",
             "disposition": 0,
             "reason": null,
             "reason_id": null
           },
           "expected_frames": [
             {
-              "classification_root": "92da0a5645d42ddcfe4e2c9bc4158d3b8029e0070c8aa2bc03a57d5d0c83b589",
+              "classification_root": "b88dd502aede89615ab6e95a3f3159d288605ecc3fa21ead579b87e0d34f9a36",
               "contacts": [
                 {
                   "class": 2,
@@ -113,10 +113,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "0d0fac0f40918ac1662f583c5ff276dc69892cda90081a5f74d6839fb73ecb5d"
+              "continuity_root": "9daabb0f6351b42a99fd4dac30051e70eefcf6190ab69e2a293c0b4503062574"
             },
             {
-              "classification_root": "58c90607428e4fb4d8667796b58ec1f3c70f50f69e7cbac03ad580a31299b9c6",
+              "classification_root": "24af28deae1d536b0c471f3f24c52c16ccf36d840eae7630b4ece152e0e0d60b",
               "contacts": [
                 {
                   "class": 2,
@@ -140,10 +140,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "12f9b39b18aaee02ee39d8a2fb16aa385bc30255f49e878c89bb043add05b097"
+              "continuity_root": "9e8f8e4ea8407e528354f64a48a62f408b8b3b4c211c4d45ab815837c2b091a8"
             },
             {
-              "classification_root": "6646edc8f052257b0cf005e7a1baffb7ce1dab6da6902a39dcfd2eaf74e85687",
+              "classification_root": "f3fcb5e8390b83425c65a95b247059561a83f49a5db5cae49f255ce536561542",
               "contacts": [
                 {
                   "class": 2,
@@ -167,10 +167,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "0eaf578311dfbea021bb7561b2d145259192b479b56e0a95a3562cbe22690233"
+              "continuity_root": "0de85b9b8fa1e67fa753ae4ebc56776d26a6bc370c9bb3f2197934a6ba25e261"
             },
             {
-              "classification_root": "c02fb528006fe2254bf6c3f626f72fd353a47730073338c891b10910784987eb",
+              "classification_root": "d5516c4f5bf93c47623fadcda3719af4e382a81d0c062e9259a3e7436fe97b7f",
               "contacts": [
                 {
                   "class": 2,
@@ -194,7 +194,7 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "674502df48570af54e5248f69eeb2652dd68da1031edc7fc00b605d742db79f2"
+              "continuity_root": "f4a9d1d3e3aa5bfd1dbf5438da43c7ca2f5f22dffe54311995ed0b948f9188ee"
             }
           ],
           "motor_tick": 1
@@ -220,14 +220,14 @@
             []
           ],
           "expected_decision": {
-            "decision_root": "64dc1ad2362a0ff807844e770a8c0c7acae4a49708cfb05431f878f346e81762",
+            "decision_root": "439191b085a86f3c6e59d59956b86604ba284d0393d8cbf921e5ef8ba4aeb577",
             "disposition": 1,
             "reason": 5,
             "reason_id": "terminal.forbidden-locomotion-contact"
           },
           "expected_frames": [
             {
-              "classification_root": "4f318f29840605381261d69a881e81f409ab98915d7c2260806792d1e5229109",
+              "classification_root": "230c0782c8f9b209e4df09cb989bd1af477d540505949a845b1415eb9ced1096",
               "contacts": [
                 {
                   "class": 3,
@@ -251,22 +251,22 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "e01bbef5e41a8601f6db36a7f5d0013e98ba0a7076df8e362ac8543724291d02"
+              "continuity_root": "2defd5dbfdb7ad2597854cfb86922ce850edc05a045b20206e36c68194bb53b3"
             },
             {
-              "classification_root": "079d7d5c0cb17a5256dff7c6a68a2984abb7488fc8c438f7c16e1f848da75f63",
+              "classification_root": "b5d443ab65dac43f6532be9981f12c641b7ba39da41a91e074e0c13de95c45e4",
               "contacts": [],
-              "continuity_root": "9dbf890929c0ec521e03ad89776dc6aeafb95191c9ac48ad59faef9b8255bfb5"
+              "continuity_root": "adc2db89933782d25d3a6a86f13cf2b628f4bb40e1184c3534fefbe7035ea4de"
             },
             {
-              "classification_root": "079d7d5c0cb17a5256dff7c6a68a2984abb7488fc8c438f7c16e1f848da75f63",
+              "classification_root": "b5d443ab65dac43f6532be9981f12c641b7ba39da41a91e074e0c13de95c45e4",
               "contacts": [],
-              "continuity_root": "9dbf890929c0ec521e03ad89776dc6aeafb95191c9ac48ad59faef9b8255bfb5"
+              "continuity_root": "adc2db89933782d25d3a6a86f13cf2b628f4bb40e1184c3534fefbe7035ea4de"
             },
             {
-              "classification_root": "079d7d5c0cb17a5256dff7c6a68a2984abb7488fc8c438f7c16e1f848da75f63",
+              "classification_root": "b5d443ab65dac43f6532be9981f12c641b7ba39da41a91e074e0c13de95c45e4",
               "contacts": [],
-              "continuity_root": "9dbf890929c0ec521e03ad89776dc6aeafb95191c9ac48ad59faef9b8255bfb5"
+              "continuity_root": "adc2db89933782d25d3a6a86f13cf2b628f4bb40e1184c3534fefbe7035ea4de"
             }
           ],
           "motor_tick": 2
@@ -352,14 +352,14 @@
             ]
           ],
           "expected_decision": {
-            "decision_root": "4caea8c5aa3e08f240468d4c8d95f54f00ccbe9142f33f0d4f9ede3a5bf2d477",
+            "decision_root": "ce0490e524b4d623c3df0f077ac7e34027c7a355c4a901f3cc29af90e7727896",
             "disposition": 1,
             "reason": 5,
             "reason_id": "terminal.forbidden-locomotion-contact"
           },
           "expected_frames": [
             {
-              "classification_root": "38776c747130e739136a495b3fa11c9f61d275bff62333065c92747ed439c2f3",
+              "classification_root": "9e490e654cc8fd24b5b067b99c41d499ffe2affcf492fa6cc2d15c68b11ef3e0",
               "contacts": [
                 {
                   "class": 3,
@@ -383,10 +383,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "1a65ff5ade00c14ec10ae592a84a94d0a76188217c757b6bc72399433b74cef2"
+              "continuity_root": "4496d2c991fe5313655dc0236431a9fe5eb7e0c6c83494d3638a3ac257593e3a"
             },
             {
-              "classification_root": "4a00fb3c6c737cef18ceb95e8d527f5205ce623bc1be5a33e82ee6effd5a4bc3",
+              "classification_root": "a97248f8b21bea47142dc71451b69edda85d11416a8c0cfcdd748398648573d9",
               "contacts": [
                 {
                   "class": 3,
@@ -410,10 +410,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "b34dd60540b01952754f85e1df9a744493f40f05b2b650b92b9dcb22ba0bc5fb"
+              "continuity_root": "87e380c51f9bdab877b10d3e55460f2bb1b77956f037f995dd1507c261ab03d1"
             },
             {
-              "classification_root": "5fbb566a8cbead110f4c2f19802ad4263cac2abf09061a3c6229695c31fd2805",
+              "classification_root": "b46feceed4e96ca6716148f1760dfc084aa40a5d3a89e88a2db3bebada01b8dd",
               "contacts": [
                 {
                   "class": 3,
@@ -437,10 +437,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "5cf5e8dc5f62b33d03745b811665a625bab565d82075265c490db1193e1c62cd"
+              "continuity_root": "9d11984360db773933f2030d22593b1d26d7536be54fb4ce91432801337423a0"
             },
             {
-              "classification_root": "ba1837693b7b68271d753967f279ee468841fb08c05ff814caf00b746bcf2ab1",
+              "classification_root": "46a1ee9a2c348606931d07d3ef23b77cc749372ccb721b768b7cdb1df4e7cc59",
               "contacts": [
                 {
                   "class": 3,
@@ -464,7 +464,7 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "42f5adb86d189991d4b4b27a7baee06ef32ab010d7df1b0c5189e5a4530265d6"
+              "continuity_root": "8a9dcfac109fafa85c222f69d3bc6fb667c134c5115991c891e57ff08e34b656"
             }
           ],
           "motor_tick": 1
@@ -550,14 +550,14 @@
             ]
           ],
           "expected_decision": {
-            "decision_root": "eaac7b28a1074052aa7b74fb3c479ae9591fe9301f624b9efa020ce054fbe5fa",
+            "decision_root": "79f6d5c6536f9c07c3bf41582aee991c49f6b37bc4cc97d8fe933e27be1416f4",
             "disposition": 1,
             "reason": 5,
             "reason_id": "terminal.forbidden-locomotion-contact"
           },
           "expected_frames": [
             {
-              "classification_root": "23ce4851300fa55ef0f66f2ee9e1aa39ae89315f43e2daba1128a8d9018794b5",
+              "classification_root": "b8db5f373f29a50dc04867e0c46d437130119dc96e2bdd8474a8576add4a310b",
               "contacts": [
                 {
                   "class": 3,
@@ -581,10 +581,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "6f6c2a5ca353a0f9330588c32213f4253954f937a4bd518c7bd451f6db2d7548"
+              "continuity_root": "10534821db6036518c9fa623a262ec05d64bdfd7cf3ffc577a87f088825e9bff"
             },
             {
-              "classification_root": "9751dc1feb02414fa4be2bd4ccab296d9fa18465f6b50bb60e97905083d7fe07",
+              "classification_root": "a50422b9e03c4b49676d6220b1c84d4da71e2c2d1f0c59c2ff69a82459da59fc",
               "contacts": [
                 {
                   "class": 3,
@@ -608,10 +608,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "7bc85e98a2981f7660cd7cb6904929002f2f03998454aecb5101495f2685ed9a"
+              "continuity_root": "62efda1bc69a0bff336fd5ece2b717e17c7450d724d19bc5335a9fbb3f120551"
             },
             {
-              "classification_root": "bf73d0c1fdfdc44f7187925a0cd05eb61d9642ff15b38b85b27ae68d0eedba49",
+              "classification_root": "a2656707532914932fa5032da3b74526a842c4a4dc9276211032b0294b3400d8",
               "contacts": [
                 {
                   "class": 3,
@@ -635,10 +635,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "8ba82d8e0ffdd32d61a8d81ff91095a88ad451cea00580591db450b202bdd9eb"
+              "continuity_root": "7e06f49362a81130e2e4c41212fd33bce9da31ffc8de4d0289ce91a106448c33"
             },
             {
-              "classification_root": "c3bc9fad54f46cc1e58b087dff66fd9cb36eb2618940d0fb419f5227b46b7419",
+              "classification_root": "5035c9332ddce2bbc4fa0afd3cf41d345f76370d061298449b77137b02c7371a",
               "contacts": [
                 {
                   "class": 3,
@@ -662,7 +662,7 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "b5cb3db2b43fec210614f9e8ba0e78d815138cceec238827d11c84f9d716d543"
+              "continuity_root": "bbab3b1f1a38928d9b36b3c9f0450d248df345f992a5fd03d9c35c4bfcf6e2e2"
             }
           ],
           "motor_tick": 1
@@ -748,14 +748,14 @@
             ]
           ],
           "expected_decision": {
-            "decision_root": "0df186f6a015fee96fe66c4e97a8df4683a1e049c021d770304d909cb9f65584",
+            "decision_root": "1e2689e6661a44ae0cef8283b4915d364dd33278d72faf0dded2746cb24a534f",
             "disposition": 0,
             "reason": null,
             "reason_id": null
           },
           "expected_frames": [
             {
-              "classification_root": "28a5d616c2b215fe38b665e013ebe44867f30c4692fdfc7218adfee79710f637",
+              "classification_root": "693a805da7832b24c70d89ae0b37a72486ab73e9dcc45316f2d3d1a123b1c674",
               "contacts": [
                 {
                   "class": 5,
@@ -779,10 +779,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "1a65ff5ade00c14ec10ae592a84a94d0a76188217c757b6bc72399433b74cef2"
+              "continuity_root": "4496d2c991fe5313655dc0236431a9fe5eb7e0c6c83494d3638a3ac257593e3a"
             },
             {
-              "classification_root": "738275ff992a609210e5f09ce83d6a29c7606803c2d25f20c6286d33efb793e6",
+              "classification_root": "5dfcca36b3968a9697d90b04893077aa70f4d5fd707e73473524e9120dab9b0d",
               "contacts": [
                 {
                   "class": 5,
@@ -806,10 +806,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "b34dd60540b01952754f85e1df9a744493f40f05b2b650b92b9dcb22ba0bc5fb"
+              "continuity_root": "87e380c51f9bdab877b10d3e55460f2bb1b77956f037f995dd1507c261ab03d1"
             },
             {
-              "classification_root": "d3bf3fe8cc7ba13fd7e71aaa8d0b14e56b2fc6b8bb1943c89de1e94e67e81fbe",
+              "classification_root": "ddbefd584306ec50fa599ca6516ac42f343183ac8ff64ba67a2b9e0be141b66d",
               "contacts": [
                 {
                   "class": 5,
@@ -833,10 +833,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "5cf5e8dc5f62b33d03745b811665a625bab565d82075265c490db1193e1c62cd"
+              "continuity_root": "9d11984360db773933f2030d22593b1d26d7536be54fb4ce91432801337423a0"
             },
             {
-              "classification_root": "47586fdac5d3948a2b6af05324bfd4088364152a65bb8d8e3097f74ee35ee775",
+              "classification_root": "6cf65059a74970c0904a4ab5f41bcf74ddfaf46c3d98d064a71f61b0662d9b9b",
               "contacts": [
                 {
                   "class": 5,
@@ -860,7 +860,7 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "42f5adb86d189991d4b4b27a7baee06ef32ab010d7df1b0c5189e5a4530265d6"
+              "continuity_root": "8a9dcfac109fafa85c222f69d3bc6fb667c134c5115991c891e57ff08e34b656"
             }
           ],
           "motor_tick": 1
@@ -946,14 +946,14 @@
             ]
           ],
           "expected_decision": {
-            "decision_root": "7119cfb0c73cd56c455c396f74f65d37820c7d7cf417fa557df6bac1dd300d47",
+            "decision_root": "c40f3c6eb888c2e9a43a09dcffc480fe9409aa84a2f721a62391b465b4e4acd2",
             "disposition": 1,
             "reason": 3,
             "reason_id": "terminal.contact-impact"
           },
           "expected_frames": [
             {
-              "classification_root": "d11d2c39b632e10a6b0653c1c2b5c2a05f505a08dd8e78905b63427a78644542",
+              "classification_root": "190376869c1082fdd04c0d05368ba9b081503792e1ed8225deafeefd19184504",
               "contacts": [
                 {
                   "class": 3,
@@ -977,10 +977,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "2c751b77550ef8ea3608c9182488308099b1f8394ca66f0422f8839c472a0dc1"
+              "continuity_root": "5e6065e5687ada9b9970776cd55705f42d4a31eefd3694c61754258c9636c233"
             },
             {
-              "classification_root": "2b69930937383b25d2a25f2ac0dc02b226e78622041f17a93a6421b114f3e88c",
+              "classification_root": "d01c97a462ce596dd70e4c060a8f218d63049de46747577b554f191a7a257de8",
               "contacts": [
                 {
                   "class": 3,
@@ -1004,10 +1004,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "051edf027154b012b0f26b35e0f5a1c1dd483b47586214edcebc62b71f3f03e2"
+              "continuity_root": "baf2ed3790a5648a60a3f65d6390a81c8dc73c57646799d3be039ae52b67b4a9"
             },
             {
-              "classification_root": "b17d420ab85bcd98a61d094fe808910d8c38736cd7eaaf8a2deff71ba20f2968",
+              "classification_root": "a070c297f90db36a0b0bee8ff56f10de0680f176788c76ca9e481ce07cad9fae",
               "contacts": [
                 {
                   "class": 3,
@@ -1031,10 +1031,10 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "180fb3f39c3d86069e48fea3b3132190366fb675ca445c3b3682d546dee78a6d"
+              "continuity_root": "a662c4a6126e17776a7c1dec556c7640aefdb08097d340fd51a0d54ebc0abb36"
             },
             {
-              "classification_root": "d3a90a2456cbf921c793dfb05dbeb550c3c8a546a29f68066cdd3f6393199de1",
+              "classification_root": "6095721f08b3e895389bdbbdcb074cfeec0fa04c8a25d10c834286c42d6159f5",
               "contacts": [
                 {
                   "class": 3,
@@ -1058,7 +1058,7 @@
                   "secondary_role": null
                 }
               ],
-              "continuity_root": "5fbc6724f3ba9f0e1d2f7a916298838830636ca0d8c80c7e0b132f7e3940346d"
+              "continuity_root": "ac839cefea4021b7b34f6ddd241bf118795693951b37d8269d4e184ecb35bdbe"
             }
           ],
           "motor_tick": 1
@@ -1144,14 +1144,14 @@
             ]
           ],
           "expected_decision": {
-            "decision_root": "290316035b27688c1c0c91d12a3be67a4baaa358d442c44fddc3ecb64510e185",
+            "decision_root": "713793135b83afe6b6f7d14a64f72de88cb657454ee349d517bb1b10624822dd",
             "disposition": 1,
             "reason": 4,
             "reason_id": "terminal.self-collision"
           },
           "expected_frames": [
             {
-              "classification_root": "399bc42be1019e2883df1e01dfb30a3527d16ad5feaa92cbf4a5247eccb5a4e3",
+              "classification_root": "fc792a62d2d96cfc9d052345ccc7ef993e14cf9b6c5765bfb153a6f2320daeec",
               "contacts": [
                 {
                   "class": 6,
@@ -1175,10 +1175,10 @@
                   "secondary_role": 11
                 }
               ],
-              "continuity_root": "3870c1e6dd6131ddb52cfe5a8563cd5a5476f659510fbeb8fcb726a3518d1a0e"
+              "continuity_root": "24ca485b4bc31a1f6d89178171fbe96516691477a0841281c8c1b9b84c1531b0"
             },
             {
-              "classification_root": "0cd71f07f2c0d3fb869cc0361a32d71b0263c6594f835d4850c09446830dd8a7",
+              "classification_root": "5b526406eea3a23a68d433887d5219c2ec94b5a0720bb4c70abc670c73128a39",
               "contacts": [
                 {
                   "class": 6,
@@ -1202,10 +1202,10 @@
                   "secondary_role": 11
                 }
               ],
-              "continuity_root": "24e47be4abbcf393bf956f82697ccfbf9a237eb3daa73d51dbdafa761956929d"
+              "continuity_root": "23c703cea2bf9ed8f16d3c513d1de7d40f353c2e44e335f679db465493edce85"
             },
             {
-              "classification_root": "61e7eee5beb1e348c00a88f59af1869c23f856fec4d637e5268693fab41fb30d",
+              "classification_root": "678e38965e35f91ceaad2fff00615b618e9d49367b5ca967149e93b2916c4107",
               "contacts": [
                 {
                   "class": 6,
@@ -1229,10 +1229,10 @@
                   "secondary_role": 11
                 }
               ],
-              "continuity_root": "13604932bc62073646dfc3e38c096612fe920ccf745309d15e038bb11ae1a8e5"
+              "continuity_root": "f6ec9ab7fe7de278a8a48e0ca7f63dfb07df520ef51d2dfaff76d3ad599c2018"
             },
             {
-              "classification_root": "fa2d299539aed548c8d67c338e8c4f5bec6ba31a623a740ce4936c9f9d63784e",
+              "classification_root": "2176cc31d7891c12a753ad1080fc200da923d120fbf842d85fad3df93a181497",
               "contacts": [
                 {
                   "class": 6,
@@ -1256,7 +1256,7 @@
                   "secondary_role": 11
                 }
               ],
-              "continuity_root": "c3bf5cc1710fc7dc0d5b3c910775735bf80c917662d7bd80796c38eeb7f9da36"
+              "continuity_root": "f4b7910305e2fb5cacec325ab797a42006a20aea6fa9ca517379b0c1bf88dd27"
             }
           ],
           "motor_tick": 1
@@ -1290,31 +1290,31 @@
             []
           ],
           "expected_decision": {
-            "decision_root": "cc8ed2889326b3be3b6a40f2efe23be25de0bf746fdbaa55415c83c90374dc5a",
+            "decision_root": "77dfbd1f451d61aabc4d36ae2e5546b11f2f9feb8ee31dbb4dfb08895d979e2b",
             "disposition": 2,
             "reason": 8,
             "reason_id": "terminal.timeout"
           },
           "expected_frames": [
             {
-              "classification_root": "079d7d5c0cb17a5256dff7c6a68a2984abb7488fc8c438f7c16e1f848da75f63",
+              "classification_root": "b5d443ab65dac43f6532be9981f12c641b7ba39da41a91e074e0c13de95c45e4",
               "contacts": [],
-              "continuity_root": "9dbf890929c0ec521e03ad89776dc6aeafb95191c9ac48ad59faef9b8255bfb5"
+              "continuity_root": "adc2db89933782d25d3a6a86f13cf2b628f4bb40e1184c3534fefbe7035ea4de"
             },
             {
-              "classification_root": "079d7d5c0cb17a5256dff7c6a68a2984abb7488fc8c438f7c16e1f848da75f63",
+              "classification_root": "b5d443ab65dac43f6532be9981f12c641b7ba39da41a91e074e0c13de95c45e4",
               "contacts": [],
-              "continuity_root": "9dbf890929c0ec521e03ad89776dc6aeafb95191c9ac48ad59faef9b8255bfb5"
+              "continuity_root": "adc2db89933782d25d3a6a86f13cf2b628f4bb40e1184c3534fefbe7035ea4de"
             },
             {
-              "classification_root": "079d7d5c0cb17a5256dff7c6a68a2984abb7488fc8c438f7c16e1f848da75f63",
+              "classification_root": "b5d443ab65dac43f6532be9981f12c641b7ba39da41a91e074e0c13de95c45e4",
               "contacts": [],
-              "continuity_root": "9dbf890929c0ec521e03ad89776dc6aeafb95191c9ac48ad59faef9b8255bfb5"
+              "continuity_root": "adc2db89933782d25d3a6a86f13cf2b628f4bb40e1184c3534fefbe7035ea4de"
             },
             {
-              "classification_root": "079d7d5c0cb17a5256dff7c6a68a2984abb7488fc8c438f7c16e1f848da75f63",
+              "classification_root": "b5d443ab65dac43f6532be9981f12c641b7ba39da41a91e074e0c13de95c45e4",
               "contacts": [],
-              "continuity_root": "9dbf890929c0ec521e03ad89776dc6aeafb95191c9ac48ad59faef9b8255bfb5"
+              "continuity_root": "adc2db89933782d25d3a6a86f13cf2b628f4bb40e1184c3534fefbe7035ea4de"
             }
           ],
           "motor_tick": 1
@@ -1325,7 +1325,7 @@
   "mirror_id": "nextengine.isaac.humanoid-safety-contact-mirror.v1",
   "motor_hz": 60,
   "physics_hz": 240,
-  "safety_contact_profile_sha256": "88c2ffefed4cb8f2c0dc35426ffaf964d09d4d8fbb14fb33bfd305fb4df625c9",
+  "safety_contact_profile_sha256": "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c",
   "safety_scenario": {
     "final_applied_targets": [
       {
@@ -2138,7 +2138,7 @@
       0,
       0
     ],
-    "safety_checkpoint_root": "7b097ef62865da1bd14d08d753bc5143f61f24c1013526f07da963614123da72",
+    "safety_checkpoint_root": "1f19bb1590b8d99ca478bd124bd75c5ec54969769a5b375d6de58f01b002a6bb",
     "skill_envelopes": [
       {
         "joint_id": "joint.left-ankle-pitch",

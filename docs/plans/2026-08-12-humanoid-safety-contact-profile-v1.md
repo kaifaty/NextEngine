@@ -51,9 +51,13 @@ Each 240 Hz PD substep applies the authored per-joint `Kp/Kd`, then intersects:
 
 Positive power is `max(effort * velocity, 0) / 1_000_000` microwatts. Positive
 work charged for one physics substep is power / `240` microjoules, rounded
-up so sub-microjoule work is not hidden. A state already outside hard ROM or
-authored maximum joint velocity returns a stable safety violation before an
-effort is published. Reset restores neutral applied targets and clears prior
+up so sub-microjoule work is not hidden. An observed position may exceed a hard
+ROM endpoint by at most `10 µrad` (`0.000573°`), bounding the measured PhysX
+constraint-solver and float-to-integer canonicalization slop at a limit;
+`11 µrad` is a stable hard-ROM violation. Authored targets still remain inside
+the exact soft/hard ROM and the PhysX constraint itself is unchanged. A state outside that observed
+tolerance or above authored maximum joint velocity returns a stable safety
+violation before an effort is published. Reset restores neutral applied targets and clears prior
 effort, substep ordinal and accumulated work exactly.
 
 ### Procedural standing fallback and neutral scenario

@@ -39,6 +39,33 @@ fn neutral_states(controller: &BiomechanicsSafetyController) -> Vec<JointControl
 }
 
 #[test]
+fn reference_reset_sets_first_tick_slew_origin_atomically() {
+    let mut controller = controller();
+    let mut reference = controller
+        .channels
+        .iter()
+        .map(|channel| channel.joint.neutral_position_microradians)
+        .collect::<Vec<_>>();
+    reference[0] += 50_000;
+    controller
+        .reset_to_reference(&reference)
+        .expect("valid reference reset");
+    assert_eq!(
+        controller.checkpoint().applied_targets_microradians,
+        reference
+    );
+
+    let before = controller.checkpoint();
+    let mut invalid = reference;
+    invalid[0] = i64::MAX;
+    assert_eq!(
+        controller.reset_to_reference(&invalid),
+        Err(MotorSafetyError::InvalidSkillEnvelope)
+    );
+    assert_eq!(controller.checkpoint(), before);
+}
+
+#[test]
 fn residual_target_intersects_soft_skill_and_slew_envelopes() {
     let mut controller = controller();
     let (mut reference, mut envelopes) = neutral_tick(&mut controller);
@@ -206,7 +233,10 @@ fn hard_rom_and_velocity_faults_publish_no_partial_effort() {
     let mut states = neutral_states(&controller);
     let last = states.len() - 1;
     states[last].position_microradians =
-        controller.channels[last].joint.base.limit_max_microradians + 1;
+        controller.channels[last].joint.base.limit_max_microradians + 10;
+    assert_eq!(controller.validate_observed_joint_states(&states), Ok(()));
+    states[last].position_microradians =
+        controller.channels[last].joint.base.limit_max_microradians + 11;
     let before = controller.checkpoint();
     assert_eq!(
         controller.step_substep(&states),
@@ -230,6 +260,21 @@ fn hard_rom_and_velocity_faults_publish_no_partial_effort() {
         Err(MotorSafetyError::VelocityViolation)
     );
     assert_eq!(controller.checkpoint(), before);
+}
+
+#[test]
+fn observed_hard_rom_tolerance_is_exactly_ten_microradians() {
+    let controller = controller();
+    let mut states = neutral_states(&controller);
+    let first = 0;
+    let minimum = controller.channels[first].joint.base.limit_min_microradians;
+    states[first].position_microradians = minimum - 10;
+    assert_eq!(controller.validate_observed_joint_states(&states), Ok(()));
+    states[first].position_microradians = minimum - 11;
+    assert_eq!(
+        controller.validate_observed_joint_states(&states),
+        Err(MotorSafetyError::HardRangeViolation)
+    );
 }
 
 #[test]
