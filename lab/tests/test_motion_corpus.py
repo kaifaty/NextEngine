@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 
 from next_lab.cmu_motion import parse_amc, parse_asf, source_forward_kinematics
-from next_lab.motion_corpus import deterministic_npz_bytes
+from next_lab.motion_corpus import deterministic_npz_bytes, validate_clip
 from next_lab.motion_retarget import (
     CONTACT_IDS,
     SOURCE_OVERLAY_BONES,
@@ -163,6 +163,64 @@ end
                 sorted(f"{name}.npy" for name in (*canonical_integer_arrays(clip), "metadata_json_utf8")),
             )
 
+    def test_locomotion_ankle_roll_audit_blocks_soft_boundary_saturation(self) -> None:
+        descriptor = json.loads(
+            (FIXTURES / "biomechanics_motor_mirror_v1.json").read_text(encoding="utf-8")
+        )
+        profile = json.loads(
+            (
+                Path(__file__).parents[1]
+                / "profiles/humanoid-motion-corpus-cmu.v1.json"
+            ).read_text(encoding="utf-8")
+        )
+        clip = _clip(descriptor)
+        clip.joint_position_urad.fill(0)
+        clip.joint_velocity_urad_s.fill(0)
+        ankle_roll_ordinals = [
+            int(joint["dof_ordinal"])
+            for joint in descriptor["joints"]
+            if joint["joint_id"]
+            in {"joint.left-ankle-roll", "joint.right-ankle-roll"}
+        ]
+        clip.joint_position_urad[:, ankle_roll_ordinals] = 261799
+
+        saturated = validate_clip(clip, descriptor, profile)
+
+        self.assertIn(
+            "RETARGET_LOCOMOTION_ANKLE_ROLL_SOFT_BOUNDARY_SATURATION",
+            saturated["errors"],
+        )
+        self.assertIn(
+            "RETARGET_LOCOMOTION_ANKLE_ROLL_HARD_RESERVE_SHORTFALL",
+            saturated["errors"],
+        )
+        self.assertEqual(saturated["metrics"]["ankle_roll_soft_boundary_fraction"], 1.0)
+        self.assertEqual(
+            saturated["metrics"]["minimum_ankle_roll_hard_reserve_microradians"],
+            87267,
+        )
+
+        clip.joint_position_urad[:, ankle_roll_ordinals] = 87266
+        reserved = validate_clip(clip, descriptor, profile)
+
+        self.assertNotIn(
+            "RETARGET_LOCOMOTION_ANKLE_ROLL_SOFT_BOUNDARY_SATURATION",
+            reserved["errors"],
+        )
+        self.assertNotIn(
+            "RETARGET_LOCOMOTION_ANKLE_ROLL_HARD_RESERVE_SHORTFALL",
+            reserved["errors"],
+        )
+        self.assertNotIn(
+            "RETARGET_LOCOMOTION_ANKLE_ROLL_PROJECTION_MISMATCH",
+            reserved["errors"],
+        )
+        self.assertEqual(reserved["metrics"]["ankle_roll_soft_boundary_fraction"], 0.0)
+        self.assertEqual(
+            reserved["metrics"]["minimum_ankle_roll_hard_reserve_microradians"],
+            261800,
+        )
+
 
 def _clip(descriptor: dict) -> RetargetedClip:
     frame_count = 3
@@ -203,10 +261,8 @@ def _clip(descriptor: dict) -> RetargetedClip:
         ground_correction_um=np.asarray((1, -2, 3), dtype=np.int64),
         minimum_collider_height_um=np.asarray((0, 1, 2), dtype=np.int64),
         minimum_nonfoot_height_um=np.asarray((3, 4, 5), dtype=np.int64),
-        raw_soft_rom_excess_urad=np.zeros((frame_count, joint_count), dtype=np.int64),
-        locomotion_collision_projection_urad=np.zeros(
-            (frame_count, joint_count), dtype=np.int64
-        ),
+        raw_soft_rom_excess_urad=joint_position + 100,
+        locomotion_collision_projection_urad=joint_position + 200,
         velocity_projection_urad=joint_position,
         source_overlay_bones=SOURCE_OVERLAY_BONES,
         source_overlay_position_um=np.arange(

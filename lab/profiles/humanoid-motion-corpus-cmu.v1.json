@@ -61,8 +61,12 @@
       "hip_yaw_microradians": 0,
       "hip_roll_minimum_microradians": 0,
       "ankle_pitch_minimum_microradians": -349066,
+      "ankle_roll_minimum_microradians": -87266,
+      "ankle_roll_maximum_microradians": 87266,
+      "ankle_roll_minimum_hard_reserve_microradians": 261800,
+      "ankle_roll_maximum_soft_boundary_fraction": 0.0,
       "shoulder_roll_minimum_microradians": 261799,
-      "rationale": "keep nominal locomotion thighs separated and arms outside torso/pelvis colliders; keep ankle plantarflexion at least 20 degrees inside the 40-degree hard limit so zero-effort reset transients retain a 20-degree physical safety reserve; every applied projection is retained per frame and channel"
+      "rationale": "keep nominal locomotion thighs separated and arms outside torso/pelvis colliders; keep ankle plantarflexion at least 20 degrees inside its hard limit; confine ankle roll to plus or minus 5 degrees so every locomotion reference retains at least 15 degrees of hard-limit reserve, exceeding the 11.33-degree reference-to-peak transient measured in TRAIN-5 by 32 percent; reject any final ankle-roll sample on a descriptor soft boundary; every applied projection is retained per frame and channel"
     },
     "ground_correction": {
       "algorithm": "signed vertical alignment: sole collider for locomotion, minimum solid collider for recovery",

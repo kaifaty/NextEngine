@@ -339,10 +339,16 @@ def validate_clip(
     errors: list[str] = []
     joint_minimum = np.empty(len(descriptor["joints"]), dtype=np.int64)
     joint_maximum = np.empty(len(descriptor["joints"]), dtype=np.int64)
+    joint_hard_minimum = np.empty(len(descriptor["joints"]), dtype=np.int64)
+    joint_hard_maximum = np.empty(len(descriptor["joints"]), dtype=np.int64)
     velocity_maximum = np.empty(len(descriptor["joints"]), dtype=np.int64)
+    joint_by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
     for joint in descriptor["joints"]:
         ordinal = int(joint["dof_ordinal"])
         joint_minimum[ordinal], joint_maximum[ordinal] = joint["soft_limit_microradians"]
+        joint_hard_minimum[ordinal], joint_hard_maximum[ordinal] = joint[
+            "hard_limit_microradians"
+        ]
         velocity_maximum[ordinal] = int(joint["maximum_velocity_microradians_per_second"])
     below = np.maximum(joint_minimum - clip.joint_position_urad, 0)
     above = np.maximum(clip.joint_position_urad - joint_maximum, 0)
@@ -387,14 +393,52 @@ def validate_clip(
     )
     if clip.partition == "recovery" and maximum_collision_projection:
         errors.append("RETARGET_RECOVERY_COLLISION_PROJECTION_FORBIDDEN")
+    ankle_roll_ordinals = np.asarray(
+        [
+            int(joint_by_id[f"joint.{side}-ankle-roll"]["dof_ordinal"])
+            for side in ("left", "right")
+        ],
+        dtype=np.int64,
+    )
+    ankle_roll_positions = clip.joint_position_urad[:, ankle_roll_ordinals]
+    ankle_roll_at_soft_boundary = np.logical_or(
+        ankle_roll_positions == joint_minimum[ankle_roll_ordinals],
+        ankle_roll_positions == joint_maximum[ankle_roll_ordinals],
+    )
+    ankle_roll_soft_boundary_fraction = float(
+        np.count_nonzero(ankle_roll_at_soft_boundary)
+    ) / float(ankle_roll_at_soft_boundary.size)
+    ankle_roll_hard_reserve = np.minimum(
+        ankle_roll_positions - joint_hard_minimum[ankle_roll_ordinals],
+        joint_hard_maximum[ankle_roll_ordinals] - ankle_roll_positions,
+    )
+    minimum_ankle_roll_hard_reserve = int(np.min(ankle_roll_hard_reserve))
+    ankle_roll_projected = (
+        clip.locomotion_collision_projection_urad[:, ankle_roll_ordinals] > 0
+    )
+    ankle_roll_projected_fraction = float(np.count_nonzero(ankle_roll_projected)) / float(
+        ankle_roll_projected.size
+    )
     if clip.partition == "locomotion":
-        joint_by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
         projection = profile["retarget"]["locomotion_collision_projection"]
+        maximum_boundary_fraction = float(
+            projection["ankle_roll_maximum_soft_boundary_fraction"]
+        )
+        minimum_hard_reserve = int(
+            projection["ankle_roll_minimum_hard_reserve_microradians"]
+        )
+        if ankle_roll_soft_boundary_fraction > maximum_boundary_fraction:
+            errors.append("RETARGET_LOCOMOTION_ANKLE_ROLL_SOFT_BOUNDARY_SATURATION")
+        if minimum_ankle_roll_hard_reserve < minimum_hard_reserve:
+            errors.append("RETARGET_LOCOMOTION_ANKLE_ROLL_HARD_RESERVE_SHORTFALL")
         for side in ("left", "right"):
             hip_yaw = int(joint_by_id[f"joint.{side}-hip-yaw"]["dof_ordinal"])
             hip_roll = int(joint_by_id[f"joint.{side}-hip-roll"]["dof_ordinal"])
             ankle_pitch = int(
                 joint_by_id[f"joint.{side}-ankle-pitch"]["dof_ordinal"]
+            )
+            ankle_roll = int(
+                joint_by_id[f"joint.{side}-ankle-roll"]["dof_ordinal"]
             )
             shoulder_roll = int(
                 joint_by_id[f"joint.{side}-shoulder-roll"]["dof_ordinal"]
@@ -414,6 +458,14 @@ def validate_clip(
                 < int(projection["ankle_pitch_minimum_microradians"])
             ):
                 errors.append("RETARGET_LOCOMOTION_ANKLE_RESERVE_MISMATCH")
+            if np.any(
+                clip.joint_position_urad[:, ankle_roll]
+                < int(projection["ankle_roll_minimum_microradians"])
+            ) or np.any(
+                clip.joint_position_urad[:, ankle_roll]
+                > int(projection["ankle_roll_maximum_microradians"])
+            ):
+                errors.append("RETARGET_LOCOMOTION_ANKLE_ROLL_PROJECTION_MISMATCH")
             if np.any(
                 clip.joint_position_urad[:, shoulder_roll]
                 < int(projection["shoulder_roll_minimum_microradians"])
@@ -487,6 +539,15 @@ def validate_clip(
                 collision_projected_fraction, 6
             ),
             "maximum_collision_projection_microradians": maximum_collision_projection,
+            "ankle_roll_projected_channel_fraction": round(
+                ankle_roll_projected_fraction, 6
+            ),
+            "ankle_roll_soft_boundary_fraction": round(
+                ankle_roll_soft_boundary_fraction, 6
+            ),
+            "minimum_ankle_roll_hard_reserve_microradians": (
+                minimum_ankle_roll_hard_reserve
+            ),
             "maximum_ground_correction_micrometres": maximum_correction,
             "minimum_collider_height_micrometres": minimum_collider_height,
             "minimum_nonfoot_height_micrometres": minimum_nonfoot_height,
@@ -531,6 +592,32 @@ def _validate_closure(
     for field, actual in checks.items():
         if target[field] != actual:
             raise ValueError(f"motion corpus target {field} mismatch")
+    projection = profile["retarget"]["locomotion_collision_projection"]
+    ankle_roll_minimum = int(projection["ankle_roll_minimum_microradians"])
+    ankle_roll_maximum = int(projection["ankle_roll_maximum_microradians"])
+    minimum_hard_reserve = int(
+        projection["ankle_roll_minimum_hard_reserve_microradians"]
+    )
+    maximum_boundary_fraction = float(
+        projection["ankle_roll_maximum_soft_boundary_fraction"]
+    )
+    if ankle_roll_minimum >= ankle_roll_maximum:
+        raise ValueError("motion corpus ankle-roll projection range is invalid")
+    if minimum_hard_reserve < 0 or not 0.0 <= maximum_boundary_fraction <= 1.0:
+        raise ValueError("motion corpus ankle-roll audit threshold is invalid")
+    joint_by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
+    for side in ("left", "right"):
+        joint = joint_by_id[f"joint.{side}-ankle-roll"]
+        soft_minimum, soft_maximum = map(int, joint["soft_limit_microradians"])
+        hard_minimum, hard_maximum = map(int, joint["hard_limit_microradians"])
+        if ankle_roll_minimum < soft_minimum or ankle_roll_maximum > soft_maximum:
+            raise ValueError("motion corpus ankle-roll projection exceeds soft ROM")
+        available_reserve = min(
+            ankle_roll_minimum - hard_minimum,
+            hard_maximum - ankle_roll_maximum,
+        )
+        if available_reserve < minimum_hard_reserve:
+            raise ValueError("motion corpus ankle-roll projection reserve is insufficient")
     if _sha256(descriptor_bytes) != "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014":
         raise ValueError("motion corpus target descriptor file hash mismatch")
     raw_root = dataset_root.resolve() / "raw"

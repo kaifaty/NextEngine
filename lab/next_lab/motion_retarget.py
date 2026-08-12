@@ -290,6 +290,10 @@ def mirror_clip(clip: RetargetedClip, descriptor: dict[str, Any], clip_id: str) 
         root_yaw_velocity_urad_s=-clip.root_yaw_velocity_urad_s,
         joint_position_urad=clip.joint_position_urad[:, indices] * sign_array,
         joint_velocity_urad_s=clip.joint_velocity_urad_s[:, indices] * sign_array,
+        raw_soft_rom_excess_urad=clip.raw_soft_rom_excess_urad[:, indices],
+        locomotion_collision_projection_urad=(
+            clip.locomotion_collision_projection_urad[:, indices]
+        ),
         velocity_projection_urad=clip.velocity_projection_urad[:, indices],
         center_of_mass_um=center,
         effector_position_um=effectors,
@@ -444,6 +448,9 @@ def _solve_target_joints(
             ankle_pitch_ordinal = int(
                 by_id[f"joint.{side}-ankle-pitch"]["dof_ordinal"]
             )
+            ankle_roll_ordinal = int(
+                by_id[f"joint.{side}-ankle-roll"]["dof_ordinal"]
+            )
             shoulder_roll_ordinal = int(
                 by_id[f"joint.{side}-shoulder-roll"]["dof_ordinal"]
             )
@@ -454,6 +461,16 @@ def _solve_target_joints(
             ankle_pitch_minimum = int(
                 locomotion_collision_projection[
                     "ankle_pitch_minimum_microradians"
+                ]
+            )
+            ankle_roll_minimum = int(
+                locomotion_collision_projection[
+                    "ankle_roll_minimum_microradians"
+                ]
+            )
+            ankle_roll_maximum = int(
+                locomotion_collision_projection[
+                    "ankle_roll_maximum_microradians"
                 ]
             )
             shoulder_roll_minimum = int(
@@ -468,6 +485,13 @@ def _solve_target_joints(
             projected_ankle_pitch = max(
                 target[ankle_pitch_ordinal], ankle_pitch_minimum / 1_000_000.0
             )
+            projected_ankle_roll = float(
+                np.clip(
+                    target[ankle_roll_ordinal],
+                    ankle_roll_minimum / 1_000_000.0,
+                    ankle_roll_maximum / 1_000_000.0,
+                )
+            )
             projected_shoulder_roll = max(
                 target[shoulder_roll_ordinal], shoulder_roll_minimum / 1_000_000.0
             )
@@ -480,12 +504,16 @@ def _solve_target_joints(
             collision_projection[ankle_pitch_ordinal] = abs(
                 target[ankle_pitch_ordinal] - projected_ankle_pitch
             )
+            collision_projection[ankle_roll_ordinal] = abs(
+                target[ankle_roll_ordinal] - projected_ankle_roll
+            )
             collision_projection[shoulder_roll_ordinal] = abs(
                 target[shoulder_roll_ordinal] - projected_shoulder_roll
             )
             target[hip_yaw_ordinal] = projected_hip_yaw
             target[hip_roll_ordinal] = projected_hip_roll
             target[ankle_pitch_ordinal] = projected_ankle_pitch
+            target[ankle_roll_ordinal] = projected_ankle_roll
             target[shoulder_roll_ordinal] = projected_shoulder_roll
     return target, collision_projection
 
