@@ -679,10 +679,12 @@ if ISAAC_LAB_AVAILABLE:
             non_finite = ~torch.isfinite(self.robot.data.root_state_w).all(dim=-1) | ~torch.isfinite(
                 self.robot.data.joint_pos
             ).all(dim=-1)
-            self._success_terminal.copy_(self._cursor >= self._terminal_frame)
             tracking_lost = self._tracking_loss_ticks >= 4
             self._failure_terminal.copy_(
                 tracking_lost | hard_rom | forbidden_contact | non_finite
+            )
+            self._success_terminal.copy_(
+                (self._cursor >= self._terminal_frame) & ~self._failure_terminal
             )
             self.last_step_success.copy_(self._success_terminal)
             self.last_step_failure.copy_(self._failure_terminal)

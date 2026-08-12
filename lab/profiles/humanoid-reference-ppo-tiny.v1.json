@@ -11,7 +11,7 @@
     "split": "train",
     "clip_id": "cmu104-start-right",
     "start_frame": 0,
-    "horizon_motor_ticks": 64,
+    "horizon_motor_ticks": 11,
     "reset_mode": "exact_reference",
     "phase_randomization": false
   },

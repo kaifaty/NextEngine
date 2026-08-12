@@ -38,6 +38,7 @@ class TinyReferencePpoProfile:
             or execution["iterations"] <= 0
             or execution["cublas_workspace_config"] not in {":4096:8", ":16:8"}
             or scope["split"] != "train"
+            or scope["horizon_motor_ticks"] <= 0
             or scope["reset_mode"] != "exact_reference"
             or scope["phase_randomization"] is not False
             or ppo["minibatches"] <= 0

@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-0..4` advanced; `TRAIN-5` pre-acceptance wiring/reward complete, tiny deterministic overfit next; optimizer not started |
+| Статус | In execution: `TRAIN-0..4` advanced; `TRAIN-5` 64-tick tiny overfit failed on tracking loss, bounded-horizon diagnostic retry next; no gate advance |
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -342,8 +342,8 @@ count: confidence interval не превращает наблюдаемое на
   gate report SHA-256
   `876e43b245de85101a490af846b468aab5594b1bb20b79fa042dd0009799b251`;
 - `TRAIN-5`: input/reward audit and native PhysX baseline matrix complete;
-  decision `AdvanceToTinyDeterministicOverfitOnly`, `training runs = 0`,
-  `optimizer steps = 0`;
+  decision `AdvanceToTinyDeterministicOverfitOnly`; three execution attempts
+  recorded, `optimizer steps = 1025`, latest 64-tick overfit `FAIL`;
 - `TRAIN-6..9`: `NotRun`; разрешён только specialist tracker `TRAIN-5`.
 
 ## TRAIN-0 — retirement/isolation старого эксперимента и чистая generation
@@ -823,6 +823,18 @@ fixtures. Все девять tracking-компонентов меняются �
 terminal branches. Решение разрешает только следующий tiny deterministic
 overfit; learned-policy quality, held-out quality и сам `TRAIN-5 Advance` ещё
 не заявлены.
+
+Первый полный tiny run manifest SHA-256
+`20ef6279508c1e3731fbfa0869f6654209415b4f872e7e49e15f60e9ef64abc6`
+завершил 160 iterations, 327680 samples и 1018 optimizer steps. Средняя
+deterministic episode length выросла с `8.359375` до `12.0`, но completion
+остался `0/64`, поэтому результат `FAIL`. Terminal diagnostic SHA-256
+`c3f4eb57f6a1bbd6b823e17254624b8fe71d4d52282ff16c6af91a8f68bfefa4`
+зафиксировал `64/64 terminal.reference-tracking-lost` и нули для hard ROM,
+forbidden contact и non-finite. Следующий tiny retry использует 11 motor ticks:
+это выше untrained maximum `10`, ниже первого learned tracking-loss tick `12`
+и не ослабляет последующие curriculum/full-reference проверки. Success на
+границе horizon учитывается только при отсутствии одновременного failure.
 
 Initial optimization order:
 
