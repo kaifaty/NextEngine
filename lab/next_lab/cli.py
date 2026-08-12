@@ -22,6 +22,7 @@ from next_lab.motor_lab_client import (
     STANDING_PROFILE_ID,
 )
 from next_lab.trajectory_recorder import record_canonical_cpu_trajectories
+from next_lab.motion_corpus import build_motion_corpus
 
 
 def _mps_probe() -> tuple[bool, str | None]:
@@ -185,6 +186,20 @@ def parser() -> argparse.ArgumentParser:
     recorder_parser.add_argument("--run-root", required=True)
     recorder_parser.add_argument("--store", type=Path)
     recorder_parser.add_argument("--output-name")
+
+    corpus_parser = commands.add_parser("motion-corpus-build")
+    corpus_parser.add_argument(
+        "--profile",
+        type=Path,
+        default=repository_root / "lab/profiles/humanoid-motion-corpus-cmu.v1.json",
+    )
+    corpus_parser.add_argument(
+        "--descriptor",
+        type=Path,
+        default=repository_root / "lab/tests/fixtures/biomechanics_motor_mirror_v1.json",
+    )
+    corpus_parser.add_argument("--dataset-root", type=Path, required=True)
+    corpus_parser.add_argument("--store", type=Path)
     return root
 
 
@@ -261,6 +276,26 @@ def main() -> int:
             )
         )
         return 0
+    if arguments.command == "motion-corpus-build":
+        manifest, output = build_motion_corpus(
+            profile_path=arguments.profile,
+            descriptor_path=arguments.descriptor,
+            dataset_root=arguments.dataset_root,
+            output_store=_configured_store(arguments.store),
+        )
+        print(
+            json.dumps(
+                {
+                    "check": "TRAIN-4-MOTION-CORPUS",
+                    "status": manifest["status"],
+                    "manifest_sha256": manifest["manifest_sha256"],
+                    "output": str(output),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0 if manifest["status"] == "VALIDATED" else 4
     raise AssertionError(f"unhandled command: {arguments.command}")
 
 
