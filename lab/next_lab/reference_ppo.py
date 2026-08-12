@@ -28,6 +28,7 @@ class TinyReferencePpoProfile:
             not in {
                 "nextengine.training.humanoid-reference-ppo-tiny.v1",
                 "nextengine.training.humanoid-reference-ppo-curriculum-stage.v1",
+                "nextengine.training.humanoid-reference-ppo-curriculum-stage.v2",
             }
             or document.get("status") != "Frozen"
         ):
@@ -73,6 +74,12 @@ class TinyReferencePpoProfile:
                 or len(initialization.get("checkpoint_sha256", "")) != 64
             ):
                 raise ValueError("invalid phase-randomized curriculum scope")
+        evaluation_num_envs = document["evaluation"].get("num_envs")
+        if evaluation_num_envs is not None and (
+            evaluation_num_envs <= 0
+            or evaluation_num_envs > execution["num_envs"]
+        ):
+            raise ValueError("invalid deterministic evaluation cohort")
         return cls(document=document, sha256=hashlib.sha256(payload).hexdigest())
 
 
@@ -223,6 +230,13 @@ class TinyReferencePpoTrainer:
     def evaluate_deterministic(self, episodes: int) -> dict[str, Any]:
         if episodes <= 0:
             raise ValueError("deterministic evaluation requires at least one episode")
+        evaluation_num_envs = int(
+            self.profile.document["evaluation"].get(
+                "num_envs", self.environment.num_envs
+            )
+        )
+        if not 0 < evaluation_num_envs <= self.environment.num_envs:
+            raise ValueError("deterministic evaluation cohort exceeds the environment")
         reset_episode_sequence = getattr(
             self.environment, "reset_episode_sequence", None
         )
@@ -257,9 +271,12 @@ class TinyReferencePpoTrainer:
         maximum_hard_rom_selection = ""
         forbidden_contact_mask_counts: dict[str, int] = {}
         executed_motor_steps = 0
-        maximum_motor_steps = max(episodes, self.environment.num_envs) * (
+        maximum_motor_steps = max(episodes, evaluation_num_envs) * (
             int(self.environment.max_episode_length) + 1
         )
+        evaluation_mask = torch.arange(
+            self.environment.num_envs, device=self.device
+        ) < evaluation_num_envs
         with torch.no_grad():
             while len(completed_returns) < episodes:
                 if executed_motor_steps >= maximum_motor_steps:
@@ -273,7 +290,12 @@ class TinyReferencePpoTrainer:
                 returns += reward
                 lengths += 1
                 executed_motor_steps += 1
-                done = terminated | truncated
+                all_done = terminated | truncated
+                done = (
+                    all_done
+                    if evaluation_num_envs == self.environment.num_envs
+                    else all_done & evaluation_mask
+                )
                 done_indices = torch.nonzero(done, as_tuple=False).squeeze(-1)
                 completed_rows = torch.stack(
                     (
@@ -384,11 +406,11 @@ class TinyReferencePpoTrainer:
                         forbidden_contact_mask_counts[mask_key] = (
                             forbidden_contact_mask_counts.get(mask_key, 0) + 1
                         )
-                returns[done] = 0.0
-                lengths[done] = 0
+                returns[all_done] = 0.0
+                lengths[all_done] = 0
                 observation = observation_map["policy"]
         ordered_selection_results = dict(sorted(selection_results.items()))
-        return {
+        result = {
             "episodes": episodes,
             "reference_complete_count": reference_complete_count,
             "failure_count": failure_count,
@@ -408,12 +430,23 @@ class TinyReferencePpoTrainer:
             "minimum_episode_length": min(completed_lengths),
             "maximum_episode_length": max(completed_lengths),
         }
-
+        if "num_envs" in self.profile.document["evaluation"]:
+            result["vector_envs"] = evaluation_num_envs
+        return result
 
     def train(self) -> list[dict[str, Any]]:
         document = self.profile.document
         execution = document["execution"]
         ppo = document["ppo"]
+        if execution.get("reset_episode_sequence_before_training", False):
+            reset_episode_sequence = getattr(
+                self.environment, "reset_episode_sequence", None
+            )
+            if reset_episode_sequence is None:
+                raise RuntimeError(
+                    "resolved training profile requires a resettable episode sequence"
+                )
+            reset_episode_sequence()
         observation_map, _ = self.environment.reset()
         observation = observation_map["policy"]
         records: list[dict[str, Any]] = []

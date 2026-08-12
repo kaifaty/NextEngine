@@ -4,6 +4,7 @@ import copy
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 import torch
 
@@ -19,6 +20,70 @@ PROFILE = Path(__file__).parents[1] / "profiles/humanoid-reference-ppo-tiny.v1.j
 
 
 class ReferencePpoPerformanceTests(unittest.TestCase):
+    def test_evaluation_uses_only_declared_vector_cohort(self) -> None:
+        document = copy.deepcopy(TinyReferencePpoProfile.load(PROFILE).document)
+        document["execution"].update(
+            {"device": "cpu", "num_envs": 4, "rollout_steps_per_env": 3}
+        )
+        document["ppo"]["minibatches"] = 1
+        document["evaluation"].update({"num_envs": 2, "episodes": 4})
+        profile = TinyReferencePpoProfile(document=document, sha256="test-profile")
+
+        class FakeEvaluationEnvironment:
+            num_envs = 4
+            max_episode_length = 1
+            reference_clips = [SimpleNamespace(clip_id="clip")]
+
+            def __init__(self) -> None:
+                self.steps = 0
+                self.last_step_success = torch.ones(4, dtype=torch.bool)
+                self.last_step_failure = torch.zeros(4, dtype=torch.bool)
+                for name in (
+                    "last_step_failure_tracking_lost",
+                    "last_step_failure_hard_rom",
+                    "last_step_failure_forbidden_contact",
+                    "last_step_failure_non_finite",
+                ):
+                    setattr(self, name, torch.zeros(4, dtype=torch.bool))
+                self.last_step_episode_clip_index = torch.zeros(4, dtype=torch.int64)
+                self.last_step_episode_start_frame = torch.zeros(4, dtype=torch.int64)
+                self.last_step_hard_rom_excess_microradians = torch.zeros(
+                    4, dtype=torch.int64
+                )
+                self.last_step_hard_rom_action_channel = torch.full(
+                    (4,), -1, dtype=torch.int64
+                )
+                self.last_step_forbidden_contact_mask = torch.zeros(
+                    4, dtype=torch.int64
+                )
+
+            def reset_episode_sequence(self) -> None:
+                self.steps = 0
+
+            def reset(self):
+                return {"policy": torch.zeros((4, 435))}, {}
+
+            def step(self, _: torch.Tensor):
+                self.last_step_episode_start_frame.fill_(self.steps)
+                self.steps += 1
+                observation = torch.zeros((4, 435))
+                reward = torch.ones(4)
+                done = torch.ones(4, dtype=torch.bool)
+                truncated = torch.zeros(4, dtype=torch.bool)
+                return {"policy": observation}, reward, done, truncated, {}
+
+        environment = FakeEvaluationEnvironment()
+        with tempfile.TemporaryDirectory() as directory:
+            trainer = TinyReferencePpoTrainer(
+                environment, profile, Path(directory) / "metrics.jsonl"
+            )
+            result = trainer.evaluate_deterministic(4)
+
+        self.assertEqual(result["vector_envs"], 2)
+        self.assertEqual(environment.steps, 2)
+        self.assertEqual(result["selection_results"]["clip:0"]["episodes"], 2)
+        self.assertEqual(result["selection_results"]["clip:1"]["episodes"], 2)
+
     def test_report_only_overrides_are_bounded_and_hash_visible(self) -> None:
         profile = TinyReferencePpoProfile.load(PROFILE)
         resolved, overrides = resolve_performance_overrides(
