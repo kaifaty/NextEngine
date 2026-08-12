@@ -6,7 +6,7 @@
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
-| Архитектурная опора | SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34, SPEC-35, ADR-027, ADR-030, ADR-046, ADR-053, ADR-058, ADR-059, ADR-064..068 |
+| Архитектурная опора | SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34, SPEC-35, ADR-027, ADR-030, ADR-046, ADR-053, ADR-058, ADR-059, ADR-064..070 |
 | Требования candidate | [Humanoid motor requirements baseline](2026-08-12-humanoid-motor-requirements.md) |
 | Anthropometric target | [Young-adult male gait target](2026-08-12-humanoid-biomechanics-target.md) |
 | Frozen biomechanics profile | [Fixed humanoid biomechanics profile V1](2026-08-12-humanoid-biomechanics-profile-v1.md) |
@@ -15,6 +15,8 @@
 | TRAIN-3 safety/contact SHA-256 | `88c2ffefed4cb8f2c0dc35426ffaf964d09d4d8fbb14fb33bfd305fb4df625c9` |
 | TRAIN-4 motion corpus profile | [Humanoid motion corpus profile V1](2026-08-12-humanoid-motion-corpus-profile-v1.md) |
 | TRAIN-4 motion corpus profile SHA-256 | `0b6d78ea649891e4644f58b9dd6acb239d8c95cd158cd75a431a819c341e514d` |
+| TRAIN-5 reference tracker profile | [Humanoid reference tracker profile V1](2026-08-12-humanoid-reference-tracker-profile-v1.md) |
+| TRAIN-5 reference tracker profile SHA-256 | `cdc428435ffc142b1b9cf4de5ebf44b73797dddf1d1e67415384c8a9f6bb2211` |
 
 Нормативные источники для реализации:
 
@@ -34,15 +36,18 @@
   [ADR-064 — flat-command environment](../architecture/adr/064-canonical-flat-command-locomotion-environment.md),
   [ADR-065 — curriculum profile](../architecture/adr/065-curriculum-flat-command-locomotion-profile.md),
   [ADR-066 — contact-centric motor architecture](../architecture/adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md),
-  [ADR-067 — profile identity/hash closure](../architecture/adr/067-stage0-profile-identity-and-curriculum-hash-closure.md) and
-  [ADR-068 — morphology cache/action chunk closure](../architecture/adr/068-static-morphology-cache-and-action-chunk-field-closure.md);
+  [ADR-067 — profile identity/hash closure](../architecture/adr/067-stage0-profile-identity-and-curriculum-hash-closure.md),
+  [ADR-068 — morphology cache/action chunk closure](../architecture/adr/068-static-morphology-cache-and-action-chunk-field-closure.md),
+  [ADR-069 — biomechanics BodySchema V2](../architecture/adr/069-biomechanics-body-schema-v2-and-solver-projection.md) and
+  [ADR-070 — reference-tracking environment](../architecture/adr/070-biomechanics-reference-tracking-training-environment.md);
 - [current roadmap and ProductCheck status](../roadmap.md).
 
 SPEC-34 and ADR-053 remain `Proposed`: this plan may use them as an experiment
 shape, but does not promote their schemas or lifecycle to a shipped/default
-contract. Accepted SPEC-35 and ADR-064..068 govern the current bounded
-substrate. Any new public/current reference-tracking, recovery or export
-semantics require a consumer-backed ADR/SPEC update before implementation.
+contract. Accepted SPEC-35 and ADR-064..070 govern the current bounded
+substrate. ADR-070 admits only the TRAIN-5 training environment; new
+public/current command-locomotion, recovery or export semantics still require
+a consumer-backed ADR/SPEC update before implementation.
 
 ## Цель
 
@@ -723,6 +728,12 @@ Decision: `Advance`. Разрешён только `TRAIN-5` specialist referenc
 tracker; более поздние training stages и runtime publication не разрешены.
 
 ## TRAIN-5 — specialist reference-motion tracker
+
+Execution input is frozen by [ADR-070](../architecture/adr/070-biomechanics-reference-tracking-training-environment.md)
+and `lab/profiles/humanoid-reference-tracker.v1.json` with SHA-256
+`cdc428435ffc142b1b9cf4de5ebf44b73797dddf1d1e67415384c8a9f6bb2211`.
+This freezes environment semantics but is not evidence that the sanity ladder
+or training has passed.
 
 ### Environment
 

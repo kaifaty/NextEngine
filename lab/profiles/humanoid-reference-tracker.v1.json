@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.motor.env.humanoid-reference-tracker.v1",
+  "status": "Frozen",
+  "body_schema": {
+    "id": "nextengine.body.humanoid-biomechanics-raja-1700.v2",
+    "revision": 1,
+    "hash": "eb5b75e9376bec8cd38cedfe015e16dd31dcb693b70217ec35b89467d88900ff",
+    "compiled_descriptor_hash": "5640d7a9de95ae5c171384db29b601b73d31c8f9d12747a4f3b7c666525d9242",
+    "descriptor_file_sha256": "59a313ad232cfee4d54a78bebd584a05bf0bdfeef05846b288f7dfe126a76fa7"
+  },
+  "corpus": {
+    "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu.v1",
+    "profile_sha256": "0b6d78ea649891e4644f58b9dd6acb239d8c95cd158cd75a431a819c341e514d",
+    "manifest_sha256": "e6f53d749292b3c6b0e2a7642711c8e1a9f6cef747d184ebb3a21e5e62ffad43",
+    "eligible_partition": "locomotion",
+    "split_is_run_mode": true,
+    "selection_order": "canonical UTF-8 clip_id byte order",
+    "selection_distribution": "uniform over eligible clip IDs"
+  },
+  "schedule": {
+    "physics_hz": 240,
+    "motor_hz": 60,
+    "reference_hz": 60,
+    "phase_selection": "uniform source-reference frame ordinal from randomization.reference-phase",
+    "cursor_step_frames": 1,
+    "horizon_offsets_motor_ticks": [0, 4, 8, 16],
+    "horizon_end_policy": "clamp-to-last-frame",
+    "reference_end_disposition": "terminated:terminal.reference-complete"
+  },
+  "reset": {
+    "mode_weights_basis_points": {
+      "exact_reference": 7000,
+      "small_perturbation": 2000,
+      "neutral_entry": 1000,
+      "near_failure": 0
+    },
+    "neutral_entry_skills": ["neutral_idle", "start_left_lead", "start_right_lead"],
+    "small_perturbation": {
+      "root_planar_micrometres": 20000,
+      "root_height_micrometres": 10000,
+      "root_yaw_microradians": 52360,
+      "joint_soft_rom_span_basis_points": 200,
+      "joint_maximum_velocity_basis_points": 500
+    },
+    "near_failure_enabled": false,
+    "scene_initialization": "fresh PhysX scene constructed from selected reference state; no post-create root write"
+  },
+  "observation": {
+    "layout_id": "nextengine.motor.observation.humanoid-reference-tracker.v1",
+    "actor_channel_count": 435,
+    "critic_channel_count": 435,
+    "critic_privileged_channels": [],
+    "dynamic_channels": {
+      "root_rotation_xyzw_q1_30": 4,
+      "root_local_linear_velocity_micrometres_per_second": 3,
+      "root_local_angular_velocity_microradians_per_second": 3,
+      "joint_position_microradians": 23,
+      "joint_velocity_microradians_per_second": 23,
+      "previous_applied_target_microradians": 23,
+      "classified_contact_flags": 7
+    },
+    "phase_channels": 1,
+    "reference_sample_count": 4,
+    "reference_channels_per_sample": {
+      "root_relative_position_micrometres": 3,
+      "root_relative_rotation_xyzw_q1_30": 4,
+      "root_local_linear_velocity_micrometres_per_second": 3,
+      "root_local_angular_velocity_microradians_per_second": 3,
+      "center_of_mass_relative_position_micrometres": 3,
+      "joint_position_microradians": 23,
+      "joint_velocity_microradians_per_second": 23,
+      "effector_relative_positions_micrometres": 18,
+      "classified_contact_flags": 7
+    }
+  },
+  "action": {
+    "layout_id": "nextengine.motor.action.humanoid-reference-residual.v1",
+    "channel_count": 23,
+    "representation": "signed Q1.30 normalized residual",
+    "minimum_raw": -1073741824,
+    "maximum_raw": 1073741824,
+    "application": "reference target plus actuator-owned residual scale, then engine safety and fixed PD"
+  },
+  "reward": {
+    "value_bounds_q16": [0, 65536],
+    "components": [
+      {"id": "reward.reference-root-orientation", "coefficient_q16": 65536, "normalization": "absolute quaternion-dot squared"},
+      {"id": "reward.reference-root-height", "coefficient_q16": 32768, "normalization_micrometres": 250000},
+      {"id": "reward.reference-root-linear-velocity", "coefficient_q16": 32768, "normalization_micrometres_per_second": 2000000},
+      {"id": "reward.reference-root-angular-velocity", "coefficient_q16": 16384, "normalization_microradians_per_second": 2000000},
+      {"id": "reward.reference-joint-pose", "coefficient_q16": 131072, "normalization": "mean absolute error divided by each joint soft-ROM span"},
+      {"id": "reward.reference-joint-velocity", "coefficient_q16": 32768, "normalization": "mean absolute error divided by each joint maximum velocity"},
+      {"id": "reward.reference-center-of-mass", "coefficient_q16": 32768, "normalization_micrometres": 250000},
+      {"id": "reward.reference-effectors", "coefficient_q16": 65536, "normalization_micrometres": 300000},
+      {"id": "reward.reference-contacts", "coefficient_q16": 49152, "normalization": "matching contact flags divided by seven"},
+      {"id": "reward.contacting-sole-slip-cost", "coefficient_q16": -6554, "normalization_micrometres_per_second": 2000000},
+      {"id": "reward.normalized-applied-effort-cost", "coefficient_q16": -1311, "normalization": "sum absolute post-safety effort divided by per-frame actuator envelope"},
+      {"id": "reward.applied-target-rate-cost", "coefficient_q16": -3277, "normalization": "mean absolute applied-target delta divided by actuator target-slew span"},
+      {"id": "reward.terminal-failure", "coefficient_q16": -655360, "normalization": "one on failure termination, zero otherwise"}
+    ]
+  },
+  "termination": {
+    "success_reason": "terminal.reference-complete",
+    "failure_reasons": [
+      "terminal.hard-rom",
+      "terminal.actuator-safety",
+      "terminal.hard-impact",
+      "terminal.forbidden-locomotion-contact",
+      "terminal.non-finite",
+      "terminal.reference-tracking-lost"
+    ],
+    "forbidden_contact_grace_physics_substeps": 4,
+    "tracking_lost": {
+      "root_position_error_micrometres": 750000,
+      "root_orientation_minimum_absolute_dot_q1_30": 929887697,
+      "consecutive_motor_ticks": 4
+    },
+    "truncation_bootstrap": "only explicit run-budget truncation with a valid next observation"
+  },
+  "rng": {
+    "derivation": "SHA-256 domain-separated from run root, split, episode ordinal, vector slot and purpose ID",
+    "purpose_ids": [
+      "randomization.reference-clip",
+      "randomization.reference-phase",
+      "randomization.reset-mode",
+      "randomization.initial-pose",
+      "randomization.policy-sampling",
+      "randomization.minibatch-shuffle"
+    ]
+  },
+  "optimizer_boundary": {
+    "algorithm": "PPO with GAE",
+    "actor": "feed-forward MLP",
+    "distribution": "diagonal Gaussian transformed by tanh to signed normalized residual",
+    "evaluation_action": "deterministic transformed mean",
+    "terminated_bootstrap": false,
+    "truncated_bootstrap": true
+  }
+}

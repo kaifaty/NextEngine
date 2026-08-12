@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 1.7 |
+| Версия | 1.8 |
 | Последняя проверка | 2026-08-12 |
 | Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md) |
-| Заменяет | SPEC-35 1.6; restores exact V1 BodySchema identity and closes curriculum translator/reward semantics |
+| Заменяет | SPEC-35 1.7; admits the corpus-bound biomechanics reference-tracking training consumer without changing Stage 0 V1 |
+| Дополнительные зависимости V1.8 | [ADR-069](adr/069-biomechanics-body-schema-v2-and-solver-projection.md), [ADR-070](adr/070-biomechanics-reference-tracking-training-environment.md) |
 
 ## Назначение и ownership
 
@@ -26,7 +27,8 @@ Those are independently Proposed later profiles.
 - SPEC-27 владеет exact observation/action layouts, fixed PD/safety,
   `PolicyStateRecordV1` and applied-action replay.
 - SPEC-34 остаётся Proposed general multi-lane training lifecycle. Этот SPEC
-  принимает только first-humanoid reset/step/trajectory/mirror consumer.
+  принимает только first-humanoid reset/step/trajectory/mirror consumers,
+  включая узкий ADR-070 reference tracker.
 
 Physics остаётся единственным writer pose/contact. Training environment,
 reward code, Python mirror and controller never mutate world bypassing the
@@ -43,7 +45,9 @@ Current-only alpha contracts в `crates/contracts`:
   `PhysicsCanonicalSnapshotV3`, `PhysicsWorldCheckpointV2`;
 - `MotorObservationLayoutV1`, `MotorActionLayoutV1`,
   `MotorWorldCheckpointV1`, `PolicyStateRecordV1`;
-- `MotorTrainingEnvironmentManifestV2`, `MotorEpisodeSeedSetV1`,
+- `MotorTrainingEnvironmentManifestV2`,
+  `MotorReferenceTrackingProfileV1`, `MotorTrainingEnvironmentManifestV3`,
+  `MotorEpisodeSeedSetV1`,
   `MotorLocomotionCommandProfileV1`, `MotorResetRecordV2`,
   `MotorStepRecordV2`, `MotorTrajectoryManifestV2` and bounded
   `MotorEnvironmentCheckpointEnvelopeV1`;
@@ -87,6 +91,15 @@ actuator safety envelope are canonical inputs. The V2 compiler does not fall
 back to any V1 sphere, X-axis, gain, root-height or filter constant. This
 addition neither changes the Stage 0 V1 bytes above nor permits a V2 checkpoint
 to resume or import a V1 run.
+
+ADR-070 makes that exact V2 generation consumable by one training-only
+reference tracker. The profile binds the admitted locomotion corpus, split,
+uniform clip/phase selection, reset mixture, 435-channel actor/critic layout,
+four-sample reference horizon, 23-channel residual action, reward, terminal
+and RNG semantics. `MotorTrainingEnvironmentManifestV3` closes the profile and
+input-provenance roots while reusing V2 reset/step/trajectory/checkpoint
+records. Recovery clips, command selection, learned runtime execution and
+`PhysicalActionChunk` remain outside this current consumer.
 
 `BodyInstanceProjectionV1` binds the exact schema and zero/default morphology,
 equipment, stats, damage, fatigue and attachment revisions. Those fields

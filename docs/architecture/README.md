@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.36 |
+| Версия | 2.37 |
 | Последняя проверка | 2026-08-12 |
-| Заменяет | INDEX-001 2.35; indexes ADR-067 profile identity closure, ADR-068 static morphology/action-chunk closure and ADR-069 biomechanics BodySchema V2 |
+| Заменяет | INDEX-001 2.36; indexes ADR-070 biomechanics reference-tracking training environment |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -177,8 +177,8 @@ traceability — навигационная карта, не admission authority
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
 | SPEC-32 | [Deterministic Strategic Agent cognition and social behavior](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Proposed R4c/R4d target; ADR-056 invariants are Accepted, exact schemas wait for consumers |
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
-| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 records, recorder and mirror consumers are current through SPEC-35/ADR-064/ADR-065/ADR-067 |
-| SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, canonical flat-command V1 and curriculum V2 environments with frozen V1 identity and profile-bound translator/reward hashes; does not prove a learned policy or R5 completion |
+| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 and biomechanics reference-tracker V3 records are current through SPEC-35 and ADR-064/065/067/070 |
+| SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -257,6 +257,7 @@ traceability — навигационная карта, не admission authority
 | ADR-067 | [Stage 0 profile identity and curriculum hash closure](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md) | Accepted frozen standing/flat-command V1 identity, per-profile translator hash and exact-zero curriculum support semantics |
 | ADR-068 | [Static morphology cache and action-chunk field closure](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) | Accepted dedicated static morphology cache identity and one Proposed `PhysicalActionChunk` field set; no learned route promoted |
 | ADR-069 | [Biomechanics BodySchema V2 and explicit solver projection](adr/069-biomechanics-body-schema-v2-and-solver-projection.md) | Accepted current-only biomechanics schema with full inertia, explicit solver carriers/projection, collider/contact roles and hard safety closure; V1 unchanged |
+| ADR-070 | [Biomechanics reference-tracking training environment](adr/070-biomechanics-reference-tracking-training-environment.md) | Accepted current-only TRAIN-5 locomotion tracker profile, corpus-bound V3 manifest, fixed 435-channel observation and 23-channel residual action; no quality or runtime-policy claim |
 
 ## Proposed tracks
 
@@ -281,10 +282,11 @@ traceability — навигационная карта, не admission authority
   strategic/tactical and training data-plane track. Per-role promotion requires
   immutable artifacts, multi-seed evidence, target parity and complete ADR-056
   fallback; joint promotion is required only by profiles activating both roles.
-- ADR-066/ADR-068/ADR-069 Accepted core with Proposed subsections in SPEC-14/SPEC-26/SPEC-27/
+- ADR-066/ADR-068/ADR-069/ADR-070 Accepted core with Proposed subsections in SPEC-14/SPEC-26/SPEC-27/
   SPEC-28/SPEC-34 — natural language ends before Physical Embodiment; typed physical
   primitives and `PhysicalActionChunk` carry contact/root/CoM/effector meaning.
-  The optional fixed-humanoid MLP remains first, then contact chunks, bounded
+  The current TRAIN-5 tracker environment still proves no learned MLP quality;
+  after that bounded experiment come contact chunks, bounded
   graph/shared-joint within-family transfer, damage/equipment/skills,
   distillation/compiled students and optional candidate rollouts. GRU is the
   first recurrent baseline; Mamba remains an equal-budget experiment. The
