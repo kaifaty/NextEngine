@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-0..3` advanced; `TRAIN-4..9` `NotRun` |
+| Статус | In execution: `TRAIN-0..4` advanced; `TRAIN-5..9` `NotRun` |
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -13,6 +13,8 @@
 | Frozen profile SHA-256 | `307a00f2bda8cd083066a383cb025b5333240513e00b2c764ca8fef52bddc1bf` |
 | TRAIN-3 safety/contact profile | [Humanoid safety and contact profile V1](2026-08-12-humanoid-safety-contact-profile-v1.md) |
 | TRAIN-3 safety/contact SHA-256 | `88c2ffefed4cb8f2c0dc35426ffaf964d09d4d8fbb14fb33bfd305fb4df625c9` |
+| TRAIN-4 motion corpus profile | [Humanoid motion corpus profile V1](2026-08-12-humanoid-motion-corpus-profile-v1.md) |
+| TRAIN-4 motion corpus profile SHA-256 | `0b6d78ea649891e4644f58b9dd6acb239d8c95cd158cd75a431a819c341e514d` |
 
 Нормативные источники для реализации:
 
@@ -322,8 +324,11 @@ count: confidence interval не превращает наблюдаемое на
   `88c2ffefed4cb8f2c0dc35426ffaf964d09d4d8fbb14fb33bfd305fb4df625c9`,
   safety/contact golden SHA-256
   `df89584da333d30a92cb0ff54606e74d6f68781ca4f4acd9003ea6f50ac1d25d`;
-- `TRAIN-4..9`: `NotRun`; ML по-прежнему не разрешён до `TRAIN-4`
-  `Advance`.
+- `TRAIN-4`: `Advance`, motion corpus profile SHA-256
+  `0b6d78ea649891e4644f58b9dd6acb239d8c95cd158cd75a431a819c341e514d`,
+  corpus manifest SHA-256
+  `e6f53d749292b3c6b0e2a7642711c8e1a9f6cef747d184ebb3a21e5e62ffad43`;
+- `TRAIN-5..9`: `NotRun`; разрешён только specialist tracker `TRAIN-5`.
 
 ## TRAIN-0 — retirement/isolation старого эксперимента и чистая generation
 
@@ -688,6 +693,34 @@ and invalidates dependent runs.
    a public/current semantic change is required
 2. `feat(animation): retarget physical humanoid references`
 3. `feat(training): validate motion corpus contacts and provenance`
+
+### Реализация и gate closure
+
+Deterministic ASF/AMC import, explicit semantic BodySchema retarget, velocity
+projection, ground/contact reconstruction, mirrors, world-yaw fall variants,
+canonical NPZ serialization and executable provenance/split/coverage audits
+реализованы commits `15a1cf57e1ad6bb1fe9d65eecd19b565bb389ed3` и
+`e732bbabf9d75ed48da99a3f0a4ed1926a70f166`.
+
+Внешний immutable corpus:
+`/home/kaifaty/NextEngine-training/generations/humanoid-motor-rebuild-v1/corpus/0b6d78ea649891e4-cf624db3073033fb`.
+Его canonical manifest SHA-256 —
+`e6f53d749292b3c6b0e2a7642711c8e1a9f6cef747d184ebb3a21e5e62ffad43`.
+Все `35` base и `17` derived clips (`52/52`) прошли ROM, velocity,
+penetration, contact, skill, split and phase checks. Все десять mandatory class
+families имеют независимые train/validation/held-out groups; минимальный
+contact-derived gait count — `4`; mirror checks — `8/8`.
+
+Source/BodySchema overlays получили `52/52` visual `Pass`, open Major/Blocker
+defects `0`. Subject-140 knee-support endpoints являются только промежуточными
+`GetUpSupport` references; полный `Stabilize` и command resume остаются
+required checks `TRAIN-7`. Repeat import воспроизвёл те же manifest bytes,
+`53/53` lab tests, `boundary-scan` и clean-worktree `host-check` прошли.
+Exact external gate report:
+`/home/kaifaty/NextEngine-training/gates/TRAIN-4/gate-report.json`.
+
+Decision: `Advance`. Разрешён только `TRAIN-5` specialist reference-motion
+tracker; более поздние training stages и runtime publication не разрешены.
 
 ## TRAIN-5 — specialist reference-motion tracker
 
