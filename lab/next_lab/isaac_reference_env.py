@@ -344,6 +344,26 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_action_joint_position_microradians = torch.zeros(
                 (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
             )
+            self.last_step_pre_physics_action_joint_position_microradians = torch.zeros(
+                (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
+            )
+            self.last_step_action_joint_velocity_microradians_per_second = torch.zeros(
+                (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
+            )
+            self.last_step_pre_physics_action_joint_velocity_microradians_per_second = (
+                torch.zeros(
+                    (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
+                )
+            )
+            self.last_step_applied_target_microradians = torch.zeros(
+                (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
+            )
+            self.last_step_previous_applied_target_microradians = torch.zeros(
+                (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
+            )
+            self.last_step_command_reference_target_microradians = torch.zeros(
+                (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
+            )
             self.last_step_reference_frame = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.int64
             )
@@ -414,6 +434,12 @@ if ISAAC_LAB_AVAILABLE:
                 "last_step_hard_rom_excess_microradians",
                 "last_step_hard_rom_excess_by_action_channel",
                 "last_step_action_joint_position_microradians",
+                "last_step_pre_physics_action_joint_position_microradians",
+                "last_step_action_joint_velocity_microradians_per_second",
+                "last_step_pre_physics_action_joint_velocity_microradians_per_second",
+                "last_step_applied_target_microradians",
+                "last_step_previous_applied_target_microradians",
+                "last_step_command_reference_target_microradians",
                 "last_step_reference_frame",
                 "last_step_episode_elapsed_motor_ticks",
                 "last_step_forbidden_contact_mask",
@@ -676,9 +702,24 @@ if ISAAC_LAB_AVAILABLE:
             if actions.shape != (self.num_envs, ACTION_CHANNELS):
                 raise ValueError("reference action batch has the wrong shape")
             require_finite_tensor("reference_actions", actions, asynchronous=True)
+            self.last_step_pre_physics_action_joint_position_microradians.copy_(
+                torch.round(
+                    self.robot.data.joint_pos[:, self._action_joint_ids]
+                    * 1_000_000.0
+                ).to(torch.int64)
+            )
+            self.last_step_pre_physics_action_joint_velocity_microradians_per_second.copy_(
+                torch.round(
+                    self.robot.data.joint_vel[:, self._action_joint_ids]
+                    * 1_000_000.0
+                ).to(torch.int64)
+            )
             self._action.copy_(torch.clamp(actions, -1.0, 1.0))
             current_reference_dof = self._reference_at("joint_position_urad")
             current_reference_action = current_reference_dof[:, self._action_to_dof]
+            self.last_step_command_reference_target_microradians.copy_(
+                current_reference_action
+            )
             residual = torch.round(
                 self._action.to(torch.float64) * self._residual_scale
             )
@@ -900,6 +941,9 @@ if ISAAC_LAB_AVAILABLE:
             action_position = current["joint_position_urad"][
                 :, self._action_to_dof
             ].to(torch.float64)
+            action_velocity = current["joint_velocity_urad_s"][
+                :, self._action_to_dof
+            ].to(torch.float64)
             hard_rom_excess = torch.maximum(
                 torch.maximum(self._hard_minimum - action_position, torch.zeros_like(action_position)),
                 torch.maximum(action_position - self._hard_maximum, torch.zeros_like(action_position)),
@@ -956,6 +1000,15 @@ if ISAAC_LAB_AVAILABLE:
             )
             self.last_step_action_joint_position_microradians.copy_(
                 torch.round(action_position).to(torch.int64)
+            )
+            self.last_step_action_joint_velocity_microradians_per_second.copy_(
+                torch.round(action_velocity).to(torch.int64)
+            )
+            self.last_step_applied_target_microradians.copy_(
+                torch.round(self._applied_target).to(torch.int64)
+            )
+            self.last_step_previous_applied_target_microradians.copy_(
+                torch.round(self._previous_applied_target).to(torch.int64)
             )
             self.last_step_reference_frame.copy_(frame)
             self.last_step_episode_elapsed_motor_ticks.copy_(

@@ -295,7 +295,9 @@ class TinyReferencePpoTrainer:
             "return": torch.empty((rollout_steps, num_envs), device=self.device),
         }
 
-    def evaluate_deterministic(self, episodes: int) -> dict[str, Any]:
+    def evaluate_deterministic(
+        self, episodes: int, *, include_hard_rom_state_samples: bool = False
+    ) -> dict[str, Any]:
         if episodes <= 0:
             raise ValueError("deterministic evaluation requires at least one episode")
         evaluation_num_envs = int(
@@ -345,6 +347,7 @@ class TinyReferencePpoTrainer:
         maximum_hard_rom_action_channel = -1
         maximum_hard_rom_selection = ""
         hard_rom_action_channel_counts: dict[str, int] = {}
+        hard_rom_state_samples: list[dict[str, Any]] = []
         forbidden_contact_mask_counts: dict[str, int] = {}
         executed_motor_steps = 0
         maximum_motor_steps = max(episodes, evaluation_num_envs) * (
@@ -386,6 +389,59 @@ class TinyReferencePpoTrainer:
                 if fixed_vector_waves:
                     wave_completed |= done
                 done_indices = torch.nonzero(done, as_tuple=False).squeeze(-1)
+                hard_rom_state_batch: dict[str, list[Any]] = {}
+                if include_hard_rom_state_samples:
+                    required_diagnostics = (
+                        "last_step_pre_physics_action_joint_position_microradians",
+                        "last_step_action_joint_velocity_microradians_per_second",
+                        "last_step_pre_physics_action_joint_velocity_microradians_per_second",
+                        "last_step_applied_target_microradians",
+                        "last_step_previous_applied_target_microradians",
+                        "last_step_command_reference_target_microradians",
+                    )
+                    missing = [
+                        name
+                        for name in required_diagnostics
+                        if not hasattr(self.environment, name)
+                    ]
+                    if missing:
+                        raise RuntimeError(
+                            "hard-ROM state diagnostic is unavailable: "
+                            + ", ".join(missing)
+                        )
+                    hard_rom_state_batch = {
+                        "excess": self.environment.last_step_hard_rom_excess_by_action_channel[
+                            done_indices
+                        ].cpu().tolist(),
+                        "position": self.environment.last_step_action_joint_position_microradians[
+                            done_indices
+                        ].cpu().tolist(),
+                        "pre_physics_position": self.environment.last_step_pre_physics_action_joint_position_microradians[
+                            done_indices
+                        ].cpu().tolist(),
+                        "velocity": self.environment.last_step_action_joint_velocity_microradians_per_second[
+                            done_indices
+                        ].cpu().tolist(),
+                        "pre_physics_velocity": self.environment.last_step_pre_physics_action_joint_velocity_microradians_per_second[
+                            done_indices
+                        ].cpu().tolist(),
+                        "applied_target": self.environment.last_step_applied_target_microradians[
+                            done_indices
+                        ].cpu().tolist(),
+                        "previous_applied_target": self.environment.last_step_previous_applied_target_microradians[
+                            done_indices
+                        ].cpu().tolist(),
+                        "command_reference_target": self.environment.last_step_command_reference_target_microradians[
+                            done_indices
+                        ].cpu().tolist(),
+                        "policy_action": action[done_indices].cpu().tolist(),
+                        "reference_frame": self.environment.last_step_reference_frame[
+                            done_indices
+                        ].cpu().tolist(),
+                        "elapsed_motor_ticks": self.environment.last_step_episode_elapsed_motor_ticks[
+                            done_indices
+                        ].cpu().tolist(),
+                    }
                 completed_rows = torch.stack(
                     (
                         done_indices.to(torch.float64),
@@ -427,7 +483,7 @@ class TinyReferencePpoTrainer:
                     ),
                     dim=-1,
                 ).cpu().tolist()
-                for row in completed_rows:
+                for completed_index, row in enumerate(completed_rows):
                     if len(completed_returns) >= episodes:
                         break
                     (
@@ -488,6 +544,81 @@ class TinyReferencePpoTrainer:
                         hard_rom_action_channel_counts[channel_key] = (
                             hard_rom_action_channel_counts.get(channel_key, 0) + 1
                         )
+                        if include_hard_rom_state_samples:
+                            action_profile = self.environment.reference_profile.document[
+                                "action"
+                            ]
+                            actuator_ids = action_profile["ordered_actuator_ids"]
+                            violations: list[dict[str, Any]] = []
+                            for channel, excess in enumerate(
+                                hard_rom_state_batch["excess"][completed_index]
+                            ):
+                                if int(excess) <= 10:
+                                    continue
+                                violations.append(
+                                    {
+                                        "action_channel": channel,
+                                        "actuator_id": actuator_ids[channel],
+                                        "hard_rom_excess_microradians": int(excess),
+                                        "joint_position_microradians": int(
+                                            hard_rom_state_batch["position"][completed_index][
+                                                channel
+                                            ]
+                                        ),
+                                        "pre_physics_joint_position_microradians": int(
+                                            hard_rom_state_batch[
+                                                "pre_physics_position"
+                                            ][completed_index][channel]
+                                        ),
+                                        "joint_velocity_microradians_per_second": int(
+                                            hard_rom_state_batch["velocity"][completed_index][
+                                                channel
+                                            ]
+                                        ),
+                                        "pre_physics_joint_velocity_microradians_per_second": int(
+                                            hard_rom_state_batch[
+                                                "pre_physics_velocity"
+                                            ][completed_index][channel]
+                                        ),
+                                        "applied_target_microradians": int(
+                                            hard_rom_state_batch["applied_target"][
+                                                completed_index
+                                            ][channel]
+                                        ),
+                                        "previous_applied_target_microradians": int(
+                                            hard_rom_state_batch[
+                                                "previous_applied_target"
+                                            ][completed_index][channel]
+                                        ),
+                                        "command_reference_target_microradians": int(
+                                            hard_rom_state_batch[
+                                                "command_reference_target"
+                                            ][completed_index][channel]
+                                        ),
+                                        "policy_action": float(
+                                            hard_rom_state_batch["policy_action"][
+                                                completed_index
+                                            ][channel]
+                                        ),
+                                    }
+                                )
+                            hard_rom_state_samples.append(
+                                {
+                                    "selection_id": selection_id,
+                                    "episode_length_motor_ticks": int(completed_length),
+                                    "reference_frame": int(
+                                        hard_rom_state_batch["reference_frame"][
+                                            completed_index
+                                        ]
+                                    ),
+                                    "elapsed_motor_ticks": int(
+                                        hard_rom_state_batch["elapsed_motor_ticks"][
+                                            completed_index
+                                        ]
+                                    ),
+                                    "violations": violations,
+                                }
+                            )
                     if (
                         hard_rom
                         and hard_rom_excess > maximum_hard_rom_excess_microradians
@@ -553,6 +684,8 @@ class TinyReferencePpoTrainer:
             result["episode_matrix"] = self.profile.document["evaluation"].get(
                 "episode_matrix", "completion-order-v1"
             )
+        if include_hard_rom_state_samples:
+            result["hard_rom_state_samples"] = hard_rom_state_samples
         return result
 
     def train(self) -> list[dict[str, Any]]:

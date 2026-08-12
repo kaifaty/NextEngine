@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import subprocess
 import traceback
 from pathlib import Path
 
@@ -111,7 +112,8 @@ def main() -> None:
             raise ValueError("checkpoint provenance mismatch")
         trainer.model.load_state_dict(checkpoint["model"], strict=True)
         evaluation = trainer.evaluate_deterministic(
-            int(document["evaluation"]["episodes"])
+            int(document["evaluation"]["episodes"]),
+            include_hard_rom_state_samples=True,
         )
         report = {
             "schema_version": 1,
@@ -131,6 +133,17 @@ def main() -> None:
             "evaluation": evaluation,
             "learned_policy_quality_claim": False,
             "tool_sha256": _sha256(Path(__file__).resolve()),
+            "implementation_sha256": {
+                "isaac_reference_env.py": _sha256(
+                    Path(__file__).parents[1]
+                    / "next_lab"
+                    / "isaac_reference_env.py"
+                ),
+                "reference_ppo.py": _sha256(
+                    Path(__file__).parents[1] / "next_lab" / "reference_ppo.py"
+                ),
+            },
+            "repository": _repository_state(),
         }
         output = args.output.resolve()
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -152,6 +165,27 @@ def main() -> None:
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _repository_state() -> dict[str, object]:
+    root = Path(__file__).parents[2]
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    dirty = bool(
+        subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    )
+    return {"root": str(root), "commit": commit, "dirty": dirty}
 
 
 if __name__ == "__main__":
