@@ -22,6 +22,7 @@ from next_lab.reference_tracker import (
     REFERENCE_OFFSETS,
     ReferenceCorpus,
     ReferenceTrackerProfile,
+    derive_named_seed,
 )
 
 try:
@@ -102,6 +103,44 @@ def _round_int64(value: torch.Tensor) -> torch.Tensor:
     return torch.round(value).to(torch.int64)
 
 
+def _select_curriculum_episode(
+    *,
+    run_root: bytes,
+    episode_ordinal: int,
+    vector_slot: int,
+    clip_frame_counts: tuple[int, ...],
+    horizon_motor_ticks: int,
+) -> tuple[int, int, int]:
+    if (
+        len(run_root) != 32
+        or episode_ordinal < 0
+        or vector_slot < 0
+        or not clip_frame_counts
+        or horizon_motor_ticks <= 0
+    ):
+        raise ValueError("invalid reference curriculum episode identity")
+    clip_seed = derive_named_seed(
+        run_root,
+        "train",
+        episode_ordinal,
+        vector_slot,
+        "randomization.reference-clip",
+    )
+    clip_index = int.from_bytes(clip_seed[:8], "little") % len(clip_frame_counts)
+    valid_start_count = clip_frame_counts[clip_index] - horizon_motor_ticks
+    if valid_start_count <= 0:
+        raise ValueError("curriculum horizon exceeds a selected clip")
+    phase_seed = derive_named_seed(
+        run_root,
+        "train",
+        episode_ordinal,
+        vector_slot,
+        "randomization.reference-phase",
+    )
+    start_frame = int.from_bytes(phase_seed[:8], "little") % valid_start_count
+    return clip_index, start_frame, start_frame + horizon_motor_ticks
+
+
 if ISAAC_LAB_AVAILABLE:
 
     @configclass
@@ -114,6 +153,9 @@ if ISAAC_LAB_AVAILABLE:
         fixed_clip_id = "cmu104-start-right"
         fixed_start_frame = 0
         fixed_horizon_motor_ticks = 64
+        eligible_clip_ids: tuple[str, ...] = ()
+        phase_randomization = False
+        rng_run_root_hex = ""
         sim = sim_utils.SimulationCfg(dt=1.0 / 240.0, render_interval=4)
         scene = InteractiveSceneCfg(num_envs=64, env_spacing=3.0, replicate_physics=True)
         asset = ArticulationCfg(
@@ -166,15 +208,31 @@ if ISAAC_LAB_AVAILABLE:
                 Path(corpus_root),
                 Path(gate_report_path),
             )
-            self.reference_clip = self.reference_corpus.load_clip(cfg.fixed_clip_id)
-            if self.reference_clip.split != "train":
-                raise ValueError("tiny-overfit clip must belong to the train split")
-            if not 0 <= cfg.fixed_start_frame < self.reference_clip.frame_count - 1:
-                raise ValueError("fixed start frame is outside the reference clip")
-            terminal_frame = cfg.fixed_start_frame + cfg.fixed_horizon_motor_ticks
-            if terminal_frame >= self.reference_clip.frame_count:
-                raise ValueError("tiny-overfit horizon exceeds the reference clip")
-            self._terminal_frame = terminal_frame
+            clip_ids = tuple(cfg.eligible_clip_ids) or (cfg.fixed_clip_id,)
+            if not clip_ids or len(clip_ids) != len(set(clip_ids)):
+                raise ValueError("reference curriculum clip IDs must be non-empty and unique")
+            self.reference_clips = tuple(
+                self.reference_corpus.load_clip(clip_id) for clip_id in clip_ids
+            )
+            self.reference_clip = self.reference_clips[0]
+            if any(clip.split != "train" for clip in self.reference_clips):
+                raise ValueError("reference training clips must belong to the train split")
+            if cfg.fixed_horizon_motor_ticks <= 0:
+                raise ValueError("reference horizon must be positive")
+            if cfg.phase_randomization:
+                if len(cfg.rng_run_root_hex) != 64:
+                    raise ValueError("phase-randomized curriculum requires a 256-bit run root")
+                self._rng_run_root = bytes.fromhex(cfg.rng_run_root_hex)
+            else:
+                if len(self.reference_clips) != 1:
+                    raise ValueError("multiple clips require deterministic phase randomization")
+                if not 0 <= cfg.fixed_start_frame < self.reference_clip.frame_count - 1:
+                    raise ValueError("fixed start frame is outside the reference clip")
+                terminal_frame = cfg.fixed_start_frame + cfg.fixed_horizon_motor_ticks
+                if terminal_frame >= self.reference_clip.frame_count:
+                    raise ValueError("fixed horizon exceeds the reference clip")
+                self._rng_run_root = b""
+            self._episode_ordinal_by_env = [0] * cfg.scene.num_envs
             self._validate_channel_closure()
             limits = isaac_actuator_limits_from_descriptor(self.descriptor)
             actuator_cfg = cfg.asset.actuators["engine_effort"]
@@ -188,6 +246,12 @@ if ISAAC_LAB_AVAILABLE:
             self._applied_effort = torch.zeros_like(self._action)
             self._cursor = torch.full(
                 (cfg.scene.num_envs,), cfg.fixed_start_frame, dtype=torch.int64
+            )
+            self._clip_index = torch.zeros(cfg.scene.num_envs, dtype=torch.int64)
+            self._terminal_frame = torch.full(
+                (cfg.scene.num_envs,),
+                cfg.fixed_start_frame + cfg.fixed_horizon_motor_ticks,
+                dtype=torch.int64,
             )
             self._tracking_loss_ticks = torch.zeros(cfg.scene.num_envs, dtype=torch.int64)
             self._failure_terminal = torch.zeros(cfg.scene.num_envs, dtype=torch.bool)
@@ -224,6 +288,8 @@ if ISAAC_LAB_AVAILABLE:
                 "_previous_effort",
                 "_applied_effort",
                 "_cursor",
+                "_clip_index",
+                "_terminal_frame",
                 "_tracking_loss_ticks",
                 "_failure_terminal",
                 "_success_terminal",
@@ -243,14 +309,19 @@ if ISAAC_LAB_AVAILABLE:
         def _validate_channel_closure(self) -> None:
             observation = self.reference_profile.document["observation"]
             action = self.reference_profile.document["action"]
-            metadata = self.reference_clip.metadata
-            if (
-                metadata["joint_ids"] != observation["joint_state_order"]
-                or metadata["effector_ids"] != observation["reference_effector_order"]
-                or metadata["contact_ids"] != observation["contact_order"]
-                or self.descriptor["ordered_actuator_ids"] != action["ordered_actuator_ids"]
-            ):
-                raise ValueError("reference/descriptor channel order mismatch")
+            for clip in self.reference_clips:
+                metadata = clip.metadata
+                if (
+                    metadata["joint_ids"] != observation["joint_state_order"]
+                    or metadata["effector_ids"] != observation["reference_effector_order"]
+                    or metadata["contact_ids"] != observation["contact_order"]
+                    or self.descriptor["ordered_actuator_ids"]
+                    != action["ordered_actuator_ids"]
+                ):
+                    raise ValueError("reference/descriptor channel order mismatch")
+
+        def reset_episode_sequence(self) -> None:
+            self._episode_ordinal_by_env = [0] * self.num_envs
 
         def _setup_scene(self) -> None:
             self.robot = Articulation(self.cfg.asset)
@@ -327,11 +398,40 @@ if ISAAC_LAB_AVAILABLE:
 
         def _load_reference_tensors(self) -> None:
             self._reference: dict[str, torch.Tensor] = {}
-            for name, value in self.reference_clip.arrays.items():
-                array = np.array(value, copy=True)
-                if array.dtype == np.uint16 or array.dtype == np.uint8:
-                    array = array.astype(np.int64)
-                self._reference[name] = torch.from_numpy(array).to(self.device)
+            maximum_frames = max(clip.frame_count for clip in self.reference_clips)
+            for name in self.reference_clip.arrays:
+                padded: list[np.ndarray] = []
+                for clip in self.reference_clips:
+                    array = np.array(clip.arrays[name], copy=True)
+                    if array.dtype == np.uint16 or array.dtype == np.uint8:
+                        array = array.astype(np.int64)
+                    missing = maximum_frames - clip.frame_count
+                    if missing:
+                        array = np.concatenate(
+                            (array, np.repeat(array[-1:], missing, axis=0)), axis=0
+                        )
+                    padded.append(array)
+                self._reference[name] = torch.from_numpy(np.stack(padded)).to(
+                    self.device
+                )
+            self._reference_lengths = torch.tensor(
+                [clip.frame_count for clip in self.reference_clips],
+                dtype=torch.int64,
+                device=self.device,
+            )
+
+        def _reference_at(
+            self,
+            name: str,
+            frame: torch.Tensor | None = None,
+            env_ids: torch.Tensor | None = None,
+        ) -> torch.Tensor:
+            clip_index = self._clip_index if env_ids is None else self._clip_index[env_ids]
+            if frame is None:
+                selected_frame = self._cursor if env_ids is None else self._cursor[env_ids]
+            else:
+                selected_frame = frame
+            return self._reference[name][clip_index, selected_frame]
 
         def _load_control_tensors(self) -> None:
             action = self.reference_profile.document["action"]
@@ -456,7 +556,7 @@ if ISAAC_LAB_AVAILABLE:
                 raise ValueError("reference action batch has the wrong shape")
             require_finite_tensor("reference_actions", actions)
             self._action.copy_(torch.clamp(actions, -1.0, 1.0))
-            current_reference_dof = self._reference["joint_position_urad"][self._cursor]
+            current_reference_dof = self._reference_at("joint_position_urad")
             current_reference_action = current_reference_dof[:, self._action_to_dof]
             residual = torch.round(
                 self._action.to(torch.float64) * self._residual_scale
@@ -570,21 +670,25 @@ if ISAAC_LAB_AVAILABLE:
                 current["joint_velocity_urad_s"],
                 _round_int64(previous_target_dof),
                 current["contacts"],
-                self._reference["phase_u16"][self._cursor, None].to(torch.int64),
+                self._reference_at("phase_u16")[:, None].to(torch.int64),
             ]
             for offset in REFERENCE_OFFSETS:
-                frame = torch.clamp(self._cursor + offset, max=self.reference_clip.frame_count - 1)
+                frame = torch.minimum(
+                    self._cursor + offset,
+                    self._reference_lengths[self._clip_index] - 1,
+                )
                 reference_quaternion = _normalized_xyzw(
-                    self._reference["root_quaternion_q1_30"][frame].to(torch.float64) / Q1_30
+                    self._reference_at("root_quaternion_q1_30", frame).to(torch.float64)
+                    / Q1_30
                 )
                 relative_rotation = _quaternion_multiply_xyzw(
                     _quaternion_conjugate_xyzw(quaternion), reference_quaternion
                 )
-                yaw = self._reference["root_yaw_velocity_urad_s"][frame]
+                yaw = self._reference_at("root_yaw_velocity_urad_s", frame)
                 reference_angular = torch.stack(
                     (torch.zeros_like(yaw), yaw, torch.zeros_like(yaw)), dim=-1
                 )
-                relative_effectors = self._reference["effector_position_um"][frame] - current[
+                relative_effectors = self._reference_at("effector_position_um", frame) - current[
                     "root_position_um"
                 ][:, None]
                 values.extend(
@@ -592,7 +696,7 @@ if ISAAC_LAB_AVAILABLE:
                         _round_int64(
                             _rotate_inverse_xyzw(
                                 (
-                                    self._reference["root_position_um"][frame]
+                                    self._reference_at("root_position_um", frame)
                                     - current["root_position_um"]
                                 ).to(torch.float64),
                                 quaternion,
@@ -601,7 +705,7 @@ if ISAAC_LAB_AVAILABLE:
                         _round_int64(relative_rotation * Q1_30),
                         _round_int64(
                             _rotate_inverse_xyzw(
-                                self._reference["root_linear_velocity_um_s"][frame].to(
+                                self._reference_at("root_linear_velocity_um_s", frame).to(
                                     torch.float64
                                 ),
                                 quaternion,
@@ -615,21 +719,21 @@ if ISAAC_LAB_AVAILABLE:
                         _round_int64(
                             _rotate_inverse_xyzw(
                                 (
-                                    self._reference["center_of_mass_um"][frame]
+                                    self._reference_at("center_of_mass_um", frame)
                                     - current["root_position_um"]
                                 ).to(torch.float64),
                                 quaternion,
                             )
                         ),
-                        self._reference["joint_position_urad"][frame],
-                        self._reference["joint_velocity_urad_s"][frame],
+                        self._reference_at("joint_position_urad", frame),
+                        self._reference_at("joint_velocity_urad_s", frame),
                         _round_int64(
                             _rotate_inverse_xyzw(
                                 relative_effectors.to(torch.float64),
                                 quaternion[:, None].expand(-1, 6, -1),
                             )
                         ).reshape(self.num_envs, 18),
-                        self._reference["contacts"][frame].to(torch.int64),
+                        self._reference_at("contacts", frame).to(torch.int64),
                     )
                 )
             raw = torch.cat(values, dim=-1)
@@ -642,14 +746,17 @@ if ISAAC_LAB_AVAILABLE:
 
         def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
             current = self._canonical_current()
-            frame = torch.clamp(self._cursor, max=self.reference_clip.frame_count - 1)
-            reference_position = self._reference["root_position_um"][frame]
+            frame = torch.minimum(
+                self._cursor, self._reference_lengths[self._clip_index] - 1
+            )
+            reference_position = self._reference_at("root_position_um", frame)
             position_error = torch.linalg.vector_norm(
                 (current["root_position_um"] - reference_position).to(torch.float64), dim=-1
             )
             current_quaternion = current["root_quaternion_q1_30"].to(torch.float64) / Q1_30
             reference_quaternion = (
-                self._reference["root_quaternion_q1_30"][frame].to(torch.float64) / Q1_30
+                self._reference_at("root_quaternion_q1_30", frame).to(torch.float64)
+                / Q1_30
             )
             orientation_dot = torch.abs(
                 torch.sum(
@@ -698,9 +805,12 @@ if ISAAC_LAB_AVAILABLE:
 
         def _get_rewards(self) -> torch.Tensor:
             current = self._canonical_current()
-            frame = torch.clamp(self._cursor, max=self.reference_clip.frame_count - 1)
+            frame = torch.minimum(
+                self._cursor, self._reference_lengths[self._clip_index] - 1
+            )
             reference_quaternion = _normalized_xyzw(
-                self._reference["root_quaternion_q1_30"][frame].to(torch.float64) / Q1_30
+                self._reference_at("root_quaternion_q1_30", frame).to(torch.float64)
+                / Q1_30
             )
             current_quaternion = _normalized_xyzw(
                 current["root_quaternion_q1_30"].to(torch.float64) / Q1_30
@@ -711,7 +821,7 @@ if ISAAC_LAB_AVAILABLE:
             root_height = self._similarity(
                 torch.abs(
                     current["root_position_um"][:, 1]
-                    - self._reference["root_position_um"][frame, 1]
+                    - self._reference_at("root_position_um", frame)[:, 1]
                 ),
                 250_000.0,
             )
@@ -719,13 +829,13 @@ if ISAAC_LAB_AVAILABLE:
                 torch.linalg.vector_norm(
                     (
                         current["root_linear_velocity_um_s"]
-                        - self._reference["root_linear_velocity_um_s"][frame]
+                        - self._reference_at("root_linear_velocity_um_s", frame)
                     ).to(torch.float64),
                     dim=-1,
                 ),
                 2_000_000.0,
             )
-            reference_yaw = self._reference["root_yaw_velocity_urad_s"][frame]
+            reference_yaw = self._reference_at("root_yaw_velocity_urad_s", frame)
             reference_angular = torch.stack(
                 (torch.zeros_like(reference_yaw), reference_yaw, torch.zeros_like(reference_yaw)),
                 dim=-1,
@@ -743,7 +853,7 @@ if ISAAC_LAB_AVAILABLE:
                 torch.mean(
                     torch.abs(
                         current["joint_position_urad"].to(torch.float64)
-                        - self._reference["joint_position_urad"][frame].to(torch.float64)
+                        - self._reference_at("joint_position_urad", frame).to(torch.float64)
                     )
                     / self._soft_span_dof,
                     dim=-1,
@@ -754,7 +864,7 @@ if ISAAC_LAB_AVAILABLE:
                 torch.mean(
                     torch.abs(
                         current["joint_velocity_urad_s"].to(torch.float64)
-                        - self._reference["joint_velocity_urad_s"][frame].to(torch.float64)
+                        - self._reference_at("joint_velocity_urad_s", frame).to(torch.float64)
                     )
                     / self._maximum_velocity_dof,
                     dim=-1,
@@ -765,7 +875,7 @@ if ISAAC_LAB_AVAILABLE:
                 torch.linalg.vector_norm(
                     (
                         current["center_of_mass_um"]
-                        - self._reference["center_of_mass_um"][frame]
+                        - self._reference_at("center_of_mass_um", frame)
                     ).to(torch.float64),
                     dim=-1,
                 ),
@@ -776,7 +886,7 @@ if ISAAC_LAB_AVAILABLE:
                     torch.linalg.vector_norm(
                         (
                             current["effector_position_um"]
-                            - self._reference["effector_position_um"][frame]
+                            - self._reference_at("effector_position_um", frame)
                         ).to(torch.float64),
                         dim=-1,
                     ),
@@ -786,7 +896,7 @@ if ISAAC_LAB_AVAILABLE:
             )
             contact_match = torch.mean(
                 (
-                    current["contacts"] == self._reference["contacts"][frame]
+                    current["contacts"] == self._reference_at("contacts", frame)
                 ).to(torch.float64),
                 dim=-1,
             )
@@ -873,23 +983,64 @@ if ISAAC_LAB_AVAILABLE:
                     "Episode/failure": self._failure_terminal[completed_ids].to(torch.float32),
                 }
             super()._reset_idx(env_ids)
-            frame = torch.full_like(env_ids, self.cfg.fixed_start_frame)
+            frame_values: list[int] = []
+            clip_values: list[int] = []
+            terminal_values: list[int] = []
+            if self.cfg.phase_randomization:
+                for env_id in env_ids.detach().cpu().tolist():
+                    episode_ordinal = self._episode_ordinal_by_env[env_id]
+                    clip_index, frame_value, terminal_value = (
+                        _select_curriculum_episode(
+                            run_root=self._rng_run_root,
+                            episode_ordinal=episode_ordinal,
+                            vector_slot=env_id,
+                            clip_frame_counts=tuple(
+                                clip.frame_count for clip in self.reference_clips
+                            ),
+                            horizon_motor_ticks=self.cfg.fixed_horizon_motor_ticks,
+                        )
+                    )
+                    clip_values.append(clip_index)
+                    frame_values.append(frame_value)
+                    terminal_values.append(terminal_value)
+                    self._episode_ordinal_by_env[env_id] += 1
+            else:
+                clip_values = [0] * len(env_ids)
+                frame_values = [self.cfg.fixed_start_frame] * len(env_ids)
+                terminal_values = [
+                    self.cfg.fixed_start_frame + self.cfg.fixed_horizon_motor_ticks
+                ] * len(env_ids)
+            frame = torch.tensor(frame_values, dtype=torch.int64, device=self.device)
+            self._clip_index[env_ids] = torch.tensor(
+                clip_values, dtype=torch.int64, device=self.device
+            )
+            self._terminal_frame[env_ids] = torch.tensor(
+                terminal_values, dtype=torch.int64, device=self.device
+            )
             root_position_engine = (
-                self._reference["root_position_um"][frame].to(torch.float32) / 1_000_000.0
+                self._reference_at("root_position_um", frame, env_ids).to(torch.float32)
+                / 1_000_000.0
             )
             root_position = _engine_to_isaac_vector(root_position_engine)
             root_position += self.scene.env_origins[env_ids]
             root_quaternion_engine = (
-                self._reference["root_quaternion_q1_30"][frame].to(torch.float32) / Q1_30
+                self._reference_at("root_quaternion_q1_30", frame, env_ids).to(
+                    torch.float32
+                )
+                / Q1_30
             )
             root_quaternion = _engine_xyzw_to_isaac_wxyz(root_quaternion_engine)
             root_linear_engine = (
-                self._reference["root_linear_velocity_um_s"][frame].to(torch.float32)
+                self._reference_at("root_linear_velocity_um_s", frame, env_ids).to(
+                    torch.float32
+                )
                 / 1_000_000.0
             )
             root_linear = _engine_to_isaac_vector(root_linear_engine)
             yaw = (
-                self._reference["root_yaw_velocity_urad_s"][frame].to(torch.float32)
+                self._reference_at("root_yaw_velocity_urad_s", frame, env_ids).to(
+                    torch.float32
+                )
                 / 1_000_000.0
             )
             root_angular_engine = torch.stack(
@@ -900,11 +1051,15 @@ if ISAAC_LAB_AVAILABLE:
                 (root_position, root_quaternion, root_linear, root_angular), dim=-1
             )
             joint_position = (
-                self._reference["joint_position_urad"][frame].to(torch.float32)
+                self._reference_at("joint_position_urad", frame, env_ids).to(
+                    torch.float32
+                )
                 / 1_000_000.0
             )
             joint_velocity = (
-                self._reference["joint_velocity_urad_s"][frame].to(torch.float32)
+                self._reference_at("joint_velocity_urad_s", frame, env_ids).to(
+                    torch.float32
+                )
                 / 1_000_000.0
             )
             self.robot.write_root_state_to_sim(root_state, env_ids)
@@ -919,15 +1074,15 @@ if ISAAC_LAB_AVAILABLE:
                 joint_ids=self._action_joint_ids,
                 env_ids=env_ids,
             )
-            reference_action = self._reference["joint_position_urad"][frame][
-                :, self._action_to_dof
-            ].to(torch.float32)
+            reference_action = self._reference_at(
+                "joint_position_urad", frame, env_ids
+            )[:, self._action_to_dof].to(torch.float32)
             self._action[env_ids] = 0.0
             self._applied_target[env_ids] = reference_action
             self._previous_applied_target[env_ids] = reference_action
             self._previous_effort[env_ids] = 0.0
             self._applied_effort[env_ids] = 0.0
-            self._cursor[env_ids] = self.cfg.fixed_start_frame
+            self._cursor[env_ids] = frame
             self._tracking_loss_ticks[env_ids] = 0
             self._failure_terminal[env_ids] = False
             self._success_terminal[env_ids] = False

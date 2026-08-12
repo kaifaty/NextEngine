@@ -171,6 +171,11 @@ class TinyReferencePpoTrainer:
     def evaluate_deterministic(self, episodes: int) -> dict[str, Any]:
         if episodes <= 0:
             raise ValueError("deterministic evaluation requires at least one episode")
+        reset_episode_sequence = getattr(
+            self.environment, "reset_episode_sequence", None
+        )
+        if reset_episode_sequence is not None:
+            reset_episode_sequence()
         observation, _ = self.environment.reset()
         observation = observation["policy"]
         returns = torch.zeros(self.environment.num_envs, device=self.device)

@@ -14,6 +14,7 @@ from next_lab.isaac_reference_env import (
     _quaternion_conjugate_xyzw,
     _quaternion_multiply_xyzw,
     _rotate_inverse_xyzw,
+    _select_curriculum_episode,
 )
 
 
@@ -52,6 +53,36 @@ class IsaacReferenceEnvironmentTests(unittest.TestCase):
             atol=1.0e-12,
             rtol=0.0,
         )
+
+    def test_curriculum_episode_selection_is_deterministic_and_bounded(self) -> None:
+        root = bytes.fromhex("12" * 32)
+        selections = [
+            _select_curriculum_episode(
+                run_root=root,
+                episode_ordinal=episode,
+                vector_slot=slot,
+                clip_frame_counts=(90, 120, 180),
+                horizon_motor_ticks=32,
+            )
+            for episode in range(3)
+            for slot in range(8)
+        ]
+        self.assertEqual(
+            selections[0],
+            _select_curriculum_episode(
+                run_root=root,
+                episode_ordinal=0,
+                vector_slot=0,
+                clip_frame_counts=(90, 120, 180),
+                horizon_motor_ticks=32,
+            ),
+        )
+        self.assertGreater(len(set(selections)), 1)
+        for clip_index, start_frame, terminal_frame in selections:
+            self.assertIn(clip_index, range(3))
+            self.assertGreaterEqual(start_frame, 0)
+            self.assertEqual(terminal_frame - start_frame, 32)
+            self.assertLess(terminal_frame, (90, 120, 180)[clip_index])
 
 
 if __name__ == "__main__":
