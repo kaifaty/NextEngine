@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-0` and `TRAIN-1` advanced; `TRAIN-2..9` `NotRun` |
+| Статус | In execution: `TRAIN-0..2` advanced; `TRAIN-3..9` `NotRun` |
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -312,7 +312,11 @@ count: confidence interval не превращает наблюдаемое на
 - `TRAIN-0`: `Advance`, implementation commit `9148b776db2c1be63d1393f62f1cbfa782eb11cc`;
 - `TRAIN-1`: `Advance`, frozen profile SHA-256
   `307a00f2bda8cd083066a383cb025b5333240513e00b2c764ca8fef52bddc1bf`;
-- `TRAIN-2..9`: `NotRun`; ML по-прежнему не разрешён.
+- `TRAIN-2`: `Advance`, BodySchema hash
+  `eb5b75e9376bec8cd38cedfe015e16dd31dcb693b70217ec35b89467d88900ff`,
+  compiled descriptor hash
+  `5640d7a9de95ae5c171384db29b601b73d31c8f9d12747a4f3b7c666525d9242`;
+- `TRAIN-3..9`: `NotRun`; ML по-прежнему не разрешён.
 
 ## TRAIN-0 — retirement/isolation старого эксперимента и чистая generation
 
