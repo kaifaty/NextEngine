@@ -6,6 +6,7 @@
 | Дата | 2026-08-12 |
 | Candidate | `HumanoidFlatRecoveryCandidateV1` (planning identity, не public schema ID) |
 | Scope | Fixed-body flat-command locomotion, safe fall, recovery, get-up and command resume |
+| Anthropometric target | [Young-adult male gait target, `1.700 m`, exact source mass `75.337 kg`](2026-08-12-humanoid-biomechanics-target.md) |
 | Реализация | [План перестройки обучения humanoid motor policy](2026-08-12-humanoid-motor-training-rebuild.md) |
 | Не является | ADR, public/current contract, доказательством качества модели или обещанием полного R5 humanoid |
 
@@ -76,14 +77,14 @@ locomotion и recovery actors и детерминированный engine-owned
 Изменение создаёт новую revision этого baseline и invalidates только уже
 запущенные зависимые gates.
 
-| ID | Рабочее решение |
-|---|---|
-| `DEC-HUM-01` | Первый результат — `Candidate`, а не `Supported` и не полный R5/MVP. |
-| `DEC-HUM-02` | Mandatory locomotion envelope — только forward + turn на flat floor; backward/strafe/terrain deferred. |
-| `DEC-HUM-03` | Multi-specialist bundle допустим; single distilled actor optional. |
-| `DEC-HUM-04` | Side recovery обязателен; v1 может использовать admitted side-to-prone/supine transition перед get-up. |
-| `DEC-HUM-05` | Тело представляет один явно выбранный anthropometric target profile, а не усреднённого «человека вообще». |
-| `DEC-HUM-06` | Числовые operating, quality и runtime budgets разделов 3 и 6 являются candidate pass/fail envelope, а не report-only targets. |
+| ID | Статус | Рабочее решение |
+|---|---|---|
+| `DEC-HUM-01` | Confirmed 2026-08-12 | Первый результат — `Candidate`, а не `Supported` и не полный R5/MVP. |
+| `DEC-HUM-02` | Confirmed 2026-08-12 | Mandatory locomotion envelope — только forward + turn на flat floor; backward/strafe/terrain deferred. |
+| `DEC-HUM-03` | Confirmed 2026-08-12 | Multi-specialist bundle допустим; single distilled actor optional. |
+| `DEC-HUM-04` | Proposed | Side recovery обязателен; v1 может использовать admitted side-to-prone/supine transition перед get-up. |
+| `DEC-HUM-05` | Confirmed by delegated selection 2026-08-12 | [Один gait-oriented young-adult male target](2026-08-12-humanoid-biomechanics-target.md): intended stature `1.700 m`, exact source-model mass `75.337 kg`; это не population percentile. |
+| `DEC-HUM-06` | Proposed | Числовые operating, quality и runtime budgets разделов 3 и 6 являются candidate pass/fail envelope, а не report-only targets. |
 
 ## 3. Operating envelope
 
@@ -192,11 +193,12 @@ profile, а не reinterpretation существующего результат�
 - `REQ-HUM-BODY-007` — anatomy review имеет zero open Blocker/Major defects для
   spine, hips, knees, ankles, shoulders and elbows.
 
-Exact height, mass and segment table намеренно не придумываются в этом
-planning baseline. Их выбор и frozen hash — blocking output `TRAIN-1`; пока
-они отсутствуют, `REQ-HUM-BODY-*` и весь candidate не могут получить `Pass`.
-Слово «биомеханически правдоподобный» без этой таблицы не является требованием
-или evidence.
+Target height and source-model mass выбраны связанным biomechanics-target
+document. Exact source-to-BodySchema segment mapping, dimensions, joint frames,
+per-body mass/CoM/inertia, colliders, ROM and actuator table остаются blocking
+output `TRAIN-1`; пока они отсутствуют, `REQ-HUM-BODY-*` и весь candidate не
+могут получить `Pass`. Слово «биомеханически правдоподобный» без этой таблицы
+не является требованием или evidence.
 
 ### 4.2. `REQ-HUM-DATA-*` — motion corpus
 
@@ -366,8 +368,8 @@ manifest and affected candidate lineage.
 
 ## 8. Definition of ready and done
 
-`ReadyForTRAIN-1` requires confirmed `DEC-HUM-01..06` and an owner/source plan
-for the exact anthropometric profile. `ReadyForML` requires passing
+`ReadyForTRAIN-1` requires all `DEC-HUM-01..06` to be confirmed and the selected
+target's source/license plan to be accepted. `ReadyForML` requires passing
 `TRAIN-1..4`; unresolved body, safety, contact, data-rights or split requirement
 blocks training.
 

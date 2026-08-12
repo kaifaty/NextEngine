@@ -8,6 +8,7 @@
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
 | Архитектурная опора | SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34, SPEC-35, ADR-027, ADR-030, ADR-046, ADR-053, ADR-058, ADR-059, ADR-064..068 |
 | Требования candidate | [Humanoid motor requirements baseline](2026-08-12-humanoid-motor-requirements.md) |
+| Anthropometric target | [Young-adult male gait target](2026-08-12-humanoid-biomechanics-target.md) |
 
 Нормативные источники для реализации:
 
@@ -369,6 +370,10 @@ Profile реализует один exact anthropometric target по
 source/derivation provenance являются blocking inputs, а не значениями,
 которые выбирает trainer. До freeze также заполняются exact per-joint and
 per-contact hard bounds, на которые ссылаются candidate safety/impact gates.
+Selected planning input is the linked Rajagopal-based `1.700 m` young-adult
+male gait target with exact source-model mass `75.337 kg`. Its source-to-target
+mapping, virtual serial-axis carriers, ROM, colliders and actuators remain
+blocking TRAIN-1 work; selecting the source does not pass the gate.
 
 Начальный fixed humanoid может оставаться цепочкой revolute hinges. Hip,
 shoulder и spine multi-axis motion представляются несколькими hinges с
