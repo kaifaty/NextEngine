@@ -11,8 +11,8 @@
   },
   "corpus": {
     "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion.v1",
-    "profile_sha256": "3012bc0fa95c4610492e6799eb3fbe0682ef87f0c804ef2be386477df44b5f74",
-    "manifest_sha256": "24629cf222fded5c0a80755f7442922527dde829c49f4369d1f88cddc92d0196",
+    "profile_sha256": "f281f73773f32ddba506c01aa66301488dadc40d91efbd78e2c1fb79a70951fc",
+    "manifest_sha256": "6f76c1c7d60457d1b10833b6fb840afbb50cd502315f250fd6e44a40d1c0dcbc",
     "eligible_partition": "locomotion",
     "split_is_run_mode": true,
     "selection_order": "canonical UTF-8 clip_id byte order",
@@ -21,7 +21,7 @@
   "training_authorization": {
     "gate_id": "TRAIN-4",
     "decision": "Advance",
-    "gate_report_sha256": "5a5e61904ae648647433f5d9036a0a3721629419047a618bddeef45e1d644a64",
+    "gate_report_sha256": "38f33f63c2d187509128eca1469ab6b114547402bb769e311b8717a4c2ed18c4",
     "scope": "TRAIN-5 specialist reference-motion tracker only"
   },
   "schedule": {

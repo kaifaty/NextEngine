@@ -8,9 +8,9 @@
 | Body | `nextengine.body.humanoid-biomechanics-raja-1700.v2@2` |
 | BodySchema hash | `e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d` |
 | Safety/contact profile | `ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c` |
-| Corpus manifest | `24629cf222fded5c0a80755f7442922527dde829c49f4369d1f88cddc92d0196` |
+| Corpus manifest | `6f76c1c7d60457d1b10833b6fb840afbb50cd502315f250fd6e44a40d1c0dcbc` |
 | Canonical JSON | `lab/profiles/humanoid-reference-tracker.v1.json` |
-| Canonical JSON SHA-256 | `7f1ea0faff1707767b1145070ed3d1ac4b60b287b40ed87865e520e5807079d8` |
+| Canonical JSON SHA-256 | `4a898ccf67051b34b6266ec5293f74758103e7db260ded393e76161f72de527d` |
 
 V1 is the smallest tracker profile that can consume the admitted locomotion
 partition without introducing command selection, recovery, a runtime
@@ -74,12 +74,16 @@ optimizer-free diagnostics; a safety event, hash mismatch or malformed reward
 remains blocking, but poor tracking by the zero/random actor is not mislabeled
 as a trained-policy result.
 
-The current corpus lineage is the ankle-roll-reserved TRAIN-4 revision. Its
+The current corpus lineage is the protected-joint-reserved TRAIN-4 revision. Its
 input-closure audit SHA-256 is
-`14977226e0d7d86ac6c5c13cb45a9059f230633cb13b454dc1cfd8f7fe8efccc` and
-records zero optimizer steps. The baseline matrix and tiny/curriculum results
-below bind the superseded corpus and remain historical diagnostics only; none
-of their checkpoints may initialize the current lineage.
+`784f09d4b9e86c3053120df022f0e2eb422b85b264fb11964a930feb78dc26df` and
+records zero optimizer steps. Its all-phase reset audit SHA-256
+`8cbd9c33b01ca98956b377f242628623ca943e11adce75178e20508ba145cb6d`
+covers all `169/169` admissible phases over `4105` episodes with zero required
+first-motor-tick safety failures. Later zero-residual failures are retained as
+ReportOnly untrained-baseline diagnostics. The baseline matrix and
+tiny/curriculum results below bind the superseded corpus and remain historical
+diagnostics only; none of their checkpoints may initialize the current lineage.
 
 The closed input/reward audit has SHA-256
 `b76fcf1d9ce8ef0b7df2c5d35a2c6b115a7c458c1f8a4a90fcb1898f6d0d1489`.

@@ -24,7 +24,7 @@ use crate::{
 
 const INPUT_SCHEMA_ID: &str = "nextengine.motor.reference-baseline-input.v1";
 const CORPUS_MANIFEST_SHA256: &str =
-    "24629cf222fded5c0a80755f7442922527dde829c49f4369d1f88cddc92d0196";
+    "6f76c1c7d60457d1b10833b6fb840afbb50cd502315f250fd6e44a40d1c0dcbc";
 const TRACKING_POSITION_LIMIT_MICROMETRES: i64 = 750_000;
 const TRACKING_ORIENTATION_MINIMUM_DOT_Q1_30: i64 = 929_887_697;
 const TRACKING_LOSS_TICKS: u32 = 4;

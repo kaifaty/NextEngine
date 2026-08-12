@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-0..4` re-advanced on ankle-roll-reserved corpus; `TRAIN-5` input closure passed on the new lineage, tiny overfit must be rerun; no TRAIN-5 gate advance |
+| Статус | In execution: `TRAIN-0..4` re-advanced on protected-joint-reserved corpus; `TRAIN-5` input and all-phase reset closure passed on the new lineage, tiny overfit must be rerun; no TRAIN-5 gate advance |
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -14,9 +14,9 @@
 | TRAIN-3 safety/contact profile | [Humanoid safety and contact profile V1](2026-08-12-humanoid-safety-contact-profile-v1.md) |
 | TRAIN-3 safety/contact SHA-256 | `ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c` |
 | TRAIN-4 motion corpus profile | [Humanoid motion corpus profile V1](2026-08-12-humanoid-motion-corpus-profile-v1.md) |
-| TRAIN-4 motion corpus profile SHA-256 | `3012bc0fa95c4610492e6799eb3fbe0682ef87f0c804ef2be386477df44b5f74` |
+| TRAIN-4 motion corpus profile SHA-256 | `f281f73773f32ddba506c01aa66301488dadc40d91efbd78e2c1fb79a70951fc` |
 | TRAIN-5 reference tracker profile | [Humanoid reference tracker profile V1](2026-08-12-humanoid-reference-tracker-profile-v1.md) |
-| TRAIN-5 reference tracker profile SHA-256 | `7f1ea0faff1707767b1145070ed3d1ac4b60b287b40ed87865e520e5807079d8` |
+| TRAIN-5 reference tracker profile SHA-256 | `4a898ccf67051b34b6266ec5293f74758103e7db260ded393e76161f72de527d` |
 
 Нормативные источники для реализации:
 
@@ -336,12 +336,13 @@ count: confidence interval не превращает наблюдаемое на
   gate report SHA-256
   `807535bc9128b4bd079d011a27dc95a5d10f2449a997d9e856c2a701729bd5cf`;
 - `TRAIN-4`: `Advance`, motion corpus profile SHA-256
-  `3012bc0fa95c4610492e6799eb3fbe0682ef87f0c804ef2be386477df44b5f74`,
+  `f281f73773f32ddba506c01aa66301488dadc40d91efbd78e2c1fb79a70951fc`,
   corpus manifest SHA-256
-  `24629cf222fded5c0a80755f7442922527dde829c49f4369d1f88cddc92d0196`,
+  `6f76c1c7d60457d1b10833b6fb840afbb50cd502315f250fd6e44a40d1c0dcbc`,
   gate report SHA-256
-  `5a5e61904ae648647433f5d9036a0a3721629419047a618bddeef45e1d644a64`;
-- `TRAIN-5`: new-lineage input closure `PASS`, optimizer steps `0`; all earlier
+  `38f33f63c2d187509128eca1469ab6b114547402bb769e311b8717a4c2ed18c4`;
+- `TRAIN-5`: new-lineage input and all-phase first-motor-tick reset closure
+  `PASS`, optimizer steps `0`; all earlier
   tiny/curriculum runs are immutable historical evidence from the superseded
   corpus and cannot initialize or advance the new lineage; tiny overfit rerun next;
 - `TRAIN-6..9`: `NotRun`; разрешён только specialist tracker `TRAIN-5`.
@@ -720,9 +721,9 @@ serialization and executable provenance/split/coverage audits реализова
 не были физически допустимы и не входят в advancing manifest.
 
 Текущий внешний immutable locomotion corpus:
-`/home/kaifaty/NextEngine-training/generations/humanoid-motor-rebuild-v1/corpus/3012bc0fa95c4610-6c17284466685e47`.
+`/home/kaifaty/NextEngine-training/generations/humanoid-motor-rebuild-v1/corpus/f281f73773f32ddb-7b59986973b39870`.
 Его canonical manifest SHA-256 —
-`24629cf222fded5c0a80755f7442922527dde829c49f4369d1f88cddc92d0196`.
+`6f76c1c7d60457d1b10833b6fb840afbb50cd502315f250fd6e44a40d1c0dcbc`.
 Все `23` base и `5` derived clips (`28/28`) прошли kinematic checks; splits —
 `10/9/9` train/validation/held-out; все шесть locomotion class families имеют
 независимые split groups. Repeat import воспроизвёл тот же manifest.
@@ -734,14 +735,15 @@ Major/Blocker defects `0`. Retarget явно сохраняет hip/shoulder col
 projection, `20°` ankle-pitch reserve и минимум `15°` bilateral ankle-roll
 reserve до hard ROM. Ankle-roll soft-boundary fraction равен `0`; доля
 затронутых ankle-roll samples `0.443182..1.0` сохранена как ReportOnly
-retarget-fidelity metric. Recovery candidate audit сохранил
+retarget-fidelity metric. Knee/elbow lower-boundary fraction также равен `0`,
+а minimum hard-ROM reserve равен `1°`. Recovery candidate audit сохранил
 `11465/11536` failures и maximum penetration `241889 µm`; recovery selection и
 `TRAIN-7` запрещены до нового retarget/profile/hash.
 
 Exact external gate report:
-`/home/kaifaty/NextEngine-training/gates/TRAIN-4/locomotion-r5-gate-report.json`,
+`/home/kaifaty/NextEngine-training/gates/TRAIN-4/locomotion-r6-gate-report.json`,
 SHA-256
-`5a5e61904ae648647433f5d9036a0a3721629419047a618bddeef45e1d644a64`.
+`38f33f63c2d187509128eca1469ab6b114547402bb769e311b8717a4c2ed18c4`.
 Decision: `Advance` только для `TRAIN-5` specialist locomotion tracker; более
 поздние training stages и runtime publication не разрешены.
 
@@ -749,7 +751,7 @@ Decision: `Advance` только для `TRAIN-5` specialist locomotion tracker;
 
 Execution input is frozen by [ADR-070](../architecture/adr/070-biomechanics-reference-tracking-training-environment.md)
 and `lab/profiles/humanoid-reference-tracker.v1.json` with SHA-256
-`7f1ea0faff1707767b1145070ed3d1ac4b60b287b40ed87865e520e5807079d8`.
+`4a898ccf67051b34b6266ec5293f74758103e7db260ded393e76161f72de527d`.
 This freezes environment semantics but is not evidence that the sanity ladder
 or training has passed.
 
@@ -814,11 +816,19 @@ observation/action, reward or reset semantics. Смена PPO на более с
 algorithm не является диагностикой wiring failure.
 
 Текущий new-lineage input audit SHA-256
-`14977226e0d7d86ac6c5c13cb45a9059f230633cb13b454dc1cfd8f7fe8efccc`
+`784f09d4b9e86c3053120df022f0e2eb422b85b264fb11964a930feb78dc26df`
 замкнул profile/corpus/gate/artifacts и прошёл с `optimizer_steps = 0`. Он не
 является learned-policy claim. Tiny deterministic overfit, curriculum и
 multi-seed должны быть выполнены заново; checkpoint с superseded corpus hash
 запрещён как initialization input.
+
+Randomized phase-reset audit SHA-256
+`8cbd9c33b01ca98956b377f242628623ca943e11adce75178e20508ba145cb6d`
+покрыл все `169/169` допустимых start phases в `4105` zero-residual episodes:
+первый motor tick дал `0` hard-ROM, forbidden-contact and non-finite failures.
+Полный 11-tick untrained baseline сохранил `690` hard-ROM, `209`
+forbidden-contact и `589` tracking-loss events как ReportOnly diagnostic; это
+не learned-policy quality result и не ослабляет final safety requirement.
 
 Следующие результаты сохранены только как historical failure/diagnostic
 evidence старой corpus lineage и не продвигают текущий `TRAIN-5`: input/reward audit
