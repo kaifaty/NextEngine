@@ -205,4 +205,12 @@ mod tests {
             .sum::<usize>();
         assert_eq!(shape_count, 19);
     }
+
+    #[test]
+    fn biomechanics_mirror_matches_the_tracked_cpu_isaac_golden() {
+        let actual = biomechanics_isaac_mirror_descriptor_json_v1().expect("mirror descriptor");
+        let expected =
+            include_str!("../../../lab/tests/fixtures/biomechanics_motor_mirror_v1.json");
+        assert_eq!(actual, expected);
+    }
 }

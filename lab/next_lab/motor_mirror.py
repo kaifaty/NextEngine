@@ -15,6 +15,7 @@ CURRICULUM_LOCOMOTION_PROFILE_ID = (
 )
 CURRENT_TRANSLATOR_VERSION = "nextengine.isaac-usda-translator.v3"
 LEGACY_TRANSLATOR_PROFILE_ID = "nextengine.isaac-translator.v2"
+BIOMECHANICS_TRANSLATOR_ID = "nextengine.isaac.biomechanics-mirror.v1"
 PHYSICS_HZ = 240
 MOTOR_HZ = 60
 SUBSTEPS = 4
@@ -425,6 +426,214 @@ def validate_golden(golden: dict[str, Any], descriptor_bytes: bytes | None = Non
         raise ValueError("fixed-point PD golden mismatch")
     if descriptor_bytes is not None and sha256_bytes(descriptor_bytes) != golden["descriptor_sha256"]:
         raise ValueError("Rust descriptor hash mismatch")
+
+
+def validate_biomechanics_descriptor(descriptor: dict[str, Any]) -> None:
+    """Validate the generated TRAIN-2 biomechanics mirror without anatomy defaults."""
+    if descriptor.get("schema_version") != 1:
+        raise ValueError("unsupported biomechanics mirror descriptor")
+    if descriptor.get("translator_id") != BIOMECHANICS_TRANSLATOR_ID:
+        raise ValueError("biomechanics translator identity mismatch")
+    if descriptor.get("physics_hz") != PHYSICS_HZ or descriptor.get("motor_hz") != MOTOR_HZ:
+        raise ValueError("unsupported biomechanics cadence")
+    if descriptor.get("body_count") != 24 or descriptor.get("action_width") != 23:
+        raise ValueError("biomechanics tensor/topology width mismatch")
+    _require_hash(descriptor.get("body_schema_hash"), "body_schema_hash")
+    _require_hash(descriptor.get("compiled_descriptor_hash"), "compiled_descriptor_hash")
+    if not isinstance(descriptor.get("body_schema_id"), str) or not isinstance(
+        descriptor.get("body_schema_revision"), int
+    ):
+        raise ValueError("biomechanics schema identity is incomplete")
+    if descriptor.get("coordinate_mapping") != {
+        "engine_axes": "+X right, +Y up, +Z forward",
+        "isaac_from_engine_vector": ["x", "-z", "y"],
+        "isaac_quaternion_order": "wxyz",
+        "engine_quaternion_order": "xyzw",
+    }:
+        raise ValueError("biomechanics coordinate mapping mismatch")
+
+    ordered_bodies = require_unique_strings(
+        descriptor.get("ordered_body_ids"), "biomechanics bodies"
+    )
+    ordered_actuators = require_unique_strings(
+        descriptor.get("ordered_actuator_ids"), "biomechanics actuators"
+    )
+    bodies = descriptor.get("bodies")
+    joints = descriptor.get("joints")
+    actuators = descriptor.get("actuators")
+    effectors = descriptor.get("effectors")
+    exclusions = descriptor.get("collision_exclusions")
+    if not all(
+        isinstance(records, list)
+        for records in (bodies, joints, actuators, effectors, exclusions)
+    ):
+        raise ValueError("biomechanics descriptor records must be arrays")
+    if len(ordered_bodies) != 24 or len(bodies) != 24:
+        raise ValueError("biomechanics body closure mismatch")
+    if len(ordered_actuators) != 23 or len(actuators) != 23 or len(joints) != 23:
+        raise ValueError("biomechanics joint/action closure mismatch")
+
+    body_tokens: set[int] = set()
+    shape_tokens: set[int] = set()
+    collider_count = 0
+    total_mass = 0
+    for slot, body in enumerate(bodies):
+        if body.get("body_slot") != slot or body.get("body_id") != ordered_bodies[slot]:
+            raise ValueError("biomechanics body construction order mismatch")
+        token = body.get("body_token")
+        if not isinstance(token, int) or token in body_tokens:
+            raise ValueError("biomechanics body token mismatch")
+        body_tokens.add(token)
+        parent = body.get("parent_body_slot")
+        if (slot == 0 and parent is not None) or (
+            slot != 0 and (not isinstance(parent, int) or not 0 <= parent < slot)
+        ):
+            raise ValueError("biomechanics body hierarchy mismatch")
+        mass = body.get("mass_microkilograms")
+        if not isinstance(mass, int) or mass <= 0:
+            raise ValueError("biomechanics body mass mismatch")
+        total_mass += mass
+        _require_int_vector(body.get("center_of_mass_micrometres"), 3, "center of mass")
+        _require_int_vector(
+            body.get("authoritative_inertia_tensor_microkilogram_metre_squared"),
+            6,
+            "authoritative inertia",
+        )
+        _require_int_vector(
+            body.get("solver_principal_inertia_microkilogram_metre_squared"),
+            3,
+            "principal inertia",
+        )
+        colliders = body.get("colliders")
+        if not isinstance(colliders, list):
+            raise ValueError("biomechanics colliders must be an array")
+        if bool(body.get("non_colliding_carrier")) != (len(colliders) == 0):
+            raise ValueError("biomechanics carrier/collider mismatch")
+        collider_count += len(colliders)
+        for collider in colliders:
+            shape_token = collider.get("shape_token")
+            if not isinstance(shape_token, int) or shape_token in shape_tokens:
+                raise ValueError("biomechanics shape token mismatch")
+            shape_tokens.add(shape_token)
+            if not isinstance(collider.get("collider_id"), str):
+                raise ValueError("biomechanics collider identity mismatch")
+            _require_int_vector(
+                collider.get("local_translation_micrometres"), 3, "collider translation"
+            )
+            _require_int_vector(collider.get("local_rotation_q1_30"), 4, "collider rotation")
+            _validate_biomechanics_geometry(collider.get("geometry"))
+            layer = collider.get("collision_layer")
+            mask = collider.get("collision_mask")
+            if not isinstance(layer, int) or not 0 <= layer < 64:
+                raise ValueError("biomechanics collision layer mismatch")
+            if not isinstance(mask, int) or not 0 < mask < 1 << 64:
+                raise ValueError("biomechanics collision mask mismatch")
+    if total_mass != 75_337_000 or collider_count != 19:
+        raise ValueError("biomechanics mass/collider total mismatch")
+
+    joint_ids: set[str] = set()
+    dof_ordinals: set[int] = set()
+    for joint in joints:
+        joint_id = joint.get("joint_id")
+        dof = joint.get("dof_ordinal")
+        if not isinstance(joint_id, str) or joint_id in joint_ids:
+            raise ValueError("biomechanics joint identity mismatch")
+        if not isinstance(dof, int) or dof in dof_ordinals or not 0 <= dof < 23:
+            raise ValueError("biomechanics DoF ordinal mismatch")
+        joint_ids.add(joint_id)
+        dof_ordinals.add(dof)
+        parent = joint.get("parent_body_slot")
+        child = joint.get("child_body_slot")
+        if not all(isinstance(value, int) and 0 <= value < 24 for value in (parent, child)):
+            raise ValueError("biomechanics joint body mapping mismatch")
+        axis = _require_int_vector(joint.get("axis_q1_30"), 3, "joint axis")
+        if sum(value * value for value in axis) != 1 << 60:
+            raise ValueError("biomechanics joint axis is not normalized")
+        hard = _require_int_vector(joint.get("hard_limit_microradians"), 2, "hard limit")
+        soft = _require_int_vector(joint.get("soft_limit_microradians"), 2, "soft limit")
+        neutral = joint.get("neutral_position_microradians")
+        if not (
+            hard[0] < hard[1]
+            and hard[0] <= soft[0] <= neutral <= soft[1] <= hard[1]
+        ):
+            raise ValueError("biomechanics joint limit envelope mismatch")
+        for name in ("parent_frame", "child_frame"):
+            frame = joint.get(name)
+            if not isinstance(frame, dict):
+                raise ValueError("biomechanics joint frame mismatch")
+            _require_int_vector(frame.get("translation_micrometres"), 3, name)
+            _require_int_vector(frame.get("rotation_q1_30"), 4, name)
+        _require_int_vector(joint.get("solver_parent_rotation_f32_bits"), 4, "solver frame")
+        _require_int_vector(joint.get("solver_child_rotation_f32_bits"), 4, "solver frame")
+    if dof_ordinals != set(range(23)):
+        raise ValueError("biomechanics DoF mapping is partial")
+
+    if ordered_actuators != [record.get("actuator_id") for record in actuators]:
+        raise ValueError("biomechanics actuator tensor order mismatch")
+    if {record.get("joint_id") for record in actuators} != joint_ids:
+        raise ValueError("biomechanics actuator/joint mapping mismatch")
+    if {record.get("dof_ordinal") for record in actuators} != set(range(23)):
+        raise ValueError("biomechanics actuator/DoF mapping mismatch")
+    for actuator in actuators:
+        effort = _require_int_vector(
+            actuator.get("effort_micronewton_metres"), 2, "actuator effort"
+        )
+        target_delta = _require_int_vector(
+            actuator.get("target_delta_microradians_per_motor_tick"),
+            2,
+            "actuator target delta",
+        )
+        if not effort[0] < 0 < effort[1] or not target_delta[0] < 0 < target_delta[1]:
+            raise ValueError("biomechanics actuator envelope mismatch")
+
+    canonical_exclusions = [tuple(pair) for pair in exclusions]
+    if canonical_exclusions != sorted(set(canonical_exclusions)) or any(
+        len(pair) != 2 or not 0 <= pair[0] < pair[1] < 24 for pair in canonical_exclusions
+    ):
+        raise ValueError("biomechanics collision exclusions are not canonical")
+    body_ids = set(ordered_bodies)
+    effector_ids = [record.get("effector_id") for record in effectors]
+    if len(effector_ids) != len(set(effector_ids)) or any(
+        not isinstance(value, str) for value in effector_ids
+    ):
+        raise ValueError("biomechanics effector identity mismatch")
+    if any(record.get("body_id") not in body_ids for record in effectors):
+        raise ValueError("biomechanics effector body mapping mismatch")
+
+
+def _require_int_vector(value: Any, width: int, label: str) -> list[int]:
+    if not isinstance(value, list) or len(value) != width or not all(
+        isinstance(item, int) for item in value
+    ):
+        raise ValueError(f"biomechanics {label} mismatch")
+    return value
+
+
+def _validate_biomechanics_geometry(geometry: Any) -> None:
+    if not isinstance(geometry, dict):
+        raise ValueError("biomechanics geometry mismatch")
+    kind = geometry.get("kind")
+    fields = {
+        "box": ("half_extents_micrometres", 3),
+        "sphere": ("radius_micrometres", None),
+        "capsule": ("radius_micrometres", None),
+    }
+    if kind not in fields:
+        raise ValueError("biomechanics geometry kind mismatch")
+    field, width = fields[kind]
+    value = geometry.get(field)
+    if width is None:
+        if not isinstance(value, int) or value <= 0:
+            raise ValueError("biomechanics geometry dimension mismatch")
+    else:
+        dimensions = _require_int_vector(value, width, "geometry dimension")
+        if any(dimension <= 0 for dimension in dimensions):
+            raise ValueError("biomechanics geometry dimension mismatch")
+    if kind == "capsule" and (
+        not isinstance(geometry.get("half_segment_micrometres"), int)
+        or geometry["half_segment_micrometres"] <= 0
+    ):
+        raise ValueError("biomechanics capsule dimension mismatch")
 
 
 def validate_descriptor(descriptor: dict[str, Any]) -> None:

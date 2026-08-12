@@ -1,4 +1,6 @@
 from pathlib import Path
+import copy
+import hashlib
 import unittest
 
 import torch
@@ -25,14 +27,50 @@ from next_lab.motor_mirror import (
     flat_locomotion_command_schedule,
     load_json,
     rotate_world_to_root_local_q1_30,
+    validate_biomechanics_descriptor,
     validate_golden,
 )
 
 
 FIXTURE = Path(__file__).parent / "fixtures/stage0_motor_mirror_v2.json"
+BIOMECHANICS_FIXTURE = (
+    Path(__file__).parent / "fixtures/biomechanics_motor_mirror_v1.json"
+)
+BIOMECHANICS_FIXTURE_SHA256 = (
+    "59a313ad232cfee4d54a78bebd584a05bf0bdfeef05846b288f7dfe126a76fa7"
+)
 
 
 class MotorMirrorTests(unittest.TestCase):
+    def test_biomechanics_golden_is_complete_and_hash_bound(self) -> None:
+        payload = BIOMECHANICS_FIXTURE.read_bytes()
+        self.assertEqual(hashlib.sha256(payload).hexdigest(), BIOMECHANICS_FIXTURE_SHA256)
+        validate_biomechanics_descriptor(load_json(BIOMECHANICS_FIXTURE))
+
+    def test_biomechanics_reader_rejects_partial_or_remapped_authority(self) -> None:
+        descriptor = load_json(BIOMECHANICS_FIXTURE)
+        corruptions = []
+        body_slot = copy.deepcopy(descriptor)
+        body_slot["bodies"][1]["body_slot"] = 9
+        corruptions.append(body_slot)
+        dof = copy.deepcopy(descriptor)
+        dof["actuators"][0]["dof_ordinal"] = dof["actuators"][1]["dof_ordinal"]
+        corruptions.append(dof)
+        collision_mask = copy.deepcopy(descriptor)
+        next(
+            collider
+            for body in collision_mask["bodies"]
+            for collider in body["colliders"]
+        )["collision_mask"] = 0
+        corruptions.append(collision_mask)
+        axis = copy.deepcopy(descriptor)
+        axis["joints"][0]["axis_q1_30"][0] -= 1
+        corruptions.append(axis)
+        for index, corrupted in enumerate(corruptions):
+            with self.subTest(corruption=index):
+                with self.assertRaises(ValueError):
+                    validate_biomechanics_descriptor(corrupted)
+
     def test_semantic_joint_id_maps_to_usd_prim_name(self) -> None:
         self.assertEqual(isaac_prim_name("joint.left-ankle-roll"), "joint_left_ankle_roll")
 

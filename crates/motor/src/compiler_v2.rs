@@ -1050,6 +1050,152 @@ mod tests {
         }
     }
 
+    #[test]
+    #[cfg(feature = "physx-sdk")]
+    fn ten_thousand_native_reset_settle_cycles_are_exact_and_complete() {
+        use next_physics_physx::PhysXArticulationWorldV2;
+
+        let compiled = CompiledBodySchemaV2::compile(
+            &biomechanics_humanoid_body_schema_v2(),
+            PersistentId::from_bytes([19; 16]),
+        )
+        .expect("compile");
+        let mut world =
+            PhysXArticulationWorldV2::create(compiled.physx_scene_profile, &compiled.physx_catalog)
+                .expect("fresh reset world");
+        let checkpoint = world.raw_checkpoint();
+        let zero_efforts = [0; BIOMECHANICS_HUMANOID_DOF];
+        let mut expected = world.restore(&checkpoint).expect("reference reset");
+        for _ in 0..4 {
+            expected = world
+                .apply_efforts_and_step(&zero_efforts)
+                .expect("reference settle step");
+        }
+        assert_eq!(expected.links.len(), BIOMECHANICS_HUMANOID_BODY_COUNT);
+        assert_eq!(expected.joints.len(), BIOMECHANICS_HUMANOID_DOF);
+
+        for cycle in 0..10_000 {
+            let reset = world.restore(&checkpoint).expect("reset");
+            assert_eq!(reset.links.len(), BIOMECHANICS_HUMANOID_BODY_COUNT);
+            assert_eq!(reset.joints.len(), BIOMECHANICS_HUMANOID_DOF);
+            let mut settled = reset;
+            for _ in 0..4 {
+                settled = world
+                    .apply_efforts_and_step(&zero_efforts)
+                    .expect("settle step");
+            }
+            assert_eq!(settled, expected, "reset/settle mismatch at cycle {cycle}");
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "physx-sdk")]
+    fn neutral_action_remains_bounded_for_sixty_simulated_seconds() {
+        use next_physics_physx::PhysXArticulationWorldV2;
+
+        let schema = biomechanics_humanoid_body_schema_v2();
+        let compiled = CompiledBodySchemaV2::compile(&schema, PersistentId::from_bytes([23; 16]))
+            .expect("compile");
+        let hard_limits_by_dof = schema
+            .joints
+            .iter()
+            .map(|joint| {
+                (
+                    compiled.joint_dof_ordinals[&joint.joint_id] as usize,
+                    (
+                        joint.hard_minimum_microradians,
+                        joint.hard_maximum_microradians,
+                    ),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        let actuator_by_dof = compiled
+            .actuator_definitions
+            .iter()
+            .zip(&compiled.actuator_dof_ordinals)
+            .map(|(actuator, dof)| (*dof as usize, actuator))
+            .collect::<BTreeMap<_, _>>();
+        let mut world =
+            PhysXArticulationWorldV2::create(compiled.physx_scene_profile, &compiled.physx_catalog)
+                .expect("fresh passive world");
+        let mut snapshot = world.capture().expect("initial passive state");
+        let mut previous_efforts = [0_i64; BIOMECHANICS_HUMANOID_DOF];
+        let mut maximum_linear_speed_component = 0_i64;
+        let mut maximum_angular_speed_component = 0_i64;
+        let mut maximum_joint_speed = 0_i64;
+        for step in 0..14_400 {
+            let efforts = snapshot
+                .joints
+                .iter()
+                .map(|state| {
+                    let dof = state.ordinal as usize;
+                    let actuator = actuator_by_dof[&dof];
+                    let requested = (-(i128::from(actuator.stiffness_q16)
+                        * i128::from(state.position_microradians)
+                        + i128::from(actuator.damping_q16)
+                            * i128::from(state.velocity_microradians_per_second)))
+                        / 65_536;
+                    let effort_limited = requested.clamp(
+                        i128::from(actuator.minimum_effort_micronewton_metres),
+                        i128::from(actuator.maximum_effort_micronewton_metres),
+                    );
+                    let maximum_delta =
+                        actuator.maximum_effort_rate_micronewton_metres_per_second as i128 / 240;
+                    let previous = i128::from(previous_efforts[dof]);
+                    let rate_limited =
+                        effort_limited.clamp(previous - maximum_delta, previous + maximum_delta);
+                    previous_efforts[dof] = rate_limited as i64;
+                    previous_efforts[dof]
+                })
+                .collect::<Vec<_>>();
+            snapshot = world
+                .apply_efforts_and_step(&efforts)
+                .expect("passive step");
+            assert_eq!(snapshot.links.len(), BIOMECHANICS_HUMANOID_BODY_COUNT);
+            assert_eq!(snapshot.joints.len(), BIOMECHANICS_HUMANOID_DOF);
+            for link in &snapshot.links {
+                maximum_linear_speed_component = maximum_linear_speed_component.max(
+                    link.linear_velocity_micrometres_per_second
+                        .iter()
+                        .map(|value| value.abs())
+                        .max()
+                        .unwrap_or(0),
+                );
+                maximum_angular_speed_component = maximum_angular_speed_component.max(
+                    link.angular_velocity_microradians_per_second
+                        .iter()
+                        .map(|value| value.abs())
+                        .max()
+                        .unwrap_or(0),
+                );
+            }
+            for joint in &snapshot.joints {
+                let (minimum, maximum) = hard_limits_by_dof[&(joint.ordinal as usize)];
+                assert!(
+                    joint.position_microradians >= minimum - 10_000
+                        && joint.position_microradians <= maximum + 10_000,
+                    "joint {} crossed its hard ROM at step {step}: {} outside [{minimum}, {maximum}]",
+                    joint.ordinal,
+                    joint.position_microradians,
+                );
+                maximum_joint_speed =
+                    maximum_joint_speed.max(joint.velocity_microradians_per_second.abs());
+            }
+        }
+        assert!(
+            maximum_linear_speed_component <= 20_000_000,
+            "passive root/link speed was not bounded: {maximum_linear_speed_component} um/s"
+        );
+        assert!(
+            maximum_angular_speed_component <= 50_000_000,
+            "passive angular speed was not bounded: {maximum_angular_speed_component} urad/s"
+        );
+        assert!(
+            maximum_joint_speed <= 50_000_000,
+            "passive joint speed was not bounded: {maximum_joint_speed} urad/s"
+        );
+    }
+
     fn assert_axis_alignment(rotation_bits: [u32; 4], expected_q1_30: [i32; 3]) {
         let [x, y, z, w] = rotation_bits.map(|bits| f64::from(f32::from_bits(bits)));
         let rotated_x = [
