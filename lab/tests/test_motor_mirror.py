@@ -5,6 +5,7 @@ import unittest
 
 import torch
 
+from next_lab.biomechanics_preview import render_biomechanics_preview
 from next_lab.isaac_env import (
     authored_ground_clearance_metres,
     authored_root_height_micrometres,
@@ -70,6 +71,15 @@ class MotorMirrorTests(unittest.TestCase):
             with self.subTest(corruption=index):
                 with self.assertRaises(ValueError):
                     validate_biomechanics_descriptor(corrupted)
+
+    def test_biomechanics_preview_is_descriptor_derived_and_deterministic(self) -> None:
+        descriptor = load_json(BIOMECHANICS_FIXTURE)
+        first = render_biomechanics_preview(descriptor)
+        second = render_biomechanics_preview(descriptor)
+        self.assertEqual(first, second)
+        self.assertEqual(first.count('<rect x='), 3 + 19 * 3)
+        self.assertIn(descriptor["body_schema_hash"], first)
+        self.assertIn(descriptor["compiled_descriptor_hash"], first)
 
     def test_semantic_joint_id_maps_to_usd_prim_name(self) -> None:
         self.assertEqual(isaac_prim_name("joint.left-ankle-roll"), "joint_left_ankle_roll")
