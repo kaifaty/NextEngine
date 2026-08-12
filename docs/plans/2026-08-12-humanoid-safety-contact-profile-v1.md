@@ -74,6 +74,7 @@ step, independent of point count or callback order.
 | Low-impulse grace | `4` consecutive physics substeps | One complete 60 Hz motor frame may be ignored; the fifth active substep is material |
 | Continuity break | `1` inactive physics substep | Clears consecutive-contact state for that shape pair |
 | Ground actor token | `1` | The fixed flat ground in the compiled descriptor |
+| Runtime root-quaternion norm tolerance | `2^40 Q2.60` (about `9.54e-7`) | Larger canonical norm error is malformed state |
 
 Penetration (`separation < 0`) is active even below the impulse threshold.
 Speculative PhysX pairs with positive separation and zero impulse are not
@@ -134,7 +135,10 @@ At a 60 Hz commit boundary, exactly one reason is chosen in this order:
 Reasons 1–7 are `Terminated`; timeout alone is `Truncated`. A required
 recovery profile uses the same non-finite, joint, impact, self-collision and
 world-bound failures but does not reinterpret permitted brace/get-up support
-as forbidden locomotion. Reset clears contact continuity and terminal state.
+as forbidden locomotion. Terminal evaluation consumes all four ordered contact
+classification frames from the motor tick, so a violation in an earlier
+substep cannot disappear before commit. A terminal decision is latched until
+reset; reset clears contact continuity and terminal state.
 
 ## 6. Freeze checklist
 

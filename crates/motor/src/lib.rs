@@ -17,6 +17,9 @@ mod runtime;
 mod safety_control;
 #[cfg(test)]
 mod safety_control_tests;
+mod terminal_v2;
+#[cfg(test)]
+mod terminal_v2_tests;
 mod training;
 
 pub use biomechanics::{
@@ -60,6 +63,12 @@ pub use safety_control::{
     ACTUATOR_POWER_CLAMPED, ACTUATOR_TARGET_SLEW_CLAMPED, ACTUATOR_WORK_CLAMPED,
     AppliedJointTargetV1, BiomechanicsSafetyCheckpointV1, BiomechanicsSafetyController,
     JointTargetEnvelopeV1, MotorSafetyError, NORMALIZED_RESIDUAL_ONE_Q1_30,
+};
+pub use terminal_v2::{
+    BIOMECHANICS_FALL_HEIGHT_MICROMETRES, BIOMECHANICS_ROOT_NORM_TOLERANCE_Q2_60,
+    BIOMECHANICS_TERMINAL_SUBSTEPS, BIOMECHANICS_WORLD_BOUND_MICROMETRES,
+    BiomechanicsTerminalDecisionV1, BiomechanicsTerminalError, BiomechanicsTerminalEvaluator,
+    BiomechanicsTerminalReasonV1,
 };
 pub use training::{
     CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID, CURRICULUM_LOCOMOTION_REWARD_COEFFICIENTS_Q16,

@@ -10,8 +10,8 @@ use next_physics_physx::{CanonicalPhysXContactV2, CanonicalPhysXSnapshotV2};
 use crate::CompiledBodySchemaV2;
 
 pub const HUMANOID_SAFETY_CONTACT_PROFILE_SHA256: [u8; 32] = [
-    0xab, 0x78, 0x91, 0x1c, 0xe2, 0x79, 0xea, 0x63, 0x69, 0x2f, 0x45, 0x27, 0xde, 0x9b, 0x7e, 0x53,
-    0xb3, 0xa0, 0xdf, 0x15, 0x20, 0x2b, 0x5d, 0x83, 0xce, 0x01, 0xcb, 0xef, 0x81, 0xd5, 0xee, 0xbc,
+    0x20, 0xe8, 0xde, 0xe7, 0xec, 0xba, 0xaa, 0xb8, 0x6c, 0xb0, 0x16, 0x54, 0x61, 0x06, 0x56, 0x94,
+    0x64, 0xc6, 0x6a, 0xa5, 0xc9, 0xd9, 0x2a, 0xbd, 0x8c, 0x1a, 0xf3, 0xb7, 0x6c, 0x71, 0xb7, 0x23,
 ];
 pub const HUMANOID_GROUND_ACTOR_TOKEN: u64 = 1;
 pub const ACTIVE_CONTACT_IMPULSE_MICRONEWTON_SECONDS: u64 = 50_000;
@@ -61,6 +61,8 @@ pub struct ClassifiedBiomechanicsContactV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BiomechanicsContactFrameV1 {
+    pub safety_contact_profile_hash: ContentHash,
+    pub skill_profile: BiomechanicsSkillContactProfileV1,
     pub contacts: Vec<ClassifiedBiomechanicsContactV1>,
     pub classification_root: ContentHash,
     pub continuity_root: ContentHash,
@@ -167,6 +169,10 @@ impl BiomechanicsContactClassifier {
         let continuity_root = continuity_root(&next_continuity);
         self.continuity = next_continuity;
         Ok(BiomechanicsContactFrameV1 {
+            safety_contact_profile_hash: content_hash_from_bytes(
+                HUMANOID_SAFETY_CONTACT_PROFILE_SHA256,
+            ),
+            skill_profile: profile,
             contacts: classified,
             classification_root,
             continuity_root,
