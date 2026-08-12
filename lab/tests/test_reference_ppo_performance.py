@@ -23,10 +23,21 @@ class ReferencePpoPerformanceTests(unittest.TestCase):
     def test_evaluation_uses_only_declared_vector_cohort(self) -> None:
         document = copy.deepcopy(TinyReferencePpoProfile.load(PROFILE).document)
         document["execution"].update(
-            {"device": "cpu", "num_envs": 4, "rollout_steps_per_env": 3}
+            {
+                "device": "cpu",
+                "num_envs": 4,
+                "rollout_steps_per_env": 3,
+                "reset_episode_sequence_before_training": True,
+            }
         )
         document["ppo"]["minibatches"] = 1
-        document["evaluation"].update({"num_envs": 2, "episodes": 4})
+        document["evaluation"].update(
+            {
+                "num_envs": 2,
+                "episodes": 4,
+                "episode_matrix": "fixed-vector-waves-v1",
+            }
+        )
         profile = TinyReferencePpoProfile(document=document, sha256="test-profile")
 
         class FakeEvaluationEnvironment:
@@ -36,6 +47,8 @@ class ReferencePpoPerformanceTests(unittest.TestCase):
 
             def __init__(self) -> None:
                 self.steps = 0
+                self.wave_ordinal = 0
+                self.reset_ordinals: list[int] = []
                 self.last_step_success = torch.ones(4, dtype=torch.bool)
                 self.last_step_failure = torch.zeros(4, dtype=torch.bool)
                 for name in (
@@ -57,14 +70,15 @@ class ReferencePpoPerformanceTests(unittest.TestCase):
                     4, dtype=torch.int64
                 )
 
-            def reset_episode_sequence(self) -> None:
-                self.steps = 0
+            def reset_episode_sequence(self, episode_ordinal: int = 0) -> None:
+                self.wave_ordinal = episode_ordinal
+                self.reset_ordinals.append(episode_ordinal)
 
             def reset(self):
                 return {"policy": torch.zeros((4, 435))}, {}
 
             def step(self, _: torch.Tensor):
-                self.last_step_episode_start_frame.fill_(self.steps)
+                self.last_step_episode_start_frame.fill_(self.wave_ordinal)
                 self.steps += 1
                 observation = torch.zeros((4, 435))
                 reward = torch.ones(4)
@@ -81,6 +95,8 @@ class ReferencePpoPerformanceTests(unittest.TestCase):
 
         self.assertEqual(result["vector_envs"], 2)
         self.assertEqual(environment.steps, 2)
+        self.assertEqual(environment.reset_ordinals, [0, 1])
+        self.assertEqual(result["episode_matrix"], "fixed-vector-waves-v1")
         self.assertEqual(result["selection_results"]["clip:0"]["episodes"], 2)
         self.assertEqual(result["selection_results"]["clip:1"]["episodes"], 2)
 

@@ -414,8 +414,10 @@ if ISAAC_LAB_AVAILABLE:
                 ):
                     raise ValueError("reference/descriptor channel order mismatch")
 
-        def reset_episode_sequence(self) -> None:
-            self._episode_ordinal_by_env = [0] * self.num_envs
+        def reset_episode_sequence(self, episode_ordinal: int = 0) -> None:
+            if episode_ordinal < 0:
+                raise ValueError("episode sequence ordinal must be non-negative")
+            self._episode_ordinal_by_env = [episode_ordinal] * self.num_envs
 
         def _setup_scene(self) -> None:
             self.robot = Articulation(self.cfg.asset)

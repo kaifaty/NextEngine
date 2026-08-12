@@ -80,6 +80,20 @@ class TinyReferencePpoProfile:
             or evaluation_num_envs > execution["num_envs"]
         ):
             raise ValueError("invalid deterministic evaluation cohort")
+        evaluation_matrix = document["evaluation"].get(
+            "episode_matrix", "completion-order-v1"
+        )
+        if evaluation_matrix not in {
+            "completion-order-v1",
+            "fixed-vector-waves-v1",
+        }:
+            raise ValueError("invalid deterministic evaluation matrix")
+        if profile_id.endswith(".v2") and (
+            evaluation_num_envs is None
+            or evaluation_matrix != "fixed-vector-waves-v1"
+            or not execution.get("reset_episode_sequence_before_training", False)
+        ):
+            raise ValueError("V2 curriculum requires an isolated evaluation matrix")
         return cls(document=document, sha256=hashlib.sha256(payload).hexdigest())
 
 
@@ -237,6 +251,10 @@ class TinyReferencePpoTrainer:
         )
         if not 0 < evaluation_num_envs <= self.environment.num_envs:
             raise ValueError("deterministic evaluation cohort exceeds the environment")
+        fixed_vector_waves = (
+            self.profile.document["evaluation"].get("episode_matrix")
+            == "fixed-vector-waves-v1"
+        )
         reset_episode_sequence = getattr(
             self.environment, "reset_episode_sequence", None
         )
@@ -248,7 +266,10 @@ class TinyReferencePpoTrainer:
                 "phase-randomized evaluation requires a resettable episode sequence"
             )
         if reset_episode_sequence is not None:
-            reset_episode_sequence()
+            if fixed_vector_waves:
+                reset_episode_sequence(0)
+            else:
+                reset_episode_sequence()
         observation, _ = self.environment.reset()
         observation = observation["policy"]
         returns = torch.zeros(self.environment.num_envs, device=self.device)
@@ -277,6 +298,12 @@ class TinyReferencePpoTrainer:
         evaluation_mask = torch.arange(
             self.environment.num_envs, device=self.device
         ) < evaluation_num_envs
+        wave_completed = torch.zeros(
+            self.environment.num_envs, dtype=torch.bool, device=self.device
+        )
+        wave_ordinal = 0
+        wave_target = min(evaluation_num_envs, episodes)
+        wave_completed_count = 0
         with torch.no_grad():
             while len(completed_returns) < episodes:
                 if executed_motor_steps >= maximum_motor_steps:
@@ -291,11 +318,18 @@ class TinyReferencePpoTrainer:
                 lengths += 1
                 executed_motor_steps += 1
                 all_done = terminated | truncated
-                done = (
+                eligible_done = (
                     all_done
                     if evaluation_num_envs == self.environment.num_envs
                     else all_done & evaluation_mask
                 )
+                done = (
+                    eligible_done & ~wave_completed
+                    if fixed_vector_waves
+                    else eligible_done
+                )
+                if fixed_vector_waves:
+                    wave_completed |= done
                 done_indices = torch.nonzero(done, as_tuple=False).squeeze(-1)
                 completed_rows = torch.stack(
                     (
@@ -406,9 +440,29 @@ class TinyReferencePpoTrainer:
                         forbidden_contact_mask_counts[mask_key] = (
                             forbidden_contact_mask_counts.get(mask_key, 0) + 1
                         )
+                if fixed_vector_waves:
+                    wave_completed_count += len(completed_rows)
                 returns[all_done] = 0.0
                 lengths[all_done] = 0
                 observation = observation_map["policy"]
+                if (
+                    fixed_vector_waves
+                    and len(completed_returns) < episodes
+                    and wave_completed_count == wave_target
+                ):
+                    wave_ordinal += 1
+                    remaining = episodes - len(completed_returns)
+                    wave_target = min(evaluation_num_envs, remaining)
+                    evaluation_mask = torch.arange(
+                        self.environment.num_envs, device=self.device
+                    ) < wave_target
+                    wave_completed.zero_()
+                    wave_completed_count = 0
+                    reset_episode_sequence(wave_ordinal)
+                    observation_map, _ = self.environment.reset()
+                    observation = observation_map["policy"]
+                    returns.zero_()
+                    lengths.zero_()
         ordered_selection_results = dict(sorted(selection_results.items()))
         result = {
             "episodes": episodes,
@@ -432,6 +486,9 @@ class TinyReferencePpoTrainer:
         }
         if "num_envs" in self.profile.document["evaluation"]:
             result["vector_envs"] = evaluation_num_envs
+            result["episode_matrix"] = self.profile.document["evaluation"].get(
+                "episode_matrix", "completion-order-v1"
+            )
         return result
 
     def train(self) -> list[dict[str, Any]]:
