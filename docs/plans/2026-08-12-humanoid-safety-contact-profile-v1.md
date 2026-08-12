@@ -62,6 +62,11 @@ PhysX shape-level contact impulse is consumed in micro-newton-seconds. The
 canonical magnitude comparison uses squared Euclidean components, so no
 floating-point square root participates in classification.
 
+All contact points for one canonical `(actor, shape)` pair are reduced once
+per physics substep: impulse vectors are summed with checked arithmetic and
+minimum separation is retained. A manifold therefore consumes one continuity
+step, independent of point count or callback order.
+
 | Parameter | Exact value | Meaning |
 |---|---:|---|
 | Active-contact impulse | `50,000 µN·s` (`0.05 N·s`) | Below this, a positive-separation contact is sensor noise |

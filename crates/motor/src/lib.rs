@@ -3,6 +3,9 @@
 mod biomechanics;
 mod compiler;
 mod compiler_v2;
+mod contact_classifier;
+#[cfg(test)]
+mod contact_classifier_tests;
 mod control;
 mod humanoid;
 mod mirror;
@@ -23,6 +26,13 @@ pub use biomechanics::{
 };
 pub use compiler::{CompiledBodySchemaV1, CompiledPhysicsDescriptorsV1, MotorCompileError};
 pub use compiler_v2::{CompiledBodySchemaV2, CompiledPhysicsDescriptorsV2};
+pub use contact_classifier::{
+    ACTIVE_CONTACT_IMPULSE_MICRONEWTON_SECONDS, BiomechanicsContactClassV1,
+    BiomechanicsContactClassifier, BiomechanicsContactFrameV1, BiomechanicsSkillContactProfileV1,
+    CONTACT_BRUSH_CEILING_MICRONEWTON_SECONDS, ClassifiedBiomechanicsContactV1,
+    ContactClassificationError, ContactPairKeyV1, HUMANOID_GROUND_ACTOR_TOKEN,
+    HUMANOID_SAFETY_CONTACT_PROFILE_SHA256, LOW_IMPULSE_GRACE_SUBSTEPS,
+};
 pub use control::{
     ACTUATOR_EFFORT_CLAMPED, ACTUATOR_RATE_CLAMPED, ACTUATOR_TARGET_CLAMPED, FixedPdController,
     JointControlStateV1, MotorControlError,

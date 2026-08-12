@@ -39,6 +39,7 @@ pub struct CompiledBodySchemaV2 {
     pub construction_order: Vec<SchemaId>,
     pub body_tokens: BTreeMap<SchemaId, u64>,
     pub collider_tokens: BTreeMap<SchemaId, u64>,
+    pub collider_body_tokens: BTreeMap<u64, u64>,
     pub collider_contact_roles: BTreeMap<u64, BodyContactRoleV2>,
     pub effector_body_tokens: BTreeMap<SchemaId, u64>,
     pub joint_dof_ordinals: BTreeMap<SchemaId, u32>,
@@ -70,6 +71,7 @@ impl CompiledBodySchemaV2 {
         let articulation_id = schema_id(ARTICULATION_ID);
         let mut body_tokens = BTreeMap::new();
         let mut collider_tokens = BTreeMap::new();
+        let mut collider_body_tokens = BTreeMap::new();
         let mut collider_contact_roles = BTreeMap::new();
         let mut body_ids = BTreeMap::new();
         let mut global_poses = BTreeMap::new();
@@ -127,6 +129,7 @@ impl CompiledBodySchemaV2 {
                 if collider_tokens
                     .insert(collider.collider_id.clone(), shape_token)
                     .is_some()
+                    || collider_body_tokens.insert(shape_token, token).is_some()
                     || collider_contact_roles
                         .insert(shape_token, collider.contact_role)
                         .is_some()
@@ -409,6 +412,7 @@ impl CompiledBodySchemaV2 {
             construction_order,
             body_tokens,
             collider_tokens,
+            collider_body_tokens,
             collider_contact_roles,
             effector_body_tokens,
             joint_dof_ordinals,
