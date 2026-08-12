@@ -770,6 +770,102 @@ mod tests {
             assert_axis_alignment(ffi.parent_rotation_bits, joint.axis_q1_30);
             assert_axis_alignment(ffi.child_rotation_bits, joint.axis_q1_30);
         }
+        for body in &schema.bodies {
+            let slot = compiled
+                .construction_order
+                .iter()
+                .position(|candidate| candidate == &body.body_id)
+                .expect("body slot");
+            let descriptor = compiled
+                .physics_descriptors
+                .bodies
+                .values()
+                .find(|descriptor| descriptor.base.semantic_body_id == body.body_id)
+                .expect("body descriptor");
+            let ffi = compiled.physx_catalog.links[slot];
+            assert_eq!(
+                descriptor.base.mass_microkilograms,
+                body.solver_mass_microkilograms
+            );
+            assert_eq!(
+                descriptor.base.center_of_mass_micrometres,
+                body.solver_center_of_mass_micrometres
+            );
+            assert_eq!(
+                descriptor.base.inertia_microkilogram_metre_squared,
+                body.solver_principal_inertia_microkilogram_metre_squared
+            );
+            assert_eq!(
+                descriptor.authoritative_inertia_tensor_microkilogram_metre_squared,
+                body.inertia_tensor_microkilogram_metre_squared
+            );
+            assert_eq!(descriptor.base.base.shapes.len(), body.colliders.len());
+            assert_eq!(
+                ffi.centre_of_mass_position_bits,
+                metres_bits(body.solver_center_of_mass_micrometres).expect("CoM")
+            );
+            assert_eq!(
+                ffi.mass_bits,
+                scaled_u64_bits(body.solver_mass_microkilograms, 1_000_000.0).expect("mass")
+            );
+            assert_eq!(
+                ffi.inertia_bits,
+                body.solver_principal_inertia_microkilogram_metre_squared
+                    .map(|value| scaled_u64_bits(value, 1_000_000.0).expect("inertia"))
+            );
+            let ffi_shapes = &compiled.physx_catalog.shapes[ffi.first_shape_index as usize
+                ..ffi.first_shape_index as usize + ffi.shape_count as usize];
+            for (shape_slot, (collider, ffi_shape)) in
+                body.colliders.iter().zip(ffi_shapes).enumerate()
+            {
+                let descriptor_shape = descriptor
+                    .base
+                    .base
+                    .shapes
+                    .values()
+                    .find(|shape| shape.shape_id.shape_slot == shape_slot as u32)
+                    .expect("shape descriptor");
+                assert_eq!(
+                    descriptor_shape.local_pose,
+                    physics_pose(collider.local_pose).unwrap()
+                );
+                assert_eq!(descriptor_shape.geometry, collider.geometry);
+                assert_eq!(descriptor_shape.material_id, collider.material_id);
+                assert_eq!(descriptor_shape.collision_layer, collider.collision_layer);
+                assert_eq!(descriptor_shape.collision_mask, collider.collision_mask);
+                assert_eq!(descriptor_shape.participation, collider.participation);
+                assert_eq!(
+                    descriptor_shape.contact_reporting,
+                    collider.contact_reporting
+                );
+                let (expected_kind, expected_dimensions) =
+                    geometry_to_ffi(&collider.geometry).expect("shape geometry");
+                assert_eq!(ffi_shape.link_index, slot as u32);
+                assert_eq!(ffi_shape.shape_kind, expected_kind);
+                assert_eq!(ffi_shape.shape_dimensions_bits, expected_dimensions);
+                assert_eq!(
+                    ffi_shape.position_bits,
+                    metres_bits(collider.local_pose.translation_micrometres).expect("shape pose")
+                );
+                assert_eq!(
+                    ffi_shape.rotation_bits,
+                    quaternion_bits(collider.local_pose.rotation_q1_30)
+                );
+                assert_eq!(
+                    ffi_shape.collision_layer,
+                    u32::from(collider.collision_layer)
+                );
+                assert_eq!(
+                    u64::from(ffi_shape.collision_mask_low)
+                        | (u64::from(ffi_shape.collision_mask_high) << 32),
+                    collider.collision_mask
+                );
+                assert_eq!(
+                    compiled.collider_contact_roles[&ffi_shape.user_token],
+                    collider.contact_role
+                );
+            }
+        }
     }
 
     #[test]

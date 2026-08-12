@@ -1021,6 +1021,86 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "physx-sdk")]
+    fn three_link_collision_catalog() -> PhysXArticulationCatalogV2 {
+        let zero = 0.0_f32.to_bits();
+        let identity = [zero, zero, zero, 1.0_f32.to_bits()];
+        let links = (0_u32..3)
+            .map(|index| ArticulationLinkInputV2 {
+                user_token: 100 + u64::from(index),
+                parent_link_index: if index == 0 {
+                    next_physics_physx_ffi::NO_PARENT_LINK
+                } else {
+                    index - 1
+                },
+                first_shape_index: index,
+                shape_count: 1,
+                reserved: 0,
+                position_bits: [zero, 2.0_f32.to_bits(), zero],
+                rotation_bits: identity,
+                centre_of_mass_position_bits: [zero; 3],
+                centre_of_mass_rotation_bits: identity,
+                mass_bits: 1.0_f32.to_bits(),
+                inertia_bits: [0.1_f32.to_bits(); 3],
+                linear_damping_bits: 0.05_f32.to_bits(),
+                angular_damping_bits: 0.05_f32.to_bits(),
+            })
+            .collect();
+        let shapes = (0_u32..3)
+            .map(|index| ArticulationShapeInputV2 {
+                user_token: 1_000 + u64::from(index),
+                link_index: index,
+                shape_kind: next_physics_physx_ffi::SHAPE_SPHERE,
+                position_bits: [zero; 3],
+                rotation_bits: identity,
+                shape_dimensions_bits: [0.4_f32.to_bits(), zero, zero],
+                collision_layer: 2,
+                collision_mask_low: 1 << 2,
+                collision_mask_high: 0,
+            })
+            .collect();
+        let joints = (1_u32..3)
+            .map(|child_link_index| ArticulationJointInput {
+                child_link_index,
+                reserved: 0,
+                parent_position_bits: [zero; 3],
+                parent_rotation_bits: identity,
+                child_position_bits: [zero; 3],
+                child_rotation_bits: identity,
+                lower_limit_bits: (-1.0_f32).to_bits(),
+                upper_limit_bits: 1.0_f32.to_bits(),
+                max_velocity_bits: 20.0_f32.to_bits(),
+            })
+            .collect();
+        PhysXArticulationCatalogV2 {
+            static_boxes: Vec::new(),
+            links,
+            shapes,
+            joints,
+            collision_exclusions: Vec::new(),
+        }
+    }
+
+    #[cfg(feature = "physx-sdk")]
+    fn observed_contact_pair(
+        catalog: &PhysXArticulationCatalogV2,
+        expected_shape_tokens: (u64, u64),
+    ) -> bool {
+        let mut profile = PhysXSceneProfile::deterministic_humanoid(128, 8, 4);
+        profile.gravity_bits = [0.0_f32.to_bits(); 3];
+        let mut world = PhysXArticulationWorldV2::create(profile, catalog).expect("V2 world");
+        (0..4).any(|_| {
+            world
+                .apply_efforts_and_step(&[0; 2])
+                .expect("collision step")
+                .contacts
+                .iter()
+                .any(|contact| {
+                    (contact.shape_a_token, contact.shape_b_token) == expected_shape_tokens
+                })
+        })
+    }
+
     #[test]
     #[cfg(not(any(feature = "physx-sdk", feature = "mock-abi")))]
     fn disabled_sdk_is_reported_before_world_activation() {
@@ -1090,6 +1170,33 @@ mod tests {
         assert_eq!(
             error.stable_code(),
             "PHYSX_NON_CANONICAL_CONSTRUCTION_ORDER"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "physx-sdk")]
+    fn v2_native_contacts_obey_masks_exclusions_and_preserve_shape_tokens() {
+        let catalog = three_link_collision_catalog();
+        assert!(
+            observed_contact_pair(&catalog, (1_000, 1_002)),
+            "the admitted non-adjacent self-collision must expose both shape tokens"
+        );
+
+        let mut mask_filtered = catalog.clone();
+        mask_filtered.shapes[2].collision_mask_low = 1 << 3;
+        assert!(
+            !observed_contact_pair(&mask_filtered, (1_000, 1_002)),
+            "a mutually incompatible collision mask must suppress the pair"
+        );
+
+        let mut explicitly_excluded = catalog;
+        explicitly_excluded.collision_exclusions = vec![ArticulationCollisionExclusionV2 {
+            first_link_index: 0,
+            second_link_index: 2,
+        }];
+        assert!(
+            !observed_contact_pair(&explicitly_excluded, (1_000, 1_002)),
+            "an explicit self-collision exclusion must suppress the pair"
         );
     }
 }
