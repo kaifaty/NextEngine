@@ -6,7 +6,15 @@ import unittest
 from pathlib import Path
 
 from next_lab.motor_mirror import CURRENT_TRANSLATOR_VERSION, LEGACY_TRANSLATOR_PROFILE_ID
-from next_lab.usd_translation import render_usda, translate_to_store
+from next_lab.motor_mirror import load_json
+from next_lab.usd_translation import (
+    BIOMECHANICS_TRANSLATOR_VERSION,
+    render_usda,
+    translate_to_store,
+)
+
+
+BIOMECHANICS_FIXTURE = Path(__file__).parent / "fixtures/biomechanics_motor_mirror_v1.json"
 
 
 def descriptor() -> dict:
@@ -198,6 +206,42 @@ class UsdTranslationTests(unittest.TestCase):
             self.assertTrue((output / "humanoid.usda").is_file())
             self.assertTrue((output / "translation-manifest.json").is_file())
             self.assertEqual(len(manifest["usd_sha256"]), 64)
+
+    def test_biomechanics_translation_projects_solver_frames_and_filters(self) -> None:
+        source = load_json(BIOMECHANICS_FIXTURE)
+        first = render_usda(source)
+        self.assertEqual(first, render_usda(source))
+        self.assertIn(BIOMECHANICS_TRANSLATOR_VERSION, first)
+        self.assertEqual(first.count("def PhysicsRevoluteJoint"), 23)
+        self.assertEqual(first.count('prepend apiSchemas = ["PhysicsCollisionAPI"]'), 19)
+        self.assertIn('def PhysicsRevoluteJoint "joint_left_hip_yaw"', first)
+        self.assertIn(
+            "quatf physics:localRot0 = (0.707106781, 0, 0.707106781, 0)",
+            first,
+        )
+        self.assertIn(
+            "rel physics:filteredPairs = [</Humanoid/Bodies/body_left_hip_pitch>",
+            first,
+        )
+        self.assertIn('custom string nextengine:semanticId = "collider.left-foot"', first)
+        self.assertIn(
+            'uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]',
+            first,
+        )
+        self.assertEqual(first.count("{"), first.count("}"))
+
+    def test_biomechanics_manifest_uses_separate_translator_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest = translate_to_store(
+                load_json(BIOMECHANICS_FIXTURE),
+                Path(temporary),
+                Path(__file__).parents[2],
+            )
+            self.assertEqual(manifest["translator_version"], BIOMECHANICS_TRANSLATOR_VERSION)
+            self.assertEqual(
+                manifest["compiled_descriptor_hash"],
+                "b6f8b1260b24ad401453942c9a4303d99ce378a8f71c6490db79bb78d85a1782",
+            )
 
 
 if __name__ == "__main__":

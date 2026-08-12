@@ -14,7 +14,13 @@ import torch
 from next_lab.smoke import SmokeConfig, run_smoke
 from next_lab.correspondence import evaluate_files
 from next_lab.isaac_profile import IsaacProfile, doctor_report
-from next_lab.motor_mirror import load_json, validate_descriptor, validate_golden
+from next_lab.motor_mirror import (
+    BIOMECHANICS_TRANSLATOR_ID,
+    load_json,
+    validate_biomechanics_descriptor,
+    validate_descriptor,
+    validate_golden,
+)
 from next_lab.usd_translation import translate_to_store
 from next_lab.motor_lab_client import (
     CURRICULUM_LOCOMOTION_PROFILE_ID,
@@ -263,16 +269,27 @@ def main() -> int:
     if arguments.command == "motor-mirror-check":
         golden = load_json(arguments.golden)
         descriptor_bytes = arguments.descriptor.read_bytes() if arguments.descriptor else None
-        validate_golden(golden, descriptor_bytes)
+        if golden.get("translator_id") == BIOMECHANICS_TRANSLATOR_ID:
+            validate_biomechanics_descriptor(golden)
+            if descriptor_bytes is not None and descriptor_bytes != arguments.golden.read_bytes():
+                raise ValueError("biomechanics descriptor does not match its exact golden bytes")
+        else:
+            validate_golden(golden, descriptor_bytes)
         if descriptor_bytes is not None:
             descriptor = json.loads(descriptor_bytes)
-            validate_descriptor(descriptor)
+            if descriptor.get("translator_id") == BIOMECHANICS_TRANSLATOR_ID:
+                validate_biomechanics_descriptor(descriptor)
+            else:
+                validate_descriptor(descriptor)
         print(json.dumps({"check": "MODEL-MIRROR-GOLDEN", "status": "passed"}, indent=2))
         return 0
     if arguments.command == "translate-body":
         descriptor_bytes = arguments.descriptor.read_bytes()
         descriptor = json.loads(descriptor_bytes)
-        validate_golden(load_json(arguments.golden), descriptor_bytes)
+        if descriptor.get("translator_id") == BIOMECHANICS_TRANSLATOR_ID:
+            validate_biomechanics_descriptor(descriptor)
+        else:
+            validate_golden(load_json(arguments.golden), descriptor_bytes)
         manifest = translate_to_store(
             descriptor,
             _configured_store(arguments.store),

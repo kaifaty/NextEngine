@@ -90,7 +90,21 @@ def isaac_actuator_limits_from_descriptor(
 
     efforts: dict[str, float] = {}
     for actuator in descriptor["actuators"]:
-        raw = actuator["maximum_effort_micronewton_metres"]
+        if "effort_micronewton_metres" in actuator:
+            effort_range = actuator["effort_micronewton_metres"]
+            if (
+                not isinstance(effort_range, list)
+                or len(effort_range) != 2
+                or not all(
+                    isinstance(value, int) and not isinstance(value, bool)
+                    for value in effort_range
+                )
+                or not effort_range[0] < 0 < effort_range[1]
+            ):
+                raise ValueError("descriptor actuator effort range is invalid")
+            raw = max(abs(effort_range[0]), abs(effort_range[1]))
+        else:
+            raw = actuator["maximum_effort_micronewton_metres"]
         if not isinstance(raw, int) or isinstance(raw, bool) or raw <= 0:
             raise ValueError("descriptor actuator effort limits must be positive integers")
         efforts[isaac_prim_name(actuator["joint_id"])] = raw / 1_000_000.0
