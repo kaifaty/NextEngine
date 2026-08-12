@@ -223,7 +223,9 @@ output `TRAIN-1`; пока они отсутствуют, `REQ-HUM-BODY-*` и в
   имеет `0%` samples на descriptor soft-ROM boundary и минимум `261800 urad`
   (`15 degrees`) до hard-ROM; нарушение любого из этих двух порогов блокирует
   `TRAIN-4`. Доля samples, затронутых safety projection, измеряется отдельно
-  как `ReportOnly` retarget-fidelity metric.
+  как `ReportOnly` retarget-fidelity metric. Для knees/elbows, у которых lower
+  soft и hard ROM совпадают в нуле, нижняя boundary occupancy также равна `0%`,
+  а minimum reserve до любой hard boundary составляет `17453 urad` (`1 degree`).
 - `REQ-HUM-DATA-006` — runtime candidate не читает corpus, source path или
   training-only annotation.
 

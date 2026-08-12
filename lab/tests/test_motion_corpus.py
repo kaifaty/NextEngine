@@ -201,6 +201,12 @@ end
         )
 
         clip.joint_position_urad[:, ankle_roll_ordinals] = 87266
+        unidirectional_ordinals = [
+            int(joint["dof_ordinal"])
+            for joint in descriptor["joints"]
+            if joint["joint_id"].endswith(("-knee", "-elbow"))
+        ]
+        clip.joint_position_urad[:, unidirectional_ordinals] = 17453
         reserved = validate_clip(clip, descriptor, profile)
 
         self.assertNotIn(
@@ -215,10 +221,34 @@ end
             "RETARGET_LOCOMOTION_ANKLE_ROLL_PROJECTION_MISMATCH",
             reserved["errors"],
         )
+        self.assertNotIn(
+            "RETARGET_LOCOMOTION_UNIDIRECTIONAL_LOWER_SOFT_BOUNDARY_SATURATION",
+            reserved["errors"],
+        )
+        self.assertNotIn(
+            "RETARGET_LOCOMOTION_UNIDIRECTIONAL_HARD_RESERVE_SHORTFALL",
+            reserved["errors"],
+        )
+        self.assertNotIn(
+            "RETARGET_LOCOMOTION_UNIDIRECTIONAL_PROJECTION_MISMATCH",
+            reserved["errors"],
+        )
         self.assertEqual(reserved["metrics"]["ankle_roll_soft_boundary_fraction"], 0.0)
         self.assertEqual(
             reserved["metrics"]["minimum_ankle_roll_hard_reserve_microradians"],
             261800,
+        )
+        self.assertEqual(
+            reserved["metrics"][
+                "unidirectional_joint_lower_soft_boundary_fraction"
+            ],
+            0.0,
+        )
+        self.assertEqual(
+            reserved["metrics"][
+                "minimum_unidirectional_joint_hard_reserve_microradians"
+            ],
+            17453,
         )
 
 

@@ -451,6 +451,8 @@ def _solve_target_joints(
             ankle_roll_ordinal = int(
                 by_id[f"joint.{side}-ankle-roll"]["dof_ordinal"]
             )
+            knee_ordinal = int(by_id[f"joint.{side}-knee"]["dof_ordinal"])
+            elbow_ordinal = int(by_id[f"joint.{side}-elbow"]["dof_ordinal"])
             shoulder_roll_ordinal = int(
                 by_id[f"joint.{side}-shoulder-roll"]["dof_ordinal"]
             )
@@ -473,6 +475,12 @@ def _solve_target_joints(
                     "ankle_roll_maximum_microradians"
                 ]
             )
+            knee_minimum = int(
+                locomotion_collision_projection["knee_minimum_microradians"]
+            )
+            elbow_minimum = int(
+                locomotion_collision_projection["elbow_minimum_microradians"]
+            )
             shoulder_roll_minimum = int(
                 locomotion_collision_projection[
                     "shoulder_roll_minimum_microradians"
@@ -492,6 +500,12 @@ def _solve_target_joints(
                     ankle_roll_maximum / 1_000_000.0,
                 )
             )
+            projected_knee = max(
+                target[knee_ordinal], knee_minimum / 1_000_000.0
+            )
+            projected_elbow = max(
+                target[elbow_ordinal], elbow_minimum / 1_000_000.0
+            )
             projected_shoulder_roll = max(
                 target[shoulder_roll_ordinal], shoulder_roll_minimum / 1_000_000.0
             )
@@ -507,6 +521,12 @@ def _solve_target_joints(
             collision_projection[ankle_roll_ordinal] = abs(
                 target[ankle_roll_ordinal] - projected_ankle_roll
             )
+            collision_projection[knee_ordinal] = abs(
+                target[knee_ordinal] - projected_knee
+            )
+            collision_projection[elbow_ordinal] = abs(
+                target[elbow_ordinal] - projected_elbow
+            )
             collision_projection[shoulder_roll_ordinal] = abs(
                 target[shoulder_roll_ordinal] - projected_shoulder_roll
             )
@@ -514,6 +534,8 @@ def _solve_target_joints(
             target[hip_roll_ordinal] = projected_hip_roll
             target[ankle_pitch_ordinal] = projected_ankle_pitch
             target[ankle_roll_ordinal] = projected_ankle_roll
+            target[knee_ordinal] = projected_knee
+            target[elbow_ordinal] = projected_elbow
             target[shoulder_roll_ordinal] = projected_shoulder_roll
     return target, collision_projection
 

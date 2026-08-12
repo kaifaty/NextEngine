@@ -131,6 +131,8 @@ An admitted clip must satisfy all of the following before `TRAIN-4` advances:
 - every target channel stays inside soft and hard ROM after solve;
 - bilateral locomotion ankle-roll has zero exact soft-boundary samples and at
   least `261800 urad` hard-ROM reserve in every frame;
+- locomotion knees/elbows have zero samples on their coincident lower
+  soft/hard boundary and at least `17453 urad` hard-ROM reserve in every frame;
 - signed ground alignment stays within its partition bound, and locomotion has zero
   non-foot penetration after correction;
 - every admitted locomotion frame initialized above the ground with zero
