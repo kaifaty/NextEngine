@@ -17,6 +17,7 @@ from next_lab.isaac_reference_env import (
     _quaternion_multiply_xyzw,
     _rotate_inverse_xyzw,
     _select_curriculum_episode,
+    _soft_rom_excursion_cost_tensor,
 )
 
 
@@ -111,6 +112,22 @@ class IsaacReferenceEnvironmentTests(unittest.TestCase):
         )
         torch.testing.assert_close(accumulated, torch.tensor([8, 4, 0]))
         torch.testing.assert_close(terminal, torch.tensor([True, False, False]))
+
+    def test_soft_rom_excursion_cost_warns_only_between_soft_and_hard_rom(
+        self,
+    ) -> None:
+        soft_minimum = torch.tensor([-5.0, 0.0])
+        soft_maximum = torch.tensor([5.0, 5.0])
+        hard_minimum = torch.tensor([-10.0, 0.0])
+        hard_maximum = torch.tensor([10.0, 10.0])
+        cost = _soft_rom_excursion_cost_tensor(
+            torch.tensor([[0.0, 0.0], [7.5, -1.0], [12.0, 7.5]]),
+            soft_minimum,
+            soft_maximum,
+            hard_minimum,
+            hard_maximum,
+        )
+        torch.testing.assert_close(cost, torch.tensor([0.0, 0.5, 1.0]))
 
 
 if __name__ == "__main__":

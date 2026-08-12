@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-0..4` re-advanced on protected-joint-reserved corpus; `TRAIN-5` input/reset closure and reproducible one-clip tiny overfit passed on the new lineage; curriculum and multi-seed next; no TRAIN-5 gate advance |
+| Статус | In execution: `TRAIN-0..4` re-advanced; `TRAIN-5` input/reset closure and reproducible tiny overfit passed; fixed-matrix phase curriculum improved completion but failed hard safety, so one reward hypothesis is under revalidation before multi-seed; no TRAIN-5 gate advance |
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -17,6 +17,7 @@
 | TRAIN-4 motion corpus profile SHA-256 | `f281f73773f32ddba506c01aa66301488dadc40d91efbd78e2c1fb79a70951fc` |
 | TRAIN-5 reference tracker profile | [Humanoid reference tracker profile V1](2026-08-12-humanoid-reference-tracker-profile-v1.md) |
 | TRAIN-5 reference tracker profile SHA-256 | `4a898ccf67051b34b6266ec5293f74758103e7db260ded393e76161f72de527d` |
+| TRAIN-5 optimization child profile SHA-256 | `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b` |
 
 Нормативные источники для реализации:
 
@@ -840,7 +841,36 @@ forbidden-contact и `589` tracking-loss events как ReportOnly diagnostic; э
 совпали побитово. Reproducibility report SHA-256
 `b90dc9953c5ecd45c5c6c291e9e36053ce7f5a82a7861fb0de700b80df000742`
 разрешает только curriculum и multi-seed. Новый frozen curriculum profile
-SHA-256 — `54aaab1210556b3c50177ab3738aff2d89f220ff099659e0eae8a6897d92b14b`.
+SHA-256 — `d97c93adb39a32694fc2f882732e59561949c726e5827c13a844f8edb45d01d1`;
+его evaluation использует outcome-independent `fixed-vector-waves-v1` matrix.
+
+Корректный curriculum run
+`curriculum-start-phase-h11-r6-seed120812-r4-wave-matrix` сравнил одну и ту же
+matrix SHA-256
+`61c6fccbf2d70cc94aec2b7f96df8aa12d4a6a466b8f31a43d930b55dc94f9da`.
+Completion вырос с `166/256` до `184/256`, mean episode length — с
+`9.69921875` до `10.16015625`, поэтому узкий profile acceptance равен `PASS`.
+Но final matrix сохранила `37` hard-ROM, `6` forbidden-contact и `34`
+tracking-loss failures: hard safety gate равен `FAIL`, multi-seed и `TRAIN-5`
+Advance запрещены. Optimizer-free checkpoint diagnostic SHA-256
+`a7d0e3b97dd1f60f1acedc60d2b5e78e11f929f8ebffa6148596e76db79532c5`
+отнёс `27/37` hard-ROM failures к ankle channels. Optimization decision
+SHA-256
+`fce515e0b1010a74cb7be9103afe9f1d850852377622741be4f82a2434149d38`
+классифицирует failure как `Optimization`, а не `Body` или `Data`.
+
+Единственная заявленная следующая гипотеза — immutable child environment
+profile SHA-256
+`c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`:
+он добавляет `reward.soft-rom-excursion-cost` с coefficient Q16 `-65536`.
+Cost равен нулю внутри descriptor soft ROM и линейно возрастает до единицы
+между soft и hard bound; hard termination, action, PD/safety, PPO и curriculum
+не меняются. Optimizer-free audit SHA-256
+`087cbef5e3618784c86ba2ce71d3b334c5ee4a999abaf181ca4727797b7a3b27`
+прошёл с `optimizer_steps = 0`: cost нулевой на natural/reference probes и
+достигает unit scale на directed probe. Новый frozen tiny profile SHA-256 —
+`5315f47aec64e827ffb336e7a380c0177d21616d4e789553b4fb3b319692fc14`.
+До нового curriculum обязательны два побитово воспроизводимых tiny run с нуля.
 
 Следующие результаты сохранены только как historical failure/diagnostic
 evidence старой corpus lineage и не продвигают текущий `TRAIN-5`: input/reward audit
@@ -895,6 +925,8 @@ randomization are not introduced to rescue a failing nominal tracker.
 - root/CoM and end-effector trajectory tracking;
 - contact schedule and support transition accuracy;
 - foot slip, impact, energy/effort and action/acceleration smoothness;
+- profile-owned soft-ROM excursion warning cost when a pre-registered
+  optimization child explicitly activates it;
 - terminal failure outside the tracking reward.
 
 Every component cites engine facts and is manifest/hash bound. Tracking weights

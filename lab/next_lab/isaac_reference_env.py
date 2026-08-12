@@ -164,6 +164,30 @@ def _advance_contact_grace(
     return accumulated, raw_contact & (accumulated > grace_physics_substeps)
 
 
+def _soft_rom_excursion_cost_tensor(
+    position: torch.Tensor,
+    soft_minimum: torch.Tensor,
+    soft_maximum: torch.Tensor,
+    hard_minimum: torch.Tensor,
+    hard_maximum: torch.Tensor,
+) -> torch.Tensor:
+    lower_span = soft_minimum - hard_minimum
+    upper_span = hard_maximum - soft_maximum
+    lower = torch.where(
+        lower_span > 0,
+        (soft_minimum - position) / torch.clamp(lower_span, min=1.0),
+        torch.zeros_like(position),
+    )
+    upper = torch.where(
+        upper_span > 0,
+        (position - soft_maximum) / torch.clamp(upper_span, min=1.0),
+        torch.zeros_like(position),
+    )
+    return torch.clamp(torch.maximum(lower, upper), min=0.0, max=1.0).amax(
+        dim=-1
+    )
+
+
 if ISAAC_LAB_AVAILABLE:
 
     @configclass
@@ -329,9 +353,18 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_forbidden_contact_mask = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.int64
             )
+            self._reward_component_ids = tuple(
+                component["id"]
+                for component in self.reference_profile.document["reward"]["components"]
+            )
+            reward_component_count = len(self._reward_component_ids)
             self._episode_reward_sum = torch.zeros(cfg.scene.num_envs)
-            self._episode_component_sums = torch.zeros((cfg.scene.num_envs, 13))
-            self.reward_components = torch.zeros((cfg.scene.num_envs, 13))
+            self._episode_component_sums = torch.zeros(
+                (cfg.scene.num_envs, reward_component_count)
+            )
+            self.reward_components = torch.zeros(
+                (cfg.scene.num_envs, reward_component_count)
+            )
             self._canonical_cache: dict[str, torch.Tensor] | None = None
             self.last_raw_observation = torch.zeros(
                 (cfg.scene.num_envs, OBSERVATION_CHANNELS), dtype=torch.int64
@@ -346,19 +379,10 @@ if ISAAC_LAB_AVAILABLE:
             )
             self._reward_coefficients = torch.tensor(
                 [
-                    1.0,
-                    0.5,
-                    0.5,
-                    0.25,
-                    2.0,
-                    0.5,
-                    0.5,
-                    1.0,
-                    0.75,
-                    -0.100006,
-                    -0.020004,
-                    -0.050003,
-                    -10.0,
+                    int(component["coefficient_q16"]) / 65_536.0
+                    for component in self.reference_profile.document["reward"][
+                        "components"
+                    ]
                 ],
                 dtype=torch.float64,
                 device=self.device,
@@ -1073,22 +1097,33 @@ if ISAAC_LAB_AVAILABLE:
                 ),
                 max=1.0,
             )
-            components = torch.stack(
-                (
-                    orientation,
-                    root_height,
-                    root_linear,
-                    root_angular,
-                    joint_pose,
-                    joint_velocity,
-                    center_of_mass,
-                    effectors,
-                    contact_match,
-                    sole_slip,
-                    effort_cost,
-                    target_rate,
-                    self._failure_terminal.to(torch.float64),
+            action_position = current["joint_position_urad"][
+                :, self._action_to_dof
+            ].to(torch.float64)
+            component_values = {
+                "reward.reference-root-orientation": orientation,
+                "reward.reference-root-height": root_height,
+                "reward.reference-root-linear-velocity": root_linear,
+                "reward.reference-root-angular-velocity": root_angular,
+                "reward.reference-joint-pose": joint_pose,
+                "reward.reference-joint-velocity": joint_velocity,
+                "reward.reference-center-of-mass": center_of_mass,
+                "reward.reference-effectors": effectors,
+                "reward.reference-contacts": contact_match,
+                "reward.contacting-sole-slip-cost": sole_slip,
+                "reward.normalized-applied-effort-cost": effort_cost,
+                "reward.applied-target-rate-cost": target_rate,
+                "reward.soft-rom-excursion-cost": _soft_rom_excursion_cost_tensor(
+                    action_position,
+                    self._soft_minimum,
+                    self._soft_maximum,
+                    self._hard_minimum,
+                    self._hard_maximum,
                 ),
+                "reward.terminal-failure": self._failure_terminal.to(torch.float64),
+            }
+            components = torch.stack(
+                tuple(component_values[value] for value in self._reward_component_ids),
                 dim=-1,
             )
             reward = torch.sum(

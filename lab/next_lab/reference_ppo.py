@@ -22,13 +22,21 @@ class TinyReferencePpoProfile:
         payload = path.read_bytes()
         document = json.loads(payload)
         profile_id = document.get("profile_id")
+        fixed_tiny_profile_ids = {
+            "nextengine.training.humanoid-reference-ppo-tiny.v1",
+            "nextengine.training.humanoid-reference-ppo-tiny-soft-rom-cost.v1",
+        }
+        isolated_curriculum_profile_ids = {
+            "nextengine.training.humanoid-reference-ppo-curriculum-stage.v2",
+            "nextengine.training.humanoid-reference-ppo-curriculum-stage.v3",
+        }
         if (
             document.get("schema_version") != 1
             or profile_id
             not in {
-                "nextengine.training.humanoid-reference-ppo-tiny.v1",
+                *fixed_tiny_profile_ids,
                 "nextengine.training.humanoid-reference-ppo-curriculum-stage.v1",
-                "nextengine.training.humanoid-reference-ppo-curriculum-stage.v2",
+                *isolated_curriculum_profile_ids,
             }
             or document.get("status") != "Frozen"
         ):
@@ -58,7 +66,7 @@ class TinyReferencePpoProfile:
             or ppo["truncated_bootstrap"] is not True
         ):
             raise ValueError("invalid tiny reference PPO bounds")
-        if profile_id == "nextengine.training.humanoid-reference-ppo-tiny.v1":
+        if profile_id in fixed_tiny_profile_ids:
             if scope["phase_randomization"] is not False or "clip_id" not in scope:
                 raise ValueError("invalid fixed tiny reference scope")
         else:
@@ -88,7 +96,7 @@ class TinyReferencePpoProfile:
             "fixed-vector-waves-v1",
         }:
             raise ValueError("invalid deterministic evaluation matrix")
-        if profile_id.endswith(".v2") and (
+        if profile_id in isolated_curriculum_profile_ids and (
             evaluation_num_envs is None
             or evaluation_matrix != "fixed-vector-waves-v1"
             or not execution.get("reset_episode_sequence_before_training", False)

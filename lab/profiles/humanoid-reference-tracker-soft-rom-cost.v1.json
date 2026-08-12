@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.motor.env.humanoid-reference-tracker-soft-rom-cost.v1",
+  "status": "Frozen",
+  "body_schema": {
+    "id": "nextengine.body.humanoid-biomechanics-raja-1700.v2",
+    "revision": 2,
+    "hash": "e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d",
+    "compiled_descriptor_hash": "b6f8b1260b24ad401453942c9a4303d99ce378a8f71c6490db79bb78d85a1782",
+    "descriptor_file_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014"
+  },
+  "corpus": {
+    "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion.v1",
+    "profile_sha256": "f281f73773f32ddba506c01aa66301488dadc40d91efbd78e2c1fb79a70951fc",
+    "manifest_sha256": "6f76c1c7d60457d1b10833b6fb840afbb50cd502315f250fd6e44a40d1c0dcbc",
+    "eligible_partition": "locomotion",
+    "split_is_run_mode": true,
+    "selection_order": "canonical UTF-8 clip_id byte order",
+    "selection_distribution": "uniform over eligible clip IDs"
+  },
+  "training_authorization": {
+    "gate_id": "TRAIN-4",
+    "decision": "Advance",
+    "gate_report_sha256": "38f33f63c2d187509128eca1469ab6b114547402bb769e311b8717a4c2ed18c4",
+    "scope": "TRAIN-5 specialist reference-motion tracker only"
+  },
+  "schedule": {
+    "physics_hz": 240,
+    "motor_hz": 60,
+    "reference_hz": 60,
+    "phase_selection": "uniform source-reference frame ordinal from randomization.reference-phase",
+    "cursor_step_frames": 1,
+    "horizon_offsets_motor_ticks": [0, 4, 8, 16],
+    "horizon_end_policy": "clamp-to-last-frame",
+    "reference_end_disposition": "terminated:terminal.reference-complete"
+  },
+  "reset": {
+    "mode_weights_basis_points": {
+      "exact_reference": 7000,
+      "small_perturbation": 2000,
+      "neutral_entry": 1000,
+      "near_failure": 0
+    },
+    "neutral_entry_skills": ["neutral_idle", "start_left_lead", "start_right_lead"],
+    "small_perturbation": {
+      "root_planar_micrometres": 20000,
+      "root_height_micrometres": 10000,
+      "root_yaw_microradians": 52360,
+      "joint_soft_rom_span_basis_points": 200,
+      "joint_maximum_velocity_basis_points": 500
+    },
+    "near_failure_enabled": false,
+    "scene_initialization": "fresh PhysX scene constructed from selected reference state; no post-create root write"
+  },
+  "observation": {
+    "layout_id": "nextengine.motor.observation.humanoid-reference-tracker.v1",
+    "actor_channel_count": 435,
+    "critic_channel_count": 435,
+    "critic_privileged_channels": [],
+    "frames": {
+      "dynamic_root_rotation": "normalized world-from-root xyzw quaternion with canonical nonnegative-w sign",
+      "dynamic_velocities": "world velocities rotated by inverse current root rotation",
+      "reference_positions": "reference world position minus current root world position, rotated by inverse current root rotation",
+      "reference_rotation": "inverse current root rotation multiplied by reference world-from-root rotation, normalized with canonical nonnegative-w sign",
+      "reference_velocities": "reference world velocities rotated by inverse current root rotation",
+      "phase": "stored source phase_u16 integer"
+    },
+    "joint_state_order": [
+      "joint.left-hip-pitch", "joint.left-hip-roll", "joint.left-hip-yaw",
+      "joint.left-knee", "joint.left-ankle-pitch", "joint.left-ankle-roll",
+      "joint.right-hip-pitch", "joint.right-hip-roll", "joint.right-hip-yaw",
+      "joint.right-knee", "joint.right-ankle-pitch", "joint.right-ankle-roll",
+      "joint.torso-pitch", "joint.torso-roll", "joint.torso-yaw",
+      "joint.left-shoulder-pitch", "joint.left-shoulder-roll",
+      "joint.left-shoulder-yaw", "joint.left-elbow",
+      "joint.right-shoulder-pitch", "joint.right-shoulder-roll",
+      "joint.right-shoulder-yaw", "joint.right-elbow"
+    ],
+    "reference_effector_order": [
+      "effector.left-forefoot", "effector.left-heel", "effector.left-palm",
+      "effector.right-forefoot", "effector.right-heel", "effector.right-palm"
+    ],
+    "contact_order": [
+      "contact.left-sole", "contact.right-sole", "contact.left-palm",
+      "contact.right-palm", "contact.left-knee", "contact.right-knee",
+      "contact.body"
+    ],
+    "dynamic_channels": {
+      "root_rotation_xyzw_q1_30": 4,
+      "root_local_linear_velocity_micrometres_per_second": 3,
+      "root_local_angular_velocity_microradians_per_second": 3,
+      "joint_position_microradians": 23,
+      "joint_velocity_microradians_per_second": 23,
+      "previous_applied_target_microradians": 23,
+      "classified_contact_flags": 7
+    },
+    "phase_channels": 1,
+    "reference_sample_count": 4,
+    "reference_channels_per_sample": {
+      "root_relative_position_micrometres": 3,
+      "root_relative_rotation_xyzw_q1_30": 4,
+      "root_local_linear_velocity_micrometres_per_second": 3,
+      "root_local_angular_velocity_microradians_per_second": 3,
+      "center_of_mass_relative_position_micrometres": 3,
+      "joint_position_microradians": 23,
+      "joint_velocity_microradians_per_second": 23,
+      "effector_relative_positions_micrometres": 18,
+      "classified_contact_flags": 7
+    }
+  },
+  "action": {
+    "layout_id": "nextengine.motor.action.humanoid-reference-residual.v1",
+    "channel_count": 23,
+    "representation": "signed Q1.30 normalized residual",
+    "minimum_raw": -1073741824,
+    "maximum_raw": 1073741824,
+    "ordered_actuator_ids": [
+      "actuator.left-ankle-pitch", "actuator.left-ankle-roll", "actuator.left-elbow",
+      "actuator.left-hip-pitch", "actuator.left-hip-roll", "actuator.left-hip-yaw",
+      "actuator.left-knee", "actuator.left-shoulder-pitch",
+      "actuator.left-shoulder-roll", "actuator.left-shoulder-yaw",
+      "actuator.right-ankle-pitch", "actuator.right-ankle-roll",
+      "actuator.right-elbow", "actuator.right-hip-pitch", "actuator.right-hip-roll",
+      "actuator.right-hip-yaw", "actuator.right-knee",
+      "actuator.right-shoulder-pitch", "actuator.right-shoulder-roll",
+      "actuator.right-shoulder-yaw", "actuator.torso-pitch",
+      "actuator.torso-roll", "actuator.torso-yaw"
+    ],
+    "reference_joint_dof_ordinal_by_action_channel": [
+      4, 5, 18, 0, 1, 2, 3, 15, 16, 17, 10, 11, 22, 6, 7, 8, 9, 19, 20, 21, 12, 13, 14
+    ],
+    "application": "reference target plus actuator-owned residual scale, then engine safety and fixed PD"
+  },
+  "reward": {
+    "value_bounds_q16": [0, 65536],
+    "arithmetic": "each component rounds ties-to-even to Q16 and clamps to value_bounds_q16; signed total is the checked sum of coefficient_q16 * value_q16 / 65536 rounded ties-to-even and is not clipped",
+    "components": [
+      {"id": "reward.reference-root-orientation", "coefficient_q16": 65536, "aggregation": "square(clamp(abs(dot(normalized current quaternion, normalized reference quaternion)),0,1))"},
+      {"id": "reward.reference-root-height", "coefficient_q16": 32768, "aggregation": "one-minus-clamped scalar absolute error", "normalization_micrometres": 250000},
+      {"id": "reward.reference-root-linear-velocity", "coefficient_q16": 32768, "aggregation": "one-minus-clamped Euclidean vector error", "normalization_micrometres_per_second": 2000000},
+      {"id": "reward.reference-root-angular-velocity", "coefficient_q16": 16384, "aggregation": "one-minus-clamped Euclidean vector error", "normalization_microradians_per_second": 2000000},
+      {"id": "reward.reference-joint-pose", "coefficient_q16": 131072, "aggregation": "one-minus-clamped arithmetic mean of per-joint absolute error divided by that joint soft-ROM span"},
+      {"id": "reward.reference-joint-velocity", "coefficient_q16": 32768, "aggregation": "one-minus-clamped arithmetic mean of per-joint absolute error divided by that joint maximum velocity"},
+      {"id": "reward.reference-center-of-mass", "coefficient_q16": 32768, "aggregation": "one-minus-clamped Euclidean vector error", "normalization_micrometres": 250000},
+      {"id": "reward.reference-effectors", "coefficient_q16": 65536, "aggregation": "one-minus-clamped arithmetic mean of six per-effector Euclidean position errors divided by normalization", "normalization_micrometres": 300000},
+      {"id": "reward.reference-contacts", "coefficient_q16": 49152, "aggregation": "matching current/reference contact flags divided by seven"},
+      {"id": "reward.contacting-sole-slip-cost", "coefficient_q16": -6554, "aggregation": "clamped arithmetic mean planar speed of current active sole contacts divided by normalization; zero when neither sole is active", "normalization_micrometres_per_second": 2000000},
+      {"id": "reward.normalized-applied-effort-cost", "coefficient_q16": -1311, "aggregation": "clamped arithmetic mean of per-actuator absolute post-safety effort divided by that actuator maximum absolute effort"},
+      {"id": "reward.applied-target-rate-cost", "coefficient_q16": -3277, "aggregation": "clamped arithmetic mean of per-actuator absolute applied-target delta divided by that actuator maximum absolute target delta per motor tick"},
+      {"id": "reward.soft-rom-excursion-cost", "coefficient_q16": -65536, "aggregation": "maximum over joints and directions of the clamped excursion from soft ROM toward the corresponding hard ROM; directions with coincident soft and hard bounds contribute zero"},
+      {"id": "reward.terminal-failure", "coefficient_q16": -655360, "normalization": "one on failure termination, zero otherwise"}
+    ]
+  },
+  "termination": {
+    "safety_contact_profile_sha256": "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c",
+    "success_reason": "terminal.reference-complete",
+    "failure_reasons": [
+      "terminal.hard-rom",
+      "terminal.joint-safety",
+      "terminal.hard-impact",
+      "terminal.forbidden-locomotion-contact",
+      "terminal.non-finite",
+      "terminal.reference-tracking-lost"
+    ],
+    "forbidden_contact_grace_physics_substeps": 4,
+    "tracking_lost": {
+      "root_position_error_micrometres": 750000,
+      "root_orientation_minimum_absolute_dot_q1_30": 929887697,
+      "consecutive_motor_ticks": 4
+    },
+    "truncation_bootstrap": "only explicit run-budget truncation with a valid next observation"
+  },
+  "rng": {
+    "derivation": "SHA-256 domain-separated from run root, split, episode ordinal, vector slot and purpose ID",
+    "purpose_ids": [
+      "randomization.reference-clip",
+      "randomization.reference-phase",
+      "randomization.reset-mode",
+      "randomization.initial-pose",
+      "randomization.policy-sampling",
+      "randomization.minibatch-shuffle"
+    ]
+  },
+  "optimizer_boundary": {
+    "algorithm": "PPO with GAE",
+    "actor": "feed-forward MLP",
+    "distribution": "diagonal Gaussian transformed by tanh to signed normalized residual",
+    "evaluation_action": "deterministic transformed mean",
+    "terminated_bootstrap": false,
+    "truncated_bootstrap": true
+  }
+}

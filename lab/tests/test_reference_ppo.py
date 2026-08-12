@@ -27,6 +27,10 @@ CURRICULUM_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-ppo-curriculum-start-phase.v1.json"
 )
+SOFT_ROM_TINY_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-ppo-tiny-soft-rom-cost.v1.json"
+)
 
 
 class ReferencePpoTests(unittest.TestCase):
@@ -65,6 +69,14 @@ class ReferencePpoTests(unittest.TestCase):
         self.assertTrue(torch.isfinite(log_probability).all())
         self.assertTrue(torch.isfinite(value).all())
         self.assertTrue(math.isfinite(float(model.log_std.mean().item())))
+
+    def test_soft_rom_tiny_profile_preserves_fixed_overfit_scope(self) -> None:
+        profile = TinyReferencePpoProfile.load(SOFT_ROM_TINY_PROFILE)
+        self.assertEqual(
+            profile.document["environment_profile_id"],
+            "nextengine.motor.env.humanoid-reference-tracker-soft-rom-cost.v1",
+        )
+        self.assertFalse(profile.document["scope"]["phase_randomization"])
 
     def test_frozen_curriculum_stage_closes_phase_and_initial_checkpoint(self) -> None:
         profile = TinyReferencePpoProfile.load(CURRICULUM_PROFILE)

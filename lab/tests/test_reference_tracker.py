@@ -9,6 +9,7 @@ from next_lab.reference_tracker import (
     ACTION_CHANNELS,
     OBSERVATION_CHANNELS,
     PROFILE_SHA256,
+    SOFT_ROM_COST_PROFILE_SHA256,
     DescriptorLimits,
     ReferenceClip,
     ReferenceTrackerProfile,
@@ -21,6 +22,10 @@ from next_lab.reference_tracker import (
 
 
 PROFILE = Path(__file__).parents[1] / "profiles/humanoid-reference-tracker.v1.json"
+SOFT_ROM_COST_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-tracker-soft-rom-cost.v1.json"
+)
 
 
 class ReferenceTrackerTests(unittest.TestCase):
@@ -65,6 +70,35 @@ class ReferenceTrackerTests(unittest.TestCase):
             first,
             derive_named_seed(run_root, "heldout", 9, 3, "randomization.reference-clip"),
         )
+
+    def test_soft_rom_cost_profile_is_distinct_and_warns_before_hard_rom(self) -> None:
+        profile = ReferenceTrackerProfile.load(SOFT_ROM_COST_PROFILE)
+        self.assertEqual(profile.document_sha256, SOFT_ROM_COST_PROFILE_SHA256)
+        clip = _clip()
+        limits = _limits()
+        state = reference_state(clip, 2)
+        inside = compute_reward(
+            profile, limits, state, clip, 2, terminal_failure=False
+        )
+        self.assertEqual(
+            dict(inside.component_values_q16)["reward.soft-rom-excursion-cost"], 0
+        )
+        outside = TrackingState(
+            **{
+                **state.__dict__,
+                "joint_position_urad": np.asarray(
+                    [750_000, *state.joint_position_urad[1:]], dtype=np.int64
+                ),
+            }
+        )
+        warned = compute_reward(
+            profile, limits, outside, clip, 2, terminal_failure=False
+        )
+        self.assertEqual(
+            dict(warned.component_values_q16)["reward.soft-rom-excursion-cost"],
+            32_768,
+        )
+        self.assertLess(warned.total_q16, inside.total_q16)
 
     def test_observation_has_435_channels_and_clamped_reference_horizon(self) -> None:
         clip = _clip()
@@ -145,6 +179,10 @@ def _clip() -> ReferenceClip:
 def _limits() -> DescriptorLimits:
     return DescriptorLimits(
         soft_rom_spans_urad=np.full(ACTION_CHANNELS, 1_000_000, dtype=np.int64),
+        soft_minimum_urad=np.full(ACTION_CHANNELS, -500_000, dtype=np.int64),
+        soft_maximum_urad=np.full(ACTION_CHANNELS, 500_000, dtype=np.int64),
+        hard_minimum_urad=np.full(ACTION_CHANNELS, -1_000_000, dtype=np.int64),
+        hard_maximum_urad=np.full(ACTION_CHANNELS, 1_000_000, dtype=np.int64),
         maximum_velocity_urad_s=np.full(ACTION_CHANNELS, 1_000_000, dtype=np.int64),
         maximum_effort_unm=np.full(ACTION_CHANNELS, 10_000, dtype=np.int64),
         maximum_target_delta_urad=np.full(ACTION_CHANNELS, 10_000, dtype=np.int64),

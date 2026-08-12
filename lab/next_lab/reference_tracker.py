@@ -13,6 +13,16 @@ from numpy.typing import NDArray
 
 PROFILE_ID = "nextengine.motor.env.humanoid-reference-tracker.v1"
 PROFILE_SHA256 = "4a898ccf67051b34b6266ec5293f74758103e7db260ded393e76161f72de527d"
+SOFT_ROM_COST_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-reference-tracker-soft-rom-cost.v1"
+)
+SOFT_ROM_COST_PROFILE_SHA256 = (
+    "c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b"
+)
+PROFILE_IDS_BY_SHA256 = {
+    PROFILE_SHA256: PROFILE_ID,
+    SOFT_ROM_COST_PROFILE_SHA256: SOFT_ROM_COST_PROFILE_ID,
+}
 SAFETY_CONTACT_PROFILE_SHA256 = "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c"
 CORPUS_MANIFEST_ID = "nextengine.private-motion-corpus-manifest.v1"
 OBSERVATION_CHANNELS = 435
@@ -76,19 +86,23 @@ class ReferenceTrackerProfile:
     def load(cls, path: Path) -> ReferenceTrackerProfile:
         payload = path.read_bytes()
         sha256 = _sha256(payload)
-        if sha256 != PROFILE_SHA256:
+        expected_profile_id = PROFILE_IDS_BY_SHA256.get(sha256)
+        if expected_profile_id is None:
             raise ReferenceTrackerError(
-                f"reference tracker profile hash mismatch: expected {PROFILE_SHA256}, got {sha256}"
+                "reference tracker profile hash mismatch: "
+                f"expected one of {sorted(PROFILE_IDS_BY_SHA256)}, got {sha256}"
             )
         document = json.loads(payload)
-        cls._validate(document)
+        cls._validate(document, expected_profile_id=expected_profile_id)
         return cls(document=document, document_sha256=sha256)
 
     @staticmethod
-    def _validate(document: Mapping[str, Any]) -> None:
+    def _validate(
+        document: Mapping[str, Any], *, expected_profile_id: str = PROFILE_ID
+    ) -> None:
         if (
             document.get("schema_version") != 1
-            or document.get("profile_id") != PROFILE_ID
+            or document.get("profile_id") != expected_profile_id
             or document.get("status") != "Frozen"
         ):
             raise ReferenceTrackerError("unsupported reference tracker profile")
@@ -177,8 +191,30 @@ class ReferenceTrackerProfile:
             )
         ):
             raise ReferenceTrackerError("reference action layout mismatch")
-        component_ids = [component["id"] for component in document["reward"]["components"]]
-        if len(component_ids) != 13 or len(set(component_ids)) != len(component_ids):
+        component_ids = tuple(
+            component["id"] for component in document["reward"]["components"]
+        )
+        expected_component_ids = (
+            "reward.reference-root-orientation",
+            "reward.reference-root-height",
+            "reward.reference-root-linear-velocity",
+            "reward.reference-root-angular-velocity",
+            "reward.reference-joint-pose",
+            "reward.reference-joint-velocity",
+            "reward.reference-center-of-mass",
+            "reward.reference-effectors",
+            "reward.reference-contacts",
+            "reward.contacting-sole-slip-cost",
+            "reward.normalized-applied-effort-cost",
+            "reward.applied-target-rate-cost",
+            *(
+                ("reward.soft-rom-excursion-cost",)
+                if expected_profile_id == SOFT_ROM_COST_PROFILE_ID
+                else ()
+            ),
+            "reward.terminal-failure",
+        )
+        if component_ids != expected_component_ids:
             raise ReferenceTrackerError("reference reward component closure mismatch")
         failure_reasons = document["termination"]["failure_reasons"]
         if not failure_reasons or len(set(failure_reasons)) != len(failure_reasons):
@@ -201,7 +237,7 @@ class ReferenceTrackerProfile:
         document = self.document
         return {
             "schema_version": 1,
-            "profile_id": PROFILE_ID,
+            "profile_id": document["profile_id"],
             "body_schema_hash": document["body_schema"]["hash"],
             "compiled_descriptor_hash": document["body_schema"]["compiled_descriptor_hash"],
             "corpus_profile_hash": document["corpus"]["profile_sha256"],
@@ -235,6 +271,10 @@ class ReferenceTrackerProfile:
 @dataclass(frozen=True)
 class DescriptorLimits:
     soft_rom_spans_urad: NDArray[np.int64]
+    soft_minimum_urad: NDArray[np.int64]
+    soft_maximum_urad: NDArray[np.int64]
+    hard_minimum_urad: NDArray[np.int64]
+    hard_maximum_urad: NDArray[np.int64]
     maximum_velocity_urad_s: NDArray[np.int64]
     maximum_effort_unm: NDArray[np.int64]
     maximum_target_delta_urad: NDArray[np.int64]
@@ -275,6 +315,22 @@ class DescriptorLimits:
             [int(joint["soft_limit_microradians"][1]) - int(joint["soft_limit_microradians"][0]) for joint in joints],
             dtype=np.int64,
         )
+        soft_minimum = np.asarray(
+            [int(joint["soft_limit_microradians"][0]) for joint in joints],
+            dtype=np.int64,
+        )
+        soft_maximum = np.asarray(
+            [int(joint["soft_limit_microradians"][1]) for joint in joints],
+            dtype=np.int64,
+        )
+        hard_minimum = np.asarray(
+            [int(joint["hard_limit_microradians"][0]) for joint in joints],
+            dtype=np.int64,
+        )
+        hard_maximum = np.asarray(
+            [int(joint["hard_limit_microradians"][1]) for joint in joints],
+            dtype=np.int64,
+        )
         velocities = np.asarray(
             [int(joint["maximum_velocity_microradians_per_second"]) for joint in joints],
             dtype=np.int64,
@@ -289,7 +345,17 @@ class DescriptorLimits:
         )
         if np.any(soft_spans <= 0) or np.any(velocities <= 0) or np.any(maximum_effort <= 0) or np.any(maximum_delta <= 0):
             raise ReferenceTrackerError("compiled descriptor contains an invalid normalization bound")
-        return cls(soft_spans, velocities, maximum_effort, maximum_delta, document_sha256)
+        return cls(
+            soft_spans,
+            soft_minimum,
+            soft_maximum,
+            hard_minimum,
+            hard_maximum,
+            velocities,
+            maximum_effort,
+            maximum_delta,
+            document_sha256,
+        )
 
 
 @dataclass(frozen=True)
@@ -846,6 +912,7 @@ def compute_reward(
                 )
             ),
         ),
+        "reward.soft-rom-excursion-cost": _soft_rom_excursion_cost(state, limits),
         "reward.terminal-failure": 1.0 if terminal_failure else 0.0,
     }
     ordered: list[tuple[str, int]] = []
@@ -872,6 +939,31 @@ def _sole_slip_cost(state: TrackingState, normalization: int | float) -> float:
         return 0.0
     speed = np.linalg.norm(state.sole_planar_velocity_um_s[active].astype(np.float64), axis=1)
     return min(1.0, float(np.mean(speed)) / float(normalization))
+
+
+def _soft_rom_excursion_cost(
+    state: TrackingState, limits: DescriptorLimits
+) -> float:
+    position = state.joint_position_urad.astype(np.float64)
+    lower_span = (limits.soft_minimum_urad - limits.hard_minimum_urad).astype(
+        np.float64
+    )
+    upper_span = (limits.hard_maximum_urad - limits.soft_maximum_urad).astype(
+        np.float64
+    )
+    lower = np.divide(
+        limits.soft_minimum_urad - position,
+        lower_span,
+        out=np.zeros_like(position),
+        where=lower_span > 0,
+    )
+    upper = np.divide(
+        position - limits.soft_maximum_urad,
+        upper_span,
+        out=np.zeros_like(position),
+        where=upper_span > 0,
+    )
+    return float(np.clip(np.maximum(lower, upper), 0.0, 1.0).max())
 
 
 def _reward_distribution(
@@ -963,6 +1055,11 @@ def audit_reference_inputs(
         "reward.contacting-sole-slip-cost",
         "reward.normalized-applied-effort-cost",
         "reward.applied-target-rate-cost",
+        *(
+            ("reward.soft-rom-excursion-cost",)
+            if "reward.soft-rom-excursion-cost" in coefficients
+            else ()
+        ),
     )
     if any(coefficients[component_id] >= 0 for component_id in cost_component_ids) or (
         coefficients["reward.terminal-failure"] >= 0
@@ -1027,9 +1124,32 @@ def audit_reference_inputs(
                         if component["id"] == "reward.contacting-sole-slip-cost"
                     )
                 )
+                joint_position = state.joint_position_urad.copy()
+                if "reward.soft-rom-excursion-cost" in coefficients:
+                    upper_candidates = np.flatnonzero(
+                        limits.hard_maximum_urad > limits.soft_maximum_urad
+                    )
+                    lower_candidates = np.flatnonzero(
+                        limits.soft_minimum_urad > limits.hard_minimum_urad
+                    )
+                    if upper_candidates.size:
+                        probe_dof = int(upper_candidates[0])
+                        joint_position[probe_dof] = limits.hard_maximum_urad[
+                            probe_dof
+                        ]
+                    elif lower_candidates.size:
+                        probe_dof = int(lower_candidates[0])
+                        joint_position[probe_dof] = limits.hard_minimum_urad[
+                            probe_dof
+                        ]
+                    else:
+                        raise ReferenceTrackerError(
+                            "soft-ROM cost has no descriptor warning interval"
+                        )
                 cost_state = TrackingState(
                     **{
                         **state.__dict__,
+                        "joint_position_urad": joint_position,
                         "contact_flags": contacts,
                         "sole_planar_velocity_um_s": sole_velocity,
                         "applied_effort_unm": limits.maximum_effort_unm.copy(),

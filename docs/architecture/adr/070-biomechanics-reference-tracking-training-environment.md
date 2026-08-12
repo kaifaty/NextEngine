@@ -4,9 +4,9 @@
 |---|---|
 | ID | ADR-070 |
 | Status | Accepted |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-08-12 |
-| Last verified | 2026-08-12 |
+| Last verified | 2026-08-13 |
 | Normative dependencies | [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](../27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](../28-skeletal-animation-retargeting-and-ik.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-053](053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-066](066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-069](069-biomechanics-body-schema-v2-and-solver-projection.md) |
 | Supersedes | Adds one current training-only reference-tracking consumer for the exact ADR-069 biomechanics generation. It does not change Stage 0 V1/V2 environment identities or promote a learned runtime route. |
 | Superseded by | none |
@@ -98,6 +98,17 @@ run: root orientation/height/linear/angular velocity, joint pose/velocity,
 CoM, effectors, contacts, sole slip, effort, action rate and terminal failure.
 Every value is bounded to `[0,1]`; hard safety is evaluated independently and
 cannot be compensated by reward.
+
+The frozen V1 profile remains immutable. A failed TRAIN-5 optimization run may
+introduce a new hash and profile ID while preserving the same observation,
+action, terminal and PD/safety contracts. The first such child,
+`nextengine.motor.env.humanoid-reference-tracker-soft-rom-cost.v1`, adds only
+`reward.soft-rom-excursion-cost`: zero inside descriptor soft ROM, then the
+maximum directional excursion normalized across the descriptor-owned interval
+from soft to hard ROM. A direction with coincident soft/hard bounds contributes
+zero. Its coefficient is Q16 `-65536`. This warning signal does not clamp,
+weaken or replace immediate hard-ROM termination and cannot authorize a policy
+with any hard-safety event.
 
 Immediate failure termination covers hard ROM/actuator/impact failures,
 forbidden non-sole locomotion support after the accepted grace window,
