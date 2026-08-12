@@ -188,6 +188,37 @@ class TinyReferencePpoTrainer:
         self.performance_recorder = performance_recorder
         self.optimizer_steps = 0
         self.samples = 0
+        rollout_steps = int(profile.document["execution"]["rollout_steps_per_env"])
+        num_envs = int(environment.num_envs)
+        self._rollout_storage = {
+            "observation": torch.empty(
+                (rollout_steps, num_envs, 435), device=self.device
+            ),
+            "pre_tanh": torch.empty(
+                (rollout_steps, num_envs, 23), device=self.device
+            ),
+            "log_probability": torch.empty(
+                (rollout_steps, num_envs), device=self.device
+            ),
+            "reward": torch.empty((rollout_steps, num_envs), device=self.device),
+            "value": torch.empty((rollout_steps, num_envs), device=self.device),
+            "terminated": torch.empty(
+                (rollout_steps, num_envs), dtype=torch.bool, device=self.device
+            ),
+            "truncated": torch.empty(
+                (rollout_steps, num_envs), dtype=torch.bool, device=self.device
+            ),
+            "success": torch.empty(
+                (rollout_steps, num_envs), dtype=torch.bool, device=self.device
+            ),
+            "failure": torch.empty(
+                (rollout_steps, num_envs), dtype=torch.bool, device=self.device
+            ),
+            "advantage": torch.empty(
+                (rollout_steps, num_envs), device=self.device
+            ),
+            "return": torch.empty((rollout_steps, num_envs), device=self.device),
+        }
 
     def evaluate_deterministic(self, episodes: int) -> dict[str, Any]:
         if episodes <= 0:
@@ -236,21 +267,73 @@ class TinyReferencePpoTrainer:
                 lengths += 1
                 executed_motor_steps += 1
                 done = terminated | truncated
-                for index in torch.nonzero(done, as_tuple=False).squeeze(-1).tolist():
+                done_indices = torch.nonzero(done, as_tuple=False).squeeze(-1)
+                completed_rows = torch.stack(
+                    (
+                        done_indices.to(torch.float64),
+                        returns[done_indices].to(torch.float64),
+                        lengths[done_indices].to(torch.float64),
+                        self.environment.last_step_success[done_indices].to(
+                            torch.float64
+                        ),
+                        self.environment.last_step_failure[done_indices].to(
+                            torch.float64
+                        ),
+                        self.environment.last_step_episode_clip_index[done_indices].to(
+                            torch.float64
+                        ),
+                        self.environment.last_step_episode_start_frame[done_indices].to(
+                            torch.float64
+                        ),
+                        self.environment.last_step_failure_tracking_lost[
+                            done_indices
+                        ].to(torch.float64),
+                        self.environment.last_step_failure_hard_rom[done_indices].to(
+                            torch.float64
+                        ),
+                        self.environment.last_step_failure_forbidden_contact[
+                            done_indices
+                        ].to(torch.float64),
+                        self.environment.last_step_failure_non_finite[done_indices].to(
+                            torch.float64
+                        ),
+                        self.environment.last_step_hard_rom_excess_microradians[
+                            done_indices
+                        ].to(torch.float64),
+                        self.environment.last_step_hard_rom_action_channel[
+                            done_indices
+                        ].to(torch.float64),
+                        self.environment.last_step_forbidden_contact_mask[
+                            done_indices
+                        ].to(torch.float64),
+                    ),
+                    dim=-1,
+                ).cpu().tolist()
+                for row in completed_rows:
                     if len(completed_returns) >= episodes:
                         break
-                    completed_returns.append(float(returns[index].item()))
-                    completed_lengths.append(int(lengths[index].item()))
-                    reference_complete_count += int(
-                        self.environment.last_step_success[index].item()
-                    )
-                    failure_count += int(self.environment.last_step_failure[index].item())
-                    clip_index = int(
-                        self.environment.last_step_episode_clip_index[index].item()
-                    )
-                    start_frame = int(
-                        self.environment.last_step_episode_start_frame[index].item()
-                    )
+                    (
+                        _,
+                        completed_return,
+                        completed_length,
+                        success,
+                        failure,
+                        clip_index_value,
+                        start_frame_value,
+                        tracking_lost,
+                        hard_rom,
+                        forbidden_contact,
+                        non_finite,
+                        hard_rom_excess_value,
+                        hard_rom_channel_value,
+                        contact_mask_value,
+                    ) = row
+                    completed_returns.append(float(completed_return))
+                    completed_lengths.append(int(completed_length))
+                    reference_complete_count += int(success)
+                    failure_count += int(failure)
+                    clip_index = int(clip_index_value)
+                    start_frame = int(start_frame_value)
                     selection_id = (
                         f"{self.environment.reference_clips[clip_index].clip_id}:{start_frame}"
                     )
@@ -269,54 +352,27 @@ class TinyReferencePpoTrainer:
                         },
                     )
                     selection["episodes"] += 1
-                    selection["reference_complete_count"] += int(
-                        self.environment.last_step_success[index].item()
-                    )
-                    selection["failure_count"] += int(
-                        self.environment.last_step_failure[index].item()
-                    )
-                    for reason, attribute in (
-                        (
-                            "reference_tracking_lost",
-                            "last_step_failure_tracking_lost",
-                        ),
-                        ("hard_rom", "last_step_failure_hard_rom"),
-                        (
-                            "forbidden_contact",
-                            "last_step_failure_forbidden_contact",
-                        ),
-                        ("non_finite", "last_step_failure_non_finite"),
+                    selection["reference_complete_count"] += int(success)
+                    selection["failure_count"] += int(failure)
+                    for reason, occurred_value in (
+                        ("reference_tracking_lost", tracking_lost),
+                        ("hard_rom", hard_rom),
+                        ("forbidden_contact", forbidden_contact),
+                        ("non_finite", non_finite),
                     ):
-                        occurred = int(
-                            getattr(self.environment, attribute)[index].item()
-                        )
+                        occurred = int(occurred_value)
                         failure_reason_counts[reason] += occurred
                         selection["failure_reason_counts"][reason] += occurred
-                    hard_rom_excess = int(
-                        self.environment.last_step_hard_rom_excess_microradians[
-                            index
-                        ].item()
-                    )
+                    hard_rom_excess = int(hard_rom_excess_value)
                     if (
-                        self.environment.last_step_failure_hard_rom[index].item()
+                        hard_rom
                         and hard_rom_excess > maximum_hard_rom_excess_microradians
                     ):
                         maximum_hard_rom_excess_microradians = hard_rom_excess
-                        maximum_hard_rom_action_channel = int(
-                            self.environment.last_step_hard_rom_action_channel[
-                                index
-                            ].item()
-                        )
+                        maximum_hard_rom_action_channel = int(hard_rom_channel_value)
                         maximum_hard_rom_selection = selection_id
-                    contact_mask = int(
-                        self.environment.last_step_forbidden_contact_mask[index].item()
-                    )
-                    if (
-                        self.environment.last_step_failure_forbidden_contact[
-                            index
-                        ].item()
-                        and contact_mask
-                    ):
+                    contact_mask = int(contact_mask_value)
+                    if forbidden_contact and contact_mask:
                         mask_key = str(contact_mask)
                         forbidden_contact_mask_counts[mask_key] = (
                             forbidden_contact_mask_counts.get(mask_key, 0) + 1
@@ -364,17 +420,12 @@ class TinyReferencePpoTrainer:
             metrics = self._update(rollout)
             if self.performance_recorder is not None:
                 self.performance_recorder.end(iteration_number, "update")
-            metrics.update(
-                {
-                    "iteration": iteration_number,
-                    "samples": self.samples,
-                    "optimizer_steps": self.optimizer_steps,
-                    "rollout_mean_reward": float(rollout["reward"].mean().item()),
-                    "rollout_reference_complete_count": int(
-                        rollout["success"].sum().item()
-                    ),
-                    "rollout_failure_count": int(rollout["failure"].sum().item()),
-                    "action_standard_deviation_mean": float(
+            with torch.no_grad():
+                rollout_summary = torch.stack(
+                    (
+                        rollout["reward"].mean().to(torch.float64),
+                        rollout["success"].sum().to(torch.float64),
+                        rollout["failure"].sum().to(torch.float64),
                         torch.exp(
                             torch.clamp(
                                 self.model.log_std,
@@ -383,8 +434,18 @@ class TinyReferencePpoTrainer:
                             )
                         )
                         .mean()
-                        .item()
-                    ),
+                        .to(torch.float64),
+                    )
+                ).cpu().tolist()
+            metrics.update(
+                {
+                    "iteration": iteration_number,
+                    "samples": self.samples,
+                    "optimizer_steps": self.optimizer_steps,
+                    "rollout_mean_reward": float(rollout_summary[0]),
+                    "rollout_reference_complete_count": int(rollout_summary[1]),
+                    "rollout_failure_count": int(rollout_summary[2]),
+                    "action_standard_deviation_mean": float(rollout_summary[3]),
                 }
             )
             _require_finite_mapping(metrics)
@@ -397,30 +458,18 @@ class TinyReferencePpoTrainer:
     def _collect_rollout(
         self, observation: torch.Tensor, steps: int
     ) -> dict[str, torch.Tensor]:
-        storage: dict[str, list[torch.Tensor]] = {
-            name: []
-            for name in (
-                "observation",
-                "pre_tanh",
-                "log_probability",
-                "reward",
-                "value",
-                "terminated",
-                "truncated",
-                "success",
-                "failure",
-            )
-        }
-        for _ in range(steps):
+        configured_steps = int(
+            self.profile.document["execution"]["rollout_steps_per_env"]
+        )
+        if steps != configured_steps:
+            raise ValueError("rollout steps must match the resolved training profile")
+        storage = self._rollout_storage
+        for index in range(steps):
             with torch.no_grad():
                 action, pre_tanh, log_probability, value = self.model.sample(observation)
             next_observation, reward, terminated, truncated, _ = self.environment.step(
                 action
             )
-            if torch.any(truncated):
-                raise RuntimeError(
-                    "tiny reference run unexpectedly truncated before a valid bootstrap capture"
-                )
             for name, value_to_store in (
                 ("observation", observation),
                 ("pre_tanh", pre_tanh),
@@ -432,13 +481,18 @@ class TinyReferencePpoTrainer:
                 ("success", self.environment.last_step_success),
                 ("failure", self.environment.last_step_failure),
             ):
-                storage[name].append(value_to_store.detach().clone())
+                storage[name][index].copy_(value_to_store.detach())
             observation = next_observation["policy"]
+        if bool(torch.any(storage["truncated"]).item()):
+            raise RuntimeError(
+                "tiny reference run unexpectedly truncated before a valid bootstrap capture"
+            )
         with torch.no_grad():
             next_value = self.model.critic(observation).squeeze(-1)
-        result = {name: torch.stack(values) for name, values in storage.items()}
+        result = dict(storage)
         result["next_observation"] = observation
-        advantage = torch.zeros_like(result["reward"])
+        advantage = result["advantage"]
+        advantage.zero_()
         last_advantage = torch.zeros(self.environment.num_envs, device=self.device)
         for index in range(steps - 1, -1, -1):
             nonterminal = (~result["terminated"][index]).to(torch.float32)
@@ -457,8 +511,7 @@ class TinyReferencePpoTrainer:
                 * last_advantage
             )
             advantage[index] = last_advantage
-        result["advantage"] = advantage
-        result["return"] = advantage + result["value"]
+        torch.add(advantage, result["value"], out=result["return"])
         self.samples += steps * self.environment.num_envs
         return result
 
@@ -537,17 +590,20 @@ class TinyReferencePpoTrainer:
                             torch.float32
                         )
                     )
-                for name, value_to_add in (
-                    ("policy_loss", policy_loss),
-                    ("value_loss", value_loss),
-                    ("entropy_estimate", entropy_mean),
-                    ("approximate_kl", approximate_kl),
-                    ("clip_fraction", clip_fraction),
-                    ("gradient_norm", gradient_norm),
-                ):
-                    totals[name] += float(value_to_add.detach().item())
+                metric_values = torch.stack(
+                    (
+                        policy_loss.detach(),
+                        value_loss.detach(),
+                        entropy_mean.detach(),
+                        approximate_kl.detach(),
+                        clip_fraction.detach(),
+                        gradient_norm.detach(),
+                    )
+                ).cpu().tolist()
+                for name, value_to_add in zip(totals, metric_values, strict=True):
+                    totals[name] += float(value_to_add)
                 update_count += 1
-                if float(approximate_kl.item()) > float(ppo["target_approximate_kl"]):
+                if metric_values[3] > float(ppo["target_approximate_kl"]):
                     stop = True
                     break
             if stop:

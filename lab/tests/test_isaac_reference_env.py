@@ -12,6 +12,7 @@ from next_lab.isaac_reference_env import (
     _advance_contact_grace,
     _engine_to_isaac_vector,
     _engine_xyzw_to_isaac_wxyz,
+    _normalized_xyzw,
     _quaternion_conjugate_xyzw,
     _quaternion_multiply_xyzw,
     _rotate_inverse_xyzw,
@@ -20,6 +21,10 @@ from next_lab.isaac_reference_env import (
 
 
 class IsaacReferenceEnvironmentTests(unittest.TestCase):
+    def test_invalid_quaternion_still_fails_synchronously_on_cpu(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "invalid reference quaternion"):
+            _normalized_xyzw(torch.zeros((1, 4)))
+
     def test_engine_isaac_vector_and_quaternion_mappings_are_inverses(self) -> None:
         vector = torch.tensor([[1.25, -2.5, 3.75]], dtype=torch.float64)
         torch.testing.assert_close(

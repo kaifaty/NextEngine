@@ -68,8 +68,13 @@ def is_locomotion_profile(profile_id: str) -> bool:
     }
 
 
-def require_finite_tensor(name: str, value: torch.Tensor) -> None:
-    if not torch.isfinite(value).all():
+def require_finite_tensor(
+    name: str, value: torch.Tensor, *, asynchronous: bool = False
+) -> None:
+    finite = torch.isfinite(value).all()
+    if asynchronous and value.device.type == "cuda":
+        torch._assert_async(finite, f"non-finite Isaac tensor: {name}")
+    elif not bool(finite.item()):
         raise RuntimeError(f"non-finite Isaac tensor: {name}")
 
 

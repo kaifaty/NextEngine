@@ -63,7 +63,10 @@ def _engine_xyzw_to_isaac_wxyz(value: torch.Tensor) -> torch.Tensor:
 
 def _normalized_xyzw(value: torch.Tensor) -> torch.Tensor:
     norm = torch.linalg.vector_norm(value, dim=-1, keepdim=True)
-    if torch.any(~torch.isfinite(norm)) or torch.any(norm <= 1.0e-12):
+    valid = torch.all(torch.isfinite(norm) & (norm > 1.0e-12))
+    if value.device.type == "cuda":
+        torch._assert_async(valid, "invalid reference quaternion")
+    elif not bool(valid.item()):
         raise RuntimeError("invalid reference quaternion")
     result = value / norm
     return torch.where(result[..., 3:4] < 0.0, -result, result)
@@ -98,7 +101,10 @@ def _quaternion_conjugate_xyzw(value: torch.Tensor) -> torch.Tensor:
 
 
 def _round_int64(value: torch.Tensor) -> torch.Tensor:
-    if not torch.isfinite(value).all():
+    finite = torch.isfinite(value).all()
+    if value.device.type == "cuda":
+        torch._assert_async(finite, "non-finite value before canonical rounding")
+    elif not bool(finite.item()):
         raise RuntimeError("non-finite value before canonical rounding")
     return torch.round(value).to(torch.int64)
 
@@ -326,6 +332,7 @@ if ISAAC_LAB_AVAILABLE:
             self._episode_reward_sum = torch.zeros(cfg.scene.num_envs)
             self._episode_component_sums = torch.zeros((cfg.scene.num_envs, 13))
             self.reward_components = torch.zeros((cfg.scene.num_envs, 13))
+            self._canonical_cache: dict[str, torch.Tensor] | None = None
             self.last_raw_observation = torch.zeros(
                 (cfg.scene.num_envs, OBSERVATION_CHANNELS), dtype=torch.int64
             )
@@ -334,6 +341,28 @@ if ISAAC_LAB_AVAILABLE:
             self._load_reference_tensors()
             self._load_control_tensors()
             self._load_observation_scale()
+            self._forbidden_contact_weights = torch.tensor(
+                [1, 2, 4, 8, 16], dtype=torch.int64, device=self.device
+            )
+            self._reward_coefficients = torch.tensor(
+                [
+                    1.0,
+                    0.5,
+                    0.5,
+                    0.25,
+                    2.0,
+                    0.5,
+                    0.5,
+                    1.0,
+                    0.75,
+                    -0.100006,
+                    -0.020004,
+                    -0.050003,
+                    -10.0,
+                ],
+                dtype=torch.float64,
+                device=self.device,
+            )
             for name in (
                 "_action",
                 "_applied_target",
@@ -617,9 +646,10 @@ if ISAAC_LAB_AVAILABLE:
 
         def _pre_physics_step(self, actions: torch.Tensor) -> None:
             self.extras.pop("log", None)
+            self._canonical_cache = None
             if actions.shape != (self.num_envs, ACTION_CHANNELS):
                 raise ValueError("reference action batch has the wrong shape")
-            require_finite_tensor("reference_actions", actions)
+            require_finite_tensor("reference_actions", actions, asynchronous=True)
             self._action.copy_(torch.clamp(actions, -1.0, 1.0))
             current_reference_dof = self._reference_at("joint_position_urad")
             current_reference_action = current_reference_dof[:, self._action_to_dof]
@@ -663,6 +693,8 @@ if ISAAC_LAB_AVAILABLE:
             )
 
         def _canonical_current(self) -> dict[str, torch.Tensor]:
+            if self._canonical_cache is not None:
+                return self._canonical_cache
             data = self.robot.data
             for name, value in (
                 ("root_pos_w", data.root_pos_w),
@@ -672,7 +704,7 @@ if ISAAC_LAB_AVAILABLE:
                 ("joint_pos", data.joint_pos),
                 ("joint_vel", data.joint_vel),
             ):
-                require_finite_tensor(name, value)
+                require_finite_tensor(name, value, asynchronous=True)
             root_world_isaac = data.root_pos_w - self.scene.env_origins
             root_position = engine_vector_from_isaac_tensor(root_world_isaac)
             root_quaternion = _normalized_xyzw(
@@ -701,7 +733,7 @@ if ISAAC_LAB_AVAILABLE:
                 contacts_by_body[:, self._body_contact_indices], dim=-1, keepdim=True
             )
             contacts = torch.cat((role_contacts, body_contact), dim=-1)
-            return {
+            self._canonical_cache = {
                 "root_position_um": _round_int64(root_position * 1_000_000.0),
                 "root_quaternion_q1_30": _round_int64(root_quaternion * Q1_30),
                 "root_linear_velocity_um_s": _round_int64(linear_world * 1_000_000.0),
@@ -713,6 +745,7 @@ if ISAAC_LAB_AVAILABLE:
                 "contacts": contacts.to(torch.int64),
                 "root_quaternion": root_quaternion,
             }
+            return self._canonical_cache
 
         def _get_observations(self) -> dict[str, torch.Tensor]:
             current = self._canonical_current()
@@ -806,7 +839,9 @@ if ISAAC_LAB_AVAILABLE:
                 raise RuntimeError("reference observation width mismatch")
             self.last_raw_observation.copy_(raw)
             policy = raw.to(torch.float32) / self._observation_scale
-            require_finite_tensor("reference_policy_observation", policy)
+            require_finite_tensor(
+                "reference_policy_observation", policy, asynchronous=True
+            )
             return {"policy": policy}
 
         def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
@@ -850,12 +885,9 @@ if ISAAC_LAB_AVAILABLE:
             forbidden_contact_raw = torch.any(
                 current["contacts"][:, 2:] != 0, dim=-1
             )
-            contact_weights = torch.tensor(
-                [1, 2, 4, 8, 16], dtype=torch.int64, device=self.device
-            )
             forbidden_contact_mask = torch.sum(
                 (current["contacts"][:, 2:] != 0).to(torch.int64)
-                * contact_weights[None],
+                * self._forbidden_contact_weights[None],
                 dim=-1,
             )
             forbidden_contact_substeps, forbidden_contact = _advance_contact_grace(
@@ -1057,12 +1089,9 @@ if ISAAC_LAB_AVAILABLE:
                 ),
                 dim=-1,
             )
-            coefficients = torch.tensor(
-                [1.0, 0.5, 0.5, 0.25, 2.0, 0.5, 0.5, 1.0, 0.75, -0.100006, -0.020004, -0.050003, -10.0],
-                dtype=torch.float64,
-                device=self.device,
-            )
-            reward = torch.sum(components * coefficients, dim=-1).to(torch.float32)
+            reward = torch.sum(
+                components * self._reward_coefficients, dim=-1
+            ).to(torch.float32)
             self.reward_components.copy_(components.to(torch.float32))
             self._episode_reward_sum.add_(reward)
             self._episode_component_sums.add_(components.to(torch.float32))
@@ -1073,6 +1102,7 @@ if ISAAC_LAB_AVAILABLE:
             return 1.0 - torch.clamp(error.to(torch.float64) / normalization, min=0.0, max=1.0)
 
         def _reset_idx(self, env_ids: torch.Tensor | None) -> None:
+            self._canonical_cache = None
             if env_ids is None:
                 env_ids = self.robot._ALL_INDICES
             completed = self.episode_length_buf[env_ids] > 0
