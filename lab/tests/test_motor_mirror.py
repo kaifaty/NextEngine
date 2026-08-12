@@ -5,7 +5,10 @@ import unittest
 
 import torch
 
-from next_lab.biomechanics_preview import render_biomechanics_preview
+from next_lab.biomechanics_preview import (
+    render_biomechanics_limit_preview,
+    render_biomechanics_preview,
+)
 from next_lab.isaac_env import (
     authored_ground_clearance_metres,
     authored_root_height_micrometres,
@@ -80,6 +83,11 @@ class MotorMirrorTests(unittest.TestCase):
         self.assertEqual(first.count('<rect x='), 3 + 19 * 3)
         self.assertIn(descriptor["body_schema_hash"], first)
         self.assertIn(descriptor["compiled_descriptor_hash"], first)
+        limits = render_biomechanics_limit_preview(descriptor)
+        self.assertEqual(limits, render_biomechanics_limit_preview(descriptor))
+        for group in ("spine", "hips", "knees", "ankles", "shoulders", "elbows"):
+            self.assertIn(f">{group} · minimum</text>", limits)
+            self.assertIn(f">{group} · maximum</text>", limits)
 
     def test_semantic_joint_id_maps_to_usd_prim_name(self) -> None:
         self.assertEqual(isaac_prim_name("joint.left-ankle-roll"), "joint_left_ankle_roll")

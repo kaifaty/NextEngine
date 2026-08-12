@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import math
 import struct
 from pathlib import Path
 from typing import Any
@@ -127,6 +128,68 @@ def render_biomechanics_preview(descriptor: dict[str, Any]) -> str:
     return "\n".join(elements) + "\n"
 
 
+def render_biomechanics_limit_preview(descriptor: dict[str, Any]) -> str:
+    validate_biomechanics_descriptor(descriptor)
+    width, height = 1800, 720
+    groups = (
+        ("spine", lambda name: "torso-" in name),
+        ("hips", lambda name: "-hip-" in name),
+        ("knees", lambda name: name.endswith("-knee")),
+        ("ankles", lambda name: "-ankle-" in name),
+        ("shoulders", lambda name: "-shoulder-" in name),
+        ("elbows", lambda name: name.endswith("-elbow")),
+    )
+    elements = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
+        '<rect width="100%" height="100%" fill="#0b1020"/>',
+        '<style>text{font-family:ui-monospace,monospace;fill:#e5e7eb}.title{font-size:20px;font-weight:700}.small{font-size:11px}.panel{font-size:15px;font-weight:700}</style>',
+        '<text x="24" y="32" class="title">TRAIN-2 joint-group hard-limit preview · isometric X/Z/Y</text>',
+        f'<text x="24" y="52" class="small">compiled {html.escape(descriptor["compiled_descriptor_hash"])} · red=hard minimum · green=hard maximum · grey=neutral</text>',
+    ]
+    neutral = _forward_kinematics(descriptor, {})
+    for group_index, (group_name, includes) in enumerate(groups):
+        selected = [joint for joint in descriptor["joints"] if includes(joint["joint_id"])]
+        for bound_index, bound in enumerate((0, 1)):
+            panel_index = group_index * 2 + bound_index
+            column, row = panel_index % 6, panel_index // 6
+            x0, y0 = 20 + column * 295, 72 + row * 305
+            panel_width, panel_height = 275, 285
+            targets = {
+                joint["dof_ordinal"]: joint["hard_limit_microradians"][bound] / 1_000_000.0
+                for joint in selected
+            }
+            posed = _forward_kinematics(descriptor, targets)
+            all_projected = [_isometric(point) for point, _ in neutral + posed]
+            minimum_h = min(point[0] for point in all_projected) - 0.12
+            maximum_h = max(point[0] for point in all_projected) + 0.12
+            minimum_v = min(point[1] for point in all_projected) - 0.08
+            maximum_v = max(point[1] for point in all_projected) + 0.08
+            scale = min(
+                (panel_width - 24) / (maximum_h - minimum_h),
+                (panel_height - 52) / (maximum_v - minimum_v),
+            )
+
+            def project(point: tuple[float, float, float]) -> tuple[float, float]:
+                horizontal, vertical = _isometric(point)
+                return (
+                    x0 + 12 + (horizontal - minimum_h) * scale,
+                    y0 + panel_height - 12 - (vertical - minimum_v) * scale,
+                )
+
+            label = "minimum" if bound == 0 else "maximum"
+            color = "#ef4444" if bound == 0 else "#22c55e"
+            elements.extend(
+                (
+                    f'<rect x="{x0}" y="{y0}" width="{panel_width}" height="{panel_height}" rx="8" fill="#111827" stroke="#334155"/>',
+                    f'<text x="{x0 + 12}" y="{y0 + 22}" class="panel">{group_name} · {label}</text>',
+                )
+            )
+            _append_skeleton(elements, descriptor, neutral, project, "#64748b", 1, 0.55)
+            _append_skeleton(elements, descriptor, posed, project, color, 3, 1.0)
+    elements.extend(("</svg>",))
+    return "\n".join(elements) + "\n"
+
+
 def _decode_f32_vector(bits: list[int]) -> tuple[float, float, float]:
     return tuple(struct.unpack("<f", struct.pack("<I", value))[0] for value in bits)  # type: ignore[return-value]
 
@@ -145,6 +208,134 @@ def _projected_extents(geometry: dict[str, Any], horizontal: int, vertical: int)
     return values[horizontal], values[vertical]
 
 
+def _forward_kinematics(
+    descriptor: dict[str, Any], targets: dict[int, float]
+) -> list[tuple[tuple[float, float, float], tuple[float, float, float, float]]]:
+    bodies = descriptor["bodies"]
+    joint_by_child = {joint["child_body_slot"]: joint for joint in descriptor["joints"]}
+    poses: list[tuple[tuple[float, float, float], tuple[float, float, float, float]]] = []
+    for slot, body in enumerate(bodies):
+        if slot == 0:
+            poses.append(
+                (
+                    _decode_f32_vector(body["initial_translation_f32_bits"]),
+                    _decode_q1_30(body["initial_rotation_f32_bits"], bits=True),
+                )
+            )
+            continue
+        joint = joint_by_child[slot]
+        parent_position, parent_rotation = poses[joint["parent_body_slot"]]
+        parent_frame = joint["parent_frame"]
+        child_frame = joint["child_frame"]
+        parent_frame_rotation = _decode_q1_30(parent_frame["rotation_q1_30"])
+        child_frame_rotation = _decode_q1_30(child_frame["rotation_q1_30"])
+        angle = targets.get(joint["dof_ordinal"], 0.0)
+        axis = tuple(value / float(1 << 30) for value in joint["axis_q1_30"])
+        joint_rotation = _axis_angle(axis, angle)
+        child_rotation = _quaternion_multiply(
+            _quaternion_multiply(
+                _quaternion_multiply(parent_rotation, parent_frame_rotation),
+                joint_rotation,
+            ),
+            _quaternion_conjugate(child_frame_rotation),
+        )
+        parent_offset = tuple(
+            value / 1_000_000.0 for value in parent_frame["translation_micrometres"]
+        )
+        child_offset = tuple(
+            value / 1_000_000.0 for value in child_frame["translation_micrometres"]
+        )
+        anchor = _vector_add(parent_position, _rotate(parent_rotation, parent_offset))
+        child_position = _vector_subtract(anchor, _rotate(child_rotation, child_offset))
+        poses.append((child_position, child_rotation))
+    return poses
+
+
+def _append_skeleton(
+    elements: list[str],
+    descriptor: dict[str, Any],
+    poses: list[tuple[tuple[float, float, float], tuple[float, float, float, float]]],
+    project: Any,
+    color: str,
+    width: int,
+    opacity: float,
+) -> None:
+    for slot, body in enumerate(descriptor["bodies"]):
+        parent = body["parent_body_slot"]
+        if parent is not None:
+            x1, y1 = project(poses[parent][0])
+            x2, y2 = project(poses[slot][0])
+            elements.append(
+                f'<line x1="{x1:.2f}" y1="{y1:.2f}" x2="{x2:.2f}" y2="{y2:.2f}" stroke="{color}" stroke-width="{width}" opacity="{opacity}"/>'
+            )
+        x, y = project(poses[slot][0])
+        elements.append(
+            f'<circle cx="{x:.2f}" cy="{y:.2f}" r="{width + 1}" fill="{color}" opacity="{opacity}"/>'
+        )
+
+
+def _isometric(point: tuple[float, float, float]) -> tuple[float, float]:
+    return point[0] + 0.45 * point[2], point[1] + 0.18 * point[2]
+
+
+def _decode_q1_30(
+    values: list[int], *, bits: bool = False
+) -> tuple[float, float, float, float]:
+    if bits:
+        return tuple(struct.unpack("<f", struct.pack("<I", value))[0] for value in values)  # type: ignore[return-value]
+    return tuple(value / float(1 << 30) for value in values)  # type: ignore[return-value]
+
+
+def _axis_angle(
+    axis: tuple[float, float, float], angle: float
+) -> tuple[float, float, float, float]:
+    sine = math.sin(angle * 0.5)
+    return axis[0] * sine, axis[1] * sine, axis[2] * sine, math.cos(angle * 0.5)
+
+
+def _quaternion_multiply(
+    left: tuple[float, float, float, float],
+    right: tuple[float, float, float, float],
+) -> tuple[float, float, float, float]:
+    lx, ly, lz, lw = left
+    rx, ry, rz, rw = right
+    return (
+        lw * rx + lx * rw + ly * rz - lz * ry,
+        lw * ry - lx * rz + ly * rw + lz * rx,
+        lw * rz + lx * ry - ly * rx + lz * rw,
+        lw * rw - lx * rx - ly * ry - lz * rz,
+    )
+
+
+def _quaternion_conjugate(
+    value: tuple[float, float, float, float]
+) -> tuple[float, float, float, float]:
+    return -value[0], -value[1], -value[2], value[3]
+
+
+def _rotate(
+    rotation: tuple[float, float, float, float],
+    value: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    pure = value[0], value[1], value[2], 0.0
+    rotated = _quaternion_multiply(
+        _quaternion_multiply(rotation, pure), _quaternion_conjugate(rotation)
+    )
+    return rotated[0], rotated[1], rotated[2]
+
+
+def _vector_add(
+    left: tuple[float, float, float], right: tuple[float, float, float]
+) -> tuple[float, float, float]:
+    return tuple(left[index] + right[index] for index in range(3))  # type: ignore[return-value]
+
+
+def _vector_subtract(
+    left: tuple[float, float, float], right: tuple[float, float, float]
+) -> tuple[float, float, float]:
+    return tuple(left[index] - right[index] for index in range(3))  # type: ignore[return-value]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("descriptor", type=Path)
@@ -152,6 +343,8 @@ def main() -> None:
     arguments = parser.parse_args()
     descriptor = json.loads(arguments.descriptor.read_text(encoding="utf-8"))
     arguments.output.write_text(render_biomechanics_preview(descriptor), encoding="utf-8")
+    limits_output = arguments.output.with_name(f"{arguments.output.stem}-limits.svg")
+    limits_output.write_text(render_biomechanics_limit_preview(descriptor), encoding="utf-8")
 
 
 if __name__ == "__main__":
