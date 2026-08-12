@@ -308,6 +308,18 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_hard_rom_excess_microradians = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.int64
             )
+            self.last_step_hard_rom_excess_by_action_channel = torch.zeros(
+                (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
+            )
+            self.last_step_action_joint_position_microradians = torch.zeros(
+                (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
+            )
+            self.last_step_reference_frame = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.int64
+            )
+            self.last_step_episode_elapsed_motor_ticks = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.int64
+            )
             self.last_step_forbidden_contact_mask = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.int64
             )
@@ -347,6 +359,10 @@ if ISAAC_LAB_AVAILABLE:
                 "last_step_episode_clip_index",
                 "last_step_hard_rom_action_channel",
                 "last_step_hard_rom_excess_microradians",
+                "last_step_hard_rom_excess_by_action_channel",
+                "last_step_action_joint_position_microradians",
+                "last_step_reference_frame",
+                "last_step_episode_elapsed_motor_ticks",
                 "last_step_forbidden_contact_mask",
                 "_episode_reward_sum",
                 "_episode_component_sums",
@@ -876,6 +892,16 @@ if ISAAC_LAB_AVAILABLE:
             )
             self.last_step_hard_rom_excess_microradians.copy_(
                 torch.round(maximum_hard_rom_excess).to(torch.int64)
+            )
+            self.last_step_hard_rom_excess_by_action_channel.copy_(
+                torch.round(hard_rom_excess).to(torch.int64)
+            )
+            self.last_step_action_joint_position_microradians.copy_(
+                torch.round(action_position).to(torch.int64)
+            )
+            self.last_step_reference_frame.copy_(frame)
+            self.last_step_episode_elapsed_motor_ticks.copy_(
+                frame - self._episode_start_frame
             )
             self.last_step_forbidden_contact_mask.copy_(forbidden_contact_mask)
             terminated = self._success_terminal | self._failure_terminal
