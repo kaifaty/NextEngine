@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-0..4` re-advanced on protected-joint-reserved corpus; `TRAIN-5` input and all-phase reset closure passed on the new lineage, tiny overfit must be rerun; no TRAIN-5 gate advance |
+| Статус | In execution: `TRAIN-0..4` re-advanced on protected-joint-reserved corpus; `TRAIN-5` input/reset closure and reproducible one-clip tiny overfit passed on the new lineage; curriculum and multi-seed next; no TRAIN-5 gate advance |
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -342,9 +342,10 @@ count: confidence interval не превращает наблюдаемое на
   gate report SHA-256
   `38f33f63c2d187509128eca1469ab6b114547402bb769e311b8717a4c2ed18c4`;
 - `TRAIN-5`: new-lineage input and all-phase first-motor-tick reset closure
-  `PASS`, optimizer steps `0`; all earlier
-  tiny/curriculum runs are immutable historical evidence from the superseded
-  corpus and cannot initialize or advance the new lineage; tiny overfit rerun next;
+  `PASS`, followed by reproducible one-clip tiny overfit `PASS`; both exact runs
+  produced checkpoint SHA-256
+  `bda3df1d4770649e3f1cbf976997cb0d76a0a60ce88657f47c3e2a650e0a157b`.
+  This admits only curriculum and multi-seed work, not the `TRAIN-5` gate;
 - `TRAIN-6..9`: `NotRun`; разрешён только specialist tracker `TRAIN-5`.
 
 ## TRAIN-0 — retirement/isolation старого эксперимента и чистая generation
@@ -818,9 +819,8 @@ algorithm не является диагностикой wiring failure.
 Текущий new-lineage input audit SHA-256
 `784f09d4b9e86c3053120df022f0e2eb422b85b264fb11964a930feb78dc26df`
 замкнул profile/corpus/gate/artifacts и прошёл с `optimizer_steps = 0`. Он не
-является learned-policy claim. Tiny deterministic overfit, curriculum и
-multi-seed должны быть выполнены заново; checkpoint с superseded corpus hash
-запрещён как initialization input.
+является learned-policy claim. Checkpoint с superseded corpus hash запрещён как
+initialization input.
 
 Randomized phase-reset audit SHA-256
 `8cbd9c33b01ca98956b377f242628623ca943e11adce75178e20508ba145cb6d`
@@ -829,6 +829,18 @@ Randomized phase-reset audit SHA-256
 Полный 11-tick untrained baseline сохранил `690` hard-ROM, `209`
 forbidden-contact и `589` tracking-loss events как ReportOnly diagnostic; это
 не learned-policy quality result и не ослабляет final safety requirement.
+
+Новый bounded-horizon tiny overfit выполнен дважды с нуля как
+`tiny-cmu104-h11-r6-seed120812-r1/r2`: оба run дали deterministic completion
+`0/64 -> 64/64`, mean episode length `10.953125 -> 11.0`, final failure count
+`0`, `327680` samples и `1135` optimizer steps. Metrics SHA-256
+`00b8719f15e3620aa4cbe88dc1ebe3baac0cfbe65de2e9065b00dfa3752aecd5`
+и checkpoint SHA-256
+`bda3df1d4770649e3f1cbf976997cb0d76a0a60ce88657f47c3e2a650e0a157b`
+совпали побитово. Reproducibility report SHA-256
+`b90dc9953c5ecd45c5c6c291e9e36053ce7f5a82a7861fb0de700b80df000742`
+разрешает только curriculum и multi-seed. Новый frozen curriculum profile
+SHA-256 — `54aaab1210556b3c50177ab3738aff2d89f220ff099659e0eae8a6897d92b14b`.
 
 Следующие результаты сохранены только как historical failure/diagnostic
 evidence старой corpus lineage и не продвигают текущий `TRAIN-5`: input/reward audit
@@ -857,13 +869,13 @@ forbidden contact и non-finite. Следующий tiny retry использу�
 и не ослабляет последующие curriculum/full-reference проверки. Success на
 границе horizon учитывается только при отсутствии одновременного failure.
 
-Bounded-horizon runs `tiny-cmu104-h11-seed120812-r1/r2` независимо прошли
+Historical bounded-horizon runs `tiny-cmu104-h11-seed120812-r1/r2` независимо прошли
 acceptance: deterministic completion `0/64 -> 64/64`, mean episode length
 `8.359375 -> 11.0`, final failure count `0`. Их metrics и checkpoints побитово
 совпали. Reproducibility report SHA-256
 `a6704af4736c2ae45da8cfb84e7adceb8187f3d65bf189789ece9a1a715b2c2e`
-разрешает только curriculum и multi-seed; это не `TRAIN-5 Advance`, не
-full-reference pass и не learned-policy/held-out quality claim.
+остаётся доказательством superseded corpus lineage и ничего не разрешает в
+текущей lineage.
 
 Initial optimization order:
 

@@ -73,7 +73,7 @@ class ReferencePpoTests(unittest.TestCase):
         self.assertEqual(scope["horizon_motor_ticks"], 11)
         self.assertEqual(
             profile.document["initialization"]["checkpoint_sha256"],
-            "3431d1a83ed429eb8978f531cab59f34ad59c06f19dea7f1330f2accfe588acb",
+            "bda3df1d4770649e3f1cbf976997cb0d76a0a60ce88657f47c3e2a650e0a157b",
         )
 
     def test_report_only_throughput_summary_excludes_warmup(self) -> None:

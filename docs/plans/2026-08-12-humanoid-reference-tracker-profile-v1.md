@@ -81,9 +81,21 @@ records zero optimizer steps. Its all-phase reset audit SHA-256
 `8cbd9c33b01ca98956b377f242628623ca943e11adce75178e20508ba145cb6d`
 covers all `169/169` admissible phases over `4105` episodes with zero required
 first-motor-tick safety failures. Later zero-residual failures are retained as
-ReportOnly untrained-baseline diagnostics. The baseline matrix and
+ReportOnly untrained-baseline diagnostics. The baseline matrix and older
 tiny/curriculum results below bind the superseded corpus and remain historical
 diagnostics only; none of their checkpoints may initialize the current lineage.
+
+The current-lineage deterministic tiny overfit was run twice from scratch as
+`tiny-cmu104-h11-r6-seed120812-r1/r2`. Both runs improved completion from
+`0/64` to `64/64` with zero final hard-ROM, forbidden-contact, non-finite or
+tracking-loss failures. Metrics SHA-256
+`00b8719f15e3620aa4cbe88dc1ebe3baac0cfbe65de2e9065b00dfa3752aecd5`
+and checkpoint SHA-256
+`bda3df1d4770649e3f1cbf976997cb0d76a0a60ce88657f47c3e2a650e0a157b`
+are byte-identical. Reproducibility report SHA-256
+`b90dc9953c5ecd45c5c6c291e9e36053ce7f5a82a7861fb0de700b80df000742`
+admits only the current curriculum and multi-seed stage; it is not a
+`TRAIN-5` gate, held-out result or general learned-policy quality claim.
 
 The closed input/reward audit has SHA-256
 `b76fcf1d9ce8ef0b7df2c5d35a2c6b115a7c458c1f8a4a90fcb1898f6d0d1489`.

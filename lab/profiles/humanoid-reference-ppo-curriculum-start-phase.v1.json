@@ -3,14 +3,14 @@
   "profile_id": "nextengine.training.humanoid-reference-ppo-curriculum-stage.v1",
   "status": "Frozen",
   "environment_profile_id": "nextengine.motor.env.humanoid-reference-tracker.v1",
-  "environment_profile_sha256": "50f52b63bcf6b5a2b0c4201f1754a4d457b897b8d894a5c5bf68458f97e769f1",
+  "environment_profile_sha256": "4a898ccf67051b34b6266ec5293f74758103e7db260ded393e76161f72de527d",
   "descriptor_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014",
   "usd_sha256": "951fc04bed0ff3e15414bfd06d067636ee8db18ef70e6e4a0ced28c624fcefa4",
-  "corpus_manifest_sha256": "0f1ce147051b41c7380b566844aecb69612fd501466d1848bd9137d755581df5",
+  "corpus_manifest_sha256": "6f76c1c7d60457d1b10833b6fb840afbb50cd502315f250fd6e44a40d1c0dcbc",
   "initialization": {
     "mode": "model-weights-only",
-    "training_profile_sha256": "3823058b5c36019efa2ddf5bd966b089d5dce44af63496efbdccaf3879478839",
-    "checkpoint_sha256": "3431d1a83ed429eb8978f531cab59f34ad59c06f19dea7f1330f2accfe588acb"
+    "training_profile_sha256": "ac34da5ab39a069e8de9ecd19730bfed2c4dce9ac8753c7a03bbfdb99c8df55b",
+    "checkpoint_sha256": "bda3df1d4770649e3f1cbf976997cb0d76a0a60ce88657f47c3e2a650e0a157b"
   },
   "scope": {
     "stage_id": "start-right-random-phase-h11",
