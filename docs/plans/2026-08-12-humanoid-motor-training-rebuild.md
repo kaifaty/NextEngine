@@ -896,7 +896,16 @@ Optimizer-free audit SHA-256
 `9307ba4df987dfef8d96d2fc0b5ac98321c1ebc2e9b48eb90fac15f2f327cd6d`
 прошёл: natural/reference median cost равен `0`, directed probe достигает
 unit scale, optimizer steps равны `0`. До curriculum снова обязательны два
-побитово воспроизводимых tiny run с нуля.
+побитово воспроизводимых tiny run с нуля. Runs
+`tiny-cmu104-h11-r6-predictive-rom-cost-seed120812-r1/r2` прошли `0/64 ->
+64/64`, final failure count `0`; metrics SHA-256
+`4e57075148959184c2f2ff3b9b18a8ac691d44fdbab8e0102c6d9f0a647fdd8f`
+и checkpoint SHA-256
+`29e1e703c36f368c6bc1ae50ba4416f497f8a1b5673739e2299827891d4369ed`
+совпали побитово. Reproducibility report SHA-256
+`1ea3e41e286963651b9f2959bef364c858b53907cf3de9caeaa0a27b5018ba2b`
+разрешает только curriculum. Curriculum overlay SHA-256 —
+`b658f8ecf35c6677293a8aa37f9003799e040388f0a2cf10975b5d6613224d87`.
 
 Следующие результаты сохранены только как historical failure/diagnostic
 evidence старой corpus lineage и не продвигают текущий `TRAIN-5`: input/reward audit

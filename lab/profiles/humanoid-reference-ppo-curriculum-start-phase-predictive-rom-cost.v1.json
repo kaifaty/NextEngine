@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.training.humanoid-reference-ppo-curriculum-stage.v4",
+  "status": "Frozen",
+  "base_profile_id": "nextengine.training.humanoid-reference-ppo-curriculum-stage.v1",
+  "base_profile_sha256": "d97c93adb39a32694fc2f882732e59561949c726e5827c13a844f8edb45d01d1",
+  "variant": {
+    "kind": "replace-environment-and-initialization.v1",
+    "environment_profile_id": "nextengine.motor.env.humanoid-reference-tracker-predictive-rom-cost.v1",
+    "environment_profile_sha256": "2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5",
+    "initialization": {
+      "mode": "model-weights-only",
+      "training_profile_sha256": "e90a4bb042bd4e62a7269d974a686e718e40ddc0623ee81da0091f2434747a75",
+      "checkpoint_sha256": "29e1e703c36f368c6bc1ae50ba4416f497f8a1b5673739e2299827891d4369ed"
+    },
+    "stage_id": "start-right-random-phase-h11-predictive-rom-cost"
+  }
+}

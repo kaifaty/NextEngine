@@ -23,18 +23,34 @@ class TinyReferencePpoProfile:
         document = json.loads(payload)
         if "base_profile_sha256" in document:
             overlay = document
-            if (
-                overlay.get("schema_version") != 1
-                or overlay.get("status") != "Frozen"
-                or overlay.get("base_profile_id")
-                != "nextengine.training.humanoid-reference-ppo-tiny.v1"
-                or overlay.get("base_profile_sha256")
-                != "ac34da5ab39a069e8de9ecd19730bfed2c4dce9ac8753c7a03bbfdb99c8df55b"
-                or overlay.get("variant", {}).get("kind")
-                != "replace-environment.v1"
+            if overlay.get("variant", {}).get("kind") == "replace-environment.v1":
+                if (
+                    overlay.get("schema_version") != 1
+                    or overlay.get("status") != "Frozen"
+                    or overlay.get("base_profile_id")
+                    != "nextengine.training.humanoid-reference-ppo-tiny.v1"
+                    or overlay.get("base_profile_sha256")
+                    != "ac34da5ab39a069e8de9ecd19730bfed2c4dce9ac8753c7a03bbfdb99c8df55b"
+                ):
+                    raise ValueError("invalid reference PPO profile variant")
+                base_name = "humanoid-reference-ppo-tiny.v1.json"
+            elif (
+                overlay.get("variant", {}).get("kind")
+                == "replace-environment-and-initialization.v1"
             ):
-                raise ValueError("invalid reference PPO profile variant")
-            base_path = path.with_name("humanoid-reference-ppo-tiny.v1.json")
+                if (
+                    overlay.get("schema_version") != 1
+                    or overlay.get("status") != "Frozen"
+                    or overlay.get("base_profile_id")
+                    != "nextengine.training.humanoid-reference-ppo-curriculum-stage.v1"
+                    or overlay.get("base_profile_sha256")
+                    != "d97c93adb39a32694fc2f882732e59561949c726e5827c13a844f8edb45d01d1"
+                ):
+                    raise ValueError("invalid reference PPO curriculum variant")
+                base_name = "humanoid-reference-ppo-curriculum-start-phase.v1.json"
+            else:
+                raise ValueError("invalid reference PPO profile variant kind")
+            base_path = path.with_name(base_name)
             base_payload = base_path.read_bytes()
             if hashlib.sha256(base_payload).hexdigest() != overlay["base_profile_sha256"]:
                 raise ValueError("reference PPO variant base hash mismatch")
@@ -46,6 +62,9 @@ class TinyReferencePpoProfile:
             document["environment_profile_sha256"] = overlay["variant"][
                 "environment_profile_sha256"
             ]
+            if "initialization" in overlay["variant"]:
+                document["initialization"] = overlay["variant"]["initialization"]
+                document["scope"]["stage_id"] = overlay["variant"]["stage_id"]
         profile_id = document.get("profile_id")
         fixed_tiny_profile_ids = {
             "nextengine.training.humanoid-reference-ppo-tiny.v1",
@@ -55,6 +74,7 @@ class TinyReferencePpoProfile:
         isolated_curriculum_profile_ids = {
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v2",
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v3",
+            "nextengine.training.humanoid-reference-ppo-curriculum-stage.v4",
         }
         if (
             document.get("schema_version") != 1

@@ -39,6 +39,10 @@ PREDICTIVE_ROM_TINY_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-ppo-tiny-predictive-rom-cost.v1.json"
 )
+PREDICTIVE_ROM_CURRICULUM_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-ppo-curriculum-start-phase-predictive-rom-cost.v1.json"
+)
 
 
 class ReferencePpoTests(unittest.TestCase):
@@ -107,6 +111,16 @@ class ReferencePpoTests(unittest.TestCase):
         self.assertEqual(profile.document["network"], baseline.document["network"])
         self.assertEqual(profile.document["ppo"], baseline.document["ppo"])
         self.assertEqual(profile.document["scope"], baseline.document["scope"])
+
+    def test_predictive_rom_curriculum_variant_preserves_fixed_matrix(self) -> None:
+        profile = TinyReferencePpoProfile.load(PREDICTIVE_ROM_CURRICULUM_PROFILE)
+        baseline = TinyReferencePpoProfile.load(CURRICULUM_PROFILE)
+        self.assertEqual(profile.document["ppo"], baseline.document["ppo"])
+        self.assertEqual(profile.document["evaluation"], baseline.document["evaluation"])
+        self.assertEqual(
+            profile.document["initialization"]["checkpoint_sha256"],
+            "29e1e703c36f368c6bc1ae50ba4416f497f8a1b5673739e2299827891d4369ed",
+        )
 
     def test_frozen_curriculum_stage_closes_phase_and_initial_checkpoint(self) -> None:
         profile = TinyReferencePpoProfile.load(CURRICULUM_PROFILE)
