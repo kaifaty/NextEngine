@@ -82,24 +82,44 @@ root position at most `0.03 m`, velocity at most `0.05 m/s`, contact agreement
 at least `98%`, and done-tick agreement at least `95%`. Passing correspondence
 does not make GPU execution replay-authoritative or declare a trained policy.
 
-## Reproducible PPO curriculum
+## Training generation isolation
+
+Every train/evaluate/view/reset/stability entry point requires an external
+`--generation-index`. The index hash-closes exactly one generation manifest;
+the manifest admits exact training-profile, environment-profile, descriptor
+and derived-USD hashes. A legacy checkpoint or an input absent from that
+closure fails with `INCOMPATIBLE_TRAINING_GENERATION` before simulator
+creation. Run and evaluation output roots must be descendants of the selected
+generation root.
+
+`lab/scripts/isolate_training_generation.py` creates a new `prepared`
+generation non-destructively. It inventories explicitly supplied retired roots,
+hashes the bounded inventory, creates a generation directory containing only
+`generation-manifest.json`, and atomically writes `active-generation.json`.
+The initial manifest admits no training inputs; `TRAIN-1..4` must complete
+before a new profile/artifact closure can activate it. Dataset, run and model
+bytes remain outside Git.
+
+## Retired Stage 0 PPO evidence
 
 The tracked
-`profiles/isaac-rsl-rl-rtx3080-locomotion-curriculum.v2.json` profile is the
-current RTX 3080 starting point: 512 environments, 24 transitions per
-environment, 3,000 iterations/36,864,000 samples, fixed seed 42, explicit CUDA
-device, entropy `0.005`, initial action noise `0.6` and periodic checkpoints.
-The engine advances commands from forward-only foundation through steering to
-the full stage at episode ordinals 0/32/96. It remains `Proposed`; RSL-RL and
-Isaac are private training tools, while CPU motor-lab remains canonical.
+`profiles/isaac-rsl-rl-rtx3080-locomotion-curriculum.v2.json` profile remains
+immutable historical evidence for the retired pure-PPO line: 512 environments,
+24 transitions per environment, 3,000 iterations/36,864,000 samples, fixed
+seed 42, explicit CUDA device, entropy `0.005`, initial action noise `0.6` and
+periodic checkpoints. Its old profile/checkpoints cannot resume or seed the
+biomechanics rebuild generation. RSL-RL and Isaac remain private tools, while
+CPU motor-lab remains canonical.
 
-On the prepared host, start a full profile run with:
+External operational wrappers pass the active generation index. Until a new
+profile and body are admitted after `TRAIN-4`, invoking the old wrapper gives a
+stable incompatibility diagnostic instead of starting PPO:
 
 ```text
 /home/kaifaty/NextEngine-training/train-nextengine-poc.sh
 ```
 
-Before a new training profile or translated body is used, force a fall and
+After a new training profile and translated body are admitted, force a fall and
 verify that every slot returns to the descriptor-authored root pose, zero root
 velocity, configured joint pose, and zero joint velocity:
 
@@ -123,17 +143,19 @@ action, observation, reward or environment fact:
 The report includes the descriptor-derived PhysX effort/velocity limits,
 reset counts and maximum observed joint/root velocities for every action source.
 
-Use explicit overrides for a quick integration check:
+When the new generation is active, explicit overrides MAY provide a quick
+integration check:
 
 ```text
 /home/kaifaty/NextEngine-training/train-nextengine-poc.sh \
   --num-envs 64 --steps-per-env 8 --iterations 1 --save-interval 1
 ```
 
-Every invocation writes an external `run-manifest.json`, append-only
+Every admitted invocation writes an external `run-manifest.json`, append-only
 `metrics.jsonl`, TensorBoard events, and SHA-256-closed checkpoints. The
-manifest binds the profile, descriptor, generated USD, seed/run root, package
-versions, Git revision, GPU memory preflight, and optional parent checkpoint.
+manifest binds the generation, profile, descriptor, generated USD, seed/run
+root, package versions, Git revision, GPU memory preflight, and optional parent
+checkpoint.
 Training aborts before saving a non-finite policy or loss. Resume is accepted
 only from a completed manifest with the exact same resolved training config:
 

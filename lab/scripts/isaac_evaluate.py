@@ -22,8 +22,10 @@ from next_lab.isaac_training import (
     ResolvedTrainingConfig,
     atomic_write_json,
     equal_episode_quota,
+    load_active_training_generation,
     parse_gpu_memory_csv,
     require_external_path,
+    require_generation_output_path,
     sha256_file,
     validate_checkpoint_artifacts,
     validate_closed_checkpoint,
@@ -35,6 +37,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--generation-index", type=Path, required=True)
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--descriptor", type=Path, required=True)
     parser.add_argument("--usd", type=Path, required=True)
@@ -52,6 +55,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    generation_index = require_external_path(
+        args.generation_index, REPOSITORY_ROOT, label="active training generation"
+    )
+    generation = load_active_training_generation(generation_index)
     profile = IsaacTrainingProfile.load(args.profile.resolve())
     evaluation = profile.evaluation
     seed = evaluation["seeds"][0] if args.seed is None else args.seed
@@ -80,13 +87,21 @@ def main() -> None:
         args.descriptor, REPOSITORY_ROOT, label="engine descriptor"
     )
     usd = require_external_path(args.usd, REPOSITORY_ROOT, label="derived humanoid USD")
+    generation.manifest.require_input(profile, sha256_file(descriptor), sha256_file(usd))
     checkpoint = require_external_path(
         args.checkpoint, REPOSITORY_ROOT, label="checkpoint"
     )
-    output_root = require_external_path(
-        args.output_root, REPOSITORY_ROOT, label="evaluation root", must_exist=False
+    output_root = require_generation_output_path(
+        require_external_path(
+            args.output_root,
+            REPOSITORY_ROOT,
+            label="evaluation root",
+            must_exist=False,
+        ),
+        generation,
+        label="evaluation root",
     )
-    parent = validate_closed_checkpoint(checkpoint)
+    parent = validate_closed_checkpoint(checkpoint, generation.manifest.generation_id)
     validate_checkpoint_artifacts(parent, profile, descriptor, usd)
     gpu = query_gpu(config.device)
     if gpu["memory_free_mib"] < profile.min_free_gpu_memory_mib:
@@ -108,6 +123,8 @@ def main() -> None:
         "schema": EVALUATION_MANIFEST_SCHEMA,
         "status": "running",
         "evaluation_id": evaluation_id,
+        "training_generation_id": generation.manifest.generation_id,
+        "training_generation_manifest_hash": generation.manifest.manifest_hash,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "repository": repository_state(),
         "profile_id": profile.profile_id,

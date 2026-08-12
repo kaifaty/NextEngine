@@ -22,8 +22,10 @@ from next_lab.isaac_training import (
     ResolvedTrainingConfig,
     atomic_write_json,
     checkpoint_records,
+    load_active_training_generation,
     parse_gpu_memory_csv,
     require_external_path,
+    require_generation_output_path,
     sha256_file,
     training_config_hash,
     validate_resume_checkpoint,
@@ -35,6 +37,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--generation-index", type=Path, required=True)
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--descriptor", type=Path, required=True)
     parser.add_argument("--usd", type=Path, required=True)
@@ -52,6 +55,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    generation_index = require_external_path(
+        args.generation_index, REPOSITORY_ROOT, label="active training generation"
+    )
+    generation = load_active_training_generation(generation_index)
     profile = IsaacTrainingProfile.load(args.profile.resolve())
     config = ResolvedTrainingConfig.from_profile(
         profile,
@@ -66,13 +73,23 @@ def main() -> None:
         args.descriptor, REPOSITORY_ROOT, label="engine descriptor"
     )
     usd = require_external_path(args.usd, REPOSITORY_ROOT, label="derived humanoid USD")
-    log_root = require_external_path(
-        args.log_root, REPOSITORY_ROOT, label="training log root", must_exist=False
-    )
-    log_root.mkdir(parents=True, exist_ok=True)
     descriptor_hash = sha256_file(descriptor)
     usd_hash = sha256_file(usd)
-    config_hash = training_config_hash(config, descriptor_hash, usd_hash)
+    generation.manifest.require_input(profile, descriptor_hash, usd_hash)
+    log_root = require_generation_output_path(
+        require_external_path(
+            args.log_root, REPOSITORY_ROOT, label="training log root", must_exist=False
+        ),
+        generation,
+        label="training log root",
+    )
+    log_root.mkdir(parents=True, exist_ok=True)
+    config_hash = training_config_hash(
+        config,
+        descriptor_hash,
+        usd_hash,
+        generation.manifest.manifest_hash,
+    )
     gpu = query_gpu(config.device)
     if gpu["memory_free_mib"] < profile.min_free_gpu_memory_mib:
         raise RuntimeError(
@@ -87,7 +104,11 @@ def main() -> None:
         resume = require_external_path(
             args.resume, REPOSITORY_ROOT, label="resume checkpoint"
         )
-        parent_manifest = validate_resume_checkpoint(resume, config_hash)
+        parent_manifest = validate_resume_checkpoint(
+            resume,
+            config_hash,
+            generation.manifest.generation_id,
+        )
         parent = {
             "checkpoint": str(resume),
             "checkpoint_sha256": sha256_file(resume),
@@ -106,6 +127,8 @@ def main() -> None:
         "schema": RUN_MANIFEST_SCHEMA,
         "status": "running",
         "run_id": run_id,
+        "training_generation_id": generation.manifest.generation_id,
+        "training_generation_manifest_hash": generation.manifest.manifest_hash,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "repository": repository_state(),
         "profile_path": str(args.profile.resolve()),

@@ -18,7 +18,9 @@ from next_lab.isaac_training import (
     IsaacTrainingProfile,
     ResolvedTrainingConfig,
     latest_closed_checkpoint,
+    load_active_training_generation,
     require_external_path,
+    sha256_file,
     validate_checkpoint_artifacts,
     validate_closed_checkpoint,
 )
@@ -29,6 +31,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--generation-index", type=Path, required=True)
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--descriptor", type=Path, required=True)
     parser.add_argument("--usd", type=Path, required=True)
@@ -49,6 +52,10 @@ def main() -> None:
     if not 0.0 < args.random_action_scale <= 1.0:
         raise ValueError("random-action-scale must be in (0, 1]")
 
+    generation_index = require_external_path(
+        args.generation_index, REPOSITORY_ROOT, label="active training generation"
+    )
+    generation = load_active_training_generation(generation_index)
     profile = IsaacTrainingProfile.load(args.profile.resolve())
     config = ResolvedTrainingConfig.from_profile(
         profile,
@@ -62,8 +69,9 @@ def main() -> None:
         args.descriptor, REPOSITORY_ROOT, label="engine descriptor"
     )
     usd = require_external_path(args.usd, REPOSITORY_ROOT, label="derived humanoid USD")
-    checkpoint = resolve_checkpoint(args)
-    parent = validate_closed_checkpoint(checkpoint)
+    generation.manifest.require_input(profile, sha256_file(descriptor), sha256_file(usd))
+    checkpoint = resolve_checkpoint(args, generation.manifest.generation_id)
+    parent = validate_closed_checkpoint(checkpoint, generation.manifest.generation_id)
     validate_checkpoint_artifacts(parent, profile, descriptor, usd)
 
     simulation_app = None
@@ -182,7 +190,7 @@ def main() -> None:
             simulation_app.close()
 
 
-def resolve_checkpoint(args: argparse.Namespace) -> Path:
+def resolve_checkpoint(args: argparse.Namespace, generation_id: str) -> Path:
     if args.checkpoint is not None:
         return require_external_path(
             args.checkpoint, REPOSITORY_ROOT, label="stability checkpoint"
@@ -192,7 +200,7 @@ def resolve_checkpoint(args: argparse.Namespace) -> Path:
     runs_root = require_external_path(
         args.runs_root, REPOSITORY_ROOT, label="training runs root"
     )
-    return latest_closed_checkpoint(runs_root)
+    return latest_closed_checkpoint(runs_root, generation_id)
 
 
 def require_finite(name: str, value: Any) -> None:

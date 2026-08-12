@@ -15,7 +15,9 @@ from isaaclab.app import AppLauncher
 from next_lab.isaac_training import (
     IsaacTrainingProfile,
     ResolvedTrainingConfig,
+    load_active_training_generation,
     require_external_path,
+    sha256_file,
 )
 
 
@@ -24,6 +26,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--generation-index", type=Path, required=True)
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--descriptor", type=Path, required=True)
     parser.add_argument("--usd", type=Path, required=True)
@@ -51,6 +54,10 @@ def main() -> None:
     ):
         if getattr(args, name) <= 0.0:
             raise ValueError(f"{name.replace('_', '-')} must be positive")
+    generation_index = require_external_path(
+        args.generation_index, REPOSITORY_ROOT, label="active training generation"
+    )
+    generation = load_active_training_generation(generation_index)
     profile = IsaacTrainingProfile.load(args.profile.resolve())
     config = ResolvedTrainingConfig.from_profile(
         profile,
@@ -64,6 +71,7 @@ def main() -> None:
         args.descriptor, REPOSITORY_ROOT, label="engine descriptor"
     )
     usd = require_external_path(args.usd, REPOSITORY_ROOT, label="derived humanoid USD")
+    generation.manifest.require_input(profile, sha256_file(descriptor), sha256_file(usd))
 
     simulation_app = None
     wrapped = None

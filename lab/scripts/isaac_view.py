@@ -18,7 +18,9 @@ from next_lab.isaac_training import (
     ResolvedTrainingConfig,
     closed_checkpoint_history,
     latest_closed_checkpoint,
+    load_active_training_generation,
     require_external_path,
+    sha256_file,
     validate_checkpoint_artifacts,
     validate_closed_checkpoint,
 )
@@ -32,6 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Open a continuously running 3D view of one trained humanoid policy."
     )
+    parser.add_argument("--generation-index", type=Path, required=True)
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--descriptor", type=Path, required=True)
     parser.add_argument("--usd", type=Path, required=True)
@@ -63,6 +66,10 @@ def main() -> None:
     if args.status_interval <= 0:
         raise ValueError("status-interval must be positive")
 
+    generation_index = require_external_path(
+        args.generation_index, REPOSITORY_ROOT, label="active training generation"
+    )
+    generation = load_active_training_generation(generation_index)
     profile = IsaacTrainingProfile.load(args.profile.resolve())
     seed = profile.evaluation["seeds"][0] if args.seed is None else args.seed
     config = ResolvedTrainingConfig.from_profile(
@@ -77,15 +84,18 @@ def main() -> None:
         args.descriptor, REPOSITORY_ROOT, label="engine descriptor"
     )
     usd = require_external_path(args.usd, REPOSITORY_ROOT, label="derived humanoid USD")
+    generation.manifest.require_input(profile, sha256_file(descriptor), sha256_file(usd))
     browser_assets = None
     if args.browser_assets is not None:
         browser_assets = require_external_path(
             args.browser_assets, REPOSITORY_ROOT, label="WebGL viewer assets"
         )
-    checkpoint = resolve_checkpoint(args)
-    parent = validate_closed_checkpoint(checkpoint)
+    checkpoint = resolve_checkpoint(args, generation.manifest.generation_id)
+    parent = validate_closed_checkpoint(checkpoint, generation.manifest.generation_id)
     validate_checkpoint_artifacts(parent, profile, descriptor, usd)
-    checkpoint_history = closed_checkpoint_history(checkpoint)
+    checkpoint_history = closed_checkpoint_history(
+        checkpoint, generation.manifest.generation_id
+    )
     checkpoint_by_name = {candidate.name: candidate for candidate in checkpoint_history}
 
     print(
@@ -242,7 +252,7 @@ def main() -> None:
             simulation_app.close()
 
 
-def resolve_checkpoint(args: argparse.Namespace) -> Path:
+def resolve_checkpoint(args: argparse.Namespace, generation_id: str) -> Path:
     if args.checkpoint is not None:
         return require_external_path(
             args.checkpoint, REPOSITORY_ROOT, label="viewer checkpoint"
@@ -252,7 +262,7 @@ def resolve_checkpoint(args: argparse.Namespace) -> Path:
     runs_root = require_external_path(
         args.runs_root, REPOSITORY_ROOT, label="training runs root"
     )
-    return latest_closed_checkpoint(runs_root)
+    return latest_closed_checkpoint(runs_root, generation_id)
 
 
 def browser_configuration(

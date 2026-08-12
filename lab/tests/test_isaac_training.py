@@ -6,14 +6,21 @@ import unittest
 from pathlib import Path
 
 from next_lab.isaac_training import (
+    ACTIVE_TRAINING_GENERATION_SCHEMA,
+    INCOMPATIBLE_TRAINING_GENERATION,
     RUN_MANIFEST_SCHEMA,
+    TRAINING_GENERATION_MANIFEST_SCHEMA,
+    TRAINING_GENERATION_NOT_ACTIVE,
     IsaacTrainingProfile,
     ResolvedTrainingConfig,
+    TrainingGenerationError,
     atomic_write_json,
     canonical_json_hash,
     closed_checkpoint_history,
     equal_episode_quota,
+    initialize_training_generation,
     latest_closed_checkpoint,
+    load_active_training_generation,
     parse_gpu_memory_csv,
     require_external_path,
     sha256_file,
@@ -67,12 +74,16 @@ class IsaacTrainingTests(unittest.TestCase):
         descriptor = "12" * 32
         usd = "34" * 32
         self.assertNotEqual(
-            training_config_hash(first, descriptor, usd),
-            training_config_hash(second, descriptor, usd),
+            training_config_hash(first, descriptor, usd, "78" * 32),
+            training_config_hash(second, descriptor, usd, "78" * 32),
         )
         self.assertNotEqual(
-            training_config_hash(first, descriptor, usd),
-            training_config_hash(first, descriptor, "56" * 32),
+            training_config_hash(first, descriptor, usd, "78" * 32),
+            training_config_hash(first, descriptor, "56" * 32, "78" * 32),
+        )
+        self.assertNotEqual(
+            training_config_hash(first, descriptor, usd, "78" * 32),
+            training_config_hash(first, descriptor, usd, "9a" * 32),
         )
 
     def test_repository_artifact_path_is_rejected(self) -> None:
@@ -93,6 +104,7 @@ class IsaacTrainingTests(unittest.TestCase):
             manifest = {
                 "schema": RUN_MANIFEST_SCHEMA,
                 "status": "completed",
+                "training_generation_id": "nextengine.training.generation.test.v1",
                 "training_config_hash": config_hash,
                 "checkpoints": [
                     {
@@ -104,13 +116,51 @@ class IsaacTrainingTests(unittest.TestCase):
             }
             atomic_write_json(run / "run-manifest.json", manifest)
             self.assertEqual(
-                validate_resume_checkpoint(checkpoint, config_hash)["status"],
+                validate_resume_checkpoint(
+                    checkpoint,
+                    config_hash,
+                    "nextengine.training.generation.test.v1",
+                )["status"],
                 "completed",
             )
             self.assertEqual(validate_closed_checkpoint(checkpoint)["status"], "completed")
             checkpoint.write_bytes(b"changed")
             with self.assertRaisesRegex(ValueError, "hash"):
-                validate_resume_checkpoint(checkpoint, config_hash)
+                validate_resume_checkpoint(
+                    checkpoint,
+                    config_hash,
+                    "nextengine.training.generation.test.v1",
+                )
+
+    def test_resume_rejects_legacy_or_other_generation_before_use(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary)
+            checkpoint = run / "model_1.pt"
+            checkpoint.write_bytes(b"checkpoint")
+            config_hash = canonical_json_hash({"config": "one"})
+            atomic_write_json(
+                run / "run-manifest.json",
+                {
+                    "schema": RUN_MANIFEST_SCHEMA,
+                    "status": "completed",
+                    "training_config_hash": config_hash,
+                    "checkpoints": [
+                        {
+                            "file": checkpoint.name,
+                            "bytes": checkpoint.stat().st_size,
+                            "sha256": sha256_file(checkpoint),
+                        }
+                    ],
+                },
+            )
+            with self.assertRaisesRegex(
+                TrainingGenerationError, INCOMPATIBLE_TRAINING_GENERATION
+            ):
+                validate_resume_checkpoint(
+                    checkpoint,
+                    config_hash,
+                    "nextengine.training.generation.new.v1",
+                )
 
     def test_latest_closed_checkpoint_ignores_running_and_corrupt_runs(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -232,6 +282,104 @@ class IsaacTrainingTests(unittest.TestCase):
                 "memory_free_mib": 8192,
             },
         )
+
+    def test_generation_index_is_hash_closed_and_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            profile = IsaacTrainingProfile.load(PROFILE)
+            descriptor_hash = "12" * 32
+            usd_hash = "34" * 32
+            manifest_path = root / "generations/new/generation-manifest.json"
+            manifest = {
+                "schema": TRAINING_GENERATION_MANIFEST_SCHEMA,
+                "schema_version": 1,
+                "status": "prepared",
+                "training_generation_id": "nextengine.training.generation.new.v1",
+                "candidate_id": "HumanoidFlatRecoveryCandidateV1",
+                "requirements_baseline_sha256": "56" * 32,
+                "retired_inventory_sha256": "78" * 32,
+                "admitted_inputs": [
+                    {
+                        "profile_id": profile.profile_id,
+                        "profile_hash": profile.profile_hash,
+                        "environment_profile_id": profile.environment_profile_id,
+                        "descriptor_sha256": descriptor_hash,
+                        "usd_sha256": usd_hash,
+                    }
+                ],
+            }
+            manifest["manifest_hash"] = canonical_json_hash(manifest)
+            atomic_write_json(manifest_path, manifest)
+            index = {
+                "schema": ACTIVE_TRAINING_GENERATION_SCHEMA,
+                "schema_version": 1,
+                "active_training_generation_id": manifest["training_generation_id"],
+                "generation_manifest": "generations/new/generation-manifest.json",
+                "generation_manifest_sha256": sha256_file(manifest_path),
+            }
+            index["index_hash"] = canonical_json_hash(index)
+            index_path = root / "active-generation.json"
+            atomic_write_json(index_path, index)
+            loaded = load_active_training_generation(index_path)
+            with self.assertRaisesRegex(
+                TrainingGenerationError, TRAINING_GENERATION_NOT_ACTIVE
+            ):
+                loaded.manifest.require_input(profile, descriptor_hash, usd_hash)
+
+            manifest["status"] = "active"
+            manifest.pop("manifest_hash")
+            manifest["manifest_hash"] = canonical_json_hash(manifest)
+            atomic_write_json(manifest_path, manifest)
+            index["generation_manifest_sha256"] = sha256_file(manifest_path)
+            index.pop("index_hash")
+            index["index_hash"] = canonical_json_hash(index)
+            atomic_write_json(index_path, index)
+            loaded = load_active_training_generation(index_path)
+            loaded.manifest.require_input(profile, descriptor_hash, usd_hash)
+            with self.assertRaisesRegex(
+                TrainingGenerationError, INCOMPATIBLE_TRAINING_GENERATION
+            ):
+                loaded.manifest.require_input(profile, descriptor_hash, "ab" * 32)
+
+            manifest_path.write_text("{}\n", encoding="utf-8")
+            with self.assertRaisesRegex(
+                TrainingGenerationError, INCOMPATIBLE_TRAINING_GENERATION
+            ):
+                load_active_training_generation(index_path)
+
+    def test_generation_initialization_inventories_without_deleting(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            store = Path(temporary) / "training-store"
+            old_runs = store / "runs/legacy"
+            old_evaluations = store / "evaluations/legacy"
+            old_runs.mkdir(parents=True)
+            old_evaluations.mkdir(parents=True)
+            (old_runs / "run-manifest.json").write_text("{}\n", encoding="utf-8")
+            (old_evaluations / "evaluation-manifest.json").write_text(
+                "{}\n", encoding="utf-8"
+            )
+            baseline = Path(temporary) / "requirements.md"
+            baseline.write_text("requirements\n", encoding="utf-8")
+            result = initialize_training_generation(
+                training_store=store,
+                repository_root=Path(__file__).parents[2],
+                generation_directory="humanoid-motor-rebuild-v1",
+                generation_id="nextengine.training.generation.humanoid-motor-rebuild.v1",
+                candidate_id="HumanoidFlatRecoveryCandidateV1",
+                requirements_baseline=baseline,
+                retired_generation_id="nextengine.training.generation.legacy-stage0.v1",
+                retired_roots=[old_runs, old_evaluations],
+            )
+            generation_root = Path(result["generation_root"])
+            self.assertEqual(
+                [path.name for path in generation_root.iterdir()],
+                ["generation-manifest.json"],
+            )
+            self.assertEqual(result["inventory_file_count"], "2")
+            self.assertTrue((old_runs / "run-manifest.json").is_file())
+            loaded = load_active_training_generation(Path(result["active_index"]))
+            self.assertEqual(loaded.manifest.status, "prepared")
+            self.assertEqual(loaded.manifest.admitted_inputs, ())
 
 
 if __name__ == "__main__":
