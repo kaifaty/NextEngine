@@ -29,7 +29,8 @@
     "iterations": 320,
     "minimum_free_gpu_memory_mib": 6144,
     "torch_deterministic_algorithms": true,
-    "cublas_workspace_config": ":4096:8"
+    "cublas_workspace_config": ":4096:8",
+    "reset_episode_sequence_before_training": true
   },
   "observation_adapter": {
     "kind": "fixed-semantic-scale-v1",
@@ -80,6 +81,8 @@
   },
   "evaluation": {
     "episodes": 256,
+    "num_envs": 64,
+    "episode_matrix": "fixed-vector-waves-v1",
     "deterministic": true,
     "candidate_selection": "final iteration only",
     "acceptance": "final reference-completion count and mean episode length must both exceed the initialized deterministic baseline over the same hash-derived phase matrix",

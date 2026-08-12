@@ -71,6 +71,13 @@ class ReferencePpoTests(unittest.TestCase):
         self.assertTrue(scope["phase_randomization"])
         self.assertEqual(scope["eligible_clip_ids"], ["cmu104-start-right"])
         self.assertEqual(scope["horizon_motor_ticks"], 11)
+        self.assertTrue(
+            profile.document["execution"]["reset_episode_sequence_before_training"]
+        )
+        self.assertEqual(
+            profile.document["evaluation"]["episode_matrix"],
+            "fixed-vector-waves-v1",
+        )
         self.assertEqual(
             profile.document["initialization"]["checkpoint_sha256"],
             "bda3df1d4770649e3f1cbf976997cb0d76a0a60ce88657f47c3e2a650e0a157b",
