@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | Draft requirements baseline; product assumptions require confirmation, все acceptance checks `NotRun` |
+| Статус | Draft requirements baseline; product decisions confirmed, все acceptance checks `NotRun` |
 | Дата | 2026-08-12 |
 | Candidate | `HumanoidFlatRecoveryCandidateV1` (planning identity, не public schema ID) |
 | Scope | Fixed-body flat-command locomotion, safe fall, recovery, get-up and command resume |
@@ -57,10 +57,12 @@ locomotion и recovery actors и детерминированный engine-owned
 
 ### 1.1. Граница утверждения
 
-Прохождение этого baseline разрешает только утверждение:
+Завершение этого baseline разрешает только утверждение:
 
-> fixed-body flat-command locomotion and recovery candidate passed its declared
-> held-out production-headless profile.
+> fixed-body flat-command locomotion and recovery candidate completed its
+> declared held-out production-headless profile; required functional,
+> interface and safety checks passed, while quality and runtime targets were
+> reported without admission thresholds.
 
 Оно **не** означает:
 
@@ -82,15 +84,16 @@ locomotion и recovery actors и детерминированный engine-owned
 | `DEC-HUM-01` | Confirmed 2026-08-12 | Первый результат — `Candidate`, а не `Supported` и не полный R5/MVP. |
 | `DEC-HUM-02` | Confirmed 2026-08-12 | Mandatory locomotion envelope — только forward + turn на flat floor; backward/strafe/terrain deferred. |
 | `DEC-HUM-03` | Confirmed 2026-08-12 | Multi-specialist bundle допустим; single distilled actor optional. |
-| `DEC-HUM-04` | Proposed | Side recovery обязателен; v1 может использовать admitted side-to-prone/supine transition перед get-up. |
+| `DEC-HUM-04` | Confirmed 2026-08-12 | Side recovery обязателен; v1 может использовать admitted side-to-prone/supine transition перед get-up. |
 | `DEC-HUM-05` | Confirmed by delegated selection 2026-08-12 | [Один gait-oriented young-adult male target](2026-08-12-humanoid-biomechanics-target.md): intended stature `1.700 m`, exact source-model mass `75.337 kg`; это не population percentile. |
-| `DEC-HUM-06` | Proposed | Числовые operating, quality и runtime budgets разделов 3 и 6 являются candidate pass/fail envelope, а не report-only targets. |
+| `DEC-HUM-06` | Confirmed 2026-08-12 | Operating envelope раздела 3 задаёт обязательное evaluation coverage. Числовые quality targets `REQ-HUM-Q-*`, clamp-incidence target `REQ-HUM-S-003` и runtime budgets `REQ-HUM-NF-003`, `REQ-HUM-NF-005`, `REQ-HUM-NF-009` имеют disposition `ReportOnly`: их обязательно измерять, но результат относительно target не даёт `Pass`/`Fail` и не блокирует candidate. |
 
 ## 3. Operating envelope
 
-Все числа этого раздела являются входом evaluation profile, а не curriculum
-подсказкой. Boundary values включены. Actor работает на `60 Hz`, physics/PD —
-на `240 Hz`.
+Все числа этого раздела являются входом обязательного evaluation coverage, а
+не quality admission threshold или curriculum подсказкой. Каждая declared
+cell должна быть выполнена и отражена в отчёте; boundary values включены.
+Actor работает на `60 Hz`, physics/PD — на `240 Hz`.
 
 ### 3.1. Среда и начальное состояние
 
@@ -103,7 +106,7 @@ locomotion и recovery actors и детерминированный engine-owned
 | External wind/drag | отсутствуют, кроме declared push cells |
 | Episode | `60 s` / `3 600` motor ticks, если scenario не имеет более короткого explicit completion |
 | Initial state | admitted idle/reference state, finite and penetration-free; evaluation reset не выбирается из training trajectory |
-| Randomization | exact held-out seeds and cell values frozen before acceptance run; unmanifested randomization запрещена |
+| Randomization | exact held-out seeds and cell values frozen before evaluation run; unmanifested randomization запрещена |
 
 Friction table задаёт evaluation coverage, но не public material contract. Exact
 PhysX material pairs/combine mode входят в environment manifest; изменение
@@ -235,6 +238,12 @@ output `TRAIN-1`; пока они отсутствуют, `REQ-HUM-BODY-*` и в
 | `REQ-HUM-F-009` | Exported bundle работать без trainer, optimizer, mutable weights, network or motion corpus. | Candidate rejected before activation. |
 | `REQ-HUM-F-010` | Save/load/replay сохранять complete authoritative action/route/policy state required by accepted contracts. | Reject learned route; retain compatible source/fallback. |
 
+`Pass` для `REQ-HUM-F-001..007` требует по одному заранее frozen canonical
+conformance scenario на каждую перечисленную функцию/class: ожидаемый route и
+terminal state должны быть достигнуты без fallback или safety failure. Это
+проверяет наличие функции, а не её статистическую надёжность. Completion rate,
+timing and tracking error на полном held-out envelope остаются `ReportOnly`.
+
 ### 5.1. Interface requirements
 
 - `REQ-HUM-I-001` — mandatory product command содержит только typed local
@@ -273,12 +282,14 @@ events. `StableLocomotion` использует те же orientation/height/saf
 
 ### 6.1. `MotorPerformanceEnvelope` candidate
 
-Каждое percentage/error требование применяется per required cell и aggregate
-по заранее frozen statistical protocol плана. Missing/crashed/timeout episode
-считается failure, а observed hard-safety event нельзя скрыть confidence
-interval.
+Все `REQ-HUM-Q-*` имеют disposition `ReportOnly`. Каждая метрика измеряется per
+required cell и aggregate по заранее frozen statistical protocol плана.
+Missing/crashed/timeout episode остаётся в отчёте как unsuccessful sample, а
+observed hard-safety event нельзя скрыть confidence interval. Достижение или
+недостижение reference target не даёт candidate `Pass`/`Fail`; оно служит
+сопоставимым quality evidence и входом для будущего пересмотра baseline.
 
-| ID | Метрика | Pass threshold |
+| ID | Метрика | Report-only reference target |
 |---|---|---|
 | `REQ-HUM-Q-001` | TRAIN-5 full-reference completion | `>= 95%` per held-out nominal-locomotion motion class |
 | `REQ-HUM-Q-002` | Normalized root/CoM position RMSE | `<= 0.05` of standing height |
@@ -294,40 +305,43 @@ interval.
 | `REQ-HUM-Q-012` | Recoverable pushes | `>= 95%` return to `StableCommandState` per direction/magnitude/command cell |
 | `REQ-HUM-Q-013` | Fallen resets | `>= 90%` reach `Stabilize` within `6.0 s` per prone/supine/left/right class |
 | `REQ-HUM-Q-014` | Command resume | `>= 90%` return to target band within `2.0 s` after `Stabilize` |
-| `REQ-HUM-Q-015` | Energy efficiency | steady-cell positive mechanical work per meter p95 `<= 115%` of passing TRAIN-5 teacher on matched reference cells |
+| `REQ-HUM-Q-015` | Energy efficiency | steady-cell positive mechanical work per meter p95 `<= 115%` of advancing TRAIN-5 teacher on matched reference cells |
 | `REQ-HUM-Q-016` | Reference-skill retention | no class exceeds its pre-registered non-inferiority margin after TRAIN-6/7/8/export |
 
 Contact impact, per-joint effort/velocity/power/energy and target slew are hard
-BodySchema/SafetyProfile bounds, not universal guessed numbers. `TRAIN-1/3`
-must publish exact per-contact/per-joint values before ML; acceptance requires
-zero violations and reports peak/p95 margin to every bound.
+BodySchema/SafetyProfile bounds, not quality targets. `TRAIN-1/3` must publish
+exact per-contact/per-joint values before ML; acceptance requires zero
+violations and reports peak/p95 margin to every bound.
 
 ### 6.2. Safety and correctness
 
-| ID | Требование |
-|---|---|
-| `REQ-HUM-S-001` | `0` NaN/Inf, hard ROM, effort, velocity, power/energy, target-rate or forbidden-impact violations in every gate run. |
-| `REQ-HUM-S-002` | Forbidden locomotion contact raw count exactly `0`; recovery hand/knee contact valid only in declared recovery phases. |
-| `REQ-HUM-S-003` | Mean joint-limit clamp incidence `< 0.1%` motor ticks in TRAIN-5 and final suite; every clamp remains reported, never reward-hidden. |
-| `REQ-HUM-S-004` | No root pose write, teleport, direct backend torque buffer, learned/adaptive PD gain or reward-based safety substitute. |
-| `REQ-HUM-S-005` | Route fault cannot publish partial action/state; fallback проходит тот же engine-owned action clamp. |
-| `REQ-HUM-S-006` | Recovery failure ends in declared safe ragdoll/safe-stop and never continues locomotion reference from the floor. |
+| ID | Disposition | Требование |
+|---|---|---|
+| `REQ-HUM-S-001` | Required | `0` NaN/Inf, hard ROM, effort, velocity, power/energy, target-rate or forbidden-impact violations in every gate run. |
+| `REQ-HUM-S-002` | Required | Forbidden locomotion contact raw count exactly `0`; recovery hand/knee contact valid only in declared recovery phases. |
+| `REQ-HUM-S-003` | ReportOnly | Mean joint-limit clamp incidence reference target `< 0.1%` motor ticks in TRAIN-5 and final suite; every clamp remains reported, never reward-hidden. Crossing this target does not waive `REQ-HUM-S-001` and does not admit or reject candidate. |
+| `REQ-HUM-S-004` | Required | No root pose write, teleport, direct backend torque buffer, learned/adaptive PD gain or reward-based safety substitute. |
+| `REQ-HUM-S-005` | Required | Route fault cannot publish partial action/state; fallback проходит тот же engine-owned action clamp. |
+| `REQ-HUM-S-006` | Required | Recovery failure ends in declared safe ragdoll/safe-stop and never continues locomotion reference from the floor. |
 
 ### 6.3. Determinism, portability and runtime budget
 
-| ID | Требование |
-|---|---|
-| `REQ-HUM-NF-001` | Body/environment/dataset/observation/action/state/safety/PD/model/evaluator identities and hashes are complete and immutable. |
-| `REQ-HUM-NF-002` | Canonical applied action and complete policy state are exact across trainer decode, exported evaluator, Windows and Linux supported runtimes. |
-| `REQ-HUM-NF-003` | CPU inference including deterministic route selection has p99 `<= 0.5 ms/avatar` or `<= 2.0 ms/batch-of-16`. |
-| `REQ-HUM-NF-004` | Every active actor is a fixed-shape standard-op graph with target size `1..3M` and hard maximum `3M` parameters; all model payloads in one bundle total `<= 64 MiB`. |
-| `REQ-HUM-NF-005` | Shared evaluator plus batch-of-16 scratch has resident-memory delta `<= 128 MiB`; per-avatar persistent policy state `<= 256 KiB`. |
-| `REQ-HUM-NF-006` | Actor tick performs no blocking I/O, allocation dependent on corpus size, network access or mutable-weight update. |
-| `REQ-HUM-NF-007` | Worker completion order, measured CPU load and wall time never choose authoritative action, route or fallback. |
-| `REQ-HUM-NF-008` | Published bundle has complete license/provenance/SBOM closure and no source-motion bytes. |
+| ID | Disposition | Требование |
+|---|---|---|
+| `REQ-HUM-NF-001` | Required | Body/environment/dataset/observation/action/state/safety/PD/model/evaluator identities and hashes are complete and immutable. |
+| `REQ-HUM-NF-002` | Required | Canonical applied action and complete policy state are exact across trainer decode, exported evaluator, Windows and Linux supported runtimes. |
+| `REQ-HUM-NF-003` | ReportOnly | CPU inference reference target: p99 `<= 0.5 ms/avatar` or `<= 2.0 ms/batch-of-16`, including deterministic route selection. |
+| `REQ-HUM-NF-004` | Required | Every active actor is a fixed-shape standard-op graph accepted by the declared evaluator/export profile; unsupported ops or data-dependent graph shape reject the bundle. |
+| `REQ-HUM-NF-005` | ReportOnly | Memory reference target: shared evaluator plus batch-of-16 scratch resident-memory delta `<= 128 MiB`; per-avatar persistent policy state `<= 256 KiB`. |
+| `REQ-HUM-NF-006` | Required | Actor tick performs no blocking I/O, allocation dependent on corpus size, network access or mutable-weight update. |
+| `REQ-HUM-NF-007` | Required | Worker completion order, measured CPU load and wall time never choose authoritative action, route or fallback. |
+| `REQ-HUM-NF-008` | Required | Published bundle has complete license/provenance/SBOM closure and no source-motion bytes. |
+| `REQ-HUM-NF-009` | ReportOnly | Model-size reference target: `1..3M` parameters per active actor, maximum `3M`; all model payloads in one bundle total `<= 64 MiB`. |
 
-If platform or performance check is unavailable, status remains `NotRun`; это
-не условный `Pass` и не разрешение публиковать candidate для этого target.
+Unavailable required platform/parity evidence remains `NotRun` and blocks
+publication for that target. Unavailable runtime measurement remains
+`ReportOnlyNotRun`: оно не превращается в threshold failure, но candidate не
+считается полностью оценённым до получения `ReportOnlyComplete`.
 
 ### 6.4. Visual quality
 
@@ -341,8 +355,8 @@ candidate, seeds and commands.
 | Major | repeated visible balance/contact/transition defect, materially asymmetric left/right behavior, implausible get-up or command resume | zero open |
 | Minor | presentation defect without physics/contact/safety or task impact | may remain only with defect ID, owner and explicit deferral |
 
-Numeric pass не отменяет Blocker/Major, а субъективное одобрение не отменяет
-metric/contact/safety failure.
+Report-only metric result не отменяет Blocker/Major, а субъективное одобрение
+не отменяет functional, interface, contact or safety failure.
 
 ## 7. Acceptance traceability
 
@@ -355,14 +369,16 @@ metric/contact/safety failure.
 | `REQ-HUM-F-005..007` | `TRAIN-7` | route replay, push/reset/resume matrix |
 | `REQ-HUM-F-008..010` | `TRAIN-9` | fault/fallback, export, save/load/replay and no-runtime-corpus evidence |
 | `REQ-HUM-I-*` | `TRAIN-3`, `TRAIN-6`, `TRAIN-9` | schema/profile validation, golden action/state corpus and runtime parity |
-| `REQ-HUM-Q-*` | `TRAIN-5..9` | pre-registered statistical report, all seeds/cells, no cherry-picking |
-| `REQ-HUM-S-*` | `TRAIN-3..9` | raw safety/contact events and exact failure reproducer |
-| `REQ-HUM-NF-*` | `TRAIN-9` | parity roots, Windows/Linux results, performance/memory and package audit |
+| `REQ-HUM-Q-*` | `TRAIN-5..9` | `ReportOnlyComplete` pre-registered statistical report, all seeds/cells, no cherry-picking |
+| `REQ-HUM-S-*` | `TRAIN-3..9` | required raw safety/contact checks; `REQ-HUM-S-003` report-only clamp incidence; exact failure reproducer |
+| `REQ-HUM-NF-*` | `TRAIN-9` | required parity/package evidence; report-only performance, model-size and memory measurements |
 | Visual quality | every owning gate | fixed playlist, defect ledger and final disposition |
 
-Every gate report lists applicable requirement IDs as `Pass`, `Fail`, `NotRun`
-or `NotApplicable(reason)`. `NotApplicable` is valid only outside the declared
-candidate scope; it cannot waive a mandatory threshold. A requirement change
+Every gate report lists a required requirement as `Pass`, `Fail`, `NotRun` or
+`NotApplicable(reason)`, and a report-only requirement as
+`ReportOnlyNotRun` or `ReportOnlyComplete`. A report-only target crossing never
+becomes `Pass`/`Fail`. `NotApplicable` is valid only outside the declared
+candidate scope and cannot waive a required requirement. A requirement change
 after dependent training begins creates a new baseline revision, evaluation
 manifest and affected candidate lineage.
 
@@ -373,8 +389,8 @@ target's source/license plan to be accepted. `ReadyForML` requires passing
 `TRAIN-1..4`; unresolved body, safety, contact, data-rights or split requirement
 blocks training.
 
-Candidate is done only when all mandatory `REQ-HUM-*` have `Pass`, required
-`TRAIN-0..7` and `TRAIN-9` pass, optional `TRAIN-8` passes or is explicitly
-skipped before export, Windows/Linux production-headless parity/performance are
-not `NotRun`, visual Blocker/Major count is zero, and the published claim stays
-inside section 1.1.
+Candidate is done only when all required `REQ-HUM-*` have `Pass`, all
+report-only requirements have `ReportOnlyComplete`, required `TRAIN-0..7` and
+`TRAIN-9` advance, optional `TRAIN-8` advances or is explicitly skipped before
+export, Windows/Linux production-headless parity is not `NotRun`, visual
+Blocker/Major count is zero, and the published claim stays inside section 1.1.

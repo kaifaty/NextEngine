@@ -61,11 +61,11 @@ robustness. Он больше не отвечает за одновременн�
 План считается завершённым после прохождения required `TRAIN-0..7` и
 `TRAIN-9`. Optional `TRAIN-8` либо проходит собственный gate, либо получает
 заранее зафиксированный disposition `Skipped(NotNeededForCandidate)` и
-`TRAIN-9` использует immutable passing candidate из `TRAIN-7`. Создание новой
+`TRAIN-9` использует immutable advancing candidate из `TRAIN-7`. Создание новой
 BodySchema, запуск trainer или наличие checkpoint сами по себе не закрывают ни
-одну стадию. Functional, quality, safety, portability and claim thresholds
-задаются связанным requirements baseline; этот документ не подменяет их
-описанием training steps.
+одну стадию. Functional, safety, portability and claim requirements, а также
+report-only quality/runtime targets задаются связанным requirements baseline;
+этот документ не подменяет их описанием training steps.
 
 ## Решение по старой линии
 
@@ -145,9 +145,11 @@ compatibility со старыми model artifacts.
 7. Любое изменение BodySchema, retarget profile, observation/action, reward,
    termination, seed derivation или dataset closure создаёт новый hash. Resume
    через несовместимую границу запрещён.
-8. Stage gate фиксируется до quality run. Нельзя менять threshold после
-   просмотра результата или выбирать лучший seed вместо полного набора.
-9. Visual review обязателен, но не заменяет numeric/contact/safety gates.
+8. Evaluation manifest фиксируется до quality run. Нельзя менять reference
+   target после просмотра результата или выбирать лучший seed вместо полного
+   набора.
+9. Visual review обязателен, но не заменяет functional/contact/safety gates;
+   numeric quality/runtime targets остаются `ReportOnly`.
 10. Failed run сохраняет bounded manifest, metrics и минимальный reproducer;
     тяжёлые checkpoint/log/capture payloads после triage удаляются.
 
@@ -221,22 +223,30 @@ repository. Bounded generated golden vectors разрешены только к�
 ```text
 Implementation: NotStarted | InProgress | Complete
 ExactChecks:    NotRun | Pass | Fail
-QualityChecks:  NotRun | Pass | Fail
+MetricReports:  NotRun | ReportOnlyComplete | NotApplicable
 VisualReview:   NotRun | Pass | Fail | NotApplicable
 ```
 
-Кроме них gate имеет requirement disposition:
+`ExactChecks` покрывает required functional, interface, safety, determinism,
+provenance and portability requirements. `MetricReports` означает полноту
+заранее объявленных quality/runtime измерений; достижение reference target не
+даёт `Pass`, а недостижение не даёт `Fail` и само по себе не запрещает
+`Advance`.
+
+Кроме них gate имеет stage и requirement dispositions:
 
 ```text
-Requirement: Required | OptionalSelected | Skipped(NotNeededForCandidate)
+StageDisposition:       Required | OptionalSelected | Skipped(NotNeededForCandidate)
+RequirementDisposition: RequiredCheck | ReportOnly
 ```
 
-`Skipped` допустим только для `TRAIN-8`, фиксируется после passing `TRAIN-7`
+`Skipped` допустим только для `TRAIN-8`, фиксируется после `Advance` в
+`TRAIN-7`
 до начала `TRAIN-9` и указывает точный `TRAIN-7` candidate. Он не означает
 `Pass` и не может скрывать начатый или провалившийся prior/distillation run.
 
 Следующая стадия может начаться только при `Implementation=Complete`,
-`ExactChecks=Pass`, required `QualityChecks=Pass` и required
+`ExactChecks=Pass`, applicable `MetricReports=ReportOnlyComplete` и required
 `VisualReview=Pass`. Git commit является checkpoint кода, а не gate result.
 
 Каждый gate report содержит:
@@ -246,15 +256,16 @@ Requirement: Required | OptionalSelected | Skipped(NotNeededForCandidate)
   `REQ-HUM-*`;
 - BodySchema/compiled descriptor/environment/dataset/config hashes;
 - exact commands, seed set и episode counts;
-- passed/failed/not-run checks;
+- passed/failed/not-run required checks and complete/not-run report-only
+  measurements;
 - primary и safety metrics без отбрасывания run/seed;
 - stable first failure и минимальный reproducer;
 - ссылки только на существующие external artifacts;
 - решение `Advance`, `FixInStage`, `InvalidateDownstream` или `StopLane`.
 
-## Statistical acceptance protocol
+## Statistical evaluation protocol
 
-До первого acceptance run для `TRAIN-5..9` immutable evaluation manifest
+До первого evaluation run для `TRAIN-5..9` immutable evaluation manifest
 обязан зафиксировать:
 
 - candidate-selection rule и evaluation mode; production motor использует
@@ -263,8 +274,9 @@ Requirement: Required | OptionalSelected | Skipped(NotNeededForCandidate)
   matrix cells;
 - минимум training seeds, episodes per seed/cell and total sample budget,
   выбранные pilot variance/power analysis, а не после просмотра результата;
-- estimator, confidence level/interval and rule, по которому percentage,
-  error and non-inferiority thresholds дают `Pass`;
+- estimator, confidence level/interval and interpretation rule for percentage,
+  error and non-inferiority reference targets; они не дают candidate
+  `Pass`/`Fail`;
 - baseline candidate/hash, practical non-inferiority margin and effect-size
   report для сравнений;
 - обработку timeout/truncation, missing/crashed seed and partial episode как
@@ -287,11 +299,11 @@ count: confidence interval не превращает наблюдаемое на
 | `TRAIN-2` | BodySchema компилируется в корректную PhysX articulation | нет |
 | `TRAIN-3` | safety/contact/terminal semantics работают без ML | нет |
 | `TRAIN-4` | motion corpus лицензирован, retargeted и физически валиден | tracker only |
-| `TRAIN-5` | specialist reference tracker проходит held-out clips | command fine-tuning |
-| `TRAIN-6` | start/stop/velocity/facing locomotion проходит gates | perturbation/recovery |
-| `TRAIN-7` | brace/fall/get-up/resume route проходит gates | motion prior/multi-skill |
-| `TRAIN-8` | optional prior/distilled actor не ухудшает базовые skills либо stage заранее skipped | export; при skip используется TRAIN-7 candidate |
-| `TRAIN-9` | portable candidate bundle совпадает с runtime и проходит headless suite | candidate publication |
+| `TRAIN-5` | specialist tracker проходит required checks и завершает held-out metric report | command fine-tuning |
+| `TRAIN-6` | start/stop/velocity/facing проходят required checks; quality matrix полностью reported | perturbation/recovery |
+| `TRAIN-7` | mandatory side-inclusive recovery route проходит required checks; quality matrix полностью reported | motion prior/multi-skill |
+| `TRAIN-8` | optional prior/distilled actor проходит required checks и завершает retention report либо stage заранее skipped | export; при skip используется TRAIN-7 candidate |
+| `TRAIN-9` | portable candidate совпадает с runtime, проходит required checks и завершает headless reports | candidate publication |
 
 ## TRAIN-0 — retirement/isolation старого эксперимента и чистая generation
 
@@ -724,23 +736,31 @@ Every component cites engine facts and is manifest/hash bound. Tracking weights
 are fixed before the run; a visual symptom is not patched by an unrecorded
 Python coefficient.
 
-### Preliminary quality gate
+### Preliminary quality evaluation
 
 On disjoint held-out phases and held-out clips of every admitted nominal
-locomotion class, under the common statistical acceptance protocol:
+locomotion class, under the common statistical protocol, report against these
+reference targets:
 
 - full-reference completion at least 95%;
-- forbidden locomotion contact rate exactly 0;
 - mean joint-limit clamp incidence below 0.1% of motor ticks;
-- root/CoM and mean per-joint position errors reported with a locked threshold
-  chosen in the pre-run evaluation manifest;
+- root/CoM and mean per-joint position errors within the locked reference
+  targets from the requirements baseline;
 - sole contact precision and recall each at least 0.90;
+
+`MetricReports=ReportOnlyComplete` requires every declared clip/seed and metric,
+including unsuccessful samples, to be present. Target misses are retained in
+the report but do not block the next stage. Independently, required checks must
+show:
+
+- forbidden locomotion contact raw count exactly 0;
 - no NaN/Inf and no safety violation;
 - visual review accepts posture, spine direction, knee/elbow motion, foot
   planting and absence of skating/propping.
 
-The exact pose-error thresholds are frozen from retarget resolution and body
-scale before the first acceptance run, not selected after it.
+The reference targets are frozen before the first evaluation run, not selected
+after it. This stage cannot claim that the tracker "passed quality"; it can
+claim only that the quality evaluation is complete.
 
 ### Failure/rollback
 
@@ -753,7 +773,7 @@ Failure is classified before another run:
 - `Mirror` — CPU/Isaac divergence; stop GPU training until correspondence;
 - `Optimization` — architecture/reward/curriculum issue; change one declared
   hypothesis and start a new run ID;
-- `VisualOnly` — numeric gates pass but motion is unacceptable; stage remains
+- `VisualOnly` — metric report is complete but motion is unacceptable; stage remains
   failed and adds a measurable diagnostic before rerun.
 
 Failed payloads are removed after the failure manifest and reproducer are
@@ -825,30 +845,38 @@ joint/action clamp incidence and visual result.
 
 ### Exit criteria
 
-Все percentage/error/retention claims применяются per cell and aggregate under
-the common statistical acceptance protocol; exact episode counts and
-confidence/non-inferiority rule фиксируются до acceptance run.
+Все percentage/error/retention metrics применяются per cell and aggregate under
+the common statistical protocol; exact episode counts and
+confidence/non-inferiority interpretation фиксируются до evaluation run.
+Следующие значения — report-only reference targets:
 
 - every required matrix cell completes at least 95% of held-out episodes;
 - aggregate flat fall rate is at most 1%;
-- forbidden locomotion contact rate exactly 0;
 - velocity RMSE at most `0.20 m/s` after the declared transition window;
 - median absolute facing error at most `7°`;
 - idle/start/walk/stop tracker retention does not regress beyond the
   pre-registered non-inferiority margin;
+
+`MetricReports=ReportOnlyComplete` требует полный отчёт по каждой required
+cell, включая start latency, stop settling/overshoot, slip, energy and
+facing-tail из `REQ-HUM-Q-008..011` и `REQ-HUM-Q-015`; значения не определяют
+`Advance`. Required exit conditions:
+
+- every declared cell and left/right lead/transition class is executed with
+  the pre-registered episode count;
+- frozen canonical conformance scenarios for every function in
+  `REQ-HUM-F-001..004` reach their declared route/terminal state;
+- forbidden locomotion contact raw count exactly 0;
 - no command change causes action target or actuator safety violation;
 - visual review accepts both left/right leads and every transition class.
 
-Start latency, stop settling/overshoot, slip, energy and facing-tail results
-must satisfy `REQ-HUM-Q-008..011` and `REQ-HUM-Q-015`, not merely be reported.
-
 ### Failure/rollback
 
-If steady tracking passes but start fails, add/fix start references and stage
-selection; do not weaken fall/contact termination. If policy fine-tuning
-regresses tracker retention, restore the passing `TRAIN-5` teacher and retrain
-the command layer with a new run/config. The old pure-PPO model is never a
-rollback target.
+If the required start-route check fails while the steady route works, add/fix
+start references and stage selection; do not weaken fall/contact termination.
+A report-only retention miss may motivate another command-layer run, but does
+not roll back an otherwise advancing candidate. The old pure-PPO model is never
+a rollback target.
 
 ### Commit boundaries
 
@@ -897,23 +925,34 @@ expanded only after nominal get-up passes. It is fully manifest-bound.
 
 ### Exit criteria
 
-Percentage and time-bound claims проходят общий statistical acceptance
-protocol по каждой reset/push class и aggregate; evaluation seeds не
-используются для curriculum or candidate selection.
+Percentage and time-bound metrics проходят общий statistical protocol по
+каждой reset/push class и aggregate; evaluation seeds не используются для
+curriculum or candidate selection. Следующие значения — report-only reference
+targets:
 
 - at least 95% of declared recoverable pushes return to stable locomotion
   without forbidden locomotion contact after recovery handoff;
 - at least 90% of held-out prone/supine/side resets reach `Stabilize` within
   `6.0 s`;
 - at least 90% resume the prior bounded command after get-up;
+
+`MetricReports=ReportOnlyComplete` требует результаты для всех push cells и
+четырёх reset classes. Target miss сохраняется в отчёте и не блокирует
+`Advance`. Required exit conditions:
+
+- every prone, supine, left-side and right-side reset class executes the
+  declared route; side recovery may transition through admitted prone/supine
+  state but may not be skipped or marked `NotApplicable`;
+- frozen canonical conformance scenarios for every function in
+  `REQ-HUM-F-005..007` reach their declared route/terminal state;
 - no recovery pose exceeds hard ROM/effort/velocity/contact-impact bounds;
 - locomotion never silently reclassifies sustained hand/knee support as success;
 - route/contact/action/state roots replay exactly;
 - visual review accepts brace direction, limb motion, get-up posture and
   transition back to walking.
 
-The declared bounds are `6.0 s` to `Stabilize` and `2.0 s` from `Stabilize` to
-the resumed command band, per `REQ-HUM-Q-013..014`.
+The report-only reference bounds are `6.0 s` to `Stabilize` and `2.0 s` from
+`Stabilize` to the resumed command band, per `REQ-HUM-Q-013..014`.
 
 ### Failure/rollback
 
@@ -931,13 +970,13 @@ handoff is fixed.
 ## TRAIN-8 — optional motion prior and specialist distillation
 
 This stage is optional for the first useful locomotion candidate. It begins
-only after `TRAIN-5..7` pass without a prior.
+only after `TRAIN-5..7` advance without a prior.
 
 До первого TRAIN-8 experiment принимается одно из двух immutable решений:
 
 - `OptionalSelected`: фиксируются hypothesis, baseline, budget and retention
   protocol, после чего failure нельзя переименовать в skip;
-- `Skipped(NotNeededForCandidate)`: passing TRAIN-7 candidate напрямую идёт в
+- `Skipped(NotNeededForCandidate)`: advancing TRAIN-7 candidate напрямую идёт в
   TRAIN-9, а prior/distillation не входит в candidate lineage.
 
 Candidate work:
@@ -952,16 +991,23 @@ Candidate work:
 
 ### Exit criteria
 
-- every `TRAIN-5..7` primary/safety threshold remains non-inferior;
-- visual motion quality improves under a predeclared metric/review protocol;
+- every `TRAIN-5..7` quality/retention metric is re-run and reported against
+  its pre-registered reference target;
+- visual review passes under a predeclared playlist and defect protocol;
 - no new hidden state, runtime motion-data dependency or unsupported export op;
-- student action/state/runtime cost fits the declared profile;
+- student action/state remains exact and runtime cost is completely reported;
 - all dataset, teacher and child lineage is exact and license-compatible.
+
+Quality, retention and runtime target misses do not by themselves fail this
+optional stage. If it advances, the choice of distilled or specialist route
+must follow a selection rule frozen before evaluation and cannot be based on
+post-hoc target crossing.
 
 ### Failure/rollback
 
-Reject and delete the prior/student payload. Retain the passing specialist
-candidate from `TRAIN-7`; do not lower safety or retention thresholds to admit
+Reject and delete the prior/student payload after a required-check or visual
+failure. Retain the advancing specialist candidate from `TRAIN-7`; do not
+rewrite reference targets or the predeclared route-selection rule to admit
 distillation.
 
 ### Commit boundaries
@@ -986,19 +1032,25 @@ distillation.
 6. Activate only through a new immutable candidate bundle and explicit project
    lock in a new session.
 
-### Final quality/safety gate
+### Final required gate and report-only evaluation
 
-- flat locomotion survival at least 99% over the declared held-out suite;
-- velocity RMSE at most `0.20 m/s` and facing error at most `7°`;
-- all `TRAIN-5..7` contact, transition, fall/get-up and retention thresholds
-  pass on the portable candidate routes;
+Report-only evidence on the portable candidate includes flat locomotion
+survival against `99%`, velocity RMSE against `0.20 m/s`, facing error against
+`7°`, all other `TRAIN-5..8` quality/retention targets, and declared inference
+latency/model-size/memory budgets. Every cell/seed/result must be present, but
+target crossing does not admit or reject the candidate.
+
+Required checks are:
+
+- all declared locomotion, transition, push and four fallen-reset classes are
+  executed in the production-headless suite;
+- forbidden contact and hard-safety violations are exactly zero;
 - canonical applied action and complete policy state are exact across trainer
   decode, exported evaluator and supported runtime targets;
 - no NaN/Inf, safety violation, hidden evaluator state or runtime motion-corpus
   dependency;
 - procedural/animation/ragdoll fallback activates under every declared model,
   schema, state and evaluator fault;
-- inference latency/memory stay within the declared motor profile;
 - final human visual review passes a fixed seed/command/perturbation playlist.
 
 Final publication claim is limited to section 1.1 of the requirements
@@ -1008,10 +1060,11 @@ same final suite; exactly one route supplies the complete action on each tick.
 
 ### Failure/rollback
 
-Export/parity failure rejects exported bytes and retains only the passing
-external trainer candidate long enough to diagnose/re-export. Runtime quality
-failure returns to the owning stage. No partial project-lock activation or
-active-session hot swap is allowed.
+Export/parity, required safety/contract or visual failure rejects exported
+bytes and retains only the advancing external trainer candidate long enough to
+diagnose/re-export. A quality/runtime target miss is recorded and may motivate
+a later candidate, but does not roll back this one. No partial project-lock
+activation or active-session hot swap is allowed.
 
 ### Commit boundaries
 
@@ -1073,11 +1126,15 @@ report every applicable check honestly:
 | Physics/contact/safety/replay | `fast`, `play`, `persistence-replay`, `PHYS-COLLISION-P1`, `PHYS-SNAPSHOT-P1`, `MOTOR-SAFETY-P1`, `MOTOR-STATE-P1` |
 | Animation/retarget/reference | `fast`, `play`, `content-package`, `ANIM-RETARGET-P1`, future `ANIM-HYBRID-P1` consumer gate |
 | Training environment/mirror | `host-check`, `MODEL-DATAPLANE-P1`, `MODEL-MIRROR-P1` plus focused correspondence |
-| Learned actor | future `MOTOR-HUMANOID-MVP-P1`, `MODEL-STATISTICS-P1`, retention/recovery checks |
-| Export/runtime | `MODEL-EXPORT-P1`, `POLICY-01`, future `MOTOR-REPLAY-P1`, `play`, `persistence-replay`, conditional `platform`/`performance` |
+| Learned actor | `MODEL-STATISTICS-P1`, retention/recovery checks; future `MOTOR-HUMANOID-MVP-P1` only when claiming that broader profile |
+| Export/runtime | `MODEL-EXPORT-P1`, `POLICY-01`, future `MOTOR-REPLAY-P1`, `play`, `persistence-replay`, conditional `platform`; `performance` is recorded as report-only evidence for this candidate |
 
 Future checks remain `NotRun(NoProductionConsumer)` until their consumer and
-exact profile exist; this plan does not declare them passed.
+exact profile exist; this plan does not declare them passed. A future
+ProductCheck with mandatory quality/runtime thresholds is not weakened by this
+candidate baseline: missing its thresholds only prevents the corresponding
+broader ProductCheck/profile claim, not the narrower claim in requirements
+section 1.1.
 
 ## Visual acceptance playlist
 
@@ -1110,7 +1167,7 @@ gate passes.
 
 The first executable increment after this plan is `TRAIN-0`, then `TRAIN-1`.
 No new PPO run is authorized before `TRAIN-4` passes. No command locomotion run
-is authorized before the reference tracker passes `TRAIN-5`.
+is authorized before `TRAIN-5` advances.
 
 Roadmap status changes only after material implementation/check results. This
 planning document alone does not close R5, B-08, B-12, Stage 0, GPU
@@ -1124,15 +1181,19 @@ The rebuilt process is complete when:
    closure, while retained historical evidence is inventoried and hash-bound;
 2. the new BodySchema passes anatomy/compiler/contact/safety gates without ML;
 3. an admitted reproducible motion corpus drives deterministic retargeting;
-4. specialist tracking, command locomotion and recovery each pass independent
-   held-out, safety and visual gates;
-5. optional prior/distillation, if selected, passes full retention; otherwise
-   TRAIN-8 records `Skipped(NotNeededForCandidate)` before TRAIN-9;
+4. specialist tracking, command locomotion and mandatory side-inclusive
+   recovery each pass independent required safety/contract and visual gates,
+   with complete held-out metric reports;
+5. optional prior/distillation, if selected, passes required checks and
+   completes its retention report; otherwise TRAIN-8 records
+   `Skipped(NotNeededForCandidate)` before TRAIN-9;
 6. the portable immutable candidate bundle reproduces canonical actions/state
-   and final quality in production `headless` on Windows and Linux;
+   in production `headless` on Windows and Linux and has complete report-only
+   quality/runtime measurements;
 7. every failure has a bounded reproducer/decision and no heavy failed payload
    remains without an explicit temporary reason;
 8. runtime retains a declared procedural/animation/ragdoll fallback and never
    depends on trainer, dataset or mutable weights;
-9. every mandatory requirement in the linked baseline has an evidence-backed
-   `Pass`, and publication makes no terrain/R5/`Supported` claim.
+9. every required requirement in the linked baseline has an evidence-backed
+   `Pass`, every report-only requirement has `ReportOnlyComplete`, and
+   publication makes no quality-threshold, terrain/R5 or `Supported` claim.
