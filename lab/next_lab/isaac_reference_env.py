@@ -141,6 +141,23 @@ def _select_curriculum_episode(
     return clip_index, start_frame, start_frame + horizon_motor_ticks
 
 
+def _advance_contact_grace(
+    previous_substeps: torch.Tensor,
+    raw_contact: torch.Tensor,
+    *,
+    physics_substeps_per_motor_tick: int,
+    grace_physics_substeps: int,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    if physics_substeps_per_motor_tick <= 0 or grace_physics_substeps < 0:
+        raise ValueError("invalid forbidden-contact grace cadence")
+    accumulated = torch.where(
+        raw_contact,
+        previous_substeps + physics_substeps_per_motor_tick,
+        torch.zeros_like(previous_substeps),
+    )
+    return accumulated, raw_contact & (accumulated > grace_physics_substeps)
+
+
 if ISAAC_LAB_AVAILABLE:
 
     @configclass
@@ -254,6 +271,13 @@ if ISAAC_LAB_AVAILABLE:
                 dtype=torch.int64,
             )
             self._tracking_loss_ticks = torch.zeros(cfg.scene.num_envs, dtype=torch.int64)
+            self._forbidden_contact_substeps = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.int64
+            )
+            self._forbidden_contact_grace_substeps = int(
+                self.reference_profile.document["termination"]
+                ["forbidden_contact_grace_physics_substeps"]
+            )
             self._failure_terminal = torch.zeros(cfg.scene.num_envs, dtype=torch.bool)
             self._success_terminal = torch.zeros(cfg.scene.num_envs, dtype=torch.bool)
             self.last_step_failure = torch.zeros(cfg.scene.num_envs, dtype=torch.bool)
@@ -291,6 +315,7 @@ if ISAAC_LAB_AVAILABLE:
                 "_clip_index",
                 "_terminal_frame",
                 "_tracking_loss_ticks",
+                "_forbidden_contact_substeps",
                 "_failure_terminal",
                 "_success_terminal",
                 "last_step_failure",
@@ -782,7 +807,16 @@ if ISAAC_LAB_AVAILABLE:
                 ),
                 dim=-1,
             )
-            forbidden_contact = torch.any(current["contacts"][:, 2:] != 0, dim=-1)
+            forbidden_contact_raw = torch.any(
+                current["contacts"][:, 2:] != 0, dim=-1
+            )
+            forbidden_contact_substeps, forbidden_contact = _advance_contact_grace(
+                self._forbidden_contact_substeps,
+                forbidden_contact_raw,
+                physics_substeps_per_motor_tick=self.cfg.decimation,
+                grace_physics_substeps=self._forbidden_contact_grace_substeps,
+            )
+            self._forbidden_contact_substeps.copy_(forbidden_contact_substeps)
             non_finite = ~torch.isfinite(self.robot.data.root_state_w).all(dim=-1) | ~torch.isfinite(
                 self.robot.data.joint_pos
             ).all(dim=-1)
@@ -1084,6 +1118,7 @@ if ISAAC_LAB_AVAILABLE:
             self._applied_effort[env_ids] = 0.0
             self._cursor[env_ids] = frame
             self._tracking_loss_ticks[env_ids] = 0
+            self._forbidden_contact_substeps[env_ids] = 0
             self._failure_terminal[env_ids] = False
             self._success_terminal[env_ids] = False
             self._episode_reward_sum[env_ids] = 0.0

@@ -9,6 +9,7 @@ from next_lab.isaac_env import (
     engine_vector_from_isaac_tensor,
 )
 from next_lab.isaac_reference_env import (
+    _advance_contact_grace,
     _engine_to_isaac_vector,
     _engine_xyzw_to_isaac_wxyz,
     _quaternion_conjugate_xyzw,
@@ -83,6 +84,28 @@ class IsaacReferenceEnvironmentTests(unittest.TestCase):
             self.assertGreaterEqual(start_frame, 0)
             self.assertEqual(terminal_frame - start_frame, 32)
             self.assertLess(terminal_frame, (90, 120, 180)[clip_index])
+
+    def test_forbidden_contact_grace_expires_after_declared_physics_substeps(
+        self,
+    ) -> None:
+        accumulated = torch.zeros(3, dtype=torch.int64)
+        raw = torch.tensor([True, False, True])
+        accumulated, terminal = _advance_contact_grace(
+            accumulated,
+            raw,
+            physics_substeps_per_motor_tick=4,
+            grace_physics_substeps=4,
+        )
+        torch.testing.assert_close(accumulated, torch.tensor([4, 0, 4]))
+        self.assertFalse(torch.any(terminal))
+        accumulated, terminal = _advance_contact_grace(
+            accumulated,
+            torch.tensor([True, True, False]),
+            physics_substeps_per_motor_tick=4,
+            grace_physics_substeps=4,
+        )
+        torch.testing.assert_close(accumulated, torch.tensor([8, 4, 0]))
+        torch.testing.assert_close(terminal, torch.tensor([True, False, False]))
 
 
 if __name__ == "__main__":
