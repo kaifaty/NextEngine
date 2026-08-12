@@ -41,6 +41,9 @@ except ImportError:
 
 
 Q1_30 = 1 << 30
+OBSERVED_HARD_ROM_TOLERANCE_MICRORADIANS = 10
+PHYSICS_SUBSTEPS_PER_SECOND = 240
+MICRO_SCALE = 1_000_000
 
 
 def _prim(identifier: str) -> str:
@@ -188,6 +191,113 @@ def _soft_rom_excursion_cost_tensor(
     )
 
 
+def _canonical_pd_requested_effort_tensor(
+    target_microradians: torch.Tensor,
+    position_microradians: torch.Tensor,
+    velocity_microradians_per_second: torch.Tensor,
+    stiffness_q16: torch.Tensor,
+    damping_q16: torch.Tensor,
+) -> torch.Tensor:
+    proportional = torch.round(
+        stiffness_q16
+        * (target_microradians - position_microradians)
+        / 65_536.0
+    )
+    damping = torch.round(
+        damping_q16 * velocity_microradians_per_second / 65_536.0
+    )
+    return proportional - damping
+
+
+def _intersect_effort_limits_tensor(
+    requested_effort_micronewton_metres: torch.Tensor,
+    previous_effort_micronewton_metres: torch.Tensor,
+    velocity_microradians_per_second: torch.Tensor,
+    used_positive_work_microjoules: torch.Tensor,
+    minimum_effort_micronewton_metres: torch.Tensor,
+    maximum_effort_micronewton_metres: torch.Tensor,
+    maximum_effort_rate_micronewton_metres_per_second: torch.Tensor,
+    maximum_power_microwatts: torch.Tensor,
+    maximum_positive_work_microjoules_per_motor_tick: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    values = (
+        requested_effort_micronewton_metres,
+        previous_effort_micronewton_metres,
+        velocity_microradians_per_second,
+        used_positive_work_microjoules,
+        minimum_effort_micronewton_metres,
+        maximum_effort_micronewton_metres,
+        maximum_effort_rate_micronewton_metres_per_second,
+        maximum_power_microwatts,
+        maximum_positive_work_microjoules_per_motor_tick,
+    )
+    if any(value.dtype != torch.float64 for value in values):
+        raise ValueError("canonical effort intersection requires float64 tensors")
+    velocity_abs = torch.abs(velocity_microradians_per_second)
+    nonzero_velocity = velocity_abs > 0.0
+    unlimited = torch.full_like(velocity_abs, torch.inf)
+    maximum_delta = torch.round(
+        maximum_effort_rate_micronewton_metres_per_second
+        / PHYSICS_SUBSTEPS_PER_SECOND
+    )
+    rate_minimum = previous_effort_micronewton_metres - maximum_delta
+    rate_maximum = previous_effort_micronewton_metres + maximum_delta
+    power_maximum = torch.where(
+        nonzero_velocity,
+        torch.floor(
+            maximum_power_microwatts * MICRO_SCALE
+            / torch.clamp(velocity_abs, min=1.0)
+        ),
+        unlimited,
+    )
+    remaining_work = (
+        maximum_positive_work_microjoules_per_motor_tick
+        - used_positive_work_microjoules
+    )
+    work_maximum = torch.where(
+        nonzero_velocity,
+        torch.floor(
+            remaining_work
+            * PHYSICS_SUBSTEPS_PER_SECOND
+            * MICRO_SCALE
+            / torch.clamp(velocity_abs, min=1.0)
+        ),
+        unlimited,
+    )
+    minimum = torch.maximum(
+        torch.maximum(minimum_effort_micronewton_metres, rate_minimum),
+        -power_maximum,
+    )
+    maximum = torch.minimum(
+        torch.minimum(maximum_effort_micronewton_metres, rate_maximum),
+        power_maximum,
+    )
+    maximum = torch.where(
+        velocity_microradians_per_second > 0.0,
+        torch.minimum(maximum, work_maximum),
+        maximum,
+    )
+    minimum = torch.where(
+        velocity_microradians_per_second < 0.0,
+        torch.maximum(minimum, -work_maximum),
+        minimum,
+    )
+    infeasible = (remaining_work < 0.0) | (minimum > maximum)
+    effort = torch.minimum(
+        torch.maximum(requested_effort_micronewton_metres, minimum), maximum
+    )
+    positive_power = torch.clamp(
+        effort * velocity_microradians_per_second, min=0.0
+    )
+    charge = torch.ceil(
+        positive_power
+        / (PHYSICS_SUBSTEPS_PER_SECOND * MICRO_SCALE)
+    )
+    next_work = used_positive_work_microjoules + charge
+    infeasible |= next_work > maximum_positive_work_microjoules_per_motor_tick
+    return effort, next_work, infeasible
+
+
 if ISAAC_LAB_AVAILABLE:
 
     @configclass
@@ -289,8 +399,29 @@ if ISAAC_LAB_AVAILABLE:
             self._action = torch.zeros((cfg.scene.num_envs, ACTION_CHANNELS))
             self._applied_target = torch.zeros_like(self._action)
             self._previous_applied_target = torch.zeros_like(self._action)
-            self._previous_effort = torch.zeros_like(self._action)
-            self._applied_effort = torch.zeros_like(self._action)
+            self._previous_effort = torch.zeros(
+                (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.float64
+            )
+            self._applied_effort = torch.zeros_like(self._previous_effort)
+            self._positive_work = torch.zeros_like(self._previous_effort)
+            self._substep_hard_rom_violation = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.bool
+            )
+            self._substep_joint_safety_violation = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.bool
+            )
+            self._substep_velocity_violation = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.bool
+            )
+            self._substep_effort_envelope_violation = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.bool
+            )
+            self._substep_hard_rom_excess_by_action_channel = torch.zeros(
+                (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.float64
+            )
+            self._substep_velocity_excess_by_action_channel = torch.zeros_like(
+                self._substep_hard_rom_excess_by_action_channel
+            )
             self._cursor = torch.full(
                 (cfg.scene.num_envs,), cfg.fixed_start_frame, dtype=torch.int64
             )
@@ -320,6 +451,15 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_failure_hard_rom = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.bool
             )
+            self.last_step_failure_joint_safety = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.bool
+            )
+            self.last_step_failure_joint_velocity = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.bool
+            )
+            self.last_step_failure_effort_envelope = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.bool
+            )
             self.last_step_failure_forbidden_contact = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.bool
             )
@@ -339,6 +479,15 @@ if ISAAC_LAB_AVAILABLE:
                 cfg.scene.num_envs, dtype=torch.int64
             )
             self.last_step_hard_rom_excess_by_action_channel = torch.zeros(
+                (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
+            )
+            self.last_step_velocity_action_channel = torch.full(
+                (cfg.scene.num_envs,), -1, dtype=torch.int64
+            )
+            self.last_step_velocity_excess_microradians_per_second = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.int64
+            )
+            self.last_step_velocity_excess_by_action_channel = torch.zeros(
                 (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
             )
             self.last_step_action_joint_position_microradians = torch.zeros(
@@ -413,6 +562,13 @@ if ISAAC_LAB_AVAILABLE:
                 "_previous_applied_target",
                 "_previous_effort",
                 "_applied_effort",
+                "_positive_work",
+                "_substep_hard_rom_violation",
+                "_substep_joint_safety_violation",
+                "_substep_velocity_violation",
+                "_substep_effort_envelope_violation",
+                "_substep_hard_rom_excess_by_action_channel",
+                "_substep_velocity_excess_by_action_channel",
                 "_cursor",
                 "_clip_index",
                 "_terminal_frame",
@@ -426,6 +582,9 @@ if ISAAC_LAB_AVAILABLE:
                 "last_step_success",
                 "last_step_failure_tracking_lost",
                 "last_step_failure_hard_rom",
+                "last_step_failure_joint_safety",
+                "last_step_failure_joint_velocity",
+                "last_step_failure_effort_envelope",
                 "last_step_failure_forbidden_contact",
                 "last_step_failure_non_finite",
                 "last_step_episode_start_frame",
@@ -433,6 +592,9 @@ if ISAAC_LAB_AVAILABLE:
                 "last_step_hard_rom_action_channel",
                 "last_step_hard_rom_excess_microradians",
                 "last_step_hard_rom_excess_by_action_channel",
+                "last_step_velocity_action_channel",
+                "last_step_velocity_excess_microradians_per_second",
+                "last_step_velocity_excess_by_action_channel",
                 "last_step_action_joint_position_microradians",
                 "last_step_pre_physics_action_joint_position_microradians",
                 "last_step_action_joint_velocity_microradians_per_second",
@@ -594,13 +756,28 @@ if ISAAC_LAB_AVAILABLE:
             self._target_delta = self._tensor_range_max(
                 records, "target_delta_microradians_per_motor_tick"
             )
-            self._stiffness = self._tensor(records, "stiffness_q16") / 65_536.0
-            self._damping = self._tensor(records, "damping_q16") / 65_536.0
+            self._stiffness_q16 = self._tensor(records, "stiffness_q16")
+            self._damping_q16 = self._tensor(records, "damping_q16")
+            self._minimum_effort = self._tensor_range_min(
+                records, "effort_micronewton_metres"
+            )
             self._maximum_effort = self._tensor_range_max(
                 records, "effort_micronewton_metres"
             )
             self._maximum_effort_rate = self._tensor(
                 records, "maximum_effort_rate_micronewton_metres_per_second"
+            )
+            self._maximum_power = self._tensor(records, "maximum_power_microwatts")
+            self._maximum_positive_work = self._tensor(
+                records, "maximum_positive_work_microjoules_per_motor_tick"
+            )
+            self._maximum_velocity_action = torch.tensor(
+                [
+                    joint_by_dof[dof]["maximum_velocity_microradians_per_second"]
+                    for dof in mapping
+                ],
+                dtype=torch.float64,
+                device=self.device,
             )
             self._hard_minimum = torch.tensor(
                 [joint_by_dof[dof]["hard_limit_microradians"][0] for dof in mapping],
@@ -662,6 +839,15 @@ if ISAAC_LAB_AVAILABLE:
                 device=self.device,
             )
 
+        def _tensor_range_min(
+            self, records: list[dict[str, Any]], name: str
+        ) -> torch.Tensor:
+            return torch.tensor(
+                [record[name][0] for record in records],
+                dtype=torch.float64,
+                device=self.device,
+            )
+
         def _load_observation_scale(self) -> None:
             joint_position_scale = torch.maximum(
                 torch.abs(self._soft_minimum), torch.abs(self._soft_maximum)
@@ -714,6 +900,13 @@ if ISAAC_LAB_AVAILABLE:
                     * 1_000_000.0
                 ).to(torch.int64)
             )
+            self._positive_work.zero_()
+            self._substep_hard_rom_violation.zero_()
+            self._substep_joint_safety_violation.zero_()
+            self._substep_velocity_violation.zero_()
+            self._substep_effort_envelope_violation.zero_()
+            self._substep_hard_rom_excess_by_action_channel.zero_()
+            self._substep_velocity_excess_by_action_channel.zero_()
             self._action.copy_(torch.clamp(actions, -1.0, 1.0))
             current_reference_dof = self._reference_at("joint_position_urad")
             current_reference_action = current_reference_dof[:, self._action_to_dof]
@@ -735,27 +928,88 @@ if ISAAC_LAB_AVAILABLE:
             self._cursor.add_(1)
 
         def _apply_action(self) -> None:
-            position = self.robot.data.joint_pos[:, self._action_joint_ids].to(torch.float64)
-            velocity = self.robot.data.joint_vel[:, self._action_joint_ids].to(torch.float64)
-            requested = (
-                self._stiffness * (self._applied_target.to(torch.float64) / 1_000_000.0 - position)
-                - self._damping * velocity
-            ) * 1_000_000.0
-            effort = torch.minimum(
-                torch.maximum(requested, -self._maximum_effort), self._maximum_effort
+            position = torch.round(
+                self.robot.data.joint_pos[:, self._action_joint_ids].to(torch.float64)
+                * MICRO_SCALE
             )
-            maximum_delta = self._maximum_effort_rate / 240.0
-            effort = torch.minimum(
+            velocity = torch.round(
+                self.robot.data.joint_vel[:, self._action_joint_ids].to(torch.float64)
+                * MICRO_SCALE
+            )
+            hard_rom_excess = torch.maximum(
                 torch.maximum(
-                    effort,
-                    self._previous_effort.to(torch.float64) - maximum_delta,
+                    self._hard_minimum - position, torch.zeros_like(position)
                 ),
-                self._previous_effort.to(torch.float64) + maximum_delta,
+                torch.maximum(
+                    position - self._hard_maximum, torch.zeros_like(position)
+                ),
             )
-            self._previous_effort.copy_(effort.to(torch.float32))
-            self._applied_effort.copy_(effort.to(torch.float32))
+            self._substep_hard_rom_excess_by_action_channel.copy_(
+                torch.maximum(
+                    self._substep_hard_rom_excess_by_action_channel,
+                    hard_rom_excess,
+                )
+            )
+            hard_rom_violation = torch.any(
+                hard_rom_excess
+                > OBSERVED_HARD_ROM_TOLERANCE_MICRORADIANS,
+                dim=-1,
+            )
+            velocity_excess = torch.clamp(
+                torch.abs(velocity) - self._maximum_velocity_action,
+                min=0.0,
+            )
+            self._substep_velocity_excess_by_action_channel.copy_(
+                torch.maximum(
+                    self._substep_velocity_excess_by_action_channel,
+                    velocity_excess,
+                )
+            )
+            velocity_violation = torch.any(velocity_excess > 0.0, dim=-1)
+            requested = _canonical_pd_requested_effort_tensor(
+                self._applied_target.to(torch.float64),
+                position,
+                velocity,
+                self._stiffness_q16,
+                self._damping_q16,
+            )
+            effort, next_work, infeasible_channel = _intersect_effort_limits_tensor(
+                requested,
+                self._previous_effort,
+                velocity,
+                self._positive_work,
+                self._minimum_effort,
+                self._maximum_effort,
+                self._maximum_effort_rate,
+                self._maximum_power,
+                self._maximum_positive_work,
+            )
+            joint_safety_violation = velocity_violation | torch.any(
+                infeasible_channel, dim=-1
+            )
+            blocked = (
+                self._substep_hard_rom_violation
+                | self._substep_joint_safety_violation
+                | hard_rom_violation
+                | joint_safety_violation
+            )
+            publish = ~blocked
+            published_effort = torch.where(publish[:, None], effort, 0.0)
+            self._previous_effort.copy_(
+                torch.where(publish[:, None], effort, self._previous_effort)
+            )
+            self._positive_work.copy_(
+                torch.where(publish[:, None], next_work, self._positive_work)
+            )
+            self._applied_effort.copy_(published_effort)
+            self._substep_hard_rom_violation |= hard_rom_violation
+            self._substep_joint_safety_violation |= joint_safety_violation
+            self._substep_velocity_violation |= velocity_violation
+            self._substep_effort_envelope_violation |= torch.any(
+                infeasible_channel, dim=-1
+            )
             self.robot.set_joint_effort_target(
-                effort.to(torch.float32) / 1_000_000.0,
+                published_effort.to(torch.float32) / MICRO_SCALE,
                 joint_ids=self._action_joint_ids,
             )
 
@@ -948,10 +1202,38 @@ if ISAAC_LAB_AVAILABLE:
                 torch.maximum(self._hard_minimum - action_position, torch.zeros_like(action_position)),
                 torch.maximum(action_position - self._hard_maximum, torch.zeros_like(action_position)),
             )
+            hard_rom_excess = torch.maximum(
+                hard_rom_excess,
+                self._substep_hard_rom_excess_by_action_channel,
+            )
             maximum_hard_rom_excess, hard_rom_channel = torch.max(
                 hard_rom_excess, dim=-1
             )
-            hard_rom = maximum_hard_rom_excess > 10.0
+            hard_rom = (
+                maximum_hard_rom_excess
+                > OBSERVED_HARD_ROM_TOLERANCE_MICRORADIANS
+            ) | self._substep_hard_rom_violation
+            velocity_excess = torch.maximum(
+                torch.clamp(
+                    torch.abs(action_velocity) - self._maximum_velocity_action,
+                    min=0.0,
+                ),
+                self._substep_velocity_excess_by_action_channel,
+            )
+            maximum_velocity_excess, velocity_channel = torch.max(
+                velocity_excess, dim=-1
+            )
+            velocity_violation = (
+                maximum_velocity_excess > 0.0
+            ) | self._substep_velocity_violation
+            effort_envelope_violation = (
+                self._substep_effort_envelope_violation
+            )
+            joint_safety = (
+                velocity_violation
+                | effort_envelope_violation
+                | self._substep_joint_safety_violation
+            )
             forbidden_contact_raw = torch.any(
                 current["contacts"][:, 2:] != 0, dim=-1
             )
@@ -972,7 +1254,11 @@ if ISAAC_LAB_AVAILABLE:
             ).all(dim=-1)
             tracking_lost = self._tracking_loss_ticks >= 4
             self._failure_terminal.copy_(
-                tracking_lost | hard_rom | forbidden_contact | non_finite
+                tracking_lost
+                | hard_rom
+                | joint_safety
+                | forbidden_contact
+                | non_finite
             )
             self._success_terminal.copy_(
                 (self._cursor >= self._terminal_frame) & ~self._failure_terminal
@@ -981,6 +1267,11 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_failure.copy_(self._failure_terminal)
             self.last_step_failure_tracking_lost.copy_(tracking_lost)
             self.last_step_failure_hard_rom.copy_(hard_rom)
+            self.last_step_failure_joint_safety.copy_(joint_safety)
+            self.last_step_failure_joint_velocity.copy_(velocity_violation)
+            self.last_step_failure_effort_envelope.copy_(
+                effort_envelope_violation
+            )
             self.last_step_failure_forbidden_contact.copy_(forbidden_contact)
             self.last_step_failure_non_finite.copy_(non_finite)
             self.last_step_episode_start_frame.copy_(self._episode_start_frame)
@@ -997,6 +1288,19 @@ if ISAAC_LAB_AVAILABLE:
             )
             self.last_step_hard_rom_excess_by_action_channel.copy_(
                 torch.round(hard_rom_excess).to(torch.int64)
+            )
+            self.last_step_velocity_action_channel.copy_(
+                torch.where(
+                    velocity_violation,
+                    velocity_channel,
+                    torch.full_like(velocity_channel, -1),
+                )
+            )
+            self.last_step_velocity_excess_microradians_per_second.copy_(
+                torch.round(maximum_velocity_excess).to(torch.int64)
+            )
+            self.last_step_velocity_excess_by_action_channel.copy_(
+                torch.round(velocity_excess).to(torch.int64)
             )
             self.last_step_action_joint_position_microradians.copy_(
                 torch.round(action_position).to(torch.int64)
@@ -1320,6 +1624,13 @@ if ISAAC_LAB_AVAILABLE:
             self._previous_applied_target[env_ids] = reference_action
             self._previous_effort[env_ids] = 0.0
             self._applied_effort[env_ids] = 0.0
+            self._positive_work[env_ids] = 0.0
+            self._substep_hard_rom_violation[env_ids] = False
+            self._substep_joint_safety_violation[env_ids] = False
+            self._substep_velocity_violation[env_ids] = False
+            self._substep_effort_envelope_violation[env_ids] = False
+            self._substep_hard_rom_excess_by_action_channel[env_ids] = 0.0
+            self._substep_velocity_excess_by_action_channel[env_ids] = 0.0
             self._cursor[env_ids] = frame
             self._tracking_loss_ticks[env_ids] = 0
             self._forbidden_contact_substeps[env_ids] = 0

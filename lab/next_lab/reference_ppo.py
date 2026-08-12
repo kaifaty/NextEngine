@@ -339,6 +339,9 @@ class TinyReferencePpoTrainer:
         failure_reason_counts = {
             "reference_tracking_lost": 0,
             "hard_rom": 0,
+            "joint_safety": 0,
+            "joint_velocity": 0,
+            "effort_envelope": 0,
             "forbidden_contact": 0,
             "non_finite": 0,
         }
@@ -465,6 +468,15 @@ class TinyReferencePpoTrainer:
                         self.environment.last_step_failure_hard_rom[done_indices].to(
                             torch.float64
                         ),
+                        self.environment.last_step_failure_joint_safety[
+                            done_indices
+                        ].to(torch.float64),
+                        self.environment.last_step_failure_joint_velocity[
+                            done_indices
+                        ].to(torch.float64),
+                        self.environment.last_step_failure_effort_envelope[
+                            done_indices
+                        ].to(torch.float64),
                         self.environment.last_step_failure_forbidden_contact[
                             done_indices
                         ].to(torch.float64),
@@ -496,6 +508,9 @@ class TinyReferencePpoTrainer:
                         start_frame_value,
                         tracking_lost,
                         hard_rom,
+                        joint_safety,
+                        joint_velocity,
+                        effort_envelope,
                         forbidden_contact,
                         non_finite,
                         hard_rom_excess_value,
@@ -520,6 +535,9 @@ class TinyReferencePpoTrainer:
                             "failure_reason_counts": {
                                 "reference_tracking_lost": 0,
                                 "hard_rom": 0,
+                                "joint_safety": 0,
+                                "joint_velocity": 0,
+                                "effort_envelope": 0,
                                 "forbidden_contact": 0,
                                 "non_finite": 0,
                             },
@@ -531,6 +549,9 @@ class TinyReferencePpoTrainer:
                     for reason, occurred_value in (
                         ("reference_tracking_lost", tracking_lost),
                         ("hard_rom", hard_rom),
+                        ("joint_safety", joint_safety),
+                        ("joint_velocity", joint_velocity),
+                        ("effort_envelope", effort_envelope),
                         ("forbidden_contact", forbidden_contact),
                         ("non_finite", non_finite),
                     ):

@@ -54,6 +54,9 @@ class ReferencePpoPerformanceTests(unittest.TestCase):
                 for name in (
                     "last_step_failure_tracking_lost",
                     "last_step_failure_hard_rom",
+                    "last_step_failure_joint_safety",
+                    "last_step_failure_joint_velocity",
+                    "last_step_failure_effort_envelope",
                     "last_step_failure_forbidden_contact",
                     "last_step_failure_non_finite",
                 ):

@@ -100,6 +100,9 @@ def main() -> None:
             "failure": 0,
             "tracking_lost": 0,
             "hard_rom": 0,
+            "joint_safety": 0,
+            "joint_velocity": 0,
+            "effort_envelope": 0,
             "forbidden_contact": 0,
             "non_finite": 0,
             "truncated": 0,
@@ -112,6 +115,10 @@ def main() -> None:
         hard_rom_channel_maxima: dict[str, dict[str, int]] = {}
         reset_window_hard_rom_channel_counts: dict[str, int] = {}
         reset_window_hard_rom_channel_maxima: dict[str, dict[str, int]] = {}
+        velocity_channel_counts: dict[str, int] = {}
+        velocity_channel_maxima: dict[str, dict[str, int]] = {}
+        reset_window_velocity_channel_counts: dict[str, int] = {}
+        reset_window_velocity_channel_maxima: dict[str, dict[str, int]] = {}
         forbidden_contact_mask_counts: dict[str, int] = {}
         maximum_hard_rom_excess = 0
         completed_episodes = 0
@@ -134,12 +141,18 @@ def main() -> None:
             failure = environment.last_step_failure[done_ids]
             tracking = environment.last_step_failure_tracking_lost[done_ids]
             hard_rom = environment.last_step_failure_hard_rom[done_ids]
+            joint_safety = environment.last_step_failure_joint_safety[done_ids]
+            joint_velocity = environment.last_step_failure_joint_velocity[done_ids]
+            effort_envelope = environment.last_step_failure_effort_envelope[done_ids]
             forbidden = environment.last_step_failure_forbidden_contact[done_ids]
             non_finite = environment.last_step_failure_non_finite[done_ids]
             hard_channels = environment.last_step_hard_rom_action_channel[done_ids]
             hard_excess = environment.last_step_hard_rom_excess_microradians[done_ids]
             hard_excess_by_channel = (
                 environment.last_step_hard_rom_excess_by_action_channel[done_ids]
+            )
+            velocity_excess_by_channel = (
+                environment.last_step_velocity_excess_by_action_channel[done_ids]
             )
             action_joint_positions = (
                 environment.last_step_action_joint_position_microradians[done_ids]
@@ -156,6 +169,11 @@ def main() -> None:
                 branch_counts["failure"] += int(failure[index].item())
                 branch_counts["tracking_lost"] += int(tracking[index].item())
                 branch_counts["hard_rom"] += int(hard_rom[index].item())
+                branch_counts["joint_safety"] += int(joint_safety[index].item())
+                branch_counts["joint_velocity"] += int(joint_velocity[index].item())
+                branch_counts["effort_envelope"] += int(
+                    effort_envelope[index].item()
+                )
                 branch_counts["forbidden_contact"] += int(forbidden[index].item())
                 branch_counts["non_finite"] += int(non_finite[index].item())
                 branch_counts["truncated"] += int(truncated[done_ids[index]].item())
@@ -168,6 +186,9 @@ def main() -> None:
                     "failure": failure[index],
                     "tracking_lost": tracking[index],
                     "hard_rom": hard_rom[index],
+                    "joint_safety": joint_safety[index],
+                    "joint_velocity": joint_velocity[index],
+                    "effort_envelope": effort_envelope[index],
                     "forbidden_contact": forbidden[index],
                     "non_finite": non_finite[index],
                     "truncated": truncated[done_ids[index]],
@@ -177,7 +198,10 @@ def main() -> None:
                         counts = terminal_tick_counts[branch]
                         counts[tick_key] = counts.get(tick_key, 0) + 1
                 if tick <= args.reset_safety_window_motor_ticks and (
-                    hard_rom[index] or forbidden[index] or non_finite[index]
+                    hard_rom[index]
+                    or joint_safety[index]
+                    or forbidden[index]
+                    or non_finite[index]
                 ):
                     reset_window_safety_failure_count += 1
                 maximum_hard_rom_excess = max(
@@ -228,6 +252,56 @@ def main() -> None:
                     forbidden_contact_mask_counts[key] = (
                         forbidden_contact_mask_counts.get(key, 0) + 1
                     )
+                if joint_velocity[index]:
+                    for channel in range(velocity_excess_by_channel.shape[1]):
+                        excess = int(
+                            velocity_excess_by_channel[index, channel].item()
+                        )
+                        if excess <= 0:
+                            continue
+                        channel_key = str(channel)
+                        velocity_channel_counts[channel_key] = (
+                            velocity_channel_counts.get(channel_key, 0) + 1
+                        )
+                        previous = velocity_channel_maxima.get(channel_key)
+                        if (
+                            previous is None
+                            or excess
+                            > previous["excess_microradians_per_second"]
+                        ):
+                            velocity_channel_maxima[channel_key] = {
+                                "excess_microradians_per_second": excess,
+                                "episode_start_frame": start,
+                                "reference_frame": int(
+                                    reference_frames[index].item()
+                                ),
+                                "terminal_motor_tick": tick,
+                            }
+                        if tick <= args.reset_safety_window_motor_ticks:
+                            reset_window_velocity_channel_counts[channel_key] = (
+                                reset_window_velocity_channel_counts.get(
+                                    channel_key, 0
+                                )
+                                + 1
+                            )
+                            previous_reset = reset_window_velocity_channel_maxima.get(
+                                channel_key
+                            )
+                            if (
+                                previous_reset is None
+                                or excess
+                                > previous_reset[
+                                    "excess_microradians_per_second"
+                                ]
+                            ):
+                                reset_window_velocity_channel_maxima[channel_key] = {
+                                    "excess_microradians_per_second": excess,
+                                    "episode_start_frame": start,
+                                    "reference_frame": int(
+                                        reference_frames[index].item()
+                                    ),
+                                    "terminal_motor_tick": tick,
+                                }
             completed_episodes += done_ids.numel()
 
         missing_start_frames = [
@@ -235,6 +309,7 @@ def main() -> None:
         ]
         full_horizon_safety_failure_count = (
             branch_counts["hard_rom"]
+            + branch_counts["joint_safety"]
             + branch_counts["forbidden_contact"]
             + branch_counts["non_finite"]
         )
@@ -286,6 +361,18 @@ def main() -> None:
             ),
             "reset_window_hard_rom_action_channel_maxima": dict(
                 sorted(reset_window_hard_rom_channel_maxima.items())
+            ),
+            "velocity_action_channel_counts": dict(
+                sorted(velocity_channel_counts.items())
+            ),
+            "velocity_action_channel_maxima": dict(
+                sorted(velocity_channel_maxima.items())
+            ),
+            "reset_window_velocity_action_channel_counts": dict(
+                sorted(reset_window_velocity_channel_counts.items())
+            ),
+            "reset_window_velocity_action_channel_maxima": dict(
+                sorted(reset_window_velocity_channel_maxima.items())
             ),
             "forbidden_contact_mask_counts": dict(
                 sorted(forbidden_contact_mask_counts.items())
