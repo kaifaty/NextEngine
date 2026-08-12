@@ -11,6 +11,9 @@ mod observation;
 mod performance;
 mod replay;
 mod runtime;
+mod safety_control;
+#[cfg(test)]
+mod safety_control_tests;
 mod training;
 
 pub use biomechanics::{
@@ -42,6 +45,11 @@ pub use replay::{MOTOR_RUNTIME_CHECKPOINT_SCHEMA_VERSION, MotorReplayCodecError}
 pub use runtime::{
     DeterministicHumanoidMotor, HumanoidMotorCheckpoint, MAX_REPLAY_MOTOR_TICKS, MotorFrameResult,
     MotorReplayFrame, MotorRuntimeError,
+};
+pub use safety_control::{
+    ACTUATOR_POWER_CLAMPED, ACTUATOR_TARGET_SLEW_CLAMPED, ACTUATOR_WORK_CLAMPED,
+    AppliedJointTargetV1, BiomechanicsSafetyCheckpointV1, BiomechanicsSafetyController,
+    JointTargetEnvelopeV1, MotorSafetyError, NORMALIZED_RESIDUAL_ONE_Q1_30,
 };
 pub use training::{
     CURRICULUM_LOCOMOTION_ENVIRONMENT_PROFILE_ID, CURRICULUM_LOCOMOTION_REWARD_COEFFICIENTS_Q16,

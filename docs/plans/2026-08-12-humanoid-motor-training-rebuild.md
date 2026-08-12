@@ -12,7 +12,7 @@
 | Frozen biomechanics profile | [Fixed humanoid biomechanics profile V1](2026-08-12-humanoid-biomechanics-profile-v1.md) |
 | Frozen profile SHA-256 | `307a00f2bda8cd083066a383cb025b5333240513e00b2c764ca8fef52bddc1bf` |
 | TRAIN-3 safety/contact profile | [Humanoid safety and contact profile V1](2026-08-12-humanoid-safety-contact-profile-v1.md) |
-| TRAIN-3 safety/contact SHA-256 | `06847742a098ea29b180499fb4864af145f36021f317888524a1e9e75d8fcf99` |
+| TRAIN-3 safety/contact SHA-256 | `31f72578766f979cf5678e00b89a396dce179b4c4dd09a01a053e7e4d95d2901` |
 
 Нормативные источники для реализации:
 

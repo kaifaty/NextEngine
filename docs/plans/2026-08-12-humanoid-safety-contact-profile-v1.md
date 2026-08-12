@@ -27,17 +27,20 @@ candidate[j] = reference[j]
 envelope_min[j] = max(hard_min[j], soft_min[j], skill_min[j])
 envelope_max[j] = min(hard_max[j], soft_max[j], skill_max[j])
 
-bounded[j] = clamp(candidate[j], envelope_min[j], envelope_max[j])
+slew_min[j] = previous_applied[j] + negative_target_delta[j]
+slew_max[j] = previous_applied[j] + positive_target_delta[j]
+
 applied[j] = clamp(
-  bounded[j],
-  previous_applied[j] + negative_target_delta[j],
-  previous_applied[j] + positive_target_delta[j]
+  candidate[j],
+  max(envelope_min[j], slew_min[j]),
+  min(envelope_max[j], slew_max[j])
 )
 ```
 
 `reference` never bypasses the intersection. Invalid width, invalid skill
-envelope, non-canonical DoF mapping or arithmetic overflow rejects the whole
-action without changing previous targets, effort history or work counters.
+envelope, empty intersection with the slew interval, non-canonical DoF mapping
+or arithmetic overflow rejects the whole action without changing previous
+targets, effort history or work counters.
 
 Each 240 Hz PD substep applies the authored per-joint `Kp/Kd`, then intersects:
 
