@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-0..2` advanced; `TRAIN-3..9` `NotRun` |
+| Статус | In execution: `TRAIN-0..3` advanced; `TRAIN-4..9` `NotRun` |
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -318,7 +318,12 @@ count: confidence interval не превращает наблюдаемое на
   `eb5b75e9376bec8cd38cedfe015e16dd31dcb693b70217ec35b89467d88900ff`,
   compiled descriptor hash
   `5640d7a9de95ae5c171384db29b601b73d31c8f9d12747a4f3b7c666525d9242`;
-- `TRAIN-3..9`: `NotRun`; ML по-прежнему не разрешён.
+- `TRAIN-3`: `Advance`, safety/contact profile SHA-256
+  `88c2ffefed4cb8f2c0dc35426ffaf964d09d4d8fbb14fb33bfd305fb4df625c9`,
+  safety/contact golden SHA-256
+  `df89584da333d30a92cb0ff54606e74d6f68781ca4f4acd9003ea6f50ac1d25d`;
+- `TRAIN-4..9`: `NotRun`; ML по-прежнему не разрешён до `TRAIN-4`
+  `Advance`.
 
 ## TRAIN-0 — retirement/isolation старого эксперимента и чистая generation
 
@@ -570,6 +575,25 @@ training. Reward tuning is not an accepted fix for this gate.
 1. `feat(motor): enforce per-joint target slew and safety envelopes`
 2. `feat(motor): classify full-body skill contacts`
 3. `test(motor): cover locomotion and recovery terminal semantics`
+
+### Gate result (2026-08-12)
+
+`Advance` на validated commit
+`8f2d07518a90d7e49b0829267c64a99c3261ee90`. Engine-owned 23-channel action path
+атомарно пересекает hard/soft/skill/slew envelopes и применяет fixed PD с
+effort/rate/power/work limits; post-step joint facts проверяются отдельно.
+Shape-owned contact classifier, four-substep grace, skill-specific support и
+terminal priority совпали в Rust golden и независимом Python mirror для семи
+сценариев. Native PhysX standing review прошёл `1800` motor ticks / `7200`
+physics substeps (`30 s`) с sole-only support, без hard ROM, hard-impact или
+non-sole support violations и завершился exact `Truncated/terminal.timeout`.
+
+Visual review front/side snapshots at `0/10/20/30 s` и contact-semantics
+matrix: `Pass`, open Blocker/Major defects `0`. Полный clean-worktree
+`cargo run -p xtask -- host-check` прошёл. Exact external gate report:
+`/home/kaifaty/NextEngine-training/gates/TRAIN-3/gate-report.json`.
+Stage не запускал optimizer, не создал policy/checkpoint и не разрешает ML до
+лицензионного, retarget и physical-validity closure `TRAIN-4`.
 
 ## TRAIN-4 — motion corpus, retargeting and reference closure
 

@@ -4,8 +4,8 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-12 |
-| Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; performance workloads остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. R5 R&D substrate содержит три current CPU profiles: immutable standing V1, immutable flat-command V1 и curriculum V2, плюс motor-lab v2, NPZ v2 recorder and Isaac mirror. V1 compatibility/hash closure исправлена; это разрешает bounded experiments, но не является trained policy, Stage 0 completion или R5 closure. Текущий WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..2 isolation, exact biomechanics and native articulation advanced; TRAIN-3 safety/contact semantics is next, затем motion tracking → command locomotion → recovery → export. TRAIN-8 optional и не блокирует TRAIN-9 при заранее зафиксированном skip. R4a остаётся следующим подготовленным world-system increment, но пока не активен. B-12, GPU correspondence, Linux/cross-target evidence, R1/R7 и v1 shipping не закрыты. |
-| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-3 после advanced TRAIN-0..2; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
+| Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; performance workloads остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. R5 R&D substrate содержит три current CPU profiles: immutable standing V1, immutable flat-command V1 и curriculum V2, плюс motor-lab v2, NPZ v2 recorder and Isaac mirror. V1 compatibility/hash closure исправлена; это разрешает bounded experiments, но не является trained policy, Stage 0 completion или R5 closure. Текущий WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 isolation, exact biomechanics, native articulation and non-ML safety/contact semantics advanced; TRAIN-4 motion corpus/retarget closure is next, затем motion tracking → command locomotion → recovery → export. TRAIN-8 optional и не блокирует TRAIN-9 при заранее зафиксированном skip. R4a остаётся следующим подготовленным world-system increment, но пока не активен. B-12, GPU correspondence, Linux/cross-target evidence, R1/R7 и v1 shipping не закрыты. |
+| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 после advanced TRAIN-0..3; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
@@ -1432,11 +1432,13 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 6. **R3b bounded general partition (`COMPLETE`):** ровно 4 regions/64 chunks,
    canonical packaged route и restart из `Requested`; B-06 закрыт без generic
    scheduler, placement catalog или alpha migration obligation.
-7. **R5 humanoid movement TRAIN-0/1 (`ACTIVE_R&D / CURRENT WIP`):** exact V1
-   identity/hash closure уже исправлена; теперь isolate the retired pure-PPO
-   line from active selection by exact external manifests and publish the new
-   biomechanics specification plus distinct BodySchema/environment generation.
-   No training quality, Stage 0 or R5 completion is claimed at this boundary.
+7. **R5 humanoid movement TRAIN-0..3 (`ACTIVE_R&D / CURRENT WIP`):** retired
+   pure-PPO line изолирована, exact biomechanics и native articulation
+   приняты; engine-owned safety/contact/terminal semantics прошли non-ML
+   correspondence и native standing gate. Следующий gate — licensed motion
+   corpus, retargeting and physical-validity closure. До его `Advance` PPO не
+   разрешён. No training quality, Stage 0 or R5 completion is claimed at this
+   boundary.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote
    SPEC-20/ADR-052 only with the one-NPC production consumer, typed authoring,
    separate World Services routine segment, current-only replay successor and
