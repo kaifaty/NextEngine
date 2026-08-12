@@ -31,6 +31,10 @@ SOFT_ROM_TINY_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-ppo-tiny-soft-rom-cost.v1.json"
 )
+SOFT_ROM_CURRICULUM_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-ppo-curriculum-start-phase-soft-rom-cost.v1.json"
+)
 
 
 class ReferencePpoTests(unittest.TestCase):
@@ -77,6 +81,17 @@ class ReferencePpoTests(unittest.TestCase):
             "nextengine.motor.env.humanoid-reference-tracker-soft-rom-cost.v1",
         )
         self.assertFalse(profile.document["scope"]["phase_randomization"])
+
+    def test_soft_rom_curriculum_uses_reproducible_tiny_checkpoint(self) -> None:
+        profile = TinyReferencePpoProfile.load(SOFT_ROM_CURRICULUM_PROFILE)
+        self.assertEqual(
+            profile.document["initialization"]["checkpoint_sha256"],
+            "30778aa6b8b4d3c1b0b5ff87118a025969dc035df461dedff9c03eccbbebe8e2",
+        )
+        self.assertEqual(
+            profile.document["evaluation"]["episode_matrix"],
+            "fixed-vector-waves-v1",
+        )
 
     def test_frozen_curriculum_stage_closes_phase_and_initial_checkpoint(self) -> None:
         profile = TinyReferencePpoProfile.load(CURRICULUM_PROFILE)

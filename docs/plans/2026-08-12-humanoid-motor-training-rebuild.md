@@ -870,7 +870,17 @@ Cost равен нулю внутри descriptor soft ROM и линейно во
 прошёл с `optimizer_steps = 0`: cost нулевой на natural/reference probes и
 достигает unit scale на directed probe. Новый frozen tiny profile SHA-256 —
 `5315f47aec64e827ffb336e7a380c0177d21616d4e789553b4fb3b319692fc14`.
-До нового curriculum обязательны два побитово воспроизводимых tiny run с нуля.
+Два run с нуля
+`tiny-cmu104-h11-r6-soft-rom-cost-seed120812-r1/r2` дали одинаковые
+`0/64 -> 64/64`, final failure count `0`, `327680` samples и `1159` optimizer
+steps. Metrics SHA-256
+`4beeb84ca0db3ee2413b5e9887e3a56caa2546b938b55b443d261ff9c808abab`
+и checkpoint SHA-256
+`30778aa6b8b4d3c1b0b5ff87118a025969dc035df461dedff9c03eccbbebe8e2`
+совпали побитово. Reproducibility report SHA-256
+`744db4ffbfa04cc479ceb0e60c82f55e7a6d4d750b0c122e47cb8102aa9a78e2`
+разрешает только новый curriculum. Frozen soft-ROM-cost curriculum profile
+SHA-256 — `9f19e257595ac38a005cc7c46b08b194851af1376e71289106e78db2c685e9c5`.
 
 Следующие результаты сохранены только как historical failure/diagnostic
 evidence старой corpus lineage и не продвигают текущий `TRAIN-5`: input/reward audit
