@@ -7,13 +7,39 @@ from pathlib import Path
 
 import torch
 
-from next_lab.reference_ppo import TinyReferencePpoProfile, TinyReferencePpoTrainer
+from next_lab.reference_ppo import (
+    TinyReferencePpoProfile,
+    TinyReferencePpoTrainer,
+    _selection_episode_matrix_hash,
+)
 
 
 PROFILE = Path(__file__).parents[1] / "profiles/humanoid-reference-ppo-tiny.v1.json"
 
 
 class ReferencePpoPerformanceTests(unittest.TestCase):
+    def test_selection_episode_matrix_hash_ignores_results_but_not_sampling(self) -> None:
+        first = {
+            "clip:1": {"episodes": 2, "failure_count": 2},
+            "clip:0": {"episodes": 1, "failure_count": 0},
+        }
+        same_matrix = {
+            "clip:0": {"episodes": 1, "failure_count": 1},
+            "clip:1": {"episodes": 2, "failure_count": 0},
+        }
+        changed_matrix = {
+            "clip:0": {"episodes": 2, "failure_count": 1},
+            "clip:1": {"episodes": 1, "failure_count": 0},
+        }
+        self.assertEqual(
+            _selection_episode_matrix_hash(first),
+            _selection_episode_matrix_hash(same_matrix),
+        )
+        self.assertNotEqual(
+            _selection_episode_matrix_hash(first),
+            _selection_episode_matrix_hash(changed_matrix),
+        )
+
     def test_rollout_storage_is_preallocated_and_reused(self) -> None:
         document = copy.deepcopy(TinyReferencePpoProfile.load(PROFILE).document)
         document["execution"].update(

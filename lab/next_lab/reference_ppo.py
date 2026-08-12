@@ -226,6 +226,13 @@ class TinyReferencePpoTrainer:
         reset_episode_sequence = getattr(
             self.environment, "reset_episode_sequence", None
         )
+        if (
+            self.profile.document["scope"]["phase_randomization"]
+            and reset_episode_sequence is None
+        ):
+            raise RuntimeError(
+                "phase-randomized evaluation requires a resettable episode sequence"
+            )
         if reset_episode_sequence is not None:
             reset_episode_sequence()
         observation, _ = self.environment.reset()
@@ -380,12 +387,16 @@ class TinyReferencePpoTrainer:
                 returns[done] = 0.0
                 lengths[done] = 0
                 observation = observation_map["policy"]
+        ordered_selection_results = dict(sorted(selection_results.items()))
         return {
             "episodes": episodes,
             "reference_complete_count": reference_complete_count,
             "failure_count": failure_count,
             "failure_reason_counts": failure_reason_counts,
-            "selection_results": dict(sorted(selection_results.items())),
+            "selection_results": ordered_selection_results,
+            "selection_episode_matrix_hash": _selection_episode_matrix_hash(
+                ordered_selection_results
+            ),
             "maximum_hard_rom_excess_microradians": maximum_hard_rom_excess_microradians,
             "maximum_hard_rom_action_channel": maximum_hard_rom_action_channel,
             "maximum_hard_rom_selection": maximum_hard_rom_selection,
@@ -397,6 +408,7 @@ class TinyReferencePpoTrainer:
             "minimum_episode_length": min(completed_lengths),
             "maximum_episode_length": max(completed_lengths),
         }
+
 
     def train(self) -> list[dict[str, Any]]:
         document = self.profile.document
@@ -614,6 +626,20 @@ class TinyReferencePpoTrainer:
         metrics["update_minibatches"] = float(update_count)
         metrics["early_stop_kl"] = float(stop)
         return metrics
+
+
+def _selection_episode_matrix_hash(
+    selection_results: Mapping[str, Mapping[str, Any]],
+) -> str:
+    matrix = [
+        {"selection_id": selection_id, "episodes": int(result["episodes"])}
+        for selection_id, result in sorted(selection_results.items())
+    ]
+    return hashlib.sha256(
+        json.dumps(
+            matrix, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+        ).encode("utf-8")
+    ).hexdigest()
 
 
 def _require_finite_mapping(value: Mapping[str, Any]) -> None:

@@ -239,8 +239,13 @@ def main() -> None:
                 "schema_id": throughput_report["schema_id"],
             }
         final_evaluation = trainer.evaluate_deterministic(evaluation_episodes)
+        evaluation_matrix_identical = (
+            final_evaluation["selection_episode_matrix_hash"]
+            == initial_evaluation["selection_episode_matrix_hash"]
+        )
         accepted = (
-            final_evaluation["reference_complete_count"]
+            evaluation_matrix_identical
+            and final_evaluation["reference_complete_count"]
             > initial_evaluation["reference_complete_count"]
             and final_evaluation["mean_episode_length"]
             > initial_evaluation["mean_episode_length"]
@@ -274,6 +279,7 @@ def main() -> None:
                 "samples": trainer.samples,
                 "learned_policy_claim": accepted,
                 "overfit_acceptance": "PASS" if accepted else "FAIL",
+                "evaluation_selection_matrix_identical": evaluation_matrix_identical,
                 "initial_evaluation": initial_evaluation,
                 "final_evaluation": final_evaluation,
                 "final_metrics": records[-1],
