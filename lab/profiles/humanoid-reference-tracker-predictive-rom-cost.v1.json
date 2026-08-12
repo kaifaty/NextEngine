@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.motor.env.humanoid-reference-tracker-predictive-rom-cost.v1",
+  "status": "Frozen",
+  "base_profile_id": "nextengine.motor.env.humanoid-reference-tracker.v1",
+  "base_profile_sha256": "4a898ccf67051b34b6266ec5293f74758103e7db260ded393e76161f72de527d",
+  "variant": {
+    "kind": "append-reward-component-before-terminal.v1",
+    "component": {
+      "id": "reward.predictive-rom-excursion-cost",
+      "coefficient_q16": -65536,
+      "aggregation": "maximum directional soft-to-hard-ROM excursion after one 60 Hz forward-Euler projection from current joint position and velocity; directions with coincident soft and hard bounds contribute zero"
+    }
+  }
+}

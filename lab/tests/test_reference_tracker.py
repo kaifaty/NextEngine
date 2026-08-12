@@ -9,6 +9,7 @@ from next_lab.reference_tracker import (
     ACTION_CHANNELS,
     OBSERVATION_CHANNELS,
     PROFILE_SHA256,
+    PREDICTIVE_ROM_COST_PROFILE_SHA256,
     SOFT_ROM_COST_PROFILE_SHA256,
     DescriptorLimits,
     ReferenceClip,
@@ -25,6 +26,10 @@ PROFILE = Path(__file__).parents[1] / "profiles/humanoid-reference-tracker.v1.js
 SOFT_ROM_COST_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-tracker-soft-rom-cost.v1.json"
+)
+PREDICTIVE_ROM_COST_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-tracker-predictive-rom-cost.v1.json"
 )
 
 
@@ -99,6 +104,35 @@ class ReferenceTrackerTests(unittest.TestCase):
             32_768,
         )
         self.assertLess(warned.total_q16, inside.total_q16)
+
+    def test_predictive_rom_cost_warns_one_motor_tick_before_excursion(self) -> None:
+        profile = ReferenceTrackerProfile.load(PREDICTIVE_ROM_COST_PROFILE)
+        self.assertEqual(
+            profile.document_sha256, PREDICTIVE_ROM_COST_PROFILE_SHA256
+        )
+        clip = _clip()
+        limits = _limits()
+        state = reference_state(clip, 2)
+        approaching = TrackingState(
+            **{
+                **state.__dict__,
+                "joint_position_urad": np.asarray(
+                    [500_000, *state.joint_position_urad[1:]], dtype=np.int64
+                ),
+                "joint_velocity_urad_s": np.asarray(
+                    [15_000_000, *state.joint_velocity_urad_s[1:]], dtype=np.int64
+                ),
+            }
+        )
+        warned = compute_reward(
+            profile, limits, approaching, clip, 2, terminal_failure=False
+        )
+        self.assertEqual(
+            dict(warned.component_values_q16)[
+                "reward.predictive-rom-excursion-cost"
+            ],
+            32_768,
+        )
 
     def test_observation_has_435_channels_and_clamped_reference_horizon(self) -> None:
         clip = _clip()

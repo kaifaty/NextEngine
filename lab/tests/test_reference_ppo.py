@@ -35,6 +35,10 @@ SOFT_ROM_CURRICULUM_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-ppo-curriculum-start-phase-soft-rom-cost.v1.json"
 )
+PREDICTIVE_ROM_TINY_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-ppo-tiny-predictive-rom-cost.v1.json"
+)
 
 
 class ReferencePpoTests(unittest.TestCase):
@@ -92,6 +96,17 @@ class ReferencePpoTests(unittest.TestCase):
             profile.document["evaluation"]["episode_matrix"],
             "fixed-vector-waves-v1",
         )
+
+    def test_predictive_rom_tiny_variant_replaces_only_environment(self) -> None:
+        profile = TinyReferencePpoProfile.load(PREDICTIVE_ROM_TINY_PROFILE)
+        baseline = TinyReferencePpoProfile.load(PROFILE)
+        self.assertEqual(
+            profile.document["environment_profile_id"],
+            "nextengine.motor.env.humanoid-reference-tracker-predictive-rom-cost.v1",
+        )
+        self.assertEqual(profile.document["network"], baseline.document["network"])
+        self.assertEqual(profile.document["ppo"], baseline.document["ppo"])
+        self.assertEqual(profile.document["scope"], baseline.document["scope"])
 
     def test_frozen_curriculum_stage_closes_phase_and_initial_checkpoint(self) -> None:
         profile = TinyReferencePpoProfile.load(CURRICULUM_PROFILE)

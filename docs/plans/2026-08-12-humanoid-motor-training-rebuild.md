@@ -881,6 +881,22 @@ steps. Metrics SHA-256
 `744db4ffbfa04cc479ceb0e60c82f55e7a6d4d750b0c122e47cb8102aa9a78e2`
 разрешает только новый curriculum. Frozen soft-ROM-cost curriculum profile
 SHA-256 — `9f19e257595ac38a005cc7c46b08b194851af1376e71289106e78db2c685e9c5`.
+Его exact fixed-matrix run улучшил completion `156/256 -> 178/256` и
+forbidden contacts `37 -> 9`, но hard-ROM ухудшился `34 -> 43`, включая `29`
+ankle-channel events. Поэтому гипотеза rejected, checkpoint SHA-256
+`856de3c9aed5887176ae1ab16b7588c62619ac53b5db28b1c06c41127f8dead0`
+не admitted, multi-seed запрещён. Failure decision сохраняет exact report и
+не превращает узкий curriculum `PASS` в safety claim.
+Следующая отдельная hypothesis identity использует one-motor-tick predictive
+ROM excursion вместо rejected realized-state cost. Environment overlay SHA-256
+`2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`,
+tiny overlay SHA-256
+`e90a4bb042bd4e62a7269d974a686e718e40ddc0623ee81da0091f2434747a75`.
+Optimizer-free audit SHA-256
+`9307ba4df987dfef8d96d2fc0b5ac98321c1ebc2e9b48eb90fac15f2f327cd6d`
+прошёл: natural/reference median cost равен `0`, directed probe достигает
+unit scale, optimizer steps равны `0`. До curriculum снова обязательны два
+побитово воспроизводимых tiny run с нуля.
 
 Следующие результаты сохранены только как historical failure/diagnostic
 evidence старой corpus lineage и не продвигают текущий `TRAIN-5`: input/reward audit

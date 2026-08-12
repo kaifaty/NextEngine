@@ -19,9 +19,16 @@ SOFT_ROM_COST_PROFILE_ID = (
 SOFT_ROM_COST_PROFILE_SHA256 = (
     "c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b"
 )
+PREDICTIVE_ROM_COST_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-reference-tracker-predictive-rom-cost.v1"
+)
+PREDICTIVE_ROM_COST_PROFILE_SHA256 = (
+    "2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5"
+)
 PROFILE_IDS_BY_SHA256 = {
     PROFILE_SHA256: PROFILE_ID,
     SOFT_ROM_COST_PROFILE_SHA256: SOFT_ROM_COST_PROFILE_ID,
+    PREDICTIVE_ROM_COST_PROFILE_SHA256: PREDICTIVE_ROM_COST_PROFILE_ID,
 }
 SAFETY_CONTACT_PROFILE_SHA256 = "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c"
 CORPUS_MANIFEST_ID = "nextengine.private-motion-corpus-manifest.v1"
@@ -93,8 +100,44 @@ class ReferenceTrackerProfile:
                 f"expected one of {sorted(PROFILE_IDS_BY_SHA256)}, got {sha256}"
             )
         document = json.loads(payload)
+        if "base_profile_sha256" in document:
+            document = cls._materialize_variant(
+                document,
+                path=path,
+                expected_profile_id=expected_profile_id,
+            )
         cls._validate(document, expected_profile_id=expected_profile_id)
         return cls(document=document, document_sha256=sha256)
+
+    @staticmethod
+    def _materialize_variant(
+        overlay: Mapping[str, Any], *, path: Path, expected_profile_id: str
+    ) -> Mapping[str, Any]:
+        if (
+            overlay.get("schema_version") != 1
+            or overlay.get("profile_id") != expected_profile_id
+            or overlay.get("status") != "Frozen"
+            or overlay.get("base_profile_id") != PROFILE_ID
+            or overlay.get("base_profile_sha256") != PROFILE_SHA256
+            or overlay.get("variant", {}).get("kind")
+            != "append-reward-component-before-terminal.v1"
+        ):
+            raise ReferenceTrackerError("invalid reference tracker profile variant")
+        component = overlay["variant"].get("component")
+        if not isinstance(component, dict):
+            raise ReferenceTrackerError("reference tracker variant has no component")
+        base_path = path.with_name("humanoid-reference-tracker.v1.json")
+        base_payload = base_path.read_bytes()
+        if _sha256(base_payload) != PROFILE_SHA256:
+            raise ReferenceTrackerError("reference tracker variant base hash mismatch")
+        document = json.loads(base_payload)
+        document["profile_id"] = expected_profile_id
+        components = list(document["reward"]["components"])
+        if components[-1]["id"] != "reward.terminal-failure":
+            raise ReferenceTrackerError("reference tracker terminal reward moved")
+        components.insert(-1, dict(component))
+        document["reward"]["components"] = components
+        return document
 
     @staticmethod
     def _validate(
@@ -210,6 +253,11 @@ class ReferenceTrackerProfile:
             *(
                 ("reward.soft-rom-excursion-cost",)
                 if expected_profile_id == SOFT_ROM_COST_PROFILE_ID
+                else ()
+            ),
+            *(
+                ("reward.predictive-rom-excursion-cost",)
+                if expected_profile_id == PREDICTIVE_ROM_COST_PROFILE_ID
                 else ()
             ),
             "reward.terminal-failure",
@@ -913,6 +961,9 @@ def compute_reward(
             ),
         ),
         "reward.soft-rom-excursion-cost": _soft_rom_excursion_cost(state, limits),
+        "reward.predictive-rom-excursion-cost": _predictive_rom_excursion_cost(
+            state, limits
+        ),
         "reward.terminal-failure": 1.0 if terminal_failure else 0.0,
     }
     ordered: list[tuple[str, int]] = []
@@ -964,6 +1015,19 @@ def _soft_rom_excursion_cost(
         where=upper_span > 0,
     )
     return float(np.clip(np.maximum(lower, upper), 0.0, 1.0).max())
+
+
+def _predictive_rom_excursion_cost(
+    state: TrackingState, limits: DescriptorLimits
+) -> float:
+    projected = np.rint(
+        state.joint_position_urad.astype(np.float64)
+        + state.joint_velocity_urad_s.astype(np.float64) / 60.0
+    ).astype(np.int64)
+    projected_state = TrackingState(
+        **{**state.__dict__, "joint_position_urad": projected}
+    )
+    return _soft_rom_excursion_cost(projected_state, limits)
 
 
 def _reward_distribution(
@@ -1060,6 +1124,11 @@ def audit_reference_inputs(
             if "reward.soft-rom-excursion-cost" in coefficients
             else ()
         ),
+        *(
+            ("reward.predictive-rom-excursion-cost",)
+            if "reward.predictive-rom-excursion-cost" in coefficients
+            else ()
+        ),
     )
     if any(coefficients[component_id] >= 0 for component_id in cost_component_ids) or (
         coefficients["reward.terminal-failure"] >= 0
@@ -1090,7 +1159,22 @@ def audit_reference_inputs(
                     frame,
                     terminal_failure=False,
                 )
-                if reward.total_q16 != 458_752:
+                reward_values = dict(reward.component_values_q16)
+                expected_perfect_total = 458_752 + sum(
+                    int(
+                        round(
+                            coefficients[component_id]
+                            * reward_values[component_id]
+                            / 65_536.0
+                        )
+                    )
+                    for component_id in (
+                        "reward.soft-rom-excursion-cost",
+                        "reward.predictive-rom-excursion-cost",
+                    )
+                    if component_id in coefficients
+                )
+                if reward.total_q16 != expected_perfect_total:
                     raise ReferenceTrackerError("perfect-reference reward sanity failed")
                 reward_checks += 1
                 natural_reward_samples.append(reward)
@@ -1125,7 +1209,11 @@ def audit_reference_inputs(
                     )
                 )
                 joint_position = state.joint_position_urad.copy()
-                if "reward.soft-rom-excursion-cost" in coefficients:
+                joint_velocity = state.joint_velocity_urad_s.copy()
+                if (
+                    "reward.soft-rom-excursion-cost" in coefficients
+                    or "reward.predictive-rom-excursion-cost" in coefficients
+                ):
                     upper_candidates = np.flatnonzero(
                         limits.hard_maximum_urad > limits.soft_maximum_urad
                     )
@@ -1137,11 +1225,13 @@ def audit_reference_inputs(
                         joint_position[probe_dof] = limits.hard_maximum_urad[
                             probe_dof
                         ]
+                        joint_velocity[probe_dof] = 0
                     elif lower_candidates.size:
                         probe_dof = int(lower_candidates[0])
                         joint_position[probe_dof] = limits.hard_minimum_urad[
                             probe_dof
                         ]
+                        joint_velocity[probe_dof] = 0
                     else:
                         raise ReferenceTrackerError(
                             "soft-ROM cost has no descriptor warning interval"
@@ -1150,6 +1240,7 @@ def audit_reference_inputs(
                     **{
                         **state.__dict__,
                         "joint_position_urad": joint_position,
+                        "joint_velocity_urad_s": joint_velocity,
                         "contact_flags": contacts,
                         "sole_planar_velocity_um_s": sole_velocity,
                         "applied_effort_unm": limits.maximum_effort_unm.copy(),
@@ -1184,7 +1275,8 @@ def audit_reference_inputs(
                 terminal_values = dict(terminal_probe.component_values_q16)
                 if (
                     terminal_values["reward.terminal-failure"] != 65_536
-                    or terminal_probe.total_q16 != -196_608
+                    or terminal_probe.total_q16
+                    != reward.total_q16 + coefficients["reward.terminal-failure"]
                 ):
                     raise ReferenceTrackerError("terminal reward penalty scale is incorrect")
                 terminal_penalty_checks += 1

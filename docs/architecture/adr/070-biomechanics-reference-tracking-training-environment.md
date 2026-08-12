@@ -110,6 +110,15 @@ zero. Its coefficient is Q16 `-65536`. This warning signal does not clamp,
 weaken or replace immediate hard-ROM termination and cannot authorize a policy
 with any hard-safety event.
 
+If a realized-state warning is rejected by its declared curriculum run, a new
+identity may instead use `reward.predictive-rom-excursion-cost`. It applies the
+same directional soft-to-hard normalization to a one-motor-tick, 60 Hz
+forward-Euler projection of current joint position and velocity. Its Q16
+coefficient is `-65536`; no other reward, action, terminal, PD/safety or PPO
+fact changes. The compact repository document binds the exact frozen V1 base
+hash and one append-only reward component; loading rejects any base mismatch
+before materializing the full profile.
+
 Immediate failure termination covers hard ROM/actuator/impact failures,
 forbidden non-sole locomotion support after the accepted grace window,
 non-finite input and declared tracking loss. `truncated` is reserved for an

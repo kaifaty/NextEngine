@@ -1120,6 +1120,17 @@ if ISAAC_LAB_AVAILABLE:
                     self._hard_minimum,
                     self._hard_maximum,
                 ),
+                "reward.predictive-rom-excursion-cost": _soft_rom_excursion_cost_tensor(
+                    action_position
+                    + current["joint_velocity_urad_s"][:, self._action_to_dof].to(
+                        torch.float64
+                    )
+                    / 60.0,
+                    self._soft_minimum,
+                    self._soft_maximum,
+                    self._hard_minimum,
+                    self._hard_maximum,
+                ),
                 "reward.terminal-failure": self._failure_terminal.to(torch.float64),
             }
             components = torch.stack(

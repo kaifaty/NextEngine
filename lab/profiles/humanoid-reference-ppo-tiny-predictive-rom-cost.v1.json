@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.training.humanoid-reference-ppo-tiny-predictive-rom-cost.v1",
+  "status": "Frozen",
+  "base_profile_id": "nextengine.training.humanoid-reference-ppo-tiny.v1",
+  "base_profile_sha256": "ac34da5ab39a069e8de9ecd19730bfed2c4dce9ac8753c7a03bbfdb99c8df55b",
+  "variant": {
+    "kind": "replace-environment.v1",
+    "environment_profile_id": "nextengine.motor.env.humanoid-reference-tracker-predictive-rom-cost.v1",
+    "environment_profile_sha256": "2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5"
+  }
+}

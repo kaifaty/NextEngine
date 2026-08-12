@@ -21,10 +21,36 @@ class TinyReferencePpoProfile:
     def load(cls, path: Path) -> "TinyReferencePpoProfile":
         payload = path.read_bytes()
         document = json.loads(payload)
+        if "base_profile_sha256" in document:
+            overlay = document
+            if (
+                overlay.get("schema_version") != 1
+                or overlay.get("status") != "Frozen"
+                or overlay.get("base_profile_id")
+                != "nextengine.training.humanoid-reference-ppo-tiny.v1"
+                or overlay.get("base_profile_sha256")
+                != "ac34da5ab39a069e8de9ecd19730bfed2c4dce9ac8753c7a03bbfdb99c8df55b"
+                or overlay.get("variant", {}).get("kind")
+                != "replace-environment.v1"
+            ):
+                raise ValueError("invalid reference PPO profile variant")
+            base_path = path.with_name("humanoid-reference-ppo-tiny.v1.json")
+            base_payload = base_path.read_bytes()
+            if hashlib.sha256(base_payload).hexdigest() != overlay["base_profile_sha256"]:
+                raise ValueError("reference PPO variant base hash mismatch")
+            document = json.loads(base_payload)
+            document["profile_id"] = overlay["profile_id"]
+            document["environment_profile_id"] = overlay["variant"][
+                "environment_profile_id"
+            ]
+            document["environment_profile_sha256"] = overlay["variant"][
+                "environment_profile_sha256"
+            ]
         profile_id = document.get("profile_id")
         fixed_tiny_profile_ids = {
             "nextengine.training.humanoid-reference-ppo-tiny.v1",
             "nextengine.training.humanoid-reference-ppo-tiny-soft-rom-cost.v1",
+            "nextengine.training.humanoid-reference-ppo-tiny-predictive-rom-cost.v1",
         }
         isolated_curriculum_profile_ids = {
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v2",
