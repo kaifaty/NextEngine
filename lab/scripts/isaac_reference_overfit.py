@@ -34,6 +34,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--iterations", type=int)
     parser.add_argument("--performance-evidence", action="store_true")
     parser.add_argument("--performance-warmup-iterations", type=int, default=3)
+    parser.add_argument("--performance-num-envs", type=int)
+    parser.add_argument("--performance-minibatches", type=int)
+    parser.add_argument("--performance-learning-rate", type=float)
     AppLauncher.add_app_launcher_args(parser)
     return parser.parse_args()
 
@@ -64,13 +67,28 @@ def main() -> None:
     from next_lab.reference_ppo import TinyReferencePpoProfile
 
     training_profile = TinyReferencePpoProfile.load(args.training_profile.resolve())
-    document = dict(training_profile.document)
+    from next_lab.reference_performance import resolve_performance_overrides
+
+    requested_performance_override = any(
+        value is not None
+        for value in (
+            args.performance_num_envs,
+            args.performance_minibatches,
+            args.performance_learning_rate,
+        )
+    )
+    if requested_performance_override and not args.performance_evidence:
+        raise ValueError("performance profile overrides require --performance-evidence")
+    document, resolved_overrides = resolve_performance_overrides(
+        training_profile.document,
+        iterations=args.iterations,
+        num_envs=args.performance_num_envs,
+        minibatches=args.performance_minibatches,
+        learning_rate=args.performance_learning_rate,
+    )
     execution = dict(document["execution"])
-    if args.iterations is not None:
-        if args.iterations <= 0 or args.iterations > execution["iterations"]:
-            raise ValueError("iteration override must be positive and no larger than frozen budget")
-        execution["iterations"] = args.iterations
-        document["execution"] = execution
+    ppo = dict(document["ppo"])
+    if resolved_overrides:
         training_profile = TinyReferencePpoProfile(
             document=document,
             sha256=training_profile.sha256,
@@ -103,21 +121,29 @@ def main() -> None:
     run_dir = output_root / args.run_id
     run_dir.mkdir(parents=True, exist_ok=False)
     manifest_path = run_dir / "run-manifest.json"
-    config_hash = hashlib.sha256(
-        _canonical_json(
+    resolved_config: dict[str, Any] = {
+        "training_profile_sha256": training_profile.sha256,
+        "resolved_execution": execution,
+        "input_hashes": input_hashes,
+        "generation_manifest_hash": generation["manifest_hash"],
+    }
+    if resolved_overrides:
+        resolved_config.update(
             {
-                "training_profile_sha256": training_profile.sha256,
-                "resolved_execution": execution,
-                "input_hashes": input_hashes,
-                "generation_manifest_hash": generation["manifest_hash"],
+                "resolved_ppo": ppo,
+                "performance_overrides": resolved_overrides,
             }
         )
-    ).hexdigest()
+    config_hash = hashlib.sha256(_canonical_json(resolved_config)).hexdigest()
     manifest: dict[str, Any] = {
         "schema_version": 1,
         "schema_id": "nextengine.training.humanoid-reference-overfit-run.v1",
         "status": "running",
-        "claim": "TrainingExecutionOnly",
+        "claim": (
+            "PerformanceEvidenceOnly"
+            if args.performance_evidence and resolved_overrides
+            else "TrainingExecutionOnly"
+        ),
         "run_id": args.run_id,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "training_generation_id": generation["training_generation_id"],
@@ -132,6 +158,9 @@ def main() -> None:
         "samples": 0,
         "learned_policy_claim": False,
     }
+    if resolved_overrides:
+        manifest["resolved_ppo"] = ppo
+        manifest["performance_overrides"] = resolved_overrides
     _write_json(manifest_path, manifest)
     os.environ["NEXTENGINE_HUMANOID_USD"] = str(args.usd.resolve())
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = execution["cublas_workspace_config"]
@@ -243,13 +272,14 @@ def main() -> None:
             final_evaluation["selection_episode_matrix_hash"]
             == initial_evaluation["selection_episode_matrix_hash"]
         )
-        accepted = (
+        quality_acceptance = (
             evaluation_matrix_identical
             and final_evaluation["reference_complete_count"]
             > initial_evaluation["reference_complete_count"]
             and final_evaluation["mean_episode_length"]
             > initial_evaluation["mean_episode_length"]
         )
+        accepted = quality_acceptance and not resolved_overrides
         checkpoint_path = run_dir / "final-checkpoint.pt"
         torch.save(
             {
@@ -273,12 +303,16 @@ def main() -> None:
                 "claim": (
                     document["evaluation"]["claim"]
                     if accepted
-                    else "TrainingExecutionOnly"
+                    else (
+                        "PerformanceEvidenceOnly"
+                        if args.performance_evidence and resolved_overrides
+                        else "TrainingExecutionOnly"
+                    )
                 ),
                 "optimizer_steps": trainer.optimizer_steps,
                 "samples": trainer.samples,
                 "learned_policy_claim": accepted,
-                "overfit_acceptance": "PASS" if accepted else "FAIL",
+                "overfit_acceptance": "PASS" if quality_acceptance else "FAIL",
                 "evaluation_selection_matrix_identical": evaluation_matrix_identical,
                 "initial_evaluation": initial_evaluation,
                 "final_evaluation": final_evaluation,

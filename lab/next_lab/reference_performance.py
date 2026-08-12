@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import statistics
 import subprocess
@@ -12,6 +13,57 @@ import torch
 
 
 THROUGHPUT_REPORT_SCHEMA_ID = "nextengine.training.reference-throughput-report.v1"
+
+
+def resolve_performance_overrides(
+    profile: Mapping[str, Any],
+    *,
+    iterations: int | None = None,
+    num_envs: int | None = None,
+    minibatches: int | None = None,
+    learning_rate: float | None = None,
+) -> tuple[dict[str, Any], dict[str, dict[str, int | float]]]:
+    """Resolve bounded report-only sweep values without changing profile identity."""
+    document = dict(profile)
+    execution = dict(document["execution"])
+    ppo = dict(document["ppo"])
+    overrides: dict[str, dict[str, int | float]] = {}
+
+    def replace(
+        target: dict[str, Any], name: str, value: int | float | None
+    ) -> None:
+        if value is None:
+            return
+        overrides[name] = {"source": target[name], "resolved": value}
+        target[name] = value
+
+    if iterations is not None and (
+        iterations <= 0 or iterations > int(execution["iterations"])
+    ):
+        raise ValueError(
+            "iteration override must be positive and no larger than frozen budget"
+        )
+    if num_envs is not None and not 1 <= num_envs <= 4_096:
+        raise ValueError("performance num_envs must be between 1 and 4096")
+    if minibatches is not None and minibatches <= 0:
+        raise ValueError("performance minibatches must be positive")
+    if learning_rate is not None and (
+        not math.isfinite(learning_rate) or not 0.0 < learning_rate <= 0.01
+    ):
+        raise ValueError("performance learning rate must be finite and in (0, 0.01]")
+
+    replace(execution, "iterations", iterations)
+    replace(execution, "num_envs", num_envs)
+    replace(ppo, "minibatches", minibatches)
+    replace(ppo, "learning_rate", learning_rate)
+    batch_size = int(execution["num_envs"]) * int(
+        execution["rollout_steps_per_env"]
+    )
+    if batch_size % int(ppo["minibatches"]) != 0:
+        raise ValueError("resolved rollout batch must divide evenly into minibatches")
+    document["execution"] = execution
+    document["ppo"] = ppo
+    return document, overrides
 
 
 @dataclass(frozen=True)

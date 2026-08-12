@@ -7,6 +7,7 @@ from pathlib import Path
 
 import torch
 
+from next_lab.reference_performance import resolve_performance_overrides
 from next_lab.reference_ppo import (
     TinyReferencePpoProfile,
     TinyReferencePpoTrainer,
@@ -18,6 +19,25 @@ PROFILE = Path(__file__).parents[1] / "profiles/humanoid-reference-ppo-tiny.v1.j
 
 
 class ReferencePpoPerformanceTests(unittest.TestCase):
+    def test_report_only_overrides_are_bounded_and_hash_visible(self) -> None:
+        profile = TinyReferencePpoProfile.load(PROFILE)
+        resolved, overrides = resolve_performance_overrides(
+            profile.document,
+            iterations=10,
+            num_envs=1_024,
+            minibatches=8,
+            learning_rate=0.0006,
+        )
+        self.assertEqual(resolved["execution"]["num_envs"], 1_024)
+        self.assertEqual(resolved["ppo"]["minibatches"], 8)
+        self.assertEqual(overrides["num_envs"], {"source": 64, "resolved": 1_024})
+        with self.assertRaisesRegex(ValueError, "between 1 and 4096"):
+            resolve_performance_overrides(profile.document, num_envs=4_097)
+        with self.assertRaisesRegex(ValueError, "divide evenly"):
+            resolve_performance_overrides(
+                profile.document, num_envs=65, minibatches=3
+            )
+
     def test_selection_episode_matrix_hash_ignores_results_but_not_sampling(self) -> None:
         first = {
             "clip:1": {"episodes": 2, "failure_count": 2},
