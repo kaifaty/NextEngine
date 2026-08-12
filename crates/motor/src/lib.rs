@@ -17,6 +17,7 @@ mod performance;
 mod procedural_standing;
 #[cfg(test)]
 mod procedural_standing_tests;
+mod reference_pose_audit;
 mod replay;
 mod runtime;
 mod safety_control;
@@ -67,6 +68,9 @@ pub use procedural_standing::{
     BiomechanicsProceduralStandingControllerV1, PROCEDURAL_STANDING_ANKLE_BIAS_MICRORADIANS,
     PROCEDURAL_STANDING_KNEE_TARGET_MICRORADIANS, PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS,
     ProceduralStandingError,
+};
+pub use reference_pose_audit::{
+    ReferencePoseAuditError, biomechanics_reference_pose_audit_json_v1,
 };
 pub use replay::{MOTOR_RUNTIME_CHECKPOINT_SCHEMA_VERSION, MotorReplayCodecError};
 pub use runtime::{

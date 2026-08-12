@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import os
+import subprocess
 import tempfile
 import zipfile
 from pathlib import Path
@@ -50,10 +51,16 @@ def build_motion_corpus(
     skeleton_cache: dict[str, AsfSkeleton] = {}
     frame_cache: dict[tuple[str, str], tuple[AmcFrame, ...]] = {}
     clips: list[RetargetedClip] = []
+    admitted_partitions = set(profile["admitted_partitions"])
     expected_scale = profile["source"]["length_scale_metres"]
     scale = float(expected_scale["numerator"]) / float(expected_scale["denominator"])
     raw_root = dataset_root.resolve() / "raw"
-    for clip_record in profile["clips"]:
+    admitted_clip_records = [
+        clip_record
+        for clip_record in profile["clips"]
+        if clip_record["partition"] in admitted_partitions
+    ]
+    for clip_record in admitted_clip_records:
         subject = clip_record["subject"]
         trial = clip_record["trial"]
         skeleton = skeleton_cache.get(subject)
@@ -149,6 +156,7 @@ def build_motion_corpus(
                 "id": profile["profile_id"],
                 "sha256": profile_sha256,
             },
+            "admitted_partitions": sorted(admitted_partitions),
             "target": {
                 "body_schema_id": descriptor["body_schema_id"],
                 "body_schema_revision": descriptor["body_schema_revision"],
@@ -165,8 +173,8 @@ def build_motion_corpus(
             "mirror_checks": mirror_results,
             "clips": clip_results,
             "summary": {
-                "base_clip_count": len(profile["clips"]),
-                "derived_clip_count": len(clips) - len(profile["clips"]),
+                "base_clip_count": len(admitted_clip_records),
+                "derived_clip_count": len(clips) - len(admitted_clip_records),
                 "total_clip_count": len(clips),
                 "validated_clip_count": sum(entry["validation"]["status"] == "PASS" for entry in clip_results),
                 "failed_clip_count": sum(entry["validation"]["status"] != "PASS" for entry in clip_results),
@@ -208,6 +216,121 @@ def deterministic_npz_bytes(clip: RetargetedClip, metadata: dict[str, Any]) -> b
             entry.external_attr = 0o100644 << 16
             archive.writestr(entry, payload.getvalue(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
     return output.getvalue()
+
+
+def audit_motion_corpus_physx_poses(
+    *,
+    runner: Path,
+    descriptor_path: Path,
+    corpus_root: Path,
+    output_store: Path,
+    partition: str,
+) -> tuple[dict[str, Any], Path]:
+    if partition not in {"locomotion", "recovery"}:
+        raise ValueError("unsupported motion corpus partition")
+    corpus_root = corpus_root.resolve()
+    manifest_path = corpus_root / "corpus-manifest.json"
+    manifest_bytes = manifest_path.read_bytes()
+    manifest = json.loads(manifest_bytes)
+    if (
+        manifest.get("status") != "VALIDATED"
+        or _canonical_manifest_hash(manifest) != manifest.get("manifest_sha256")
+    ):
+        raise ValueError("motion corpus manifest is not a validated canonical generation")
+    descriptor_bytes = descriptor_path.read_bytes()
+    descriptor = json.loads(descriptor_bytes)
+    target = manifest["target"]
+    if (
+        _sha256(descriptor_bytes) != target["descriptor_file_sha256"]
+        or descriptor.get("body_schema_hash") != target["body_schema_hash"]
+        or descriptor.get("compiled_descriptor_hash")
+        != target["compiled_descriptor_hash"]
+    ):
+        raise ValueError("motion corpus PhysX audit descriptor closure mismatch")
+    poses: list[dict[str, Any]] = []
+    artifact_count = 0
+    for entry in manifest["clips"]:
+        if entry["partition"] != partition:
+            continue
+        relative_path = Path(entry["artifact"]["relative_path"])
+        if relative_path.is_absolute() or ".." in relative_path.parts:
+            raise ValueError("motion corpus artifact path is not canonical relative")
+        artifact_path = corpus_root / relative_path
+        artifact_bytes = artifact_path.read_bytes()
+        if _sha256(artifact_bytes) != entry["artifact"]["sha256"]:
+            raise ValueError("motion corpus artifact hash mismatch")
+        artifact_count += 1
+        with np.load(io.BytesIO(artifact_bytes), allow_pickle=False) as artifact:
+            roots = artifact["root_quaternion_q1_30"]
+            joints = artifact["joint_position_urad"]
+            if len(roots) != len(joints) or joints.shape[1] != len(descriptor["joints"]):
+                raise ValueError("motion corpus artifact pose shape mismatch")
+            poses.extend(
+                {
+                    "clip_id": entry["clip_id"],
+                    "split": entry["split"],
+                    "reference_frame": frame,
+                    "root_quaternion_q1_30": roots[frame].tolist(),
+                    "joint_position_urad": joints[frame].tolist(),
+                }
+                for frame in range(len(joints))
+            )
+    if not poses:
+        raise ValueError("motion corpus PhysX audit partition is empty")
+    document = {
+        "schema_version": 1,
+        "schema_id": "nextengine.motor.reference-pose-audit-input.v1",
+        "body_schema_hash": target["body_schema_hash"],
+        "compiled_descriptor_hash": target["compiled_descriptor_hash"],
+        "corpus_manifest_sha256": manifest["manifest_sha256"],
+        "poses": poses,
+    }
+    input_payload = _canonical_json(document)
+    runner_payload = runner.read_bytes()
+    runner_sha256 = _sha256(runner_payload)
+    adapter_tool_sha256 = _sha256(Path(__file__).read_bytes())
+    result = subprocess.run(
+        [str(runner.resolve())],
+        input=input_payload,
+        capture_output=True,
+        timeout=900,
+        check=False,
+    )
+    if result.returncode != 0:
+        diagnostic = result.stderr.decode("utf-8", errors="replace").strip()
+        raise ValueError(f"native reference pose audit failed: {diagnostic}")
+    report = json.loads(result.stdout)
+    if (
+        report.get("check") != "TRAIN-4-PHYSX-REFERENCE-POSE-AUDIT"
+        or report.get("claim") != "ReferencePoseResetFeasibilityOnly"
+        or report.get("body_schema_hash") != target["body_schema_hash"]
+        or report.get("compiled_descriptor_hash") != target["compiled_descriptor_hash"]
+        or report.get("corpus_manifest_sha256") != manifest["manifest_sha256"]
+        or report.get("pose_count") != len(poses)
+    ):
+        raise ValueError("native reference pose audit output closure mismatch")
+    report["partition"] = partition
+    report["artifact_count"] = artifact_count
+    report["corpus_manifest_file_sha256"] = _sha256(manifest_bytes)
+    report["input_sha256"] = _sha256(input_payload)
+    report["runner_sha256"] = runner_sha256
+    report["adapter_tool_sha256"] = adapter_tool_sha256
+    output_payload = _canonical_json(report)
+    destination = (
+        output_store.resolve()
+        / "evaluations"
+        / "TRAIN-4"
+        / (
+            f"reference-pose-audit-{partition}-{manifest['manifest_sha256'][:16]}-"
+            f"{runner_sha256[:16]}-{adapter_tool_sha256[:16]}.json"
+        )
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists() and destination.read_bytes() != output_payload:
+        raise ValueError(f"refusing to overwrite a different pose audit: {destination}")
+    if not destination.exists():
+        destination.write_bytes(output_payload)
+    return report, destination
 
 
 def validate_clip(
@@ -255,6 +378,39 @@ def validate_clip(
         velocity_projected.size
     )
     maximum_velocity_projection = int(np.max(clip.velocity_projection_urad))
+    collision_projected = clip.locomotion_collision_projection_urad > 0
+    collision_projected_fraction = float(np.count_nonzero(collision_projected)) / float(
+        collision_projected.size
+    )
+    maximum_collision_projection = int(
+        np.max(clip.locomotion_collision_projection_urad)
+    )
+    if clip.partition == "recovery" and maximum_collision_projection:
+        errors.append("RETARGET_RECOVERY_COLLISION_PROJECTION_FORBIDDEN")
+    if clip.partition == "locomotion":
+        joint_by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
+        projection = profile["retarget"]["locomotion_collision_projection"]
+        for side in ("left", "right"):
+            hip_yaw = int(joint_by_id[f"joint.{side}-hip-yaw"]["dof_ordinal"])
+            hip_roll = int(joint_by_id[f"joint.{side}-hip-roll"]["dof_ordinal"])
+            shoulder_roll = int(
+                joint_by_id[f"joint.{side}-shoulder-roll"]["dof_ordinal"]
+            )
+            if np.any(
+                clip.joint_position_urad[:, hip_yaw]
+                != int(projection["hip_yaw_microradians"])
+            ):
+                errors.append("RETARGET_LOCOMOTION_HIP_YAW_PROJECTION_MISMATCH")
+            if np.any(
+                clip.joint_position_urad[:, hip_roll]
+                < int(projection["hip_roll_minimum_microradians"])
+            ):
+                errors.append("RETARGET_LOCOMOTION_HIP_CLEARANCE_MISMATCH")
+            if np.any(
+                clip.joint_position_urad[:, shoulder_roll]
+                < int(projection["shoulder_roll_minimum_microradians"])
+            ):
+                errors.append("RETARGET_LOCOMOTION_SHOULDER_CLEARANCE_MISMATCH")
 
     planar_velocity = np.linalg.norm(clip.root_linear_velocity_um_s[:, (0, 2)].astype(np.float64), axis=1) / 1_000_000.0
     planar_displacement = float(
@@ -319,6 +475,10 @@ def validate_clip(
             "maximum_raw_soft_rom_excess_microradians": maximum_raw_excess,
             "velocity_projected_channel_fraction": round(velocity_projected_fraction, 6),
             "maximum_velocity_projection_microradians": maximum_velocity_projection,
+            "collision_projected_channel_fraction": round(
+                collision_projected_fraction, 6
+            ),
+            "maximum_collision_projection_microradians": maximum_collision_projection,
             "maximum_ground_correction_micrometres": maximum_correction,
             "minimum_collider_height_micrometres": minimum_collider_height,
             "minimum_nonfoot_height_micrometres": minimum_nonfoot_height,
@@ -345,6 +505,14 @@ def _validate_closure(
 ) -> None:
     if profile.get("schema_version") != SCHEMA_VERSION:
         raise ValueError("unsupported motion corpus profile")
+    admitted_partitions = profile.get("admitted_partitions")
+    if (
+        not isinstance(admitted_partitions, list)
+        or not admitted_partitions
+        or len(admitted_partitions) != len(set(admitted_partitions))
+        or any(partition not in {"locomotion", "recovery"} for partition in admitted_partitions)
+    ):
+        raise ValueError("motion corpus admitted partition closure is invalid")
     target = profile["body_schema"]
     checks = {
         "id": descriptor.get("body_schema_id"),
@@ -355,7 +523,7 @@ def _validate_closure(
     for field, actual in checks.items():
         if target[field] != actual:
             raise ValueError(f"motion corpus target {field} mismatch")
-    if _sha256(descriptor_bytes) != "59a313ad232cfee4d54a78bebd584a05bf0bdfeef05846b288f7dfe126a76fa7":
+    if _sha256(descriptor_bytes) != "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014":
         raise ValueError("motion corpus target descriptor file hash mismatch")
     raw_root = dataset_root.resolve() / "raw"
     for item in profile["source_files"]:

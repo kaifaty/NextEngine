@@ -2,10 +2,11 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | Frozen `TRAIN-4` input; admission remains conditional on executable and visual validation |
+| Статус | Revised locomotion-only `TRAIN-4` input; recovery candidates quarantined by physical reset audit |
 | Дата | 2026-08-12 |
-| Profile ID | `nextengine.motion-corpus.humanoid-biomechanics-cmu.v1` |
-| Target | `nextengine.body.humanoid-biomechanics-raja-1700.v2`, revision `1` |
+| Profile ID | `nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion.v1` |
+| Target | `nextengine.body.humanoid-biomechanics-raja-1700.v2`, revision `2` |
+| Admitted partition | `locomotion` only |
 | Canonical config | `lab/profiles/humanoid-motion-corpus-cmu.v1.json` |
 | Public/runtime contract change | none; importer, source records and retargeted bytes are private lab data |
 | Training authorization | none until the complete `TRAIN-4` gate advances |
@@ -48,17 +49,22 @@ applies the authored ASF axis basis, and maps explicit semantic chains to the
 maps femur rotation plus knee and foot; each shoulder combines clavicle and
 humerus plus radius flexion. No target is selected by runtime name guessing.
 
-Every solved target is quantized to microradians and clamped to the exact V2
-soft ROM. A causal cleanup projection then limits each channel to the target
+Every solved target is regularized toward the current source pose, quantized
+to microradians and clamped to the exact V2 soft ROM. The locomotion profile
+then applies and records a collision-clearance projection: bilateral hip yaw is
+neutral, hip roll cannot cross into adduction and shoulder roll stays at least
+`261799 urad` (`15 degrees`). These bounds were selected before re-admission
+from a full native PhysX reset-pose audit; they are explicit data loss, not
+hidden solver behavior. A causal cleanup projection then limits each channel to the target
 joint's published maximum velocity at 60 Hz; the per-sample projection is
 preserved in the artifact and summarized in validation rather than hidden.
 Root translation, root orientation/yaw, velocities, CoM, effectors, contacts
 and phase are derived at 60 Hz. A deterministic signed vertical
 alignment places the lowest sole collider on the ground for locomotion
-(absolute bound `0.125000 m`) and the lowest solid collider on the ground for
-recovery (absolute bound `0.650000 m`). The larger recovery bound covers the
-different pelvis origins of a standing target and a prone/supine source; every
-applied value is recorded per frame and in the clip report. No manual contact
+(absolute bound `0.125000 m`). Recovery parameters and source records remain
+in the private candidate profile for reproducible failure analysis, but the
+`admitted_partitions` closure excludes every recovery clip from the manifest.
+No manual contact
 override exists in V1; adding one creates a new corpus/profile hash.
 
 The locomotion bound covers the measured worst independent-skeleton target
@@ -72,14 +78,14 @@ canonical JSON profile. Split ownership is performer-isolated:
 
 | Split | Subjects | Purpose |
 |---|---|---|
-| train | 16, 90, 104, 140 | complete mandatory class coverage; slip/fall source 90 |
-| validation | 05, 91, 111 | independent locomotion, lay-down/fall, prone/supine get-up and side transition |
-| held-out | 114, 139 | independent locomotion, lay-down/fall, prone/supine get-up and side transition |
+| train | 16, 104, 140 | independent idle/start/walk/stop/turn coverage |
+| validation | 05, 91 | independent idle/start/walk/stop/turn coverage |
+| held-out | 139 | independent weight-shift/start/walk/stop/turn coverage |
 
 `split_group_id` is the original subject/trial identity. Crops and mirrors
 retain it exactly, so no original/mirrored/cleaned sibling can cross a split.
-The audit requires one independent group in every split for each of ten learned
-class families, giving at least three groups per class. Directional variants do
+The audit requires one independent group in every split for each of six admitted
+locomotion class families, giving at least three groups per class. Directional variants do
 not increase this count. Subject 139 remains held out in full even though only
 selected trials are admitted. CMU subjects 91 and 105 were found to publish
 byte-identical selected skeleton/motion files; subject 105 is therefore
@@ -94,7 +100,7 @@ mislabelled as neutral idle. The `140_03:1..273` side-transition crop ends at
 the observed side-to-prone/supine support state before the later kneeling/get-up
 phase. Both retain the original subject/trial `split_group_id`.
 
-Right-leading starts, left-support stops and left side transitions may produce
+Right-leading starts and left-support stops may produce
 one deterministic sagittal mirror inside the same source group and split.
 Mirror uses only
 the BodySchema symmetry mapping: root/effector X is negated, left/right arrays
@@ -102,11 +108,10 @@ are swapped, semantic joint mirror signs are applied and the reflected root
 quaternion is `[x,-y,-z,w]`. Applying the transform twice must restore every
 canonical integer byte exactly.
 
-Each independently sourced backward safe-floor transition produces fixed
-world-Y quarter-turn variants for forward, left and right coverage. This gives
-all four required directions in each split while retaining exactly three
-independent source groups: `90_17` train, `111_12` validation and the lay-down
-half of `114_11` held-out. Rotation derivatives never count as new groups.
+Safe-fall, get-up and side-transition records remain reproducible quarantine
+inputs. They are not corpus entries, do not satisfy a TRAIN-4 requirement and
+cannot be selected by TRAIN-5. Their failed native reset-pose audit is retained
+as the required input to a later recovery-retarget revision before TRAIN-7.
 
 ## 4. Validation and claim boundary
 
@@ -116,12 +121,15 @@ An admitted clip must satisfy all of the following before `TRAIN-4` advances:
 - every target channel stays inside soft and hard ROM after solve;
 - signed ground alignment stays within its partition bound, and locomotion has zero
   non-foot penetration after correction;
-- contact facts follow the fixed sole/recovery height and velocity thresholds;
-- start/stop, walk/turn and recovery direction checks match the declared skill;
+- every admitted locomotion frame initialized above the ground with zero
+  velocity produces no active self-penetration, impulse or joint-velocity
+  violation in one native PhysX substep;
+- contact facts follow the fixed sole height and velocity thresholds;
+- idle/start/stop/walk/turn checks match the declared skill;
 - a loop, if later introduced, passes the profile pose/velocity wrap bounds;
 - mirror-twice is byte exact, and no `split_group_id` or performer crosses a
   split;
-- every mandatory learned class has train/validation/held-out source groups,
+- every admitted locomotion class has train/validation/held-out source groups,
   every directional variant is present and each slow/nominal gait group has at
   least four contact-derived full gait cycles;
 - deterministic re-import recreates identical NPZ and manifest hashes;
@@ -129,15 +137,13 @@ An admitted clip must satisfy all of the following before `TRAIN-4` advances:
   one explicit visual disposition.
 
 The rejected `85_15:800..1070` candidate is an acrobatic twist sequence rather
-than a safe brace/fall and is not admitted. Admitted safe-floor groups are the
-complete `90_17` `BannanaPeelSlip`, complete `111_12` `Lay down`, and frames
-`1..1161` of `114_11` `Laying down and getting up`. Each begins upright, ends
-in declared floor support and lowers retargeted CoM by more than `0.25 m`.
-Source labels are not admission evidence: anatomy, contact, ground-correction
-and visual review remain mandatory, and no clip is repaired by relaxing
-BodySchema ROM or safety.
+than a safe brace/fall and is not admitted. Source labels are not admission
+evidence: anatomy, contact, ground-correction and visual review remain
+mandatory, and no clip is repaired by relaxing BodySchema ROM or safety. The
+earlier 52-clip candidate is also not admitted: its recovery partition failed
+`11465/11536` native pose checks and is retained only as immutable failure
+evidence.
 
-This profile creates no `RetargetProfileV1`, reference-tracking environment or
-`PhysicalActionChunk` wire format. Those remain Proposed until `TRAIN-5` has a
-concrete production consumer and a separate consumer-backed architecture
-decision.
+This profile creates no runtime `RetargetProfileV1` or `PhysicalActionChunk`
+wire format. The separate TRAIN-5 environment contract is governed by
+[ADR-070](../architecture/adr/070-biomechanics-reference-tracking-training-environment.md).

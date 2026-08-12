@@ -204,6 +204,9 @@ def _clip(descriptor: dict) -> RetargetedClip:
         minimum_collider_height_um=np.asarray((0, 1, 2), dtype=np.int64),
         minimum_nonfoot_height_um=np.asarray((3, 4, 5), dtype=np.int64),
         raw_soft_rom_excess_urad=np.zeros((frame_count, joint_count), dtype=np.int64),
+        locomotion_collision_projection_urad=np.zeros(
+            (frame_count, joint_count), dtype=np.int64
+        ),
         velocity_projection_urad=joint_position,
         source_overlay_bones=SOURCE_OVERLAY_BONES,
         source_overlay_position_um=np.arange(

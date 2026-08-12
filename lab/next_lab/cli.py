@@ -22,7 +22,7 @@ from next_lab.motor_lab_client import (
     STANDING_PROFILE_ID,
 )
 from next_lab.trajectory_recorder import record_canonical_cpu_trajectories
-from next_lab.motion_corpus import build_motion_corpus
+from next_lab.motion_corpus import audit_motion_corpus_physx_poses, build_motion_corpus
 
 
 def _mps_probe() -> tuple[bool, str | None]:
@@ -200,6 +200,16 @@ def parser() -> argparse.ArgumentParser:
     )
     corpus_parser.add_argument("--dataset-root", type=Path, required=True)
     corpus_parser.add_argument("--store", type=Path)
+
+    pose_audit_parser = commands.add_parser("motion-corpus-physx-pose-audit")
+    pose_audit_parser.add_argument("--runner", type=Path, required=True)
+    pose_audit_parser.add_argument("--descriptor", type=Path, required=True)
+    pose_audit_parser.add_argument("--corpus-root", type=Path, required=True)
+    pose_audit_parser.add_argument(
+        "--partition", choices=["locomotion", "recovery"], required=True
+    )
+    pose_audit_parser.add_argument("--store", type=Path)
+
     return root
 
 
@@ -296,6 +306,28 @@ def main() -> int:
             )
         )
         return 0 if manifest["status"] == "VALIDATED" else 4
+    if arguments.command == "motion-corpus-physx-pose-audit":
+        report, output = audit_motion_corpus_physx_poses(
+            runner=arguments.runner,
+            descriptor_path=arguments.descriptor,
+            corpus_root=arguments.corpus_root,
+            output_store=_configured_store(arguments.store),
+            partition=arguments.partition,
+        )
+        print(
+            json.dumps(
+                {
+                    "check": report["check"],
+                    "status": report["status"],
+                    "pose_count": report["pose_count"],
+                    "failed_pose_count": report["failed_pose_count"],
+                    "output": str(output),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0 if report["status"] == "PASS" else 4
     raise AssertionError(f"unhandled command: {arguments.command}")
 
 

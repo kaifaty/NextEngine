@@ -1,11 +1,12 @@
 {
   "schema_version": 1,
-  "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu.v1",
+  "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion.v1",
+  "admitted_partitions": ["locomotion"],
   "body_schema": {
     "id": "nextengine.body.humanoid-biomechanics-raja-1700.v2",
-    "revision": 1,
-    "hash": "eb5b75e9376bec8cd38cedfe015e16dd31dcb693b70217ec35b89467d88900ff",
-    "compiled_descriptor_hash": "5640d7a9de95ae5c171384db29b601b73d31c8f9d12747a4f3b7c666525d9242"
+    "revision": 2,
+    "hash": "e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d",
+    "compiled_descriptor_hash": "b6f8b1260b24ad401453942c9a4303d99ce378a8f71c6490db79bb78d85a1782"
   },
   "source": {
     "provider": "Carnegie Mellon University Graphics Lab",
@@ -56,6 +57,12 @@
     "rotation_quantization": "canonical-sign nearest-ties-to-even Q1.30",
     "soft_rom_policy": "clamp after explicit semantic source-to-target solve",
     "velocity_policy": "causal projection to each target joint maximum velocity at 60 Hz after soft-ROM projection",
+    "locomotion_collision_projection": {
+      "hip_yaw_microradians": 0,
+      "hip_roll_minimum_microradians": 0,
+      "shoulder_roll_minimum_microradians": 261799,
+      "rationale": "keep nominal locomotion thighs separated and arms outside torso/pelvis colliders; every applied projection is retained per frame and channel"
+    },
     "ground_correction": {
       "algorithm": "signed vertical alignment: sole collider for locomotion, minimum solid collider for recovery",
       "locomotion_maximum_absolute_micrometres": 125000,
@@ -80,11 +87,7 @@
       "walk_slow": {"required_skills": ["walk_slow_forward"], "minimum_full_gait_cycles_per_split_group": 4},
       "walk_nominal": {"required_skills": ["walk_nominal_forward"], "minimum_full_gait_cycles_per_split_group": 4},
       "stop": {"required_skills": ["stop_left_support", "stop_right_support"]},
-      "turn": {"required_skills": ["turn_gradual_left", "turn_gradual_right"]},
-      "safe_fall": {"required_skills": ["brace_safe_fall_forward", "brace_safe_fall_backward", "brace_safe_fall_left", "brace_safe_fall_right"]},
-      "getup_prone": {"required_skills": ["getup_prone"]},
-      "getup_supine": {"required_skills": ["getup_supine"]},
-      "side_transition": {"required_skills": ["side_transition_left", "side_transition_right"]}
+      "turn": {"required_skills": ["turn_gradual_left", "turn_gradual_right"]}
     }
   },
   "source_files": [

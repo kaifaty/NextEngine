@@ -73,6 +73,7 @@ class RetargetedClip:
     minimum_collider_height_um: NDArray[np.int64]
     minimum_nonfoot_height_um: NDArray[np.int64]
     raw_soft_rom_excess_urad: NDArray[np.int64]
+    locomotion_collision_projection_urad: NDArray[np.int64]
     velocity_projection_urad: NDArray[np.int64]
     source_overlay_bones: tuple[str, ...]
     source_overlay_position_um: NDArray[np.int64]
@@ -106,10 +107,21 @@ def retarget_clip(
     source_root[:, 2] -= source_root[0, 2]
     root_rotations = _root_rotations(clip["skill"], source_root, poses)
     solved_frames: list[FloatArray] = []
+    collision_projections: list[FloatArray] = []
     previous: FloatArray | None = None
     for frame, pose, root_rotation in zip(selected, poses, root_rotations, strict=True):
-        previous = _solve_target_joints(descriptor, frame, pose, root_rotation, previous)
+        previous, collision_projection = _solve_target_joints(
+            descriptor,
+            frame,
+            pose,
+            root_rotation,
+            previous,
+            profile["retarget"].get("locomotion_collision_projection")
+            if clip["partition"] == "locomotion"
+            else None,
+        )
         solved_frames.append(previous)
+        collision_projections.append(collision_projection)
     raw_joint_positions = np.stack(solved_frames)
     soft_minimum, soft_maximum = _soft_limits(descriptor)
     raw_urad = np.rint(raw_joint_positions * 1_000_000.0).astype(np.int64)
@@ -117,6 +129,9 @@ def retarget_clip(
     clamped_urad = _project_joint_velocity(soft_clamped_urad, descriptor, 60)
     velocity_projection = np.abs(clamped_urad - soft_clamped_urad)
     raw_excess = np.maximum(soft_minimum - raw_urad, np.maximum(raw_urad - soft_maximum, 0))
+    collision_projection_urad = np.rint(
+        np.stack(collision_projections) * 1_000_000.0
+    ).astype(np.int64)
 
     frame_count = len(selected)
     root_positions = source_root.copy()
@@ -217,6 +232,7 @@ def retarget_clip(
         minimum_collider_height_um=np.rint(minimum_collider_height * 1_000_000.0).astype(np.int64),
         minimum_nonfoot_height_um=np.rint(minimum_nonfoot_height * 1_000_000.0).astype(np.int64),
         raw_soft_rom_excess_urad=raw_excess,
+        locomotion_collision_projection_urad=collision_projection_urad,
         velocity_projection_urad=velocity_projection,
         source_overlay_bones=SOURCE_OVERLAY_BONES,
         source_overlay_position_um=source_overlay,
@@ -346,6 +362,7 @@ def canonical_integer_arrays(clip: RetargetedClip) -> dict[str, NDArray[Any]]:
         "joint_velocity_urad_s": clip.joint_velocity_urad_s,
         "minimum_collider_height_um": clip.minimum_collider_height_um,
         "minimum_nonfoot_height_um": clip.minimum_nonfoot_height_um,
+        "locomotion_collision_projection_urad": clip.locomotion_collision_projection_urad,
         "phase_u16": clip.phase_u16,
         "raw_soft_rom_excess_urad": clip.raw_soft_rom_excess_urad,
         "root_linear_velocity_um_s": clip.root_linear_velocity_um_s,
@@ -365,7 +382,8 @@ def _solve_target_joints(
     pose: SourcePose,
     root_rotation: FloatArray,
     previous: FloatArray | None,
-) -> FloatArray:
+    locomotion_collision_projection: dict[str, Any] | None,
+) -> tuple[FloatArray, FloatArray]:
     target = np.zeros(len(descriptor["joints"]), dtype=np.float64)
     by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
 
@@ -418,7 +436,43 @@ def _solve_target_joints(
             source_prefix=source_prefix,
             previous=previous,
         )
-    return target
+    collision_projection = np.zeros_like(target)
+    if locomotion_collision_projection is not None:
+        for side in ("left", "right"):
+            hip_yaw_ordinal = int(by_id[f"joint.{side}-hip-yaw"]["dof_ordinal"])
+            hip_roll_ordinal = int(by_id[f"joint.{side}-hip-roll"]["dof_ordinal"])
+            shoulder_roll_ordinal = int(
+                by_id[f"joint.{side}-shoulder-roll"]["dof_ordinal"]
+            )
+            hip_yaw = int(locomotion_collision_projection["hip_yaw_microradians"])
+            hip_roll_minimum = int(
+                locomotion_collision_projection["hip_roll_minimum_microradians"]
+            )
+            shoulder_roll_minimum = int(
+                locomotion_collision_projection[
+                    "shoulder_roll_minimum_microradians"
+                ]
+            )
+            projected_hip_yaw = hip_yaw / 1_000_000.0
+            projected_hip_roll = max(
+                target[hip_roll_ordinal], hip_roll_minimum / 1_000_000.0
+            )
+            projected_shoulder_roll = max(
+                target[shoulder_roll_ordinal], shoulder_roll_minimum / 1_000_000.0
+            )
+            collision_projection[hip_yaw_ordinal] = abs(
+                target[hip_yaw_ordinal] - projected_hip_yaw
+            )
+            collision_projection[hip_roll_ordinal] = abs(
+                target[hip_roll_ordinal] - projected_hip_roll
+            )
+            collision_projection[shoulder_roll_ordinal] = abs(
+                target[shoulder_roll_ordinal] - projected_shoulder_roll
+            )
+            target[hip_yaw_ordinal] = projected_hip_yaw
+            target[hip_roll_ordinal] = projected_hip_roll
+            target[shoulder_roll_ordinal] = projected_shoulder_roll
+    return target, collision_projection
 
 
 def _fit_leg(
@@ -443,12 +497,10 @@ def _fit_leg(
     ordinals = np.asarray([int(by_id[name]["dof_ordinal"]) for name in joint_names], dtype=np.int64)
     minimum = np.asarray([by_id[name]["soft_limit_microradians"][0] for name in joint_names], dtype=np.float64) / 1_000_000.0
     maximum = np.asarray([by_id[name]["soft_limit_microradians"][1] for name in joint_names], dtype=np.float64) / 1_000_000.0
-    reference = np.clip(
-        target[ordinals] if previous is None else previous[ordinals],
-        minimum,
-        maximum,
+    reference = np.clip(target[ordinals], minimum, maximum)
+    values = np.clip(
+        reference if previous is None else previous[ordinals], minimum, maximum
     )
-    values = reference.copy()
     axes = [np.asarray(by_id[name]["axis_q1_30"], dtype=np.float64) / float(1 << 30) for name in joint_names]
     hip_offset = np.asarray(by_id[joint_names[0]]["parent_frame"]["translation_micrometres"], dtype=np.float64) / 1_000_000.0
     knee_offset = np.asarray(by_id[joint_names[3]]["parent_frame"]["translation_micrometres"], dtype=np.float64) / 1_000_000.0
@@ -561,10 +613,10 @@ def _fit_arm(
         )
         / 1_000_000.0
     )
-    reference = np.clip(
-        target[ordinals] if previous is None else previous[ordinals], minimum, maximum
+    reference = np.clip(target[ordinals], minimum, maximum)
+    values = np.clip(
+        reference if previous is None else previous[ordinals], minimum, maximum
     )
-    values = reference.copy()
     axes = [
         np.asarray(by_id[name]["axis_q1_30"], dtype=np.float64) / float(1 << 30)
         for name in joint_names
