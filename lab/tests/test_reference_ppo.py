@@ -27,6 +27,7 @@ class ReferencePpoTests(unittest.TestCase):
         )
         execution = profile.document["execution"]
         ppo = profile.document["ppo"]
+        self.assertEqual(execution["cublas_workspace_config"], ":4096:8")
         self.assertEqual(
             execution["num_envs"] * execution["rollout_steps_per_env"]
             % ppo["minibatches"],

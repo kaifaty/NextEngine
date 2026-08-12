@@ -112,6 +112,7 @@ def main() -> None:
     }
     _write_json(manifest_path, manifest)
     os.environ["NEXTENGINE_HUMANOID_USD"] = str(args.usd.resolve())
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = execution["cublas_workspace_config"]
     simulation_app = None
     environment = None
     try:

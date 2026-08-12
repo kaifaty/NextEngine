@@ -36,6 +36,7 @@ class TinyReferencePpoProfile:
             execution["num_envs"] <= 0
             or execution["rollout_steps_per_env"] <= 0
             or execution["iterations"] <= 0
+            or execution["cublas_workspace_config"] not in {":4096:8", ":16:8"}
             or scope["split"] != "train"
             or scope["reset_mode"] != "exact_reference"
             or scope["phase_randomization"] is not False
