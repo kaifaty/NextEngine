@@ -30,6 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--usd", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--run-id", required=True)
+    parser.add_argument("--initial-checkpoint", type=Path)
     parser.add_argument("--iterations", type=int)
     AppLauncher.add_app_launcher_args(parser)
     return parser.parse_args()
@@ -47,6 +48,11 @@ def main() -> None:
     ):
         if not path.resolve().is_file():
             raise FileNotFoundError(path)
+    if (
+        args.initial_checkpoint is not None
+        and not args.initial_checkpoint.resolve().is_file()
+    ):
+        raise FileNotFoundError(args.initial_checkpoint)
     if not args.corpus_root.resolve().is_dir():
         raise FileNotFoundError(args.corpus_root)
     output_root = args.output_root.resolve()
@@ -75,6 +81,10 @@ def main() -> None:
         "usd": _sha256(args.usd.resolve()),
         "generation_manifest": _sha256(args.generation_manifest.resolve()),
     }
+    if args.initial_checkpoint is not None:
+        input_hashes["initial_checkpoint"] = _sha256(
+            args.initial_checkpoint.resolve()
+        )
     _validate_profile_inputs(training_profile.document, input_hashes)
     generation = json.loads(args.generation_manifest.resolve().read_text(encoding="utf-8"))
     _validate_generation(generation, input_hashes, training_profile.sha256)
@@ -137,9 +147,15 @@ def main() -> None:
         cfg.scene.num_envs = int(execution["num_envs"])
         cfg.sim.device = execution["device"]
         cfg.seed = seed
-        cfg.fixed_clip_id = document["scope"]["clip_id"]
-        cfg.fixed_start_frame = int(document["scope"]["start_frame"])
-        cfg.fixed_horizon_motor_ticks = int(document["scope"]["horizon_motor_ticks"])
+        scope = document["scope"]
+        cfg.fixed_horizon_motor_ticks = int(scope["horizon_motor_ticks"])
+        if scope["phase_randomization"]:
+            cfg.eligible_clip_ids = tuple(scope["eligible_clip_ids"])
+            cfg.phase_randomization = True
+            cfg.rng_run_root_hex = scope["rng_run_root_hex"]
+        else:
+            cfg.fixed_clip_id = scope["clip_id"]
+            cfg.fixed_start_frame = int(scope["start_frame"])
         environment = NextEngineReferenceDirectEnv(
             cfg,
             descriptor_path=str(args.descriptor.resolve()),
@@ -152,6 +168,24 @@ def main() -> None:
             training_profile,
             run_dir / "metrics.jsonl",
         )
+        if args.initial_checkpoint is not None:
+            checkpoint = torch.load(
+                args.initial_checkpoint.resolve(),
+                map_location=execution["device"],
+                weights_only=False,
+            )
+            if (
+                checkpoint.get("training_profile_sha256")
+                != document["initialization"]["training_profile_sha256"]
+                or input_hashes["initial_checkpoint"]
+                != document["initialization"]["checkpoint_sha256"]
+                or checkpoint.get("environment_profile_sha256")
+                != input_hashes["environment_profile"]
+                or checkpoint.get("descriptor_sha256") != input_hashes["descriptor"]
+                or checkpoint.get("usd_sha256") != input_hashes["usd"]
+            ):
+                raise ValueError("curriculum initialization checkpoint mismatch")
+            trainer.model.load_state_dict(checkpoint["model"], strict=True)
         evaluation_episodes = int(document["evaluation"]["episodes"])
         initial_evaluation = trainer.evaluate_deterministic(evaluation_episodes)
         records = trainer.train()
@@ -182,7 +216,11 @@ def main() -> None:
             {
                 "status": "completed",
                 "completed_at_utc": datetime.now(timezone.utc).isoformat(),
-                "claim": "TinyDeterministicOneClipOverfitOnly" if accepted else "TrainingExecutionOnly",
+                "claim": (
+                    document["evaluation"]["claim"]
+                    if accepted
+                    else "TrainingExecutionOnly"
+                ),
                 "optimizer_steps": trainer.optimizer_steps,
                 "samples": trainer.samples,
                 "learned_policy_claim": accepted,
@@ -230,6 +268,11 @@ def _validate_profile_inputs(
         or profile["usd_sha256"] != hashes["usd"]
     ):
         raise ValueError("tiny PPO profile input hash mismatch")
+    initialization = profile.get("initialization")
+    if initialization is not None and initialization["checkpoint_sha256"] != hashes.get(
+        "initial_checkpoint"
+    ):
+        raise ValueError("curriculum checkpoint input hash mismatch")
 
 
 def _validate_generation(
@@ -253,13 +296,22 @@ def _validate_generation(
         (entry.get("kind"), entry.get("sha256"))
         for entry in generation.get("admitted_inputs", [])
     }
+    profile_kind = (
+        "tiny_overfit_profile"
+        if "initial_checkpoint" not in hashes
+        else "reference_curriculum_stage_profile"
+    )
     required = {
         ("reference_tracker_profile", hashes["environment_profile"]),
         ("compiled_descriptor_file", hashes["descriptor"]),
         ("isaac_biomechanics_usd", hashes["usd"]),
-        ("tiny_overfit_profile", training_profile_sha256),
+        (profile_kind, training_profile_sha256),
         ("train_4_gate_report", hashes["gate_report"]),
     }
+    if "initial_checkpoint" in hashes:
+        required.add(
+            ("reference_curriculum_initial_checkpoint", hashes["initial_checkpoint"])
+        )
     if not required.issubset(admitted):
         raise ValueError("training generation does not admit the exact overfit inputs")
 

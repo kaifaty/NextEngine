@@ -21,13 +21,17 @@ class TinyReferencePpoProfile:
     def load(cls, path: Path) -> "TinyReferencePpoProfile":
         payload = path.read_bytes()
         document = json.loads(payload)
+        profile_id = document.get("profile_id")
         if (
             document.get("schema_version") != 1
-            or document.get("profile_id")
-            != "nextengine.training.humanoid-reference-ppo-tiny.v1"
+            or profile_id
+            not in {
+                "nextengine.training.humanoid-reference-ppo-tiny.v1",
+                "nextengine.training.humanoid-reference-ppo-curriculum-stage.v1",
+            }
             or document.get("status") != "Frozen"
         ):
-            raise ValueError("unsupported tiny reference PPO profile")
+            raise ValueError("unsupported reference PPO profile")
         execution = document["execution"]
         scope = document["scope"]
         ppo = document["ppo"]
@@ -40,7 +44,6 @@ class TinyReferencePpoProfile:
             or scope["split"] != "train"
             or scope["horizon_motor_ticks"] <= 0
             or scope["reset_mode"] != "exact_reference"
-            or scope["phase_randomization"] is not False
             or ppo["minibatches"] <= 0
             or ppo["update_epochs"] <= 0
             or execution["num_envs"] * execution["rollout_steps_per_env"]
@@ -54,6 +57,22 @@ class TinyReferencePpoProfile:
             or ppo["truncated_bootstrap"] is not True
         ):
             raise ValueError("invalid tiny reference PPO bounds")
+        if profile_id == "nextengine.training.humanoid-reference-ppo-tiny.v1":
+            if scope["phase_randomization"] is not False or "clip_id" not in scope:
+                raise ValueError("invalid fixed tiny reference scope")
+        else:
+            initialization = document.get("initialization", {})
+            eligible = scope.get("eligible_clip_ids")
+            if (
+                scope["phase_randomization"] is not True
+                or not isinstance(eligible, list)
+                or not eligible
+                or len(eligible) != len(set(eligible))
+                or len(scope.get("rng_run_root_hex", "")) != 64
+                or initialization.get("mode") != "model-weights-only"
+                or len(initialization.get("checkpoint_sha256", "")) != 64
+            ):
+                raise ValueError("invalid phase-randomized curriculum scope")
         return cls(document=document, sha256=hashlib.sha256(payload).hexdigest())
 
 

@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.training.humanoid-reference-ppo-curriculum-stage.v1",
+  "status": "Frozen",
+  "environment_profile_id": "nextengine.motor.env.humanoid-reference-tracker.v1",
+  "environment_profile_sha256": "50f52b63bcf6b5a2b0c4201f1754a4d457b897b8d894a5c5bf68458f97e769f1",
+  "descriptor_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014",
+  "usd_sha256": "951fc04bed0ff3e15414bfd06d067636ee8db18ef70e6e4a0ced28c624fcefa4",
+  "corpus_manifest_sha256": "0f1ce147051b41c7380b566844aecb69612fd501466d1848bd9137d755581df5",
+  "initialization": {
+    "mode": "model-weights-only",
+    "training_profile_sha256": "3823058b5c36019efa2ddf5bd966b089d5dce44af63496efbdccaf3879478839",
+    "checkpoint_sha256": "3431d1a83ed429eb8978f531cab59f34ad59c06f19dea7f1330f2accfe588acb"
+  },
+  "scope": {
+    "stage_id": "start-right-random-phase-h11",
+    "split": "train",
+    "eligible_clip_ids": ["cmu104-start-right"],
+    "horizon_motor_ticks": 11,
+    "reset_mode": "exact_reference",
+    "phase_randomization": true,
+    "rng_run_root_hex": "a8dc48c6b0ce5eefb6b84e4708b2dc8911e65a54f03e85378fbd90c093af456f"
+  },
+  "execution": {
+    "device": "cuda:0",
+    "seed": 120812,
+    "num_envs": 64,
+    "rollout_steps_per_env": 32,
+    "iterations": 320,
+    "minimum_free_gpu_memory_mib": 6144,
+    "torch_deterministic_algorithms": true,
+    "cublas_workspace_config": ":4096:8"
+  },
+  "observation_adapter": {
+    "kind": "fixed-semantic-scale-v1",
+    "quaternion_divisor": 1073741824,
+    "root_velocity_divisor": 2000000,
+    "position_divisor": "per-channel descriptor soft absolute maximum; root/CoM/effector relative positions use 1000000",
+    "joint_velocity_divisor": "per-DoF descriptor maximum velocity",
+    "phase_divisor": 65535,
+    "contact_divisor": 1,
+    "running_statistics": false
+  },
+  "network": {
+    "actor_hidden_dimensions": [256, 128, 64],
+    "critic_hidden_dimensions": [256, 128, 64],
+    "activation": "elu",
+    "orthogonal_hidden_gain": 1.4142135623730951,
+    "actor_output_gain": 0.01,
+    "critic_output_gain": 1.0,
+    "parameter_sharing": "none"
+  },
+  "policy_distribution": {
+    "kind": "diagonal-normal-followed-by-tanh",
+    "initial_log_standard_deviation": -1.0,
+    "minimum_log_standard_deviation": -5.0,
+    "maximum_log_standard_deviation": 1.0,
+    "log_probability": "normal pre-tanh log probability minus exact tanh Jacobian",
+    "evaluation_action": "tanh(mean)",
+    "environment_action_clamp": "assert-only within [-1,1] after transform"
+  },
+  "ppo": {
+    "discount": 0.99,
+    "gae_lambda": 0.95,
+    "clip_ratio": 0.2,
+    "value_loss_coefficient": 0.5,
+    "entropy_coefficient": 0.0,
+    "learning_rate": 0.0003,
+    "adam_epsilon": 0.00001,
+    "maximum_gradient_norm": 1.0,
+    "update_epochs": 5,
+    "minibatches": 4,
+    "normalize_advantages": true,
+    "clip_value_loss": true,
+    "target_approximate_kl": 0.015,
+    "learning_rate_schedule": "constant",
+    "terminated_bootstrap": false,
+    "truncated_bootstrap": true,
+    "sample_reuse": "each rollout is reused only by the declared epoch/minibatch matrix"
+  },
+  "evaluation": {
+    "episodes": 256,
+    "deterministic": true,
+    "candidate_selection": "final iteration only",
+    "acceptance": "final reference-completion count and mean episode length must both exceed the initialized deterministic baseline over the same hash-derived phase matrix",
+    "claim": "PhaseRandomizedTrainCurriculumStageOnly"
+  }
+}

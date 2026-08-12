@@ -15,6 +15,10 @@ from next_lab.reference_ppo import (
 
 
 PROFILE = Path(__file__).parents[1] / "profiles/humanoid-reference-ppo-tiny.v1.json"
+CURRICULUM_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-ppo-curriculum-start-phase.v1.json"
+)
 
 
 class ReferencePpoTests(unittest.TestCase):
@@ -53,6 +57,17 @@ class ReferencePpoTests(unittest.TestCase):
         self.assertTrue(torch.isfinite(log_probability).all())
         self.assertTrue(torch.isfinite(value).all())
         self.assertTrue(math.isfinite(float(model.log_std.mean().item())))
+
+    def test_frozen_curriculum_stage_closes_phase_and_initial_checkpoint(self) -> None:
+        profile = TinyReferencePpoProfile.load(CURRICULUM_PROFILE)
+        scope = profile.document["scope"]
+        self.assertTrue(scope["phase_randomization"])
+        self.assertEqual(scope["eligible_clip_ids"], ["cmu104-start-right"])
+        self.assertEqual(scope["horizon_motor_ticks"], 11)
+        self.assertEqual(
+            profile.document["initialization"]["checkpoint_sha256"],
+            "3431d1a83ed429eb8978f531cab59f34ad59c06f19dea7f1330f2accfe588acb",
+        )
 
 
 if __name__ == "__main__":
