@@ -2,7 +2,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::body::{BodyActuatorDefinitionV1, BodyContractError, BodySchemaV1};
+use next_contracts::body::{
+    BodyActuatorDefinitionV1, BodyContractError, BodySchemaV1, BodyV2ContractError,
+};
 use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
 use next_contracts::motor::{
     MOTOR_ACTION_LAYOUT_V1_SCHEMA_VERSION, MOTOR_OBSERVATION_LAYOUT_V1_SCHEMA_VERSION,
@@ -615,6 +617,7 @@ fn schema_id(value: &str) -> SchemaId {
 #[derive(Debug)]
 pub enum MotorCompileError {
     Body(BodyContractError),
+    BodyV2(BodyV2ContractError),
     Physics(PhysicsContractError),
     Motor(MotorContractError),
     InvalidReference,
@@ -630,6 +633,7 @@ impl MotorCompileError {
     pub const fn stable_code(&self) -> &'static str {
         match self {
             Self::Body(_) => "MOTOR_BODY_SCHEMA_INVALID",
+            Self::BodyV2(_) => "MOTOR_BODY_SCHEMA_V2_INVALID",
             Self::Physics(_) => "MOTOR_PHYSICS_DESCRIPTOR_INVALID",
             Self::Motor(_) => "MOTOR_LAYOUT_INVALID",
             Self::InvalidReference => "MOTOR_BODY_REFERENCE_INVALID",
@@ -653,6 +657,12 @@ impl Error for MotorCompileError {}
 impl From<BodyContractError> for MotorCompileError {
     fn from(value: BodyContractError) -> Self {
         Self::Body(value)
+    }
+}
+
+impl From<BodyV2ContractError> for MotorCompileError {
+    fn from(value: BodyV2ContractError) -> Self {
+        Self::BodyV2(value)
     }
 }
 

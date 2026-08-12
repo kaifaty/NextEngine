@@ -13,7 +13,7 @@ use std::rc::Rc;
 #[cfg(all(feature = "physx-sdk", feature = "mock-abi"))]
 compile_error!("features `physx-sdk` and `mock-abi` are mutually exclusive");
 
-pub const NEXTENGINE_PHYSX_ABI_VERSION: u32 = 2;
+pub const NEXTENGINE_PHYSX_ABI_VERSION: u32 = 3;
 pub const EXPECTED_PHYSX_VERSION: PhysXVersion = PhysXVersion {
     abi: NEXTENGINE_PHYSX_ABI_VERSION,
     major: 5,
@@ -105,6 +105,50 @@ pub struct ArticulationJointInput {
     pub max_velocity_bits: u32,
 }
 
+/// A link record for the current biomechanics articulation path.
+///
+/// Shapes are supplied separately so a non-colliding carrier may have zero
+/// shapes and a physical link may own more than one. `centre_of_mass_*` is the
+/// PhysX mass-frame pose; `inertia_bits` is expressed in that frame.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ArticulationLinkInputV2 {
+    pub user_token: u64,
+    pub parent_link_index: u32,
+    pub first_shape_index: u32,
+    pub shape_count: u32,
+    pub reserved: u32,
+    pub position_bits: [u32; 3],
+    pub rotation_bits: [u32; 4],
+    pub centre_of_mass_position_bits: [u32; 3],
+    pub centre_of_mass_rotation_bits: [u32; 4],
+    pub mass_bits: u32,
+    pub inertia_bits: [u32; 3],
+    pub linear_damping_bits: u32,
+    pub angular_damping_bits: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ArticulationShapeInputV2 {
+    pub user_token: u64,
+    pub link_index: u32,
+    pub shape_kind: u32,
+    pub position_bits: [u32; 3],
+    pub rotation_bits: [u32; 4],
+    pub shape_dimensions_bits: [u32; 3],
+    pub collision_layer: u32,
+    pub collision_mask_low: u32,
+    pub collision_mask_high: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct ArticulationCollisionExclusionV2 {
+    pub first_link_index: u32,
+    pub second_link_index: u32,
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct LinkState {
@@ -127,6 +171,19 @@ pub struct JointState {
 pub struct ContactOutput {
     pub actor_a_token: u64,
     pub actor_b_token: u64,
+    pub position_bits: [u32; 3],
+    pub normal_bits: [u32; 3],
+    pub impulse_bits: [u32; 3],
+    pub separation_bits: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ContactOutputV2 {
+    pub actor_a_token: u64,
+    pub actor_b_token: u64,
+    pub shape_a_token: u64,
+    pub shape_b_token: u64,
     pub position_bits: [u32; 3],
     pub normal_bits: [u32; 3],
     pub impulse_bits: [u32; 3],
@@ -272,6 +329,86 @@ impl NativeWorld {
         Ok(())
     }
 
+    pub fn add_articulation_v2(
+        &mut self,
+        links: &[ArticulationLinkInputV2],
+        shapes: &[ArticulationShapeInputV2],
+        joints: &[ArticulationJointInput],
+        exclusions: &[ArticulationCollisionExclusionV2],
+        position_iterations: u32,
+        velocity_iterations: u32,
+    ) -> Result<(), PhysXFfiError> {
+        if links.is_empty()
+            || joints.len().checked_add(1) != Some(links.len())
+            || links.len() > u32::MAX as usize
+            || shapes.len() > u32::MAX as usize
+            || joints.len() > u32::MAX as usize
+            || exclusions.len() > u32::MAX as usize
+            || links[0].parent_link_index != NO_PARENT_LINK
+        {
+            return Err(PhysXFfiError::InvalidArgument);
+        }
+        let mut next_shape = 0_usize;
+        for (index, link) in links.iter().enumerate() {
+            if link.reserved != 0
+                || (index != 0 && link.parent_link_index as usize >= index)
+                || link.first_shape_index as usize != next_shape
+                || links[..index]
+                    .iter()
+                    .any(|previous| previous.user_token == link.user_token)
+            {
+                return Err(PhysXFfiError::InvalidArgument);
+            }
+            next_shape = next_shape
+                .checked_add(link.shape_count as usize)
+                .ok_or(PhysXFfiError::InvalidArgument)?;
+            if next_shape > shapes.len() {
+                return Err(PhysXFfiError::InvalidArgument);
+            }
+        }
+        if next_shape != shapes.len()
+            || shapes.iter().enumerate().any(|(shape_index, shape)| {
+                shape.link_index as usize >= links.len()
+                    || !(links[shape.link_index as usize].first_shape_index as usize
+                        ..links[shape.link_index as usize].first_shape_index as usize
+                            + links[shape.link_index as usize].shape_count as usize)
+                        .contains(&shape_index)
+                    || shape.collision_layer >= 64
+                    || (shape.collision_mask_low == 0 && shape.collision_mask_high == 0)
+            })
+            || joints.iter().enumerate().any(|(index, joint)| {
+                joint.child_link_index as usize != index + 1 || joint.reserved != 0
+            })
+            || exclusions.iter().any(|pair| {
+                pair.first_link_index >= pair.second_link_index
+                    || pair.second_link_index as usize >= links.len()
+            })
+            || exclusions.windows(2).any(|pair| pair[0] >= pair[1])
+        {
+            return Err(PhysXFfiError::InvalidArgument);
+        }
+        // SAFETY: all slices remain live for the synchronous call. The bridge
+        // copies fixed-layout values and retains no caller-owned pointers.
+        status_result(unsafe {
+            raw::world_add_articulation_v2(
+                self.handle.as_ptr(),
+                links.as_ptr(),
+                links.len() as u32,
+                shapes.as_ptr(),
+                shapes.len() as u32,
+                joints.as_ptr(),
+                joints.len() as u32,
+                exclusions.as_ptr(),
+                exclusions.len() as u32,
+                position_iterations,
+                velocity_iterations,
+            )
+        })?;
+        self.link_count = links.len() as u32;
+        self.joint_count = joints.len() as u32;
+        Ok(())
+    }
+
     pub fn apply_articulation_efforts(&mut self, effort_bits: &[u32]) -> Result<(), PhysXFfiError> {
         if effort_bits.len() != self.joint_count as usize {
             return Err(PhysXFfiError::InvalidArgument);
@@ -362,6 +499,26 @@ impl NativeWorld {
                 contact.normal_bits,
             )
         });
+        Ok(contacts)
+    }
+
+    pub fn export_contacts_v2(&mut self) -> Result<Vec<ContactOutputV2>, PhysXFfiError> {
+        let mut contacts = vec![ContactOutputV2::default(); self.max_contacts as usize];
+        let mut count = 0;
+        // SAFETY: output storage has the declared capacity and the count
+        // pointer refers to writable local storage.
+        status_result(unsafe {
+            raw::world_export_contacts_v2(
+                self.handle.as_ptr(),
+                contacts.as_mut_ptr(),
+                self.max_contacts,
+                &mut count,
+            )
+        })?;
+        if count > self.max_contacts {
+            return Err(PhysXFfiError::InvalidOutput);
+        }
+        contacts.truncate(count as usize);
         Ok(contacts)
     }
 
@@ -489,8 +646,10 @@ impl Error for PhysXFfiError {}
 #[cfg(feature = "physx-sdk")]
 mod raw {
     use super::{
-        ArticulationJointInput, ArticulationLinkInput, ContactOutput, JointState, LinkState,
-        PhysXVersion, RawSweepOutput, RigidBodyInput, SceneProfileInput, c_void,
+        ArticulationCollisionExclusionV2, ArticulationJointInput, ArticulationLinkInput,
+        ArticulationLinkInputV2, ArticulationShapeInputV2, ContactOutput, ContactOutputV2,
+        JointState, LinkState, PhysXVersion, RawSweepOutput, RigidBodyInput, SceneProfileInput,
+        c_void,
     };
 
     unsafe extern "C" {
@@ -520,6 +679,20 @@ mod raw {
             link_count: u32,
             joints: *const ArticulationJointInput,
             joint_count: u32,
+            position_iterations: u32,
+            velocity_iterations: u32,
+        ) -> i32;
+        #[link_name = "ne_physx_world_add_articulation_v2"]
+        pub fn world_add_articulation_v2(
+            world: *mut c_void,
+            links: *const ArticulationLinkInputV2,
+            link_count: u32,
+            shapes: *const ArticulationShapeInputV2,
+            shape_count: u32,
+            joints: *const ArticulationJointInput,
+            joint_count: u32,
+            exclusions: *const ArticulationCollisionExclusionV2,
+            exclusion_count: u32,
             position_iterations: u32,
             velocity_iterations: u32,
         ) -> i32;
@@ -555,6 +728,13 @@ mod raw {
             capacity: u32,
             count: *mut u32,
         ) -> i32;
+        #[link_name = "ne_physx_world_export_contacts_v2"]
+        pub fn world_export_contacts_v2(
+            world: *mut c_void,
+            contacts: *mut ContactOutputV2,
+            capacity: u32,
+            count: *mut u32,
+        ) -> i32;
         #[link_name = "ne_physx_world_sweep_capsule_axis"]
         pub fn world_sweep_capsule_axis(
             world: *mut c_void,
@@ -572,9 +752,10 @@ mod raw {
 #[cfg(all(not(feature = "physx-sdk"), not(feature = "mock-abi")))]
 mod raw {
     use super::{
-        ArticulationJointInput, ArticulationLinkInput, ContactOutput, JointState, LinkState,
-        PhysXVersion, RawSweepOutput, RigidBodyInput, STATUS_UNAVAILABLE, SceneProfileInput,
-        c_void,
+        ArticulationCollisionExclusionV2, ArticulationJointInput, ArticulationLinkInput,
+        ArticulationLinkInputV2, ArticulationShapeInputV2, ContactOutput, ContactOutputV2,
+        JointState, LinkState, PhysXVersion, RawSweepOutput, RigidBodyInput, STATUS_UNAVAILABLE,
+        SceneProfileInput, c_void,
     };
 
     pub unsafe fn version() -> PhysXVersion {
@@ -629,6 +810,23 @@ mod raw {
         STATUS_UNAVAILABLE
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub unsafe fn world_add_articulation_v2(
+        _world: *mut c_void,
+        _links: *const ArticulationLinkInputV2,
+        _link_count: u32,
+        _shapes: *const ArticulationShapeInputV2,
+        _shape_count: u32,
+        _joints: *const ArticulationJointInput,
+        _joint_count: u32,
+        _exclusions: *const ArticulationCollisionExclusionV2,
+        _exclusion_count: u32,
+        _position_iterations: u32,
+        _velocity_iterations: u32,
+    ) -> i32 {
+        STATUS_UNAVAILABLE
+    }
+
     pub unsafe fn world_apply_articulation_efforts(
         _world: *mut c_void,
         _efforts: *const u32,
@@ -672,6 +870,15 @@ mod raw {
         STATUS_UNAVAILABLE
     }
 
+    pub unsafe fn world_export_contacts_v2(
+        _world: *mut c_void,
+        _contacts: *mut ContactOutputV2,
+        _capacity: u32,
+        _count: *mut u32,
+    ) -> i32 {
+        STATUS_UNAVAILABLE
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn world_sweep_capsule_axis(
         _world: *mut c_void,
@@ -704,9 +911,13 @@ mod tests {
         assert_eq!(std::mem::size_of::<RigidBodyInput>(), 64);
         assert_eq!(std::mem::size_of::<ArticulationLinkInput>(), 80);
         assert_eq!(std::mem::size_of::<ArticulationJointInput>(), 76);
+        assert_eq!(std::mem::size_of::<ArticulationLinkInputV2>(), 104);
+        assert_eq!(std::mem::size_of::<ArticulationShapeInputV2>(), 72);
+        assert_eq!(std::mem::size_of::<ArticulationCollisionExclusionV2>(), 8);
         assert_eq!(std::mem::size_of::<LinkState>(), 64);
         assert_eq!(std::mem::size_of::<JointState>(), 8);
         assert_eq!(std::mem::size_of::<ContactOutput>(), 56);
+        assert_eq!(std::mem::size_of::<ContactOutputV2>(), 72);
         assert_eq!(validate_version(EXPECTED_PHYSX_VERSION), Ok(()));
         let mut wrong_patch = EXPECTED_PHYSX_VERSION;
         wrong_patch.patch = 1;

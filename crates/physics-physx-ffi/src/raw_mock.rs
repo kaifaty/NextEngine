@@ -1,7 +1,8 @@
 use super::{
-    ArticulationJointInput, ArticulationLinkInput, ContactOutput, EXPECTED_PHYSX_VERSION,
-    JointState, LinkState, PhysXVersion, RawSweepOutput, RigidBodyInput, STATUS_CAPACITY_EXCEEDED,
-    STATUS_INVALID_ARGUMENT, STATUS_OK, SceneProfileInput, c_void,
+    ArticulationCollisionExclusionV2, ArticulationJointInput, ArticulationLinkInput,
+    ArticulationLinkInputV2, ArticulationShapeInputV2, ContactOutput, ContactOutputV2,
+    EXPECTED_PHYSX_VERSION, JointState, LinkState, PhysXVersion, RawSweepOutput, RigidBodyInput,
+    STATUS_CAPACITY_EXCEEDED, STATUS_INVALID_ARGUMENT, STATUS_OK, SceneProfileInput, c_void,
 };
 
 struct MockBox {
@@ -180,6 +181,53 @@ pub unsafe fn world_add_articulation(
     STATUS_OK
 }
 
+#[allow(clippy::too_many_arguments)]
+pub unsafe fn world_add_articulation_v2(
+    world: *mut c_void,
+    links: *const ArticulationLinkInputV2,
+    link_count: u32,
+    shapes: *const ArticulationShapeInputV2,
+    shape_count: u32,
+    joints: *const ArticulationJointInput,
+    joint_count: u32,
+    exclusions: *const ArticulationCollisionExclusionV2,
+    exclusion_count: u32,
+    _position_iterations: u32,
+    _velocity_iterations: u32,
+) -> i32 {
+    // SAFETY: private raw API is called only with a live MockWorld handle.
+    let Some(world) = (unsafe { world.cast::<MockWorld>().as_mut() }) else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    if !world.configured
+        || links.is_null()
+        || link_count == 0
+        || joint_count + 1 != link_count
+        || (shape_count != 0 && shapes.is_null())
+        || (joint_count != 0 && joints.is_null())
+        || (exclusion_count != 0 && exclusions.is_null())
+        || link_count as usize > world.actor_capacity
+        || !world.links.is_empty()
+    {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    // SAFETY: wrapper passes arrays with the declared element counts.
+    let links = unsafe { std::slice::from_raw_parts(links, link_count as usize) };
+    world.links = links
+        .iter()
+        .map(|link| LinkState {
+            user_token: link.user_token,
+            position_bits: link.position_bits,
+            rotation_bits: link.rotation_bits,
+            linear_velocity_bits: [0.0_f32.to_bits(); 3],
+            angular_velocity_bits: [0.0_f32.to_bits(); 3],
+        })
+        .collect();
+    world.joints = vec![JointState::default(); joint_count as usize];
+    world.efforts = vec![0.0; joint_count as usize];
+    STATUS_OK
+}
+
 pub unsafe fn world_apply_articulation_efforts(
     world: *mut c_void,
     efforts: *const u32,
@@ -300,6 +348,24 @@ pub unsafe fn world_export_contacts(
         return STATUS_INVALID_ARGUMENT;
     }
     // SAFETY: count points to wrapper-owned writable storage.
+    unsafe { count.write(0) };
+    STATUS_OK
+}
+
+pub unsafe fn world_export_contacts_v2(
+    world: *mut c_void,
+    _contacts: *mut ContactOutputV2,
+    _capacity: u32,
+    count: *mut u32,
+) -> i32 {
+    // SAFETY: private raw API is called only with a live MockWorld handle.
+    let Some(_world) = (unsafe { world.cast::<MockWorld>().as_mut() }) else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    if count.is_null() {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    // SAFETY: wrapper passes a valid writable count pointer.
     unsafe { count.write(0) };
     STATUS_OK
 }

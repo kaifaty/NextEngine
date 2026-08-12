@@ -8,6 +8,9 @@ use crate::canonical::sha256;
 use crate::ids::{ContentHash, SchemaId, content_hash_from_bytes};
 use crate::physics::{PhysicsGeometryV1, PhysicsPoseV1};
 
+mod v2;
+pub use v2::*;
+
 pub const BODY_SCHEMA_VERSION_V1: u16 = 1;
 pub const BODY_INSTANCE_PROJECTION_VERSION_V1: u16 = 1;
 pub const MAX_BODY_SCHEMA_BODIES: usize = 128;

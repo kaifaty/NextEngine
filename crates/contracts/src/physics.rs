@@ -93,9 +93,11 @@ const SEGMENT_V1: &str = "v1";
 mod tests;
 pub use articulated::{
     AppliedActuatorEffortV1, PHYSICS_ACTUATOR_DESCRIPTOR_V1_SCHEMA_VERSION,
-    PHYSICS_BODY_DESCRIPTOR_V2_SCHEMA_VERSION, PHYSICS_JOINT_DESCRIPTOR_V1_SCHEMA_VERSION,
-    PhysicsActuatorDescriptorV1, PhysicsArticulationJointStateV1, PhysicsBodyDescriptorV2,
-    PhysicsCanonicalSnapshotV3, PhysicsJointDescriptorV1, PhysicsJointKindV1, PhysicsStepInputV3,
-    PhysicsStepResultV2, PhysicsSubstepActuationV1, PhysicsWorldCatalogV2,
-    PhysicsWorldCheckpointV2,
+    PHYSICS_ACTUATOR_DESCRIPTOR_V2_SCHEMA_VERSION, PHYSICS_BODY_DESCRIPTOR_V2_SCHEMA_VERSION,
+    PHYSICS_BODY_DESCRIPTOR_V3_SCHEMA_VERSION, PHYSICS_JOINT_DESCRIPTOR_V1_SCHEMA_VERSION,
+    PHYSICS_JOINT_DESCRIPTOR_V2_SCHEMA_VERSION, PhysicsActuatorDescriptorV1,
+    PhysicsActuatorDescriptorV2, PhysicsArticulationJointStateV1, PhysicsBodyDescriptorV2,
+    PhysicsBodyDescriptorV3, PhysicsCanonicalSnapshotV3, PhysicsJointDescriptorV1,
+    PhysicsJointDescriptorV2, PhysicsJointKindV1, PhysicsStepInputV3, PhysicsStepResultV2,
+    PhysicsSubstepActuationV1, PhysicsWorldCatalogV2, PhysicsWorldCheckpointV2,
 };

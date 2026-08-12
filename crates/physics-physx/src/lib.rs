@@ -18,8 +18,10 @@ use next_physics_api::{
     ReferencePhysicsError, grounded_capsule_collision_filter, reference_grounded_capsule_sweep,
 };
 use next_physics_physx_ffi::{
-    ArticulationJointInput, ArticulationLinkInput, CapsuleAxisSweepInput, ContactOutput,
-    JointState, LinkState, NativeWorld, PhysXFfiError, SceneProfileInput, StaticBoxInput,
+    ArticulationCollisionExclusionV2, ArticulationJointInput, ArticulationLinkInput,
+    ArticulationLinkInputV2, ArticulationShapeInputV2, CapsuleAxisSweepInput, ContactOutput,
+    ContactOutputV2, JointState, LinkState, NativeWorld, PhysXFfiError, SceneProfileInput,
+    StaticBoxInput,
 };
 
 pub type PhysXPhysicsWorld = GroundedCapsuleWorld<PhysXGroundedCapsuleQuery>;
@@ -71,6 +73,70 @@ pub struct PhysXArticulationCatalog {
     pub static_boxes: Vec<StaticBoxInput>,
     pub links: Vec<ArticulationLinkInput>,
     pub joints: Vec<ArticulationJointInput>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PhysXArticulationCatalogV2 {
+    pub static_boxes: Vec<StaticBoxInput>,
+    pub links: Vec<ArticulationLinkInputV2>,
+    pub shapes: Vec<ArticulationShapeInputV2>,
+    pub joints: Vec<ArticulationJointInput>,
+    pub collision_exclusions: Vec<ArticulationCollisionExclusionV2>,
+}
+
+impl PhysXArticulationCatalogV2 {
+    fn validate(&self, profile: PhysXSceneProfile) -> Result<(), PhysXAdapterError> {
+        if self.links.is_empty()
+            || self.joints.len().checked_add(1) != Some(self.links.len())
+            || self.links.len() + self.static_boxes.len() > profile.max_actors as usize
+            || self.joints.len() > profile.max_joints as usize
+            || self.static_boxes.len() > u32::MAX as usize
+        {
+            return Err(PhysXAdapterError::CapacityExceeded);
+        }
+        if self
+            .static_boxes
+            .windows(2)
+            .any(|pair| pair[0].user_token >= pair[1].user_token)
+            || self.links.iter().enumerate().any(|(index, link)| {
+                link.reserved != 0
+                    || (index == 0 && link.parent_link_index != u32::MAX)
+                    || (index != 0 && link.parent_link_index as usize >= index)
+                    || self.links[..index]
+                        .iter()
+                        .any(|other| other.user_token == link.user_token)
+            })
+            || self.joints.iter().enumerate().any(|(index, joint)| {
+                joint.child_link_index as usize != index + 1 || joint.reserved != 0
+            })
+            || self
+                .collision_exclusions
+                .windows(2)
+                .any(|pair| pair[0] >= pair[1])
+        {
+            return Err(PhysXAdapterError::NonCanonicalConstructionOrder);
+        }
+        let mut next_shape = 0_usize;
+        for (link_index, link) in self.links.iter().enumerate() {
+            if link.first_shape_index as usize != next_shape {
+                return Err(PhysXAdapterError::NonCanonicalConstructionOrder);
+            }
+            next_shape = next_shape
+                .checked_add(link.shape_count as usize)
+                .ok_or(PhysXAdapterError::CapacityExceeded)?;
+            if next_shape > self.shapes.len()
+                || self.shapes[link.first_shape_index as usize..next_shape]
+                    .iter()
+                    .any(|shape| shape.link_index as usize != link_index)
+            {
+                return Err(PhysXAdapterError::NonCanonicalConstructionOrder);
+            }
+        }
+        if next_shape != self.shapes.len() {
+            return Err(PhysXAdapterError::NonCanonicalConstructionOrder);
+        }
+        Ok(())
+    }
 }
 
 impl PhysXArticulationCatalog {
@@ -136,6 +202,25 @@ pub struct CanonicalPhysXContact {
     pub normal_q1_30: [i64; 3],
     pub impulse_micronewton_seconds: [i64; 3],
     pub separation_micrometres: i64,
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct CanonicalPhysXContactV2 {
+    pub actor_a_token: u64,
+    pub actor_b_token: u64,
+    pub shape_a_token: u64,
+    pub shape_b_token: u64,
+    pub position_micrometres: [i64; 3],
+    pub normal_q1_30: [i64; 3],
+    pub impulse_micronewton_seconds: [i64; 3],
+    pub separation_micrometres: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CanonicalPhysXSnapshotV2 {
+    pub links: Vec<CanonicalPhysXLinkState>,
+    pub joints: Vec<CanonicalPhysXJointState>,
+    pub contacts: Vec<CanonicalPhysXContactV2>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -228,6 +313,99 @@ impl Debug for PhysXArticulationWorld {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("PhysXArticulationWorld")
+            .field("native", &self.native)
+            .field("root_token", &self.root_token)
+            .field("link_count", &self.last_raw_snapshot.links.len())
+            .field("joint_count", &self.last_raw_snapshot.joints.len())
+            .finish()
+    }
+}
+
+pub struct PhysXArticulationWorldV2 {
+    native: NativeWorld,
+    root_token: u64,
+    last_raw_snapshot: PhysXRawArticulationSnapshot,
+}
+
+impl PhysXArticulationWorldV2 {
+    pub fn create(
+        profile: PhysXSceneProfile,
+        catalog: &PhysXArticulationCatalogV2,
+    ) -> Result<Self, PhysXAdapterError> {
+        catalog.validate(profile)?;
+        let mut native = NativeWorld::create()?;
+        native.configure_scene(profile.ffi())?;
+        native.reserve_static_boxes(
+            u32::try_from(catalog.static_boxes.len())
+                .map_err(|_| PhysXAdapterError::CapacityExceeded)?,
+        )?;
+        for descriptor in &catalog.static_boxes {
+            native.add_static_box(*descriptor)?;
+        }
+        native.add_articulation_v2(
+            &catalog.links,
+            &catalog.shapes,
+            &catalog.joints,
+            &catalog.collision_exclusions,
+            profile.position_iterations,
+            profile.velocity_iterations,
+        )?;
+        let (links, joints) = native.export_articulation_state()?;
+        Ok(Self {
+            native,
+            root_token: catalog.links[0].user_token,
+            last_raw_snapshot: PhysXRawArticulationSnapshot { links, joints },
+        })
+    }
+
+    pub fn apply_efforts_and_step(
+        &mut self,
+        efforts_micronewton_metres: &[i64],
+    ) -> Result<CanonicalPhysXSnapshotV2, PhysXAdapterError> {
+        let efforts = efforts_micronewton_metres
+            .iter()
+            .map(|effort| scaled_f32_bits(*effort, 1_000_000.0))
+            .collect::<Result<Vec<_>, _>>()?;
+        self.native.apply_articulation_efforts(&efforts)?;
+        self.native.step()?;
+        self.capture()
+    }
+
+    pub fn capture(&mut self) -> Result<CanonicalPhysXSnapshotV2, PhysXAdapterError> {
+        let (links, joints) = self.native.export_articulation_state()?;
+        let contacts = self.native.export_contacts_v2()?;
+        self.last_raw_snapshot = PhysXRawArticulationSnapshot {
+            links: links.clone(),
+            joints: joints.clone(),
+        };
+        canonicalize_native_output_v2(&links, &joints, &contacts)
+    }
+
+    #[must_use]
+    pub fn raw_checkpoint(&self) -> PhysXRawArticulationSnapshot {
+        self.last_raw_snapshot.clone()
+    }
+
+    pub fn restore(
+        &mut self,
+        checkpoint: &PhysXRawArticulationSnapshot,
+    ) -> Result<CanonicalPhysXSnapshotV2, PhysXAdapterError> {
+        let Some(root) = checkpoint.links.first().copied() else {
+            return Err(PhysXAdapterError::InvalidOutput);
+        };
+        if root.user_token != self.root_token {
+            return Err(PhysXAdapterError::ProfileMismatch);
+        }
+        self.native
+            .import_articulation_state(root, &checkpoint.joints)?;
+        self.capture()
+    }
+}
+
+impl Debug for PhysXArticulationWorldV2 {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PhysXArticulationWorldV2")
             .field("native", &self.native)
             .field("root_token", &self.root_token)
             .field("link_count", &self.last_raw_snapshot.links.len())
@@ -544,6 +722,66 @@ fn canonicalize_native_output(
     Ok(CanonicalPhysXSnapshot {
         links: canonical_links,
         joints: canonical_joints,
+        contacts: canonical_contacts,
+    })
+}
+
+fn canonicalize_native_output_v2(
+    links: &[LinkState],
+    joints: &[JointState],
+    contacts: &[ContactOutputV2],
+) -> Result<CanonicalPhysXSnapshotV2, PhysXAdapterError> {
+    let base = canonicalize_native_output(links, joints, &[])?;
+    let mut canonical_contacts = contacts
+        .iter()
+        .map(|contact| {
+            let swapped = (contact.actor_a_token, contact.shape_a_token)
+                > (contact.actor_b_token, contact.shape_b_token);
+            let (actor_a_token, actor_b_token, shape_a_token, shape_b_token) = if swapped {
+                (
+                    contact.actor_b_token,
+                    contact.actor_a_token,
+                    contact.shape_b_token,
+                    contact.shape_a_token,
+                )
+            } else {
+                (
+                    contact.actor_a_token,
+                    contact.actor_b_token,
+                    contact.shape_a_token,
+                    contact.shape_b_token,
+                )
+            };
+            let mut normal = quantize_vector(contact.normal_bits, (1_u64 << 30) as f64)?;
+            let mut impulse = quantize_vector(contact.impulse_bits, 1_000_000.0)?;
+            if swapped {
+                for value in &mut normal {
+                    *value = value
+                        .checked_neg()
+                        .ok_or(PhysXAdapterError::NumericOverflow)?;
+                }
+                for value in &mut impulse {
+                    *value = value
+                        .checked_neg()
+                        .ok_or(PhysXAdapterError::NumericOverflow)?;
+                }
+            }
+            Ok(CanonicalPhysXContactV2 {
+                actor_a_token,
+                actor_b_token,
+                shape_a_token,
+                shape_b_token,
+                position_micrometres: quantize_vector(contact.position_bits, 1_000_000.0)?,
+                normal_q1_30: normal,
+                impulse_micronewton_seconds: impulse,
+                separation_micrometres: quantize_bits(contact.separation_bits, 1_000_000.0)?,
+            })
+        })
+        .collect::<Result<Vec<_>, PhysXAdapterError>>()?;
+    canonical_contacts.sort_unstable();
+    Ok(CanonicalPhysXSnapshotV2 {
+        links: base.links,
+        joints: base.joints,
         contacts: canonical_contacts,
     })
 }

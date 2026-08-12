@@ -10,7 +10,7 @@
 
 namespace {
 
-constexpr std::uint32_t kAbiVersion = 2;
+constexpr std::uint32_t kAbiVersion = 3;
 constexpr std::int32_t kOk = 0;
 constexpr std::int32_t kInvalidArgument = 1;
 constexpr std::int32_t kOutOfMemory = 2;
@@ -47,6 +47,12 @@ std::uint64_t token_of(const physx::PxActor* actor) {
     return actor == nullptr
         ? 0
         : static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(actor->userData));
+}
+
+std::uint64_t token_of(const physx::PxShape* shape) {
+    return shape == nullptr
+        ? 0
+        : static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(shape->userData));
 }
 
 void set_token(physx::PxActor& actor, std::uint64_t token) {
@@ -123,6 +129,39 @@ struct NePhysXArticulationJointInput {
     std::uint32_t max_velocity_bits;
 };
 
+struct NePhysXArticulationLinkInputV2 {
+    std::uint64_t user_token;
+    std::uint32_t parent_link_index;
+    std::uint32_t first_shape_index;
+    std::uint32_t shape_count;
+    std::uint32_t reserved;
+    std::uint32_t position_bits[3];
+    std::uint32_t rotation_bits[4];
+    std::uint32_t centre_of_mass_position_bits[3];
+    std::uint32_t centre_of_mass_rotation_bits[4];
+    std::uint32_t mass_bits;
+    std::uint32_t inertia_bits[3];
+    std::uint32_t linear_damping_bits;
+    std::uint32_t angular_damping_bits;
+};
+
+struct NePhysXArticulationShapeInputV2 {
+    std::uint64_t user_token;
+    std::uint32_t link_index;
+    std::uint32_t shape_kind;
+    std::uint32_t position_bits[3];
+    std::uint32_t rotation_bits[4];
+    std::uint32_t shape_dimensions_bits[3];
+    std::uint32_t collision_layer;
+    std::uint32_t collision_mask_low;
+    std::uint32_t collision_mask_high;
+};
+
+struct NePhysXArticulationCollisionExclusionV2 {
+    std::uint32_t first_link_index;
+    std::uint32_t second_link_index;
+};
+
 struct NePhysXLinkState {
     std::uint64_t user_token;
     std::uint32_t position_bits[3];
@@ -145,6 +184,17 @@ struct NePhysXContactOutput {
     std::uint32_t separation_bits;
 };
 
+struct NePhysXContactOutputV2 {
+    std::uint64_t actor_a_token;
+    std::uint64_t actor_b_token;
+    std::uint64_t shape_a_token;
+    std::uint64_t shape_b_token;
+    std::uint32_t position_bits[3];
+    std::uint32_t normal_bits[3];
+    std::uint32_t impulse_bits[3];
+    std::uint32_t separation_bits;
+};
+
 static_assert(std::is_standard_layout_v<NePhysXVersion>);
 static_assert(sizeof(NePhysXVersion) == 16);
 static_assert(std::is_standard_layout_v<NePhysXSweepOutput>);
@@ -154,14 +204,18 @@ static_assert(sizeof(NePhysXSceneProfile) == 36);
 static_assert(sizeof(NePhysXRigidBodyInput) == 64);
 static_assert(sizeof(NePhysXArticulationLinkInput) == 80);
 static_assert(sizeof(NePhysXArticulationJointInput) == 76);
+static_assert(sizeof(NePhysXArticulationLinkInputV2) == 104);
+static_assert(sizeof(NePhysXArticulationShapeInputV2) == 72);
+static_assert(sizeof(NePhysXArticulationCollisionExclusionV2) == 8);
 static_assert(sizeof(NePhysXLinkState) == 64);
 static_assert(sizeof(NePhysXJointState) == 8);
 static_assert(sizeof(NePhysXContactOutput) == 56);
+static_assert(sizeof(NePhysXContactOutputV2) == 72);
 
 namespace {
 
 struct ContactSink final : physx::PxSimulationEventCallback {
-    NePhysXContactOutput* contacts = nullptr;
+    NePhysXContactOutputV2* contacts = nullptr;
     std::uint32_t length = 0;
     std::uint32_t capacity = 0;
     bool overflow = false;
@@ -185,6 +239,8 @@ struct ContactSink final : physx::PxSimulationEventCallback {
         const std::uint64_t token_b = token_of(header.actors[1]);
         physx::PxContactPairPoint points[64];
         for (physx::PxU32 pair_index = 0; pair_index < pair_count; ++pair_index) {
+            const std::uint64_t shape_token_a = token_of(pairs[pair_index].shapes[0]);
+            const std::uint64_t shape_token_b = token_of(pairs[pair_index].shapes[1]);
             const physx::PxU32 count = pairs[pair_index].extractContacts(points, 64);
             for (physx::PxU32 point_index = 0; point_index < count; ++point_index) {
                 if (length >= capacity) {
@@ -192,9 +248,11 @@ struct ContactSink final : physx::PxSimulationEventCallback {
                     return;
                 }
                 const physx::PxContactPairPoint& point = points[point_index];
-                NePhysXContactOutput& output = contacts[length++];
+                NePhysXContactOutputV2& output = contacts[length++];
                 output.actor_a_token = token_a;
                 output.actor_b_token = token_b;
+                output.shape_a_token = shape_token_a;
+                output.shape_b_token = shape_token_b;
                 for (std::uint32_t axis = 0; axis < 3; ++axis) {
                     output.position_bits[axis] = to_bits(point.position[axis]);
                     output.normal_bits[axis] = to_bits(point.normal[axis]);
@@ -208,12 +266,43 @@ struct ContactSink final : physx::PxSimulationEventCallback {
 
 physx::PxFilterFlags contact_filter_shader(
     physx::PxFilterObjectAttributes,
-    physx::PxFilterData,
+    physx::PxFilterData filter_data_a,
     physx::PxFilterObjectAttributes,
-    physx::PxFilterData,
+    physx::PxFilterData filter_data_b,
     physx::PxPairFlags& pair_flags,
-    const void*,
-    physx::PxU32) {
+    const void* constant_block,
+    physx::PxU32 constant_block_size) {
+    std::uint64_t mask_a = static_cast<std::uint64_t>(filter_data_a.word1)
+        | (static_cast<std::uint64_t>(filter_data_a.word2) << 32U);
+    std::uint64_t mask_b = static_cast<std::uint64_t>(filter_data_b.word1)
+        | (static_cast<std::uint64_t>(filter_data_b.word2) << 32U);
+    // Legacy bridge shapes carry zero filter data. Treat them as the engine
+    // ground/default layer with a full mask so V1 remains compatible and V2
+    // humanoid masks can explicitly admit layer 0.
+    if (filter_data_a.word0 == 0U && mask_a == 0U) mask_a = ~std::uint64_t{0};
+    if (filter_data_b.word0 == 0U && mask_b == 0U) mask_b = ~std::uint64_t{0};
+    if (filter_data_a.word0 >= 64U || filter_data_b.word0 >= 64U
+        || (mask_a & (std::uint64_t{1} << filter_data_b.word0)) == 0U
+        || (mask_b & (std::uint64_t{1} << filter_data_a.word0)) == 0U) {
+        return physx::PxFilterFlag::eSUPPRESS;
+    }
+    if (filter_data_a.word3 != filter_data_b.word3) {
+        if (constant_block != nullptr
+            && constant_block_size % sizeof(NePhysXArticulationCollisionExclusionV2) == 0U) {
+            const auto* exclusions = static_cast<
+                const NePhysXArticulationCollisionExclusionV2*>(constant_block);
+            const std::uint32_t count = constant_block_size
+                / sizeof(NePhysXArticulationCollisionExclusionV2);
+            const std::uint32_t first = physx::PxMin(filter_data_a.word3, filter_data_b.word3);
+            const std::uint32_t second = physx::PxMax(filter_data_a.word3, filter_data_b.word3);
+            for (std::uint32_t index = 0; index < count; ++index) {
+                if (exclusions[index].first_link_index == first
+                    && exclusions[index].second_link_index == second) {
+                    return physx::PxFilterFlag::eSUPPRESS;
+                }
+            }
+        }
+    }
     pair_flags = physx::PxPairFlag::eCONTACT_DEFAULT
         | physx::PxPairFlag::eNOTIFY_TOUCH_FOUND
         | physx::PxPairFlag::eNOTIFY_TOUCH_PERSISTS
@@ -231,6 +320,7 @@ struct World {
     physx::PxArticulationCache* articulation_cache = nullptr;
     physx::PxArticulationLink** links = nullptr;
     std::uint64_t* link_tokens = nullptr;
+    std::uint32_t* joint_dof_indices = nullptr;
     std::uint32_t link_count = 0;
     std::uint32_t joint_count = 0;
     physx::PxRigidActor** actors = nullptr;
@@ -344,6 +434,99 @@ bool attach_shape(World& world, physx::PxRigidActor& actor, std::uint32_t kind, 
     return attached;
 }
 
+bool attach_shape_v2(
+    World& world,
+    physx::PxRigidActor& actor,
+    const NePhysXArticulationShapeInputV2& input) {
+    physx::PxShape* shape = nullptr;
+    if (input.shape_kind == 1) {
+        const physx::PxVec3 half_extents(
+            from_bits(input.shape_dimensions_bits[0]),
+            from_bits(input.shape_dimensions_bits[1]),
+            from_bits(input.shape_dimensions_bits[2]));
+        if (!finite_positive(half_extents.x) || !finite_positive(half_extents.y)
+            || !finite_positive(half_extents.z)) {
+            return false;
+        }
+        shape = world.physics->createShape(
+            physx::PxBoxGeometry(half_extents), *world.material, true);
+    } else if (input.shape_kind == 2) {
+        const float radius = from_bits(input.shape_dimensions_bits[0]);
+        if (!finite_positive(radius)) {
+            return false;
+        }
+        shape = world.physics->createShape(
+            physx::PxSphereGeometry(radius), *world.material, true);
+    } else if (input.shape_kind == 3) {
+        const float radius = from_bits(input.shape_dimensions_bits[0]);
+        const float half_height = from_bits(input.shape_dimensions_bits[1]);
+        if (!finite_positive(radius) || !finite_non_negative(half_height)) {
+            return false;
+        }
+        shape = world.physics->createShape(
+            physx::PxCapsuleGeometry(radius, half_height), *world.material, true);
+    } else {
+        return false;
+    }
+    if (shape == nullptr) {
+        return false;
+    }
+    const physx::PxTransform local_pose = read_transform(input.position_bits, input.rotation_bits);
+    if (!valid_transform(local_pose) || input.collision_layer >= 64U) {
+        shape->release();
+        return false;
+    }
+    shape->setLocalPose(local_pose);
+    shape->setSimulationFilterData(physx::PxFilterData(
+        input.collision_layer,
+        input.collision_mask_low,
+        input.collision_mask_high,
+        input.link_index));
+    shape->setQueryFilterData(physx::PxFilterData(
+        input.collision_layer,
+        input.collision_mask_low,
+        input.collision_mask_high,
+        input.link_index));
+    shape->userData = reinterpret_cast<void*>(static_cast<std::uintptr_t>(input.user_token));
+    const bool attached = actor.attachShape(*shape);
+    shape->release();
+    return attached;
+}
+
+bool record_joint_dof_indices(World& world, std::uint32_t link_count, std::uint32_t joint_count) {
+    for (std::uint32_t semantic_index = 0; semantic_index < joint_count; ++semantic_index) {
+        const std::uint32_t child_link_index = semantic_index + 1;
+        if (child_link_index >= link_count || world.links[child_link_index] == nullptr) {
+            return false;
+        }
+        const physx::PxArticulationLink* target = world.links[child_link_index];
+        if (target->getInboundJointDof() != 1U) {
+            return false;
+        }
+        const std::uint32_t low_level_link_index = target->getLinkIndex();
+        std::uint32_t dof = 0;
+        for (std::uint32_t other_index = 1; other_index < link_count; ++other_index) {
+            const physx::PxArticulationLink* other = world.links[other_index];
+            if (other == nullptr) {
+                return false;
+            }
+            if (other->getLinkIndex() < low_level_link_index) {
+                dof += other->getInboundJointDof();
+            }
+        }
+        if (dof >= joint_count) {
+            return false;
+        }
+        for (std::uint32_t previous = 0; previous < semantic_index; ++previous) {
+            if (world.joint_dof_indices[previous] == dof) {
+                return false;
+            }
+        }
+        world.joint_dof_indices[semantic_index] = dof;
+    }
+    return true;
+}
+
 void destroy_world(World* world) {
     if (world == nullptr) {
         return;
@@ -369,6 +552,7 @@ void destroy_world(World* world) {
     const bool has_sdk = world->physics != nullptr;
     delete[] world->links;
     delete[] world->link_tokens;
+    delete[] world->joint_dof_indices;
     delete[] world->actors;
     delete[] world->boxes;
     delete[] world->contact_sink.contacts;
@@ -436,11 +620,13 @@ std::int32_t ne_physx_world_configure_scene(
     world->actors = new (std::nothrow) physx::PxRigidActor*[input->max_actors]{};
     world->links = new (std::nothrow) physx::PxArticulationLink*[input->max_actors]{};
     world->link_tokens = new (std::nothrow) std::uint64_t[input->max_actors]{};
+    world->joint_dof_indices = new (std::nothrow) std::uint32_t[input->max_joints]{};
     world->contact_sink.contacts = input->max_contacts == 0
         ? nullptr
-        : new (std::nothrow) NePhysXContactOutput[input->max_contacts]{};
+        : new (std::nothrow) NePhysXContactOutputV2[input->max_contacts]{};
     if (world->dispatcher == nullptr || world->actors == nullptr || world->links == nullptr
         || world->link_tokens == nullptr
+        || world->joint_dof_indices == nullptr
         || (input->max_contacts != 0 && world->contact_sink.contacts == nullptr)) {
         return kOutOfMemory;
     }
@@ -650,6 +836,147 @@ std::int32_t ne_physx_world_add_articulation(
         }
     }
     world->scene->addArticulation(*articulation);
+    if (!record_joint_dof_indices(*world, link_count, joint_count)) {
+        articulation->release();
+        return kInternalFailure;
+    }
+    physx::PxArticulationCache* cache = articulation->createCache();
+    if (cache == nullptr || articulation->getDofs() != joint_count) {
+        if (cache != nullptr) cache->release();
+        articulation->release();
+        return kInternalFailure;
+    }
+    world->articulation = articulation;
+    world->articulation_cache = cache;
+    world->link_count = link_count;
+    world->joint_count = joint_count;
+    return kOk;
+}
+
+std::int32_t ne_physx_world_add_articulation_v2(
+    void* opaque_world,
+    const NePhysXArticulationLinkInputV2* link_inputs,
+    std::uint32_t link_count,
+    const NePhysXArticulationShapeInputV2* shape_inputs,
+    std::uint32_t shape_count,
+    const NePhysXArticulationJointInput* joint_inputs,
+    std::uint32_t joint_count,
+    const NePhysXArticulationCollisionExclusionV2* exclusions,
+    std::uint32_t exclusion_count,
+    std::uint32_t position_iterations,
+    std::uint32_t velocity_iterations) noexcept {
+    auto* world = static_cast<World*>(opaque_world);
+    if (world == nullptr || world->scene == nullptr || world->articulation != nullptr
+        || link_inputs == nullptr || link_count == 0 || joint_count + 1 != link_count
+        || (shape_count != 0 && shape_inputs == nullptr)
+        || (joint_count != 0 && joint_inputs == nullptr)
+        || (exclusion_count != 0 && exclusions == nullptr)
+        || link_count > world->actor_capacity || position_iterations == 0
+        || velocity_iterations == 0
+        || exclusion_count > std::numeric_limits<physx::PxU32>::max()
+            / sizeof(NePhysXArticulationCollisionExclusionV2)) {
+        return kInvalidArgument;
+    }
+    if (exclusion_count != 0) {
+        world->scene->setFilterShaderData(
+            exclusions,
+            exclusion_count * sizeof(NePhysXArticulationCollisionExclusionV2));
+    }
+    physx::PxArticulationReducedCoordinate* articulation =
+        world->physics->createArticulationReducedCoordinate();
+    if (articulation == nullptr) {
+        return kInternalFailure;
+    }
+    articulation->setSolverIterationCounts(position_iterations, velocity_iterations);
+    std::uint32_t next_shape = 0;
+    for (std::uint32_t index = 0; index < link_count; ++index) {
+        const NePhysXArticulationLinkInputV2& input = link_inputs[index];
+        if ((index == 0 && input.parent_link_index != kNoParent)
+            || (index != 0 && input.parent_link_index >= index)
+            || input.reserved != 0 || input.first_shape_index != next_shape
+            || input.shape_count > shape_count - next_shape) {
+            articulation->release();
+            return kInvalidArgument;
+        }
+        const physx::PxTransform transform = read_transform(input.position_bits, input.rotation_bits);
+        const physx::PxTransform centre_of_mass = read_transform(
+            input.centre_of_mass_position_bits, input.centre_of_mass_rotation_bits);
+        const float mass = from_bits(input.mass_bits);
+        const physx::PxVec3 inertia(
+            from_bits(input.inertia_bits[0]),
+            from_bits(input.inertia_bits[1]),
+            from_bits(input.inertia_bits[2]));
+        const float linear_damping = from_bits(input.linear_damping_bits);
+        const float angular_damping = from_bits(input.angular_damping_bits);
+        if (!valid_transform(transform) || !valid_transform(centre_of_mass)
+            || !finite_positive(mass) || !finite_positive(inertia.x)
+            || !finite_positive(inertia.y) || !finite_positive(inertia.z)
+            || !finite_non_negative(linear_damping) || !finite_non_negative(angular_damping)) {
+            articulation->release();
+            return kInvalidArgument;
+        }
+        physx::PxArticulationLink* parent = index == 0
+            ? nullptr
+            : world->links[input.parent_link_index];
+        physx::PxArticulationLink* link = articulation->createLink(parent, transform);
+        if (link == nullptr) {
+            articulation->release();
+            return kInternalFailure;
+        }
+        for (std::uint32_t shape_offset = 0; shape_offset < input.shape_count; ++shape_offset) {
+            const NePhysXArticulationShapeInputV2& shape = shape_inputs[next_shape + shape_offset];
+            if (shape.link_index != index || !attach_shape_v2(*world, *link, shape)) {
+                articulation->release();
+                return kInvalidArgument;
+            }
+        }
+        next_shape += input.shape_count;
+        link->setCMassLocalPose(centre_of_mass);
+        link->setMass(mass);
+        link->setMassSpaceInertiaTensor(inertia);
+        link->setLinearDamping(linear_damping);
+        link->setAngularDamping(angular_damping);
+        set_token(*link, input.user_token);
+        world->links[index] = link;
+        world->link_tokens[index] = input.user_token;
+        if (index != 0) {
+            const NePhysXArticulationJointInput& joint_input = joint_inputs[index - 1];
+            physx::PxArticulationJointReducedCoordinate* joint = link->getInboundJoint();
+            const physx::PxTransform parent_pose =
+                read_transform(joint_input.parent_position_bits, joint_input.parent_rotation_bits);
+            const physx::PxTransform child_pose =
+                read_transform(joint_input.child_position_bits, joint_input.child_rotation_bits);
+            const float lower = from_bits(joint_input.lower_limit_bits);
+            const float upper = from_bits(joint_input.upper_limit_bits);
+            const float max_velocity = from_bits(joint_input.max_velocity_bits);
+            if (joint_input.child_link_index != index || joint_input.reserved != 0
+                || joint == nullptr || !valid_transform(parent_pose) || !valid_transform(child_pose)
+                || !physx::PxIsFinite(lower) || !physx::PxIsFinite(upper) || lower >= upper
+                || !finite_positive(max_velocity)) {
+                articulation->release();
+                return kInvalidArgument;
+            }
+            joint->setParentPose(parent_pose);
+            joint->setChildPose(child_pose);
+            joint->setJointType(physx::PxArticulationJointType::eREVOLUTE);
+            joint->setMotion(
+                physx::PxArticulationAxis::eTWIST,
+                physx::PxArticulationMotion::eLIMITED);
+            joint->setLimitParams(
+                physx::PxArticulationAxis::eTWIST,
+                physx::PxArticulationLimit(lower, upper));
+            joint->setMaxJointVelocity(physx::PxArticulationAxis::eTWIST, max_velocity);
+        }
+    }
+    if (next_shape != shape_count) {
+        articulation->release();
+        return kInvalidArgument;
+    }
+    world->scene->addArticulation(*articulation);
+    if (!record_joint_dof_indices(*world, link_count, joint_count)) {
+        articulation->release();
+        return kInternalFailure;
+    }
     physx::PxArticulationCache* cache = articulation->createCache();
     if (cache == nullptr || articulation->getDofs() != joint_count) {
         if (cache != nullptr) cache->release();
@@ -678,7 +1005,7 @@ std::int32_t ne_physx_world_apply_articulation_efforts(
         if (!physx::PxIsFinite(effort)) {
             return kInvalidArgument;
         }
-        world->articulation_cache->jointForce[index] = effort;
+        world->articulation_cache->jointForce[world->joint_dof_indices[index]] = effort;
     }
     world->articulation->applyCache(
         *world->articulation_cache, physx::PxArticulationCacheFlag::eFORCE, true);
@@ -718,8 +1045,9 @@ std::int32_t ne_physx_world_import_articulation_state(
         if (!physx::PxIsFinite(position) || !physx::PxIsFinite(velocity)) {
             return kInvalidArgument;
         }
-        world->articulation_cache->jointPosition[index] = position;
-        world->articulation_cache->jointVelocity[index] = velocity;
+        const std::uint32_t dof = world->joint_dof_indices[index];
+        world->articulation_cache->jointPosition[dof] = position;
+        world->articulation_cache->jointVelocity[dof] = velocity;
     }
     world->articulation->applyCache(
         *world->articulation_cache,
@@ -786,8 +1114,9 @@ std::int32_t ne_physx_world_export_articulation_state(
         output.rotation_bits[3] = to_bits(transform.q.w);
     }
     for (std::uint32_t index = 0; index < world->joint_count; ++index) {
-        joint_states[index].position_bits = to_bits(world->articulation_cache->jointPosition[index]);
-        joint_states[index].velocity_bits = to_bits(world->articulation_cache->jointVelocity[index]);
+        const std::uint32_t dof = world->joint_dof_indices[index];
+        joint_states[index].position_bits = to_bits(world->articulation_cache->jointPosition[dof]);
+        joint_states[index].velocity_bits = to_bits(world->articulation_cache->jointVelocity[dof]);
     }
     return kOk;
 }
@@ -795,6 +1124,35 @@ std::int32_t ne_physx_world_export_articulation_state(
 std::int32_t ne_physx_world_export_contacts(
     void* opaque_world,
     NePhysXContactOutput* output,
+    std::uint32_t capacity,
+    std::uint32_t* count) noexcept {
+    auto* world = static_cast<World*>(opaque_world);
+    if (world == nullptr || count == nullptr
+        || (world->contact_sink.length != 0 && output == nullptr)) {
+        return kInvalidArgument;
+    }
+    *count = world->contact_sink.length;
+    if (capacity < world->contact_sink.length) {
+        return kCapacityExceeded;
+    }
+    for (std::uint32_t index = 0; index < world->contact_sink.length; ++index) {
+        const NePhysXContactOutputV2& source = world->contact_sink.contacts[index];
+        NePhysXContactOutput& target = output[index];
+        target.actor_a_token = source.actor_a_token;
+        target.actor_b_token = source.actor_b_token;
+        for (std::uint32_t axis = 0; axis < 3; ++axis) {
+            target.position_bits[axis] = source.position_bits[axis];
+            target.normal_bits[axis] = source.normal_bits[axis];
+            target.impulse_bits[axis] = source.impulse_bits[axis];
+        }
+        target.separation_bits = source.separation_bits;
+    }
+    return kOk;
+}
+
+std::int32_t ne_physx_world_export_contacts_v2(
+    void* opaque_world,
+    NePhysXContactOutputV2* output,
     std::uint32_t capacity,
     std::uint32_t* count) noexcept {
     auto* world = static_cast<World*>(opaque_world);

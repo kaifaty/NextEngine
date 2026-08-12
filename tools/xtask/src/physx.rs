@@ -16,7 +16,7 @@ pub const PHYSX_ARCHIVE_SHA256: &str =
     "bc894626070f0658a3235231c825c3e0f8ad1fd9d5077a63cb5bdaffe8816407";
 pub const PHYSX_ARCHIVE_URL: &str = "https://github.com/NVIDIA-Omniverse/PhysX/archive/517a0073715120e114ee055b63b26c95e00d9039.tar.gz";
 pub const PHYSX_BUILD_PROFILE: &str = "nextengine-physx-5.9.0-static-cpu-release-v1";
-pub const PHYSX_BRIDGE_ABI: u32 = 2;
+pub const PHYSX_BRIDGE_ABI: u32 = 3;
 
 const MANIFEST_NAME: &str = "nextengine-physx-sdk-v1.json";
 

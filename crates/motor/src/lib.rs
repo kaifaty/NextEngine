@@ -1,16 +1,25 @@
 #![forbid(unsafe_code)]
 
+mod biomechanics;
 mod compiler;
+mod compiler_v2;
 mod control;
 mod humanoid;
 mod mirror;
+mod mirror_v2;
 mod observation;
 mod performance;
 mod replay;
 mod runtime;
 mod training;
 
+pub use biomechanics::{
+    BIOMECHANICS_HUMANOID_BODY_COUNT, BIOMECHANICS_HUMANOID_COLLIDER_COUNT,
+    BIOMECHANICS_HUMANOID_DOF, BIOMECHANICS_HUMANOID_ROOT_HEIGHT_MICROMETRES,
+    BIOMECHANICS_HUMANOID_TOTAL_MASS_MICROKILOGRAMS, biomechanics_humanoid_body_schema_v2,
+};
 pub use compiler::{CompiledBodySchemaV1, CompiledPhysicsDescriptorsV1, MotorCompileError};
+pub use compiler_v2::{CompiledBodySchemaV2, CompiledPhysicsDescriptorsV2};
 pub use control::{
     ACTUATOR_EFFORT_CLAMPED, ACTUATOR_RATE_CLAMPED, ACTUATOR_TARGET_CLAMPED, FixedPdController,
     JointControlStateV1, MotorControlError,
@@ -20,6 +29,7 @@ pub use humanoid::{
     reference_humanoid_body_schema_v1,
 };
 pub use mirror::{stage0_isaac_mirror_descriptor_json_v2, stage0_isaac_mirror_golden_json_v2};
+pub use mirror_v2::biomechanics_isaac_mirror_descriptor_json_v1;
 pub use observation::{
     MotorObservationBuilder, MotorObservationError, MotorVelocityFrameV1,
     rotate_world_to_root_local_q1_30,

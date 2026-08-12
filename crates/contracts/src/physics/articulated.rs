@@ -10,9 +10,12 @@ use super::{
 };
 
 pub const PHYSICS_BODY_DESCRIPTOR_V2_SCHEMA_VERSION: u16 = 2;
+pub const PHYSICS_BODY_DESCRIPTOR_V3_SCHEMA_VERSION: u16 = 3;
 pub const PHYSICS_WORLD_CATALOG_V2_SCHEMA_VERSION: u16 = 2;
 pub const PHYSICS_JOINT_DESCRIPTOR_V1_SCHEMA_VERSION: u16 = 1;
+pub const PHYSICS_JOINT_DESCRIPTOR_V2_SCHEMA_VERSION: u16 = 2;
 pub const PHYSICS_ACTUATOR_DESCRIPTOR_V1_SCHEMA_VERSION: u16 = 1;
+pub const PHYSICS_ACTUATOR_DESCRIPTOR_V2_SCHEMA_VERSION: u16 = 2;
 pub const PHYSICS_STEP_INPUT_V3_SCHEMA_VERSION: u16 = 3;
 pub const PHYSICS_STEP_RESULT_V2_SCHEMA_VERSION: u16 = 2;
 pub const PHYSICS_CANONICAL_SNAPSHOT_V3_SCHEMA_VERSION: u16 = 3;
@@ -52,6 +55,44 @@ impl PhysicsBodyDescriptorV2 {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PhysicsBodyDescriptorV3 {
+    pub schema_version: u16,
+    pub base: PhysicsBodyDescriptorV2,
+    pub non_colliding_carrier: bool,
+    pub authoritative_inertia_tensor_microkilogram_metre_squared: [i64; 6],
+    pub solver_principal_frame: super::PhysicsPoseV1,
+    pub solver_tensor_error_max_microkilogram_metre_squared: u64,
+}
+
+impl PhysicsBodyDescriptorV3 {
+    pub fn validate(&self) -> Result<(), PhysicsContractError> {
+        if self.schema_version != PHYSICS_BODY_DESCRIPTOR_V3_SCHEMA_VERSION
+            || self.base.schema_version != PHYSICS_BODY_DESCRIPTOR_V2_SCHEMA_VERSION
+            || self.base.mass_microkilograms == 0
+            || self.base.inertia_microkilogram_metre_squared.contains(&0)
+            || self.base.base.descriptor_revision == 0
+            || self.non_colliding_carrier != self.base.base.shapes.is_empty()
+            || self
+                .authoritative_inertia_tensor_microkilogram_metre_squared
+                .iter()
+                .enumerate()
+                .any(|(index, value)| matches!(index, 0 | 3 | 5) && *value <= 0)
+        {
+            return Err(PhysicsContractError::InvalidDescriptor);
+        }
+        self.solver_principal_frame.validate()?;
+        self.base.base.initial_pose.validate()?;
+        for (id, shape) in &self.base.base.shapes {
+            if id != &shape.shape_id || shape.shape_id.body_id != self.base.base.body_id {
+                return Err(PhysicsContractError::DuplicateKey);
+            }
+            shape.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct PhysicsJointDescriptorV1 {
     pub schema_version: u16,
@@ -85,6 +126,34 @@ impl PhysicsJointDescriptorV1 {
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct PhysicsJointDescriptorV2 {
+    pub schema_version: u16,
+    pub base: PhysicsJointDescriptorV1,
+    pub anatomical_semantic_id: SchemaId,
+    pub parent_frame: super::PhysicsPoseV1,
+    pub child_frame: super::PhysicsPoseV1,
+    pub soft_limit_min_microradians: i64,
+    pub soft_limit_max_microradians: i64,
+    pub neutral_position_microradians: i64,
+}
+
+impl PhysicsJointDescriptorV2 {
+    pub fn validate(&self) -> Result<(), PhysicsContractError> {
+        if self.schema_version != PHYSICS_JOINT_DESCRIPTOR_V2_SCHEMA_VERSION
+            || self.soft_limit_min_microradians < self.base.limit_min_microradians
+            || self.soft_limit_max_microradians > self.base.limit_max_microradians
+            || self.soft_limit_min_microradians > self.neutral_position_microradians
+            || self.neutral_position_microradians > self.soft_limit_max_microradians
+        {
+            return Err(PhysicsContractError::InvalidDescriptor);
+        }
+        self.parent_frame.validate()?;
+        self.child_frame.validate()?;
+        self.base.validate()
+    }
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct PhysicsActuatorDescriptorV1 {
     pub schema_version: u16,
     pub actuator_id: SchemaId,
@@ -108,6 +177,42 @@ impl PhysicsActuatorDescriptorV1 {
             return Err(PhysicsContractError::InvalidDescriptor);
         }
         Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct PhysicsActuatorDescriptorV2 {
+    pub schema_version: u16,
+    pub base: PhysicsActuatorDescriptorV1,
+    pub stiffness_q16: u64,
+    pub damping_q16: u64,
+    pub minimum_effort_micronewton_metres: i64,
+    pub maximum_effort_micronewton_metres: i64,
+    pub maximum_power_microwatts: u64,
+    pub maximum_positive_work_microjoules_per_motor_tick: u64,
+    pub residual_scale_microradians: u64,
+    pub minimum_target_delta_microradians_per_motor_tick: i64,
+    pub maximum_target_delta_microradians_per_motor_tick: i64,
+}
+
+impl PhysicsActuatorDescriptorV2 {
+    pub fn validate(&self) -> Result<(), PhysicsContractError> {
+        if self.schema_version != PHYSICS_ACTUATOR_DESCRIPTOR_V2_SCHEMA_VERSION
+            || self.stiffness_q16 == 0
+            || self.damping_q16 == 0
+            || self.minimum_effort_micronewton_metres >= 0
+            || self.maximum_effort_micronewton_metres <= 0
+            || self.maximum_power_microwatts == 0
+            || self.maximum_positive_work_microjoules_per_motor_tick == 0
+            || self.residual_scale_microradians == 0
+            || self.minimum_target_delta_microradians_per_motor_tick >= 0
+            || self.maximum_target_delta_microradians_per_motor_tick <= 0
+            || self.base.maximum_effort_micronewton_metres
+                != self.maximum_effort_micronewton_metres as u64
+        {
+            return Err(PhysicsContractError::InvalidDescriptor);
+        }
+        self.base.validate()
     }
 }
 
