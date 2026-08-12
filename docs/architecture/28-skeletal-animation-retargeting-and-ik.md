@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-28 |
 | Статус | Accepted |
-| Версия | 1.6 |
+| Версия | 1.7 |
 | Последняя проверка | 2026-08-12 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
-| Заменяет | SPEC-28 1.5; clarifies that a reference horizon is a closed-loop action-chunk analogue, not authoritative actuation |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
+| Заменяет | SPEC-28 1.6; renames the unconsumed motion-horizon proposal to the single contact-centric `PhysicalActionChunk` reference |
 
 ## История принятия
 
@@ -279,16 +279,16 @@ subject/graph order. A wall-time miss fails the relevant ANIM/PERF check and
 cannot choose a different root intent, physical constraint or authoritative
 outcome in the measured run.
 
-### Motion reference horizon and hybrid physical tracking
+### Physical action chunk and hybrid physical tracking
 
-ADR-057 separates upstream motion/reference generation from low-level physical
+ADR-066 separates upstream physical-chunk generation from low-level physical
 tracking. Standing, velocity locomotion, ordinary turns/crouch, simple terrain
 and bounded push recovery MAY feed semantic command features directly to the
 motor policy. Parkour, climbing, coordinated manipulation, weapon/object
-trajectories and other contact-rich skills SHOULD use a bounded reference
-horizon.
+trajectories and other contact-rich skills SHOULD use a bounded physical
+action chunk.
 
-The Proposed consumer-backed target is `MotionReferenceHorizonV1` owned by
+The Proposed consumer-backed target is `PhysicalActionChunkV1` owned by
 Physical Embodiment and produced by exactly one declared source:
 
 - authored clip/animation graph;
@@ -296,24 +296,26 @@ Physical Embodiment and produced by exactly one declared source:
 - deterministic procedural generator;
 - optional learned generator behind an explicit state/artifact profile.
 
-It binds source command/contact-plan/body/skeleton revisions, exact start tick,
-bounded `0.3..2.0 s` profile, ordered root/keypoint/pose/contact/object
-trajectories, phase/style and interruption metadata. It is a motor reference,
-not pose/contact authority. Learned generator state lives in SPEC-27
-`PolicyStateRecordV1`; hidden cache and presentation feedback are forbidden.
-The horizon is the engine's action-chunk analogue only at the reference layer:
-it never stores a sequence of already accepted `MotorActionV1` records. The
-tracker rebuilds the structured SPEC-27 observation and emits one complete
-candidate each motor tick, while fixed PD/safety applies on every physics
-substep. Preparing a following horizon asynchronously cannot alter the current
-horizon or choose a handoff by completion time; publication occurs only at the
-declared deterministic boundary.
+It binds source intent/command/contact-plan/scene/body/skeleton revisions,
+exact start/end tick, project-bounded normally `250..1000 ms`, ordered root/
+center-of-mass, effector/keypoint/pose/contact/object trajectories, force/
+support transitions, phase/style and interruption metadata. It is a motor
+reference, not pose/contact authority. Learned generator state lives in
+SPEC-27 `PolicyStateRecordV1`; hidden cache and presentation feedback are
+forbidden. The chunk is the engine's only action-chunk concept at the reference
+layer: it never stores a sequence of already accepted `MotorActionV1` records,
+joint commands, natural language or an opaque framework tensor. The tracker
+rebuilds the structured SPEC-27 observation and emits one complete candidate
+each motor tick, while fixed PD/safety applies on every physics substep.
+Preparing a following chunk asynchronously cannot alter the current chunk or
+choose a handoff by completion time; publication occurs only at the declared
+deterministic boundary.
 
 The preferred hybrid production pattern is:
 
 ```text
 authored motion matching or optional generator
-  → MotionReferenceHorizon
+  → PhysicalActionChunk
   → learned/procedural residual physical tracker
   → fixed PD/SPD and hard actuator limits
   → Physics
@@ -326,7 +328,7 @@ physical pose and momentum. Snap, kinematic root teleport and reconstruction
 from renderer pose are forbidden. Invalid handoff retains the source mode and
 uses its declared transition/recovery fallback.
 
-The semantic split is Accepted; exact `MotionReferenceHorizonV1` wire shape and
+The semantic split is Accepted; exact `PhysicalActionChunkV1` wire shape and
 learned generator profile remain Proposed until a production consumer exists.
 
 ### `AnimationIntentStateV1` and presentation state
@@ -596,7 +598,7 @@ ProductCheck ниже ещё не реализованы и остаются gat
 | `ANIM-RETARGET-P1` | all declared skeleton pairs and 10 000 rule/order/worker permutations | exact mapping/local pose or exact rejection; all signature, cycle, duplicate-target, missing-required and bounds faults reject; presentation variation changes zero gameplay roots | use exact authored profile; otherwise optional bind pose or block required reference |
 | `ANIM-IK-P1` | 10 000 physical/presentation IK chain/order/target/LOD permutations | fixed iteration/order and exact constraint/presentation roots; presentation IK changes zero command/contact/outcome/gameplay roots; physical IK never bypasses safety | reject physical constraint set and use safe motor behavior; independently disable presentation IK |
 | `ANIM-LOD-P1` | 10 000 LOD/cadence/resource/fault transitions and optional pinned developer capture | one complete snapshot or none; due intent work never skipped; authoritative roots unchanged by camera/render/cache variation; captured roots are reproducible when requested | pin safe evaluation level; use held/bind/cull presentation fallback |
-| `ANIM-HYBRID-P1` (future) | authored/motion-matching horizon and 10 000 animation↔physics handoffs across velocity/contact/fault states | exact reference/action roots; bounded pose/momentum continuity; no snap, root teleport or presentation feedback | retain source mode and use declared transition/recovery fallback |
+| `ANIM-HYBRID-P1` (future) | authored/motion-matching physical action chunks and 10 000 animation↔physics handoffs across velocity/contact/fault states | exact chunk/action roots; bounded pose/momentum continuity; no snap, root teleport or presentation feedback | retain source mode and use declared transition/recovery fallback |
 
 `ANIM-HYBRID-P1` remains `NOT_RUN(NO_PRODUCTION_CONSUMER)` until the R5
 physical-tracking consumer exists.

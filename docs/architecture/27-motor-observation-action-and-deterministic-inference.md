@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-27 |
 | Статус | Accepted |
-| Версия | 1.8 |
+| Версия | 1.9 |
 | Последняя проверка | 2026-08-12 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md) |
-| Заменяет | SPEC-27 1.7; admits the V2 curriculum consumer on the unchanged root-local layout/action boundary |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
+| Заменяет | SPEC-27 1.8; adds the no-text physical-action-chunk input and Proposed graph/shared-joint controller profile without changing current Stage 0 schemas |
 
 ## История принятия
 
@@ -211,16 +211,19 @@ overlap and cover exactly `feature_count`. Every
 physical-observation schema; an unknown semantic requires a new schema version.
 The schema MUST explicitly include the policy-required root/joint kinematics,
 intent targets, contact/support/terrain facts, previous applied action and
-actuator/validity masks. ADR-057 profiles also bind exact BodySchema/effective
+actuator/validity masks. ADR-066 profiles also bind exact BodySchema/effective
 projection facts needed by the policy: cached static morphology embedding or
 its deterministic source, equipment/load, effective mass/inertia/CoM/ROM,
 torque-speed-power/latency, damage/fatigue/sensory confidence, semantic skill/
-contact/motion command and compact adaptation latent.
+contact/chunk command and compact adaptation latent.
 
 The main observation MUST NOT contain a raw terrain mesh, video frame,
-unbounded object list, free-form text, Tactical/Strategic memory or hundreds of
-implicit history frames. Terrain/depth/perception uses a separately bounded
-encoder/profile; recent action-response history belongs to the explicit
+unbounded object list, free-form text, text token, language embedding,
+Tactical/Strategic memory or hundreds of implicit history frames. Primitive,
+skill, style, constraint and effector-selection inputs are stable IDs/masks plus
+numeric parameters compiled before the physical path; display strings never
+enter tensor or state identity. Terrain/depth/perception uses a separately
+bounded encoder/profile; recent action-response history belongs to the explicit
 adaptation profile. It MUST NOT read presentation pose, raw physics-backend
 state or mutable ECS storage.
 
@@ -393,7 +396,7 @@ environment, “latest” tag or mutable registry. Any hash/compatibility/tick-r
 mismatch makes the learned route unavailable before observation batching.
 Runtime gameplay never trains or mutates weights.
 
-ADR-057 accepts the BodySchema/adaptation/reference compatibility semantics but
+ADR-066 accepts the BodySchema/adaptation/chunk compatibility semantics but
 does not silently extend this current wire record. The Proposed
 consumer-backed schema evolution is:
 
@@ -402,14 +405,52 @@ MotorInferenceProfile target extension {
   body_schema_hash: Hash256,
   body_instance_projection_schema_hash: Hash256,
   adaptation_profile_hash: Option<Hash256>,
-  motion_reference_schema_hash: Option<Hash256>
+  physical_action_chunk_schema_hash: Option<Hash256>
 }
 ```
 
-For profiles without adaptation or motion reference, the corresponding option
-is canonical `None`; hidden defaults are forbidden. The exact version/name and
+For profiles without adaptation or a physical action chunk, the corresponding
+option is canonical `None`; hidden defaults are forbidden. The exact version/name and
 registry entry remain Proposed until their first production consumer under
 ADR-046.
+
+## Proposed graph-conditioned variable-morphology profile
+
+The current fixed 23-DoF Stage 0 and first learned fixed-humanoid MLP retain
+their flat schemas. A later within-family variable-morphology profile MAY use
+the same engine-owned source facts in graph form:
+
+```text
+cached static node/edge morphology
+  + current dynamic node/edge state
+  + typed PhysicalActionChunk features
+  → 1--2 bounded local message-passing layers
+  → bounded global coordination attention
+  → generic explicit temporal state
+  → shared per-joint/per-actuator head
+```
+
+Node/edge/token order, local adjacency, attention mask, widths, operation set,
+normalization and fixed maximum counts are exact profile data. Static cache
+identity binds BodySchema, compiled descriptor, effective instance, topology
+and encoder hashes; it is reconstructible and invalidates only on their
+declared revision changes. Pose/contact/velocity/fatigue updates are dynamic
+inputs and do not rebuild the cache.
+
+The temporal core remains replaceable through the generic state schema. A
+frame-stacked MLP/TCN is the stateless/window comparator, GRU is the first
+recurrent baseline, and Mamba/SSM remains only an equal-budget experiment. A
+fixed `Linear(hidden → N joints)` can be used by the fixed-body comparator but
+cannot support a variable-topology claim. The shared head consumes joint,
+parent, child, chunk and family context and initially emits position plus
+optional velocity targets through fixed engine gains.
+
+Known RPG-derived capability facts are not policy weights. Their exact
+effective torque-speed-power, latency, precision, ROM, fatigue/damage and
+sensor bounds appear both in the immutable observation source and the
+engine-owned safety envelope. A bundle-private latent feature segment MAY be
+fixed-width and hash-bound, but an opaque runtime/provider tensor is not a
+public cross-bundle skill contract.
 
 ## Canonical batching and result validation
 
@@ -512,7 +553,7 @@ PolicyStateElementV1 {
 
 ### Explicit adaptation, generator and expert-router segments
 
-ADR-057 requires every future-action-affecting history value to live inside
+ADR-066 requires every future-action-affecting history value to live inside
 the generic schema above. A stateful profile declares a canonical fixed
 segment table:
 
@@ -880,9 +921,11 @@ MUST fail before a covered field influences an action.
 | `MOTOR-STATE-P1` | 10 000 evaluate/save/load/replay cycles | exact full record, `authoritative_state_hash`, commit links, last action, counter and phase; every tamper/reset/migration fault rejects before use | retain immutable source generation and prior full record; reset only when declared |
 | `MOTOR-ROUTE-P1` | 100 repeats of every success/fault route | learned/hold/recovery transitions and action/state roots exact; at most two holds; wall misses never create another authoritative action | locked fixed-point procedural recovery; stop motor commit if unavailable |
 | `MOTOR-REPLAY-P1` (future) | recorded action/full-state/snapshot replay plus independent evaluator re-execution across workers and Windows/Linux | authoritative replay reaches exact roots without model execution; parity mode independently reproduces every canonical action/state | reject learned artifact/profile and use procedural route |
+| `MOTOR-SKILL-CHUNK-P1` (future) | typed primitive/chunk/overlap/interruption and no-text input corpus | exact chunk/observation/action/state roots; no text/token/language embedding; every tick remains closed-loop and every unsafe interrupt enters declared recovery | reject chunk and use direct-command/procedural/recovery route |
+| `MOTOR-MORPHOLOGY-TRANSFER-P1` (future) | held-out within-family graph/cache/shared-head and topology-fault corpus | exact cache/profile roots, variable-count masking and shared-head output; transfer/safety/latency thresholds pass without arbitrary-topology claim | retain fixed-body/family route |
 
-`MOTOR-REPLAY-P1` remains `NOT_RUN(NO_PRODUCTION_CONSUMER)` until a learned
-route and recorded-action replay consumer exist.
+The future rows remain `NOT_RUN(NO_PRODUCTION_CONSUMER)` until their learned,
+chunk or variable-morphology consumers exist.
 
 ## Requirements
 
@@ -904,7 +947,7 @@ route and recorded-action replay consumer exist.
 
 This contract chooses no inference runtime, tensor library, physics backend,
 job system, allocator, device or operating-system API. The outer policy bundle
-is evaluator-format-neutral under ADR-057. Proposed ADR-053 records the first
+is evaluator-format-neutral under ADR-066. Proposed ADR-053 records the first
 replaceable profile: fixed-shape standard-op ONNX with explicit state and a
 private ONNX Runtime adapter. SPEC-27 does not promote that profile merely by
 documenting or exporting it. Any evaluator must pass the same schemas,

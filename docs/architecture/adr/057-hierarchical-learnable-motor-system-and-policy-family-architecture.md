@@ -3,15 +3,17 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-057 |
-| Статус | Accepted |
+| Статус | Superseded |
 | Версия | 1.0 |
 | Дата решения | 2026-08-10 |
-| Последняя проверка | 2026-08-10 |
+| Последняя проверка | 2026-08-12 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](../27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](../28-skeletal-animation-retargeting-and-ik.md), [ADR-013](013-self-contained-physical-avatar-boundary.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
 | Заменяет | полностью [ADR-009](009-pretrained-foundation-policies-and-progressive-motor-skills.md) и [ADR-055](055-mamba2-physical-motion-foundation-profile.md) |
-| Заменён | не заменён |
+| Заменён | полностью [ADR-066](066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
 
 ## Контекст
+
+> Historical record. Current authority is [ADR-066](066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), which preserves the hierarchy/family/fallback core while replacing the unconsumed motion-horizon proposal with a no-text, contact-centric `PhysicalActionChunk` architecture.
 
 Один low-level model не может одновременно быть владельцем gameplay goal,
 contact planning, morphology interpretation, damage identification и joint
@@ -291,3 +293,7 @@ ADR-009 and ADR-055 are fully Superseded. Their immutable weights,
 proficiency-aware deterministic resolver, explicit state, safety and fallback
 semantics are retained and generalized here. ADR-013 and ADR-027 remain
 Accepted and are not superseded.
+
+ADR-057 itself is fully Superseded by ADR-066. This file remains only as the
+historical step that replaced ADR-009/ADR-055; active specifications use
+ADR-066.

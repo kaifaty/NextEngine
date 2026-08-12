@@ -7,7 +7,7 @@
 | Версия | 1.0 |
 | Дата решения | 2026-08-10 |
 | Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](../27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-002](002-rust-first-ffi-and-ecs-facade.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
+| Нормативные зависимости | [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](../27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-002](002-rust-first-ffi-and-ecs-facade.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-066](066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
 | Заменяет | полностью [ADR-033](033-physx-grounded-capsule-parity-ffi-boundary.md); частично ADR-027 в выборе physics backend и reference fallback |
 | Заменён | частично [ADR-059](059-event-sourced-physx-continuation-reconstruction.md) для fresh-scene reconstruction скрытого solver continuation state |
 
@@ -197,6 +197,6 @@ fallback policy or mix checkpoint versions.
 
 ADR-033 is Superseded. ADR-027 remains Accepted for ownership/layering, but its
 backend-neutral candidate list and reference-fallback wording are superseded
-for production physics by this ADR. ADR-057 remains Accepted; its learned
+for production physics by this ADR. ADR-066 is the current Accepted motor architecture; its learned
 profiles stay Proposed beyond the deterministic Stage 0 substrate. ADR-059
 частично supersedes только direct continuation-import assumption этого ADR.

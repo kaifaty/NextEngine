@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.34 |
+| Версия | 2.35 |
 | Последняя проверка | 2026-08-12 |
-| Заменяет | INDEX-001 2.33; indexes the V2 engine-owned flat-command curriculum profile |
+| Заменяет | INDEX-001 2.34; indexes ADR-066 contact-centric physical skills and morphology-conditioned motor architecture |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -196,7 +196,7 @@ traceability — навигационная карта, не admission authority
 | ADR-006 | [Scripting и plugin model](adr/006-scripting-and-plugin-model.md) | Superseded |
 | ADR-007 | [Identities, persistence и replay](adr/007-identities-persistence-and-replay.md) | Superseded |
 | ADR-008 | [Mechanics/mod package и agent authoring](adr/008-mechanics-mod-package-and-agent-authoring-model.md) | Accepted package/no-private-path invariants; unconsumed agent-authoring/CLI/MCP obligations superseded by ADR-046 |
-| ADR-009 | [Foundation policies и progressive motor skills](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md) | Superseded by ADR-057 |
+| ADR-009 | [Foundation policies и progressive motor skills](adr/009-pretrained-foundation-policies-and-progressive-motor-skills.md) | Superseded by ADR-057; current authority ADR-066 |
 | ADR-010 | [Artifact-first validation и human review](adr/010-artifact-first-headless-validation-and-review.md) | Superseded by ADR-030 |
 | ADR-011 | [macOS developer host и staged training](adr/011-macos-developer-host-local-verification-and-staged-training.md) | Accepted; certification clauses partially superseded by ADR-030 |
 | ADR-012 | [Deterministic command identity и replay V1](adr/012-deterministic-command-identity-and-replay.md) | Superseded |
@@ -242,9 +242,9 @@ traceability — навигационная карта, не admission authority
 | ADR-052 | [Derived world calendar and authored routine vertical](adr/052-derived-world-calendar-and-authored-routine-vertical.md) | Proposed; R4a candidate for one relay-keeper routine, exact derived calendar and separate World Services segment |
 | ADR-053 | [Engine-native model training and immutable artifact boundary](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md) | Proposed; canonical headless environment, accelerated mirrors and immutable candidate bundles |
 | ADR-054 | [Bounded strategic adaptation and two-tier sleep](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md) | Proposed; Hope-inspired explicit bounded state, deterministic runtime consolidation and offline child bundles |
-| ADR-055 | [Mamba-2 physical motion foundation profile](adr/055-mamba2-physical-motion-foundation-profile.md) | Superseded by ADR-057 |
+| ADR-055 | [Mamba-2 physical motion foundation profile](adr/055-mamba2-physical-motion-foundation-profile.md) | Superseded by ADR-057; current authority ADR-066 |
 | ADR-056 | [Deterministic Strategic Agent and belief-driven GOAP](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) | Accepted; belief-driven Utility + bounded GOAP closes R4/v1 without learned models |
-| ADR-057 | [Hierarchical learnable Motor System and policy-family architecture](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) | Accepted hierarchy, BodySchema, family/adaptation, exact-action replay and fallback semantics; concrete learned/toolchain profiles remain Proposed |
+| ADR-057 | [Hierarchical learnable Motor System and policy-family architecture](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) | Superseded by ADR-066 |
 | ADR-058 | [PhysX-only deterministic humanoid training substrate](adr/058-physx-only-deterministic-humanoid-training-substrate.md) | Accepted sole production backend and fixed-humanoid Stage 0; cutover/completion require Windows/Linux and replay/performance gates |
 | ADR-059 | [Event-sourced PhysX continuation reconstruction](adr/059-event-sourced-physx-continuation-reconstruction.md) | Accepted bounded reset + post-safety effort prefix; partially supersedes ADR-058 direct continuation-import assumption |
 | ADR-060 | [Relaxed THOTH performance preflight](adr/060-relaxed-thoth-performance-preflight.md) | Accepted 10 GiB free-RAM threshold; below-15% load and methodology v5 are superseded by ADR-061 |
@@ -253,6 +253,7 @@ traceability — навигационная карта, не admission authority
 | ADR-063 | [Run-level performance evidence and fixed gate batches](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md) | Accepted Performance V5/methodology v8, ten independent baseline runs, fixed three-run gate batches and run-level relative bootstrap |
 | ADR-064 | [Canonical flat-command locomotion environment](adr/064-canonical-flat-command-locomotion-environment.md) | Accepted engine-owned 23-DoF flat locomotion commands, root-local observation, Q16 reward, partial reset/checkpoint lifecycle, protocol/mirror v2 boundary; no learned-policy claim |
 | ADR-065 | [Curriculum flat-command locomotion profile](adr/065-curriculum-flat-command-locomotion-profile.md) | Accepted engine-owned episode-ordinal curriculum, sharper Q16 reward/support shaping and full-stage held-out evaluation; V1 remains unchanged and learned quality remains unproven |
+| ADR-066 | [Contact-centric physical skills and morphology-conditioned motor architecture](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) | Accepted no-text physical-skill hierarchy, heterogeneous BodySchema, `PhysicalActionChunk`, family graph-controller and deterministic rollout boundaries; exact learned profiles remain Proposed |
 
 ## Proposed tracks
 
@@ -277,12 +278,14 @@ traceability — навигационная карта, не admission authority
   strategic/tactical and training data-plane track. Per-role promotion requires
   immutable artifacts, multi-seed evidence, target parity and complete ADR-056
   fallback; joint promotion is required only by profiles activating both roles.
-- ADR-057 Accepted core with Proposed subsections in SPEC-14/SPEC-27/SPEC-28/
-  SPEC-34 — optional fixed-humanoid learned MVP followed by bounded equipment,
-  injury, weapon, parkour and additional-family profiles. MLP is the first
-  low-level comparator, TCN/GRU the first adaptation comparators; Mamba is only
-  an equal-budget experiment for longer-history/generator/planner roles. The
-  procedural/animation R5 path remains current and independently shippable.
+- ADR-066 Accepted core with Proposed subsections in SPEC-14/SPEC-26/SPEC-27/
+  SPEC-28/SPEC-34 — natural language ends before Physical Embodiment; typed physical
+  primitives and `PhysicalActionChunk` carry contact/root/CoM/effector meaning.
+  The optional fixed-humanoid MLP remains first, then contact chunks, bounded
+  graph/shared-joint within-family transfer, damage/equipment/skills,
+  distillation/compiled students and optional candidate rollouts. GRU is the
+  first recurrent baseline; Mamba remains an equal-budget experiment. The
+  procedural/animation R5 path stays current and independently shippable.
 
 ADR-058/SPEC-35 are an Accepted parallel R&D implementation track. PhysX-only
 default and Stage 0 readiness are facts only after the documented atomic

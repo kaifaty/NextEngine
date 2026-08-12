@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-06 |
 | Статус | Accepted |
-| Версия | 1.14 |
-| Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) |
-| Заменяет | SPEC-06 1.13; adopts the deterministic Strategic Agent boundary without adding current schemas |
+| Версия | 1.15 |
+| Последняя проверка | 2026-08-12 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
+| Заменяет | SPEC-06 1.14; makes the typed no-natural-language handoff to Physical Embodiment explicit |
 
 ## Source of truth и ownership
 
@@ -48,6 +48,14 @@ biography + validated memories + current perception
 ```
 
 Optional LLM улучшает формулировку, long-horizon suggestions и речь, но не заменяет deterministic rule/planner safety. Tactical и motor layers MUST иметь bounded execution time и не ждать `ai-host`.
+
+If human/LLM text requests a physical action, the optional language boundary
+must first compile it into typed `AgentIntent` facts: stable entity/skill/
+primitive IDs, reference frames, numeric targets, masks, constraints, expiry
+and provenance. Raw text, tokens and language embeddings end there and are not
+copied into `PhysicalAvatarIntent`, contact/chunk planning, motor observation,
+policy state, safety or Physics. Ambiguous compilation is a typed rejection or
+clarification, not a free-form motor fallback.
 
 ## Agent archetypes и habits
 

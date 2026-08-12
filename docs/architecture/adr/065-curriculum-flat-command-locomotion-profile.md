@@ -7,7 +7,7 @@
 | Version | 1.0 |
 | Decision date | 2026-08-12 |
 | Last verified | 2026-08-12 |
-| Normative dependencies | [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-27](../27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-053](053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-057](057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](059-event-sourced-physx-continuation-reconstruction.md), [ADR-064](064-canonical-flat-command-locomotion-environment.md) |
+| Normative dependencies | [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-27](../27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-053](053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](059-event-sourced-physx-continuation-reconstruction.md), [ADR-064](064-canonical-flat-command-locomotion-environment.md), [ADR-066](066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
 | Supersedes | Narrowly supersedes ADR-064's assumption that standing and `humanoid-flat-command.v1` are the only current Stage 0 environment profiles. It does not change either existing profile or their hashes. |
 | Superseded by | none |
 
@@ -101,7 +101,7 @@ manifest. These are experiment settings, not public gameplay or PPO authority.
 - The new profile improves the pure-PPO baseline but does not demonstrate a
   human-like gait, learned Motor support, export parity or R5 completion.
 - Licensed motion tracking, randomized motion-phase starts and imitation plus
-  task RL remain the next learned-policy phase under SPEC-34/ADR-057; they are
+  task RL remain the next learned-policy phase under SPEC-34/ADR-066; they are
   not approximated by hidden trainer logic in this profile.
 
 ## Product checks

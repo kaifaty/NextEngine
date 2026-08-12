@@ -729,8 +729,8 @@ adaptation, adaptive gains, direct-torque research route или full articulatio
 procedural R5 closure не зависит от learned profile или proposed toolchain.
 
 **Основные источники:** SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34,
-SPEC-35, ADR-013, ADR-027, ADR-032, ADR-053, ADR-057, ADR-058, ADR-059,
-ADR-062, ADR-063.
+SPEC-35, ADR-013, ADR-027, ADR-032, ADR-053, ADR-058, ADR-059, ADR-062,
+ADR-063, ADR-066.
 
 ## R6 — Creator beta and SDK
 
@@ -835,7 +835,7 @@ ADR-001, ADR-030.
 | Autonomous quest lifecycle, Narrative Director and divine agency | SPEC-31 `Proposed`; ADR-029/ADR-031 superseded ADR-046 | Вернуться только при наличии конкретного player-visible production consumer; deterministic template fallback реализуется первым. |
 | Text-canonical multimodal dialogue/model packs | SPEC-16/ADR-017 `Proposed` | Явное решение о promotion, privacy/budget policy и text-only fallback. |
 | External `ai-host` | Optional | Stable bounded process protocol, recorded-input replay and complete in-process fallback. |
-| Learned Motor System policy families and full articulation | ADR-057 system shape `Accepted`; exact learned profiles, training stack and unconsumed wire schemas remain `Proposed` | R5 reference/procedural baseline and consumer-backed BodySchema exist. Promote each family/profile independently only with exact observation/action/state replay, runtime/training correspondence, multi-seed quality, retention, target parity and declared animation/procedural fallback. |
+| Learned Motor System policy families and full articulation | ADR-066 no-text contact-centric system shape `Accepted`; exact chunks, graph/adapter/expert, training/distillation/rollout profiles and unconsumed wire schemas remain `Proposed` | R5 reference/procedural baseline and consumer-backed BodySchema exist. Promote each family/profile independently only with exact observation/action/state/chunk replay, runtime/training correspondence, multi-seed quality, retention, target parity and declared animation/procedural fallback. |
 | PhysX deterministic humanoid substrate | ADR-058/059/062/063/064 `Accepted`; standing and canonical flat-command CPU environments exist, Stage 0 evidence remains incomplete | Complete the PhysX-only Windows/Linux platform/replay gates, fresh ten-run V5 R5 baseline, one fixed three-run hard performance PASS and Isaac GPU correspondence; no reference backend fallback exists. |
 | Advanced renderer/HDR/RT/VFX/capture | Optional | B0 v1 path стабилен; feature has bounded fallback and target-specific product check. |
 | Gothic importer | Optional separate repository/process | Neutral schemas стабильны, legal/provenance boundary проверен; parent repo остаётся независимым. |
@@ -847,18 +847,24 @@ parallel authority или fixture-only code.
 
 Learned Motor program развивается отдельными independently promotable phases:
 
-1. first-humanoid MVP;
-2. humanoid morphology variations and within-family transfer ablations;
-3. equipment, carried loads and fatigue;
-4. injuries, damage adaptation and recovery;
-5. manipulation and weapon classes;
-6. contact-planned parkour;
-7. general-legged policy family and shared-subgoal transfer evaluation;
-8. bounded serpentine/aquatic/aerial/modular/musculoskeletal research.
+1. fixed-humanoid numeric-command MLP MVP with fixed PD and procedural fallback;
+2. typed physical primitives, contact plans and closed-loop
+   `PhysicalActionChunk` without natural-language runtime inputs;
+3. humanoid morphology variations, cached graph encoder, GRU/shared-joint head
+   and within-family transfer ablations;
+4. equipment, carried loads, fatigue, injuries and explicit damage recovery;
+5. manipulation, weapon classes and contact-planned parkour specialists;
+6. specialist-teacher distillation, structured motion inpainting and retention;
+7. optional morphology-compiled small students and bounded candidate-physics
+   rollouts for a small important-actor tier;
+8. general-legged policy family and shared-physical-subgoal transfer evaluation;
+9. bounded serpentine/aquatic/aerial/modular/musculoskeletal research.
 
 Каждая phase сохраняет старые skills/transition corpus и fallback. Поздняя
 phase не создаёт current schema/check и не повышает status более ранней только
-по факту training/export. Mamba допускается лишь как equal-budget comparator
+по факту training/export. The training critic may be morphology/family
+conditioned but is never exported or runtime authority. Mamba допускается лишь
+как equal-budget comparator
 для long-history adaptation, motion generation или temporal planning.
 Progress для physical tasks выводится только из capability-filtered structured
 engine facts и committed owner/physics evidence; camera/video/depth perception
@@ -867,6 +873,12 @@ randomization → graph conditioning → multi-embodiment → shared-subgoal →
 explicit-transfer → topology-fault ablations и отдельно маркируются как
 within-family либо cross-family research. Ни один такой результат сам по себе
 не создаёт current route или поддержку arbitrary topology.
+
+Candidate-physics rollout is an optional bounded synchronous fork from one
+canonical checkpoint with isolated candidate RNG and one recorded winner; it
+does not promote durable branching replay. Control quality tiers use only
+canonical simulation facts and manifest tokens, never measured load or wall
+time. Neither rollout search nor hypernetwork compilation is an R5/v1 blocker.
 
 ## Сквозные workstreams
 

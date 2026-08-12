@@ -4,10 +4,10 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 3.4 |
-| Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | INDEX-001, [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md) |
-| Заменяет | GLOSSARY-001 3.3; adds bounded PhysX continuation replay-prefix terminology |
+| Версия | 3.5 |
+| Последняя проверка | 2026-08-12 |
+| Нормативные зависимости | INDEX-001, [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
+| Заменяет | GLOSSARY-001 3.4; defines the no-text physical skill composition, heterogeneous BodySchema and `PhysicalActionChunk` |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -71,7 +71,7 @@
 | **Speech Act** | Bounded semantic NPC/player communication proposal с participants, topic/claim, provenance, confidence и expiry; generated wording не является gameplay authority. |
 | **Decision Trace** | Bounded immutable non-authoritative diagnostic goal scores, cited beliefs, selected plan, task outcome и replan reason для одного Strategic Agent boundary. |
 | **PhysicalAvatarIntent** | Ограниченный по времени запрос locomotion/posture/manipulation к motor controller; не задаёт physics pose напрямую. |
-| **BodySchema** | Immutable versioned semantic body graph со stable schema-scoped body/joint/actuator/effector/attachment identities; из одной exact revision выводятся physics descriptors, motor layouts, morphology input, safety limits и replay compatibility. Не содержит current pose или mutable overlays. |
+| **BodySchema** | Immutable versioned heterogeneous Physical Interaction Graph со stable schema-scoped body-node/joint-edge/actuator/effector/attachment identities and semantic roles; из одной exact revision выводятся physics descriptors, motor layouts, cached static morphology input, safety limits и replay compatibility. Не содержит current pose или mutable overlays. |
 | **BodyInstanceProjection** | Immutable revision-bound effective projection exact BodySchema plus morphology/equipment/stats/damage/fatigue/attachment owners; Physical Embodiment компилирует mass/inertia/ROM/actuator/sensor facts, но не получает ownership исходных mutable fields. |
 | **CanonicalEnvironmentReplay** | Byte-exact engine-owned reset/step/action/observation/snapshot/root continuation для locked CPU PhysX build profile. Worker/slot completion order и vendor caches не входят в result. |
 | **MotorReplayPrefix** | Bounded ordered episode-origin reset plus every canonical post-safety 240 Hz effort and per-motor-tick physics witness used to reconstruct hidden PhysX continuation in a fresh scene; policy/PD re-execution is separate parity evidence. |
@@ -80,7 +80,8 @@
 | **MotorTrainingEnvironment** | Bounded long-lived reset/step environment, использующий production descriptors, actuation, PhysX stepping и immutable canonical records; reward/trainer не получает прямой mutation path. |
 | **MotorSkillCommand** | Bounded planner-facing skill/phase/style/cancel/fallback command между PhysicalAvatarIntent и low-level policy; не содержит raw joint actuation и не доказывает outcome. Exact unconsumed V1 shape remains Proposed. |
 | **ContactPlan** | Revision-bound ordered desired effectors, surfaces, target frames, activation windows and force/sliding envelopes; это reference/proposal, а committed Physics остаётся единственным доказательством контакта. Exact unconsumed V1 shape remains Proposed. |
-| **MotionReferenceHorizon** | Bounded root/keypoint/pose/contact/object reference horizon from authored motion, motion matching, procedural or optional learned generator; feeds motor tracking and never owns physical pose. Exact unconsumed V1 shape remains Proposed. |
+| **Physical skill contract** | Conceptual composition of `PhysicalAvatarIntent + MotorSkillCommand + ContactPlan + PhysicalActionChunk`; not a fifth record. It carries stable IDs, reference frames, numeric targets, constraints and evidence predicates, never natural language in the physical hot path. |
+| **PhysicalActionChunk** | Bounded normally 250–1000 ms root/CoM/effector/object/contact/force/support reference from authored motion, motion matching, procedural or optional learned generator; low-level control stays closed-loop and the chunk never owns physical pose or stores accepted joint actions. Exact unconsumed V1 shape remains Proposed. |
 | **MotorAdaptationProfile** | Explicit bounded action-response history schema, cadence, state/latent segment and reset/remap rules for no-gradient dynamics adaptation; known engine parameters remain direct observation inputs. Exact unconsumed V1 shape remains Proposed. |
 | **MotorObservation** | Versioned numeric observation, вычисленная из physics state и разрешённого gameplay context. |
 | **MotorAction** | Ограниченный versioned набор joint targets/torques или controller parameters, прошедший safety clamp. |

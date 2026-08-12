@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 1.7 |
-| Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md) |
-| Заменяет | SPEC-26 1.6; reconstructs private PhysX TGS continuation from bounded canonical replay input instead of serialized accumulated-impulse caches |
+| Версия | 1.8 |
+| Последняя проверка | 2026-08-12 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
+| Заменяет | SPEC-26 1.7; accepts the heterogeneous BodySchema cache boundary and constrains future cloned-physics candidate evaluation without promoting branching replay |
 
 ## История принятия
 
@@ -226,8 +226,8 @@ positive monotonic `u32`; reuse of one `(ID, revision)` with different bytes is
 
 ## `BodySchema` compiler boundary
 
-ADR-057 `BodySchema` is the immutable semantic source for an articulated
-creature. SPEC-26 remains the sole owner of exact runtime physics descriptors;
+ADR-066 `BodySchema` is the immutable heterogeneous Physical Interaction Graph
+for an articulated creature. SPEC-26 remains the sole owner of exact runtime physics descriptors;
 the relation is a deterministic one-way compiler, not shared mutable storage:
 
 ```text
@@ -244,7 +244,7 @@ name, backend index and nearest-role matching are forbidden. The mapping hash,
 source schema hash and effective projection hash are part of the compiled
 catalog closure used by motor compatibility, snapshot, save and replay.
 
-Compiler input separates immutable static morphology from revision-bound
+Compiler input separates immutable static node/edge morphology from revision-bound
 equipment/stats/damage/fatigue/attachment overlays. Effective mass/inertia,
 CoM, ROM, damping/friction, torque-speed-power, target rate, latency and break/
 support limits validate before adapter construction. Backend-computed defaults
@@ -257,6 +257,14 @@ a declared schema/overlay identity, and every dangling/colliding/ambiguous map
 rejects the whole transaction. SPEC-27 then resets or remaps only as explicitly
 allowed; physics never interprets evaluator state.
 
+A deterministic morphology cache MAY store derived per-node/per-edge encoder
+inputs or embeddings. Its cache key closes over source schema, compiled
+catalog, effective instance, topology and encoder/profile hashes. It is rebuilt
+on their declared revision changes, including material morphology/equipment or
+actuator lock/restore, but not on ordinary pose/contact/velocity/fatigue ticks.
+The cache is reconstructible; cache warmth, worker and completion order are not
+physics or motor authority.
+
 The semantic compiler boundary is Accepted. ADR-058/SPEC-35 are the first
 production physical-character consumer and accept `BodySchemaV1`,
 `BodyInstanceProjectionV1`, `PhysicsBodyDescriptorV2`,
@@ -264,6 +272,32 @@ production physical-character consumer and accept `BodySchemaV1`,
 `PhysicsWorldCatalogV2`, `PhysicsStepInputV3`, `PhysicsStepResultV2`,
 `PhysicsCanonicalSnapshotV3` and `PhysicsWorldCheckpointV2`. Earlier alpha
 versions are unsupported inputs and are not migrated.
+
+## Proposed ephemeral candidate-physics forks
+
+ADR-066 optional high-fidelity skill planning MAY evaluate exactly `K`
+candidate `PhysicalActionChunk` values from one validated immutable canonical
+checkpoint for one fixed short horizon. This is a private bounded physics-fork
+operation, not a public save/world clone, durable replay branch or second
+authoritative scene.
+
+Each fork receives the same descriptor/canonical-snapshot plus ADR-059
+continuation closure, an isolated content-derived RNG stream when required and
+one candidate ID. Rehydration validates the exact starting witness. A private
+copy-on-write/native clone is allowed only as a reconstructible optimization
+behind that witness and is never snapshot authority. The fork may produce
+only a bounded fixed-point score/evidence record; commands, events, saves,
+contacts/outcomes for publication, external effects and mutable caches cannot
+escape the fork. All `K` forks complete as synchronous logical work and merge
+in candidate-ID order. Worker count, completion order and elapsed wall time do
+not change score or winner; a wall overrun is conditional performance evidence.
+
+The runtime records candidate-set, checkpoint, scoring-profile, ordered result,
+winner and selected-chunk roots. Authoritative replay consumes the recorded
+winner/chunk and does not expose `branch` or `step_with`; an independent parity
+mode may rerun the bounded fork. General branching replay, arbitrary nested
+branches and persisted branch lifecycle remain out of scope. Exact fork/result
+schemas remain Proposed until `MOTOR-ROLLOUT-P1` has a production consumer.
 
 ## World, material, shape and body descriptors
 
@@ -495,7 +529,7 @@ angular bounds are radians in the active fixed-point profile.
 force/torque, velocity, power, impulse and energy per substep, plus the exact
 engine-owned torque-speed/power limit profile where the compiled BodySchema
 actuator requires it. It authorizes no action by itself. A motor or gameplay
-proposal still passes the ADR-027/ADR-057 safety validator. Fixed PD/SPD gains
+proposal still passes the ADR-027/ADR-066 safety validator. Fixed PD/SPD gains
 are selected by the exact actuator profile; a learned action cannot rewrite
 them unless a separately accepted adaptive-gain profile exists.
 Target values and current accumulated impulses are state, not immutable joint
@@ -945,6 +979,7 @@ or partial snapshot continuation is allowed.
 | `PHYS-JOINT-P1` | all joint kinds/axis modes, BodySchema compiler mappings and 10 000 topology/snapshot cycles | descriptor/topology/joint/projection roots exact; stale endpoint, invalid stable-ID map, frame/limit/mask/bound and unsafe action produce no partial graph | restore pre-transaction snapshot and retain prior topology/route |
 | `PHYS-QUERY-P1` | every query kind/cardinality, N−1/N/N+1 capacities and 10 000 order permutations | boolean/count/truncation/hit bytes/order/root exact on Windows/Linux; invalid or over-capacity query publishes no partial result | reject the complete query and use only a separately declared deterministic fallback |
 | `PHYS-SNAPSHOT-P1` | 1 000 checkpoint restores with 100-substep continuation across `game`, `headless`, `capture-worker`, worker counts and Windows/Linux | canonical snapshot/projection roots, joint state, query/contact order and outcomes byte-identical; faults expose only complete prior or restored world | retain prior valid checkpoint/save and reject incompatible backend/profile |
+| `MOTOR-ROLLOUT-P1` (future) | `K` candidate chunks from one checkpoint under candidate/worker/completion permutations | exact ordered score/evidence roots, winner and selected chunk; zero command/event/save/RNG/cache side effect escapes a fork | reject rollout profile and retain declared base chunk/procedural route |
 
 These checks cover the lower-level descriptor, collision, joint, query and
 snapshot contracts consumed by `PHYS-P1`…`PHYS-P8` and `NUMERIC-P1`.

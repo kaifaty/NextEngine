@@ -5,10 +5,10 @@
 | ID | SPEC-32 |
 | Статус | Proposed |
 | Lifecycle | Consumer-driven R4c/R4d target; no current wire schema |
-| Версия | 0.4 |
+| Версия | 0.5 |
 | Последняя проверка | 2026-08-12 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-16](16-text-canonical-multimodal-dialogue-and-model-packs.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) |
-| Заменяет | SPEC-32 0.3; clarifies structured embodied task execution and physical progress without adding current schemas |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-16](16-text-canonical-multimodal-dialogue-and-model-packs.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
+| Заменяет | SPEC-32 0.4; makes the typed no-text handoff from the private Task Executive to Physical Embodiment explicit |
 
 ## Статус и scope
 
@@ -171,6 +171,12 @@ Cancelled/Suspended` и stable reason codes. Navigation task просит `Route
 social task создаёт Speech Act, mechanics task ссылается на affordance, motor
 task создаёт validated physical intent. Каждый owner повторно проверяет revision,
 target, resource cost и capability перед commit.
+
+Any dialogue/LLM text has already been compiled before this handoff. The
+executive supplies only stable entity/skill/physical-primitive IDs, reference
+frames, numeric targets, masks, constraints and evidence predicates. Raw text,
+tokens or language embeddings never enter the physical intent, contact/chunk
+planner, motor observation or progress proof.
 
 Every physical progress decision uses only capability-filtered structured
 engine projections admitted to the NPC's `Epistemic View`: semantic target

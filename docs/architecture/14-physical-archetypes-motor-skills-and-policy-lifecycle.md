@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-14 |
 | Статус | Accepted |
-| Версия | 2.6 |
+| Версия | 2.7 |
 | Последняя проверка | 2026-08-12 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md) |
-| Заменяет | SPEC-14 2.5; clarifies the Proposed physical-result/progress boundary without adding a current wire schema |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
+| Заменяет | SPEC-14 2.6; adopts the no-text contact-centric physical-skill contract and replaces the unconsumed motion-horizon proposal with `PhysicalActionChunk` |
 
 ## Назначение и invariants
 
@@ -57,7 +57,7 @@ semantic `BodySchema`, `BodyInstanceProjection`, `MotorPolicyBundleManifest`,
 `ActivePolicyRoute`, SPEC-27 `PolicyStateRecordV1`, `PolicyStateCommitV1` и
 support-check/run manifests. SPEC-35 accepts `BodySchemaV1` and
 `BodyInstanceProjectionV1` for the fixed Stage 0 humanoid. Exact
-`MotorSkillCommandV1`, `ContactPlanV1`, `MotionReferenceHorizonV1`,
+`MotorSkillCommandV1`, `ContactPlanV1`, `PhysicalActionChunkV1`,
 `MotorAdaptationProfileV1` and advanced overlay/family shapes below remain
 Proposed targets, not current registry entries.
 
@@ -69,6 +69,8 @@ authoring sources + model artifacts + provenance
   → future R4b World Services may publish committed WorldResidencyTier
   → spawn/materialize generic Character + independently selected physical LOD
   → planner requests ability/PhysicalAvatarIntent
+  → typed physical primitives + constraints; natural language is already absent
+  → Skill Orchestrator → ContactPlan → optional PhysicalActionChunk
   → PolicyResolver(body, equipment, proficiency, topology, intent)
   → PolicyActivationPlan → PolicySupervisor
   → accepted MotorAction → PhysicsBackend
@@ -76,6 +78,13 @@ authoring sources + model artifacts + provenance
 ```
 
 Package code не получает mutable articulation, raw ECS ID, model session pointer, direct joint buffer, filesystem/network access или gameplay-state write path.
+
+Natural language MAY be compiled into a typed `AgentIntent` at an optional
+human/dialogue/`ai-host` boundary. Raw text, tokens and language embeddings are
+forbidden after that boundary: the physical path uses only stable IDs, closed
+primitive/constraint enums, declared reference frames, numeric targets, masks
+and revision-bound evidence predicates. Display names and text provenance do
+not participate in motor routing, observation, chunk identity or success proof.
 
 After its own R4b promotion, `WorldResidencyTier` and physical LOD remain
 separate enums, owners and state machines. Residency may then decide whether
@@ -111,10 +120,11 @@ Reference `neutral.quadruped.v1` использует generated primitive visual
 
 ## `BodySchema` and instance projection
 
-`BodySchema` is the immutable semantic source from which physics articulation,
-motor tensor layout, cached morphology input, actuator/safety limits and
-save/replay compatibility are derived together. It is not a neural model and
-does not contain mutable physics state.
+`BodySchema` is the immutable heterogeneous Physical Interaction Graph from
+which physics articulation, motor tensor layout, cached morphology input,
+actuator/safety limits and save/replay compatibility are derived together. It
+is not only a skeleton hierarchy, is not a neural model and does not contain
+mutable physics state.
 
 The Proposed exact target shape is:
 
@@ -133,11 +143,18 @@ The primary articulation graph is acyclic. Runtime grabs, carried objects,
 equipment and cooperative loads create a bounded validated attachment/
 constraint overlay; they do not edit immutable source bytes.
 
+Body nodes carry shape/mass/inertia/rest frame and closed semantic roles such
+as root, torso, limb, support/manipulation/strike effector, wing or tail. Joint
+edges carry endpoints, type/axes/limits, passive dynamics and actuator health/
+availability semantics. Effectors, actuators, colliders, attachments and
+capability relations are distinct graph record classes with stable IDs.
+
 Static schema facts include mass/inertia/CoM, dimensions, rest frame, collider
 summary, semantic role, joint type/axes/limits, passive stiffness/damping,
 torque-speed-power envelope, nominal PD profile, break threshold, material and
-support/contact capability. Current pose, velocity, contact, impulse, joint
-state, saturation, fatigue, damage and attached load are dynamic projections.
+support/contact capability. Current pose, velocity, contact, external impulse,
+joint state, available power, saturation, fatigue, damage, sensor validity and
+attached load are dynamic projections.
 
 ```text
 BodyInstanceProjectionV1 =
@@ -162,7 +179,14 @@ elements by stable BodySchema IDs, increments the physical/topology revision
 and resets incompatible adaptation/generator/router state; it never guesses by
 array index or joint name.
 
-These semantic boundaries are Accepted through ADR-057. ADR-058/SPEC-35 accept
+Static morphology encoding is reconstructible and MAY be cached per node/edge.
+Its identity binds exact BodySchema, compiled descriptor, effective instance,
+topology and encoder/profile hashes. It invalidates only on creation or a
+declared schema/topology/effective-projection change, including material body/
+equipment change or actuator lock/restore; per-tick pose/contact/fatigue updates
+do not rebuild it. Cache warmth and completion order never choose an action.
+
+These semantic boundaries are Accepted through ADR-066. ADR-058/SPEC-35 accept
 the `BodySchemaV1` and `BodyInstanceProjectionV1` wire records for the fixed
 23-DoF Stage 0 humanoid. Non-default equipment, damage, attachment/topology
 overlays and additional policy families remain Proposed until their own
@@ -211,13 +235,22 @@ definition with an exact command schema, phase graph, contact template, cancel
 windows, fallback skills, motion source, proficiency/style curve, energy model
 and evaluation profile. It never embeds executable planner callbacks.
 
-The concept sometimes called a `Skill Contract` is not a fifth overlapping
+The concept called a **physical skill contract** is not a fifth overlapping
 record. It is the composition of the existing boundaries: a future
 consumer-backed `PhysicalAvatarIntent` specialization names the desired
 physical result and immutable constraint/completion/failure profiles;
 `MotorSkillCommandV1` selects the skill, phase, style and interruption policy;
-`ContactPlanV1` and `MotionReferenceHorizonV1` refine short-horizon execution.
-No layer in this chain owns the target RPG fact or proves its own success.
+`ContactPlanV1` and `PhysicalActionChunkV1` refine short-horizon execution. No
+layer in this chain owns the target RPG fact or proves its own success.
+
+The intent vocabulary is deliberately small and compositional: stable closed
+primitive IDs such as move/reach/contact/maintain/release/apply-force/support/
+move-object/balance/recover combine with entity/feature IDs, numeric target
+poses in declared reference frames, masks and bounds. It is not an enum for
+every object, animation, injury and body combination. A model sees only a
+derived one-hot/embedding-table encoding of stable IDs, never their strings.
+Effector selectors use declared semantic capabilities and canonical metrics/
+tie-breaks rather than assuming human left/right limbs.
 
 ```text
 MotorSkillCommandV1 {
@@ -234,11 +267,12 @@ ContactPlanV1 {
   plan_hash
 }
 
-MotionReferenceHorizonV1 {
-  source_command_and_contact_plan_hashes,
-  exact start tick and bounded 0.3..2.0 s profile,
-  root/keypoint/pose/contact/object trajectories,
-  phase and interruption metadata, horizon_hash
+PhysicalActionChunkV1 {
+  source intent/command/contact/scene/body revision hashes,
+  exact start/end tick and project-bounded 250..1000 ms profile,
+  root/center-of-mass and effector/object trajectories,
+  selected contact schedule, desired force ranges and support transitions,
+  phase/style/proficiency and interruption metadata, chunk_hash
 }
 ```
 
@@ -269,17 +303,20 @@ it is never guessed from presentation.
 Simple standing/velocity locomotion MAY bind command features directly to the
 low-level policy. Parkour, climbing, two-hand weapons, throwing/catching and
 other contact-rich skills SHOULD use an authored, motion-matching or learned
-reference horizon. All three records are proposals/references: only committed
-physics proves a contact, grasp, hit, traversal or recovery outcome.
+`PhysicalActionChunk`. All three records are proposals/references: only
+committed physics proves a contact, grasp, hit, traversal or recovery outcome.
 
-`MotionReferenceHorizonV1` is the bounded action-chunk analogue at the
-reference level, not an open-loop actuator sequence. While one horizon is
-active, the low-level controller still rebuilds observation and produces a
-complete action every motor tick; fixed PD/safety revalidates every physics
-substep. The next horizon may be staged in parallel but becomes visible only
-at its declared deterministic boundary.
+`PhysicalActionChunkV1` is one bounded physical-semantic reference, not an
+open-loop actuator sequence. It contains no already accepted `MotorAction`,
+joint command list, framework tensor or natural language. A bundle-private
+shared latent is permitted only as a declared fixed-width numeric feature
+segment and cannot replace the structured root/CoM/effector/contact/force
+fields. While one chunk is active, the low-level controller still rebuilds
+observation and produces a complete action every motor tick; fixed PD/safety
+revalidates every physics substep. The next chunk may be staged in parallel but
+becomes visible only at its declared deterministic boundary.
 
-Normal cancel generates a declared transition horizon. Emergency cancel uses
+Normal cancel generates a declared transition chunk. Emergency cancel uses
 the bounded `stabilize → brace → safe fall → ragdoll → get-up` fallback chain.
 The exact target interfaces remain Proposed until a production skill consumes
 them.
@@ -292,6 +329,13 @@ aquatic, aerial, bounded modular and musculoskeletal research. A creature that
 walks and flies uses separate ground/flight policies plus explicit takeoff/
 landing transition experts. One humanoid+snake+fish+bird policy, arbitrary
 actuator vocabulary and zero-shot arbitrary topology are unsupported.
+
+The advanced target factorizes one compatible family into a shared physical
+backbone plus morphology adapter, skill adapter and explicit locomotion-regime
+expert/router. Shared parameters may learn support, contact, balance, force and
+momentum; morphology/regime-specific parts decode those meanings for the exact
+body. Ground/flight/swim and materially different families remain explicit
+routes with validated transitions, not implicit mixtures.
 
 Foundation policy близкой family SHOULD обеспечивать declared subset balance,
 locomotion, posture, reach/grip и recovery либо делегировать отсутствующее
@@ -311,6 +355,13 @@ implement internal MoE/expert routing, hysteresis or soft blend as a single
 bounded action producer when all router state that can affect future action is
 explicit in SPEC-27 state. Internal routing cannot grant a skill, bypass
 `PolicyResolver` or become gameplay authority.
+
+After a family-wide teacher proves quality, a morphology hypernetwork MAY
+compile one immutable smaller MLP/GRU student or adapter for an exact
+BodySchema/projection. The child is a normal content-addressed policy bundle
+with its own compatibility key, golden corpus, runtime cost, fallback and
+retention/parity checks. Topology/effective-projection change invalidates it;
+runtime never mutates generated weights in place.
 
 `MotorPolicyBundleManifest` MUST содержать:
 
@@ -340,7 +391,7 @@ duration and cache/session identity are excluded.
 
 ## Proposed first humanoid and advanced learned profiles
 
-ADR-057 replaces the former Mamba-2 foundation target. The first Proposed
+ADR-066 preserves the rejection of the former Mamba-2 foundation target. The first Proposed
 learned profile is deliberately small and does not change the procedural R5/v1
 requirement:
 
@@ -359,7 +410,9 @@ safety and ProductChecks. A learned reference generator is a later upstream
 module, not a prerequisite for this route.
 
 Known equipment/stats/damage/fatigue/actuator values enter the observation
-explicitly. Proposed `MotorAdaptationProfileV1` binds the exact recent
+explicitly and constrain the same engine-owned actuator envelope. RPG
+strength/dexterity/endurance never live in or rewrite skill weights. Proposed
+`MotorAdaptationProfileV1` binds the exact recent
 observation→action→response history schema, update cadence, latent/state
 segments and reset/remap rules. TCN is the first fixed-window comparator and
 GRU the first recurrent comparator. Runtime gradients and hidden history are
@@ -370,11 +423,47 @@ latency for long-history adaptation, terrain/perception token streams, motion
 generation or temporal planning. It is not the default low-level controller
 and portable export alone cannot promote it.
 
+For a later within-family variable-topology profile, the Proposed low-level
+shape is cached static node/edge morphology plus dynamic graph state and the
+current chunk → one or two local graph-message layers → bounded global
+coordination attention → generic temporal core → one shared per-joint/
+actuator head. GRU is the first recurrent baseline. A fixed-width
+`Linear(hidden → N joints)` is permitted only for the fixed-humanoid comparator
+and proves no variable-topology support. The first shared head emits position
+and optional velocity targets through fixed engine gains; adaptive gains,
+residual torque and muscle actions require independent promotion.
+
 The first Proposed evaluator-format value is
 `portable-onnx-standard-ops`; ONNX Runtime is a private reference adapter.
 Trainer↔export↔Windows/Linux parity, perturbation/recovery/transition safety,
 resource bounds and multi-seed comparison against MLP/TCN/GRU/procedural
 baselines are required before any learned profile promotion.
+
+## Proposed candidate rollout and control-quality tiers
+
+A high-fidelity skill route MAY produce exactly `K` candidate
+`PhysicalActionChunk` records and score them over one fixed short horizon from
+the same immutable canonical physics checkpoint. `K`, horizon, score schema,
+candidate IDs/order and logical work budget are project-locked. Each branch has
+an isolated RNG stream derived from world/subject/chunk epoch/candidate ordinal
+when needed and publishes no command, event, save, external effect or mutable
+world state.
+
+All branches complete as bounded synchronous logical work; wall time and worker
+completion order cannot select a result. Fixed-point score/evidence vectors use
+canonical task progress, balance, contact, collision/damage, energy and safety
+facts and have one total order ending in candidate ID. Only the winner is
+staged at the ordinary chunk boundary. Replay records candidate-set, scoring,
+ordered result, winner and selected-chunk roots; it does not expose a general
+branching-replay API. Profile failure retains the already declared base chunk
+or procedural route.
+
+The control-quality ladder is selected only from canonical simulation facts
+and manifest tokens: abstract outcome → animation/navigation/IK/procedural →
+learned closed-loop controller → learned controller plus bounded rollouts.
+Measured load, renderer visibility and wall time are not tier inputs. Rollouts
+are intended only for a small manifest-bounded set of important nearby actors
+and are not an R5/v1 requirement.
 
 ## Deterministic route resolution
 
@@ -595,14 +684,18 @@ Distributed weights являются licensed package content. Raw datasets, unr
 | SKILL-01 | one-handed axe, 1 000 held-out episodes per proficiency band | route result exact for all boundary vectors; novice valid-contact success 20–60%; trained ≥80%; trained median contact time ≥20% lower; 0 safety violations; damage changes only through `EffectRequest` | reject skill revision and retain novice route |
 | CREATURE-01 | neutral quadruped `Prototype` → `Supported` | stand/locomotion/recovery aggregate ≥90%; bite/lunge valid contact ≥75%; 0 hidden/native gameplay dependency; procedural fallback remains loadable | retain capsule/procedural `Prototype` |
 | BEHAVIOR-01 | habits/tactics with ai-host/adapter present and absent | 0 direct MotorAction/gameplay mutation from habits; all actions pass AgentIntent/WorldCommand; scenario outcomes exact offline | deterministic Utility + bounded GOAP/tactical profile |
-| TRAIN-P1 | pinned training backend export/deployment | ADR-057 profile thresholds; license/SBOM complete; export reproducible from pinned config except declared stochastic metrics | engine-owned headless physics lab |
+| TRAIN-P1 | pinned training backend export/deployment | ADR-066 profile thresholds; license/SBOM complete; export reproducible from pinned config except declared stochastic metrics | engine-owned headless physics lab |
 | TRAIN-MAC-P0 | generated deterministic 2-DoF development smoke | 4 fixed seeds; 8 envs ×256 steps; 1 000 observations; PyTorch/ONNX max abs error ≤`1e-5`; 0 NaN/Inf; ≤10 minutes on MPS or declared CPU fallback | CPU smoke; stop this training lane on export/parity failure |
 | BODY-SCHEMA-P1 (future) | BodySchema compilation, overlays and topology remap | exact physics/tensor/safety roots; no duplicate owner; every invalid/remap fault publishes nothing | retain prior topology/projection and procedural tier |
 | MOTOR-HUMANOID-MVP-P1 (future) | one million steps plus flat/terrain/push/fall/get-up profile | 0 NaN/Inf; flat survival ≥99%; declared terrain success ≥95%; velocity RMSE ≤0.20 m/s; heading error ≤7°; bounded slip and command resume after get-up | procedural/animation/ragdoll route |
 | MOTOR-ADAPTATION-P1 (future) | abrupt equipment/damage/friction/latency changes | explicit inputs apply immediately; bounded TCN/GRU history state improves declared metric without weight updates | explicit-only controller and recovery route |
 | MOTOR-RETENTION-P1 (future) | new specialist plus old-skill/transition/interruption corpus | new skill passes without declared old-skill or transition regression | retain parent bundle or separate expert |
 | MOTOR-REPLAY-P1 (future) | action/state/snapshot save/load/replay plus worker and Windows/Linux permutations | canonical applied action/full state/snapshot chain exact; independent evaluator parity reproduces it | reject learned artifact/profile and use procedural route |
+| MOTOR-SKILL-CHUNK-P1 (future) | typed primitive/contact/chunk and interruption corpus | exact roots, no text/token/embedding in physical hot path, closed-loop tracking and safe interrupt | reject chunk and use direct-command/procedural/recovery route |
+| MOTOR-MORPHOLOGY-TRANSFER-P1 (future) | fixed-body through graph/shared-head/co-training/fault ablations on held-out bodies | within-family success, safety, latency and body-specific-rule thresholds pass without arbitrary-topology claim | retain fixed-body/family route |
+| MOTOR-ROLLOUT-P1 (future) | candidate/worker/completion permutations from one checkpoint | exact ordered scores/winner/chunk root and zero branch side effects | use declared base chunk; do not activate rollout profile |
+| MOTOR-DISTILL-P1 (future) | specialist teachers to a family-shared student and optional compiled child | old/new skill retention, exact runtime state/action parity, limits and fallback pass | reject child and retain parent/procedural route |
 
 These checks define runtime and authoring behavior; they are not organizational approval.
-The five rows marked `future` remain `NOT_RUN(NO_PRODUCTION_CONSUMER)` and do
+The rows marked `future` remain `NOT_RUN(NO_PRODUCTION_CONSUMER)` and do
 not create an R5/v1 completion claim in this documentation-only change.

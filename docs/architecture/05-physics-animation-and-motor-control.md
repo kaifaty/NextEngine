@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-05 |
 | Статус | Accepted |
-| Версия | 2.5 |
-| Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md) |
-| Заменяет | SPEC-05 2.4; accepts the production 240/60 Hz PHYS-P4 workload and budgets without changing procedural R5 completion |
+| Версия | 2.6 |
+| Последняя проверка | 2026-08-12 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
+| Заменяет | SPEC-05 2.5; adopts the no-text contact-centric physical-action-chunk boundary while preserving the current procedural R5 and fixed-humanoid baselines |
 
 ## Source of truth и ownership
 
@@ -31,9 +31,10 @@ Boundary является self-contained по ADR-013: внешние research �
 
 | Contract | Обязательные поля/semantics |
 |---|---|
-| `BodySchema` / `BodyInstanceProjection` | immutable semantic body graph plus exact revision-bound effective morphology/equipment/stats/damage/fatigue projection; exact unconsumed V1 wire shapes remain Proposed |
+| `BodySchema` / `BodyInstanceProjection` | immutable heterogeneous physical-interaction graph plus exact revision-bound effective morphology/equipment/stats/damage/fatigue projection; exact advanced V1 wire shapes remain Proposed |
 | `PhysicalBodyDescriptor` | deterministic SPEC-26 projection of BodySchema: PersistentId, parent relation, mass/inertia, collision geometry AssetId, material tags, canonical frame/axis, limits, actuator bounds |
 | `PhysicalAvatarIntent` | intent ID, issuer, start/expiry tick, desired locomotion velocity/facing/posture/manipulation target, priority, safety constraints |
+| `PhysicalActionChunk` | Proposed bounded root/CoM/effector/object/contact/force/support reference; never an open-loop actuator sequence or natural-language payload |
 | `MotorObservation` | schema/model version, normalized root/joint state, target features, contacts/support/terrain features, previous action, masks |
 | `MotorAction` | schema/model version, joint targets/torques/controller gains, confidence/validity flags |
 | `ContactEvent` | continuity `contact_id`, participants PersistentId/body slot, point/normal, relative velocity, impulse bounds/effective mass, material tags, begin/persist/end, physics tick |
@@ -51,8 +52,8 @@ Units/right-handed axes соответствуют SPEC-03. Vendor enumerations 
 3. Skill Orchestrator resolves skill phase/style/interruption; deterministic
    Contact/Affordance Planner MAY publish a bounded contact plan.
 4. Simple locomotion feeds semantic command features directly. Contact-rich
-   skills MAY add an authored, motion-matching or learned pose/keypoint/contact/
-   object horizon; neither path writes physical state.
+   skills MAY add an authored, motion-matching or learned
+   `PhysicalActionChunk`; neither path writes physical state.
 5. PolicySupervisor предоставляет committed compatible family route;
    Observation builder reads current physics, exact BodyInstance projection,
    allowed context and compact explicit adaptation state.
@@ -65,7 +66,10 @@ Units/right-handed axes соответствуют SPEC-03. Vendor enumerations 
 9. Outcome resolver использует contact continuity для suppress repeated-hit/resting-contact exploits и предлагает `Outcome` WorldCommand для общего stage-9 validator [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md); контакт сам не меняет health/quest, а backend callback не коммитит gameplay.
 10. Pose bridge публикует RenderPose, telemetry и replay hash.
 
-LLM, `ai-host`, network и filesystem запрещены на шагах 3–9. The current
+LLM, tokenizer/text encoder, free-form text, language embedding, `ai-host`,
+network и filesystem запрещены на шагах 3–9. Skill/primitive/style/constraint
+meaning reaches them only as stable typed IDs, masks and numeric parameters
+compiled before Physical Embodiment. The current
 articulated standing fallback and the first Proposed learned humanoid profile
 use 240 Hz physics/actuator and 60 Hz motor/policy cadence. A separate capsule
 locomotion profile MAY retain its declared 120/60 Hz cadence; it cannot stand
@@ -126,6 +130,13 @@ low-level humanoid comparator, TCN/GRU the first adaptation comparators. Mamba
 is an optional equal-budget experiment for longer history/generation/planning,
 not a default foundation.
 
+A later variable-morphology family MAY use cached static BodySchema node/edge
+features, per-tick dynamic graph state, bounded local message passing, global
+coordination attention, a generic temporal core and one shared per-joint head.
+This is independently Proposed: the fixed-humanoid MLP remains the first
+learned comparator, GRU the first recurrent baseline, and arbitrary cross-family
+topology support is never inferred.
+
 A Supported learned route produces identical canonical applied action and full
 policy state across shipping targets. Replay stores and validates that action/
 state chain plus required physics snapshots and does not rely only on evaluator
@@ -144,6 +155,12 @@ Animation assets задают reference motions, intent features и presentation
 | `SimplifiedActiveRagdoll` | reduced body/actuators, обязательные root/support contacts | nearby background NPC under interaction |
 | `CapsuleAnimation` | capsule collision/navigation + animation pose | distant visible NPC без physical interaction |
 | `Abstract` | logical region/time/task state | unloaded/non-visible NPC |
+
+Inside `FullArticulation`, controller quality is separately project-locked:
+procedural/IK or learned closed-loop, with optional bounded cloned-physics
+candidate evaluation only for a small manifest-bounded set of important
+subjects. This does not create another physical LOD or world authority. The
+rollout tier records one selected chunk and remains Proposed under ADR-066.
 
 Physical LOD request выводится только из current canonical simulation facts: quantized simulation distance, gameplay importance, interaction/contact state, simulation-owned visibility fact, PersistentId и versioned integer budget tokens из manifest. После отдельного R4b promotion этот набор MAY также включать committed `WorldResidencyTier` view; до promotion такого входа нет. Renderer camera/frustum/occlusion, presentation visibility, measured CPU time, wall clock, worker load и completion order MUST NOT влиять на LOD. После promotion World Services может предложить residency/physical capability change, но LOD coordinator отдельно валидирует physical transition; unsupported abstract precise outcome детерминированно требует upgrade/defer и не телепортирует pose. Safety constraints имеют приоритет. Downgrade запрещён при external contact impulse, fall/recovery, grab, topology transaction, quest-critical physical interaction или unstable support.
 

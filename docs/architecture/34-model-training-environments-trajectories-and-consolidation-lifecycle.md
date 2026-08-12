@@ -5,10 +5,10 @@
 | ID | SPEC-34 |
 | Status | Proposed |
 | Lifecycle | Optional R8 behavior and optional R5/R8 motor R&D proposal |
-| Version | 1.6 |
+| Version | 1.7 |
 | Last verified | 2026-08-12 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md) |
-| Supersedes | SPEC-34 1.5 only for the bounded ADR-065 curriculum consumer; structured progress and morphology-transfer clarifications remain unchanged |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-054](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
+| Supersedes | SPEC-34 1.6; adds contact-centric chunk, specialist-distillation, morphology-conditioned critic, structured motion-inpainting and compiled-student evaluation lanes without promoting them |
 
 ## Status and scope
 
@@ -24,10 +24,11 @@ Proposed.
 
 ADR-056 makes Strategic/Tactical training optional R8 quality work; this data
 plane is not a prerequisite for deterministic R4 or v1. Motor training remains
-an independent optional track behind the procedural baseline. ADR-057 defines
-a family-based hierarchical target: first fixed humanoid, then bounded
-equipment/injury/weapon/parkour and additional-family profiles. It does not
-restore a universal Mamba foundation requirement.
+an independent optional track behind the procedural baseline. ADR-066 defines
+a family-based hierarchical target: first fixed humanoid, then typed contact/
+action chunks, within-family graph/shared-joint transfer, bounded equipment/
+injury/weapon/parkour, distillation/compiled-student/rollout and additional-
+family profiles. It does not restore a universal Mamba foundation requirement.
 
 Production `headless` is canonical. Accelerated simulators, trainers,
 experiment trackers and inference runtimes are private replaceable adapters.
@@ -412,15 +413,20 @@ behavior:
 5. Pushes, missed contacts, stumble, brace, safe fall, ragdoll and get-up.
 6. Motion prior/multi-skill, transition data, specialist teachers and
    distillation.
-7. Explicit physical parameters plus bounded no-gradient dynamics adaptation.
-8. Equipment, carried load, global/local fatigue and pickup/drop.
-9. Damage, ROM/force/sensor changes, topology masks and recovery fallback.
-10. Manipulation, grips, carry, throw/catch and weapon classes.
-11. Authored/contact-planned parkour specialists and safe missed-contact
+7. Typed physical primitives, ContactPlan and closed-loop
+   `PhysicalActionChunk` tracking without natural-language inputs.
+8. Explicit physical parameters plus bounded no-gradient dynamics adaptation.
+9. Equipment, carried load, global/local fatigue and pickup/drop.
+10. Damage, ROM/force/sensor changes, topology masks and recovery fallback.
+11. Manipulation, grips, carry, throw/catch and weapon classes.
+12. Authored/contact-planned parkour specialists and safe missed-contact
     failure.
-12. Within-family morphology randomization, graph/token policy and held-out
+13. Within-family morphology randomization, local-graph/global-attention/shared-
+    joint policy and held-out
     morphology/topology evaluation.
-13. Exact in-engine rollout, sim-to-sim correspondence, residual/adaptation
+14. Optional `K`-candidate cloned-physics chunk evaluation under one canonical
+    checkpoint and fixed-point scoring profile.
+15. Exact in-engine rollout, sim-to-sim correspondence, residual/adaptation
     fine-tuning, final distillation and portable export.
 
 The morphology-transfer hypothesis is evaluated by an explicit Proposed
@@ -442,7 +448,43 @@ inference latency and the number of body-specific rules. Claims are labelled
 `WithinFamilyTransfer` or `CrossFamilyResearch`; neither label grants a runtime
 route or `Supported` status.
 
-The first learned target is the ADR-057 fixed humanoid MLP at 60 Hz with
+Specialist teachers are trained independently for bounded locomotion regimes,
+flight, climbing, manipulation/weapon, recovery and other contact-rich skills.
+Their immutable trajectories first supervise a family/shared-latent student;
+only then does joint continuous-control RL fine-tune the student. PPO is the
+first simple optimizer profile for the position/velocity-target actor, with
+GAE, normalized advantages, declared reward scaling and hard safety enforced
+outside reward. A later algorithm must beat this equal-budget baseline.
+
+Actor and critic do not have to share the same conditioning. The runtime actor
+receives only engine-visible SPEC-27 facts. The training critic SHOULD be more
+strongly conditioned on morphology, capabilities, skill/regime and MAY use
+declared family value heads so physically unequal bodies do not share a
+miscalibrated baseline. Critic-only privileged facts are named in the training
+manifest, never exported and never copied into actor input, runtime state,
+action identity or replay.
+
+A morphology-conditioned motion prior MAY be trained as structured motion
+inpainting over masked poses/keypoints, contact schedules, object trajectories,
+styles and typed physical goals. Text captions are optional offline authoring/
+provenance labels only: dataset construction compiles them into the same stable
+IDs and numeric fields before a training batch, and runtime text conditioning
+is not a requirement. The prior proposes a `PhysicalActionChunk`; it never
+owns pose, contact or actuator authority.
+
+Damage/fault distribution explicitly varies disabled/locked/removed actuators
+or nodes, reduced torque/ROM, changed mass/load, sensor delay/loss and topology
+changes. Health/power/enabled masks are observations. A hidden fault may be
+inferred only through the explicit bounded temporal state.
+
+After the family-wide teacher passes quality and parity, an optional
+morphology hypernetwork MAY generate an immutable small MLP/GRU child or
+adapter for one exact BodySchema/projection. The child has an ordinary bundle
+hash, compatibility key, golden corpus, fallback, retention and runtime parity
+gate. Topology/effective-projection change invalidates it; generation never
+mutates weights in an active gameplay session.
+
+The first learned target is the ADR-066 fixed humanoid MLP at 60 Hz with
 residual joint-position targets and fixed engine PD at 240 Hz. TCN and GRU are
 the first adaptation comparators. Mamba is only an equal-parameter/context/
 latency comparator for long-history adaptation, motion generation or temporal
@@ -481,6 +523,14 @@ The Proposed toolchain profile is informed by
 [KINESIS](https://github.com/amathislab/Kinesis),
 [ONNX Runtime](https://github.com/microsoft/onnxruntime),
 [PhysX articulations](https://nvidia-omniverse.github.io/PhysX/physx/5.6.1/docs/Articulations.html),
+[Contact-Anchored Policies](https://arxiv.org/abs/2602.09017),
+[Latent Action Diffusion](https://arxiv.org/abs/2506.14608),
+[GCNT](https://arxiv.org/abs/2505.15211),
+[Shared Modular Recurrence](https://arxiv.org/abs/2506.08630),
+[HyperDistill](https://arxiv.org/abs/2402.06570),
+[MorFiC](https://arxiv.org/abs/2603.14554),
+[MaskedMimic](https://research.nvidia.com/labs/par/maskedmimic/),
+[Random Joint Masking](https://arxiv.org/abs/2403.00398),
 [Gemini Robotics 1.5](https://arxiv.org/abs/2510.03342),
 [Gemini Robotics 2](https://deepmind.google/blog/gemini-robotics-2-brings-whole-body-intelligence-to-robots/) and
 [Gemini Robotics ER 2](https://deepmind.google/blog/gemini-robotics-er-2-powering-robotics-with-video-understanding-task-orchestration-and-multi-robot-collaboration/).
@@ -527,9 +577,11 @@ For the SPEC-35 fixed-humanoid consumer, `MODEL-DATAPLANE-P1` and
 | `MODEL-DATAPLANE-P1` | Recreate reset/step/trajectory/reward records twice from one exact manifest, including vector worker/completion permutations | Byte-exact canonical records and state/RNG/root chains; malformed hash/schema/provenance rejects before use. |
 | `MODEL-MIRROR-P1` | Run one correspondence corpus through production headless and the accelerated mirror | Every profile-required projection/result corresponds; any mismatch blocks mirror-derived artifact promotion. |
 | `MODEL-EXPORT-P1` | Export explicit-state candidate and compare trainer → portable graph → Windows/Linux runtime one-step/rollout corpus | Exact canonical decisions/actions and state roots, no hidden/custom/stochastic op; failure retains planner/procedural fallback. |
-| `MODEL-STATISTICS-P1` | Pre-registered multi-seed held-out comparisons for Hope vs GRU, Tactical PPO/MAPPO vs authored baseline, fixed-humanoid MLP vs procedural reference, TCN vs GRU adaptation, and any optional Mamba experiment vs the matching simpler comparator | Complete seed set, confidence/effect size and practical thresholds pass; single/best seed, export availability or architecture label cannot promote. |
+| `MODEL-STATISTICS-P1` | Pre-registered multi-seed held-out comparisons for Hope vs GRU, Tactical PPO/MAPPO vs authored baseline, fixed-humanoid MLP vs procedural reference, TCN vs GRU adaptation, shared vs morphology-conditioned/family-head critic, and any optional Mamba experiment vs the matching simpler comparator | Complete seed set, confidence/effect size and practical thresholds pass; single/best seed, export availability or architecture label cannot promote. |
 | `MODEL-CONSOLIDATION-P1` | Parent + immutable corpus → offline child → retention/new-task/joint evaluation | A new content-addressed child is published only after every gate; parent, project, world and save bytes remain unchanged. |
 | `MODEL-DATA-GOVERNANCE-P1` | Opt-in gameplay, teacher, synthetic and malformed provenance/license/consent/redaction fixtures | Only declared data enters a dataset; unknown/incompatible input is rejected and no protected bytes enter Git/package. |
+| `MOTOR-DISTILL-P1` | Specialist teacher trajectories → family/shared student → optional morphology-compiled child | Required old/new skills, structured chunk semantics, exact runtime action/state parity, limits and fallback are retained; failed child is not published. |
+| `MOTOR-ROLLOUT-P1` | Fixed `K` candidate chunks and one canonical checkpoint under worker/completion permutations | Ordered fixed-point evidence, winner and selected-chunk roots are exact; branch state/RNG/effects never leak. |
 
 Applicable learned-lane ProductChecks in SPEC-27 or SPEC-33 remain required.
 SPEC-32 deterministic R4 checks are independent and never wait for this data

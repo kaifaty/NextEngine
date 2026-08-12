@@ -4,15 +4,20 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 1.5 |
+| Версия | 1.6 |
 | Последняя проверка | 2026-08-12 |
-| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-057](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md) |
-| Заменяет | SPEC-35 1.4; adds the V2 engine-owned flat-command curriculum without changing V1 or promoting learned Motor/R5 |
+| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
+| Заменяет | SPEC-35 1.5; records that ADR-066 advanced chunks/graph/transfer/rollout profiles do not change the current Stage 0 substrate |
 
 ## Назначение и ownership
 
 SPEC-35 задаёт current Stage 0 substrate, на котором можно начинать обучение
 humanoid policy, не объявляя policy обученной или shipping-ready.
+
+ADR-066 does not widen this current consumer: Stage 0 remains one fixed
+23-DoF humanoid with numeric flat command, fixed PD/safety and no natural-
+language, contact-chunk, graph-policy, hypernetwork or candidate-rollout input.
+Those are independently Proposed later profiles.
 
 - SPEC-14 владеет semantic `BodySchema`/instance projection и family/skill
   meaning.

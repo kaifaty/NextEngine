@@ -7,7 +7,7 @@
 | Version | 1.2 |
 | Decision date | 2026-08-09 |
 | Last verified | 2026-08-10 |
-| Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](../27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](../32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](../33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](048-direct-exact-project-lock.md), [ADR-057](057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) |
+| Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-27](../27-motor-observation-action-and-deterministic-inference.md), [SPEC-32](../32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-33](../33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](048-direct-exact-project-lock.md), [ADR-066](066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
 | Supersedes | none while `Proposed` |
 | Superseded by | none |
 
@@ -16,7 +16,7 @@
 For Strategic and Tactical roles this is an optional R8 quality track under
 ADR-056, not a dependency of deterministic R4 or v1. Motor use remains an
 independent optional profile behind the procedural R5 baseline and follows the
-ADR-057 family-based hierarchy rather than a universal learned foundation.
+ADR-066 family-based contact-centric hierarchy rather than a universal learned foundation.
 
 Next Engine needs one reproducible path from production-shaped simulation to
 trained Strategic, Tactical and Motor artifacts. The current repository has a
@@ -166,7 +166,7 @@ corpora and validation fixtures.
 
 - SPEC-34 owns the common environment/trajectory/dataset/run/export records.
 - SPEC-33 specializes the data plane for Strategic and Tactical policies.
-- SPEC-14/SPEC-27 specialize it for ADR-057 BodySchema, policy-family,
+- SPEC-14/SPEC-27 specialize it for ADR-066 BodySchema, policy-family,
   hierarchical skill/motion, explicit adaptation and procedural fallback
   semantics.
 - Training infrastructure can change without changing runtime gameplay
