@@ -5,10 +5,12 @@
 | Status | Frozen TRAIN-5 input |
 | Architecture | [ADR-070](../architecture/adr/070-biomechanics-reference-tracking-training-environment.md) |
 | Machine profile | Linux x86_64, RTX 3080 10 GiB |
-| Body | `nextengine.body.humanoid-biomechanics-raja-1700.v2@1` |
-| Corpus manifest | `e6f53d749292b3c6b0e2a7642711c8e1a9f6cef747d184ebb3a21e5e62ffad43` |
+| Body | `nextengine.body.humanoid-biomechanics-raja-1700.v2@2` |
+| BodySchema hash | `e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d` |
+| Safety/contact profile | `ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c` |
+| Corpus manifest | `0f1ce147051b41c7380b566844aecb69612fd501466d1848bd9137d755581df5` |
 | Canonical JSON | `lab/profiles/humanoid-reference-tracker.v1.json` |
-| Canonical JSON SHA-256 | `cdc428435ffc142b1b9cf4de5ebf44b73797dddf1d1e67415384c8a9f6bb2211` |
+| Canonical JSON SHA-256 | `f11e1698a81a64a2bc897319d889c6dda3a2ef20314eaa655cb14061d1aa0576` |
 
 V1 is the smallest tracker profile that can consume the admitted locomotion
 partition without introducing command selection, recovery, a runtime
@@ -36,6 +38,9 @@ Reward emphasizes joint pose, root/effector/contact agreement, with smaller
 velocity terms and low energy/smoothness costs. The tenfold terminal-failure
 coefficient is diagnostic only: hard ROM, actuator, impact and forbidden
 contact failures terminate independently and cannot be traded for reward.
+Every vector/scalar aggregation, normalization, coordinate frame, Q16 rounding
+rule and the authorizing TRAIN-4 gate-report SHA are frozen in the canonical
+JSON; changing any of them produces a new profile identity before a run.
 
 ## Execution ladder
 
@@ -50,9 +55,29 @@ contact failures terminate independently and cannot be traded for reward.
 5. Only then begin the frozen multi-clip PPO curriculum and pre-registered
    multi-seed held-out report.
 
-Isaac Lab/Isaac Sim are not part of the repository profile and are currently
-an unavailable external capability until installed. Hardware availability by
-itself is not a TRAIN-5 result.
+The canonical native PhysX path is the required first execution target. An
+Isaac mirror remains an additional correspondence target and never substitutes
+for native safety evidence. Hardware availability by itself is not a TRAIN-5
+result.
+
+Current pre-acceptance evidence distinguishes baseline execution from policy
+quality. Zero residual completes the admitted idle reference, while dynamic
+walk/start/stop/turn clips normally lose tracking or reach a hard contact
+terminal without a learned residual. Those baseline failures are retained as
+optimizer-free diagnostics; a safety event, hash mismatch or malformed reward
+remains blocking, but poor tracking by the zero/random actor is not mislabeled
+as a trained-policy result.
+
+The closed input/reward audit has SHA-256
+`b76fcf1d9ce8ef0b7df2c5d35a2c6b115a7c458c1f8a4a90fcb1898f6d0d1489`.
+It covers 84 observation/perfect-reference fixtures, 84 phase-offset corpus
+probes, 84 directed cost probes and 84 terminal-penalty probes. No tracking
+component is constant; the largest positive component is `2857` basis points
+of positive reward scale against the declared `5000` rejection threshold.
+The nine-case native matrix has SHA-256
+`eaa3c81b3cf120318d3cf62f4aff587fac7f56a5a31f113958f9820a5ab6c9a6`
+and decision `AdvanceToTinyDeterministicOverfitOnly`. Both artifacts record
+zero optimizer steps and make no learned-policy claim.
 
 ## Claim boundary
 

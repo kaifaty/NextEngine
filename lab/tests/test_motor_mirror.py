@@ -41,7 +41,7 @@ BIOMECHANICS_FIXTURE = (
     Path(__file__).parent / "fixtures/biomechanics_motor_mirror_v1.json"
 )
 BIOMECHANICS_FIXTURE_SHA256 = (
-    "59a313ad232cfee4d54a78bebd584a05bf0bdfeef05846b288f7dfe126a76fa7"
+    "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014"
 )
 
 

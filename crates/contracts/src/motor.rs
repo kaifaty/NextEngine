@@ -8,8 +8,10 @@ use crate::canonical::sha256;
 use crate::ids::{ContentHash, PersistentId, SchemaId, StateRoot, content_hash_from_bytes};
 use crate::physics::{AppliedActuatorEffortV1, PhysicsWorldCheckpointV2};
 
+mod reference_tracking;
 mod v2;
 
+pub use reference_tracking::*;
 pub use v2::{MotorEnvironmentCheckpointEnvelopeV1, MotorStepRecordV2};
 
 pub const MOTOR_OBSERVATION_LAYOUT_V1_SCHEMA_VERSION: u16 = 1;

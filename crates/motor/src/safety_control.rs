@@ -416,8 +416,7 @@ fn validate_joint_states(
             .base
             .limit_max_microradians
             .saturating_add(OBSERVED_HARD_ROM_QUANTIZATION_TOLERANCE_MICRORADIANS);
-        if !(observed_minimum..=observed_maximum).contains(&state.position_microradians)
-        {
+        if !(observed_minimum..=observed_maximum).contains(&state.position_microradians) {
             return Err(MotorSafetyError::HardRangeViolation);
         }
         if state.velocity_microradians_per_second.unsigned_abs()

@@ -23,6 +23,7 @@ from next_lab.motor_lab_client import (
 )
 from next_lab.trajectory_recorder import record_canonical_cpu_trajectories
 from next_lab.motion_corpus import audit_motion_corpus_physx_poses, build_motion_corpus
+from next_lab.reference_tracker import audit_reference_inputs, run_physx_baseline
 
 
 def _mps_probe() -> tuple[bool, str | None]:
@@ -210,6 +211,34 @@ def parser() -> argparse.ArgumentParser:
     )
     pose_audit_parser.add_argument("--store", type=Path)
 
+    reference_parser = commands.add_parser("reference-input-audit")
+    reference_parser.add_argument(
+        "--profile",
+        type=Path,
+        default=repository_root / "lab/profiles/humanoid-reference-tracker.v1.json",
+    )
+    reference_parser.add_argument("--descriptor", type=Path, required=True)
+    reference_parser.add_argument("--corpus-root", type=Path, required=True)
+    reference_parser.add_argument("--gate-report", type=Path, required=True)
+    reference_parser.add_argument("--store", type=Path)
+
+    baseline_parser = commands.add_parser("reference-physx-baseline")
+    baseline_parser.add_argument("--runner", type=Path, required=True)
+    baseline_parser.add_argument(
+        "--profile",
+        type=Path,
+        default=repository_root / "lab/profiles/humanoid-reference-tracker.v1.json",
+    )
+    baseline_parser.add_argument("--corpus-root", type=Path, required=True)
+    baseline_parser.add_argument("--gate-report", type=Path, required=True)
+    baseline_parser.add_argument("--store", type=Path)
+    baseline_parser.add_argument("--split", choices=["train", "validation", "heldout"], required=True)
+    baseline_parser.add_argument("--clip-id", required=True)
+    baseline_parser.add_argument("--start-frame", type=int, default=0)
+    baseline_parser.add_argument(
+        "--baseline", choices=["zero_residual", "random_residual"], required=True
+    )
+
     return root
 
 
@@ -328,6 +357,53 @@ def main() -> int:
             )
         )
         return 0 if report["status"] == "PASS" else 4
+    if arguments.command == "reference-input-audit":
+        report, output = audit_reference_inputs(
+            profile_path=arguments.profile,
+            descriptor_path=arguments.descriptor,
+            corpus_root=arguments.corpus_root,
+            gate_report_path=arguments.gate_report,
+            output_store=_configured_store(arguments.store),
+        )
+        print(
+            json.dumps(
+                {
+                    "check": report["check"],
+                    "status": report["status"],
+                    "claim": report["claim"],
+                    "output": str(output),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0 if report["status"] == "PASS" else 4
+    if arguments.command == "reference-physx-baseline":
+        report, output = run_physx_baseline(
+            runner=arguments.runner,
+            profile_path=arguments.profile,
+            corpus_root=arguments.corpus_root,
+            gate_report_path=arguments.gate_report,
+            output_store=_configured_store(arguments.store),
+            split=arguments.split,
+            clip_id=arguments.clip_id,
+            start_frame=arguments.start_frame,
+            baseline=arguments.baseline,
+        )
+        print(
+            json.dumps(
+                {
+                    "check": report["check"],
+                    "execution_status": report["execution_status"],
+                    "reference_completed": report["reference_completed"],
+                    "terminal_reason": report["terminal_reason"],
+                    "output": str(output),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
     raise AssertionError(f"unhandled command: {arguments.command}")
 
 

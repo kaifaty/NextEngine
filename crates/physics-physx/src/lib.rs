@@ -358,6 +358,30 @@ impl PhysXArticulationWorldV2 {
         })
     }
 
+    /// Constructs a fresh scene whose first externally observable state is the
+    /// supplied articulation state. This is the reset path for reference-state
+    /// training; callers never receive the intermediate bind-pose world.
+    pub fn create_with_initial_state(
+        profile: PhysXSceneProfile,
+        catalog: &PhysXArticulationCatalogV2,
+        initial_state: &PhysXRawArticulationSnapshot,
+    ) -> Result<(Self, CanonicalPhysXSnapshotV2), PhysXAdapterError> {
+        let Some(root) = initial_state.links.first().copied() else {
+            return Err(PhysXAdapterError::InvalidOutput);
+        };
+        if root.user_token != catalog.links[0].user_token
+            || initial_state.joints.len() != catalog.joints.len()
+        {
+            return Err(PhysXAdapterError::ProfileMismatch);
+        }
+        let mut world = Self::create(profile, catalog)?;
+        world
+            .native
+            .import_articulation_state(root, &initial_state.joints)?;
+        let snapshot = world.capture()?;
+        Ok((world, snapshot))
+    }
+
     pub fn apply_efforts_and_step(
         &mut self,
         efforts_micronewton_metres: &[i64],

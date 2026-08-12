@@ -4,19 +4,25 @@
   "status": "Frozen",
   "body_schema": {
     "id": "nextengine.body.humanoid-biomechanics-raja-1700.v2",
-    "revision": 1,
-    "hash": "eb5b75e9376bec8cd38cedfe015e16dd31dcb693b70217ec35b89467d88900ff",
-    "compiled_descriptor_hash": "5640d7a9de95ae5c171384db29b601b73d31c8f9d12747a4f3b7c666525d9242",
-    "descriptor_file_sha256": "59a313ad232cfee4d54a78bebd584a05bf0bdfeef05846b288f7dfe126a76fa7"
+    "revision": 2,
+    "hash": "e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d",
+    "compiled_descriptor_hash": "b6f8b1260b24ad401453942c9a4303d99ce378a8f71c6490db79bb78d85a1782",
+    "descriptor_file_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014"
   },
   "corpus": {
-    "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu.v1",
-    "profile_sha256": "0b6d78ea649891e4644f58b9dd6acb239d8c95cd158cd75a431a819c341e514d",
-    "manifest_sha256": "e6f53d749292b3c6b0e2a7642711c8e1a9f6cef747d184ebb3a21e5e62ffad43",
+    "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion.v1",
+    "profile_sha256": "2f35f835ea58d91ca37c0060014f112bc2773dc169548738ed2fa5464837bdec",
+    "manifest_sha256": "0f1ce147051b41c7380b566844aecb69612fd501466d1848bd9137d755581df5",
     "eligible_partition": "locomotion",
     "split_is_run_mode": true,
     "selection_order": "canonical UTF-8 clip_id byte order",
     "selection_distribution": "uniform over eligible clip IDs"
+  },
+  "training_authorization": {
+    "gate_id": "TRAIN-4",
+    "decision": "Advance",
+    "gate_report_sha256": "876e43b245de85101a490af846b468aab5594b1bb20b79fa042dd0009799b251",
+    "scope": "TRAIN-5 specialist reference-motion tracker only"
   },
   "schedule": {
     "physics_hz": 240,
@@ -51,6 +57,14 @@
     "actor_channel_count": 435,
     "critic_channel_count": 435,
     "critic_privileged_channels": [],
+    "frames": {
+      "dynamic_root_rotation": "normalized world-from-root xyzw quaternion with canonical nonnegative-w sign",
+      "dynamic_velocities": "world velocities rotated by inverse current root rotation",
+      "reference_positions": "reference world position minus current root world position, rotated by inverse current root rotation",
+      "reference_rotation": "inverse current root rotation multiplied by reference world-from-root rotation, normalized with canonical nonnegative-w sign",
+      "reference_velocities": "reference world velocities rotated by inverse current root rotation",
+      "phase": "stored source phase_u16 integer"
+    },
     "dynamic_channels": {
       "root_rotation_xyzw_q1_30": 4,
       "root_local_linear_velocity_micrometres_per_second": 3,
@@ -84,27 +98,29 @@
   },
   "reward": {
     "value_bounds_q16": [0, 65536],
+    "arithmetic": "each component rounds ties-to-even to Q16 and clamps to value_bounds_q16; signed total is the checked sum of coefficient_q16 * value_q16 / 65536 rounded ties-to-even and is not clipped",
     "components": [
-      {"id": "reward.reference-root-orientation", "coefficient_q16": 65536, "normalization": "absolute quaternion-dot squared"},
-      {"id": "reward.reference-root-height", "coefficient_q16": 32768, "normalization_micrometres": 250000},
-      {"id": "reward.reference-root-linear-velocity", "coefficient_q16": 32768, "normalization_micrometres_per_second": 2000000},
-      {"id": "reward.reference-root-angular-velocity", "coefficient_q16": 16384, "normalization_microradians_per_second": 2000000},
-      {"id": "reward.reference-joint-pose", "coefficient_q16": 131072, "normalization": "mean absolute error divided by each joint soft-ROM span"},
-      {"id": "reward.reference-joint-velocity", "coefficient_q16": 32768, "normalization": "mean absolute error divided by each joint maximum velocity"},
-      {"id": "reward.reference-center-of-mass", "coefficient_q16": 32768, "normalization_micrometres": 250000},
-      {"id": "reward.reference-effectors", "coefficient_q16": 65536, "normalization_micrometres": 300000},
-      {"id": "reward.reference-contacts", "coefficient_q16": 49152, "normalization": "matching contact flags divided by seven"},
-      {"id": "reward.contacting-sole-slip-cost", "coefficient_q16": -6554, "normalization_micrometres_per_second": 2000000},
-      {"id": "reward.normalized-applied-effort-cost", "coefficient_q16": -1311, "normalization": "sum absolute post-safety effort divided by per-frame actuator envelope"},
-      {"id": "reward.applied-target-rate-cost", "coefficient_q16": -3277, "normalization": "mean absolute applied-target delta divided by actuator target-slew span"},
+      {"id": "reward.reference-root-orientation", "coefficient_q16": 65536, "aggregation": "square(clamp(abs(dot(normalized current quaternion, normalized reference quaternion)),0,1))"},
+      {"id": "reward.reference-root-height", "coefficient_q16": 32768, "aggregation": "one-minus-clamped scalar absolute error", "normalization_micrometres": 250000},
+      {"id": "reward.reference-root-linear-velocity", "coefficient_q16": 32768, "aggregation": "one-minus-clamped Euclidean vector error", "normalization_micrometres_per_second": 2000000},
+      {"id": "reward.reference-root-angular-velocity", "coefficient_q16": 16384, "aggregation": "one-minus-clamped Euclidean vector error", "normalization_microradians_per_second": 2000000},
+      {"id": "reward.reference-joint-pose", "coefficient_q16": 131072, "aggregation": "one-minus-clamped arithmetic mean of per-joint absolute error divided by that joint soft-ROM span"},
+      {"id": "reward.reference-joint-velocity", "coefficient_q16": 32768, "aggregation": "one-minus-clamped arithmetic mean of per-joint absolute error divided by that joint maximum velocity"},
+      {"id": "reward.reference-center-of-mass", "coefficient_q16": 32768, "aggregation": "one-minus-clamped Euclidean vector error", "normalization_micrometres": 250000},
+      {"id": "reward.reference-effectors", "coefficient_q16": 65536, "aggregation": "one-minus-clamped arithmetic mean of six per-effector Euclidean position errors divided by normalization", "normalization_micrometres": 300000},
+      {"id": "reward.reference-contacts", "coefficient_q16": 49152, "aggregation": "matching current/reference contact flags divided by seven"},
+      {"id": "reward.contacting-sole-slip-cost", "coefficient_q16": -6554, "aggregation": "clamped arithmetic mean planar speed of current active sole contacts divided by normalization; zero when neither sole is active", "normalization_micrometres_per_second": 2000000},
+      {"id": "reward.normalized-applied-effort-cost", "coefficient_q16": -1311, "aggregation": "clamped arithmetic mean of per-actuator absolute post-safety effort divided by that actuator maximum absolute effort"},
+      {"id": "reward.applied-target-rate-cost", "coefficient_q16": -3277, "aggregation": "clamped arithmetic mean of per-actuator absolute applied-target delta divided by that actuator maximum absolute target delta per motor tick"},
       {"id": "reward.terminal-failure", "coefficient_q16": -655360, "normalization": "one on failure termination, zero otherwise"}
     ]
   },
   "termination": {
+    "safety_contact_profile_sha256": "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c",
     "success_reason": "terminal.reference-complete",
     "failure_reasons": [
       "terminal.hard-rom",
-      "terminal.actuator-safety",
+      "terminal.joint-safety",
       "terminal.hard-impact",
       "terminal.forbidden-locomotion-contact",
       "terminal.non-finite",

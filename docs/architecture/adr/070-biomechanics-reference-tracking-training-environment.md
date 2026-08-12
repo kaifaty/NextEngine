@@ -31,7 +31,7 @@ reference root.
 
 Add the training-only profile
 `nextengine.motor.env.humanoid-reference-tracker.v1` for the exact
-`nextengine.body.humanoid-biomechanics-raja-1700.v2@1` body. Its frozen
+`nextengine.body.humanoid-biomechanics-raja-1700.v2@2` body. Its frozen
 repository profile is
 `lab/profiles/humanoid-reference-tracker.v1.json`.
 

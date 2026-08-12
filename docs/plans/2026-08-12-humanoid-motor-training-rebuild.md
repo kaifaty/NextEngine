@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-0..4` advanced; `TRAIN-5..9` `NotRun` |
+| Статус | In execution: `TRAIN-0..4` advanced; `TRAIN-5` pre-acceptance wiring/reward complete, tiny deterministic overfit next; optimizer not started |
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -10,13 +10,13 @@
 | Требования candidate | [Humanoid motor requirements baseline](2026-08-12-humanoid-motor-requirements.md) |
 | Anthropometric target | [Young-adult male gait target](2026-08-12-humanoid-biomechanics-target.md) |
 | Frozen biomechanics profile | [Fixed humanoid biomechanics profile V1](2026-08-12-humanoid-biomechanics-profile-v1.md) |
-| Frozen profile SHA-256 | `307a00f2bda8cd083066a383cb025b5333240513e00b2c764ca8fef52bddc1bf` |
+| Frozen profile SHA-256 | `968ceb82ac2a40af872b496fdd43e32ba2ce3ffd90b2b3a33f38461c8269aabc` |
 | TRAIN-3 safety/contact profile | [Humanoid safety and contact profile V1](2026-08-12-humanoid-safety-contact-profile-v1.md) |
-| TRAIN-3 safety/contact SHA-256 | `88c2ffefed4cb8f2c0dc35426ffaf964d09d4d8fbb14fb33bfd305fb4df625c9` |
+| TRAIN-3 safety/contact SHA-256 | `ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c` |
 | TRAIN-4 motion corpus profile | [Humanoid motion corpus profile V1](2026-08-12-humanoid-motion-corpus-profile-v1.md) |
-| TRAIN-4 motion corpus profile SHA-256 | `0b6d78ea649891e4644f58b9dd6acb239d8c95cd158cd75a431a819c341e514d` |
+| TRAIN-4 motion corpus profile SHA-256 | `2f35f835ea58d91ca37c0060014f112bc2773dc169548738ed2fa5464837bdec` |
 | TRAIN-5 reference tracker profile | [Humanoid reference tracker profile V1](2026-08-12-humanoid-reference-tracker-profile-v1.md) |
-| TRAIN-5 reference tracker profile SHA-256 | `cdc428435ffc142b1b9cf4de5ebf44b73797dddf1d1e67415384c8a9f6bb2211` |
+| TRAIN-5 reference tracker profile SHA-256 | `f11e1698a81a64a2bc897319d889c6dda3a2ef20314eaa655cb14061d1aa0576` |
 
 Нормативные источники для реализации:
 
@@ -319,21 +319,32 @@ count: confidence interval не превращает наблюдаемое на
 Текущее выполнение:
 
 - `TRAIN-0`: `Advance`, implementation commit `9148b776db2c1be63d1393f62f1cbfa782eb11cc`;
-- `TRAIN-1`: `Advance`, frozen profile SHA-256
-  `307a00f2bda8cd083066a383cb025b5333240513e00b2c764ca8fef52bddc1bf`;
+- `TRAIN-1`: `Advance`, revision `2`, BodySchema hash
+  `e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d`,
+  gate report SHA-256
+  `4d94d28f64c81d953e75804db4a0807d85b1e2e7e57af0deb747b0446c2f7fde`;
 - `TRAIN-2`: `Advance`, BodySchema hash
-  `eb5b75e9376bec8cd38cedfe015e16dd31dcb693b70217ec35b89467d88900ff`,
+  `e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d`,
   compiled descriptor hash
-  `5640d7a9de95ae5c171384db29b601b73d31c8f9d12747a4f3b7c666525d9242`;
+  `b6f8b1260b24ad401453942c9a4303d99ce378a8f71c6490db79bb78d85a1782`,
+  gate report SHA-256
+  `b814d7830188abbc83378e83b6fb8ff4da5fdf3c0c30d0606913a05692a71d32`;
 - `TRAIN-3`: `Advance`, safety/contact profile SHA-256
-  `88c2ffefed4cb8f2c0dc35426ffaf964d09d4d8fbb14fb33bfd305fb4df625c9`,
+  `ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c`,
   safety/contact golden SHA-256
-  `df89584da333d30a92cb0ff54606e74d6f68781ca4f4acd9003ea6f50ac1d25d`;
+  `578b9b035a2ce390b5192dbc7abea24f50b871cccc4d5d2b3bf2e1343fc652b0`,
+  gate report SHA-256
+  `807535bc9128b4bd079d011a27dc95a5d10f2449a997d9e856c2a701729bd5cf`;
 - `TRAIN-4`: `Advance`, motion corpus profile SHA-256
-  `0b6d78ea649891e4644f58b9dd6acb239d8c95cd158cd75a431a819c341e514d`,
+  `2f35f835ea58d91ca37c0060014f112bc2773dc169548738ed2fa5464837bdec`,
   corpus manifest SHA-256
-  `e6f53d749292b3c6b0e2a7642711c8e1a9f6cef747d184ebb3a21e5e62ffad43`;
-- `TRAIN-5..9`: `NotRun`; разрешён только specialist tracker `TRAIN-5`.
+  `0f1ce147051b41c7380b566844aecb69612fd501466d1848bd9137d755581df5`,
+  gate report SHA-256
+  `876e43b245de85101a490af846b468aab5594b1bb20b79fa042dd0009799b251`;
+- `TRAIN-5`: input/reward audit and native PhysX baseline matrix complete;
+  decision `AdvanceToTinyDeterministicOverfitOnly`, `training runs = 0`,
+  `optimizer steps = 0`;
+- `TRAIN-6..9`: `NotRun`; разрешён только specialist tracker `TRAIN-5`.
 
 ## TRAIN-0 — retirement/isolation старого эксперимента и чистая generation
 
@@ -702,36 +713,40 @@ and invalidates dependent runs.
 ### Реализация и gate closure
 
 Deterministic ASF/AMC import, explicit semantic BodySchema retarget, velocity
-projection, ground/contact reconstruction, mirrors, world-yaw fall variants,
-canonical NPZ serialization and executable provenance/split/coverage audits
-реализованы commits `15a1cf57e1ad6bb1fe9d65eecd19b565bb389ed3` и
-`e732bbabf9d75ed48da99a3f0a4ed1926a70f166`.
+projection, ground/contact reconstruction, mirrors, canonical NPZ
+serialization and executable provenance/split/coverage audits реализованы и
+затем исправлены по результатам native physical reset audit. Ранний corpus на
+`52` locomotion/recovery artifacts признан superseded evidence: recovery poses
+не были физически допустимы и не входят в advancing manifest.
 
-Внешний immutable corpus:
-`/home/kaifaty/NextEngine-training/generations/humanoid-motor-rebuild-v1/corpus/0b6d78ea649891e4-cf624db3073033fb`.
+Текущий внешний immutable locomotion corpus:
+`/home/kaifaty/NextEngine-training/generations/humanoid-motor-rebuild-v1/corpus/2f35f835ea58d91c-5f139773a7abba76`.
 Его canonical manifest SHA-256 —
-`e6f53d749292b3c6b0e2a7642711c8e1a9f6cef747d184ebb3a21e5e62ffad43`.
-Все `35` base и `17` derived clips (`52/52`) прошли ROM, velocity,
-penetration, contact, skill, split and phase checks. Все десять mandatory class
-families имеют независимые train/validation/held-out groups; минимальный
-contact-derived gait count — `4`; mirror checks — `8/8`.
+`0f1ce147051b41c7380b566844aecb69612fd501466d1848bd9137d755581df5`.
+Все `23` base и `5` derived clips (`28/28`) прошли kinematic checks; splits —
+`10/9/9` train/validation/held-out; все шесть locomotion class families имеют
+независимые split groups. Repeat import воспроизвёл тот же manifest.
 
-Source/BodySchema overlays получили `52/52` visual `Pass`, open Major/Blocker
-defects `0`. Subject-140 knee-support endpoints являются только промежуточными
-`GetUpSupport` references; полный `Stabilize` и command resume остаются
-required checks `TRAIN-7`. Repeat import воспроизвёл те же manifest bytes,
-`53/53` lab tests, `boundary-scan` и clean-worktree `host-check` прошли.
+Native PhysX reset audit прошёл `5961/5961` locomotion poses с нулевой active
+self-penetration, нулевым active self-contact impulse и нулевой начальной joint
+velocity. Source/BodySchema overlays получили `28/28` visual `Pass`, open
+Major/Blocker defects `0`. Retarget явно сохраняет hip/shoulder collision
+projection и `20°` ankle reserve до hard ROM. Recovery candidate audit сохранил
+`11465/11536` failures и maximum penetration `241889 µm`; recovery selection и
+`TRAIN-7` запрещены до нового retarget/profile/hash.
+
 Exact external gate report:
-`/home/kaifaty/NextEngine-training/gates/TRAIN-4/gate-report.json`.
-
-Decision: `Advance`. Разрешён только `TRAIN-5` specialist reference-motion
-tracker; более поздние training stages и runtime publication не разрешены.
+`/home/kaifaty/NextEngine-training/gates/TRAIN-4/locomotion-r4-gate-report.json`,
+SHA-256
+`876e43b245de85101a490af846b468aab5594b1bb20b79fa042dd0009799b251`.
+Decision: `Advance` только для `TRAIN-5` specialist locomotion tracker; более
+поздние training stages и runtime publication не разрешены.
 
 ## TRAIN-5 — specialist reference-motion tracker
 
 Execution input is frozen by [ADR-070](../architecture/adr/070-biomechanics-reference-tracking-training-environment.md)
 and `lab/profiles/humanoid-reference-tracker.v1.json` with SHA-256
-`cdc428435ffc142b1b9cf4de5ebf44b73797dddf1d1e67415384c8a9f6bb2211`.
+`f11e1698a81a64a2bc897319d889c6dda3a2ef20314eaa655cb14061d1aa0576`.
 This freezes environment semantics but is not evidence that the sanity ladder
 or training has passed.
 
@@ -794,6 +809,20 @@ gradient norm, clamp incidence, NaN/Inf and sample-efficiency curve.
 Если sanity ladder не проходит, сначала исправляются environment,
 observation/action, reward or reset semantics. Смена PPO на более сложный
 algorithm не является диагностикой wiring failure.
+
+Текущий pre-acceptance result не является gate `TRAIN-5`: input/reward audit
+SHA-256
+`b76fcf1d9ce8ef0b7df2c5d35a2c6b115a7c458c1f8a4a90fcb1898f6d0d1489`
+проверил 84 observation/perfect-reward, 84 phase-offset, 84 cost и 84 terminal
+fixtures. Все девять tracking-компонентов меняются на corpus probes; максимум
+одного positive component равен `2857` basis points от positive scale при
+блокирующем пороге `5000`. Native PhysX matrix SHA-256
+`eaa3c81b3cf120318d3cf62f4aff587fac7f56a5a31f113958f9820a5ab6c9a6`
+содержит девять optimizer-free baselines: zero-residual idle завершил reference,
+а слабые dynamic/random baselines достигли заявленных tracking/contact/safety
+terminal branches. Решение разрешает только следующий tiny deterministic
+overfit; learned-policy quality, held-out quality и сам `TRAIN-5 Advance` ещё
+не заявлены.
 
 Initial optimization order:
 

@@ -50,7 +50,7 @@ fn two_link_catalog() -> PhysXArticulationCatalog {
     }
 }
 
-#[cfg(feature = "physx-sdk")]
+#[cfg(any(feature = "physx-sdk", feature = "mock-abi"))]
 fn three_link_collision_catalog() -> PhysXArticulationCatalogV2 {
     let zero = 0.0_f32.to_bits();
     let identity = [zero, zero, zero, 1.0_f32.to_bits()];
@@ -108,6 +108,48 @@ fn three_link_collision_catalog() -> PhysXArticulationCatalogV2 {
         joints,
         collision_exclusions: Vec::new(),
     }
+}
+
+#[test]
+#[cfg(any(feature = "physx-sdk", feature = "mock-abi"))]
+fn v2_world_initial_state_is_atomic_and_observable_on_return() {
+    let catalog = three_link_collision_catalog();
+    let profile = PhysXSceneProfile::deterministic_humanoid(128, 8, 4);
+    let initial = PhysXRawArticulationSnapshot {
+        links: vec![LinkState {
+            user_token: 100,
+            position_bits: [0.25_f32.to_bits(), 2.5_f32.to_bits(), (-0.5_f32).to_bits()],
+            rotation_bits: [
+                0.0_f32.to_bits(),
+                0.0_f32.to_bits(),
+                0.0_f32.to_bits(),
+                1.0_f32.to_bits(),
+            ],
+            linear_velocity_bits: [0.1_f32.to_bits(), 0.0_f32.to_bits(), 0.2_f32.to_bits()],
+            angular_velocity_bits: [0.0_f32.to_bits(); 3],
+        }],
+        joints: vec![
+            JointState {
+                position_bits: 0.1_f32.to_bits(),
+                velocity_bits: 0.2_f32.to_bits(),
+            },
+            JointState {
+                position_bits: (-0.3_f32).to_bits(),
+                velocity_bits: 0.4_f32.to_bits(),
+            },
+        ],
+    };
+    let (_world, snapshot) =
+        PhysXArticulationWorldV2::create_with_initial_state(profile, &catalog, &initial)
+            .expect("initialize at reference state");
+    let root = snapshot
+        .links
+        .iter()
+        .find(|link| link.user_token == 100)
+        .unwrap();
+    assert_eq!(root.position_micrometres, [250_000, 2_500_000, -500_000]);
+    assert_eq!(snapshot.joints[0].position_microradians, 100_000);
+    assert_eq!(snapshot.joints[1].position_microradians, -300_000);
 }
 
 #[cfg(feature = "physx-sdk")]

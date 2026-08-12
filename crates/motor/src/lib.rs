@@ -17,7 +17,9 @@ mod performance;
 mod procedural_standing;
 #[cfg(test)]
 mod procedural_standing_tests;
+mod reference_baseline;
 mod reference_pose_audit;
+mod reference_tracking;
 mod replay;
 mod runtime;
 mod safety_control;
@@ -69,8 +71,14 @@ pub use procedural_standing::{
     PROCEDURAL_STANDING_KNEE_TARGET_MICRORADIANS, PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS,
     ProceduralStandingError,
 };
+pub use reference_baseline::{ReferenceBaselineError, biomechanics_reference_baseline_json_v1};
 pub use reference_pose_audit::{
     ReferencePoseAuditError, biomechanics_reference_pose_audit_json_v1,
+};
+pub use reference_tracking::{
+    REFERENCE_REWARD_COEFFICIENTS_Q16, REFERENCE_REWARD_COMPONENT_IDS,
+    REFERENCE_TRACKER_PROFILE_DOCUMENT_SHA256, REFERENCE_TRACKING_ENVIRONMENT_PROFILE_ID,
+    biomechanics_reference_environment_manifest_v3, biomechanics_reference_tracking_profile_v1,
 };
 pub use replay::{MOTOR_RUNTIME_CHECKPOINT_SCHEMA_VERSION, MotorReplayCodecError};
 pub use runtime::{
