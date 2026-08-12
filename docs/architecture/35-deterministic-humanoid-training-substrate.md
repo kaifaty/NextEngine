@@ -80,6 +80,14 @@ The compiler canonicalizes source records by semantic ID, validates closure
 and derives one `PhysicsWorldCatalogV2`, motor layouts, reset state, safety
 table and Isaac mapping. Source order MUST NOT change any derived bytes/hash.
 
+Under ADR-069, the separate biomechanics generation uses `BodySchemaV2` and
+the `BODY-SCHEMA-P2`/`PHYS-JOINT-P2` successor corpus. Its full source inertia,
+solver projection, carriers, collider/contact roles, hard/soft ROM and complete
+actuator safety envelope are canonical inputs. The V2 compiler does not fall
+back to any V1 sphere, X-axis, gain, root-height or filter constant. This
+addition neither changes the Stage 0 V1 bytes above nor permits a V2 checkpoint
+to resume or import a V1 run.
+
 `BodyInstanceProjectionV1` binds the exact schema and zero/default morphology,
 equipment, stats, damage, fatigue and attachment revisions. Those fields
 remain owned by their source domains; the projection is immutable input, not

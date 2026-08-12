@@ -214,6 +214,13 @@ identity narrowed by ADR-068. ADR-058/SPEC-35 accept the `BodySchemaV1` and
 overlays and additional policy families remain Proposed until their own
 production consumers and ProductChecks exist under ADR-046.
 
+ADR-069 additionally accepts a distinct current-only `BodySchemaV2` for the
+concrete biomechanics training generation. V2 closes full source inertia plus
+an explicit positive solver projection, serial-axis carrier groups, collider
+filter/contact roles, hard/soft ROM, mirror rules and the complete fixed
+PD/effort/rate/power/work/residual/slew envelope. It does not reinterpret V1,
+and no missing V2 field may be supplied by a trainer or physics default.
+
 ## Product support levels
 
 | Level | Разрешённое поведение | Обязательные проверки |

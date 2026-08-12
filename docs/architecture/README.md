@@ -6,7 +6,7 @@
 | Статус | Accepted |
 | Версия | 2.36 |
 | Последняя проверка | 2026-08-12 |
-| Заменяет | INDEX-001 2.35; indexes ADR-067 profile identity closure and ADR-068 static morphology/action-chunk closure |
+| Заменяет | INDEX-001 2.35; indexes ADR-067 profile identity closure, ADR-068 static morphology/action-chunk closure and ADR-069 biomechanics BodySchema V2 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -256,6 +256,7 @@ traceability — навигационная карта, не admission authority
 | ADR-066 | [Contact-centric physical skills and morphology-conditioned motor architecture](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) | Accepted no-text physical-skill hierarchy, heterogeneous BodySchema, `PhysicalActionChunk`, family graph-controller and deterministic rollout boundaries; exact learned profiles remain Proposed |
 | ADR-067 | [Stage 0 profile identity and curriculum hash closure](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md) | Accepted frozen standing/flat-command V1 identity, per-profile translator hash and exact-zero curriculum support semantics |
 | ADR-068 | [Static morphology cache and action-chunk field closure](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) | Accepted dedicated static morphology cache identity and one Proposed `PhysicalActionChunk` field set; no learned route promoted |
+| ADR-069 | [Biomechanics BodySchema V2 and explicit solver projection](adr/069-biomechanics-body-schema-v2-and-solver-projection.md) | Accepted current-only biomechanics schema with full inertia, explicit solver carriers/projection, collider/contact roles and hard safety closure; V1 unchanged |
 
 ## Proposed tracks
 
@@ -280,7 +281,7 @@ traceability — навигационная карта, не admission authority
   strategic/tactical and training data-plane track. Per-role promotion requires
   immutable artifacts, multi-seed evidence, target parity and complete ADR-056
   fallback; joint promotion is required only by profiles activating both roles.
-- ADR-066/ADR-068 Accepted core with Proposed subsections in SPEC-14/SPEC-26/SPEC-27/
+- ADR-066/ADR-068/ADR-069 Accepted core with Proposed subsections in SPEC-14/SPEC-26/SPEC-27/
   SPEC-28/SPEC-34 — natural language ends before Physical Embodiment; typed physical
   primitives and `PhysicalActionChunk` carry contact/root/CoM/effector meaning.
   The optional fixed-humanoid MLP remains first, then contact chunks, bounded
