@@ -14,6 +14,20 @@ Codex discovers these repository-scoped skills from `.agents/skills`.
 | `using-determinism-and-replay` | [upstream](https://github.com/tachyon-beep/skillpacks/tree/a86e7855ace8659b13147cbf439cfcf8e93916ed/plugins/axiom-determinism-and-replay/skills/using-determinism-and-replay) | `a86e7855ace8659b13147cbf439cfcf8e93916ed` | [CC-BY-SA-4.0](https://creativecommons.org/licenses/by-sa/4.0/) |
 | `cli-creator` | [upstream](https://github.com/openai/skills/tree/49f948faa9258a0c61caceaf225e179651397431/skills/.curated/cli-creator) | `49f948faa9258a0c61caceaf225e179651397431` | Apache-2.0 (`cli-creator/LICENSE.txt`) |
 
+## Project-Authored Skills
+
+| Skill | Purpose |
+| --- | --- |
+| `nextengine-training-runner` | Fail-closed preflight and claim-safe preparation of hash-closed reference PPO runs |
+| `nextengine-training-diagnostics` | Deterministic artifact, safety, PPO and evaluation diagnosis with one-variable next experiments |
+| `nextengine-isaac-correspondence` | CPU-canonical/Isaac-mirror identity and MODEL-MIRROR-P1/P2 evidence audit |
+
+These skills are native NextEngine guidance. Their workflow design applies the
+useful parts of the imported deep-RL, experiment-tracking and determinism
+skills, while replacing generic framework assumptions with the repository's
+SPEC/ADR/profile/generation authority. Their scripts use only the Python
+standard library, are read-only, and emit machine-readable JSON.
+
 ## Third-Party Attribution
 
 The three `tachyon-beep/skillpacks` skills above are unmodified copies from the

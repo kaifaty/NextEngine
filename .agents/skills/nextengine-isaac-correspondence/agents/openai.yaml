@@ -1,0 +1,4 @@
+interface:
+  display_name: "NextEngine Isaac Correspondence"
+  short_description: "Audit canonical CPU and Isaac mirror parity"
+  default_prompt: "Use $nextengine-isaac-correspondence to audit CPU-to-Isaac identity and correspondence evidence."

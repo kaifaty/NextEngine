@@ -1,0 +1,4 @@
+interface:
+  display_name: "NextEngine Training Diagnostics"
+  short_description: "Diagnose PPO runs, metrics, and checkpoints"
+  default_prompt: "Use $nextengine-training-diagnostics to diagnose this NextEngine training run and propose the smallest next experiment."

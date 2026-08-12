@@ -1,0 +1,4 @@
+interface:
+  display_name: "NextEngine Training Runner"
+  short_description: "Safely preflight humanoid training runs"
+  default_prompt: "Use $nextengine-training-runner to preflight and prepare a hash-closed TRAIN-5 run."
