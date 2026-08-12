@@ -341,6 +341,74 @@ def build_throughput_report(
     }
 
 
+def build_sweep_report(runs: list[Mapping[str, Any]]) -> dict[str, Any]:
+    if not runs:
+        raise ValueError("performance sweep requires at least one run")
+    candidates: list[dict[str, Any]] = []
+    rejected: list[dict[str, str]] = []
+    identity: tuple[str, str, str] | None = None
+    for run in runs:
+        run_id = str(run.get("run_id", ""))
+        throughput = run.get("throughput")
+        if (
+            run.get("status") != "completed"
+            or run.get("claim") != "PerformanceEvidenceOnly"
+            or run.get("learned_policy_claim") is not False
+            or not isinstance(throughput, Mapping)
+        ):
+            rejected.append({"run_id": run_id, "reason": "not-admissible"})
+            continue
+        current_identity = (
+            str(run["training_profile_sha256"]),
+            str(run["training_generation_manifest_hash"]),
+            str(run["repository"]["commit"]),
+        )
+        if identity is None:
+            identity = current_identity
+        elif identity != current_identity:
+            rejected.append({"run_id": run_id, "reason": "identity-mismatch"})
+            continue
+        telemetry = throughput.get("gpu_telemetry", {})
+        if telemetry.get("diagnostic") or int(telemetry.get("sample_count", 0)) <= 0:
+            rejected.append({"run_id": run_id, "reason": "telemetry-incomplete"})
+            continue
+        overrides = run.get("performance_overrides", {})
+        candidates.append(
+            {
+                "run_id": run_id,
+                "num_envs": int(run["resolved_execution"]["num_envs"]),
+                "minibatches": int(run["resolved_ppo"]["minibatches"]),
+                "learning_rate": float(run["resolved_ppo"]["learning_rate"]),
+                "measured_iterations": int(throughput["measured_iterations"]),
+                "measured_samples": int(throughput["measured_samples"]),
+                "samples_per_second": float(throughput["samples_per_second"]),
+                "gpu_utilization_percent_mean": float(
+                    telemetry["gpu_utilization_percent"]["mean"]
+                ),
+                "memory_used_mib_maximum": float(
+                    telemetry["memory_used_mib"]["maximum"]
+                ),
+                "performance_overrides": overrides,
+            }
+        )
+    if not candidates or identity is None:
+        raise ValueError("performance sweep has no admissible candidate")
+    candidates.sort(key=lambda candidate: (candidate["num_envs"], candidate["minibatches"]))
+    winner = max(candidates, key=lambda candidate: candidate["samples_per_second"])
+    return {
+        "schema_version": 1,
+        "schema_id": "nextengine.training.reference-throughput-sweep.v1",
+        "claim": "PerformanceEvidenceOnly",
+        "training_profile_sha256": identity[0],
+        "training_generation_manifest_hash": identity[1],
+        "repository_commit": identity[2],
+        "candidates": candidates,
+        "rejected": sorted(rejected, key=lambda record: record["run_id"]),
+        "winner_run_id": winner["run_id"],
+        "winner_samples_per_second": winner["samples_per_second"],
+    }
+
+
 def _summarize_values(values: list[float]) -> dict[str, float]:
     if not values:
         raise ValueError("cannot summarize an empty performance sample")

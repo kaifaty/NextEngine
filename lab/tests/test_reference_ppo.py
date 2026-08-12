@@ -16,6 +16,7 @@ from next_lab.reference_ppo import (
 from next_lab.reference_performance import (
     PhaseTiming,
     assert_no_competing_training_process,
+    build_sweep_report,
     build_throughput_report,
     parse_gpu_telemetry_csv,
 )
@@ -130,6 +131,37 @@ class ReferencePpoTests(unittest.TestCase):
             assert_no_competing_training_process(
                 device_index=0, current_pid=999, runner=mock.Mock(return_value=result)
             )
+
+    def test_sweep_report_selects_fastest_hash_consistent_run(self) -> None:
+        def run(run_id: str, num_envs: int, throughput: float) -> dict[str, object]:
+            return {
+                "run_id": run_id,
+                "status": "completed",
+                "claim": "PerformanceEvidenceOnly",
+                "learned_policy_claim": False,
+                "training_profile_sha256": "profile",
+                "training_generation_manifest_hash": "generation",
+                "repository": {"commit": "commit"},
+                "resolved_execution": {"num_envs": num_envs},
+                "resolved_ppo": {"minibatches": 4, "learning_rate": 0.0003},
+                "performance_overrides": {},
+                "throughput": {
+                    "measured_iterations": 8,
+                    "measured_samples": num_envs * 32 * 8,
+                    "samples_per_second": throughput,
+                    "gpu_telemetry": {
+                        "sample_count": 4,
+                        "gpu_utilization_percent": {"mean": 70.0},
+                        "memory_used_mib": {"maximum": 6000.0},
+                    },
+                },
+            }
+
+        report = build_sweep_report(
+            [run("n256", 256, 3000.0), run("n512", 512, 4500.0)]
+        )
+        self.assertEqual(report["winner_run_id"], "n512")
+        self.assertEqual(report["winner_samples_per_second"], 4500.0)
 
 
 if __name__ == "__main__":
