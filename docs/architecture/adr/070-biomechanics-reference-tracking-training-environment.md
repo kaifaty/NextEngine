@@ -4,7 +4,7 @@
 |---|---|
 | ID | ADR-070 |
 | Status | Accepted |
-| Version | 1.1 |
+| Version | 1.2 |
 | Decision date | 2026-08-12 |
 | Last verified | 2026-08-13 |
 | Normative dependencies | [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](../27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](../28-skeletal-animation-retargeting-and-ik.md), [SPEC-34](../34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-053](053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-066](066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-069](069-biomechanics-body-schema-v2-and-solver-projection.md) |
@@ -136,6 +136,17 @@ hashes and compare reference selection, phase, feature order, reward
 components, terminal facts and applied targets. GPU floating physics uses only
 predeclared per-field tolerances; final candidate evaluation returns to the
 canonical PhysX/headless path.
+
+An optimizer-free diagnostic on 2026-08-13 found that the then-current Isaac
+TRAIN-5 implementation did not yet satisfy this accepted contract: its
+substep controller intersected effort and effort-rate, but omitted the
+descriptor power/work intersections and maximum-velocity/complete
+`terminal.joint-safety` path implemented by `BiomechanicsSafetyController`.
+The contract remains unchanged; that implementation and all checkpoints
+trained through it are non-conforming diagnostic evidence. A successor may be
+used only under new immutable environment/training identities after exact
+actuator and terminal correspondence, optimizer-free input/reset revalidation
+and a fresh tiny reproducibility ladder.
 
 This ADR authorizes an environment implementation and TRAIN-5 tracker
 experiments after TRAIN-4 `Advance`. It proves no tracker quality, command

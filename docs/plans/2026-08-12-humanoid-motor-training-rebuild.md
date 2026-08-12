@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-0..4` re-advanced; `TRAIN-5` input/reset closure and reproducible tiny overfit passed; fixed-matrix phase curriculum improved completion but failed hard safety, so one reward hypothesis is under revalidation before multi-seed; no TRAIN-5 gate advance |
+| Статус | In execution: `TRAIN-0..4` were re-advanced, but a `TRAIN-5` checkpoint diagnostic found incomplete Isaac correspondence for the already-frozen TRAIN-3 actuator safety contract. Existing TRAIN-5 checkpoints are diagnostic-only; implementation returned to TRAIN-3 correspondence closure before a new TRAIN-5 lineage; no multi-seed or TRAIN-5 gate advance |
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -17,7 +17,7 @@
 | TRAIN-4 motion corpus profile SHA-256 | `f281f73773f32ddba506c01aa66301488dadc40d91efbd78e2c1fb79a70951fc` |
 | TRAIN-5 reference tracker profile | [Humanoid reference tracker profile V1](2026-08-12-humanoid-reference-tracker-profile-v1.md) |
 | TRAIN-5 reference tracker profile SHA-256 | `4a898ccf67051b34b6266ec5293f74758103e7db260ded393e76161f72de527d` |
-| TRAIN-5 optimization child profile SHA-256 | `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b` |
+| TRAIN-5 rejected optimization child profile SHA-256 | realized `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5` |
 
 Нормативные источники для реализации:
 
@@ -906,6 +906,39 @@ unit scale, optimizer steps равны `0`. До curriculum снова обяз�
 `1ea3e41e286963651b9f2959bef364c858b53907cf3de9caeaa0a27b5018ba2b`
 разрешает только curriculum. Curriculum overlay SHA-256 —
 `b658f8ecf35c6677293a8aa37f9003799e040388f0a2cf10975b5d6613224d87`.
+
+Predictive fixed-matrix curriculum
+`curriculum-start-phase-h11-r6-predictive-rom-cost-seed120812-r1-wave-matrix`
+улучшил completion `167/256 -> 186/256` и forbidden contacts `33 -> 4`, но
+hard-ROM ухудшился `28 -> 37`, tracking loss — `29 -> 34`. Final checkpoint
+SHA-256
+`d1ae1263e41466634e190e3a5d8c8b6230899a3ca0c8824b5aacb71d4068d360`
+не admitted; failure decision SHA-256
+`2a8f8d9c96fb601e6ee8e55402d9845406e1f63b281ff85010a5e18b7a92e8d1`
+закрыл обе reward-only hypotheses и запретил multi-seed.
+
+Optimizer-free state diagnostic на clean commit
+`da9c98aa548358c4b9d04757e6af9904998a23c2` воспроизвёл те же `37`
+hard-ROM episode failures; exact report SHA-256 —
+`5cb40e4d3ba9a7061fb25c0931fc96d226a87fb454a39cac417f7c791b79cb83`.
+В `45/45` violating channel events applied target находился внутри hard ROM и
+был направлен обратно внутрь диапазона; `45/45` pre-physics states ещё
+находились в разрешённом `10 µrad` observed tolerance, `37/45` имели outward
+velocity, `29/45` пересекали границу по one-tick linear projection и `7/45`
+уже превышали descriptor maximum velocity.
+
+Source correspondence audit установил, что Rust TRAIN-3 controller проверяет
+hard ROM/maximum velocity до effort publication и пересекает fixed-PD effort
+с effort/rate/power/work limits, тогда как проверенная Isaac TRAIN-5
+реализация применяла только effort/rate, не имела maximum-velocity failure и
+не публиковала полный `terminal.joint-safety`. Decision artifact SHA-256
+`92d4c45e29dbb8b146c9d3030bb06a030dc86893f3fa6cad8b62def3309bd81a`
+классифицирует blocker как `EnvironmentCorrespondence`. Поэтому все
+перечисленные выше TRAIN-5 input/reset/tiny/curriculum результаты остаются
+historical diagnostic evidence, но больше не разрешают downstream work.
+Следующий исполняемый шаг — восстановить exact TRAIN-3 actuator/terminal
+semantics в Isaac, выпустить новые immutable environment/training identities и
+повторить input/reset/tiny ladder с нуля.
 
 Следующие результаты сохранены только как historical failure/diagnostic
 evidence старой corpus lineage и не продвигают текущий `TRAIN-5`: input/reward audit
