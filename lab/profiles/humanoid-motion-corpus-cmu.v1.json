@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu.v1",
+  "body_schema": {
+    "id": "nextengine.body.humanoid-biomechanics-raja-1700.v2",
+    "revision": 1,
+    "hash": "eb5b75e9376bec8cd38cedfe015e16dd31dcb693b70217ec35b89467d88900ff",
+    "compiled_descriptor_hash": "5640d7a9de95ae5c171384db29b601b73d31c8f9d12747a4f3b7c666525d9242"
+  },
+  "source": {
+    "provider": "Carnegie Mellon University Graphics Lab",
+    "dataset_id": "cmu-graphics-lab-motion-capture-database",
+    "homepage": "https://mocap.cs.cmu.edu/",
+    "format_information": "https://mocap.cs.cmu.edu/info.php",
+    "rights_statement": "This dataset of motions is free for all uses.",
+    "rights_snapshot_sha256": "4ac0024566573a10c87b668c826c2c44014b032ae57cbc5fbef2794b80c21cbc",
+    "format_snapshot_sha256": "61a09feeb4424de2273189806f19c8fc54f22fcf8cb94071740633da42d9bada",
+    "intended_use": {
+      "commercial_training": true,
+      "model_output_distribution": true,
+      "source_byte_redistribution": false,
+      "retargeted_reference_redistribution": false
+    },
+    "consent_basis": "provider-published research corpus; no NextEngine gameplay capture or new participant collection",
+    "source_coordinate_profile": "cmu-asf.x-left-y-up-z-forward.left-handed.v1",
+    "target_coordinate_profile": "nextengine.coordinate.y-up-x-right-z-forward.v1",
+    "source_rate_hz": 120,
+    "target_rate_hz": 60,
+    "length_scale_metres": {
+      "numerator": 127,
+      "denominator": 2250
+    },
+    "axis_map": {
+      "target_x": "-source_x",
+      "target_y": "source_y",
+      "target_z": "source_z"
+    }
+  },
+  "retarget": {
+    "algorithm_id": "nextengine.cmu-asf-to-biomechanics-v1",
+    "sample_rule": "inclusive source crop, then source frames 1,3,5,... relative to crop start",
+    "joint_quantization": "nearest-ties-to-even microradians",
+    "translation_quantization": "nearest-ties-to-even micrometres",
+    "rotation_quantization": "canonical-sign nearest-ties-to-even Q1.30",
+    "soft_rom_policy": "clamp after explicit semantic source-to-target solve",
+    "ground_correction": {
+      "algorithm": "minimum upward per-frame collider correction",
+      "maximum_micrometres": 250000
+    },
+    "contact_thresholds": {
+      "sole_height_micrometres": 45000,
+      "sole_speed_micrometres_per_second": 350000,
+      "recovery_height_micrometres": 55000,
+      "recovery_speed_micrometres_per_second": 600000
+    },
+    "loop_pose_max_microradians": 200000,
+    "loop_velocity_max_microradians_per_second": 800000,
+    "mirror_rule": "BodySchema symmetry pairs plus sagittal X reflection"
+  },
+  "source_files": [
+    {"path": "05/05.asf", "sha256": "bbdd4ba5c6807a5c036ebd2e4e23028c6097d36f557cb30a3f49d158aad07aa1"},
+    {"path": "05/05_01.amc", "sha256": "f8eb4d873cd81bf421dbeefc0aa6b47b8911d20d0f08d9d41076ea1ac211b37c"},
+    {"path": "16/16.asf", "sha256": "2323f876564610f84bfbec9b90b8ebffb57515673b7f4a45b0fb0849af465bdb"},
+    {"path": "16/16_15.amc", "sha256": "0873a7753a04c34de2a94dc768b61ef4ed8395f0bd351c2019864b16883b0f89"},
+    {"path": "16/16_16.amc", "sha256": "b8ec17da1da966b886215e5c4974d29d63beefd72a68139134e2863cce0a6316"},
+    {"path": "16/16_23.amc", "sha256": "5a507229b86417f86a4668db7fd13c080d275f26d1f8bd7a2aeccaba30719c70"},
+    {"path": "16/16_25.amc", "sha256": "7f376e892063add7d24d2349d6edfbea79f419ed778b0ad333ef7db1358aa50c"},
+    {"path": "16/16_33.amc", "sha256": "03644f38e30d839a005334a6358f97093da05a65da53a73a51bd8136c5cd63ea"},
+    {"path": "16/16_34.amc", "sha256": "645fc8001e07298a594ce4d92ed01e7837131fbfbfa95fe93dda73894b28043f"},
+    {"path": "85/85.asf", "sha256": "baf7ed2e729de47debd95de51e651a18c9e3dd345cbaf1c29b9edf8d7646d5f6"},
+    {"path": "85/85_15.amc", "sha256": "8f92140bd1f6f3c9175eaefa61aa1d0dd87cb58685561743198fba900c5802ef"},
+    {"path": "104/104.asf", "sha256": "89cbe32f72f93c1fd71df364d2dd7a15a6738b19f20bf3858d211bf9460c0c0b"},
+    {"path": "104/104_14.amc", "sha256": "d093e7c5cecfd0ce7dc3c971a0a0e8720cf0c8314efef7f73384f571bf6f27ba"},
+    {"path": "139/139.asf", "sha256": "c72f244092c214c2c4fd496d214a20ec7bb58dbb626458dda2a2b953a465ae85"},
+    {"path": "139/139_02.amc", "sha256": "110a27cb2c1d1c5b051b10b3a7db204db3699e27302e23cf444205dccc41634a"},
+    {"path": "139/139_16.amc", "sha256": "bf180d1aac4e01ea519ba29b4bd65a318e7cfa4c687f346f1cd19bb78b80d33b"},
+    {"path": "139/139_18.amc", "sha256": "682d1f0fee576c3237cb27a7b0d226aa92b9af03b2988f6633f1927a7ff96ab0"},
+    {"path": "139/139_28.amc", "sha256": "b999c1e7d3bd7fe4eb3d123bccd35effb73dcb29fa5fcef4665daac1889a2393"},
+    {"path": "140/140.asf", "sha256": "13d3c7488671d3902c0ea7faa672e1c79465c034c050de88668ace164e519a37"},
+    {"path": "140/140_01.amc", "sha256": "35f699e9f25acc67fc0aac2779f2031c53107345d776dfbd514b0e7f65e55cc6"},
+    {"path": "140/140_03.amc", "sha256": "84072adc179aafe389d8d5dd6d936ce212cef7e496e8938045f5127be97743d8"},
+    {"path": "140/140_06.amc", "sha256": "c3964ee9fc83bf1c92de5f0f413e47cf5fe50569774541b9615b60ffffbb30f9"},
+    {"path": "140/140_08.amc", "sha256": "afaafee69db963a51059e324355d089e95d48f71117cd44e4304d68bf1a4dbf8"}
+  ],
+  "clips": [
+    {"clip_id": "cmu140-idle", "subject": "140", "trial": "06", "description": "Idle", "skill": "neutral_idle", "partition": "locomotion", "split": "train", "split_group_id": "cmu-subject-140-trial-06", "source_first_frame": 1, "source_last_frame": 1200, "loop": false},
+    {"clip_id": "cmu104-start-right", "subject": "104", "trial": "14", "description": "HappyStartWalk", "skill": "start_right_lead", "partition": "locomotion", "split": "train", "split_group_id": "cmu-subject-104-trial-14", "source_first_frame": 1, "source_last_frame": 360, "loop": false, "derive_mirror_as": "cmu104-start-left"},
+    {"clip_id": "cmu16-walk-nominal-a", "subject": "16", "trial": "15", "description": "walk", "skill": "walk_nominal_forward", "partition": "locomotion", "split": "train", "split_group_id": "cmu-subject-16-trial-15", "source_first_frame": 1, "source_last_frame": 471, "loop": false},
+    {"clip_id": "cmu16-walk-nominal-b", "subject": "16", "trial": "16", "description": "walk", "skill": "walk_nominal_forward", "partition": "locomotion", "split": "train", "split_group_id": "cmu-subject-16-trial-16", "source_first_frame": 1, "source_last_frame": 510, "loop": false},
+    {"clip_id": "cmu16-walk-slow", "subject": "16", "trial": "33", "description": "slow walk segment", "skill": "walk_slow_forward", "partition": "locomotion", "split": "train", "split_group_id": "cmu-subject-16-trial-33", "source_first_frame": 1, "source_last_frame": 160, "loop": false},
+    {"clip_id": "cmu16-stop-left", "subject": "16", "trial": "33", "description": "slow walk, stop", "skill": "stop_left_support", "partition": "locomotion", "split": "train", "split_group_id": "cmu-subject-16-trial-33", "source_first_frame": 1, "source_last_frame": 285, "loop": false},
+    {"clip_id": "cmu16-stop-right", "subject": "16", "trial": "34", "description": "slow walk, stop", "skill": "stop_right_support", "partition": "locomotion", "split": "train", "split_group_id": "cmu-subject-16-trial-34", "source_first_frame": 1, "source_last_frame": 347, "loop": false},
+    {"clip_id": "cmu16-turn-left", "subject": "16", "trial": "23", "description": "walk, veer left", "skill": "turn_gradual_left", "partition": "locomotion", "split": "train", "split_group_id": "cmu-subject-16-trial-23", "source_first_frame": 1, "source_last_frame": 299, "loop": false},
+    {"clip_id": "cmu16-turn-right", "subject": "16", "trial": "25", "description": "walk, veer right", "skill": "turn_gradual_right", "partition": "locomotion", "split": "train", "split_group_id": "cmu-subject-16-trial-25", "source_first_frame": 1, "source_last_frame": 284, "loop": false},
+    {"clip_id": "cmu85-brace-fall-right", "subject": "85", "trial": "15", "description": "bounded fall from 90TwistsFall", "skill": "brace_safe_fall_right", "partition": "recovery", "split": "train", "split_group_id": "cmu-subject-85-trial-15", "source_first_frame": 800, "source_last_frame": 1070, "loop": false, "derive_mirror_as": "cmu85-brace-fall-left"},
+    {"clip_id": "cmu140-getup-prone", "subject": "140", "trial": "01", "description": "Get Up Face Down", "skill": "getup_prone", "partition": "recovery", "split": "train", "split_group_id": "cmu-subject-140-trial-01", "source_first_frame": 1, "source_last_frame": 830, "loop": false},
+    {"clip_id": "cmu140-getup-supine", "subject": "140", "trial": "08", "description": "Get Up From Ground Laying on Back", "skill": "getup_supine", "partition": "recovery", "split": "train", "split_group_id": "cmu-subject-140-trial-08", "source_first_frame": 1, "source_last_frame": 898, "loop": false},
+    {"clip_id": "cmu140-getup-side-left", "subject": "140", "trial": "03", "description": "Get Up Laying on Side", "skill": "getup_side_left", "partition": "recovery", "split": "train", "split_group_id": "cmu-subject-140-trial-03", "source_first_frame": 1, "source_last_frame": 1023, "loop": false, "derive_mirror_as": "cmu140-getup-side-right"},
+    {"clip_id": "cmu140-side-transition-left", "subject": "140", "trial": "03", "description": "side-to-prone/supine transition", "skill": "side_transition_left", "partition": "recovery", "split": "train", "split_group_id": "cmu-subject-140-trial-03", "source_first_frame": 1, "source_last_frame": 410, "loop": false, "derive_mirror_as": "cmu140-side-transition-right"},
+    {"clip_id": "cmu05-walk-validation", "subject": "05", "trial": "01", "description": "walk", "skill": "walk_nominal_forward", "partition": "locomotion", "split": "validation", "split_group_id": "cmu-subject-05-trial-01", "source_first_frame": 1, "source_last_frame": 598, "loop": false},
+    {"clip_id": "cmu139-weight-shift-heldout", "subject": "139", "trial": "02", "description": "Shifting Weight", "skill": "weight_shift", "partition": "locomotion", "split": "heldout", "split_group_id": "cmu-subject-139-trial-02", "source_first_frame": 1, "source_last_frame": 937, "loop": false},
+    {"clip_id": "cmu139-walk-heldout", "subject": "139", "trial": "28", "description": "Walking", "skill": "walk_nominal_forward", "partition": "locomotion", "split": "heldout", "split_group_id": "cmu-subject-139-trial-28", "source_first_frame": 1, "source_last_frame": 600, "loop": false},
+    {"clip_id": "cmu139-getup-prone-heldout", "subject": "139", "trial": "16", "description": "Get Up From Ground", "skill": "getup_prone", "partition": "recovery", "split": "heldout", "split_group_id": "cmu-subject-139-trial-16", "source_first_frame": 1, "source_last_frame": 653, "loop": false},
+    {"clip_id": "cmu139-getup-supine-heldout", "subject": "139", "trial": "18", "description": "Get Up From Ground Laying on Back", "skill": "getup_supine", "partition": "recovery", "split": "heldout", "split_group_id": "cmu-subject-139-trial-18", "source_first_frame": 1, "source_last_frame": 854, "loop": false}
+  ]
+}
