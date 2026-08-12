@@ -97,6 +97,7 @@ class ReferencePpoPerformanceTests(unittest.TestCase):
         self.assertEqual(environment.steps, 2)
         self.assertEqual(environment.reset_ordinals, [0, 1])
         self.assertEqual(result["episode_matrix"], "fixed-vector-waves-v1")
+        self.assertEqual(result["hard_rom_action_channel_counts"], {})
         self.assertEqual(result["selection_results"]["clip:0"]["episodes"], 2)
         self.assertEqual(result["selection_results"]["clip:1"]["episodes"], 2)
 

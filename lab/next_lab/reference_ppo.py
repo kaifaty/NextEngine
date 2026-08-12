@@ -290,6 +290,7 @@ class TinyReferencePpoTrainer:
         maximum_hard_rom_excess_microradians = 0
         maximum_hard_rom_action_channel = -1
         maximum_hard_rom_selection = ""
+        hard_rom_action_channel_counts: dict[str, int] = {}
         forbidden_contact_mask_counts: dict[str, int] = {}
         executed_motor_steps = 0
         maximum_motor_steps = max(episodes, evaluation_num_envs) * (
@@ -427,12 +428,18 @@ class TinyReferencePpoTrainer:
                         failure_reason_counts[reason] += occurred
                         selection["failure_reason_counts"][reason] += occurred
                     hard_rom_excess = int(hard_rom_excess_value)
+                    hard_rom_channel = int(hard_rom_channel_value)
+                    if hard_rom and hard_rom_channel >= 0:
+                        channel_key = str(hard_rom_channel)
+                        hard_rom_action_channel_counts[channel_key] = (
+                            hard_rom_action_channel_counts.get(channel_key, 0) + 1
+                        )
                     if (
                         hard_rom
                         and hard_rom_excess > maximum_hard_rom_excess_microradians
                     ):
                         maximum_hard_rom_excess_microradians = hard_rom_excess
-                        maximum_hard_rom_action_channel = int(hard_rom_channel_value)
+                        maximum_hard_rom_action_channel = hard_rom_channel
                         maximum_hard_rom_selection = selection_id
                     contact_mask = int(contact_mask_value)
                     if forbidden_contact and contact_mask:
@@ -476,6 +483,9 @@ class TinyReferencePpoTrainer:
             "maximum_hard_rom_excess_microradians": maximum_hard_rom_excess_microradians,
             "maximum_hard_rom_action_channel": maximum_hard_rom_action_channel,
             "maximum_hard_rom_selection": maximum_hard_rom_selection,
+            "hard_rom_action_channel_counts": dict(
+                sorted(hard_rom_action_channel_counts.items())
+            ),
             "forbidden_contact_mask_counts": dict(
                 sorted(forbidden_contact_mask_counts.items())
             ),
