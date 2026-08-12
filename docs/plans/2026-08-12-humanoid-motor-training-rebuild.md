@@ -7,6 +7,7 @@
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
 | Архитектурная опора | SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34, SPEC-35, ADR-027, ADR-030, ADR-046, ADR-053, ADR-058, ADR-059, ADR-064..068 |
+| Требования candidate | [Humanoid motor requirements baseline](2026-08-12-humanoid-motor-requirements.md) |
 
 Нормативные источники для реализации:
 
@@ -49,7 +50,7 @@ engine-owned biomechanical BodySchema
   → reference-conditioned command locomotion
   → separate brace/fall/recovery/get-up route
   → optional motion prior and specialist distillation
-  → portable immutable actor and final production-headless evaluation
+  → portable immutable candidate bundle and final production-headless evaluation
 ```
 
 PPO остаётся optimizer для closed-loop tracking, task fine-tuning и
@@ -61,7 +62,9 @@ robustness. Он больше не отвечает за одновременн�
 заранее зафиксированный disposition `Skipped(NotNeededForCandidate)` и
 `TRAIN-9` использует immutable passing candidate из `TRAIN-7`. Создание новой
 BodySchema, запуск trainer или наличие checkpoint сами по себе не закрывают ни
-одну стадию.
+одну стадию. Functional, quality, safety, portability and claim thresholds
+задаются связанным requirements baseline; этот документ не подменяет их
+описанием training steps.
 
 ## Решение по старой линии
 
@@ -109,15 +112,14 @@ compatibility со старыми model artifacts.
 - reference tracking, command locomotion, perturbation/recovery;
 - fixed 60 Hz actor / 240 Hz physics and engine-owned fixed PD/safety;
 - external training store, reproducible manifests, evaluation и portable
-  immutable export.
+  immutable candidate bundle export.
 
 Не входит:
 
 - сохранение качества или совместимости старых pure-PPO policies;
 - direct torque, learned/adaptive PD gains или muscle activation;
 - graph policy, arbitrary topology или cross-family transfer;
-- weapons, manipulation, parkour, terrain beyond the explicitly staged
-  locomotion set;
+- weapons, manipulation, parkour и любой non-flat terrain;
 - runtime training, hot swapping или изменение model weights в active session;
 - natural language, video/depth input или LLM в physical runtime;
 - обязательное продвижение learned route в v1: procedural/animation fallback
@@ -239,6 +241,8 @@ Requirement: Required | OptionalSelected | Skipped(NotNeededForCandidate)
 Каждый gate report содержит:
 
 - gate ID и implementation commit;
+- requirements-baseline revision/hash и disposition каждого применимого
+  `REQ-HUM-*`;
 - BodySchema/compiled descriptor/environment/dataset/config hashes;
 - exact commands, seed set и episode counts;
 - passed/failed/not-run checks;
@@ -286,7 +290,7 @@ count: confidence interval не превращает наблюдаемое на
 | `TRAIN-6` | start/stop/velocity/facing locomotion проходит gates | perturbation/recovery |
 | `TRAIN-7` | brace/fall/get-up/resume route проходит gates | motion prior/multi-skill |
 | `TRAIN-8` | optional prior/distilled actor не ухудшает базовые skills либо stage заранее skipped | export; при skip используется TRAIN-7 candidate |
-| `TRAIN-9` | portable actor совпадает с runtime и проходит headless suite | candidate publication |
+| `TRAIN-9` | portable candidate bundle совпадает с runtime и проходит headless suite | candidate publication |
 
 ## TRAIN-0 — retirement/isolation старого эксперимента и чистая generation
 
@@ -359,6 +363,12 @@ recoverable до публикации новой generation.
 - self-collision exclusions only for declared adjacent pairs;
 - foot support area and sole contact features;
 - allowed support/manipulation roles.
+
+Profile реализует один exact anthropometric target по
+`REQ-HUM-BODY-001..007`: authored standing height, total mass, proportions and
+source/derivation provenance являются blocking inputs, а не значениями,
+которые выбирает trainer. До freeze также заполняются exact per-joint and
+per-contact hard bounds, на которые ссылаются candidate safety/impact gates.
 
 Начальный fixed humanoid может оставаться цепочкой revolute hinges. Hip,
 shoulder и spine multi-axis motion представляются несколькими hinges с
@@ -541,7 +551,9 @@ The first admitted corpus contains only motions needed by the next two stages:
 - stop from left and right support phase;
 - gradual left/right turn;
 - brace and safe fall;
-- prone and supine get-up.
+- prone and supine get-up;
+- left/right side-to-prone-or-supine transitions для обязательных side reset
+  classes.
 
 Fast walk/run, backward, strafe, crouch and terrain motions are later corpus
 revisions and cannot silently appear in the first evaluation split.
@@ -790,7 +802,8 @@ tuning is enabled only with a retention suite over all `TRAIN-5` clips.
 
 ### Evaluation matrix
 
-Evaluate each cell separately, never only aggregate episode length:
+Evaluate each cell from the exact operating envelope and command grid in the
+requirements baseline separately, never only aggregate episode length:
 
 - idle;
 - start-left/start-right;
@@ -820,6 +833,9 @@ confidence/non-inferiority rule фиксируются до acceptance run.
   pre-registered non-inferiority margin;
 - no command change causes action target or actuator safety violation;
 - visual review accepts both left/right leads and every transition class.
+
+Start latency, stop settling/overshoot, slip, energy and facing-tail results
+must satisfy `REQ-HUM-Q-008..011` and `REQ-HUM-Q-015`, not merely be reported.
 
 ### Failure/rollback
 
@@ -866,6 +882,11 @@ Recovery training uses dedicated specialist data and reset distributions:
 - intermediate reference states from brace/get-up clips;
 - contact-rich hand/knee support permitted only by recovery phase.
 
+Exact push direction/magnitude/command cells, four fallen reset classes and
+time bounds come from requirements sections 3.3 and 6.1. A side reset either
+uses its admitted side transition to prone/supine or fails; it cannot jump to
+an unobserved get-up phase.
+
 Perturbation, friction/mass/load and latency randomization starts narrow and is
 expanded only after nominal get-up passes. It is fully manifest-bound.
 
@@ -878,13 +899,16 @@ protocol по каждой reset/push class и aggregate; evaluation seeds не
 - at least 95% of declared recoverable pushes return to stable locomotion
   without forbidden locomotion contact after recovery handoff;
 - at least 90% of held-out prone/supine/side resets reach `Stabilize` within
-  the declared time bound;
+  `6.0 s`;
 - at least 90% resume the prior bounded command after get-up;
 - no recovery pose exceeds hard ROM/effort/velocity/contact-impact bounds;
 - locomotion never silently reclassifies sustained hand/knee support as success;
 - route/contact/action/state roots replay exactly;
 - visual review accepts brace direction, limb motion, get-up posture and
   transition back to walking.
+
+The declared bounds are `6.0 s` to `Stabilize` and `2.0 s` from `Stabilize` to
+the resumed command band, per `REQ-HUM-Q-013..014`.
 
 ### Failure/rollback
 
@@ -945,8 +969,9 @@ distillation.
 
 ### Export
 
-1. Export a fixed-shape standard-op graph with explicit state if any.
-2. Reopen and validate exact model bytes and capability closure.
+1. Export every selected actor as a fixed-shape standard-op graph with explicit
+   state if any, plus the deterministic engine-owned route manifest.
+2. Reopen and validate exact model bytes, route manifest and capability closure.
 3. Bind BodySchema, compiled descriptor, observation/action/state,
    normalization, safety, PD, dataset, training config and fallback hashes.
 4. Compare trainer → exported evaluator → Windows/Linux runtime over one
@@ -961,7 +986,7 @@ distillation.
 - flat locomotion survival at least 99% over the declared held-out suite;
 - velocity RMSE at most `0.20 m/s` and facing error at most `7°`;
 - all `TRAIN-5..7` contact, transition, fall/get-up and retention thresholds
-  pass on the portable actor;
+  pass on the portable candidate routes;
 - canonical applied action and complete policy state are exact across trainer
   decode, exported evaluator and supported runtime targets;
 - no NaN/Inf, safety violation, hidden evaluator state or runtime motion-corpus
@@ -970,6 +995,11 @@ distillation.
   schema, state and evaluator fault;
 - inference latency/memory stay within the declared motor profile;
 - final human visual review passes a fixed seed/command/perturbation playlist.
+
+Final publication claim is limited to section 1.1 of the requirements
+baseline. Terrain/R5/`Supported`/full `MOTOR-HUMANOID-MVP-P1` cannot be inferred
+from this gate. Multi-specialist and distilled-single-actor candidates run the
+same final suite; exactly one route supplies the complete action on each tick.
 
 ### Failure/rollback
 
@@ -1093,9 +1123,11 @@ The rebuilt process is complete when:
    held-out, safety and visual gates;
 5. optional prior/distillation, if selected, passes full retention; otherwise
    TRAIN-8 records `Skipped(NotNeededForCandidate)` before TRAIN-9;
-6. the portable immutable actor reproduces canonical actions/state and final
-   quality in production `headless`;
+6. the portable immutable candidate bundle reproduces canonical actions/state
+   and final quality in production `headless` on Windows and Linux;
 7. every failure has a bounded reproducer/decision and no heavy failed payload
    remains without an explicit temporary reason;
 8. runtime retains a declared procedural/animation/ragdoll fallback and never
-   depends on trainer, dataset or mutable weights.
+   depends on trainer, dataset or mutable weights;
+9. every mandatory requirement in the linked baseline has an evidence-backed
+   `Pass`, and publication makes no terrain/R5/`Supported` claim.
