@@ -108,15 +108,27 @@ class ReferencePpoPerformanceTests(unittest.TestCase):
             num_envs=1_024,
             minibatches=8,
             learning_rate=0.0006,
+            evaluation_num_envs=64,
         )
         self.assertEqual(resolved["execution"]["num_envs"], 1_024)
         self.assertEqual(resolved["ppo"]["minibatches"], 8)
+        self.assertEqual(resolved["evaluation"]["num_envs"], 64)
+        self.assertEqual(
+            resolved["evaluation"]["episode_matrix"], "fixed-vector-waves-v1"
+        )
+        self.assertTrue(
+            resolved["execution"]["reset_episode_sequence_before_training"]
+        )
         self.assertEqual(overrides["num_envs"], {"source": 64, "resolved": 1_024})
         with self.assertRaisesRegex(ValueError, "between 1 and 4096"):
             resolve_performance_overrides(profile.document, num_envs=4_097)
         with self.assertRaisesRegex(ValueError, "divide evenly"):
             resolve_performance_overrides(
                 profile.document, num_envs=65, minibatches=3
+            )
+        with self.assertRaisesRegex(ValueError, "must fit"):
+            resolve_performance_overrides(
+                profile.document, num_envs=256, evaluation_num_envs=257
             )
 
     def test_selection_episode_matrix_hash_ignores_results_but_not_sampling(self) -> None:

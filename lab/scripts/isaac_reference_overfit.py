@@ -37,6 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--performance-num-envs", type=int)
     parser.add_argument("--performance-minibatches", type=int)
     parser.add_argument("--performance-learning-rate", type=float)
+    parser.add_argument("--performance-evaluation-num-envs", type=int)
     AppLauncher.add_app_launcher_args(parser)
     return parser.parse_args()
 
@@ -75,6 +76,7 @@ def main() -> None:
             args.performance_num_envs,
             args.performance_minibatches,
             args.performance_learning_rate,
+            args.performance_evaluation_num_envs,
         )
     )
     if requested_performance_override and not args.performance_evidence:
@@ -85,6 +87,7 @@ def main() -> None:
         num_envs=args.performance_num_envs,
         minibatches=args.performance_minibatches,
         learning_rate=args.performance_learning_rate,
+        evaluation_num_envs=args.performance_evaluation_num_envs,
     )
     execution = dict(document["execution"])
     ppo = dict(document["ppo"])
@@ -131,6 +134,7 @@ def main() -> None:
         resolved_config.update(
             {
                 "resolved_ppo": ppo,
+                "resolved_evaluation": document["evaluation"],
                 "performance_overrides": resolved_overrides,
             }
         )
@@ -160,6 +164,7 @@ def main() -> None:
     }
     if resolved_overrides:
         manifest["resolved_ppo"] = ppo
+        manifest["resolved_evaluation"] = document["evaluation"]
         manifest["performance_overrides"] = resolved_overrides
     _write_json(manifest_path, manifest)
     os.environ["NEXTENGINE_HUMANOID_USD"] = str(args.usd.resolve())

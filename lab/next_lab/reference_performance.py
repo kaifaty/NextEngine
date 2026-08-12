@@ -22,12 +22,14 @@ def resolve_performance_overrides(
     num_envs: int | None = None,
     minibatches: int | None = None,
     learning_rate: float | None = None,
-) -> tuple[dict[str, Any], dict[str, dict[str, int | float]]]:
+    evaluation_num_envs: int | None = None,
+) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     """Resolve bounded report-only sweep values without changing profile identity."""
     document = dict(profile)
     execution = dict(document["execution"])
     ppo = dict(document["ppo"])
-    overrides: dict[str, dict[str, int | float]] = {}
+    evaluation = dict(document["evaluation"])
+    overrides: dict[str, dict[str, Any]] = {}
 
     def replace(
         target: dict[str, Any], name: str, value: int | float | None
@@ -56,6 +58,26 @@ def resolve_performance_overrides(
     replace(execution, "num_envs", num_envs)
     replace(ppo, "minibatches", minibatches)
     replace(ppo, "learning_rate", learning_rate)
+    if evaluation_num_envs is not None:
+        if not 0 < evaluation_num_envs <= int(execution["num_envs"]):
+            raise ValueError(
+                "performance evaluation cohort must fit the resolved environment"
+            )
+        overrides["evaluation_num_envs"] = {
+            "source": evaluation.get("num_envs", profile["execution"]["num_envs"]),
+            "resolved": evaluation_num_envs,
+        }
+        overrides["evaluation_episode_matrix"] = {
+            "source": evaluation.get("episode_matrix", "completion-order-v1"),
+            "resolved": "fixed-vector-waves-v1",
+        }
+        overrides["reset_episode_sequence_before_training"] = {
+            "source": execution.get("reset_episode_sequence_before_training", False),
+            "resolved": True,
+        }
+        evaluation["num_envs"] = evaluation_num_envs
+        evaluation["episode_matrix"] = "fixed-vector-waves-v1"
+        execution["reset_episode_sequence_before_training"] = True
     batch_size = int(execution["num_envs"]) * int(
         execution["rollout_steps_per_env"]
     )
@@ -63,6 +85,7 @@ def resolve_performance_overrides(
         raise ValueError("resolved rollout batch must divide evenly into minibatches")
     document["execution"] = execution
     document["ppo"] = ppo
+    document["evaluation"] = evaluation
     return document, overrides
 
 
