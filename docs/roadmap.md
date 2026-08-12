@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-12 |
-| Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; performance workloads остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. R5 R&D substrate содержит три current CPU profiles: immutable standing V1, immutable flat-command V1 и curriculum V2, плюс motor-lab v2, NPZ v2 recorder and Isaac mirror. Это разрешает bounded experiments, но не является trained policy, Stage 0 completion или R5 closure. Текущий WIP=1 сознательно перенесён на [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): сначала compatibility closure и TRAIN-0/1, затем biomechanics → motion tracking → command locomotion → recovery → export. R4a остаётся следующим подготовленным world-system increment, но пока не активен. B-12, GPU correspondence, Linux/cross-target evidence, R1/R7 и v1 shipping не закрыты. |
+| Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; performance workloads остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. R5 R&D substrate содержит три current CPU profiles: immutable standing V1, immutable flat-command V1 и curriculum V2, плюс motor-lab v2, NPZ v2 recorder and Isaac mirror. V1 compatibility/hash closure исправлена; это разрешает bounded experiments, но не является trained policy, Stage 0 completion или R5 closure. Текущий WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0/1 isolation + biomechanics, затем articulation/safety → motion tracking → command locomotion → recovery → export. TRAIN-8 optional и не блокирует TRAIN-9 при заранее зафиксированном skip. R4a остаётся следующим подготовленным world-system increment, но пока не активен. B-12, GPU correspondence, Linux/cross-target evidence, R1/R7 и v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-0/1; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -129,7 +129,7 @@ animation и reusable systemic quest conditions относятся к R3–R5.
 | World/streaming | R3 bounded partition реализован: exact pinned generation, 4 regions/64 chunks, manifest-driven role/route selection, packaged fetch/decode/validate, paired Runtime/World commit и restart из `Requested` | Нет partition interest/residency/eviction, calendar, population, schedules и region transfers; это R4/future scope, не gap закрытого R3. |
 | Jobs/resources | R3 использует private bounded workers (default 2, max 4), immutable revision-bound request/result и channel 64; generic subsystem не принят | Shared scheduler/resource contract появляется только при доказанной второй production потребности; SPEC-23 остаётся Proposed. |
 | Physics | PhysX 5.9.0 является единственным production backend; upright capsule, static Box, exact B0 `ClosestPoint`, reduced articulation и fixed-humanoid scene/restore path реализованы | Не закрыты полный cutover/platform/replay matrix, general gameplay shape/query breadth и Windows/Linux Stage 0 evidence. |
-| Animation/motor | Procedural projection, deterministic 23-DoF standing motor, immutable standing/flat-command V1 and current curriculum V2 CPU environments реализованы: engine command schedule, fixed PD/safety, 240/60 scheduling, partial reset, terminal lifecycle, checkpoint/replay, motor-lab v2 и внешний NPZ v2 recorder. Isaac mirror v2 имеет Rust golden and correspondence gates. Active WIP follows TRAIN-0…TRAIN-9 from a new biomechanics/motion generation while preserving V1 identities. | Нет admitted motion corpus, specialist reference tracker, trained command/recovery actor, portable runtime evaluator, skeleton graph, retargeting, IK, выполненного Isaac GPU correspondence и полного Windows/Linux performance/parity evidence. Stage 0, learned quality and R5 remain open. |
+| Animation/motor | Procedural projection, deterministic 23-DoF standing motor, immutable standing/flat-command V1 and current curriculum V2 CPU environments реализованы: engine command schedule, fixed PD/safety, 240/60 scheduling, partial reset, terminal lifecycle, checkpoint/replay, motor-lab v2 и внешний NPZ v2 recorder. Isaac mirror v2 имеет Rust golden and correspondence gates. Active WIP follows required TRAIN-0…7 + TRAIN-9 from a new biomechanics/motion generation while preserving V1 identities; TRAIN-8 is optional. | Нет admitted motion corpus, specialist reference tracker, trained command/recovery actor, portable runtime evaluator, skeleton graph, retargeting, IK, выполненного Isaac GPU correspondence и полного Windows/Linux performance/parity evidence. Stage 0, learned quality and R5 remain open. |
 | Agent AI | Частично: один canonical affordance planner; ADR-056 принял deterministic Strategic Agent direction | Нет perception, beliefs/memory, needs/goals, bounded GOAP, task executive, structured social behavior и 100-NPC workload. SPEC-32 остаётся Proposed до R4c/R4d consumers; SPEC-33/34 и ADR-050/053/054 — optional R8 research. |
 | Navigation/audio | Частично: полный baseline audio vertical (A1–A6 `DONE_LOCAL_WINDOWS`) — neutral clip contract, audio scene extraction, software mixer + canonical PCM sink, SDL device adapter, subtitle fallback, `audio_scene` в v1-closure | Gaps: chunked long-clip streaming payload, zone reverb fallback (zone occlusion gain есть), navigation cooker и baseline nav adapters. |
 | Player experience | Keyboard/mouse и generic controller используют одинаковые action IDs с keyboard fallback; persisted targeting, third-person camera, semantic HUD/inventory/journal/dialogue/pause flow, localization, subtitles и preferences проходят automated Windows checks. HUD получил цветовой health meter, objective и отдельный presentation-only next-action panel, который выводится из immutable RPG snapshot для accept/pickup/equip/combat/relay/return/complete; Save показывает `Saved`, а Load оставляет восстановленный world на паузе с `Loaded - press Resume`. | Worker-to-desktop regression покрывает quest accept, explicit Save, визуально различимое изменение, sequence-zero Load cut, Load confirmation, продолжение новой epoch после явного Resume и реальное authoritative WASD movement с exact загруженной input-context revision. Свежий 20–30-minute run зафиксирован как `PASS`. Accessibility profiles и capability-scoped extension panels остаются вне R2 gate. |
@@ -695,20 +695,23 @@ push/recovery и readiness claim остаются вне этого checkpoint.
 [TRAIN-0…TRAIN-9 plan](plans/2026-08-12-humanoid-motor-training-rebuild.md).
 Ближайшая последовательность ограничена так:
 
-1. сохранить standing/flat-command V1 BodySchema and manifest identities,
-   закрыть curriculum reward/translator hashes and exact mirror goldens;
-2. TRAIN-0 изолирует старую pure-PPO artifact line во внешнем training store;
+1. standing/flat-command V1 BodySchema and manifest identities сохранены,
+   curriculum reward/translator hashes and exact mirror goldens закрыты;
+2. TRAIN-0 исключает старую pure-PPO artifact line из active
+   selection/resume, сохраняя bounded historical evidence;
 3. TRAIN-1 задаёт новую engine-owned biomechanics specification and distinct
    BodySchema/environment generation;
 4. TRAIN-2/3 доказывают articulation, contacts, safety and terminal semantics
    без ML;
 5. только после этого допускаются corpus/retarget, reference tracking,
-   command locomotion, recovery and portable export.
+   command locomotion, recovery and portable export; optional TRAIN-8 либо
+   проходит retention gate, либо заранее skipped в пользу TRAIN-7 candidate.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
-его exact report; destructive TRAIN-0 cleanup выполняется только по exact
-external manifests and resolved paths.
+его exact report. TRAIN-0 требует isolation from active identity/selection, а
+не физического удаления evidence; optional heavy-byte purge выполняется только
+по exact external manifests/resolved paths и с отдельным разрешением.
 
 **Optional learned integration scope:**
 
@@ -753,8 +756,8 @@ adaptation, adaptive gains, direct-torque research route или full articulatio
 procedural R5 closure не зависит от learned profile или proposed toolchain.
 
 **Основные источники:** SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34,
-SPEC-35, ADR-013, ADR-027, ADR-032, ADR-053, ADR-058, ADR-059, ADR-062,
-ADR-063, ADR-066.
+SPEC-35, ADR-013, ADR-027, ADR-030, ADR-032, ADR-046, ADR-053, ADR-058,
+ADR-059, ADR-062..068.
 
 ## R6 — Creator beta and SDK
 
@@ -960,7 +963,7 @@ deterministic procedural motor через тот же PhysX path.
 | B-05 | `DEFERRED / NOT_CURRENT_BLOCKER`: публично поддерживаемого persisted v1 predecessor ещё нет | — | После объявления первого public v1 и появления реального successor определить минимальный compatibility/export/migration path и copy-on-write fault check. Alpha legacy не мигрируется. |
 | B-06 | `CLOSED`: production project содержит 4 regions/64 chunks и проходит canonical packaged load/unload, save в `Requested`, process restart, exact pinned reactivation и completion с uninterrupted root. | — | Закрыт 2026-08-09 по focused Assets/Project/World/Runtime/Verification tests и ProductCheck. Generic scheduler, placement catalog, residency и eviction framework не вводились и не требовались. |
 | B-07 | Нет calendar/population/navigation services | R4 | World owner segment, schedules/tiers and graph navigation baseline проходят systemic scenario. |
-| B-08 | Full production physical-character path не закрыт: текущий fixed-humanoid substrate не имеет admitted motion/retarget corpus, trained command/recovery actor, runtime animation/IK integration или полностью проверенного procedural fallback | R5 | V1 physical profile and procedural animation/motor fallback проходят physical ProductChecks; learned route дополнительно проходит TRAIN-0…TRAIN-9, но не подменяет обязательный fallback. |
+| B-08 | Full production physical-character path не закрыт: текущий fixed-humanoid substrate не имеет admitted motion/retarget corpus, trained command/recovery actor, runtime animation/IK integration или полностью проверенного procedural fallback | R5 | V1 physical profile and procedural animation/motor fallback проходят physical ProductChecks; learned route дополнительно проходит required TRAIN-0…7 + TRAIN-9, а TRAIN-8 только если selected, но не подменяет обязательный fallback. |
 | B-09 | Нет external creator CLI/SDK workflow | R6, R7 | Второй project/package создаётся cleanly только public tools/contracts. |
 | B-10 | `PERMANENT_SCOPE_GATE`: content scope может расти быстрее playable loop; blocker не закрывается одноразово. | Все этапы | На каждом package один representative scenario и явный non-goal list; новая подсистема допускается только по требованию scenario. |
 | B-11 | `CONTENT_COMPLETE / SOLO_OWNER`: единственный owner — solo maintainer; отдельная staffing/ownership matrix не создаётся. Alpha package содержит engine-owned assets/audio/text, acceptance docs, CC0 source/hash/license provenance и NOTICE и проходит `content-package`/package smoke. Будущие creator examples относятся к R6/B-09, а не к staffing gate. | R2, R6, R7 | Содержательно закрыт для alpha package; поддерживать provenance/NOTICE в том же public package по мере дальнейших content changes. |
@@ -1429,9 +1432,9 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 6. **R3b bounded general partition (`COMPLETE`):** ровно 4 regions/64 chunks,
    canonical packaged route и restart из `Requested`; B-06 закрыт без generic
    scheduler, placement catalog или alpha migration obligation.
-7. **R5 humanoid movement TRAIN-0/1 (`ACTIVE_R&D / CURRENT WIP`):** preserve
-   exact V1 identities, close curriculum/mirror hashes, isolate the retired
-   pure-PPO artifact line by exact external manifests and publish the new
+7. **R5 humanoid movement TRAIN-0/1 (`ACTIVE_R&D / CURRENT WIP`):** exact V1
+   identity/hash closure уже исправлена; теперь isolate the retired pure-PPO
+   line from active selection by exact external manifests and publish the new
    biomechanics specification plus distinct BodySchema/environment generation.
    No training quality, Stage 0 or R5 completion is claimed at this boundary.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote

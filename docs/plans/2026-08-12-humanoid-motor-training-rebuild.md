@@ -2,11 +2,11 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | Draft implementation plan |
+| Статус | Reviewed draft implementation plan; все TRAIN gates `NotRun` |
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
-| Архитектурная опора | SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34, SPEC-35, ADR-027, ADR-053, ADR-058, ADR-059, ADR-066 |
+| Архитектурная опора | SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34, SPEC-35, ADR-027, ADR-030, ADR-046, ADR-053, ADR-058, ADR-059, ADR-064..068 |
 
 Нормативные источники для реализации:
 
@@ -18,11 +18,23 @@
 - [SPEC-34 — training environments and trajectory lifecycle](../architecture/34-model-training-environments-trajectories-and-consolidation-lifecycle.md);
 - [SPEC-35 — deterministic humanoid training substrate](../architecture/35-deterministic-humanoid-training-substrate.md);
 - [ADR-027 — physics/motor/animation layering](../architecture/adr/027-physics-motor-and-animation-layering.md),
+  [ADR-030 — product-first workflow and ProductChecks](../architecture/adr/030-product-first-development-and-lightweight-validation.md),
+  [ADR-046 — consumer-driven current-only contracts](../architecture/adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md),
   [ADR-053 — immutable artifact boundary](../architecture/adr/053-engine-native-model-training-and-immutable-artifact-boundary.md),
   [ADR-058 — PhysX training substrate](../architecture/adr/058-physx-only-deterministic-humanoid-training-substrate.md),
   [ADR-059 — continuation reconstruction](../architecture/adr/059-event-sourced-physx-continuation-reconstruction.md) and
-  [ADR-066 — contact-centric motor architecture](../architecture/adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md);
+  [ADR-064 — flat-command environment](../architecture/adr/064-canonical-flat-command-locomotion-environment.md),
+  [ADR-065 — curriculum profile](../architecture/adr/065-curriculum-flat-command-locomotion-profile.md),
+  [ADR-066 — contact-centric motor architecture](../architecture/adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md),
+  [ADR-067 — profile identity/hash closure](../architecture/adr/067-stage0-profile-identity-and-curriculum-hash-closure.md) and
+  [ADR-068 — morphology cache/action chunk closure](../architecture/adr/068-static-morphology-cache-and-action-chunk-field-closure.md);
 - [current roadmap and ProductCheck status](../roadmap.md).
+
+SPEC-34 and ADR-053 remain `Proposed`: this plan may use them as an experiment
+shape, but does not promote their schemas or lifecycle to a shipped/default
+contract. Accepted SPEC-35 and ADR-064..068 govern the current bounded
+substrate. Any new public/current reference-tracking, recovery or export
+semantics require a consumer-backed ADR/SPEC update before implementation.
 
 ## Цель
 
@@ -44,33 +56,42 @@ PPO остаётся optimizer для closed-loop tracking, task fine-tuning и
 robustness. Он больше не отвечает за одновременное изобретение анатомии,
 походки, переходов, баланса и recovery с нуля.
 
-План считается завершённым только после прохождения `TRAIN-9`. Создание новой
+План считается завершённым после прохождения required `TRAIN-0..7` и
+`TRAIN-9`. Optional `TRAIN-8` либо проходит собственный gate, либо получает
+заранее зафиксированный disposition `Skipped(NotNeededForCandidate)` и
+`TRAIN-9` использует immutable passing candidate из `TRAIN-7`. Создание новой
 BodySchema, запуск trainer или наличие checkpoint сами по себе не закрывают ни
 одну стадию.
 
 ## Решение по старой линии
 
-Pure-PPO checkpoints, optimizer state, replay buffers, run directories,
-TensorBoard logs, evaluation captures и экспортированные модели, созданные для
-старого одинаково ограниченного 23-DoF тела, не являются входом, baseline или
-rollback нового процесса.
+Pure-PPO checkpoints, optimizer state, replay buffers и экспортированные
+модели старого одинаково ограниченного 23-DoF тела не являются resume/import
+input или rollback нового процесса. При этом immutable V1 profile identities и
+bounded historical manifests/metrics остаются comparison and failure-analysis
+evidence; их сохранение не делает старую policy active baseline нового
+candidate.
 
-Перед первым новым training run выполняется cleanup:
+Перед первым новым training run старая линия исключается из active path:
 
 1. по внешним run manifests определяется полный список артефактов старых
    `isaac-rsl-rl-*` экспериментов и их производных;
 2. exact paths проверяются read-only;
-3. run/checkpoint/evaluation/capture payloads удаляются из внешнего training
-   store;
-4. active launch presets перестают выбирать старые standing/flat-command pure-
-   PPO experiment profiles;
-5. новый training generation имеет отдельный корень и новый BodySchema hash;
-6. поиск по active config/run indexes подтверждает отсутствие ссылки на старую
+3. active indexes, default launch presets and resume selectors перестают
+   выбирать старые pure-PPO run/model/checkpoint identities; immutable V1
+   environment/profile IDs не удаляются и не меняются;
+4. сохраняются bounded manifests, hashes, metrics и минимальные repro records,
+   необходимые для provenance and failure comparison;
+5. heavy checkpoints/logs/captures могут быть удалены только после triage, по
+   exact validated paths и с отдельным явным разрешением на destructive purge;
+6. новый training generation имеет отдельный корень и новый BodySchema hash;
+7. поиск по active config/run indexes подтверждает отсутствие ссылки на старую
    модель или checkpoint.
 
 Удаление не распространяется на Git history, принятые ADR/SPEC и engine tests.
 Они не участвуют в inference или training selection и остаются историей
-решений/регрессий. Retire или supersede Accepted profile semantics можно только
+решений/регрессий. Физическое удаление historical payloads не является gate
+condition. Retire или supersede Accepted profile semantics можно только
 отдельным ADR. Новый pipeline, однако, не обязан сохранять executable backward
 compatibility со старыми model artifacts.
 
@@ -133,6 +154,33 @@ compatibility со старыми model artifacts.
 environment/training generation; значение `1.095 m` или любая другая правка
 анатомии не может быть записана поверх V1.
 
+## Reproducibility classes and trainer continuation
+
+План различает три уровня доказательств:
+
+1. canonical CPU environment, descriptor, reset, checkpoint and replay roots
+   должны быть byte-exact в принятом deterministic profile;
+2. Isaac correspondence сравнивается по exact fields и заранее объявленным
+   per-field numeric tolerances, без общего неявного epsilon;
+3. stochastic GPU optimization является statistical reproducibility class, а
+   не обещанием byte-identical model weights между machines/runs.
+
+Каждый training/evaluation manifest фиксирует master seed и независимо
+выведенные именованные streams как минимум для environment/reset, domain
+randomization, policy sampling, worker assignment, minibatch shuffle and
+evaluation. Worker/rank/order permutation не может менять identity эпизода или
+seed stream; изменение derivation создаёт новый training-config hash.
+
+Resume checkpoint включает actor, critic, optimizer, schedulers, observation
+normalization, action-distribution state, curriculum position, sample/update
+counters, named RNG states and sampler/minibatch position. Resume разрешён
+только на объявленной optimizer-update boundary. GPU kernel/autotune/provider
+state остаётся tool fingerprint, а не скрытым checkpoint state; поэтому
+byte-exact GPU optimizer continuation не заявляется без отдельного passing
+gate. Final candidate identity определяется immutable actor bytes и заново
+выполненной deterministic held-out evaluation, а не утверждением, что trainer
+повторит те же weights побитно.
+
 ## Артефактная политика новой линии
 
 Новый внешний корень:
@@ -174,6 +222,16 @@ QualityChecks:  NotRun | Pass | Fail
 VisualReview:   NotRun | Pass | Fail | NotApplicable
 ```
 
+Кроме них gate имеет requirement disposition:
+
+```text
+Requirement: Required | OptionalSelected | Skipped(NotNeededForCandidate)
+```
+
+`Skipped` допустим только для `TRAIN-8`, фиксируется после passing `TRAIN-7`
+до начала `TRAIN-9` и указывает точный `TRAIN-7` candidate. Он не означает
+`Pass` и не может скрывать начатый или провалившийся prior/distillation run.
+
 Следующая стадия может начаться только при `Implementation=Complete`,
 `ExactChecks=Pass`, required `QualityChecks=Pass` и required
 `VisualReview=Pass`. Git commit является checkpoint кода, а не gate result.
@@ -189,11 +247,37 @@ VisualReview:   NotRun | Pass | Fail | NotApplicable
 - ссылки только на существующие external artifacts;
 - решение `Advance`, `FixInStage`, `InvalidateDownstream` или `StopLane`.
 
+## Statistical acceptance protocol
+
+До первого acceptance run для `TRAIN-5..9` immutable evaluation manifest
+обязан зафиксировать:
+
+- candidate-selection rule и evaluation mode; production motor использует
+  deterministic mean action, без exploration noise;
+- disjoint train/validation/held-out seed sets и полный набор evaluation
+  matrix cells;
+- минимум training seeds, episodes per seed/cell and total sample budget,
+  выбранные pilot variance/power analysis, а не после просмотра результата;
+- estimator, confidence level/interval and rule, по которому percentage,
+  error and non-inferiority thresholds дают `Pass`;
+- baseline candidate/hash, practical non-inferiority margin and effect-size
+  report для сравнений;
+- обработку timeout/truncation, missing/crashed seed and partial episode как
+  failure/reportable fact, без исключения неудобных samples;
+- все per-seed/per-cell results, mean, dispersion, confidence interval,
+  median/range and sample-efficiency curve at declared budgets.
+
+Exploratory runs могут быть дешевле, но не дают gate result. Один seed, лучший
+checkpoint среди незаявленных evaluation points или point estimate без
+предварительно выбранного sample count/confidence rule не может продвинуть
+candidate. Hard safety condition `exactly 0` применяется также к raw event
+count: confidence interval не превращает наблюдаемое нарушение в success.
+
 ## Сводка стадий
 
 | Gate | Результат | Training разрешён после gate |
 |---|---|---|
-| `TRAIN-0` | старая artifact line удалена и изолирована | нет |
+| `TRAIN-0` | старая artifact line исключена из active selection/resume | нет |
 | `TRAIN-1` | принята exact biomechanics specification | нет |
 | `TRAIN-2` | BodySchema компилируется в корректную PhysX articulation | нет |
 | `TRAIN-3` | safety/contact/terminal semantics работают без ML | нет |
@@ -201,24 +285,29 @@ VisualReview:   NotRun | Pass | Fail | NotApplicable
 | `TRAIN-5` | specialist reference tracker проходит held-out clips | command fine-tuning |
 | `TRAIN-6` | start/stop/velocity/facing locomotion проходит gates | perturbation/recovery |
 | `TRAIN-7` | brace/fall/get-up/resume route проходит gates | motion prior/multi-skill |
-| `TRAIN-8` | optional prior/distilled actor не ухудшает базовые skills | export |
+| `TRAIN-8` | optional prior/distilled actor не ухудшает базовые skills либо stage заранее skipped | export; при skip используется TRAIN-7 candidate |
 | `TRAIN-9` | portable actor совпадает с runtime и проходит headless suite | candidate publication |
 
-## TRAIN-0 — закрытие старого эксперимента и чистая generation
+## TRAIN-0 — retirement/isolation старого эксперимента и чистая generation
 
 ### Реализация
 
 1. Инвентаризировать external run roots по manifest/config/BodySchema hash.
-2. Составить exact deletion list без glob по broad workspace root.
-3. Удалить payloads старой линии и пустые run indexes.
+2. Составить exact artifact inventory без glob по broad workspace root.
+3. Удалить ссылки старой линии из active indexes/default selection/resume
+   closure; historical records пометить `Retired`.
 4. Создать новый внешний generation root.
 5. Ввести один active `training_generation_id` и запрет resume/import старых
    BodySchema/environment hashes.
-6. Удалить старые experiment presets из default launch/view commands. Старый
-   профиль может оставаться доступен только из explicit historical test path,
-   пока Accepted architecture не superseded.
+6. Удалить старые model/checkpoint experiment presets из default launch/view
+   commands. Standing/flat-command V1 environment profiles остаются current
+   comparison/test contracts с неизменными identities, пока Accepted
+   architecture не superseded.
 7. Добавить preflight, который fail-closed при старом model/checkpoint/config
    input.
+8. После bounded evidence extraction отдельно сформировать optional exact purge
+   list для heavy bytes. Его выполнение не входит в gate и требует явного
+   destructive authorization.
 
 ### Exit criteria
 
@@ -226,19 +315,22 @@ VisualReview:   NotRun | Pass | Fail | NotApplicable
 - old checkpoint переданный новому launcher получает stable incompatible-
   generation diagnostic до simulator creation;
 - новый run root пуст и содержит только generation manifest;
-- disk scan по exact inventoried paths подтверждает удаление payloads;
+- active config/run/resume scan подтверждает отсутствие selectable old
+  payloads, а retained historical inventory остаётся readable and hash-bound;
 - source tree и ignored external store не смешиваются.
 
 ### Failure/rollback
 
 Не выполнять recursive deletion по unresolved path, glob, `$HOME` или
-workspace root. При неоднозначном manifest deletion останавливается до exact
-target resolution. Rollback старой model line отсутствует: неуспех cleanup
-блокирует новый training, но не восстанавливает старые checkpoints.
+workspace root. TRAIN-0 по умолчанию изменяет selection/identity metadata, а не
+стирает historical evidence. При неоднозначном manifest isolation или optional
+purge операция останавливается до exact target resolution. Rollback старой
+model line как active input отсутствует; metadata isolation должна быть
+recoverable до публикации новой generation.
 
 ### Commit boundary
 
-`chore(training): start clean humanoid motion generation`
+`chore(training): isolate retired humanoid experiment generation`
 
 ## TRAIN-1 — biomechanics specification
 
@@ -293,7 +385,9 @@ filter schema вводятся только если текущий accepted con
   asymmetric-without-declaration cases;
 - an independent anatomy review records `Pass` for spine, knees, elbows,
   ankles, hips and shoulders;
-- the accepted table and its canonical hash are frozen before compiler work.
+- the gate-reviewed profile table and its canonical hash are frozen before
+  compiler work. Это не меняет architecture status: current/public semantics
+  требуют отдельного Accepted ADR/SPEC change.
 
 ### Failure/rollback
 
@@ -451,6 +545,9 @@ The first admitted corpus contains only motions needed by the next two stages:
 
 Fast walk/run, backward, strafe, crouch and terrain motions are later corpus
 revisions and cannot silently appear in the first evaluation split.
+Nominal locomotion clips feed `TRAIN-5/6`; brace/fall/get-up clips remain a
+separate recovery partition for `TRAIN-7` and cannot make nominal tracker
+metrics easier.
 
 ### Admission
 
@@ -461,7 +558,9 @@ For each source record capture:
 - consent where own capture includes identifiable people;
 - source skeleton/coordinate/rate profile;
 - conversion and cleanup tool hashes;
-- permitted train/validation/held-out assignment.
+- permitted train/validation/held-out assignment;
+- `split_group_id`, объединяющий одного source performer/session/original clip
+  со всеми cropped, cleaned, retimed and mirrored derivatives.
 
 Unknown, noncommercial-only, no-derivatives or otherwise incompatible input is
 excluded before conversion. Source and retargeted bytes remain external.
@@ -503,7 +602,9 @@ profile. Framework tensors and source filesystem paths do not enter it.
 
 - all corpus entries have compatible rights and complete provenance;
 - deterministic re-import produces identical retargeted hashes;
-- train/validation/held-out splits are frozen by clip/actor/source identity;
+- train/validation/held-out splits are frozen by `split_group_id`; original,
+  mirrored and otherwise derived siblings никогда не пересекают split, а
+  held-out source/performer/clip family не использовался для training;
 - 100% admitted clips pass anatomy, penetration, contact and phase checks;
 - a generated kinematic preview is visually accepted before policy training.
 
@@ -538,6 +639,50 @@ bounded reference horizon. Reference features are root/CoM, joint or keypoint,
 effector and contact targets in declared frames. Actor output remains only the
 bounded per-joint residual target from `TRAIN-3`.
 
+### Locked PPO/GAE profile
+
+Первый optimizer остаётся PPO with GAE. Его config hash связывает не только
+learning rate, но и:
+
+- actor/critic topology and parameter sharing, initialization and optimizer;
+- rollout horizon, batch/minibatch size, epoch/sample reuse and shuffle rule;
+- discount, GAE lambda, terminated-vs-truncated bootstrap semantics;
+- advantage/return and observation normalization scope, epsilon and frozen
+  evaluation statistics;
+- clipped policy/value objectives, entropy/value coefficients, gradient clip,
+  target KL/early-stop and learning-rate schedule;
+- Gaussian mean/log-std parameterization, log-std bounds, sampling mode and
+  exact action transform.
+
+Policy density и PPO ratio соответствуют фактическому transformed action:
+если residual использует squashed Gaussian, `tanh` Jacobian входит в log-prob.
+Нельзя вычислить log-prob для одного action, а затем скрыто заменить его
+environment clamp. Trajectory записывает sampled pre-safety proposal, его
+log-prob и canonical applied action после engine safety; deterministic
+evaluation использует transformed mean без sampling noise.
+
+`terminated` не bootstraps value; declared time-limit `truncated` bootstraps из
+следующего valid observation. Critic может читать только явно перечисленные и
+hash-bound training facts. Любой privileged critic input остаётся training-only,
+не попадает в actor/export/replay authority и не может менять environment
+state. Required diagnostics: episodic/task metrics, policy/value losses,
+explained variance, approximate KL, clip fraction, entropy/action std,
+gradient norm, clamp incidence, NaN/Inf and sample-efficiency curve.
+
+До full run выполняется pre-acceptance sanity ladder:
+
+1. random action, zero residual and scripted/reference-following baselines
+   подтверждают reset/action/reward/termination wiring;
+2. reward-component distribution and scale измерены отдельно; constant,
+   non-finite, dominating or wrong-sign component блокирует training;
+3. tiny deterministic batch reproduцируется, затем одна phase/clip намеренно
+   overfit до ожидаемого поведения;
+4. только после этого запускаются curriculum and multi-seed experiments.
+
+Если sanity ladder не проходит, сначала исправляются environment,
+observation/action, reward or reset semantics. Смена PPO на более сложный
+algorithm не является диагностикой wiring failure.
+
 Initial optimization order:
 
 1. idle/weight shift;
@@ -564,7 +709,8 @@ Python coefficient.
 
 ### Preliminary quality gate
 
-On held-out phases and held-out clips of every admitted locomotion class:
+On disjoint held-out phases and held-out clips of every admitted nominal
+locomotion class, under the common statistical acceptance protocol:
 
 - full-reference completion at least 95%;
 - forbidden locomotion contact rate exactly 0;
@@ -610,11 +756,17 @@ forbidden.
 ```text
 velocity/facing command
   → deterministic skill/phase selector
-  → idle/start/walk/stop/turn reference or bounded chunk
+  → idle/start/walk/stop/turn bounded reference horizon
   → closed-loop residual tracker
   → fixed safety + PD
   → Physics
 ```
+
+Direct bounded reference conditioning is the fixed-humanoid baseline. A
+`PhysicalActionChunkV1` consumer is introduced here only after a
+consumer-backed ADR/profile fixes its exact fields, cadence and hash closure;
+TRAIN-6 does not require the not-yet-consumed chunk path to learn command
+locomotion.
 
 The controller is not asked to jump directly from idle reference to arbitrary
 2 m/s velocity. Command profiles are promoted in order:
@@ -654,6 +806,10 @@ latency, stop overshoot, support/contact timing, foot slip, impact, energy,
 joint/action clamp incidence and visual result.
 
 ### Exit criteria
+
+Все percentage/error/retention claims применяются per cell and aggregate under
+the common statistical acceptance protocol; exact episode counts and
+confidence/non-inferiority rule фиксируются до acceptance run.
 
 - every required matrix cell completes at least 95% of held-out episodes;
 - aggregate flat fall rate is at most 1%;
@@ -697,6 +853,10 @@ Locomotion
 
 Transitions depend only on canonical orientation, root/CoM, contact, support,
 joint safety and skill state. Renderer/wall time cannot choose the route.
+Если этот graph, phase/contact contract или policy state становится
+public/current production semantic, до его реализации нужен consumer-backed
+ADR/SPEC update с точными replay/persistence/hash rules. Private trainer state
+не может молча стать runtime authority.
 
 Recovery training uses dedicated specialist data and reset distributions:
 
@@ -710,6 +870,10 @@ Perturbation, friction/mass/load and latency randomization starts narrow and is
 expanded only after nominal get-up passes. It is fully manifest-bound.
 
 ### Exit criteria
+
+Percentage and time-bound claims проходят общий statistical acceptance
+protocol по каждой reset/push class и aggregate; evaluation seeds не
+используются для curriculum or candidate selection.
 
 - at least 95% of declared recoverable pushes return to stable locomotion
   without forbidden locomotion contact after recovery handoff;
@@ -739,6 +903,13 @@ handoff is fixed.
 
 This stage is optional for the first useful locomotion candidate. It begins
 only after `TRAIN-5..7` pass without a prior.
+
+До первого TRAIN-8 experiment принимается одно из двух immutable решений:
+
+- `OptionalSelected`: фиксируются hypothesis, baseline, budget and retention
+  protocol, после чего failure нельзя переименовать в skip;
+- `Skipped(NotNeededForCandidate)`: passing TRAIN-7 candidate напрямую идёт в
+  TRAIN-9, а prior/distillation не входит в candidate lineage.
 
 Candidate work:
 
@@ -903,8 +1074,8 @@ cannot publish a later-stage contract or start training before its dependency
 gate passes.
 
 The first executable increment after this plan is `TRAIN-0`, then `TRAIN-1`.
-No new PPO run is authorized before `TRAIN-4`. No command locomotion run is
-authorized before the reference tracker passes `TRAIN-5`.
+No new PPO run is authorized before `TRAIN-4` passes. No command locomotion run
+is authorized before the reference tracker passes `TRAIN-5`.
 
 Roadmap status changes only after material implementation/check results. This
 planning document alone does not close R5, B-08, B-12, Stage 0, GPU
@@ -914,13 +1085,14 @@ correspondence, Linux parity or any learned-policy ProductCheck.
 
 The rebuilt process is complete when:
 
-1. old model/run artifacts are absent from active and external retained
-   training storage;
+1. old model/run artifacts are absent from active selection, resume and import
+   closure, while retained historical evidence is inventoried and hash-bound;
 2. the new BodySchema passes anatomy/compiler/contact/safety gates without ML;
 3. an admitted reproducible motion corpus drives deterministic retargeting;
 4. specialist tracking, command locomotion and recovery each pass independent
    held-out, safety and visual gates;
-5. optional prior/distillation, if used, passes full retention;
+5. optional prior/distillation, if selected, passes full retention; otherwise
+   TRAIN-8 records `Skipped(NotNeededForCandidate)` before TRAIN-9;
 6. the portable immutable actor reproduces canonical actions/state and final
    quality in production `headless`;
 7. every failure has a bounded reproducer/decision and no heavy failed payload
