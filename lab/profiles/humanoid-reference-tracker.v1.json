@@ -65,6 +65,26 @@
       "reference_velocities": "reference world velocities rotated by inverse current root rotation",
       "phase": "stored source phase_u16 integer"
     },
+    "joint_state_order": [
+      "joint.left-hip-pitch", "joint.left-hip-roll", "joint.left-hip-yaw",
+      "joint.left-knee", "joint.left-ankle-pitch", "joint.left-ankle-roll",
+      "joint.right-hip-pitch", "joint.right-hip-roll", "joint.right-hip-yaw",
+      "joint.right-knee", "joint.right-ankle-pitch", "joint.right-ankle-roll",
+      "joint.torso-pitch", "joint.torso-roll", "joint.torso-yaw",
+      "joint.left-shoulder-pitch", "joint.left-shoulder-roll",
+      "joint.left-shoulder-yaw", "joint.left-elbow",
+      "joint.right-shoulder-pitch", "joint.right-shoulder-roll",
+      "joint.right-shoulder-yaw", "joint.right-elbow"
+    ],
+    "reference_effector_order": [
+      "effector.left-forefoot", "effector.left-heel", "effector.left-palm",
+      "effector.right-forefoot", "effector.right-heel", "effector.right-palm"
+    ],
+    "contact_order": [
+      "contact.left-sole", "contact.right-sole", "contact.left-palm",
+      "contact.right-palm", "contact.left-knee", "contact.right-knee",
+      "contact.body"
+    ],
     "dynamic_channels": {
       "root_rotation_xyzw_q1_30": 4,
       "root_local_linear_velocity_micrometres_per_second": 3,
@@ -94,6 +114,21 @@
     "representation": "signed Q1.30 normalized residual",
     "minimum_raw": -1073741824,
     "maximum_raw": 1073741824,
+    "ordered_actuator_ids": [
+      "actuator.left-ankle-pitch", "actuator.left-ankle-roll", "actuator.left-elbow",
+      "actuator.left-hip-pitch", "actuator.left-hip-roll", "actuator.left-hip-yaw",
+      "actuator.left-knee", "actuator.left-shoulder-pitch",
+      "actuator.left-shoulder-roll", "actuator.left-shoulder-yaw",
+      "actuator.right-ankle-pitch", "actuator.right-ankle-roll",
+      "actuator.right-elbow", "actuator.right-hip-pitch", "actuator.right-hip-roll",
+      "actuator.right-hip-yaw", "actuator.right-knee",
+      "actuator.right-shoulder-pitch", "actuator.right-shoulder-roll",
+      "actuator.right-shoulder-yaw", "actuator.torso-pitch",
+      "actuator.torso-roll", "actuator.torso-yaw"
+    ],
+    "reference_joint_dof_ordinal_by_action_channel": [
+      4, 5, 18, 0, 1, 2, 3, 15, 16, 17, 10, 11, 22, 6, 7, 8, 9, 19, 20, 21, 12, 13, 14
+    ],
     "application": "reference target plus actuator-owned residual scale, then engine safety and fixed PD"
   },
   "reward": {

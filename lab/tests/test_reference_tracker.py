@@ -33,6 +33,22 @@ class ReferenceTrackerTests(unittest.TestCase):
         self.assertEqual(projection["horizon_offsets_motor_ticks"], [0, 4, 8, 16])
         self.assertEqual(projection["reset_mode_weights_basis_points"], [7000, 2000, 1000, 0])
         self.assertEqual(len(projection["reward_profile_hash"]), 64)
+        action = profile.document["action"]
+        joints = profile.document["observation"]["joint_state_order"]
+        self.assertEqual(
+            sorted(action["reference_joint_dof_ordinal_by_action_channel"]),
+            list(range(ACTION_CHANNELS)),
+        )
+        self.assertEqual(
+            [
+                joints[dof].removeprefix("joint.")
+                for dof in action["reference_joint_dof_ordinal_by_action_channel"]
+            ],
+            [
+                actuator.removeprefix("actuator.")
+                for actuator in action["ordered_actuator_ids"]
+            ],
+        )
 
     def test_named_seed_is_repeatable_and_purpose_separated(self) -> None:
         run_root = bytes(range(32))

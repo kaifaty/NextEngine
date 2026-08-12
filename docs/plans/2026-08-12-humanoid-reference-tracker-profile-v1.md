@@ -10,7 +10,7 @@
 | Safety/contact profile | `ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c` |
 | Corpus manifest | `0f1ce147051b41c7380b566844aecb69612fd501466d1848bd9137d755581df5` |
 | Canonical JSON | `lab/profiles/humanoid-reference-tracker.v1.json` |
-| Canonical JSON SHA-256 | `f11e1698a81a64a2bc897319d889c6dda3a2ef20314eaa655cb14061d1aa0576` |
+| Canonical JSON SHA-256 | `50f52b63bcf6b5a2b0c4201f1754a4d457b897b8d894a5c5bf68458f97e769f1` |
 
 V1 is the smallest tracker profile that can consume the admitted locomotion
 partition without introducing command selection, recovery, a runtime
@@ -33,6 +33,12 @@ The actor and critic both receive 435 ordered integer channels. Keeping the
 first critic unprivileged removes a hidden-information variable from the sanity
 ladder. A later privileged critic requires a new profile hash and explicit
 training-only channel list.
+
+The profile explicitly lists the 23 observation/reference joints in DoF order,
+the six effectors, seven contact flags and 23 action actuators. Because action
+channels use canonical actuator-ID order while reference joints use DoF order,
+the frozen `reference_joint_dof_ordinal_by_action_channel` permutation is the
+only admitted conversion between them.
 
 Reward emphasizes joint pose, root/effector/contact agreement, with smaller
 velocity terms and low energy/smoothness costs. The tenfold terminal-failure

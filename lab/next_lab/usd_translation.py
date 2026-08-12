@@ -225,6 +225,7 @@ def _biomechanics_collider_lines(
         raise ValueError(f"unsupported collider geometry: {kind}")
     translation = _metres(collider["local_translation_micrometres"])
     rotation = _isaac_quaternion_from_q1_30(collider["local_rotation_q1_30"])
+    scale_order = ', "xformOp:scale"' if kind == "box" else ""
     output = [
         f"{indent}{header} (",
         f'{indent}    prepend apiSchemas = ["PhysicsCollisionAPI"]',
@@ -236,7 +237,7 @@ def _biomechanics_collider_lines(
         [
             f"{indent}    double3 xformOp:translate = ({_triplet(translation)})",
             f"{indent}    quatf xformOp:orient = {_quaternion(principal=rotation)}",
-            f'{indent}    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"{", \"xformOp:scale\"" if kind == "box" else ""}]',
+            f'{indent}    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"{scale_order}]',
             f'{indent}    custom string nextengine:semanticId = "{collider["collider_id"]}"',
             f"{indent}    custom uint64 nextengine:shapeToken = {collider['shape_token']}",
             f"{indent}    custom int nextengine:contactRole = {collider['contact_role']}",

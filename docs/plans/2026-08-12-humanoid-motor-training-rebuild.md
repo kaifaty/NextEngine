@@ -16,7 +16,7 @@
 | TRAIN-4 motion corpus profile | [Humanoid motion corpus profile V1](2026-08-12-humanoid-motion-corpus-profile-v1.md) |
 | TRAIN-4 motion corpus profile SHA-256 | `2f35f835ea58d91ca37c0060014f112bc2773dc169548738ed2fa5464837bdec` |
 | TRAIN-5 reference tracker profile | [Humanoid reference tracker profile V1](2026-08-12-humanoid-reference-tracker-profile-v1.md) |
-| TRAIN-5 reference tracker profile SHA-256 | `f11e1698a81a64a2bc897319d889c6dda3a2ef20314eaa655cb14061d1aa0576` |
+| TRAIN-5 reference tracker profile SHA-256 | `50f52b63bcf6b5a2b0c4201f1754a4d457b897b8d894a5c5bf68458f97e769f1` |
 
 Нормативные источники для реализации:
 
@@ -746,7 +746,7 @@ Decision: `Advance` только для `TRAIN-5` specialist locomotion tracker;
 
 Execution input is frozen by [ADR-070](../architecture/adr/070-biomechanics-reference-tracking-training-environment.md)
 and `lab/profiles/humanoid-reference-tracker.v1.json` with SHA-256
-`f11e1698a81a64a2bc897319d889c6dda3a2ef20314eaa655cb14061d1aa0576`.
+`50f52b63bcf6b5a2b0c4201f1754a4d457b897b8d894a5c5bf68458f97e769f1`.
 This freezes environment semantics but is not evidence that the sanity ladder
 or training has passed.
 
@@ -812,12 +812,12 @@ algorithm не является диагностикой wiring failure.
 
 Текущий pre-acceptance result не является gate `TRAIN-5`: input/reward audit
 SHA-256
-`b76fcf1d9ce8ef0b7df2c5d35a2c6b115a7c458c1f8a4a90fcb1898f6d0d1489`
+`ccb6e3e78c76846dd3714258e09f102a69335879264625c3ee268816ecb00b5a`
 проверил 84 observation/perfect-reward, 84 phase-offset, 84 cost и 84 terminal
 fixtures. Все девять tracking-компонентов меняются на corpus probes; максимум
 одного positive component равен `2857` basis points от positive scale при
 блокирующем пороге `5000`. Native PhysX matrix SHA-256
-`eaa3c81b3cf120318d3cf62f4aff587fac7f56a5a31f113958f9820a5ab6c9a6`
+`dc56b411c8ada67afbe8dddc1215bd4eda8c0fa55c581ad01d9c81a7b221c7ab`
 содержит девять optimizer-free baselines: zero-residual idle завершил reference,
 а слабые dynamic/random baselines достигли заявленных tracking/contact/safety
 terminal branches. Решение разрешает только следующий tiny deterministic

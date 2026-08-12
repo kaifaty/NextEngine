@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 
 
 PROFILE_ID = "nextengine.motor.env.humanoid-reference-tracker.v1"
-PROFILE_SHA256 = "f11e1698a81a64a2bc897319d889c6dda3a2ef20314eaa655cb14061d1aa0576"
+PROFILE_SHA256 = "50f52b63bcf6b5a2b0c4201f1754a4d457b897b8d894a5c5bf68458f97e769f1"
 SAFETY_CONTACT_PROFILE_SHA256 = "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c"
 CORPUS_MANIFEST_ID = "nextengine.private-motion-corpus-manifest.v1"
 OBSERVATION_CHANNELS = 435
@@ -133,6 +133,9 @@ class ReferenceTrackerProfile:
         ):
             raise ReferenceTrackerError("unsupported reset profile")
         observation = document["observation"]
+        joint_order = observation["joint_state_order"]
+        effector_order = observation["reference_effector_order"]
+        contact_order = observation["contact_order"]
         dynamic_count = sum(int(value) for value in observation["dynamic_channels"].values())
         reference_count = sum(
             int(value) for value in observation["reference_channels_per_sample"].values()
@@ -149,13 +152,29 @@ class ReferenceTrackerProfile:
             or observation["actor_channel_count"] != OBSERVATION_CHANNELS
             or observation["critic_channel_count"] != OBSERVATION_CHANNELS
             or observation["critic_privileged_channels"]
+            or len(joint_order) != ACTION_CHANNELS
+            or len(set(joint_order)) != ACTION_CHANNELS
+            or len(effector_order) != 6
+            or len(set(effector_order)) != 6
+            or len(contact_order) != 7
+            or len(set(contact_order)) != 7
         ):
             raise ReferenceTrackerError("reference observation layout mismatch")
         action = document["action"]
+        actuator_order = action["ordered_actuator_ids"]
+        action_to_dof = action["reference_joint_dof_ordinal_by_action_channel"]
         if (
             action["channel_count"] != ACTION_CHANNELS
             or action["minimum_raw"] != -(1 << 30)
             or action["maximum_raw"] != 1 << 30
+            or len(actuator_order) != ACTION_CHANNELS
+            or len(set(actuator_order)) != ACTION_CHANNELS
+            or sorted(action_to_dof) != list(range(ACTION_CHANNELS))
+            or any(
+                actuator_id.removeprefix("actuator.")
+                != joint_order[dof].removeprefix("joint.")
+                for actuator_id, dof in zip(actuator_order, action_to_dof, strict=True)
+            )
         ):
             raise ReferenceTrackerError("reference action layout mismatch")
         component_ids = [component["id"] for component in document["reward"]["components"]]
@@ -241,6 +260,17 @@ class DescriptorLimits:
             raise ReferenceTrackerError("compiled joint ordinals are not closed")
         if [int(item["dof_ordinal"]) for item in actuators] != list(range(ACTION_CHANNELS)):
             raise ReferenceTrackerError("compiled actuator ordinals are not closed")
+        if [item["joint_id"] for item in joints] != profile.document["observation"][
+            "joint_state_order"
+        ]:
+            raise ReferenceTrackerError("compiled joint order does not match the profile")
+        actuator_by_id = {item["actuator_id"]: item for item in document["actuators"]}
+        action = profile.document["action"]
+        if set(actuator_by_id) != set(action["ordered_actuator_ids"]) or [
+            int(actuator_by_id[actuator_id]["dof_ordinal"])
+            for actuator_id in action["ordered_actuator_ids"]
+        ] != action["reference_joint_dof_ordinal_by_action_channel"]:
+            raise ReferenceTrackerError("compiled actuator order does not match the profile")
         soft_spans = np.asarray(
             [int(joint["soft_limit_microradians"][1]) - int(joint["soft_limit_microradians"][0]) for joint in joints],
             dtype=np.int64,
@@ -425,9 +455,10 @@ class ReferenceCorpus:
             or metadata["profile_sha256"] != expected["corpus"]["profile_sha256"]
             or metadata["target_descriptor_sha256"]
             != expected["body_schema"]["descriptor_file_sha256"]
-            or len(metadata["joint_ids"]) != ACTION_CHANNELS
-            or len(metadata["effector_ids"]) != 6
-            or len(metadata["contact_ids"]) != 7
+            or metadata["joint_ids"] != expected["observation"]["joint_state_order"]
+            or metadata["effector_ids"]
+            != expected["observation"]["reference_effector_order"]
+            or metadata["contact_ids"] != expected["observation"]["contact_order"]
         ):
             raise ReferenceTrackerError(f"motion corpus clip metadata mismatch: {clip_id}")
         clip = ReferenceClip(
