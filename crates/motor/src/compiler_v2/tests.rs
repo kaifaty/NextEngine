@@ -189,6 +189,28 @@ fn declaration_permutation_preserves_descriptor_and_isaac_authority() {
 }
 
 #[test]
+fn worker_subject_permutation_preserves_compiler_and_backend_roots() {
+    let schema = biomechanics_humanoid_body_schema_v2();
+    let expected = CompiledBodySchemaV2::compile(&schema, PersistentId::from_bytes([0; 16]))
+        .expect("reference worker compile");
+    for worker in [7_u8, 3, 11, 0] {
+        let actual = CompiledBodySchemaV2::compile(&schema, PersistentId::from_bytes([worker; 16]))
+            .expect("worker compile");
+        assert_eq!(actual.body_schema_hash, expected.body_schema_hash);
+        assert_eq!(
+            actual.compiled_descriptor_hash,
+            expected.compiled_descriptor_hash
+        );
+        assert_eq!(actual.construction_order, expected.construction_order);
+        assert_eq!(actual.body_tokens, expected.body_tokens);
+        assert_eq!(actual.collider_tokens, expected.collider_tokens);
+        assert_eq!(actual.joint_dof_ordinals, expected.joint_dof_ordinals);
+        assert_eq!(actual.actuator_dof_ordinals, expected.actuator_dof_ordinals);
+        assert_eq!(actual.physx_catalog, expected.physx_catalog);
+    }
+}
+
+#[test]
 #[cfg(any(feature = "physx-sdk", feature = "mock-abi"))]
 fn frozen_biomechanics_profile_builds_a_fresh_native_articulation() {
     use next_physics_physx::PhysXArticulationWorldV2;
