@@ -2,10 +2,10 @@
 
 | Field | Value |
 |---|---|
-| Status | Frozen candidate-local input for `TRAIN-3` |
+| Status | Revalidated candidate-local input for `TRAIN-3` after BodySchema revision 2 |
 | Candidate | `HumanoidFlatRecoveryCandidateV1` |
-| BodySchema | `nextengine.body.humanoid-biomechanics-raja-1700.v2@1` |
-| BodySchema hash | `eb5b75e9376bec8cd38cedfe015e16dd31dcb693b70217ec35b89467d88900ff` |
+| BodySchema | `nextengine.body.humanoid-biomechanics-raja-1700.v2@2` |
+| BodySchema hash | `e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d` |
 | Physics / motor cadence | `240 Hz / 60 Hz`, exactly four physics substeps per motor tick |
 | Scope | Flat locomotion, brace/fall and get-up classification before any ML run |
 

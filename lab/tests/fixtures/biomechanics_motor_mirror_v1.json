@@ -2235,9 +2235,9 @@
     }
   ],
   "body_count": 24,
-  "body_schema_hash": "eb5b75e9376bec8cd38cedfe015e16dd31dcb693b70217ec35b89467d88900ff",
+  "body_schema_hash": "e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d",
   "body_schema_id": "nextengine.body.humanoid-biomechanics-raja-1700.v2",
-  "body_schema_revision": 1,
+  "body_schema_revision": 2,
   "collision_exclusions": [
     [
       0,
@@ -2260,6 +2260,10 @@
       13
     ],
     [
+      0,
+      15
+    ],
+    [
       1,
       2
     ],
@@ -2274,6 +2278,10 @@
     [
       4,
       5
+    ],
+    [
+      4,
+      6
     ],
     [
       5,
@@ -2294,6 +2302,10 @@
     [
       10,
       11
+    ],
+    [
+      10,
+      12
     ],
     [
       11,
@@ -2348,7 +2360,7 @@
       23
     ]
   ],
-  "compiled_descriptor_hash": "5640d7a9de95ae5c171384db29b601b73d31c8f9d12747a4f3b7c666525d9242",
+  "compiled_descriptor_hash": "b6f8b1260b24ad401453942c9a4303d99ce378a8f71c6490db79bb78d85a1782",
   "coordinate_mapping": {
     "engine_axes": "+X right, +Y up, +Z forward",
     "engine_quaternion_order": "xyzw",

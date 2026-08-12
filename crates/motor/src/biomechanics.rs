@@ -38,6 +38,9 @@ pub fn biomechanics_humanoid_body_schema_v2() -> BodySchemaV2 {
     for (first, second) in [
         ("pelvis", "left-hip-yaw"),
         ("pelvis", "right-hip-yaw"),
+        ("left-knee", "left-ankle-roll"),
+        ("right-knee", "right-ankle-roll"),
+        ("pelvis", "torso-yaw"),
         ("torso-yaw", "left-shoulder-yaw"),
         ("torso-yaw", "right-shoulder-yaw"),
     ] {
@@ -49,7 +52,7 @@ pub fn biomechanics_humanoid_body_schema_v2() -> BodySchemaV2 {
     let schema = BodySchemaV2 {
         schema_version: BODY_SCHEMA_VERSION_V2,
         schema_id: id("nextengine.body.humanoid-biomechanics-raja-1700.v2"),
-        schema_revision: 1,
+        schema_revision: 2,
         family_id: id("policy-family.humanoid"),
         coordinate_profile_hash: domain_hash(b"nextengine.coordinate.y-up-x-right-z-forward.v1"),
         source_provenance_hash: content_hash_from_bytes([
@@ -645,6 +648,32 @@ mod tests {
             (body.semantic_role == BodySemanticRoleV2::NonCollidingCarrier)
                 == body.colliders.is_empty()
         }));
+    }
+
+    #[test]
+    fn compound_joint_source_adjacencies_are_collision_excluded() {
+        let schema = biomechanics_humanoid_body_schema_v2();
+        assert_eq!(schema.schema_revision, 2);
+        let exclusions = schema
+            .collision_exclusions
+            .iter()
+            .map(|pair| (pair.first_body_id.clone(), pair.second_body_id.clone()))
+            .collect::<BTreeSet<_>>();
+        for (first, second) in [
+            ("left-knee", "left-ankle-roll"),
+            ("right-knee", "right-ankle-roll"),
+            ("pelvis", "torso-yaw"),
+        ] {
+            let pair = if body_id(first) < body_id(second) {
+                (body_id(first), body_id(second))
+            } else {
+                (body_id(second), body_id(first))
+            };
+            assert!(
+                exclusions.contains(&pair),
+                "missing source adjacency {pair:?}"
+            );
+        }
     }
 
     #[test]

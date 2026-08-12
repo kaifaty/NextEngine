@@ -2,10 +2,10 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | Frozen `TRAIN-1` implementation input; not a trained or published candidate |
+| Статус | Revised `TRAIN-1` implementation input after pre-training physical reset audit; not a trained or published candidate |
 | Дата | 2026-08-12 |
 | Profile ID | `nextengine.body.humanoid-biomechanics-raja-1700.v2` |
-| Schema | `BodySchemaV2`, revision `1`, ADR-069 |
+| Schema | `BodySchemaV2`, revision `2`, ADR-069 |
 | Coordinate profile | `nextengine.coordinate.y-up-x-right-z-forward.v1` |
 | Source target | Rajagopal et al. healthy young-adult gait model |
 | Standing collider height | exactly `1.700000 m` in the authored neutral pose |
@@ -19,6 +19,13 @@ microradians (`urad`), mass is microkilograms (`ukg`) and inertia components
 are micro-`kg*m^2`. `I6` is ordered `(xx, xy, xz, yy, yz, zz)`. An omitted
 rotation is the identity quaternion. Array order in this document is
 explanatory; canonical V2 records sort by stable ID.
+
+Revision 2 supersedes the never-published revision 1 candidate after the
+TRAIN-5 pre-acceptance sanity run exposed missing logical-adjacency collision
+exclusions across virtual multi-axis carriers. It changes no mass, collider,
+joint, actuator or anatomical ROM value; it adds only the exact source-adjacent
+`shank↔foot` and `pelvis↔torso` exclusion pairs listed below. The revision-1
+gate artifacts remain historical failure evidence and do not authorize a run.
 
 ## 1. Source, license and transformation
 
@@ -198,7 +205,9 @@ joint endpoint pair plus these physical/source-adjacency pairs hidden by
 carriers:
 
 ```text
-(pelvis, left-hip-yaw)       (pelvis, right-hip-yaw)
+(pelvis, left-hip-yaw)         (pelvis, right-hip-yaw)
+(left-knee, left-ankle-roll)   (right-knee, right-ankle-roll)
+(pelvis, torso-yaw)
 (torso-yaw, left-shoulder-yaw) (torso-yaw, right-shoulder-yaw)
 ```
 

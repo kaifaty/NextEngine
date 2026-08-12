@@ -6,7 +6,7 @@
 | Дата | 2026-08-12 |
 | Planning ID | `humanoid-young-adult-male-gait-1700.v1` |
 | Frozen profile | [Fixed humanoid biomechanics profile V1](2026-08-12-humanoid-biomechanics-profile-v1.md) |
-| Frozen profile SHA-256 | `307a00f2bda8cd083066a383cb025b5333240513e00b2c764ca8fef52bddc1bf` |
+| Frozen profile SHA-256 | `968ceb82ac2a40af872b496fdd43e32ba2ce3ffd90b2b3a33f38461c8269aabc` (revision 2) |
 | Target | healthy young adult male gait model, intended stature `1.700 m` |
 | Exact source-model mass | `75.337 kg` over `22` source bodies |
 | Требования candidate | [Humanoid motor requirements baseline](2026-08-12-humanoid-motor-requirements.md) |

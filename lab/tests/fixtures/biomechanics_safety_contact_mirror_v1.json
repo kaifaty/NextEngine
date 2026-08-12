@@ -1,7 +1,7 @@
 {
   "action_width": 23,
-  "body_schema_hash": "eb5b75e9376bec8cd38cedfe015e16dd31dcb693b70217ec35b89467d88900ff",
-  "compiled_descriptor_hash": "5640d7a9de95ae5c171384db29b601b73d31c8f9d12747a4f3b7c666525d9242",
+  "body_schema_hash": "e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d",
+  "compiled_descriptor_hash": "b6f8b1260b24ad401453942c9a4303d99ce378a8f71c6490db79bb78d85a1782",
   "contact_terminal_scenarios": [
     {
       "maximum_episode_motor_ticks": 1200,
@@ -2138,7 +2138,7 @@
       0,
       0
     ],
-    "safety_checkpoint_root": "32d7f0386aae20d1b7a62f4d2c94c7c65c51bfabd4d89da13261411caac9e553",
+    "safety_checkpoint_root": "7b097ef62865da1bd14d08d753bc5143f61f24c1013526f07da963614123da72",
     "skill_envelopes": [
       {
         "joint_id": "joint.left-ankle-pitch",
