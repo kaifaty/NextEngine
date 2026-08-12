@@ -54,11 +54,17 @@ to microradians and clamped to the exact V2 soft ROM. The locomotion profile
 then applies and records a physical-feasibility projection: bilateral hip yaw
 is neutral, hip roll cannot cross into adduction, ankle pitch stays at least
 `-349066 urad` (`-20 degrees`), and shoulder roll stays at least `261799 urad`
-(`15 degrees`). The ankle bound leaves a `349066 urad` (`20 degrees`) reserve
-to the `-698132 urad` hard limit during the zero-effort-to-PD reset transient;
-the previous exact soft-bound target reached hard ROM after `51` native PhysX
-motor ticks. These bounds were selected before re-admission from native PhysX
-audits; they are explicit data loss, not hidden solver behavior. A causal
+(`15 degrees`). Ankle roll is confined to `[-87266, 87266] urad` (plus or minus
+`5 degrees`), leaving at least `261800 urad` (`15 degrees`) to either hard-ROM
+boundary. This exceeds the `197754 urad` (`11.33 degrees`) reference-to-peak
+transient observed in the failed randomized-phase TRAIN-5 diagnostic by 32%.
+The final locomotion corpus must contain zero ankle-roll samples on a descriptor
+soft-ROM boundary; the affected-sample fraction remains a separate ReportOnly
+retarget-fidelity metric. The ankle-pitch bound leaves a `349066 urad`
+(`20 degrees`) reserve to the `-698132 urad` hard limit during the
+zero-effort-to-PD reset transient. These bounds were selected before
+re-admission from PhysX audits; they are explicit data loss, not hidden solver
+behavior. A causal
 cleanup projection then limits each channel to the target
 joint's published maximum velocity at 60 Hz; the per-sample projection is
 preserved in the artifact and summarized in validation rather than hidden.
@@ -123,6 +129,8 @@ An admitted clip must satisfy all of the following before `TRAIN-4` advances:
 
 - all source, license-snapshot, profile and target-descriptor hashes match;
 - every target channel stays inside soft and hard ROM after solve;
+- bilateral locomotion ankle-roll has zero exact soft-boundary samples and at
+  least `261800 urad` hard-ROM reserve in every frame;
 - signed ground alignment stays within its partition bound, and locomotion has zero
   non-foot penetration after correction;
 - every admitted locomotion frame initialized above the ground with zero

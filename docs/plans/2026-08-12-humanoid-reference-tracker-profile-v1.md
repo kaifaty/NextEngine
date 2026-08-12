@@ -8,9 +8,9 @@
 | Body | `nextengine.body.humanoid-biomechanics-raja-1700.v2@2` |
 | BodySchema hash | `e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d` |
 | Safety/contact profile | `ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c` |
-| Corpus manifest | `0f1ce147051b41c7380b566844aecb69612fd501466d1848bd9137d755581df5` |
+| Corpus manifest | `24629cf222fded5c0a80755f7442922527dde829c49f4369d1f88cddc92d0196` |
 | Canonical JSON | `lab/profiles/humanoid-reference-tracker.v1.json` |
-| Canonical JSON SHA-256 | `50f52b63bcf6b5a2b0c4201f1754a4d457b897b8d894a5c5bf68458f97e769f1` |
+| Canonical JSON SHA-256 | `7f1ea0faff1707767b1145070ed3d1ac4b60b287b40ed87865e520e5807079d8` |
 
 V1 is the smallest tracker profile that can consume the admitted locomotion
 partition without introducing command selection, recovery, a runtime
@@ -73,6 +73,13 @@ terminal without a learned residual. Those baseline failures are retained as
 optimizer-free diagnostics; a safety event, hash mismatch or malformed reward
 remains blocking, but poor tracking by the zero/random actor is not mislabeled
 as a trained-policy result.
+
+The current corpus lineage is the ankle-roll-reserved TRAIN-4 revision. Its
+input-closure audit SHA-256 is
+`14977226e0d7d86ac6c5c13cb45a9059f230633cb13b454dc1cfd8f7fe8efccc` and
+records zero optimizer steps. The baseline matrix and tiny/curriculum results
+below bind the superseded corpus and remain historical diagnostics only; none
+of their checkpoints may initialize the current lineage.
 
 The closed input/reward audit has SHA-256
 `b76fcf1d9ce8ef0b7df2c5d35a2c6b115a7c458c1f8a4a90fcb1898f6d0d1489`.

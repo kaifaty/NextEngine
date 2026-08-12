@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 
 
 PROFILE_ID = "nextengine.motor.env.humanoid-reference-tracker.v1"
-PROFILE_SHA256 = "50f52b63bcf6b5a2b0c4201f1754a4d457b897b8d894a5c5bf68458f97e769f1"
+PROFILE_SHA256 = "7f1ea0faff1707767b1145070ed3d1ac4b60b287b40ed87865e520e5807079d8"
 SAFETY_CONTACT_PROFILE_SHA256 = "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c"
 CORPUS_MANIFEST_ID = "nextengine.private-motion-corpus-manifest.v1"
 OBSERVATION_CHANNELS = 435

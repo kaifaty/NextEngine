@@ -219,7 +219,11 @@ output `TRAIN-1`; пока они отсутствуют, `REQ-HUM-BODY-*` и в
   rights означают exclusion.
 - `REQ-HUM-DATA-005` — deterministic re-import/retarget даёт identical output
   hash; 100% admitted clips проходят ROM, penetration, contact, phase and
-  visual-overlay checks.
+  visual-overlay checks. Для locomotion bilateral ankle-roll после retarget
+  имеет `0%` samples на descriptor soft-ROM boundary и минимум `261800 urad`
+  (`15 degrees`) до hard-ROM; нарушение любого из этих двух порогов блокирует
+  `TRAIN-4`. Доля samples, затронутых safety projection, измеряется отдельно
+  как `ReportOnly` retarget-fidelity metric.
 - `REQ-HUM-DATA-006` — runtime candidate не читает corpus, source path или
   training-only annotation.
 
