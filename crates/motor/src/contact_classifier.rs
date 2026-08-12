@@ -10,10 +10,11 @@ use next_physics_physx::{CanonicalPhysXContactV2, CanonicalPhysXSnapshotV2};
 use crate::CompiledBodySchemaV2;
 
 pub const HUMANOID_SAFETY_CONTACT_PROFILE_SHA256: [u8; 32] = [
-    0x20, 0xe8, 0xde, 0xe7, 0xec, 0xba, 0xaa, 0xb8, 0x6c, 0xb0, 0x16, 0x54, 0x61, 0x06, 0x56, 0x94,
-    0x64, 0xc6, 0x6a, 0xa5, 0xc9, 0xd9, 0x2a, 0xbd, 0x8c, 0x1a, 0xf3, 0xb7, 0x6c, 0x71, 0xb7, 0x23,
+    0x88, 0xc2, 0xff, 0xef, 0xed, 0x4c, 0xb8, 0xf2, 0xc0, 0xdc, 0x35, 0x42, 0x6f, 0xfa, 0xf9, 0x64,
+    0xd0, 0x9d, 0x4d, 0x8f, 0xbb, 0x14, 0xfb, 0x33, 0xbf, 0xd3, 0x05, 0xfb, 0x4d, 0xf6, 0x25, 0xc9,
 ];
 pub const HUMANOID_GROUND_ACTOR_TOKEN: u64 = 1;
+pub const HUMANOID_GROUND_SHAPE_TOKEN: u64 = 0;
 pub const ACTIVE_CONTACT_IMPULSE_MICRONEWTON_SECONDS: u64 = 50_000;
 pub const CONTACT_BRUSH_CEILING_MICRONEWTON_SECONDS: u64 = 250_000;
 pub const LOW_IMPULSE_GRACE_SUBSTEPS: u64 = 4;
@@ -211,7 +212,7 @@ impl BiomechanicsContactClassifier {
         } else {
             (pair.shape_b_token, pair.actor_a_token, pair.shape_a_token)
         };
-        if ground_shape != HUMANOID_GROUND_ACTOR_TOKEN {
+        if ground_shape != HUMANOID_GROUND_SHAPE_TOKEN {
             return Err(ContactClassificationError::InvalidGroundPair);
         }
         Ok((self.validated_role(actor, shape)?, None, false))

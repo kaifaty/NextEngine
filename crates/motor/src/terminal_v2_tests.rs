@@ -5,7 +5,9 @@ use next_physics_physx::{
     CanonicalPhysXContactV2, CanonicalPhysXLinkState, CanonicalPhysXSnapshotV2,
 };
 
-use crate::contact_classifier::{BiomechanicsContactClassifier, HUMANOID_GROUND_ACTOR_TOKEN};
+use crate::contact_classifier::{
+    BiomechanicsContactClassifier, HUMANOID_GROUND_ACTOR_TOKEN, HUMANOID_GROUND_SHAPE_TOKEN,
+};
 use crate::terminal_v2::*;
 use crate::{
     BiomechanicsContactFrameV1, BiomechanicsSkillContactProfileV1, CompiledBodySchemaV2,
@@ -101,7 +103,7 @@ fn ground_contact(actor: u64, shape: u64, impulse: i64) -> CanonicalPhysXContact
     CanonicalPhysXContactV2 {
         actor_a_token: HUMANOID_GROUND_ACTOR_TOKEN,
         actor_b_token: actor,
-        shape_a_token: HUMANOID_GROUND_ACTOR_TOKEN,
+        shape_a_token: HUMANOID_GROUND_SHAPE_TOKEN,
         shape_b_token: shape,
         position_micrometres: [0; 3],
         normal_q1_30: [0, 1 << 30, 0],

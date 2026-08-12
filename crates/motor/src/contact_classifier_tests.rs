@@ -63,7 +63,7 @@ fn ground_contact(
     CanonicalPhysXContactV2 {
         actor_a_token: HUMANOID_GROUND_ACTOR_TOKEN,
         actor_b_token: actor,
-        shape_a_token: HUMANOID_GROUND_ACTOR_TOKEN,
+        shape_a_token: HUMANOID_GROUND_SHAPE_TOKEN,
         shape_b_token: shape,
         position_micrometres: [0; 3],
         normal_q1_30: [0, 1 << 30, 0],

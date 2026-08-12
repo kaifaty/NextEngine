@@ -3,7 +3,8 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::body::BodyActuatorDefinitionV2;
-use next_contracts::ids::SchemaId;
+use next_contracts::canonical::sha256;
+use next_contracts::ids::{ContentHash, SchemaId, content_hash_from_bytes};
 use next_contracts::physics::{
     AppliedActuatorEffortV1, PhysicsActuatorDescriptorV2, PhysicsJointDescriptorV2,
 };
@@ -50,6 +51,8 @@ pub(crate) struct SafetyControlChannel {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BiomechanicsSafetyController {
+    body_schema_hash: ContentHash,
+    compiled_descriptor_hash: ContentHash,
     pub(crate) channels: Vec<SafetyControlChannel>,
     applied_targets: Vec<i64>,
     previous_efforts: Vec<i64>,
@@ -91,6 +94,8 @@ impl BiomechanicsSafetyController {
             .map(|channel| channel.joint.neutral_position_microradians)
             .collect::<Vec<_>>();
         Ok(Self {
+            body_schema_hash: compiled.body_schema_hash,
+            compiled_descriptor_hash: compiled.compiled_descriptor_hash,
             previous_efforts: vec![0; channels.len()],
             positive_work: vec![0; channels.len()],
             channels,
@@ -304,6 +309,32 @@ impl BiomechanicsSafetyController {
             motor_tick_prepared: self.motor_tick_prepared,
         }
     }
+
+    #[must_use]
+    pub fn checkpoint_root(&self) -> ContentHash {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"nextengine.humanoid-safety-checkpoint.v1\0");
+        bytes.extend_from_slice(&crate::HUMANOID_SAFETY_CONTACT_PROFILE_SHA256);
+        bytes.extend_from_slice(self.body_schema_hash.as_bytes());
+        bytes.extend_from_slice(self.compiled_descriptor_hash.as_bytes());
+        bytes.extend_from_slice(&(self.channels.len() as u64).to_le_bytes());
+        for (index, channel) in self.channels.iter().enumerate() {
+            push_schema_id(&mut bytes, &channel.actuator.base.actuator_id);
+            push_schema_id(&mut bytes, &channel.joint.base.joint_id);
+            bytes.extend_from_slice(&self.applied_targets[index].to_le_bytes());
+            bytes.extend_from_slice(&self.previous_efforts[index].to_le_bytes());
+            bytes.extend_from_slice(&self.positive_work[index].to_le_bytes());
+        }
+        bytes.push(self.completed_substeps);
+        bytes.push(u8::from(self.motor_tick_prepared));
+        content_hash_from_bytes(sha256(&bytes))
+    }
+}
+
+fn push_schema_id(bytes: &mut Vec<u8>, value: &SchemaId) {
+    let text = value.as_str().as_bytes();
+    bytes.extend_from_slice(&(text.len() as u32).to_le_bytes());
+    bytes.extend_from_slice(text);
 }
 
 fn validate_channel_correspondence(

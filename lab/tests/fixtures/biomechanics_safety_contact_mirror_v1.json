@@ -1,0 +1,1865 @@
+{
+  "action_width": 23,
+  "body_schema_hash": "eb5b75e9376bec8cd38cedfe015e16dd31dcb693b70217ec35b89467d88900ff",
+  "compiled_descriptor_hash": "5640d7a9de95ae5c171384db29b601b73d31c8f9d12747a4f3b7c666525d9242",
+  "contact_terminal_scenarios": [
+    {
+      "maximum_episode_motor_ticks": 1200,
+      "name": "locomotion-hand-grace",
+      "root": {
+        "actor_token": 1000,
+        "position_micrometres": [
+          0,
+          1095000,
+          0
+        ],
+        "rotation_q1_30": [
+          0,
+          0,
+          0,
+          1073741824
+        ]
+      },
+      "skill_profile": 1,
+      "ticks": [
+        {
+          "contact_substeps": [
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1019,
+                "impulse_micronewton_seconds": [
+                  100000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10015
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1019,
+                "impulse_micronewton_seconds": [
+                  100000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10015
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1019,
+                "impulse_micronewton_seconds": [
+                  100000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10015
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1019,
+                "impulse_micronewton_seconds": [
+                  100000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10015
+              }
+            ]
+          ],
+          "expected_decision": {
+            "decision_root": "ecad8d79941e4347d0f69104be3fd3c1baad85ed9aec39c4ff5119b3ab5ff28c",
+            "disposition": 0,
+            "reason": null,
+            "reason_id": null
+          },
+          "expected_frames": [
+            {
+              "classification_root": "92da0a5645d42ddcfe4e2c9bc4158d3b8029e0070c8aa2bc03a57d5d0c83b589",
+              "contacts": [
+                {
+                  "class": 2,
+                  "consecutive_active_substeps": 1,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 10000000000,
+                  "impulse_micronewton_seconds": [
+                    100000,
+                    0,
+                    0
+                  ],
+                  "material": false,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1019,
+                    10015
+                  ],
+                  "primary_role": 11,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "0d0fac0f40918ac1662f583c5ff276dc69892cda90081a5f74d6839fb73ecb5d"
+            },
+            {
+              "classification_root": "58c90607428e4fb4d8667796b58ec1f3c70f50f69e7cbac03ad580a31299b9c6",
+              "contacts": [
+                {
+                  "class": 2,
+                  "consecutive_active_substeps": 2,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 10000000000,
+                  "impulse_micronewton_seconds": [
+                    100000,
+                    0,
+                    0
+                  ],
+                  "material": false,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1019,
+                    10015
+                  ],
+                  "primary_role": 11,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "12f9b39b18aaee02ee39d8a2fb16aa385bc30255f49e878c89bb043add05b097"
+            },
+            {
+              "classification_root": "6646edc8f052257b0cf005e7a1baffb7ce1dab6da6902a39dcfd2eaf74e85687",
+              "contacts": [
+                {
+                  "class": 2,
+                  "consecutive_active_substeps": 3,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 10000000000,
+                  "impulse_micronewton_seconds": [
+                    100000,
+                    0,
+                    0
+                  ],
+                  "material": false,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1019,
+                    10015
+                  ],
+                  "primary_role": 11,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "0eaf578311dfbea021bb7561b2d145259192b479b56e0a95a3562cbe22690233"
+            },
+            {
+              "classification_root": "c02fb528006fe2254bf6c3f626f72fd353a47730073338c891b10910784987eb",
+              "contacts": [
+                {
+                  "class": 2,
+                  "consecutive_active_substeps": 4,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 10000000000,
+                  "impulse_micronewton_seconds": [
+                    100000,
+                    0,
+                    0
+                  ],
+                  "material": false,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1019,
+                    10015
+                  ],
+                  "primary_role": 11,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "674502df48570af54e5248f69eeb2652dd68da1031edc7fc00b605d742db79f2"
+            }
+          ],
+          "motor_tick": 1
+        },
+        {
+          "contact_substeps": [
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1019,
+                "impulse_micronewton_seconds": [
+                  100000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10015
+              }
+            ],
+            [],
+            [],
+            []
+          ],
+          "expected_decision": {
+            "decision_root": "64dc1ad2362a0ff807844e770a8c0c7acae4a49708cfb05431f878f346e81762",
+            "disposition": 1,
+            "reason": 5,
+            "reason_id": "terminal.forbidden-locomotion-contact"
+          },
+          "expected_frames": [
+            {
+              "classification_root": "4f318f29840605381261d69a881e81f409ab98915d7c2260806792d1e5229109",
+              "contacts": [
+                {
+                  "class": 3,
+                  "consecutive_active_substeps": 5,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 10000000000,
+                  "impulse_micronewton_seconds": [
+                    100000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1019,
+                    10015
+                  ],
+                  "primary_role": 11,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "e01bbef5e41a8601f6db36a7f5d0013e98ba0a7076df8e362ac8543724291d02"
+            },
+            {
+              "classification_root": "079d7d5c0cb17a5256dff7c6a68a2984abb7488fc8c438f7c16e1f848da75f63",
+              "contacts": [],
+              "continuity_root": "9dbf890929c0ec521e03ad89776dc6aeafb95191c9ac48ad59faef9b8255bfb5"
+            },
+            {
+              "classification_root": "079d7d5c0cb17a5256dff7c6a68a2984abb7488fc8c438f7c16e1f848da75f63",
+              "contacts": [],
+              "continuity_root": "9dbf890929c0ec521e03ad89776dc6aeafb95191c9ac48ad59faef9b8255bfb5"
+            },
+            {
+              "classification_root": "079d7d5c0cb17a5256dff7c6a68a2984abb7488fc8c438f7c16e1f848da75f63",
+              "contacts": [],
+              "continuity_root": "9dbf890929c0ec521e03ad89776dc6aeafb95191c9ac48ad59faef9b8255bfb5"
+            }
+          ],
+          "motor_tick": 2
+        }
+      ]
+    },
+    {
+      "maximum_episode_motor_ticks": 1200,
+      "name": "getup-knee-support",
+      "root": {
+        "actor_token": 1000,
+        "position_micrometres": [
+          0,
+          1095000,
+          0
+        ],
+        "rotation_q1_30": [
+          0,
+          0,
+          0,
+          1073741824
+        ]
+      },
+      "skill_profile": 3,
+      "ticks": [
+        {
+          "contact_substeps": [
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1004,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10002
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1004,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10002
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1004,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10002
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1004,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10002
+              }
+            ]
+          ],
+          "expected_decision": {
+            "decision_root": "0df186f6a015fee96fe66c4e97a8df4683a1e049c021d770304d909cb9f65584",
+            "disposition": 0,
+            "reason": null,
+            "reason_id": null
+          },
+          "expected_frames": [
+            {
+              "classification_root": "28a5d616c2b215fe38b665e013ebe44867f30c4692fdfc7218adfee79710f637",
+              "contacts": [
+                {
+                  "class": 5,
+                  "consecutive_active_substeps": 1,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1004,
+                    10002
+                  ],
+                  "primary_role": 6,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "1a65ff5ade00c14ec10ae592a84a94d0a76188217c757b6bc72399433b74cef2"
+            },
+            {
+              "classification_root": "738275ff992a609210e5f09ce83d6a29c7606803c2d25f20c6286d33efb793e6",
+              "contacts": [
+                {
+                  "class": 5,
+                  "consecutive_active_substeps": 2,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1004,
+                    10002
+                  ],
+                  "primary_role": 6,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "b34dd60540b01952754f85e1df9a744493f40f05b2b650b92b9dcb22ba0bc5fb"
+            },
+            {
+              "classification_root": "d3bf3fe8cc7ba13fd7e71aaa8d0b14e56b2fc6b8bb1943c89de1e94e67e81fbe",
+              "contacts": [
+                {
+                  "class": 5,
+                  "consecutive_active_substeps": 3,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1004,
+                    10002
+                  ],
+                  "primary_role": 6,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "5cf5e8dc5f62b33d03745b811665a625bab565d82075265c490db1193e1c62cd"
+            },
+            {
+              "classification_root": "47586fdac5d3948a2b6af05324bfd4088364152a65bb8d8e3097f74ee35ee775",
+              "contacts": [
+                {
+                  "class": 5,
+                  "consecutive_active_substeps": 4,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1004,
+                    10002
+                  ],
+                  "primary_role": 6,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "42f5adb86d189991d4b4b27a7baee06ef32ab010d7df1b0c5189e5a4530265d6"
+            }
+          ],
+          "motor_tick": 1
+        }
+      ]
+    },
+    {
+      "maximum_episode_motor_ticks": 1200,
+      "name": "locomotion-head-impact",
+      "root": {
+        "actor_token": 1000,
+        "position_micrometres": [
+          0,
+          1095000,
+          0
+        ],
+        "rotation_q1_30": [
+          0,
+          0,
+          0,
+          1073741824
+        ]
+      },
+      "skill_profile": 1,
+      "ticks": [
+        {
+          "contact_substeps": [
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1015,
+                "impulse_micronewton_seconds": [
+                  1000001,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10011
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1015,
+                "impulse_micronewton_seconds": [
+                  1000001,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10011
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1015,
+                "impulse_micronewton_seconds": [
+                  1000001,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10011
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1,
+                "actor_b_token": 1015,
+                "impulse_micronewton_seconds": [
+                  1000001,
+                  0,
+                  0
+                ],
+                "separation_micrometres": 0,
+                "shape_a_token": 0,
+                "shape_b_token": 10011
+              }
+            ]
+          ],
+          "expected_decision": {
+            "decision_root": "7119cfb0c73cd56c455c396f74f65d37820c7d7cf417fa557df6bac1dd300d47",
+            "disposition": 1,
+            "reason": 3,
+            "reason_id": "terminal.contact-impact"
+          },
+          "expected_frames": [
+            {
+              "classification_root": "d11d2c39b632e10a6b0653c1c2b5c2a05f505a08dd8e78905b63427a78644542",
+              "contacts": [
+                {
+                  "class": 3,
+                  "consecutive_active_substeps": 1,
+                  "hard_impact_violation": true,
+                  "impulse_magnitude_squared": 1000002000001,
+                  "impulse_micronewton_seconds": [
+                    1000001,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1015,
+                    10011
+                  ],
+                  "primary_role": 3,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "2c751b77550ef8ea3608c9182488308099b1f8394ca66f0422f8839c472a0dc1"
+            },
+            {
+              "classification_root": "2b69930937383b25d2a25f2ac0dc02b226e78622041f17a93a6421b114f3e88c",
+              "contacts": [
+                {
+                  "class": 3,
+                  "consecutive_active_substeps": 2,
+                  "hard_impact_violation": true,
+                  "impulse_magnitude_squared": 1000002000001,
+                  "impulse_micronewton_seconds": [
+                    1000001,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1015,
+                    10011
+                  ],
+                  "primary_role": 3,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "051edf027154b012b0f26b35e0f5a1c1dd483b47586214edcebc62b71f3f03e2"
+            },
+            {
+              "classification_root": "b17d420ab85bcd98a61d094fe808910d8c38736cd7eaaf8a2deff71ba20f2968",
+              "contacts": [
+                {
+                  "class": 3,
+                  "consecutive_active_substeps": 3,
+                  "hard_impact_violation": true,
+                  "impulse_magnitude_squared": 1000002000001,
+                  "impulse_micronewton_seconds": [
+                    1000001,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1015,
+                    10011
+                  ],
+                  "primary_role": 3,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "180fb3f39c3d86069e48fea3b3132190366fb675ca445c3b3682d546dee78a6d"
+            },
+            {
+              "classification_root": "d3a90a2456cbf921c793dfb05dbeb550c3c8a546a29f68066cdd3f6393199de1",
+              "contacts": [
+                {
+                  "class": 3,
+                  "consecutive_active_substeps": 4,
+                  "hard_impact_violation": true,
+                  "impulse_magnitude_squared": 1000002000001,
+                  "impulse_micronewton_seconds": [
+                    1000001,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": 0,
+                  "pair": [
+                    1,
+                    0,
+                    1015,
+                    10011
+                  ],
+                  "primary_role": 3,
+                  "secondary_role": null
+                }
+              ],
+              "continuity_root": "5fbc6724f3ba9f0e1d2f7a916298838830636ca0d8c80c7e0b132f7e3940346d"
+            }
+          ],
+          "motor_tick": 1
+        }
+      ]
+    },
+    {
+      "maximum_episode_motor_ticks": 1200,
+      "name": "locomotion-self-collision",
+      "root": {
+        "actor_token": 1000,
+        "position_micrometres": [
+          0,
+          1095000,
+          0
+        ],
+        "rotation_q1_30": [
+          0,
+          0,
+          0,
+          1073741824
+        ]
+      },
+      "skill_profile": 1,
+      "ticks": [
+        {
+          "contact_substeps": [
+            [
+              {
+                "actor_a_token": 1019,
+                "actor_b_token": 1015,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": -1,
+                "shape_a_token": 10015,
+                "shape_b_token": 10012
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1019,
+                "actor_b_token": 1015,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": -1,
+                "shape_a_token": 10015,
+                "shape_b_token": 10012
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1019,
+                "actor_b_token": 1015,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": -1,
+                "shape_a_token": 10015,
+                "shape_b_token": 10012
+              }
+            ],
+            [
+              {
+                "actor_a_token": 1019,
+                "actor_b_token": 1015,
+                "impulse_micronewton_seconds": [
+                  300000,
+                  0,
+                  0
+                ],
+                "separation_micrometres": -1,
+                "shape_a_token": 10015,
+                "shape_b_token": 10012
+              }
+            ]
+          ],
+          "expected_decision": {
+            "decision_root": "290316035b27688c1c0c91d12a3be67a4baaa358d442c44fddc3ecb64510e185",
+            "disposition": 1,
+            "reason": 4,
+            "reason_id": "terminal.self-collision"
+          },
+          "expected_frames": [
+            {
+              "classification_root": "399bc42be1019e2883df1e01dfb30a3527d16ad5feaa92cbf4a5247eccb5a4e3",
+              "contacts": [
+                {
+                  "class": 6,
+                  "consecutive_active_substeps": 1,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    -300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": -1,
+                  "pair": [
+                    1015,
+                    10012,
+                    1019,
+                    10015
+                  ],
+                  "primary_role": 2,
+                  "secondary_role": 11
+                }
+              ],
+              "continuity_root": "3870c1e6dd6131ddb52cfe5a8563cd5a5476f659510fbeb8fcb726a3518d1a0e"
+            },
+            {
+              "classification_root": "0cd71f07f2c0d3fb869cc0361a32d71b0263c6594f835d4850c09446830dd8a7",
+              "contacts": [
+                {
+                  "class": 6,
+                  "consecutive_active_substeps": 2,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    -300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": -1,
+                  "pair": [
+                    1015,
+                    10012,
+                    1019,
+                    10015
+                  ],
+                  "primary_role": 2,
+                  "secondary_role": 11
+                }
+              ],
+              "continuity_root": "24e47be4abbcf393bf956f82697ccfbf9a237eb3daa73d51dbdafa761956929d"
+            },
+            {
+              "classification_root": "61e7eee5beb1e348c00a88f59af1869c23f856fec4d637e5268693fab41fb30d",
+              "contacts": [
+                {
+                  "class": 6,
+                  "consecutive_active_substeps": 3,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    -300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": -1,
+                  "pair": [
+                    1015,
+                    10012,
+                    1019,
+                    10015
+                  ],
+                  "primary_role": 2,
+                  "secondary_role": 11
+                }
+              ],
+              "continuity_root": "13604932bc62073646dfc3e38c096612fe920ccf745309d15e038bb11ae1a8e5"
+            },
+            {
+              "classification_root": "fa2d299539aed548c8d67c338e8c4f5bec6ba31a623a740ce4936c9f9d63784e",
+              "contacts": [
+                {
+                  "class": 6,
+                  "consecutive_active_substeps": 4,
+                  "hard_impact_violation": false,
+                  "impulse_magnitude_squared": 90000000000,
+                  "impulse_micronewton_seconds": [
+                    -300000,
+                    0,
+                    0
+                  ],
+                  "material": true,
+                  "minimum_separation_micrometres": -1,
+                  "pair": [
+                    1015,
+                    10012,
+                    1019,
+                    10015
+                  ],
+                  "primary_role": 2,
+                  "secondary_role": 11
+                }
+              ],
+              "continuity_root": "c3bf5cc1710fc7dc0d5b3c910775735bf80c917662d7bd80796c38eeb7f9da36"
+            }
+          ],
+          "motor_tick": 1
+        }
+      ]
+    },
+    {
+      "maximum_episode_motor_ticks": 1,
+      "name": "locomotion-timeout",
+      "root": {
+        "actor_token": 1000,
+        "position_micrometres": [
+          0,
+          1095000,
+          0
+        ],
+        "rotation_q1_30": [
+          0,
+          0,
+          0,
+          1073741824
+        ]
+      },
+      "skill_profile": 1,
+      "ticks": [
+        {
+          "contact_substeps": [
+            [],
+            [],
+            [],
+            []
+          ],
+          "expected_decision": {
+            "decision_root": "cc8ed2889326b3be3b6a40f2efe23be25de0bf746fdbaa55415c83c90374dc5a",
+            "disposition": 2,
+            "reason": 8,
+            "reason_id": "terminal.timeout"
+          },
+          "expected_frames": [
+            {
+              "classification_root": "079d7d5c0cb17a5256dff7c6a68a2984abb7488fc8c438f7c16e1f848da75f63",
+              "contacts": [],
+              "continuity_root": "9dbf890929c0ec521e03ad89776dc6aeafb95191c9ac48ad59faef9b8255bfb5"
+            },
+            {
+              "classification_root": "079d7d5c0cb17a5256dff7c6a68a2984abb7488fc8c438f7c16e1f848da75f63",
+              "contacts": [],
+              "continuity_root": "9dbf890929c0ec521e03ad89776dc6aeafb95191c9ac48ad59faef9b8255bfb5"
+            },
+            {
+              "classification_root": "079d7d5c0cb17a5256dff7c6a68a2984abb7488fc8c438f7c16e1f848da75f63",
+              "contacts": [],
+              "continuity_root": "9dbf890929c0ec521e03ad89776dc6aeafb95191c9ac48ad59faef9b8255bfb5"
+            },
+            {
+              "classification_root": "079d7d5c0cb17a5256dff7c6a68a2984abb7488fc8c438f7c16e1f848da75f63",
+              "contacts": [],
+              "continuity_root": "9dbf890929c0ec521e03ad89776dc6aeafb95191c9ac48ad59faef9b8255bfb5"
+            }
+          ],
+          "motor_tick": 1
+        }
+      ]
+    }
+  ],
+  "mirror_id": "nextengine.isaac.humanoid-safety-contact-mirror.v1",
+  "motor_hz": 60,
+  "physics_hz": 240,
+  "safety_contact_profile_sha256": "88c2ffefed4cb8f2c0dc35426ffaf964d09d4d8fbb14fb33bfd305fb4df625c9",
+  "safety_scenario": {
+    "final_applied_targets": [
+      {
+        "actuator_id": "actuator.left-ankle-pitch",
+        "clamp_flags": 0,
+        "target_microradians": 150000
+      },
+      {
+        "actuator_id": "actuator.left-ankle-roll",
+        "clamp_flags": 0,
+        "target_microradians": 120000
+      },
+      {
+        "actuator_id": "actuator.left-elbow",
+        "clamp_flags": 0,
+        "target_microradians": 250000
+      },
+      {
+        "actuator_id": "actuator.left-hip-pitch",
+        "clamp_flags": 0,
+        "target_microradians": 200000
+      },
+      {
+        "actuator_id": "actuator.left-hip-roll",
+        "clamp_flags": 0,
+        "target_microradians": 150000
+      },
+      {
+        "actuator_id": "actuator.left-hip-yaw",
+        "clamp_flags": 0,
+        "target_microradians": 150000
+      },
+      {
+        "actuator_id": "actuator.left-knee",
+        "clamp_flags": 0,
+        "target_microradians": 220000
+      },
+      {
+        "actuator_id": "actuator.left-shoulder-pitch",
+        "clamp_flags": 0,
+        "target_microradians": 250000
+      },
+      {
+        "actuator_id": "actuator.left-shoulder-roll",
+        "clamp_flags": 0,
+        "target_microradians": 200000
+      },
+      {
+        "actuator_id": "actuator.left-shoulder-yaw",
+        "clamp_flags": 0,
+        "target_microradians": 200000
+      },
+      {
+        "actuator_id": "actuator.right-ankle-pitch",
+        "clamp_flags": 0,
+        "target_microradians": 150000
+      },
+      {
+        "actuator_id": "actuator.right-ankle-roll",
+        "clamp_flags": 0,
+        "target_microradians": 120000
+      },
+      {
+        "actuator_id": "actuator.right-elbow",
+        "clamp_flags": 0,
+        "target_microradians": 250000
+      },
+      {
+        "actuator_id": "actuator.right-hip-pitch",
+        "clamp_flags": 0,
+        "target_microradians": 200000
+      },
+      {
+        "actuator_id": "actuator.right-hip-roll",
+        "clamp_flags": 0,
+        "target_microradians": 150000
+      },
+      {
+        "actuator_id": "actuator.right-hip-yaw",
+        "clamp_flags": 0,
+        "target_microradians": 150000
+      },
+      {
+        "actuator_id": "actuator.right-knee",
+        "clamp_flags": 0,
+        "target_microradians": 220000
+      },
+      {
+        "actuator_id": "actuator.right-shoulder-pitch",
+        "clamp_flags": 0,
+        "target_microradians": 250000
+      },
+      {
+        "actuator_id": "actuator.right-shoulder-roll",
+        "clamp_flags": 0,
+        "target_microradians": 200000
+      },
+      {
+        "actuator_id": "actuator.right-shoulder-yaw",
+        "clamp_flags": 0,
+        "target_microradians": 200000
+      },
+      {
+        "actuator_id": "actuator.torso-pitch",
+        "clamp_flags": 0,
+        "target_microradians": 150000
+      },
+      {
+        "actuator_id": "actuator.torso-roll",
+        "clamp_flags": 0,
+        "target_microradians": 150000
+      },
+      {
+        "actuator_id": "actuator.torso-yaw",
+        "clamp_flags": 0,
+        "target_microradians": 150000
+      }
+    ],
+    "final_checkpoint": {
+      "applied_targets_microradians": [
+        150000,
+        120000,
+        250000,
+        200000,
+        150000,
+        150000,
+        220000,
+        250000,
+        200000,
+        200000,
+        150000,
+        120000,
+        250000,
+        200000,
+        150000,
+        150000,
+        220000,
+        250000,
+        200000,
+        200000,
+        150000,
+        150000,
+        150000
+      ],
+      "completed_substeps": 4,
+      "motor_tick_prepared": true,
+      "positive_work_microjoules": [
+        0,
+        0,
+        0,
+        0,
+        2246160,
+        0,
+        0,
+        3679952,
+        5833333,
+        5000000,
+        0,
+        0,
+        0,
+        0,
+        2246160,
+        0,
+        0,
+        3679952,
+        5833333,
+        5000000,
+        1981320,
+        1981320,
+        5471980
+      ],
+      "previous_efforts_micronewton_metres": [
+        -50560400,
+        -62500000,
+        -25000000,
+        -112920300,
+        16846200,
+        -37920300,
+        -120000000,
+        22079700,
+        34999944,
+        30000000,
+        -50560400,
+        -62500000,
+        -25000000,
+        -112920300,
+        16846200,
+        -37920300,
+        -120000000,
+        22079700,
+        34999944,
+        30000000,
+        29719800,
+        29719800,
+        82079700
+      ]
+    },
+    "final_tick_efforts": [
+      [
+        {
+          "actuator_id": "actuator.left-ankle-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -50560400
+        },
+        {
+          "actuator_id": "actuator.left-ankle-roll",
+          "clamp_flags": 20,
+          "effort_micronewton_metres": -62500000
+        },
+        {
+          "actuator_id": "actuator.left-elbow",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -25000000
+        },
+        {
+          "actuator_id": "actuator.left-hip-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -112920300
+        },
+        {
+          "actuator_id": "actuator.left-hip-roll",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 16846200
+        },
+        {
+          "actuator_id": "actuator.left-hip-yaw",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -37920300
+        },
+        {
+          "actuator_id": "actuator.left-knee",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -120000000
+        },
+        {
+          "actuator_id": "actuator.left-shoulder-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 22079700
+        },
+        {
+          "actuator_id": "actuator.left-shoulder-roll",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": 35000000
+        },
+        {
+          "actuator_id": "actuator.left-shoulder-yaw",
+          "clamp_flags": 20,
+          "effort_micronewton_metres": 30000000
+        },
+        {
+          "actuator_id": "actuator.right-ankle-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -50560400
+        },
+        {
+          "actuator_id": "actuator.right-ankle-roll",
+          "clamp_flags": 20,
+          "effort_micronewton_metres": -62500000
+        },
+        {
+          "actuator_id": "actuator.right-elbow",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -25000000
+        },
+        {
+          "actuator_id": "actuator.right-hip-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -112920300
+        },
+        {
+          "actuator_id": "actuator.right-hip-roll",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 16846200
+        },
+        {
+          "actuator_id": "actuator.right-hip-yaw",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -37920300
+        },
+        {
+          "actuator_id": "actuator.right-knee",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -120000000
+        },
+        {
+          "actuator_id": "actuator.right-shoulder-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 22079700
+        },
+        {
+          "actuator_id": "actuator.right-shoulder-roll",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": 35000000
+        },
+        {
+          "actuator_id": "actuator.right-shoulder-yaw",
+          "clamp_flags": 20,
+          "effort_micronewton_metres": 30000000
+        },
+        {
+          "actuator_id": "actuator.torso-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 29719800
+        },
+        {
+          "actuator_id": "actuator.torso-roll",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 29719800
+        },
+        {
+          "actuator_id": "actuator.torso-yaw",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 82079700
+        }
+      ],
+      [
+        {
+          "actuator_id": "actuator.left-ankle-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -50560400
+        },
+        {
+          "actuator_id": "actuator.left-ankle-roll",
+          "clamp_flags": 20,
+          "effort_micronewton_metres": -62500000
+        },
+        {
+          "actuator_id": "actuator.left-elbow",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -25000000
+        },
+        {
+          "actuator_id": "actuator.left-hip-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -112920300
+        },
+        {
+          "actuator_id": "actuator.left-hip-roll",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 16846200
+        },
+        {
+          "actuator_id": "actuator.left-hip-yaw",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -37920300
+        },
+        {
+          "actuator_id": "actuator.left-knee",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -120000000
+        },
+        {
+          "actuator_id": "actuator.left-shoulder-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 22079700
+        },
+        {
+          "actuator_id": "actuator.left-shoulder-roll",
+          "clamp_flags": 54,
+          "effort_micronewton_metres": 35000000
+        },
+        {
+          "actuator_id": "actuator.left-shoulder-yaw",
+          "clamp_flags": 20,
+          "effort_micronewton_metres": 30000000
+        },
+        {
+          "actuator_id": "actuator.right-ankle-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -50560400
+        },
+        {
+          "actuator_id": "actuator.right-ankle-roll",
+          "clamp_flags": 20,
+          "effort_micronewton_metres": -62500000
+        },
+        {
+          "actuator_id": "actuator.right-elbow",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -25000000
+        },
+        {
+          "actuator_id": "actuator.right-hip-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -112920300
+        },
+        {
+          "actuator_id": "actuator.right-hip-roll",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 16846200
+        },
+        {
+          "actuator_id": "actuator.right-hip-yaw",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -37920300
+        },
+        {
+          "actuator_id": "actuator.right-knee",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -120000000
+        },
+        {
+          "actuator_id": "actuator.right-shoulder-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 22079700
+        },
+        {
+          "actuator_id": "actuator.right-shoulder-roll",
+          "clamp_flags": 54,
+          "effort_micronewton_metres": 35000000
+        },
+        {
+          "actuator_id": "actuator.right-shoulder-yaw",
+          "clamp_flags": 20,
+          "effort_micronewton_metres": 30000000
+        },
+        {
+          "actuator_id": "actuator.torso-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 29719800
+        },
+        {
+          "actuator_id": "actuator.torso-roll",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 29719800
+        },
+        {
+          "actuator_id": "actuator.torso-yaw",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 82079700
+        }
+      ],
+      [
+        {
+          "actuator_id": "actuator.left-ankle-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -50560400
+        },
+        {
+          "actuator_id": "actuator.left-ankle-roll",
+          "clamp_flags": 20,
+          "effort_micronewton_metres": -62500000
+        },
+        {
+          "actuator_id": "actuator.left-elbow",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -25000000
+        },
+        {
+          "actuator_id": "actuator.left-hip-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -112920300
+        },
+        {
+          "actuator_id": "actuator.left-hip-roll",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 16846200
+        },
+        {
+          "actuator_id": "actuator.left-hip-yaw",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -37920300
+        },
+        {
+          "actuator_id": "actuator.left-knee",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -120000000
+        },
+        {
+          "actuator_id": "actuator.left-shoulder-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 22079700
+        },
+        {
+          "actuator_id": "actuator.left-shoulder-roll",
+          "clamp_flags": 54,
+          "effort_micronewton_metres": 35000000
+        },
+        {
+          "actuator_id": "actuator.left-shoulder-yaw",
+          "clamp_flags": 52,
+          "effort_micronewton_metres": 30000000
+        },
+        {
+          "actuator_id": "actuator.right-ankle-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -50560400
+        },
+        {
+          "actuator_id": "actuator.right-ankle-roll",
+          "clamp_flags": 20,
+          "effort_micronewton_metres": -62500000
+        },
+        {
+          "actuator_id": "actuator.right-elbow",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -25000000
+        },
+        {
+          "actuator_id": "actuator.right-hip-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -112920300
+        },
+        {
+          "actuator_id": "actuator.right-hip-roll",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 16846200
+        },
+        {
+          "actuator_id": "actuator.right-hip-yaw",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -37920300
+        },
+        {
+          "actuator_id": "actuator.right-knee",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -120000000
+        },
+        {
+          "actuator_id": "actuator.right-shoulder-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 22079700
+        },
+        {
+          "actuator_id": "actuator.right-shoulder-roll",
+          "clamp_flags": 54,
+          "effort_micronewton_metres": 35000000
+        },
+        {
+          "actuator_id": "actuator.right-shoulder-yaw",
+          "clamp_flags": 52,
+          "effort_micronewton_metres": 30000000
+        },
+        {
+          "actuator_id": "actuator.torso-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 29719800
+        },
+        {
+          "actuator_id": "actuator.torso-roll",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 29719800
+        },
+        {
+          "actuator_id": "actuator.torso-yaw",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 82079700
+        }
+      ],
+      [
+        {
+          "actuator_id": "actuator.left-ankle-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -50560400
+        },
+        {
+          "actuator_id": "actuator.left-ankle-roll",
+          "clamp_flags": 20,
+          "effort_micronewton_metres": -62500000
+        },
+        {
+          "actuator_id": "actuator.left-elbow",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -25000000
+        },
+        {
+          "actuator_id": "actuator.left-hip-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -112920300
+        },
+        {
+          "actuator_id": "actuator.left-hip-roll",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 16846200
+        },
+        {
+          "actuator_id": "actuator.left-hip-yaw",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -37920300
+        },
+        {
+          "actuator_id": "actuator.left-knee",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -120000000
+        },
+        {
+          "actuator_id": "actuator.left-shoulder-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 22079700
+        },
+        {
+          "actuator_id": "actuator.left-shoulder-roll",
+          "clamp_flags": 54,
+          "effort_micronewton_metres": 34999944
+        },
+        {
+          "actuator_id": "actuator.left-shoulder-yaw",
+          "clamp_flags": 52,
+          "effort_micronewton_metres": 30000000
+        },
+        {
+          "actuator_id": "actuator.right-ankle-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -50560400
+        },
+        {
+          "actuator_id": "actuator.right-ankle-roll",
+          "clamp_flags": 20,
+          "effort_micronewton_metres": -62500000
+        },
+        {
+          "actuator_id": "actuator.right-elbow",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -25000000
+        },
+        {
+          "actuator_id": "actuator.right-hip-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -112920300
+        },
+        {
+          "actuator_id": "actuator.right-hip-roll",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 16846200
+        },
+        {
+          "actuator_id": "actuator.right-hip-yaw",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": -37920300
+        },
+        {
+          "actuator_id": "actuator.right-knee",
+          "clamp_flags": 22,
+          "effort_micronewton_metres": -120000000
+        },
+        {
+          "actuator_id": "actuator.right-shoulder-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 22079700
+        },
+        {
+          "actuator_id": "actuator.right-shoulder-roll",
+          "clamp_flags": 54,
+          "effort_micronewton_metres": 34999944
+        },
+        {
+          "actuator_id": "actuator.right-shoulder-yaw",
+          "clamp_flags": 52,
+          "effort_micronewton_metres": 30000000
+        },
+        {
+          "actuator_id": "actuator.torso-pitch",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 29719800
+        },
+        {
+          "actuator_id": "actuator.torso-roll",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 29719800
+        },
+        {
+          "actuator_id": "actuator.torso-yaw",
+          "clamp_flags": 0,
+          "effort_micronewton_metres": 82079700
+        }
+      ]
+    ],
+    "joint_states": [
+      [
+        -523599,
+        8000000
+      ],
+      [
+        -261799,
+        8000000
+      ],
+      [
+        0,
+        12000000
+      ],
+      [
+        -349066,
+        8000000
+      ],
+      [
+        -698132,
+        8000000
+      ],
+      [
+        -523599,
+        8000000
+      ],
+      [
+        0,
+        10000000
+      ],
+      [
+        -872665,
+        10000000
+      ],
+      [
+        -1570796,
+        10000000
+      ],
+      [
+        -1308997,
+        10000000
+      ],
+      [
+        -523599,
+        8000000
+      ],
+      [
+        -261799,
+        8000000
+      ],
+      [
+        0,
+        12000000
+      ],
+      [
+        -349066,
+        8000000
+      ],
+      [
+        -698132,
+        8000000
+      ],
+      [
+        -523599,
+        8000000
+      ],
+      [
+        0,
+        10000000
+      ],
+      [
+        -872665,
+        10000000
+      ],
+      [
+        -1570796,
+        10000000
+      ],
+      [
+        -1308997,
+        10000000
+      ],
+      [
+        -349066,
+        4000000
+      ],
+      [
+        -349066,
+        4000000
+      ],
+      [
+        -523599,
+        4000000
+      ]
+    ],
+    "motor_ticks": 24,
+    "normalized_residuals_q1_30": [
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824,
+      1073741824
+    ],
+    "reference_targets_microradians": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "safety_checkpoint_root": "32d7f0386aae20d1b7a62f4d2c94c7c65c51bfabd4d89da13261411caac9e553",
+    "skill_envelopes": [
+      {
+        "joint_id": "joint.left-ankle-pitch",
+        "maximum_microradians": 436332,
+        "minimum_microradians": -523599
+      },
+      {
+        "joint_id": "joint.left-ankle-roll",
+        "maximum_microradians": 261799,
+        "minimum_microradians": -261799
+      },
+      {
+        "joint_id": "joint.left-elbow",
+        "maximum_microradians": 2530727,
+        "minimum_microradians": 0
+      },
+      {
+        "joint_id": "joint.left-hip-pitch",
+        "maximum_microradians": 1919862,
+        "minimum_microradians": -349066
+      },
+      {
+        "joint_id": "joint.left-hip-roll",
+        "maximum_microradians": 436332,
+        "minimum_microradians": -698132
+      },
+      {
+        "joint_id": "joint.left-hip-yaw",
+        "maximum_microradians": 523599,
+        "minimum_microradians": -523599
+      },
+      {
+        "joint_id": "joint.left-knee",
+        "maximum_microradians": 2356194,
+        "minimum_microradians": 0
+      },
+      {
+        "joint_id": "joint.left-shoulder-pitch",
+        "maximum_microradians": 2792527,
+        "minimum_microradians": -872665
+      },
+      {
+        "joint_id": "joint.left-shoulder-roll",
+        "maximum_microradians": 1396263,
+        "minimum_microradians": -1570796
+      },
+      {
+        "joint_id": "joint.left-shoulder-yaw",
+        "maximum_microradians": 1308997,
+        "minimum_microradians": -1308997
+      },
+      {
+        "joint_id": "joint.right-ankle-pitch",
+        "maximum_microradians": 436332,
+        "minimum_microradians": -523599
+      },
+      {
+        "joint_id": "joint.right-ankle-roll",
+        "maximum_microradians": 261799,
+        "minimum_microradians": -261799
+      },
+      {
+        "joint_id": "joint.right-elbow",
+        "maximum_microradians": 2530727,
+        "minimum_microradians": 0
+      },
+      {
+        "joint_id": "joint.right-hip-pitch",
+        "maximum_microradians": 1919862,
+        "minimum_microradians": -349066
+      },
+      {
+        "joint_id": "joint.right-hip-roll",
+        "maximum_microradians": 436332,
+        "minimum_microradians": -698132
+      },
+      {
+        "joint_id": "joint.right-hip-yaw",
+        "maximum_microradians": 523599,
+        "minimum_microradians": -523599
+      },
+      {
+        "joint_id": "joint.right-knee",
+        "maximum_microradians": 2356194,
+        "minimum_microradians": 0
+      },
+      {
+        "joint_id": "joint.right-shoulder-pitch",
+        "maximum_microradians": 2792527,
+        "minimum_microradians": -872665
+      },
+      {
+        "joint_id": "joint.right-shoulder-roll",
+        "maximum_microradians": 1396263,
+        "minimum_microradians": -1570796
+      },
+      {
+        "joint_id": "joint.right-shoulder-yaw",
+        "maximum_microradians": 1308997,
+        "minimum_microradians": -1308997
+      },
+      {
+        "joint_id": "joint.torso-pitch",
+        "maximum_microradians": 610865,
+        "minimum_microradians": -349066
+      },
+      {
+        "joint_id": "joint.torso-roll",
+        "maximum_microradians": 349066,
+        "minimum_microradians": -349066
+      },
+      {
+        "joint_id": "joint.torso-yaw",
+        "maximum_microradians": 523599,
+        "minimum_microradians": -523599
+      }
+    ]
+  },
+  "schema_version": 1
+}

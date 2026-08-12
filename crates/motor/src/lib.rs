@@ -10,13 +10,19 @@ mod control;
 mod humanoid;
 mod mirror;
 mod mirror_v2;
+#[cfg(all(test, feature = "physx-sdk"))]
+mod native_safety_scenarios;
 mod observation;
 mod performance;
+mod procedural_standing;
+#[cfg(test)]
+mod procedural_standing_tests;
 mod replay;
 mod runtime;
 mod safety_control;
 #[cfg(test)]
 mod safety_control_tests;
+mod safety_mirror;
 mod terminal_v2;
 #[cfg(test)]
 mod terminal_v2_tests;
@@ -34,7 +40,8 @@ pub use contact_classifier::{
     BiomechanicsContactClassifier, BiomechanicsContactFrameV1, BiomechanicsSkillContactProfileV1,
     CONTACT_BRUSH_CEILING_MICRONEWTON_SECONDS, ClassifiedBiomechanicsContactV1,
     ContactClassificationError, ContactPairKeyV1, HUMANOID_GROUND_ACTOR_TOKEN,
-    HUMANOID_SAFETY_CONTACT_PROFILE_SHA256, LOW_IMPULSE_GRACE_SUBSTEPS,
+    HUMANOID_GROUND_SHAPE_TOKEN, HUMANOID_SAFETY_CONTACT_PROFILE_SHA256,
+    LOW_IMPULSE_GRACE_SUBSTEPS,
 };
 pub use control::{
     ACTUATOR_EFFORT_CLAMPED, ACTUATOR_RATE_CLAMPED, ACTUATOR_TARGET_CLAMPED, FixedPdController,
@@ -54,6 +61,11 @@ pub use performance::{
     HumanoidPerformanceError, HumanoidPerformanceReportV1, HumanoidWorkerPerformanceV1,
     run_reference_humanoid_performance_v1,
 };
+pub use procedural_standing::{
+    BiomechanicsProceduralStandingControllerV1, PROCEDURAL_STANDING_ANKLE_BIAS_MICRORADIANS,
+    PROCEDURAL_STANDING_KNEE_TARGET_MICRORADIANS, PROCEDURAL_STANDING_SCENARIO_MOTOR_TICKS,
+    ProceduralStandingError,
+};
 pub use replay::{MOTOR_RUNTIME_CHECKPOINT_SCHEMA_VERSION, MotorReplayCodecError};
 pub use runtime::{
     DeterministicHumanoidMotor, HumanoidMotorCheckpoint, MAX_REPLAY_MOTOR_TICKS, MotorFrameResult,
@@ -64,6 +76,7 @@ pub use safety_control::{
     AppliedJointTargetV1, BiomechanicsSafetyCheckpointV1, BiomechanicsSafetyController,
     JointTargetEnvelopeV1, MotorSafetyError, NORMALIZED_RESIDUAL_ONE_Q1_30,
 };
+pub use safety_mirror::{SafetyMirrorError, biomechanics_safety_contact_mirror_golden_json_v1};
 pub use terminal_v2::{
     BIOMECHANICS_FALL_HEIGHT_MICROMETRES, BIOMECHANICS_ROOT_NORM_TOLERANCE_Q2_60,
     BIOMECHANICS_TERMINAL_SUBSTEPS, BIOMECHANICS_WORLD_BOUND_MICROMETRES,

@@ -56,6 +56,27 @@ authored maximum joint velocity returns a stable safety violation before an
 effort is published. Reset restores neutral applied targets and clears prior
 effort, substep ordinal and accumulated work exactly.
 
+### Procedural standing fallback and neutral scenario
+
+The non-learned fallback runs for exactly `1,800` motor ticks (`30` simulated
+seconds) from the compiled neutral reset. It emits reference targets through
+the same residual/slew/PD/safety path: both knees use `100,000 µrad`, both
+ankle-pitch channels use the following integer ankle strategy and every other
+channel uses authored neutral:
+
+```text
+pitch_proxy = round_even(root_qx_q1_30 * 2,000,000 / 2^30)
+ankle_pitch = -140,000
+            + round_even(pitch_proxy / 2)
+            + round_even(root_angular_velocity_x / 20)
+            + round_even((root_z - reset_root_z) / 10)
+            + round_even(root_linear_velocity_z / 50)
+```
+
+The scenario passes only by reaching its exact timeout as `Truncated`, with
+zero joint/contact/fall terminal event. The controller never writes a body or
+joint pose and retains only the reset root-Z target as state.
+
 ## 2. Contact measurement
 
 PhysX shape-level contact impulse is consumed in micro-newton-seconds. The
@@ -74,6 +95,7 @@ step, independent of point count or callback order.
 | Low-impulse grace | `4` consecutive physics substeps | One complete 60 Hz motor frame may be ignored; the fifth active substep is material |
 | Continuity break | `1` inactive physics substep | Clears consecutive-contact state for that shape pair |
 | Ground actor token | `1` | The fixed flat ground in the compiled descriptor |
+| Ground shape token | `0` | Static V1 ground shapes carry no per-shape user token in the PhysX ABI |
 | Runtime root-quaternion norm tolerance | `2^40 Q2.60` (about `9.54e-7`) | Larger canonical norm error is malformed state |
 
 Penetration (`separation < 0`) is active even below the impulse threshold.

@@ -236,6 +236,7 @@ fn hard_rom_and_velocity_faults_publish_no_partial_effort() {
 fn reset_clears_targets_efforts_work_and_tick_state_exactly() {
     let mut controller = controller();
     let pristine = controller.checkpoint();
+    let pristine_root = controller.checkpoint_root();
     let (reference, envelopes) = neutral_tick(&mut controller);
     let residuals = vec![NORMALIZED_RESIDUAL_ONE_Q1_30; controller.channel_count()];
     controller
@@ -245,8 +246,10 @@ fn reset_clears_targets_efforts_work_and_tick_state_exactly() {
         .step_substep(&neutral_states(&controller))
         .expect("substep");
     assert_ne!(controller.checkpoint(), pristine);
+    assert_ne!(controller.checkpoint_root(), pristine_root);
     controller.reset();
     assert_eq!(controller.checkpoint(), pristine);
+    assert_eq!(controller.checkpoint_root(), pristine_root);
 }
 
 #[test]
