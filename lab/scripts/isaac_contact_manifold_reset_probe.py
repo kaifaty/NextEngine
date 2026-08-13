@@ -24,6 +24,7 @@ from next_lab.contact_manifold_physx import (
     evaluate_bounded_acceptance,
     load_case_arrays,
     load_contact_prototype_cases,
+    overlay_bounded_reference_window,
 )
 
 
@@ -104,6 +105,16 @@ def _validated_inputs(args: argparse.Namespace) -> dict[str, Any]:
         or int(execution.get("horizon_motor_ticks", -1))
         != cases[0].horizon_motor_ticks
         or int(execution.get("vector_environment_count", -1)) != len(cases)
+        or execution.get("reference_overlay")
+        != {
+            "projected_values": (
+                "exact bounded prototype artifact on relative frames 0 through 11"
+            ),
+            "outside_projected_window": (
+                "unchanged reference values from the hash-closed V18 source corpus"
+            ),
+            "observation_horizon_offsets_motor_ticks": [0, 4, 8, 16],
+        }
         or execution.get("optimizer_steps") != 0
         or execution.get("training_runs") != 0
     ):
@@ -370,6 +381,7 @@ def _run_fresh_worker(
             ACTION_CHANNELS,
             NextEngineReferenceDirectEnv,
             NextEngineReferenceDirectEnvCfg,
+            REFERENCE_OFFSETS,
         )
         from next_lab import isaac_reference_env as reference_env_module
         from next_lab.reference_dynamic_feasibility import (
@@ -379,6 +391,11 @@ def _run_fresh_worker(
         from isaacsim.core.simulation_manager import SimulationManager
 
         vector_count = int(profile["execution"]["vector_environment_count"])
+        reference_overlay = profile["execution"]["reference_overlay"]
+        if tuple(reference_overlay["observation_horizon_offsets_motor_ticks"]) != tuple(
+            REFERENCE_OFFSETS
+        ):
+            raise RuntimeError("reference overlay offsets differ from the tracker")
         cfg = NextEngineReferenceDirectEnvCfg()
         cfg.scene.num_envs = vector_count
         cfg.sim.device = args.device
@@ -606,6 +623,7 @@ def _run_fresh_worker(
                     "enabled_before_contact_view"
                 ],
             },
+            "reference_overlay": reference_overlay,
             "post_create_state_write_attempts_suppressed": write_attempts,
             "post_create_root_or_joint_state_writes_executed": 0,
             "initial_state_verification": {"before_reset": before, "after_reset": after},
@@ -663,11 +681,17 @@ def _run_partial_reset(
             ACTION_CHANNELS,
             NextEngineReferenceDirectEnv,
             NextEngineReferenceDirectEnvCfg,
+            REFERENCE_OFFSETS,
         )
         from next_lab.reference_dynamic_feasibility import (
             DynamicFeasibilityAccumulator,
         )
 
+        reference_overlay = profile["execution"]["reference_overlay"]
+        if tuple(reference_overlay["observation_horizon_offsets_motor_ticks"]) != tuple(
+            REFERENCE_OFFSETS
+        ):
+            raise RuntimeError("reference overlay offsets differ from the tracker")
         clip_ids = tuple(profile_case for profile_case in _ordered_clip_ids(cases))
         clip_index = {clip_id: index for index, clip_id in enumerate(clip_ids)}
         cfg = NextEngineReferenceDirectEnvCfg()
@@ -807,6 +831,7 @@ def _run_partial_reset(
                 "same_case_before_and_after_reset": True,
                 "root_velocity_semantics": "root-link writer before next physics step",
                 "executed_vector_motor_steps": executed_steps,
+                "reference_overlay": reference_overlay,
             },
             "contact_pair_ids": list(environment.contact_pair_ids),
             "contact_pair_hard_limits_micronewton_seconds": list(
@@ -879,13 +904,14 @@ def _install_reference_override(
             if frame is None
             else frame
         )
-        relative = selected_frame - environment._episode_start_frame[selected_ids]
-        valid = torch.all((relative >= 0) & (relative < tensors[name].shape[1]))
-        if relative.device.type == "cuda":
-            torch._assert_async(valid, "prototype reference frame is outside its window")
-        elif not bool(valid.item()):
-            raise RuntimeError("prototype reference frame is outside its window")
-        return tensors[name][selected_ids, relative]
+        return overlay_bounded_reference_window(
+            source_values=original(name, frame, env_ids),
+            projected_by_environment=tensors[name],
+            selected_environment_ids=selected_ids,
+            selected_frames=selected_frame,
+            episode_start_frames=environment._episode_start_frame[selected_ids],
+            where=torch.where,
+        )
 
     environment._reference_at = reference_at
 

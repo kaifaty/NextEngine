@@ -12,10 +12,43 @@ from next_lab.contact_manifold_physx import (
     build_fresh_scene_usda,
     compare_reset_paths,
     evaluate_bounded_acceptance,
+    overlay_bounded_reference_window,
 )
 
 
 class ContactManifoldPhysxTests(unittest.TestCase):
+    def test_bounded_reference_overlay_retains_source_lookahead(self) -> None:
+        source = np.asarray(((10,), (20,), (30,), (40,)), dtype=np.int64)
+        projected = np.asarray(
+            (
+                ((100,), (101,), (102,)),
+                ((200,), (201,), (202,)),
+                ((300,), (301,), (302,)),
+                ((400,), (401,), (402,)),
+            ),
+            dtype=np.int64,
+        )
+        result = overlay_bounded_reference_window(
+            source_values=source,
+            projected_by_environment=projected,
+            selected_environment_ids=np.arange(4, dtype=np.int64),
+            selected_frames=np.asarray((23, 25, 26, 40), dtype=np.int64),
+            episode_start_frames=np.asarray((23, 23, 23, 23), dtype=np.int64),
+            where=np.where,
+        )
+
+        np.testing.assert_array_equal(result[:, 0], (100, 202, 30, 40))
+
+        with self.assertRaisesRegex(ValueError, "differ in shape"):
+            overlay_bounded_reference_window(
+                source_values=source[:3],
+                projected_by_environment=projected,
+                selected_environment_ids=np.arange(4, dtype=np.int64),
+                selected_frames=np.asarray((23, 25, 26, 40), dtype=np.int64),
+                episode_start_frames=np.asarray((23, 23, 23, 23), dtype=np.int64),
+                where=np.where,
+            )
+
     def test_fresh_scene_usd_authors_root_link_and_joint_state(self) -> None:
         arrays = _arrays()
         half = np.sqrt(0.5)

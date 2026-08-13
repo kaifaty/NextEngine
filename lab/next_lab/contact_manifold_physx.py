@@ -178,6 +178,43 @@ def load_case_arrays(case: ContactPrototypeCase) -> dict[str, NDArray[Any]]:
         }
 
 
+def overlay_bounded_reference_window(
+    *,
+    source_values: Any,
+    projected_by_environment: Any,
+    selected_environment_ids: Any,
+    selected_frames: Any,
+    episode_start_frames: Any,
+    where: Any,
+) -> Any:
+    """Overlay a bounded projection without inventing lookahead frames.
+
+    Contact-manifold artifacts contain only the measured episode interval,
+    while policy observations can request later reference frames. Values in
+    the interval come from the projection; values outside it retain the
+    hash-closed source-corpus reference supplied by ``source_values``.
+
+    The operation is array-library agnostic so its indexed semantics can be
+    covered with NumPy and executed on resident Torch tensors.
+    """
+
+    window_length = int(projected_by_environment.shape[1])
+    if window_length <= 0:
+        raise ValueError("projected reference window is empty")
+    relative = selected_frames - episode_start_frames
+    bounded_relative = relative.clip(0, window_length - 1)
+    projected_values = projected_by_environment[
+        selected_environment_ids, bounded_relative
+    ]
+    if source_values.shape != projected_values.shape:
+        raise ValueError("source and projected reference values differ in shape")
+    mask_shape = tuple(relative.shape) + (1,) * (
+        projected_values.ndim - relative.ndim
+    )
+    valid = ((relative >= 0) & (relative < window_length)).reshape(mask_shape)
+    return where(valid, projected_values, source_values)
+
+
 def authored_root_state(arrays: Mapping[str, NDArray[Any]]) -> AuthoredRootState:
     position = engine_to_isaac_vector(
         np.asarray(arrays["root_position_um"][0], dtype=np.float64)

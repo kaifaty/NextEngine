@@ -182,7 +182,11 @@ Validate that bundle in PhysX before expanding it to a full corpus identity:
 
 For each selected case the probe authors root-link pose, derived center-of-mass
 world velocity and PhysX `JointStateAPI` coordinates in a new USD layer before
-the scene starts. It performs Isaac Sim's two mandatory physics-initialization
+the scene starts. The 12-frame projected interval overlays the hash-closed V18
+reference only on those exact frames; policy lookahead at offsets `0/4/8/16`
+retains the unchanged source reference outside that bounded interval. It does
+not extrapolate or repeat projected frames. The probe performs Isaac Sim's two
+mandatory physics-initialization
 steps at a frozen `1 ns` with the already-authored ground collision disabled,
 re-enables it before creating the contact view, and restores the frozen
 `1/240 s` step before the episode. GPU tensor handles therefore initialize

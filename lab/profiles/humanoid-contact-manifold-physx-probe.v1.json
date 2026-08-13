@@ -19,6 +19,16 @@
     "controller": "zero residual through the frozen reference tracker",
     "horizon_motor_ticks": 11,
     "vector_environment_count": 17,
+    "reference_overlay": {
+      "projected_values": "exact bounded prototype artifact on relative frames 0 through 11",
+      "outside_projected_window": "unchanged reference values from the hash-closed V18 source corpus",
+      "observation_horizon_offsets_motor_ticks": [
+        0,
+        4,
+        8,
+        16
+      ]
+    },
     "fresh_scene": {
       "method": "author root-link pose, root-link-derived center-of-mass world velocity and JointStateAPI position/velocity in a per-case USD layer before SimulationContext.reset; disable the already-authored ground collision only during two mandatory 1 ns Isaac initialization steps, re-enable it before contact-view creation, and restore 1/240 s before the episode",
       "mandatory_initialization_physics_step_count": 2,
