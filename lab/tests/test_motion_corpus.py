@@ -269,6 +269,32 @@ class MotionCorpusTests(unittest.TestCase):
             clips["cmu139-walk-slow-heldout"]["source_last_frame"], 1400
         )
 
+    def test_contact_seated_overlay_closes_declared_ground_gap(self) -> None:
+        profile, _ = load_motion_corpus_profile(
+            PROFILES / "humanoid-motion-corpus-cmu-contact-seated.v13.json"
+        )
+        self.assertEqual(
+            profile["profile_id"],
+            "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion-contact-seated.v13",
+        )
+        solve = profile["retarget"]["temporal_contact_solve"]
+        self.assertEqual(solve["root_height"]["minimum_clearance_micrometres"], 0)
+        self.assertEqual(
+            solve["validation"][
+                "maximum_root_vertical_speed_micrometres_per_second"
+            ],
+            200060,
+        )
+        thresholds = profile["retarget"]["contact_thresholds"]
+        self.assertEqual(thresholds["sole_height_micrometres"], 45000)
+        self.assertEqual(
+            thresholds["sole_speed_micrometres_per_second"], 600000
+        )
+        self.assertEqual(thresholds["recovery_height_micrometres"], 55000)
+        self.assertEqual(
+            thresholds["recovery_speed_micrometres_per_second"], 600000
+        )
+
     def test_stance_anchor_trajectory_is_continuous_and_time_symmetric(self) -> None:
         centers = np.zeros((11, 2, 3), dtype=np.float64)
         centers[:, 0, 0] = np.linspace(0.0, 1.0, 11)
