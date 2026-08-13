@@ -57,6 +57,10 @@ PHYSICS_VELOCITY_GUARD_H10_TINY_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-ppo-tiny-physics-velocity-guard-h10.v5.json"
 )
+CONTACT_IMPACT_MARGIN_H10_TINY_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-ppo-tiny-contact-impact-margin-h10.v6.json"
+)
 
 
 class ReferencePpoTests(unittest.TestCase):
@@ -191,6 +195,17 @@ class ReferencePpoTests(unittest.TestCase):
                 "phase_randomization": False,
             },
         )
+        self.assertEqual(profile.document["ppo"], baseline.document["ppo"])
+
+    def test_contact_impact_margin_h10_tiny_preserves_sanity_scope(self) -> None:
+        profile = TinyReferencePpoProfile.load(CONTACT_IMPACT_MARGIN_H10_TINY_PROFILE)
+        baseline = TinyReferencePpoProfile.load(PROFILE)
+        self.assertEqual(
+            profile.document["environment_profile_sha256"],
+            "6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06",
+        )
+        self.assertEqual(profile.document["scope"]["horizon_motor_ticks"], 10)
+        self.assertFalse(profile.document["scope"]["phase_randomization"])
         self.assertEqual(profile.document["ppo"], baseline.document["ppo"])
 
     def test_predictive_rom_curriculum_variant_preserves_fixed_matrix(self) -> None:

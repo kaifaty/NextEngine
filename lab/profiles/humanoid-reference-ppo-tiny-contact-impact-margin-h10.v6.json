@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.training.humanoid-reference-ppo-tiny-contact-impact-margin-h10.v6",
+  "status": "Frozen",
+  "base_profile_id": "nextengine.training.humanoid-reference-ppo-tiny.v1",
+  "base_profile_sha256": "ac34da5ab39a069e8de9ecd19730bfed2c4dce9ac8753c7a03bbfdb99c8df55b",
+  "variant": {
+    "kind": "replace-environment-corpus-and-scope.v1",
+    "environment_profile_id": "nextengine.motor.env.humanoid-reference-tracker-contact-impact-margin.v5",
+    "environment_profile_sha256": "6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06",
+    "corpus_manifest_sha256": "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
+    "scope": {
+      "split": "train",
+      "clip_id": "cmu104-start-right",
+      "start_frame": 0,
+      "horizon_motor_ticks": 10,
+      "reset_mode": "exact_reference",
+      "phase_randomization": false
+    }
+  }
+}

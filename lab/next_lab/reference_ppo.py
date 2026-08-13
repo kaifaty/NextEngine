@@ -106,6 +106,7 @@ class TinyReferencePpoProfile:
             "nextengine.training.humanoid-reference-ppo-tiny-predictive-rom-cost.v1",
             "nextengine.training.humanoid-reference-ppo-tiny-physics-velocity-guard.v4",
             "nextengine.training.humanoid-reference-ppo-tiny-physics-velocity-guard-h10.v5",
+            "nextengine.training.humanoid-reference-ppo-tiny-contact-impact-margin-h10.v6",
         }
         isolated_curriculum_profile_ids = {
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v2",
