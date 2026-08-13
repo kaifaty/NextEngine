@@ -1470,8 +1470,8 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    остаётся `DEFERRED_LINUX`, v1 shipping не заявляется.
 
 Каждый package должен быть отдельным product increment с focused checks. WIP=1:
-сейчас выполняется bounded R5 TRAIN-4 dynamic-feasibility remediation; R4a не идёт параллельно и остаётся
-следующим queued world increment. SPEC-23 остаётся Proposed: завершённый R3 не
+сейчас выполняется bounded R5 TRAIN-4 dynamic-feasibility remediation; R4a не
+идёт параллельно и остаётся следующим queued world increment. SPEC-23 остаётся Proposed: завершённый R3 не
 начинает универсальный scheduler design без второго concrete production
 workload.
 

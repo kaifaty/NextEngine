@@ -340,6 +340,8 @@ count: confidence interval не превращает наблюдаемое на
   `33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd`,
   previous gate report SHA-256
   `261dce77dcc36448831373569c0a6d033ad8260769583e29228f706877c00778`;
+  remediation gate report SHA-256
+  `2fc1d6c3d312a1e88a3820bdd851fd0eecf3230795a1162b55f13dd65d45cdb6`;
 - `TRAIN-5`: `FailedSafetyGate / InvalidatedByUpstreamData`. Input/reset and
   reproducible h10 tiny sanity passed, but base, contact-impact-margin and
   deterministic phase-prefix curricula all failed hard safety. Every produced
@@ -1035,7 +1037,11 @@ optimization hypothesis. До обучения exact-reference baseline уже �
 self-collision reasons при нулевых reset-window safety failures. Поэтому
 `REQ-HUM-DATA-007` required, прежний `TRAIN-4 Advance` superseded, `TRAIN-5`
 checkpoint/resume и все новые optimizer runs запрещены до новой corpus/profile
-identity и полного optimizer-free dynamic-feasibility `Pass`.
+identity и полного optimizer-free dynamic-feasibility `Pass`. Exact reopened
+`TRAIN-4` gate report:
+`/home/kaifaty/NextEngine-training/gates/TRAIN-4/locomotion-dynamic-feasibility-r9-gate-report.json`,
+SHA-256
+`2fc1d6c3d312a1e88a3820bdd851fd0eecf3230795a1162b55f13dd65d45cdb6`.
 
 Следующие результаты сохранены только как historical failure/diagnostic
 evidence старой corpus lineage и не продвигают текущий `TRAIN-5`: input/reward audit
