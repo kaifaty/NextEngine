@@ -7,6 +7,7 @@ import numpy as np
 
 from next_lab.reference_tracker import (
     ACTION_CHANNELS,
+    CONTACT_SEATED_PROFILE_SHA256,
     CONTACT_IMPACT_MARGIN_PROFILE_SHA256,
     DYNAMIC_RESERVE_PROFILE_SHA256,
     OBSERVATION_CHANNELS,
@@ -66,6 +67,10 @@ STANCE_CHAIN_PROFILE = (
 SWING_CLEARANCE_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-tracker-swing-clearance.v8.json"
+)
+CONTACT_SEATED_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-tracker-contact-seated.v9.json"
 )
 
 
@@ -215,6 +220,21 @@ class ReferenceTrackerTests(unittest.TestCase):
             authorization["source_lineage"]["motion_corpus_manifest_sha256"],
             "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
         )
+
+    def test_contact_seated_profile_is_diagnostic_only_and_v13_bound(self) -> None:
+        profile = ReferenceTrackerProfile.load(CONTACT_SEATED_PROFILE)
+        self.assertEqual(profile.document_sha256, CONTACT_SEATED_PROFILE_SHA256)
+        self.assertEqual(
+            profile.document["corpus"]["manifest_sha256"],
+            "28ef3937e7b3b0dc7e5bd9ac462fec6cc45d31672dac9d8edb924f219fb7182e",
+        )
+        self.assertEqual(
+            profile.document["corpus"]["profile_sha256"],
+            "966ef5f0fd88e7453fbbc5e9a29f60021c089b4185259a046c5748c45cf63b32",
+        )
+        authorization = profile.document["training_authorization"]
+        self.assertEqual(authorization["decision"], "RemediateDataOnly")
+        self.assertIn("optimizer execution remains forbidden", authorization["scope"])
 
     def test_frozen_profile_closes_exact_layout_and_subprofiles(self) -> None:
         profile = ReferenceTrackerProfile.load(PROFILE)
