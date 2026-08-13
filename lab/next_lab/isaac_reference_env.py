@@ -821,6 +821,15 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_episode_elapsed_motor_ticks = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.int64
             )
+            self.last_step_root_position_error_micrometres = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.int64
+            )
+            self.last_step_root_orientation_absolute_dot_q1_30 = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.int64
+            )
+            self.last_step_tracking_loss_ticks = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.int64
+            )
             self.last_step_forbidden_contact_mask = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.int64
             )
@@ -923,6 +932,9 @@ if ISAAC_LAB_AVAILABLE:
                 "last_step_command_reference_target_microradians",
                 "last_step_reference_frame",
                 "last_step_episode_elapsed_motor_ticks",
+                "last_step_root_position_error_micrometres",
+                "last_step_root_orientation_absolute_dot_q1_30",
+                "last_step_tracking_loss_ticks",
                 "last_step_forbidden_contact_mask",
                 "_episode_reward_sum",
                 "_episode_component_sums",
@@ -1829,6 +1841,13 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_episode_elapsed_motor_ticks.copy_(
                 frame - self._episode_start_frame
             )
+            self.last_step_root_position_error_micrometres.copy_(
+                torch.round(position_error).to(torch.int64)
+            )
+            self.last_step_root_orientation_absolute_dot_q1_30.copy_(
+                torch.round(orientation_dot * Q1_30).to(torch.int64)
+            )
+            self.last_step_tracking_loss_ticks.copy_(self._tracking_loss_ticks)
             self.last_step_forbidden_contact_mask.copy_(forbidden_contact_mask)
             terminated = self._success_terminal | self._failure_terminal
             timed_out = self.episode_length_buf >= self.max_episode_length - 1

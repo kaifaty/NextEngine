@@ -114,6 +114,7 @@ def main() -> None:
         evaluation = trainer.evaluate_deterministic(
             int(document["evaluation"]["episodes"]),
             include_hard_rom_state_samples=True,
+            include_terminal_state_samples=True,
         )
         report = {
             "schema_version": 1,

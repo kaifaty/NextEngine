@@ -311,7 +311,11 @@ class TinyReferencePpoTrainer:
         }
 
     def evaluate_deterministic(
-        self, episodes: int, *, include_hard_rom_state_samples: bool = False
+        self,
+        episodes: int,
+        *,
+        include_hard_rom_state_samples: bool = False,
+        include_terminal_state_samples: bool = False,
     ) -> dict[str, Any]:
         if episodes <= 0:
             raise ValueError("deterministic evaluation requires at least one episode")
@@ -370,6 +374,7 @@ class TinyReferencePpoTrainer:
         maximum_hard_rom_selection = ""
         hard_rom_action_channel_counts: dict[str, int] = {}
         hard_rom_state_samples: list[dict[str, Any]] = []
+        terminal_state_samples: list[dict[str, Any]] = []
         forbidden_contact_mask_counts: dict[str, int] = {}
         executed_motor_steps = 0
         maximum_motor_steps = max(episodes, evaluation_num_envs) * (
@@ -463,6 +468,41 @@ class TinyReferencePpoTrainer:
                         "elapsed_motor_ticks": self.environment.last_step_episode_elapsed_motor_ticks[
                             done_indices
                         ].cpu().tolist(),
+                    }
+                terminal_state_batch: dict[str, list[Any]] = {}
+                if include_terminal_state_samples:
+                    required_terminal_diagnostics = (
+                        "last_step_root_position_error_micrometres",
+                        "last_step_root_orientation_absolute_dot_q1_30",
+                        "last_step_tracking_loss_ticks",
+                    )
+                    missing = [
+                        name
+                        for name in required_terminal_diagnostics
+                        if not hasattr(self.environment, name)
+                    ]
+                    if missing:
+                        raise RuntimeError(
+                            "terminal state diagnostic is unavailable: "
+                            + ", ".join(missing)
+                        )
+                    terminal_state_batch = {
+                        "root_position_error": self.environment.last_step_root_position_error_micrometres[
+                            done_indices
+                        ].cpu().tolist(),
+                        "root_orientation_dot": self.environment.last_step_root_orientation_absolute_dot_q1_30[
+                            done_indices
+                        ].cpu().tolist(),
+                        "tracking_loss_ticks": self.environment.last_step_tracking_loss_ticks[
+                            done_indices
+                        ].cpu().tolist(),
+                        "reference_frame": self.environment.last_step_reference_frame[
+                            done_indices
+                        ].cpu().tolist(),
+                        "elapsed_motor_ticks": self.environment.last_step_episode_elapsed_motor_ticks[
+                            done_indices
+                        ].cpu().tolist(),
+                        "policy_action": action[done_indices].cpu().tolist(),
                     }
                 completed_rows = torch.stack(
                     (
@@ -585,6 +625,56 @@ class TinyReferencePpoTrainer:
                     selection["episodes"] += 1
                     selection["reference_complete_count"] += int(success)
                     selection["failure_count"] += int(failure)
+                    if include_terminal_state_samples:
+                        terminal_state_samples.append(
+                            {
+                                "selection_id": selection_id,
+                                "episode_length_motor_ticks": int(completed_length),
+                                "reference_frame": int(
+                                    terminal_state_batch["reference_frame"][
+                                        completed_index
+                                    ]
+                                ),
+                                "elapsed_motor_ticks": int(
+                                    terminal_state_batch["elapsed_motor_ticks"][
+                                        completed_index
+                                    ]
+                                ),
+                                "root_position_error_micrometres": int(
+                                    terminal_state_batch["root_position_error"][
+                                        completed_index
+                                    ]
+                                ),
+                                "root_orientation_absolute_dot_q1_30": int(
+                                    terminal_state_batch["root_orientation_dot"][
+                                        completed_index
+                                    ]
+                                ),
+                                "tracking_loss_ticks": int(
+                                    terminal_state_batch["tracking_loss_ticks"][
+                                        completed_index
+                                    ]
+                                ),
+                                "failure_reasons": [
+                                    reason
+                                    for reason, occurred in (
+                                        ("reference_tracking_lost", tracking_lost),
+                                        ("hard_rom", hard_rom),
+                                        ("joint_safety", joint_safety),
+                                        ("hard_impact", hard_impact),
+                                        ("self_collision", self_collision),
+                                        ("forbidden_contact", forbidden_contact),
+                                        ("world_bounds", world_bounds),
+                                        ("fall", fall),
+                                        ("non_finite", non_finite),
+                                    )
+                                    if occurred
+                                ],
+                                "policy_action": terminal_state_batch["policy_action"][
+                                    completed_index
+                                ],
+                            }
+                        )
                     for reason, occurred_value in (
                         ("reference_tracking_lost", tracking_lost),
                         ("hard_rom", hard_rom),
@@ -750,6 +840,8 @@ class TinyReferencePpoTrainer:
             )
         if include_hard_rom_state_samples:
             result["hard_rom_state_samples"] = hard_rom_state_samples
+        if include_terminal_state_samples:
+            result["terminal_state_samples"] = terminal_state_samples
         return result
 
     def train(self) -> list[dict[str, Any]]:
