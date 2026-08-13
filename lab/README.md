@@ -164,6 +164,34 @@ difference/analytic velocity at `5 mm` normal residual, `2 mm/frame`
 tangential and `1 mm/frame` normal. It is an optimizer-free, research-only
 bundle: it neither authorizes a full V19 corpus nor changes the TRAIN-4 gate.
 
+Validate that bundle in PhysX before expanding it to a full corpus identity:
+
+```text
+<isaac-python> lab/scripts/isaac_contact_manifold_reset_probe.py \
+  --headless --device cuda:0 \
+  --source-audit <external complete V18/R14 audit.json> \
+  --probe-profile lab/profiles/humanoid-contact-manifold-physx-probe.v1.json \
+  --descriptor <external biomechanics descriptor> \
+  --reference-profile lab/profiles/humanoid-reference-tracker-ankle-pitch-velocity-closure.v11.json \
+  --prototype-manifest <external bounded-prototype/prototype-manifest.json> \
+  --corpus-root <external V18 corpus root> \
+  --gate-report <current TRAIN-4 RemediateDataOnly report> \
+  --usd <external derived humanoid.usda> \
+  --output <new external TRAIN-4 reset-probe directory>
+```
+
+For each selected case the probe authors root-link pose/local velocity and
+PhysX `JointStateAPI` coordinates in a new USD layer before the scene starts;
+the first reset's state writes are counted and suppressed. It checks the state
+read back from PhysX before stepping, then compares that episode with the same
+case after one indexed running-scene warmup/reset. Outcomes, reasons and
+terminal ticks must match exactly, while every first-tick contact-pair impulse
+must stay within the separately frozen probe bound. Passing controls may not
+regress and each selected impact, ROM and velocity class must strictly
+decrease on both paths. A pass permits only a full V19 data build and
+fresh-scene optimizer-free audit; it does not change ADR-070 or authorize an
+optimizer.
+
 The 2026-08-13 temporal/contact remediation uses
 `humanoid-motion-corpus-cmu-temporal-contact.v4.json` and
 `humanoid-reference-tracker-temporal-contact.v6.json`. Both are diagnostic-only:

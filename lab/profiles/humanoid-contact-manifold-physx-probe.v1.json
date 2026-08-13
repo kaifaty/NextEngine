@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "probe_id": "nextengine.humanoid-contact-manifold-physx-probe.v1",
+  "status": "FrozenResearchOnly",
+  "source": {
+    "audit_sha256": "ded76473905f7f26e4db0dfaa236508f649d46a692ff28938203f92dcf1c9b61",
+    "contact_prototype_manifest_sha256": "794e479b61c5b3041b75f86095647c1663f127763a8eddd9f3292cee0fa524ae",
+    "contact_prototype_manifest_file_sha256": "ab684f60d1eca8ca636df20efbbb376618511663c0db07f4a486a336ee6ccbad",
+    "contact_prototype_profile_sha256": "60d5640a7c221f5d65fa427bb0cd4aa1e307c9a3c860ee5fabe33191cc27d089",
+    "corpus_manifest_sha256": "bd6164180a33585ed9231fd6a41cb3943b20e51da8b0e06ac0c978406e204456",
+    "corpus_manifest_file_sha256": "f4eab49ac48ba2b8bf741c03b7e6f50520e703fdc6c9cf72de9cd801dcc76d05",
+    "descriptor_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014",
+    "gate_report_sha256": "2fc1d6c3d312a1e88a3820bdd851fd0eecf3230795a1162b55f13dd65d45cdb6",
+    "reference_tracker_profile_sha256": "19a8e5266f12c5c1ae9e307bd0f2f1a76bb6ea23a6ae9912e1ccec401eeaf28c",
+    "usd_sha256": "951fc04bed0ff3e15414bfd06d067636ee8db18ef70e6e4a0ced28c624fcefa4"
+  },
+  "execution": {
+    "case_selection": "exact ordered 17-case inventory from the contact prototype manifest",
+    "controller": "zero residual through the frozen reference tracker",
+    "horizon_motor_ticks": 11,
+    "vector_environment_count": 17,
+    "fresh_scene": {
+      "method": "author root-link pose/local velocity and JointStateAPI position/velocity in a per-case USD layer before SimulationContext.reset",
+      "post_create_root_or_joint_state_writes": 0,
+      "target_vector_slot": "case ordinal",
+      "all_vector_slots_use_the_same_case": true
+    },
+    "indexed_partial_reset": {
+      "method": "running-scene indexed root/joint writes followed by the root-link velocity writer",
+      "warmup_episode_count_per_vector_slot": 1,
+      "measured_episode_count_per_vector_slot": 1,
+      "same_case_before_and_after_reset": true
+    },
+    "optimizer_steps": 0,
+    "training_runs": 0
+  },
+  "fresh_state_verification": {
+    "maximum_root_position_error_micrometres": 10,
+    "minimum_root_orientation_absolute_dot_q1_30": 1073741800,
+    "maximum_root_linear_velocity_error_micrometres_per_second": 10,
+    "maximum_root_angular_velocity_error_microradians_per_second": 10,
+    "maximum_joint_position_error_microradians": 10,
+    "maximum_joint_velocity_error_microradians_per_second": 10
+  },
+  "reset_comparison": {
+    "outcome_reason_and_terminal_tick": "exact",
+    "maximum_first_tick_contact_pair_impulse_delta_micronewton_seconds": 10000,
+    "impulse_delta_rationale": "0.01 N*s is at most one percent of the smallest 1 N*s hard-impact limit and one fifth of the 0.05 N*s active-contact impulse floor",
+    "divergence_disposition": "stop before full V19 and resolve reset semantics through the architecture workflow",
+    "equivalence_disposition": "retain ADR-070; indexed partial reset remains diagnostic-only and fresh-scene evidence remains required for acceptance"
+  },
+  "bounded_acceptance": {
+    "passing_control_regression_count": 0,
+    "targeted_failure_category_count_change": "strict decrease for hard_impact, hard_rom and joint_velocity",
+    "new_required_safety_reasons": 0,
+    "both_reset_paths_must_pass": true,
+    "result_if_passed": "permit a full V19 data build and fresh-scene optimizer-free gate; do not authorize optimization"
+  }
+}
