@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.training.humanoid-reference-ppo-tiny-physics-velocity-guard.v4",
+  "status": "Frozen",
+  "base_profile_id": "nextengine.training.humanoid-reference-ppo-tiny.v1",
+  "base_profile_sha256": "ac34da5ab39a069e8de9ecd19730bfed2c4dce9ac8753c7a03bbfdb99c8df55b",
+  "variant": {
+    "kind": "replace-environment-and-corpus.v1",
+    "environment_profile_id": "nextengine.motor.env.humanoid-reference-tracker-physics-velocity-guard.v4",
+    "environment_profile_sha256": "7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d",
+    "corpus_manifest_sha256": "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd"
+  }
+}

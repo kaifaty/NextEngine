@@ -23,7 +23,11 @@ class TinyReferencePpoProfile:
         document = json.loads(payload)
         if "base_profile_sha256" in document:
             overlay = document
-            if overlay.get("variant", {}).get("kind") == "replace-environment.v1":
+            variant_kind = overlay.get("variant", {}).get("kind")
+            if variant_kind in {
+                "replace-environment.v1",
+                "replace-environment-and-corpus.v1",
+            }:
                 if (
                     overlay.get("schema_version") != 1
                     or overlay.get("status") != "Frozen"
@@ -62,6 +66,16 @@ class TinyReferencePpoProfile:
             document["environment_profile_sha256"] = overlay["variant"][
                 "environment_profile_sha256"
             ]
+            if variant_kind == "replace-environment-and-corpus.v1":
+                corpus_manifest_sha256 = overlay["variant"].get(
+                    "corpus_manifest_sha256"
+                )
+                if (
+                    not isinstance(corpus_manifest_sha256, str)
+                    or len(corpus_manifest_sha256) != 64
+                ):
+                    raise ValueError("invalid reference PPO corpus replacement")
+                document["corpus_manifest_sha256"] = corpus_manifest_sha256
             if "initialization" in overlay["variant"]:
                 document["initialization"] = overlay["variant"]["initialization"]
                 document["scope"]["stage_id"] = overlay["variant"]["stage_id"]
@@ -70,6 +84,7 @@ class TinyReferencePpoProfile:
             "nextengine.training.humanoid-reference-ppo-tiny.v1",
             "nextengine.training.humanoid-reference-ppo-tiny-soft-rom-cost.v1",
             "nextengine.training.humanoid-reference-ppo-tiny-predictive-rom-cost.v1",
+            "nextengine.training.humanoid-reference-ppo-tiny-physics-velocity-guard.v4",
         }
         isolated_curriculum_profile_ids = {
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v2",

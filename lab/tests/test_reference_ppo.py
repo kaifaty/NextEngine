@@ -43,6 +43,10 @@ PREDICTIVE_ROM_CURRICULUM_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-ppo-curriculum-start-phase-predictive-rom-cost.v1.json"
 )
+PHYSICS_VELOCITY_GUARD_TINY_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-ppo-tiny-physics-velocity-guard.v4.json"
+)
 
 
 class ReferencePpoTests(unittest.TestCase):
@@ -111,6 +115,19 @@ class ReferencePpoTests(unittest.TestCase):
         self.assertEqual(profile.document["network"], baseline.document["network"])
         self.assertEqual(profile.document["ppo"], baseline.document["ppo"])
         self.assertEqual(profile.document["scope"], baseline.document["scope"])
+
+    def test_physics_velocity_guard_tiny_replaces_environment_and_corpus(self) -> None:
+        profile = TinyReferencePpoProfile.load(PHYSICS_VELOCITY_GUARD_TINY_PROFILE)
+        baseline = TinyReferencePpoProfile.load(PROFILE)
+        self.assertEqual(
+            profile.document["environment_profile_sha256"],
+            "7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d",
+        )
+        self.assertEqual(
+            profile.document["corpus_manifest_sha256"],
+            "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
+        )
+        self.assertEqual(profile.document["ppo"], baseline.document["ppo"])
 
     def test_predictive_rom_curriculum_variant_preserves_fixed_matrix(self) -> None:
         profile = TinyReferencePpoProfile.load(PREDICTIVE_ROM_CURRICULUM_PROFILE)
