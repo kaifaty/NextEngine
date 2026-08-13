@@ -158,6 +158,32 @@ def _contact_impulse_magnitude_micronewton_seconds(
     ).to(torch.int64)
 
 
+def _contact_impact_margin_cost_tensor(
+    maximum_impulse_micronewton_seconds: torch.Tensor,
+    hard_limits_micronewton_seconds: torch.Tensor,
+    warning_basis_points: int,
+) -> torch.Tensor:
+    if (
+        maximum_impulse_micronewton_seconds.dtype != torch.int64
+        or hard_limits_micronewton_seconds.dtype != torch.int64
+        or maximum_impulse_micronewton_seconds.shape[-1]
+        != hard_limits_micronewton_seconds.shape[0]
+        or not 0 <= warning_basis_points < 10_000
+        or torch.any(hard_limits_micronewton_seconds <= 0)
+    ):
+        raise ValueError("invalid contact impact margin tensor")
+    ratio = (
+        maximum_impulse_micronewton_seconds.to(torch.float64)
+        / hard_limits_micronewton_seconds.to(torch.float64)[None]
+    )
+    warning = warning_basis_points / 10_000.0
+    return torch.clamp(
+        torch.amax((ratio - warning) / (1.0 - warning), dim=-1),
+        min=0.0,
+        max=1.0,
+    )
+
+
 def _classify_contact_pairs_tensor(
     impulse_micronewton_seconds: torch.Tensor,
     minimum_separation_micrometres: torch.Tensor,
@@ -2061,6 +2087,11 @@ if ISAAC_LAB_AVAILABLE:
                     self._soft_maximum,
                     self._hard_minimum,
                     self._hard_maximum,
+                ),
+                "reward.contact-impact-margin-cost": _contact_impact_margin_cost_tensor(
+                    self._substep_contact_max_impulse_micronewton_seconds,
+                    self._contact_pair_hard_limit,
+                    9_500,
                 ),
                 "reward.terminal-failure": self._failure_terminal.to(torch.float64),
             }

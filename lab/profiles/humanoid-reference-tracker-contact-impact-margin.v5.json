@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.motor.env.humanoid-reference-tracker-contact-impact-margin.v5",
+  "status": "Frozen",
+  "base_profile_id": "nextengine.motor.env.humanoid-reference-tracker.v1",
+  "base_profile_sha256": "4a898ccf67051b34b6266ec5293f74758103e7db260ded393e76161f72de527d",
+  "variant": {
+    "kind": "replace-input-lineage-and-append-reward-component.v1",
+    "corpus": {
+      "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion-dynamic-reserve.v3",
+      "profile_sha256": "1229eb18b8efea2daff50cf73a733fe67b804f507ef739bc88f1dee30584bb0c",
+      "manifest_sha256": "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
+      "eligible_partition": "locomotion",
+      "split_is_run_mode": true,
+      "selection_order": "canonical UTF-8 clip_id byte order",
+      "selection_distribution": "uniform over eligible clip IDs"
+    },
+    "training_authorization": {
+      "gate_id": "TRAIN-4",
+      "decision": "Advance",
+      "gate_report_sha256": "261dce77dcc36448831373569c0a6d033ad8260769583e29228f706877c00778",
+      "scope": "TRAIN-5 optimizer-free impact-margin audit only; optimizer remains denied until a fresh TRAIN-5 gate"
+    },
+    "termination": {
+      "safety_contact_profile_sha256": "ba9d368e075f389a4dbff4a0ed9299b737edf4907be10ae6cf3aeb60b348729f",
+      "isaac_velocity_guard_profile_sha256": "a5c8448a71f0adc2c821b8d833332e0ecd1e003110ce47d969f56cac13881676",
+      "isaac_physics_velocity_limit_basis_points": 9000,
+      "success_reason": "terminal.reference-complete",
+      "failure_reasons": [
+        "terminal.hard-rom",
+        "terminal.joint-safety",
+        "terminal.hard-impact",
+        "terminal.self-collision",
+        "terminal.forbidden-locomotion-contact",
+        "terminal.world-bounds",
+        "terminal.fall",
+        "terminal.non-finite",
+        "terminal.reference-tracking-lost"
+      ],
+      "forbidden_contact_grace_physics_substeps": 4,
+      "tracking_lost": {
+        "root_position_error_micrometres": 750000,
+        "root_orientation_minimum_absolute_dot_q1_30": 929887697,
+        "consecutive_motor_ticks": 4
+      },
+      "truncation_bootstrap": "only explicit run-budget truncation with a valid next observation"
+    },
+    "component": {
+      "id": "reward.contact-impact-margin-cost",
+      "coefficient_q16": -65536,
+      "warning_basis_points": 9500,
+      "calibration_evidence_sha256": "46203c49aaa073300d6bbf8fd23034382cc3e22288697db55d4333633e2cbacc",
+      "aggregation": "maximum over contact pairs of the clamped linear excursion from 9500 basis points of that pair's immutable hard-impact limit to unit cost at the exact hard limit; zero below the warning boundary"
+    }
+  }
+}

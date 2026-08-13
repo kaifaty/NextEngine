@@ -43,6 +43,12 @@ PHYSICS_VELOCITY_GUARD_PROFILE_ID = (
 PHYSICS_VELOCITY_GUARD_PROFILE_SHA256 = (
     "7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d"
 )
+CONTACT_IMPACT_MARGIN_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-reference-tracker-contact-impact-margin.v5"
+)
+CONTACT_IMPACT_MARGIN_PROFILE_SHA256 = (
+    "6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06"
+)
 PROFILE_IDS_BY_SHA256 = {
     PROFILE_SHA256: PROFILE_ID,
     SOFT_ROM_COST_PROFILE_SHA256: SOFT_ROM_COST_PROFILE_ID,
@@ -50,6 +56,7 @@ PROFILE_IDS_BY_SHA256 = {
     SAFETY_RESERVE_PROFILE_SHA256: SAFETY_RESERVE_PROFILE_ID,
     DYNAMIC_RESERVE_PROFILE_SHA256: DYNAMIC_RESERVE_PROFILE_ID,
     PHYSICS_VELOCITY_GUARD_PROFILE_SHA256: PHYSICS_VELOCITY_GUARD_PROFILE_ID,
+    CONTACT_IMPACT_MARGIN_PROFILE_SHA256: CONTACT_IMPACT_MARGIN_PROFILE_ID,
 }
 SAFETY_CONTACT_PROFILE_SHA256 = "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c"
 SAFETY_CONTACT_PROFILE_V2_SHA256 = (
@@ -140,7 +147,11 @@ class ReferenceTrackerProfile:
     def _materialize_variant(
         overlay: Mapping[str, Any], *, path: Path, expected_profile_id: str
     ) -> Mapping[str, Any]:
-        if overlay.get("variant", {}).get("kind") == "replace-input-lineage.v1":
+        variant_kind = overlay.get("variant", {}).get("kind")
+        if variant_kind in {
+            "replace-input-lineage.v1",
+            "replace-input-lineage-and-append-reward-component.v1",
+        }:
             if (
                 overlay.get("schema_version") != 1
                 or overlay.get("profile_id") != expected_profile_id
@@ -149,6 +160,7 @@ class ReferenceTrackerProfile:
                     SAFETY_RESERVE_PROFILE_ID,
                     DYNAMIC_RESERVE_PROFILE_ID,
                     PHYSICS_VELOCITY_GUARD_PROFILE_ID,
+                    CONTACT_IMPACT_MARGIN_PROFILE_ID,
                 }
                 or overlay.get("status") != "Frozen"
                 or overlay.get("base_profile_id") != PROFILE_ID
@@ -168,6 +180,19 @@ class ReferenceTrackerProfile:
                         f"input-lineage tracker variant has no {field}"
                     )
                 document[field] = dict(replacement)
+            if variant_kind == "replace-input-lineage-and-append-reward-component.v1":
+                if expected_profile_id != CONTACT_IMPACT_MARGIN_PROFILE_ID:
+                    raise ReferenceTrackerError("invalid impact-margin tracker variant")
+                component = overlay["variant"].get("component")
+                if not isinstance(component, dict):
+                    raise ReferenceTrackerError(
+                        "impact-margin tracker variant has no component"
+                    )
+                components = list(document["reward"]["components"])
+                if components[-1]["id"] != "reward.terminal-failure":
+                    raise ReferenceTrackerError("reference tracker terminal reward moved")
+                components.insert(-1, dict(component))
+                document["reward"]["components"] = components
             return document
         if (
             overlay.get("schema_version") != 1
@@ -229,6 +254,7 @@ class ReferenceTrackerProfile:
                 SAFETY_RESERVE_PROFILE_ID,
                 DYNAMIC_RESERVE_PROFILE_ID,
                 PHYSICS_VELOCITY_GUARD_PROFILE_ID,
+                CONTACT_IMPACT_MARGIN_PROFILE_ID,
             }
             else SAFETY_CONTACT_PROFILE_SHA256
         )
@@ -237,7 +263,10 @@ class ReferenceTrackerProfile:
             != expected_safety_contact_profile
         ):
             raise ReferenceTrackerError("safety contact profile mismatch")
-        if expected_profile_id == PHYSICS_VELOCITY_GUARD_PROFILE_ID:
+        if expected_profile_id in {
+            PHYSICS_VELOCITY_GUARD_PROFILE_ID,
+            CONTACT_IMPACT_MARGIN_PROFILE_ID,
+        }:
             if (
                 _require_hex_hash(
                     termination.get("isaac_velocity_guard_profile_sha256"),
@@ -343,10 +372,36 @@ class ReferenceTrackerProfile:
                 if expected_profile_id == PREDICTIVE_ROM_COST_PROFILE_ID
                 else ()
             ),
+            *(
+                ("reward.contact-impact-margin-cost",)
+                if expected_profile_id == CONTACT_IMPACT_MARGIN_PROFILE_ID
+                else ()
+            ),
             "reward.terminal-failure",
         )
         if component_ids != expected_component_ids:
             raise ReferenceTrackerError("reference reward component closure mismatch")
+        if expected_profile_id == CONTACT_IMPACT_MARGIN_PROFILE_ID:
+            component = next(
+                item
+                for item in document["reward"]["components"]
+                if item["id"] == "reward.contact-impact-margin-cost"
+            )
+            if component != {
+                "id": "reward.contact-impact-margin-cost",
+                "coefficient_q16": -65_536,
+                "warning_basis_points": 9_500,
+                "calibration_evidence_sha256": (
+                    "46203c49aaa073300d6bbf8fd23034382cc3e22288697db55d4333633e2cbacc"
+                ),
+                "aggregation": (
+                    "maximum over contact pairs of the clamped linear excursion "
+                    "from 9500 basis points of that pair's immutable hard-impact "
+                    "limit to unit cost at the exact hard limit; zero below the "
+                    "warning boundary"
+                ),
+            }:
+                raise ReferenceTrackerError("impact-margin reward component mismatch")
         failure_reasons = document["termination"]["failure_reasons"]
         if not failure_reasons or len(set(failure_reasons)) != len(failure_reasons):
             raise ReferenceTrackerError("reference termination closure mismatch")
@@ -560,6 +615,7 @@ class ReferenceCorpus:
                 SAFETY_RESERVE_PROFILE_ID,
                 DYNAMIC_RESERVE_PROFILE_ID,
                 PHYSICS_VELOCITY_GUARD_PROFILE_ID,
+                CONTACT_IMPACT_MARGIN_PROFILE_ID,
             }
             and authorization.get("authorized") is False
             and "optimizer execution" in authorization.get("forbidden", ())
@@ -784,6 +840,7 @@ class TrackingState:
     sole_planar_velocity_um_s: NDArray[np.int64]
     applied_effort_unm: NDArray[np.int64]
     applied_target_urad: NDArray[np.int64]
+    maximum_contact_impulse_basis_points: int = 0
 
 
 def reference_state(clip: ReferenceClip, frame: int) -> TrackingState:
@@ -898,6 +955,11 @@ def _validate_state(state: TrackingState) -> None:
     )
     if any(value.shape != shape for value, shape in shapes):
         raise ReferenceTrackerError("tracking state shape mismatch")
+    if (
+        not isinstance(state.maximum_contact_impulse_basis_points, int)
+        or state.maximum_contact_impulse_basis_points < 0
+    ):
+        raise ReferenceTrackerError("invalid contact impact margin state")
 
 
 def _normalized_quaternion(value: Sequence[int] | NDArray[Any]) -> NDArray[np.float64]:
@@ -1065,6 +1127,9 @@ def compute_reward(
         "reward.predictive-rom-excursion-cost": _predictive_rom_excursion_cost(
             state, limits
         ),
+        "reward.contact-impact-margin-cost": _contact_impact_margin_cost(
+            state.maximum_contact_impulse_basis_points, 9_500
+        ),
         "reward.terminal-failure": 1.0 if terminal_failure else 0.0,
     }
     ordered: list[tuple[str, int]] = []
@@ -1083,6 +1148,21 @@ def _vector_norm(value: NDArray[Any]) -> float:
 
 def _linear_similarity(error: float, normalization: int | float) -> float:
     return 1.0 - min(1.0, max(0.0, error / float(normalization)))
+
+
+def _contact_impact_margin_cost(
+    maximum_impulse_basis_points: int, warning_basis_points: int
+) -> float:
+    if not 0 <= warning_basis_points < 10_000:
+        raise ReferenceTrackerError("invalid contact impact warning boundary")
+    return min(
+        1.0,
+        max(
+            0.0,
+            (maximum_impulse_basis_points - warning_basis_points)
+            / float(10_000 - warning_basis_points),
+        ),
+    )
 
 
 def _sole_slip_cost(state: TrackingState, normalization: int | float) -> float:
@@ -1230,6 +1310,11 @@ def audit_reference_inputs(
             if "reward.predictive-rom-excursion-cost" in coefficients
             else ()
         ),
+        *(
+            ("reward.contact-impact-margin-cost",)
+            if "reward.contact-impact-margin-cost" in coefficients
+            else ()
+        ),
     )
     if any(coefficients[component_id] >= 0 for component_id in cost_component_ids) or (
         coefficients["reward.terminal-failure"] >= 0
@@ -1347,6 +1432,7 @@ def audit_reference_inputs(
                         "applied_effort_unm": limits.maximum_effort_unm.copy(),
                         "applied_target_urad": state.previous_applied_target_urad
                         + limits.maximum_target_delta_urad,
+                        "maximum_contact_impulse_basis_points": 10_000,
                     }
                 )
                 cost_probe = compute_reward(

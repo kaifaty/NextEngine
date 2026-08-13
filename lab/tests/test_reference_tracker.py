@@ -7,6 +7,7 @@ import numpy as np
 
 from next_lab.reference_tracker import (
     ACTION_CHANNELS,
+    CONTACT_IMPACT_MARGIN_PROFILE_SHA256,
     DYNAMIC_RESERVE_PROFILE_SHA256,
     OBSERVATION_CHANNELS,
     PHYSICS_VELOCITY_GUARD_PROFILE_SHA256,
@@ -17,6 +18,7 @@ from next_lab.reference_tracker import (
     DescriptorLimits,
     ReferenceClip,
     ReferenceTrackerProfile,
+    _contact_impact_margin_cost,
     TrackingState,
     build_observation,
     compute_reward,
@@ -46,9 +48,58 @@ PHYSICS_VELOCITY_GUARD_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json"
 )
+CONTACT_IMPACT_MARGIN_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-tracker-contact-impact-margin.v5.json"
+)
 
 
 class ReferenceTrackerTests(unittest.TestCase):
+    def test_contact_impact_margin_cost_uses_last_five_percent(self) -> None:
+        self.assertEqual(_contact_impact_margin_cost(9_499, 9_500), 0.0)
+        self.assertEqual(_contact_impact_margin_cost(9_500, 9_500), 0.0)
+        self.assertEqual(_contact_impact_margin_cost(9_750, 9_500), 0.5)
+        self.assertEqual(_contact_impact_margin_cost(10_000, 9_500), 1.0)
+        self.assertEqual(_contact_impact_margin_cost(11_000, 9_500), 1.0)
+
+    def test_contact_impact_margin_profile_preserves_guarded_lineage(self) -> None:
+        profile = ReferenceTrackerProfile.load(CONTACT_IMPACT_MARGIN_PROFILE)
+        self.assertEqual(
+            profile.document_sha256, CONTACT_IMPACT_MARGIN_PROFILE_SHA256
+        )
+        self.assertEqual(
+            profile.document["corpus"]["manifest_sha256"],
+            "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
+        )
+        self.assertEqual(
+            profile.document["termination"][
+                "isaac_physics_velocity_limit_basis_points"
+            ],
+            9_000,
+        )
+        clip = _clip()
+        limits = _limits()
+        state = reference_state(clip, 2)
+        warned = compute_reward(
+            profile,
+            limits,
+            TrackingState(
+                **{
+                    **state.__dict__,
+                    "maximum_contact_impulse_basis_points": 9_750,
+                }
+            ),
+            clip,
+            2,
+            terminal_failure=False,
+        )
+        self.assertEqual(
+            dict(warned.component_values_q16)[
+                "reward.contact-impact-margin-cost"
+            ],
+            32_768,
+        )
+
     def test_safety_reserve_profile_replaces_only_input_and_terminal_lineage(self) -> None:
         base = ReferenceTrackerProfile.load(PROFILE)
         profile = ReferenceTrackerProfile.load(SAFETY_RESERVE_PROFILE)

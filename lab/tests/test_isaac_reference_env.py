@@ -15,6 +15,7 @@ from next_lab.isaac_reference_env import (
     _canonical_pd_requested_effort_tensor,
     _classify_contact_pairs_tensor,
     _contact_impulse_magnitude_micronewton_seconds,
+    _contact_impact_margin_cost_tensor,
     _contact_body_projections,
     _contact_pair_layout,
     _engine_to_isaac_vector,
@@ -35,6 +36,19 @@ from next_lab.safety_contact_mirror import _intersect_effort, _positive_work_cha
 
 
 class IsaacReferenceEnvironmentTests(unittest.TestCase):
+    def test_contact_impact_margin_cost_takes_worst_pair(self) -> None:
+        actual = _contact_impact_margin_cost_tensor(
+            torch.tensor(
+                [[5_699_999, 5_850_000], [6_000_000, 6_600_000]],
+                dtype=torch.int64,
+            ),
+            torch.tensor([6_000_000, 6_000_000], dtype=torch.int64),
+            9_500,
+        )
+        torch.testing.assert_close(
+            actual, torch.tensor([0.5, 1.0], dtype=torch.float64)
+        )
+
     def test_contact_impulse_diagnostic_uses_vector_magnitude(self) -> None:
         impulse = torch.tensor(
             [[[3_000_000, 4_000_000, 0], [0, 0, 0]]], dtype=torch.int64
