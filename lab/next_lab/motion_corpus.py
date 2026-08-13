@@ -43,6 +43,7 @@ STANCE_CHAIN_ALGORITHM_IDS = frozenset(
         "nextengine.cmu-stance-chain-retarget.v5",
         "nextengine.cmu-stance-chain-retarget.v6",
         "nextengine.cmu-stance-chain-retarget.v7",
+        "nextengine.cmu-stance-chain-retarget.v8",
     }
 )
 
@@ -615,6 +616,7 @@ def _validate_temporal_contact_variant(
             "nextengine.cmu-stance-chain-retarget.v5",
             "nextengine.cmu-stance-chain-retarget.v6",
             "nextengine.cmu-stance-chain-retarget.v7",
+            "nextengine.cmu-stance-chain-retarget.v8",
         }:
             expected_stance_chain_fields.update(
                 {
@@ -629,6 +631,7 @@ def _validate_temporal_contact_variant(
             "nextengine.cmu-stance-chain-retarget.v5",
             "nextengine.cmu-stance-chain-retarget.v6",
             "nextengine.cmu-stance-chain-retarget.v7",
+            "nextengine.cmu-stance-chain-retarget.v8",
         }:
             expected_stance_chain_fields.add(
                 "final_sole_pitch_inverse_joint_weights_q16"
@@ -640,6 +643,7 @@ def _validate_temporal_contact_variant(
         if algorithm_id in {
             "nextengine.cmu-stance-chain-retarget.v6",
             "nextengine.cmu-stance-chain-retarget.v7",
+            "nextengine.cmu-stance-chain-retarget.v8",
         }:
             expected_stance_chain_fields.update(
                 {
@@ -649,7 +653,10 @@ def _validate_temporal_contact_variant(
                     "final_swing_clearance_maximum_update_microradians",
                 }
             )
-        if algorithm_id == "nextengine.cmu-stance-chain-retarget.v7":
+        if algorithm_id in {
+            "nextengine.cmu-stance-chain-retarget.v7",
+            "nextengine.cmu-stance-chain-retarget.v8",
+        }:
             expected_stance_chain_fields.update(
                 {
                     "final_sole_roll_projection_iterations",
@@ -659,10 +666,18 @@ def _validate_temporal_contact_variant(
                     "final_sole_roll_inverse_joint_weights_q16",
                 }
             )
+        if algorithm_id == "nextengine.cmu-stance-chain-retarget.v8":
+            expected_stance_chain_fields.update(
+                {
+                    "final_ankle_pitch_minimum_microradians",
+                    "final_ankle_pitch_transfer_smoothing_passes",
+                }
+            )
         positive_integer_fields = expected_stance_chain_fields - {
             "ordered_joint_suffixes",
             "final_sole_pitch_inverse_joint_weights_q16",
             "final_sole_roll_inverse_joint_weights_q16",
+            "final_ankle_pitch_minimum_microradians",
         }
         if (
             not isinstance(stance_chain, dict)
@@ -697,6 +712,7 @@ def _validate_temporal_contact_variant(
                     "nextengine.cmu-stance-chain-retarget.v5",
                     "nextengine.cmu-stance-chain-retarget.v6",
                     "nextengine.cmu-stance-chain-retarget.v7",
+                    "nextengine.cmu-stance-chain-retarget.v8",
                 }
                 and (
                     int(stance_chain["final_sole_pitch_projection_iterations"])
@@ -720,6 +736,7 @@ def _validate_temporal_contact_variant(
                     "nextengine.cmu-stance-chain-retarget.v5",
                     "nextengine.cmu-stance-chain-retarget.v6",
                     "nextengine.cmu-stance-chain-retarget.v7",
+                    "nextengine.cmu-stance-chain-retarget.v8",
                 }
                 and (
                     not isinstance(
@@ -756,6 +773,7 @@ def _validate_temporal_contact_variant(
                 in {
                     "nextengine.cmu-stance-chain-retarget.v6",
                     "nextengine.cmu-stance-chain-retarget.v7",
+                    "nextengine.cmu-stance-chain-retarget.v8",
                 }
                 and (
                     int(stance_chain["final_swing_clearance_iterations"]) > 8
@@ -776,7 +794,11 @@ def _validate_temporal_contact_variant(
                 )
             )
             or (
-                algorithm_id == "nextengine.cmu-stance-chain-retarget.v7"
+                algorithm_id
+                in {
+                    "nextengine.cmu-stance-chain-retarget.v7",
+                    "nextengine.cmu-stance-chain-retarget.v8",
+                }
                 and (
                     int(stance_chain["final_sole_roll_projection_iterations"])
                     > 8
@@ -810,6 +832,30 @@ def _validate_temporal_contact_variant(
                             "final_sole_roll_inverse_joint_weights_q16"
                         ]
                     )
+                )
+            )
+            or (
+                algorithm_id == "nextengine.cmu-stance-chain-retarget.v8"
+                and (
+                    int(
+                        stance_chain[
+                            "final_ankle_pitch_transfer_smoothing_passes"
+                        ]
+                    )
+                    > 256
+                    or not -523_599
+                    <= int(
+                        stance_chain[
+                            "final_ankle_pitch_minimum_microradians"
+                        ]
+                    )
+                    <= -349_066
+                    or int(
+                        stance_chain[
+                            "final_ankle_pitch_minimum_microradians"
+                        ]
+                    )
+                    < int(variant["ankle_pitch_minimum_microradians"])
                 )
             )
         ):
@@ -1056,6 +1102,7 @@ def _validate_temporal_contact_variant(
             in {
                 "nextengine.cmu-stance-chain-retarget.v6",
                 "nextengine.cmu-stance-chain-retarget.v7",
+                "nextengine.cmu-stance-chain-retarget.v8",
             }
             and (
                 "ankle_pitch_minimum_microradians" not in variant
@@ -1080,6 +1127,7 @@ def _validate_temporal_contact_variant(
             not in {
                 "nextengine.cmu-stance-chain-retarget.v6",
                 "nextengine.cmu-stance-chain-retarget.v7",
+                "nextengine.cmu-stance-chain-retarget.v8",
             }
             and (
                 "ankle_pitch_minimum_microradians" in variant
@@ -1312,6 +1360,21 @@ def validate_clip(
     ankle_roll_projected_fraction = float(np.count_nonzero(ankle_roll_projected)) / float(
         ankle_roll_projected.size
     )
+    ankle_pitch_ordinals = np.asarray(
+        [
+            int(joint_by_id[f"joint.{side}-ankle-pitch"]["dof_ordinal"])
+            for side in ("left", "right")
+        ],
+        dtype=np.int64,
+    )
+    ankle_pitch_positions = clip.joint_position_urad[:, ankle_pitch_ordinals]
+    ankle_pitch_hard_reserve = np.minimum(
+        ankle_pitch_positions - joint_hard_minimum[ankle_pitch_ordinals],
+        joint_hard_maximum[ankle_pitch_ordinals] - ankle_pitch_positions,
+    )
+    minimum_ankle_pitch_hard_reserve = int(
+        np.min(ankle_pitch_hard_reserve)
+    )
     unidirectional_ordinals = np.asarray(
         [
             int(joint_by_id[f"joint.{side}-{kind}"]["dof_ordinal"])
@@ -1354,6 +1417,23 @@ def validate_clip(
         minimum_unidirectional_reserve = int(
             projection["unidirectional_joint_minimum_hard_reserve_microradians"]
         )
+        temporal_solve = profile["retarget"].get("temporal_contact_solve")
+        stance_chain = (
+            temporal_solve.get("stance_chain")
+            if isinstance(temporal_solve, dict)
+            else None
+        )
+        final_ankle_pitch_minimum = (
+            stance_chain.get("final_ankle_pitch_minimum_microradians")
+            if isinstance(stance_chain, dict)
+            else None
+        )
+        if final_ankle_pitch_minimum is not None and np.any(
+            ankle_pitch_positions < int(final_ankle_pitch_minimum)
+        ):
+            errors.append(
+                "RETARGET_LOCOMOTION_FINAL_ANKLE_PITCH_RESERVE_SHORTFALL"
+            )
         if (
             unidirectional_lower_soft_boundary_fraction
             > maximum_unidirectional_lower_boundary_fraction
@@ -1659,6 +1739,9 @@ def validate_clip(
             ),
             "minimum_ankle_roll_hard_reserve_microradians": (
                 minimum_ankle_roll_hard_reserve
+            ),
+            "minimum_ankle_pitch_hard_reserve_microradians": (
+                minimum_ankle_pitch_hard_reserve
             ),
             "unidirectional_joint_lower_soft_boundary_fraction": round(
                 unidirectional_lower_soft_boundary_fraction, 6

@@ -32,6 +32,7 @@ from next_lab.motion_retarget import (
     _project_joint_velocity,
     _restore_swing_sole_height,
     _stabilize_binary_intervals,
+    _transfer_ankle_pitch_to_proximal_chain,
     _weighted_temporal_smooth,
     target_effectors,
     target_forward_kinematics,
@@ -325,6 +326,24 @@ class MotionCorpusTests(unittest.TestCase):
         clips = {clip["clip_id"]: clip for clip in profile["clips"]}
         self.assertEqual(
             clips["cmu91-walk-slow-validation"]["source_last_frame"], 1650
+        )
+
+    def test_ankle_pitch_reserve_overlay_freezes_smooth_transfer(self) -> None:
+        profile, _ = load_motion_corpus_profile(
+            PROFILES / "humanoid-motion-corpus-cmu-ankle-pitch-reserve.v16.json"
+        )
+        self.assertEqual(
+            profile["retarget"]["algorithm_id"],
+            "nextengine.cmu-stance-chain-retarget.v8",
+        )
+        chain = profile["retarget"]["temporal_contact_solve"][
+            "stance_chain"
+        ]
+        self.assertEqual(
+            chain["final_ankle_pitch_minimum_microradians"], -436332
+        )
+        self.assertEqual(
+            chain["final_ankle_pitch_transfer_smoothing_passes"], 32
         )
 
     def test_stance_anchor_trajectory_is_continuous_and_time_symmetric(self) -> None:
@@ -633,6 +652,131 @@ class MotionCorpusTests(unittest.TestCase):
             self.assertLess(abs(float(rotations[slot][0, 1])), 5.0e-6)
             self.assertTrue(
                 np.any(closed[:, (hip, ankle)] != values[:, (hip, ankle)])
+            )
+
+    def test_ankle_pitch_reserve_transfer_preserves_chain_rotation(self) -> None:
+        descriptor = json.loads(
+            (FIXTURES / "biomechanics_motor_mirror_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        profile, _ = load_motion_corpus_profile(
+            PROFILES
+            / "humanoid-motion-corpus-cmu-ankle-pitch-reserve.v16.json"
+        )
+        bounds = profile["retarget"]["temporal_contact_solve"][
+            "joint_bounds_microradians"
+        ]
+        by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
+        values = np.zeros((5, len(descriptor["joints"])), dtype=np.int64)
+        for side in ("left", "right"):
+            values[
+                :, int(by_id[f"joint.{side}-hip-pitch"]["dof_ordinal"])
+            ] = -100_000
+            values[
+                :, int(by_id[f"joint.{side}-hip-roll"]["dof_ordinal"])
+            ] = 87_266
+            values[
+                :, int(by_id[f"joint.{side}-knee"]["dof_ordinal"])
+            ] = 600_000
+            values[
+                :, int(by_id[f"joint.{side}-ankle-pitch"]["dof_ordinal"])
+            ] = -523_599
+
+        transferred = _transfer_ankle_pitch_to_proximal_chain(
+            values=values,
+            descriptor=descriptor,
+            bounds=bounds,
+            ankle_pitch_minimum_microradians=-436_332,
+            smoothing_kernel=(1, 4, 6, 4, 1),
+            smoothing_passes=32,
+        )
+
+        selected: list[int] = []
+        for side in ("left", "right"):
+            ordinals = [
+                int(by_id[f"joint.{side}-{suffix}"]["dof_ordinal"])
+                for suffix in ("hip-pitch", "knee", "ankle-pitch")
+            ]
+            selected.extend(ordinals)
+            np.testing.assert_array_equal(
+                np.sum(transferred[:, ordinals], axis=1),
+                np.sum(values[:, ordinals], axis=1),
+            )
+            ankle = ordinals[2]
+            self.assertEqual(int(np.min(transferred[:, ankle])), -436_332)
+            for ordinal, suffix in zip(
+                ordinals, ("hip-pitch", "knee", "ankle-pitch"), strict=True
+            ):
+                minimum, maximum = bounds[f"joint.{side}-{suffix}"]
+                self.assertGreaterEqual(int(np.min(transferred[:, ordinal])), minimum)
+                self.assertLessEqual(int(np.max(transferred[:, ordinal])), maximum)
+        untouched = sorted(set(range(values.shape[1])) - set(selected))
+        np.testing.assert_array_equal(
+            transferred[:, untouched], values[:, untouched]
+        )
+
+    def test_ankle_pitch_reserve_transfer_smooths_required_envelope(self) -> None:
+        descriptor = json.loads(
+            (FIXTURES / "biomechanics_motor_mirror_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        profile, _ = load_motion_corpus_profile(
+            PROFILES / "humanoid-motion-corpus-cmu-ankle-pitch-reserve.v16.json"
+        )
+        bounds = profile["retarget"]["temporal_contact_solve"][
+            "joint_bounds_microradians"
+        ]
+        by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
+        values = np.zeros((9, len(descriptor["joints"])), dtype=np.int64)
+        ankle_input = np.asarray(
+            (
+                -400_000,
+                -410_000,
+                -430_000,
+                -470_000,
+                -523_599,
+                -470_000,
+                -430_000,
+                -410_000,
+                -400_000,
+            ),
+            dtype=np.int64,
+        )
+        ankle_ordinals: list[int] = []
+        for side in ("left", "right"):
+            values[
+                :, int(by_id[f"joint.{side}-hip-pitch"]["dof_ordinal"])
+            ] = -100_000
+            values[
+                :, int(by_id[f"joint.{side}-knee"]["dof_ordinal"])
+            ] = 600_000
+            ankle = int(
+                by_id[f"joint.{side}-ankle-pitch"]["dof_ordinal"]
+            )
+            values[:, ankle] = ankle_input
+            ankle_ordinals.append(ankle)
+
+        transferred = _transfer_ankle_pitch_to_proximal_chain(
+            values=values,
+            descriptor=descriptor,
+            bounds=bounds,
+            ankle_pitch_minimum_microradians=-436_332,
+            smoothing_kernel=(1, 4, 6, 4, 1),
+            smoothing_passes=32,
+        )
+        pointwise_transfer = np.maximum(-436_332 - ankle_input, 0)
+        pointwise_transfer_acceleration = int(
+            np.max(np.abs(np.diff(pointwise_transfer, n=2)))
+        )
+        for ankle in ankle_ordinals:
+            trajectory = transferred[:, ankle]
+            self.assertGreaterEqual(int(np.min(trajectory)), -436_332)
+            transfer = trajectory - ankle_input
+            self.assertLess(
+                int(np.max(np.abs(np.diff(transfer, n=2)))),
+                pointwise_transfer_acceleration,
             )
 
     def test_final_sole_pitch_closure_honors_projection_mask(self) -> None:

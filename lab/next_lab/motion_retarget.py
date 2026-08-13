@@ -1857,6 +1857,111 @@ def _close_bilateral_sole_roll(
     return closed
 
 
+def _transfer_ankle_pitch_to_proximal_chain(
+    *,
+    values: NDArray[np.int64],
+    descriptor: dict[str, Any],
+    bounds: dict[str, Any],
+    ankle_pitch_minimum_microradians: int,
+    smoothing_kernel: tuple[int, ...],
+    smoothing_passes: int,
+) -> NDArray[np.int64]:
+    """Raise ankle-pitch reserve while preserving exact sole orientation.
+
+    Knee and hip pitch share the ankle pitch axis in the frozen BodySchema.
+    The ankle deficit can therefore be transferred upstream without changing
+    the summed leg-chain rotation.  A constrained symmetric temporal envelope
+    spreads each required transfer into adjacent frames, avoiding the
+    acceleration discontinuity produced by pointwise clipping.  A second
+    constrained envelope prefers the adjacent knee and uses hip pitch only
+    around intervals where the knee margin is exhausted.  This minimizes the
+    non-commutative interaction with hip roll while guaranteeing that neither
+    proximal joint crosses its already-declared corpus bound.
+    """
+
+    if (
+        values.ndim != 2
+        or not -523_599
+        <= ankle_pitch_minimum_microradians
+        <= -349_066
+    ):
+        raise ValueError("ankle-pitch reserve-transfer trajectory is invalid")
+    result = values.copy()
+    by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
+    for side in ("left", "right"):
+        hip = int(by_id[f"joint.{side}-hip-pitch"]["dof_ordinal"])
+        knee = int(by_id[f"joint.{side}-knee"]["dof_ordinal"])
+        ankle = int(by_id[f"joint.{side}-ankle-pitch"]["dof_ordinal"])
+        hip_minimum = int(bounds[f"joint.{side}-hip-pitch"][0])
+        knee_minimum = int(bounds[f"joint.{side}-knee"][0])
+        ankle_maximum = int(bounds[f"joint.{side}-ankle-pitch"][1])
+        required_transfer = np.maximum(
+            ankle_pitch_minimum_microradians - result[:, ankle], 0
+        )
+        hip_available = result[:, hip] - hip_minimum
+        knee_available = result[:, knee] - knee_minimum
+        total_available = hip_available + knee_available
+        transfer_capacity = np.minimum(
+            ankle_maximum - result[:, ankle], total_available
+        )
+        if (
+            np.any(hip_available < 0)
+            or np.any(knee_available < 0)
+            or np.any(transfer_capacity < required_transfer)
+        ):
+            raise ValueError("proximal pitch range cannot supply ankle reserve")
+
+        transfer = required_transfer.astype(np.float64)
+        for _ in range(smoothing_passes):
+            transfer = np.clip(
+                _weighted_temporal_smooth_float(
+                    transfer[:, np.newaxis],
+                    kernel=smoothing_kernel,
+                    passes=1,
+                )[:, 0],
+                required_transfer,
+                transfer_capacity,
+            )
+        total_transfer = np.clip(
+            np.rint(transfer).astype(np.int64),
+            required_transfer,
+            transfer_capacity,
+        )
+        minimum_hip_transfer = np.maximum(
+            total_transfer - knee_available, 0
+        )
+        maximum_hip_transfer = np.minimum(total_transfer, hip_available)
+        hip_transfer_float = minimum_hip_transfer.astype(np.float64)
+        for _ in range(smoothing_passes):
+            hip_transfer_float = np.clip(
+                _weighted_temporal_smooth_float(
+                    hip_transfer_float[:, np.newaxis],
+                    kernel=smoothing_kernel,
+                    passes=1,
+                )[:, 0],
+                minimum_hip_transfer,
+                maximum_hip_transfer,
+            )
+        hip_transfer = np.rint(hip_transfer_float).astype(np.int64)
+        hip_transfer = np.clip(
+            hip_transfer,
+            minimum_hip_transfer,
+            maximum_hip_transfer,
+        )
+        knee_transfer = total_transfer - hip_transfer
+        result[:, ankle] += total_transfer
+        result[:, knee] -= knee_transfer
+        result[:, hip] -= hip_transfer
+        if (
+            np.any(result[:, ankle] < ankle_pitch_minimum_microradians)
+            or np.any(result[:, ankle] > ankle_maximum)
+            or np.any(result[:, knee] < knee_minimum)
+            or np.any(result[:, hip] < hip_minimum)
+        ):
+            raise RuntimeError("ankle-pitch reserve transfer escaped bounds")
+    return result
+
+
 def _lock_stance_root_planar(
     *,
     descriptor: dict[str, Any],
@@ -2334,6 +2439,7 @@ def _solve_contact_constrained_stance_chain(
         if profile.get("algorithm_id") in {
             "nextengine.cmu-stance-chain-retarget.v6",
             "nextengine.cmu-stance-chain-retarget.v7",
+            "nextengine.cmu-stance-chain-retarget.v8",
         }:
             solved_integer = _restore_swing_sole_height(
                 target_height_values=pre_sole_pitch_integer,
@@ -2359,7 +2465,10 @@ def _solve_contact_constrained_stance_chain(
             )
         if (
             profile.get("algorithm_id")
-            == "nextengine.cmu-stance-chain-retarget.v7"
+            in {
+                "nextengine.cmu-stance-chain-retarget.v7",
+                "nextengine.cmu-stance-chain-retarget.v8",
+            }
         ):
             solved_integer = _close_bilateral_sole_roll(
                 values=solved_integer,
@@ -2384,6 +2493,27 @@ def _solve_contact_constrained_stance_chain(
                     int(value)
                     for value in chain[
                         "final_sole_roll_inverse_joint_weights_q16"
+                    ]
+                ),
+            )
+        if (
+            profile.get("algorithm_id")
+            == "nextengine.cmu-stance-chain-retarget.v8"
+        ):
+            solved_integer = _transfer_ankle_pitch_to_proximal_chain(
+                values=solved_integer,
+                descriptor=descriptor,
+                bounds=profile["joint_bounds_microradians"],
+                ankle_pitch_minimum_microradians=int(
+                    chain["final_ankle_pitch_minimum_microradians"]
+                ),
+                smoothing_kernel=tuple(
+                    int(value)
+                    for value in profile["smoothing"]["kernel_weights"]
+                ),
+                smoothing_passes=int(
+                    chain[
+                        "final_ankle_pitch_transfer_smoothing_passes"
                     ]
                 ),
             )
