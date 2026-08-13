@@ -23,6 +23,7 @@ from next_lab.motion_retarget import (
     mirror_clip,
     rotate_clip_quarter_yaw,
     _close_bilateral_sole_pitch,
+    _close_bilateral_sole_roll,
     _conjugate_gradient_trajectory,
     _continuous_stance_anchor_trajectory,
     _continuous_stance_planar_correction,
@@ -225,6 +226,7 @@ class MotionCorpusTests(unittest.TestCase):
             ("humanoid-motion-corpus-cmu-swing-clearance-closure.v9.json", "v6", 32),
             ("humanoid-motion-corpus-cmu-swing-clearance-closure.v10.json", "v6", 64),
             ("humanoid-motion-corpus-cmu-swing-clearance-closure.v11.json", "v6", 80),
+            ("humanoid-motion-corpus-cmu-sole-normal-closure.v14.json", "v7", 69),
         )
         for filename, algorithm_suffix, swing_smoothing in expectations:
             with self.subTest(profile=filename):
@@ -293,6 +295,36 @@ class MotionCorpusTests(unittest.TestCase):
         self.assertEqual(thresholds["recovery_height_micrometres"], 55000)
         self.assertEqual(
             thresholds["recovery_speed_micrometres_per_second"], 600000
+        )
+
+    def test_sole_normal_overlay_closes_lateral_tilt_with_frozen_reserves(self) -> None:
+        profile, _ = load_motion_corpus_profile(
+            PROFILES
+            / "humanoid-motion-corpus-cmu-sole-normal-closure-coverage-restored.v15.json"
+        )
+        self.assertEqual(
+            profile["retarget"]["algorithm_id"],
+            "nextengine.cmu-stance-chain-retarget.v7",
+        )
+        solve = profile["retarget"]["temporal_contact_solve"]
+        chain = solve["stance_chain"]
+        self.assertEqual(chain["final_sole_roll_projection_iterations"], 4)
+        self.assertEqual(chain["final_sole_roll_smoothing_passes"], 4)
+        self.assertEqual(
+            chain["final_sole_roll_inverse_joint_weights_q16"],
+            [65536, 6554],
+        )
+        self.assertEqual(
+            solve["joint_bounds_microradians"]["joint.left-hip-roll"][0],
+            87266,
+        )
+        self.assertEqual(
+            solve["joint_bounds_microradians"]["joint.left-ankle-roll"],
+            [-87266, 87266],
+        )
+        clips = {clip["clip_id"]: clip for clip in profile["clips"]}
+        self.assertEqual(
+            clips["cmu91-walk-slow-validation"]["source_last_frame"], 1650
         )
 
     def test_stance_anchor_trajectory_is_continuous_and_time_symmetric(self) -> None:
@@ -537,6 +569,70 @@ class MotionCorpusTests(unittest.TestCase):
                     - float(effectors[f"effector.{side}-forefoot"][1])
                 ),
                 5.0e-6,
+            )
+
+    def test_final_sole_roll_closure_uses_bounded_hip_ankle_chain(self) -> None:
+        descriptor = json.loads(
+            (FIXTURES / "biomechanics_motor_mirror_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        profile, _ = load_motion_corpus_profile(
+            PROFILES
+            / "humanoid-motion-corpus-cmu-sole-normal-closure-coverage-restored.v15.json"
+        )
+        solve = profile["retarget"]["temporal_contact_solve"]
+        chain = solve["stance_chain"]
+        by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
+        body_by_id = {body["body_id"]: body for body in descriptor["bodies"]}
+        values = np.zeros((7, len(descriptor["joints"])), dtype=np.int64)
+        for side in ("left", "right"):
+            values[
+                :, int(by_id[f"joint.{side}-hip-roll"]["dof_ordinal"])
+            ] = 174_533
+            values[
+                :, int(by_id[f"joint.{side}-knee"]["dof_ordinal"])
+            ] = 486_064
+        roots = np.zeros((7, 3), dtype=np.float64)
+        roots[:, 1] = 1.0
+        root_rotations = np.repeat(np.eye(3)[None, :, :], 7, axis=0)
+
+        closed = _close_bilateral_sole_roll(
+            values=values,
+            descriptor=descriptor,
+            root_positions=roots,
+            root_rotations=root_rotations,
+            bounds=solve["joint_bounds_microradians"],
+            iterations=int(chain["final_sole_roll_projection_iterations"]),
+            smoothing_passes=0,
+            probe_microradians=int(
+                chain["final_sole_roll_probe_microradians"]
+            ),
+            maximum_update_microradians=int(
+                chain["final_sole_roll_maximum_update_microradians"]
+            ),
+            velocity_limit_basis_points=2500,
+            inverse_joint_weights_q16=tuple(
+                chain["final_sole_roll_inverse_joint_weights_q16"]
+            ),
+        )
+
+        for side in ("left", "right"):
+            hip = int(by_id[f"joint.{side}-hip-roll"]["dof_ordinal"])
+            ankle = int(by_id[f"joint.{side}-ankle-roll"]["dof_ordinal"])
+            self.assertGreaterEqual(int(np.min(closed[:, hip])), 87266)
+            self.assertGreaterEqual(int(np.min(closed[:, ankle])), -87266)
+            self.assertLessEqual(int(np.max(closed[:, ankle])), 87266)
+            _, rotations = target_forward_kinematics(
+                descriptor,
+                roots[3],
+                np.asarray((0.0, 0.0, 0.0, 1.0), dtype=np.float64),
+                closed[3].astype(np.float64) / 1_000_000.0,
+            )
+            slot = int(body_by_id[f"body.{side}-ankle-roll"]["body_slot"])
+            self.assertLess(abs(float(rotations[slot][0, 1])), 5.0e-6)
+            self.assertTrue(
+                np.any(closed[:, (hip, ankle)] != values[:, (hip, ankle)])
             )
 
     def test_final_sole_pitch_closure_honors_projection_mask(self) -> None:

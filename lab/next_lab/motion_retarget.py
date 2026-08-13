@@ -1681,6 +1681,182 @@ def _restore_swing_sole_height(
     )
 
 
+def _close_bilateral_sole_roll(
+    *,
+    values: NDArray[np.int64],
+    descriptor: dict[str, Any],
+    root_positions: FloatArray,
+    root_rotations: FloatArray,
+    bounds: dict[str, Any],
+    iterations: int,
+    smoothing_passes: int,
+    probe_microradians: int,
+    maximum_update_microradians: int,
+    velocity_limit_basis_points: int,
+    inverse_joint_weights_q16: tuple[int, int] = (65_536, 65_536),
+) -> NDArray[np.int64]:
+    """Close lateral sole tilt through the bounded roll chain.
+
+    Both feet are projected on every frame so a support-side transition does
+    not introduce a discontinuous target.  The correction is measured in the
+    yaw-aligned root frame and distributed between hip and ankle roll; this
+    preserves the declared no-adduction floor and ankle hard-ROM reserve.
+    """
+
+    frame_count = len(values)
+    if (
+        values.ndim != 2
+        or root_positions.shape != (frame_count, 3)
+        or root_rotations.shape != (frame_count, 3, 3)
+        or iterations <= 0
+        or smoothing_passes < 0
+        or probe_microradians <= 0
+        or maximum_update_microradians <= 0
+        or len(inverse_joint_weights_q16) != 2
+        or any(value <= 0 for value in inverse_joint_weights_q16)
+    ):
+        raise ValueError("bilateral sole-roll closure trajectory is invalid")
+    result = values.astype(np.float64, copy=True)
+    by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
+    body_by_id = {body["body_id"]: body for body in descriptor["bodies"]}
+    suffixes = ("hip-roll", "ankle-roll")
+    joint_ordinals = np.asarray(
+        [
+            [
+                int(by_id[f"joint.{side}-{suffix}"]["dof_ordinal"])
+                for suffix in suffixes
+            ]
+            for side in ("left", "right")
+        ],
+        dtype=np.int64,
+    )
+    joint_minimum = np.asarray(
+        [
+            [int(bounds[f"joint.{side}-{suffix}"][0]) for suffix in suffixes]
+            for side in ("left", "right")
+        ],
+        dtype=np.float64,
+    )
+    joint_maximum = np.asarray(
+        [
+            [int(bounds[f"joint.{side}-{suffix}"][1]) for suffix in suffixes]
+            for side in ("left", "right")
+        ],
+        dtype=np.float64,
+    )
+    sole_body_slots = tuple(
+        int(body_by_id[f"body.{side}-ankle-roll"]["body_slot"])
+        for side in ("left", "right")
+    )
+    root_quaternions = tuple(
+        matrix_to_quaternion(rotation) for rotation in root_rotations
+    )
+    probe_radians = probe_microradians / 1_000_000.0
+    inverse_joint_weights = np.asarray(
+        inverse_joint_weights_q16, dtype=np.float64
+    ) / 65_536.0
+
+    for _ in range(iterations):
+        for frame_index in range(frame_count):
+            radians = result[frame_index] / 1_000_000.0
+            _, rotations = target_forward_kinematics(
+                descriptor,
+                root_positions[frame_index],
+                root_quaternions[frame_index],
+                radians,
+            )
+            root_inverse = root_rotations[frame_index].T
+            for side_index, body_slot in enumerate(sole_body_slots):
+                normal = root_inverse @ rotations[body_slot][:, 1]
+                error = float(normal[0])
+                if abs(error) <= 1.0e-12:
+                    continue
+                jacobian = np.empty(len(suffixes), dtype=np.float64)
+                for column, ordinal in enumerate(joint_ordinals[side_index]):
+                    candidate = radians.copy()
+                    candidate[ordinal] += probe_radians
+                    _, probed_rotations = target_forward_kinematics(
+                        descriptor,
+                        root_positions[frame_index],
+                        root_quaternions[frame_index],
+                        candidate,
+                    )
+                    probed_normal = (
+                        root_inverse @ probed_rotations[body_slot][:, 1]
+                    )
+                    jacobian[column] = (
+                        float(probed_normal[0]) - error
+                    ) / probe_radians
+
+                current = result[frame_index, joint_ordinals[side_index]]
+                desired_direction = -error * jacobian
+                available = ~(
+                    (
+                        (current <= joint_minimum[side_index] + 0.5)
+                        & (desired_direction < 0.0)
+                    )
+                    | (
+                        (current >= joint_maximum[side_index] - 0.5)
+                        & (desired_direction > 0.0)
+                    )
+                )
+                denominator = float(
+                    np.sum(
+                        jacobian[available]
+                        * jacobian[available]
+                        * inverse_joint_weights[available]
+                    )
+                )
+                if denominator <= 1.0e-18:
+                    continue
+                delta_microradians = np.zeros(len(suffixes), dtype=np.float64)
+                delta_microradians[available] = (
+                    -error
+                    * jacobian[available]
+                    * inverse_joint_weights[available]
+                    / denominator
+                    * 1_000_000.0
+                )
+                result[frame_index, joint_ordinals[side_index]] = np.clip(
+                    current
+                    + np.clip(
+                        delta_microradians,
+                        -maximum_update_microradians,
+                        maximum_update_microradians,
+                    ),
+                    joint_minimum[side_index],
+                    joint_maximum[side_index],
+                )
+
+    closed = values.copy()
+    selected_ordinals = joint_ordinals.reshape(-1)
+    closed[:, selected_ordinals] += _weighted_temporal_smooth(
+        np.rint(result[:, selected_ordinals]).astype(np.int64)
+        - values[:, selected_ordinals],
+        kernel=(1, 4, 6, 4, 1),
+        passes=smoothing_passes,
+    )
+    for side_index in range(2):
+        closed[:, joint_ordinals[side_index]] = np.clip(
+            closed[:, joint_ordinals[side_index]],
+            joint_minimum[side_index].astype(np.int64),
+            joint_maximum[side_index].astype(np.int64),
+        )
+    closed = _project_joint_velocity(
+        closed,
+        descriptor,
+        60,
+        velocity_limit_basis_points=velocity_limit_basis_points,
+    )
+    for side_index in range(2):
+        closed[:, joint_ordinals[side_index]] = np.clip(
+            closed[:, joint_ordinals[side_index]],
+            joint_minimum[side_index].astype(np.int64),
+            joint_maximum[side_index].astype(np.int64),
+        )
+    return closed
+
+
 def _lock_stance_root_planar(
     *,
     descriptor: dict[str, Any],
@@ -2155,10 +2331,10 @@ def _solve_contact_constrained_stance_chain(
             ),
             projection_mask=projection_mask,
         )
-        if (
-            profile.get("algorithm_id")
-            == "nextengine.cmu-stance-chain-retarget.v6"
-        ):
+        if profile.get("algorithm_id") in {
+            "nextengine.cmu-stance-chain-retarget.v6",
+            "nextengine.cmu-stance-chain-retarget.v7",
+        }:
             solved_integer = _restore_swing_sole_height(
                 target_height_values=pre_sole_pitch_integer,
                 values=solved_integer,
@@ -2180,6 +2356,36 @@ def _solve_contact_constrained_stance_chain(
                     ]
                 ),
                 velocity_limit_basis_points=velocity_limit_basis_points,
+            )
+        if (
+            profile.get("algorithm_id")
+            == "nextengine.cmu-stance-chain-retarget.v7"
+        ):
+            solved_integer = _close_bilateral_sole_roll(
+                values=solved_integer,
+                descriptor=descriptor,
+                root_positions=root_positions,
+                root_rotations=root_rotations,
+                bounds=profile["joint_bounds_microradians"],
+                iterations=int(
+                    chain["final_sole_roll_projection_iterations"]
+                ),
+                smoothing_passes=int(
+                    chain["final_sole_roll_smoothing_passes"]
+                ),
+                probe_microradians=int(
+                    chain["final_sole_roll_probe_microradians"]
+                ),
+                maximum_update_microradians=int(
+                    chain["final_sole_roll_maximum_update_microradians"]
+                ),
+                velocity_limit_basis_points=velocity_limit_basis_points,
+                inverse_joint_weights_q16=tuple(
+                    int(value)
+                    for value in chain[
+                        "final_sole_roll_inverse_joint_weights_q16"
+                    ]
+                ),
             )
     result = solved_integer.astype(np.float64) / 1_000_000.0
     # Final joint smoothing is intentionally applied after the nonlinear solve,
