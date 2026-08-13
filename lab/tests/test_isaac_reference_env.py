@@ -46,6 +46,8 @@ class IsaacReferenceEnvironmentTests(unittest.TestCase):
         layout = _contact_pair_layout(projections)
         self.assertEqual(len(layout["sensor"]), 14 + 14 * 13 // 2)
         self.assertEqual(sum(bool(value) for value in layout["self_contact"]), 91)
+        self.assertEqual(layout["pair_id"][0], "ground:body.pelvis")
+        self.assertEqual(len(layout["pair_id"]), len(layout["sensor"]))
 
     def test_contact_pair_classifier_has_exact_grace_and_strict_limits(self) -> None:
         impulse = torch.tensor(

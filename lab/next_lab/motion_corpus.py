@@ -240,19 +240,33 @@ def load_motion_corpus_profile(profile_path: Path) -> tuple[dict[str, Any], byte
     if base.get("profile_id") != BASE_MOTION_CORPUS_PROFILE_ID:
         raise ValueError("motion corpus overlay base profile mismatch")
     variant = document.get("variant")
-    if not isinstance(variant, dict) or set(variant) != {
-        "joint_velocity_limit_basis_points",
-        "unidirectional_joint_minimum_microradians",
-        "rationale",
+    if not isinstance(variant, dict) or frozenset(variant) not in {
+        frozenset(
+            {
+                "joint_velocity_limit_basis_points",
+                "unidirectional_joint_minimum_microradians",
+                "rationale",
+            }
+        ),
+        frozenset(
+            {
+                "joint_velocity_limit_basis_points",
+                "unidirectional_joint_minimum_microradians",
+                "hip_roll_minimum_microradians",
+                "rationale",
+            }
+        ),
     }:
         raise ValueError("motion corpus overlay variant mismatch")
     velocity_basis_points = int(variant["joint_velocity_limit_basis_points"])
     unidirectional_minimum = int(
         variant["unidirectional_joint_minimum_microradians"]
     )
+    hip_roll_minimum = int(variant.get("hip_roll_minimum_microradians", 0))
     if (
         not 0 < velocity_basis_points <= 10_000
         or unidirectional_minimum <= 0
+        or not 0 <= hip_roll_minimum <= 523_599
         or not isinstance(variant["rationale"], str)
         or not variant["rationale"]
     ):
@@ -267,6 +281,7 @@ def load_motion_corpus_profile(profile_path: Path) -> tuple[dict[str, Any], byte
         "joint maximum velocity at 60 Hz after soft-ROM projection"
     )
     projection = result["retarget"]["locomotion_collision_projection"]
+    projection["hip_roll_minimum_microradians"] = hip_roll_minimum
     projection["knee_minimum_microradians"] = unidirectional_minimum
     projection["elbow_minimum_microradians"] = unidirectional_minimum
     projection[
@@ -791,6 +806,14 @@ def _validate_closure(
             if available_reserve < unidirectional_reserve:
                 raise ValueError(
                     "motion corpus unidirectional-joint projection reserve is insufficient"
+                )
+            projected_maximum = hard_maximum - unidirectional_reserve
+            if (
+                projected_minimum >= projected_maximum
+                or not soft_minimum <= projected_maximum <= soft_maximum
+            ):
+                raise ValueError(
+                    "motion corpus unidirectional-joint symmetric reserve is infeasible"
                 )
     if _sha256(descriptor_bytes) != "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014":
         raise ValueError("motion corpus target descriptor file hash mismatch")

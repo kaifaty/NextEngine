@@ -124,6 +124,17 @@ def main() -> None:
         reset_window_velocity_channel_counts: dict[str, int] = {}
         reset_window_velocity_channel_maxima: dict[str, dict[str, int]] = {}
         forbidden_contact_mask_counts: dict[str, int] = {}
+        contact_pair_counts = {
+            "hard_impact": {},
+            "self_collision": {},
+            "forbidden_contact": {},
+        }
+        reset_window_contact_pair_counts = {
+            "hard_impact": {},
+            "self_collision": {},
+            "forbidden_contact": {},
+        }
+        contact_pair_first_examples: dict[str, dict[str, int]] = {}
         maximum_hard_rom_excess = 0
         completed_episodes = 0
         executed_motor_steps = 0
@@ -168,6 +179,17 @@ def main() -> None:
             reference_frames = environment.last_step_reference_frame[done_ids]
             elapsed_ticks = environment.last_step_episode_elapsed_motor_ticks[done_ids]
             forbidden_masks = environment.last_step_forbidden_contact_mask[done_ids]
+            contact_pair_masks = {
+                "hard_impact": environment.last_step_hard_impact_pair_mask[
+                    done_ids
+                ],
+                "self_collision": environment.last_step_self_collision_pair_mask[
+                    done_ids
+                ],
+                "forbidden_contact": environment.last_step_forbidden_contact_pair_mask[
+                    done_ids
+                ],
+            }
             for index in range(done_ids.numel()):
                 start = int(starts[index].item())
                 if not 0 <= start < valid_start_count:
@@ -272,6 +294,26 @@ def main() -> None:
                     forbidden_contact_mask_counts[key] = (
                         forbidden_contact_mask_counts.get(key, 0) + 1
                     )
+                for category, pair_masks in contact_pair_masks.items():
+                    pair_indices = torch.nonzero(
+                        pair_masks[index], as_tuple=False
+                    ).flatten().tolist()
+                    for pair_index in pair_indices:
+                        pair_id = environment.contact_pair_ids[pair_index]
+                        counts = contact_pair_counts[category]
+                        counts[pair_id] = counts.get(pair_id, 0) + 1
+                        example_key = f"{category}:{pair_id}"
+                        contact_pair_first_examples.setdefault(
+                            example_key,
+                            {
+                                "episode_start_frame": start,
+                                "reference_frame": int(reference_frames[index].item()),
+                                "terminal_motor_tick": tick,
+                            },
+                        )
+                        if tick <= args.reset_safety_window_motor_ticks:
+                            reset_counts = reset_window_contact_pair_counts[category]
+                            reset_counts[pair_id] = reset_counts.get(pair_id, 0) + 1
                 if joint_velocity[index]:
                     for channel in range(velocity_excess_by_channel.shape[1]):
                         excess = int(
@@ -400,6 +442,17 @@ def main() -> None:
             ),
             "forbidden_contact_mask_counts": dict(
                 sorted(forbidden_contact_mask_counts.items())
+            ),
+            "contact_pair_counts": {
+                category: dict(sorted(counts.items()))
+                for category, counts in contact_pair_counts.items()
+            },
+            "reset_window_contact_pair_counts": {
+                category: dict(sorted(counts.items()))
+                for category, counts in reset_window_contact_pair_counts.items()
+            },
+            "contact_pair_first_examples": dict(
+                sorted(contact_pair_first_examples.items())
             ),
             "reset_safety_window_motor_ticks": args.reset_safety_window_motor_ticks,
             "reset_window_safety_failure_count": reset_window_safety_failure_count,

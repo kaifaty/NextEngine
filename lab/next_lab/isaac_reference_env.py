@@ -87,7 +87,7 @@ def _contact_body_projections(
 
 def _contact_pair_layout(
     projections: tuple[tuple[str, int, int], ...],
-) -> dict[str, tuple[int | bool, ...]]:
+) -> dict[str, tuple[int | bool | str, ...]]:
     body_count = len(projections)
     sensor: list[int] = []
     filter_index: list[int] = []
@@ -95,6 +95,7 @@ def _contact_pair_layout(
     secondary_role: list[int] = []
     hard_limit: list[int] = []
     self_contact: list[bool] = []
+    pair_id: list[str] = []
     for body_index, (_, role, limit) in enumerate(projections):
         sensor.append(body_index)
         filter_index.append(0)
@@ -102,6 +103,7 @@ def _contact_pair_layout(
         secondary_role.append(0)
         hard_limit.append(limit)
         self_contact.append(False)
+        pair_id.append(f"ground:{projections[body_index][0]}")
     for first in range(body_count):
         for second in range(first + 1, body_count):
             sensor.append(first)
@@ -110,6 +112,7 @@ def _contact_pair_layout(
             secondary_role.append(projections[second][1])
             hard_limit.append(min(projections[first][2], projections[second][2]))
             self_contact.append(True)
+            pair_id.append(f"{projections[first][0]}:{projections[second][0]}")
     return {
         "sensor": tuple(sensor),
         "filter": tuple(filter_index),
@@ -117,6 +120,7 @@ def _contact_pair_layout(
         "secondary_role": tuple(secondary_role),
         "hard_limit": tuple(hard_limit),
         "self_contact": tuple(self_contact),
+        "pair_id": tuple(pair_id),
     }
 
 
@@ -648,6 +652,15 @@ if ISAAC_LAB_AVAILABLE:
             self._substep_contact_forbidden = torch.zeros_like(
                 self._substep_contact_hard_impact
             )
+            self._substep_contact_hard_impact_pairs = torch.zeros(
+                (cfg.scene.num_envs, contact_pair_count), dtype=torch.bool
+            )
+            self._substep_contact_self_collision_pairs = torch.zeros_like(
+                self._substep_contact_hard_impact_pairs
+            )
+            self._substep_contact_forbidden_pairs = torch.zeros_like(
+                self._substep_contact_hard_impact_pairs
+            )
             self._substep_forbidden_contact_mask = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.int64
             )
@@ -685,6 +698,15 @@ if ISAAC_LAB_AVAILABLE:
             )
             self.last_step_failure_fall = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.bool
+            )
+            self.last_step_hard_impact_pair_mask = torch.zeros(
+                (cfg.scene.num_envs, contact_pair_count), dtype=torch.bool
+            )
+            self.last_step_self_collision_pair_mask = torch.zeros_like(
+                self.last_step_hard_impact_pair_mask
+            )
+            self.last_step_forbidden_contact_pair_mask = torch.zeros_like(
+                self.last_step_hard_impact_pair_mask
             )
             self.last_step_failure_non_finite = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.bool
@@ -807,6 +829,9 @@ if ISAAC_LAB_AVAILABLE:
                 "_substep_contact_hard_impact",
                 "_substep_contact_self_collision",
                 "_substep_contact_forbidden",
+                "_substep_contact_hard_impact_pairs",
+                "_substep_contact_self_collision_pairs",
+                "_substep_contact_forbidden_pairs",
                 "_substep_forbidden_contact_mask",
                 "_failure_terminal",
                 "_success_terminal",
@@ -822,6 +847,9 @@ if ISAAC_LAB_AVAILABLE:
                 "last_step_failure_self_collision",
                 "last_step_failure_world_bounds",
                 "last_step_failure_fall",
+                "last_step_hard_impact_pair_mask",
+                "last_step_self_collision_pair_mask",
+                "last_step_forbidden_contact_pair_mask",
                 "last_step_failure_non_finite",
                 "last_step_terminal_reason",
                 "last_step_episode_start_frame",
@@ -986,6 +1014,7 @@ if ISAAC_LAB_AVAILABLE:
                 dtype=torch.int64,
                 device=self.device,
             )
+            self.contact_pair_ids = tuple(self._contact_layout["pair_id"])
 
         def _consume_contact_substep(self) -> None:
             body_count = len(self._contact_projections)
@@ -1043,6 +1072,13 @@ if ISAAC_LAB_AVAILABLE:
             self._substep_contact_forbidden |= torch.any(
                 classification["forbidden_locomotion"], dim=-1
             )
+            self._substep_contact_hard_impact_pairs |= classification["hard_impact"]
+            self._substep_contact_self_collision_pairs |= classification[
+                "self_collision"
+            ]
+            self._substep_contact_forbidden_pairs |= classification[
+                "forbidden_locomotion"
+            ]
             ground_material = classification["forbidden_locomotion"][:, :body_count]
             observation_material = torch.cat(
                 (
@@ -1271,6 +1307,9 @@ if ISAAC_LAB_AVAILABLE:
             self._substep_contact_hard_impact.zero_()
             self._substep_contact_self_collision.zero_()
             self._substep_contact_forbidden.zero_()
+            self._substep_contact_hard_impact_pairs.zero_()
+            self._substep_contact_self_collision_pairs.zero_()
+            self._substep_contact_forbidden_pairs.zero_()
             self._substep_forbidden_contact_mask.zero_()
             self._action.copy_(torch.clamp(actions, -1.0, 1.0))
             current_reference_dof = self._reference_at("joint_position_urad")
@@ -1669,6 +1708,15 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_failure_self_collision.copy_(self_collision)
             self.last_step_failure_world_bounds.copy_(world_bounds)
             self.last_step_failure_fall.copy_(fall)
+            self.last_step_hard_impact_pair_mask.copy_(
+                self._substep_contact_hard_impact_pairs
+            )
+            self.last_step_self_collision_pair_mask.copy_(
+                self._substep_contact_self_collision_pairs
+            )
+            self.last_step_forbidden_contact_pair_mask.copy_(
+                self._substep_contact_forbidden_pairs
+            )
             self.last_step_failure_non_finite.copy_(non_finite)
             terminal_reason = torch.zeros_like(self.last_step_terminal_reason)
             terminal_reason = torch.where(fall, 7, terminal_reason)
@@ -2051,6 +2099,9 @@ if ISAAC_LAB_AVAILABLE:
             self._substep_contact_hard_impact[env_ids] = False
             self._substep_contact_self_collision[env_ids] = False
             self._substep_contact_forbidden[env_ids] = False
+            self._substep_contact_hard_impact_pairs[env_ids] = False
+            self._substep_contact_self_collision_pairs[env_ids] = False
+            self._substep_contact_forbidden_pairs[env_ids] = False
             self._substep_forbidden_contact_mask[env_ids] = 0
             self._failure_terminal[env_ids] = False
             self._success_terminal[env_ids] = False

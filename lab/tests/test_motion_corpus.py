@@ -70,6 +70,18 @@ class MotionCorpusTests(unittest.TestCase):
             np.asarray([[0], [maximum_step], [0]], dtype=np.int64),
         )
 
+    def test_dynamic_reserve_overlay_adds_causal_rom_and_thigh_clearance(self) -> None:
+        profile, _ = load_motion_corpus_profile(
+            PROFILES / "humanoid-motion-corpus-cmu-dynamic-reserve.v3.json"
+        )
+        self.assertEqual(
+            profile["retarget"]["joint_velocity_limit_basis_points"], 9000
+        )
+        projection = profile["retarget"]["locomotion_collision_projection"]
+        self.assertEqual(projection["knee_minimum_microradians"], 209440)
+        self.assertEqual(projection["elbow_minimum_microradians"], 209440)
+        self.assertEqual(projection["hip_roll_minimum_microradians"], 87266)
+
     def test_cmu_parser_applies_frozen_units_handedness_and_rate_boundary(self) -> None:
         asf = """
 :version 1.10

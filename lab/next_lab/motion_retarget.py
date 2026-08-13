@@ -489,6 +489,19 @@ def _solve_target_joints(
             elbow_minimum = int(
                 locomotion_collision_projection["elbow_minimum_microradians"]
             )
+            unidirectional_reserve = int(
+                locomotion_collision_projection[
+                    "unidirectional_joint_minimum_hard_reserve_microradians"
+                ]
+            )
+            knee_maximum = (
+                int(by_id[f"joint.{side}-knee"]["hard_limit_microradians"][1])
+                - unidirectional_reserve
+            )
+            elbow_maximum = (
+                int(by_id[f"joint.{side}-elbow"]["hard_limit_microradians"][1])
+                - unidirectional_reserve
+            )
             shoulder_roll_minimum = int(
                 locomotion_collision_projection[
                     "shoulder_roll_minimum_microradians"
@@ -508,11 +521,19 @@ def _solve_target_joints(
                     ankle_roll_maximum / 1_000_000.0,
                 )
             )
-            projected_knee = max(
-                target[knee_ordinal], knee_minimum / 1_000_000.0
+            projected_knee = float(
+                np.clip(
+                    target[knee_ordinal],
+                    knee_minimum / 1_000_000.0,
+                    knee_maximum / 1_000_000.0,
+                )
             )
-            projected_elbow = max(
-                target[elbow_ordinal], elbow_minimum / 1_000_000.0
+            projected_elbow = float(
+                np.clip(
+                    target[elbow_ordinal],
+                    elbow_minimum / 1_000_000.0,
+                    elbow_maximum / 1_000_000.0,
+                )
             )
             projected_shoulder_roll = max(
                 target[shoulder_roll_ordinal], shoulder_roll_minimum / 1_000_000.0

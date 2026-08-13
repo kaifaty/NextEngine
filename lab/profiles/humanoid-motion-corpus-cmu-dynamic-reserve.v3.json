@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion-dynamic-reserve.v3",
+  "status": "Frozen",
+  "base_profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion.v1",
+  "base_profile_sha256": "f281f73773f32ddba506c01aa66301488dadc40d91efbd78e2c1fb79a70951fc",
+  "variant": {
+    "joint_velocity_limit_basis_points": 9000,
+    "unidirectional_joint_minimum_microradians": 209440,
+    "hip_roll_minimum_microradians": 87266,
+    "rationale": "The complete Isaac V2 contact/actuator audit covered all 169 admissible cmu104 start phases and found 981 first-motor-tick hard-safety failures on the prior 95-percent/two-degree corpus. The maximum first-tick velocity excess was 337782 microradians per second on an 8000000 limit; reducing the authored cap from 95 to 90 percent adds 400000 microradians per second of measured reserve. A 12-degree knee/elbow lower reserve exceeds one 60 Hz step at the new worst-case elbow cap (180000 microradians) by 29440 microradians. A five-degree positive bilateral hip-roll floor addresses the only reset-window contact pair, left thigh against right thigh near start frame 159. These fail-closed projections require a fresh native and Isaac audit and are not learned-quality thresholds."
+  }
+}
