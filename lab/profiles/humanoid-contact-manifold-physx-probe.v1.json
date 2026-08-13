@@ -20,10 +20,12 @@
     "horizon_motor_ticks": 11,
     "vector_environment_count": 17,
     "fresh_scene": {
-      "method": "author root-link pose, root-link-derived center-of-mass world velocity and JointStateAPI position/velocity in a per-case USD layer before SimulationContext.reset; run the two mandatory Isaac physics-initialization steps at 1 ns and restore 1/240 s before the episode",
+      "method": "author root-link pose, root-link-derived center-of-mass world velocity and JointStateAPI position/velocity in a per-case USD layer before SimulationContext.reset; disable the already-authored ground collision only during two mandatory 1 ns Isaac initialization steps, re-enable it before contact-view creation, and restore 1/240 s before the episode",
       "mandatory_initialization_physics_step_count": 2,
       "initialization_physics_dt_seconds": 1e-09,
       "episode_physics_dt_seconds": 0.004166666666666667,
+      "ground_collision_disabled_during_initialization": true,
+      "ground_collision_reenabled_before_contact_view": true,
       "post_create_root_or_joint_state_writes": 0,
       "target_vector_slot": "case ordinal",
       "all_vector_slots_use_the_same_case": true

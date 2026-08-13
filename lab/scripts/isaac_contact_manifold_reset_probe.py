@@ -371,6 +371,7 @@ def _run_fresh_worker(
             NextEngineReferenceDirectEnv,
             NextEngineReferenceDirectEnvCfg,
         )
+        from next_lab import isaac_reference_env as reference_env_module
         from next_lab.reference_dynamic_feasibility import (
             DynamicFeasibilityAccumulator,
         )
@@ -387,7 +388,12 @@ def _run_fresh_worker(
         cfg.fixed_horizon_motor_ticks = case.horizon_motor_ticks
         cfg.diagnostic_exhaustive_phase_sweep_repeats = 1
         original_reset = SimulationContext.reset
+        original_spawn_ground = reference_env_module.sim_utils.spawn_ground_plane
+        original_setup_contact_view = (
+            NextEngineReferenceDirectEnv._setup_contact_pair_view
+        )
         initialization_metrics: dict[str, Any] = {}
+        ground_state: dict[str, Any] = {}
 
         def bounded_time_initialization_reset(
             simulation_context: Any, soft: bool = False
@@ -417,7 +423,37 @@ def _run_fresh_worker(
                 }
             )
 
+        def spawn_disabled_ground(*spawn_args: Any, **spawn_kwargs: Any) -> Any:
+            prim = original_spawn_ground(*spawn_args, **spawn_kwargs)
+            ground_path = str(spawn_args[0]) if spawn_args else str(
+                spawn_kwargs["prim_path"]
+            )
+            collision = prim.GetStage().GetPrimAtPath(
+                f"{ground_path}/GroundPlane/CollisionPlane"
+            )
+            attribute = collision.GetAttribute("physics:collisionEnabled")
+            if not collision.IsValid() or not attribute.IsValid():
+                raise RuntimeError("fresh-scene ground collision attribute is absent")
+            attribute.Set(False)
+            ground_state["attribute"] = attribute
+            ground_state["disabled_before_initialization"] = not bool(
+                attribute.Get()
+            )
+            return prim
+
+        def setup_contact_view_after_ground_enable(environment_self: Any) -> None:
+            attribute = ground_state.get("attribute")
+            if attribute is None or bool(attribute.Get()):
+                raise RuntimeError("fresh-scene ground was not disabled for warmup")
+            attribute.Set(True)
+            ground_state["enabled_before_contact_view"] = bool(attribute.Get())
+            original_setup_contact_view(environment_self)
+
         SimulationContext.reset = bounded_time_initialization_reset
+        reference_env_module.sim_utils.spawn_ground_plane = spawn_disabled_ground
+        NextEngineReferenceDirectEnv._setup_contact_pair_view = (
+            setup_contact_view_after_ground_enable
+        )
         try:
             environment = NextEngineReferenceDirectEnv(
                 cfg,
@@ -428,6 +464,10 @@ def _run_fresh_worker(
             )
         finally:
             SimulationContext.reset = original_reset
+            reference_env_module.sim_utils.spawn_ground_plane = original_spawn_ground
+            NextEngineReferenceDirectEnv._setup_contact_pair_view = (
+                original_setup_contact_view
+            )
         fresh_method = profile["execution"]["fresh_scene"]
         if (
             initialization_metrics.get("physics_steps")
@@ -441,6 +481,8 @@ def _run_fresh_worker(
                 - float(fresh_method["episode_physics_dt_seconds"])
             )
             > 1.0e-15
+            or ground_state.get("disabled_before_initialization") is not True
+            or ground_state.get("enabled_before_contact_view") is not True
         ):
             raise RuntimeError(
                 "fresh-scene worker initialization cadence differs from profile"
@@ -556,6 +598,14 @@ def _run_fresh_worker(
             "vector_environment_count": vector_count,
             "overlay_usd_sha256": _sha256(overlay_path),
             "initialization": initialization_metrics,
+            "ground_collision_lifecycle": {
+                "disabled_before_initialization": ground_state[
+                    "disabled_before_initialization"
+                ],
+                "enabled_before_contact_view": ground_state[
+                    "enabled_before_contact_view"
+                ],
+            },
             "post_create_state_write_attempts_suppressed": write_attempts,
             "post_create_root_or_joint_state_writes_executed": 0,
             "initial_state_verification": {"before_reset": before, "after_reset": after},
