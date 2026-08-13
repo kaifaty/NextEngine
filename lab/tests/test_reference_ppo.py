@@ -47,6 +47,10 @@ PHYSICS_VELOCITY_GUARD_TINY_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-ppo-tiny-physics-velocity-guard.v4.json"
 )
+PHYSICS_VELOCITY_GUARD_H10_TINY_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-ppo-tiny-physics-velocity-guard-h10.v5.json"
+)
 
 
 class ReferencePpoTests(unittest.TestCase):
@@ -126,6 +130,32 @@ class ReferencePpoTests(unittest.TestCase):
         self.assertEqual(
             profile.document["corpus_manifest_sha256"],
             "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
+        )
+        self.assertEqual(profile.document["ppo"], baseline.document["ppo"])
+
+    def test_physics_velocity_guard_h10_tiny_bounds_scope_replacement(self) -> None:
+        profile = TinyReferencePpoProfile.load(
+            PHYSICS_VELOCITY_GUARD_H10_TINY_PROFILE
+        )
+        baseline = TinyReferencePpoProfile.load(PROFILE)
+        self.assertEqual(
+            profile.document["environment_profile_sha256"],
+            "7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d",
+        )
+        self.assertEqual(
+            profile.document["corpus_manifest_sha256"],
+            "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
+        )
+        self.assertEqual(
+            profile.document["scope"],
+            {
+                "split": "train",
+                "clip_id": "cmu104-start-right",
+                "start_frame": 0,
+                "horizon_motor_ticks": 10,
+                "reset_mode": "exact_reference",
+                "phase_randomization": False,
+            },
         )
         self.assertEqual(profile.document["ppo"], baseline.document["ppo"])
 

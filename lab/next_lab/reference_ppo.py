@@ -27,6 +27,7 @@ class TinyReferencePpoProfile:
             if variant_kind in {
                 "replace-environment.v1",
                 "replace-environment-and-corpus.v1",
+                "replace-environment-corpus-and-scope.v1",
             }:
                 if (
                     overlay.get("schema_version") != 1
@@ -66,7 +67,10 @@ class TinyReferencePpoProfile:
             document["environment_profile_sha256"] = overlay["variant"][
                 "environment_profile_sha256"
             ]
-            if variant_kind == "replace-environment-and-corpus.v1":
+            if variant_kind in {
+                "replace-environment-and-corpus.v1",
+                "replace-environment-corpus-and-scope.v1",
+            }:
                 corpus_manifest_sha256 = overlay["variant"].get(
                     "corpus_manifest_sha256"
                 )
@@ -76,6 +80,18 @@ class TinyReferencePpoProfile:
                 ):
                     raise ValueError("invalid reference PPO corpus replacement")
                 document["corpus_manifest_sha256"] = corpus_manifest_sha256
+            if variant_kind == "replace-environment-corpus-and-scope.v1":
+                scope = overlay["variant"].get("scope")
+                if scope != {
+                    "split": "train",
+                    "clip_id": "cmu104-start-right",
+                    "start_frame": 0,
+                    "horizon_motor_ticks": 10,
+                    "reset_mode": "exact_reference",
+                    "phase_randomization": False,
+                }:
+                    raise ValueError("invalid bounded tiny reference scope replacement")
+                document["scope"] = dict(scope)
             if "initialization" in overlay["variant"]:
                 document["initialization"] = overlay["variant"]["initialization"]
                 document["scope"]["stage_id"] = overlay["variant"]["stage_id"]
@@ -85,6 +101,7 @@ class TinyReferencePpoProfile:
             "nextengine.training.humanoid-reference-ppo-tiny-soft-rom-cost.v1",
             "nextengine.training.humanoid-reference-ppo-tiny-predictive-rom-cost.v1",
             "nextengine.training.humanoid-reference-ppo-tiny-physics-velocity-guard.v4",
+            "nextengine.training.humanoid-reference-ppo-tiny-physics-velocity-guard-h10.v5",
         }
         isolated_curriculum_profile_ids = {
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v2",
