@@ -31,11 +31,18 @@ SAFETY_RESERVE_PROFILE_ID = (
 SAFETY_RESERVE_PROFILE_SHA256 = (
     "c16662efd96977fd037d2db3cb3a88fa8ee3f8441eef5848ee2fe0f62068287c"
 )
+DYNAMIC_RESERVE_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-reference-tracker-dynamic-reserve.v3"
+)
+DYNAMIC_RESERVE_PROFILE_SHA256 = (
+    "b2840e93d858047a6267db1b6c01479c78e59b8866520e979db9c50082edf11c"
+)
 PROFILE_IDS_BY_SHA256 = {
     PROFILE_SHA256: PROFILE_ID,
     SOFT_ROM_COST_PROFILE_SHA256: SOFT_ROM_COST_PROFILE_ID,
     PREDICTIVE_ROM_COST_PROFILE_SHA256: PREDICTIVE_ROM_COST_PROFILE_ID,
     SAFETY_RESERVE_PROFILE_SHA256: SAFETY_RESERVE_PROFILE_ID,
+    DYNAMIC_RESERVE_PROFILE_SHA256: DYNAMIC_RESERVE_PROFILE_ID,
 }
 SAFETY_CONTACT_PROFILE_SHA256 = "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c"
 SAFETY_CONTACT_PROFILE_V2_SHA256 = (
@@ -127,7 +134,8 @@ class ReferenceTrackerProfile:
             if (
                 overlay.get("schema_version") != 1
                 or overlay.get("profile_id") != expected_profile_id
-                or expected_profile_id != SAFETY_RESERVE_PROFILE_ID
+                or expected_profile_id
+                not in {SAFETY_RESERVE_PROFILE_ID, DYNAMIC_RESERVE_PROFILE_ID}
                 or overlay.get("status") != "Frozen"
                 or overlay.get("base_profile_id") != PROFILE_ID
                 or overlay.get("base_profile_sha256") != PROFILE_SHA256
@@ -201,7 +209,8 @@ class ReferenceTrackerProfile:
             _require_hex_hash(value, label)
         expected_safety_contact_profile = (
             SAFETY_CONTACT_PROFILE_V2_SHA256
-            if expected_profile_id == SAFETY_RESERVE_PROFILE_ID
+            if expected_profile_id
+            in {SAFETY_RESERVE_PROFILE_ID, DYNAMIC_RESERVE_PROFILE_ID}
             else SAFETY_CONTACT_PROFILE_SHA256
         )
         if (
@@ -504,7 +513,8 @@ class ReferenceCorpus:
         identities = self.gate_report.get("identities", {})
         authorization = self.gate_report.get("training_authorization", {})
         optimizer_free_preacceptance = (
-            expected["profile_id"] == SAFETY_RESERVE_PROFILE_ID
+            expected["profile_id"]
+            in {SAFETY_RESERVE_PROFILE_ID, DYNAMIC_RESERVE_PROFILE_ID}
             and authorization.get("authorized") is False
             and "optimizer execution" in authorization.get("forbidden", ())
             and "optimizer-free" in expected["training_authorization"]["scope"]

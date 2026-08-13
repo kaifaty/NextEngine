@@ -7,6 +7,7 @@ import numpy as np
 
 from next_lab.reference_tracker import (
     ACTION_CHANNELS,
+    DYNAMIC_RESERVE_PROFILE_SHA256,
     OBSERVATION_CHANNELS,
     PROFILE_SHA256,
     PREDICTIVE_ROM_COST_PROFILE_SHA256,
@@ -36,6 +37,10 @@ SAFETY_RESERVE_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-tracker-safety-reserve.v2.json"
 )
+DYNAMIC_RESERVE_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-tracker-dynamic-reserve.v3.json"
+)
 
 
 class ReferenceTrackerTests(unittest.TestCase):
@@ -54,6 +59,17 @@ class ReferenceTrackerTests(unittest.TestCase):
         self.assertEqual(profile.document["reward"], base.document["reward"])
         self.assertIn(
             "terminal.self-collision", profile.document["termination"]["failure_reasons"]
+        )
+
+    def test_dynamic_reserve_profile_closes_new_data_gate_without_optimizer(self) -> None:
+        profile = ReferenceTrackerProfile.load(DYNAMIC_RESERVE_PROFILE)
+        self.assertEqual(profile.document_sha256, DYNAMIC_RESERVE_PROFILE_SHA256)
+        self.assertEqual(
+            profile.document["corpus"]["manifest_sha256"],
+            "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
+        )
+        self.assertIn(
+            "optimizer-free", profile.document["training_authorization"]["scope"]
         )
 
     def test_frozen_profile_closes_exact_layout_and_subprofiles(self) -> None:
