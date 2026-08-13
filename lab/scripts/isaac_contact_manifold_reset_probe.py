@@ -375,6 +375,7 @@ def _run_fresh_worker(
             DynamicFeasibilityAccumulator,
         )
         from isaaclab.sim import SimulationContext
+        from isaacsim.core.simulation_manager import SimulationManager
 
         vector_count = int(profile["execution"]["vector_environment_count"])
         cfg = NextEngineReferenceDirectEnvCfg()
@@ -385,14 +386,33 @@ def _run_fresh_worker(
         cfg.phase_randomization = False
         cfg.fixed_horizon_motor_ticks = case.horizon_motor_ticks
         cfg.diagnostic_exhaustive_phase_sweep_repeats = 1
-        original_render = SimulationContext.render
-        suppressed_render_calls = 0
+        original_reset = SimulationContext.reset
+        initialization_metrics: dict[str, Any] = {}
 
-        def suppress_initial_render(*unused_args: Any, **unused_kwargs: Any) -> None:
-            nonlocal suppressed_render_calls
-            suppressed_render_calls += 1
+        def zero_time_initialization_reset(
+            simulation_context: Any, soft: bool = False
+        ) -> None:
+            episode_dt = float(simulation_context.get_physics_dt())
+            steps_before = int(SimulationManager.get_num_physics_steps())
+            simulation_context.set_simulation_dt(physics_dt=0.0)
+            try:
+                original_reset(simulation_context, soft=soft)
+            finally:
+                simulation_context.set_simulation_dt(physics_dt=episode_dt)
+            initialization_metrics.update(
+                {
+                    "physics_steps": int(
+                        SimulationManager.get_num_physics_steps()
+                    )
+                    - steps_before,
+                    "initialization_physics_dt_seconds": 0.0,
+                    "restored_episode_physics_dt_seconds": float(
+                        simulation_context.get_physics_dt()
+                    ),
+                }
+            )
 
-        SimulationContext.render = suppress_initial_render
+        SimulationContext.reset = zero_time_initialization_reset
         try:
             environment = NextEngineReferenceDirectEnv(
                 cfg,
@@ -402,14 +422,23 @@ def _run_fresh_worker(
                 gate_report_path=str(paths["gate_report_path"]),
             )
         finally:
-            SimulationContext.render = original_render
-        if suppressed_render_calls != int(
-            profile["execution"]["fresh_scene"][
-                "suppressed_initial_replicator_render_calls"
-            ]
+            SimulationContext.reset = original_reset
+        fresh_method = profile["execution"]["fresh_scene"]
+        if (
+            initialization_metrics.get("physics_steps")
+            != int(fresh_method["mandatory_initialization_physics_step_count"])
+            or initialization_metrics.get("initialization_physics_dt_seconds")
+            != float(fresh_method["initialization_physics_dt_seconds"])
+            or abs(
+                initialization_metrics.get(
+                    "restored_episode_physics_dt_seconds", -1.0
+                )
+                - float(fresh_method["episode_physics_dt_seconds"])
+            )
+            > 1.0e-15
         ):
             raise RuntimeError(
-                "fresh-scene worker did not suppress the frozen render warmups"
+                "fresh-scene worker initialization cadence differs from profile"
             )
         environment.diagnostic_episode_schedule = tuple(
             (0, case.frame_first, case.frame_last, 0)
@@ -521,7 +550,7 @@ def _run_fresh_worker(
             "target_vector_slot": target_slot,
             "vector_environment_count": vector_count,
             "overlay_usd_sha256": _sha256(overlay_path),
-            "initial_replicator_render_calls_suppressed": suppressed_render_calls,
+            "initialization": initialization_metrics,
             "post_create_state_write_attempts_suppressed": write_attempts,
             "post_create_root_or_joint_state_writes_executed": 0,
             "initial_state_verification": {"before_reset": before, "after_reset": after},

@@ -20,8 +20,10 @@
     "horizon_motor_ticks": 11,
     "vector_environment_count": 17,
     "fresh_scene": {
-      "method": "author root-link pose, root-link-derived center-of-mass world velocity and JointStateAPI position/velocity in a per-case USD layer before SimulationContext.reset; suppress exactly two camera-free replicator render warmups that otherwise advance physics",
-      "suppressed_initial_replicator_render_calls": 2,
+      "method": "author root-link pose, root-link-derived center-of-mass world velocity and JointStateAPI position/velocity in a per-case USD layer before SimulationContext.reset; run the two mandatory Isaac physics-initialization steps at zero physics dt and restore 1/240 s before the episode",
+      "mandatory_initialization_physics_step_count": 2,
+      "initialization_physics_dt_seconds": 0,
+      "episode_physics_dt_seconds": 0.004166666666666667,
       "post_create_root_or_joint_state_writes": 0,
       "target_vector_slot": "case ordinal",
       "all_vector_slots_use_the_same_case": true
