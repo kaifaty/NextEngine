@@ -2,8 +2,8 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` and dynamic-reserve `TRAIN-4` advanced. `TRAIN-5` input/reset and reproducible h10 tiny sanity passed, but both full-phase curricula failed the hard-safety gate. The contact-impact-margin hypothesis is rejected; no checkpoint, optimizer run, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. Only implementation and optimizer-free audit of the declared deterministic phase-prefix curriculum are next |
-| Дата | 2026-08-12 |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` is reopened because the admitted dynamic-reserve corpus failed full-horizon dynamic-reference feasibility. `TRAIN-5` input/reset/tiny evidence remains diagnostic, all curriculum checkpoints are rejected, and no optimizer run, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. Current WIP is optimizer-free `TRAIN-4` corpus remediation for `REQ-HUM-DATA-007` |
+| Дата | 2026-08-13 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
 | Архитектурная опора | SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34, SPEC-35, ADR-027, ADR-030, ADR-046, ADR-053, ADR-058, ADR-059, ADR-064..070 |
@@ -310,7 +310,7 @@ count: confidence interval не превращает наблюдаемое на
 | `TRAIN-1` | принята exact biomechanics specification | нет |
 | `TRAIN-2` | BodySchema компилируется в корректную PhysX articulation | нет |
 | `TRAIN-3` | safety/contact/terminal semantics работают без ML | нет |
-| `TRAIN-4` | motion corpus лицензирован, retargeted и физически валиден | tracker only |
+| `TRAIN-4` | motion corpus лицензирован, retargeted и проходит kinematic, visual и full-horizon dynamic-reference-feasibility gates | tracker only |
 | `TRAIN-5` | specialist tracker проходит required checks и завершает held-out metric report | command fine-tuning |
 | `TRAIN-6` | start/stop/velocity/facing проходят required checks; quality matrix полностью reported | perturbation/recovery |
 | `TRAIN-7` | mandatory side-inclusive recovery route проходит required checks; quality matrix полностью reported | motion prior/multi-skill |
@@ -333,17 +333,18 @@ count: confidence interval не превращает наблюдаемое на
 - `TRAIN-3`: `Advance`; exact Rust/Isaac actuator, four-substep contact and
   directed terminal correspondence are closed. Gate report SHA-256 —
   `53c9f6b055007418c399f9fe9746b0784924b2a51cd5ee790ab158d3ae2824e5`;
-- `TRAIN-4`: data-only `Advance`; dynamic-reserve profile SHA-256
+- `TRAIN-4`: `Reopened / FailedDynamicReferenceFeasibility`. Прежний data-only
+  `Advance` superseded; dynamic-reserve profile SHA-256
   `1229eb18b8efea2daff50cf73a733fe67b804f507ef739bc88f1dee30584bb0c`,
   corpus manifest SHA-256
   `33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd`,
-  gate report SHA-256
+  previous gate report SHA-256
   `261dce77dcc36448831373569c0a6d033ad8260769583e29228f706877c00778`;
-- `TRAIN-5`: `InProgress / FailedSafetyGate`. Input/reset and reproducible h10
-  tiny sanity passed. The base and realized contact-impact-margin full-phase
-  curriculum runs both failed hard safety; every produced curriculum checkpoint
-  is rejected. Only implementation and optimizer-free audit of
-  `curriculum.deterministic-phase-prefix-expansion.v1` are authorized;
+- `TRAIN-5`: `FailedSafetyGate / InvalidatedByUpstreamData`. Input/reset and
+  reproducible h10 tiny sanity passed, but base, contact-impact-margin and
+  deterministic phase-prefix curricula all failed hard safety. Every produced
+  curriculum checkpoint is rejected; failure decision SHA-256
+  `2832f50a6ab2b02ee1bd41acec1bf3f0d247555e22015ea396c50bb5c1da9c92`;
 - `TRAIN-6..9`: `NotRun`; no downstream optimizer or publication work is
   authorized.
 
@@ -686,7 +687,11 @@ profile. Framework tensors and source filesystem paths do not enter it.
 - start/stop clips have explicit non-looping entry/exit states;
 - mirror-twice returns the exact canonical source reference;
 - visual overlay of source target and BodySchema retarget passes for every
-  admitted clip.
+  admitted clip;
+- a frozen scripted reference-following baseline covers every valid start phase
+  of every admitted locomotion clip for the full declared tracker horizon under
+  the exact BodySchema/USD, fixed PD/safety, contact/terminal and PhysX
+  identities, with zero required hard-safety events.
 
 ### Exit criteria
 
@@ -696,13 +701,18 @@ profile. Framework tensors and source filesystem paths do not enter it.
   mirrored and otherwise derived siblings никогда не пересекают split, а
   held-out source/performer/clip family не использовался для training;
 - 100% admitted clips pass anatomy, penetration, contact and phase checks;
-- a generated kinematic preview is visually accepted before policy training.
+- a generated kinematic preview is visually accepted before policy training;
+- `REQ-HUM-DATA-007` receives `Pass`; its tracking/fidelity metrics are complete
+  `ReportOnly` evidence and cannot waive a hard-safety failure.
 
 ### Failure/rollback
 
 One invalid clip is excluded and produces a stable corpus diagnostic; it does
 not relax BodySchema limits. Any correction creates a new retarget/corpus hash
-and invalidates dependent runs.
+and invalidates dependent runs. A full-horizon scripted-reference safety
+failure is classified as `DataDynamicReferenceFeasibility`, returns work to
+retarget/contact timing/root/joint trajectory and forbids optimizer work until
+a new `TRAIN-4 Advance`.
 
 ### Commit boundaries
 
@@ -745,7 +755,11 @@ Exact external gate report:
 SHA-256
 `38f33f63c2d187509128eca1469ab6b114547402bb769e311b8717a4c2ed18c4`.
 Decision: `Advance` только для `TRAIN-5` specialist locomotion tracker; более
-поздние training stages и runtime publication не разрешены.
+поздние training stages и runtime publication не разрешены. Этот decision
+впоследствии superseded после `TRAIN-5`: exhaustive optimizer-free reference
+audit показал `4009/4117` full-horizon failed episodes при `0` reset-window
+safety failures. Corpus остаётся kinematically valid, но не доказан dynamically
+feasible; требуется новая `TRAIN-4` lineage.
 
 ## TRAIN-5 — specialist reference-motion tracker
 
@@ -994,14 +1008,34 @@ ankle pitch. Failure decision SHA-256
 отклоняет reward hypothesis и checkpoint; multi-seed, `TRAIN-5` Advance и
 `TRAIN-6` запрещены.
 
-Единственная declared next hypothesis —
-`curriculum.deterministic-phase-prefix-expansion.v1`: четыре неизменяемые
-80-iteration ступени расширяют допустимый start-phase prefix с `42` до `84`,
-`126` и всех `169` phases. Она возвращается к принятому base environment и
-accepted h10 initializer, не меняет reward, PPO, total `320` iterations,
-hard terminals или final matrix. До отдельного optimizer-free audit exact
-schedule coverage/reproducibility разрешена только реализация этой гипотезы;
-новый optimizer run требует отдельного hash-closed gate.
+Последняя declared hypothesis,
+`curriculum.deterministic-phase-prefix-expansion.v1`, была реализована и прошла
+optimizer-free audit SHA-256
+`4ff66bc23884a5e3b5953b9a067bdb595a1179f4ae6026afdc49bfb1c900a7aa`:
+четыре 80-iteration ступени точно покрыли prefixes `42`, `84`, `126`, `169`,
+повтор был byte-identical, evaluation отключила prefix. Единственный
+hash-closed run улучшил completion `37/256 -> 78/256`, но сохранил `178`
+failed episodes, из них `157` с hard-safety failure: `102` hard impact, `50`
+hard ROM, `35` joint safety, `17` joint velocity, `19` effort и `3`
+self-collision. Это хуже base curriculum (`94` completions, `162` failures).
+Checkpoint SHA-256
+`9f05a0a8307527585e35a7efecbbacbe9ef6700d9c76ada54f16d719539eaef6`
+rejected. Optimizer-free terminal diagnostic SHA-256
+`bdc6fbf5320a1f46e473018a083e48a63cd93936bab2005bd591b23e7eba5df4`
+подтвердил прежний dominant right-sole impact/right-ankle pattern; diagnostic
+repeat насчитал `104` impact reasons против `102` в source run, поэтому exact
+deterministic safety claim также запрещён.
+
+Общий failure decision SHA-256
+`2832f50a6ab2b02ee1bd41acec1bf3f0d247555e22015ea396c50bb5c1da9c92`
+классифицирует результат как `DataDynamicReferenceFeasibility`, а не новую
+optimization hypothesis. До обучения exact-reference baseline уже имел
+`4009/4117` full-horizon failed episodes: `3022` hard-impact, `618` hard-ROM,
+`1102` joint-safety, `792` joint-velocity, `373` effort-envelope и `22`
+self-collision reasons при нулевых reset-window safety failures. Поэтому
+`REQ-HUM-DATA-007` required, прежний `TRAIN-4 Advance` superseded, `TRAIN-5`
+checkpoint/resume и все новые optimizer runs запрещены до новой corpus/profile
+identity и полного optimizer-free dynamic-feasibility `Pass`.
 
 Следующие результаты сохранены только как historical failure/diagnostic
 evidence старой corpus lineage и не продвигают текущий `TRAIN-5`: input/reward audit
@@ -1493,9 +1527,10 @@ to read-only research, motion-rights review and generated test design; it
 cannot publish a later-stage contract or start training before its dependency
 gate passes.
 
-The first executable increment after this plan is `TRAIN-0`, then `TRAIN-1`.
-No new PPO run is authorized before `TRAIN-4` passes. No command locomotion run
-is authorized before `TRAIN-5` advances.
+Current executable increment is optimizer-free `TRAIN-4` corpus diagnosis and
+remediation against `REQ-HUM-DATA-007`. No new PPO run is authorized before a
+new `TRAIN-4 Advance`; no command locomotion run is authorized before
+`TRAIN-5` advances.
 
 Roadmap status changes only after material implementation/check results. This
 planning document alone does not close R5, B-08, B-12, Stage 0, GPU

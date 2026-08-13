@@ -2,8 +2,8 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | Draft requirements baseline; product decisions confirmed, все acceptance checks `NotRun` |
-| Дата | 2026-08-12 |
+| Статус | Draft requirements baseline revision 2; product decisions confirmed; `TRAIN-4` reopened after failed dynamic-reference-feasibility evidence, dependent `TRAIN-5+` checks invalidated |
+| Дата | 2026-08-13 |
 | Candidate | `HumanoidFlatRecoveryCandidateV1` (planning identity, не public schema ID) |
 | Scope | Fixed-body flat-command locomotion, safe fall, recovery, get-up and command resume |
 | Anthropometric target | [Young-adult male gait target, `1.700 m`, exact source mass `75.337 kg`](2026-08-12-humanoid-biomechanics-target.md) |
@@ -87,6 +87,7 @@ locomotion и recovery actors и детерминированный engine-owned
 | `DEC-HUM-04` | Confirmed 2026-08-12 | Side recovery обязателен; v1 может использовать admitted side-to-prone/supine transition перед get-up. |
 | `DEC-HUM-05` | Confirmed by delegated selection 2026-08-12 | [Один gait-oriented young-adult male target](2026-08-12-humanoid-biomechanics-target.md): intended stature `1.700 m`, exact source-model mass `75.337 kg`; это не population percentile. |
 | `DEC-HUM-06` | Confirmed 2026-08-12 | Operating envelope раздела 3 задаёт обязательное evaluation coverage. Числовые quality targets `REQ-HUM-Q-*`, clamp-incidence target `REQ-HUM-S-003` и runtime budgets `REQ-HUM-NF-003`, `REQ-HUM-NF-005`, `REQ-HUM-NF-009` имеют disposition `ReportOnly`: их обязательно измерять, но результат относительно target не даёт `Pass`/`Fail` и не блокирует candidate. |
+| `DEC-HUM-07` | Confirmed by required safety disposition 2026-08-13 | Динамическая выполнимость reference motion под exact production-equivalent BodySchema/USD, fixed PD/safety и PhysX является required data admission check. Она не является learned-policy quality metric и не может иметь disposition `ReportOnly`. |
 
 ## 3. Operating envelope
 
@@ -228,6 +229,20 @@ output `TRAIN-1`; пока они отсутствуют, `REQ-HUM-BODY-*` и в
   а minimum reserve до любой hard boundary составляет `17453 urad` (`1 degree`).
 - `REQ-HUM-DATA-006` — runtime candidate не читает corpus, source path или
   training-only annotation.
+- `REQ-HUM-DATA-007` — каждый admitted nominal-locomotion clip и каждая его
+  допустимая start phase проходят frozen optimizer-free scripted reference-
+  following baseline на всём заявленном `TRAIN-5` horizon под exact
+  BodySchema, USD, fixed PD/safety, contact/terminal semantics и PhysX
+  identities. Результат содержит ровно `0` hard-impact, hard-ROM,
+  joint-safety, joint-velocity, effort-envelope, self-collision,
+  forbidden-contact, fall, world-bounds и non-finite events. Tracking error,
+  reference completion, contact precision/recall и retarget-fidelity deltas
+  измеряются полностью как `ReportOnly`, но не отменяют ни одно из этих
+  required zero-safety условий. Нарушение возвращает работу в `TRAIN-4`:
+  retarget, contact timing, root или joint trajectory исправляются под новым
+  corpus/profile identity, после чего повторяются deterministic import,
+  kinematic, visual и dynamic-feasibility gates. Reward/optimizer tuning не
+  может заменить эту проверку.
 
 ## 5. Функциональные требования
 
@@ -370,7 +385,7 @@ Report-only metric result не отменяет Blocker/Major, а субъект
 |---|---|---|
 | `DEC-HUM-*`, claim boundary | before `TRAIN-1`, reconfirm at `TRAIN-9` | frozen baseline revision and candidate manifest claim |
 | `REQ-HUM-BODY-*` | `TRAIN-1..3` | exact profile table/hash, validators, anatomy and passive/contact/safety reports |
-| `REQ-HUM-DATA-*` | `TRAIN-4` | rights/provenance manifest, split audit, retarget hashes and preview review |
+| `REQ-HUM-DATA-*` | `TRAIN-4` | rights/provenance manifest, split audit, retarget hashes, preview review and exhaustive full-horizon optimizer-free dynamic-reference-feasibility report under exact fixed substrate |
 | `REQ-HUM-F-001..004` | `TRAIN-5..6` | held-out reference and command matrix |
 | `REQ-HUM-F-005..007` | `TRAIN-7` | route replay, push/reset/resume matrix |
 | `REQ-HUM-F-008..010` | `TRAIN-9` | fault/fallback, export, save/load/replay and no-runtime-corpus evidence |
@@ -390,10 +405,12 @@ manifest and affected candidate lineage.
 
 ## 8. Definition of ready and done
 
-`ReadyForTRAIN-1` requires all `DEC-HUM-01..06` to be confirmed and the selected
+`ReadyForTRAIN-1` requires all `DEC-HUM-01..07` to be confirmed and the selected
 target's source/license plan to be accepted. `ReadyForML` requires passing
-`TRAIN-1..4`; unresolved body, safety, contact, data-rights or split requirement
-blocks training.
+`TRAIN-1..4`, включая `REQ-HUM-DATA-007` для каждого admitted locomotion clip
+и каждой valid start phase на полном declared tracker horizon; unresolved
+body, safety, contact, data-rights, split или dynamic-reference-feasibility
+requirement blocks training.
 
 Candidate is done only when all required `REQ-HUM-*` have `Pass`, all
 report-only requirements have `ReportOnlyComplete`, required `TRAIN-0..7` and
