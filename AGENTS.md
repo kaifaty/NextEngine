@@ -81,6 +81,27 @@
 6. Before final handoff or a readiness/completion claim, run the minimum risk-scoped checks above. Documentation-only work uses the cheap path; localized code uses focused package checks; broad `host-check` is conditional, not automatic. Commit creation itself never triggers checks.
 7. Report each relevant check as passed, failed or not run, with the remaining product risk.
 
+## Persistent-problem research escalation
+
+- If the same blocker survives two coherent remediation cycles, or several
+  variants move symptoms without closing the stated criterion, pause the next
+  similar implementation attempt and run a bounded research cycle.
+- Restate the problem as falsifiable competing hypotheses. Inspect failure
+  clustering and causal order, question assumptions at adjacent layers, and
+  deliberately consider non-local explanations rather than only tuning the
+  component where the symptom appears.
+- Use primary sources when external tool, backend or scientific semantics may
+  matter. Prefer small counterfactual experiments with successful controls
+  before another full or expensive run.
+- Record evidence for and against each serious hypothesis, rejected options,
+  remaining uncertainty and the decision criterion for resuming implementation.
+  Resume with the smallest evidence-backed change and an explicit rollback or
+  non-regression check.
+- Research and brainstorming do not weaken an existing requirement, authorize
+  a later stage, or justify indefinite analysis. If the cycle cannot
+  discriminate between options, state the missing evidence and choose the
+  cheapest safe experiment that can.
+
 ## Repository hygiene
 
 - Do not add remotes or `.github/workflows/` during local bootstrap.
