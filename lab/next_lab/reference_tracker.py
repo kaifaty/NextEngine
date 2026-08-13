@@ -61,6 +61,12 @@ STANCE_CHAIN_PROFILE_ID = (
 STANCE_CHAIN_PROFILE_SHA256 = (
     "3d429ccfc36831b1262ea30ae19e8a89b2efcdb04be2e9e6026f8518d59aa84d"
 )
+SWING_CLEARANCE_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-reference-tracker-swing-clearance.v8"
+)
+SWING_CLEARANCE_PROFILE_SHA256 = (
+    "ace9e32ec0777043b4f963353c2889b639cde03531a64ec3d4b10d3eeab69ae6"
+)
 PROFILE_IDS_BY_SHA256 = {
     PROFILE_SHA256: PROFILE_ID,
     SOFT_ROM_COST_PROFILE_SHA256: SOFT_ROM_COST_PROFILE_ID,
@@ -71,6 +77,7 @@ PROFILE_IDS_BY_SHA256 = {
     CONTACT_IMPACT_MARGIN_PROFILE_SHA256: CONTACT_IMPACT_MARGIN_PROFILE_ID,
     TEMPORAL_CONTACT_PROFILE_SHA256: TEMPORAL_CONTACT_PROFILE_ID,
     STANCE_CHAIN_PROFILE_SHA256: STANCE_CHAIN_PROFILE_ID,
+    SWING_CLEARANCE_PROFILE_SHA256: SWING_CLEARANCE_PROFILE_ID,
 }
 SAFETY_CONTACT_PROFILE_SHA256 = "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c"
 SAFETY_CONTACT_PROFILE_V2_SHA256 = (
@@ -177,6 +184,7 @@ class ReferenceTrackerProfile:
                     CONTACT_IMPACT_MARGIN_PROFILE_ID,
                     TEMPORAL_CONTACT_PROFILE_ID,
                     STANCE_CHAIN_PROFILE_ID,
+                    SWING_CLEARANCE_PROFILE_ID,
                 }
                 or overlay.get("status") != "Frozen"
                 or overlay.get("base_profile_id") != PROFILE_ID
@@ -273,6 +281,7 @@ class ReferenceTrackerProfile:
                 CONTACT_IMPACT_MARGIN_PROFILE_ID,
                 TEMPORAL_CONTACT_PROFILE_ID,
                 STANCE_CHAIN_PROFILE_ID,
+                SWING_CLEARANCE_PROFILE_ID,
             }
             else SAFETY_CONTACT_PROFILE_SHA256
         )
@@ -286,6 +295,7 @@ class ReferenceTrackerProfile:
             CONTACT_IMPACT_MARGIN_PROFILE_ID,
             TEMPORAL_CONTACT_PROFILE_ID,
             STANCE_CHAIN_PROFILE_ID,
+            SWING_CLEARANCE_PROFILE_ID,
         }:
             if (
                 _require_hex_hash(
@@ -428,6 +438,7 @@ class ReferenceTrackerProfile:
         remediation_only = expected_profile_id in {
             TEMPORAL_CONTACT_PROFILE_ID,
             STANCE_CHAIN_PROFILE_ID,
+            SWING_CLEARANCE_PROFILE_ID,
         }
         if remediation_only:
             source_lineage = authorization.get("source_lineage")
@@ -668,7 +679,11 @@ class ReferenceCorpus:
         source_lineage = expected_authorization.get("source_lineage", {})
         remediation_only = (
             expected["profile_id"]
-            in {TEMPORAL_CONTACT_PROFILE_ID, STANCE_CHAIN_PROFILE_ID}
+            in {
+                TEMPORAL_CONTACT_PROFILE_ID,
+                STANCE_CHAIN_PROFILE_ID,
+                SWING_CLEARANCE_PROFILE_ID,
+            }
             and expected_authorization["decision"] == "RemediateDataOnly"
             and self.gate_report.get("decision") == "RemediateDataOnly"
             and self.gate_report.get("stage_status") == "Reopened"

@@ -16,6 +16,7 @@ from next_lab.reference_tracker import (
     SAFETY_RESERVE_PROFILE_SHA256,
     SOFT_ROM_COST_PROFILE_SHA256,
     STANCE_CHAIN_PROFILE_SHA256,
+    SWING_CLEARANCE_PROFILE_SHA256,
     TEMPORAL_CONTACT_PROFILE_SHA256,
     DescriptorLimits,
     ReferenceClip,
@@ -61,6 +62,10 @@ TEMPORAL_CONTACT_PROFILE = (
 STANCE_CHAIN_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-tracker-stance-chain.v7.json"
+)
+SWING_CLEARANCE_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-tracker-swing-clearance.v8.json"
 )
 
 
@@ -181,6 +186,27 @@ class ReferenceTrackerTests(unittest.TestCase):
         self.assertEqual(
             profile.document["corpus"]["profile_sha256"],
             "342b6afafd78aa6701d9ef50cceeb2a5daafd56c1a69faef3fed27185ead580a",
+        )
+        authorization = profile.document["training_authorization"]
+        self.assertEqual(authorization["decision"], "RemediateDataOnly")
+        self.assertIn("optimizer execution remains forbidden", authorization["scope"])
+        self.assertEqual(
+            authorization["source_lineage"]["motion_corpus_manifest_sha256"],
+            "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
+        )
+
+    def test_swing_clearance_profile_is_diagnostic_only_and_v12_bound(self) -> None:
+        profile = ReferenceTrackerProfile.load(SWING_CLEARANCE_PROFILE)
+        self.assertEqual(
+            profile.document_sha256, SWING_CLEARANCE_PROFILE_SHA256
+        )
+        self.assertEqual(
+            profile.document["corpus"]["manifest_sha256"],
+            "b7917892f7a9a19a0e7e913f7d2a7920f74f1c6dfaea86658ec4fbb9d8a1172d",
+        )
+        self.assertEqual(
+            profile.document["corpus"]["profile_sha256"],
+            "57618651d93d8465ed4c37ff37a8d123942bdd0004f5efdacd3b702efea1594d",
         )
         authorization = profile.document["training_authorization"]
         self.assertEqual(authorization["decision"], "RemediateDataOnly")
