@@ -15,6 +15,7 @@ from next_lab.reference_tracker import (
     PROFILE_SHA256,
     PREDICTIVE_ROM_COST_PROFILE_SHA256,
     SAFETY_RESERVE_PROFILE_SHA256,
+    SOLE_NORMAL_PROFILE_SHA256,
     SOFT_ROM_COST_PROFILE_SHA256,
     STANCE_CHAIN_PROFILE_SHA256,
     SWING_CLEARANCE_PROFILE_SHA256,
@@ -71,6 +72,10 @@ SWING_CLEARANCE_PROFILE = (
 CONTACT_SEATED_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-tracker-contact-seated.v9.json"
+)
+SOLE_NORMAL_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-tracker-sole-normal-closure.v10.json"
 )
 
 
@@ -231,6 +236,21 @@ class ReferenceTrackerTests(unittest.TestCase):
         self.assertEqual(
             profile.document["corpus"]["profile_sha256"],
             "966ef5f0fd88e7453fbbc5e9a29f60021c089b4185259a046c5748c45cf63b32",
+        )
+        authorization = profile.document["training_authorization"]
+        self.assertEqual(authorization["decision"], "RemediateDataOnly")
+        self.assertIn("optimizer execution remains forbidden", authorization["scope"])
+
+    def test_sole_normal_profile_is_diagnostic_only_and_v15_bound(self) -> None:
+        profile = ReferenceTrackerProfile.load(SOLE_NORMAL_PROFILE)
+        self.assertEqual(profile.document_sha256, SOLE_NORMAL_PROFILE_SHA256)
+        self.assertEqual(
+            profile.document["corpus"]["manifest_sha256"],
+            "a80015fe9f81ef8aaa9b956709cc1d1ebe26d619a9d2ffff962c72280c2f0f84",
+        )
+        self.assertEqual(
+            profile.document["corpus"]["profile_sha256"],
+            "cec01292e26f79e60f4fbce6a15aecf91ad14dff965163b096fc098a2c9db983",
         )
         authorization = profile.document["training_authorization"]
         self.assertEqual(authorization["decision"], "RemediateDataOnly")
