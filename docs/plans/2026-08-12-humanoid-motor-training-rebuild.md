@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` is reopened because the admitted dynamic-reserve corpus failed full-horizon dynamic-reference feasibility. The manifest-wide optimizer-free diagnostic now covers every clip/start phase and localizes the systemic ankle/contact defects; `TRAIN-5` evidence remains diagnostic, all curriculum checkpoints are rejected, and no optimizer run, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. Current WIP is temporal/contact-aware retarget correction under a new corpus identity for `REQ-HUM-DATA-007` |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. Temporal/contact-aware V4 is implemented under a new corpus identity and passes deterministic import, `27/27` kinematic validation, `5859/5859` native pose audit and input closure, but its exhaustive `5562/5562` optimizer-free dynamic audit still has `2876` required-safety failures, dominated by `2475` hard-impact cases. The iteration is diagnostic failure evidence only; optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. Current WIP is a new contact-constrained whole-stance-chain/root trajectory solve for `REQ-HUM-DATA-005/007` |
 | Дата | 2026-08-13 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -13,8 +13,10 @@
 | Frozen profile SHA-256 | `968ceb82ac2a40af872b496fdd43e32ba2ce3ffd90b2b3a33f38461c8269aabc` |
 | TRAIN-3 safety/contact profile | [Humanoid safety and contact profile V2](2026-08-13-humanoid-safety-contact-profile-v2.md) |
 | TRAIN-3 safety/contact SHA-256 | `ba9d368e075f389a4dbff4a0ed9299b737edf4907be10ae6cf3aeb60b348729f` |
-| TRAIN-4 motion corpus profile | [Humanoid motion corpus dynamic reserve V3](../../lab/profiles/humanoid-motion-corpus-cmu-dynamic-reserve.v3.json) |
-| TRAIN-4 motion corpus profile SHA-256 | `1229eb18b8efea2daff50cf73a733fe67b804f507ef739bc88f1dee30584bb0c` |
+| TRAIN-4 rejected baseline corpus profile | [Humanoid motion corpus dynamic reserve V3](../../lab/profiles/humanoid-motion-corpus-cmu-dynamic-reserve.v3.json), SHA-256 `1229eb18b8efea2daff50cf73a733fe67b804f507ef739bc88f1dee30584bb0c` |
+| TRAIN-4 latest diagnostic corpus profile | [Humanoid motion corpus temporal contact V4](../../lab/profiles/humanoid-motion-corpus-cmu-temporal-contact.v4.json), SHA-256 `17fc25739318ffd3c7634b5e2d1cca093c99fcc8686aaec09c7f79158cd2b19c` |
+| TRAIN-4 latest diagnostic corpus manifest SHA-256 | `5f570cdbc724cf7db51530c07b82fbafba2b73f333e1a2684e48aeb8ae0d5195` |
+| TRAIN-4 latest diagnostic tracker | [Humanoid reference tracker temporal contact V6](../../lab/profiles/humanoid-reference-tracker-temporal-contact.v6.json), SHA-256 `d7131e909586a140dc541d3c8580744dede485b1e9693fa48153d8ab30c16281` |
 | TRAIN-5 current base tracker profile | [Humanoid reference tracker physics/velocity guard V4](../../lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json) |
 | TRAIN-5 current base tracker SHA-256 | `7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d` |
 | TRAIN-5 rejected optimization child profiles | soft ROM `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive ROM `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`; realized contact impact margin `6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06` |
@@ -341,7 +343,14 @@ count: confidence interval не превращает наблюдаемое на
   previous gate report SHA-256
   `261dce77dcc36448831373569c0a6d033ad8260769583e29228f706877c00778`;
   remediation gate report SHA-256
-  `2fc1d6c3d312a1e88a3820bdd851fd0eecf3230795a1162b55f13dd65d45cdb6`;
+  `2fc1d6c3d312a1e88a3820bdd851fd0eecf3230795a1162b55f13dd65d45cdb6`.
+  Latest temporal/contact V4 profile SHA-256 is
+  `17fc25739318ffd3c7634b5e2d1cca093c99fcc8686aaec09c7f79158cd2b19c`;
+  deterministic rebuilds produced canonical manifest SHA-256
+  `5f570cdbc724cf7db51530c07b82fbafba2b73f333e1a2684e48aeb8ae0d5195`.
+  The corpus passes `27/27` kinematic and `5859/5859` native pose checks, but
+  exhaustive coverage is `5562/5562` with `2876` required-safety failures, so
+  this new identity also does not advance the gate;
 - `TRAIN-5`: `FailedSafetyGate / InvalidatedByUpstreamData`. Input/reset and
   reproducible h10 tiny sanity passed, but base, contact-impact-margin and
   deterministic phase-prefix curricula all failed hard safety. Every produced
@@ -732,7 +741,7 @@ serialization and executable provenance/split/coverage audits реализова
 `52` locomotion/recovery artifacts признан superseded evidence: recovery poses
 не были физически допустимы и не входят в advancing manifest.
 
-Текущий внешний immutable locomotion corpus:
+Ранее admitted, теперь superseded внешний immutable locomotion corpus:
 `/home/kaifaty/NextEngine-training/generations/humanoid-motor-rebuild-v1/corpus/f281f73773f32ddb-7b59986973b39870`.
 Его canonical manifest SHA-256 —
 `6f76c1c7d60457d1b10833b6fb840afbb50cd502315f250fd6e44a40d1c0dcbc`.
@@ -762,6 +771,79 @@ Decision: `Advance` только для `TRAIN-5` specialist locomotion tracker;
 audit показал `4009/4117` full-horizon failed episodes при `0` reset-window
 safety failures. Corpus остаётся kinematically valid, но не доказан dynamically
 feasible; требуется новая `TRAIN-4` lineage.
+
+### Temporal/contact V4 remediation result
+
+Новая data-only lineage реализует symmetric whole-clip smoothing, усиленное
+сглаживание защищённых ankle channels, bounded joint reserves, minimum-dwell
+support/contact intervals, conservative stance knee and hip clearance,
+numerical stance-sole leveling, swing-knee lift, collision-free
+velocity-bounded root-height majorant и bounded endpoint-tapered planar-root
+correction. BodySchema ROM, actuator, contact and safety limits не менялись;
+optimizer, checkpoint и learned policy не загружались. `cmu16-walk-nominal-a`
+исключён, потому что после подавления contact chatter не выполняет требование
+четырёх полных gait cycles; `cmu16-walk-slow` hash-bound к более длинному crop
+того же train split group. Это новая corpus identity, а не перезапись прежнего
+артефакта.
+
+Frozen profile:
+`lab/profiles/humanoid-motion-corpus-cmu-temporal-contact.v4.json`, SHA-256
+`17fc25739318ffd3c7634b5e2d1cca093c99fcc8686aaec09c7f79158cd2b19c`.
+Две полные сборки дали один и тот же corpus root
+`/home/kaifaty/NextEngine-training/generations/humanoid-motor-rebuild-v1/corpus/17fc25739318ffd3-9273bc2a36285de4`,
+canonical manifest SHA-256
+`5f570cdbc724cf7db51530c07b82fbafba2b73f333e1a2684e48aeb8ae0d5195`
+и byte SHA-256
+`f4792bd1118a86780ff00582bfdfe557730306698cce92ba142a7fa8faddad43`.
+Все `22` base и `5` derived clips (`27/27`) прошли автоматическую validation;
+splits равны `9/9/9`. Native pose audit прошёл `5859/5859` poses, failures `0`;
+report SHA-256
+`7e93c338ede7db90d6a5540b86920192fb795334399b9d15d937ca00d6a7decb`.
+Tracker V6 SHA-256
+`d7131e909586a140dc541d3c8580744dede485b1e9693fa48153d8ab30c16281`
+прошёл all-artifact/input/reward closure (`27` artifacts, physics episodes
+`0`, optimizer steps `0`); report SHA-256
+`d9592d79b2aa04c0207ea8ce116403ecb34079f3c683d1f13da0b6de45a3630f`.
+Preliminary review of representative idle/start/walk/turn/stop/weight-shift
+previews found no gross inversion or broken geometry, but formal per-clip human
+visual review remains `27 pending` and no visual `Pass` is claimed.
+
+This `VALIDATED` status is local to the diagnostic V4 profile, not a
+requirements admission result. V4 permits `174533 urad` (`10 degrees`)
+bilateral ankle-roll reserve so that the sole-leveling diagnostic can explore
+the impact mechanism, while `REQ-HUM-DATA-005` requires `261800 urad`
+(`15 degrees`). The requirement is not relaxed: V4 therefore also fails
+`REQ-HUM-DATA-005` and cannot advance even independently of the dynamic result.
+
+Exhaustive dynamic audit r8 covered all `5562/5562` valid start phases at
+horizon `11` and completed every case. It failed `2876` cases: `2475`
+hard-impact, `257` hard-ROM, `293` joint-safety, `171` joint-velocity, `125`
+effort-envelope and `31` self-collision; fall, forbidden-contact, world-bounds
+and non-finite counts are zero. `2686` cases reached reference completion.
+Contact precision/recall are `0.610893/0.890920` and remain `ReportOnly`.
+Impact pairs are still almost entirely bilateral ankle-ground (`1186` left,
+`1317` right; three hip-pair events), while ankle pitch/roll remain the main
+joint channels. Compared with the rejected V3 manifest-wide audit, raw failed
+cases decreased `4329 -> 2876` (`-33.6%`) and failure rate decreased from
+`76.6%` to `51.7%`; the denominators differ (`5653` versus `5562`) because V4
+removed the invalid three-cycle clip and changed the admitted slow crop.
+
+Exact failure report:
+`/home/kaifaty/NextEngine-training/generations/humanoid-motor-rebuild-v1/evaluations/TRAIN-4/exhaustive-dynamic-feasibility-temporal-contact-v4-r8.json`,
+SHA-256
+`8719a0a893824333e9b72b247bb90bd0ea503b0e3119f1cecdcedfd5e4b6759b`.
+It has `optimizer_steps=0`, `training_runs=0`, learned-policy claim false and
+does not create a new `Advance` report. `REQ-HUM-DATA-007` remains failed and
+`TRAIN-4` remains reopened.
+
+The next bounded remediation is a contact-constrained whole-stance-chain solve
+that jointly treats stance hip/knee/ankle pose, sole position/normal and planar
+root trajectory over transition windows. A local per-frame IK prototype is not
+admitted: it reduced median support slip but worsened transition tails after
+smoothing. The production increment therefore requires a temporally coupled,
+bounded solve under a new profile/corpus identity, followed by the same
+deterministic, native-pose, visual and exhaustive dynamic gates. Parameter or
+reward tuning and optimizer execution are not accepted substitutes.
 
 ## TRAIN-5 — specialist reference-motion tracker
 
@@ -1560,9 +1642,11 @@ to read-only research, motion-rights review and generated test design; it
 cannot publish a later-stage contract or start training before its dependency
 gate passes.
 
-Manifest-wide optimizer-free `TRAIN-4` diagnosis is complete for the rejected
-lineage. The current executable increment is temporal/contact-aware retarget,
-root and joint-trajectory remediation under a new corpus identity against
+Manifest-wide optimizer-free `TRAIN-4` diagnosis is complete for both the
+rejected V3 lineage and temporal/contact V4 remediation. V4 materially reduced
+failures but did not reach the required exact zero. The current executable
+increment is a temporally coupled contact-constrained whole-stance-chain and
+root-trajectory solve under another new corpus identity against
 `REQ-HUM-DATA-007`. No new PPO run is authorized before a new `TRAIN-4
 Advance`; no command locomotion run is authorized before `TRAIN-5` advances.
 

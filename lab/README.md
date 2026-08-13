@@ -91,7 +91,7 @@ scripted-reference audit with the pinned Isaac Python environment:
 <isaac-python> lab/scripts/isaac_reference_dynamic_feasibility_audit.py \
   --headless --device cuda:0 \
   --descriptor <external biomechanics descriptor> \
-  --profile lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json \
+  --profile <hash-bound diagnostic tracker profile> \
   --corpus-root <external corpus root> \
   --admission-gate-report <hash-bound prior TRAIN-4 Advance report> \
   --remediation-gate-report <current TRAIN-4 RemediateDataOnly report> \
@@ -116,6 +116,20 @@ hashes. It includes every phase result plus the first violation localized to
 `clip -> start frame -> motor tick -> joint/contact pair`. Incomplete coverage
 or one required safety event produces `FAIL` and a non-zero process status. The
 output must remain in the external training store.
+
+The 2026-08-13 temporal/contact remediation uses
+`humanoid-motion-corpus-cmu-temporal-contact.v4.json` and
+`humanoid-reference-tracker-temporal-contact.v6.json`. Both are diagnostic-only:
+the tracker authorization is `RemediateDataOnly`, optimizer execution remains
+forbidden, and the corpus cannot be passed to a training entry point. Its
+deterministic corpus manifest is
+`5f570cdbc724cf7db51530c07b82fbafba2b73f333e1a2684e48aeb8ae0d5195`.
+The exhaustive `5562/5562` result remains `FAIL` with `2876` failed cases,
+including `2475` hard impacts. The profile also permits a diagnostic `10°`
+ankle-roll hard reserve while `REQ-HUM-DATA-005` requires `15°`; a local
+`VALIDATED` corpus result therefore is not an admission result. The next
+corpus identity must restore the required reserve, complete formal visual
+review and reach exactly zero required safety events before `TRAIN-5`.
 
 ## Training generation isolation
 

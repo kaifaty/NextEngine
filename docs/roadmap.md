@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-13 |
-| Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; performance workloads остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. R5 R&D substrate содержит три current CPU profiles: immutable standing V1, immutable flat-command V1 и curriculum V2, плюс motor-lab v2, NPZ v2 recorder and Isaac mirror. V1 compatibility/hash closure исправлена; это разрешает bounded experiments, но не является trained policy, Stage 0 completion или R5 closure. Текущий WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced; прежний TRAIN-4 Advance superseded. Manifest-wide optimizer-free audit теперь покрыл `5653/5653` clip/start-phase cases и нашёл `4329` hard-safety failures, преимущественно bilateral foot impact и ankle ROM/velocity/effort. Все TRAIN-5 curriculum checkpoints rejected; no optimizer run, multi-seed, TRAIN-5 Advance or TRAIN-6 is authorized. Следующий increment — temporal/contact-aware TRAIN-4 retarget correction и новый corpus identity для `REQ-HUM-DATA-007`. TRAIN-8 optional и не блокирует TRAIN-9 при заранее зафиксированном skip. R4a остаётся следующим подготовленным world-system increment, но пока не активен. B-12, Linux/cross-target evidence, R1/R7 и v1 shipping не закрыты. |
+| Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; performance workloads остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. R5 R&D substrate содержит три current CPU profiles: immutable standing V1, immutable flat-command V1 и curriculum V2, плюс motor-lab v2, NPZ v2 recorder and Isaac mirror. V1 compatibility/hash closure исправлена; это разрешает bounded experiments, но не является trained policy, Stage 0 completion или R5 closure. Текущий WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced; прежний TRAIN-4 Advance superseded. Temporal/contact V4 реализован и детерминирован, прошёл `27/27` profile-local validation и `5859/5859` native poses, но exhaustive `5562/5562` audit всё ещё имеет `2876` required-safety failures (`2475` hard impact) и использует diagnostic `10°` ankle-roll reserve против required `15°`. Все TRAIN-5 curriculum checkpoints rejected; no optimizer run, multi-seed, TRAIN-5 Advance or TRAIN-6 is authorized. Следующий increment — temporally coupled contact-constrained whole-stance-chain/root solve под новой identity для `REQ-HUM-DATA-005/007`. TRAIN-8 optional и не блокирует TRAIN-9 при заранее зафиксированном skip. R4a остаётся следующим подготовленным world-system increment, но пока не активен. B-12, Linux/cross-target evidence, R1/R7 и v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -705,8 +705,11 @@ push/recovery и readiness claim остаются вне этого checkpoint.
    без ML;
 5. TRAIN-4 corpus/retarget проходит не только kinematic/reset checks, но и
    exhaustive optimizer-free full-horizon dynamic-reference-feasibility gate;
-6. текущая dynamic-reserve corpus lineage этот gate провалила, поэтому все
-   TRAIN-5 checkpoints rejected и WIP возвращён к новому TRAIN-4 corpus/profile
+6. dynamic-reserve V3 и temporal/contact V4 corpus lineages этот gate
+   провалили. V4 снизил raw failed cases `4329 -> 2876`, но сохранил `2475`
+   hard-impact cases и diagnostic `10°` ankle-roll reserve при required `15°`;
+   поэтому все TRAIN-5 checkpoints rejected, а WIP остаётся в TRAIN-4 на новом
+   temporally coupled stance-chain/root solve и следующей corpus/profile
    identity;
 7. только после нового TRAIN-4 Advance допускаются reference tracking, command
    locomotion, recovery and portable export; optional TRAIN-8 либо проходит
@@ -1439,12 +1442,16 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    scheduler, placement catalog или alpha migration obligation.
 7. **R5 humanoid movement TRAIN-4 remediation (`ACTIVE_R&D / CURRENT WIP`):**
    TRAIN-0..3 advanced; прежний kinematic/data-only TRAIN-4 gate superseded,
-   а manifest-wide scripted reference покрыл все `5653` clip/start-phase cases
-   и нашёл `4329` hard-safety failures. Доминируют bilateral foot impact и
-   ankle ROM/velocity/effort; все TRAIN-5 curriculum checkpoints rejected.
-   Следующий gate — temporal/contact-aware new-identity corpus/retarget dynamic
-   feasibility с нулём required hard-safety events; до его `Advance` PPO
-   запрещён. No training quality, Stage 0 or R5 completion is claimed here.
+   а baseline manifest-wide scripted reference покрыл все `5653` phases и
+   нашёл `4329` hard-safety failures. Temporal/contact V4 затем воспроизвёл
+   manifest, прошёл `27/27` local validation и `5859/5859` native poses, но
+   exhaustive `5562/5562` result остаётся `FAIL`: `2876` failed cases, из них
+   `2475` hard impact. V4 также сохраняет только diagnostic `10°` ankle-roll
+   reserve при required `15°`; formal visual review остаётся pending. Следующий
+   gate — new-identity temporally coupled contact-constrained stance-chain/root
+   solve с нулём required hard-safety events и полным reserve/visual closure;
+   до его `Advance` PPO запрещён. No training quality, Stage 0 or R5 completion
+   is claimed here.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote
    SPEC-20/ADR-052 only with the one-NPC production consumer, typed authoring,
    separate World Services routine segment, current-only replay successor and
