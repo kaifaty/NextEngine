@@ -1865,6 +1865,8 @@ def _transfer_ankle_pitch_to_proximal_chain(
     ankle_pitch_minimum_microradians: int,
     smoothing_kernel: tuple[int, ...],
     smoothing_passes: int,
+    velocity_limit_basis_points: int = 10_000,
+    enforce_velocity_bounds: bool = False,
 ) -> NDArray[np.int64]:
     """Raise ankle-pitch reserve while preserving exact sole orientation.
 
@@ -1948,6 +1950,30 @@ def _transfer_ankle_pitch_to_proximal_chain(
             minimum_hip_transfer,
             maximum_hip_transfer,
         )
+        if enforce_velocity_bounds:
+            maximum_steps = {}
+            for ordinal in (hip, knee, ankle):
+                joint = next(
+                    joint
+                    for joint in descriptor["joints"]
+                    if int(joint["dof_ordinal"]) == ordinal
+                )
+                maximum_steps[ordinal] = (
+                    int(joint["maximum_velocity_microradians_per_second"])
+                    * velocity_limit_basis_points
+                    // 10_000
+                    // 60
+                )
+            hip_transfer = _velocity_constrained_hip_transfer(
+                preferred=hip_transfer,
+                minimum=minimum_hip_transfer,
+                maximum=maximum_hip_transfer,
+                hip_position=result[:, hip],
+                knee_position=result[:, knee],
+                total_transfer=total_transfer,
+                hip_maximum_step=maximum_steps[hip],
+                knee_maximum_step=maximum_steps[knee],
+            )
         knee_transfer = total_transfer - hip_transfer
         result[:, ankle] += total_transfer
         result[:, knee] -= knee_transfer
@@ -1959,6 +1985,92 @@ def _transfer_ankle_pitch_to_proximal_chain(
             or np.any(result[:, hip] < hip_minimum)
         ):
             raise RuntimeError("ankle-pitch reserve transfer escaped bounds")
+        if enforce_velocity_bounds and any(
+            np.any(np.abs(np.diff(result[:, ordinal])) > maximum_steps[ordinal])
+            for ordinal in (hip, knee, ankle)
+        ):
+            raise RuntimeError("ankle-pitch reserve transfer escaped velocity bounds")
+    return result
+
+
+def _velocity_constrained_hip_transfer(
+    *,
+    preferred: NDArray[np.int64],
+    minimum: NDArray[np.int64],
+    maximum: NDArray[np.int64],
+    hip_position: NDArray[np.int64],
+    knee_position: NDArray[np.int64],
+    total_transfer: NDArray[np.int64],
+    hip_maximum_step: int,
+    knee_maximum_step: int,
+) -> NDArray[np.int64]:
+    """Choose an exact feasible hip/knee split closest to the smooth target."""
+
+    frame_count = len(preferred)
+    if (
+        frame_count == 0
+        or any(
+            values.shape != (frame_count,)
+            for values in (
+                minimum,
+                maximum,
+                hip_position,
+                knee_position,
+                total_transfer,
+            )
+        )
+        or np.any(minimum > maximum)
+        or hip_maximum_step <= 0
+        or knee_maximum_step <= 0
+    ):
+        raise ValueError("pitch-transfer velocity constraint is invalid")
+
+    hip_delta = np.diff(hip_position)
+    knee_delta = np.diff(knee_position)
+    transfer_delta = np.diff(total_transfer)
+    delta_minimum = np.maximum(
+        hip_delta - hip_maximum_step,
+        -knee_maximum_step - knee_delta + transfer_delta,
+    )
+    delta_maximum = np.minimum(
+        hip_delta + hip_maximum_step,
+        knee_maximum_step - knee_delta + transfer_delta,
+    )
+    if np.any(delta_minimum > delta_maximum):
+        raise ValueError("pitch-transfer joint velocity constraints conflict")
+
+    reachable_minimum = minimum.copy()
+    reachable_maximum = maximum.copy()
+    for frame in range(1, frame_count):
+        reachable_minimum[frame] = max(
+            int(reachable_minimum[frame]),
+            int(reachable_minimum[frame - 1] + delta_minimum[frame - 1]),
+        )
+        reachable_maximum[frame] = min(
+            int(reachable_maximum[frame]),
+            int(reachable_maximum[frame - 1] + delta_maximum[frame - 1]),
+        )
+        if reachable_minimum[frame] > reachable_maximum[frame]:
+            raise ValueError("pitch-transfer velocity path is infeasible")
+
+    result = np.empty(frame_count, dtype=np.int64)
+    result[-1] = np.clip(
+        preferred[-1], reachable_minimum[-1], reachable_maximum[-1]
+    )
+    for frame in range(frame_count - 2, -1, -1):
+        feasible_minimum = max(
+            int(reachable_minimum[frame]),
+            int(result[frame + 1] - delta_maximum[frame]),
+        )
+        feasible_maximum = min(
+            int(reachable_maximum[frame]),
+            int(result[frame + 1] - delta_minimum[frame]),
+        )
+        if feasible_minimum > feasible_maximum:
+            raise RuntimeError("pitch-transfer backward velocity path is infeasible")
+        result[frame] = np.clip(
+            preferred[frame], feasible_minimum, feasible_maximum
+        )
     return result
 
 
@@ -2440,6 +2552,7 @@ def _solve_contact_constrained_stance_chain(
             "nextengine.cmu-stance-chain-retarget.v6",
             "nextengine.cmu-stance-chain-retarget.v7",
             "nextengine.cmu-stance-chain-retarget.v8",
+            "nextengine.cmu-stance-chain-retarget.v9",
         }:
             solved_integer = _restore_swing_sole_height(
                 target_height_values=pre_sole_pitch_integer,
@@ -2468,6 +2581,7 @@ def _solve_contact_constrained_stance_chain(
             in {
                 "nextengine.cmu-stance-chain-retarget.v7",
                 "nextengine.cmu-stance-chain-retarget.v8",
+                "nextengine.cmu-stance-chain-retarget.v9",
             }
         ):
             solved_integer = _close_bilateral_sole_roll(
@@ -2498,7 +2612,10 @@ def _solve_contact_constrained_stance_chain(
             )
         if (
             profile.get("algorithm_id")
-            == "nextengine.cmu-stance-chain-retarget.v8"
+            in {
+                "nextengine.cmu-stance-chain-retarget.v8",
+                "nextengine.cmu-stance-chain-retarget.v9",
+            }
         ):
             solved_integer = _transfer_ankle_pitch_to_proximal_chain(
                 values=solved_integer,
@@ -2515,6 +2632,11 @@ def _solve_contact_constrained_stance_chain(
                     chain[
                         "final_ankle_pitch_transfer_smoothing_passes"
                     ]
+                ),
+                velocity_limit_basis_points=velocity_limit_basis_points,
+                enforce_velocity_bounds=(
+                    profile.get("algorithm_id")
+                    == "nextengine.cmu-stance-chain-retarget.v9"
                 ),
             )
     result = solved_integer.astype(np.float64) / 1_000_000.0

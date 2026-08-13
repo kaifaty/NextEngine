@@ -33,6 +33,7 @@ from next_lab.motion_retarget import (
     _restore_swing_sole_height,
     _stabilize_binary_intervals,
     _transfer_ankle_pitch_to_proximal_chain,
+    _velocity_constrained_hip_transfer,
     _weighted_temporal_smooth,
     target_effectors,
     target_forward_kinematics,
@@ -337,6 +338,25 @@ class MotionCorpusTests(unittest.TestCase):
         self.assertEqual(
             profile["retarget"]["algorithm_id"],
             "nextengine.cmu-stance-chain-retarget.v8",
+        )
+        chain = profile["retarget"]["temporal_contact_solve"][
+            "stance_chain"
+        ]
+        self.assertEqual(
+            chain["final_ankle_pitch_minimum_microradians"], -471239
+        )
+        self.assertEqual(
+            chain["final_ankle_pitch_transfer_smoothing_passes"], 40
+        )
+
+    def test_ankle_pitch_velocity_closure_freezes_exact_allocation(self) -> None:
+        profile, _ = load_motion_corpus_profile(
+            PROFILES
+            / "humanoid-motion-corpus-cmu-ankle-pitch-velocity-closure.v18.json"
+        )
+        self.assertEqual(
+            profile["retarget"]["algorithm_id"],
+            "nextengine.cmu-stance-chain-retarget.v9",
         )
         chain = profile["retarget"]["temporal_contact_solve"][
             "stance_chain"
@@ -780,6 +800,25 @@ class MotionCorpusTests(unittest.TestCase):
                 int(np.max(np.abs(np.diff(transfer, n=2)))),
                 pointwise_transfer_acceleration,
             )
+
+    def test_pitch_transfer_allocation_enforces_both_joint_velocities(self) -> None:
+        result = _velocity_constrained_hip_transfer(
+            preferred=np.asarray((0, 0, 0), dtype=np.int64),
+            minimum=np.asarray((0, 0, 0), dtype=np.int64),
+            maximum=np.asarray((10, 10, 10), dtype=np.int64),
+            hip_position=np.asarray((0, 0, 0), dtype=np.int64),
+            knee_position=np.asarray((0, 8, 16), dtype=np.int64),
+            total_transfer=np.asarray((10, 10, 10), dtype=np.int64),
+            hip_maximum_step=10,
+            knee_maximum_step=5,
+        )
+        np.testing.assert_array_equal(
+            result, np.asarray((6, 3, 0), dtype=np.int64)
+        )
+        hip = -result
+        knee = np.asarray((0, 8, 16), dtype=np.int64) - 10 + result
+        self.assertLessEqual(int(np.max(np.abs(np.diff(hip)))), 10)
+        self.assertLessEqual(int(np.max(np.abs(np.diff(knee)))), 5)
 
     def test_final_sole_pitch_closure_honors_projection_mask(self) -> None:
         descriptor = json.loads(

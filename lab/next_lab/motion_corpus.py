@@ -44,6 +44,7 @@ STANCE_CHAIN_ALGORITHM_IDS = frozenset(
         "nextengine.cmu-stance-chain-retarget.v6",
         "nextengine.cmu-stance-chain-retarget.v7",
         "nextengine.cmu-stance-chain-retarget.v8",
+        "nextengine.cmu-stance-chain-retarget.v9",
     }
 )
 
@@ -617,6 +618,7 @@ def _validate_temporal_contact_variant(
             "nextengine.cmu-stance-chain-retarget.v6",
             "nextengine.cmu-stance-chain-retarget.v7",
             "nextengine.cmu-stance-chain-retarget.v8",
+            "nextengine.cmu-stance-chain-retarget.v9",
         }:
             expected_stance_chain_fields.update(
                 {
@@ -632,6 +634,7 @@ def _validate_temporal_contact_variant(
             "nextengine.cmu-stance-chain-retarget.v6",
             "nextengine.cmu-stance-chain-retarget.v7",
             "nextengine.cmu-stance-chain-retarget.v8",
+            "nextengine.cmu-stance-chain-retarget.v9",
         }:
             expected_stance_chain_fields.add(
                 "final_sole_pitch_inverse_joint_weights_q16"
@@ -644,6 +647,7 @@ def _validate_temporal_contact_variant(
             "nextengine.cmu-stance-chain-retarget.v6",
             "nextengine.cmu-stance-chain-retarget.v7",
             "nextengine.cmu-stance-chain-retarget.v8",
+            "nextengine.cmu-stance-chain-retarget.v9",
         }:
             expected_stance_chain_fields.update(
                 {
@@ -656,6 +660,7 @@ def _validate_temporal_contact_variant(
         if algorithm_id in {
             "nextengine.cmu-stance-chain-retarget.v7",
             "nextengine.cmu-stance-chain-retarget.v8",
+            "nextengine.cmu-stance-chain-retarget.v9",
         }:
             expected_stance_chain_fields.update(
                 {
@@ -666,7 +671,10 @@ def _validate_temporal_contact_variant(
                     "final_sole_roll_inverse_joint_weights_q16",
                 }
             )
-        if algorithm_id == "nextengine.cmu-stance-chain-retarget.v8":
+        if algorithm_id in {
+            "nextengine.cmu-stance-chain-retarget.v8",
+            "nextengine.cmu-stance-chain-retarget.v9",
+        }:
             expected_stance_chain_fields.update(
                 {
                     "final_ankle_pitch_minimum_microradians",
@@ -713,6 +721,7 @@ def _validate_temporal_contact_variant(
                     "nextengine.cmu-stance-chain-retarget.v6",
                     "nextengine.cmu-stance-chain-retarget.v7",
                     "nextengine.cmu-stance-chain-retarget.v8",
+                    "nextengine.cmu-stance-chain-retarget.v9",
                 }
                 and (
                     int(stance_chain["final_sole_pitch_projection_iterations"])
@@ -737,6 +746,7 @@ def _validate_temporal_contact_variant(
                     "nextengine.cmu-stance-chain-retarget.v6",
                     "nextengine.cmu-stance-chain-retarget.v7",
                     "nextengine.cmu-stance-chain-retarget.v8",
+                    "nextengine.cmu-stance-chain-retarget.v9",
                 }
                 and (
                     not isinstance(
@@ -774,6 +784,7 @@ def _validate_temporal_contact_variant(
                     "nextengine.cmu-stance-chain-retarget.v6",
                     "nextengine.cmu-stance-chain-retarget.v7",
                     "nextengine.cmu-stance-chain-retarget.v8",
+                    "nextengine.cmu-stance-chain-retarget.v9",
                 }
                 and (
                     int(stance_chain["final_swing_clearance_iterations"]) > 8
@@ -798,6 +809,7 @@ def _validate_temporal_contact_variant(
                 in {
                     "nextengine.cmu-stance-chain-retarget.v7",
                     "nextengine.cmu-stance-chain-retarget.v8",
+                    "nextengine.cmu-stance-chain-retarget.v9",
                 }
                 and (
                     int(stance_chain["final_sole_roll_projection_iterations"])
@@ -835,7 +847,11 @@ def _validate_temporal_contact_variant(
                 )
             )
             or (
-                algorithm_id == "nextengine.cmu-stance-chain-retarget.v8"
+                algorithm_id
+                in {
+                    "nextengine.cmu-stance-chain-retarget.v8",
+                    "nextengine.cmu-stance-chain-retarget.v9",
+                }
                 and (
                     int(
                         stance_chain[
@@ -1103,6 +1119,7 @@ def _validate_temporal_contact_variant(
                 "nextengine.cmu-stance-chain-retarget.v6",
                 "nextengine.cmu-stance-chain-retarget.v7",
                 "nextengine.cmu-stance-chain-retarget.v8",
+                "nextengine.cmu-stance-chain-retarget.v9",
             }
             and (
                 "ankle_pitch_minimum_microradians" not in variant
@@ -1128,6 +1145,7 @@ def _validate_temporal_contact_variant(
                 "nextengine.cmu-stance-chain-retarget.v6",
                 "nextengine.cmu-stance-chain-retarget.v7",
                 "nextengine.cmu-stance-chain-retarget.v8",
+                "nextengine.cmu-stance-chain-retarget.v9",
             }
             and (
                 "ankle_pitch_minimum_microradians" in variant
