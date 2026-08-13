@@ -15,6 +15,7 @@ from next_lab.reference_tracker import (
     PREDICTIVE_ROM_COST_PROFILE_SHA256,
     SAFETY_RESERVE_PROFILE_SHA256,
     SOFT_ROM_COST_PROFILE_SHA256,
+    TEMPORAL_CONTACT_PROFILE_SHA256,
     DescriptorLimits,
     ReferenceClip,
     ReferenceTrackerProfile,
@@ -51,6 +52,10 @@ PHYSICS_VELOCITY_GUARD_PROFILE = (
 CONTACT_IMPACT_MARGIN_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-tracker-contact-impact-margin.v5.json"
+)
+TEMPORAL_CONTACT_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-tracker-temporal-contact.v6.json"
 )
 
 
@@ -140,6 +145,25 @@ class ReferenceTrackerTests(unittest.TestCase):
         )
         self.assertEqual(
             projection["isaac_physics_velocity_limit_basis_points"], 9_000
+        )
+
+    def test_temporal_contact_profile_is_diagnostic_only_and_source_bound(self) -> None:
+        profile = ReferenceTrackerProfile.load(TEMPORAL_CONTACT_PROFILE)
+        self.assertEqual(
+            profile.document_sha256, TEMPORAL_CONTACT_PROFILE_SHA256
+        )
+        self.assertEqual(
+            profile.document["corpus"]["manifest_sha256"],
+            "5f570cdbc724cf7db51530c07b82fbafba2b73f333e1a2684e48aeb8ae0d5195",
+        )
+        authorization = profile.document["training_authorization"]
+        self.assertEqual(authorization["decision"], "RemediateDataOnly")
+        self.assertIn("optimizer execution remains forbidden", authorization["scope"])
+        self.assertEqual(
+            authorization["source_lineage"][
+                "motion_corpus_manifest_sha256"
+            ],
+            "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
         )
 
     def test_frozen_profile_closes_exact_layout_and_subprofiles(self) -> None:

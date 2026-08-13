@@ -89,8 +89,16 @@ def main() -> None:
     corpus_contract = raw_profile.get("corpus") or raw_profile.get("variant", {}).get(
         "corpus"
     )
-    if not isinstance(corpus_contract, dict):
+    authorization_contract = raw_profile.get("training_authorization") or raw_profile.get(
+        "variant", {}
+    ).get("training_authorization")
+    if not isinstance(corpus_contract, dict) or not isinstance(
+        authorization_contract, dict
+    ):
         raise ValueError("reference tracker profile has no corpus contract")
+    source_lineage = authorization_contract.get("source_lineage", {})
+    if not isinstance(source_lineage, dict):
+        raise ValueError("reference tracker remediation source lineage is invalid")
     partition = corpus_contract.get("eligible_partition")
     manifest = json.loads(manifest_path.read_bytes())
     descriptor = json.loads(args.descriptor.resolve().read_bytes())
@@ -112,6 +120,12 @@ def main() -> None:
         body_schema_hash=descriptor["body_schema_hash"],
         compiled_descriptor_hash=descriptor["compiled_descriptor_hash"],
         usd_sha256=_sha256(args.usd.resolve()),
+        source_reference_tracker_profile_sha256=source_lineage.get(
+            "reference_tracker_profile_sha256"
+        ),
+        source_corpus_manifest_sha256=source_lineage.get(
+            "motion_corpus_manifest_sha256"
+        ),
     )
     entries = sorted(
         (
@@ -169,7 +183,14 @@ def main() -> None:
             descriptor_path=str(args.descriptor.resolve()),
             profile_path=str(args.profile.resolve()),
             corpus_root=str(corpus_root),
-            gate_report_path=str(args.admission_gate_report.resolve()),
+            gate_report_path=str(
+                (
+                    args.remediation_gate_report
+                    if authorization_contract.get("decision")
+                    == "RemediateDataOnly"
+                    else args.admission_gate_report
+                ).resolve()
+            ),
         )
         environment_inventory = tuple(
             (clip.clip_id, clip.split, clip.frame_count)

@@ -49,6 +49,12 @@ CONTACT_IMPACT_MARGIN_PROFILE_ID = (
 CONTACT_IMPACT_MARGIN_PROFILE_SHA256 = (
     "6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06"
 )
+TEMPORAL_CONTACT_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-reference-tracker-temporal-contact.v6"
+)
+TEMPORAL_CONTACT_PROFILE_SHA256 = (
+    "d7131e909586a140dc541d3c8580744dede485b1e9693fa48153d8ab30c16281"
+)
 PROFILE_IDS_BY_SHA256 = {
     PROFILE_SHA256: PROFILE_ID,
     SOFT_ROM_COST_PROFILE_SHA256: SOFT_ROM_COST_PROFILE_ID,
@@ -57,6 +63,7 @@ PROFILE_IDS_BY_SHA256 = {
     DYNAMIC_RESERVE_PROFILE_SHA256: DYNAMIC_RESERVE_PROFILE_ID,
     PHYSICS_VELOCITY_GUARD_PROFILE_SHA256: PHYSICS_VELOCITY_GUARD_PROFILE_ID,
     CONTACT_IMPACT_MARGIN_PROFILE_SHA256: CONTACT_IMPACT_MARGIN_PROFILE_ID,
+    TEMPORAL_CONTACT_PROFILE_SHA256: TEMPORAL_CONTACT_PROFILE_ID,
 }
 SAFETY_CONTACT_PROFILE_SHA256 = "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c"
 SAFETY_CONTACT_PROFILE_V2_SHA256 = (
@@ -161,6 +168,7 @@ class ReferenceTrackerProfile:
                     DYNAMIC_RESERVE_PROFILE_ID,
                     PHYSICS_VELOCITY_GUARD_PROFILE_ID,
                     CONTACT_IMPACT_MARGIN_PROFILE_ID,
+                    TEMPORAL_CONTACT_PROFILE_ID,
                 }
                 or overlay.get("status") != "Frozen"
                 or overlay.get("base_profile_id") != PROFILE_ID
@@ -255,6 +263,7 @@ class ReferenceTrackerProfile:
                 DYNAMIC_RESERVE_PROFILE_ID,
                 PHYSICS_VELOCITY_GUARD_PROFILE_ID,
                 CONTACT_IMPACT_MARGIN_PROFILE_ID,
+                TEMPORAL_CONTACT_PROFILE_ID,
             }
             else SAFETY_CONTACT_PROFILE_SHA256
         )
@@ -266,6 +275,7 @@ class ReferenceTrackerProfile:
         if expected_profile_id in {
             PHYSICS_VELOCITY_GUARD_PROFILE_ID,
             CONTACT_IMPACT_MARGIN_PROFILE_ID,
+            TEMPORAL_CONTACT_PROFILE_ID,
         }:
             if (
                 _require_hex_hash(
@@ -405,10 +415,30 @@ class ReferenceTrackerProfile:
         failure_reasons = document["termination"]["failure_reasons"]
         if not failure_reasons or len(set(failure_reasons)) != len(failure_reasons):
             raise ReferenceTrackerError("reference termination closure mismatch")
+        remediation_only = expected_profile_id == TEMPORAL_CONTACT_PROFILE_ID
+        if remediation_only:
+            source_lineage = authorization.get("source_lineage")
+            if (
+                not isinstance(source_lineage, Mapping)
+                or set(source_lineage)
+                != {
+                    "reference_tracker_profile_sha256",
+                    "motion_corpus_profile_sha256",
+                    "motion_corpus_manifest_sha256",
+                }
+                or any(
+                    _require_hex_hash(value, f"remediation {field}") != value
+                    for field, value in source_lineage.items()
+                )
+            ):
+                raise ReferenceTrackerError(
+                    "reference remediation source lineage mismatch"
+                )
         if (
             corpus["eligible_partition"] != "locomotion"
             or authorization["gate_id"] != "TRAIN-4"
-            or authorization["decision"] != "Advance"
+            or authorization["decision"]
+            != ("RemediateDataOnly" if remediation_only else "Advance")
         ):
             raise ReferenceTrackerError("reference input authorization mismatch")
 
@@ -609,6 +639,7 @@ class ReferenceCorpus:
         expected = self.profile.document
         identities = self.gate_report.get("identities", {})
         authorization = self.gate_report.get("training_authorization", {})
+        expected_authorization = expected["training_authorization"]
         optimizer_free_preacceptance = (
             expected["profile_id"]
             in {
@@ -621,17 +652,48 @@ class ReferenceCorpus:
             and "optimizer execution" in authorization.get("forbidden", ())
             and "optimizer-free" in expected["training_authorization"]["scope"]
         )
+        source_lineage = expected_authorization.get("source_lineage", {})
+        remediation_only = (
+            expected["profile_id"] == TEMPORAL_CONTACT_PROFILE_ID
+            and expected_authorization["decision"] == "RemediateDataOnly"
+            and self.gate_report.get("decision") == "RemediateDataOnly"
+            and self.gate_report.get("stage_status") == "Reopened"
+            and authorization.get("authorized") is False
+            and "optimizer execution" in authorization.get("forbidden", ())
+            and "optimizer-free corpus diagnosis"
+            in authorization.get("allowed_scope", ())
+            and identities.get("reference_tracker_profile_sha256")
+            == source_lineage.get("reference_tracker_profile_sha256")
+            and identities.get("motion_corpus_profile_sha256")
+            == source_lineage.get("motion_corpus_profile_sha256")
+            and identities.get("motion_corpus_manifest_sha256")
+            == source_lineage.get("motion_corpus_manifest_sha256")
+        )
         if (
             self.gate_report.get("gate_id") != "TRAIN-4"
-            or self.gate_report.get("decision") != "Advance"
-            or not (authorization.get("authorized") or optimizer_free_preacceptance)
+            or not (
+                remediation_only
+                or (
+                    self.gate_report.get("decision") == "Advance"
+                    and (
+                        authorization.get("authorized")
+                        or optimizer_free_preacceptance
+                    )
+                )
+            )
             or identities.get("body_schema_hash") != expected["body_schema"]["hash"]
             or identities.get("compiled_descriptor_hash")
             != expected["body_schema"]["compiled_descriptor_hash"]
-            or identities.get("motion_corpus_profile_sha256")
-            != expected["corpus"]["profile_sha256"]
-            or identities.get("corpus_manifest_sha256")
-            != expected["corpus"]["manifest_sha256"]
+            or (
+                not remediation_only
+                and identities.get("motion_corpus_profile_sha256")
+                != expected["corpus"]["profile_sha256"]
+            )
+            or (
+                not remediation_only
+                and identities.get("corpus_manifest_sha256")
+                != expected["corpus"]["manifest_sha256"]
+            )
         ):
             raise ReferenceTrackerError("TRAIN-4 gate does not authorize this tracker input")
 

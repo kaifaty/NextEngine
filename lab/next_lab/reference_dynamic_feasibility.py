@@ -93,6 +93,8 @@ def validate_remediation_authorization(
     body_schema_hash: str,
     compiled_descriptor_hash: str,
     usd_sha256: str,
+    source_reference_tracker_profile_sha256: str | None = None,
+    source_corpus_manifest_sha256: str | None = None,
 ) -> None:
     identities = report.get("identities")
     supersedes = report.get("supersedes")
@@ -103,6 +105,11 @@ def validate_remediation_authorization(
         for value in (identities, supersedes, requirement, authorization)
     ):
         raise ValueError("TRAIN-4 remediation authorization is incomplete")
+    authorized_tracker = (
+        source_reference_tracker_profile_sha256
+        or reference_tracker_profile_sha256
+    )
+    authorized_manifest = source_corpus_manifest_sha256 or corpus_manifest_sha256
     allowed_scope = authorization.get("allowed_scope")
     forbidden = authorization.get("forbidden")
     if (
@@ -117,9 +124,9 @@ def validate_remediation_authorization(
         or supersedes.get("sha256") != admission_gate_report_sha256
         or supersedes.get("previous_decision") != "Advance"
         or identities.get("reference_tracker_profile_sha256")
-        != reference_tracker_profile_sha256
+        != authorized_tracker
         or identities.get("motion_corpus_manifest_sha256")
-        != corpus_manifest_sha256
+        != authorized_manifest
         or identities.get("body_schema_hash") != body_schema_hash
         or identities.get("compiled_descriptor_hash")
         != compiled_descriptor_hash

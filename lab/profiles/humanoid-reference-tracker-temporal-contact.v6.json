@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.motor.env.humanoid-reference-tracker-temporal-contact.v6",
+  "status": "Frozen",
+  "base_profile_id": "nextengine.motor.env.humanoid-reference-tracker.v1",
+  "base_profile_sha256": "4a898ccf67051b34b6266ec5293f74758103e7db260ded393e76161f72de527d",
+  "variant": {
+    "kind": "replace-input-lineage.v1",
+    "corpus": {
+      "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion-temporal-contact.v4",
+      "profile_sha256": "17fc25739318ffd3c7634b5e2d1cca093c99fcc8686aaec09c7f79158cd2b19c",
+      "manifest_sha256": "5f570cdbc724cf7db51530c07b82fbafba2b73f333e1a2684e48aeb8ae0d5195",
+      "eligible_partition": "locomotion",
+      "split_is_run_mode": true,
+      "selection_order": "canonical UTF-8 clip_id byte order",
+      "selection_distribution": "uniform over eligible clip IDs"
+    },
+    "training_authorization": {
+      "gate_id": "TRAIN-4",
+      "decision": "RemediateDataOnly",
+      "gate_report_sha256": "2fc1d6c3d312a1e88a3820bdd851fd0eecf3230795a1162b55f13dd65d45cdb6",
+      "scope": "TRAIN-4 optimizer-free exhaustive remediation audit only; optimizer execution remains forbidden",
+      "source_lineage": {
+        "reference_tracker_profile_sha256": "7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d",
+        "motion_corpus_profile_sha256": "1229eb18b8efea2daff50cf73a733fe67b804f507ef739bc88f1dee30584bb0c",
+        "motion_corpus_manifest_sha256": "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd"
+      }
+    },
+    "termination": {
+      "safety_contact_profile_sha256": "ba9d368e075f389a4dbff4a0ed9299b737edf4907be10ae6cf3aeb60b348729f",
+      "isaac_velocity_guard_profile_sha256": "a5c8448a71f0adc2c821b8d833332e0ecd1e003110ce47d969f56cac13881676",
+      "isaac_physics_velocity_limit_basis_points": 9000,
+      "success_reason": "terminal.reference-complete",
+      "failure_reasons": [
+        "terminal.hard-rom",
+        "terminal.joint-safety",
+        "terminal.hard-impact",
+        "terminal.self-collision",
+        "terminal.forbidden-locomotion-contact",
+        "terminal.world-bounds",
+        "terminal.fall",
+        "terminal.non-finite",
+        "terminal.reference-tracking-lost"
+      ],
+      "forbidden_contact_grace_physics_substeps": 4,
+      "tracking_lost": {
+        "root_position_error_micrometres": 750000,
+        "root_orientation_minimum_absolute_dot_q1_30": 929887697,
+        "consecutive_motor_ticks": 4
+      },
+      "truncation_bootstrap": "only explicit run-budget truncation with a valid next observation"
+    }
+  }
+}

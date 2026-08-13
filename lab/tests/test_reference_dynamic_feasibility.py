@@ -140,6 +140,16 @@ class DynamicFeasibilityTests(unittest.TestCase):
             "usd_sha256": "f" * 64,
         }
         validate_remediation_authorization(report, **arguments)
+        validate_remediation_authorization(
+            report,
+            **{
+                **arguments,
+                "reference_tracker_profile_sha256": "1" * 64,
+                "corpus_manifest_sha256": "2" * 64,
+                "source_reference_tracker_profile_sha256": "b" * 64,
+                "source_corpus_manifest_sha256": "c" * 64,
+            },
+        )
         report["training_authorization"]["authorized"] = True
         with self.assertRaisesRegex(ValueError, "closure mismatch"):
             validate_remediation_authorization(report, **arguments)
