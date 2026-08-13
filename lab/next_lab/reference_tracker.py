@@ -25,12 +25,22 @@ PREDICTIVE_ROM_COST_PROFILE_ID = (
 PREDICTIVE_ROM_COST_PROFILE_SHA256 = (
     "2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5"
 )
+SAFETY_RESERVE_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-reference-tracker-safety-reserve.v2"
+)
+SAFETY_RESERVE_PROFILE_SHA256 = (
+    "c16662efd96977fd037d2db3cb3a88fa8ee3f8441eef5848ee2fe0f62068287c"
+)
 PROFILE_IDS_BY_SHA256 = {
     PROFILE_SHA256: PROFILE_ID,
     SOFT_ROM_COST_PROFILE_SHA256: SOFT_ROM_COST_PROFILE_ID,
     PREDICTIVE_ROM_COST_PROFILE_SHA256: PREDICTIVE_ROM_COST_PROFILE_ID,
+    SAFETY_RESERVE_PROFILE_SHA256: SAFETY_RESERVE_PROFILE_ID,
 }
 SAFETY_CONTACT_PROFILE_SHA256 = "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c"
+SAFETY_CONTACT_PROFILE_V2_SHA256 = (
+    "ba9d368e075f389a4dbff4a0ed9299b737edf4907be10ae6cf3aeb60b348729f"
+)
 CORPUS_MANIFEST_ID = "nextengine.private-motion-corpus-manifest.v1"
 OBSERVATION_CHANNELS = 435
 ACTION_CHANNELS = 23
@@ -113,6 +123,30 @@ class ReferenceTrackerProfile:
     def _materialize_variant(
         overlay: Mapping[str, Any], *, path: Path, expected_profile_id: str
     ) -> Mapping[str, Any]:
+        if overlay.get("variant", {}).get("kind") == "replace-input-lineage.v1":
+            if (
+                overlay.get("schema_version") != 1
+                or overlay.get("profile_id") != expected_profile_id
+                or expected_profile_id != SAFETY_RESERVE_PROFILE_ID
+                or overlay.get("status") != "Frozen"
+                or overlay.get("base_profile_id") != PROFILE_ID
+                or overlay.get("base_profile_sha256") != PROFILE_SHA256
+            ):
+                raise ReferenceTrackerError("invalid input-lineage tracker variant")
+            base_path = path.with_name("humanoid-reference-tracker.v1.json")
+            base_payload = base_path.read_bytes()
+            if _sha256(base_payload) != PROFILE_SHA256:
+                raise ReferenceTrackerError("reference tracker variant base hash mismatch")
+            document = json.loads(base_payload)
+            document["profile_id"] = expected_profile_id
+            for field in ("corpus", "training_authorization", "termination"):
+                replacement = overlay["variant"].get(field)
+                if not isinstance(replacement, dict):
+                    raise ReferenceTrackerError(
+                        f"input-lineage tracker variant has no {field}"
+                    )
+                document[field] = dict(replacement)
+            return document
         if (
             overlay.get("schema_version") != 1
             or overlay.get("profile_id") != expected_profile_id
@@ -165,9 +199,14 @@ class ReferenceTrackerProfile:
             ),
         ):
             _require_hex_hash(value, label)
+        expected_safety_contact_profile = (
+            SAFETY_CONTACT_PROFILE_V2_SHA256
+            if expected_profile_id == SAFETY_RESERVE_PROFILE_ID
+            else SAFETY_CONTACT_PROFILE_SHA256
+        )
         if (
             document["termination"]["safety_contact_profile_sha256"]
-            != SAFETY_CONTACT_PROFILE_SHA256
+            != expected_safety_contact_profile
         ):
             raise ReferenceTrackerError("safety contact profile mismatch")
         schedule = document["schedule"]
@@ -464,10 +503,16 @@ class ReferenceCorpus:
         expected = self.profile.document
         identities = self.gate_report.get("identities", {})
         authorization = self.gate_report.get("training_authorization", {})
+        optimizer_free_preacceptance = (
+            expected["profile_id"] == SAFETY_RESERVE_PROFILE_ID
+            and authorization.get("authorized") is False
+            and "optimizer execution" in authorization.get("forbidden", ())
+            and "optimizer-free" in expected["training_authorization"]["scope"]
+        )
         if (
             self.gate_report.get("gate_id") != "TRAIN-4"
             or self.gate_report.get("decision") != "Advance"
-            or not authorization.get("authorized")
+            or not (authorization.get("authorized") or optimizer_free_preacceptance)
             or identities.get("body_schema_hash") != expected["body_schema"]["hash"]
             or identities.get("compiled_descriptor_hash")
             != expected["body_schema"]["compiled_descriptor_hash"]
@@ -1407,7 +1452,7 @@ def run_physx_baseline(
     document = {
         "schema_version": 1,
         "schema_id": "nextengine.motor.reference-baseline-input.v1",
-        "profile_id": PROFILE_ID,
+        "profile_id": profile.document["profile_id"],
         "profile_sha256": profile.document_sha256,
         "corpus_manifest_sha256": profile.document["corpus"]["manifest_sha256"],
         "input_provenance_root": corpus.input_provenance_root,

@@ -10,6 +10,7 @@ from next_lab.reference_tracker import (
     OBSERVATION_CHANNELS,
     PROFILE_SHA256,
     PREDICTIVE_ROM_COST_PROFILE_SHA256,
+    SAFETY_RESERVE_PROFILE_SHA256,
     SOFT_ROM_COST_PROFILE_SHA256,
     DescriptorLimits,
     ReferenceClip,
@@ -31,9 +32,30 @@ PREDICTIVE_ROM_COST_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-tracker-predictive-rom-cost.v1.json"
 )
+SAFETY_RESERVE_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-tracker-safety-reserve.v2.json"
+)
 
 
 class ReferenceTrackerTests(unittest.TestCase):
+    def test_safety_reserve_profile_replaces_only_input_and_terminal_lineage(self) -> None:
+        base = ReferenceTrackerProfile.load(PROFILE)
+        profile = ReferenceTrackerProfile.load(SAFETY_RESERVE_PROFILE)
+        self.assertEqual(profile.document_sha256, SAFETY_RESERVE_PROFILE_SHA256)
+        self.assertEqual(
+            profile.document["termination"]["safety_contact_profile_sha256"],
+            "ba9d368e075f389a4dbff4a0ed9299b737edf4907be10ae6cf3aeb60b348729f",
+        )
+        self.assertEqual(
+            profile.document["corpus"]["manifest_sha256"],
+            "2afcd10a61c60ec8d7715758eae6f5a87a98e7f0906620977602cf1b259f7ed4",
+        )
+        self.assertEqual(profile.document["reward"], base.document["reward"])
+        self.assertIn(
+            "terminal.self-collision", profile.document["termination"]["failure_reasons"]
+        )
+
     def test_frozen_profile_closes_exact_layout_and_subprofiles(self) -> None:
         profile = ReferenceTrackerProfile.load(PROFILE)
         self.assertEqual(profile.document_sha256, PROFILE_SHA256)

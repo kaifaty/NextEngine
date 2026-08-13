@@ -10,8 +10,8 @@ use next_physics_physx::{CanonicalPhysXContactV2, CanonicalPhysXSnapshotV2};
 use crate::CompiledBodySchemaV2;
 
 pub const HUMANOID_SAFETY_CONTACT_PROFILE_SHA256: [u8; 32] = [
-    0xad, 0x20, 0xd7, 0xa4, 0xab, 0xd5, 0xcc, 0x8b, 0x59, 0x06, 0x9e, 0xcd, 0xb5, 0x91, 0x61, 0x49,
-    0x9c, 0xe7, 0x75, 0x49, 0x53, 0xcb, 0xff, 0x24, 0x77, 0xf2, 0x85, 0x03, 0x95, 0xad, 0xb4, 0x2c,
+    0xba, 0x9d, 0x36, 0x8e, 0x07, 0x5f, 0x38, 0x9a, 0x4d, 0xbf, 0xf4, 0xa0, 0xed, 0x92, 0x99, 0xb7,
+    0x37, 0xed, 0xf4, 0x90, 0x7b, 0xe1, 0x0a, 0xe6, 0xcf, 0x3a, 0xeb, 0x60, 0xb3, 0x48, 0x72, 0x9f,
 ];
 pub const HUMANOID_GROUND_ACTOR_TOKEN: u64 = 1;
 pub const HUMANOID_GROUND_SHAPE_TOKEN: u64 = 0;
@@ -75,11 +75,18 @@ struct ContactAggregate {
     minimum_separation: i64,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct ProjectedCollider {
+    shape_token: u64,
+    role: BodyContactRoleV2,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BiomechanicsContactClassifier {
     shape_roles: BTreeMap<u64, BodyContactRoleV2>,
     shape_actors: BTreeMap<u64, u64>,
     body_actors: BTreeSet<u64>,
+    actor_projection: BTreeMap<u64, ProjectedCollider>,
     continuity: BTreeMap<ContactPairKeyV1, u64>,
 }
 
@@ -95,6 +102,7 @@ impl BiomechanicsContactClassifier {
         {
             return Err(ContactClassificationError::ProfileMismatch);
         }
+        let mut actor_projection = BTreeMap::<u64, ProjectedCollider>::new();
         for (shape, actor) in &compiled.collider_body_tokens {
             if !compiled.collider_contact_roles.contains_key(shape)
                 || !body_actors.contains(actor)
@@ -102,11 +110,24 @@ impl BiomechanicsContactClassifier {
             {
                 return Err(ContactClassificationError::ProfileMismatch);
             }
+            let candidate = ProjectedCollider {
+                shape_token: *shape,
+                role: compiled.collider_contact_roles[shape],
+            };
+            actor_projection
+                .entry(*actor)
+                .and_modify(|current| {
+                    if projection_key(candidate) < projection_key(*current) {
+                        *current = candidate;
+                    }
+                })
+                .or_insert(candidate);
         }
         Ok(Self {
             shape_roles: compiled.collider_contact_roles.clone(),
             shape_actors: compiled.collider_body_tokens.clone(),
             body_actors,
+            actor_projection,
             continuity: BTreeMap::new(),
         })
     }
@@ -116,7 +137,7 @@ impl BiomechanicsContactClassifier {
         snapshot: &CanonicalPhysXSnapshotV2,
         profile: BiomechanicsSkillContactProfileV1,
     ) -> Result<BiomechanicsContactFrameV1, ContactClassificationError> {
-        let aggregates = aggregate_contacts(&snapshot.contacts)?;
+        let aggregates = self.aggregate_contacts(&snapshot.contacts)?;
         let mut next_continuity = BTreeMap::new();
         let mut classified = Vec::new();
         for (pair, aggregate) in aggregates {
@@ -200,8 +221,8 @@ impl BiomechanicsContactClassifier {
             if a_is_ground {
                 return Err(ContactClassificationError::InvalidGroundPair);
             }
-            let role_a = self.validated_role(pair.actor_a_token, pair.shape_a_token)?;
-            let role_b = self.validated_role(pair.actor_b_token, pair.shape_b_token)?;
+            let role_a = self.projected_role(pair.actor_a_token, pair.shape_a_token)?;
+            let role_b = self.projected_role(pair.actor_b_token, pair.shape_b_token)?;
             if pair.actor_a_token == pair.actor_b_token {
                 return Err(ContactClassificationError::ActorShapeMismatch);
             }
@@ -215,7 +236,22 @@ impl BiomechanicsContactClassifier {
         if ground_shape != HUMANOID_GROUND_SHAPE_TOKEN {
             return Err(ContactClassificationError::InvalidGroundPair);
         }
-        Ok((self.validated_role(actor, shape)?, None, false))
+        Ok((self.projected_role(actor, shape)?, None, false))
+    }
+
+    fn projected_role(
+        &self,
+        actor: u64,
+        shape: u64,
+    ) -> Result<BodyContactRoleV2, ContactClassificationError> {
+        let projected = self
+            .actor_projection
+            .get(&actor)
+            .ok_or(ContactClassificationError::UnknownActor)?;
+        if projected.shape_token != shape {
+            return Err(ContactClassificationError::ActorShapeMismatch);
+        }
+        Ok(projected.role)
     }
 
     fn validated_role(
@@ -238,56 +274,88 @@ impl BiomechanicsContactClassifier {
             .copied()
             .ok_or(ContactClassificationError::UnknownShape)
     }
-}
 
-fn aggregate_contacts(
-    contacts: &[CanonicalPhysXContactV2],
-) -> Result<BTreeMap<ContactPairKeyV1, ContactAggregate>, ContactClassificationError> {
-    let mut aggregates = BTreeMap::<ContactPairKeyV1, ContactAggregate>::new();
-    for contact in contacts {
-        let (pair, sign) = canonical_pair(contact);
-        let entry = aggregates.entry(pair).or_insert(ContactAggregate {
-            impulse: [0; 3],
-            minimum_separation: contact.separation_micrometres,
-        });
-        for (output, value) in entry
-            .impulse
-            .iter_mut()
-            .zip(contact.impulse_micronewton_seconds)
-        {
-            *output = output
-                .checked_add(i128::from(value) * sign)
-                .ok_or(ContactClassificationError::NumericOverflow)?;
+    fn aggregate_contacts(
+        &self,
+        contacts: &[CanonicalPhysXContactV2],
+    ) -> Result<BTreeMap<ContactPairKeyV1, ContactAggregate>, ContactClassificationError> {
+        let mut aggregates = BTreeMap::<ContactPairKeyV1, ContactAggregate>::new();
+        for contact in contacts {
+            let (pair, sign) = self.projected_pair(contact)?;
+            let entry = aggregates.entry(pair).or_insert(ContactAggregate {
+                impulse: [0; 3],
+                minimum_separation: contact.separation_micrometres,
+            });
+            for (output, value) in entry
+                .impulse
+                .iter_mut()
+                .zip(contact.impulse_micronewton_seconds)
+            {
+                *output = output
+                    .checked_add(i128::from(value) * sign)
+                    .ok_or(ContactClassificationError::NumericOverflow)?;
+            }
+            entry.minimum_separation = entry.minimum_separation.min(contact.separation_micrometres);
         }
-        entry.minimum_separation = entry.minimum_separation.min(contact.separation_micrometres);
+        Ok(aggregates)
     }
-    Ok(aggregates)
+
+    fn projected_pair(
+        &self,
+        contact: &CanonicalPhysXContactV2,
+    ) -> Result<(ContactPairKeyV1, i128), ContactClassificationError> {
+        let first = self.projected_endpoint(contact.actor_a_token, contact.shape_a_token)?;
+        let second = self.projected_endpoint(contact.actor_b_token, contact.shape_b_token)?;
+        let a_is_ground = first.0 == HUMANOID_GROUND_ACTOR_TOKEN;
+        let b_is_ground = second.0 == HUMANOID_GROUND_ACTOR_TOKEN;
+        if a_is_ground && b_is_ground {
+            return Err(ContactClassificationError::InvalidGroundPair);
+        }
+        if !a_is_ground && !b_is_ground && first.0 == second.0 {
+            return Err(ContactClassificationError::ActorShapeMismatch);
+        }
+        let (ordered_a, ordered_b, sign) = if first <= second {
+            (first, second, 1)
+        } else {
+            (second, first, -1)
+        };
+        Ok((
+            ContactPairKeyV1 {
+                actor_a_token: ordered_a.0,
+                shape_a_token: ordered_a.1,
+                actor_b_token: ordered_b.0,
+                shape_b_token: ordered_b.1,
+            },
+            sign,
+        ))
+    }
+
+    fn projected_endpoint(
+        &self,
+        actor: u64,
+        shape: u64,
+    ) -> Result<(u64, u64), ContactClassificationError> {
+        if actor == HUMANOID_GROUND_ACTOR_TOKEN {
+            if shape != HUMANOID_GROUND_SHAPE_TOKEN {
+                return Err(ContactClassificationError::InvalidGroundPair);
+            }
+            return Ok((actor, shape));
+        }
+        self.validated_role(actor, shape)?;
+        let projected = self
+            .actor_projection
+            .get(&actor)
+            .ok_or(ContactClassificationError::UnknownActor)?;
+        Ok((actor, projected.shape_token))
+    }
 }
 
-fn canonical_pair(contact: &CanonicalPhysXContactV2) -> (ContactPairKeyV1, i128) {
-    let first = (contact.actor_a_token, contact.shape_a_token);
-    let second = (contact.actor_b_token, contact.shape_b_token);
-    if first <= second {
-        (
-            ContactPairKeyV1 {
-                actor_a_token: first.0,
-                shape_a_token: first.1,
-                actor_b_token: second.0,
-                shape_b_token: second.1,
-            },
-            1,
-        )
-    } else {
-        (
-            ContactPairKeyV1 {
-                actor_a_token: second.0,
-                shape_a_token: second.1,
-                actor_b_token: first.0,
-                shape_b_token: first.1,
-            },
-            -1,
-        )
-    }
+const fn projection_key(projected: ProjectedCollider) -> (u64, u8, u64) {
+    (
+        hard_impact_limit(projected.role),
+        projected.role as u8,
+        projected.shape_token,
+    )
 }
 
 fn impulse_magnitude_squared(impulse: [i128; 3]) -> Result<u128, ContactClassificationError> {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 import torch
 
@@ -12,9 +13,13 @@ from next_lab.isaac_reference_env import (
     OBSERVED_HARD_ROM_TOLERANCE_MICRORADIANS,
     _advance_contact_grace,
     _canonical_pd_requested_effort_tensor,
+    _classify_contact_pairs_tensor,
+    _contact_body_projections,
+    _contact_pair_layout,
     _engine_to_isaac_vector,
     _engine_xyzw_to_isaac_wxyz,
     _intersect_effort_limits_tensor,
+    _minimum_contact_separation_tensor,
     _normalized_xyzw,
     _quaternion_conjugate_xyzw,
     _quaternion_multiply_xyzw,
@@ -23,10 +28,64 @@ from next_lab.isaac_reference_env import (
     _soft_rom_excursion_cost_tensor,
 )
 from next_lab.motor_mirror import round_div_ties_even
+from next_lab.motor_mirror import load_json
 from next_lab.safety_contact_mirror import _intersect_effort, _positive_work_charge
 
 
 class IsaacReferenceEnvironmentTests(unittest.TestCase):
+    def test_contact_body_projection_is_strict_and_pair_complete(self) -> None:
+        descriptor = load_json(
+            Path(__file__).parent / "fixtures" / "biomechanics_motor_mirror_v1.json"
+        )
+        projections = _contact_body_projections(descriptor)
+        by_body = {body_id: (role, limit) for body_id, role, limit in projections}
+        self.assertEqual(len(projections), 14)
+        self.assertEqual(by_body["body.torso-yaw"], (3, 1_000_000))
+        self.assertEqual(by_body["body.left-knee"], (5, 4_000_000))
+        self.assertEqual(by_body["body.right-elbow"], (10, 3_000_000))
+        layout = _contact_pair_layout(projections)
+        self.assertEqual(len(layout["sensor"]), 14 + 14 * 13 // 2)
+        self.assertEqual(sum(bool(value) for value in layout["self_contact"]), 91)
+
+    def test_contact_pair_classifier_has_exact_grace_and_strict_limits(self) -> None:
+        impulse = torch.tensor(
+            [[[100_000, 0, 0], [1_000_001, 0, 0], [300_000, 0, 0]]],
+            dtype=torch.int64,
+        )
+        separation = torch.zeros((1, 3), dtype=torch.int64)
+        continuity = torch.tensor([[4, 0, 0]], dtype=torch.int64)
+        result = _classify_contact_pairs_tensor(
+            impulse,
+            separation,
+            continuity,
+            torch.tensor([3_000_000, 1_000_000, 3_000_000], dtype=torch.int64),
+            torch.tensor([False, False, True]),
+            torch.tensor([10, 3, 10], dtype=torch.int64),
+        )
+        torch.testing.assert_close(result["continuity"], torch.tensor([[5, 1, 1]]))
+        torch.testing.assert_close(result["material"], torch.tensor([[True, True, True]]))
+        torch.testing.assert_close(
+            result["hard_impact"], torch.tensor([[False, True, False]])
+        )
+        torch.testing.assert_close(
+            result["self_collision"], torch.tensor([[False, False, True]])
+        )
+        torch.testing.assert_close(
+            result["forbidden_locomotion"], torch.tensor([[True, True, False]])
+        )
+
+    def test_contact_detail_reduction_retains_pair_minimum_separation(self) -> None:
+        separation = torch.tensor(
+            [[0.002], [-0.003], [0.004], [-0.000_007]], dtype=torch.float32
+        )
+        count = torch.tensor([[2, 0], [1, 1]], dtype=torch.int32)
+        start = torch.tensor([[0, 2], [2, 3]], dtype=torch.int32)
+        actual = _minimum_contact_separation_tensor(separation, count, start)
+        self.assertEqual(actual[0, 0].item(), -3_000)
+        self.assertEqual(actual[1, 0].item(), 4_000)
+        self.assertEqual(actual[1, 1].item(), -7)
+        self.assertEqual(actual[0, 1].item(), torch.iinfo(torch.int64).max)
+
     def test_observed_hard_rom_tolerance_matches_engine_contract(self) -> None:
         self.assertEqual(OBSERVED_HARD_ROM_TOLERANCE_MICRORADIANS, 10)
 

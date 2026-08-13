@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-0..4` were re-advanced, but a `TRAIN-5` checkpoint diagnostic found incomplete Isaac correspondence for the already-frozen TRAIN-3 actuator safety contract. Existing TRAIN-5 checkpoints are diagnostic-only; implementation returned to TRAIN-3 correspondence closure before a new TRAIN-5 lineage; no multi-seed or TRAIN-5 gate advance |
+| Статус | In execution: corrected actuator correspondence and safety-reserve corpus are complete; rigid-body contact profile V2 and Isaac four-substep classifier are implemented and under optimizer-free TRAIN-3/5 revalidation. All earlier TRAIN-5 checkpoints remain diagnostic-only; no optimizer, multi-seed or TRAIN-5 gate advance is authorized in the new lineage |
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -11,12 +11,12 @@
 | Anthropometric target | [Young-adult male gait target](2026-08-12-humanoid-biomechanics-target.md) |
 | Frozen biomechanics profile | [Fixed humanoid biomechanics profile V1](2026-08-12-humanoid-biomechanics-profile-v1.md) |
 | Frozen profile SHA-256 | `968ceb82ac2a40af872b496fdd43e32ba2ce3ffd90b2b3a33f38461c8269aabc` |
-| TRAIN-3 safety/contact profile | [Humanoid safety and contact profile V1](2026-08-12-humanoid-safety-contact-profile-v1.md) |
-| TRAIN-3 safety/contact SHA-256 | `ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c` |
-| TRAIN-4 motion corpus profile | [Humanoid motion corpus profile V1](2026-08-12-humanoid-motion-corpus-profile-v1.md) |
-| TRAIN-4 motion corpus profile SHA-256 | `f281f73773f32ddba506c01aa66301488dadc40d91efbd78e2c1fb79a70951fc` |
-| TRAIN-5 reference tracker profile | [Humanoid reference tracker profile V1](2026-08-12-humanoid-reference-tracker-profile-v1.md) |
-| TRAIN-5 reference tracker profile SHA-256 | `4a898ccf67051b34b6266ec5293f74758103e7db260ded393e76161f72de527d` |
+| TRAIN-3 safety/contact profile | [Humanoid safety and contact profile V2](2026-08-13-humanoid-safety-contact-profile-v2.md) |
+| TRAIN-3 safety/contact SHA-256 | `ba9d368e075f389a4dbff4a0ed9299b737edf4907be10ae6cf3aeb60b348729f` |
+| TRAIN-4 motion corpus profile | [Humanoid motion corpus safety-reserve V2](../../lab/profiles/humanoid-motion-corpus-cmu-safety-reserve.v2.json) |
+| TRAIN-4 motion corpus profile SHA-256 | `0a2d319870843ba5a081eb9d23042ef804c33d7325c607493cd1017a9d9d8ced` |
+| TRAIN-5 reference tracker profile | [Humanoid reference tracker safety-reserve V2](../../lab/profiles/humanoid-reference-tracker-safety-reserve.v2.json) |
+| TRAIN-5 reference tracker profile SHA-256 | `c16662efd96977fd037d2db3cb3a88fa8ee3f8441eef5848ee2fe0f62068287c` |
 | TRAIN-5 rejected optimization child profile SHA-256 | realized `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5` |
 
 Нормативные источники для реализации:
@@ -330,23 +330,25 @@ count: confidence interval не превращает наблюдаемое на
   `b6f8b1260b24ad401453942c9a4303d99ce378a8f71c6490db79bb78d85a1782`,
   gate report SHA-256
   `b814d7830188abbc83378e83b6fb8ff4da5fdf3c0c30d0606913a05692a71d32`;
-- `TRAIN-3`: `Advance`, safety/contact profile SHA-256
-  `ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c`,
-  safety/contact golden SHA-256
-  `578b9b035a2ce390b5192dbc7abea24f50b871cccc4d5d2b3bf2e1343fc652b0`,
-  gate report SHA-256
-  `807535bc9128b4bd079d011a27dc95a5d10f2449a997d9e856c2a701729bd5cf`;
-- `TRAIN-4`: `Advance`, motion corpus profile SHA-256
-  `f281f73773f32ddba506c01aa66301488dadc40d91efbd78e2c1fb79a70951fc`,
+- `TRAIN-3`: `InProgress`, actuator safety is unit-validated at implementation
+  commit `0c524b02aa8e81d09afae1ca99d26b1286ee72f1`; contact profile V2 SHA-256
+  `ba9d368e075f389a4dbff4a0ed9299b737edf4907be10ae6cf3aeb60b348729f`
+  and regenerated safety/contact golden SHA-256
+  `dca80a314f0b23f2520b906e47bb0ed73fd2884474f46a12ee78d5fc422a5fe1`
+  pass native/Python correspondence; fresh Isaac directed/reset evidence and
+  gate report are not yet complete;
+- `TRAIN-4`: data-only `Advance`, safety-reserve profile SHA-256
+  `0a2d319870843ba5a081eb9d23042ef804c33d7325c607493cd1017a9d9d8ced`,
   corpus manifest SHA-256
-  `6f76c1c7d60457d1b10833b6fb840afbb50cd502315f250fd6e44a40d1c0dcbc`,
+  `2afcd10a61c60ec8d7715758eae6f5a87a98e7f0906620977602cf1b259f7ed4`,
   gate report SHA-256
-  `38f33f63c2d187509128eca1469ab6b114547402bb769e311b8717a4c2ed18c4`;
-- `TRAIN-5`: new-lineage input and all-phase first-motor-tick reset closure
-  `PASS`, followed by reproducible one-clip tiny overfit `PASS`; both exact runs
-  produced checkpoint SHA-256
-  `bda3df1d4770649e3f1cbf976997cb0d76a0a60ce88657f47c3e2a650e0a157b`.
-  This admits only curriculum and multi-seed work, not the `TRAIN-5` gate;
+  `93391cceaaacd8509195289a858db0725ba74a63a0ff4f3fb6f2f2c4866e661a`;
+- `TRAIN-5`: `NotRun` in the current V2/safety-reserve lineage. Immutable
+  tracker SHA-256
+  `c16662efd96977fd037d2db3cb3a88fa8ee3f8441eef5848ee2fe0f62068287c`
+  authorizes optimizer-free preacceptance only. Every older input/reset,
+  tiny/curriculum run and checkpoint below remains historical diagnostic
+  evidence and does not authorize resume or initialization;
 - `TRAIN-6..9`: `NotRun`; разрешён только specialist tracker `TRAIN-5`.
 
 ## TRAIN-0 — retirement/isolation старого эксперимента и чистая generation

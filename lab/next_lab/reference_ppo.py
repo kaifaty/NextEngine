@@ -342,7 +342,11 @@ class TinyReferencePpoTrainer:
             "joint_safety": 0,
             "joint_velocity": 0,
             "effort_envelope": 0,
+            "hard_impact": 0,
+            "self_collision": 0,
             "forbidden_contact": 0,
+            "world_bounds": 0,
+            "fall": 0,
             "non_finite": 0,
         }
         selection_results: dict[str, dict[str, Any]] = {}
@@ -477,7 +481,19 @@ class TinyReferencePpoTrainer:
                         self.environment.last_step_failure_effort_envelope[
                             done_indices
                         ].to(torch.float64),
+                        self.environment.last_step_failure_hard_impact[
+                            done_indices
+                        ].to(torch.float64),
+                        self.environment.last_step_failure_self_collision[
+                            done_indices
+                        ].to(torch.float64),
                         self.environment.last_step_failure_forbidden_contact[
+                            done_indices
+                        ].to(torch.float64),
+                        self.environment.last_step_failure_world_bounds[
+                            done_indices
+                        ].to(torch.float64),
+                        self.environment.last_step_failure_fall[
                             done_indices
                         ].to(torch.float64),
                         self.environment.last_step_failure_non_finite[done_indices].to(
@@ -511,7 +527,11 @@ class TinyReferencePpoTrainer:
                         joint_safety,
                         joint_velocity,
                         effort_envelope,
+                        hard_impact,
+                        self_collision,
                         forbidden_contact,
+                        world_bounds,
+                        fall,
                         non_finite,
                         hard_rom_excess_value,
                         hard_rom_channel_value,
@@ -538,7 +558,11 @@ class TinyReferencePpoTrainer:
                                 "joint_safety": 0,
                                 "joint_velocity": 0,
                                 "effort_envelope": 0,
+                                "hard_impact": 0,
+                                "self_collision": 0,
                                 "forbidden_contact": 0,
+                                "world_bounds": 0,
+                                "fall": 0,
                                 "non_finite": 0,
                             },
                         },
@@ -552,7 +576,11 @@ class TinyReferencePpoTrainer:
                         ("joint_safety", joint_safety),
                         ("joint_velocity", joint_velocity),
                         ("effort_envelope", effort_envelope),
+                        ("hard_impact", hard_impact),
+                        ("self_collision", self_collision),
                         ("forbidden_contact", forbidden_contact),
+                        ("world_bounds", world_bounds),
+                        ("fall", fall),
                         ("non_finite", non_finite),
                     ):
                         occurred = int(occurred_value)

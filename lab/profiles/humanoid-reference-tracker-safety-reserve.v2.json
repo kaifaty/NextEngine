@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.motor.env.humanoid-reference-tracker-safety-reserve.v2",
+  "status": "Frozen",
+  "base_profile_id": "nextengine.motor.env.humanoid-reference-tracker.v1",
+  "base_profile_sha256": "4a898ccf67051b34b6266ec5293f74758103e7db260ded393e76161f72de527d",
+  "variant": {
+    "kind": "replace-input-lineage.v1",
+    "corpus": {
+      "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion-safety-reserve.v2",
+      "profile_sha256": "0a2d319870843ba5a081eb9d23042ef804c33d7325c607493cd1017a9d9d8ced",
+      "manifest_sha256": "2afcd10a61c60ec8d7715758eae6f5a87a98e7f0906620977602cf1b259f7ed4",
+      "eligible_partition": "locomotion",
+      "split_is_run_mode": true,
+      "selection_order": "canonical UTF-8 clip_id byte order",
+      "selection_distribution": "uniform over eligible clip IDs"
+    },
+    "training_authorization": {
+      "gate_id": "TRAIN-4",
+      "decision": "Advance",
+      "gate_report_sha256": "93391cceaaacd8509195289a858db0725ba74a63a0ff4f3fb6f2f2c4866e661a",
+      "scope": "TRAIN-5 optimizer-free correspondence and preacceptance only; optimizer remains denied until a fresh TRAIN-5 gate"
+    },
+    "termination": {
+      "safety_contact_profile_sha256": "ba9d368e075f389a4dbff4a0ed9299b737edf4907be10ae6cf3aeb60b348729f",
+      "success_reason": "terminal.reference-complete",
+      "failure_reasons": [
+        "terminal.hard-rom",
+        "terminal.joint-safety",
+        "terminal.hard-impact",
+        "terminal.self-collision",
+        "terminal.forbidden-locomotion-contact",
+        "terminal.world-bounds",
+        "terminal.fall",
+        "terminal.non-finite",
+        "terminal.reference-tracking-lost"
+      ],
+      "forbidden_contact_grace_physics_substeps": 4,
+      "tracking_lost": {
+        "root_position_error_micrometres": 750000,
+        "root_orientation_minimum_absolute_dot_q1_30": 929887697,
+        "consecutive_motor_ticks": 4
+      },
+      "truncation_bootstrap": "only explicit run-budget truncation with a valid next observation"
+    }
+  }
+}

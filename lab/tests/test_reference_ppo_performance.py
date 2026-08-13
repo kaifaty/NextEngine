@@ -57,7 +57,11 @@ class ReferencePpoPerformanceTests(unittest.TestCase):
                     "last_step_failure_joint_safety",
                     "last_step_failure_joint_velocity",
                     "last_step_failure_effort_envelope",
+                    "last_step_failure_hard_impact",
+                    "last_step_failure_self_collision",
                     "last_step_failure_forbidden_contact",
+                    "last_step_failure_world_bounds",
+                    "last_step_failure_fall",
                     "last_step_failure_non_finite",
                 ):
                     setattr(self, name, torch.zeros(4, dtype=torch.bool))

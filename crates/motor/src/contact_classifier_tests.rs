@@ -159,7 +159,13 @@ fn all_nonsole_roles_become_immediately_forbidden_above_brush_ceiling() {
             vec![ground_contact(actor, shape, [250_001, 0, 0], 0)],
             BiomechanicsSkillContactProfileV1::Locomotion,
         );
-        assert_eq!(frame.contacts[0].primary_role, role);
+        let projected_role = match role {
+            BodyContactRoleV2::TorsoGround => BodyContactRoleV2::HeadGround,
+            BodyContactRoleV2::KneeGround => BodyContactRoleV2::ShankGround,
+            BodyContactRoleV2::HandGround => BodyContactRoleV2::ForearmGround,
+            _ => role,
+        };
+        assert_eq!(frame.contacts[0].primary_role, projected_role);
         assert_eq!(
             frame.contacts[0].class,
             BiomechanicsContactClassV1::ForbiddenLocomotion
@@ -169,7 +175,7 @@ fn all_nonsole_roles_become_immediately_forbidden_above_brush_ceiling() {
 }
 
 #[test]
-fn brace_and_getup_profiles_allow_only_the_declared_support_roles() {
+fn shared_bodies_use_the_strict_projected_role_in_recovery_reports() {
     let mut harness = Harness::new();
     let (hand_actor, hand_shape) = harness.shape(BodyContactRoleV2::HandGround);
     let brace = harness.classify(
@@ -180,6 +186,10 @@ fn brace_and_getup_profiles_allow_only_the_declared_support_roles() {
         brace.contacts[0].class,
         BiomechanicsContactClassV1::BraceSupport
     );
+    assert_eq!(
+        brace.contacts[0].primary_role,
+        BodyContactRoleV2::ForearmGround
+    );
 
     harness.classifier.reset();
     let (knee_actor, knee_shape) = harness.shape(BodyContactRoleV2::KneeGround);
@@ -189,7 +199,11 @@ fn brace_and_getup_profiles_allow_only_the_declared_support_roles() {
     );
     assert_eq!(
         getup.contacts[0].class,
-        BiomechanicsContactClassV1::GetUpSupport
+        BiomechanicsContactClassV1::TransientAllowed
+    );
+    assert_eq!(
+        getup.contacts[0].primary_role,
+        BodyContactRoleV2::ShankGround
     );
 
     harness.classifier.reset();
@@ -202,6 +216,38 @@ fn brace_and_getup_profiles_allow_only_the_declared_support_roles() {
         recovery.contacts[0].class,
         BiomechanicsContactClassV1::TransientAllowed
     );
+    assert_eq!(
+        recovery.contacts[0].primary_role,
+        BodyContactRoleV2::HeadGround
+    );
+}
+
+#[test]
+fn authored_shapes_on_one_body_reduce_to_one_strict_body_pair() {
+    let mut harness = Harness::new();
+    let (torso_actor, torso_shape) = harness.shape(BodyContactRoleV2::TorsoGround);
+    let (head_actor, head_shape) = harness.shape(BodyContactRoleV2::HeadGround);
+    assert_eq!(torso_actor, head_actor);
+
+    let frame = harness.classify(
+        vec![
+            ground_contact(torso_actor, torso_shape, [600_000, 0, 0], 2),
+            ground_contact(head_actor, head_shape, [600_001, 0, 0], -3),
+        ],
+        BiomechanicsSkillContactProfileV1::Locomotion,
+    );
+
+    assert_eq!(frame.contacts.len(), 1);
+    assert_eq!(
+        frame.contacts[0].primary_role,
+        BodyContactRoleV2::HeadGround
+    );
+    assert_eq!(
+        frame.contacts[0].impulse_micronewton_seconds,
+        [1_200_001, 0, 0]
+    );
+    assert_eq!(frame.contacts[0].minimum_separation_micrometres, -3);
+    assert!(frame.contacts[0].hard_impact_violation);
 }
 
 #[test]

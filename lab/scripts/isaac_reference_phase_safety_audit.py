@@ -103,7 +103,11 @@ def main() -> None:
             "joint_safety": 0,
             "joint_velocity": 0,
             "effort_envelope": 0,
+            "hard_impact": 0,
+            "self_collision": 0,
             "forbidden_contact": 0,
+            "world_bounds": 0,
+            "fall": 0,
             "non_finite": 0,
             "truncated": 0,
         }
@@ -144,7 +148,11 @@ def main() -> None:
             joint_safety = environment.last_step_failure_joint_safety[done_ids]
             joint_velocity = environment.last_step_failure_joint_velocity[done_ids]
             effort_envelope = environment.last_step_failure_effort_envelope[done_ids]
+            hard_impact = environment.last_step_failure_hard_impact[done_ids]
+            self_collision = environment.last_step_failure_self_collision[done_ids]
             forbidden = environment.last_step_failure_forbidden_contact[done_ids]
+            world_bounds = environment.last_step_failure_world_bounds[done_ids]
+            fall = environment.last_step_failure_fall[done_ids]
             non_finite = environment.last_step_failure_non_finite[done_ids]
             hard_channels = environment.last_step_hard_rom_action_channel[done_ids]
             hard_excess = environment.last_step_hard_rom_excess_microradians[done_ids]
@@ -174,7 +182,11 @@ def main() -> None:
                 branch_counts["effort_envelope"] += int(
                     effort_envelope[index].item()
                 )
+                branch_counts["hard_impact"] += int(hard_impact[index].item())
+                branch_counts["self_collision"] += int(self_collision[index].item())
                 branch_counts["forbidden_contact"] += int(forbidden[index].item())
+                branch_counts["world_bounds"] += int(world_bounds[index].item())
+                branch_counts["fall"] += int(fall[index].item())
                 branch_counts["non_finite"] += int(non_finite[index].item())
                 branch_counts["truncated"] += int(truncated[done_ids[index]].item())
                 tick = int(elapsed_ticks[index].item())
@@ -189,7 +201,11 @@ def main() -> None:
                     "joint_safety": joint_safety[index],
                     "joint_velocity": joint_velocity[index],
                     "effort_envelope": effort_envelope[index],
+                    "hard_impact": hard_impact[index],
+                    "self_collision": self_collision[index],
                     "forbidden_contact": forbidden[index],
+                    "world_bounds": world_bounds[index],
+                    "fall": fall[index],
                     "non_finite": non_finite[index],
                     "truncated": truncated[done_ids[index]],
                 }
@@ -200,7 +216,11 @@ def main() -> None:
                 if tick <= args.reset_safety_window_motor_ticks and (
                     hard_rom[index]
                     or joint_safety[index]
+                    or hard_impact[index]
+                    or self_collision[index]
                     or forbidden[index]
+                    or world_bounds[index]
+                    or fall[index]
                     or non_finite[index]
                 ):
                     reset_window_safety_failure_count += 1
@@ -310,7 +330,11 @@ def main() -> None:
         full_horizon_safety_failure_count = (
             branch_counts["hard_rom"]
             + branch_counts["joint_safety"]
+            + branch_counts["hard_impact"]
+            + branch_counts["self_collision"]
             + branch_counts["forbidden_contact"]
+            + branch_counts["world_bounds"]
+            + branch_counts["fall"]
             + branch_counts["non_finite"]
         )
         report = {

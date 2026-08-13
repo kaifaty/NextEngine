@@ -5,7 +5,7 @@ from typing import Any
 
 from next_lab.motor_mirror import round_div_ties_even
 
-PROFILE_SHA256 = "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c"
+PROFILE_SHA256 = "ba9d368e075f389a4dbff4a0ed9299b737edf4907be10ae6cf3aeb60b348729f"
 PROFILE_BYTES = bytes.fromhex(PROFILE_SHA256)
 Q1_30_ONE = 1 << 30
 TARGET_CLAMPED = 1 << 0
@@ -251,7 +251,7 @@ def _validate_contact_terminal_scenarios(
         "locomotion-timeout",
     ]:
         raise ValueError("contact/terminal scenario closure mismatch")
-    shape_roles, shape_actors = _shape_maps(descriptor)
+    shape_roles, shape_actors, actor_projections = _shape_maps(descriptor)
     for scenario in scenarios:
         continuity: dict[tuple[int, int, int, int], int] = {}
         profile = int(scenario["skill_profile"])
@@ -261,7 +261,12 @@ def _validate_contact_terminal_scenarios(
             frames: list[dict[str, Any]] = []
             for contacts in tick["contact_substeps"]:
                 frame, continuity = _classify_contact_frame(
-                    contacts, profile, continuity, shape_roles, shape_actors
+                    contacts,
+                    profile,
+                    continuity,
+                    shape_roles,
+                    shape_actors,
+                    actor_projections,
                 )
                 frames.append(frame)
             if frames != tick["expected_frames"]:
@@ -275,15 +280,26 @@ def _validate_contact_terminal_scenarios(
 
 def _shape_maps(
     descriptor: dict[str, Any]
-) -> tuple[dict[int, int], dict[int, int]]:
+) -> tuple[dict[int, int], dict[int, int], dict[int, tuple[int, int]]]:
     roles: dict[int, int] = {}
     actors: dict[int, int] = {}
+    projections: dict[int, tuple[int, int]] = {}
     for body in descriptor["bodies"]:
         for collider in body["colliders"]:
             shape = int(collider["shape_token"])
-            roles[shape] = int(collider["contact_role"])
-            actors[shape] = int(body["body_token"])
-    return roles, actors
+            role = int(collider["contact_role"])
+            actor = int(body["body_token"])
+            roles[shape] = role
+            actors[shape] = actor
+            candidate = (shape, role)
+            current = projections.get(actor)
+            if current is None or (_hard_limit(role), role, shape) < (
+                _hard_limit(current[1]),
+                current[1],
+                current[0],
+            ):
+                projections[actor] = candidate
+    return roles, actors, projections
 
 
 def _classify_contact_frame(
@@ -292,11 +308,26 @@ def _classify_contact_frame(
     previous: dict[tuple[int, int, int, int], int],
     shape_roles: dict[int, int],
     shape_actors: dict[int, int],
+    actor_projections: dict[int, tuple[int, int]],
 ) -> tuple[dict[str, Any], dict[tuple[int, int, int, int], int]]:
     aggregates: dict[tuple[int, int, int, int], dict[str, Any]] = {}
     for contact in raw_contacts:
-        first = (int(contact["actor_a_token"]), int(contact["shape_a_token"]))
-        second = (int(contact["actor_b_token"]), int(contact["shape_b_token"]))
+        first = _project_endpoint(
+            int(contact["actor_a_token"]),
+            int(contact["shape_a_token"]),
+            shape_roles,
+            shape_actors,
+            actor_projections,
+        )
+        second = _project_endpoint(
+            int(contact["actor_b_token"]),
+            int(contact["shape_b_token"]),
+            shape_roles,
+            shape_actors,
+            actor_projections,
+        )
+        if first[0] == second[0]:
+            raise ValueError("invalid same-actor contact pair")
         sign = 1
         if first > second:
             first, second = second, first
@@ -318,9 +349,7 @@ def _classify_contact_frame(
     records: list[dict[str, Any]] = []
     for pair in sorted(aggregates):
         aggregate = aggregates[pair]
-        primary, secondary, self_contact = _roles_for_pair(
-            pair, shape_roles, shape_actors
-        )
+        primary, secondary, self_contact = _roles_for_pair(pair, actor_projections)
         impulse = aggregate["impulse"]
         magnitude_squared = sum(value * value for value in impulse)
         active = aggregate["separation"] < 0 or magnitude_squared >= ACTIVE_IMPULSE**2
@@ -358,8 +387,7 @@ def _classify_contact_frame(
 
 def _roles_for_pair(
     pair: tuple[int, int, int, int],
-    shape_roles: dict[int, int],
-    shape_actors: dict[int, int],
+    actor_projections: dict[int, tuple[int, int]],
 ) -> tuple[int, int | None, bool]:
     actor_a, shape_a, actor_b, shape_b = pair
     a_ground, b_ground = actor_a == 1, actor_b == 1
@@ -367,14 +395,43 @@ def _roles_for_pair(
         ground_shape, actor, shape = (
             (shape_a, actor_b, shape_b) if a_ground else (shape_b, actor_a, shape_a)
         )
-        if ground_shape != 0 or shape_actors.get(shape) != actor:
+        projected = actor_projections.get(actor)
+        if ground_shape != 0 or projected is None or projected[0] != shape:
             raise ValueError("invalid ground contact pair")
-        return shape_roles[shape], None, False
+        return projected[1], None, False
     if a_ground or actor_a == actor_b:
         raise ValueError("invalid self contact pair")
-    if shape_actors.get(shape_a) != actor_a or shape_actors.get(shape_b) != actor_b:
+    projection_a = actor_projections.get(actor_a)
+    projection_b = actor_projections.get(actor_b)
+    if (
+        projection_a is None
+        or projection_b is None
+        or projection_a[0] != shape_a
+        or projection_b[0] != shape_b
+    ):
         raise ValueError("contact actor/shape mismatch")
-    return shape_roles[shape_a], shape_roles[shape_b], True
+    return projection_a[1], projection_b[1], True
+
+
+def _project_endpoint(
+    actor: int,
+    shape: int,
+    shape_roles: dict[int, int],
+    shape_actors: dict[int, int],
+    actor_projections: dict[int, tuple[int, int]],
+) -> tuple[int, int]:
+    if actor == 1:
+        if shape != 0:
+            raise ValueError("invalid ground shape")
+        return actor, shape
+    if shape not in shape_roles:
+        raise ValueError("unknown contact shape")
+    if shape_actors.get(shape) != actor:
+        raise ValueError("contact actor/shape mismatch")
+    projected = actor_projections.get(actor)
+    if projected is None:
+        raise ValueError("unknown contact actor")
+    return actor, projected[0]
 
 
 def _hard_limit(role: int) -> int:
