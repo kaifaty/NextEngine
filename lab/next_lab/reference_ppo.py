@@ -40,8 +40,11 @@ class TinyReferencePpoProfile:
                     raise ValueError("invalid reference PPO profile variant")
                 base_name = "humanoid-reference-ppo-tiny.v1.json"
             elif (
-                overlay.get("variant", {}).get("kind")
-                == "replace-environment-and-initialization.v1"
+                variant_kind
+                in {
+                    "replace-environment-and-initialization.v1",
+                    "replace-environment-corpus-and-initialization.v1",
+                }
             ):
                 if (
                     overlay.get("schema_version") != 1
@@ -70,6 +73,7 @@ class TinyReferencePpoProfile:
             if variant_kind in {
                 "replace-environment-and-corpus.v1",
                 "replace-environment-corpus-and-scope.v1",
+                "replace-environment-corpus-and-initialization.v1",
             }:
                 corpus_manifest_sha256 = overlay["variant"].get(
                     "corpus_manifest_sha256"
@@ -107,6 +111,7 @@ class TinyReferencePpoProfile:
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v2",
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v3",
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v4",
+            "nextengine.training.humanoid-reference-ppo-curriculum-stage.v5",
         }
         if (
             document.get("schema_version") != 1

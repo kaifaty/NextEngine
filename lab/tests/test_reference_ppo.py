@@ -43,6 +43,10 @@ PREDICTIVE_ROM_CURRICULUM_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-ppo-curriculum-start-phase-predictive-rom-cost.v1.json"
 )
+PHYSICS_VELOCITY_GUARD_CURRICULUM_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-ppo-curriculum-start-phase-physics-velocity-guard.v5.json"
+)
 PHYSICS_VELOCITY_GUARD_TINY_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-ppo-tiny-physics-velocity-guard.v4.json"
@@ -168,6 +172,36 @@ class ReferencePpoTests(unittest.TestCase):
             profile.document["initialization"]["checkpoint_sha256"],
             "29e1e703c36f368c6bc1ae50ba4416f497f8a1b5673739e2299827891d4369ed",
         )
+
+    def test_physics_velocity_guard_curriculum_binds_accepted_tiny_lineage(self) -> None:
+        profile = TinyReferencePpoProfile.load(
+            PHYSICS_VELOCITY_GUARD_CURRICULUM_PROFILE
+        )
+        baseline = TinyReferencePpoProfile.load(CURRICULUM_PROFILE)
+        self.assertEqual(
+            profile.document["environment_profile_sha256"],
+            "7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d",
+        )
+        self.assertEqual(
+            profile.document["corpus_manifest_sha256"],
+            "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
+        )
+        self.assertEqual(
+            profile.document["initialization"],
+            {
+                "mode": "model-weights-only",
+                "training_profile_sha256": (
+                    "177e92a1a4f5d440bf5752c3d688432b1ba8d9241c9014cee15a3610b47b4eed"
+                ),
+                "checkpoint_sha256": (
+                    "16c33959cafe3e4e7a7a52f043ea974385cd5fe98de287b67a25fff16fd9343e"
+                ),
+            },
+        )
+        self.assertEqual(profile.document["scope"]["horizon_motor_ticks"], 11)
+        self.assertTrue(profile.document["scope"]["phase_randomization"])
+        self.assertEqual(profile.document["ppo"], baseline.document["ppo"])
+        self.assertEqual(profile.document["evaluation"], baseline.document["evaluation"])
 
     def test_frozen_curriculum_stage_closes_phase_and_initial_checkpoint(self) -> None:
         profile = TinyReferencePpoProfile.load(CURRICULUM_PROFILE)
