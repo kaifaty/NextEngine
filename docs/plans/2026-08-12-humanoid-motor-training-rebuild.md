@@ -2,8 +2,8 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. Temporal/contact-aware V4 is implemented under a new corpus identity and passes deterministic import, `27/27` kinematic validation, `5859/5859` native pose audit and input closure, but its exhaustive `5562/5562` optimizer-free dynamic audit still has `2876` required-safety failures, dominated by `2475` hard-impact cases. The iteration is diagnostic failure evidence only; optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. Current WIP is a new contact-constrained whole-stance-chain/root trajectory solve for `REQ-HUM-DATA-005/007` |
-| Дата | 2026-08-13 |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive optimizer-free R14 still has `204/12518` required-safety failed cases (`121` hard-ROM, `67` hard-impact and `40` overlapping joint-safety/velocity cases). The bounded causal cycle is complete: controller lead/feed-forward and naive velocity zeroing are rejected, root link/CoM semantics are a confirmed but insufficient defect, and contact-consistent reference/reset is the selected next direction. Current WIP is the bounded V19 contact-manifold plus fresh-versus-partial-reset prototype for `REQ-HUM-DATA-005/007`; optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
 | Архитектурная опора | SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34, SPEC-35, ADR-027, ADR-030, ADR-046, ADR-053, ADR-058, ADR-059, ADR-064..070 |
@@ -14,9 +14,10 @@
 | TRAIN-3 safety/contact profile | [Humanoid safety and contact profile V2](2026-08-13-humanoid-safety-contact-profile-v2.md) |
 | TRAIN-3 safety/contact SHA-256 | `ba9d368e075f389a4dbff4a0ed9299b737edf4907be10ae6cf3aeb60b348729f` |
 | TRAIN-4 rejected baseline corpus profile | [Humanoid motion corpus dynamic reserve V3](../../lab/profiles/humanoid-motion-corpus-cmu-dynamic-reserve.v3.json), SHA-256 `1229eb18b8efea2daff50cf73a733fe67b804f507ef739bc88f1dee30584bb0c` |
-| TRAIN-4 latest diagnostic corpus profile | [Humanoid motion corpus temporal contact V4](../../lab/profiles/humanoid-motion-corpus-cmu-temporal-contact.v4.json), SHA-256 `17fc25739318ffd3c7634b5e2d1cca093c99fcc8686aaec09c7f79158cd2b19c` |
-| TRAIN-4 latest diagnostic corpus manifest SHA-256 | `5f570cdbc724cf7db51530c07b82fbafba2b73f333e1a2684e48aeb8ae0d5195` |
-| TRAIN-4 latest diagnostic tracker | [Humanoid reference tracker temporal contact V6](../../lab/profiles/humanoid-reference-tracker-temporal-contact.v6.json), SHA-256 `d7131e909586a140dc541d3c8580744dede485b1e9693fa48153d8ab30c16281` |
+| TRAIN-4 latest diagnostic corpus profile | [Humanoid motion corpus ankle-pitch velocity closure V18](../../lab/profiles/humanoid-motion-corpus-cmu-ankle-pitch-velocity-closure.v18.json), SHA-256 `91d60064444f155084ec0b793876b208336747b7dcaa03712290ca1ef9bdb4b0` |
+| TRAIN-4 latest diagnostic corpus manifest canonical SHA-256 | `bd6164180a33585ed9231fd6a41cb3943b20e51da8b0e06ac0c978406e204456` |
+| TRAIN-4 latest diagnostic tracker | [Humanoid reference tracker ankle-pitch velocity closure V11](../../lab/profiles/humanoid-reference-tracker-ankle-pitch-velocity-closure.v11.json), SHA-256 `19a8e5266f12c5c1ae9e307bd0f2f1a76bb6ea23a6ae9912e1ccec401eeaf28c` |
+| TRAIN-4 causal decision | [Contact-consistent reference/reset research decision](../development/humanoid-train4-causal-research-2026-08-14.md) |
 | TRAIN-5 current base tracker profile | [Humanoid reference tracker physics/velocity guard V4](../../lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json) |
 | TRAIN-5 current base tracker SHA-256 | `7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d` |
 | TRAIN-5 rejected optimization child profiles | soft ROM `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive ROM `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`; realized contact impact margin `6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06` |
@@ -344,13 +345,15 @@ count: confidence interval не превращает наблюдаемое на
   `261dce77dcc36448831373569c0a6d033ad8260769583e29228f706877c00778`;
   remediation gate report SHA-256
   `2fc1d6c3d312a1e88a3820bdd851fd0eecf3230795a1162b55f13dd65d45cdb6`.
-  Latest temporal/contact V4 profile SHA-256 is
-  `17fc25739318ffd3c7634b5e2d1cca093c99fcc8686aaec09c7f79158cd2b19c`;
+  latest V18 corpus profile SHA-256 is
+  `91d60064444f155084ec0b793876b208336747b7dcaa03712290ca1ef9bdb4b0`;
   deterministic rebuilds produced canonical manifest SHA-256
-  `5f570cdbc724cf7db51530c07b82fbafba2b73f333e1a2684e48aeb8ae0d5195`.
-  The corpus passes `27/27` kinematic and `5859/5859` native pose checks, but
-  exhaustive coverage is `5562/5562` with `2876` required-safety failures, so
-  this new identity also does not advance the gate;
+  `bd6164180a33585ed9231fd6a41cb3943b20e51da8b0e06ac0c978406e204456`.
+  The corpus passes `27/27` profile-local and `12815/12815` native pose checks,
+  but exhaustive R14 coverage is `12518/12518` with `204` required-safety
+  failed cases, so this identity also does not advance the gate. Bounded causal
+  research is complete and the next increment is a contact-consistent V19
+  prototype, not optimizer work;
 - `TRAIN-5`: `FailedSafetyGate / InvalidatedByUpstreamData`. Input/reset and
   reproducible h10 tiny sanity passed, but base, contact-impact-margin and
   deterministic phase-prefix curricula all failed hard safety. Every produced
@@ -1642,13 +1645,24 @@ to read-only research, motion-rights review and generated test design; it
 cannot publish a later-stage contract or start training before its dependency
 gate passes.
 
-Manifest-wide optimizer-free `TRAIN-4` diagnosis is complete for both the
-rejected V3 lineage and temporal/contact V4 remediation. V4 materially reduced
-failures but did not reach the required exact zero. The current executable
-increment is a temporally coupled contact-constrained whole-stance-chain and
-root-trajectory solve under another new corpus identity against
-`REQ-HUM-DATA-007`. No new PPO run is authorized before a new `TRAIN-4
-Advance`; no command locomotion run is authorized before `TRAIN-5` advances.
+Manifest-wide optimizer-free `TRAIN-4` diagnosis now reaches V18/R14:
+`12518/12518` cases complete, with `204` required-safety failed cases rather
+than V4's `2876`, but the required result remains exact zero. The bounded
+[causal research cycle](../development/humanoid-train4-causal-research-2026-08-14.md)
+replayed the exact schedule under controller/reset counterfactuals, rejected
+target lead/feed-forward and naive velocity zeroing, confirmed an insufficient
+root link/CoM semantic defect, and selected contact-consistent reference/reset
+as the next implementation direction.
+
+The current executable increment is not another full corpus rebuild. It is a
+bounded V19 prototype over three representative clips and matched passing
+controls: point-consistent sticking modes, joint/root velocity recomputation
+after final contact correction, root-link velocity semantics and paired
+fresh-scene versus indexed partial-reset evidence. Only a no-regression result
+with an explicit ADR-070 disposition permits a full V19 identity and repeated
+local/native/visual/exhaustive gates. No new PPO run is authorized before a new
+`TRAIN-4 Advance`; no command locomotion run is authorized before `TRAIN-5`
+advances.
 
 Roadmap status changes only after material implementation/check results. This
 planning document alone does not close R5, B-08, B-12, Stage 0, GPU

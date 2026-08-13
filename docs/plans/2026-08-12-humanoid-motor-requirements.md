@@ -2,8 +2,8 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | Draft requirements baseline revision 2; product decisions confirmed; `TRAIN-4` remains reopened after temporal/contact V4 failed `REQ-HUM-DATA-005` reserve and `REQ-HUM-DATA-007` dynamic-reference-feasibility, dependent `TRAIN-5+` checks remain invalidated |
-| Дата | 2026-08-13 |
+| Статус | Draft requirements baseline revision 2; product decisions confirmed; V18 closes local geometry/reserve checks but formal visual remains pending and R14 fails `REQ-HUM-DATA-007` with `204/12518` required-safety failed cases; bounded causal research selects a contact-consistent V19 prototype, and dependent `TRAIN-5+` checks remain invalidated |
+| Дата | 2026-08-14 |
 | Candidate | `HumanoidFlatRecoveryCandidateV1` (planning identity, не public schema ID) |
 | Scope | Fixed-body flat-command locomotion, safe fall, recovery, get-up and command resume |
 | Anthropometric target | [Young-adult male gait target, `1.700 m`, exact source mass `75.337 kg`](2026-08-12-humanoid-biomechanics-target.md) |
@@ -244,18 +244,20 @@ output `TRAIN-1`; пока они отсутствуют, `REQ-HUM-BODY-*` и в
   kinematic, visual и dynamic-feasibility gates. Reward/optimizer tuning не
   может заменить эту проверку.
 
-Текущее evidence disposition (2026-08-13): temporal/contact V4 является только
-`RemediateDataOnly` diagnostic lineage. Две сборки воспроизвели один canonical
-manifest; profile-local validation прошла `27/27`, native pose audit —
-`5859/5859`, а all-artifact/input closure — `Pass`. Однако V4 допускает только
-`174533 urad` (`10 degrees`) ankle-roll hard reserve вместо требуемых здесь
-`261800 urad` (`15 degrees`), поэтому его локальный `VALIDATED` не является
-`REQ-HUM-DATA-005 Pass`. Кроме того, exhaustive horizon-11 audit покрыл
-`5562/5562` cases и получил `2876` required-safety failures, включая `2475`
-hard-impact, поэтому `REQ-HUM-DATA-007` также остаётся `Fail`. Contact
-precision/recall `0.610893/0.890920` — `ReportOnly`; preliminary six-class
-preview sanity не заменяет formal `27/27` human visual review, который остаётся
-pending. Никакое из этих evidence не разрешает optimizer execution.
+Текущее evidence disposition (2026-08-14): V18 остаётся только
+`RemediateDataOnly` diagnostic lineage. Он проходит `27/27` profile-local
+validation, `12815/12815` native poses, input closure и требуемые numeric
+ankle-roll/pitch reserve checks; deterministic corpus manifest имеет canonical
+SHA-256 `bd6164180a33585ed9231fd6a41cb3943b20e51da8b0e06ac0c978406e204456`.
+Formal `27/27` human visual review остаётся pending, поэтому полный
+`REQ-HUM-DATA-005 Pass` ещё не заявляется. Exhaustive horizon-11 R14 покрывает
+`12518/12518` cases, но имеет `204` required-safety failed cases: `121`
+hard-ROM, `67` hard-impact и `40` совпадающих joint-safety/joint-velocity;
+поэтому `REQ-HUM-DATA-007` остаётся `Fail`. Contact precision/recall
+`0.920214/0.838957` — `ReportOnly`. Bounded
+[causal research](../development/humanoid-train4-causal-research-2026-08-14.md)
+отклонил controller-only remediation и выбрал contact-consistent V19
+prototype; optimizer execution остаётся запрещён.
 
 ## 5. Функциональные требования
 

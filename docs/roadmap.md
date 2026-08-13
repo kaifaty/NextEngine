@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-14 |
-| Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; performance workloads остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. R5 R&D substrate содержит три current CPU profiles: immutable standing V1, immutable flat-command V1 и curriculum V2, плюс motor-lab v2, NPZ v2 recorder and Isaac mirror. V1 compatibility/hash closure исправлена; это разрешает bounded experiments, но не является trained policy, Stage 0 completion или R5 closure. Текущий WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced; прежний TRAIN-4 Advance superseded. Corpus V18 проходит `27/27` profile-local validation и `12815/12815` native poses, но exhaustive optimizer-free R14 проверяет `12518/12518` start states и всё ещё имеет `204` required-safety failed cases: `121` hard-ROM, `67` hard-impact и `40` совпадающих joint-safety/joint-velocity cases; `10` failures находятся в reset window, остальные required categories равны нулю. Это лучше R13 (`380` failed cases) и V4 (`2876`), но всё ещё `FAIL`; formal visual review остаётся pending. Все TRAIN-5 checkpoints rejected; no optimizer run, multi-seed, TRAIN-5 Advance or TRAIN-6 is authorized. Активный increment — bounded causal research checkpoint по reset/reference/controller/contact transient до выбора следующей immutable remediation identity для `REQ-HUM-DATA-005/007`. TRAIN-8 optional и не блокирует TRAIN-9 при заранее зафиксированном skip. R4a остаётся следующим подготовленным world-system increment, но пока не активен. B-12, Linux/cross-target evidence, R1/R7 и v1 shipping не закрыты. |
+| Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; performance workloads остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. R5 R&D substrate содержит три current CPU profiles: immutable standing V1, immutable flat-command V1 и curriculum V2, плюс motor-lab v2, NPZ v2 recorder and Isaac mirror. V1 compatibility/hash closure исправлена; это разрешает bounded experiments, но не является trained policy, Stage 0 completion или R5 closure. Текущий WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced; прежний TRAIN-4 Advance superseded. Corpus V18 проходит `27/27` profile-local validation и `12815/12815` native poses, но exhaustive optimizer-free R14 проверяет `12518/12518` start states и всё ещё имеет `204` required-safety failed cases: `121` hard-ROM, `67` hard-impact и `40` совпадающих joint-safety/joint-velocity cases; `10` failures находятся в reset window, остальные required categories равны нулю. Это лучше R13 (`380` failed cases) и V4 (`2876`), но всё ещё `FAIL`; formal visual review остаётся pending. Все TRAIN-5 checkpoints rejected; no optimizer run, multi-seed, TRAIN-5 Advance or TRAIN-6 is authorized. Bounded causal research завершён: controller lead/feed-forward отклонены как primary cause, root link/CoM mismatch подтверждён как недостаточный defect, а contact-consistent reference/reset выбран следующим направлением. Следующий increment — bounded V19 contact-manifold/fresh-versus-partial-reset prototype для `REQ-HUM-DATA-005/007`, не полный corpus rebuild. TRAIN-8 optional и не блокирует TRAIN-9 при заранее зафиксированном skip. R4a остаётся следующим подготовленным world-system increment, но пока не активен. B-12, Linux/cross-target evidence, R1/R7 и v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -691,7 +691,7 @@ claims не делаются. Подробная матрица evidence и rema
 PPO, policy quality, export/runtime evaluator, motion imitation, terrain,
 push/recovery и readiness claim остаются вне этого checkpoint.
 
-**Current humanoid movement training focus (2026-08-13):** работа следует
+**Current humanoid movement training focus (2026-08-14):** работа следует
 [TRAIN-0…TRAIN-9 plan](plans/2026-08-12-humanoid-motor-training-rebuild.md).
 Ближайшая последовательность ограничена так:
 
@@ -715,32 +715,42 @@ push/recovery и readiness claim остаются вне этого checkpoint.
    locomotion, recovery and portable export; optional TRAIN-8 либо проходит
    retention gate, либо заранее skipped в пользу TRAIN-7 candidate.
 
-**TRAIN-4 causal research checkpoint (`IN_PROGRESS / OPTIMIZER_FREE`,
-2026-08-14):** повторные геометрические и временные remediation существенно
-снизили число failures, но не закрыли exact-zero criterion. Остаток
-сконцентрирован в одной ankle/contact subsystem и преимущественно в первых
-`3..11` motor ticks; поэтому следующая root/retarget правка не выбирается до
-разделения четырёх конкурирующих причин:
+**TRAIN-4 causal research checkpoint (`COMPLETE / DECISION_RECORDED /
+OPTIMIZER_FREE`, 2026-08-14):** полный
+[decision report](development/humanoid-train4-causal-research-2026-08-14.md)
+зафиксировал code/event audit, primary-source review и три exact-schedule
+counterfactual reports. Во всех отчётах zero-residual control воспроизвёл
+R14 `12518/12518` case outcomes без расхождений. Target lead `1/4/6`,
+velocity feed-forward и zero-joint-reset-velocity не закрыли failure и
+регрессировали passing controls; они отклонены как primary remediation.
+Root-link/CoM velocity mismatch подтверждён в коде, но root-link writer в
+изоляции ухудшил `204 -> 220` failed cases. Zero/root/contact-projected
+velocity interventions доказали causal coupling reset velocity с ROM/impact,
+но переносили risk между категориями и поэтому не являются допустимыми fixes.
 
-1. reference trajectory статически допустима, но не является dynamically
-   viable по acceleration/jerk и доступному actuator envelope;
-2. reset не согласует reference `q/qdot`, внутреннее состояние actuator,
-   contact state или первый target tick;
-3. controller/target indexing, fixed-PD saturation либо effort/rate/power/work
-   intersection создаёт переходный lag;
-4. stance-chain retarget меняет sole geometry/contact timing, и требуется
-   support-aware root/foot compensation.
-
-Цикл обязан: построить event-level causal table из R14; проверить target/state,
-actuator saturation и contact ordering в коде; выполнить bounded
-counterfactual matrix на failing states и заранее выбранных passing controls;
-сверить reset/actuator/contact semantics с первичными Isaac Lab/PhysX sources
-и релевантной motion-tracking literature; выпустить decision report с
-подтверждёнными и отвергнутыми гипотезами, uncertainty и минимальной следующей
-identity. Полный corpus rebuild и повторный exhaustive audit запускаются только
-после выбора discriminating fix. Hard thresholds не меняются, contact
+Dominant actionable hypothesis — несогласованная contact mode/stance-point
+kinematics и final root/joint velocity field после retarget. Отдельно открыт
+reset-semantic risk: Accepted ADR-070 требует fresh PhysX scene, тогда как
+current vector environment делает indexed writes в running scene. PhysX
+contact-cache documentation делает это правдоподобной причиной, но не
+доказательством; нужен paired experiment. Hard thresholds не менялись, contact
 precision/recall остаются `ReportOnly`, formal visual review остаётся pending,
-optimizer/training запрещены.
+optimizer/training не запускались.
+
+**TRAIN-4 V19 contact-manifold prototype (`READY / NEXT / OPTIMIZER_FREE`,
+2026-08-14):** до нового full-corpus identity выполняется bounded prototype на
+`cmu05-walk-validation`, `cmu16-walk-nominal-b`, `cmu139-walk-heldout` и
+start-phase-matched passing controls. Он обязан: разделить Flight/Heel/Forefoot/
+Flat sticking modes; применять height+speed predicate к одному физическому
+point; совместно закрывать stance `h(q)=0` и `J(q)v=0`; пересчитывать root/joint
+velocities после final pose correction; использовать root-link velocity
+semantics; сравнить fresh-scene и indexed partial reset без grace/settling.
+Заранее frozen prototype caps соответствуют `2 mm` tangential и `1 mm` normal
+displacement per 60 Hz frame (`0.12/0.06 m/s`) и `5 mm` normal residual.
+Prototype допускает full 27-clip V19 rebuild только при нуле regressions на
+passing controls, строгом снижении каждой targeted failure class без новой
+required category и explicit ADR-070 disposition. Eventual TRAIN-4 Advance
+по-прежнему требует full coverage и ровно ноль required-safety events.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -1467,19 +1477,21 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 6. **R3b bounded general partition (`COMPLETE`):** ровно 4 regions/64 chunks,
    canonical packaged route и restart из `Requested`; B-06 закрыт без generic
    scheduler, placement catalog или alpha migration obligation.
-7. **R5 humanoid movement TRAIN-4 causal research (`ACTIVE_R&D / CURRENT WIP`):**
+7. **R5 humanoid movement TRAIN-4 V19 prototype (`ACTIVE_R&D / CURRENT WIP`):**
    TRAIN-0..3 advanced; прежний kinematic/data-only TRAIN-4 gate superseded.
    Последний corpus V18 прошёл `27/27` local validation и `12815/12815` native
    poses. Exhaustive R14 покрыл `12518/12518` start states, но остаётся `FAIL`:
    `204` required-safety failed cases (`121` hard-ROM, `67` hard-impact и `40`
    совпадающих joint-safety/joint-velocity), включая `10` reset-window cases;
-   остальные required categories равны нулю. До следующей corpus/profile
-   identity выполняется bounded causal research: event ordering,
-   reset/target/controller audit, failing-plus-control counterfactual matrix и
-   primary-source review. Его выход — decision report и минимальная
-   evidence-backed remediation; затем повторяются corpus/native/visual/full
-   exhaustive gates с exact zero. До `Advance` PPO запрещён. No training
-   quality, Stage 0 or R5 completion is claimed here.
+   остальные required categories равны нулю. Causal research завершён и
+   отклонил controller lead/feed-forward и простое velocity zeroing; decision
+   report выбрал contact-consistent reference/reset. Следующий bounded
+   increment строит point-consistent sticking modes, final pose/velocity
+   closure и paired fresh-scene/partial-reset evidence на трёх representative
+   clips с passing controls. Только после no-regression prototype создаётся
+   full V19 identity и повторяются corpus/native/visual/exhaustive gates с
+   exact zero. До `Advance` PPO запрещён. No training quality, Stage 0 or R5
+   completion is claimed here.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote
    SPEC-20/ADR-052 only with the one-NPC production consumer, typed authoring,
    separate World Services routine segment, current-only replay successor and
@@ -1506,8 +1518,8 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    остаётся `DEFERRED_LINUX`, v1 shipping не заявляется.
 
 Каждый package должен быть отдельным product increment с focused checks. WIP=1:
-сейчас выполняется bounded R5 TRAIN-4 dynamic-feasibility remediation; R4a не
-идёт параллельно и остаётся следующим queued world increment. SPEC-23 остаётся Proposed: завершённый R3 не
+сейчас выполняется bounded R5 TRAIN-4 V19 contact-manifold/reset prototype;
+R4a не идёт параллельно и остаётся следующим queued world increment. SPEC-23 остаётся Proposed: завершённый R3 не
 начинает универсальный scheduler design без второго concrete production
 workload.
 
