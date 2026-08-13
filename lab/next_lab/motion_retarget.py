@@ -1303,6 +1303,384 @@ def _level_stance_soles(
     return result
 
 
+def _close_bilateral_sole_pitch(
+    *,
+    values: NDArray[np.int64],
+    descriptor: dict[str, Any],
+    root_positions: FloatArray,
+    root_rotations: FloatArray,
+    bounds: dict[str, Any],
+    iterations: int,
+    smoothing_passes: int,
+    probe_microradians: int,
+    maximum_update_microradians: int,
+    velocity_limit_basis_points: int,
+    inverse_joint_weights_q16: tuple[int, int, int] = (65_536, 65_536, 65_536),
+    projection_mask: NDArray[np.bool_] | None = None,
+) -> NDArray[np.int64]:
+    """Close reset-pose sole pitch without spending ankle safety reserve.
+
+    The dynamic feasibility audit may reset at every admitted frame.  A foot
+    that is about to enter or leave stance must therefore retain a level
+    heel-to-forefoot segment even outside the provisional support interval.
+    The projection uses the complete sagittal leg chain so an ankle already at
+    its declared reserve boundary can transfer the residual to knee and hip.
+    """
+
+    frame_count = len(values)
+    if (
+        values.ndim != 2
+        or root_positions.shape != (frame_count, 3)
+        or root_rotations.shape != (frame_count, 3, 3)
+        or iterations <= 0
+        or smoothing_passes < 0
+        or probe_microradians <= 0
+        or maximum_update_microradians <= 0
+        or len(inverse_joint_weights_q16) != 3
+        or any(value <= 0 for value in inverse_joint_weights_q16)
+        or (
+            projection_mask is not None
+            and projection_mask.shape != (frame_count, 2)
+        )
+    ):
+        raise ValueError("bilateral sole-pitch closure trajectory is invalid")
+    result = values.astype(np.float64, copy=True)
+    by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
+    suffixes = ("hip-pitch", "knee", "ankle-pitch")
+    joint_ordinals = np.asarray(
+        [
+            [
+                int(by_id[f"joint.{side}-{suffix}"]["dof_ordinal"])
+                for suffix in suffixes
+            ]
+            for side in ("left", "right")
+        ],
+        dtype=np.int64,
+    )
+    joint_minimum = np.asarray(
+        [
+            [int(bounds[f"joint.{side}-{suffix}"][0]) for suffix in suffixes]
+            for side in ("left", "right")
+        ],
+        dtype=np.float64,
+    )
+    joint_maximum = np.asarray(
+        [
+            [int(bounds[f"joint.{side}-{suffix}"][1]) for suffix in suffixes]
+            for side in ("left", "right")
+        ],
+        dtype=np.float64,
+    )
+    effector_pairs = tuple(
+        (f"effector.{side}-heel", f"effector.{side}-forefoot")
+        for side in ("left", "right")
+    )
+    root_quaternions = tuple(
+        matrix_to_quaternion(rotation) for rotation in root_rotations
+    )
+    probe_radians = probe_microradians / 1_000_000.0
+    inverse_joint_weights = np.asarray(
+        inverse_joint_weights_q16, dtype=np.float64
+    ) / 65_536.0
+
+    for _ in range(iterations):
+        for frame_index in range(frame_count):
+            radians = result[frame_index] / 1_000_000.0
+            positions, rotations = target_forward_kinematics(
+                descriptor,
+                root_positions[frame_index],
+                root_quaternions[frame_index],
+                radians,
+            )
+            effectors = target_effectors(descriptor, positions, rotations)
+            for side_index, pair in enumerate(effector_pairs):
+                if (
+                    projection_mask is not None
+                    and not bool(projection_mask[frame_index, side_index])
+                ):
+                    continue
+                error = float(
+                    effectors[pair[0]][1] - effectors[pair[1]][1]
+                )
+                if abs(error) <= 1.0e-12:
+                    continue
+                jacobian = np.empty(len(suffixes), dtype=np.float64)
+                for column, ordinal in enumerate(joint_ordinals[side_index]):
+                    candidate = radians.copy()
+                    candidate[ordinal] += probe_radians
+                    probed_positions, probed_rotations = target_forward_kinematics(
+                        descriptor,
+                        root_positions[frame_index],
+                        root_quaternions[frame_index],
+                        candidate,
+                    )
+                    probed_effectors = target_effectors(
+                        descriptor, probed_positions, probed_rotations
+                    )
+                    probed_error = float(
+                        probed_effectors[pair[0]][1]
+                        - probed_effectors[pair[1]][1]
+                    )
+                    jacobian[column] = (probed_error - error) / probe_radians
+
+                current = result[frame_index, joint_ordinals[side_index]]
+                desired_direction = -error * jacobian
+                available = ~(
+                    (
+                        (current <= joint_minimum[side_index] + 0.5)
+                        & (desired_direction < 0.0)
+                    )
+                    | (
+                        (current >= joint_maximum[side_index] - 0.5)
+                        & (desired_direction > 0.0)
+                    )
+                )
+                denominator = float(
+                    np.sum(
+                        jacobian[available]
+                        * jacobian[available]
+                        * inverse_joint_weights[available]
+                    )
+                )
+                if denominator <= 1.0e-18:
+                    continue
+                delta_microradians = np.zeros(len(suffixes), dtype=np.float64)
+                delta_microradians[available] = (
+                    -error
+                    * jacobian[available]
+                    * inverse_joint_weights[available]
+                    / denominator
+                    * 1_000_000.0
+                )
+                result[frame_index, joint_ordinals[side_index]] = np.clip(
+                    current
+                    + np.clip(
+                        delta_microradians,
+                        -maximum_update_microradians,
+                        maximum_update_microradians,
+                    ),
+                    joint_minimum[side_index],
+                    joint_maximum[side_index],
+                )
+
+    closed = np.rint(result).astype(np.int64)
+    selected_ordinals = joint_ordinals.reshape(-1)
+    closed[:, selected_ordinals] = _weighted_temporal_smooth(
+        closed[:, selected_ordinals],
+        kernel=(1, 4, 6, 4, 1),
+        passes=smoothing_passes,
+    )
+    for side_index in range(2):
+        closed[:, joint_ordinals[side_index]] = np.clip(
+            closed[:, joint_ordinals[side_index]],
+            joint_minimum[side_index].astype(np.int64),
+            joint_maximum[side_index].astype(np.int64),
+        )
+    closed = _project_joint_velocity(
+        closed,
+        descriptor,
+        60,
+        velocity_limit_basis_points=velocity_limit_basis_points,
+    )
+    for side_index in range(2):
+        closed[:, joint_ordinals[side_index]] = np.clip(
+            closed[:, joint_ordinals[side_index]],
+            joint_minimum[side_index].astype(np.int64),
+            joint_maximum[side_index].astype(np.int64),
+        )
+    return closed
+
+
+def _restore_swing_sole_height(
+    *,
+    target_height_values: NDArray[np.int64],
+    values: NDArray[np.int64],
+    descriptor: dict[str, Any],
+    root_positions: FloatArray,
+    root_rotations: FloatArray,
+    bounds: dict[str, Any],
+    restore_mask: NDArray[np.bool_],
+    iterations: int,
+    smoothing_passes: int,
+    probe_microradians: int,
+    maximum_update_microradians: int,
+    velocity_limit_basis_points: int,
+) -> NDArray[np.int64]:
+    """Restore swing height in the null space of level-sole pitch."""
+
+    frame_count = len(values)
+    if (
+        target_height_values.shape != values.shape
+        or values.ndim != 2
+        or root_positions.shape != (frame_count, 3)
+        or root_rotations.shape != (frame_count, 3, 3)
+        or restore_mask.shape != (frame_count, 2)
+        or iterations <= 0
+        or smoothing_passes < 0
+        or probe_microradians <= 0
+        or maximum_update_microradians <= 0
+    ):
+        raise ValueError("swing sole-height restoration trajectory is invalid")
+    by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
+    suffixes = ("hip-pitch", "knee", "ankle-pitch")
+    joint_ordinals = np.asarray(
+        [
+            [
+                int(by_id[f"joint.{side}-{suffix}"]["dof_ordinal"])
+                for suffix in suffixes
+            ]
+            for side in ("left", "right")
+        ],
+        dtype=np.int64,
+    )
+    joint_minimum = np.asarray(
+        [
+            [int(bounds[f"joint.{side}-{suffix}"][0]) for suffix in suffixes]
+            for side in ("left", "right")
+        ],
+        dtype=np.float64,
+    )
+    joint_maximum = np.asarray(
+        [
+            [int(bounds[f"joint.{side}-{suffix}"][1]) for suffix in suffixes]
+            for side in ("left", "right")
+        ],
+        dtype=np.float64,
+    )
+    effector_pairs = tuple(
+        (f"effector.{side}-heel", f"effector.{side}-forefoot")
+        for side in ("left", "right")
+    )
+    root_quaternions = tuple(
+        matrix_to_quaternion(rotation) for rotation in root_rotations
+    )
+    probe_radians = probe_microradians / 1_000_000.0
+    target_height = np.empty((frame_count, 2), dtype=np.float64)
+    for frame_index in range(frame_count):
+        positions, rotations = target_forward_kinematics(
+            descriptor,
+            root_positions[frame_index],
+            root_quaternions[frame_index],
+            target_height_values[frame_index].astype(np.float64) / 1_000_000.0,
+        )
+        effectors = target_effectors(descriptor, positions, rotations)
+        for side_index, pair in enumerate(effector_pairs):
+            target_height[frame_index, side_index] = float(
+                (effectors[pair[0]] + effectors[pair[1]])[1] / 2.0
+            )
+
+    result = values.astype(np.float64, copy=True)
+    for _ in range(iterations):
+        for frame_index in range(frame_count):
+            radians = result[frame_index] / 1_000_000.0
+            positions, rotations = target_forward_kinematics(
+                descriptor,
+                root_positions[frame_index],
+                root_quaternions[frame_index],
+                radians,
+            )
+            effectors = target_effectors(descriptor, positions, rotations)
+            for side_index, pair in enumerate(effector_pairs):
+                if not bool(restore_mask[frame_index, side_index]):
+                    continue
+                center = (effectors[pair[0]] + effectors[pair[1]]) / 2.0
+                deficit = target_height[frame_index, side_index] - center[1]
+                if deficit <= 1.0e-9:
+                    continue
+                sole_pitch = float(
+                    effectors[pair[0]][1] - effectors[pair[1]][1]
+                )
+                height_jacobian = np.empty(3, dtype=np.float64)
+                pitch_jacobian = np.empty(3, dtype=np.float64)
+                for column, ordinal in enumerate(joint_ordinals[side_index]):
+                    candidate = radians.copy()
+                    candidate[ordinal] += probe_radians
+                    probed_positions, probed_rotations = target_forward_kinematics(
+                        descriptor,
+                        root_positions[frame_index],
+                        root_quaternions[frame_index],
+                        candidate,
+                    )
+                    probed_effectors = target_effectors(
+                        descriptor, probed_positions, probed_rotations
+                    )
+                    probed_center = (
+                        probed_effectors[pair[0]] + probed_effectors[pair[1]]
+                    ) / 2.0
+                    height_jacobian[column] = (
+                        probed_center[1] - center[1]
+                    ) / probe_radians
+                    pitch_jacobian[column] = (
+                        probed_effectors[pair[0]][1]
+                        - probed_effectors[pair[1]][1]
+                        - sole_pitch
+                    ) / probe_radians
+                current = result[frame_index, joint_ordinals[side_index]]
+                direction = height_jacobian.copy()
+                pitch_norm = float(np.dot(pitch_jacobian, pitch_jacobian))
+                if pitch_norm > 1.0e-18:
+                    direction -= (
+                        pitch_jacobian
+                        * float(np.dot(direction, pitch_jacobian))
+                        / pitch_norm
+                    )
+                available = ~(
+                    ((current <= joint_minimum[side_index] + 0.5) & (direction < 0.0))
+                    | ((current >= joint_maximum[side_index] - 0.5) & (direction > 0.0))
+                )
+                direction[~available] = 0.0
+                if np.any(~available):
+                    available_pitch = pitch_jacobian[available]
+                    available_direction = height_jacobian[available]
+                    available_pitch_norm = float(
+                        np.dot(available_pitch, available_pitch)
+                    )
+                    if available_pitch_norm > 1.0e-18:
+                        available_direction -= (
+                            available_pitch
+                            * float(
+                                np.dot(available_direction, available_pitch)
+                            )
+                            / available_pitch_norm
+                        )
+                    direction[available] = available_direction
+                height_gain = float(np.dot(height_jacobian, direction))
+                if height_gain <= 1.0e-18:
+                    continue
+                delta = deficit * direction / height_gain * 1_000_000.0
+                result[frame_index, joint_ordinals[side_index]] = np.clip(
+                    current
+                    + np.clip(
+                        delta,
+                        -maximum_update_microradians,
+                        maximum_update_microradians,
+                    ),
+                    joint_minimum[side_index],
+                    joint_maximum[side_index],
+                )
+
+    restored = values.copy()
+    selected_ordinals = joint_ordinals.reshape(-1)
+    restored[:, selected_ordinals] += _weighted_temporal_smooth(
+        np.rint(result[:, selected_ordinals]).astype(np.int64)
+        - values[:, selected_ordinals],
+        kernel=(1, 4, 6, 4, 1),
+        passes=smoothing_passes,
+    )
+    for side_index in range(2):
+        restored[:, joint_ordinals[side_index]] = np.clip(
+            restored[:, joint_ordinals[side_index]],
+            joint_minimum[side_index].astype(np.int64),
+            joint_maximum[side_index].astype(np.int64),
+        )
+    return _project_joint_velocity(
+        restored,
+        descriptor,
+        60,
+        velocity_limit_basis_points=velocity_limit_basis_points,
+    )
+
+
 def _lock_stance_root_planar(
     *,
     descriptor: dict[str, Any],
@@ -1742,6 +2120,67 @@ def _solve_contact_constrained_stance_chain(
         60,
         velocity_limit_basis_points=velocity_limit_basis_points,
     )
+    pre_sole_pitch_integer = solved_integer.copy()
+    if "final_sole_pitch_projection_iterations" in chain:
+        projection_mask: NDArray[np.bool_] | None = None
+        if "final_sole_pitch_support_dilation_frames" in chain:
+            dilation = int(chain["final_sole_pitch_support_dilation_frames"])
+            projection_mask = active_support.copy()
+            for offset in range(1, dilation + 1):
+                if loop:
+                    projection_mask |= np.roll(active_support, offset, axis=0)
+                    projection_mask |= np.roll(active_support, -offset, axis=0)
+                else:
+                    projection_mask[offset:] |= active_support[:-offset]
+                    projection_mask[:-offset] |= active_support[offset:]
+        solved_integer = _close_bilateral_sole_pitch(
+            values=solved_integer,
+            descriptor=descriptor,
+            root_positions=root_positions,
+            root_rotations=root_rotations,
+            bounds=profile["joint_bounds_microradians"],
+            iterations=int(chain["final_sole_pitch_projection_iterations"]),
+            smoothing_passes=int(chain["final_sole_pitch_smoothing_passes"]),
+            probe_microradians=int(chain["final_sole_pitch_probe_microradians"]),
+            maximum_update_microradians=int(
+                chain["final_sole_pitch_maximum_update_microradians"]
+            ),
+            velocity_limit_basis_points=velocity_limit_basis_points,
+            inverse_joint_weights_q16=tuple(
+                int(value)
+                for value in chain.get(
+                    "final_sole_pitch_inverse_joint_weights_q16",
+                    (65_536, 65_536, 65_536),
+                )
+            ),
+            projection_mask=projection_mask,
+        )
+        if (
+            profile.get("algorithm_id")
+            == "nextengine.cmu-stance-chain-retarget.v6"
+        ):
+            solved_integer = _restore_swing_sole_height(
+                target_height_values=pre_sole_pitch_integer,
+                values=solved_integer,
+                descriptor=descriptor,
+                root_positions=root_positions,
+                root_rotations=root_rotations,
+                bounds=profile["joint_bounds_microradians"],
+                restore_mask=~active_support,
+                iterations=int(chain["final_swing_clearance_iterations"]),
+                smoothing_passes=int(
+                    chain["final_swing_clearance_smoothing_passes"]
+                ),
+                probe_microradians=int(
+                    chain["final_swing_clearance_probe_microradians"]
+                ),
+                maximum_update_microradians=int(
+                    chain[
+                        "final_swing_clearance_maximum_update_microradians"
+                    ]
+                ),
+                velocity_limit_basis_points=velocity_limit_basis_points,
+            )
     result = solved_integer.astype(np.float64) / 1_000_000.0
     # Final joint smoothing is intentionally applied after the nonlinear solve,
     # but it also changes the sole trajectory slightly.  Close that last planar

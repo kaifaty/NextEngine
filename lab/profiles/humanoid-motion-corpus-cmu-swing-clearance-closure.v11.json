@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion-swing-clearance-closure.v11",
+  "status": "Frozen",
+  "base_profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion.v1",
+  "base_profile_sha256": "f281f73773f32ddba506c01aa66301488dadc40d91efbd78e2c1fb79a70951fc",
+  "variant": {
+    "joint_velocity_limit_basis_points": 2500,
+    "unidirectional_joint_minimum_microradians": 261799,
+    "hip_roll_minimum_microradians": 87266,
+    "ankle_pitch_minimum_microradians": -523599,
+    "ankle_pitch_minimum_hard_reserve_microradians": 174533,
+    "ankle_roll_minimum_microradians": -87266,
+    "ankle_roll_maximum_microradians": 87266,
+    "ankle_roll_minimum_hard_reserve_microradians": 261800,
+    "locomotion_ground_correction_maximum_absolute_micrometres": 250000,
+    "excluded_clip_ids": [
+      "cmu16-walk-nominal-a",
+      "cmu139-turn-right-heldout"
+    ],
+    "additional_source_files": [
+      {
+        "path": "111/111_34.amc",
+        "sha256": "9f0b319349b82afdc6febaaec628b9725a6cc8d6369322573efb0a4737fe2f34"
+      }
+    ],
+    "clip_source_overrides": {
+      "cmu16-walk-nominal-b": {
+        "subject": "111",
+        "trial": "34",
+        "source_first_frame": 200,
+        "source_last_frame": 1000,
+        "split_group_id": "cmu-subject-111-trial-34",
+        "planar_root_scale_basis_points": 10000,
+        "description": "continuous mid-clip Walk crop with five stable full gait cycles"
+      },
+      "cmu16-walk-slow": {
+        "subject": "111",
+        "trial": "34",
+        "source_first_frame": 200,
+        "source_last_frame": 1000,
+        "split_group_id": "cmu-subject-111-trial-34",
+        "planar_root_scale_basis_points": 8200,
+        "description": "same-split five-cycle Walk derivative scaled to the admitted slow planar-speed band"
+      },
+      "cmu139-walk-slow-heldout": {
+        "subject": "139",
+        "trial": "29",
+        "source_first_frame": 200,
+        "source_last_frame": 1400,
+        "split_group_id": "cmu-subject-139-trial-29",
+        "planar_root_scale_basis_points": 10000,
+        "description": "continuous extended Sneaking crop retaining four full post-closure gait cycles"
+      }
+    },
+    "clip_derivation_overrides": {
+      "cmu139-turn-left-heldout": {
+        "derive_mirror_as": "cmu139-turn-right-heldout"
+      }
+    },
+    "temporal_contact_solve": {
+      "algorithm_id": "nextengine.cmu-stance-chain-retarget.v6",
+      "source_frame_stride": 1,
+      "smoothing": {
+        "kernel_weights": [
+          1,
+          4,
+          6,
+          4,
+          1
+        ],
+        "whole_body_passes": 12,
+        "protected_additional_passes": 52,
+        "protected_joint_ids": [
+          "joint.left-ankle-pitch",
+          "joint.left-ankle-roll",
+          "joint.right-ankle-pitch",
+          "joint.right-ankle-roll"
+        ]
+      },
+      "root_orientation": {
+        "kernel_weights": [
+          1,
+          4,
+          6,
+          4,
+          1
+        ],
+        "smoothing_passes": 12,
+        "minimum_alignment_speed_micrometres_per_second": 100000,
+        "maximum_yaw_speed_microradians_per_second": 300000,
+        "velocity_projection_passes": 4
+      },
+      "joint_bounds_microradians": {
+        "joint.left-hip-pitch": [
+          -349066,
+          785398
+        ],
+        "joint.left-hip-roll": [
+          87266,
+          349066
+        ],
+        "joint.left-hip-yaw": [
+          0,
+          0
+        ],
+        "joint.left-knee": [
+          261799,
+          2181662
+        ],
+        "joint.left-ankle-pitch": [
+          -523599,
+          174533
+        ],
+        "joint.left-ankle-roll": [
+          -87266,
+          87266
+        ],
+        "joint.right-hip-pitch": [
+          -349066,
+          785398
+        ],
+        "joint.right-hip-roll": [
+          87266,
+          349066
+        ],
+        "joint.right-hip-yaw": [
+          0,
+          0
+        ],
+        "joint.right-knee": [
+          261799,
+          2181662
+        ],
+        "joint.right-ankle-pitch": [
+          -523599,
+          174533
+        ],
+        "joint.right-ankle-roll": [
+          -87266,
+          87266
+        ]
+      },
+      "support_phase": {
+        "double_support_height_micrometres": 18000,
+        "maximum_entry_sole_speed_micrometres_per_second": 500000,
+        "minimum_state_frames": 4,
+        "transition_smoothing_passes": 32,
+        "stance_knee_microradians": 261799,
+        "stance_hip_roll_microradians": 87266,
+        "stance_sole_leveling_iterations": 2,
+        "stance_sole_leveling_probe_microradians": 100,
+        "swing_knee_lift_microradians": 174533
+      },
+      "stance_chain": {
+        "ordered_joint_suffixes": [
+          "hip-pitch",
+          "hip-roll",
+          "knee",
+          "ankle-pitch",
+          "ankle-roll"
+        ],
+        "support_weight_smoothing_passes": 8,
+        "final_joint_smoothing_passes": 16,
+        "final_sole_pitch_projection_iterations": 4,
+        "final_sole_pitch_smoothing_passes": 32,
+        "final_sole_pitch_probe_microradians": 100,
+        "final_sole_pitch_maximum_update_microradians": 150000,
+        "final_sole_pitch_inverse_joint_weights_q16": [
+          6554,
+          13107,
+          65536
+        ],
+        "final_swing_clearance_iterations": 4,
+        "final_swing_clearance_smoothing_passes": 80,
+        "final_swing_clearance_probe_microradians": 100,
+        "final_swing_clearance_maximum_update_microradians": 150000,
+        "outer_iterations": 3,
+        "conjugate_gradient_iterations": 100,
+        "jacobian_probe_microradians": 100,
+        "sole_normal_lever_micrometres": 180000,
+        "maximum_joint_update_microradians": 80000,
+        "maximum_root_update_micrometres": 15000,
+        "contact_constraint_weight_q16": 196608,
+        "joint_reference_weight_q16": 393,
+        "joint_velocity_weight_q16": 52429,
+        "joint_acceleration_weight_q16": 327680,
+        "root_reference_weight_q16": 393,
+        "root_velocity_weight_q16": 52429,
+        "root_acceleration_weight_q16": 327680
+      },
+      "root_height": {
+        "minimum_clearance_micrometres": 500,
+        "maximum_vertical_speed_micrometres_per_second": 200000
+      },
+      "root_planar": {
+        "kernel_weights": [
+          1,
+          4,
+          6,
+          4,
+          1
+        ],
+        "smoothing_passes": 2,
+        "endpoint_taper_frames": 70,
+        "maximum_absolute_correction_micrometres": 150000,
+        "maximum_speed_micrometres_per_second": 900000
+      },
+      "validation": {
+        "maximum_protected_joint_acceleration_microradians_per_second_squared": 25000000,
+        "maximum_root_vertical_speed_micrometres_per_second": 200060,
+        "maximum_root_yaw_speed_microradians_per_second": 300060,
+        "maximum_planar_root_correction_micrometres": 150000,
+        "maximum_planar_root_correction_speed_micrometres_per_second": 900000,
+        "minimum_contact_interval_frames": 3,
+        "maximum_support_sole_planar_speed_micrometres_per_second": 1000000,
+        "maximum_support_sole_vertical_speed_micrometres_per_second": 750000
+      }
+    },
+    "contact_interval_stabilization": {
+      "sole_enter_height_micrometres": 45000,
+      "sole_exit_height_micrometres": 65000,
+      "sole_enter_speed_micrometres_per_second": 600000,
+      "sole_exit_speed_micrometres_per_second": 900000,
+      "minimum_on_frames": 3,
+      "minimum_off_frames": 3
+    },
+    "rationale": "The exhaustive optimizer-free V5 audit completed all 11968 cases but failed 7386 required-safety cases, including 6985 hard impacts. Reset-pose diagnosis localized the dominant mechanism to heel-to-forefoot height difference on the lower foot. V6 and V7 all-frame closure removed that defect but collapsed gait contacts, while the V8 support-window corpus validated every clip locally yet missed one required slow-walk cycle in validation and heldout and left hazardous frames whenever provisional support differed from the physically lower sole. This profile preserves the frozen source identities, split assignments, sampling rates, BodySchema, USD, PD and every safety and terminal threshold. It retains the required fifteen-degree ankle-roll hard reserve and the one-degree knee and elbow reserves. Ankle-pitch may use its complete soft ROM down to minus thirty degrees, retaining ten degrees to the hard limit; this is the largest empirically tested pitch reserve that allowed the all-frame closure and subsequent swing recovery to preserve four nominal gait cycles. After deterministic ankle-priority all-frame sole-pitch closure, a four-iteration finite-difference null-space projection raises only the non-support sole toward its pre-closure height while cancelling first-order pitch change. The V10 full-corpus build validated twenty-five of twenty-seven clips but exposed a mirrored validation start pair at 26143200 microradians per second squared against the frozen 25000000 limit. A bounded diagnostic sweep found that eighty symmetric smoothing passes reduce the base start clip to 21232800 while preserving its local contact and kinematic checks; seventy-two passes left materially less reserve and ninety-six did not improve the result. Eighty passes and the existing twenty-five-percent joint-velocity projection are therefore frozen here as the smallest tested setting with at least fifteen-percent acceleration reserve on that case. The heldout Sneaking crop is extended within the same immutable source file and split group from frame 1000 to frame 1400 so four full post-closure cycles remain observable. The operation targets only the diagnosed reference-pose defect and does not authorize an optimizer run. Fresh deterministic import, native pose, visual-overlay and exhaustive dynamic evidence remain mandatory before TRAIN-4 can advance."
+  }
+}
+
+

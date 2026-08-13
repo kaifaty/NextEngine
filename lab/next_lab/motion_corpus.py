@@ -35,6 +35,15 @@ BASE_MOTION_CORPUS_PROFILE_ID = (
 BASE_MOTION_CORPUS_PROFILE_SHA256 = (
     "f281f73773f32ddba506c01aa66301488dadc40d91efbd78e2c1fb79a70951fc"
 )
+STANCE_CHAIN_ALGORITHM_IDS = frozenset(
+    {
+        "nextengine.cmu-stance-chain-retarget.v2",
+        "nextengine.cmu-stance-chain-retarget.v3",
+        "nextengine.cmu-stance-chain-retarget.v4",
+        "nextengine.cmu-stance-chain-retarget.v5",
+        "nextengine.cmu-stance-chain-retarget.v6",
+    }
+)
 
 
 def build_motion_corpus(
@@ -277,10 +286,15 @@ def load_motion_corpus_profile(profile_path: Path) -> tuple[dict[str, Any], byte
         "additional_source_files",
         "clip_derivation_overrides",
     }
+    swing_clearance_variant_keys = stance_chain_variant_keys | {
+        "ankle_pitch_minimum_microradians",
+        "ankle_pitch_minimum_hard_reserve_microradians",
+    }
     if not isinstance(variant, dict) or frozenset(variant) not in {
         *legacy_variant_keys,
         temporal_variant_keys,
         stance_chain_variant_keys,
+        swing_clearance_variant_keys,
     }:
         raise ValueError("motion corpus overlay variant mismatch")
     velocity_basis_points = int(variant["joint_velocity_limit_basis_points"])
@@ -312,12 +326,29 @@ def load_motion_corpus_profile(profile_path: Path) -> tuple[dict[str, Any], byte
             ],
         )
     )
+    ankle_pitch_minimum = int(
+        variant.get(
+            "ankle_pitch_minimum_microradians",
+            base["retarget"]["locomotion_collision_projection"][
+                "ankle_pitch_minimum_microradians"
+            ],
+        )
+    )
+    ankle_pitch_minimum_hard_reserve = int(
+        variant.get(
+            "ankle_pitch_minimum_hard_reserve_microradians",
+            ankle_pitch_minimum + 698_132,
+        )
+    )
     if (
         not 0 < velocity_basis_points <= 10_000
         or unidirectional_minimum <= 0
         or not 0 <= hip_roll_minimum <= 523_599
         or ankle_roll_minimum >= ankle_roll_maximum
         or ankle_roll_minimum_hard_reserve < 0
+        or not -523_599 <= ankle_pitch_minimum <= -349_066
+        or ankle_pitch_minimum_hard_reserve
+        != ankle_pitch_minimum + 698_132
         or not isinstance(variant["rationale"], str)
         or not variant["rationale"]
     ):
@@ -336,6 +367,7 @@ def load_motion_corpus_profile(profile_path: Path) -> tuple[dict[str, Any], byte
     )
     projection = result["retarget"]["locomotion_collision_projection"]
     projection["hip_roll_minimum_microradians"] = hip_roll_minimum
+    projection["ankle_pitch_minimum_microradians"] = ankle_pitch_minimum
     projection["ankle_roll_minimum_microradians"] = ankle_roll_minimum
     projection["ankle_roll_maximum_microradians"] = ankle_roll_maximum
     projection["ankle_roll_minimum_hard_reserve_microradians"] = (
@@ -411,7 +443,7 @@ def _validate_temporal_contact_variant(
         "root_planar",
         "validation",
     }
-    if algorithm_id == "nextengine.cmu-stance-chain-retarget.v2":
+    if algorithm_id in STANCE_CHAIN_ALGORITHM_IDS:
         expected_solve_fields.update(
             {"root_orientation", "source_frame_stride", "stance_chain"}
         )
@@ -421,10 +453,10 @@ def _validate_temporal_contact_variant(
         or algorithm_id
         not in {
             "nextengine.cmu-temporal-contact-retarget.v1",
-            "nextengine.cmu-stance-chain-retarget.v2",
+            *STANCE_CHAIN_ALGORITHM_IDS,
         }
         or (
-            algorithm_id == "nextengine.cmu-stance-chain-retarget.v2"
+            algorithm_id in STANCE_CHAIN_ALGORITHM_IDS
             and (
                 isinstance(solve["source_frame_stride"], bool)
                 or solve["source_frame_stride"] != 1
@@ -465,7 +497,7 @@ def _validate_temporal_contact_variant(
         "stance_sole_leveling_probe_microradians",
         "swing_knee_lift_microradians",
     }
-    if algorithm_id == "nextengine.cmu-stance-chain-retarget.v2":
+    if algorithm_id in STANCE_CHAIN_ALGORITHM_IDS:
         expected_support_fields.add(
             "maximum_entry_sole_speed_micrometres_per_second"
         )
@@ -476,7 +508,7 @@ def _validate_temporal_contact_variant(
         "maximum_planar_root_correction_speed_micrometres_per_second",
         "minimum_contact_interval_frames",
     }
-    if algorithm_id == "nextengine.cmu-stance-chain-retarget.v2":
+    if algorithm_id in STANCE_CHAIN_ALGORITHM_IDS:
         expected_validation_fields.update(
             {
                 "maximum_support_sole_planar_speed_micrometres_per_second",
@@ -540,7 +572,7 @@ def _validate_temporal_contact_variant(
         "ankle-pitch",
         "ankle-roll",
     }
-    if algorithm_id == "nextengine.cmu-stance-chain-retarget.v2":
+    if algorithm_id in STANCE_CHAIN_ALGORITHM_IDS:
         descriptor_joint_suffixes.add("hip-pitch")
     descriptor_joint_ids = {
         joint_id
@@ -557,7 +589,7 @@ def _validate_temporal_contact_variant(
     ):
         raise ValueError("motion corpus temporal joint bounds are invalid")
     stance_chain = solve.get("stance_chain")
-    if algorithm_id == "nextengine.cmu-stance-chain-retarget.v2":
+    if algorithm_id in STANCE_CHAIN_ALGORITHM_IDS:
         expected_stance_chain_fields = {
             "ordered_joint_suffixes",
             "support_weight_smoothing_passes",
@@ -576,8 +608,44 @@ def _validate_temporal_contact_variant(
             "root_velocity_weight_q16",
             "root_acceleration_weight_q16",
         }
+        if algorithm_id in {
+            "nextengine.cmu-stance-chain-retarget.v3",
+            "nextengine.cmu-stance-chain-retarget.v4",
+            "nextengine.cmu-stance-chain-retarget.v5",
+            "nextengine.cmu-stance-chain-retarget.v6",
+        }:
+            expected_stance_chain_fields.update(
+                {
+                    "final_sole_pitch_projection_iterations",
+                    "final_sole_pitch_smoothing_passes",
+                    "final_sole_pitch_probe_microradians",
+                    "final_sole_pitch_maximum_update_microradians",
+                }
+            )
+        if algorithm_id in {
+            "nextengine.cmu-stance-chain-retarget.v4",
+            "nextengine.cmu-stance-chain-retarget.v5",
+            "nextengine.cmu-stance-chain-retarget.v6",
+        }:
+            expected_stance_chain_fields.add(
+                "final_sole_pitch_inverse_joint_weights_q16"
+            )
+        if algorithm_id == "nextengine.cmu-stance-chain-retarget.v5":
+            expected_stance_chain_fields.add(
+                "final_sole_pitch_support_dilation_frames"
+            )
+        if algorithm_id == "nextengine.cmu-stance-chain-retarget.v6":
+            expected_stance_chain_fields.update(
+                {
+                    "final_swing_clearance_iterations",
+                    "final_swing_clearance_smoothing_passes",
+                    "final_swing_clearance_probe_microradians",
+                    "final_swing_clearance_maximum_update_microradians",
+                }
+            )
         positive_integer_fields = expected_stance_chain_fields - {
-            "ordered_joint_suffixes"
+            "ordered_joint_suffixes",
+            "final_sole_pitch_inverse_joint_weights_q16",
         }
         if (
             not isinstance(stance_chain, dict)
@@ -604,12 +672,92 @@ def _validate_temporal_contact_variant(
             or int(stance_chain["maximum_joint_update_microradians"])
             > 500_000
             or int(stance_chain["maximum_root_update_micrometres"]) > 100_000
+            or (
+                algorithm_id
+                in {
+                    "nextengine.cmu-stance-chain-retarget.v3",
+                    "nextengine.cmu-stance-chain-retarget.v4",
+                    "nextengine.cmu-stance-chain-retarget.v5",
+                    "nextengine.cmu-stance-chain-retarget.v6",
+                }
+                and (
+                    int(stance_chain["final_sole_pitch_projection_iterations"])
+                    > 8
+                    or int(stance_chain["final_sole_pitch_smoothing_passes"])
+                    > 256
+                    or int(stance_chain["final_sole_pitch_probe_microradians"])
+                    > 100_000
+                    or int(
+                        stance_chain[
+                            "final_sole_pitch_maximum_update_microradians"
+                        ]
+                    )
+                    > 500_000
+                )
+            )
+            or (
+                algorithm_id
+                in {
+                    "nextengine.cmu-stance-chain-retarget.v4",
+                    "nextengine.cmu-stance-chain-retarget.v5",
+                    "nextengine.cmu-stance-chain-retarget.v6",
+                }
+                and (
+                    not isinstance(
+                        stance_chain[
+                            "final_sole_pitch_inverse_joint_weights_q16"
+                        ],
+                        list,
+                    )
+                    or len(
+                        stance_chain[
+                            "final_sole_pitch_inverse_joint_weights_q16"
+                        ]
+                    )
+                    != 3
+                    or any(
+                        isinstance(value, bool)
+                        or not isinstance(value, int)
+                        or not 0 < value <= 65_536
+                        for value in stance_chain[
+                            "final_sole_pitch_inverse_joint_weights_q16"
+                        ]
+                    )
+                )
+            )
+            or (
+                algorithm_id == "nextengine.cmu-stance-chain-retarget.v5"
+                and int(
+                    stance_chain["final_sole_pitch_support_dilation_frames"]
+                )
+                > 256
+            )
+            or (
+                algorithm_id == "nextengine.cmu-stance-chain-retarget.v6"
+                and (
+                    int(stance_chain["final_swing_clearance_iterations"]) > 8
+                    or int(
+                        stance_chain["final_swing_clearance_smoothing_passes"]
+                    )
+                    > 256
+                    or int(
+                        stance_chain["final_swing_clearance_probe_microradians"]
+                    )
+                    > 100_000
+                    or int(
+                        stance_chain[
+                            "final_swing_clearance_maximum_update_microradians"
+                        ]
+                    )
+                    > 500_000
+                )
+            )
         ):
             raise ValueError("motion corpus stance-chain solve is invalid")
     elif stance_chain is not None:
         raise ValueError("motion corpus temporal V1 has unexpected stance chain")
     root_orientation = solve.get("root_orientation")
-    if algorithm_id == "nextengine.cmu-stance-chain-retarget.v2":
+    if algorithm_id in STANCE_CHAIN_ALGORITHM_IDS:
         if (
             not isinstance(root_orientation, dict)
             or set(root_orientation)
@@ -656,11 +804,11 @@ def _validate_temporal_contact_variant(
         or len(additional_paths) != len(set(additional_paths))
         or additional_paths != sorted(additional_paths)
         or (
-            algorithm_id == "nextengine.cmu-stance-chain-retarget.v2"
+            algorithm_id in STANCE_CHAIN_ALGORITHM_IDS
             and not additional_source_files
         )
         or (
-            algorithm_id != "nextengine.cmu-stance-chain-retarget.v2"
+            algorithm_id not in STANCE_CHAIN_ALGORITHM_IDS
             and additional_source_files
         )
     ):
@@ -726,16 +874,16 @@ def _validate_temporal_contact_variant(
         )
         != len(clip_derivation_overrides)
         or (
-            algorithm_id == "nextengine.cmu-stance-chain-retarget.v2"
+            algorithm_id in STANCE_CHAIN_ALGORITHM_IDS
             and not clip_derivation_overrides
         )
         or (
-            algorithm_id != "nextengine.cmu-stance-chain-retarget.v2"
+            algorithm_id not in STANCE_CHAIN_ALGORITHM_IDS
             and clip_derivation_overrides
         )
         or int(support["double_support_height_micrometres"]) < 0
         or (
-            algorithm_id == "nextengine.cmu-stance-chain-retarget.v2"
+            algorithm_id in STANCE_CHAIN_ALGORITHM_IDS
             and int(
                 support[
                     "maximum_entry_sole_speed_micrometres_per_second"
@@ -789,7 +937,7 @@ def _validate_temporal_contact_variant(
         != int(root_planar["maximum_speed_micrometres_per_second"])
         or int(validation["minimum_contact_interval_frames"]) <= 0
         or (
-            algorithm_id == "nextengine.cmu-stance-chain-retarget.v2"
+            algorithm_id in STANCE_CHAIN_ALGORITHM_IDS
             and (
                 int(
                     validation[
@@ -843,6 +991,34 @@ def _validate_temporal_contact_variant(
             ][1]
         )
         != int(variant["ankle_roll_maximum_microradians"])
+        or (
+            algorithm_id == "nextengine.cmu-stance-chain-retarget.v6"
+            and (
+                "ankle_pitch_minimum_microradians" not in variant
+                or "ankle_pitch_minimum_hard_reserve_microradians"
+                not in variant
+                or int(
+                    solve["joint_bounds_microradians"][
+                        "joint.left-ankle-pitch"
+                    ][0]
+                )
+                != int(variant["ankle_pitch_minimum_microradians"])
+                or int(
+                    solve["joint_bounds_microradians"][
+                        "joint.right-ankle-pitch"
+                    ][0]
+                )
+                != int(variant["ankle_pitch_minimum_microradians"])
+            )
+        )
+        or (
+            algorithm_id != "nextengine.cmu-stance-chain-retarget.v6"
+            and (
+                "ankle_pitch_minimum_microradians" in variant
+                or "ankle_pitch_minimum_hard_reserve_microradians"
+                in variant
+            )
+        )
     ):
         raise ValueError("motion corpus temporal/contact thresholds are invalid")
 
