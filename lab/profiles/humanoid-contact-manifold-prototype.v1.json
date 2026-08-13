@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "prototype_id": "nextengine.humanoid-contact-manifold-prototype.v1",
+  "status": "FrozenResearchOnly",
+  "source": {
+    "audit_sha256": "ded76473905f7f26e4db0dfaa236508f649d46a692ff28938203f92dcf1c9b61",
+    "corpus_manifest_sha256": "bd6164180a33585ed9231fd6a41cb3943b20e51da8b0e06ac0c978406e204456",
+    "corpus_manifest_file_sha256": "f4eab49ac48ba2b8bf741c03b7e6f50520e703fdc6c9cf72de9cd801dcc76d05",
+    "descriptor_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014",
+    "corpus_profile_sha256": "91d60064444f155084ec0b793876b208336747b7dcaa03712290ca1ef9bdb4b0"
+  },
+  "selection": {
+    "ordered_clip_ids": [
+      "cmu05-walk-validation",
+      "cmu16-walk-nominal-b",
+      "cmu139-walk-heldout"
+    ],
+    "ordered_target_failure_categories": [
+      "hard_impact",
+      "hard_rom",
+      "joint_velocity"
+    ],
+    "failure_rule": "earliest start_frame with the category in the first required-safety violation, when present in the selected clip",
+    "control_rule": "nearest baseline PASS before and after each selected failure start_frame within the same clip, deduplicated by clip_id and start_frame",
+    "expected_case_count": 17,
+    "expected_failure_case_count": 7,
+    "expected_control_case_count": 10
+  },
+  "projection": {
+    "frame_window": "inclusive source start_frame through terminal_frame",
+    "contact_modes": [
+      "FLIGHT",
+      "HEEL_STICKING",
+      "FOREFOOT_STICKING",
+      "FLAT_STICKING"
+    ],
+    "maximum_tangential_step_micrometres": 2000,
+    "maximum_normal_step_micrometres": 1000,
+    "maximum_normal_residual_micrometres": 5000,
+    "maximum_mode_inference_height_micrometres": 45000,
+    "maximum_mode_inference_speed_micrometres_per_second": 600000,
+    "maximum_mode_retention_height_micrometres": 65000,
+    "maximum_mode_retention_speed_micrometres_per_second": 900000,
+    "minimum_mode_on_frames": 3,
+    "minimum_mode_off_frames": 3,
+    "root_velocity_semantics": "root-link",
+    "joint_pose_policy": "unchanged from V18 within each episode window",
+    "velocity_policy": "finite difference of final root and joint pose; analytic active-point velocity cross-check required"
+  },
+  "reset_comparison": {
+    "ordered_modes": [
+      "fresh-scene",
+      "indexed-partial-reset"
+    ],
+    "same_case_bundle_required": true,
+    "first_tick_impulse_comparison_required": true
+  },
+  "acceptance": {
+    "passing_control_regression_count": 0,
+    "strict_decrease_required_for_each_present_target_failure_category": true,
+    "new_required_safety_category_count": 0,
+    "full_corpus_build_authorized_by_this_profile": false,
+    "optimizer_authorized": false
+  }
+}

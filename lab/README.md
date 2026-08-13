@@ -142,6 +142,28 @@ velocity projection. They are research interventions, not admissible tracker
 profiles: the report always leaves the TRAIN-4 gate unchanged, executes no
 optimizer and writes no artifact into the repository.
 
+After that causal matrix selects contact consistency, build the frozen bounded
+prototype before opening another corpus identity:
+
+```text
+<isaac-python> lab/scripts/build_contact_manifold_prototype.py \
+  --source-audit <external complete V18/R14 audit.json> \
+  --prototype-profile lab/profiles/humanoid-contact-manifold-prototype.v1.json \
+  --descriptor <external biomechanics descriptor> \
+  --corpus-root <external V18 corpus root> \
+  --output <new external TRAIN-4 prototype directory>
+```
+
+The profile deterministically selects the earliest impact, ROM and joint-
+velocity failure present in each of three representative clips, together with
+the nearest passing start before and after each failure. The resulting 17
+episode artifacts use explicit `FLIGHT`, `HEEL_STICKING`,
+`FOREFOOT_STICKING` and `FLAT_STICKING` modes; height and speed must belong to
+the same physical point. Each artifact must close final pose and finite-
+difference/analytic velocity at `5 mm` normal residual, `2 mm/frame`
+tangential and `1 mm/frame` normal. It is an optimizer-free, research-only
+bundle: it neither authorizes a full V19 corpus nor changes the TRAIN-4 gate.
+
 The 2026-08-13 temporal/contact remediation uses
 `humanoid-motion-corpus-cmu-temporal-contact.v4.json` and
 `humanoid-reference-tracker-temporal-contact.v6.json`. Both are diagnostic-only:
