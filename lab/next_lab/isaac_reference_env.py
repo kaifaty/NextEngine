@@ -203,6 +203,47 @@ def _classify_contact_pairs_tensor(
     }
 
 
+def _terminal_reason_tensor(
+    *,
+    non_finite: torch.Tensor,
+    hard_rom: torch.Tensor,
+    joint_safety: torch.Tensor,
+    hard_impact: torch.Tensor,
+    self_collision: torch.Tensor,
+    forbidden_contact: torch.Tensor,
+    world_bounds: torch.Tensor,
+    fall: torch.Tensor,
+    tracking_lost: torch.Tensor,
+    success: torch.Tensor,
+) -> torch.Tensor:
+    values = (
+        non_finite,
+        hard_rom,
+        joint_safety,
+        hard_impact,
+        self_collision,
+        forbidden_contact,
+        world_bounds,
+        fall,
+        tracking_lost,
+        success,
+    )
+    if not values or any(
+        value.dtype != torch.bool or value.shape != values[0].shape for value in values
+    ):
+        raise ValueError("terminal reason tensors must be same-shaped booleans")
+    reason = torch.zeros_like(non_finite, dtype=torch.int64)
+    reason = torch.where(fall, 7, reason)
+    reason = torch.where(world_bounds, 6, reason)
+    reason = torch.where(forbidden_contact, 5, reason)
+    reason = torch.where(self_collision, 4, reason)
+    reason = torch.where(hard_impact, 3, reason)
+    reason = torch.where(hard_rom | joint_safety, 2, reason)
+    reason = torch.where(non_finite, 1, reason)
+    reason = torch.where(tracking_lost & (reason == 0), 9, reason)
+    return torch.where(success & (reason == 0), 10, reason)
+
+
 def _minimum_contact_separation_tensor(
     separation_metres: torch.Tensor,
     contact_count: torch.Tensor,
@@ -1731,21 +1772,17 @@ if ISAAC_LAB_AVAILABLE:
                 self._substep_contact_forbidden_pairs
             )
             self.last_step_failure_non_finite.copy_(non_finite)
-            terminal_reason = torch.zeros_like(self.last_step_terminal_reason)
-            terminal_reason = torch.where(fall, 7, terminal_reason)
-            terminal_reason = torch.where(world_bounds, 6, terminal_reason)
-            terminal_reason = torch.where(forbidden_contact, 5, terminal_reason)
-            terminal_reason = torch.where(self_collision, 4, terminal_reason)
-            terminal_reason = torch.where(hard_impact, 3, terminal_reason)
-            terminal_reason = torch.where(
-                hard_rom | joint_safety, 2, terminal_reason
-            )
-            terminal_reason = torch.where(non_finite, 1, terminal_reason)
-            terminal_reason = torch.where(
-                tracking_lost & (terminal_reason == 0), 9, terminal_reason
-            )
-            terminal_reason = torch.where(
-                self._success_terminal & (terminal_reason == 0), 10, terminal_reason
+            terminal_reason = _terminal_reason_tensor(
+                non_finite=non_finite,
+                hard_rom=hard_rom,
+                joint_safety=joint_safety,
+                hard_impact=hard_impact,
+                self_collision=self_collision,
+                forbidden_contact=forbidden_contact,
+                world_bounds=world_bounds,
+                fall=fall,
+                tracking_lost=tracking_lost,
+                success=self._success_terminal,
             )
             self.last_step_terminal_reason.copy_(terminal_reason)
             self.last_step_episode_start_frame.copy_(self._episode_start_frame)

@@ -26,6 +26,7 @@ from next_lab.isaac_reference_env import (
     _rotate_inverse_xyzw,
     _select_curriculum_episode,
     _soft_rom_excursion_cost_tensor,
+    _terminal_reason_tensor,
 )
 from next_lab.motor_mirror import round_div_ties_even
 from next_lab.motor_mirror import load_json
@@ -87,6 +88,40 @@ class IsaacReferenceEnvironmentTests(unittest.TestCase):
         self.assertEqual(actual[1, 0].item(), 4_000)
         self.assertEqual(actual[1, 1].item(), -7)
         self.assertEqual(actual[0, 1].item(), torch.iinfo(torch.int64).max)
+
+    def test_terminal_reason_reducer_is_exhaustive_and_priority_stable(self) -> None:
+        false = torch.zeros(11, dtype=torch.bool)
+        branches = {
+            name: false.clone()
+            for name in (
+                "non_finite",
+                "hard_rom",
+                "joint_safety",
+                "hard_impact",
+                "self_collision",
+                "forbidden_contact",
+                "world_bounds",
+                "fall",
+                "tracking_lost",
+                "success",
+            )
+        }
+        branches["non_finite"][0] = True
+        branches["hard_rom"][1] = True
+        branches["joint_safety"][2] = True
+        branches["hard_impact"][3] = True
+        branches["self_collision"][4] = True
+        branches["forbidden_contact"][5] = True
+        branches["world_bounds"][6] = True
+        branches["fall"][7] = True
+        branches["tracking_lost"][8] = True
+        branches["success"][9] = True
+        for value in branches.values():
+            value[10] = True
+        torch.testing.assert_close(
+            _terminal_reason_tensor(**branches),
+            torch.tensor([1, 2, 2, 3, 4, 5, 6, 7, 9, 10, 1]),
+        )
 
     def test_observed_hard_rom_tolerance_matches_engine_contract(self) -> None:
         self.assertEqual(OBSERVED_HARD_ROM_TOLERANCE_MICRORADIANS, 10)
