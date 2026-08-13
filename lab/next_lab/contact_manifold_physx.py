@@ -219,8 +219,8 @@ def build_fresh_scene_usda(
     """Compose an articulation state before PhysX scene creation.
 
     JointStateAPI values and rigid-body angular velocity are authored in
-    degrees, as required by the USD/PhysX schemas.  Root velocities are first
-    rotated from the reference world frame into the root prim's local frame.
+    degrees.  The floating articulation's rigid-body velocity is authored as
+    center-of-mass velocity in the world frame, as required by PhysX.
     """
 
     base = base_usd_path.resolve()
@@ -239,10 +239,38 @@ def build_fresh_scene_usda(
     ):
         raise ValueError("fresh-scene joint order does not close")
     root = authored_root_state(arrays)
+    root_body = next(
+        (
+            body
+            for body in descriptor.get("bodies", ())
+            if body.get("parent_body_slot") is None
+        ),
+        None,
+    )
+    if root_body is None:
+        raise ValueError("fresh-scene articulation root body is absent")
+    center_of_mass_local = engine_to_isaac_vector(
+        np.asarray(
+            root_body["center_of_mass_micrometres"], dtype=np.float64
+        )
+        / 1_000_000.0
+    )
+    center_of_mass_world_offset = rotate_local_to_world_wxyz(
+        center_of_mass_local, root.quaternion_wxyz
+    )
+    center_of_mass_velocity_world = (
+        root.linear_velocity_world_m_s
+        + np.cross(
+            root.angular_velocity_world_rad_s,
+            center_of_mass_world_offset,
+        )
+    )
     position = _tuple(root.position_m, precision=17)
     quaternion = _tuple(root.quaternion_wxyz, precision=9)
-    linear_local = _tuple(root.linear_velocity_local_m_s, precision=9)
-    angular_local = _tuple(root.angular_velocity_local_degrees_s, precision=9)
+    linear_com_world = _tuple(center_of_mass_velocity_world, precision=9)
+    angular_world = _tuple(
+        np.rad2deg(root.angular_velocity_world_rad_s), precision=9
+    )
     joint_blocks = []
     for joint, position_urad, velocity_urad_s in zip(
         joints, joint_position, joint_velocity, strict=True
@@ -283,8 +311,8 @@ def build_fresh_scene_usda(
         "        {\n"
         f"            double3 xformOp:translate = {position}\n"
         f"            quatf xformOp:orient = {quaternion}\n"
-        f"            vector3f physics:velocity = {linear_local}\n"
-        f"            vector3f physics:angularVelocity = {angular_local}\n"
+        f"            vector3f physics:velocity = {linear_com_world}\n"
+        f"            vector3f physics:angularVelocity = {angular_world}\n"
         "        }\n"
         "    }\n"
         '    over "Joints"\n'
@@ -440,6 +468,21 @@ def rotate_world_to_local_wxyz(
     xyz = quaternion[1:]
     first = np.cross(xyz, vector)
     second = np.cross(xyz, first - w * vector)
+    return vector + 2.0 * second
+
+
+def rotate_local_to_world_wxyz(
+    vector: NDArray[np.float64], quaternion: NDArray[np.float64]
+) -> NDArray[np.float64]:
+    vector = np.asarray(vector, dtype=np.float64)
+    quaternion = np.asarray(quaternion, dtype=np.float64)
+    if vector.shape != (3,) or quaternion.shape != (4,):
+        raise ValueError("root world rotation shape mismatch")
+    quaternion = quaternion / np.linalg.norm(quaternion)
+    w = quaternion[0]
+    xyz = quaternion[1:]
+    first = np.cross(xyz, vector)
+    second = np.cross(xyz, first + w * vector)
     return vector + 2.0 * second
 
 

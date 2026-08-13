@@ -27,6 +27,13 @@ class ContactManifoldPhysxTests(unittest.TestCase):
         arrays["joint_position_urad"][0, 0] = 1_570_796
         arrays["joint_velocity_urad_s"][0, 0] = 3_141_593
         descriptor = {
+            "bodies": [
+                {
+                    "body_id": "body.pelvis",
+                    "parent_body_slot": None,
+                    "center_of_mass_micrometres": (0, 0, -100_000),
+                }
+            ],
             "joints": [
                 {"joint_id": "joint.left-knee", "dof_ordinal": 0},
             ]
@@ -47,7 +54,8 @@ class ContactManifoldPhysxTests(unittest.TestCase):
         self.assertIn('prepend apiSchemas = ["PhysicsJointStateAPI:angular"]', payload)
         self.assertIn("float state:angular:physics:position = 89.9999813", payload)
         self.assertIn("float state:angular:physics:velocity = 180.00002", payload)
-        self.assertIn("vector3f physics:velocity = (0, -1, 0)", payload)
+        self.assertIn("vector3f physics:velocity = (1, -0.1, 0)", payload)
+        self.assertIn("vector3f physics:angularVelocity = (0, 0, 57.2957795)", payload)
         self.assertIn('over "joint_left_knee"', payload)
         self.assertIn("nextengine:freshSceneSourceCaseOrdinal = 42", payload)
 

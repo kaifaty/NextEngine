@@ -20,7 +20,8 @@
     "horizon_motor_ticks": 11,
     "vector_environment_count": 17,
     "fresh_scene": {
-      "method": "author root-link pose/local velocity and JointStateAPI position/velocity in a per-case USD layer before SimulationContext.reset",
+      "method": "author root-link pose, root-link-derived center-of-mass world velocity and JointStateAPI position/velocity in a per-case USD layer before SimulationContext.reset; suppress exactly two camera-free replicator render warmups that otherwise advance physics",
+      "suppressed_initial_replicator_render_calls": 2,
       "post_create_root_or_joint_state_writes": 0,
       "target_vector_slot": "case ordinal",
       "all_vector_slots_use_the_same_case": true

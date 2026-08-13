@@ -180,8 +180,10 @@ Validate that bundle in PhysX before expanding it to a full corpus identity:
   --output <new external TRAIN-4 reset-probe directory>
 ```
 
-For each selected case the probe authors root-link pose/local velocity and
-PhysX `JointStateAPI` coordinates in a new USD layer before the scene starts;
+For each selected case the probe authors root-link pose, derived center-of-mass
+world velocity and PhysX `JointStateAPI` coordinates in a new USD layer before
+the scene starts. In the camera-free worker it suppresses exactly the two
+replicator-only render warmups that would otherwise advance physics;
 the first reset's state writes are counted and suppressed. It checks the state
 read back from PhysX before stepping, then compares that episode with the same
 case after one indexed running-scene warmup/reset. Outcomes, reasons and

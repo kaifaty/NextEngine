@@ -374,6 +374,7 @@ def _run_fresh_worker(
         from next_lab.reference_dynamic_feasibility import (
             DynamicFeasibilityAccumulator,
         )
+        from isaaclab.sim import SimulationContext
 
         vector_count = int(profile["execution"]["vector_environment_count"])
         cfg = NextEngineReferenceDirectEnvCfg()
@@ -384,13 +385,32 @@ def _run_fresh_worker(
         cfg.phase_randomization = False
         cfg.fixed_horizon_motor_ticks = case.horizon_motor_ticks
         cfg.diagnostic_exhaustive_phase_sweep_repeats = 1
-        environment = NextEngineReferenceDirectEnv(
-            cfg,
-            descriptor_path=str(paths["descriptor_path"]),
-            profile_path=str(paths["reference_profile_path"]),
-            corpus_root=str(paths["corpus_root"]),
-            gate_report_path=str(paths["gate_report_path"]),
-        )
+        original_render = SimulationContext.render
+        suppressed_render_calls = 0
+
+        def suppress_initial_render(*unused_args: Any, **unused_kwargs: Any) -> None:
+            nonlocal suppressed_render_calls
+            suppressed_render_calls += 1
+
+        SimulationContext.render = suppress_initial_render
+        try:
+            environment = NextEngineReferenceDirectEnv(
+                cfg,
+                descriptor_path=str(paths["descriptor_path"]),
+                profile_path=str(paths["reference_profile_path"]),
+                corpus_root=str(paths["corpus_root"]),
+                gate_report_path=str(paths["gate_report_path"]),
+            )
+        finally:
+            SimulationContext.render = original_render
+        if suppressed_render_calls != int(
+            profile["execution"]["fresh_scene"][
+                "suppressed_initial_replicator_render_calls"
+            ]
+        ):
+            raise RuntimeError(
+                "fresh-scene worker did not suppress the frozen render warmups"
+            )
         environment.diagnostic_episode_schedule = tuple(
             (0, case.frame_first, case.frame_last, 0)
             for _ in range(vector_count)
@@ -501,6 +521,7 @@ def _run_fresh_worker(
             "target_vector_slot": target_slot,
             "vector_environment_count": vector_count,
             "overlay_usd_sha256": _sha256(overlay_path),
+            "initial_replicator_render_calls_suppressed": suppressed_render_calls,
             "post_create_state_write_attempts_suppressed": write_attempts,
             "post_create_root_or_joint_state_writes_executed": 0,
             "initial_state_verification": {"before_reset": before, "after_reset": after},
