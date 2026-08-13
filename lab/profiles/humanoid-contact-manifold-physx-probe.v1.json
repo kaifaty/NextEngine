@@ -42,6 +42,7 @@
     },
     "indexed_partial_reset": {
       "method": "running-scene indexed root/joint writes followed by the root-link velocity writer",
+      "process_isolation": "one dedicated worker process; the non-Isaac driver requires its report before aggregation",
       "warmup_episode_count_per_vector_slot": 1,
       "measured_episode_count_per_vector_slot": 1,
       "same_case_before_and_after_reset": true

@@ -198,9 +198,11 @@ case after one indexed running-scene warmup/reset. Outcomes, reasons and
 terminal ticks must match exactly, while every first-tick contact-pair impulse
 must stay within the separately frozen probe bound. Passing controls may not
 regress and each selected impact, ROM and velocity class must strictly
-decrease on both paths. A pass permits only a full V19 data build and
-fresh-scene optimizer-free audit; it does not change ADR-070 or authorize an
-optimizer.
+decrease on both paths. Fresh scenes and the indexed partial-reset phase run in
+dedicated processes; the non-Isaac driver rejects a missing worker report even
+when the simulator process exits with code zero. A pass permits only a full V19
+data build and fresh-scene optimizer-free audit; it does not change ADR-070 or
+authorize an optimizer.
 
 The 2026-08-13 temporal/contact remediation uses
 `humanoid-motion-corpus-cmu-temporal-contact.v4.json` and

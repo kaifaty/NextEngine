@@ -42,6 +42,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=120_812)
     parser.add_argument("--worker-case-ordinal", type=int, default=-1)
+    parser.add_argument("--partial-reset-worker", action="store_true")
     AppLauncher.add_app_launcher_args(parser)
     return parser.parse_args()
 
@@ -49,7 +50,15 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     inputs = _validated_inputs(args)
-    if args.worker_case_ordinal >= 0:
+    if args.partial_reset_worker and args.worker_case_ordinal >= 0:
+        raise ValueError("reset-probe worker modes are mutually exclusive")
+    if args.partial_reset_worker:
+        output = args.output.resolve()
+        report_path = _partial_result_path(output)
+        if not output.is_dir() or report_path.exists():
+            raise ValueError("partial-reset worker paths are invalid")
+        _run_partial_reset(args=args, report_path=report_path, **inputs)
+    elif args.worker_case_ordinal >= 0:
         _run_fresh_worker(args=args, **inputs)
     else:
         _run_driver(args=args, **inputs)
@@ -116,6 +125,11 @@ def _validated_inputs(args: argparse.Namespace) -> dict[str, Any]:
             ),
             "observation_horizon_offsets_motor_ticks": [0, 4, 8, 16],
         }
+        or execution.get("indexed_partial_reset", {}).get("process_isolation")
+        != (
+            "one dedicated worker process; the non-Isaac driver requires its "
+            "report before aggregation"
+        )
         or execution.get("optimizer_steps") != 0
         or execution.get("training_runs") != 0
     ):
@@ -194,15 +208,30 @@ def _run_driver(
                 f"fresh-scene worker {case.ordinal} is invalid; inspect {log_path}"
             )
 
-    partial_report = _run_partial_reset(
-        args=args,
-        profile=profile,
-        descriptor=descriptor,
-        cases=cases,
-        **paths,
-    )
-    partial_path = output / "indexed-partial-reset.json"
-    _write_json(partial_path, partial_report)
+    partial_path = _partial_result_path(output)
+    partial_log_path = output / "indexed-partial-reset.log"
+    with partial_log_path.open("wb") as log:
+        partial_completed = subprocess.run(
+            _partial_worker_command(args),
+            cwd=Path(__file__).resolve().parents[2],
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+    if partial_completed.returncode != 0 or not partial_path.is_file():
+        raise RuntimeError(
+            f"indexed partial-reset worker failed; inspect {partial_log_path}"
+        )
+    partial_report = json.loads(partial_path.read_bytes())
+    if (
+        partial_report.get("check")
+        != "TRAIN-4-ISAAC-CONTACT-MANIFOLD-INDEXED-PARTIAL-RESET"
+        or partial_report.get("status") != "PASS"
+        or partial_report.get("repository") != repository
+    ):
+        raise RuntimeError(
+            f"indexed partial-reset worker is invalid; inspect {partial_log_path}"
+        )
 
     fresh_reports = []
     fresh_rows = []
@@ -277,6 +306,7 @@ def _run_driver(
             "horizon_motor_ticks": cases[0].horizon_motor_ticks,
             "fresh_scene_post_create_state_writes": 0,
             "indexed_partial_reset_warmup_episodes_per_case": 1,
+            "indexed_partial_reset_process_count": 1,
         },
         "method": profile["execution"],
         "fresh_scene": {
@@ -287,6 +317,8 @@ def _run_driver(
         "indexed_partial_reset": {
             "status": partial_report["status"],
             "report_sha256": _sha256(partial_path),
+            "log_relative_path": str(partial_log_path.relative_to(output)),
+            "log_sha256": _sha256(partial_log_path),
             "results": partial_report["results"],
         },
         "reset_comparison": reset_comparison,
@@ -667,6 +699,7 @@ def _run_partial_reset(
     profile: dict[str, Any],
     descriptor: dict[str, Any],
     cases: tuple[ContactPrototypeCase, ...],
+    report_path: Path,
     **paths: Any,
 ) -> dict[str, Any]:
     os.environ["NEXTENGINE_HUMANOID_USD"] = str(paths["usd_path"])
@@ -843,6 +876,7 @@ def _run_partial_reset(
             "training_runs": 0,
             "repository": _repository_state(),
         }
+        _write_json(report_path, report)
         return report
     except BaseException as error:
         pending_error = error
@@ -1223,7 +1257,7 @@ def _ordered_clip_ids(cases: Sequence[ContactPrototypeCase]) -> tuple[str, ...]:
 
 
 def _worker_command(args: argparse.Namespace, ordinal: int) -> list[str]:
-    command = [
+    return [
         sys.executable,
         str(Path(__file__).resolve()),
         "--source-audit",
@@ -1252,6 +1286,11 @@ def _worker_command(args: argparse.Namespace, ordinal: int) -> list[str]:
         args.device,
         "--headless",
     ]
+
+
+def _partial_worker_command(args: argparse.Namespace) -> list[str]:
+    command = _worker_command(args, -1)
+    command.extend(("--partial-reset-worker",))
     return command
 
 
@@ -1261,6 +1300,10 @@ def _fresh_usd_path(output: Path, ordinal: int) -> Path:
 
 def _fresh_result_path(output: Path, ordinal: int) -> Path:
     return output / "fresh-scene" / "results" / f"case-{ordinal:02d}.json"
+
+
+def _partial_result_path(output: Path) -> Path:
+    return output / "indexed-partial-reset.json"
 
 
 def _external_output_directory(candidate: Path) -> Path:
