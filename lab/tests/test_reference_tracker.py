@@ -15,6 +15,7 @@ from next_lab.reference_tracker import (
     PREDICTIVE_ROM_COST_PROFILE_SHA256,
     SAFETY_RESERVE_PROFILE_SHA256,
     SOFT_ROM_COST_PROFILE_SHA256,
+    STANCE_CHAIN_PROFILE_SHA256,
     TEMPORAL_CONTACT_PROFILE_SHA256,
     DescriptorLimits,
     ReferenceClip,
@@ -56,6 +57,10 @@ CONTACT_IMPACT_MARGIN_PROFILE = (
 TEMPORAL_CONTACT_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-tracker-temporal-contact.v6.json"
+)
+STANCE_CHAIN_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-tracker-stance-chain.v7.json"
 )
 
 
@@ -163,6 +168,25 @@ class ReferenceTrackerTests(unittest.TestCase):
             authorization["source_lineage"][
                 "motion_corpus_manifest_sha256"
             ],
+            "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
+        )
+
+    def test_stance_chain_profile_is_diagnostic_only_and_v5_bound(self) -> None:
+        profile = ReferenceTrackerProfile.load(STANCE_CHAIN_PROFILE)
+        self.assertEqual(profile.document_sha256, STANCE_CHAIN_PROFILE_SHA256)
+        self.assertEqual(
+            profile.document["corpus"]["manifest_sha256"],
+            "d1333c5f6615eaa1eb3d62aa90e7c98ffdca0519633306b96fb0b60293a1b1a0",
+        )
+        self.assertEqual(
+            profile.document["corpus"]["profile_sha256"],
+            "342b6afafd78aa6701d9ef50cceeb2a5daafd56c1a69faef3fed27185ead580a",
+        )
+        authorization = profile.document["training_authorization"]
+        self.assertEqual(authorization["decision"], "RemediateDataOnly")
+        self.assertIn("optimizer execution remains forbidden", authorization["scope"])
+        self.assertEqual(
+            authorization["source_lineage"]["motion_corpus_manifest_sha256"],
             "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
         )
 

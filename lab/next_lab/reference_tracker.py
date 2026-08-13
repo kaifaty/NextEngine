@@ -55,6 +55,12 @@ TEMPORAL_CONTACT_PROFILE_ID = (
 TEMPORAL_CONTACT_PROFILE_SHA256 = (
     "d7131e909586a140dc541d3c8580744dede485b1e9693fa48153d8ab30c16281"
 )
+STANCE_CHAIN_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-reference-tracker-stance-chain.v7"
+)
+STANCE_CHAIN_PROFILE_SHA256 = (
+    "3d429ccfc36831b1262ea30ae19e8a89b2efcdb04be2e9e6026f8518d59aa84d"
+)
 PROFILE_IDS_BY_SHA256 = {
     PROFILE_SHA256: PROFILE_ID,
     SOFT_ROM_COST_PROFILE_SHA256: SOFT_ROM_COST_PROFILE_ID,
@@ -64,6 +70,7 @@ PROFILE_IDS_BY_SHA256 = {
     PHYSICS_VELOCITY_GUARD_PROFILE_SHA256: PHYSICS_VELOCITY_GUARD_PROFILE_ID,
     CONTACT_IMPACT_MARGIN_PROFILE_SHA256: CONTACT_IMPACT_MARGIN_PROFILE_ID,
     TEMPORAL_CONTACT_PROFILE_SHA256: TEMPORAL_CONTACT_PROFILE_ID,
+    STANCE_CHAIN_PROFILE_SHA256: STANCE_CHAIN_PROFILE_ID,
 }
 SAFETY_CONTACT_PROFILE_SHA256 = "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c"
 SAFETY_CONTACT_PROFILE_V2_SHA256 = (
@@ -169,6 +176,7 @@ class ReferenceTrackerProfile:
                     PHYSICS_VELOCITY_GUARD_PROFILE_ID,
                     CONTACT_IMPACT_MARGIN_PROFILE_ID,
                     TEMPORAL_CONTACT_PROFILE_ID,
+                    STANCE_CHAIN_PROFILE_ID,
                 }
                 or overlay.get("status") != "Frozen"
                 or overlay.get("base_profile_id") != PROFILE_ID
@@ -264,6 +272,7 @@ class ReferenceTrackerProfile:
                 PHYSICS_VELOCITY_GUARD_PROFILE_ID,
                 CONTACT_IMPACT_MARGIN_PROFILE_ID,
                 TEMPORAL_CONTACT_PROFILE_ID,
+                STANCE_CHAIN_PROFILE_ID,
             }
             else SAFETY_CONTACT_PROFILE_SHA256
         )
@@ -276,6 +285,7 @@ class ReferenceTrackerProfile:
             PHYSICS_VELOCITY_GUARD_PROFILE_ID,
             CONTACT_IMPACT_MARGIN_PROFILE_ID,
             TEMPORAL_CONTACT_PROFILE_ID,
+            STANCE_CHAIN_PROFILE_ID,
         }:
             if (
                 _require_hex_hash(
@@ -415,7 +425,10 @@ class ReferenceTrackerProfile:
         failure_reasons = document["termination"]["failure_reasons"]
         if not failure_reasons or len(set(failure_reasons)) != len(failure_reasons):
             raise ReferenceTrackerError("reference termination closure mismatch")
-        remediation_only = expected_profile_id == TEMPORAL_CONTACT_PROFILE_ID
+        remediation_only = expected_profile_id in {
+            TEMPORAL_CONTACT_PROFILE_ID,
+            STANCE_CHAIN_PROFILE_ID,
+        }
         if remediation_only:
             source_lineage = authorization.get("source_lineage")
             if (
@@ -654,7 +667,8 @@ class ReferenceCorpus:
         )
         source_lineage = expected_authorization.get("source_lineage", {})
         remediation_only = (
-            expected["profile_id"] == TEMPORAL_CONTACT_PROFILE_ID
+            expected["profile_id"]
+            in {TEMPORAL_CONTACT_PROFILE_ID, STANCE_CHAIN_PROFILE_ID}
             and expected_authorization["decision"] == "RemediateDataOnly"
             and self.gate_report.get("decision") == "RemediateDataOnly"
             and self.gate_report.get("stage_status") == "Reopened"
