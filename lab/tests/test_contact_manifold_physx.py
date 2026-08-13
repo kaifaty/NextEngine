@@ -12,11 +12,24 @@ from next_lab.contact_manifold_physx import (
     build_fresh_scene_usda,
     compare_reset_paths,
     evaluate_bounded_acceptance,
+    minimum_normalized_quaternion_dot_q1_30,
     overlay_bounded_reference_window,
 )
 
 
 class ContactManifoldPhysxTests(unittest.TestCase):
+    def test_quaternion_dot_normalizes_physx_float_scale(self) -> None:
+        expected = np.asarray(((1.0, 0.0, 0.0, 0.0),), dtype=np.float64)
+        actual = np.asarray(((0.9999999, 0.0, 0.0, 0.0),), dtype=np.float32)
+
+        self.assertEqual(
+            minimum_normalized_quaternion_dot_q1_30(actual, expected), 1 << 30
+        )
+        with self.assertRaisesRegex(ValueError, "invalid value"):
+            minimum_normalized_quaternion_dot_q1_30(
+                np.zeros((1, 4), dtype=np.float64), expected
+            )
+
     def test_bounded_reference_overlay_retains_source_lookahead(self) -> None:
         source = np.asarray(((10,), (20,), (30,), (40,)), dtype=np.int64)
         projected = np.asarray(

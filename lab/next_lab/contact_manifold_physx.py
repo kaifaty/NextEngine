@@ -215,6 +215,31 @@ def overlay_bounded_reference_window(
     return where(valid, projected_values, source_values)
 
 
+def minimum_normalized_quaternion_dot_q1_30(
+    actual_wxyz: NDArray[np.floating[Any]],
+    expected_wxyz: NDArray[np.floating[Any]],
+) -> int:
+    """Return the bounded absolute-dot metric used by the reference tracker."""
+
+    actual = np.asarray(actual_wxyz, dtype=np.float64)
+    expected = np.asarray(expected_wxyz, dtype=np.float64)
+    if actual.shape != expected.shape or actual.ndim != 2 or actual.shape[1] != 4:
+        raise ValueError("quaternion comparison shape mismatch")
+    actual_norm = np.linalg.norm(actual, axis=1, keepdims=True)
+    expected_norm = np.linalg.norm(expected, axis=1, keepdims=True)
+    if (
+        not np.all(np.isfinite(actual))
+        or not np.all(np.isfinite(expected))
+        or np.any(actual_norm <= 1.0e-12)
+        or np.any(expected_norm <= 1.0e-12)
+    ):
+        raise ValueError("quaternion comparison contains an invalid value")
+    dot = np.abs(
+        np.sum((actual / actual_norm) * (expected / expected_norm), axis=1)
+    )
+    return int(np.floor(np.min(np.clip(dot, 0.0, 1.0)) * (1 << 30)))
+
+
 def authored_root_state(arrays: Mapping[str, NDArray[Any]]) -> AuthoredRootState:
     position = engine_to_isaac_vector(
         np.asarray(arrays["root_position_um"][0], dtype=np.float64)

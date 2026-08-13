@@ -24,6 +24,7 @@ from next_lab.contact_manifold_physx import (
     evaluate_bounded_acceptance,
     load_case_arrays,
     load_contact_prototype_cases,
+    minimum_normalized_quaternion_dot_q1_30,
     overlay_bounded_reference_window,
 )
 
@@ -948,8 +949,10 @@ def _verify_authored_state(
             * 1_000_000.0
         )
     )
-    orientation_dot = np.abs(np.sum(root[:, 3:7] * expected_quaternion, axis=1))
-    minimum_orientation = int(np.floor(np.min(orientation_dot) * (1 << 30)))
+    root_quaternion_norm = np.linalg.norm(root[:, 3:7], axis=1)
+    minimum_orientation = minimum_normalized_quaternion_dot_q1_30(
+        root[:, 3:7], expected_quaternion
+    )
     linear_error = int(
         np.rint(
             np.max(
@@ -982,6 +985,9 @@ def _verify_authored_state(
     )
     result = {
         "maximum_root_position_error_micrometres": position_error,
+        "minimum_raw_root_quaternion_norm_q1_30": int(
+            np.floor(np.min(root_quaternion_norm) * (1 << 30))
+        ),
         "minimum_root_orientation_absolute_dot_q1_30": minimum_orientation,
         "maximum_root_linear_velocity_error_micrometres_per_second": linear_error,
         "maximum_root_angular_velocity_error_microradians_per_second": angular_error,
