@@ -1,0 +1,4 @@
+interface:
+  display_name: "Maintain Task Context"
+  short_description: "Keep durable task state for long-running work"
+  default_prompt: "Use $maintain-task-context to resume or update durable task state from verified evidence."

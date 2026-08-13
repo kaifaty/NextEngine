@@ -15,6 +15,14 @@
 - Read complete documents, not search snippets. Snippets and matches are discovery aids, not authority, and do not replace the mandatory direct reads or the precedence rules above.
 - Use `rg` and direct file reads for exact source-code symbols, known paths and verification, and for fuzzy lookup across `docs/plans/`, `docs/reviews/` and `docs/development/` — those are working materials, not normative architecture.
 
+## Durable task context
+
+- For long-running, resumed, handed-off, research-heavy or approach-changing work, use the repository `maintain-task-context` skill and read the matching `docs/development/task-state/<task-slug>.md` before large plans, logs or raw experiment output.
+- Create or update task-state only at a material transition: evidence invalidates the approach, a failed path must not be repeated, a new constraint changes the next action, the allowed claim or scope changes, or work pauses or hands off. Do not turn it into a per-turn progress diary.
+- Record reviewable engineering rationale as observation, exact evidence, conclusion, decision, rejected alternatives, consequences, remaining uncertainty, reconsideration condition and smallest next action. Do not record private chain-of-thought, secrets, raw logs or heavy/generated artifacts.
+- Task-state is bounded working context, not authority. It never overrides Accepted SPEC/ADR, the roadmap, tracked profiles/manifests or exact evidence. Promote architecture semantics, roadmap facts, repository rules and reusable workflows to their real sources in the same coherent change.
+- Keep the stable non-dated task-state path as the current resume surface, use Git for history, and move detailed investigation to linked dated research/evidence reports when the state approaches 250 lines.
+
 ## Roadmap context
 
 - Use `docs/roadmap.md` as planning context when a task affects product scope, implementation order, stage dependencies, a roadmap blocker, an exit criterion or the reported state of a subsystem. Routine local fixes that do not change those facts do not require reading or editing the roadmap.

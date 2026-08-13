@@ -21,6 +21,7 @@ Codex discovers these repository-scoped skills from `.agents/skills`.
 | `nextengine-training-runner` | Fail-closed preflight and claim-safe preparation of hash-closed reference PPO runs |
 | `nextengine-training-diagnostics` | Deterministic artifact, safety, PPO and evaluation diagnosis with one-variable next experiments |
 | `nextengine-isaac-correspondence` | CPU-canonical/Isaac-mirror identity and MODEL-MIRROR-P1/P2 evidence audit |
+| `maintain-task-context` | Bounded, Git-tracked resume context and decision rationale for long-running or approach-changing work |
 
 These skills are native NextEngine guidance. Their workflow design applies the
 useful parts of the imported deep-RL, experiment-tracking and determinism
