@@ -22,7 +22,13 @@ from next_lab.motion_retarget import (
     canonical_integer_arrays,
     mirror_clip,
     rotate_clip_quarter_yaw,
+    _continuous_stance_planar_correction,
+    _level_stance_soles,
+    _lipschitz_majorant,
     _project_joint_velocity,
+    _stabilize_binary_intervals,
+    _weighted_temporal_smooth,
+    target_forward_kinematics,
 )
 
 
@@ -81,6 +87,178 @@ class MotionCorpusTests(unittest.TestCase):
         self.assertEqual(projection["knee_minimum_microradians"], 209440)
         self.assertEqual(projection["elbow_minimum_microradians"], 209440)
         self.assertEqual(projection["hip_roll_minimum_microradians"], 87266)
+
+    def test_temporal_contact_overlay_materializes_new_algorithm_identity(self) -> None:
+        profile, _ = load_motion_corpus_profile(
+            PROFILES / "humanoid-motion-corpus-cmu-temporal-contact.v4.json"
+        )
+        self.assertEqual(
+            profile["profile_id"],
+            "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion-temporal-contact.v4",
+        )
+        self.assertEqual(
+            profile["retarget"]["algorithm_id"],
+            "nextengine.cmu-temporal-contact-retarget.v1",
+        )
+        self.assertEqual(
+            profile["retarget"]["joint_velocity_limit_basis_points"], 2500
+        )
+        self.assertEqual(
+            profile["retarget"]["ground_correction"][
+                "locomotion_maximum_absolute_micrometres"
+            ],
+            250000,
+        )
+        projection = profile["retarget"]["locomotion_collision_projection"]
+        self.assertEqual(projection["ankle_roll_minimum_microradians"], -174533)
+        self.assertEqual(
+            projection["ankle_roll_minimum_hard_reserve_microradians"],
+            174533,
+        )
+        self.assertEqual(
+            profile["retarget"]["contact_thresholds"][
+                "interval_stabilization"
+            ]["minimum_on_frames"],
+            3,
+        )
+
+    def test_temporal_smoothing_is_time_and_sign_symmetric(self) -> None:
+        values = np.asarray(
+            [[0, 20], [100, -40], [-100, 80], [50, -20], [0, 0]],
+            dtype=np.int64,
+        )
+        smoothed = _weighted_temporal_smooth(
+            values, kernel=(1, 4, 6, 4, 1), passes=4
+        )
+        reversed_result = _weighted_temporal_smooth(
+            values[::-1], kernel=(1, 4, 6, 4, 1), passes=4
+        )
+        negated_result = _weighted_temporal_smooth(
+            -values, kernel=(1, 4, 6, 4, 1), passes=4
+        )
+        np.testing.assert_array_equal(reversed_result[::-1], smoothed)
+        np.testing.assert_array_equal(negated_result, -smoothed)
+        self.assertLess(
+            int(np.max(np.abs(np.diff(smoothed, n=2, axis=0)))),
+            int(np.max(np.abs(np.diff(values, n=2, axis=0)))),
+        )
+
+    def test_root_height_majorant_is_collision_safe_and_speed_bounded(self) -> None:
+        required = np.asarray((1.0, 1.0, 1.2, 1.0, 1.0), dtype=np.float64)
+        solved = _lipschitz_majorant(required, maximum_step=0.05)
+        self.assertTrue(np.all(solved >= required))
+        self.assertLessEqual(float(np.max(np.abs(np.diff(solved)))), 0.050000001)
+        np.testing.assert_allclose(solved, solved[::-1])
+
+    def test_contact_hysteresis_rejects_short_pulses_and_short_gaps(self) -> None:
+        enter = np.asarray(
+            (False, True, False, True, True, True, True, False, False, True, True),
+            dtype=np.bool_,
+        )
+        retain = np.asarray(
+            (False, True, False, True, True, True, True, False, True, True, True),
+            dtype=np.bool_,
+        )
+        stabilized = _stabilize_binary_intervals(
+            enter=enter,
+            retain=retain,
+            minimum_on_frames=3,
+            minimum_off_frames=2,
+        )
+        np.testing.assert_array_equal(
+            stabilized,
+            np.asarray((0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1), dtype=np.uint8),
+        )
+
+    def test_stance_planar_correction_is_continuous_and_time_symmetric(self) -> None:
+        sole_planar = np.zeros((9, 2, 2), dtype=np.float64)
+        sole_planar[:, :, 0] = np.asarray(
+            (
+                (0.00, 1.00),
+                (0.002, 1.001),
+                (0.006, 1.003),
+                (0.014, 1.006),
+                (0.024, 1.011),
+                (0.032, 1.019),
+                (0.038, 1.029),
+                (0.042, 1.041),
+                (0.044, 1.055),
+            )
+        )
+        support_state = np.asarray((0, 0, 0, 0, 2, 1, 1, 1, 1), dtype=np.int64)
+        profile = {
+            "kernel_weights": [1, 4, 6, 4, 1],
+            "smoothing_passes": 2,
+            "endpoint_taper_frames": 3,
+            "maximum_absolute_correction_micrometres": 150_000,
+            "maximum_speed_micrometres_per_second": 600_000,
+        }
+
+        correction = _continuous_stance_planar_correction(
+            sole_planar=sole_planar,
+            support_state=support_state,
+            profile=profile,
+        )
+        reversed_correction = _continuous_stance_planar_correction(
+            sole_planar=sole_planar[::-1],
+            support_state=support_state[::-1],
+            profile=profile,
+        )
+
+        np.testing.assert_allclose(correction, reversed_correction[::-1], atol=1e-12)
+        np.testing.assert_array_equal(correction[[0, -1]], np.zeros((2, 2)))
+        self.assertGreater(float(np.max(np.linalg.norm(correction, axis=1))), 0.005)
+        self.assertLessEqual(
+            float(np.max(np.linalg.norm(correction, axis=1))), 0.149999001
+        )
+        self.assertLess(
+            float(np.max(np.linalg.norm(np.diff(correction, axis=0) * 60.0, axis=1))),
+            0.600001,
+        )
+
+    def test_stance_sole_leveling_cancels_bilateral_foot_tilt(self) -> None:
+        descriptor = json.loads(
+            (FIXTURES / "biomechanics_motor_mirror_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        joint_by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
+        values = np.zeros((1, len(descriptor["joints"])), dtype=np.float64)
+        for side in ("left", "right"):
+            values[
+                0, int(joint_by_id[f"joint.{side}-hip-roll"]["dof_ordinal"])
+            ] = 87_266
+            values[
+                0, int(joint_by_id[f"joint.{side}-knee"]["dof_ordinal"])
+            ] = 261_799
+        roots = np.asarray(((0.0, 1.0, 0.0),), dtype=np.float64)
+        root_rotations = np.eye(3, dtype=np.float64)[None, :, :]
+
+        leveled = _level_stance_soles(
+            values=values,
+            descriptor=descriptor,
+            root_positions=roots,
+            root_rotations=root_rotations,
+            support_weight=np.ones((1, 2), dtype=np.float64),
+            iterations=2,
+            probe_microradians=100,
+        )
+
+        _, rotations = target_forward_kinematics(
+            descriptor,
+            roots[0],
+            np.asarray((0.0, 0.0, 0.0, 1.0), dtype=np.float64),
+            leveled[0] / 1_000_000.0,
+        )
+        body_by_id = {body["body_id"]: body for body in descriptor["bodies"]}
+        for side in ("left", "right"):
+            slot = int(body_by_id[f"body.{side}-ankle-roll"]["body_slot"])
+            self.assertLess(
+                float(np.linalg.norm(rotations[slot][(0, 2), 1])), 3.0e-6
+            )
+        np.testing.assert_allclose(
+            leveled[0, (4, 5)], leveled[0, (10, 11)], atol=1.0e-6
+        )
 
     def test_cmu_parser_applies_frozen_units_handedness_and_rate_boundary(self) -> None:
         asf = """
@@ -355,6 +533,9 @@ def _clip(descriptor: dict) -> RetargetedClip:
             frame_count * len(SOURCE_OVERLAY_BONES) * 3, dtype=np.int64
         ).reshape(frame_count, len(SOURCE_OVERLAY_BONES), 3),
         loop=False,
+        planar_root_correction_um=np.asarray(
+            ((1, 0, 2), (3, 0, 4), (5, 0, 6)), dtype=np.int64
+        ),
     )
 
 

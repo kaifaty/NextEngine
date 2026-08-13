@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion-temporal-contact.v4",
+  "status": "Frozen",
+  "base_profile_id": "nextengine.motion-corpus.humanoid-biomechanics-cmu-locomotion.v1",
+  "base_profile_sha256": "f281f73773f32ddba506c01aa66301488dadc40d91efbd78e2c1fb79a70951fc",
+  "variant": {
+    "joint_velocity_limit_basis_points": 2500,
+    "unidirectional_joint_minimum_microradians": 261799,
+    "hip_roll_minimum_microradians": 174533,
+    "ankle_roll_minimum_microradians": -174533,
+    "ankle_roll_maximum_microradians": 87266,
+    "ankle_roll_minimum_hard_reserve_microradians": 174533,
+    "locomotion_ground_correction_maximum_absolute_micrometres": 250000,
+    "excluded_clip_ids": ["cmu16-walk-nominal-a"],
+    "clip_source_overrides": {
+      "cmu16-walk-slow": {
+        "subject": "16",
+        "trial": "16",
+        "source_first_frame": 3,
+        "source_last_frame": 510,
+        "split_group_id": "cmu-subject-16-trial-16",
+        "planar_root_scale_basis_points": 8200,
+        "description": "long-form walk derivative scaled to the admitted slow planar-speed band"
+      }
+    },
+    "temporal_contact_solve": {
+      "algorithm_id": "nextengine.cmu-temporal-contact-retarget.v1",
+      "smoothing": {
+        "kernel_weights": [1, 4, 6, 4, 1],
+        "whole_body_passes": 12,
+        "protected_additional_passes": 52,
+        "protected_joint_ids": [
+          "joint.left-ankle-pitch",
+          "joint.left-ankle-roll",
+          "joint.right-ankle-pitch",
+          "joint.right-ankle-roll"
+        ]
+      },
+      "joint_bounds_microradians": {
+        "joint.left-hip-roll": [174533, 349066],
+        "joint.left-hip-yaw": [0, 0],
+        "joint.left-knee": [261799, 2181662],
+        "joint.left-ankle-pitch": [-349066, 174533],
+        "joint.left-ankle-roll": [-174533, 87266],
+        "joint.right-hip-roll": [174533, 349066],
+        "joint.right-hip-yaw": [0, 0],
+        "joint.right-knee": [261799, 2181662],
+        "joint.right-ankle-pitch": [-349066, 174533],
+        "joint.right-ankle-roll": [-174533, 87266]
+      },
+      "support_phase": {
+        "double_support_height_micrometres": 18000,
+        "minimum_state_frames": 4,
+        "transition_smoothing_passes": 32,
+        "stance_knee_microradians": 261799,
+        "stance_hip_roll_microradians": 174533,
+        "stance_sole_leveling_iterations": 2,
+        "stance_sole_leveling_probe_microradians": 100,
+        "swing_knee_lift_microradians": 174533
+      },
+      "root_height": {
+        "minimum_clearance_micrometres": 0,
+        "maximum_vertical_speed_micrometres_per_second": 300000
+      },
+      "root_planar": {
+        "kernel_weights": [1, 4, 6, 4, 1],
+        "smoothing_passes": 2,
+        "endpoint_taper_frames": 70,
+        "maximum_absolute_correction_micrometres": 150000,
+        "maximum_speed_micrometres_per_second": 600000
+      },
+      "validation": {
+        "maximum_protected_joint_acceleration_microradians_per_second_squared": 25000000,
+        "maximum_root_vertical_speed_micrometres_per_second": 300060,
+        "maximum_planar_root_correction_micrometres": 150000,
+        "maximum_planar_root_correction_speed_micrometres_per_second": 600000,
+        "minimum_contact_interval_frames": 3
+      }
+    },
+    "contact_interval_stabilization": {
+      "sole_enter_height_micrometres": 45000,
+      "sole_exit_height_micrometres": 65000,
+      "sole_enter_speed_micrometres_per_second": 600000,
+      "sole_exit_speed_micrometres_per_second": 900000,
+      "minimum_on_frames": 3,
+      "minimum_off_frames": 3
+    },
+    "rationale": "The exhaustive optimizer-free TRAIN-4 baseline covered all 5653 valid phases of all 28 admitted locomotion clips and found 4329 hard-safety failures. Bilateral ankle-ground impacts dominated at 3240 pair events; ankle pitch dominated hard-ROM at 807 events; ankle roll dominated velocity at 593 events; and ankle channels accounted for 317 of 339 effort-envelope events. Pre-freeze temporal/contact diagnostics confirmed that symmetric whole-clip smoothing and a contact-aware sole solve materially reduce every dominant class, while an over-strong root lock and a five-degree hip clearance are rejected because they respectively increase impacts and bilateral hip collision. This version therefore applies a symmetric low-pass trajectory solve, stronger ankle smoothing, explicit joint reserves, minimum-dwell support phases, conservative stance knee and ten-degree hip clearance, numerical stance-sole leveling, bounded swing-knee clearance, a collision-free velocity-bounded root-height majorant, and a bounded endpoint-tapered planar correction. The ankle-roll reference range extends to minus ten degrees so sole leveling can coexist with hip clearance while retaining ten degrees to the immutable hard limit; the exhaustive dynamic gate still requires zero observed hard-ROM or other hard-safety events. Stable contacts also proved that the old cmu16 nominal-a and slow crops reached the four-cycle coverage threshold only through contact chatter: nominal-a is excluded, while the slow entry is hash-bound to the longer same-split subject-16 trial-16 source and declares an 8200-basis-point planar derivative. Contact precision/recall and all retarget deltas remain ReportOnly. BodySchema hard/soft ROM, actuator, contact and safety thresholds are unchanged, and no optimizer run is authorized without fresh deterministic, kinematic, visual and exhaustive dynamic-feasibility closure."
+  }
+}

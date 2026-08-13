@@ -240,7 +240,7 @@ def load_motion_corpus_profile(profile_path: Path) -> tuple[dict[str, Any], byte
     if base.get("profile_id") != BASE_MOTION_CORPUS_PROFILE_ID:
         raise ValueError("motion corpus overlay base profile mismatch")
     variant = document.get("variant")
-    if not isinstance(variant, dict) or frozenset(variant) not in {
+    legacy_variant_keys = {
         frozenset(
             {
                 "joint_velocity_limit_basis_points",
@@ -256,6 +256,26 @@ def load_motion_corpus_profile(profile_path: Path) -> tuple[dict[str, Any], byte
                 "rationale",
             }
         ),
+    }
+    temporal_variant_keys = frozenset(
+        {
+            "joint_velocity_limit_basis_points",
+            "unidirectional_joint_minimum_microradians",
+            "hip_roll_minimum_microradians",
+            "ankle_roll_minimum_microradians",
+            "ankle_roll_maximum_microradians",
+            "ankle_roll_minimum_hard_reserve_microradians",
+            "locomotion_ground_correction_maximum_absolute_micrometres",
+            "excluded_clip_ids",
+            "clip_source_overrides",
+            "temporal_contact_solve",
+            "contact_interval_stabilization",
+            "rationale",
+        }
+    )
+    if not isinstance(variant, dict) or frozenset(variant) not in {
+        *legacy_variant_keys,
+        temporal_variant_keys,
     }:
         raise ValueError("motion corpus overlay variant mismatch")
     velocity_basis_points = int(variant["joint_velocity_limit_basis_points"])
@@ -263,14 +283,43 @@ def load_motion_corpus_profile(profile_path: Path) -> tuple[dict[str, Any], byte
         variant["unidirectional_joint_minimum_microradians"]
     )
     hip_roll_minimum = int(variant.get("hip_roll_minimum_microradians", 0))
+    ankle_roll_minimum = int(
+        variant.get(
+            "ankle_roll_minimum_microradians",
+            base["retarget"]["locomotion_collision_projection"][
+                "ankle_roll_minimum_microradians"
+            ],
+        )
+    )
+    ankle_roll_maximum = int(
+        variant.get(
+            "ankle_roll_maximum_microradians",
+            base["retarget"]["locomotion_collision_projection"][
+                "ankle_roll_maximum_microradians"
+            ],
+        )
+    )
+    ankle_roll_minimum_hard_reserve = int(
+        variant.get(
+            "ankle_roll_minimum_hard_reserve_microradians",
+            base["retarget"]["locomotion_collision_projection"][
+                "ankle_roll_minimum_hard_reserve_microradians"
+            ],
+        )
+    )
     if (
         not 0 < velocity_basis_points <= 10_000
         or unidirectional_minimum <= 0
         or not 0 <= hip_roll_minimum <= 523_599
+        or ankle_roll_minimum >= ankle_roll_maximum
+        or ankle_roll_minimum_hard_reserve < 0
         or not isinstance(variant["rationale"], str)
         or not variant["rationale"]
     ):
         raise ValueError("motion corpus overlay reserve is invalid")
+    temporal_contact_solve = variant.get("temporal_contact_solve")
+    if temporal_contact_solve is not None:
+        _validate_temporal_contact_variant(variant, base)
     result = deepcopy(base)
     result["profile_id"] = document["profile_id"]
     result["retarget"]["joint_velocity_limit_basis_points"] = (
@@ -282,13 +331,302 @@ def load_motion_corpus_profile(profile_path: Path) -> tuple[dict[str, Any], byte
     )
     projection = result["retarget"]["locomotion_collision_projection"]
     projection["hip_roll_minimum_microradians"] = hip_roll_minimum
+    projection["ankle_roll_minimum_microradians"] = ankle_roll_minimum
+    projection["ankle_roll_maximum_microradians"] = ankle_roll_maximum
+    projection["ankle_roll_minimum_hard_reserve_microradians"] = (
+        ankle_roll_minimum_hard_reserve
+    )
     projection["knee_minimum_microradians"] = unidirectional_minimum
     projection["elbow_minimum_microradians"] = unidirectional_minimum
     projection[
         "unidirectional_joint_minimum_hard_reserve_microradians"
     ] = unidirectional_minimum
     projection["rationale"] = variant["rationale"]
+    if temporal_contact_solve is not None:
+        result["retarget"]["algorithm_id"] = temporal_contact_solve[
+            "algorithm_id"
+        ]
+        result["retarget"]["velocity_policy"] = (
+            "symmetric whole-clip temporal/contact solve followed by projection "
+            "to the declared basis-point fraction of every joint maximum velocity"
+        )
+        result["retarget"]["temporal_contact_solve"] = deepcopy(
+            temporal_contact_solve
+        )
+        result["retarget"]["ground_correction"][
+            "locomotion_maximum_absolute_micrometres"
+        ] = int(
+            variant[
+                "locomotion_ground_correction_maximum_absolute_micrometres"
+            ]
+        )
+        result["retarget"]["ground_correction"]["algorithm"] = (
+            "minimum collision-free Lipschitz root-height majorant over the "
+            "temporally solved bilateral sole trajectory"
+        )
+        result["retarget"]["contact_thresholds"][
+            "interval_stabilization"
+        ] = deepcopy(variant["contact_interval_stabilization"])
+        excluded_clip_ids = set(variant["excluded_clip_ids"])
+        result["clips"] = [
+            clip
+            for clip in result["clips"]
+            if clip["clip_id"] not in excluded_clip_ids
+        ]
+        clips_by_id = {clip["clip_id"]: clip for clip in result["clips"]}
+        for clip_id, override in variant["clip_source_overrides"].items():
+            clips_by_id[clip_id].update(deepcopy(override))
     return result, profile_bytes
+
+
+def _validate_temporal_contact_variant(
+    variant: dict[str, Any], base: dict[str, Any]
+) -> None:
+    solve = variant["temporal_contact_solve"]
+    contacts = variant["contact_interval_stabilization"]
+    excluded_clip_ids = variant["excluded_clip_ids"]
+    clip_source_overrides = variant["clip_source_overrides"]
+    if (
+        not isinstance(solve, dict)
+        or set(solve)
+        != {
+            "algorithm_id",
+            "smoothing",
+            "joint_bounds_microradians",
+            "support_phase",
+            "root_height",
+            "root_planar",
+            "validation",
+        }
+        or solve.get("algorithm_id")
+        != "nextengine.cmu-temporal-contact-retarget.v1"
+        or not isinstance(contacts, dict)
+        or set(contacts)
+        != {
+            "sole_enter_height_micrometres",
+            "sole_exit_height_micrometres",
+            "sole_enter_speed_micrometres_per_second",
+            "sole_exit_speed_micrometres_per_second",
+            "minimum_on_frames",
+            "minimum_off_frames",
+        }
+        or not isinstance(excluded_clip_ids, list)
+        or not excluded_clip_ids
+        or len(excluded_clip_ids) != len(set(excluded_clip_ids))
+        or not isinstance(clip_source_overrides, dict)
+        or not clip_source_overrides
+    ):
+        raise ValueError("motion corpus temporal/contact solve identity mismatch")
+    smoothing = solve["smoothing"]
+    bounds = solve["joint_bounds_microradians"]
+    support = solve["support_phase"]
+    root_height = solve["root_height"]
+    root_planar = solve["root_planar"]
+    validation = solve["validation"]
+    if (
+        not isinstance(smoothing, dict)
+        or set(smoothing)
+        != {
+            "kernel_weights",
+            "whole_body_passes",
+            "protected_additional_passes",
+            "protected_joint_ids",
+        }
+        or not isinstance(bounds, dict)
+        or not bounds
+        or not isinstance(support, dict)
+        or set(support)
+        != {
+            "double_support_height_micrometres",
+            "minimum_state_frames",
+            "transition_smoothing_passes",
+            "stance_knee_microradians",
+            "stance_hip_roll_microradians",
+            "stance_sole_leveling_iterations",
+            "stance_sole_leveling_probe_microradians",
+            "swing_knee_lift_microradians",
+        }
+        or not isinstance(root_height, dict)
+        or set(root_height)
+        != {
+            "minimum_clearance_micrometres",
+            "maximum_vertical_speed_micrometres_per_second",
+        }
+        or not isinstance(root_planar, dict)
+        or set(root_planar)
+        != {
+            "kernel_weights",
+            "smoothing_passes",
+            "endpoint_taper_frames",
+            "maximum_absolute_correction_micrometres",
+            "maximum_speed_micrometres_per_second",
+        }
+        or not isinstance(validation, dict)
+        or set(validation)
+        != {
+            "maximum_protected_joint_acceleration_microradians_per_second_squared",
+            "maximum_root_vertical_speed_micrometres_per_second",
+            "maximum_planar_root_correction_micrometres",
+            "maximum_planar_root_correction_speed_micrometres_per_second",
+            "minimum_contact_interval_frames",
+        }
+    ):
+        raise ValueError("motion corpus temporal/contact solve layout mismatch")
+    kernel = smoothing["kernel_weights"]
+    protected = smoothing["protected_joint_ids"]
+    if (
+        not isinstance(kernel, list)
+        or not kernel
+        or len(kernel) % 2 == 0
+        or kernel != list(reversed(kernel))
+        or any(isinstance(value, bool) or not isinstance(value, int) or value <= 0 for value in kernel)
+        or isinstance(smoothing["whole_body_passes"], bool)
+        or not 0 <= int(smoothing["whole_body_passes"]) <= 256
+        or isinstance(smoothing["protected_additional_passes"], bool)
+        or not 0 <= int(smoothing["protected_additional_passes"]) <= 256
+        or not isinstance(protected, list)
+        or not protected
+        or len(protected) != len(set(protected))
+    ):
+        raise ValueError("motion corpus temporal smoothing is invalid")
+    descriptor_joint_ids = {
+        joint_id
+        for side in ("left", "right")
+        for joint_id in (
+            f"joint.{side}-hip-roll",
+            f"joint.{side}-hip-yaw",
+            f"joint.{side}-knee",
+            f"joint.{side}-ankle-pitch",
+            f"joint.{side}-ankle-roll",
+        )
+    }
+    if set(bounds) != descriptor_joint_ids or any(
+        not isinstance(value, list)
+        or len(value) != 2
+        or any(isinstance(item, bool) or not isinstance(item, int) for item in value)
+        or value[0] > value[1]
+        for value in bounds.values()
+    ):
+        raise ValueError("motion corpus temporal joint bounds are invalid")
+    base_projection = base["retarget"]["locomotion_collision_projection"]
+    base_clips = {clip["clip_id"]: clip for clip in base["clips"]}
+    source_paths = {item["path"] for item in base["source_files"]}
+    expected_override_fields = {
+        "subject",
+        "trial",
+        "source_first_frame",
+        "source_last_frame",
+        "split_group_id",
+        "planar_root_scale_basis_points",
+        "description",
+    }
+    if (
+        any(clip_id not in base_clips for clip_id in excluded_clip_ids)
+        or any(
+            clip_id not in base_clips
+            or clip_id in excluded_clip_ids
+            or not isinstance(override, dict)
+            or set(override) != expected_override_fields
+            or not isinstance(override["subject"], str)
+            or not isinstance(override["trial"], str)
+            or f'{override["subject"]}/{override["subject"]}_{override["trial"]}.amc'
+            not in source_paths
+            or int(override["source_first_frame"]) <= 0
+            or int(override["source_last_frame"])
+            < int(override["source_first_frame"])
+            or not isinstance(override["split_group_id"], str)
+            or not override["split_group_id"]
+            or not 0 < int(override["planar_root_scale_basis_points"]) <= 10_000
+            or not isinstance(override["description"], str)
+            or not override["description"]
+            for clip_id, override in clip_source_overrides.items()
+        )
+        or int(
+            variant[
+                "locomotion_ground_correction_maximum_absolute_micrometres"
+            ]
+        )
+        <= 0
+        or int(support["double_support_height_micrometres"]) < 0
+        or int(support["minimum_state_frames"]) <= 0
+        or int(support["transition_smoothing_passes"]) < 0
+        or int(support["stance_knee_microradians"]) < 0
+        or int(support["stance_hip_roll_microradians"])
+        < int(variant["hip_roll_minimum_microradians"])
+        or not 1 <= int(support["stance_sole_leveling_iterations"]) <= 8
+        or not 1
+        <= int(support["stance_sole_leveling_probe_microradians"])
+        <= 100_000
+        or int(support["swing_knee_lift_microradians"]) < 0
+        or int(root_height["minimum_clearance_micrometres"]) < 0
+        or int(root_height["maximum_vertical_speed_micrometres_per_second"])
+        <= 0
+        or not isinstance(root_planar["kernel_weights"], list)
+        or not root_planar["kernel_weights"]
+        or len(root_planar["kernel_weights"]) % 2 == 0
+        or root_planar["kernel_weights"]
+        != list(reversed(root_planar["kernel_weights"]))
+        or any(
+            isinstance(value, bool) or not isinstance(value, int) or value <= 0
+            for value in root_planar["kernel_weights"]
+        )
+        or isinstance(root_planar["smoothing_passes"], bool)
+        or not 0 <= int(root_planar["smoothing_passes"]) <= 256
+        or isinstance(root_planar["endpoint_taper_frames"], bool)
+        or not 0 <= int(root_planar["endpoint_taper_frames"]) <= 256
+        or int(root_planar["maximum_absolute_correction_micrometres"]) <= 0
+        or int(root_planar["maximum_speed_micrometres_per_second"]) <= 0
+        or int(
+            validation[
+                "maximum_protected_joint_acceleration_microradians_per_second_squared"
+            ]
+        )
+        <= 0
+        or int(validation["maximum_root_vertical_speed_micrometres_per_second"])
+        < int(root_height["maximum_vertical_speed_micrometres_per_second"])
+        or int(validation["maximum_planar_root_correction_micrometres"])
+        != int(root_planar["maximum_absolute_correction_micrometres"])
+        or int(
+            validation[
+                "maximum_planar_root_correction_speed_micrometres_per_second"
+            ]
+        )
+        != int(root_planar["maximum_speed_micrometres_per_second"])
+        or int(validation["minimum_contact_interval_frames"]) <= 0
+        or int(contacts["sole_enter_height_micrometres"])
+        > int(contacts["sole_exit_height_micrometres"])
+        or int(contacts["sole_enter_speed_micrometres_per_second"])
+        > int(contacts["sole_exit_speed_micrometres_per_second"])
+        or int(contacts["minimum_on_frames"]) <= 0
+        or int(contacts["minimum_off_frames"]) <= 0
+        or int(variant["hip_roll_minimum_microradians"])
+        < int(base_projection["hip_roll_minimum_microradians"])
+        or int(
+            solve["joint_bounds_microradians"][
+                "joint.left-ankle-roll"
+            ][0]
+        )
+        != int(variant["ankle_roll_minimum_microradians"])
+        or int(
+            solve["joint_bounds_microradians"][
+                "joint.right-ankle-roll"
+            ][0]
+        )
+        != int(variant["ankle_roll_minimum_microradians"])
+        or int(
+            solve["joint_bounds_microradians"][
+                "joint.left-ankle-roll"
+            ][1]
+        )
+        != int(variant["ankle_roll_maximum_microradians"])
+        or int(
+            solve["joint_bounds_microradians"][
+                "joint.right-ankle-roll"
+            ][1]
+        )
+        != int(variant["ankle_roll_maximum_microradians"])
+    ):
+        raise ValueError("motion corpus temporal/contact thresholds are invalid")
 
 
 def deterministic_npz_bytes(clip: RetargetedClip, metadata: dict[str, Any]) -> bytes:
@@ -614,6 +952,105 @@ def validate_clip(
             ):
                 errors.append("RETARGET_LOCOMOTION_SHOULDER_CLEARANCE_MISMATCH")
 
+    temporal_contact_solve = profile["retarget"].get("temporal_contact_solve")
+    maximum_protected_acceleration = 0
+    maximum_planar_root_correction = 0
+    maximum_planar_root_correction_speed = 0
+    maximum_root_vertical_speed = int(
+        np.max(np.abs(clip.root_linear_velocity_um_s[:, 1]))
+    )
+    minimum_internal_contact_interval = len(clip.contacts)
+    if clip.partition == "locomotion" and temporal_contact_solve is not None:
+        if clip.planar_root_correction_um is None:
+            errors.append("RETARGET_PLANAR_ROOT_CORRECTION_MISSING")
+        else:
+            maximum_planar_root_correction = int(
+                np.rint(
+                    np.max(
+                        np.linalg.norm(
+                            clip.planar_root_correction_um[:, (0, 2)].astype(
+                                np.float64
+                            ),
+                            axis=1,
+                        )
+                    )
+                )
+            )
+            if len(clip.planar_root_correction_um) > 1:
+                maximum_planar_root_correction_speed = int(
+                    np.rint(
+                        np.max(
+                            np.linalg.norm(
+                                np.diff(
+                                    clip.planar_root_correction_um[:, (0, 2)],
+                                    axis=0,
+                                ).astype(np.float64)
+                                * 60.0,
+                                axis=1,
+                            )
+                        )
+                    )
+                )
+        temporal_bounds = temporal_contact_solve["joint_bounds_microradians"]
+        for joint_id, (minimum, maximum) in temporal_bounds.items():
+            ordinal = int(joint_by_id[joint_id]["dof_ordinal"])
+            if np.any(clip.joint_position_urad[:, ordinal] < int(minimum)) or np.any(
+                clip.joint_position_urad[:, ordinal] > int(maximum)
+            ):
+                errors.append("RETARGET_TEMPORAL_JOINT_BOUND_MISMATCH")
+                break
+        protected_ordinals = np.asarray(
+            [
+                int(joint_by_id[joint_id]["dof_ordinal"])
+                for joint_id in temporal_contact_solve["smoothing"][
+                    "protected_joint_ids"
+                ]
+            ],
+            dtype=np.int64,
+        )
+        if len(clip.joint_position_urad) > 2:
+            acceleration = np.abs(
+                np.diff(
+                    clip.joint_position_urad[:, protected_ordinals],
+                    n=2,
+                    axis=0,
+                )
+                * 3600
+            )
+            maximum_protected_acceleration = int(np.max(acceleration))
+        validation = temporal_contact_solve["validation"]
+        if maximum_protected_acceleration > int(
+            validation[
+                "maximum_protected_joint_acceleration_microradians_per_second_squared"
+            ]
+        ):
+            errors.append("RETARGET_TEMPORAL_JOINT_ACCELERATION_EXCESS")
+        if maximum_root_vertical_speed > int(
+            validation["maximum_root_vertical_speed_micrometres_per_second"]
+        ):
+            errors.append("RETARGET_TEMPORAL_ROOT_VERTICAL_SPEED_EXCESS")
+        if maximum_planar_root_correction > int(
+            validation["maximum_planar_root_correction_micrometres"]
+        ):
+            errors.append("RETARGET_PLANAR_ROOT_CORRECTION_EXCESS")
+        if maximum_planar_root_correction_speed > int(
+            validation[
+                "maximum_planar_root_correction_speed_micrometres_per_second"
+            ]
+        ):
+            errors.append("RETARGET_PLANAR_ROOT_CORRECTION_SPEED_EXCESS")
+        interval_lengths = [
+            length
+            for column in range(2)
+            for length in _internal_run_lengths(clip.contacts[:, column])
+        ]
+        if interval_lengths:
+            minimum_internal_contact_interval = min(interval_lengths)
+        if minimum_internal_contact_interval < int(
+            validation["minimum_contact_interval_frames"]
+        ):
+            errors.append("RETARGET_CONTACT_INTERVAL_TOO_SHORT")
+
     planar_velocity = np.linalg.norm(clip.root_linear_velocity_um_s[:, (0, 2)].astype(np.float64), axis=1) / 1_000_000.0
     planar_displacement = float(
         np.linalg.norm((clip.root_position_um[-1, (0, 2)] - clip.root_position_um[0, (0, 2)]).astype(np.float64))
@@ -699,6 +1136,21 @@ def validate_clip(
             "maximum_ground_correction_micrometres": maximum_correction,
             "minimum_collider_height_micrometres": minimum_collider_height,
             "minimum_nonfoot_height_micrometres": minimum_nonfoot_height,
+            "maximum_protected_joint_acceleration_microradians_per_second_squared": (
+                maximum_protected_acceleration
+            ),
+            "maximum_root_vertical_speed_micrometres_per_second": (
+                maximum_root_vertical_speed
+            ),
+            "maximum_planar_root_correction_micrometres": (
+                maximum_planar_root_correction
+            ),
+            "maximum_planar_root_correction_speed_micrometres_per_second": (
+                maximum_planar_root_correction_speed
+            ),
+            "minimum_internal_sole_contact_interval_frames": (
+                minimum_internal_contact_interval
+            ),
             "planar_displacement_metres": round(planar_displacement, 6),
             "mean_planar_speed_metres_per_second": round(mean_speed, 6),
             "first_window_speed_metres_per_second": round(first_speed, 6),
@@ -776,6 +1228,31 @@ def _validate_closure(
     ):
         raise ValueError("motion corpus unidirectional-joint audit threshold is invalid")
     joint_by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
+    temporal_contact_solve = profile["retarget"].get("temporal_contact_solve")
+    if temporal_contact_solve is not None:
+        bounds = temporal_contact_solve["joint_bounds_microradians"]
+        protected = temporal_contact_solve["smoothing"]["protected_joint_ids"]
+        if any(joint_id not in joint_by_id for joint_id in (*bounds, *protected)):
+            raise ValueError("motion corpus temporal joint closure mismatch")
+        for joint_id, (minimum, maximum) in bounds.items():
+            soft_minimum, soft_maximum = map(
+                int, joint_by_id[joint_id]["soft_limit_microradians"]
+            )
+            if not soft_minimum <= int(minimum) <= int(maximum) <= soft_maximum:
+                raise ValueError("motion corpus temporal bound exceeds soft ROM")
+        support = temporal_contact_solve["support_phase"]
+        for side in ("left", "right"):
+            knee = bounds[f"joint.{side}-knee"]
+            hip_roll = bounds[f"joint.{side}-hip-roll"]
+            if not (
+                int(knee[0])
+                <= int(support["stance_knee_microradians"])
+                <= int(knee[1])
+                and int(hip_roll[0])
+                <= int(support["stance_hip_roll_microradians"])
+                <= int(hip_roll[1])
+            ):
+                raise ValueError("motion corpus stance target exceeds temporal bound")
     for side in ("left", "right"):
         joint = joint_by_id[f"joint.{side}-ankle-roll"]
         soft_minimum, soft_maximum = map(int, joint["soft_limit_microradians"])
@@ -838,6 +1315,17 @@ def _validate_closure(
     intended = profile["source"]["intended_use"]
     if not intended["commercial_training"] or not intended["model_output_distribution"]:
         raise ValueError("motion corpus rights do not admit the intended candidate")
+
+
+def _internal_run_lengths(values: NDArray[np.uint8]) -> tuple[int, ...]:
+    if values.ndim != 1 or len(values) == 0:
+        raise ValueError("contact interval audit requires one non-empty channel")
+    boundaries = np.flatnonzero(values[1:] != values[:-1]) + 1
+    starts = np.concatenate((np.asarray([0]), boundaries))
+    ends = np.concatenate((boundaries, np.asarray([len(values)])))
+    if len(starts) <= 2:
+        return ()
+    return tuple(int(end - start) for start, end in zip(starts[1:-1], ends[1:-1]))
 
 
 def _split_audit(clips: list[RetargetedClip]) -> dict[str, Any]:
