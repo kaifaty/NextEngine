@@ -11,6 +11,7 @@ from torch.distributions import Normal
 from next_lab.reference_ppo import (
     TanhActorCritic,
     TinyReferencePpoProfile,
+    _selected_contact_pair_ids,
     _transformed_log_probability,
 )
 from next_lab.reference_performance import (
@@ -58,6 +59,17 @@ PHYSICS_VELOCITY_GUARD_H10_TINY_PROFILE = (
 
 
 class ReferencePpoTests(unittest.TestCase):
+    def test_contact_pair_diagnostic_decodes_exact_mask_width(self) -> None:
+        self.assertEqual(
+            _selected_contact_pair_ids(
+                ("ground:left-foot", "ground:right-foot", "left-thigh:right-thigh"),
+                [True, False, True],
+            ),
+            ["ground:left-foot", "left-thigh:right-thigh"],
+        )
+        with self.assertRaisesRegex(ValueError, "mask width mismatch"):
+            _selected_contact_pair_ids(("ground:left-foot",), [True, False])
+
     def test_frozen_tiny_profile_closes_transformed_policy_and_batch(self) -> None:
         profile = TinyReferencePpoProfile.load(PROFILE)
         self.assertEqual(len(profile.sha256), 64)

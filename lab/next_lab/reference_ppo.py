@@ -188,6 +188,14 @@ class TinyReferencePpoProfile:
         return cls(document=document, sha256=hashlib.sha256(payload).hexdigest())
 
 
+def _selected_contact_pair_ids(
+    pair_ids: tuple[str, ...], mask: list[bool]
+) -> list[str]:
+    if len(pair_ids) != len(mask):
+        raise ValueError("contact-pair diagnostic mask width mismatch")
+    return [pair_id for pair_id, selected in zip(pair_ids, mask) if selected]
+
+
 class TanhActorCritic(nn.Module):
     def __init__(self, profile: TinyReferencePpoProfile) -> None:
         super().__init__()
@@ -497,6 +505,13 @@ class TinyReferencePpoTrainer:
                         "last_step_root_position_error_micrometres",
                         "last_step_root_orientation_absolute_dot_q1_30",
                         "last_step_tracking_loss_ticks",
+                        "last_step_terminal_reason",
+                        "last_step_velocity_action_channel",
+                        "last_step_velocity_excess_microradians_per_second",
+                        "last_step_hard_impact_pair_mask",
+                        "last_step_self_collision_pair_mask",
+                        "last_step_forbidden_contact_pair_mask",
+                        "contact_pair_ids",
                     )
                     missing = [
                         name
@@ -516,6 +531,24 @@ class TinyReferencePpoTrainer:
                             done_indices
                         ].cpu().tolist(),
                         "tracking_loss_ticks": self.environment.last_step_tracking_loss_ticks[
+                            done_indices
+                        ].cpu().tolist(),
+                        "terminal_reason": self.environment.last_step_terminal_reason[
+                            done_indices
+                        ].cpu().tolist(),
+                        "velocity_action_channel": self.environment.last_step_velocity_action_channel[
+                            done_indices
+                        ].cpu().tolist(),
+                        "velocity_excess": self.environment.last_step_velocity_excess_microradians_per_second[
+                            done_indices
+                        ].cpu().tolist(),
+                        "hard_impact_pairs": self.environment.last_step_hard_impact_pair_mask[
+                            done_indices
+                        ].cpu().tolist(),
+                        "self_collision_pairs": self.environment.last_step_self_collision_pair_mask[
+                            done_indices
+                        ].cpu().tolist(),
+                        "forbidden_contact_pairs": self.environment.last_step_forbidden_contact_pair_mask[
                             done_indices
                         ].cpu().tolist(),
                         "reference_frame": self.environment.last_step_reference_frame[
@@ -677,12 +710,47 @@ class TinyReferencePpoTrainer:
                                         completed_index
                                     ]
                                 ),
+                                "terminal_reason": int(
+                                    terminal_state_batch["terminal_reason"][
+                                        completed_index
+                                    ]
+                                ),
+                                "velocity_action_channel": int(
+                                    terminal_state_batch["velocity_action_channel"][
+                                        completed_index
+                                    ]
+                                ),
+                                "velocity_excess_microradians_per_second": int(
+                                    terminal_state_batch["velocity_excess"][
+                                        completed_index
+                                    ]
+                                ),
+                                "hard_impact_pair_ids": _selected_contact_pair_ids(
+                                    self.environment.contact_pair_ids,
+                                    terminal_state_batch["hard_impact_pairs"][
+                                        completed_index
+                                    ],
+                                ),
+                                "self_collision_pair_ids": _selected_contact_pair_ids(
+                                    self.environment.contact_pair_ids,
+                                    terminal_state_batch["self_collision_pairs"][
+                                        completed_index
+                                    ],
+                                ),
+                                "forbidden_contact_pair_ids": _selected_contact_pair_ids(
+                                    self.environment.contact_pair_ids,
+                                    terminal_state_batch["forbidden_contact_pairs"][
+                                        completed_index
+                                    ],
+                                ),
                                 "failure_reasons": [
                                     reason
                                     for reason, occurred in (
                                         ("reference_tracking_lost", tracking_lost),
                                         ("hard_rom", hard_rom),
                                         ("joint_safety", joint_safety),
+                                        ("joint_velocity", joint_velocity),
+                                        ("effort_envelope", effort_envelope),
                                         ("hard_impact", hard_impact),
                                         ("self_collision", self_collision),
                                         ("forbidden_contact", forbidden_contact),
