@@ -273,9 +273,14 @@ def load_motion_corpus_profile(profile_path: Path) -> tuple[dict[str, Any], byte
             "rationale",
         }
     )
+    stance_chain_variant_keys = temporal_variant_keys | {
+        "additional_source_files",
+        "clip_derivation_overrides",
+    }
     if not isinstance(variant, dict) or frozenset(variant) not in {
         *legacy_variant_keys,
         temporal_variant_keys,
+        stance_chain_variant_keys,
     }:
         raise ValueError("motion corpus overlay variant mismatch")
     velocity_basis_points = int(variant["joint_velocity_limit_basis_points"])
@@ -367,6 +372,10 @@ def load_motion_corpus_profile(profile_path: Path) -> tuple[dict[str, Any], byte
         result["retarget"]["contact_thresholds"][
             "interval_stabilization"
         ] = deepcopy(variant["contact_interval_stabilization"])
+        result["source_files"].extend(
+            deepcopy(variant.get("additional_source_files", []))
+        )
+        result["source_files"].sort(key=lambda item: item["path"])
         excluded_clip_ids = set(variant["excluded_clip_ids"])
         result["clips"] = [
             clip
@@ -375,6 +384,10 @@ def load_motion_corpus_profile(profile_path: Path) -> tuple[dict[str, Any], byte
         ]
         clips_by_id = {clip["clip_id"]: clip for clip in result["clips"]}
         for clip_id, override in variant["clip_source_overrides"].items():
+            clips_by_id[clip_id].update(deepcopy(override))
+        for clip_id, override in variant.get(
+            "clip_derivation_overrides", {}
+        ).items():
             clips_by_id[clip_id].update(deepcopy(override))
     return result, profile_bytes
 
@@ -386,20 +399,37 @@ def _validate_temporal_contact_variant(
     contacts = variant["contact_interval_stabilization"]
     excluded_clip_ids = variant["excluded_clip_ids"]
     clip_source_overrides = variant["clip_source_overrides"]
+    additional_source_files = variant.get("additional_source_files", [])
+    clip_derivation_overrides = variant.get("clip_derivation_overrides", {})
+    algorithm_id = solve.get("algorithm_id") if isinstance(solve, dict) else None
+    expected_solve_fields = {
+        "algorithm_id",
+        "smoothing",
+        "joint_bounds_microradians",
+        "support_phase",
+        "root_height",
+        "root_planar",
+        "validation",
+    }
+    if algorithm_id == "nextengine.cmu-stance-chain-retarget.v2":
+        expected_solve_fields.update(
+            {"root_orientation", "source_frame_stride", "stance_chain"}
+        )
     if (
         not isinstance(solve, dict)
-        or set(solve)
-        != {
-            "algorithm_id",
-            "smoothing",
-            "joint_bounds_microradians",
-            "support_phase",
-            "root_height",
-            "root_planar",
-            "validation",
+        or set(solve) != expected_solve_fields
+        or algorithm_id
+        not in {
+            "nextengine.cmu-temporal-contact-retarget.v1",
+            "nextengine.cmu-stance-chain-retarget.v2",
         }
-        or solve.get("algorithm_id")
-        != "nextengine.cmu-temporal-contact-retarget.v1"
+        or (
+            algorithm_id == "nextengine.cmu-stance-chain-retarget.v2"
+            and (
+                isinstance(solve["source_frame_stride"], bool)
+                or solve["source_frame_stride"] != 1
+            )
+        )
         or not isinstance(contacts, dict)
         or set(contacts)
         != {
@@ -415,6 +445,8 @@ def _validate_temporal_contact_variant(
         or len(excluded_clip_ids) != len(set(excluded_clip_ids))
         or not isinstance(clip_source_overrides, dict)
         or not clip_source_overrides
+        or not isinstance(additional_source_files, list)
+        or not isinstance(clip_derivation_overrides, dict)
     ):
         raise ValueError("motion corpus temporal/contact solve identity mismatch")
     smoothing = solve["smoothing"]
@@ -423,6 +455,35 @@ def _validate_temporal_contact_variant(
     root_height = solve["root_height"]
     root_planar = solve["root_planar"]
     validation = solve["validation"]
+    expected_support_fields = {
+        "double_support_height_micrometres",
+        "minimum_state_frames",
+        "transition_smoothing_passes",
+        "stance_knee_microradians",
+        "stance_hip_roll_microradians",
+        "stance_sole_leveling_iterations",
+        "stance_sole_leveling_probe_microradians",
+        "swing_knee_lift_microradians",
+    }
+    if algorithm_id == "nextengine.cmu-stance-chain-retarget.v2":
+        expected_support_fields.add(
+            "maximum_entry_sole_speed_micrometres_per_second"
+        )
+    expected_validation_fields = {
+        "maximum_protected_joint_acceleration_microradians_per_second_squared",
+        "maximum_root_vertical_speed_micrometres_per_second",
+        "maximum_planar_root_correction_micrometres",
+        "maximum_planar_root_correction_speed_micrometres_per_second",
+        "minimum_contact_interval_frames",
+    }
+    if algorithm_id == "nextengine.cmu-stance-chain-retarget.v2":
+        expected_validation_fields.update(
+            {
+                "maximum_support_sole_planar_speed_micrometres_per_second",
+                "maximum_support_sole_vertical_speed_micrometres_per_second",
+                "maximum_root_yaw_speed_microradians_per_second",
+            }
+        )
     if (
         not isinstance(smoothing, dict)
         or set(smoothing)
@@ -435,17 +496,7 @@ def _validate_temporal_contact_variant(
         or not isinstance(bounds, dict)
         or not bounds
         or not isinstance(support, dict)
-        or set(support)
-        != {
-            "double_support_height_micrometres",
-            "minimum_state_frames",
-            "transition_smoothing_passes",
-            "stance_knee_microradians",
-            "stance_hip_roll_microradians",
-            "stance_sole_leveling_iterations",
-            "stance_sole_leveling_probe_microradians",
-            "swing_knee_lift_microradians",
-        }
+        or set(support) != expected_support_fields
         or not isinstance(root_height, dict)
         or set(root_height)
         != {
@@ -462,14 +513,7 @@ def _validate_temporal_contact_variant(
             "maximum_speed_micrometres_per_second",
         }
         or not isinstance(validation, dict)
-        or set(validation)
-        != {
-            "maximum_protected_joint_acceleration_microradians_per_second_squared",
-            "maximum_root_vertical_speed_micrometres_per_second",
-            "maximum_planar_root_correction_micrometres",
-            "maximum_planar_root_correction_speed_micrometres_per_second",
-            "minimum_contact_interval_frames",
-        }
+        or set(validation) != expected_validation_fields
     ):
         raise ValueError("motion corpus temporal/contact solve layout mismatch")
     kernel = smoothing["kernel_weights"]
@@ -489,16 +533,20 @@ def _validate_temporal_contact_variant(
         or len(protected) != len(set(protected))
     ):
         raise ValueError("motion corpus temporal smoothing is invalid")
+    descriptor_joint_suffixes = {
+        "hip-roll",
+        "hip-yaw",
+        "knee",
+        "ankle-pitch",
+        "ankle-roll",
+    }
+    if algorithm_id == "nextengine.cmu-stance-chain-retarget.v2":
+        descriptor_joint_suffixes.add("hip-pitch")
     descriptor_joint_ids = {
         joint_id
         for side in ("left", "right")
-        for joint_id in (
-            f"joint.{side}-hip-roll",
-            f"joint.{side}-hip-yaw",
-            f"joint.{side}-knee",
-            f"joint.{side}-ankle-pitch",
-            f"joint.{side}-ankle-roll",
-        )
+        for suffix in descriptor_joint_suffixes
+        for joint_id in (f"joint.{side}-{suffix}",)
     }
     if set(bounds) != descriptor_joint_ids or any(
         not isinstance(value, list)
@@ -508,9 +556,116 @@ def _validate_temporal_contact_variant(
         for value in bounds.values()
     ):
         raise ValueError("motion corpus temporal joint bounds are invalid")
+    stance_chain = solve.get("stance_chain")
+    if algorithm_id == "nextengine.cmu-stance-chain-retarget.v2":
+        expected_stance_chain_fields = {
+            "ordered_joint_suffixes",
+            "support_weight_smoothing_passes",
+            "final_joint_smoothing_passes",
+            "outer_iterations",
+            "conjugate_gradient_iterations",
+            "jacobian_probe_microradians",
+            "sole_normal_lever_micrometres",
+            "maximum_joint_update_microradians",
+            "maximum_root_update_micrometres",
+            "contact_constraint_weight_q16",
+            "joint_reference_weight_q16",
+            "joint_velocity_weight_q16",
+            "joint_acceleration_weight_q16",
+            "root_reference_weight_q16",
+            "root_velocity_weight_q16",
+            "root_acceleration_weight_q16",
+        }
+        positive_integer_fields = expected_stance_chain_fields - {
+            "ordered_joint_suffixes"
+        }
+        if (
+            not isinstance(stance_chain, dict)
+            or set(stance_chain) != expected_stance_chain_fields
+            or stance_chain.get("ordered_joint_suffixes")
+            != [
+                "hip-pitch",
+                "hip-roll",
+                "knee",
+                "ankle-pitch",
+                "ankle-roll",
+            ]
+            or any(
+                isinstance(stance_chain[field], bool)
+                or not isinstance(stance_chain[field], int)
+                or stance_chain[field] <= 0
+                for field in positive_integer_fields
+            )
+            or int(stance_chain["support_weight_smoothing_passes"]) > 256
+            or int(stance_chain["final_joint_smoothing_passes"]) > 256
+            or int(stance_chain["outer_iterations"]) > 8
+            or int(stance_chain["conjugate_gradient_iterations"]) > 512
+            or int(stance_chain["jacobian_probe_microradians"]) > 100_000
+            or int(stance_chain["maximum_joint_update_microradians"])
+            > 500_000
+            or int(stance_chain["maximum_root_update_micrometres"]) > 100_000
+        ):
+            raise ValueError("motion corpus stance-chain solve is invalid")
+    elif stance_chain is not None:
+        raise ValueError("motion corpus temporal V1 has unexpected stance chain")
+    root_orientation = solve.get("root_orientation")
+    if algorithm_id == "nextengine.cmu-stance-chain-retarget.v2":
+        if (
+            not isinstance(root_orientation, dict)
+            or set(root_orientation)
+            != {
+                "kernel_weights",
+                "smoothing_passes",
+                "minimum_alignment_speed_micrometres_per_second",
+                "maximum_yaw_speed_microradians_per_second",
+                "velocity_projection_passes",
+            }
+            or root_orientation["kernel_weights"] != list(kernel)
+            or isinstance(root_orientation["smoothing_passes"], bool)
+            or not 0 <= int(root_orientation["smoothing_passes"]) <= 256
+            or int(root_orientation["minimum_alignment_speed_micrometres_per_second"])
+            <= 0
+            or int(root_orientation["maximum_yaw_speed_microradians_per_second"])
+            <= 0
+            or not 1 <= int(root_orientation["velocity_projection_passes"]) <= 16
+        ):
+            raise ValueError("motion corpus root-orientation solve is invalid")
+    elif root_orientation is not None:
+        raise ValueError("motion corpus temporal V1 has unexpected root orientation")
     base_projection = base["retarget"]["locomotion_collision_projection"]
     base_clips = {clip["clip_id"]: clip for clip in base["clips"]}
-    source_paths = {item["path"] for item in base["source_files"]}
+    base_source_paths = {item["path"] for item in base["source_files"]}
+    additional_paths = [
+        item.get("path") if isinstance(item, dict) else None
+        for item in additional_source_files
+    ]
+    if (
+        any(
+            not isinstance(item, dict)
+            or set(item) != {"path", "sha256"}
+            or not isinstance(item["path"], str)
+            or not item["path"].endswith((".asf", ".amc"))
+            or item["path"].startswith("/")
+            or ".." in Path(item["path"]).parts
+            or item["path"] in base_source_paths
+            or not isinstance(item["sha256"], str)
+            or len(item["sha256"]) != 64
+            or any(character not in "0123456789abcdef" for character in item["sha256"])
+            for item in additional_source_files
+        )
+        or len(additional_paths) != len(set(additional_paths))
+        or additional_paths != sorted(additional_paths)
+        or (
+            algorithm_id == "nextengine.cmu-stance-chain-retarget.v2"
+            and not additional_source_files
+        )
+        or (
+            algorithm_id != "nextengine.cmu-stance-chain-retarget.v2"
+            and additional_source_files
+        )
+    ):
+        raise ValueError("motion corpus additional source closure is invalid")
+    source_paths = base_source_paths | set(additional_paths)
     expected_override_fields = {
         "subject",
         "trial",
@@ -529,6 +684,8 @@ def _validate_temporal_contact_variant(
             or set(override) != expected_override_fields
             or not isinstance(override["subject"], str)
             or not isinstance(override["trial"], str)
+            or f'{override["subject"]}/{override["subject"]}.asf'
+            not in source_paths
             or f'{override["subject"]}/{override["subject"]}_{override["trial"]}.amc'
             not in source_paths
             or int(override["source_first_frame"]) <= 0
@@ -547,7 +704,45 @@ def _validate_temporal_contact_variant(
             ]
         )
         <= 0
+        or any(
+            clip_id not in base_clips
+            or clip_id in excluded_clip_ids
+            or base_clips[clip_id].get("derive_mirror_as") is not None
+            or not isinstance(override, dict)
+            or set(override) != {"derive_mirror_as"}
+            or not isinstance(override["derive_mirror_as"], str)
+            or override["derive_mirror_as"] == clip_id
+            or override["derive_mirror_as"] not in excluded_clip_ids
+            or override["derive_mirror_as"] not in base_clips
+            for clip_id, override in clip_derivation_overrides.items()
+        )
+        or len(
+            {
+                override["derive_mirror_as"]
+                for override in clip_derivation_overrides.values()
+                if isinstance(override, dict)
+                and isinstance(override.get("derive_mirror_as"), str)
+            }
+        )
+        != len(clip_derivation_overrides)
+        or (
+            algorithm_id == "nextengine.cmu-stance-chain-retarget.v2"
+            and not clip_derivation_overrides
+        )
+        or (
+            algorithm_id != "nextengine.cmu-stance-chain-retarget.v2"
+            and clip_derivation_overrides
+        )
         or int(support["double_support_height_micrometres"]) < 0
+        or (
+            algorithm_id == "nextengine.cmu-stance-chain-retarget.v2"
+            and int(
+                support[
+                    "maximum_entry_sole_speed_micrometres_per_second"
+                ]
+            )
+            <= 0
+        )
         or int(support["minimum_state_frames"]) <= 0
         or int(support["transition_smoothing_passes"]) < 0
         or int(support["stance_knee_microradians"]) < 0
@@ -593,6 +788,29 @@ def _validate_temporal_contact_variant(
         )
         != int(root_planar["maximum_speed_micrometres_per_second"])
         or int(validation["minimum_contact_interval_frames"]) <= 0
+        or (
+            algorithm_id == "nextengine.cmu-stance-chain-retarget.v2"
+            and (
+                int(
+                    validation[
+                        "maximum_support_sole_planar_speed_micrometres_per_second"
+                    ]
+                )
+                <= 0
+                or int(
+                    validation[
+                        "maximum_root_yaw_speed_microradians_per_second"
+                    ]
+                )
+                <= 0
+                or int(
+                    validation[
+                        "maximum_support_sole_vertical_speed_micrometres_per_second"
+                    ]
+                )
+                <= 0
+            )
+        )
         or int(contacts["sole_enter_height_micrometres"])
         > int(contacts["sole_exit_height_micrometres"])
         or int(contacts["sole_enter_speed_micrometres_per_second"])
@@ -956,8 +1174,13 @@ def validate_clip(
     maximum_protected_acceleration = 0
     maximum_planar_root_correction = 0
     maximum_planar_root_correction_speed = 0
+    maximum_support_sole_planar_speed = 0
+    maximum_support_sole_vertical_speed = 0
     maximum_root_vertical_speed = int(
         np.max(np.abs(clip.root_linear_velocity_um_s[:, 1]))
+    )
+    maximum_root_yaw_speed = int(
+        np.max(np.abs(clip.root_yaw_velocity_urad_s))
     )
     minimum_internal_contact_interval = len(clip.contacts)
     if clip.partition == "locomotion" and temporal_contact_solve is not None:
@@ -1050,6 +1273,72 @@ def validate_clip(
             validation["minimum_contact_interval_frames"]
         ):
             errors.append("RETARGET_CONTACT_INTERVAL_TOO_SHORT")
+        if temporal_contact_solve.get("stance_chain") is not None:
+            if maximum_root_yaw_speed > int(
+                validation["maximum_root_yaw_speed_microradians_per_second"]
+            ):
+                errors.append("RETARGET_ROOT_YAW_SPEED_EXCESS")
+            if (
+                clip.stance_support_state is None
+                or clip.stance_support_state.shape != (len(clip.contacts),)
+                or np.any(
+                    (clip.stance_support_state < 0)
+                    | (clip.stance_support_state > 2)
+                )
+            ):
+                errors.append("RETARGET_STANCE_SUPPORT_STATE_MISMATCH")
+            else:
+                effector_index = {
+                    effector_id: index
+                    for index, effector_id in enumerate(clip.effector_ids)
+                }
+                for side_index, side in enumerate(("left", "right")):
+                    pair = (
+                        effector_index[f"effector.{side}-heel"],
+                        effector_index[f"effector.{side}-forefoot"],
+                    )
+                    center = np.mean(
+                        clip.effector_position_um[:, pair, :].astype(np.float64),
+                        axis=1,
+                    )
+                    velocity = np.diff(center, axis=0) * 60.0
+                    # The stance-chain state leads the physical touchdown so that
+                    # the constrained leg can settle before contact.  It is not a
+                    # contact observation: during that lead-in the selected sole
+                    # may still be the swing foot.  Measure retained stance speed
+                    # against the generated sole-contact channel, which is the
+                    # condition consumed by the dynamic admission audit.
+                    active = clip.contacts[:, side_index] != 0
+                    retained = active[1:] & active[:-1]
+                    if np.any(retained):
+                        maximum_support_sole_planar_speed = max(
+                            maximum_support_sole_planar_speed,
+                            int(
+                                np.rint(
+                                    np.max(
+                                        np.linalg.norm(
+                                            velocity[retained][:, (0, 2)], axis=1
+                                        )
+                                    )
+                                )
+                            ),
+                        )
+                        maximum_support_sole_vertical_speed = max(
+                            maximum_support_sole_vertical_speed,
+                            int(np.rint(np.max(np.abs(velocity[retained, 1])))),
+                        )
+                if maximum_support_sole_planar_speed > int(
+                    validation[
+                        "maximum_support_sole_planar_speed_micrometres_per_second"
+                    ]
+                ):
+                    errors.append("RETARGET_STANCE_SOLE_PLANAR_SPEED_EXCESS")
+                if maximum_support_sole_vertical_speed > int(
+                    validation[
+                        "maximum_support_sole_vertical_speed_micrometres_per_second"
+                    ]
+                ):
+                    errors.append("RETARGET_STANCE_SOLE_VERTICAL_SPEED_EXCESS")
 
     planar_velocity = np.linalg.norm(clip.root_linear_velocity_um_s[:, (0, 2)].astype(np.float64), axis=1) / 1_000_000.0
     planar_displacement = float(
@@ -1142,6 +1431,9 @@ def validate_clip(
             "maximum_root_vertical_speed_micrometres_per_second": (
                 maximum_root_vertical_speed
             ),
+            "maximum_root_yaw_speed_microradians_per_second": (
+                maximum_root_yaw_speed
+            ),
             "maximum_planar_root_correction_micrometres": (
                 maximum_planar_root_correction
             ),
@@ -1150,6 +1442,12 @@ def validate_clip(
             ),
             "minimum_internal_sole_contact_interval_frames": (
                 minimum_internal_contact_interval
+            ),
+            "maximum_support_sole_planar_speed_micrometres_per_second": (
+                maximum_support_sole_planar_speed
+            ),
+            "maximum_support_sole_vertical_speed_micrometres_per_second": (
+                maximum_support_sole_vertical_speed
             ),
             "planar_displacement_metres": round(planar_displacement, 6),
             "mean_planar_speed_metres_per_second": round(mean_speed, 6),

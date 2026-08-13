@@ -22,6 +22,8 @@ from next_lab.motion_retarget import (
     canonical_integer_arrays,
     mirror_clip,
     rotate_clip_quarter_yaw,
+    _conjugate_gradient_trajectory,
+    _continuous_stance_anchor_trajectory,
     _continuous_stance_planar_correction,
     _level_stance_soles,
     _lipschitz_majorant,
@@ -121,6 +123,88 @@ class MotionCorpusTests(unittest.TestCase):
             ]["minimum_on_frames"],
             3,
         )
+
+    def test_stance_chain_overlay_restores_required_ankle_reserve(self) -> None:
+        profile, _ = load_motion_corpus_profile(
+            PROFILES / "humanoid-motion-corpus-cmu-stance-chain.v5.json"
+        )
+        self.assertEqual(
+            profile["retarget"]["algorithm_id"],
+            "nextengine.cmu-stance-chain-retarget.v2",
+        )
+        projection = profile["retarget"]["locomotion_collision_projection"]
+        self.assertEqual(projection["ankle_roll_minimum_microradians"], -87266)
+        self.assertEqual(projection["ankle_roll_maximum_microradians"], 87266)
+        self.assertEqual(
+            projection["ankle_roll_minimum_hard_reserve_microradians"],
+            261800,
+        )
+        self.assertEqual(
+            profile["retarget"]["temporal_contact_solve"]["stance_chain"][
+                "ordered_joint_suffixes"
+            ],
+            [
+                "hip-pitch",
+                "hip-roll",
+                "knee",
+                "ankle-pitch",
+                "ankle-roll",
+            ],
+        )
+        self.assertIn(
+            {
+                "path": "111/111_34.amc",
+                "sha256": "9f0b319349b82afdc6febaaec628b9725a6cc8d6369322573efb0a4737fe2f34",
+            },
+            profile["source_files"],
+        )
+        clips = {clip["clip_id"]: clip for clip in profile["clips"]}
+        self.assertEqual(clips["cmu16-walk-nominal-b"]["subject"], "111")
+        self.assertEqual(clips["cmu16-walk-slow"]["trial"], "34")
+        self.assertNotIn("cmu139-turn-right-heldout", clips)
+        self.assertEqual(
+            clips["cmu139-turn-left-heldout"]["derive_mirror_as"],
+            "cmu139-turn-right-heldout",
+        )
+
+    def test_stance_anchor_trajectory_is_continuous_and_time_symmetric(self) -> None:
+        centers = np.zeros((11, 2, 3), dtype=np.float64)
+        centers[:, 0, 0] = np.linspace(0.0, 1.0, 11)
+        centers[:, 1, 2] = np.linspace(1.0, 0.0, 11)
+        active = np.zeros((11, 2), dtype=np.bool_)
+        active[1:4, 0] = True
+        active[7:10, 0] = True
+        active[2:5, 1] = True
+        active[8:11, 1] = True
+
+        anchors = _continuous_stance_anchor_trajectory(
+            centers, active, loop=False
+        )
+        reversed_anchors = _continuous_stance_anchor_trajectory(
+            centers[::-1], active[::-1], loop=False
+        )
+
+        np.testing.assert_allclose(anchors, reversed_anchors[::-1])
+        np.testing.assert_allclose(
+            anchors[1:4, 0], np.repeat(anchors[1:2, 0], 3, axis=0)
+        )
+        np.testing.assert_allclose(
+            anchors[7:10, 0], np.repeat(anchors[7:8, 0], 3, axis=0)
+        )
+        self.assertTrue(
+            np.all(np.diff(anchors[4:8, 0, 0]) >= -1.0e-12)
+        )
+
+    def test_fixed_iteration_trajectory_solve_closes_spd_system(self) -> None:
+        right_hand_side = np.asarray(
+            ((2.0, -4.0), (6.0, 8.0)), dtype=np.float64
+        )
+        result = _conjugate_gradient_trajectory(
+            lambda value: 2.0 * value,
+            right_hand_side,
+            iterations=4,
+        )
+        np.testing.assert_allclose(result, right_hand_side / 2.0, atol=1.0e-12)
 
     def test_temporal_smoothing_is_time_and_sign_symmetric(self) -> None:
         values = np.asarray(
@@ -355,6 +439,10 @@ end
         )
         original = _clip(descriptor)
         mirrored = mirror_clip(original, descriptor, "clip.start-left")
+        np.testing.assert_array_equal(
+            mirrored.stance_support_state,
+            np.asarray((1, 2, 0), dtype=np.int64),
+        )
         restored = mirror_clip(mirrored, descriptor, original.clip_id)
         for name, expected in canonical_integer_arrays(original).items():
             np.testing.assert_array_equal(canonical_integer_arrays(restored)[name], expected)
@@ -536,6 +624,7 @@ def _clip(descriptor: dict) -> RetargetedClip:
         planar_root_correction_um=np.asarray(
             ((1, 0, 2), (3, 0, 4), (5, 0, 6)), dtype=np.int64
         ),
+        stance_support_state=np.asarray((0, 2, 1), dtype=np.int64),
     )
 
 

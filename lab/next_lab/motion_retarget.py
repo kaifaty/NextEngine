@@ -80,6 +80,7 @@ class RetargetedClip:
     loop: bool
     coverage_class: str = ""
     planar_root_correction_um: NDArray[np.int64] | None = None
+    stance_support_state: NDArray[np.int64] | None = None
     mirrored_from: str | None = None
     derived_from: str | None = None
     derivation: str | None = None
@@ -95,10 +96,21 @@ def retarget_clip(
 ) -> RetargetedClip:
     first = int(clip["source_first_frame"])
     last = int(clip["source_last_frame"])
+    temporal_contact_profile = (
+        profile["retarget"].get("temporal_contact_solve")
+        if clip["partition"] == "locomotion"
+        else None
+    )
     selected = tuple(frame for frame in frames if first <= frame.source_frame <= last)
     if not selected or selected[0].source_frame != first or selected[-1].source_frame != last:
         raise ValueError(f"clip {clip['clip_id']} crop is outside the source frame range")
-    selected = selected[::2]
+    selected = selected[
+        :: int(
+            temporal_contact_profile.get("source_frame_stride", 2)
+            if temporal_contact_profile is not None
+            else 2
+        )
+    ]
     if len(selected) < 2:
         raise ValueError(f"clip {clip['clip_id']} has fewer than two 60 Hz frames")
 
@@ -113,6 +125,16 @@ def retarget_clip(
         raise ValueError(f"clip {clip['clip_id']} planar root scale is invalid")
     source_root[:, (0, 2)] *= planar_root_scale_basis_points / 10_000.0
     root_rotations = _root_rotations(clip["skill"], source_root, poses)
+    if (
+        temporal_contact_profile is not None
+        and temporal_contact_profile.get("root_orientation") is not None
+    ):
+        root_rotations = _source_aligned_root_rotations(
+            source_root,
+            poses,
+            root_rotations,
+            temporal_contact_profile["root_orientation"],
+        )
     solved_frames: list[FloatArray] = []
     collision_projections: list[FloatArray] = []
     previous: FloatArray | None = None
@@ -133,11 +155,6 @@ def retarget_clip(
     soft_minimum, soft_maximum = _soft_limits(descriptor)
     raw_urad = np.rint(raw_joint_positions * 1_000_000.0).astype(np.int64)
     soft_clamped_urad = np.maximum(soft_minimum, np.minimum(soft_maximum, raw_urad))
-    temporal_contact_profile = (
-        profile["retarget"].get("temporal_contact_solve")
-        if clip["partition"] == "locomotion"
-        else None
-    )
     planar_root_correction_um: NDArray[np.int64] | None = None
     support_state: NDArray[np.int64] | None = None
     if temporal_contact_profile is not None:
@@ -152,17 +169,43 @@ def retarget_clip(
             root_positions=source_root,
             root_rotations=root_rotations,
             profile=temporal_contact_profile,
+            contact_thresholds=(
+                profile["retarget"]["contact_thresholds"]
+                if temporal_contact_profile.get("stance_chain") is not None
+                else None
+            ),
         )
     velocity_limit_basis_points = int(
         profile["retarget"].get("joint_velocity_limit_basis_points", 10_000)
     )
-    clamped_urad = _project_joint_velocity(
-        soft_clamped_urad,
-        descriptor,
-        60,
-        velocity_limit_basis_points=velocity_limit_basis_points,
+    stance_chain_profile = (
+        temporal_contact_profile.get("stance_chain")
+        if temporal_contact_profile is not None
+        else None
     )
-    if temporal_contact_profile is not None:
+    if stance_chain_profile is not None:
+        if support_state is None:
+            raise ValueError("temporal support solve did not produce a state")
+        clamped_urad, planar_root_correction_um = (
+            _solve_contact_constrained_stance_chain(
+                values=soft_clamped_urad,
+                descriptor=descriptor,
+                root_positions=source_root,
+                root_rotations=root_rotations,
+                support_state=support_state,
+                loop=bool(clip["loop"]),
+                profile=temporal_contact_profile,
+                velocity_limit_basis_points=velocity_limit_basis_points,
+            )
+        )
+    else:
+        clamped_urad = _project_joint_velocity(
+            soft_clamped_urad,
+            descriptor,
+            60,
+            velocity_limit_basis_points=velocity_limit_basis_points,
+        )
+    if temporal_contact_profile is not None and stance_chain_profile is None:
         if support_state is None:
             raise ValueError("temporal support solve did not produce a state")
         planar_root_correction_um = _lock_stance_root_planar(
@@ -322,6 +365,9 @@ def retarget_clip(
         loop=bool(clip["loop"]),
         coverage_class=clip["coverage_class"],
         planar_root_correction_um=planar_root_correction_um,
+        stance_support_state=(
+            support_state if stance_chain_profile is not None else None
+        ),
     )
 
 
@@ -370,6 +416,15 @@ def mirror_clip(clip: RetargetedClip, descriptor: dict[str, Any], clip_id: str) 
     )
     if planar_root_correction is not None:
         planar_root_correction[:, 0] *= -1
+    stance_support_state = (
+        None
+        if clip.stance_support_state is None
+        else np.where(
+            clip.stance_support_state == 0,
+            1,
+            np.where(clip.stance_support_state == 1, 0, 2),
+        ).astype(np.int64)
+    )
     return replace(
         clip,
         clip_id=clip_id,
@@ -391,6 +446,7 @@ def mirror_clip(clip: RetargetedClip, descriptor: dict[str, Any], clip_id: str) 
         contacts=contacts,
         source_overlay_position_um=source_overlay,
         planar_root_correction_um=planar_root_correction,
+        stance_support_state=stance_support_state,
         mirrored_from=clip.clip_id,
         derived_from=clip.clip_id,
         derivation="sagittal-mirror",
@@ -478,6 +534,8 @@ def canonical_integer_arrays(clip: RetargetedClip) -> dict[str, NDArray[Any]]:
     }
     if clip.planar_root_correction_um is not None:
         arrays["planar_root_correction_um"] = clip.planar_root_correction_um
+    if clip.stance_support_state is not None:
+        arrays["stance_support_state"] = clip.stance_support_state
     return arrays
 
 
@@ -911,9 +969,12 @@ def _project_contact_aware_locomotion_joints(
     root_positions: FloatArray,
     root_rotations: FloatArray,
     profile: dict[str, Any],
+    contact_thresholds: dict[str, Any] | None = None,
 ) -> tuple[NDArray[np.int64], NDArray[np.int64]]:
     support_profile = profile["support_phase"]
     required_root_height = np.empty((len(values), 2), dtype=np.float64)
+    sole_centers = np.empty((len(values), 2, 3), dtype=np.float64)
+    sole_effectors = np.empty((len(values), 2, 2, 3), dtype=np.float64)
     sole_bodies = tuple(
         next(
             body
@@ -929,7 +990,9 @@ def _project_contact_aware_locomotion_joints(
             matrix_to_quaternion(root_rotations[frame_index]),
             values[frame_index].astype(np.float64) / 1_000_000.0,
         )
+        effectors = target_effectors(descriptor, positions, rotations)
         for side_index, body in enumerate(sole_bodies):
+            side = ("left", "right")[side_index]
             slot = int(body["body_slot"])
             sole_height = min(
                 collider_minimum_y(positions[slot], rotations[slot], collider)
@@ -939,17 +1002,71 @@ def _project_contact_aware_locomotion_joints(
             required_root_height[frame_index, side_index] = (
                 root_positions[frame_index, 1] - sole_height
             )
+            sole_centers[frame_index, side_index] = (
+                effectors[f"effector.{side}-heel"]
+                + effectors[f"effector.{side}-forefoot"]
+            ) / 2.0
+            sole_effectors[frame_index, side_index, 0] = effectors[
+                f"effector.{side}-heel"
+            ]
+            sole_effectors[frame_index, side_index, 1] = effectors[
+                f"effector.{side}-forefoot"
+            ]
 
     difference = required_root_height[:, 0] - required_root_height[:, 1]
     double_support_height = (
         int(support_profile["double_support_height_micrometres"])
         / 1_000_000.0
     )
-    raw_state = np.where(
+    height_state = np.where(
         np.abs(difference) <= double_support_height,
         2,
         np.where(difference > 0.0, 0, 1),
     ).astype(np.int64)
+    maximum_entry_speed = support_profile.get(
+        "maximum_entry_sole_speed_micrometres_per_second"
+    )
+    if profile.get("stance_chain") is not None and contact_thresholds is not None:
+        raw_state = _provisional_contact_support_state(
+            required_root_height=required_root_height,
+            sole_effectors=sole_effectors,
+            height_state=height_state,
+            root_positions=root_positions,
+            root_height_profile=profile["root_height"],
+            contact_thresholds=contact_thresholds,
+            maximum_entry_speed_micrometres_per_second=int(maximum_entry_speed),
+        )
+    elif maximum_entry_speed is None:
+        raw_state = height_state
+    else:
+        sole_speed = np.linalg.norm(
+            np.gradient(sole_centers, axis=0) * 60.0,
+            axis=2,
+        )
+        height_above_lowest = (
+            np.max(required_root_height, axis=1)[:, None]
+            - required_root_height
+        )
+        candidate = (height_above_lowest <= double_support_height) & (
+            sole_speed <= int(maximum_entry_speed) / 1_000_000.0
+        )
+        raw_state = np.empty(len(values), dtype=np.int64)
+        retained = int(height_state[0])
+        for frame_index in range(len(values)):
+            left, right = candidate[frame_index]
+            if left and right:
+                state = 2
+            elif left:
+                state = 0
+            elif right:
+                state = 1
+            elif retained in {0, 1}:
+                state = retained
+            else:
+                state = int(height_state[frame_index])
+            raw_state[frame_index] = state
+            if state in {0, 1}:
+                retained = state
     support_state = _minimum_dwell_states(
         raw_state,
         minimum_frames=int(support_profile["minimum_state_frames"]),
@@ -1025,6 +1142,92 @@ def _project_contact_aware_locomotion_joints(
         bounds=profile["joint_bounds_microradians"],
     )
     return result, support_state
+
+
+def _provisional_contact_support_state(
+    *,
+    required_root_height: FloatArray,
+    sole_effectors: FloatArray,
+    height_state: NDArray[np.int64],
+    root_positions: FloatArray,
+    root_height_profile: dict[str, Any],
+    contact_thresholds: dict[str, Any],
+    maximum_entry_speed_micrometres_per_second: int,
+) -> NDArray[np.int64]:
+    frame_count = len(root_positions)
+    if (
+        required_root_height.shape != (frame_count, 2)
+        or sole_effectors.shape != (frame_count, 2, 2, 3)
+        or height_state.shape != (frame_count,)
+        or maximum_entry_speed_micrometres_per_second <= 0
+    ):
+        raise ValueError("provisional contact-support trajectory shape mismatch")
+    interval = contact_thresholds.get("interval_stabilization")
+    if not isinstance(interval, dict):
+        raise ValueError("stance-chain support requires stabilized sole contacts")
+
+    solved_root_height = _lipschitz_majorant(
+        np.max(required_root_height, axis=1)
+        + int(root_height_profile["minimum_clearance_micrometres"])
+        / 1_000_000.0,
+        maximum_step=(
+            int(root_height_profile["maximum_vertical_speed_micrometres_per_second"])
+            / 60_000_000.0
+        ),
+    )
+    corrected_effectors = sole_effectors.copy()
+    corrected_effectors[:, :, :, 1] += (
+        solved_root_height - root_positions[:, 1]
+    )[:, None, None]
+    effector_um = np.rint(corrected_effectors * 1_000_000.0).astype(np.int64)
+    effector_velocity = _velocity(effector_um.reshape(frame_count, 4, 3), 60).reshape(
+        frame_count, 2, 2, 3
+    )
+    effector_speed = np.linalg.norm(effector_velocity.astype(np.float64), axis=3)
+    sole_height = np.min(effector_um[:, :, :, 1], axis=2)
+    sole_speed = np.min(effector_speed, axis=2)
+    provisional_contacts = np.empty((frame_count, 2), dtype=np.bool_)
+    enter_speed = min(
+        int(interval["sole_enter_speed_micrometres_per_second"]),
+        maximum_entry_speed_micrometres_per_second,
+    )
+    for side_index in range(2):
+        provisional_contacts[:, side_index] = _stabilize_binary_intervals(
+            enter=(
+                (sole_height[:, side_index] <= int(interval["sole_enter_height_micrometres"]))
+                & (sole_speed[:, side_index] <= enter_speed)
+            ),
+            retain=(
+                (sole_height[:, side_index] <= int(interval["sole_exit_height_micrometres"]))
+                & (
+                    sole_speed[:, side_index]
+                    <= int(interval["sole_exit_speed_micrometres_per_second"])
+                )
+            ),
+            minimum_on_frames=int(interval["minimum_on_frames"]),
+            minimum_off_frames=int(interval["minimum_off_frames"]),
+        ) != 0
+
+    raw_state = np.empty(frame_count, dtype=np.int64)
+    retained = int(height_state[0])
+    for frame_index, (left, right) in enumerate(provisional_contacts):
+        if left and right:
+            # Contact hysteresis deliberately overlaps heel-off and touchdown.
+            # Treat that overlap as continuation of the loaded leg; locking both
+            # moving feet to independent world anchors over-constrains the chain.
+            state = retained if retained in {0, 1} else int(height_state[frame_index])
+        elif left:
+            state = 0
+        elif right:
+            state = 1
+        elif retained in {0, 1}:
+            state = retained
+        else:
+            state = int(height_state[frame_index])
+        raw_state[frame_index] = state
+        if state in {0, 1}:
+            retained = state
+    return raw_state
 
 
 def _level_stance_soles(
@@ -1213,6 +1416,551 @@ def _continuous_stance_planar_correction(
     return correction
 
 
+def _solve_contact_constrained_stance_chain(
+    *,
+    values: NDArray[np.int64],
+    descriptor: dict[str, Any],
+    root_positions: FloatArray,
+    root_rotations: FloatArray,
+    support_state: NDArray[np.int64],
+    loop: bool,
+    profile: dict[str, Any],
+    velocity_limit_basis_points: int,
+) -> tuple[NDArray[np.int64], NDArray[np.int64]]:
+    frame_count = len(values)
+    if (
+        values.ndim != 2
+        or root_positions.shape != (frame_count, 3)
+        or root_rotations.shape != (frame_count, 3, 3)
+        or support_state.shape != (frame_count,)
+        or frame_count < 3
+        or np.any((support_state < 0) | (support_state > 2))
+    ):
+        raise ValueError("stance-chain trajectory shape mismatch")
+    chain = profile["stance_chain"]
+    suffixes = tuple(chain["ordered_joint_suffixes"])
+    if suffixes != (
+        "hip-pitch",
+        "hip-roll",
+        "knee",
+        "ankle-pitch",
+        "ankle-roll",
+    ):
+        raise ValueError("stance-chain joint order mismatch")
+    baseline_integer = _project_joint_velocity(
+        values,
+        descriptor,
+        60,
+        velocity_limit_basis_points=velocity_limit_basis_points,
+    )
+    result = baseline_integer.astype(np.float64) / 1_000_000.0
+    baseline = result.copy()
+    correction = np.zeros((frame_count, 2), dtype=np.float64)
+    by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
+    body_by_id = {body["body_id"]: body for body in descriptor["bodies"]}
+    joint_ordinals = np.asarray(
+        [
+            [
+                int(by_id[f"joint.{side}-{suffix}"]["dof_ordinal"])
+                for suffix in suffixes
+            ]
+            for side in ("left", "right")
+        ],
+        dtype=np.int64,
+    )
+    joint_minimum = np.asarray(
+        [
+            [
+                int(
+                    profile["joint_bounds_microradians"][
+                        f"joint.{side}-{suffix}"
+                    ][0]
+                )
+                / 1_000_000.0
+                for suffix in suffixes
+            ]
+            for side in ("left", "right")
+        ],
+        dtype=np.float64,
+    )
+    joint_maximum = np.asarray(
+        [
+            [
+                int(
+                    profile["joint_bounds_microradians"][
+                        f"joint.{side}-{suffix}"
+                    ][1]
+                )
+                / 1_000_000.0
+                for suffix in suffixes
+            ]
+            for side in ("left", "right")
+        ],
+        dtype=np.float64,
+    )
+    sole_body_slots = tuple(
+        int(body_by_id[f"body.{side}-ankle-roll"]["body_slot"])
+        for side in ("left", "right")
+    )
+    effector_pairs = tuple(
+        (f"effector.{side}-heel", f"effector.{side}-forefoot")
+        for side in ("left", "right")
+    )
+    active_support = np.stack(
+        (
+            np.logical_or(support_state == 0, support_state == 2),
+            np.logical_or(support_state == 1, support_state == 2),
+        ),
+        axis=1,
+    )
+    support_weight = np.clip(
+        _weighted_temporal_smooth_float(
+            active_support.astype(np.float64),
+            kernel=tuple(int(value) for value in profile["smoothing"]["kernel_weights"]),
+            passes=int(chain["support_weight_smoothing_passes"]),
+        ),
+        0.0,
+        1.0,
+    )
+    initial_centers, _ = _stance_chain_metrics(
+        descriptor=descriptor,
+        joint_position_radians=result,
+        root_positions=root_positions,
+        root_rotations=root_rotations,
+        planar_correction=correction,
+        sole_body_slots=sole_body_slots,
+        effector_pairs=effector_pairs,
+    )
+    anchors = _continuous_stance_anchor_trajectory(
+        initial_centers,
+        active_support,
+        loop=loop,
+    )
+
+    joint_count = len(suffixes)
+    variable_count = joint_count * 2 + 2
+    reference_weight = np.asarray(
+        [
+            *(
+                [int(chain["joint_reference_weight_q16"]) / 65_536.0]
+                * (joint_count * 2)
+            ),
+            *([int(chain["root_reference_weight_q16"]) / 65_536.0] * 2),
+        ],
+        dtype=np.float64,
+    )
+    velocity_weight = np.asarray(
+        [
+            *(
+                [int(chain["joint_velocity_weight_q16"]) / 65_536.0]
+                * (joint_count * 2)
+            ),
+            *([int(chain["root_velocity_weight_q16"]) / 65_536.0] * 2),
+        ],
+        dtype=np.float64,
+    )
+    acceleration_weight = np.asarray(
+        [
+            *(
+                [int(chain["joint_acceleration_weight_q16"]) / 65_536.0]
+                * (joint_count * 2)
+            ),
+            *(
+                [int(chain["root_acceleration_weight_q16"]) / 65_536.0]
+                * 2
+            ),
+        ],
+        dtype=np.float64,
+    )
+    constraint_weight = (
+        support_weight
+        * int(chain["contact_constraint_weight_q16"])
+        / 65_536.0
+    )
+    normal_lever = int(chain["sole_normal_lever_micrometres"]) / 1_000_000.0
+    probe = int(chain["jacobian_probe_microradians"]) / 1_000_000.0
+    maximum_joint_update = (
+        int(chain["maximum_joint_update_microradians"]) / 1_000_000.0
+    )
+    maximum_root_update = (
+        int(chain["maximum_root_update_micrometres"]) / 1_000_000.0
+    )
+    baseline_variables = np.zeros(
+        (frame_count, variable_count), dtype=np.float64
+    )
+    for side_index in range(2):
+        start = side_index * joint_count
+        baseline_variables[:, start : start + joint_count] = baseline[
+            :, joint_ordinals[side_index]
+        ]
+
+    for _ in range(int(chain["outer_iterations"])):
+        centers, normals = _stance_chain_metrics(
+            descriptor=descriptor,
+            joint_position_radians=result,
+            root_positions=root_positions,
+            root_rotations=root_rotations,
+            planar_correction=correction,
+            sole_body_slots=sole_body_slots,
+            effector_pairs=effector_pairs,
+        )
+        residual = np.empty((frame_count, 2, 5), dtype=np.float64)
+        residual[:, :, :3] = centers - anchors
+        residual[:, :, 3:] = normal_lever * normals[:, :, (0, 2)]
+        jacobian = np.zeros(
+            (frame_count, 2, 5, variable_count), dtype=np.float64
+        )
+        for frame_index in range(frame_count):
+            root = root_positions[frame_index].copy()
+            root[(0, 2),] += correction[frame_index]
+            quaternion = matrix_to_quaternion(root_rotations[frame_index])
+            for side_index in range(2):
+                if constraint_weight[frame_index, side_index] <= 1.0e-12:
+                    continue
+                variable_start = side_index * joint_count
+                for column, ordinal in enumerate(joint_ordinals[side_index]):
+                    candidate = result[frame_index].copy()
+                    candidate[ordinal] += probe
+                    positions, rotations = target_forward_kinematics(
+                        descriptor,
+                        root,
+                        quaternion,
+                        candidate,
+                    )
+                    effectors = target_effectors(
+                        descriptor, positions, rotations
+                    )
+                    pair = effector_pairs[side_index]
+                    center = (effectors[pair[0]] + effectors[pair[1]]) / 2.0
+                    normal = rotations[sole_body_slots[side_index]][:, 1]
+                    jacobian[
+                        frame_index,
+                        side_index,
+                        :,
+                        variable_start + column,
+                    ] = np.concatenate(
+                        (
+                            (center - centers[frame_index, side_index]) / probe,
+                            normal_lever
+                            * (
+                                normal[(0, 2),]
+                                - normals[frame_index, side_index, (0, 2),]
+                            )
+                            / probe,
+                        )
+                    )
+                jacobian[frame_index, side_index, 0, -2] = 1.0
+                jacobian[frame_index, side_index, 2, -1] = 1.0
+
+        current_variables = np.zeros_like(baseline_variables)
+        for side_index in range(2):
+            start = side_index * joint_count
+            current_variables[:, start : start + joint_count] = result[
+                :, joint_ordinals[side_index]
+            ]
+        current_variables[:, -2:] = correction
+        deviation = current_variables - baseline_variables
+        right_hand_side = -(
+            reference_weight * deviation
+            + velocity_weight * _first_difference_normal(deviation)
+            + acceleration_weight * _second_difference_normal(deviation)
+        )
+        for side_index in range(2):
+            right_hand_side -= np.einsum(
+                "nki,nk,n->ni",
+                jacobian[:, side_index],
+                residual[:, side_index],
+                constraint_weight[:, side_index],
+            )
+
+        def normal_matrix(candidate: FloatArray) -> FloatArray:
+            output = (
+                reference_weight * candidate
+                + velocity_weight * _first_difference_normal(candidate)
+                + acceleration_weight * _second_difference_normal(candidate)
+            )
+            for side_index in range(2):
+                projected = np.einsum(
+                    "nki,ni->nk", jacobian[:, side_index], candidate
+                )
+                output += np.einsum(
+                    "nki,nk,n->ni",
+                    jacobian[:, side_index],
+                    projected,
+                    constraint_weight[:, side_index],
+                )
+            return output
+
+        update = _conjugate_gradient_trajectory(
+            normal_matrix,
+            right_hand_side,
+            iterations=int(chain["conjugate_gradient_iterations"]),
+        )
+        update[:, : joint_count * 2] = np.clip(
+            update[:, : joint_count * 2],
+            -maximum_joint_update,
+            maximum_joint_update,
+        )
+        update[:, -2:] = np.clip(
+            update[:, -2:], -maximum_root_update, maximum_root_update
+        )
+        current_variables += update
+        for side_index in range(2):
+            start = side_index * joint_count
+            result[:, joint_ordinals[side_index]] = np.clip(
+                current_variables[:, start : start + joint_count],
+                joint_minimum[side_index],
+                joint_maximum[side_index],
+            )
+        projected_integer = _project_joint_velocity(
+            np.rint(result * 1_000_000.0).astype(np.int64),
+            descriptor,
+            60,
+            velocity_limit_basis_points=velocity_limit_basis_points,
+        )
+        result = projected_integer.astype(np.float64) / 1_000_000.0
+        correction = _bound_planar_root_correction(
+            current_variables[:, -2:], profile["root_planar"]
+        )
+
+    solved_integer = np.rint(result * 1_000_000.0).astype(np.int64)
+    selected_ordinals = joint_ordinals.reshape(-1)
+    solved_integer[:, selected_ordinals] = _weighted_temporal_smooth(
+        solved_integer[:, selected_ordinals],
+        kernel=tuple(int(value) for value in profile["smoothing"]["kernel_weights"]),
+        passes=int(chain["final_joint_smoothing_passes"]),
+    )
+    for side_index in range(2):
+        solved_integer[:, joint_ordinals[side_index]] = np.clip(
+            solved_integer[:, joint_ordinals[side_index]],
+            np.rint(joint_minimum[side_index] * 1_000_000.0).astype(np.int64),
+            np.rint(joint_maximum[side_index] * 1_000_000.0).astype(np.int64),
+        )
+    solved_integer = _project_joint_velocity(
+        solved_integer,
+        descriptor,
+        60,
+        velocity_limit_basis_points=velocity_limit_basis_points,
+    )
+    result = solved_integer.astype(np.float64) / 1_000_000.0
+    # Final joint smoothing is intentionally applied after the nonlinear solve,
+    # but it also changes the sole trajectory slightly.  Close that last planar
+    # residual with the root degrees of freedom before freezing the clip.
+    final_centers, _ = _stance_chain_metrics(
+        descriptor=descriptor,
+        joint_position_radians=result,
+        root_positions=root_positions,
+        root_rotations=root_rotations,
+        planar_correction=correction,
+        sole_body_slots=sole_body_slots,
+        effector_pairs=effector_pairs,
+    )
+    correction = _bound_planar_root_correction(
+        correction
+        + _continuous_stance_planar_correction(
+            sole_planar=final_centers[:, :, [0, 2]],
+            support_state=support_state,
+            profile=profile["root_planar"],
+        ),
+        profile["root_planar"],
+    )
+    root_positions[:, (0, 2)] += correction
+    planar_root_correction = np.zeros((frame_count, 3), dtype=np.int64)
+    planar_root_correction[:, (0, 2)] = np.rint(
+        correction * 1_000_000.0
+    ).astype(np.int64)
+    return (
+        solved_integer,
+        planar_root_correction,
+    )
+
+
+def _stance_chain_metrics(
+    *,
+    descriptor: dict[str, Any],
+    joint_position_radians: FloatArray,
+    root_positions: FloatArray,
+    root_rotations: FloatArray,
+    planar_correction: FloatArray,
+    sole_body_slots: tuple[int, int],
+    effector_pairs: tuple[tuple[str, str], tuple[str, str]],
+) -> tuple[FloatArray, FloatArray]:
+    frame_count = len(joint_position_radians)
+    centers = np.empty((frame_count, 2, 3), dtype=np.float64)
+    normals = np.empty_like(centers)
+    for frame_index in range(frame_count):
+        root = root_positions[frame_index].copy()
+        root[(0, 2),] += planar_correction[frame_index]
+        positions, rotations = target_forward_kinematics(
+            descriptor,
+            root,
+            matrix_to_quaternion(root_rotations[frame_index]),
+            joint_position_radians[frame_index],
+        )
+        effectors = target_effectors(descriptor, positions, rotations)
+        for side_index in range(2):
+            pair = effector_pairs[side_index]
+            centers[frame_index, side_index] = (
+                effectors[pair[0]] + effectors[pair[1]]
+            ) / 2.0
+            normals[frame_index, side_index] = rotations[
+                sole_body_slots[side_index]
+            ][:, 1]
+    return centers, normals
+
+
+def _continuous_stance_anchor_trajectory(
+    sole_centers: FloatArray,
+    active_support: NDArray[np.bool_],
+    *,
+    loop: bool,
+) -> FloatArray:
+    if (
+        sole_centers.ndim != 3
+        or sole_centers.shape[1:] != (2, 3)
+        or active_support.shape != sole_centers.shape[:2]
+        or len(sole_centers) == 0
+    ):
+        raise ValueError("stance anchor trajectory shape mismatch")
+    anchors = sole_centers.copy()
+    frame_count = len(anchors)
+    for side_index in range(2):
+        runs: list[tuple[int, int, FloatArray]] = []
+        start: int | None = None
+        for frame_index in range(frame_count + 1):
+            active = (
+                frame_index < frame_count
+                and bool(active_support[frame_index, side_index])
+            )
+            if active and start is None:
+                start = frame_index
+            elif not active and start is not None:
+                runs.append(
+                    (
+                        start,
+                        frame_index,
+                        np.median(
+                            sole_centers[start:frame_index, side_index], axis=0
+                        ),
+                    )
+                )
+                start = None
+        if not runs:
+            continue
+        if loop and len(runs) > 1 and active_support[0, side_index] and active_support[-1, side_index]:
+            boundary = np.concatenate(
+                (
+                    sole_centers[runs[-1][0] :, side_index],
+                    sole_centers[: runs[0][1], side_index],
+                ),
+                axis=0,
+            )
+            boundary_anchor = np.median(boundary, axis=0)
+            runs[0] = (runs[0][0], runs[0][1], boundary_anchor)
+            runs[-1] = (runs[-1][0], runs[-1][1], boundary_anchor)
+        anchors[: runs[0][0], side_index] = runs[0][2]
+        anchors[runs[-1][1] :, side_index] = runs[-1][2]
+        for run_start, run_end, anchor in runs:
+            anchors[run_start:run_end, side_index] = anchor
+        for (_, previous_end, previous_anchor), (
+            next_start,
+            _,
+            next_anchor,
+        ) in zip(runs, runs[1:]):
+            gap = next_start - previous_end
+            if gap <= 0:
+                continue
+            phase = np.linspace(
+                0.0, 1.0, gap + 2, dtype=np.float64
+            )[1:-1, None]
+            blend = phase * phase * phase * (
+                phase * (phase * 6.0 - 15.0) + 10.0
+            )
+            anchors[previous_end:next_start, side_index] = (
+                (1.0 - blend) * previous_anchor + blend * next_anchor
+            )
+    return anchors
+
+
+def _first_difference_normal(values: FloatArray) -> FloatArray:
+    output = np.zeros_like(values)
+    difference = values[1:] - values[:-1]
+    output[:-1] -= difference
+    output[1:] += difference
+    return output
+
+
+def _second_difference_normal(values: FloatArray) -> FloatArray:
+    output = np.zeros_like(values)
+    difference = values[2:] - 2.0 * values[1:-1] + values[:-2]
+    output[:-2] += difference
+    output[1:-1] -= 2.0 * difference
+    output[2:] += difference
+    return output
+
+
+def _conjugate_gradient_trajectory(
+    normal_matrix: Any,
+    right_hand_side: FloatArray,
+    *,
+    iterations: int,
+) -> FloatArray:
+    if right_hand_side.ndim != 2 or iterations <= 0:
+        raise ValueError("trajectory solve bounds are invalid")
+    result = np.zeros_like(right_hand_side)
+    residual = right_hand_side.copy()
+    direction = residual.copy()
+    squared_residual = float(np.sum(residual * residual))
+    for _ in range(iterations):
+        projected = normal_matrix(direction)
+        denominator = float(np.sum(direction * projected))
+        if denominator <= 1.0e-30 or squared_residual <= 1.0e-30:
+            break
+        step = squared_residual / denominator
+        result += step * direction
+        residual -= step * projected
+        next_squared_residual = float(np.sum(residual * residual))
+        direction = residual + (next_squared_residual / squared_residual) * direction
+        squared_residual = next_squared_residual
+    return result
+
+
+def _bound_planar_root_correction(
+    correction: FloatArray, profile: dict[str, Any]
+) -> FloatArray:
+    result = _weighted_temporal_smooth_float(
+        correction,
+        kernel=tuple(int(value) for value in profile["kernel_weights"]),
+        passes=int(profile["smoothing_passes"]),
+    )
+    frame_count = len(result)
+    taper_frames = int(profile["endpoint_taper_frames"])
+    if taper_frames > 0:
+        ramp_length = min(taper_frames, frame_count)
+        ramp = 0.5 - 0.5 * np.cos(
+            np.linspace(0.0, np.pi, ramp_length, dtype=np.float64)
+        )
+        taper = np.ones(frame_count, dtype=np.float64)
+        taper[:ramp_length] = np.minimum(taper[:ramp_length], ramp)
+        taper[-ramp_length:] = np.minimum(taper[-ramp_length:], ramp[::-1])
+        result *= taper[:, None]
+    maximum = max(
+        0, int(profile["maximum_absolute_correction_micrometres"]) - 1
+    ) / 1_000_000.0
+    magnitude = np.linalg.norm(result, axis=1)
+    maximum_magnitude = float(np.max(magnitude))
+    scale = min(1.0, maximum / max(maximum_magnitude, 1.0e-12))
+    if frame_count > 1:
+        maximum_speed = max(
+            0, int(profile["maximum_speed_micrometres_per_second"]) - 100
+        ) / 1_000_000.0
+        observed_speed = float(
+            np.max(np.linalg.norm(np.diff(result, axis=0), axis=1)) * 60.0
+        )
+        scale = min(scale, maximum_speed / max(observed_speed, 1.0e-12))
+    return result * scale
+
+
 def _joint_ordinals(
     descriptor: dict[str, Any], joint_ids: tuple[str, ...]
 ) -> NDArray[np.int64]:
@@ -1389,6 +2137,59 @@ def _root_rotations(skill: str, root_positions: FloatArray, poses: tuple[SourceP
         yaws[index] = last_yaw
     yaws = np.unwrap(yaws)
     return np.stack([rotation_axis("Y", yaw) for yaw in yaws])
+
+
+def _source_aligned_root_rotations(
+    root_positions: FloatArray,
+    poses: tuple[SourcePose, ...],
+    movement_rotations: FloatArray,
+    profile: dict[str, Any],
+) -> FloatArray:
+    if (
+        root_positions.shape != (len(poses), 3)
+        or movement_rotations.shape != (len(poses), 3, 3)
+        or len(poses) < 2
+    ):
+        raise ValueError("root-orientation trajectory shape mismatch")
+    source_yaws = np.unwrap(
+        np.asarray([_yaw(pose.root_rotation) for pose in poses], dtype=np.float64)
+    )
+    movement_yaws = np.unwrap(
+        np.asarray([_yaw(rotation) for rotation in movement_rotations], dtype=np.float64)
+    )
+    planar_speed = np.linalg.norm(
+        np.gradient(root_positions[:, (0, 2)], axis=0) * 60.0,
+        axis=1,
+    )
+    valid = planar_speed >= (
+        int(profile["minimum_alignment_speed_micrometres_per_second"])
+        / 1_000_000.0
+    )
+    offsets = movement_yaws - source_yaws
+    alignment = float(np.median(offsets[valid] if np.any(valid) else offsets))
+    solved = _weighted_temporal_smooth_float(
+        source_yaws + alignment,
+        kernel=tuple(int(value) for value in profile["kernel_weights"]),
+        passes=int(profile["smoothing_passes"]),
+    )
+    maximum_step = (
+        int(profile["maximum_yaw_speed_microradians_per_second"])
+        / 60_000_000.0
+    )
+    for _ in range(int(profile["velocity_projection_passes"])):
+        for frame_index in range(1, len(solved)):
+            solved[frame_index] = np.clip(
+                solved[frame_index],
+                solved[frame_index - 1] - maximum_step,
+                solved[frame_index - 1] + maximum_step,
+            )
+        for frame_index in range(len(solved) - 2, -1, -1):
+            solved[frame_index] = np.clip(
+                solved[frame_index],
+                solved[frame_index + 1] - maximum_step,
+                solved[frame_index + 1] + maximum_step,
+            )
+    return np.stack([rotation_axis("Y", yaw) for yaw in solved])
 
 
 def _is_locomotion(skill: str) -> bool:
