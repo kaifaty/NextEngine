@@ -183,8 +183,9 @@ Validate that bundle in PhysX before expanding it to a full corpus identity:
 For each selected case the probe authors root-link pose, derived center-of-mass
 world velocity and PhysX `JointStateAPI` coordinates in a new USD layer before
 the scene starts. It performs Isaac Sim's two mandatory physics-initialization
-steps at zero physics time and restores the frozen `1/240 s` step before the
-episode, so tensor handles initialize without evolving the authored state;
+steps at a frozen `1 ns` and restores the frozen `1/240 s` step before the
+episode, so GPU tensor handles initialize while any admitted state drift still
+has to remain inside the independently frozen integer verification bounds;
 the first reset's state writes are counted and suppressed. It checks the state
 read back from PhysX before stepping, then compares that episode with the same
 case after one indexed running-scene warmup/reset. Outcomes, reasons and

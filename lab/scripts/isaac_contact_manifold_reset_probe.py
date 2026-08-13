@@ -389,12 +389,17 @@ def _run_fresh_worker(
         original_reset = SimulationContext.reset
         initialization_metrics: dict[str, Any] = {}
 
-        def zero_time_initialization_reset(
+        def bounded_time_initialization_reset(
             simulation_context: Any, soft: bool = False
         ) -> None:
             episode_dt = float(simulation_context.get_physics_dt())
+            initialization_dt = float(
+                profile["execution"]["fresh_scene"][
+                    "initialization_physics_dt_seconds"
+                ]
+            )
             steps_before = int(SimulationManager.get_num_physics_steps())
-            simulation_context.set_simulation_dt(physics_dt=0.0)
+            simulation_context.set_simulation_dt(physics_dt=initialization_dt)
             try:
                 original_reset(simulation_context, soft=soft)
             finally:
@@ -405,14 +410,14 @@ def _run_fresh_worker(
                         SimulationManager.get_num_physics_steps()
                     )
                     - steps_before,
-                    "initialization_physics_dt_seconds": 0.0,
+                    "initialization_physics_dt_seconds": initialization_dt,
                     "restored_episode_physics_dt_seconds": float(
                         simulation_context.get_physics_dt()
                     ),
                 }
             )
 
-        SimulationContext.reset = zero_time_initialization_reset
+        SimulationContext.reset = bounded_time_initialization_reset
         try:
             environment = NextEngineReferenceDirectEnv(
                 cfg,
