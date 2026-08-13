@@ -117,6 +117,31 @@ hashes. It includes every phase result plus the first violation localized to
 or one required safety event produces `FAIL` and a non-zero process status. The
 output must remain in the external training store.
 
+If a complete audit keeps failing after coherent data remediations, use the
+causal probe before choosing another corpus identity:
+
+```text
+<isaac-python> lab/scripts/isaac_reference_causal_probe.py \
+  --headless --device cuda:0 \
+  --source-audit <external complete TRAIN-4 audit.json> \
+  --descriptor <external biomechanics descriptor> \
+  --profile <hash-bound diagnostic tracker profile> \
+  --corpus-root <external corpus root> \
+  --gate-report <current TRAIN-4 RemediateDataOnly report> \
+  --usd <external derived humanoid.usda> \
+  --modes zero-residual lead-1 velocity-feedforward \
+  --output <external causal report.json>
+```
+
+The probe reconstructs the source audit's complete canonical case schedule and
+requires `zero-residual` to reproduce every source status, required-safety
+reason and terminal tick before accepting a counterfactual result. Available
+modes isolate target lead, deterministic velocity feed-forward, joint/root
+reset velocity, root-link velocity semantics and a diagnostic declared-contact
+velocity projection. They are research interventions, not admissible tracker
+profiles: the report always leaves the TRAIN-4 gate unchanged, executes no
+optimizer and writes no artifact into the repository.
+
 The 2026-08-13 temporal/contact remediation uses
 `humanoid-motion-corpus-cmu-temporal-contact.v4.json` and
 `humanoid-reference-tracker-temporal-contact.v6.json`. Both are diagnostic-only:
