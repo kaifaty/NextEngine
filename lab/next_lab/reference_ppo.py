@@ -196,6 +196,24 @@ def _selected_contact_pair_ids(
     return [pair_id for pair_id, selected in zip(pair_ids, mask) if selected]
 
 
+def _contact_impulse_diagnostics(
+    pair_ids: tuple[str, ...], hard_limits: tuple[int, ...], maxima: list[int]
+) -> list[dict[str, int | str]]:
+    if len(pair_ids) != len(hard_limits) or len(pair_ids) != len(maxima):
+        raise ValueError("contact-impulse diagnostic width mismatch")
+    return [
+        {
+            "pair_id": pair_id,
+            "maximum_impulse_micronewton_seconds": int(maximum),
+            "hard_limit_micronewton_seconds": int(limit),
+            "hard_limit_basis_points": (int(maximum) * 10_000 + int(limit) // 2)
+            // int(limit),
+        }
+        for pair_id, limit, maximum in zip(pair_ids, hard_limits, maxima)
+        if maximum > 0
+    ]
+
+
 class TanhActorCritic(nn.Module):
     def __init__(self, profile: TinyReferencePpoProfile) -> None:
         super().__init__()
@@ -511,7 +529,9 @@ class TinyReferencePpoTrainer:
                         "last_step_hard_impact_pair_mask",
                         "last_step_self_collision_pair_mask",
                         "last_step_forbidden_contact_pair_mask",
+                        "last_step_episode_contact_max_impulse_micronewton_seconds",
                         "contact_pair_ids",
+                        "contact_pair_hard_limits_micronewton_seconds",
                     )
                     missing = [
                         name
@@ -549,6 +569,9 @@ class TinyReferencePpoTrainer:
                             done_indices
                         ].cpu().tolist(),
                         "forbidden_contact_pairs": self.environment.last_step_forbidden_contact_pair_mask[
+                            done_indices
+                        ].cpu().tolist(),
+                        "episode_contact_max_impulse": self.environment.last_step_episode_contact_max_impulse_micronewton_seconds[
                             done_indices
                         ].cpu().tolist(),
                         "reference_frame": self.environment.last_step_reference_frame[
@@ -740,6 +763,13 @@ class TinyReferencePpoTrainer:
                                 "forbidden_contact_pair_ids": _selected_contact_pair_ids(
                                     self.environment.contact_pair_ids,
                                     terminal_state_batch["forbidden_contact_pairs"][
+                                        completed_index
+                                    ],
+                                ),
+                                "episode_contact_impulses": _contact_impulse_diagnostics(
+                                    self.environment.contact_pair_ids,
+                                    self.environment.contact_pair_hard_limits_micronewton_seconds,
+                                    terminal_state_batch["episode_contact_max_impulse"][
                                         completed_index
                                     ],
                                 ),

@@ -144,8 +144,18 @@ def _integer_vector_threshold(
             magnitude_squared >= limit_squared
         )
     return torch.any(absolute > limit[..., None], dim=-1) | (
-        magnitude_squared > limit_squared
-    )
+            magnitude_squared > limit_squared
+        )
+
+
+def _contact_impulse_magnitude_micronewton_seconds(
+    impulse: torch.Tensor,
+) -> torch.Tensor:
+    if impulse.dtype != torch.int64 or impulse.shape[-1] != 3:
+        raise ValueError("canonical contact impulse must be int64 xyz")
+    return torch.round(
+        torch.linalg.vector_norm(impulse.to(torch.float64), dim=-1)
+    ).to(torch.int64)
 
 
 def _classify_contact_pairs_tensor(
@@ -715,6 +725,12 @@ if ISAAC_LAB_AVAILABLE:
             self._substep_contact_forbidden_pairs = torch.zeros_like(
                 self._substep_contact_hard_impact_pairs
             )
+            self._substep_contact_max_impulse_micronewton_seconds = torch.zeros(
+                (cfg.scene.num_envs, contact_pair_count), dtype=torch.int64
+            )
+            self._episode_contact_max_impulse_micronewton_seconds = torch.zeros_like(
+                self._substep_contact_max_impulse_micronewton_seconds
+            )
             self._substep_forbidden_contact_mask = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.int64
             )
@@ -761,6 +777,9 @@ if ISAAC_LAB_AVAILABLE:
             )
             self.last_step_forbidden_contact_pair_mask = torch.zeros_like(
                 self.last_step_hard_impact_pair_mask
+            )
+            self.last_step_episode_contact_max_impulse_micronewton_seconds = (
+                torch.zeros_like(self.last_step_hard_impact_pair_mask, dtype=torch.int64)
             )
             self.last_step_failure_non_finite = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.bool
@@ -895,6 +914,8 @@ if ISAAC_LAB_AVAILABLE:
                 "_substep_contact_hard_impact_pairs",
                 "_substep_contact_self_collision_pairs",
                 "_substep_contact_forbidden_pairs",
+                "_substep_contact_max_impulse_micronewton_seconds",
+                "_episode_contact_max_impulse_micronewton_seconds",
                 "_substep_forbidden_contact_mask",
                 "_failure_terminal",
                 "_success_terminal",
@@ -913,6 +934,7 @@ if ISAAC_LAB_AVAILABLE:
                 "last_step_hard_impact_pair_mask",
                 "last_step_self_collision_pair_mask",
                 "last_step_forbidden_contact_pair_mask",
+                "last_step_episode_contact_max_impulse_micronewton_seconds",
                 "last_step_failure_non_finite",
                 "last_step_terminal_reason",
                 "last_step_episode_start_frame",
@@ -1081,6 +1103,9 @@ if ISAAC_LAB_AVAILABLE:
                 device=self.device,
             )
             self.contact_pair_ids = tuple(self._contact_layout["pair_id"])
+            self.contact_pair_hard_limits_micronewton_seconds = tuple(
+                int(value) for value in self._contact_layout["hard_limit"]
+            )
 
         def _consume_contact_substep(self) -> None:
             body_count = len(self._contact_projections)
@@ -1104,6 +1129,21 @@ if ISAAC_LAB_AVAILABLE:
             impulse = torch.round(
                 selected_force.to(torch.float64) * self.physics_dt * MICRO_SCALE
             ).to(torch.int64)
+            impulse_magnitude = _contact_impulse_magnitude_micronewton_seconds(
+                impulse
+            )
+            self._substep_contact_max_impulse_micronewton_seconds.copy_(
+                torch.maximum(
+                    self._substep_contact_max_impulse_micronewton_seconds,
+                    impulse_magnitude,
+                )
+            )
+            self._episode_contact_max_impulse_micronewton_seconds.copy_(
+                torch.maximum(
+                    self._episode_contact_max_impulse_micronewton_seconds,
+                    impulse_magnitude,
+                )
+            )
 
             contact_data = self._contact_pair_view.get_contact_data(
                 dt=self.physics_dt
@@ -1376,6 +1416,7 @@ if ISAAC_LAB_AVAILABLE:
             self._substep_contact_hard_impact_pairs.zero_()
             self._substep_contact_self_collision_pairs.zero_()
             self._substep_contact_forbidden_pairs.zero_()
+            self._substep_contact_max_impulse_micronewton_seconds.zero_()
             self._substep_forbidden_contact_mask.zero_()
             self._action.copy_(torch.clamp(actions, -1.0, 1.0))
             current_reference_dof = self._reference_at("joint_position_urad")
@@ -1783,6 +1824,9 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_forbidden_contact_pair_mask.copy_(
                 self._substep_contact_forbidden_pairs
             )
+            self.last_step_episode_contact_max_impulse_micronewton_seconds.copy_(
+                self._episode_contact_max_impulse_micronewton_seconds
+            )
             self.last_step_failure_non_finite.copy_(non_finite)
             terminal_reason = _terminal_reason_tensor(
                 non_finite=non_finite,
@@ -2171,6 +2215,8 @@ if ISAAC_LAB_AVAILABLE:
             self._substep_contact_hard_impact_pairs[env_ids] = False
             self._substep_contact_self_collision_pairs[env_ids] = False
             self._substep_contact_forbidden_pairs[env_ids] = False
+            self._substep_contact_max_impulse_micronewton_seconds[env_ids] = 0
+            self._episode_contact_max_impulse_micronewton_seconds[env_ids] = 0
             self._substep_forbidden_contact_mask[env_ids] = 0
             self._failure_terminal[env_ids] = False
             self._success_terminal[env_ids] = False

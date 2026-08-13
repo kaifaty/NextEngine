@@ -14,6 +14,7 @@ from next_lab.isaac_reference_env import (
     _advance_contact_grace,
     _canonical_pd_requested_effort_tensor,
     _classify_contact_pairs_tensor,
+    _contact_impulse_magnitude_micronewton_seconds,
     _contact_body_projections,
     _contact_pair_layout,
     _engine_to_isaac_vector,
@@ -34,6 +35,15 @@ from next_lab.safety_contact_mirror import _intersect_effort, _positive_work_cha
 
 
 class IsaacReferenceEnvironmentTests(unittest.TestCase):
+    def test_contact_impulse_diagnostic_uses_vector_magnitude(self) -> None:
+        impulse = torch.tensor(
+            [[[3_000_000, 4_000_000, 0], [0, 0, 0]]], dtype=torch.int64
+        )
+        torch.testing.assert_close(
+            _contact_impulse_magnitude_micronewton_seconds(impulse),
+            torch.tensor([[5_000_000, 0]], dtype=torch.int64),
+        )
+
     def test_contact_body_projection_is_strict_and_pair_complete(self) -> None:
         descriptor = load_json(
             Path(__file__).parent / "fixtures" / "biomechanics_motor_mirror_v1.json"

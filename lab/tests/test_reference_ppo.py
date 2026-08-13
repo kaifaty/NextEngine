@@ -11,6 +11,7 @@ from torch.distributions import Normal
 from next_lab.reference_ppo import (
     TanhActorCritic,
     TinyReferencePpoProfile,
+    _contact_impulse_diagnostics,
     _selected_contact_pair_ids,
     _transformed_log_probability,
 )
@@ -59,6 +60,23 @@ PHYSICS_VELOCITY_GUARD_H10_TINY_PROFILE = (
 
 
 class ReferencePpoTests(unittest.TestCase):
+    def test_contact_impulse_diagnostic_reports_pair_margin(self) -> None:
+        self.assertEqual(
+            _contact_impulse_diagnostics(
+                ("ground:left-foot", "ground:right-foot"),
+                (6_000_000, 6_000_000),
+                [0, 4_500_000],
+            ),
+            [
+                {
+                    "pair_id": "ground:right-foot",
+                    "maximum_impulse_micronewton_seconds": 4_500_000,
+                    "hard_limit_micronewton_seconds": 6_000_000,
+                    "hard_limit_basis_points": 7500,
+                }
+            ],
+        )
+
     def test_contact_pair_diagnostic_decodes_exact_mask_width(self) -> None:
         self.assertEqual(
             _selected_contact_pair_ids(
