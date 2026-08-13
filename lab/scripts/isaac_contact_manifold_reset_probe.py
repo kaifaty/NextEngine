@@ -171,9 +171,15 @@ def _run_driver(
                 stderr=subprocess.STDOUT,
                 check=False,
             )
-        if completed.returncode != 0:
+        result_path = _fresh_result_path(output, case.ordinal)
+        if completed.returncode != 0 or not result_path.is_file():
             raise RuntimeError(
                 f"fresh-scene worker {case.ordinal} failed; inspect {log_path}"
+            )
+        worker_report = json.loads(result_path.read_bytes())
+        if worker_report.get("status") != "PASS":
+            raise RuntimeError(
+                f"fresh-scene worker {case.ordinal} is invalid; inspect {log_path}"
             )
 
     partial_report = _run_partial_reset(
@@ -354,7 +360,7 @@ def _run_fresh_worker(
     os.environ["NEXTENGINE_HUMANOID_USD"] = str(overlay_path)
     simulation_app = None
     environment = None
-    failure_pending = False
+    pending_error: BaseException | None = None
     try:
         app_launcher = AppLauncher(args)
         simulation_app = app_launcher.app
@@ -508,10 +514,9 @@ def _run_fresh_worker(
             "repository": _repository_state(),
         }
         _write_json(result_path, report)
-    except BaseException:
-        failure_pending = True
+    except BaseException as error:
+        pending_error = error
         traceback.print_exc()
-        raise
     finally:
         cleanup_failed = False
         if environment is not None:
@@ -526,8 +531,10 @@ def _run_fresh_worker(
             except BaseException:
                 cleanup_failed = True
                 traceback.print_exc()
-        if cleanup_failed and not failure_pending:
+        if cleanup_failed and pending_error is None:
             raise RuntimeError("fresh-scene worker cleanup failed")
+    if pending_error is not None:
+        raise pending_error
 
 
 def _run_partial_reset(
@@ -541,7 +548,7 @@ def _run_partial_reset(
     os.environ["NEXTENGINE_HUMANOID_USD"] = str(paths["usd_path"])
     simulation_app = None
     environment = None
-    failure_pending = False
+    pending_error: BaseException | None = None
     try:
         app_launcher = AppLauncher(args)
         simulation_app = app_launcher.app
@@ -706,10 +713,9 @@ def _run_partial_reset(
             "repository": _repository_state(),
         }
         return report
-    except BaseException:
-        failure_pending = True
+    except BaseException as error:
+        pending_error = error
         traceback.print_exc()
-        raise
     finally:
         cleanup_failed = False
         if environment is not None:
@@ -724,8 +730,11 @@ def _run_partial_reset(
             except BaseException:
                 cleanup_failed = True
                 traceback.print_exc()
-        if cleanup_failed and not failure_pending:
+        if cleanup_failed and pending_error is None:
             raise RuntimeError("partial-reset probe cleanup failed")
+    if pending_error is not None:
+        raise pending_error
+    raise RuntimeError("partial-reset probe completed without a report")
 
 
 def _install_reference_override(
@@ -739,12 +748,14 @@ def _install_reference_override(
     common_names = set(arrays_by_env[0])
     if any(set(arrays) != common_names for arrays in arrays_by_env):
         raise ValueError("reference override fields differ by environment")
-    tensors = {
-        name: torch.from_numpy(
-            np.stack([np.asarray(arrays[name]) for arrays in arrays_by_env])
-        ).to(environment.device)
-        for name in common_names
-    }
+    tensors = {}
+    for name in common_names:
+        stacked = np.stack(
+            [np.asarray(arrays[name]) for arrays in arrays_by_env]
+        )
+        if stacked.dtype in {np.dtype(np.uint8), np.dtype(np.uint16)}:
+            stacked = stacked.astype(np.int64)
+        tensors[name] = torch.from_numpy(stacked).to(environment.device)
     original = environment._reference_at
     all_ids = torch.arange(
         environment.num_envs, dtype=torch.int64, device=environment.device
@@ -802,7 +813,7 @@ def _verify_authored_state(
     )
     position_error = int(
         np.rint(
-            np.max(np.linalg.vector_norm(root[:, :3] - expected_position, axis=1))
+            np.max(np.linalg.norm(root[:, :3] - expected_position, axis=1))
             * 1_000_000.0
         )
     )
@@ -811,7 +822,7 @@ def _verify_authored_state(
     linear_error = int(
         np.rint(
             np.max(
-                np.linalg.vector_norm(
+                np.linalg.norm(
                     root[:, 7:10] - expected.linear_velocity_world_m_s[None],
                     axis=1,
                 )
@@ -822,7 +833,7 @@ def _verify_authored_state(
     angular_error = int(
         np.rint(
             np.max(
-                np.linalg.vector_norm(
+                np.linalg.norm(
                     root[:, 10:13] - expected.angular_velocity_world_rad_s[None],
                     axis=1,
                 )
