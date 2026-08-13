@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: corrected actuator correspondence and safety-reserve corpus are complete; rigid-body contact profile V2 and Isaac four-substep classifier are implemented and under optimizer-free TRAIN-3/5 revalidation. All earlier TRAIN-5 checkpoints remain diagnostic-only; no optimizer, multi-seed or TRAIN-5 gate advance is authorized in the new lineage |
+| Статус | In execution: `TRAIN-3` and dynamic-reserve `TRAIN-4` advanced. `TRAIN-5` input/reset and reproducible h10 tiny sanity passed, but both full-phase curricula failed the hard-safety gate. The contact-impact-margin hypothesis is rejected; no checkpoint, optimizer run, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. Only implementation and optimizer-free audit of the declared deterministic phase-prefix curriculum are next |
 | Дата | 2026-08-12 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -13,11 +13,11 @@
 | Frozen profile SHA-256 | `968ceb82ac2a40af872b496fdd43e32ba2ce3ffd90b2b3a33f38461c8269aabc` |
 | TRAIN-3 safety/contact profile | [Humanoid safety and contact profile V2](2026-08-13-humanoid-safety-contact-profile-v2.md) |
 | TRAIN-3 safety/contact SHA-256 | `ba9d368e075f389a4dbff4a0ed9299b737edf4907be10ae6cf3aeb60b348729f` |
-| TRAIN-4 motion corpus profile | [Humanoid motion corpus safety-reserve V2](../../lab/profiles/humanoid-motion-corpus-cmu-safety-reserve.v2.json) |
-| TRAIN-4 motion corpus profile SHA-256 | `0a2d319870843ba5a081eb9d23042ef804c33d7325c607493cd1017a9d9d8ced` |
-| TRAIN-5 reference tracker profile | [Humanoid reference tracker safety-reserve V2](../../lab/profiles/humanoid-reference-tracker-safety-reserve.v2.json) |
-| TRAIN-5 reference tracker profile SHA-256 | `c16662efd96977fd037d2db3cb3a88fa8ee3f8441eef5848ee2fe0f62068287c` |
-| TRAIN-5 rejected optimization child profile SHA-256 | realized `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5` |
+| TRAIN-4 motion corpus profile | [Humanoid motion corpus dynamic reserve V3](../../lab/profiles/humanoid-motion-corpus-cmu-dynamic-reserve.v3.json) |
+| TRAIN-4 motion corpus profile SHA-256 | `1229eb18b8efea2daff50cf73a733fe67b804f507ef739bc88f1dee30584bb0c` |
+| TRAIN-5 current base tracker profile | [Humanoid reference tracker physics/velocity guard V4](../../lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json) |
+| TRAIN-5 current base tracker SHA-256 | `7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d` |
+| TRAIN-5 rejected optimization child profiles | soft ROM `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive ROM `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`; realized contact impact margin `6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06` |
 
 Нормативные источники для реализации:
 
@@ -330,26 +330,22 @@ count: confidence interval не превращает наблюдаемое на
   `b6f8b1260b24ad401453942c9a4303d99ce378a8f71c6490db79bb78d85a1782`,
   gate report SHA-256
   `b814d7830188abbc83378e83b6fb8ff4da5fdf3c0c30d0606913a05692a71d32`;
-- `TRAIN-3`: `InProgress`, actuator safety is unit-validated at implementation
-  commit `0c524b02aa8e81d09afae1ca99d26b1286ee72f1`; contact profile V2 SHA-256
-  `ba9d368e075f389a4dbff4a0ed9299b737edf4907be10ae6cf3aeb60b348729f`
-  and regenerated safety/contact golden SHA-256
-  `dca80a314f0b23f2520b906e47bb0ed73fd2884474f46a12ee78d5fc422a5fe1`
-  pass native/Python correspondence; fresh Isaac directed/reset evidence and
-  gate report are not yet complete;
-- `TRAIN-4`: data-only `Advance`, safety-reserve profile SHA-256
-  `0a2d319870843ba5a081eb9d23042ef804c33d7325c607493cd1017a9d9d8ced`,
+- `TRAIN-3`: `Advance`; exact Rust/Isaac actuator, four-substep contact and
+  directed terminal correspondence are closed. Gate report SHA-256 —
+  `53c9f6b055007418c399f9fe9746b0784924b2a51cd5ee790ab158d3ae2824e5`;
+- `TRAIN-4`: data-only `Advance`; dynamic-reserve profile SHA-256
+  `1229eb18b8efea2daff50cf73a733fe67b804f507ef739bc88f1dee30584bb0c`,
   corpus manifest SHA-256
-  `2afcd10a61c60ec8d7715758eae6f5a87a98e7f0906620977602cf1b259f7ed4`,
+  `33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd`,
   gate report SHA-256
-  `93391cceaaacd8509195289a858db0725ba74a63a0ff4f3fb6f2f2c4866e661a`;
-- `TRAIN-5`: `NotRun` in the current V2/safety-reserve lineage. Immutable
-  tracker SHA-256
-  `c16662efd96977fd037d2db3cb3a88fa8ee3f8441eef5848ee2fe0f62068287c`
-  authorizes optimizer-free preacceptance only. Every older input/reset,
-  tiny/curriculum run and checkpoint below remains historical diagnostic
-  evidence and does not authorize resume or initialization;
-- `TRAIN-6..9`: `NotRun`; разрешён только specialist tracker `TRAIN-5`.
+  `261dce77dcc36448831373569c0a6d033ad8260769583e29228f706877c00778`;
+- `TRAIN-5`: `InProgress / FailedSafetyGate`. Input/reset and reproducible h10
+  tiny sanity passed. The base and realized contact-impact-margin full-phase
+  curriculum runs both failed hard safety; every produced curriculum checkpoint
+  is rejected. Only implementation and optimizer-free audit of
+  `curriculum.deterministic-phase-prefix-expansion.v1` are authorized;
+- `TRAIN-6..9`: `NotRun`; no downstream optimizer or publication work is
+  authorized.
 
 ## TRAIN-0 — retirement/isolation старого эксперимента и чистая generation
 
@@ -938,9 +934,74 @@ hard ROM/maximum velocity до effort publication и пересекает fixed-
 классифицирует blocker как `EnvironmentCorrespondence`. Поэтому все
 перечисленные выше TRAIN-5 input/reset/tiny/curriculum результаты остаются
 historical diagnostic evidence, но больше не разрешают downstream work.
-Следующий исполняемый шаг — восстановить exact TRAIN-3 actuator/terminal
-semantics в Isaac, выпустить новые immutable environment/training identities и
-повторить input/reset/tiny ladder с нуля.
+Эта remediation впоследствии завершена: exact actuator/terminal semantics
+восстановлены в Isaac, `TRAIN-3` получил `Advance`, а dynamic-reserve corpus
+закрыл `TRAIN-4`. Текущая correspondence lineage начинается с environment
+profile SHA-256
+`7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d`
+и corpus manifest SHA-256
+`33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd`.
+Optimizer-free input audit SHA-256
+`f6993f565ec04871e56c116c9799581619c349bcf9124c20a3b52c2db78b8bfc`
+и phase-reset audit SHA-256
+`f1a8447711a7bb7b67ae4e8a584e44f2c2d613198710f16c4a93767b76f5fa99`
+прошли; reset audit покрыл `169/169` phases и не зарегистрировал hard-safety
+failure в reset window.
+
+Первый h11 tiny sanity завершался tracking-loss на 11-м motor tick и был
+отклонён. Единственное bounded изменение horizon до h10 затем прошло два
+fresh run: `0/64 -> 64/64`, final failure count `0`; metrics SHA-256
+`261315f4aef6e7a81685f9d847621704aa2286550b24f8d457cfa6bb526b3c34`
+и checkpoint SHA-256
+`16c33959cafe3e4e7a7a52f043ea974385cd5fe98de287b67a25fff16fd9343e`
+совпали побитово. Reproducibility report SHA-256
+`80130ec5e04b8b4f2e689189caf1447e67f46bdca321b76978f15ca2c398de21`
+разрешил один phase-randomized curriculum run. Он улучшил completion
+`37/256 -> 94/256`, но сохранил `162` final failed episodes, включая `99`
+hard-impact and `44` hard-ROM failures. Failure decision SHA-256
+`95602ddd82666f6dba626ca7335eb7e98d9bd8294c94a4269ca48d9a8b51851a`
+отклонил checkpoint и разрешил проверить только одну contact-impact hypothesis.
+
+Immutable contact-impact-margin child SHA-256
+`6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06`
+добавил realized maximum contact-pair margin cost с warning boundary `9500`
+basis points, не меняя hard limits или terminals. Input audit SHA-256
+`34c8686b331e434dfa9430f4a8a1c22a863a90617485e4f33b5571f7ef9d250d`
+и phase-reset audit SHA-256
+`f6c7c819520627ef880b518b93ad0c58e971b76967c63576efeea3b45cc1c209`
+прошли с `optimizer_steps = 0`. Два fresh h10 tiny run воспроизвели `64/64`
+completion, zero final hard-safety, metrics SHA-256
+`26822f4aa9d46b9ccb32727f2c4c41ebad1ebf26929d8313aa2489e935192d7b`
+и checkpoint SHA-256
+`087afb5a03bad41595e3e588d9dd61e30fe811a8095b59387434b7163ad543ba`.
+Reproducibility report SHA-256
+`a1dd7f718566f093549a3a3b15fe812280c1f41572c1773a8db6c7a754f6e33a`
+разрешил ровно один curriculum run.
+
+Contact-impact-margin curriculum сохранил fixed matrix SHA-256
+`61c6fccbf2d70cc94aec2b7f96df8aa12d4a6a466b8f31a43d930b55dc94f9da`
+и узко улучшил completion `34/256 -> 69/256` и mean episode length
+`5.60546875 -> 7.75390625`, но final evaluation сохранила `187` failures и
+`168` hard-safety failed episodes: `111` hard impact, `48` hard ROM, `34`
+joint safety, `24` effort, `11` joint velocity и `3` self-collision. На той же
+matrix это хуже base curriculum: hard impact `99 -> 111`, completion
+`94 -> 69`, all failures `162 -> 187`. Optimizer-free terminal diagnostic
+SHA-256
+`b5d9cc190eaed9f67385c69b7ef8df6732ddc21dc927019f57b57abdddf245f1`
+отнёс `109` impact episodes к right sole и `29/48` hard-ROM episodes к right
+ankle pitch. Failure decision SHA-256
+`f496f3e20c0f1743e7fa5094a7d13128df77b714e3256a64634a5a2c517ae7c5`
+отклоняет reward hypothesis и checkpoint; multi-seed, `TRAIN-5` Advance и
+`TRAIN-6` запрещены.
+
+Единственная declared next hypothesis —
+`curriculum.deterministic-phase-prefix-expansion.v1`: четыре неизменяемые
+80-iteration ступени расширяют допустимый start-phase prefix с `42` до `84`,
+`126` и всех `169` phases. Она возвращается к принятому base environment и
+accepted h10 initializer, не меняет reward, PPO, total `320` iterations,
+hard terminals или final matrix. До отдельного optimizer-free audit exact
+schedule coverage/reproducibility разрешена только реализация этой гипотезы;
+новый optimizer run требует отдельного hash-closed gate.
 
 Следующие результаты сохранены только как historical failure/diagnostic
 evidence старой corpus lineage и не продвигают текущий `TRAIN-5`: input/reward audit
