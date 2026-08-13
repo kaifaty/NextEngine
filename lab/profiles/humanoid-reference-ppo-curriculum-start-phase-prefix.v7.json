@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.training.humanoid-reference-ppo-curriculum-stage.v7",
+  "status": "Frozen",
+  "base_profile_id": "nextengine.training.humanoid-reference-ppo-curriculum-stage.v1",
+  "base_profile_sha256": "d97c93adb39a32694fc2f882732e59561949c726e5827c13a844f8edb45d01d1",
+  "variant": {
+    "kind": "replace-environment-corpus-initialization-and-phase-schedule.v1",
+    "environment_profile_id": "nextengine.motor.env.humanoid-reference-tracker-physics-velocity-guard.v4",
+    "environment_profile_sha256": "7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d",
+    "corpus_manifest_sha256": "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
+    "initialization": {
+      "mode": "model-weights-only",
+      "training_profile_sha256": "177e92a1a4f5d440bf5752c3d688432b1ba8d9241c9014cee15a3610b47b4eed",
+      "checkpoint_sha256": "16c33959cafe3e4e7a7a52f043ea974385cd5fe98de287b67a25fff16fd9343e"
+    },
+    "stage_id": "start-right-phase-prefix-h11-dynamic-reserve-v3-velocity-guard-v4",
+    "phase_curriculum": {
+      "kind": "deterministic-phase-prefix-expansion.v1",
+      "reset_all_environments_on_stage_transition": true,
+      "maximum_start_phase_count": 169,
+      "stages": [
+        {
+          "iteration_first": 1,
+          "iteration_last": 80,
+          "eligible_phase_count": 42
+        },
+        {
+          "iteration_first": 81,
+          "iteration_last": 160,
+          "eligible_phase_count": 84
+        },
+        {
+          "iteration_first": 161,
+          "iteration_last": 240,
+          "eligible_phase_count": 126
+        },
+        {
+          "iteration_first": 241,
+          "iteration_last": 320,
+          "eligible_phase_count": 169
+        }
+      ]
+    }
+  }
+}

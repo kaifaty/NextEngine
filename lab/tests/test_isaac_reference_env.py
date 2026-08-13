@@ -219,6 +219,29 @@ class IsaacReferenceEnvironmentTests(unittest.TestCase):
             self.assertEqual(terminal_frame - start_frame, 32)
             self.assertLess(terminal_frame, (90, 120, 180)[clip_index])
 
+    def test_curriculum_episode_selection_honors_phase_prefix(self) -> None:
+        root = bytes.fromhex("34" * 32)
+        for phase_prefix_count in (42, 84, 126, 169):
+            selections = [
+                _select_curriculum_episode(
+                    run_root=root,
+                    episode_ordinal=episode,
+                    vector_slot=slot,
+                    clip_frame_counts=(180,),
+                    horizon_motor_ticks=11,
+                    phase_prefix_count=phase_prefix_count,
+                )
+                for episode in range(32)
+                for slot in range(64)
+            ]
+            self.assertTrue(
+                all(start_frame < phase_prefix_count for _, start_frame, _ in selections)
+            )
+            self.assertEqual(
+                {start_frame for _, start_frame, _ in selections},
+                set(range(phase_prefix_count)),
+            )
+
     def test_forbidden_contact_grace_expires_after_declared_physics_substeps(
         self,
     ) -> None:

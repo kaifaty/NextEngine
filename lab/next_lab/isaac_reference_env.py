@@ -389,6 +389,7 @@ def _select_curriculum_episode(
     vector_slot: int,
     clip_frame_counts: tuple[int, ...],
     horizon_motor_ticks: int,
+    phase_prefix_count: int | None = None,
 ) -> tuple[int, int, int]:
     if (
         len(run_root) != 32
@@ -409,6 +410,10 @@ def _select_curriculum_episode(
     valid_start_count = clip_frame_counts[clip_index] - horizon_motor_ticks
     if valid_start_count <= 0:
         raise ValueError("curriculum horizon exceeds a selected clip")
+    if phase_prefix_count is not None:
+        if phase_prefix_count <= 0 or phase_prefix_count > valid_start_count:
+            raise ValueError("curriculum phase prefix is outside the selected clip")
+        valid_start_count = phase_prefix_count
     phase_seed = derive_named_seed(
         run_root,
         "train",
@@ -660,6 +665,7 @@ if ISAAC_LAB_AVAILABLE:
                     raise ValueError("fixed horizon exceeds the reference clip")
                 self._rng_run_root = b""
             self._episode_ordinal_by_env = [0] * cfg.scene.num_envs
+            self._curriculum_phase_prefix_count: int | None = None
             self._validate_channel_closure()
             limits = isaac_actuator_limits_from_descriptor(self.descriptor)
             velocity_limit_basis_points = self.reference_profile.document[
@@ -1009,6 +1015,21 @@ if ISAAC_LAB_AVAILABLE:
             if episode_ordinal < 0:
                 raise ValueError("episode sequence ordinal must be non-negative")
             self._episode_ordinal_by_env = [episode_ordinal] * self.num_envs
+
+        def set_curriculum_phase_prefix_count(self, count: int | None) -> None:
+            if count is not None:
+                maximum = min(
+                    clip.frame_count - self.cfg.fixed_horizon_motor_ticks
+                    for clip in self.reference_clips
+                )
+                if (
+                    not self.cfg.phase_randomization
+                    or isinstance(count, bool)
+                    or not isinstance(count, int)
+                    or not 0 < count <= maximum
+                ):
+                    raise ValueError("invalid curriculum phase prefix count")
+            self._curriculum_phase_prefix_count = count
 
         def _setup_scene(self) -> None:
             self.robot = Articulation(self.cfg.asset)
@@ -2143,6 +2164,7 @@ if ISAAC_LAB_AVAILABLE:
                                 clip.frame_count for clip in self.reference_clips
                             ),
                             horizon_motor_ticks=self.cfg.fixed_horizon_motor_ticks,
+                            phase_prefix_count=self._curriculum_phase_prefix_count,
                         )
                     )
                     clip_values.append(clip_index)

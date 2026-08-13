@@ -12,6 +12,7 @@ from next_lab.reference_ppo import (
     TanhActorCritic,
     TinyReferencePpoProfile,
     _contact_impulse_diagnostics,
+    _phase_prefix_count_for_iteration,
     _selected_contact_pair_ids,
     _transformed_log_probability,
 )
@@ -52,6 +53,10 @@ PHYSICS_VELOCITY_GUARD_CURRICULUM_PROFILE = (
 CONTACT_IMPACT_MARGIN_CURRICULUM_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-ppo-curriculum-start-phase-contact-impact-margin.v6.json"
+)
+PHASE_PREFIX_CURRICULUM_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-ppo-curriculum-start-phase-prefix.v7.json"
 )
 PHYSICS_VELOCITY_GUARD_TINY_PROFILE = (
     Path(__file__).parents[1]
@@ -279,6 +284,28 @@ class ReferencePpoTests(unittest.TestCase):
         )
         self.assertEqual(profile.document["scope"]["horizon_motor_ticks"], 11)
         self.assertTrue(profile.document["scope"]["phase_randomization"])
+        self.assertEqual(profile.document["ppo"], baseline.document["ppo"])
+        self.assertEqual(profile.document["evaluation"], baseline.document["evaluation"])
+
+    def test_phase_prefix_curriculum_is_contiguous_and_keeps_fixed_matrix(self) -> None:
+        profile = TinyReferencePpoProfile.load(PHASE_PREFIX_CURRICULUM_PROFILE)
+        baseline = TinyReferencePpoProfile.load(CURRICULUM_PROFILE)
+        schedule = profile.document["phase_curriculum"]
+        self.assertEqual(
+            [
+                _phase_prefix_count_for_iteration(schedule, iteration)
+                for iteration in (1, 80, 81, 160, 161, 240, 241, 320)
+            ],
+            [42, 42, 84, 84, 126, 126, 169, 169],
+        )
+        self.assertEqual(
+            profile.document["environment_profile_sha256"],
+            "7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d",
+        )
+        self.assertEqual(
+            profile.document["initialization"]["checkpoint_sha256"],
+            "16c33959cafe3e4e7a7a52f043ea974385cd5fe98de287b67a25fff16fd9343e",
+        )
         self.assertEqual(profile.document["ppo"], baseline.document["ppo"])
         self.assertEqual(profile.document["evaluation"], baseline.document["evaluation"])
 

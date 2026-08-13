@@ -44,6 +44,7 @@ class TinyReferencePpoProfile:
                 in {
                     "replace-environment-and-initialization.v1",
                     "replace-environment-corpus-and-initialization.v1",
+                    "replace-environment-corpus-initialization-and-phase-schedule.v1",
                 }
             ):
                 if (
@@ -74,6 +75,7 @@ class TinyReferencePpoProfile:
                 "replace-environment-and-corpus.v1",
                 "replace-environment-corpus-and-scope.v1",
                 "replace-environment-corpus-and-initialization.v1",
+                "replace-environment-corpus-initialization-and-phase-schedule.v1",
             }:
                 corpus_manifest_sha256 = overlay["variant"].get(
                     "corpus_manifest_sha256"
@@ -99,6 +101,13 @@ class TinyReferencePpoProfile:
             if "initialization" in overlay["variant"]:
                 document["initialization"] = overlay["variant"]["initialization"]
                 document["scope"]["stage_id"] = overlay["variant"]["stage_id"]
+            if (
+                variant_kind
+                == "replace-environment-corpus-initialization-and-phase-schedule.v1"
+            ):
+                document["phase_curriculum"] = overlay["variant"].get(
+                    "phase_curriculum"
+                )
         profile_id = document.get("profile_id")
         fixed_tiny_profile_ids = {
             "nextengine.training.humanoid-reference-ppo-tiny.v1",
@@ -114,6 +123,7 @@ class TinyReferencePpoProfile:
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v4",
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v5",
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v6",
+            "nextengine.training.humanoid-reference-ppo-curriculum-stage.v7",
         }
         if (
             document.get("schema_version") != 1
@@ -187,7 +197,64 @@ class TinyReferencePpoProfile:
             or not execution.get("reset_episode_sequence_before_training", False)
         ):
             raise ValueError("V2 curriculum requires an isolated evaluation matrix")
+        phase_curriculum = document.get("phase_curriculum")
+        if profile_id == "nextengine.training.humanoid-reference-ppo-curriculum-stage.v7":
+            _validate_phase_curriculum(
+                phase_curriculum, iterations=int(execution["iterations"])
+            )
+        elif phase_curriculum is not None:
+            raise ValueError("phase curriculum is bound to the V7 profile identity")
         return cls(document=document, sha256=hashlib.sha256(payload).hexdigest())
+
+
+def _validate_phase_curriculum(schedule: Any, *, iterations: int) -> None:
+    if (
+        not isinstance(schedule, dict)
+        or schedule.get("kind") != "deterministic-phase-prefix-expansion.v1"
+        or schedule.get("reset_all_environments_on_stage_transition") is not True
+        or not isinstance(schedule.get("maximum_start_phase_count"), int)
+        or isinstance(schedule.get("maximum_start_phase_count"), bool)
+        or schedule["maximum_start_phase_count"] <= 0
+        or not isinstance(schedule.get("stages"), list)
+        or not schedule["stages"]
+    ):
+        raise ValueError("invalid deterministic phase curriculum")
+    expected_first = 1
+    previous_count = 0
+    for stage in schedule["stages"]:
+        if not isinstance(stage, dict) or set(stage) != {
+            "iteration_first",
+            "iteration_last",
+            "eligible_phase_count",
+        }:
+            raise ValueError("invalid deterministic phase curriculum stage")
+        first = stage["iteration_first"]
+        last = stage["iteration_last"]
+        count = stage["eligible_phase_count"]
+        if any(
+            isinstance(value, bool) or not isinstance(value, int)
+            for value in (first, last, count)
+        ):
+            raise ValueError("phase curriculum stage values must be integers")
+        if first != expected_first or last < first or count <= previous_count:
+            raise ValueError("phase curriculum stages must be contiguous and expanding")
+        expected_first = last + 1
+        previous_count = count
+    if expected_first != iterations + 1:
+        raise ValueError("phase curriculum must cover every optimizer iteration")
+    if previous_count != schedule["maximum_start_phase_count"]:
+        raise ValueError("phase curriculum must end at the full phase range")
+
+
+def _phase_prefix_count_for_iteration(
+    schedule: Mapping[str, Any], iteration: int
+) -> int:
+    if iteration <= 0:
+        raise ValueError("phase curriculum iteration must be positive")
+    for stage in schedule["stages"]:
+        if stage["iteration_first"] <= iteration <= stage["iteration_last"]:
+            return int(stage["eligible_phase_count"])
+    raise ValueError("phase curriculum iteration is outside the frozen schedule")
 
 
 def _selected_contact_pair_ids(
@@ -383,6 +450,11 @@ class TinyReferencePpoTrainer:
         reset_episode_sequence = getattr(
             self.environment, "reset_episode_sequence", None
         )
+        set_phase_prefix = getattr(
+            self.environment, "set_curriculum_phase_prefix_count", None
+        )
+        if set_phase_prefix is not None:
+            set_phase_prefix(None)
         if (
             self.profile.document["scope"]["phase_randomization"]
             and reset_episode_sequence is None
@@ -979,11 +1051,34 @@ class TinyReferencePpoTrainer:
                     "resolved training profile requires a resettable episode sequence"
                 )
             reset_episode_sequence()
+        phase_curriculum = document.get("phase_curriculum")
+        set_phase_prefix = getattr(
+            self.environment, "set_curriculum_phase_prefix_count", None
+        )
+        active_phase_prefix_count: int | None = None
+        if phase_curriculum is not None:
+            if set_phase_prefix is None:
+                raise RuntimeError(
+                    "phase-prefix curriculum requires a bounded episode selector"
+                )
+            active_phase_prefix_count = _phase_prefix_count_for_iteration(
+                phase_curriculum, 1
+            )
+            set_phase_prefix(active_phase_prefix_count)
         observation_map, _ = self.environment.reset()
         observation = observation_map["policy"]
         records: list[dict[str, Any]] = []
         for iteration in range(int(execution["iterations"])):
             iteration_number = iteration + 1
+            if phase_curriculum is not None:
+                phase_prefix_count = _phase_prefix_count_for_iteration(
+                    phase_curriculum, iteration_number
+                )
+                if phase_prefix_count != active_phase_prefix_count:
+                    set_phase_prefix(phase_prefix_count)
+                    observation_map, _ = self.environment.reset()
+                    observation = observation_map["policy"]
+                    active_phase_prefix_count = phase_prefix_count
             if self.performance_recorder is not None:
                 self.performance_recorder.begin(iteration_number, "rollout")
             rollout = self._collect_rollout(
@@ -1025,6 +1120,8 @@ class TinyReferencePpoTrainer:
                     "action_standard_deviation_mean": float(rollout_summary[3]),
                 }
             )
+            if active_phase_prefix_count is not None:
+                metrics["curriculum_phase_prefix_count"] = active_phase_prefix_count
             _require_finite_mapping(metrics)
             self.metrics_path.parent.mkdir(parents=True, exist_ok=True)
             with self.metrics_path.open("a", encoding="utf-8") as output:
