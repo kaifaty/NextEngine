@@ -425,6 +425,34 @@ def _select_curriculum_episode(
     return clip_index, start_frame, start_frame + horizon_motor_ticks
 
 
+def _build_exhaustive_phase_schedule(
+    *,
+    clip_frame_counts: tuple[int, ...],
+    horizon_motor_ticks: int,
+    repeats: int,
+) -> tuple[tuple[int, int, int, int], ...]:
+    if (
+        not clip_frame_counts
+        or horizon_motor_ticks <= 0
+        or isinstance(repeats, bool)
+        or not isinstance(repeats, int)
+        or repeats <= 0
+        or any(
+            isinstance(frame_count, bool)
+            or not isinstance(frame_count, int)
+            or frame_count <= horizon_motor_ticks
+            for frame_count in clip_frame_counts
+        )
+    ):
+        raise ValueError("invalid exhaustive reference phase schedule")
+    return tuple(
+        (clip_index, start_frame, start_frame + horizon_motor_ticks, repeat_index)
+        for clip_index, frame_count in enumerate(clip_frame_counts)
+        for start_frame in range(frame_count - horizon_motor_ticks)
+        for repeat_index in range(repeats)
+    )
+
+
 def _advance_contact_grace(
     previous_substeps: torch.Tensor,
     raw_contact: torch.Tensor,
@@ -588,6 +616,7 @@ if ISAAC_LAB_AVAILABLE:
         eligible_clip_ids: tuple[str, ...] = ()
         phase_randomization = False
         rng_run_root_hex = ""
+        diagnostic_exhaustive_phase_sweep_repeats = 0
         sim = sim_utils.SimulationCfg(dt=1.0 / 240.0, render_interval=4)
         scene = InteractiveSceneCfg(num_envs=64, env_spacing=3.0, replicate_physics=True)
         asset = ArticulationCfg(
@@ -647,11 +676,36 @@ if ISAAC_LAB_AVAILABLE:
                 self.reference_corpus.load_clip(clip_id) for clip_id in clip_ids
             )
             self.reference_clip = self.reference_clips[0]
-            if any(clip.split != "train" for clip in self.reference_clips):
+            diagnostic_repeats = cfg.diagnostic_exhaustive_phase_sweep_repeats
+            if (
+                isinstance(diagnostic_repeats, bool)
+                or not isinstance(diagnostic_repeats, int)
+                or diagnostic_repeats < 0
+                or (diagnostic_repeats > 0 and cfg.phase_randomization)
+            ):
+                raise ValueError("invalid exhaustive phase diagnostic configuration")
+            self.diagnostic_episode_schedule = (
+                _build_exhaustive_phase_schedule(
+                    clip_frame_counts=tuple(
+                        clip.frame_count for clip in self.reference_clips
+                    ),
+                    horizon_motor_ticks=cfg.fixed_horizon_motor_ticks,
+                    repeats=diagnostic_repeats,
+                )
+                if diagnostic_repeats > 0
+                else ()
+            )
+            self._diagnostic_assignment_ordinal = 0
+            if (
+                not self.diagnostic_episode_schedule
+                and any(clip.split != "train" for clip in self.reference_clips)
+            ):
                 raise ValueError("reference training clips must belong to the train split")
             if cfg.fixed_horizon_motor_ticks <= 0:
                 raise ValueError("reference horizon must be positive")
-            if cfg.phase_randomization:
+            if self.diagnostic_episode_schedule:
+                self._rng_run_root = b""
+            elif cfg.phase_randomization:
                 if len(cfg.rng_run_root_hex) != 64:
                     raise ValueError("phase-randomized curriculum requires a 256-bit run root")
                 self._rng_run_root = bytes.fromhex(cfg.rng_run_root_hex)
@@ -705,6 +759,9 @@ if ISAAC_LAB_AVAILABLE:
             self._substep_effort_envelope_violation = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.bool
             )
+            self._substep_effort_envelope_violation_by_action_channel = torch.zeros(
+                (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.bool
+            )
             self._substep_hard_rom_excess_by_action_channel = torch.zeros(
                 (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.float64
             )
@@ -722,6 +779,9 @@ if ISAAC_LAB_AVAILABLE:
             )
             self._episode_start_frame = self._cursor.clone()
             self._episode_clip_index = self._clip_index.clone()
+            self._episode_diagnostic_assignment_ordinal = torch.full(
+                (cfg.scene.num_envs,), -1, dtype=torch.int64
+            )
             self._tracking_loss_ticks = torch.zeros(cfg.scene.num_envs, dtype=torch.int64)
             self._contact_projections = _contact_body_projections(self.descriptor)
             self._contact_layout = _contact_pair_layout(self._contact_projections)
@@ -825,6 +885,9 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_episode_clip_index = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.int64
             )
+            self.last_step_diagnostic_assignment_ordinal = torch.full(
+                (cfg.scene.num_envs,), -1, dtype=torch.int64
+            )
             self.last_step_hard_rom_action_channel = torch.full(
                 (cfg.scene.num_envs,), -1, dtype=torch.int64
             )
@@ -842,6 +905,9 @@ if ISAAC_LAB_AVAILABLE:
             )
             self.last_step_velocity_excess_by_action_channel = torch.zeros(
                 (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
+            )
+            self.last_step_effort_envelope_violation_by_action_channel = torch.zeros(
+                (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.bool
             )
             self.last_step_action_joint_position_microradians = torch.zeros(
                 (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
@@ -866,6 +932,9 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_command_reference_target_microradians = torch.zeros(
                 (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
             )
+            self.last_step_reference_joint_position_microradians = torch.zeros(
+                (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
+            )
             self.last_step_reference_frame = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.int64
             )
@@ -883,6 +952,20 @@ if ISAAC_LAB_AVAILABLE:
             )
             self.last_step_forbidden_contact_mask = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.int64
+            )
+            self.last_step_observed_contacts = torch.zeros(
+                (
+                    cfg.scene.num_envs,
+                    len(
+                        self.reference_profile.document["observation"][
+                            "contact_order"
+                        ]
+                    ),
+                ),
+                dtype=torch.int64,
+            )
+            self.last_step_reference_contacts = torch.zeros_like(
+                self.last_step_observed_contacts
             )
             self._reward_component_ids = tuple(
                 component["id"]
@@ -930,6 +1013,7 @@ if ISAAC_LAB_AVAILABLE:
                 "_substep_joint_safety_violation",
                 "_substep_velocity_violation",
                 "_substep_effort_envelope_violation",
+                "_substep_effort_envelope_violation_by_action_channel",
                 "_substep_hard_rom_excess_by_action_channel",
                 "_substep_velocity_excess_by_action_channel",
                 "_cursor",
@@ -937,6 +1021,7 @@ if ISAAC_LAB_AVAILABLE:
                 "_terminal_frame",
                 "_episode_start_frame",
                 "_episode_clip_index",
+                "_episode_diagnostic_assignment_ordinal",
                 "_tracking_loss_ticks",
                 "_contact_continuity",
                 "_current_ground_active",
@@ -971,12 +1056,14 @@ if ISAAC_LAB_AVAILABLE:
                 "last_step_terminal_reason",
                 "last_step_episode_start_frame",
                 "last_step_episode_clip_index",
+                "last_step_diagnostic_assignment_ordinal",
                 "last_step_hard_rom_action_channel",
                 "last_step_hard_rom_excess_microradians",
                 "last_step_hard_rom_excess_by_action_channel",
                 "last_step_velocity_action_channel",
                 "last_step_velocity_excess_microradians_per_second",
                 "last_step_velocity_excess_by_action_channel",
+                "last_step_effort_envelope_violation_by_action_channel",
                 "last_step_action_joint_position_microradians",
                 "last_step_pre_physics_action_joint_position_microradians",
                 "last_step_action_joint_velocity_microradians_per_second",
@@ -984,12 +1071,15 @@ if ISAAC_LAB_AVAILABLE:
                 "last_step_applied_target_microradians",
                 "last_step_previous_applied_target_microradians",
                 "last_step_command_reference_target_microradians",
+                "last_step_reference_joint_position_microradians",
                 "last_step_reference_frame",
                 "last_step_episode_elapsed_motor_ticks",
                 "last_step_root_position_error_micrometres",
                 "last_step_root_orientation_absolute_dot_q1_30",
                 "last_step_tracking_loss_ticks",
                 "last_step_forbidden_contact_mask",
+                "last_step_observed_contacts",
+                "last_step_reference_contacts",
                 "_episode_reward_sum",
                 "_episode_component_sums",
                 "reward_components",
@@ -1015,6 +1105,11 @@ if ISAAC_LAB_AVAILABLE:
             if episode_ordinal < 0:
                 raise ValueError("episode sequence ordinal must be non-negative")
             self._episode_ordinal_by_env = [episode_ordinal] * self.num_envs
+
+        def reset_diagnostic_episode_sequence(self) -> None:
+            if not self.diagnostic_episode_schedule:
+                raise ValueError("exhaustive phase diagnostic is not configured")
+            self._diagnostic_assignment_ordinal = 0
 
         def set_curriculum_phase_prefix_count(self, count: int | None) -> None:
             if count is not None:
@@ -1455,6 +1550,7 @@ if ISAAC_LAB_AVAILABLE:
             self._substep_joint_safety_violation.zero_()
             self._substep_velocity_violation.zero_()
             self._substep_effort_envelope_violation.zero_()
+            self._substep_effort_envelope_violation_by_action_channel.zero_()
             self._substep_hard_rom_excess_by_action_channel.zero_()
             self._substep_velocity_excess_by_action_channel.zero_()
             self._substep_contact_hard_impact.zero_()
@@ -1569,6 +1665,9 @@ if ISAAC_LAB_AVAILABLE:
             self._substep_velocity_violation |= velocity_violation
             self._substep_effort_envelope_violation |= torch.any(
                 infeasible_channel, dim=-1
+            )
+            self._substep_effort_envelope_violation_by_action_channel |= (
+                infeasible_channel
             )
             self.robot.set_joint_effort_target(
                 published_effort.to(torch.float32) / MICRO_SCALE,
@@ -1834,8 +1933,13 @@ if ISAAC_LAB_AVAILABLE:
             ) >= (1 << 58)
             fall = (root_position[:, 1] <= 450_000) | root_tilt
             tracking_lost = self._tracking_loss_ticks >= 4
+            terminal_tracking_lost = (
+                torch.zeros_like(tracking_lost)
+                if self.diagnostic_episode_schedule
+                else tracking_lost
+            )
             self._failure_terminal.copy_(
-                tracking_lost
+                terminal_tracking_lost
                 | hard_rom
                 | joint_safety
                 | hard_impact
@@ -1884,12 +1988,15 @@ if ISAAC_LAB_AVAILABLE:
                 forbidden_contact=forbidden_contact,
                 world_bounds=world_bounds,
                 fall=fall,
-                tracking_lost=tracking_lost,
+                tracking_lost=terminal_tracking_lost,
                 success=self._success_terminal,
             )
             self.last_step_terminal_reason.copy_(terminal_reason)
             self.last_step_episode_start_frame.copy_(self._episode_start_frame)
             self.last_step_episode_clip_index.copy_(self._episode_clip_index)
+            self.last_step_diagnostic_assignment_ordinal.copy_(
+                self._episode_diagnostic_assignment_ordinal
+            )
             self.last_step_hard_rom_action_channel.copy_(
                 torch.where(
                     hard_rom,
@@ -1916,6 +2023,9 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_velocity_excess_by_action_channel.copy_(
                 torch.round(velocity_excess).to(torch.int64)
             )
+            self.last_step_effort_envelope_violation_by_action_channel.copy_(
+                self._substep_effort_envelope_violation_by_action_channel
+            )
             self.last_step_action_joint_position_microradians.copy_(
                 torch.round(action_position).to(torch.int64)
             )
@@ -1927,6 +2037,11 @@ if ISAAC_LAB_AVAILABLE:
             )
             self.last_step_previous_applied_target_microradians.copy_(
                 torch.round(self._previous_applied_target).to(torch.int64)
+            )
+            self.last_step_reference_joint_position_microradians.copy_(
+                self._reference_at("joint_position_urad", frame)[
+                    :, self._action_to_dof
+                ].to(torch.int64)
             )
             self.last_step_reference_frame.copy_(frame)
             self.last_step_episode_elapsed_motor_ticks.copy_(
@@ -1940,6 +2055,10 @@ if ISAAC_LAB_AVAILABLE:
             )
             self.last_step_tracking_loss_ticks.copy_(self._tracking_loss_ticks)
             self.last_step_forbidden_contact_mask.copy_(forbidden_contact_mask)
+            self.last_step_observed_contacts.copy_(current["contacts"])
+            self.last_step_reference_contacts.copy_(
+                self._reference_at("contacts", frame).to(torch.int64)
+            )
             terminated = self._success_terminal | self._failure_terminal
             timed_out = self.episode_length_buf >= self.max_episode_length - 1
             return terminated, timed_out & ~terminated
@@ -2152,7 +2271,24 @@ if ISAAC_LAB_AVAILABLE:
             frame_values: list[int] = []
             clip_values: list[int] = []
             terminal_values: list[int] = []
-            if self.cfg.phase_randomization:
+            diagnostic_assignment_values: list[int] = []
+            if self.diagnostic_episode_schedule:
+                for _ in env_ids.detach().cpu().tolist():
+                    assignment_ordinal = self._diagnostic_assignment_ordinal
+                    (
+                        clip_index,
+                        frame_value,
+                        terminal_value,
+                        _,
+                    ) = self.diagnostic_episode_schedule[
+                        assignment_ordinal % len(self.diagnostic_episode_schedule)
+                    ]
+                    clip_values.append(clip_index)
+                    frame_values.append(frame_value)
+                    terminal_values.append(terminal_value)
+                    diagnostic_assignment_values.append(assignment_ordinal)
+                    self._diagnostic_assignment_ordinal += 1
+            elif self.cfg.phase_randomization:
                 for env_id in env_ids.detach().cpu().tolist():
                     episode_ordinal = self._episode_ordinal_by_env[env_id]
                     clip_index, frame_value, terminal_value = (
@@ -2170,6 +2306,7 @@ if ISAAC_LAB_AVAILABLE:
                     clip_values.append(clip_index)
                     frame_values.append(frame_value)
                     terminal_values.append(terminal_value)
+                    diagnostic_assignment_values.append(-1)
                     self._episode_ordinal_by_env[env_id] += 1
             else:
                 clip_values = [0] * len(env_ids)
@@ -2177,6 +2314,7 @@ if ISAAC_LAB_AVAILABLE:
                 terminal_values = [
                     self.cfg.fixed_start_frame + self.cfg.fixed_horizon_motor_ticks
                 ] * len(env_ids)
+                diagnostic_assignment_values = [-1] * len(env_ids)
             frame = torch.tensor(frame_values, dtype=torch.int64, device=self.device)
             self._clip_index[env_ids] = torch.tensor(
                 clip_values, dtype=torch.int64, device=self.device
@@ -2186,6 +2324,11 @@ if ISAAC_LAB_AVAILABLE:
             )
             self._episode_start_frame[env_ids] = frame
             self._episode_clip_index[env_ids] = self._clip_index[env_ids]
+            self._episode_diagnostic_assignment_ordinal[env_ids] = torch.tensor(
+                diagnostic_assignment_values,
+                dtype=torch.int64,
+                device=self.device,
+            )
             root_position_engine = (
                 self._reference_at("root_position_um", frame, env_ids).to(torch.float32)
                 / 1_000_000.0
@@ -2256,6 +2399,9 @@ if ISAAC_LAB_AVAILABLE:
             self._substep_joint_safety_violation[env_ids] = False
             self._substep_velocity_violation[env_ids] = False
             self._substep_effort_envelope_violation[env_ids] = False
+            self._substep_effort_envelope_violation_by_action_channel[
+                env_ids
+            ] = False
             self._substep_hard_rom_excess_by_action_channel[env_ids] = 0.0
             self._substep_velocity_excess_by_action_channel[env_ids] = 0.0
             self._cursor[env_ids] = frame

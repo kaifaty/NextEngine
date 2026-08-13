@@ -82,6 +82,41 @@ root position at most `0.03 m`, velocity at most `0.05 m/s`, contact agreement
 at least `98%`, and done-tick agreement at least `95%`. Passing correspondence
 does not make GPU execution replay-authoritative or declare a trained policy.
 
+## Optimizer-free TRAIN-4 dynamic feasibility
+
+Before a remediated locomotion corpus can re-enter `TRAIN-5`, run the exhaustive
+scripted-reference audit with the pinned Isaac Python environment:
+
+```text
+<isaac-python> lab/scripts/isaac_reference_dynamic_feasibility_audit.py \
+  --headless --device cuda:0 \
+  --descriptor <external biomechanics descriptor> \
+  --profile lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json \
+  --corpus-root <external corpus root> \
+  --admission-gate-report <hash-bound prior TRAIN-4 Advance report> \
+  --remediation-gate-report <current TRAIN-4 RemediateDataOnly report> \
+  --usd <external derived humanoid.usda> \
+  --substrate-profile lab/profiles/isaac-lab-physx-stage0.v1.json \
+  --horizon 11 --repeats 1 --num-envs 256 \
+  --output <external TRAIN-4 evaluation report.json>
+```
+
+The audit enumerates every admitted partition clip in canonical UTF-8 ID order
+and every start frame for which the full horizon fits. Zero residual action is
+used and no optimizer, checkpoint or learned policy is loaded. Hard ROM, joint
+safety/velocity/effort, impact, collision, forbidden contact, fall, world-bound
+or non-finite events fail the relevant case immediately. Tracking loss does not
+stop this diagnostic sweep: it and reference completion, joint/root error and
+contact precision/recall are retained as `ReportOnly`, so later safety events
+cannot be hidden by an earlier tracking failure.
+
+The report binds both TRAIN-4 gate reports, corpus manifest, tracker profile,
+BodySchema descriptor, USD, substrate profile and the audit implementation
+hashes. It includes every phase result plus the first violation localized to
+`clip -> start frame -> motor tick -> joint/contact pair`. Incomplete coverage
+or one required safety event produces `FAIL` and a non-zero process status. The
+output must remain in the external training store.
+
 ## Training generation isolation
 
 Every train/evaluate/view/reset/stability entry point requires an external

@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` is reopened because the admitted dynamic-reserve corpus failed full-horizon dynamic-reference feasibility. `TRAIN-5` input/reset/tiny evidence remains diagnostic, all curriculum checkpoints are rejected, and no optimizer run, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. Current WIP is optimizer-free `TRAIN-4` corpus remediation for `REQ-HUM-DATA-007` |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` is reopened because the admitted dynamic-reserve corpus failed full-horizon dynamic-reference feasibility. The manifest-wide optimizer-free diagnostic now covers every clip/start phase and localizes the systemic ankle/contact defects; `TRAIN-5` evidence remains diagnostic, all curriculum checkpoints are rejected, and no optimizer run, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. Current WIP is temporal/contact-aware retarget correction under a new corpus identity for `REQ-HUM-DATA-007` |
 | Дата | 2026-08-13 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1043,6 +1043,33 @@ identity и полного optimizer-free dynamic-feasibility `Pass`. Exact reop
 SHA-256
 `2fc1d6c3d312a1e88a3820bdd851fd0eecf3230795a1162b55f13dd65d45cdb6`.
 
+Manifest-wide optimizer-free audit r2 then enumerated all `28` admitted
+locomotion clips and all `5653` valid start phases at horizon `11`; coverage is
+`5653/5653`, but only `1324` cases completed without required safety failure and
+`4329` failed. Required terminal counts are `3100` hard-impact, `846` hard-ROM,
+`919` joint-safety, `610` joint-velocity, `339` effort-envelope and `93`
+self-collision; fall, forbidden-contact, world-bounds and non-finite counts are
+zero. Twenty cases fail in the first motor tick. Contact precision/recall are
+`0.495467/0.854583` and remain `ReportOnly`.
+
+The failure is corpus-wide: every clip has failed phases, including
+`cmu140-idle` at `109/109`. Foot-ground impact is bilateral
+(`ground:body.right-ankle-roll` `1668`, left `1572`); hard-ROM is dominated by
+right/left ankle pitch (`410/397`), velocity by left/right ankle roll
+(`319/274`), effort by the four ankle channels (`317/339`), and all `93`
+self-collisions name the left/right hip-yaw pair. This fixes the remediation
+order: first use a temporally coupled ankle trajectory solve, then a
+contact-aware root/stance/swing-foot solve with stable contact intervals, and
+then preserve bilateral hip clearance. Each correction must create a new
+retarget/corpus identity before the same exhaustive audit is rerun.
+
+The external report is
+`/home/kaifaty/NextEngine-training/generations/humanoid-motor-rebuild-v1/evaluations/TRAIN-4/exhaustive-dynamic-feasibility-old-corpus-r2.json`,
+SHA-256
+`85e729e89406beb650ca2c62bc68590be576b0b7defe7ac60ec15bda97e18d09`.
+It is diagnostic failure evidence only: `optimizer_steps=0`,
+`training_runs=0`, learned-policy claim false. `TRAIN-4` remains reopened.
+
 Следующие результаты сохранены только как historical failure/diagnostic
 evidence старой corpus lineage и не продвигают текущий `TRAIN-5`: input/reward audit
 SHA-256
@@ -1533,10 +1560,11 @@ to read-only research, motion-rights review and generated test design; it
 cannot publish a later-stage contract or start training before its dependency
 gate passes.
 
-Current executable increment is optimizer-free `TRAIN-4` corpus diagnosis and
-remediation against `REQ-HUM-DATA-007`. No new PPO run is authorized before a
-new `TRAIN-4 Advance`; no command locomotion run is authorized before
-`TRAIN-5` advances.
+Manifest-wide optimizer-free `TRAIN-4` diagnosis is complete for the rejected
+lineage. The current executable increment is temporal/contact-aware retarget,
+root and joint-trajectory remediation under a new corpus identity against
+`REQ-HUM-DATA-007`. No new PPO run is authorized before a new `TRAIN-4
+Advance`; no command locomotion run is authorized before `TRAIN-5` advances.
 
 Roadmap status changes only after material implementation/check results. This
 planning document alone does not close R5, B-08, B-12, Stage 0, GPU

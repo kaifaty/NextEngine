@@ -12,6 +12,7 @@ from next_lab.isaac_env import (
 from next_lab.isaac_reference_env import (
     OBSERVED_HARD_ROM_TOLERANCE_MICRORADIANS,
     _advance_contact_grace,
+    _build_exhaustive_phase_schedule,
     _canonical_pd_requested_effort_tensor,
     _classify_contact_pairs_tensor,
     _contact_impulse_magnitude_micronewton_seconds,
@@ -241,6 +242,63 @@ class IsaacReferenceEnvironmentTests(unittest.TestCase):
                 {start_frame for _, start_frame, _ in selections},
                 set(range(phase_prefix_count)),
             )
+
+    def test_exhaustive_phase_schedule_covers_every_clip_phase_and_repeat(self) -> None:
+        schedule = _build_exhaustive_phase_schedule(
+            clip_frame_counts=(14, 16),
+            horizon_motor_ticks=11,
+            repeats=2,
+        )
+        self.assertEqual(
+            schedule,
+            (
+                (0, 0, 11, 0),
+                (0, 0, 11, 1),
+                (0, 1, 12, 0),
+                (0, 1, 12, 1),
+                (0, 2, 13, 0),
+                (0, 2, 13, 1),
+                (1, 0, 11, 0),
+                (1, 0, 11, 1),
+                (1, 1, 12, 0),
+                (1, 1, 12, 1),
+                (1, 2, 13, 0),
+                (1, 2, 13, 1),
+                (1, 3, 14, 0),
+                (1, 3, 14, 1),
+                (1, 4, 15, 0),
+                (1, 4, 15, 1),
+            ),
+        )
+
+    def test_exhaustive_phase_schedule_rejects_incomplete_bounds(self) -> None:
+        for arguments in (
+            {"clip_frame_counts": (), "horizon_motor_ticks": 11, "repeats": 1},
+            {
+                "clip_frame_counts": (11,),
+                "horizon_motor_ticks": 11,
+                "repeats": 1,
+            },
+            {
+                "clip_frame_counts": (12,),
+                "horizon_motor_ticks": 0,
+                "repeats": 1,
+            },
+            {
+                "clip_frame_counts": (12,),
+                "horizon_motor_ticks": 11,
+                "repeats": 0,
+            },
+            {
+                "clip_frame_counts": (12,),
+                "horizon_motor_ticks": 11,
+                "repeats": True,
+            },
+        ):
+            with self.subTest(arguments=arguments), self.assertRaisesRegex(
+                ValueError, "invalid exhaustive reference phase schedule"
+            ):
+                _build_exhaustive_phase_schedule(**arguments)
 
     def test_forbidden_contact_grace_expires_after_declared_physics_substeps(
         self,
