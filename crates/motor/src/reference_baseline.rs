@@ -102,8 +102,7 @@ impl ReferenceBaselineInput {
         let joint_position_urad = matrix(&value, "joint_position_urad", ACTION_CHANNELS)?;
         let joint_velocity_urad_s = matrix(&value, "joint_velocity_urad_s", ACTION_CHANNELS)?;
         let frame_count = root_position_um.len();
-        if frame_count < 2
-            || frame_count > 3_600
+        if !(2..=3_600).contains(&frame_count)
             || start_frame >= frame_count - 1
             || root_quaternion_q1_30.len() != frame_count
             || root_linear_velocity_um_s.len() != frame_count
@@ -259,14 +258,14 @@ pub fn biomechanics_reference_baseline_json_v1(
                     safety.validate_observed_joint_states(&actuator_states(&compiled, &snapshot)?)
                 {
                     joint_safety_error_code = Some(error.stable_code().to_owned());
-                    if error == MotorSafetyError::HardRangeViolation {
-                        if let Some(diagnostic) = hard_rom_diagnostic(&compiled, &snapshot)? {
-                            hard_rom_joint_id = Some(diagnostic.joint_id);
-                            hard_rom_joint_ordinal = Some(diagnostic.ordinal);
-                            hard_rom_joint_position = Some(diagnostic.position_microradians);
-                            hard_rom_joint_minimum = Some(diagnostic.minimum_microradians);
-                            hard_rom_joint_maximum = Some(diagnostic.maximum_microradians);
-                        }
+                    if error == MotorSafetyError::HardRangeViolation
+                        && let Some(diagnostic) = hard_rom_diagnostic(&compiled, &snapshot)?
+                    {
+                        hard_rom_joint_id = Some(diagnostic.joint_id);
+                        hard_rom_joint_ordinal = Some(diagnostic.ordinal);
+                        hard_rom_joint_position = Some(diagnostic.position_microradians);
+                        hard_rom_joint_minimum = Some(diagnostic.minimum_microradians);
+                        hard_rom_joint_maximum = Some(diagnostic.maximum_microradians);
                     }
                     joint_error = Some(error);
                 }
@@ -432,7 +431,7 @@ fn tracking_errors(
         })
         .ok_or(ReferenceBaselineError::InvalidOutput)?
         .unsigned_abs();
-    let orientation_dot = i64::try_from((dot_q2_60 >> 30).min((1_u128 << 30) as u128))
+    let orientation_dot = i64::try_from((dot_q2_60 >> 30).min(1_u128 << 30))
         .map_err(|_| ReferenceBaselineError::InvalidOutput)?;
     let joint_sum = snapshot
         .joints
