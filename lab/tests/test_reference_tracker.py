@@ -7,6 +7,7 @@ import numpy as np
 
 from next_lab.reference_tracker import (
     ACTION_CHANNELS,
+    ANKLE_PITCH_VELOCITY_CLOSURE_PROFILE_SHA256,
     CONTACT_SEATED_PROFILE_SHA256,
     CONTACT_IMPACT_MARGIN_PROFILE_SHA256,
     DYNAMIC_RESERVE_PROFILE_SHA256,
@@ -76,6 +77,10 @@ CONTACT_SEATED_PROFILE = (
 SOLE_NORMAL_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-tracker-sole-normal-closure.v10.json"
+)
+ANKLE_PITCH_VELOCITY_CLOSURE_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-tracker-ankle-pitch-velocity-closure.v11.json"
 )
 
 
@@ -255,6 +260,28 @@ class ReferenceTrackerTests(unittest.TestCase):
         authorization = profile.document["training_authorization"]
         self.assertEqual(authorization["decision"], "RemediateDataOnly")
         self.assertIn("optimizer execution remains forbidden", authorization["scope"])
+
+    def test_ankle_pitch_velocity_profile_is_diagnostic_only_and_v18_bound(self) -> None:
+        profile = ReferenceTrackerProfile.load(
+            ANKLE_PITCH_VELOCITY_CLOSURE_PROFILE
+        )
+        self.assertEqual(
+            profile.document_sha256,
+            ANKLE_PITCH_VELOCITY_CLOSURE_PROFILE_SHA256,
+        )
+        self.assertEqual(
+            profile.document["corpus"]["manifest_sha256"],
+            "bd6164180a33585ed9231fd6a41cb3943b20e51da8b0e06ac0c978406e204456",
+        )
+        self.assertEqual(
+            profile.document["corpus"]["profile_sha256"],
+            "91d60064444f155084ec0b793876b208336747b7dcaa03712290ca1ef9bdb4b0",
+        )
+        authorization = profile.document["training_authorization"]
+        self.assertEqual(authorization["decision"], "RemediateDataOnly")
+        self.assertIn(
+            "optimizer execution remains forbidden", authorization["scope"]
+        )
 
     def test_frozen_profile_closes_exact_layout_and_subprofiles(self) -> None:
         profile = ReferenceTrackerProfile.load(PROFILE)

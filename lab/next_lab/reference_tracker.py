@@ -79,6 +79,12 @@ SOLE_NORMAL_PROFILE_ID = (
 SOLE_NORMAL_PROFILE_SHA256 = (
     "25e81e1edeea13ea8c608be85eb4f06600378f8db6e3580860eae9cddbdd802a"
 )
+ANKLE_PITCH_VELOCITY_CLOSURE_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-reference-tracker-ankle-pitch-velocity-closure.v11"
+)
+ANKLE_PITCH_VELOCITY_CLOSURE_PROFILE_SHA256 = (
+    "19a8e5266f12c5c1ae9e307bd0f2f1a76bb6ea23a6ae9912e1ccec401eeaf28c"
+)
 PROFILE_IDS_BY_SHA256 = {
     PROFILE_SHA256: PROFILE_ID,
     SOFT_ROM_COST_PROFILE_SHA256: SOFT_ROM_COST_PROFILE_ID,
@@ -92,6 +98,9 @@ PROFILE_IDS_BY_SHA256 = {
     SWING_CLEARANCE_PROFILE_SHA256: SWING_CLEARANCE_PROFILE_ID,
     CONTACT_SEATED_PROFILE_SHA256: CONTACT_SEATED_PROFILE_ID,
     SOLE_NORMAL_PROFILE_SHA256: SOLE_NORMAL_PROFILE_ID,
+    ANKLE_PITCH_VELOCITY_CLOSURE_PROFILE_SHA256: (
+        ANKLE_PITCH_VELOCITY_CLOSURE_PROFILE_ID
+    ),
 }
 SAFETY_CONTACT_PROFILE_SHA256 = "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c"
 SAFETY_CONTACT_PROFILE_V2_SHA256 = (
@@ -201,6 +210,7 @@ class ReferenceTrackerProfile:
                     SWING_CLEARANCE_PROFILE_ID,
                     CONTACT_SEATED_PROFILE_ID,
                     SOLE_NORMAL_PROFILE_ID,
+                    ANKLE_PITCH_VELOCITY_CLOSURE_PROFILE_ID,
                 }
                 or overlay.get("status") != "Frozen"
                 or overlay.get("base_profile_id") != PROFILE_ID
@@ -300,6 +310,7 @@ class ReferenceTrackerProfile:
                 SWING_CLEARANCE_PROFILE_ID,
                 CONTACT_SEATED_PROFILE_ID,
                 SOLE_NORMAL_PROFILE_ID,
+                ANKLE_PITCH_VELOCITY_CLOSURE_PROFILE_ID,
             }
             else SAFETY_CONTACT_PROFILE_SHA256
         )
@@ -316,6 +327,7 @@ class ReferenceTrackerProfile:
             SWING_CLEARANCE_PROFILE_ID,
             CONTACT_SEATED_PROFILE_ID,
             SOLE_NORMAL_PROFILE_ID,
+            ANKLE_PITCH_VELOCITY_CLOSURE_PROFILE_ID,
         }:
             if (
                 _require_hex_hash(
@@ -461,6 +473,7 @@ class ReferenceTrackerProfile:
             SWING_CLEARANCE_PROFILE_ID,
             CONTACT_SEATED_PROFILE_ID,
             SOLE_NORMAL_PROFILE_ID,
+            ANKLE_PITCH_VELOCITY_CLOSURE_PROFILE_ID,
         }
         if remediation_only:
             source_lineage = authorization.get("source_lineage")
@@ -707,6 +720,7 @@ class ReferenceCorpus:
                 SWING_CLEARANCE_PROFILE_ID,
                 CONTACT_SEATED_PROFILE_ID,
                 SOLE_NORMAL_PROFILE_ID,
+                ANKLE_PITCH_VELOCITY_CLOSURE_PROFILE_ID,
             }
             and expected_authorization["decision"] == "RemediateDataOnly"
             and self.gate_report.get("decision") == "RemediateDataOnly"
