@@ -113,6 +113,7 @@ class TinyReferencePpoProfile:
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v3",
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v4",
             "nextengine.training.humanoid-reference-ppo-curriculum-stage.v5",
+            "nextengine.training.humanoid-reference-ppo-curriculum-stage.v6",
         }
         if (
             document.get("schema_version") != 1

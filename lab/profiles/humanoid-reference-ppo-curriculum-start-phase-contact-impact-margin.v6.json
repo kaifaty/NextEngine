@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "profile_id": "nextengine.training.humanoid-reference-ppo-curriculum-stage.v6",
+  "status": "Frozen",
+  "base_profile_id": "nextengine.training.humanoid-reference-ppo-curriculum-stage.v1",
+  "base_profile_sha256": "d97c93adb39a32694fc2f882732e59561949c726e5827c13a844f8edb45d01d1",
+  "variant": {
+    "kind": "replace-environment-corpus-and-initialization.v1",
+    "environment_profile_id": "nextengine.motor.env.humanoid-reference-tracker-contact-impact-margin.v5",
+    "environment_profile_sha256": "6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06",
+    "corpus_manifest_sha256": "33546488a73db25557c23fdb1a54b066ac3d02384aaca9acb529dab5d4cc81fd",
+    "initialization": {
+      "mode": "model-weights-only",
+      "training_profile_sha256": "fd9e15b92440469737cd435f7a9a87ed457af477af3f63d43fd2c842694c83ee",
+      "checkpoint_sha256": "087afb5a03bad41595e3e588d9dd61e30fe811a8095b59387434b7163ad543ba"
+    },
+    "stage_id": "start-right-random-phase-h11-dynamic-reserve-v3-contact-impact-margin-v5"
+  }
+}
