@@ -228,6 +228,7 @@ class MotionCorpusTests(unittest.TestCase):
             ("humanoid-motion-corpus-cmu-swing-clearance-closure.v10.json", "v6", 64),
             ("humanoid-motion-corpus-cmu-swing-clearance-closure.v11.json", "v6", 80),
             ("humanoid-motion-corpus-cmu-sole-normal-closure.v14.json", "v7", 69),
+            ("humanoid-motion-corpus-cmu-ankle-pitch-reserve.v16.json", "v8", 69),
         )
         for filename, algorithm_suffix, swing_smoothing in expectations:
             with self.subTest(profile=filename):
@@ -328,9 +329,10 @@ class MotionCorpusTests(unittest.TestCase):
             clips["cmu91-walk-slow-validation"]["source_last_frame"], 1650
         )
 
-    def test_ankle_pitch_reserve_overlay_freezes_smooth_transfer(self) -> None:
+    def test_ankle_pitch_dynamic_margin_overlay_freezes_smooth_transfer(self) -> None:
         profile, _ = load_motion_corpus_profile(
-            PROFILES / "humanoid-motion-corpus-cmu-ankle-pitch-reserve.v16.json"
+            PROFILES
+            / "humanoid-motion-corpus-cmu-ankle-pitch-dynamic-margin.v17.json"
         )
         self.assertEqual(
             profile["retarget"]["algorithm_id"],
@@ -340,10 +342,10 @@ class MotionCorpusTests(unittest.TestCase):
             "stance_chain"
         ]
         self.assertEqual(
-            chain["final_ankle_pitch_minimum_microradians"], -436332
+            chain["final_ankle_pitch_minimum_microradians"], -471239
         )
         self.assertEqual(
-            chain["final_ankle_pitch_transfer_smoothing_passes"], 32
+            chain["final_ankle_pitch_transfer_smoothing_passes"], 40
         )
 
     def test_stance_anchor_trajectory_is_continuous_and_time_symmetric(self) -> None:
@@ -662,7 +664,7 @@ class MotionCorpusTests(unittest.TestCase):
         )
         profile, _ = load_motion_corpus_profile(
             PROFILES
-            / "humanoid-motion-corpus-cmu-ankle-pitch-reserve.v16.json"
+            / "humanoid-motion-corpus-cmu-ankle-pitch-dynamic-margin.v17.json"
         )
         bounds = profile["retarget"]["temporal_contact_solve"][
             "joint_bounds_microradians"
