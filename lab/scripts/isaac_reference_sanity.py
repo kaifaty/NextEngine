@@ -115,6 +115,7 @@ def main() -> None:
         reward_minimum = float("inf")
         reward_maximum = float("-inf")
         executed_steps = 0
+        first_step_trace = None
         for _ in range(args.steps):
             observations, rewards, terminated, truncated, _ = environment.step(zero)
             if not torch.isfinite(observations["policy"]).all() or not torch.isfinite(
@@ -125,6 +126,51 @@ def main() -> None:
             reward_minimum = min(reward_minimum, float(torch.min(rewards).item()))
             reward_maximum = max(reward_maximum, float(torch.max(rewards).item()))
             executed_steps += 1
+            if first_step_trace is None:
+                first_step_trace = {
+                    "pre_physics_joint_position_microradians": environment.last_step_pre_physics_action_joint_position_microradians[
+                        0
+                    ].tolist(),
+                    "pre_physics_joint_velocity_microradians_per_second": environment.last_step_pre_physics_action_joint_velocity_microradians_per_second[
+                        0
+                    ].tolist(),
+                    "command_reference_target_microradians": environment.last_step_command_reference_target_microradians[
+                        0
+                    ].tolist(),
+                    "applied_target_microradians": environment.last_step_applied_target_microradians[
+                        0
+                    ].tolist(),
+                    "joint_position_microradians": environment.last_step_action_joint_position_microradians[
+                        0
+                    ].tolist(),
+                    "joint_velocity_microradians_per_second": environment.last_step_action_joint_velocity_microradians_per_second[
+                        0
+                    ].tolist(),
+                    "velocity_excess_by_action_channel_microradians_per_second": environment.last_step_velocity_excess_by_action_channel[
+                        0
+                    ].tolist(),
+                    "hard_rom_excess_by_action_channel_microradians": environment.last_step_hard_rom_excess_by_action_channel[
+                        0
+                    ].tolist(),
+                    "terminal_reason": int(
+                        environment.last_step_terminal_reason[0].item()
+                    ),
+                    "failure_joint_velocity": bool(
+                        environment.last_step_failure_joint_velocity[0].item()
+                    ),
+                    "failure_effort_envelope": bool(
+                        environment.last_step_failure_effort_envelope[0].item()
+                    ),
+                    "failure_hard_rom": bool(
+                        environment.last_step_failure_hard_rom[0].item()
+                    ),
+                    "failure_hard_impact": bool(
+                        environment.last_step_failure_hard_impact[0].item()
+                    ),
+                    "failure_self_collision": bool(
+                        environment.last_step_failure_self_collision[0].item()
+                    ),
+                }
         report = {
             "schema_version": 1,
             "check": "MOTOR-REFERENCE-ENV-P1-ISAAC-SANITY",
@@ -137,11 +183,13 @@ def main() -> None:
             "clip_id": args.clip_id,
             "start_frame": args.start_frame,
             "horizon_motor_ticks": args.horizon,
+            "physics_velocity_limit_basis_points": environment.physics_velocity_limit_basis_points,
             "num_envs": args.num_envs,
             "executed_motor_steps": executed_steps,
             "terminal_count": terminal_count,
             "reward_minimum": reward_minimum,
             "reward_maximum": reward_maximum,
+            "first_step_trace": first_step_trace,
             "reset_maximum_absolute_difference_raw": reset_differences,
             "dynamic_contact_difference_disposition": "sensor state is empty until the first physics step",
             "training_runs": 0,

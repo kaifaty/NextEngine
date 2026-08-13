@@ -585,9 +585,22 @@ if ISAAC_LAB_AVAILABLE:
             self._episode_ordinal_by_env = [0] * cfg.scene.num_envs
             self._validate_channel_closure()
             limits = isaac_actuator_limits_from_descriptor(self.descriptor)
+            velocity_limit_basis_points = self.reference_profile.document[
+                "termination"
+            ].get("isaac_physics_velocity_limit_basis_points", 10_000)
+            if (
+                not isinstance(velocity_limit_basis_points, int)
+                or isinstance(velocity_limit_basis_points, bool)
+                or not 1 <= velocity_limit_basis_points <= 10_000
+            ):
+                raise ValueError("physics velocity limit basis points are invalid")
+            self.physics_velocity_limit_basis_points = velocity_limit_basis_points
             actuator_cfg = cfg.asset.actuators["engine_effort"]
             actuator_cfg.effort_limit_sim = limits["effort_limit_sim"]
-            actuator_cfg.velocity_limit_sim = limits["velocity_limit_sim"]
+            actuator_cfg.velocity_limit_sim = {
+                joint_name: value * velocity_limit_basis_points / 10_000
+                for joint_name, value in limits["velocity_limit_sim"].items()
+            }
             cfg.episode_length_s = (cfg.fixed_horizon_motor_ticks + 1) / 60.0
             self._action = torch.zeros((cfg.scene.num_envs, ACTION_CHANNELS))
             self._applied_target = torch.zeros_like(self._action)

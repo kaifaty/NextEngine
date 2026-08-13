@@ -390,6 +390,10 @@ def main() -> None:
             ),
             "claim": "IsaacRandomizedPhaseResetSafetyOnly",
             "profile_sha256": _sha256(args.profile.resolve()),
+            "isaac_velocity_guard_profile_sha256": environment.reference_profile.document[
+                "termination"
+            ].get("isaac_velocity_guard_profile_sha256"),
+            "isaac_physics_velocity_limit_basis_points": environment.physics_velocity_limit_basis_points,
             "descriptor_sha256": _sha256(args.descriptor.resolve()),
             "usd_sha256": _sha256(args.usd.resolve()),
             "gate_report_sha256": _sha256(args.gate_report.resolve()),

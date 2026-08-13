@@ -37,16 +37,26 @@ DYNAMIC_RESERVE_PROFILE_ID = (
 DYNAMIC_RESERVE_PROFILE_SHA256 = (
     "b2840e93d858047a6267db1b6c01479c78e59b8866520e979db9c50082edf11c"
 )
+PHYSICS_VELOCITY_GUARD_PROFILE_ID = (
+    "nextengine.motor.env.humanoid-reference-tracker-physics-velocity-guard.v4"
+)
+PHYSICS_VELOCITY_GUARD_PROFILE_SHA256 = (
+    "7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d"
+)
 PROFILE_IDS_BY_SHA256 = {
     PROFILE_SHA256: PROFILE_ID,
     SOFT_ROM_COST_PROFILE_SHA256: SOFT_ROM_COST_PROFILE_ID,
     PREDICTIVE_ROM_COST_PROFILE_SHA256: PREDICTIVE_ROM_COST_PROFILE_ID,
     SAFETY_RESERVE_PROFILE_SHA256: SAFETY_RESERVE_PROFILE_ID,
     DYNAMIC_RESERVE_PROFILE_SHA256: DYNAMIC_RESERVE_PROFILE_ID,
+    PHYSICS_VELOCITY_GUARD_PROFILE_SHA256: PHYSICS_VELOCITY_GUARD_PROFILE_ID,
 }
 SAFETY_CONTACT_PROFILE_SHA256 = "ad20d7a4abd5cc8b59069ecdb59161499ce7754953cbff2477f2850395adb42c"
 SAFETY_CONTACT_PROFILE_V2_SHA256 = (
     "ba9d368e075f389a4dbff4a0ed9299b737edf4907be10ae6cf3aeb60b348729f"
+)
+ISAAC_VELOCITY_GUARD_PROFILE_SHA256 = (
+    "a5c8448a71f0adc2c821b8d833332e0ecd1e003110ce47d969f56cac13881676"
 )
 CORPUS_MANIFEST_ID = "nextengine.private-motion-corpus-manifest.v1"
 OBSERVATION_CHANNELS = 435
@@ -135,7 +145,11 @@ class ReferenceTrackerProfile:
                 overlay.get("schema_version") != 1
                 or overlay.get("profile_id") != expected_profile_id
                 or expected_profile_id
-                not in {SAFETY_RESERVE_PROFILE_ID, DYNAMIC_RESERVE_PROFILE_ID}
+                not in {
+                    SAFETY_RESERVE_PROFILE_ID,
+                    DYNAMIC_RESERVE_PROFILE_ID,
+                    PHYSICS_VELOCITY_GUARD_PROFILE_ID,
+                }
                 or overlay.get("status") != "Frozen"
                 or overlay.get("base_profile_id") != PROFILE_ID
                 or overlay.get("base_profile_sha256") != PROFILE_SHA256
@@ -207,10 +221,15 @@ class ReferenceTrackerProfile:
             ),
         ):
             _require_hex_hash(value, label)
+        termination = document["termination"]
         expected_safety_contact_profile = (
             SAFETY_CONTACT_PROFILE_V2_SHA256
             if expected_profile_id
-            in {SAFETY_RESERVE_PROFILE_ID, DYNAMIC_RESERVE_PROFILE_ID}
+            in {
+                SAFETY_RESERVE_PROFILE_ID,
+                DYNAMIC_RESERVE_PROFILE_ID,
+                PHYSICS_VELOCITY_GUARD_PROFILE_ID,
+            }
             else SAFETY_CONTACT_PROFILE_SHA256
         )
         if (
@@ -218,6 +237,22 @@ class ReferenceTrackerProfile:
             != expected_safety_contact_profile
         ):
             raise ReferenceTrackerError("safety contact profile mismatch")
+        if expected_profile_id == PHYSICS_VELOCITY_GUARD_PROFILE_ID:
+            if (
+                _require_hex_hash(
+                    termination.get("isaac_velocity_guard_profile_sha256"),
+                    "Isaac velocity guard profile",
+                )
+                != ISAAC_VELOCITY_GUARD_PROFILE_SHA256
+                or termination.get("isaac_physics_velocity_limit_basis_points")
+                != 9_000
+            ):
+                raise ReferenceTrackerError("Isaac velocity guard profile mismatch")
+        elif (
+            "isaac_velocity_guard_profile_sha256" in termination
+            or "isaac_physics_velocity_limit_basis_points" in termination
+        ):
+            raise ReferenceTrackerError("unexpected Isaac velocity guard profile")
         schedule = document["schedule"]
         if (
             schedule["physics_hz"] != 240
@@ -331,6 +366,7 @@ class ReferenceTrackerProfile:
 
     def contract_projection(self) -> dict[str, Any]:
         document = self.document
+        termination = document["termination"]
         return {
             "schema_version": 1,
             "profile_id": document["profile_id"],
@@ -344,6 +380,12 @@ class ReferenceTrackerProfile:
             "reset_profile_hash": self.subprofile_hash("reset"),
             "reward_profile_hash": self.subprofile_hash("reward"),
             "termination_profile_hash": self.subprofile_hash("termination"),
+            "isaac_velocity_guard_profile_sha256": termination.get(
+                "isaac_velocity_guard_profile_sha256"
+            ),
+            "isaac_physics_velocity_limit_basis_points": termination.get(
+                "isaac_physics_velocity_limit_basis_points", 10_000
+            ),
             "rng_derivation_profile_hash": self.subprofile_hash("rng"),
             "eligible_partition_id": document["corpus"]["eligible_partition"],
             "clip_selection_stream_id": "randomization.reference-clip",
@@ -514,7 +556,11 @@ class ReferenceCorpus:
         authorization = self.gate_report.get("training_authorization", {})
         optimizer_free_preacceptance = (
             expected["profile_id"]
-            in {SAFETY_RESERVE_PROFILE_ID, DYNAMIC_RESERVE_PROFILE_ID}
+            in {
+                SAFETY_RESERVE_PROFILE_ID,
+                DYNAMIC_RESERVE_PROFILE_ID,
+                PHYSICS_VELOCITY_GUARD_PROFILE_ID,
+            }
             and authorization.get("authorized") is False
             and "optimizer execution" in authorization.get("forbidden", ())
             and "optimizer-free" in expected["training_authorization"]["scope"]

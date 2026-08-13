@@ -9,6 +9,7 @@ from next_lab.reference_tracker import (
     ACTION_CHANNELS,
     DYNAMIC_RESERVE_PROFILE_SHA256,
     OBSERVATION_CHANNELS,
+    PHYSICS_VELOCITY_GUARD_PROFILE_SHA256,
     PROFILE_SHA256,
     PREDICTIVE_ROM_COST_PROFILE_SHA256,
     SAFETY_RESERVE_PROFILE_SHA256,
@@ -41,6 +42,10 @@ DYNAMIC_RESERVE_PROFILE = (
     Path(__file__).parents[1]
     / "profiles/humanoid-reference-tracker-dynamic-reserve.v3.json"
 )
+PHYSICS_VELOCITY_GUARD_PROFILE = (
+    Path(__file__).parents[1]
+    / "profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json"
+)
 
 
 class ReferenceTrackerTests(unittest.TestCase):
@@ -70,6 +75,20 @@ class ReferenceTrackerTests(unittest.TestCase):
         )
         self.assertIn(
             "optimizer-free", profile.document["training_authorization"]["scope"]
+        )
+
+    def test_physics_velocity_guard_is_hash_bound_without_relaxing_outer_limit(self) -> None:
+        profile = ReferenceTrackerProfile.load(PHYSICS_VELOCITY_GUARD_PROFILE)
+        self.assertEqual(
+            profile.document_sha256, PHYSICS_VELOCITY_GUARD_PROFILE_SHA256
+        )
+        projection = profile.contract_projection()
+        self.assertEqual(
+            projection["isaac_velocity_guard_profile_sha256"],
+            "a5c8448a71f0adc2c821b8d833332e0ecd1e003110ce47d969f56cac13881676",
+        )
+        self.assertEqual(
+            projection["isaac_physics_velocity_limit_basis_points"], 9_000
         )
 
     def test_frozen_profile_closes_exact_layout_and_subprofiles(self) -> None:
