@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.37 |
-| Последняя проверка | 2026-08-12 |
-| Заменяет | INDEX-001 2.36; indexes ADR-070 biomechanics reference-tracking training environment |
+| Версия | 2.38 |
+| Последняя проверка | 2026-08-14 |
+| Заменяет | INDEX-001 2.37; indexes ADR-071 canonical physics-material lineage |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -258,6 +258,7 @@ traceability — навигационная карта, не admission authority
 | ADR-068 | [Static morphology cache and action-chunk field closure](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) | Accepted dedicated static morphology cache identity and one Proposed `PhysicalActionChunk` field set; no learned route promoted |
 | ADR-069 | [Biomechanics BodySchema V2 and explicit solver projection](adr/069-biomechanics-body-schema-v2-and-solver-projection.md) | Accepted current-only biomechanics schema with full inertia, explicit solver carriers/projection, collider/contact roles and hard safety closure; V1 unchanged |
 | ADR-070 | [Biomechanics reference-tracking training environment](adr/070-biomechanics-reference-tracking-training-environment.md) | Accepted current-only TRAIN-5 locomotion tracker profile, corpus-bound V3 manifest, fixed 435-channel observation and 23-channel residual action; no quality or runtime-policy claim |
+| ADR-071 | [Canonical physics-material lineage](adr/071-canonical-physics-material-lineage.md) | Accepted successor material/combine contracts, biomechanics compiled/mirror lineage and explicit ABI 4 material input; no PhysX or training claim |
 
 ## Proposed tracks
 
@@ -282,7 +283,7 @@ traceability — навигационная карта, не admission authority
   strategic/tactical and training data-plane track. Per-role promotion requires
   immutable artifacts, multi-seed evidence, target parity and complete ADR-056
   fallback; joint promotion is required only by profiles activating both roles.
-- ADR-066/ADR-068/ADR-069/ADR-070 Accepted core with Proposed subsections in SPEC-14/SPEC-26/SPEC-27/
+- ADR-066/ADR-068/ADR-069/ADR-070/ADR-071 Accepted core with Proposed subsections in SPEC-14/SPEC-26/SPEC-27/
   SPEC-28/SPEC-34 — natural language ends before Physical Embodiment; typed physical
   primitives and `PhysicalActionChunk` carry contact/root/CoM/effector meaning.
   The current TRAIN-5 tracker environment still proves no learned MLP quality;

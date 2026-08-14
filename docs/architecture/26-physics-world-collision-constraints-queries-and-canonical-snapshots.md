@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 1.9 |
-| Последняя проверка | 2026-08-12 |
+| Версия | 2.0 |
+| Последняя проверка | 2026-08-14 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
-| Заменяет | SPEC-26 1.8; closes morphology caches over a dedicated static projection instead of dynamic instance state |
+| Заменяет | SPEC-26 1.9; closes the implemented physics-material record and combine lineage through ADR-071 successors without changing V1 bytes |
+| Дополнительная зависимость V2.0 | [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 
 ## История принятия
 
@@ -378,6 +379,14 @@ canonical bytes. Physics material is independent of renderer
 cannot substitute its default. Surface velocity is applied in canonical
 participant order. Pairwise effective values are converted to exact
 quantized integers before contact classification or publication.
+
+ADR-071 records that the implemented current-only alpha V1 omitted rolling
+friction, spinning friction and surface velocity from its canonical record.
+Those bytes are immutable. `PhysicsMaterialDescriptorV2` therefore wraps that
+implemented V1 base and adds the three omitted fields; it is the current
+complete material contract for the biomechanics consumer. The exact
+`PhysicsMaterialCombineProfileV1` is a separate canonical, hash-bound record.
+Old alpha material/compiled records are not migrated or reinterpreted.
 
 ### `PhysicsShapeDescriptorV1`
 

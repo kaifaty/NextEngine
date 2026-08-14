@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 1.8 |
-| Последняя проверка | 2026-08-12 |
+| Версия | 1.9 |
+| Последняя проверка | 2026-08-14 |
 | Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md) |
-| Заменяет | SPEC-35 1.7; admits the corpus-bound biomechanics reference-tracking training consumer without changing Stage 0 V1 |
-| Дополнительные зависимости V1.8 | [ADR-069](adr/069-biomechanics-body-schema-v2-and-solver-projection.md), [ADR-070](adr/070-biomechanics-reference-tracking-training-environment.md) |
+| Заменяет | SPEC-35 1.8; admits the complete biomechanics material/compiled successor without changing Stage 0 or historical biomechanics bytes |
+| Дополнительные зависимости V1.9 | [ADR-069](adr/069-biomechanics-body-schema-v2-and-solver-projection.md), [ADR-070](adr/070-biomechanics-reference-tracking-training-environment.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 
 ## Назначение и ownership
 
@@ -40,7 +40,8 @@ Current-only alpha contracts в `crates/contracts`:
 
 - `BodySchemaV1`, `BodyInstanceProjectionV1`;
 - `PhysicsBodyDescriptorV2`, `PhysicsWorldCatalogV2`,
-  `PhysicsJointDescriptorV1`, `PhysicsActuatorDescriptorV1`;
+  `PhysicsJointDescriptorV1`, `PhysicsActuatorDescriptorV1`,
+  `PhysicsMaterialDescriptorV2`, `PhysicsMaterialCombineProfileV1`;
 - `PhysicsStepInputV3`, `PhysicsStepResultV2`,
   `PhysicsCanonicalSnapshotV3`, `PhysicsWorldCheckpointV2`;
 - `MotorObservationLayoutV1`, `MotorActionLayoutV1`,
@@ -100,6 +101,14 @@ and RNG semantics. `MotorTrainingEnvironmentManifestV3` closes the profile and
 input-provenance roots while reusing V2 reset/step/trajectory/checkpoint
 records. Recovery clips, command selection, learned runtime execution and
 `PhysicalActionChunk` remain outside this current consumer.
+
+ADR-071 adds `CompiledBodySchemaV3` and biomechanics mirror V2 as the only
+current biomechanics lineage that claims complete material identity. They
+hash-bind three exact material rows, one combine profile, the ground material
+ID and native shared-material projection. The V2 compiler/mirror bytes remain
+immutable historical inputs and cannot be interpreted as carrying those
+facts. Derived USD/Isaac correspondence and any resumed dynamics work require
+their own successor identities and gates.
 
 `BodyInstanceProjectionV1` binds the exact schema and zero/default morphology,
 equipment, stats, damage, fatigue and attachment revisions. Those fields
