@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R88_TRUST_CONTINUATION` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R89_TRUST_CONTRACTION` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,15 +11,15 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Clean R73 passes complete `cmu05`/`cmu16` but V8
-  fails raw-mask `cmu139`. R87's bounded fresh solve improves exact merit from
-  `3.3690/12.7778` to `2.4324/5.9482`; it remains exact `FAIL`.
-- **Why:** Model merit `1.1769/4.7073` and exact reduction agree with ratio
-  `0.511`. Re-solving inside `10 mm / 25 mrad` works; one solve is insufficient.
-- **Next action:** Run one R88 relinearization from the R87 emitted integer
-  state with unchanged component trust, phase-I and exact max-first audit.
-- **Current blocker:** Whether repeated model-valid relinearization continues
-  monotone exact progress or exposes a new local geometry plateau is unknown.
+- **Current conclusion:** R87 remains the best research iterate at exact merit
+  `2.4324/5.9482`. R88's same-radius continuation is rejected: exact worst
+  rises to `2.9816` despite lower total `5.6120`.
+- **Why:** R88 actual/predicted ratio is `-0.327`; right-foot collider model
+  error reaches `11143 µm`. The `10 mm / 25 mrad` radius is no longer local.
+- **Next action:** Re-solve from R87 with trust contracted by `0.5` to
+  `5000 µm / 12500 µrad`; do not continue from the rejected R88 state.
+- **Current blocker:** Whether the contracted R89 model restores positive
+  agreement and exact max-first progress is not yet measured.
 - **Do not retry:** Do not start PPO, build another broad whole-corpus
   ankle/retarget identity, zero reference velocities, add grace/settling, or
   loosen safety limits. The causal matrix rejects these as fixes.
@@ -42,10 +42,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R77–R87 globalization research | R87 re-solves within measured trust and improves exact merit to `2.4324/5.9482`, ratio `0.511`; collider remains `-12163 µm` | Accept only a research iterate; relinearize once at the emitted exact state without expanding trust |
+| R77–R88 globalization research | R87 improves to `2.4324/5.9482`; R88 predicts progress but regresses exact worst to `2.9816`, ratio `-0.327` | Retain R87; contract trust by half and re-solve, never accept on total alone |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R87 report SHA-256: `318b1c9e18a3ffcb60ea69e1eb75faee0f97d28c7fda4c8640b158f4872ff062`.
+R88 report SHA-256: `fe3c437a462a52d8aca5209f0389977de8b70ee65d73d4d7b239a7470d4ee88c`.
 
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
@@ -170,7 +170,7 @@ carry detailed evidence. The hashes above identify their external reports.
   breaking another; raw-variable least squares and line search are badly
   scaled and stagnate.
 - **Evidence:** R69/R72 simultaneous `cmu05` PASS, R73 clean two-clip PASS and
-  `cmu139` infeasibility, R75/R76 oscillation, and R77–R87 solver research.
+  `cmu139` infeasibility, R75/R76 oscillation, and R77–R88 solver research.
 - **Decision:** V8 uses one complete-clip SQP over root XYZ and ten selected
   leg joints, with dimensionless OSQP rows and no root/joint post-projection.
   Every source-inferred contact point is frozen. Candidate steps require one
@@ -180,18 +180,18 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether the same bounded identity remains model-valid after
-  accepting and relinearizing at the R87 exact state.
-- **Reconsider when:** R88 exact audit improves or rejects the continuation.
+- **Uncertainty:** Whether half-radius re-solving restores local collider
+  fidelity at the R87 exact state.
+- **Reconsider when:** R89 exact/model audit accepts or rejects the contraction.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H11: trial-Jacobian phase-I closes the correction gap | R83/R84 isolate both ingredients | R85 model is feasible but exact worst violation rises to `6.6700` | Reject local composition; retain its direction for fidelity audit |
 | H12: a smaller model-valid interval exists | R86 ratios `1.042/0.695` at scales `0.125/0.25` | Scale `0.5` reverses progress; validity is local | Accept interval; test fresh bounded R87 solve |
 | H13: in-trust re-solving preserves model fidelity | R87 ratio `0.511`, exact merit `2.4324/5.9482` | Candidate remains exact `FAIL` | Accept research mechanism, not candidate |
-| H14: bounded relinearization continues progress | R87 lowers all four nonlinear groups | Collider model error remains `6329 µm` | One R88 continuation at unchanged trust |
+| H14: unchanged-trust relinearization continues progress | R88 lowers total/contact | Exact worst rises and ratio is `-0.327` | Reject R88; retain R87 |
+| H15: half-radius contraction restores agreement | R86 comparable scale ratio `1.042` | Not yet solved at R87 geometry | R89 `5 mm / 12.5 mrad` re-solve |
 
 ## Required context
 
@@ -219,8 +219,8 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73, R74–R80, R82–R87 reports and non-promotable R81 observation.
-2. Build and run only one R88 bounded continuation on raw `cmu139`.
+1. Freeze clean R73, R74–R80, R82–R88 reports and non-promotable R81 observation.
+2. Build and run only R89 contracted-trust re-solve from R87 on raw `cmu139`.
 3. On PASS, implement one identity and rerun clean all-three/all-17 offline.
 4. Only after offline PASS, run fresh all-17; keep later gates blocked.
 
@@ -240,10 +240,10 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** V8 is committed at `f86df01`; tracked research records R73–R87. Generated reports remain external and non-admissible.
+- **Workspace state:** V8 is committed at `f86df01`; tracked research records R73–R88. Generated reports remain external and non-admissible.
 - **Checks:** V8 focused `15/15`, full lab `165/165` and host-check passed;
   clean R73 passes `cmu05`/`cmu16`; optimizer and training remain zero.
-- **Remaining risk:** R88/`cmu139`, unchanged all-three/all-17, fresh safety,
+- **Remaining risk:** R89/`cmu139`, unchanged all-three/all-17, fresh safety,
   full-corpus exact-zero coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
