@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 fails `7/17`, including four control regressions, despite quantization-exact initial state. R95 selects contact-gap ordinal `2` and derivative-spike ordinal `10`. R96 direct emitted acceleration qualifies offline; R97 fails derivative case `10` on new ankle-roll velocity. R98 localizes pre-contact phase divergence, and R99 reproduces matched V7 PASS. R100's scalar and R101's coherent frame-0 velocity vector both preserve V7-like local phase but fail remote right-support safety; R101 terminates at tick `10` on hard ROM plus impact `6006560 µN·s`. Manual boundary substitution is exhausted. Clean R102 closes the report-only native-rollout evaluator with exact four-lineage reproduction and zero simulator/search/training work. R103 may define only a bounded target-time-knot formulation; candidate search remains unauthorized. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 fails `7/17`, including four control regressions, despite quantization-exact initial state. R95 selects contact-gap ordinal `2` and derivative-spike ordinal `10`. R96 direct emitted acceleration qualifies offline; R97 fails derivative case `10` on new ankle-roll velocity. R98 localizes pre-contact phase divergence, and R99 reproduces matched V7 PASS. R100/R101 boundary changes preserve local phase but fail remote right-support safety. Clean R102 closes the report-only evaluator. Descriptor-closed R103 defines three V9→V7 time knots; exact R104 passes only the zero control and rejects all `26/26` nonzero targets on contact and/or velocity before PhysX. The raw anchor family is rejected; R105 may only audit a constraint-feasible local direction. ADR-070 fresh-scene authority is retained; partial reset is report-only. New candidate construction/PhysX, full all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1804,8 +1804,19 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   right chain to tick-10 hard ROM plus impact `6006560 µN·s`. Boundary edits are
   exhausted. Clean R102 reproduces all four frozen native lineages and closes
   the hash-bound evaluator with zero PhysX/search/optimizer/training work.
-  R103 may now define only bounded future-target time knots, interpolation,
-  incremental horizon, search budget and rollback checks; no search or all-17.
+  Corrected clean R103 v2 binds descriptor DoF order and reduces `253` future
+  target cells to three convex V9→V7 knots at offsets `2/6/11`, with exactly
+  `27` predeclared coefficient tuples and no candidate/search/native work.
+  Clean R104 v2 reconstructs that lattice in memory and reuses the exact V9
+  full-clip audit. Only byte-exact V9 passes; every `26/26` nonzero target fails
+  contact finite/analytic velocity and/or joint velocity. The closest point
+  misses only right-hip-pitch velocity (`2531/2500 bp`), while a middle anchor
+  moves shared right-foot contact about `8166 µm` versus `2000 µm`. The raw
+  scalar anchor family is rejected; grid refinement and R105 PhysX are not
+  authorized. Primary-source KDMR/SPARK review supports coupled `q/v/a`, root,
+  torque and contact-wrench optimization. Before committing to that larger
+  formulation, R105 may only report the V9 constraint-row rank/conditioning
+  and projection of the three anchors into its local feasible direction space.
 These results still cannot authorize full V19 or learned optimization.
 
 Roadmap status changes only after material implementation/check results. This

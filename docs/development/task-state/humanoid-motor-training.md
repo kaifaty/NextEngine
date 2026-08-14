@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R102_AUDIT_COMPLETE / R103_KNOT_FORMULATION_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R104_LATTICE_REJECTED / R105_FEASIBLE_DIRECTION_NEXT` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,19 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Clean R102 reproduces every frozen V7/V9/R100/R101
-  trace fact; boundary initialization is causal but insufficient.
-- **Why:** R101 targets remain byte-exact V9, its initial effort is byte-exact
-  V7, yet required safety still fails after trajectory-wide plant evolution.
-- **Next action:** Define and validate only the bounded R103 target-time-knot
-  formulation; candidate search and a new PhysX run remain unauthorized.
-- **Current blocker:** Feasibility is trajectory-wide across coupled clipped/
-  rate-limited PD, PhysX guard and contact response, not a frame-0 state fact.
+- **Current conclusion:** Clean R104 rejects every `26/26` nonzero R103 anchor
+  target before PhysX; only byte-exact V9 passes the frozen offline gate.
+- **Why:** Raw V7↔V9 knots independently violate contact finite/analytic
+  velocity or joint velocity; the exact feasible set is coupled and narrow.
+- **Next action:** Run only the report-only R105 feasible-direction audit around
+  V9; candidate construction and a new PhysX run remain unauthorized.
+- **Current blocker:** We do not yet know whether a nonzero V7-like target
+  component survives projection into V9's coupled constraint-feasible space.
 - **Do not retry:** Do not start PPO, substitute another scalar/vector/root/
   pose boundary, zero velocities, add grace/settling, tune controller, or
   loosen safety limits. The causal matrix rejects these as fixes.
-- **Reconsider when:** R103 closes its variables, horizon, budget and rollback
-  contract, then a later bounded sequence passes before another all-17 run.
+- **Reconsider when:** R105 proves a useful nonzero projected direction, then a
+  separately profiled exact-offline construction passes before any native run.
 
 All TRAIN-5 checkpoints remain rejected. No optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -41,10 +41,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R92–R102 native research | R102 exactly reproduces four trace lineages with PhysX/candidate/optimizer/training counts `0`; gate remains `STOP_AND_RESEARCH` | End manual boundary edits; define R103 formulation only; training blocked |
+| R92–R104 native research | R103 closes three descriptor-bound knots; R104 exact preflight passes only the zero control and rejects `26/26` nonzero targets with PhysX/optimizer/training `0` | Reject raw anchor family; run R105 feasible-direction audit only; training blocked |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R98-V9/R98-V11/R99/R100/R101/R102 file SHA-256: `fd6deb633a5b53c4a00b5de6943a5ce12ae59d4b0a232629586807107ef8d77b` / `5143a7ef5bb068c97594926d226460b657c87c6ba7f9b94a123b0f03c79e31cb` / `04553001223cdcb638a8cf8029b5f6a453610ca026fa995833418f97ed6b22dd` / `afee35e799be7522c434998583175d71f4629cdeeb06e0009fffde9d45629426` / `08ef6a379bfc2379ed43b1373f784025760d5b2bdce9bd54ab164376b1afc468` / `ef5f95eafe18f513abfa90803bc7ff67e8db756f327bd2b4d27f27c320b8ebee`.
+R102/R103-v2/R104-v2 canonical SHA-256: `b881f8a7a70542f07c045e2451458a427a38067078520a07dc02dac4034546f6` / `81e213c73a9a0ad071dd7459b0f6e3c285fe18985620b81045e3d4d4c90ddddc` / `d80504975367c13e01d724e9bbbae47335ed4d9ab366179b44851741813197ab`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -178,18 +178,18 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether a low-dimensional native-rollout target sequence can
-  close the coupled plant; case `2` passes only bounded R97.
-- **Reconsider when:** R103 closes the formulation and a bounded sequence
-  construction passes without changing frozen bounds or controller semantics.
+- **Uncertainty:** Whether any useful V7-like target direction survives V9's
+  coupled exact contact/velocity constraints; R104 rejects the raw basis.
+- **Reconsider when:** R105 measures a nonzero feasible projection and a later
+  exact construction passes without changing bounds or controller semantics.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R102 reproduces V7 effort identity and later R101 debt `186668760` | Boundary state alone is insufficient | R103 target-knot formulation |
+| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R102 reproduces V7 effort identity and later R101 debt `186668760` | R104 raw anchors leave offline feasibility | R105 feasible-direction audit |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
-| H24/H26: nonlocal coupling is hidden between motor samples | R102 reproduces local-phase improvement and remote-contact movement | Sequence construction untested | R103 target-knot formulation |
+| H24/H26: nonlocal coupling is hidden between motor samples | R104 finds contact/velocity conflicts in all nonzero raw knots | No projected coupled direction tested | R105 feasible-direction audit |
 | H25: reset mismatch causes R94 | Earlier reset concerns | R94 state is exact within quantization | Falsified; do not retry |
 
 ## Required context
@@ -218,10 +218,10 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73–R102 and all rejected derivative/boundary observations.
-2. Retain contact case `2` only as bounded H23 evidence, not a merged candidate.
-3. Define R103 future-target knot variables, interpolation and horizon budget.
-4. Run no search/PhysX until its hash-closed formulation passes validation.
+1. Freeze clean R73–R104 and both superseded semantic-label reports.
+2. Retain R104 only as rejection evidence; do not refine its scalar grid.
+3. Run R105 local feasible-direction/rank/projection audit report-only.
+4. Run no candidate construction or PhysX until R105 records a new decision.
 
 ## Do not retry
 
@@ -239,10 +239,10 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R102 code/profile lineage is committed; tracked research
-  now records R73–R102. Generated artifacts remain external and hash-bound.
-- **Checks:** Full lab `181/181`; R102 audit `COMPLETE`, partial reset `NOT_RUN`;
-  optimizer steps and training runs remain zero.
+- **Workspace state:** R103/R104 v2 code/profile lineage is committed; tracked
+  research records R73–R104. Generated reports remain external/hash-bound.
+- **Checks:** Full lab `189/189`; R104 is `STOP_AND_RESEARCH`, PhysX `0`;
+  candidate artifacts, optimizer steps and training runs remain zero.
 - **Remaining risk:** Dynamic-reference feasibility, full-corpus exact-zero
   coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R102_AUDIT_COMPLETE / R103_KNOT_FORMULATION_NEXT` |
+| Status | `R104_ANCHOR_LATTICE_REJECTED / R105_FEASIBLE_DIRECTION_AUDIT_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -36,6 +36,8 @@ bounded research before another solver change or expensive native run.
 | R101 velocity-vector input | canonical/file/artifact SHA-256 `42cc653095911a71a01d6ab3750228e2f47e6190a9fc4a378ce7a19840c183fb` / `096b2f94eaa59a555da82165276c39456cf0ee33cec9123489271548b6deeb2c` / `2dab3cbea1e71f60c328a48b3ec52a3a95af23b6c0214ac05c77c0c3a13ae58a` | Exactly `18` frame-0 joint-velocity cells change to V7; all other array elements remain V9; PhysX/optimizer/training `0` |
 | R101 native trace | canonical/file SHA-256 `04b91df1ca6be06c10af9fbf11505457fed8e5a25e2c50abe3f8523bdd684cb6` / `08ef6a379bfc2379ed43b1373f784025760d5b2bdce9bd54ab164376b1afc468` | `FAIL` tick `10`, right-ankle-pitch hard ROM plus remote hard impact `6006560 µN·s`; complete `40/40` trace SHA-256 `364ed05872fb522e6afbab5c945924fda5eaa09fd14d796163255c9ecb83ac31` |
 | R102 native-rollout audit | canonical/file/profile SHA-256 `b881f8a7a70542f07c045e2451458a427a38067078520a07dc02dac4034546f6` / `ef5f95eafe18f513abfa90803bc7ff67e8db756f327bd2b4d27f27c320b8ebee` / `ea7159cf69d530e3242aab03638415212ebeb7b2be0f369b8ae13ab5446d167c` | Clean `COMPLETE`: all frozen identities/facts reproduce; PhysX/candidate/trajectory/optimizer/training counts are `0`; candidate search remains `NOT_AUTHORIZED` |
+| R103 target-knot formulation v2 | canonical/file/profile SHA-256 `81e213c73a9a0ad071dd7459b0f6e3c285fe18985620b81045e3d4d4c90ddddc` / `0d213ecae85157ef4f2748fd7b82b4af245f43f97f05c26b82c43be03bccf954` / `cfb17e8f01ec7a120110646377206cf0fce173c41263d267fcde4c1f893d2378` | Clean `COMPLETE`: descriptor-ordered DoF identity is hash-bound; three convex V9→V7 scalar knots define exactly `27` report-only targets; candidate/PhysX/optimizer/training counts are `0` |
+| R104 exact offline preflight v2 | canonical/file/profile SHA-256 `d80504975367c13e01d724e9bbbae47335ed4d9ab366179b44851741813197ab` / `1b03170a2679d5061ed6d72c520fc7b0890431672f24ba3fa1f825c9454ebfa8` / `f7547b66d65341155b583735b9dcb52c08680810db102662e46064814b45076d` | Clean `STOP_AND_RESEARCH`: only the zero control passes; all `26/26` nonzero targets fail exact offline contact and/or velocity bounds; PhysX/optimizer/training counts are `0` |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -98,13 +100,25 @@ the architecture must be changed separately through its own decision process.
 The external literature supports treating this as a kinodynamic-reference
 problem rather than another purely geometric tolerance problem:
 
-- [KDMR](https://arxiv.org/abs/2603.09956) reports that purely kinematic
-  retargeting can leave physically inconsistent artifacts and adds rigid-body
-  dynamics, contact complementarity and ground-reaction-force information.
-- [SPARK](https://arxiv.org/abs/2603.11480) progressively applies kinematic
-  trajectory optimization, inverse dynamics and full kinodynamic optimization,
-  producing both dynamically consistent state trajectories and torque
-  profiles.
+- [KDMR v2](https://arxiv.org/html/2603.09956v2) treats a kinematic trajectory
+  only as an initialization/tracking prior. Its nonlinear program jointly
+  varies configuration, velocity, acceleration, actuator torque and scheduled
+  contact force, constrains active-contact velocity to zero and enforces
+  rigid-body dynamics, friction and physical limits. This is direct evidence
+  against treating an independently edited joint target as a dynamically
+  feasible reference.
+- [SPARK](https://arxiv.org/html/2603.11480) avoids one cold full-order solve by
+  progressively applying kinematic trajectory optimization over `q/v/a`,
+  per-timestep inverse dynamics over acceleration/torque/contact wrench, then
+  full kinodynamic optimization. Its contact stage jointly enforces contact
+  velocity, joint position/velocity, torque and wrench-cone limits.
+- MIT's primary [trajectory-optimization notes](https://underactuated.mit.edu/trajopt.html)
+  formulate state and input values at time knots as joint decision variables
+  and impose dynamics at collocation points; the related
+  [multibody-dynamics notes](https://underactuated.mit.edu/multibody.html)
+  show that contact force can remain an optimization variable in the implicit
+  constrained dynamics. These sources support an eventual full kinodynamic
+  fallback, but do not justify skipping the smaller local-feasibility audit.
 - [Multi-Contact Motion Retargeting](https://arxiv.org/abs/2206.00542) couples
   whole-body kinematics with sequential force equilibrium to obtain physically
   viable multi-contact motion.
@@ -151,9 +165,9 @@ with the two failed variants before any bounded construction change is chosen.
 
 | ID | Hypothesis | Current evidence | Discriminator |
 | --- | --- | --- | --- |
-| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R101 exactly matches V7's initial requested-effort vector, then reaches greater right-ankle-pitch effort debt and the V9 terminal region under unchanged V9 targets | Confirmed as trajectory-wide closed-loop feasibility; boundary state is insufficient |
+| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R101 exactly matches V7's initial effort, while R104 shows the raw target correction leaves offline feasibility | Confirmed as trajectory-wide coupled feasibility; R105 tests a feasible local direction |
 | H23 | Near-zero offline collider clearance does not predict the full PhysX contact manifold and impulse | R95 isolates ordinal `2`: active foot `1539 µm` above surface with no derivative amplification; R97 reserve case passes all `11` ticks and lowers peak left-foot impulse `6440089 -> 4466405 µN·s` | Supported for the selected case only; broader contact cases remain untested |
-| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | R100 moves one channel and R101 moves all initial velocities; both preserve V7-like local phase but alter the remote right support chain | Confirmed; end manual substitution and evaluate sequence-level candidates through the native plant |
+| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | R100/R101 alter remote support; R104's three time regions fail different coupled rows | Confirmed; end raw anchors and project against the full V9 constraint linearization |
 | H26 | Motor-frame pose/derivative summaries hide the causal physical substep | R98 localizes V11 touchdown to tick `9` substep `2` and overspeed to the immediately following pre-substep state | Confirmed; retain substep traces for every future native discriminator |
 | H25 | Fresh-scene initialization is responsible | Initial state is exact within quantization in every worker | Falsified by R94; do not repeat partial-reset experiments |
 
@@ -554,13 +568,106 @@ joint-target time knots, interpolation, incremental horizon, exact budget and
 rollback/non-regression checks. No candidate search or new native run begins
 until that tracked formulation validates from a clean commit.
 
+## R103 target-knot formulation result
+
+R103 closes the smallest DynaRetarget-shaped formulation without executing a
+search. The selected `cmu16@238..249` case keeps offsets `0/1` byte-exact V9
+and defines three scalar convex V9→V7 anchors at offsets `2/6/11`. Each
+coefficient is restricted to `{0, 5000, 10000}` basis points, uses piecewise
+linear time interpolation and integer ties-to-even target rounding. This
+reduces `253` unconstrained future joint-target cells to three temporal
+variables and a predeclared `27`-point lattice. A target is the reference
+joint-position sequence itself; a separate hidden controller target is
+forbidden by ADR-070.
+
+The first emitted R103/R104 reports used the numerically correct NPZ array but
+described its channels with controller-action order. Review found that
+`joint_position_urad` is descriptor `dof_ordinal` order. No target value, FK
+result or R104 outcome changed, but the semantic labels were not admissible.
+Commits `209a8064bb578dac10fec557c0f28689ac629f24` and
+`22f2e21b5d91f5b3a1c1e4da481541faea6d9ae4` therefore bind the descriptor
+SHA-256 `f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014`,
+validate its exact ordered joint IDs, and reproduce both reports as v2. Only
+the v2 identities in the immutable-evidence table are authoritative; the two
+earlier output directories are superseded evidence and must not be cited as a
+current result.
+
+The actual nonzero anchor support is the descriptor ordinals `6,7,9,10,11`:
+right hip pitch/roll, right knee and right ankle pitch/roll. R103 itself builds
+zero candidate artifacts and performs zero offline evaluation, PhysX,
+optimizer or training work. It authorizes only the exact offline R104 lattice
+preflight.
+
+## R104 exact offline preflight result
+
+Clean R104 reconstructs all `27` declared targets in memory and applies the
+unchanged V9 full-clip hybrid-stencil velocity, FK, CoM, active-contact,
+stable-foot-box collider, ROM and root/joint-velocity audit. It emits no
+candidate artifact and executes zero PhysX, native-candidate, optimizer or
+training work. The all-zero control byte-reproduces V9 and is the only PASS;
+all `26/26` nonzero lattice points fail:
+
+- `24` fail finite tangential contact velocity and `24` fail analytic
+  tangential contact velocity;
+- `9` fail finite normal contact velocity and `3` fail analytic normal contact
+  velocity;
+- `6` fail the unchanged joint-velocity bound.
+
+The closest nonzero point is `a02-00000-a06-00000-a11-05000`. Every contact,
+collider, ROM, root-velocity and residual metric remains inside its frozen
+bound, but source frame `245` drives descriptor joint
+`joint.right-hip-pitch` to `-2024700 µrad/s`, versus the unchanged
+`2000000 µrad/s` outer bound (`2531/2500 bp`). A middle-only half anchor moves
+the shared right sole/heel contact by about `8166 µm` across source frames
+`241→242`, versus `2000 µm`; early anchors are worse. Thus the failure is not
+just a splice artifact or an unlucky large grid point: the raw V7↔V9 scalar
+line leaves the exact V9 contact/velocity feasible set in different ways at
+all three time regions.
+
+R104 activates its declared failure disposition. Do not refine the scalar
+grid, shrink coefficients until a numerically trivial edit passes, repair each
+knot with an untracked post-pass, or launch R105 PhysX. The anchor family is
+rejected and `STOP_AND_RESEARCH` remains authoritative.
+
+## Post-R104 research decision and R105 contract
+
+KDMR and SPARK explain the structural mismatch: dynamically feasible
+retargeting varies a coupled trajectory, not an isolated joint target, and
+represents contact kinematics plus state/acceleration/force variables in the
+same constrained problem. A full kinodynamic NLP is therefore the principled
+fallback. It is not yet the smallest discriminator for NextEngine because V9
+already supplies a feasible exact-quantized kinematic point and the immediate
+unknown is whether the desired V7-like target correction has any nonzero local
+component that preserves those constraints.
+
+R105 is consequently report-only. Around the exact V9 complete-clip state it
+must reconstruct the same V9 SQP linearization over root translation and the
+ten leg DoFs, bind the three R103 anchor basis vectors, and measure:
+
+1. which contact, collider, ROM or velocity rows each raw basis pushes toward
+   or through its bound;
+2. the rank and numerical conditioning of the binding/near-binding row set;
+3. the closest constraint-feasible projected direction for each basis and the
+   retained anchor norm/cosine after projection;
+4. whether quantization collapses every useful projected joint-target
+   component to zero.
+
+R105 may solve only deterministic local linear algebra/QPs and emit one
+hash-closed report. It may not emit a candidate artifact, mutate the corpus,
+run exact nonlinear candidate repair, invoke PhysX, search a coefficient grid,
+change controller/limits/reset/contact semantics, or train. A reproducible
+nonzero projection permits a separately profiled exact-offline construction;
+projection collapse or severe loss of the target direction selects the
+progressive full kinodynamic formulation, beginning with KTO/ID variables and
+still no native run.
+
 ## Decision
 
-Freeze R92–R102, retain the contact result as bounded support for H23, and
+Freeze R92–R104, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
-values and do not begin training. Freeze the completed R102 evaluator and
-define only the bounded R103 formulation before any candidate search. All-17 remains
-blocked until a future bounded candidate passes every selected fresh control
-without changing controller semantics, safety limits, fresh-scene authority
-or the exact-zero gate.
+values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
+and perform only the bounded R105 feasible-direction audit before any new
+candidate construction. All-17 remains blocked until a future bounded
+candidate passes every selected fresh control without changing controller
+semantics, safety limits, fresh-scene authority or the exact-zero gate.
