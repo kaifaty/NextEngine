@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / V19_PROTOTYPE_REJECTED` |
+| Status | `ACTIVE_R&D / TRAIN-4 / BOUNDED_V5_IMPLEMENTATION` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,22 +11,20 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R27 rejects the first bounded V19 projector. Build
-  one collider-aware, temporally coupled root/leg-chain revision before any
-  full corpus identity.
-- **Why:** Complete R27 leaves `3/17` fresh-scene and `4/17` partial-reset
-  failures, including passing-control regressions. All fresh failures are
-  adjacent `cmu139` starts whose right swing-foot collider begins
-  `3.544..14.905 mm` below ground. Partial reset also diverges in first-tick
-  impulses and one case outcome.
-- **Next action:** Freeze a new prototype identity that preserves the existing
-  active-point bounds, requires every collider `>= -2 µm`, and solves stance
-  contact plus swing clearance through bounded joint/root trajectory changes.
-  Discriminate on `cmu139@626/627/630` and `cmu16@415`, then rerun all 17 only
-  if controls do not regress.
-- **Current blocker:** The root-only projector violates collider
-  non-penetration; the indexed running-scene reset is proven non-equivalent and
-  cannot serve as acceptance evidence under ADR-070.
+- **Current conclusion:** V4 passed its four-case fresh PhysX discriminator in
+  R34, but R35 failed the all-17 offline expansion `6/17`. Implement the
+  evidence-selected final-contact/root-velocity V5 only as a bounded overlay.
+- **Why:** Five failures are smoothing leakage at `STICKING -> FLIGHT`; one is
+  `2541/2500` joint reserve. A local V5 counterfactual passes `17/17`, but
+  independently solved overlapping windows disagree by up to `61997 µm`
+  root and `60755 µrad` joint position.
+- **Next action:** Add an opt-in immutable V5 with eight smoothing passes,
+  final active-contact reprojection, second collider floor and upward-only
+  root-velocity closure. Run the four-case fresh discriminator, then all 17
+  only after no regression.
+- **Current blocker:** Window-local projection is not a corpus construction.
+  Even a V5 `17/17` result may authorize only a clip-global prototype that
+  proves one value per source frame and complete-clip feasibility.
 - **Do not retry:** Do not start PPO, build another broad whole-corpus
   ankle/retarget identity, zero reference velocities, add grace/settling, or
   loosen safety limits. The causal matrix rejects these as fixes.
@@ -48,10 +46,13 @@ pending. This file cannot change those facts by itself.
 | R17 contact-projected reset, SHA-256 `60ce03b6fbc2f213d82c5f95b0f4e831ca81dd50b52af1750890d44566cfc25c` | Failures `204 -> 194` with `152` recovered and `142` regressed | Supports contact coupling; approximation is not a fix |
 | R18 bounded offline prototype, canonical identity `794e479b61c5b3041b75f86095647c1663f127763a8eddd9f3292cee0fa524ae` | `17/17` artifacts close active point pose/velocity invariants | Permits the PhysX discriminator only; does not prove collider clearance |
 | R27 complete PhysX probe, SHA-256 `fabfef54d01ac421778fac05d9aa2a1bb062803c61f8e335ed191ed81e249e14` | `FAIL`: fresh `3/17`, partial `4/17`, maximum impulse delta `252409 µN·s` | Reject R18 expansion; retain fresh-scene authority and add collider closure |
+| R34 V4 fresh discriminator, file SHA-256 `5a2d34a586a9619b9b69a1e590751e535717abe1bad8379c16c2417c366da626` | `PASS 4/4`; required-safety and control regressions are zero | Permits the ordered all-17 offline prototype only |
+| R35 V4 all-17 offline, canonical SHA-256 `f254f7256d4e4fb67f196298bfc6cbdbda2f7796973d6d6f0aa624e41bec6836` | `FAIL 6/17`: five contact-boundary cases and one joint-reserve control | Add final contact/root-velocity boundary closure before another PhysX run |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
+and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
 carry detailed evidence. The hashes above identify their external reports.
 
 ## Decisions that still constrain the work
@@ -128,13 +129,36 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Reconsider when:** The four-case discriminator fails without an admissible
   correction or needs a materially different contact-mode model.
 
+### D-005 — Close the post-smoothing contact boundary
+
+- **Observation:** R35 fails five mixed-support windows at the last active
+  frame, while a parameter-only sweep closes none of the six failures.
+- **Evidence:** R35 plus the dated contact-boundary research report.
+- **Decision:** Implement opt-in V5 final contact reprojection, second collider
+  floor and upward-only root-velocity closure; use eight smoothing passes.
+- **Rejected alternatives:** Another scalar sweep or looser safety bounds.
+- **Consequence:** V1–V4 remain byte-stable; V5 starts with the same four fresh
+  scenes and cannot feed an optimizer.
+- **Reconsider when:** V5 regresses a control or introduces a new category.
+
+### D-006 — Require one clip-global value per source frame
+
+- **Observation:** Window-local candidate outputs disagree on overlapping
+  source frames, and an 801-frame `cmu16` solve does not pass globally.
+- **Decision:** A local `17/17` result may authorize only a clip-global
+  prototype, not a full V19 corpus identity.
+- **Rejected alternatives:** Pick one overlay, normalize disagreement away or
+  treat bounded reset evidence as full-corpus feasibility.
+- **Reconsider when:** One deterministic clip solve passes exact overlap,
+  selected-window and complete-clip checks together.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: active-point projection misses swing/full-collider penetration | Exact FK and all three fresh failures identify the same penetrated right foot | Other selected clips can pass despite later reference penetration | Require all-collider clearance in the four-case discriminator |
+| H1: final contact/root-velocity closure fixes the bounded transition | Read-only V5 counterfactual passes `17/17` with all frozen margins | No V5 fresh PhysX result exists | Four-case immutable V5 fresh discriminator |
 | H2: indexed partial reset differs materially from a fresh scene | R27 has eight impulse-bound failures and one outcome divergence | Most case outcomes still agree | `CONFIRMED`; reject partial as acceptance evidence |
-| H3: a coupled leg/root solve can retain stance while clearing swing geometry | Existing stance-chain solver substrate and localized collision mechanism | R18 used root only; no collider-aware revision exists | Bounded temporally coupled prototype, then fresh PhysX |
+| H3: window-local success extrapolates to one corpus trajectory | Local counterfactual passes the selected windows | Overlap disagreement and global `cmu16` failure directly contradict it | `REJECTED`; require clip-global construction after bounded V5 |
 
 ## Required context
 
@@ -162,17 +186,15 @@ semantics.
 
 ## Next action
 
-1. Create a new immutable bounded profile; do not modify or relabel R18.
-2. Retain `2 mm/frame` tangential, `1 mm/frame` normal and `5 mm` active-point
-   residual bounds; add all-collider minimum `-2 µm`.
-3. Solve active stance plus inactive swing clearance with temporally coupled
-   root/leg-chain corrections, preserving descriptor ROM/reserve.
-4. Recompute final root/joint velocities and keep root-link semantics; forbid
-   zero velocities, grace, settling and looser safety bounds.
-5. Run fresh-scene `cmu139@626/627/630` plus `cmu16@415`; only then rerun all
-   17. Partial reset remains labeled report-only.
-6. Permit a full V19 build only with no passing-control regression, strict
-   decrease in each targeted failure class and no new required-safety category.
+1. Add a new opt-in V5 profile; never mutate or relabel V1–V4.
+2. Keep all frozen point/collider/joint/root bounds and apply final contact
+   reprojection after the temporally smoothed leg solve.
+3. Apply a second upward collider floor and deterministic upward-only root
+   velocity closure; fail if an active point must be dropped.
+4. Run fresh `cmu139@626/627/630` plus `cmu16@415`; only no-regression permits
+   the ordered all-17 offline and fresh matrices.
+5. Treat a local `17/17` result as permission for a clip-global prototype only.
+   Full V19 still requires exact overlap and complete-clip closure.
 
 ## Do not retry
 
@@ -190,13 +212,12 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R27 evidence belongs to clean commit `3e7c54a`; generated
-  reports stay under the external TRAIN-4 evaluation root.
-- **Checks:** Focused contact/PhysX helper tests passed; R27 completed `17`
-  fresh workers plus one partial worker and returned the expected bounded
-  non-acceptance exit.
-- **Remaining risk:** Collider-aware coupled correction is not implemented;
-  exact-zero full coverage and visual review remain open.
+- **Workspace state:** R35 belongs to clean commit `9a0a2a6`; generated reports
+  stay under the external TRAIN-4 evaluation root.
+- **Checks:** V4 focused tests and R34 fresh `4/4` passed; R35 correctly stopped
+  before PhysX after its offline `6/17` failure.
+- **Remaining risk:** V5 is not implemented or PhysX-tested; clip-global exact
+  identity, exact-zero full coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.

@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-14 |
-| Текущая точка | R3b bounded general partition и весь R3 `COMPLETE`: reference project содержит 4 regions/64 chunks и проходит canonical packaged load/unload route, paired Runtime/World commit и process restart из `Requested`. `host-check`, `play`, `persistence-replay`, `content-package`, release smoke и `r3-multiregion-streaming` прошли 2026-08-09; performance workloads остались `REPORT_ONLY`. R2 gameplay/command roots сохранились точно; B-04 и B-06 закрыты. R5 R&D substrate содержит три current CPU profiles: immutable standing V1, immutable flat-command V1 и curriculum V2, плюс motor-lab v2, NPZ v2 recorder and Isaac mirror. V1 compatibility/hash closure исправлена; это разрешает bounded experiments, но не является trained policy, Stage 0 completion или R5 closure. Текущий WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced; прежний TRAIN-4 Advance superseded. Corpus V18 проходит `27/27` profile-local validation и `12815/12815` native poses, но exhaustive optimizer-free R14 проверяет `12518/12518` start states и всё ещё имеет `204` required-safety failed cases: `121` hard-ROM, `67` hard-impact и `40` совпадающих joint-safety/joint-velocity cases; `10` failures находятся в reset window, остальные required categories равны нулю. Это лучше R13 (`380` failed cases) и V4 (`2876`), но всё ещё `FAIL`; formal visual review остаётся pending. Все TRAIN-5 checkpoints rejected; no optimizer run, multi-seed, TRAIN-5 Advance or TRAIN-6 is authorized. Первый bounded V19 projector также отклонён: complete R27 даёт fresh `3/17`, partial `4/17`, passing-control regressions и maximum reset impulse delta `252409 µN·s`. R27 подтверждает, что running-scene indexed reset неэквивалентен; ADR-070 fresh-scene authority сохраняется. Все fresh failures локализованы в `cmu139` right swing-foot collider, который exact FK помещает на `3.544..14.905 mm` под землю. Следующий increment — новая collider-aware root/leg-chain prototype revision с all-collider threshold `-2 µm`, сначала на четырёх discriminating cases, не full corpus rebuild. TRAIN-8 optional и не блокирует TRAIN-9 при заранее зафиксированном skip. R4a остаётся следующим подготовленным world-system increment, но пока не активен. B-12, Linux/cross-target evidence, R1/R7 и v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Collider-aware V4 прошёл fresh R34 `4/4`, но R35 all-17 offline остановлен на `6/17`. Текущий bounded increment — immutable V5 final-contact/root-velocity closure с неизменными caps. Window-local overlap disagreement блокирует full V19: даже V5 fresh `17/17` разрешит только clip-global prototype и complete-clip validation, не corpus admission. No optimizer, multi-seed, TRAIN-5 Advance or TRAIN-6 is authorized; formal visual review pending. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -737,20 +737,26 @@ acceptance authority, partial reset — `ReportOnly` diagnostic и не optimize
 input. Hard thresholds не менялись, formal visual review остаётся pending,
 optimizer/training не запускались.
 
-**TRAIN-4 V19 collider-aware prototype revision
-(`ACTIVE_R&D / NEXT / OPTIMIZER_FREE`, 2026-08-14):** все три fresh failures
-локализованы в `cmu139@626/627/630`: exact FK уже на reset помещает right
-swing-foot collider на `-14905/-11639/-3544 µm`, хотя right mode равен
-`FLIGHT`. R18 проверял только active heel/forefoot points, применял correction
-только к root и не повторял corpus-wide collider invariant. Новая immutable
-revision сохраняет caps `2 mm` tangential, `1 mm` normal displacement и `5 mm`
-active-point residual, добавляет minimum all-collider height `-2 µm` и решает
-stance contact плюс swing clearance через temporally coupled bounded root/leg
-chain. Первый PhysX discriminator — `cmu139@626/627/630` и `cmu16@415`; только
-no-regression разрешает все 17 cases. Full 27-clip V19 rebuild допускается лишь
-после свежего 17-case no-regression result со строгим снижением каждой targeted
-failure class без новой required category. Eventual TRAIN-4 Advance по-прежнему
-требует full coverage и ровно ноль required-safety events.
+**TRAIN-4 V19 contact-boundary research and bounded V5
+(`ACTIVE_R&D / CURRENT / OPTIMIZER_FREE`, 2026-08-14):** V4 устранил
+initial collider penetration и прошёл fresh PhysX R34 `4/4`, но R35
+остановил all-17 offline expansion на `6/17`: `cmu05@40` имеет joint
+reserve `2541/2500`, а пять `cmu16` windows на границе
+`STICKING -> FLIGHT` имеют analytic normal motion `1189..1423 µm/frame`.
+Параметрический sweep не закрыл эти failures. Обоснованный следующий
+increment — immutable V5: eight-pass leg smoothing, final active-contact
+reprojection, second upward collider floor и deterministic upward-only root
+velocity closure при неизменных caps.
+
+Однако [contact-boundary research](development/humanoid-train4-contact-boundary-research-2026-08-14.md)
+опроверг window-local extrapolation: overlapping solves расходятся до
+`61997 µm` root и `60755 µrad` joint, а один 801-frame `cmu16` solve
+не проходит complete-clip bounds. Поэтому V5 сначала повторяет
+`cmu139@626/627/630` и `cmu16@415`, затем all 17. Даже fresh
+`17/17` разрешает только clip-global prototype, который должен
+доказать exact overlap identity, selected-window и complete-clip closure.
+Full 27-clip V19 identity, visual/exhaustive gates, TRAIN-4 Advance и PPO
+остаются запрещены до этой границы и exact-zero required safety.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -1477,7 +1483,7 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 6. **R3b bounded general partition (`COMPLETE`):** ровно 4 regions/64 chunks,
    canonical packaged route и restart из `Requested`; B-06 закрыт без generic
    scheduler, placement catalog или alpha migration obligation.
-7. **R5 humanoid movement TRAIN-4 V19 prototype (`ACTIVE_R&D / CURRENT WIP`):**
+7. **R5 humanoid movement TRAIN-4 bounded V5 (`ACTIVE_R&D / CURRENT WIP`):**
    TRAIN-0..3 advanced; прежний kinematic/data-only TRAIN-4 gate superseded.
    Последний corpus V18 прошёл `27/27` local validation и `12815/12815` native
    poses. Exhaustive R14 покрыл `12518/12518` start states, но остаётся `FAIL`:
@@ -1488,12 +1494,14 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    contact-manifold R18 прошёл offline active-point checks, но complete PhysX
    R27 отклонён: fresh `3/17`, partial `4/17`, control regressions и reset
    divergence. ADR-070 fresh-scene authority сохраняется; partial reset
-   diagnostic-only. Следующий bounded increment добавляет all-collider
-   non-penetration и temporally coupled root/leg-chain correction, сначала на
-   четырёх discriminating cases. Только после 17-case no-regression prototype
-   создаётся full V19 identity и повторяются corpus/native/visual/exhaustive
-   gates с exact zero. До `Advance` PPO запрещён. No training quality, Stage 0
-   or R5 completion is claimed here.
+   diagnostic-only. V4 fresh R34 прошёл `4/4`, но R35 all-17
+   offline остановлен на `6/17`. Текущий V5 закрывает
+   post-smoothing contact/root-velocity boundary с неизменными caps,
+   сначала на четырёх fresh cases, затем на all 17. Window-local
+   overlap inconsistency блокирует full V19: даже `17/17` разрешит
+   только clip-global prototype и complete-clip check. До их exact PASS
+   corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены. No
+   training quality, Stage 0 or R5 completion is claimed here.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote
    SPEC-20/ADR-052 only with the one-NPC production consumer, typed authoring,
    separate World Services routine segment, current-only replay successor and

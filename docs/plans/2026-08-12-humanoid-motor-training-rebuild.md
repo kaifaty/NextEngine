@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive optimizer-free R14 still has `204/12518` required-safety failed cases (`121` hard-ROM, `67` hard-impact and `40` overlapping joint-safety/velocity cases). Complete bounded R27 rejects the first V19 contact-manifold projector: fresh scene fails `3/17`, indexed partial reset fails `4/17`, controls regress and reset paths diverge. ADR-070 fresh-scene authority is retained; partial reset is diagnostic-only. Current WIP is a new collider-aware, temporally coupled root/leg-chain prototype revision for `REQ-HUM-DATA-005/007`; optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive optimizer-free R14 still has `204/12518` required-safety failed cases. R34 V4 passes the four-case fresh PhysX discriminator, while R35 stops the all-17 offline expansion at `6/17` failures. Current WIP is immutable bounded V5 final-contact/root-velocity closure. Window-local overlap disagreement separately blocks a full V19 corpus: even a local `17/17` result may authorize only a clip-global prototype. ADR-070 fresh-scene authority is retained; partial reset is report-only. Optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -18,6 +18,7 @@
 | TRAIN-4 latest diagnostic corpus manifest canonical SHA-256 | `bd6164180a33585ed9231fd6a41cb3943b20e51da8b0e06ac0c978406e204456` |
 | TRAIN-4 latest diagnostic tracker | [Humanoid reference tracker ankle-pitch velocity closure V11](../../lab/profiles/humanoid-reference-tracker-ankle-pitch-velocity-closure.v11.json), SHA-256 `19a8e5266f12c5c1ae9e307bd0f2f1a76bb6ea23a6ae9912e1ccec401eeaf28c` |
 | TRAIN-4 causal decision | [Contact-consistent reference/reset research decision](../development/humanoid-train4-causal-research-2026-08-14.md) |
+| TRAIN-4 contact-boundary decision | [Post-smoothing and projection-domain research](../development/humanoid-train4-contact-boundary-research-2026-08-14.md) |
 | TRAIN-5 current base tracker profile | [Humanoid reference tracker physics/velocity guard V4](../../lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json) |
 | TRAIN-5 current base tracker SHA-256 | `7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d` |
 | TRAIN-5 rejected optimization child profiles | soft ROM `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive ROM `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`; realized contact impact margin `6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06` |
@@ -352,8 +353,9 @@ count: confidence interval не превращает наблюдаемое на
   The corpus passes `27/27` profile-local and `12815/12815` native pose checks,
   but exhaustive R14 coverage is `12518/12518` with `204` required-safety
   failed cases, so this identity also does not advance the gate. Bounded causal
-  research is complete and the next increment is a contact-consistent V19
-  prototype, not optimizer work;
+  causal research and the R29–R35 collider/contact-boundary cycle are complete.
+  The next increment is bounded V5 final-contact/root-velocity closure, not
+  optimizer work or a full corpus identity;
 - `TRAIN-5`: `FailedSafetyGate / InvalidatedByUpstreamData`. Input/reset and
   reproducible h10 tiny sanity passed, but base, contact-impact-margin and
   deterministic phase-prefix curricula all failed hard safety. Every produced
@@ -1662,17 +1664,25 @@ running-scene reset non-equivalent. The detailed
 [prototype decision](../development/humanoid-train4-v19-prototype-research-2026-08-14.md)
 retains ADR-070 fresh-scene authority and makes partial reset diagnostic-only.
 
-The current executable increment is still not a full corpus rebuild. It is a
-new immutable collider-aware revision over the same bounded evidence: preserve
-point-consistent modes and frozen active-point caps, add the existing `-2 µm`
-all-collider floor, and solve stance contact plus swing clearance through a
-temporally coupled bounded root/leg chain before recomputing velocities. Run
-`cmu139@626/627/630` and `cmu16@415` first; only no-regression permits all 17
-cases. Only a fresh-scene 17-case result with zero control regressions, strict
-target-class decreases and no new category permits a full V19 identity and
-repeated local/native/visual/exhaustive gates. No new PPO run is authorized
-before a new `TRAIN-4 Advance`; no command locomotion run is authorized before
-`TRAIN-5` advances.
+R34 proves V4 on the four fresh scenes, but R35 rejects its all-17 offline
+expansion: one control exceeds joint reserve and five mixed-support windows
+violate the active normal bound after temporal smoothing. The bounded
+[contact-boundary research](../development/humanoid-train4-contact-boundary-research-2026-08-14.md)
+rejects parameter-only tuning and selects immutable V5: eight-pass leg
+smoothing, final active-contact reprojection, a second upward collider floor
+and deterministic upward-only root-velocity closure under the same caps.
+Run `cmu139@626/627/630` and `cmu16@415` first; only no-regression permits the
+ordered all-17 offline and fresh-scene matrices.
+
+This executable increment is still not a full corpus rebuild. Independently
+solved overlapping windows disagree on the value of the same source frame, and
+an 801-frame `cmu16` counterfactual fails complete-clip closure. Therefore even
+a fresh `17/17` V5 result permits only a clip-global prototype. That successor
+must solve every clip once, prove exact overlap identity and pass both selected
+windows and complete-clip invariants before a full 27-clip V19 identity or
+repeated local/native/visual/exhaustive gates are allowed. No new PPO run is
+authorized before a new `TRAIN-4 Advance`; no command locomotion run is
+authorized before `TRAIN-5` advances.
 
 Roadmap status changes only after material implementation/check results. This
 planning document alone does not close R5, B-08, B-12, Stage 0, GPU
