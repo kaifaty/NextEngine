@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "formulation_id": "nextengine.humanoid-contact-projected-direction-formulation.v1",
+  "status": "FrozenResearchOnly",
+  "claim": "OptimizerFreeProjectedDirectionFormulationOnly",
+  "source": {
+    "r105": {
+      "report_sha256": "c107230f01f75d25987ca0e9ac07d81cdda71fe94bca1889509d4f5504436f50",
+      "report_file_sha256": "19971615f285608903877a265e0387e7dbb963254e1b56493c99c43617e39ae9",
+      "profile_sha256": "48cf5b605e5fc6b3ae36b72ccc85a05d6fffeb6ccaa6d635d468c3e5c5b82d9e"
+    },
+    "v9_profile_sha256": "bccf5eb12c8de2e1c0fa20df74c55f30cc9e964e7d5cbfcbf596bb6d672815ab",
+    "descriptor_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014"
+  },
+  "scope": {
+    "clip_id": "cmu16-walk-nominal-b",
+    "source_case_ordinal": 7967,
+    "frame_first": 238,
+    "frame_last": 249,
+    "complete_clip_frame_count": 801,
+    "selected_basis_count": 1
+  },
+  "selection": {
+    "basis_id": "anchor-offset-11",
+    "knot_coefficients_basis_points": [0, 0, 10000],
+    "rule": "the only R105 basis clearing all predeclared anchor-component, cosine and quantized-nonzero thresholds; early and middle bases remain rejected"
+  },
+  "reconstruction": {
+    "projection_qp_execution_in_r106": false,
+    "r107_reconstruction_source": "re-run the exact hash-bound R105 public-limit locally relevant projection for anchor-offset-11",
+    "support_frame_first": 240,
+    "support_frame_last": 249,
+    "variable_scope": "root XYZ plus V9 selected bilateral ten leg DoFs",
+    "immutable_scope": "complete-clip frames outside 240..249, root quaternion, root yaw velocity, all non-selected joint positions, contacts, contact modes and source contact points",
+    "controller_semantics": "candidate reference joint positions are the fixed-PD targets; no separate control-target array, desired velocity, feed-forward, controller, limit or reset change",
+    "projection_objective": "minimum normalized Euclidean distance from the late R103 basis under the locally relevant V9 SQP Jacobian rows with public limits and zero internal solver margins",
+    "projection_solution_identity": "R107 must reproduce R105 anchor component 9722 bp, cosine 9872 bp, 45 nonzero quantized joint cells, maximum 5688 urad joint correction and 41 um root correction before exact audit"
+  },
+  "quantization": {
+    "rounding": "integer ties-to-even",
+    "candidate_construction_in_r106": false,
+    "root_rule": "multiply projected root increments by 1000000, ties-to-even round to micrometres, then add to V9 root_position_um only at frames 240..249",
+    "joint_rule": "multiply projected selected-leg increments by 1000000, ties-to-even round to microradians, then add by descriptor dof_ordinal to V9 joint_position_urad only at frames 240..249",
+    "dependent_recomputation": [
+      "root_linear_velocity_um_s from the frozen hybrid stencil",
+      "joint_velocity_urad_s from the frozen hybrid stencil",
+      "forward kinematics and effector_position_um",
+      "center_of_mass_um",
+      "complete-clip and exact selected-slice diagnostics"
+    ],
+    "candidate_target_equals_reference_joint_position": true,
+    "separate_control_target_array_allowed": false
+  },
+  "future_exact_offline_audit": {
+    "next_run_id": "R107",
+    "candidate_artifact_policy": "construct in memory only; emit exact metrics report, not artifact",
+    "candidate_count": 1,
+    "projection_qp_solve_count": 1,
+    "required_checks": [
+      "R105 late projection identity reproduces before quantization",
+      "frames 238 and 239 and every out-of-support complete-clip value remain exact V9",
+      "all non-dependent arrays remain byte-exact V9",
+      "source contact modes and every source contact point remain frozen",
+      "exact contact residual and finite/analytic contact velocity bounds",
+      "all collider samples and stable foot-box vertices",
+      "frozen selected-leg ROM and root/joint velocity bounds",
+      "complete-clip to selected-slice byte identity"
+    ],
+    "pass_disposition": "PERMIT_R108_BOUNDED_FRESH_DISCRIMINATOR_FORMULATION_ONLY",
+    "failure_disposition": "SELECT_PROGRESSIVE_KINODYNAMIC_FORMULATION",
+    "repair_or_grid_refinement": "FORBIDDEN",
+    "physx_runs": 0,
+    "optimizer_steps": 0,
+    "training_runs": 0
+  },
+  "failure_disposition": {
+    "r105_reconstruction_mismatch": "STOP_INVALID_EVIDENCE",
+    "r107_exact_failure": "select progressive KTO then inverse-dynamics then kinodynamic formulation; do not shrink, scale, repair or sweep the late direction"
+  },
+  "decision": {
+    "complete": "PERMIT_R107_EXACT_OFFLINE_PROJECTED_DIRECTION_AUDIT_ONLY"
+  }
+}
