@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-14 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Bounded V7/R49 проходит fresh `17/17`, но разрешает только clip-global prototype. R57 теперь закрывает domain identity: один solve на clip, exact slices `17/17`, overlap disagreement `0`; сам V7 solver отклонён — complete clips `0/3`, selected slices `16/17`. Текущий increment — coupled complete-clip solve начиная с `cmu05`; full V19, corpus admission, visual/exhaustive gate и optimizer остаются заблокированы. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Bounded V7/R49 проходит fresh `17/17`, но разрешает только clip-global prototype. R57 закрыл one-solve/exact-slice domain identity и отклонил V7 complete solver. R69 впервые получил simultaneous complete `cmu05` PASS; R72 подтвердил direct-source PASS одной invocation на iteration 10. V8 coupled solver, exact integer-FK audit и pinned lab-only backend реализованы; текущий increment — clean-commit evidence на всех трёх clips, затем fresh all-17. Full V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -763,6 +763,33 @@ Current increment поэтому строит единый coupled trajectory so
 полного `cmu05`. Full 27-clip V19, visual/exhaustive gates, TRAIN-4 Advance и
 PPO остаются запрещены.
 
+**TRAIN-4 coupled trajectory research (`CMU05_SINGLE_PASS / V8_IMPLEMENTED /
+CLEAN_ALL_CLIP_PENDING`, 2026-08-14):**
+[coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
+фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
+active-corridor penalties and line-search reduction were rejected because
+they exchange contact, collider and velocity violations or stagnate. R68
+localized the remaining gap to quantization reserve. R69 passed complete
+`cmu05` simultaneously (`4900 µm` residual, `1978/980` finite,
+`1968/996` analytic, collider `+30 µm`, joint `2500 bp`, root
+`199800 µm/s`) with zero dropped points. R70/R71 removed the hidden R61
+semantic precondition: the same constraints start at the immutable V18 clip
+and reach PASS after two further relinearizations beyond the eight-iteration
+discriminator. R72 then reproduced direct-source `cmu05` in one invocation,
+stopping on PASS at iteration ten. Its emitted-integer audit remains PASS
+(`4901 µm` residual, `981 µm` finite normal, collider `0 µm`), while proving
+that the production status must be recomputed from quantized root/joint FK.
+Repository V8 binds at most twelve iterations, the exact
+hybrid stencil, stricter internal margins and NumPy/SciPy/OSQP versions as a
+private preprocessing adapter. R72's worktree was dirty, so one unchanged
+clean-commit all-three-clip result remains required; this is not TRAIN-4
+Advance.
+Production review additionally found that R57 had removed 11 initially
+inferred `cmu139` active points, including frames 628–629 in the selected
+discriminator interval. V8 closes that loophole by freezing every source mode
+before solving and permitting zero point deletions; all-clip evidence is
+therefore intentionally stricter than the R69 `cmu05` proof.
+
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
 его exact report. TRAIN-0 требует isolation from active identity/selection, а
@@ -1504,9 +1531,11 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    неизменных caps. Его explicit result разрешает только clip-global
    prototype. R57 реализовал one-solve-per-clip и доказал exact slices/overlap,
    но отклонил V7 complete solver: complete clips `0/3`, selected slices
-   `16/17`. Текущий increment заменяет последовательные post-passes одним
-   coupled trajectory solve на `cmu05`, затем тем же identity на всех трёх
-   clips. До их exact PASS
+   `16/17`. R69 proved one simultaneous complete `cmu05` solution; R70/R71
+   showed direct canonical-clip convergence. V8 now replaces sequential
+   post-passes with one pinned coupled trajectory solver. The current
+   increment requires one clean all-three-clip invocation, including `cmu05`,
+   `cmu16` and the stricter-mask `cmu139`. До их exact PASS
    corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены. No
    training quality, Stage 0 or R5 completion is claimed here.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / CLIP_GLOBAL_PROTOTYPE` |
+| Status | `ACTIVE_R&D / TRAIN-4 / COUPLED_TRAJECTORY_V8` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,18 +11,17 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R57 closes the projection domain: three selected
-  clips are solved once, all `17/17` cases are exact slices and 30 overlap
-  pairs have zero disagreement. V7 is rejected as a complete-clip solver.
-- **Why:** R57 complete clips pass `0/3`; selected slices pass `16/17`.
-  Contact-edge velocity semantics remove only the central-difference symptom.
-  Cross-boundary swing smoothing and sequential collider/root closure leave a
-  coupled contact/collider/velocity conflict.
-- **Next action:** Prototype one deterministic coupled trajectory solve on
-  complete `cmu05`, then apply it unchanged to `cmu16` and `cmu139`.
-- **Current blocker:** R56 keeps contact and joint reserve valid but stagnates
-  with `27` flight collider deficits up to `30063 µm` after 30 alternating
-  iterations; another ordered post-pass is not justified.
+- **Current conclusion:** R72 reproduces direct-source complete `cmu05` PASS in
+  one coupled sparse-QP invocation, stopping at iteration ten. V8 implements
+  that bounded identity and recomputes final facts from emitted integers.
+- **Why:** R58–R67 reject weighted or sequential mechanisms; R69 proves simultaneous
+  feasibility and R70–R72 remove the intermediate-input precondition. Exact
+  R72 integer FK remains PASS: collider `0 µm`, residual `4901 µm`.
+- **Next action:** Commit the V8 implementation, then run the unchanged clean
+  identity once across `cmu05`, `cmu16`, `cmu139` and all 17 exact slices.
+- **Current blocker:** All-clip convergence is unknown. V8 intentionally keeps
+  11 `cmu139` source-active points that R57 deleted, so that clip is a stricter
+  discriminator than the earlier `cmu05` research proof.
 - **Do not retry:** Do not start PPO, build another broad whole-corpus
   ankle/retarget identity, zero reference velocities, add grace/settling, or
   loosen safety limits. The causal matrix rejects these as fixes.
@@ -38,17 +37,12 @@ pending. This file cannot change those facts by itself.
 | Evidence | Result | Consequence |
 | --- | --- | --- |
 | R14 source audit, SHA-256 `ded76473905f7f26e4db0dfaa236508f649d46a692ff28938203f92dcf1c9b61` | `FAIL / 204 of 12518 cases` | TRAIN-4 stays open: `121` ROM, `67` impact and `40` overlapping joint-safety/velocity cases |
-| R15 controller/reset matrix, SHA-256 `a49f84b98e8b642933492a8eadafbb8b0d915d09777e6f0ea272978231ec4a7a` | Baseline reproduced `12518/12518`; interventions did not close without churn | Reject target lead, `D/K*qdot` feed-forward and zero-velocity fixes |
-| R16 root-link counterfactual, SHA-256 `9ae54fadeb63b286b3d46a8d529e4488dcfeba2d71307c8e6c2f6ec21fa6c97a` | Root-link semantics corrected; failures `204 -> 220` | Confirmed defect, insufficient cause |
-| R17 contact-projected reset, SHA-256 `60ce03b6fbc2f213d82c5f95b0f4e831ca81dd50b52af1750890d44566cfc25c` | Failures `204 -> 194` with `152` recovered and `142` regressed | Supports contact coupling; approximation is not a fix |
-| R18 bounded offline prototype, canonical identity `794e479b61c5b3041b75f86095647c1663f127763a8eddd9f3292cee0fa524ae` | `17/17` artifacts close active point pose/velocity invariants | Permits the PhysX discriminator only; does not prove collider clearance |
 | R27 complete PhysX probe, SHA-256 `fabfef54d01ac421778fac05d9aa2a1bb062803c61f8e335ed191ed81e249e14` | `FAIL`: fresh `3/17`, partial `4/17`, maximum impulse delta `252409 µN·s` | Reject R18 expansion; retain fresh-scene authority and add collider closure |
-| R34 V4 fresh discriminator, file SHA-256 `5a2d34a586a9619b9b69a1e590751e535717abe1bad8379c16c2417c366da626` | `PASS 4/4`; required-safety and control regressions are zero | Permits the ordered all-17 offline prototype only |
-| R39 V5 all-17 fresh, file SHA-256 `70555aa69b736c825e9085fab726f6533e29184f67c44144cab77cbe8c286299` | `FAIL 1/17`: delayed unsupported landing causes `cmu16@249` hard impact | Authorize clearance only with active support |
-| R45 V6 all-17 fresh, file SHA-256 `ba60b124b8b9e4c8df024edff92b949d9dd68f213d02c0e675277d285f09aa40` | `FAIL 1/17`: one-microradian edit selects `cmu16@415` hard ROM | Preserve sub-micrometre admissible source clearance |
 | R47 V7 all-17 offline, canonical SHA-256 `1e56a2d3d14c8d3a8291639da49d4fda46263aa37c1d6682205343d4043202bb` | `PASS 17/17`; max joint reserve `2464/2500`, analytic normal `466 µm/frame`, collider `-2 µm` | Permits authoritative all-17 fresh probe |
 | R49 V7 all-17 fresh, file SHA-256 `6b977a870c50b25545c2b73bc371575b38b40f6a914d1638ab19a3c7a56b5f0c` | `PASS 17/17`; required safety `0`; controls `0`; optimizer/training `0` | Permits only one clip-global prototype |
 | R57 V7 clip-global, file SHA-256 `59fb91c9e19e22dde5caa017724a26e643cd889239a789333e3ad7b25b866271` | Domain `PASS`: one solve/clip, exact slices `17/17`, overlap disagreement `0`; solver `FAIL`: complete clips `0/3`, selected slices `16/17` | Retain clip-global path; replace the sequential solver before any fresh probe |
+| R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
+| R72 direct-source single invocation, report SHA-256 `04247d340c0e533facdf71acd7a3c026ccd8a8f139b57340c7210ff04b5e7b5d` | Stops on complete `cmu05` PASS at iteration ten; emitted-integer audit also passes | Iteration bound is supported; dirty worktree prevents evidence promotion, so run unchanged from a clean V8 commit |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
@@ -56,6 +50,7 @@ and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
 and [support-authorization decision](../humanoid-train4-support-authorization-research-2026-08-14.md)
 and [clip-global decision](../humanoid-train4-clip-global-research-2026-08-14.md)
+and [coupled-solver decision](../humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 carry detailed evidence. The hashes above identify their external reports.
 
 ## Decisions that still constrain the work
@@ -167,15 +162,32 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Reconsider when:** A clip-global trajectory provides a stronger physical
   landing model that passes the same exact evidence.
 
+### D-008 — Use one dimensionless coupled constraint solve
+
+- **Observation:** Sequential post-passes repeatedly repair one bound while
+  breaking another; raw-variable least squares and line search are badly
+  scaled and stagnate.
+- **Evidence:** R58–R68 rejection sequence, R69 simultaneous feasibility and
+  R72 direct-source single-invocation PASS.
+- **Decision:** V8 uses one complete-clip SQP over root XYZ and ten selected
+  leg joints, with dimensionless OSQP rows and no root/joint post-projection.
+  Every source-inferred contact point is frozen before the solve.
+- **Rejected alternatives:** More penalty tuning, per-frame IK, sequential
+  velocity closure, contact-point deletion or looser safety limits.
+- **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
+  contact, collider, CoM, ROM and velocity facts are recomputed from emitted
+  integer poses. The adapter has no runtime or corpus-admission authority.
+- **Uncertainty:** Whether the unchanged solver converges on `cmu16` and the
+  stricter `cmu139` mask.
+- **Reconsider when:** A clean all-three-clip run fails exact bounds or requires
+  per-clip tuning.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: support-authorized quantized clearance fixes the bounded matrix | R47 offline and R49 fresh both pass `17/17` | Bounded windows are not a clip-global trajectory | `CONFIRMED_BOUNDED`; do not extrapolate |
-| H2: indexed partial reset differs materially from a fresh scene | R27 has eight impulse-bound failures and one outcome divergence | Most case outcomes still agree | `CONFIRMED`; reject partial as acceptance evidence |
-| H3: window-local success extrapolates to one corpus trajectory | R49 passes the selected windows | Overlap disagreement and global `cmu16` failure directly contradict it | `REJECTED`; require clip-global construction after bounded V7 |
-| H4: contact-edge stencil alone closes complete clips | It reduces analytic tangent to `1916` on `cmu05` | Normal, joint, root and `cmu139` failures remain | `REJECTED`; keep explicit hybrid semantics inside a coupled solve |
-| H5: ordered masking/projection can close the coupled set | R56 makes contact pass with joint reserve `2500` | `27` collider deficits remain after 30 iterations | `REJECTED`; prototype a trajectory-level constraint solve |
+| H5: one dimensionless trajectory constraint solve closes the coupled set | R69 and R72 pass complete `cmu05` simultaneously | Only one clip has passed; R72 was research-only and dirty | `CONFIRMED_CMU05`; run unchanged clean all-three evidence |
+| H6: the direct immutable contact mask remains feasible | `cmu05` direct and R57 masks are identical and R72 passes | V8 retains 11 `cmu139` points deleted by R57 | Run clean `cmu139` without deletion or per-clip tuning |
 
 ## Required context
 
@@ -203,10 +215,10 @@ semantics.
 
 ## Next action
 
-1. Freeze V7/R49 and R57; neither is corpus admission.
-2. Implement the smallest coupled complete-clip solver on `cmu05`.
-3. Require unchanged contact, collider, ROM, joint and root bounds together.
-4. Apply one identity to all three clips, exact slices and fresh all-17 safety.
+1. Freeze V7/R49, R57 and dirty-worktree R72; none is corpus admission.
+2. Commit V8 with pinned dependencies and integer-FK status authority.
+3. Apply one clean identity to all three clips and 17 exact slices.
+4. If and only if offline evidence passes, run fresh all-17 safety.
 5. Keep full V19, visual/exhaustive gates and optimization blocked until then.
 
 ## Do not retry
@@ -225,12 +237,12 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R57 belongs to clean commit `cb3fcae`; generated reports
-  stay under the external TRAIN-4 evaluation root.
-- **Checks:** focused builder/contact tests `12/12`; R57 exact slice and overlap
-  identity pass, complete-clip solver fails; optimizer and training remain zero.
-- **Remaining risk:** coupled complete-clip closure, fresh slice safety,
-  full-corpus exact-zero coverage and visual review remain open.
+- **Workspace state:** V8 implementation is the active uncommitted increment;
+  generated reports stay under the external TRAIN-4 evaluation root.
+- **Checks:** focused builder/contact tests `15/15`; R72 direct `cmu05` and its
+  emitted-integer audit pass; optimizer and training remain zero.
+- **Remaining risk:** clean `cmu16`/`cmu139`, exact-slice identity, fresh slice
+  safety, full-corpus exact-zero coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.

@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity with one solve per clip, exact slices `17/17` and zero overlap disagreement, but rejects the V7 solver: complete clips pass `0/3`, selected slices `16/17`. The current increment is one coupled complete-clip solve beginning with `cmu05`. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R69 proves simultaneous complete `cmu05` feasibility; R72 reproduces direct-source PASS in one invocation at iteration ten. V8 is implemented with pinned lab-only dependencies, strict frozen-limit identity and final integer-FK audit. The current increment is clean evidence on all three complete clips and their exact slices. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -21,6 +21,7 @@
 | TRAIN-4 contact-boundary decision | [Post-smoothing and projection-domain research](../development/humanoid-train4-contact-boundary-research-2026-08-14.md) |
 | TRAIN-4 support-authorization decision | [Support-authorized quantized-clearance research](../development/humanoid-train4-support-authorization-research-2026-08-14.md) |
 | TRAIN-4 clip-global decision | [Clip-global contact trajectory research](../development/humanoid-train4-clip-global-research-2026-08-14.md) |
+| TRAIN-4 coupled-solver decision | [Coupled complete-clip trajectory research](../development/humanoid-train4-coupled-trajectory-research-2026-08-14.md) |
 | TRAIN-5 current base tracker profile | [Humanoid reference tracker physics/velocity guard V4](../../lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json) |
 | TRAIN-5 current base tracker SHA-256 | `7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d` |
 | TRAIN-5 rejected optimization child profiles | soft ROM `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive ROM `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`; realized contact impact margin `6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06` |
@@ -1689,6 +1690,25 @@ complete trajectory, beginning with `cmu05`, before a full 27-clip V19 identity
 or repeated local/native/visual/exhaustive gates are allowed. No new PPO run is
 authorized before a new `TRAIN-4 Advance`; no command locomotion run is
 authorized before `TRAIN-5` advances.
+
+R58–R67 then rejected per-frame/global weighted least squares, sequential hard
+root/joint projections, active-corridor penalties and line-search tuning. R68
+proved the dimensionless sparse-QP mechanism but missed exact quantized bounds
+by `57 µm` collider, `40 µm/s` root and one joint basis point. R69 added only
+stricter internal quantization reserve and passed complete `cmu05` with every
+unchanged bound. R70/R71 showed that the same constraint set can begin at the
+immutable V18 clip instead of an intermediate R61 artifact. R72 then passed
+from that immutable clip in one invocation at iteration ten; an independent
+recalculation from emitted integer poses also passed and made quantized FK the
+production status authority. The detailed
+[coupled-solver decision](../development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
+freezes V8 with at most twelve outer iterations, exact hybrid contact-edge
+velocity semantics, no post root/joint projection and pinned lab-only
+NumPy/SciPy/OSQP versions. Because R72 used a dirty research worktree, the
+remaining current gate is one unchanged clean-commit result on `cmu05`,
+`cmu16` and `cmu139`, all 17 exact slices and fresh-scene all-17 acceptance.
+These results still cannot authorize full V19 or learned optimization by
+themselves.
 
 Roadmap status changes only after material implementation/check results. This
 planning document alone does not close R5, B-08, B-12, Stage 0, GPU

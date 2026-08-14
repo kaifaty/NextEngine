@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the hash-closed, optimizer-free TRAIN-4 contact prototype bundle."""
+"""Build the hash-closed, training-optimizer-free TRAIN-4 prototype bundle."""
 
 from __future__ import annotations
 
@@ -18,11 +18,16 @@ from typing import Any, Sequence
 import numpy as np
 
 from next_lab import contact_manifold
+from next_lab import contact_trajectory
 from next_lab.contact_manifold import (
     ColliderClosure,
     ContactManifoldProjection,
     ContactManifoldTolerances,
     project_reference_contact_manifold,
+)
+from next_lab.contact_trajectory import (
+    CoupledTrajectoryClosure,
+    project_reference_coupled_trajectory,
 )
 
 
@@ -78,6 +83,10 @@ def main() -> None:
     selected = _select_case_scope(inventory, profile, args.case_scope)
     tolerances = _tolerances(profile["projection"])
     collider_closure = _collider_closure(profile["projection"])
+    trajectory_closure = _trajectory_closure(profile["projection"])
+    if trajectory_closure is not None and args.projection_domain != "clip-global":
+        raise ValueError("coupled-trajectory closure requires clip-global domain")
+    closure_bounds = trajectory_closure or collider_closure
     clip_manifest = {entry["clip_id"]: entry for entry in corpus_manifest["clips"]}
     clip_cache: dict[str, tuple[dict[str, np.ndarray], dict[str, Any]]] = {}
     staging = Path(
@@ -104,21 +113,44 @@ def main() -> None:
                     )
                 arrays, metadata = clip_cache[clip_id]
                 frame_count = len(arrays["root_position_um"])
-                projection = project_reference_contact_manifold(
-                    descriptor=descriptor,
-                    effector_ids=tuple(metadata["effector_ids"]),
-                    root_position_um=arrays["root_position_um"],
-                    root_quaternion_q1_30=arrays["root_quaternion_q1_30"],
-                    root_yaw_urad=arrays["root_yaw_urad"],
-                    joint_position_urad=arrays["joint_position_urad"],
-                    effector_position_um=arrays["effector_position_um"],
-                    contacts=arrays["contacts"],
-                    support_state=arrays["stance_support_state"],
-                    frame_first=0,
-                    frame_last=frame_count - 1,
-                    tolerances=tolerances,
-                    collider_closure=collider_closure,
-                )
+                if trajectory_closure is not None:
+                    projection = project_reference_coupled_trajectory(
+                        descriptor=descriptor,
+                        effector_ids=tuple(metadata["effector_ids"]),
+                        root_position_um=arrays["root_position_um"],
+                        root_quaternion_q1_30=arrays[
+                            "root_quaternion_q1_30"
+                        ],
+                        root_yaw_velocity_urad_s=arrays[
+                            "root_yaw_velocity_urad_s"
+                        ],
+                        joint_position_urad=arrays["joint_position_urad"],
+                        effector_position_um=arrays["effector_position_um"],
+                        contacts=arrays["contacts"],
+                        support_state=arrays["stance_support_state"],
+                        frame_first=0,
+                        frame_last=frame_count - 1,
+                        tolerances=tolerances,
+                        closure=trajectory_closure,
+                    )
+                else:
+                    projection = project_reference_contact_manifold(
+                        descriptor=descriptor,
+                        effector_ids=tuple(metadata["effector_ids"]),
+                        root_position_um=arrays["root_position_um"],
+                        root_quaternion_q1_30=arrays[
+                            "root_quaternion_q1_30"
+                        ],
+                        root_yaw_urad=arrays["root_yaw_urad"],
+                        joint_position_urad=arrays["joint_position_urad"],
+                        effector_position_um=arrays["effector_position_um"],
+                        contacts=arrays["contacts"],
+                        support_state=arrays["stance_support_state"],
+                        frame_first=0,
+                        frame_last=frame_count - 1,
+                        tolerances=tolerances,
+                        collider_closure=collider_closure,
+                    )
                 clip_projections[clip_id] = projection
                 artifact_id = f"{clip_id}--complete"
                 artifact_metadata = {
@@ -185,7 +217,7 @@ def main() -> None:
                     frame_first=frame_first,
                     frame_last=frame_last,
                     tolerances=tolerances,
-                    collider_closure=collider_closure,
+                    collider_closure=closure_bounds,
                 )
             else:
                 projection = project_reference_contact_manifold(
@@ -308,7 +340,11 @@ def main() -> None:
             "schema_version": 1,
             "check": "TRAIN-4-CONTACT-MANIFOLD-PROTOTYPE-BUILD",
             "status": "PASS" if all_pass else "FAIL",
-            "claim": "OptimizerFreeResearchOnly",
+            "claim": (
+                "ConstraintSolverResearchOnly"
+                if trajectory_closure is not None
+                else "OptimizerFreeResearchOnly"
+            ),
             "gate_decision": "NO_CHANGE",
             "prototype_id": profile["prototype_id"],
             "scope": {
@@ -342,6 +378,15 @@ def main() -> None:
                 "tool_sha256": _sha256(Path(__file__).resolve()),
                 "projector_sha256": _sha256(
                     Path(contact_manifold.__file__).resolve()
+                ),
+                **(
+                    {
+                        "trajectory_projector_sha256": _sha256(
+                            Path(contact_trajectory.__file__).resolve()
+                        )
+                    }
+                    if trajectory_closure is not None
+                    else {}
                 ),
             },
             "cases": case_records,
@@ -639,7 +684,7 @@ def _slice_clip_projection(
     frame_first: int,
     frame_last: int,
     tolerances: ContactManifoldTolerances,
-    collider_closure: ColliderClosure | None,
+    collider_closure: ColliderClosure | CoupledTrajectoryClosure | None,
 ) -> ContactManifoldProjection:
     if (
         projection.frame_first != 0
@@ -706,7 +751,7 @@ def _slice_projection_diagnostics(
     frame_first: int,
     frame_last: int,
     tolerances: ContactManifoldTolerances,
-    collider_closure: ColliderClosure | None,
+    collider_closure: ColliderClosure | CoupledTrajectoryClosure | None,
 ) -> dict[str, Any]:
     diagnostics = contact_manifold.contact_manifold_diagnostics(
         descriptor=descriptor,
@@ -897,6 +942,13 @@ def _validate_inputs(
         and isinstance(discriminator, dict)
         and discriminator.get("ordered_source_case_ordinals")
         == [3749, 3750, 3753, 7978, 8144]
+    ) or (
+        prototype_id == "nextengine.humanoid-contact-manifold-prototype.v8"
+        and isinstance(projection.get("trajectory_closure"), dict)
+        and "collider_closure" not in projection
+        and isinstance(discriminator, dict)
+        and discriminator.get("ordered_source_case_ordinals")
+        == [3749, 3750, 3753, 7978, 8144]
     )
     if (
         profile.get("schema_version") != 1
@@ -917,6 +969,14 @@ def _validate_inputs(
         or source_audit.get("scope", {}).get("repeat_count_per_start_phase")
         != 1
         or profile["acceptance"].get("optimizer_authorized") is not False
+        or (
+            prototype_id
+            == "nextengine.humanoid-contact-manifold-prototype.v8"
+            and profile["acceptance"].get(
+                "trajectory_constraint_solver_authorized"
+            )
+            is not True
+        )
         or profile["acceptance"].get("full_corpus_build_authorized_by_this_profile")
         is not False
     ):
@@ -1159,6 +1219,182 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
         clearance_quantization_deadband_micrometres=document.get(
             "clearance_quantization_deadband_micrometres", 0
         ),
+    )
+    closure.validate()
+    return closure
+
+
+def _trajectory_closure(
+    projection: dict[str, Any],
+) -> CoupledTrajectoryClosure | None:
+    document = projection.get("trajectory_closure")
+    if document is None:
+        return None
+    expected_projection_identity = {
+        "maximum_tangential_step_micrometres": 2_000,
+        "maximum_normal_step_micrometres": 1_000,
+        "maximum_normal_residual_micrometres": 5_000,
+        "maximum_mode_inference_height_micrometres": 45_000,
+        "maximum_mode_inference_speed_micrometres_per_second": 600_000,
+        "maximum_mode_retention_height_micrometres": 65_000,
+        "maximum_mode_retention_speed_micrometres_per_second": 900_000,
+        "minimum_mode_on_frames": 3,
+        "minimum_mode_off_frames": 3,
+        "root_velocity_semantics": "root-link",
+    }
+    expected_suffixes = (
+        "hip-pitch",
+        "hip-roll",
+        "knee",
+        "ankle-pitch",
+        "ankle-roll",
+    )
+    expected_bounds = {
+        f"joint.{side}-{suffix}": values
+        for side in ("left", "right")
+        for suffix, values in (
+            ("hip-pitch", [-349_066, 785_398]),
+            ("hip-roll", [87_266, 349_066]),
+            ("knee", [261_799, 2_181_662]),
+            ("ankle-pitch", [-523_599, 174_533]),
+            ("ankle-roll", [-87_266, 87_266]),
+        )
+    }
+    if (
+        not isinstance(document, dict)
+        or document.get("algorithm_id")
+        != contact_trajectory.ALGORITHM_ID
+        or {
+            key: projection.get(key)
+            for key in expected_projection_identity
+        }
+        != expected_projection_identity
+        or document.get("velocity_semantics")
+        != contact_trajectory.VELOCITY_SEMANTICS
+        or document.get("termination_policy")
+        != "first exact-quantized all-bounds PASS or maximum outer iterations"
+        or document.get("post_root_velocity_closure") is not False
+        or document.get("post_joint_velocity_projection") is not False
+        or document.get("all_collider_samples_constrained") is not True
+        or projection.get("contact_point_policy")
+        != (
+            "freeze every point-consistent mode inferred from the immutable "
+            "V18 source before the coupled solve; no active point may be "
+            "deleted"
+        )
+        or document.get("maximum_outer_iterations") != 12
+        or document.get("jacobian_probe_microradians") != 100
+        or document.get("root_variable_scale_micrometres") != 20_000
+        or document.get("joint_variable_scale_microradians") != 100_000
+        or document.get("minimum_collider_height_micrometres") != -2
+        or document.get(
+            "maximum_root_vertical_velocity_micrometres_per_second"
+        )
+        != 200_060
+        or document.get("joint_velocity_limit_basis_points") != 2_500
+        or tuple(document.get("ordered_joint_suffixes", ()))
+        != expected_suffixes
+        or document.get("joint_bounds_microradians") != expected_bounds
+    ):
+        raise ValueError("coupled-trajectory profile identity is invalid")
+    suffixes = tuple(document["ordered_joint_suffixes"])
+    bounds = document["joint_bounds_microradians"]
+    margins = document["internal_quantization_margins"]
+    solver = document["solver"]
+    versions = solver["runtime_versions"]
+    if (
+        solver.get("backend_id") != "osqp"
+        or versions
+        != {"numpy": "2.5.2", "scipy": "1.18.0", "osqp": "1.1.3"}
+        or solver.get("objective_regularization") != 1.0
+        or solver.get("first_difference_regularization") != 0.01
+        or solver.get("maximum_iterations") != 100_000
+        or solver.get("absolute_tolerance") != 0.00001
+        or solver.get("relative_tolerance") != 0.00001
+        or solver.get("polishing_enabled") is not True
+        or solver.get("adaptive_rho_enabled") is not True
+        or margins
+        != {
+            "collider_target_micrometres": 50,
+            "root_vertical_velocity_micrometres_per_second": 300,
+            "joint_velocity_fraction_numerator": 999,
+            "joint_velocity_fraction_denominator": 1000,
+            "normal_residual_micrometres": 100,
+            "finite_normal_step_micrometres": 20,
+            "finite_tangential_step_micrometres": 20,
+            "analytic_normal_speed_micrometres_per_second": 300,
+            "analytic_tangential_speed_micrometres_per_second": 2000,
+        }
+    ):
+        raise ValueError("coupled-trajectory solver identity is invalid")
+    closure = CoupledTrajectoryClosure(
+        algorithm_id=document["algorithm_id"],
+        numpy_version=versions["numpy"],
+        scipy_version=versions["scipy"],
+        osqp_version=versions["osqp"],
+        minimum_collider_height_micrometres=document[
+            "minimum_collider_height_micrometres"
+        ],
+        maximum_root_vertical_velocity_micrometres_per_second=document[
+            "maximum_root_vertical_velocity_micrometres_per_second"
+        ],
+        joint_velocity_limit_basis_points=document[
+            "joint_velocity_limit_basis_points"
+        ],
+        ordered_joint_suffixes=suffixes,
+        joint_bounds_microradians=tuple(
+            tuple(
+                tuple(bounds[f"joint.{side}-{suffix}"])
+                for suffix in suffixes
+            )
+            for side in ("left", "right")
+        ),
+        maximum_outer_iterations=document["maximum_outer_iterations"],
+        jacobian_probe_microradians=document[
+            "jacobian_probe_microradians"
+        ],
+        root_variable_scale_micrometres=document[
+            "root_variable_scale_micrometres"
+        ],
+        joint_variable_scale_microradians=document[
+            "joint_variable_scale_microradians"
+        ],
+        objective_regularization=solver["objective_regularization"],
+        first_difference_regularization=solver[
+            "first_difference_regularization"
+        ],
+        maximum_solver_iterations=solver["maximum_iterations"],
+        solver_absolute_tolerance=solver["absolute_tolerance"],
+        solver_relative_tolerance=solver["relative_tolerance"],
+        solver_polishing_enabled=solver["polishing_enabled"],
+        solver_adaptive_rho_enabled=solver["adaptive_rho_enabled"],
+        collider_target_margin_micrometres=margins[
+            "collider_target_micrometres"
+        ],
+        root_velocity_margin_micrometres_per_second=margins[
+            "root_vertical_velocity_micrometres_per_second"
+        ],
+        joint_velocity_margin_numerator=margins[
+            "joint_velocity_fraction_numerator"
+        ],
+        joint_velocity_margin_denominator=margins[
+            "joint_velocity_fraction_denominator"
+        ],
+        normal_residual_margin_micrometres=margins[
+            "normal_residual_micrometres"
+        ],
+        finite_normal_margin_micrometres=margins[
+            "finite_normal_step_micrometres"
+        ],
+        finite_tangential_margin_micrometres=margins[
+            "finite_tangential_step_micrometres"
+        ],
+        analytic_normal_margin_micrometres_per_second=margins[
+            "analytic_normal_speed_micrometres_per_second"
+        ],
+        analytic_tangential_margin_micrometres_per_second=margins[
+            "analytic_tangential_speed_micrometres_per_second"
+        ],
     )
     closure.validate()
     return closure
