@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R111_PASS / R112_USD_ISAAC_IMPLEMENTATION_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R112_PASS / R113_MODEL_IDENTITY_PREFLIGHT_NEXT` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,19 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Clean R111 implements the canonical material lineage
-  through contracts/compiler/native ABI 4; only static R112 is now permitted.
-- **Why:** Exact V2 Q16 `52429/45875/0`, zero extensions and combine rules now
-  replace native defaults, while derived USD/Isaac still omit that lineage.
-- **Next action:** Implement R112 USD material prims/bindings and explicit Isaac
-  ground consumption; KTO and every scene/solve remain unauthorized.
-- **Current blocker:** R109 model identity stays failed until R112 is complete
-  and a separately formulated R113 recheck passes.
+- **Current conclusion:** Clean R112 closes canonical material lineage through
+  contracts, native ABI 4, derived humanoid/ground USD and Isaac consumption.
+- **Why:** Exact V2 Q16 `52429/45875/0`, zero extensions, combine rules and all
+  `19+1` physics-purpose bindings are now hash-bound without backend defaults.
+- **Next action:** Formulate and run one clean report-only R113 identity recheck
+  against the exact R112 bundle; every scene and dynamics solve stays blocked.
+- **Current blocker:** R109 model identity remains failed until that separately
+  gated R113 recheck passes the complete regenerated lineage.
 - **Do not retry:** Do not start PPO, substitute another scalar/vector/root/
   pose boundary, zero velocities, add grace/settling, tune controller, or
   loosen safety limits. The causal matrix rejects these as fixes.
-- **Reconsider when:** The successor material/combine catalog is compiled,
-  translated and rechecked without changing controller, reset or safety.
+- **Reconsider when:** R113 binds mirror, humanoid USD, ground USD and manifest
+  and rechecks every R109 ownership condition without changing frozen inputs.
 
 All TRAIN-5 checkpoints remain rejected. No optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -41,10 +41,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R111 material-lineage implementation | `PASS`; canonical SHA-256 `eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058`; ABI 4 compiled, 8/8 validations | Permit static R112 only; no scene or KTO |
+| R111/R112 material lineage | R111 canonical `eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058`; R112 `PASS`, canonical `dfb3bd892b04023054ce947127743e7ada78b40000a93e22887101c544c493f2`, 5/5 validations | Permit report-only R113; no scene or KTO |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R109/R110-v2/R111 canonical SHA-256: `2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784` / `83408b97b6ba13dc801b4d9b4f68e55146f9f39b09a451c238b24cc4c8c7d88d` / `eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058`.
+R109/R110-v2/R111/R112 canonical SHA-256: `2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784` / `83408b97b6ba13dc801b4d9b4f68e55146f9f39b09a451c238b24cc4c8c7d88d` / `eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058` / `dfb3bd892b04023054ce947127743e7ada78b40000a93e22887101c544c493f2`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -178,18 +178,18 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether derived USD/Isaac can consume the exact catalog with
-  no fallback material or loss of physics-purpose binding identity.
-- **Reconsider when:** R112 implements exact derived lineage and R113 rechecks
-  it without changing bounds/controller/reset semantics.
+- **Uncertainty:** Whether every structural and model-ownership condition from
+  R109 closes simultaneously against the exact regenerated R112 bundle.
+- **Reconsider when:** R113 rechecks the complete lineage without changing
+  bounds, controller, reset semantics or any generated identity.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R108 requires fixed-PD effort/point forces | R111 closes native materials, but dynamics remain untested | Finish derived lineage and recheck identity |
+| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R108 requires fixed-PD effort/point forces | R112 closes material lineage, but dynamics remain untested | Run report-only R113 identity recheck |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
-| H24/H26: nonlocal coupling is hidden between motor samples | R108 lifts q/v/a and 240 Hz effort state | Native lineage exists; USD/Isaac lineage is absent | Implement R112, then recheck identity |
+| H24/H26: nonlocal coupling is hidden between motor samples | R108 lifts q/v/a and 240 Hz effort state | Native and USD/Isaac lineage now agree statically | Run R113 before any equation or solve |
 | H25: reset mismatch causes R94 | Earlier reset concerns | R94 state is exact within quantization | Falsified; do not retry |
 
 ## Required context
@@ -218,9 +218,9 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73–R111 and all superseded semantic reports.
+1. Freeze clean R73–R112 and all superseded semantic reports.
 2. Retain R108's four stages; do not collapse or skip their gates.
-3. Implement R112 derived USD bindings and explicit Isaac ground lineage only.
+3. Formulate and run one clean report-only R113 identity preflight only.
 4. Run no KTO/ID/kinodynamic solve, candidate artifact or PhysX scene.
 
 ## Do not retry
@@ -239,11 +239,11 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R111 contracts/native/audit exist; tracked research
-  records R73–R111. Generated reports remain external/hash-bound.
-- **Checks:** Full lab `215/215`; clean R111 `PASS`; every scene, solve,
+- **Workspace state:** R112 derived USD/Isaac implementation and audit exist;
+  tracked research records R73–R112. Reports remain external/hash-bound.
+- **Checks:** Full lab `222/222`; clean R112 `PASS`; every scene, solve,
   candidate, artifact, PhysX, optimizer and training count is zero.
-- **Remaining risk:** Derived USD/Isaac identity, dynamic feasibility,
+- **Remaining risk:** Clean whole-model identity, dynamic feasibility,
   full-corpus exact-zero coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding

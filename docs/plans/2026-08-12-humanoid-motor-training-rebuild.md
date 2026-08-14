@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108 freezes model identity→quantization-aware KTO→fixed-PD inverse dynamics→kinodynamics as separate gates; R109 stops on invalid model lineage and R110 v2 formulates the exact material/point-force repair. Clean R111 now passes: Accepted ADR-071, successor contracts/compiler/mirror and native Bridge ABI 4 close engine/native material lineage without executing a PhysX scene. Only static R112 derived-USD material prims/bindings and explicit Isaac ground lineage are authorized next. R113 identity recheck, KTO/ID/kinodynamic solves, candidates, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108 freezes model identity→quantization-aware KTO→fixed-PD inverse dynamics→kinodynamics as separate gates; R109 stops on invalid model lineage and R110 v2 formulates the exact material/point-force repair. Clean R111 closes contracts/compiler/native ABI 4, and clean R112 closes derived humanoid/ground USD material bindings plus explicit Isaac consumption with zero PhysX scenes. Only one report-only R113 clean model-identity preflight against that exact bundle is authorized next. KTO/ID/kinodynamic solves, candidates, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1896,9 +1896,23 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   Only static R112 derived-USD material bindings and explicit Isaac ground
   consumption are now authorized. R113 and every dynamics/runtime action stay
   blocked.
+  Clean R112 now closes that derived lineage. Strict mirror V2 validation emits
+  two humanoid and one ground physics-material prim, exact `19+1` bindings and
+  an immutable two-file translation manifest. Isaac validates the complete
+  bundle before scene construction and has no reachable ambient-material or
+  `GroundPlaneCfg` fallback. Humanoid/ground USD SHA-256 is
+  `5ea8a3b9b4e745461fd02bda7823cb1ffb2a1f372c16a9987f385e2697493834` /
+  `e82398add4570bc0696929081b4602ca16c8e3cf434a73b61c7f780ca6e9d033`.
+  R112 canonical/file/profile SHA-256 is
+  `dfb3bd892b04023054ce947127743e7ada78b40000a93e22887101c544c493f2` /
+  `a615359b7855ca270dacced899960d71ab4a43c8aab69403fd154a55a0067778` /
+  `c98c383117f03b5bb594855c831f2aa3a31453ac94b6f4fa2dc483015a3b7f0a`.
+  Five frozen validations pass, including all `222` lab tests and full
+  `host-check`; scene/solve/candidate/optimizer/training counts remain zero.
+  Only one clean report-only R113 model-identity preflight is now authorized.
 These results still cannot authorize full V19 or learned optimization.
 
-Roadmap status now advances only to static R112 after clean R111. This planning
+Roadmap status now advances only to report-only R113 after clean R112. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 

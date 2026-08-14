@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R111_PASS / R112_DERIVED_USD_ISAAC_IMPLEMENTATION_NEXT` |
+| Status | `R112_PASS / R113_MODEL_IDENTITY_PREFLIGHT_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -45,6 +45,7 @@ bounded research before another solver change or expensive native run.
 | R109 dynamics-model identity preflight | canonical/file/profile SHA-256 `2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784` / `97f149b12f5f4a6694da04298df774f33fd4854e93b54f3096d8882f2c1efc85` / `961926664ca8ff08a4c384180092dcbb7cb6591880bb8501148fef04d1e65ed0` | Clean `FAIL / STOP_INVALID_MODEL_LINEAGE`: structural/USD/gravity/controller identity closes; canonical material/combine and contact-wrench ownership do not; all solve/work counts are `0` |
 | R110 canonical-material/point-force formulation v2 | canonical/file/profile SHA-256 `83408b97b6ba13dc801b4d9b4f68e55146f9f39b09a451c238b24cc4c8c7d88d` / `234c7e51c3e6135bff55e503d8ce2bb58946c6cbef36598d92641ce7deb72637` / `85604a87bfc05ef170d21ff49d217d21327095414fb12b565efe76eb1afb9b18` | Clean `COMPLETE`: freezes a full SPEC-26 material successor, exact combine profile and solver-private ordered point forces; only R111 implementation is authorized and every runtime/solve/work count is `0` |
 | R111 canonical material-lineage implementation | canonical/file/profile SHA-256 `eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058` / `c8b5663c86fdf89ba4f8729fdccb2860328fd5e7b6144388ab892d5d4bc97bd7` / `a5cb5a3330eddefaeff33639e79c885ecbace7dfb8bddbf86de32f11b04bf44e` | Clean `PASS`: Accepted ADR-071, successor contracts/compiler/mirror and native ABI 4 close engine/native lineage; only static R112 USD/Isaac implementation is authorized and every scene/solve/work count is `0` |
+| R112 derived USD/Isaac material lineage | canonical/file/profile SHA-256 `dfb3bd892b04023054ce947127743e7ada78b40000a93e22887101c544c493f2` / `a615359b7855ca270dacced899960d71ab4a43c8aab69403fd154a55a0067778` / `c98c383117f03b5bb594855c831f2aa3a31453ac94b6f4fa2dc483015a3b7f0a` | Clean `PASS`: exact humanoid/ground material prims, `19+1` bindings and explicit Isaac consumption close the derived lineage; only report-only R113 is authorized and every scene/solve/work count is `0` |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -942,17 +943,59 @@ restricted to generated physics-material prims/bindings, exact lineage
 metadata and explicit Isaac ground consumption; R113 identity recheck, KTO and
 all runtime/training work remain separately blocked.
 
+## R112 derived-USD and Isaac material-lineage result
+
+R112 completes the separately gated derived half without reinterpreting any
+legacy artifact. Mirror V2 is now mandatory for the successor translator, and
+strict validation rejects unknown fields, malformed integer encodings, changed
+material rows, combine rules or assignment counts. Generated output lives under
+the body-schema plus compiled-descriptor identity. The humanoid USD contains
+two physics-material prims and exact `17` body plus `2` sole physics-purpose
+bindings; the separate ground USD contains one ground-material prim and one
+binding. Both encode the Q16-derived `0.800003052/0.699996948/0` coefficients,
+explicit PhysX arithmetic-mean combine modes and exact zero-extension metadata.
+
+Isaac construction now validates the mirror, humanoid USD, ground USD and
+translation manifest as one immutable bundle before scene setup. It consumes
+the derived ground USD explicitly; `GroundPlaneCfg`, `RigidBodyMaterialCfg` and
+ambient material defaults are unreachable on this path. A byte mismatch at an
+existing derived identity fails closed. The body-schema, compiled-descriptor
+and material-lineage hashes remain
+`e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d`,
+`6751853a812f549866f1db9d3662d8115b18db9b6d73beabd7221bb9f972f027`
+and `2d13e197f766e6a24090edf396dfc2fb6cbbf4c578ea9868dffa06ab7adab751`.
+Humanoid/ground/translation-manifest file SHA-256 is
+`5ea8a3b9b4e745461fd02bda7823cb1ffb2a1f372c16a9987f385e2697493834` /
+`e82398add4570bc0696929081b4602ca16c8e3cf434a73b61c7f780ca6e9d033` /
+`28fc9d97d42e071773057a159a0404d658d145f89eed90ee73b0571e8bfb6f6b`.
+
+Implementation and audit-tooling commits are
+`61e02484290be11059433acd8c5da434d7a0fc93` and
+`12fb82fe0925f1707f90fde84a23eb775d4c5268`. The first audit attempt exposed
+only the workspace `1000`-line source boundary in the R111 PhysX adapter; the
+behavior-preserving module split at `9cd3f79` reduced `lib.rs` to `926` lines,
+after which focused adapter tests and strict clippy passed. The clean external
+R112 report at repository commit `5d168b1cac1a06220ad678804f1b11ecb0285ba5`
+passes Ruff, all `222` lab tests, motor tests and full `host-check`. Its
+canonical/file/profile SHA-256 is
+`dfb3bd892b04023054ce947127743e7ada78b40000a93e22887101c544c493f2` /
+`a615359b7855ca270dacced899960d71ab4a43c8aab69403fd154a55a0067778` /
+`c98c383117f03b5bb594855c831f2aa3a31453ac94b6f4fa2dc483015a3b7f0a`.
+It records zero model-identity preflights, scene, solve, candidate, optimizer
+and training work and returns
+`PERMIT_R113_CLEAN_DYNAMICS_MODEL_IDENTITY_PREFLIGHT_ONLY`.
+
 ## Decision
 
-Freeze R92–R111, retain the contact result as bounded support for H23, and
+Freeze R92–R112, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
 values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
 and the late projected direction after its exact `2501/2500 bp` failure.
-R109's predeclared failure gate still stops the dynamics lineage, while R111
-authorizes only the derived USD/Isaac material-lineage repair in R112.
-KTO, candidate artifact/native scene construction and all-17 remain blocked
-until R112 implementation and a separately formulated R113 identity
-preflight close the model, and until a future bounded
+R109's predeclared failure gate still stops the dynamics lineage, while R112
+authorizes only one clean report-only R113 identity preflight against the exact
+mirror, humanoid USD, ground USD and manifest. KTO, candidate artifact/native
+scene construction and all-17 remain blocked until R113 closes the model, and
+until a future bounded
 candidate passes every selected fresh control without changing controller
 semantics, safety limits, fresh-scene authority or the exact-zero gate.
