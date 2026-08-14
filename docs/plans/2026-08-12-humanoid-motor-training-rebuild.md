@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108–R114 close progressive KTO/model lineage. The single R115 KTO execution is `FAIL / STOP_AND_RESEARCH`; clean R115-RC1 confirms an analytic-contact linearization identity gap, not intrinsic KTO infeasibility. Only report-only R117 repair formulation is next; another KTO solve, R116 inverse-dynamics formulation, ID/kinodynamic solves, candidate artifacts, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108–R114 close progressive KTO/model lineage. The single R115 KTO execution is `FAIL / STOP_AND_RESEARCH`; clean R115-RC1 confirms an analytic-contact linearization identity gap, not intrinsic KTO infeasibility. Clean report-only R117 freezes the exact-kernel q/v repair and bounded restoration formulation. Only report-only R118 implementation/numerical conformance is next; another QP/KTO solve, R116 inverse-dynamics formulation, ID/kinodynamic solves, candidate artifacts, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1966,10 +1966,21 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   Five validations pass including `239/239` lab tests; research solve/work
   counts are zero. Only report-only R117 kernel-identical full-q/v derivative
   and nonlinear-iteration formulation is permitted; it may not execute.
+  Clean R117 at commit `41b7239` completes that formulation. It binds the
+  emitted yaw-plus-six-leg contact function, its configuration/velocity and
+  neighbor-yaw derivative terms, the exact tangential norm-squared row, and a
+  single-bridge then strict exact-funnel restoration policy with quantized
+  re-anchoring. Canonical/file/profile SHA-256 is
+  `b0a9f07012e0f43c660019df8a1f31e7368f6130312231cf6c2bddb0f59fb7c7` /
+  `f32f31d895ed26f1f7ec842b2125ce0329a0d5802435aaebc5973d198dc06ed4` /
+  `eaabc22958324504756d95239ceefec3597523cf01e2d3c8633d6942db23da55`.
+  Five validations pass including `243/243` lab tests; every execution/work
+  count is zero. Only report-only R118 implementation and independent numeric
+  conformance is permitted; it may not run OSQP or construct a candidate.
 These results still cannot authorize full V19 or learned optimization.
 
-Roadmap status now advances only to report-only R117 formulation after R115/R115-RC1. This planning
-document alone does not close R5, B-08, B-12, Stage 0, GPU
+Roadmap status now advances only to report-only R118 implementation/conformance
+after R117. This planning document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 
 ## Definition of done

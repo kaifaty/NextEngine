@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-15 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14 имеет `204/12518` required-safety failures; R94 fresh V9 rejects `7/17`. R98–R107 exhaust bounded manual/kinematic repairs. R108–R114 close the progressive KTO/model lineage. The single R115 KTO execution is `FAIL / STOP_AND_RESEARCH`; R115-RC1 confirms that all analytic-contact QP rows omitted configuration derivatives present in the exact kernel. Only report-only R117 linearization-repair formulation is next. Another KTO/ID/kinodynamic solve, candidate artifacts, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14 имеет `204/12518` required-safety failures; R94 fresh V9 rejects `7/17`. R98–R107 exhaust bounded manual/kinematic repairs. R108–R114 close the progressive KTO/model lineage. The single R115 KTO execution is `FAIL / STOP_AND_RESEARCH`; R115-RC1 confirms the missing configuration derivative, and clean report-only R117 freezes the exact-kernel q/v repair plus bounded restoration contract. Only report-only R118 implementation/numerical conformance is next. Another QP/KTO/ID/kinodynamic solve, candidate artifacts, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -764,7 +764,8 @@ Current increment поэтому строит единый coupled trajectory so
 PPO остаются запрещены.
 
 **TRAIN-4 coupled/native trajectory research (`R115_FAIL /
-R115-RC1_LINEARIZATION_GAP_CONFIRMED / R117_FORMULATION_NEXT`, 2026-08-15):**
+R115-RC1_LINEARIZATION_GAP_CONFIRMED / R117_COMPLETE /
+R118_CONFORMANCE_NEXT`, 2026-08-15):**
 [coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
 active-corridor penalties and line-search reduction were rejected because
@@ -1199,6 +1200,32 @@ candidate or scene occurs. Only report-only R117 formulation may now bind the
 exact contact function, complete q/v derivative, row diagnostics and explicit
 nonlinear iterate acceptance/restoration. It may not execute a solver or alter
 the frozen limits, quantization, controller or fresh-scene authority.
+
+Clean report-only R117 at commit `41b7239` now freezes that repair. Its
+continuous contact function is the physical-unit extension of the emitted
+yaw-plus-six-leg exact kernel, including the continuous-V9 yaw lift and
+neighbor-knot stencil dependency. The derivative must cover the whole function
+with separate configuration and velocity blocks; tangential contact uses the
+exact norm-squared inequality, not R115's component box. Every accepted
+intermediate is re-quantized and rederived. At most one analytic-tangent-only
+bridge is allowed, followed by strict lexicographic decrease of the exact
+emitted tangent-excess funnel while nonzero V7 progress and every other exact
+constraint remain PASS. Applying this rule to metric-only R115 summaries
+selects `1/32` (`368 µm` excess, `615 bp` progress) only as a policy
+discriminator; no R115 direction or arrays were reconstructed.
+
+R117 canonical/file/profile SHA-256 is
+`b0a9f07012e0f43c660019df8a1f31e7368f6130312231cf6c2bddb0f59fb7c7` /
+`f32f31d895ed26f1f7ec842b2125ce0329a0d5802435aaebc5973d198dc06ed4` /
+`eaabc22958324504756d95239ceefec3597523cf01e2d3c8633d6942db23da55`.
+All five validations pass, including `243/243` lab tests and full
+`host-check`; QP/KTO/ID/kinodynamic, cache, candidate, PhysX, optimizer and
+training counts are zero. Only report-only R118 implementation and numerical
+conformance is authorized. It must prove baseline function identity within
+`1 µm/s/component`, independent whole-function Jacobian agreement within
+`5 µm/s/unit + 1e-4` relative tolerance, nonzero required q/neighbor-yaw and
+explicit v dependencies, and the norm-squared tangent row. R118 may not import
+or run OSQP, construct a candidate, or authorize a KTO execution directly.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -1973,7 +2000,8 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    successor and ordered point-force repair. R111 closes contract/compiler/
    native ABI-4 lineage, R112 closes static USD/Isaac material lineage, and R113
    closes whole-model identity. R114 freezes one bounded R115 KTO run; R115
-   fails and R115-RC1 selects report-only R117 formulation. До exact-zero fresh/
+   fails, R115-RC1 diagnoses its omitted q derivative, and R117 freezes only a
+   report-only repair contract. R118 conformance is next. До exact-zero fresh/
    full-corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены.
    No training quality, Stage 0 or R5 completion is claimed here.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote

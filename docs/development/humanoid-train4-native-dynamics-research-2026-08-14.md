@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R115_FAIL / R115-RC1_LINEARIZATION_GAP_CONFIRMED / R117_FORMULATION_NEXT` |
+| Status | `R115_FAIL / R115-RC1_LINEARIZATION_GAP_CONFIRMED / R117_COMPLETE / R118_CONFORMANCE_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -50,6 +50,7 @@ bounded research before another solver change or expensive native run.
 | R114 quantization-aware KTO execution formulation revision 2 | canonical/file/profile SHA-256 `7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4` / `2666a275180b222c014eea91051ff4d3ebdb16a5740eb742ed2cca3a83b3d958` / `8e26b84de2a25e07d19cd93400bc8c04a6bc4840fb9a4d8eb6ab88237db59a43` | Clean `COMPLETE`: supersedes underdefined v1 before any solve; freezes `69687` q/v/a scalars, continuous-V9 yaw emission, exact progress/resource gates and one R115 execution; all scene/solve/work counts remain `0` |
 | R115 single bounded KTO execution | canonical/file/profile SHA-256 `b7baa0f4337597c1c61748255535d1102bbff35d0ce560a8a661ed6be7685433` / `ed89c2733a376f5f50694fc01029abcf9791f2a186054196461ce2a787e8caa8` / `427958340debb62a3dfc7b9309411184c8e922965a5cef694163cae61d0b9e75` | Clean `FAIL / STOP_AND_RESEARCH`: one solved QP and six exact emitted audits find no all-gate step; no cache, candidate, scene or downstream execution exists and retry is forbidden |
 | R115-RC1 analytic-contact linearization research | canonical/file/profile SHA-256 `5edfe0613e2e4f9327cd1bfb6922c96e84ce8056144b05f9617787de0f883475` / `74f6b7f7c13565618a2972d83b568d411ae8f4598b76699cd176b328f4a42f51` / `7e4186d0e44049102ab1d61e0cf49f51f3682e88557f9c8c2dd2d92c5c53c3f4` | Clean `COMPLETE / CONFIRMED_ANALYTIC_CONTACT_LINEARIZATION_IDENTITY_GAP`: all `3723` analytic QP rows omit q derivatives although the exact kernel has nonzero q sensitivity; permits only report-only R117 formulation, with zero solves/scenes/candidates |
+| R117 exact-kernel linearization-repair formulation | canonical/file/profile SHA-256 `b0a9f07012e0f43c660019df8a1f31e7368f6130312231cf6c2bddb0f59fb7c7` / `f32f31d895ed26f1f7ec842b2125ce0329a0d5802435aaebc5973d198dc06ed4` / `eaabc22958324504756d95239ceefec3597523cf01e2d3c8633d6942db23da55` | Clean `COMPLETE`: freezes the kernel-identical full-q/v derivative, norm-squared tangent constraint, quantized re-anchoring and explicit single-bridge/restoration filter; permits only report-only R118 implementation/conformance, with zero QP/KTO/scenes/candidates |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -1185,17 +1186,66 @@ the exact contact function, complete q/v derivative, modeled-versus-exact row
 diagnostics and an explicit nonlinear iterate acceptance/restoration rule; it
 must not run a solver.
 
+## R117 exact-kernel linearization-repair formulation result
+
+Clean report-only R117 at commit
+`41b72395d7a7f6c5c4eb2b8f19bcb86dbc594321` closes the authorized formulation
+step without invoking OSQP or constructing a trajectory. It inherits R114
+revision 2's `801` knots, `69687` q/v/a scalars, hybrid stencil, endpoints,
+ROM/collider/finite-contact/velocity limits, V7 integer progress gate,
+quantization, objective and resource ceilings unchanged. Controller gains,
+effort caps, the right-ankle `6000000 µN·s` impulse limit, fresh-scene
+authority and report-only partial reset are unchanged.
+
+The repaired continuous constraint is defined as the physical-unit extension
+of the emitted exact kernel rather than a generic frame Jacobian. It uses
+engine-world root linear velocity, the same world-Y one-sided `1e-4 rad` root
+lever with continuous-V9-lifted yaw stencil velocity, and only the six
+same-side leg-joint one-sided levers. The derivative covers the whole function:
+configuration-dependent levers, the yaw lift's neighboring orientation knots,
+explicit root-linear velocity and same-side joint velocities. The tangential
+row is `vx² + vz² <= 0.12²`, exactly corresponding to the `2000 µm/frame`
+norm at `60 Hz`; R115's component box is explicitly rejected.
+
+R117 also freezes globalization before any implementation. Each major
+iteration must start from an emitted/rederived anchor and audit the six fixed
+fractions. Exact PASS terminates first. At most one intermediate may bridge
+from strict V7 progress when every exact gate except analytic tangent passes;
+then each restoration anchor must preserve that progress and every other gate
+while strictly decreasing the lexicographic pair of maximum/summed normalized
+exact tangent excess. No acceptable fraction means `STOP_AND_RESEARCH`, not a
+restart or relaxation. Metric-only replay of this policy selects R115's
+`1/32` summary (`368 µm` excess, `615 bp` progress), but reconstructs neither
+its discarded direction nor any arrays.
+
+R117 canonical/file/profile SHA-256 is
+`b0a9f07012e0f43c660019df8a1f31e7368f6130312231cf6c2bddb0f59fb7c7` /
+`f32f31d895ed26f1f7ec842b2125ce0329a0d5802435aaebc5973d198dc06ed4` /
+`eaabc22958324504756d95239ceefec3597523cf01e2d3c8633d6942db23da55`.
+Five validations pass, including `243/243` lab tests, `56/56` motor tests and
+full `host-check`. Formulation reports are one; QP/KTO/ID/kinodynamic solves,
+caches, candidates, PhysX scenes, optimizer steps and training runs are zero.
+
+R117 permits only report-only R118 implementation and deterministic numerical
+conformance. R118 must establish exact-kernel baseline identity within
+`1 µm/s/component`, compare the implementation Jacobian with an independently
+implemented symmetric whole-function reference within `5 µm/s/unit + 1e-4`
+relative tolerance, cover the frame-328 left-forefoot hotspot plus both-side
+entry/exit/centered anchors, prove the required q/neighbor-yaw and explicit v
+dependencies, and preserve the norm-squared tangent row. R118 may not import or
+run OSQP, execute KTO, emit a candidate, or directly authorize execution; a
+later execution would first require a separate report-only formulation.
+
 ## Decision
 
-Freeze R92–R115 plus R115-RC1, retain the contact result as bounded support for H23, and
+Freeze R92–R117, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
 values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
 and the late projected direction after its exact `2501/2500 bp` failure.
 R115 consumed and failed its sole solve, so retry, the conditional R116
 inverse-dynamics formulation, candidate artifacts, native scenes and all-17
-remain blocked. R115-RC1 authorizes only report-only R117 formulation of a
-kernel-identical full q/v analytic-contact linearization and explicit nonlinear
-iteration rule. It may not change controller semantics, safety limits,
-fresh-scene authority, quantization or the exact-zero gate, and may not execute
-another KTO solve.
+remain blocked. R117 completes the report-only repair formulation and
+authorizes only R118 implementation/numerical conformance with zero solves. It
+may not change controller semantics, safety limits, fresh-scene authority,
+quantization or the exact-zero gate, and cannot authorize another KTO solve.
