@@ -28,6 +28,7 @@ from next_lab.contact_manifold_physx import (
     load_case_arrays,
     load_contact_prototype_cases,
     minimum_normalized_quaternion_dot_q1_30,
+    native_dynamics_trace_probe_shape_is_valid,
     overlay_bounded_reference_window,
 )
 from next_lab.motion_math import collider_minimum_y, target_forward_kinematics
@@ -259,6 +260,12 @@ def _probe_version_shape_is_valid(
             prototype_manifest=prototype_manifest,
             cases=cases,
         )
+    if probe_id == "nextengine.humanoid-contact-manifold-physx-probe.v12":
+        return native_dynamics_trace_probe_shape_is_valid(
+            profile=profile,
+            prototype_manifest=prototype_manifest,
+            cases=cases,
+        )
     bounded_versions = {
         "nextengine.humanoid-contact-manifold-physx-probe.v2": (
             "nextengine.humanoid-contact-manifold-prototype.v2"
@@ -291,6 +298,23 @@ def _probe_version_shape_is_valid(
     return False
 
 
+def _selected_worker_cases(
+    *, profile: Mapping[str, Any], cases: Sequence[ContactPrototypeCase]
+) -> tuple[ContactPrototypeCase, ...]:
+    raw = profile.get("execution", {}).get("worker_case_ordinals")
+    if raw is None:
+        return tuple(cases)
+    if (
+        not isinstance(raw, list)
+        or not raw
+        or any(not isinstance(value, int) for value in raw)
+        or len(set(raw)) != len(raw)
+        or any(value < 0 or value >= len(cases) for value in raw)
+    ):
+        raise ValueError("fresh worker case selection is invalid")
+    return tuple(cases[value] for value in raw)
+
+
 def _run_driver(
     *,
     args: argparse.Namespace,
@@ -305,6 +329,7 @@ def _run_driver(
     if repository["dirty"]:
         raise RuntimeError("reset-probe evidence requires a clean repository commit")
     output = _external_output_directory(args.output)
+    worker_cases = _selected_worker_cases(profile=profile, cases=cases)
     fresh_root = output / "fresh-scene"
     usd_root = fresh_root / "usd"
     result_root = fresh_root / "results"
@@ -312,7 +337,7 @@ def _run_driver(
     for directory in (usd_root, result_root, log_root):
         directory.mkdir(parents=True)
     overlay_hashes: dict[int, str] = {}
-    for case in cases:
+    for case in worker_cases:
         arrays = load_case_arrays(case)
         payload = build_fresh_scene_usda(
             base_usd_path=paths["usd_path"],
@@ -325,9 +350,9 @@ def _run_driver(
         overlay_path.write_bytes(payload)
         overlay_hashes[case.ordinal] = hashlib.sha256(payload).hexdigest()
 
-    for case in cases:
+    for worker_index, case in enumerate(worker_cases, start=1):
         print(
-            f"fresh-scene {case.ordinal + 1}/{len(cases)}: "
+            f"fresh-scene {worker_index}/{len(worker_cases)}: "
             f"{case.clip_id}@{case.frame_first}",
             file=sys.stderr,
             flush=True,
@@ -386,7 +411,7 @@ def _run_driver(
 
     fresh_reports = []
     fresh_rows = []
-    for case in cases:
+    for case in worker_cases:
         result_path = _fresh_result_path(output, case.ordinal)
         report = json.loads(result_path.read_bytes())
         if (
@@ -414,11 +439,32 @@ def _run_driver(
                 "deferred_terminal_reset_count": report[
                     "deferred_terminal_reset_count"
                 ],
+                "native_dynamics_trace": _native_trace_inventory(
+                    report.get("native_dynamics_trace")
+                ),
             }
         )
         fresh_rows.append(report["phase_result"])
     acceptance_profile = profile["bounded_acceptance"]
-    if (
+    report_only_trace = (
+        acceptance_profile.get("evaluation_mode")
+        == "report-only-native-dynamics-trace"
+    )
+    if report_only_trace:
+        fresh_acceptance = {
+            "status": "NOT_APPLICABLE",
+            "evidence_role": "report-only",
+            "observed_pass_case_count": sum(
+                row["status"] == "PASS" for row in fresh_rows
+            ),
+            "observed_failure_case_count": sum(
+                row["status"] == "FAIL" for row in fresh_rows
+            ),
+            "merged_offline_counterfactual_authorized": False,
+            "all_17_fresh_probe_authorized": False,
+            "full_v19_corpus_authorized": False,
+        }
+    elif (
         acceptance_profile.get("evaluation_mode")
         == "two-counterfactual-controls-must-pass"
     ):
@@ -484,7 +530,9 @@ def _run_driver(
     acceptance_authority = acceptance_profile.get(
         "acceptance_authority", "fresh-and-indexed-partial"
     )
-    if acceptance_authority == "fresh-scene":
+    if report_only_trace:
+        accepted = False
+    elif acceptance_authority == "fresh-scene":
         accepted = fresh_acceptance["status"] == "PASS"
     elif acceptance_authority == "fresh-and-indexed-partial":
         accepted = (
@@ -494,19 +542,29 @@ def _run_driver(
         )
     else:
         raise ValueError("reset-probe acceptance authority is invalid")
-    gate_decision = acceptance_profile.get(
-        "pass_gate_decision" if accepted else "fail_gate_decision",
-        "PERMIT_FULL_V19_DATA_BUILD_ONLY" if accepted else "STOP_AND_RESEARCH",
+    gate_decision = (
+        "STOP_AND_RESEARCH"
+        if report_only_trace
+        else acceptance_profile.get(
+            "pass_gate_decision" if accepted else "fail_gate_decision",
+            "PERMIT_FULL_V19_DATA_BUILD_ONLY" if accepted else "STOP_AND_RESEARCH",
+        )
     )
     report = {
         "schema_version": 1,
         "check": (
-            "TRAIN-4-ISAAC-CONTACT-MANIFOLD-FRESH-SCENE-DISCRIMINATOR"
+            "TRAIN-4-ISAAC-NATIVE-DYNAMICS-TRACE"
+            if report_only_trace
+            else "TRAIN-4-ISAAC-CONTACT-MANIFOLD-FRESH-SCENE-DISCRIMINATOR"
             if acceptance_authority == "fresh-scene"
             else "TRAIN-4-ISAAC-CONTACT-MANIFOLD-RESET-PROBE"
         ),
-        "status": "PASS" if accepted else "FAIL",
-        "claim": "OptimizerFreeBoundedResearchOnly",
+        "status": "COMPLETE" if report_only_trace else "PASS" if accepted else "FAIL",
+        "claim": (
+            "OptimizerFreeReportOnlyNativeDynamicsTrace"
+            if report_only_trace
+            else "OptimizerFreeBoundedResearchOnly"
+        ),
         "gate_decision": gate_decision,
         "architecture_disposition": {
             "adr": "ADR-070",
@@ -515,9 +573,12 @@ def _run_driver(
             "indexed_partial_reset_is_acceptance_evidence": False,
         },
         "scope": {
-            "case_count": len(cases),
-            "fresh_scene_process_count": len(cases),
-            "vector_environment_count": len(cases),
+            "case_count": len(worker_cases),
+            "source_inventory_case_count": len(cases),
+            "fresh_scene_process_count": len(worker_cases),
+            "vector_environment_count": int(
+                profile["execution"]["vector_environment_count"]
+            ),
             "horizon_motor_ticks": cases[0].horizon_motor_ticks,
             "fresh_scene_post_create_state_writes": 0,
             "indexed_partial_reset_warmup_episodes_per_case": (
@@ -534,7 +595,11 @@ def _run_driver(
         "indexed_partial_reset": partial_section,
         "reset_comparison": reset_comparison,
         "bounded_acceptance": {
-            "status": "PASS" if accepted else "FAIL",
+            "status": (
+                "NOT_APPLICABLE"
+                if report_only_trace
+                else "PASS" if accepted else "FAIL"
+            ),
             "acceptance_authority": acceptance_authority,
             "full_v19_corpus_authorized": (
                 accepted
@@ -603,7 +668,7 @@ def _run_driver(
             sort_keys=True,
         )
     )
-    if not accepted:
+    if not accepted and not report_only_trace:
         raise SystemExit(1)
 
 
@@ -842,6 +907,163 @@ def _run_fresh_worker(
 
         environment._reset_idx = defer_terminal_reset
         steps = 0
+        trace_profile = profile["execution"].get("native_dynamics_trace")
+        trace_records: dict[tuple[int, int], dict[str, Any]] = {}
+        original_apply_action = environment._apply_action
+        original_consume_contact_substep = environment._consume_contact_substep
+
+        def trace_record(motor_tick: int, physics_substep: int) -> dict[str, Any]:
+            if motor_tick <= 0 or not 0 <= physics_substep < cfg.decimation:
+                raise RuntimeError("native trace cadence is invalid")
+            return trace_records.setdefault(
+                (motor_tick, physics_substep),
+                {
+                    "motor_tick": motor_tick,
+                    "physics_substep": physics_substep,
+                },
+            )
+
+        def traced_apply_action() -> None:
+            original_apply_action()
+            if trace_profile is None:
+                return
+            physics_substep = environment._contact_physics_substeps_started - 1
+            position = torch.round(
+                environment.robot.data.joint_pos[
+                    :, environment._action_joint_ids
+                ].to(torch.float64)
+                * 1_000_000.0
+            )
+            velocity = torch.round(
+                environment.robot.data.joint_vel[
+                    :, environment._action_joint_ids
+                ].to(torch.float64)
+                * 1_000_000.0
+            )
+            requested = reference_env_module._canonical_pd_requested_effort_tensor(
+                environment._applied_target.to(torch.float64),
+                position,
+                velocity,
+                environment._stiffness_q16,
+                environment._damping_q16,
+            )
+            velocity_excess = torch.clamp(
+                torch.abs(velocity) - environment._maximum_velocity_action,
+                min=0.0,
+            )
+            record = trace_record(steps + 1, physics_substep)
+            record.update(
+                {
+                    "action_sampled": True,
+                    "pre_physics_joint_position_microradians": _device_integer_row(
+                        position, target_slot
+                    ),
+                    "pre_physics_joint_velocity_microradians_per_second": (
+                        _device_integer_row(velocity, target_slot)
+                    ),
+                    "command_reference_target_microradians": _device_integer_row(
+                        environment.last_step_command_reference_target_microradians,
+                        target_slot,
+                    ),
+                    "previous_applied_target_microradians": _device_integer_row(
+                        environment._previous_applied_target,
+                        target_slot,
+                    ),
+                    "applied_target_microradians": _device_integer_row(
+                        environment._applied_target,
+                        target_slot,
+                    ),
+                    "maximum_velocity_microradians_per_second": (
+                        _device_integer_row(
+                            environment._maximum_velocity_action,
+                            None,
+                        )
+                    ),
+                    "velocity_excess_microradians_per_second": (
+                        _device_integer_row(velocity_excess, target_slot)
+                    ),
+                    "requested_effort_micronewton_metres": _device_integer_row(
+                        requested, target_slot
+                    ),
+                    "published_effort_micronewton_metres": _device_integer_row(
+                        environment._applied_effort,
+                        target_slot,
+                    ),
+                    "retained_previous_effort_micronewton_metres": (
+                        _device_integer_row(environment._previous_effort, target_slot)
+                    ),
+                    "positive_work_microjoules": _device_integer_row(
+                        environment._positive_work,
+                        target_slot,
+                    ),
+                    "effort_envelope_violation": _device_boolean_row(
+                        environment._substep_effort_envelope_violation_by_action_channel,
+                        target_slot,
+                    ),
+                    "root_linear_velocity_micrometres_per_second": (
+                        _device_integer_row(
+                            torch.round(
+                                environment.robot.data.root_lin_vel_w.to(torch.float64)
+                                * 1_000_000.0
+                            ),
+                            target_slot,
+                        )
+                    ),
+                    "root_angular_velocity_microradians_per_second": (
+                        _device_integer_row(
+                            torch.round(
+                                environment.robot.data.root_ang_vel_w.to(torch.float64)
+                                * 1_000_000.0
+                            ),
+                            target_slot,
+                        )
+                    ),
+                }
+            )
+
+        def traced_consume_contact_substep() -> None:
+            physics_substep = environment._contact_physics_substeps_started - 1
+            original_consume_contact_substep()
+            if trace_profile is None:
+                return
+            record = trace_record(steps + 1, physics_substep)
+            record.update(
+                {
+                    "contact_sampled": True,
+                    "motor_tick_contact_pair_maximum_impulse_micronewton_seconds": (
+                        _device_integer_row(
+                            environment._substep_contact_max_impulse_micronewton_seconds,
+                            target_slot,
+                        )
+                    ),
+                    "episode_contact_pair_maximum_impulse_micronewton_seconds": (
+                        _device_integer_row(
+                            environment._episode_contact_max_impulse_micronewton_seconds,
+                            target_slot,
+                        )
+                    ),
+                    "ground_active_by_contact_body": _device_boolean_row(
+                        environment._current_ground_active,
+                        target_slot,
+                    ),
+                    "hard_impact_by_contact_pair": _device_boolean_row(
+                        environment._substep_contact_hard_impact_pairs,
+                        target_slot,
+                    ),
+                    "self_collision_by_contact_pair": _device_boolean_row(
+                        environment._substep_contact_self_collision_pairs,
+                        target_slot,
+                    ),
+                    "forbidden_contact_by_contact_pair": _device_boolean_row(
+                        environment._substep_contact_forbidden_pairs,
+                        target_slot,
+                    ),
+                }
+            )
+
+        if trace_profile is not None:
+            environment._apply_action = traced_apply_action
+            environment._consume_contact_substep = traced_consume_contact_substep
         try:
             while accumulator.completed_case_count == 0:
                 observations, _, terminated, truncated, _ = environment.step(zero)
@@ -881,8 +1103,18 @@ def _run_fresh_worker(
                     )
         finally:
             environment._reset_idx = original_episode_reset
+            environment._apply_action = original_apply_action
+            environment._consume_contact_substep = original_consume_contact_substep
         if first_tick_impulses is None:
             raise RuntimeError("fresh-scene episode did not expose first-tick impulses")
+        native_dynamics_trace = _finalize_native_dynamics_trace(
+            trace_profile=trace_profile,
+            trace_records=trace_records,
+            observed_motor_ticks=steps,
+            physics_substeps_per_motor_tick=cfg.decimation,
+            action_channel_ids=action_channel_ids,
+            contact_pair_ids=environment.contact_pair_ids,
+        )
         sections = accumulator.report_sections()
         row = dict(sections["phase_results"][0])
         row["case_ordinal"] = case.ordinal
@@ -910,6 +1142,7 @@ def _run_fresh_worker(
             },
             "reference_overlay": reference_overlay,
             "trajectory_diagnostics": trajectory_diagnostics,
+            "native_dynamics_trace": native_dynamics_trace,
             "deferred_terminal_reset_count": deferred_terminal_reset_count,
             "post_create_state_write_attempts_suppressed": write_attempts,
             "post_create_root_or_joint_state_writes_executed": 0,
@@ -1810,6 +2043,81 @@ def _repository_state() -> dict[str, Any]:
         text=True,
     ).stdout.splitlines()
     return {"commit": commit, "dirty": bool(dirty_paths), "dirty_paths": dirty_paths}
+
+
+def _device_integer_row(value: Any, index: int | None) -> list[int]:
+    selected = value if index is None else value[index]
+    if selected.is_floating_point():
+        selected = selected.round()
+    return [int(item) for item in selected.detach().cpu().tolist()]
+
+
+def _device_boolean_row(value: Any, index: int) -> list[bool]:
+    return [bool(item) for item in value[index].detach().cpu().tolist()]
+
+
+def _finalize_native_dynamics_trace(
+    *,
+    trace_profile: Mapping[str, Any] | None,
+    trace_records: Mapping[tuple[int, int], Mapping[str, Any]],
+    observed_motor_ticks: int,
+    physics_substeps_per_motor_tick: int,
+    action_channel_ids: Sequence[str],
+    contact_pair_ids: Sequence[str],
+) -> dict[str, Any]:
+    if trace_profile is None:
+        if trace_records:
+            raise RuntimeError("disabled native trace collected samples")
+        return {"enabled": False}
+    expected = observed_motor_ticks * physics_substeps_per_motor_tick
+    ordered = [dict(trace_records[key]) for key in sorted(trace_records)]
+    if (
+        int(trace_profile["physics_substeps_per_motor_tick"])
+        != physics_substeps_per_motor_tick
+        or len(ordered) != expected
+        or any(
+            record.get("action_sampled") is not True
+            or record.get("contact_sampled") is not True
+            for record in ordered
+        )
+    ):
+        raise RuntimeError("native dynamics trace is incomplete")
+    for record in ordered:
+        record.pop("action_sampled")
+        record.pop("contact_sampled")
+    result = {
+        "schema_version": 1,
+        "enabled": True,
+        "evidence_role": "report-only",
+        "comparison_role": trace_profile["comparison_role"],
+        "action_channel_ids": list(action_channel_ids),
+        "contact_pair_ids": list(contact_pair_ids),
+        "observed_motor_ticks": observed_motor_ticks,
+        "physics_substeps_per_motor_tick": physics_substeps_per_motor_tick,
+        "expected_sample_count": expected,
+        "sample_count": len(ordered),
+        "coverage_complete": True,
+        "samples": ordered,
+    }
+    result["trace_sha256"] = hashlib.sha256(_canonical_json(result)).hexdigest()
+    return result
+
+
+def _native_trace_inventory(trace: Any) -> dict[str, Any]:
+    if not isinstance(trace, Mapping) or trace.get("enabled") is not True:
+        return {"enabled": False}
+    return {
+        "enabled": True,
+        "evidence_role": trace.get("evidence_role"),
+        "comparison_role": trace.get("comparison_role"),
+        "observed_motor_ticks": trace.get("observed_motor_ticks"),
+        "physics_substeps_per_motor_tick": trace.get(
+            "physics_substeps_per_motor_tick"
+        ),
+        "sample_count": trace.get("sample_count"),
+        "coverage_complete": trace.get("coverage_complete"),
+        "trace_sha256": trace.get("trace_sha256"),
+    }
 
 
 def _cpu(value: Any) -> Any:

@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -17,11 +18,55 @@ from next_lab.contact_manifold_physx import (
     evaluate_bounded_acceptance,
     evaluate_counterfactual_acceptance,
     minimum_normalized_quaternion_dot_q1_30,
+    native_dynamics_trace_probe_shape_is_valid,
     overlay_bounded_reference_window,
 )
 
 
 class ContactManifoldPhysxTests(unittest.TestCase):
+    def test_native_trace_profile_has_no_acceptance_authority(self) -> None:
+        counterfactual_cases = (
+            replace(_case(0, "PASS", (), ()), source_case_ordinal=25),
+            replace(_case(1, "PASS", (), ()), source_case_ordinal=7967),
+        )
+        counterfactual_profile = _native_trace_profile(
+            role="v11-emitted-acceleration", worker_case_ordinals=[0, 1]
+        )
+        self.assertTrue(
+            native_dynamics_trace_probe_shape_is_valid(
+                profile=counterfactual_profile,
+                prototype_manifest=_counterfactual_manifest(),
+                cases=counterfactual_cases,
+            )
+        )
+        counterfactual_profile["bounded_acceptance"]["pass_gate_decision"] = (
+            "PERMIT_MERGED_OFFLINE_COUNTERFACTUAL_ONLY"
+        )
+        self.assertFalse(
+            native_dynamics_trace_probe_shape_is_valid(
+                profile=counterfactual_profile,
+                prototype_manifest=_counterfactual_manifest(),
+                cases=counterfactual_cases,
+            )
+        )
+
+        baseline_cases = tuple(
+            replace(
+                _case(ordinal, "PASS", (), ()),
+                source_case_ordinal=7967 if ordinal == 10 else ordinal,
+            )
+            for ordinal in range(17)
+        )
+        self.assertTrue(
+            native_dynamics_trace_probe_shape_is_valid(
+                profile=_native_trace_profile(
+                    role="v9-baseline", worker_case_ordinals=[10]
+                ),
+                prototype_manifest=_v9_manifest(),
+                cases=baseline_cases,
+            )
+        )
+
     def test_counterfactual_probe_requires_exact_two_case_bundle(self) -> None:
         cases = (
             replace(_case(0, "PASS", (), ()), source_case_ordinal=25),
@@ -313,6 +358,97 @@ def _arrays() -> dict[str, np.ndarray]:
         "root_yaw_velocity_urad_s": np.zeros(2, dtype=np.int64),
         "joint_position_urad": np.zeros((2, 1), dtype=np.int64),
         "joint_velocity_urad_s": np.zeros((2, 1), dtype=np.int64),
+    }
+
+
+def _native_trace_profile(
+    *, role: str, worker_case_ordinals: list[int]
+) -> dict[str, Any]:
+    return {
+        "execution": {
+            "worker_case_ordinals": worker_case_ordinals,
+            "native_dynamics_trace": {
+                "enabled": True,
+                "evidence_role": "report-only",
+                "comparison_role": role,
+                "physics_substeps_per_motor_tick": 4,
+                "action_channel_scope": "all-ordered-action-channels",
+                "contact_pair_scope": "all-frozen-contact-pairs",
+            },
+            "indexed_partial_reset": {
+                "enabled": False,
+                "evidence_role": "report-only",
+            },
+        },
+        "bounded_acceptance": {
+            "acceptance_authority": "fresh-scene",
+            "evaluation_mode": "report-only-native-dynamics-trace",
+            "pass_gate_decision": "STOP_AND_RESEARCH",
+            "fail_gate_decision": "STOP_AND_RESEARCH",
+        },
+    }
+
+
+def _counterfactual_manifest() -> dict[str, Any]:
+    return {
+        "check": "TRAIN-4-CONTACT-MANIFOLD-COUNTERFACTUAL-BUNDLE",
+        "prototype_id": "nextengine.humanoid-contact-counterfactual-bundle.v1",
+        "scope": {
+            "case_scope": "two-independent-counterfactuals",
+            "case_count": 2,
+            "failure_case_count": 0,
+            "control_case_count": 2,
+            "ordered_r95_case_ordinals": [2, 10],
+            "ordered_source_case_ordinals": [25, 7967],
+        },
+        "identities": {
+            "source_counterfactuals": [
+                {"role": "contact-reserve", "r95_case_ordinal": 2},
+                {"role": "emitted-acceleration", "r95_case_ordinal": 10},
+            ]
+        },
+        "cases": [
+            {
+                "counterfactual_role": "contact-reserve",
+                "r95_case_ordinal": 2,
+                "exact_complete_clip_slice_status": "PASS",
+            },
+            {
+                "counterfactual_role": "emitted-acceleration",
+                "r95_case_ordinal": 10,
+                "exact_complete_clip_slice_status": "PASS",
+            },
+        ],
+    }
+
+
+def _v9_manifest() -> dict[str, Any]:
+    return {
+        "prototype_id": "nextengine.humanoid-contact-manifold-prototype.v9",
+        "scope": {
+            "case_scope": "all",
+            "failure_case_count": 7,
+            "control_case_count": 10,
+            "projection": {
+                "trajectory_closure": {
+                    "algorithm_id": "nextengine.dimensionless-contact-trajectory-qp.v9"
+                }
+            },
+        },
+        "complete_clips": [
+            {
+                "solve_count": 1,
+                "projection_diagnostics": {
+                    "status": "PASS",
+                    "contact_point_deletion_count": 0,
+                },
+            }
+            for _ in range(3)
+        ],
+        "cases": [
+            {"exact_complete_clip_slice_status": "PASS"} for _ in range(17)
+        ],
+        "exact_slice_identity": {"status": "PASS", "disagreement_count": 0},
     }
 
 

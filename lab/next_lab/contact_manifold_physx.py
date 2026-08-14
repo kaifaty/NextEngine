@@ -64,6 +64,29 @@ def complete_clip_probe_shape_is_valid(
 ) -> bool:
     """Validate the V9 complete-clip evidence required by the fresh probe."""
 
+    partial = profile.get("execution", {}).get("indexed_partial_reset", {})
+    acceptance = profile.get("bounded_acceptance", {})
+    return (
+        _complete_clip_manifest_shape_is_valid(
+            prototype_manifest=prototype_manifest,
+            cases=cases,
+        )
+        and partial.get("enabled") is False
+        and partial.get("evidence_role") == "report-only"
+        and acceptance.get("acceptance_authority") == "fresh-scene"
+        and acceptance.get("pass_gate_decision")
+        == "PERMIT_FULL_V19_DATA_BUILD_ONLY"
+        and acceptance.get("fail_gate_decision") == "STOP_AND_RESEARCH"
+    )
+
+
+def _complete_clip_manifest_shape_is_valid(
+    *,
+    prototype_manifest: Mapping[str, Any],
+    cases: Sequence[ContactPrototypeCase],
+) -> bool:
+    """Validate the immutable V9 manifest without assigning run authority."""
+
     scope = prototype_manifest.get("scope", {})
     complete_clips = prototype_manifest.get("complete_clips", ())
     case_records = prototype_manifest.get("cases", ())
@@ -71,8 +94,6 @@ def complete_clip_probe_shape_is_valid(
     trajectory_closure = scope.get("projection", {}).get(
         "trajectory_closure", {}
     )
-    partial = profile.get("execution", {}).get("indexed_partial_reset", {})
-    acceptance = profile.get("bounded_acceptance", {})
     return (
         prototype_manifest.get("prototype_id")
         == "nextengine.humanoid-contact-manifold-prototype.v9"
@@ -99,12 +120,6 @@ def complete_clip_probe_shape_is_valid(
         )
         and exact_slice_identity.get("status") == "PASS"
         and exact_slice_identity.get("disagreement_count") == 0
-        and partial.get("enabled") is False
-        and partial.get("evidence_role") == "report-only"
-        and acceptance.get("acceptance_authority") == "fresh-scene"
-        and acceptance.get("pass_gate_decision")
-        == "PERMIT_FULL_V19_DATA_BUILD_ONLY"
-        and acceptance.get("fail_gate_decision") == "STOP_AND_RESEARCH"
     )
 
 
@@ -116,12 +131,35 @@ def counterfactual_probe_shape_is_valid(
 ) -> bool:
     """Validate the exact two independent R96 cases admitted to R97."""
 
+    partial = profile.get("execution", {}).get("indexed_partial_reset", {})
+    acceptance = profile.get("bounded_acceptance", {})
+    return (
+        _counterfactual_bundle_shape_is_valid(
+            prototype_manifest=prototype_manifest,
+            cases=cases,
+        )
+        and partial.get("enabled") is False
+        and partial.get("evidence_role") == "report-only"
+        and acceptance.get("acceptance_authority") == "fresh-scene"
+        and acceptance.get("evaluation_mode")
+        == "two-counterfactual-controls-must-pass"
+        and acceptance.get("pass_gate_decision")
+        == "PERMIT_MERGED_OFFLINE_COUNTERFACTUAL_ONLY"
+        and acceptance.get("fail_gate_decision") == "STOP_AND_RESEARCH"
+    )
+
+
+def _counterfactual_bundle_shape_is_valid(
+    *,
+    prototype_manifest: Mapping[str, Any],
+    cases: Sequence[ContactPrototypeCase],
+) -> bool:
+    """Validate the immutable R97 bundle without assigning run authority."""
+
     scope = prototype_manifest.get("scope", {})
     identities = prototype_manifest.get("identities", {})
     records = prototype_manifest.get("cases", ())
     sources = identities.get("source_counterfactuals", ())
-    partial = profile.get("execution", {}).get("indexed_partial_reset", {})
-    acceptance = profile.get("bounded_acceptance", {})
     return (
         prototype_manifest.get("check")
         == "TRAIN-4-CONTACT-MANIFOLD-COUNTERFACTUAL-BUNDLE"
@@ -152,15 +190,57 @@ def counterfactual_probe_shape_is_valid(
         == ("contact-reserve", "emitted-acceleration")
         and tuple(source.get("r95_case_ordinal") for source in sources)
         == (2, 10)
+    )
+
+
+def native_dynamics_trace_probe_shape_is_valid(
+    *,
+    profile: Mapping[str, Any],
+    prototype_manifest: Mapping[str, Any],
+    cases: Sequence[ContactPrototypeCase],
+) -> bool:
+    """Validate one-case, fresh-only R98 instrumentation without authority."""
+
+    execution = profile.get("execution", {})
+    trace = execution.get("native_dynamics_trace", {})
+    partial = execution.get("indexed_partial_reset", {})
+    acceptance = profile.get("bounded_acceptance", {})
+    role = trace.get("comparison_role")
+    common = (
+        trace.get("enabled") is True
+        and trace.get("evidence_role") == "report-only"
+        and trace.get("physics_substeps_per_motor_tick") == 4
+        and trace.get("action_channel_scope") == "all-ordered-action-channels"
+        and trace.get("contact_pair_scope") == "all-frozen-contact-pairs"
         and partial.get("enabled") is False
         and partial.get("evidence_role") == "report-only"
         and acceptance.get("acceptance_authority") == "fresh-scene"
         and acceptance.get("evaluation_mode")
-        == "two-counterfactual-controls-must-pass"
-        and acceptance.get("pass_gate_decision")
-        == "PERMIT_MERGED_OFFLINE_COUNTERFACTUAL_ONLY"
+        == "report-only-native-dynamics-trace"
+        and acceptance.get("pass_gate_decision") == "STOP_AND_RESEARCH"
         and acceptance.get("fail_gate_decision") == "STOP_AND_RESEARCH"
     )
+    if role == "v9-baseline":
+        return (
+            common
+            and execution.get("worker_case_ordinals") == [10]
+            and _complete_clip_manifest_shape_is_valid(
+                prototype_manifest=prototype_manifest,
+                cases=cases,
+            )
+            and cases[10].source_case_ordinal == 7967
+        )
+    if role == "v11-emitted-acceleration":
+        return (
+            common
+            and execution.get("worker_case_ordinals") == [0, 1]
+            and _counterfactual_bundle_shape_is_valid(
+                prototype_manifest=prototype_manifest,
+                cases=cases,
+            )
+            and cases[1].source_case_ordinal == 7967
+        )
+    return False
 
 
 def load_contact_prototype_cases(

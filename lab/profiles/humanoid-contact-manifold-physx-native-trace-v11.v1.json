@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "probe_id": "nextengine.humanoid-contact-manifold-physx-probe.v12",
+  "status": "FrozenResearchOnly",
+  "source": {
+    "audit_sha256": "ded76473905f7f26e4db0dfaa236508f649d46a692ff28938203f92dcf1c9b61",
+    "contact_prototype_manifest_sha256": "02d502877e94e1d9d5402fd29fb624c6e5545e94d1fc141934d585abe558466d",
+    "contact_prototype_manifest_file_sha256": "69d5a29010754935fbdb8f221cf5e36000c2c4ff33ae35d1b690c07df958b58c",
+    "contact_prototype_profile_sha256": "c1103c3f2cc5bd06e4ab3724a28b79864cd136712ac99fdfe585e0c37d42c70a",
+    "corpus_manifest_sha256": "bd6164180a33585ed9231fd6a41cb3943b20e51da8b0e06ac0c978406e204456",
+    "corpus_manifest_file_sha256": "f4eab49ac48ba2b8bf741c03b7e6f50520e703fdc6c9cf72de9cd801dcc76d05",
+    "descriptor_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014",
+    "gate_report_sha256": "2fc1d6c3d312a1e88a3820bdd851fd0eecf3230795a1162b55f13dd65d45cdb6",
+    "reference_tracker_profile_sha256": "19a8e5266f12c5c1ae9e307bd0f2f1a76bb6ea23a6ae9912e1ccec401eeaf28c",
+    "usd_sha256": "951fc04bed0ff3e15414bfd06d067636ee8db18ef70e6e4a0ced28c624fcefa4"
+  },
+  "execution": {
+    "case_selection": "exact R97 contact control and V11 derivative case for R98 instrumentation non-regression and causal trace",
+    "worker_case_ordinals": [
+      0,
+      1
+    ],
+    "controller": "zero residual through the frozen reference tracker",
+    "horizon_motor_ticks": 11,
+    "vector_environment_count": 2,
+    "reference_overlay": {
+      "projected_values": "exact bounded prototype artifact on relative frames 0 through 11",
+      "outside_projected_window": "unchanged reference values from the hash-closed V18 source corpus",
+      "observation_horizon_offsets_motor_ticks": [
+        0,
+        4,
+        8,
+        16
+      ]
+    },
+    "fresh_scene": {
+      "method": "author root-link pose, root-link-derived center-of-mass world velocity and JointStateAPI position/velocity in a per-case USD layer before SimulationContext.reset; disable the already-authored ground collision only during two mandatory 1 ns Isaac initialization steps, re-enable it before contact-view creation, and restore 1/240 s before the episode",
+      "mandatory_initialization_physics_step_count": 2,
+      "initialization_physics_dt_seconds": 1E-9,
+      "episode_physics_dt_seconds": 0.004166666666666667,
+      "ground_collision_disabled_during_initialization": true,
+      "ground_collision_reenabled_before_contact_view": true,
+      "post_create_root_or_joint_state_writes": 0,
+      "target_vector_slot": "case ordinal",
+      "all_vector_slots_use_the_same_case": true
+    },
+    "native_dynamics_trace": {
+      "enabled": true,
+      "evidence_role": "report-only",
+      "comparison_role": "v11-emitted-acceleration",
+      "physics_substeps_per_motor_tick": 4,
+      "action_channel_scope": "all-ordered-action-channels",
+      "contact_pair_scope": "all-frozen-contact-pairs"
+    },
+    "indexed_partial_reset": {
+      "enabled": false,
+      "evidence_role": "report-only",
+      "reason": "R27 already disproved equivalence; R98 traces only ADR-070 fresh scenes"
+    },
+    "optimizer_steps": 0,
+    "training_runs": 0
+  },
+  "fresh_state_verification": {
+    "maximum_root_position_error_micrometres": 10,
+    "minimum_root_orientation_absolute_dot_q1_30": 1073741800,
+    "maximum_root_linear_velocity_error_micrometres_per_second": 10,
+    "maximum_root_angular_velocity_error_microradians_per_second": 10,
+    "maximum_joint_position_error_microradians": 10,
+    "maximum_joint_velocity_error_microradians_per_second": 10
+  },
+  "reset_comparison": {
+    "report_only_disposition": "Retain ADR-070 fresh-scene authority; R98 changes no reset semantics and runs no indexed partial reset"
+  },
+  "bounded_acceptance": {
+    "acceptance_authority": "fresh-scene",
+    "evaluation_mode": "report-only-native-dynamics-trace",
+    "pass_gate_decision": "STOP_AND_RESEARCH",
+    "fail_gate_decision": "STOP_AND_RESEARCH",
+    "result_if_completed": "record only the passing contact control and V11 physical-substep causal trace; never authorize a merge, all-17, V19, optimizer, TRAIN-4 Advance or downstream work"
+  }
+}
