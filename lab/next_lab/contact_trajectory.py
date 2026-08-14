@@ -20,6 +20,8 @@ from next_lab.contact_manifold import (
 )
 from next_lab.motion_math import (
     collider_minimum_y,
+    decode_q1_30,
+    quaternion_to_matrix,
     target_center_of_mass,
     target_effectors,
     target_forward_kinematics,
@@ -27,11 +29,35 @@ from next_lab.motion_math import (
 
 
 ALGORITHM_ID = "nextengine.dimensionless-contact-trajectory-qp.v8"
+STABLE_FOOT_BOX_ALGORITHM_ID = (
+    "nextengine.dimensionless-contact-trajectory-qp.v9"
+)
+SCALAR_COLLIDER_LINEARIZATION = "scalar-minimum.v1"
+STABLE_FOOT_BOX_COLLIDER_LINEARIZATION = (
+    "stable-contact-role-8-box-vertices.v1"
+)
+_ALGORITHM_LINEARIZATION = {
+    ALGORITHM_ID: SCALAR_COLLIDER_LINEARIZATION,
+    STABLE_FOOT_BOX_ALGORITHM_ID: STABLE_FOOT_BOX_COLLIDER_LINEARIZATION,
+}
 VELOCITY_SEMANTICS = (
     "forward on contact entry; backward on exit; centered otherwise; "
     "entry precedence"
 )
 _SIDES = ("left", "right")
+_BOX_VERTEX_SIGNS = np.asarray(
+    (
+        (-1.0, -1.0, -1.0),
+        (-1.0, -1.0, 1.0),
+        (-1.0, 1.0, -1.0),
+        (-1.0, 1.0, 1.0),
+        (1.0, -1.0, -1.0),
+        (1.0, -1.0, 1.0),
+        (1.0, 1.0, -1.0),
+        (1.0, 1.0, 1.0),
+    ),
+    dtype=np.float64,
+)
 
 
 @dataclass(frozen=True)
@@ -39,6 +65,7 @@ class CoupledTrajectoryClosure:
     """Hash-bound lab-only SQP closure for one complete reference clip."""
 
     algorithm_id: str
+    collider_linearization_policy: str
     numpy_version: str
     scipy_version: str
     osqp_version: str
@@ -94,7 +121,8 @@ class CoupledTrajectoryClosure:
             self.analytic_tangential_margin_micrometres_per_second,
         )
         if (
-            self.algorithm_id != ALGORITHM_ID
+            _ALGORITHM_LINEARIZATION.get(self.algorithm_id)
+            != self.collider_linearization_policy
             or versions != (np.__version__, scipy.__version__, osqp.__version__)
             or any(not value for value in versions)
             or isinstance(self.minimum_collider_height_micrometres, bool)
@@ -141,6 +169,80 @@ class CoupledTrajectoryClosure:
             >= 120_000
         ):
             raise ValueError("coupled-trajectory closure is invalid")
+
+
+def _collider_linearization_rows(
+    colliders: tuple[tuple[int, dict[str, Any]], ...],
+    policy: str,
+) -> tuple[tuple[int, dict[str, Any], NDArray[np.float64] | None], ...]:
+    """Build stable local floor samples while preserving V8 scalar rows."""
+
+    if policy not in _ALGORITHM_LINEARIZATION.values():
+        raise ValueError("unsupported collider linearization policy")
+    rows: list[tuple[int, dict[str, Any], NDArray[np.float64] | None]] = []
+    for slot, collider in colliders:
+        geometry = collider["geometry"]
+        use_stable_vertices = (
+            policy == STABLE_FOOT_BOX_COLLIDER_LINEARIZATION
+            and geometry["kind"] == "box"
+            and int(collider["contact_role"]) == 8
+        )
+        if not use_stable_vertices:
+            rows.append((slot, collider, None))
+            continue
+        local_rotation = quaternion_to_matrix(
+            decode_q1_30(collider["local_rotation_q1_30"])
+        )
+        local_center = (
+            np.asarray(
+                collider["local_translation_micrometres"], dtype=np.float64
+            )
+            / 1_000_000.0
+        )
+        half_extents = (
+            np.asarray(
+                geometry["half_extents_micrometres"], dtype=np.float64
+            )
+            / 1_000_000.0
+        )
+        for signs in _BOX_VERTEX_SIGNS:
+            rows.append(
+                (
+                    slot,
+                    collider,
+                    local_center + local_rotation @ (signs * half_extents),
+                )
+            )
+    return tuple(rows)
+
+
+def _collider_linearization_values(
+    positions: NDArray[np.float64],
+    rotations: NDArray[np.float64],
+    rows: tuple[
+        tuple[int, dict[str, Any], NDArray[np.float64] | None], ...
+    ],
+) -> NDArray[np.float64]:
+    """Evaluate scalar rows or stable body-local support vertices."""
+
+    return np.asarray(
+        [
+            (
+                collider_minimum_y(
+                    positions[slot], rotations[slot], collider
+                )
+                if local_point is None
+                else float(
+                    (
+                        positions[slot]
+                        + rotations[slot] @ local_point
+                    )[1]
+                )
+            )
+            for slot, collider, local_point in rows
+        ],
+        dtype=np.float64,
+    )
 
 
 def project_reference_coupled_trajectory(
@@ -226,7 +328,14 @@ def project_reference_coupled_trajectory(
         )
     )
     all_colliders, _ = contact_manifold._collider_inventory(descriptor)
-    collider_count = len(all_colliders)
+    collider_linearization_rows = _collider_linearization_rows(
+        all_colliders, closure.collider_linearization_policy
+    )
+    collider_count = len(collider_linearization_rows)
+    stable_vertex_row_count = sum(
+        local_point is not None
+        for _, _, local_point in collider_linearization_rows
+    )
     collider_floor = closure.minimum_collider_height_micrometres / 1_000_000.0
     collider_target = (
         closure.collider_target_margin_micrometres / 1_000_000.0
@@ -278,12 +387,8 @@ def project_reference_coupled_trajectory(
     def collider_values(
         positions: NDArray[np.float64], rotations: NDArray[np.float64]
     ) -> NDArray[np.float64]:
-        return np.asarray(
-            [
-                collider_minimum_y(positions[slot], rotations[slot], collider)
-                for slot, collider in all_colliders
-            ],
-            dtype=np.float64,
+        return _collider_linearization_values(
+            positions, rotations, collider_linearization_rows
         )
 
     def linearization() -> tuple[
@@ -587,6 +692,12 @@ def project_reference_coupled_trajectory(
             "outer_iterations_completed": len(history),
             "maximum_outer_iterations": closure.maximum_outer_iterations,
             "velocity_semantics": VELOCITY_SEMANTICS,
+            "collider_linearization_policy": (
+                closure.collider_linearization_policy
+            ),
+            "exact_collider_count": len(all_colliders),
+            "collider_linearization_row_count_per_frame": collider_count,
+            "stable_vertex_row_count_per_frame": stable_vertex_row_count,
             "constraint_categories": last_categories,
             "post_root_velocity_closure": False,
             "post_joint_velocity_projection": False,

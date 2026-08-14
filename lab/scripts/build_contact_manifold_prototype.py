@@ -949,6 +949,13 @@ def _validate_inputs(
         and isinstance(discriminator, dict)
         and discriminator.get("ordered_source_case_ordinals")
         == [3749, 3750, 3753, 7978, 8144]
+    ) or (
+        prototype_id == "nextengine.humanoid-contact-manifold-prototype.v9"
+        and isinstance(projection.get("trajectory_closure"), dict)
+        and "collider_closure" not in projection
+        and isinstance(discriminator, dict)
+        and discriminator.get("ordered_source_case_ordinals")
+        == [3749, 3750, 3753, 7978, 8144]
     )
     if (
         profile.get("schema_version") != 1
@@ -971,7 +978,10 @@ def _validate_inputs(
         or profile["acceptance"].get("optimizer_authorized") is not False
         or (
             prototype_id
-            == "nextengine.humanoid-contact-manifold-prototype.v8"
+            in {
+                "nextengine.humanoid-contact-manifold-prototype.v8",
+                "nextengine.humanoid-contact-manifold-prototype.v9",
+            }
             and profile["acceptance"].get(
                 "trajectory_constraint_solver_authorized"
             )
@@ -1260,10 +1270,29 @@ def _trajectory_closure(
             ("ankle-roll", [-87_266, 87_266]),
         )
     }
+    algorithm_id = (
+        document.get("algorithm_id") if isinstance(document, dict) else None
+    )
+    linearization_policy = (
+        document.get(
+            "collider_linearization_policy",
+            contact_trajectory.SCALAR_COLLIDER_LINEARIZATION,
+        )
+        if isinstance(document, dict)
+        else None
+    )
+    expected_linearization_policy = {
+        contact_trajectory.ALGORITHM_ID: (
+            contact_trajectory.SCALAR_COLLIDER_LINEARIZATION
+        ),
+        contact_trajectory.STABLE_FOOT_BOX_ALGORITHM_ID: (
+            contact_trajectory.STABLE_FOOT_BOX_COLLIDER_LINEARIZATION
+        ),
+    }.get(algorithm_id)
     if (
         not isinstance(document, dict)
-        or document.get("algorithm_id")
-        != contact_trajectory.ALGORITHM_ID
+        or expected_linearization_policy is None
+        or linearization_policy != expected_linearization_policy
         or {
             key: projection.get(key)
             for key in expected_projection_identity
@@ -1329,6 +1358,7 @@ def _trajectory_closure(
         raise ValueError("coupled-trajectory solver identity is invalid")
     closure = CoupledTrajectoryClosure(
         algorithm_id=document["algorithm_id"],
+        collider_linearization_policy=linearization_policy,
         numpy_version=versions["numpy"],
         scipy_version=versions["scipy"],
         osqp_version=versions["osqp"],
