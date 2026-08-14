@@ -178,10 +178,18 @@ def _probe_version_shape_is_valid(
             )
             == "fresh-and-indexed-partial"
         )
-    if probe_id == "nextengine.humanoid-contact-manifold-physx-probe.v2":
+    bounded_versions = {
+        "nextengine.humanoid-contact-manifold-physx-probe.v2": (
+            "nextengine.humanoid-contact-manifold-prototype.v2"
+        ),
+        "nextengine.humanoid-contact-manifold-physx-probe.v3": (
+            "nextengine.humanoid-contact-manifold-prototype.v3"
+        ),
+    }
+    if isinstance(probe_id, str) and probe_id in bounded_versions:
         return (
             prototype_manifest.get("prototype_id")
-            == "nextengine.humanoid-contact-manifold-prototype.v2"
+            == bounded_versions[probe_id]
             and prototype_manifest.get("scope", {}).get("case_scope")
             == "discriminator"
             and tuple(case.source_case_ordinal for case in cases)
