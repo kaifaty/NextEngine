@@ -22,7 +22,9 @@ from next_lab.contact_manifold_physx import (
     build_fresh_scene_usda,
     complete_clip_probe_shape_is_valid,
     compare_reset_paths,
+    counterfactual_probe_shape_is_valid,
     evaluate_bounded_acceptance,
+    evaluate_counterfactual_acceptance,
     load_case_arrays,
     load_contact_prototype_cases,
     minimum_normalized_quaternion_dot_q1_30,
@@ -251,6 +253,12 @@ def _probe_version_shape_is_valid(
             prototype_manifest=prototype_manifest,
             cases=cases,
         )
+    if probe_id == "nextengine.humanoid-contact-manifold-physx-probe.v11":
+        return counterfactual_probe_shape_is_valid(
+            profile=profile,
+            prototype_manifest=prototype_manifest,
+            cases=cases,
+        )
     bounded_versions = {
         "nextengine.humanoid-contact-manifold-physx-probe.v2": (
             "nextengine.humanoid-contact-manifold-prototype.v2"
@@ -409,7 +417,18 @@ def _run_driver(
             }
         )
         fresh_rows.append(report["phase_result"])
-    fresh_acceptance = evaluate_bounded_acceptance(cases=cases, rows=fresh_rows)
+    acceptance_profile = profile["bounded_acceptance"]
+    if (
+        acceptance_profile.get("evaluation_mode")
+        == "two-counterfactual-controls-must-pass"
+    ):
+        fresh_acceptance = evaluate_counterfactual_acceptance(
+            cases=cases, rows=fresh_rows
+        )
+    else:
+        fresh_acceptance = evaluate_bounded_acceptance(
+            cases=cases, rows=fresh_rows
+        )
     if partial_report is not None:
         partial_rows = partial_report["results"]["phase_results"]
         maximum_impulse_delta = int(
@@ -462,7 +481,6 @@ def _run_driver(
         architecture_decision = profile["reset_comparison"][
             "report_only_disposition"
         ]
-    acceptance_profile = profile["bounded_acceptance"]
     acceptance_authority = acceptance_profile.get(
         "acceptance_authority", "fresh-and-indexed-partial"
     )
@@ -521,6 +539,11 @@ def _run_driver(
             "full_v19_corpus_authorized": (
                 accepted
                 and gate_decision == "PERMIT_FULL_V19_DATA_BUILD_ONLY"
+            ),
+            "merged_offline_counterfactual_authorized": (
+                accepted
+                and gate_decision
+                == "PERMIT_MERGED_OFFLINE_COUNTERFACTUAL_ONLY"
             ),
             "fresh_scene": fresh_acceptance,
             "indexed_partial_reset": partial_acceptance,

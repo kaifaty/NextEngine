@@ -69,6 +69,7 @@ def build_counterfactual_bundle(
     artifact_directory.mkdir()
     case_records = []
     source_records = []
+    shared_identities: dict[str, str] | None = None
     for bundle_ordinal, (specification, manifest_path) in enumerate(
         zip(specifications, manifest_paths, strict=True)
     ):
@@ -107,6 +108,19 @@ def build_counterfactual_bundle(
                 f"counterfactual source {specification.get('role')} differs"
             )
         case = cases[0]
+        manifest_identities = manifest["identities"]
+        current_shared = {
+            key: str(manifest_identities[key])
+            for key in (
+                "corpus_manifest_sha256",
+                "corpus_manifest_file_sha256",
+                "descriptor_sha256",
+            )
+        }
+        if shared_identities is None:
+            shared_identities = current_shared
+        elif shared_identities != current_shared:
+            raise ValueError("counterfactual source identities disagree")
         payload = case.artifact_path.read_bytes()
         artifact_name = (
             f"{bundle_ordinal:02d}-{specification['role']}--"
@@ -162,6 +176,7 @@ def build_counterfactual_bundle(
         "identities": {
             "source_audit_sha256": sha256(source_audit_path),
             "prototype_profile_sha256": sha256(profile_path),
+            **(shared_identities or {}),
             "source_counterfactuals": source_records,
             "tool_sha256": sha256(tool_path),
             "bundle_module_sha256": sha256(Path(__file__).resolve()),

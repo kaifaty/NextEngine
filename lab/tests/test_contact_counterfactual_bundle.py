@@ -164,6 +164,9 @@ def _source_manifest(
         "identities": {
             "source_audit_sha256": sha256(source_audit_path),
             "prototype_profile_sha256": profile_hash,
+            "corpus_manifest_sha256": "a" * 64,
+            "corpus_manifest_file_sha256": "b" * 64,
+            "descriptor_sha256": "c" * 64,
         },
         "cases": [
             {

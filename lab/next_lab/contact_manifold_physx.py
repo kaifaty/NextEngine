@@ -108,6 +108,61 @@ def complete_clip_probe_shape_is_valid(
     )
 
 
+def counterfactual_probe_shape_is_valid(
+    *,
+    profile: Mapping[str, Any],
+    prototype_manifest: Mapping[str, Any],
+    cases: Sequence[ContactPrototypeCase],
+) -> bool:
+    """Validate the exact two independent R96 cases admitted to R97."""
+
+    scope = prototype_manifest.get("scope", {})
+    identities = prototype_manifest.get("identities", {})
+    records = prototype_manifest.get("cases", ())
+    sources = identities.get("source_counterfactuals", ())
+    partial = profile.get("execution", {}).get("indexed_partial_reset", {})
+    acceptance = profile.get("bounded_acceptance", {})
+    return (
+        prototype_manifest.get("check")
+        == "TRAIN-4-CONTACT-MANIFOLD-COUNTERFACTUAL-BUNDLE"
+        and prototype_manifest.get("prototype_id")
+        == "nextengine.humanoid-contact-counterfactual-bundle.v1"
+        and scope.get("case_scope") == "two-independent-counterfactuals"
+        and scope.get("case_count") == 2
+        and scope.get("failure_case_count") == 0
+        and scope.get("control_case_count") == 2
+        and scope.get("ordered_r95_case_ordinals") == [2, 10]
+        and scope.get("ordered_source_case_ordinals") == [25, 7967]
+        and tuple(case.source_case_ordinal for case in cases) == (25, 7967)
+        and all(
+            case.baseline_status == "PASS"
+            and not case.baseline_reasons
+            and not case.target_failure_categories
+            for case in cases
+        )
+        and tuple(record.get("counterfactual_role") for record in records)
+        == ("contact-reserve", "emitted-acceleration")
+        and tuple(record.get("r95_case_ordinal") for record in records)
+        == (2, 10)
+        and all(
+            record.get("exact_complete_clip_slice_status") == "PASS"
+            for record in records
+        )
+        and tuple(source.get("role") for source in sources)
+        == ("contact-reserve", "emitted-acceleration")
+        and tuple(source.get("r95_case_ordinal") for source in sources)
+        == (2, 10)
+        and partial.get("enabled") is False
+        and partial.get("evidence_role") == "report-only"
+        and acceptance.get("acceptance_authority") == "fresh-scene"
+        and acceptance.get("evaluation_mode")
+        == "two-counterfactual-controls-must-pass"
+        and acceptance.get("pass_gate_decision")
+        == "PERMIT_MERGED_OFFLINE_COUNTERFACTUAL_ONLY"
+        and acceptance.get("fail_gate_decision") == "STOP_AND_RESEARCH"
+    )
+
+
 def load_contact_prototype_cases(
     *,
     manifest_path: Path,
@@ -557,6 +612,42 @@ def evaluate_bounded_acceptance(
         "targeted_failure_category_source_counts": source_counts,
         "targeted_failure_category_result_counts": result_counts,
         "strict_decrease_by_targeted_failure_category": decreases,
+    }
+
+
+def evaluate_counterfactual_acceptance(
+    *,
+    cases: Sequence[ContactPrototypeCase],
+    rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Require both selected passing controls to remain exact-zero safe."""
+
+    if any(
+        case.baseline_status != "PASS"
+        or case.baseline_reasons
+        or case.target_failure_categories
+        for case in cases
+    ):
+        raise ValueError("counterfactual acceptance requires passing controls")
+    bounded = evaluate_bounded_acceptance(cases=cases, rows=rows)
+    accepted = bounded["status"] == "PASS"
+    return {
+        "status": bounded["status"],
+        "counterfactuals_supported": accepted,
+        "required_pass_case_count": len(cases),
+        "passed_case_count": sum(row["status"] == "PASS" for row in rows),
+        "passing_control_regression_count": bounded[
+            "passing_control_regression_count"
+        ],
+        "passing_control_regression_case_ordinals": bounded[
+            "passing_control_regression_case_ordinals"
+        ],
+        "new_required_safety_reason_count": bounded[
+            "new_required_safety_reason_count"
+        ],
+        "new_required_safety_reasons": bounded["new_required_safety_reasons"],
+        "full_v19_corpus_authorized": False,
+        "all_17_fresh_probe_authorized": False,
     }
 
 

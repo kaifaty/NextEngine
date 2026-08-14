@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -12,13 +13,87 @@ from next_lab.contact_manifold_physx import (
     build_fresh_scene_usda,
     complete_clip_probe_shape_is_valid,
     compare_reset_paths,
+    counterfactual_probe_shape_is_valid,
     evaluate_bounded_acceptance,
+    evaluate_counterfactual_acceptance,
     minimum_normalized_quaternion_dot_q1_30,
     overlay_bounded_reference_window,
 )
 
 
 class ContactManifoldPhysxTests(unittest.TestCase):
+    def test_counterfactual_probe_requires_exact_two_case_bundle(self) -> None:
+        cases = (
+            replace(_case(0, "PASS", (), ()), source_case_ordinal=25),
+            replace(_case(1, "PASS", (), ()), source_case_ordinal=7967),
+        )
+        profile = {
+            "execution": {
+                "indexed_partial_reset": {
+                    "enabled": False,
+                    "evidence_role": "report-only",
+                }
+            },
+            "bounded_acceptance": {
+                "acceptance_authority": "fresh-scene",
+                "evaluation_mode": "two-counterfactual-controls-must-pass",
+                "pass_gate_decision": (
+                    "PERMIT_MERGED_OFFLINE_COUNTERFACTUAL_ONLY"
+                ),
+                "fail_gate_decision": "STOP_AND_RESEARCH",
+            },
+        }
+        manifest = {
+            "check": "TRAIN-4-CONTACT-MANIFOLD-COUNTERFACTUAL-BUNDLE",
+            "prototype_id": (
+                "nextengine.humanoid-contact-counterfactual-bundle.v1"
+            ),
+            "scope": {
+                "case_scope": "two-independent-counterfactuals",
+                "case_count": 2,
+                "failure_case_count": 0,
+                "control_case_count": 2,
+                "ordered_r95_case_ordinals": [2, 10],
+                "ordered_source_case_ordinals": [25, 7967],
+            },
+            "identities": {
+                "source_counterfactuals": [
+                    {"role": "contact-reserve", "r95_case_ordinal": 2},
+                    {
+                        "role": "emitted-acceleration",
+                        "r95_case_ordinal": 10,
+                    },
+                ]
+            },
+            "cases": [
+                {
+                    "counterfactual_role": "contact-reserve",
+                    "r95_case_ordinal": 2,
+                    "exact_complete_clip_slice_status": "PASS",
+                },
+                {
+                    "counterfactual_role": "emitted-acceleration",
+                    "r95_case_ordinal": 10,
+                    "exact_complete_clip_slice_status": "PASS",
+                },
+            ],
+        }
+        self.assertTrue(
+            counterfactual_probe_shape_is_valid(
+                profile=profile,
+                prototype_manifest=manifest,
+                cases=cases,
+            )
+        )
+        manifest["scope"]["ordered_r95_case_ordinals"] = [10, 2]
+        self.assertFalse(
+            counterfactual_probe_shape_is_valid(
+                profile=profile,
+                prototype_manifest=manifest,
+                cases=cases,
+            )
+        )
+
     def test_complete_clip_probe_requires_exact_v9_offline_pass(self) -> None:
         cases = tuple(_case(ordinal, "PASS", (), ()) for ordinal in range(17))
         profile = {
@@ -209,6 +284,23 @@ class ContactManifoldPhysxTests(unittest.TestCase):
         rejected = evaluate_bounded_acceptance(cases=cases, rows=passing)
         self.assertFalse(rejected["accepted_for_full_v19_build"])
         self.assertEqual(rejected["passing_control_regression_count"], 1)
+
+    def test_counterfactual_acceptance_never_authorizes_all17(self) -> None:
+        cases = (
+            _case(0, "PASS", (), ()),
+            _case(1, "PASS", (), ()),
+        )
+        rows = [
+            _row(0, "PASS", (), 11, (0,)),
+            _row(1, "PASS", (), 11, (0,)),
+        ]
+        accepted = evaluate_counterfactual_acceptance(cases=cases, rows=rows)
+        self.assertEqual(accepted["status"], "PASS")
+        self.assertTrue(accepted["counterfactuals_supported"])
+        self.assertFalse(accepted["all_17_fresh_probe_authorized"])
+        rows[1] = _row(1, "FAIL", ("hard_rom",), 10, (0,))
+        rejected = evaluate_counterfactual_acceptance(cases=cases, rows=rows)
+        self.assertEqual(rejected["status"], "FAIL")
 
 
 def _arrays() -> dict[str, np.ndarray]:
