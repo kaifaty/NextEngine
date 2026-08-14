@@ -56,6 +56,58 @@ class AuthoredRootState:
     angular_velocity_local_degrees_s: NDArray[np.float64]
 
 
+def complete_clip_probe_shape_is_valid(
+    *,
+    profile: Mapping[str, Any],
+    prototype_manifest: Mapping[str, Any],
+    cases: Sequence[ContactPrototypeCase],
+) -> bool:
+    """Validate the V9 complete-clip evidence required by the fresh probe."""
+
+    scope = prototype_manifest.get("scope", {})
+    complete_clips = prototype_manifest.get("complete_clips", ())
+    case_records = prototype_manifest.get("cases", ())
+    exact_slice_identity = prototype_manifest.get("exact_slice_identity", {})
+    trajectory_closure = scope.get("projection", {}).get(
+        "trajectory_closure", {}
+    )
+    partial = profile.get("execution", {}).get("indexed_partial_reset", {})
+    acceptance = profile.get("bounded_acceptance", {})
+    return (
+        prototype_manifest.get("prototype_id")
+        == "nextengine.humanoid-contact-manifold-prototype.v9"
+        and scope.get("case_scope") == "all"
+        and len(cases) == 17
+        and len(case_records) == len(cases)
+        and scope.get("failure_case_count") == 7
+        and scope.get("control_case_count") == 10
+        and trajectory_closure.get("algorithm_id")
+        == "nextengine.dimensionless-contact-trajectory-qp.v9"
+        and len(complete_clips) == 3
+        and all(
+            clip.get("solve_count") == 1
+            and clip.get("projection_diagnostics", {}).get("status") == "PASS"
+            and clip.get("projection_diagnostics", {}).get(
+                "contact_point_deletion_count"
+            )
+            == 0
+            for clip in complete_clips
+        )
+        and all(
+            case.get("exact_complete_clip_slice_status") == "PASS"
+            for case in case_records
+        )
+        and exact_slice_identity.get("status") == "PASS"
+        and exact_slice_identity.get("disagreement_count") == 0
+        and partial.get("enabled") is False
+        and partial.get("evidence_role") == "report-only"
+        and acceptance.get("acceptance_authority") == "fresh-scene"
+        and acceptance.get("pass_gate_decision")
+        == "PERMIT_FULL_V19_DATA_BUILD_ONLY"
+        and acceptance.get("fail_gate_decision") == "STOP_AND_RESEARCH"
+    )
+
+
 def load_contact_prototype_cases(
     *,
     manifest_path: Path,

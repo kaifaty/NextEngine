@@ -20,6 +20,7 @@ from next_lab.contact_manifold_physx import (
     ContactPrototypeCase,
     authored_root_state,
     build_fresh_scene_usda,
+    complete_clip_probe_shape_is_valid,
     compare_reset_paths,
     evaluate_bounded_acceptance,
     load_case_arrays,
@@ -243,6 +244,12 @@ def _probe_version_shape_is_valid(
             and acceptance.get("pass_gate_decision")
             == "PERMIT_CLIP_GLOBAL_PROTOTYPE_ONLY"
             and acceptance.get("fail_gate_decision") == "STOP_AND_RESEARCH"
+        )
+    if probe_id == "nextengine.humanoid-contact-manifold-physx-probe.v10":
+        return complete_clip_probe_shape_is_valid(
+            profile=profile,
+            prototype_manifest=prototype_manifest,
+            cases=cases,
         )
     bounded_versions = {
         "nextengine.humanoid-contact-manifold-physx-probe.v2": (

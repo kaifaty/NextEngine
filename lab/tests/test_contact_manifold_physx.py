@@ -10,6 +10,7 @@ from next_lab.contact_manifold_physx import (
     ContactPrototypeCase,
     authored_root_state,
     build_fresh_scene_usda,
+    complete_clip_probe_shape_is_valid,
     compare_reset_paths,
     evaluate_bounded_acceptance,
     minimum_normalized_quaternion_dot_q1_30,
@@ -18,6 +19,73 @@ from next_lab.contact_manifold_physx import (
 
 
 class ContactManifoldPhysxTests(unittest.TestCase):
+    def test_complete_clip_probe_requires_exact_v9_offline_pass(self) -> None:
+        cases = tuple(_case(ordinal, "PASS", (), ()) for ordinal in range(17))
+        profile = {
+            "execution": {
+                "indexed_partial_reset": {
+                    "enabled": False,
+                    "evidence_role": "report-only",
+                }
+            },
+            "bounded_acceptance": {
+                "acceptance_authority": "fresh-scene",
+                "pass_gate_decision": "PERMIT_FULL_V19_DATA_BUILD_ONLY",
+                "fail_gate_decision": "STOP_AND_RESEARCH",
+            },
+        }
+        manifest = {
+            "prototype_id": "nextengine.humanoid-contact-manifold-prototype.v9",
+            "scope": {
+                "case_scope": "all",
+                "failure_case_count": 7,
+                "control_case_count": 10,
+                "projection": {
+                    "trajectory_closure": {
+                        "algorithm_id": (
+                            "nextengine.dimensionless-contact-trajectory-qp.v9"
+                        )
+                    }
+                },
+            },
+            "complete_clips": [
+                {
+                    "solve_count": 1,
+                    "projection_diagnostics": {
+                        "status": "PASS",
+                        "contact_point_deletion_count": 0,
+                    },
+                }
+                for _ in range(3)
+            ],
+            "cases": [
+                {"exact_complete_clip_slice_status": "PASS"}
+                for _ in range(17)
+            ],
+            "exact_slice_identity": {
+                "status": "PASS",
+                "disagreement_count": 0,
+            },
+        }
+
+        self.assertTrue(
+            complete_clip_probe_shape_is_valid(
+                profile=profile,
+                prototype_manifest=manifest,
+                cases=cases,
+            )
+        )
+        manifest["complete_clips"][2]["projection_diagnostics"][
+            "contact_point_deletion_count"
+        ] = 1
+        self.assertFalse(
+            complete_clip_probe_shape_is_valid(
+                profile=profile,
+                prototype_manifest=manifest,
+                cases=cases,
+            )
+        )
+
     def test_quaternion_dot_normalizes_physx_float_scale(self) -> None:
         expected = np.asarray(((1.0, 0.0, 0.0, 0.0),), dtype=np.float64)
         actual = np.asarray(((0.9999999, 0.0, 0.0, 0.0),), dtype=np.float32)
