@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "formulation_id": "nextengine.humanoid-contact-target-knot-formulation.v1",
+  "status": "FrozenResearchOnly",
+  "claim": "OptimizerFreeReferenceTargetKnotFormulationOnly",
+  "source": {
+    "audit_sha256": "ded76473905f7f26e4db0dfaa236508f649d46a692ff28938203f92dcf1c9b61",
+    "r102": {
+      "audit_id": "nextengine.humanoid-contact-native-rollout-audit.v1",
+      "report_sha256": "b881f8a7a70542f07c045e2451458a427a38067078520a07dc02dac4034546f6",
+      "report_file_sha256": "ef5f95eafe18f513abfa90803bc7ff67e8db756f327bd2b4d27f27c320b8ebee"
+    },
+    "v7": {
+      "prototype_id": "nextengine.humanoid-contact-manifold-prototype.v7",
+      "manifest_sha256": "1e56a2d3d14c8d3a8291639da49d4fda46263aa37c1d6682205343d4043202bb",
+      "manifest_file_sha256": "70642cfa4c33e8d089fc5252b49fd040ae0ea6545a18649a5043128bfde8e187",
+      "prototype_profile_sha256": "63eea8c54f8b31c0f82888382a30090c341e8d296026a45ef577835700cea1b8",
+      "case_artifact_sha256": "dac5066102b017c24213e0f5bd21a917416ebf6b74b8a4018586106f27e0d855"
+    },
+    "v9": {
+      "prototype_id": "nextengine.humanoid-contact-manifold-prototype.v9",
+      "manifest_sha256": "7ee041b7710302b9fae909b0cb34c0de3a6c2df257032cd0e1c7dcaf16afefeb",
+      "manifest_file_sha256": "53984129cc45d295ced9ef4f49ea8532d0b224c3ccc19980e8b986cee7604d70",
+      "prototype_profile_sha256": "bccf5eb12c8de2e1c0fa20df74c55f30cc9e964e7d5cbfcbf596bb6d672815ab",
+      "case_artifact_sha256": "213d7f11074932f046bab835b5901f5928d851b31dc53e1ac154dc0d95d39af1",
+      "complete_clip_artifact_sha256": "16cacfc0d6a5a57a7e2e2fad75faef1681e9b17c02cd3b78bafc7bb4ed3b5b7d"
+    }
+  },
+  "scope": {
+    "case_count": 1,
+    "clip_id": "cmu16-walk-nominal-b",
+    "source_case_ordinal": 7967,
+    "frame_first": 238,
+    "frame_last": 249,
+    "case_frame_count": 12,
+    "complete_clip_frame_count": 801
+  },
+  "reference_semantics": {
+    "candidate_target_equals_reference_joint_position": true,
+    "separate_control_target_array_allowed": false,
+    "realized_rollout_state_can_replace_reference": false,
+    "zero_residual_replay_required": true,
+    "frame_0_state_mutable": false,
+    "frame_0_and_1_target_prefix_immutable": true,
+    "controller_semantics_mutable": false,
+    "safety_limits_mutable": false,
+    "reset_semantics_mutable": false,
+    "contact_modes_mutable": false,
+    "root_trajectory_mutable": false,
+    "source_contact_point_deletion_allowed": false
+  },
+  "formulation": {
+    "array": "joint_position_urad",
+    "parameterization": "scalar convex V9-to-V7 whole-action anchor coefficient at three future time knots",
+    "action_channel_scope": "all-ordered-action-channels",
+    "action_channel_ids": [
+      "actuator.left-ankle-pitch",
+      "actuator.left-ankle-roll",
+      "actuator.left-elbow",
+      "actuator.left-hip-pitch",
+      "actuator.left-hip-roll",
+      "actuator.left-hip-yaw",
+      "actuator.left-knee",
+      "actuator.left-shoulder-pitch",
+      "actuator.left-shoulder-roll",
+      "actuator.left-shoulder-yaw",
+      "actuator.right-ankle-pitch",
+      "actuator.right-ankle-roll",
+      "actuator.right-elbow",
+      "actuator.right-hip-pitch",
+      "actuator.right-hip-roll",
+      "actuator.right-hip-yaw",
+      "actuator.right-knee",
+      "actuator.right-shoulder-pitch",
+      "actuator.right-shoulder-roll",
+      "actuator.right-shoulder-yaw",
+      "actuator.torso-pitch",
+      "actuator.torso-roll",
+      "actuator.torso-yaw"
+    ],
+    "immutable_frame_offsets": [0, 1],
+    "knot_frame_offsets": [2, 6, 11],
+    "coefficient_scale_basis_points": 10000,
+    "coefficient_grid_basis_points": [0, 5000, 10000],
+    "coefficient_meaning": "0 is exact V9 target; 10000 is exact V7 target at the same frame; no extrapolation",
+    "interpolation": "piecewise-linear coefficient with integer ties-to-even rounding",
+    "target_rounding": "integer microradians with ties-to-even rounding",
+    "spatial_dimension": 1,
+    "temporal_decision_variable_count": 3,
+    "full_unconstrained_target_variable_count": 253,
+    "maximum_absolute_anchor_correction_microradians": 48714
+  },
+  "expected_anchor": {
+    "v7_target_sha256": "390e55b9faabef3ab60fddde7780c924b5d75401ab7fe89ff0763adc3945be6e",
+    "v9_target_sha256": "a5c1d735d1c53794587fe9bce5c1ba54b5bbc71a926ee8f4bc14ed38f5aa5523",
+    "full_delta_sha256": "f65fa0043a084555188955e2d8155bdcf9432893d0ee71911b227ab43d213f77",
+    "mutable_delta_sha256": "60895aaf6126ce06704f15865eaf2854146a58ced59aa2cd2440519e89411ca4",
+    "full_changed_element_count": 61,
+    "mutable_changed_element_count": 50,
+    "mutable_support_action_ordinals": [6, 7, 9, 10, 11],
+    "maximum_absolute_mutable_delta_microradians": 48714
+  },
+  "offline_preflight": {
+    "next_run_id": "R104",
+    "status": "AUTHORIZED_AFTER_CLEAN_R103_REPORT",
+    "candidate_lattice_count": 27,
+    "candidate_artifact_scope": "complete cmu16-walk-nominal-b clip; selected case is an exact slice and is never edited independently",
+    "edit_scope": "joint_position_urad at complete-clip source frames 240 through 249 only",
+    "required_recomputation": [
+      "joint_velocity_urad_s from the frozen hybrid stencil",
+      "forward kinematics and effector_position_um",
+      "center_of_mass_um",
+      "complete-clip and exact-slice projection diagnostics"
+    ],
+    "required_exact_checks": [
+      "frame-0 root/joint position and velocity remain exact V9",
+      "all arrays outside declared dependent recomputation remain byte-exact V9",
+      "source contact modes and every source contact point remain frozen",
+      "contact residual and finite/analytic contact velocity bounds",
+      "all collider samples and stable foot-box vertices",
+      "hard/soft ROM and root/joint velocity bounds",
+      "complete-clip to selected-slice byte identity"
+    ],
+    "candidate_pass_rule": "all frozen exact-quantized V9 bounds pass with zero deleted contact points",
+    "candidate_fail_rule": "reject the candidate before PhysX; no repair, projection post-pass or limit change",
+    "physx_runs": 0,
+    "optimizer_steps": 0,
+    "training_runs": 0
+  },
+  "conditional_native_evaluation": {
+    "status": "NOT_AUTHORIZED_UNTIL_R104_CLOSES",
+    "future_run_id": "R105",
+    "plant": "unchanged zero-residual fixed PD, target/effort clamp and slew, fresh-scene PhysX",
+    "stage_1": {
+      "last_frame_offset": 6,
+      "prefix_candidate_count": 9,
+      "mandatory_control_prefix": [0, 0],
+      "maximum_retained_prefix_count": 4
+    },
+    "stage_2": {
+      "last_frame_offset": 11,
+      "extension_count_per_retained_prefix": 3,
+      "maximum_candidate_count": 12
+    },
+    "maximum_fresh_scene_candidate_evaluations": 21,
+    "fresh_scene_required_per_candidate": true,
+    "physical_substep_trace_required": true,
+    "required_safety_priority": "LEXICOGRAPHIC_REJECT_BEFORE_TRACKING",
+    "eligible_candidate_order": [
+      "zero required-safety events",
+      "minimum maximum required-safety utilization in basis points",
+      "minimum sum-squared all-action target tracking error",
+      "minimum sum-squared target correction",
+      "candidate ID"
+    ],
+    "failure_disposition": "reject this anchor family; do not refine the grid or expand variables without a new research decision",
+    "pass_disposition": "permit only a separately profiled bounded control-matrix discriminator; never all-17, V19 or training"
+  },
+  "decision": {
+    "complete": "PERMIT_R104_OFFLINE_LATTICE_PREFLIGHT_ONLY",
+    "offline_candidate_preflight": "AUTHORIZED",
+    "candidate_search": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
