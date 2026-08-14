@@ -12,17 +12,17 @@
 ## Resume in 60 seconds
 
 - **Current conclusion:** Clean R73 passes complete `cmu05`/`cmu16` but V8
-  fails raw-mask `cmu139`. R80 removes oscillation then stalls; R81 crosses
-  that plateau but trades worst violation `3.7554 -> 5.9160` for lower total.
-- **Why:** A max-first merit is too strict, while a worst/total feasibility
-  filter is too permissive. CRISP/SQP research now points to correction of the
-  nonlinear trial error rather than another scalar acceptance rule.
-- **Next action:** Build R82 exact-row second-order restoration: one bounded
-  correction QP after a rejected primary step, followed by unchanged integer-FK
-  exact audit. No Hessian, physical tolerance or final slack change.
-- **Current blocker:** The hard local QP predicts feasible corrections, but a
-  blindly applied nonlinear step can worsen neighbouring contact boundaries;
-  model and integer-FK merit are not yet the same functional.
+  fails raw-mask `cmu139`. R82 routes the useful third step into exact-row SOC,
+  whose hard `58488`-row correction is itself `primal infeasible`.
+- **Why:** The old Jacobian cannot satisfy the full trial-state row set inside
+  correction trust. The missing mechanism is iteration-local phase-I slack,
+  not another physical tolerance, stencil or acceptance scalar.
+- **Next action:** Build R83 minimax nonlinear restoration: minimize normalized
+  contact/collider slack, keep linear/trust rows hard, then apply the unchanged
+  integer-FK exact audit. No Hessian, physical or final slack change.
+- **Current blocker:** Hard SOC exposes artificial infeasibility before an
+  exact corrected state exists; restoration must separate local model error
+  from the final zero-violation feasibility decision.
 - **Do not retry:** Do not start PPO, build another broad whole-corpus
   ankle/retarget identity, zero reference velocities, add grace/settling, or
   loosen safety limits. The causal matrix rejects these as fixes.
@@ -45,7 +45,7 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R77–R81 globalization research | Max-first R80 stalls; R81 filter crosses it but lets worst violation regress `3.7554 -> 5.9160`; R81 emitted no report and is non-promotable | Build exact-row second-order restoration; stop scalar/filter tuning |
+| R77–R82 globalization research | R80 stalls; R81 is over-permissive; R82 hard SOC is `primal infeasible` after `16925` iterations, before exact correction audit | Add only iteration-local minimax nonlinear restoration; keep final exact-zero gate |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
@@ -181,16 +181,16 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether a bounded correction using the shared exact row
-  identity can repair contact curvature without another costly dense encoding.
-- **Reconsider when:** R82 either closes `cmu139` or rejects restoration.
+- **Uncertainty:** Whether a sparse phase-I slack can repair contact curvature
+  without recreating the costly dense R77/R78 encodings.
+- **Reconsider when:** R83 either produces an exact improving correction or rejects normalized nonlinear restoration.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H7: exact feasibility filtering closes `cmu139` | R81 crosses the R80 max-first plateau | Worst violation regresses near its source value; no report/candidate was emitted | Reject this filter identity; retain only its causal observation |
-| H8: second-order correction/restoration closes `cmu139` | R80 curvature plateau and R81 trade-off match Maratos-style rejection | Not yet tested against the emitted integer-FK per-row error | R82 bounded correction QP after rejected primary step |
+| H8: hard second-order correction closes `cmu139` | R80 curvature plateau and R81 trade-off match Maratos-style rejection | R82 correction is `primal infeasible`; no corrected state reaches exact audit | Reject hard all-row SOC; retain the nonlinear-error diagnosis |
+| H9: phase-I nonlinear restoration closes `cmu139` | R82 localizes failure to incompatible trial bounds under the old Jacobian | Not yet tested with max-normalized iteration-only slack and hard linear rows | R83 lexicographic minimax restoration after the same rejected step |
 
 ## Required context
 
@@ -218,8 +218,8 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73, R74–R80 reports and non-promotable R81 observation.
-2. Build and run only R82 exact-row restoration on raw `cmu139`.
+1. Freeze clean R73, R74–R80, R82 reports and non-promotable R81 observation.
+2. Build and run only R83 phase-I nonlinear restoration on raw `cmu139`.
 3. On PASS, implement one identity and rerun clean all-three/all-17 offline.
 4. Only after offline PASS, run fresh all-17; keep later gates blocked.
 
@@ -240,10 +240,10 @@ semantics.
 ## Handoff
 
 - **Workspace state:** V8 is committed at `f86df01`; tracked research records
-  R73–R81. Generated reports remain external and non-admissible.
+  R73–R82. Generated reports remain external and non-admissible.
 - **Checks:** V8 focused `15/15`, full lab `165/165` and host-check passed;
   clean R73 passes `cmu05`/`cmu16`; optimizer and training remain zero.
-- **Remaining risk:** R82/`cmu139`, unchanged all-three/all-17, fresh safety,
+- **Remaining risk:** R83/`cmu139`, unchanged all-three/all-17, fresh safety,
   full-corpus exact-zero coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
