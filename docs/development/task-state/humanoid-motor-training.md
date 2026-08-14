@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R97_FAIL / R98_NATIVE_TRACE_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R98_TRACE_COMPLETE / R99_V7_CONTROL_NEXT` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,18 +11,18 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R97 passes contact case `2` but fails derivative case
-  `10` on a new left-ankle-roll velocity event at tick `9`.
-- **Why:** Contact reserve lowers peak impulse `6440089 -> 4466405 µN·s`;
-  V11 lowers offline acceleration/jerk but transfers the native failure.
-- **Next action:** Add report-only R98 physical-substep tracing for exact V9/V11
-  case `10`, with the passing contact case as instrumentation control.
-- **Current blocker:** Motor-frame diagnostics cannot order contact transfer,
-  effort limiting and the `775377 µrad/s` ankle-roll velocity excess.
+- **Current conclusion:** R98 localizes opposite left-ankle-roll phase near the
+  frozen inner velocity guard before contact; touchdown exposes the failure.
+- **Why:** V9/V11 reach `+7199121/-7198550 µrad/s` before left-foot contact;
+  V11 then reverses to `-8775377 µrad/s` immediately after touchdown.
+- **Next action:** Trace exact passing V7/R49 case `10` with unchanged R98
+  instrumentation, then derive one observed native-stability/locality anchor.
+- **Current blocker:** Both traced variants fail; no matched same-case passing
+  trace yet identifies the safe pre-contact phase and effort-slew margin.
 - **Do not retry:** Do not start PPO, build another broad whole-corpus
   ankle/retarget identity, zero reference velocities, add grace/settling, or
   loosen safety limits. The causal matrix rejects these as fixes.
-- **Reconsider when:** R98 identifies causal order and a new bounded candidate
+- **Reconsider when:** R99 identifies a passing margin and one bounded candidate
   passes every selected fresh control before another all-17 run.
 
 All TRAIN-5 checkpoints remain rejected. No optimizer run, multi-seed run,
@@ -41,10 +41,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R92–R97 native research | R94 fresh `FAIL 7/17`; R97 contact passes but derivative case fails tick `9` with new velocity reason | Retain bounded contact evidence; trace native substeps before another construction; training blocked |
+| R92–R98 native research | R98 reproduces R94/R97 and finds pre-contact phase divergence near the inner `7.2 rad/s` guard | Trace exact passing V7 control before choosing one bounded construction; training blocked |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R94/R95/R97 file SHA-256: `4aab74888d50fae2ab644445597d3f7f7a64217f078ceca4b4f8045ed34f0929` / `8287e3ef751d22a46cc312d1dc7a79f3245302a2fa4d3da965cd7e5efd652f76` / `6b7ac6a1f2dad49f2c85ebbe5139859ab855549c905e86af2bdfcce4b6b0ac62`.
+R94/R97/R98-V9/R98-V11 file SHA-256: `4aab74888d50fae2ab644445597d3f7f7a64217f078ceca4b4f8045ed34f0929` / `6b7ac6a1f2dad49f2c85ebbe5139859ab855549c905e86af2bdfcce4b6b0ac62` / `fd6deb633a5b53c4a00b5de6943a5ce12ae59d4b0a232629586807107ef8d77b` / `5143a7ef5bb068c97594926d226460b657c87c6ba7f9b94a123b0f03c79e31cb`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -178,18 +178,18 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Which physical substep transfers V11's reduced hip-pitch
-  acceleration into left ankle-roll velocity; case `2` passes only bounded R97.
-- **Reconsider when:** R98 orders contact, effort and velocity causally and a
-  bounded counterfactual passes without changing frozen bounds.
+- **Uncertainty:** Which V7 pre-contact state/guard/effort-slew margin makes
+  exact case `10` pass while V9 and V11 fail; case `2` passes only bounded R97.
+- **Reconsider when:** R99 supplies the matched passing trace and a bounded
+  counterfactual passes without changing frozen bounds.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | V11 lowers acceleration/jerk; old tick-10 event is not reached | Earlier new velocity event prevents closure claim | R98 V9↔V11 substep trace |
+| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R98 shows repeated inner-guard use and large requested/applied effort gap | Passing margin is not yet identified | R99 V7↔V9↔V11 comparison |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
-| H24/H26: nonlocal coupling is hidden between motor samples | Failure moves across legs/channels with modes unchanged | Exact causal substep is unknown | R98 targets/effort/contact trace |
+| H24/H26: nonlocal coupling is hidden between motor samples | R98 proves opposite pre-contact phase by tick `3` and localizes post-contact reversal | V7 passing phase is untraced | R99 matched V7 trace |
 | H25: reset mismatch causes R94 | Earlier reset concerns | R94 state is exact within quantization | Falsified; do not retry |
 
 ## Required context
@@ -218,10 +218,10 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73–R97 and all rejected derivative observations.
+1. Freeze clean R73–R98 and all rejected derivative observations.
 2. Retain contact case `2` only as bounded H23 evidence, not a merged candidate.
-3. Implement and run hash-closed R98 V9↔V11 physical-substep tracing.
-4. Select one causal counterfactual from R98; keep training blocked.
+3. Implement and run hash-closed R99 exact V7 passing-control tracing.
+4. Select one causal counterfactual from R98↔R99; keep training blocked.
 
 ## Do not retry
 
@@ -239,9 +239,9 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R97 code/profile lineage is committed; tracked research
-  now records R73–R97. Generated artifacts remain external and hash-bound.
-- **Checks:** Full lab `176/176`; R97 fresh `FAIL 1/2`, partial reset `NOT_RUN`;
+- **Workspace state:** R98 code/profile lineage is committed; tracked research
+  now records R73–R98. Generated artifacts remain external and hash-bound.
+- **Checks:** Full lab `177/177`; R98 traces complete, partial reset `NOT_RUN`;
   optimizer steps and training runs remain zero.
 - **Remaining risk:** Dynamic-reference feasibility, full-corpus exact-zero
   coverage and visual review remain open.

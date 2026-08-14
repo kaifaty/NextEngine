@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 fails `7/17`, including four control regressions, despite quantization-exact initial state. R95 selects contact-gap ordinal `2` and derivative-spike ordinal `10`. R96 direct emitted acceleration qualifies offline, and R97 then passes contact case `2` but fails derivative case `10` at tick `9` with a new left-ankle-roll velocity reason. `STOP_AND_RESEARCH` is retained; R98 report-only physical-substep tracing is next. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 fails `7/17`, including four control regressions, despite quantization-exact initial state. R95 selects contact-gap ordinal `2` and derivative-spike ordinal `10`. R96 direct emitted acceleration qualifies offline, and R97 then passes contact case `2` but fails derivative case `10` at tick `9` with a new left-ankle-roll velocity reason. R98 reproduces the outcomes with complete physical-substep traces and shows that left-ankle-roll phase divergence reaches the inner `7.2 rad/s` guard before touchdown; contact is not the first cause. `STOP_AND_RESEARCH` is retained; R99 matched tracing of the same-case passing V7 control is next. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1788,8 +1788,13 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   and qualifies offline. R97 passes contact case `2` for all `11` ticks with
   peak impulse `4466405 µN·s`, but case `10` terminates at tick `9` on a new
   left-ankle-roll velocity excess `775377 µrad/s`. The merged direction is
-  rejected; R98 next records per-physics-substep state, targets, requested/
-  published effort and contact impulses before any new construction or all-17.
+  rejected. R98 reproduces the exact failures with complete physical-substep
+  traces and finds opposite left-ankle-roll phase near the frozen inner
+  `7.2 rad/s` guard by tick `3`, before either left-foot contact. At V11
+  touchdown the feasible effort-slew phase still opposes the requested effort;
+  the next substep reverses velocity past the unchanged outer limit. Contact is
+  therefore an exposing transition, not the first cause. R99 next traces the
+  exact same-case passing V7/R49 control before any new construction or all-17.
 These results still cannot authorize full V19 or learned optimization.
 
 Roadmap status changes only after material implementation/check results. This

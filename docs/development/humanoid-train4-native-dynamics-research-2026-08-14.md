@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R97_FAIL_1_OF_2 / R98_NATIVE_TRACE_NEXT` |
+| Status | `R98_TRACE_COMPLETE / R99_MATCHED_V7_CONTROL_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -28,6 +28,8 @@ bounded research before another solver change or expensive native run.
 | R95 V7↔V9 differential audit | canonical/file SHA-256 `ec453b347e9323819ba706daa40949a91924e7a359c9225ab7ce031dcf60bd6f` / `8287e3ef751d22a46cc312d1dc7a79f3245302a2fa4d3da965cd7e5efd652f76` | `COMPLETE`; selects ordinals `2` and `10` for at most two fresh counterfactuals |
 | R96 direct emitted-acceleration candidate | canonical/file SHA-256 `94981a8b14b48c6ad01c331676fee8a4a24e9aa764a1cbdf13c090d524aaa2ae` / `d4fe0ac9aec9ba56b7ffed6ac097ba205f1ee8afb3c38eb7570ec7034189d46c` | Offline `PASS`; case `10` acceleration `-42.70%`, jerk `-54.67%`, modes and unselected channels byte-identical |
 | R97 two-case fresh discriminator | canonical/file SHA-256 `63d1331529905bd25354884331973bfed4578eb061283c40f7639b31a2f4bfcd` / `6b7ac6a1f2dad49f2c85ebbe5139859ab855549c905e86af2bdfcce4b6b0ac62` | `FAIL 1/2`; contact case passes, derivative case regresses to a new joint-velocity reason; `gate_decision=STOP_AND_RESEARCH` |
+| R98 V9 native trace | canonical/file SHA-256 `b8e367e873d0384f4a849d25a338751e0a9c56aa7c4143923c1446b63b016372` / `fd6deb633a5b53c4a00b5de6943a5ce12ae59d4b0a232629586807107ef8d77b` | `COMPLETE`, exact R94 outcome reproduced, `40/40` physical substeps captured, trace SHA-256 `b032098868b6bf732155cf8211b4070704363e1f85f070294cb510d116240bcd` |
+| R98 V11/control native trace | canonical/file SHA-256 `06727950f3c2b8b6344b1bf15c2c975d52e9d7630a0edcd9503993dfb9f87910` / `5143a7ef5bb068c97594926d226460b657c87c6ba7f9b94a123b0f03c79e31cb` | `COMPLETE`, exact R97 PASS/FAIL reproduced, `44/44 + 36/36` substeps captured; no acceptance authority |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -103,20 +105,31 @@ problem rather than another purely geometric tolerance problem:
 - [DeepMimic](https://arxiv.org/abs/1804.02717) is evidence that a learned
   physics controller can correct example motion, but it is not authority to
   bypass TRAIN-4 or start PPO while the reference gate is open.
+- Isaac Lab `2.3.2` distinguishes applied actuator effort from computed effort
+  after clipping in its [actuator model](https://isaac-sim.github.io/IsaacLab/v2.3.2/_modules/isaaclab/actuators/actuator_base.html),
+  while PhysX documents that
+  [`maxJointVelocity`](https://nvidia-omniverse.github.io/PhysX/physx/5.1.2/_build/physx/latest/class_px_articulation_joint_reduced_coordinate.html)
+  is enforced with joint-space solver impulses. R98 therefore treats the
+  frozen `9000 bp` inner guard as part of the hybrid plant, not as proof that
+  the outer velocity terminal cannot be crossed.
+- [Trajectory Optimization under Contact Timing Uncertainties](https://arxiv.org/abs/2407.11478)
+  shows why nominal contact timing is insufficient: every candidate
+  pre-contact state across the uncertain switching region must remain safe.
+  This directly matches R98's safe/unsafe touchdown-phase distinction.
 
-The inference for NextEngine is deliberately smaller than those methods: first
-measure whether V9 introduced acceleration, implied-effort or contact-transition
-changes that distinguish the R94 failures from R49's passing V7 trajectories.
-Only then choose a bounded construction change.
+The inference for NextEngine is deliberately smaller than those methods. R98
+has already rejected contact as the first cause and isolated pre-contact
+closed-loop phase divergence. R99 now compares the exact passing V7 trajectory
+with the two failed variants before any bounded construction change is chosen.
 
 ## Ranked hypotheses
 
 | ID | Hypothesis | Current evidence | Discriminator |
 | --- | --- | --- | --- |
-| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R96 V11 lowers the selected emitted acceleration/jerk; R97 no longer reaches the old tick-10 ROM event before termination | Only partially supported: a new left-ankle-roll velocity event terminates at tick `9`; R98 traces native state/effort at every physics substep |
+| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R98 shows V9 and V11 repeatedly reach the frozen `7.2 rad/s` inner solver guard while requested effort differs greatly from rate/power/work-limited published effort | Supported more strongly; reference acceleration alone is not a sufficient discriminator |
 | H23 | Near-zero offline collider clearance does not predict the full PhysX contact manifold and impulse | R95 isolates ordinal `2`: active foot `1539 µm` above surface with no derivative amplification; R97 reserve case passes all `11` ticks and lowers peak left-foot impulse `6440089 -> 4466405 µN·s` | Supported for the selected case only; broader contact cases remain untested |
-| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | R97 changes the failing channel from right ankle-pitch ROM to left ankle-roll velocity although contact modes and the direct left-ankle-roll reference are effectively unchanged | Supported as cross-chain coupling; R98 must distinguish contact transfer, effort limiting and substep velocity overshoot |
-| H26 | Motor-frame pose/derivative summaries hide the causal physical substep | R97 reports the maximum substep velocity excess but stores only an all-joint maximum at the motor boundary, not the failing channel's physical-substep path | R98 captures all action-channel state, targets, requested/published effort and cumulative contact impulse at each 240 Hz substep |
+| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | By tick `3` and before left-foot contact, V9/V11 left ankle-roll velocities have opposite signs near the inner guard despite only tiny initial reference differences | Supported; trace the matched passing V7 state before selecting a locality anchor |
+| H26 | Motor-frame pose/derivative summaries hide the causal physical substep | R98 localizes V11 touchdown to tick `9` substep `2` and overspeed to the immediately following pre-substep state | Confirmed; retain substep traces for every future native discriminator |
 | H25 | Fresh-scene initialization is responsible | Initial state is exact within quantization in every worker | Falsified by R94; do not repeat partial-reset experiments |
 
 ## R95 differential-audit result
@@ -273,29 +286,68 @@ than a local target violation.
 R97 therefore rejects the merged candidate and authorizes neither all-17,
 full V19 nor training. Its explicit decision is `STOP_AND_RESEARCH`.
 
-## R98 bounded native-trace contract
+## R98 physical-substep result
 
-R98 is report-only instrumentation, not another trajectory variant. It replays
-the exact failed case with zero residual and unchanged fresh-scene lifecycle,
-controller, limits and artifacts. For every 240 Hz physics substep it records
-all action-channel positions/velocities, reference and slew-limited targets,
-canonical requested and published effort, effort-envelope state and cumulative
-contact impulses. A repeated passing contact case remains the instrumentation
-non-regression control. The trace must be hash-bound to a clean commit and must
-not authorize a merge, all-17, V19 or training even if a replay happens to pass.
+Commit `c8ea848fe359d78b1cf264428ff35fd2f2ba0d4d` adds an explicitly
+report-only probe mode. Its bounded acceptance is always `NOT_APPLICABLE`, both
+profile dispositions are `STOP_AND_RESEARCH`, and merge/all-17/V19/training
+authority is false regardless of the observed outcome. The V9/V11 profile
+SHA-256 values are
+`4183e55eb9f8e2601a4a0638ff0f8fe18ffa03a1059e0411a01b0ae55022bbd5` /
+`1f8fdd1d7aee99a10ec4e6f786485060cbcbc39fe498e0de759ea89ff1568112`.
+The full lab suite passes `177/177`.
 
-The discriminator is causal order: determine whether the left-ankle-roll speed
-crosses its limit before or after contact transfer, whether requested/published
-effort is clipped, and which upstream target/state divergence precedes it.
-Only then may one smallest hypothesis-specific construction be proposed.
+The V9 worker reproduces R94 exactly: right ankle-pitch hard-ROM excess
+`13193 µrad` at tick `10`. The V11 workers reproduce R97 exactly: contact case
+`2` passes `11/11`, while case `10` reaches left ankle-roll excess
+`775377 µrad/s` at tick `9`. This outcome identity plus complete `40`, `44`
+and `36` sample inventories rejects instrumentation perturbation.
+
+The substep order changes the causal conclusion:
+
+1. At the initial physical state, V9/V11 left ankle-roll differs by only
+   `70 µrad` position, `600 µrad/s` velocity and `18000 µN·m` requested/
+   published effort. The largest action-target difference is only `2791 µrad`
+   in right ankle-pitch.
+2. By tick `3`, substep `0`, while the left foot is still airborne in both
+   runs, V9 left ankle-roll is `+7199121 µrad/s` and V11 is
+   `-7198550 µrad/s`. The phase divergence therefore precedes touchdown and
+   falsifies contact as the first cause.
+3. V9 first observes left-foot contact at tick `9`, substep `0`; V11 does so
+   two physical substeps later at tick `9`, substep `2` (`8.33 ms`). At the
+   V11 contact step, ankle-roll is `+7196128 µrad/s`, requested effort is
+   `-233603940 µN·m`, but the feasible rate-limited published effort is still
+   `+1616400 µN·m`.
+4. Immediately after that contact response, pre-substep `3` velocity reverses
+   to `-8775377 µrad/s`. The outer-limit excess is `775377 µrad/s`; the
+   environment publishes zero effort because safety is already blocked.
+   Effort-envelope infeasibility remains false and contact impulse
+   `1395479 µN·s` is far below the hard-impact limit.
+
+Thus V11 did not simply trade one excessive reference derivative for another.
+Small reference changes move a guard/rate-limited closed-loop oscillation to a
+different phase; touchdown then exposes it as a terminal event. A third local
+pose/derivative smoother would optimize the wrong abstraction again.
+
+## R99 matched passing-control contract
+
+The missing discriminator is the exact V7/R49 `cmu16@238` trajectory: it is a
+same-case fresh PASS, whereas both R98 variants fail. R99 may trace only that
+existing immutable case under the identical R98 instrumentation and frozen
+environment. It must reproduce the R49 PASS, capture `44/44` physical
+substeps, remain report-only and change no trajectory, controller, reset or
+limit. The comparison will ask which pre-contact state, solver-guard
+utilization and effort-slew phase distinguish the successful control. Only
+those observed margins may define the next solver locality/native-stability
+anchor.
 
 ## Decision
 
-Freeze R92–R97, retain the contact result as bounded support for H23, and reject
-the R96 V11 candidate as a merged/full-corpus direction after its R97 control
-regression. Do not tune another derivative coefficient or begin training.
-Instrument and run R98 under the contract above, then choose the smallest
-counterfactual that its causal ordering discriminates. All-17 remains blocked
+Freeze R92–R98, retain the contact result as bounded support for H23, and reject
+V11 plus any other open-loop derivative smoother as a merged/full-corpus
+direction. Do not tune controller or solver-limit values and do not begin
+training. Run only the matched V7 R99 trace, then derive one native-stability or
+locality anchor from the successful/failed difference. All-17 remains blocked
 until a future bounded candidate passes every selected fresh control without
 changing controller semantics, safety limits, fresh-scene authority or the
 exact-zero gate.
