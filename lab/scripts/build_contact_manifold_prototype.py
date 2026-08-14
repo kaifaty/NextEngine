@@ -426,6 +426,12 @@ def _validate_inputs(
         and isinstance(discriminator, dict)
         and discriminator.get("ordered_source_case_ordinals")
         == [3749, 3750, 3753, 8144]
+    ) or (
+        prototype_id == "nextengine.humanoid-contact-manifold-prototype.v3"
+        and isinstance(projection.get("collider_closure"), dict)
+        and isinstance(discriminator, dict)
+        and discriminator.get("ordered_source_case_ordinals")
+        == [3749, 3750, 3753, 8144]
     )
     if (
         profile.get("schema_version") != 1
@@ -486,12 +492,24 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
     document = projection.get("collider_closure")
     if document is None:
         return None
+    algorithm_id = document.get("algorithm_id")
     if (
         not isinstance(document, dict)
-        or document.get("algorithm_id")
-        != "nextengine.bounded-flight-collider-closure.v1"
+        or algorithm_id
+        not in {
+            "nextengine.bounded-flight-collider-closure.v1",
+            "nextengine.bounded-support-precedence-closure.v2",
+        }
         or document.get("root_vertical_policy")
         != "upward-only residual all-collider floor after leg-chain correction"
+        or (
+            algorithm_id == "nextengine.bounded-flight-collider-closure.v1"
+            and "active_contact_anchor_target_micrometres" in document
+        )
+        or (
+            algorithm_id == "nextengine.bounded-support-precedence-closure.v2"
+            and document.get("active_contact_anchor_target_micrometres") != 0
+        )
     ):
         raise ValueError("collider-closure profile identity is invalid")
     suffixes = tuple(document["ordered_joint_suffixes"])
@@ -530,6 +548,9 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
         correction_smoothing_passes=document[
             "correction_smoothing_passes"
         ],
+        active_contact_anchor_target_micrometres=document.get(
+            "active_contact_anchor_target_micrometres"
+        ),
     )
     closure.validate()
     return closure

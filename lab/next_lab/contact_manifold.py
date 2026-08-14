@@ -94,6 +94,7 @@ class ColliderClosure:
     maximum_joint_update_microradians: int
     correction_smoothing_kernel_weights: tuple[int, ...]
     correction_smoothing_passes: int
+    active_contact_anchor_target_micrometres: int | None = None
 
     def validate(self) -> None:
         bounds = self.joint_bounds_microradians
@@ -153,6 +154,19 @@ class ColliderClosure:
             or isinstance(self.correction_smoothing_passes, bool)
             or not isinstance(self.correction_smoothing_passes, int)
             or self.correction_smoothing_passes < 0
+            or (
+                self.active_contact_anchor_target_micrometres is not None
+                and (
+                    isinstance(
+                        self.active_contact_anchor_target_micrometres, bool
+                    )
+                    or not isinstance(
+                        self.active_contact_anchor_target_micrometres, int
+                    )
+                    or abs(self.active_contact_anchor_target_micrometres)
+                    > 5_000
+                )
+            )
         ):
             raise ValueError("collider-closure bounds are invalid")
 
@@ -597,11 +611,39 @@ def _close_reference_colliders(
             raise ValueError("source pose is outside collider-closure joint bounds")
 
     all_colliders, foot_colliders = _collider_inventory(descriptor)
-    root_positions = root_position_um.astype(np.float64) / 1_000_000.0
+    anchored_root_um = root_position_um.copy()
+    active_contact_anchor_um = np.zeros(frame_count, dtype=np.int64)
     root_quaternions = (
         root_quaternion_q1_30.astype(np.float64) / float(1 << 30)
     )
     source_joints = joint_position_urad.astype(np.float64) / 1_000_000.0
+    if closure.active_contact_anchor_target_micrometres is not None:
+        active = contact_point_mask(contact_modes)
+        for frame in range(frame_count):
+            if not np.any(active[frame]):
+                continue
+            positions, rotations = target_forward_kinematics(
+                descriptor,
+                anchored_root_um[frame].astype(np.float64) / 1_000_000.0,
+                root_quaternions[frame],
+                source_joints[frame],
+            )
+            effectors = target_effectors(descriptor, positions, rotations)
+            heights = [
+                effectors[f"effector.{_SIDES[int(side)]}-{_POINTS[int(point)]}"][
+                    1
+                ]
+                * 1_000_000.0
+                for side, point in np.argwhere(active[frame])
+            ]
+            active_contact_anchor_um[frame] = int(
+                np.rint(
+                    closure.active_contact_anchor_target_micrometres
+                    - float(np.mean(heights))
+                )
+            )
+        anchored_root_um[:, 1] += active_contact_anchor_um
+    root_positions = anchored_root_um.astype(np.float64) / 1_000_000.0
     solved_joints = source_joints.copy()
     joint_minimum_rad = joint_minimum.astype(np.float64) / 1_000_000.0
     joint_maximum_rad = joint_maximum.astype(np.float64) / 1_000_000.0
@@ -725,7 +767,7 @@ def _close_reference_colliders(
         side = int(side_index)
         if not np.any(leg_correction[int(frame), joint_ordinals[side]]):
             uncorrected_flight_deficits += 1
-    solved_root_um = root_position_um.copy()
+    solved_root_um = anchored_root_um.copy()
     root_lift_um = np.zeros(frame_count, dtype=np.int64)
     for frame in range(frame_count):
         joints = solved_joint_urad[frame].astype(np.float64) / 1_000_000.0
@@ -817,6 +859,9 @@ def _close_reference_colliders(
             minimum_flight_before_root_um
         ),
         "maximum_collider_root_lift_micrometres": int(np.max(root_lift_um)),
+        "maximum_active_contact_anchor_micrometres": int(
+            np.max(np.abs(active_contact_anchor_um))
+        ),
         "maximum_root_vertical_velocity_micrometres_per_second": (
             maximum_root_vertical_velocity
         ),
@@ -842,6 +887,9 @@ def _close_reference_colliders(
             ),
             "joint_velocity_limit_basis_points": (
                 closure.joint_velocity_limit_basis_points
+            ),
+            "active_contact_anchor_target_micrometres": (
+                closure.active_contact_anchor_target_micrometres
             ),
         },
     }

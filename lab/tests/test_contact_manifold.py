@@ -218,6 +218,39 @@ class ContactManifoldTests(unittest.TestCase):
             5_000,
         )
 
+    def test_collider_closure_anchors_active_support_before_swing(self) -> None:
+        descriptor = json.loads(
+            (FIXTURES / "biomechanics_motor_mirror_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        inputs = _flight_collider_inputs(descriptor)
+        inputs["root_position_um"][:, 1] += 5_000
+        inputs["effector_position_um"][:, :, 1] += 5_000
+
+        projection = project_reference_contact_manifold(
+            descriptor=descriptor,
+            **inputs,
+            frame_first=0,
+            frame_last=5,
+            collider_closure=_collider_closure(
+                descriptor,
+                active_contact_anchor_target_micrometres=0,
+            ),
+        )
+
+        self.assertEqual(projection.diagnostics["status"], "PASS")
+        self.assertGreaterEqual(
+            projection.diagnostics[
+                "maximum_active_contact_anchor_micrometres"
+            ],
+            4_999,
+        )
+        self.assertLessEqual(
+            projection.diagnostics["maximum_normal_residual_micrometres"],
+            1_500,
+        )
+
 
 def _flight_collider_inputs(descriptor: dict[str, object]) -> dict[str, object]:
     frame_count = 6
@@ -268,6 +301,7 @@ def _collider_closure(
     *,
     outer_iterations: int = 40,
     maximum_joint_update_microradians: int = 80_000,
+    active_contact_anchor_target_micrometres: int | None = None,
 ) -> ColliderClosure:
     suffixes = (
         "hip-pitch",
@@ -297,6 +331,9 @@ def _collider_closure(
         ),
         correction_smoothing_kernel_weights=(1, 4, 6, 4, 1),
         correction_smoothing_passes=2,
+        active_contact_anchor_target_micrometres=(
+            active_contact_anchor_target_micrometres
+        ),
     )
 
 
