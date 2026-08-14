@@ -389,6 +389,7 @@ def load_contact_prototype_cases(
             "TRAIN-4-CONTACT-MANIFOLD-PROTOTYPE-BUILD",
             "TRAIN-4-CONTACT-MANIFOLD-COUNTERFACTUAL-BUNDLE",
             "TRAIN-4-CONTACT-MANIFOLD-BOUNDARY-VELOCITY-COUNTERFACTUAL",
+            "TRAIN-4-CONTACT-MANIFOLD-BOUNDARY-VELOCITY-VECTOR-COUNTERFACTUAL",
         }
         or manifest.get("status") != "PASS"
         or manifest.get("optimizer_steps") != 0

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "counterfactual_id": "nextengine.humanoid-contact-boundary-velocity-vector-counterfactual.v1",
+  "status": "FrozenResearchOnly",
+  "source": {
+    "audit_sha256": "ded76473905f7f26e4db0dfaa236508f649d46a692ff28938203f92dcf1c9b61",
+    "v7": {
+      "prototype_id": "nextengine.humanoid-contact-manifold-prototype.v7",
+      "manifest_sha256": "1e56a2d3d14c8d3a8291639da49d4fda46263aa37c1d6682205343d4043202bb",
+      "manifest_file_sha256": "70642cfa4c33e8d089fc5252b49fd040ae0ea6545a18649a5043128bfde8e187",
+      "prototype_profile_sha256": "63eea8c54f8b31c0f82888382a30090c341e8d296026a45ef577835700cea1b8",
+      "case_artifact_sha256": "dac5066102b017c24213e0f5bd21a917416ebf6b74b8a4018586106f27e0d855"
+    },
+    "v9": {
+      "prototype_id": "nextengine.humanoid-contact-manifold-prototype.v9",
+      "manifest_sha256": "7ee041b7710302b9fae909b0cb34c0de3a6c2df257032cd0e1c7dcaf16afefeb",
+      "manifest_file_sha256": "53984129cc45d295ced9ef4f49ea8532d0b224c3ccc19980e8b986cee7604d70",
+      "prototype_profile_sha256": "bccf5eb12c8de2e1c0fa20df74c55f30cc9e964e7d5cbfcbf596bb6d672815ab",
+      "case_artifact_sha256": "213d7f11074932f046bab835b5901f5928d851b31dc53e1ac154dc0d95d39af1"
+    }
+  },
+  "edit": {
+    "array": "joint_velocity_urad_s",
+    "frame_offset": 0,
+    "dof_scope": "all-ordered-joints",
+    "changed_dof_ordinals": [
+      0,
+      1,
+      3,
+      5,
+      6,
+      7,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      19,
+      20,
+      21
+    ],
+    "changed_dof_count": 18,
+    "source_vector_sha256": "5b76f62975e26711bf2e27db9df43509037f9d49c966369172ff1a47d0decece",
+    "replacement_vector_sha256": "84a410295ea8f1d628ac5f8fd7048b7aa2a7ba4813e6457d66438a149d117a84",
+    "delta_vector_sha256": "26b614cdcc3587aba8310f91b8c374a02f7ec030fad20759ff290281f2775cb0"
+  },
+  "execution": {
+    "generated_case_count": 1,
+    "fresh_scene_runs": 0,
+    "physx_runs": 0,
+    "indexed_partial_reset_enabled": false,
+    "all_17_enabled": false,
+    "optimizer_steps": 0,
+    "training_runs": 0
+  },
+  "result_if_built": "permit exactly one report-only R101 fresh trace; do not authorize a hand-edited candidate, root/pose substitution, solver change, all-17, V19, optimizer, TRAIN-4 Advance or downstream work"
+}
