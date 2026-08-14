@@ -1178,20 +1178,26 @@ def _fresh_trajectory_sample(
         joint["joint_id"]: int(joint["dof_ordinal"])
         for joint in descriptor["joints"]
     }
-    right_leg_ordinals = tuple(
-        joint_lookup[f"joint.right-{suffix}"]
-        for suffix in (
-            "hip-pitch",
-            "hip-roll",
-            "hip-yaw",
-            "knee",
-            "ankle-pitch",
-            "ankle-roll",
+    leg_suffixes = (
+        "hip-pitch",
+        "hip-roll",
+        "hip-yaw",
+        "knee",
+        "ankle-pitch",
+        "ankle-roll",
+    )
+    leg_ordinals = {
+        side: tuple(
+            joint_lookup[f"joint.{side}-{suffix}"] for suffix in leg_suffixes
         )
-    )
-    pair_index = environment.contact_pair_ids.index(
-        "ground:body.right-ankle-roll"
-    )
+        for side in ("left", "right")
+    }
+    pair_indices = {
+        side: environment.contact_pair_ids.index(
+            f"ground:body.{side}-ankle-roll"
+        )
+        for side in ("left", "right")
+    }
     return {
         "elapsed_motor_ticks": int(
             tensors["elapsed_ticks"][tensor_index].item()
@@ -1208,6 +1214,30 @@ def _fresh_trajectory_sample(
         "reference_root_linear_velocity_micrometres_per_second": np.asarray(
             arrays["root_linear_velocity_um_s"][relative_frame], dtype=np.int64
         ).tolist(),
+        "reference_contacts": np.asarray(
+            arrays["contacts"][relative_frame], dtype=np.int64
+        ).tolist(),
+        "reference_contact_modes": np.asarray(
+            arrays["contact_modes"][relative_frame], dtype=np.int64
+        ).tolist(),
+        "actual_left_foot_collider_minimum_micrometres": (
+            _foot_collider_minimum_micrometres(
+                descriptor=descriptor,
+                side="left",
+                root_position_um=actual_root,
+                root_quaternion_q1_30=actual_quaternion,
+                joint_position_urad=actual_joint,
+            )
+        ),
+        "reference_left_foot_collider_minimum_micrometres": (
+            _foot_collider_minimum_micrometres(
+                descriptor=descriptor,
+                side="left",
+                root_position_um=reference_root,
+                root_quaternion_q1_30=reference_quaternion,
+                joint_position_urad=reference_joint,
+            )
+        ),
         "actual_right_foot_collider_minimum_micrometres": (
             _foot_collider_minimum_micrometres(
                 descriptor=descriptor,
@@ -1229,17 +1259,45 @@ def _fresh_trajectory_sample(
         "maximum_absolute_joint_position_error_microradians": int(
             np.max(np.abs(joint_error))
         ),
-        "maximum_absolute_right_leg_joint_position_error_microradians": int(
-            np.max(np.abs(joint_error[list(right_leg_ordinals)]))
+        "maximum_absolute_left_leg_joint_position_error_microradians": int(
+            np.max(np.abs(joint_error[list(leg_ordinals["left"])]))
         ),
+        "maximum_absolute_right_leg_joint_position_error_microradians": int(
+            np.max(np.abs(joint_error[list(leg_ordinals["right"])]))
+        ),
+        "actual_left_leg_joint_position_microradians": actual_joint[
+            list(leg_ordinals["left"])
+        ].tolist(),
+        "reference_left_leg_joint_position_microradians": reference_joint[
+            list(leg_ordinals["left"])
+        ].tolist(),
+        "left_leg_joint_position_error_microradians": joint_error[
+            list(leg_ordinals["left"])
+        ].tolist(),
+        "actual_right_leg_joint_position_microradians": actual_joint[
+            list(leg_ordinals["right"])
+        ].tolist(),
+        "reference_right_leg_joint_position_microradians": reference_joint[
+            list(leg_ordinals["right"])
+        ].tolist(),
+        "right_leg_joint_position_error_microradians": joint_error[
+            list(leg_ordinals["right"])
+        ].tolist(),
         "maximum_absolute_joint_velocity_microradians_per_second": int(
             np.max(np.abs(actual_joint_velocity))
         ),
         "observed_contacts": _integer_row(
             tensors["observed_contacts"], tensor_index
         ),
+        "left_foot_episode_maximum_impulse_micronewton_seconds": int(
+            tensors["contact_pair_impulses"][
+                tensor_index, pair_indices["left"]
+            ].item()
+        ),
         "right_foot_episode_maximum_impulse_micronewton_seconds": int(
-            tensors["contact_pair_impulses"][tensor_index, pair_index].item()
+            tensors["contact_pair_impulses"][
+                tensor_index, pair_indices["right"]
+            ].item()
         ),
     }
 
