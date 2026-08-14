@@ -20,6 +20,7 @@ import numpy as np
 from next_lab import contact_manifold
 from next_lab.contact_manifold import (
     ColliderClosure,
+    ContactManifoldProjection,
     ContactManifoldTolerances,
     project_reference_contact_manifold,
 )
@@ -36,6 +37,15 @@ def parse_args() -> argparse.Namespace:
         "--case-scope",
         choices=("all", "discriminator"),
         default="all",
+    )
+    parser.add_argument(
+        "--projection-domain",
+        choices=("window", "clip-global"),
+        default="window",
+        help=(
+            "solve each selected window independently or solve each selected "
+            "clip once and emit cases only as exact slices"
+        ),
     )
     return parser.parse_args()
 
@@ -76,7 +86,84 @@ def main() -> None:
     try:
         artifact_directory = staging / "cases"
         artifact_directory.mkdir()
+        clip_records: list[dict[str, Any]] = []
+        clip_projections: dict[str, ContactManifoldProjection] = {}
+        clip_artifact_arrays: dict[str, dict[str, np.ndarray]] = {}
+        if args.projection_domain == "clip-global":
+            clip_directory = staging / "clips"
+            clip_directory.mkdir()
+            selected_clip_ids = [
+                clip_id
+                for clip_id in profile["selection"]["ordered_clip_ids"]
+                if any(item["clip_id"] == clip_id for item in selected)
+            ]
+            for clip_id in selected_clip_ids:
+                if clip_id not in clip_cache:
+                    clip_cache[clip_id] = _load_clip(
+                        corpus_root, clip_manifest[clip_id]
+                    )
+                arrays, metadata = clip_cache[clip_id]
+                frame_count = len(arrays["root_position_um"])
+                projection = project_reference_contact_manifold(
+                    descriptor=descriptor,
+                    effector_ids=tuple(metadata["effector_ids"]),
+                    root_position_um=arrays["root_position_um"],
+                    root_quaternion_q1_30=arrays["root_quaternion_q1_30"],
+                    root_yaw_urad=arrays["root_yaw_urad"],
+                    joint_position_urad=arrays["joint_position_urad"],
+                    effector_position_um=arrays["effector_position_um"],
+                    contacts=arrays["contacts"],
+                    support_state=arrays["stance_support_state"],
+                    frame_first=0,
+                    frame_last=frame_count - 1,
+                    tolerances=tolerances,
+                    collider_closure=collider_closure,
+                )
+                clip_projections[clip_id] = projection
+                artifact_id = f"{clip_id}--complete"
+                artifact_metadata = {
+                    "schema_version": 1,
+                    "artifact_id": artifact_id,
+                    "clip_id": clip_id,
+                    "projection_domain": "clip-global",
+                    "frame_first": 0,
+                    "frame_last": frame_count - 1,
+                    "effector_ids": metadata["effector_ids"],
+                    "source_clip_artifact_sha256": clip_manifest[clip_id][
+                        "artifact"
+                    ]["sha256"],
+                }
+                artifact_arrays = _projection_artifact_arrays(
+                    projection=projection,
+                    source_arrays=arrays,
+                    frame_first=0,
+                    frame_last=frame_count - 1,
+                )
+                clip_artifact_arrays[clip_id] = artifact_arrays
+                artifact_bytes = _deterministic_npz_bytes(
+                    artifact_arrays, artifact_metadata
+                )
+                artifact_path = clip_directory / f"{artifact_id}.npz"
+                artifact_path.write_bytes(artifact_bytes)
+                clip_records.append(
+                    {
+                        **artifact_metadata,
+                        "artifact": {
+                            "relative_path": str(
+                                artifact_path.relative_to(staging)
+                            ),
+                            "sha256": hashlib.sha256(
+                                artifact_bytes
+                            ).hexdigest(),
+                            "bytes": len(artifact_bytes),
+                        },
+                        "projection_diagnostics": projection.diagnostics,
+                        "solve_count": 1,
+                    }
+                )
+
         case_records: list[dict[str, Any]] = []
+        case_array_records: list[dict[str, Any]] = []
         for selection in selected:
             clip_id = selection["clip_id"]
             if clip_id not in clip_cache:
@@ -87,27 +174,42 @@ def main() -> None:
             row = selection["source_row"]
             frame_first = int(row["start_frame"])
             frame_last = int(row["terminal_frame"])
-            projection = project_reference_contact_manifold(
-                descriptor=descriptor,
-                effector_ids=tuple(metadata["effector_ids"]),
-                root_position_um=arrays["root_position_um"],
-                root_quaternion_q1_30=arrays["root_quaternion_q1_30"],
-                root_yaw_urad=arrays["root_yaw_urad"],
-                joint_position_urad=arrays["joint_position_urad"],
-                effector_position_um=arrays["effector_position_um"],
-                contacts=arrays["contacts"],
-                support_state=arrays["stance_support_state"],
-                frame_first=frame_first,
-                frame_last=frame_last,
-                tolerances=tolerances,
-                collider_closure=collider_closure,
-            )
+            if args.projection_domain == "clip-global":
+                projection = _slice_clip_projection(
+                    projection=clip_projections[clip_id],
+                    descriptor=descriptor,
+                    effector_ids=tuple(metadata["effector_ids"]),
+                    root_quaternion_q1_30=arrays["root_quaternion_q1_30"],
+                    source_root_position_um=arrays["root_position_um"],
+                    source_joint_position_urad=arrays["joint_position_urad"],
+                    frame_first=frame_first,
+                    frame_last=frame_last,
+                    tolerances=tolerances,
+                    collider_closure=collider_closure,
+                )
+            else:
+                projection = project_reference_contact_manifold(
+                    descriptor=descriptor,
+                    effector_ids=tuple(metadata["effector_ids"]),
+                    root_position_um=arrays["root_position_um"],
+                    root_quaternion_q1_30=arrays["root_quaternion_q1_30"],
+                    root_yaw_urad=arrays["root_yaw_urad"],
+                    joint_position_urad=arrays["joint_position_urad"],
+                    effector_position_um=arrays["effector_position_um"],
+                    contacts=arrays["contacts"],
+                    support_state=arrays["stance_support_state"],
+                    frame_first=frame_first,
+                    frame_last=frame_last,
+                    tolerances=tolerances,
+                    collider_closure=collider_closure,
+                )
             artifact_id = f"{clip_id}--start-{frame_first:04d}"
             artifact_metadata = {
                 "schema_version": 1,
                 "artifact_id": artifact_id,
                 "clip_id": clip_id,
                 "split": row["split"],
+                "projection_domain": args.projection_domain,
                 "frame_first": frame_first,
                 "frame_last": frame_last,
                 "source_case_ordinal": int(row["case_ordinal"]),
@@ -121,31 +223,23 @@ def main() -> None:
                     "sha256"
                 ],
             }
-            artifact_arrays = {
-                "center_of_mass_um": projection.center_of_mass_um,
-                "contact_modes": projection.contact_modes,
-                "contacts": projection.contacts,
-                "effector_position_um": projection.effector_position_um,
-                "joint_position_urad": projection.joint_position_urad,
-                "joint_velocity_urad_s": projection.joint_velocity_urad_s,
-                "phase_u16": arrays["phase_u16"][frame_first : frame_last + 1],
-                "reference_frame": np.arange(
-                    frame_first, frame_last + 1, dtype=np.int64
-                ),
-                "root_linear_velocity_um_s": (
-                    projection.root_linear_velocity_um_s
-                ),
-                "root_position_um": projection.root_position_um,
-                "root_quaternion_q1_30": arrays["root_quaternion_q1_30"][
-                    frame_first : frame_last + 1
-                ],
-                "root_yaw_urad": arrays["root_yaw_urad"][
-                    frame_first : frame_last + 1
-                ],
-                "root_yaw_velocity_urad_s": (
-                    projection.root_yaw_velocity_urad_s
-                ),
-            }
+            artifact_arrays = _projection_artifact_arrays(
+                projection=projection,
+                source_arrays=arrays,
+                frame_first=frame_first,
+                frame_last=frame_last,
+            )
+            exact_slice_status = None
+            if args.projection_domain == "clip-global":
+                expected = {
+                    name: values[frame_first : frame_last + 1]
+                    for name, values in clip_artifact_arrays[clip_id].items()
+                }
+                exact_slice_status = (
+                    "PASS"
+                    if _arrays_are_exact(artifact_arrays, expected)
+                    else "FAIL"
+                )
             artifact_bytes = _deterministic_npz_bytes(
                 artifact_arrays, artifact_metadata
             )
@@ -168,12 +262,47 @@ def main() -> None:
                         "bytes": len(artifact_bytes),
                     },
                     "projection_diagnostics": projection.diagnostics,
+                    **(
+                        {"exact_complete_clip_slice_status": exact_slice_status}
+                        if exact_slice_status is not None
+                        else {}
+                    ),
+                }
+            )
+            case_array_records.append(
+                {
+                    "clip_id": clip_id,
+                    "frame_first": frame_first,
+                    "frame_last": frame_last,
+                    "arrays": artifact_arrays,
                 }
             )
 
-        all_pass = all(
+        cases_pass = all(
             case["projection_diagnostics"]["status"] == "PASS"
             for case in case_records
+        )
+        complete_clips_pass = all(
+            clip["projection_diagnostics"]["status"] == "PASS"
+            for clip in clip_records
+        )
+        exact_slices_pass = all(
+            case.get("exact_complete_clip_slice_status", "PASS") == "PASS"
+            for case in case_records
+        )
+        overlap_identity = (
+            _overlap_identity(case_array_records)
+            if args.projection_domain == "clip-global"
+            else None
+        )
+        all_pass = (
+            cases_pass
+            and complete_clips_pass
+            and exact_slices_pass
+            and (
+                overlap_identity is None
+                or overlap_identity["status"] == "PASS"
+            )
         )
         report = {
             "schema_version": 1,
@@ -193,6 +322,7 @@ def main() -> None:
                     for case in case_records
                 ),
                 "case_scope": args.case_scope,
+                "projection_domain": args.projection_domain,
                 "prototype_inventory_case_count": len(inventory),
                 "clip_ids": [
                     clip_id
@@ -215,6 +345,14 @@ def main() -> None:
                 ),
             },
             "cases": case_records,
+            **(
+                {
+                    "complete_clips": clip_records,
+                    "exact_slice_identity": overlap_identity,
+                }
+                if args.projection_domain == "clip-global"
+                else {}
+            ),
             "optimizer_steps": 0,
             "training_runs": 0,
             "learned_policy_claim": False,
@@ -400,6 +538,309 @@ def _load_clip(
             if name != "metadata_json_utf8"
         }
     return arrays, metadata
+
+
+def _projection_artifact_arrays(
+    *,
+    projection: ContactManifoldProjection,
+    source_arrays: dict[str, np.ndarray],
+    frame_first: int,
+    frame_last: int,
+) -> dict[str, np.ndarray]:
+    interval = slice(frame_first, frame_last + 1)
+    return {
+        "center_of_mass_um": projection.center_of_mass_um,
+        "contact_modes": projection.contact_modes,
+        "contacts": projection.contacts,
+        "effector_position_um": projection.effector_position_um,
+        "joint_position_urad": projection.joint_position_urad,
+        "joint_velocity_urad_s": projection.joint_velocity_urad_s,
+        "phase_u16": source_arrays["phase_u16"][interval],
+        "reference_frame": np.arange(
+            frame_first, frame_last + 1, dtype=np.int64
+        ),
+        "root_linear_velocity_um_s": projection.root_linear_velocity_um_s,
+        "root_position_um": projection.root_position_um,
+        "root_quaternion_q1_30": source_arrays["root_quaternion_q1_30"][
+            interval
+        ],
+        "root_yaw_urad": source_arrays["root_yaw_urad"][interval],
+        "root_yaw_velocity_urad_s": projection.root_yaw_velocity_urad_s,
+    }
+
+
+def _arrays_are_exact(
+    actual: dict[str, np.ndarray], expected: dict[str, np.ndarray]
+) -> bool:
+    return actual.keys() == expected.keys() and all(
+        actual[name].dtype == expected[name].dtype
+        and actual[name].shape == expected[name].shape
+        and actual[name].tobytes(order="C")
+        == expected[name].tobytes(order="C")
+        for name in actual
+    )
+
+
+def _overlap_identity(
+    cases: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    overlap_pair_count = 0
+    compared_array_count = 0
+    disagreement_count = 0
+    for left_index, left in enumerate(cases):
+        for right in cases[left_index + 1 :]:
+            if left["clip_id"] != right["clip_id"]:
+                continue
+            frame_first = max(left["frame_first"], right["frame_first"])
+            frame_last = min(left["frame_last"], right["frame_last"])
+            if frame_first > frame_last:
+                continue
+            overlap_pair_count += 1
+            left_interval = slice(
+                frame_first - left["frame_first"],
+                frame_last - left["frame_first"] + 1,
+            )
+            right_interval = slice(
+                frame_first - right["frame_first"],
+                frame_last - right["frame_first"] + 1,
+            )
+            for name, left_values in left["arrays"].items():
+                compared_array_count += 1
+                right_values = right["arrays"][name]
+                left_overlap = left_values[left_interval]
+                right_overlap = right_values[right_interval]
+                if (
+                    left_overlap.dtype != right_overlap.dtype
+                    or left_overlap.shape != right_overlap.shape
+                    or left_overlap.tobytes(order="C")
+                    != right_overlap.tobytes(order="C")
+                ):
+                    disagreement_count += 1
+    return {
+        "status": "PASS" if disagreement_count == 0 else "FAIL",
+        "overlap_pair_count": overlap_pair_count,
+        "compared_array_count": compared_array_count,
+        "disagreement_count": disagreement_count,
+        "identity_rule": (
+            "every overlapping case value is the exact byte slice of one "
+            "complete-clip artifact"
+        ),
+    }
+
+
+def _slice_clip_projection(
+    *,
+    projection: ContactManifoldProjection,
+    descriptor: dict[str, Any],
+    effector_ids: tuple[str, ...],
+    root_quaternion_q1_30: np.ndarray,
+    source_root_position_um: np.ndarray,
+    source_joint_position_urad: np.ndarray,
+    frame_first: int,
+    frame_last: int,
+    tolerances: ContactManifoldTolerances,
+    collider_closure: ColliderClosure | None,
+) -> ContactManifoldProjection:
+    if (
+        projection.frame_first != 0
+        or projection.frame_last + 1 != len(root_quaternion_q1_30)
+        or not 0 <= frame_first < frame_last <= projection.frame_last
+    ):
+        raise ValueError("complete-clip projection slice is invalid")
+    interval = slice(frame_first, frame_last + 1)
+    root_position_um = projection.root_position_um[interval]
+    root_linear_velocity_um_s = projection.root_linear_velocity_um_s[interval]
+    root_yaw_velocity_urad_s = projection.root_yaw_velocity_urad_s[interval]
+    joint_position_urad = projection.joint_position_urad[interval]
+    joint_velocity_urad_s = projection.joint_velocity_urad_s[interval]
+    effector_position_um = projection.effector_position_um[interval]
+    contact_modes = projection.contact_modes[interval]
+    diagnostics = _slice_projection_diagnostics(
+        descriptor=descriptor,
+        effector_ids=effector_ids,
+        root_position_um=root_position_um,
+        root_quaternion_q1_30=root_quaternion_q1_30[interval],
+        root_linear_velocity_um_s=root_linear_velocity_um_s,
+        root_yaw_velocity_urad_s=root_yaw_velocity_urad_s,
+        joint_position_urad=joint_position_urad,
+        joint_velocity_urad_s=joint_velocity_urad_s,
+        effector_position_um=effector_position_um,
+        contact_modes=contact_modes,
+        source_root_position_um=source_root_position_um[interval],
+        source_joint_position_urad=source_joint_position_urad[interval],
+        frame_first=frame_first,
+        frame_last=frame_last,
+        tolerances=tolerances,
+        collider_closure=collider_closure,
+    )
+    return ContactManifoldProjection(
+        frame_first=frame_first,
+        frame_last=frame_last,
+        root_position_um=root_position_um,
+        root_linear_velocity_um_s=root_linear_velocity_um_s,
+        root_yaw_velocity_urad_s=root_yaw_velocity_urad_s,
+        joint_position_urad=joint_position_urad,
+        joint_velocity_urad_s=joint_velocity_urad_s,
+        center_of_mass_um=projection.center_of_mass_um[interval],
+        effector_position_um=effector_position_um,
+        contacts=projection.contacts[interval],
+        contact_modes=contact_modes,
+        diagnostics=diagnostics,
+    )
+
+
+def _slice_projection_diagnostics(
+    *,
+    descriptor: dict[str, Any],
+    effector_ids: tuple[str, ...],
+    root_position_um: np.ndarray,
+    root_quaternion_q1_30: np.ndarray,
+    root_linear_velocity_um_s: np.ndarray,
+    root_yaw_velocity_urad_s: np.ndarray,
+    joint_position_urad: np.ndarray,
+    joint_velocity_urad_s: np.ndarray,
+    effector_position_um: np.ndarray,
+    contact_modes: np.ndarray,
+    source_root_position_um: np.ndarray,
+    source_joint_position_urad: np.ndarray,
+    frame_first: int,
+    frame_last: int,
+    tolerances: ContactManifoldTolerances,
+    collider_closure: ColliderClosure | None,
+) -> dict[str, Any]:
+    diagnostics = contact_manifold.contact_manifold_diagnostics(
+        descriptor=descriptor,
+        effector_ids=effector_ids,
+        root_position_um=root_position_um,
+        root_quaternion_q1_30=root_quaternion_q1_30,
+        root_linear_velocity_um_s=root_linear_velocity_um_s,
+        root_yaw_velocity_urad_s=root_yaw_velocity_urad_s,
+        joint_position_urad=joint_position_urad,
+        joint_velocity_urad_s=joint_velocity_urad_s,
+        effector_position_um=effector_position_um,
+        contact_modes=contact_modes,
+        tolerances=tolerances,
+    )
+    active_contact_status = diagnostics["status"]
+    if collider_closure is not None:
+        all_colliders, _ = contact_manifold._collider_inventory(descriptor)
+        minimum_collider_height = float("inf")
+        for frame in range(len(root_position_um)):
+            positions, rotations = contact_manifold.target_forward_kinematics(
+                descriptor,
+                root_position_um[frame].astype(np.float64) / 1_000_000.0,
+                root_quaternion_q1_30[frame].astype(np.float64)
+                / float(1 << 30),
+                joint_position_urad[frame].astype(np.float64) / 1_000_000.0,
+            )
+            minimum_collider_height = min(
+                minimum_collider_height,
+                contact_manifold._minimum_collider_height(
+                    positions, rotations, all_colliders
+                ),
+            )
+        minimum_collider_height_um = int(
+            np.floor(minimum_collider_height * 1_000_000.0 + 1.0e-9)
+        )
+        maximum_joint_velocity_basis_points = 0
+        maximum_soft_rom_violation = 0
+        for joint in descriptor["joints"]:
+            ordinal = int(joint["dof_ordinal"])
+            maximum_velocity = int(
+                joint["maximum_velocity_microradians_per_second"]
+            )
+            maximum_joint_velocity_basis_points = max(
+                maximum_joint_velocity_basis_points,
+                int(
+                    np.ceil(
+                        np.max(np.abs(joint_velocity_urad_s[:, ordinal]))
+                        * 10_000.0
+                        / maximum_velocity
+                    )
+                ),
+            )
+            soft_minimum, soft_maximum = joint["soft_limit_microradians"]
+            maximum_soft_rom_violation = max(
+                maximum_soft_rom_violation,
+                int(
+                    np.max(
+                        np.maximum(
+                            soft_minimum - joint_position_urad[:, ordinal], 0
+                        )
+                    )
+                ),
+                int(
+                    np.max(
+                        np.maximum(
+                            joint_position_urad[:, ordinal] - soft_maximum, 0
+                        )
+                    )
+                ),
+            )
+        maximum_root_vertical_velocity = int(
+            np.max(np.abs(root_linear_velocity_um_s[:, 1]))
+        )
+        collider_status = (
+            "PASS"
+            if minimum_collider_height_um
+            >= collider_closure.minimum_collider_height_micrometres
+            and maximum_joint_velocity_basis_points
+            <= collider_closure.joint_velocity_limit_basis_points
+            and maximum_root_vertical_velocity
+            <= collider_closure.maximum_root_vertical_velocity_micrometres_per_second
+            and maximum_soft_rom_violation == 0
+            else "FAIL"
+        )
+        diagnostics.update(
+            {
+                "active_contact_status": active_contact_status,
+                "collider_closure_status": collider_status,
+                "minimum_collider_height_micrometres": (
+                    minimum_collider_height_um
+                ),
+                "maximum_joint_velocity_basis_points": (
+                    maximum_joint_velocity_basis_points
+                ),
+                "maximum_root_vertical_velocity_micrometres_per_second": (
+                    maximum_root_vertical_velocity
+                ),
+                "maximum_soft_rom_violation_microradians": (
+                    maximum_soft_rom_violation
+                ),
+                "status": (
+                    "PASS"
+                    if active_contact_status == "PASS"
+                    and collider_status == "PASS"
+                    else "FAIL"
+                ),
+            }
+        )
+    root_correction = root_position_um - source_root_position_um
+    joint_correction = joint_position_urad - source_joint_position_urad
+    diagnostics.update(
+        {
+            "frame_first": frame_first,
+            "frame_last": frame_last,
+            "maximum_root_correction_micrometres": int(
+                np.max(np.linalg.norm(root_correction, axis=1))
+            ),
+            "maximum_root_correction_step_micrometres": int(
+                np.max(np.linalg.norm(np.diff(root_correction, axis=0), axis=1))
+            ),
+            "maximum_joint_correction_microradians": int(
+                np.max(np.abs(joint_correction))
+            ),
+            "mode_counts": {
+                contact_manifold.CONTACT_MODE_NAMES[value]: int(
+                    np.sum(contact_modes == value)
+                )
+                for value in range(
+                    len(contact_manifold.CONTACT_MODE_NAMES)
+                )
+            },
+        }
+    )
+    return diagnostics
 
 
 def _validate_inputs(
