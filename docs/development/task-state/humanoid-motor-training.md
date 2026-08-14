@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / BOUNDED_V5_IMPLEMENTATION` |
+| Status | `ACTIVE_R&D / TRAIN-4 / CLIP_GLOBAL_PROTOTYPE` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,26 +11,24 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** V4 passed its four-case fresh PhysX discriminator in
-  R34, but R35 failed the all-17 offline expansion `6/17`. Implement the
-  evidence-selected final-contact/root-velocity V5 only as a bounded overlay.
-- **Why:** Five failures are smoothing leakage at `STICKING -> FLIGHT`; one is
-  `2541/2500` joint reserve. A local V5 counterfactual passes `17/17`, but
-  independently solved overlapping windows disagree by up to `61997 µm`
-  root and `60755 µrad` joint position.
-- **Next action:** Add an opt-in immutable V5 with eight smoothing passes,
-  final active-contact reprojection, second collider floor and upward-only
-  root-velocity closure. Run the four-case fresh discriminator, then all 17
-  only after no regression.
-- **Current blocker:** Window-local projection is not a corpus construction.
-  Even a V5 `17/17` result may authorize only a clip-global prototype that
-  proves one value per source frame and complete-clip feasibility.
+- **Current conclusion:** V7/R49 passes the bounded all-17 fresh-scene matrix
+  with every required-safety count at zero and no control regression. Its
+  explicit decision is `PERMIT_CLIP_GLOBAL_PROTOTYPE_ONLY`.
+- **Why:** V5 delayed an unsupported landing and regressed `cmu16@249`; V6
+  fixed it but changed `cmu16@415` by one microradian and crossed hard ROM in
+  the full 17-env layout. V7 preserves the exact safe V1 bytes at both controls
+  with a one-micrometre quantization deadband above the unchanged `-2 µm` floor.
+- **Next action:** Localize the failed 801-frame constraint set, then implement
+  one clip-global solve per selected clip. Selected episodes must be exact
+  slices of that trajectory and complete-clip invariants must pass.
+- **Current blocker:** Independent windows still disagree by up to `61997 µm`
+  root and `60755 µrad` joint position; the previous global `cmu16` solve fails
+  joint, contact-normal and contact-tangential bounds.
 - **Do not retry:** Do not start PPO, build another broad whole-corpus
   ankle/retarget identity, zero reference velocities, add grace/settling, or
   loosen safety limits. The causal matrix rejects these as fixes.
-- **Reconsider when:** The collider-aware fresh-scene prototype has no
-  passing-control regression and strictly decreases every targeted failure
-  class without a new category.
+- **Reconsider when:** One clip-global trajectory passes exact slices,
+  complete-clip invariants and the same fresh all-17 safety matrix.
 
 All TRAIN-5 checkpoints remain rejected. No optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -47,12 +45,16 @@ pending. This file cannot change those facts by itself.
 | R18 bounded offline prototype, canonical identity `794e479b61c5b3041b75f86095647c1663f127763a8eddd9f3292cee0fa524ae` | `17/17` artifacts close active point pose/velocity invariants | Permits the PhysX discriminator only; does not prove collider clearance |
 | R27 complete PhysX probe, SHA-256 `fabfef54d01ac421778fac05d9aa2a1bb062803c61f8e335ed191ed81e249e14` | `FAIL`: fresh `3/17`, partial `4/17`, maximum impulse delta `252409 µN·s` | Reject R18 expansion; retain fresh-scene authority and add collider closure |
 | R34 V4 fresh discriminator, file SHA-256 `5a2d34a586a9619b9b69a1e590751e535717abe1bad8379c16c2417c366da626` | `PASS 4/4`; required-safety and control regressions are zero | Permits the ordered all-17 offline prototype only |
-| R35 V4 all-17 offline, canonical SHA-256 `f254f7256d4e4fb67f196298bfc6cbdbda2f7796973d6d6f0aa624e41bec6836` | `FAIL 6/17`: five contact-boundary cases and one joint-reserve control | Add final contact/root-velocity boundary closure before another PhysX run |
+| R39 V5 all-17 fresh, file SHA-256 `70555aa69b736c825e9085fab726f6533e29184f67c44144cab77cbe8c286299` | `FAIL 1/17`: delayed unsupported landing causes `cmu16@249` hard impact | Authorize clearance only with active support |
+| R45 V6 all-17 fresh, file SHA-256 `ba60b124b8b9e4c8df024edff92b949d9dd68f213d02c0e675277d285f09aa40` | `FAIL 1/17`: one-microradian edit selects `cmu16@415` hard ROM | Preserve sub-micrometre admissible source clearance |
+| R47 V7 all-17 offline, canonical SHA-256 `1e56a2d3d14c8d3a8291639da49d4fda46263aa37c1d6682205343d4043202bb` | `PASS 17/17`; max joint reserve `2464/2500`, analytic normal `466 µm/frame`, collider `-2 µm` | Permits authoritative all-17 fresh probe |
+| R49 V7 all-17 fresh, file SHA-256 `6b977a870c50b25545c2b73bc371575b38b40f6a914d1638ab19a3c7a56b5f0c` | `PASS 17/17`; required safety `0`; controls `0`; optimizer/training `0` | Permits only one clip-global prototype |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
+and [support-authorization decision](../humanoid-train4-support-authorization-research-2026-08-14.md)
 carry detailed evidence. The hashes above identify their external reports.
 
 ## Decisions that still constrain the work
@@ -134,12 +136,12 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Observation:** R35 fails five mixed-support windows at the last active
   frame, while a parameter-only sweep closes none of the six failures.
 - **Evidence:** R35 plus the dated contact-boundary research report.
-- **Decision:** Implement opt-in V5 final contact reprojection, second collider
-  floor and upward-only root-velocity closure; use eight smoothing passes.
+- **Decision:** V5 final contact reprojection, second collider floor and
+  upward-only root-velocity closure with eight smoothing passes are retained.
 - **Rejected alternatives:** Another scalar sweep or looser safety bounds.
-- **Consequence:** V1–V4 projected case artifacts remain byte-stable; V5 starts
-  with the same four fresh scenes and cannot feed an optimizer.
-- **Reconsider when:** V5 regresses a control or introduces a new category.
+- **Consequence:** The boundary is closed offline; later V7 refinements govern
+  unsupported frames and cannot feed an optimizer.
+- **Reconsider when:** A clip-global solve violates an active boundary.
 
 ### D-006 — Require one clip-global value per source frame
 
@@ -152,13 +154,24 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Reconsider when:** One deterministic clip solve passes exact overlap,
   selected-window and complete-clip checks together.
 
+### D-007 — Authorize swing clearance only from active support
+
+- **Observation:** V5's unsupported `5 mm` target delayed `cmu16@249` contact;
+  V6's sub-micrometre correction changed `cmu16@415` by one microradian.
+- **Decision:** Use `20 mm` clearance only with same-frame active support;
+  unsupported frames target zero with a validated `1 µm` quantization deadband.
+- **Consequence:** V7 preserves exact V1 bytes for both all-flight controls and
+  R49 passes all 17 fresh scenes without changing any safety bound.
+- **Reconsider when:** A clip-global trajectory provides a stronger physical
+  landing model that passes the same exact evidence.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: final contact/root-velocity closure fixes the bounded transition | Read-only V5 counterfactual passes `17/17` with all frozen margins | No V5 fresh PhysX result exists | Four-case immutable V5 fresh discriminator |
+| H1: support-authorized quantized clearance fixes the bounded matrix | R47 offline and R49 fresh both pass `17/17` | Bounded windows are not a clip-global trajectory | `CONFIRMED_BOUNDED`; do not extrapolate |
 | H2: indexed partial reset differs materially from a fresh scene | R27 has eight impulse-bound failures and one outcome divergence | Most case outcomes still agree | `CONFIRMED`; reject partial as acceptance evidence |
-| H3: window-local success extrapolates to one corpus trajectory | Local counterfactual passes the selected windows | Overlap disagreement and global `cmu16` failure directly contradict it | `REJECTED`; require clip-global construction after bounded V5 |
+| H3: window-local success extrapolates to one corpus trajectory | R49 passes the selected windows | Overlap disagreement and global `cmu16` failure directly contradict it | `REJECTED`; require clip-global construction after bounded V7 |
 
 ## Required context
 
@@ -186,15 +199,12 @@ semantics.
 
 ## Next action
 
-1. Add a new opt-in V5 profile; never mutate or relabel V1–V4.
-2. Keep all frozen point/collider/joint/root bounds and apply final contact
-   reprojection after the temporally smoothed leg solve.
-3. Apply a second upward collider floor and deterministic upward-only root
-   velocity closure; fail if an active point must be dropped.
-4. Run fresh `cmu139@626/627/630` plus `cmu16@415`; only no-regression permits
-   the ordered all-17 offline and fresh matrices.
-5. Treat a local `17/17` result as permission for a clip-global prototype only.
-   Full V19 still requires exact overlap and complete-clip closure.
+1. Freeze the V7/R49 bounded decision; never relabel it as corpus admission.
+2. Reproduce and localize the full-clip `cmu16` joint/contact constraint set.
+3. Implement one immutable clip-global solve per selected clip and slice all
+   selected episodes from those exact values.
+4. Require exact overlap, complete-clip offline bounds and fresh all-17 safety.
+5. Keep full V19, visual/exhaustive gates and optimization blocked until then.
 
 ## Do not retry
 
@@ -212,12 +222,12 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R35 belongs to clean commit `9a0a2a6`; generated reports
+- **Workspace state:** R49 belongs to clean commit `29a5d11`; generated reports
   stay under the external TRAIN-4 evaluation root.
-- **Checks:** V4 focused tests and R34 fresh `4/4` passed; R35 correctly stopped
-  before PhysX after its offline `6/17` failure.
-- **Remaining risk:** V5 is not implemented or PhysX-tested; clip-global exact
-  identity, exact-zero full coverage and visual review remain open.
+- **Checks:** focused tests `15/15`, R47 offline `17/17` and R49 fresh `17/17`
+  pass; required-safety, control-regression, optimizer and training counts are zero.
+- **Remaining risk:** clip-global exact identity, complete-clip closure,
+  full-corpus exact-zero coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.
