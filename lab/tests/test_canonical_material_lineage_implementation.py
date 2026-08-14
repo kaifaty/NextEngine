@@ -39,6 +39,9 @@ class CanonicalMaterialLineageImplementationTests(unittest.TestCase):
             name: path.read_text(encoding="utf-8")
             for name, path in tracked_source_paths(ROOT).items()
         }
+        sources["physics_physx"] += (
+            ROOT / "crates/physics-physx/src/material.rs"
+        ).read_text(encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "unexpectedly includes.*R112"):
             audit_implementation_sources(sources)
 
