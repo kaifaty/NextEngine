@@ -1,0 +1,349 @@
+{
+  "schema_version": 1,
+  "formulation_id": "nextengine.humanoid-quantization-aware-kto-execution-formulation.v1",
+  "status": "FrozenReportOnly",
+  "claim": "QuantizationAwareKtoExecutionFormulationOnly",
+  "source": {
+    "r113": {
+      "report_sha256": "3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf",
+      "report_file_sha256": "de584af485e789a19e457708cf154193c5d870dd1deb8ee29a61b6abddb6541c",
+      "profile_sha256": "fa52cf18be25144893fb1d4da57bbae2fc2056d00d13e4bac012276ccc8cdf5d"
+    },
+    "r108": {
+      "report_sha256": "4ab1ccbc697fdf97efadc9e53ca6f2605956000927c88ed76f1960917590f9e8",
+      "report_file_sha256": "6a288d0cd2bdfc5f580c1dabb96ecf63ed71f79f09ae00bc40ebe15ca18fd4fb",
+      "profile_sha256": "1f5a006eb0a2d0f1bb575b67928e6bb9a86b42c00659393994189ebf8ce62b0f"
+    },
+    "current_descriptor": {
+      "mirror_v2_file_sha256": "7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3",
+      "body_schema_hash": "e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d",
+      "compiled_descriptor_hash": "6751853a812f549866f1db9d3662d8115b18db9b6d73beabd7221bb9f972f027",
+      "material_lineage_hash": "2d13e197f766e6a24090edf396dfc2fb6cbbf4c578ea9868dffa06ab7adab751"
+    },
+    "legacy_kinematic_descriptor_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014",
+    "v9": {
+      "prototype_id": "nextengine.humanoid-contact-manifold-prototype.v9",
+      "prototype_profile_sha256": "bccf5eb12c8de2e1c0fa20df74c55f30cc9e964e7d5cbfcbf596bb6d672815ab",
+      "prototype_manifest_sha256": "7ee041b7710302b9fae909b0cb34c0de3a6c2df257032cd0e1c7dcaf16afefeb",
+      "prototype_manifest_file_sha256": "53984129cc45d295ced9ef4f49ea8532d0b224c3ccc19980e8b986cee7604d70",
+      "complete_clip_artifact_sha256": "16cacfc0d6a5a57a7e2e2fad75faef1681e9b17c02cd3b78bafc7bb4ed3b5b7d"
+    },
+    "v7_prior": {
+      "prototype_id": "nextengine.humanoid-contact-manifold-prototype.v7",
+      "prototype_profile_sha256": "63eea8c54f8b31c0f82888382a30090c341e8d296026a45ef577835700cea1b8",
+      "prototype_manifest_sha256": "1e56a2d3d14c8d3a8291639da49d4fda46263aa37c1d6682205343d4043202bb",
+      "prototype_manifest_file_sha256": "70642cfa4c33e8d089fc5252b49fd040ae0ea6545a18649a5043128bfde8e187",
+      "case_artifact_sha256": "dac5066102b017c24213e0f5bd21a917416ebf6b74b8a4018586106f27e0d855"
+    },
+    "tracked_source_sha256": {
+      "contact_trajectory": "159bc3db396c653f294f2dd261fc53fedff53f3563ba9d144f11616ec9c27f1e",
+      "contact_manifold": "89d0a51542d78cebfc49504f8473224a526d56d5c0ad2cf53afef986d92142b3",
+      "motion_math": "2866ef76bc7e056b4cfdd3bd60378ef5c7813d0b3003eaccf9bc5207b8b79d68",
+      "motor_mirror": "f47cbdb253e41caf335c96acbf4223e8c4ed92c1248c30dac9af49e1cd04dacf"
+    }
+  },
+  "scope": {
+    "run_id": "R114",
+    "clip_id": "cmu16-walk-nominal-b",
+    "source_case_ordinal": 7967,
+    "frame_first": 0,
+    "frame_last": 800,
+    "frame_count": 801,
+    "v7_prior_frame_first": 238,
+    "v7_prior_frame_last": 249,
+    "v7_prior_frame_count": 12,
+    "body_count": 24,
+    "joint_count": 23,
+    "actuator_count": 23,
+    "collider_count": 19,
+    "motor_hz": 60,
+    "physics_hz": 240,
+    "kto_execution_formulations": 1,
+    "kto_solves": 0,
+    "candidate_construction": false,
+    "warm_start_cache_construction": false,
+    "physx_execution": false,
+    "training": false
+  },
+  "frozen_invariants": {
+    "controller": "fixed zero-residual PD with zero desired velocity and descriptor gains/caps",
+    "controller_or_gain_changes": "FORBIDDEN",
+    "limits_and_safety": "unchanged including right-ankle impulse 6000000 micronewton-seconds",
+    "fresh_scene_authority": "ADR-070",
+    "partial_reset": "REPORT_ONLY",
+    "contact_schedule_changes": "FORBIDDEN",
+    "contact_point_deletion": "FORBIDDEN",
+    "limit_changes": "FORBIDDEN",
+    "grace_or_settling": "FORBIDDEN",
+    "cadence_changes": "FORBIDDEN",
+    "integer_emission": "ties-to-even; exact emitted arrays are the offline gate",
+    "rounding_repair": "FORBIDDEN",
+    "coefficient_sweep": "FORBIDDEN",
+    "learned_optimization": "FORBIDDEN_UNTIL_TRAIN_4_ADVANCE",
+    "visual_review": "REPORT_ONLY_PENDING"
+  },
+  "source_roles": {
+    "v9_complete_clip": "the only admissible 801-knot initialization and whole-horizon tracking reference",
+    "v7_prior": "joint-position tracking/safety prior on exact frames 238..249 only; never a complete trajectory, splice, initialization or independently admissible candidate",
+    "current_descriptor": "the exact R113 structural, material and fixed-PD identity used for joint order and limits",
+    "legacy_descriptor": "kinematic byte lineage used by V7/V9; its bodies, joints, actuators, effectors and exclusions must equal the current descriptor"
+  },
+  "time_grid": {
+    "knot_count": 801,
+    "interval_count": 800,
+    "frequency_hz": 60,
+    "time_step_seconds_numerator": 1,
+    "time_step_seconds_denominator": 60,
+    "endpoint_policy": "q at knots 0 and 800 is fixed byte-equivalent to V9 after emission"
+  },
+  "decision_variables": {
+    "root_configuration_per_knot": [
+      "engine-world position xyz in metres",
+      "three-dimensional SO(3) tangent perturbation in radians about the V9 xyzw root quaternion"
+    ],
+    "root_velocity_per_knot": [
+      "engine-world linear xyz in metres per second",
+      "engine-world angular xyz in radians per second"
+    ],
+    "root_acceleration_per_knot": [
+      "engine-world linear xyz in metres per second squared",
+      "engine-world angular xyz in radians per second squared"
+    ],
+    "joint_configuration_per_knot": "23 descriptor-ordinal positions in radians",
+    "joint_velocity_per_knot": "23 descriptor-ordinal velocities in radians per second",
+    "joint_acceleration_per_knot": "23 descriptor-ordinal accelerations in radians per second squared",
+    "configuration_scalar_count_per_knot": 29,
+    "velocity_scalar_count_per_knot": 29,
+    "acceleration_scalar_count_per_knot": 29,
+    "scalar_count_per_knot": 87,
+    "total_scalar_count": 69687,
+    "orientation_map": "R_WB = Exp(delta_theta_W) * R_WB_V9; use the principal SO(3) branch and require norm(delta_theta_W) <= pi/2",
+    "independent_contact_force_variables": 0,
+    "independent_effort_variables": 0,
+    "independent_timing_variables": 0
+  },
+  "kinematic_equalities": {
+    "stencil_semantics": "forward on contact entry; backward on exit; centered otherwise; entry precedence",
+    "stencil_sha256": "00f8e3acc9fb19131cfa290109f391b0f0ed05b5c2f44bcec66c73d3e20d63ca",
+    "expected_stencil_counts": {
+      "forward": 10,
+      "backward": 10,
+      "centered": 781
+    },
+    "linear_and_joint_velocity": "v = H(q) at every knot using the frozen 60 Hz two-sample stencil",
+    "angular_velocity": "omega_k is the same stencil coefficient times principal Log(R_right * R_left^T) in engine-world coordinates",
+    "acceleration": "a = H(v) at every knot using the same frozen stencil",
+    "working_state_policy": "q, v and a remain explicit variables joined by exact nonlinear equality constraints; none is independently emitted"
+  },
+  "hard_constraints": {
+    "contact_modes": "byte-identical V9 801x2 schedule with all four heel/forefoot points retained",
+    "active_contact": [
+      "maximum normal residual 5000 micrometres",
+      "maximum normal step 1000 micrometres",
+      "maximum tangential step 2000 micrometres",
+      "position and velocity diagnostics use the frozen V9 contact kernel"
+    ],
+    "colliders": "all 19 exact descriptor colliders at every knot, minimum height -2 micrometres after emission",
+    "joint_rom": "all 23 current descriptor soft limits intersected with any stricter V9 trajectory-closure joint bound",
+    "joint_velocity": "absolute emitted velocity no greater than floor(descriptor maximum times 2500/10000) for every joint and knot",
+    "root_vertical_velocity": "absolute emitted engine-world Y velocity no greater than 200060 micrometres per second",
+    "orientation_chart": "principal SO(3) branch with tangent norm no greater than pi/2; this is a solver-domain restriction, not a relaxed acceptance limit",
+    "source_endpoints": "emitted root pose and all 23 emitted joint positions at knots 0 and 800 equal V9 exactly",
+    "public_limit_margins": "none; continuous feasibility never substitutes for the exact emitted audit"
+  },
+  "objective": {
+    "acceptance_authority": false,
+    "terms": [
+      "sum squared V7 joint-position error over the 61 differing cells in frames 238..249 divided by the exact V9 baseline 17142428727 microradians squared",
+      "mean squared full-horizon configuration displacement from V9 after component scaling",
+      "mean squared 60 Hz acceleration displacement from the stencil-derived V9 acceleration after component scaling"
+    ],
+    "normalization": {
+      "v7_prior": "exact squared integer distance divided by 17142428727",
+      "root_translation": "divide displacement by the frozen V9 root-variable scale 0.02 metres",
+      "root_orientation": "divide SO(3) tangent displacement by the frozen V9 angular/joint-variable scale 0.1 radians",
+      "joint_position": "divide displacement by the frozen V9 joint-variable scale 0.1 radians",
+      "root_linear_acceleration": "divide displacement from V9 acceleration by 72 metres per second squared = 0.02 * 60^2",
+      "root_angular_and_joint_acceleration": "divide displacement from V9 acceleration by 360 radians per second squared = 0.1 * 60^2",
+      "mean_policy": "take the arithmetic mean inside each full-horizon term before equal-weight summation"
+    },
+    "weights": [1, 1, 1],
+    "weight_or_scale_search": "FORBIDDEN",
+    "termination_priority": "first exact emitted PASS with exact integer nonzero V7 progress; do not continue optimizing for a better score"
+  },
+  "quantization_and_emission": {
+    "rounding": "IEEE-754 nearest integer, ties-to-even only",
+    "root_position": "metres multiplied by 1000000 to signed int64 micrometres",
+    "root_orientation": "map the SO(3) matrix through the frozen canonical xyzw matrix_to_quaternion function, multiply by 2^30 and ties-to-even round",
+    "root_yaw": "decompose the emitted root quaternion with frozen XZY semantics, multiply radians by 1000000 and ties-to-even round",
+    "joint_position": "radians multiplied by 1000000 to signed int64 microradians",
+    "dependent_arrays": "recompute root/joint velocity, root yaw velocity, FK effectors, center of mass and every collider sample from emitted pose; copy only V9 contacts, modes, phase and reference-frame identity",
+    "post_emission_mutation": "FORBIDDEN",
+    "persisted_candidate_artifact": "FORBIDDEN",
+    "solver_private_warm_start_cache": "on exact PASS only, serialize q/v/a plus emitted-array hashes into one external transient R115 cache with no corpus, controller, runtime or acceptance authority",
+    "warm_start_retention": "retain only through the separately authorized inverse-dynamics stages, then delete; delete immediately on R115 failure"
+  },
+  "tracking_progress_gate": {
+    "scope": "joint_position_urad at exact complete-clip frames 238..249 against the hash-bound passing V7/R47 case",
+    "expected_differing_cell_count": 61,
+    "v9_to_v7_l1_distance_microradians": 527631,
+    "v9_to_v7_squared_l2_distance_microradians_squared": 17142428727,
+    "required_directional_dot": "sum((V7 - V9) * (emitted - V9)) must be greater than zero using exact integers",
+    "required_distance_change": "sum((V7 - emitted)^2) must be strictly less than 17142428727 using exact integers",
+    "native_control_regression_claim": false
+  },
+  "exact_acceptance": {
+    "required_status": "PASS",
+    "required_conditions": [
+      "all frozen V9 contact diagnostics pass",
+      "all collider, ROM, root-velocity and joint-velocity diagnostics pass at unchanged public limits",
+      "emitted endpoints and immutable arrays remain byte-exact",
+      "tracking_progress_gate passes with at least one changed joint-position cell",
+      "no NaN, infinity, overflow, branch ambiguity or post-rounding repair occurs"
+    ],
+    "continuous_solver_status": "diagnostic only and never sufficient",
+    "native_or_learned_behavior_claim": false
+  },
+  "execution_budget": {
+    "solver_family": "deterministic sparse sequential quadratic programming with frozen analytic or symmetric finite-difference local Jacobians and OSQP subproblems",
+    "runtime_versions": {
+      "python": "3.12",
+      "numpy": "2.5.2",
+      "scipy": "1.18.0",
+      "osqp": "1.1.3"
+    },
+    "thread_count": 1,
+    "kto_process_count": 1,
+    "kto_solve_count": 1,
+    "maximum_major_iterations": 12,
+    "maximum_qp_solves": 12,
+    "maximum_osqp_iterations_per_subproblem": 100000,
+    "osqp_absolute_tolerance": 0.00001,
+    "osqp_relative_tolerance": 0.00001,
+    "osqp_polishing_enabled": true,
+    "osqp_adaptive_rho_enabled": true,
+    "finite_difference_root_translation_metres": 0.00001,
+    "finite_difference_root_orientation_radians": 0.0001,
+    "finite_difference_joint_position_radians": 0.0001,
+    "maximum_root_translation_step_metres": 0.02,
+    "maximum_root_orientation_step_radians": 0.1,
+    "maximum_joint_position_step_radians": 0.1,
+    "line_search_fractions": [
+      "1",
+      "1/2",
+      "1/4",
+      "1/8",
+      "1/16",
+      "1/32"
+    ],
+    "maximum_exact_emission_audits": 72,
+    "maximum_wall_clock_seconds": 14400,
+    "maximum_resident_memory_bytes": 17179869184,
+    "random_seed": 0,
+    "randomized_restart_count": 0,
+    "resume_or_warm_restart": "FORBIDDEN",
+    "manual_intervention": "FORBIDDEN"
+  },
+  "failure_disposition": {
+    "invalid_identity_or_contract": "STOP_INVALID_EVIDENCE",
+    "infeasible_or_resource_exhausted": "STOP_AND_RESEARCH",
+    "quantized_exact_failure": "STOP_AND_RESEARCH",
+    "tracking_progress_failure": "STOP_AND_RESEARCH",
+    "forbidden_reactions": [
+      "change a public limit or safety threshold",
+      "add a margin, grace period, settling phase or velocity reset",
+      "repair an emitted integer array",
+      "sweep objective weights, line-search schedules or solver settings",
+      "run another KTO solve, a PhysX scene, all-17, V19 or training"
+    ]
+  },
+  "result_transitions": {
+    "r114_complete": "PERMIT_R115_SINGLE_BOUNDED_QUANTIZATION_AWARE_KTO_EXECUTION_ONLY",
+    "r115_exact_pass": "PERMIT_SEPARATE_FIXED_PD_INVERSE_DYNAMICS_EXECUTION_FORMULATION_ONLY",
+    "r115_exact_fail": "STOP_AND_RESEARCH",
+    "r115_invalid": "STOP_INVALID_EVIDENCE"
+  },
+  "bounded_acceptance": {
+    "r115_quantization_aware_kto_execution": "AUTHORIZED_ONE_IN_MEMORY_SOLVE_ONLY",
+    "r115_solver_private_warm_start_cache": "AUTHORIZED_ONLY_ON_EXACT_PASS",
+    "additional_kto_solve": "NOT_AUTHORIZED",
+    "inverse_dynamics_formulation": "NOT_AUTHORIZED_UNTIL_R115_EXACT_PASS",
+    "inverse_dynamics_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/quantization_aware_kto_formulation.py",
+        "lab/scripts/formulate_quantization_aware_kto.py",
+        "lab/tests/test_quantization_aware_kto_formulation.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/quantization_aware_kto_formulation.py",
+        "lab/scripts/formulate_quantization_aware_kto.py",
+        "lab/tests/test_quantization_aware_kto_formulation.py"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "decision": {
+    "complete": "PERMIT_R115_SINGLE_BOUNDED_QUANTIZATION_AWARE_KTO_EXECUTION_ONLY",
+    "next_smallest_action": "execute exactly one R115 in-memory quantization-aware KTO solve under this frozen contract; emit metrics only and run no PhysX scene"
+  }
+}
