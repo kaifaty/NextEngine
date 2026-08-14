@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R109_STOP_INVALID_MODEL_LINEAGE / MATERIAL_WRENCH_RESEARCH_NEXT` |
+| Status | `R110_V2_FORMULATED / R111_MATERIAL_LINEAGE_IMPLEMENTATION_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -43,6 +43,7 @@ bounded research before another solver change or expensive native run.
 | R107 projected-direction exact audit | canonical/file/profile SHA-256 `5a3c26ca731ac2734637a3d9953d84eca15c6553fb97c9da2ed9a12c2f7781fa` / `4095dfa6517847c5babfb9fb958e015908fc8c560f4e7c7083f840918b4f9a45` / `00b826d3aa11f1d1b4df66f99856ba5ed8dd3a08256a662dbfdb8a531c0e4539` | Clean `FAIL`: contact/collider geometry/ROM/root velocity retain V9 PASS metrics, but exact joint velocity is `2501/2500 bp`; selects progressive formulation with zero artifacts/PhysX/optimizer/training |
 | R108 progressive-kinodynamic formulation | canonical/file/profile SHA-256 `4ab1ccbc697fdf97efadc9e53ca6f2605956000927c88ed76f1960917590f9e8` / `6a288d0cd2bdfc5f580c1dabb96ecf63ed71f79f09ae00bc40ebe15ca18fd4fb` / `1f5a006eb0a2d0f1bb575b67928e6bb9a86b42c00659393994189ebf8ce62b0f` | Clean `COMPLETE`: freezes model-identity→KTO→inverse-dynamics→kinodynamics gates; only R109 identity preflight is authorized and every solve/work count is `0` |
 | R109 dynamics-model identity preflight | canonical/file/profile SHA-256 `2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784` / `97f149b12f5f4a6694da04298df774f33fd4854e93b54f3096d8882f2c1efc85` / `961926664ca8ff08a4c384180092dcbb7cb6591880bb8501148fef04d1e65ed0` | Clean `FAIL / STOP_INVALID_MODEL_LINEAGE`: structural/USD/gravity/controller identity closes; canonical material/combine and contact-wrench ownership do not; all solve/work counts are `0` |
+| R110 canonical-material/point-force formulation v2 | canonical/file/profile SHA-256 `83408b97b6ba13dc801b4d9b4f68e55146f9f39b09a451c238b24cc4c8c7d88d` / `234c7e51c3e6135bff55e503d8ce2bb58946c6cbef36598d92641ce7deb72637` / `85604a87bfc05ef170d21ff49d217d21327095414fb12b565efe76eb1afb9b18` | Clean `COMPLETE`: freezes a full SPEC-26 material successor, exact combine profile and solver-private ordered point forces; only R111 implementation is authorized and every runtime/solve/work count is `0` |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -829,16 +830,85 @@ optimizer or training work occurred. The next action is bounded research and
 repair formulation for canonical material/combine and wrench ownership; KTO
 formulation/execution remains unauthorized until that lineage closes.
 
+## R110 material-lineage and point-force formulation result
+
+Clean R110 v2 at commit `965c256b8b18e82bca0e8bfee73e8f4438bb12e6`
+turns the three R109 gaps into a bounded implementation contract. The selected
+body, sole and new ground material IDs each receive exact Q16 static/dynamic/
+restitution values `52429/45875/0`, corresponding to the nearest ties-to-even
+successors of the old native `0.8/0.7/0.0` literals. Rolling and spinning
+friction plus surface velocity are all exact zero. One
+`ArithmeticMeanTiesToEven` rule is frozen for every scalar coefficient and
+surface velocity uses canonical participant order. The resulting material/
+combine table root is
+`70486c8405cfc1c1f2a937fb33ddf94a3ef0a5a647ebcc17eb28f9b7121113dc`.
+
+The review caught a deeper pre-implementation mismatch: Accepted SPEC-26
+contains rolling friction, spinning friction and surface velocity, while the
+implemented `PhysicsMaterialDescriptorV1` canonical record omits all three and
+the world descriptor omits the combine-profile hash. Same-version mutation is
+forbidden, so R110 v2 requires a `PhysicsMaterialDescriptorV2` successor plus
+`PhysicsMaterialCombineProfileV1`; nonzero extended fields fail closed for this
+generation. The first R110 report at commit `3ba6928` covered only the
+incomplete implemented V1 fields and is explicitly superseded. Its canonical/
+file/profile SHA-256 is
+`6a8aa992d517265f9e27fcdd5daad36d97a6bed34f91fc96bddd8ee143dde185` /
+`25bdbd57bde4329bbba41d33090b7dde650663aed7cafe48818c3df234c57653` /
+`04e216ab4226033708bbf9f4e3a123f76a716747ff6f419a893e241d6020b3d2`
+and must not be used as authority.
+
+The backend mapping is intentionally narrow and fail-closed. Native may
+deduplicate the three coefficient-identical descriptors into one cached
+`PxMaterial`, but only after resolving every material ID, checking complete
+equality, converting from Q16 and explicitly retaining zero torsional patch
+radii/surface velocity; hard-coded literals are removed. Any future unequal
+descriptor or nonzero rolling/spinning/surface-velocity value is rejected
+before adapter construction until a successor ABI supports it. Derived USD
+must author physics-purpose material bindings and exact Next Engine metadata;
+Isaac ground/articulation construction may not fall back to its defaults.
+
+This follows [SPEC-26](../architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md),
+the pinned PhysX `5.9.0` headers, NVIDIA's
+[USD/PhysX material binding and combine documentation](https://nvidia-omniverse.github.io/PhysX/ovphysx/latest/simulation_setup/rigid_bodies.html)
+and OpenUSD's [physics-material schema](https://openusd.org/22.08/api/usd_physics_page_front.html).
+The pinned SDK manifest/PxMaterial/PxShape/PxContactModify header SHA-256 values
+are `e3f774e1fa6aface0060f56a534d26056b2fd7d064d16a75e80d133b00ceed42`,
+`803a88f43e1979163cc0809537d346fa679ca5ab3b583efdbcd3a7576b2fa9de`,
+`0b1084a0e80f84850d7c2697f32eb7647810744c18c1282b1388d37e7b14a660`
+and `d86239214812cb22511b9eec681628eb2eb3f5b158675d285eb0104d7092c135`.
+
+R110 also removes the ambiguous six-dimensional “wrench” from the private
+future solver. At each `240 Hz` interval it permits only three force components
+`[normal, right, forward]` at the frozen V9 points ordered left heel, left
+forefoot, right heel, right forefoot. Engine-world axes are normal `+Y`, right
+`+X`, forward `+Z`; the generalized contribution is `J_contact(q)^T lambda`.
+Inactive points have exact zero force, active sticking points use the exact
+static-friction cone, and no independent torque, yaw moment, center of pressure
+or point relocation exists. This is the standard point-contact construction
+described in the [MIT multibody notes](https://underactuated.mit.edu/multibody.html),
+but its exact axes/order/application identities are owned by the R110 profile.
+
+R110 v2 returns
+`PERMIT_R111_CANONICAL_MATERIAL_LINEAGE_IMPLEMENTATION_ONLY`. R111 may close
+the architecture/schema version, contracts/compiler/mirror and native
+equal-material boundary with static/golden tests. It may not run a PhysX scene.
+USD/Isaac implementation is separately gated as R112 and a clean model-identity
+recheck as R113. KTO, inverse dynamics, kinodynamics, candidate construction,
+all-17 and training remain unauthorized. R110 itself performs one research
+report and zero runtime changes, solver runs, PhysX runs, optimizer steps or
+training runs.
+
 ## Decision
 
-Freeze R92–R109, retain the contact result as bounded support for H23, and
+Freeze R92–R110 v2, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
 values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
 and the late projected direction after its exact `2501/2500 bp` failure.
-R109's predeclared failure gate now stops the dynamics lineage. Permit only
-bounded canonical-material/contact-wrench ownership research and a separately
-reviewed repair formulation; KTO, candidate artifact/native construction and
-all-17 remain blocked until a future bounded
+R109's predeclared failure gate still stops the dynamics lineage, while R110
+authorizes only the smallest schema/compiler/native material-lineage repair.
+KTO, candidate artifact/native scene construction and all-17 remain blocked
+until R111/R112 implementation and a separately formulated R113 identity
+preflight close the model, and until a future bounded
 candidate passes every selected fresh control without changing controller
 semantics, safety limits, fresh-scene authority or the exact-zero gate.

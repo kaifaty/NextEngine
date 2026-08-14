@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R109_STOP_INVALID_MODEL_LINEAGE / MATERIAL_RESEARCH_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R110_V2_FORMULATED / R111_IMPLEMENTATION_NEXT` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,19 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Clean R109 rejects the dynamics lineage before KTO;
-  kinematics/controller map, but material and contact-wrench ownership do not.
-- **Why:** Two material IDs have no coefficient/combine descriptors; native
-  uses `0.8/0.7`, Isaac defaults to `0.5/0.5`, and no wrench frame/order exists.
-- **Next action:** Run bounded material-lineage research and formulate canonical
-  material plus wrench ownership; KTO and every solve remain unauthorized.
-- **Current blocker:** SPEC-26 forbids backend-default material substitution;
-  current descriptor/USD cannot identify one authoritative friction model.
+- **Current conclusion:** Clean R110 v2 freezes the full material/point-force
+  repair; only R111 architecture/contracts/compiler/native work is permitted.
+- **Why:** Material V1 omits three SPEC-26 fields; use a V2 successor, exact
+  Q16 `52429/45875/0`, zero extensions and ordered point forces, not defaults.
+- **Next action:** Implement R111 schema/compiler/native equal-material lineage
+  with static/golden tests; KTO and every scene/solve remain unauthorized.
+- **Current blocker:** R109 model identity stays failed until R111/R112 are
+  implemented and a separately formulated R113 recheck passes.
 - **Do not retry:** Do not start PPO, substitute another scalar/vector/root/
   pose boundary, zero velocities, add grace/settling, tune controller, or
   loosen safety limits. The causal matrix rejects these as fixes.
-- **Reconsider when:** Exact material descriptors/combine rule and contact-wrench
-  coordinates are owned, translated and hash-bound without changing safety.
+- **Reconsider when:** The successor material/combine catalog is compiled,
+  translated and rechecked without changing controller, reset or safety.
 
 All TRAIN-5 checkpoints remain rejected. No optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -41,10 +41,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R92–R109 native research | R109 maps structure/controller but finds no canonical material coefficients/combine rule and no owned wrench convention | `STOP_INVALID_MODEL_LINEAGE`; research before KTO |
+| R92–R110 native research | R110 v2 freezes full material successor and ordered point forces after R109's model stop | Permit R111 implementation only; no scene or KTO |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R107/R108/R109 canonical SHA-256: `5a3c26ca731ac2734637a3d9953d84eca15c6553fb97c9da2ed9a12c2f7781fa` / `4ab1ccbc697fdf97efadc9e53ca6f2605956000927c88ed76f1960917590f9e8` / `2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784`.
+R108/R109/R110-v2 canonical SHA-256: `4ab1ccbc697fdf97efadc9e53ca6f2605956000927c88ed76f1960917590f9e8` / `2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784` / `83408b97b6ba13dc801b4d9b4f68e55146f9f39b09a451c238b24cc4c8c7d88d`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -178,18 +178,18 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Which exact material coefficients preserve authored sole/body
-  identity while matching canonical CPU authority and the Isaac mirror.
-- **Reconsider when:** A separate repair closes canonical material/combine and
-  wrench-coordinate identity without changing bounds/controller/reset semantics.
+- **Uncertainty:** Whether the successor catalog/native boundary can close all
+  hashes without exposing unsupported unequal or nonzero-extended materials.
+- **Reconsider when:** R111/R112 implement exact lineage and R113 rechecks it
+  without changing bounds/controller/reset semantics.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R108 requires fixed-PD effort/contact wrench | R109 blocks before dynamics; hypothesis remains untested | Repair model lineage first |
+| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R108 requires fixed-PD effort/point forces | R109 blocks before dynamics; hypothesis remains untested | Implement/recheck model lineage first |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
-| H24/H26: nonlocal coupling is hidden between motor samples | R108 lifts q/v/a and 240 Hz effort state | R109 closes cadence but material/wrench identity fails | Repair model lineage first |
+| H24/H26: nonlocal coupling is hidden between motor samples | R108 lifts q/v/a and 240 Hz effort state | R110 defines forces, but runtime material lineage is absent | Implement/recheck model lineage first |
 | H25: reset mismatch causes R94 | Earlier reset concerns | R94 state is exact within quantization | Falsified; do not retry |
 
 ## Required context
@@ -218,10 +218,10 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73–R109 and all superseded semantic reports.
+1. Freeze clean R73–R110 v2 and all superseded semantic reports.
 2. Retain R108's four stages; do not collapse or skip their gates.
-3. Research the smallest SPEC-26-compliant material/wrench ownership repair.
-4. Run no KTO/ID/kinodynamic solve, candidate artifact or PhysX before repair.
+3. Implement R111 material successor/compiler/native fail-closed lineage only.
+4. Run no KTO/ID/kinodynamic solve, candidate artifact or PhysX scene.
 
 ## Do not retry
 
@@ -239,12 +239,12 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R109 code/profile and external report exist; tracked
-  research records R73–R109. Generated reports remain external/hash-bound.
-- **Checks:** Full lab `206/206`; clean R109 `FAIL` by contract; every solve,
-  candidate, artifact, PhysX, optimizer and training count remains zero.
-- **Remaining risk:** Material/wrench identity, dynamic feasibility, full-corpus
-  exact-zero coverage and visual review remain open.
+- **Workspace state:** R110 v2 code/profile and external report exist; tracked
+  research records R73–R110. Generated reports remain external/hash-bound.
+- **Checks:** Full lab `212/212`; clean R110 v2 `COMPLETE`; every runtime,
+  solve, candidate, artifact, PhysX, optimizer and training count is zero.
+- **Remaining risk:** Material runtime/USD identity, dynamic feasibility,
+  full-corpus exact-zero coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.

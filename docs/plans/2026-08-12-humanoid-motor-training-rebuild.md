@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 fails `7/17`; R98–R101 exhaust manual boundary edits and R102 closes the report-only evaluator. Descriptor-closed R103 defines three V9→V7 time knots; R104 rejects all `26/26` nonzero raw targets before PhysX. Clean R105 projects the three bases over the local coupled V9 row system: early/middle collapse, while offset `11` retains `9722 bp` anchor component and `9872 bp` cosine. R107 rejects that direction only on exact joint velocity `2501/2500 bp`. Clean R108 freezes a four-stage model-identity→quantization-aware-KTO→fixed-PD-inverse-dynamics→kinodynamics ladder. Clean R109 closes structural/USD/gravity/controller mappings but returns `STOP_INVALID_MODEL_LINEAGE`: two material IDs have no canonical coefficients/combine profile, native and Isaac substitute divergent defaults, and contact-wrench coordinates are unowned. Only bounded material/wrench ownership research and a separate repair formulation are next; no KTO/ID/kinodynamic solve or candidate artifact exists. ADR-070 fresh-scene authority is retained; partial reset is report-only. PhysX, full all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 fails `7/17`; R98–R101 exhaust manual boundary edits and R102 closes the report-only evaluator. Descriptor-closed R103 defines three V9→V7 time knots; R104 rejects all `26/26` nonzero raw targets before PhysX. Clean R105 projects the three bases over the local coupled V9 row system: early/middle collapse, while offset `11` retains `9722 bp` anchor component and `9872 bp` cosine. R107 rejects that direction only on exact joint velocity `2501/2500 bp`. Clean R108 freezes a four-stage model-identity→quantization-aware-KTO→fixed-PD-inverse-dynamics→kinodynamics ladder. Clean R109 closes structural/USD/gravity/controller mappings but returns `STOP_INVALID_MODEL_LINEAGE`. Clean R110 v2 freezes the full SPEC-26 material successor (`52429/45875/0` Q16, zero rolling/spinning/surface velocity), exact combine rules and ordered solver-private point forces; its first incomplete-V1 report is superseded. Only R111 architecture/contracts/compiler/native material-lineage implementation is authorized next, without PhysX execution. No KTO/ID/kinodynamic solve or candidate artifact exists. ADR-070 fresh-scene authority is retained; partial reset is report-only. PhysX, full all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1861,8 +1861,25 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   `97f149b12f5f4a6694da04298df774f33fd4854e93b54f3096d8882f2c1efc85` /
   `961926664ca8ff08a4c384180092dcbb7cb6591880bb8501148fef04d1e65ed0`.
   It runs one static preflight and zero solver/candidate/PhysX/optimizer/training
-  work. The next bounded step is material/combine and wrench-ownership research
-  plus a separately reviewed repair formulation; KTO is not authorized.
+  work. This selected material/combine and wrench-ownership research plus a
+  separately reviewed repair formulation; KTO stayed unauthorized.
+  Clean R110 v2 closes that research/formulation step. It detects that the
+  implemented material V1 also omits SPEC-26 rolling/spinning friction and
+  surface velocity, so same-version extension is rejected. The selected repair
+  requires `PhysicsMaterialDescriptorV2` plus an exact combine profile, three
+  coefficient-identical body/sole/ground rows at Q16 `52429/45875/0`, exact
+  zero extended fields, new compiled/USD lineage and fail-closed rejection of
+  unequal or nonzero-extended materials until a successor ABI supports them.
+  Future dynamics variables are four ordered point-contact forces with
+  `[normal,right,forward]` components and no independent moment. Canonical/
+  file/profile SHA-256 is
+  `83408b97b6ba13dc801b4d9b4f68e55146f9f39b09a451c238b24cc4c8c7d88d` /
+  `234c7e51c3e6135bff55e503d8ce2bb58946c6cbef36598d92641ce7deb72637` /
+  `85604a87bfc05ef170d21ff49d217d21327095414fb12b565efe76eb1afb9b18`.
+  It runs zero runtime/solver/PhysX/optimizer/training work and authorizes only
+  R111 architecture/contracts/compiler/native material-lineage implementation.
+  R112 USD/Isaac implementation, R113 model identity and KTO remain separately
+  gated and unauthorized.
 These results still cannot authorize full V19 or learned optimization.
 
 Roadmap status changes only after material implementation/check results. This
