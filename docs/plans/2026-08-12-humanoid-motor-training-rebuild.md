@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` and fails the stronger raw-mask `cmu139`; R74–R85 isolate artificial infeasibility, blind active-set oscillation, mismatched merit and a persistent model/FK collider gap. R86 locates a model-valid correction radius; the current increment is a bounded trial-point re-solve on `cmu139`. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, fresh PhysX, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` and fails the stronger raw-mask `cmu139`; R74–R85 isolate artificial infeasibility, blind active-set oscillation, mismatched merit and a persistent model/FK collider gap. R86 locates a model-valid correction radius; R87 validates a bounded re-solve, and the current increment is one unchanged-trust relinearization on `cmu139`. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, fresh PhysX, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1742,7 +1742,12 @@ right-foot collider prediction error reaches `13030 µm` around source frame
 `1388`. R87 therefore re-solves, rather than scales, the trial-point minimax
 phase-I inside measured `10000 µm` root-component and `25000 µrad`
 joint-component trust bounds. It retains hard linear rows and the unchanged
-exact max-first gate. Only `cmu139` PASS permits an unchanged clean
+exact max-first gate. R87 brackets model slack at `0.941454..1.176818` and
+produces exact merit `2.4324/5.9482` from model `1.1769/4.7073`; its
+actual/predicted ratio `0.511` validates the local mechanism while collider
+`-12163 µm` keeps the gate failed. R88 therefore relinearizes once at the R87
+emitted integer state with unchanged trust and no new requirement or slack
+policy. Only `cmu139` PASS permits an unchanged clean
 all-three/all-17 offline rerun; only that PASS permits fresh all-17.
 These results still cannot authorize full V19 or learned optimization.
 
