@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive optimizer-free R14 still has `204/12518` required-safety failed cases (`121` hard-ROM, `67` hard-impact and `40` overlapping joint-safety/velocity cases). The bounded causal cycle is complete: controller lead/feed-forward and naive velocity zeroing are rejected, root link/CoM semantics are a confirmed but insufficient defect, and contact-consistent reference/reset is the selected next direction. Current WIP is the bounded V19 contact-manifold plus fresh-versus-partial-reset prototype for `REQ-HUM-DATA-005/007`; optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive optimizer-free R14 still has `204/12518` required-safety failed cases (`121` hard-ROM, `67` hard-impact and `40` overlapping joint-safety/velocity cases). Complete bounded R27 rejects the first V19 contact-manifold projector: fresh scene fails `3/17`, indexed partial reset fails `4/17`, controls regress and reset paths diverge. ADR-070 fresh-scene authority is retained; partial reset is diagnostic-only. Current WIP is a new collider-aware, temporally coupled root/leg-chain prototype revision for `REQ-HUM-DATA-005/007`; optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1654,15 +1654,25 @@ target lead/feed-forward and naive velocity zeroing, confirmed an insufficient
 root link/CoM semantic defect, and selected contact-consistent reference/reset
 as the next implementation direction.
 
-The current executable increment is not another full corpus rebuild. It is a
-bounded V19 prototype over three representative clips and matched passing
-controls: point-consistent sticking modes, joint/root velocity recomputation
-after final contact correction, root-link velocity semantics and paired
-fresh-scene versus indexed partial-reset evidence. Only a no-regression result
-with an explicit ADR-070 disposition permits a full V19 identity and repeated
-local/native/visual/exhaustive gates. No new PPO run is authorized before a new
-`TRAIN-4 Advance`; no command locomotion run is authorized before `TRAIN-5`
-advances.
+The first bounded V19 prototype over three representative clips and matched
+passing controls is complete and rejected by R27. It closes active sticking
+points offline but permits the inactive `cmu139` swing-foot collider to start
+`3.544..14.905 mm` below ground, regresses passing controls and proves indexed
+running-scene reset non-equivalent. The detailed
+[prototype decision](../development/humanoid-train4-v19-prototype-research-2026-08-14.md)
+retains ADR-070 fresh-scene authority and makes partial reset diagnostic-only.
+
+The current executable increment is still not a full corpus rebuild. It is a
+new immutable collider-aware revision over the same bounded evidence: preserve
+point-consistent modes and frozen active-point caps, add the existing `-2 µm`
+all-collider floor, and solve stance contact plus swing clearance through a
+temporally coupled bounded root/leg chain before recomputing velocities. Run
+`cmu139@626/627/630` and `cmu16@415` first; only no-regression permits all 17
+cases. Only a fresh-scene 17-case result with zero control regressions, strict
+target-class decreases and no new category permits a full V19 identity and
+repeated local/native/visual/exhaustive gates. No new PPO run is authorized
+before a new `TRAIN-4 Advance`; no command locomotion run is authorized before
+`TRAIN-5` advances.
 
 Roadmap status changes only after material implementation/check results. This
 planning document alone does not close R5, B-08, B-12, Stage 0, GPU
