@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` and fails the stronger raw-mask `cmu139`; R74–R85 isolate artificial infeasibility, blind active-set oscillation, mismatched merit and a persistent model/FK collider gap. R86 locates a model-valid correction radius; R87/R89 improve under exact audit and R88 triggers trust contraction. The current increment is a capped adaptive loop from R89 on `cmu139`. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, fresh PhysX, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` and fails the stronger raw-mask `cmu139`; R74–R85 isolate artificial infeasibility, blind active-set oscillation, mismatched merit and a persistent model/FK collider gap. R86–R89 establish adaptive trust behavior. R90 improves exact merit to `1.1100/4.3599` but rejects at minimum trust; R91 now audits box active-feature switching before any V9 change. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, fresh PhysX, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1752,10 +1752,14 @@ but exact collider regresses `2.4324 -> 2.9816`; ratio `-0.327` rejects the
 step and retains R87. R89 contracts component trust by `0.5` to
 `5000 µm / 12500 µrad` and re-solves from R87, matching R86's reliable
 scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
-`1.7226/4.8639`, while remaining `FAIL`. R90 now bounds the mechanism to six
-relinearized attempts: exact max-first plus ratio `>=0.25` accepts, rejection
-halves trust, acceptance retains it, and expansion is forbidden. Only
-`cmu139` PASS permits an unchanged clean
+  `1.7226/4.8639`, while remaining `FAIL`. R90 executes all six bounded
+  attempts, accepts two, and improves exact merit to `1.1100/4.3599`, then
+  rejects a same-minimum-radius candidate at ratio `-1.832`. The scalar
+  collider-model error jumps from `1.6 µm` to `992 µm` between the last two
+  attempts, localized to the right-foot box. R91 therefore audits stable box
+  vertices versus the nonsmooth scalar-minimum row before any V9 implementation.
+  Only a supported geometry discriminator and subsequent `cmu139` PASS permit
+  an unchanged clean
 all-three/all-17 offline rerun; only that PASS permits fresh all-17.
 These results still cannot authorize full V19 or learned optimization.
 
