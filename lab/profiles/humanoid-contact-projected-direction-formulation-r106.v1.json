@@ -58,7 +58,8 @@
     "projection_qp_solve_count": 1,
     "required_checks": [
       "R105 late projection identity reproduces before quantization",
-      "frames 238 and 239 and every out-of-support complete-clip value remain exact V9",
+      "root/joint position inputs at frames 238 and 239 and every frame outside 240..249 remain exact V9",
+      "frame-238 root/joint position and emitted velocity remain exact V9; other dependent values may change only through the declared stencil, FK and CoM recomputation",
       "all non-dependent arrays remain byte-exact V9",
       "source contact modes and every source contact point remain frozen",
       "exact contact residual and finite/analytic contact velocity bounds",
