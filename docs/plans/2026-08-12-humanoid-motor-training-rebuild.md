@@ -2,11 +2,11 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 fails `7/17`; R98–R101 exhaust manual boundary edits and R102 closes the report-only evaluator. Descriptor-closed R103 defines three V9→V7 time knots; R104 rejects all `26/26` nonzero raw targets before PhysX. Clean R105 projects the three bases over the local coupled V9 row system: early/middle collapse, while offset `11` retains `9722 bp` anchor component and `9872 bp` cosine. R107 rejects that direction only on exact joint velocity `2501/2500 bp`. Clean R108 freezes a four-stage model-identity→quantization-aware-KTO→fixed-PD-inverse-dynamics→kinodynamics ladder. Clean R109 closes structural/USD/gravity/controller mappings but returns `STOP_INVALID_MODEL_LINEAGE`. Clean R110 v2 freezes the full SPEC-26 material successor (`52429/45875/0` Q16, zero rolling/spinning/surface velocity), exact combine rules and ordered solver-private point forces; its first incomplete-V1 report is superseded. Only R111 architecture/contracts/compiler/native material-lineage implementation is authorized next, without PhysX execution. No KTO/ID/kinodynamic solve or candidate artifact exists. ADR-070 fresh-scene authority is retained; partial reset is report-only. PhysX, full all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108 freezes model identity→quantization-aware KTO→fixed-PD inverse dynamics→kinodynamics as separate gates; R109 stops on invalid model lineage and R110 v2 formulates the exact material/point-force repair. Clean R111 now passes: Accepted ADR-071, successor contracts/compiler/mirror and native Bridge ABI 4 close engine/native material lineage without executing a PhysX scene. Only static R112 derived-USD material prims/bindings and explicit Isaac ground lineage are authorized next. R113 identity recheck, KTO/ID/kinodynamic solves, candidates, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
-| Архитектурная опора | SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34, SPEC-35, ADR-027, ADR-030, ADR-046, ADR-053, ADR-058, ADR-059, ADR-064..070 |
+| Архитектурная опора | SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34, SPEC-35, ADR-027, ADR-030, ADR-046, ADR-053, ADR-058, ADR-059, ADR-064..071 |
 | Требования candidate | [Humanoid motor requirements baseline](2026-08-12-humanoid-motor-requirements.md) |
 | Anthropometric target | [Young-adult male gait target](2026-08-12-humanoid-biomechanics-target.md) |
 | Frozen biomechanics profile | [Fixed humanoid biomechanics profile V1](2026-08-12-humanoid-biomechanics-profile-v1.md) |
@@ -1880,10 +1880,26 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   R111 architecture/contracts/compiler/native material-lineage implementation.
   R112 USD/Isaac implementation, R113 model identity and KTO remain separately
   gated and unauthorized.
+  Clean R111 closes that engine/native implementation gate. ADR-071 accepts the
+  V2 material and combine contracts, `CompiledBodySchemaV3` and mirror V2 while
+  preserving all legacy bytes. Native Bridge ABI 4 requires explicit material
+  configuration before scene creation and fails closed on unequal descriptors
+  or nonzero extended fields. The compiled descriptor/material-lineage hashes
+  are `6751853a812f549866f1db9d3662d8115b18db9b6d73beabd7221bb9f972f027` /
+  `2d13e197f766e6a24090edf396dfc2fb6cbbf4c578ea9868dffa06ab7adab751`.
+  Its canonical/file/profile SHA-256 is
+  `eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058` /
+  `c8b5663c86fdf89ba4f8729fdccb2860328fd5e7b6144388ab892d5d4bc97bd7` /
+  `a5cb5a3330eddefaeff33639e79c885ecbace7dfb8bddbf86de32f11b04bf44e`.
+  Eight frozen validations pass, including actual ABI-4 compile/link without
+  execution; all scene/solve/candidate/optimizer/training counts remain zero.
+  Only static R112 derived-USD material bindings and explicit Isaac ground
+  consumption are now authorized. R113 and every dynamics/runtime action stay
+  blocked.
 These results still cannot authorize full V19 or learned optimization.
 
-Roadmap status changes only after material implementation/check results. This
-planning document alone does not close R5, B-08, B-12, Stage 0, GPU
+Roadmap status now advances only to static R112 after clean R111. This planning
+document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 
 ## Definition of done

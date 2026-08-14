@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R110_V2_FORMULATED / R111_MATERIAL_LINEAGE_IMPLEMENTATION_NEXT` |
+| Status | `R111_PASS / R112_DERIVED_USD_ISAAC_IMPLEMENTATION_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -44,6 +44,7 @@ bounded research before another solver change or expensive native run.
 | R108 progressive-kinodynamic formulation | canonical/file/profile SHA-256 `4ab1ccbc697fdf97efadc9e53ca6f2605956000927c88ed76f1960917590f9e8` / `6a288d0cd2bdfc5f580c1dabb96ecf63ed71f79f09ae00bc40ebe15ca18fd4fb` / `1f5a006eb0a2d0f1bb575b67928e6bb9a86b42c00659393994189ebf8ce62b0f` | Clean `COMPLETE`: freezes model-identity→KTO→inverse-dynamics→kinodynamics gates; only R109 identity preflight is authorized and every solve/work count is `0` |
 | R109 dynamics-model identity preflight | canonical/file/profile SHA-256 `2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784` / `97f149b12f5f4a6694da04298df774f33fd4854e93b54f3096d8882f2c1efc85` / `961926664ca8ff08a4c384180092dcbb7cb6591880bb8501148fef04d1e65ed0` | Clean `FAIL / STOP_INVALID_MODEL_LINEAGE`: structural/USD/gravity/controller identity closes; canonical material/combine and contact-wrench ownership do not; all solve/work counts are `0` |
 | R110 canonical-material/point-force formulation v2 | canonical/file/profile SHA-256 `83408b97b6ba13dc801b4d9b4f68e55146f9f39b09a451c238b24cc4c8c7d88d` / `234c7e51c3e6135bff55e503d8ce2bb58946c6cbef36598d92641ce7deb72637` / `85604a87bfc05ef170d21ff49d217d21327095414fb12b565efe76eb1afb9b18` | Clean `COMPLETE`: freezes a full SPEC-26 material successor, exact combine profile and solver-private ordered point forces; only R111 implementation is authorized and every runtime/solve/work count is `0` |
+| R111 canonical material-lineage implementation | canonical/file/profile SHA-256 `eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058` / `c8b5663c86fdf89ba4f8729fdccb2860328fd5e7b6144388ab892d5d4bc97bd7` / `a5cb5a3330eddefaeff33639e79c885ecbace7dfb8bddbf86de32f11b04bf44e` | Clean `PASS`: Accepted ADR-071, successor contracts/compiler/mirror and native ABI 4 close engine/native lineage; only static R112 USD/Isaac implementation is authorized and every scene/solve/work count is `0` |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -898,17 +899,60 @@ all-17 and training remain unauthorized. R110 itself performs one research
 report and zero runtime changes, solver runs, PhysX runs, optimizer steps or
 training runs.
 
+## R111 canonical material-lineage implementation result
+
+R111 separates the new authority from every immutable legacy identity. Accepted
+[ADR-071](../architecture/adr/071-canonical-physics-material-lineage.md) adds
+`PhysicsMaterialDescriptorV2`, `PhysicsMaterialCombineProfileV1`,
+`CompiledBodySchemaV3` and mirror V2; V1 material bytes, V2 compiled bytes and
+mirror V1 remain historical and unchanged. The body-schema hash therefore stays
+`e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d`,
+while the new compiled descriptor and material-lineage hashes are
+`6751853a812f549866f1db9d3662d8115b18db9b6d73beabd7221bb9f972f027`
+and `2d13e197f766e6a24090edf396dfc2fb6cbbf4c578ea9868dffa06ab7adab751`.
+The generated mirror V2 SHA-256 is
+`7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3`;
+the tracked mirror V1 stays byte-exact at
+`f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014`.
+
+Native Bridge ABI 4 removes the ambient hard-coded material from world
+construction and requires an explicit 72-byte profile before any scene can be
+created. The current generation accepts only the coefficient-identical Q16
+projection, explicitly sets arithmetic-mean friction/restitution and zero
+torsional patch radii, and fails closed on unequal descriptors or nonzero
+rolling/spinning/surface-velocity fields. Legacy Stage 0 remains behaviorally
+stable because it now requests its named frozen profile explicitly instead of
+depending on a backend default. The pinned PhysX 5.9.0 ABI-4 SDK profile hash
+is `f259d3da157cc6120b378b53ee14c10805be89698242b03d7417f699ca711c3b`;
+the actual bridge compiled and linked, but no PhysX scene was executed.
+
+Architecture, implementation and audit commits are
+`14eb0b2cac25173dc137b64201732fae66ad5a27`,
+`6b87f78c1211ca354416c091789522aecfabd2c4` and
+`080a5b8a93fa283eb53b14f9f066661b947374e4`. The clean external R111 report
+passes all eight frozen validation commands and has canonical/file/profile
+SHA-256
+`eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058` /
+`c8b5663c86fdf89ba4f8729fdccb2860328fd5e7b6144388ab892d5d4bc97bd7` /
+`a5cb5a3330eddefaeff33639e79c885ecbace7dfb8bddbf86de32f11b04bf44e`.
+It records zero scene, solver, candidate, optimizer and training work and
+returns
+`PERMIT_R112_DERIVED_USD_MATERIAL_LINEAGE_IMPLEMENTATION_ONLY`. R112 is
+restricted to generated physics-material prims/bindings, exact lineage
+metadata and explicit Isaac ground consumption; R113 identity recheck, KTO and
+all runtime/training work remain separately blocked.
+
 ## Decision
 
-Freeze R92–R110 v2, retain the contact result as bounded support for H23, and
+Freeze R92–R111, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
 values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
 and the late projected direction after its exact `2501/2500 bp` failure.
-R109's predeclared failure gate still stops the dynamics lineage, while R110
-authorizes only the smallest schema/compiler/native material-lineage repair.
+R109's predeclared failure gate still stops the dynamics lineage, while R111
+authorizes only the derived USD/Isaac material-lineage repair in R112.
 KTO, candidate artifact/native scene construction and all-17 remain blocked
-until R111/R112 implementation and a separately formulated R113 identity
+until R112 implementation and a separately formulated R113 identity
 preflight close the model, and until a future bounded
 candidate passes every selected fresh control without changing controller
 semantics, safety limits, fresh-scene authority or the exact-zero gate.
