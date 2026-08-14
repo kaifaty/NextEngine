@@ -444,6 +444,12 @@ def _validate_inputs(
         and isinstance(discriminator, dict)
         and discriminator.get("ordered_source_case_ordinals")
         == [3749, 3750, 3753, 8144]
+    ) or (
+        prototype_id == "nextengine.humanoid-contact-manifold-prototype.v6"
+        and isinstance(projection.get("collider_closure"), dict)
+        and isinstance(discriminator, dict)
+        and discriminator.get("ordered_source_case_ordinals")
+        == [3749, 3750, 3753, 7978, 8144]
     )
     if (
         profile.get("schema_version") != 1
@@ -513,14 +519,23 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
             "nextengine.bounded-support-precedence-closure.v2",
             "nextengine.support-conditioned-collider-closure.v3",
             "nextengine.final-contact-root-closure.v4",
+            "nextengine.support-authorized-clearance-closure.v5",
         }
         or (
-            algorithm_id != "nextengine.final-contact-root-closure.v4"
+            algorithm_id
+            not in {
+                "nextengine.final-contact-root-closure.v4",
+                "nextengine.support-authorized-clearance-closure.v5",
+            }
             and document.get("root_vertical_policy")
             != "upward-only residual all-collider floor after leg-chain correction"
         )
         or (
-            algorithm_id == "nextengine.final-contact-root-closure.v4"
+            algorithm_id
+            in {
+                "nextengine.final-contact-root-closure.v4",
+                "nextengine.support-authorized-clearance-closure.v5",
+            }
             and document.get("root_vertical_policy")
             != (
                 "upward-only all-collider floor plus final 60 Hz root-velocity "
@@ -576,6 +591,30 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
                     "final_contact_root_velocity_closure_enabled"
                 )
                 is not True
+            )
+        )
+        or (
+            algorithm_id
+            == "nextengine.support-authorized-clearance-closure.v5"
+            and (
+                document.get("active_contact_anchor_target_micrometres") != 0
+                or document.get(
+                    "unsupported_flight_clearance_target_micrometres"
+                )
+                != 0
+                or document.get("unsupported_correction_smoothing_passes")
+                != 2
+                or document.get("correction_smoothing_passes") != 8
+                or document.get(
+                    "final_contact_root_velocity_closure_enabled"
+                )
+                is not True
+                or document.get("support_precedence_policy")
+                != (
+                    "flight-leg clearance is authorized only by same-frame "
+                    "active support; unsupported frames use a zero-clearance "
+                    "nonpenetration target"
+                )
             )
         )
     ):

@@ -195,6 +195,38 @@ def _probe_version_shape_is_valid(
             == "PERMIT_CLIP_GLOBAL_PROTOTYPE_ONLY"
             and acceptance.get("fail_gate_decision") == "STOP_AND_RESEARCH"
         )
+    if probe_id == "nextengine.humanoid-contact-manifold-physx-probe.v7":
+        return (
+            prototype_manifest.get("prototype_id")
+            == "nextengine.humanoid-contact-manifold-prototype.v6"
+            and prototype_manifest.get("scope", {}).get("case_scope")
+            == "discriminator"
+            and tuple(case.source_case_ordinal for case in cases)
+            == (3749, 3750, 3753, 7978, 8144)
+            and partial.get("enabled") is False
+            and partial.get("evidence_role") == "report-only"
+            and acceptance.get("acceptance_authority") == "fresh-scene"
+            and acceptance.get("pass_gate_decision")
+            == "PERMIT_ALL_17_BOUNDED_PROTOTYPE_ONLY"
+            and acceptance.get("fail_gate_decision") == "STOP_AND_RESEARCH"
+        )
+    if probe_id == "nextengine.humanoid-contact-manifold-physx-probe.v8":
+        return (
+            prototype_manifest.get("prototype_id")
+            == "nextengine.humanoid-contact-manifold-prototype.v6"
+            and prototype_manifest.get("scope", {}).get("case_scope") == "all"
+            and len(cases) == 17
+            and prototype_manifest.get("scope", {}).get("failure_case_count")
+            == 7
+            and prototype_manifest.get("scope", {}).get("control_case_count")
+            == 10
+            and partial.get("enabled") is False
+            and partial.get("evidence_role") == "report-only"
+            and acceptance.get("acceptance_authority") == "fresh-scene"
+            and acceptance.get("pass_gate_decision")
+            == "PERMIT_CLIP_GLOBAL_PROTOTYPE_ONLY"
+            and acceptance.get("fail_gate_decision") == "STOP_AND_RESEARCH"
+        )
     bounded_versions = {
         "nextengine.humanoid-contact-manifold-physx-probe.v2": (
             "nextengine.humanoid-contact-manifold-prototype.v2"
