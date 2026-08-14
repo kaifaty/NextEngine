@@ -260,7 +260,8 @@ def validate_r114(
     identities = report.get("identities", {})
     bounded = report.get("bounded_acceptance", {})
     if (
-        embedded != expected["report_sha256"]
+        expected.get("formulation_revision") != 2
+        or embedded != expected["report_sha256"]
         or hashlib.sha256(canonical_json(without_hash)).hexdigest() != embedded
         or report.get("check") != R114_CHECK_ID
         or report.get("formulation_id") != R114_FORMULATION_ID

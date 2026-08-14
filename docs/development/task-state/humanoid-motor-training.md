@@ -11,11 +11,11 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Clean R114 freezes one bounded quantization-aware KTO
-  execution over exact R113 identity without running a solver or scene.
-- **Why:** Exact V9 initialization, local passing V7 prior, all `69687` q/v/a
-  variables, quantization, resource bounds and fail-closed gates now close.
-- **Next action:** Implement and execute exactly one R115 in-memory KTO solve;
+- **Current conclusion:** Clean R114 revision 2 freezes one bounded KTO execution
+  over exact R113 identity without running a solver or scene.
+- **Why:** All `69687` q/v/a variables, the continuous-V9 yaw branch, exact
+  quantization, resource bounds and fail-closed gates now close.
+- **Next action:** Hash-bind, validate and execute one R115 in-memory KTO solve;
   persist only its external transient warm-start cache if exact PASS occurs.
 - **Current blocker:** KTO exact emitted feasibility with nonzero V7 progress
   has not been executed; fixed-PD dynamic feasibility remains downstream.
@@ -41,10 +41,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R111–R114 model/KTO lineage | R113 `PASS`, canonical `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf`; R114 `COMPLETE`, canonical `53f77c4887586b4e64e4b11ac7271ac18fcc9a8f17a5e8ed60ec95c30aa44828`, 5/5 validations | Permit one bounded R115 KTO execution only; no scene |
+| R111–R114 model/KTO lineage | R113 `PASS`, canonical `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf`; R114 revision 2 `COMPLETE`, canonical `7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4`, 5/5 validations; solver-free R115 shape `69687×131180`, `426210` nonzeros | Permit one bounded R115 KTO execution only; no scene |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R109/R110-v2/R111/R112/R113/R114 canonical SHA-256: `2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784` / `83408b97b6ba13dc801b4d9b4f68e55146f9f39b09a451c238b24cc4c8c7d88d` / `eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058` / `dfb3bd892b04023054ce947127743e7ada78b40000a93e22887101c544c493f2` / `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf` / `53f77c4887586b4e64e4b11ac7271ac18fcc9a8f17a5e8ed60ec95c30aa44828`.
+R109/R110-v2/R111/R112/R113/R114-v2 canonical SHA-256: `2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784` / `83408b97b6ba13dc801b4d9b4f68e55146f9f39b09a451c238b24cc4c8c7d88d` / `eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058` / `dfb3bd892b04023054ce947127743e7ada78b40000a93e22887101c544c493f2` / `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf` / `7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -187,9 +187,9 @@ carry detailed evidence. The hashes above identify their external reports.
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R108 requires fixed-PD effort/point forces | R114 closes KTO formulation, but dynamics remain untested | Run R115; formulate ID only after exact PASS |
+| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R108 requires fixed-PD effort/point forces | R114-v2 closes KTO formulation, but dynamics remain untested | Run R115; formulate ID only after exact PASS |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
-| H24/H26: nonlocal coupling is hidden between motor samples | R114 lifts `69687` q/v/a scalars with exact stencil | 240 Hz effort state is still untested | Execute only the bounded R115 KTO stage |
+| H24/H26: nonlocal coupling is hidden between motor samples | R114-v2 lifts `69687` q/v/a; solver-free sparse assembly closes | 240 Hz effort state is still untested | Execute only the bounded R115 KTO stage |
 | H25: reset mismatch causes R94 | Earlier reset concerns | R94 state is exact within quantization | Falsified; do not retry |
 
 ## Required context
@@ -220,7 +220,7 @@ semantics.
 
 1. Freeze clean R73–R114 and all superseded semantic reports.
 2. Retain R108's four stages; do not collapse or skip their gates.
-3. Implement and execute exactly one clean bounded R115 KTO solve only.
+3. Hash-bind, validate and execute exactly one clean bounded R115 KTO solve.
 4. Run no ID/kinodynamic solve, candidate artifact, PhysX scene or all-17.
 
 ## Do not retry
@@ -239,9 +239,9 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** Clean R114 KTO formulation exists; tracked research
-  records R73–R114. Reports remain external/hash-bound.
-- **Checks:** Full lab `230/230`; clean R114 `COMPLETE`; every scene, solve,
+- **Workspace state:** Clean R114-v2 exists; R115 tooling is implemented and
+  tracked research records R73–R114. Reports remain external/hash-bound.
+- **Checks:** Full lab `235/235`; clean R114-v2 `COMPLETE`; every scene, solve,
   candidate artifact, PhysX, learned-optimizer and training count is zero.
 - **Remaining risk:** KTO/dynamic feasibility,
   full-corpus exact-zero coverage and visual review remain open.

@@ -47,7 +47,7 @@ bounded research before another solver change or expensive native run.
 | R111 canonical material-lineage implementation | canonical/file/profile SHA-256 `eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058` / `c8b5663c86fdf89ba4f8729fdccb2860328fd5e7b6144388ab892d5d4bc97bd7` / `a5cb5a3330eddefaeff33639e79c885ecbace7dfb8bddbf86de32f11b04bf44e` | Clean `PASS`: Accepted ADR-071, successor contracts/compiler/mirror and native ABI 4 close engine/native lineage; only static R112 USD/Isaac implementation is authorized and every scene/solve/work count is `0` |
 | R112 derived USD/Isaac material lineage | canonical/file/profile SHA-256 `dfb3bd892b04023054ce947127743e7ada78b40000a93e22887101c544c493f2` / `a615359b7855ca270dacced899960d71ab4a43c8aab69403fd154a55a0067778` / `c98c383117f03b5bb594855c831f2aa3a31453ac94b6f4fa2dc483015a3b7f0a` | Clean `PASS`: exact humanoid/ground material prims, `19+1` bindings and explicit Isaac consumption close the derived lineage; only report-only R113 is authorized and every scene/solve/work count is `0` |
 | R113 clean dynamics-model identity | canonical/file/profile SHA-256 `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf` / `de584af485e789a19e457708cf154193c5d870dd1deb8ee29a61b6abddb6541c` / `fa52cf18be25144893fb1d4da57bbae2fc2056d00d13e4bac012276ccc8cdf5d` | Clean `PASS`: all R108 identity groups close with zero blockers; only report-only R114 KTO formulation is authorized, with one preflight and zero scene/solve/work counts |
-| R114 quantization-aware KTO execution formulation | canonical/file/profile SHA-256 `53f77c4887586b4e64e4b11ac7271ac18fcc9a8f17a5e8ed60ec95c30aa44828` / `2f5c6c8b8c43864087feb51aa82207447bf2940283f2689f7ee1b278793c84ea` / `ec0a98376c7010970bae729ddbb4a39ded6323dcf11a711156d4a62992ba8e92` | Clean `COMPLETE`: freezes `69687` q/v/a scalars, exact emission/progress/resource gates and one R115 execution; all scene/solve/work counts remain `0` |
+| R114 quantization-aware KTO execution formulation revision 2 | canonical/file/profile SHA-256 `7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4` / `2666a275180b222c014eea91051ff4d3ebdb16a5740eb742ed2cca3a83b3d958` / `8e26b84de2a25e07d19cd93400bc8c04a6bc4840fb9a4d8eb6ab88237db59a43` | Clean `COMPLETE`: supersedes underdefined v1 before any solve; freezes `69687` q/v/a scalars, continuous-V9 yaw emission, exact progress/resource gates and one R115 execution; all scene/solve/work counts remain `0` |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -1025,7 +1025,7 @@ freeze a bounded KTO execution contract, but may not execute it.
 
 ## R114 quantization-aware KTO execution formulation result
 
-Clean R114 at commit `77be95dd01032bb19b7e5a7ecc61c54631d24a50`
+Clean R114 revision 2 at commit `8b0ffc998dbed63ea37f07ca79d7dbe21f8dfc8f`
 turns the R108 stage-1 sketch into one executable, fail-closed contract without
 running a solver. It independently binds the exact R113 PASS, the R108 ladder,
 the current material-complete descriptor, the byte-identical legacy kinematic
@@ -1058,6 +1058,28 @@ integer directional dot, a strict squared-distance decrease from
 coefficient search, schedule/point changes and post-emission mutation are
 forbidden.
 
+The first clean formulation report at commit `77be95d` left the emitted
+`root_yaw_urad` branch implicit. A solver-free implementation audit exposed the
+problem: V9 yaw is continuous/unwrapped, while direct frozen XZY decomposition
+wraps at `±pi` and falsely reports a large tangential velocity. Revision 1,
+canonical/file/profile `53f77c…` / `2f5c6c…` / `ec0a98…`, is therefore marked
+`SUPERSEDED_BEFORE_KTO_EXECUTION_ROOT_YAW_BRANCH_WAS_UNDERDEFINED`; no OSQP or
+KTO solve had run. Revision 2 freezes a unique rule: decompose emitted and
+source-V9 quaternions, wrap their angular difference to `[-pi,pi]`, add it to
+the continuous source-V9 yaw, then ties-to-even quantize. This is part of
+emission semantics and cannot be used as a later repair.
+
+The same solver-free real-data preflight constructs `69687` variables,
+`131180` constraints and `426210` sparse nonzeros with no lower-bound/upper-
+bound contradiction. At zero increment, canonical matrix-to-quaternion
+normalization changes `17` internal cells by exactly one Q1.30 LSB, leaves both
+endpoints byte-exact, and the corrected audit reproduces V9 PASS metrics:
+contact residual/normal/tangential `4913/982/1982 µm`, analytic normal/
+tangential `996/2000 µm`, collider `+49 µm`, root velocity `199800 µm/s`,
+joint velocity `2500 bp`, and zero descriptor/effective ROM excess. Only strict
+nonzero V7 tracking progress fails, as required for the zero control. This
+preflight invokes neither OSQP nor a scene and has no candidate authority.
+
 R115 is limited to one single-threaded CPU SQP process, one solve, twelve major
 iterations/QPs, at most `72` exact emission audits, four hours and `16 GiB`.
 It uses the already pinned NumPy/SciPy/OSQP versions and frozen finite-difference,
@@ -1067,11 +1089,11 @@ cache for the separately gated inverse-dynamics stages. That cache has no
 candidate, corpus, controller, runtime or acceptance authority and is deleted
 on failure or after downstream use. No candidate artifact is authorized.
 
-The clean report passes Ruff, all `230` lab tests, motor tests and full
+The clean revision-2 report passes Ruff, all `235` lab tests, motor tests and full
 `host-check`. Its canonical/file/profile SHA-256 is
-`53f77c4887586b4e64e4b11ac7271ac18fcc9a8f17a5e8ed60ec95c30aa44828` /
-`2f5c6c8b8c43864087feb51aa82207447bf2940283f2689f7ee1b278793c84ea` /
-`ec0a98376c7010970bae729ddbb4a39ded6323dcf11a711156d4a62992ba8e92`.
+`7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4` /
+`2666a275180b222c014eea91051ff4d3ebdb16a5740eb742ed2cca3a83b3d958` /
+`8e26b84de2a25e07d19cd93400bc8c04a6bc4840fb9a4d8eb6ab88237db59a43`.
 It records one formulation and zero solver, KTO, candidate, cache, PhysX,
 learned-optimizer or training work. Its only successor gate is
 `PERMIT_R115_SINGLE_BOUNDED_QUANTIZATION_AWARE_KTO_EXECUTION_ONLY`.

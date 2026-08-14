@@ -5,10 +5,11 @@
   "claim": "SingleBoundedQuantizationAwareKtoExecutionOnly",
   "source": {
     "r114": {
-      "report_sha256": "53f77c4887586b4e64e4b11ac7271ac18fcc9a8f17a5e8ed60ec95c30aa44828",
-      "report_file_sha256": "2f5c6c8b8c43864087feb51aa82207447bf2940283f2689f7ee1b278793c84ea",
-      "profile_sha256": "ec0a98376c7010970bae729ddbb4a39ded6323dcf11a711156d4a62992ba8e92",
-      "formulation_module_sha256": "7e7bc82b8002047415f6428bd20cc065878e9ba1e2f670b33624b235078ef86d",
+      "formulation_revision": 2,
+      "report_sha256": "7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4",
+      "report_file_sha256": "2666a275180b222c014eea91051ff4d3ebdb16a5740eb742ed2cca3a83b3d958",
+      "profile_sha256": "8e26b84de2a25e07d19cd93400bc8c04a6bc4840fb9a4d8eb6ab88237db59a43",
+      "formulation_module_sha256": "7651d5e370bac5ecc19d0cfaa05c730e0825376c5b76a921714c453cb68baef9",
       "tool_sha256": "a9e00a10d63bf112fec37a8b48a308dc3a17fc320f17a7dd44be46a6f159654a"
     }
   },

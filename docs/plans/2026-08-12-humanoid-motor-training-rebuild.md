@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108 freezes model identity→quantization-aware KTO→fixed-PD inverse dynamics→kinodynamics as separate gates; R109–R113 close the exact structural/material/derived/point-force identity. Clean report-only R114 now freezes one bounded `69687`-scalar quantization-aware KTO execution contract. Exactly one R115 KTO solve is next; ID/kinodynamic solves, candidate artifacts, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108 freezes model identity→quantization-aware KTO→fixed-PD inverse dynamics→kinodynamics as separate gates; R109–R113 close the exact structural/material/derived/point-force identity. Clean report-only R114 revision 2 now freezes one bounded `69687`-scalar quantization-aware KTO execution contract, including the continuous-V9 root-yaw branch. Exactly one R115 KTO solve is next; ID/kinodynamic solves, candidate artifacts, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1922,23 +1922,29 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   Five validations pass, including `226/226` lab tests and full `host-check`;
   one preflight and zero solver/PhysX/optimizer/training work are recorded.
   R113 authorizes only report-only R114 KTO execution formulation; no R113 solve.
-  Clean R114 binds exact R108/R113 lineage, the current/legacy kinematic
+  Clean R114 revision 2 binds exact R108/R113 lineage, the current/legacy kinematic
   identity and complete V9/R93 `cmu16` initialization. Passing V7/R47 frames
   `238..249` are a local `61`-cell joint-position prior only; V7/R57 complete
   `cmu16` is not admissible because it fails complete-clip contact. R114 lifts
   floating-base and all `23` joint q/v/a at `801` knots (`69687` scalars),
-  freezes the exact `10/10/781` hybrid stencil, ties-to-even emission, unchanged
-  contact/collider/ROM/velocity limits and strict integer V7 progress.
+  freezes the exact `10/10/781` hybrid stencil, ties-to-even emission, the
+  nearest continuous V9 yaw branch, unchanged contact/collider/ROM/velocity
+  limits and strict integer V7 progress. Revision 1 is superseded before any
+  KTO solve because direct wrapped XZY yaw left that branch underdefined.
   Canonical/file/profile SHA-256 is
-  `53f77c4887586b4e64e4b11ac7271ac18fcc9a8f17a5e8ed60ec95c30aa44828` /
-  `2f5c6c8b8c43864087feb51aa82207447bf2940283f2689f7ee1b278793c84ea` /
-  `ec0a98376c7010970bae729ddbb4a39ded6323dcf11a711156d4a62992ba8e92`.
-  Five validations pass including `230/230` lab tests and full `host-check`;
+  `7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4` /
+  `2666a275180b222c014eea91051ff4d3ebdb16a5740eb742ed2cca3a83b3d958` /
+  `8e26b84de2a25e07d19cd93400bc8c04a6bc4840fb9a4d8eb6ab88237db59a43`.
+  Five validations pass including `235/235` lab tests and full `host-check`;
   formulation count is one and every solve/cache/scene/candidate/learned-
   optimizer/training count is zero. Exactly one single-threaded R115 solve is
   now authorized with twelve SQP/QP iterations, at most `72` emitted audits,
   four hours and `16 GiB`. Failure stops for research without tuning or retry;
   exact PASS may retain only a transient solver-private warm-start cache.
+  Solver-free R115 implementation preflight builds `69687` variables,
+  `131180` constraints and `426210` nonzeros without contradictory intervals;
+  zero-state exact emission reproduces every V9 gate except deliberately
+  nonzero V7 progress. It is not a solve or candidate result.
 These results still cannot authorize full V19 or learned optimization.
 
 Roadmap status now advances only to one bounded R115 KTO execution after clean R114. This planning
