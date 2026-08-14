@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 fails `7/17`; R98–R101 exhaust manual boundary edits and R102 closes the report-only evaluator. Descriptor-closed R103 defines three V9→V7 time knots; R104 rejects all `26/26` nonzero raw targets before PhysX. Clean R105 projects the three bases over the local coupled V9 row system: early/middle collapse, while offset `11` retains `9722 bp` anchor component and `9872 bp` cosine. Only R106 reconstruction/quantization/exact-audit formulation is authorized; no candidate exists. ADR-070 fresh-scene authority is retained; partial reset is report-only. Candidate construction/PhysX, full all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 fails `7/17`; R98–R101 exhaust manual boundary edits and R102 closes the report-only evaluator. Descriptor-closed R103 defines three V9→V7 time knots; R104 rejects all `26/26` nonzero raw targets before PhysX. Clean R105 projects the three bases over the local coupled V9 row system: early/middle collapse, while offset `11` retains `9722 bp` anchor component and `9872 bp` cosine. Clean R106 v2 freezes deterministic reconstruction/quantization of only that late direction and permits one in-memory R107 exact offline audit. No candidate artifact exists. ADR-070 fresh-scene authority is retained; partial reset is report-only. PhysX, full all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1828,6 +1828,12 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   baseline violation is explicitly non-authoritative; exact R93/R104 remains
   the gate. R105 builds no candidate and authorizes only R106 formulation of
   reconstruction, quantization and a later exact nonlinear audit contract.
+  Clean R106 v2 selects only `anchor-offset-11` and freezes the hash-bound R107
+  recipe without re-solving the projection or constructing a target. R107 may
+  reconstruct one target in memory, ties-to-even quantize root and selected-leg
+  increments on frames `240..249`, recompute all stencil/FK/CoM dependents, and
+  apply the unchanged exact V9 gate. It must emit metrics only: target artifacts,
+  PhysX, scaling/repair/search, all-17 and training remain unauthorized.
 These results still cannot authorize full V19 or learned optimization.
 
 Roadmap status changes only after material implementation/check results. This

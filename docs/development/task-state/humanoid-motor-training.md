@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R105_DIRECTION_COMPLETE / R106_FORMULATION_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R106_FORMULATION_COMPLETE / R107_EXACT_NEXT` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,19 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Clean R105 rejects early/middle anchor directions but
-  retains the late direction at `9722 bp` component / `9872 bp` cosine.
-- **Why:** The local V9 row system has `69` near-binding independent rows but
-  `61` remaining dimensions; a small coupled compensation exists only late.
-- **Next action:** Freeze only the R106 reconstruction/quantization/exact-audit
-  formulation; candidate construction and PhysX remain unauthorized.
-- **Current blocker:** The retained linear projection has not been quantized
-  into a candidate or checked through the exact nonlinear offline gate.
+- **Current conclusion:** Clean R106 v2 selects only late offset `11` and freezes
+  exact reconstruction/quantization without constructing a target.
+- **Why:** R105 retains `9722/9872 bp` component/cosine only for that basis;
+  early and middle bases are below both usefulness thresholds.
+- **Next action:** R107 may reconstruct one target in memory and run only the
+  exact nonlinear V9 offline gate; candidate artifact/PhysX stay unauthorized.
+- **Current blocker:** The retained linear projection has not yet survived
+  integer quantization and exact nonlinear contact/velocity constraints.
 - **Do not retry:** Do not start PPO, substitute another scalar/vector/root/
   pose boundary, zero velocities, add grace/settling, tune controller, or
   loosen safety limits. The causal matrix rejects these as fixes.
-- **Reconsider when:** R106 closes a hash-bound formulation, then an explicitly
-  authorized later exact-offline construction passes before any native run.
+- **Reconsider when:** R107 exact metrics either PASS and permit only native
+  formulation, or FAIL and select progressive kinodynamic formulation.
 
 All TRAIN-5 checkpoints remain rejected. No optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -41,10 +41,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R92–R105 native research | R105 projects three bases over 130 local variables/600 rows; only late offset `11` remains useful, with no candidate/PhysX/training work | Permit R106 formulation only; candidate construction and training blocked |
+| R92–R106 native research | R106 v2 freezes only late reconstruction and dependent recomputation; all work counts remain `0` | Permit one in-memory R107 exact audit; artifact/PhysX/training blocked |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R103-v2/R104-v2/R105 canonical SHA-256: `81e213c73a9a0ad071dd7459b0f6e3c285fe18985620b81045e3d4d4c90ddddc` / `d80504975367c13e01d724e9bbbae47335ed4d9ab366179b44851741813197ab` / `c107230f01f75d25987ca0e9ac07d81cdda71fe94bca1889509d4f5504436f50`.
+R104-v2/R105/R106-v2 canonical SHA-256: `d80504975367c13e01d724e9bbbae47335ed4d9ab366179b44851741813197ab` / `c107230f01f75d25987ca0e9ac07d81cdda71fe94bca1889509d4f5504436f50` / `67a94a01f624cae4db9615646ee00a8ef00920119ad017f3ddead60d2e0c2996`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -178,18 +178,18 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether R105's useful late linear projection survives integer
-  quantization and the exact nonlinear contact/velocity audit.
-- **Reconsider when:** R106 freezes its reconstruction contract and a later
-  authorized construction passes without changing bounds/controller semantics.
+- **Uncertainty:** Whether R106's retained late projection survives integer
+  quantization and R107 exact nonlinear contact/velocity audit.
+- **Reconsider when:** R107 closes its exact report without changing frozen
+  bounds, contact modes, controller, reset or reference-target semantics.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R105 retains `97.22%` of only the late anchor component | Exact nonlinear state remains untested | R106 projected formulation |
+| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R106 freezes `97.22%` late anchor component | Exact nonlinear state remains untested | R107 exact offline audit |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
-| H24/H26: nonlocal coupling is hidden between motor samples | R105 requires root/bilateral-leg compensation and rejects two bases | No exact projected target exists | R106 projected formulation |
+| H24/H26: nonlocal coupling is hidden between motor samples | R106 freezes root/bilateral-leg compensation | No exact projected target result | R107 exact offline audit |
 | H25: reset mismatch causes R94 | Earlier reset concerns | R94 state is exact within quantization | Falsified; do not retry |
 
 ## Required context
@@ -218,10 +218,10 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73–R105 and both superseded semantic-label reports.
-2. Reject early/middle bases and retain only `anchor-offset-11` research.
-3. Define R106 reconstruction, quantization and later exact-audit contract.
-4. Run no candidate construction or PhysX until R106 records a new decision.
+1. Freeze clean R73–R106 and all superseded semantic reports.
+2. Retain only `anchor-offset-11`; do not shrink/repair/sweep it.
+3. Reconstruct it once in memory and run the exact R107 offline audit.
+4. Emit no candidate artifact and run no PhysX regardless of R107 result.
 
 ## Do not retry
 
@@ -239,10 +239,10 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R105 code/profile is committed; tracked research records
-  R73–R105. Generated reports remain external and hash-bound.
-- **Checks:** Full lab `194/194`; clean R105 `COMPLETE`, PhysX `0`; candidate
-  targets/artifacts, exact audits, optimizer steps and training remain zero.
+- **Workspace state:** R106 v2 code/profile is committed; tracked research now
+  records R73–R106. Generated reports remain external and hash-bound.
+- **Checks:** Full lab `196/196`; clean R106 `COMPLETE`, PhysX `0`; projection,
+  target/artifact, exact-audit, optimizer and training counts remain zero.
 - **Remaining risk:** Dynamic-reference feasibility, full-corpus exact-zero
   coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
