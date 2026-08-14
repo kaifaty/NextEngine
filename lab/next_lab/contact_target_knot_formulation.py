@@ -22,30 +22,30 @@ IMMUTABLE_FRAME_OFFSETS = (0, 1)
 KNOT_FRAME_OFFSETS = (2, 6, 11)
 COEFFICIENT_SCALE_BASIS_POINTS = 10_000
 COEFFICIENT_GRID_BASIS_POINTS = (0, 5_000, 10_000)
-ACTION_IDS = (
-    "actuator.left-ankle-pitch",
-    "actuator.left-ankle-roll",
-    "actuator.left-elbow",
-    "actuator.left-hip-pitch",
-    "actuator.left-hip-roll",
-    "actuator.left-hip-yaw",
-    "actuator.left-knee",
-    "actuator.left-shoulder-pitch",
-    "actuator.left-shoulder-roll",
-    "actuator.left-shoulder-yaw",
-    "actuator.right-ankle-pitch",
-    "actuator.right-ankle-roll",
-    "actuator.right-elbow",
-    "actuator.right-hip-pitch",
-    "actuator.right-hip-roll",
-    "actuator.right-hip-yaw",
-    "actuator.right-knee",
-    "actuator.right-shoulder-pitch",
-    "actuator.right-shoulder-roll",
-    "actuator.right-shoulder-yaw",
-    "actuator.torso-pitch",
-    "actuator.torso-roll",
-    "actuator.torso-yaw",
+JOINT_DOF_IDS = (
+    "joint.left-hip-pitch",
+    "joint.left-hip-roll",
+    "joint.left-hip-yaw",
+    "joint.left-knee",
+    "joint.left-ankle-pitch",
+    "joint.left-ankle-roll",
+    "joint.right-hip-pitch",
+    "joint.right-hip-roll",
+    "joint.right-hip-yaw",
+    "joint.right-knee",
+    "joint.right-ankle-pitch",
+    "joint.right-ankle-roll",
+    "joint.torso-pitch",
+    "joint.torso-roll",
+    "joint.torso-yaw",
+    "joint.left-shoulder-pitch",
+    "joint.left-shoulder-roll",
+    "joint.left-shoulder-yaw",
+    "joint.left-elbow",
+    "joint.right-shoulder-pitch",
+    "joint.right-shoulder-roll",
+    "joint.right-shoulder-yaw",
+    "joint.right-elbow",
 )
 
 
@@ -56,6 +56,7 @@ def build_target_knot_formulation(
     r102_audit_path: Path,
     v7_manifest_path: Path,
     v9_manifest_path: Path,
+    descriptor_path: Path,
     tool_path: Path,
     repository: Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -69,6 +70,7 @@ def build_target_knot_formulation(
             r102_audit_path,
             v7_manifest_path,
             v9_manifest_path,
+            descriptor_path,
             tool_path,
         )
     )
@@ -78,6 +80,7 @@ def build_target_knot_formulation(
         r102_audit_path,
         v7_manifest_path,
         v9_manifest_path,
+        descriptor_path,
         tool_path,
     ) = paths
     if any(not path.is_file() for path in paths):
@@ -91,6 +94,10 @@ def build_target_knot_formulation(
     )
     if sha256(source_audit_path) != profile["source"]["audit_sha256"]:
         raise ValueError("source audit identity differs")
+    _validate_descriptor(
+        path=descriptor_path,
+        expected_sha256=profile["source"]["descriptor_sha256"],
+    )
 
     v7_manifest = _load_manifest(
         path=v7_manifest_path,
@@ -102,6 +109,12 @@ def build_target_knot_formulation(
         expected=profile["source"]["v9"],
         source_audit_path=source_audit_path,
     )
+    if any(
+        manifest.get("identities", {}).get("descriptor_sha256")
+        != sha256(descriptor_path)
+        for manifest in (v7_manifest, v9_manifest)
+    ):
+        raise ValueError("source manifest descriptor identity differs")
     v7_case, v7_artifact = _load_case(
         manifest=v7_manifest,
         manifest_path=v7_manifest_path,
@@ -181,6 +194,7 @@ def build_target_knot_formulation(
         "identities": {
             "profile_sha256": sha256(profile_path),
             "source_audit_sha256": sha256(source_audit_path),
+            "descriptor_sha256": sha256(descriptor_path),
             "r102_report_sha256": profile["source"]["r102"][
                 "report_sha256"
             ],
@@ -327,7 +341,7 @@ def _validate_profile(profile: Mapping[str, Any]) -> None:
         != SOURCE_CASE_ORDINAL
         or profile.get("scope", {}).get("frame_first") != FRAME_FIRST
         or profile.get("scope", {}).get("frame_last") != FRAME_LAST
-        or tuple(formulation.get("action_channel_ids", ())) != ACTION_IDS
+        or tuple(formulation.get("joint_dof_ids", ())) != JOINT_DOF_IDS
         or tuple(formulation.get("immutable_frame_offsets", ()))
         != IMMUTABLE_FRAME_OFFSETS
         or tuple(formulation.get("knot_frame_offsets", ()))
@@ -528,7 +542,7 @@ def _anchor_facts(
         "mutable_delta_sha256": array_sha256(mutable),
         "full_changed_element_count": int(np.count_nonzero(delta)),
         "mutable_changed_element_count": int(np.count_nonzero(mutable)),
-        "mutable_support_action_ordinals": [
+        "mutable_support_dof_ordinals": [
             int(value) for value in np.flatnonzero(np.any(mutable != 0, axis=0))
         ],
         "maximum_absolute_mutable_delta_microradians": int(
@@ -551,6 +565,22 @@ def _validate_candidate(
         or np.any(candidate > np.maximum(baseline, anchor))
     ):
         raise AssertionError("target-knot candidate violates the convex anchor")
+
+
+def _validate_descriptor(*, path: Path, expected_sha256: str) -> None:
+    if sha256(path) != expected_sha256:
+        raise ValueError("descriptor file identity differs")
+    descriptor = json.loads(path.read_bytes())
+    joints = sorted(
+        descriptor.get("joints", ()), key=lambda row: int(row["dof_ordinal"])
+    )
+    if (
+        len(joints) != ACTION_COUNT
+        or tuple(int(row["dof_ordinal"]) for row in joints)
+        != tuple(range(ACTION_COUNT))
+        or tuple(str(row["joint_id"]) for row in joints) != JOINT_DOF_IDS
+    ):
+        raise ValueError("descriptor joint-DoF layout differs")
 
 
 def _prefix_lattice(

@@ -24,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--r102-audit", type=Path, required=True)
     parser.add_argument("--v7-manifest", type=Path, required=True)
     parser.add_argument("--v9-manifest", type=Path, required=True)
+    parser.add_argument("--descriptor", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
 
@@ -40,6 +41,7 @@ def main() -> None:
         r102_audit_path=args.r102_audit,
         v7_manifest_path=args.v7_manifest,
         v9_manifest_path=args.v9_manifest,
+        descriptor_path=args.descriptor,
         tool_path=Path(__file__),
         repository=repository,
     )

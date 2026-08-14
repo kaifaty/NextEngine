@@ -10,11 +10,11 @@ from typing import Any
 import numpy as np
 
 from next_lab.contact_target_knot_formulation import (
-    ACTION_IDS,
     CHECK_ID,
     COEFFICIENT_GRID_BASIS_POINTS,
     FORMULATION_ID,
     IMMUTABLE_FRAME_OFFSETS,
+    JOINT_DOF_IDS,
     KNOT_FRAME_OFFSETS,
     apply_anchor,
     array_sha256,
@@ -36,6 +36,7 @@ class ContactTargetKnotFormulationTests(unittest.TestCase):
                 r102_audit_path=fixture["r102"],
                 v7_manifest_path=fixture["v7"],
                 v9_manifest_path=fixture["v9"],
+                descriptor_path=fixture["descriptor"],
                 tool_path=Path(__file__),
                 repository={"commit": "a" * 40, "dirty": False},
             )
@@ -71,6 +72,7 @@ class ContactTargetKnotFormulationTests(unittest.TestCase):
                     r102_audit_path=fixture["r102"],
                     v7_manifest_path=fixture["v7"],
                     v9_manifest_path=fixture["v9"],
+                    descriptor_path=fixture["descriptor"],
                     tool_path=Path(__file__),
                     repository={"commit": "a" * 40, "dirty": False},
                 )
@@ -91,6 +93,26 @@ class ContactTargetKnotFormulationTests(unittest.TestCase):
                     r102_audit_path=fixture["r102"],
                     v7_manifest_path=fixture["v7"],
                     v9_manifest_path=fixture["v9"],
+                    descriptor_path=fixture["descriptor"],
+                    tool_path=Path(__file__),
+                    repository={"commit": "a" * 40, "dirty": False},
+                )
+
+    def test_descriptor_dof_layout_mismatch_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = _fixture(Path(temporary))
+            descriptor = json.loads(fixture["descriptor"].read_bytes())
+            descriptor["joints"][0]["joint_id"] = "joint.wrong"
+            _write_json(fixture["descriptor"], descriptor)
+
+            with self.assertRaisesRegex(ValueError, "descriptor file identity"):
+                build_target_knot_formulation(
+                    profile_path=fixture["profile"],
+                    source_audit_path=fixture["source_audit"],
+                    r102_audit_path=fixture["r102"],
+                    v7_manifest_path=fixture["v7"],
+                    v9_manifest_path=fixture["v9"],
+                    descriptor_path=fixture["descriptor"],
                     tool_path=Path(__file__),
                     repository={"commit": "a" * 40, "dirty": False},
                 )
@@ -115,6 +137,16 @@ class ContactTargetKnotFormulationTests(unittest.TestCase):
 def _fixture(root: Path) -> dict[str, Path]:
     source_audit = root / "source-audit.json"
     _write_json(source_audit, {"check": "fixture"})
+    descriptor = root / "descriptor.json"
+    _write_json(
+        descriptor,
+        {
+            "joints": [
+                {"dof_ordinal": ordinal, "joint_id": joint_id}
+                for ordinal, joint_id in enumerate(JOINT_DOF_IDS)
+            ]
+        },
+    )
 
     r102 = root / "r102.json"
     r102_report = {
@@ -147,6 +179,7 @@ def _fixture(root: Path) -> dict[str, Path]:
         role="v7",
         prototype_id="nextengine.humanoid-contact-manifold-prototype.v7",
         source_audit=source_audit,
+        descriptor_sha256=sha256(descriptor),
         target=v7_target,
         complete_target=None,
     )
@@ -157,6 +190,7 @@ def _fixture(root: Path) -> dict[str, Path]:
         role="v9",
         prototype_id="nextengine.humanoid-contact-manifold-prototype.v9",
         source_audit=source_audit,
+        descriptor_sha256=sha256(descriptor),
         target=v9_target,
         complete_target=complete_target,
     )
@@ -173,6 +207,7 @@ def _fixture(root: Path) -> dict[str, Path]:
             "claim": "OptimizerFreeReferenceTargetKnotFormulationOnly",
             "source": {
                 "audit_sha256": sha256(source_audit),
+                "descriptor_sha256": sha256(descriptor),
                 "r102": {
                     "audit_id": r102_report["audit_id"],
                     "report_sha256": r102_report["report_sha256"],
@@ -198,7 +233,7 @@ def _fixture(root: Path) -> dict[str, Path]:
                 "controller_semantics_mutable": False,
             },
             "formulation": {
-                "action_channel_ids": list(ACTION_IDS),
+                "joint_dof_ids": list(JOINT_DOF_IDS),
                 "immutable_frame_offsets": list(IMMUTABLE_FRAME_OFFSETS),
                 "knot_frame_offsets": list(KNOT_FRAME_OFFSETS),
                 "coefficient_scale_basis_points": 10_000,
@@ -219,7 +254,7 @@ def _fixture(root: Path) -> dict[str, Path]:
                 "mutable_changed_element_count": int(
                     np.count_nonzero(delta[2:])
                 ),
-                "mutable_support_action_ordinals": [6, 10],
+                "mutable_support_dof_ordinals": [6, 10],
                 "maximum_absolute_mutable_delta_microradians": 110,
             },
             "offline_preflight": {"next_run_id": "R104"},
@@ -241,6 +276,7 @@ def _fixture(root: Path) -> dict[str, Path]:
         "r102": r102,
         "v7": v7,
         "v9": v9,
+        "descriptor": descriptor,
     }
 
 
@@ -250,6 +286,7 @@ def _manifest(
     role: str,
     prototype_id: str,
     source_audit: Path,
+    descriptor_sha256: str,
     target: np.ndarray,
     complete_target: np.ndarray | None,
 ) -> Path:
@@ -270,6 +307,7 @@ def _manifest(
         "identities": {
             "source_audit_sha256": sha256(source_audit),
             "prototype_profile_sha256": hashlib.sha256(role.encode()).hexdigest(),
+            "descriptor_sha256": descriptor_sha256,
         },
         "cases": [
             {
