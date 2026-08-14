@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R108_PROGRESSIVE_FORMULATION_COMPLETE / R109_MODEL_IDENTITY_NEXT` |
+| Status | `R109_STOP_INVALID_MODEL_LINEAGE / MATERIAL_WRENCH_RESEARCH_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -42,6 +42,7 @@ bounded research before another solver change or expensive native run.
 | R106 projected-direction formulation v2 | canonical/file/profile SHA-256 `67a94a01f624cae4db9615646ee00a8ef00920119ad017f3ddead60d2e0c2996` / `30512398d0e7030e95a61b8a662417b9ea1436ae96b58d0cdb0edaa3fe6b0679` / `6e67882da4e305aa0566c93d44216fc92f0318173a620aac4c2095eefc4a9937` | Clean `COMPLETE`: selects only late offset `11`, freezes reconstruction/quantization and permits one in-memory R107 exact audit; projection/candidate/PhysX/optimizer/training counts are `0` |
 | R107 projected-direction exact audit | canonical/file/profile SHA-256 `5a3c26ca731ac2734637a3d9953d84eca15c6553fb97c9da2ed9a12c2f7781fa` / `4095dfa6517847c5babfb9fb958e015908fc8c560f4e7c7083f840918b4f9a45` / `00b826d3aa11f1d1b4df66f99856ba5ed8dd3a08256a662dbfdb8a531c0e4539` | Clean `FAIL`: contact/collider geometry/ROM/root velocity retain V9 PASS metrics, but exact joint velocity is `2501/2500 bp`; selects progressive formulation with zero artifacts/PhysX/optimizer/training |
 | R108 progressive-kinodynamic formulation | canonical/file/profile SHA-256 `4ab1ccbc697fdf97efadc9e53ca6f2605956000927c88ed76f1960917590f9e8` / `6a288d0cd2bdfc5f580c1dabb96ecf63ed71f79f09ae00bc40ebe15ca18fd4fb` / `1f5a006eb0a2d0f1bb575b67928e6bb9a86b42c00659393994189ebf8ce62b0f` | Clean `COMPLETE`: freezes model-identity→KTO→inverse-dynamics→kinodynamics gates; only R109 identity preflight is authorized and every solve/work count is `0` |
+| R109 dynamics-model identity preflight | canonical/file/profile SHA-256 `2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784` / `97f149b12f5f4a6694da04298df774f33fd4854e93b54f3096d8882f2c1efc85` / `961926664ca8ff08a4c384180092dcbb7cb6591880bb8501148fef04d1e65ed0` | Clean `FAIL / STOP_INVALID_MODEL_LINEAGE`: structural/USD/gravity/controller identity closes; canonical material/combine and contact-wrench ownership do not; all solve/work counts are `0` |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -795,15 +796,49 @@ still unauthorized. A missing or contradictory R109 mapping stops with
 `STOP_INVALID_MODEL_LINEAGE`, rather than filling the gap with an assumed
 constant or imported simulator convention.
 
+## R109 dynamics-model identity result
+
+Clean R109 at commit `8c4b7036b419bea5dc555131b28ec9588441376f`
+hash-binds R108, the V2 descriptor, byte-exact derived USD, native PhysX 5.9.0
+sources, the reference controller and pinned Isaac Lab `v2.3.2`. Body mass,
+CoM, full/principal inertia, joint hierarchy/frames/axes, collider geometry and
+exclusions, `60/240 Hz` cadence, gravity coordinate transform and the fixed-PD
+target/effort/slew/power/work path close. The stored USD exactly equals a fresh
+translation of the descriptor (`24` bodies, `23` joints, `19` colliders).
+
+The required material identity does not close. The descriptor names `17`
+colliders as `physics-material.humanoid-body.v1` and two soles separately, but
+contains no `PhysicsMaterialDescriptorV1` coefficients or combine profile; the
+derived USD contains no material binding. The native bridge therefore applies
+one hard-coded `0.8/0.7/0.0` material to every shape, while Isaac's unoverridden
+default is `0.5/0.5/0.0` with average combination. This is not the allowed GPU
+floating-point tolerance boundary: SPEC-26 explicitly requires exact material
+descriptors/combine semantics and forbids a backend default from substituting
+them. Solver iteration/scene-flag differences remain separately declared
+non-byte-exact mirror facts, with final authority still canonical CPU PhysX.
+
+No engine-owned contract also defines the future scheduled contact-wrench
+frame, component order or application-point convention required by R108.
+R109 therefore returns `FAIL / STOP_INVALID_MODEL_LINEAGE`; it does not invent
+either coefficients or wrench coordinates. Canonical/file/profile SHA-256 is
+`2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784` /
+`97f149b12f5f4a6694da04298df774f33fd4854e93b54f3096d8882f2c1efc85` /
+`961926664ca8ff08a4c384180092dcbb7cb6591880bb8501148fef04d1e65ed0`.
+Exactly one report-only identity preflight and zero solver, candidate, PhysX,
+optimizer or training work occurred. The next action is bounded research and
+repair formulation for canonical material/combine and wrench ownership; KTO
+formulation/execution remains unauthorized until that lineage closes.
+
 ## Decision
 
-Freeze R92–R108, retain the contact result as bounded support for H23, and
+Freeze R92–R109, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
 values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
-and the late projected direction after its exact `2501/2500 bp` failure. Permit
-only R109 dynamics-model identity preflight under the frozen R108 ladder.
-Candidate artifact/native construction remains blocked. All-17 remains blocked
-until a future bounded
+and the late projected direction after its exact `2501/2500 bp` failure.
+R109's predeclared failure gate now stops the dynamics lineage. Permit only
+bounded canonical-material/contact-wrench ownership research and a separately
+reviewed repair formulation; KTO, candidate artifact/native construction and
+all-17 remain blocked until a future bounded
 candidate passes every selected fresh control without changing controller
 semantics, safety limits, fresh-scene authority or the exact-zero gate.

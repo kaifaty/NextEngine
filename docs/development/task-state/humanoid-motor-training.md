@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R108_FORMULATION_COMPLETE / R109_IDENTITY_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R109_STOP_INVALID_MODEL_LINEAGE / MATERIAL_RESEARCH_NEXT` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,19 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Clean R108 freezes model identity → quantization-aware
-  KTO → fixed-PD inverse dynamics → full kinodynamics as separate gates.
-- **Why:** R107 proves exact integer/stencil closure differs from its continuous
-  proxy; KDMR/SPARK support coupled q/v/a, effort and contact-wrench variables.
-- **Next action:** R109 may only bind descriptor/native/derived-USD dynamics
-  identity; KTO and every later solve remain unauthorized.
-- **Current blocker:** Gravity/material/friction, body/joint frames and exact
-  fixed-PD clipping/slew conventions are not yet one hash-closed model.
+- **Current conclusion:** Clean R109 rejects the dynamics lineage before KTO;
+  kinematics/controller map, but material and contact-wrench ownership do not.
+- **Why:** Two material IDs have no coefficient/combine descriptors; native
+  uses `0.8/0.7`, Isaac defaults to `0.5/0.5`, and no wrench frame/order exists.
+- **Next action:** Run bounded material-lineage research and formulate canonical
+  material plus wrench ownership; KTO and every solve remain unauthorized.
+- **Current blocker:** SPEC-26 forbids backend-default material substitution;
+  current descriptor/USD cannot identify one authoritative friction model.
 - **Do not retry:** Do not start PPO, substitute another scalar/vector/root/
   pose boundary, zero velocities, add grace/settling, tune controller, or
   loosen safety limits. The causal matrix rejects these as fixes.
-- **Reconsider when:** R109 proves or rejects every required dynamics-field
-  mapping without inventing missing constants or running a solver.
+- **Reconsider when:** Exact material descriptors/combine rule and contact-wrench
+  coordinates are owned, translated and hash-bound without changing safety.
 
 All TRAIN-5 checkpoints remain rejected. No optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -41,10 +41,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R92–R108 native research | R108 freezes four progressive stages; descriptor basic inventory is `24/23/23/19` bodies/joints/actuators/colliders | Permit R109 model-identity preflight only |
+| R92–R109 native research | R109 maps structure/controller but finds no canonical material coefficients/combine rule and no owned wrench convention | `STOP_INVALID_MODEL_LINEAGE`; research before KTO |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R106-v2/R107/R108 canonical SHA-256: `67a94a01f624cae4db9615646ee00a8ef00920119ad017f3ddead60d2e0c2996` / `5a3c26ca731ac2734637a3d9953d84eca15c6553fb97c9da2ed9a12c2f7781fa` / `4ab1ccbc697fdf97efadc9e53ca6f2605956000927c88ed76f1960917590f9e8`.
+R107/R108/R109 canonical SHA-256: `5a3c26ca731ac2734637a3d9953d84eca15c6553fb97c9da2ed9a12c2f7781fa` / `4ab1ccbc697fdf97efadc9e53ca6f2605956000927c88ed76f1960917590f9e8` / `2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -178,18 +178,18 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether descriptor/native/derived USD expose one complete,
-  sign-consistent dynamics model suitable for inverse dynamics.
-- **Reconsider when:** R109 closes model identity without changing bounds,
-  contact modes, controller, reset or reference-target semantics.
+- **Uncertainty:** Which exact material coefficients preserve authored sole/body
+  identity while matching canonical CPU authority and the Isaac mirror.
+- **Reconsider when:** A separate repair closes canonical material/combine and
+  wrench-coordinate identity without changing bounds/controller/reset semantics.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R108 makes fixed-PD effort/contact wrench a required stage | No model-identity proof or ID result yet | R109 identity preflight |
+| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R108 requires fixed-PD effort/contact wrench | R109 blocks before dynamics; hypothesis remains untested | Repair model lineage first |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
-| H24/H26: nonlocal coupling is hidden between motor samples | R108 lifts floating-base/all-joint q/v/a and 240 Hz effort state | Equations are not implemented | Bind coordinate/cadence identity in R109 |
+| H24/H26: nonlocal coupling is hidden between motor samples | R108 lifts q/v/a and 240 Hz effort state | R109 closes cadence but material/wrench identity fails | Repair model lineage first |
 | H25: reset mismatch causes R94 | Earlier reset concerns | R94 state is exact within quantization | Falsified; do not retry |
 
 ## Required context
@@ -218,10 +218,10 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73–R108 and all superseded semantic reports.
+1. Freeze clean R73–R109 and all superseded semantic reports.
 2. Retain R108's four stages; do not collapse or skip their gates.
-3. Audit exact dynamics-field identity in R109 with report-only output.
-4. Run no KTO/ID/kinodynamic solve, candidate artifact or PhysX in R109.
+3. Research the smallest SPEC-26-compliant material/wrench ownership repair.
+4. Run no KTO/ID/kinodynamic solve, candidate artifact or PhysX before repair.
 
 ## Do not retry
 
@@ -239,12 +239,12 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R108 code/profile is committed; tracked research now
-  records R73–R108. Generated reports remain external and hash-bound.
-- **Checks:** Full lab `201/201`; clean R108 `COMPLETE`; all solve, candidate,
-  artifact, PhysX, optimizer and training counts are zero.
-- **Remaining risk:** Dynamic-reference feasibility, full-corpus exact-zero
-  coverage and visual review remain open.
+- **Workspace state:** R109 code/profile and external report exist; tracked
+  research records R73–R109. Generated reports remain external/hash-bound.
+- **Checks:** Full lab `206/206`; clean R109 `FAIL` by contract; every solve,
+  candidate, artifact, PhysX, optimizer and training count remains zero.
+- **Remaining risk:** Material/wrench identity, dynamic feasibility, full-corpus
+  exact-zero coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.
