@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "research_id": "nextengine.humanoid-post-r115-kto-linearization-research.v1",
+  "status": "FrozenReportOnly",
+  "claim": "PostR115AnalyticContactLinearizationAuditOnly",
+  "source": {
+    "r115": {
+      "report_sha256": "b7baa0f4337597c1c61748255535d1102bbff35d0ce560a8a661ed6be7685433",
+      "report_file_sha256": "ed89c2733a376f5f50694fc01029abcf9791f2a186054196461ce2a787e8caa8",
+      "execution_profile_sha256": "427958340debb62a3dfc7b9309411184c8e922965a5cef694163cae61d0b9e75",
+      "execution_module_sha256": "87c02f67c1c76ce1e6e9e5a0ed539f1ee752151f4ea8586d3195d0cca0cbc318",
+      "solver_module_sha256": "9d9047239e1d9a879e6dbd66993fb49778f57370f11de1bb0dcce5b22e852137",
+      "tool_sha256": "792f07306052d96398a6b66f536e5d1cd59391d64f0a6f48f3f04b620389d357",
+      "repository_commit": "e34f463263b54f2ea7612f4cd4a452b99667c1be"
+    },
+    "r114_profile_sha256": "8e26b84de2a25e07d19cd93400bc8c04a6bc4840fb9a4d8eb6ab88237db59a43",
+    "current_descriptor_file_sha256": "7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3",
+    "contact_manifold_module_sha256": "89d0a51542d78cebfc49504f8473224a526d56d5c0ad2cf53afef986d92142b3",
+    "v9_profile_sha256": "bccf5eb12c8de2e1c0fa20df74c55f30cc9e964e7d5cbfcbf596bb6d672815ab",
+    "v9_complete_clip_sha256": "16cacfc0d6a5a57a7e2e2fad75faef1681e9b17c02cd3b78bafc7bb4ed3b5b7d",
+    "v7_case_sha256": "dac5066102b017c24213e0f5bd21a917416ebf6b74b8a4018586106f27e0d855"
+  },
+  "scope": {
+    "research_cycle_id": "R115-RC1",
+    "clip_id": "cmu16-walk-nominal-b",
+    "frame_count": 801,
+    "r115_kto_solves": 1,
+    "research_kto_solves": 0,
+    "physx_scene_runs": 0,
+    "candidate_construction": false,
+    "training": false
+  },
+  "method": {
+    "r115_fraction_audit": "read the six immutable exact-emission summaries; do not reconstruct or solve for the discarded direction",
+    "qp_dependency_audit": "build the frozen V9 sparse rows without OSQP and count q/v/a column dependencies in contact_analytic_velocity",
+    "kernel_identity_audit": "compare the R115 continuous sole-Jacobian velocity model with the exact frozen contact-manifold analytic velocity kernel at byte-exact V9",
+    "configuration_sensitivity_audit": "at the exact V9 analytic-tangent hotspot, symmetric-difference the exact kernel over world SO(3) tangent and same-side leg configuration while holding emitted velocities fixed",
+    "exact_kernel_probe_radians": 0.0001,
+    "configuration_sensitivity_orientation_probe_radians": 0.0001,
+    "configuration_sensitivity_joint_probe_radians": 0.0001,
+    "solver_or_candidate_policy": "FORBIDDEN"
+  },
+  "discriminators": {
+    "minimum_affine_r_squared": 0.99,
+    "minimum_nonzero_configuration_sensitivity_um_s_per_rad": 1.0,
+    "required_small_fractions": [
+      "1/4",
+      "1/8",
+      "1/16",
+      "1/32"
+    ],
+    "required_isolated_failure": "analytic tangential contact velocity only",
+    "required_qp_analytic_configuration_nonzeros": 0
+  },
+  "research_basis": [
+    {
+      "source": "Pinocchio frame derivatives",
+      "url": "https://docs.ros.org/en/rolling/p/pinocchio/generated/function_namespacepinocchio_1a0d05b1c07362deab78a8855467b354ef.html",
+      "relevance": "frame velocity has distinct partial derivatives with respect to configuration q and velocity v"
+    },
+    {
+      "source": "MIT Underactuated trajectory optimization",
+      "url": "https://underactuated.mit.edu/trajopt.html",
+      "relevance": "constraint gradients require the full chain rule; exact gradients improve robustness for smooth constraints"
+    },
+    {
+      "source": "Fletcher and Leyffer filter SQP",
+      "url": "https://doi.org/10.1007/s101070100244",
+      "relevance": "nonlinear SQP needs an explicit feasibility/filter/restoration globalization rule rather than treating a single linearized QP as nonlinear infeasibility proof"
+    },
+    {
+      "source": "TrajOpt sequential convex optimization",
+      "url": "https://doi.org/10.1177/0278364914528132",
+      "relevance": "robot trajectory constraints are repeatedly convexified under an explicit penalty/trust mechanism"
+    }
+  ],
+  "next_smallest_action": "freeze one report-only successor KTO formulation that binds the exact contact-kernel function, complete q/v derivatives, modeled-versus-exact row diagnostics and a predeclared nonlinear iterate acceptance/restoration rule; do not execute it",
+  "decision": {
+    "confirmed": "PERMIT_REPORT_ONLY_KTO_LINEARIZATION_REPAIR_FORMULATION_ONLY",
+    "inconclusive": "STOP_AND_RESEARCH"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/kto_linearization_research.py",
+        "lab/scripts/research_kto_linearization.py",
+        "lab/tests/test_kto_linearization_research.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/kto_linearization_research.py",
+        "lab/scripts/research_kto_linearization.py",
+        "lab/tests/test_kto_linearization_research.py"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "bounded_acceptance": {
+    "additional_kto_solve": "NOT_AUTHORIZED",
+    "r116_inverse_dynamics_formulation": "NOT_AUTHORIZED",
+    "inverse_dynamics_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
