@@ -1,0 +1,358 @@
+{
+  "schema_version": 1,
+  "preflight_id": "nextengine.humanoid-clean-dynamics-model-identity-preflight.v1",
+  "status": "FrozenReportOnly",
+  "claim": "CleanOptimizerFreeDynamicsModelIdentityPreflightOnly",
+  "source": {
+    "r112": {
+      "report_sha256": "dfb3bd892b04023054ce947127743e7ada78b40000a93e22887101c544c493f2",
+      "report_file_sha256": "a615359b7855ca270dacced899960d71ab4a43c8aab69403fd154a55a0067778",
+      "profile_sha256": "c98c383117f03b5bb594855c831f2aa3a31453ac94b6f4fa2dc483015a3b7f0a"
+    },
+    "r110": {
+      "report_sha256": "83408b97b6ba13dc801b4d9b4f68e55146f9f39b09a451c238b24cc4c8c7d88d",
+      "report_file_sha256": "234c7e51c3e6135bff55e503d8ce2bb58946c6cbef36598d92641ce7deb72637",
+      "profile_sha256": "85604a87bfc05ef170d21ff49d217d21327095414fb12b565efe76eb1afb9b18"
+    },
+    "mirror_v2_sha256": "7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3",
+    "translation": {
+      "manifest_file_sha256": "28fc9d97d42e071773057a159a0404d658d145f89eed90ee73b0571e8bfb6f6b",
+      "humanoid_usd_sha256": "5ea8a3b9b4e745461fd02bda7823cb1ffb2a1f372c16a9987f385e2697493834",
+      "ground_usd_sha256": "e82398add4570bc0696929081b4602ca16c8e3cf434a73b61c7f780ca6e9d033",
+      "descriptor_content_sha256": "d750aecf97ac6eaef499ab364458cacd68fb58ca4ab07c2b29985e53a592ade4"
+    },
+    "tracked_source_sha256": {
+      "spec_26": "d63a0ddd2520b50c0c4fb4c664c05307740de4528e0fd41e5c07d3188adb4025",
+      "spec_35": "50e2f4f1c254fb2a146f72197798d0ae51d05ae6b3e0cc345addff92c9023b33",
+      "adr_069": "b911093f9306e2230d2e7e769bfd2e254481a20367e139bd01d64d35cf670f03",
+      "adr_070": "673b15d5e3bd149f6f395cf0c1720a6e93f870a5521cfc1540ae8d2167318c90",
+      "adr_071": "1d032cafc65ca3c0cd6d0f5ee1b7eb9e911b59570312a46e5e9bba661012947e",
+      "biomechanics": "ad2f903bccebb4ee5bca0bbd84387ad14241a23b8b4e5c15ed3059468a893d11",
+      "compiler_v2": "724edc7009c5ab81c8c85c06f3d1630257b232af363ba7d30fbed49ac39d0ebb",
+      "compiler_v3": "767858049fd4d1c1ad223736da26fec064d5da509ce645261f7f6e7133f590ef",
+      "material_contract": "64261d3fdbaf874488a212974ecfca3823040551056ab87643fb2b655ae92bd0",
+      "physics_physx": "fcc4f738b623699e9b778017e42eae95b9809cff0280b80eaaca3695914a50a6",
+      "physics_physx_material": "e106cf439a2ee1972bb1abeba4aeb7624cc3dbce82be15d18367e3d527c4e50a",
+      "physx_ffi_build": "5d115410d82c7ed13c06dc78bd3910d80464fcd58e01288ba08489135cd6db12",
+      "physx_ffi_lib": "34950b0aacbc6f3fa753b0a93cae86fc2448e8725679688e8ec5fa08c95e6f5c",
+      "physx_bridge": "63e9df1f9ed4da92d33a1631a53107ec02c048895cecd4b404ad413d157b17cf",
+      "safety_control": "731ed7a3e9ad2dfdfd5d71e0637a29a9faa675d455606b5429efa619ef2a7377",
+      "mirror_v2": "ce0ab1493a56d7715742b2cfe23fd97d68d80d8eeebed2d8930b7dd72eb8e15c",
+      "material_lineage": "a5acd678750b5e72a25543a38fbbf43778a406c0464f14902c6f31b8a5d6f1c3",
+      "motor_mirror": "f47cbdb253e41caf335c96acbf4223e8c4ed92c1248c30dac9af49e1cd04dacf",
+      "usd_translation": "6c525b331dde66b3568d6e497536ae6bf74c0e2a0892f855d608ee04a3dc9ec1",
+      "isaac_reference_env": "ac091775bce7d5c59c3b42307984f5fa39d7235ceb0385ffbcfadfe2a1e584e8"
+    },
+    "isaac_lab": {
+      "git_commit": "37ddf626871758333d6ed89cf64ad702aef127d0",
+      "git_tag": "v2.3.2",
+      "source_sha256": {
+        "simulation_cfg": "d8035df355c576ad7c876789bba54be4ebb361f5c16786a4ec8578143eebc118",
+        "physics_materials_cfg": "0be87dcc50cac3e83d14845064b0dd1f5d7dbeffc09570dd00b0353c5909775f",
+        "from_files_cfg": "e144782c898bd4ac3ddecf27a8ad9e90777204ad713cd2b2bcdbf0dd3b8a121a"
+      }
+    }
+  },
+  "scope": {
+    "run_id": "R113",
+    "initial_clip_id": "cmu16-walk-nominal-b",
+    "initial_source_case_ordinal": 7967,
+    "body_count": 24,
+    "joint_count": 23,
+    "actuator_count": 23,
+    "collider_count": 19,
+    "motor_hz": 60,
+    "physics_hz": 240,
+    "model_identity_preflights": 1,
+    "solver_runs": 0,
+    "physx_scene_runs": 0,
+    "candidate_construction": false,
+    "training": false
+  },
+  "required_identity_groups": [
+    "body mass, center of mass, full/principal inertia and principal frame",
+    "joint hierarchy, parent/child frame, semantic axis/sign and hard/soft limits",
+    "fixed zero-residual PD target, rounding, effort, slew, power and work semantics",
+    "collider geometry, filters, exclusions, canonical material and combine profile",
+    "gravity, 60/240 Hz cadence and four-substep target hold",
+    "root generalized-coordinate convention",
+    "solver-private scheduled point-force frame, component order and application points",
+    "canonical CPU versus Isaac mirror numerical-scene ownership"
+  ],
+  "expected_shared_identity": {
+    "body_schema_hash": "e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d",
+    "compiled_descriptor_hash": "6751853a812f549866f1db9d3662d8115b18db9b6d73beabd7221bb9f972f027",
+    "material_lineage_hash": "2d13e197f766e6a24090edf396dfc2fb6cbbf4c578ea9868dffa06ab7adab751",
+    "total_mass_microkilograms": 75337000,
+    "non_colliding_carrier_count": 10,
+    "collision_exclusion_count": 30,
+    "material_id_counts": {
+      "physics-material.humanoid-body.v1": 17,
+      "physics-material.humanoid-sole.v1": 2
+    },
+    "ground_material_id": "physics-material.humanoid-ground.v1",
+    "coordinate_mapping": {
+      "engine_axes": "+X right, +Y up, +Z forward",
+      "isaac_from_engine_vector": ["x", "-z", "y"],
+      "isaac_quaternion_order": "wxyz",
+      "engine_quaternion_order": "xyzw"
+    },
+    "motor_hz": 60,
+    "physics_hz": 240,
+    "engine_gravity_metres_per_second_squared": [0.0, -9.81, 0.0],
+    "isaac_gravity_metres_per_second_squared": [0.0, 0.0, -9.81],
+    "root_generalized_coordinate_order": "engine-world position xyz, orientation xyzw; engine-world linear xyz, angular xyz",
+    "joint_generalized_coordinate_order": "ascending descriptor dof_ordinal 0..22 with sign encoded by the semantic axis and translated joint frame"
+  },
+  "expected_materials": [
+    {
+      "canonical_material_tags": [],
+      "descriptor_revision": 1,
+      "dynamic_friction_q16": 45875,
+      "material_id": "physics-material.humanoid-body.v1",
+      "restitution_q16": 0,
+      "rolling_friction_q16": 0,
+      "schema_version": 2,
+      "spinning_friction_q16": 0,
+      "static_friction_q16": 52429,
+      "surface_velocity_micrometres_per_second": [0, 0, 0]
+    },
+    {
+      "canonical_material_tags": [],
+      "descriptor_revision": 1,
+      "dynamic_friction_q16": 45875,
+      "material_id": "physics-material.humanoid-ground.v1",
+      "restitution_q16": 0,
+      "rolling_friction_q16": 0,
+      "schema_version": 2,
+      "spinning_friction_q16": 0,
+      "static_friction_q16": 52429,
+      "surface_velocity_micrometres_per_second": [0, 0, 0]
+    },
+    {
+      "canonical_material_tags": [],
+      "descriptor_revision": 1,
+      "dynamic_friction_q16": 45875,
+      "material_id": "physics-material.humanoid-sole.v1",
+      "restitution_q16": 0,
+      "rolling_friction_q16": 0,
+      "schema_version": 2,
+      "spinning_friction_q16": 0,
+      "static_friction_q16": 52429,
+      "surface_velocity_micrometres_per_second": [0, 0, 0]
+    }
+  ],
+  "expected_combine_profile": {
+    "dynamic_friction": "ArithmeticMeanTiesToEven",
+    "profile_id": "nextengine.physics-material-combine.humanoid-motor.v1",
+    "profile_revision": 1,
+    "restitution": "ArithmeticMeanTiesToEven",
+    "rolling_friction": "ArithmeticMeanTiesToEven",
+    "schema_version": 1,
+    "spinning_friction": "ArithmeticMeanTiesToEven",
+    "static_friction": "ArithmeticMeanTiesToEven",
+    "surface_velocity": "CanonicalParticipantOrder"
+  },
+  "expected_collider_material_assignment_counts": [
+    {
+      "collider_count": 17,
+      "material_id": "physics-material.humanoid-body.v1"
+    },
+    {
+      "collider_count": 2,
+      "material_id": "physics-material.humanoid-sole.v1"
+    }
+  ],
+  "expected_native_backend": {
+    "backend": "canonical CPU PhysX 5.9.0 / Bridge ABI 4",
+    "physics_hz": 240,
+    "solver": "TGS",
+    "position_iterations": 16,
+    "velocity_iterations": 4,
+    "broadphase": "PABP",
+    "friction_model": "patch",
+    "material_source": "CompiledBodySchemaV3 exact Q16 shared-material projection",
+    "static_friction_q16": 52429,
+    "dynamic_friction_q16": 45875,
+    "restitution_q16": 0,
+    "combine_profile": "nextengine.physics-material-combine.humanoid-motor.v1@1",
+    "ambient_material_reachable": false,
+    "enhanced_determinism": true,
+    "ground": "box centered at engine (0,-0.5,0) with half extents (50,0.5,50)"
+  },
+  "expected_isaac_backend": {
+    "backend": "Isaac Lab v2.3.2 GPU correspondence mirror",
+    "physics_hz": 240,
+    "solver": "TGS",
+    "position_iterations": 8,
+    "velocity_iterations": 4,
+    "material_source": "exact R112 derived humanoid and ground USD bundle",
+    "static_friction_q16": 52429,
+    "dynamic_friction_q16": 45875,
+    "restitution_q16": 0,
+    "combine_profile": "nextengine.physics-material-combine.humanoid-motor.v1@1",
+    "ambient_material_reachable": false,
+    "enhanced_determinism": false,
+    "implicit_drive_stiffness": 0.0,
+    "implicit_drive_damping": 0.0,
+    "effort_source": "explicit descriptor fixed-PD safety mirror",
+    "ground": "exact R112 derived plane at Isaac Z=0"
+  },
+  "expected_point_force_identity": {
+    "status": "FROZEN_SOLVER_PRIVATE_POINT_FORCE_COORDINATES",
+    "owner": "hash-bound private TRAIN-4 stage-2/stage-3 formulation; not a public runtime wrench contract",
+    "engine_world_axes": "+X right, +Y up, +Z forward",
+    "contact_frame": {
+      "forward_tangent": "+Z engine world",
+      "normal": "+Y engine world",
+      "right_tangent": "+X engine world"
+    },
+    "force_component_order": [
+      "normal_newtons",
+      "right_newtons",
+      "forward_newtons"
+    ],
+    "world_force_mapping": "[right_newtons, normal_newtons, forward_newtons] in engine XYZ",
+    "ordered_points": [
+      {
+        "active_mode_bits": [1, 3],
+        "body_id": "body.left-ankle-roll",
+        "effector_id": "effector.left-heel",
+        "point_index": 0,
+        "point_ordinal": 0,
+        "side_index": 0
+      },
+      {
+        "active_mode_bits": [2, 3],
+        "body_id": "body.left-ankle-roll",
+        "effector_id": "effector.left-forefoot",
+        "point_index": 1,
+        "point_ordinal": 1,
+        "side_index": 0
+      },
+      {
+        "active_mode_bits": [1, 3],
+        "body_id": "body.right-ankle-roll",
+        "effector_id": "effector.right-heel",
+        "point_index": 0,
+        "point_ordinal": 2,
+        "side_index": 1
+      },
+      {
+        "active_mode_bits": [2, 3],
+        "body_id": "body.right-ankle-roll",
+        "effector_id": "effector.right-forefoot",
+        "point_index": 1,
+        "point_ordinal": 3,
+        "side_index": 1
+      }
+    ],
+    "mode_encoding": {
+      "0": "FLIGHT",
+      "1": "HEEL_STICKING",
+      "2": "FOREFOOT_STICKING",
+      "3": "FLAT_STICKING"
+    },
+    "cadence": "V9 60 Hz point modes are immutable and held for four 240 Hz force intervals; force values are 240 Hz decision variables",
+    "application": "evaluate the translational contact Jacobian at the named forward-kinematic effector point on its named foot body; J_contact rows are normal, right, forward and generalized force is J_contact(q)^T lambda",
+    "constraints": [
+      "normal_newtons >= 0",
+      "sqrt(right_newtons^2 + forward_newtons^2) <= (52429 / 65536) * normal_newtons for every active sticking point",
+      "all three components are exactly zero for every inactive point",
+      "no independent torque, yaw moment, center-of-pressure or six-dimensional wrench variable",
+      "no contact mode change, point deletion or application-point relocation"
+    ],
+    "application_point_identity": [
+      {
+        "body_id": "body.left-ankle-roll",
+        "effector_id": "effector.left-heel",
+        "local_translation_micrometres": [0, -18635, -35000],
+        "point_ordinal": 0
+      },
+      {
+        "body_id": "body.left-ankle-roll",
+        "effector_id": "effector.left-forefoot",
+        "local_translation_micrometres": [0, -18635, 180000],
+        "point_ordinal": 1
+      },
+      {
+        "body_id": "body.right-ankle-roll",
+        "effector_id": "effector.right-heel",
+        "local_translation_micrometres": [0, -18635, -35000],
+        "point_ordinal": 2
+      },
+      {
+        "body_id": "body.right-ankle-roll",
+        "effector_id": "effector.right-forefoot",
+        "local_translation_micrometres": [0, -18635, 180000],
+        "point_ordinal": 3
+      }
+    ],
+    "runtime_contract_change": false
+  },
+  "expected_blocking_reasons": [],
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx", "--from", "ruff==0.16.3", "ruff", "check",
+        "--ignore", "TRY004,BLE001",
+        "lab/next_lab/clean_dynamics_model_identity_preflight.py",
+        "lab/scripts/preflight_clean_dynamics_model_identity.py",
+        "lab/tests/test_clean_dynamics_model_identity_preflight.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx", "--from", "ruff==0.16.3", "ruff", "format", "--check",
+        "lab/next_lab/clean_dynamics_model_identity_preflight.py",
+        "lab/scripts/preflight_clean_dynamics_model_identity.py",
+        "lab/tests/test_clean_dynamics_model_identity_preflight.py"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {"PYTHONPATH": "lab"},
+      "arguments": [
+        "lab/.venv/bin/python", "-m", "unittest", "discover", "-s", "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": ["cargo", "test", "-p", "next_motor"]
+    },
+    {
+      "id": "host_check",
+      "arguments": ["cargo", "run", "-q", "-p", "xtask", "--", "host-check"]
+    }
+  ],
+  "frozen_invariants": {
+    "controller": "fixed zero-residual PD unchanged",
+    "limits_and_safety": "unchanged including right-ankle impulse 6000000 micronewton-seconds",
+    "fresh_scene_authority": "ADR-070 unchanged",
+    "partial_reset": "REPORT_ONLY",
+    "contact_schedule_and_points": "R110/V9 unchanged",
+    "legacy_descriptor_and_usd": "immutable",
+    "physx_execution": "FORBIDDEN_IN_R113",
+    "optimizer_and_training": "FORBIDDEN"
+  },
+  "decision": {
+    "pass": "PERMIT_SEPARATE_BOUNDED_KTO_EXECUTION_FORMULATION_ONLY",
+    "fail": "STOP_INVALID_MODEL_LINEAGE",
+    "expected": "PERMIT_SEPARATE_BOUNDED_KTO_EXECUTION_FORMULATION_ONLY",
+    "next_smallest_action": "formulate one bounded report-only R114 quantization-aware KTO execution contract against the exact R113 model identity; do not solve, construct a candidate or run a scene"
+  },
+  "bounded_acceptance": {
+    "r114_quantization_aware_kto_formulation": "AUTHORIZED_FORMULATION_ONLY",
+    "quantization_aware_kto_solve": "NOT_AUTHORIZED",
+    "inverse_dynamics_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_target_construction": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
