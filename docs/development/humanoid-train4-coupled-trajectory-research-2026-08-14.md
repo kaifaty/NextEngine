@@ -4,7 +4,7 @@
 | --- | --- |
 | Date | 2026-08-14 |
 | Scope | Optimizer-free learned-policy lane; offline constraint-solver research for `REQ-HUM-DATA-005/007` |
-| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / ELASTIC RESTORATION RESEARCH` |
+| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / TRIAL-JACOBIAN RESTORATION RESEARCH` |
 | Current implementation | `nextengine.dimensionless-contact-trajectory-qp.v8` |
 | Claim ceiling | Research infrastructure only; no V19, TRAIN-4 Advance, visual gate or learned optimization |
 
@@ -52,6 +52,7 @@ All generated artifacts remain under the external TRAIN-4 evaluation root.
 | R80 exact max/sum backtracking | Five accepted hard-QP steps reduce worst normalized violation `6.0602 -> 2.4908` and total violation `18.0222 -> 9.5412`, eliminating the R75/R76 alternation. Acceptance nevertheless contracts from factor `1` to `0.5`, `0.125` and the minimum `0.0625`; final collider/residual remain `-12456/17402 µm`. Rejected full steps at trials 3–5 reduce total violation to `9.5286`, `8.7025` and `8.9733` while temporarily increasing the worst component. | Partial discriminator, not a candidate. Monotone max-first backtracking prevents oscillation but stalls at contact curvature and discards useful non-dominated steps. Stop step-factor tuning; test an exact filter, then second-order correction/restoration if rejection persists. |
 | R81 exact worst/total feasibility-filter observation | The first two full candidates improve both measures. The filter then accepts the R80-rejected full third step (`3.3688/12.7776 -> 3.7554/9.5286`) and another non-dominated step (`3.7554/9.5286 -> 5.9160/8.8038`). Thus it crosses the max-first plateau, but permits worst violation to return close to the immutable source ceiling `6.0602`. The run was stopped between QPs before a report/candidate was emitted. | Support the filter diagnosis; reject this two-violation filter as a solver identity. It is an explicitly non-promotable interactive observation, not evidence. Move to exact-row second-order restoration rather than spend twelve more `100000`-iteration QPs on the permissive filter. |
 | R82 exact-row hard second-order correction | The first two capped primary steps reproduce the useful R80 path (`6.0602/18.0222 -> 4.7570/15.2353 -> 3.3690/12.7778`). The third full step lowers total violation to `9.5300` but raises the worst component to `3.7556`, so max-first acceptance correctly routes it to correction. The bounded correction with the original `58488`-row Jacobian and nonlinear trial-state bounds is `primal infeasible` after `16925` OSQP iterations; no corrected exact state is evaluated. | Reject hard all-row SOC as sufficient, not the second-order diagnosis. The report remains `FAIL`, the pending trial/candidate is non-admissible, and the last accepted state remains the second primary point. Next isolate artificial infeasibility with iteration-only normalized nonlinear restoration slack; final exact-zero audit remains unchanged. |
+| R83 minimax nonlinear phase-I restoration | Relaxing only nonlinear rows makes the correction model feasible. Four bounded bisections bracket minimum normalized slack between `0.235364` infeasible and `0.470727` solved; linear/trust rows remain hard. The selected model balances every nonlinear group near `0.4707` and improves exact contact violations, but its `50 mm` root-saturated correction drives exact collider from baseline violation `3.1438` to `8.8592` (`-44298 µm`). Exact max-first audit rejects it and restores the baseline. | Reject the old-Jacobian minimax restoration identity. Its model predicts collider violation `0.4707` while integer FK measures `8.8592`, directly localizing stale linearization over the correction radius. Recompute the correction Jacobian at the nonlinear trial point before changing slack, trust or requirements. |
 
 R69 report SHA-256 is
 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56`;
@@ -101,6 +102,12 @@ R82 report/candidate/research-adapter SHA-256 are
 The candidate captures the rejected pending trial after correction solver
 failure and is explicitly non-admissible; the report's
 `final_accepted_exact_violation` identifies the retained baseline.
+R83 report/candidate/research-adapter SHA-256 are
+`7d8da4fe0a17510a65aa818fa551132b0ce881b6d6f69e7bfac0fcc1b0285c0b` /
+`8f40a26c7a896700cc1047b3dbe44e2b5cd3bdb82f1ff18d0efa22e9a4642460` /
+`339bf7cd7085caabbc80089e5a2d895dc84a0528f1adf26ef3c16780f6e09604`.
+The R83 candidate is the restored accepted baseline, not the rejected
+correction, and remains non-admissible because the unchanged gate is `FAIL`.
 
 ## Primary-source research decision
 
@@ -162,13 +169,20 @@ Jacobian cannot satisfy the full trial-state row set inside the retained
 correction trust. This is direct evidence of artificial infeasibility inside the restoration step,
 not evidence that the unchanged physical clip is infeasible.
 
-The smallest next discriminator, R83, is a lexicographic phase-I restoration:
-permit one iteration-local maximum normalized slack only on nonlinear
-contact/collider rows, minimize that slack before correction size, retain
-linear ROM/root/joint velocity rows and the component trust bounds as hard,
-then accept only an emitted integer-FK state that improves the unchanged exact
-max-first merit. The slack cannot appear in the candidate or final gate. Do
-not tune another stencil, cap, line-search factor or physical tolerance.
+R83 then tested lexicographic phase-I restoration. Sparse bound relaxation
+avoids the dense R77/R78 encodings and proves a normalized nonlinear slack can
+remove artificial infeasibility while linear and trust rows stay hard. It also
+provides a stronger discriminator: the selected old-Jacobian model limits the
+collider violation to `0.4707`, but exact integer FK measures `8.8592`. The
+correction therefore leaves the validity radius of that Jacobian even though
+the convex subproblem itself is solved accurately.
+
+The smallest next discriminator, R84, reuses the already computed Jacobian at
+the rejected nonlinear trial point for one hard bounded correction. It retains
+the same primary path, component trust and exact max-first restoration rule,
+adds no slack, and answers whether relinearization closes the model/FK gap
+before any new radius or penalty policy is considered. Do not tune another
+stencil, cap, line-search factor or physical tolerance.
 
 ## V8 solver identity
 
