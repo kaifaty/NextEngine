@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` and fails the stronger raw-mask `cmu139`; R74–R79 isolate artificial infeasibility, blind active-set oscillation and mismatched merit/globalization. The current increment is one bounded exact-merit `cmu139` discriminator, followed only on success by unchanged all-three/all-17 offline evidence. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, fresh PhysX, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` and fails the stronger raw-mask `cmu139`; R74–R80 isolate artificial infeasibility, blind active-set oscillation, mismatched merit and a max-first small-step plateau. The current increment is one bounded exact feasibility-filter `cmu139` discriminator, with second-order correction/restoration only if it stalls. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, fresh PhysX, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1711,10 +1711,13 @@ infeasibility with a step cap but expose alternating exact collider/contact
 violations. Primary-source review of TrajOpt, SCvx, CRISP, SQP-filter methods
 and contact trust regions selects a shared exact/model merit plus explicit
 step acceptance as the next mechanism. R77–R79 reject dense category slack
-and mismatched row-L1/max-merit encodings. The smallest next discriminator is
-exact max/sum merit backtracking on the simultaneous hard-constraint V8 QP
-direction under the supported R75 cap. Only its success permits an unchanged
-clean all-three/all-17 offline rerun; only that PASS permits fresh all-17.
+and mismatched row-L1/max-merit encodings. R80 exact max/sum backtracking
+removes oscillation and lowers normalized violation `6.0602/18.0222 ->
+2.4908/9.5412`, but consumes the minimum factor while rejected full steps
+still lower total violation. The next bounded discriminator is therefore an
+exact worst/total feasibility filter; persistent rejection escalates to a
+bounded second-order correction/restoration step. Only `cmu139` PASS permits
+an unchanged clean all-three/all-17 offline rerun; only that PASS permits fresh all-17.
 These results still cannot authorize full V19 or learned optimization.
 
 Roadmap status changes only after material implementation/check results. This

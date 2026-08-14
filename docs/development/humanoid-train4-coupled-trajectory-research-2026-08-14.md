@@ -4,7 +4,7 @@
 | --- | --- |
 | Date | 2026-08-14 |
 | Scope | Optimizer-free learned-policy lane; offline constraint-solver research for `REQ-HUM-DATA-005/007` |
-| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / BOUNDED RESEARCH ACTIVE` |
+| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / EXACT FILTER RESEARCH ACTIVE` |
 | Current implementation | `nextengine.dimensionless-contact-trajectory-qp.v8` |
 | Claim ceiling | Research infrastructure only; no V19, TRAIN-4 Advance, visual gate or learned optimization |
 
@@ -49,6 +49,7 @@ All generated artifacts remain under the external TRAIN-4 evaluation root.
 | R77 full group-elastic in-QP trust | The first trial improves exact normalized merit `18.0222 -> 14.09237`, but actual/predicted ratio `0.204` correctly rejects it and shrinks the radius. Duplicating all row sides then reaches the OSQP iteration limit. | Exact rejection behaves as intended; reject the dense/full elastic encoding. |
 | R78 selective category-elastic trust | The first trial is accepted at ratio `0.274` and merit `12.8099`, but temporarily creates collider `-33386 µm`; the next QP reaches the iteration limit. | Global category slack columns destroy useful clip-local sparsity and are not a production encoding. |
 | R79 selective per-row L1 elastic trust | The first direction worsens gate-aligned max merit `18.0222 -> 24.4408`; both model and exact audit reject it. | A row-average L1 objective is not interchangeable with the current max-based acceptance metric. Stop representation tuning until model and exact merit are identical. |
+| R80 exact max/sum backtracking | Five accepted hard-QP steps reduce worst normalized violation `6.0602 -> 2.4908` and total violation `18.0222 -> 9.5412`, eliminating the R75/R76 alternation. Acceptance nevertheless contracts from factor `1` to `0.5`, `0.125` and the minimum `0.0625`; final collider/residual remain `-12456/17402 µm`. Rejected full steps at trials 3–5 reduce total violation to `9.5286`, `8.7025` and `8.9733` while temporarily increasing the worst component. | Partial discriminator, not a candidate. Monotone max-first backtracking prevents oscillation but stalls at contact curvature and discards useful non-dominated steps. Stop step-factor tuning; test an exact filter, then second-order correction/restoration if rejection persists. |
 
 R69 report SHA-256 is
 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56`;
@@ -81,6 +82,13 @@ R77/R78/R79 report SHA-256 are respectively
 `acedf2f3fe68d98fe89cb0fbd5e7a7c5ec7f4d07db7e1e9d28c0571d16e83fa`,
 `ff844f676a52f01faf1ac38b200346db64c9328f2bca23d30deed1d02f69bd87`
 and `53b2d262b8843eb8ecbec66c9f4d14386d57a9093e0e0d045a09cf084a7ab933`.
+R80 report/candidate/research-adapter SHA-256 are
+`23d73e47b70c236079ea1d52f67e81de7313433b795e06f69525e06c3e90a60e` /
+`570ae002ade352d5cc6e5fcb99ca6db2ca48871bf73f180ecc5d187a3688677c` /
+`157cc9fc9ee296fb07375916b2e5b7b3f6abc24664792f6a1c87930c2cffeb88`.
+The run was deliberately interrupted while solving trial six after the
+minimum factor had already been consumed; its report `FAIL` and
+`solver_failure/interrupted` termination are retained rather than relabelled.
 
 ## Primary-source research decision
 
@@ -120,16 +128,26 @@ actual/predicted rejection rule detects bad steps. R79 shows that the QP and
 the exact audit must use the same violation functional; category-max and
 row-average penalties cannot be mixed.
 
-Before another elastic formulation, the research adapter must expose one
-exact, dimensionless per-constraint violation collector shared by model and
-integer-FK evaluation. The smallest next discriminator, R80, applies exact
-max/sum merit backtracking to the already feasible V8 constraint-QP direction
-under the R75 step cap. This differs from rejected R64-R67: those directions
-came from weighted least squares, whereas R80 tests the simultaneous hard
-constraint direction that already brought R75 within millimetres of PASS. If
-R80 cannot make monotone progress, resume with the full CRISP-style in-QP
-trust/individual-L1 formulation and the shared exact merit; do not tune another
-stencil, cap or penalty scalar.
+R80 supplied the missing discriminator without closing the clip. Exact
+max-first acceptance makes monotone progress, unlike rejected R64–R67 weighted
+least-squares line search, but reaches the minimum factor with all dominant
+contact categories still roughly balanced at `2.3..2.49` times tolerance.
+More importantly, its rejected full steps reduce total violation by more than
+the accepted small steps while temporarily moving the worst category. That is
+the signature for which a filter is preferable to a single scalar or
+lexicographic merit.
+
+The smallest next discriminator, R81, is therefore an exact feasibility
+filter over the separately recorded worst and total normalized violations of
+the emitted integer-FK candidate. It must reject dominated points, retain a
+hard maximum-violation safeguard, and carry no result into corpus admission.
+This is an evidence-specific adaptation of SQP filtering, not a claim that the
+paper prescribes these two measures. If R81 still rejects useful hard-QP
+directions or reaches a small-step plateau, stop backtracking and add the
+standard second-order correction/restoration pattern: evaluate nonlinear
+constraint error at the rejected trial point and solve a bounded correction
+subproblem against that error. Do not tune another stencil, cap, factor or
+penalty scalar.
 
 ## V8 solver identity
 
