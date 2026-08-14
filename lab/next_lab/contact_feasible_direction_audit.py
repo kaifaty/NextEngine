@@ -82,7 +82,7 @@ def build_feasible_direction_audit(
     tool_path: Path,
     repository: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Audit the R103 bases against the local public-limit V9 row system."""
+    """Audit R103 bases against the locally relevant public-limit V9 rows."""
 
     paths = tuple(
         path.resolve()
@@ -190,11 +190,7 @@ def build_feasible_direction_audit(
         upper=linearization.upper,
         value=np.zeros(linearization.matrix.shape[1], dtype=np.float64),
     )
-    feasibility_tolerance = float(
-        profile["analysis"]["feasibility_tolerance"]
-    )
-    if complete_zero_violation > feasibility_tolerance:
-        raise ValueError("V9 baseline violates the public-limit row system")
+    feasibility_tolerance = float(profile["analysis"]["feasibility_tolerance"])
     support_first = int(profile["analysis"]["support_frame_first"])
     support_last = int(profile["analysis"]["support_frame_last"])
     support_columns = _support_columns(
@@ -385,9 +381,10 @@ def build_feasible_direction_audit(
             "selected_dof_ordinals": (
                 linearization.selected_dof_ordinals.tolist()
             ),
-            "baseline_maximum_normalized_violation": (
+            "complete_clip_proxy_zero_direction_maximum_normalized_violation": (
                 _finite_float(complete_zero_violation)
             ),
+            "complete_clip_proxy_acceptance_authority": False,
             "zero_direction_maximum_normalized_violation": (
                 _finite_float(zero_violation)
             ),

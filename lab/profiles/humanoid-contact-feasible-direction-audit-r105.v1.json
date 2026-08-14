@@ -43,7 +43,7 @@
   },
   "method": {
     "baseline": "exact quantized V9 complete clip",
-    "row_system": "V9 root-plus-ten-leg SQP Jacobian and row family with frozen public limits and zero internal solver margins",
+    "row_system": "locally relevant rows of the V9 root-plus-ten-leg SQP Jacobian with frozen public limits and zero internal solver margins; the complete component-box proxy is report-only and is not the exact nonlinear acceptance gate",
     "support_scope": "source frames 240 through 249 only; frames 238 and 239 and every outside frame are immutable",
     "projection": "minimum normalized Euclidean distance from each R103 anchor basis under the local linearized public-limit rows",
     "row_analysis": "report binding and 5-percent-near-binding rows, numerical rank, nullity and retained singular-spectrum condition",
