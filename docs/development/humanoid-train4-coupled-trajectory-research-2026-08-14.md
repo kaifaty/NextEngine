@@ -4,7 +4,7 @@
 | --- | --- |
 | Date | 2026-08-14 |
 | Scope | Optimizer-free learned-policy lane; offline constraint-solver research for `REQ-HUM-DATA-005/007` |
-| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / TRIAL-JACOBIAN PHASE-I RESEARCH` |
+| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / MODEL-FIDELITY RESEARCH` |
 | Current implementation | `nextengine.dimensionless-contact-trajectory-qp.v8` |
 | Claim ceiling | Research infrastructure only; no V19, TRAIN-4 Advance, visual gate or learned optimization |
 
@@ -54,6 +54,7 @@ All generated artifacts remain under the external TRAIN-4 evaluation root.
 | R82 exact-row hard second-order correction | The first two capped primary steps reproduce the useful R80 path (`6.0602/18.0222 -> 4.7570/15.2353 -> 3.3690/12.7778`). The third full step lowers total violation to `9.5300` but raises the worst component to `3.7556`, so max-first acceptance correctly routes it to correction. The bounded correction with the original `58488`-row Jacobian and nonlinear trial-state bounds is `primal infeasible` after `16925` OSQP iterations; no corrected exact state is evaluated. | Reject hard all-row SOC as sufficient, not the second-order diagnosis. The report remains `FAIL`, the pending trial/candidate is non-admissible, and the last accepted state remains the second primary point. Next isolate artificial infeasibility with iteration-only normalized nonlinear restoration slack; final exact-zero audit remains unchanged. |
 | R83 minimax nonlinear phase-I restoration | Relaxing only nonlinear rows makes the correction model feasible. Four bounded bisections bracket minimum normalized slack between `0.235364` infeasible and `0.470727` solved; linear/trust rows remain hard. The selected model balances every nonlinear group near `0.4707` and improves exact contact violations, but its `50 mm` root-saturated correction drives exact collider from baseline violation `3.1438` to `8.8592` (`-44298 µm`). Exact max-first audit rejects it and restores the baseline. | Reject the old-Jacobian minimax restoration identity. Its model predicts collider violation `0.4707` while integer FK measures `8.8592`, directly localizing stale linearization over the correction radius. Recompute the correction Jacobian at the nonlinear trial point before changing slack, trust or requirements. |
 | R84 hard trial-Jacobian restoration | The correction uses the Jacobian already evaluated at the quantized rejected trial, with identical `252303` base nonzeros, nonlinear row bounds and component trust. It remains `primal infeasible` after `66000` iterations with primal residual `0.06245`; no corrected exact state is evaluated. | Trial-point relinearization alone cannot remove local incompatibility. R83 and R84 isolate two independent requirements: trial geometry for exact fidelity and iteration-only phase-I slack for model feasibility. Test their direct composition before considering another mechanism. |
+| R85 trial-Jacobian minimax phase-I | The direct R83/R84 composition makes all tested slack levels feasible; the selected `0.235364` solve reaches `solved inaccurate` at `100000` iterations and balances trial-model nonlinear rows near `0.2354`. Exact contact violations improve, and total violation drops `12.7778 -> 11.9054`, but collider violation rises `3.1438 -> 6.6700` (`-33352 µm`). Exact max-first rejects the correction and restores the baseline. | Reject this local composition as an acceptance mechanism. Trial relinearization improves R83 collider error `8.8592 -> 6.6700` but still underpredicts it by a large margin over a `1.7887` normalized correction. Stop local solver-knob composition and map exact/model error versus frame and step scale before choosing a new geometry or trust model. |
 
 R69 report SHA-256 is
 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56`;
@@ -115,6 +116,12 @@ R84 report/candidate/research-adapter SHA-256 are
 `1e66abebc8a01c890c93ae969af6771aa3a4403f2ab5188709f222da18340f06`.
 The R84 candidate again captures the pending rejected primary trial after
 correction solver failure and is explicitly non-admissible.
+R85 report/candidate/research-adapter SHA-256 are
+`228117a508ff22c9f3a5927862af8b79a40635446c3b02a305651231aeb69adf` /
+`8f40a26c7a896700cc1047b3dbe44e2b5cd3bdb82f1ff18d0efa22e9a4642460` /
+`bc23a1535deb1e5235ef312e5903f6d1b490d97fba85bd1a6a34a30f0a5732f1`.
+The R85 candidate is the restored accepted baseline and remains
+non-admissible because the unchanged gate is `FAIL`.
 
 ## Primary-source research decision
 
@@ -190,13 +197,19 @@ does not remove artificial infeasibility: the correction fails before exact
 audit. Together R83/R84 now form a controlled two-factor result rather than an
 invitation to tune another scalar.
 
-The smallest next discriminator, R85, directly composes the two individually
-necessary mechanisms: the R84 trial-point Jacobian and the unchanged R83
-phase-I bisection that relaxes only normalized nonlinear rows. Linear/trust
-rows, primary path, exact max-first audit and baseline restoration remain
-unchanged. Do not tune another stencil, cap, line-search factor or physical
-tolerance; if R85 does not produce an exact improvement, pause for a new
-modeling/research cycle rather than add another local knob.
+R85 directly composed the R84 trial-point Jacobian and unchanged R83 phase-I.
+It halves the selected model slack and reduces the exact collider regression,
+but the corrected FK still disagrees qualitatively with a tightly balanced
+linear model. This is the predeclared stop condition for local SOC/restoration
+composition, not a reason to add a fifth scalar or relax the exact gate.
+
+The next research discriminator, R86, is a model-fidelity audit rather than a
+candidate solver: reproduce one hash-bound R85 direction, persist it, and
+compare linear versus integer-FK contact/collider violations per frame across
+a fixed scale ladder. If a bounded interval has reliable predicted/actual
+agreement and improves exact max-first merit, an adaptive trust rule is
+justified; if not, the collider/contact model itself needs a different local
+geometry or decomposition. No R86 scale is admissible evidence by itself.
 
 ## V8 solver identity
 
