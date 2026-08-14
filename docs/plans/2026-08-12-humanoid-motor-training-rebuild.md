@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17` with required safety `0` and no control regressions. Its explicit decision permits only a clip-global prototype because window-local overlaps disagree and the prior full `cmu16` solve fails complete-clip bounds. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity with one solve per clip, exact slices `17/17` and zero overlap disagreement, but rejects the V7 solver: complete clips pass `0/3`, selected slices `16/17`. The current increment is one coupled complete-clip solve beginning with `cmu05`. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -20,6 +20,7 @@
 | TRAIN-4 causal decision | [Contact-consistent reference/reset research decision](../development/humanoid-train4-causal-research-2026-08-14.md) |
 | TRAIN-4 contact-boundary decision | [Post-smoothing and projection-domain research](../development/humanoid-train4-contact-boundary-research-2026-08-14.md) |
 | TRAIN-4 support-authorization decision | [Support-authorized quantized-clearance research](../development/humanoid-train4-support-authorization-research-2026-08-14.md) |
+| TRAIN-4 clip-global decision | [Clip-global contact trajectory research](../development/humanoid-train4-clip-global-research-2026-08-14.md) |
 | TRAIN-5 current base tracker profile | [Humanoid reference tracker physics/velocity guard V4](../../lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json) |
 | TRAIN-5 current base tracker SHA-256 | `7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d` |
 | TRAIN-5 rejected optimization child profiles | soft ROM `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive ROM `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`; realized contact impact margin `6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06` |
@@ -1675,13 +1676,17 @@ one-micrometre deadband above the unchanged collider floor. V7/R47 passes
 offline `17/17`; V7/R49 passes fresh `17/17` with every required-safety count
 zero and no passing-control regression.
 
-This executable increment is still not a full corpus rebuild. Independently
-solved overlapping windows disagree on the value of the same source frame, and
-an 801-frame `cmu16` counterfactual fails complete-clip closure. Therefore even
-a fresh `17/17` bounded result permits only a clip-global prototype. That successor
-must solve every clip once, prove exact overlap identity and pass both selected
-windows and complete-clip invariants before a full 27-clip V19 identity or
-repeated local/native/visual/exhaustive gates are allowed. No new PPO run is
+This executable increment is still not a full corpus rebuild. R57 now solves
+each selected clip exactly once and proves that all `17/17` cases are exact
+slices with zero disagreement across 30 overlap pairs. That closes the
+projection-domain ambiguity, not the solver gate: V7 complete clips pass `0/3`
+and selected slices pass `16/17`. The bounded
+[clip-global research](../development/humanoid-train4-clip-global-research-2026-08-14.md)
+also rejects contact-edge stencil alone, hard segment masking and another
+alternating post-pass. The next identity must solve contact anchors, flight
+collider inequalities, ROM and root/joint velocity envelopes as one coupled
+complete trajectory, beginning with `cmu05`, before a full 27-clip V19 identity
+or repeated local/native/visual/exhaustive gates are allowed. No new PPO run is
 authorized before a new `TRAIN-4 Advance`; no command locomotion run is
 authorized before `TRAIN-5` advances.
 

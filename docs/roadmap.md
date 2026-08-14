@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-14 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Bounded V7/R49 теперь проходит fresh `17/17` с нулевой required safety и без control regressions, но его explicit decision — `PERMIT_CLIP_GLOBAL_PROTOTYPE_ONLY`. Текущий increment — один solve на selected clip, exact slices и complete-clip closure; full V19, corpus admission, visual/exhaustive gate и optimizer остаются заблокированы. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Bounded V7/R49 проходит fresh `17/17`, но разрешает только clip-global prototype. R57 теперь закрывает domain identity: один solve на clip, exact slices `17/17`, overlap disagreement `0`; сам V7 solver отклонён — complete clips `0/3`, selected slices `16/17`. Текущий increment — coupled complete-clip solve начиная с `cmu05`; full V19, corpus admission, visual/exhaustive gate и optimizer остаются заблокированы. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -753,9 +753,15 @@ required safety `0`, control regressions `0`, optimizer/training `0`.
 [Contact-boundary research](development/humanoid-train4-contact-boundary-research-2026-08-14.md)
 по-прежнему блокирует extrapolation: window solves расходятся до `61997 µm`
 root и `60755 µrad` joint, а прежний 801-frame `cmu16` solve не проходит
-complete-clip bounds. Current increment решает каждый selected clip один раз,
-требует exact slices, selected-window и complete-clip closure. Full 27-clip
-V19, visual/exhaustive gates, TRAIN-4 Advance и PPO остаются запрещены.
+complete-clip bounds. R57
+[clip-global research](development/humanoid-train4-clip-global-research-2026-08-14.md)
+закрыл эту domain ambiguity: каждый selected clip решён ровно один раз,
+exact slices проходят `17/17`, а 30 overlap pairs имеют ноль расхождений.
+Однако V7 complete clips проходят `0/3`, selected slices — `16/17`; R56
+также оставляет 27 swing-collider deficits после 30 alternating passes.
+Current increment поэтому строит единый coupled trajectory solve, начиная с
+полного `cmu05`. Full 27-clip V19, visual/exhaustive gates, TRAIN-4 Advance и
+PPO остаются запрещены.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -1496,9 +1502,11 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    diagnostic-only. После R39/R45 research bounded V7 прошёл R47 offline и
    R49 fresh `17/17` при required safety `0`, controls `0` regressions и
    неизменных caps. Его explicit result разрешает только clip-global
-   prototype. Window-local overlap inconsistency всё ещё блокирует full V19;
-   текущий increment требует one-solve-per-clip, exact slices и complete-clip
-   check. До их exact PASS
+   prototype. R57 реализовал one-solve-per-clip и доказал exact slices/overlap,
+   но отклонил V7 complete solver: complete clips `0/3`, selected slices
+   `16/17`. Текущий increment заменяет последовательные post-passes одним
+   coupled trajectory solve на `cmu05`, затем тем же identity на всех трёх
+   clips. До их exact PASS
    corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены. No
    training quality, Stage 0 or R5 completion is claimed here.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote
