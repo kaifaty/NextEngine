@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R100_SCALAR_REJECTED / R101_VELOCITY_VECTOR_NEXT` |
+| Status | `R101_VECTOR_REJECTED / R102_NATIVE_ROLLOUT_CONTRACT_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -33,6 +33,8 @@ bounded research before another solver change or expensive native run.
 | R99 matched V7 native trace | canonical/file SHA-256 `19aa8ddfce365fadce4146067470e60e6bd48d0c83f80e9064c587fe7e3613db` / `04553001223cdcb638a8cf8029b5f6a453610ca026fa995833418f97ed6b22dd` | Exact R49 case-10 `PASS 11/11` reproduced with `44/44` substeps; trace SHA-256 `552ddd671bc5501500504d54876451e5e93fd4a6979ff1b6b50b5b1649c2b40d`; no acceptance authority |
 | R100 one-scalar input | canonical/file/artifact SHA-256 `59d556f5a71943e6bdf60beb3dabbee03d5cc2a7618a341966a6ce3a5d050e78` / `e66cdda52f674d76a7ac1dd70cd60810c02143a9efdefed78804b52751a6a3da` / `427b5e1895519fe83c40189406c3027f14d9b9aa36d50e3b45e300d516f5761a` | Offline proof changes exactly one velocity cell and zero other array elements; PhysX/optimizer/training `0` |
 | R100 native trace | canonical/file SHA-256 `024e2251e4518f83c1f5fba4d22142afa83d6a23d8dfdd04e41c40ba1d4210b3` / `afee35e799be7522c434998583175d71f4629cdeeb06e0009fffde9d45629426` | `FAIL` tick `5`, new right-ankle hard impact `6092658 µN·s`; complete `20/20` trace SHA-256 `24489460446a9bee160508b7e16b4125e43cb5ab1f70dbb4440710e754b6eeae` |
+| R101 velocity-vector input | canonical/file/artifact SHA-256 `42cc653095911a71a01d6ab3750228e2f47e6190a9fc4a378ce7a19840c183fb` / `096b2f94eaa59a555da82165276c39456cf0ee33cec9123489271548b6deeb2c` / `2dab3cbea1e71f60c328a48b3ec52a3a95af23b6c0214ac05c77c0c3a13ae58a` | Exactly `18` frame-0 joint-velocity cells change to V7; all other array elements remain V9; PhysX/optimizer/training `0` |
+| R101 native trace | canonical/file SHA-256 `04b91df1ca6be06c10af9fbf11505457fed8e5a25e2c50abe3f8523bdd684cb6` / `08ef6a379bfc2379ed43b1373f784025760d5b2bdce9bd54ab164376b1afc468` | `FAIL` tick `10`, right-ankle-pitch hard ROM plus remote hard impact `6006560 µN·s`; complete `40/40` trace SHA-256 `364ed05872fb522e6afbab5c945924fda5eaa09fd14d796163255c9ecb83ac31` |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -119,6 +121,25 @@ problem rather than another purely geometric tolerance problem:
   shows why nominal contact timing is insufficient: every candidate
   pre-contact state across the uncertain switching region must remain safe.
   This directly matches R98's safe/unsafe touchdown-phase distinction.
+- [DynaRetarget v3, 2026-06-10](https://arxiv.org/abs/2602.06827) treats the
+  simulator as a black-box dynamics function, rolls out control sequences by
+  single shooting, reduces the search to interpolated control knots and grows
+  the optimized horizon incrementally. This is the closest published shape to
+  the frozen NextEngine plant because it does not require differentiating or
+  replacing PhysX contact semantics.
+- [DiffMimic v2, 2023-04-26](https://arxiv.org/abs/2304.03274) demonstrates
+  simulator-rollout optimization of PD target angles with zero desired
+  velocity, but it optimizes a policy and relaxes joint limits for gradient
+  propagation. It is therefore evidence that rollout state matching can work,
+  and simultaneously a counterexample to importing that method into TRAIN-4:
+  learned optimization and weaker limits remain forbidden here.
+- The current official PhysX
+  [articulation stability guide](https://nvidia-omniverse.github.io/PhysX/ovphysx/latest/guides/articulation_stability.html)
+  warns that stiff drives, high one-step angular acceleration and competing
+  contacts can destabilize an articulation. It recommends controller/drive
+  changes as possible remedies, but those are outside this gate; for R102 the
+  bounded inference is only that the reference must be tested against the
+  exact clipped/rate-limited plant rather than an open-loop derivative proxy.
 
 The inference for NextEngine is deliberately smaller than those methods. R98
 has already rejected contact as the first cause and isolated pre-contact
@@ -129,9 +150,9 @@ with the two failed variants before any bounded construction change is chosen.
 
 | ID | Hypothesis | Current evidence | Discriminator |
 | --- | --- | --- | --- |
-| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R100 aligns the direct left-ankle phase but shifts the terminal to a remote right-foot hard impact | Supported as coupled whole-body effort/contact phase; no scalar proxy is sufficient |
+| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R101 exactly matches V7's initial requested-effort vector, then reaches greater right-ankle-pitch effort debt and the V9 terminal region under unchanged V9 targets | Confirmed as trajectory-wide closed-loop feasibility; boundary state is insufficient |
 | H23 | Near-zero offline collider clearance does not predict the full PhysX contact manifold and impulse | R95 isolates ordinal `2`: active foot `1539 µm` above surface with no derivative amplification; R97 reserve case passes all `11` ticks and lowers peak left-foot impulse `6440089 -> 4466405 µN·s` | Supported for the selected case only; broader contact cases remain untested |
-| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | One left-ankle velocity scalar moves its trace close to V7 but increases remote right-foot impulse by `1570786 µN·s` | Confirmed; reject per-channel locality and test only the coherent all-actuator boundary-velocity state |
+| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | R100 moves one channel and R101 moves all initial velocities; both preserve V7-like local phase but alter the remote right support chain | Confirmed; end manual substitution and evaluate sequence-level candidates through the native plant |
 | H26 | Motor-frame pose/derivative summaries hide the causal physical substep | R98 localizes V11 touchdown to tick `9` substep `2` and overspeed to the immediately following pre-substep state | Confirmed; retain substep traces for every future native discriminator |
 | H25 | Fresh-scene initialization is responsible | Initial state is exact within quantization in every worker | Falsified by R94; do not repeat partial-reset experiments |
 
@@ -443,13 +464,74 @@ boundary-state substitution is exhausted and the roadmap must move to a
 native-rollout/coupled construction or an explicit architecture decision. No
 root/pose substitution, coefficient sweep or third scalar is allowed.
 
+## R101 coherent velocity-vector result
+
+Clean commit `da0d6959eb7dfde327437f824261da93a9a5af92` builds the exact
+input and clean commit `9bbfbc1e08111fb1223df4e48b68e93b0813b5de` binds its only
+fresh trace. Builder/trace profile SHA-256 is
+`9214622cb85baba71e09ce88289633eb34555642286a98f98c95a7c9b1aa1b1e` /
+`1c0d94663c863564a4c1f144f14df2c358ff2bba701d93e4354c4b88b1b8c786`.
+The full lab suite passes `178/178`; initial state is exact, partial reset is
+`NOT_RUN`, and optimizer/training remain zero.
+
+R101 proves that coherent initialization is causal but not sufficient. Its
+first requested-effort vector is exactly equal to V7 across all `23`
+actuators. Across the first `20` physical substeps, its left-ankle-roll
+velocity RMS distance is `267756 µrad/s` from V7 and `6461306 µrad/s` from
+V9; the all-actuator velocity RMS is `606637` versus `1623104 µrad/s`.
+Thus the passing local phase survives the vector replacement.
+
+Every applied joint-position target remains byte-identical to V9 for the
+complete shared `40`-substep trace. The remote response improves only relative
+to the immediately rejected scalar edit: at tick `5`, right-foot impulse is
+`5707869 µN·s`, below R100's `6092658` and the unchanged `6000000` limit, but
+still above V9's `4521872`. At tick `10`, substep `3`, it reaches
+`6006560 µN·s` and becomes a hard impact. The same motor tick also reaches
+right-ankle-pitch position `-709427 µrad`, producing hard-ROM excess
+`11295 µrad`. Maximum right-ankle-pitch requested-to-published effort debt is
+`186668760 µN·m`, worse than V9's `136680080` and V7's `24212772`.
+
+R101 therefore delays R100's remote failure but neither restores V7 safety nor
+closes V9's original support-chain terminal. Its outcome satisfies the
+predeclared stopping condition: no third scalar, boundary-vector, root or pose
+hand edit is permitted.
+
+## R102 native-rollout construction decision
+
+The smallest architecture-preserving next mechanism is a report-only
+simulator-in-the-loop construction contract over the existing fixed PD and
+fresh PhysX plant. It is selected over an immediate full kinodynamic NLP
+because the observed guard, effort clipping/slew and contact response are the
+plant being qualified; an approximate inverse-dynamics model could reproduce
+the same proxy mismatch already rejected by R96/R97. It is selected over
+DiffMimic or PPO because TRAIN-4 must remain optimizer-free with respect to
+learned policy weights.
+
+R102 first builds a hash-closed audit/evaluator, not a candidate search. It
+must consume the immutable V7/V9/R100/R101 traces, reproduce the phase, target
+identity, effort-debt and remote-contact facts above, and define the future
+rollout objective lexicographically: any required-safety event rejects the
+candidate before tracking cost, every candidate uses a fresh scene and full
+physical-substep evidence, and controller/limits/reset semantics never become
+variables. Candidate-generation variables, knot count and search budget remain
+`NOT_AUTHORIZED` until that evaluator is reproducible from a clean commit.
+
+If the evaluator closes, the next bounded design may parameterize a complete
+future joint-target sequence with low-dimensional time knots and incremental
+horizon growth, following the black-box rollout shape of DynaRetarget. Frame-0
+state and all frozen safety/controller identities remain fixed. A full
+kinodynamic state/torque/contact-force NLP remains the fallback if black-box
+rollout cannot produce a deterministic, bounded one-case construction. A
+controller change requires a separate architecture decision and is not the
+R102 fallback.
+
 ## Decision
 
-Freeze R92–R100, retain the contact result as bounded support for H23, and reject
-V11 plus any other open-loop derivative smoother as a merged/full-corpus
-direction. Do not tune controller or solver-limit values and do not begin
-training. Reject the R100 scalar anchor and run only the coherent R101
-frame-0 joint-velocity-vector discriminator. All-17 remains blocked
-until a future bounded candidate passes every selected fresh control without
-changing controller semantics, safety limits, fresh-scene authority or the
-exact-zero gate.
+Freeze R92–R101, retain the contact result as bounded support for H23, and
+reject V11 plus every manual boundary-state or open-loop derivative smoother
+as a merged/full-corpus direction. Do not tune controller or solver-limit
+values and do not begin training. Build only the report-only R102 native-
+rollout audit/evaluator before defining a candidate search. All-17 remains
+blocked until a future bounded candidate passes every selected fresh control
+without changing controller semantics, safety limits, fresh-scene authority
+or the exact-zero gate.

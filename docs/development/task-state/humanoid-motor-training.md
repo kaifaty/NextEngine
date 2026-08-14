@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R100_SCALAR_REJECTED / R101_VECTOR_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R101_VECTOR_REJECTED / R102_ROLLOUT_NEXT` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,19 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R100 aligns local V7 ankle phase but creates a new
-  remote right-foot hard impact; per-channel locality is unsafe and rejected.
-- **Why:** Left-roll RMS moves to `177826 µrad/s` from V7, but right impulse
-  rises `4521872 -> 6092658 µN·s` and terminates at tick `5`.
-- **Next action:** Replace only the full V9 frame-0 joint-velocity vector with
-  V7's matched vector and trace once; do not change pose/root/controller.
-- **Current blocker:** Initial damping phase is actuator-coupled; one channel
-  cannot be repaired without moving remote contact safety.
-- **Do not retry:** Do not start PPO, build another broad whole-corpus
-  ankle/retarget identity, zero reference velocities, add grace/settling, or
+- **Current conclusion:** R101 exactly matches V7's initial effort vector and
+  local phase, but V9 targets still cause tick-10 remote impact plus hard ROM.
+- **Why:** Left-roll RMS is `267756 µrad/s` from V7, while right impulse reaches
+  `6006560 µN·s` and right-pitch effort debt reaches `186668760 µN·m`.
+- **Next action:** Freeze manual boundary edits and build the hash-closed R102
+  report-only native-rollout audit/evaluator before any candidate search.
+- **Current blocker:** Feasibility is trajectory-wide across coupled clipped/
+  rate-limited PD, PhysX guard and contact response, not a frame-0 state fact.
+- **Do not retry:** Do not start PPO, substitute another scalar/vector/root/
+  pose boundary, zero velocities, add grace/settling, tune controller, or
   loosen safety limits. The causal matrix rejects these as fixes.
-- **Reconsider when:** R101 improves local and remote outcomes and one later
-  bounded candidate passes every selected control before another all-17 run.
+- **Reconsider when:** R102 reproduces all four trace facts and a later bounded
+  sequence candidate passes every selected control before another all-17 run.
 
 All TRAIN-5 checkpoints remain rejected. No optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -41,10 +41,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R92–R100 native research | R100 one-cell input aligns local phase but fails tick `5` on remote right impact `6092658` | Reject scalar anchor; test coherent frame-0 joint-velocity vector once; training blocked |
+| R92–R101 native research | R101 matches V7 initial effort/local phase but fails tick `10` on hard ROM plus remote impact `6006560` | End manual boundary edits; build report-only native-rollout evaluator; training blocked |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R98-V9/R98-V11/R99/R100 file SHA-256: `fd6deb633a5b53c4a00b5de6943a5ce12ae59d4b0a232629586807107ef8d77b` / `5143a7ef5bb068c97594926d226460b657c87c6ba7f9b94a123b0f03c79e31cb` / `04553001223cdcb638a8cf8029b5f6a453610ca026fa995833418f97ed6b22dd` / `afee35e799be7522c434998583175d71f4629cdeeb06e0009fffde9d45629426`.
+R98-V9/R98-V11/R99/R100/R101 file SHA-256: `fd6deb633a5b53c4a00b5de6943a5ce12ae59d4b0a232629586807107ef8d77b` / `5143a7ef5bb068c97594926d226460b657c87c6ba7f9b94a123b0f03c79e31cb` / `04553001223cdcb638a8cf8029b5f6a453610ca026fa995833418f97ed6b22dd` / `afee35e799be7522c434998583175d71f4629cdeeb06e0009fffde9d45629426` / `08ef6a379bfc2379ed43b1373f784025760d5b2bdce9bd54ab164376b1afc468`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -178,18 +178,18 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether coherent initial damping effort across all actuators
-  removes R100's remote regression; case `2` passes only bounded R97.
-- **Reconsider when:** R101 tests the joint-velocity vector and a bounded
-  construction passes without changing frozen bounds.
+- **Uncertainty:** Whether a low-dimensional native-rollout target sequence can
+  close the coupled plant; case `2` passes only bounded R97.
+- **Reconsider when:** R102 closes the evaluator and a bounded sequence
+  construction passes without changing frozen bounds or controller semantics.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R100 local phase improves but remote contact regresses | One-channel phase is insufficient | R101 velocity vector |
+| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R101 initial effort equals V7, then right effort debt reaches `186668760` | Boundary state is insufficient | R102 rollout evaluator |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
-| H24/H26: nonlocal coupling is hidden between motor samples | R100 one-cell trace moves remote right impact by `1570786` | Coupled boundary vector untested | R101 vector trace |
+| H24/H26: nonlocal coupling is hidden between motor samples | R100/R101 keep V7-like local phase but move remote contact | Sequence construction untested | R102 rollout evaluator |
 | H25: reset mismatch causes R94 | Earlier reset concerns | R94 state is exact within quantization | Falsified; do not retry |
 
 ## Required context
@@ -218,10 +218,10 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73–R100 and all rejected derivative observations.
+1. Freeze clean R73–R101 and all rejected derivative/boundary observations.
 2. Retain contact case `2` only as bounded H23 evidence, not a merged candidate.
-3. Build and run hash-closed R101 frame-0 joint-velocity-vector tracing.
-4. End manual substitution if R101 regresses; keep training blocked.
+3. Build hash-closed R102 V7/V9/R100/R101 native-rollout audit/evaluator.
+4. Define no target-knot search until R102 reproduces the exact trace facts.
 
 ## Do not retry
 
@@ -239,9 +239,9 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R100 code/profile lineage is committed; tracked research
-  now records R73–R100. Generated artifacts remain external and hash-bound.
-- **Checks:** Full lab `178/178`; R100 fresh FAIL trace, partial reset `NOT_RUN`;
+- **Workspace state:** R101 code/profile lineage is committed; tracked research
+  now records R73–R101. Generated artifacts remain external and hash-bound.
+- **Checks:** Full lab `178/178`; R101 fresh FAIL trace, partial reset `NOT_RUN`;
   optimizer steps and training runs remain zero.
 - **Remaining risk:** Dynamic-reference feasibility, full-corpus exact-zero
   coverage and visual review remain open.

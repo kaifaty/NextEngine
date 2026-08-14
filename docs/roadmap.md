@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-14 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Bounded V7/R49 проходит fresh `17/17`, но разрешает только clip-global prototype. R57 закрыл one-solve/exact-slice domain identity и отклонил V7 complete solver. R73 clean V8 passes complete `cmu05`/`cmu16` but fails raw `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all-three/all-17 offline with byte-exact overlap and zero point deletion. R94 fresh-scene V9 rejects `7/17`; R98 localizes pre-contact phase divergence and R99 matches V7 PASS. R100 aligns local ankle-roll phase with one `13200 µrad/s` scalar but creates a new remote right-foot hard impact `6092658 µN·s` at tick `5`. The scalar anchor is rejected; `STOP_AND_RESEARCH` remains active and R101 tests the coherent frame-0 joint-velocity vector once. Partial reset stays report-only. Full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Bounded V7/R49 проходит fresh `17/17`, но разрешает только clip-global prototype. R57 закрыл one-solve/exact-slice domain identity и отклонил V7 complete solver. R73 clean V8 passes complete `cmu05`/`cmu16` but fails raw `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all-three/all-17 offline with byte-exact overlap and zero point deletion. R94 fresh-scene V9 rejects `7/17`; R98 localizes pre-contact phase divergence and R99 matches V7 PASS. R100's scalar and R101's coherent initial velocity vector both preserve V7-like local phase but fail remote right-support safety; R101 terminates at tick `10` on hard ROM plus impact `6006560 µN·s`. Manual boundary substitution is exhausted. `STOP_AND_RESEARCH` remains active; R102 builds a report-only native-rollout evaluator before any candidate search. Partial reset stays report-only. Full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -763,8 +763,8 @@ Current increment поэтому строит единый coupled trajectory so
 полного `cmu05`. Full 27-clip V19, visual/exhaustive gates, TRAIN-4 Advance и
 PPO остаются запрещены.
 
-**TRAIN-4 coupled/native trajectory research (`R100_SCALAR_REJECTED /
-R101_VELOCITY_VECTOR_NEXT`, 2026-08-14):**
+**TRAIN-4 coupled/native trajectory research (`R101_VECTOR_REJECTED /
+R102_NATIVE_ROLLOUT_CONTRACT_NEXT`, 2026-08-14):**
 [coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
 active-corridor penalties and line-search reduction were rejected because
@@ -940,6 +940,27 @@ R101 may replace only the complete V9 frame-0 joint-velocity vector with V7's
 matched vector, coherently aligning initial damping requests across all
 actuators. Failure to improve both local phase and remote contact ends manual
 boundary substitution; no root/pose expansion or scalar sweep follows.
+
+Clean commits `da0d695`/`9bbfbc1` build and bind that exact R101 vector. The
+input changes `18` frame-0 velocity cells and no other array element. R101's
+first requested-effort vector equals V7 across all `23` actuators; over the
+first `20` substeps its left-roll velocity stays much closer to V7 than V9
+(`267756` versus `6461306 µrad/s` RMS), while every applied target remains V9.
+The remote tick-5 impulse improves from R100's `6092658` to `5707869 µN·s`,
+but then reaches `6006560` at tick `10` together with right-ankle-pitch hard
+ROM. Maximum right-pitch effort debt grows to `186668760 µN·m`. R101 is
+therefore rejected: boundary initialization is causal but not sufficient, and
+manual scalar/vector/root/pose substitution ends.
+
+Primary-source review of KDMR/SPARK, DynaRetarget, DiffMimic and the current
+PhysX articulation stability guide supports a trajectory-wide plant-aware
+formulation. The next bounded step is R102: a hash-closed report-only evaluator
+which reproduces V7/V9/R100/R101 substep, target-identity, effort-debt and
+contact facts and gives required safety lexicographic priority over tracking
+cost. It performs no candidate search, optimizer/training step or new PhysX
+run. Only after that evaluator closes may a later profile define
+low-dimensional joint-target time knots and incremental native-rollout horizon;
+controller/limits/reset changes require a separate architecture decision.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -1699,8 +1720,10 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    localizes opposite pre-contact phase near the inner velocity guard and
    rejects contact as the first cause. R99 reproduces matched V7 PASS and
    isolates one boundary-velocity scalar under byte-identical ankle-roll targets.
-   R100 rejects that scalar after a new remote impact. R101 tests one coherent
-   joint-velocity vector; no further scalar tuning or all-17 run is authorized. До exact-zero
+   R100 rejects that scalar after a new remote impact. R101 matches V7's full
+   initial effort vector and local phase but fails tick `10` on remote impact
+   plus hard ROM. Manual boundary substitution ends; R102 next freezes a
+   report-only native-rollout evaluator before any candidate search. До exact-zero
    fresh/full-corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены. No
    training quality, Stage 0 or R5 completion is claimed here.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote
