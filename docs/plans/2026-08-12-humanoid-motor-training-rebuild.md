@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 then passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. The current increment is fresh-scene all-17 PhysX acceptance. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 then fails `7/17`, including four control regressions, despite quantization-exact initial state. The current increment is report-only R95 V7↔V9 native-dynamics differential audit before a bounded one- or two-case fresh counterfactual. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -22,6 +22,7 @@
 | TRAIN-4 support-authorization decision | [Support-authorized quantized-clearance research](../development/humanoid-train4-support-authorization-research-2026-08-14.md) |
 | TRAIN-4 clip-global decision | [Clip-global contact trajectory research](../development/humanoid-train4-clip-global-research-2026-08-14.md) |
 | TRAIN-4 coupled-solver decision | [Coupled complete-clip trajectory research](../development/humanoid-train4-coupled-trajectory-research-2026-08-14.md) |
+| TRAIN-4 native-dynamics decision | [Fresh V9 rejection and differential-audit contract](../development/humanoid-train4-native-dynamics-research-2026-08-14.md) |
 | TRAIN-5 current base tracker profile | [Humanoid reference tracker physics/velocity guard V4](../../lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json) |
 | TRAIN-5 current base tracker SHA-256 | `7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d` |
 | TRAIN-5 rejected optimization child profiles | soft ROM `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive ROM `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`; realized contact impact margin `6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06` |
@@ -1770,7 +1771,13 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   cost evidence. R93 reproduces unchanged V9 from one clean invocation: all
   three complete clips pass in `3/2/3` iterations, all 17 exact slices pass,
   all `390` arrays over `30` overlap pairs are byte-identical, and no contact
-  point is deleted. This permits only the next fresh all-17 PhysX acceptance.
+  point is deleted. R94 then runs 17 separate fresh-scene workers and fails
+  `7/17`: impact `4`, hard ROM `4`, joint safety/velocity `1`, with four
+  passing-control regressions. Post-reset root/joint state differs from the
+  reference only by quantization, rejecting reset authorship as the cause.
+  R95 is therefore a report-only V7↔V9 derivative, implied fixed-PD load and
+  contact-transition audit. It must select at most a one- or two-case fresh
+  counterfactual before any other all-17 run.
 These results still cannot authorize full V19 or learned optimization.
 
 Roadmap status changes only after material implementation/check results. This
