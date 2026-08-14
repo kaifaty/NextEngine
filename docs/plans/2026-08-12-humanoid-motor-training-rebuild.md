@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 then passes raw `cmu139` exact-zero at iteration three with unchanged limits and no post-pass. R93 clean all-three/all-17 offline reproduction is the current increment. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, fresh PhysX, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 then passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. The current increment is fresh-scene all-17 PhysX acceptance. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1767,9 +1767,10 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   three: residual `4901`, finite `1981/981`, analytic `1969/996`, collider
   `+49`, joint `2500` and root `199770`; all normalized violations are zero.
   The `527.8 s` wall time and `100000/84025/4350` QP iterations are report-only
-  cost evidence. R92 remains non-admissible until R93 reproduces unchanged V9
-  on all three complete clips, all 17 exact slices and overlap identity; only
-  that PASS permits fresh all-17.
+  cost evidence. R93 reproduces unchanged V9 from one clean invocation: all
+  three complete clips pass in `3/2/3` iterations, all 17 exact slices pass,
+  all `390` arrays over `30` overlap pairs are byte-identical, and no contact
+  point is deleted. This permits only the next fresh all-17 PhysX acceptance.
 These results still cannot authorize full V19 or learned optimization.
 
 Roadmap status changes only after material implementation/check results. This

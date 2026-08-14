@@ -4,7 +4,7 @@
 | --- | --- |
 | Date | 2026-08-14 |
 | Scope | Optimizer-free learned-policy lane; offline constraint-solver research for `REQ-HUM-DATA-005/007` |
-| Status | `V9 RAW CMU139 PASS / R93 CLEAN ALL-THREE/ALL-17 PENDING` |
+| Status | `R93 V9 OFFLINE PASS / FRESH ALL-17 PHYSX AUTHORIZED` |
 | Current implementation | `nextengine.dimensionless-contact-trajectory-qp.v9` |
 | Claim ceiling | Research infrastructure only; no V19, TRAIN-4 Advance, visual gate or learned optimization |
 
@@ -62,6 +62,7 @@ All generated artifacts remain under the external TRAIN-4 evaluation root.
 | R90 capped adaptive trust loop | Six hash-bound attempts accept two and reject four. Exact merit improves `1.7226/4.8639 -> 1.1100/4.3599`; the accepted steps have ratios `0.697` and `0.999`. The final accepted state still violates collider/contact groups by `1.1098/1.1100/1.0625/1.0776`. A sixth solve at the unchanged minimum `625 µm / 1562 µrad` predicts improvement but measures exact `1.2382/4.3191`, ratio `-1.832`, and is rejected at minimum trust. | Record `COMPLETE / FAIL / NOT_ADMISSIBLE / minimum_trust_rejection`. Stop radius/acceptance tuning: at the fifth step collider prediction error is only `1.6 µm`, but the next same-radius step jumps to `992 µm` at the right foot. R91 audits whether the scalar box-minimum row switches its active support vertex; no candidate, PhysX or training run is authorized. |
 | R91 stable box-feature audit | The audit reproduces R90's scalar model to `9.1e-13 µm` and proves scalar-minimum/vertex-minimum exact identity to `2.3e-10 µm`. Across `15414` box/frame samples it finds `85` baseline-to-exact feature switches, `84` on foot boxes, plus `246` one-sided-probe switches. At the source-`1386` hotspot the active right-foot vertex changes `x-,y-,z+ -> x-,y-,z-`; scalar error is `992.020 µm`, while the stable-vertex prediction error is `3.706 µm`. Global maximum error falls to `3.874 µm`, ratio `0.00390`. | Record `COMPLETE / SUPPORTS_PER_VERTEX_BOX_ROWS / NOT_EVALUATED`: all predeclared discriminators pass, with no candidate or gate claim. R92 may implement stable vertex rows only for the two contact-role foot boxes, retaining scalar rows for the other 17 colliders. That bounded choice adds `14` rather than `98` rows per frame and keeps exact all-collider FK authority unchanged. |
 | R92 clean V9 raw `cmu139` | Commit `04005c7` adds eight stable rows for each contact-role foot box and preserves scalar rows elsewhere. The raw immutable clip reaches emitted-integer exact PASS at outer iteration three: residual `4901`, finite tangent/normal `1981/981`, analytic `1969/996`, collider `+49`, joint `2500`, root `199770`; every normalized violation is zero. Each QP has `73902` rows / `344787` nonzeros; solve iterations are `100000`, `84025`, `4350`, wall time `527.8 s`. | Accept the shared V9 identity for clean offline promotion testing, not the single-clip debug candidate. R92 remains `NOT_ADMISSIBLE`, optimizer/training/PhysX stay zero, and performance is report-only. R93 must reproduce all three complete clips, all 17 exact slices and overlap identity from one clean invocation before any fresh scene. |
+| R93 clean V9 all-three/all-17 | One clean invocation from commit `cffad89` solves each immutable complete clip exactly once. `cmu05`, `cmu16` and `cmu139` pass after `3/2/3` outer iterations; all 17 exact slices pass, all `390` compared arrays across `30` overlap pairs agree byte-for-byte, and contact-point deletion remains zero. Optimizer steps and training runs remain zero. | Accept the V9 offline promotion checkpoint and authorize the next ordered fresh-scene all-17 PhysX acceptance only. `gate_decision=NO_CHANGE` retains the claim ceiling: no corpus admission, V19, visual gate or training is implied by this solver-only PASS. |
 
 R69 report SHA-256 is
 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56`;
@@ -174,6 +175,14 @@ R92 report/candidate/research-adapter/profile SHA-256 are
 The production V9 implementation is clean commit
 `04005c747057a08246d8f25b615effa51b043792`; R92 is a raw-clip proof, not an
 admitted corpus or fresh-scene result.
+R93 canonical/file manifest SHA-256 are
+`7ee041b7710302b9fae909b0cb34c0de3a6c2df257032cd0e1c7dcaf16afefeb` /
+`53984129cc45d295ced9ef4f49ea8532d0b224c3ccc19980e8b986cee7604d70`.
+The run is bound to clean commit
+`cffad89dfa02fa5a6d30062ed0fa21c08547f93f`; complete-clip artifact hashes are
+`73ac3b2e4c9fa82344006b5b6f38453f232179287e5c54f24fe099beb0f17912`,
+`16cacfc0d6a5a57a7e2e2fad75faef1681e9b17c02cd3b78bafc7bb4ed3b5b7d` and
+`8dbb178fa9d7a4ae1fe4cdb50133e285b8f236e523c4be90c277f6ecbe0968c0`.
 
 ## Primary-source research decision
 
@@ -328,10 +337,12 @@ The clean raw `cmu139` run passes after three relinearizations. Its first large
 step remains expensive and ends `solved inaccurate` at the `100000`-iteration
 cap, but exact FK is retained and the next two QPs converge without a rejected
 oscillation. Final normalized violation is exactly zero in all seven groups.
-This closes the geometry blocker on the strongest raw mask but does not admit
-the V9 candidate: R93 must run the unchanged builder once across all three
-complete clips and verify all 17 exact slices plus overlap identity. R92 wall
-time is a report-only optimization target and cannot replace any safety gate.
+R93 then reproduces the unchanged V9 identity on all three complete clips and
+all 17 exact slices from one clean invocation. The three solves terminate on
+exact quantized PASS after `3/2/3` iterations, while all `390` compared arrays
+over `30` overlap pairs are identical and no contact point is deleted. This
+closes the offline geometry and cross-clip blocker. R92 wall time remains a
+report-only optimization target and cannot replace the fresh PhysX safety gate.
 
 ## V8/V9 solver identity
 
@@ -375,16 +386,16 @@ The repository retains V8 and adds the V9 profile, complete-clip builder
 dispatch, exact-slice path and focused tests. The production path recomputes
 final FK, effectors, center of mass and collider facts from emitted integer
 root/joint values, and rejects either profile if it changes a frozen contact,
-collider, root or joint bound. Clean R92 proves raw `cmu139`, but not yet the
-unchanged all-clip/slice identity. The next accepted evidence sequence is:
+collider, root or joint bound. Clean R93 proves the unchanged all-clip/slice
+identity. The next accepted evidence sequence is:
 
-1. run R93 with the unchanged clean V9 identity on all three complete clips,
-   all 17 exact slices and overlap identity with no per-clip tuning, point
-   deletion or changed physical limit;
-2. require every complete clip and exact slice to pass from that one invocation;
-3. only after R93 PASS run fresh-scene all-17 PhysX acceptance, retaining partial
-   reset as report-only.
+1. bind the fresh probe to the clean R93 manifest, complete-clip artifacts and
+   unchanged V9 profile without per-case tuning or changed physical limits;
+2. run fresh-scene all-17 PhysX acceptance; indexed partial reset may be
+   recorded only as report-only diagnostics under ADR-070;
+3. require exact-zero required-safety events and zero control regressions before
+   authorizing the next full-corpus construction step.
 
-Any complete-clip failure returns to bounded solver research. Full 27-clip
-V19, visual/exhaustive admission, TRAIN-4 Advance, TRAIN-5 and training remain
-forbidden until the ordered gates pass.
+Any fresh-scene failure returns to bounded contact/physics research. Full
+27-clip V19, visual/exhaustive admission, TRAIN-4 Advance, TRAIN-5 and training
+remain forbidden until the ordered gates pass.
