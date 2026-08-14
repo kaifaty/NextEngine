@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R92_V9_FOOT_VERTEX_ROWS` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R93_V9_CLEAN_ALL_THREE` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,14 +11,14 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R91 supports stable box-vertex rows: maximum model
-  error falls `992.020 -> 3.874 µm`; exact geometry identity remains unchanged.
-- **Why:** It finds `85` feature switches (`84` at feet), reproduces the scalar
-  model, and passes every predeclared report-only discriminator.
-- **Next action:** Implement V9 with eight rows for each contact-role foot box,
-  scalar rows elsewhere, then test raw `cmu139` under the same exact gate.
-- **Current blocker:** Whether the better local geometry closes coupled contact
-  and collider feasibility without excessive sparse-QP cost is not yet known.
+- **Current conclusion:** Clean V9 closes raw `cmu139` exact-zero in three outer
+  iterations; the single-clip candidate remains `NOT_ADMISSIBLE`.
+- **Why:** Stable foot-box rows produce collider `+49 µm` while all contact,
+  joint and root metrics pass unchanged limits; no post-pass is used.
+- **Next action:** Run one clean R93 invocation over all three complete clips,
+  all 17 exact slices and overlap identity with the same V9 profile.
+- **Current blocker:** Cross-clip reproduction is untested; raw solve cost is
+  `527.8 s` and remains report-only rather than an acceptance failure.
 - **Do not retry:** Do not start PPO, build another broad whole-corpus
   ankle/retarget identity, zero reference velocities, add grace/settling, or
   loosen safety limits. The causal matrix rejects these as fixes.
@@ -41,10 +41,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R77–R91 globalization/geometry research | R90 plateaus; R91 finds `84/85` switches at feet and lowers maximum model error `992.020 -> 3.874 µm` with exact identity preserved | Implement only two foot-box vertex expansions; retain unchanged exact gate |
+| R92 clean V9 raw `cmu139` | Exact PASS at iteration three: `4901`, `1981/981`, `1969/996`, collider `+49`, joint `2500`, root `199770`; wall `527.8 s` | Permit clean all-three/all-17 offline test only; candidate remains non-admissible |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R91 report SHA-256: `a84cfe542d40ef30ff5d2efa2cf458c7829a2d3be117336d3974a499471040a7`.
+R92 report SHA-256: `753d4070e7a31076c4873df182e297963c53942db1295e23e16b67203b97d209`.
 
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
@@ -179,18 +179,18 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether foot-only stable rows close exact `cmu139` without
-  making the sparse phase-I solve impractical.
-- **Reconsider when:** R92 focused tests and raw-clip counterfactual complete.
+- **Uncertainty:** Whether unchanged V9 reproduces its PASS on both controls and
+  all exact slices without new overlap or solver failures.
+- **Reconsider when:** R93 clean all-three/all-17 invocation completes.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H17: minimum trust alone preserves fidelity | R90 attempt five error is `1.6 µm` | Attempt six at same bounds reaches `992 µm` | Rejected by R91 diagnosis |
-| H18: scalar box-minimum changes active vertex | R91 finds `85` exact and `246` probe switches | None in frozen audit | Accept local cause |
-| H19: stable vertex model is accurate | Maximum error `3.874 µm`, exact identity delta `2.3e-10 µm` | No coupled solve yet | R92 raw `cmu139` |
-| H20: foot-only expansion is sufficient | `84/85` exact switches occur on feet | One nonfoot switch exists | Keep exact audit; test bounded V9 |
+| H18: scalar box-minimum changes active vertex | R91 finds `85` exact and `246` probe switches | None in frozen audit | Accepted local cause |
+| H19: stable vertex model is accurate | R91 max error `3.874 µm` | None in frozen audit | Implemented in V9 |
+| H20: foot-only expansion closes `cmu139` | R92 exact-zero PASS in three iterations | Single clip only | Accept raw discriminator |
+| H21: unchanged V9 generalizes to controls/slices | V8 already passed `cmu05`/`cmu16` | V9 row identity not rerun there | R93 clean all-three/all-17 |
 
 ## Required context
 
@@ -218,10 +218,10 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73, R74–R80, R82–R91 and non-promotable R81 observation.
-2. Implement/test V9 foot-box stable vertex rows with unchanged exact audit.
-3. Run only raw `cmu139`; inspect exact merit and solve cost before promotion.
-4. Require clean all-three/all-17 offline PASS before any fresh all-17 run.
+1. Freeze clean R73, R74–R80, R82–R92 and non-promotable R81 observation.
+2. Run R93 once with committed V9 profile across all-three/all-17 offline.
+3. Verify complete clips, exact slices, overlap, hashes and zero point deletion.
+4. Only R93 PASS authorizes a fresh-scene all-17 run; keep training blocked.
 
 ## Do not retry
 
@@ -239,11 +239,11 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** V8 is committed at `f86df01`; tracked research records
-  R73–R91. Generated reports remain external and non-admissible.
-- **Checks:** V8 focused `15/15`, full lab `165/165` and host-check passed;
-  clean R73 passes `cmu05`/`cmu16`; optimizer and training remain zero.
-- **Remaining risk:** R92/`cmu139`, unchanged all-three/all-17, fresh safety,
+- **Workspace state:** V9 is committed at `04005c7`; tracked research records
+  R73–R92. Generated debug candidates remain external and non-admissible.
+- **Checks:** V9 focused `5/5`, full lab `167/167`, pycompile/json/lock passed;
+  clean R92 passes raw `cmu139`; optimizer and training remain zero.
+- **Remaining risk:** R93 all-three/all-17, fresh safety,
   full-corpus exact-zero coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
