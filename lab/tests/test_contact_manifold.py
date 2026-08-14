@@ -330,6 +330,22 @@ class ContactManifoldTests(unittest.TestCase):
             projection.diagnostics["root_velocity_closure_iterations"], 1
         )
 
+    def test_clearance_deadband_is_limited_to_integer_quantization(self) -> None:
+        descriptor = json.loads(
+            (FIXTURES / "biomechanics_motor_mirror_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        _collider_closure(
+            descriptor,
+            clearance_quantization_deadband_micrometres=1,
+        ).validate()
+        with self.assertRaisesRegex(ValueError, "bounds are invalid"):
+            _collider_closure(
+                descriptor,
+                clearance_quantization_deadband_micrometres=2,
+            ).validate()
+
     def test_upward_root_velocity_closure_never_lowers_samples(self) -> None:
         source = np.asarray(
             (915_632, 913_670, 911_384, 908_738, 905_717, 902_341, 898_694),
@@ -405,6 +421,7 @@ def _collider_closure(
     unsupported_flight_clearance_target_micrometres: int | None = None,
     unsupported_correction_smoothing_passes: int | None = None,
     final_contact_root_velocity_closure_enabled: bool = False,
+    clearance_quantization_deadband_micrometres: int = 0,
 ) -> ColliderClosure:
     suffixes = (
         "hip-pitch",
@@ -447,6 +464,9 @@ def _collider_closure(
         ),
         final_contact_root_velocity_closure_enabled=(
             final_contact_root_velocity_closure_enabled
+        ),
+        clearance_quantization_deadband_micrometres=(
+            clearance_quantization_deadband_micrometres
         ),
     )
 

@@ -98,6 +98,7 @@ class ColliderClosure:
     unsupported_flight_clearance_target_micrometres: int | None = None
     unsupported_correction_smoothing_passes: int | None = None
     final_contact_root_velocity_closure_enabled: bool = False
+    clearance_quantization_deadband_micrometres: int = 0
 
     def validate(self) -> None:
         bounds = self.joint_bounds_microradians
@@ -160,6 +161,15 @@ class ColliderClosure:
             or not isinstance(
                 self.final_contact_root_velocity_closure_enabled, bool
             )
+            or isinstance(
+                self.clearance_quantization_deadband_micrometres, bool
+            )
+            or not isinstance(
+                self.clearance_quantization_deadband_micrometres, int
+            )
+            or not 0
+            <= self.clearance_quantization_deadband_micrometres
+            <= 1
             or (
                 self.active_contact_anchor_target_micrometres is not None
                 and (
@@ -699,6 +709,9 @@ def _close_reference_colliders(
         if closure.unsupported_flight_clearance_target_micrometres is not None
         else supported_target_height
     )
+    clearance_deadband = (
+        closure.clearance_quantization_deadband_micrometres / 1_000_000.0
+    )
     frame_has_active_contact = np.any(active, axis=(1, 2))
     floor_height = closure.minimum_collider_height_micrometres / 1_000_000.0
     flight_deficit = np.zeros(
@@ -748,7 +761,7 @@ def _close_reference_colliders(
                     else unsupported_target_height
                 )
                 deficit = target_height - baseline
-                if deficit <= 1.0e-9:
+                if deficit <= clearance_deadband + 1.0e-9:
                     continue
                 ordinals = joint_ordinals[side_index]
                 jacobian = np.empty(len(ordinals), dtype=np.float64)
@@ -1054,6 +1067,9 @@ def _close_reference_colliders(
             ),
             "final_contact_root_velocity_closure_enabled": (
                 closure.final_contact_root_velocity_closure_enabled
+            ),
+            "clearance_quantization_deadband_micrometres": (
+                closure.clearance_quantization_deadband_micrometres
             ),
         },
     }

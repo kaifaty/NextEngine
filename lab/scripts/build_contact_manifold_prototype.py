@@ -450,6 +450,12 @@ def _validate_inputs(
         and isinstance(discriminator, dict)
         and discriminator.get("ordered_source_case_ordinals")
         == [3749, 3750, 3753, 7978, 8144]
+    ) or (
+        prototype_id == "nextengine.humanoid-contact-manifold-prototype.v7"
+        and isinstance(projection.get("collider_closure"), dict)
+        and isinstance(discriminator, dict)
+        and discriminator.get("ordered_source_case_ordinals")
+        == [3749, 3750, 3753, 7978, 8144]
     )
     if (
         profile.get("schema_version") != 1
@@ -520,12 +526,14 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
             "nextengine.support-conditioned-collider-closure.v3",
             "nextengine.final-contact-root-closure.v4",
             "nextengine.support-authorized-clearance-closure.v5",
+            "nextengine.quantized-support-clearance-closure.v6",
         }
         or (
             algorithm_id
             not in {
                 "nextengine.final-contact-root-closure.v4",
                 "nextengine.support-authorized-clearance-closure.v5",
+                "nextengine.quantized-support-clearance-closure.v6",
             }
             and document.get("root_vertical_policy")
             != "upward-only residual all-collider floor after leg-chain correction"
@@ -535,6 +543,7 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
             in {
                 "nextengine.final-contact-root-closure.v4",
                 "nextengine.support-authorized-clearance-closure.v5",
+                "nextengine.quantized-support-clearance-closure.v6",
             }
             and document.get("root_vertical_policy")
             != (
@@ -551,6 +560,7 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
                     "unsupported_flight_clearance_target_micrometres",
                     "unsupported_correction_smoothing_passes",
                     "final_contact_root_velocity_closure_enabled",
+                    "clearance_quantization_deadband_micrometres",
                 )
             )
         )
@@ -561,6 +571,7 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
                 or "unsupported_flight_clearance_target_micrometres" in document
                 or "unsupported_correction_smoothing_passes" in document
                 or "final_contact_root_velocity_closure_enabled" in document
+                or "clearance_quantization_deadband_micrometres" in document
             )
         )
         or (
@@ -574,6 +585,7 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
                 or document.get("unsupported_correction_smoothing_passes")
                 != 2
                 or "final_contact_root_velocity_closure_enabled" in document
+                or "clearance_quantization_deadband_micrometres" in document
             )
         )
         or (
@@ -591,6 +603,10 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
                     "final_contact_root_velocity_closure_enabled"
                 )
                 is not True
+                or document.get(
+                    "clearance_quantization_deadband_micrometres", 0
+                )
+                != 0
             )
         )
         or (
@@ -609,11 +625,43 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
                     "final_contact_root_velocity_closure_enabled"
                 )
                 is not True
+                or document.get(
+                    "clearance_quantization_deadband_micrometres", 0
+                )
+                != 0
                 or document.get("support_precedence_policy")
                 != (
                     "flight-leg clearance is authorized only by same-frame "
                     "active support; unsupported frames use a zero-clearance "
                     "nonpenetration target"
+                )
+            )
+        )
+        or (
+            algorithm_id
+            == "nextengine.quantized-support-clearance-closure.v6"
+            and (
+                document.get("active_contact_anchor_target_micrometres") != 0
+                or document.get(
+                    "unsupported_flight_clearance_target_micrometres"
+                )
+                != 0
+                or document.get("unsupported_correction_smoothing_passes")
+                != 2
+                or document.get("correction_smoothing_passes") != 8
+                or document.get(
+                    "final_contact_root_velocity_closure_enabled"
+                )
+                is not True
+                or document.get(
+                    "clearance_quantization_deadband_micrometres"
+                )
+                != 1
+                or document.get("support_precedence_policy")
+                != (
+                    "flight-leg clearance is authorized only by same-frame "
+                    "active support; unsupported frames use a zero-clearance "
+                    "target with a one-micrometre quantization deadband"
                 )
             )
         )
@@ -666,6 +714,9 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
         ),
         final_contact_root_velocity_closure_enabled=document.get(
             "final_contact_root_velocity_closure_enabled", False
+        ),
+        clearance_quantization_deadband_micrometres=document.get(
+            "clearance_quantization_deadband_micrometres", 0
         ),
     )
     closure.validate()
