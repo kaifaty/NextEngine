@@ -34,18 +34,25 @@ class CanonicalMaterialLineageImplementationTests(unittest.TestCase):
             self.profile["bounded_acceptance"]["training"], "NOT_AUTHORIZED"
         )
 
-    def test_repository_sources_close_native_but_not_r112(self) -> None:
+    def test_historical_r111_audit_rejects_the_r112_successor(self) -> None:
         sources = {
             name: path.read_text(encoding="utf-8")
             for name, path in tracked_source_paths(ROOT).items()
         }
-        result = audit_implementation_sources(sources)
+        with self.assertRaisesRegex(ValueError, "unexpectedly includes.*R112"):
+            audit_implementation_sources(sources)
+
+        historical = dict(sources)
+        historical["usd_translation"] = historical["usd_translation"].replace(
+            "PhysicsMaterialDescriptorV2", "R112_MATERIAL_CONTRACT_PENDING"
+        )
+        result = audit_implementation_sources(historical)
         self.assertTrue(result["native_ambient_material_removed"])
         self.assertTrue(result["unequal_materials_fail_closed"])
         self.assertFalse(result["derived_usd_material_lineage_implemented"])
         self.assertEqual(result["status"], "R111_COMPLETE_R112_PENDING")
 
-        altered = dict(sources)
+        altered = dict(historical)
         altered["physx_bridge"] += "\ncreateMaterial(0.8F, 0.7F, 0.0F);\n"
         with self.assertRaisesRegex(ValueError, "ambient material"):
             audit_implementation_sources(altered)

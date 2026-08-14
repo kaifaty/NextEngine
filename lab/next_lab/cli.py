@@ -2,18 +2,24 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 import subprocess
 import sys
-import os
 from pathlib import Path
 from typing import Any
 
 import torch
 
-from next_lab.smoke import SmokeConfig, run_smoke
+from next_lab.biomechanics_material_lineage import BIOMECHANICS_TRANSLATOR_ID_V2
 from next_lab.correspondence import evaluate_files
 from next_lab.isaac_profile import IsaacProfile, doctor_report
+from next_lab.motion_corpus import audit_motion_corpus_physx_poses, build_motion_corpus
+from next_lab.motor_lab_client import (
+    CURRICULUM_LOCOMOTION_PROFILE_ID,
+    FLAT_LOCOMOTION_PROFILE_ID,
+    STANDING_PROFILE_ID,
+)
 from next_lab.motor_mirror import (
     BIOMECHANICS_TRANSLATOR_ID,
     load_json,
@@ -21,15 +27,10 @@ from next_lab.motor_mirror import (
     validate_descriptor,
     validate_golden,
 )
-from next_lab.usd_translation import translate_to_store
-from next_lab.motor_lab_client import (
-    CURRICULUM_LOCOMOTION_PROFILE_ID,
-    FLAT_LOCOMOTION_PROFILE_ID,
-    STANDING_PROFILE_ID,
-)
-from next_lab.trajectory_recorder import record_canonical_cpu_trajectories
-from next_lab.motion_corpus import audit_motion_corpus_physx_poses, build_motion_corpus
 from next_lab.reference_tracker import audit_reference_inputs, run_physx_baseline
+from next_lab.smoke import SmokeConfig, run_smoke
+from next_lab.trajectory_recorder import record_canonical_cpu_trajectories
+from next_lab.usd_translation import translate_to_store
 
 
 def _mps_probe() -> tuple[bool, str | None]:
@@ -144,7 +145,9 @@ def parser() -> argparse.ArgumentParser:
     )
 
     smoke_parser = commands.add_parser("smoke")
-    smoke_parser.add_argument("--device", choices=["auto", "mps", "cpu"], default="auto")
+    smoke_parser.add_argument(
+        "--device", choices=["auto", "mps", "cpu"], default="auto"
+    )
     smoke_parser.add_argument("--iterations", type=int, default=256)
 
     repository_root = Path(__file__).resolve().parents[2]
@@ -203,7 +206,8 @@ def parser() -> argparse.ArgumentParser:
     corpus_parser.add_argument(
         "--descriptor",
         type=Path,
-        default=repository_root / "lab/tests/fixtures/biomechanics_motor_mirror_v1.json",
+        default=repository_root
+        / "lab/tests/fixtures/biomechanics_motor_mirror_v1.json",
     )
     corpus_parser.add_argument("--dataset-root", type=Path, required=True)
     corpus_parser.add_argument("--store", type=Path)
@@ -238,7 +242,9 @@ def parser() -> argparse.ArgumentParser:
     baseline_parser.add_argument("--corpus-root", type=Path, required=True)
     baseline_parser.add_argument("--gate-report", type=Path, required=True)
     baseline_parser.add_argument("--store", type=Path)
-    baseline_parser.add_argument("--split", choices=["train", "validation", "heldout"], required=True)
+    baseline_parser.add_argument(
+        "--split", choices=["train", "validation", "heldout"], required=True
+    )
     baseline_parser.add_argument("--clip-id", required=True)
     baseline_parser.add_argument("--start-frame", type=int, default=0)
     baseline_parser.add_argument(
@@ -249,7 +255,9 @@ def parser() -> argparse.ArgumentParser:
 
 
 def _configured_store(value: Path | None) -> Path:
-    candidate = value or (Path(path) if (path := os.environ.get("NEXTENGINE_TRAINING_STORE")) else None)
+    candidate = value or (
+        Path(path) if (path := os.environ.get("NEXTENGINE_TRAINING_STORE")) else None
+    )
     if candidate is None:
         raise ValueError("--store or NEXTENGINE_TRAINING_STORE is required")
     repository_root = Path(__file__).resolve().parents[2]
@@ -268,25 +276,43 @@ def main() -> int:
         return run_smoke(config)
     if arguments.command == "motor-mirror-check":
         golden = load_json(arguments.golden)
-        descriptor_bytes = arguments.descriptor.read_bytes() if arguments.descriptor else None
-        if golden.get("translator_id") == BIOMECHANICS_TRANSLATOR_ID:
+        descriptor_bytes = (
+            arguments.descriptor.read_bytes() if arguments.descriptor else None
+        )
+        if golden.get("translator_id") in {
+            BIOMECHANICS_TRANSLATOR_ID,
+            BIOMECHANICS_TRANSLATOR_ID_V2,
+        }:
             validate_biomechanics_descriptor(golden)
-            if descriptor_bytes is not None and descriptor_bytes != arguments.golden.read_bytes():
-                raise ValueError("biomechanics descriptor does not match its exact golden bytes")
+            if (
+                descriptor_bytes is not None
+                and descriptor_bytes != arguments.golden.read_bytes()
+            ):
+                raise ValueError(
+                    "biomechanics descriptor does not match its exact golden bytes"
+                )
         else:
             validate_golden(golden, descriptor_bytes)
         if descriptor_bytes is not None:
             descriptor = json.loads(descriptor_bytes)
-            if descriptor.get("translator_id") == BIOMECHANICS_TRANSLATOR_ID:
+            if descriptor.get("translator_id") in {
+                BIOMECHANICS_TRANSLATOR_ID,
+                BIOMECHANICS_TRANSLATOR_ID_V2,
+            }:
                 validate_biomechanics_descriptor(descriptor)
             else:
                 validate_descriptor(descriptor)
-        print(json.dumps({"check": "MODEL-MIRROR-GOLDEN", "status": "passed"}, indent=2))
+        print(
+            json.dumps({"check": "MODEL-MIRROR-GOLDEN", "status": "passed"}, indent=2)
+        )
         return 0
     if arguments.command == "translate-body":
         descriptor_bytes = arguments.descriptor.read_bytes()
         descriptor = json.loads(descriptor_bytes)
-        if descriptor.get("translator_id") == BIOMECHANICS_TRANSLATOR_ID:
+        if descriptor.get("translator_id") in {
+            BIOMECHANICS_TRANSLATOR_ID,
+            BIOMECHANICS_TRANSLATOR_ID_V2,
+        }:
             validate_biomechanics_descriptor(descriptor)
         else:
             validate_golden(load_json(arguments.golden), descriptor_bytes)
@@ -307,7 +333,11 @@ def main() -> int:
             arguments.gpu,
             _configured_store(arguments.store),
         )
-        summary = {"check": report["check"], "status": report["status"], "report": str(path)}
+        summary = {
+            "check": report["check"],
+            "status": report["status"],
+            "report": str(path),
+        }
         print(json.dumps(summary, indent=2, sort_keys=True))
         return 0 if report["status"] == "passed" else 4
     if arguments.command == "record-trajectories":

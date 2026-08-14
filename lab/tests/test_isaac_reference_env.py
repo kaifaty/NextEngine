@@ -4,7 +4,6 @@ import unittest
 from pathlib import Path
 
 import torch
-
 from next_lab.isaac_env import (
     engine_quaternion_xyzw_from_isaac_wxyz_tensor,
     engine_vector_from_isaac_tensor,
@@ -15,12 +14,13 @@ from next_lab.isaac_reference_env import (
     _build_exhaustive_phase_schedule,
     _canonical_pd_requested_effort_tensor,
     _classify_contact_pairs_tensor,
-    _contact_impulse_magnitude_micronewton_seconds,
-    _contact_impact_margin_cost_tensor,
     _contact_body_projections,
+    _contact_impact_margin_cost_tensor,
+    _contact_impulse_magnitude_micronewton_seconds,
     _contact_pair_layout,
     _engine_to_isaac_vector,
     _engine_xyzw_to_isaac_wxyz,
+    _ground_usd_path_from_humanoid,
     _intersect_effort_limits_tensor,
     _minimum_contact_separation_tensor,
     _normalized_xyzw,
@@ -31,12 +31,18 @@ from next_lab.isaac_reference_env import (
     _soft_rom_excursion_cost_tensor,
     _terminal_reason_tensor,
 )
-from next_lab.motor_mirror import round_div_ties_even
-from next_lab.motor_mirror import load_json
+from next_lab.motor_mirror import load_json, round_div_ties_even
 from next_lab.safety_contact_mirror import _intersect_effort, _positive_work_charge
 
 
 class IsaacReferenceEnvironmentTests(unittest.TestCase):
+    def test_ground_usd_is_derived_from_same_translation_bundle(self) -> None:
+        self.assertEqual(
+            _ground_usd_path_from_humanoid("/store/current/humanoid.usda"),
+            "/store/current/ground.usda",
+        )
+        self.assertEqual(_ground_usd_path_from_humanoid(""), "")
+
     def test_contact_impact_margin_cost_takes_worst_pair(self) -> None:
         actual = _contact_impact_margin_cost_tensor(
             torch.tensor(
@@ -91,7 +97,9 @@ class IsaacReferenceEnvironmentTests(unittest.TestCase):
             torch.tensor([10, 3, 10], dtype=torch.int64),
         )
         torch.testing.assert_close(result["continuity"], torch.tensor([[5, 1, 1]]))
-        torch.testing.assert_close(result["material"], torch.tensor([[True, True, True]]))
+        torch.testing.assert_close(
+            result["material"], torch.tensor([[True, True, True]])
+        )
         torch.testing.assert_close(
             result["hard_impact"], torch.tensor([[False, True, False]])
         )
@@ -236,7 +244,9 @@ class IsaacReferenceEnvironmentTests(unittest.TestCase):
                 for slot in range(64)
             ]
             self.assertTrue(
-                all(start_frame < phase_prefix_count for _, start_frame, _ in selections)
+                all(
+                    start_frame < phase_prefix_count for _, start_frame, _ in selections
+                )
             )
             self.assertEqual(
                 {start_frame for _, start_frame, _ in selections},
@@ -295,8 +305,11 @@ class IsaacReferenceEnvironmentTests(unittest.TestCase):
                 "repeats": True,
             },
         ):
-            with self.subTest(arguments=arguments), self.assertRaisesRegex(
-                ValueError, "invalid exhaustive reference phase schedule"
+            with (
+                self.subTest(arguments=arguments),
+                self.assertRaisesRegex(
+                    ValueError, "invalid exhaustive reference phase schedule"
+                ),
             ):
                 _build_exhaustive_phase_schedule(**arguments)
 
@@ -368,9 +381,7 @@ class IsaacReferenceEnvironmentTests(unittest.TestCase):
             dtype=torch.float64,
         )
         previous = torch.zeros((1, 3), dtype=torch.float64)
-        velocity = torch.tensor(
-            [[0.0, 8_000_000.0, -8_000_000.0]], dtype=torch.float64
-        )
+        velocity = torch.tensor([[0.0, 8_000_000.0, -8_000_000.0]], dtype=torch.float64)
         used_work = torch.tensor(
             [[0.0, 13_000_000.0, 13_000_000.0]], dtype=torch.float64
         )
@@ -409,9 +420,7 @@ class IsaacReferenceEnvironmentTests(unittest.TestCase):
             expected_effort.append(actual_effort)
             expected_work.append(
                 int(used_work[0, channel])
-                + _positive_work_charge(
-                    actual_effort, int(velocity[0, channel])
-                )
+                + _positive_work_charge(actual_effort, int(velocity[0, channel]))
             )
         torch.testing.assert_close(
             effort, torch.tensor([expected_effort], dtype=torch.float64)

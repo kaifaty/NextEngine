@@ -9,10 +9,19 @@ import struct
 from pathlib import Path
 from typing import Any
 
+from next_lab.biomechanics_material_lineage import (
+    BIOMECHANICS_TRANSLATOR_ID_V2,
+    BIOMECHANICS_USDA_TRANSLATOR_VERSION_V2,
+    BODY_MATERIAL_ID,
+    GROUND_MATERIAL_ID,
+    SOLE_MATERIAL_ID,
+    material_catalog,
+)
 from next_lab.motor_mirror import (
     BIOMECHANICS_TRANSLATOR_ID,
     CURRENT_TRANSLATOR_VERSION,
     validate_biomechanics_descriptor,
+    validate_current_biomechanics_descriptor,
     validate_descriptor,
 )
 
@@ -21,7 +30,10 @@ BIOMECHANICS_TRANSLATOR_VERSION = "nextengine.isaac-biomechanics-usda-translator
 
 
 def render_usda(descriptor: dict[str, Any]) -> str:
-    if descriptor.get("translator_id") == BIOMECHANICS_TRANSLATOR_ID:
+    if descriptor.get("translator_id") in {
+        BIOMECHANICS_TRANSLATOR_ID,
+        BIOMECHANICS_TRANSLATOR_ID_V2,
+    }:
         return _render_biomechanics_usda(descriptor)
     validate_descriptor(descriptor)
     if descriptor.get("translator_version") != TRANSLATOR_VERSION:
@@ -33,7 +45,7 @@ def render_usda(descriptor: dict[str, Any]) -> str:
         "(",
         '    defaultPrim = "Humanoid"',
         "    metersPerUnit = 1",
-        "    upAxis = \"Z\"",
+        '    upAxis = "Z"',
         ")",
         "",
         'def Xform "Humanoid" (',
@@ -79,8 +91,12 @@ def render_usda(descriptor: dict[str, Any]) -> str:
         prim = _prim(joint["joint_id"])
         parent = _prim(joint["parent_body_id"])
         child = _prim(joint["child_body_id"])
-        lower = joint["limit_min_microradians"] * 180.0 / 1_000_000.0 / 3.141592653589793
-        upper = joint["limit_max_microradians"] * 180.0 / 1_000_000.0 / 3.141592653589793
+        lower = (
+            joint["limit_min_microradians"] * 180.0 / 1_000_000.0 / 3.141592653589793
+        )
+        upper = (
+            joint["limit_max_microradians"] * 180.0 / 1_000_000.0 / 3.141592653589793
+        )
         parent_position = _metres(joint["parent_translation_micrometres"])
         child_position = _metres(joint["child_translation_micrometres"])
         lines.extend(
@@ -104,6 +120,14 @@ def render_usda(descriptor: dict[str, Any]) -> str:
 
 def _render_biomechanics_usda(descriptor: dict[str, Any]) -> str:
     validate_biomechanics_descriptor(descriptor)
+    current_material_lineage = (
+        descriptor["translator_id"] == BIOMECHANICS_TRANSLATOR_ID_V2
+    )
+    translator_version = (
+        BIOMECHANICS_USDA_TRANSLATOR_VERSION_V2
+        if current_material_lineage
+        else BIOMECHANICS_TRANSLATOR_VERSION
+    )
     bodies = sorted(descriptor["bodies"], key=lambda body: body["body_slot"])
     body_paths = [f"/Humanoid/Bodies/{_prim(body['body_id'])}" for body in bodies]
     exclusions: dict[int, list[int]] = {slot: [] for slot in range(len(bodies))}
@@ -124,10 +148,30 @@ def _render_biomechanics_usda(descriptor: dict[str, Any]) -> str:
         "{",
         f'    custom string nextengine:bodySchemaHash = "{descriptor["body_schema_hash"]}"',
         f'    custom string nextengine:compiledDescriptorHash = "{descriptor["compiled_descriptor_hash"]}"',
-        f'    custom string nextengine:translatorVersion = "{BIOMECHANICS_TRANSLATOR_VERSION}"',
-        '    def Scope "Bodies"',
-        "    {",
+        f'    custom string nextengine:translatorVersion = "{translator_version}"',
     ]
+    if current_material_lineage:
+        lines.extend(
+            [
+                f'    custom string nextengine:materialLineageHash = "{descriptor["material_lineage_hash"]}"',
+                f'    custom string nextengine:groundMaterialId = "{descriptor["ground_material_id"]}"',
+                '    custom string nextengine:materialContract = "PhysicsMaterialDescriptorV2"',
+                '    custom string nextengine:materialCombineContract = "PhysicsMaterialCombineProfileV1"',
+                '    def Scope "Materials"',
+                "    {",
+            ]
+        )
+        catalog = material_catalog(descriptor)
+        for material_id in (BODY_MATERIAL_ID, SOLE_MATERIAL_ID):
+            lines.extend(
+                _physics_material_lines(
+                    catalog[material_id],
+                    descriptor,
+                    indent="        ",
+                )
+            )
+        lines.append("    }")
+    lines.extend(['    def Scope "Bodies"', "    {"])
     for body in bodies:
         slot = body["body_slot"]
         prim = _prim(body["body_id"])
@@ -164,7 +208,15 @@ def _render_biomechanics_usda(descriptor: dict[str, Any]) -> str:
             targets = ", ".join(f"<{body_paths[other]}>" for other in exclusions[slot])
             lines.append(f"            rel physics:filteredPairs = [{targets}]")
         for collider in body["colliders"]:
-            lines.extend(_biomechanics_collider_lines(collider, indent="            "))
+            lines.extend(
+                _biomechanics_collider_lines(
+                    collider,
+                    indent="            ",
+                    material_root="/Humanoid/Materials"
+                    if current_material_lineage
+                    else None,
+                )
+            )
         lines.append("        }")
     lines.extend(["    }", '    def Scope "Joints"', "    {"])
     for joint in sorted(descriptor["joints"], key=lambda item: item["dof_ordinal"]):
@@ -199,8 +251,100 @@ def _render_biomechanics_usda(descriptor: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_ground_usda(descriptor: dict[str, Any]) -> str:
+    validate_current_biomechanics_descriptor(descriptor)
+    ground = material_catalog(descriptor)[GROUND_MATERIAL_ID]
+    lines = [
+        "#usda 1.0",
+        "(",
+        '    defaultPrim = "Ground"',
+        "    metersPerUnit = 1",
+        '    upAxis = "Z"',
+        ")",
+        "",
+        'def Xform "Ground"',
+        "{",
+        f'    custom string nextengine:bodySchemaHash = "{descriptor["body_schema_hash"]}"',
+        f'    custom string nextengine:compiledDescriptorHash = "{descriptor["compiled_descriptor_hash"]}"',
+        f'    custom string nextengine:materialLineageHash = "{descriptor["material_lineage_hash"]}"',
+        f'    custom string nextengine:groundMaterialId = "{descriptor["ground_material_id"]}"',
+        '    custom string nextengine:materialContract = "PhysicsMaterialDescriptorV2"',
+        '    custom string nextengine:materialCombineContract = "PhysicsMaterialCombineProfileV1"',
+        f'    custom string nextengine:translatorVersion = "{BIOMECHANICS_USDA_TRANSLATOR_VERSION_V2}"',
+        '    def Scope "Materials"',
+        "    {",
+    ]
+    lines.extend(_physics_material_lines(ground, descriptor, indent="        "))
+    lines.extend(
+        [
+            "    }",
+            '    def Plane "Collision" (',
+            '        prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]',
+            "    )",
+            "    {",
+            '        uniform token axis = "Z"',
+            '        custom string nextengine:semanticId = "ground.canonical-flat.v1"',
+            f'        custom string nextengine:materialId = "{GROUND_MATERIAL_ID}"',
+            *_material_binding_lines(
+                GROUND_MATERIAL_ID,
+                material_root="/Ground/Materials",
+                indent="        ",
+            ),
+            "    }",
+            "}",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _physics_material_lines(
+    material: dict[str, Any], descriptor: dict[str, Any], indent: str
+) -> list[str]:
+    material_id = material["material_id"]
+    combine = descriptor["material_combine_profile"]
+    return [
+        f'{indent}def Material "{_prim(material_id)}" (',
+        f'{indent}    prepend apiSchemas = ["PhysicsMaterialAPI", "PhysxMaterialAPI"]',
+        f"{indent})",
+        f"{indent}{{",
+        f"{indent}    float physics:staticFriction = {_q16_literal(material['static_friction_q16'])}",
+        f"{indent}    float physics:dynamicFriction = {_q16_literal(material['dynamic_friction_q16'])}",
+        f"{indent}    float physics:restitution = {_q16_literal(material['restitution_q16'])}",
+        f'{indent}    uniform token physxMaterial:frictionCombineMode = "average"',
+        f'{indent}    uniform token physxMaterial:restitutionCombineMode = "average"',
+        f'{indent}    custom string nextengine:semanticId = "{material_id}"',
+        f'{indent}    custom string nextengine:materialLineageHash = "{descriptor["material_lineage_hash"]}"',
+        f"{indent}    custom uint nextengine:staticFrictionQ16 = {material['static_friction_q16']}",
+        f"{indent}    custom uint nextengine:dynamicFrictionQ16 = {material['dynamic_friction_q16']}",
+        f"{indent}    custom uint nextengine:restitutionQ16 = {material['restitution_q16']}",
+        f"{indent}    custom uint nextengine:rollingFrictionQ16 = {material['rolling_friction_q16']}",
+        f"{indent}    custom uint nextengine:spinningFrictionQ16 = {material['spinning_friction_q16']}",
+        f"{indent}    custom int3 nextengine:surfaceVelocityMicrometresPerSecond = ({', '.join(str(value) for value in material['surface_velocity_micrometres_per_second'])})",
+        f'{indent}    custom string nextengine:combineProfileId = "{combine["profile_id"]}"',
+        f"{indent}    custom uint nextengine:combineProfileRevision = {combine['profile_revision']}",
+        f'{indent}    custom token nextengine:staticFrictionCombineRule = "{combine["static_friction"]}"',
+        f'{indent}    custom token nextengine:dynamicFrictionCombineRule = "{combine["dynamic_friction"]}"',
+        f'{indent}    custom token nextengine:restitutionCombineRule = "{combine["restitution"]}"',
+        f'{indent}    custom token nextengine:rollingFrictionCombineRule = "{combine["rolling_friction"]}"',
+        f'{indent}    custom token nextengine:spinningFrictionCombineRule = "{combine["spinning_friction"]}"',
+        f'{indent}    custom token nextengine:surfaceVelocityCombineRule = "{combine["surface_velocity"]}"',
+        f"{indent}}}",
+    ]
+
+
+def _material_binding_lines(
+    material_id: str, *, material_root: str, indent: str
+) -> list[str]:
+    return [
+        f"{indent}rel material:binding:physics = <{material_root}/{_prim(material_id)}> (",
+        f'{indent}    bindMaterialAs = "strongerThanDescendants"',
+        f"{indent})",
+    ]
+
+
 def _biomechanics_collider_lines(
-    collider: dict[str, Any], indent: str
+    collider: dict[str, Any], indent: str, material_root: str | None = None
 ) -> list[str]:
     geometry = collider["geometry"]
     prim = _prim(collider["collider_id"])
@@ -220,15 +364,23 @@ def _biomechanics_collider_lines(
     elif kind == "box":
         header = f'def Cube "{prim}"'
         half = _metres_without_axis_swap(geometry["half_extents_micrometres"])
-        geometry_properties = ["double size = 2", f"double3 xformOp:scale = ({_triplet(half)})"]
+        geometry_properties = [
+            "double size = 2",
+            f"double3 xformOp:scale = ({_triplet(half)})",
+        ]
     else:
         raise ValueError(f"unsupported collider geometry: {kind}")
     translation = _metres(collider["local_translation_micrometres"])
     rotation = _isaac_quaternion_from_q1_30(collider["local_rotation_q1_30"])
     scale_order = ', "xformOp:scale"' if kind == "box" else ""
+    api_schemas = (
+        '["PhysicsCollisionAPI", "MaterialBindingAPI"]'
+        if material_root is not None
+        else '["PhysicsCollisionAPI"]'
+    )
     output = [
         f"{indent}{header} (",
-        f'{indent}    prepend apiSchemas = ["PhysicsCollisionAPI"]',
+        f"{indent}    prepend apiSchemas = {api_schemas}",
         f"{indent})",
         f"{indent}{{",
     ]
@@ -241,9 +393,20 @@ def _biomechanics_collider_lines(
             f'{indent}    custom string nextengine:semanticId = "{collider["collider_id"]}"',
             f"{indent}    custom uint64 nextengine:shapeToken = {collider['shape_token']}",
             f"{indent}    custom int nextengine:contactRole = {collider['contact_role']}",
-            f"{indent}}}",
         ]
     )
+    if material_root is not None:
+        output.extend(
+            [
+                f'{indent}    custom string nextengine:materialId = "{collider["material_id"]}"',
+                *_material_binding_lines(
+                    collider["material_id"],
+                    material_root=material_root,
+                    indent=f"{indent}    ",
+                ),
+            ]
+        )
+    output.append(f"{indent}}}")
     return output
 
 
@@ -254,6 +417,8 @@ def translate_to_store(
     repository = repository_root.resolve()
     if root == repository or repository in root.parents:
         raise ValueError("generated USD must use an external configured store")
+    if descriptor.get("translator_id") == BIOMECHANICS_TRANSLATOR_ID_V2:
+        return _translate_current_biomechanics_to_store(descriptor, root)
     run_root = root / "derived" / descriptor["body_schema_hash"]
     run_root.mkdir(parents=True, exist_ok=True)
     payload = render_usda(descriptor).encode("utf-8")
@@ -280,13 +445,143 @@ def translate_to_store(
     return manifest
 
 
+def _translate_current_biomechanics_to_store(
+    descriptor: dict[str, Any], store_root: Path
+) -> dict[str, Any]:
+    validate_current_biomechanics_descriptor(descriptor)
+    run_root = (
+        store_root
+        / "derived"
+        / descriptor["body_schema_hash"]
+        / descriptor["compiled_descriptor_hash"]
+    )
+    run_root.mkdir(parents=True, exist_ok=True)
+    humanoid_payload = render_usda(descriptor).encode("utf-8")
+    ground_payload = render_ground_usda(descriptor).encode("utf-8")
+    humanoid_path = run_root / "humanoid.usda"
+    ground_path = run_root / "ground.usda"
+    manifest = {
+        "schema_version": 3,
+        "translator_id": BIOMECHANICS_TRANSLATOR_ID_V2,
+        "translator_version": BIOMECHANICS_USDA_TRANSLATOR_VERSION_V2,
+        "descriptor_schema_version": descriptor["schema_version"],
+        "compiled_descriptor_schema_version": descriptor[
+            "compiled_descriptor_schema_version"
+        ],
+        "body_schema_hash": descriptor["body_schema_hash"],
+        "compiled_descriptor_hash": descriptor["compiled_descriptor_hash"],
+        "material_lineage_hash": descriptor["material_lineage_hash"],
+        "ground_material_id": descriptor["ground_material_id"],
+        "descriptor_content_sha256": _descriptor_content_sha256(descriptor),
+        "usd_path": "humanoid.usda",
+        "usd_sha256": hashlib.sha256(humanoid_payload).hexdigest(),
+        "ground_usd_path": "ground.usda",
+        "ground_usd_sha256": hashlib.sha256(ground_payload).hexdigest(),
+    }
+    manifest_path = run_root / "translation-manifest.json"
+    manifest_payload = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode(
+        "utf-8"
+    )
+    outputs = (
+        (humanoid_path, humanoid_payload),
+        (ground_path, ground_payload),
+        (manifest_path, manifest_payload),
+    )
+    for path, payload in outputs:
+        _validate_immutable_target(path, payload)
+    for path, payload in outputs:
+        if not path.exists():
+            _atomic_write(path, payload)
+    validate_translation_bundle(
+        descriptor,
+        manifest_path,
+        humanoid_usd_path=humanoid_path,
+        ground_usd_path=ground_path,
+    )
+    return manifest
+
+
+def validate_translation_bundle(
+    descriptor: dict[str, Any],
+    manifest_path: Path,
+    *,
+    humanoid_usd_path: Path | None = None,
+    ground_usd_path: Path | None = None,
+) -> dict[str, Any]:
+    validate_current_biomechanics_descriptor(descriptor)
+    manifest_path = manifest_path.resolve()
+    if not manifest_path.is_file():
+        raise FileNotFoundError("current biomechanics translation manifest is absent")
+    manifest = json.loads(manifest_path.read_bytes())
+    expected = {
+        "schema_version": 3,
+        "translator_id": BIOMECHANICS_TRANSLATOR_ID_V2,
+        "translator_version": BIOMECHANICS_USDA_TRANSLATOR_VERSION_V2,
+        "descriptor_schema_version": 2,
+        "compiled_descriptor_schema_version": 3,
+        "body_schema_hash": descriptor["body_schema_hash"],
+        "compiled_descriptor_hash": descriptor["compiled_descriptor_hash"],
+        "material_lineage_hash": descriptor["material_lineage_hash"],
+        "ground_material_id": descriptor["ground_material_id"],
+        "descriptor_content_sha256": _descriptor_content_sha256(descriptor),
+        "usd_path": "humanoid.usda",
+        "ground_usd_path": "ground.usda",
+    }
+    if any(manifest.get(key) != value for key, value in expected.items()):
+        raise ValueError("current biomechanics translation manifest identity mismatch")
+    root = manifest_path.parent
+    expected_humanoid = root / manifest["usd_path"]
+    expected_ground = root / manifest["ground_usd_path"]
+    resolved_humanoid = (
+        expected_humanoid if humanoid_usd_path is None else humanoid_usd_path.resolve()
+    )
+    resolved_ground = (
+        expected_ground if ground_usd_path is None else ground_usd_path.resolve()
+    )
+    if (
+        resolved_humanoid != expected_humanoid
+        or resolved_ground != expected_ground
+        or not resolved_humanoid.is_file()
+        or not resolved_ground.is_file()
+        or manifest.get("usd_sha256") != _sha256_file(resolved_humanoid)
+        or manifest.get("ground_usd_sha256") != _sha256_file(resolved_ground)
+    ):
+        raise ValueError("current biomechanics translated USD identity mismatch")
+    return manifest
+
+
+def _descriptor_content_sha256(descriptor: dict[str, Any]) -> str:
+    payload = json.dumps(
+        descriptor,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _validate_immutable_target(path: Path, payload: bytes) -> None:
+    if path.exists() and (not path.is_file() or path.read_bytes() != payload):
+        raise FileExistsError(f"current translation identity collision: {path}")
+
+
 def _collider_lines(collider: dict[str, Any], indent: str) -> list[str]:
     geometry = collider["geometry"]
     prim = _prim(collider["collider_id"])
     kind = geometry["kind"]
     if kind == "sphere":
         header = f'def Sphere "{prim}"'
-        properties = [f"double radius = {geometry['radius_micrometres'] / 1_000_000.0:.9g}"]
+        properties = [
+            f"double radius = {geometry['radius_micrometres'] / 1_000_000.0:.9g}"
+        ]
     elif kind == "capsule":
         header = f'def Capsule "{prim}"'
         properties = [
@@ -300,7 +595,12 @@ def _collider_lines(collider: dict[str, Any], indent: str) -> list[str]:
         properties = ["double size = 2", f"double3 xformOp:scale = ({_triplet(half)})"]
     else:
         raise ValueError(f"unsupported collider geometry: {kind}")
-    output = [f"{indent}{header} (", f'{indent}    prepend apiSchemas = ["PhysicsCollisionAPI"]', f"{indent})", f"{indent}{{"]
+    output = [
+        f"{indent}{header} (",
+        f'{indent}    prepend apiSchemas = ["PhysicsCollisionAPI"]',
+        f"{indent})",
+        f"{indent}{{",
+    ]
     output.extend(f"{indent}    {property_line}" for property_line in properties)
     output.append(f"{indent}}}")
     return output
@@ -310,6 +610,16 @@ def _atomic_write(path: Path, payload: bytes) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_bytes(payload)
     os.replace(temporary, path)
+
+
+def _q16_literal(value: int) -> str:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or not 0 <= value <= 65_536
+    ):
+        raise ValueError("physics material coefficient is outside canonical Q16")
+    return f"{value / 65_536.0:.9g}"
 
 
 def _prim(identifier: str) -> str:
@@ -360,7 +670,11 @@ def _metres_without_axis_swap(
 
 
 def _f32_from_bits(value: int) -> float:
-    if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 0xFFFF_FFFF:
+    if (
+        not isinstance(value, int)
+        or isinstance(value, bool)
+        or not 0 <= value <= 0xFFFF_FFFF
+    ):
         raise ValueError("invalid f32 bit pattern")
     result = struct.unpack("<f", struct.pack("<I", value))[0]
     if not math.isfinite(result):
@@ -405,9 +719,7 @@ def _normalized_quaternion(
     return result  # type: ignore[return-value]
 
 
-def _quaternion(
-    *, principal: tuple[float, float, float, float]
-) -> str:
+def _quaternion(*, principal: tuple[float, float, float, float]) -> str:
     w, x, y, z = principal
     return f"({w:.9g}, {x:.9g}, {y:.9g}, {z:.9g})"
 

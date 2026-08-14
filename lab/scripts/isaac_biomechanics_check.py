@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Load the exact biomechanics USD in Isaac and verify its articulation closure."""
 
 from __future__ import annotations
@@ -17,6 +16,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--descriptor", type=Path, required=True)
     parser.add_argument("--usd", type=Path, required=True)
+    parser.add_argument("--ground-usd", type=Path, required=True)
     parser.add_argument("--steps", type=int, default=4)
     parser.add_argument("--output", type=Path)
     AppLauncher.add_app_launcher_args(parser)
@@ -29,6 +29,7 @@ def main() -> None:
         raise ValueError("steps must be positive")
     descriptor_path = args.descriptor.resolve()
     usd_path = args.usd.resolve()
+    ground_usd_path = args.ground_usd.resolve()
     descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
 
     simulation_app = None
@@ -36,21 +37,28 @@ def main() -> None:
         app_launcher = AppLauncher(args)
         simulation_app = app_launcher.app
 
-        import torch
         import isaaclab.sim as sim_utils
+        import torch
         from isaaclab.actuators import ImplicitActuatorCfg
         from isaaclab.assets import Articulation, ArticulationCfg
         from isaaclab.sim import SimulationContext
-
         from next_lab.isaac_env import isaac_actuator_limits_from_descriptor
-        from next_lab.motor_mirror import validate_biomechanics_descriptor
+        from next_lab.motor_mirror import validate_current_biomechanics_descriptor
+        from next_lab.usd_translation import validate_translation_bundle
 
-        validate_biomechanics_descriptor(descriptor)
+        validate_current_biomechanics_descriptor(descriptor)
+        translation_manifest = validate_translation_bundle(
+            descriptor,
+            usd_path.with_name("translation-manifest.json"),
+            humanoid_usd_path=usd_path,
+            ground_usd_path=ground_usd_path,
+        )
         limits = isaac_actuator_limits_from_descriptor(descriptor)
         sim = SimulationContext(
             sim_utils.SimulationCfg(dt=1.0 / 240.0, device=args.device)
         )
-        sim_utils.spawn_ground_plane("/World/ground", sim_utils.GroundPlaneCfg())
+        ground_cfg = sim_utils.UsdFileCfg(usd_path=str(ground_usd_path))
+        ground_cfg.func("/World/ground", ground_cfg)
         cfg = ArticulationCfg(
             prim_path="/World/Humanoid",
             spawn=sim_utils.UsdFileCfg(
@@ -82,9 +90,13 @@ def main() -> None:
             canonical_joint_names, preserve_order=True
         )
         if resolved_joint_names != canonical_joint_names or len(joint_ids) != 23:
-            raise RuntimeError("Isaac articulation does not preserve canonical DoF order")
+            raise RuntimeError(
+                "Isaac articulation does not preserve canonical DoF order"
+            )
         if robot.num_bodies != 24 or robot.num_joints != 23:
-            raise RuntimeError("Isaac articulation topology does not match the descriptor")
+            raise RuntimeError(
+                "Isaac articulation topology does not match the descriptor"
+            )
         initial_root = robot.data.root_state_w.clone()
         initial_joint = robot.data.joint_pos[:, joint_ids].clone()
         zero_effort = torch.zeros_like(initial_joint)
@@ -110,7 +122,9 @@ def main() -> None:
                 ),
             )
         root_motion = float(
-            torch.max(torch.abs(robot.data.root_state_w[:, :7] - initial_root[:, :7])).item()
+            torch.max(
+                torch.abs(robot.data.root_state_w[:, :7] - initial_root[:, :7])
+            ).item()
         )
         if not math.isfinite(root_motion) or not math.isfinite(maximum_joint_motion):
             raise RuntimeError("non-finite Isaac motion diagnostic")
@@ -121,9 +135,15 @@ def main() -> None:
             "claim": "IsaacUsdLoadAndTopologyOnly",
             "descriptor_sha256": _sha256(descriptor_path),
             "usd_sha256": _sha256(usd_path),
+            "ground_usd_sha256": _sha256(ground_usd_path),
+            "translation_manifest_sha256": _sha256(
+                usd_path.with_name("translation-manifest.json")
+            ),
             "tool_sha256": _sha256(Path(__file__).resolve()),
             "body_schema_hash": descriptor["body_schema_hash"],
             "compiled_descriptor_hash": descriptor["compiled_descriptor_hash"],
+            "material_lineage_hash": descriptor["material_lineage_hash"],
+            "translation_manifest": translation_manifest,
             "device": args.device,
             "body_count": robot.num_bodies,
             "joint_count": robot.num_joints,
@@ -156,7 +176,9 @@ def _sha256(path: Path) -> str:
 
 
 def _prim(identifier: str) -> str:
-    return "".join(character if character.isalnum() else "_" for character in identifier)
+    return "".join(
+        character if character.isalnum() else "_" for character in identifier
+    )
 
 
 if __name__ == "__main__":

@@ -47,6 +47,12 @@ client nor recorder writes inside the repository.
    python -m next_lab translate-body --descriptor <external descriptor.json> --store <external store>
    ```
 
+   The current biomechanics mirror V2 writes an immutable bundle under
+   `derived/<body-schema-hash>/<compiled-descriptor-hash>/`: `humanoid.usda`,
+   `ground.usda` and `translation-manifest.json`. The reference Isaac route
+   accepts that complete hash-checked bundle only; it does not construct a
+   default ground material.
+
 3. On a Linux NVIDIA training host, install the exact replaceable profile from
    `profiles/isaac-lab-physx-stage0.v1.json` and run:
 

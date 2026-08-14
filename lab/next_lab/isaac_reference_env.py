@@ -15,7 +15,7 @@ from next_lab.isaac_env import (
     isaac_actuator_limits_from_descriptor,
     require_finite_tensor,
 )
-from next_lab.motor_mirror import validate_biomechanics_descriptor
+from next_lab.motor_mirror import validate_current_biomechanics_descriptor
 from next_lab.reference_tracker import (
     ACTION_CHANNELS,
     OBSERVATION_CHANNELS,
@@ -24,6 +24,7 @@ from next_lab.reference_tracker import (
     ReferenceTrackerProfile,
     derive_named_seed,
 )
+from next_lab.usd_translation import validate_translation_bundle
 
 try:
     import isaaclab.sim as sim_utils
@@ -51,6 +52,12 @@ GROUND_ACTOR_TOKEN = 1
 GROUND_SHAPE_TOKEN = 0
 
 
+def _ground_usd_path_from_humanoid(humanoid_usd_path: str) -> str:
+    if not humanoid_usd_path:
+        return ""
+    return str(Path(humanoid_usd_path).with_name("ground.usda"))
+
+
 def _hard_impact_limit_for_role(role: int) -> int:
     if role == 8:
         return 6_000_000
@@ -72,9 +79,7 @@ def _contact_body_projections(
         for collider in body["colliders"]:
             role = int(collider["contact_role"])
             shape = int(collider["shape_token"])
-            candidates.append(
-                (_hard_impact_limit_for_role(role), role, shape)
-            )
+            candidates.append((_hard_impact_limit_for_role(role), role, shape))
         if candidates:
             hard_limit, role, _ = min(candidates)
             projections.append((str(body["body_id"]), role, hard_limit))
@@ -144,8 +149,8 @@ def _integer_vector_threshold(
             magnitude_squared >= limit_squared
         )
     return torch.any(absolute > limit[..., None], dim=-1) | (
-            magnitude_squared > limit_squared
-        )
+        magnitude_squared > limit_squared
+    )
 
 
 def _contact_impulse_magnitude_micronewton_seconds(
@@ -153,9 +158,9 @@ def _contact_impulse_magnitude_micronewton_seconds(
 ) -> torch.Tensor:
     if impulse.dtype != torch.int64 or impulse.shape[-1] != 3:
         raise ValueError("canonical contact impulse must be int64 xyz")
-    return torch.round(
-        torch.linalg.vector_norm(impulse.to(torch.float64), dim=-1)
-    ).to(torch.int64)
+    return torch.round(torch.linalg.vector_norm(impulse.to(torch.float64), dim=-1)).to(
+        torch.int64
+    )
 
 
 def _contact_impact_margin_cost_tensor(
@@ -224,11 +229,7 @@ def _classify_contact_pairs_tensor(
         impulse_micronewton_seconds, hard_limits, inclusive=False
     )
     self_collision = material & self_contact[None]
-    forbidden_locomotion = (
-        material
-        & ~self_contact[None]
-        & (primary_roles[None] != 8)
-    )
+    forbidden_locomotion = material & ~self_contact[None] & (primary_roles[None] != 8)
     return {
         "active": active,
         "continuity": continuity,
@@ -298,7 +299,9 @@ def _minimum_contact_separation_tensor(
     expected_start = torch.cumsum(flat_count, dim=0) - flat_count
     packed = torch.all((flat_count == 0) | (flat_start == expected_start))
     if packed.device.type == "cuda":
-        torch._assert_async(packed, "PhysX contact detail buffer is not canonical packed order")
+        torch._assert_async(
+            packed, "PhysX contact detail buffer is not canonical packed order"
+        )
     elif not bool(packed.item()):
         raise RuntimeError("PhysX contact detail buffer is not canonical packed order")
     owner = torch.repeat_interleave(
@@ -345,7 +348,9 @@ def _normalized_xyzw(value: torch.Tensor) -> torch.Tensor:
     return torch.where(result[..., 3:4] < 0.0, -result, result)
 
 
-def _rotate_inverse_xyzw(vector: torch.Tensor, quaternion: torch.Tensor) -> torch.Tensor:
+def _rotate_inverse_xyzw(
+    vector: torch.Tensor, quaternion: torch.Tensor
+) -> torch.Tensor:
     quaternion = _normalized_xyzw(quaternion.to(vector.dtype))
     xyz = quaternion[..., :3]
     w = quaternion[..., 3:4]
@@ -489,9 +494,7 @@ def _soft_rom_excursion_cost_tensor(
         (position - soft_maximum) / torch.clamp(upper_span, min=1.0),
         torch.zeros_like(position),
     )
-    return torch.clamp(torch.maximum(lower, upper), min=0.0, max=1.0).amax(
-        dim=-1
-    )
+    return torch.clamp(torch.maximum(lower, upper), min=0.0, max=1.0).amax(dim=-1)
 
 
 def _canonical_pd_requested_effort_tensor(
@@ -502,13 +505,9 @@ def _canonical_pd_requested_effort_tensor(
     damping_q16: torch.Tensor,
 ) -> torch.Tensor:
     proportional = torch.round(
-        stiffness_q16
-        * (target_microradians - position_microradians)
-        / 65_536.0
+        stiffness_q16 * (target_microradians - position_microradians) / 65_536.0
     )
-    damping = torch.round(
-        damping_q16 * velocity_microradians_per_second / 65_536.0
-    )
+    damping = torch.round(damping_q16 * velocity_microradians_per_second / 65_536.0)
     return proportional - damping
 
 
@@ -540,16 +539,14 @@ def _intersect_effort_limits_tensor(
     nonzero_velocity = velocity_abs > 0.0
     unlimited = torch.full_like(velocity_abs, torch.inf)
     maximum_delta = torch.round(
-        maximum_effort_rate_micronewton_metres_per_second
-        / PHYSICS_SUBSTEPS_PER_SECOND
+        maximum_effort_rate_micronewton_metres_per_second / PHYSICS_SUBSTEPS_PER_SECOND
     )
     rate_minimum = previous_effort_micronewton_metres - maximum_delta
     rate_maximum = previous_effort_micronewton_metres + maximum_delta
     power_maximum = torch.where(
         nonzero_velocity,
         torch.floor(
-            maximum_power_microwatts * MICRO_SCALE
-            / torch.clamp(velocity_abs, min=1.0)
+            maximum_power_microwatts * MICRO_SCALE / torch.clamp(velocity_abs, min=1.0)
         ),
         unlimited,
     )
@@ -589,13 +586,8 @@ def _intersect_effort_limits_tensor(
     effort = torch.minimum(
         torch.maximum(requested_effort_micronewton_metres, minimum), maximum
     )
-    positive_power = torch.clamp(
-        effort * velocity_microradians_per_second, min=0.0
-    )
-    charge = torch.ceil(
-        positive_power
-        / (PHYSICS_SUBSTEPS_PER_SECOND * MICRO_SCALE)
-    )
+    positive_power = torch.clamp(effort * velocity_microradians_per_second, min=0.0)
+    charge = torch.ceil(positive_power / (PHYSICS_SUBSTEPS_PER_SECOND * MICRO_SCALE))
     next_work = used_positive_work_microjoules + charge
     infeasible |= next_work > maximum_positive_work_microjoules_per_motor_tick
     return effort, next_work, infeasible
@@ -618,7 +610,9 @@ if ISAAC_LAB_AVAILABLE:
         rng_run_root_hex = ""
         diagnostic_exhaustive_phase_sweep_repeats = 0
         sim = sim_utils.SimulationCfg(dt=1.0 / 240.0, render_interval=4)
-        scene = InteractiveSceneCfg(num_envs=64, env_spacing=3.0, replicate_physics=True)
+        scene = InteractiveSceneCfg(
+            num_envs=64, env_spacing=3.0, replicate_physics=True
+        )
         asset = ArticulationCfg(
             prim_path="/World/envs/env_.*/Humanoid",
             spawn=sim_utils.UsdFileCfg(
@@ -640,13 +634,17 @@ if ISAAC_LAB_AVAILABLE:
                 )
             },
         )
+        ground = sim_utils.UsdFileCfg(
+            usd_path=_ground_usd_path_from_humanoid(
+                os.environ.get("NEXTENGINE_HUMANOID_USD", "")
+            )
+        )
         contacts = ContactSensorCfg(
             prim_path="/World/envs/env_.*/Humanoid/Bodies/body_.*",
             update_period=0.0,
             history_length=1,
             track_air_time=False,
         )
-
 
     class NextEngineReferenceDirectEnv(DirectRLEnv):
         cfg: NextEngineReferenceDirectEnvCfg
@@ -661,8 +659,18 @@ if ISAAC_LAB_AVAILABLE:
             gate_report_path: str,
             **kwargs: Any,
         ) -> None:
-            self.descriptor = json.loads(Path(descriptor_path).read_text(encoding="utf-8"))
-            validate_biomechanics_descriptor(self.descriptor)
+            self.descriptor = json.loads(
+                Path(descriptor_path).read_text(encoding="utf-8")
+            )
+            validate_current_biomechanics_descriptor(self.descriptor)
+            humanoid_usd_path = Path(cfg.asset.spawn.usd_path).resolve()
+            ground_usd_path = Path(cfg.ground.usd_path).resolve()
+            self.translation_manifest = validate_translation_bundle(
+                self.descriptor,
+                humanoid_usd_path.with_name("translation-manifest.json"),
+                humanoid_usd_path=humanoid_usd_path,
+                ground_usd_path=ground_usd_path,
+            )
             self.reference_profile = ReferenceTrackerProfile.load(Path(profile_path))
             self.reference_corpus = ReferenceCorpus(
                 self.reference_profile,
@@ -671,7 +679,9 @@ if ISAAC_LAB_AVAILABLE:
             )
             clip_ids = tuple(cfg.eligible_clip_ids) or (cfg.fixed_clip_id,)
             if not clip_ids or len(clip_ids) != len(set(clip_ids)):
-                raise ValueError("reference curriculum clip IDs must be non-empty and unique")
+                raise ValueError(
+                    "reference curriculum clip IDs must be non-empty and unique"
+                )
             self.reference_clips = tuple(
                 self.reference_corpus.load_clip(clip_id) for clip_id in clip_ids
             )
@@ -696,22 +706,27 @@ if ISAAC_LAB_AVAILABLE:
                 else ()
             )
             self._diagnostic_assignment_ordinal = 0
-            if (
-                not self.diagnostic_episode_schedule
-                and any(clip.split != "train" for clip in self.reference_clips)
+            if not self.diagnostic_episode_schedule and any(
+                clip.split != "train" for clip in self.reference_clips
             ):
-                raise ValueError("reference training clips must belong to the train split")
+                raise ValueError(
+                    "reference training clips must belong to the train split"
+                )
             if cfg.fixed_horizon_motor_ticks <= 0:
                 raise ValueError("reference horizon must be positive")
             if self.diagnostic_episode_schedule:
                 self._rng_run_root = b""
             elif cfg.phase_randomization:
                 if len(cfg.rng_run_root_hex) != 64:
-                    raise ValueError("phase-randomized curriculum requires a 256-bit run root")
+                    raise ValueError(
+                        "phase-randomized curriculum requires a 256-bit run root"
+                    )
                 self._rng_run_root = bytes.fromhex(cfg.rng_run_root_hex)
             else:
                 if len(self.reference_clips) != 1:
-                    raise ValueError("multiple clips require deterministic phase randomization")
+                    raise ValueError(
+                        "multiple clips require deterministic phase randomization"
+                    )
                 if not 0 <= cfg.fixed_start_frame < self.reference_clip.frame_count - 1:
                     raise ValueError("fixed start frame is outside the reference clip")
                 terminal_frame = cfg.fixed_start_frame + cfg.fixed_horizon_motor_ticks
@@ -782,7 +797,9 @@ if ISAAC_LAB_AVAILABLE:
             self._episode_diagnostic_assignment_ordinal = torch.full(
                 (cfg.scene.num_envs,), -1, dtype=torch.int64
             )
-            self._tracking_loss_ticks = torch.zeros(cfg.scene.num_envs, dtype=torch.int64)
+            self._tracking_loss_ticks = torch.zeros(
+                cfg.scene.num_envs, dtype=torch.int64
+            )
             self._contact_projections = _contact_body_projections(self.descriptor)
             self._contact_layout = _contact_pair_layout(self._contact_projections)
             contact_pair_count = len(self._contact_layout["sensor"])
@@ -791,11 +808,14 @@ if ISAAC_LAB_AVAILABLE:
                 (cfg.scene.num_envs, contact_pair_count), dtype=torch.int64
             )
             self._forbidden_contact_grace_substeps = int(
-                self.reference_profile.document["termination"]
-                ["forbidden_contact_grace_physics_substeps"]
+                self.reference_profile.document["termination"][
+                    "forbidden_contact_grace_physics_substeps"
+                ]
             )
             if self._forbidden_contact_grace_substeps != LOW_IMPULSE_GRACE_SUBSTEPS:
-                raise ValueError("tracker contact grace does not match safety profile V2")
+                raise ValueError(
+                    "tracker contact grace does not match safety profile V2"
+                )
             self._current_ground_active = torch.zeros(
                 (cfg.scene.num_envs, contact_body_count), dtype=torch.bool
             )
@@ -871,7 +891,9 @@ if ISAAC_LAB_AVAILABLE:
                 self.last_step_hard_impact_pair_mask
             )
             self.last_step_episode_contact_max_impulse_micronewton_seconds = (
-                torch.zeros_like(self.last_step_hard_impact_pair_mask, dtype=torch.int64)
+                torch.zeros_like(
+                    self.last_step_hard_impact_pair_mask, dtype=torch.int64
+                )
             )
             self.last_step_failure_non_finite = torch.zeros(
                 cfg.scene.num_envs, dtype=torch.bool
@@ -919,9 +941,7 @@ if ISAAC_LAB_AVAILABLE:
                 (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
             )
             self.last_step_pre_physics_action_joint_velocity_microradians_per_second = (
-                torch.zeros(
-                    (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
-                )
+                torch.zeros((cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64)
             )
             self.last_step_applied_target_microradians = torch.zeros(
                 (cfg.scene.num_envs, ACTION_CHANNELS), dtype=torch.int64
@@ -957,9 +977,7 @@ if ISAAC_LAB_AVAILABLE:
                 (
                     cfg.scene.num_envs,
                     len(
-                        self.reference_profile.document["observation"][
-                            "contact_order"
-                        ]
+                        self.reference_profile.document["observation"]["contact_order"]
                     ),
                 ),
                 dtype=torch.int64,
@@ -1094,7 +1112,8 @@ if ISAAC_LAB_AVAILABLE:
                 metadata = clip.metadata
                 if (
                     metadata["joint_ids"] != observation["joint_state_order"]
-                    or metadata["effector_ids"] != observation["reference_effector_order"]
+                    or metadata["effector_ids"]
+                    != observation["reference_effector_order"]
                     or metadata["contact_ids"] != observation["contact_order"]
                     or self.descriptor["ordered_actuator_ids"]
                     != action["ordered_actuator_ids"]
@@ -1131,7 +1150,7 @@ if ISAAC_LAB_AVAILABLE:
             self.contacts = ContactSensor(self.cfg.contacts)
             self.scene.articulations["humanoid"] = self.robot
             self.scene.sensors["contacts"] = self.contacts
-            sim_utils.spawn_ground_plane("/World/ground", sim_utils.GroundPlaneCfg())
+            self.cfg.ground.func("/World/ground", self.cfg.ground)
             self.scene.clone_environments(copy_from_source=False)
 
         def _resolve_articulation_layout(self) -> None:
@@ -1149,7 +1168,9 @@ if ISAAC_LAB_AVAILABLE:
                 action_joint_names, preserve_order=True
             )
             if resolved_dof != dof_names or resolved_action != action_joint_names:
-                raise RuntimeError("Isaac joint order does not close reference/action layouts")
+                raise RuntimeError(
+                    "Isaac joint order does not close reference/action layouts"
+                )
             body_names = [_prim(body["body_id"]) for body in self.descriptor["bodies"]]
             self._body_ids, resolved_bodies = self.robot.find_bodies(
                 body_names, preserve_order=True
@@ -1158,7 +1179,8 @@ if ISAAC_LAB_AVAILABLE:
                 raise RuntimeError("Isaac body order does not close the descriptor")
             body_id_by_name = dict(zip(resolved_bodies, self._body_ids, strict=True))
             effector_by_id = {
-                effector["effector_id"]: effector for effector in self.descriptor["effectors"]
+                effector["effector_id"]: effector
+                for effector in self.descriptor["effectors"]
             }
             effector_records = [
                 effector_by_id[value]
@@ -1169,13 +1191,18 @@ if ISAAC_LAB_AVAILABLE:
             ]
             self._effector_local_isaac = _engine_to_isaac_vector(
                 torch.tensor(
-                    [record["local_translation_micrometres"] for record in effector_records],
+                    [
+                        record["local_translation_micrometres"]
+                        for record in effector_records
+                    ],
                     dtype=torch.float64,
                     device=self.device,
                 )
                 / 1_000_000.0
             ).to(torch.float32)
-            contact_names = [_prim(body_id) for body_id, _, _ in self._contact_projections]
+            contact_names = [
+                _prim(body_id) for body_id, _, _ in self._contact_projections
+            ]
             contact_index = {name: index for index, name in enumerate(contact_names)}
             required = (
                 "body_left_ankle_roll",
@@ -1186,7 +1213,9 @@ if ISAAC_LAB_AVAILABLE:
                 "body_right_knee",
             )
             if any(name not in contact_index for name in required):
-                raise RuntimeError("contact projection does not expose observation bodies")
+                raise RuntimeError(
+                    "contact projection does not expose observation bodies"
+                )
             self._observation_ground_body_indices = torch.tensor(
                 [contact_index[name] for name in required],
                 dtype=torch.int64,
@@ -1194,7 +1223,11 @@ if ISAAC_LAB_AVAILABLE:
             )
             excluded = set(required)
             self._other_ground_body_indices = torch.tensor(
-                [index for index, name in enumerate(contact_names) if name not in excluded],
+                [
+                    index
+                    for index, name in enumerate(contact_names)
+                    if name not in excluded
+                ],
                 dtype=torch.int64,
                 device=self.device,
             )
@@ -1252,9 +1285,7 @@ if ISAAC_LAB_AVAILABLE:
         def _consume_contact_substep(self) -> None:
             body_count = len(self._contact_projections)
             filter_count = 1 + body_count
-            force = self._contact_pair_view.get_contact_force_matrix(
-                dt=self.physics_dt
-            )
+            force = self._contact_pair_view.get_contact_force_matrix(dt=self.physics_dt)
             expected_force_shape = (
                 body_count * self.num_envs,
                 filter_count,
@@ -1271,9 +1302,7 @@ if ISAAC_LAB_AVAILABLE:
             impulse = torch.round(
                 selected_force.to(torch.float64) * self.physics_dt * MICRO_SCALE
             ).to(torch.int64)
-            impulse_magnitude = _contact_impulse_magnitude_micronewton_seconds(
-                impulse
-            )
+            impulse_magnitude = _contact_impulse_magnitude_micronewton_seconds(impulse)
             self._substep_contact_max_impulse_micronewton_seconds.copy_(
                 torch.maximum(
                     self._substep_contact_max_impulse_micronewton_seconds,
@@ -1287,9 +1316,7 @@ if ISAAC_LAB_AVAILABLE:
                 )
             )
 
-            contact_data = self._contact_pair_view.get_contact_data(
-                dt=self.physics_dt
-            )
+            contact_data = self._contact_pair_view.get_contact_data(dt=self.physics_dt)
             minimum_separation = _minimum_contact_separation_tensor(
                 contact_data[3], contact_data[4], contact_data[5]
             )
@@ -1308,9 +1335,7 @@ if ISAAC_LAB_AVAILABLE:
                 self._contact_pair_primary_role,
             )
             self._contact_continuity.copy_(classification["continuity"])
-            self._current_ground_active.copy_(
-                classification["active"][:, :body_count]
-            )
+            self._current_ground_active.copy_(classification["active"][:, :body_count])
             self._substep_contact_hard_impact |= torch.any(
                 classification["hard_impact"], dim=-1
             )
@@ -1377,9 +1402,13 @@ if ISAAC_LAB_AVAILABLE:
             frame: torch.Tensor | None = None,
             env_ids: torch.Tensor | None = None,
         ) -> torch.Tensor:
-            clip_index = self._clip_index if env_ids is None else self._clip_index[env_ids]
+            clip_index = (
+                self._clip_index if env_ids is None else self._clip_index[env_ids]
+            )
             if frame is None:
-                selected_frame = self._cursor if env_ids is None else self._cursor[env_ids]
+                selected_frame = (
+                    self._cursor if env_ids is None else self._cursor[env_ids]
+                )
             else:
                 selected_frame = frame
             return self._reference[name][clip_index, selected_frame]
@@ -1387,14 +1416,19 @@ if ISAAC_LAB_AVAILABLE:
         def _load_control_tensors(self) -> None:
             action = self.reference_profile.document["action"]
             actuator_by_id = {
-                actuator["actuator_id"]: actuator for actuator in self.descriptor["actuators"]
+                actuator["actuator_id"]: actuator
+                for actuator in self.descriptor["actuators"]
             }
             joint_by_dof = {
                 int(joint["dof_ordinal"]): joint for joint in self.descriptor["joints"]
             }
-            records = [actuator_by_id[value] for value in action["ordered_actuator_ids"]]
+            records = [
+                actuator_by_id[value] for value in action["ordered_actuator_ids"]
+            ]
             mapping = action["reference_joint_dof_ordinal_by_action_channel"]
-            self._action_to_dof = torch.tensor(mapping, dtype=torch.int64, device=self.device)
+            self._action_to_dof = torch.tensor(
+                mapping, dtype=torch.int64, device=self.device
+            )
             self._residual_scale = self._tensor(records, "residual_scale_microradians")
             self._target_delta = self._tensor_range_max(
                 records, "target_delta_microradians_per_motor_tick"
@@ -1529,20 +1563,20 @@ if ISAAC_LAB_AVAILABLE:
             self.extras.pop("log", None)
             self._canonical_cache = None
             if self._contact_physics_substeps_started != 0:
-                raise RuntimeError("contact substep cadence did not close at motor boundary")
+                raise RuntimeError(
+                    "contact substep cadence did not close at motor boundary"
+                )
             if actions.shape != (self.num_envs, ACTION_CHANNELS):
                 raise ValueError("reference action batch has the wrong shape")
             require_finite_tensor("reference_actions", actions, asynchronous=True)
             self.last_step_pre_physics_action_joint_position_microradians.copy_(
                 torch.round(
-                    self.robot.data.joint_pos[:, self._action_joint_ids]
-                    * 1_000_000.0
+                    self.robot.data.joint_pos[:, self._action_joint_ids] * 1_000_000.0
                 ).to(torch.int64)
             )
             self.last_step_pre_physics_action_joint_velocity_microradians_per_second.copy_(
                 torch.round(
-                    self.robot.data.joint_vel[:, self._action_joint_ids]
-                    * 1_000_000.0
+                    self.robot.data.joint_vel[:, self._action_joint_ids] * 1_000_000.0
                 ).to(torch.int64)
             )
             self._positive_work.zero_()
@@ -1609,8 +1643,7 @@ if ISAAC_LAB_AVAILABLE:
                 )
             )
             hard_rom_violation = torch.any(
-                hard_rom_excess
-                > OBSERVED_HARD_ROM_TOLERANCE_MICRORADIANS,
+                hard_rom_excess > OBSERVED_HARD_ROM_TOLERANCE_MICRORADIANS,
                 dim=-1,
             )
             velocity_excess = torch.clamp(
@@ -1697,7 +1730,9 @@ if ISAAC_LAB_AVAILABLE:
             angular_world = engine_vector_from_isaac_tensor(data.root_ang_vel_w)
             joint_position = data.joint_pos[:, self._dof_joint_ids]
             joint_velocity = data.joint_vel[:, self._dof_joint_ids]
-            body_com_isaac = data.body_com_pos_w[:, self._body_ids] - self.scene.env_origins[:, None]
+            body_com_isaac = (
+                data.body_com_pos_w[:, self._body_ids] - self.scene.env_origins[:, None]
+            )
             center_of_mass_isaac = torch.sum(
                 body_com_isaac.to(torch.float64) * self._body_mass[None, :, None],
                 dim=1,
@@ -1706,7 +1741,9 @@ if ISAAC_LAB_AVAILABLE:
             effector_body_position = data.body_pos_w[:, self._effector_body_ids]
             effector_body_rotation = data.body_quat_w[:, self._effector_body_ids]
             local = self._effector_local_isaac[None].expand(self.num_envs, -1, -1)
-            effector_isaac = effector_body_position + quat_apply(effector_body_rotation, local)
+            effector_isaac = effector_body_position + quat_apply(
+                effector_body_rotation, local
+            )
             effector_isaac -= self.scene.env_origins[:, None]
             effectors = engine_vector_from_isaac_tensor(effector_isaac)
             role_contacts = self._current_ground_active[
@@ -1722,7 +1759,9 @@ if ISAAC_LAB_AVAILABLE:
                 "root_position_um": _round_int64(root_position * 1_000_000.0),
                 "root_quaternion_q1_30": _round_int64(root_quaternion * Q1_30),
                 "root_linear_velocity_um_s": _round_int64(linear_world * 1_000_000.0),
-                "root_angular_velocity_urad_s": _round_int64(angular_world * 1_000_000.0),
+                "root_angular_velocity_urad_s": _round_int64(
+                    angular_world * 1_000_000.0
+                ),
                 "joint_position_urad": _round_int64(joint_position * 1_000_000.0),
                 "joint_velocity_urad_s": _round_int64(joint_velocity * 1_000_000.0),
                 "center_of_mass_um": _round_int64(center_of_mass * 1_000_000.0),
@@ -1741,12 +1780,14 @@ if ISAAC_LAB_AVAILABLE:
                 current["root_quaternion_q1_30"],
                 _round_int64(
                     _rotate_inverse_xyzw(
-                        current["root_linear_velocity_um_s"].to(torch.float64), quaternion
+                        current["root_linear_velocity_um_s"].to(torch.float64),
+                        quaternion,
                     )
                 ),
                 _round_int64(
                     _rotate_inverse_xyzw(
-                        current["root_angular_velocity_urad_s"].to(torch.float64), quaternion
+                        current["root_angular_velocity_urad_s"].to(torch.float64),
+                        quaternion,
                     )
                 ),
                 current["joint_position_urad"],
@@ -1771,9 +1812,10 @@ if ISAAC_LAB_AVAILABLE:
                 reference_angular = torch.stack(
                     (torch.zeros_like(yaw), yaw, torch.zeros_like(yaw)), dim=-1
                 )
-                relative_effectors = self._reference_at("effector_position_um", frame) - current[
-                    "root_position_um"
-                ][:, None]
+                relative_effectors = (
+                    self._reference_at("effector_position_um", frame)
+                    - current["root_position_um"][:, None]
+                )
                 values.extend(
                     (
                         _round_int64(
@@ -1788,9 +1830,9 @@ if ISAAC_LAB_AVAILABLE:
                         _round_int64(relative_rotation * Q1_30),
                         _round_int64(
                             _rotate_inverse_xyzw(
-                                self._reference_at("root_linear_velocity_um_s", frame).to(
-                                    torch.float64
-                                ),
+                                self._reference_at(
+                                    "root_linear_velocity_um_s", frame
+                                ).to(torch.float64),
                                 quaternion,
                             )
                         ),
@@ -1831,7 +1873,9 @@ if ISAAC_LAB_AVAILABLE:
 
         def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
             if self._contact_physics_substeps_started != self.cfg.decimation:
-                raise RuntimeError("motor commit does not contain four contact substeps")
+                raise RuntimeError(
+                    "motor commit does not contain four contact substeps"
+                )
             self._consume_contact_substep()
             self._contact_physics_substeps_started = 0
             current = self._canonical_current()
@@ -1840,9 +1884,12 @@ if ISAAC_LAB_AVAILABLE:
             )
             reference_position = self._reference_at("root_position_um", frame)
             position_error = torch.linalg.vector_norm(
-                (current["root_position_um"] - reference_position).to(torch.float64), dim=-1
+                (current["root_position_um"] - reference_position).to(torch.float64),
+                dim=-1,
             )
-            current_quaternion = current["root_quaternion_q1_30"].to(torch.float64) / Q1_30
+            current_quaternion = (
+                current["root_quaternion_q1_30"].to(torch.float64) / Q1_30
+            )
             reference_quaternion = (
                 self._reference_at("root_quaternion_q1_30", frame).to(torch.float64)
                 / Q1_30
@@ -1860,15 +1907,21 @@ if ISAAC_LAB_AVAILABLE:
             self._tracking_loss_ticks.copy_(
                 torch.where(lost, self._tracking_loss_ticks + 1, 0)
             )
-            action_position = current["joint_position_urad"][
-                :, self._action_to_dof
-            ].to(torch.float64)
+            action_position = current["joint_position_urad"][:, self._action_to_dof].to(
+                torch.float64
+            )
             action_velocity = current["joint_velocity_urad_s"][
                 :, self._action_to_dof
             ].to(torch.float64)
             hard_rom_excess = torch.maximum(
-                torch.maximum(self._hard_minimum - action_position, torch.zeros_like(action_position)),
-                torch.maximum(action_position - self._hard_maximum, torch.zeros_like(action_position)),
+                torch.maximum(
+                    self._hard_minimum - action_position,
+                    torch.zeros_like(action_position),
+                ),
+                torch.maximum(
+                    action_position - self._hard_maximum,
+                    torch.zeros_like(action_position),
+                ),
             )
             hard_rom_excess = torch.maximum(
                 hard_rom_excess,
@@ -1878,8 +1931,7 @@ if ISAAC_LAB_AVAILABLE:
                 hard_rom_excess, dim=-1
             )
             hard_rom = (
-                maximum_hard_rom_excess
-                > OBSERVED_HARD_ROM_TOLERANCE_MICRORADIANS
+                maximum_hard_rom_excess > OBSERVED_HARD_ROM_TOLERANCE_MICRORADIANS
             ) | self._substep_hard_rom_violation
             velocity_excess = torch.maximum(
                 torch.clamp(
@@ -1894,9 +1946,7 @@ if ISAAC_LAB_AVAILABLE:
             velocity_violation = (
                 maximum_velocity_excess > 0.0
             ) | self._substep_velocity_violation
-            effort_envelope_violation = (
-                self._substep_effort_envelope_violation
-            )
+            effort_envelope_violation = self._substep_effort_envelope_violation
             joint_safety = (
                 velocity_violation
                 | effort_envelope_violation
@@ -1958,9 +2008,7 @@ if ISAAC_LAB_AVAILABLE:
             self.last_step_failure_hard_rom.copy_(hard_rom)
             self.last_step_failure_joint_safety.copy_(joint_safety)
             self.last_step_failure_joint_velocity.copy_(velocity_violation)
-            self.last_step_failure_effort_envelope.copy_(
-                effort_envelope_violation
-            )
+            self.last_step_failure_effort_envelope.copy_(effort_envelope_violation)
             self.last_step_failure_forbidden_contact.copy_(forbidden_contact)
             self.last_step_failure_hard_impact.copy_(hard_impact)
             self.last_step_failure_self_collision.copy_(self_collision)
@@ -2097,7 +2145,11 @@ if ISAAC_LAB_AVAILABLE:
             )
             reference_yaw = self._reference_at("root_yaw_velocity_urad_s", frame)
             reference_angular = torch.stack(
-                (torch.zeros_like(reference_yaw), reference_yaw, torch.zeros_like(reference_yaw)),
+                (
+                    torch.zeros_like(reference_yaw),
+                    reference_yaw,
+                    torch.zeros_like(reference_yaw),
+                ),
                 dim=-1,
             )
             root_angular = self._similarity(
@@ -2113,7 +2165,9 @@ if ISAAC_LAB_AVAILABLE:
                 torch.mean(
                     torch.abs(
                         current["joint_position_urad"].to(torch.float64)
-                        - self._reference_at("joint_position_urad", frame).to(torch.float64)
+                        - self._reference_at("joint_position_urad", frame).to(
+                            torch.float64
+                        )
                     )
                     / self._soft_span_dof,
                     dim=-1,
@@ -2124,7 +2178,9 @@ if ISAAC_LAB_AVAILABLE:
                 torch.mean(
                     torch.abs(
                         current["joint_velocity_urad_s"].to(torch.float64)
-                        - self._reference_at("joint_velocity_urad_s", frame).to(torch.float64)
+                        - self._reference_at("joint_velocity_urad_s", frame).to(
+                            torch.float64
+                        )
                     )
                     / self._maximum_velocity_dof,
                     dim=-1,
@@ -2155,9 +2211,9 @@ if ISAAC_LAB_AVAILABLE:
                 300_000.0,
             )
             contact_match = torch.mean(
-                (
-                    current["contacts"] == self._reference_at("contacts", frame)
-                ).to(torch.float64),
+                (current["contacts"] == self._reference_at("contacts", frame)).to(
+                    torch.float64
+                ),
                 dim=-1,
             )
             foot_velocity = engine_vector_from_isaac_tensor(
@@ -2165,20 +2221,25 @@ if ISAAC_LAB_AVAILABLE:
                     :, [self._effector_body_ids[0], self._effector_body_ids[3]], :
                 ]
             )
-            planar_speed = torch.linalg.vector_norm(
-                foot_velocity[..., [0, 2]].to(torch.float64), dim=-1
-            ) * 1_000_000.0
+            planar_speed = (
+                torch.linalg.vector_norm(
+                    foot_velocity[..., [0, 2]].to(torch.float64), dim=-1
+                )
+                * 1_000_000.0
+            )
             active_sole = current["contacts"][:, :2].to(torch.float64)
             sole_count = torch.sum(active_sole, dim=-1)
             sole_slip = torch.where(
                 sole_count > 0,
-                torch.sum(planar_speed * active_sole, dim=-1) / torch.clamp(sole_count, min=1),
+                torch.sum(planar_speed * active_sole, dim=-1)
+                / torch.clamp(sole_count, min=1),
                 0.0,
             )
             sole_slip = torch.clamp(sole_slip / 2_000_000.0, max=1.0)
             effort_cost = torch.clamp(
                 torch.mean(
-                    torch.abs(self._applied_effort.to(torch.float64)) / self._maximum_effort,
+                    torch.abs(self._applied_effort.to(torch.float64))
+                    / self._maximum_effort,
                     dim=-1,
                 ),
                 max=1.0,
@@ -2194,9 +2255,9 @@ if ISAAC_LAB_AVAILABLE:
                 ),
                 max=1.0,
             )
-            action_position = current["joint_position_urad"][
-                :, self._action_to_dof
-            ].to(torch.float64)
+            action_position = current["joint_position_urad"][:, self._action_to_dof].to(
+                torch.float64
+            )
             component_values = {
                 "reward.reference-root-orientation": orientation,
                 "reward.reference-root-height": root_height,
@@ -2239,9 +2300,9 @@ if ISAAC_LAB_AVAILABLE:
                 tuple(component_values[value] for value in self._reward_component_ids),
                 dim=-1,
             )
-            reward = torch.sum(
-                components * self._reward_coefficients, dim=-1
-            ).to(torch.float32)
+            reward = torch.sum(components * self._reward_coefficients, dim=-1).to(
+                torch.float32
+            )
             self.reward_components.copy_(components.to(torch.float32))
             self._episode_reward_sum.add_(reward)
             self._episode_component_sums.add_(components.to(torch.float32))
@@ -2249,7 +2310,9 @@ if ISAAC_LAB_AVAILABLE:
 
         @staticmethod
         def _similarity(error: torch.Tensor, normalization: float) -> torch.Tensor:
-            return 1.0 - torch.clamp(error.to(torch.float64) / normalization, min=0.0, max=1.0)
+            return 1.0 - torch.clamp(
+                error.to(torch.float64) / normalization, min=0.0, max=1.0
+            )
 
         def _reset_idx(self, env_ids: torch.Tensor | None) -> None:
             self._canonical_cache = None
@@ -2262,10 +2325,12 @@ if ISAAC_LAB_AVAILABLE:
                 self.extras["log"] = {
                     "Episode/return": self._episode_reward_sum[completed_ids],
                     "Episode/length": length,
-                    "Episode/reference_complete": self._success_terminal[completed_ids].to(
+                    "Episode/reference_complete": self._success_terminal[
+                        completed_ids
+                    ].to(torch.float32),
+                    "Episode/failure": self._failure_terminal[completed_ids].to(
                         torch.float32
                     ),
-                    "Episode/failure": self._failure_terminal[completed_ids].to(torch.float32),
                 }
             super()._reset_idx(env_ids)
             frame_values: list[int] = []
@@ -2399,9 +2464,7 @@ if ISAAC_LAB_AVAILABLE:
             self._substep_joint_safety_violation[env_ids] = False
             self._substep_velocity_violation[env_ids] = False
             self._substep_effort_envelope_violation[env_ids] = False
-            self._substep_effort_envelope_violation_by_action_channel[
-                env_ids
-            ] = False
+            self._substep_effort_envelope_violation_by_action_channel[env_ids] = False
             self._substep_hard_rom_excess_by_action_channel[env_ids] = 0.0
             self._substep_velocity_excess_by_action_channel[env_ids] = 0.0
             self._cursor[env_ids] = frame
@@ -2429,7 +2492,6 @@ else:
     class NextEngineReferenceDirectEnvCfg:
         def __init__(self, *_: Any, **__: Any) -> None:
             raise RuntimeError("pinned Isaac Lab profile is not installed")
-
 
     class NextEngineReferenceDirectEnv:
         def __init__(self, *_: Any, **__: Any) -> None:

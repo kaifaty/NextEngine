@@ -2,8 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
+
+from next_lab.biomechanics_material_lineage import (
+    BIOMECHANICS_TRANSLATOR_ID_V2,
+    validate_current_material_lineage,
+)
 
 SEED_DOMAIN = b"nextengine.motor-episode-seed.v1\0"
 COMMAND_COUNTER_DOMAIN = b"nextengine.motor-command-counter.v1\0"
@@ -266,8 +272,8 @@ def rotate_world_to_root_local_q1_30(
         raise OverflowError("quaternion is outside Q1.30")
     x, y, z, w = quaternion
     coefficient = lambda value: round_div_ties_even(value, Q1_30_ONE)
-    diagonal = lambda left, right: Q1_30_ONE - coefficient(
-        2 * (left * left + right * right)
+    diagonal = lambda left, right: (
+        Q1_30_ONE - coefficient(2 * (left * left + right * right))
     )
     matrix = (
         (
@@ -287,7 +293,9 @@ def rotate_world_to_root_local_q1_30(
         ),
     )
     result = tuple(
-        round_div_ties_even(sum(matrix[row][column] * vector[row] for row in range(3)), Q1_30_ONE)
+        round_div_ties_even(
+            sum(matrix[row][column] * vector[row] for row in range(3)), Q1_30_ONE
+        )
         for column in range(3)
     )
     if any(value < -(1 << 63) or value > (1 << 63) - 1 for value in result):
@@ -339,7 +347,9 @@ def fixed_pd_substep(
     return rate_limited, flags
 
 
-def select_environment_profile(descriptor: dict[str, Any], profile_id: str) -> dict[str, Any]:
+def select_environment_profile(
+    descriptor: dict[str, Any], profile_id: str
+) -> dict[str, Any]:
     validate_descriptor(descriptor)
     profiles = descriptor["environment_profiles"]
     for profile in profiles:
@@ -348,10 +358,14 @@ def select_environment_profile(descriptor: dict[str, Any], profile_id: str) -> d
     raise ValueError(f"unsupported environment profile: {profile_id}")
 
 
-def validate_golden(golden: dict[str, Any], descriptor_bytes: bytes | None = None) -> None:
+def validate_golden(
+    golden: dict[str, Any], descriptor_bytes: bytes | None = None
+) -> None:
     if golden.get("schema_version") != 2:
         raise ValueError("unsupported motor mirror golden version")
-    actuator_ids = require_unique_strings(golden.get("ordered_actuator_ids"), "actuators")
+    actuator_ids = require_unique_strings(
+        golden.get("ordered_actuator_ids"), "actuators"
+    )
     if len(actuator_ids) != golden.get("pd_channel_count") or len(actuator_ids) != 23:
         raise ValueError("golden actuator count mismatch")
     reward_profiles = golden.get("reward_component_ids")
@@ -363,7 +377,9 @@ def validate_golden(golden: dict[str, Any], descriptor_bytes: bytes | None = Non
         CURRICULUM_LOCOMOTION_PROFILE_ID: CURRICULUM_LOCOMOTION_REWARD_COMPONENT_IDS,
     }
     for profile_id, expected in expected_rewards.items():
-        actual = require_unique_strings(reward_profiles.get(profile_id), f"rewards:{profile_id}")
+        actual = require_unique_strings(
+            reward_profiles.get(profile_id), f"rewards:{profile_id}"
+        )
         if tuple(actual) != expected:
             raise ValueError(f"reward order mismatch for {profile_id}")
     manifests = golden.get("profile_manifest_hashes")
@@ -393,7 +409,9 @@ def validate_golden(golden: dict[str, Any], descriptor_bytes: bytes | None = Non
         raise ValueError("command schedule hash mismatch")
     for sample in command_golden["samples"]:
         if list(schedule[sample["tick"]]) != sample["command_raw"]:
-            raise ValueError(f"command schedule sample mismatch at tick {sample['tick']}")
+            raise ValueError(
+                f"command schedule sample mismatch at tick {sample['tick']}"
+            )
     curriculum_golden = golden["curriculum_command_schedule"]
     curriculum_schedule = curriculum_locomotion_command_schedule(
         seeds["randomization.command"], curriculum_golden["episode_ordinal"]
@@ -424,22 +442,36 @@ def validate_golden(golden: dict[str, Any], descriptor_bytes: bytes | None = Non
     )
     if (first, first_flags, second, second_flags) != expected:
         raise ValueError("fixed-point PD golden mismatch")
-    if descriptor_bytes is not None and sha256_bytes(descriptor_bytes) != golden["descriptor_sha256"]:
+    if (
+        descriptor_bytes is not None
+        and sha256_bytes(descriptor_bytes) != golden["descriptor_sha256"]
+    ):
         raise ValueError("Rust descriptor hash mismatch")
 
 
 def validate_biomechanics_descriptor(descriptor: dict[str, Any]) -> None:
     """Validate the generated TRAIN-2 biomechanics mirror without anatomy defaults."""
-    if descriptor.get("schema_version") != 1:
+    translator_id = descriptor.get("translator_id")
+    current_material_lineage = translator_id == BIOMECHANICS_TRANSLATOR_ID_V2
+    expected_schema_version = 2 if current_material_lineage else 1
+    if descriptor.get("schema_version") != expected_schema_version:
         raise ValueError("unsupported biomechanics mirror descriptor")
-    if descriptor.get("translator_id") != BIOMECHANICS_TRANSLATOR_ID:
+    if translator_id not in {
+        BIOMECHANICS_TRANSLATOR_ID,
+        BIOMECHANICS_TRANSLATOR_ID_V2,
+    }:
         raise ValueError("biomechanics translator identity mismatch")
-    if descriptor.get("physics_hz") != PHYSICS_HZ or descriptor.get("motor_hz") != MOTOR_HZ:
+    if (
+        descriptor.get("physics_hz") != PHYSICS_HZ
+        or descriptor.get("motor_hz") != MOTOR_HZ
+    ):
         raise ValueError("unsupported biomechanics cadence")
     if descriptor.get("body_count") != 24 or descriptor.get("action_width") != 23:
         raise ValueError("biomechanics tensor/topology width mismatch")
     _require_hash(descriptor.get("body_schema_hash"), "body_schema_hash")
-    _require_hash(descriptor.get("compiled_descriptor_hash"), "compiled_descriptor_hash")
+    _require_hash(
+        descriptor.get("compiled_descriptor_hash"), "compiled_descriptor_hash"
+    )
     if not isinstance(descriptor.get("body_schema_id"), str) or not isinstance(
         descriptor.get("body_schema_revision"), int
     ):
@@ -520,7 +552,9 @@ def validate_biomechanics_descriptor(descriptor: dict[str, Any]) -> None:
             _require_int_vector(
                 collider.get("local_translation_micrometres"), 3, "collider translation"
             )
-            _require_int_vector(collider.get("local_rotation_q1_30"), 4, "collider rotation")
+            _require_int_vector(
+                collider.get("local_rotation_q1_30"), 4, "collider rotation"
+            )
             _validate_biomechanics_geometry(collider.get("geometry"))
             layer = collider.get("collision_layer")
             mask = collider.get("collision_mask")
@@ -544,17 +578,22 @@ def validate_biomechanics_descriptor(descriptor: dict[str, Any]) -> None:
         dof_ordinals.add(dof)
         parent = joint.get("parent_body_slot")
         child = joint.get("child_body_slot")
-        if not all(isinstance(value, int) and 0 <= value < 24 for value in (parent, child)):
+        if not all(
+            isinstance(value, int) and 0 <= value < 24 for value in (parent, child)
+        ):
             raise ValueError("biomechanics joint body mapping mismatch")
         axis = _require_int_vector(joint.get("axis_q1_30"), 3, "joint axis")
         if sum(value * value for value in axis) != 1 << 60:
             raise ValueError("biomechanics joint axis is not normalized")
-        hard = _require_int_vector(joint.get("hard_limit_microradians"), 2, "hard limit")
-        soft = _require_int_vector(joint.get("soft_limit_microradians"), 2, "soft limit")
+        hard = _require_int_vector(
+            joint.get("hard_limit_microradians"), 2, "hard limit"
+        )
+        soft = _require_int_vector(
+            joint.get("soft_limit_microradians"), 2, "soft limit"
+        )
         neutral = joint.get("neutral_position_microradians")
         if not (
-            hard[0] < hard[1]
-            and hard[0] <= soft[0] <= neutral <= soft[1] <= hard[1]
+            hard[0] < hard[1] and hard[0] <= soft[0] <= neutral <= soft[1] <= hard[1]
         ):
             raise ValueError("biomechanics joint limit envelope mismatch")
         for name in ("parent_frame", "child_frame"):
@@ -563,8 +602,12 @@ def validate_biomechanics_descriptor(descriptor: dict[str, Any]) -> None:
                 raise ValueError("biomechanics joint frame mismatch")
             _require_int_vector(frame.get("translation_micrometres"), 3, name)
             _require_int_vector(frame.get("rotation_q1_30"), 4, name)
-        _require_int_vector(joint.get("solver_parent_rotation_f32_bits"), 4, "solver frame")
-        _require_int_vector(joint.get("solver_child_rotation_f32_bits"), 4, "solver frame")
+        _require_int_vector(
+            joint.get("solver_parent_rotation_f32_bits"), 4, "solver frame"
+        )
+        _require_int_vector(
+            joint.get("solver_child_rotation_f32_bits"), 4, "solver frame"
+        )
     if dof_ordinals != set(range(23)):
         raise ValueError("biomechanics DoF mapping is partial")
 
@@ -588,7 +631,8 @@ def validate_biomechanics_descriptor(descriptor: dict[str, Any]) -> None:
 
     canonical_exclusions = [tuple(pair) for pair in exclusions]
     if canonical_exclusions != sorted(set(canonical_exclusions)) or any(
-        len(pair) != 2 or not 0 <= pair[0] < pair[1] < 24 for pair in canonical_exclusions
+        len(pair) != 2 or not 0 <= pair[0] < pair[1] < 24
+        for pair in canonical_exclusions
     ):
         raise ValueError("biomechanics collision exclusions are not canonical")
     body_ids = set(ordered_bodies)
@@ -599,11 +643,21 @@ def validate_biomechanics_descriptor(descriptor: dict[str, Any]) -> None:
         raise ValueError("biomechanics effector identity mismatch")
     if any(record.get("body_id") not in body_ids for record in effectors):
         raise ValueError("biomechanics effector body mapping mismatch")
+    if current_material_lineage:
+        validate_current_material_lineage(descriptor)
+
+
+def validate_current_biomechanics_descriptor(descriptor: dict[str, Any]) -> None:
+    validate_biomechanics_descriptor(descriptor)
+    if descriptor.get("translator_id") != BIOMECHANICS_TRANSLATOR_ID_V2:
+        raise ValueError("current biomechanics mirror V2 is required")
 
 
 def _require_int_vector(value: Any, width: int, label: str) -> list[int]:
-    if not isinstance(value, list) or len(value) != width or not all(
-        isinstance(item, int) for item in value
+    if (
+        not isinstance(value, list)
+        or len(value) != width
+        or not all(isinstance(item, int) for item in value)
     ):
         raise ValueError(f"biomechanics {label} mismatch")
     return value
@@ -639,11 +693,19 @@ def _validate_biomechanics_geometry(geometry: Any) -> None:
 def validate_descriptor(descriptor: dict[str, Any]) -> None:
     if descriptor.get("schema_version") != 2:
         raise ValueError("unsupported mirror descriptor")
-    if descriptor.get("physics_hz") != PHYSICS_HZ or descriptor.get("motor_hz") != MOTOR_HZ:
+    if (
+        descriptor.get("physics_hz") != PHYSICS_HZ
+        or descriptor.get("motor_hz") != MOTOR_HZ
+    ):
         raise ValueError("unsupported Stage 0 cadence")
-    if descriptor.get("observation_width") != 84 or descriptor.get("action_width") != 23:
+    if (
+        descriptor.get("observation_width") != 84
+        or descriptor.get("action_width") != 23
+    ):
         raise ValueError("canonical tensor width mismatch")
-    ordered_bodies = require_unique_strings(descriptor.get("ordered_body_ids"), "bodies")
+    ordered_bodies = require_unique_strings(
+        descriptor.get("ordered_body_ids"), "bodies"
+    )
     ordered_actuators = require_unique_strings(
         descriptor.get("ordered_actuator_ids"), "actuators"
     )
@@ -690,9 +752,14 @@ def validate_descriptor(descriptor: dict[str, Any]) -> None:
             if profile["profile_id"] == CURRICULUM_LOCOMOTION_PROFILE_ID
             else LOCOMOTION_REWARD_COMPONENT_IDS
         )
-        actual = tuple(component.get("component_id") for component in profile.get("reward_components", []))
+        actual = tuple(
+            component.get("component_id")
+            for component in profile.get("reward_components", [])
+        )
         if actual != expected:
-            raise ValueError(f"reward component order mismatch for {profile['profile_id']}")
+            raise ValueError(
+                f"reward component order mismatch for {profile['profile_id']}"
+            )
         translator_identity = (
             CURRENT_TRANSLATOR_VERSION
             if profile["profile_id"] == CURRICULUM_LOCOMOTION_PROFILE_ID
@@ -706,23 +773,31 @@ def validate_descriptor(descriptor: dict[str, Any]) -> None:
         if profile["translator_version_hash"] != translator_hash:
             raise ValueError("environment translator identity does not close")
         if profile["profile_id"] == STANDING_PROFILE_ID:
-            if profile.get("velocity_frame") != "world" or profile.get("maximum_episode_steps") != 3_600:
+            if (
+                profile.get("velocity_frame") != "world"
+                or profile.get("maximum_episode_steps") != 3_600
+            ):
                 raise ValueError("standing profile semantics changed")
         elif profile["profile_id"] == FLAT_LOCOMOTION_PROFILE_ID:
-            if profile.get("velocity_frame") != "root-local" or profile.get("maximum_episode_steps") != 1_200:
+            if (
+                profile.get("velocity_frame") != "root-local"
+                or profile.get("maximum_episode_steps") != 1_200
+            ):
                 raise ValueError("locomotion profile semantics mismatch")
             command = profile.get("command_profile", {})
             if (
                 command.get("warmup_ticks") != 60
                 or command.get("segment_ticks") != 120
                 or command.get("episode_ticks") != 1_200
-                or command.get("mode_weights_basis_points") != [2_500, 3_500, 2_000, 2_000]
+                or command.get("mode_weights_basis_points")
+                != [2_500, 3_500, 2_000, 2_000]
             ):
                 raise ValueError("locomotion command profile mismatch")
         else:
-            if profile.get("velocity_frame") != "root-local" or profile.get(
-                "maximum_episode_steps"
-            ) != 1_200:
+            if (
+                profile.get("velocity_frame") != "root-local"
+                or profile.get("maximum_episode_steps") != 1_200
+            ):
                 raise ValueError("curriculum locomotion profile semantics mismatch")
             command = profile.get("command_profile", {})
             stages = command.get("stages")
@@ -756,7 +831,11 @@ def validate_descriptor(descriptor: dict[str, Any]) -> None:
 
 
 def require_unique_strings(value: Any, label: str) -> list[str]:
-    if not isinstance(value, list) or not value or not all(isinstance(item, str) for item in value):
+    if (
+        not isinstance(value, list)
+        or not value
+        or not all(isinstance(item, str) for item in value)
+    ):
         raise ValueError(f"{label} must be a non-empty string array")
     if len(set(value)) != len(value):
         raise ValueError(f"{label} contains duplicates")
@@ -784,8 +863,10 @@ def _golden_pd(pd_input: dict[str, int], previous: int) -> tuple[int, int]:
 
 
 def _require_hash(value: Any, label: str) -> str:
-    if not isinstance(value, str) or len(value) != 64 or any(
-        character not in "0123456789abcdef" for character in value
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
     ):
         raise ValueError(f"{label} must be a lowercase SHA-256 hash")
     return value
