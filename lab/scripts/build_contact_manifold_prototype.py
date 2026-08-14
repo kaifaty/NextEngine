@@ -956,6 +956,46 @@ def _validate_inputs(
         and isinstance(discriminator, dict)
         and discriminator.get("ordered_source_case_ordinals")
         == [3749, 3750, 3753, 7978, 8144]
+    ) or (
+        prototype_id
+        == (
+            "nextengine.humanoid-contact-manifold-prototype."
+            "v10-contact-reserve-counterfactual"
+        )
+        and isinstance(projection.get("trajectory_closure"), dict)
+        and "collider_closure" not in projection
+        and isinstance(discriminator, dict)
+        and discriminator.get("ordered_source_case_ordinals") == [25]
+        and projection["trajectory_closure"].get("algorithm_id")
+        == contact_trajectory.STABLE_FOOT_BOX_ALGORITHM_ID
+        and projection["trajectory_closure"].get(
+            "internal_quantization_margins", {}
+        ).get("normal_residual_micrometres")
+        == 4_500
+        and projection["trajectory_closure"].get("solver", {}).get(
+            "second_difference_regularization"
+        )
+        == 0.0
+    ) or (
+        prototype_id
+        == (
+            "nextengine.humanoid-contact-manifold-prototype."
+            "v10-second-difference-counterfactual"
+        )
+        and isinstance(projection.get("trajectory_closure"), dict)
+        and "collider_closure" not in projection
+        and isinstance(discriminator, dict)
+        and discriminator.get("ordered_source_case_ordinals") == [7967]
+        and projection["trajectory_closure"].get("algorithm_id")
+        == contact_trajectory.SECOND_DIFFERENCE_ALGORITHM_ID
+        and projection["trajectory_closure"].get(
+            "internal_quantization_margins", {}
+        ).get("normal_residual_micrometres")
+        == 100
+        and projection["trajectory_closure"].get("solver", {}).get(
+            "second_difference_regularization"
+        )
+        == 1.0
     )
     if (
         profile.get("schema_version") != 1
@@ -981,6 +1021,14 @@ def _validate_inputs(
             in {
                 "nextengine.humanoid-contact-manifold-prototype.v8",
                 "nextengine.humanoid-contact-manifold-prototype.v9",
+                (
+                    "nextengine.humanoid-contact-manifold-prototype."
+                    "v10-contact-reserve-counterfactual"
+                ),
+                (
+                    "nextengine.humanoid-contact-manifold-prototype."
+                    "v10-second-difference-counterfactual"
+                ),
             }
             and profile["acceptance"].get(
                 "trajectory_constraint_solver_authorized"
@@ -1288,6 +1336,9 @@ def _trajectory_closure(
         contact_trajectory.STABLE_FOOT_BOX_ALGORITHM_ID: (
             contact_trajectory.STABLE_FOOT_BOX_COLLIDER_LINEARIZATION
         ),
+        contact_trajectory.SECOND_DIFFERENCE_ALGORITHM_ID: (
+            contact_trajectory.STABLE_FOOT_BOX_COLLIDER_LINEARIZATION
+        ),
     }.get(algorithm_id)
     if (
         not isinstance(document, dict)
@@ -1331,29 +1382,53 @@ def _trajectory_closure(
     margins = document["internal_quantization_margins"]
     solver = document["solver"]
     versions = solver["runtime_versions"]
+    second_difference_regularization = solver.get(
+        "second_difference_regularization", 0.0
+    )
+    normal_residual_margin = margins.get("normal_residual_micrometres")
+    regularization_identity_is_valid = (
+        algorithm_id
+        in {
+            contact_trajectory.ALGORITHM_ID,
+            contact_trajectory.STABLE_FOOT_BOX_ALGORITHM_ID,
+        }
+        and second_difference_regularization == 0.0
+        and normal_residual_margin
+        in (
+            {100, 4_500}
+            if algorithm_id
+            == contact_trajectory.STABLE_FOOT_BOX_ALGORITHM_ID
+            else {100}
+        )
+    ) or (
+        algorithm_id == contact_trajectory.SECOND_DIFFERENCE_ALGORITHM_ID
+        and second_difference_regularization == 1.0
+        and normal_residual_margin == 100
+    )
+    expected_margins = {
+        "collider_target_micrometres": 50,
+        "root_vertical_velocity_micrometres_per_second": 300,
+        "joint_velocity_fraction_numerator": 999,
+        "joint_velocity_fraction_denominator": 1000,
+        "normal_residual_micrometres": normal_residual_margin,
+        "finite_normal_step_micrometres": 20,
+        "finite_tangential_step_micrometres": 20,
+        "analytic_normal_speed_micrometres_per_second": 300,
+        "analytic_tangential_speed_micrometres_per_second": 2000,
+    }
     if (
         solver.get("backend_id") != "osqp"
         or versions
         != {"numpy": "2.5.2", "scipy": "1.18.0", "osqp": "1.1.3"}
         or solver.get("objective_regularization") != 1.0
         or solver.get("first_difference_regularization") != 0.01
+        or not regularization_identity_is_valid
         or solver.get("maximum_iterations") != 100_000
         or solver.get("absolute_tolerance") != 0.00001
         or solver.get("relative_tolerance") != 0.00001
         or solver.get("polishing_enabled") is not True
         or solver.get("adaptive_rho_enabled") is not True
-        or margins
-        != {
-            "collider_target_micrometres": 50,
-            "root_vertical_velocity_micrometres_per_second": 300,
-            "joint_velocity_fraction_numerator": 999,
-            "joint_velocity_fraction_denominator": 1000,
-            "normal_residual_micrometres": 100,
-            "finite_normal_step_micrometres": 20,
-            "finite_tangential_step_micrometres": 20,
-            "analytic_normal_speed_micrometres_per_second": 300,
-            "analytic_tangential_speed_micrometres_per_second": 2000,
-        }
+        or margins != expected_margins
     ):
         raise ValueError("coupled-trajectory solver identity is invalid")
     closure = CoupledTrajectoryClosure(
@@ -1393,6 +1468,7 @@ def _trajectory_closure(
         first_difference_regularization=solver[
             "first_difference_regularization"
         ],
+        second_difference_regularization=second_difference_regularization,
         maximum_solver_iterations=solver["maximum_iterations"],
         solver_absolute_tolerance=solver["absolute_tolerance"],
         solver_relative_tolerance=solver["relative_tolerance"],

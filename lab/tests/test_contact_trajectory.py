@@ -11,10 +11,12 @@ import numpy as np
 from next_lab.contact_trajectory import (
     ALGORITHM_ID,
     SCALAR_COLLIDER_LINEARIZATION,
+    SECOND_DIFFERENCE_ALGORITHM_ID,
     STABLE_FOOT_BOX_ALGORITHM_ID,
     STABLE_FOOT_BOX_COLLIDER_LINEARIZATION,
     _collider_linearization_rows,
     _collider_linearization_values,
+    _objective_matrix,
     hybrid_velocity_stencil,
     project_reference_coupled_trajectory,
 )
@@ -35,6 +37,22 @@ PROFILE_V9 = (
     Path(__file__).parents[1]
     / "profiles"
     / "humanoid-contact-manifold-prototype.v9.json"
+)
+PROFILE_CONTACT_RESERVE = (
+    Path(__file__).parents[1]
+    / "profiles"
+    / (
+        "humanoid-contact-manifold-prototype."
+        "v10-contact-reserve-counterfactual.json"
+    )
+)
+PROFILE_SECOND_DIFFERENCE = (
+    Path(__file__).parents[1]
+    / "profiles"
+    / (
+        "humanoid-contact-manifold-prototype."
+        "v10-second-difference-counterfactual.json"
+    )
 )
 SCRIPT = Path(__file__).parents[1] / "scripts" / "build_contact_manifold_prototype.py"
 SPEC = importlib.util.spec_from_file_location(
@@ -78,6 +96,52 @@ class ContactTrajectoryTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "profile identity"):
             builder._trajectory_closure(changed)
+
+    def test_r96_profiles_bind_one_independent_change_each(self) -> None:
+        contact_profile = json.loads(
+            PROFILE_CONTACT_RESERVE.read_text(encoding="utf-8")
+        )
+        contact = builder._trajectory_closure(contact_profile["projection"])
+        self.assertIsNotNone(contact)
+        assert contact is not None
+        self.assertEqual(contact.algorithm_id, STABLE_FOOT_BOX_ALGORITHM_ID)
+        self.assertEqual(contact.normal_residual_margin_micrometres, 4_500)
+        self.assertEqual(contact.second_difference_regularization, 0.0)
+
+        derivative_profile = json.loads(
+            PROFILE_SECOND_DIFFERENCE.read_text(encoding="utf-8")
+        )
+        derivative = builder._trajectory_closure(
+            derivative_profile["projection"]
+        )
+        self.assertIsNotNone(derivative)
+        assert derivative is not None
+        self.assertEqual(
+            derivative.algorithm_id, SECOND_DIFFERENCE_ALGORITHM_ID
+        )
+        self.assertEqual(derivative.normal_residual_margin_micrometres, 100)
+        self.assertEqual(derivative.first_difference_regularization, 0.01)
+        self.assertEqual(derivative.second_difference_regularization, 1.0)
+
+    def test_second_difference_objective_penalizes_curvature(self) -> None:
+        objective = _objective_matrix(
+            frame_count=4,
+            local_variable_count=1,
+            objective_regularization=1.0,
+            first_difference_regularization=0.0,
+            second_difference_regularization=1.0,
+        ).toarray()
+        np.testing.assert_array_equal(
+            objective,
+            np.asarray(
+                (
+                    (2.0, -2.0, 1.0, 0.0),
+                    (0.0, 6.0, -4.0, 1.0),
+                    (0.0, 0.0, 6.0, -2.0),
+                    (0.0, 0.0, 0.0, 2.0),
+                )
+            ),
+        )
 
     def test_stable_box_vertices_cross_scalar_minimum_cusp(self) -> None:
         collider = {

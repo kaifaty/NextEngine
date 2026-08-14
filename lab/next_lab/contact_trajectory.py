@@ -32,6 +32,9 @@ ALGORITHM_ID = "nextengine.dimensionless-contact-trajectory-qp.v8"
 STABLE_FOOT_BOX_ALGORITHM_ID = (
     "nextengine.dimensionless-contact-trajectory-qp.v9"
 )
+SECOND_DIFFERENCE_ALGORITHM_ID = (
+    "nextengine.dimensionless-contact-trajectory-qp.v10"
+)
 SCALAR_COLLIDER_LINEARIZATION = "scalar-minimum.v1"
 STABLE_FOOT_BOX_COLLIDER_LINEARIZATION = (
     "stable-contact-role-8-box-vertices.v1"
@@ -39,6 +42,7 @@ STABLE_FOOT_BOX_COLLIDER_LINEARIZATION = (
 _ALGORITHM_LINEARIZATION = {
     ALGORITHM_ID: SCALAR_COLLIDER_LINEARIZATION,
     STABLE_FOOT_BOX_ALGORITHM_ID: STABLE_FOOT_BOX_COLLIDER_LINEARIZATION,
+    SECOND_DIFFERENCE_ALGORITHM_ID: STABLE_FOOT_BOX_COLLIDER_LINEARIZATION,
 }
 VELOCITY_SEMANTICS = (
     "forward on contact entry; backward on exit; centered otherwise; "
@@ -80,6 +84,7 @@ class CoupledTrajectoryClosure:
     joint_variable_scale_microradians: int
     objective_regularization: float
     first_difference_regularization: float
+    second_difference_regularization: float
     maximum_solver_iterations: int
     solver_absolute_tolerance: float
     solver_relative_tolerance: float
@@ -151,6 +156,8 @@ class CoupledTrajectoryClosure:
             or self.objective_regularization <= 0.0
             or not math.isfinite(self.first_difference_regularization)
             or self.first_difference_regularization < 0.0
+            or not math.isfinite(self.second_difference_regularization)
+            or self.second_difference_regularization < 0.0
             or not math.isfinite(self.solver_absolute_tolerance)
             or self.solver_absolute_tolerance <= 0.0
             or not math.isfinite(self.solver_relative_tolerance)
@@ -482,6 +489,9 @@ def project_reference_coupled_trajectory(
         local_variable_count=local_variable_count,
         objective_regularization=closure.objective_regularization,
         first_difference_regularization=closure.first_difference_regularization,
+        second_difference_regularization=(
+            closure.second_difference_regularization
+        ),
     )
     history: list[dict[str, Any]] = []
     final_state: dict[str, Any] | None = None
@@ -688,6 +698,13 @@ def project_reference_coupled_trajectory(
         },
         "trajectory_solver": {
             "algorithm_id": closure.algorithm_id,
+            "objective_regularization": closure.objective_regularization,
+            "first_difference_regularization": (
+                closure.first_difference_regularization
+            ),
+            "second_difference_regularization": (
+                closure.second_difference_regularization
+            ),
             "termination": termination,
             "outer_iterations_completed": len(history),
             "maximum_outer_iterations": closure.maximum_outer_iterations,
@@ -768,6 +785,7 @@ def _objective_matrix(
     local_variable_count: int,
     objective_regularization: float,
     first_difference_regularization: float,
+    second_difference_regularization: float,
 ) -> sparse.csc_matrix:
     variable_count = frame_count * local_variable_count
     result = objective_regularization * sparse.eye(variable_count, format="csc")
@@ -790,6 +808,29 @@ def _objective_matrix(
         ).tocsc()
         result = result + first_difference_regularization * (
             difference.T @ difference
+        )
+    if second_difference_regularization > 0.0:
+        rows = np.repeat(
+            np.arange((frame_count - 2) * local_variable_count), 3
+        )
+        columns = np.empty(len(rows), dtype=np.int64)
+        values = np.empty(len(rows), dtype=np.float64)
+        cursor = 0
+        for frame in range(frame_count - 2):
+            for local in range(local_variable_count):
+                columns[cursor : cursor + 3] = (
+                    frame * local_variable_count + local,
+                    (frame + 1) * local_variable_count + local,
+                    (frame + 2) * local_variable_count + local,
+                )
+                values[cursor : cursor + 3] = (1.0, -2.0, 1.0)
+                cursor += 3
+        curvature = sparse.coo_matrix(
+            (values, (rows, columns)),
+            shape=((frame_count - 2) * local_variable_count, variable_count),
+        ).tocsc()
+        result = result + second_difference_regularization * (
+            curvature.T @ curvature
         )
     return sparse.triu(result, format="csc")
 
