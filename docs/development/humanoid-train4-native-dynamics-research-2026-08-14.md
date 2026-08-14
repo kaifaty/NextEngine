@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R106_PROJECTED_FORMULATION_COMPLETE / R107_EXACT_OFFLINE_NEXT` |
+| Status | `R107_EXACT_OFFLINE_FAIL / R108_PROGRESSIVE_FORMULATION_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -40,6 +40,7 @@ bounded research before another solver change or expensive native run.
 | R104 exact offline preflight v2 | canonical/file/profile SHA-256 `d80504975367c13e01d724e9bbbae47335ed4d9ab366179b44851741813197ab` / `1b03170a2679d5061ed6d72c520fc7b0890431672f24ba3fa1f825c9454ebfa8` / `f7547b66d65341155b583735b9dcb52c08680810db102662e46064814b45076d` | Clean `STOP_AND_RESEARCH`: only the zero control passes; all `26/26` nonzero targets fail exact offline contact and/or velocity bounds; PhysX/optimizer/training counts are `0` |
 | R105 local feasible-direction audit | canonical/file/profile SHA-256 `c107230f01f75d25987ca0e9ac07d81cdda71fe94bca1889509d4f5504436f50` / `19971615f285608903877a265e0387e7dbb963254e1b56493c99c43617e39ae9` / `48cf5b605e5fc6b3ae36b72ccc85a05d6fffeb6ccaa6d635d468c3e5c5b82d9e` | Clean `COMPLETE`: early/middle bases collapse; late basis retains `9722 bp` anchor component and `9872 bp` cosine after a feasible local projection; only R106 formulation is permitted |
 | R106 projected-direction formulation v2 | canonical/file/profile SHA-256 `67a94a01f624cae4db9615646ee00a8ef00920119ad017f3ddead60d2e0c2996` / `30512398d0e7030e95a61b8a662417b9ea1436ae96b58d0cdb0edaa3fe6b0679` / `6e67882da4e305aa0566c93d44216fc92f0318173a620aac4c2095eefc4a9937` | Clean `COMPLETE`: selects only late offset `11`, freezes reconstruction/quantization and permits one in-memory R107 exact audit; projection/candidate/PhysX/optimizer/training counts are `0` |
+| R107 projected-direction exact audit | canonical/file/profile SHA-256 `5a3c26ca731ac2734637a3d9953d84eca15c6553fb97c9da2ed9a12c2f7781fa` / `4095dfa6517847c5babfb9fb958e015908fc8c560f4e7c7083f840918b4f9a45` / `00b826d3aa11f1d1b4df66f99856ba5ed8dd3a08256a662dbfdb8a531c0e4539` | Clean `FAIL`: contact/collider geometry/ROM/root velocity retain V9 PASS metrics, but exact joint velocity is `2501/2500 bp`; selects progressive formulation with zero artifacts/PhysX/optimizer/training |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -167,9 +168,9 @@ with the two failed variants before any bounded construction change is chosen.
 
 | ID | Hypothesis | Current evidence | Discriminator |
 | --- | --- | --- | --- |
-| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R106 freezes only the late projected direction | Confirmed as trajectory-wide coupled feasibility; R107 runs exact offline audit |
+| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R107 shows even the useful late linear direction misses exact joint velocity after integer/stencil recomputation | Confirmed as trajectory-wide coupled feasibility; R108 defines progressive KTO/inverse-dynamics/kinodynamic gates |
 | H23 | Near-zero offline collider clearance does not predict the full PhysX contact manifold and impulse | R95 isolates ordinal `2`: active foot `1539 µm` above surface with no derivative amplification; R97 reserve case passes all `11` ticks and lowers peak left-foot impulse `6440089 -> 4466405 µN·s` | Supported for the selected case only; broader contact cases remain untested |
-| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | R106 freezes root/bilateral-leg recomputation without hidden post-pass | Confirmed; audit the one retained target in memory |
+| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | R107 changes dependent joint velocities across frames `239..250` from position support `240..249` | Confirmed; future state variables and exact discretization must be coupled explicitly |
 | H26 | Motor-frame pose/derivative summaries hide the causal physical substep | R98 localizes V11 touchdown to tick `9` substep `2` and overspeed to the immediately following pre-substep state | Confirmed; retain substep traces for every future native discriminator |
 | H25 | Fresh-scene initialization is responsible | Initial state is exact within quantization in every worker | Falsified by R94; do not repeat partial-reset experiments |
 
@@ -735,14 +736,45 @@ kinodynamic formulation; shrinking, scaling, repair and grid search are
 forbidden. PASS can permit only a separate bounded native-discriminator
 formulation, never PhysX or training directly.
 
+## R107 exact projected-direction result
+
+Clean R107 at commit `34cd81c9235f27beacd4ea5a8c8ec1383dd47715`
+reconstructs the R105 late direction exactly: the solve again takes `6500`
+iterations, continuous local violation is below `4e-17`, anchor component and
+cosine remain `9722/9872 bp`, and ties-to-even quantization changes `7` root
+cells plus `45` selected-joint cells with maxima `41 µm` and `5688 µrad`.
+Position inputs outside frames `240..249`, every non-selected joint, contact
+mode/source point, quaternion and yaw-velocity input remain byte-exact V9;
+frame `238` position and emitted velocity also remain exact. Declared stencil
+dependents change only where expected: joint velocity spans frames `239..250`.
+
+The unchanged exact gate returns `FAIL` only for joint velocity at `2501 bp`
+against the frozen `2500 bp` limit. Contact metrics remain V9 PASS
+(`4913/982/1982 µm` residual/normal/tangential, `996/2000 µm` analytic), the
+minimum collider height is `49 µm`, root vertical velocity is `199800 µm/s`,
+and soft-ROM excess is zero. Integer quantization raises the report-only local
+linear proxy violation to `0.000411892`; the exact gate, not that proxy, is
+authoritative. The result is close but nonzero, so exact-zero rejects it.
+
+R107 performs exactly one local projection QP and one in-memory exact candidate
+evaluation. It emits no candidate artifact and runs zero PhysX, learned/
+trajectory optimizer steps or training. Per the predeclared R106 disposition,
+shrinking, scaling, rounding repair and another anchor sweep are forbidden.
+The gate selects a separate progressive formulation: first quantization-aware
+kinematic trajectory variables and exact stencil closure, then fixed-PD inverse
+dynamics/contact-wrench feasibility, then full kinodynamic optimization only if
+the cheaper stage cannot certify a safe reference. R108 may formulate that
+ladder only; it cannot run a solver, build an artifact or invoke PhysX.
+
 ## Decision
 
-Freeze R92–R106, retain the contact result as bounded support for H23, and
+Freeze R92–R107, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
 values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
-and retain only the late projected direction for one in-memory R107 exact
-audit. Candidate artifact/native construction remains blocked. All-17 remains
-blocked until a future bounded
+and the late projected direction after its exact `2501/2500 bp` failure. Permit
+only R108 progressive KTO→inverse-dynamics→kinodynamic formulation. Candidate
+artifact/native construction remains blocked. All-17 remains blocked until a
+future bounded
 candidate passes every selected fresh control without changing controller
 semantics, safety limits, fresh-scene authority or the exact-zero gate.
