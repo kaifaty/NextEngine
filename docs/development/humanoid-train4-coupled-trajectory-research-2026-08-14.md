@@ -4,7 +4,7 @@
 | --- | --- |
 | Date | 2026-08-14 |
 | Scope | Optimizer-free learned-policy lane; offline constraint-solver research for `REQ-HUM-DATA-005/007` |
-| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / ADAPTIVE TRUST CONTRACTION` |
+| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / BOUNDED ADAPTIVE LOOP` |
 | Current implementation | `nextengine.dimensionless-contact-trajectory-qp.v8` |
 | Claim ceiling | Research infrastructure only; no V19, TRAIN-4 Advance, visual gate or learned optimization |
 
@@ -58,6 +58,7 @@ All generated artifacts remain under the external TRAIN-4 evaluation root.
 | R86 directional model-fidelity audit | The hash-bound R85 direction reproduces the reference exact violations with zero normalized delta. At scales `0.125` and `0.25`, model/exact worst merits are `3.3245/3.2958` and `2.8832/3.1418`; both improve the accepted `3.3690` baseline, with actual/predicted ratios `1.042` and `0.695`. At `0.5`, the ratio becomes `-0.390`, exact merit regresses to `4.4442` and maximum collider prediction error grows to `13030 µm`. The dominant error is `collider.right-foot`, especially source frames `1383..1392`, worst at `1388`. | Accept only a measured local model-valid interval, not any audited scale as a candidate. A quarter direction uses at most `8944 µm` root component / `9555 µm` root norm / `24992 µrad` joint component, while the half direction is outside reliable geometry. R87 must re-solve the trial-point phase-I inside `10000 µm` root-component and `25000 µrad` joint-component trust bounds; it must not scale the stored R85 direction. |
 | R87 model-valid bounded re-solve | A fresh trial-Jacobian phase-I solve brackets minimum model slack between `0.941454` infeasible and `1.176818` feasible. The exact candidate improves the retained baseline from `3.3690/12.7778` to `2.4324/5.9482`; model merit is `1.1769/4.7073` and the actual/predicted worst-reduction ratio is `0.511`. Contact groups fall to `1.1535..1.2048`; collider remains dominant at `2.4324` (`-12163 µm`). Root/joint component use is `10000.001 µm / 25000.044 µrad`, the sub-unit excess being the reported OSQP residual rather than a postprojection. | Accept the research step and the measured trust mechanism, not the candidate: report status is `COMPLETE / EXACT_IMPROVING / NOT_ADMISSIBLE`, exact gate is still `FAIL`. Keep the radius unchanged because agreement is positive but not strong enough to expand into R86's invalid half-step region. R88 relinearizes once at the R87 exact state and repeats the same bounded phase-I plus exact max-first audit. |
 | R88 unchanged-trust continuation | Relinearizing at R87 lowers feasible model slack to `0.763320` and predicts merit `0.7634/3.0533`. Exact contact groups all fall below one, but collider regresses `2.4324 -> 2.9816`; exact merit becomes `2.9816/5.6120` and actual/predicted ratio is `-0.327`. Maximum collider prediction error grows to `11143 µm` at `collider.right-foot`, source frame `1387`. | Exact max-first rejects R88 and retains R87. Do not repeat the same radius or accept lower total violation. Contract trust by `0.5` and re-solve from R87, not from the rejected R88 candidate: R89 uses `5000 µm / 12500 µrad`, matching the R86 scale-`0.125` interval whose ratio was `1.042`. |
+| R89 half-radius contracted re-solve | Starting again from retained R87, the contracted phase-I brackets slack between `0.915984` infeasible and `1.068648` feasible. Model merit `1.0686/4.2746` becomes exact `1.7226/4.8639`, improving both R87 coordinates with ratio `0.517`. Collider error falls from R88's `11143 µm` to `3321 µm`; root component/norm use is `3937/4676 µm`, while joint use reaches `12500 µrad`. | Accept R89 only as the new research iterate; exact collider/contact groups remain `1.7226/1.0348..1.0590`. The contraction restores agreement and validates an adaptive loop. R90 may run at most six relinearized attempts, retain trust after ratio `>=0.25`, halve it after rejection, never expand, and accept only exact max-first improvement. |
 
 R69 report SHA-256 is
 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56`;
@@ -144,6 +145,13 @@ R88 report/direction/rejected-candidate/bridge/research-adapter SHA-256 are
 `9438fda09d9c4f06ee27fe54855f646c11da2530cc0653faa4fba14009c46a1d` /
 `6577318057f5385e8d987d057e77896bfecb52d30007533bda56d494d83728b0`.
 R88 is a completed rejection record; R87 remains the research iterate.
+R89 report/direction/candidate/bridge/research-adapter SHA-256 are
+`7de07519892f416065f1b4479125181af0820e9a27b87511ff766000a992c4cc` /
+`396845cf2978ab1d7a526bbf0703668293964bc38454965142a64e66ae081597` /
+`db716c4a3f14e0b296ca316923da956df2e4cbccd12c9d9919174b9db13479ab` /
+`dbb3b263eaa1c26139492ce330183f0f8e78438367508b49cefb7485111b4a95` /
+`6eabdc3ff5377441b15bf191e78c4ab650180bd692306409bf8794786274fd1c`.
+R89 is exact-improving but remains `NOT_ADMISSIBLE` and exact `FAIL`.
 
 ## Primary-source research decision
 
@@ -247,12 +255,19 @@ measures a `0.5492` increase. Lower total violation cannot override the exact
 max regression. The rejected state is retained only as diagnostic evidence;
 R87 remains the research baseline.
 
-R89 applies the standard trust response rather than another geometry change:
-contract both component bounds by `0.5` to `5000 µm / 12500 µrad`, rebuild
-and solve the QP at R87, and audit the exact emitted state. The contraction is
-also bounded by R86 evidence: its comparable scale `0.125` had ratio `1.042`,
-whereas larger R88 geometry now has negative agreement. R89 may be accepted
-only if exact max-first merit improves over R87; it remains research-only.
+R89 completed that standard trust response. It restores a positive ratio
+`0.517`, improves exact max/sum and cuts maximum collider model error by more
+than three times relative to R88. The remaining `1.03..1.72` violations are
+close enough to test the actual adaptive iteration contract, but not to claim
+feasibility or tune a tolerance.
+
+R90 is therefore a bounded research loop, not an unbounded solver run. It
+starts from hash-bound R89, allows at most six full relinearized attempts,
+accepts only exact max-first improvement with actual/predicted ratio at least
+`0.25` (or exact PASS), retains the current radius after acceptance, halves
+both component bounds after rejection, and never expands. It stops on exact
+PASS, the attempt cap or minimum trust. Every rejected direction is discarded;
+optimizer, PhysX and admission counters remain zero.
 
 ## V8 solver identity
 
