@@ -1,16 +1,22 @@
 #![forbid(unsafe_code)]
 
+mod canonical;
+mod material;
+
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
+
+use canonical::{canonicalize_native_output, canonicalize_native_output_v2, scaled_f32_bits};
+pub use material::PhysXSharedMaterialProfileV1;
+use material::legacy_stage0_material_input;
 
 use next_contracts::input::TickRateProfileV1;
 use next_contracts::physics::{
     AuthoritativeNumericProfileV1, PHYSICS_CONTACT_NORMAL_X_FIELD_ID,
     PHYSICS_CONTACT_NORMAL_Y_FIELD_ID, PHYSICS_CONTACT_NORMAL_Z_FIELD_ID,
-    PHYSICS_SWEEP_DISTANCE_FIELD_ID, PhysicsMaterialCombineProfileV1, PhysicsMaterialCombineRuleV1,
-    PhysicsMaterialDescriptorV2, PhysicsQuantizationProfileV1, PhysicsShapeIdV1,
-    PhysicsSurfaceVelocityCombineRuleV1, PhysicsWorldCheckpointV1,
+    PHYSICS_SWEEP_DISTANCE_FIELD_ID, PhysicsQuantizationProfileV1, PhysicsShapeIdV1,
+    PhysicsWorldCheckpointV1,
 };
 use next_physics_api::{
     GroundedCapsuleQuery, GroundedCapsuleStaticBox, GroundedCapsuleSweepRequest,
@@ -20,11 +26,8 @@ use next_physics_api::{
 };
 use next_physics_physx_ffi::{
     ArticulationCollisionExclusionV2, ArticulationJointInput, ArticulationLinkInput,
-    ArticulationLinkInputV2, ArticulationShapeInputV2, CapsuleAxisSweepInput, ContactOutput,
-    ContactOutputV2, JointState, LinkState, MATERIAL_COEFFICIENT_ENCODING_F32_BITS,
-    MATERIAL_COEFFICIENT_ENCODING_Q16, MATERIAL_COMBINE_ARITHMETIC_MEAN_TIES_TO_EVEN,
-    MATERIAL_SURFACE_VELOCITY_CANONICAL_PARTICIPANT_ORDER, MaterialProfileInput, NativeWorld,
-    PhysXFfiError, SceneProfileInput, StaticBoxInput,
+    ArticulationLinkInputV2, ArticulationShapeInputV2, CapsuleAxisSweepInput, JointState,
+    LinkState, NativeWorld, PhysXFfiError, SceneProfileInput, StaticBoxInput,
 };
 
 pub type PhysXPhysicsWorld = GroundedCapsuleWorld<PhysXGroundedCapsuleQuery>;
@@ -85,94 +88,6 @@ pub struct PhysXArticulationCatalogV2 {
     pub shapes: Vec<ArticulationShapeInputV2>,
     pub joints: Vec<ArticulationJointInput>,
     pub collision_exclusions: Vec<ArticulationCollisionExclusionV2>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PhysXSharedMaterialProfileV1 {
-    pub material_ids: Vec<next_contracts::ids::SchemaId>,
-    pub static_friction_q16: u32,
-    pub dynamic_friction_q16: u32,
-    pub restitution_q16: u32,
-}
-
-impl PhysXSharedMaterialProfileV1 {
-    pub fn from_material_catalog(
-        materials: &BTreeMap<next_contracts::ids::SchemaId, PhysicsMaterialDescriptorV2>,
-        combine: &PhysicsMaterialCombineProfileV1,
-    ) -> Result<Self, PhysXAdapterError> {
-        combine
-            .validate()
-            .map_err(|_| PhysXAdapterError::UnsupportedProfile)?;
-        if materials.is_empty()
-            || [
-                combine.static_friction,
-                combine.dynamic_friction,
-                combine.restitution,
-                combine.rolling_friction,
-                combine.spinning_friction,
-            ]
-            .into_iter()
-            .any(|rule| rule != PhysicsMaterialCombineRuleV1::ArithmeticMeanTiesToEven)
-            || combine.surface_velocity
-                != PhysicsSurfaceVelocityCombineRuleV1::CanonicalParticipantOrder
-        {
-            return Err(PhysXAdapterError::UnsupportedProfile);
-        }
-        let mut descriptors = materials.iter();
-        let (first_id, first) = descriptors
-            .next()
-            .ok_or(PhysXAdapterError::UnsupportedProfile)?;
-        if first_id != &first.base.material_id {
-            return Err(PhysXAdapterError::ProfileMismatch);
-        }
-        first
-            .validate()
-            .map_err(|_| PhysXAdapterError::UnsupportedProfile)?;
-        if first.rolling_friction_q16 != 0
-            || first.spinning_friction_q16 != 0
-            || first.surface_velocity_micrometres_per_second != [0; 3]
-        {
-            return Err(PhysXAdapterError::UnsupportedProfile);
-        }
-        for (id, descriptor) in descriptors {
-            descriptor
-                .validate()
-                .map_err(|_| PhysXAdapterError::UnsupportedProfile)?;
-            if id != &descriptor.base.material_id {
-                return Err(PhysXAdapterError::ProfileMismatch);
-            }
-            if descriptor.base.static_friction_q16 != first.base.static_friction_q16
-                || descriptor.base.dynamic_friction_q16 != first.base.dynamic_friction_q16
-                || descriptor.base.restitution_q16 != first.base.restitution_q16
-                || descriptor.rolling_friction_q16 != first.rolling_friction_q16
-                || descriptor.spinning_friction_q16 != first.spinning_friction_q16
-                || descriptor.surface_velocity_micrometres_per_second
-                    != first.surface_velocity_micrometres_per_second
-            {
-                return Err(PhysXAdapterError::UnsupportedProfile);
-            }
-        }
-        Ok(Self {
-            material_ids: materials.keys().cloned().collect(),
-            static_friction_q16: first.base.static_friction_q16,
-            dynamic_friction_q16: first.base.dynamic_friction_q16,
-            restitution_q16: first.base.restitution_q16,
-        })
-    }
-
-    fn ffi(&self) -> MaterialProfileInput {
-        MaterialProfileInput {
-            coefficient_encoding: MATERIAL_COEFFICIENT_ENCODING_Q16,
-            static_friction: self.static_friction_q16,
-            dynamic_friction: self.dynamic_friction_q16,
-            restitution: self.restitution_q16,
-            rolling_friction: 0,
-            spinning_friction: 0,
-            surface_velocity_micrometres_per_second: [0; 3],
-            coefficient_combine_rules: [MATERIAL_COMBINE_ARITHMETIC_MEAN_TIES_TO_EVEN; 5],
-            surface_velocity_combine_rule: MATERIAL_SURFACE_VELOCITY_CANONICAL_PARTICIPANT_ORDER,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -850,196 +765,6 @@ impl GroundedCapsuleQuery for PhysXGroundedCapsuleQuery {
             return Err(ReferencePhysicsError::BackendNormalMismatch);
         }
         Ok(canonical)
-    }
-}
-
-fn canonicalize_native_output(
-    links: &[LinkState],
-    joints: &[JointState],
-    contacts: &[ContactOutput],
-) -> Result<CanonicalPhysXSnapshot, PhysXAdapterError> {
-    let mut canonical_links = links
-        .iter()
-        .map(|link| {
-            Ok(CanonicalPhysXLinkState {
-                user_token: link.user_token,
-                position_micrometres: quantize_vector(link.position_bits, 1_000_000.0)?,
-                rotation_q1_30: [
-                    quantize_bits(link.rotation_bits[0], (1_u64 << 30) as f64)?,
-                    quantize_bits(link.rotation_bits[1], (1_u64 << 30) as f64)?,
-                    quantize_bits(link.rotation_bits[2], (1_u64 << 30) as f64)?,
-                    quantize_bits(link.rotation_bits[3], (1_u64 << 30) as f64)?,
-                ],
-                linear_velocity_micrometres_per_second: quantize_vector(
-                    link.linear_velocity_bits,
-                    1_000_000.0,
-                )?,
-                angular_velocity_microradians_per_second: quantize_vector(
-                    link.angular_velocity_bits,
-                    1_000_000.0,
-                )?,
-            })
-        })
-        .collect::<Result<Vec<_>, PhysXAdapterError>>()?;
-    canonical_links.sort_unstable_by_key(|link| link.user_token);
-    if canonical_links
-        .windows(2)
-        .any(|pair| pair[0].user_token == pair[1].user_token)
-    {
-        return Err(PhysXAdapterError::InvalidOutput);
-    }
-
-    let canonical_joints = joints
-        .iter()
-        .enumerate()
-        .map(|(ordinal, joint)| {
-            Ok(CanonicalPhysXJointState {
-                ordinal: u32::try_from(ordinal).map_err(|_| PhysXAdapterError::CapacityExceeded)?,
-                position_microradians: quantize_bits(joint.position_bits, 1_000_000.0)?,
-                velocity_microradians_per_second: quantize_bits(joint.velocity_bits, 1_000_000.0)?,
-            })
-        })
-        .collect::<Result<Vec<_>, PhysXAdapterError>>()?;
-
-    let mut canonical_contacts = contacts
-        .iter()
-        .map(|contact| {
-            let swapped = contact.actor_a_token > contact.actor_b_token;
-            let (actor_a_token, actor_b_token) = if swapped {
-                (contact.actor_b_token, contact.actor_a_token)
-            } else {
-                (contact.actor_a_token, contact.actor_b_token)
-            };
-            let mut normal = quantize_vector(contact.normal_bits, (1_u64 << 30) as f64)?;
-            let mut impulse = quantize_vector(contact.impulse_bits, 1_000_000.0)?;
-            if swapped {
-                for value in &mut normal {
-                    *value = value
-                        .checked_neg()
-                        .ok_or(PhysXAdapterError::NumericOverflow)?;
-                }
-                for value in &mut impulse {
-                    *value = value
-                        .checked_neg()
-                        .ok_or(PhysXAdapterError::NumericOverflow)?;
-                }
-            }
-            Ok(CanonicalPhysXContact {
-                actor_a_token,
-                actor_b_token,
-                position_micrometres: quantize_vector(contact.position_bits, 1_000_000.0)?,
-                normal_q1_30: normal,
-                impulse_micronewton_seconds: impulse,
-                separation_micrometres: quantize_bits(contact.separation_bits, 1_000_000.0)?,
-            })
-        })
-        .collect::<Result<Vec<_>, PhysXAdapterError>>()?;
-    canonical_contacts.sort_unstable();
-    Ok(CanonicalPhysXSnapshot {
-        links: canonical_links,
-        joints: canonical_joints,
-        contacts: canonical_contacts,
-    })
-}
-
-fn canonicalize_native_output_v2(
-    links: &[LinkState],
-    joints: &[JointState],
-    contacts: &[ContactOutputV2],
-) -> Result<CanonicalPhysXSnapshotV2, PhysXAdapterError> {
-    let base = canonicalize_native_output(links, joints, &[])?;
-    let mut canonical_contacts = contacts
-        .iter()
-        .map(|contact| {
-            let swapped = (contact.actor_a_token, contact.shape_a_token)
-                > (contact.actor_b_token, contact.shape_b_token);
-            let (actor_a_token, actor_b_token, shape_a_token, shape_b_token) = if swapped {
-                (
-                    contact.actor_b_token,
-                    contact.actor_a_token,
-                    contact.shape_b_token,
-                    contact.shape_a_token,
-                )
-            } else {
-                (
-                    contact.actor_a_token,
-                    contact.actor_b_token,
-                    contact.shape_a_token,
-                    contact.shape_b_token,
-                )
-            };
-            let mut normal = quantize_vector(contact.normal_bits, (1_u64 << 30) as f64)?;
-            let mut impulse = quantize_vector(contact.impulse_bits, 1_000_000.0)?;
-            if swapped {
-                for value in &mut normal {
-                    *value = value
-                        .checked_neg()
-                        .ok_or(PhysXAdapterError::NumericOverflow)?;
-                }
-                for value in &mut impulse {
-                    *value = value
-                        .checked_neg()
-                        .ok_or(PhysXAdapterError::NumericOverflow)?;
-                }
-            }
-            Ok(CanonicalPhysXContactV2 {
-                actor_a_token,
-                actor_b_token,
-                shape_a_token,
-                shape_b_token,
-                position_micrometres: quantize_vector(contact.position_bits, 1_000_000.0)?,
-                normal_q1_30: normal,
-                impulse_micronewton_seconds: impulse,
-                separation_micrometres: quantize_bits(contact.separation_bits, 1_000_000.0)?,
-            })
-        })
-        .collect::<Result<Vec<_>, PhysXAdapterError>>()?;
-    canonical_contacts.sort_unstable();
-    Ok(CanonicalPhysXSnapshotV2 {
-        links: base.links,
-        joints: base.joints,
-        contacts: canonical_contacts,
-    })
-}
-
-fn quantize_vector(bits: [u32; 3], scale: f64) -> Result<[i64; 3], PhysXAdapterError> {
-    Ok([
-        quantize_bits(bits[0], scale)?,
-        quantize_bits(bits[1], scale)?,
-        quantize_bits(bits[2], scale)?,
-    ])
-}
-
-fn quantize_bits(bits: u32, scale: f64) -> Result<i64, PhysXAdapterError> {
-    let value = f64::from(f32::from_bits(bits));
-    let scaled = value * scale;
-    if !scaled.is_finite() || scaled < i64::MIN as f64 || scaled > i64::MAX as f64 {
-        return Err(PhysXAdapterError::NumericOverflow);
-    }
-    Ok(scaled.round_ties_even() as i64)
-}
-
-fn scaled_f32_bits(value: i64, scale: f64) -> Result<u32, PhysXAdapterError> {
-    let value = value as f64 / scale;
-    let value = value as f32;
-    if value.is_finite() {
-        Ok(value.to_bits())
-    } else {
-        Err(PhysXAdapterError::NumericOverflow)
-    }
-}
-
-fn legacy_stage0_material_input() -> MaterialProfileInput {
-    MaterialProfileInput {
-        coefficient_encoding: MATERIAL_COEFFICIENT_ENCODING_F32_BITS,
-        static_friction: 0.8_f32.to_bits(),
-        dynamic_friction: 0.7_f32.to_bits(),
-        restitution: 0.0_f32.to_bits(),
-        rolling_friction: 0,
-        spinning_friction: 0,
-        surface_velocity_micrometres_per_second: [0; 3],
-        coefficient_combine_rules: [MATERIAL_COMBINE_ARITHMETIC_MEAN_TIES_TO_EVEN; 5],
-        surface_velocity_combine_rule: MATERIAL_SURFACE_VELOCITY_CANONICAL_PARTICIPANT_ORDER,
     }
 }
 

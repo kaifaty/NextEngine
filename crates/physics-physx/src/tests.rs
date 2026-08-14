@@ -1,4 +1,9 @@
 use super::*;
+use next_contracts::physics::{
+    PhysicsMaterialCombineProfileV1, PhysicsMaterialCombineRuleV1, PhysicsMaterialDescriptorV2,
+    PhysicsSurfaceVelocityCombineRuleV1,
+};
+use next_physics_physx_ffi::MATERIAL_COEFFICIENT_ENCODING_Q16;
 
 fn canonical_material(id: &str, dynamic_friction_q16: u32) -> PhysicsMaterialDescriptorV2 {
     PhysicsMaterialDescriptorV2 {
