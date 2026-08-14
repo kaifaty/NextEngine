@@ -19,6 +19,7 @@ import numpy as np
 
 from next_lab import contact_manifold
 from next_lab.contact_manifold import (
+    ColliderClosure,
     ContactManifoldTolerances,
     project_reference_contact_manifold,
 )
@@ -31,6 +32,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--descriptor", type=Path, required=True)
     parser.add_argument("--corpus-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--case-scope",
+        choices=("all", "discriminator"),
+        default="all",
+    )
     return parser.parse_args()
 
 
@@ -58,8 +64,10 @@ def main() -> None:
         corpus_manifest=corpus_manifest,
         manifest_path=manifest_path,
     )
-    selected = _select_cases(source_audit["results"]["phase_results"], profile)
+    inventory = _select_cases(source_audit["results"]["phase_results"], profile)
+    selected = _select_case_scope(inventory, profile, args.case_scope)
     tolerances = _tolerances(profile["projection"])
+    collider_closure = _collider_closure(profile["projection"])
     clip_manifest = {entry["clip_id"]: entry for entry in corpus_manifest["clips"]}
     clip_cache: dict[str, tuple[dict[str, np.ndarray], dict[str, Any]]] = {}
     staging = Path(
@@ -92,6 +100,7 @@ def main() -> None:
                 frame_first=frame_first,
                 frame_last=frame_last,
                 tolerances=tolerances,
+                collider_closure=collider_closure,
             )
             artifact_id = f"{clip_id}--start-{frame_first:04d}"
             artifact_metadata = {
@@ -183,8 +192,15 @@ def main() -> None:
                     not case["target_failure_categories"]
                     for case in case_records
                 ),
-                "clip_ids": profile["selection"]["ordered_clip_ids"],
+                "case_scope": args.case_scope,
+                "prototype_inventory_case_count": len(inventory),
+                "clip_ids": [
+                    clip_id
+                    for clip_id in profile["selection"]["ordered_clip_ids"]
+                    if any(case["clip_id"] == clip_id for case in selected)
+                ],
                 "selection": profile["selection"],
+                "discriminator": profile.get("discriminator"),
                 "projection": profile["projection"],
             },
             "identities": {
@@ -322,6 +338,45 @@ def _select_cases(
     return result
 
 
+def _select_case_scope(
+    inventory: Sequence[dict[str, Any]],
+    profile: dict[str, Any],
+    case_scope: str,
+) -> list[dict[str, Any]]:
+    if case_scope == "all":
+        return list(inventory)
+    discriminator = profile.get("discriminator")
+    if not isinstance(discriminator, dict):
+        raise ValueError("prototype profile has no discriminator case scope")
+    ordered_ordinals = discriminator.get("ordered_source_case_ordinals")
+    if (
+        not isinstance(ordered_ordinals, list)
+        or not ordered_ordinals
+        or any(
+            isinstance(value, bool) or not isinstance(value, int)
+            for value in ordered_ordinals
+        )
+        or len(ordered_ordinals) != len(set(ordered_ordinals))
+    ):
+        raise ValueError("prototype discriminator inventory is invalid")
+    by_ordinal = {
+        int(record["source_row"]["case_ordinal"]): record
+        for record in inventory
+    }
+    if any(ordinal not in by_ordinal for ordinal in ordered_ordinals):
+        raise ValueError("prototype discriminator case is outside the inventory")
+    selected = [by_ordinal[ordinal] for ordinal in ordered_ordinals]
+    failure_count = sum(bool(item["target_failure_categories"]) for item in selected)
+    if (
+        len(selected) != int(discriminator["expected_case_count"])
+        or failure_count != int(discriminator["expected_failure_case_count"])
+        or len(selected) - failure_count
+        != int(discriminator["expected_control_case_count"])
+    ):
+        raise ValueError("prototype discriminator counts differ from profile")
+    return selected
+
+
 def _selection_record(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "clip_id": row["clip_id"],
@@ -358,11 +413,24 @@ def _validate_inputs(
     manifest_path: Path,
 ) -> None:
     source = profile.get("source", {})
+    prototype_id = profile.get("prototype_id")
+    projection = profile.get("projection", {})
+    discriminator = profile.get("discriminator")
+    version_shape_is_valid = (
+        prototype_id == "nextengine.humanoid-contact-manifold-prototype.v1"
+        and "collider_closure" not in projection
+        and discriminator is None
+    ) or (
+        prototype_id == "nextengine.humanoid-contact-manifold-prototype.v2"
+        and isinstance(projection.get("collider_closure"), dict)
+        and isinstance(discriminator, dict)
+        and discriminator.get("ordered_source_case_ordinals")
+        == [3749, 3750, 3753, 8144]
+    )
     if (
         profile.get("schema_version") != 1
         or profile.get("status") != "FrozenResearchOnly"
-        or profile.get("prototype_id")
-        != "nextengine.humanoid-contact-manifold-prototype.v1"
+        or not version_shape_is_valid
         or source_audit.get("check")
         != "TRAIN-4-ISAAC-EXHAUSTIVE-DYNAMIC-REFERENCE-FEASIBILITY"
         or source_audit.get("status") != "FAIL"
@@ -412,6 +480,59 @@ def _tolerances(projection: dict[str, Any]) -> ContactManifoldTolerances:
         minimum_mode_on_frames=int(projection["minimum_mode_on_frames"]),
         minimum_mode_off_frames=int(projection["minimum_mode_off_frames"]),
     )
+
+
+def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
+    document = projection.get("collider_closure")
+    if document is None:
+        return None
+    if (
+        not isinstance(document, dict)
+        or document.get("algorithm_id")
+        != "nextengine.bounded-flight-collider-closure.v1"
+        or document.get("root_vertical_policy")
+        != "upward-only residual all-collider floor after leg-chain correction"
+    ):
+        raise ValueError("collider-closure profile identity is invalid")
+    suffixes = tuple(document["ordered_joint_suffixes"])
+    bounds = document["joint_bounds_microradians"]
+    closure = ColliderClosure(
+        minimum_collider_height_micrometres=document[
+            "minimum_collider_height_micrometres"
+        ],
+        swing_clearance_target_micrometres=document[
+            "swing_clearance_target_micrometres"
+        ],
+        maximum_root_vertical_velocity_micrometres_per_second=document[
+            "maximum_root_vertical_velocity_micrometres_per_second"
+        ],
+        joint_velocity_limit_basis_points=document[
+            "joint_velocity_limit_basis_points"
+        ],
+        ordered_joint_suffixes=suffixes,
+        joint_bounds_microradians=tuple(
+            tuple(
+                tuple(bounds[f"joint.{side}-{suffix}"])
+                for suffix in suffixes
+            )
+            for side in ("left", "right")
+        ),
+        outer_iterations=document["outer_iterations"],
+        jacobian_probe_microradians=document[
+            "jacobian_probe_microradians"
+        ],
+        maximum_joint_update_microradians=document[
+            "maximum_joint_update_microradians"
+        ],
+        correction_smoothing_kernel_weights=tuple(
+            document["correction_smoothing_kernel_weights"]
+        ),
+        correction_smoothing_passes=document[
+            "correction_smoothing_passes"
+        ],
+    )
+    closure.validate()
+    return closure
 
 
 def _deterministic_npz_bytes(

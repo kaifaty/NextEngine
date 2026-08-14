@@ -52,6 +52,10 @@ def main() -> None:
     inputs = _validated_inputs(args)
     if args.partial_reset_worker and args.worker_case_ordinal >= 0:
         raise ValueError("reset-probe worker modes are mutually exclusive")
+    if args.partial_reset_worker and not inputs["profile"]["execution"][
+        "indexed_partial_reset"
+    ].get("enabled", True):
+        raise ValueError("indexed partial reset is disabled by the frozen profile")
     if args.partial_reset_worker:
         output = args.output.resolve()
         report_path = _partial_result_path(output)
@@ -90,9 +94,15 @@ def _validated_inputs(args: argparse.Namespace) -> dict[str, Any]:
     )
     source = profile.get("source", {})
     execution = profile.get("execution", {})
+    probe_id = profile.get("probe_id")
+    version_shape_is_valid = _probe_version_shape_is_valid(
+        probe_id=probe_id,
+        profile=profile,
+        prototype_manifest=manifest,
+        cases=cases,
+    )
     if (
-        profile.get("probe_id")
-        != "nextengine.humanoid-contact-manifold-physx-probe.v1"
+        not version_shape_is_valid
         or profile.get("status") != "FrozenResearchOnly"
         or source.get("audit_sha256") != _sha256(paths["source_audit_path"])
         or source.get("contact_prototype_manifest_sha256")
@@ -125,11 +135,6 @@ def _validated_inputs(args: argparse.Namespace) -> dict[str, Any]:
             ),
             "observation_horizon_offsets_motor_ticks": [0, 4, 8, 16],
         }
-        or execution.get("indexed_partial_reset", {}).get("process_isolation")
-        != (
-            "one dedicated worker process; the non-Isaac driver requires its "
-            "report before aggregation"
-        )
         or execution.get("optimizer_steps") != 0
         or execution.get("training_runs") != 0
     ):
@@ -144,6 +149,50 @@ def _validated_inputs(args: argparse.Namespace) -> dict[str, Any]:
         "source_audit": source_audit,
         "cases": cases,
     }
+
+
+def _probe_version_shape_is_valid(
+    *,
+    probe_id: Any,
+    profile: Mapping[str, Any],
+    prototype_manifest: Mapping[str, Any],
+    cases: Sequence[ContactPrototypeCase],
+) -> bool:
+    execution = profile.get("execution", {})
+    partial = execution.get("indexed_partial_reset", {})
+    acceptance = profile.get("bounded_acceptance", {})
+    if probe_id == "nextengine.humanoid-contact-manifold-physx-probe.v1":
+        return (
+            prototype_manifest.get("prototype_id")
+            == "nextengine.humanoid-contact-manifold-prototype.v1"
+            and len(cases) == 17
+            and partial.get("process_isolation")
+            == (
+                "one dedicated worker process; the non-Isaac driver requires "
+                "its report before aggregation"
+            )
+            and partial.get("enabled", True) is True
+            and acceptance.get(
+                "acceptance_authority", "fresh-and-indexed-partial"
+            )
+            == "fresh-and-indexed-partial"
+        )
+    if probe_id == "nextengine.humanoid-contact-manifold-physx-probe.v2":
+        return (
+            prototype_manifest.get("prototype_id")
+            == "nextengine.humanoid-contact-manifold-prototype.v2"
+            and prototype_manifest.get("scope", {}).get("case_scope")
+            == "discriminator"
+            and tuple(case.source_case_ordinal for case in cases)
+            == (3749, 3750, 3753, 8144)
+            and partial.get("enabled") is False
+            and partial.get("evidence_role") == "report-only"
+            and acceptance.get("acceptance_authority") == "fresh-scene"
+            and acceptance.get("pass_gate_decision")
+            == "PERMIT_ALL_17_BOUNDED_PROTOTYPE_ONLY"
+            and acceptance.get("fail_gate_decision") == "STOP_AND_RESEARCH"
+        )
+    return False
 
 
 def _run_driver(
@@ -208,30 +257,36 @@ def _run_driver(
                 f"fresh-scene worker {case.ordinal} is invalid; inspect {log_path}"
             )
 
+    partial_enabled = bool(
+        profile["execution"]["indexed_partial_reset"].get("enabled", True)
+    )
     partial_path = _partial_result_path(output)
     partial_log_path = output / "indexed-partial-reset.log"
-    with partial_log_path.open("wb") as log:
-        partial_completed = subprocess.run(
-            _partial_worker_command(args),
-            cwd=Path(__file__).resolve().parents[2],
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            check=False,
-        )
-    if partial_completed.returncode != 0 or not partial_path.is_file():
-        raise RuntimeError(
-            f"indexed partial-reset worker failed; inspect {partial_log_path}"
-        )
-    partial_report = json.loads(partial_path.read_bytes())
-    if (
-        partial_report.get("check")
-        != "TRAIN-4-ISAAC-CONTACT-MANIFOLD-INDEXED-PARTIAL-RESET"
-        or partial_report.get("status") != "PASS"
-        or partial_report.get("repository") != repository
-    ):
-        raise RuntimeError(
-            f"indexed partial-reset worker is invalid; inspect {partial_log_path}"
-        )
+    partial_report: dict[str, Any] | None = None
+    if partial_enabled:
+        with partial_log_path.open("wb") as log:
+            partial_completed = subprocess.run(
+                _partial_worker_command(args),
+                cwd=Path(__file__).resolve().parents[2],
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+        if partial_completed.returncode != 0 or not partial_path.is_file():
+            raise RuntimeError(
+                f"indexed partial-reset worker failed; inspect {partial_log_path}"
+            )
+        partial_report = json.loads(partial_path.read_bytes())
+        if (
+            partial_report.get("check")
+            != "TRAIN-4-ISAAC-CONTACT-MANIFOLD-INDEXED-PARTIAL-RESET"
+            or partial_report.get("status") != "PASS"
+            or partial_report.get("repository") != repository
+        ):
+            raise RuntimeError(
+                "indexed partial-reset worker is invalid; inspect "
+                f"{partial_log_path}"
+            )
 
     fresh_reports = []
     fresh_rows = []
@@ -262,40 +317,90 @@ def _run_driver(
             }
         )
         fresh_rows.append(report["phase_result"])
-    partial_rows = partial_report["results"]["phase_results"]
-    maximum_impulse_delta = int(
-        profile["reset_comparison"][
-            "maximum_first_tick_contact_pair_impulse_delta_micronewton_seconds"
-        ]
-    )
-    reset_comparison = compare_reset_paths(
-        fresh_rows=fresh_rows,
-        partial_rows=partial_rows,
-        maximum_first_tick_impulse_delta=maximum_impulse_delta,
-    )
     fresh_acceptance = evaluate_bounded_acceptance(cases=cases, rows=fresh_rows)
-    partial_acceptance = evaluate_bounded_acceptance(cases=cases, rows=partial_rows)
-    accepted = (
-        reset_comparison["status"] == "PASS"
-        and fresh_acceptance["status"] == "PASS"
-        and partial_acceptance["status"] == "PASS"
+    if partial_report is not None:
+        partial_rows = partial_report["results"]["phase_results"]
+        maximum_impulse_delta = int(
+            profile["reset_comparison"][
+                "maximum_first_tick_contact_pair_impulse_delta_micronewton_seconds"
+            ]
+        )
+        reset_comparison = compare_reset_paths(
+            fresh_rows=fresh_rows,
+            partial_rows=partial_rows,
+            maximum_first_tick_impulse_delta=maximum_impulse_delta,
+        )
+        partial_acceptance = evaluate_bounded_acceptance(
+            cases=cases, rows=partial_rows
+        )
+        partial_section = {
+            "status": partial_report["status"],
+            "evidence_role": "acceptance-comparison-input",
+            "report_sha256": _sha256(partial_path),
+            "log_relative_path": str(partial_log_path.relative_to(output)),
+            "log_sha256": _sha256(partial_log_path),
+            "results": partial_report["results"],
+        }
+        disposition_key = (
+            "equivalence_disposition"
+            if reset_comparison["status"] == "PASS"
+            else "divergence_disposition"
+        )
+        architecture_decision = profile["reset_comparison"][disposition_key]
+    else:
+        reset_comparison = {
+            "status": "NOT_RUN",
+            "required_for_acceptance": False,
+            "reason": (
+                "ADR-070 fresh-scene authority is already retained; indexed "
+                "partial reset is report-only"
+            ),
+        }
+        partial_acceptance = {
+            "status": "NOT_RUN",
+            "required_for_acceptance": False,
+        }
+        partial_section = {
+            "status": "NOT_RUN",
+            "evidence_role": profile["execution"]["indexed_partial_reset"][
+                "evidence_role"
+            ],
+            "results": None,
+        }
+        architecture_decision = profile["reset_comparison"][
+            "report_only_disposition"
+        ]
+    acceptance_profile = profile["bounded_acceptance"]
+    acceptance_authority = acceptance_profile.get(
+        "acceptance_authority", "fresh-and-indexed-partial"
     )
-    disposition_key = (
-        "equivalence_disposition"
-        if reset_comparison["status"] == "PASS"
-        else "divergence_disposition"
+    if acceptance_authority == "fresh-scene":
+        accepted = fresh_acceptance["status"] == "PASS"
+    elif acceptance_authority == "fresh-and-indexed-partial":
+        accepted = (
+            reset_comparison["status"] == "PASS"
+            and fresh_acceptance["status"] == "PASS"
+            and partial_acceptance["status"] == "PASS"
+        )
+    else:
+        raise ValueError("reset-probe acceptance authority is invalid")
+    gate_decision = acceptance_profile.get(
+        "pass_gate_decision" if accepted else "fail_gate_decision",
+        "PERMIT_FULL_V19_DATA_BUILD_ONLY" if accepted else "STOP_AND_RESEARCH",
     )
     report = {
         "schema_version": 1,
-        "check": "TRAIN-4-ISAAC-CONTACT-MANIFOLD-RESET-PROBE",
+        "check": (
+            "TRAIN-4-ISAAC-CONTACT-MANIFOLD-FRESH-SCENE-DISCRIMINATOR"
+            if acceptance_authority == "fresh-scene"
+            else "TRAIN-4-ISAAC-CONTACT-MANIFOLD-RESET-PROBE"
+        ),
         "status": "PASS" if accepted else "FAIL",
         "claim": "OptimizerFreeBoundedResearchOnly",
-        "gate_decision": (
-            "PERMIT_FULL_V19_DATA_BUILD_ONLY" if accepted else "STOP_AND_RESEARCH"
-        ),
+        "gate_decision": gate_decision,
         "architecture_disposition": {
             "adr": "ADR-070",
-            "decision": profile["reset_comparison"][disposition_key],
+            "decision": architecture_decision,
             "accepted_semantics_changed": False,
             "indexed_partial_reset_is_acceptance_evidence": False,
         },
@@ -305,8 +410,10 @@ def _run_driver(
             "vector_environment_count": len(cases),
             "horizon_motor_ticks": cases[0].horizon_motor_ticks,
             "fresh_scene_post_create_state_writes": 0,
-            "indexed_partial_reset_warmup_episodes_per_case": 1,
-            "indexed_partial_reset_process_count": 1,
+            "indexed_partial_reset_warmup_episodes_per_case": (
+                1 if partial_enabled else 0
+            ),
+            "indexed_partial_reset_process_count": 1 if partial_enabled else 0,
         },
         "method": profile["execution"],
         "fresh_scene": {
@@ -314,16 +421,11 @@ def _run_driver(
             "workers": fresh_reports,
             "results": _summarize_rows(fresh_rows),
         },
-        "indexed_partial_reset": {
-            "status": partial_report["status"],
-            "report_sha256": _sha256(partial_path),
-            "log_relative_path": str(partial_log_path.relative_to(output)),
-            "log_sha256": _sha256(partial_log_path),
-            "results": partial_report["results"],
-        },
+        "indexed_partial_reset": partial_section,
         "reset_comparison": reset_comparison,
         "bounded_acceptance": {
             "status": "PASS" if accepted else "FAIL",
+            "acceptance_authority": acceptance_authority,
             "fresh_scene": fresh_acceptance,
             "indexed_partial_reset": partial_acceptance,
         },
@@ -362,13 +464,17 @@ def _run_driver(
                 "fresh_failed_cases": report["fresh_scene"]["results"][
                     "required_safety_failed_case_count"
                 ],
-                "partial_failed_cases": report["indexed_partial_reset"][
-                    "results"
-                ]["overall"]["required_safety_failed_case_count"],
-                "maximum_first_tick_impulse_delta_micronewton_seconds": (
-                    reset_comparison[
-                        "maximum_first_tick_impulse_delta_micronewton_seconds"
+                "partial_failed_cases": (
+                    report["indexed_partial_reset"]["results"]["overall"][
+                        "required_safety_failed_case_count"
                     ]
+                    if partial_enabled
+                    else None
+                ),
+                "maximum_first_tick_impulse_delta_micronewton_seconds": (
+                    reset_comparison.get(
+                        "maximum_first_tick_impulse_delta_micronewton_seconds"
+                    )
                 ),
                 "manifest_sha256": report["manifest_sha256"],
                 "optimizer_steps": 0,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any
@@ -9,6 +10,7 @@ from numpy.typing import NDArray
 
 from next_lab.motion_math import (
     FloatArray,
+    collider_minimum_y,
     matrix_to_quaternion,
     quaternion_to_matrix,
     rotation_axis,
@@ -36,6 +38,7 @@ _LEG_SUFFIXES = (
     "ankle-pitch",
     "ankle-roll",
 )
+_COLLIDER_CLOSURE_SIDES = ("left", "right")
 
 
 @dataclass(frozen=True)
@@ -74,6 +77,84 @@ class ContactManifoldTolerances:
             < self.maximum_mode_inference_speed_micrometres_per_second
         ):
             raise ValueError("contact-manifold tolerances are invalid")
+
+
+@dataclass(frozen=True)
+class ColliderClosure:
+    """Frozen bounds for the bounded collider-aware prototype revision."""
+
+    minimum_collider_height_micrometres: int
+    swing_clearance_target_micrometres: int
+    maximum_root_vertical_velocity_micrometres_per_second: int
+    joint_velocity_limit_basis_points: int
+    ordered_joint_suffixes: tuple[str, ...]
+    joint_bounds_microradians: tuple[tuple[tuple[int, int], ...], ...]
+    outer_iterations: int
+    jacobian_probe_microradians: int
+    maximum_joint_update_microradians: int
+    correction_smoothing_kernel_weights: tuple[int, ...]
+    correction_smoothing_passes: int
+
+    def validate(self) -> None:
+        bounds = self.joint_bounds_microradians
+        kernel = self.correction_smoothing_kernel_weights
+        if (
+            isinstance(self.minimum_collider_height_micrometres, bool)
+            or not isinstance(self.minimum_collider_height_micrometres, int)
+            or self.minimum_collider_height_micrometres > 0
+            or isinstance(self.swing_clearance_target_micrometres, bool)
+            or not isinstance(self.swing_clearance_target_micrometres, int)
+            or self.swing_clearance_target_micrometres <= 0
+            or self.swing_clearance_target_micrometres
+            <= self.minimum_collider_height_micrometres
+            or isinstance(
+                self.maximum_root_vertical_velocity_micrometres_per_second,
+                bool,
+            )
+            or not isinstance(
+                self.maximum_root_vertical_velocity_micrometres_per_second,
+                int,
+            )
+            or self.maximum_root_vertical_velocity_micrometres_per_second <= 0
+            or isinstance(self.joint_velocity_limit_basis_points, bool)
+            or not isinstance(self.joint_velocity_limit_basis_points, int)
+            or not 0 < self.joint_velocity_limit_basis_points <= 10_000
+            or not self.ordered_joint_suffixes
+            or len(self.ordered_joint_suffixes)
+            != len(set(self.ordered_joint_suffixes))
+            or len(bounds) != len(_COLLIDER_CLOSURE_SIDES)
+            or any(len(side) != len(self.ordered_joint_suffixes) for side in bounds)
+            or any(
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                for side in bounds
+                for pair in side
+                for value in pair
+            )
+            or any(pair[0] > pair[1] for side in bounds for pair in side)
+            or isinstance(self.outer_iterations, bool)
+            or not isinstance(self.outer_iterations, int)
+            or self.outer_iterations <= 0
+            or isinstance(self.jacobian_probe_microradians, bool)
+            or not isinstance(self.jacobian_probe_microradians, int)
+            or self.jacobian_probe_microradians <= 0
+            or isinstance(self.maximum_joint_update_microradians, bool)
+            or not isinstance(self.maximum_joint_update_microradians, int)
+            or self.maximum_joint_update_microradians <= 0
+            or len(kernel) < 3
+            or len(kernel) % 2 == 0
+            or any(
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value <= 0
+                for value in kernel
+            )
+            or kernel != tuple(reversed(kernel))
+            or isinstance(self.correction_smoothing_passes, bool)
+            or not isinstance(self.correction_smoothing_passes, int)
+            or self.correction_smoothing_passes < 0
+        ):
+            raise ValueError("collider-closure bounds are invalid")
 
 
 @dataclass(frozen=True)
@@ -195,17 +276,23 @@ def project_reference_contact_manifold(
     frame_first: int,
     frame_last: int,
     tolerances: ContactManifoldTolerances = ContactManifoldTolerances(),
+    collider_closure: ColliderClosure | None = None,
 ) -> ContactManifoldProjection:
     """Close one bounded episode window on contact pose and velocity.
 
     Shared sticking points define a continuous root-link correction.  Its
     normal component is constrained by both the ground-residual interval and
-    the per-frame velocity interval.  Joint poses remain unchanged.  Emitted
-    root and joint velocities are finite differences of the final pose; their
-    analytic point velocity is checked against the same frozen limits.
+    the per-frame velocity interval.  An optional collider closure raises a
+    flight foot through a bounded, temporally smoothed leg-chain correction
+    before applying only the remaining upward root-link floor correction.
+    Emitted root and joint velocities are finite differences of the final
+    pose; their analytic point velocity is checked against the same frozen
+    limits.
     """
 
     tolerances.validate()
+    if collider_closure is not None:
+        collider_closure.validate()
     frame_count, joint_count = joint_position_urad.shape
     if (
         frame_count < 3
@@ -251,8 +338,24 @@ def project_reference_contact_manifold(
         active[:, :, 0].astype(np.uint8)
         + 2 * active[:, :, 1].astype(np.uint8)
     )
-    solved_root_um = root_position_um[interval] + correction_um
+    source_root_um = root_position_um[interval]
+    source_joint_urad = joint_position_urad[interval]
+    solved_root_um = source_root_um + correction_um
     solved_joint_urad = joint_position_urad[interval].copy()
+    collider_diagnostics: dict[str, Any] | None = None
+    if collider_closure is not None:
+        (
+            solved_root_um,
+            solved_joint_urad,
+            collider_diagnostics,
+        ) = _close_reference_colliders(
+            descriptor=descriptor,
+            root_position_um=solved_root_um,
+            root_quaternion_q1_30=root_quaternion_q1_30[interval],
+            joint_position_urad=solved_joint_urad,
+            contact_modes=modes,
+            closure=collider_closure,
+        )
     solved_roots = solved_root_um.astype(np.float64) / 1_000_000.0
     solved_joints = solved_joint_urad.astype(np.float64) / 1_000_000.0
     quaternions = (
@@ -288,18 +391,32 @@ def project_reference_contact_manifold(
         contact_modes=modes,
         tolerances=tolerances,
     )
-    correction_step = np.diff(correction_um, axis=0)
+    if collider_diagnostics is not None:
+        contact_status = diagnostics["status"]
+        diagnostics.update(collider_diagnostics)
+        diagnostics["active_contact_status"] = contact_status
+        diagnostics["status"] = (
+            "PASS"
+            if contact_status == "PASS"
+            and collider_diagnostics["collider_closure_status"] == "PASS"
+            else "FAIL"
+        )
+    total_root_correction_um = solved_root_um - source_root_um
+    joint_correction_urad = solved_joint_urad - source_joint_urad
+    correction_step = np.diff(total_root_correction_um, axis=0)
     diagnostics.update(
         {
             "frame_first": frame_first,
             "frame_last": frame_last,
             "maximum_root_correction_micrometres": int(
-                np.max(np.linalg.norm(correction_um, axis=1))
+                np.max(np.linalg.norm(total_root_correction_um, axis=1))
             ),
             "maximum_root_correction_step_micrometres": int(
                 np.max(np.linalg.norm(correction_step, axis=1))
             ),
-            "maximum_joint_correction_microradians": 0,
+            "maximum_joint_correction_microradians": int(
+                np.max(np.abs(joint_correction_urad))
+            ),
             "mode_counts": {
                 CONTACT_MODE_NAMES[value]: int(np.sum(modes == value))
                 for value in range(len(CONTACT_MODE_NAMES))
@@ -417,6 +534,383 @@ def contact_manifold_diagnostics(
             ),
         },
     }
+
+
+def _close_reference_colliders(
+    *,
+    descriptor: dict[str, Any],
+    root_position_um: NDArray[np.int64],
+    root_quaternion_q1_30: NDArray[np.int64],
+    joint_position_urad: NDArray[np.int64],
+    contact_modes: NDArray[np.uint8],
+    closure: ColliderClosure,
+) -> tuple[NDArray[np.int64], NDArray[np.int64], dict[str, Any]]:
+    """Close flight-foot and global ground geometry without changing limits."""
+
+    closure.validate()
+    frame_count, joint_count = joint_position_urad.shape
+    if (
+        root_position_um.shape != (frame_count, 3)
+        or root_quaternion_q1_30.shape != (frame_count, 4)
+        or contact_modes.shape != (frame_count, len(_COLLIDER_CLOSURE_SIDES))
+        or joint_count != len(descriptor.get("joints", ()))
+    ):
+        raise ValueError("collider-closure trajectory shape mismatch")
+
+    joint_lookup = {
+        joint["joint_id"]: int(joint["dof_ordinal"])
+        for joint in descriptor["joints"]
+    }
+    required_joint_ids = tuple(
+        f"joint.{side}-{suffix}"
+        for side in _COLLIDER_CLOSURE_SIDES
+        for suffix in closure.ordered_joint_suffixes
+    )
+    if (
+        len(joint_lookup) != joint_count
+        or any(joint_id not in joint_lookup for joint_id in required_joint_ids)
+    ):
+        raise ValueError("collider-closure joint identity mismatch")
+    joint_ordinals = np.asarray(
+        [
+            [
+                joint_lookup[f"joint.{side}-{suffix}"]
+                for suffix in closure.ordered_joint_suffixes
+            ]
+            for side in _COLLIDER_CLOSURE_SIDES
+        ],
+        dtype=np.int64,
+    )
+    joint_minimum = np.asarray(
+        [[pair[0] for pair in side] for side in closure.joint_bounds_microradians],
+        dtype=np.int64,
+    )
+    joint_maximum = np.asarray(
+        [[pair[1] for pair in side] for side in closure.joint_bounds_microradians],
+        dtype=np.int64,
+    )
+    for side_index in range(len(_COLLIDER_CLOSURE_SIDES)):
+        values = joint_position_urad[:, joint_ordinals[side_index]]
+        if np.any(values < joint_minimum[side_index]) or np.any(
+            values > joint_maximum[side_index]
+        ):
+            raise ValueError("source pose is outside collider-closure joint bounds")
+
+    all_colliders, foot_colliders = _collider_inventory(descriptor)
+    root_positions = root_position_um.astype(np.float64) / 1_000_000.0
+    root_quaternions = (
+        root_quaternion_q1_30.astype(np.float64) / float(1 << 30)
+    )
+    source_joints = joint_position_urad.astype(np.float64) / 1_000_000.0
+    solved_joints = source_joints.copy()
+    joint_minimum_rad = joint_minimum.astype(np.float64) / 1_000_000.0
+    joint_maximum_rad = joint_maximum.astype(np.float64) / 1_000_000.0
+    probe = closure.jacobian_probe_microradians / 1_000_000.0
+    maximum_update = closure.maximum_joint_update_microradians / 1_000_000.0
+    target_height = closure.swing_clearance_target_micrometres / 1_000_000.0
+    floor_height = closure.minimum_collider_height_micrometres / 1_000_000.0
+    flight_deficit = np.zeros(
+        (frame_count, len(_COLLIDER_CLOSURE_SIDES)), dtype=np.bool_
+    )
+    for frame in range(frame_count):
+        positions, rotations = target_forward_kinematics(
+            descriptor,
+            root_positions[frame],
+            root_quaternions[frame],
+            solved_joints[frame],
+        )
+        for side_index in range(len(_COLLIDER_CLOSURE_SIDES)):
+            if int(contact_modes[frame, side_index]) != FootContactMode.FLIGHT:
+                continue
+            flight_deficit[frame, side_index] = (
+                _minimum_collider_height(
+                    positions,
+                    rotations,
+                    foot_colliders[side_index],
+                )
+                < floor_height
+            )
+
+    for _ in range(closure.outer_iterations):
+        for frame in range(frame_count):
+            for side_index in range(len(_COLLIDER_CLOSURE_SIDES)):
+                if (
+                    int(contact_modes[frame, side_index])
+                    != FootContactMode.FLIGHT
+                ):
+                    continue
+                positions, rotations = target_forward_kinematics(
+                    descriptor,
+                    root_positions[frame],
+                    root_quaternions[frame],
+                    solved_joints[frame],
+                )
+                baseline = _minimum_collider_height(
+                    positions,
+                    rotations,
+                    foot_colliders[side_index],
+                )
+                deficit = target_height - baseline
+                if deficit <= 1.0e-9:
+                    continue
+                ordinals = joint_ordinals[side_index]
+                jacobian = np.empty(len(ordinals), dtype=np.float64)
+                for column, ordinal in enumerate(ordinals):
+                    candidate = solved_joints[frame].copy()
+                    candidate[ordinal] += probe
+                    candidate_positions, candidate_rotations = (
+                        target_forward_kinematics(
+                            descriptor,
+                            root_positions[frame],
+                            root_quaternions[frame],
+                            candidate,
+                        )
+                    )
+                    jacobian[column] = (
+                        _minimum_collider_height(
+                            candidate_positions,
+                            candidate_rotations,
+                            foot_colliders[side_index],
+                        )
+                        - baseline
+                    ) / probe
+                current = solved_joints[frame, ordinals]
+                unavailable = (
+                    (current <= joint_minimum_rad[side_index] + 0.5e-6)
+                    & (jacobian < 0.0)
+                ) | (
+                    (current >= joint_maximum_rad[side_index] - 0.5e-6)
+                    & (jacobian > 0.0)
+                )
+                jacobian[unavailable] = 0.0
+                gain = float(np.dot(jacobian, jacobian))
+                if gain <= 1.0e-18:
+                    continue
+                delta = np.clip(
+                    deficit * jacobian / gain,
+                    -maximum_update,
+                    maximum_update,
+                )
+                solved_joints[frame, ordinals] = np.clip(
+                    current + delta,
+                    joint_minimum_rad[side_index],
+                    joint_maximum_rad[side_index],
+                )
+
+    correction_urad = (
+        solved_joints * 1_000_000.0 - joint_position_urad.astype(np.float64)
+    )
+    selected_ordinals = np.unique(joint_ordinals.reshape(-1))
+    correction_urad[:, selected_ordinals] = _weighted_temporal_smooth_float(
+        correction_urad[:, selected_ordinals],
+        kernel=closure.correction_smoothing_kernel_weights,
+        passes=closure.correction_smoothing_passes,
+    )
+    solved_joint_urad = joint_position_urad.copy()
+    solved_joint_urad[:, selected_ordinals] += np.rint(
+        correction_urad[:, selected_ordinals]
+    ).astype(np.int64)
+    for side_index in range(len(_COLLIDER_CLOSURE_SIDES)):
+        ordinals = joint_ordinals[side_index]
+        solved_joint_urad[:, ordinals] = np.clip(
+            solved_joint_urad[:, ordinals],
+            joint_minimum[side_index],
+            joint_maximum[side_index],
+        )
+
+    leg_correction = solved_joint_urad - joint_position_urad
+    uncorrected_flight_deficits = 0
+    minimum_flight_before_root = math.inf
+    for frame, side_index in np.argwhere(flight_deficit):
+        side = int(side_index)
+        if not np.any(leg_correction[int(frame), joint_ordinals[side]]):
+            uncorrected_flight_deficits += 1
+    solved_root_um = root_position_um.copy()
+    root_lift_um = np.zeros(frame_count, dtype=np.int64)
+    for frame in range(frame_count):
+        joints = solved_joint_urad[frame].astype(np.float64) / 1_000_000.0
+        positions, rotations = target_forward_kinematics(
+            descriptor,
+            root_positions[frame],
+            root_quaternions[frame],
+            joints,
+        )
+        for side_index in range(len(_COLLIDER_CLOSURE_SIDES)):
+            if int(contact_modes[frame, side_index]) == FootContactMode.FLIGHT:
+                minimum_flight_before_root = min(
+                    minimum_flight_before_root,
+                    _minimum_collider_height(
+                        positions,
+                        rotations,
+                        foot_colliders[side_index],
+                    ),
+                )
+        minimum = _minimum_collider_height(
+            positions,
+            rotations,
+            all_colliders,
+        )
+        root_lift_um[frame] = max(
+            0,
+            int(np.ceil((floor_height - minimum) * 1_000_000.0)),
+        )
+    solved_root_um[:, 1] += root_lift_um
+
+    minimum_final = math.inf
+    for frame in range(frame_count):
+        positions, rotations = target_forward_kinematics(
+            descriptor,
+            solved_root_um[frame].astype(np.float64) / 1_000_000.0,
+            root_quaternions[frame],
+            solved_joint_urad[frame].astype(np.float64) / 1_000_000.0,
+        )
+        minimum_final = min(
+            minimum_final,
+            _minimum_collider_height(positions, rotations, all_colliders),
+        )
+
+    joint_velocity = _integer_velocity(solved_joint_urad, 60)
+    root_velocity = _integer_velocity(solved_root_um, 60)
+    maximum_joint_velocity_basis_points = 0
+    maximum_soft_rom_violation = 0
+    for joint in descriptor["joints"]:
+        ordinal = int(joint["dof_ordinal"])
+        maximum_velocity = int(
+            joint["maximum_velocity_microradians_per_second"]
+        )
+        maximum_joint_velocity_basis_points = max(
+            maximum_joint_velocity_basis_points,
+            int(
+                np.ceil(
+                    np.max(np.abs(joint_velocity[:, ordinal]))
+                    * 10_000.0
+                    / maximum_velocity
+                )
+            ),
+        )
+        soft_minimum, soft_maximum = joint["soft_limit_microradians"]
+        maximum_soft_rom_violation = max(
+            maximum_soft_rom_violation,
+            int(np.max(np.maximum(soft_minimum - solved_joint_urad[:, ordinal], 0))),
+            int(np.max(np.maximum(solved_joint_urad[:, ordinal] - soft_maximum, 0))),
+        )
+    minimum_final_um = int(np.floor(minimum_final * 1_000_000.0 + 1.0e-9))
+    minimum_flight_before_root_um = (
+        int(np.floor(minimum_flight_before_root * 1_000_000.0 + 1.0e-9))
+        if math.isfinite(minimum_flight_before_root)
+        else 0
+    )
+    maximum_root_vertical_velocity = int(np.max(np.abs(root_velocity[:, 1])))
+    passed = (
+        minimum_final_um >= closure.minimum_collider_height_micrometres
+        and maximum_soft_rom_violation == 0
+        and maximum_joint_velocity_basis_points
+        <= closure.joint_velocity_limit_basis_points
+        and maximum_root_vertical_velocity
+        <= closure.maximum_root_vertical_velocity_micrometres_per_second
+        and uncorrected_flight_deficits == 0
+    )
+    return solved_root_um, solved_joint_urad, {
+        "collider_closure_status": "PASS" if passed else "FAIL",
+        "minimum_collider_height_micrometres": minimum_final_um,
+        "minimum_flight_collider_height_before_root_lift_micrometres": (
+            minimum_flight_before_root_um
+        ),
+        "maximum_collider_root_lift_micrometres": int(np.max(root_lift_um)),
+        "maximum_root_vertical_velocity_micrometres_per_second": (
+            maximum_root_vertical_velocity
+        ),
+        "maximum_joint_velocity_basis_points": (
+            maximum_joint_velocity_basis_points
+        ),
+        "maximum_soft_rom_violation_microradians": maximum_soft_rom_violation,
+        "initial_flight_collider_deficit_frame_count": int(
+            np.sum(flight_deficit)
+        ),
+        "flight_collider_deficit_without_leg_correction_count": (
+            uncorrected_flight_deficits
+        ),
+        "collider_closure_tolerances": {
+            "minimum_collider_height_micrometres": (
+                closure.minimum_collider_height_micrometres
+            ),
+            "swing_clearance_target_micrometres": (
+                closure.swing_clearance_target_micrometres
+            ),
+            "maximum_root_vertical_velocity_micrometres_per_second": (
+                closure.maximum_root_vertical_velocity_micrometres_per_second
+            ),
+            "joint_velocity_limit_basis_points": (
+                closure.joint_velocity_limit_basis_points
+            ),
+        },
+    }
+
+
+def _collider_inventory(
+    descriptor: dict[str, Any],
+) -> tuple[
+    tuple[tuple[int, dict[str, Any]], ...],
+    tuple[tuple[tuple[int, dict[str, Any]], ...], ...],
+]:
+    all_colliders: list[tuple[int, dict[str, Any]]] = []
+    by_body = {body["body_id"]: body for body in descriptor.get("bodies", ())}
+    for body in descriptor.get("bodies", ()):
+        slot = int(body["body_slot"])
+        all_colliders.extend((slot, collider) for collider in body["colliders"])
+    foot_colliders = []
+    for side in _COLLIDER_CLOSURE_SIDES:
+        body = by_body.get(f"body.{side}-ankle-roll")
+        values = (
+            tuple(
+                (int(body["body_slot"]), collider)
+                for collider in body["colliders"]
+                if int(collider["contact_role"]) == 8
+            )
+            if body is not None
+            else ()
+        )
+        if not values:
+            raise ValueError("collider-closure foot collider identity mismatch")
+        foot_colliders.append(values)
+    if not all_colliders:
+        raise ValueError("collider-closure descriptor has no colliders")
+    return tuple(all_colliders), tuple(foot_colliders)
+
+
+def _minimum_collider_height(
+    positions: FloatArray,
+    rotations: FloatArray,
+    colliders: tuple[tuple[int, dict[str, Any]], ...],
+) -> float:
+    return min(
+        collider_minimum_y(positions[slot], rotations[slot], collider)
+        for slot, collider in colliders
+    )
+
+
+def _weighted_temporal_smooth_float(
+    values: FloatArray,
+    *,
+    kernel: tuple[int, ...],
+    passes: int,
+) -> FloatArray:
+    result = values.astype(np.float64, copy=True)
+    radius = len(kernel) // 2
+    weights = np.asarray(kernel, dtype=np.float64)
+    weights /= np.sum(weights)
+    for _ in range(passes):
+        padded = np.pad(result, ((radius, radius), (0, 0)), mode="edge")
+        result = np.stack(
+            [
+                np.sum(
+                    padded[index : index + len(kernel)] * weights[:, None],
+                    axis=0,
+                )
+                for index in range(len(result))
+            ]
+        )
+    return result
 
 
 def _continuous_root_contact_projection(
