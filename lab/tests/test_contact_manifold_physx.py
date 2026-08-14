@@ -81,6 +81,29 @@ class ContactManifoldPhysxTests(unittest.TestCase):
                 cases=boundary_case,
             )
         )
+
+        vector_manifest = _boundary_velocity_vector_manifest()
+        self.assertTrue(
+            native_dynamics_trace_probe_shape_is_valid(
+                profile=_native_trace_profile(
+                    role="v9-v7-boundary-velocity-vector",
+                    worker_case_ordinals=[0],
+                ),
+                prototype_manifest=vector_manifest,
+                cases=boundary_case,
+            )
+        )
+        vector_manifest["offline_verification"]["changed_dof_count"] = 17
+        self.assertFalse(
+            native_dynamics_trace_probe_shape_is_valid(
+                profile=_native_trace_profile(
+                    role="v9-v7-boundary-velocity-vector",
+                    worker_case_ordinals=[0],
+                ),
+                prototype_manifest=vector_manifest,
+                cases=boundary_case,
+            )
+        )
         boundary_manifest["offline_verification"][
             "changed_array_element_count"
         ] = 2
@@ -596,6 +619,57 @@ def _boundary_velocity_manifest() -> dict[str, Any]:
         "training_runs": 0,
         "repository": {"dirty": False},
     }
+
+
+def _boundary_velocity_vector_manifest() -> dict[str, Any]:
+    manifest = _boundary_velocity_manifest()
+    ordinals = [
+        0, 1, 3, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19,
+        20, 21,
+    ]
+    edit = {
+        "array": "joint_velocity_urad_s",
+        "frame_offset": 0,
+        "source_frame": 238,
+        "dof_scope": "all-ordered-joints",
+        "changed_dof_ordinals": ordinals,
+        "changed_dof_count": 18,
+        "source_vector_sha256": (
+            "5b76f62975e26711bf2e27db9df43509037f9d49c966369172ff1a47d0decece"
+        ),
+        "replacement_vector_sha256": (
+            "84a410295ea8f1d628ac5f8fd7048b7aa2a7ba4813e6457d66438a149d117a84"
+        ),
+        "delta_vector_sha256": (
+            "26b614cdcc3587aba8310f91b8c374a02f7ec030fad20759ff290281f2775cb0"
+        ),
+    }
+    manifest["check"] = (
+        "TRAIN-4-CONTACT-MANIFOLD-BOUNDARY-VELOCITY-VECTOR-COUNTERFACTUAL"
+    )
+    manifest["prototype_id"] = (
+        "nextengine.humanoid-contact-boundary-velocity-"
+        "vector-counterfactual.v1"
+    )
+    manifest["gate_decision"] = "PERMIT_EXACTLY_ONE_R101_FRESH_TRACE_ONLY"
+    manifest["scope"]["case_scope"] = (
+        "single-boundary-velocity-vector-counterfactual"
+    )
+    manifest["offline_verification"].update(
+        {
+            "changed_array_element_count": 18,
+            "changed_array_element_count_by_array": {
+                "joint_position_urad": 0,
+                "joint_velocity_urad_s": 18,
+            },
+            **edit,
+        }
+    )
+    manifest["cases"][0]["counterfactual_role"] = (
+        "boundary-velocity-vector-locality"
+    )
+    manifest["cases"][0]["counterfactual_edit"] = edit
+    return manifest
 
 
 def _case(
