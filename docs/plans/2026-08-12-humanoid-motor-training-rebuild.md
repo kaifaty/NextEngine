@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108 freezes model identity→quantization-aware KTO→fixed-PD inverse dynamics→kinodynamics as separate gates; R109 stops on invalid model lineage and R110 v2 formulates the exact material/point-force repair. Clean R111 closes contracts/compiler/native ABI 4, and clean R112 closes derived humanoid/ground USD material bindings plus explicit Isaac consumption with zero PhysX scenes. Only one report-only R113 clean model-identity preflight against that exact bundle is authorized next. KTO/ID/kinodynamic solves, candidates, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108 freezes model identity→quantization-aware KTO→fixed-PD inverse dynamics→kinodynamics as separate gates; R109 stops on invalid model lineage and R110 v2 formulates the exact material/point-force repair. Clean R111/R112 close native and derived material lineage; clean report-only R113 rechecks every R108 model-identity group with zero blockers and no scene/solve. Only R114 formulation of a bounded quantization-aware KTO execution contract is authorized next. KTO/ID/kinodynamic solves, candidates, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1910,9 +1910,21 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   Five frozen validations pass, including all `222` lab tests and full
   `host-check`; scene/solve/candidate/optimizer/training counts remain zero.
   Only one clean report-only R113 model-identity preflight is now authorized.
+  Clean R113 binds that exact R112 bundle, current structural/native/controller
+  sources, pinned Isaac Lab and R110's ordered point forces in one independent
+  report. All R108 identity groups close and the R109 blocker list is empty;
+  declared solver/flag/flat-ground representation differences remain
+  nonblocking mirror facts rather than runtime-equivalence claims. R113
+  canonical/file/profile SHA-256 is
+  `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf` /
+  `de584af485e789a19e457708cf154193c5d870dd1deb8ee29a61b6abddb6541c` /
+  `fa52cf18be25144893fb1d4da57bbae2fc2056d00d13e4bac012276ccc8cdf5d`.
+  Five validations pass, including `226/226` lab tests and full `host-check`;
+  one preflight and zero solver/PhysX/optimizer/training work are recorded.
+  Only report-only R114 KTO execution formulation is authorized; no solve.
 These results still cannot authorize full V19 or learned optimization.
 
-Roadmap status now advances only to report-only R113 after clean R112. This planning
+Roadmap status now advances only to report-only R114 formulation after clean R113. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 

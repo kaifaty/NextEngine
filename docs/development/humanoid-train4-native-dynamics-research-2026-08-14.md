@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R112_PASS / R113_MODEL_IDENTITY_PREFLIGHT_NEXT` |
+| Status | `R113_PASS / R114_KTO_FORMULATION_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -46,6 +46,7 @@ bounded research before another solver change or expensive native run.
 | R110 canonical-material/point-force formulation v2 | canonical/file/profile SHA-256 `83408b97b6ba13dc801b4d9b4f68e55146f9f39b09a451c238b24cc4c8c7d88d` / `234c7e51c3e6135bff55e503d8ce2bb58946c6cbef36598d92641ce7deb72637` / `85604a87bfc05ef170d21ff49d217d21327095414fb12b565efe76eb1afb9b18` | Clean `COMPLETE`: freezes a full SPEC-26 material successor, exact combine profile and solver-private ordered point forces; only R111 implementation is authorized and every runtime/solve/work count is `0` |
 | R111 canonical material-lineage implementation | canonical/file/profile SHA-256 `eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058` / `c8b5663c86fdf89ba4f8729fdccb2860328fd5e7b6144388ab892d5d4bc97bd7` / `a5cb5a3330eddefaeff33639e79c885ecbace7dfb8bddbf86de32f11b04bf44e` | Clean `PASS`: Accepted ADR-071, successor contracts/compiler/mirror and native ABI 4 close engine/native lineage; only static R112 USD/Isaac implementation is authorized and every scene/solve/work count is `0` |
 | R112 derived USD/Isaac material lineage | canonical/file/profile SHA-256 `dfb3bd892b04023054ce947127743e7ada78b40000a93e22887101c544c493f2` / `a615359b7855ca270dacced899960d71ab4a43c8aab69403fd154a55a0067778` / `c98c383117f03b5bb594855c831f2aa3a31453ac94b6f4fa2dc483015a3b7f0a` | Clean `PASS`: exact humanoid/ground material prims, `19+1` bindings and explicit Isaac consumption close the derived lineage; only report-only R113 is authorized and every scene/solve/work count is `0` |
+| R113 clean dynamics-model identity | canonical/file/profile SHA-256 `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf` / `de584af485e789a19e457708cf154193c5d870dd1deb8ee29a61b6abddb6541c` / `fa52cf18be25144893fb1d4da57bbae2fc2056d00d13e4bac012276ccc8cdf5d` | Clean `PASS`: all R108 identity groups close with zero blockers; only report-only R114 KTO formulation is authorized, with one preflight and zero scene/solve/work counts |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -985,17 +986,53 @@ It records zero model-identity preflights, scene, solve, candidate, optimizer
 and training work and returns
 `PERMIT_R113_CLEAN_DYNAMICS_MODEL_IDENTITY_PREFLIGHT_ONLY`.
 
+## R113 clean dynamics-model identity result
+
+R113 performs the independent report-only recheck required by R109/R112. It
+binds the exact R112 mirror V2, humanoid USD, ground USD and translation
+manifest; the exact R110 v2 solver-private point-force report; current
+structural/compiler/native/controller sources; and pinned clean Isaac Lab
+`v2.3.2` at `37ddf626871758333d6ed89cf64ad702aef127d0`. It constructs no
+scene or dynamics model and solves no equation.
+
+All eight R108 identity groups close together. The descriptor still has
+`24` bodies, `23` joints, `23` actuators, `19` colliders, `10` non-colliding
+carriers, `30` exclusions and mass `75337000 µkg`; its compiled/material hashes
+are the exact R111 successors. The three Q16 material rows and combine profile
+match native ABI 4 and all `19+1` derived bindings, while both native ambient
+`0.8/0.7` literals and Isaac `0.5/0.5` defaults are unreachable. R110's four
+ordered `[normal,right,forward]` point forces, application points, cadence and
+no-independent-moment rule close the former wrench-ownership gap.
+
+R113 deliberately preserves three nonblocking mirror divergences: native/Isaac
+position iterations `16/8`, scene determinism/contact-cache flags, and flat-box
+versus derived-plane ground representation. SPEC-35 correspondence remains
+tolerance-based and final authority remains canonical CPU PhysX, so the report
+makes no runtime numerical-equivalence, PhysX-behavior or correspondence claim.
+The R109 blocking set is now empty, but dynamic feasibility is still untested.
+
+The clean report at commit `2bec28f5de9a97f8e49198e58cc55a1d7dd26ebd`
+passes Ruff, all `226` lab tests, motor tests and full `host-check`. Its
+canonical/file/profile SHA-256 is
+`3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf` /
+`de584af485e789a19e457708cf154193c5d870dd1deb8ee29a61b6abddb6541c` /
+`fa52cf18be25144893fb1d4da57bbae2fc2056d00d13e4bac012276ccc8cdf5d`.
+It records one model-identity preflight and zero solver, KTO, inverse-dynamics,
+kinodynamic, candidate, PhysX, optimizer or training work. The only successor
+gate is `PERMIT_SEPARATE_BOUNDED_KTO_EXECUTION_FORMULATION_ONLY`: R114 may
+freeze a bounded KTO execution contract, but may not execute it.
+
 ## Decision
 
-Freeze R92–R112, retain the contact result as bounded support for H23, and
+Freeze R92–R113, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
 values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
 and the late projected direction after its exact `2501/2500 bp` failure.
-R109's predeclared failure gate still stops the dynamics lineage, while R112
-authorizes only one clean report-only R113 identity preflight against the exact
-mirror, humanoid USD, ground USD and manifest. KTO, candidate artifact/native
-scene construction and all-17 remain blocked until R113 closes the model, and
-until a future bounded
-candidate passes every selected fresh control without changing controller
+R113 closes the R109 model-identity stop but authorizes only one report-only
+R114 formulation of the bounded quantization-aware KTO execution contract.
+KTO execution, candidate artifact/native scene construction and all-17 remain
+blocked until that formulation passes. Any later bounded execution stays
+separately gated and must preserve every selected fresh control without
+changing controller
 semantics, safety limits, fresh-scene authority or the exact-zero gate.
