@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R95_TWO_CASE_COUNTERFACTUALS_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R96_DIRECT_ACCELERATION_NEXT` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,19 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Clean R95 selects orthogonal cases `2` and `10` for
-  contact-gap and derivative-spike counterfactuals after R94 failed `7/17`.
-- **Why:** Case `2` impacts with no derivative amplification but a `1539 µm`
-  support gap; case `10` has `8.3576x/32.7269x` acceleration/jerk amplification.
-- **Next action:** Build two independent offline R96 variants, then fresh-run
-  only the selected cases in R97 if both preserve the frozen offline gate.
-- **Current blocker:** V9 lacks physical contact reserve and derivative
-  regularity required by the fixed-PD plant.
+- **Current conclusion:** Contact reserve qualifies offline for case `2`, but
+  first-/second-difference derivative variants are rejected for case `10`.
+- **Why:** The gap falls `1539 -> 496 µm`; second difference lowers jerk
+  `31.06%` but worsens acceleration `1.44%` at the velocity-stencil transition.
+- **Next action:** Build one direct emitted-acceleration R96 derivative variant;
+  fresh-run cases `2/10` only if both independent offline variants qualify.
+- **Current blocker:** Case `10` still asks fixed PD for excessive emitted
+  acceleration despite smoother correction pose and unchanged contact modes.
 - **Do not retry:** Do not start PPO, build another broad whole-corpus
   ankle/retarget identity, zero reference velocities, add grace/settling, or
   loosen safety limits. The causal matrix rejects these as fixes.
-- **Reconsider when:** Both selected R97 cases pass before another full fresh
-  all-17 run.
+- **Reconsider when:** Direct acceleration qualifies and both selected R97
+  cases pass before another full fresh all-17 run.
 
 All TRAIN-5 checkpoints remain rejected. No optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -41,7 +41,7 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R92–R95 V9 research | R93 offline PASS; R94 fresh `FAIL 7/17`; R95 isolates contact-gap case `2` and derivative-spike case `10` | Permit only two independent offline/fresh counterfactuals; training blocked |
+| R92–R96 V9 research | R94 fresh `FAIL 7/17`; R95 isolates cases `2/10`; clean R96 contact qualifies but second difference is rejected | Retain contact candidate; permit one direct-acceleration derivative candidate; training blocked |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
 R94/R95 file SHA-256: `4aab74888d50fae2ab644445597d3f7f7a64217f078ceca4b4f8045ed34f0929` / `8287e3ef751d22a46cc312d1dc7a79f3245302a2fa4d3da965cd7e5efd652f76`.
@@ -178,16 +178,16 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether tighter internal contact reserve and smoother
-  correction separately close cases `2/10` without breaking offline bounds.
-- **Reconsider when:** R96 offline variants and R97 two-case fresh evidence
-  complete without changing frozen bounds.
+- **Uncertainty:** Whether direct emitted-acceleration regularity closes case
+  `10`; contact reserve already qualifies offline for case `2`.
+- **Reconsider when:** The derivative variant qualifies and R97 two-case fresh
+  evidence completes without changing frozen bounds.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R95 case `10` derivative amplification | Passing rough controls show it is not sufficient | R96/R97 derivative-only `10` |
+| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R95 case `10`; R96 proxy smoothers miss emitted acceleration | Second difference lowers jerk only | Direct-acceleration R96, then R97 `10` |
 | H23: offline clearance misses PhysX impulse risk | R95 case `2` support gap with normal derivatives | Late failures need another cause | R96/R97 contact-only `2` |
 | H24: clip-global changes regress local controls | Four new failures; shared derivative hotspots | Exact causal operator not yet isolated | R96 locality audit |
 | H25: reset mismatch causes R94 | Earlier reset concerns | R94 state is exact within quantization | Falsified; do not retry |
@@ -218,10 +218,10 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73–R95 and the non-promotable R81 observation.
-2. Build an active-contact-reserve-only offline variant for ordinal `2`.
-3. Build a derivative-regularity-only offline variant for ordinal `10`.
-4. Fresh-run only both passing variants; keep training blocked.
+1. Freeze clean R73–R96 and non-promotable R81/first-difference observations.
+2. Retain the hash-closed contact-reserve candidate for ordinal `2`.
+3. Build one direct emitted-acceleration-only variant for ordinal `10`.
+4. Fresh-run only both qualified variants; keep training blocked.
 
 ## Do not retry
 
@@ -239,10 +239,10 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** V9/probe/R95 audit are committed; tracked research records
-  R73–R95. Generated artifacts remain external and hash-bound.
-- **Checks:** R95 focused `2/2`, full lab `170/170`; R93 offline PASS, R94
-  fresh FAIL, clean R95 COMPLETE; optimizer and training remain zero.
+- **Workspace state:** R96 implementation is committed; tracked research records
+  R73–R96. Generated artifacts remain external and hash-bound.
+- **Checks:** Full lab `172/172`; R96 contact offline PASS, second-difference
+  causal metric FAIL; optimizer, training and R96 PhysX remain zero.
 - **Remaining risk:** Dynamic-reference feasibility, full-corpus exact-zero
   coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any

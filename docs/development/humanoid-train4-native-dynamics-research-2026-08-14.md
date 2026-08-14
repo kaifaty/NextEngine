@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R95_COMPLETE / TWO_ORTHOGONAL_COUNTERFACTUALS_SELECTED` |
+| Status | `R96_CONTACT_QUALIFIED / DERIVATIVE_MECHANISM_REJECTED` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -148,6 +148,74 @@ counterfactual: its right flight foot starts only `49 µm` above ground versus
 R95's fixed-PD quantities remain explicitly labelled proxies. They rank
 experiments but are neither native torque traces nor feasibility proof.
 
+## R96 independent offline results
+
+Both frozen counterfactual profiles and their solver support were implemented
+at clean commit `14c322ab7db44bdc9dad2e7f5b5e2e3b9476ae09`. The complete
+lab suite passed `172/172`; optimizer steps, training runs and PhysX runs were
+zero. The variants were evaluated independently and are not a bundled fix.
+
+### Contact reserve: qualified offline
+
+The contact-only profile has SHA-256
+`289133123584fc1f228839731e5df405aacfb0deb6c7aca6cc692dbbe96c8a58`.
+It changes only the internal normal-residual margin from `100` to `4500 µm`;
+the public residual remains `5000 µm`, the collider floor remains `-2 µm`, and
+all contact, ROM, velocity and controller identities remain unchanged.
+
+The clean `cmu05` complete-clip build passes in two SQP iterations. Its
+canonical/file manifest SHA-256 is
+`376fedff6f8a6a327c2f99f6700d82a338e7117e310d26c36e92b154f9c691eb` /
+`08b28cea1ebd69ebfc5bff88f6f17936cb98caa86bc8fb4661b1a4e2cc13fab9`.
+The complete clip retains zero contact-point deletion, maximum normal residual
+`510 µm`, finite tangential/normal steps `1982/426 µm`, analytic
+tangential/normal steps `1970/998 µm`, collider minimum `+49 µm`, joint
+velocity `2500 bp` and root vertical velocity `199770 µm/s`.
+
+On ordinal `2`, the left active-support clearance moves from `1539` to
+`496 µm` (`67.8%` reduction), maximum normal residual is `506 µm`, and the
+contact modes and contact bytes are unchanged. This variant qualifies for its
+single fresh-scene R97 discriminator, but that run is held until the independent
+derivative variant also qualifies.
+
+### Derivative regularity: two rejected mechanisms
+
+An exploratory first-difference-only run changed the existing coefficient from
+`0.01` to `1.0`. It passed the unchanged offline bounds, but case `10`
+acceleration increased from `78001200` to `80047800 µrad/s²` (`+2.62%`) while
+jerk fell only to `7404696000 µrad/s³` (`-18.39%`). It emitted no frozen
+candidate/report and is non-promotable; no coefficient sweep followed.
+
+Read-only localization then found that the right-hip-pitch correction falls
+from `47446` to `505 µrad` across frames `244 -> 245` and rebounds to
+`4398 µrad` at frame `246`, exactly when the right forefoot changes from
+sticking to flight. This produces the R95 `-78001200 µrad/s²` acceleration at
+frame `245` and `9073080000 µrad/s³` jerk at frame `246`.
+
+The clean second-difference profile has SHA-256
+`8d7a9dbc8f3d080891a8ec0ba4db38dd5ae73274888b559ff26e1303fbcd129e`.
+It adds one dimensionless correction-curvature coefficient of `1.0`, equal to
+the frozen correction-magnitude regularization, with no sweep or other change.
+The `cmu16` complete clip and exact case `10` slice pass every unchanged
+offline bound with zero mode/contact disagreement and zero changes in
+unselected joint channels. Canonical/file manifest SHA-256 is
+`ac7b180fcd429edc4360b4187837002472202717c39d2b7fbebf6f9490af2931` /
+`0c61860517cfe6c6f87507203b4ec8251c193b514d88e9134b429149b8bd4ae0`.
+
+It nevertheless fails the causal metric: jerk improves to
+`6254388000 µrad/s³` (`-31.06%`), but acceleration worsens to
+`79126200 µrad/s²` (`+1.44%`). The correction is smoother in pose space, yet
+the frozen emitted-velocity stencil changes from backward difference on the
+last contact frame to centered difference in flight. The objective therefore
+still optimizes a proxy rather than the emitted acceleration seen by fixed PD.
+Ordinal `10` is not authorized for R97 from this artifact.
+
+The next derivative experiment must operate directly on the first difference
+of the emitted hybrid-stencil velocity, using one predeclared dimensionless
+coefficient and no grid search. It must strictly reduce both acceleration and
+jerk, preserve byte-identical modes/unselected channels and pass all unchanged
+offline limits before fresh PhysX is considered.
+
 ## R96/R97 bounded counterfactual contract
 
 R96 may construct two independent report-only variants, not one bundled fix:
@@ -155,8 +223,9 @@ R96 may construct two independent report-only variants, not one bundled fix:
 1. contact reserve only for ordinal `2`, moving the declared active support
    toward physical contact inside the unchanged `5000 µm` public residual and
    `-2 µm` collider bounds;
-2. derivative regularity only for ordinal `10`, suppressing the frame
-   `245/246` correction spike without changing velocity, ROM or PD limits.
+2. derivative regularity only for ordinal `10`, now acting on emitted hybrid-
+   stencil acceleration after correction-curvature regularization was rejected,
+   without changing velocity, ROM or PD limits.
 
 Each variant must pass the unchanged offline audit and show that its intended
 metric decreases without silently changing contact modes or unrelated
@@ -165,8 +234,10 @@ causal discriminator, not all-17 acceptance or corpus evidence.
 
 ## Decision
 
-Freeze R92–R95. Do not retune V9 blindly and do not begin training. Implement
-the two independent R96 variants above, then run only ordinals `2` and `10` in
-fresh R97. A full all-17 rerun is allowed only if both causal counterfactuals
-pass without changing controller semantics, safety limits, fresh-scene
-authority or the exact-zero gate.
+Freeze R92–R95 and both clean R96 artifacts. Retain the qualified contact
+variant, reject first- and second-difference-only derivative tuning, and do not
+begin training. Construct one direct emitted-acceleration variant for ordinal
+`10`; only if it qualifies may R97 run ordinals `2` and `10`. A full all-17
+rerun is allowed only if both causal counterfactuals pass without changing
+controller semantics, safety limits, fresh-scene authority or the exact-zero
+gate.
