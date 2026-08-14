@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "conformance_id": "nextengine.humanoid-kto-linearization-repair-conformance.v1",
+  "status": "FrozenReportOnly",
+  "claim": "ExactKernelFullQvDerivativeConformanceOnly",
+  "source": {
+    "r117": {
+      "report_sha256": "b0a9f07012e0f43c660019df8a1f31e7368f6130312231cf6c2bddb0f59fb7c7",
+      "report_file_sha256": "f32f31d895ed26f1f7ec842b2125ce0329a0d5802435aaebc5973d198dc06ed4",
+      "profile_sha256": "eaabc22958324504756d95239ceefec3597523cf01e2d3c8633d6942db23da55",
+      "formulation_module_sha256": "ca6f6d63968955eabbd14683db4a6c108e1269bc788d84c5381ac9fe48d41973",
+      "tool_sha256": "d96cf61509fdebfa96ca97f5b3b0f6a85470b5f46fdefe97e598fc912f4cd09a",
+      "repository_commit": "41b72395d7a7f6c5c4eb2b8f19bcb86dbc594321"
+    },
+    "current_descriptor_file_sha256": "7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3",
+    "v9_profile_sha256": "bccf5eb12c8de2e1c0fa20df74c55f30cc9e964e7d5cbfcbf596bb6d672815ab",
+    "v9_complete_clip_sha256": "16cacfc0d6a5a57a7e2e2fad75faef1681e9b17c02cd3b78bafc7bb4ed3b5b7d",
+    "contact_manifold_module_sha256": "89d0a51542d78cebfc49504f8473224a526d56d5c0ad2cf53afef986d92142b3",
+    "motion_math_module_sha256": "2866ef76bc7e056b4cfdd3bd60378ef5c7813d0b3003eaccf9bc5207b8b79d68"
+  },
+  "scope": {
+    "run_id": "R118",
+    "clip_id": "cmu16-walk-nominal-b",
+    "frame_count": 801,
+    "conformance_reports": 1,
+    "qp_solves": 0,
+    "kto_solves": 0,
+    "candidate_construction": false,
+    "physx_scene_runs": 0,
+    "training": false
+  },
+  "function_contract": {
+    "identity": "physical-unit extension of contact_manifold._analytic_active_point_velocities at the byte-exact V9 anchor",
+    "root_linear_velocity": "explicit current-knot engine-world vector",
+    "root_yaw_lever": "world-Y left-multiplied one-sided lever",
+    "joint_levers": "six same-side one-sided leg-joint levers only",
+    "lever_probe_radians": 0.0001,
+    "baseline_yaw_extension": "exact emitted V9 root-yaw velocity plus the frozen stencil applied only to continuous nearest-branch yaw deltas",
+    "yaw_stencil": "forward on any-side contact entry, backward on any-side exit, centered otherwise with entry precedence",
+    "normal_constraint": "-0.06 <= velocity_y_m_s <= 0.06",
+    "tangential_constraint": "velocity_x_m_s^2 + velocity_z_m_s^2 <= 0.12^2",
+    "forbidden_substitutions": [
+      "generic spatial frame Jacobian times all root angular and joint velocities",
+      "symmetric position lever substituted for the frozen one-sided exact-kernel lever",
+      "wrapped per-frame yaw or an independently unwrapped yaw branch",
+      "R115 tangential component box",
+      "continuous feasibility substituted for emitted integer acceptance"
+    ]
+  },
+  "variable_contract": {
+    "configuration_columns": [
+      "current root translation",
+      "current world-tangent root orientation",
+      "current complete 23-joint configuration",
+      "world-tangent root orientation at each distinct yaw-stencil source knot"
+    ],
+    "velocity_columns": [
+      "current engine-world root linear velocity",
+      "current root angular velocity as independently audited unrelated zero columns",
+      "current complete 23-joint velocity"
+    ],
+    "production_derivative": "deterministic symmetric finite difference of the bound whole function",
+    "independent_reference": "separately implemented whole function and symmetric finite-difference loop",
+    "probes": {
+      "root_translation_metres": 0.00001,
+      "root_orientation_radians": 0.0001,
+      "joint_position_radians": 0.0001,
+      "root_linear_velocity_metres_per_second": 0.00001,
+      "root_angular_velocity_radians_per_second": 0.0001,
+      "joint_velocity_radians_per_second": 0.0001
+    }
+  },
+  "numeric_tolerances": {
+    "function_identity_absolute_micrometres_per_second_per_component": 1.0,
+    "jacobian_absolute_micrometres_per_second_per_variable_unit": 5.0,
+    "jacobian_relative": 0.0001,
+    "configuration_nonzero_micrometres_per_second_per_radian": 1.0,
+    "tangent_chain_rule_absolute_square_metres_per_square_second_per_unit": 0.000005
+  },
+  "deterministic_anchors": [
+    "frame-328:left-forefoot",
+    "frame-92:left-forefoot",
+    "frame-165:left-forefoot",
+    "frame-93:left-heel",
+    "frame-179:right-heel",
+    "frame-76:right-forefoot",
+    "frame-1:right-heel"
+  ],
+  "required_checks": [
+    "all 1241 byte-exact V9 active point-frames agree with the emitted exact kernel within 1 micrometre per second per component",
+    "the fixed seven-anchor set covers the R115-RC1 hotspot plus entry, exit and centered stencils on both sides",
+    "the implementation Jacobian agrees with the separate whole-function symmetric reference within 5 micrometres per second per variable-unit plus 0.0001 relative tolerance",
+    "every independently nonzero configuration column is nonzero in the implementation",
+    "each distinct neighbor yaw-stencil knot contributes a nonzero orientation column",
+    "root-linear and six same-side joint-velocity columns are present while independently audited unrelated velocity columns remain zero",
+    "the scalar tangential row is the norm-squared chain rule and never a component box",
+    "the process imports no solver module, executes no solver and emits no candidate arrays"
+  ],
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/kto_linearization_repair_conformance.py",
+        "lab/scripts/audit_kto_linearization_repair_conformance.py",
+        "lab/tests/test_kto_linearization_repair_conformance.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/kto_linearization_repair_conformance.py",
+        "lab/scripts/audit_kto_linearization_repair_conformance.py",
+        "lab/tests/test_kto_linearization_repair_conformance.py"
+      ]
+    },
+    {
+      "id": "solver_free_import",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "import sys; import next_lab.kto_linearization_repair_conformance; assert 'osqp' not in sys.modules"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "decision": {
+    "pass": "PERMIT_SEPARATE_REPORT_ONLY_R119_REPAIRED_KTO_EXECUTION_FORMULATION_ONLY",
+    "fail": "STOP_AND_RESEARCH"
+  },
+  "next_smallest_action": {
+    "pass": "freeze one separate report-only R119 repaired-KTO execution formulation; do not solve a QP or KTO problem",
+    "fail": "stop and diagnose the first failed function, derivative, dependency or chain-rule boundary without a solve"
+  },
+  "bounded_acceptance": {
+    "r119_repaired_kto_execution_formulation": "AUTHORIZED_REPORT_ONLY_ON_R118_PASS",
+    "additional_kto_solve": "NOT_AUTHORIZED",
+    "r116_inverse_dynamics_formulation": "NOT_AUTHORIZED",
+    "inverse_dynamics_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
