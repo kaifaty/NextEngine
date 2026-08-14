@@ -4,7 +4,7 @@
 | --- | --- |
 | Date | 2026-08-14 |
 | Scope | Optimizer-free learned-policy lane; offline constraint-solver research for `REQ-HUM-DATA-005/007` |
-| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / TRIAL-JACOBIAN RESTORATION RESEARCH` |
+| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / TRIAL-JACOBIAN PHASE-I RESEARCH` |
 | Current implementation | `nextengine.dimensionless-contact-trajectory-qp.v8` |
 | Claim ceiling | Research infrastructure only; no V19, TRAIN-4 Advance, visual gate or learned optimization |
 
@@ -53,6 +53,7 @@ All generated artifacts remain under the external TRAIN-4 evaluation root.
 | R81 exact worst/total feasibility-filter observation | The first two full candidates improve both measures. The filter then accepts the R80-rejected full third step (`3.3688/12.7776 -> 3.7554/9.5286`) and another non-dominated step (`3.7554/9.5286 -> 5.9160/8.8038`). Thus it crosses the max-first plateau, but permits worst violation to return close to the immutable source ceiling `6.0602`. The run was stopped between QPs before a report/candidate was emitted. | Support the filter diagnosis; reject this two-violation filter as a solver identity. It is an explicitly non-promotable interactive observation, not evidence. Move to exact-row second-order restoration rather than spend twelve more `100000`-iteration QPs on the permissive filter. |
 | R82 exact-row hard second-order correction | The first two capped primary steps reproduce the useful R80 path (`6.0602/18.0222 -> 4.7570/15.2353 -> 3.3690/12.7778`). The third full step lowers total violation to `9.5300` but raises the worst component to `3.7556`, so max-first acceptance correctly routes it to correction. The bounded correction with the original `58488`-row Jacobian and nonlinear trial-state bounds is `primal infeasible` after `16925` OSQP iterations; no corrected exact state is evaluated. | Reject hard all-row SOC as sufficient, not the second-order diagnosis. The report remains `FAIL`, the pending trial/candidate is non-admissible, and the last accepted state remains the second primary point. Next isolate artificial infeasibility with iteration-only normalized nonlinear restoration slack; final exact-zero audit remains unchanged. |
 | R83 minimax nonlinear phase-I restoration | Relaxing only nonlinear rows makes the correction model feasible. Four bounded bisections bracket minimum normalized slack between `0.235364` infeasible and `0.470727` solved; linear/trust rows remain hard. The selected model balances every nonlinear group near `0.4707` and improves exact contact violations, but its `50 mm` root-saturated correction drives exact collider from baseline violation `3.1438` to `8.8592` (`-44298 µm`). Exact max-first audit rejects it and restores the baseline. | Reject the old-Jacobian minimax restoration identity. Its model predicts collider violation `0.4707` while integer FK measures `8.8592`, directly localizing stale linearization over the correction radius. Recompute the correction Jacobian at the nonlinear trial point before changing slack, trust or requirements. |
+| R84 hard trial-Jacobian restoration | The correction uses the Jacobian already evaluated at the quantized rejected trial, with identical `252303` base nonzeros, nonlinear row bounds and component trust. It remains `primal infeasible` after `66000` iterations with primal residual `0.06245`; no corrected exact state is evaluated. | Trial-point relinearization alone cannot remove local incompatibility. R83 and R84 isolate two independent requirements: trial geometry for exact fidelity and iteration-only phase-I slack for model feasibility. Test their direct composition before considering another mechanism. |
 
 R69 report SHA-256 is
 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56`;
@@ -108,6 +109,12 @@ R83 report/candidate/research-adapter SHA-256 are
 `339bf7cd7085caabbc80089e5a2d895dc84a0528f1adf26ef3c16780f6e09604`.
 The R83 candidate is the restored accepted baseline, not the rejected
 correction, and remains non-admissible because the unchanged gate is `FAIL`.
+R84 report/candidate/research-adapter SHA-256 are
+`513b52aa1ff500060962fe68dd910494a43b9e369bf52105077b1a369a144485` /
+`f0240e47757f1bac3394045f6287bd15d111d19e376fe7ab6651a9ec2e5cb4ea` /
+`1e66abebc8a01c890c93ae969af6771aa3a4403f2ab5188709f222da18340f06`.
+The R84 candidate again captures the pending rejected primary trial after
+correction solver failure and is explicitly non-admissible.
 
 ## Primary-source research decision
 
@@ -177,12 +184,19 @@ collider violation to `0.4707`, but exact integer FK measures `8.8592`. The
 correction therefore leaves the validity radius of that Jacobian even though
 the convex subproblem itself is solved accurately.
 
-The smallest next discriminator, R84, reuses the already computed Jacobian at
-the rejected nonlinear trial point for one hard bounded correction. It retains
-the same primary path, component trust and exact max-first restoration rule,
-adds no slack, and answers whether relinearization closes the model/FK gap
-before any new radius or penalty policy is considered. Do not tune another
-stencil, cap, line-search factor or physical tolerance.
+R84 reused the already computed Jacobian at the rejected nonlinear trial point
+for one hard bounded correction. This removes the stale-geometry variable but
+does not remove artificial infeasibility: the correction fails before exact
+audit. Together R83/R84 now form a controlled two-factor result rather than an
+invitation to tune another scalar.
+
+The smallest next discriminator, R85, directly composes the two individually
+necessary mechanisms: the R84 trial-point Jacobian and the unchanged R83
+phase-I bisection that relaxes only normalized nonlinear rows. Linear/trust
+rows, primary path, exact max-first audit and baseline restoration remain
+unchanged. Do not tune another stencil, cap, line-search factor or physical
+tolerance; if R85 does not produce an exact improvement, pause for a new
+modeling/research cycle rather than add another local knob.
 
 ## V8 solver identity
 
